@@ -10,9 +10,7 @@ function printword(word, description) {
 	console.log('word:',row);
 }
 
-function deepAnalyzePrimes() {
-    const sieve = this;
-
+function deepAnalyzePrimes(sieve) {
     // console.log("DeepAnalyzing");
 
     const range_to = sieve.sieveSizeInBits;

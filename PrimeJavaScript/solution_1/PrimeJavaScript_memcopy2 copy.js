@@ -60,7 +60,7 @@ function deepAnalyzePrimes(sieve) {
 
 
 let config = {
-	sieveSize: 1000000,
+	sieveSize: 1000,
 	timeLimitSeconds: 5,
 	verbose: false,
 	runtime: '',
@@ -236,7 +236,7 @@ class PrimeSieve {
 
 	runSieve() {
 		const q = Math.ceil(Math.sqrt(this.sieveSizeInBits));
-		const blocksize = 1 * 1024 * 8;
+		const blocksize = 32;// * 1024 * 8;
 		if (blocksize > this.sieveSizeInBits) blocksize = this.sieveSizeInBits;
 		let block_start = 0;
 		let block_stop  = blocksize;//this.sieveSizeInBits;
@@ -253,8 +253,10 @@ class PrimeSieve {
 //				console.log('looking at factor',factor*2+1);
 				let step = factor * 2 + 1;
 				let start = factor * step + factor;
+				let rest = 0;
+				let start2 = factor * step + factor;
 				if (block_start > 0) {
-					let rest = (block_start*2+1) % (factor*4+2);
+					rest = (block_start*2+1) % (factor*4+2);
 					if (rest==block_start*2+1) {
 						start = 3 * factor;
 					}
@@ -263,9 +265,23 @@ class PrimeSieve {
 					}
 //					console.log('blockstart',block_start*2+1,'factor',factor*2+1,'start',start*2+1,' block_start_org',block_start,'step',step,'rest',rest);
 				}
+/*
+				let rest2 = 0;
 
+				if (block_start > 0) {
+					rest2 = (block_start*2+1) % (factor*4+2) >> 1;
+					if (rest2 == block_start) {
+						start2 = 3 * factor;
+					}
+					else {
+						start2 = block_start + factor - rest2;
+					}
+				}
 
-
+				if (start != start2) {
+					console.log('not equal',factor,block_start,rest,rest2,start,start2);
+					return false;
+				}*/
 				/*	
 				if (range < block_stop) { // check if we should copy previous results
 					range = patternsize_bits * step * 2;  // range is x2 so the second block cointains all multiples of primes
