@@ -196,27 +196,45 @@ class PrimeSieve {
 	}
 
 	runSieve() {
-		let factor = 1;
-		let blocksize_bits = 1; // a block is a repeating pattern of prime multiples, e.g. 3*5*7*32
-		let range = 3;  // range is the maximum to project the product of the prime
 		const q = Math.ceil(Math.sqrt(this.sieveSizeInBits));
+		const blocksize = 16 * 1024 * 8;
+		if (blocksize > this.sieveSizeInBits) blocksize = this.sieveSizeInBits;
+		let block_start = 0;
+		let block_stop  = blocksize;//this.sieveSizeInBits;
+		if (block_stop > this.sieveSizeInBits) block_stop = this.sieveSizeInBits;
 
-		while (factor <= q) {
-			const step = factor * 2 + 1;
-			const start = factor * step + factor;
-
-			if (range < this.sieveSizeInBits) { // check if we should copy previous results
-				range = blocksize_bits * step * 2;  // range is x2 so the second block cointains all multiples of primes
-				if (range > this.sieveSizeInBits) range = this.sieveSizeInBits;
-				this.bitArray.copyPattern(blocksize_bits, blocksize_bits*2, range);
-//				console.log('copypattern',blocksize_bits, blocksize_bits*2, range);
-				blocksize_bits = blocksize_bits * step;
+		while (block_stop <= this.sieveSizeInBits) {
+			let factor = 1;
+			let range = 3;  // range is the maximum to project the product of the prime
+			range = block_stop - block_start;
+			let patternsize_bits = 1; // a block is a repeating pattern of prime multiples, e.g. 3*5*7*32
+			let block_q = Math.min(q, block_stop);	
+			while (factor <= block_q) {
+				let step = factor * 2 + 1;
+				let start = factor * step + factor;
+				if (block_start > 0) {
+					start = block_start + (block_start % step) + 1;
+				}
+/*	
+				if (range < block_stop) { // check if we should copy previous results
+					range = patternsize_bits * step * 2;  // range is x2 so the second block cointains all multiples of primes
+					if (range > block_stop) range = block_stop;
+					this.bitArray.copyPattern(block_start+patternsize_bits, block_start+(patternsize_bits*2), block_start+range);
+	//				console.log('copypattern',patternsize_bits, patternsize_bits*2, range);
+					patternsize_bits = patternsize_bits * step;
+				}
+*/	
+	//			console.log('setbitstrue',start,step,range);
+				this.bitArray.setBitsTrue(start, step, block_start+range);
+				factor = this.bitArray.searchBitFalse(factor + 1);
 			}
+			if (block_stop == this.sieveSizeInBits) break;
 
-//			console.log('setbitstrue',start,step,range);
-			this.bitArray.setBitsTrue(start, step, range);
-			factor = this.bitArray.searchBitFalse(factor + 1);
+			block_stop += blocksize;
+			block_start += blocksize;
+			if (block_stop > this.sieveSizeInBits) block_stop = this.sieveSizeInBits;
 		}
+
 		return this;
 	}
 
