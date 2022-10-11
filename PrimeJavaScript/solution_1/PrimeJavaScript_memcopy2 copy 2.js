@@ -19,17 +19,7 @@ Based on:
 "use strict";
 const NOW_UNITS_PER_SECOND =  1000;
 const WORD_SIZE = 32;
-const monitor_value = 262154;
 
-function pos_calc(word,index) {
-	return (word << 5) + index;
-}
-function index_calc(value) {
-	return value & 31;
-}
-function detect(pos, word, value) {
-	return (pos_calc(word, index_calc(value))  == pos);
-}
 
 function deepAnalyzePrimes(sieve) {
     // console.log("DeepAnalyzing");
@@ -170,53 +160,18 @@ class bitArray {
 		const size = destination_start - source_start;
 		let copy_start = destination_start;
 
-		if (destination_start <= source_start) {
-			console.log('source start',source_start,'after destination start',destination_start);
-			return false;
-		}
-		if (destination_stop <= destination_start) {
-			console.log('destination start',destination_start,'after destination stop',destination_stop);
-			return false;
-		}
-		if (source_start > this.sieveSizeInBits) {
-			console.log('source start',source_start,'beyond sieve limit',sieveSizeInBits);
-			return false;
-		}
-		if (destination_start > this.sieveSizeInBits) {
-			console.log('destination_start',destination_start,'beyond sieve limit',sieveSizeInBits);
-			return false;
-		}
-		if (destination_stop > this.sieveSizeInBits) {
-			console.log('destination_stop',destination_start,'beyond sieve limit',sieveSizeInBits);
-			return false;
-		}
-
 		if (size < WORD_SIZE*2) { // handle small: fill the second word
 			let copy_max = WORD_SIZE*2 + source_start;
-			if (copy_max > destination_stop) copy_max = destination_stop;
 			for (let index=0; index<size; index++) {
 				if (this.testBitTrue(source_start+index)) {
 					let copy_index = destination_start+index;
 					while (copy_index < copy_max) {
 						this.setBitTrue(copy_index);
-						// if (this.testBitTrue(monitor_value)) {
-						// 	console.log('when setting first word',monitor_value,'is true',source_start,destination_start,destination_stop,size,copy_index,index);
-						// 	return;
-						// }
-	
 						copy_index += size;
 					}
 				}
 			}
 			while (copy_start < WORD_SIZE*2) copy_start += size;
-
-			if (copy_max == destination_stop) {
-//				return;
-			}
-			if ((destination_stop-destination_start) <= WORD_SIZE*2) {
-				// console.log('(destination_stop-destination_start)',(destination_stop-destination_start),'<=',WORD_SIZE*2,'size',size,'source_start',source_start,'destination_start',destination_start);
-				return;
-			}
 		}
 
 		let source_word = source_start >>> 5;
@@ -233,19 +188,12 @@ class bitArray {
             dest_wordValue = this.wordArray[source_word] >>> shift;
             dest_wordValue |= this.wordArray[source_word+1] << shift_flipped;
             this.wordArray[copy_word] |= dest_wordValue; // or the start in to not lose data
-			if (this.testBitTrue(monitor_value)) {
-				console.log(`Detected ${monitor_value} with shift in o`,shift,destination_stop);
-			}
-
+    
             while (copy_word++ <= destination_stop_word) {
                 source_word++;
                 dest_wordValue = this.wordArray[source_word] >>> shift;
                 dest_wordValue |= this.wordArray[source_word+1] << shift_flipped;
                 this.wordArray[copy_word] = dest_wordValue; 
-//				if (detect(monitor_value, copy_word, dest_wordValue)) {
-				if (this.testBitTrue(monitor_value)) {
-					console.log(`Detected ${monitor_value} with shift`,shift,destination_stop);
-				}
 			}
 			return;
         }
@@ -255,18 +203,11 @@ class bitArray {
             dest_wordValue = this.wordArray[source_word] << shift;
             dest_wordValue |= this.wordArray[source_word-1] >>> shift_flipped;
             this.wordArray[copy_word] |= dest_wordValue; // or the start in to not lose data
-			if (this.testBitTrue(monitor_value)) {
-				console.log(`Detected ${monitor_value} with shift in or`,-shift,'source_start',source_start,'destination_start',destination_start,'destination_stop',destination_stop,'copy_word',copy_word);
-			}
-			while (copy_word++ <= destination_stop_word) {
+            while (copy_word++ <= destination_stop_word) {
                 source_word++;
                 dest_wordValue = this.wordArray[source_word] << shift;
                 dest_wordValue |= this.wordArray[source_word-1] >>> shift_flipped;
                 this.wordArray[copy_word] = dest_wordValue; 
-//				if (detect(monitor_value, copy_word, dest_wordValue)) {
-				if (this.testBitTrue(monitor_value)) {
-					console.log(`Detected ${monitor_value} with shift`,-shift,destination_stop);
-				}
             }
 			return;
         }
@@ -274,9 +215,6 @@ class bitArray {
         if (shift == 0) {
             while (copy_word++ <= destination_stop_word) {
                 this.wordArray[copy_word]=this.wordArray[source_word];
-				if (this.testBitTrue(monitor_value)) {
-					console.log(`Detected ${monitor_value} with shift`,-shift,destination_stop);
-				}
                 source_word++;
             }
         }
@@ -298,72 +236,73 @@ class PrimeSieve {
 
 	runSieve() {
 		const q = Math.ceil(Math.sqrt(this.sieveSizeInBits));
-		let blocksize = 32 * 1024 * 8;
+		const blocksize = 64;// * 1024 * 8;
 		if (blocksize > this.sieveSizeInBits) blocksize = this.sieveSizeInBits;
 		let block_start = 0;
 		let block_stop  = blocksize;//this.sieveSizeInBits;
 		if (block_stop > this.sieveSizeInBits) block_stop = this.sieveSizeInBits;
-		let block_range = block_stop - block_start;
 
 		while (block_stop <= this.sieveSizeInBits) {
 //			console.log('starting block at',block_start);
 			let factor = 1;
 			let range = 3;  // range is the maximum to project the product of the prime
-//			range = block_stop - block_start;
+			range = block_stop - block_start;
 			let patternsize_bits = 1; // a block is a repeating pattern of prime multiples, e.g. 3*5*7*32
 			let block_q = Math.min(q, block_stop);	
 			while (factor <= block_q) {
 //				console.log('looking at factor',factor*2+1);
 				let step = factor * 2 + 1;
 				let start = factor * step + factor;
+				let rest = 0;
 				if (block_start > 0) {
-					let rest = (block_start*2+1) % (factor*4+2);
+					rest = (block_start*2+1) % (factor*4+2);
 					if (rest==block_start*2+1) {
-						start = 3 * factor + 1;
+						start = 3 * factor;
 					}
 					else {
 						start = ((block_start*2+1 + step - rest)>>1);
 					}
-					if (start < block_start) start += step;
 //					console.log('blockstart',block_start*2+1,'factor',factor*2+1,'start',start*2+1,' block_start_org',block_start,'step',step,'rest',rest);
 				}
-				if (this.bitArray.testBitTrue(monitor_value)) {
-					console.log('Before copypattern',monitor_value,' is true for factor',factor,'blockstart',block_start);
-					return;
-				}
-					
-				if (range < block_range) { // check if we should copy previous results
-					if (patternsize_bits>1) {
-
-						range = patternsize_bits * step * 2;  // range is x2 so the second block cointains all multiples of primes
-						if (range > block_range) range = block_range;
-						if (block_start + patternsize_bits < this.sieveSizeInBits) {
-							if (block_start==0) {
-								this.bitArray.copyPattern(block_start+patternsize_bits, block_start+(patternsize_bits*2), block_start+range);
-							}
-							else {
-								this.bitArray.copyPattern(start, start+(patternsize_bits), block_start+range);
-							}
-						}
-						if (this.bitArray.testBitTrue(monitor_value)) {
-							console.log('After range',monitor_value,' is true for factor',factor,'blockstart',block_start,'patternsize_bits',patternsize_bits,'block_start',block_start,'start',start,'range',range);
-							return;
-						}
-			//				console.log('copypattern',patternsize_bits, patternsize_bits*2, range);
+/*
+				let rest2 = 0;
+				let start2 = factor * step + factor;
+				if (block_start > 0) {
+					rest2 = (block_start*2+1) % (factor*4+2) >> 1;
+					if (rest2 == block_start) {
+						start2 = 3 * factor;
 					}
+					else {
+						start2 = block_start + factor - rest2;
+					}
+				}
+
+				if (start != start2) {
+					console.log('not equal',factor,block_start,rest,rest2,start,start2);
+					return false;
+				}
+*/
+
+				/*	
+				if (range < block_stop) { // check if we should copy previous results
+					range = patternsize_bits * step * 2;  // range is x2 so the second block cointains all multiples of primes
+					if (range > block_stop) range = block_stop;
+					this.bitArray.copyPattern(block_start+patternsize_bits, block_start+(patternsize_bits*2), block_start+range);
+	//				console.log('copypattern',patternsize_bits, patternsize_bits*2, range);
 					patternsize_bits = patternsize_bits * step;
 				}
-
+*/	
 //				console.log('setbitstrue',start*2+1,step,range*2+1);
-				this.bitArray.setBitsTrue(start, step, block_stop);
-				if (this.bitArray.testBitTrue(monitor_value)) {
-					console.log('After setbit',monitor_value,' is true for factor',factor,'blockstart',block_start,'start',start,'step',step,'block_stop',block_stop);
-					return;
-				}
+				// this.bitArray.setBitsTrue(start, step, block_start+range);
 
-				// for(let index=start; index<block_start+range; index+=step) { // range keeps index in block
-				// 	this.bitArray.setBitTrue(index);
-				// }
+
+				for(let index=start; index<block_start+range; index+=step) { // range keeps index in block
+					this.bitArray.setBitTrue(index);
+					// if (index==18) { 
+					// 	console.log("about to set 37");
+					// 	return;
+					// }
+				}
 
 
 				factor = this.bitArray.searchBitFalse(factor + 1);
