@@ -64,6 +64,8 @@ class bitArray {
 	}
 
 	setBitsTrue(range_start, step, range_stop) {
+		console.log(`Setting bits true for range ${range_start}-${range_stop} (${range_start*2+1}-${range_stop*2+1}) with step ${step}`);
+		
 		if (step > WORD_SIZE/2) { 
 			// steps are large: check if the range is large enough to reuse the same mask
 			let range_stop_unique =  range_start + 32 * step;
