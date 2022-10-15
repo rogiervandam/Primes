@@ -24,18 +24,12 @@ const config_verbose = false;
 const config_strict_checks = false;
 
 let config = {
-	sieveSize: 10000,
+	sieveSize: 1000000,
 	timeLimitSeconds: 5,
 	verbose: false,
 	runtime: '',
     workers: 1
 };
-const NOW_UNITS_PER_SECOND =  1000;
-const WORD_SIZE = 32;
-const monitor_value = -1;
-const monitor_value_set = -1;
-const monitor_stop = true;
-let testing = false;
 
 try
 {
@@ -50,6 +44,11 @@ catch
 	config.runtime = runtimeParts[runtimeParts.length - 1];
 	config.verbose = process.argv.includes("verbose");
 }
+
+const NOW_UNITS_PER_SECOND =  1000;
+const WORD_SIZE = 32;
+const monitor_value = 8208;
+const monitor_stop = false;
 
 function pos_calc(word,index) {
 	return (word << 5) + index;
@@ -78,13 +77,6 @@ function printword(word, description) {
 
 function testBitArray() {
 	let totalresult = true;
-	testing = true;
-
-	// for (let destination_stop=0; destination_stop<64; destination_stop++) {
-	// 	let mask =  (2 << ((destination_stop&31))) - 1;
-	// 	printword(mask,`applying mask for ${destination_stop & 31} at destination_stop ${destination_stop} word ${destination_stop>>>5}`);
-	// }
-	// return false;
 
 	totalresult = totalresult && function(msg) {
 		let array = new bitArray(256);	
@@ -110,17 +102,6 @@ function testBitArray() {
 		let array = new bitArray(256);	
 		console.log(msg);
 		array.setRangeFalse(0,256);
-		array.setBitsTrue(15,16,20,25,29);
-		array.copyPattern(15,30,31);
-		if (!array.testBitsTrue(15,16,20,25,29,30,31)) { dump_bitarray(array,0,63); return false }
-		console.log(msg,'ok'); return true;
-	}('Testing destination smaller than source in first word')
-	console.log('-----------------------------------------------------------------------------');
-
-	totalresult = totalresult && function(msg) {
-		let array = new bitArray(256);	
-		console.log(msg);
-		array.setRangeFalse(0,256);
 		array.setBitsTrue(1);
 		array.copyPattern(1,3,10);
 		if (!array.testBitsTrue(1,3,5,7,9)) { dump_bitarray(array,0,16); return false }
@@ -137,56 +118,6 @@ function testBitArray() {
 		if (!array.testBitsTrue(1,3,4,6,7,9,10,12,13,15,16,18,19)) { dump_bitarray(array,0,32); return false }
 		console.log(msg,'ok'); return true;
 	}('Testing Small pattern2')
-	console.log('-----------------------------------------------------------------------------');
-
-	totalresult = totalresult && function(msg) {
-		let array = new bitArray(256);	
-		console.log(msg);
-		array.setRangeFalse(0,256);
-		array.setBitsTrue(4,7,10,12,13,16,17,19,22,25,27,28);
-		array.copyPattern(15,30,100);
-		if (!array.testBitsTrue(4,7,10,12,13,16,17,19,22,25,27,28,
-			31,32,34,37,40,42,43,46,47,49,52,55,57,58,61,62,64,
-			67,70,72,73,76,77,79,82,85,87,88,91,92,94,97,100
-			)) { dump_bitarray(array,0,256); return false }
-		console.log(msg,'ok'); return true;
-	}('Testing Small pattern3')
-	console.log('-----------------------------------------------------------------------------');
-
-	totalresult = totalresult && function(msg) {
-		let array = new bitArray(256);	
-		console.log(msg);
-		array.setRangeFalse(0,256);
-		array.setBitsTrue(5);
-		array.copyPattern(1,6,95);
-		if (!array.testBitsTrue(5,10,15,20,25,30,  35,40,45,50,55,60,65,70,75,80,85,90,95
-		)) { dump_bitarray(array,0,16); return false }
-		console.log(msg,'ok'); return true;
-	}('Testing Small pattern4')
-	console.log('-----------------------------------------------------------------------------');
-
-	totalresult = totalresult && function(msg) {
-		let array = new bitArray(256);	
-		console.log(msg);
-		array.setRangeFalse(0,256);
-		array.setBitsTrue(1,2,3,4,5,7,8,10);
-		array.copyPattern(8,11,38);
-		if (!array.testBitsTrue(1,2,3,4,5,7,8,10,11,13,14,16,17,19,20,22,23,25,26,28,29,31,
-			32,34,35,37,38
-			)) { dump_bitarray(array,0,256); return false }
-		console.log(msg,'ok'); return true;
-	}('Testing Small pattern4')
-	console.log('-----------------------------------------------------------------------------');
-
-	totalresult = totalresult && function(msg) {
-		let array = new bitArray(256);	
-		console.log(msg);
-		array.setRangeFalse(0,256);
-		array.setBitsTrue(4,7,10,12,13,16);
-		array.copyPattern(16,17,22);
-		if (!array.testBitsTrue(4,7,10,12,13,16,17,18,19,20,21,22)) { dump_bitarray(array,0,16); return false }
-		console.log(msg,'ok'); return true;
-	}('Testing Small pattern5')
 	console.log('-----------------------------------------------------------------------------');
 
 	totalresult = totalresult && function(msg) {
@@ -308,26 +239,17 @@ function testBitArray() {
 								   )) { dump_bitarray(array,0,256); return false }
 		console.log(msg,'ok'); return true;
 	}('Testing pattern overflowing to word 2 with first word prefilled and pattern starting at word 1')
-
-	console.log();
-	console.log();
 	console.log('-----------------------------------------------------------------------------');
-	console.log('Testing done... Next stage')
-	console.log('-----------------------------------------------------------------------------');
-	console.log();
 	
-	testing = false;
 //	totalresult = false;
 	return totalresult;
 }
 
 function dump_bitarray(array, start, end, msg, columns) {
 	let startmark = start;
-	start-=32;
-	while (start%10>0 || start%32>0) start--;
-	if (start<0) start =0;
+	while (start%10>0 || start%8>0) start--;
 	if (!columns) columns = 32;
-	if (!end || end==startmark) end = start + 128;
+	if (!end) end = start + 128;
 	if (!msg) msg='';
 	while (startmark > start + columns) startmark -= columns;
 
@@ -498,10 +420,7 @@ class bitArray {
 
 	setBitRangeTrue(range_start, step, range_stop) {
 
-		if (config_verbose) console.log(`\nSetting bits true for range ${range_start}-${range_stop} (${range_start*2+1}-${range_stop*2+1}) with step ${step}`);
-		if (inrange(monitor_value_set, range_start, range_stop)) {
-			console.log(`\nSetting bits true for range ${range_start}-${range_stop} (${range_start*2+1}-${range_stop*2+1}) with step ${step}`);
-		}
+		if (config_verbose) console.log(`Setting bits true for range ${range_start}-${range_stop} (${range_start*2+1}-${range_stop*2+1}) with step ${step}`);
 
 		if (config_strict_checks) {
 			if (!this.testRangeFalse(range_stop+1,this.size)) {
@@ -513,25 +432,18 @@ class bitArray {
 
 		if (step > WORD_SIZE/2) { 
 			// steps are large: check if the range is large enough to reuse the same mask
-			let range_stop_unique = range_start + 32 * step;
+			let range_stop_unique =  range_start + 32 * step;
 			if (range_stop_unique > range_stop) {
 				// range is not large enough for repetition (32 * step)
-				if (inrange(monitor_value_set, range_start, range_stop)) {
-					console.log(`Setting individual bits with step ${step} in ${range_start}-${range_stop}`);
-				}
-				for (let index = range_start; index <= range_stop; index += step) {
+				for (let index = range_start; index < range_stop; index += step) {
 					this.setBitTrue(index);
-
-					if (inrange(monitor_value_set, range_start, range_stop)) {
-						console.log(`Setting ${index} with ${range_start} ${range_stop}`);
-					}
 				}
 				return;
 			}
 			// range is large enough to reuse the mask
 			let range_stop_word = range_stop >>> 5;
 			let range_stop_bit = range_stop & 31;
-			for (let index = range_start; index <= range_stop_unique; index += step) {
+			for (let index = range_start; index < range_stop_unique; index += step) {
 				let wordOffset = index >>> 5;
 				const bitOffset = index & 31;
 				const mask = (1 << bitOffset);
@@ -560,38 +472,20 @@ class bitArray {
 		let newwordOffset = wordOffset;
 		let wordValue = this.wordArray[wordOffset];
 
-		while (index <= range_stop) { // TODO: check if this should be <=
+		while (index < range_stop) { // TODO: check if this should be <=
 			const bitOffset = index & 31;  // use & (and) for remainder, faster than modulus of /32
 			wordValue |= (1 << bitOffset);
 
-			if (inrange(wordOffset,monitor_value_set>>>5)) {
-				printword(wordValue,`added ${bitOffset} to word value`);
-			}
-	
 			index += step;
 			newwordOffset = index >>> 5;  // 1 word = 2ˆ5 = 32 bit, so shift 5, much faster than /32
 			if (newwordOffset != wordOffset) { // moving to new word: store value and get new value
 				this.wordArray[wordOffset] = wordValue;
-
-				if (inrange(wordOffset,monitor_value_set>>>5)) {
-					printword(wordValue,`written to ${wordOffset} and moving to next word`);
-				}
-	
 				wordOffset = newwordOffset;
 				wordValue = this.wordArray[wordOffset];
 			}
 		}
-
 		if (newwordOffset == wordOffset) {
 			this.wordArray[wordOffset] = wordValue; // make sure last value is stored
-			if (inrange(wordOffset,monitor_value_set>>>5)) {
-				printword(wordValue,`written to ${wordOffset} when finishing`);
-			}
-
-		}
-
-		if (inrange(wordOffset,monitor_value_set>>>5)) {
-//			dump_bitarray(this, monitor_value_set,monitor_value_set,`Following finish of SetBitRangeTrue ${range_start}-${range_stop} step ${step} word ${wordOffset} (bitstart: ${wordOffset*32}) `);
 		}
 
 		if (config_strict_checks) {
@@ -615,10 +509,6 @@ class bitArray {
 
 	copyPattern(source_start_org, destination_start, destination_stop)	{
 		let source_start = source_start_org;
-		let source_word = source_start >>> 5;
-		let source_bit = source_start &31;
-		let destination_stop_word = destination_stop >>> 5;
-
 		const size = destination_start - source_start;
 		let copy_start = destination_start;
 
@@ -630,7 +520,7 @@ class bitArray {
 				console.log('source start',source_start,'after destination start',destination_start);
 				return false;
 			}
-			if (destination_stop < destination_start) {
+			if (destination_stop <= destination_start) {
 				console.log('destination start',destination_start,'after destination stop',destination_stop);
 				return false;
 			}
@@ -646,10 +536,10 @@ class bitArray {
 				console.log('destination_stop',destination_start,'beyond sieve limit',sieveSizeInBits);
 				return false;
 			}
-			// if ((destination_stop - destination_start) < size) {
-			// 	console.log(`destination range ${destination_start}-${destination_stop} smaller than size ${source_start_org} - ${destination_start}`);
-			// 	return false;
-			// }
+			if ((destination_stop - destination_start) < size) {
+				console.log(`destination range ${destination_start}-${destination_stop} smaller than size ${source_start_org} - ${destination_start}`);
+				return false;
+			}
 		}
 
 		if (config_strict_checks) {
@@ -662,86 +552,106 @@ class bitArray {
 		if (monitor_value != -1) {
 			if (inrange(source_start_org>>>5,monitor_value>>>5)) {
 				console.log(`CopyPatterns ${source_start_org}-${destination_start}-${destination_stop}`);
-				dump_bitarray(this, monitor_value,monitor_value+128,`Following range CopyPatterns ${source_start_org}-${destination_start}-${destination_stop} for monnitor_value ${monitor_value} at first word`);
+				dump_bitarray(this, monitor_value-64,monitor_value+128,`Following range CopyPatterns ${source_start_org}-${destination_start}-${destination_stop} at first word`);
 			}
 		}
 
-		// there should be 32/WORD_SIZE bits from the source_start before whole WORDs can be copied
-		let copy_start_min = source_start + WORD_SIZE; 
+		if (size < WORD_SIZE*2) { // handle small sizes: fill the second word
+			let copy_max = WORD_SIZE*2 + source_start;
+			if (copy_max > destination_stop) copy_max = destination_stop;
+			for (let index=0; index<=size; index++) {
+				if (this.testBitTrue(source_start+index)) {
+					let copy_index = destination_start+index;
+					while (copy_index <= copy_max) {
+						this.setBitTrue(copy_index);
 
-		if (size < WORD_SIZE) {
-			let copy_bit = copy_start &31;
-			let copy_word = copy_start >>>5;
-
-			let pattern = this.wordArray[source_word] >>> source_bit;
-			pattern |= this.wordArray[source_word+1] << (WORD_SIZE-source_bit);
-			pattern &= ((2 << size) -1);
-
-			// build the pattern for 1 WORD
-			let patternsize = size;
-			while (patternsize < WORD_SIZE) {
-				pattern |= (pattern << patternsize);
-				patternsize += size;
-				copy_start += size;
-			}
-			patternsize -= size; // pattern repeats after [patternsize] bits
-			let pattern_shift = WORD_SIZE - patternsize; // the amount a pattern drifts (>>) at each word increment
-
-			if (inrange(copy_word,monitor_value>>>5)) {
-				dump_bitarray(this, monitor_value,monitor_value+128,`Following first copyword ${copy_word} (bitstart: ${copy_word*32}) using source ${source_word} (bitstart: ${source_word*32}) - at first word for monitor_value ${monitor_value} `);
-				printword(this.wordArray[copy_word],`Copyword original value${copy_word} (${copy_word*32})`);
-				printword(pattern,`pattern with size ${patternsize} normal shifting ${pattern_shift}`);
-				printword(pattern << (copy_bit),`pattern shifted -> ${copy_bit}`);
-				printword(this.wordArray[copy_word] | (pattern << copy_bit),`written at word ${copy_word} (bitstart: ${copy_word*32})`);
-			}
-
-			this.wordArray[copy_word] |= (pattern << copy_bit); // apply pattern to first word
-
-			// printword(pattern,'pattern');
-			// printword(pattern << copy_bit,`pattern shifted -> ${copy_bit}`);
-			// printword(this.wordArray[copy_word],'word');
-			// printword(this.wordArray[copy_word],`pattern written word 1`);
-
-			let shift = WORD_SIZE - copy_bit; // these bytes were already written in first word
-
-			if (copy_word < destination_stop_word) { // = will be handled as well because increment is after this 
-				copy_word++;
-
-				if (inrange(copy_word,monitor_value>>>5)) {
-					dump_bitarray(this, monitor_value,monitor_value+128,`Following first copyword ${copy_word} (bitstart: ${copy_word*32}) using source ${source_word} (bitstart: ${source_word*32}) - at first word shift ${shift} for monitor_value ${monitor_value} `);
-					printword(this.wordArray[copy_word],`Copyword original value${copy_word} (${copy_word*32})`);
-					printword(pattern,`pattern with size ${patternsize} normal shifting ${pattern_shift}`);
-					printword(pattern >>> shift,`pattern shifted <- ${shift}`);
-					printword(pattern << (patternsize-shift),`pattern shifted -> ${patternsize-shift}`);
-					printword((pattern << (patternsize-shift)) | (pattern >>> shift),`written at word ${copy_word} (bitstart: ${copy_word*32})`);
+						if (config_verbose) console.log(`setting bit ${copy_index}`);
+						
+						if (config_strict_checks) {
+							if (!this.testRangeFalse(destination_stop+1,this.size)) {
+								console.log(`written beyond size at first WORDs - detected when setting ${copy_index} ${destination_stop+1} ${this.size}`);
+								return false;
+							}
+							// if (this.testBitTrue(monitor_value)) {
+							// 	console.log('when setting first word',monitor_value,'is true',source_start,destination_start,destination_stop,size,copy_index,index);
+							// 	return;
+							// }
+						}
+	
+						copy_index += size;
+					}
 				}
-
-				this.wordArray[copy_word] = (pattern << (patternsize-shift)) | (pattern >>> shift);
-				shift += pattern_shift; 
-				if (shift > WORD_SIZE) shift -= WORD_SIZE; // TODO: check if needed
 			}
 
-			// dump_bitarray(this,0,100);
+			// increase copy_start to avoid copying before the source_start
+
+			let source_start_max = (source_start_org &31) + WORD_SIZE*1;
+			let copy_start_max = (source_start_org &31) + WORD_SIZE*2-1;
+
+			if (config_verbose) console.log(`original copy_start ${destination_start} source_start ${source_start}`);
+			if (monitor_value != -1) {
+				if (inrange(monitor_value,destination_start,destination_stop)) {
+					console.log(`source_start_max ${source_start_max} copy_start_max ${copy_start_max}`);
+
+				}
+			}
+
+			while (copy_start+size < copy_start_max) {
+				copy_start += size;
+
+				if (config_verbose) console.log(`Shifted copy start to ${copy_start} (word ${copy_start>>>5})`);
+				if (monitor_value != -1) {
+					if (inrange(monitor_value,destination_start,destination_stop)) {
+						console.log(`Shifted copy start to ${copy_start} (word ${copy_start>>>5})`);
+						console.log(`source_start_max ${source_start_max} copy_start_max ${copy_start_max}`);
+
+					}
+				}
+			}
+			
+			/*
+			while (source_start+size < source_start_max) {
+				source_start += size;
+				if (config_verbose) console.log(`Shited source start to ${source_start} (word ${source_start>>>5})`);
+			}
+			*/
+
+			if (config_verbose) console.log(`copy_start ${copy_start} source_start ${source_start}`);
+			if (copy_start == source_start) {
+				console.log(`ERROR: copy start = source start: ${copy_start} ${source_start}`);
+				return false;
+			}
+
+			if ((destination_stop-destination_start) <= WORD_SIZE*2) {
+				// console.log('(destination_stop-destination_start)',(destination_stop-destination_start),'<=',WORD_SIZE*2,'size',size,'source_start',source_start,'destination_start',destination_start);
+				if (inrange(source_start_org>>>5,monitor_value>>>5)) {
+					dump_bitarray(this, 256*32,261*32,`Returning after first word because of small destination`);
+				}
+		
+				return;
+			}
 		}
 
-		if (copy_start > destination_stop) {
-			let mask =  (2 << ((destination_stop&31))) - 1;
-			// printword(mask,`applying mask for ${destination_stop & 31} at destination_stop ${destination_stop} word ${destination_stop>>>5}`);
-			this.wordArray[destination_stop>>>5] &= mask; // do not exceed block_range
-			if (config_verbose) {
-				console.log(`Returning because patterns applied for size ${size} and copy_start ${copy_start} after destination stop ${destination_stop}`);
-				dump_bitarray(this,0,100);
+		if (monitor_value != -1) {
+			if (inrange(source_start_org>>>5,monitor_value>>>5)) {
+				console.log(`Original copy_start ${destination_start} source_start ${source_start}`);
+				console.log(`copy_start ${copy_start} source_start ${source_start}`);
+				if (copy_start != destination_start) console.log(`Shifted copy start to ${copy_start} (word ${copy_start>>>5})`);
+				dump_bitarray(this, monitor_value-64,monitor_value+128,`Following range CopyPatterns ${source_start_org}-${destination_start}-${destination_stop} after first word`);
 			}
-			return;
 		}
+
 
 		// if (!this.testRangeFalse(destination_stop+1,this.size)) {
 		// 	console.log(`written beyond size at first WORDs`);
 		// 	return false;
 		// }
 
+		let source_word = source_start >>> 5;
 		let copy_word = copy_start >>> 5;
+		let source_bit = source_start &31;
 		let copy_bit = copy_start &31;
+		let destination_stop_word = destination_stop >>> 5;
 		let shift = source_bit - copy_bit;
 		let dest_wordValue = 0;
 
@@ -768,15 +678,16 @@ class bitArray {
 			dest_wordValue &= ~((1<<copy_bit)-1); // because this is the first word, dont copy the extra bits in front of the source
 
 			if (inrange(copy_word,monitor_value>>>5)) {
-				dump_bitarray(this, monitor_value,monitor_value+128,`Following first copyword ${copy_word} (bitstart: ${copy_word*32}) using source ${source_word} (bitstart: ${source_word*32}) - at first word shift ${shift} for monitor_value ${monitor_value} `);
+				dump_bitarray(this, monitor_value-64,monitor_value+128,`Following first copyword ${copy_word} (bitstart: ${copy_word*32}) using source ${source_word} (bitstart: ${source_word*32}) - at first word shift ${shift}`);
 				printword(this.wordArray[copy_word],`Copyword original value${copy_word} (${copy_word*32})`);
 				printword(this.wordArray[source_word],`Copy original value from word ${source_word} (${source_word*32})`);
 				printword(this.wordArray[source_word]>>>shift,`shifted value <- ${shift}`);
 				printword(this.wordArray[source_word+1],`Copy original value from word ${source_word+1} (${(source_word+1)*32})`);
 				printword(this.wordArray[source_word+1]<<shift_flipped,`shifted value -> ${shift_flipped}`);
 				printword(~((1<<copy_bit)-1),`pattern to apply ${shift_flipped}`);
-				printword(dest_wordValue,`written at word ${copy_word} (bitstart: ${copy_word*32}`);
+				printword(dest_wordValue,`written at ${copy_word} (bitstart: ${copy_word*32}`);
 			}
+
 
             this.wordArray[copy_word] |= dest_wordValue; // or the start in to not lose data
 			if (this.testBitTrue(monitor_value)) {
@@ -790,7 +701,7 @@ class bitArray {
                 dest_wordValue |= this.wordArray[source_word+1] << shift_flipped;
 
 				if (inrange(copy_word,monitor_value>>>5)) {
-					dump_bitarray(this, monitor_value-64,monitor_value+128,`Following next copyword ${copy_word} (bitstart: ${copy_word*32}) using source ${source_word} (bitstart: ${source_word*32}) - at first word shift ${shift} for monitor_value ${monitor_value} `);
+					dump_bitarray(this, monitor_value-64,monitor_value+128,`Following next copyword ${copy_word} (bitstart: ${copy_word*32}) using source ${source_word} (bitstart: ${source_word*32}) - at first word shift ${shift}`);
 					printword(this.wordArray[copy_word],`Copyword original value word ${copy_word} (${copy_word*32})`);
 					printword(this.wordArray[source_word],`Copy original value from word ${source_word} (${source_word*32})`);
 					printword(this.wordArray[source_word]>>>shift,`shifted value <- ${shift}`);
@@ -808,7 +719,7 @@ class bitArray {
 				}
 			}
 
-			this.wordArray[copy_word] &= (2 << ((destination_stop&31))) - 1; // do not exceed block_range
+			this.wordArray[copy_word] &= ((1 << (destination_stop & 31)) - 1); // do not exceed block_range
 
 			if (config_strict_checks) {
 				if (!this.testRangeFalse(destination_stop+1,this.size)) {
@@ -837,31 +748,30 @@ class bitArray {
 			dest_wordValue &= ~((1<<copy_bit)-1); // because this is the first word, dont copy the extra bits in front of the source
 
 			if (inrange(copy_word,monitor_value>>>5)) {
-				dump_bitarray(this, monitor_value-64,monitor_value+128,`Following first copy word ${copy_word} (bitstart: ${copy_word*32}) using source ${source_word} (bitstart: ${source_word*32}) - at first word shift ${-shift} for monitor_value ${monitor_value} `);
+				dump_bitarray(this, monitor_value-64,monitor_value+128,`Following first copy word ${copy_word} (bitstart: ${copy_word*32}) using source ${source_word} (bitstart: ${source_word*32}) - at first word shift ${-shift}`);
 				printword(this.wordArray[source_word],`Source word ${source_word} (${source_word*32})`);
 				printword(this.wordArray[source_word]<<shift,`shifted value -> ${shift}`);
 				printword(this.wordArray[source_lastword],`Source value from word ${source_lastword} (${source_lastword*32})`);
 				printword(this.wordArray[source_lastword]>>>shift_flipped,`shifted value <- ${shift_flipped}`);
 				printword(~((1<<copy_bit)-1),`pattern to apply ${shift_flipped}`);
-				printword(this.wordArray[copy_word],`Copyword original value of word${copy_word} (${copy_word*32})`);
-				printword(dest_wordValue ,`or at word ${copy_word} (bitstart: ${copy_word*32}`);
-				printword(this.wordArray[copy_word] | dest_wordValue ,`result at word ${copy_word} (bitstart: ${copy_word*32}`);
+				printword(this.wordArray[copy_word],`Copyword original value${copy_word} (${copy_word*32})`);
+				printword(dest_wordValue,`written at ${copy_word} (bitstart: ${copy_word*32}`);
 			}
 	
             this.wordArray[copy_word] |= dest_wordValue; // or the start in to not lose data
 
 			if (this.testBitTrue(monitor_value)) {
-				console.log(`Detected ${monitor_value} with shift in or`,-shift,'source_start',source_start,'destination_start',destination_start,'destination_stop',destination_stop,'copy_word',copy_word,`copy_start ${copy_start} for monitor_value ${monitor_value} `);
+				console.log(`Detected ${monitor_value} with shift in or`,-shift,'source_start',source_start,'destination_start',destination_start,'destination_stop',destination_stop,'copy_word',copy_word,`copy_start ${copy_start}`);
 				dump_bitarray(this, monitor_value-64,monitor_value+128,`Detected ${monitor_value} when copying source word ${source_word} to copy word ${copy_word} with shift ${-shift} `);
 				printword(dest_wordValue,'dest_wordvalue');
-				if (monitor_stop && !testing) return;
+				if (monitor_stop) return;
 			}
 			
 			while (copy_word < destination_stop_word) {
 				copy_word++;
                 source_word++;
 
-				if (config_verbose) console.log(`copying from ${source_word} to word ${copy_word} with shift ${-shift}`);
+				if (config_verbose) console.log(`copying from ${source_word} to word ${copy_word}`);
 
                 dest_wordValue = this.wordArray[source_word-1] >>> shift_flipped;
 				dest_wordValue |= this.wordArray[source_word] << shift;
@@ -898,7 +808,7 @@ class bitArray {
 			// 	console.log(`before last correction`);
 			// }
 
-			this.wordArray[copy_word] &= (2 << ((destination_stop&31))) - 1; // do not exceed block_range
+			this.wordArray[copy_word] &= ((1 << (destination_stop & 31)) - 1); // do not exceed block_range
 
 			// if (!this.testRangeFalse(destination_stop+1,this.size)) {
 			// 	console.log(`after correction - written beyond size with shift ${shift}`);
@@ -909,19 +819,6 @@ class bitArray {
 
         if (shift == 0) {
 			// console.log('shift 0 detected');
-			// first word can be spread over 2 words
-			let shift_flipped = WORD_SIZE-shift;
-			dest_wordValue = this.wordArray[source_word] >>> shift;
-            dest_wordValue |= this.wordArray[source_word+1] << shift_flipped;
-			this.wordArray[copy_word] = dest_wordValue; 
-
-			if (inrange(copy_word,monitor_value>>>5)) {
-				dump_bitarray(this, monitor_value-64,monitor_value+128,`Following copyword ${copy_word} (bitstart: ${copy_word*32}) using source ${source_word} (bitstart: ${source_word*32}) - at first word`);
-				printword(this.wordArray[copy_word],`Copyword original value${copy_word} (${copy_word*32})`);
-				printword(this.wordArray[source_word],`Copy original value from word ${source_word} (${source_word*32})`);
-				printword(this.wordArray[source_word],`written at ${copy_word} (bitstart: ${copy_word*32}`);
-			}
-
             while (copy_word < destination_stop_word) {
 				copy_word++;
                 source_word++;
@@ -938,7 +835,7 @@ class bitArray {
 				// 	console.log(`Detected ${monitor_value} with shift`,-shift,destination_stop);
 				// }
             }
-			this.wordArray[copy_word] &= (2 << ((destination_stop&31))) - 1; // do not exceed block_range
+			this.wordArray[copy_word] &= ((1 << (1+(destination_stop & 31))) - 1); // do not exceed block_range
 
         }
 
@@ -950,7 +847,7 @@ class bitArray {
 
 		if (this.testBitTrue(monitor_value)) {
 			dump_bitarray(this,monitor_value,monitor_value+128,`WARNING: monitor value ${monitor_value} is set`);
-			if (monitor_stop && !testing) return false;
+			if (monitor_stop) return false;
 		}
 
 	}
@@ -973,7 +870,7 @@ class PrimeSieve {
 		const q = Math.ceil(Math.sqrt(this.sieveSizeInBits*2))>>1;
 		if (blocksize > this.sieveSizeInBits) blocksize = this.sieveSizeInBits;
 		let block_start = 0;
-		let block_stop  = blocksize-1;//this.sieveSizeInBits;
+		let block_stop  = blocksize;//this.sieveSizeInBits;
 		if (block_stop > this.sieveSizeInBits) block_stop = this.sieveSizeInBits;
 		let block_range = block_stop - block_start;
 
@@ -1029,12 +926,12 @@ class PrimeSieve {
 				// console.log(`range ${range} patternsize_bits ${patternsize_bits} block_range ${block_range} step ${step}`);
 
 				if (range < block_range) { // check if we should copy previous results
+					// if (patternsize_bits>1) {
 
-					range = patternsize_bits * step * 2;  // range is x2 so the second block cointains all multiples of primes
-					if (range > block_range) range = block_range;
+						range = patternsize_bits * step * 2;  // range is x2 so the second block cointains all multiples of primes
+						if (range > block_range) range = block_range;
 
-					// console.log(`calc new range ${range} patternsize_bits ${patternsize_bits} block_range ${block_range} step ${step}`);
-					if (patternsize_bits>1) {
+						// console.log(`calc new range ${range} patternsize_bits ${patternsize_bits} block_range ${block_range} step ${step}`);
 
 						if (block_start + patternsize_bits < this.sieveSizeInBits) {
 
@@ -1045,17 +942,9 @@ class PrimeSieve {
 								// }
 								
 								let result = this.bitArray.copyPattern(block_start+patternsize_bits, block_start+(patternsize_bits*2), block_start+range);
- 								// dump_bitarray(this.bitArray,0,100,`after CopyPattern block_start ${block_start} patternsize ${patternsize_bits}`);
 								if (result === false) {
 									return false;
 								}
-
-								if (this.bitArray.testBitTrue(monitor_value)) {
-									console.log(`After copyPattern blockstart0 ${monitor_value} is true for CopyPattern ${block_start+patternsize_bits}, ${block_start+patternsize_bits*2}, ${block_start+range}`);
-									dump_bitarray(this.bitArray,monitor_value-64,monitor_value+128);
-									return;
-								}
-				
 								// if (!this.bitArray.testRangeFalse(block_stop+1,this.sieveSizeInBits)) {
 								// 	console.log(`written beyond size after copypatterns blockstart0 ${block_start+patternsize_bits} ${block_start+(patternsize_bits*2)} ${block_start+range} - block stop ${block_stop}`);
 								// 	return false;
@@ -1063,15 +952,9 @@ class PrimeSieve {
 				
 							}
 							else {
-								let result = this.bitArray.copyPattern(block_start, block_start+patternsize_bits, block_start+range);
- 								if (result === false) {
+								let result = this.bitArray.copyPattern(start, start+(patternsize_bits), block_start+range);
+								if (result === false) {
 									return false;
-								}
-
-								if (this.bitArray.testBitTrue(monitor_value)) {
-									console.log(`After copyPattern ${monitor_value} is true for CopyPattern ${start}, ${start+patternsize_bits}, ${block_start+range}`);
-									dump_bitarray(this.bitArray,monitor_value,monitor_value);
-									return;
 								}
 
 								// if (!this.bitArray.testRangeFalse(block_stop+1,this.sieveSizeInBits)) {
@@ -1081,7 +964,7 @@ class PrimeSieve {
 							}
 						}
 			//				console.log('copypattern',patternsize_bits, patternsize_bits*2, range);
-					}
+					// }
 					patternsize_bits = patternsize_bits * step;
 				}
 
@@ -1093,16 +976,13 @@ class PrimeSieve {
 
 				if (config_verbose) console.log(`setbits ${start} - ${block_start+range} with step ${step} for factor ${factor}`);
 
-				if (this.bitArray.testBitTrue(monitor_value)) {
-					console.log('Before setbit',monitor_value,' is true for factor',factor,'blockstart',block_start,'start',start,'step',step,'block_stop',block_stop);
-					return;
-				}
-
 				this.bitArray.setBitRangeTrue(start, step, block_start+range);
 
-				if (config_verbose) {
-					dump_bitarray(this.bitArray,0,100,`after setbits ${start} - ${block_start+range} with step ${step} for factor ${factor}`);
-				}
+				// if (!this.bitArray.testBitTrue(8260) && block_start>=1024 && factor == 2 ) {
+				// 	console.log('After range',monitor_value,' is true for factor',factor,'patternsize_bits',patternsize_bits,'block_start',block_start,'start',start,'range',range);
+				// 	dump_bitarray(this.bitArray,8192);
+				// 	return;
+				// }
 
 				if (this.bitArray.testBitTrue(monitor_value)) {
 					console.log('After setbit',monitor_value,' is true for factor',factor,'blockstart',block_start,'start',start,'step',step,'block_stop',block_stop);
@@ -1227,9 +1107,9 @@ const main = ({ sieveSize, timeLimitSeconds, verbose, runtime }) => {
 		return;
 	}
 
-	for (let blocksize_bits=8; blocksize_bits<=64*1024*8; blocksize_bits *= 2) {
-		console.log(`blocksize ${blocksize_bits}`);
-
+	for (let blocksize_kb=1; blocksize_kb<=64; blocksize_kb *= 2) {
+		console.log(`blocksize ${blocksize_kb}kb`);
+		let blocksize_bits = blocksize_kb*1024*8;
 
 		// validate algorithm - run one time
 		let sieve = new PrimeSieve(sieveSize).runSieve(blocksize_bits);
@@ -1240,18 +1120,16 @@ const main = ({ sieveSize, timeLimitSeconds, verbose, runtime }) => {
 			deepAnalyzePrimes(sieve);
 			return false;
 		}
-	}
 
-	for (let blocksize_kb=1; blocksize_kb<=64; blocksize_kb *= 2) {
 		//measure time running the batch
 		const timeStart = performance.now();
-		let blocksize_bits = blocksize_kb * 1024 * 8;
 		runSieveBatch(sieveSize, blocksize_bits, timeLimitSeconds, (nrOfPasses) => { // show off typical nodejs style
 			const timeEnd = performance.now();
 			const durationInSec = (timeEnd - timeStart) / NOW_UNITS_PER_SECOND;
 			const totalPasses = nrOfPasses;
 			console.log(`rogiervandam-memcopy-${runtime}-${blocksize_kb}kb;${totalPasses};${durationInSec};1;algorithm=other,faithful=yes,bits=1`); 
 		});
+
 	}
 }
 
