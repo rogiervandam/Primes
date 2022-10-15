@@ -24,7 +24,7 @@ const config_verbose = false;
 const config_strict_checks = false;
 
 let config = {
-	sieveSize: 10000,
+	sieveSize: 1000000,
 	timeLimitSeconds: 5,
 	verbose: false,
 	runtime: '',
@@ -34,7 +34,7 @@ const NOW_UNITS_PER_SECOND =  1000;
 const WORD_SIZE = 32;
 const monitor_value = -1;
 const monitor_value_set = -1;
-const monitor_stop = true;
+const monitor_stop = false;
 let testing = false;
 
 try
@@ -531,16 +531,28 @@ class bitArray {
 			// range is large enough to reuse the mask
 			let range_stop_word = range_stop >>> 5;
 			let range_stop_bit = range_stop & 31;
-			for (let index = range_start; index <= range_stop_unique; index += step) {
+			if (inrange(monitor_value_set, range_start, range_stop)) {
+				dump_bitarray(this,monitor_value_set,monitor_value_set, `Before Setting points in ${range_start}-${range_stop} with reused mask for step ${step}`);
+			}
+	
+			for (let index = range_start; index <= range_stop; index += step) {
 				let wordOffset = index >>> 5;
 				const bitOffset = index & 31;
 				const mask = (1 << bitOffset);
 
+				if (inrange(monitor_value_set, range_start, range_stop)) {
+					console.log(`processing ${index}`);
+				}
+	
 				let loop_stop_word = range_stop_word + (bitOffset < range_stop_bit) ? 1 : 0; // alloow range_stop_word to be set if bitoffset is small enough
 				do {
 					this.wordArray[wordOffset] |= mask;
 					wordOffset += step; // pattern repeats on word level after {step} words
-				} while (wordOffset < range_stop_word);
+				} while (wordOffset < loop_stop_word);
+			}
+
+			if (inrange(monitor_value_set, range_start, range_stop)) {
+				dump_bitarray(this,monitor_value_set,monitor_value_set, `After Setting points in ${range_start}-${range_stop} with reused mask for step ${step}`);
 			}
 
 			if (config_strict_checks) {
@@ -559,6 +571,10 @@ class bitArray {
 		let wordOffset = index >>> 5;  // 1 word = 2ˆ5 = 32 bit, so shift 5, much faster than /32
 		let newwordOffset = wordOffset;
 		let wordValue = this.wordArray[wordOffset];
+
+		if (inrange(monitor_value_set, range_start, range_stop)) {
+			console.log(`Setting bits in groups with step ${step} in ${range_start}-${range_stop}`);
+		}
 
 		while (index <= range_stop) { // TODO: check if this should be <=
 			const bitOffset = index & 31;  // use & (and) for remainder, faster than modulus of /32
@@ -1091,7 +1107,7 @@ class PrimeSieve {
 				// 	return false;
 				// }
 
-				if (config_verbose) console.log(`setbits ${start} - ${block_start+range} with step ${step} for factor ${factor}`);
+				if (config_verbose)  console.log(`setbits ${start} - ${block_start+range} with step ${step} for factor ${factor}`);
 
 				if (this.bitArray.testBitTrue(monitor_value)) {
 					console.log('Before setbit',monitor_value,' is true for factor',factor,'blockstart',block_start,'start',start,'step',step,'block_stop',block_stop);
@@ -1227,7 +1243,7 @@ const main = ({ sieveSize, timeLimitSeconds, verbose, runtime }) => {
 		return;
 	}
 
-	for (let blocksize_bits=8; blocksize_bits<=64*1024*8; blocksize_bits *= 2) {
+	for (let blocksize_bits=1024; blocksize_bits<=64*1024*8; blocksize_bits *= 2) {
 		console.log(`blocksize ${blocksize_bits}`);
 
 
