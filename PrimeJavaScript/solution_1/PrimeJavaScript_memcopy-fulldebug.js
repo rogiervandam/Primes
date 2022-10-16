@@ -86,6 +86,17 @@ function testBitArray() {
 	// }
 	// return false;
 
+	// totalresult = totalresult && function(msg) {
+	// 	let array = new bitArray(256);	
+	// 	console.log(msg);
+	// 	array.setRangeFalse(0,256);
+	// 	array.setBitRangeTrue(10,7,1000);
+	// 	dump_bitarray(array,0,1000); 
+	// }('Testing repeat')
+	// console.log('-----------------------------------------------------------------------------');
+	// return false;
+
+
 	totalresult = totalresult && function(msg) {
 		let array = new bitArray(256);	
 		console.log(msg);

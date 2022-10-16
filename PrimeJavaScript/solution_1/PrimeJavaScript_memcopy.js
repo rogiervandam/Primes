@@ -19,7 +19,6 @@ Based on:
 "use strict";
 const NOW_UNITS_PER_SECOND =  1000;
 const WORD_SIZE = 32;
-let memcalls =0;
 
 let config = {
 	sieveSize: 1000000,
@@ -56,13 +55,13 @@ class bitArray {
 		const wordOffset = index >>> 5;  // 1 word = 2ˆ5 = 32 bit, so shift 5, much faster than /32
 		const bitOffset = index & 31;  // use & (and) for remainder, faster than modulus of /32
 		this.wordArray[wordOffset] |= (1 << bitOffset);
-		memcalls++;
+		
 	}
 
 	testBitTrue(index) {
 		const wordOffset = index >>> 5;
 		const bitOffset = index & 31;
-		memcalls++;
+		
 		return this.wordArray[wordOffset] & (1 << bitOffset);  // returning result not as bool for performance
 	}
 
@@ -85,7 +84,7 @@ class bitArray {
 				const mask = (1 << bitOffset);
 				do {
 					this.wordArray[wordOffset] |= mask;
-					memcalls++;
+					
 					wordOffset += step; // pattern repeats on word level after {step} words
 				} while (wordOffset <= range_stop_word);
 			}
@@ -96,7 +95,7 @@ class bitArray {
 		let index = range_start;
 		let wordOffset = index >>> 5;  // 1 word = 2ˆ5 = 32 bit, so shift 5, much faster than /32
 		let wordValue = this.wordArray[wordOffset];
-		memcalls++;
+		
 
 		while (index < range_stop) {
 			const bitOffset = index & 31;  // use & (and) for remainder, faster than modulus of /32
@@ -106,13 +105,13 @@ class bitArray {
 			const newwordOffset = index >>> 5;  // 1 word = 2ˆ5 = 32 bit, so shift 5, much faster than /32
 			if (newwordOffset != wordOffset) { // moving to new word: store value and get new value
 				this.wordArray[wordOffset] = wordValue;
-				memcalls++;
+				
 				wordOffset = newwordOffset;
 				wordValue = this.wordArray[wordOffset];
 			}
 		}
 		this.wordArray[wordOffset] = wordValue; // make sure last value is stored
-		memcalls++;
+		
 	}
 
 	searchBitFalse(index) {
@@ -156,18 +155,18 @@ class bitArray {
             dest_wordValue = this.wordArray[source_word] >>> shift;
             dest_wordValue |= this.wordArray[source_word+1] << shift_flipped;
             this.wordArray[copy_word] |= dest_wordValue; // or the start in to not lose data
-    		memcalls++;
-			memcalls++;
-			memcalls++;
+    		
+			
+			
 
             while (copy_word++ <= destination_stop_word) {
                 source_word++;
                 dest_wordValue = this.wordArray[source_word] >>> shift;
                 dest_wordValue |= this.wordArray[source_word+1] << shift_flipped;
                 this.wordArray[copy_word] = dest_wordValue; 
-				memcalls++;
-				memcalls++;
-				memcalls++;
+				
+				
+				
 
 			}
 			return;
@@ -178,18 +177,18 @@ class bitArray {
             dest_wordValue = this.wordArray[source_word] << shift;
             dest_wordValue |= this.wordArray[source_word-1] >>> shift_flipped;
             this.wordArray[copy_word] |= dest_wordValue; // or the start in to not lose data
-			memcalls++;
-			memcalls++;
-			memcalls++;
+			
+			
+			
 
             while (copy_word++ <= destination_stop_word) {
                 source_word++;
                 dest_wordValue = this.wordArray[source_word] << shift;
                 dest_wordValue |= this.wordArray[source_word-1] >>> shift_flipped;
                 this.wordArray[copy_word] = dest_wordValue; 
-				memcalls++;
-				memcalls++;
-				memcalls++;
+				
+				
+				
 
             }
 			return;
@@ -198,8 +197,8 @@ class bitArray {
         if (shift == 0) {
             while (copy_word++ <= destination_stop_word) {
                 this.wordArray[copy_word]=this.wordArray[source_word];
-				memcalls++;
-				memcalls++;
+				
+				
                 source_word++;
             }
         }
@@ -330,11 +329,9 @@ function runSieveBatch(sieveSize, timeLimitSeconds=5, callback) {
 // main procedure
 const main = ({ sieveSize, timeLimitSeconds, verbose, runtime }) => {
 	// validate algorithm - run one time
-	memcalls = 0;
 	const validResult = new PrimeSieve(sieveSize).runSieve().validatePrimeCount(verbose);
-	console.log(memcalls);
 	if (!validResult) return false;
-//	return;
+
 	//measure time running the batch
 	const timeStart = performance.now();
 	runSieveBatch(sieveSize, timeLimitSeconds, (nrOfPasses) => { // show off typical nodejs style
