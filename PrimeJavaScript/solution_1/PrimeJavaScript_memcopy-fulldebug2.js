@@ -96,17 +96,42 @@ function testBitArray() {
 	// console.log('-----------------------------------------------------------------------------');
 	// return false;
 
+	totalresult = totalresult && function(msg) {
+		let array = new bitArray(256);	
+		console.log(msg);
+		array.setRangeFalse(0,256);
+		array.setBitRangeTrueNew(30,10,100);
+		if (!array.testBitsTrue(30,40,50,60,70,80,90,100)) { dump_bitarray(array,0,16); return false }
+		console.log(msg,'ok'); return true;
+	}('Testing set')
 
 	totalresult = totalresult && function(msg) {
 		let array = new bitArray(256);	
 		console.log(msg);
 		array.setRangeFalse(0,256);
-		array.setBitRangeTrue(10,7,100);
+		array.setBitRangeTrueNew(0,5,20);
+		dump_bitarray(array,0,100);
+		if (!array.testBitsTrue(0,5,10,15,20)) { dump_bitarray(array,0,64); return false }
+		console.log(msg,'ok'); return true;
+	}('Testing set2')
+
+	totalresult = totalresult && function(msg) {
+		let array = new bitArray(256);	
+		console.log(msg);
+		array.setRangeFalse(0,256);
+		array.setBitRangeTrueNew(30,10,100);
+		dump_bitarray(array,0,150);
+		array.setRangeFalse(0,256);
+		array.setBitRangeTrue(30,10,100);
+		dump_bitarray(array,0,150);
+		return false;
 		if (!array.testBitsTrue(10,17,24,31,38,45,52,59,66,73,80,87,94)) { dump_bitarray(array,0,16); return false }
 		console.log(msg,'ok'); return true;
 	}('Testing set')
 	console.log('-----------------------------------------------------------------------------');
-	
+	return false;
+
+
 	totalresult = totalresult && function(msg) {
 		let array = new bitArray(256);	
 		console.log(msg);
@@ -517,6 +542,33 @@ class bitArray {
 		return result;
 	}
 
+	setBitRangeTrueNew(range_start, step, range_stop) {
+
+		let pattern = 1;
+		let patternsize = step;
+		for (let index = step; index < WORD_SIZE; index += step) {
+			pattern |= (1 << index);
+			patternsize += step;
+		}
+		patternsize -= step;
+		let pattern_shift = WORD_SIZE - patternsize; // the amount a pattern drifts (>>) at each word increment
+
+		let shift = range_start & 31;
+		let range_stop_word = range_stop >>> 5;
+		let range_stop_bit = range_stop & 31;
+		let wordOffset = range_start >>> 5;
+
+		for(; wordOffset < range_stop_word; wordOffset++) {
+			this.wordArray[wordOffset] |= pattern << shift;
+			shift -= pattern_shift; 
+			while (shift > 0) shift -= step; // TODO: check if needed
+			shift += step;
+		}
+		this.wordArray[wordOffset] |= ((pattern << shift) & (2 << ((range_stop_bit&31))) - 1 );
+
+		return;
+	}
+	
 	setBitRangeTrue(range_start, step, range_stop) {
 
 		if (config_verbose) console.log(`\nSetting bits true for range ${range_start}-${range_stop} (${range_start*2+1}-${range_stop*2+1}) with step ${step}`);
