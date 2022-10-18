@@ -184,15 +184,15 @@ class bitArray {
         wordOffset++;
 
 		while (wordOffset < range_stop_word) {
+			if (shift < pattern_shift) shift += step; // prevent shift going negative
 			shift -= pattern_shift; 
-			if (shift <0) shift += step;
 			this.wordArray[wordOffset] |= pattern << shift;
 //			memcalls.SetBitRange_SmallStep_MiddleWord++;
             wordOffset++;
 		} 
 
-        shift -= pattern_shift; 
-        if (shift <0) shift += step;
+		if (shift < pattern_shift) shift += step;
+		shift -= pattern_shift; 
 		this.wordArray[wordOffset] |= ((pattern << shift) & (2 << ((range_stop_bit&31))) - 1 );
 //		memcalls.SetBitRange_SmallStep_LastWord++;
 	}
@@ -335,13 +335,12 @@ class PrimeSieve {
 		let prime_end = Math.ceil(Math.sqrt((block_start+block_range)*2))>>1;
 		let prime = prime_start;
 		let patternsize_bits = 1; // a block is a repeating pattern of prime multiples, e.g. 3*5*7*32
-		let block_range_start = prime_start *2 +1;
+		let block_range_start = (prime_start *2 +1);
 		let range = block_range_start;  // range is the maximum to project the product of the prime
 		let	block_start_prime = prime_start; // max prime where copypattern is possible
 
 		while (prime <= prime_end) {
 			let step = prime * 2 + 1;
-			let start = prime * prime * 2 + prime * 2;
 
 			if (range < block_range) { // check if we should copy previous results
 				range = patternsize_bits * step * 2;  // range is x2 so the second block cointains all multiples of primes
@@ -354,29 +353,44 @@ class PrimeSieve {
 							this.bitArray.copyPattern(block_start+patternsize_bits, block_start+(patternsize_bits*2), block_start+range);
 						}
 						else {
-							// if (patternsize_bits*step * 2 > block_range) {
-							// 	// copy the previous pattern to the remaining blocks
-							// 	this.bitArray.copyPattern(block_start, block_start+(patternsize_bits), this.sieveSizeInBits);
-							// 	block_start_prime = prime;
-							// 	block_range_start = block_range;
-							// }
-							// else {
-								this.bitArray.copyPattern(block_start, block_start+patternsize_bits, block_start+range);
-							// }
+							this.bitArray.copyPattern(block_start, block_start+patternsize_bits, block_start+range);
 						}
 					}
 				}
 				patternsize_bits = patternsize_bits * step;
 			}
 
+			let start = prime * prime * 2 + prime * 2;
 			if (block_start > 0) {
 				let rest = (block_start*2+1) % (prime*4+2);
+				
 				if (rest==block_start*2+1) { // is this causing problems?
 					start = 3 * prime + 1;
 				}
 				else {
 					start = ((block_start*2+1 + step - rest)>>1);
 					if (start < block_start) start += step;
+				}
+
+				let start2 = start;
+				let rest2 = (block_start*2+1) % (prime*4+2);
+				rest2 = (prime * 2 + 2 - rest2)>>1;
+				if (rest2>0) start2 = block_start + rest2;
+				
+				// let start2 = start;
+				// let rest2 = (block_start*2+1) % (prime*4+2);
+				// rest2 = (prime * 2 + 2 - rest2)>>1;
+				// if (rest2>0) start2 = block_start + rest2;
+				
+				// let rest2 = (block_start*2+1) % (prime*4+2);
+				// let start2 = start;
+				// if (rest2<step) { // is this causing problems?
+				// 	start2 = ((block_start*2+1 + step - rest2)>>1);
+				// }
+
+				if (start2 != start) {
+					console.log(`Error: start: ${start} start2: ${start2} at prime ${prime} step ${step} block_start ${block_start} rest2 ${rest2}`);
+					return;
 				}
 			}
 			this.bitArray.setBitRangeTrue(start, step, block_start+range);
