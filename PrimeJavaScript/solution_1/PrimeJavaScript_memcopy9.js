@@ -182,7 +182,6 @@ class bitArray {
 
         shift -= pattern_shift; 
         if (shift <0) shift += step;
-
 		this.wordArray[wordOffset] |= ((pattern << shift) & (2 << ((range_stop_bit&31))) - 1 );
 	}
 
