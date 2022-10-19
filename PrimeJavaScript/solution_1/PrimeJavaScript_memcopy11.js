@@ -20,6 +20,7 @@ Based on:
 
 const { assert } = require('console');
 const { builtinModules } = require('module');
+const { exit } = require('process');
 
 let config = {
 	sieveSize: 1000000,
@@ -31,19 +32,7 @@ let config = {
 const NOW_UNITS_PER_SECOND =  1000;
 const WORD_SIZE = 32;
 
-let memcalls = {
-	setbit: 0,
-	testbit: 0,
-	SetBitRange_LargeStep_SmallRange: 0,
-	SetBitRange_LangeStep_LargeRange: 0,
-	SetBitRange_SmallStep_FirstWord: 0,
-	SetBitRange_SmallStep_MiddleWord: 0,
-	SetBitRange_SmallStep_LastWord: 0,
-}
-
-let timespent = {
-
-}
+var distance={};
 
 try
 {
@@ -107,29 +96,24 @@ class bitArray {
 	constructor(size) {
 		this.wordArray = new Int32Array(1 + (size >>> 5));
 		this.size = size;
-		// for (let word=0; word < size >>> 5; word++) {
-		// 	this.wordArray[word]=0;
-		// }
 	}
 
 	setBitTrue(index) {
-		const wordOffset = index >>> 5;  // 1 word = 2ˆ5 = 32 bit, so shift 5, much faster than /32
-		const bitOffset = index & 31;  // use & (and) for remainder, faster than modulus of /32
-		this.wordArray[wordOffset] |= (1 << bitOffset);
-		// memcalls.setbit++;
+		const index_word = index >>> 5;  // 1 word = 2ˆ5 = 32 bit, so shift 5, much faster than /32
+		const index_bit = index & 31;  // use & (and) for remainder, faster than modulus of /32
+		this.wordArray[index_word] |= (1 << index_bit);
 	}
 
 	testBitTrue(index) {
-		const wordOffset = index >>> 5;
-		const bitOffset = index & 31;
-		// memcalls.testbit++;		
-		return this.wordArray[wordOffset] & (1 << bitOffset);  // returning result not as bool for performance
+		const index_word = index >>> 5;
+		const index_bit = index & 31;
+		return this.wordArray[index_word] & (1 << index_bit);  // returning result not as bool for performance
 	}
 
 	setBitRangeTrue(range_start, step, range_stop) {
 		if (step > WORD_SIZE) { 
 			// steps are large: check if the range is large enough to reuse the same mask
-			let range_stop_unique = range_start + 32 * step;
+			const range_stop_unique = range_start + WORD_SIZE * step;
 			if (range_stop_unique > range_stop) {
 				// range is not large enough for repetition (32 * step)
 				for (let index = range_start; index <= range_stop; index += step) {
@@ -139,21 +123,17 @@ class bitArray {
 			}
 
 			// range is large enough to reuse the mask
-			let range_stop_word = range_stop >>> 5;
-			let range_stop_bit = range_stop & 31;
+			const range_stop_word = range_stop >>> 5;
+			const range_stop_bit = range_stop & 31;
 
 			for (let index = range_start; index <= range_stop_unique; index += step) {
-				const bitOffset = index & 31;
-				const mask = (1 << bitOffset);
+				const index_bit = index & 31;
+				const mask = (1 << index_bit);
+				const loop_stop_word = range_stop_word + ((index_bit <= range_stop_bit) ? 1 : 0); // allow range_stop_word to be set if bitoffset is small enough
 
-				let loop_stop_word = range_stop_word + ((bitOffset <= range_stop_bit) ? 1 : 0); // allow range_stop_word to be set if bitoffset is small enough
-
-				let wordOffset = index >>> 5;
-				do {
-					this.wordArray[wordOffset] |= mask;
-					wordOffset += step; // pattern repeats on word level after {step} words
-				} while (wordOffset < loop_stop_word);
-
+				for (let index_word = index >>> 5; index_word < loop_stop_word; index_word += step) {
+					this.wordArray[index_word] |= mask;
+				}
 			}
 			return;
 		}
@@ -174,7 +154,10 @@ class bitArray {
 
 		if (wordOffset == range_stop_word) { // shortcut
 			this.wordArray[wordOffset] |= ((pattern << shift) & (2 << ((range_stop_bit&31))) - 1 );
-//			memcalls.SetBitRange_SmallStep_FirstWord++;
+			// if (range_start > range_stop) {
+			// 	console.log(`Start ${range_start} after range_stop ${range_stop} - still set @smallstep firstword `);
+			// }
+
 			return;
 		}
 
@@ -188,18 +171,45 @@ class bitArray {
 			if (shift < pattern_shift) shift += step; // prevent shift going negative
 			shift -= pattern_shift; 
 			this.wordArray[wordOffset] |= pattern << shift;
-//			memcalls.SetBitRange_SmallStep_MiddleWord++;
+			// if (range_start > range_stop) {
+			// 	console.log(`Start ${range_start} after range_stop ${range_stop} - still set @smallstep middle `);
+			// }
             wordOffset++;
 		} 
 
 		if (shift < pattern_shift) shift += step;
 		shift -= pattern_shift; 
 		this.wordArray[wordOffset] |= ((pattern << shift) & (2 << ((range_stop_bit&31))) - 1 );
-//		memcalls.SetBitRange_SmallStep_LastWord++;
-	}
+		// if (range_start > range_stop) {
+		// 	console.log(`Start ${range_start} after range_stop ${range_stop} - still set @smallstep lastword `);
+		// }
+}
 
 	searchBitFalse(index) {
-	    while (this.testBitTrue(index)) { index++ };  // will stop automatically because bits were 0 filled
+		let index_word = index >>> 5;
+		let index_bit = index & 31;
+
+		let word_value = this.wordArray[index_word];
+		let distance = 0;
+		word_value >>>= index_bit; // first word is special because some bits have to be skipped
+		while (word_value & 1) { 
+			word_value >>>= 1;
+			distance++;
+		}
+		index += distance;
+		distance += index_bit;
+
+		while (distance >= 32) {
+			index_word++;
+			word_value = this.wordArray[index_word];
+			distance = 0;
+			while (word_value & 1) { 
+				word_value >>>= 1;
+				distance++;
+			}
+			index += distance;
+		}
+
 		return index;
 	}
 
@@ -242,7 +252,6 @@ class bitArray {
 				if (shift > WORD_SIZE) shift -= WORD_SIZE; // TODO: check if needed
 			}
 			return;
-			// TODO: keep loop here
 		}
 
 		let copy_word = copy_start >>> 5;
@@ -322,14 +331,13 @@ class PrimeSieve {
 
 	runBlock_memcopy(block_start, block_stop, prime_start) {
 		let block_range = block_stop - block_start;
-		let prime_end = Math.ceil(Math.sqrt((block_stop)*2))>>1;
 		let prime = prime_start;
 		let patternsize_bits = 1; // a block is a repeating pattern of prime multiples, e.g. 3*5*7*32
 		let block_range_start = (prime_start *2 +1);
 		let range = block_range_start;  // range is the maximum to project the product of the prime
 		let	block_start_prime = prime_start; // max prime where copypattern is possible
 
-		while (prime <= prime_end) {
+		while (true) {
 			let step = prime * 2 + 1;
 
 			if (range < block_range) { // check if we should copy previous results
@@ -348,8 +356,10 @@ class PrimeSieve {
 				patternsize_bits = patternsize_bits * step;
 			}
 
-			let start = block_start + prime * 2;
-			start += (block_start==0) ? (prime * prime * 2) : -((block_start + prime) % step);
+			let start = prime + prime + (prime * prime * 2);
+			if (start > block_stop) break;
+			if (block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
+
 			this.bitArray.setBitRangeTrue(start, step, block_start+range);
 
 			prime = this.bitArray.searchBitFalse(prime + 1);
@@ -358,33 +368,28 @@ class PrimeSieve {
 	}
 
 	runBlock(block_start, block_stop, prime, q) {
-		while (prime <= q) {
+		while (true) {
 			let step = prime * 2 + 1;
-			let start = block_start + prime * 2;
-			start += (block_start==0) ? (prime * prime * 2) : -((block_start + prime) % step);
+			let start = prime + prime + (prime * prime * 2);
+			if (start > block_stop) break;
+			if (block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
 			this.bitArray.setBitRangeTrue(start, step, block_stop);
 			prime = this.bitArray.searchBitFalse(prime + 1);
 		}
 	}
 
-
 	runSieve(blocksize) {
-		const q = Math.ceil(Math.sqrt(this.sieveSizeInBits*2))>>1;
 		if (blocksize > this.sieveSizeInBits) blocksize = this.sieveSizeInBits;
 		let block_start = 0;
 		let block_stop  = blocksize-1;//this.sieveSizeInBits;
-		if (block_stop > this.sieveSizeInBits) block_stop = this.sieveSizeInBits;
-		let block_range = block_stop - block_start; // will be smaller at the end
-		let block_start_prime = 1;
 
 		do {
-			this.runBlock(block_start, block_stop, 1, q);
-			block_start += blocksize;
-			block_stop += blocksize;
 			if (block_stop > this.sieveSizeInBits) {
 				block_stop = this.sieveSizeInBits;
-				block_range = block_stop - block_start;
 			}
+			this.runBlock_memcopy(block_start, block_stop, 1);
+			block_start += blocksize;
+			block_stop += blocksize;
 		} while (block_start < this.sieveSizeInBits)
 		return this;
 	}
@@ -495,7 +500,7 @@ const main = ({ sieveSize, timeLimitSeconds, verbose, runtime }) => {
 
 	console.log('ok\nBenchmarking...');
 
-	for (let blocksize_kb=128; blocksize_kb>=1; blocksize_kb /= 2) {
+	for (let blocksize_kb=128; blocksize_kb>=16; blocksize_kb /= 2) {
 		//measure time running the batch
 		const timeStart = performance.now();
 		let blocksize_bits = blocksize_kb * 1024 * 8;
