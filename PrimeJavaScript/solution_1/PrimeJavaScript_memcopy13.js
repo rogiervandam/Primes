@@ -258,7 +258,7 @@ class bitArray {
 		let copy_bit = copy_start &31;
 		let shift = source_bit - copy_bit;
 		let dest_wordValue = 0;
-		console.log(`Copying with shift ${shift} size ${size} range ${destination_stop - source_start - size} ${size*32}`);
+		// console.log(`Copying with shift ${shift} size ${size} range ${destination_stop - source_start - size} ${size*32}`);
 
 		if (shift > 0) {
             let shift_flipped = WORD_SIZE-shift;
@@ -552,9 +552,9 @@ function runSieveBatch(sieveSize, blocksize, timeLimitSeconds=5, callback) {
 const main = ({ sieveSize, timeLimitSeconds, verbose, runtime }) => {
 
 	process.stdout.write("Validating... ");
-	let sieve = new PrimeSieve(1000000).runSieve(32*1024*8);
-	console.log(sieve.validatePrimeCount(verbose));
-	exit();
+	// let sieve = new PrimeSieve(1000000).runSieve(32*1024*8);
+	// console.log(sieve.validatePrimeCount(verbose));
+	// exit();
 
 	for (let blocksize_bits=1024; blocksize_bits<=64*1024*8; blocksize_bits *= 2) {
 		for (let sieveSize_check = 100; sieveSize_check <= 100000000; sieveSize_check *=10) {
