@@ -117,14 +117,14 @@ class bitArray {
 	}
 
 	setBitRangeTrue(range_start, step, range_stop) {
-		if (step > WORD_SIZE) { 
+		if (step > WORD_SIZE/2) { 
 			// steps are large: check if the range is large enough to reuse the same mask
 			let range_stop_unique = range_start + 32 * step;
 			if (range_stop_unique > range_stop) {
 				// range is not large enough for repetition (32 * step)
 				for (let index = range_start; index <= range_stop; index += step) {
 					this.setBitTrue(index);
-					memcalls.SetBitRangeLargeStepSmallRange++;
+//					memcalls.SetBitRangeLargeStepSmallRange++;
 				}
 				return;
 			}
@@ -169,35 +169,6 @@ class bitArray {
 			shift += step;
 		}
 		this.wordArray[wordOffset] |= ((pattern << shift) & (2 << ((range_stop_bit&31))) - 1 );
-
-//		this.wordArray[wordOffset] |= ((pattern << shift) & (2 << ((range_stop_bit&31))) - 1 );
-
-		// optimized for small sizes: set wordvalue multiple times before committing to memory
-	// 	let index = range_start;
-	// 	let wordOffset = index >>> 5;  // 1 word = 2ˆ5 = 32 bit, so shift 5, much faster than /32
-	// 	let newwordOffset = wordOffset;
-	// 	let wordValue = this.wordArray[wordOffset];
-
-	// 	while (index <= range_stop) { // TODO: check if this should be <=
-	// 		const bitOffset = index & 31;  // use & (and) for remainder, faster than modulus of /32
-	// 		wordValue |= (1 << bitOffset);
-	
-	// 		index += step;
-	// 		newwordOffset = index >>> 5;  // 1 word = 2ˆ5 = 32 bit, so shift 5, much faster than /32
-	// 		if (newwordOffset != wordOffset) { // moving to new word: store value and get new value
-	// 			this.wordArray[wordOffset] = wordValue;
-				
-	// 			wordOffset = newwordOffset;
-	// 			wordValue = this.wordArray[wordOffset];
-				
-	// 		}
-	// 	}
-
-	// 	if (newwordOffset == wordOffset) {
-	// 		this.wordArray[wordOffset] = wordValue; // make sure last value is stored
-			
-	// 	}
-
 	}
 
 	searchBitFalse(index) {
@@ -335,16 +306,18 @@ class PrimeSieve {
 	}
 
 	runBlock(block_start, block_range, prime_start) {
-		let prime_end = Math.ceil(Math.sqrt((block_start+block_range)*2))>>1;
 		let prime = prime_start;
 		let patternsize_bits = 1; // a block is a repeating pattern of prime multiples, e.g. 3*5*7*32
 		let block_range_start = prime_start *2 +1;
 		let range = block_range_start;  // range is the maximum to project the product of the prime
 		let	block_start_prime = prime_start; // max prime where copypattern is possible
 
-		while (prime <= prime_end) {
+		if (prime_start != 1) range = block_range;
+
+		while (true) {
 			let step = prime * 2 + 1;
 			let start = prime * step + prime;
+			if (start > block_start + block_range) break;
 			if (block_start > 0) {
 				let rest = (block_start*2+1) % (prime*4+2);
 				if (rest==block_start*2+1) { // is this causing problems?
@@ -367,15 +340,15 @@ class PrimeSieve {
 							this.bitArray.copyPattern(block_start+patternsize_bits, block_start+(patternsize_bits*2), block_start+range);
 						}
 						else {
-							// if (patternsize_bits*step * 2 > block_range) {
-							// 	// copy the previous pattern to the remaining blocks
-							// 	this.bitArray.copyPattern(block_start, block_start+(patternsize_bits), this.sieveSizeInBits);
-							// 	block_start_prime = prime;
-							// 	block_range_start = block_range;
-							// }
-							// else {
+							if (patternsize_bits*step * 2 > block_range) {
+								// copy the previous pattern to the remaining blocks
+								this.bitArray.copyPattern(block_start, block_start+(patternsize_bits), this.sieveSizeInBits);
+								block_start_prime = prime;
+								block_range_start = block_range;
+							}
+							else {
 								this.bitArray.copyPattern(block_start, block_start+patternsize_bits, block_start+range);
-							// }
+							}
 						}
 					}
 				}
@@ -384,12 +357,11 @@ class PrimeSieve {
 
 			this.bitArray.setBitRangeTrue(start, step, block_start+range);
 			prime = this.bitArray.searchBitFalse(prime + 1);
-		}
+		} 
 		return block_start_prime;
 	}
 
 	runSieve(blocksize) {
-		const q = Math.ceil(Math.sqrt(this.sieveSizeInBits*2))>>1;
 		if (blocksize > this.sieveSizeInBits) blocksize = this.sieveSizeInBits;
 		let block_start = 0;
 		let block_stop  = blocksize-1;//this.sieveSizeInBits;
@@ -398,7 +370,8 @@ class PrimeSieve {
 		let block_start_prime = 1;
 
 		do {
-			this.runBlock(block_start, block_range, 1)
+			console.log(`block ${block_start} with ${block_start_prime}` );
+			block_start_prime = this.runBlock(block_start, block_range, block_start_prime)
 			block_start += blocksize;
 			block_stop += blocksize;
 			if (block_stop > this.sieveSizeInBits) {
@@ -494,6 +467,9 @@ function runSieveBatch(sieveSize, blocksize, timeLimitSeconds=5, callback) {
 
 // main procedure
 const main = ({ sieveSize, timeLimitSeconds, verbose, runtime }) => {
+
+
+	let startsieve = new PrimeSieve(1000000).runSieve(32*1024*8); return;
 
 	process.stdout.write("Validating... ");
 
