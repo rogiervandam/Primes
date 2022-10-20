@@ -272,7 +272,7 @@ class bitArray {
             let shift_flipped = WORD_SIZE-shift;
 			dest_wordValue = this.wordArray[source_word] << shift;
 			// the first source_word is tricky...
-			let source_lastword = (source_word + size) >>> 5;
+			let source_lastword = (source_start + size) >>> 5;
             dest_wordValue |= this.wordArray[source_lastword] >>> shift_flipped;
 			dest_wordValue &= ~((1<<copy_bit)-1); // because this is the first word, dont copy the extra bits in front of the source
             this.wordArray[copy_word] |= dest_wordValue; // or the start in to not lose data
