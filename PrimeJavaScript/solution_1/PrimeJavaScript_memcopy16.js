@@ -31,6 +31,7 @@ let config = {
 };
 const NOW_UNITS_PER_SECOND =  1000;
 const WORD_SIZE = 32;
+const HALF_WORD_SIZE = WORD_SIZE/2;
 
 var distance={};
 var step_pattern = [];
@@ -137,15 +138,12 @@ class bitArray {
 			return;
 		}
 
-		// let pattern = 1;
-		// for (var patternsize = step; patternsize < WORD_SIZE; patternsize += step) {
-		// 	pattern |= (1 << patternsize);
-		// }
-		// patternsize -= step;
-		// let pattern_shift = WORD_SIZE - patternsize; // the amount a pattern drifts (>>) at each word increment
-
-		let pattern = step_pattern[step];
-		let pattern_shift = 32 % step;
+		// build pattern 
+		let pattern_shift = 32 % step; // pattern shift the amount a pattern drifts (>>) at each word increment
+		let pattern = 1;
+		for (let patternsize = step; patternsize < WORD_SIZE; patternsize += patternsize) {
+			pattern |= (pattern << patternsize);
+		}
 
 		let shift = range_start & 31;
 		let range_stop_word = range_stop >>> 5;
@@ -170,7 +168,7 @@ class bitArray {
             copy_word++;
 		} 
 
-		if (shift < pattern_shift) shift += step;
+		if (shift < pattern_shift) shift += step; // prevent negative value
 		shift -= pattern_shift; 
 		this.wordArray[copy_word] |= ((pattern << shift) & (2 << ((range_stop_bit&31))) - 1 );
 	}
