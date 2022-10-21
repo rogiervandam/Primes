@@ -31,7 +31,7 @@ let config = {
 };
 const NOW_UNITS_PER_SECOND =  1000;
 const WORD_SIZE = 32;
-let PATTERN_FASTER = WORD_SIZE;
+const HALF_WORD_SIZE = WORD_SIZE/2;
 
 var distance={};
 var step_pattern = [];
@@ -96,7 +96,7 @@ function deepAnalyzePrimes(sieve) {
 // shifting not with >> but with >>> is for zero fill right shift
 class bitArray {
 	constructor(size) {
-		this.wordArray = new Uint32Array(1 + (size >>> 5));
+		this.wordArray = new Int32Array(1 + (size >>> 5));
 		this.size = size;
 	}
 
@@ -113,64 +113,63 @@ class bitArray {
 	}
 
 	setBitRangeTrue(range_start, step, range_stop) {
-		if (step > PATTERN_FASTER) {  // steps are large: check if the range is large enough to reuse the same mask
-			const range_stop_unique = range_start + WORD_SIZE * step;
-			if (range_stop_unique > range_stop) { // range is not large enough for repetition (32 * step)
-				for (let index = range_start; index <= range_stop; index += step) {
-					this.setBitTrue(index);
-				}
+		if (step <= WORD_SIZE) {  // steps are large: check if the range is large enough to reuse the same mask
+			// build pattern 
+			let pattern_shift = 32 % step; // pattern shift the amount a pattern drifts (>>) at each word increment
+			let pattern = 1;
+			for (let patternsize = step; patternsize < WORD_SIZE; patternsize += patternsize) {
+				pattern |= (pattern << patternsize);
+			}
+	
+			let shift = range_start & 31;
+			let range_stop_word = range_stop >>> 5;
+			let range_stop_bit = range_stop & 31;
+			let copy_word = range_start >>> 5;
+	
+			if (copy_word == range_stop_word) { // shortcut
+				this.wordArray[copy_word] |= ((pattern << shift) & (2 << ((range_stop_bit&31))) - 1 );
 				return;
 			}
-
-			// range is large enough to reuse the mask
-			const range_stop_word = range_stop >>> 5;
-			const range_stop_bit = range_stop & 31;
-
-			for (let index = range_start; index <= range_stop_unique; index += step) {
-				const index_bit = index & 31;
-				const mask = (1 << index_bit);
-				const loop_stop_word = range_stop_word + ((index_bit <= range_stop_bit) ? 1 : 0); // allow range_stop_word to be set if bitoffset is small enough
-
-				for (let index_word = index >>> 5; index_word < loop_stop_word; index_word += step) {
-					this.wordArray[index_word] |= mask;
-				}
-			}
-			return;
-		}
-
-		// build pattern 
-		let pattern_shift = 32 % step; // pattern shift the amount a pattern drifts (>>) at each word increment
-		let pattern = 1 >>> 0; // hint unsigned
-		for (let patternsize = step; patternsize < WORD_SIZE; patternsize += patternsize) {
-			pattern |= (pattern << patternsize);
-		}
-
-		let shift = range_start & 31;
-		let range_stop_word = range_stop >>> 5;
-		let range_stop_bit = range_stop & 31;
-		let copy_word = range_start >>> 5;
-
-		if (copy_word == range_stop_word) { // shortcut
+	
+			// from now on, we are before range_stop_word
+			// first word is special, because it should not set bits before the range_start_bit
+			this.wordArray[copy_word] |= pattern << shift;
+			shift = shift % step;
+			copy_word++;
+	
+			while (copy_word < range_stop_word) {
+				if (shift < pattern_shift) shift += step; // prevent shift going negative
+				shift -= pattern_shift; 
+				this.wordArray[copy_word] |= pattern << shift;
+				copy_word++;
+			} 
+	
+			if (shift < pattern_shift) shift += step; // prevent negative value
+			shift -= pattern_shift; 
 			this.wordArray[copy_word] |= ((pattern << shift) & (2 << ((range_stop_bit&31))) - 1 );
 			return;
 		}
+		const range_stop_unique = range_start + WORD_SIZE * step;
+		if (range_stop_unique > range_stop) { // range is not large enough for repetition (32 * step)
+			for (let index = range_start; index <= range_stop; index += step) {
+				this.setBitTrue(index);
+			}
+			return;
+		}
 
-		// from now on, we are before range_stop_word
-		// first word is special, because it should not set bits before the range_start_bit
-		this.wordArray[copy_word] |= pattern << shift;
-		shift = shift % step;
-        copy_word++;
+		// range is large enough to reuse the mask
+		const range_stop_word = range_stop >>> 5;
+		const range_stop_bit = range_stop & 31;
 
-		while (copy_word < range_stop_word) {
-			if (shift < pattern_shift) shift += step; // prevent shift going negative
-			shift -= pattern_shift; 
-			this.wordArray[copy_word] |= pattern << shift;
-            copy_word++;
-		} 
+		for (let index = range_start; index <= range_stop_unique; index += step) {
+			const index_bit = index & 31;
+			const mask = (1 << index_bit);
+			const loop_stop_word = range_stop_word + ((index_bit <= range_stop_bit) ? 1 : 0); // allow range_stop_word to be set if bitoffset is small enough
 
-		if (shift < pattern_shift) shift += step; // prevent negative value
-		shift -= pattern_shift; 
-		this.wordArray[copy_word] |= ((pattern << shift) & (2 << ((range_stop_bit&31))) - 1 );
+			for (let index_word = index >>> 5; index_word < loop_stop_word; index_word += step) {
+				this.wordArray[index_word] |= mask;
+			}
+		}
 	}
 
 	searchBitFalse(index) {
@@ -240,7 +239,7 @@ class bitArray {
 		let copy_word = copy_start >>> 5;
 		let copy_bit = copy_start &31;
 		let shift = source_bit - copy_bit;
-		let dest_wordValue = 0 >>> 0; // hint unsigned
+		let dest_wordValue = 0;
 
 		// console.log(`Copying with shift ${shift} size ${size} range ${destination_stop - source_start - size} ${size*32}`);
 
@@ -313,7 +312,7 @@ class PrimeSieve {
 		this.bitArray = new bitArray(1 + sieveSize >> 1);
 	}
 
-	sieve_block(block_start, block_stop) {
+	runBlock_memcopy(block_start, block_stop) {
 		let prime = 0;
 		let patternsize_bits = 1; // a block is a repeating pattern of prime multiples, e.g. 3*5*7*32
 
@@ -359,7 +358,7 @@ class PrimeSieve {
 			if (block_stop > this.bitArray.size) {
 				block_stop = this.bitArray.size;
 			}
-			this.sieve_block(block_start, block_stop);
+			this.runBlock_memcopy(block_start, block_stop);
 			block_start += blocksize;
 			block_stop += blocksize;
 		} while (block_start < this.bitArray.size)
@@ -434,7 +433,7 @@ class PrimeSieve {
 
 // run the sieve for timeLimitSeconds
 function sieveBatch(sieveSize, blocksize, timeLimitSeconds=5, callback) {
-    let passes = 0;                                                 // Counter for the number of passes in a from timestart to timefinish
+    let nrOfPasses = 0;                                                 // Counter for the number of passes in a from timestart to timefinish
 
     const timeStart = performance.now();                                // Record starting time
     const timeFinish = timeStart + timeLimitSeconds * NOW_UNITS_PER_SECOND; // Calculate finish time before, so we don't repeat
@@ -443,24 +442,23 @@ function sieveBatch(sieveSize, blocksize, timeLimitSeconds=5, callback) {
     do {
         sieve = new PrimeSieve(sieveSize);
         sieve.sieve(blocksize);
-        passes++;
+        nrOfPasses++;
     } while (performance.now() < timeFinish);                           // keep going for timeLimitSeconds
 
-    callback(passes);
+    callback(nrOfPasses);
 }
 
 // main procedure
 const main = ({ sieveSize, timeLimitSeconds, verbose, runtime }) => {
 
-	// for (let step=1; step<WORD_SIZE; step++) {
-	// 	let pattern = 1>>>0;
-	// 	for (let patternsize = step; patternsize < WORD_SIZE; patternsize += patternsize) {
-	// 		pattern |= (pattern << patternsize);
-	// 	}
-	// 	step_pattern[step] = pattern>>>0;
-	// }
-	// console.log(step_pattern.join(','));
-	
+	for (let step=1; step<WORD_SIZE; step++) {
+		let pattern = 1;
+		for (let patternsize = step; patternsize < WORD_SIZE; patternsize += patternsize) {
+			pattern |= (pattern << patternsize);
+		}
+		step_pattern[step] = pattern;
+	}
+
 	console.log("Validating...");
 
 	for (let blocksize_bits=1024; blocksize_bits<=64*1024*8; blocksize_bits *= 2) {
@@ -482,22 +480,20 @@ const main = ({ sieveSize, timeLimitSeconds, verbose, runtime }) => {
 	console.log('\Tuning...');
 	let tuning_results=[];
 	for (let blocksize_kb=128; blocksize_kb>=16; blocksize_kb /= 2) {
-		for (let free_bits = 0; free_bits <= 1024*8; free_bits += 1024) {
-			for (PATTERN_FASTER = WORD_SIZE; PATTERN_FASTER > 4; PATTERN_FASTER -= 4) {
-				const timeStart = performance.now();
-				let blocksize_bits = blocksize_kb * 1024 * 8 - free_bits;
-				let timelimit = 0.01;
-				sieveBatch(sieveSize, blocksize_bits, timelimit, (passes) => { // show off typical nodejs style
-					const timeEnd = performance.now();
-					const duration_sec = (timeEnd - timeStart) / NOW_UNITS_PER_SECOND;
-					tuning_results.push({ 'blocksize_bits': blocksize_bits, 'avg': passes/duration_sec, 'blocksize_kb': blocksize_kb, 'free_bits': free_bits, 'passes': passes, 'duration_sec': duration_sec, 'pattern_faster': PATTERN_FASTER });
-				});
-			}
+		for (let free_bits = 0; free_bits < 4096; free_bits += 512) {
+			const timeStart = performance.now();
+			let blocksize_bits = blocksize_kb * 1024 * 8 - free_bits;
+			let timelimit = 0.05;
+			sieveBatch(sieveSize, blocksize_bits, timelimit, (nrOfPasses) => { // show off typical nodejs style
+				const timeEnd = performance.now();
+				const duration_sec = (timeEnd - timeStart) / NOW_UNITS_PER_SECOND;
+				tuning_results.push({ 'blocksize_bits': blocksize_bits, 'avg': nrOfPasses/timelimit, 'blocksize_kb': blocksize_kb, 'free_bits': free_bits, 'nrOfPasses': nrOfPasses, 'duration_sec': duration_sec });
+			});
 		}
 	}
 	tuning_results.sort( (avg1, avg2) => avg2.avg - avg1.avg);
-	tuning_results.forEach((result,index) => {
-		if (index <10) console.log(`blocksize_bits: ${result.blocksize_bits} - avg: ${result.avg} - passes: ${result.passes} - blocksize_kb ${result.blocksize_kb} - free_bits: ${result.free_bits} - duration_sec: ${result.duration_sec} - pattern_faster ${result.pattern_faster} `);
+	tuning_results.forEach(result => {
+		console.log(`blocksize_bits: ${result.blocksize_bits} - avg: ${result.avg} - nrOfPasses: ${result.nrOfPasses} - blocksize_kb ${result.blocksize_kb} - free_bits: ${result.free_bits} - duration_sec: ${result.duration_sec} `);
 	});
 
 
@@ -505,7 +501,6 @@ const main = ({ sieveSize, timeLimitSeconds, verbose, runtime }) => {
 
 	//measure time running the batch
 	let blocksize_bits = tuning_results[0].blocksize_bits;
-	PATTERN_FASTER = tuning_results[0].pattern_faster;
 	const timeStart = performance.now();
 	sieveBatch(sieveSize, blocksize_bits, timeLimitSeconds, (passes) => { // show off typical nodejs style
 		const timeEnd = performance.now();
