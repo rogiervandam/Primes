@@ -14,7 +14,7 @@
 #define default_sample_max 5
 #define default_verbose_level 0
 #define default_tune_level 1
-#define default_check_level 0
+#define default_check_level 1
 #define option_runonce 0
 
 #define anticiped_cache_line_bytesize 128
@@ -55,7 +55,7 @@ struct sieve_state {
 // use cache lines as much as possible - alignment might be key
 #define ceiling(x,y) (((x) + (y) - 1) / (y)) // Return the smallest multiple N of y such that:  x <= y * N
 static struct sieve_state *create_sieve(counter_t maxints) {
-    struct sieve_state *sieve = malloc(sizeof *sieve);//aligned_alloc(8, sizeof(struct sieve_state));
+    struct sieve_state *sieve = aligned_alloc(8, sizeof(struct sieve_state));
     size_t memSize = ceiling(1+((size_t)maxints/2), anticiped_cache_line_bytesize*8) * anticiped_cache_line_bytesize; //make multiple of 8
 
     sieve->bitarray = aligned_alloc((size_t)anticiped_cache_line_bytesize, (size_t)memSize );
@@ -73,51 +73,82 @@ static void delete_sieve(struct sieve_state *sieve) {
 }
 
 // not much performance gain at smaller sieves, but its's nice to have an implementation
-static inline counter_t searchBitFalse(struct sieve_state *sieve, counter_t index) {
+static inline counter_t searchBitFalse(bitword_t* bitarray, counter_t index) {
     counter_t index_word = wordindex(index);
     bitshift_t index_bit  = bitindex(index);
-    counter_t distance = (counter_t) __builtin_ctzll( ~(sieve->bitarray[index_word] >> index_bit));  // take inverse to be able to use ctz
+    counter_t distance = (counter_t) __builtin_ctzll( ~(bitarray[index_word] >> index_bit));  // take inverse to be able to use ctz
     index += distance;
     distance += index_bit;
 
     while (distance >= WORD_SIZE) {
         index_word++;
-        distance = __builtin_ctzll(~(sieve->bitarray[index_word]));
+        distance = __builtin_ctzll(~(bitarray[index_word]));
         index += distance;
     }
 
     return index;
 }
 
-static void inline applyMask(struct sieve_state *sieve, const counter_t range_start_word, const counter_t step, const counter_t range_stop, const bitword_t mask) {
+static void inline applyMask(bitword_t* bitarray, const counter_t range_start_word, const counter_t step, const counter_t range_stop, const bitword_t mask) {
+    // register const counter_t step_2 = step * 2;
+    // register const counter_t step_3 = step * 3;
+    // register const counter_t step_4 = step * 4;
+    // register const counter_t step_5 = step * 5;
+    // register const counter_t range_stop_word = wordindex(range_stop);
+    // register const counter_t fast_loop_stop_word = (range_stop_word>step_4) ? (range_stop_word - step_4) : 0;
+    // register counter_t index_word = range_start_word;
+
+    // while (index_word < fast_loop_stop_word) {
+    //     bitarray[index_word         ] |= mask;
+    //     bitarray[index_word + step  ] |= mask;
+    //     bitarray[index_word + step_2] |= mask;
+    //     bitarray[index_word + step_3] |= mask;
+    //     bitarray[index_word + step_4] |= mask;
+    //     index_word += step_5;
+    // }
+
+    // while (index_word < range_stop_word) {
+    //     bitarray[index_word] |= mask;
+    //     index_word += step;
+    // }
+
+    // if (index_word == range_stop_word) {
+    //     bitarray[range_stop_word] |= (mask & chopmask2(range_stop));
+    // }
+
+    // ALTERNATIVE using pointers is faster
     const counter_t range_stop_word = wordindex(range_stop);
-    counter_t index_word = range_start_word;
+    register bitword_t* index_ptr = &bitarray[range_start_word];
+    register bitword_t* fast_loop_ptr = &bitarray[((range_stop_word>step*5) ? (range_stop_word - step*5):0)];//>step_4) ? (range_stop_word - step_4) : 0];
+    register bitword_t* range_stop_ptr = &bitarray[(range_stop_word)];//>step_4) ? (range_stop_word - step_4) : 0];
 
-    const counter_t step_2 = step * 2;
-    const counter_t step_3 = step * 3;
-    const counter_t step_4 = step * 4;
-    const counter_t fast_loop_stop_word = (range_stop_word>step_3) ? (range_stop_word - step_3) : 0;
-
-    while (index_word < fast_loop_stop_word) {
-        sieve->bitarray[index_word         ] |= mask;
-        sieve->bitarray[index_word + step  ] |= mask;
-        sieve->bitarray[index_word + step_2] |= mask;
-        sieve->bitarray[index_word + step_3] |= mask;
-        index_word += step_4;
-    }
-   
-    while (index_word < range_stop_word) {
-        sieve->bitarray[index_word] |= mask;
-        index_word += step;
+    while ( index_ptr < fast_loop_ptr) {
+        *index_ptr |= mask;
+        index_ptr+=step;
+        *index_ptr |= mask;
+        index_ptr+=step;
+        *index_ptr |= mask;
+        index_ptr+=step;
+        *index_ptr |= mask;
+        index_ptr+=step;
+        *index_ptr |= mask;
+        index_ptr+=step;
     }
 
-    if (index_word == range_stop_word) {
-        sieve->bitarray[range_stop_word] |= (mask & chopmask2(range_stop));
+    while ( index_ptr < range_stop_ptr) {
+        *index_ptr |= mask;
+        index_ptr+=step;
     }
+
+    if (index_ptr == range_stop_ptr) {
+       *range_stop_ptr |= (mask & chopmask2(range_stop));
+    }
+
+
 }
 
 // set bits by creating a pattern and then extending it to word and range size
-static void inline setBitsTrue_smallStep(struct sieve_state *sieve, const counter_t range_start, const bitshift_t step, const counter_t range_stop) {
+static void inline setBitsTrue_smallStep(bitword_t* bitarray, const counter_t range_start, const bitshift_t step, const counter_t range_stop) {
 
     // build the pattern in a word
 	bitword_t pattern = SAFE_SHIFTBIT;
@@ -129,13 +160,13 @@ static void inline setBitsTrue_smallStep(struct sieve_state *sieve, const counte
     counter_t copy_word = wordindex(range_start);
  
     if (copy_word == range_stop_word) { // shortcut
-       sieve->bitarray[copy_word] |= ((pattern << bitindex(range_start)) & chopmask2(range_stop)) ;
+       bitarray[copy_word] |= ((pattern << bitindex(range_start)) & chopmask2(range_stop)) ;
        return;
     }
 
     // from now on, we are before range_stop_word
     // first word is special, because it should not set bits before the range_start_bit
-    sieve->bitarray[copy_word] |= (pattern << bitindex(range_start));
+    bitarray[copy_word] |= (pattern << bitindex(range_start));
     pattern = (pattern << (bitindex(range_start) % step)); // correct for inital offset  
 
     bitshift_t pattern_shift = (bitshift_t) WORD_SIZE % step;
@@ -144,18 +175,18 @@ static void inline setBitsTrue_smallStep(struct sieve_state *sieve, const counte
 
     while (copy_word < range_stop_word) {
         pattern = (pattern >> pattern_shift) | (pattern << pattern_shift_flipped);
-        sieve->bitarray[copy_word] |= pattern;
+        bitarray[copy_word] |= pattern;
         copy_word++;
     } 
 
     pattern = (pattern >> pattern_shift) | (pattern << pattern_shift_flipped);
-    sieve->bitarray[copy_word] |= pattern & chopmask2(range_stop);
+    bitarray[copy_word] |= pattern & chopmask2(range_stop);
 }
 
 // Medium steps could be within the same word.
 // By joining the masks and then writing to memory, we might save some time.
 // This is especially true for longer ranges
-static void inline setBitsTrue_mediumStep(struct sieve_state *sieve, const counter_t range_start, const counter_t step, const counter_t range_stop) {
+static void inline setBitsTrue_mediumStep(bitword_t* bitarray, const counter_t range_start, const counter_t step, const counter_t range_stop) {
     const counter_t range_stop_unique =  range_start + WORD_SIZE * step;
 
     if (range_stop_unique > range_stop) {
@@ -166,7 +197,7 @@ static void inline setBitsTrue_mediumStep(struct sieve_state *sieve, const count
                 mask |= markmask(index);
                 index += step;
             } while (index_word == wordindex(index));
-            sieve->bitarray[index_word] |= mask;
+            bitarray[index_word] |= mask;
         }
     }
     else {
@@ -177,20 +208,20 @@ static void inline setBitsTrue_mediumStep(struct sieve_state *sieve, const count
                 mask |= markmask(index);
                 index += step;
             } while (index_word == wordindex(index));
-            applyMask(sieve, index_word, step, range_stop, mask);
+            applyMask(bitarray, index_word, step, range_stop, mask);
         }
     }
 }
 
 // small ranges (< WORD_SIZE * step) mean the mask is unique
-static inline void setBitsTrue_smallRange(struct sieve_state *sieve, const counter_t range_start, const counter_t step, const counter_t range_stop) {
+static inline void setBitsTrue_smallRange(bitword_t* bitarray, const counter_t range_start, const counter_t step, const counter_t range_stop) {
     for (counter_t index = range_start; index <= range_stop; index += step) {
-        sieve->bitarray[wordindex(index)] |= markmask(index);
+        bitarray[wordindex(index)] |= markmask(index);
     }
 }
 
 // small ranges (< WORD_SIZE * step) mean the mask is unique
-static void setBitsTrue_race(struct sieve_state *sieve, counter_t index1, counter_t index2, const counter_t step1, const counter_t step2, const counter_t range_stop) {
+static void setBitsTrue_race(bitword_t* bitarray, counter_t index1, counter_t index2, const counter_t step1, const counter_t step2, const counter_t range_stop) {
 
     counter_t index1_word = wordindex(index1);
     counter_t index2_word = wordindex(index2);
@@ -209,13 +240,13 @@ static void setBitsTrue_race(struct sieve_state *sieve, counter_t index1, counte
                 index2 += step2;
                 index2_word = wordindex(index2);
             } while (index2_word == index_word);
-            sieve->bitarray[index_word] |= mask;
+            bitarray[index_word] |= mask;
         }
 
         // because step is larger, index2 is the most likely to get out of bounds first
         if (index2 > range_stop) {
             while (index1 <= range_stop) {
-                sieve->bitarray[wordindex(index1)] |= markmask(index1);
+                bitarray[wordindex(index1)] |= markmask(index1);
                 index1 += step1;
             }
             return;
@@ -223,20 +254,20 @@ static void setBitsTrue_race(struct sieve_state *sieve, counter_t index1, counte
 
         if (index1 > range_stop) {
             while (index2 <= range_stop) {
-                sieve->bitarray[wordindex(index2)] |= markmask(index2);
+                bitarray[wordindex(index2)] |= markmask(index2);
                 index2 += step2;
             }
             return;
         }
 
         while (index1_word < index2_word) {
-            sieve->bitarray[index1_word] |= markmask(index1);
+            bitarray[index1_word] |= markmask(index1);
             index1 += step1;
             index1_word = wordindex(index1);
         }
         
         while (index2_word < index1_word){
-            sieve->bitarray[index2_word] |= markmask(index2);
+            bitarray[index2_word] |= markmask(index2);
             index2 += step2;
             index2_word = wordindex(index2);
         }
@@ -245,22 +276,22 @@ static void setBitsTrue_race(struct sieve_state *sieve, counter_t index1, counte
 }
 
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
-static inline void setBitsTrue_largeRange(struct sieve_state *sieve, const counter_t range_start, const counter_t step, const counter_t range_stop) {
+static inline void setBitsTrue_largeRange(bitword_t* bitarray, const counter_t range_start, const counter_t step, const counter_t range_stop) {
     counter_t range_stop_unique =  range_start + WORD_SIZE * step;
     for (counter_t index = range_start; index <= range_stop_unique; index += step) {
         bitword_t mask = markmask(index);
-        applyMask(sieve, wordindex(index), step, range_stop, mask);
+        applyMask(bitarray, wordindex(index), step, range_stop, mask);
     }
 }
 
-static void extendSieve_smallSize(struct sieve_state *sieve, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
+static void extendSieve_smallSize(bitword_t* bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
     counter_t source_word = wordindex(source_start);
-    bitword_t pattern = ((sieve->bitarray[source_word] >> bitindex(source_start)) | (sieve->bitarray[source_word+1] << (WORD_SIZE-bitindex(source_start)))) & chopmask2(size);
+    bitword_t pattern = ((bitarray[source_word] >> bitindex(source_start)) | (bitarray[source_word+1] << (WORD_SIZE-bitindex(source_start)))) & chopmask2(size);
     for (bitshift_t pattern_size = size; pattern_size <= WORD_SIZE; pattern_size += pattern_size) pattern |= (pattern << pattern_size);
 
     counter_t copy_start = source_start + size;
     counter_t copy_word = wordindex(copy_start);
-    sieve->bitarray[copy_word] |= (pattern << bitindex(copy_start));
+    bitarray[copy_word] |= (pattern << bitindex(copy_start));
 
     counter_t destination_stop_word = wordindex(destination_stop);
     if (copy_word == destination_stop_word) return;
@@ -271,33 +302,33 @@ static void extendSieve_smallSize(struct sieve_state *sieve, const counter_t sou
 
     while (copy_word < destination_stop_word) { // = will be handled as well because increment is after this 
         copy_word++;
-        sieve->bitarray[copy_word] = (pattern << (pattern_size-shift)) | (pattern >> shift);
+        bitarray[copy_word] = (pattern << (pattern_size-shift)) | (pattern >> shift);
         shift = bitindex(shift + pattern_shift);  // alternative, but faster
     }
 }
 
-static void extendSieve_aligned(struct sieve_state *sieve, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
+static void extendSieve_aligned(bitword_t* bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
     const counter_t destination_stop_word = wordindex(destination_stop);
     const counter_t copy_start = source_start + size;
     counter_t source_word = wordindex(source_start);
     counter_t copy_word = wordindex(copy_start);
     
-    sieve->bitarray[copy_word] = sieve->bitarray[source_word] & ~chopmask(bitindex(copy_start));
+    bitarray[copy_word] = bitarray[source_word] & ~chopmask(bitindex(copy_start));
 
     while (copy_word + size <= destination_stop_word) {
-        memcpy(&sieve->bitarray[copy_word], &sieve->bitarray[source_word], size*sizeof(bitword_t) );
+        memcpy(&bitarray[copy_word], &bitarray[source_word], size*sizeof(bitword_t) );
         copy_word += size;
     }
 
    while (copy_word < destination_stop_word) {
-        sieve->bitarray[copy_word] = sieve->bitarray[source_word];
+        bitarray[copy_word] = bitarray[source_word];
         source_word++;
         copy_word++;
     }
 
 }
 
-static void extendSieve_shiftright(struct sieve_state *sieve, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
+static void extendSieve_shiftright(bitword_t* bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
     const counter_t destination_stop_word = wordindex(destination_stop);
     const counter_t copy_start = source_start + size;
     const bitshift_t shift = bitindex(copy_start) - bitindex(source_start);
@@ -305,31 +336,27 @@ static void extendSieve_shiftright(struct sieve_state *sieve, const counter_t so
     counter_t source_word = wordindex(source_start);
     counter_t copy_word = wordindex(copy_start);
     counter_t source_lastword = wordindex(copy_start);
-    sieve->bitarray[copy_word] |= ((sieve->bitarray[source_word] << shift)  // or the start in to not lose data
-                                | (sieve->bitarray[source_lastword] >> shift_flipped))
+    bitarray[copy_word] |= ((bitarray[source_word] << shift)  // or the start in to not lose data
+                                | (bitarray[source_lastword] >> shift_flipped))
                                 & ~chopmask(bitindex(copy_start));
     copy_word++;
     source_word++;
 
     const counter_t aligned_copy_word = min(source_word + size, destination_stop_word); // after <<size>> words, just copy at word level
-    const counter_t fast_loop_stop_word = (aligned_copy_word>4) ? (aligned_copy_word - 4) : 0; // safe for unsigned ints
+    const counter_t fast_loop_stop_word = (aligned_copy_word>2) ? (aligned_copy_word - 2) : 0; // safe for unsigned ints
     while (copy_word < fast_loop_stop_word) {
-            bitword_t sourcen = sieve->bitarray[source_word-1];
-            bitword_t source0 = sieve->bitarray[source_word  ];
+            bitword_t sourcen = bitarray[source_word-1];
+            bitword_t source0 = bitarray[source_word  ];
 
-            sieve->bitarray[copy_word  ] = (source0 << shift) | (sourcen >> shift_flipped);
-            bitword_t source1 = sieve->bitarray[source_word+1];
-            sieve->bitarray[copy_word+1] = (source1 << shift) | (source0 >> shift_flipped);
-            bitword_t source2 = sieve->bitarray[source_word+2];
-            sieve->bitarray[copy_word+2] = (source2 << shift) | (source1 >> shift_flipped);
-            bitword_t source3 = sieve->bitarray[source_word+3];
-            sieve->bitarray[copy_word+3] = (source3 << shift) | (source2 >> shift_flipped);
-            copy_word += 4;
-            source_word += 4;
+            bitarray[copy_word  ] = (source0 << shift) | (sourcen >> shift_flipped);
+            bitword_t source1 = bitarray[source_word+1];
+            bitarray[copy_word+1] = (source1 << shift) | (source0 >> shift_flipped);
+            copy_word += 2;
+            source_word += 2;
     }
 
     while (copy_word <= aligned_copy_word) {
-        sieve->bitarray[copy_word] = (sieve->bitarray[source_word-1] >> shift_flipped) | (sieve->bitarray[source_word] << shift);
+        bitarray[copy_word] = (bitarray[source_word-1] >> shift_flipped) | (bitarray[source_word] << shift);
         copy_word++;
         source_word++;
     }
@@ -338,51 +365,73 @@ static void extendSieve_shiftright(struct sieve_state *sieve, const counter_t so
 
     source_word = copy_word - size;
     while (copy_word + size <= destination_stop_word) {
-        memcpy(&sieve->bitarray[copy_word], &sieve->bitarray[source_word], size*sizeof(bitword_t) );
+        memcpy(&bitarray[copy_word], &bitarray[source_word], size*sizeof(bitword_t) );
         copy_word += size;
     }
 
     while (copy_word <= destination_stop_word) {
-        sieve->bitarray[copy_word] = sieve->bitarray[source_word];
+        bitarray[copy_word] = bitarray[source_word];
         copy_word++;
         source_word++;
     }
 
 }
 
-static void extendSieve_shiftleft(struct sieve_state *sieve, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
+
+// static inline counter_t extendSieve_shiftleft_unrolled(bitword_t* bitarray, const counter_t aligned_copy_word, const bitshift_t shift, counter_t copy_word, counter_t source_word) {
+//     const bitshift_t shift_flipped = WORD_SIZE-shift;
+//     const counter_t fast_loop_stop_word = (aligned_copy_word>2) ? (aligned_copy_word - 2) : 0; // safe for unsigned ints
+//     while (copy_word < fast_loop_stop_word) {
+//         bitword_t source0 = bitarray[source_word  ];
+//         bitword_t source1 = bitarray[source_word+1];
+//         bitarray[copy_word  ] = (source0 >>= shift) | (source1 << shift_flipped);
+//         bitword_t source2 = bitarray[source_word+2];
+//         bitarray[copy_word+1] = (source1 >>= shift) | (source2 <<= shift_flipped);
+//         copy_word += 2;
+//         source_word += 2;
+//     }
+//     return copy_word;
+// }
+
+static inline counter_t extendSieve_shiftleft_unrolled(bitword_t* bitarray, const counter_t aligned_copy_word, const bitshift_t shift, counter_t copy_word, counter_t source_word) {
+    const counter_t fast_loop_stop_word = (aligned_copy_word>2) ? (aligned_copy_word - 2) : 0; // safe for unsigned ints
+    const bitshift_t shift_flipped = WORD_SIZE-shift;
+    counter_t distance = 0;
+    while (copy_word < fast_loop_stop_word) {
+        bitword_t source0 = bitarray[source_word  ];
+        bitword_t source1 = bitarray[source_word+1];
+
+        bitarray[copy_word  ] = (source0 >> shift) | (source1 << shift_flipped);
+        bitword_t source2 = bitarray[source_word+2];
+        bitarray[copy_word+1] = (source1 >> shift) | (source2 << shift_flipped);
+        copy_word += 2;
+        source_word += 2;
+        distance += 2;
+    }
+    return distance;
+}
+
+static void extendSieve_shiftleft(bitword_t* bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
     const counter_t destination_stop_word = wordindex(destination_stop);
     const counter_t copy_start = source_start + size;
     const bitshift_t shift = bitindex(source_start) - bitindex(copy_start);
     const bitshift_t shift_flipped = WORD_SIZE-shift;
     counter_t source_word = wordindex(source_start);
     counter_t copy_word = wordindex(copy_start);
-    sieve->bitarray[copy_word] |= ((sieve->bitarray[source_word] >> shift)
-                                | (sieve->bitarray[source_word+1] << shift_flipped))
+    bitarray[copy_word] |= ((bitarray[source_word] >> shift)
+                                | (bitarray[source_word+1] << shift_flipped))
                                 & ~chopmask(bitindex(copy_start)); // because this is the first word, dont copy the extra bits in front of the source
 
     copy_word++;
     source_word++;
 
     const counter_t aligned_copy_word = min(source_word + size, destination_stop_word); // after <<size>> words, just copy at word level
-    const counter_t fast_loop_stop_word = (aligned_copy_word>4) ? (aligned_copy_word - 4) : 0; // safe for unsigned ints
-    while (copy_word < fast_loop_stop_word) {
-        bitword_t source0 = sieve->bitarray[source_word  ];
-        bitword_t source1 = sieve->bitarray[source_word+1];
-
-        sieve->bitarray[copy_word  ] = (source0 >> shift) | (source1 << shift_flipped);
-        bitword_t source2 = sieve->bitarray[source_word+2];
-        sieve->bitarray[copy_word+1] = (source1 >> shift) | (source2 << shift_flipped);
-        bitword_t source3 = sieve->bitarray[source_word+3];
-        sieve->bitarray[copy_word+2] = (source2 >> shift) | (source3 << shift_flipped);
-        bitword_t source4 = sieve->bitarray[source_word+4];
-        sieve->bitarray[copy_word+3] = (source3 >> shift) | (source4 << shift_flipped);
-        copy_word += 4;
-        source_word += 4;
-    }
+    const counter_t distance  = extendSieve_shiftleft_unrolled(bitarray, aligned_copy_word, shift, copy_word, source_word);
+    source_word += distance;
+    copy_word += distance;
 
     while (copy_word <= aligned_copy_word) {
-        sieve->bitarray[copy_word] = (sieve->bitarray[source_word] >> shift) | (sieve->bitarray[source_word+1] << shift_flipped);
+        bitarray[copy_word] = (bitarray[source_word] >> shift) | (bitarray[source_word+1] << shift_flipped);
         copy_word++;
         source_word++;
     }
@@ -391,41 +440,42 @@ static void extendSieve_shiftleft(struct sieve_state *sieve, const counter_t sou
 
     source_word = copy_word - size; // recalibrate
     while (copy_word + size <= destination_stop_word) {
-        memcpy(&sieve->bitarray[copy_word], &sieve->bitarray[source_word], size*sizeof(bitword_t) );
+        memcpy(&bitarray[copy_word], &bitarray[source_word], size*sizeof(bitword_t) );
         copy_word += size;
     }
 
     while (copy_word <= destination_stop_word) {
-        sieve->bitarray[copy_word] = sieve->bitarray[source_word];
+        bitarray[copy_word] = bitarray[source_word];
         copy_word++;
         source_word++;
     }
 
 }
 
-static inline void extendSieve(struct sieve_state *sieve, const counter_t source_start, const counter_t size, const counter_t destination_stop)	{
-    if (size < WORD_SIZE)           extendSieve_smallSize (sieve, source_start, size, destination_stop);
+static inline void extendSieve(bitword_t* bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop)	{
+    if (size < WORD_SIZE)           extendSieve_smallSize (bitarray, source_start, size, destination_stop);
 
     const counter_t copy_start  = source_start + size;
     const bitshift_t copy_bit   = bitindex(copy_start);
     const bitshift_t source_bit = bitindex(source_start);
 
-    if      (source_bit > copy_bit) extendSieve_shiftleft (sieve, source_start, size, destination_stop);
-    else if (source_bit < copy_bit) extendSieve_shiftright(sieve, source_start, size, destination_stop);
-    else                            extendSieve_aligned   (sieve, source_start, size, destination_stop);
+    if      (source_bit > copy_bit) extendSieve_shiftleft (bitarray, source_start, size, destination_stop);
+    else if (source_bit < copy_bit) extendSieve_shiftright(bitarray, source_start, size, destination_stop);
+    else                            extendSieve_aligned   (bitarray, source_start, size, destination_stop);
 }
 
 static void sieve_block_stripe(struct sieve_state *sieve, const counter_t block_start, const counter_t block_stop, const counter_t prime_start) {
     counter_t prime = prime_start;
     counter_t start = prime * prime * 2 + prime * 2;
     counter_t step  = prime * 2 + 1;
+    bitword_t* bitarray = sieve->bitarray;
     
     while (start <= block_stop) {
         step  = prime * 2 + 1;
         if (step > SMALLSTEP_FASTER) break;
         if (block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
-        setBitsTrue_smallStep(sieve, start, step, block_stop);
-        prime = searchBitFalse(sieve, prime+1 );
+        setBitsTrue_smallStep(bitarray, start, step, block_stop);
+        prime = searchBitFalse(bitarray, prime+1 );
         start = prime * prime * 2 + prime * 2;
     }
     
@@ -433,8 +483,8 @@ static void sieve_block_stripe(struct sieve_state *sieve, const counter_t block_
         step  = prime * 2 + 1;
         if (step > MEDIUMSTEP_FASTER) break;
         if (block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
-        setBitsTrue_mediumStep(sieve, start, step, block_stop);
-        prime = searchBitFalse(sieve, prime+1 );
+        setBitsTrue_mediumStep(bitarray, start, step, block_stop);
+        prime = searchBitFalse(bitarray, prime+1 );
         start = prime * prime * 2 + prime * 2;
     }
 
@@ -446,13 +496,13 @@ static void sieve_block_stripe(struct sieve_state *sieve, const counter_t block_
         if (block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
         start1 = start; // save value
         step1 = step; // save value
-        prime = searchBitFalse(sieve, prime+1 );
+        prime = searchBitFalse(bitarray, prime+1 );
         start = prime * prime * 2 + prime * 2;
         step  = prime * 2 + 1;
         if (block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
-        if (start <= block_stop) setBitsTrue_race(sieve, start1, start, step1, step, block_stop);
-        else                     setBitsTrue_smallRange(sieve, start1, step1, block_stop);
-        prime = searchBitFalse(sieve, prime+1 );
+        if (start <= block_stop) setBitsTrue_race(bitarray, start1, start, step1, step, block_stop);
+        else                     setBitsTrue_smallRange(bitarray, start1, step1, block_stop);
+        prime = searchBitFalse(bitarray, prime+1 );
         start = prime * prime * 2 + prime * 2;
     }
     
@@ -460,16 +510,16 @@ static void sieve_block_stripe(struct sieve_state *sieve, const counter_t block_
         step  = prime * 2 + 1;
         if (block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
         if (start + step * WORD_SIZE > block_stop) break;
-        setBitsTrue_largeRange(sieve, start, step, block_stop);
-        prime = searchBitFalse(sieve, prime+1 );
+        setBitsTrue_largeRange(bitarray, start, step, block_stop);
+        prime = searchBitFalse(bitarray, prime+1 );
         start = prime * prime * 2 + prime * 2;
     }
 
     while (start <= block_stop) {
         step  = prime * 2 + 1;
         if (block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
-        setBitsTrue_smallRange(sieve, start, step, block_stop);
-        prime = searchBitFalse(sieve, prime+1 );
+        setBitsTrue_smallRange(bitarray, start, step, block_stop);
+        prime = searchBitFalse(bitarray, prime+1 );
         start = prime * prime * 2 + prime * 2;
     }
 }
@@ -488,12 +538,13 @@ static struct block sieve_block_extend(struct sieve_state *sieve, const counter_
     counter_t patternsize_bits = 1;
     counter_t pattern_start    = 0;
     counter_t range_stop       = block_stop;
+    bitword_t* bitarray        = sieve->bitarray;
     struct block block = { .prime = 0, .pattern_start = 0, .pattern_size = 0 };
 
     sieve->bitarray[0] = SAFE_ZERO; // only the first word has to be cleared; the rest is populated by the extension procedure
     
     do {
-        prime = searchBitFalse(sieve, prime+1);
+        prime = searchBitFalse(bitarray, prime+1);
         counter_t start = prime * prime * 2 + prime * 2;
         if (start > block_stop) break;
 
@@ -507,13 +558,13 @@ static struct block sieve_block_extend(struct sieve_state *sieve, const counter_
 
         if (patternsize_bits>1) {
             pattern_start = block_start | patternsize_bits;
-            extendSieve(sieve, pattern_start, patternsize_bits, range_stop);
+            extendSieve(bitarray, pattern_start, patternsize_bits, range_stop);
         }
         patternsize_bits *= step;
 
-        if      (step < SMALLSTEP_FASTER)  setBitsTrue_smallStep (sieve, start, step, range_stop);
-        else if (step < MEDIUMSTEP_FASTER) setBitsTrue_mediumStep(sieve, start, step, range_stop);
-        else                               setBitsTrue_largeRange(sieve, start, step, range_stop);
+        if      (step < SMALLSTEP_FASTER)  setBitsTrue_smallStep (bitarray, start, step, range_stop);
+        else if (step < MEDIUMSTEP_FASTER) setBitsTrue_mediumStep(bitarray, start, step, range_stop);
+        else                               setBitsTrue_largeRange(bitarray, start, step, range_stop);
         block.prime = prime;
     } while (range_stop < block_stop);
 
@@ -525,17 +576,18 @@ static struct sieve_state *sieve(const counter_t maxints, const counter_t blocks
     counter_t prime         = 0;
     counter_t block_start   = 0;
     counter_t block_stop    = blocksize-1;
+    bitword_t* bitarray        = sieve->bitarray;
 
     // fill the whole sieve bij adding en copying incrementally
     struct block block = sieve_block_extend(sieve, 0, sieve->bits);
-    extendSieve(sieve, block.pattern_start, block.pattern_size, sieve->bits);
+    extendSieve(bitarray, block.pattern_start, block.pattern_size, sieve->bits);
     prime = block.prime;
 
     do {
         if (block_stop > sieve->bits) block_stop = sieve->bits;
-        prime = searchBitFalse(sieve, prime);
+        prime = searchBitFalse(bitarray, prime);
         sieve_block_stripe(sieve, block_start, block_stop, prime);
-        // sieve_block_stripe(sieve, block_start, block_stop, prime+1);
+        // sieve_block_stripe(bitarray, block_start, block_stop, prime+1);
         block_start += blocksize;
         block_stop += blocksize;
     } while (block_start <= sieve->bits);
