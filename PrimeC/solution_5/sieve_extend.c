@@ -22,8 +22,8 @@
 #define TYPE uint64_t
 
 // calculate the rest dynamically
-#define counter_t TYPE
-#define bitshift_t TYPE
+#define counter_t int64_t
+#define bitshift_t int64_t
 #define bitword_t TYPE
 
 #define WORD_SIZE (sizeof(TYPE)*8)
@@ -47,8 +47,11 @@ counter_t global_MEDIUMSTEP_FASTER = WORD_SIZE;
 #define bitindex_calc(index) ((bitshift_t)(index)&((bitword_t)(WORD_SIZE-1)))
 #define  markmask(index) (SAFE_SHIFTBIT << bitindex(index))
 #define  markmask_calc(index) (SAFE_SHIFTBIT << bitindex_calc(index))
-#define chopmask(index) ((SAFE_SHIFTBIT << bitindex(index))-SAFE_SHIFTBIT)
-#define chopmask2(index) (((bitword_t)2U << bitindex(index))-SAFE_SHIFTBIT)
+// #define chopmask(index) ((SAFE_SHIFTBIT << bitindex(index))-SAFE_SHIFTBIT)
+// #define chopmask2(index) (((bitword_t)2U << bitindex(index))-SAFE_SHIFTBIT)
+#define chopmask(index) (~SAFE_ZERO >> (WORD_SIZE-1-bitindex_calc(index)))
+#define chopmask2(index) chopmask(index)
+
 #define min(a,b) ((a<b) ? a : b)
 
 counter_t debug_hitpoint[5] = { 0,0,0,0,0};
@@ -81,18 +84,27 @@ static void delete_sieve(struct sieve_state *sieve) {
 
 // not much performance gain at smaller sieves, but its's nice to have an implementation
 static inline counter_t searchBitFalse(bitword_t* bitarray, counter_t index) {
+    counter_t newindex = index;
+    while (bitarray[wordindex(newindex)] & markmask(newindex)) newindex++;
+
     counter_t index_word = wordindex(index);
     bitshift_t index_bit  = bitindex_calc(index);
-    counter_t distance = (counter_t) __builtin_ctzll( ~(bitarray[index_word] >> index_bit));  // take inverse to be able to use ctz
+    bitshift_t distance = (bitshift_t) __builtin_ctzll( ~(bitarray[index_word] >> index_bit));  // take inverse to be able to use ctz
     index += distance;
     distance += index_bit;
 
-    while (distance >= WORD_SIZE) {
+    while (distance == WORD_SIZE_bitshift) { // to prevent a bug from optimzer
         index_word++;
-        distance = __builtin_ctzll(~(bitarray[index_word]));
+        distance = (bitshift_t) __builtin_ctzll(~(bitarray[index_word]));
         index += distance;
-    }
+    } 
 
+    return index;
+}
+
+// not much performance gain at smaller sieves, but its's nice to have an implementation
+static inline counter_t searchBitFalse_safe(bitword_t* bitarray, counter_t index) {
+    while (bitarray[wordindex(index)] & markmask(index)) index++;
     return index;
 }
 
@@ -345,7 +357,7 @@ static void extendSieve_shiftright(bitword_t* bitarray, const counter_t source_s
     counter_t source_lastword = wordindex(copy_start);
     bitarray[copy_word] |= ((bitarray[source_word] << shift)  // or the start in to not lose data
                                 | (bitarray[source_lastword] >> shift_flipped))
-                                & ~chopmask(copy_start);
+                                & ~chopmask2(copy_start);
     copy_word++;
     source_word++;
 
@@ -426,7 +438,7 @@ static void extendSieve_shiftleft(bitword_t* bitarray, const counter_t source_st
     register bitword_t* copy_ptr = &bitarray[wordindex(copy_start)];
     const bitword_t* aligned_copy_ptr = min(source_ptr + size, destination_stop_ptr); // after <<size>> words, just copy at word level
 
-    *copy_ptr |= ((*source_ptr >> shift) | (*(source_ptr+1) << shift_flipped)) & ~chopmask(copy_start); // because this is the first word, dont copy the extra bits in front of the source
+    *copy_ptr |= ((*source_ptr >> shift) | (*(source_ptr+1) << shift_flipped)) & ~chopmask2(copy_start); // because this is the first word, dont copy the extra bits in front of the source
     copy_ptr++;
     source_ptr++;
 
@@ -690,12 +702,15 @@ static counter_t count_primes(struct sieve_state *sieve) {
     counter_t       bits = sieve->bits;
     bitword_t  *bitarray = sieve->bitarray;
     counter_t primecount = 1;    // We already have 2
-    for (counter_t factor=1; factor < bits; factor++) {
-        if ((bitarray[wordindex(factor)] & markmask_calc(factor))==0) {
+    counter_t     factor = 1;
+    do {
+        primecount++;
+        counter_t last_prime = factor;
+        counter_t prime_predict = factor+1;
+        while (bitarray[wordindex(prime_predict)] & markmask(prime_predict) ) { prime_predict++; }
 
-            primecount++;
-        }
-    }
+        factor = searchBitFalse_safe(bitarray, factor+1); 
+    } while (factor < bits);
     return primecount;
 }
 
