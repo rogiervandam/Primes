@@ -379,11 +379,12 @@ static void extendSieve_aligned(bitword_t* bitarray, const counter_t source_star
 
 }
 
+//https://stackoverflow.com/questions/1898153/how-to-determine-if-memory-is-aligned
+#define is_unaligned(POINTER, BYTE_COUNT) (((uintptr_t)(const void *)(POINTER)) % (BYTE_COUNT))
+
 static void extendSieve_shiftright(bitword_t* bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
     debug printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using shiftright (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
-
-//    typedef int vector __attribute__ ((vector_size(16)));
-    
+   
     const counter_t destination_stop_word = wordindex(destination_stop);
     const counter_t copy_start = source_start + size;
     register const bitshift_t shift = bitindex_calc(copy_start) - bitindex_calc(source_start);
@@ -398,67 +399,57 @@ static void extendSieve_shiftright(bitword_t* bitarray, const counter_t source_s
     source_word++;
 
     const counter_t aligned_copy_word = min(source_word + size, destination_stop_word); // after <<size>> words, just copy at word level
+//    bitword_t* __restrict__ align_copy_ptr = &bitarray[aligned_copy_word];
+    debug { counter_t fast_loop_stop_word = uintsafeminus(aligned_copy_word,2); printf("...start - %ju - end fastloop - %ju - alignment - %ju - end\n", (uintmax_t)fast_loop_stop_word - (uintmax_t)wordindex(copy_start), (uintmax_t)aligned_copy_word - (uintmax_t)fast_loop_stop_word, (uintmax_t)destination_stop_word - (uintmax_t)aligned_copy_word); }
 
-    
-//    if (copy_word - source_word > 8) {
-//        const counter_t fast_loop_stop_word = (aligned_copy_word>8) ? (aligned_copy_word - 8) : 0;
-//        debug printf("...start - %ju - end fastloop - %ju - alignment - %ju - end - unrolled\n", (uintmax_t)fast_loop_stop_word - (uintmax_t)wordindex(copy_start), (uintmax_t)aligned_copy_word - (uintmax_t)fast_loop_stop_word, (uintmax_t)destination_stop_word - (uintmax_t)aligned_copy_word);
-//        while (copy_word < fast_loop_stop_word) {
-//            bitword_t sourcen = bitarray[source_word-1];
-//            bitword_t source0 = bitarray[source_word  ];
-//            bitword_t source1 = bitarray[source_word+1];
-//            bitword_t source2 = bitarray[source_word+2];
-//            bitword_t source3 = bitarray[source_word+3];
-//            bitword_t source4 = bitarray[source_word+4];
-//            bitword_t source5 = bitarray[source_word+5];
-//            bitword_t source6 = bitarray[source_word+6];
-//            bitword_t source7 = bitarray[source_word+7];
-//
-//            bitarray[copy_word  ] = (source0 << shift) | (sourcen >> shift_flipped);
-//            bitarray[copy_word+1] = (source1 << shift) | (source0 >> shift_flipped);
-//            bitarray[copy_word+2] = (source2 << shift) | (source1 >> shift_flipped);
-//            bitarray[copy_word+3] = (source3 << shift) | (source2 >> shift_flipped);
-//            bitarray[copy_word+4] = (source4 << shift) | (source3 >> shift_flipped);
-//            bitarray[copy_word+5] = (source5 << shift) | (source4 >> shift_flipped);
-//            bitarray[copy_word+6] = (source6 << shift) | (source5 >> shift_flipped);
-//            bitarray[copy_word+7] = (source7 << shift) | (source6 >> shift_flipped);
-//            copy_word += 8;
-//            source_word += 8;
-//        }
-//    }
-//    else {
-//        const counter_t fast_loop_stop_word = (aligned_copy_word>2) ? (aligned_copy_word - 2) : 0; // safe for unsigned ints
-//        debug printf("...start - %ju - end fastloop - %ju - alignment - %ju - end\n", (uintmax_t)fast_loop_stop_word - (uintmax_t)wordindex(copy_start), (uintmax_t)aligned_copy_word - (uintmax_t)fast_loop_stop_word, (uintmax_t)destination_stop_word - (uintmax_t)aligned_copy_word);
-//        while (copy_word < fast_loop_stop_word) {
-//            bitword_t sourcen = bitarray[source_word-1];
-//            register bitword_t source0 = bitarray[source_word  ];
-//
-//            bitarray[copy_word  ] = (source0 << shift) | (sourcen >> shift_flipped);
-//            bitword_t source1 = bitarray[source_word+1];
-//            bitarray[copy_word+1] = (source1 << shift) | (source0 >> shift_flipped);
-//            copy_word += 2;
-//            source_word += 2;
-//        }
-//    }
     //https://stackoverflow.com/questions/70043899/efficiently-shift-or-large-bit-vector
+    
     if (copy_word - source_word > 4) {
         counter_t size_word = aligned_copy_word - copy_word;
         bitword_t* __restrict__ copy_ptr = &bitarray[copy_word];
         bitword_t* __restrict__ source_ptr = &bitarray[source_word-1];
-        //        for (counter_t i = 0; i <= size_word; i++, copy_ptr++, source_ptr++) *copy_ptr = ((*source_ptr) >> shift_flipped) | (*(source_ptr+1) << shift);
         counter_t i=0;
+
+        // align to nice memory pointer
+        for (; i <= size_word && is_unaligned(copy_ptr,32); ++i,copy_ptr++, source_ptr++) {
+            *copy_ptr = ((*source_ptr) >> shift_flipped) | (*(source_ptr+1) << shift);
+        }
+
+        // try to get to compilter to work in larger chunks (avx)
         for (; i + 4 <= size_word; i+=4, copy_ptr+=4, source_ptr+=4) {
             for (int j = 0; j < 4; ++j)
                 *(copy_ptr+j) = (*(source_ptr+j)) >> shift_flipped;
             for (int j = 0; j < 4; ++j)
                 *(copy_ptr+j) |= (*(source_ptr+j+1)) << shift;
         }
+
+        // handle remaining
         for (; i <= size_word; ++i,copy_ptr++, source_ptr++) {
             *copy_ptr = ((*source_ptr) >> shift_flipped) | (*(source_ptr+1) << shift);
         }
         source_word += size_word;
         copy_word += size_word;
     }
+
+//    if (copy_word < aligned_copy_word) { // not restricted
+//        counter_t size_word = aligned_copy_word - copy_word;
+//        bitword_t* copy_ptr = &bitarray[copy_word];
+//        bitword_t* source_ptr = &bitarray[source_word-1];
+//        counter_t i=0;
+//
+//        for (; i < size_word; ++i,copy_ptr++, source_ptr++) {
+//            *copy_ptr = ((*source_ptr) >> shift_flipped) | (*(source_ptr+1) << shift);
+//            copy_word++;
+//            size_word++;
+//        }
+//
+//        //        source_word += size_word;
+////        copy_word += size_word;
+//
+////        if (copy_ptr >= align_copy_ptr) { printf("%ju %ju\n",(uintmax_t)copy_word,(uintmax_t)aligned_copy_word); exit(0); }
+//    }
+    
+
     while (copy_word <= aligned_copy_word) {
         bitarray[copy_word] = (bitarray[source_word-1] >> shift_flipped) | (bitarray[source_word] << shift);
         copy_word++;
@@ -468,10 +459,10 @@ static void extendSieve_shiftright(bitword_t* bitarray, const counter_t source_s
     if (copy_word >= destination_stop_word) return;
 
     source_word = copy_word - size;
-    while (copy_word + size <= destination_stop_word) {
-        memcpy(&bitarray[copy_word], &bitarray[source_word], (uintmax_t)size*sizeof(bitword_t) );
-        copy_word += size;
-    }
+//    while (copy_word + size <= destination_stop_word) {
+//        memcpy(&bitarray[copy_word], &bitarray[source_word], (uintmax_t)size*sizeof(bitword_t) );
+//        copy_word += size;
+//    }
 
     while (copy_word <= destination_stop_word) {
         bitarray[copy_word] = bitarray[source_word];
