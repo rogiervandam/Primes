@@ -23,6 +23,7 @@
 
 // 64 bit
 #define TYPE uint64_t
+//typedef uint32_t vector __attribute__ ((vector_size(32)));
 
 // calculate the rest dynamically
 #define counter_t TYPE
@@ -39,8 +40,9 @@
 counter_t global_SMALLSTEP_FASTER = 16;
 counter_t global_MEDIUMSTEP_FASTER = WORD_SIZE;
 
-#define SAFE_SHIFTBIT (bitword_t)1U
-#define SAFE_ZERO  (bitword_t)0U
+#define SAFE_SHIFTBIT (bitshift_t)1U
+#define SAFE_ZERO  (bitshift_t)0U
+#define BITWORD_SHIFTBIT (bitword_t)1U
 #define SMALLSTEP_FASTER ((counter_t)global_SMALLSTEP_FASTER)
 #define MEDIUMSTEP_FASTER ((counter_t)global_MEDIUMSTEP_FASTER)
 #define wordindex(index) (((counter_t)index) >> (bitshift_t)SHIFT)
@@ -48,7 +50,7 @@ counter_t global_MEDIUMSTEP_FASTER = WORD_SIZE;
 #define bitindex(index) ((bitshift_t)(index))
 // #define bitindex(index) ((bitshift_t)(index)&((bitword_t)(WORD_SIZE-1)))
 #define bitindex_calc(index) ((bitshift_t)(index)&((bitshift_t)(WORD_SIZE_bitshift-SAFE_SHIFTBIT)))
-#define  markmask(index) (SAFE_SHIFTBIT << bitindex(index))
+#define  markmask(index) (BITWORD_SHIFTBIT << bitindex(index))
 #define  markmask_calc(index) (SAFE_SHIFTBIT << bitindex_calc(index))
 // #define chopmask(index) ((SAFE_SHIFTBIT << bitindex(index))-SAFE_SHIFTBIT)
 // #define chopmask2(index) (((bitword_t)2U << bitindex(index))-SAFE_SHIFTBIT)
@@ -67,6 +69,18 @@ struct sieve_state {
     counter_t  size;
 };
 
+//static inline void printWord(bitword_t bitword)
+//{
+//    char row[WORD_SIZE*2] = {};
+//    int col=0;
+//    for (int i=WORD_SIZE-1; i>=0; i--) {
+//        row[col++] = (bitword & (1<<i))?'1':'.';
+//        if (!(i%8)) row[col++] = ' ';
+//    }
+//
+//    printf("%s", row);
+//}
+
 // use cache lines as much as possible - alignment might be key
 #define ceiling(x,y) (((x) + (y) - 1) / (y)) // Return the smallest multiple N of y such that:  x <= y * N
 static struct sieve_state *create_sieve(counter_t maxints) {
@@ -74,7 +88,7 @@ static struct sieve_state *create_sieve(counter_t maxints) {
     size_t memSize = ceiling(1+((size_t)maxints/2), anticiped_cache_line_bytesize*8) * anticiped_cache_line_bytesize; //make multiple of 8
 
     sieve->bitarray = aligned_alloc((size_t)anticiped_cache_line_bytesize, (size_t)memSize );
-    sieve->bits     = maxints >> SAFE_SHIFTBIT;
+    sieve->bits     = maxints >> 1;
     sieve->size     = maxints;
 
     // moved clearing the sieve with 0 to the sieve_block_extend
@@ -89,19 +103,22 @@ static void delete_sieve(struct sieve_state *sieve) {
 
 // not much performance gain at smaller sieves, but its's nice to have an implementation
 static inline counter_t searchBitFalse(bitword_t* bitarray, counter_t index) {
-    counter_t index_word = wordindex(index);
-    bitshift_t index_bit  = bitindex_calc(index);
-    bitshift_t distance = (bitshift_t) __builtin_ctzll( ~(bitarray[index_word] >> index_bit));  // take inverse to be able to use ctz
-    index += distance;
-    distance += index_bit;
-
-    while (distance == WORD_SIZE_bitshift) { // to prevent a bug from optimzer
-        index_word++;
-        distance = (bitshift_t) __builtin_ctzll(~(bitarray[index_word]));
-        index += distance;
-    } 
-
+    while (bitarray[wordindex(index)] & markmask(index)) index++;
     return index;
+    
+//    counter_t index_word = wordindex(index);
+//    bitshift_t index_bit  = bitindex_calc(index);
+//    bitshift_t distance = (bitshift_t) __builtin_ctzll( ~(bitarray[index_word] >> index_bit));  // take inverse to be able to use ctz
+//    index += distance;
+//    distance += index_bit;
+//
+//    while (distance == WORD_SIZE_bitshift) { // to prevent a bug from optimzer
+//        index_word++;
+//        distance = (bitshift_t) __builtin_ctzll(~(bitarray[index_word]));
+//        index += distance;
+//    }
+//
+//    return index;
 }
 
 // not much performance gain at smaller sieves, but its's nice to have an implementation
@@ -110,7 +127,7 @@ static inline counter_t searchBitFalse_safe(bitword_t* bitarray, counter_t index
     return index;
 }
 
-static void inline applyMask(bitword_t* bitarray, const counter_t step, const counter_t range_stop, const bitword_t mask, counter_t index_word) {
+static void inline applyMask(bitword_t* __restrict bitarray, const counter_t step, const counter_t range_stop, const bitword_t mask, counter_t index_word) {
 #if __APPLE__
       register const counter_t step_2 = step * 2;
       register const counter_t step_3 = step * 3;
@@ -125,7 +142,7 @@ static void inline applyMask(bitword_t* bitarray, const counter_t step, const co
           bitarray[index_word + step_3] |= mask;
           index_word += step_4;
       }
-    
+
       while (index_word < range_stop_word) {
           bitarray[index_word] |= mask;
           index_word += step;
@@ -138,9 +155,9 @@ static void inline applyMask(bitword_t* bitarray, const counter_t step, const co
 //    ALTERNATIVE using pointers is faster in gcc
 #if __linux__
    const counter_t range_stop_word = wordindex(range_stop);
-   register bitword_t* index_ptr = &bitarray[index_word];
-   register bitword_t* fast_loop_ptr = &bitarray[((range_stop_word>step*5) ? (range_stop_word - step*5):0)];//>step_4) ? (range_stop_word - step_4) : 0];
-   register bitword_t* range_stop_ptr = &bitarray[(range_stop_word)];//>step_4) ? (range_stop_word - step_4) : 0];
+   register bitword_t* __restrict index_ptr = &bitarray[index_word];
+   register bitword_t* __restrict fast_loop_ptr = &bitarray[((range_stop_word>step*5) ? (range_stop_word - step*5):0)];//>step_4) ? (range_stop_word - step_4) : 0];
+   register bitword_t* __restrict range_stop_ptr = &bitarray[(range_stop_word)];//>step_4) ? (range_stop_word - step_4) : 0];
 
    while ( index_ptr < fast_loop_ptr) {
        *index_ptr |= mask;
@@ -365,6 +382,8 @@ static void extendSieve_aligned(bitword_t* bitarray, const counter_t source_star
 static void extendSieve_shiftright(bitword_t* bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
     debug printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using shiftright (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
 
+//    typedef int vector __attribute__ ((vector_size(16)));
+    
     const counter_t destination_stop_word = wordindex(destination_stop);
     const counter_t copy_start = source_start + size;
     register const bitshift_t shift = bitindex_calc(copy_start) - bitindex_calc(source_start);
@@ -381,47 +400,65 @@ static void extendSieve_shiftright(bitword_t* bitarray, const counter_t source_s
     const counter_t aligned_copy_word = min(source_word + size, destination_stop_word); // after <<size>> words, just copy at word level
 
     
-    if (copy_word - source_word > 8) {
-        const counter_t fast_loop_stop_word = (aligned_copy_word>8) ? (aligned_copy_word - 8) : 0;
-        debug printf("...start - %ju - end fastloop - %ju - alignment - %ju - end - unrolled\n", (uintmax_t)fast_loop_stop_word - (uintmax_t)wordindex(copy_start), (uintmax_t)aligned_copy_word - (uintmax_t)fast_loop_stop_word, (uintmax_t)destination_stop_word - (uintmax_t)aligned_copy_word);
-        while (copy_word < fast_loop_stop_word) {
-            bitword_t sourcen = bitarray[source_word-1];
-            bitword_t source0 = bitarray[source_word  ];
-            bitword_t source1 = bitarray[source_word+1];
-            bitword_t source2 = bitarray[source_word+2];
-            bitword_t source3 = bitarray[source_word+3];
-            bitword_t source4 = bitarray[source_word+4];
-            bitword_t source5 = bitarray[source_word+5];
-            bitword_t source6 = bitarray[source_word+6];
-            bitword_t source7 = bitarray[source_word+7];
-
-            bitarray[copy_word  ] = (source0 << shift) | (sourcen >> shift_flipped);
-            bitarray[copy_word+1] = (source1 << shift) | (source0 >> shift_flipped);
-            bitarray[copy_word+2] = (source2 << shift) | (source1 >> shift_flipped);
-            bitarray[copy_word+3] = (source3 << shift) | (source2 >> shift_flipped);
-            bitarray[copy_word+4] = (source4 << shift) | (source3 >> shift_flipped);
-            bitarray[copy_word+5] = (source5 << shift) | (source4 >> shift_flipped);
-            bitarray[copy_word+6] = (source6 << shift) | (source5 >> shift_flipped);
-            bitarray[copy_word+7] = (source7 << shift) | (source6 >> shift_flipped);
-            copy_word += 8;
-            source_word += 8;
+//    if (copy_word - source_word > 8) {
+//        const counter_t fast_loop_stop_word = (aligned_copy_word>8) ? (aligned_copy_word - 8) : 0;
+//        debug printf("...start - %ju - end fastloop - %ju - alignment - %ju - end - unrolled\n", (uintmax_t)fast_loop_stop_word - (uintmax_t)wordindex(copy_start), (uintmax_t)aligned_copy_word - (uintmax_t)fast_loop_stop_word, (uintmax_t)destination_stop_word - (uintmax_t)aligned_copy_word);
+//        while (copy_word < fast_loop_stop_word) {
+//            bitword_t sourcen = bitarray[source_word-1];
+//            bitword_t source0 = bitarray[source_word  ];
+//            bitword_t source1 = bitarray[source_word+1];
+//            bitword_t source2 = bitarray[source_word+2];
+//            bitword_t source3 = bitarray[source_word+3];
+//            bitword_t source4 = bitarray[source_word+4];
+//            bitword_t source5 = bitarray[source_word+5];
+//            bitword_t source6 = bitarray[source_word+6];
+//            bitword_t source7 = bitarray[source_word+7];
+//
+//            bitarray[copy_word  ] = (source0 << shift) | (sourcen >> shift_flipped);
+//            bitarray[copy_word+1] = (source1 << shift) | (source0 >> shift_flipped);
+//            bitarray[copy_word+2] = (source2 << shift) | (source1 >> shift_flipped);
+//            bitarray[copy_word+3] = (source3 << shift) | (source2 >> shift_flipped);
+//            bitarray[copy_word+4] = (source4 << shift) | (source3 >> shift_flipped);
+//            bitarray[copy_word+5] = (source5 << shift) | (source4 >> shift_flipped);
+//            bitarray[copy_word+6] = (source6 << shift) | (source5 >> shift_flipped);
+//            bitarray[copy_word+7] = (source7 << shift) | (source6 >> shift_flipped);
+//            copy_word += 8;
+//            source_word += 8;
+//        }
+//    }
+//    else {
+//        const counter_t fast_loop_stop_word = (aligned_copy_word>2) ? (aligned_copy_word - 2) : 0; // safe for unsigned ints
+//        debug printf("...start - %ju - end fastloop - %ju - alignment - %ju - end\n", (uintmax_t)fast_loop_stop_word - (uintmax_t)wordindex(copy_start), (uintmax_t)aligned_copy_word - (uintmax_t)fast_loop_stop_word, (uintmax_t)destination_stop_word - (uintmax_t)aligned_copy_word);
+//        while (copy_word < fast_loop_stop_word) {
+//            bitword_t sourcen = bitarray[source_word-1];
+//            register bitword_t source0 = bitarray[source_word  ];
+//
+//            bitarray[copy_word  ] = (source0 << shift) | (sourcen >> shift_flipped);
+//            bitword_t source1 = bitarray[source_word+1];
+//            bitarray[copy_word+1] = (source1 << shift) | (source0 >> shift_flipped);
+//            copy_word += 2;
+//            source_word += 2;
+//        }
+//    }
+    //https://stackoverflow.com/questions/70043899/efficiently-shift-or-large-bit-vector
+    if (copy_word - source_word > 4) {
+        counter_t size_word = aligned_copy_word - copy_word;
+        bitword_t* __restrict__ copy_ptr = &bitarray[copy_word];
+        bitword_t* __restrict__ source_ptr = &bitarray[source_word-1];
+        //        for (counter_t i = 0; i <= size_word; i++, copy_ptr++, source_ptr++) *copy_ptr = ((*source_ptr) >> shift_flipped) | (*(source_ptr+1) << shift);
+        counter_t i=0;
+        for (; i + 4 <= size_word; i+=4, copy_ptr+=4, source_ptr+=4) {
+            for (int j = 0; j < 4; ++j)
+                *(copy_ptr+j) = (*(source_ptr+j)) >> shift_flipped;
+            for (int j = 0; j < 4; ++j)
+                *(copy_ptr+j) |= (*(source_ptr+j+1)) << shift;
         }
-    }
-    else {
-        const counter_t fast_loop_stop_word = (aligned_copy_word>2) ? (aligned_copy_word - 2) : 0; // safe for unsigned ints
-        debug printf("...start - %ju - end fastloop - %ju - alignment - %ju - end\n", (uintmax_t)fast_loop_stop_word - (uintmax_t)wordindex(copy_start), (uintmax_t)aligned_copy_word - (uintmax_t)fast_loop_stop_word, (uintmax_t)destination_stop_word - (uintmax_t)aligned_copy_word);
-        while (copy_word < fast_loop_stop_word) {
-            bitword_t sourcen = bitarray[source_word-1];
-            register bitword_t source0 = bitarray[source_word  ];
-            
-            bitarray[copy_word  ] = (source0 << shift) | (sourcen >> shift_flipped);
-            bitword_t source1 = bitarray[source_word+1];
-            bitarray[copy_word+1] = (source1 << shift) | (source0 >> shift_flipped);
-            copy_word += 2;
-            source_word += 2;
+        for (; i <= size_word; ++i,copy_ptr++, source_ptr++) {
+            *copy_ptr = ((*source_ptr) >> shift_flipped) | (*(source_ptr+1) << shift);
         }
+        source_word += size_word;
+        copy_word += size_word;
     }
-    
     while (copy_word <= aligned_copy_word) {
         bitarray[copy_word] = (bitarray[source_word-1] >> shift_flipped) | (bitarray[source_word] << shift);
         copy_word++;
@@ -978,6 +1015,7 @@ static tuning_result_type tune(int tune_level, counter_t maxints, int option_ver
 }
 
 int main(int argc, char *argv[]) {
+
     
     counter_t option_maxFactor  = default_sieve_limit;
     counter_t option_showMaxFactor = default_showMaxFactor;
