@@ -15,7 +15,7 @@
 #define default_sample_duration 0.1
 #define default_sample_max 5
 #define default_verbose_level 1
-#define default_tune_level 1
+#define default_tune_level 2
 #define default_check_level 1
 #define default_show_primes_on_error 100
 #define default_showMaxFactor (0 || option_runonce?100:0)
@@ -55,6 +55,7 @@ counter_t global_MEDIUMSTEP_FASTER = WORD_SIZE;
 // #define chopmask(index) ((SAFE_SHIFTBIT << bitindex(index))-SAFE_SHIFTBIT)
 // #define chopmask2(index) (((bitword_t)2U << bitindex(index))-SAFE_SHIFTBIT)
 #define chopmask(index) (~SAFE_ZERO >> (WORD_SIZE-1-bitindex_calc(index)))
+#define keepmask(index) (~SAFE_ZERO << (bitindex_calc(index)))
 #define chopmask2(index) chopmask(index)
 #define real(bit) (bit*2+1)
 
@@ -69,17 +70,7 @@ struct sieve_state {
     counter_t  size;
 };
 
-//static inline void printWord(bitword_t bitword)
-//{
-//    char row[WORD_SIZE*2] = {};
-//    int col=0;
-//    for (int i=WORD_SIZE-1; i>=0; i--) {
-//        row[col++] = (bitword & (1<<i))?'1':'.';
-//        if (!(i%8)) row[col++] = ' ';
-//    }
-//
-//    printf("%s", row);
-//}
+#include "debugtools.h"
 
 // use cache lines as much as possible - alignment might be key
 #define ceiling(x,y) (((x) + (y) - 1) / (y)) // Return the smallest multiple N of y such that:  x <= y * N
@@ -128,37 +119,40 @@ static inline counter_t searchBitFalse_safe(bitword_t* bitarray, counter_t index
 }
 
 static void inline applyMask(bitword_t* __restrict bitarray, const counter_t step, const counter_t range_stop, const bitword_t mask, counter_t index_word) {
-#if __APPLE__
-      register const counter_t step_2 = step * 2;
-      register const counter_t step_3 = step * 3;
-      register const counter_t step_4 = step * 4;
-      register const counter_t range_stop_word = wordindex(range_stop);
-      register const counter_t loop_stop_word = (range_stop_word > step_3) ? (range_stop_word - step_3) : (counter_t)0U;
+// #if __APPLE__
+    // register const counter_t step_2 = step * 2;
+    // register const counter_t step_3 = step * 3;
+    // register const counter_t step_4 = step * 4;
+    // register const counter_t range_stop_word = wordindex(range_stop);
+    // register const counter_t loop_stop_word = (range_stop_word > step_3) ? (range_stop_word - step_3) : (counter_t)0U;
 
-      while (index_word < loop_stop_word) {
-          bitarray[index_word         ] |= mask;
-          bitarray[index_word + step  ] |= mask;
-          bitarray[index_word + step_2] |= mask;
-          bitarray[index_word + step_3] |= mask;
-          index_word += step_4;
-      }
+    // #pragma ivdep
+    // while (index_word < loop_stop_word) {
+    //     bitarray[index_word         ] |= mask;
+    //     bitarray[index_word + step  ] |= mask;
+    //     bitarray[index_word + step_2] |= mask;
+    //     bitarray[index_word + step_3] |= mask;
+    //     index_word += step_4;
+    // }
+ 
+    // #pragma ivdep
+    // while (index_word < range_stop_word) {
+    //     bitarray[index_word] |= mask;
+    //     index_word += step;
+    // }
 
-      while (index_word < range_stop_word) {
-          bitarray[index_word] |= mask;
-          index_word += step;
-      }
-
-      if (index_word == wordindex(range_stop)) {
-          bitarray[wordindex(range_stop)] |= (mask & chopmask2(range_stop));
-      }
-#endif
+    // if (index_word == wordindex(range_stop)) {
+    //     bitarray[wordindex(range_stop)] |= (mask & chopmask2(range_stop));
+    // }
+// #endif
 //    ALTERNATIVE using pointers is faster in gcc
-#if __linux__
+// #if __linux__
    const counter_t range_stop_word = wordindex(range_stop);
    register bitword_t* __restrict index_ptr = &bitarray[index_word];
    register bitword_t* __restrict fast_loop_ptr = &bitarray[((range_stop_word>step*5) ? (range_stop_word - step*5):0)];//>step_4) ? (range_stop_word - step_4) : 0];
    register bitword_t* __restrict range_stop_ptr = &bitarray[(range_stop_word)];//>step_4) ? (range_stop_word - step_4) : 0];
 
+   #pragma simd
    while ( index_ptr < fast_loop_ptr) {
        *index_ptr |= mask;
        index_ptr+=step;
@@ -181,7 +175,7 @@ static void inline applyMask(bitword_t* __restrict bitarray, const counter_t ste
       *range_stop_ptr |= (mask & chopmask2(range_stop));
    }
 
-#endif
+// #endif
 }
 
 // set bits by creating a pattern and then extending it to word and range size
@@ -333,9 +327,10 @@ static void setBitsTrue_largeRange(bitword_t* bitarray, const counter_t range_st
 
 static void extendSieve_smallSize(bitword_t* bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
     debug printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using smallsize (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
+    // debug { printf("...At start. "); dump_bitarray(bitarray, 4); }
 
     counter_t source_word = wordindex(source_start);
-    bitword_t pattern = ((bitarray[source_word] >> bitindex(source_start)) | (bitarray[source_word+1] << (WORD_SIZE-bitindex_calc(source_start)))) & chopmask2(size);
+    bitword_t pattern = ((bitarray[source_word] >> bitindex(source_start)) | (bitarray[source_word+1] << (WORD_SIZE_counter-bitindex_calc(source_start)))) & chopmask2(size);
     for (bitshift_t pattern_size = (bitshift_t)size; pattern_size <= WORD_SIZE_bitshift; pattern_size += pattern_size) pattern |= (pattern << pattern_size);
 
     counter_t copy_start = source_start + size;
@@ -343,7 +338,12 @@ static void extendSieve_smallSize(bitword_t* bitarray, const counter_t source_st
     bitarray[copy_word] |= (pattern << bitindex(copy_start));
 
     counter_t destination_stop_word = wordindex(destination_stop);
-    if (copy_word == destination_stop_word) return;
+    // debug { printf("...After first word. "); dump_bitarray(bitarray, 4); }
+    if (copy_word == destination_stop_word) {
+        bitarray[copy_word] &= chopmask(destination_stop);
+        // debug { printf("...Returning after first word. "); dump_bitarray(bitarray, 4); }
+        return;
+    }
 
     bitshift_t pattern_shift = WORD_SIZE_counter % size;
     bitshift_t pattern_size = WORD_SIZE_bitshift - pattern_shift;
@@ -354,6 +354,8 @@ static void extendSieve_smallSize(bitword_t* bitarray, const counter_t source_st
         bitarray[copy_word] = (pattern << (pattern_size-shift)) | (pattern >> shift);
         shift = (shift + pattern_shift) & ((WORD_SIZE_bitshift-1));  // alternative, but faster
     }
+    bitarray[copy_word] &= chopmask(destination_stop);
+    // debug { printf("...After copies. "); dump_bitarray(bitarray, 4); }
 }
 
 static void extendSieve_aligned(bitword_t* bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
@@ -382,7 +384,25 @@ static void extendSieve_aligned(bitword_t* bitarray, const counter_t source_star
 //https://stackoverflow.com/questions/1898153/how-to-determine-if-memory-is-aligned
 #define is_unaligned(POINTER, BYTE_COUNT) (((uintptr_t)(const void *)(POINTER)) % (BYTE_COUNT))
 
-static void extendSieve_shiftright(bitword_t* bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
+void shiftvec(uint64_t* __restrict dst, const uint64_t* __restrict src, int size, int shift)
+{
+    int i = 0;
+    // MSVC: use steps of 2 for SSE, 4 for AVX2, 8 for AVX512
+    for (; i+4 < size; i+=4,dst+=4,src+=4)
+    {
+        for (int j = 0; j < 4; ++j)
+            *(dst+j) = (*(src+j))<<shift;
+        for (int j = 0; j < 4; ++j)
+            *(dst+j) |= (*(src+1)>>(64-shift));
+    }
+    for (; i < size; ++i,++src,++dst)
+    {
+        *dst = ((*src)>>shift) | (*(src+1)<<(64-shift));
+    }    
+}
+
+#define forward_distance 3
+static void extendSieve_shiftright_ptr(bitword_t* bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
     debug printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using shiftright (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
    
     const counter_t destination_stop_word = wordindex(destination_stop);
@@ -391,102 +411,68 @@ static void extendSieve_shiftright(bitword_t* bitarray, const counter_t source_s
     register const bitshift_t shift_flipped = WORD_SIZE_bitshift-shift;
     register counter_t source_word = wordindex(source_start);
     register counter_t copy_word = wordindex(copy_start);
-    counter_t source_lastword = wordindex(copy_start);
+
+    if (copy_word >= destination_stop_word) { 
+        bitarray[copy_word] |= ((bitarray[source_word] << shift)  // or the start in to not lose data
+                                | (bitarray[copy_word] >> shift_flipped))
+                                & keepmask(copy_start) & chopmask(destination_stop);
+        return; // rapid exit for one word variant
+    }
+
     bitarray[copy_word] |= ((bitarray[source_word] << shift)  // or the start in to not lose data
-                                | (bitarray[source_lastword] >> shift_flipped))
-                                & ~chopmask2(copy_start);
+                                | (bitarray[copy_word] >> shift_flipped))
+                                & keepmask(copy_start);
+
     copy_word++;
-    source_word++;
 
-    const counter_t aligned_copy_word = min(source_word + size, destination_stop_word); // after <<size>> words, just copy at word level
-//    bitword_t* __restrict__ align_copy_ptr = &bitarray[aligned_copy_word];
-    debug { counter_t fast_loop_stop_word = uintsafeminus(aligned_copy_word,2); printf("...start - %ju - end fastloop - %ju - alignment - %ju - end\n", (uintmax_t)fast_loop_stop_word - (uintmax_t)wordindex(copy_start), (uintmax_t)aligned_copy_word - (uintmax_t)fast_loop_stop_word, (uintmax_t)destination_stop_word - (uintmax_t)aligned_copy_word); }
+    debug printf("..copy distance %ju\n",copy_word - source_word);
+    if (((copy_word - source_word) > forward_distance)) {
+        // shiftvec(&bitarray[copy_word], &bitarray[source_word],size_word,shift );
+        
+        bitword_t* __restrict copy_ptr   = &bitarray[copy_word];
+        bitword_t* __restrict source_ptr = &bitarray[source_word];
+        // bitword_t* copy_ptr   = &bitarray[copy_word];
+        // bitword_t* source_ptr = &bitarray[source_word];
+        bitword_t* __restrict dest_ptr   = &bitarray[destination_stop_word];
+        counter_t size_word   = dest_ptr - copy_ptr;
 
-    //https://stackoverflow.com/questions/70043899/efficiently-shift-or-large-bit-vector
-    
-    if (copy_word - source_word > 4) {
-        counter_t size_word = aligned_copy_word - copy_word;
-        bitword_t* __restrict__ copy_ptr = &bitarray[copy_word];
-        bitword_t* __restrict__ source_ptr = &bitarray[source_word-1];
-        counter_t i=0;
-
-        // align to nice memory pointer
-        for (; i <= size_word && is_unaligned(copy_ptr,32); ++i,copy_ptr++, source_ptr++) {
-            *copy_ptr = ((*source_ptr) >> shift_flipped) | (*(source_ptr+1) << shift);
+        #pragma ivdep 
+        for (counter_t i = 0; (i+forward_distance) < size_word; i+=forward_distance, copy_ptr+=forward_distance, source_ptr+=forward_distance) {
+            #pragma ivdep
+            for (counter_t j = 0; j < forward_distance; ++j) 
+                *(copy_ptr+j)  = (*(source_ptr+j  ) >> shift_flipped); 
+            #pragma ivdep
+            for (counter_t j = 0; j < forward_distance; ++j) 
+                *(copy_ptr+j) |= (*(source_ptr+j+1) << shift);
         }
 
-        // try to get to compilter to work in larger chunks (avx)
-        for (; i + 4 <= size_word; i+=4, copy_ptr+=4, source_ptr+=4) {
-            for (int j = 0; j < 4; ++j)
-                *(copy_ptr+j) = (*(source_ptr+j)) >> shift_flipped;
-            for (int j = 0; j < 4; ++j)
-                *(copy_ptr+j) |= (*(source_ptr+j+1)) << shift;
-        }
+        size_word = dest_ptr - copy_ptr;
+        for (counter_t i=0; i <= size_word; i++) 
+            *(copy_ptr+i) = (*(source_ptr+i) >> shift_flipped) | (*(source_ptr+i+1) << shift);
 
-        // handle remaining
-        for (; i <= size_word; ++i,copy_ptr++, source_ptr++) {
-            *copy_ptr = ((*source_ptr) >> shift_flipped) | (*(source_ptr+1) << shift);
-        }
-        source_word += size_word;
-        copy_word += size_word;
+        // #pragma GCC ivdep
+        // for (; i <= size_word; i++) 
+        //     *(copy_ptr+i) = (*(source_ptr+i) >> shift_flipped) | (*(source_ptr+i+1) << shift);
+    }
+    else {
+        register counter_t i = 0;
+        bitword_t* copy_ptr   = &bitarray[copy_word];
+        bitword_t* source_ptr = &bitarray[source_word];
+        bitword_t* dest_ptr   = &bitarray[destination_stop_word];
+        counter_t size_word   = dest_ptr - copy_ptr;
+        for (; i <= size_word; i++) 
+            *(copy_ptr+i) = (*(source_ptr+i) >> shift_flipped) | (*(source_ptr+i+1) << shift);
     }
 
-//    if (copy_word < aligned_copy_word) { // not restricted
-//        counter_t size_word = aligned_copy_word - copy_word;
-//        bitword_t* copy_ptr = &bitarray[copy_word];
-//        bitword_t* source_ptr = &bitarray[source_word-1];
-//        counter_t i=0;
-//
-//        for (; i < size_word; ++i,copy_ptr++, source_ptr++) {
-//            *copy_ptr = ((*source_ptr) >> shift_flipped) | (*(source_ptr+1) << shift);
-//            copy_word++;
-//            size_word++;
-//        }
-//
-//        //        source_word += size_word;
-////        copy_word += size_word;
-//
-////        if (copy_ptr >= align_copy_ptr) { printf("%ju %ju\n",(uintmax_t)copy_word,(uintmax_t)aligned_copy_word); exit(0); }
-//    }
-    
+    // for (; i <= size_word; i++) 
+    //     *(copy_ptr+i) = (*(source_ptr+i) >> shift_flipped) | (*(source_ptr+i+1) << shift);
 
-    while (copy_word <= aligned_copy_word) {
-        bitarray[copy_word] = (bitarray[source_word-1] >> shift_flipped) | (bitarray[source_word] << shift);
-        copy_word++;
-        source_word++;
-    }
-    
-    if (copy_word >= destination_stop_word) return;
+    // for (; i <= size_word; i++) 
+    //     bitarray[copy_word+i] = (bitarray[source_word+i] >> shift_flipped) | (bitarray[source_word+i+1] << shift);
 
-    source_word = copy_word - size;
-//    while (copy_word + size <= destination_stop_word) {
-//        memcpy(&bitarray[copy_word], &bitarray[source_word], (uintmax_t)size*sizeof(bitword_t) );
-//        copy_word += size;
-//    }
-
-    while (copy_word <= destination_stop_word) {
-        bitarray[copy_word] = bitarray[source_word];
-        copy_word++;
-        source_word++;
-    }
-
+    // for (; copy_word <= destination_stop_word; copy_word++, source_word++ ) 
+    //     bitarray[copy_word] = (bitarray[source_word] >> shift_flipped) | (bitarray[source_word+1] << shift);
 }
-
-
-// static inline counter_t extendSieve_shiftleft_unrolled(bitword_t* bitarray, const counter_t aligned_copy_word, const bitshift_t shift, counter_t copy_word, counter_t source_word) {
-//     const bitshift_t shift_flipped = WORD_SIZE-shift;
-//     const counter_t fast_loop_stop_word = (aligned_copy_word>2) ? (aligned_copy_word - 2) : 0; // safe for unsigned ints
-//     while (copy_word < fast_loop_stop_word) {
-//         bitword_t source0 = bitarray[source_word  ];
-//         bitword_t source1 = bitarray[source_word+1];
-//         bitarray[copy_word  ] = (source0 >>= shift) | (source1 << shift_flipped);
-//         bitword_t source2 = bitarray[source_word+2];
-//         bitarray[copy_word+1] = (source1 >>= shift) | (source2 <<= shift_flipped);
-//         copy_word += 2;
-//         source_word += 2;
-//     }
-//     return copy_word;
-// }
 
 static inline counter_t extendSieve_shiftleft_unrolled(bitword_t* bitarray, const counter_t aligned_copy_word, const bitshift_t shift, counter_t copy_word, counter_t source_word) {
     const counter_t fast_loop_stop_word = (aligned_copy_word>2) ? (aligned_copy_word - 2) : 0; // safe for unsigned ints
@@ -557,7 +543,80 @@ static inline counter_t extendSieve_shiftleft_unrolled(bitword_t* bitarray, cons
 //
 //}
 
- static void extendSieve_shiftleft(bitword_t* bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
+
+static void extendSieve_shiftright_ivdep(bitword_t* bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
+    debug printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using shiftright (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
+   
+    const counter_t destination_stop_word = wordindex(destination_stop);
+    const counter_t copy_start = source_start + size;
+    register const bitshift_t shift = bitindex_calc(copy_start) - bitindex_calc(source_start);
+    register const bitshift_t shift_flipped = WORD_SIZE_bitshift-shift;
+    register counter_t source_word = wordindex(source_start);
+    register counter_t copy_word = wordindex(copy_start);
+
+    if (copy_word >= destination_stop_word) { 
+        bitarray[copy_word] |= ((bitarray[source_word] << shift)  // or the start in to not lose data
+                                | (bitarray[copy_word] >> shift_flipped))
+                                & keepmask(copy_start) & chopmask(destination_stop);
+        return; // rapid exit for one word variant
+    }
+
+    bitarray[copy_word] |= ((bitarray[source_word] << shift)  // or the start in to not lose data
+                                | (bitarray[copy_word] >> shift_flipped))
+                                & keepmask(copy_start);
+
+    copy_word++;
+
+    debug { printf("...start - %ju - %ju - end\n",(uintmax_t)wordindex(copy_start), (uintmax_t)destination_stop_word) ; }
+
+    if (size >= WORD_SIZE_counter) {
+        register const counter_t loop_distance = destination_stop_word - copy_word;
+        #pragma ivdep
+        for (register counter_t i = 0; i <loop_distance; i++) {
+            bitarray[copy_word+i] = (bitarray[source_word+i] >> shift_flipped) | (bitarray[source_word+1+i] << shift);
+        }
+        source_word += loop_distance; copy_word+= loop_distance;
+    }
+
+    for (; copy_word <= destination_stop_word; copy_word++,source_word++ ) {
+        bitarray[copy_word] = (bitarray[source_word] >> shift_flipped) | (bitarray[source_word+1] << shift);
+    }
+    bitarray[copy_word] &= chopmask(destination_stop);
+
+}
+
+static void extendSieve_shiftright_base(bitword_t* bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
+    debug printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using shiftright (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
+   
+    const counter_t destination_stop_word = wordindex(destination_stop);
+    const counter_t copy_start = source_start + size;
+    register const bitshift_t shift = bitindex_calc(copy_start) - bitindex_calc(source_start);
+    register const bitshift_t shift_flipped = WORD_SIZE_bitshift-shift;
+    register counter_t source_word = wordindex(source_start);
+    register counter_t copy_word = wordindex(copy_start);
+
+    if (copy_word >= destination_stop_word) { 
+        bitarray[copy_word] |= ((bitarray[source_word] << shift)  // or the start in to not lose data
+                                | (bitarray[copy_word] >> shift_flipped))
+                                & keepmask(copy_start) & chopmask(destination_stop);
+        return; // rapid exit for one word variant
+    }
+
+    bitarray[copy_word] |= ((bitarray[source_word] << shift)  // or the start in to not lose data
+                                | (bitarray[copy_word] >> shift_flipped))
+                                & keepmask(copy_start);
+    
+    copy_word++;
+
+    debug { printf("...start - %ju - %ju - end\n",(uintmax_t)wordindex(copy_start), (uintmax_t)destination_stop_word) ; }
+
+    for (; copy_word <= destination_stop_word; copy_word++, source_word++ ) 
+        bitarray[copy_word] = (bitarray[source_word] >> shift_flipped) | (bitarray[source_word+1] << shift);
+    // bitarray[copy_word] &= chopmask(destination_stop);
+
+}
+
+static void extendSieve_shiftleft(bitword_t* bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
     debug printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using shiftleft (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
 
     const counter_t destination_stop_word = wordindex(destination_stop);
@@ -606,14 +665,17 @@ static inline counter_t extendSieve_shiftleft_unrolled(bitword_t* bitarray, cons
  }
 
 static inline void extendSieve(bitword_t* bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop)	{
-    if (size < WORD_SIZE)           extendSieve_smallSize (bitarray, source_start, size, destination_stop);
+    if (size < WORD_SIZE_counter)   {
+        extendSieve_smallSize (bitarray, source_start, size, destination_stop);
+        return; // rapid exit for small sizes
+    }
 
     const counter_t copy_start  = source_start + size;
     const bitshift_t copy_bit   = bitindex_calc(copy_start);
     const bitshift_t source_bit = bitindex_calc(source_start);
 
     if      (source_bit > copy_bit) extendSieve_shiftleft (bitarray, source_start, size, destination_stop);
-    else if (source_bit < copy_bit) extendSieve_shiftright(bitarray, source_start, size, destination_stop);
+    else if (source_bit < copy_bit) extendSieve_shiftright_ivdep(bitarray, source_start, size, destination_stop);
     else                            extendSieve_aligned   (bitarray, source_start, size, destination_stop);
 }
 
@@ -1048,6 +1110,9 @@ int main(int argc, char *argv[]) {
         struct sieve_state* sieve_instance = sieve(option_maxFactor, option_maxFactor);
         printf("\nResult set:\n");
         show_primes(sieve_instance, option_showMaxFactor);
+        int valid = validatePrimeCount(sieve_instance,1);
+        if (!valid) printf("The sieve is NOT valid\n");
+        else printf("The sieve is VALID\n");
         delete_sieve(sieve_instance);
         exit(0);
     }

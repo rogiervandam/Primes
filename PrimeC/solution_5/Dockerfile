@@ -1,4 +1,4 @@
-FROM gcc:12-bullseye
+FROM  debian:buster-slim
 
 RUN apt-get update && apt-get -y install build-essential \
     && apt-get clean \
@@ -6,7 +6,7 @@ RUN apt-get update && apt-get -y install build-essential \
 
 WORKDIR /home/primes
 
-COPY compile.sh run.sh *.c ./
+COPY compile.sh run.sh *.h *.c ./
 
 RUN ./compile.sh
 

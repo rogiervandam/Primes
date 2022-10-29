@@ -4,3 +4,5 @@ sieve_extend
 *.o
 *.asm
 *.tmp
+testd.sh
+testm.sh
