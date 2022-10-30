@@ -22,6 +22,15 @@ Inspired by:
 - nodeJS/solution_1 - rogiervandam-memcopy. This is the implementation in C, to see how much speed can be gained by moving from nodeJS to C. 
 - PrimeC/solution_3 - fvbakel C-words. The segmented algorithm has similar concepts. But the extended algorithm implementations takes it further, by speed gains with a sub-byte (bit) level algorithms (race, pattern, small vs largestep optimizations).
 
+## Lessons learned
+
+Use pragma ivdep to signal the compiler that it should not care about rereading memory in a loop
+
+https://stackoverflow.com/questions/21681300/diferences-between-pragmas-simd-and-ivdep-vector-always
+https://stackoverflow.com/questions/25248766/emulating-shifts-on-32-bytes-with-avx
+https://stackoverflow.com/questions/3005564/gcc-recommendations-and-options-for-fastest-code
+https://github.com/simd-everywhere/simde
+
 ## Choice of Dockerfile
 This solution uses Ubuntu 20.04 as the base image.
 The gcc image at gcc:12-bullseye seems to be slower.
