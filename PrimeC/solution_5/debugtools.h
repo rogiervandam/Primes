@@ -12,7 +12,7 @@ static inline void printWord(bitword_t bitword)
     printf("%s", row);
 }
 
-static inline void printBits(size_t const size, void const * const ptr)
+static inline void printBits(int const size, void const * const ptr)
 {
     unsigned char *b = (unsigned char*) ptr;
     unsigned char byte;
