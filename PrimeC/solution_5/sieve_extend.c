@@ -276,7 +276,6 @@ static void inline setBitsTrue_smallStep(bitword_t* bitarray, const counter_t ra
     bitarray[copy_word] |= pattern & chopmask(range_stop);
 }
 
-
 // Medium steps could be within the same word (e.g. less than 64 bits apart).
 // By joining the masks and then writing to memory, we might save some time.
 // This is especially true for small steps over long ranges
@@ -291,8 +290,13 @@ static void inline setBitsTrue_mediumStep(bitword_t* bitarray, const counter_t r
         for (register counter_t index = range_start; index <= range_stop;) {
             register counter_t index_word = wordindex(index);
             register bitword_t mask = SAFE_ZERO;
-            for (; index_word == wordindex(index);  index += step) 
+            #pragma ivdep
+            do {
                 mask |= markmask(index);
+                index += step;
+            } while (index_word == wordindex(index));
+            // for (; index_word == wordindex(index);  index += step) 
+            //     mask |= markmask(index);
             bitarray[index_word] |= mask;
         }
     }
@@ -303,10 +307,14 @@ static void inline setBitsTrue_mediumStep(bitword_t* bitarray, const counter_t r
         for (register counter_t index = range_start; index <= range_stop_unique;) {
             register counter_t index_word = wordindex(index);
             register bitword_t mask = SAFE_ZERO;
+            #pragma ivdep
             do {
                 mask |= markmask(index);
                 index += step;
             } while (index_word == wordindex(index));
+            // #pragma ivdep
+            // for (; index_word == wordindex(index);  index += step) 
+            //     mask |= markmask(index);
             applyMask(bitarray, step, range_stop, mask, index_word);
         }
     }
@@ -970,8 +978,6 @@ static struct block sieve_block_extend(struct sieve_state *sieve, const counter_
 static struct sieve_state *sieve(const counter_t maxints, const counter_t blocksize) {
     struct sieve_state *sieve = create_sieve(maxints);
     counter_t prime         = 0;
-    counter_t block_start   = 0;
-    counter_t block_stop    = blocksize-1;
     bitword_t* bitarray        = sieve->bitarray;
 
     debug printf("Running sieve to find all primes up to %ju with blocksize %ju\n",maxints,blocksize);
@@ -982,7 +988,7 @@ static struct sieve_state *sieve(const counter_t maxints, const counter_t blocks
     prime = block.prime;
 
     // #pragma unroll 8
-    for (;block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
+    for (counter_t block_start = 0,  block_stop = blocksize-1;block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
         if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
         prime = searchBitFalse(bitarray, prime);
         sieve_block_stripe(sieve, block_start, block_stop, prime);
