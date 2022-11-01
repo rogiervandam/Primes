@@ -5,6 +5,7 @@
 #include <math.h>
 #include <string.h>
 
+
 //add debug in front of a line to only compile it if the value below is set to 1 (or !=0)
 #define option_runonce 0
 #define debug if (option_runonce)
@@ -34,9 +35,10 @@
 #define WORD_SIZE_bitshift ((bitshift_t)(sizeof(bitword_t)*8))
 #define pow(base,pow) (pow*((base>>pow)&1U))
 #define SHIFT ((bitshift_t)(pow(WORD_SIZE,1)+pow(WORD_SIZE,2)+pow(WORD_SIZE,3)+pow(WORD_SIZE,4)+pow(WORD_SIZE,5)+pow(WORD_SIZE,6)+pow(WORD_SIZE,7)+pow(WORD_SIZE,8)))
-#define SHIFT_VECTOR (SHIFT+2)
 
-typedef uint64_t bitvector_t __attribute__ ((vector_size(sizeof(bitword_t)*4)));
+#define SHIFT_VECTOR (SHIFT+2)
+#define VECTOR_SIZE_counter (sizeof(bitword_t)*4)
+typedef bitword_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_counter)));
 
 // globals for tuning
 counter_t global_SMALLSTEP_FASTER = 16;
@@ -318,7 +320,7 @@ static void inline setBitsTrue_mediumStep(bitword_t* bitarray, const counter_t r
 }
 
 // small ranges (< WORD_SIZE * step) mean the mask is unique
-static inline void setBitsTrue_smallRange(bitword_t* __restrict bitarray, const counter_t range_start, const counter_t step, const counter_t range_stop) {
+static inline void setBitsTrue_largeSteps(bitword_t* __restrict bitarray, const counter_t range_start, const counter_t step, const counter_t range_stop) {
     debug printf("Setting bits step %ju in %ju bit range (%ju-%ju) using smallrange (%ju occurances)\n", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
     
     #pragma unroll
@@ -326,8 +328,8 @@ static inline void setBitsTrue_smallRange(bitword_t* __restrict bitarray, const 
     for (register counter_t index = range_start; index <= range_stop; index += step) {
         bitarray[wordindex(index)] |= markmask(index);
     }
-    counter_t loop_iterations = (range_stop - range_start) / step;
 
+//    counter_t loop_iterations = (range_stop - range_start) / step;
 //    #pragma unroll
     // #pragma ivdep
     // for (register counter_t i = 0; i <= loop_iterations; i++) {
@@ -408,7 +410,7 @@ static void setBitsTrue_largeRange(bitword_t* __restrict bitarray, const counter
 static void setBitsTrue_largeRange_vector(bitword_t* bitarray_word, const counter_t range_start, const counter_t step, const counter_t range_stop) {
     debug printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange vector (%ju occurances)\n", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
 
-    counter_t range_stop_unique =  range_start + WORD_SIZE_counter * step;
+    counter_t range_stop_unique =  min(range_start + WORD_SIZE_counter * 4 * step, range_stop);
     
     // for (counter_t index = range_start; index <= range_stop_unique; index += step) {
     //     applyMask(bitarray_word, step, range_stop, markmask(index), wordindex(index));
@@ -418,9 +420,8 @@ static void setBitsTrue_largeRange_vector(bitword_t* bitarray_word, const counte
     bitvector_t* bitarray_vector = (bitvector_t*)bitarray_word;
 
     register bitvector_t quadmask = { SAFE_ZERO,SAFE_ZERO,SAFE_ZERO,SAFE_ZERO };
-    register counter_t index_vector = vectorindex(range_start);
     register counter_t word = 0;
-    for (counter_t index = range_start; index <= range_stop;) {
+    for (counter_t index = range_start; index <= range_stop_unique;) {
         register counter_t current_vector = vectorindex(index);
         register counter_t current_word =  current_vector*4;
         register counter_t index_word = wordindex(index);
@@ -435,20 +436,24 @@ static void setBitsTrue_largeRange_vector(bitword_t* bitarray_word, const counte
         do {
             quadmask[word] |= markmask(index);
             index += step;
-            index_vector = vectorindex(index);
+//            index_vector = vectorindex(index);
             index_word = wordindex(index);
             word = index_word - current_word;
-        } while (word <= 3 && index <= range_stop);
+        } while (word <= 3 && index <= range_stop_unique);
 
-        bitarray_word[current_word  ] |= quadmask[0];
-        bitarray_word[current_word+1] |= quadmask[1];
-        bitarray_word[current_word+2] |= quadmask[2];
-        bitarray_word[current_word+3] |= quadmask[3];
-
-        // bitarray_vector[current_vector] |= quadmask[0];
-        // bitarray_vector[current_vector] |= quadmask[1];
-        // bitarray_vector[current_vector] |= quadmask[2];
-        // bitarray_vector[current_vector] |= quadmask[3];
+        for(; current_vector < vectorindex(range_stop_unique); current_vector += step) {
+            bitarray_vector[current_vector][0] |= quadmask[0];
+            bitarray_vector[current_vector][1] |= quadmask[1];
+            bitarray_vector[current_vector][2] |= quadmask[2];
+            bitarray_vector[current_vector][3] |= quadmask[3];
+        }
+        
+        index_word = current_vector * 4;
+        counter_t range_stop_word = wordindex(range_stop);
+         if (index_word <= range_stop_word) { bitarray_word[index_word] |= quadmask[0]; index_word++; }
+         if (index_word <= range_stop_word) { bitarray_word[index_word] |= quadmask[1]; index_word++; }
+         if (index_word <= range_stop_word) { bitarray_word[index_word] |= quadmask[2]; index_word++; }
+         if (index_word <= range_stop_word) { bitarray_word[index_word] |= quadmask[3]; index_word++; }
     }
 
 
@@ -911,8 +916,8 @@ static void sieve_block_stripe(struct sieve_state *sieve, const counter_t block_
     
     while (start <= block_stop) {
         step  = prime * 2 + 1;
-        if (step > SMALLSTEP_FASTER) break;
-        if (block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
+        if unlikely(step > SMALLSTEP_FASTER) break;
+        if likely(block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
         setBitsTrue_smallStep(bitarray, start, (bitshift_t)step, block_stop);
         prime = searchBitFalse(bitarray, prime+1 );
         start = prime * prime * 2 + prime * 2;
@@ -920,8 +925,8 @@ static void sieve_block_stripe(struct sieve_state *sieve, const counter_t block_
     
     while (start <= block_stop) {
         step  = prime * 2 + 1;
-        if (step > MEDIUMSTEP_FASTER) break;
-        if (block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
+        if unlikely(step > MEDIUMSTEP_FASTER) break;
+        if likely(block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
         setBitsTrue_mediumStep(bitarray, start, step, block_stop);
         prime = searchBitFalse(bitarray, prime+1 );
         start = prime * prime * 2 + prime * 2;
@@ -932,7 +937,7 @@ static void sieve_block_stripe(struct sieve_state *sieve, const counter_t block_
     while (start <= block_stop) {
         step  = prime * 2 + 1;
         if (step > 64) break;
-        if (block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
+        if likely(block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
         start1 = start; // save value
         step1 = step; // save value
         prime = searchBitFalse(bitarray, prime+1 );
@@ -940,15 +945,15 @@ static void sieve_block_stripe(struct sieve_state *sieve, const counter_t block_
         step  = prime * 2 + 1;
         if (block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
         if (start <= block_stop) setBitsTrue_race(bitarray, start1, start, step1, step, block_stop);
-//        else                     setBitsTrue_smallRange(bitarray, start1, step1, block_stop);
+//        else                     setBitsTrue_largeSteps(bitarray, start1, step1, block_stop);
         prime = searchBitFalse(bitarray, prime+1 );
         start = prime * prime * 2 + prime * 2;
     }
 
     while (start <= block_stop) {
         step  = prime * 2 + 1;
-        if (step > WORD_SIZE_counter * 4) break;
-        if (block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
+        if unlikely(step > WORD_SIZE_counter * 4) break;
+        if likely(block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
         setBitsTrue_largeRange_vector(bitarray, start, step, block_stop);
         prime = searchBitFalse(bitarray, prime+1 );
         start = prime * prime * 2 + prime * 2;
@@ -956,7 +961,7 @@ static void sieve_block_stripe(struct sieve_state *sieve, const counter_t block_
 
     while (start <= block_stop) {
         step  = prime * 2 + 1;
-        if (block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
+        if likely(block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
         if unlikely(start + step * WORD_SIZE_counter > block_stop) break;
         setBitsTrue_largeRange(bitarray, start, step, block_stop);
         prime = searchBitFalse_longRange(bitarray, prime+1 );
@@ -965,9 +970,9 @@ static void sieve_block_stripe(struct sieve_state *sieve, const counter_t block_
 
     while (start <= block_stop) {
         step  = prime * 2 + 1;
-        if (block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
+        if likely(block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
         if likely(start <= block_stop)
-            setBitsTrue_smallRange(bitarray, start, step, block_stop);
+            setBitsTrue_largeSteps(bitarray, start, step, block_stop);
         prime = searchBitFalse_longRange(bitarray, prime+1 );
         start = prime * prime * 2 + prime * 2;
     }
@@ -995,7 +1000,7 @@ static struct block sieve_block_extend(struct sieve_state *sieve, const counter_
     for (;range_stop < block_stop;) {
         prime = searchBitFalse(bitarray, prime+1);
         counter_t start = prime * prime * 2 + prime * 2;
-        if (start > block_stop) break;
+        if unlikely(start > block_stop) break;
 
         const counter_t step  = prime * 2 + 1;
         if (block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
@@ -1023,8 +1028,8 @@ static struct block sieve_block_extend(struct sieve_state *sieve, const counter_
 
 static struct sieve_state *sieve(const counter_t maxints, const counter_t blocksize) {
     struct sieve_state *sieve = create_sieve(maxints);
-    counter_t prime         = 0;
-    bitword_t* bitarray        = sieve->bitarray;
+    counter_t prime     = 0;
+    bitword_t* bitarray = sieve->bitarray;
 
     debug printf("Running sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)maxints,(uintmax_t)blocksize);
 
