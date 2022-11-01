@@ -16,7 +16,7 @@
 #define default_sample_duration 0.1
 #define default_sample_max 5
 #define default_verbose_level 2
-#define default_tune_level 0
+#define default_tune_level 1
 #define default_check_level 1
 #define default_show_primes_on_error 100
 #define default_showMaxFactor (0 || option_runonce?100:0)
@@ -49,7 +49,7 @@ counter_t global_MEDIUMSTEP_FASTER = WORD_SIZE;
 #define SAFE_SHIFTBIT (bitshift_t)1U
 #define SAFE_ZERO  (bitshift_t)0U
 #define BITWORD_SHIFTBIT (bitword_t)1U
-#define SMALLSTEP_FASTER ((counter_t)16)
+#define SMALLSTEP_FASTER ((counter_t)2)
 #define MEDIUMSTEP_FASTER ((counter_t)64)
 // #define SMALLSTEP_FASTER ((counter_t)global_SMALLSTEP_FASTER)
 // #define MEDIUMSTEP_FASTER ((counter_t)global_MEDIUMSTEP_FASTER)
