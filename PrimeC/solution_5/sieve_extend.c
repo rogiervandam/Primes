@@ -4,7 +4,7 @@
 #include <time.h>
 #include <math.h>
 #include <string.h>
-
+#include <immintrin.h>
 
 //add debug in front of a line to only compile it if the value below is set to 1 (or !=0)
 #define option_runonce 0
@@ -26,7 +26,7 @@
 #define TYPE uint64_t
 
 // calculate the rest dynamically
-#define counter_t int64_t
+#define counter_t TYPE
 #define bitshift_t TYPE
 #define bitword_t uint64_t
 
@@ -35,27 +35,32 @@
 #define WORD_SIZE_bitshift ((bitshift_t)(sizeof(bitword_t)*8))
 #define pow(base,pow) (pow*((base>>pow)&1U))
 #define SHIFT ((bitshift_t)(pow(WORD_SIZE,1)+pow(WORD_SIZE,2)+pow(WORD_SIZE,3)+pow(WORD_SIZE,4)+pow(WORD_SIZE,5)+pow(WORD_SIZE,6)+pow(WORD_SIZE,7)+pow(WORD_SIZE,8)))
+#define WORDMASK ((~SAFE_ZERO)>>(WORD_SIZE_bitshift-SHIFT))
 
 #define SHIFT_VECTOR (SHIFT+2)
-#define VECTOR_SIZE_counter (sizeof(bitword_t)*4)
+#define VECTOR_ELEMENTS 4
+#define VECTOR_SIZE_counter (sizeof(bitword_t)*VECTOR_ELEMENTS)
 typedef bitword_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_counter)));
 
 // globals for tuning
-counter_t global_SMALLSTEP_FASTER = 16;
+counter_t global_SMALLSTEP_FASTER = 64;
 counter_t global_MEDIUMSTEP_FASTER = WORD_SIZE;
 
 #define SAFE_SHIFTBIT (bitshift_t)1U
 #define SAFE_ZERO  (bitshift_t)0U
 #define BITWORD_SHIFTBIT (bitword_t)1U
-#define SMALLSTEP_FASTER ((counter_t)global_SMALLSTEP_FASTER)
-#define MEDIUMSTEP_FASTER ((counter_t)global_MEDIUMSTEP_FASTER)
+#define SMALLSTEP_FASTER ((counter_t)16)
+#define MEDIUMSTEP_FASTER ((counter_t)64)
+// #define SMALLSTEP_FASTER ((counter_t)global_SMALLSTEP_FASTER)
+// #define MEDIUMSTEP_FASTER ((counter_t)global_MEDIUMSTEP_FASTER)
 #define wordindex(index) (((counter_t)index) >> (bitshift_t)SHIFT)
+#define wordend(index) ((counter_t)index|WORDMASK)
 #define vectorindex(index) (((counter_t)index) >> (bitshift_t)SHIFT_VECTOR)
 // modern processors do a & over the shiftssize, so we only have to do that ourselve when using the shiftsize in calculations. 
 #define bitindex(index) ((bitshift_t)(index))
 // #define bitindex(index) ((bitshift_t)(index)&((bitword_t)(WORD_SIZE-1)))
 //#define bitindex_calc(index) ((bitshift_t)(index)&((bitshift_t)(WORD_SIZE_bitshift-SAFE_SHIFTBIT)))
-#define bitindex_calc(index) ((bitshift_t)(index)&((bitshift_t)((~SAFE_ZERO)>>(WORD_SIZE_bitshift-SHIFT))))
+#define bitindex_calc(index) ((bitshift_t)(index)&((bitshift_t)(WORDMASK)))
 #define  markmask(index) (BITWORD_SHIFTBIT << bitindex(index))
 #define  markmask_calc(index) (SAFE_SHIFTBIT << bitindex_calc(index))
 // #define chopmask(index) ((SAFE_SHIFTBIT << bitindex(index))-SAFE_SHIFTBIT)
@@ -102,7 +107,15 @@ static void delete_sieve(struct sieve_state *sieve) {
 }
 
 // not much performance gain at smaller sieves, but its's nice to have an implementation
+static inline counter_t searchBitFalse(bitword_t* bitarray, register counter_t index) {
+    while (bitarray[wordindex(index)] & markmask(index)) index++;
+    return index;
+}
+
+// not much performance gain at smaller sieves, but its's nice to have an implementation
 static inline counter_t searchBitFalse_longRange(bitword_t* bitarray, register counter_t index) {
+    // return searchBitFalse(bitarray, index);
+
    register counter_t index_word = wordindex(index);
    bitshift_t index_bit  = bitindex_calc(index);
    register  bitshift_t distance = (bitshift_t) __builtin_ctzll( ~(bitarray[index_word] >> index_bit));  // take inverse to be able to use ctz
@@ -118,11 +131,6 @@ static inline counter_t searchBitFalse_longRange(bitword_t* bitarray, register c
    return index;
 }
 
-// not much performance gain at smaller sieves, but its's nice to have an implementation
-static inline counter_t searchBitFalse(bitword_t* bitarray, register counter_t index) {
-    while (bitarray[wordindex(index)] & markmask(index)) index++;
-    return index;
-}
 
 static void inline applyMask(bitword_t* __restrict bitarray, const counter_t step, const counter_t range_stop, const bitword_t mask, counter_t index_word) {
 //#if __APPLE__
@@ -152,15 +160,11 @@ static void inline applyMask(bitword_t* __restrict bitarray, const counter_t ste
 //#endif
 //    ALTERNATIVE using pointers is faster in gcc
 //#if __linux__
-//    const counter_t range_stop_word = wordindex(range_stop);
-//    register bitword_t* __restrict index_ptr      = &bitarray[index_word];
-//    register bitword_t* __restrict fast_loop_ptr  = &bitarray[((range_stop_word>step*5) ? (range_stop_word - step*5):0)];
-
    const counter_t range_stop_word = wordindex(range_stop);
    register bitword_t* __restrict index_ptr      =  __builtin_assume_aligned(&bitarray[index_word],8);
-   register bitword_t* __restrict fast_loop_ptr  = &bitarray[((range_stop_word>step*5) ? (range_stop_word - step*5):0)];
+   register bitword_t* __restrict fast_loop_ptr  =  __builtin_assume_aligned(&bitarray[((range_stop_word>step*5) ? (range_stop_word - step*5):0)],8);
 
-//   #pragma unroll
+  #pragma unroll
    #pragma ivdep
    while likely(index_ptr < fast_loop_ptr) {
        *index_ptr |= mask;
@@ -215,18 +219,18 @@ static void inline applyMask(bitword_t* __restrict bitarray, const counter_t ste
 }
 
 // set bits by creating a pattern and then extending it to word and range size
-static void inline setBitsTrue_smallStep(bitword_t* bitarray, const counter_t range_start, const bitshift_t step, const counter_t range_stop) {
+static void inline setBitsTrue_smallStep(bitword_t* __restrict bitarray, const counter_t range_start, const bitshift_t step, const counter_t range_stop) {
     debug printf("Setting bits step %ju in %ju bit range (%ju-%ju) using smallstep (%ju occurances)\n", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
 
     // build the pattern in a word
 	register bitword_t pattern = SAFE_SHIFTBIT;
-    for (bitshift_t patternsize = step; patternsize <= WORD_SIZE; patternsize += patternsize)
+    for (bitshift_t patternsize = step; patternsize <= WORD_SIZE_bitshift; patternsize += patternsize)
         pattern |= (pattern << patternsize);
 
     // initialize loop variables and stop if this is it
     const counter_t range_stop_word = wordindex(range_stop);
     register counter_t copy_word = wordindex(range_start);
-     if (copy_word == range_stop_word) { // shortcut
+     if (copy_word >= range_stop_word) { // shortcut
        bitarray[copy_word] |= ((pattern << bitindex(range_start)) & chopmask(range_stop));
        return;
     }
@@ -238,23 +242,22 @@ static void inline setBitsTrue_smallStep(bitword_t* bitarray, const counter_t ra
     pattern = (pattern << (bitindex_calc(range_start) % step)); // correct for inital offset  
     register bitshift_t pattern_shift = WORD_SIZE_bitshift % step;
     register bitshift_t pattern_shift_flipped = WORD_SIZE_bitshift - pattern_shift - pattern_shift;
-    // copy_word++;
 
+    counter_t loop_range = range_stop_word - copy_word;
+    #pragma unroll
     #pragma ivdep
-    for (;copy_word < range_stop_word; copy_word++) {
+    for (counter_t i=0; i < loop_range; i++) {
         pattern = (pattern >> pattern_shift) | (pattern << pattern_shift_flipped);
-        bitarray[copy_word] |= pattern;
+        bitarray[copy_word+i] |= pattern;
     } 
-
-    pattern = (pattern >> pattern_shift) | (pattern << pattern_shift_flipped);
-    bitarray[copy_word] |= pattern & chopmask(range_stop);
+    bitarray[range_stop_word] |= ((pattern >> pattern_shift) | (pattern << pattern_shift_flipped)) & chopmask(range_stop);
 }
 
 // Medium steps could be within the same word (e.g. less than 64 bits apart).
 // By joining the masks and then writing to memory, we might save some time.
 // This is especially true for small steps over long ranges
 // but it needs tuning, because there is some overhead of checking if the next step is in the same word
-static void inline setBitsTrue_mediumStep(bitword_t* bitarray, const counter_t range_start, const counter_t step, const counter_t range_stop) {
+static void  setBitsTrue_mediumStep(bitword_t* __restrict bitarray, const counter_t range_start, const counter_t step, const counter_t range_stop) {
     const counter_t range_stop_unique =  range_start + WORD_SIZE_counter * step;
 
     if (range_stop_unique > range_stop) { // the range will not repeat itself; no need to try to resuse the mask
@@ -369,7 +372,7 @@ static void setBitsTrue_race(bitword_t* bitarray, counter_t index1, counter_t in
 }
 
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
-static void setBitsTrue_largeRange(bitword_t* __restrict bitarray, const counter_t range_start, const counter_t step, const counter_t range_stop) {
+static inline void setBitsTrue_largeRange(bitword_t* __restrict bitarray, const counter_t range_start, const counter_t step, const counter_t range_stop) {
     debug printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange (%ju occurances)\n", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
     const counter_t range_stop_unique =  range_start + WORD_SIZE_counter * step;
 
@@ -380,22 +383,21 @@ static void setBitsTrue_largeRange(bitword_t* __restrict bitarray, const counter
     }
 }
 
-static void setBitsTrue_largeRange_vector(bitword_t* bitarray_word, const counter_t range_start, const counter_t step, const counter_t range_stop) {
+static void setBitsTrue_largeRange_vector(bitword_t* __restrict bitarray_word, const counter_t range_start, const counter_t step, const counter_t range_stop) {
     debug printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange vector (%ju occurances)\n", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
 
-    bitvector_t* bitarray_vector = (bitvector_t*)bitarray_word;
-    
-    const counter_t range_stop_unique =  min(range_start + WORD_SIZE_counter * 4 * step, range_stop);
-    
-    // for (counter_t index = range_start; index <= range_stop_unique; index += step) {
+    // const counter_t range_stop_unique_oneword =  min(range_start + WORD_SIZE_counter * step, range_stop);
+    // for (counter_t index = range_start; index <= range_stop_unique_oneword; index += step) {
     //     applyMask(bitarray_word, step, range_stop, markmask(index), wordindex(index));
     // }
     // return;
-    
-    
-//#pragma ivdep
+
+    bitvector_t* __restrict bitarray_vector = __builtin_assume_aligned( (bitvector_t*) bitarray_word, anticiped_cache_line_bytesize);
+    const counter_t range_stop_unique =  min(range_start + WORD_SIZE_counter * 4 * step, range_stop);
+
+    #pragma ivdep
     for (counter_t index = range_start; index < range_stop_unique;) {
-        const counter_t current_vector_start_word =  vectorindex(index)*4;
+        const counter_t current_vector_start_word =  vectorindex(index)*VECTOR_ELEMENTS;
         register bitvector_t quadmask = { SAFE_ZERO,SAFE_ZERO,SAFE_ZERO,SAFE_ZERO };
         register counter_t word = wordindex(index) - current_vector_start_word;
         
@@ -403,19 +405,20 @@ static void setBitsTrue_largeRange_vector(bitword_t* bitarray_word, const counte
             quadmask[word] |= markmask(index);
             index += step;
             word = wordindex(index) - current_vector_start_word;
-        } while (word <= 3 && index <= range_stop_unique);
+        } while (word < (VECTOR_ELEMENTS) && index <= range_stop_unique);
         
         register counter_t current_vector = current_vector_start_word>>2;
         
-//#pragma ivdep
-        for(; current_vector <= vectorindex(range_stop_unique); current_vector += step) {
+        #pragma ivdep
+        for(; current_vector <= vectorindex(range_stop); current_vector += step) {
             bitarray_vector[current_vector] |= quadmask;
         }
         
-        counter_t index_word = current_vector * 4;
+        counter_t index_word = current_vector * VECTOR_ELEMENTS;
         counter_t range_stop_word = wordindex(range_stop);
         if (index_word <= range_stop_word) {
-            for (word =0; word<=3; word++) {
+            #pragma ivdep
+            for (word =0; word < VECTOR_ELEMENTS; word++) {
                 if (index_word+word <= range_stop_word)
                     bitarray_word[index_word+word] |= quadmask[word];
             }
@@ -423,38 +426,36 @@ static void setBitsTrue_largeRange_vector(bitword_t* bitarray_word, const counte
     }
 }
 
-static void extendSieve_smallSize(bitword_t* bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
+static void extendSieve_smallSize(bitword_t* __restrict bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
     debug printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using smallsize (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
     // debug { printf("...At start. "); dump_bitarray(bitarray, 4); }
 
-    counter_t source_word = wordindex(source_start);
-    bitword_t pattern = ((bitarray[source_word] >> bitindex(source_start)) | (bitarray[source_word+1] << (WORD_SIZE_counter-bitindex_calc(source_start)))) & chopmask2(size);
+    const counter_t source_word = wordindex(source_start);
+    register bitword_t pattern = ((bitarray[source_word] >> bitindex(source_start)) | (bitarray[source_word+1] << (WORD_SIZE_counter-bitindex_calc(source_start)))) & chopmask(size);
     for (bitshift_t pattern_size = (bitshift_t)size; pattern_size <= WORD_SIZE_bitshift; pattern_size += pattern_size) pattern |= (pattern << pattern_size);
 
-    counter_t copy_start = source_start + size;
-    register counter_t copy_word = wordindex(copy_start);
-    bitarray[copy_word] |= (pattern << bitindex(copy_start));
-
+    const counter_t destination_start = source_start + size;
+    counter_t destination_start_word = wordindex(destination_start);
     counter_t destination_stop_word = wordindex(destination_stop);
-    // debug { printf("...After first word. "); dump_bitarray(bitarray, 4); }
-    if (copy_word == destination_stop_word) {
-        bitarray[copy_word] &= chopmask(destination_stop);
-        // debug { printf("...Returning after first word. "); dump_bitarray(bitarray, 4); }
+    if (destination_start_word >= destination_stop_word) {
+        bitarray[destination_start_word] |= (pattern << bitindex(destination_start)) & chopmask(destination_stop);
         return;
     }
 
+    bitarray[destination_start_word] |= (pattern << bitindex(destination_start));
+
     register const bitshift_t pattern_shift = WORD_SIZE_counter % size;
     register const bitshift_t pattern_size = WORD_SIZE_bitshift - pattern_shift;
-    register bitshift_t shift = WORD_SIZE_bitshift - bitindex_calc(copy_start);
-
+    register bitshift_t shift = (WORD_SIZE_bitshift - bitindex_calc(destination_start)) & WORDMASK; // be sure this stays > 0
+    register counter_t loop_range = destination_stop_word - destination_start_word;
+    destination_start_word++;
+    
+    #pragma unroll
     #pragma ivdep
-    while (copy_word < destination_stop_word) { // = will be handled as well because increment is after this 
-        copy_word++;
-        bitarray[copy_word] = (pattern << (pattern_size-shift)) | (pattern >> shift);
-        shift = (shift + pattern_shift) & ((WORD_SIZE_bitshift-1));  // alternative, but faster
+    for (counter_t i=0; i<loop_range; ++i ) {
+        bitarray[destination_start_word+i] = (pattern << (pattern_size - ((shift+i*pattern_shift) & WORDMASK)  ) ) | (pattern >> ((shift+i*pattern_shift) & WORDMASK));
     }
-    bitarray[copy_word] &= chopmask(destination_stop);
-    // debug { printf("...After copies. "); dump_bitarray(bitarray, 4); }
+    bitarray[destination_stop_word] &= chopmask(destination_stop);
 }
 
 static void extendSieve_aligned(bitword_t* bitarray, const counter_t source_start, const counter_t size, const counter_t destination_stop) {
@@ -803,27 +804,27 @@ static void sieve_block_stripe(struct sieve_state *sieve, const counter_t block_
         start = prime * prime * 2 + prime * 2;
     }
 
-    counter_t start1 = 0; // save value
-    counter_t step1 = 0; // save value
-    while (start <= block_stop) {
-        step  = prime * 2 + 1;
-        if (step > 64) break;
-        if likely(block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
-        start1 = start; // save value
-        step1 = step; // save value
-        prime = searchBitFalse(bitarray, prime+1 );
-        start = prime * prime * 2 + prime * 2;
-        step  = prime * 2 + 1;
-        if (block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
-        if (start <= block_stop) setBitsTrue_race(bitarray, start1, start, step1, step, block_stop);
-//        else                     setBitsTrue_largeSteps(bitarray, start1, step1, block_stop);
-        prime = searchBitFalse(bitarray, prime+1 );
-        start = prime * prime * 2 + prime * 2;
-    }
+//     counter_t start1 = 0; // save value
+//     counter_t step1 = 0; // save value
+//     while (start <= block_stop) {
+//         step  = prime * 2 + 1;
+//         if (step > 64) break;
+//         if likely(block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
+//         start1 = start; // save value
+//         step1 = step; // save value
+//         prime = searchBitFalse(bitarray, prime+1 );
+//         start = prime * prime * 2 + prime * 2;
+//         step  = prime * 2 + 1;
+//         if (block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
+//         if (start <= block_stop) setBitsTrue_race(bitarray, start1, start, step1, step, block_stop);
+// //        else                     setBitsTrue_largeSteps(bitarray, start1, step1, block_stop);
+//         prime = searchBitFalse(bitarray, prime+1 );
+//         start = prime * prime * 2 + prime * 2;
+//     }
 
     while (start <= block_stop) {
         step  = prime * 2 + 1;
-        if unlikely(step > WORD_SIZE_counter * 4) break;
+        if unlikely(step > VECTOR_SIZE_counter*3/4) break;
         if likely(block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
         setBitsTrue_largeRange_vector(bitarray, start, step, block_stop);
         prime = searchBitFalse(bitarray, prime+1 );
