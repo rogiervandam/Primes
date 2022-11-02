@@ -8,6 +8,7 @@
 //add debug in front of a line to only compile it if the value below is set to 1 (or !=0)
 #define option_runonce 0
 #define debug if (option_runonce)
+#define debug2 if (option_runonce>=2)
 
 #define default_sieve_limit 1000000
 #define default_blocksize (32*1024*8-1024)
@@ -440,14 +441,14 @@ static void setBitsTrue_largeRange_vector(bitword_t* __restrict bitarray_word, c
 
         range_start_atvector += VECTOR_SIZE; // find next vector
         if (unlikely(range_start_atvector > range_stop)) { // we should not be here; just handle without vector
-            debug printf("..Marking and returning without vector\n");
+            debug2 printf("..Marking and returning without vector\n");
 
             for (counter_t index = range_start; index <= range_stop; index += step) 
                 bitarray_word[wordindex(index)] |= markmask(index);
             return;                 
         }
 
-        debug printf("..Marking without vector until %ju\n",range_start_atvector);
+        debug2 printf("..Marking without vector until %ju\n",range_start_atvector);
         register counter_t index = range_start; // outside to later adjust range_start
 
         // #pragma ivdep unroll
@@ -515,13 +516,13 @@ static void setBitsTrue_largeRange_vector(bitword_t* __restrict bitarray_word, c
             bitarray_vector[current_vector] |= quadmask;
         }
         
-        if (current_vector == range_stop_vector) {
+        if unlikely(current_vector == range_stop_vector) {
             counter_t index_word = current_vector * VECTOR_ELEMENTS;
             counter_t range_stop_word = wordindex(range_stop);
-            if (index_word <= range_stop_word) {
+            if likely(index_word <= range_stop_word) {
                 #pragma ivdep
                 for (word =0; word < VECTOR_ELEMENTS; word++) {
-                    if (index_word+word <= range_stop_word)
+                    if unlikely(index_word+word <= range_stop_word)
                         bitarray_word[index_word+word] |= quadmask[word];
                 }
             }
