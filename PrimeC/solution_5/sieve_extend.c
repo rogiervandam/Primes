@@ -15,7 +15,7 @@
 #define default_sample_duration 0.1
 #define default_sample_max 5
 #define default_verbose_level 2
-#define default_tune_level 1
+#define default_tune_level 0
 #define default_check_level 1
 #define default_show_primes_on_error 100
 #define default_showMaxFactor (0 || option_runonce?100:0)
@@ -46,8 +46,8 @@ typedef bitword_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes)));
 
 // globals for tuning
 counter_t global_SMALLSTEP_FASTER = 0;
-counter_t global_MEDIUMSTEP_FASTER = 16;
-counter_t global_VECTORSTEP_FASTER = 96;
+counter_t global_MEDIUMSTEP_FASTER = 0;
+counter_t global_VECTORSTEP_FASTER = 128;
 
 #define SAFE_SHIFTBIT (bitshift_t)1U
 #define SAFE_ZERO  (bitword_t)0U
@@ -65,7 +65,7 @@ counter_t global_VECTORSTEP_FASTER = 96;
 #define wordindex(index) (((counter_t)index) >> (bitshift_t)SHIFT_WORD)
 #define wordend(index) ((counter_t)index|WORDMASK)
 #define vectorindex(index) (((counter_t)index) >> (bitshift_t)SHIFT_VECTOR)
-#define vectorstart(index) (((counter_t)index) & (counter_t)VECTORMASK)
+#define vectorstart(index) (((counter_t)index) & (counter_t)~VECTORMASK)
 
 // modern processors do a & over the shiftssize, so we only have to do that ourselve when using the shiftsize in calculations. 
 #define bitindex(index) ((bitshift_t)(index))
@@ -431,70 +431,101 @@ static void setBitsTrue_largeRange_vector(bitword_t* __restrict bitarray_word, c
     bitvector_t* __restrict bitarray_vector = __builtin_assume_aligned( (bitvector_t*) bitarray_word, anticiped_cache_line_bytesize);
     
     // find out where the first complete vector is
+    // printWord(range_start); printf("\n");
+    // printWord(~VECTORMASK); printf("\n");
+    // printWord(vectorstart(range_start)); printf("\n\n");
     counter_t range_start_atvector = vectorstart(range_start);
     if likely((range_start_atvector + step) < range_start) { // not the first step possible in this vector
+        debug { printf("Range start+step %ju not at start of vector %ju\n",range_start+step, range_start_atvector); }
+
         range_start_atvector += VECTOR_SIZE; // find next vector
         if (unlikely(range_start_atvector > range_stop)) { // we should not be here; just handle without vector
-            #pragma ivdep unroll
+            debug printf("..Marking and returning without vector\n");
+
             for (counter_t index = range_start; index <= range_stop; index += step) 
                 bitarray_word[wordindex(index)] |= markmask(index);
             return;                 
         }
 
+        debug printf("..Marking without vector until %ju\n",range_start_atvector);
         register counter_t index = range_start; // outside to later adjust range_start
+
+        // #pragma ivdep unroll
+        // for (; index < range_start_atvector; index += step) 
+        //     bitarray_word[wordindex(index)] |= markmask(index);
+        // range_start = index;
+
         #pragma ivdep unroll
-        for (; index < range_start_atvector; index += step) {
-            register counter_t index_word = wordindex(index);
+        for (; range_start < range_start_atvector;) {
+            register counter_t index_word = wordindex(range_start);
             register bitword_t mask = SAFE_ZERO;
             do {
-                mask |= markmask(index);
-                index += step;
-            } while (wordindex(index) == index_word);
-            bitarray_word[wordindex(index)] |= markmask(index);
+                mask |= markmask(range_start);
+                range_start += step;
+            } while (wordindex(range_start) == index_word);
+            bitarray_word[index_word] |= mask;
         }
-        range_start = index;
     }
     
     const counter_t range_stop_unique =  min(range_start + VECTOR_SIZE_counter * step, range_stop);
     
+    const counter_t step_2 = step * 2;
+    const counter_t step_3 = step * 3;
+    const counter_t step_4 = step * 4;
+
     #pragma ivdep unroll
     for (counter_t index = range_start; index < range_stop_unique;) {
-        const counter_t current_vector_start_word =  vectorindex(index)*VECTOR_ELEMENTS;
+        const counter_t current_vector_start_word =  vectorindex(index) << (SHIFT_VECTOR - SHIFT_WORD);
         register bitvector_t quadmask = { };
         register counter_t word = wordindex(index) - current_vector_start_word;
         
         // build a quadmask
+        #pragma ivdep unroll
         do {
             quadmask[word] |= markmask(index);
             index += step;
             word = wordindex(index) - current_vector_start_word;
-        } while (word < (VECTOR_ELEMENTS) && index <= range_stop_unique);
+        } while (word < (VECTOR_ELEMENTS));// && index <= range_stop_unique);
         
         // use mask on all n*step multiples
         register counter_t current_vector = current_vector_start_word >> (SHIFT_VECTOR - SHIFT_WORD);
         const counter_t range_stop_vector = vectorindex(range_stop);
+        
+        // if (current_vector+step_4 <= range_stop_vector) {
+        //     register const counter_t loop_stop_vector = (range_stop_vector > step_4) ? (range_stop_vector - step_4) : 0;
+        //     #pragma ivdep unroll
+        //     for(; current_vector <= loop_stop_vector; current_vector += step_4) {
+        //         bitarray_vector[current_vector       ] |= quadmask;
+        //         bitarray_vector[current_vector+step  ] |= quadmask;
+        //         bitarray_vector[current_vector+step_2] |= quadmask;
+        //         bitarray_vector[current_vector+step_3] |= quadmask;
+        //     }
+        // }
 
         #pragma ivdep unroll
-        for(; current_vector+4*step <= range_stop_vector; current_vector += 4*step) {
-            bitarray_vector[current_vector] |= quadmask;
-            bitarray_vector[current_vector+step] |= quadmask;
-            bitarray_vector[current_vector+2*step] |= quadmask;
-            bitarray_vector[current_vector+3*step] |= quadmask;
+        for(; current_vector+step_4 < range_stop_vector; current_vector += step_4) {
+            bitarray_vector[current_vector       ] |= quadmask;
+            bitarray_vector[current_vector+step  ] |= quadmask;
+            bitarray_vector[current_vector+step_2] |= quadmask;
+            bitarray_vector[current_vector+step_3] |= quadmask;
         }
 
         #pragma ivdep unroll
-        for(; current_vector <= range_stop_vector; current_vector += step) {
+        for(; current_vector < range_stop_vector; current_vector += step) {
             bitarray_vector[current_vector] |= quadmask;
         }
         
-        counter_t index_word = current_vector * VECTOR_ELEMENTS;
-        counter_t range_stop_word = wordindex(range_stop);
-        if (index_word <= range_stop_word) {
-            #pragma ivdep
-            for (word =0; word < VECTOR_ELEMENTS; word++) {
-                if (index_word+word <= range_stop_word)
-                    bitarray_word[index_word+word] |= quadmask[word];
+        if (current_vector == range_stop_vector) {
+            counter_t index_word = current_vector * VECTOR_ELEMENTS;
+            counter_t range_stop_word = wordindex(range_stop);
+            if (index_word <= range_stop_word) {
+                #pragma ivdep
+                for (word =0; word < VECTOR_ELEMENTS; word++) {
+                    if (index_word+word <= range_stop_word)
+                        bitarray_word[index_word+word] |= quadmask[word];
+                }
             }
+
         }
     }
 }
