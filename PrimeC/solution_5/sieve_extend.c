@@ -33,12 +33,15 @@
 #define WORD_SIZE_counter ((counter_t)WORD_SIZE)
 #define WORD_SIZE_bitshift ((bitshift_t)WORD_SIZE)
 #define pow(base,pow) (pow*((base>>pow)&1U))
-#define SHIFT ((bitshift_t)(pow(WORD_SIZE,1)+pow(WORD_SIZE,2)+pow(WORD_SIZE,3)+pow(WORD_SIZE,4)+pow(WORD_SIZE,5)+pow(WORD_SIZE,6)+pow(WORD_SIZE,7)+pow(WORD_SIZE,8)))
+//#define SHIFT ((bitshift_t)(pow(WORD_SIZE,1)+pow(WORD_SIZE,2)+pow(WORD_SIZE,3)+pow(WORD_SIZE,4)+pow(WORD_SIZE,5)+pow(WORD_SIZE,6)+pow(WORD_SIZE,7)+pow(WORD_SIZE,8)))
+#define SHIFT_WORD ((bitshift_t)(pow(WORD_SIZE,1)+pow(WORD_SIZE,2)+pow(WORD_SIZE,3)+pow(WORD_SIZE,4)+pow(WORD_SIZE,5)+pow(WORD_SIZE,6)+pow(WORD_SIZE,7)+pow(WORD_SIZE,8)+pow(WORD_SIZE,9)+pow(WORD_SIZE,10)))
 
-#define SHIFT_VECTOR (SHIFT+2)
 #define VECTOR_ELEMENTS 4
 #define VECTOR_SIZE_bytes (sizeof(bitword_t)*VECTOR_ELEMENTS)
 #define VECTOR_SIZE_counter (VECTOR_SIZE_bytes*8)
+#define VECTOR_SIZE (VECTOR_SIZE_bytes*8)
+#define SHIFT_VECTOR ((bitshift_t)(pow(VECTOR_SIZE,1)+pow(VECTOR_SIZE,2)+pow(VECTOR_SIZE,3)+pow(VECTOR_SIZE,4)+pow(VECTOR_SIZE,5)+pow(VECTOR_SIZE,6)+pow(VECTOR_SIZE,7)+pow(VECTOR_SIZE,8)+pow(VECTOR_SIZE,9)+pow(VECTOR_SIZE,10)))
+
 typedef bitword_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes)));
 
 // globals for tuning
@@ -48,15 +51,18 @@ counter_t global_MEDIUMSTEP_FASTER = WORD_SIZE;
 #define SAFE_SHIFTBIT (bitshift_t)1U
 #define SAFE_ZERO  (bitword_t)0U
 #define BITWORD_SHIFTBIT (bitword_t)1U
-#define WORDMASK ((~SAFE_ZERO)>>(WORD_SIZE_bitshift-SHIFT))
+#define WORDMASK ((~SAFE_ZERO)>>(WORD_SIZE_bitshift-SHIFT_WORD))
+#define VECTORMASK ((~SAFE_ZERO)>>(WORD_SIZE_bitshift-SHIFT_VECTOR))
 #define SMALLSTEP_FASTER ((counter_t)0)
 #define MEDIUMSTEP_FASTER ((counter_t)0)
 #define VECTOR_FASTER ((counter_t)96)
 // #define SMALLSTEP_FASTER ((counter_t)global_SMALLSTEP_FASTER)
 // #define MEDIUMSTEP_FASTER ((counter_t)global_MEDIUMSTEP_FASTER)
-#define wordindex(index) (((counter_t)index) >> (bitshift_t)SHIFT)
+#define wordindex(index) (((counter_t)index) >> (bitshift_t)SHIFT_WORD)
 #define wordend(index) ((counter_t)index|WORDMASK)
 #define vectorindex(index) (((counter_t)index) >> (bitshift_t)SHIFT_VECTOR)
+#define vectorstart(index) (((counter_t)index) & (counter_t)VECTORMASK)
+
 // modern processors do a & over the shiftssize, so we only have to do that ourselve when using the shiftsize in calculations. 
 #define bitindex(index) ((bitshift_t)(index))
 // #define bitindex(index) ((bitshift_t)(index)&((bitword_t)(WORD_SIZE-1)))
@@ -409,7 +415,7 @@ static inline void setBitsTrue_largeRange(bitword_t* __restrict bitarray, const 
     }
 }
 
-static void setBitsTrue_largeRange_vector(bitword_t* __restrict bitarray_word, const counter_t range_start, const counter_t step, const counter_t range_stop) {
+static void setBitsTrue_largeRange_vector(bitword_t* __restrict bitarray_word, counter_t range_start, const counter_t step, const counter_t range_stop) {
     debug printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange vector (%ju occurances)\n", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
 
     // const counter_t range_stop_unique_oneword =  min(range_start + WORD_SIZE_counter * step, range_stop);
@@ -419,7 +425,19 @@ static void setBitsTrue_largeRange_vector(bitword_t* __restrict bitarray_word, c
     // return;
 
     bitvector_t* __restrict bitarray_vector = __builtin_assume_aligned( (bitvector_t*) bitarray_word, anticiped_cache_line_bytesize);
-    const counter_t range_stop_unique =  min(range_start + WORD_SIZE_counter * 4 * step, range_stop);
+    
+    // find out where the first complete vector is
+    counter_t range_start_atvector = vectorstart(range_start);
+    if (range_start_atvector + step < range_start) { // not the first step possible in this vector
+        range_start_atvector += VECTOR_SIZE; // find next vector
+        counter_t index = range_start; // outside to later adjust range_start
+        for (; index < range_start_atvector; index += step)
+            bitarray_word[wordindex(index)] |= markmask(index);
+        range_start = index;
+    }
+    
+    const counter_t range_stop_unique =  min(range_start + VECTOR_SIZE_counter * step, range_stop);
+    
 
     #pragma ivdep
     for (counter_t index = range_start; index < range_stop_unique;) {
