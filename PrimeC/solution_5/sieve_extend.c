@@ -4,7 +4,6 @@
 #include <time.h>
 #include <math.h>
 #include <string.h>
-#include <immintrin.h>
 
 //add debug in front of a line to only compile it if the value below is set to 1 (or !=0)
 #define option_runonce 0
@@ -16,7 +15,7 @@
 #define default_sample_duration 0.1
 #define default_sample_max 5
 #define default_verbose_level 2
-#define default_tune_level 1
+#define default_tune_level 2
 #define default_check_level 1
 #define default_show_primes_on_error 100
 #define default_showMaxFactor (0 || option_runonce?100:0)
@@ -31,11 +30,10 @@
 #define bitword_t uint64_t
 
 #define WORD_SIZE (sizeof(bitword_t)*8)
-#define WORD_SIZE_counter ((counter_t)(sizeof(bitword_t)*8))
-#define WORD_SIZE_bitshift ((bitshift_t)(sizeof(bitword_t)*8))
+#define WORD_SIZE_counter ((counter_t)WORD_SIZE)
+#define WORD_SIZE_bitshift ((bitshift_t)WORD_SIZE)
 #define pow(base,pow) (pow*((base>>pow)&1U))
 #define SHIFT ((bitshift_t)(pow(WORD_SIZE,1)+pow(WORD_SIZE,2)+pow(WORD_SIZE,3)+pow(WORD_SIZE,4)+pow(WORD_SIZE,5)+pow(WORD_SIZE,6)+pow(WORD_SIZE,7)+pow(WORD_SIZE,8)))
-#define WORDMASK ((~SAFE_ZERO)>>(WORD_SIZE_bitshift-SHIFT))
 
 #define SHIFT_VECTOR (SHIFT+2)
 #define VECTOR_ELEMENTS 4
@@ -47,12 +45,13 @@ counter_t global_SMALLSTEP_FASTER = 64;
 counter_t global_MEDIUMSTEP_FASTER = WORD_SIZE;
 
 #define SAFE_SHIFTBIT (bitshift_t)1U
-#define SAFE_ZERO  (bitshift_t)0U
+#define SAFE_ZERO  (bitword_t)0U
 #define BITWORD_SHIFTBIT (bitword_t)1U
-#define SMALLSTEP_FASTER ((counter_t)2)
-#define MEDIUMSTEP_FASTER ((counter_t)64)
-// #define SMALLSTEP_FASTER ((counter_t)global_SMALLSTEP_FASTER)
-// #define MEDIUMSTEP_FASTER ((counter_t)global_MEDIUMSTEP_FASTER)
+#define WORDMASK ((~SAFE_ZERO)>>(WORD_SIZE_bitshift-SHIFT))
+// #define SMALLSTEP_FASTER ((counter_t)2)
+// #define MEDIUMSTEP_FASTER ((counter_t)64)
+#define SMALLSTEP_FASTER ((counter_t)global_SMALLSTEP_FASTER)
+#define MEDIUMSTEP_FASTER ((counter_t)global_MEDIUMSTEP_FASTER)
 #define wordindex(index) (((counter_t)index) >> (bitshift_t)SHIFT)
 #define wordend(index) ((counter_t)index|WORDMASK)
 #define vectorindex(index) (((counter_t)index) >> (bitshift_t)SHIFT_VECTOR)
@@ -62,7 +61,7 @@ counter_t global_MEDIUMSTEP_FASTER = WORD_SIZE;
 //#define bitindex_calc(index) ((bitshift_t)(index)&((bitshift_t)(WORD_SIZE_bitshift-SAFE_SHIFTBIT)))
 #define bitindex_calc(index) ((bitshift_t)(index)&((bitshift_t)(WORDMASK)))
 #define  markmask(index) (BITWORD_SHIFTBIT << bitindex(index))
-#define  markmask_calc(index) (SAFE_SHIFTBIT << bitindex_calc(index))
+#define  markmask_calc(index) (BITWORD_SHIFTBIT << bitindex_calc(index))
 // #define chopmask(index) ((SAFE_SHIFTBIT << bitindex(index))-SAFE_SHIFTBIT)
 // #define chopmask2(index) (((bitword_t)2U << bitindex(index))-SAFE_SHIFTBIT)
 #define chopmask(index) (~SAFE_ZERO >> (WORD_SIZE-1-bitindex_calc(index)))
@@ -223,34 +222,55 @@ static void inline setBitsTrue_smallStep(bitword_t* __restrict bitarray, const c
     debug printf("Setting bits step %ju in %ju bit range (%ju-%ju) using smallstep (%ju occurances)\n", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
 
     // build the pattern in a word
-	register bitword_t pattern = SAFE_SHIFTBIT;
+	register bitword_t pattern = BITWORD_SHIFTBIT;
     for (bitshift_t patternsize = step; patternsize <= WORD_SIZE_bitshift; patternsize += patternsize)
         pattern |= (pattern << patternsize);
 
+    debug if (step==13) { printf("Before\n"); dump_bitarray(bitarray,10); }
+    
     // initialize loop variables and stop if this is it
     const counter_t range_stop_word = wordindex(range_stop);
     register counter_t copy_word = wordindex(range_start);
      if (copy_word >= range_stop_word) { // shortcut
-       bitarray[copy_word] |= ((pattern << bitindex(range_start)) & chopmask(range_stop));
+       bitarray[copy_word] |= (pattern << bitindex(range_start)) & chopmask(range_stop);
+         debug if (step==13) { printf("After\n"); dump_bitarray(bitarray,10); }
        return;
     }
     
     bitarray[copy_word++] |= (pattern << bitindex(range_start));
 
-    // from now on, we are before range_stop_word
-    // first word is special, because it should not set bits before the range_start_bit
-    pattern = (pattern << (bitindex_calc(range_start) % step)); // correct for inital offset  
+//    // from now on, we are before range_stop_word
+//    // first word is special, because it should not set bits before the range_start_bit
+//    register bitshift_t pattern_size = WORD_SIZE_bitshift - (WORD_SIZE_bitshift % step);
+//    register bitshift_t pattern_shift = step - (WORD_SIZE_bitshift % step);
+//    register bitshift_t shift = (bitindex_calc(range_start))%step ;
+//    counter_t loop_range = range_stop_word - copy_word;
+//    for (counter_t i=0; i <= loop_range; i++) {
+//        bitarray[copy_word+i] |= (pattern >> (pattern_size-((shift+i*pattern_shift) % step) )) | (pattern << (((shift+i*pattern_shift) % step)));
+//    }
+//    bitarray[range_stop_word] &= chopmask(range_stop);
+
+    pattern = (pattern << (bitindex_calc(range_start) % step)); // correct for inital offset
     register bitshift_t pattern_shift = WORD_SIZE_bitshift % step;
     register bitshift_t pattern_shift_flipped = WORD_SIZE_bitshift - pattern_shift - pattern_shift;
-
     counter_t loop_range = range_stop_word - copy_word;
     #pragma unroll
     #pragma ivdep
-    for (counter_t i=0; i < loop_range; i++) {
+    for (counter_t i=0; i <= loop_range; i++) {
         pattern = (pattern >> pattern_shift) | (pattern << pattern_shift_flipped);
         bitarray[copy_word+i] |= pattern;
-    } 
-    bitarray[range_stop_word] |= ((pattern >> pattern_shift) | (pattern << pattern_shift_flipped)) & chopmask(range_stop);
+    }
+    bitarray[range_stop_word] &= chopmask(range_stop);
+
+    
+//    counter_t loop_range = range_stop_word - copy_word;
+//    #pragma unroll
+//    #pragma ivdep
+//    for (counter_t i=0; i < loop_range; i++) {
+//        pattern = (pattern >> pattern_shift) | (pattern << pattern_shift_flipped);
+//        bitarray[copy_word+i] |= pattern;
+//    }
+//    bitarray[range_stop_word] |= ((pattern >> pattern_shift) | (pattern << pattern_shift_flipped)) & chopmask(range_stop);
 }
 
 // Medium steps could be within the same word (e.g. less than 64 bits apart).
@@ -432,7 +452,8 @@ static void extendSieve_smallSize(bitword_t* __restrict bitarray, const counter_
 
     const counter_t source_word = wordindex(source_start);
     register bitword_t pattern = ((bitarray[source_word] >> bitindex(source_start)) | (bitarray[source_word+1] << (WORD_SIZE_counter-bitindex_calc(source_start)))) & chopmask(size);
-    for (bitshift_t pattern_size = (bitshift_t)size; pattern_size <= WORD_SIZE_bitshift; pattern_size += pattern_size) pattern |= (pattern << pattern_size);
+    for (bitshift_t pattern_size = (bitshift_t)size; pattern_size <= WORD_SIZE_bitshift; pattern_size += pattern_size)
+        pattern |= (pattern << pattern_size);
 
     const counter_t destination_start = source_start + size;
     counter_t destination_start_word = wordindex(destination_start);
@@ -444,6 +465,7 @@ static void extendSieve_smallSize(bitword_t* __restrict bitarray, const counter_
 
     bitarray[destination_start_word] |= (pattern << bitindex(destination_start));
 
+    // TODO: refactor according to smallstep
     register const bitshift_t pattern_shift = WORD_SIZE_counter % size;
     register const bitshift_t pattern_size = WORD_SIZE_bitshift - pattern_shift;
     register bitshift_t shift = (WORD_SIZE_bitshift - bitindex_calc(destination_start)) & WORDMASK; // be sure this stays > 0
@@ -452,7 +474,7 @@ static void extendSieve_smallSize(bitword_t* __restrict bitarray, const counter_
     
     #pragma unroll
     #pragma ivdep
-    for (counter_t i=0; i<loop_range; ++i ) {
+    for (counter_t i=0; i<=loop_range; ++i ) {
         bitarray[destination_start_word+i] = (pattern << (pattern_size - ((shift+i*pattern_shift) & WORDMASK)  ) ) | (pattern >> ((shift+i*pattern_shift) & WORDMASK));
     }
     bitarray[destination_stop_word] &= chopmask(destination_stop);
