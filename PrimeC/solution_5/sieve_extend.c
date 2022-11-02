@@ -15,7 +15,7 @@
 #define default_sample_duration 0.1
 #define default_sample_max 5
 #define default_verbose_level 2
-#define default_tune_level 2
+#define default_tune_level 0
 #define default_check_level 1
 #define default_show_primes_on_error 100
 #define default_showMaxFactor (0 || option_runonce?100:0)
@@ -37,8 +37,9 @@
 
 #define SHIFT_VECTOR (SHIFT+2)
 #define VECTOR_ELEMENTS 4
-#define VECTOR_SIZE_counter (sizeof(bitword_t)*VECTOR_ELEMENTS)
-typedef bitword_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_counter)));
+#define VECTOR_SIZE_bytes (sizeof(bitword_t)*VECTOR_ELEMENTS)
+#define VECTOR_SIZE_counter (VECTOR_SIZE_bytes*8)
+typedef bitword_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes)));
 
 // globals for tuning
 counter_t global_SMALLSTEP_FASTER = 64;
@@ -48,10 +49,11 @@ counter_t global_MEDIUMSTEP_FASTER = WORD_SIZE;
 #define SAFE_ZERO  (bitword_t)0U
 #define BITWORD_SHIFTBIT (bitword_t)1U
 #define WORDMASK ((~SAFE_ZERO)>>(WORD_SIZE_bitshift-SHIFT))
-// #define SMALLSTEP_FASTER ((counter_t)2)
-// #define MEDIUMSTEP_FASTER ((counter_t)64)
-#define SMALLSTEP_FASTER ((counter_t)global_SMALLSTEP_FASTER)
-#define MEDIUMSTEP_FASTER ((counter_t)global_MEDIUMSTEP_FASTER)
+#define SMALLSTEP_FASTER ((counter_t)0)
+#define MEDIUMSTEP_FASTER ((counter_t)0)
+#define VECTOR_FASTER ((counter_t)96)
+// #define SMALLSTEP_FASTER ((counter_t)global_SMALLSTEP_FASTER)
+// #define MEDIUMSTEP_FASTER ((counter_t)global_MEDIUMSTEP_FASTER)
 #define wordindex(index) (((counter_t)index) >> (bitshift_t)SHIFT)
 #define wordend(index) ((counter_t)index|WORDMASK)
 #define vectorindex(index) (((counter_t)index) >> (bitshift_t)SHIFT_VECTOR)
@@ -226,51 +228,55 @@ static void inline setBitsTrue_smallStep(bitword_t* __restrict bitarray, const c
     for (bitshift_t patternsize = step; patternsize <= WORD_SIZE_bitshift; patternsize += patternsize)
         pattern |= (pattern << patternsize);
 
-    debug if (step==13) { printf("Before\n"); dump_bitarray(bitarray,10); }
+    // debug if (step==13) { printf("Before\n"); dump_bitarray(bitarray,10); }
     
     // initialize loop variables and stop if this is it
     const counter_t range_stop_word = wordindex(range_stop);
-    register counter_t copy_word = wordindex(range_start);
-     if (copy_word >= range_stop_word) { // shortcut
-       bitarray[copy_word] |= (pattern << bitindex(range_start)) & chopmask(range_stop);
-         debug if (step==13) { printf("After\n"); dump_bitarray(bitarray,10); }
+    register counter_t range_start_word = wordindex(range_start);
+     if (range_start_word >= range_stop_word) { // shortcut
+       bitarray[range_start_word] |= (pattern << bitindex(range_start)) & chopmask(range_stop);
+        //  debug if (step==13) { printf("After\n"); dump_bitarray(bitarray,10); }
        return;
     }
     
-    bitarray[copy_word++] |= (pattern << bitindex(range_start));
+    bitarray[range_start_word] |= (pattern << bitindex(range_start));
 
-//    // from now on, we are before range_stop_word
-//    // first word is special, because it should not set bits before the range_start_bit
-//    register bitshift_t pattern_size = WORD_SIZE_bitshift - (WORD_SIZE_bitshift % step);
-//    register bitshift_t pattern_shift = step - (WORD_SIZE_bitshift % step);
-//    register bitshift_t shift = (bitindex_calc(range_start))%step ;
-//    counter_t loop_range = range_stop_word - copy_word;
-//    for (counter_t i=0; i <= loop_range; i++) {
-//        bitarray[copy_word+i] |= (pattern >> (pattern_size-((shift+i*pattern_shift) % step) )) | (pattern << (((shift+i*pattern_shift) % step)));
+   // from now on, we are before range_stop_word
+   // first word is special, because it should not set bits before the range_start_bit
+   register bitshift_t pattern_size = WORD_SIZE_bitshift - (WORD_SIZE_bitshift % step);
+   register bitshift_t pattern_shift = step - (WORD_SIZE_bitshift % step);
+   register bitshift_t shift = (bitindex_calc(range_start))%step ;
+   counter_t loop_range = range_stop_word - range_start_word;
+   #pragma unroll
+   #pragma ivdep
+   for (counter_t i=1; i <= loop_range; i++) {
+        bitshift_t totalshift = (shift+i*pattern_shift) % step;
+       bitarray[range_start_word+i] |=  (pattern >> (pattern_size-totalshift)) | (pattern << (totalshift));
+
+        // bitarray[range_start_word+i] |=  (pattern >> (pattern_size-((shift+i*pattern_shift) % step) )) | (pattern << (((shift+i*pattern_shift) % step)));
+   }
+   bitarray[range_stop_word] &= chopmask(range_stop);
+
+//    for(counter_t check=range_start; check<=range_stop; check+=step) {
+//         if (!(bitarray[wordindex(check)] & markmask(check))) {
+//             printf("Bit %ju not set\n",check);
+//             dump_bitarray(bitarray,4);
+//             printWord(pattern); printf("\n");
+//             exit(0);
+//         }
 //    }
-//    bitarray[range_stop_word] &= chopmask(range_stop);
 
-    pattern = (pattern << (bitindex_calc(range_start) % step)); // correct for inital offset
-    register bitshift_t pattern_shift = WORD_SIZE_bitshift % step;
-    register bitshift_t pattern_shift_flipped = WORD_SIZE_bitshift - pattern_shift - pattern_shift;
-    counter_t loop_range = range_stop_word - copy_word;
-    #pragma unroll
-    #pragma ivdep
-    for (counter_t i=0; i <= loop_range; i++) {
-        pattern = (pattern >> pattern_shift) | (pattern << pattern_shift_flipped);
-        bitarray[copy_word+i] |= pattern;
-    }
-    bitarray[range_stop_word] &= chopmask(range_stop);
-
-    
-//    counter_t loop_range = range_stop_word - copy_word;
-//    #pragma unroll
-//    #pragma ivdep
-//    for (counter_t i=0; i < loop_range; i++) {
-//        pattern = (pattern >> pattern_shift) | (pattern << pattern_shift_flipped);
-//        bitarray[copy_word+i] |= pattern;
-//    }
-//    bitarray[range_stop_word] |= ((pattern >> pattern_shift) | (pattern << pattern_shift_flipped)) & chopmask(range_stop);
+    // pattern = (pattern << (bitindex_calc(range_start) % step)); // correct for inital offset
+    // const register bitshift_t pattern_shift = WORD_SIZE_bitshift % step;
+    // const register bitshift_t pattern_shift_flipped = WORD_SIZE_bitshift - pattern_shift - pattern_shift;
+    // const register counter_t loop_range = range_stop_word - range_start_word;
+    // #pragma unroll
+    // #pragma ivdep
+    // for (counter_t i=1; i <= loop_range; i++) {
+    //     pattern = (pattern >> pattern_shift) | (pattern << pattern_shift_flipped);
+    //     bitarray[range_start_word+i] |= pattern;
+    // }
+    // bitarray[range_stop_word] &= chopmask(range_stop);
 }
 
 // Medium steps could be within the same word (e.g. less than 64 bits apart).
@@ -319,7 +325,7 @@ static void  setBitsTrue_mediumStep(bitword_t* __restrict bitarray, const counte
 
 // small ranges (< WORD_SIZE * step) mean the mask is unique
 static inline void setBitsTrue_largeSteps(bitword_t* __restrict bitarray, const counter_t range_start, const counter_t step, const counter_t range_stop) {
-    debug printf("Setting bits step %ju in %ju bit range (%ju-%ju) using smallrange (%ju occurances)\n", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
+    debug printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largesteps (%ju occurances)\n", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
     
     #pragma unroll
     #pragma ivdep
@@ -428,9 +434,10 @@ static void setBitsTrue_largeRange_vector(bitword_t* __restrict bitarray_word, c
         } while (word < (VECTOR_ELEMENTS) && index <= range_stop_unique);
         
         register counter_t current_vector = current_vector_start_word>>2;
+        const counter_t range_stop_vector = vectorindex(range_stop);
         
         #pragma ivdep
-        for(; current_vector <= vectorindex(range_stop); current_vector += step) {
+        for(; current_vector <= range_stop_vector; current_vector += step) {
             bitarray_vector[current_vector] |= quadmask;
         }
         
@@ -846,7 +853,7 @@ static void sieve_block_stripe(struct sieve_state *sieve, const counter_t block_
 
     while (start <= block_stop) {
         step  = prime * 2 + 1;
-        if unlikely(step > VECTOR_SIZE_counter*3/4) break;
+        if unlikely(step > VECTOR_FASTER) break;
         if likely(block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
         setBitsTrue_largeRange_vector(bitarray, start, step, block_stop);
         prime = searchBitFalse(bitarray, prime+1 );
