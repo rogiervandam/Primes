@@ -48,7 +48,7 @@ typedef bitword_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes)));
 // globals for tuning
 counter_t global_SMALLSTEP_FASTER = 0;
 counter_t global_MEDIUMSTEP_FASTER = 0;
-counter_t global_VECTORSTEP_FASTER = 128;
+counter_t global_VECTORSTEP_FASTER = VECTOR_SIZE/2;
 
 #define SAFE_SHIFTBIT (bitshift_t)1U
 #define SAFE_ZERO  (bitword_t)0U
@@ -442,14 +442,30 @@ static void inline applyMask_vector(bitvector_t* __restrict bitarray, const coun
    }
 
    const register bitvector_t* __restrict range_stop_ptr = &bitarray[(range_stop_vector)];
-   while likely(index_ptr < range_stop_ptr) {
+   while likely(index_ptr <= range_stop_ptr) {
        *index_ptr |= mask;
        index_ptr+=step;
    }
 
-   if (index_ptr == range_stop_ptr) { // index_ptr could also end above range_stop_ptr, depending on steps. Then a chop is not needed
-       *index_ptr |= mask;
-   }
+//    if (index_ptr == range_stop_ptr) { // index_ptr could also end above range_stop_ptr, depending on steps. Then a chop is not needed
+//         bitword_t* __restrict index_ptr_word = (bitword_t*)index_ptr;
+//         bitword_t* __restrict range_stop_ptr_word = (bitword_t*)&bitarray[wordindex(range_stop)];
+//         for(counter_t word=0; index_ptr_word+word <= range_stop_ptr_word; word++) {
+//             *(index_ptr_word+word) = mask[word];
+//         }
+ 
+//                //     counter_t index_word = current_vector * VECTOR_ELEMENTS;
+//         //     counter_t range_stop_word = wordindex(range_stop);
+//         //     if likely(index_word <= range_stop_word) {
+//         //         #pragma ivdep
+//         //         for (word =0; word < VECTOR_ELEMENTS; word++) {
+//         //             if unlikely(index_word+word <= range_stop_word)
+//         //                 bitarray_word[index_word+word] |= quadmask[word];
+//         //         }
+//         //     }
+
+
+//    }
 }
 
 static void setBitsTrue_largeRange_vector(bitword_t* __restrict bitarray_word, counter_t range_start, const counter_t step, const counter_t range_stop) {
@@ -928,23 +944,23 @@ static void sieve_block_stripe(struct sieve_state *sieve, const counter_t block_
 
     debug printf("Block strip for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop);
     
-    while (start <= block_stop) {
-        step  = prime * 2 + 1;
-        if unlikely(step > SMALLSTEP_FASTER) break;
-        if likely(block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
-        setBitsTrue_smallStep(bitarray, start, (bitshift_t)step, block_stop);
-        prime = searchBitFalse(bitarray, prime+1 );
-        start = prime * prime * 2 + prime * 2;
-    }
+    // while (start <= block_stop) {
+    //     step  = prime * 2 + 1;
+    //     if unlikely(step > SMALLSTEP_FASTER) break;
+    //     if likely(block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
+    //     setBitsTrue_smallStep(bitarray, start, (bitshift_t)step, block_stop);
+    //     prime = searchBitFalse(bitarray, prime+1 );
+    //     start = prime * prime * 2 + prime * 2;
+    // }
     
-    while (start <= block_stop) {
-        step  = prime * 2 + 1;
-        if unlikely(step > MEDIUMSTEP_FASTER) break;
-        if likely(block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
-        setBitsTrue_mediumStep(bitarray, start, step, block_stop);
-        prime = searchBitFalse(bitarray, prime+1 );
-        start = prime * prime * 2 + prime * 2;
-    }
+    // while (start <= block_stop) {
+    //     step  = prime * 2 + 1;
+    //     if unlikely(step > MEDIUMSTEP_FASTER) break;
+    //     if likely(block_start >= (prime + 1)) start = block_start + prime + prime - ((block_start + prime) % step);
+    //     setBitsTrue_mediumStep(bitarray, start, step, block_stop);
+    //     prime = searchBitFalse(bitarray, prime+1 );
+    //     start = prime * prime * 2 + prime * 2;
+    // }
 
 //     counter_t start1 = 0; // save value
 //     counter_t step1 = 0; // save value
