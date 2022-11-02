@@ -429,22 +429,16 @@ static void inline applyMask_vector(bitvector_t* __restrict bitarray, const coun
    #pragma unroll
    #pragma ivdep
    while likely(index_ptr < fast_loop_ptr) {
-       *index_ptr |= mask;
-       index_ptr+=step;
-       *index_ptr |= mask;
-       index_ptr+=step;
-       *index_ptr |= mask;
-       index_ptr+=step;
-       *index_ptr |= mask;
-       index_ptr+=step;
-       *index_ptr |= mask;
-       index_ptr+=step;
+       *index_ptr |= mask; index_ptr+=step;
+       *index_ptr |= mask; index_ptr+=step;
+       *index_ptr |= mask; index_ptr+=step;
+       *index_ptr |= mask; index_ptr+=step;
+       *index_ptr |= mask; index_ptr+=step;
    }
 
    const register bitvector_t* __restrict range_stop_ptr = &bitarray[(range_stop_vector)];
    while likely(index_ptr <= range_stop_ptr) {
-       *index_ptr |= mask;
-       index_ptr+=step;
+       *index_ptr |= mask; index_ptr+=step;
    }
 
 //    if (index_ptr == range_stop_ptr) { // index_ptr could also end above range_stop_ptr, depending on steps. Then a chop is not needed
@@ -1046,10 +1040,10 @@ static struct block sieve_block_extend(struct sieve_state *sieve, const counter_
         }
         patternsize_bits *= step;
 
-        if      (step < SMALLSTEP_FASTER)      setBitsTrue_smallStep (bitarray, start, (bitshift_t)step, range_stop);
-        else if (step < MEDIUMSTEP_FASTER)     setBitsTrue_mediumStep(bitarray, start, step, range_stop);
-        else if (step < WORD_SIZE_counter * 4) setBitsTrue_largeRange_vector(bitarray, start, step, range_stop);
-        else                                   setBitsTrue_largeRange(bitarray, start, step, range_stop);
+        // if      (step < SMALLSTEP_FASTER)      setBitsTrue_smallStep (bitarray, start, (bitshift_t)step, range_stop);
+        // else if (step < MEDIUMSTEP_FASTER)     setBitsTrue_mediumStep(bitarray, start, step, range_stop);
+        if (step < VECTORSTEP_FASTER)     setBitsTrue_largeRange_vector(bitarray, start, step, range_stop);
+        else                              setBitsTrue_largeRange(bitarray, start, step, range_stop);
         block.prime = prime;
     } 
 
