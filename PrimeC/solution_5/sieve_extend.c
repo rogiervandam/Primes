@@ -15,7 +15,7 @@
 #define default_sieve_duration 5
 #define default_sample_duration 0.1
 #define default_sample_max 5
-#define default_verbose_level 2
+#define default_verbose_level 1
 #define default_tune_level 0
 #define default_check_level 1
 #define default_show_primes_on_error 100
@@ -420,6 +420,38 @@ static inline void setBitsTrue_largeRange(bitword_t* __restrict bitarray, const 
     }
 }
 
+
+static void inline applyMask_vector(bitvector_t* __restrict bitarray, const counter_t step, const counter_t range_stop, const bitvector_t mask, counter_t index_vector) {
+   const counter_t range_stop_vector = vectorindex(range_stop);
+   register bitvector_t* __restrict index_ptr      =  __builtin_assume_aligned(&bitarray[index_vector],8);
+   register bitvector_t* __restrict fast_loop_ptr  =  __builtin_assume_aligned(&bitarray[((range_stop_vector>step*5) ? (range_stop_vector - step*5):0)],8);
+
+   #pragma unroll
+   #pragma ivdep
+   while likely(index_ptr < fast_loop_ptr) {
+       *index_ptr |= mask;
+       index_ptr+=step;
+       *index_ptr |= mask;
+       index_ptr+=step;
+       *index_ptr |= mask;
+       index_ptr+=step;
+       *index_ptr |= mask;
+       index_ptr+=step;
+       *index_ptr |= mask;
+       index_ptr+=step;
+   }
+
+   const register bitvector_t* __restrict range_stop_ptr = &bitarray[(range_stop_vector)];
+   while likely(index_ptr < range_stop_ptr) {
+       *index_ptr |= mask;
+       index_ptr+=step;
+   }
+
+   if (index_ptr == range_stop_ptr) { // index_ptr could also end above range_stop_ptr, depending on steps. Then a chop is not needed
+       *index_ptr |= mask;
+   }
+}
+
 static void setBitsTrue_largeRange_vector(bitword_t* __restrict bitarray_word, counter_t range_start, const counter_t step, const counter_t range_stop) {
     debug printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange vector (%ju occurances)\n", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
 
@@ -470,9 +502,9 @@ static void setBitsTrue_largeRange_vector(bitword_t* __restrict bitarray_word, c
     
     const counter_t range_stop_unique =  min(range_start + VECTOR_SIZE_counter * step, range_stop);
     
-    const counter_t step_2 = step * 2;
-    const counter_t step_3 = step * 3;
-    const counter_t step_4 = step * 4;
+    // const counter_t step_2 = step * 2;
+    // const counter_t step_3 = step * 3;
+    // const counter_t step_4 = step * 4;
 
     #pragma ivdep unroll
     for (counter_t index = range_start; index < range_stop_unique;) {
@@ -491,7 +523,9 @@ static void setBitsTrue_largeRange_vector(bitword_t* __restrict bitarray_word, c
         // use mask on all n*step multiples
         register counter_t current_vector = current_vector_start_word >> (SHIFT_VECTOR - SHIFT_WORD);
         const counter_t range_stop_vector = vectorindex(range_stop);
-        
+
+        applyMask_vector(bitarray_vector, step, range_stop, quadmask, current_vector);
+
         // if (current_vector+step_4 <= range_stop_vector) {
         //     register const counter_t loop_stop_vector = (range_stop_vector > step_4) ? (range_stop_vector - step_4) : 0;
         //     #pragma ivdep unroll
@@ -503,31 +537,32 @@ static void setBitsTrue_largeRange_vector(bitword_t* __restrict bitarray_word, c
         //     }
         // }
 
-        #pragma ivdep unroll
-        for(; current_vector+step_4 < range_stop_vector; current_vector += step_4) {
-            bitarray_vector[current_vector       ] |= quadmask;
-            bitarray_vector[current_vector+step  ] |= quadmask;
-            bitarray_vector[current_vector+step_2] |= quadmask;
-            bitarray_vector[current_vector+step_3] |= quadmask;
-        }
 
-        #pragma ivdep unroll
-        for(; current_vector < range_stop_vector; current_vector += step) {
-            bitarray_vector[current_vector] |= quadmask;
-        }
+        // #pragma ivdep unroll
+        // for(; current_vector+step_4 < range_stop_vector; current_vector += step_4) {
+        //     bitarray_vector[current_vector       ] |= quadmask;
+        //     bitarray_vector[current_vector+step  ] |= quadmask;
+        //     bitarray_vector[current_vector+step_2] |= quadmask;
+        //     bitarray_vector[current_vector+step_3] |= quadmask;
+        // }
+
+        // #pragma ivdep unroll
+        // for(; current_vector < range_stop_vector; current_vector += step) {
+        //     bitarray_vector[current_vector] |= quadmask;
+        // }
         
-        if unlikely(current_vector == range_stop_vector) {
-            counter_t index_word = current_vector * VECTOR_ELEMENTS;
-            counter_t range_stop_word = wordindex(range_stop);
-            if likely(index_word <= range_stop_word) {
-                #pragma ivdep
-                for (word =0; word < VECTOR_ELEMENTS; word++) {
-                    if unlikely(index_word+word <= range_stop_word)
-                        bitarray_word[index_word+word] |= quadmask[word];
-                }
-            }
+        // if unlikely(current_vector == range_stop_vector) {
+        //     counter_t index_word = current_vector * VECTOR_ELEMENTS;
+        //     counter_t range_stop_word = wordindex(range_stop);
+        //     if likely(index_word <= range_stop_word) {
+        //         #pragma ivdep
+        //         for (word =0; word < VECTOR_ELEMENTS; word++) {
+        //             if unlikely(index_word+word <= range_stop_word)
+        //                 bitarray_word[index_word+word] |= quadmask[word];
+        //         }
+        //     }
 
-        }
+        // }
     }
 }
 
