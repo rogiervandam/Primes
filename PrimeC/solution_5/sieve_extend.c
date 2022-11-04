@@ -91,7 +91,7 @@ counter_t global_VECTORSTEP_FASTER = VECTOR_SIZE/2;
 
 counter_t debug_hitpoint[5] = { 0,0,0,0,0};
 
-struct sieve_state {
+struct sieve_t {
     bitword_t* bitarray;
     counter_t  bits;
     counter_t  size;
@@ -101,8 +101,8 @@ struct sieve_state {
 
 // use cache lines as much as possible - alignment might be key
 #define ceiling(x,y) (((x) + (y) - 1) / (y)) // Return the smallest multiple N of y such that:  x <= y * N
-static struct sieve_state *create_sieve(counter_t size) {
-    struct sieve_state *sieve = aligned_alloc(8, sizeof(struct sieve_state));
+static struct sieve_t *sieve_create(counter_t size) {
+    struct sieve_t *sieve = aligned_alloc(8, sizeof(struct sieve_t));
     size_t memSize = ceiling(1+((size_t)size/2), anticiped_cache_line_bytesize*8) * anticiped_cache_line_bytesize; //make multiple of 8
 
     sieve->bitarray = aligned_alloc((size_t)anticiped_cache_line_bytesize, (size_t)memSize );
@@ -114,7 +114,7 @@ static struct sieve_state *create_sieve(counter_t size) {
     return sieve;
 }
 
-static void delete_sieve(struct sieve_state *sieve) {
+static void sieve_delete(struct sieve_t *sieve) {
     free(sieve->bitarray);
     free(sieve);
 }
@@ -408,8 +408,8 @@ static inline void setBitsTrue_largeRange(bitword_t* __restrict bitarray, const 
 
 static inline void applyMask_vector_ptr(bitvector_t* __restrict bitarray, const counter_t step, const counter_t range_stop, const bitvector_t mask, counter_t index_vector) {
     const counter_t range_stop_vector = vectorindex(range_stop);
-    register bitvector_t* __restrict index_ptr      =  __builtin_assume_aligned(&bitarray[index_vector],8);
-    register bitvector_t* __restrict fast_loop_ptr  =  __builtin_assume_aligned(&bitarray[((range_stop_vector>step*5) ? (range_stop_vector - step*5):0)],8);
+    register bitvector_t* __restrict index_ptr      =  __builtin_assume_aligned(&bitarray[index_vector],anticiped_cache_line_bytesize);
+    register bitvector_t* __restrict fast_loop_ptr  =  __builtin_assume_aligned(&bitarray[((range_stop_vector>step*5) ? (range_stop_vector - step*5):0)],anticiped_cache_line_bytesize);
     
     //#pragma GCC unroll 16
     #pragma GCC ivdep
@@ -427,15 +427,14 @@ static inline void applyMask_vector_ptr(bitvector_t* __restrict bitarray, const 
     }
 }
 
-static inline void applyMask_vector_array(bitvector_t* __restrict bitarray_word, const counter_t step, const counter_t range_stop, const bitvector_t mask, counter_t index_vector) {
+static inline void applyMask_vector_array(bitvector_t* __restrict bitarray_vector, const counter_t step, const counter_t range_stop, const bitvector_t mask, counter_t index_vector) {
 
-    bitvector_t* __restrict bitarray_vector = __builtin_assume_aligned( (bitvector_t*) bitarray_word, anticiped_cache_line_bytesize);
-    counter_t current_vector = index_vector;
-    const counter_t range_stop_vector = vectorindex(range_stop);
-
-    const counter_t step_2 = step * 2;
-    const counter_t step_3 = step * 3;
-    const counter_t step_4 = step * 4;
+//    bitvector_t* __restrict bitarray_vector = __builtin_assume_aligned( (bitvector_t*) bitarray_word, anticiped_cache_line_bytesize);
+    register counter_t current_vector = index_vector;
+    register const counter_t range_stop_vector = vectorindex(range_stop);
+    register const counter_t step_2 = step * 2;
+    register const counter_t step_3 = step * 3;
+    register const counter_t step_4 = step * 4;
 
     if (current_vector+step_4 <= range_stop_vector) {
         register const counter_t loop_stop_vector = (range_stop_vector > step_4) ? (range_stop_vector - step_4) : 0;
@@ -504,7 +503,7 @@ static void setBitsTrue_largeRange_vector(bitword_t* __restrict bitarray_word, c
         register counter_t current_vector = current_vector_start_word >> (SHIFT_VECTOR - SHIFT_WORD);
         // const counter_t range_stop_vector = vectorindex(range_stop);
 
-        applyMask_vector_ptr(bitarray_vector, step, range_stop, quadmask, current_vector);
+        applyMask_vector_array(bitarray_vector, step, range_stop, quadmask, current_vector);
     }
 }
 
@@ -833,7 +832,7 @@ struct block {
 // returns prime that could not be handled:
 // start is too large
 // range is too big
-static struct block sieve_block_extend(struct sieve_state *sieve, const counter_t block_start, const counter_t block_stop) {
+static struct block sieve_block_extend(struct sieve_t *sieve, const counter_t block_start, const counter_t block_stop) {
     register counter_t prime   = 0;
     counter_t patternsize_bits = 1;
     counter_t pattern_start    = 0;
@@ -872,8 +871,8 @@ static struct block sieve_block_extend(struct sieve_state *sieve, const counter_
     return block;
 }
 
-static struct sieve_state *sieve(const counter_t maxints, const counter_t blocksize) {
-    struct sieve_state *sieve = create_sieve(maxints);
+static struct sieve_t* sieve_shake(const counter_t maxints, const counter_t blocksize) {
+    struct sieve_t *sieve = sieve_create(maxints);
     counter_t prime     = 0;
     bitword_t* bitarray = sieve->bitarray;
 
@@ -894,8 +893,8 @@ static struct sieve_state *sieve(const counter_t maxints, const counter_t blocks
     return sieve;
 }
 
-static struct sieve_state *sieve_blockbyblock(const counter_t maxints, const counter_t blocksize) {
-    struct sieve_state *sieve = create_sieve(maxints);
+static struct sieve_t *sieve_blockbyblock(const counter_t maxints, const counter_t blocksize) {
+    struct sieve_t *sieve = sieve_create(maxints);
     counter_t prime     = 1;
     bitword_t* bitarray = sieve->bitarray;
     for(counter_t index=0; index<wordindex(maxints/2); index++) {
@@ -914,7 +913,7 @@ static struct sieve_state *sieve_blockbyblock(const counter_t maxints, const cou
     return sieve;
 }
 
-static void show_primes(struct sieve_state *sieve, counter_t maxFactor) {
+static void show_primes(struct sieve_t *sieve, counter_t maxFactor) {
     counter_t primeCount = 1;    // We already have 2
     for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitarray, factor+1)) {
         primeCount++;
@@ -926,13 +925,13 @@ static void show_primes(struct sieve_state *sieve, counter_t maxFactor) {
     printf("\nFound %ju primes until %ju\n",(uintmax_t)primeCount, (uintmax_t)sieve->bits*2+1);
 }
 
-static counter_t count_primes(struct sieve_state *sieve) {
+static counter_t count_primes(struct sieve_t *sieve) {
     counter_t primeCount = 1;
     for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitarray, factor+1)) primeCount++;
     return primeCount;
 }
 
-static void deepAnalyzePrimes(struct sieve_state *sieve) {
+static void deepAnalyzePrimes(struct sieve_t *sieve) {
     printf("DeepAnalyzing\n");
     counter_t warn_prime = 0;
     counter_t warn_nonprime = 0;
@@ -955,7 +954,7 @@ static void deepAnalyzePrimes(struct sieve_state *sieve) {
 }
 
 
-int validatePrimeCount(struct sieve_state *sieve, int option_verboselevel) {
+int validatePrimeCount(struct sieve_t *sieve, int option_verboselevel) {
 
     counter_t primecount = count_primes(sieve);
     counter_t valid_primes = 0;
@@ -1023,7 +1022,7 @@ static void tune_benchmark(tuning_result_type* tuning_result, counter_t tuning_r
     counter_t passes = 0;
     double elapsed_time = 0;
     struct timespec start_time,end_time;
-    struct sieve_state *sieve_instance;
+    struct sieve_t *sieve;
 
     global_SMALLSTEP_FASTER = tuning_result[tuning_result_index].smallstep_faster;
     global_MEDIUMSTEP_FASTER = tuning_result[tuning_result_index].mediumstep_faster;
@@ -1031,8 +1030,8 @@ static void tune_benchmark(tuning_result_type* tuning_result, counter_t tuning_r
 
     clock_gettime(CLOCK_MONOTONIC,&start_time);
     while (elapsed_time <= tuning_result[tuning_result_index].sample_duration && passes < tuning_result[tuning_result_index].sample_max) {
-        sieve_instance = sieve(tuning_result[tuning_result_index].maxints, tuning_result[tuning_result_index].blocksize_bits);//blocksize_bits);
-        delete_sieve(sieve_instance);
+        sieve = sieve_shake(tuning_result[tuning_result_index].maxints, tuning_result[tuning_result_index].blocksize_bits);//blocksize_bits);
+        sieve_delete(sieve);
         passes++;
         clock_gettime(CLOCK_MONOTONIC,&end_time);
         elapsed_time = end_time.tv_sec + end_time.tv_nsec*1e-9 - start_time.tv_sec - start_time.tv_nsec*1e-9;
@@ -1249,16 +1248,80 @@ void test3(bitword_t* __restrict bitarray, counter_t max) {
 //    }
 //}
 
+void testshuffle(bitvector_t* __restrict bitarray, counter_t max) {
+    
+    bitword_t* bitarray_word = (bitword_t*)bitarray;
+    counter_t j =0;
+    for (counter_t i=0; i<8*64; i++) {
+        i+= j;
+        j++;
+        bitarray_word[wordindex(i)] |= markmask(i);
+    }
+
+    // distance = destination_start - source_start
+    // vector_shift = distance / 256 (4 * 64)
+    // word_shift = distance / 64
+    // bit_shift = distance % 64
+
+    counter_t source_start = 2*64;
+    counter_t destination_start = 14&64 + 12;
+
+    counter_t destination_vector = vector_index(destination_start);
+    counter_t destination_word   = word_index(destination_start);
+
+    counter_t source_vector = vectorindex(source_start);
+    counter_t delta_vector = vectorindex(destination_start) - vectorindex(source_start);
+    counter_t delta_word   = wordindex(destination_start) - wordindex(source_start);
+    int delta_bit    = bitindex(destination_start) - bitindex(source_start); // could be negative
+    
+    bitshift_t shift_bit = delta_bit; 
+    bitshift_t shift_bit_flipped = WORD_SIZE_bitshift - shift_bit; 
+
+//    if (delta_bit) ....
+
+    bitvector_t source0 = bitarray[source_vector];
+    bitvector_t source1 = bitarray[source_vector+1];
+    if (delta_word==0) { delta_word += 4; source_vector++ }
+    bitvector_t shuffle1 = { delta_word-1, delta_word, delta_word+1, delta_word+2 };
+    bitvector_t shuffle2 = { delta_bit, delta_bit+1, delta_bit+2, delta_bit+3 };
+    bitvector_t dest1 = __builtin_shuffle(source0,source1,shuffle1) >> shift_bit_flipped;
+    bitvector_t dest2 = __builtin_shuffle(source0,source1,shuffle2) << shift_bit;
+    bitarray[destination_vector] = dest1 | dest2;
+
+
+//     bitvector_t a = bitarray[0];
+//     bitvector_t b = bitarray[1];
+
+// //    bitarray[3] = b | c;
+//     const uint64_t word = 2;
+//     const uint64_t shift = 16;
+//     bitvector_t shuffle1 = { (uint64_t)word, word+(uint64_t)1, word+(uint64_t)2, word+(uint64_t)3 };
+//     bitvector_t shuffle2 = { (uint64_t)word+1, word+(uint64_t)2, word+(uint64_t)3, word+(uint64_t)4 };
+//     bitvector_t c = __builtin_shuffle(a,b,shuffle1) >> (WORD_SIZE_bitshift - shift);
+//     bitvector_t d = __builtin_shuffle(a,b,shuffle2) << shift;
+//     bitvector_t z = c | d;
+
+//     bitarray[3] = z;
+
+//    bitarray[3] = __builtin_shufflevector(a,b,shuffle[0],shuffle[1],shuffle[2],shuffle[3]);
+    
+}
 int main(int argc, char *argv[]) {
     
-    // struct sieve_state* sieve_instance = sieve(1000000, default_blocksize);
-    // int passes1 = benchmark(1, test , sieve_instance->bitarray, 500000);
-    // int passes2 = benchmark(1, test2, sieve_instance->bitarray, 500000);
-    // int passes3 = benchmark(1, test3, sieve_instance->bitarray, 500000);
-    // delete_sieve(sieve_instance);
-    // printf("Passes1:"); printfcomma2(passes1);printf("\n");
-    // printf("Passes2:"); printfcomma2(passes2);printf("\n");
-    // printf("Passes3:"); printfcomma2(passes3);printf("\n");
+    // struct sieve_t* sieve = sieve_create(1000000);
+    // bitvector_t* bitarray = (bitvector_t*)sieve->bitarray;
+
+    // // int passes1 = benchmark(1, test , sieve->bitarray, 500000);
+    // // int passes2 = benchmark(1, test2, sieve->bitarray, 500000);
+    // // int passes3 = benchmark(1, test3, sieve->bitarray, 500000);
+
+    // testshuffle(bitarray,1000000);
+    // dump_bitarray(bitarray,16);
+
+    // sieve_delete(sieve);
+    // // printf("Passes1:"); printfcomma2(passes1);printf("\n");
+    // // printf("Passes2:"); printfcomma2(passes2);printf("\n");
+    // // printf("Passes3:"); printfcomma2(passes3);printf("\n");
     // exit(0);
     
     
@@ -1299,13 +1362,13 @@ int main(int argc, char *argv[]) {
     }
 
     if (option_runonce) { // used for stats and debugging
-        struct sieve_state* sieve_instance = sieve(option_maxFactor, default_blocksize);
+        struct sieve_t* sieve = sieve_shake(option_maxFactor, default_blocksize);
         printf("\nResult set:\n");
-        show_primes(sieve_instance, option_showMaxFactor);
-        int valid = validatePrimeCount(sieve_instance,3);
+        show_primes(sieve, option_showMaxFactor);
+        int valid = validatePrimeCount(sieve,3);
         if (!valid) printf("The sieve is NOT valid\n");
         else printf("The sieve is VALID\n");
-        delete_sieve(sieve_instance);
+        sieve_delete(sieve);
         exit(0);
     }
 
@@ -1327,12 +1390,12 @@ int main(int argc, char *argv[]) {
         // validate algorithm - run one time for all sizes
         for (counter_t sieveSize_check = 100; sieveSize_check <= 100000000; sieveSize_check *=10) {
             if (option_verboselevel >= 2) printf("...Checking size %ju ...",(uintmax_t)sieveSize_check);
-            struct sieve_state *sieve_instance_check;
+            struct sieve_t *sieve_check;
             for (counter_t blocksize_bits=1024; blocksize_bits<=2*1024*8; blocksize_bits *= 2) {
                 if (option_verboselevel >= 3) printf(".blocksize %ju-",(uintmax_t)blocksize_bits);
-                sieve_instance_check = sieve(sieveSize_check, blocksize_bits);
-                int valid = validatePrimeCount(sieve_instance_check,option_verboselevel);
-                delete_sieve(sieve_instance_check);
+                sieve_check = sieve_shake(sieveSize_check, blocksize_bits);
+                int valid = validatePrimeCount(sieve_check,option_verboselevel);
+                sieve_delete(sieve_check);
                 if (!valid) return 0; else if (option_verboselevel >= 3) printf("valid;");
             }
             if (option_verboselevel >= 2) printf("\n");
@@ -1355,11 +1418,11 @@ int main(int argc, char *argv[]) {
         counter_t passes = 0;
         counter_t blocksize_bits = best_blocksize_bits;
         double elapsed_time = 0;
-        struct sieve_state *sieve_instance;
+        struct sieve_t *sieve;
         clock_gettime(CLOCK_MONOTONIC,&start_time);
         while (elapsed_time <= max_time) {
-            sieve_instance = sieve(option_maxFactor, blocksize_bits);//blocksize_bits);
-            delete_sieve(sieve_instance);
+            sieve = sieve_shake(option_maxFactor, blocksize_bits);//blocksize_bits);
+            sieve_delete(sieve);
             passes++;
             clock_gettime(CLOCK_MONOTONIC,&end_time);
             elapsed_time = end_time.tv_sec + end_time.tv_nsec*1e-9 - start_time.tv_sec - start_time.tv_nsec*1e-9;
@@ -1370,9 +1433,9 @@ int main(int argc, char *argv[]) {
     
     if (option_showMaxFactor > 0) {
         printf("Show result set:\n");
-        struct sieve_state* sieve_instance = sieve(option_maxFactor, option_maxFactor);
-        show_primes(sieve_instance, option_showMaxFactor);
-        delete_sieve(sieve_instance);
+        struct sieve_t* sieve = sieve_shake(option_maxFactor, option_maxFactor);
+        show_primes(sieve, option_showMaxFactor);
+        sieve_delete(sieve);
         printf("\n");
     }
 }
