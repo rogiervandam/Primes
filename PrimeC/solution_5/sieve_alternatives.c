@@ -472,3 +472,88 @@ static void setBitsTrue_largeRange_vector(bitword_t* __restrict bitarray_word, c
         // }
     }
 }
+
+// small ranges (< WORD_SIZE * step) mean the mask is unique
+static void setBitsTrue_race(bitword_t* bitstorage, counter_t index1, counter_t index2, const counter_t step1, const counter_t step2, const counter_t range_stop) {
+    debug printf("Setting bits step %ju and %ju in %ju bit range (%ju-%ju) using race (%ju occurances)\n", (uintmax_t)step1,(uintmax_t)step2, (uintmax_t)range_stop-(uintmax_t)index1,(uintmax_t)index1,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)index1)/(uintmax_t)step1));
+
+    counter_t index1_word = wordindex(index1);
+    counter_t index2_word = wordindex(index2);
+    
+    while (1) {
+        if (index1_word == index2_word) {
+            bitword_t mask = SAFE_ZERO;
+            counter_t index_word = index1_word;
+            do {
+                mask |= markmask(index1);
+                index1 += step1;
+                index1_word = wordindex(index1);
+            } while (index1_word == index_word);
+            do {
+                mask |= markmask(index2);
+                index2 += step2;
+                index2_word = wordindex(index2);
+            } while (index2_word == index_word);
+            bitstorage[index_word] |= mask;
+        }
+
+        // because step is larger, index2 is the most likely to get out of bounds first
+        if (index2 > range_stop) {
+            while (index1 <= range_stop) {
+                bitstorage[wordindex(index1)] |= markmask(index1);
+                index1 += step1;
+            }
+            return;
+        }
+
+        if (index1 > range_stop) {
+            while (index2 <= range_stop) {
+                bitstorage[wordindex(index2)] |= markmask(index2);
+                index2 += step2;
+            }
+            return;
+        }
+
+        while (index1_word < index2_word) {
+            bitstorage[index1_word] |= markmask(index1);
+            index1 += step1;
+            index1_word = wordindex(index1);
+        }
+        
+        while (index2_word < index1_word){
+            bitstorage[index2_word] |= markmask(index2);
+            index2 += step2;
+            index2_word = wordindex(index2);
+        }
+
+    }
+}
+
+static inline void applyMask_vector_array(bitvector_t* __restrict bitstorage_vector, const counter_t step, const counter_t range_stop, const bitvector_t mask, counter_t index_vector) {
+
+//    bitvector_t* __restrict bitstorage_vector = __builtin_assume_aligned( (bitvector_t*) bitstorage_word, anticiped_cache_line_bytesize);
+    register counter_t current_vector = index_vector;
+    register const counter_t range_stop_vector = vectorindex(range_stop);
+    register const counter_t step_2 = step * 2;
+    register const counter_t step_3 = step * 3;
+    register const counter_t step_4 = step * 4;
+
+    if (current_vector+step_4 <= range_stop_vector) {
+        register const counter_t loop_stop_vector = (range_stop_vector > step_4) ? (range_stop_vector - step_4) : 0;
+        //#pragma GCC unroll 16
+        #pragma GCC ivdep
+        for(; current_vector <= loop_stop_vector; current_vector += step_4) {
+            bitstorage_vector[current_vector       ] |= mask;
+            bitstorage_vector[current_vector+step  ] |= mask;
+            bitstorage_vector[current_vector+step_2] |= mask;
+            bitstorage_vector[current_vector+step_3] |= mask;
+        }
+    }
+    
+    //#pragma GCC unroll 16
+    #pragma GCC ivdep 
+    for(; current_vector <= range_stop_vector; current_vector += step) {
+        bitstorage_vector[current_vector] |= mask;
+    }
+    
+}
