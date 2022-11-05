@@ -14,87 +14,81 @@
 #define debug if (option_runonce)
 #define debug2 if (option_runonce>=2)
 
+// defaults
 #define default_sieve_limit 1000000
 #define default_blocksize (32*1024*8-1024)
 #define default_sieve_duration 5
 #define default_sample_duration 0.1
 #define default_sample_max 5
 #define default_verbose_level 2
-#define default_tune_level 2
+#define default_tune_level 1
 #define default_check_level 1
 #define default_show_primes_on_error 100
 #define default_showMaxFactor (0 || option_runonce?100:0)
 #define anticiped_cache_line_bytesize 128
 
-// 64 bit
-#define TYPE uint64_t
+// helper functions
+#define pow(base,pow) (pow*((base>>pow)&1U))
+#define min(a,b) ((a<b) ? a : b)
+#define uintsafeminus(a,b) ((a>b)?(a-b):0)
+#define likely(x)       (__builtin_expect((x),1))
+#define unlikely(x)     (__builtin_expect((x),0))
 
-// calculate the rest dynamically
+// types
+#define bitword_t uint64_t
+#define TYPE uint64_t
 #define counter_t TYPE
 #define bitshift_t TYPE
-#define bitword_t uint64_t
 
 #define WORD_SIZE (sizeof(bitword_t)*8)
 #define WORD_SIZE_counter ((counter_t)WORD_SIZE)
 #define WORD_SIZE_bitshift ((bitshift_t)WORD_SIZE)
-#define pow(base,pow) (pow*((base>>pow)&1U))
 //#define SHIFT ((bitshift_t)(pow(WORD_SIZE,1)+pow(WORD_SIZE,2)+pow(WORD_SIZE,3)+pow(WORD_SIZE,4)+pow(WORD_SIZE,5)+pow(WORD_SIZE,6)+pow(WORD_SIZE,7)+pow(WORD_SIZE,8)))
 #define SHIFT_WORD ((bitshift_t)(pow(WORD_SIZE,1)+pow(WORD_SIZE,2)+pow(WORD_SIZE,3)+pow(WORD_SIZE,4)+pow(WORD_SIZE,5)+pow(WORD_SIZE,6)+pow(WORD_SIZE,7)+pow(WORD_SIZE,8)+pow(WORD_SIZE,9)+pow(WORD_SIZE,10)))
 
 #define VECTOR_ELEMENTS 4
 #define VECTOR_SIZE_bytes (sizeof(bitword_t)*VECTOR_ELEMENTS)
-#define VECTOR_SIZE_counter (VECTOR_SIZE_bytes*8)
+#define VECTOR_SIZE_counter ((counter_t)VECTOR_SIZE_bytes*8)
 #define VECTOR_SIZE (VECTOR_SIZE_bytes*8)
 #define SHIFT_VECTOR ((bitshift_t)(pow(VECTOR_SIZE,1)+pow(VECTOR_SIZE,2)+pow(VECTOR_SIZE,3)+pow(VECTOR_SIZE,4)+pow(VECTOR_SIZE,5)+pow(VECTOR_SIZE,6)+pow(VECTOR_SIZE,7)+pow(VECTOR_SIZE,8)+pow(VECTOR_SIZE,9)+pow(VECTOR_SIZE,10)))
 
+// types (II) - calculated
 typedef bitword_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes)));
 
 // globals for tuning
+// #define SMALLSTEP_FASTER ((counter_t)0)
+// #define MEDIUMSTEP_FASTER ((counter_t)16)
+// #define VECTORSTEP_FASTER ((counter_t)128)
 counter_t global_SMALLSTEP_FASTER = 0;
 counter_t global_MEDIUMSTEP_FASTER = 0;
 counter_t global_VECTORSTEP_FASTER = VECTOR_SIZE/2;
+#define SMALLSTEP_FASTER ((counter_t)global_SMALLSTEP_FASTER)
+#define MEDIUMSTEP_FASTER ((counter_t)global_MEDIUMSTEP_FASTER)
+#define VECTORSTEP_FASTER ((counter_t)global_VECTORSTEP_FASTER)
 
+// Patterns based on types
 #define SAFE_SHIFTBIT (bitshift_t)1U
 #define SAFE_ZERO  (bitword_t)0U
 #define BITWORD_SHIFTBIT (bitword_t)1U
 #define WORDMASK ((~SAFE_ZERO)>>(WORD_SIZE_bitshift-SHIFT_WORD))
 #define VECTORMASK ((~SAFE_ZERO)>>(WORD_SIZE_bitshift-SHIFT_VECTOR))
-// #define SMALLSTEP_FASTER ((counter_t)0)
-// #define MEDIUMSTEP_FASTER ((counter_t)16)
-// #define VECTORSTEP_FASTER ((counter_t)128)
 
-#define SMALLSTEP_FASTER ((counter_t)global_SMALLSTEP_FASTER)
-#define MEDIUMSTEP_FASTER ((counter_t)global_MEDIUMSTEP_FASTER)
-#define VECTORSTEP_FASTER ((counter_t)global_VECTORSTEP_FASTER)
-
+// helpder functions for word/vector indexing
 #define wordindex(index) (((counter_t)index) >> (bitshift_t)SHIFT_WORD)
 #define wordend(index) ((counter_t)index|WORDMASK)
-#define wordstart(index) ((counter_t)index&~WORDMASK)
+#define wordstart(index) ((counter_t)(index)&(counter_t)(~WORDMASK))
 #define vectorindex(index) (((counter_t)index) >> (bitshift_t)SHIFT_VECTOR)
 #define vectorstart(index) (((counter_t)index) & (counter_t)~VECTORMASK)
 #define vectorfromword(word) ((counter_t)(word)>>(SHIFT_VECTOR-SHIFT_WORD))
 
 // modern processors do a & over the shiftssize, so we only have to do that ourselve when using the shiftsize in calculations. 
 #define bitindex(index) ((bitshift_t)(index))
-// #define bitindex(index) ((bitshift_t)(index)&((bitword_t)(WORD_SIZE-1)))
-//#define bitindex_calc(index) ((bitshift_t)(index)&((bitshift_t)(WORD_SIZE_bitshift-SAFE_SHIFTBIT)))
 #define bitindex_calc(index) ((bitshift_t)(index)&((bitshift_t)(WORDMASK)))
-#define  markmask(index) (BITWORD_SHIFTBIT << bitindex(index))
-#define  markmask_calc(index) (BITWORD_SHIFTBIT << bitindex_calc(index))
+#define markmask(index) (BITWORD_SHIFTBIT << bitindex(index))
+#define markmask_calc(index) (BITWORD_SHIFTBIT << bitindex_calc(index))
 // #define chopmask(index) ((SAFE_SHIFTBIT << bitindex(index))-SAFE_SHIFTBIT)
-// #define chopmask2(index) (((bitword_t)2U << bitindex(index))-SAFE_SHIFTBIT)
 #define chopmask(index) (~SAFE_ZERO >> (WORD_SIZE-1-bitindex_calc(index)))
 #define keepmask(index) (~SAFE_ZERO << (bitindex_calc(index)))
-#define chopmask2(index) chopmask(index)
-#define real(bit) (bit*2+1)
-
-#define min(a,b) ((a<b) ? a : b)
-#define uintsafeminus(a,b) ((a>b)?(a-b):0)
-
-#define likely(x)       (__builtin_expect((x),1))
-#define unlikely(x)     (__builtin_expect((x),0))
-
-counter_t debug_hitpoint[5] = { 0,0,0,0,0};
 
 struct sieve_t {
     bitword_t* bitarray;
@@ -105,17 +99,13 @@ struct sieve_t {
 #include "debugtools.h"
 
 // use cache lines as much as possible - alignment might be key
+// moved clearing the sieve with 0 to the sieve_block_extend - it gave weird malloc problems at this point
 #define ceiling(x,y) (((x) + (y) - 1) / (y)) // Return the smallest multiple N of y such that:  x <= y * N
 static struct sieve_t *sieve_create(counter_t size) {
     struct sieve_t *sieve = aligned_alloc(8, sizeof(struct sieve_t));
-    size_t memSize = ceiling(1+((size_t)size/2), anticiped_cache_line_bytesize*8) * anticiped_cache_line_bytesize; //make multiple of 8
-
-    sieve->bitarray = aligned_alloc((size_t)anticiped_cache_line_bytesize, (size_t)memSize );
+    sieve->bitarray = aligned_alloc((size_t)anticiped_cache_line_bytesize, (size_t)ceiling(1+((size_t)size>>1), anticiped_cache_line_bytesize<<3) * anticiped_cache_line_bytesize );
     sieve->bits     = size >> 1;
     sieve->size     = size;
-
-    // moved clearing the sieve with 0 to the sieve_block_extend
-    // it gave weird malloc problems at this point
     return sieve;
 }
 
@@ -185,22 +175,16 @@ static inline void applyMask_ptr(bitword_t* __restrict bitarray, const counter_t
    //#pragma GCC unroll 10
    #pragma GCC ivdep
    while likely(index_ptr < fast_loop_ptr) {
-       *index_ptr |= mask;
-       index_ptr+=step;
-       *index_ptr |= mask;
-       index_ptr+=step;
-       *index_ptr |= mask;
-       index_ptr+=step;
-       *index_ptr |= mask;
-       index_ptr+=step;
-       *index_ptr |= mask;
-       index_ptr+=step;
+       *index_ptr |= mask;        index_ptr+=step;
+       *index_ptr |= mask;        index_ptr+=step;
+       *index_ptr |= mask;        index_ptr+=step;
+       *index_ptr |= mask;        index_ptr+=step;
+       *index_ptr |= mask;        index_ptr+=step;
    }
 
    register const bitword_t* __restrict range_stop_ptr = &bitarray[(range_stop_word)];
    while likely(index_ptr < range_stop_ptr) {
-       *index_ptr |= mask;
-       index_ptr+=step;
+       *index_ptr |= mask;       index_ptr+=step;
    }
 
    if (index_ptr == range_stop_ptr) { // index_ptr could also end above range_stop_ptr, depending on steps. Then a chop is not needed
@@ -426,7 +410,7 @@ static inline void applyMask_vector_ptr(bitvector_t* __restrict bitarray, const 
         *index_ptr |= mask; index_ptr+=step;
     }
     
-    register const bitvector_t* __restrict range_stop_ptr = &bitarray[(range_stop_vector)];
+    register const bitvector_t* __restrict range_stop_ptr = __builtin_assume_aligned(&bitarray[(range_stop_vector)],anticiped_cache_line_bytesize);
     while likely(index_ptr <= range_stop_ptr) {
         *index_ptr |= mask; index_ptr+=step;
     }
@@ -606,9 +590,7 @@ static void extendSieve_shiftright_vector(bitword_t* bitarray, const counter_t s
                                 | (bitarray[copy_word] >> shift_flipped))
                                 & keepmask(copy_start);
 
-    if (copy_word >= destination_stop_word) { 
-        return; // rapid exit for one word variant
-    }
+    if (copy_word >= destination_stop_word) return; // rapid exit for one word variant
 
     copy_word++;
 
@@ -733,16 +715,11 @@ static void extendSieve_shiftright_ivdep(bitword_t* bitarray, const counter_t so
     register counter_t source_word = wordindex(source_start);
     register counter_t copy_word = wordindex(copy_start);
 
-    if (copy_word >= destination_stop_word) { 
-        bitarray[copy_word] |= ((bitarray[source_word] << shift)  // or the start in to not lose data
-                                | (bitarray[copy_word] >> shift_flipped))
-                                & keepmask(copy_start) & chopmask(destination_stop);
-        return; // rapid exit for one word variant
-    }
-
     bitarray[copy_word] |= ((bitarray[source_word] << shift)  // or the start in to not lose data
                                 | (bitarray[copy_word] >> shift_flipped))
                                 & keepmask(copy_start);
+
+    if (copy_word >= destination_stop_word) return; // rapid exit for one word variant
 
     copy_word++;
 
@@ -1158,9 +1135,9 @@ static tuning_result_type tune(int tune_level, counter_t maxints, int option_ver
     counter_t tuning_results=0;
     counter_t tuning_result_index=0;
     
-    for (counter_t smallstep_faster = 0; smallstep_faster <= WORD_SIZE/2; smallstep_faster += smallstep_faster_steps) {
-        for (counter_t mediumstep_faster = smallstep_faster; mediumstep_faster <= WORD_SIZE; mediumstep_faster += mediumstep_faster_steps) {
-            for (counter_t vectorstep_faster = mediumstep_faster; vectorstep_faster <= VECTOR_SIZE; vectorstep_faster += vectorstep_faster_steps) {
+    for (counter_t smallstep_faster = 0; smallstep_faster <= WORD_SIZE_counter/2; smallstep_faster += smallstep_faster_steps) {
+        for (counter_t mediumstep_faster = smallstep_faster; mediumstep_faster <= WORD_SIZE_counter; mediumstep_faster += mediumstep_faster_steps) {
+            for (counter_t vectorstep_faster = mediumstep_faster; vectorstep_faster <= VECTOR_SIZE_counter; vectorstep_faster += vectorstep_faster_steps) {
                 for (counter_t blocksize_kb=256; blocksize_kb>=8; blocksize_kb /= 2) {
                     for (counter_t free_bits=0; (free_bits < (anticiped_cache_line_bytesize*8*4) && (free_bits < blocksize_kb * 1024 * 8)); free_bits += freebits_steps) {
                         counter_t blocksize_bits = (blocksize_kb * 1024 * 8) - free_bits;
