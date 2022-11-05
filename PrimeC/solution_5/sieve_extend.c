@@ -20,7 +20,7 @@
 #define default_sample_duration 0.1
 #define default_sample_max 5
 #define default_verbose_level 2
-#define default_tune_level 0
+#define default_tune_level 2
 #define default_check_level 1
 #define default_show_primes_on_error 100
 #define default_showMaxFactor (0 || option_runonce?100:0)
@@ -624,6 +624,7 @@ static void extendSieve_shiftright_vector(bitword_t* bitarray, const counter_t s
 
         debug printf("..source_word %ju copy_word %ju mod %ju target_word %ju\n",source_word, copy_word, (copy_word-source_word)%4, target_word);
 
+        #pragma GCC ivdep
         for (; copy_word < target_word; copy_word++, source_word++ ) {
             bitarray[copy_word] = (bitarray[source_word] >> shift_flipped) | (bitarray[source_word+1] << shift);
         }
@@ -643,13 +644,14 @@ static void extendSieve_shiftright_vector(bitword_t* bitarray, const counter_t s
         const bitvector_t shift_vector = { shift, shift, shift, shift };
         const bitvector_t shift_flipped_vector = { shift_flipped, shift_flipped, shift_flipped, shift_flipped };
 
-        counter_t target_vector = vectorindex(destination_stop);
+        const counter_t target_vector = vectorindex(destination_stop);
 
         // debug printf("..should be copy from source_word %ju to %ju, but takes vector %ju to %ju with delta %ju => from %ju to %ju\n", source_word, copy_word,    source_vector, copy_vector, delta_word, source_vector*4+delta_word-1, copy_vector*4 );
 
         // dump_bitarray(bitarray, copy_word+4);
 
         // debug printf("Will copy from %ju to %ju  vector %ju to %ju at copy_word %ju\n",source_vector*4+delta_word-1, copy_vector*4, source_vector, copy_vector, copy_word);
+        #pragma GCC ivdep
         for (; copy_vector <= target_vector; copy_vector++, source_vector++ ) {
             bitvector_t source0 = bitarray_vector[source_vector];
             bitvector_t source1 = bitarray_vector[source_vector+1];
@@ -660,35 +662,35 @@ static void extendSieve_shiftright_vector(bitword_t* bitarray, const counter_t s
             // source_word += 4;
         }
 
-        target_word = target_vector*4;
-        for (; copy_word <= target_word; copy_word++, source_word++ ) {
-            bitword_t shouldbe = (bitarray[source_word] >> shift_flipped) | (bitarray[source_word+1] << shift);
-            bitword_t asis = bitarray[copy_word];
-            debug printf("Copy_word = %ju\n",copy_word);
-            if (shouldbe != asis) {
-                printf("ERROR expected at copy_word %ju\n", copy_word);
-                printWord(shouldbe);
-                printf("\n");
-                printf("But is\n");
-                printWord(asis);
-                printf("\n");
-                // dump_bitarray(bitarray, copy_word+4);
-                exit(0);
-            }
-            else {
-                // debug printf("Correct for copy_word %ju\n",copy_word);
-            }
-        }
+        // target_word = target_vector*4;
+        // for (; copy_word <= target_word; copy_word++, source_word++ ) {
+        //     bitword_t shouldbe = (bitarray[source_word] >> shift_flipped) | (bitarray[source_word+1] << shift);
+        //     bitword_t asis = bitarray[copy_word];
+        //     debug printf("Copy_word = %ju\n",copy_word);
+        //     if (shouldbe != asis) {
+        //         printf("ERROR expected at copy_word %ju\n", copy_word);
+        //         printWord(shouldbe);
+        //         printf("\n");
+        //         printf("But is\n");
+        //         printWord(asis);
+        //         printf("\n");
+        //         // dump_bitarray(bitarray, copy_word+4);
+        //         exit(0);
+        //     }
+        //     else {
+        //         // debug printf("Correct for copy_word %ju\n",copy_word);
+        //     }
+        // }
 
         // copy_word += 4;
         // source_word += 4;
 
 
-        #pragma GCC ivdep 
-        for (; copy_word <= destination_stop_word; copy_word++,source_word++ ) {
-            bitarray[copy_word] = (bitarray[source_word] >> shift_flipped) | (bitarray[source_word+1] << shift);
-        }
-        bitarray[copy_word] &= chopmask(destination_stop);
+        // #pragma GCC ivdep 
+        // for (; copy_word <= destination_stop_word; copy_word++,source_word++ ) {
+        //     bitarray[copy_word] = (bitarray[source_word] >> shift_flipped) | (bitarray[source_word+1] << shift);
+        // }
+        // bitarray[copy_word] &= chopmask(destination_stop);
     }
     else {
         register counter_t i = 0;
@@ -850,7 +852,7 @@ static inline void extendSieve(bitword_t* bitarray, const counter_t source_start
     const bitshift_t source_bit = bitindex_calc(source_start);
 
     if      (source_bit > copy_bit) extendSieve_shiftleft (bitarray, source_start, size, destination_stop);
-    else if (source_bit < copy_bit) extendSieve_shiftright_vector(bitarray, source_start, size, destination_stop);
+    else if (source_bit < copy_bit) extendSieve_shiftright_ivdep(bitarray, source_start, size, destination_stop);
     else                            extendSieve_aligned   (bitarray, source_start, size, destination_stop);
 }
 
