@@ -31,7 +31,7 @@ static inline void printBits(int const size, void const * const ptr)
 static inline void dump_bitarray( bitword_t  *bitarray, counter_t words) {
     printf("Dumping sieve with %ju words\n",(uintmax_t)words);
     for (counter_t word=0; word <= words; word++) {
-        printf("word %ju ",(uintmax_t)word);
+        printf("word %3ju ",(uintmax_t)word);
         printWord(bitarray[word]);
         printf(" %ju\n", (uintmax_t)word*WORD_SIZE);
 
