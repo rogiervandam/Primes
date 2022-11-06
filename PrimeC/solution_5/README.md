@@ -79,6 +79,7 @@ Or do it all in one go:
     ```
 
 Remember you can go in to the container like this:
+
     ```bash
     docker run -it --entrypoint /bin/bash c:latest
     ```
