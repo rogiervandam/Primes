@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <time.h>
-// #include <math.h>
+#include <math.h>
 #include <string.h>
 #ifdef _OPENMP
 #include <omp.h>
@@ -25,7 +25,7 @@
 #define default_sample_max 5
 #define default_verbose_level 0
 #define default_tune_level 1
-#define default_check_level 0
+#define default_check_level 1
 #define default_show_primes_on_error 100
 #define default_showMaxFactor (0 || option_runonce?100:0)
 #define anticiped_cache_line_bytesize 128
@@ -521,23 +521,9 @@ static struct sieve_t* sieve_shake(const counter_t maxints, const counter_t bloc
     // in the sieve all bits for the multiples of primes up to startprime have been set
     // process the sieve and stripe all the multiples of primes > start_prime
     // do this block by block to minimize cache misses
-
-    // counter_t prime = searchBitFalse(bitstorage, startprime);
-    // sieve_block_stripe(bitstorage, 0, blocksize-1, prime);
-
-    counter_t block_stop = blocksize-1;
-    if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
-    sieve_block_stripe(bitstorage, 0, block_stop, startprime);
-
-    #ifdef _OPENMP
-    // omp_set_num_threads(4);
-    // #pragma omp parallel 
-    #endif
-    for (counter_t block_start = blocksize; block_start <= sieve->bits; block_start += blocksize) {
-        block_stop = block_start + blocksize - 1;
+    for (counter_t block_start = 0,  block_stop = blocksize-1;block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
         if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
         counter_t prime = searchBitFalse(bitstorage, startprime);
-        // printf("Doing block %ju-%ju\n",block_start,block_stop);
         sieve_block_stripe(bitstorage, block_start, block_stop, prime);
     } 
 
@@ -942,13 +928,13 @@ int main(int argc, char *argv[]) {
 
     // this section will only by linked in if the -fopenmp option is used.
     // will default to max threads and then device by 2 for a non-hyperthreading option
-    // #ifdef _OPENMP
-    // counter_t max_tries = 4;
-    // for(counter_t threads=option_threads; threads>=1; threads= (threads>>1)  ) {
-    //     omp_set_num_threads(threads);
-    //     used_threads=threads;
-    //     if (--max_tries ==1) threads = 2;
-    // #endif
+    #ifdef _OPENMP
+    counter_t max_tries = 4;
+    for(counter_t threads=option_threads; threads>=1; threads= (threads>>1)  ) {
+        omp_set_num_threads(threads);
+        used_threads=threads;
+        if (--max_tries ==1) threads = 2;
+    #endif
         verbose(2) printf("\n");
         verbose(1) printf("Benchmarking... with blocksize %ju steps: %ju/%ju/%ju and %ju threads for %.1f seconds - Results:\n", (uintmax_t)best_blocksize_bits,(uintmax_t)global_SMALLSTEP_FASTER, (uintmax_t)global_MEDIUMSTEP_FASTER,(uintmax_t)global_VECTORSTEP_FASTER,(uintmax_t)used_threads,option_max_time );
         counter_t passes = 0;
@@ -957,7 +943,7 @@ int main(int argc, char *argv[]) {
         struct sieve_t *sieve;
         clock_gettime(CLOCK_MONOTONIC,&start_time);
         #ifdef _OPENMP
-        // #pragma omp parallel reduction(+:passes)
+        #pragma omp parallel reduction(+:passes)
         #endif
         for (;elapsed_time <= option_max_time;) {
             sieve = sieve_shake(option_maxFactor, blocksize_bits);//blocksize_bits);
@@ -973,9 +959,9 @@ int main(int argc, char *argv[]) {
         #endif
         verbose(1) printf("\033[0;32m(Passes - per %.1f seconds: %f - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", option_max_time, option_max_time*passes/elapsed_time, passes/elapsed_time);
         verbose(1) if (used_threads>1) printf("\033[0;32m(Passes per thread (total %ju) - per %.1f seconds: %.1f - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", (uintmax_t)used_threads,  option_max_time, option_max_time*passes/elapsed_time/used_threads, passes/elapsed_time/used_threads);
-    // #ifdef _OPENMP
-    // }
-    // #endif
+    #ifdef _OPENMP
+    }
+    #endif
 
     // show results for --show command line option
     if (option_showMaxFactor > 0) {
