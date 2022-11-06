@@ -1,4 +1,3 @@
-sieve_extend
 .DS_Store
 .vs
 *.o
@@ -6,3 +5,7 @@ sieve_extend
 *.tmp
 testd.sh
 testm.sh
+sieve_extend
+sieve_extend_epar
+sieve_extend_par
+

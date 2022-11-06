@@ -1,5 +1,4 @@
-// Sieve algorithm by Rogier van Dam - 2022
-// Find all primes up to <max int> using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)
+// Sieve alogithm by Rogier van Dam
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,20 +6,15 @@
 #include <time.h>
 #include <math.h>
 #include <string.h>
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 //add debug in front of a line to only compile it if the value below is set to 1 (or !=0)
 #define option_runonce 0
 #define debug if (option_runonce)
-#define verbose(level) if (option_verboselevel >= level)
-#define verbose_at(level) if (option_verboselevel == level)
 
 // defaults
 #define default_sieve_limit 1000000
 #define default_blocksize (32*1024*8)
-#define default_max_time 5
+#define default_sieve_duration 5
 #define default_sample_duration 0.1
 #define default_sample_max 5
 #define default_verbose_level 0
@@ -99,7 +93,7 @@ struct sieve_t {
     counter_t  size;
 };
 
-//#include "debugtools.h"
+#include "debugtools.h"
 
 // use cache lines as much as possible - alignment might be key
 // moved clearing the sieve with 0 to the sieve_block_extend - it gave weird malloc problems at this point
@@ -117,7 +111,7 @@ static void sieve_delete(struct sieve_t *sieve) {
     free(sieve);
 }
 
-// search the next bit not set - for small expected distances
+// not much performance gain at smaller sieves, but its's nice to have an implementation
 static inline counter_t searchBitFalse(bitword_t* bitstorage, register counter_t index) {
     while (bitstorage[wordindex(index)] & markmask(index)) index++;
     return index;
@@ -140,9 +134,6 @@ static inline counter_t searchBitFalse_longRange(bitword_t* bitstorage, register
    return index;
 }
 
-// apply the same word mask at large ranges
-// manually unlooped - this here is where the main speed increase comes from
-// idea from PrimeRust/solution_1 by Michael Barber 
 static inline void applyMask_word(bitword_t* __restrict bitstorage, const counter_t step, const counter_t range_stop, const bitword_t mask, counter_t index_word) {
    const counter_t range_stop_word = wordindex(range_stop);
    register bitword_t* __restrict index_ptr      =  __builtin_assume_aligned(&bitstorage[index_word],8);
@@ -168,7 +159,7 @@ static inline void applyMask_word(bitword_t* __restrict bitstorage, const counte
    }
 }
 
-// same as word mask, but at a vector level - uses the sse/avx extensions, hopefully
+
 static inline void applyMask_vector(bitvector_t* __restrict bitstorage, const counter_t step, const counter_t range_stop, const bitvector_t mask, counter_t index_vector) {
     const counter_t range_stop_vector = vectorindex(range_stop);
     register bitvector_t* __restrict index_ptr      =  __builtin_assume_aligned(&bitstorage[index_vector],anticiped_cache_line_bytesize);
@@ -187,6 +178,7 @@ static inline void applyMask_vector(bitvector_t* __restrict bitstorage, const co
         *index_ptr |= mask; index_ptr+=step;
     }
 }
+
 
 // Medium steps could be within the same word (e.g. less than 64 bits apart).
 // By joining the masks and then writing to memory, we might save some time.
@@ -411,11 +403,6 @@ static void continuePattern_shiftleft(bitword_t* bitstorage, const counter_t sou
 
  }
 
-// continue a pattern that start at <source_start> with a size of <size>.
-// repeat this pattern up to <destination_stop>.
-// for small sizes, this is done on a word level
-// for larger sizes, we look at the offset / start bit and apply the appropriate algorithm.
-// note that these algorithms are general for bitstorage and have no specialized assumptions for the sieve application
 static inline void continuePattern(bitword_t* bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)	{
     if (size < WORD_SIZE_counter) return continuePattern_smallSize (bitstorage, source_start, size, destination_stop);
 
@@ -453,7 +440,6 @@ static void sieve_block_stripe(bitword_t* bitstorage, const counter_t block_star
     }
 }
 
-// structure to help sieve_block_extend report back to the main module
 struct block {
     counter_t pattern_size; // size of pattern applied 
     counter_t pattern_start; // start of pattern
@@ -492,17 +478,17 @@ static struct block sieve_block_extend(struct sieve_t *sieve, const counter_t bl
         }
         patternsize_bits *= step;
 
-        if (step < MEDIUMSTEP_FASTER)      setBitsTrue_mediumStep(bitstorage, start, step, range_stop);
-        else if (step < VECTORSTEP_FASTER) setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
-        else                               setBitsTrue_largeRange(bitstorage, start, step, range_stop);
+        // totally weird: executing code below is faster than omitting it...
+        // printf("Smallstep: %ju, mediumstep: %ju\n",SMALLSTEP_FASTER,MEDIUMSTEP_FASTER);
+        // if (step < MEDIUMSTEP_FASTER)      setBitsTrue_mediumStep(bitstorage, start, step, range_stop);
+        if (step < VECTORSTEP_FASTER) setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
+        else                          setBitsTrue_largeRange(bitstorage, start, step, range_stop);
         block.prime = prime;
     } 
 
     return block;
 }
 
-
-/* This is the main module that does all the work*/
 static struct sieve_t* sieve_shake(const counter_t maxints, const counter_t blocksize) {
     struct sieve_t *sieve = sieve_create(maxints);
     bitword_t* bitstorage = sieve->bitstorage;
@@ -511,23 +497,15 @@ static struct sieve_t* sieve_shake(const counter_t maxints, const counter_t bloc
 
     // fill the whole sieve bij adding en copying incrementally
     struct block block = sieve_block_extend(sieve, 0, sieve->bits);
-
-    // returns the max prime that was processed in the pattern
+    continuePattern(bitstorage, block.pattern_start, block.pattern_size, sieve->bits);
     counter_t startprime = block.prime;
 
-    // continue the found pattern to the entire sieve
-    continuePattern(bitstorage, block.pattern_start, block.pattern_size, sieve->bits);
-
-    // in the sieve all bits for the multiples of primes up to startprime have been set
-    // process the sieve and stripe all the multiples of primes > start_prime
-    // do this block by block to minimize cache misses
     for (counter_t block_start = 0,  block_stop = blocksize-1;block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
         if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
         counter_t prime = searchBitFalse(bitstorage, startprime);
         sieve_block_stripe(bitstorage, block_start, block_stop, prime);
     } 
 
-    // retunr the completed sieve
     return sieve;
 }
 
@@ -602,22 +580,16 @@ int validatePrimeCount(struct sieve_t *sieve, int option_verboselevel) {
 void usage(char *name) {
     fprintf(stderr, "Usage: %s [options] [maximum]\n", name);
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  --check            check the correctness of the algorithm\n");
-    fprintf(stderr, "  --help             This help function\n");
-    fprintf(stderr, "  --show <maximum>   Show the primes found up to the maximum\n");
-    #ifdef _OPENMP
-    fprintf(stderr, "  --threads <count>  Set the maximum number of threads to be used\n");
-    fprintf(stderr, "                     Use 'all' to use all available threads or 'half' for /2 (e.g. for no hyperthreading)\n");
-    #endif
-    fprintf(stderr, "  --time  <seconds>  The maximum time (in seconds) to run passes of the sieve algorithm\n");
-    fprintf(stderr, "  --tune  <level>    find the best settings for the current os and hardware\n");
-    fprintf(stderr, "                     1 - fast tuning\n");
-    fprintf(stderr, "                     2 - refined tuning\n");
-    fprintf(stderr, "                     3 - maximum tuning (takes long)\n");
     fprintf(stderr, "  --verbose <level>  Show more output to a certain level:\n");
     fprintf(stderr, "                     1 - show phase progress\n");
     fprintf(stderr, "                     2 - show general progress within the phase\n");
     fprintf(stderr, "                     3 - show actual work\n");
+    fprintf(stderr, "  --check            check the correctness of the algorithm\n");
+    fprintf(stderr, "  --show <maximum>   Show the primes found up to the maximum\n");
+    fprintf(stderr, "  --tune  <level>    find the best settings for the current os and hardware\n");
+    fprintf(stderr, "                     1 - fast tuning\n");
+    fprintf(stderr, "                     2 - refined tuning\n");
+    fprintf(stderr, "                     3 - maximum tuning (takes long)\n");
     exit(1);
 }
 
@@ -629,7 +601,6 @@ typedef struct  {
     counter_t smallstep_faster;
     counter_t mediumstep_faster;
     counter_t vectorstep_faster;
-    counter_t threads;
     counter_t sample_max;
     double    sample_duration;
     counter_t passes;
@@ -654,10 +625,6 @@ static void tune_benchmark(tuning_result_type* tuning_result, counter_t tuning_r
     global_VECTORSTEP_FASTER = tuning_result[tuning_result_index].vectorstep_faster;
 
     clock_gettime(CLOCK_MONOTONIC,&start_time);
-    #ifdef _OPENMP
-    omp_set_num_threads(tuning_result[tuning_result_index].threads);
-    #pragma omp parallel reduction(+:passes)
-    #endif
     while (elapsed_time <= tuning_result[tuning_result_index].sample_duration && passes < tuning_result[tuning_result_index].sample_max) {
         sieve = sieve_shake(tuning_result[tuning_result_index].maxints, tuning_result[tuning_result_index].blocksize_bits);//blocksize_bits);
         sieve_delete(sieve);
@@ -671,14 +638,14 @@ static void tune_benchmark(tuning_result_type* tuning_result, counter_t tuning_r
 }
 
 static inline void tuning_result_print(tuning_result_type tuning_result) {
-    printf("blocksize_bits %10ju; blocksize %4jukb; free_bits %5ju; small %2ju; medium %2ju; vector %3ju; passes %3ju/%3ju; time %f/%f;average %f\n", 
+    printf("blocksize_bits %10ju; blocksize %4jukb; free_bits %5ju; small %2ju; medium %2ju; vector %2ju; passes %3ju/%3ju; time %f/%f;average %f\n", 
                             (uintmax_t)tuning_result.blocksize_bits, (uintmax_t)tuning_result.blocksize_kb,(uintmax_t)tuning_result.free_bits,
                             (uintmax_t)tuning_result.smallstep_faster,(uintmax_t)tuning_result.mediumstep_faster,(uintmax_t)tuning_result.vectorstep_faster,
                             (uintmax_t)tuning_result.passes, (uintmax_t) tuning_result.sample_max,
                             tuning_result.elapsed_time, tuning_result.sample_duration, tuning_result.avg);
 }
 
-static tuning_result_type tune(int tune_level, counter_t maxints, counter_t threads, int option_verboselevel) {
+static tuning_result_type tune(int tune_level, counter_t maxints, int option_verboselevel) {
     counter_t best_blocksize_bits = default_blocksize;
 
     double best_avg = 0;
@@ -700,15 +667,15 @@ static tuning_result_type tune(int tune_level, counter_t maxints, counter_t thre
             mediumstep_faster_steps = WORD_SIZE/4;
             vectorstep_faster_steps = WORD_SIZE/4;
             freebits_steps = anticiped_cache_line_bytesize*8*2;
-            sample_max = 16;
-            sample_duration = 0.1;
+            sample_max = 10;
+            sample_duration = 0.12;
             break;
         case 2:
             smallstep_faster_steps  = WORD_SIZE/8;
             mediumstep_faster_steps = WORD_SIZE/16;
             vectorstep_faster_steps = WORD_SIZE/4;
             freebits_steps = anticiped_cache_line_bytesize*8;
-            sample_max = 16;
+            sample_max = 20;
             sample_duration = 0.2;
             break;
         case 3:
@@ -716,14 +683,13 @@ static tuning_result_type tune(int tune_level, counter_t maxints, counter_t thre
             mediumstep_faster_steps = WORD_SIZE/16;
             vectorstep_faster_steps = WORD_SIZE/16;
             freebits_steps = anticiped_cache_line_bytesize/2;
-            sample_max = 16;
+            sample_max = 30;
             sample_duration = 0.2;
             break;
     }
     
-    verbose(2) printf("\n");
-    verbose_at(1) { printf("Tuning..."); fflush(stdout); }
-    verbose(2) printf("\n");
+    if (option_verboselevel >= 1) printf("Tuning..."); 
+    if (option_verboselevel >= 2) printf("\n");
     const size_t max_results = ((size_t)(WORD_SIZE_counter/smallstep_faster_steps)+1) * ((size_t)(WORD_SIZE_counter/mediumstep_faster_steps)+1) * ((size_t)(VECTOR_SIZE_counter/vectorstep_faster_steps)+1) * 32 * (size_t)(anticiped_cache_line_bytesize*8*4/freebits_steps);
     tuning_result_type* tuning_result = malloc(max_results * sizeof(tuning_result));
     counter_t tuning_results=0;
@@ -747,7 +713,6 @@ static tuning_result_type tune(int tune_level, counter_t maxints, counter_t thre
                         tuning_result[tuning_result_index].smallstep_faster = smallstep_faster;
                         tuning_result[tuning_result_index].mediumstep_faster = mediumstep_faster;
                         tuning_result[tuning_result_index].vectorstep_faster = vectorstep_faster;
-                        tuning_result[tuning_result_index].threads = threads;
                         tune_benchmark(tuning_result, tuning_result_index);
 
                         if ( tuning_result[tuning_result_index].avg > best_avg) {
@@ -760,30 +725,24 @@ static tuning_result_type tune(int tune_level, counter_t maxints, counter_t thre
                         }
                         if (option_verboselevel >= 3) { printf("...."); tuning_result_print(tuning_result[tuning_result_index]); }
                         tuning_result_index++;
-                        verbose_at(1) { printf("\rTuning...tuning %ju options..",(uintmax_t)tuning_results); fflush(stdout); }
                     }
                 }
             }
         }
     }
-    verbose_at(1) { printf("\rTuning...tuned %ju options..",(uintmax_t)tuning_results); }
-    verbose(2) { printf("Tuning...tuned %ju options..\n",(uintmax_t)tuning_results); }
-    verbose(2) {
-        printf("%ju options. Inital best blocksize: %ju; best smallstep %ju; best mediumstep %ju; best vectorstep %ju\n",(uintmax_t)tuning_results,(uintmax_t)best_blocksize_bits, (uintmax_t)best_smallstep_faster,(uintmax_t)best_mediumstep_faster, (uintmax_t)best_vectorstep_faster);
+    if (option_verboselevel >= 2) {
+        printf("%ju results. Inital best blocksize: %ju; best smallstep %ju; best mediumstep %ju; best vectorstep %ju\n",(uintmax_t)tuning_results,(uintmax_t)best_blocksize_bits, (uintmax_t)best_smallstep_faster,(uintmax_t)best_mediumstep_faster, (uintmax_t)best_vectorstep_faster);
         printf("Best options\n");
     }
-
     counter_t step=0;
-    counter_t tuning_results_max = tuning_results;
     while (tuning_results>4) {
         qsort(tuning_result, (size_t)tuning_results, sizeof(tuning_result_type), compare_tuning_result);
         step++;
-        verbose(2) {
+        if (option_verboselevel >= 2) {
             tuning_result_index = 0;
             printf("(%ju) ",(uintmax_t)step); tuning_result_print(tuning_result[tuning_result_index]);
-            fflush(stdout);
-            verbose(3) {
-                for (counter_t tuning_result_index=0; tuning_result_index<min(40,tuning_results); tuning_result_index++) {
+            if (option_verboselevel >= 3) {
+                for (counter_t tuning_result_index=0; tuning_result_index<min(10,tuning_results); tuning_result_index++) {
                     printf("..."); tuning_result_print(tuning_result[tuning_result_index]);
                 }
             }
@@ -791,21 +750,17 @@ static tuning_result_type tune(int tune_level, counter_t maxints, counter_t thre
 
         tuning_results = tuning_results / 2;
 
-        verbose(2) printf("\n");
         for (counter_t i=0; i<tuning_results; i++) {
-            verbose(1) { printf("\rTuning...found %ju options..benchmarking step %ju - tuning %3ju options",(uintmax_t)tuning_results_max,(uintmax_t)step,i); fflush(stdout); }
             tune_benchmark(tuning_result, i);
             tuning_result[i].sample_max += sample_max;
-            tuning_result[i].sample_duration += 0.05;
         }
-        verbose(2) printf("\n");
         
     }
     tuning_result_type best_result = tuning_result[0];
-    verbose(2) {
-        printf(".Best result:"); tuning_result_print(best_result);
+    if (option_verboselevel >= 1) {
+        tuning_result_index = 0;
+        printf(".Best result:"); tuning_result_print(tuning_result[tuning_result_index]);
     }
-    verbose(1) printf("\n");
 
     free(tuning_result);
     return best_result;
@@ -814,16 +769,12 @@ static tuning_result_type tune(int tune_level, counter_t maxints, counter_t thre
 
 int main(int argc, char *argv[]) {
     
-    // initialize options
-    double option_max_time = default_max_time;
     counter_t option_maxFactor  = default_sieve_limit;
     counter_t option_showMaxFactor = default_showMaxFactor;
     int option_verboselevel = default_verbose_level;
     int option_check = default_check_level;
     int option_tunelevel = default_tune_level;
-    int option_threads = 1;
 
-    // processing command line changes to options
     for (int arg=1; arg < argc; arg++) {
         if (strcmp(argv[arg], "--help")==0) { usage(argv[0]); }
         else if (strcmp(argv[arg], "--verbose")==0) {
@@ -831,7 +782,7 @@ int main(int argc, char *argv[]) {
             if (sscanf(argv[arg], "%d", &option_verboselevel) != 1 || option_verboselevel > 4) {
                 fprintf(stderr, "Error: Invalid measurement time: %s\n", argv[arg]); usage(argv[0]);
             }
-            verbose(1) printf("Verbose level set to %d\n",option_verboselevel);
+            printf("Verbose level set to %d\n",option_verboselevel);
         } 
         else if (strcmp(argv[arg], "--check")==0) { option_check=1; }
         else if (strcmp(argv[arg], "--tune")==0) { option_tunelevel=0;
@@ -839,35 +790,14 @@ int main(int argc, char *argv[]) {
             if (sscanf(argv[arg], "%d", &option_tunelevel) != 1 || option_tunelevel > 4) {
                 fprintf(stderr, "Error: Invalid tune level: %s\n", argv[arg]); usage(argv[0]);
             }
-            verbose(1) printf("Tune level set to %d\n",option_tunelevel);
-        }
-        else if (strcmp(argv[arg], "--time")==0) { option_max_time=0;
-            if (++arg >= argc) { fprintf(stderr, "No time specified\n"); usage(argv[0]); }
-            if (sscanf(argv[arg], "%lf", &option_max_time) != 1 ) {
-                fprintf(stderr, "Error: Invalid max time: %s\n", argv[arg]); usage(argv[0]);
-            }
-            verbose(1) printf("Max time is set to %d seconds\n",option_tunelevel);
+            printf("Tune level set to %d\n",option_tunelevel);
         }
         else if (strcmp(argv[arg], "--show")==0) { option_showMaxFactor=0;
             if (++arg >= argc) { fprintf(stderr, "No show maximum specified\n"); usage(argv[0]); }
             if (sscanf(argv[arg], "%ju", (uintmax_t*)&option_showMaxFactor) != 1 || option_showMaxFactor > option_maxFactor) {
                 fprintf(stderr, "Error: Invalid show maximum: %s\n", argv[arg]); usage(argv[0]);
             }
-            verbose(1) printf("Show maximum set to %ju\n",(uintmax_t)option_showMaxFactor);
-        }
-        else if (strcmp(argv[arg], "--threads")==0) { 
-            if (++arg >= argc) { fprintf(stderr, "No thread maximum specified\n"); usage(argv[0]); }
-        #ifdef _OPENMP
-            int max_threads = omp_get_max_threads();
-            if (strcmp(argv[arg], "all")==0) option_threads = max_threads;
-            else if (strcmp(argv[arg], "half")==0) option_threads = max_threads>>1;
-            else if (sscanf(argv[arg], "%d", &option_threads) != 1 ) { fprintf(stderr, "Error: Invalid max threads: %s\n", argv[arg]); usage(argv[0]); }
-            if (option_threads <1)  option_threads = 1;
-            if (option_threads > max_threads)  option_threads = max_threads;
-            verbose(1) printf("Thread maximum set to %ju\n",(uintmax_t)option_threads);
-        #else
-            verbose(1) printf("This is the version without multithreading - ignoring threads\n");
-        #endif
+            printf("Show maximum set to %ju\n",(uintmax_t)option_showMaxFactor);
         }
         else if (sscanf(argv[arg], "%ju", (uintmax_t*)&option_maxFactor) != 1) {
             fprintf(stderr, "Invalid size %s\n",argv[arg]); usage(argv[0]); 
@@ -875,7 +805,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // for debugging
     if (option_runonce) { // used for stats and debugging
         struct sieve_t* sieve = sieve_shake(option_maxFactor, default_blocksize);
         printf("\nResult set:\n");
@@ -886,54 +815,42 @@ int main(int argc, char *argv[]) {
         sieve_delete(sieve);
         exit(0);
     }
+
         
-    // if --check is needed
     if (option_check) {
         // Count the number of primes and validate the result
-        verbose(1) { printf("Validating..."); fflush(stdout); }
-        verbose(2) printf("\n");
+        if (option_verboselevel >= 1) printf("Validating... ");
+        if (option_verboselevel >= 2) printf("\n");
 
         // validate algorithm - run one time for all sizes
         for (counter_t sieveSize_check = 100; sieveSize_check <= 10000000; sieveSize_check *=10) {
-            verbose(2) { printf("...Checking size %ju ...",(uintmax_t)sieveSize_check); fflush(stdout); }
+            if (option_verboselevel >= 2) printf("...Checking size %ju ...",(uintmax_t)sieveSize_check);
             struct sieve_t *sieve_check;
             for (counter_t blocksize_bits=1024; blocksize_bits<=2*1024*8; blocksize_bits *= 2) {
-                verbose(3) printf(".blocksize %ju-",(uintmax_t)blocksize_bits);
+                if (option_verboselevel >= 3) printf(".blocksize %ju-",(uintmax_t)blocksize_bits);
                 sieve_check = sieve_shake(sieveSize_check, blocksize_bits);
                 int valid = validatePrimeCount(sieve_check,option_verboselevel);
                 sieve_delete(sieve_check);
-                if (!valid) return 0; else verbose(3) printf("valid;");
+                if (!valid) return 0; else if (option_verboselevel >= 3) printf("valid;");
             }
-            verbose(2) printf("valid\n");
+            if (option_verboselevel >= 2) printf("\n");
         }
-        verbose(1) printf("valid algorithm\n");
+        if (option_verboselevel >= 1) printf("...Valid algorithm\n");
     }
     
-    // tuning - try combinations of different settings and apply these
     counter_t best_blocksize_bits = default_blocksize;
     if (option_tunelevel) {
-        tuning_result_type tuning_result = tune(option_tunelevel, option_maxFactor, option_threads, option_verboselevel);
+        tuning_result_type tuning_result = tune(option_tunelevel, option_maxFactor, option_verboselevel);
         global_SMALLSTEP_FASTER = tuning_result.smallstep_faster;
         global_MEDIUMSTEP_FASTER = tuning_result.mediumstep_faster;
         global_VECTORSTEP_FASTER = tuning_result.vectorstep_faster;
         best_blocksize_bits = tuning_result.blocksize_bits;
     }
 
-    // time the algorithm using the best settings
+    double max_time = default_sieve_duration;
     struct timespec start_time,end_time;
-    counter_t used_threads = 1;
-
-    // this section will only by linked in if the -fopenmp option is used.
-    // will default to max threads and then device by 2 for a non-hyperthreading option
-    #ifdef _OPENMP
-    counter_t max_tries = 4;
-    for(counter_t threads=option_threads; threads>=2; threads= (threads>>1)  ) {
-        omp_set_num_threads(threads);
-        used_threads=threads;
-        if (--max_tries ==1) threads = 2;
-    #endif
-        verbose(2) printf("\n");
-        verbose(1) printf("Benchmarking... with blocksize %ju steps: %ju/%ju/%ju and %ju threads for %.1f seconds - Results:\n", (uintmax_t)best_blocksize_bits,(uintmax_t)global_SMALLSTEP_FASTER, (uintmax_t)global_MEDIUMSTEP_FASTER,(uintmax_t)global_VECTORSTEP_FASTER,(uintmax_t)used_threads,option_max_time );
+    if (best_blocksize_bits > 0) {
+        if (option_verboselevel >= 1) printf("Benchmarking... with blocksize %ju steps: %ju/%ju/%ju\n", (uintmax_t)best_blocksize_bits,(uintmax_t)global_SMALLSTEP_FASTER, (uintmax_t)global_MEDIUMSTEP_FASTER,(uintmax_t)global_VECTORSTEP_FASTER );
         counter_t passes = 0;
         counter_t blocksize_bits = best_blocksize_bits;
         double elapsed_time = 0;
@@ -942,25 +859,22 @@ int main(int argc, char *argv[]) {
         #ifdef _OPENMP
         #pragma omp parallel reduction(+:passes)
         #endif
-        for (;elapsed_time <= option_max_time;) {
+        while (elapsed_time <= max_time) {
             sieve = sieve_shake(option_maxFactor, blocksize_bits);//blocksize_bits);
             sieve_delete(sieve);
             passes++;
             clock_gettime(CLOCK_MONOTONIC,&end_time);
             elapsed_time = end_time.tv_sec + end_time.tv_nsec*1e-9 - start_time.tv_sec - start_time.tv_nsec*1e-9;
         }
-        printf("rogiervandam_extend;%ju;%f;%ju;algorithm=other,faithful=yes,bits=1\n", (uintmax_t)passes,elapsed_time,(uintmax_t)used_threads);
-        verbose(1) printf("\033[0;32m(Passes - per %.1f seconds: %f - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", option_max_time, option_max_time*passes/elapsed_time, passes/elapsed_time);
-        verbose(1) if (used_threads>1) printf("\033[0;32m(Passes per thread (total %ju) - per %.1f seconds: %.1f - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", (uintmax_t)used_threads,  option_max_time, option_max_time*passes/elapsed_time/used_threads, passes/elapsed_time/used_threads);
-    #ifdef _OPENMP
+        printf("rogiervandam_extend;%ju;%f;1;algorithm=other,faithful=yes,bits=1\n", (uintmax_t)passes,elapsed_time);
+        if (option_verboselevel >= 1) printf("Passes - per 5 seconds: %f - per second %f\n", 5*passes/elapsed_time, passes/elapsed_time);
     }
-    #endif
-
-    // show results for --show command line option
+    
     if (option_showMaxFactor > 0) {
         printf("Show result set:\n");
         struct sieve_t* sieve = sieve_shake(option_maxFactor, option_maxFactor);
         show_primes(sieve, option_showMaxFactor);
         sieve_delete(sieve);
+        printf("\n");
     }
 }
