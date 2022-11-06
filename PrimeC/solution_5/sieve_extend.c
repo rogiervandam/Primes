@@ -822,6 +822,10 @@ int main(int argc, char *argv[]) {
     int option_check = default_check_level;
     int option_tunelevel = default_tune_level;
     int option_threads = 1;
+    #ifdef _OPENMP
+    int max_threads = omp_get_max_threads();
+    option_threads = max_threads;
+    #endif
 
     // processing command line changes to options
     for (int arg=1; arg < argc; arg++) {
@@ -858,7 +862,6 @@ int main(int argc, char *argv[]) {
         else if (strcmp(argv[arg], "--threads")==0) { 
             if (++arg >= argc) { fprintf(stderr, "No thread maximum specified\n"); usage(argv[0]); }
         #ifdef _OPENMP
-            int max_threads = omp_get_max_threads();
             if (strcmp(argv[arg], "all")==0) option_threads = max_threads;
             else if (strcmp(argv[arg], "half")==0) option_threads = max_threads>>1;
             else if (sscanf(argv[arg], "%d", &option_threads) != 1 ) { fprintf(stderr, "Error: Invalid max threads: %s\n", argv[arg]); usage(argv[0]); }
@@ -927,7 +930,7 @@ int main(int argc, char *argv[]) {
     // will default to max threads and then device by 2 for a non-hyperthreading option
     #ifdef _OPENMP
     counter_t max_tries = 4;
-    for(counter_t threads=option_threads; threads>=2; threads= (threads>>1)  ) {
+    for(counter_t threads=option_threads; threads>=1; threads= (threads>>1)  ) {
         omp_set_num_threads(threads);
         used_threads=threads;
         if (--max_tries ==1) threads = 2;
@@ -949,7 +952,11 @@ int main(int argc, char *argv[]) {
             clock_gettime(CLOCK_MONOTONIC,&end_time);
             elapsed_time = end_time.tv_sec + end_time.tv_nsec*1e-9 - start_time.tv_sec - start_time.tv_nsec*1e-9;
         }
+        #ifdef _OPENMP
+        printf("rogiervandam_extend_epar;%ju;%f;%ju;algorithm=other,faithful=yes,bits=1\n", (uintmax_t)passes,elapsed_time,(uintmax_t)used_threads);
+        #else
         printf("rogiervandam_extend;%ju;%f;%ju;algorithm=other,faithful=yes,bits=1\n", (uintmax_t)passes,elapsed_time,(uintmax_t)used_threads);
+        #endif
         verbose(1) printf("\033[0;32m(Passes - per %.1f seconds: %f - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", option_max_time, option_max_time*passes/elapsed_time, passes/elapsed_time);
         verbose(1) if (used_threads>1) printf("\033[0;32m(Passes per thread (total %ju) - per %.1f seconds: %.1f - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", (uintmax_t)used_threads,  option_max_time, option_max_time*passes/elapsed_time/used_threads, passes/elapsed_time/used_threads);
     #ifdef _OPENMP
