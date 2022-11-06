@@ -74,15 +74,15 @@ To run with Docker take the following steps:
 
 Or do it all in one go:
 
-    ```bash
-    docker build --pull --rm -f "Dockerfile" -t c:latest .; docker run c:latest 
-    ```
+```bash
+docker build --pull --rm -f "Dockerfile" -t c:latest .; docker run c:latest 
+```
 
 Remember you can go in to the container like this:
 
-    ```bash
-    docker run -it --entrypoint /bin/bash c:latest
-    ```
+```bash
+docker run -it --entrypoint /bin/bash c:latest
+```
 
 ## Output
 
