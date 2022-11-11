@@ -12,9 +12,12 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
+// #include "mimalloc-override.h"
 
-int debuginfo[100];
-int debuginfo2[100];
+#include "*.c"
+
+// int debuginfo[100];
+// int debuginfo2[100];
 
 //set compile_debuggable to 1 to enable explain plan
 #define compile_debuggable 0
@@ -33,7 +36,7 @@ int debuginfo2[100];
 #define default_sample_duration 0.001
 #define default_explain_level 0
 #define default_verbose_level 0
-#define default_tune_level 1
+#define default_tune_level 0
 #define default_check_level 1
 #define default_show_primes_on_error 100
 #define default_showMaxFactor (0 || compile_debuggable?100:0)
@@ -124,23 +127,31 @@ struct options_t {
 
 //#include "debugtools.h"
 
+struct sieve_t *fastmem = 0;
+int free_fastmem=0;
+
 // use cache lines as much as possible - alignment might be key
 // moved clearing the sieve with 0 to the sieve_block_extend - it gave weird malloc problems at this point
 #define ceiling(x,y) (((x) + (y) - 1) / (y)) // Return the smallest multiple N of y such that:  x <= y * N
 static inline struct sieve_t * __attribute__((always_inline)) sieve_create(counter_t size) 
 {
+    // if (fastmem) return fastmem;
+
     struct sieve_t *sieve = aligned_alloc(8, sizeof(struct sieve_t));
     sieve->bitstorage = aligned_alloc((size_t)anticiped_cache_line_bytesize, (size_t)ceiling(1+((size_t)size>>1), anticiped_cache_line_bytesize<<3) * anticiped_cache_line_bytesize );
     sieve->bits     = size >> 1;
     sieve->size     = size;
 
+    // if (!fastmem) fastmem = sieve;
+
     // code below not needed: only clearing the first word of each block will do the trick
-    // for (counter_t index_word = 0; index_word <= wordindex(sieve->bits); index_word++) sieve->bitstorage[index_word] = SAFE_ZERO;
+    for (counter_t index_word = 0; index_word <= wordindex(sieve->bits); index_word++) sieve->bitstorage[index_word] = SAFE_ZERO;
     return sieve;
 }
 
 static inline void __attribute__((always_inline)) sieve_delete(struct sieve_t *sieve) 
 {
+    // if (fastmem && !free_fastmem) return;
     free(sieve->bitstorage);
     free(sieve);
 }
@@ -218,8 +229,8 @@ static inline void __attribute__((always_inline)) applyMask_word(bitword_t* __re
     }
 
     register const bitword_t* __restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage[range_stop_word],8);
-    #pragma GCC ivdep
-    for (counter_t i=4; i-- && likely(index_ptr < range_stop_ptr);) { // signal compiler that only <4 iterations are left
+    // #pragma GCC ivdep
+    for (counter_t i=4; i-- && (index_ptr < range_stop_ptr);) { // signal compiler that only <4 iterations are left
         *index_ptr |= mask;  index_ptr+=step; 
     }
 
@@ -1176,4 +1187,8 @@ int main(int argc, char *argv[])
         show_primes(sieve, option.showMaxFactor);
         sieve_delete(sieve);
     }
+
+    // don't forget to delete this
+    // free_fastmem = 1;
+    // sieve_delete(fastmem);
 }
