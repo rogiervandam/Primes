@@ -12,12 +12,6 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
-// #include "mimalloc-override.h"
-
-#include "*.c"
-
-// int debuginfo[100];
-// int debuginfo2[100];
 
 //set compile_debuggable to 1 to enable explain plan
 #define compile_debuggable 0
@@ -36,7 +30,7 @@
 #define default_sample_duration 0.001
 #define default_explain_level 0
 #define default_verbose_level 0
-#define default_tune_level 0
+#define default_tune_level 1
 #define default_check_level 1
 #define default_show_primes_on_error 100
 #define default_showMaxFactor (0 || compile_debuggable?100:0)
@@ -135,14 +129,14 @@ int free_fastmem=0;
 #define ceiling(x,y) (((x) + (y) - 1) / (y)) // Return the smallest multiple N of y such that:  x <= y * N
 static inline struct sieve_t * __attribute__((always_inline)) sieve_create(counter_t size) 
 {
-    // if (fastmem) return fastmem;
+    if (fastmem!=0) return fastmem;
 
     struct sieve_t *sieve = aligned_alloc(8, sizeof(struct sieve_t));
     sieve->bitstorage = aligned_alloc((size_t)anticiped_cache_line_bytesize, (size_t)ceiling(1+((size_t)size>>1), anticiped_cache_line_bytesize<<3) * anticiped_cache_line_bytesize );
     sieve->bits     = size >> 1;
     sieve->size     = size;
 
-    // if (!fastmem) fastmem = sieve;
+    if (!fastmem) fastmem = sieve;
 
     // code below not needed: only clearing the first word of each block will do the trick
     for (counter_t index_word = 0; index_word <= wordindex(sieve->bits); index_word++) sieve->bitstorage[index_word] = SAFE_ZERO;
@@ -151,7 +145,7 @@ static inline struct sieve_t * __attribute__((always_inline)) sieve_create(count
 
 static inline void __attribute__((always_inline)) sieve_delete(struct sieve_t *sieve) 
 {
-    // if (fastmem && !free_fastmem) return;
+    if (fastmem && !free_fastmem) return;
     free(sieve->bitstorage);
     free(sieve);
 }
@@ -1189,6 +1183,6 @@ int main(int argc, char *argv[])
     }
 
     // don't forget to delete this
-    // free_fastmem = 1;
-    // sieve_delete(fastmem);
+    free_fastmem = 1;
+    sieve_delete(fastmem);
 }
