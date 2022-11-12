@@ -1,5 +1,5 @@
 #!/bin/sh
-CC="gcc -Ofast -march=native -mtune=native -funroll-all-loops -fno-asynchronous-unwind-tables"  
+CC="gcc -Ofast -march=native -mtune=native -funroll-all-loops -fno-asynchronous-unwind-tables " #-Imimalloc/include -pthread"  
 PAR="-fopenmp"
 PAREXT="_epar"
 for x in sieve_extend; do

@@ -12,6 +12,7 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
+// #include "mimalloc/src/static.c"
 
 //set compile_debuggable to 1 to enable explain plan
 #define compile_debuggable 0
@@ -20,8 +21,9 @@
 #else
 #define debug if unlikely(0)
 #endif
-#define verbose(level) if (option.verboselevel >= level)
-#define verbose_at(level) if (option.verboselevel == level)
+#define verbose_compilelevel 0
+#define verbose(level) if (option.verboselevel >= level && level < verbose_compilelevel)
+#define verbose_at(level) if (option.verboselevel == level && level < verbose_compilelevel)
 
 // defaults
 #define default_sieve_limit 1000000
@@ -30,11 +32,11 @@
 #define default_sample_duration 0.001
 #define default_explain_level 0
 #define default_verbose_level 0
-#define default_tune_level 1
-#define default_check_level 1
+#define default_tune_level 0
+#define default_check_level 0
 #define default_show_primes_on_error 100
 #define default_showMaxFactor (0 || compile_debuggable?100:0)
-#define anticiped_cache_line_bytesize 128
+#define anticiped_cache_line_bytesize 64
 
 // helper functions
 #define pow(base,pow) (pow*((base>>pow)&1U))
@@ -123,31 +125,81 @@ struct options_t {
 
 struct sieve_t *fastmem = 0;
 int free_fastmem=0;
+counter_t allocations = 0;
+counter_t cache_hits = 0;
+counter_t cache_miss = 0;
+#define ALLOC_CACHE_MAX 64
+struct alloc_t {
+    void * ptr;
+    size_t size;
+    int    free;
+};
+struct alloc_t alloc_cache[ALLOC_CACHE_MAX];
+int alloc_cache_cached = 0;
+
+static inline void* __attribute__((always_inline)) rvd_aligned_alloc(size_t alignment, size_t size) {
+    // allocations++;
+    for (int cache_item = 0; cache_item < alloc_cache_cached; cache_item++ ) {
+        if (alloc_cache[cache_item].free && alloc_cache[cache_item].size == size) {
+            alloc_cache[cache_item].free = 0;
+            // cache_hits++;
+            return alloc_cache[cache_item].ptr;
+        }
+    }
+    // nothing found; adding to cache
+    if (alloc_cache_cached < ALLOC_CACHE_MAX) {
+        cache_miss++;
+        alloc_cache[alloc_cache_cached].ptr = aligned_alloc(alignment, size);
+        alloc_cache[alloc_cache_cached].size = size;
+        alloc_cache[alloc_cache_cached].free = 1;
+        return alloc_cache[alloc_cache_cached++].ptr;
+    }
+    // cache was full; do not cache
+    cache_miss++;
+    return aligned_alloc(alignment, size);
+}
+
+static inline void __attribute__((always_inline)) rvd_free(void* ptr) {
+    for (int cache_item = alloc_cache_cached; cache_item >= 0; cache_item--) {
+        if (alloc_cache[cache_item].ptr == ptr) {
+            alloc_cache[cache_item].free = 1;
+            return;
+        }
+    }
+    free(ptr);
+}
+
+static inline void __attribute__((always_inline))  rvd_alloc_cache_flush() {
+    while (alloc_cache_cached--) {
+        free(alloc_cache[alloc_cache_cached].ptr);
+        alloc_cache[alloc_cache_cached].size = 0;
+    }
+}
 
 // use cache lines as much as possible - alignment might be key
 // moved clearing the sieve with 0 to the sieve_block_extend - it gave weird malloc problems at this point
 #define ceiling(x,y) (((x) + (y) - 1) / (y)) // Return the smallest multiple N of y such that:  x <= y * N
 static inline struct sieve_t * __attribute__((always_inline)) sieve_create(counter_t size) 
 {
-    if (fastmem!=0) return fastmem;
+    // if (fastmem!=0) return fastmem;
 
-    struct sieve_t *sieve = aligned_alloc(8, sizeof(struct sieve_t));
-    sieve->bitstorage = aligned_alloc((size_t)anticiped_cache_line_bytesize, (size_t)ceiling(1+((size_t)size>>1), anticiped_cache_line_bytesize<<3) * anticiped_cache_line_bytesize );
+    struct sieve_t *sieve = rvd_aligned_alloc(8, sizeof(struct sieve_t));
+    sieve->bitstorage = rvd_aligned_alloc((size_t)anticiped_cache_line_bytesize, (size_t)ceiling(1+((size_t)size>>1), anticiped_cache_line_bytesize<<3) * anticiped_cache_line_bytesize );
     sieve->bits     = size >> 1;
     sieve->size     = size;
 
-    if (!fastmem) fastmem = sieve;
+    // if (!fastmem) fastmem = sieve;
 
     // code below not needed: only clearing the first word of each block will do the trick
-    for (counter_t index_word = 0; index_word <= wordindex(sieve->bits); index_word++) sieve->bitstorage[index_word] = SAFE_ZERO;
+    // for (counter_t index_word = 0; index_word <= wordindex(sieve->bits); index_word++) sieve->bitstorage[index_word] = SAFE_ZERO;
     return sieve;
 }
 
 static inline void __attribute__((always_inline)) sieve_delete(struct sieve_t *sieve) 
 {
-    if (fastmem && !free_fastmem) return;
-    free(sieve->bitstorage);
-    free(sieve);
+    // if (fastmem && !free_fastmem) return;
+    rvd_free(sieve->bitstorage);
+    rvd_free(sieve);
 }
 
 static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t* bitstorage, register counter_t index) 
@@ -165,7 +217,7 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t*
     // reset for the new index, because we could also be at a word bound at the previous step
     bitword = bitstorage[wordindex(index)] >> bitindex(index);
     if ((bitword & 1)==0) return index; // fast exit if we are done
-
+ 
     index +=    (bitword& 1) // account for that this also matches smaller ranges
             + (((bitword& 3)+1)>>2) // fast track for larger intervals
             + (((bitword& 7)+1)>>3) // account for that this also matches smaller ranges
@@ -618,29 +670,29 @@ static struct block sieve_block_extend(struct sieve_t *sieve, const counter_t bl
 }
 
 /* This is the main module that directs all the work*/
-static struct sieve_t* sieve_shake_blockbyblock(const counter_t maxFactor, const counter_t blocksize) 
-{
-    struct sieve_t *sieve = sieve_create(maxFactor);
-    bitword_t* bitstorage = sieve->bitstorage;
-    counter_t startprime  = 1;
-    for(counter_t index=0; index<wordindex(maxFactor/2); index++) {
-        bitstorage[index]=SAFE_ZERO;
-    }
+// static struct sieve_t* sieve_shake_blockbyblock(const counter_t maxFactor, const counter_t blocksize) 
+// {
+//     struct sieve_t *sieve = sieve_create(maxFactor);
+//     bitword_t* bitstorage = sieve->bitstorage;
+//     counter_t startprime  = 1;
+//     for(counter_t index=0; index<wordindex(maxFactor/2); index++) {
+//         bitstorage[index]=SAFE_ZERO;
+//     }
 
-    debug printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)maxFactor,(uintmax_t)blocksize);
+//     debug printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)maxFactor,(uintmax_t)blocksize);
 
-    // in the sieve all bits for the multiples of primes up to startprime have been set
-    // process the sieve and stripe all the multiples of primes > start_prime
-    // do this block by block to minimize cache misses
-    for (counter_t block_start = 0,  block_stop = blocksize-1;block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
-        if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
-        counter_t prime = searchBitFalse(bitstorage, startprime);
-        sieve_block_stripe(bitstorage, block_start, block_stop, prime, maxFactor);
-    } 
+//     // in the sieve all bits for the multiples of primes up to startprime have been set
+//     // process the sieve and stripe all the multiples of primes > start_prime
+//     // do this block by block to minimize cache misses
+//     for (counter_t block_start = 0,  block_stop = blocksize-1;block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
+//         if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
+//         counter_t prime = searchBitFalse(bitstorage, startprime);
+//         sieve_block_stripe(bitstorage, block_start, block_stop, prime, maxFactor);
+//     } 
 
-    // retunr the completed sieve
-    return sieve;
-}
+//     // retunr the completed sieve
+//     return sieve;
+// }
 
 /* This is the main module that directs all the work*/
 static struct sieve_t* sieve_shake(const counter_t maxFactor, const counter_t blocksize) 
@@ -696,6 +748,7 @@ static void deepAnalyzePrimes(struct sieve_t *sieve)
     printf("DeepAnalyzing\n");
     counter_t warn_prime = 0;
     counter_t warn_nonprime = 0;
+    counter_t counted_primes = 0;
     for (counter_t prime = 1; prime < sieve->bits; prime++ ) {
         if ((sieve->bitstorage[wordindex(prime)] & markmask_calc(prime))==0) { // is this a prime?
             for(counter_t c=1; c<=sieve->bits && c*c <= prime*2+1; c++) {
@@ -709,9 +762,13 @@ static void deepAnalyzePrimes(struct sieve_t *sieve)
             for(counter_t c=1; c<=sieve->bits && c*c <= prime*2+1; c++) {
                 if ((prime*2+1) % (c*2+1) == 0 && (c*2+1) != (prime*2+1)) c_prime++;
             }
-            if (c_prime==0 && warn_nonprime++ < 30) printf("Number %ju (%ju) was marked non-prime, but no factors found. So it is prime\n", (uintmax_t)prime*2+1,(uintmax_t) prime);
+            if (c_prime==0) {
+                counted_primes++;
+                if (warn_nonprime++ < 30) printf("Number %ju (%ju) was marked non-prime, but no factors found. So it is prime\n", (uintmax_t)prime*2+1,(uintmax_t) prime);
+            } 
         }
     }
+    printf("Total primes found until %ju: %ju\n",(uintmax_t)sieve->size,(uintmax_t)counted_primes);
 }
 
 static int validatePrimeCount(struct sieve_t *sieve) 
@@ -1183,6 +1240,8 @@ int main(int argc, char *argv[])
     }
 
     // don't forget to delete this
-    free_fastmem = 1;
-    sieve_delete(fastmem);
+    // free_fastmem = 1;
+    // sieve_delete(fastmem);
+    printf("Allocations: %ju hits: %ju, miss: %ju\n",allocations,cache_hits, cache_miss);
+    rvd_alloc_cache_flush();
 }
