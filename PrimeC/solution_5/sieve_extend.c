@@ -34,9 +34,9 @@
 #define default_maxTime                 5
 #define default_sample_duration         0.001
 #define default_explain_level           0
-#define default_verbose_level           0
+#define default_verbose_level           2
 #define default_tune_level              1
-#define default_check_level             0
+#define default_check_level             1
 #define default_show_primes_on_error    100
 #define default_showMaxFactor           0
 #define anticiped_cache_line_bytesize   128
@@ -172,36 +172,35 @@ static inline void __attribute__((always_inline)) sieve_delete(struct sieve_t *s
     free(sieve);
 }
 
-static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t* bitstorage, register counter_t index) 
-{
-    register const bitword_t bitword = bitstorage[wordindex(index)] >> bitindex(index);
-    register const counter_t length = (uint64_t)__builtin_ffsll( (int64_t)~(bitword));
-    if (length) index += length-1;
-    while (bitstorage[wordindex(index)] & markmask(index)) index++;
-    return index;
-}
-
 // static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t* bitstorage, register counter_t index) 
 // {
-//     while (1) {
-//         if (bitstorage[wordindex(index)] & markmask(index)) index++;
-//         else {
-//             const counter_t remainder = index % 15; // 30 in real numbers
-//             switch (remainder) {
-//                 case 1: index++; break; // 33
-//                 case 2: index++; break; // 35
-//                 case 4: index++; break; // 39
-//                 case 7: index++; break; // 45
-//                 case 10: index++; break; // 51
-//                 case 12: index++; break; // 55
-//                 case 13: index++; break; // 57
-//                 default: return(index);
-//             }
-//         }
-//         index++;
-//     }
+//     register const bitword_t bitword = bitstorage[wordindex(index)] >> bitindex(index);
+//     register const counter_t length = (uint64_t)__builtin_ffsll( (int64_t)~(bitword));
+//     if (length) index += length-1;
+//     while (bitstorage[wordindex(index)] & markmask(index)) index++;
 //     return index;
 // }
+
+static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t* bitstorage, register counter_t index) 
+{
+    while (1) {
+        if (bitstorage[wordindex(index)] & markmask(index)) index++;
+        else {
+            const counter_t remainder = index % 15; // 30 in real numbers
+            switch (remainder) {
+                // case 1: index++; break; // 33
+                // case 2: index++; break; // 35
+                // case 4: index++; break; // 39
+                // case 7: index++; break; // 45
+                // case 10: index++; break; // 51
+                // case 12: index++; break; // 55
+                // case 13: index++; break; // 57
+                default: return(index);
+            }
+        }
+    }
+    return index;
+}
 
 // apply the same word mask at large ranges
 // manually unlooped - this here is where the main speed increase comes from
@@ -763,7 +762,7 @@ static struct sieve_t* sieve_shake_blockbyblock(const counter_t maxFactor, const
 }
 
 /* This is the main module that directs all the work*/
-static struct sieve_t* sieve_shake(const counter_t maxFactor, const counter_t blocksize) 
+static struct sieve_t* sieve_shake_extend(const counter_t maxFactor, const counter_t blocksize) 
 {
     struct sieve_t *sieve = sieve_create(maxFactor);
     bitword_t* bitstorage = sieve->bitstorage;
@@ -806,7 +805,9 @@ static struct sieve_t* sieve_shake_wheel(const counter_t maxFactor, const counte
                     markmask(13) ; // 27
     
     // continue from the max prime that was processed in the pattern until the tuned value
-    counter_t startprime = sieve_block_stripe(bitstorage, 0, sieve->bits, 3, global_BLOCKSTEP_FASTER);
+    counter_t startprime = sieve_block_stripe(bitstorage, 0, sieve->bits, 1, global_BLOCKSTEP_FASTER);
+    if (startprime < 3) startprime = 3; // don't start below the wheel
+    
 
     // in the sieve all bits for the multiples of primes up to startprime have been set
     // process the sieve and stripe all the multiples of primes > start_prime
@@ -845,7 +846,7 @@ static void deepAnalyzePrimes(struct sieve_t *sieve)
     printf("DeepAnalyzing\n");
     counter_t warn_prime = 0;
     counter_t warn_nonprime = 0;
-    for (counter_t prime = 1; prime < sieve->bits; prime++ ) {
+    for (counter_t prime = 1; prime < sieve->bits; prime = searchBitFalse(sieve->bitstorage, prime+1) ) {
         if ((sieve->bitstorage[wordindex(prime)] & markmask_calc(prime))==0) { // is this a prime?
             for(counter_t c=1; c<=sieve->bits && c*c <= prime*2+1; c++) {
                 if ((prime*2+1) % (c*2+1) == 0 && (c*2+1) != (prime*2+1)) {
@@ -929,7 +930,7 @@ static void benchmark(benchmark_result_t* tuning_result)
     #pragma omp parallel reduction(+:passes)
     #endif
     while (elapsed_time <= sample_duration) {
-        struct sieve_t *sieve = sieve_shake(tuning_result->maxFactor, tuning_result->blocksize_bits);
+        struct sieve_t *sieve = sieve_shake_wheel(tuning_result->maxFactor, tuning_result->blocksize_bits);
         sieve_delete(sieve);
         elapsed_time = (double)(clock() - startTime);         
         passes++;
@@ -1230,7 +1231,7 @@ void checkSieveAlgorithm()
         struct sieve_t *sieve_check;
         for (counter_t blocksize_bits=1024; blocksize_bits<=256*1024*8; blocksize_bits *= 2) {
             verbose(3) printf("....Blocksize %ju:",(uintmax_t)blocksize_bits);
-            sieve_check = sieve_shake(sieveSize_check, blocksize_bits);
+            sieve_check = sieve_shake_wheel(sieveSize_check, blocksize_bits);
             int valid = validatePrimeCount(sieve_check);
             sieve_delete(sieve_check);
             if (!valid) {
@@ -1290,7 +1291,7 @@ int main(int argc, char *argv[])
         }
 
         // one last check to make sure this is a valid algorithm for these settings
-        struct sieve_t* sieve_check = sieve_shake(benchmark_result.maxFactor, global_BLOCKSIZE_BITS);
+        struct sieve_t* sieve_check = sieve_shake_wheel(benchmark_result.maxFactor, global_BLOCKSIZE_BITS);
         int valid = validatePrimeCount(sieve_check);
         sieve_delete(sieve_check);
         if (!valid) { fprintf(stderr, "The sieve is not valid for these settings\n"); exit(1); }
@@ -1324,7 +1325,7 @@ int main(int argc, char *argv[])
     // show results for --show command line option
     if (option.showMaxFactor > 0) {
         printf("Show result set:\n");
-        struct sieve_t* sieve = sieve_shake(option.maxFactor, option.maxFactor);
+        struct sieve_t* sieve = sieve_shake_wheel(option.maxFactor, option.maxFactor);
         show_primes(sieve, option.showMaxFactor);
         sieve_delete(sieve);
     }
