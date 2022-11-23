@@ -163,7 +163,8 @@ static inline struct sieve_t * __attribute__((always_inline)) sieve_create(count
     sieve->size           = size;
 
     // code below not needed: only clearing the first word of each block will do the trick
-    // for (counter_t index_word = 0; index_word <= wordindex(sieve->bits); index_word++) sieve->bitstorage[index_word] = SAFE_ZERO;
+    // wheel requires memory cleared
+    for (counter_t index_word = 0; index_word <= wordindex(sieve->bits); index_word++) sieve->bitstorage[index_word] = SAFE_ZERO;
     return sieve;
 }
 
@@ -172,36 +173,36 @@ static inline void __attribute__((always_inline)) sieve_delete(struct sieve_t *s
     free(sieve);
 }
 
-static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t* bitstorage, register counter_t index) 
-{
-    register const bitword_t bitword = bitstorage[wordindex(index)] >> bitindex(index);
-    register const counter_t length = (uint64_t)__builtin_ffsll( (int64_t)~(bitword));
-    if (length) index += length-1;
-    while (bitstorage[wordindex(index)] & markmask(index)) index++;
-    return index;
-}
-
 // static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t* bitstorage, register counter_t index) 
 // {
-//     while (1) {
-//         if (bitstorage[wordindex(index)] & markmask(index)) index++;
-//         else { 
-//             return (index);
-//             const counter_t remainder = index % 15; // 30 in real numbers
-//             switch (remainder) {
-//                 // case 1: index++; break; // 33
-//                 // case 2: index++; break; // 35
-//                 // case 4: index++; break; // 39
-//                 // case 7: index++; break; // 45
-//                 // case 10: index++; break; // 51
-//                 // case 12: index++; break; // 55
-//                 // case 13: index++; break; // 57
-//                 default: return(index);
-//             }
-//         }
-//     }
+//     register const bitword_t bitword = bitstorage[wordindex(index)] >> bitindex(index);
+//     register const counter_t length = (uint64_t)__builtin_ffsll( (int64_t)~(bitword));
+//     if (length) index += length-1;
+//     while (bitstorage[wordindex(index)] & markmask(index)) index++;
 //     return index;
 // }
+
+static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t* bitstorage, register counter_t index) 
+{
+    while (1) {
+        if (bitstorage[wordindex(index)] & markmask(index)) index++;
+        else { 
+            return (index);
+            const counter_t remainder = index % 15; // 30 in real numbers
+            switch (remainder) {
+                case 1: index++; break; // 33
+                case 2: index++; break; // 35
+                case 4: index++; break; // 39
+                case 7: index++; break; // 45
+                case 10: index++; break; // 51
+                case 12: index++; break; // 55
+                case 13: index++; break; // 57
+                default: return(index);
+            }
+        }
+    }
+    return index;
+}
 
 // apply the same word mask at large ranges
 // manually unlooped - this here is where the main speed increase comes from
@@ -799,26 +800,26 @@ static struct sieve_t* sieve_shake_wheel(const counter_t maxFactor, const counte
 
     debug printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)maxFactor,(uintmax_t)blocksize);
 
-    // bitstorage[0] = markmask( 4) | // 9
-    //                 markmask( 7) | // 15
-    //                 markmask(10) | // 21
-    //                 markmask(12) | // 25
-    //                 markmask(13) ; // 27
+    bitstorage[0] = markmask( 4) | // 9
+                    markmask( 7) | // 15
+                    markmask(10) | // 21
+                    markmask(12) | // 25
+                    markmask(13) ; // 27
     
     // continue from the max prime that was processed in the pattern until the tuned value
-    // counter_t startprime = sieve_block_stripe(bitstorage, 0, sieve->bits, 1, global_BLOCKSTEP_FASTER);
-    counter_t startprime = sieve_block_stripe(bitstorage, 0, sieve->bits, 1, 100000);
-    // if (startprime < 3) startprime = 3; // don't start below the wheel
+    counter_t startprime = sieve_block_stripe(bitstorage, 0, sieve->bits, 1, global_BLOCKSTEP_FASTER);
+    // counter_t startprime = sieve_block_stripe(bitstorage, 0, sieve->bits, 1, 100000);
+    if (startprime < 3) startprime = 3; // don't start below the wheel
     
 
     // in the sieve all bits for the multiples of primes up to startprime have been set
     // process the sieve and stripe all the multiples of primes > start_prime
     // do this block by block to minimize cache misses
-    // for (counter_t block_start = 0,  block_stop = blocksize-1;block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
-    //     if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
-    //     counter_t prime = searchBitFalse(bitstorage, startprime);
-    //     sieve_block_stripe(bitstorage, block_start, block_stop, prime, maxFactor);
-    // } 
+    for (counter_t block_start = 0,  block_stop = blocksize-1;block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
+        if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
+        counter_t prime = searchBitFalse(bitstorage, startprime);
+        sieve_block_stripe(bitstorage, block_start, block_stop, prime, maxFactor);
+    } 
 
     // return the completed sieve
     return sieve;
