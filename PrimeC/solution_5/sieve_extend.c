@@ -181,6 +181,28 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t*
     return index;
 }
 
+// static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t* bitstorage, register counter_t index) 
+// {
+//     while (1) {
+//         if (bitstorage[wordindex(index)] & markmask(index)) index++;
+//         else {
+//             const counter_t remainder = index % 15; // 30 in real numbers
+//             switch (remainder) {
+//                 case 1: index++; break; // 33
+//                 case 2: index++; break; // 35
+//                 case 4: index++; break; // 39
+//                 case 7: index++; break; // 45
+//                 case 10: index++; break; // 51
+//                 case 12: index++; break; // 55
+//                 case 13: index++; break; // 57
+//                 default: return(index);
+//             }
+//         }
+//         index++;
+//     }
+//     return index;
+// }
+
 // apply the same word mask at large ranges
 // manually unlooped - this here is where the main speed increase comes from
 // idea from PrimeRust/solution_1 by Michael Barber 
@@ -756,6 +778,35 @@ static struct sieve_t* sieve_shake(const counter_t maxFactor, const counter_t bl
 
     // continue from the max prime that was processed in the pattern until the tuned value
     counter_t startprime = sieve_block_stripe(bitstorage, 0, sieve->bits, block.prime, global_BLOCKSTEP_FASTER);
+
+    // in the sieve all bits for the multiples of primes up to startprime have been set
+    // process the sieve and stripe all the multiples of primes > start_prime
+    // do this block by block to minimize cache misses
+    for (counter_t block_start = 0,  block_stop = blocksize-1;block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
+        if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
+        counter_t prime = searchBitFalse(bitstorage, startprime);
+        sieve_block_stripe(bitstorage, block_start, block_stop, prime, maxFactor);
+    } 
+
+    // return the completed sieve
+    return sieve;
+}
+
+static struct sieve_t* sieve_shake_wheel(const counter_t maxFactor, const counter_t blocksize) 
+{
+    struct sieve_t *sieve = sieve_create(maxFactor);
+    bitword_t* bitstorage = sieve->bitstorage;
+
+    debug printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)maxFactor,(uintmax_t)blocksize);
+
+    bitstorage[0] = markmask( 4) | // 9
+                    markmask( 7) | // 15
+                    markmask(10) | // 21
+                    markmask(12) | // 25
+                    markmask(13) ; // 27
+    
+    // continue from the max prime that was processed in the pattern until the tuned value
+    counter_t startprime = sieve_block_stripe(bitstorage, 0, sieve->bits, 3, global_BLOCKSTEP_FASTER);
 
     // in the sieve all bits for the multiples of primes up to startprime have been set
     // process the sieve and stripe all the multiples of primes > start_prime
