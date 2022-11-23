@@ -185,7 +185,8 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t*
 {
     while (1) {
         if (bitstorage[wordindex(index)] & markmask(index)) index++;
-        else {
+        else { 
+            return (index);
             const counter_t remainder = index % 15; // 30 in real numbers
             switch (remainder) {
                 // case 1: index++; break; // 33
@@ -798,15 +799,15 @@ static struct sieve_t* sieve_shake_wheel(const counter_t maxFactor, const counte
 
     debug printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)maxFactor,(uintmax_t)blocksize);
 
-    bitstorage[0] = markmask( 4) | // 9
-                    markmask( 7) | // 15
-                    markmask(10) | // 21
-                    markmask(12) | // 25
-                    markmask(13) ; // 27
+    // bitstorage[0] = markmask( 4) | // 9
+    //                 markmask( 7) | // 15
+    //                 markmask(10) | // 21
+    //                 markmask(12) | // 25
+    //                 markmask(13) ; // 27
     
     // continue from the max prime that was processed in the pattern until the tuned value
     counter_t startprime = sieve_block_stripe(bitstorage, 0, sieve->bits, 1, global_BLOCKSTEP_FASTER);
-    if (startprime < 3) startprime = 3; // don't start below the wheel
+    // if (startprime < 3) startprime = 3; // don't start below the wheel
     
 
     // in the sieve all bits for the multiples of primes up to startprime have been set
@@ -846,7 +847,7 @@ static void deepAnalyzePrimes(struct sieve_t *sieve)
     printf("DeepAnalyzing\n");
     counter_t warn_prime = 0;
     counter_t warn_nonprime = 0;
-    for (counter_t prime = 1; prime < sieve->bits; prime = searchBitFalse(sieve->bitstorage, prime+1) ) {
+    for (counter_t prime = 1; prime <= sieve->bits; prime = searchBitFalse(sieve->bitstorage, prime+1) ) {
         if ((sieve->bitstorage[wordindex(prime)] & markmask_calc(prime))==0) { // is this a prime?
             for(counter_t c=1; c<=sieve->bits && c*c <= prime*2+1; c++) {
                 if ((prime*2+1) % (c*2+1) == 0 && (c*2+1) != (prime*2+1)) {
