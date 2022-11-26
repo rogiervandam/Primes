@@ -101,6 +101,10 @@
 #define VECTOR_ELEMENTS 8
 #define VECTOR_SETTING  u64_v8
 #define WORD_SIZE_64    64
+#elif defined u32_v16
+#define bitword_t       uint32_t
+#define VECTOR_ELEMENTS 16
+#define VECTOR_SETTING  u32_v16
 #endif
 #ifndef VECTOR_SETTING
 #define VECTOR_SETTING PPCAT(bitword_t,VECTOR_ELEMENTS)
@@ -481,7 +485,10 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
         register bitshift_t       shift         = vector_bitindex_calc(range_start); 
         register const bitshift_t pattern_shift = VECTORWORD_SIZE_bitshift + step - pattern_size; 
 
-        #if VECTOR_ELEMENTS == 8
+        #if VECTOR_ELEMENTS == 16
+            register bitvector_t quadmask_base = {  pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern,
+                                                    pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern };
+        #elif VECTOR_ELEMENTS == 8
             register bitvector_t quadmask_base = { pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern };
         #elif VECTOR_ELEMENTS == 4
             register bitvector_t quadmask_base = { pattern, pattern, pattern, pattern };
@@ -520,7 +527,36 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
                     register bitshift_t shift8 = shift;
                     if (pattern_shift > shift) shift += step;
                     shift -= pattern_shift;
-                    register bitvector_t shiftmask = { shift1, shift2, shift3, shift4, shift5, shift6, shift7, shift8 };
+                    #if VECTOR_ELEMENTS <= 8
+                        register bitvector_t shiftmask = { shift1, shift2, shift3, shift4, shift5, shift6, shift7, shift8 };
+                    #else
+                        register bitshift_t shift9 = shift;
+                        if (pattern_shift > shift) shift += step;
+                        shift -= pattern_shift;
+                        register bitshift_t shift10 = shift;
+                        if (pattern_shift > shift) shift += step;
+                        shift -= pattern_shift;
+                        register bitshift_t shift11 = shift;
+                        if (pattern_shift > shift) shift += step;
+                        shift -= pattern_shift;
+                        register bitshift_t shift12 = shift;
+                        if (pattern_shift > shift) shift += step;
+                        shift -= pattern_shift;
+                        register bitshift_t shift13 = shift;
+                        if (pattern_shift > shift) shift += step;
+                        shift -= pattern_shift;
+                        register bitshift_t shift14 = shift;
+                        if (pattern_shift > shift) shift += step;
+                        shift -= pattern_shift;
+                        register bitshift_t shift15 = shift;
+                        if (pattern_shift > shift) shift += step;
+                        shift -= pattern_shift;
+                        register bitshift_t shift16 = shift;
+                        if (pattern_shift > shift) shift += step;
+                        shift -= pattern_shift;
+                        register bitvector_t shiftmask = {  shift1, shift2, shift3, shift4, shift5, shift6, shift7, shift8,
+                                                            shift9, shift10, shift11, shift12, shift13, shift14, shift15, shift16 };
+                    #endif
                 #endif
             #endif
 
@@ -534,7 +570,10 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
             register const counter_t current_vector_start = vectorstart(index);
 
             // bitvector_t quadmask;
-            #if VECTOR_ELEMENTS == 8
+            #if VECTOR_ELEMENTS == 16
+            register bitvector_t quadmask = { SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO,
+                                              SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO };
+            #elif VECTOR_ELEMENTS == 8
             register bitvector_t quadmask = { SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO };
             #elif VECTOR_ELEMENTS == 4
             register bitvector_t quadmask = { SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO };
@@ -553,6 +592,16 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
                 if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*5))) { quadmask[5] = vector_markmask(index); index += step; }
                 if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*6))) { quadmask[6] = vector_markmask(index); index += step; }
                 if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*7))) { quadmask[7] = vector_markmask(index); index += step; }
+            #endif
+            #if VECTOR_ELEMENTS > 8
+                if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*8))) { quadmask[8] = vector_markmask(index); index += step; }
+                if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*9))) { quadmask[9] = vector_markmask(index); index += step; }
+                if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*10))) { quadmask[10] = vector_markmask(index); index += step; }
+                if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*11))) { quadmask[11] = vector_markmask(index); index += step; }
+                if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*12))) { quadmask[12] = vector_markmask(index); index += step; }
+                if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*13))) { quadmask[13] = vector_markmask(index); index += step; }
+                if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*14))) { quadmask[14] = vector_markmask(index); index += step; }
+                if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*15))) { quadmask[15] = vector_markmask(index); index += step; }
             #endif
 
             // use mask on all n*step multiples
