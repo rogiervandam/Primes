@@ -920,6 +920,7 @@ static struct sieve_t* sieve_shake(const counter_t maxFactor, const counter_t bl
     return sieve;
 }
 
+
 static void show_primes(struct sieve_t *sieve, counter_t maxFactor) 
 {
     counter_t primeCount = 1;    // We already have 2
@@ -1024,18 +1025,30 @@ static void benchmark(benchmark_result_t* tuning_result)
 
     counter_t passes = 0;
     double elapsed_time = 0;
+    struct sieve_t *sieve_org = sieve_shake(tuning_result->maxFactor, tuning_result->blocksize_bits);
+    struct sieve_t *sieve = sieve_create(tuning_result->maxFactor);
+    bitvector_t* bitstorage_org = __builtin_assume_aligned(sieve_org->bitstorage,128);
+    bitvector_t* bitstorage_dst = __builtin_assume_aligned(sieve->bitstorage,128);
+
+    // counter_t size_byte = vectorend( tuning_result->maxFactor / 8);
+    // counter_t vectormax = vectorindex(tuning_result->maxFactor);
+
     clock_t startTime = clock();
+    clock_t target_time = startTime + sample_duration;
     #ifdef _OPENMP
     omp_set_num_threads(tuning_result->threads);
     sample_duration *= tuning_result->threads;
     #pragma omp parallel reduction(+:passes)
     #endif
-    while (elapsed_time <= sample_duration) {
-        struct sieve_t *sieve = sieve_shake(tuning_result->maxFactor, tuning_result->blocksize_bits);
-        sieve_delete(sieve);
-        elapsed_time = (double)(clock() - startTime);         
+    while (clock() <= target_time) {
+        // for (counter_t i = 0; i <= vectormax; i++ )
+        //   bitstorage_dst[i] = bitstorage_org[i];
+        // memcpy(bitstorage_dst, bitstorage_org, size_byte);
         passes++;
     }
+    elapsed_time = (double)(clock() - startTime);         
+    sieve_delete(sieve);
+    sieve_delete(sieve_org);
     tuning_result->passes = passes;
     tuning_result->elapsed_time = elapsed_time / CLOCKS_PER_SEC / tuning_result->threads;
     tuning_result->avg = passes/elapsed_time;
