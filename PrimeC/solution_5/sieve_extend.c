@@ -12,11 +12,11 @@
 
 // defaults
 #define default_sieve_limit             1000000
-#define default_blocksize               (32*1024*8)
+#define default_blocksize               (31*1024*8)
 #define default_maxTime                 5
 #define default_sample_duration         0.0002
 #define default_explain_level           0
-#define default_verbose_level           0
+#define default_verbose_level           1
 #define default_tune_level              1
 #define default_check_level             0
 #define default_show_primes_on_error    100
@@ -31,10 +31,13 @@
 #define debug if unlikely(0)
 #endif
 
+#define compile_tuning default_tune_level
+
 // set this to the level of verbose messages that will be compiled
-#define compile_verboselevel 4
+#define compile_verboselevel 4 //default_verbose_level
 #define verbose(level)    if (level < compile_verboselevel) if (option.verboselevel >= level) 
 #define verbose_at(level) if (level < compile_verboselevel) if (option.verboselevel == level)
+
 
 // helper functions
 #define pow(base,pow)       (pow*((base>>pow)&1U))
@@ -153,9 +156,9 @@ typedef bitword_vector_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_byt
 // #define BLOCKSTEP_FASTER ((counter_t)0)
 // #define MEDIUMSTEP_FASTER ((counter_t)16)
 //  #define VECTORSTEP_FASTER ((counter_t)0)
-static counter_t global_BLOCKSTEP_FASTER  =   0ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
-static counter_t global_MEDIUMSTEP_FASTER =  16ULL; // if step < MEDIUMSTEP_FASTER, use medium steps
-static counter_t global_VECTORSTEP_FASTER = 128ULL; // if step < VECTORSTAP_FASTER, use large steps
+static counter_t global_BLOCKSTEP_FASTER  =  96ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
+static counter_t global_MEDIUMSTEP_FASTER =  64ULL; // if step < MEDIUMSTEP_FASTER, use medium steps
+static counter_t global_VECTORSTEP_FASTER = 192ULL; // if step < VECTORSTAP_FASTER, use large steps
 static counter_t global_BLOCKSIZE_BITS = default_blocksize;
 #define BLOCKSTEP_FASTER     ((counter_t)global_BLOCKSTEP_FASTER)
 #define MEDIUMSTEP_FASTER    ((counter_t)global_MEDIUMSTEP_FASTER)
@@ -250,6 +253,61 @@ static inline void printWord(bitword_t bitword)
 
     printf("%s", row);
 }
+
+// struct sieve_t *fastmem = 0;
+// int free_fastmem=0;
+// counter_t allocations = 0;
+// counter_t cache_hits = 0;
+// counter_t cache_miss = 0;
+// #define ALLOC_CACHE_MAX 64
+// struct alloc_t {
+//     void * ptr;
+//     size_t size;
+//     int    free;
+// };
+// struct alloc_t alloc_cache[ALLOC_CACHE_MAX];
+// int alloc_cache_cached = 0;
+
+// static inline void* __attribute__((always_inline)) rvd_malloc(size_t size) {
+//     // allocations++;
+//     for (int cache_item = 0; cache_item < alloc_cache_cached; cache_item++ ) {
+//         if (alloc_cache[cache_item].free && alloc_cache[cache_item].size == size) {
+//             alloc_cache[cache_item].free = 0;
+//             // cache_hits++;
+//             return alloc_cache[cache_item].ptr;
+//         }
+//     }
+//     // nothing found; adding to cache
+//     if (alloc_cache_cached < ALLOC_CACHE_MAX) {
+//         // cache_miss++;
+//         alloc_cache[alloc_cache_cached].ptr = malloc(size);
+//         alloc_cache[alloc_cache_cached].size = size;
+//         alloc_cache[alloc_cache_cached].free = 0;
+//         return alloc_cache[alloc_cache_cached++].ptr;
+//     }
+//     // cache was full; do not cache
+//     // cache_miss++;
+//     return malloc(size);
+// }
+
+// static inline void __attribute__((always_inline)) rvd_free(void* ptr) {
+//     for (int cache_item = alloc_cache_cached; cache_item >= 0; cache_item--) {
+//         if (alloc_cache[cache_item].ptr == ptr) {
+//             alloc_cache[cache_item].free = 1;
+//             return;
+//         }
+//     }
+//     free(ptr);
+// }
+
+// static inline void __attribute__((always_inline))  rvd_alloc_cache_flush() {
+//     while (alloc_cache_cached--) {
+//         free(alloc_cache[alloc_cache_cached].ptr);
+//         alloc_cache[alloc_cache_cached].size = 0;
+//     }
+// }
+
+
 // use cache lines as much as possible - alignment might be key
 // moved clearing the sieve with 0 to the sieve_block_extend - it gave weird malloc problems at this point
 // switched to one malloc for the sieve, instead of one for the sieve and one for the storage
@@ -1438,7 +1496,7 @@ int main(int argc, char *argv[])
     benchmark_result.maxFactor = option.maxFactor;
 
     // tuning - try combinations of different settings and apply these
-    if (option.tunelevel) { 
+    if (option.tunelevel && compile_tuning) { 
         benchmark_result_t tuning_result = tune(option.tunelevel, option.maxFactor, option.threads, option.blocksize_kB);
         benchmark_result.blockstep_faster  = tuning_result.blockstep_faster;
         benchmark_result.mediumstep_faster = tuning_result.mediumstep_faster;
@@ -1502,4 +1560,6 @@ int main(int argc, char *argv[])
         show_primes(sieve, option.showMaxFactor);
         sieve_delete(sieve);
     }
+
+    // rvd_alloc_cache_flush();
 }
