@@ -32,7 +32,7 @@
 #endif
 
 // set this to the level of verbose messages that will be compiled
-#define compile_verboselevel 4 
+#define compile_verboselevel 4
 #define verbose(level)    if (level < compile_verboselevel) if (option.verboselevel >= level) 
 #define verbose_at(level) if (level < compile_verboselevel) if (option.verboselevel == level)
 
@@ -182,7 +182,7 @@ static counter_t global_BLOCKSIZE_BITS = default_blocksize;
 #define vector_wordstart(index)     ((counter_t)(index) & (counter_t)(~VECTORWORDMASK))
 #define vector_wordindex(index)     (((counter_t)index) >> SHIFT_VECTORWORD)
 // #define vectorfromword(word) ((counter_t)(word ) >> (counter_t)SHIFT_VECTOR-SHIFT_WORD))
-// #define wordinvector(index)  (((counter_t)index >> SHIFT_WORD) & (VECTORMASK >> SHIFT_WORD))
+#define wordinvector(index)  (((counter_t)index >> SHIFT_VECTORWORD) & (VECTORMASK >> SHIFT_VECTORWORD))
 
 // modern processors do a & over the shiftssize, so we only have to do that ourselve when using the shiftsize in calculations. 
 #define bitindex_calc(index)        ((bitshift_t)(index)&((bitshift_t)(WORDMASK      )))
@@ -568,6 +568,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
     else {
         for (counter_t index = range_start; index < range_stop_unique;) {
             register const counter_t current_vector_start = vectorstart(index);
+            // register const counter_t current_vector_end   = vectorend(index);
 
             // bitvector_t quadmask;
             #if VECTOR_ELEMENTS == 16
@@ -581,6 +582,10 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
             register bitvector_t quadmask = { SAFE_ZERO, SAFE_ZERO };
             #endif
 
+            // for (; index <= current_vector_end; index += step) {
+            //     quadmask[wordinvector(index)] = vector_markmask(index);
+            // }
+
             if     (vector_wordstart(index) == (current_vector_start                              )) { quadmask[0] = vector_markmask(index); index += step; }
             if     (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter  ))) { quadmask[1] = vector_markmask(index); index += step; }
             #if VECTOR_ELEMENTS > 2
@@ -593,16 +598,16 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
                 if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*6))) { quadmask[6] = vector_markmask(index); index += step; }
                 if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*7))) { quadmask[7] = vector_markmask(index); index += step; }
             #endif
-            #if VECTOR_ELEMENTS > 8
-                if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*8))) { quadmask[8] = vector_markmask(index); index += step; }
-                if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*9))) { quadmask[9] = vector_markmask(index); index += step; }
-                if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*10))) { quadmask[10] = vector_markmask(index); index += step; }
-                if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*11))) { quadmask[11] = vector_markmask(index); index += step; }
-                if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*12))) { quadmask[12] = vector_markmask(index); index += step; }
-                if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*13))) { quadmask[13] = vector_markmask(index); index += step; }
-                if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*14))) { quadmask[14] = vector_markmask(index); index += step; }
-                if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*15))) { quadmask[15] = vector_markmask(index); index += step; }
-            #endif
+            // #if VECTOR_ELEMENTS > 8
+            //     if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*8))) { quadmask[8] = vector_markmask(index); index += step; }
+            //     if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*9))) { quadmask[9] = vector_markmask(index); index += step; }
+            //     if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*10))) { quadmask[10] = vector_markmask(index); index += step; }
+            //     if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*11))) { quadmask[11] = vector_markmask(index); index += step; }
+            //     if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*12))) { quadmask[12] = vector_markmask(index); index += step; }
+            //     if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*13))) { quadmask[13] = vector_markmask(index); index += step; }
+            //     if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*14))) { quadmask[14] = vector_markmask(index); index += step; }
+            //     if (vector_wordstart(index) == (current_vector_start | (VECTORWORD_SIZE_counter*15))) { quadmask[15] = vector_markmask(index); index += step; }
+            // #endif
 
             // use mask on all n*step multiples
             applyMask_vector(bitstorage_vector, step, range_stop, quadmask, current_vector);
@@ -1231,29 +1236,31 @@ static benchmark_result_t tune(int tune_level, counter_t maxFactor, counter_t th
 
 static void usage(char *name) 
 {
-    fprintf(stderr, "Usage: %s [options] [maximum]\n", name);
-    fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  --block <kilobyte> Set the block size to a specific <size> in kilobytes\n");
-    fprintf(stderr, "  --check            Check the correctness of the algorithm\n");
-    #if compile_debuggable
-    fprintf(stderr, "  --explain          Explain the steps of the algorithm - only when compiled for debug\n");
-    #endif
-    fprintf(stderr, "  --help             This help function\n");
-    fprintf(stderr, "  --show  <maximum>  Show the primes found up to the maximum\n");
-    #ifdef _OPENMP
-    fprintf(stderr, "  --threads <count>  Set the maximum number of threads to be used (only when compiled for openmp)\n");
-    fprintf(stderr, "                     Use 'all' to use all available threads or 'half' for /2 (e.g. for no hyperthreading)\n");
-    #endif
-    fprintf(stderr, "  --time  <seconds>  The maximum time (in seconds) to run passes of the sieve algorithm\n");
-    fprintf(stderr, "  --tune  <level>    find the best settings for the current os and hardware\n");
-    fprintf(stderr, "                     1 - fast tuning\n");
-    fprintf(stderr, "                     2 - refined tuning\n");
-    fprintf(stderr, "                     3 - maximum tuning (takes long)\n");
-    fprintf(stderr, "  --verbose <level>  Show more output to a certain level:\n");
-    fprintf(stderr, "                     1 - show phase progress\n");
-    fprintf(stderr, "                     2 - show general progress within the phase\n");
-    fprintf(stderr, "                     3 - show actual work\n");
-    exit(1);
+    verbose(0) {
+        fprintf(stderr, "Usage: %s [options] [maximum]\n", name);
+        fprintf(stderr, "Options:\n");
+        fprintf(stderr, "  --block <kilobyte> Set the block size to a specific <size> in kilobytes\n");
+        fprintf(stderr, "  --check            Check the correctness of the algorithm\n");
+        #if compile_debuggable
+        fprintf(stderr, "  --explain          Explain the steps of the algorithm - only when compiled for debug\n");
+        #endif
+        fprintf(stderr, "  --help             This help function\n");
+        fprintf(stderr, "  --show  <maximum>  Show the primes found up to the maximum\n");
+        #ifdef _OPENMP
+        fprintf(stderr, "  --threads <count>  Set the maximum number of threads to be used (only when compiled for openmp)\n");
+        fprintf(stderr, "                     Use 'all' to use all available threads or 'half' for /2 (e.g. for no hyperthreading)\n");
+        #endif
+        fprintf(stderr, "  --time  <seconds>  The maximum time (in seconds) to run passes of the sieve algorithm\n");
+        fprintf(stderr, "  --tune  <level>    find the best settings for the current os and hardware\n");
+        fprintf(stderr, "                     1 - fast tuning\n");
+        fprintf(stderr, "                     2 - refined tuning\n");
+        fprintf(stderr, "                     3 - maximum tuning (takes long)\n");
+        fprintf(stderr, "  --verbose <level>  Show more output to a certain level:\n");
+        fprintf(stderr, "                     1 - show phase progress\n");
+        fprintf(stderr, "                     2 - show general progress within the phase\n");
+        fprintf(stderr, "                     3 - show actual work\n");
+        exit(1);
+    }
 }
 
 static struct options_t parseCommandLine(int argc, char *argv[], struct options_t option)
