@@ -1025,17 +1025,18 @@ static void benchmark(benchmark_result_t* tuning_result)
     counter_t passes = 0;
     double elapsed_time = 0;
     clock_t startTime = clock();
+    clock_t target_time = startTime + sample_duration;
     #ifdef _OPENMP
     omp_set_num_threads(tuning_result->threads);
     sample_duration *= tuning_result->threads;
     #pragma omp parallel reduction(+:passes)
     #endif
-    while (elapsed_time <= sample_duration) {
+    while (clock() <= target_time) {
         struct sieve_t *sieve = sieve_shake(tuning_result->maxFactor, tuning_result->blocksize_bits);
         sieve_delete(sieve);
-        elapsed_time = (double)(clock() - startTime);         
         passes++;
     }
+    elapsed_time = (double)(clock() - startTime);         
     tuning_result->passes = passes;
     tuning_result->elapsed_time = elapsed_time / CLOCKS_PER_SEC / tuning_result->threads;
     tuning_result->avg = passes/elapsed_time;
