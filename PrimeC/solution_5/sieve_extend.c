@@ -33,7 +33,7 @@
 #define default_blocksize               (32*1024*8)
 #define default_maxTime                 5
 #define default_sample_duration         0.001
-#define default_explain_level           0
+#define default_explain_level           1
 #define default_verbose_level           2
 #define default_tune_level              1
 #define default_check_level             1
@@ -182,12 +182,13 @@ static inline void __attribute__((always_inline)) sieve_delete(struct sieve_t *s
 //     return index;
 // }
 
-static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t* bitstorage, register counter_t index) 
+static inline counter_t __attribute__((always_inline)) searchBitFalse_wheel(bitword_t* bitstorage, register counter_t index) 
 {
+    // debug printf("Searching from %ju\n",index);
     while (1) {
         if (bitstorage[wordindex(index)] & markmask(index)) index++;
         else { 
-            return (index);
+            // return (index);
             const counter_t remainder = index % 15; // 30 in real numbers
             switch (remainder) {
                 case 1: index++; break; // 33
@@ -197,10 +198,14 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t*
                 case 10: index++; break; // 51
                 case 12: index++; break; // 55
                 case 13: index++; break; // 57
-                default: return(index);
+                default: 
+                    // debug printf("Returning %ju\n",index);
+                    return index;
+
             }
         }
     }
+    debug printf("Returning %ju\n",index);//
     return index;
 }
 
@@ -683,7 +688,7 @@ static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block
         else 
             setBitsTrue_largeRange(bitstorage, start, step, block_stop);
 
-        prime = searchBitFalse(bitstorage, prime + 1 );
+        prime = searchBitFalse_wheel(bitstorage, prime + 1 );
         step  = prime * 2 + 1;
     }
     return prime;
@@ -711,7 +716,7 @@ static struct block sieve_block_extend(struct sieve_t *sieve, const counter_t bl
     sieve->bitstorage[wordindex(block_start)] = SAFE_ZERO; // only the first word has to be cleared; the rest is populated by the extension procedure
     
     for (;range_stop < block_stop;) {
-        prime = searchBitFalse(bitstorage, prime+1);
+        prime = searchBitFalse_wheel(bitstorage, prime+1);
         counter_t start = (prime * prime * 2) + (prime * 2);
         if unlikely(start > block_stop) break;
 
@@ -755,7 +760,7 @@ static struct sieve_t* sieve_shake_blockbyblock(const counter_t maxFactor, const
     // do this block by block to minimize cache misses
     for (counter_t block_start = 0,  block_stop = blocksize-1;block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
         if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
-        counter_t prime = searchBitFalse(bitstorage, startprime);
+        counter_t prime = searchBitFalse_wheel(bitstorage, startprime);
         sieve_block_stripe(bitstorage, block_start, block_stop, prime, maxFactor);
     } 
 
@@ -785,7 +790,7 @@ static struct sieve_t* sieve_shake_extend(const counter_t maxFactor, const count
     // do this block by block to minimize cache misses
     for (counter_t block_start = 0,  block_stop = blocksize-1;block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
         if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
-        counter_t prime = searchBitFalse(bitstorage, startprime);
+        counter_t prime = searchBitFalse_wheel(bitstorage, startprime);
         sieve_block_stripe(bitstorage, block_start, block_stop, prime, maxFactor);
     } 
 
@@ -800,26 +805,31 @@ static struct sieve_t* sieve_shake_wheel(const counter_t maxFactor, const counte
 
     debug printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)maxFactor,(uintmax_t)blocksize);
 
-    bitstorage[0] = markmask( 4) | // 9
+    bitstorage[0] = markmask( 1) | // 3
+                    markmask( 2) | // 5
+                    markmask( 4) | // 9
                     markmask( 7) | // 15
                     markmask(10) | // 21
                     markmask(12) | // 25
                     markmask(13) ; // 27
     
     // continue from the max prime that was processed in the pattern until the tuned value
-    counter_t startprime = sieve_block_stripe(bitstorage, 0, sieve->bits, 1, global_BLOCKSTEP_FASTER);
-    // counter_t startprime = sieve_block_stripe(bitstorage, 0, sieve->bits, 1, 100000);
+
+    counter_t startprime = searchBitFalse_wheel(bitstorage,1);
+
+    // counter_t startprime = sieve_block_stripe(bitstorage, 0, sieve->bits, 1, global_BLOCKSTEP_FASTER);
+    startprime = sieve_block_stripe(bitstorage, 0, sieve->bits, startprime, 100000);
     if (startprime < 3) startprime = 3; // don't start below the wheel
     
 
     // in the sieve all bits for the multiples of primes up to startprime have been set
     // process the sieve and stripe all the multiples of primes > start_prime
     // do this block by block to minimize cache misses
-    for (counter_t block_start = 0,  block_stop = blocksize-1;block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
-        if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
-        counter_t prime = searchBitFalse(bitstorage, startprime);
-        sieve_block_stripe(bitstorage, block_start, block_stop, prime, maxFactor);
-    } 
+    // for (counter_t block_start = 0,  block_stop = blocksize-1;block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
+    //     if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
+    //     counter_t prime = searchBitFalse_wheel(bitstorage, startprime);
+    //     sieve_block_stripe(bitstorage, block_start, block_stop, prime, maxFactor);
+    // } 
 
     // return the completed sieve
     return sieve;
@@ -828,7 +838,7 @@ static struct sieve_t* sieve_shake_wheel(const counter_t maxFactor, const counte
 static void show_primes(struct sieve_t *sieve, counter_t maxFactor) 
 {
     counter_t primeCount = 1;    // We already have 2
-    for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor+1)) {
+    for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse_wheel(sieve->bitstorage, factor+1)) {
         primeCount++;
         if (factor < maxFactor/2) {
             printf("%3ju ",(uintmax_t)factor*2+1);
@@ -839,8 +849,11 @@ static void show_primes(struct sieve_t *sieve, counter_t maxFactor)
 }
 
 static counter_t count_primes(struct sieve_t *sieve) {
-    counter_t primeCount = 1;
-    for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor+1)) primeCount++;
+    counter_t primeCount = 3;
+    for (counter_t factor=3; factor < sieve->bits; factor = searchBitFalse_wheel(sieve->bitstorage, factor+1)) {
+        // debug if (factor < 100) printf("Counting %ju (%ju)\n",factor, factor*2+1);
+        primeCount++;
+    }
     return primeCount;
 }
 
@@ -849,7 +862,7 @@ static void deepAnalyzePrimes(struct sieve_t *sieve)
     printf("DeepAnalyzing\n");
     counter_t warn_prime = 0;
     counter_t warn_nonprime = 0;
-    for (counter_t prime = 1; prime <= sieve->bits; prime = searchBitFalse(sieve->bitstorage, prime+1) ) {
+    for (counter_t prime = 1; prime <= sieve->bits; prime = searchBitFalse_wheel(sieve->bitstorage, prime+1) ) {
         if ((sieve->bitstorage[wordindex(prime)] & markmask_calc(prime))==0) { // is this a prime?
             for(counter_t c=1; c<=sieve->bits && c*c <= prime*2+1; c++) {
                 if ((prime*2+1) % (c*2+1) == 0 && (c*2+1) != (prime*2+1)) {
@@ -1205,7 +1218,7 @@ struct options_t setDefaultOptions() {
 #if compile_debuggable
 void explainSieveShake() 
 {
-    struct sieve_t* sieve = sieve_shake(option.maxFactor, default_blocksize);
+    struct sieve_t* sieve = sieve_shake_wheel(option.maxFactor, default_blocksize);
     printf("\nResult set:\n");
     show_primes(sieve, option.showMaxFactor);
     int valid = validatePrimeCount(sieve);
