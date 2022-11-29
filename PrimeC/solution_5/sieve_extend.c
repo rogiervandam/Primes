@@ -1,6 +1,8 @@
 // Sieve algorithm by Rogier van Dam - 2022
 // Find all primes up to <max int> using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)
 
+// TODO: some errors when low block_sizes
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -215,6 +217,17 @@ void timerLapTime() {
     else if (elapsed_time > 1000) printf("...time: \033[0;35m%.0f\033[0m ns\n", elapsed_time);
     else if (elapsed_time > 100)  printf("...time: \033[0;36m%.0f\033[0m ns\n", elapsed_time);
     else                          printf("...time: %.0f ns\n", elapsed_time);
+}
+
+static inline counter_t isqrt(unsigned long val) {
+    unsigned long temp, g=0, b = 0x8000, bshft = 15;
+    do {
+        if (val >= (temp = (((g << 1) + b)<<bshft--))) {
+           g += b;
+           val -= temp;
+        }
+    } while (b >>= 1);
+    return g;
 }
 
 struct sieve_t {
@@ -910,10 +923,27 @@ static struct sieve_t* sieve_shake(const counter_t maxFactor, const counter_t bl
     // in the sieve all bits for the multiples of primes up to startprime have been set
     // process the sieve and stripe all the multiples of primes > start_prime
     // do this block by block to minimize cache misses
-    for (counter_t block_start = 0, block_stop = blocksize-1; block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
+
+    counter_t q = isqrt(maxFactor/2);
+    counter_t block_start = 0, block_stop = blocksize-1;
+
+    for (; block_start <= sieve->bits, block_start < q; block_start += blocksize, block_stop += blocksize) {
         if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
         counter_t prime = searchBitFalse(bitstorage, startprime);
-        sieve_block_stripe(bitstorage, block_start, block_stop, prime, maxFactor);
+        sieve_block_stripe(bitstorage, block_start, block_stop, prime, q);
+    } 
+
+    counter_t global_block_start = block_start;
+    #ifdef _OPENMP
+    // #pragma omp parallel
+    #pragma map(bitstorage[0:wordindex(sieve_bits)])
+    #pragma omp target teams distribute parallel for
+    #endif
+    for (counter_t block_start = global_block_start; block_start <= sieve->bits; block_start += blocksize) {
+        counter_t block_stop = block_start + blocksize-1;
+        if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
+        counter_t prime = searchBitFalse(bitstorage, startprime);
+        sieve_block_stripe(bitstorage, block_start, block_stop, prime, q);
     } 
 
     // return the completed sieve
@@ -1027,8 +1057,8 @@ static void benchmark(benchmark_result_t* tuning_result)
     clock_t startTime = clock();
     #ifdef _OPENMP
     omp_set_num_threads(tuning_result->threads);
-    sample_duration *= tuning_result->threads;
-    #pragma omp parallel reduction(+:passes)
+//    sample_duration *= tuning_result->threads;
+//    #pragma omp parallel reduction(+:passes)
     #endif
     while (elapsed_time <= sample_duration) {
         struct sieve_t *sieve = sieve_shake(tuning_result->maxFactor, tuning_result->blocksize_bits);
