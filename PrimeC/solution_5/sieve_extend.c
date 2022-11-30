@@ -14,11 +14,11 @@
 
 // defaults
 #define default_sieve_limit             1000000
-#define default_blocksize               (32*1024*8)
+#define default_blocksize               (8*1024*8)
 #define default_maxTime                 5
 #define default_sample_duration         0.0002
 #define default_explain_level           0
-#define default_verbose_level           0
+#define default_verbose_level           1
 #define default_tune_level              1
 #define default_check_level             0
 #define default_show_primes_on_error    100
@@ -152,8 +152,8 @@ typedef bitword_vector_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_byt
 // #define MEDIUMSTEP_FASTER ((counter_t)16)
 //  #define VECTORSTEP_FASTER ((counter_t)0)
 static counter_t global_BLOCKSTEP_FASTER  =   0ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
-static counter_t global_MEDIUMSTEP_FASTER =  16ULL; // if step < MEDIUMSTEP_FASTER, use medium steps
-static counter_t global_VECTORSTEP_FASTER = 128ULL; // if step < VECTORSTAP_FASTER, use large steps
+static counter_t global_MEDIUMSTEP_FASTER =   0ULL; // if step < MEDIUMSTEP_FASTER, use medium steps
+static counter_t global_VECTORSTEP_FASTER =   128ULL; // if step < VECTORSTAP_FASTER, use large steps
 static counter_t global_BLOCKSIZE_BITS = default_blocksize;
 #define BLOCKSTEP_FASTER     ((counter_t)global_BLOCKSTEP_FASTER)
 #define MEDIUMSTEP_FASTER    ((counter_t)global_MEDIUMSTEP_FASTER)
@@ -297,34 +297,39 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t*
 // apply the same word mask at large ranges
 // manually unlooped - this here is where the main speed increase comes from
 // idea from PrimeRust/solution_1 by Michael Barber 
-static inline void __attribute__((always_inline)) applyMask_word(bitword_t* __restrict bitstorage, const counter_t step, const counter_t range_stop, const bitword_t mask, const counter_t index_word) 
+static inline void __attribute__((always_inline)) applyMask_word(bitword_t* __restrict bitstorage, const counter_t step, const counter_t range_stop, const bitword_t mask, counter_t range_start_word) 
 {
     register const counter_t step_2 = step << 1;
     register const counter_t step_3 = step_2 + step;
     register const counter_t step_4 = step << 2;
 
-    register bitword_t* __restrict index_ptr = __builtin_assume_aligned(&bitstorage[index_word], sizeof(bitword_t));
-
     const counter_t range_stop_word = wordindex(range_stop);
-    register const bitword_t* __restrict fast_loop_ptr  =  &bitstorage[((range_stop_word>step_4) ? (range_stop_word - step_4):0)];
+    register const counter_t fast_loop_word = (range_stop_word > step_4) ? (range_stop_word - step_4) : 0;
 
-    #pragma GCC ivdep
-    while (index_ptr < fast_loop_ptr) {
-        *index_ptr            |= mask; 
-        *(index_ptr + step  ) |= mask; 
-        *(index_ptr + step_2) |= mask; 
-        *(index_ptr + step_3) |= mask; 
-        index_ptr += step_4;
-    }
-    register const bitword_t* __restrict range_stop_ptr = &bitstorage[(range_stop_word)];
+    // #pragma GCC ivdep
+    // // #pragma omp simd
+    // for (counter_t index_word = range_start_word; index_word < fast_loop_word; index_word += step_4) {
+    //     bitstorage[index_word         ] |= mask;
+    //     bitstorage[index_word + step  ] |= mask;
+    //     bitstorage[index_word + step_2] |= mask;
+    //     bitstorage[index_word + step_3] |= mask;
+    // }
 
-    for (counter_t i=4; i-- && likely(index_ptr < range_stop_ptr);  index_ptr += step) { // signal compiler that only <4 iterations are left
-        *index_ptr |= mask; 
+    // counter_t index_word = (wordindex(range_stop) - range_start_word) / (step_4);
+    // index_word = range_start_word + index_word * step_4;
+
+    counter_t index_word = range_start_word;
+    for (; index_word < range_stop_word; index_word += step) { // signal compiler that only <4 iterations are left
+        bitstorage[index_word         ] |= mask;
     }
+
+    // for (counter_t i=4; i-- && likely(index_word < range_stop_word);  index_word += step) { // signal compiler that only <4 iterations are left
+    //     bitstorage[index_word         ] |= mask;
+    // }
 
     // doing this instead of index_ptr <= above is faster. unexplained. 
-    if (index_ptr == range_stop_ptr) { // index_ptr could also end above range_stop_ptr, depending on steps. 
-        *index_ptr |= mask; // chop not needed is block-size aligned with word size
+    if (index_word == range_stop_word) { // index_ptr could also end above range_stop_ptr, depending on steps. 
+        bitstorage[index_word         ] |= mask; // chop not needed is block-size aligned with word size
     }
 }
 
@@ -878,7 +883,8 @@ static struct block sieve_block_extend(struct sieve_t *sieve, const counter_t bl
 }
 
 /* This is the main module that directs all the work*/
-static struct sieve_t* sieve_shake_blockbyblock(const counter_t maxFactor, const counter_t blocksize) 
+//static struct sieve_t* sieve_shake_blockbyblock(const counter_t maxFactor, const counter_t blocksize) 
+static struct sieve_t* sieve_shake(const counter_t maxFactor, const counter_t blocksize) 
 {
     struct sieve_t *sieve = sieve_create(maxFactor);
     bitword_t* bitstorage = sieve->bitstorage;
@@ -892,18 +898,32 @@ static struct sieve_t* sieve_shake_blockbyblock(const counter_t maxFactor, const
     // in the sieve all bits for the multiples of primes up to startprime have been set
     // process the sieve and stripe all the multiples of primes > start_prime
     // do this block by block to minimize cache misses
-    for (counter_t block_start = 0,  block_stop = blocksize-1;block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
+
+    // for (; block_start <= sieve->bits, block_start < q; block_start += blocksize, block_stop += blocksize) {
+    //     if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
+    //     counter_t prime = searchBitFalse(bitstorage, startprime);
+    //     sieve_block_stripe(bitstorage, block_start, block_stop, prime, q);
+    // } 
+
+    #ifdef _OPENMP
+    #pragma omp parallel for
+    // #pragma map(bitstorage[0:wordindex(sieve_bits)])
+    // #pragma omp target teams distribute parallel for
+    #endif
+    for (counter_t block_start = 0; block_start <= sieve->bits; block_start += blocksize) {
+        counter_t block_stop = block_start + blocksize-1;
         if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
         counter_t prime = searchBitFalse(bitstorage, startprime);
-        sieve_block_stripe(bitstorage, block_start, block_stop, prime, maxFactor);
+        sieve_block_stripe(bitstorage, block_start, block_stop, prime, maxFactor/2);
     } 
+
 
     // return the completed sieve
     return sieve;
 }
 
 /* This is the main module that directs all the work*/
-static struct sieve_t* sieve_shake(const counter_t maxFactor, const counter_t blocksize) 
+static struct sieve_t* sieve_shake_extend(const counter_t maxFactor, const counter_t blocksize) 
 {
     struct sieve_t *sieve = sieve_create(maxFactor);
     bitword_t* bitstorage = sieve->bitstorage;
@@ -936,7 +956,7 @@ static struct sieve_t* sieve_shake(const counter_t maxFactor, const counter_t bl
     counter_t global_block_start = block_start;
     #ifdef _OPENMP
     // #pragma omp parallel
-    #pragma map(bitstorage[0:wordindex(sieve_bits)])
+    // #pragma map(bitstorage[0:wordindex(sieve_bits)])
     #pragma omp target teams distribute parallel for
     #endif
     for (counter_t block_start = global_block_start; block_start <= sieve->bits; block_start += blocksize) {
@@ -1057,7 +1077,7 @@ static void benchmark(benchmark_result_t* tuning_result)
     clock_t startTime = clock();
     #ifdef _OPENMP
     omp_set_num_threads(tuning_result->threads);
-//    sample_duration *= tuning_result->threads;
+    sample_duration *= tuning_result->threads;
 //    #pragma omp parallel reduction(+:passes)
     #endif
     while (elapsed_time <= sample_duration) {
@@ -1133,7 +1153,7 @@ static benchmark_result_t tune(int tune_level, counter_t maxFactor, counter_t th
     for (counter_t blockstep_faster = 0; blockstep_faster <= VECTOR_SIZE_counter; blockstep_faster += blockstep_faster_steps) {
         for (counter_t mediumstep_faster = 0; mediumstep_faster <= WORD_SIZE_counter; mediumstep_faster += mediumstep_faster_steps) {
             for (counter_t vectorstep_faster = mediumstep_faster; vectorstep_faster <= VECTOR_SIZE_counter; vectorstep_faster += vectorstep_faster_steps) {
-                for (counter_t blocksize_kB=64; blocksize_kB>=8; blocksize_kB /= 2) {
+                for (counter_t blocksize_kB=32; blocksize_kB>=8; blocksize_kB /= 2) {
                     for (counter_t free_bits=0; (free_bits < (anticiped_cache_line_bytesize*8*4) && (free_bits < blocksize_kB * 1024 * 8)); free_bits += freebits_steps) {
 
                         // hack to ovrrule tuning of user setting
