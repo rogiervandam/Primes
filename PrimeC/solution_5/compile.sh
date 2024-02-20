@@ -1,5 +1,6 @@
 #!/bin/sh
-CC="gcc -Ofast -march=native -mtune=native -funroll-all-loops -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -Wno-psabi"  
+#CC="gcc -Ofast -march=native -mtune=native -funroll-all-loops -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -Wno-psabi"  
+CC="gcc -Ofast -march=native -mtune=native -funroll-all-loops -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -Wno-psabi -fPIE -flto"  
 PAR="-fopenmp"
 PAREXT="_epar"
 for x in sieve_extend; do
