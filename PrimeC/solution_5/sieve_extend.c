@@ -1259,7 +1259,7 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             int max_threads = omp_get_max_threads();
             if (strcmp(argv[arg], "all")==0) option.threads = max_threads;
             else if (strcmp(argv[arg], "half")==0) option.threads = max_threads>>1;
-            else if (sscanf(argv[arg], "%d", &option.threads) != 1 ) { fprintf(stderr, "Error: Invalid max threads: %s\n", argv[arg]); usage(argv[0]); }
+            else if (sscanf(argv[arg], "%d", &option.threads) != 1 ) { fprintf(stderr, "Error: Invalid max threads: %s\n", argv[arg]); printUsage(argv[0]); }
             if (option.threads <1)  option.threads = 1;
             if (option.threads > max_threads)  option.threads = max_threads;
             verbose(1) printf("Thread maximum set to %ju\n",(uintmax_t)option.threads);
