@@ -293,7 +293,7 @@ static inline void __attribute__((always_inline)) applyMask_word(bitword_t* __re
     register bitword_t* __restrict index_ptr = __builtin_assume_aligned(&bitstorage[index_word], sizeof(bitword_t));
 
     const counter_t range_stop_word = wordindex(range_stop);
-    register const bitword_t* __restrict fast_loop_ptr  =  &bitstorage[((range_stop_word>step_4) ? (range_stop_word - step_4):0)];
+    register const bitword_t* __restrict fast_loop_ptr  =  &bitstorage[((range_stop_word > step_4) ? (range_stop_word - step_4):0)];
 
     #pragma GCC ivdep
     while (index_ptr < fast_loop_ptr) {
@@ -690,7 +690,7 @@ static inline void  __attribute__((always_inline)) continuePattern_shiftright(bi
 
     register uint8_t* __restrict source_byte            = (u_int8_t*)((uintptr_t) bitstorage + (copy_start_word << (SHIFT_WORD-SHIFT_BYTE) ) - copy_size_byte);
     register uint8_t* __restrict copy_byte              = (u_int8_t*)((uintptr_t) bitstorage + (copy_start_word << (SHIFT_WORD-SHIFT_BYTE) ));
-    const uint8_t* __restrict destination_stop_byte     = (u_int8_t*)((uintptr_t) bitstorage + ((destination_stop_word + 1) << SHIFT_BYTE) );
+    const    uint8_t* __restrict destination_stop_byte  = (u_int8_t*)((uintptr_t) bitstorage + ((destination_stop_word + 1) << SHIFT_BYTE) );
 
     do {
         memcpy(copy_byte, source_byte, copy_size_byte);
@@ -703,7 +703,7 @@ static inline void  __attribute__((always_inline)) continuePattern_shiftright(bi
     debug timerLapTime();
 }
 
-static inline counter_t  __attribute__((always_inline)) continuePattern_shiftleft_unrolled(bitword_t* __restrict bitstorage, const counter_t aligned_copy_word, const bitshift_t shift, counter_t copy_word, counter_t source_word) 
+static inline counter_t  __attribute__((always_inline)) continuePattern_shiftleft_unrolled(bitword_t* __restrict bitstorage, const counter_t aligned_copy_word, const bitshift_t shift, const bitshift_t shift_flipped,counter_t copy_word, counter_t source_word) 
 {
     #if is_signed(bitword_t)
     const counter_t fast_loop_stop_word = aligned_copy_word;
@@ -711,7 +711,6 @@ static inline counter_t  __attribute__((always_inline)) continuePattern_shiftlef
     const counter_t fast_loop_stop_word = (aligned_copy_word>2) ? (aligned_copy_word - 2) : 0; // safe for unsigned ints
     #endif
 
-    register const bitshift_t shift_flipped = WORD_SIZE_bitshift-shift;
     counter_t distance = 0;
 
     while (copy_word < fast_loop_stop_word) {
@@ -746,7 +745,7 @@ static inline void __attribute__((always_inline)) continuePattern_shiftleft(bitw
     source_word++;
 
     const counter_t aligned_copy_word = min(source_word + size, destination_stop_word); // after <<size>> words, just copy at word level
-    const counter_t distance  = continuePattern_shiftleft_unrolled(bitstorage, aligned_copy_word, shift, copy_word, source_word);
+    const counter_t distance  = continuePattern_shiftleft_unrolled(bitstorage, aligned_copy_word, shift, shift_flipped, copy_word, source_word);
     source_word += distance;
     copy_word += distance;
 
@@ -762,7 +761,7 @@ static inline void __attribute__((always_inline)) continuePattern_shiftleft(bitw
     const size_t memsize = (size_t)size*sizeof(bitword_t);
 
     for (;copy_word + size <= destination_stop_word; copy_word += size) 
-        memcpy(&bitstorage[copy_word], &bitstorage[source_word],memsize );
+        memcpy(&bitstorage[copy_word], &bitstorage[source_word], memsize );
 
     for (;copy_word <= destination_stop_word;  copy_word++,source_word++)
         bitstorage[copy_word] = bitstorage[source_word];
@@ -770,7 +769,7 @@ static inline void __attribute__((always_inline)) continuePattern_shiftleft(bitw
     debug timerLapTime();
 }
 
-// continue a pattern that start at <source_start> with a size of <size>.
+// continue a pattern that starts at <source_start> with a size of <size>.
 // repeat this pattern up to <destination_stop>.
 // for small sizes, this is done on a word level
 // for larger sizes, we look at the offset / start bit and apply the appropriate algorithm.
@@ -1180,7 +1179,7 @@ static benchmark_result_t tune(int tune_level, counter_t maxFactor, counter_t th
     return best_result;
 }
 
-static void usage(char *name) 
+static void printUsage(char *name) 
 {
     fprintf(stderr, "Usage: %s [options] [maximum]\n", name);
     fprintf(stderr, "Options:\n");
@@ -1211,18 +1210,18 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
 {
     // processing command line changes to options
     for (int arg=1; arg < argc; arg++) {
-        if (strcmp(argv[arg], "--help")==0) { usage(argv[0]); }
+        if (strcmp(argv[arg], "--help")==0) { printUsage(argv[0]); }
         else if (strcmp(argv[arg], "--verbose")==0) {
-            if (++arg >= argc) { fprintf(stderr, "No verbose level specified\n"); usage(argv[0]); }
+            if (++arg >= argc) { fprintf(stderr, "No verbose level specified\n"); printUsage(argv[0]); }
             if (sscanf(argv[arg], "%d", &option.verboselevel) != 1 || option.verboselevel > 4) {
-                fprintf(stderr, "Error: Invalid measurement time: %s\n", argv[arg]); usage(argv[0]);
+                fprintf(stderr, "Error: Invalid measurement time: %s\n", argv[arg]); printUsage(argv[0]);
             }
             verbose(1) printf("Verbose level set to %d\n",option.verboselevel);
         } 
         else if (strcmp(argv[arg], "--block")==0) {
-            if (++arg >= argc) { fprintf(stderr, "No block size specified\n"); usage(argv[0]); }
+            if (++arg >= argc) { fprintf(stderr, "No block size specified\n"); printUsage(argv[0]); }
             if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.blocksize_kB) != 1) {
-                fprintf(stderr, "Error: Invalid size in kilobyte: %s\n", argv[arg]); usage(argv[0]);
+                fprintf(stderr, "Error: Invalid size in kilobyte: %s\n", argv[arg]); printUsage(argv[0]);
             }
             counter_t sieve_bits = option.maxFactor >> 1;
             if ((option.blocksize_kB*1024*8) > (sieve_bits)) option.blocksize_kB = (sieve_bits / (1024*8))+1;
@@ -1234,28 +1233,28 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
         else if (strcmp(argv[arg], "--check")==0) { option.check=1; }
         else if (strcmp(argv[arg], "--nocheck")==0) { option.check=0; }
         else if (strcmp(argv[arg], "--tune")==0) { option.tunelevel=0;
-            if (++arg >= argc) { fprintf(stderr, "No tune level specified\n"); usage(argv[0]); }
+            if (++arg >= argc) { fprintf(stderr, "No tune level specified\n"); printUsage(argv[0]); }
             if (sscanf(argv[arg], "%d", &option.tunelevel) != 1 || option.tunelevel > 4) {
-                fprintf(stderr, "Error: Invalid tune level: %s\n", argv[arg]); usage(argv[0]);
+                fprintf(stderr, "Error: Invalid tune level: %s\n", argv[arg]); printUsage(argv[0]);
             }
             verbose(1) printf("Tune level set to %d\n",option.tunelevel);
         }
         else if (strcmp(argv[arg], "--time")==0) { option.maxTime=0;
-            if (++arg >= argc) { fprintf(stderr, "No time specified\n"); usage(argv[0]); }
+            if (++arg >= argc) { fprintf(stderr, "No time specified\n"); printUsage(argv[0]); }
             if (sscanf(argv[arg], "%lf", &option.maxTime) != 1 ) {
-                fprintf(stderr, "Error: Invalid max time: %s\n", argv[arg]); usage(argv[0]);
+                fprintf(stderr, "Error: Invalid max time: %s\n", argv[arg]); printUsage(argv[0]);
             }
             verbose(1) printf("Max time is set to %d seconds\n",option.tunelevel);
         }
         else if (strcmp(argv[arg], "--show")==0) { option.showMaxFactor=0;
-            if (++arg >= argc) { fprintf(stderr, "No show maximum specified\n"); usage(argv[0]); }
+            if (++arg >= argc) { fprintf(stderr, "No show maximum specified\n"); printUsage(argv[0]); }
             if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.showMaxFactor) != 1 || option.showMaxFactor > option.maxFactor) {
-                fprintf(stderr, "Error: Invalid show maximum: %s\n", argv[arg]); usage(argv[0]);
+                fprintf(stderr, "Error: Invalid show maximum: %s\n", argv[arg]); printUsage(argv[0]);
             }
             verbose(1) printf("Show maximum set to %ju\n",(uintmax_t)option.showMaxFactor);
         }
         else if (strcmp(argv[arg], "--threads")==0) { 
-            if (++arg >= argc) { fprintf(stderr, "No thread maximum specified\n"); usage(argv[0]); }
+            if (++arg >= argc) { fprintf(stderr, "No thread maximum specified\n"); printUsage(argv[0]); }
         #ifdef _OPENMP
             int max_threads = omp_get_max_threads();
             if (strcmp(argv[arg], "all")==0) option.threads = max_threads;
@@ -1269,7 +1268,7 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
         #endif
         }
         else if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.maxFactor) != 1) {
-            fprintf(stderr, "Invalid size %s\n",argv[arg]); usage(argv[0]); 
+            fprintf(stderr, "Invalid size %s\n",argv[arg]); printUsage(argv[0]); 
             printf("Maximum set to %ju\n",(uintmax_t)option.maxFactor);
         }
 

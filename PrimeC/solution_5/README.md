@@ -79,6 +79,11 @@ Or do it all in one go:
 docker build --pull --rm -f "Dockerfile" -t c:latest .; docker run c:latest 
 ```
 
+Build & run cycle:
+```bash
+docker build -f "Dockerfile" -t c:latest .; docker run c:latest
+```
+
 Remember you can go in to the container like this:
 
 ```bash
