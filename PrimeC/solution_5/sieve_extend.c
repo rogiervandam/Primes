@@ -267,7 +267,7 @@ static inline void __attribute__((always_inline)) sieve_delete(struct sieve_t *s
     free(sieve);
 }
 
-static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t* bitstorage, register counter_t index) 
+static inline counter_t __attribute__((always_inline)) searchBitFalse(const bitword_t* bitstorage, register counter_t index) 
 {
     register const bitword_t bitword = bitstorage[wordindex(index)] >> bitindex(index);
 
@@ -820,6 +820,17 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
     return prime;
 }
 
+// devide the sieve in blocks and process them one by one;
+// stripe off all multiples of prime_start to prime_max 
+static inline void __attribute__((always_inline)) sieve_blocks_stripe(bitword_t* bitstorage, const counter_t sievebits, const counter_t blocksize, const counter_t prime_start, const counter_t prime_max)
+{
+    for (counter_t block_start = 0, block_stop = blocksize-1; block_start <= sievebits; block_start += blocksize, block_stop += blocksize) {
+        if unlikely(block_stop > sievebits) block_stop = sievebits;
+        counter_t prime = searchBitFalse(bitstorage, prime_start);
+        sieve_block_stripe(bitstorage, block_start, block_stop, prime, prime_max);
+    } 
+}
+
 // in the entire sieve, stripe off all multiples of prime_start to prime_max
 // this will not be nice to the caches if the range is too large
 static inline counter_t __attribute__((always_inline)) sieve_stripe(bitword_t* bitstorage, const counter_t block_stop, counter_t prime, const counter_t prime_max)
@@ -872,33 +883,29 @@ static inline counter_t __attribute__((always_inline)) sieve_extend(bitword_t* b
 }
 
 // This is the main module that directs all the work
-static struct sieve_t* sieve_shake(const counter_t maxFactor, const counter_t blocksize) 
+static struct sieve_t* sieve_shake(const counter_t prime_max, const counter_t blocksize) 
 {
-    struct sieve_t *sieve       = sieve_create(maxFactor);
+    struct sieve_t *sieve       = sieve_create(prime_max);
     bitword_t* bitstorage       = sieve->bitstorage;
     const counter_t sievebits   = sieve->bits;
 
-    debug printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)maxFactor,(uintmax_t)blocksize);
+    debug printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)prime_max,(uintmax_t)blocksize);
 
     // fill the entire sieve bij extending the sieve and copying incrementally
     // this will speed up the striping of the sieve because the first primes are combined
     // however the size of coping will accumulate very quickly, because each primes will multiply the size
     // so the extend algoritm will only support up to the first few primes
     // it stops when the sieve_size is reached
-    counter_t startprime = sieve_extend(bitstorage, sievebits);
+    counter_t prime_start = sieve_extend(bitstorage, sievebits);
 
     // in the sieve all bits for the multiples of primes up to startprime have been set
     // now continu the processing of the sieve and stripe all the multiples of primes > start_prime
     // continue from the max prime that was processed in the pattern until the tuned value
-    if (startprime < BLOCKSTEP_FASTER) startprime = sieve_stripe(bitstorage, sievebits, startprime, BLOCKSTEP_FASTER);
+    if (prime_start < BLOCKSTEP_FASTER) prime_start = sieve_stripe(bitstorage, sievebits, prime_start, BLOCKSTEP_FASTER);
 
     // above this value, it is benefical to stripe off block by block
     // do this block by block to minimize cache misses
-    for (counter_t block_start = 0, block_stop = blocksize-1; block_start <= sievebits; block_start += blocksize, block_stop += blocksize) {
-        if unlikely(block_stop > sievebits) block_stop = sievebits;
-        counter_t prime = searchBitFalse(bitstorage, startprime);
-        sieve_block_stripe(bitstorage, block_start, block_stop, prime, maxFactor);
-    } 
+    sieve_blocks_stripe(bitstorage, sievebits, blocksize, prime_start, prime_max);
 
     // return the completed sieve
     return sieve;
