@@ -564,6 +564,13 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
     debug timerLapTime();
 }
 
+static inline void  __attribute__((always_inline)) setBitsTrue(bitword_t* __restrict bitstorage, counter_t range_start, const counter_t step, const counter_t range_stop) 
+{
+    if (step < MEDIUMSTEP_FASTER)      setBitsTrue_mediumStep(bitstorage, range_start, step, range_stop);
+    else if (step < VECTORSTEP_FASTER) setBitsTrue_largeRange_vector(bitstorage, range_start, step, range_stop);
+    else                               setBitsTrue_largeRange(bitstorage, range_start, step, range_stop);
+}
+
 static inline void __attribute__((always_inline)) continuePattern_smallSize(bitword_t* __restrict bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
 {
     debug printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using smallsize (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
@@ -837,11 +844,11 @@ static struct block sieve_block_extend(struct sieve_t *sieve, const counter_t bl
     
     for (;range_stop < block_stop;) {
         prime = searchBitFalse(bitstorage, prime+1);
-        counter_t start = (prime * prime * 2) + (prime * 2);
-        if unlikely(start > block_stop) break;
+        counter_t range_start = (prime * prime * 2) + (prime * 2);
+        if unlikely(range_start > block_stop) break;
 
         const counter_t step = prime * 2 + 1;
-        if (block_start > prime) start = (block_start + prime) + prime - ((block_start + prime) % step);
+        if (block_start > prime) range_start = (block_start + prime) + prime - ((block_start + prime) % step);
 
         range_stop = block_start + patternsize_bits * step * 2;  // range is x2 so the second block cointains all multiples of primes
         block.pattern_size = patternsize_bits;
@@ -854,9 +861,8 @@ static struct block sieve_block_extend(struct sieve_t *sieve, const counter_t bl
         }
         patternsize_bits *= step;
 
-        if (step < MEDIUMSTEP_FASTER)      setBitsTrue_mediumStep(bitstorage, start, step, range_stop);
-        else if (step < VECTORSTEP_FASTER) setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
-        else                               setBitsTrue_largeRange(bitstorage, start, step, range_stop);
+        setBitsTrue(bitstorage, range_start, step, range_stop);
+
         block.prime = prime;
     } 
 
@@ -896,7 +902,7 @@ static struct sieve_t* sieve_shake(const counter_t maxFactor, const counter_t bl
 
     debug printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)maxFactor,(uintmax_t)blocksize);
 
-    // fill the whole sieve bij adding en copying incrementally
+    // fill the entire sieve bij adding and copying incrementally
     struct block block = sieve_block_extend(sieve, 0, sieve->bits);
 
     // continue the found pattern to the entire sieve
