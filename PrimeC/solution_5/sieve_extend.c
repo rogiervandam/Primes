@@ -796,7 +796,7 @@ static inline void __attribute__((always_inline)) continuePattern(bitword_t* bit
     else                            continuePattern_aligned   (bitstorage, source_start, size, destination_stop);
 }
 
-static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t maxprime)
+static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitword_t* bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t maxprime)
 {
     counter_t prime = prime_start;
     counter_t start = 0;
@@ -810,10 +810,7 @@ static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block
         else
             start = prime * step + prime; 
 
-        if unlikely(step < VECTORSTEP_FASTER)
-            setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);
-        else 
-            setBitsTrue_largeRange(bitstorage, start, step, block_stop);
+        setBitsTrue(bitstorage, start, step, block_stop);
 
         prime = searchBitFalse(bitstorage, prime + 1 );
         step  = prime * 2 + 1;
@@ -828,10 +825,8 @@ struct block {
     counter_t prime; // next prime to be striped
 };
 
-// returns block with prime set to the prime that could not be handled because either:
-// start is too large
-// range is too big
-static struct block sieve_block_extend(struct sieve_t *sieve, const counter_t block_start, const counter_t block_stop) 
+// returns block with prime set to the prime that could not be handled because either: start is too large or range is too big
+static inline struct block __attribute__((always_inline)) sieve_block_extend(struct sieve_t *sieve, const counter_t block_start, const counter_t block_stop) 
 {
     bitword_t* bitstorage      = sieve->bitstorage;
     register counter_t prime   = 0;
@@ -853,9 +848,9 @@ static struct block sieve_block_extend(struct sieve_t *sieve, const counter_t bl
         range_stop = block_start + patternsize_bits * step * 2;  // range is x2 so the second block cointains all multiples of primes
         block.pattern_size = patternsize_bits;
         block.pattern_start = pattern_start;
-        if unlikely(range_stop > block_stop) break;//return block; //range_stop = block_stop;
+        if unlikely(range_stop > block_stop) break; // this will be handled by the main loop
 
-        if likely(patternsize_bits>1) {
+        if likely(patternsize_bits > 1) {
             pattern_start = block_start | patternsize_bits;
             continuePattern(bitstorage, pattern_start, patternsize_bits, range_stop);
         }
@@ -877,18 +872,21 @@ static struct sieve_t* sieve_shake(const counter_t maxFactor, const counter_t bl
 
     debug printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)maxFactor,(uintmax_t)blocksize);
 
-    // fill the entire sieve bij adding and copying incrementally
+    // fill the entire sieve bij extending the sieve and copying incrementally
+    // this will speed up the striping of the sieve because the first primes are combined
+    // however the size of coping will accumulate very quickly, because each primes will multiply the size
+    // so the extend algoritm will only support up to the first few primes
     struct block block = sieve_block_extend(sieve, 0, sieve->bits);
 
-    // continue the found pattern to the entire sieve
+    // continue the last found pattern to the entire sieve
     continuePattern(bitstorage, block.pattern_start, block.pattern_size, sieve->bits);
 
+    // in the sieve all bits for the multiples of primes up to startprime have been set
+    // process the sieve and stripe all the multiples of primes > start_prime
     // continue from the max prime that was processed in the pattern until the tuned value
     counter_t startprime = block.prime;
     if (startprime < BLOCKSTEP_FASTER) startprime = sieve_block_stripe(bitstorage, 0, sieve->bits, startprime, BLOCKSTEP_FASTER);
 
-    // in the sieve all bits for the multiples of primes up to startprime have been set
-    // process the sieve and stripe all the multiples of primes > start_prime
     // do this block by block to minimize cache misses
     for (counter_t block_start = 0, block_stop = blocksize-1; block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
         if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
