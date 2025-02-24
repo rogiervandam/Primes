@@ -1,4 +1,4 @@
-// Sieve algorithm by Rogier van Dam - 2022
+// Sieve algorithm by Rogier van Dam - 2025
 // Find all primes up to <max int> using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)
 
 #include <stdio.h>
@@ -16,206 +16,15 @@
 #define default_maxTime                 5
 #define default_sample_duration         0.0002
 #define default_explain_level           0
-#define default_verbose_level           0
+#define default_verbose_level           3
 #define default_tune_level              1
 #define default_check_level             0
 #define default_show_primes_on_error    100
 #define default_showMaxFactor           0
 #define anticiped_cache_line_bytesize   128
 
-//set compile_debuggable to 1 to enable explain plan
-#define compile_debuggable (0 || default_explain_level)
-#if compile_debuggable
-#define debug if (compile_debuggable && option.explain)
-#else
-#define debug if unlikely(0)
-#endif
-
-// set this to the level of verbose messages that will be compiled
-#define compile_verboselevel 4 
-#define verbose(level)    if (level < compile_verboselevel) if (option.verboselevel >= level) 
-#define verbose_at(level) if (level < compile_verboselevel) if (option.verboselevel == level)
-
-// helper functions
-#define pow(base,pow)       (pow*((base>>pow)&1U))
-#define min(a,b)            ((a<b) ? a : b)
-#define uintsafeminus(a,b)  ((a>b)?(a-b):0)
-#define likely(x)           (__builtin_expect((x),1))
-#define unlikely(x)         (__builtin_expect((x),0))
-#define xstr(s) str(s)
-#define str(s) #s
-#define PPCAT_NX(A, B) A ## B
-#define PPCAT(A, B) PPCAT_NX(A, B)
-#define is_signed(type) (((type)-1)<0)
-
-// quicksets from commandline
-#if defined u16_v2
-#define bitword_t       uint16_t
-#define VECTOR_ELEMENTS 2
-#define VECTOR_SETTING  u16_v2
-#define SAFE_SHIFT 1 // - set to 1 for 32<= bit (needs mask on shift)
-#elif defined u32_v2
-#define bitword_t       uint32_t
-#define VECTOR_ELEMENTS 2
-#define VECTOR_SETTING  u32_v2
-#elif defined u64_v2
-#define bitword_t       uint64_t
-#define VECTOR_ELEMENTS 2
-#define VECTOR_SETTING  u64_v2
-#define WORD_SIZE_64    64
-#elif defined u8_v4
-#define bitword_t       uint8_t
-#define VECTOR_ELEMENTS 4
-#define VECTOR_SETTING  u8_v4
-#define SAFE_SHIFT 1 // - set to 1 for 32<= bit (needs mask on shift)
-#elif defined u16_v4
-#define bitword_t       uint16_t
-#define VECTOR_ELEMENTS 4
-#define VECTOR_SETTING  u16_v4
-#define SAFE_SHIFT 1 // - set to 1 for 32<= bit (needs mask on shift)
-#elif defined u32_v4
-#define bitword_t       uint32_t
-#define VECTOR_ELEMENTS 4
-#define VECTOR_SETTING  u32_v4
-#elif defined u64_v4
-#define bitword_t       uint64_t
-#define VECTOR_ELEMENTS 4
-#define VECTOR_SETTING  u64_v4
-#define WORD_SIZE_64    64
-#elif defined u8_v8
-#define bitword_t       uint8_t
-#define VECTOR_ELEMENTS 8
-#define VECTOR_SETTING  u8_v8
-#define SAFE_SHIFT 1 // - set to 1 for 32<= bit (needs mask on shift)
-#elif defined u16_v8
-#define bitword_t       uint16_t
-#define VECTOR_ELEMENTS 8
-#define VECTOR_SETTING  u16_v8
-#define SAFE_SHIFT 1 // - set to 1 for 32<= bit (needs mask on shift)
-#elif defined u32_v8
-#define bitword_t       uint32_t
-#define VECTOR_ELEMENTS 8
-#define VECTOR_SETTING  u32_v8
-#elif defined u64_v8
-#define bitword_t       uint64_t
-#define VECTOR_ELEMENTS 8
-#define VECTOR_SETTING  u64_v8
-#define WORD_SIZE_64    64
-#endif
-#ifndef VECTOR_SETTING
-#define VECTOR_SETTING PPCAT(bitword_t,VECTOR_ELEMENTS)
-#endif
-
-// types
-#ifndef bitword_t
-#define bitword_t  uint64_t // type used to store bits
-#endif
-
-// follow main bitword setting in vectors. Change is otherwise needed
-#define bitword_vector_t bitword_t
-#ifdef WORD_SIZE_64
-#define VECTORWORDSIZE_64 64 // enable this is wordsize is 64 - will allow further optimizations
-#endif
-
-#ifndef VECTOR_ELEMENTS
-#define VECTOR_ELEMENTS 4
-#endif
-
-#define bitshift_t uint64_t // type used to shift bits
-#define counter_t  uint64_t // type used to count loops, etc
-
-
-// masks and mask helpers
-#define SHIFT_BYTE          3
-#define WORD_SIZE           (sizeof(bitword_t)*8)
-#define WORD_SIZE_counter   ((counter_t)WORD_SIZE)
-#define WORD_SIZE_bitshift  ((bitshift_t)WORD_SIZE)
-#define SHIFT_WORD          ((bitshift_t)(pow(WORD_SIZE,1)+pow(WORD_SIZE,2)+pow(WORD_SIZE,3)+pow(WORD_SIZE,4)+pow(WORD_SIZE,5)+pow(WORD_SIZE,6)+pow(WORD_SIZE,7)+pow(WORD_SIZE,8)+pow(WORD_SIZE,9)+pow(WORD_SIZE,10)))
-
-#define VECTORWORD_SIZE           (sizeof(bitword_vector_t)*8)
-#define VECTORWORD_SIZE_counter   ((counter_t)VECTORWORD_SIZE)
-#define VECTORWORD_SIZE_bitshift  ((bitshift_t)VECTORWORD_SIZE)
-#define SHIFT_VECTORWORD          ((bitshift_t)(pow(VECTORWORD_SIZE,1)+pow(VECTORWORD_SIZE,2)+pow(VECTORWORD_SIZE,3)+pow(VECTORWORD_SIZE,4)+pow(VECTORWORD_SIZE,5)+pow(VECTORWORD_SIZE,6)+pow(VECTORWORD_SIZE,7)+pow(VECTORWORD_SIZE,8)+pow(VECTORWORD_SIZE,9)+pow(VECTORWORD_SIZE,10)))
-
-#define VECTOR_SIZE_bytes   (sizeof(bitword_vector_t)*VECTOR_ELEMENTS)
-#define VECTOR_SIZE_counter ((counter_t)VECTOR_SIZE_bytes*8)
-#define VECTOR_SIZE         (VECTOR_SIZE_bytes*8)
-#define SHIFT_VECTOR        ((bitshift_t)(pow(VECTOR_SIZE,1)+pow(VECTOR_SIZE,2)+pow(VECTOR_SIZE,3)+pow(VECTOR_SIZE,4)+pow(VECTOR_SIZE,5)+pow(VECTOR_SIZE,6)+pow(VECTOR_SIZE,7)+pow(VECTOR_SIZE,8)+pow(VECTOR_SIZE,9)+pow(VECTOR_SIZE,10)))
-
-// types (II) - calculated
-typedef bitword_vector_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes))); 
-
-// globals for tuning
-// #define BLOCKSTEP_FASTER ((counter_t)0)
-// #define MEDIUMSTEP_FASTER ((counter_t)16)
-//  #define VECTORSTEP_FASTER ((counter_t)0)
-static counter_t global_BLOCKSTEP_FASTER  =   0ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
-static counter_t global_MEDIUMSTEP_FASTER =  16ULL; // if step < MEDIUMSTEP_FASTER, use medium steps
-static counter_t global_VECTORSTEP_FASTER = 128ULL; // if step < VECTORSTAP_FASTER, use large steps
-static counter_t global_BLOCKSIZE_BITS = default_blocksize;
-#define BLOCKSTEP_FASTER     ((counter_t)global_BLOCKSTEP_FASTER)
-#define MEDIUMSTEP_FASTER    ((counter_t)global_MEDIUMSTEP_FASTER)
-#define VECTORSTEP_FASTER    ((counter_t)global_VECTORSTEP_FASTER)
-#define BLOCKSIZE_BITS       ((counter_t)global_BLOCKSIZE_BITS)
-
-// Patterns based on types
-#define SAFE_SHIFTBIT        (bitshift_t)1ULL
-#define SAFE_ZERO            (bitword_t)0ULL
-#define SAFE_FILL            (bitword_t)~0ULL
-#define BITWORD_SHIFTBIT     (bitword_t)1ULL
-#define BITVECTORWORD_SHIFTBIT (bitword_vector_t)1ULL
-#define WORDMASK             ((((counter_t)1)<<SHIFT_WORD)-(counter_t)1)
-#define VECTORWORDMASK       ((((counter_t)1)<<SHIFT_VECTORWORD)-(counter_t)1)
-#define VECTORMASK           ((((counter_t)1)<<SHIFT_VECTOR)-(counter_t)1)
-
-// helpder functions for word/vector indexing
-#define wordindex(index)     (((counter_t)index) >> SHIFT_WORD)
-#define wordend(index)       ((counter_t)(index) |  WORDMASK)
-#define wordstart(index)     ((counter_t)(index) &  (counter_t)(~WORDMASK))
-#define vectorindex(index)   (((counter_t)index) >> (bitshift_t)SHIFT_VECTOR)
-#define vectorstart(index)   (((counter_t)index) &  (counter_t)~VECTORMASK)
-#define vectorend(index)     (((counter_t)index) |  (counter_t)VECTORMASK)
-#define vector_wordstart(index)     ((counter_t)(index) & (counter_t)(~VECTORWORDMASK))
-#define vector_wordindex(index)     (((counter_t)index) >> SHIFT_VECTORWORD)
-// #define vectorfromword(word) ((counter_t)(word ) >> (counter_t)SHIFT_VECTOR-SHIFT_WORD))
-// #define wordinvector(index)  (((counter_t)index >> SHIFT_WORD) & (VECTORMASK >> SHIFT_WORD))
-
-// modern processors do a & over the shiftssize, so we only have to do that ourselve when using the shiftsize in calculations. 
-#define bitindex_calc(index)        ((bitshift_t)(index)&((bitshift_t)(WORDMASK      )))
-#define vector_bitindex(index)      ((bitshift_t)(index))
-#define vector_bitindex_calc(index) ((bitshift_t)(index)&((bitshift_t)(VECTORWORDMASK)))
-
-#if SAFE_SHIFT == 1
-#define bitindex(index)      ((bitshift_t)(index)&((bitshift_t)(WORDMASK)))
-#else
-#define bitindex(index)      ((bitshift_t)(index))
-#endif
-
-#define markmask(index)        (BITWORD_SHIFTBIT << bitindex(index))
-#define markmask_calc(index)   (BITWORD_SHIFTBIT << bitindex_calc(index))
-#ifdef VECTORWORDSIZE_64 // mask will be applied automatically
-#define vector_markmask(index) (BITWORD_SHIFTBIT << vector_bitindex(index))
-#else
-#define vector_markmask(index) (BITWORD_SHIFTBIT << vector_bitindex_calc(index))
-#endif
-#define chopmask(index)        (SAFE_FILL >> (WORD_SIZE_bitshift-SAFE_SHIFTBIT-bitindex_calc(index)))
-#define keepmask(index)        (SAFE_FILL << (bitindex(index)))
-
-// timing
-static struct timespec timer_lap, timer_elapsed;
-#define timerStart() clock_gettime(CLOCK_PROCESS_CPUTIME_ID ,&timer_start)
-#define timerLapStart() clock_gettime(CLOCK_PROCESS_CPUTIME_ID ,&timer_lap)
-void timerLapTime() {
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID ,&timer_elapsed);
-    long seconds = timer_elapsed.tv_sec - timer_lap.tv_sec;
-    long nanoseconds = timer_elapsed.tv_nsec - timer_lap.tv_nsec;
-    double elapsed_time = seconds*1e-9 + nanoseconds;
-    // double elapsed_time = timer_elapsed.tv_sec + timer_elapsed.tv_nsec*1e-9 - timer_lap.tv_sec - timer_lap.tv_nsec*1e-9;
-    if      (elapsed_time > 2000) printf("...time: \033[0;31m%.0f\033[0m ns\n", elapsed_time);
-    else if (elapsed_time > 1000) printf("...time: \033[0;35m%.0f\033[0m ns\n", elapsed_time);
-    else if (elapsed_time > 100)  printf("...time: \033[0;36m%.0f\033[0m ns\n", elapsed_time);
-    else                          printf("...time: %.0f ns\n", elapsed_time);
-}
+// include helper functions
+#include "sieve_extend_helpers.h"
 
 struct sieve_t {
     bitword_t* bitstorage;
@@ -235,21 +44,13 @@ static struct options_t {
     int       threads;
 } option;
 
-static inline void printWord(bitword_t bitword)
-{
-    char row[WORD_SIZE*2] = {};
-    int col=0;
-    for (int i=WORD_SIZE-1; i>=0; i--) {
-		row[col++] = (bitword & (BITWORD_SHIFTBIT<<i))?'1':'.';
-		if (!(i%8)) row[col++] = ' ';
-    }
 
-    printf("%s", row);
-}
-// use cache lines as much as possible - alignment might be key
-// moved clearing the sieve with 0 to the sieve_block_extend - it gave weird malloc problems at this point
-// switched to one malloc for the sieve, instead of one for the sieve and one for the storage
-// bitstorage will be aligned on the anticiped_cache_line_bytesize
+// allocate memory for a sieve block
+// NOTES:
+// - use cache lines as much as possible - alignment might be key
+// - moved clearing the sieve with 0 to the sieve_block_extend - it gave weird malloc problems at this point
+// - switched to one malloc for the sieve, instead of one for the sieve and one for the storage
+// - bitstorage will be aligned on the anticiped_cache_line_bytesize
 static inline struct sieve_t * __attribute__((always_inline)) sieve_create(counter_t size) 
 {
     struct sieve_t *sieve = malloc(((sizeof(struct sieve_t) + (size_t)(size>>1))|(anticiped_cache_line_bytesize-1))+1+anticiped_cache_line_bytesize);
@@ -267,18 +68,56 @@ static inline void __attribute__((always_inline)) sieve_delete(struct sieve_t *s
     free(sieve);
 }
 
-static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t* bitstorage, register counter_t index) 
-{
-    register const bitword_t bitword = bitstorage[wordindex(index)] >> bitindex(index);
+// return the index of the next false bit, starting at [index]
+// static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t* bitstorage, register counter_t index) 
+// {
+//     index++;
+//     // this block uses buitin_ffs to speed up finding the next false bit
+//     register const counter_t length = (counter_t)builtin_ffs(~(bitstorage[wordindex(index)] >> bitindex(index)));
+//     // if (length) index += length-1; // minus one to ?
+//     index += length;
+//     if (length) index--;
 
-    #ifdef WORD_SIZE_64
-    register const counter_t length = (counter_t)__builtin_ffsll( (int64_t)~(bitword));
-    #else
-    register const counter_t length = (counter_t)__builtin_ffsl( (int32_t)~(bitword));
-    #endif
-    if (length) index += length-1;
-    while (bitstorage[wordindex(index)] & markmask(index)) index++;
-    return index;
+//     while (bitstorage[wordindex(index)] & markmask(index)) index++;
+//     return index;
+// }
+
+/**
+ * Finds the index of the next unset (false) bit in a bitmap, starting from a given index.
+ * Uses __builtin_ffs for hardware-optimized bit scanning where available.
+ *
+ * @param bitstorage Pointer to the bitmap storage array
+ * @param index Starting position to search from (exclusive)
+ * @return Index of the next unset bit
+ */
+static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t* bitstorage, register counter_t index) {
+
+    // Normal function
+    // do { index++; } while (bitstorage[wordindex(index)] & markmask(index));
+    // return index;
+
+    // Optimized function
+
+    // Move to the next position after the starting index
+    ++index;
+    
+    // Get the current word and bit position
+    register counter_t word_index = wordindex(index);
+    register counter_t bit_index  = bitindex_calc(index);
+    register bitword_t current_word = bitstorage[word_index];
+
+    if likely(bit_index) 
+        current_word = (bitstorage[word_index] >> bit_index) | (bitstorage[word_index+1] << (WORD_SIZE_bitshift - bit_index));
+
+    while unlikely(current_word == SAFE_FILL) {
+        current_word = bitstorage[++word_index];
+        index += (WORD_SIZE_bitshift - bit_index);
+        bit_index = 0;
+    }
+
+    // Find the first unset bit using builtin_ffs
+    // Note: ~current_word inverts the bits so we find first 0 instead of 1
+    return index + builtin_ctz(~current_word);
 }
 
 // apply the same word mask at large ranges
@@ -353,20 +192,20 @@ static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* 
 // but it needs tuning, because there is some overhead of checking if the next step is in the same word
 static inline void  __attribute__((always_inline)) setBitsTrue_mediumStep(bitword_t* __restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
-    debug timerLapStart();
+    verbose(4) timerLapStart();
 
     // fast exit for small ranges / large steps
     if (range_start + step > range_stop) {
-        debug printf("Setting bits step %ju in %ju bit range (%ju-%ju) using mediumstep-nostep (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
+        verbose(3) printf("Setting bits step %ju in %ju bit range (%ju-%ju) using mediumstep-nostep (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
         bitstorage[wordindex(range_start)] |= markmask(range_start);
-        debug timerLapTime();
+        verbose(4) timerLapTime();
         return;
     }
 
     const counter_t range_stop_unique =  range_start + WORD_SIZE_counter * step;
 
     if unlikely(range_stop_unique > range_stop) { // the range will not repeat itself; no need to try to resuse the mask
-        debug printf("Setting bits step %ju in %ju bit range (%ju-%ju) using mediumstep-unique (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
+        verbose(3) printf("Setting bits step %ju in %ju bit range (%ju-%ju) using mediumstep-unique (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
         for (register counter_t index = range_start; index <= range_stop;) {
             const counter_t index_word = wordindex(index);
             register bitword_t mask = SAFE_ZERO;
@@ -375,7 +214,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_mediumStep(bitwor
         }
     }
     else { // this mask will reoccur at a interval of step words -> fill mask and reapply as a interval of step
-        debug printf("Setting bits step %ju in %ju bit range (%ju-%ju) using mediumstep-repeat (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
+        verbose(3) printf("Setting bits step %ju in %ju bit range (%ju-%ju) using mediumstep-repeat (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
         
         for (register counter_t index = range_start; index <= range_stop_unique;) {
             const counter_t index_word = wordindex(index);
@@ -384,26 +223,26 @@ static inline void  __attribute__((always_inline)) setBitsTrue_mediumStep(bitwor
             applyMask_word(bitstorage, step, range_stop, mask, index_word);
         }
     }
-    debug timerLapTime();
+    verbose(4) timerLapTime();
 }
 
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
 static inline void  __attribute__((always_inline)) setBitsTrue_largeRange(bitword_t* __restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
-    debug timerLapStart();
+    verbose(4) timerLapStart();
 
     const counter_t range_stop_unique =  range_start + WORD_SIZE_counter * step;
 
     if likely(range_stop_unique <= range_stop) { // the range will not repeat itself; no need to try to resuse the mask
-        debug printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange-repeat (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
-        debug timerLapStart();
+        verbose(3) printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange-repeat (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
+        verbose(4) timerLapStart();
         for (register counter_t index = range_start; index < range_stop_unique; index += step) {
             applyMask_word(bitstorage, step, range_stop, markmask(index), wordindex(index));
         }
     }
     else {
-        debug printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange-unique (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
-        debug timerLapStart();
+        verbose(3) printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange-unique (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
+        verbose(4) timerLapStart();
 
         const counter_t step_2 = step * 2;
         #if is_signed(counter_t)
@@ -425,24 +264,24 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange(bitwor
         if unlikely(index==range_stop)
             bitstorage[wordindex(index)] |= markmask(index);
     }
-    debug timerLapTime();
+    verbose(4) timerLapTime();
 }
 
 static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector(bitword_t* __restrict bitstorage, counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
-    debug printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange vector (%ju occurances; %ju stamps) ", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(VECTOR_SIZE_counter*step)));
-    debug timerLapStart();
+    verbose(3) printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange vector (%ju occurances; %ju stamps) ", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(VECTOR_SIZE_counter*step)));
+    verbose(4) timerLapStart();
 
     counter_t range_start_atvector = vectorstart(range_start);
     if likely(( range_start_atvector + step) < range_start) { // not the first step possible in this vector - would give incomplete copies
-        debug printf("\n..Range start %ju not at start of vector %ju\n",(uintmax_t)range_start, (uintmax_t)range_start_atvector); 
+        verbose(3) printf("\n..Range start %ju not at start of vector %ju\n",(uintmax_t)range_start, (uintmax_t)range_start_atvector); 
 
         range_start_atvector += VECTOR_SIZE; // find next vector
         if (unlikely(range_start_atvector > range_stop)) { // we should not be here; just handle without vector
             // #pragma GCC ivdep
             for (counter_t index = range_start; index <= range_stop; index += step) 
                 bitstorage[wordindex(index)] |= markmask(index);
-            debug timerLapTime();
+            verbose(4) timerLapTime();
             return;
         }
 
@@ -458,11 +297,11 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
     if (range_stop_unique > range_stop || step > VECTOR_SIZE_counter) { // fallback to other methods if vector is too large to repeat -> TODO: remove and fix in VECTORSIZE check
         if (step < WORD_SIZE_counter) setBitsTrue_mediumStep(bitstorage, range_start, step, range_stop);
         else setBitsTrue_largeRange(bitstorage, range_start, step, range_stop);
-        debug timerLapTime();
+        verbose(4) timerLapTime();
         return;
     }
 
-    debug printf("..building masks in range %ju-%ju with WORD_SIZE %ju", (uintmax_t)range_start, (uintmax_t)range_stop_unique, (uintmax_t)WORD_SIZE_counter);
+    verbose(3) printf("..building masks in range %ju-%ju with WORD_SIZE %ju", (uintmax_t)range_start, (uintmax_t)range_stop_unique, (uintmax_t)WORD_SIZE_counter);
 
     bitvector_t* __restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, anticiped_cache_line_bytesize);
     counter_t current_vector =  vectorindex(range_start);
@@ -561,13 +400,13 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
         }
     }
 
-    debug timerLapTime();
+    verbose(4) timerLapTime();
 }
 
 static inline void __attribute__((always_inline)) continuePattern_smallSize(bitword_t* __restrict bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
 {
-    debug printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using smallsize (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
-    debug timerLapStart();
+    verbose(3) printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using smallsize (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
+    verbose(4) timerLapStart();
 
     const counter_t source_word = wordindex(source_start);
     register const bitword_t base_pattern = ((bitstorage[source_word] >> bitindex(source_start)) | (bitstorage[source_word+1] << (WORD_SIZE_counter-bitindex_calc(source_start)))) & chopmask(size);
@@ -589,7 +428,7 @@ static inline void __attribute__((always_inline)) continuePattern_smallSize(bitw
     const counter_t destination_stop_word = wordindex(destination_stop);
     if (destination_start_word >= destination_stop_word) {
         bitstorage[destination_start_word] |= (pattern << bitindex(destination_start)) & chopmask(destination_stop);
-        debug timerLapTime();
+        verbose(4) timerLapTime();
         return;
     }
 
@@ -606,13 +445,13 @@ static inline void __attribute__((always_inline)) continuePattern_smallSize(bitw
     }
     // bitstorage[destination_stop_word] &= chopmask(destination_stop); // not needed with appropriate block_size
 
-    debug timerLapTime();
+    verbose(4) timerLapTime();
 }
 
 static inline void  __attribute__((always_inline)) continuePattern_aligned(bitword_t* bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
 {
-    debug printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using aligned (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
-    debug timerLapStart();
+    verbose(3) printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using aligned (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
+    verbose(4) timerLapStart();
 
     const counter_t destination_stop_word = wordindex(destination_stop);
     const counter_t copy_start = source_start + size;
@@ -631,13 +470,13 @@ static inline void  __attribute__((always_inline)) continuePattern_aligned(bitwo
         source_word++;
         copy_word++;
     }
-    debug timerLapTime();
+    verbose(4) timerLapTime();
 }
 
 static inline void  __attribute__((always_inline)) continuePattern_shiftright(bitword_t* __restrict bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
 {
-    debug printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using shiftright (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
-    debug timerLapStart();
+    verbose(3) printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using shiftright (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
+    verbose(4) timerLapStart();
 
     const counter_t destination_stop_word = wordindex(destination_stop);
     const counter_t copy_start = source_start + size;
@@ -659,10 +498,10 @@ static inline void  __attribute__((always_inline)) continuePattern_shiftright(bi
     
     copy_word++;
 
-    debug { printf("...start - %ju - %ju - end..",(uintmax_t)wordindex(copy_start), (uintmax_t)destination_stop_word) ; }
+    verbose(3) { printf("...start - %ju - %ju - end..",(uintmax_t)wordindex(copy_start), (uintmax_t)destination_stop_word) ; }
 
     if (copy_word < source_word + VECTOR_ELEMENTS) {
-        debug printf("...continue word by word (because source and copy are close together)..");
+        verbose(3) printf("...continue word by word (because source and copy are close together)..");
         for (;copy_word <= destination_stop_word; copy_word++, source_word++ ) 
             bitstorage[copy_word] = (bitstorage[source_word] >> shift_flipped) | (bitstorage[source_word+1] << shift);
         return; 
@@ -675,7 +514,7 @@ static inline void  __attribute__((always_inline)) continuePattern_shiftright(bi
     // copy with shift - needed the not aligned at bytelevel
     // speed up when source and copy are further apart - may vectorize the loop
 
-    debug printf("...speed copy until word %ju..", (uintmax_t)copy_start_word);
+    verbose(3) printf("...speed copy until word %ju..", (uintmax_t)copy_start_word);
 
     #ifdef WORD_SIZE_64
         #pragma GCC ivdep // only for 64bit
@@ -700,7 +539,7 @@ static inline void  __attribute__((always_inline)) continuePattern_shiftright(bi
 
     memcpy(copy_byte, source_byte, destination_stop_byte - copy_byte);
 
-    debug timerLapTime();
+    verbose(4) timerLapTime();
 }
 
 static inline counter_t  __attribute__((always_inline)) continuePattern_shiftleft_unrolled(bitword_t* __restrict bitstorage, const counter_t aligned_copy_word, const bitshift_t shift, counter_t copy_word, counter_t source_word) 
@@ -729,8 +568,8 @@ static inline counter_t  __attribute__((always_inline)) continuePattern_shiftlef
 
 static inline void __attribute__((always_inline)) continuePattern_shiftleft(bitword_t* bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
 {
-    debug printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using shiftleft (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
-    debug timerLapStart();
+    verbose(3) printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using shiftleft (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
+    verbose(4) timerLapStart();
     
     const counter_t destination_stop_word = wordindex(destination_stop);
     const counter_t copy_start = source_start + size;
@@ -745,12 +584,13 @@ static inline void __attribute__((always_inline)) continuePattern_shiftleft(bitw
     copy_word++;
     source_word++;
 
-    const counter_t aligned_copy_word = min(source_word + size, destination_stop_word); // after <<size>> words, just copy at word level
+    const counter_t aligned_copy_word_unchecked = source_word + size;
+    const counter_t aligned_copy_word = min(aligned_copy_word_unchecked, destination_stop_word); // after <<size>> words, just copy at word level
     const counter_t distance  = continuePattern_shiftleft_unrolled(bitstorage, aligned_copy_word, shift, copy_word, source_word);
     source_word += distance;
     copy_word += distance;
 
-    debug { counter_t fast_loop_stop_word = uintsafeminus(aligned_copy_word,2); printf("...start - %ju - end fastloop - %ju - start alignment - %ju - end", (uintmax_t)fast_loop_stop_word - (uintmax_t)wordindex(copy_start), (uintmax_t)aligned_copy_word - (uintmax_t)fast_loop_stop_word, (uintmax_t)destination_stop_word - (uintmax_t)aligned_copy_word); }
+    verbose(3) { counter_t fast_loop_stop_word = uintsafeminus(aligned_copy_word,2); printf("...start - %ju - end fastloop - %ju - start alignment - %ju - end", (uintmax_t)fast_loop_stop_word - (uintmax_t)wordindex(copy_start), (uintmax_t)aligned_copy_word - (uintmax_t)fast_loop_stop_word, (uintmax_t)destination_stop_word - (uintmax_t)aligned_copy_word); }
 
     for (;copy_word <= aligned_copy_word; copy_word++,source_word++) {
         bitstorage[copy_word] = (bitstorage[source_word  ] >> shift) | (bitstorage[source_word+1 ] << shift_flipped);
@@ -767,7 +607,7 @@ static inline void __attribute__((always_inline)) continuePattern_shiftleft(bitw
     for (;copy_word <= destination_stop_word;  copy_word++,source_word++)
         bitstorage[copy_word] = bitstorage[source_word];
 
-    debug timerLapTime();
+    verbose(4) timerLapTime();
 }
 
 // continue a pattern that start at <source_start> with a size of <size>.
@@ -796,7 +636,7 @@ static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block
     counter_t start = 0;
     counter_t step  = prime * 2 + 1;
 
-    debug printf("Block stripe for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop);
+    verbose(3) printf("Block stripe for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop);
     
     while ((prime < maxprime) && (prime * step <= block_stop)) {
         if likely(block_start > prime)
@@ -809,10 +649,10 @@ static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block
         else 
             setBitsTrue_largeRange(bitstorage, start, step, block_stop);
 
-        prime = searchBitFalse(bitstorage, prime + 1 );
+        prime = searchBitFalse(bitstorage, prime);
         step  = prime * 2 + 1;
     }
-    return prime;
+    return prime - 1; // TODO: find out why -1 is needed
 }
 
 // structure to help sieve_block_extend report back to the main module
@@ -837,7 +677,7 @@ static struct block sieve_block_extend(struct sieve_t *sieve, const counter_t bl
     sieve->bitstorage[wordindex(block_start)] = SAFE_ZERO; // only the first word has to be cleared; the rest is populated by the extension procedure
     
     for (;range_stop < block_stop;) {
-        prime = searchBitFalse(bitstorage, prime+1);
+        prime = searchBitFalse(bitstorage, prime);
         counter_t start = (prime * prime * 2) + (prime * 2);
         if unlikely(start > block_stop) break;
 
@@ -865,37 +705,12 @@ static struct block sieve_block_extend(struct sieve_t *sieve, const counter_t bl
 }
 
 /* This is the main module that directs all the work*/
-static struct sieve_t* sieve_shake_blockbyblock(const counter_t maxFactor, const counter_t blocksize) 
-{
-    struct sieve_t *sieve = sieve_create(maxFactor);
-    bitword_t* bitstorage = sieve->bitstorage;
-    counter_t startprime  = 1;
-    for(counter_t index=0; index<wordindex(maxFactor/2); index++) {
-        bitstorage[index]=SAFE_ZERO;
-    }
-
-    debug printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)maxFactor,(uintmax_t)blocksize);
-
-    // in the sieve all bits for the multiples of primes up to startprime have been set
-    // process the sieve and stripe all the multiples of primes > start_prime
-    // do this block by block to minimize cache misses
-    for (counter_t block_start = 0,  block_stop = blocksize-1;block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
-        if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
-        counter_t prime = searchBitFalse(bitstorage, startprime);
-        sieve_block_stripe(bitstorage, block_start, block_stop, prime, maxFactor);
-    } 
-
-    // return the completed sieve
-    return sieve;
-}
-
-/* This is the main module that directs all the work*/
 static struct sieve_t* sieve_shake(const counter_t maxFactor, const counter_t blocksize) 
 {
     struct sieve_t *sieve = sieve_create(maxFactor);
     bitword_t* bitstorage = sieve->bitstorage;
 
-    debug printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)maxFactor,(uintmax_t)blocksize);
+    verbose(3) printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)maxFactor,(uintmax_t)blocksize);
 
     // fill the whole sieve bij adding en copying incrementally
     struct block block = sieve_block_extend(sieve, 0, sieve->bits);
@@ -912,7 +727,7 @@ static struct sieve_t* sieve_shake(const counter_t maxFactor, const counter_t bl
     // do this block by block to minimize cache misses
     for (counter_t block_start = 0, block_stop = blocksize-1; block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
         if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
-        counter_t prime = searchBitFalse(bitstorage, startprime);
+        counter_t prime = searchBitFalse(bitstorage, startprime); 
         sieve_block_stripe(bitstorage, block_start, block_stop, prime, maxFactor);
     } 
 
@@ -923,7 +738,7 @@ static struct sieve_t* sieve_shake(const counter_t maxFactor, const counter_t bl
 static void show_primes(struct sieve_t *sieve, counter_t maxFactor) 
 {
     counter_t primeCount = 1;    // We already have 2
-    for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor+1)) {
+    for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor)) {
         primeCount++;
         if (factor < maxFactor/2) {
             printf("%3ju ",(uintmax_t)factor*2+1);
@@ -935,7 +750,7 @@ static void show_primes(struct sieve_t *sieve, counter_t maxFactor)
 
 static counter_t count_primes(struct sieve_t *sieve) {
     counter_t primeCount = 1;
-    for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor+1)) primeCount++;
+    for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor)) primeCount++;
     return primeCount;
 }
 
@@ -1186,6 +1001,7 @@ static void usage(char *name)
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  --block <kilobyte> Set the block size to a specific <size> in kilobytes\n");
     fprintf(stderr, "  --check            Check the correctness of the algorithm\n");
+    fprintf(stderr, "  --nocheck          Skip check of the correctness of the algorithm\n");
     #if compile_debuggable
     fprintf(stderr, "  --explain          Explain the steps of the algorithm - only when compiled for debug\n");
     #endif
@@ -1197,6 +1013,7 @@ static void usage(char *name)
     #endif
     fprintf(stderr, "  --time  <seconds>  The maximum time (in seconds) to run passes of the sieve algorithm\n");
     fprintf(stderr, "  --tune  <level>    find the best settings for the current os and hardware\n");
+    fprintf(stderr, "                     0 - no tuning\n");
     fprintf(stderr, "                     1 - fast tuning\n");
     fprintf(stderr, "                     2 - refined tuning\n");
     fprintf(stderr, "                     3 - maximum tuning (takes long)\n");
@@ -1204,6 +1021,9 @@ static void usage(char *name)
     fprintf(stderr, "                     1 - show phase progress\n");
     fprintf(stderr, "                     2 - show general progress within the phase\n");
     fprintf(stderr, "                     3 - show actual work\n");
+    fprintf(stderr, "                     4 - show timing\n");
+    fprintf(stderr, "Maximum is the heighest prime to examine.\n");
+
     exit(1);
 }
 
@@ -1304,13 +1124,13 @@ static struct options_t setDefaultOptions() {
 static void explainSieveShake() 
 {
     // warm up
-    int org_option_explain = option.explain;
-    option.explain = 0;
-    for (int i=0; i<10; i++) {
-        struct sieve_t* sieve = sieve_shake(option.maxFactor, default_blocksize);
-        sieve_delete(sieve);
-    }    
-    option.explain = org_option_explain;
+    // int org_option_explain = option.explain;
+    // option.explain = 0;
+    // for (int i=0; i<10; i++) {
+    //     struct sieve_t* sieve = sieve_shake(option.maxFactor, default_blocksize);
+    //     sieve_delete(sieve);
+    // }    
+    // option.explain = org_option_explain;
 
     struct sieve_t* sieve = sieve_shake(option.maxFactor, default_blocksize);
     printf("\nResult set:\n");
@@ -1319,6 +1139,7 @@ static void explainSieveShake()
     if (!valid) printf("The sieve is \033[0;31m\033[5mNOT\033[0;0m valid...\n");
     else printf("The sieve is \033[0;mVALID\033[0;0m\n");
     sieve_delete(sieve);
+    printf("Exit\n");
     exit(0);
 }
 #endif
@@ -1360,6 +1181,12 @@ int main(int argc, char *argv[])
     option = setDefaultOptions();
     option = parseCommandLine(argc, argv, option);
     
+    // bitword_t current_word = SAFE_FILL;
+    // for(u_int64_t i=0;i<=64;i++) {
+    //   printWord(current_word >> i); printf(" %ju \n",i);
+    // }
+    // exit(0);
+
     verbose(2) {
         printf("\nRunning sieve algorithm by Rogier van Dam with the following target:\n");
         printf("Count all primes up to \033[1;33m%ju\033[0m using the sieve of Eratosthenes\n", (uintmax_t)option.maxFactor);
@@ -1367,7 +1194,7 @@ int main(int argc, char *argv[])
     }
 
     #if compile_debuggable
-    if (option.explain==1) explainSieveShake();
+    if (option.explain>=1) explainSieveShake();
     #endif
     
     // command line --check can be used to check the algorithm for all sieve/blocksize combinations

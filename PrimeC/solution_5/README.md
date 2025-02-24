@@ -70,7 +70,7 @@ To run with Docker take the following steps:
 3. Run with Docker:
 
     ```bash
-    docker run --rm -it  c:latest 
+    docker run --rm -it c:latest 
     ```
 
 Or do it all in one go:
