@@ -9,7 +9,7 @@
 #endif
 
 // set this to the level of verbose messages that will be compiled
-#define compile_verboselevel default_explain_level
+#define compile_verboselevel default_verbose_level
 #define verbose(level)    if (level < compile_verboselevel) if (option.verboselevel >= level) 
 #define verbose_at(level) if (level < compile_verboselevel) if (option.verboselevel == level)
 
