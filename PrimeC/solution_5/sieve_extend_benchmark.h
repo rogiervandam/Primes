@@ -68,7 +68,7 @@ static inline void tuning_result_print(benchmark_result_t tuning_result)
 
 static benchmark_result_t tune(int tune_level, counter_t maxFactor, counter_t threads, counter_t option_blocksize_kB) 
 {
-    counter_t best_blocksize_bits = default_blocksize;
+    counter_t best_blocksize_bits = option.sample_duration;
 
     double best_avg = 0;
     best_blocksize_bits = 0;
@@ -79,7 +79,7 @@ static benchmark_result_t tune(int tune_level, counter_t maxFactor, counter_t th
     counter_t mediumstep_faster_steps = 4;
     counter_t vectorstep_faster_steps = 32;
     counter_t freebits_steps = anticiped_cache_line_bytesize;
-    double sample_duration = default_sample_duration;
+    double sample_duration = option.sample_duration;
 
     // determines the size of the resultset
     switch (tune_level) {
@@ -88,21 +88,21 @@ static benchmark_result_t tune(int tune_level, counter_t maxFactor, counter_t th
             mediumstep_faster_steps = WORD_SIZE/4;
             vectorstep_faster_steps = VECTOR_SIZE_counter/4;
             freebits_steps = anticiped_cache_line_bytesize*8*2;
-            sample_duration = default_sample_duration;
+            sample_duration = option.sample_duration;
             break;
         case 2:
             BLOCKWISE_FASTER_prime_min_steps  = WORD_SIZE;
             mediumstep_faster_steps = WORD_SIZE/8;
             vectorstep_faster_steps = VECTOR_SIZE_counter/8;
             freebits_steps = anticiped_cache_line_bytesize*8;
-            sample_duration = default_sample_duration*2;
+            sample_duration = option.sample_duration*2;
             break;
         case 3:
             BLOCKWISE_FASTER_prime_min_steps  = WORD_SIZE/2;
             mediumstep_faster_steps = WORD_SIZE/16;
             vectorstep_faster_steps = VECTOR_SIZE_counter/16;
             freebits_steps = anticiped_cache_line_bytesize/2;
-            sample_duration = default_sample_duration*4;
+            sample_duration =option.sample_duration*4;
             break;
     }
     

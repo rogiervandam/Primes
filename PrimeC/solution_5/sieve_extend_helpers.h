@@ -1,7 +1,7 @@
 // This file contains all helper functions
 
 //set compile_debuggable to 1 to enable explain plan
-#define compile_debuggable (0 || default_explain_level)
+#define compile_debuggable (0 || compile_explain_level)
 #if compile_debuggable
 #define debug if (compile_debuggable && option.explain)
 #else
@@ -9,9 +9,8 @@
 #endif
 
 // set this to the level of verbose messages that will be compiled
-#define compile_verboselevel default_verbose_level
-#define verbose(level)    if (level <= compile_verboselevel) if (option.verboselevel >= level) if (!(option.verboselevel >= 3 && option.explain == 0)) 
-#define verbose_at(level) if (level <= compile_verboselevel) if (option.verboselevel == level) if (!(option.verboselevel >= 3 && option.explain == 0)) 
+#define verbose(level)    if (level <= compile_verbose_level) if (option.verboselevel >= level) if (!(option.verboselevel >= 3 && option.explain == 0)) 
+#define verbose_at(level) if (level <= compile_verbose_level) if (option.verboselevel == level) if (!(option.verboselevel >= 3 && option.explain == 0)) 
 
 // helper calc functions
 #define pow(base,pow)       (pow*((base>>pow)&1U))

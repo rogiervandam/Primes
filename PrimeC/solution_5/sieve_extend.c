@@ -6,48 +6,65 @@
 #include <stdint.h>
 #include <time.h>
 #include <string.h>
+#include <ctype.h> /* For isdigit() function */
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
 // defaults
-#define default_sieve_limit             1000000
-#define default_blocksize               (32*1024*8)
-#define default_maxTime                 5
-#define default_sample_duration         0.0004
-#define default_explain_level           0
-#define compile_verbose_level           4
-#define default_verbose_level           1
-#define default_tune_level              1
-#define default_check_level             1           // check the code, makes it faster?
-#define default_show_primes_on_error    100
-#define default_showMaxFactor           0
+#define compile_explain_level           0
+#define compile_verbose_level           0
 #define anticiped_cache_line_bytesize   128
 
 // include helper functions
 #include "sieve_extend_helpers.h"
 
-struct sieve_t {
-    bitword_t* bitstorage;
-    counter_t  bits;
-    counter_t  size;
-};
-
 static struct options_t {
     double    maxTime;
     counter_t maxFactor;
     counter_t blocksize_kB;
+    counter_t blocksize_bits;
     counter_t showMaxFactor;
     int       verboselevel;
     int       explain;
     int       check;
     int       tunelevel;
     int       threads;
+    int       extended_output;
+    int       show_primes_on_error;
+    double    sample_duration;
     counter_t BLOCKWISE_FASTER_prime_min;
     counter_t mediumStep;
     counter_t vectorStep;
 } option;
 
+static struct options_t setDefaultOptions() {
+    option.maxTime         = 5;
+    option.maxFactor       = 1000000;
+    option.blocksize_kB    = 0; // this is what the user entered
+    option.blocksize_bits  = (32*1024*8);
+    option.showMaxFactor   = 0;
+    option.explain         = 0;
+    option.verboselevel    = 1;
+    option.tunelevel       = 1;
+    option.check           = 1;
+    option.sample_duration = 0.0004;
+    option.extended_output = 1;
+    option.threads         = 1;
+    option.show_primes_on_error = 100;
+    #ifdef _OPENMP
+    option.threads = omp_get_max_threads();
+    #endif
+
+    return option;
+}
+
+
+struct sieve_t {
+    bitword_t* bitstorage;
+    counter_t  bits;
+    counter_t  size;
+};
 
 // allocate memory for a sieve block
 // NOTES:
@@ -643,13 +660,12 @@ static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block
 
         if unlikely(step < global_VECTORSTEP_FASTER) { // speed up setting bits using bitvector;
             setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);
-            // prime = searchBitFalse_largeRange(bitstorage, prime);
+            prime = searchBitFalse(bitstorage, prime);
         }
         else { 
             setBitsTrue_largeRange(bitstorage, start, step, block_stop);
-            // prime = searchBitFalse_largeRange(bitstorage, prime);
+            prime = searchBitFalse_largeRange(bitstorage, prime);
         }
-        prime = searchBitFalse(bitstorage, prime);
     }
     return prime; 
 }
@@ -803,35 +819,18 @@ static int validatePrimeCount(struct sieve_t *sieve)
     verbose(4) if (valid) printf("Result: Sievesize %ju is expected to have %ju primes. algorithm produced %ju primes\n",(uintmax_t)sieve->size,(uintmax_t)valid_primes,(uintmax_t)primecount );
     verbose(1) if (!valid) {
         printf("No valid result. Sievesize %ju was expected to have %ju primes, but algorithm produced %ju primes\n",(uintmax_t)sieve->size,(uintmax_t)valid_primes,(uintmax_t)primecount );
-        verbose(2) show_primes(sieve, default_show_primes_on_error);
+        verbose(2) show_primes(sieve, option.show_primes_on_error);
         verbose(2) deepAnalyzePrimes(sieve);
     }
     return (valid);
 }
 
-// typedef struct  {
-//     counter_t maxFactor;
-//     counter_t blocksize_bits;
-//     counter_t blocksize_kB;
-//     counter_t free_bits;
-//     counter_t BLOCKWISE_FASTER_prime_min;
-//     counter_t mediumstep_faster;
-//     counter_t vectorstep_faster;
-//     counter_t threads;
-//     double    sample_duration;
-//     counter_t passes;
-//     double    elapsed_time;
-//     double    avg;
-// } benchmark_result_t;
-
 #include "sieve_extend_benchmark.h"
-
 
 static void usage(char *name) 
 {
     fprintf(stderr, "Usage: %s [options] [maximum]\n", name);
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  --block <kilobyte> Set the block size to a specific <size> in kilobytes\n");
     fprintf(stderr, "  --check                   Check the correctness of the algorithm\n");
     fprintf(stderr, "  --nocheck                 Skip check of the correctness of the algorithm\n");
     #if compile_debuggable
@@ -854,9 +853,12 @@ static void usage(char *name)
     fprintf(stderr, "                            2 - show general progress within the phase\n");
     fprintf(stderr, "                            3 - show actual work\n");
     fprintf(stderr, "                            4 - show timing\n");
+    fprintf(stderr, "  --set_block <kilobyte>    Set the block size to a specific <size> in kilobytes\n");
     fprintf(stderr, "  --set_blockwise <prime>   Set the cutoff prime for blockwise striping\n");
     fprintf(stderr, "  --set_mediumstep <bits>   Set the cutoff number of bits for wordwise striping\n");
     fprintf(stderr, "  --set_vectorstep <bits>   Set the cutoff number of bits for vectorwise striping\n");
+    fprintf(stderr, "\n    Set all in one go:\n");
+    fprintf(stderr, "  --set <blockwise>/<mediumstep>/<vectorstep>  \n");
     fprintf(stderr, "Maximum is the heighest prime to examine.\n");
 
     exit(1);
@@ -867,21 +869,12 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
     // processing command line changes to options
     for (int arg=1; arg < argc; arg++) {
         if (strcmp(argv[arg], "--help")==0) { usage(argv[0]); }
-        else if (strcmp(argv[arg], "--verbose")==0) {
+        else if (strcmp(argv[arg], "--verbose")==0) { option.verboselevel=0;
             if (++arg >= argc) { fprintf(stderr, "No verbose level specified\n"); usage(argv[0]); }
             if (sscanf(argv[arg], "%d", &option.verboselevel) != 1 || option.verboselevel > 4) {
                 fprintf(stderr, "Error: Invalid measurement time: %s\n", argv[arg]); usage(argv[0]);
             }
             verbose(1) printf("Verbose level set to %d\n",option.verboselevel);
-        } 
-        else if (strcmp(argv[arg], "--block")==0) {
-            if (++arg >= argc) { fprintf(stderr, "No block size specified\n"); usage(argv[0]); }
-            if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.blocksize_kB) != 1) {
-                fprintf(stderr, "Error: Invalid size in kilobyte: %s\n", argv[arg]); usage(argv[0]);
-            }
-            counter_t sieve_bits = option.maxFactor >> 1;
-            if ((option.blocksize_kB*1024*8) > (sieve_bits)) option.blocksize_kB = (sieve_bits / (1024*8))+1;
-            verbose(1) printf("Blocksize set to %ju kB\n",(uintmax_t)option.blocksize_kB);
         } 
         #if compile_debuggable
         else if (strcmp(argv[arg], "--explain")==0) { option.explain=1; }
@@ -909,6 +902,15 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             }
             verbose(1) printf("Show maximum set to %ju\n",(uintmax_t)option.showMaxFactor);
         }
+        else if (strcmp(argv[arg], "--set_block")==0) {
+            if (++arg >= argc) { fprintf(stderr, "No block size specified\n"); usage(argv[0]); }
+            if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.blocksize_kB) != 1) {
+                fprintf(stderr, "Error: Invalid size in kilobyte: %s\n", argv[arg]); usage(argv[0]);
+            }
+            counter_t sieve_bits = option.maxFactor >> 1;
+            if ((option.blocksize_kB*1024*8) > (sieve_bits)) option.blocksize_kB = (sieve_bits / (1024*8))+1;
+            verbose(1) printf("Blocksize set to %ju kB\n",(uintmax_t)option.blocksize_kB);
+        } 
         else if (strcmp(argv[arg], "--set_blockwise")==0) { option.BLOCKWISE_FASTER_prime_min=0;
             if (++arg >= argc) { fprintf(stderr, "No blockwise number specified\n"); usage(argv[0]); }
             if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.BLOCKWISE_FASTER_prime_min) != 1 ) {
@@ -929,6 +931,89 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
                 fprintf(stderr, "Error: Invalid vectorstep setting: %s\n", argv[arg]); usage(argv[0]);
             }
             verbose(1) printf("Vectorstep set to %ju\n",(uintmax_t)option.vectorStep);
+        }
+        else if (strcmp(argv[arg], "--set")==0) {
+            if (++arg >= argc) {
+                fprintf(stderr, "No settings specified for --set\n");
+                usage(argv[0]);
+            }
+            
+            uintmax_t blocksize = option.blocksize_kB;             // Initialize with current values
+            uintmax_t blockwise = option.BLOCKWISE_FASTER_prime_min;
+            uintmax_t mediumstep = option.mediumStep;
+            uintmax_t vectorstep = option.vectorStep;
+            
+            int found_any = 0;
+            char *param = argv[arg];
+            char *p = param;
+            
+            // Parse all parameters if present
+            while (*p) {
+                if (*p == 'b') {
+                    p++;
+                    if (sscanf(p, "%ju", &blocksize) != 1) {
+                        fprintf(stderr, "Error: Invalid blocksize value after 'b'\n");
+                        usage(argv[0]);
+                    }
+                    found_any = 1;
+                    while (*p && isdigit(*p)) p++;
+                }
+                else if (*p == 's') {
+                    p++;
+                    if (sscanf(p, "%ju", &blockwise) != 1) {
+                        fprintf(stderr, "Error: Invalid blockwise value after 's'\n");
+                        usage(argv[0]);
+                    }
+                    found_any = 1;
+                    while (*p && isdigit(*p)) p++;
+                }
+                else if (*p == 'm') {
+                    p++;
+                    if (sscanf(p, "%ju", &mediumstep) != 1) {
+                        fprintf(stderr, "Error: Invalid mediumstep value after 'm'\n");
+                        usage(argv[0]);
+                    }
+                    found_any = 1;
+                    while (*p && isdigit(*p)) p++;
+                }
+                else if (*p == 'v') {
+                    p++;
+                    if (sscanf(p, "%ju", &vectorstep) != 1) {
+                        fprintf(stderr, "Error: Invalid vectorstep value after 'v'\n");
+                        usage(argv[0]);
+                    }
+                    found_any = 1;
+                    while (*p && isdigit(*p)) p++;
+                }
+                else {
+                    fprintf(stderr, "Error: Unknown parameter identifier '%c'\n", *p);
+                    fprintf(stderr, "Format should use b/s/m/v prefixes like: b128s1000m500v200\n");
+                    fprintf(stderr, "Parameters are optional - only specified values are changed\n");
+                    usage(argv[0]);
+                }
+            }
+            
+            if (!found_any) {
+                fprintf(stderr, "Error: No valid parameters found in '%s'\n", param);
+                fprintf(stderr, "Format should use b/s/m/v prefixes like: b128s1000m500v200\n");
+                fprintf(stderr, "Parameters are optional - only specified values are changed\n");
+                usage(argv[0]);
+            }
+            
+            // Set blocksize with the same validation as in --set_block
+            option.blocksize_kB = blocksize;
+            counter_t sieve_bits = option.maxFactor >> 1;
+            if ((option.blocksize_kB*1024*8) > (sieve_bits)) option.blocksize_kB = (sieve_bits / (1024*8))+1;
+            
+            option.BLOCKWISE_FASTER_prime_min = blockwise;
+            option.mediumStep = mediumstep;
+            option.vectorStep = vectorstep;
+            
+            verbose(1) printf("Settings: blocksize=%ju kB, blockwise=%ju, mediumstep=%ju, vectorstep=%ju\n", 
+                (uintmax_t)option.blocksize_kB,
+                (uintmax_t)option.BLOCKWISE_FASTER_prime_min,
+                (uintmax_t)option.mediumStep,
+                (uintmax_t)option.vectorStep);
         }
         else if (strcmp(argv[arg], "--threads")==0) { 
             if (++arg >= argc) { fprintf(stderr, "No thread maximum specified\n"); usage(argv[0]); }
@@ -959,22 +1044,7 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
     return option;
 }
 
-static struct options_t setDefaultOptions() {
-    option.maxTime       = default_maxTime;
-    option.maxFactor     = default_sieve_limit;
-    option.showMaxFactor = default_showMaxFactor;
-    option.explain       = default_explain_level;
-    option.verboselevel  = default_verbose_level;
-    option.check         = default_check_level;
-    option.tunelevel     = default_tune_level;
-    option.threads       = 1;
-    option.blocksize_kB  = 0; // this is what the user entered
-    #ifdef _OPENMP
-    option.threads = omp_get_max_threads();
-    #endif
 
-    return option;
-}
 
 #if compile_debuggable
 static void explainSieveShake() 
@@ -1053,7 +1123,7 @@ int main(int argc, char *argv[])
 
     benchmark_result_t benchmark_result;
     benchmark_result.sample_duration   = option.maxTime;
-    benchmark_result.blocksize_bits    = default_blocksize;
+    benchmark_result.blocksize_bits    = option.blocksize_bits;
     benchmark_result.BLOCKWISE_FASTER_prime_min  = global_BLOCKWISE_FASTER_prime_min;
     benchmark_result.mediumstep_faster = global_MEDIUMSTEP_FASTER;
     benchmark_result.vectorstep_faster = global_VECTORSTEP_FASTER; 
@@ -1098,14 +1168,19 @@ int main(int argc, char *argv[])
 
         // report results
         char extension[50];
+        char extended_output[50];
         if (threads > 1)
             sprintf(extension,"-u%juv%jub%jut%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS, (uintmax_t)benchmark_result.blocksize_bits/1024/8,(uintmax_t)threads);
         else
             sprintf(extension,"-u%juv%jub%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS, (uintmax_t)benchmark_result.blocksize_bits/1024/8);
+
+        if (option.extended_output) {
+            sprintf(extended_output,"-s%jum%juv%ju", (uintmax_t) benchmark_result.BLOCKWISE_FASTER_prime_min,(uintmax_t)benchmark_result.mediumstep_faster, (uintmax_t)benchmark_result.vectorstep_faster);
+        }
         #ifdef _OPENMP
-        printf("rogiervandam_extend_epar%s;%ju;%f;%ju;algorithm=other,faithful=yes,bits=1\n",extension,(uintmax_t)benchmark_result.passes,benchmark_result.elapsed_time,(uintmax_t)threads);
+        printf("rogiervandam_extend_epar%s%s;%ju;%f;%ju;algorithm=other,faithful=yes,bits=1\n",extension,extended_output,(uintmax_t)benchmark_result.passes,benchmark_result.elapsed_time,(uintmax_t)threads);
         #else
-        printf("rogiervandam_extend%s;%ju;%f;%ju;algorithm=other,faithful=yes,bits=1\n",extension,(uintmax_t)benchmark_result.passes,benchmark_result.elapsed_time,(uintmax_t)threads);
+        printf("rogiervandam_extend%s%s;%ju;%f;%ju;algorithm=other,faithful=yes,bits=1\n",extension,extended_output,(uintmax_t)benchmark_result.passes,benchmark_result.elapsed_time,(uintmax_t)threads);
         #endif
         verbose(1) {
             printf("\033[0;32m(Passes - per %.1f seconds: \033[1;33m%f\033[0m - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", option.maxTime, option.maxTime*benchmark_result.passes/benchmark_result.elapsed_time, benchmark_result.passes/benchmark_result.elapsed_time);
