@@ -74,31 +74,34 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t*
     // Normal function - really fast for small offsets
     do { index++; } while (bitstorage[wordindex(index)] & markmask(index));
     return index;
+}
+
+// Finds the index of the next unset (false) bit in a bitmap, starting from a given index.
+static inline counter_t __attribute__((always_inline)) searchBitFalse_largeRange(bitword_t* bitstorage, register counter_t index) {
 
     // Optimized function -- faster for large ranges which are not common
 
-    // // Move to the next position after the starting index
-    // ++index;
+    // Move to the next position after the starting index
+    ++index;
     
-    // // Get the current word and bit position
-    // register counter_t word_index = wordindex(index);
-    // register counter_t bit_index  = bitindex_calc(index);
-    // register bitword_t current_word = bitstorage[word_index];
+    // Get the current word and bit position
+    register counter_t word_index = wordindex(index);
+    register counter_t bit_index  = bitindex_calc(index);
+    register bitword_t current_word = bitstorage[word_index];
 
-    // if likely(bit_index) 
-    //     current_word = (bitstorage[word_index] >> bit_index) | (bitstorage[word_index+1] << (WORD_SIZE_bitshift - bit_index));
+    if likely(bit_index) 
+        current_word = (bitstorage[word_index] >> bit_index) | (bitstorage[word_index+1] << (WORD_SIZE_bitshift - bit_index));
 
-    // while unlikely(current_word == SAFE_FILL) {
-    //     current_word = bitstorage[++word_index];
-    //     index += (WORD_SIZE_bitshift - bit_index);
-    //     bit_index = 0;
-    // }
+    while unlikely(current_word == SAFE_FILL) {
+        current_word = bitstorage[++word_index];
+        index += (WORD_SIZE_bitshift - bit_index);
+        bit_index = 0;
+    }
 
-    // // Find the first unset bit using builtin_ffs
-    // // Note: ~current_word inverts the bits so we find first 0 instead of 1
-    // return index + builtin_ctz(~current_word);
+    // Find the first unset bit using builtin_ffs
+    // Note: ~current_word inverts the bits so we find first 0 instead of 1
+    return index + builtin_ctz(~current_word);
 }
-
 // apply the same word mask at large ranges
 // manually unlooped - this here is where the main speed increase comes from
 // idea from PrimeRust/solution_1 by Michael Barber 
@@ -626,12 +629,16 @@ static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block
             // if (start > block_stop) break; // TODO: examine why this doesn't work when enabled
         }
 
-        if unlikely(step < VECTORSTEP_FASTER)
+        if unlikely(step < VECTORSTEP_FASTER) {
             setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);
-        else 
+            prime = searchBitFalse(bitstorage, prime);
+            // prime = searchBitFalse_largeRange(bitstorage, prime);
+        }
+        else {
             setBitsTrue_largeRange(bitstorage, start, step, block_stop);
-
-        prime = searchBitFalse(bitstorage, prime);
+            prime = searchBitFalse(bitstorage, prime);
+            // prime = searchBitFalse_largeRange(bitstorage, prime);
+        }
         step  = prime * 2 + 1;
     }
     return prime; 
