@@ -18,7 +18,7 @@
 #define default_explain_level           0
 #define default_verbose_level           1
 #define default_tune_level              1
-#define default_check_level             0
+#define default_check_level             1           // check the code, makes it faster?
 #define default_show_primes_on_error    100
 #define default_showMaxFactor           0
 #define anticiped_cache_line_bytesize   128
@@ -71,11 +71,15 @@ static inline void __attribute__((always_inline)) sieve_delete(struct sieve_t *s
 // Finds the index of the next unset (false) bit in a bitmap, starting from a given index.
 static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t* bitstorage, register counter_t index) {
 
-    // Normal function
-    // do { index++; } while (bitstorage[wordindex(index)] & markmask(index));
-    // return index;
+    // Normal function - really fast for small offsets
+    do { index++; } while (bitstorage[wordindex(index)] & markmask(index));
+    return index;
+}
 
-    // Optimized function
+// Finds the index of the next unset (false) bit in a bitmap, starting from a given index.
+static inline counter_t __attribute__((always_inline)) searchBitFalse_largeRange(bitword_t* bitstorage, register counter_t index) {
+
+    // Optimized function -- faster for large ranges which are not common
 
     // Move to the next position after the starting index
     ++index;
@@ -98,7 +102,6 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t*
     // Note: ~current_word inverts the bits so we find first 0 instead of 1
     return index + builtin_ctz(~current_word);
 }
-
 // apply the same word mask at large ranges
 // manually unlooped - this here is where the main speed increase comes from
 // idea from PrimeRust/solution_1 by Michael Barber 
@@ -155,7 +158,7 @@ static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* 
     
     register const bitvector_t* restrict range_stop_ptr = &bitstorage[(range_stop_vector)];
     
-    for (counter_t i=4; i-- && likely(index_ptr < range_stop_ptr);  index_ptr += step) { // signal compiler that only <4 iterations are left
+    for (counter_t i=4; i-- && likely(index_ptr < range_stop_ptr); index_ptr += step) { // signal compiler that only <4 iterations are left
         *index_ptr |= mask; 
     }
 
@@ -609,54 +612,69 @@ static inline void __attribute__((always_inline)) continuePattern(bitword_t* bit
     else                            continuePattern_aligned   (bitstorage, source_start, size, destination_stop);
 }
 
-static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t maxprime)
+static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block_start, const counter_t block_stop, counter_t prime, const counter_t prime_max)
 {
-    counter_t prime = prime_start;
-    counter_t start = 0;
-    counter_t step  = prime * 2 + 1;
+    // counter_t prime = prime_start;
 
     verbose(3) printf("Block stripe for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop);
     
-    while ((prime < maxprime) && (prime * step <= block_stop)) {
-        if likely(block_start > prime)
+    while (prime < prime_max) {
+        counter_t step  = prime * 2 + 1;
+        counter_t start = prime * (step + 1);
+
+        // early exit when start is beyond block
+        if unlikely(start > block_stop) return prime;
+
+        // adjust start to begin within block
+        if likely(block_start > start) {
             start = (block_start + prime) + prime - ((block_start + prime) % step);
-        else
-            start = prime * step + prime; 
 
-        if unlikely(step < VECTORSTEP_FASTER)
+            // there might be higher primes that will align before block_stop
+            // early exit (optional; setbittrue does not set beyond block_stop)
+            if (start > block_stop) {
+                prime = searchBitFalse(bitstorage, prime);
+                continue; 
+            }
+        }
+
+        if unlikely(step < VECTORSTEP_FASTER) {
             setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);
-        else 
+            // prime = searchBitFalse_largeRange(bitstorage, prime);
+        }
+        else {
             setBitsTrue_largeRange(bitstorage, start, step, block_stop);
-
+            // prime = searchBitFalse_largeRange(bitstorage, prime);
+        }
         prime = searchBitFalse(bitstorage, prime);
-        step  = prime * 2 + 1;
     }
-    return prime - 1; // TODO: find out why -1 is needed
+    return prime; 
 }
 
 // structure to help sieve_block_extend report back to the main module
 struct block {
     counter_t pattern_size; // size of pattern applied 
     counter_t pattern_start; // start of pattern
-    counter_t prime; // next prime to be striped
+    counter_t prime_next; // next prime to be striped
 };
 
 // returns prime that could not be handled:
 // start is too large
 // range is too big
-static struct block sieve_block_extend(struct sieve_t *sieve, const counter_t block_start, const counter_t block_stop) 
+static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block_start, const counter_t block_stop) 
 {
     bitword_t* restrict bitstorage = sieve->bitstorage;
     register counter_t prime         = 0;
     counter_t patternsize_bits       = 1;
     counter_t pattern_start          = 0;
     counter_t range_stop             = block_start;
-    struct block block = { .prime = 0, .pattern_start = 0, .pattern_size = 0 };
+    struct block block = { .prime_next = 0, .pattern_start = 0, .pattern_size = 0 };
 
     sieve->bitstorage[wordindex(block_start)] = SAFE_ZERO; // only the first word has to be cleared; the rest is populated by the extension procedure
     
     for (;range_stop < block_stop;) {
         prime = searchBitFalse(bitstorage, prime);
+        block.prime_next = prime; // remember here so when we break or return, we don't have to search again
+
         counter_t start = (prime * prime * 2) + (prime * 2);
         if unlikely(start > block_stop) break;
 
@@ -677,37 +695,39 @@ static struct block sieve_block_extend(struct sieve_t *sieve, const counter_t bl
         if (step < MEDIUMSTEP_FASTER)      setBitsTrue_mediumStep(bitstorage, start, step, range_stop);
         else if (step < VECTORSTEP_FASTER) setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
         else                               setBitsTrue_largeRange(bitstorage, start, step, range_stop);
-        block.prime = prime;
     } 
-
-    return block;
-}
-
-/* This is the main module that directs all the work*/
-static struct sieve_t* sieve_shake(const counter_t maxFactor, const counter_t blocksize) 
-{
-    struct sieve_t *sieve = sieve_create(maxFactor);
-    bitword_t* bitstorage = sieve->bitstorage;
-
-    verbose(3) printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)maxFactor,(uintmax_t)blocksize);
-
-    // fill the whole sieve bij adding en copying incrementally
-    struct block block = sieve_block_extend(sieve, 0, sieve->bits);
 
     // continue the found pattern to the entire sieve
     continuePattern(bitstorage, block.pattern_start, block.pattern_size, sieve->bits);
+    return block.prime_next;
+}
+
+/* This is the main module that directs all the work
+   sieve_size in a real number that is the maximum in the sieve (not in bits)
+   block_size is in bits and determines how large the blocks are which are processed 
+*/
+static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t block_size) 
+{
+    struct sieve_t *sieve = sieve_create(sieve_size);
+    bitword_t* bitstorage = sieve->bitstorage;
+    const counter_t sieve_bits = sieve->bits;
+
+    verbose(3) printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size);
+
+    // fill the whole sieve bij adding en copying incrementally
+    counter_t prime_next = sieve_block_extend(sieve, 0, sieve_bits);
 
     // continue from the max prime that was processed in the pattern until the tuned value
-    counter_t startprime = block.prime;
-    if (startprime < BLOCKSTEP_FASTER) startprime = sieve_block_stripe(bitstorage, 0, sieve->bits, startprime, BLOCKSTEP_FASTER);
+    if (prime_next < BLOCKSTEP_FASTER) {
+        prime_next = sieve_block_stripe(bitstorage, 0, sieve_bits, prime_next, BLOCKSTEP_FASTER);
+    }
 
     // in the sieve all bits for the multiples of primes up to startprime have been set
     // process the sieve and stripe all the multiples of primes > start_prime
     // do this block by block to minimize cache misses
-    for (counter_t block_start = 0, block_stop = blocksize-1; block_start <= sieve->bits; block_start += blocksize, block_stop += blocksize) {
-        if unlikely(block_stop > sieve->bits) block_stop = sieve->bits;
-        counter_t prime = searchBitFalse(bitstorage, startprime); 
-        sieve_block_stripe(bitstorage, block_start, block_stop, prime, maxFactor);
+    counter_t prime_max = usqrt(sieve_size);
+    for (counter_t block_start = 0, block_stop = block_size-1; block_start <= sieve->bits; block_start += block_size, block_stop += block_size) {
+        sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime_next, prime_max);
     } 
 
     // return the completed sieve

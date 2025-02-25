@@ -227,3 +227,18 @@ static inline void printWord(bitword_t bitword)
 
     printf("%s", row);
 }
+
+unsigned int usqrt(int n)
+{
+    unsigned int x;
+    unsigned int xLast;
+
+    xLast = 0;
+    x = n / 2;
+
+    while (x != xLast) {
+        xLast = x;
+        x = (x + n / x) / 2;
+    }
+    return x;
+}
