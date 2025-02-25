@@ -683,33 +683,35 @@ struct block {
 static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block_start, const counter_t block_stop) 
 {
     bitword_t* restrict bitstorage = sieve->bitstorage;
-    register counter_t prime         = 0;
-    counter_t patternsize_bits       = 1;
-    counter_t pattern_start          = 0;
-    counter_t range_stop             = block_start;
-    struct block block = { .prime_next = 0, .pattern_start = 0, .pattern_size = 0 };
-
     sieve->bitstorage[wordindex(block_start)] = SAFE_ZERO; // only the first word has to be cleared; the rest is populated by the extension procedure
+
+    register counter_t prime         = 1;
+
+    counter_t step = prime * 2 + 1;
+    counter_t start = prime * (step + 1);
+    if unlikely(block_start > prime) start = (block_start + prime) + prime - ((block_start + prime) % step);
     
+    counter_t range_stop = block_start + step * 2;  // range is x2 so the second block cointains all multiples of primes
+    counter_t pattern_start          = 0;
+    counter_t patternsize_bits       = 3;
+    const counter_t sieve_bits = sieve->bits;
+
+    setBitsTrue_mediumStep(bitstorage, start, step, range_stop);
+
     for (;range_stop < block_stop;) {
         prime = searchBitFalse(bitstorage, prime);
-        block.prime_next = prime; // remember here so when we break or return, we don't have to search again
-
-        counter_t start = (prime * prime * 2) + (prime * 2);
-        if unlikely(start > block_stop) break;
 
         const counter_t step = prime * 2 + 1;
+        counter_t start = prime * (step + 1);
+        if unlikely(start > block_stop) break;
+
         if (block_start > prime) start = (block_start + prime) + prime - ((block_start + prime) % step);
 
         range_stop = block_start + patternsize_bits * step * 2;  // range is x2 so the second block cointains all multiples of primes
-        block.pattern_size = patternsize_bits;
-        block.pattern_start = pattern_start;
         if unlikely(range_stop > block_stop) break;
 
-        if likely(patternsize_bits>1) {
-            pattern_start = block_start | patternsize_bits;
-            continuePattern(bitstorage, pattern_start, patternsize_bits, range_stop);
-        }
+        pattern_start = block_start | patternsize_bits;
+        continuePattern(bitstorage, pattern_start, patternsize_bits, range_stop);
         patternsize_bits *= step;
 
         if (step < global_MEDIUMSTEP_FASTER)      setBitsTrue_mediumStep(bitstorage, start, step, range_stop);
@@ -718,8 +720,9 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
     } 
 
     // continue the found pattern to the entire sieve
-    continuePattern(bitstorage, block.pattern_start, block.pattern_size, sieve->bits);
-    return block.prime_next;
+    // continuePattern(bitstorage, block.pattern_start, block.pattern_size, sieve->bits);
+    continuePattern(bitstorage, pattern_start, patternsize_bits, sieve_bits);
+    return prime;
 }
 
 /* This is the main module that directs all the work
