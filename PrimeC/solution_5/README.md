@@ -85,6 +85,13 @@ Remember you can go in to the container like this:
 docker run -it --entrypoint /bin/bash c:latest
 ```
 
+if something is wrong with a .sh file: this might help:
+
+```bash
+sed -i 's/\r$//' run.sh
+sed -i 's/\r$//' compile.sh
+```
+
 ### Command line options
 ```bash
 Usage: ./sieve_extend [options] [maximum]

@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 
 RUN apt-get update && apt-get -y install build-essential \
     && apt-get clean \
@@ -7,6 +7,14 @@ RUN apt-get update && apt-get -y install build-essential \
 WORKDIR /home/primes
 
 COPY *.sh *.c *.h ./
+
+RUN chmod +x ./compile.sh
+
+RUN chmod +x ./run.sh
+
+RUN sed -i 's/\r$//' run.sh
+
+RUN sed -i 's/\r$//' compile.sh
 
 RUN ./compile.sh
 
