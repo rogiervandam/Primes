@@ -10,8 +10,8 @@
 
 // set this to the level of verbose messages that will be compiled
 #define compile_verboselevel default_verbose_level
-#define verbose(level)    if (level <= compile_verboselevel) if (option.verboselevel >= level) 
-#define verbose_at(level) if (level <= compile_verboselevel) if (option.verboselevel == level)
+#define verbose(level)    if (level <= compile_verboselevel) if (option.verboselevel >= level) if (!(option.verboselevel >= 3 && option.explain == 0)) 
+#define verbose_at(level) if (level <= compile_verboselevel) if (option.verboselevel == level) if (!(option.verboselevel >= 3 && option.explain == 0)) 
 
 // helper calc functions
 #define pow(base,pow)       (pow*((base>>pow)&1U))
@@ -135,24 +135,24 @@ void timerLapTime() {
 #define SHIFT_VECTORWORD          ((bitshift_t)(pow(VECTORWORD_SIZE,1)+pow(VECTORWORD_SIZE,2)+pow(VECTORWORD_SIZE,3)+pow(VECTORWORD_SIZE,4)+pow(VECTORWORD_SIZE,5)+pow(VECTORWORD_SIZE,6)+pow(VECTORWORD_SIZE,7)+pow(VECTORWORD_SIZE,8)+pow(VECTORWORD_SIZE,9)+pow(VECTORWORD_SIZE,10)))
 
 #define VECTOR_SIZE_bytes   (sizeof(bitword_vector_t)*VECTOR_ELEMENTS)
-#define VECTOR_SIZE_counter ((counter_t)VECTOR_SIZE_bytes*8)
 #define VECTOR_SIZE         (VECTOR_SIZE_bytes*8)
+#define VECTOR_SIZE_counter ((counter_t)VECTOR_SIZE_bytes*8)
 #define SHIFT_VECTOR        ((bitshift_t)(pow(VECTOR_SIZE,1)+pow(VECTOR_SIZE,2)+pow(VECTOR_SIZE,3)+pow(VECTOR_SIZE,4)+pow(VECTOR_SIZE,5)+pow(VECTOR_SIZE,6)+pow(VECTOR_SIZE,7)+pow(VECTOR_SIZE,8)+pow(VECTOR_SIZE,9)+pow(VECTOR_SIZE,10)))
 
 // types (II) - calculated
 typedef bitword_vector_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes))); 
 
 // globals for tuning
-// #define BLOCKSTEP_FASTER ((counter_t)0)
+// #define BLOCKWISE_FASTER_prime_min ((counter_t)0)
 // #define MEDIUMSTEP_FASTER ((counter_t)16)
 // #define VECTORSTEP_FASTER ((counter_t)0)
-static counter_t global_BLOCKSTEP_FASTER  =   0ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
+static counter_t global_BLOCKWISE_FASTER_prime_min  =   0ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
 static counter_t global_MEDIUMSTEP_FASTER =  16ULL; // if step < MEDIUMSTEP_FASTER, use medium steps
 static counter_t global_VECTORSTEP_FASTER = 128ULL; // if step < VECTORSTAP_FASTER, use large steps
 // static counter_t global_BLOCKSIZE_BITS = default_blocksize;
-#define BLOCKSTEP_FASTER     ((counter_t)global_BLOCKSTEP_FASTER)
-#define MEDIUMSTEP_FASTER    ((counter_t)global_MEDIUMSTEP_FASTER)
-#define VECTORSTEP_FASTER    ((counter_t)global_VECTORSTEP_FASTER)
+// #define BLOCKWISE_FASTER_prime_min     ((counter_t)global_BLOCKWISE_FASTER_prime_min)
+// #define MEDIUMSTEP_FASTER    ((counter_t)global_MEDIUMSTEP_FASTER)
+// #define VECTORSTEP_FASTER    ((counter_t)global_VECTORSTEP_FASTER)
 // #define BLOCKSIZE_BITS       ((counter_t)global_BLOCKSIZE_BITS)
 
 // Patterns based on types
