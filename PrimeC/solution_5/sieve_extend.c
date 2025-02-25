@@ -18,7 +18,7 @@
 #define default_explain_level           0
 #define default_verbose_level           1
 #define default_tune_level              1
-#define default_check_level             0
+#define default_check_level             1           // check the code, makes it faster?
 #define default_show_primes_on_error    100
 #define default_showMaxFactor           0
 #define anticiped_cache_line_bytesize   128
