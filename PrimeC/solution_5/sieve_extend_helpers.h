@@ -149,11 +149,11 @@ typedef bitword_vector_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_byt
 static counter_t global_BLOCKSTEP_FASTER  =   0ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
 static counter_t global_MEDIUMSTEP_FASTER =  16ULL; // if step < MEDIUMSTEP_FASTER, use medium steps
 static counter_t global_VECTORSTEP_FASTER = 128ULL; // if step < VECTORSTAP_FASTER, use large steps
-static counter_t global_BLOCKSIZE_BITS = default_blocksize;
+// static counter_t global_BLOCKSIZE_BITS = default_blocksize;
 #define BLOCKSTEP_FASTER     ((counter_t)global_BLOCKSTEP_FASTER)
 #define MEDIUMSTEP_FASTER    ((counter_t)global_MEDIUMSTEP_FASTER)
 #define VECTORSTEP_FASTER    ((counter_t)global_VECTORSTEP_FASTER)
-#define BLOCKSIZE_BITS       ((counter_t)global_BLOCKSIZE_BITS)
+// #define BLOCKSIZE_BITS       ((counter_t)global_BLOCKSIZE_BITS)
 
 // Patterns based on types
 #define SAFE_SHIFTBIT        (bitshift_t)1ULL
