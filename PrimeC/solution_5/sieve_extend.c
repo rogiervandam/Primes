@@ -71,32 +71,32 @@ static inline void __attribute__((always_inline)) sieve_delete(struct sieve_t *s
 // Finds the index of the next unset (false) bit in a bitmap, starting from a given index.
 static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t* bitstorage, register counter_t index) {
 
-    // Normal function
-    // do { index++; } while (bitstorage[wordindex(index)] & markmask(index));
-    // return index;
+    // Normal function - really fast for small offsets
+    do { index++; } while (bitstorage[wordindex(index)] & markmask(index));
+    return index;
 
-    // Optimized function
+    // Optimized function -- faster for large ranges which are not common
 
-    // Move to the next position after the starting index
-    ++index;
+    // // Move to the next position after the starting index
+    // ++index;
     
-    // Get the current word and bit position
-    register counter_t word_index = wordindex(index);
-    register counter_t bit_index  = bitindex_calc(index);
-    register bitword_t current_word = bitstorage[word_index];
+    // // Get the current word and bit position
+    // register counter_t word_index = wordindex(index);
+    // register counter_t bit_index  = bitindex_calc(index);
+    // register bitword_t current_word = bitstorage[word_index];
 
-    if likely(bit_index) 
-        current_word = (bitstorage[word_index] >> bit_index) | (bitstorage[word_index+1] << (WORD_SIZE_bitshift - bit_index));
+    // if likely(bit_index) 
+    //     current_word = (bitstorage[word_index] >> bit_index) | (bitstorage[word_index+1] << (WORD_SIZE_bitshift - bit_index));
 
-    while unlikely(current_word == SAFE_FILL) {
-        current_word = bitstorage[++word_index];
-        index += (WORD_SIZE_bitshift - bit_index);
-        bit_index = 0;
-    }
+    // while unlikely(current_word == SAFE_FILL) {
+    //     current_word = bitstorage[++word_index];
+    //     index += (WORD_SIZE_bitshift - bit_index);
+    //     bit_index = 0;
+    // }
 
-    // Find the first unset bit using builtin_ffs
-    // Note: ~current_word inverts the bits so we find first 0 instead of 1
-    return index + builtin_ctz(~current_word);
+    // // Find the first unset bit using builtin_ffs
+    // // Note: ~current_word inverts the bits so we find first 0 instead of 1
+    // return index + builtin_ctz(~current_word);
 }
 
 // apply the same word mask at large ranges
@@ -155,7 +155,7 @@ static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* 
     
     register const bitvector_t* restrict range_stop_ptr = &bitstorage[(range_stop_vector)];
     
-    for (counter_t i=4; i-- && likely(index_ptr < range_stop_ptr);  index_ptr += step) { // signal compiler that only <4 iterations are left
+    for (counter_t i=4; i-- && likely(index_ptr < range_stop_ptr); index_ptr += step) { // signal compiler that only <4 iterations are left
         *index_ptr |= mask; 
     }
 
