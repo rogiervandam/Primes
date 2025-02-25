@@ -612,34 +612,40 @@ static inline void __attribute__((always_inline)) continuePattern(bitword_t* bit
     else                            continuePattern_aligned   (bitstorage, source_start, size, destination_stop);
 }
 
-static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block_start, const counter_t block_stop, counter_t prime, const counter_t prime_max)
 {
-    counter_t prime = prime_start;
-    counter_t start = 0;
-    counter_t step  = prime * 2 + 1;
+    // counter_t prime = prime_start;
 
     verbose(3) printf("Block stripe for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop);
     
     while (prime < prime_max) {
-        start = prime * step + prime;
-        if (start > block_stop) break;
+        counter_t step  = prime * 2 + 1;
+        counter_t start = prime * (step + 1);
 
-        if likely(block_start > prime) {
+        // early exit when start is beyond block
+        if unlikely(start > block_stop) return prime;
+
+        // adjust start to begin within block
+        if likely(block_start > start) {
             start = (block_start + prime) + prime - ((block_start + prime) % step);
-            // if (start > block_stop) break; // TODO: examine why this doesn't work when enabled
+
+            // there might be higher primes that will align before block_stop
+            // early exit (optional; setbittrue does not set beyond block_stop)
+            if (start > block_stop) {
+                prime = searchBitFalse(bitstorage, prime);
+                continue; 
+            }
         }
 
         if unlikely(step < VECTORSTEP_FASTER) {
             setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);
-            prime = searchBitFalse(bitstorage, prime);
             // prime = searchBitFalse_largeRange(bitstorage, prime);
         }
         else {
             setBitsTrue_largeRange(bitstorage, start, step, block_stop);
-            prime = searchBitFalse(bitstorage, prime);
             // prime = searchBitFalse_largeRange(bitstorage, prime);
         }
-        step  = prime * 2 + 1;
+        prime = searchBitFalse(bitstorage, prime);
     }
     return prime; 
 }
