@@ -16,7 +16,8 @@
 #define default_maxTime                 5
 #define default_sample_duration         0.0002
 #define default_explain_level           0
-#define default_verbose_level           0
+#define compile_verbose_level           4
+#define default_verbose_level           1
 #define default_tune_level              1
 #define default_check_level             1           // check the code, makes it faster?
 #define default_show_primes_on_error    100
@@ -1009,6 +1010,7 @@ int main(int argc, char *argv[])
     option = setDefaultOptions();
     option = parseCommandLine(argc, argv, option);
     
+    verbose(1) printf("\n");
     verbose(2) {
         printf("\nRunning sieve algorithm by Rogier van Dam with the following target:\n");
         printf("Count all primes up to \033[1;33m%ju\033[0m using the sieve of Eratosthenes\n", (uintmax_t)option.maxFactor);
@@ -1057,9 +1059,9 @@ int main(int argc, char *argv[])
         if (option.blocksize_kB) benchmark_result.blocksize_bits = option.blocksize_kB*1024*8; // overrule all settings with user specified blocksize
 
         verbose(1) {
-            printf("Benchmarking... with blocksize %ju settings: %ju/%ju/%ju/%ju/%ju and %ju threads for %.1f seconds - Results: (wait %.1lf seconds)...\n", 
-                  (uintmax_t)benchmark_result.blocksize_bits,(uintmax_t)benchmark_result.blockstep_faster, (uintmax_t)benchmark_result.mediumstep_faster, (uintmax_t)benchmark_result.vectorstep_faster, 
-                  (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS,
+            printf("Benchmarking... with blocksize %ju settings: %ju/%ju/%ju/%ju/%ju (blockstep, mediumstep, vectorstep, wordsize, vector elements, blocksize) and %ju threads for %.1f seconds - Results: (wait %.1lf seconds)...\n", 
+                  (uintmax_t)benchmark_result.blockstep_faster, (uintmax_t)benchmark_result.mediumstep_faster, (uintmax_t)benchmark_result.vectorstep_faster, 
+                  (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS, (uintmax_t)benchmark_result.blocksize_bits,
                   (uintmax_t)threads, benchmark_result.sample_duration, benchmark_result.sample_duration );
             fflush(stdout);
         }
