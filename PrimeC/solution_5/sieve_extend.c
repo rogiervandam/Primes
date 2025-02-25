@@ -638,12 +638,12 @@ static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block
             }
         }
 
-        if unlikely(step < VECTORSTEP_FASTER) {
-            setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);
+        if unlikely(step < VECTORSTEP_FASTER) { 
+            setBitsTrue_largeRange(bitstorage, start, step, block_stop);
             // prime = searchBitFalse_largeRange(bitstorage, prime);
         }
-        else {
-            setBitsTrue_largeRange(bitstorage, start, step, block_stop);
+        else { 
+            setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);
             // prime = searchBitFalse_largeRange(bitstorage, prime);
         }
         prime = searchBitFalse(bitstorage, prime);
@@ -694,8 +694,8 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
         patternsize_bits *= step;
 
         if (step < MEDIUMSTEP_FASTER)      setBitsTrue_mediumStep(bitstorage, start, step, range_stop);
-        else if (step < VECTORSTEP_FASTER) setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
-        else                               setBitsTrue_largeRange(bitstorage, start, step, range_stop);
+        else if (step < VECTORSTEP_FASTER) setBitsTrue_largeRange(bitstorage, start, step, range_stop);
+        else                               setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
     } 
 
     // continue the found pattern to the entire sieve
