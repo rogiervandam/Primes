@@ -27,9 +27,9 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
     bitstorage[0] = SAFE_ZERO; // only the first word has to be cleared; the rest is populated by the extension procedure
 
     register counter_t prime         = 1;
-    counter_t step = prime * 2 + 1;
-    counter_t start = prime * (step + 1);
-    counter_t range_stop = step * 2;  // range is x2 so the second block cointains all multiples of primes
+    counter_t step                   = prime * 2 + 1;
+    counter_t start                  = prime * (step + 1);
+    counter_t range_stop             = step * 2;  // range is x2 so the second block cointains all multiples of primes
     counter_t pattern_start          = 0;
     counter_t patternsize_bits       = 3;
 

@@ -239,24 +239,25 @@ int main(int argc, char *argv[])
     for(counter_t threads=option.threads, runs = 0; threads >= 1 && runs < 2; threads = (threads>>1), runs++ ) {
 
         // prepare settings
-        benchmark_result_t benchmark_result = benchmarkInit(threads);
+//        benchmark_result_t benchmark_result = benchmarkInit(threads);
+        benchmark_settings_t benchmark_settings = benchmarkInit(threads, option.blocksize_kB);
 
         // tuning - try combinations of different settings and apply these
         if (option.tunelevel) { 
-            benchmark_result_t tuning_result = tune(option.tunelevel, option.maxFactor, threads, option.blocksize_kB);
-            setSettingsFromTuning(&benchmark_result, &tuning_result);
+            benchmark_result_t tuning_result = tune(option.tunelevel, benchmark_settings);
+            setSettingsFromTuning(&benchmark_settings, &(tuning_result.settings));
         }
 
         // encode settings for reporting
         char extension[50] = "";
         char extended_output[50] = "";
-        prepareSettingsForOutput(benchmark_result, extension, extended_output);
+        prepareSettingsForOutput(benchmark_settings, extension, extended_output);
         
         // one last check to make sure this is a valid algorithm for these settings
-        checkSieveWithBenchmarkSettings(benchmark_result);
+        checkSieveWithBenchmarkSettings(benchmark_settings);
 
         // perform benchmark -> outputs passes, elapsed time and avg in result 
-        benchmark(&benchmark_result);
+        benchmark_result_t benchmark_result = benchmark(benchmark_settings);
         verbose1(outputBenchmarkStats(benchmark_result, threads);)
 
         // report results
