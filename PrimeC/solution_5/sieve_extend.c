@@ -198,7 +198,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_mediumStep(bitwor
     verbose(4) timerLapStart();
 
     // fast exit for small ranges / large steps
-    if (range_start + step > range_stop) {
+    if unlikely(range_start + step > range_stop) {
         verbose(3) printf("Setting bits step %ju in %ju bit range (%ju-%ju) using mediumstep-nostep (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
         bitstorage[wordindex(range_start)] |= markmask(range_start);
         verbose(4) timerLapTime();
@@ -215,16 +215,16 @@ static inline void  __attribute__((always_inline)) setBitsTrue_mediumStep(bitwor
             for(counter_t index_word_start = wordstart(index); index_word_start == wordstart(index); index += step) mask |= markmask(index);
             bitstorage[index_word] |= mask;
         }
+        verbose(4) timerLapTime();
+        return;
     }
-    else { // this mask will reoccur at a interval of step words -> fill mask and reapply as an interval of step
-        verbose(3) printf("Setting bits step %ju in %ju bit range (%ju-%ju) using mediumstep-repeat (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
-        
-        for (register counter_t index = range_start; index <= range_stop_unique;) {
-            const counter_t index_word = wordindex(index);
-            register bitword_t mask = SAFE_ZERO;
-            for(counter_t index_word_start = wordstart(index); index_word_start == wordstart(index); index += step) mask |= markmask(index);
-            applyMask_word(bitstorage, step, range_stop, mask, index_word);
-        }
+
+    verbose(3) printf("Setting bits step %ju in %ju bit range (%ju-%ju) using mediumstep-repeat (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
+    for (register counter_t index = range_start; index <= range_stop_unique;) {
+        const counter_t index_word = wordindex(index);
+        register bitword_t mask = SAFE_ZERO;
+        for(counter_t index_word_start = wordstart(index); index_word_start == wordstart(index); index += step) mask |= markmask(index);
+        applyMask_word(bitstorage, step, range_stop, mask, index_word);
     }
     verbose(4) timerLapTime();
 }
@@ -593,7 +593,10 @@ static inline void __attribute__((always_inline)) continuePattern_shiftleft(bitw
     source_word += distance;
     copy_word += distance;
 
-    verbose(3) { counter_t fast_loop_stop_word = uintsafeminus(aligned_copy_word,2); printf("...start - %ju - end fastloop - %ju - start alignment - %ju - end", (uintmax_t)fast_loop_stop_word - (uintmax_t)wordindex(copy_start), (uintmax_t)aligned_copy_word - (uintmax_t)fast_loop_stop_word, (uintmax_t)destination_stop_word - (uintmax_t)aligned_copy_word); }
+    verbose(3) { 
+        counter_t fast_loop_stop_word = uintsafeminus(aligned_copy_word,2); 
+        printf("...start - %ju - end fastloop - %ju - start alignment - %ju - end", (uintmax_t)fast_loop_stop_word - (uintmax_t)wordindex(copy_start), (uintmax_t)aligned_copy_word - (uintmax_t)fast_loop_stop_word, (uintmax_t)destination_stop_word - (uintmax_t)aligned_copy_word); 
+    }
 
     for (;copy_word <= aligned_copy_word; copy_word++,source_word++) {
         bitstorage[copy_word] = (bitstorage[source_word  ] >> shift) | (bitstorage[source_word+1 ] << shift_flipped);
@@ -658,7 +661,12 @@ static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block
             }
         }
 
-        if unlikely(step < global_VECTORSTEP_FASTER) { // speed up setting bits using bitvector;
+        // set all multiples of prime in the block
+        if (step < global_MEDIUMSTEP_FASTER) {
+            setBitsTrue_mediumStep(bitstorage, start, step, block_stop);
+            prime = searchBitFalse(bitstorage, prime);
+        }
+        else if (step < global_VECTORSTEP_FASTER) { // speed up setting bits using bitvector;
             setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);
             prime = searchBitFalse(bitstorage, prime);
         }
@@ -671,11 +679,11 @@ static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block
 }
 
 // structure to help sieve_block_extend report back to the main module
-struct block {
-    counter_t pattern_size; // size of pattern applied 
-    counter_t pattern_start; // start of pattern
-    counter_t prime_next; // next prime to be striped
-};
+// struct block {
+//     counter_t pattern_size; // size of pattern applied 
+//     counter_t pattern_start; // start of pattern
+//     counter_t prime_next; // next prime to be striped
+// };
 
 // returns prime that could not be handled:
 // start is too large
@@ -683,7 +691,8 @@ struct block {
 static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block_start, const counter_t block_stop) 
 {
     bitword_t* restrict bitstorage = sieve->bitstorage;
-    sieve->bitstorage[wordindex(block_start)] = SAFE_ZERO; // only the first word has to be cleared; the rest is populated by the extension procedure
+    const counter_t sieve_bits = sieve->bits;
+    bitstorage[wordindex(block_start)] = SAFE_ZERO; // only the first word has to be cleared; the rest is populated by the extension procedure
 
     register counter_t prime         = 1;
 
@@ -694,7 +703,6 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
     counter_t range_stop = block_start + step * 2;  // range is x2 so the second block cointains all multiples of primes
     counter_t pattern_start          = 0;
     counter_t patternsize_bits       = 3;
-    const counter_t sieve_bits = sieve->bits;
 
     setBitsTrue_mediumStep(bitstorage, start, step, range_stop);
 
@@ -737,10 +745,11 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t b
 
     verbose(3) printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size);
 
-    // fill the whole sieve bij adding en copying incrementally
+    // fill the entire sieve for lower primes by adding en copying incrementally
     counter_t prime_next = sieve_block_extend(sieve, 0, sieve_bits);
 
-    // continue from the max prime that was processed in the pattern until the tuned value
+    // continue from the prime that was processed in the pattern until the tuned value for blockwise processing
+    // stripe off all the multiples of primes in the sieve
     if (prime_next < global_BLOCKWISE_FASTER_prime_min) {
         prime_next = sieve_block_stripe(bitstorage, 0, sieve_bits, prime_next, global_BLOCKWISE_FASTER_prime_min);
     }
