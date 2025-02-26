@@ -216,3 +216,53 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
     return option;
 }
 
+
+int main(int argc, char *argv[]) 
+{
+    verbose2( algorithmWelcome(); )
+    verbose1( printf("\n"); )
+
+    option = setDefaultOptions();
+    option = parseCommandLine(argc, argv, option);
+
+    #if compile_verbose_level >= 4
+    verbose4( if (option.explain>=1) {
+        explainSieveShake();
+        printf("Exit\n");
+        exit(0);
+    })
+    #endif
+
+    // command line --check can be used to check the algorithm for all sieve/blocksize combinations
+    if (option.check) checkSieveAlgorithm(); 
+
+    for(counter_t threads=option.threads, runs = 0; threads >= 1 && runs < 2; threads = (threads>>1), runs++ ) {
+
+        // prepare settings
+        benchmark_result_t benchmark_result = benchmarkInit(threads);
+
+        // tuning - try combinations of different settings and apply these
+        if (option.tunelevel) { 
+            benchmark_result_t tuning_result = tune(option.tunelevel, option.maxFactor, threads, option.blocksize_kB);
+            setSettingsFromTuning(&benchmark_result, &tuning_result);
+        }
+
+        // encode settings for reporting
+        char extension[50] = "";
+        char extended_output[50] = "";
+        prepareSettingsForOutput(benchmark_result, extension, extended_output);
+        
+        // one last check to make sure this is a valid algorithm for these settings
+        checkSieveWithBenchmarkSettings(benchmark_result);
+
+        // perform benchmark -> outputs passes, elapsed time and avg in result 
+        benchmark(&benchmark_result);
+        verbose1(outputBenchmarkStats(benchmark_result, threads);)
+
+        // report results
+        reportMessage(extension, extended_output, benchmark_result, threads);
+    }
+
+    // show results for --show command line option
+    if (option.showMaxFactor > 0) showResult();
+}

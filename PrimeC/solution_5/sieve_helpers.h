@@ -1,5 +1,10 @@
 // This file contains all helper functions
 
+// defaults
+#define compile_explain_level           0   // Set to 1 to enable compiling messages about the inner workings of the sieve for debugging
+#define compile_verbose_level           0   // Set to 1-4 to enable compiling different verbose levels
+#define anticiped_cache_line_bytesize   128 // How to align the caches
+
 //set compile_debuggable to 1 to enable explain plan
 #define compile_debuggable (0 || compile_explain_level)
 #if compile_debuggable
@@ -254,6 +259,15 @@ static counter_t global_VECTORSTEP_FASTER = 128ULL; // if step < VECTORSTAP_FAST
 #else
     #define builtin_ctz(x) __builtin_ctzl((int32_t)(x))
 #endif
+
+// structures
+struct sieve_t {
+  bitword_t* bitstorage;
+  counter_t  bits;
+  counter_t  size;
+};
+
+
 
 // used only for debugging
 static inline void printWord(bitword_t bitword)

@@ -122,3 +122,11 @@ static void checkSieveAlgorithm()
     }
     verbose1( printf("\033[0;32mvalid\033[0;0m algorithm\n"); )
 }
+
+static void showResult() {
+    printf("Show result set:\n");
+    struct sieve_t* sieve = sieve_shake(option.maxFactor, option.maxFactor);
+    show_primes(sieve, option.showMaxFactor);
+    sieve_delete(sieve);
+}
+
