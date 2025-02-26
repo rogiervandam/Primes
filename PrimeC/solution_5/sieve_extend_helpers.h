@@ -8,9 +8,50 @@
 #define debug if unlikely(0)
 #endif
 
+// #define verbose(level) do {} while (0)
+// #define verbose_at(level) do {} while (0)
+
 // set this to the level of verbose messages that will be compiled
-#define verbose(level)    if (level <= compile_verbose_level) if (option.verboselevel >= level) if (!(option.verboselevel >= 3 && option.explain == 0)) 
-#define verbose_at(level) if (level <= compile_verbose_level) if (option.verboselevel == level) if (!(option.verboselevel >= 3 && option.explain == 0)) 
+// #if compile_verbose_level > 0
+//     #undef verbose
+//     #undef verbose_at
+    #define verbose(level)    if (level <= compile_verbose_level) if (option.verboselevel >= level) if (!(option.verboselevel >= 3 && option.explain == 0)) 
+    #define verbose_at(level) if (level <= compile_verbose_level) if (option.verboselevel == level) if (!(option.verboselevel >= 3 && option.explain == 0)) 
+// #endif
+
+#define verbose1(statement)
+#define verbose2(statement)
+#define verbose3(statement)
+#define verbose4(statement)
+#define verbose1_at(statement)
+#define verbose2_at(statement)
+#define verbose3_at(statement)
+#define verbose4_at(statement)
+
+#if compile_verbose_level <= 1
+  #undef verbose1
+  #define verbose1(statement) if (option.verboselevel >= 1) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
+  #undef verbose1_at
+  #define verbose1_at(statement) if (option.verboselevel == 1) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
+#endif
+#if compile_verbose_level <= 2
+  #undef verbose2
+  #define verbose2(statement) if (option.verboselevel >= 2) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
+  #undef verbose2_at
+  #define verbose2_at(statement) if (option.verboselevel == 2) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
+#endif
+#if compile_verbose_level <= 3
+  #undef verbose3
+  #define verbose3(statement) if (option.verboselevel >= 3) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
+  #undef verbose3_at
+  #define verbose3_at(statement) if (option.verboselevel == 3) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
+#endif
+#if compile_verbose_level <= 4
+  #undef verbose4
+  #define verbose4(statement) if (option.verboselevel >= 4) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
+  #undef verbose4_at
+  #define verbose4_at(statement) if (option.verboselevel == 4) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
+#endif
 
 // helper calc functions
 #define pow(base,pow)       (pow*((base>>pow)&1U))

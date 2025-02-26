@@ -106,12 +106,12 @@ static benchmark_result_t tune(int tune_level, counter_t maxFactor, counter_t th
             break;
     }
     
-    verbose(1) { 
-        verbose(2) printf("\n");
+    verbose1( { 
+        verbose2( printf("\n"); )
         printf("Tuning... compiled for %ju/%ju (word, vector)", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
-        verbose(2) printf(".. best options (shown when found):\n");
+        verbose2( printf(".. best options (shown when found):\n"); )
         fflush(stdout);
-    }
+    })
     counter_t prime_max = usqrt(maxFactor);
 
     const size_t max_results = ((prime_max)) * ((size_t)(WORD_SIZE_counter/mediumstep_faster_steps)+1) * ((size_t)(VECTOR_SIZE_counter/vectorstep_faster_steps)+1) * 32 * (size_t)(anticiped_cache_line_bytesize*8*4/freebits_steps);
@@ -152,11 +152,11 @@ static benchmark_result_t tune(int tune_level, counter_t maxFactor, counter_t th
                             best_BLOCKWISE_FASTER_prime_min = BLOCKWISE_FASTER_prime_min;
                             best_mediumstep_faster = mediumstep_faster;
                             best_vectorstep_faster = vectorstep_faster;
-                            verbose(2) { printf(".(<)"); tuning_result_print(tuning_result[tuning_result_index]); fflush(stdout); }
+                            verbose2( { printf(".(<)"); tuning_result_print(tuning_result[tuning_result_index]); fflush(stdout); } )
                         }
-                        verbose(3) { printf("...."); tuning_result_print(tuning_result[tuning_result_index]); }
+                        verbose3( { printf("...."); tuning_result_print(tuning_result[tuning_result_index]); } )
                         tuning_result_index++;
-                        verbose_at(1) { printf("\rTuning...tuning %ju options..in %lf seconds  ",(uintmax_t)tuning_results, (double)tuning_results*sample_duration ); fflush(stdout); }
+                        verbose1_at( { printf("\rTuning...tuning %ju options..in %lf seconds  ",(uintmax_t)tuning_results, (double)tuning_results*sample_duration ); fflush(stdout); } )
                         if (option_blocksize_kB) break;
                     }
                     if (option_blocksize_kB) break;
@@ -167,31 +167,31 @@ static benchmark_result_t tune(int tune_level, counter_t maxFactor, counter_t th
         }
         if (option.BLOCKWISE_FASTER_prime_min) break;
     }
-    verbose_at(1) { printf("\rTuning...tuned %ju options..",(uintmax_t)tuning_results); }
-    verbose(2) {
+    verbose1_at( { printf("\rTuning...tuned %ju options..",(uintmax_t)tuning_results); } )
+    verbose2( {
         printf("Finished scan of \033[1;33m%ju\033[0m options. Inital best blocksize: %ju; best blockstep %ju; best mediumstep %ju; best vectorstep %ju\n",(uintmax_t)tuning_results,(uintmax_t)best_blocksize_bits, (uintmax_t)best_BLOCKWISE_FASTER_prime_min,(uintmax_t)best_mediumstep_faster, (uintmax_t)best_vectorstep_faster);
         printf("Finding the best option by reevaluating the top options with a longer sample duration.\n");
-    }
+    })
 
     counter_t tuning_results_max = tuning_results; // keep this value for verbose messages
     for (counter_t step=0; tuning_results>4; step++) {
         qsort(tuning_result, (size_t)tuning_results, sizeof(benchmark_result_t), compare_tuning_result);
-        verbose(2) {
+        verbose2( {
             printf("\n");
             printf("\r(iteration %1ju) - %ju results left - selecting %ju\n",(uintmax_t)step, (uintmax_t)tuning_results,(uintmax_t)tuning_results/4) ; tuning_result_print(tuning_result[0]); fflush(stdout);
-            verbose(2) {
+            verbose2( {
                 for (tuning_result_index=0; tuning_result_index<min(10,tuning_results); tuning_result_index++) {
                     printf("..."); tuning_result_print(tuning_result[tuning_result_index]);
                 }
-            }
-        }
+            })
+        })
 
         tuning_results = tuning_results / 4;
         sample_duration *= 4;
 
         for (counter_t i=0; i<tuning_results; i++) {
             tuning_result[i].sample_duration = sample_duration;
-            verbose(1) { printf("\rTuning...found %ju options..benchmarking step %ju - tuning %3ju options in %lf seconds",(uintmax_t)tuning_results_max,(uintmax_t)step, (uintmax_t)i, (double)tuning_results*sample_duration); fflush(stdout); }
+            verbose1( { printf("\rTuning...found %ju options..benchmarking step %ju - tuning %3ju options in %lf seconds",(uintmax_t)tuning_results_max,(uintmax_t)step, (uintmax_t)i, (double)tuning_results*sample_duration); fflush(stdout); })
             benchmark(&tuning_result[i]);
         }
     }
@@ -199,9 +199,9 @@ static benchmark_result_t tune(int tune_level, counter_t maxFactor, counter_t th
     // take best result
     benchmark_result_t best_result = tuning_result[0];
     free(tuning_result);
-    verbose(1) {
+    verbose1( {
         printf("\33[2K\r");
-        verbose(2) { printf("Best result:  "); tuning_result_print(best_result); printf("\n"); }
-    }
+        verbose2( { printf("Best result:  "); tuning_result_print(best_result); printf("\n"); } )
+    })
     return best_result;
 }
