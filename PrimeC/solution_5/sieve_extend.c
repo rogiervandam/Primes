@@ -44,6 +44,12 @@ static inline struct sieve_t * __attribute__((always_inline)) sieve_create(count
     return sieve;
 }
 
+static inline void __attribute__((always_inline)) sieve_clear(struct sieve_t *sieve) 
+{
+    for (counter_t index_word = 0; index_word <= wordindex(sieve->bits); index_word++) sieve->bitstorage[index_word] = SAFE_ZERO;
+}
+
+
 static inline void __attribute__((always_inline)) sieve_delete(struct sieve_t *sieve) 
 {
     free(sieve);
@@ -654,15 +660,14 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
 {
     bitword_t* restrict bitstorage = sieve->bitstorage;
     const counter_t sieve_bits = sieve->bits;
-    bitstorage[wordindex(block_start)] = SAFE_ZERO; // only the first word has to be cleared; the rest is populated by the extension procedure
+    bitstorage[0] = SAFE_ZERO; // only the first word has to be cleared; the rest is populated by the extension procedure
 
     register counter_t prime         = 1;
 
     counter_t step = prime * 2 + 1;
     counter_t start = prime * (step + 1);
-    if unlikely(block_start > prime) start = (block_start + prime) + prime - ((block_start + prime) % step);
     
-    counter_t range_stop = block_start + step * 2;  // range is x2 so the second block cointains all multiples of primes
+    counter_t range_stop = step * 2;  // range is x2 so the second block cointains all multiples of primes
     counter_t pattern_start          = 0;
     counter_t patternsize_bits       = 3;
 
@@ -675,12 +680,12 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
         counter_t start = prime * (step + 1);
         if unlikely(start > block_stop) break;
 
-        if (block_start > prime) start = (block_start + prime) + prime - ((block_start + prime) % step);
+        // if (block_start > prime) start = (block_start + prime) + prime - ((block_start + prime) % step);
 
-        range_stop = block_start + patternsize_bits * step * 2;  // range is x2 so the second block cointains all multiples of primes
+        range_stop = patternsize_bits * step * 2;  // range is x2 so the second block cointains all multiples of primes
         if unlikely(range_stop > block_stop) break;
 
-        pattern_start = block_start | patternsize_bits;
+        pattern_start = patternsize_bits;
         continuePattern(bitstorage, pattern_start, patternsize_bits, range_stop);
         patternsize_bits *= step;
 
@@ -707,9 +712,15 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t b
 
     verbose3(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size); )
 
-    // fill the entire sieve for lower primes by adding en copying incrementally
-    counter_t prime_next = sieve_block_extend(sieve, 0, sieve_bits);
+    // code for algorithm = base
+    sieve_clear(sieve);
+    counter_t prime_next = 1;
+    //
 
+    // code for algorithm = other
+    // fill the entire sieve for lower primes by adding en copying incrementally
+    // counter_t prime_next = sieve_block_extend(sieve, 0, sieve_bits);
+    
     // continue from the prime that was processed in the pattern until the tuned value for blockwise processing
     // stripe off all the multiples of primes in the sieve
     if (prime_next < global_smallprime_faster) {
