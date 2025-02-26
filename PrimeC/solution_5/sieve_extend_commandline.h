@@ -5,7 +5,7 @@ static void usage(char *name)
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  --check                   Check the correctness of the algorithm\n");
     fprintf(stderr, "  --nocheck                 Skip check of the correctness of the algorithm\n");
-    #if compile_debuggable
+    #if compile_verbose_level >= 4
     fprintf(stderr, "  --explain                 Explain the steps of the algorithm - only when compiled for debug\n");
     #endif
     fprintf(stderr, "  --help                    This help function\n");
@@ -83,12 +83,12 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             if ((option.blocksize_kB*1024*8) > (sieve_bits)) option.blocksize_kB = (sieve_bits / (1024*8))+1;
             verbose(1) printf("Blocksize set to %ju kB\n",(uintmax_t)option.blocksize_kB);
         } 
-        else if (strcmp(argv[arg], "--set_blockwise")==0) { option.BLOCKWISE_FASTER_prime_min=0;
+        else if (strcmp(argv[arg], "--set_blockwise")==0) { option.smallprime_faster=0;
             if (++arg >= argc) { fprintf(stderr, "No blockwise number specified\n"); usage(argv[0]); }
-            if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.BLOCKWISE_FASTER_prime_min) != 1 ) {
+            if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.smallprime_faster) != 1 ) {
                 fprintf(stderr, "Error: Invalid blockwise setting: %s\n", argv[arg]); usage(argv[0]);
             }
-            verbose(1) printf("Blockwise set to %ju\n",(uintmax_t)option.BLOCKWISE_FASTER_prime_min);
+            verbose(1) printf("Blockwise set to %ju\n",(uintmax_t)option.smallprime_faster);
         }
         else if (strcmp(argv[arg], "--set_mediumstep")==0) { option.mediumStep=0;
             if (++arg >= argc) { fprintf(stderr, "No mediumstep number specified\n"); usage(argv[0]); }
@@ -111,7 +111,7 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             }
             
             uintmax_t blocksize = option.blocksize_kB;             // Initialize with current values
-            uintmax_t blockwise = option.BLOCKWISE_FASTER_prime_min;
+            uintmax_t blockwise = option.smallprime_faster;
             uintmax_t mediumstep = option.mediumStep;
             uintmax_t vectorstep = option.vectorStep;
             
@@ -177,13 +177,13 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             counter_t sieve_bits = option.maxFactor >> 1;
             if ((option.blocksize_kB*1024*8) > (sieve_bits)) option.blocksize_kB = (sieve_bits / (1024*8))+1;
             
-            option.BLOCKWISE_FASTER_prime_min = blockwise;
+            option.smallprime_faster = blockwise;
             option.mediumStep = mediumstep;
             option.vectorStep = vectorstep;
             
             verbose(1) printf("Settings: blocksize=%ju kB, blockwise=%ju, mediumstep=%ju, vectorstep=%ju\n", 
                 (uintmax_t)option.blocksize_kB,
-                (uintmax_t)option.BLOCKWISE_FASTER_prime_min,
+                (uintmax_t)option.smallprime_faster,
                 (uintmax_t)option.mediumStep,
                 (uintmax_t)option.vectorStep);
         }

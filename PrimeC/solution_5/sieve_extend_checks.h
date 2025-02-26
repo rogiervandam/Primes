@@ -60,16 +60,16 @@ static int validatePrimeCount(struct sieve_t *sieve)
     }
 
     int valid = (valid_primes == primecount);
-    verbose(4) if (valid) printf("Result: Sievesize %ju is expected to have %ju primes. algorithm produced %ju primes\n",(uintmax_t)sieve->size,(uintmax_t)valid_primes,(uintmax_t)primecount );
-    verbose(1) if (!valid) {
+    verbose4( if (valid) printf("Result: Sievesize %ju is expected to have %ju primes. algorithm produced %ju primes\n",(uintmax_t)sieve->size,(uintmax_t)valid_primes,(uintmax_t)primecount ); )
+    verbose1( if (!valid) {
         printf("No valid result. Sievesize %ju was expected to have %ju primes, but algorithm produced %ju primes\n",(uintmax_t)sieve->size,(uintmax_t)valid_primes,(uintmax_t)primecount );
-        verbose(2) show_primes(sieve, option.show_primes_on_error);
-        verbose(2) deepAnalyzePrimes(sieve);
-    }
+        verbose2( show_primes(sieve, option.show_primes_on_error); )
+        verbose2( deepAnalyzePrimes(sieve); )
+    })
     return (valid);
 }
 
-#if compile_debuggable
+#if compile_verbose_level >= 4
 static void explainSieveShake() 
 {
     // warm up
@@ -81,33 +81,31 @@ static void explainSieveShake()
     // }    
     // option.explain = org_option_explain;
 
-    struct sieve_t* sieve = sieve_shake(option.maxFactor, default_blocksize);
+    struct sieve_t* sieve = sieve_shake(option.maxFactor, option.blocksize_bits);
     printf("\nResult set:\n");
     show_primes(sieve, min(option.showMaxFactor,100));
     int valid = validatePrimeCount(sieve);
     if (!valid) printf("The sieve is \033[0;31m\033[5mNOT\033[0;0m valid...\n");
     else printf("The sieve is \033[0;mVALID\033[0;0m\n");
     sieve_delete(sieve);
-    printf("Exit\n");
-    exit(0);
 }
 #endif
 
 static void checkSieveAlgorithm()
 {
-    verbose(1) { 
-        printf("Validating..."); 
-        verbose(2) printf("\n");
+    verbose1( { 
+        printf("Validating variantu%juv%ju... ", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
+        verbose2( printf("\n");)
         fflush(stdout); 
-    }
+    })
 
     // validate algorithm - run one time for all sizes
     for (counter_t sieveSize_check = 100; sieveSize_check <= 100000000; sieveSize_check *=10) {
-        verbose(2) {
+        verbose2( {
             printf("..Checking size %ju ...",(uintmax_t)sieveSize_check); 
             verbose(3) printf("\n");
             fflush(stdout); 
-        }
+        })
         struct sieve_t *sieve_check;
         for (counter_t blocksize_bits=1024; blocksize_bits<=256*1024*8; blocksize_bits *= 2) {
             verbose(3) printf("....Blocksize %ju:",(uintmax_t)blocksize_bits);
@@ -115,12 +113,12 @@ static void checkSieveAlgorithm()
             int valid = validatePrimeCount(sieve_check);
             sieve_delete(sieve_check);
             if (!valid) {
-                fprintf(stderr,"Invalid count for %ju Settings used: blocksize %ju, %ju/%ju/%ju/%ju/%ju\n",(uintmax_t)sieveSize_check,(uintmax_t)blocksize_bits,(uintmax_t)global_BLOCKWISE_FASTER_prime_min,(uintmax_t)global_MEDIUMSTEP_FASTER,(uintmax_t)global_VECTORSTEP_FASTER,(uintmax_t)WORD_SIZE_counter,(uintmax_t)VECTOR_ELEMENTS);
+                fprintf(stderr,"Invalid count for %ju Settings used: blocksize %ju, %ju/%ju/%ju/%ju/%ju\n",(uintmax_t)sieveSize_check,(uintmax_t)blocksize_bits,(uintmax_t)global_smallprime_faster,(uintmax_t)global_MEDIUMSTEP_FASTER,(uintmax_t)global_VECTORSTEP_FASTER,(uintmax_t)WORD_SIZE_counter,(uintmax_t)VECTOR_ELEMENTS);
                 exit(1); 
             }
             else verbose(3) printf("\033[0;32mvalid\033[0;0m\n");
         }
-        verbose(2) printf("\033[0;32mvalid\033[0;0m\n");
+        verbose2( printf("\033[0;32mvalid\033[0;0m\n"); )
     }
-    verbose(1) printf("\033[0;32mvalid\033[0;0m algorithm\n");
+    verbose1( printf("\033[0;32mvalid\033[0;0m algorithm\n"); )
 }

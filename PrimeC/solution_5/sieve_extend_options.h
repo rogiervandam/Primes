@@ -12,7 +12,7 @@ static struct options_t {
     int       extended_output;
     int       show_primes_on_error;
     double    sample_duration;
-    counter_t BLOCKWISE_FASTER_prime_min;
+    counter_t smallprime_faster;
     counter_t mediumStep;
     counter_t vectorStep;
 } option;
@@ -23,14 +23,17 @@ static struct options_t setDefaultOptions() {
     option.blocksize_kB    = 0; // this is what the user entered
     option.blocksize_bits  = (32*1024*8);
     option.showMaxFactor   = 0;
-    option.explain         = 0;
     option.verboselevel    = 1;
-    option.tunelevel       = 1;
+    option.explain         = 0;
     option.check           = 1;
+    option.tunelevel       = 1;
     option.sample_duration = 0.0004;
     option.extended_output = 1;
     option.threads         = 1;
     option.show_primes_on_error = 100;
+    option.smallprime_faster = 0;
+    option.mediumStep        = 0;
+    option.vectorStep        = 0;
     #ifdef _OPENMP
     option.threads = omp_get_max_threads();
     #endif

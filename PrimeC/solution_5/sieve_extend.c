@@ -13,7 +13,7 @@
 
 // defaults
 #define compile_explain_level           0   // Set to 1 to enable compiling messages about the inner workings of the sieve for debugging
-#define compile_verbose_level           1   // Set to 1-4 to enable compiling different verbose levels
+#define compile_verbose_level           0   // Set to 1-4 to enable compiling different verbose levels
 #define anticiped_cache_line_bytesize   128 // How to align the caches
 
 // include helper functions
@@ -712,8 +712,8 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t b
 
     // continue from the prime that was processed in the pattern until the tuned value for blockwise processing
     // stripe off all the multiples of primes in the sieve
-    if (prime_next < global_BLOCKWISE_FASTER_prime_min) {
-        prime_next = sieve_block_stripe(bitstorage, 0, sieve_bits, prime_next, global_BLOCKWISE_FASTER_prime_min);
+    if (prime_next < global_smallprime_faster) {
+        prime_next = sieve_block_stripe(bitstorage, 0, sieve_bits, prime_next, global_smallprime_faster);
     }
 
     // in the sieve all bits for the multiples of primes up to startprime have been set
@@ -742,22 +742,26 @@ int main(int argc, char *argv[])
     option = setDefaultOptions();
     option = parseCommandLine(argc, argv, option);
 
-    #if compile_debuggable
-    if (option.explain>=1) explainSieveShake();
+    #if compile_verbose_level >= 4
+    verbose4( if (option.explain>=1) {
+        explainSieveShake();
+        printf("Exit\n");
+        exit(0);
+    })
     #endif
-    
+
     // command line --check can be used to check the algorithm for all sieve/blocksize combinations
     if (option.check) checkSieveAlgorithm(); 
 
     benchmark_result_t benchmark_result;
     benchmark_result.sample_duration   = option.maxTime;
     benchmark_result.blocksize_bits    = option.blocksize_bits;
-    benchmark_result.BLOCKWISE_FASTER_prime_min  = option.BLOCKWISE_FASTER_prime_min;
+    benchmark_result.smallprime_faster = option.smallprime_faster;
     benchmark_result.mediumstep_faster = option.mediumStep;
     benchmark_result.vectorstep_faster = option.vectorStep; 
     benchmark_result.maxFactor         = option.maxFactor;
 
-    option.explain = 0; // always turn of explain before benchmarking.
+    option.explain = 0; // always turn off explain before benchmarking.
 
     counter_t runs = 0;
     for(counter_t threads=option.threads; threads >= 1 && runs < 2; threads = (threads>>1), runs++ ) {
@@ -768,7 +772,7 @@ int main(int argc, char *argv[])
         // tuning - try combinations of different settings and apply these
         if (option.tunelevel) { 
             benchmark_result_t tuning_result = tune(option.tunelevel, option.maxFactor, threads, option.blocksize_kB);
-            benchmark_result.BLOCKWISE_FASTER_prime_min  = tuning_result.BLOCKWISE_FASTER_prime_min;
+            benchmark_result.smallprime_faster  = tuning_result.smallprime_faster;
             benchmark_result.mediumstep_faster = tuning_result.mediumstep_faster;
             benchmark_result.vectorstep_faster = tuning_result.vectorstep_faster;
             benchmark_result.blocksize_bits    = tuning_result.blocksize_bits;
@@ -785,11 +789,11 @@ int main(int argc, char *argv[])
             sprintf(extension,"-u%juv%jub%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS, (uintmax_t)benchmark_result.blocksize_bits/1024/8);
 
         if (option.extended_output) {
-            sprintf(extended_output,"-s%jum%juv%ju", (uintmax_t) benchmark_result.BLOCKWISE_FASTER_prime_min,(uintmax_t)benchmark_result.mediumstep_faster, (uintmax_t)benchmark_result.vectorstep_faster);
+            sprintf(extended_output,"-s%jum%juv%ju", (uintmax_t) benchmark_result.smallprime_faster,(uintmax_t)benchmark_result.mediumstep_faster, (uintmax_t)benchmark_result.vectorstep_faster);
         }
 
         verbose1( { printf("Benchmarking... with settings: %ju/%ju/%ju/%ju/%ju/%ju (blockstep, mediumstep, vectorstep, wordsize, vector elements, blocksize) and %ju threads for %.1f seconds - Results: (wait %.1lf seconds)...\n", 
-                  (uintmax_t)benchmark_result.BLOCKWISE_FASTER_prime_min, (uintmax_t)benchmark_result.mediumstep_faster, (uintmax_t)benchmark_result.vectorstep_faster, 
+                  (uintmax_t)benchmark_result.smallprime_faster, (uintmax_t)benchmark_result.mediumstep_faster, (uintmax_t)benchmark_result.vectorstep_faster, 
                   (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS, (uintmax_t)benchmark_result.blocksize_bits,
                   (uintmax_t)threads, benchmark_result.sample_duration, benchmark_result.sample_duration );
             fflush(stdout);

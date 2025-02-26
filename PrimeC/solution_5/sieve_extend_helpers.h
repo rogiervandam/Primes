@@ -28,25 +28,25 @@
 #define verbose3_at(statement)
 #define verbose4_at(statement)
 
-#if compile_verbose_level <= 1
+#if compile_verbose_level >= 1
   #undef verbose1
   #define verbose1(statement) if (option.verboselevel >= 1) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
   #undef verbose1_at
   #define verbose1_at(statement) if (option.verboselevel == 1) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
 #endif
-#if compile_verbose_level <= 2
+#if compile_verbose_level >= 2
   #undef verbose2
   #define verbose2(statement) if (option.verboselevel >= 2) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
   #undef verbose2_at
   #define verbose2_at(statement) if (option.verboselevel == 2) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
 #endif
-#if compile_verbose_level <= 3
+#if compile_verbose_level >= 3
   #undef verbose3
   #define verbose3(statement) if (option.verboselevel >= 3) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
   #undef verbose3_at
   #define verbose3_at(statement) if (option.verboselevel == 3) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
 #endif
-#if compile_verbose_level <= 4
+#if compile_verbose_level >= 4
   #undef verbose4
   #define verbose4(statement) if (option.verboselevel >= 4) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
   #undef verbose4_at
@@ -183,14 +183,14 @@ void timerLapTime() {
 typedef bitword_vector_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes))); 
 
 // globals for tuning
-// #define BLOCKWISE_FASTER_prime_min ((counter_t)0)
+// #define smallprime_faster ((counter_t)0)
 // #define MEDIUMSTEP_FASTER ((counter_t)16)
 // #define VECTORSTEP_FASTER ((counter_t)0)
-static counter_t global_BLOCKWISE_FASTER_prime_min  =   0ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
+static counter_t global_smallprime_faster  =   0ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
 static counter_t global_MEDIUMSTEP_FASTER =  16ULL; // if step < MEDIUMSTEP_FASTER, use medium steps
 static counter_t global_VECTORSTEP_FASTER = 128ULL; // if step < VECTORSTAP_FASTER, use large steps
 // static counter_t global_BLOCKSIZE_BITS = default_blocksize;
-// #define BLOCKWISE_FASTER_prime_min     ((counter_t)global_BLOCKWISE_FASTER_prime_min)
+// #define smallprime_faster     ((counter_t)global_smallprime_faster)
 // #define MEDIUMSTEP_FASTER    ((counter_t)global_MEDIUMSTEP_FASTER)
 // #define VECTORSTEP_FASTER    ((counter_t)global_VECTORSTEP_FASTER)
 // #define BLOCKSIZE_BITS       ((counter_t)global_BLOCKSIZE_BITS)
