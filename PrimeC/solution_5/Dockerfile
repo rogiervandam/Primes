@@ -8,13 +8,9 @@ WORKDIR /home/primes
 
 COPY *.sh *.c *.h ./
 
-RUN chmod +x ./compile.sh
+RUN chmod +x ./*.sh
 
-RUN chmod +x ./run.sh
-
-RUN sed -i 's/\r$//' run.sh
-
-RUN sed -i 's/\r$//' compile.sh
+RUN sed -i 's/\r$//' *.sh
 
 RUN ./compile.sh
 
