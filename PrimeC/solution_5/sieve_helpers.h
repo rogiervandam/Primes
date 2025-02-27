@@ -1,7 +1,7 @@
 // This file contains all helper functions
 
 // defaults
-#define compile_verbose_level           1   // Set to 1-4 to enable compiling different verbose levels
+#define compile_verbose_level           2   // Set to 1-4 to enable compiling different verbose levels
 #define anticiped_cache_line_bytesize   128 // How to align the caches
 
 

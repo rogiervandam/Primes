@@ -3,6 +3,7 @@
         "complex": "cpp",
         "sieve_helpers.h": "c",
         "sieve_checks.h": "c",
-        "sieve_extend_continuepattern.h": "c"
+        "sieve_extend_continuepattern.h": "c",
+        "sieve_benchmark.h": "c"
     }
 }
