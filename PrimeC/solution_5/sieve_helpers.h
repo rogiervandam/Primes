@@ -2,7 +2,7 @@
 
 // defaults
 #define compile_verbose_level           2   // Set to 1-4 to enable compiling different verbose levels
-#define anticiped_cache_line_bytesize   128 // How to align the caches
+#define anticiped_cache_line_bytesize   64 // How to align the caches
 
 
 //set compile_debuggable to 1 to enable explain plan
@@ -244,13 +244,18 @@ static counter_t global_vectorstep_faster = 128ULL; // if step < VECTORSTAP_FAST
     #define builtin_ctz(x) __builtin_ctzl((int32_t)(x))
 #endif
 
-// structures
-struct sieve_t {
-  bitword_t* bitstorage;
-  counter_t  bits;
-  counter_t  size;
-};
+// // structures
+// struct sieve_t {
+//   bitword_t* bitstorage;
+//   counter_t  bits;
+//   counter_t  size;
+// };
 
+struct sieve_t {
+  bitword_t* bitstorage __attribute__((aligned(anticiped_cache_line_bytesize)));  // Align to cache line
+  counter_t bits;
+  counter_t size;
+} __attribute__((aligned(anticiped_cache_line_bytesize)));  // Align the whole structure
 
 
 // used only for debugging

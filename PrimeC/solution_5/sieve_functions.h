@@ -4,13 +4,47 @@
 // - moved clearing the sieve with 0 to the sieve_block_extend - it gave weird malloc problems at this point
 // - switched to one malloc for the sieve, instead of one for the sieve and one for the storage
 // - bitstorage will be aligned on the anticiped_cache_line_bytesize
+// static inline struct sieve_t * __attribute__((always_inline)) sieve_create(counter_t size) 
+// {
+//     struct sieve_t *sieve = malloc(((sizeof(struct sieve_t) + (size_t)(size>>1))|(anticiped_cache_line_bytesize-1))+1+anticiped_cache_line_bytesize);
+//     sieve->bitstorage     = __builtin_assume_aligned((void *) (( (uintptr_t) (sieve + sizeof(struct sieve_t))|(anticiped_cache_line_bytesize-1))+1),anticiped_cache_line_bytesize);
+//     sieve->bits           = size >> 1;
+//     sieve->size           = size;
+
+//     return sieve;
+// }
+
 static inline struct sieve_t * __attribute__((always_inline)) sieve_create(counter_t size) 
 {
-    struct sieve_t *sieve = malloc(((sizeof(struct sieve_t) + (size_t)(size>>1))|(anticiped_cache_line_bytesize-1))+1+anticiped_cache_line_bytesize);
-    sieve->bitstorage     = __builtin_assume_aligned((void *) (( (uintptr_t) (sieve + sizeof(struct sieve_t))|(anticiped_cache_line_bytesize-1))+1),anticiped_cache_line_bytesize);
-    sieve->bits           = size >> 1;
-    sieve->size           = size;
-
+    struct sieve_t *sieve;
+    // Calculate total size needed including padding for alignment
+    size_t data_size = (size_t)(size >> 1);  // Size for bitstorage
+    size_t total_size = sizeof(struct sieve_t) + data_size + anticiped_cache_line_bytesize;
+    
+    // Align the total size to cache line boundary
+    total_size = (total_size + anticiped_cache_line_bytesize - 1) & ~(anticiped_cache_line_bytesize - 1);
+    
+    #ifdef _WIN32
+    sieve = (struct sieve_t*)_aligned_malloc(total_size, anticiped_cache_line_bytesize);
+    #else
+    if (posix_memalign((void**)&sieve, anticiped_cache_line_bytesize, total_size) != 0) {
+        return NULL;
+    }
+    #endif
+    
+    if (!sieve) return NULL;
+    
+    // Align bitstorage to the next 64-byte boundary
+    sieve->bitstorage = (void*)((uintptr_t)(sieve + 1) + 
+        ((anticiped_cache_line_bytesize - 
+          ((uintptr_t)(sieve + 1) & (anticiped_cache_line_bytesize - 1))) & 
+         (anticiped_cache_line_bytesize - 1)));
+    sieve->bits = size >> 1;
+    sieve->size = size;
+    
+    // Inform compiler about alignment for vectorization
+    sieve->bitstorage = __builtin_assume_aligned(sieve->bitstorage, anticiped_cache_line_bytesize);
+    
     return sieve;
 }
 
@@ -26,9 +60,18 @@ static inline void __attribute__((always_inline)) sieve_clear(struct sieve_t *si
     memset(sieve->bitstorage, SAFE_ZERO, sieve->bits / 8);
 }
 
+// static inline void __attribute__((always_inline)) sieve_delete(struct sieve_t *sieve) 
+// {
+//     free(sieve);
+// }
+
 static inline void __attribute__((always_inline)) sieve_delete(struct sieve_t *sieve) 
 {
+    #ifdef _WIN32
+    _aligned_free(sieve);
+    #else
     free(sieve);
+    #endif
 }
 
 // Finds the index of the next unset (false) bit in a bitmap, starting from a given index.
