@@ -90,19 +90,19 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             }
             verbose(1) printf("Blockwise set to %ju\n",(uintmax_t)option.smallprime_faster);
         }
-        else if (strcmp(argv[arg], "--set_mediumstep")==0) { option.mediumStep=0;
+        else if (strcmp(argv[arg], "--set_mediumstep")==0) { option.mediumstep_faster=0;
             if (++arg >= argc) { fprintf(stderr, "No mediumstep number specified\n"); usage(argv[0]); }
-            if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.mediumStep) != 1 ) {
+            if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.mediumstep_faster) != 1 ) {
                 fprintf(stderr, "Error: Invalid mediumstep setting: %s\n", argv[arg]); usage(argv[0]);
             }
-            verbose(1) printf("Vectorstep set to %ju\n",(uintmax_t)option.mediumStep);
+            verbose(1) printf("Vectorstep set to %ju\n",(uintmax_t)option.mediumstep_faster);
         }
-        else if (strcmp(argv[arg], "--set_vectorstep")==0) { option.vectorStep=0;
+        else if (strcmp(argv[arg], "--set_vectorstep")==0) { option.vectorstep_faster=0;
             if (++arg >= argc) { fprintf(stderr, "No vectorstep number specified\n"); usage(argv[0]); }
-            if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.vectorStep) != 1 ) {
+            if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.vectorstep_faster) != 1 ) {
                 fprintf(stderr, "Error: Invalid vectorstep setting: %s\n", argv[arg]); usage(argv[0]);
             }
-            verbose(1) printf("Vectorstep set to %ju\n",(uintmax_t)option.vectorStep);
+            verbose(1) printf("Vectorstep set to %ju\n",(uintmax_t)option.vectorstep_faster);
         }
         else if (strcmp(argv[arg], "--set")==0) {
             if (++arg >= argc) {
@@ -112,8 +112,8 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             
             uintmax_t blocksize = option.blocksize_kB;             // Initialize with current values
             uintmax_t blockwise = option.smallprime_faster;
-            uintmax_t mediumstep = option.mediumStep;
-            uintmax_t vectorstep = option.vectorStep;
+            uintmax_t mediumstep = option.mediumstep_faster;
+            uintmax_t vectorstep = option.vectorstep_faster;
             
             int found_any = 0;
             char *param = argv[arg];
@@ -178,14 +178,14 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             if ((option.blocksize_kB*1024*8) > (sieve_bits)) option.blocksize_kB = (sieve_bits / (1024*8))+1;
             
             option.smallprime_faster = blockwise;
-            option.mediumStep = mediumstep;
-            option.vectorStep = vectorstep;
+            option.mediumstep_faster = mediumstep;
+            option.vectorstep_faster = vectorstep;
             
             verbose(1) printf("Settings: blocksize=%ju kB, blockwise=%ju, mediumstep=%ju, vectorstep=%ju\n", 
                 (uintmax_t)option.blocksize_kB,
                 (uintmax_t)option.smallprime_faster,
-                (uintmax_t)option.mediumStep,
-                (uintmax_t)option.vectorStep);
+                (uintmax_t)option.mediumstep_faster,
+                (uintmax_t)option.vectorstep_faster);
         }
         else if (strcmp(argv[arg], "--threads")==0) { 
             if (++arg >= argc) { fprintf(stderr, "No thread maximum specified\n"); usage(argv[0]); }
@@ -219,10 +219,9 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
 
 int main(int argc, char *argv[]) 
 {
-    verbose2( algorithmWelcome(); )
-    verbose1( printf("\n"); )
-
     option = setDefaultOptions();
+    verbose1( printf("\n"); )
+    verbose2( algorithmWelcome(); )
     option = parseCommandLine(argc, argv, option);
 
     #if compile_verbose_level >= 4

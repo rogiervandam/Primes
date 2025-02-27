@@ -50,8 +50,8 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
         continuePattern(bitstorage, pattern_start, patternsize_bits, range_stop);
         patternsize_bits *= step;
 
-        if (step < global_MEDIUMSTEP_FASTER)      setBitsTrue_mediumStep(bitstorage, start, step, range_stop);
-        else if (step < global_VECTORSTEP_FASTER) setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
+        if (step < global_mediumstep_faster)      setBitsTrue_mediumStep(bitstorage, start, step, range_stop);
+        else if (step < global_vectorstep_faster) setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
         else                                      setBitsTrue_largeRange(bitstorage, start, step, range_stop);
     } 
 
@@ -70,7 +70,7 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t b
     bitword_t* bitstorage = sieve->bitstorage;
     const counter_t sieve_bits = sieve->bits;
 
-    verbose3(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size); )
+    verbose4(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size); )
 
     // fill the entire sieve for lower primes by adding en copying incrementally
     counter_t prime_next = sieve_block_extend(sieve, 0, sieve_bits);

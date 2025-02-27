@@ -1,27 +1,21 @@
 // This file contains all helper functions
 
 // defaults
-#define compile_explain_level           0   // Set to 1 to enable compiling messages about the inner workings of the sieve for debugging
-#define compile_verbose_level           0   // Set to 1-4 to enable compiling different verbose levels
+// #define compile_explain_level           0   // Set to 1 to enable compiling messages about the inner workings of the sieve for debugging
+#define compile_verbose_level           3   // Set to 1-4 to enable compiling different verbose levels
 #define anticiped_cache_line_bytesize   128 // How to align the caches
 
 //set compile_debuggable to 1 to enable explain plan
-#define compile_debuggable (0 || compile_explain_level)
-#if compile_debuggable
-#define debug if (compile_debuggable && option.explain)
-#else
-#define debug if unlikely(0)
-#endif
-
-// #define verbose(level) do {} while (0)
-// #define verbose_at(level) do {} while (0)
+// #define compile_debuggable (0 || compile_explain_level)
+// #if compile_debuggable
+// #define debug if (compile_debuggable && option.explain)
+// #else
+// #define debug if unlikely(0)
+// #endif
 
 // set this to the level of verbose messages that will be compiled
-// #if compile_verbose_level > 0
-//     #undef verbose
-//     #undef verbose_at
-    #define verbose(level)    if (level <= compile_verbose_level) if (option.verboselevel >= level) if (!(option.verboselevel >= 3 && option.explain == 0)) 
-    #define verbose_at(level) if (level <= compile_verbose_level) if (option.verboselevel == level) if (!(option.verboselevel >= 3 && option.explain == 0)) 
+  #define verbose(level)    if (level <= compile_verbose_level) if (option.verboselevel >= level) if (!(option.verboselevel >= 3 && option.explain == 0)) 
+  #define verbose_at(level) if (level <= compile_verbose_level) if (option.verboselevel == level) if (!(option.verboselevel >= 3 && option.explain == 0)) 
 // #endif
 
 #define verbose1(statement)
@@ -35,32 +29,33 @@
 
 #if compile_verbose_level >= 1
   #undef verbose1
-  #define verbose1(statement) if (option.verboselevel >= 1) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
+  #define verbose1(statement) if (option.verboselevel >= 1) statement
   #undef verbose1_at
-  #define verbose1_at(statement) if (option.verboselevel == 1) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
+  #define verbose1_at(statement) if (option.verboselevel == 1) statement
 #endif
 #if compile_verbose_level >= 2
   #undef verbose2
-  #define verbose2(statement) if (option.verboselevel >= 2) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
+  #define verbose2(statement) if (option.verboselevel >= 2) statement
   #undef verbose2_at
-  #define verbose2_at(statement) if (option.verboselevel == 2) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
+  #define verbose2_at(statement) if (option.verboselevel == 2) statement
 #endif
 #if compile_verbose_level >= 3
   #undef verbose3
-  #define verbose3(statement) if (option.verboselevel >= 3) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
+  #define verbose3(statement) if (option.verboselevel >= 3) statement
   #undef verbose3_at
-  #define verbose3_at(statement) if (option.verboselevel == 3) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
+  #define verbose3_at(statement) if (option.verboselevel == 3) statement
 #endif
 #if compile_verbose_level >= 4
   #undef verbose4
-  #define verbose4(statement) if (option.verboselevel >= 4) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
+  #define verbose4(statement) if (option.verboselevel >= 4) statement
   #undef verbose4_at
-  #define verbose4_at(statement) if (option.verboselevel == 4) if (!(option.verboselevel >= 3 && option.explain == 0)) statement
+  #define verbose4_at(statement) if (option.verboselevel == 4) statement
 #endif
 
 // helper calc functions
 #define pow(base,pow)       (pow*((base>>pow)&1U))
 #define min(a,b)            ((a<b) ? a : b)
+#define max(a,b)            ((a<b) ? b : a)
 
 // helper compile time check functions
 #define uintsafeminus(a,b)  ((a>b)?(a-b):0)
@@ -144,7 +139,7 @@ void timerLapTime() {
 #define WORD_SIZE_64    64
 #endif
 
-// DEFAULTS
+// defaults
 #ifndef bitword_t
 #define bitword_t  uint64_t // type used to store bits
 #endif
@@ -155,8 +150,6 @@ void timerLapTime() {
 #define VECTOR_SETTING PPCAT(bitword_t,VECTOR_ELEMENTS)
 #endif
 
-// types
-
 // follow main bitword setting in vectors. Change is otherwise needed
 #define bitword_vector_t bitword_t
 #ifdef WORD_SIZE_64
@@ -165,7 +158,6 @@ void timerLapTime() {
 
 #define bitshift_t uint64_t // type used to shift bits
 #define counter_t  uint64_t // type used to count loops, etc
-
 
 // masks and mask helpers
 #define SHIFT_BYTE          3
@@ -188,17 +180,9 @@ void timerLapTime() {
 typedef bitword_vector_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes))); 
 
 // globals for tuning
-// #define smallprime_faster ((counter_t)0)
-// #define MEDIUMSTEP_FASTER ((counter_t)16)
-// #define VECTORSTEP_FASTER ((counter_t)0)
-static counter_t global_smallprime_faster  =   0ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
-static counter_t global_MEDIUMSTEP_FASTER =  16ULL; // if step < MEDIUMSTEP_FASTER, use medium steps
-static counter_t global_VECTORSTEP_FASTER = 128ULL; // if step < VECTORSTAP_FASTER, use large steps
-// static counter_t global_BLOCKSIZE_BITS = default_blocksize;
-// #define smallprime_faster     ((counter_t)global_smallprime_faster)
-// #define MEDIUMSTEP_FASTER    ((counter_t)global_MEDIUMSTEP_FASTER)
-// #define VECTORSTEP_FASTER    ((counter_t)global_VECTORSTEP_FASTER)
-// #define BLOCKSIZE_BITS       ((counter_t)global_BLOCKSIZE_BITS)
+static counter_t global_smallprime_faster  = 32ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
+static counter_t global_mediumstep_faster =  16ULL; // if step < MEDIUMSTEP_FASTER, use medium steps
+static counter_t global_vectorstep_faster = 128ULL; // if step < VECTORSTAP_FASTER, use large steps
 
 // Patterns based on types
 #define SAFE_SHIFTBIT        (bitshift_t)1ULL
@@ -296,3 +280,6 @@ unsigned int usqrt(int n)
     }
     return x;
 }
+
+#include <stdio.h>
+

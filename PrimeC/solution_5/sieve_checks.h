@@ -94,7 +94,7 @@ static void explainSieveShake()
 static void checkSieveAlgorithm()
 {
     verbose1( { 
-        printf("Validating variantu%juv%ju... ", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
+        printf("Validating variant u%juv%ju... ", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
         verbose2( printf("\n");)
         fflush(stdout); 
     })
@@ -113,7 +113,7 @@ static void checkSieveAlgorithm()
             int valid = validatePrimeCount(sieve_check);
             sieve_delete(sieve_check);
             if (!valid) {
-                fprintf(stderr,"Invalid count for %ju Settings used: blocksize %ju, %ju/%ju/%ju/%ju/%ju\n",(uintmax_t)sieveSize_check,(uintmax_t)blocksize_bits,(uintmax_t)global_smallprime_faster,(uintmax_t)global_MEDIUMSTEP_FASTER,(uintmax_t)global_VECTORSTEP_FASTER,(uintmax_t)WORD_SIZE_counter,(uintmax_t)VECTOR_ELEMENTS);
+                fprintf(stderr,"Invalid count for %ju Settings used: blocksize %ju, %ju/%ju/%ju/%ju/%ju\n",(uintmax_t)sieveSize_check,(uintmax_t)blocksize_bits,(uintmax_t)global_smallprime_faster,(uintmax_t)global_mediumstep_faster,(uintmax_t)global_vectorstep_faster,(uintmax_t)WORD_SIZE_counter,(uintmax_t)VECTOR_ELEMENTS);
                 exit(1); 
             }
             else verbose(3) printf("\033[0;32mvalid\033[0;0m\n");

@@ -5,7 +5,7 @@
 
 static inline void __attribute__((always_inline)) continuePattern_smallSize(bitword_t* restrict bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
 {
-    verbose3( printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using smallsize (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size)); )
+    verbose4( printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using smallsize (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size)); )
     verbose4( timerLapStart(); )
 
     const counter_t source_word = wordindex(source_start);
@@ -50,7 +50,7 @@ static inline void __attribute__((always_inline)) continuePattern_smallSize(bitw
 
 static inline void  __attribute__((always_inline)) continuePattern_aligned(bitword_t* bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
 {
-    verbose3( printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using aligned (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size)); )
+    verbose4( printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using aligned (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size)); )
     verbose4( timerLapStart(); )
 
     const counter_t destination_stop_word = wordindex(destination_stop);
@@ -75,7 +75,7 @@ static inline void  __attribute__((always_inline)) continuePattern_aligned(bitwo
 
 static inline void  __attribute__((always_inline)) continuePattern_shiftright(bitword_t* restrict bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
 {
-    verbose3( printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using shiftright (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size)); )
+    verbose4( printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using shiftright (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size)); )
     verbose4( timerLapStart(); )
 
     const counter_t destination_stop_word = wordindex(destination_stop);
@@ -98,10 +98,10 @@ static inline void  __attribute__((always_inline)) continuePattern_shiftright(bi
     
     copy_word++;
 
-    verbose3( printf("...start - %ju - %ju - end..",(uintmax_t)wordindex(copy_start), (uintmax_t)destination_stop_word); )
+    verbose4( printf("...start - %ju - %ju - end..",(uintmax_t)wordindex(copy_start), (uintmax_t)destination_stop_word); )
 
     if (copy_word < source_word + VECTOR_ELEMENTS) {
-        verbose3(  printf("...continue word by word (because source and copy are close together).."); )
+        verbose4(  printf("...continue word by word (because source and copy are close together).."); )
         for (;copy_word <= destination_stop_word; copy_word++, source_word++ ) 
             bitstorage[copy_word] = (bitstorage[source_word] >> shift_flipped) | (bitstorage[source_word+1] << shift);
         return; 
@@ -114,7 +114,7 @@ static inline void  __attribute__((always_inline)) continuePattern_shiftright(bi
     // copy with shift - needed the not aligned at bytelevel
     // speed up when source and copy are further apart - may vectorize the loop
 
-    verbose3(  printf("...speed copy until word %ju..", (uintmax_t)copy_start_word); )
+    verbose4(  printf("...speed copy until word %ju..", (uintmax_t)copy_start_word); )
 
     #ifdef WORD_SIZE_64
         #pragma GCC ivdep // only for 64bit
@@ -168,7 +168,7 @@ static inline counter_t  __attribute__((always_inline)) continuePattern_shiftlef
 
 static inline void __attribute__((always_inline)) continuePattern_shiftleft(bitword_t* bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
 {
-    verbose3( printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using shiftleft (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size)); )
+    verbose4( printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using shiftleft (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size)); )
     verbose4( timerLapStart(); )
     
     const counter_t destination_stop_word = wordindex(destination_stop);
@@ -190,7 +190,7 @@ static inline void __attribute__((always_inline)) continuePattern_shiftleft(bitw
     source_word += distance;
     copy_word += distance;
 
-    verbose3( { 
+    verbose4( { 
         counter_t fast_loop_stop_word = uintsafeminus(aligned_copy_word,2); 
         printf("...start - %ju - end fastloop - %ju - start alignment - %ju - end", (uintmax_t)fast_loop_stop_word - (uintmax_t)wordindex(copy_start), (uintmax_t)aligned_copy_word - (uintmax_t)fast_loop_stop_word, (uintmax_t)destination_stop_word - (uintmax_t)aligned_copy_word); 
     } )

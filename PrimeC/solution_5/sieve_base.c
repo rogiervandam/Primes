@@ -27,7 +27,7 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t b
     bitword_t* bitstorage = sieve->bitstorage;
     const counter_t sieve_bits = sieve->bits;
 
-    verbose3(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size); )
+    verbose4( printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size); )
 
     // code for algorithm = base
     sieve_clear(sieve);
