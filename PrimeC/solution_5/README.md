@@ -88,8 +88,7 @@ docker run -it --entrypoint /bin/bash c:latest
 if something is wrong with a .sh file: this might help:
 
 ```bash
-sed -i 's/\r$//' run.sh
-sed -i 's/\r$//' compile.sh
+sed -i 's/\r$//' *.sh
 ```
 
 ### Command line options

@@ -20,27 +20,28 @@ static struct options_t {
 } option;
 
 static struct options_t setDefaultOptions() {
-    option.maxTime         = 5;
-    option.maxFactor       = 1000000;
-    option.showMaxFactor   = 0;
+    option.maxTime                 = 5;
+    option.maxFactor               = 1000000;
+    option.showMaxFactor           = 0;
     option.show_max_tuning_results = 10;
-    option.show_primes_on_error = 100;
-    option.verboselevel    = 1;
-    option.explain         = 0;
-    option.check           = 1;
-    option.tunelevel       = 1;
-    option.sample_duration = 0.0002;
-    option.maxTuneDuration = 10.0;
-    option.extended_output = 1;
-    option.threads         = 1;
-    option.smallprime_faster = 0;
-    option.mediumstep_faster = 0;
-    option.vectorstep_faster = 0;
-    option.blocksize_kB    = 0; // this is what the user entered
-    option.blocksize_bits  = (32*1024*8);
+    option.show_primes_on_error    = 100;
+    option.verboselevel            = 1;
+    option.explain                 = 0;
+    option.check                   = 1;
+    option.tunelevel               = 1;
+    option.sample_duration         = 0.0002;
+    option.maxTuneDuration         = 5.0;
+    option.extended_output         = 1;
+    option.threads                 = 1;
+    option.smallprime_faster       = 0;
+    option.mediumstep_faster       = 0;
+    option.vectorstep_faster       = 0;
+    option.blocksize_kB            = 0; // this is what the user entered
+    option.blocksize_bits          = (32*1024*8);
     #ifdef _OPENMP
-    option.threads = omp_get_max_threads();
+    option.threads                 = omp_get_max_threads();
     #endif
 
     return option;
 }
+

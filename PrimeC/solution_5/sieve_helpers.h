@@ -1,9 +1,9 @@
 // This file contains all helper functions
 
 // defaults
-// #define compile_explain_level           0   // Set to 1 to enable compiling messages about the inner workings of the sieve for debugging
-#define compile_verbose_level           3   // Set to 1-4 to enable compiling different verbose levels
+#define compile_verbose_level           1   // Set to 1-4 to enable compiling different verbose levels
 #define anticiped_cache_line_bytesize   128 // How to align the caches
+
 
 //set compile_debuggable to 1 to enable explain plan
 // #define compile_debuggable (0 || compile_explain_level)
@@ -281,5 +281,5 @@ unsigned int usqrt(int n)
     return x;
 }
 
-#include <stdio.h>
+
 
