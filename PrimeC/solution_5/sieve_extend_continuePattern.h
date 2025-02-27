@@ -1,3 +1,8 @@
+// This file is part of the sieve of Eratosthenes project and is exclusively used for the sieve_extend module.
+// This file contains the continuePattern function that is used to extend (copy) a pattern in a bitstorage.
+// The function is optimized for different sizes and offsets of the pattern and uses different algorithms for this.
+
+
 static inline void __attribute__((always_inline)) continuePattern_smallSize(bitword_t* restrict bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
 {
     verbose3( printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using smallsize (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size)); )

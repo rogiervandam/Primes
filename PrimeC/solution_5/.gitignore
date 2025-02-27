@@ -13,5 +13,7 @@ sieve_extend-u*
 sieve_extend-i*
 sieve_extend_epar-u*
 sieve_extend_epar-i*
+sieve_base_epar-u*
+sieve_base-u*
 .vscode
 

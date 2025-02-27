@@ -14,11 +14,33 @@ static inline struct sieve_t * __attribute__((always_inline)) sieve_create(count
     return sieve;
 }
 
+// static inline void __attribute__((always_inline)) sieve_clear(struct sieve_t *sieve) 
+// {
+//     bitword_t* bitstorage = sieve->bitstorage;
+//     counter_t word_index_max = wordindex(sieve->bits);
+//     for (counter_t word_index = 0; word_index <= word_index_max; word_index++) bitstorage[word_index] = SAFE_ZERO;
+// }
+
 static inline void __attribute__((always_inline)) sieve_clear(struct sieve_t *sieve) 
 {
-    for (counter_t index_word = 0; index_word <= wordindex(sieve->bits); index_word++) sieve->bitstorage[index_word] = SAFE_ZERO;
+    memset(sieve->bitstorage, SAFE_ZERO, sieve->bits >> 3);
 }
 
+// #include <immintrin.h> // For AVX2 instructions
+// static inline void __attribute__((always_inline)) sieve_clear(struct sieve_t *sieve) 
+// {
+//     bitword_t* bitstorage = sieve->bitstorage;
+//     counter_t size = sieve->bits >> 3; // Size in bytes
+
+//     // Use AVX2 instructions to set memory
+//     __m256i zero = _mm256_setzero_si256();
+//     counter_t i;
+
+//     // Set memory in chunks of 32 bytes (256 bits)
+//     for (i = 0; i <= size; i += 32) {
+//         _mm256_store_si256((__m256i*)(bitstorage + i), zero);
+//     }
+// }
 
 static inline void __attribute__((always_inline)) sieve_delete(struct sieve_t *sieve) 
 {

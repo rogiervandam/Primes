@@ -45,6 +45,7 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
         range_stop = patternsize_bits * step * 2;  // range is x2 so the second block cointains all multiples of primes
         if unlikely(range_stop > block_stop) break;
 
+        // continue the found pattern to the entire sieve
         pattern_start = patternsize_bits;
         continuePattern(bitstorage, pattern_start, patternsize_bits, range_stop);
         patternsize_bits *= step;
