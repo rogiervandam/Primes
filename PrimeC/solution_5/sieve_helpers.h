@@ -286,5 +286,12 @@ unsigned int usqrt(int n)
     return x;
 }
 
-
+static inline char* extension_as_string(char* extension) {
+    #ifdef _OPENMP
+    sprintf(extension,"_epar-u%juv%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS);
+    #else
+    sprintf(extension,"-u%juv%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS);
+    #endif
+    return extension;
+}
 

@@ -1,9 +1,9 @@
-static void show_primes(struct sieve_t *sieve, counter_t maxFactor) 
+static void show_primes(struct sieve_t *sieve, counter_t factor_max) 
 {
     counter_t primeCount = 1;    // We already have 2
     for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor)) {
         primeCount++;
-        if (factor < maxFactor/2) {
+        if (factor < factor_max/2) {
             printf("%3ju ",(uintmax_t)factor*2+1);
             if (primeCount % 10 == 0) printf("\n");
         }
@@ -76,12 +76,12 @@ static void explainSieveShake()
     // int org_option_explain = option.explain;
     // option.explain = 0;
     // for (int i=0; i<10; i++) {
-    //     struct sieve_t* sieve = sieve_shake(option.maxFactor, default_blocksize);
+    //     struct sieve_t* sieve = sieve_shake(option.factor_max, default_blocksize);
     //     sieve_delete(sieve);
     // }    
     // option.explain = org_option_explain;
 
-    struct sieve_t* sieve = sieve_shake(option.maxFactor, option.blocksize_bits);
+    struct sieve_t* sieve = sieve_shake(option.factor_max, option.blocksize_bits);
     printf("\nResult set:\n");
     show_primes(sieve, min(option.showMaxFactor,100));
     int valid = validatePrimeCount(sieve);

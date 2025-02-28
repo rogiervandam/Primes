@@ -216,12 +216,15 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
     return option;
 }
 
-
 int main(int argc, char *argv[]) 
 {
     option = setDefaultOptions();
     option = parseCommandLine(argc, argv, option);
-    algorithmWelcome();
+    verbose2({
+        printf("Sieve algorithm by Rogier van Dam - 2025\n");
+        printf("Find all primes up to \033[1;33m%ju\033[0m using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)\n", (uintmax_t)option.factor_max);
+    })
+    verbose1( printf("\nRunning sieve_extend variant u%juv%ju... \n", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); )
 
     #if compile_verbose_level >= 4
     verbose4( if (option.explain>=1) {
@@ -247,13 +250,9 @@ int main(int argc, char *argv[])
         }
 
         // encode settings for reporting
-        char extension[50] = "";
-        char extended_output[50] = "";
-        prepareSettingsForOutput(benchmark_settings, extension, extended_output);
-        verbose1( { printf("Benchmarking... with settings: \033[1;32m%ju/%ju/%ju/%ju/%ju/%ju\033[0m (stripeprime, mediumstep, vectorstep, wordsize, vector elements, blocksize) and \033[1;32m%ju\033[0m threads for \033[1;32m%.1f\033[0m seconds\nResults: \033[5m(wait \033[1;32m%.1lf\033[39m seconds)\033[25m...\033[0m", 
-            (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.vectorstep_faster, 
-            (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS, (uintmax_t)benchmark_settings.blocksize_bits,
-            (uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
+        char settings_string[100]=""; benchmark_settings_as_string(settings_string, benchmark_settings);
+        verbose1( { printf("Benchmarking... with settings: \033[1;32m%s\033[0m (stripeprime, mediumstep, vectorstep, blocksize, wordsize, vectorsize) and \033[1;32m%ju\033[0m threads for \033[1;32m%.1f\033[0m seconds\nResults: \033[5m(wait \033[1;32m%.1lf\033[39m seconds)\033[25m...\033[0m", 
+            settings_string,(uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
             fflush(stdout);
         })
 
@@ -266,7 +265,9 @@ int main(int argc, char *argv[])
         verbose1(outputBenchmarkStats(benchmark_result, threads);)
 
         // report results
-        reportMessage(extension, extended_output, benchmark_result, threads);
+        char extension[50] = "";      extension_as_string(extension);      
+        benchmark_settings_as_string(settings_string, benchmark_result.settings);
+        printf("%s-%s%s;%ju;%f;%ju;algorithm=base,faithful=yes,bits=1\n",algorithm_name,extension,settings_string,(uintmax_t)benchmark_result.passes,benchmark_result.elapsed_time,(uintmax_t)threads);
     }
 
     // show results for --show command line option

@@ -1,6 +1,9 @@
 // Sieve algorithm by Rogier van Dam - 2025
 // Find all primes up to <max int> using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)
 
+// This file includes all the building blocks for the sieve algorithm "base"
+// This enables the compiler to optimize the code better
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -54,15 +57,5 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t b
 #include "sieve_checks.h"
 #include "sieve_benchmark.h"
 
-static void algorithmWelcome() {
-    printf("Sieve algorithm by Rogier van Dam - 2025\n");
-    printf("Find all primes up to \033[1;33m%ju\033[0m using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)\n", (uintmax_t)option.factor_max);
-}
-
-static void reportMessage(const char* extension, const char* extended_output, const benchmark_result_t benchmark_result, const counter_t threads) {
-    printf("rogiervandam_base%s%s;%ju;%f;%ju;algorithm=base,faithful=yes,bits=1\n",extension,extended_output,(uintmax_t)benchmark_result.passes,benchmark_result.elapsed_time,(uintmax_t)threads);
-}
-
+char algorithm_name[] = "rogiervandam_base";
 #include "sieve_commandline.h"
-
-
