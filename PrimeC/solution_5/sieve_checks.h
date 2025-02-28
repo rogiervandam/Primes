@@ -125,8 +125,8 @@ static void checkSieveAlgorithm()
 
 static void showResult() {
     printf("Show result set:\n");
-    struct sieve_t* sieve = sieve_shake(option.maxFactor, option.maxFactor);
-    show_primes(sieve, option.showMaxFactor);
+    struct sieve_t* sieve = sieve_shake(option.factor_max, option.factor_max);
+    show_primes(sieve, option.show_explain_factor_max);
     sieve_delete(sieve);
 }
 

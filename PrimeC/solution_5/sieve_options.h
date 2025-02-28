@@ -1,44 +1,44 @@
 static struct options_t {
-    double    maxTime;
-    counter_t maxFactor;
-    counter_t showMaxFactor;
-    int       show_max_tuning_results;
+    double    time_max;
+    counter_t factor_max;
+    counter_t show_explain_factor_max;
+    int       show_tuning_results_max;
     int       show_primes_on_error;
-    int       verboselevel;
+    int       verbose_level;
     int       explain;
     int       check;
     int       tunelevel;
     int       threads;
     int       extended_output;
     double    sample_duration;
-    double    maxTuneDuration;
-    counter_t smallprime_faster;
+    double    tune_duration_max;
+    counter_t stripe_faster;
     counter_t mediumstep_faster;
     counter_t vectorstep_faster;
     counter_t blocksize_kB;
     counter_t blocksize_bits;
-    counter_t tunekeeppercent;
+    counter_t tune_keeppercent;
 } option;
 
 static struct options_t setDefaultOptions() {
-    option.maxTime                 = 5;
-    option.maxFactor               = 1000000;
+    option.time_max                = 5;
+    option.factor_max              = 1000000;
 
-    option.showMaxFactor           = 0;
-    option.show_max_tuning_results = 100;
+    option.show_explain_factor_max = 0;
+    option.show_tuning_results_max = 100;
     option.show_primes_on_error    = 100;
     option.extended_output         = 1;
-    option.verboselevel            = 1;
+    option.verbose_level            = 1;
     option.explain                 = 0;
 
     option.check                   = 1;
     option.tunelevel               = 1;
     option.sample_duration         = 0.0002;
-    option.maxTuneDuration         = 5.0;
-    option.tunekeeppercent         = 10;
+    option.tune_duration_max       = 5.0;
+    option.tune_keeppercent        = 10;
 
     option.threads                 = 1;
-    option.smallprime_faster       = 0;
+    option.stripe_faster           = 0;
     option.mediumstep_faster       = 0;
     option.vectorstep_faster       = 0;
     option.blocksize_kB            = 0; // this is what the user entered
