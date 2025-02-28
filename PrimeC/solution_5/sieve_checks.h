@@ -91,13 +91,23 @@ static void explainSieveShake()
 }
 #endif
 
-static void checkSieveAlgorithm()
+
+// Controleert of een gegeven pointer uitgelijnd is op een bepaalde bytegrens
+int is_aligned(void *ptr, size_t alignment) {
+    return ((uintptr_t)ptr % alignment) == 0;
+}
+
+
+static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 {
     verbose1( { 
         printf("Validating variant u%juv%ju... ", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
         verbose2( printf("\n");)
         fflush(stdout); 
     })
+
+    prepareBenchmarkGlobals(benchmark_settings);
+    char settings_string[100] = ""; benchmark_settings_as_string(settings_string, benchmark_settings);
 
     // validate algorithm - run one time for all sizes
     for (counter_t sieveSize_check = 100; sieveSize_check <= 100000000; sieveSize_check *=10) {
@@ -109,11 +119,16 @@ static void checkSieveAlgorithm()
         struct sieve_t *sieve_check;
         for (counter_t blocksize_bits=1024; blocksize_bits<=256*1024*8; blocksize_bits *= 2) {
             verbose(3) printf("....Blocksize %ju:",(uintmax_t)blocksize_bits);
-            sieve_check = sieve_shake(sieveSize_check, blocksize_bits);
+            sieve_check = sieve_shake(sieveSize_check, blocksize_bits, benchmark_settings.stripe_faster, benchmark_settings.mediumstep_faster, benchmark_settings.largestep_faster);
             int valid = validatePrimeCount(sieve_check);
+
+            // printf("Bitstorage is %s\n", is_aligned(sieve_check->bitstorage, anticiped_cache_line_bytesize) ? "aligned" : "not aligned");
+            // printf("Sieve is %s\n", is_aligned(sieve_check, anticiped_cache_line_bytesize) ? "aligned" : "not aligned");
+            
+
             sieve_delete(sieve_check);
             if (!valid) {
-                fprintf(stderr,"Invalid count for %ju Settings used: blocksize %ju, %ju/%ju/%ju/%ju/%ju\n",(uintmax_t)sieveSize_check,(uintmax_t)blocksize_bits,(uintmax_t)global_smallprime_faster,(uintmax_t)global_mediumstep_faster,(uintmax_t)global_vectorstep_faster,(uintmax_t)WORD_SIZE_counter,(uintmax_t)VECTOR_ELEMENTS);
+                fprintf(stderr,"Invalid count for %ju Settings used: %s\n",(uintmax_t)sieveSize_check, settings_string);
                 exit(1); 
             }
             else verbose(3) printf("\033[0;32mvalid\033[0;0m\n");
@@ -121,12 +136,23 @@ static void checkSieveAlgorithm()
         verbose2( printf("\033[0;32mvalid\033[0;0m\n"); )
     }
     verbose1( printf("\033[0;32mvalid\033[0;0m algorithm\n"); )
+    if (option.check == 2) exit(0);
 }
 
-static void showResult() {
+static void showResult(benchmark_settings_t benchmark_settings)
+{
     printf("Show result set:\n");
-    struct sieve_t* sieve = sieve_shake(option.factor_max, option.factor_max);
+    struct sieve_t* sieve = sieve_shake(option.factor_max, option.factor_max, benchmark_settings.stripe_faster, benchmark_settings.mediumstep_faster, benchmark_settings.largestep_faster);
     show_primes(sieve, option.show_explain_factor_max);
     sieve_delete(sieve);
 }
 
+static void checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) {
+    struct sieve_t* sieve_check = sieve_shake(benchmark_settings.factor_max, benchmark_settings.blocksize_bits, benchmark_settings.stripe_faster, benchmark_settings.mediumstep_faster, benchmark_settings.largestep_faster);
+    int valid = validatePrimeCount(sieve_check);
+    sieve_delete(sieve_check);
+    if (!valid) { fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for these settings\n"); exit(1); }
+    else {
+        verbose3(  printf("valid;\n"); )
+    }
+}

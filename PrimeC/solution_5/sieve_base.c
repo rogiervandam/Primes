@@ -24,38 +24,37 @@
    sieve_size in a real number that is the maximum in the sieve (not in bits)
    block_size is in bits and determines how large the blocks are which are processed 
 */
-static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t block_size) 
+static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t block_size, const stripeprime_faster, const mediumstep_faster, const largestep_faster)
 {
     struct sieve_t *sieve = sieve_create(sieve_size);
     bitword_t* bitstorage = sieve->bitstorage;
     const counter_t sieve_bits = sieve->bits;
 
-    verbose4( printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size); )
+    verbose4(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size); )
 
-    // code for algorithm = base
-    sieve_clear(sieve);
-    counter_t prime_next = 1;
+    // fill the entire sieve for lower primes by adding en copying incrementally
+    counter_t prime_next = sieve_block_extend(sieve, 0, sieve_bits, mediumstep_faster, largestep_faster);
     
     // continue from the prime that was processed in the pattern until the tuned value for blockwise processing
     // stripe off all the multiples of primes in the sieve
-    if (prime_next < global_smallprime_faster) {
-        prime_next = sieve_block_stripe(bitstorage, 0, sieve_bits, prime_next, global_smallprime_faster);
+    if (prime_next < stripeprime_faster) {
+        prime_next = sieve_block_stripe(bitstorage, 0, sieve_bits, prime_next, stripeprime_faster, mediumstep_faster, largestep_faster);
     }
 
     // in the sieve all bits for the multiples of primes up to startprime have been set
     // process the sieve and stripe all the multiples of primes > start_prime
     // do this block by block to minimize cache misses
     counter_t prime_max = usqrt(sieve_size);
-    for (counter_t block_start = 0, block_stop = block_size-1;    block_start <= sieve->bits;    block_start += block_size, block_stop += block_size) {
-        sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime_next, prime_max);
+    for (counter_t block_start = 0, block_stop = block_size-1; block_start <= sieve->bits; block_start += block_size, block_stop += block_size) {
+        sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime_next, prime_max, mediumstep_faster, largestep_faster);
     } 
 
     // return the completed sieve
     return sieve;
 }
 
-#include "sieve_checks.h"
 #include "sieve_benchmark.h"
+#include "sieve_checks.h"
 
 char algorithm_name[] = "rogiervandam_base";
 #include "sieve_commandline.h"

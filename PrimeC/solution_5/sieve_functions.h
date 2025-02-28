@@ -393,9 +393,9 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
     verbose4( timerLapTime(); )
 }
 
-static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block_start, const counter_t block_stop, counter_t prime, const counter_t prime_max)
+static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max, const counter_t mediumstep_faster, const counter_t largestep_faster)
 {
-    // counter_t prime = prime_start;
+    counter_t prime = prime_start;
 
     verbose4(  printf("Block stripe for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
     
@@ -419,12 +419,12 @@ static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block
         }
 
         // set all multiples of prime in the block
-        if (step < global_mediumstep_faster) {
+        if (step < mediumstep_faster) {
             setBitsTrue_mediumStep(bitstorage, start, step, block_stop);
             prime = searchBitFalse(bitstorage, prime);
         }
         else 
-        if (step < global_vectorstep_faster) { // speed up setting bits using bitvector;
+        if (step < largestep_faster) { // speed up setting bits using bitvector;
             setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);
             prime = searchBitFalse(bitstorage, prime);
         }

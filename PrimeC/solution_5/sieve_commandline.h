@@ -72,36 +72,6 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             }
             verbose(1) printf("Show maximum set to %ju\n",(uintmax_t)option.show_explain_factor_max);
         }
-        else if (strcmp(argv[arg], "--set_block")==0) {
-            if (++arg >= argc) { fprintf(stderr, "No block size specified\n"); usage(argv[0]); }
-            if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.blocksize_kB) != 1) {
-                fprintf(stderr, "Error: Invalid size in kilobyte: %s\n", argv[arg]); usage(argv[0]);
-            }
-            counter_t sieve_bits = option.factor_max >> 1;
-            if ((option.blocksize_kB*1024*8) > (sieve_bits)) option.blocksize_kB = (sieve_bits / (1024*8))+1;
-            verbose(1) printf("Blocksize set to %ju kB\n",(uintmax_t)option.blocksize_kB);
-        } 
-        else if (strcmp(argv[arg], "--set_blockwise")==0) { option.stripe_faster=0;
-            if (++arg >= argc) { fprintf(stderr, "No blockwise number specified\n"); usage(argv[0]); }
-            if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.stripe_faster) != 1 ) {
-                fprintf(stderr, "Error: Invalid blockwise setting: %s\n", argv[arg]); usage(argv[0]);
-            }
-            verbose(1) printf("Blockwise set to %ju\n",(uintmax_t)option.stripe_faster);
-        }
-        else if (strcmp(argv[arg], "--set_mediumstep")==0) { option.mediumstep_faster=0;
-            if (++arg >= argc) { fprintf(stderr, "No mediumstep number specified\n"); usage(argv[0]); }
-            if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.mediumstep_faster) != 1 ) {
-                fprintf(stderr, "Error: Invalid mediumstep setting: %s\n", argv[arg]); usage(argv[0]);
-            }
-            verbose(1) printf("Vectorstep set to %ju\n",(uintmax_t)option.mediumstep_faster);
-        }
-        else if (strcmp(argv[arg], "--set_vectorstep")==0) { option.largestep_faster=0;
-            if (++arg >= argc) { fprintf(stderr, "No largestep number specified\n"); usage(argv[0]); }
-            if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.largestep_faster) != 1 ) {
-                fprintf(stderr, "Error: Invalid largestep setting: %s\n", argv[arg]); usage(argv[0]);
-            }
-            verbose(1) printf("Vectorstep set to %ju\n",(uintmax_t)option.largestep_faster);
-        }
         else if (strcmp(argv[arg], "--set")==0) {
             if (++arg >= argc) {
                 fprintf(stderr, "No settings specified for --set\n");
@@ -132,13 +102,13 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
                     
                     // Apply the value based on parameter type
                     switch(param_type) {
-                        case 's': option.stripe_faster = value; break;
-                        case 'm': option.mediumstep_faster = value; break;
-                        case 'l': option.largestep_faster = value; break;
-                        case 'b': option.blocksize_kB = (value + 8191) / 8192; break; // Convert bits to kB, rounding up
+                        case 's': option.fixed_benchmark_settings.stripe_faster = value; break;
+                        case 'm': option.fixed_benchmark_settings.mediumstep_faster = value; break;
+                        case 'l': option.fixed_benchmark_settings.largestep_faster = value; break;
+                        case 'b': option.fixed_benchmark_settings.blocksize_bits = value; break; 
                         case 'u': break;
                         case 'v': break;
-                        case 't': option.threads = value; break;
+                        case 't': option.fixed_benchmark_settings.threads = value; break;
                         default:
                             fprintf(stderr, "Error: Unknown parameter '%c'\n", param_type);
                             usage(argv[0]);
@@ -149,29 +119,24 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
                 }
             }
             
-            // Validate blocksize
-            counter_t sieve_bits = option.factor_max >> 1;
-            if ((option.blocksize_kB*1024*8) > sieve_bits) {
-                option.blocksize_kB = (sieve_bits / (1024*8))+1;
-            }
             verbose1( {
                 printf("Settings: blockwise=%ju, mediumstep=%ju, largestep=%ju, blocksize=%ju kB\n", 
-                (uintmax_t)option.stripe_faster,
-                (uintmax_t)option.mediumstep_faster,
-                (uintmax_t)option.largestep_faster,
-                (uintmax_t)option.blocksize_kB);
+                (uintmax_t)option.fixed_benchmark_settings.stripe_faster,
+                (uintmax_t)option.fixed_benchmark_settings.mediumstep_faster,
+                (uintmax_t)option.fixed_benchmark_settings.largestep_faster,
+                (uintmax_t)option.fixed_benchmark_settings.blocksize_bits);
             })
         }
         else if (strcmp(argv[arg], "--threads")==0) { 
             if (++arg >= argc) { fprintf(stderr, "No thread maximum specified\n"); usage(argv[0]); }
         #ifdef _OPENMP
             int max_threads = omp_get_max_threads();
-            if (strcmp(argv[arg], "all")==0) option.threads = max_threads;
-            else if (strcmp(argv[arg], "half")==0) option.threads = max_threads>>1;
-            else if (sscanf(argv[arg], "%d", &option.threads) != 1 ) { fprintf(stderr, "Error: Invalid max threads: %s\n", argv[arg]); usage(argv[0]); }
-            if (option.threads <1)  option.threads = 1;
-            if (option.threads > max_threads)  option.threads = max_threads;
-            verbose(1) printf("Thread maximum set to %ju\n",(uintmax_t)option.threads);
+            if (strcmp(argv[arg], "all")==0) option.fixed_benchmark_settings.threads = max_threads;
+            else if (strcmp(argv[arg], "half")==0) option.fixed_benchmark_settings.threads = max_threads>>1;
+            else if (sscanf(argv[arg], "%d", (int *)&option.fixed_benchmark_settings.threads) != 1 ) { fprintf(stderr, "Error: Invalid max threads: %s\n", argv[arg]); usage(argv[0]); }
+            if (option.fixed_benchmark_settings.threads <1)  option.fixed_benchmark_settings.threads = 1;
+            if (option.fixed_benchmark_settings.threads > max_threads)  option.fixed_benchmark_settings.threads = max_threads;
+            verbose(1) printf("Thread maximum set to %ju\n",(uintmax_t)option.fixed_benchmark_settings.threads);
         #else
             verbose(1) printf("This is the version without multithreading - ignoring threads\n");
         #endif
@@ -180,13 +145,6 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             fprintf(stderr, "Invalid size %s\n",argv[arg]); usage(argv[0]); 
             printf("Maximum set to %ju\n",(uintmax_t)option.factor_max);
         }
-
-        counter_t sieve_bits = option.factor_max >> 1;
-        if ((option.blocksize_kB*1024*8) > (sieve_bits)) {
-            option.blocksize_kB = (sieve_bits / (1024*8))+1;
-            verbose(1) printf("Blocksize corrected to %ju kB\n",(uintmax_t)option.blocksize_kB);
-        }
-
     }
     return option;
 }
@@ -199,8 +157,8 @@ int main(int argc, char *argv[])
         printf("Sieve algorithm by Rogier van Dam - 2025\n");
         printf("Find all primes up to \033[1;33m%ju\033[0m using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)\n", (uintmax_t)option.factor_max);
     })
-    verbose1( printf("\nRunning sieve_extend variant u%juv%ju... \n", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); )
-
+    verbose1( printf("\nRunning sieve_extend variant \033[1;33m%s\033[0m u%juv%ju... \n", algorithm_name, (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); )
+    
     #if compile_verbose_level >= 4
     verbose4( if (option.explain>=1) {
         explainSieveShake();
@@ -210,13 +168,13 @@ int main(int argc, char *argv[])
     #endif
 
     // command line --check can be used to check the algorithm for all sieve/blocksize combinations
-    if (option.check) checkSieveAlgorithm(); 
+    if (option.check) checkSieveAlgorithm(option.fixed_benchmark_settings); 
 
-    for(counter_t threads=option.threads, runs = 0; threads >= 1 && runs < 2; threads = (threads>>1), runs++ ) {
+    for(counter_t threads=option.fixed_benchmark_settings.threads, runs = 0; threads >= 1 && runs < 2; threads = (threads>>1), runs++ ) {
 
         // prepare settings
 //        benchmark_result_t benchmark_result = benchmarkInit(threads);
-        benchmark_settings_t benchmark_settings = benchmarkInit(threads, option.blocksize_kB);
+        benchmark_settings_t benchmark_settings = benchmarkInit(threads);
 
         // tuning - try combinations of different settings and apply these
         if (option.tunelevel) { 
@@ -246,5 +204,5 @@ int main(int argc, char *argv[])
     }
 
     // show results for --show command line option
-    if (option.show_explain_factor_max > 0) showResult();
+    if (option.show_explain_factor_max > 0) showResult(option.fixed_benchmark_settings);
 }

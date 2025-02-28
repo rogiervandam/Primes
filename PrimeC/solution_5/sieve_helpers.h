@@ -14,8 +14,8 @@
 // #endif
 
 // set this to the level of verbose messages that will be compiled
-  #define verbose(level)    if (level <= compile_verbose_level) if (option.verbose_level >= level) if (!(option.verbose_level >= 3 && option.explain == 0)) 
-  #define verbose_at(level) if (level <= compile_verbose_level) if (option.verbose_level == level) if (!(option.verbose_level >= 3 && option.explain == 0)) 
+  #define verbose(level)    if (level <= compile_verbose_level) if (option.verbose_level >= level) 
+  #define verbose_at(level) if (level <= compile_verbose_level) if (option.verbose_level == level) 
 // #endif
 
 #define verbose1(statement)
@@ -180,9 +180,10 @@ void timerLapTime() {
 typedef bitword_vector_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes))); 
 
 // globals for tuning
-static counter_t global_smallprime_faster  = 32ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
-static counter_t global_mediumstep_faster =  16ULL; // if step < MEDIUMSTEP_FASTER, use medium steps
-static counter_t global_vectorstep_faster = 128ULL; // if step < VECTORSTAP_FASTER, use large steps
+// static counter_t global_stripeprime_faster  = 32ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
+// static counter_t global_mediumstep_faster   = 16ULL; // if step < MEDIUMSTEP_FASTER, use medium steps
+// static counter_t global_largestep_faster    = 128ULL; // if step < VECTORSTAP_FASTER, use large steps
+// static counter_t global_blocksize_bits      = 128*1024*8; // blocksize in bits
 
 // Patterns based on types
 #define SAFE_SHIFTBIT        (bitshift_t)1ULL

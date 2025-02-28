@@ -32,10 +32,10 @@ PAREXT="_epar"
 
 # Set default value for $1 if empty
 if [ -z "$1" ]; then
-    set -- "sieve_extend-u64_v8" "$2" "$3" "$4" "$5" "$6" "$7"
+    set -- "sieve_extend-u64_v4" "$2" "$3" "$4" "$5" "$6" "$7"
 fi
 
-echo "Compiling for ${OS}"
+echo "Compiling for ${OS} with $CC"
 for s in $1; do
     x=$(echo "$s" | sed -E 's/-(u[^-]*)$//')
     y=$(echo "$s" | grep -oE 'u[^-]*$')
