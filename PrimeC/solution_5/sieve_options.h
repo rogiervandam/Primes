@@ -28,7 +28,7 @@ static struct options_t setDefaultOptions() {
     option.show_max_tuning_results = 100;
     option.show_primes_on_error    = 100;
     option.extended_output         = 1;
-    option.verboselevel            = 0;
+    option.verboselevel            = 1;
     option.explain                 = 0;
 
     option.check                   = 1;

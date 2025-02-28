@@ -300,7 +300,8 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
         register bitword_t pattern   = BITVECTORWORD_SHIFTBIT;
         bitshift_t pattern_size = step;
 
-        if (pattern_size < (VECTORWORD_SIZE_bitshift >> 2)) {
+        if (pattern_size < (VECTORWORD_SIZE_bitshift >> (6 - VECTOR_ELEMENTS/2))) {
+        // if (pattern_size < (VECTORWORD_SIZE_bitshift >> 2)) {
             pattern |= (pattern_base << step) | (pattern_base << step*2) | (pattern_base << step*3);
             pattern_size = step << 2;
         }

@@ -4,7 +4,6 @@ PAR="-fopenmp"
 PAREXT="_epar"
 
 echo "Compiling..."
-# $CC -Q --help=target
 for x in sieve_base sieve_extend; do
     for y in u32_v8 u64_v4 u64_v8 u64_v2; do
         $CC -o $x-$y $x.c -D$y -s

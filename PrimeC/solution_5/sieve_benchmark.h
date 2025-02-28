@@ -80,6 +80,13 @@ static void setSettingsFromTuning(benchmark_settings_t* benchmark_settings, benc
     benchmark_settings->blocksize_bits    = tuning_settings->blocksize_bits;
 }
 
+static inline double benchmarkTime() {
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (t.tv_sec + t.tv_nsec * 1e-9) * CLOCKS_PER_SEC ;
+    // return (double)clock();
+}
+
 static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings) 
 {
     benchmark_result_t benchmark_result;
@@ -98,9 +105,10 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
     const counter_t sieve_size = benchmark_result.settings.maxFactor;
     const counter_t blocksize_bits = benchmark_result.settings.blocksize_bits;
     const double time_sample = benchmark_result.settings.sample_duration * CLOCKS_PER_SEC * benchmark_settings.threads; // do this before we set the clock
+//    const double time_sample = benchmark_result.settings.sample_duration * CLOCKS_PER_SEC * benchmark_settings.threads; // do this before we set the clock
 
     double time_elapsed = 0;
-    const double time_start = (double) clock();
+    const double time_start = benchmarkTime();
     const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
 
     #ifdef _OPENMP
@@ -108,12 +116,12 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
     #pragma omp parallel reduction(+:passes)
     {
         double time_elapsed = 0;
-        const double time_start = (double) clock();
+        const double time_start = benchmarkTime();
         const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
         while (time_elapsed <= time_target) {
             struct sieve_t *sieve = sieve_shake(sieve_size, blocksize_bits);
             sieve_delete(sieve);
-            time_elapsed = (double) clock();         
+            time_elapsed = benchmarkTime();         
             passes++;
         }
     }
@@ -121,11 +129,11 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
     while (time_elapsed <= time_target) {
         struct sieve_t *sieve = sieve_shake(sieve_size, blocksize_bits);
         sieve_delete(sieve);
-        time_elapsed = (double) clock();         
+        time_elapsed = benchmarkTime();         
         passes++;
     }
     #endif
-    time_elapsed = (double) clock() - time_start;         
+    time_elapsed = benchmarkTime() - time_start;         
 
     // calculate results
     benchmark_result.passes       = passes;
@@ -225,7 +233,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
                         }
                         verbose4( { printf("...."); tuning_result_print(tuning_result[tuning_result_index]); } )
                         tuning_result_index++;
-                        verbose1_at( { printf("\rTuning...tuning %ju options..in %lf seconds  ",(uintmax_t)tuning_results, (double)tuning_results*sample_duration ); fflush(stdout); } )
+                        verbose1_at( { printf("\rTuning...tuning %5ju options..in %lf seconds  ",(uintmax_t)tuning_results, (double)tuning_results*sample_duration ); fflush(stdout); } )
                     }
                     if (option.smallprime_faster) break;
                     if (option.blocksize_kB) break;
@@ -264,7 +272,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
         // verbose messages
         verbose2( {
             printf("\n");
-            printf("\r\033[0;90m(iteration %1ju) - %ju results left - selecting %ju\033[0m\n",(uintmax_t)step, (uintmax_t)tuning_results,(uintmax_t)tuning_results_selected) ; 
+            printf("\r\033[0;90m(iteration %1ju) - %5ju results left - selecting %5ju\033[0m\n",(uintmax_t)step, (uintmax_t)tuning_results,(uintmax_t)tuning_results_selected) ; 
             verbose2_at(  printf(">> \033[0;34m");tuning_result_print(tuning_result[0]); printf("\033[0m");  )
             verbose2( {
                 for (tuning_result_index=1; tuning_result_index<min( option.show_max_tuning_results,tuning_results); tuning_result_index++) {
@@ -364,7 +372,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
             benchmark_settings_t tuning_settings = tuning_result[i].settings;
 
             tuning_settings.sample_duration += 2 * step * sample_duration;
-            verbose1( { printf("\rTuning step %ju with %ju options. Benchmarking tuning option %4ju",(uintmax_t)step,(uintmax_t)tuning_results, (uintmax_t)i); fflush(stdout); })
+            verbose1( { printf("\rTuning step %2ju with %5ju options. Benchmarking tuning option %5ju",(uintmax_t)step,(uintmax_t)tuning_results, (uintmax_t)i); fflush(stdout); })
             
             counter_t passes       = tuning_result[i].passes;
             double    elapsed_time = tuning_result[i].elapsed_time;
