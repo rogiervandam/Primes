@@ -14,8 +14,8 @@
 // #endif
 
 // set this to the level of verbose messages that will be compiled
-  #define verbose(level)    if (level <= compile_verbose_level) if (option.verboselevel >= level) if (!(option.verboselevel >= 3 && option.explain == 0)) 
-  #define verbose_at(level) if (level <= compile_verbose_level) if (option.verboselevel == level) if (!(option.verboselevel >= 3 && option.explain == 0)) 
+  #define verbose(level)    if (level <= compile_verbose_level) if (option.verbose_level >= level) if (!(option.verbose_level >= 3 && option.explain == 0)) 
+  #define verbose_at(level) if (level <= compile_verbose_level) if (option.verbose_level == level) if (!(option.verbose_level >= 3 && option.explain == 0)) 
 // #endif
 
 #define verbose1(statement)
@@ -29,27 +29,27 @@
 
 #if compile_verbose_level >= 1
   #undef verbose1
-  #define verbose1(statement) if (option.verboselevel >= 1) statement
+  #define verbose1(statement) if (option.verbose_level >= 1) statement
   #undef verbose1_at
-  #define verbose1_at(statement) if (option.verboselevel == 1) statement
+  #define verbose1_at(statement) if (option.verbose_level == 1) statement
 #endif
 #if compile_verbose_level >= 2
   #undef verbose2
-  #define verbose2(statement) if (option.verboselevel >= 2) statement
+  #define verbose2(statement) if (option.verbose_level >= 2) statement
   #undef verbose2_at
-  #define verbose2_at(statement) if (option.verboselevel == 2) statement
+  #define verbose2_at(statement) if (option.verbose_level == 2) statement
 #endif
 #if compile_verbose_level >= 3
   #undef verbose3
-  #define verbose3(statement) if (option.verboselevel >= 3) statement
+  #define verbose3(statement) if (option.verbose_level >= 3) statement
   #undef verbose3_at
-  #define verbose3_at(statement) if (option.verboselevel == 3) statement
+  #define verbose3_at(statement) if (option.verbose_level == 3) statement
 #endif
 #if compile_verbose_level >= 4
   #undef verbose4
-  #define verbose4(statement) if (option.verboselevel >= 4) statement
+  #define verbose4(statement) if (option.verbose_level >= 4) statement
   #undef verbose4_at
-  #define verbose4_at(statement) if (option.verboselevel == 4) statement
+  #define verbose4_at(statement) if (option.verbose_level == 4) statement
 #endif
 
 // helper calc functions
