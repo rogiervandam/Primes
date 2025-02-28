@@ -24,7 +24,7 @@
    sieve_size in a real number that is the maximum in the sieve (not in bits)
    block_size is in bits and determines how large the blocks are which are processed 
 */
-static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t block_size, const stripeprime_faster, const mediumstep_faster, const largestep_faster)
+static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t block_size, const counter_t stripeprime_faster, const counter_t mediumstep_faster, const counter_t largestep_faster)
 {
     struct sieve_t *sieve = sieve_create(sieve_size);
     bitword_t* bitstorage = sieve->bitstorage;
@@ -32,8 +32,9 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t b
 
     verbose4(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size); )
 
-    // fill the entire sieve for lower primes by adding en copying incrementally
-    counter_t prime_next = sieve_block_extend(sieve, 0, sieve_bits, mediumstep_faster, largestep_faster);
+    // code for algorithm = base
+    sieve_clear(sieve);
+    counter_t prime_next = 1;
     
     // continue from the prime that was processed in the pattern until the tuned value for blockwise processing
     // stripe off all the multiples of primes in the sieve

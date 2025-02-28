@@ -31,9 +31,11 @@ fi
 PAREXT="_epar"
 
 # Set default value for $1 if empty
-if [ -z "$1" ]; then
-    set -- "sieve_extend-u64_v4" "$2" "$3" "$4" "$5" "$6" "$7"
-fi
+# if [ -z "$1" ]; then
+#     set -- "sieve_extend-u64_v4" "$2" "$3" "$4" "$5" "$6" "$7"
+# fi
+
+set -- "sieve_extend-u64_v4"
 
 echo "Compiling for ${OS} with $CC"
 for s in $1; do
@@ -48,4 +50,5 @@ for s in $1; do
         $CC $PAR -o $x$PAREXT-$y $x.c -D$y
         $STRIP $x$PAREXT-$y
 done
-./$1 $2 $3 $4 $5 $6 $7
+# ./$1 $2 $3 $4 $5 $6 $7
+./$1 --set s112-m004-l158-b0262144 --verbose 3
