@@ -65,7 +65,7 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             if (sscanf(argv[arg], "%lf", &option.maxTime) != 1 ) {
                 fprintf(stderr, "Error: Invalid max time: %s\n", argv[arg]); usage(argv[0]);
             }
-            verbose(1) printf("Max time is set to %d seconds\n",option.maxTime);
+            verbose(1) printf("Max time is set to %f seconds\n",option.maxTime);
         }
         else if (strcmp(argv[arg], "--show")==0) { option.showMaxFactor=0;
             if (++arg >= argc) { fprintf(stderr, "No show maximum specified\n"); usage(argv[0]); }
