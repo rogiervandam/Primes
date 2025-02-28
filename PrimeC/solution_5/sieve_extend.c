@@ -97,8 +97,11 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t b
 #include "sieve_benchmark.h"
 
 static void algorithmWelcome() {
-    printf("Sieve algorithm by Rogier van Dam - 2025\n");
-    printf("Find all primes up to \033[1;33m%ju\033[0m using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)\n", (uintmax_t)option.maxFactor);
+    verbose2({
+        printf("Sieve algorithm by Rogier van Dam - 2025\n");
+        printf("Find all primes up to \033[1;33m%ju\033[0m using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)\n", (uintmax_t)option.maxFactor);
+    })
+    verbose1( printf("\nRunning sieve_extend variant u%juv%ju... \n", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); )
 }
 
 static void reportMessage(const char* extension, const char* extended_output, const benchmark_result_t benchmark_result, const counter_t threads) {

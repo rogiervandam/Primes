@@ -145,10 +145,11 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
 
 static inline void tuning_result_print(benchmark_result_t tuning_result) 
 {
-    printf("blocksize_bits %10ju; blocksize %4jukB; small %4ju; medium %2ju; vector %3ju; passes %3ju; time %f/%f;average %f\n", 
-                            (uintmax_t)tuning_result.settings.blocksize_bits, (uintmax_t)tuning_result.settings.blocksize_bits/8/1024,
-                            (uintmax_t)tuning_result.settings.smallprime_faster,(uintmax_t)tuning_result.settings.mediumstep_faster,(uintmax_t)tuning_result.settings.vectorstep_faster,
-                            (uintmax_t)tuning_result.passes, tuning_result.elapsed_time, tuning_result.settings.sample_duration, tuning_result.avg);
+    printf("average \033[1;33m%f\033[0m small \033[1;32m%4ju\033[0m medium \033[1;32m%2ju\033[0m vector \033[1;32m%3ju\033[0m block \033[1;32m%4ju\033[0mkB (bits \033[1;32m%10ju\033[0m) passes \033[1;33m%3ju\033[0m time \033[1;33m%f/%f\033[0m \n", 
+    tuning_result.avg,
+    (uintmax_t)tuning_result.settings.smallprime_faster,(uintmax_t)tuning_result.settings.mediumstep_faster,(uintmax_t)tuning_result.settings.vectorstep_faster,
+    (uintmax_t)tuning_result.settings.blocksize_bits/8/1024, (uintmax_t)tuning_result.settings.blocksize_bits,
+    (uintmax_t)tuning_result.passes, tuning_result.elapsed_time, tuning_result.settings.sample_duration);
 }
 
 static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning_settings) 
@@ -184,7 +185,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     
     verbose1( { 
         verbose2( printf("\n"); )
-        printf("Tuning... compiled for %ju/%ju (word, vector)", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
+        printf("Tuning... compiled for \033[1;32m%ju_%ju\033[0m (word, vector)", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
         verbose2( printf(".. best options (shown when found) for steps s%jum%juv%ju:\n", (uintmax_t)smallprime_faster_steps, (uintmax_t) mediumstep_faster_steps, (uintmax_t) vectorstep_faster_steps); )
         fflush(stdout);
     })
@@ -233,7 +234,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
                         }
                         verbose4( { printf("...."); tuning_result_print(tuning_result[tuning_result_index]); } )
                         tuning_result_index++;
-                        verbose1_at( { printf("\rTuning...tuning %5ju options..in %lf seconds  ",(uintmax_t)tuning_results, (double)tuning_results*sample_duration ); fflush(stdout); } )
+                        verbose1_at( { printf("\rTuning...tuning \033[1;32m%5ju\033[0m options..in \033[1;32m%lf\033[0m seconds  ",(uintmax_t)tuning_results, (double)tuning_results*sample_duration ); fflush(stdout); } )
                     }
                     if (option.smallprime_faster) break;
                     if (option.blocksize_kB) break;
@@ -246,7 +247,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     }
     verbose1_at( { printf("\rTuning...tuned %ju options..",(uintmax_t)tuning_results); } )
     verbose2( {
-        printf("Finished scan of \033[1;33m%ju\033[0m options. Inital best blocksize: %ju; best smallstep %ju; best mediumstep %ju; best vectorstep %ju\n",(uintmax_t)tuning_results,(uintmax_t)best_tuning_result.settings.blocksize_bits, (uintmax_t)best_tuning_result.settings.smallprime_faster,(uintmax_t)best_tuning_result.settings.mediumstep_faster, (uintmax_t)best_tuning_result.settings.vectorstep_faster);
+        printf("Finished scan of \033[1;33m%ju\033[0m options. Inital best blocksize: %ju; best stripe %ju; best medium %ju; best vector%ju\n",(uintmax_t)tuning_results,(uintmax_t)best_tuning_result.settings.blocksize_bits, (uintmax_t)best_tuning_result.settings.smallprime_faster,(uintmax_t)best_tuning_result.settings.mediumstep_faster, (uintmax_t)best_tuning_result.settings.vectorstep_faster);
         printf("Finding the best option by reevaluating the top options with a longer sample duration.\n");
     })
 
@@ -372,7 +373,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
             benchmark_settings_t tuning_settings = tuning_result[i].settings;
 
             tuning_settings.sample_duration += 2 * step * sample_duration;
-            verbose1( { printf("\rTuning step %2ju with %5ju options. Benchmarking tuning option %5ju",(uintmax_t)step,(uintmax_t)tuning_results, (uintmax_t)i); fflush(stdout); })
+            verbose1( { printf("\rTuning step \033[1;32m%2ju\033[0m with \033[1;33m%5ju\033[0m options. Benchmarking option \033[1;32m%5ju\033[0m in progress  ",(uintmax_t)step,(uintmax_t)tuning_results, (uintmax_t)i); fflush(stdout); })
             
             counter_t passes       = tuning_result[i].passes;
             double    elapsed_time = tuning_result[i].elapsed_time;
@@ -393,20 +394,19 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     // take best result
     benchmark_result_t best_result = tuning_result[0];
     free(tuning_result);
-    verbose1( {
-        printf("\33[2K\r");
-        verbose2( { printf("Best result:  "); tuning_result_print(best_result); printf("\n"); } )
-    })
+    verbose1( { printf("\33[2K\rTuning done. Best result: "); tuning_result_print(best_result);} );
     return best_result;
 }
 
 void outputBenchmarkStats(benchmark_result_t benchmark_result, counter_t threads)
 {
-    printf("\033[0;32m(Passes - per %.1f seconds: \033[1;33m%f\033[0m - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", benchmark_result.settings.sample_duration,benchmark_result.settings.sample_duration*benchmark_result.passes/benchmark_result.elapsed_time, benchmark_result.passes/benchmark_result.elapsed_time);
+    printf("\rResult: Passes \033[0;32m(per %.1f seconds)\033[0m: \033[1;33m%f\033[0m - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", 
+        benchmark_result.settings.sample_duration,benchmark_result.settings.sample_duration*benchmark_result.passes/benchmark_result.elapsed_time, benchmark_result.passes/benchmark_result.elapsed_time);
     if (option.maxTime!=5.0) printf("\033[0;32m(Passes - per %.1f seconds: \033[1;33m%f\033[0m - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", 5.0, 5.0*benchmark_result.passes/benchmark_result.elapsed_time, benchmark_result.passes/benchmark_result.elapsed_time);
-    if (threads>1) printf("\033[0;32m(Passes per thread (total %ju) - per %.1f seconds: %.1f - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", 
+    if (threads>1) printf("\033[0;32mPasses per thread (total %ju) - per %.1f seconds: %.1f - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", 
                          (uintmax_t)benchmark_result.settings.threads, benchmark_result.settings.sample_duration, option.maxTime*benchmark_result.passes/benchmark_result.elapsed_time/threads, benchmark_result.passes/benchmark_result.elapsed_time/threads);
     fflush(stdout);
+    printf("\033[0;32mOutput message:\033[0m ");
 }
 
 static void checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) {
@@ -429,13 +429,7 @@ static void prepareSettingsForOutput(benchmark_settings_t benchmark_settings, ch
     if (option.extended_output) {
         sprintf(extended_output,"-s%jum%juv%ju", (uintmax_t) benchmark_settings.smallprime_faster,(uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.vectorstep_faster);
     }
-    
-    verbose1( { printf("Benchmarking... with settings: %ju/%ju/%ju/%ju/%ju/%ju (stripeprime, mediumstep, vectorstep, wordsize, vector elements, blocksize) and %ju threads for %.1f seconds - Results: (wait %.1lf seconds)...\n", 
-              (uintmax_t)benchmark_settings.smallprime_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.vectorstep_faster, 
-              (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS, (uintmax_t)benchmark_settings.blocksize_bits,
-              (uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
-        fflush(stdout);
-    })
+   
 }
 
 

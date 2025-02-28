@@ -65,7 +65,7 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             if (sscanf(argv[arg], "%lf", &option.maxTime) != 1 ) {
                 fprintf(stderr, "Error: Invalid max time: %s\n", argv[arg]); usage(argv[0]);
             }
-            verbose(1) printf("Max time is set to %d seconds\n",option.tunelevel);
+            verbose(1) printf("Max time is set to %d seconds\n",option.maxTime);
         }
         else if (strcmp(argv[arg], "--show")==0) { option.showMaxFactor=0;
             if (++arg >= argc) { fprintf(stderr, "No show maximum specified\n"); usage(argv[0]); }
@@ -220,9 +220,8 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
 int main(int argc, char *argv[]) 
 {
     option = setDefaultOptions();
-    verbose1( printf("\n"); )
-    verbose2( algorithmWelcome(); )
     option = parseCommandLine(argc, argv, option);
+    algorithmWelcome();
 
     #if compile_verbose_level >= 4
     verbose4( if (option.explain>=1) {
@@ -251,6 +250,13 @@ int main(int argc, char *argv[])
         char extension[50] = "";
         char extended_output[50] = "";
         prepareSettingsForOutput(benchmark_settings, extension, extended_output);
+        verbose1( { printf("Benchmarking... with settings: \033[1;32m%ju/%ju/%ju/%ju/%ju/%ju\033[0m (stripeprime, mediumstep, vectorstep, wordsize, vector elements, blocksize) and \033[1;32m%ju\033[0m threads for \033[1;32m%.1f\033[0m seconds\nResults: \033[5m(wait \033[1;32m%.1lf\033[39m seconds)\033[25m...\033[0m", 
+            (uintmax_t)benchmark_settings.smallprime_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.vectorstep_faster, 
+            (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS, (uintmax_t)benchmark_settings.blocksize_bits,
+            (uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
+            fflush(stdout);
+        })
+
         
         // one last check to make sure this is a valid algorithm for these settings
         checkSieveWithBenchmarkSettings(benchmark_settings);
