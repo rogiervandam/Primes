@@ -25,13 +25,11 @@ static void usage(char *name)
     fprintf(stderr, "                            2 - show general progress within the phase\n");
     fprintf(stderr, "                            3 - show actual work\n");
     fprintf(stderr, "                            4 - show timing\n");
-    fprintf(stderr, "  --set_block <kilobyte>    Set the block size to a specific <size> in kilobytes\n");
-    fprintf(stderr, "  --set_blockwise <prime>   Set the cutoff prime for blockwise striping\n");
-    fprintf(stderr, "  --set_mediumstep <bits>   Set the cutoff number of bits for wordwise striping\n");
-    fprintf(stderr, "  --set_vectorstep <bits>   Set the cutoff number of bits for vectorwise striping\n");
-    fprintf(stderr, "\n    Set all in one go:\n");
-    fprintf(stderr, "  --set <blockwise>/<mediumstep>/<vectorstep>  \n");
-    fprintf(stderr, "Maximum is the heighest prime to examine.\n");
+    fprintf(stderr, "  --set s<prime>            Set the cutoff prime for blockwise striping\n");
+    fprintf(stderr, "        m<bits>             Set the cutoff number of bits for wordwise striping\n");
+    fprintf(stderr, "        l<bits>             Set the cutoff number of bits for vectorwise striping\n");
+    fprintf(stderr, "        b<bits>             Set the block size to a specific <size> in bits\n");
+    fprintf(stderr, "[maximum] is the heighest prime to examine. Defaults to %ju\n", (uintmax_t)option.factor_max);
 
     exit(1);
 }
@@ -97,12 +95,12 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             }
             verbose(1) printf("Vectorstep set to %ju\n",(uintmax_t)option.mediumstep_faster);
         }
-        else if (strcmp(argv[arg], "--set_vectorstep")==0) { option.vectorstep_faster=0;
-            if (++arg >= argc) { fprintf(stderr, "No vectorstep number specified\n"); usage(argv[0]); }
-            if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.vectorstep_faster) != 1 ) {
-                fprintf(stderr, "Error: Invalid vectorstep setting: %s\n", argv[arg]); usage(argv[0]);
+        else if (strcmp(argv[arg], "--set_vectorstep")==0) { option.largestep_faster=0;
+            if (++arg >= argc) { fprintf(stderr, "No largestep number specified\n"); usage(argv[0]); }
+            if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.largestep_faster) != 1 ) {
+                fprintf(stderr, "Error: Invalid largestep setting: %s\n", argv[arg]); usage(argv[0]);
             }
-            verbose(1) printf("Vectorstep set to %ju\n",(uintmax_t)option.vectorstep_faster);
+            verbose(1) printf("Vectorstep set to %ju\n",(uintmax_t)option.largestep_faster);
         }
         else if (strcmp(argv[arg], "--set")==0) {
             if (++arg >= argc) {
@@ -110,82 +108,59 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
                 usage(argv[0]);
             }
             
-            uintmax_t blocksize = option.blocksize_kB;             // Initialize with current values
-            uintmax_t blockwise = option.stripe_faster;
-            uintmax_t mediumstep = option.mediumstep_faster;
-            uintmax_t vectorstep = option.vectorstep_faster;
-            
-            int found_any = 0;
-            char *param = argv[arg];
-            char *p = param;
-            
-            // Parse all parameters if present
+            char *p = argv[arg];
             while (*p) {
-                if (*p == 'b') {
+                // Skip any hyphens
+                if (*p == '-') {
                     p++;
-                    if (sscanf(p, "%ju", &blocksize) != 1) {
-                        fprintf(stderr, "Error: Invalid blocksize value after 'b'\n");
+                    continue;
+                }
+                
+                // Get the parameter type
+                char param_type = *p++;
+                uintmax_t value = 0;
+                
+                // Skip to first digit
+                while (*p && !isdigit(*p)) p++;
+                
+                // Parse the number
+                if (*p && isdigit(*p)) {
+                    if (sscanf(p, "%ju", &value) != 1) {
+                        fprintf(stderr, "Error: Invalid number after '%c'\n", param_type);
                         usage(argv[0]);
                     }
-                    found_any = 1;
-                    while (*p && isdigit(*p)) p++;
-                }
-                else if (*p == 's') {
-                    p++;
-                    if (sscanf(p, "%ju", &blockwise) != 1) {
-                        fprintf(stderr, "Error: Invalid blockwise value after 's'\n");
-                        usage(argv[0]);
+                    
+                    // Apply the value based on parameter type
+                    switch(param_type) {
+                        case 's': option.stripe_faster = value; break;
+                        case 'm': option.mediumstep_faster = value; break;
+                        case 'l': option.largestep_faster = value; break;
+                        case 'b': option.blocksize_kB = (value + 8191) / 8192; break; // Convert bits to kB, rounding up
+                        case 'u': break;
+                        case 'v': break;
+                        case 't': option.threads = value; break;
+                        default:
+                            fprintf(stderr, "Error: Unknown parameter '%c'\n", param_type);
+                            usage(argv[0]);
                     }
-                    found_any = 1;
+                    
+                    // Skip the parsed number
                     while (*p && isdigit(*p)) p++;
-                }
-                else if (*p == 'm') {
-                    p++;
-                    if (sscanf(p, "%ju", &mediumstep) != 1) {
-                        fprintf(stderr, "Error: Invalid mediumstep value after 'm'\n");
-                        usage(argv[0]);
-                    }
-                    found_any = 1;
-                    while (*p && isdigit(*p)) p++;
-                }
-                else if (*p == 'v') {
-                    p++;
-                    if (sscanf(p, "%ju", &vectorstep) != 1) {
-                        fprintf(stderr, "Error: Invalid vectorstep value after 'v'\n");
-                        usage(argv[0]);
-                    }
-                    found_any = 1;
-                    while (*p && isdigit(*p)) p++;
-                }
-                else {
-                    fprintf(stderr, "Error: Unknown parameter identifier '%c'\n", *p);
-                    fprintf(stderr, "Format should use b/s/m/v prefixes like: b128s1000m500v200\n");
-                    fprintf(stderr, "Parameters are optional - only specified values are changed\n");
-                    usage(argv[0]);
                 }
             }
             
-            if (!found_any) {
-                fprintf(stderr, "Error: No valid parameters found in '%s'\n", param);
-                fprintf(stderr, "Format should use b/s/m/v prefixes like: b128s1000m500v200\n");
-                fprintf(stderr, "Parameters are optional - only specified values are changed\n");
-                usage(argv[0]);
-            }
-            
-            // Set blocksize with the same validation as in --set_block
-            option.blocksize_kB = blocksize;
+            // Validate blocksize
             counter_t sieve_bits = option.factor_max >> 1;
-            if ((option.blocksize_kB*1024*8) > (sieve_bits)) option.blocksize_kB = (sieve_bits / (1024*8))+1;
-            
-            option.stripe_faster = blockwise;
-            option.mediumstep_faster = mediumstep;
-            option.vectorstep_faster = vectorstep;
-            
-            verbose(1) printf("Settings: blocksize=%ju kB, blockwise=%ju, mediumstep=%ju, vectorstep=%ju\n", 
-                (uintmax_t)option.blocksize_kB,
+            if ((option.blocksize_kB*1024*8) > sieve_bits) {
+                option.blocksize_kB = (sieve_bits / (1024*8))+1;
+            }
+            verbose1( {
+                printf("Settings: blockwise=%ju, mediumstep=%ju, largestep=%ju, blocksize=%ju kB\n", 
                 (uintmax_t)option.stripe_faster,
                 (uintmax_t)option.mediumstep_faster,
-                (uintmax_t)option.vectorstep_faster);
+                (uintmax_t)option.largestep_faster,
+                (uintmax_t)option.blocksize_kB);
+            })
         }
         else if (strcmp(argv[arg], "--threads")==0) { 
             if (++arg >= argc) { fprintf(stderr, "No thread maximum specified\n"); usage(argv[0]); }
@@ -251,7 +226,7 @@ int main(int argc, char *argv[])
 
         // encode settings for reporting
         char settings_string[100]=""; benchmark_settings_as_string(settings_string, benchmark_settings);
-        verbose1( { printf("Benchmarking... with settings: \033[1;32m%s\033[0m (stripeprime, mediumstep, vectorstep, blocksize, wordsize, vectorsize) and \033[1;32m%ju\033[0m threads for \033[1;32m%.1f\033[0m seconds\nResults: \033[5m(wait \033[1;32m%.1lf\033[39m seconds)\033[25m...\033[0m", 
+        verbose1( { printf("Benchmarking... with settings: \033[1;32m%s\033[0m (stripeprime, mediumstep, largestep, blocksize, wordsize, vectorsize) and \033[1;32m%ju\033[0m threads for \033[1;32m%.1f\033[0m seconds\nResults: \033[5m(wait \033[1;32m%.1lf\033[39m seconds)\033[25m...\033[0m", 
             settings_string,(uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
             fflush(stdout);
         })
