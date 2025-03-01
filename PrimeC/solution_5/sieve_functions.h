@@ -440,7 +440,7 @@ static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block
     return prime; 
 }
 
-static inline counter_t sieve_block_stripe0(bitword_t* bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+static inline counter_t sieve_block_stripe0(bitword_t* bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
     verbose4(  printf("Block stripe for block %ju - %ju\n",(uintmax_t)0,(uintmax_t)block_stop); )
 
@@ -468,7 +468,7 @@ static inline counter_t sieve_block_stripe0(bitword_t* bitstorage, const counter
 }
 
 // assume that prim
-static inline counter_t sieve_stripe(bitword_t* bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+static inline counter_t sieve_stripe(bitword_t* bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
     verbose4(  printf("Block stripe for block %ju - %ju\n",(uintmax_t)0,(uintmax_t)block_stop); )
 

@@ -145,7 +145,7 @@ static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 static void showResult(benchmark_settings_t benchmark_settings)
 {
     printf("Show result set:\n");
-    struct sieve_t* sieve = sieve_shake(option.factor_max);
+    struct sieve_t* sieve = sieve_shake(benchmark_settings.factor_max);
     show_primes(sieve, option.show_explain_factor_max);
     sieve_delete(sieve);
 }

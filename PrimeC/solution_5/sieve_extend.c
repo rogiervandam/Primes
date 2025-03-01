@@ -24,14 +24,14 @@
 // start is too large
 // range is too big
 //static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block_start, const counter_t block_stop, const counter_t mediumstep_faster, const counter_t largestep_faster) 
-static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block_start, const counter_t block_stop) 
+static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block_stop) 
 {
     bitword_t* restrict bitstorage = sieve->bitstorage;
     const counter_t sieve_bits = sieve->bits;
     bitstorage[0] = SAFE_ZERO; // only the first word has to be cleared; the rest is populated by the extension procedure
 
-    const counter_t stripeprime_faster = global_stripeprime_faster;
-    const counter_t mediumstep_faster = global_mediumstep_faster;
+    // const counter_t stripeprime_faster = global_stripeprime_faster;
+    // const counter_t mediumstep_faster = global_mediumstep_faster;
     const counter_t largestep_faster = global_largestep_faster;
 
     register counter_t prime         = 1;
@@ -86,25 +86,25 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
 
     // use globals as constant
     const counter_t stripeprime_faster = global_stripeprime_faster;
-    const counter_t mediumstep_faster = global_mediumstep_faster;
-    const counter_t largestep_faster = global_largestep_faster;
+    // const counter_t mediumstep_faster = global_mediumstep_faster;
+    // const counter_t largestep_faster = global_largestep_faster;
     const counter_t blocksize_bits = global_blocksize_bits;
 
     verbose4(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size); )
 
     // fill the entire sieve for lower primes by adding en copying incrementally
-    counter_t prime_next = sieve_block_extend(sieve, 0, sieve_bits);
+    counter_t prime_next = sieve_block_extend(sieve, sieve_bits);
     
     // continue from the prime that was processed in the pattern until the tuned value for blockwise processing
     // stripe off all the multiples of primes in the sieve
-    prime_next = sieve_stripe(bitstorage, 0, sieve_bits, prime_next, stripeprime_faster );
+    prime_next = sieve_stripe(bitstorage, sieve_bits, prime_next, stripeprime_faster );
 
     // in the sieve all bits for the multiples of primes up to startprime have been set
     // process the sieve and stripe all the multiples of primes > start_prime
     // do this block by block to minimize cache misses
 
     // first block requires fewer operations; it might be the whole sieve...
-    sieve_block_stripe0(bitstorage, 0, min(blocksize_bits-1, sieve_bits), prime_next, prime_max);
+    sieve_block_stripe0(bitstorage, min(blocksize_bits-1, sieve_bits), prime_next, prime_max);
 
     // process the remaining blocks
     for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start <= sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {

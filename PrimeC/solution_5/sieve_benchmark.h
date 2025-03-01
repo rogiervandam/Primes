@@ -65,7 +65,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
     // prepare for the benchmark
     counter_t passes = 0;
     const counter_t sieve_size = benchmark_result.settings.factor_max;
-    const counter_t blocksize_bits = benchmark_result.settings.blocksize_bits;
+    // const counter_t blocksize_bits = benchmark_result.settings.blocksize_bits;
     const double time_sample = benchmark_result.settings.sample_duration * CLOCKS_PER_SEC * benchmark_settings.threads; // do this before we set the clock
 //    const double time_sample = benchmark_result.settings.sample_duration * CLOCKS_PER_SEC * benchmark_settings.threads; // do this before we set the clock
 
@@ -78,8 +78,8 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
     #pragma omp parallel reduction(+:passes)
     {
         double time_elapsed = 0;
-        const double time_start = benchmarkTime();
-        const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
+        // const double time_start = benchmarkTime();
+        // const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
         while (time_elapsed <= time_target) {
             struct sieve_t *sieve = sieve_shake(sieve_size);
             sieve_delete(sieve);
@@ -94,8 +94,8 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
         time_elapsed = benchmarkTime();         
         passes++;
     }
-    #endif
     time_elapsed = benchmarkTime() - time_start;         
+    #endif
 
     // calculate results
     benchmark_result.passes       = passes;
@@ -157,7 +157,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     const size_t max_results = ((stripe_faster_steps)+1) * ((size_t)(VECTOR_SIZE_counter/mediumstep_faster_steps)+1) * ((size_t)(VECTOR_SIZE_counter/largestep_faster_steps)+1) * 32;
     benchmark_result_t* tuning_result = malloc(max_results * sizeof(tuning_result));
     benchmark_settings_t tuning_settings = benchmarkInit(start_tuning_settings.threads);
-    benchmark_result_t best_tuning_result;
+    benchmark_result_t best_tuning_result = tuning_result[0];
     counter_t tuning_results=0;
     counter_t tuning_result_index=0;
 
@@ -219,7 +219,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     // reduce the tuning results to the best options
     // keep the best of the results and reevaluate them with a longer sample duration
 
-    counter_t tuning_results_max = tuning_results; // keep this value for verbose messages
+    // counter_t tuning_results_max = tuning_results; // keep this value for verbose messages
     for (counter_t step=1; tuning_results > 1; step++) {
         qsort(tuning_result, (size_t)tuning_results, sizeof(benchmark_result_t), compare_tuning_result);
 
@@ -368,7 +368,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     return best_result;
 }
 
-static void outputBenchmarkStats(benchmark_result_t benchmark_result, counter_t threads)
+static void outputBenchmarkStats(benchmark_result_t benchmark_result)
 {
     
     printf("\rResult: Passes \033[1;33m%ju\033[0m \033[0;32m(per %.1f seconds)\033[0m - average \033[1;33m%.1f\033[0m per second \n", 

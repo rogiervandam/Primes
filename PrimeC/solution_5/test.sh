@@ -16,7 +16,7 @@ OS="$(uname -s)"
 
 CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions"
 if [ "$OS" = "Linux" ]; then
-    CC="gcc $CC -Wno-psabi"
+    CC="gcc $CC -Wno-psabi -s"
     PAR="-fopenmp"
     STRIP="strip"
 elif [ "$OS" = "Darwin" ]; then
@@ -36,6 +36,9 @@ PAREXT="_epar"
 # fi
 
 set -- "sieve_extend-u64_v4"
+
+# extra options for testing and debugging
+# CC="$CC -malign-data=cacheline -fverbose-asm -mavx -W -Wall -Wno-unused-function -Wvector-operation-performance"
 
 echo "Compiling for ${OS} with $CC"
 for s in $1; do

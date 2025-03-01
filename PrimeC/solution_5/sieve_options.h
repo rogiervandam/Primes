@@ -27,7 +27,7 @@ static struct options_t {
     // int       threads;
 
     counter_t show_explain_factor_max;
-    int       show_tuning_results_max;
+    counter_t show_tuning_results_max;
     int       show_primes_on_error;
     int       verbose_level;
     int       explain;

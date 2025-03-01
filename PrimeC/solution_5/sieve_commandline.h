@@ -130,7 +130,7 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
         else if (strcmp(argv[arg], "--threads")==0) { 
             if (++arg >= argc) { fprintf(stderr, "No thread maximum specified\n"); usage(argv[0]); }
         #ifdef _OPENMP
-            int max_threads = omp_get_max_threads();
+            counter_t max_threads = (counter_t) omp_get_max_threads();
             if (strcmp(argv[arg], "all")==0) option.fixed_benchmark_settings.threads = max_threads;
             else if (strcmp(argv[arg], "half")==0) option.fixed_benchmark_settings.threads = max_threads>>1;
             else if (sscanf(argv[arg], "%d", (int *)&option.fixed_benchmark_settings.threads) != 1 ) { fprintf(stderr, "Error: Invalid max threads: %s\n", argv[arg]); usage(argv[0]); }
@@ -195,7 +195,7 @@ int main(int argc, char *argv[])
 
         // perform benchmark -> outputs passes, elapsed time and avg in result 
         benchmark_result_t benchmark_result = benchmark(benchmark_settings);
-        verbose1(outputBenchmarkStats(benchmark_result, threads);)
+        verbose1(outputBenchmarkStats(benchmark_result);)
 
         // report results
         char extension[50] = "";      extension_as_string(extension);      
