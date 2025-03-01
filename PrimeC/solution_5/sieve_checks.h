@@ -1,21 +1,21 @@
 static void show_primes(struct sieve_t *sieve, counter_t factor_max) 
 {
-    counter_t primeCount = 1;    // We already have 2
+    counter_t primecount = 1;    // We already have 2
     for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor)) {
-        primeCount++;
+        primecount++;
         if (factor < factor_max/2) {
             printf("%3ju ",(uintmax_t)factor*2+1);
-            if (primeCount % 10 == 0) printf("\n");
+            if (primecount % 10 == 0) printf("\n");
         }
     }
-    printf("\nFound %ju primes until %ju\n",(uintmax_t)primeCount, (uintmax_t)sieve->bits*2+1);
+    printf("\nFound %ju primes until %ju\n",(uintmax_t)primecount, (uintmax_t)sieve->bits*2+1);
 }
 
 static counter_t count_primes(struct sieve_t *sieve) 
 {
-    counter_t primeCount = 1;
-    for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor)) primeCount++;
-    return primeCount;
+    counter_t primecount = 1;
+    for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor)) primecount++;
+    return primecount;
 }
 
 // 
@@ -42,11 +42,11 @@ static void deepAnalyzePrimes(struct sieve_t *sieve)
     }
 }
 
-static int validatePrimeCount(struct sieve_t *sieve) 
+static int validatePrimeCount(struct sieve_t *sieve, counter_t factor_max)
 {
     counter_t primecount = count_primes(sieve);
     counter_t valid_primes = 0;
-    switch(sieve->size) {
+    switch(factor_max) {
         case 10:            valid_primes = 4;         break;
         case 100:           valid_primes = 25;        break;
         case 1000:          valid_primes = 168;       break;
@@ -61,9 +61,9 @@ static int validatePrimeCount(struct sieve_t *sieve)
     }
 
     int valid = (valid_primes == primecount);
-    verbose4( if (valid) printf("Result: Sievesize %ju is expected to have %ju primes. algorithm produced %ju primes\n",(uintmax_t)sieve->size,(uintmax_t)valid_primes,(uintmax_t)primecount ); )
+    verbose4( if (valid) printf("Result: Sievesize %ju is expected to have %ju primes. algorithm produced %ju primes\n",(uintmax_t)factor_max,(uintmax_t)valid_primes,(uintmax_t)primecount ); )
     verbose1( if (!valid) {
-        printf("No valid result. Sievesize %ju was expected to have %ju primes, but algorithm produced %ju primes\n",(uintmax_t)sieve->size,(uintmax_t)valid_primes,(uintmax_t)primecount );
+        printf("No valid result. Sievesize %ju was expected to have %ju primes, but algorithm produced %ju primes\n",(uintmax_t)factor_max,(uintmax_t)valid_primes,(uintmax_t)primecount );
         verbose2( show_primes(sieve, option.show_primes_on_error); )
         verbose2( deepAnalyzePrimes(sieve); )
     })
@@ -104,7 +104,6 @@ static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
     verbose1( { 
         printf("Validating variant u%juv%ju... ", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
         verbose2( printf("\n");)
-        fflush(stdout); 
     })
 
     prepareBenchmarkGlobals(benchmark_settings);
@@ -115,7 +114,6 @@ static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
         verbose2( {
             printf("..Checking size %ju ...",(uintmax_t)sieveSize_check); 
             verbose(3) printf("\n");
-            fflush(stdout); 
         })
         struct sieve_t *sieve_check;
         for (counter_t blocksize_bits=1024; blocksize_bits<=256*1024*8; blocksize_bits *= 2) {
@@ -123,7 +121,7 @@ static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
             global_blocksize_bits = blocksize_bits;
 
             sieve_check = sieve_shake(sieveSize_check);
-            int valid = validatePrimeCount(sieve_check);
+            int valid = validatePrimeCount(sieve_check, sieveSize_check); 
 
             // printf("Bitstorage is %s\n", is_aligned(sieve_check->bitstorage, anticiped_cache_line_bytesize) ? "aligned" : "not aligned");
             // printf("Sieve is %s\n", is_aligned(sieve_check, anticiped_cache_line_bytesize) ? "aligned" : "not aligned");
@@ -150,12 +148,11 @@ static void showResult(benchmark_settings_t benchmark_settings)
     sieve_delete(sieve);
 }
 
-static void checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) {
-    struct sieve_t* sieve_check = sieve_shake(benchmark_settings.factor_max);
-    int valid = validatePrimeCount(sieve_check);
+static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
+{
+    const counter_t factor_max = benchmark_settings.factor_max;
+    struct sieve_t* sieve_check = sieve_shake(factor_max);
+    const int valid = validatePrimeCount(sieve_check, factor_max);
     sieve_delete(sieve_check);
-    if (!valid) { fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for these settings\n"); exit(1); }
-    else {
-        verbose3(  printf("valid;\n"); )
-    }
+    return valid;
 }

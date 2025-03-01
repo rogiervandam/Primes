@@ -17,7 +17,7 @@ typedef struct  {
 
 static struct options_t {
     double    time_max;
-    counter_t factor_max;
+    // counter_t factor_max;
     
     benchmark_settings_t fixed_benchmark_settings;
     // counter_t stripe_faster;
@@ -41,7 +41,6 @@ static struct options_t {
 
 static struct options_t setDefaultOptions() {
     option.time_max                = 10;
-    option.factor_max              = 1000000;
 
     option.show_explain_factor_max = 0;
     option.show_tuning_results_max = 100;
@@ -56,6 +55,7 @@ static struct options_t setDefaultOptions() {
     option.tune_duration_max       = 5.0;
     option.tune_keeppercent        = 10;
 
+    option.fixed_benchmark_settings.factor_max              = 1000000;
     option.fixed_benchmark_settings.threads                 = 1;
     option.fixed_benchmark_settings.stripe_faster           = 0;
     option.fixed_benchmark_settings.mediumstep_faster       = 0;

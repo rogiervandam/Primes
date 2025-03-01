@@ -14,7 +14,7 @@ static inline void reset_benchmark_result(benchmark_result_t* benchmark_result, 
 
 static inline benchmark_settings_t benchmarkInit(counter_t threads) {
     benchmark_settings_t benchmark_settings = option.fixed_benchmark_settings;
-    benchmark_settings.factor_max        = option.factor_max;
+    // benchmark_settings.factor_max        = option.factor_max;
     benchmark_settings.threads           = threads;
     benchmark_settings.sample_duration   = option.time_max;
     return benchmark_settings;
@@ -150,7 +150,6 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
             benchmark_settings_as_string(settings_string, start_tuning_settings);
             printf(".. best options (shown when found) for steps s%jum%juv%ju:\n", (uintmax_t)stripe_faster_steps, (uintmax_t) mediumstep_faster_steps, (uintmax_t) largestep_faster_steps); 
         } )
-        fflush(stdout);
     })
 
     // prepare a table to store the tuning results
@@ -191,10 +190,10 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
 
                         if ( tuning_result[tuning_result_index].avg >= best_tuning_result.avg) {
                             best_tuning_result = tuning_result[tuning_result_index];
-                            verbose2( { printf("\033[0;37m.(<)\033[0m"); tuning_result_print(best_tuning_result); fflush(stdout); } )
+                            verbose2( { printf("\033[0;37m.(<)\033[0m"); tuning_result_print(best_tuning_result); } )
                         }
                         tuning_result_index++;
-                        verbose1_at( { printf("\rTuning...tuning \033[1;32m%5ju\033[0m options..in \033[1;32m%lf\033[0m seconds  ",(uintmax_t)tuning_results, (double)tuning_results*sample_duration ); fflush(stdout); } )
+                        verbose1_at( { printf("\rTuning...tuning \033[1;32m%5ju\033[0m options..in \033[1;32m%lf\033[0m seconds  ",(uintmax_t)tuning_results, (double)tuning_results*sample_duration ); } )
                         if (option.fixed_benchmark_settings.stripe_faster) break;
                     }
                     if (option.fixed_benchmark_settings.blocksize_bits) break;
@@ -343,7 +342,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
             tuning_settings.sample_duration += 2 * step * sample_duration;
             verbose1( { 
                 benchmark_settings_as_string(settings_string, tuning_settings);
-                printf("\rTuning step \033[1;32m%2ju\033[0m with \033[1;33m%5ju\033[0m options. Benchmarking option \033[1;32m%5ju\033[0m: %s in progress  ",(uintmax_t)step,(uintmax_t)tuning_results, (uintmax_t)i, settings_string  ); fflush(stdout); 
+                printf("\rTuning step \033[1;32m%2ju\033[0m with \033[1;33m%5ju\033[0m options. Benchmarking option \033[1;32m%5ju\033[0m: %s in progress  ",(uintmax_t)step,(uintmax_t)tuning_results, (uintmax_t)i, settings_string  ); 
             })
             
             counter_t passes       = tuning_result[i].passes;
@@ -376,7 +375,6 @@ static void outputBenchmarkStats(benchmark_result_t benchmark_result)
     // if (option.time_max!=5.0)     printf("\033[0;32m(Passes - per %.1f seconds: \033[1;33m%f\033[0m - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", 5.0, 5.0*benchmark_result.passes/benchmark_result.elapsed_time, benchmark_result.passes/benchmark_result.elapsed_time);
     // if (threads>1) printf("        \033[0;32mPasses per thread (total %ju) - per %.1f seconds: %.1f - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", 
     //                      (uintmax_t)benchmark_result.settings.threads, benchmark_result.settings.sample_duration, option.time_max*benchmark_result.passes/benchmark_result.elapsed_time/threads, benchmark_result.passes/benchmark_result.elapsed_time/threads);
-    fflush(stdout);
     printf("\033[0;32mOutput message:\033[0m ");
 }
 

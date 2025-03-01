@@ -29,7 +29,7 @@ static void usage(char *name)
     fprintf(stderr, "        m<bits>             Set the cutoff number of bits for wordwise striping\n");
     fprintf(stderr, "        l<bits>             Set the cutoff number of bits for vectorwise striping\n");
     fprintf(stderr, "        b<bits>             Set the block size to a specific <size> in bits\n");
-    fprintf(stderr, "[maximum] is the heighest prime to examine. Defaults to %ju\n", (uintmax_t)option.factor_max);
+    fprintf(stderr, "[maximum] is the heighest prime to examine. Defaults to %ju\n", (uintmax_t)option.fixed_benchmark_settings.factor_max);
 
     exit(1);
 }
@@ -67,7 +67,7 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
         }
         else if (strcmp(argv[arg], "--show")==0) { option.show_explain_factor_max=0;
             if (++arg >= argc) { fprintf(stderr, "No show maximum specified\n"); usage(argv[0]); }
-            if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.show_explain_factor_max) != 1 || option.show_explain_factor_max > option.factor_max) {
+            if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.show_explain_factor_max) != 1 || option.show_explain_factor_max > option.fixed_benchmark_settings.factor_max) {
                 fprintf(stderr, "Error: Invalid show maximum: %s\n", argv[arg]); usage(argv[0]);
             }
             verbose(1) printf("Show maximum set to %ju\n",(uintmax_t)option.show_explain_factor_max);
@@ -141,9 +141,9 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             verbose(1) printf("This is the version without multithreading - ignoring threads\n");
         #endif
         }
-        else if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.factor_max) != 1) {
+        else if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.fixed_benchmark_settings.factor_max) != 1) {
             fprintf(stderr, "Invalid size %s\n",argv[arg]); usage(argv[0]); 
-            printf("Maximum set to %ju\n",(uintmax_t)option.factor_max);
+            printf("Maximum set to %ju\n",(uintmax_t)option.fixed_benchmark_settings.factor_max);
         }
     }
     return option;
@@ -151,11 +151,13 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
 
 int main(int argc, char *argv[]) 
 {
+    setbuf(stdout, NULL); // prevent buffering of stdout
+
     option = setDefaultOptions();
     option = parseCommandLine(argc, argv, option);
     verbose2({
         printf("Sieve algorithm by Rogier van Dam - 2025\n");
-        printf("Find all primes up to \033[1;33m%ju\033[0m using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)\n", (uintmax_t)option.factor_max);
+        printf("Find all primes up to \033[1;33m%ju\033[0m using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)\n", (uintmax_t)option.fixed_benchmark_settings.factor_max);
     })
     verbose1( printf("\nRunning sieve_extend variant \033[1;33m%s\033[0m u%juv%ju... \n", algorithm_name, (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); )
     
@@ -184,15 +186,14 @@ int main(int argc, char *argv[])
 
         // encode settings for reporting
         char settings_string[100]=""; benchmark_settings_as_string(settings_string, benchmark_settings);
-        verbose1( { printf("Benchmarking... with settings: \033[1;32m%s\033[0m (stripeprime, mediumstep, largestep, blocksize, wordsize, vectorsize) and \033[1;32m%ju\033[0m threads for \033[1;32m%.1f\033[0m seconds\nResults: \033[5m(wait \033[1;32m%.1lf\033[39m seconds)\033[25m...\033[0m", 
+        verbose1( { printf("Benchmarking with settings: \033[1;32m%s\033[0m (stripeprime, mediumstep, largestep, blocksize, wordsize, vectorsize) and \033[1;32m%ju\033[0m threads for \033[1;32m%.1f\033[0m seconds\nResults: \033[5m(wait \033[1;32m%.1lf\033[39m seconds)\033[25m...\033[0m", 
             settings_string,(uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
-            fflush(stdout);
         })
 
-        
         // one last check to make sure this is a valid algorithm for these settings
-        checkSieveWithBenchmarkSettings(benchmark_settings);
-
+        if (!checkSieveWithBenchmarkSettings(benchmark_settings)) { fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for settings %s with factor %ju\n", settings_string, (uintmax_t) benchmark_settings.factor_max); exit(1); }
+        else { verbose1(  printf("(verified that settings %s and max %ju is \033[1;32mvalid\033[0m)", settings_string, (uintmax_t) benchmark_settings.factor_max); ) }
+    
         // perform benchmark -> outputs passes, elapsed time and avg in result 
         benchmark_result_t benchmark_result = benchmark(benchmark_settings);
         verbose1(outputBenchmarkStats(benchmark_result);)

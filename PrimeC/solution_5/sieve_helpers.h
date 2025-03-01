@@ -256,7 +256,7 @@ static counter_t debug_hits=0;
 struct sieve_t {
   bitword_t* bitstorage __attribute__((aligned(anticiped_cache_line_bytesize)));  // Align to cache line
   counter_t bits;
-  counter_t size;
+  // counter_t size;
 } __attribute__((aligned(anticiped_cache_line_bytesize)));  // Align the whole structure
 
 
