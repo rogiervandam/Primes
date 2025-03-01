@@ -52,7 +52,7 @@ static struct options_t setDefaultOptions() {
 
     option.check                   = 1; // set to 2 to debug in the check algorithm
     option.tunelevel               = 1;
-    option.sample_duration         = 0.0002;
+    option.sample_duration         = 0.0004;
     option.tune_duration_max       = 5.0;
     option.tune_keeppercent        = 10;
 

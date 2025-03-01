@@ -392,7 +392,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
     verbose4( timerLapTime(); )
 }
 
-static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+static inline counter_t  __attribute__((always_inline)) sieve_block_stripe(bitword_t* bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
     verbose4(  printf("Block stripe for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
 
@@ -440,13 +440,14 @@ static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block
     return prime; 
 }
 
-static inline counter_t sieve_block_stripe0(bitword_t* bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+static inline  __attribute__((always_inline)) counter_t sieve_block_stripe0(bitword_t* bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
     verbose4(  printf("Block stripe for block %ju - %ju\n",(uintmax_t)0,(uintmax_t)block_stop); )
 
     counter_t prime = prime_start;
-    const counter_t mediumstep_faster = global_mediumstep_faster / 2;
-    const counter_t prime_endloop1 = min(mediumstep_faster, prime_max);
+    const counter_t mediumstep_faster = global_mediumstep_faster;
+    // const counter_t prime_endloop1 = min(mediumstep_faster, prime_max);
+    const counter_t prime_endloop1 = mediumstep_faster;
     
     while (prime < prime_endloop1) {
         counter_t step  = prime * 2 + 1;
@@ -468,15 +469,16 @@ static inline counter_t sieve_block_stripe0(bitword_t* bitstorage, const counter
 }
 
 // assume that prim
-static inline counter_t sieve_stripe(bitword_t* bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+static inline  __attribute__((always_inline)) counter_t sieve_stripe(bitword_t* bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
     verbose4(  printf("Block stripe for block %ju - %ju\n",(uintmax_t)0,(uintmax_t)block_stop); )
 
     counter_t prime = prime_start;
-    const counter_t largestep_faster = global_largestep_faster >> 1; // largestep_faster is twice the prime size
-    const counter_t prime_endloop1 = min(largestep_faster, prime_max);
+    const counter_t largestep_faster = global_largestep_faster; // largestep_faster is twice the prime size
+    // const counter_t prime_endloop1 = min(largestep_faster, prime_max);
+    const counter_t prime_endloop1 = largestep_faster;
 
-    // allow the use of vector optimizations for a tunable range
+    // allow the use of vector optimizations in a tunable range
     while (prime < prime_endloop1) {
         counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
