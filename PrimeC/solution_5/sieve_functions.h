@@ -4,49 +4,49 @@
 // - moved clearing the sieve with 0 to the sieve_block_extend - it gave weird malloc problems at this point
 // - switched to one malloc for the sieve, instead of one for the sieve and one for the storage
 // - bitstorage will be aligned on the anticiped_cache_line_bytesize
-// static inline struct sieve_t * __attribute__((always_inline)) sieve_create(counter_t size) 
-// {
-//     struct sieve_t *sieve = malloc(((sizeof(struct sieve_t) + (size_t)(size>>1))|(anticiped_cache_line_bytesize-1))+1+anticiped_cache_line_bytesize);
-//     sieve->bitstorage     = __builtin_assume_aligned((void *) (( (uintptr_t) (sieve + sizeof(struct sieve_t))|(anticiped_cache_line_bytesize-1))+1),anticiped_cache_line_bytesize);
-//     sieve->bits           = size >> 1;
-//     sieve->size           = size;
-
-//     return sieve;
-// }
-
 static inline struct sieve_t * __attribute__((always_inline)) sieve_create(counter_t size) 
 {
-    struct sieve_t *sieve;
-    // Calculate total size needed including padding for alignment
-    size_t data_size = (size_t)(size >> 1);  // Size for bitstorage
-    size_t total_size = sizeof(struct sieve_t) + data_size + anticiped_cache_line_bytesize;
-    
-    // Align the total size to cache line boundary
-    total_size = (total_size + anticiped_cache_line_bytesize - 1) & ~(anticiped_cache_line_bytesize - 1);
-    
-    #ifdef _WIN32
-    sieve = (struct sieve_t*)_aligned_malloc(total_size, anticiped_cache_line_bytesize);
-    #else
-    if (posix_memalign((void**)&sieve, anticiped_cache_line_bytesize, total_size) != 0) {
-        return NULL;
-    }
-    #endif
-    
-    if (!sieve) return NULL;
-    
-    // Align bitstorage to the next 64-byte boundary
-    sieve->bitstorage = (void*)((uintptr_t)(sieve + 1) + 
-        ((anticiped_cache_line_bytesize - 
-          ((uintptr_t)(sieve + 1) & (anticiped_cache_line_bytesize - 1))) & 
-         (anticiped_cache_line_bytesize - 1)));
-    sieve->bits = size >> 1;
-    sieve->size = size;
-    
-    // Inform compiler about alignment for vectorization
-    sieve->bitstorage = __builtin_assume_aligned(sieve->bitstorage, anticiped_cache_line_bytesize);
-    
+    struct sieve_t *sieve = malloc(((sizeof(struct sieve_t) + (size_t)(size>>1))|(anticiped_cache_line_bytesize-1))+1+anticiped_cache_line_bytesize);
+    sieve->bitstorage     = __builtin_assume_aligned((void *) (( (uintptr_t) (sieve + sizeof(struct sieve_t))|(anticiped_cache_line_bytesize-1))+1),anticiped_cache_line_bytesize);
+    sieve->bits           = size >> 1;
+    sieve->size           = size;
+
     return sieve;
 }
+
+// static inline struct sieve_t * __attribute__((always_inline)) sieve_create(counter_t size) 
+// {
+//     struct sieve_t *sieve;
+//     // Calculate total size needed including padding for alignment
+//     size_t data_size = (size_t)(size >> 1);  // Size for bitstorage
+//     size_t total_size = sizeof(struct sieve_t) + data_size + anticiped_cache_line_bytesize;
+    
+//     // Align the total size to cache line boundary
+//     total_size = (total_size + anticiped_cache_line_bytesize - 1) & ~(anticiped_cache_line_bytesize - 1);
+    
+//     #ifdef _WIN32
+//     sieve = (struct sieve_t*)_aligned_malloc(total_size, anticiped_cache_line_bytesize);
+//     #else
+//     if (posix_memalign((void**)&sieve, anticiped_cache_line_bytesize, total_size) != 0) {
+//         return NULL;
+//     }
+//     #endif
+    
+//     if (!sieve) return NULL;
+    
+//     // Align bitstorage to the next 64-byte boundary
+//     sieve->bitstorage = (void*)((uintptr_t)(sieve + 1) + 
+//         ((anticiped_cache_line_bytesize - 
+//           ((uintptr_t)(sieve + 1) & (anticiped_cache_line_bytesize - 1))) & 
+//          (anticiped_cache_line_bytesize - 1)));
+//     sieve->bits = size >> 1;
+//     sieve->size = size;
+    
+//     // Inform compiler about alignment for vectorization
+//     sieve->bitstorage = __builtin_assume_aligned(sieve->bitstorage, anticiped_cache_line_bytesize);
+    
+//     return sieve;
+// }
 
 // static inline void __attribute__((always_inline)) sieve_clear(struct sieve_t *sieve) 
 // {
@@ -60,19 +60,19 @@ static inline void __attribute__((always_inline)) sieve_clear(struct sieve_t *si
     memset(sieve->bitstorage, SAFE_ZERO, sieve->bits / 8);
 }
 
-// static inline void __attribute__((always_inline)) sieve_delete(struct sieve_t *sieve) 
-// {
-//     free(sieve);
-// }
-
 static inline void __attribute__((always_inline)) sieve_delete(struct sieve_t *sieve) 
 {
-    #ifdef _WIN32
-    _aligned_free(sieve);
-    #else
     free(sieve);
-    #endif
 }
+
+// static inline void __attribute__((always_inline)) sieve_delete(struct sieve_t *sieve) 
+// {
+//     #ifdef _WIN32
+//     _aligned_free(sieve);
+//     #else
+//     free(sieve);
+//     #endif
+// }
 
 // Finds the index of the next unset (false) bit in a bitmap, starting from a given index.
 static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t* bitstorage, register counter_t index) {
@@ -85,8 +85,6 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t*
 // Finds the index of the next unset (false) bit in a bitmap, starting from a given index
 // Optimized function for large ranges which are not common
 static inline counter_t __attribute__((always_inline)) searchBitFalse_largeRange(bitword_t* bitstorage, register counter_t index) {
-
-
     // Move to the next position after the starting index
     ++index;
     
@@ -121,7 +119,7 @@ static inline void __attribute__((always_inline)) applyMask_word(bitword_t* rest
     register bitword_t* restrict index_ptr = __builtin_assume_aligned(&bitstorage[index_word], sizeof(bitword_t));
 
     const counter_t range_stop_word = wordindex(range_stop);
-    register const bitword_t* restrict fast_loop_ptr  =  &bitstorage[((range_stop_word>step_4) ? (range_stop_word - step_4):0)];
+    register const bitword_t* restrict fast_loop_ptr = __builtin_assume_aligned(&bitstorage[((range_stop_word>step_4) ? (range_stop_word - step_4):0)], sizeof(bitword_t));
 
     #pragma GCC ivdep
     while (index_ptr < fast_loop_ptr) {
@@ -131,7 +129,8 @@ static inline void __attribute__((always_inline)) applyMask_word(bitword_t* rest
         *(index_ptr + step_3) |= mask; 
         index_ptr += step_4;
     }
-    register const bitword_t* restrict range_stop_ptr = &bitstorage[(range_stop_word)];
+
+    register const bitword_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage[range_stop_word], sizeof(bitword_t));
 
     for (counter_t i=4; i-- && likely(index_ptr < range_stop_ptr);  index_ptr += step) { // signal compiler that only <4 iterations are left
         *index_ptr |= mask; 
@@ -393,13 +392,45 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
     verbose4( timerLapTime(); )
 }
 
-static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max, const counter_t mediumstep_faster, const counter_t largestep_faster)
+static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
-    counter_t prime = prime_start;
-
     verbose4(  printf("Block stripe for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
+
+    counter_t prime = prime_start;
+    // const counter_t stripeprime_faster = global_stripeprime_faster;
+    const counter_t mediumstep_faster = global_mediumstep_faster;
+
+    const counter_t largestep_faster = global_largestep_faster / 2;
+
+    const counter_t prime_endloop1 = prime_max > largestep_faster ? largestep_faster : prime_max;
     
-    while (prime < prime_max) {
+    while (prime < prime_endloop1) {
+        counter_t step  = prime * 2 + 1;
+        counter_t start = prime * (step + 1);
+
+        // early exit when start is beyond block
+        if unlikely(start > block_stop) return prime;
+
+        // adjust start to begin within block
+        if likely(block_start > start) {
+            start = (block_start + prime) + prime - ((block_start + prime) % step);
+
+            // there might be higher primes that will align before block_stop
+            // early exit (optional; setbittrue does not set beyond block_stop)
+            // if (start > block_stop) {
+            //     prime = searchBitFalse(bitstorage, prime);
+            //     continue; 
+            // }
+        }
+
+        setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);
+        prime = searchBitFalse(bitstorage, prime);
+    }
+
+    const counter_t prime_endloop2 = prime_max;
+    while (prime < prime_endloop2) {
+        // debug_hits++;
+
         counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
 
@@ -418,20 +449,35 @@ static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block
             }
         }
 
-        // set all multiples of prime in the block
-        if (step < mediumstep_faster) {
-            setBitsTrue_mediumStep(bitstorage, start, step, block_stop);
-            prime = searchBitFalse(bitstorage, prime);
-        }
-        else 
-        if (step < largestep_faster) { // speed up setting bits using bitvector;
-            setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);
-            prime = searchBitFalse(bitstorage, prime);
-        }
-        else { 
-            setBitsTrue_largeRange(bitstorage, start, step, block_stop);
-            prime = searchBitFalse_largeRange(bitstorage, prime);
-        }
+        setBitsTrue_largeRange(bitstorage, start, step, block_stop);
+        prime = searchBitFalse_largeRange(bitstorage, prime);
     }
+
+    return prime; 
+}
+
+static inline counter_t sieve_block_stripe0(bitword_t* bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+{
+    verbose4(  printf("Block stripe for block %ju - %ju\n",(uintmax_t)0,(uintmax_t)block_stop); )
+
+    counter_t prime = prime_start;
+    const counter_t largestep_faster = global_largestep_faster / 2;
+    
+    while (prime < largestep_faster) {
+        counter_t step  = prime * 2 + 1;
+        counter_t start = prime * (step + 1);
+        if (start > block_stop) return prime;
+        setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);
+        prime = searchBitFalse(bitstorage, prime);
+    }
+
+    while (prime < prime_max) {
+        counter_t step  = prime * 2 + 1;
+        counter_t start = prime * (step + 1);
+        if (start > block_stop) return prime;
+        setBitsTrue_largeRange(bitstorage, start, step, block_stop);
+        prime = searchBitFalse_largeRange(bitstorage, prime);
+    }
+
     return prime; 
 }

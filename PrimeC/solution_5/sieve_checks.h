@@ -18,6 +18,7 @@ static counter_t count_primes(struct sieve_t *sieve)
     return primeCount;
 }
 
+// 
 static void deepAnalyzePrimes(struct sieve_t *sieve) 
 {
     printf("DeepAnalyzing\n");
@@ -93,7 +94,7 @@ static void explainSieveShake()
 
 
 // Controleert of een gegeven pointer uitgelijnd is op een bepaalde bytegrens
-int is_aligned(void *ptr, size_t alignment) {
+static int is_aligned(void *ptr, size_t alignment) {
     return ((uintptr_t)ptr % alignment) == 0;
 }
 
@@ -119,7 +120,9 @@ static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
         struct sieve_t *sieve_check;
         for (counter_t blocksize_bits=1024; blocksize_bits<=256*1024*8; blocksize_bits *= 2) {
             verbose(3) printf("....Blocksize %ju:",(uintmax_t)blocksize_bits);
-            sieve_check = sieve_shake(sieveSize_check, blocksize_bits, benchmark_settings.stripe_faster, benchmark_settings.mediumstep_faster, benchmark_settings.largestep_faster);
+            global_blocksize_bits = blocksize_bits;
+
+            sieve_check = sieve_shake(sieveSize_check);
             int valid = validatePrimeCount(sieve_check);
 
             // printf("Bitstorage is %s\n", is_aligned(sieve_check->bitstorage, anticiped_cache_line_bytesize) ? "aligned" : "not aligned");
@@ -142,13 +145,13 @@ static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 static void showResult(benchmark_settings_t benchmark_settings)
 {
     printf("Show result set:\n");
-    struct sieve_t* sieve = sieve_shake(option.factor_max, option.factor_max, benchmark_settings.stripe_faster, benchmark_settings.mediumstep_faster, benchmark_settings.largestep_faster);
+    struct sieve_t* sieve = sieve_shake(option.factor_max);
     show_primes(sieve, option.show_explain_factor_max);
     sieve_delete(sieve);
 }
 
 static void checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) {
-    struct sieve_t* sieve_check = sieve_shake(benchmark_settings.factor_max, benchmark_settings.blocksize_bits, benchmark_settings.stripe_faster, benchmark_settings.mediumstep_faster, benchmark_settings.largestep_faster);
+    struct sieve_t* sieve_check = sieve_shake(benchmark_settings.factor_max);
     int valid = validatePrimeCount(sieve_check);
     sieve_delete(sieve_check);
     if (!valid) { fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for these settings\n"); exit(1); }

@@ -23,11 +23,16 @@
 // returns prime that could not be handled:
 // start is too large
 // range is too big
-static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block_start, const counter_t block_stop, const counter_t mediumstep_faster, const counter_t largestep_faster) 
+//static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block_start, const counter_t block_stop, const counter_t mediumstep_faster, const counter_t largestep_faster) 
+static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block_start, const counter_t block_stop) 
 {
     bitword_t* restrict bitstorage = sieve->bitstorage;
     const counter_t sieve_bits = sieve->bits;
     bitstorage[0] = SAFE_ZERO; // only the first word has to be cleared; the rest is populated by the extension procedure
+
+    const counter_t stripeprime_faster = global_stripeprime_faster;
+    const counter_t mediumstep_faster = global_mediumstep_faster;
+    const counter_t largestep_faster = global_largestep_faster;
 
     register counter_t prime         = 1;
     counter_t step                   = prime * 2 + 1;
@@ -38,6 +43,7 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
 
     setBitsTrue_mediumStep(bitstorage, start, step, range_stop);
 
+    // TODO: check if splittsing the loop in two parts is faster
     for (;range_stop < block_stop;) {
         prime = searchBitFalse(bitstorage, prime);
 
@@ -53,9 +59,12 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
         continuePattern(bitstorage, pattern_start, patternsize_bits, range_stop);
         patternsize_bits *= step;
 
-        if (step < mediumstep_faster)      setBitsTrue_mediumStep(bitstorage, start, step, range_stop);
-        else if (step < largestep_faster) setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
-        else                                      setBitsTrue_largeRange(bitstorage, start, step, range_stop);
+        // if (step < mediumstep_faster)      setBitsTrue_mediumStep(bitstorage, start, step, range_stop);
+        //else 
+        if (step < largestep_faster) setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
+        else {                                      
+          setBitsTrue_largeRange(bitstorage, start, step, range_stop);
+        }
     } 
 
     // continue the found pattern to the entire sieve
@@ -67,29 +76,41 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
    sieve_size in a real number that is the maximum in the sieve (not in bits)
    block_size is in bits and determines how large the blocks are which are processed 
 */
-static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t block_size, const counter_t stripeprime_faster, const counter_t mediumstep_faster, const counter_t largestep_faster)
+//static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t block_size, const counter_t stripeprime_faster, const counter_t mediumstep_faster, const counter_t largestep_faster)
+static struct sieve_t* sieve_shake(const counter_t sieve_size)
 {
     struct sieve_t *sieve = sieve_create(sieve_size);
     bitword_t* bitstorage = sieve->bitstorage;
     const counter_t sieve_bits = sieve->bits;
 
+    const counter_t stripeprime_faster = global_stripeprime_faster;
+    const counter_t mediumstep_faster = global_mediumstep_faster;
+    const counter_t largestep_faster = global_largestep_faster;
+    const counter_t blocksize_bits = global_blocksize_bits;
+
     verbose4(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size); )
 
     // fill the entire sieve for lower primes by adding en copying incrementally
-    counter_t prime_next = sieve_block_extend(sieve, 0, sieve_bits, mediumstep_faster, largestep_faster);
+    counter_t prime_next = sieve_block_extend(sieve, 0, sieve_bits);
     
     // continue from the prime that was processed in the pattern until the tuned value for blockwise processing
     // stripe off all the multiples of primes in the sieve
     if (prime_next < stripeprime_faster) {
-        prime_next = sieve_block_stripe(bitstorage, 0, sieve_bits, prime_next, stripeprime_faster, mediumstep_faster, largestep_faster);
+        prime_next = sieve_block_stripe0(bitstorage, 0, sieve_bits, prime_next, stripeprime_faster );
     }
 
     // in the sieve all bits for the multiples of primes up to startprime have been set
     // process the sieve and stripe all the multiples of primes > start_prime
     // do this block by block to minimize cache misses
     counter_t prime_max = usqrt(sieve_size);
-    for (counter_t block_start = 0, block_stop = block_size-1; block_start <= sieve->bits; block_start += block_size, block_stop += block_size) {
-        sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime_next, prime_max, mediumstep_faster, largestep_faster);
+    // sieve_block_stripe0(bitstorage, 0, min(blocksize_bits-1, sieve_bits), prime_next, prime_max);
+
+    // for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start <= sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
+    //     sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime_next, prime_max);
+    // } 
+
+    for (counter_t block_start = 0, block_stop = blocksize_bits-1; block_start <= sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
+        sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime_next, prime_max);
     } 
 
     // return the completed sieve
@@ -99,5 +120,5 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t b
 #include "sieve_benchmark.h"
 #include "sieve_checks.h"
 
-char algorithm_name[] = "rogiervandam_extend";
+static char algorithm_name[] = "rogiervandam_extend";
 #include "sieve_commandline.h"

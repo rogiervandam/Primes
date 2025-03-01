@@ -205,4 +205,6 @@ int main(int argc, char *argv[])
 
     // show results for --show command line option
     if (option.show_explain_factor_max > 0) showResult(option.fixed_benchmark_settings);
+
+    printf("Hits: %ju\n",(uintmax_t)debug_hits);
 }

@@ -51,4 +51,6 @@ for s in $1; do
         $STRIP $x$PAREXT-$y
 done
 # ./$1 $2 $3 $4 $5 $6 $7
-./$1 --set s112-m004-l158-b0262144 --verbose 3
+# ./$1 --set s112-m004-l158-b0262144 --verbose 3
+# ./$1 --set s016-m004-l160-b0262144
+./$1

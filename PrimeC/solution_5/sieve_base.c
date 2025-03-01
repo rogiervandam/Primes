@@ -39,7 +39,7 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t b
     // continue from the prime that was processed in the pattern until the tuned value for blockwise processing
     // stripe off all the multiples of primes in the sieve
     if (prime_next < stripeprime_faster) {
-        prime_next = sieve_block_stripe(bitstorage, 0, sieve_bits, prime_next, stripeprime_faster, mediumstep_faster, largestep_faster);
+        prime_next = sieve_block_stripe0(bitstorage, 0, sieve_bits, prime_next);
     }
 
     // in the sieve all bits for the multiples of primes up to startprime have been set
@@ -47,7 +47,7 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t b
     // do this block by block to minimize cache misses
     counter_t prime_max = usqrt(sieve_size);
     for (counter_t block_start = 0, block_stop = block_size-1; block_start <= sieve->bits; block_start += block_size, block_stop += block_size) {
-        sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime_next, prime_max, mediumstep_faster, largestep_faster);
+        sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime_next, prime_max);
     } 
 
     // return the completed sieve

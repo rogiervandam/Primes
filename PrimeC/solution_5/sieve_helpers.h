@@ -180,10 +180,11 @@ void timerLapTime() {
 typedef bitword_vector_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes))); 
 
 // globals for tuning
-// static counter_t global_stripeprime_faster  = 32ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
-// static counter_t global_mediumstep_faster   = 16ULL; // if step < MEDIUMSTEP_FASTER, use medium steps
-// static counter_t global_largestep_faster    = 128ULL; // if step < VECTORSTAP_FASTER, use large steps
-// static counter_t global_blocksize_bits      = 128*1024*8; // blocksize in bits
+static counter_t global_stripeprime_faster  = 32ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
+static counter_t global_mediumstep_faster   = 16ULL; // if step < MEDIUMSTEP_FASTER, use medium steps
+static counter_t global_largestep_faster    = 128ULL; // if step < VECTORSTAP_FASTER, use large steps
+static counter_t global_blocksize_bits      = 128*1024*8; // blocksize in bits
+static counter_t debug_hits=0;
 
 // Patterns based on types
 #define SAFE_SHIFTBIT        (bitshift_t)1ULL

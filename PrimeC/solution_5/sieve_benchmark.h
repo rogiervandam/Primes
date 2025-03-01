@@ -36,16 +36,16 @@ static void setSettingsFromTuning(benchmark_settings_t* benchmark_settings, benc
 
 static inline double benchmarkTime() {
     struct timespec t;
-    // clock_gettime(CLOCK_MONOTONIC, &t);
-    // return (t.tv_sec + t.tv_nsec * 1e-9) * CLOCKS_PER_SEC ;
-   return (double)clock();
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (t.tv_sec + t.tv_nsec * 1e-9) * CLOCKS_PER_SEC ;
+//    return (double)clock();
 }
 
 static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settings) {
-    // global_stripeprime_faster = benchmark_settings.stripe_faster;
-    // global_mediumstep_faster  = benchmark_settings.mediumstep_faster;
-    // global_largestep_faster   = benchmark_settings.largestep_faster;
-    // global_blocksize_bits     = benchmark_settings.blocksize_bits;
+    global_stripeprime_faster = benchmark_settings.stripe_faster;
+    global_mediumstep_faster  = benchmark_settings.mediumstep_faster;
+    global_largestep_faster   = benchmark_settings.largestep_faster;
+    global_blocksize_bits     = benchmark_settings.blocksize_bits;
 }
 
 static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings) 
@@ -81,7 +81,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
         const double time_start = benchmarkTime();
         const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
         while (time_elapsed <= time_target) {
-            struct sieve_t *sieve = sieve_shake(sieve_size, blocksize_bits, benchmark_settings.stripe_faster, benchmark_settings.mediumstep_faster, benchmark_settings.largestep_faster);
+            struct sieve_t *sieve = sieve_shake(sieve_size);
             sieve_delete(sieve);
             time_elapsed = benchmarkTime();         
             passes++;
@@ -89,7 +89,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
     }
     #else
     while (time_elapsed <= time_target) {
-        struct sieve_t *sieve = sieve_shake(sieve_size, blocksize_bits, benchmark_settings.stripe_faster, benchmark_settings.mediumstep_faster, benchmark_settings.largestep_faster);
+        struct sieve_t *sieve = sieve_shake(sieve_size);
         sieve_delete(sieve);
         time_elapsed = benchmarkTime();         
         passes++;
@@ -368,7 +368,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     return best_result;
 }
 
-void outputBenchmarkStats(benchmark_result_t benchmark_result, counter_t threads)
+static void outputBenchmarkStats(benchmark_result_t benchmark_result, counter_t threads)
 {
     
     printf("\rResult: Passes \033[1;33m%ju\033[0m \033[0;32m(per %.1f seconds)\033[0m - average \033[1;33m%.1f\033[0m per second \n", 
