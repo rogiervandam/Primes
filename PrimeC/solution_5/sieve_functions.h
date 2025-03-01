@@ -4,13 +4,12 @@
 // - moved clearing the sieve with 0 to the sieve_block_extend - it gave weird malloc problems at this point
 // - switched to one malloc for the sieve, instead of one for the sieve and one for the storage
 // - bitstorage will be aligned on the anticiped_cache_line_bytesize
-static inline struct sieve_t * __attribute__((always_inline)) sieve_create(counter_t size) 
+
+static inline struct sieve_t * __attribute__((always_inline)) sieve_create(const counter_t size) 
 {
     struct sieve_t *sieve = malloc(((sizeof(struct sieve_t) + (size_t)(size>>1))|(anticiped_cache_line_bytesize-1))+1+anticiped_cache_line_bytesize);
     sieve->bitstorage     = __builtin_assume_aligned((void *) (( (uintptr_t) (sieve + sizeof(struct sieve_t))|(anticiped_cache_line_bytesize-1))+1),anticiped_cache_line_bytesize);
     sieve->bits           = size >> 1;
-    // sieve->size           = size;
-
     return sieve;
 }
 
@@ -40,7 +39,6 @@ static inline struct sieve_t * __attribute__((always_inline)) sieve_create(count
 //           ((uintptr_t)(sieve + 1) & (anticiped_cache_line_bytesize - 1))) & 
 //          (anticiped_cache_line_bytesize - 1)));
 //     sieve->bits = size >> 1;
-//     sieve->size = size;
     
 //     // Inform compiler about alignment for vectorization
 //     sieve->bitstorage = __builtin_assume_aligned(sieve->bitstorage, anticiped_cache_line_bytesize);
@@ -75,7 +73,7 @@ static inline void __attribute__((always_inline)) sieve_delete(struct sieve_t *s
 // }
 
 // Finds the index of the next unset (false) bit in a bitmap, starting from a given index.
-static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t* bitstorage, register counter_t index) {
+static inline counter_t __attribute__((always_inline)) searchBitFalse(const bitword_t* restrict bitstorage, register counter_t index) {
 
     // Normal function - really fast for small offsets
     do { index++; } while (bitstorage[wordindex(index)] & markmask(index));
@@ -84,7 +82,7 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse(bitword_t*
 
 // Finds the index of the next unset (false) bit in a bitmap, starting from a given index
 // Optimized function for large ranges which are not common
-static inline counter_t __attribute__((always_inline)) searchBitFalse_largeRange(bitword_t* bitstorage, register counter_t index) {
+static inline counter_t __attribute__((always_inline)) searchBitFalse_largeRange(const bitword_t* restrict bitstorage, register counter_t index) {
     // Move to the next position after the starting index
     ++index;
     
@@ -93,13 +91,19 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse_largeRange
     register counter_t bit_index  = bitindex_calc(index);
     register bitword_t current_word = bitstorage[word_index];
 
-    if likely(bit_index) 
-        current_word = (bitstorage[word_index] >> bit_index) | (bitstorage[word_index+1] << (WORD_SIZE_bitshift - bit_index));
+    if likely(bit_index) {
+        current_word >>= bit_index ;
+        current_word |= (bitstorage[word_index+1] << (WORD_SIZE_bitshift - bit_index));
 
-    while unlikely(current_word == SAFE_FILL) {
+        if (current_word == SAFE_FILL) {
+            current_word = bitstorage[++word_index];
+            index += (WORD_SIZE_bitshift - bit_index);
+        }
+    }
+
+    while (current_word == SAFE_FILL) {
         current_word = bitstorage[++word_index];
-        index += (WORD_SIZE_bitshift - bit_index);
-        bit_index = 0;
+        index += WORD_SIZE_bitshift;
     }
 
     // Find the first unset bit using builtin_ffs
@@ -162,7 +166,7 @@ static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* 
         *index_ptr |= mask; index_ptr += step;
     }
     
-    register const bitvector_t* restrict range_stop_ptr = &bitstorage[(range_stop_vector)];
+    register const bitvector_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage[(range_stop_vector)],sizeof(bitvector_t));
     
     for (counter_t i=4; i-- && likely(index_ptr < range_stop_ptr); index_ptr += step) { // signal compiler that only <4 iterations are left
         *index_ptr |= mask; 
@@ -255,36 +259,43 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange(bitwor
     verbose4( timerLapTime(); )
 }
 
-static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector(bitword_t* restrict bitstorage, counter_t range_start, const counter_t step, const counter_t range_stop) 
+// Large ranges (> WORD_SIZE * step) mean the same mask can be reused
+// This version uses vectorization for the larger ranges
+static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector(bitword_t* restrict bitstorage, const counter_t range_start_original, const counter_t step, const counter_t range_stop) 
 {
-    verbose4(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange vector (%ju occurances; %ju stamps) ", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(VECTOR_SIZE_counter*step))); )
+    verbose4(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange vector (%ju occurances; %ju stamps) ", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start_original,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(VECTOR_SIZE_counter*step))); )
     verbose4( timerLapStart(); )
 
-    counter_t range_start_atvector = vectorstart(range_start);
-    if likely(( range_start_atvector + step) < range_start) { // not the first step possible in this vector - would give incomplete copies
+    const counter_t range_start_atvector = vectorstart(range_start_original);
+    register counter_t range_start = range_start_original;
+
+    if likely(( range_start_atvector + step) < range_start_original) { // not the first step possible in this vector - would give incomplete copies
         verbose4(  printf("\n..Range start %ju not at start of vector %ju\n",(uintmax_t)range_start, (uintmax_t)range_start_atvector); ) 
 
-        range_start_atvector += VECTOR_SIZE; // find next vector
-        if (unlikely(range_start_atvector > range_stop)) { // we should not be here; just handle without vector
+        const counter_t range_start_nexttvector = range_start_atvector + VECTOR_SIZE_counter; // find next vector
+        if (unlikely(range_start_nexttvector > range_stop)) { // we should not be here; just handle without vector
             // #pragma GCC ivdep
-            for (counter_t index = range_start; index <= range_stop; index += step) 
+            for (counter_t index = range_start_original; index <= range_stop; index += step) 
                 bitstorage[wordindex(index)] |= markmask(index);
             verbose4( timerLapTime(); )
             return;
         }
 
         // #pragma GCC ivdep
-        for (; range_start < range_start_atvector; range_start += step) 
+        for (; range_start < range_start_nexttvector; range_start += step) 
             bitstorage[wordindex(range_start)] |= markmask(range_start);
 
-        if unlikely(range_start==range_start_atvector)
+        if unlikely(range_start==range_start_nexttvector)
             bitstorage[wordindex(range_start)] |= markmask(range_start);
     }
     
     const counter_t range_stop_unique =  range_start + VECTOR_SIZE_counter * step; 
     if (range_stop_unique > range_stop || step > VECTOR_SIZE_counter) { // fallback to other methods if vector is too large to repeat -> TODO: remove and fix in VECTORSIZE check
-        if (step < WORD_SIZE_counter) setBitsTrue_mediumStep(bitstorage, range_start, step, range_stop);
+
+        if (step < global_mediumstep_faster) setBitsTrue_mediumStep(bitstorage, range_start, step, range_stop);
+        // if (step < WORD_SIZE_counter) setBitsTrue_mediumStep(bitstorage, range_start, step, range_stop);
         else setBitsTrue_largeRange(bitstorage, range_start, step, range_stop);
+        // setBitsTrue_largeRange(bitstorage, range_start, step, range_stop);
         verbose4( timerLapTime(); )
         return;
     }
@@ -299,8 +310,8 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
         register bitword_t pattern   = BITVECTORWORD_SHIFTBIT;
         bitshift_t pattern_size = step;
 
-        if (pattern_size < (VECTORWORD_SIZE_bitshift >> (6 - VECTOR_ELEMENTS/2))) {
-        // if (pattern_size < (VECTORWORD_SIZE_bitshift >> 2)) {
+        // if (pattern_size < (VECTORWORD_SIZE_bitshift >> (6 - VECTOR_ELEMENTS/2))) {
+        if (pattern_size < (VECTORWORD_SIZE_bitshift >> 2)) {
             pattern |= (pattern_base << step) | (pattern_base << step*2) | (pattern_base << step*3);
             pattern_size = step << 2;
         }
@@ -318,56 +329,57 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
         #endif
 
         for (counter_t current_word = vector_wordindex(range_start); current_word < vector_wordindex(range_stop_unique); current_word += VECTOR_ELEMENTS) {
-            register bitshift_t shift1 = shift;
+            debug_hits++;
+            const bitshift_t shift1 = shift;
             if (pattern_shift > shift) shift += step;
             shift -= pattern_shift;
-            register bitshift_t shift2 = shift;
+            const bitshift_t shift2 = shift;
             if (pattern_shift > shift) shift += step;
             shift -= pattern_shift;
             #if VECTOR_ELEMENTS <= 2
                 register bitvector_t shiftmask = { shift1, shift2 };
             #else
-                register bitshift_t shift3 = shift;
+                const bitshift_t shift3 = shift;
                 if (pattern_shift > shift) shift += step;
                 shift -= pattern_shift;
-                register bitshift_t shift4 = shift;
+                const bitshift_t shift4 = shift;
                 if (pattern_shift > shift) shift += step;
                 shift -= pattern_shift;
                 #if VECTOR_ELEMENTS <= 4
-                    register bitvector_t shiftmask = { shift1, shift2, shift3, shift4 };
+                const bitvector_t shiftmask = { shift1, shift2, shift3, shift4 };
                 #else
-                    register bitshift_t shift5 = shift;
+                    const bitshift_t shift5 = shift;
                     if (pattern_shift > shift) shift += step;
                     shift -= pattern_shift;
-                    register bitshift_t shift6 = shift;
+                    const bitshift_t shift6 = shift;
                     if (pattern_shift > shift) shift += step;
                     shift -= pattern_shift;
-                    register bitshift_t shift7 = shift;
+                    const bitshift_t shift7 = shift;
                     if (pattern_shift > shift) shift += step;
                     shift -= pattern_shift;
-                    register bitshift_t shift8 = shift;
+                    const bitshift_t shift8 = shift;
                     if (pattern_shift > shift) shift += step;
                     shift -= pattern_shift;
-                    register bitvector_t shiftmask = { shift1, shift2, shift3, shift4, shift5, shift6, shift7, shift8 };
+                    const bitvector_t shiftmask = { shift1, shift2, shift3, shift4, shift5, shift6, shift7, shift8 };
                 #endif
             #endif
 
-            register bitvector_t quadmask = quadmask_base << shiftmask;
+            const bitvector_t quadmask = quadmask_base << shiftmask;
             applyMask_vector(bitstorage_vector, step, range_stop, quadmask, current_vector);
             current_vector++;
         }
     }
     else {
         for (counter_t index = range_start; index < range_stop_unique;) {
-            register const counter_t current_vector_start = vectorstart(index);
+            const counter_t current_vector_start = vectorstart(index);
 
             // bitvector_t quadmask;
             #if VECTOR_ELEMENTS == 8
-            register bitvector_t quadmask = { SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO };
+            bitvector_t quadmask = { SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO };
             #elif VECTOR_ELEMENTS == 4
-            register bitvector_t quadmask = { SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO };
+            bitvector_t quadmask = { SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO };
             #else 
-            register bitvector_t quadmask = { SAFE_ZERO, SAFE_ZERO };
+            bitvector_t quadmask = { SAFE_ZERO, SAFE_ZERO };
             #endif
 
             if     (vector_wordstart(index) == (current_vector_start                              )) { quadmask[0] = vector_markmask(index); index += step; }
@@ -392,12 +404,12 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
     verbose4( timerLapTime(); )
 }
 
-static inline counter_t  __attribute__((always_inline)) sieve_block_stripe(bitword_t* bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+static inline counter_t  __attribute__((always_inline)) sieve_block_stripe(bitword_t* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
     verbose4(  printf("Block stripe for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
 
     counter_t prime = prime_start;
-    const counter_t mediumstep_faster = global_mediumstep_faster / 2;
+    const counter_t mediumstep_faster = global_mediumstep_faster;
     const counter_t prime_endloop1 = min(mediumstep_faster, prime_max);
 
     while (prime < prime_endloop1) {
@@ -415,8 +427,6 @@ static inline counter_t  __attribute__((always_inline)) sieve_block_stripe(bitwo
     }
 
     while (prime < prime_max) {
-        // debug_hits++;
-
         counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
 
@@ -440,7 +450,7 @@ static inline counter_t  __attribute__((always_inline)) sieve_block_stripe(bitwo
     return prime; 
 }
 
-static inline  __attribute__((always_inline)) counter_t sieve_block_stripe0(bitword_t* bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+static inline  __attribute__((always_inline)) counter_t sieve_block_stripe0(bitword_t* restrict bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
     verbose4(  printf("Block stripe for block %ju - %ju\n",(uintmax_t)0,(uintmax_t)block_stop); )
 
@@ -461,6 +471,7 @@ static inline  __attribute__((always_inline)) counter_t sieve_block_stripe0(bitw
         counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
         if unlikely(block_stop < start) return prime;
+        
         setBitsTrue_largeRange(bitstorage, start, step, block_stop);
         prime = searchBitFalse_largeRange(bitstorage, prime);
     }
@@ -469,7 +480,7 @@ static inline  __attribute__((always_inline)) counter_t sieve_block_stripe0(bitw
 }
 
 // assume that prim
-static inline  __attribute__((always_inline)) counter_t sieve_stripe(bitword_t* bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+static inline  __attribute__((always_inline)) counter_t sieve_stripe(bitword_t* restrict bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
     verbose4(  printf("Block stripe for block %ju - %ju\n",(uintmax_t)0,(uintmax_t)block_stop); )
 

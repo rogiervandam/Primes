@@ -161,13 +161,13 @@ int main(int argc, char *argv[])
     })
     verbose1( printf("\nRunning sieve_extend variant \033[1;33m%s\033[0m u%juv%ju... \n", algorithm_name, (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); )
     
-    #if compile_verbose_level >= 4
-    verbose4( if (option.explain>=1) {
-        explainSieveShake();
+    // #if compile_verbose_level >= 4
+    if (option.explain>=1) {
+        explainSieveShake(option.fixed_benchmark_settings);
         printf("Exit\n");
         exit(0);
-    })
-    #endif
+    }
+    // #endif
 
     // command line --check can be used to check the algorithm for all sieve/blocksize combinations
     if (option.check) checkSieveAlgorithm(option.fixed_benchmark_settings); 

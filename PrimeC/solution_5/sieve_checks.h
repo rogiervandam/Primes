@@ -70,8 +70,8 @@ static int validatePrimeCount(struct sieve_t *sieve, counter_t factor_max)
     return (valid);
 }
 
-#if compile_verbose_level >= 4
-static void explainSieveShake() 
+// #if compile_verbose_level >= 4
+static void explainSieveShake(benchmark_settings_t benchmark_settings) 
 {
     // warm up
     // int org_option_explain = option.explain;
@@ -82,15 +82,16 @@ static void explainSieveShake()
     // }    
     // option.explain = org_option_explain;
 
-    struct sieve_t* sieve = sieve_shake(option.factor_max, option.blocksize_bits);
+    struct sieve_t* sieve = sieve_shake(benchmark_settings.factor_max);
     printf("\nResult set:\n");
-    show_primes(sieve, min(option.showMaxFactor,100));
-    int valid = validatePrimeCount(sieve);
+    show_primes(sieve, min(option.show_explain_factor_max ,100));
+    int valid = validatePrimeCount(sieve, benchmark_settings.factor_max);
     if (!valid) printf("The sieve is \033[0;31m\033[5mNOT\033[0;0m valid...\n");
     else printf("The sieve is \033[0;mVALID\033[0;0m\n");
     sieve_delete(sieve);
+    printf("Hits: %ju\n",(uintmax_t)debug_hits);
 }
-#endif
+// #endif
 
 
 // Controleert of een gegeven pointer uitgelijnd is op een bepaalde bytegrens
