@@ -397,53 +397,37 @@ static counter_t sieve_block_stripe(bitword_t* bitstorage, const counter_t block
     verbose4(  printf("Block stripe for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
 
     counter_t prime = prime_start;
-    // const counter_t stripeprime_faster = global_stripeprime_faster;
-    const counter_t mediumstep_faster = global_mediumstep_faster;
+    const counter_t mediumstep_faster = global_mediumstep_faster / 2;
+    const counter_t prime_endloop1 = min(mediumstep_faster, prime_max);
 
-    const counter_t largestep_faster = global_largestep_faster / 2;
-
-    const counter_t prime_endloop1 = prime_max > largestep_faster ? largestep_faster : prime_max;
-    
     while (prime < prime_endloop1) {
         counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
 
         // early exit when start is beyond block
-        if unlikely(start > block_stop) return prime;
-
-        // adjust start to begin within block
-        if likely(block_start > start) {
+        if unlikely(block_stop < start) return prime;
+        if likely(start < block_start) {
             start = (block_start + prime) + prime - ((block_start + prime) % step);
-
-            // there might be higher primes that will align before block_stop
-            // early exit (optional; setbittrue does not set beyond block_stop)
-            // if (start > block_stop) {
-            //     prime = searchBitFalse(bitstorage, prime);
-            //     continue; 
-            // }
         }
 
         setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);
         prime = searchBitFalse(bitstorage, prime);
     }
 
-    const counter_t prime_endloop2 = prime_max;
-    while (prime < prime_endloop2) {
+    while (prime < prime_max) {
         // debug_hits++;
 
         counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
 
         // early exit when start is beyond block
-        if unlikely(start > block_stop) return prime;
-
-        // adjust start to begin within block
-        if likely(block_start > start) {
+        if unlikely(block_stop < start) return prime;
+        if likely(start < block_start) {
             start = (block_start + prime) + prime - ((block_start + prime) % step);
 
             // there might be higher primes that will align before block_stop
             // early exit (optional; setbittrue does not set beyond block_stop)
-            if (start > block_stop) {
+            if (block_stop < start) {
                 prime = searchBitFalse(bitstorage, prime);
                 continue; 
             }
@@ -461,12 +445,13 @@ static inline counter_t sieve_block_stripe0(bitword_t* bitstorage, const counter
     verbose4(  printf("Block stripe for block %ju - %ju\n",(uintmax_t)0,(uintmax_t)block_stop); )
 
     counter_t prime = prime_start;
-    const counter_t largestep_faster = global_largestep_faster / 2;
+    const counter_t mediumstep_faster = global_mediumstep_faster / 2;
+    const counter_t prime_endloop1 = min(mediumstep_faster, prime_max);
     
-    while (prime < largestep_faster) {
+    while (prime < prime_endloop1) {
         counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
-        if (start > block_stop) return prime;
+        if unlikely(block_stop < start) return prime;
         setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);
         prime = searchBitFalse(bitstorage, prime);
     }
@@ -474,7 +459,34 @@ static inline counter_t sieve_block_stripe0(bitword_t* bitstorage, const counter
     while (prime < prime_max) {
         counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
-        if (start > block_stop) return prime;
+        if unlikely(block_stop < start) return prime;
+        setBitsTrue_largeRange(bitstorage, start, step, block_stop);
+        prime = searchBitFalse_largeRange(bitstorage, prime);
+    }
+
+    return prime; 
+}
+
+// assume that prim
+static inline counter_t sieve_stripe(bitword_t* bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+{
+    verbose4(  printf("Block stripe for block %ju - %ju\n",(uintmax_t)0,(uintmax_t)block_stop); )
+
+    counter_t prime = prime_start;
+    const counter_t largestep_faster = global_largestep_faster >> 1; // largestep_faster is twice the prime size
+    const counter_t prime_endloop1 = min(largestep_faster, prime_max);
+
+    // allow the use of vector optimizations for a tunable range
+    while (prime < prime_endloop1) {
+        counter_t step  = prime * 2 + 1;
+        counter_t start = prime * (step + 1);
+        setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);
+        prime = searchBitFalse(bitstorage, prime);
+    }
+
+    while (prime < prime_max) {
+        counter_t step  = prime * 2 + 1;
+        counter_t start = prime * (step + 1);
         setBitsTrue_largeRange(bitstorage, start, step, block_stop);
         prime = searchBitFalse_largeRange(bitstorage, prime);
     }

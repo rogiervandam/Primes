@@ -82,7 +82,9 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     struct sieve_t *sieve = sieve_create(sieve_size);
     bitword_t* bitstorage = sieve->bitstorage;
     const counter_t sieve_bits = sieve->bits;
+    const counter_t prime_max = 1+usqrt(sieve_size)/2;
 
+    // use globals as constant
     const counter_t stripeprime_faster = global_stripeprime_faster;
     const counter_t mediumstep_faster = global_mediumstep_faster;
     const counter_t largestep_faster = global_largestep_faster;
@@ -95,21 +97,17 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     
     // continue from the prime that was processed in the pattern until the tuned value for blockwise processing
     // stripe off all the multiples of primes in the sieve
-    if (prime_next < stripeprime_faster) {
-        prime_next = sieve_block_stripe0(bitstorage, 0, sieve_bits, prime_next, stripeprime_faster );
-    }
+    prime_next = sieve_stripe(bitstorage, 0, sieve_bits, prime_next, stripeprime_faster );
 
     // in the sieve all bits for the multiples of primes up to startprime have been set
     // process the sieve and stripe all the multiples of primes > start_prime
     // do this block by block to minimize cache misses
-    counter_t prime_max = usqrt(sieve_size);
-    // sieve_block_stripe0(bitstorage, 0, min(blocksize_bits-1, sieve_bits), prime_next, prime_max);
 
-    // for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start <= sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
-    //     sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime_next, prime_max);
-    // } 
+    // first block requires fewer operations; it might be the whole sieve...
+    sieve_block_stripe0(bitstorage, 0, min(blocksize_bits-1, sieve_bits), prime_next, prime_max);
 
-    for (counter_t block_start = 0, block_stop = blocksize_bits-1; block_start <= sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
+    // process the remaining blocks
+    for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start <= sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
         sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime_next, prime_max);
     } 
 
