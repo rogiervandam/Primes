@@ -13,6 +13,7 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
+#include <assert.h>
 
 // include helper functions
 #include "sieve_helpers.h"
