@@ -99,6 +99,15 @@ static int is_aligned(void *ptr, size_t alignment) {
     return ((uintptr_t)ptr % alignment) == 0;
 }
 
+static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
+{
+    const counter_t factor_max = benchmark_settings.factor_max;
+    prepareBenchmarkGlobals(benchmark_settings);
+    struct sieve_t* sieve_check = sieve_shake(factor_max);
+    const int valid = validatePrimeCount(sieve_check, factor_max);
+    sieve_delete(sieve_check);
+    return valid;
+}
 
 static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 {
@@ -107,8 +116,9 @@ static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
         verbose2( printf("\n");)
     })
 
-    prepareBenchmarkGlobals(benchmark_settings);
     char settings_string[100] = ""; benchmark_settings_as_string(settings_string, benchmark_settings);
+
+    printf("I am here\n");
 
     // validate algorithm - run one time for all sizes
     for (counter_t sieveSize_check = 100; sieveSize_check <= 100000000; sieveSize_check *=10) {
@@ -117,27 +127,28 @@ static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
             verbose(3) printf("\n");
         })
         struct sieve_t *sieve_check;
-        for (counter_t blocksize_bits=1024; blocksize_bits<=256*1024*8; blocksize_bits *= 2) {
+        for (counter_t blocksize_bits=1024; blocksize_bits<=32*1024*8; blocksize_bits *= 2) {
             verbose(3) printf("....Blocksize %ju:",(uintmax_t)blocksize_bits);
-            global_blocksize_bits = blocksize_bits;
+            benchmark_settings.blocksize_bits = blocksize_bits;
+            benchmark_settings.factor_max = sieveSize_check;
 
-            sieve_check = sieve_shake(sieveSize_check);
-            int valid = validatePrimeCount(sieve_check, sieveSize_check); 
+            benchmark_settings = check_benchmark_settings(benchmark_settings);
+
+            int valid = checkSieveWithBenchmarkSettings(benchmark_settings); 
 
             // printf("Bitstorage is %s\n", is_aligned(sieve_check->bitstorage, anticiped_cache_line_bytesize) ? "aligned" : "not aligned");
             // printf("Sieve is %s\n", is_aligned(sieve_check, anticiped_cache_line_bytesize) ? "aligned" : "not aligned");
-            
 
-            sieve_delete(sieve_check);
             if (!valid) {
                 fprintf(stderr,"Invalid count for %ju Settings used: %s\n",(uintmax_t)sieveSize_check, settings_string);
                 exit(1); 
             }
-            else verbose(3) printf("\033[0;32mvalid\033[0;0m\n");
+            else verbose(3) printf("\033[0;32mvalid\033[0;0m for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string);
         }
-        verbose2( printf("\033[0;32mvalid\033[0;0m\n"); )
+        verbose2( printf("\033[0;32mvalid\033[0;0m for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
     }
     verbose1( printf("\033[0;32mvalid\033[0;0m algorithm\n"); )
+    
     if (option.check == 2) exit(0);
 }
 
@@ -149,11 +160,3 @@ static void showResult(benchmark_settings_t benchmark_settings)
     sieve_delete(sieve);
 }
 
-static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
-{
-    const counter_t factor_max = benchmark_settings.factor_max;
-    struct sieve_t* sieve_check = sieve_shake(factor_max);
-    const int valid = validatePrimeCount(sieve_check, factor_max);
-    sieve_delete(sieve_check);
-    return valid;
-}

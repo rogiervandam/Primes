@@ -39,8 +39,19 @@ static inline double benchmarkTime() {
     clock_gettime(CLOCK_MONOTONIC, &t);
     return (t.tv_sec + t.tv_nsec * 1e-9);
   //    return (double)clock();
-  }
-  
+ }
+
+static inline benchmark_settings_t check_benchmark_settings(benchmark_settings_t benchmark_settings) {
+    counter_t prime_max = usqrt(benchmark_settings.factor_max) / 2;
+
+    benchmark_settings.stripe_faster     = min(benchmark_settings.stripe_faster, prime_max);
+    benchmark_settings.mediumstep_faster = min(min(benchmark_settings.mediumstep_faster, prime_max), VECTOR_SIZE_counter);
+    benchmark_settings.largestep_faster  = min(min(benchmark_settings.largestep_faster, prime_max), VECTOR_SIZE_counter);
+    benchmark_settings.blocksize_bits    = min(benchmark_settings.blocksize_bits, benchmark_settings.factor_max);
+
+    return benchmark_settings;
+}
+
 static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settings) {
     global_stripeprime_faster = benchmark_settings.stripe_faster;
     global_mediumstep_faster  = benchmark_settings.mediumstep_faster;
@@ -51,13 +62,13 @@ static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settin
 static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings) 
 {
     benchmark_result_t benchmark_result;
-    benchmark_result.settings = benchmark_settings;
+    benchmark_result.settings = check_benchmark_settings(benchmark_settings);
 
     counter_t sieve_bits = benchmark_settings.factor_max >> 1;
 
     // check logic
-    if (benchmark_result.settings.largestep_faster > VECTOR_SIZE_counter ) benchmark_result.settings.largestep_faster = VECTOR_SIZE_counter;
-    if (benchmark_result.settings.blocksize_bits > sieve_bits) benchmark_result.settings.blocksize_bits = sieve_bits;
+    // if (benchmark_result.settings.largestep_faster > VECTOR_SIZE_counter ) benchmark_result.settings.largestep_faster = VECTOR_SIZE_counter;
+    // if (benchmark_result.settings.blocksize_bits > sieve_bits) benchmark_result.settings.blocksize_bits = sieve_bits;
 
     // set global variables used in the sieve functions
     prepareBenchmarkGlobals(benchmark_settings);
@@ -108,7 +119,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
 static inline void tuning_result_print(benchmark_result_t tuning_result) 
 {
     char settings[100]=""; benchmark_settings_as_string(settings, tuning_result.settings);
-    printf("average \033[1;33m%f\033[0m with options \033[1;32m%50s\033[0m was achieved with \033[1;33m%3ju\033[0m passes in \033[1;33m%f\033[0m seconds\n", 
+    printf("average \033[1;33m%f\033[0m with options \033[1;32m%s\033[0m was achieved with \033[1;33m%3ju\033[0m passes in \033[1;33m%f\033[0m seconds\n", 
     tuning_result.avg, settings, (uintmax_t)tuning_result.passes, tuning_result.elapsed_time);
 }
 
@@ -218,8 +229,9 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     // reduce the tuning results to the best options
     // keep the best of the results and reevaluate them with a longer sample duration
 
-    // counter_t tuning_results_max = tuning_results; // keep this value for verbose messages
-    for (counter_t step=1; tuning_results > 1; step++) {
+    counter_t tuning_results_max = tuning_results; // keep this value for verbose messages
+    counter_t step=1;
+    for (; tuning_results > 1; step++) {
         qsort(tuning_result, (size_t)tuning_results, sizeof(benchmark_result_t), compare_tuning_result);
 
         // prevent the tuning from running too long
@@ -363,7 +375,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     // take best result
     benchmark_result_t best_result = tuning_result[0];
     free(tuning_result);
-    verbose1( { printf("\33[2K\rTuning done. Best result: "); tuning_result_print(best_result);} );
+    verbose1( { printf("\33[2K\rTuning done. Evaluated %ju ooptions in %ju steps. Best result: ", (uintmax_t) tuning_results_max, (uintmax_t) step ); tuning_result_print(best_result);} );
     return best_result;
 }
 

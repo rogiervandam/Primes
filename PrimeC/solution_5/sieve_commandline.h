@@ -197,7 +197,9 @@ int main(int argc, char *argv[])
         else { verbose1(  printf("(verified that settings %s and max %ju is \033[1;32mvalid\033[0m)", settings_string, (uintmax_t) benchmark_settings.factor_max); ) }
     
         // perform benchmark -> outputs passes, elapsed time and avg in result 
+        debug_final_benchmarking = 1;
         benchmark_result_t benchmark_result = benchmark(benchmark_settings);
+        debug_final_benchmarking=0;
         verbose1(outputBenchmarkStats(benchmark_result);)
 
         // report results

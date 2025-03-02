@@ -293,6 +293,8 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep(b
     #endif
 
     for (counter_t current_word = vector_wordindex(range_start); current_word < vector_wordindex(range_stop_unique); current_word += VECTOR_ELEMENTS) {
+        debug_hits+= debug_final_benchmarking;
+        
         const bitshift_t shift1 = shift;
         if (pattern_shift > shift) shift += step;
         shift -= pattern_shift;

@@ -49,7 +49,7 @@ static struct options_t setDefaultOptions() {
     option.verbose_level           = 1;
     option.explain                 = 0;
 
-    option.check                   = 1; // set to 2 to debug in the check algorithm
+    option.check                   = 1; // set to 2 to stop after the check algorithm
     option.tunelevel               = 1;
     option.sample_duration         = 0.0004;
     option.tune_duration_max       = 5.0;
@@ -57,9 +57,12 @@ static struct options_t setDefaultOptions() {
 
     option.fixed_benchmark_settings.factor_max              = 1000000;
     option.fixed_benchmark_settings.threads                 = 1;
-    option.fixed_benchmark_settings.stripe_faster           = 0;
-    option.fixed_benchmark_settings.mediumstep_faster       = 0;
-    option.fixed_benchmark_settings.largestep_faster        = 0;
+    option.fixed_benchmark_settings.stripe_faster           = 112;
+    option.fixed_benchmark_settings.mediumstep_faster       = 16;
+    option.fixed_benchmark_settings.largestep_faster        = 160;
+    // option.fixed_benchmark_settings.stripe_faster           = 0;
+    // option.fixed_benchmark_settings.mediumstep_faster       = 0;
+    // option.fixed_benchmark_settings.largestep_faster        = 0;
     option.fixed_benchmark_settings.blocksize_bits          = 0;
 
     #ifdef _OPENMP
