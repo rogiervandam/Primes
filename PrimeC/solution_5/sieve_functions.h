@@ -263,6 +263,8 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange(bitwor
     verbose4( timerLapTime(); )
 }
 
+// TODO: test if we can just shift the shiftmask in the second iteration instead of creating a new one
+// TODO: Use better algorithm for creating the shiftmask
 static inline void __attribute__((always_inline)) create_mask_vector_smallstep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop_unique, const counter_t range_stop)
 {
     bitvector_t* restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, anticiped_cache_line_bytesize);
@@ -291,7 +293,6 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep(b
     #endif
 
     for (counter_t current_word = vector_wordindex(range_start); current_word < vector_wordindex(range_stop_unique); current_word += VECTOR_ELEMENTS) {
-        debug_hits++;
         const bitshift_t shift1 = shift;
         if (pattern_shift > shift) shift += step;
         shift -= pattern_shift;
@@ -308,7 +309,7 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep(b
             if (pattern_shift > shift) shift += step;
             shift -= pattern_shift;
             #if VECTOR_ELEMENTS <= 4
-            const bitvector_t shiftmask = { shift1, shift2, shift3, shift4 };
+            register bitvector_t shiftmask = { shift1, shift2, shift3, shift4 };
             #else
                 const bitshift_t shift5 = shift;
                 if (pattern_shift > shift) shift += step;
@@ -322,15 +323,84 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep(b
                 const bitshift_t shift8 = shift;
                 if (pattern_shift > shift) shift += step;
                 shift -= pattern_shift;
-                const bitvector_t shiftmask = { shift1, shift2, shift3, shift4, shift5, shift6, shift7, shift8 };
+                register bitvector_t shiftmask = { shift1, shift2, shift3, shift4, shift5, shift6, shift7, shift8 };
             #endif
         #endif
 
         const bitvector_t quadmask = quadmask_base << shiftmask;
+
         applyMask_vector(bitstorage_vector, step, range_stop, quadmask, current_vector);
         current_vector++;
     }
 }
+
+// static inline void __attribute__((always_inline)) create_mask_vector_smallstep_old(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop_unique, const counter_t range_stop)
+// {
+//     bitvector_t* restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, anticiped_cache_line_bytesize);
+//     counter_t current_vector =  vectorindex(range_start);
+
+//     const bitword_t pattern_base = BITVECTORWORD_SHIFTBIT;
+//     register bitword_t pattern   = BITVECTORWORD_SHIFTBIT;
+//     bitshift_t pattern_size = step;
+
+//     // if (pattern_size < (VECTORWORD_SIZE_bitshift >> (6 - VECTOR_ELEMENTS/2))) {
+//     if (pattern_size < (VECTORWORD_SIZE_bitshift >> 2)) {
+//         pattern |= (pattern_base << step) | (pattern_base << step*2) | (pattern_base << step*3);
+//         pattern_size = step << 2;
+//     }
+//     for (; pattern_size <= VECTORWORD_SIZE_bitshift; pattern_size += step) pattern |= (pattern_base << pattern_size);
+
+//     register bitshift_t       shift         = vector_bitindex_calc(range_start); 
+//     register const bitshift_t pattern_shift = VECTORWORD_SIZE_bitshift + step - pattern_size; 
+
+//     #if VECTOR_ELEMENTS == 8
+//         register bitvector_t quadmask_base = { pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern };
+//     #elif VECTOR_ELEMENTS == 4
+//         register bitvector_t quadmask_base = { pattern, pattern, pattern, pattern };
+//     #else 
+//         register bitvector_t quadmask_base = { pattern, pattern };
+//     #endif
+
+//     for (counter_t current_word = vector_wordindex(range_start); current_word < vector_wordindex(range_stop_unique); current_word += VECTOR_ELEMENTS) {
+//         const bitshift_t shift1 = shift;
+//         if (pattern_shift > shift) shift += step;
+//         shift -= pattern_shift;
+//         const bitshift_t shift2 = shift;
+//         if (pattern_shift > shift) shift += step;
+//         shift -= pattern_shift;
+//         #if VECTOR_ELEMENTS <= 2
+//             register bitvector_t shiftmask = { shift1, shift2 };
+//         #else
+//             const bitshift_t shift3 = shift;
+//             if (pattern_shift > shift) shift += step;
+//             shift -= pattern_shift;
+//             const bitshift_t shift4 = shift;
+//             if (pattern_shift > shift) shift += step;
+//             shift -= pattern_shift;
+//             #if VECTOR_ELEMENTS <= 4
+//             const bitvector_t shiftmask = { shift1, shift2, shift3, shift4 };
+//             #else
+//                 const bitshift_t shift5 = shift;
+//                 if (pattern_shift > shift) shift += step;
+//                 shift -= pattern_shift;
+//                 const bitshift_t shift6 = shift;
+//                 if (pattern_shift > shift) shift += step;
+//                 shift -= pattern_shift;
+//                 const bitshift_t shift7 = shift;
+//                 if (pattern_shift > shift) shift += step;
+//                 shift -= pattern_shift;
+//                 const bitshift_t shift8 = shift;
+//                 if (pattern_shift > shift) shift += step;
+//                 shift -= pattern_shift;
+//                 const bitvector_t shiftmask = { shift1, shift2, shift3, shift4, shift5, shift6, shift7, shift8 };
+//             #endif
+//         #endif
+
+//         const bitvector_t quadmask = quadmask_base << shiftmask;
+//         applyMask_vector(bitstorage_vector, step, range_stop, quadmask, current_vector);
+//         current_vector++;
+//     }
+// }
 
 static inline void __attribute__((always_inline)) create_mask_vector_largestep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop_unique, const counter_t range_stop)
 {
