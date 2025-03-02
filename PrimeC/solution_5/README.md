@@ -41,7 +41,6 @@ Sources:
 - https://stackoverflow.com/questions/3005564/gcc-recommendations-and-options-for-fastest-code
 - https://github.com/simd-everywhere/simde
 - https://www.cprogramming.com/tips/tip/common-optimization-tips
-- https://codeforces.com/blog/entry/96344?locale=ru
 
 ## Run instructions
 

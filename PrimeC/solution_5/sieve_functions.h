@@ -292,9 +292,14 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep(b
         register bitvector_t quadmask_base = { pattern, pattern };
     #endif
 
+    counter_t debug_run = 0;
+    bitvector_t quadmask_next;
+
     for (counter_t current_word = vector_wordindex(range_start); current_word < vector_wordindex(range_stop_unique); current_word += VECTOR_ELEMENTS) {
         debug_hits+= debug_final_benchmarking;
-        
+
+        const counter_t shift_original = shift;
+
         const bitshift_t shift1 = shift;
         if (pattern_shift > shift) shift += step;
         shift -= pattern_shift;
@@ -332,6 +337,51 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep(b
         const bitvector_t quadmask = quadmask_base << shiftmask;
 
         applyMask_vector(bitstorage_vector, step, range_stop, quadmask, current_vector);
+
+        // if (step < 64 && step !=17) {
+
+            if (debug_run) {
+                if (memcmp(&quadmask, &quadmask_next, sizeof(quadmask)) != 0) {
+                    printVector(quadmask);
+                    printf("NOT correct\n");
+                    exit(0);
+                }
+            }
+
+            // printf("Voorspelling %ju\n", (uintmax_t) debug_run);
+            // // quadmask_next = quadmask << step;
+            // // printVector(quadmask_next); 
+            // // quadmask_next = quadmask << (step + pattern_shift);
+            // // printVector(quadmask_next); 
+            // // quadmask_next = quadmask << pattern_shift;
+            // // printVector(quadmask_next); 
+
+            // bitshift_t pattern_vectorshift = VECTOR_ELEMENTS*(pattern_size - VECTORWORD_SIZE_bitshift);
+            // // quadmask_next = quadmask << pattern_vectorshift;
+            // // printVector(quadmask_next); 
+
+            // // quadmask_next = quadmask >> (step-pattern_vectorshift);
+            // // printVector(quadmask_next); 
+
+            // quadmask_next = (quadmask << pattern_vectorshift) | (quadmask >> (step-pattern_vectorshift));
+            // printVector(quadmask_next); 
+
+
+
+            
+            // quadmask_next = quadmask << 4;
+            // printVector(quadmask_next); 
+
+            // printf("uitkomst:\n");
+            
+            // if (debug_run++ > 3) {
+            //     printf("shift_original %ju pattern_shift %ju pattern_size %ju step %ju pattern_vectorshift %ju\n", (uintmax_t) shift_original, (uintmax_t) pattern_shift, (uintmax_t) pattern_size, (uintmax_t) step, (uintmax_t)pattern_vectorshift); 
+            //     exit(0);
+            // }
+        // }
+        bitshift_t pattern_vectorshift = VECTOR_ELEMENTS*(pattern_size - VECTORWORD_SIZE_bitshift);
+        quadmask_next = (quadmask << pattern_vectorshift) | (quadmask >> (step-pattern_vectorshift));
+        
         current_vector++;
     }
 }

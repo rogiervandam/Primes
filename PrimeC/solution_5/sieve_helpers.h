@@ -256,6 +256,30 @@ static inline void printWord(bitword_t bitword)
     printf("%s", row);
 }
 
+static void printVector(bitvector_t bitvector)
+{
+    // Use a union to extract the scalar elements from the vector
+    union {
+        bitvector_t vec;
+        bitword_t arr[VECTOR_ELEMENTS];
+    } u;
+    u.vec = bitvector;
+
+    char row[VECTOR_SIZE*2] = {0};
+    int col = 0;
+    // Each vector element is a bitword_t with WORD_SIZE bits
+    for (int j = VECTOR_ELEMENTS - 1; j >= 0; j--) {
+        for (int i = WORD_SIZE - 1; i >= 0; i--) {
+            row[col++] = (u.arr[j] & (BITWORD_SHIFTBIT << i)) ? '1' : '.';
+            if (i % 8 == 0)
+                row[col++] = ' ';
+        }
+        row[col++] = 'x'; row[col++] = ' ';
+      }
+    row[col] = '\0';
+    printf("%s\n", row);
+}
+
 unsigned int usqrt(int n)
 {
     unsigned int x;

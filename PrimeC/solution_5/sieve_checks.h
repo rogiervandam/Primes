@@ -1,3 +1,15 @@
+// Controleert of een gegeven pointer uitgelijnd is op een bepaalde bytegrens
+static int is_aligned(void *ptr, size_t alignment) {
+    return ((uintptr_t)ptr % alignment) == 0;
+}
+
+static counter_t count_primes(struct sieve_t *sieve) 
+{
+    counter_t primecount = 1;
+    for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor)) primecount++;
+    return primecount;
+}
+
 static void show_primes(struct sieve_t *sieve, counter_t factor_max) 
 {
     counter_t primecount = 1;    // We already have 2
@@ -11,14 +23,6 @@ static void show_primes(struct sieve_t *sieve, counter_t factor_max)
     printf("\nFound %ju primes until %ju\n",(uintmax_t)primecount, (uintmax_t)sieve->bits*2+1);
 }
 
-static counter_t count_primes(struct sieve_t *sieve) 
-{
-    counter_t primecount = 1;
-    for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor)) primecount++;
-    return primecount;
-}
-
-// 
 static void deepAnalyzePrimes(struct sieve_t *sieve) 
 {
     printf("DeepAnalyzing\n");
@@ -70,6 +74,20 @@ static int validatePrimeCount(struct sieve_t *sieve, counter_t factor_max)
     return (valid);
 }
 
+static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
+{
+    const counter_t factor_max = benchmark_settings.factor_max;
+    prepareBenchmarkGlobals(benchmark_settings);
+    struct sieve_t* sieve_check = sieve_shake(factor_max);
+    const int valid = validatePrimeCount(sieve_check, factor_max);
+    sieve_delete(sieve_check);
+    return valid;
+}
+
+
+
+
+
 // #if compile_verbose_level >= 4
 static void explainSieveShake(benchmark_settings_t benchmark_settings) 
 {
@@ -82,10 +100,12 @@ static void explainSieveShake(benchmark_settings_t benchmark_settings)
     // }    
     // option.explain = org_option_explain;
 
+    benchmark_settings = check_benchmark_settings(benchmark_settings);
+
     struct sieve_t* sieve = sieve_shake(benchmark_settings.factor_max);
     printf("\nResult set:\n");
-    show_primes(sieve, min(option.show_explain_factor_max ,100));
-    int valid = validatePrimeCount(sieve, benchmark_settings.factor_max);
+    show_primes(sieve, min(option.show_explain_factor_max, 100));
+    int valid = checkSieveWithBenchmarkSettings(benchmark_settings);
     if (!valid) printf("The sieve is \033[0;31m\033[5mNOT\033[0;0m valid...\n");
     else printf("The sieve is \033[0;mVALID\033[0;0m\n");
     sieve_delete(sieve);
@@ -94,20 +114,6 @@ static void explainSieveShake(benchmark_settings_t benchmark_settings)
 // #endif
 
 
-// Controleert of een gegeven pointer uitgelijnd is op een bepaalde bytegrens
-static int is_aligned(void *ptr, size_t alignment) {
-    return ((uintptr_t)ptr % alignment) == 0;
-}
-
-static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
-{
-    const counter_t factor_max = benchmark_settings.factor_max;
-    prepareBenchmarkGlobals(benchmark_settings);
-    struct sieve_t* sieve_check = sieve_shake(factor_max);
-    const int valid = validatePrimeCount(sieve_check, factor_max);
-    sieve_delete(sieve_check);
-    return valid;
-}
 
 static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 {
@@ -117,8 +123,6 @@ static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
     })
 
     char settings_string[100] = ""; benchmark_settings_as_string(settings_string, benchmark_settings);
-
-    printf("I am here\n");
 
     // validate algorithm - run one time for all sizes
     for (counter_t sieveSize_check = 100; sieveSize_check <= 100000000; sieveSize_check *=10) {
