@@ -59,7 +59,7 @@ static struct options_t setDefaultOptions() {
     option.fixed_benchmark_settings.threads                 = 1;
     option.fixed_benchmark_settings.stripe_faster           = 0;
     option.fixed_benchmark_settings.mediumstep_faster       = 0;
-    option.fixed_benchmark_settings.largestep_faster        = 160;
+    option.fixed_benchmark_settings.largestep_faster        = 0;
     // option.fixed_benchmark_settings.stripe_faster           = 0;
     // option.fixed_benchmark_settings.mediumstep_faster       = 0;
     // option.fixed_benchmark_settings.largestep_faster        = 0;

@@ -178,7 +178,13 @@ static counter_t debug_final_benchmarking=0;
 #define WORDMASK             ((((counter_t)1)<<SHIFT_WORD)-(counter_t)1)
 #define VECTORWORDMASK       ((((counter_t)1)<<SHIFT_VECTORWORD)-(counter_t)1)
 #define VECTORMASK           ((((counter_t)1)<<SHIFT_VECTOR)-(counter_t)1)
-
+#if VECTOR_ELEMENTS == 8
+  #define QUADMASK_BASE(pattern) ((bitvector_t){ pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern })
+#elif VECTOR_ELEMENTS == 4
+  #define QUADMASK_BASE(pattern) ((bitvector_t){ pattern, pattern, pattern, pattern })
+#else
+  #define QUADMASK_BASE(pattern) ((bitvector_t){ pattern, pattern })
+#endif
 // helpder functions for word/vector indexing
 #define wordindex(index)     (((counter_t)index) >> SHIFT_WORD)
 #define wordend(index)       ((counter_t)(index) |  WORDMASK)
@@ -278,6 +284,14 @@ static void printVector(bitvector_t bitvector)
       }
     row[col] = '\0';
     printf("%s\n", row);
+}
+
+static void printVectorNumeric(bitvector_t bitvector)
+{
+  for(counter_t i=0; i < VECTOR_ELEMENTS; i++) {
+        printf("%ju,", (uintmax_t) bitvector[i]);
+  }
+  printf("\n");	
 }
 
 unsigned int usqrt(int n)
