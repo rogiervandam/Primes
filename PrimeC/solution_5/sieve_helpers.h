@@ -63,24 +63,6 @@
 #define unlikely(x)         (__builtin_expect((x),0))
 #define is_signed(type) (((type)-1)<0)
 
-// helper functions for timing parts of code in debugging mode
-// call timerLapStart() to start timing a part of code
-// call timerLapTime() to mark this lap and output the elapsed time with color for extra quick feedback
-static struct timespec timer_lap, timer_elapsed;
-#define timerLapStart() clock_gettime(CLOCK_PROCESS_CPUTIME_ID ,&timer_lap)
-void timerLapTime() {
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID ,&timer_elapsed);
-    long seconds = timer_elapsed.tv_sec - timer_lap.tv_sec;
-    long nanoseconds = timer_elapsed.tv_nsec - timer_lap.tv_nsec;
-    double elapsed_time = seconds*1e-9 + nanoseconds;
-    // double elapsed_time = timer_elapsed.tv_sec + timer_elapsed.tv_nsec*1e-9 - timer_lap.tv_sec - timer_lap.tv_nsec*1e-9;
-    if      (elapsed_time > 2000) printf("...time: \033[0;31m%.0f\033[0m ns\n", elapsed_time);
-    else if (elapsed_time > 1000) printf("...time: \033[0;35m%.0f\033[0m ns\n", elapsed_time);
-    else if (elapsed_time > 100)  printf("...time: \033[0;36m%.0f\033[0m ns\n", elapsed_time);
-    else                          printf("...time: %.0f ns\n", elapsed_time);
-}
-
-
 #define PPCAT_NX(A, B) A ## B
 #define PPCAT(A, B) PPCAT_NX(A, B)
 
@@ -297,3 +279,69 @@ static inline char* extension_as_string(char* extension) {
     return extension;
 }
 
+// helper functions for timing parts of code in debugging mode
+// call timerLapStart() to start timing a part of code
+// call timerLapTime() to mark this lap and output the elapsed time with color for extra quick feedback
+static struct timespec timer_lap, timer_elapsed;
+#define timerLapStart() clock_gettime(CLOCK_PROCESS_CPUTIME_ID ,&timer_lap)
+void timerLapTime() {
+  clock_gettime(CLOCK_PROCESS_CPUTIME_ID ,&timer_elapsed);
+  long seconds = timer_elapsed.tv_sec - timer_lap.tv_sec;
+  long nanoseconds = timer_elapsed.tv_nsec - timer_lap.tv_nsec;
+  double elapsed_time = seconds*1e-9 + nanoseconds;
+  // double elapsed_time = timer_elapsed.tv_sec + timer_elapsed.tv_nsec*1e-9 - timer_lap.tv_sec - timer_lap.tv_nsec*1e-9;
+  if      (elapsed_time > 2000) printf("...time: \033[0;31m%.0f\033[0m ns\n", elapsed_time);
+  else if (elapsed_time > 1000) printf("...time: \033[0;35m%.0f\033[0m ns\n", elapsed_time);
+  else if (elapsed_time > 100)  printf("...time: \033[0;36m%.0f\033[0m ns\n", elapsed_time);
+  else                          printf("...time: %.0f ns\n", elapsed_time);
+}
+
+#define timer_count 2
+static double timer_timers[timer_count];
+counter_t timer_hits[timer_count];
+double timer_time[timer_count];
+
+
+static inline double time_mark() {
+  struct timespec t;
+  clock_gettime(CLOCK_MONOTONIC, &t);
+  return (t.tv_sec + t.tv_nsec * 1e-9) ;
+//    return (double)clock();
+}
+
+
+#define timer_lapstart(timer) timer_timers[timer] = time_mark();
+#define timer_laptime(timer) timer_laptime_function(timer);
+
+void timer_laptime_function(counter_t timer) {
+    const double timer_lap = time_mark();
+    const double elapsed_time = timer_lap - timer_timers[timer];
+    timer_time[timer] += elapsed_time;
+    timer_hits[timer]++;
+}
+
+
+#define time_setBitsTrue_largeRange_vector 0
+#define time_applyMask_word 1
+
+
+
+static const char* function_names[100] = {
+  [time_setBitsTrue_largeRange_vector] = "time_setBitsTrue_largeRange_vector",
+  [time_applyMask_word] = "time_applyMask_word",	
+  // voeg hier andere functienamen toe op basis van hun timer-ID
+};
+
+void print_timing_table(void) {
+  printf("%-40s %15s %20s\n", "Functie", "Hits", "Totale tijd (s)");
+  for (counter_t i = 0; i < timer_count; i++) {
+      if (timer_hits[i] > 0) {
+          printf("%-40s %15ju %20.6f\n", function_names[i], (uintmax_t)timer_hits[i], timer_time[i]);
+      }
+  }
+}
+
+#undef timer_lapstart
+#undef timer_laptime
+#define timer_lapstart(timer)
+#define timer_laptime(timer)

@@ -37,10 +37,10 @@ static void setSettingsFromTuning(benchmark_settings_t* benchmark_settings, benc
 static inline double benchmarkTime() {
     struct timespec t;
     clock_gettime(CLOCK_MONOTONIC, &t);
-    return (t.tv_sec + t.tv_nsec * 1e-9) * CLOCKS_PER_SEC ;
-//    return (double)clock();
-}
-
+    return (t.tv_sec + t.tv_nsec * 1e-9);
+  //    return (double)clock();
+  }
+  
 static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settings) {
     global_stripeprime_faster = benchmark_settings.stripe_faster;
     global_mediumstep_faster  = benchmark_settings.mediumstep_faster;
@@ -66,7 +66,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
     counter_t passes = 0;
     const counter_t sieve_size = benchmark_result.settings.factor_max;
     // const counter_t blocksize_bits = benchmark_result.settings.blocksize_bits;
-    const double time_sample = benchmark_result.settings.sample_duration * CLOCKS_PER_SEC * benchmark_settings.threads; // do this before we set the clock
+    const double time_sample = benchmark_result.settings.sample_duration * benchmark_settings.threads; // do this before we set the clock
 //    const double time_sample = benchmark_result.settings.sample_duration * CLOCKS_PER_SEC * benchmark_settings.threads; // do this before we set the clock
 
     double time_elapsed = 0;
@@ -99,7 +99,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
 
     // calculate results
     benchmark_result.passes       = passes;
-    benchmark_result.elapsed_time = time_elapsed / CLOCKS_PER_SEC / benchmark_settings.threads;
+    benchmark_result.elapsed_time = time_elapsed / benchmark_settings.threads;
     benchmark_result.avg          = benchmark_result.passes / benchmark_result.elapsed_time; // TODO: check if thhreads are correct
 
     return benchmark_result;

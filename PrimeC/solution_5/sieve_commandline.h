@@ -152,6 +152,8 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
 int main(int argc, char *argv[]) 
 {
     setbuf(stdout, NULL); // prevent buffering of stdout
+    for (counter_t i = 0; i < timer_count; i++) timer_hits[i] = 0;
+    for (counter_t i = 0; i < timer_count; i++) timer_time[i] = 0;
 
     option = setDefaultOptions();
     option = parseCommandLine(argc, argv, option);
@@ -208,4 +210,5 @@ int main(int argc, char *argv[])
     if (option.show_explain_factor_max > 0) showResult(option.fixed_benchmark_settings);
 
     printf("Hits: %ju\n",(uintmax_t)debug_hits);
+    print_timing_table();
 }

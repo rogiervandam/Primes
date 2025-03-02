@@ -116,6 +116,8 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse_largeRange
 // idea from PrimeRust/solution_1 by Michael Barber 
 static inline void __attribute__((always_inline)) applyMask_word(bitword_t* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitword_t mask, const counter_t index_word) 
 {
+    timer_lapstart(time_applyMask_word);
+
     register const counter_t step_2 = step << 1;
     register const counter_t step_3 = step_2 + step;
     register const counter_t step_4 = step << 2;
@@ -144,6 +146,8 @@ static inline void __attribute__((always_inline)) applyMask_word(bitword_t* rest
     if (index_ptr == range_stop_ptr) { // index_ptr could also end above range_stop_ptr, depending on steps. 
         *index_ptr |= mask; // chop not needed is block-size aligned with word size
     }
+
+    timer_laptime(time_applyMask_word);
 }
 
 // same as word mask, but at a vector level - uses the sse/avx extensions, hopefully
@@ -263,6 +267,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange(bitwor
 // This version uses vectorization for the larger ranges
 static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector(bitword_t* restrict bitstorage, const counter_t range_start_original, const counter_t step, const counter_t range_stop) 
 {
+
     verbose4(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange vector (%ju occurances; %ju stamps) ", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start_original,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(VECTOR_SIZE_counter*step))); )
     verbose4( timerLapStart(); )
 
@@ -306,6 +311,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
     counter_t current_vector =  vectorindex(range_start);
 
     if (step < VECTORWORD_SIZE_counter) {
+
         const bitword_t pattern_base = BITVECTORWORD_SHIFTBIT;
         register bitword_t pattern   = BITVECTORWORD_SHIFTBIT;
         bitshift_t pattern_size = step;
@@ -368,11 +374,11 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
             applyMask_vector(bitstorage_vector, step, range_stop, quadmask, current_vector);
             current_vector++;
         }
+
     }
     else {
         for (counter_t index = range_start; index < range_stop_unique;) {
             const counter_t current_vector_start = vectorstart(index);
-
             // bitvector_t quadmask;
             #if VECTOR_ELEMENTS == 8
             bitvector_t quadmask = { SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO, SAFE_ZERO };
