@@ -1,5 +1,7 @@
 // TODO: test if we can just shift the shiftmask in the second iteration instead of creating a new one
 // TODO: Use better algorithm for creating the shiftmask
+// TODO: explore __builtin_shufflevector 
+
 static inline void __attribute__((always_inline)) create_mask_vector_smallstep_modulo(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop_unique, const counter_t range_stop)
 {
     bitvector_t* restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, anticiped_cache_line_bytesize);
@@ -307,8 +309,8 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
 
 
     if (step < VECTORWORD_SIZE_counter) 
-        // create_mask_vector_smallstep_shifting(bitstorage, range_start, step, range_stop_unique, range_stop);
-        create_mask_vector_smallstep_base_initial(bitstorage, range_start, step, range_stop_unique, range_stop);
+        create_mask_vector_smallstep_shifting(bitstorage, range_start, step, range_stop_unique, range_stop);
+        // create_mask_vector_smallstep_base_initial(bitstorage, range_start, step, range_stop_unique, range_stop);
         // create_mask_vector_smallstep_modulo(bitstorage, range_start, step, range_stop_unique, range_stop);
         // create_mask_vector_smallstep(bitstorage, range_start, step, range_stop_unique, range_stop);
     else

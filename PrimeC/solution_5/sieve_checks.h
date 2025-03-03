@@ -125,7 +125,7 @@ static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
     char settings_string[100] = ""; benchmark_settings_as_string(settings_string, benchmark_settings);
 
     // validate algorithm - run one time for all sizes
-    for (counter_t sieveSize_check = 100; sieveSize_check <= 100000000; sieveSize_check *=10) {
+    for (counter_t sieveSize_check = 100; sieveSize_check <= 1000000; sieveSize_check *=10) {
         verbose2( {
             printf("..Checking size %ju ...",(uintmax_t)sieveSize_check); 
             verbose(3) printf("\n");

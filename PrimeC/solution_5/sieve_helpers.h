@@ -139,7 +139,7 @@
 #endif
 
 #define bitshift_t uint64_t // type used to shift bits
-#define counter_t  uint64_t // type used to count loops, etc
+#define counter_t  int32_t // type used to count loops, etc
 
 // masks and mask helpers
 #define SHIFT_BYTE          3
