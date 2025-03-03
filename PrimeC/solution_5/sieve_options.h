@@ -40,7 +40,7 @@ static struct options_t {
 } option;
 
 static struct options_t setDefaultOptions() {
-    option.time_max                = 5;
+    option.time_max                = 20;
 
     option.show_explain_factor_max = 100;
     option.show_tuning_results_max = 100;
@@ -51,8 +51,8 @@ static struct options_t setDefaultOptions() {
 
     option.check                   = 1; // set to 2 to stop after the check algorithm
     option.tunelevel               = 1;
-    option.sample_duration         = 0.0004;
-    option.tune_duration_max       = 5.0;
+    option.sample_duration         = 0.0016;
+    option.tune_duration_max       = 10.0;
     option.tune_keeppercent        = 10;
 
     option.fixed_benchmark_settings.factor_max              = 1000000;
