@@ -14,6 +14,7 @@
 # Detect OS
 OS="$(uname -s)"
 
+# CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11"
 CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11"
 if [ "$OS" = "Linux" ]; then
     CC="gcc $CC -Wno-psabi -s"
@@ -58,4 +59,5 @@ done
 # ./$1 --set s112-m004-l158-b0262144 --verbose 3
 # ./$1 --set s016-m004-l160-b0262144
 # taskset -c 0-$(nproc --all) nice -n -0 ./$1
-./$1 --set s4520-m080-l048-b0262144-u64-v256
+# ./$1 --set s4520-m080-l048-b0262144-u64-v256
+./$1

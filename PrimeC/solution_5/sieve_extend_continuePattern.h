@@ -127,9 +127,9 @@ static inline void  __attribute__((always_inline)) continuePattern_shiftright(bi
     // end if we reached the destination already
     if (copy_word >= destination_stop_word) return;
 
-    register uint8_t* restrict source_byte            = (u_int8_t*)((uintptr_t) bitstorage + (copy_start_word << (SHIFT_WORD-SHIFT_BYTE) ) - copy_size_byte);
-    register uint8_t* restrict copy_byte              = (u_int8_t*)((uintptr_t) bitstorage + (copy_start_word << (SHIFT_WORD-SHIFT_BYTE) ));
-    const uint8_t* restrict destination_stop_byte     = (u_int8_t*)((uintptr_t) bitstorage + ((destination_stop_word + 1) << SHIFT_BYTE) );
+    register uint8_t* restrict source_byte            = (uint8_t*)((uintptr_t) bitstorage + (copy_start_word << (SHIFT_WORD-SHIFT_BYTE) ) - copy_size_byte);
+    register uint8_t* restrict copy_byte              = (uint8_t*)((uintptr_t) bitstorage + (copy_start_word << (SHIFT_WORD-SHIFT_BYTE) ));
+    const uint8_t* restrict destination_stop_byte     = (uint8_t*)((uintptr_t) bitstorage + ((destination_stop_word + 1) << SHIFT_BYTE) );
 
     do {
         memcpy(copy_byte, source_byte, copy_size_byte);
