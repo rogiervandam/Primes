@@ -40,7 +40,7 @@ static struct options_t {
 } option;
 
 static struct options_t setDefaultOptions() {
-    option.time_max                = 10;
+    option.time_max                = 5;
 
     option.show_explain_factor_max = 100;
     option.show_tuning_results_max = 100;

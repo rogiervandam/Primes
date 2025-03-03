@@ -2,7 +2,7 @@
 
 // defaults
 #define compile_verbose_level           2   // Set to 1-4 to enable compiling different verbose levels
-#define anticiped_cache_line_bytesize   64 // How to align the caches
+#define anticiped_cache_line_bytesize   256 // How to align the caches
 
 
 //set compile_debuggable to 1 to enable explain plan
@@ -179,11 +179,14 @@ static counter_t debug_final_benchmarking=0;
 #define VECTORWORDMASK       ((((counter_t)1)<<SHIFT_VECTORWORD)-(counter_t)1)
 #define VECTORMASK           ((((counter_t)1)<<SHIFT_VECTOR)-(counter_t)1)
 #if VECTOR_ELEMENTS == 8
-  #define QUADMASK_BASE(pattern) ((bitvector_t){ pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern })
+  #define VECTOR_BASE(pattern) ((bitvector_t){ pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern })
+  #define VECTOR_BYTEINDEX     ((bitvector_t){ 0, 1, 2, 3, 4, 5, 6, 7 })
 #elif VECTOR_ELEMENTS == 4
-  #define QUADMASK_BASE(pattern) ((bitvector_t){ pattern, pattern, pattern, pattern })
+  #define VECTOR_BASE(pattern) ((bitvector_t){ pattern, pattern, pattern, pattern })
+  #define VECTOR_BYTEINDEX     ((bitvector_t){ 0, 1, 2, 3 })
 #else
-  #define QUADMASK_BASE(pattern) ((bitvector_t){ pattern, pattern })
+  #define VECTOR_BASE(pattern) ((bitvector_t){ pattern, pattern })
+  #define VECTOR_BYTEINDEX     ((bitvector_t){ 0, 1})
 #endif
 // helpder functions for word/vector indexing
 #define wordindex(index)     (((counter_t)index) >> SHIFT_WORD)
