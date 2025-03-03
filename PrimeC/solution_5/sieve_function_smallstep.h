@@ -154,7 +154,6 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep_b
 static inline void __attribute__((always_inline)) create_mask_vector_smallstep_shifting(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop_unique, const counter_t range_stop)
 {
     bitvector_t* restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, anticiped_cache_line_bytesize);
-    counter_t current_vector =  vectorindex(range_start);
 
     const bitword_t pattern_base = BITVECTORWORD_SHIFTBIT;
     register bitword_t pattern   = BITVECTORWORD_SHIFTBIT;
@@ -176,16 +175,39 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep_s
         shiftmask[i] = (shift + i * pattern_wordshift) % step;
     }
 
+
     const bitvector_t quadmask_base = QUADMASK_BASE(pattern);
     register bitvector_t quadmask = quadmask_base << shiftmask;
-
+    register counter_t current_vector = vectorindex(range_start);
+    counter_t current_vector_after_original = current_vector;
     const bitshift_t pattern_vectorshift = (VECTOR_ELEMENTS*(pattern_size - VECTORWORD_SIZE_bitshift))%step;
-    for (counter_t current_word = vector_wordindex(range_start); current_word < vector_wordindex(range_stop_unique); current_word += VECTOR_ELEMENTS) {
-        // debug_hits+= debug_final_benchmarking;
+
+    // for (counter_t current_word = vector_wordindex(range_start); current_word < vector_wordindex(range_stop_unique); current_word += VECTOR_ELEMENTS) {
+    //     // debug_hits+= debug_final_benchmarking;
+    //     applyMask_vector(bitstorage_vector, step, range_stop, quadmask, current_vector);
+    //     quadmask = (quadmask << pattern_vectorshift) | (quadmask >> (step - pattern_vectorshift));
+    //     current_vector++;
+    //     current_vector_after_original++;
+    // }
+
+    counter_t current_vector_after_alternative = vectorindex(range_start);
+
+    // slower, because it does more iterations.. researching
+    const counter_t vector_max = vectorindex(range_start) + ((vector_wordindex(range_stop_unique) - vector_wordindex(range_start)) / VECTOR_ELEMENTS);
+    // const counter_t vector_max = vectorindex(range_start) + ((vectorindex(range_stop_unique) - vectorindex(range_start)));
+    for (counter_t current_vector = vectorindex(range_start); current_vector < vector_max; current_vector++) {
         applyMask_vector(bitstorage_vector, step, range_stop, quadmask, current_vector);
         quadmask = (quadmask << pattern_vectorshift) | (quadmask >> (step - pattern_vectorshift));
-        current_vector++;
+        current_vector_after_alternative++;
     }
+
+    // if (current_vector_after_original != current_vector_after_alternative) {
+    //     printf("Error in shifting\n");
+    //     printf("current_vector_after_original: %ju\n", current_vector_after_original);
+    //     printf("current_vector_after_alternative: %ju\n", current_vector_after_alternative);
+    //     exit(0);
+    // }
+
 }
 
 static inline void __attribute__((always_inline)) create_mask_vector_smallstep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop_unique, const counter_t range_stop)
