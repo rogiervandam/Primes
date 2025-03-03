@@ -4,6 +4,16 @@
 #define compile_verbose_level           2   // Set to 1-4 to enable compiling different verbose levels
 #define anticiped_cache_line_bytesize   256 // How to align the caches
 
+#define bitshift_t uint64_t // type used to shift bits
+#define counter_t  uint32_t // type used to count loops, etc
+
+#if defined(counter_t) && (counter_t == int32_t || counter_t == uint32_t)
+    #define COUNTER_T_MAX_SAFE_VALUE 1000000000ULL
+#elif defined(counter_t) && (counter_t == int64_t || counter_t == uint64_t)
+    #define COUNTER_T_MAX_SAFE_VALUE 10000000000ULL
+#else
+    #error "counter_t must be defined as int32_t, uint32_t, int64_t, or uint64_t"
+#endif
 
 //set compile_debuggable to 1 to enable explain plan
 // #define compile_debuggable (0 || compile_explain_level)
@@ -138,8 +148,7 @@
 #define VECTORWORDSIZE_64 64 // enable this is wordsize is 64 - will allow further optimizations
 #endif
 
-#define bitshift_t uint64_t // type used to shift bits
-#define counter_t  int32_t // type used to count loops, etc
+
 
 // masks and mask helpers
 #define SHIFT_BYTE          3
@@ -201,9 +210,9 @@ static counter_t debug_final_benchmarking=0;
 // #define wordinvector(index)  (((counter_t)index >> SHIFT_WORD) & (VECTORMASK >> SHIFT_WORD))
 
 // modern processors do a & over the shiftssize, so we only have to do that ourselve when using the shiftsize in calculations. 
-#define bitindex_calc(index)        ((bitshift_t)(index)&((bitshift_t)(WORDMASK      )))
+#define bitindex_calc(index)        ((bitshift_t)(((counter_t)(index))&((counter_t)(WORDMASK))))
 #define vector_bitindex(index)      ((bitshift_t)(index))
-#define vector_bitindex_calc(index) ((bitshift_t)(index)&((bitshift_t)(VECTORWORDMASK)))
+#define vector_bitindex_calc(index) ((bitshift_t)(((counter_t)(index))&((counter_t)(VECTORWORDMASK))))
 
 #if SAFE_SHIFT == 1
 #define bitindex(index)      ((bitshift_t)(index)&((bitshift_t)(WORDMASK)))

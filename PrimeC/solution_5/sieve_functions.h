@@ -88,7 +88,7 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse_largeRange
     
     // Get the current word and bit position
     register counter_t word_index = wordindex(index);
-    register counter_t bit_index  = bitindex_calc(index);
+    register bitshift_t bit_index  = bitindex_calc(index);
     register bitword_t current_word = bitstorage[word_index];
 
     if likely(bit_index) {

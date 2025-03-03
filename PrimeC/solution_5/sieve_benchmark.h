@@ -375,7 +375,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     // take best result
     benchmark_result_t best_result = tuning_result[0];
     free(tuning_result);
-    verbose1( { printf("\33[2K\rTuning done. Evaluated %ju ooptions in %ju steps. Best result: ", (uintmax_t) tuning_results_max, (uintmax_t) step ); tuning_result_print(best_result);} );
+    verbose1( { printf("\33[2K\rTuning done. Evaluated %ju options in %ju steps. Best result: ", (uintmax_t) tuning_results_max, (uintmax_t) step ); tuning_result_print(best_result);} );
     return best_result;
 }
 

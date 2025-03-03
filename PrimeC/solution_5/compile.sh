@@ -32,4 +32,3 @@ for x in sieve_base sieve_extend; do
         $STRIP $x$PAREXT-$y
     done
 done
-
