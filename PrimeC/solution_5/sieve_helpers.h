@@ -1,4 +1,7 @@
 // This file contains all helper functions
+#define _POSIX_C_SOURCE 199309L
+#include <time.h>
+
 
 // defaults
 #define compile_verbose_level           2   // Set to 1-4 to enable compiling different verbose levels

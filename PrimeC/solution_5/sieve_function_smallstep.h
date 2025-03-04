@@ -53,19 +53,19 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep_r
     const bitvector_t shift_base_vector = VECTOR_BASE(shift);
     const bitvector_t vector_byteindex = VECTOR_BYTEINDEX;
     const bitvector_t pattern_wordshift_vector = VECTOR_BASE(pattern_wordshift);
-    const bitvector_t pattern_wordshift_vector_plus = pattern_wordshift * vector_byteindex;
+    const bitvector_t pattern_wordshift_vector_plus = pattern_wordshift_vector * vector_byteindex;
     const bitvector_t step_vector = VECTOR_BASE(step);
     const bitvector_t quadmask_base = VECTOR_BASE(pattern);
-    register bitvector_t quadmask = quadmask_base << (shift_base_vector + pattern_wordshift_vector) % step_vector;
     const bitshift_t pattern_vectorshift = ((pattern_size - VECTORWORD_SIZE_bitshift) * (bitshift_t)VECTOR_ELEMENTS) % step_shift;
-    const counter_t vector_max = vectorindex(range_stop_unique);
-    counter_t i = 0;
-    for (counter_t current_vector = vectorindex(range_start); current_vector < vector_max; current_vector++) {
-        // debug_hits += debug_final_benchmarking;
-        const bitvector_t quadmask = quadmask_base << ((shift_base_vector + (i * pattern_wordshift_vector) + pattern_wordshift_vector_plus) % step_vector);
-        applyMask_vector(bitstorage_vector, step, range_stop, quadmask, current_vector);
-        i++;
-        // quadmask = (quadmask << pattern_vectorshift) | (quadmask >> (step_shift - pattern_vectorshift));
+    const bitvector_t pattern_vecorshift_vector = VECTOR_BASE(pattern_vectorshift);
+
+    const counter_t range_startvector = vectorindex(range_start);
+    const counter_t index_vector_max = vectorindex(range_stop_unique) - range_startvector;
+
+    #pragma GCC ivdep
+    for (counter_t index_vector = 0; index_vector < index_vector_max; index_vector++) {
+        const bitvector_t quadmask = quadmask_base << ((shift_base_vector + (index_vector * pattern_vecorshift_vector) + pattern_wordshift_vector_plus) % step_vector);
+        applyMask_vector(bitstorage_vector, step, range_stop, quadmask, range_startvector + index_vector);
     }
 }
 static inline void __attribute__((always_inline)) create_mask_vector_largestep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop_unique, const counter_t range_stop)
@@ -131,7 +131,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
     verbose4(  printf("..building masks in range %ju-%ju with WORD_SIZE %ju", (uintmax_t)range_start, (uintmax_t)range_stop_unique, (uintmax_t)WORD_SIZE_counter); )
 
     if (step < VECTORWORD_SIZE_counter) 
-        create_mask_vector_smallstep_recalc(bitstorage, range_start, step, range_stop_unique, range_stop);
+    create_mask_vector_smallstep(bitstorage, range_start, step, range_stop_unique, range_stop);
     else
         create_mask_vector_largestep(bitstorage, range_start, step, range_stop_unique, range_stop);
     

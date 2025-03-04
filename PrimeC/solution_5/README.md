@@ -58,7 +58,7 @@ or use the shortcut ./test.sh sieve_extend
 
 ### Run with Docker
 
-To run with Docker take the following steps:
+To run with Docker take the following steps: 
 
 1. Install Docker: <https://docs.docker.com/get-docker/>
 2. Build the image:
