@@ -359,7 +359,6 @@ static inline double time_mark() {
 //    return (double)clock();
 }
 
-
 #define timer_lapstart(timer) timer_timers[timer] = time_mark();
 #define timer_laptime(timer) timer_laptime_function(timer);
 
@@ -369,7 +368,6 @@ static void timer_laptime_function(counter_t timer) {
     timer_time[timer] += elapsed_time;
     timer_hits[timer]++;
 }
-
 
 #define time_setBitsTrue_largeRange_vector 0
 #define time_applyMask_word 1
