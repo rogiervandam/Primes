@@ -4,7 +4,7 @@
 
 // defaults
 #define compile_verbose_level           2   // Set to 1-4 to enable compiling different verbose levels
-#define anticiped_cache_line_bytesize   64 // How to align the caches
+#define anticiped_cache_line_bytesize   256 // How to align the caches
 
 #define bitshift_t uint64_t // type used to shift bits
 #define counter_t  int32_t  // type used to count loops, etc. Some processors/compilers are faster at 32 bits

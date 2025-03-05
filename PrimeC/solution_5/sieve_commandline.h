@@ -199,7 +199,7 @@ int main(int argc, char *argv[])
         // perform benchmark -> outputs passes, elapsed time and avg in result 
         debug_final_benchmarking = 1;
         benchmark_result_t benchmark_result = benchmark(benchmark_settings);
-        debug_final_benchmarking=0;
+        debug_final_benchmarking = 0;
         verbose1(outputBenchmarkStats(benchmark_result);)
 
         // report results

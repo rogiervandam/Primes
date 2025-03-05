@@ -1,6 +1,8 @@
 // TODO: test if we can just shift the shiftmask in the second iteration instead of creating a new one
 // TODO: explore __builtin_shufflevector 
 
+// Smallstep (< WORD_SIZE ) means the same vectormask can be reused
+// THe vectormask can be build by extending the WORD size mask
 static inline void __attribute__((always_inline)) create_mask_vector_smallstep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop_unique, const counter_t range_stop)
 {
     verbose4(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using smallstep (%ju occurances; %ju stamps) \n", 
@@ -106,6 +108,7 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep_t
     }
 }
 
+// Largestep (> WORD_SIZE and < VECTOR_SIZE) means the same vectormask can be reused
 static inline void __attribute__((always_inline)) create_mask_vector_largestep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop_unique, const counter_t range_stop)
 {
     bitvector_t* restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, anticiped_cache_line_bytesize);
@@ -155,22 +158,26 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
         for (; range_start < range_start_nexttvector; range_start += step) 
             bitstorage[wordindex(range_start)] |= markmask(range_start);
 
-        if unlikely(range_start==range_start_nexttvector)
-            bitstorage[wordindex(range_start)] |= markmask(range_start);
+        // if unlikely(range_start==range_start_nexttvector)
+        //     bitstorage[wordindex(range_start)] |= markmask(range_start);
     }
     
     const counter_t range_stop_unique = range_start + VECTOR_SIZE_counter * step; 
     if (range_stop_unique > range_stop || step > VECTOR_SIZE_counter) { // fallback to other methods if vector is too large to repeat -> TODO: remove and fix in VECTORSIZE check
 
-        if (step < global_mediumstep_faster) setBitsTrue_smallStep(bitstorage, range_start, step, range_stop);
-        else {
-            const counter_t range_stop_unique = range_start + WORD_SIZE_counter * step;
+        const counter_t range_stop_unique = range_start + WORD_SIZE_counter * step;
+        
+        // if (step < global_mediumstep_faster) {
+        //     setBitsTrue_smallStep(bitstorage, range_start, step, range_stop);
+        // }
+        // else {
+            
             if likely(range_stop_unique <= range_stop) { // the range will repeat itself; try to resuse the mask
-                setBitsTrue_largeRange_repeat(bitstorage, range_start, step, range_stop, range_stop_unique);
+                setBitsTrue_largeRange_repeat(bitstorage, range_start, step, range_stop);
             } else {
-                setBitsTrue_largeRange_largestep(bitstorage, range_start, step, range_stop, range_stop_unique);
+                setBitsTrue_largeRange_norepeat(bitstorage, range_start, step, range_stop);
             }
-        }
+        // }
         //   setBitsTrue_largeRange(bitstorage, range_start, step, range_stop);
         verbose4( timerLapTime(); )
         return;
