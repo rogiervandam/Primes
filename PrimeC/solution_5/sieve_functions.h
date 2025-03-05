@@ -204,7 +204,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_norepe
         bitstorage[wordindex(index + step  )] |= markmask(index + step  );
     }
 
-    for (counter_t i=4; i-- && index < range_stop; index += step) 
+    for (counter_t i=2; i-- && index < range_stop; index += step) 
         bitstorage[wordindex(index)] |= markmask(index);
 
     if unlikely(index==range_stop)
