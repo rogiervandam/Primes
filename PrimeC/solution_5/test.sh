@@ -15,7 +15,7 @@
 OS="$(uname -s)"
 
 # CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11"
-CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11"
+CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11 "
 if [ "$OS" = "Linux" ]; then
     CC="gcc $CC -Wno-psabi -s"
     PAR="-fopenmp"

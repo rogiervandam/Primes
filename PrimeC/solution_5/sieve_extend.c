@@ -4,7 +4,7 @@
 // This file includes all the building blocks for the sieve algorithm "extend"
 // This enables the compiler to optimize the code better
 
-
+#define _POSIX_C_SOURCE 199309L
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -14,6 +14,7 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
+
 
 // include helper functions
 #include "sieve_helpers.h"
