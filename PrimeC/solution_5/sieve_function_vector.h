@@ -3,6 +3,9 @@
 
 static inline void __attribute__((always_inline)) create_mask_vector_smallstep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop_unique, const counter_t range_stop)
 {
+    verbose4(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using smallstep (%ju occurances; %ju stamps) \n", 
+        (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(VECTOR_SIZE_counter*step))); )
+
     register bitvector_t* restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, anticiped_cache_line_bytesize);
 
     const bitword_t pattern_base = BITVECTORWORD_SHIFTBIT;
@@ -37,32 +40,19 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep(b
 static inline void __attribute__((always_inline)) create_mask_vector_smallstep_newpattern(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop_unique, const counter_t range_stop)
 {
     register bitvector_t* restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, anticiped_cache_line_bytesize);
-    const bitshift_t step_shift = (bitshift_t) step; // to enable the compiler to optimize the shift
-    const bitword_t pattern_base = BITVECTORWORD_SHIFTBIT | (BITVECTORWORD_SHIFTBIT << bitindex_calc(step_shift)) | (BITVECTORWORD_SHIFTBIT << bitindex_calc(step_shift*2)) | (BITVECTORWORD_SHIFTBIT << bitindex_calc(step_shift*3));;
-    const bitword_t pattern   = pattern_base | (pattern_base << bitindex_calc(step_shift*4)) | (pattern_base << bitindex_calc(step_shift*8)) | (pattern_base << bitindex_calc(step_shift*12)) | (pattern_base << bitindex_calc(step_shift*16));
-    const bitshift_t pattern_wordshift = VECTORWORD_SIZE_bitshift % step_shift;
 
-    const bitword_t pattern_base2 = BITVECTORWORD_SHIFTBIT;
-    register bitword_t pattern2   = BITVECTORWORD_SHIFTBIT;
-    bitshift_t pattern_size2 = (bitshift_t) step;
+    register bitword_t pattern   = BITVECTORWORD_SHIFTBIT;
+    bitshift_t pattern_size = (bitshift_t) step;
+    register const bitshift_t step_shift = (bitshift_t) step; // to enable the compiler to optimize the shift
 
-    if (step < (VECTORWORD_SIZE_bitshift >> 2)) {
-        pattern2 |= (pattern_base2 << step_shift) | (pattern_base2 << step_shift*2) | (pattern_base2 << step_shift*3);
-        pattern_size2 = step_shift << 2;
+    if (pattern_size < (VECTORWORD_SIZE_bitshift >> 2)) {
+        pattern |= (BITVECTORWORD_SHIFTBIT << pattern_size) | (BITVECTORWORD_SHIFTBIT << pattern_size*2) | (BITVECTORWORD_SHIFTBIT << pattern_size*3);
+        pattern_size <<= 2;
     }
-    for (; pattern_size2 <= VECTORWORD_SIZE_bitshift; pattern_size2 += step_shift) pattern2 |= (pattern_base2 << pattern_size2);
-    const bitshift_t pattern_wordshift2 = pattern_size2 - VECTORWORD_SIZE_bitshift;
-
-    if (pattern != pattern2) {
-        printf("\nPattern mismatch\n");
-        printWord(pattern); printf("\n");
-        printWord(pattern2); printf("\n");
-        printf("step %ju\n", (uintmax_t)step);
-        exit(0);
-    }
-
+    for (; pattern_size <= VECTORWORD_SIZE_bitshift; pattern_size += step_shift) pattern |= (BITVECTORWORD_SHIFTBIT << pattern_size);
 
     const bitshift_t shift = (bitshift_t) vector_bitindex_calc(range_start); 
+    const bitshift_t pattern_wordshift = pattern_size - VECTORWORD_SIZE_bitshift;
     const bitvector_t shift_base_vector = VECTOR_BASE(shift);
     const bitvector_t vector_byteindex = VECTOR_BYTEINDEX;
     const bitvector_t pattern_wordshift_vector = VECTOR_BASE(pattern_wordshift) * vector_byteindex;
@@ -70,7 +60,7 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep_n
     const bitvector_t quadmask_base = VECTOR_BASE(pattern);
 
     register bitvector_t quadmask = quadmask_base << (shift_base_vector + pattern_wordshift_vector) % step_vector;
-    register const bitshift_t pattern_vectorshift = ((pattern_wordshift) * (bitshift_t)VECTOR_ELEMENTS) % step_shift;
+    register const bitshift_t pattern_vectorshift = ((pattern_size - VECTORWORD_SIZE_bitshift) * (bitshift_t)VECTOR_ELEMENTS) % step_shift;
     register const counter_t vector_max = vectorindex(range_stop_unique);
     for (counter_t current_vector = vectorindex(range_start); current_vector < vector_max; current_vector++) {
         // debug_hits += debug_final_benchmarking;
@@ -147,6 +137,8 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
     const counter_t range_start_atvector = vectorstart(range_start_original);
     register counter_t range_start = range_start_original;
 
+    // if (step < global_mediumstep_faster) setBitsTrue_mediumStep(bitstorage, range_start, step, range_stop);
+
     if likely(( range_start_atvector + step) < range_start_original) { // not the first step possible in this vector - would give incomplete copies
         verbose4(  printf("\n..Range start %ju not at start of vector %ju\n",(uintmax_t)range_start, (uintmax_t)range_start_atvector); ) 
 
@@ -170,8 +162,16 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
     const counter_t range_stop_unique = range_start + VECTOR_SIZE_counter * step; 
     if (range_stop_unique > range_stop || step > VECTOR_SIZE_counter) { // fallback to other methods if vector is too large to repeat -> TODO: remove and fix in VECTORSIZE check
 
-        if (step < global_mediumstep_faster) setBitsTrue_mediumStep(bitstorage, range_start, step, range_stop);
-        else setBitsTrue_largeRange(bitstorage, range_start, step, range_stop);
+        if (step < global_mediumstep_faster) setBitsTrue_smallStep(bitstorage, range_start, step, range_stop);
+        else {
+            const counter_t range_stop_unique = range_start + WORD_SIZE_counter * step;
+            if likely(range_stop_unique <= range_stop) { // the range will repeat itself; try to resuse the mask
+                setBitsTrue_largeRange_repeat(bitstorage, range_start, step, range_stop, range_stop_unique);
+            } else {
+                setBitsTrue_largeRange_largestep(bitstorage, range_start, step, range_stop, range_stop_unique);
+            }
+        }
+        //   setBitsTrue_largeRange(bitstorage, range_start, step, range_stop);
         verbose4( timerLapTime(); )
         return;
     }

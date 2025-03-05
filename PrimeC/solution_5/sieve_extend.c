@@ -33,7 +33,7 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
     bitstorage[0] = SAFE_ZERO; // only the first word has to be cleared; the rest is populated by the extension procedure
 
     // const counter_t stripeprime_faster = global_stripeprime_faster;
-    // const counter_t mediumstep_faster = global_mediumstep_faster;
+    const counter_t mediumstep_faster = global_mediumstep_faster;
     const counter_t largestep_faster = global_largestep_faster;
 
     register counter_t prime         = 1;
@@ -43,7 +43,7 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
     counter_t pattern_start          = 0;
     counter_t patternsize_bits       = 3;
 
-    setBitsTrue_mediumStep(bitstorage, start, step, range_stop);
+    setBitsTrue_smallStep(bitstorage, start, step, range_stop);
 
     // TODO: check if splittsing the loop in two parts is faster
     for (;range_stop < block_stop;) {
@@ -61,11 +61,17 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
         continuePattern(bitstorage, pattern_start, patternsize_bits, range_stop);
         patternsize_bits *= step;
 
-        // if (step < mediumstep_faster)      setBitsTrue_mediumStep(bitstorage, start, step, range_stop);
-        //else 
+        if (step < mediumstep_faster)      setBitsTrue_smallStep(bitstorage, start, step, range_stop);
+        else 
         if (step < largestep_faster) setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
-        else {                                      
-          setBitsTrue_largeRange(bitstorage, start, step, range_stop);
+        else {             
+            const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
+            if likely(range_stop_unique <= range_stop) { // the range will repeat itself; try to resuse the mask
+                setBitsTrue_largeRange_repeat(bitstorage, start, step, range_stop, range_stop_unique);
+            } else {
+                setBitsTrue_largeRange_largestep(bitstorage, start, step, range_stop, range_stop_unique);
+            }                         
+        //   setBitsTrue_largeRange(bitstorage, start, step, range_stop);
         }
     } 
 

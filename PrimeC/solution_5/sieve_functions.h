@@ -5,46 +5,46 @@
 // - switched to one malloc for the sieve, instead of one for the sieve and one for the storage
 // - bitstorage will be aligned on the anticiped_cache_line_bytesize
 
-static inline struct sieve_t * __attribute__((always_inline)) sieve_create(const counter_t size) 
-{
-    struct sieve_t *sieve = malloc(((sizeof(struct sieve_t) + (size_t)(size>>1))|(anticiped_cache_line_bytesize-1))+1+anticiped_cache_line_bytesize);
-    sieve->bitstorage     = __builtin_assume_aligned((void *) (( (uintptr_t) (sieve + sizeof(struct sieve_t))|(anticiped_cache_line_bytesize-1))+1),anticiped_cache_line_bytesize);
-    sieve->bits           = size >> 1;
-    return sieve;
-}
-
-// static inline struct sieve_t * __attribute__((always_inline)) sieve_create(counter_t size) 
+// static inline struct sieve_t * __attribute__((always_inline)) sieve_create(const counter_t size) 
 // {
-//     struct sieve_t *sieve;
-//     // Calculate total size needed including padding for alignment
-//     size_t data_size = (size_t)(size >> 1);  // Size for bitstorage
-//     size_t total_size = sizeof(struct sieve_t) + data_size + anticiped_cache_line_bytesize;
-    
-//     // Align the total size to cache line boundary
-//     total_size = (total_size + anticiped_cache_line_bytesize - 1) & ~(anticiped_cache_line_bytesize - 1);
-    
-//     #ifdef _WIN32
-//     sieve = (struct sieve_t*)_aligned_malloc(total_size, anticiped_cache_line_bytesize);
-//     #else
-//     if (posix_memalign((void**)&sieve, anticiped_cache_line_bytesize, total_size) != 0) {
-//         return NULL;
-//     }
-//     #endif
-    
-//     if (!sieve) return NULL;
-    
-//     // Align bitstorage to the next 64-byte boundary
-//     sieve->bitstorage = (void*)((uintptr_t)(sieve + 1) + 
-//         ((anticiped_cache_line_bytesize - 
-//           ((uintptr_t)(sieve + 1) & (anticiped_cache_line_bytesize - 1))) & 
-//          (anticiped_cache_line_bytesize - 1)));
-//     sieve->bits = size >> 1;
-    
-//     // Inform compiler about alignment for vectorization
-//     sieve->bitstorage = __builtin_assume_aligned(sieve->bitstorage, anticiped_cache_line_bytesize);
-    
+//     struct sieve_t *sieve = malloc(((sizeof(struct sieve_t) + (size_t)(size>>1))|(anticiped_cache_line_bytesize-1))+1+anticiped_cache_line_bytesize);
+//     sieve->bitstorage     = __builtin_assume_aligned((void *) (( (uintptr_t) (sieve + sizeof(struct sieve_t))|(anticiped_cache_line_bytesize-1))+1),anticiped_cache_line_bytesize);
+//     sieve->bits           = size >> 1;
 //     return sieve;
 // }
+
+static inline struct sieve_t * __attribute__((always_inline)) sieve_create(counter_t size) 
+{
+    struct sieve_t *sieve;
+    // Calculate total size needed including padding for alignment
+    size_t data_size = (size_t)(size >> 1);  // Size for bitstorage
+    size_t total_size = sizeof(struct sieve_t) + data_size + anticiped_cache_line_bytesize;
+    
+    // Align the total size to cache line boundary
+    total_size = (total_size + anticiped_cache_line_bytesize - 1) & ~(anticiped_cache_line_bytesize - 1);
+    
+    #ifdef _WIN32
+    sieve = (struct sieve_t*)_aligned_malloc(total_size, anticiped_cache_line_bytesize);
+    #else
+    if (posix_memalign((void**)&sieve, anticiped_cache_line_bytesize, total_size) != 0) {
+        return NULL;
+    }
+    #endif
+    
+    if (!sieve) return NULL;
+    
+    // Align bitstorage to the next 64-byte boundary
+    sieve->bitstorage = (void*)((uintptr_t)(sieve + 1) + 
+        ((anticiped_cache_line_bytesize - 
+          ((uintptr_t)(sieve + 1) & (anticiped_cache_line_bytesize - 1))) & 
+         (anticiped_cache_line_bytesize - 1)));
+    sieve->bits = size >> 1;
+    
+    // Inform compiler about alignment for vectorization
+    sieve->bitstorage = __builtin_assume_aligned(sieve->bitstorage, anticiped_cache_line_bytesize);
+    
+    return sieve;
+}
 
 // static inline void __attribute__((always_inline)) sieve_clear(struct sieve_t *sieve) 
 // {
@@ -138,7 +138,7 @@ static inline void __attribute__((always_inline)) applyMask_word(bitword_t* rest
 
     register const bitword_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage[range_stop_word], sizeof(bitword_t));
 
-    for (counter_t i=4; i-- && likely(index_ptr < range_stop_ptr);  index_ptr += step) { // signal compiler that only <4 iterations are left
+    for (counter_t i=4; i-- && likely(index_ptr < range_stop_ptr); index_ptr += step) { // signal compiler that only <4 iterations are left
         *index_ptr |= mask; 
     }
 
@@ -186,24 +186,24 @@ static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* 
 // By joining the masks and then writing to memory, we might save some time.
 // This is especially true for small steps over long ranges
 // but it needs tuning, because there is some overhead of checking if the next step is in the same word
-static inline void  __attribute__((always_inline)) setBitsTrue_mediumStep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+static inline void  __attribute__((always_inline)) setBitsTrue_smallStep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     // verbose4( timerLapStart(); )
 
     // fast exit for small ranges / large steps
-    if unlikely(range_start + step > range_stop) {
-        verbose4( printf("Setting bits step %ju in %ju bit range (%ju-%ju) using mediumstep-nostep (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
-        bitstorage[wordindex(range_start)] |= markmask(range_start);
-        verbose4( timerLapTime(); )
-        return;
-    }
+    // if unlikely(range_start + step > range_stop) {
+    //     verbose4( printf("Setting bits step %ju in %ju bit range (%ju-%ju) using mediumstep-nostep (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
+    //     bitstorage[wordindex(range_start)] |= markmask(range_start);
+    //     verbose4( timerLapTime(); )
+    //     return;
+    // }
 
-    const counter_t range_stop_unique =  range_start + WORD_SIZE_counter * step;
+    const counter_t range_stop_unique = range_start + WORD_SIZE_counter * step;
 
-    if unlikely(range_stop_unique > range_stop) { // the range will not repeat itself; no need to try to reuse the mask
+    if unlikely(range_stop_unique > range_stop) {                             // the range will not repeat itself; no need to try to reuse the mask
         verbose4( printf("Setting bits step %ju in %ju bit range (%ju-%ju) using mediumstep-unique (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
         for (register counter_t index = range_start; index <= range_stop;) {
-            const counter_t index_word = wordindex(index);
+            const counter_t index_word = wordindex(index);                    // set index_word here because the for loop will change index
             register bitword_t mask = SAFE_ZERO;
             for(counter_t index_word_start = wordstart(index); index_word_start == wordstart(index); index += step) mask |= markmask(index);
             bitstorage[index_word] |= mask;
@@ -214,7 +214,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_mediumStep(bitwor
 
     verbose4( printf("Setting bits step %ju in %ju bit range (%ju-%ju) using mediumstep-repeat (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
     for (register counter_t index = range_start; index <= range_stop_unique;) {
-        const counter_t index_word = wordindex(index);
+        const counter_t index_word = wordindex(index);                        // set index_word here because the for loop will change index
         register bitword_t mask = SAFE_ZERO;
         for(counter_t index_word_start = wordstart(index); index_word_start == wordstart(index); index += step) mask |= markmask(index);
         applyMask_word(bitstorage, step, range_stop, mask, index_word);
@@ -223,49 +223,56 @@ static inline void  __attribute__((always_inline)) setBitsTrue_mediumStep(bitwor
 }
 
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
-static inline void  __attribute__((always_inline)) setBitsTrue_largeRange(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_repeat(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop, const counter_t range_stop_unique) 
 {
     verbose4( timerLapStart(); )
+    // const counter_t range_stop_unique =  range_start + WORD_SIZE_counter * step;
 
-    const counter_t range_stop_unique =  range_start + WORD_SIZE_counter * step;
-
-    if likely(range_stop_unique <= range_stop) { // the range will not repeat itself; no need to try to resuse the mask
+    // if likely(range_stop_unique <= range_stop) { // the range will repeat itself; try to resuse the mask
         verbose4(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange-repeat (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
         verbose4( timerLapStart(); )
         for (register counter_t index = range_start; index < range_stop_unique; index += step) {
             applyMask_word(bitstorage, step, range_stop, markmask(index), wordindex(index));
         }
+    // }
+}
+
+// Large ranges (> WORD_SIZE * step) mean the same mask can be reused
+static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_largestep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop, const counter_t range_stop_unique) 
+{
+    verbose4( timerLapStart(); )
+
+    // const counter_t range_stop_unique =  range_start + WORD_SIZE_counter * step;
+
+    verbose4(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange-unique (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
+    verbose4( timerLapStart(); )
+
+    const counter_t step_2 = step * 2;
+    #if is_signed(counter_t)
+    const counter_t loop_stop = range_stop - step_2;
+    #else
+    const counter_t loop_stop = (range_stop > step_2) ? range_stop - step_2 : 0;
+    #endif
+    register counter_t index = range_start;
+
+    #pragma GCC ivdep
+    for (; index < loop_stop; index += step_2) {
+        bitstorage[wordindex(index         )] |= markmask(index);
+        bitstorage[wordindex(index + step  )] |= markmask(index + step  );
     }
-    else {
-        verbose4(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange-unique (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
-        verbose4( timerLapStart(); )
 
-        const counter_t step_2 = step * 2;
-        #if is_signed(counter_t)
-        const counter_t loop_stop = range_stop - step_2;
-        #else
-        const counter_t loop_stop = (range_stop > step_2) ? range_stop - step_2 : 0;
-        #endif
-        register counter_t index = range_start;
+    for (counter_t i=4; i-- && index < range_stop; index += step) 
+        bitstorage[wordindex(index)] |= markmask(index);
 
-        #pragma GCC ivdep
-        for (; index < loop_stop; index += step_2) {
-            bitstorage[wordindex(index         )] |= markmask(index);
-            bitstorage[wordindex(index + step  )] |= markmask(index + step  );
-        }
+    if unlikely(index==range_stop)
+        bitstorage[wordindex(index)] |= markmask(index);
 
-        for (counter_t i=4; i-- && index < range_stop; index += step) 
-            bitstorage[wordindex(index)] |= markmask(index);
-
-        if unlikely(index==range_stop)
-            bitstorage[wordindex(index)] |= markmask(index);
-    }
     verbose4( timerLapTime(); )
 }
 
-#include "sieve_function_smallstep.h"
+#include "sieve_function_vector.h"
 
-static inline counter_t  __attribute__((always_inline)) sieve_block_stripe(bitword_t* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitword_t* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
     verbose4(  printf("Block stripe for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
 
@@ -304,14 +311,21 @@ static inline counter_t  __attribute__((always_inline)) sieve_block_stripe(bitwo
             }
         }
 
-        setBitsTrue_largeRange(bitstorage, start, step, block_stop);
+        const counter_t range_stop_unique =  start + WORD_SIZE_counter * step;
+        if likely(range_stop_unique <= block_stop) { // the range will repeat itself; try to resuse the mask
+            setBitsTrue_largeRange_repeat(bitstorage, start, step, block_stop, range_stop_unique);
+        } else {
+            setBitsTrue_largeRange_largestep(bitstorage, start, step, block_stop, range_stop_unique);
+        }
+
+        // setBitsTrue_largeRange(bitstorage, start, step, block_stop);
         prime = searchBitFalse_largeRange(bitstorage, prime);
     }
 
     return prime; 
 }
 
-static inline  __attribute__((always_inline)) counter_t sieve_block_stripe0(bitword_t* restrict bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+static inline __attribute__((always_inline)) counter_t sieve_block_stripe0(bitword_t* restrict bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
     verbose4(  printf("Block stripe for block %ju - %ju\n",(uintmax_t)0,(uintmax_t)block_stop); )
 
@@ -333,7 +347,12 @@ static inline  __attribute__((always_inline)) counter_t sieve_block_stripe0(bitw
         counter_t start = prime * (step + 1);
         if unlikely(block_stop < start) return prime;
         
-        setBitsTrue_largeRange(bitstorage, start, step, block_stop);
+        const counter_t range_stop_unique =  start + WORD_SIZE_counter * step;
+        if likely(range_stop_unique <= block_stop) { // the range will repeat itself; try to resuse the mask
+            setBitsTrue_largeRange_repeat(bitstorage, start, step, block_stop, range_stop_unique);
+        } else {
+            setBitsTrue_largeRange_largestep(bitstorage, start, step, block_stop, range_stop_unique);
+        }
         prime = searchBitFalse_largeRange(bitstorage, prime);
     }
 
@@ -361,7 +380,12 @@ static inline  __attribute__((always_inline)) counter_t sieve_stripe(bitword_t* 
     while (prime < prime_max) {
         counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
-        setBitsTrue_largeRange(bitstorage, start, step, block_stop);
+        const counter_t range_stop_unique =  start + WORD_SIZE_counter * step;
+        if likely(range_stop_unique <= block_stop) { // the range will repeat itself; try to resuse the mask
+            setBitsTrue_largeRange_repeat(bitstorage, start, step, block_stop, range_stop_unique);
+        } else {
+            setBitsTrue_largeRange_largestep(bitstorage, start, step, block_stop, range_stop_unique);
+        }
         prime = searchBitFalse_largeRange(bitstorage, prime);
     }
 

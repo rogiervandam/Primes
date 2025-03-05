@@ -267,8 +267,8 @@ static inline void printWord(bitword_t bitword)
     char row[WORD_SIZE*2] = {};
     int col=0;
     for (int i=WORD_SIZE-1; i>=0; i--) {
-		row[col++] = (bitword & (BITWORD_SHIFTBIT<<i))?'1':'.';
-		if (!(i%8)) row[col++] = ' ';
+      row[col++] = (bitword & (BITWORD_SHIFTBIT<<i))?'1':'.';
+      if (!(i%8)) row[col++] = ' ';
     }
 
     printf("%s", row);

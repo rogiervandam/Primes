@@ -107,7 +107,7 @@ static void explainSieveShake(benchmark_settings_t benchmark_settings)
     struct sieve_t* sieve = sieve_shake(benchmark_settings.factor_max);
     printf("\nResult set:\n");
     show_primes(sieve, min(option.show_explain_factor_max, 100));
-    int valid = checkSieveWithBenchmarkSettings(benchmark_settings);
+    int valid = validatePrimeCount(sieve, benchmark_settings.factor_max);
     if (!valid) printf("The sieve is \033[0;31m\033[5mNOT\033[0;0m valid...\n");
     else printf("The sieve is \033[0;mVALID\033[0;0m\n");
     sieve_delete(sieve);
