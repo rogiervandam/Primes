@@ -147,7 +147,8 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
 
         const counter_t range_start_nexttvector = range_start_atvector + VECTOR_SIZE_counter; // find next vector
         if (unlikely(range_start_nexttvector > range_stop)) { // we should not be here; just handle without vector
-            // #pragma GCC ivdep
+
+            #pragma GCC ivdep
             for (counter_t index = range_start_original; index <= range_stop; index += step) 
                 bitstorage[wordindex(index)] |= markmask(index);
             verbose4( timerLapTime(); )

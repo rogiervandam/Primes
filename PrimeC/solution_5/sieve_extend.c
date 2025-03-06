@@ -50,8 +50,8 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
     for (;range_stop < block_stop;) {
         prime = searchBitFalse(bitstorage, prime);
 
-        const counter_t step = prime * 2 + 1;
-        counter_t start = prime * (step + 1);
+        step = prime * 2 + 1;
+        start = prime * (step + 1);
         if unlikely(start > block_stop) break;
 
         range_stop = patternsize_bits * step * 2;  // range is x2 so the second block cointains all multiples of primes
