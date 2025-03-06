@@ -4,7 +4,12 @@
 // This file includes all the building blocks for the sieve algorithm "extend"
 // This enables the compiler to optimize the code better
 
+#ifdef __APPLE__
+#include <mach/mach_time.h>
+#else
 #define _POSIX_C_SOURCE 199309L
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -19,15 +24,19 @@
 // include helper functions
 #include "sieve_helpers.h"
 #include "sieve_options.h"
+#include "sieve_helpers_timers.h"
 #include "sieve_functions.h"
 #include "sieve_extend_continuePattern.h"
 
 // returns prime that could not be handled:
 // start is too large
 // range is too big
-//static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block_start, const counter_t block_stop, const counter_t mediumstep_faster, const counter_t largestep_faster) 
+// block stop should not exceed sieve size for faster handling
 static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block_stop) 
 {
+    verbose4(  printf("Extending sieve block to %ju\n",(uintmax_t)block_stop); )
+    timer_lapstart(time_sieve_block_extend);
+
     bitword_t* restrict bitstorage = sieve->bitstorage;
     const counter_t sieve_bits = sieve->bits;
     bitstorage[0] = SAFE_ZERO; // only the first word has to be cleared; the rest is populated by the extension procedure
@@ -36,15 +45,15 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
     const counter_t mediumstep_faster = global_mediumstep_faster;
     const counter_t largestep_faster = global_largestep_faster;
 
-    register counter_t prime         = 1;
+    counter_t prime                  = 1;
     counter_t step                   = prime * 2 + 1;
     counter_t start                  = prime * (step + 1);
     counter_t range_stop             = step * 2;  // range is x2 so the second block cointains all multiples of primes
     counter_t pattern_start          = 0;
     counter_t patternsize_bits       = 3;
 
-    // setBitsTrue_smallStep(bitstorage, start, step, range_stop);
-    setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
+    setBitsTrue_smallStep_norepeat(bitstorage, start, step, range_stop);
+    // setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
 
     // TODO: check if splittsing the loop in two parts is faster
     for (;range_stop < block_stop;) {
@@ -62,21 +71,23 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
         continuePattern(bitstorage, pattern_start, patternsize_bits, range_stop);
         patternsize_bits *= step;
 
-        
         if (step < mediumstep_faster) {
             const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
             if (range_stop_unique < range_stop ) setBitsTrue_smallStep_repeat(bitstorage, start, step, range_stop);
             else                                 setBitsTrue_smallStep_norepeat(bitstorage, start, step, range_stop);
 
         }
-        else if (step < largestep_faster) setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
+        else if (step < largestep_faster) {
+            setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
+
+        }
         else {             
             const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
             if likely(range_stop_unique <= range_stop) { // the range will repeat itself; try to resuse the mask
                 setBitsTrue_largeRange_repeat(bitstorage, start, step, range_stop);
             } else {
                 setBitsTrue_largeRange_norepeat(bitstorage, start, step, range_stop);
-            }                         
+            }     
         //   setBitsTrue_largeRange(bitstorage, start, step, range_stop);
         }
     } 
@@ -104,7 +115,8 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     // const counter_t largestep_faster = global_largestep_faster;
     const counter_t blocksize_bits = global_blocksize_bits;
 
-    verbose4(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)blocksize_bits); )
+    verbose4( printf("\nShaking sieve to find all primes up to %ju by marking multiples of all primes up to %ju\n", (uintmax_t)sieve_size, (uintmax_t)usqrt(sieve_size)); )
+    verbose4( printf("Using compressed primes up to %ju with sieve size %ju and blocksize %ju\n",(uintmax_t)prime_max, (uintmax_t)sieve_bits,(uintmax_t)blocksize_bits); )
 
     // fill the entire sieve for lower primes by adding en copying incrementally
     counter_t prime = sieve_block_extend(sieve, sieve_bits);
@@ -112,6 +124,7 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     // continue from the prime that was processed in the pattern until the tuned value for blockwise processing
     // stripe off all the multiples of primes in the sieve
     prime = sieve_stripe(bitstorage, sieve_bits, prime, stripeprime_faster);
+    if (prime >= prime_max) return sieve;
 
     // in the sieve all bits for the multiples of primes up to startprime have been set
     // process the sieve and stripe all the multiples of primes > start_prime

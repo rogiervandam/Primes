@@ -5,8 +5,11 @@ static void usage(char *name)
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  --check                   Check the correctness of the algorithm\n");
     fprintf(stderr, "  --nocheck                 Skip check of the correctness of the algorithm\n");
-    #if compile_verbose_level >= 4
-    fprintf(stderr, "  --explain                 Explain the steps of the algorithm - only when compiled for debug\n");
+    #ifdef COMPILE_EXPLAIN
+    fprintf(stderr, "  --explain                 Explain the steps of the algorithm - only when compiled for explain\n");
+    #endif
+    #ifdef COMPILE_TIMERS
+    fprintf(stderr, "  --timers                  Give the timings for submodules - only when compiled for timers\n");
     #endif
     fprintf(stderr, "  --help                    This help function\n");
     fprintf(stderr, "  --show  <maximum>         Show the primes found up to the maximum\n");
@@ -46,8 +49,11 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             }
             verbose(1) printf("Verbose level set to %d\n",option.verbose_level);
         } 
-        #if compile_debuggable
+        #ifdef COMPILE_EXPLAIN
         else if (strcmp(argv[arg], "--explain")==0) { option.explain=1; }
+        #endif
+        #ifdef COMPILE_TIMERS
+        else if (strcmp(argv[arg], "--timers")==0) { option.timers=1; }
         #endif
         else if (strcmp(argv[arg], "--check")==0) { option.check=1; }
         else if (strcmp(argv[arg], "--nocheck")==0) { option.check=0; }
@@ -120,7 +126,7 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             }
             
             verbose1( {
-                printf("Settings: blockwise=%ju, mediumstep=%ju, largestep=%ju, blocksize=%ju kB\n", 
+                printf("Settings: blockwise=%ju, stripe_faster=%ju, largestep=%ju, blocksize=%ju kB\n", 
                 (uintmax_t)option.fixed_benchmark_settings.stripe_faster,
                 (uintmax_t)option.fixed_benchmark_settings.mediumstep_faster,
                 (uintmax_t)option.fixed_benchmark_settings.largestep_faster,
@@ -163,13 +169,12 @@ int main(int argc, char *argv[])
     })
     verbose1( printf("\nRunning sieve_extend variant \033[1;33m%s\033[0m u%juv%ju... \n", algorithm_name, (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); )
     
-    // #if compile_verbose_level >= 4
-    if (option.explain>=1) {
+    #ifdef COMPILE_EXPLAIN
+    if (option.explain >= 1) {
         explainSieveShake(option.fixed_benchmark_settings);
-        printf("Exit\n");
         exit(0);
     }
-    // #endif
+    #endif
 
     // command line --check can be used to check the algorithm for all sieve/blocksize combinations
     if (option.check) checkSieveAlgorithm(option.fixed_benchmark_settings); 
@@ -212,5 +217,5 @@ int main(int argc, char *argv[])
     if (option.show_explain_factor_max > 0) showResult(option.fixed_benchmark_settings);
 
     printf("Hits: %ju\n",(uintmax_t)debug_hits);
-    print_timing_table();
+    if (option.timers) print_timing_table();
 }

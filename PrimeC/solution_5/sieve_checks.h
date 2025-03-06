@@ -86,36 +86,24 @@ static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settin
     return valid;
 }
 
-
-
-
-
-// #if compile_verbose_level >= 4
+#if COMPILE_EXPLAIN
 static void explainSieveShake(benchmark_settings_t benchmark_settings) 
 {
-    // warm up
-    // int org_option_explain = option.explain;
-    // option.explain = 0;
-    // for (int i=0; i<10; i++) {
-    //     struct sieve_t* sieve = sieve_shake(option.factor_max, default_blocksize);
-    //     sieve_delete(sieve);
-    // }    
-    // option.explain = org_option_explain;
-
     benchmark_settings = check_benchmark_settings(benchmark_settings);
+    prepareBenchmarkGlobals(benchmark_settings);
 
     struct sieve_t* sieve = sieve_shake(benchmark_settings.factor_max);
     printf("\nResult set:\n");
+    option.verbose_level = 3; // set back to 3 because we don't need explanations anymore
     show_primes(sieve, min(option.show_explain_factor_max, 100));
     int valid = validatePrimeCount(sieve, benchmark_settings.factor_max);
     if (!valid) printf("The sieve is \033[0;31m\033[5mNOT\033[0;0m valid...\n");
     else printf("The sieve is \033[0;mVALID\033[0;0m\n");
     sieve_delete(sieve);
     printf("Hits: %ju\n",(uintmax_t)debug_hits);
+    if (option.timers) print_timing_table();
 }
-// #endif
-
-
+#endif
 
 static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 {

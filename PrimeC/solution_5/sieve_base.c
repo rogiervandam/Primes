@@ -17,6 +17,7 @@
 // include helper functions
 #include "sieve_helpers.h"
 #include "sieve_options.h"
+#include "sieve_helpers_timers.h"
 #include "sieve_functions.h"
 #include "sieve_extend_continuePattern.h"
 

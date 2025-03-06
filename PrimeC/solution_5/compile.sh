@@ -3,13 +3,13 @@
 # Detect OS
 OS="$(uname -s)"
 
-CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -funroll-all-loops -fomit-frame-pointer"
+CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer"
 if [ "$OS" = "Linux" ]; then
-    CC="gcc $CC -Wno-psabi"
+    CC="gcc $CC -Wno-psabi -funroll-all-loops -s"
     PAR="-fopenmp"
     STRIP="strip"
 elif [ "$OS" = "Darwin" ]; then
-    CC="clang $CC -Wno-psabi"
+    CC="gcc $CC -Wno-psabi"
     # Ensure Clang finds OpenMP headers and library
     PAR="-Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include -L$(brew --prefix libomp)/lib -lomp"
     STRIP="strip"

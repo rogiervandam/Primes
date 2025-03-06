@@ -36,7 +36,12 @@ static void setSettingsFromTuning(benchmark_settings_t* benchmark_settings, benc
 
 static inline double benchmarkTime() {
     struct timespec t;
-    clock_gettime(CLOCK_MONOTONIC, &t);
+
+    #ifdef __APPLE__
+        clock_gettime(CLOCK_MONOTONIC_RAW, &t);
+    #else
+        clock_gettime(CLOCK_MONOTONIC, &t);
+    #endif
     return (t.tv_sec + t.tv_nsec * 1e-9);
   //    return (double)clock();
  }
@@ -57,6 +62,8 @@ static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settin
     global_mediumstep_faster  = benchmark_settings.mediumstep_faster;
     global_largestep_faster   = benchmark_settings.largestep_faster;
     global_blocksize_bits     = benchmark_settings.blocksize_bits;
+
+    verbose4( printf("Setting globals from benchmark: Stripe=%ju, Medium=%ju, Large=%ju, Block=%ju\n", (uintmax_t)global_stripeprime_faster, (uintmax_t)global_mediumstep_faster, (uintmax_t)global_largestep_faster, (uintmax_t)global_blocksize_bits); )
 }
 
 static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings) 
@@ -69,6 +76,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
     // check logic
     // if (benchmark_result.settings.largestep_faster > VECTOR_SIZE_counter ) benchmark_result.settings.largestep_faster = VECTOR_SIZE_counter;
     // if (benchmark_result.settings.blocksize_bits > sieve_bits) benchmark_result.settings.blocksize_bits = sieve_bits;
+
 
     // set global variables used in the sieve functions
     prepareBenchmarkGlobals(benchmark_settings);

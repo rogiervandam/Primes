@@ -14,4 +14,5 @@ RUN sed -i 's/\r$//' *.sh
 
 RUN ./compile.sh
 
-ENTRYPOINT [ "./run.sh" ]
+# ENTRYPOINT [ "./run.sh" ]
+ENTRYPOINT [ "./test.sh" ]
