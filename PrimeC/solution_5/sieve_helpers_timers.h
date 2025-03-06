@@ -114,6 +114,12 @@ static void timer_laptime_function(counter_t timer) {
     })
 }
 
+static void timer_init() {
+    for (counter_t i = 0; i < timer_count; i++) timer_hits[i] = 0;
+    for (counter_t i = 0; i < timer_count; i++) timer_time[i] = 0;
+
+}
+
 #else
 
 #define timer_lapstart(timer) ((void)0)

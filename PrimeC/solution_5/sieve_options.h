@@ -36,7 +36,7 @@ static struct options_t {
 static struct options_t setDefaultOptions() {
     option.time_max                = 5;
 
-    option.show_explain_factor_max = 100;
+    option.show_explain_factor_max = 0;
     option.show_tuning_results_max = 100;
     option.show_primes_on_error    = 100;
     option.extended_output         = 1;

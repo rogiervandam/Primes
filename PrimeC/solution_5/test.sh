@@ -15,9 +15,9 @@
 OS="$(uname -s)"
 
 # CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11"
-CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11 "
+CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11" # -Wvector-operation-performance"
 if [ "$OS" = "Linux" ]; then
-    CC="gcc $CC -Wno-psabi -s -funroll-all-loops"
+    CC="gcc $CC -Wno-psabi -s -fopt-info-vec-all=vec_report.txt -masm=intel -fverbose-asm  -mavx"
     PAR="-fopenmp"
     STRIP="strip"
 elif [ "$OS" = "Darwin" ]; then
@@ -83,4 +83,10 @@ done
 # ./$1 --set s001-m001-l256-b0262144-u64-v256
 echo "Executing ./$PROG $@"
 # ./$PROG --set s004-m048-l048-b1000000-u64-v256 "$@"
-./$PROG "$@"
+
+# best for i8700
+# s004-m000-l080-b0262144-u64-v256 
+
+./$PROG --set s004-m000-l080-b0262144-u64-v256  "$@" --tune 0
+
+# ./$PROG "$@"

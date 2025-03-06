@@ -1,7 +1,7 @@
 
 static void usage(char *name) 
 {
-    fprintf(stderr, "Usage: %s [options] [maximum]\n", name);
+    // fprintf(stderr, "Usage: %s [options] [maximum]\n", name);
     fprintf(stderr, "Options:\n");
     fprintf(stderr, "  --check                   Check the correctness of the algorithm\n");
     fprintf(stderr, "  --nocheck                 Skip check of the correctness of the algorithm\n");
@@ -158,8 +158,6 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
 int main(int argc, char *argv[]) 
 {
     setbuf(stdout, NULL); // prevent buffering of stdout
-    for (counter_t i = 0; i < timer_count; i++) timer_hits[i] = 0;
-    for (counter_t i = 0; i < timer_count; i++) timer_time[i] = 0;
 
     option = setDefaultOptions();
     option = parseCommandLine(argc, argv, option);
@@ -173,6 +171,13 @@ int main(int argc, char *argv[])
     if (option.explain >= 1) {
         explainSieveShake(option.fixed_benchmark_settings);
         exit(0);
+    }
+    #endif
+
+    #ifdef COMPILE_TIMERS
+    if (option.timers) {
+        timer_init();
+        verbose1( printf("Timing the different parts of the algorithm\n"); )
     }
     #endif
 
@@ -216,6 +221,5 @@ int main(int argc, char *argv[])
     // show results for --show command line option
     if (option.show_explain_factor_max > 0) showResult(option.fixed_benchmark_settings);
 
-    printf("Hits: %ju\n",(uintmax_t)debug_hits);
     if (option.timers) print_timing_table();
 }

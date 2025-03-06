@@ -54,8 +54,8 @@ static inline void  __attribute__((always_inline)) continuePattern_aligned(bitwo
 
     const counter_t destination_stop_word = wordindex(destination_stop);
     const counter_t copy_start = source_start + size;
-    counter_t source_word = wordindex(source_start);
-    counter_t copy_word = wordindex(copy_start);
+    register counter_t source_word = wordindex(source_start);
+    register counter_t copy_word = wordindex(copy_start);
     
     bitstorage[copy_word] = bitstorage[source_word] & ~chopmask(copy_start);
 
