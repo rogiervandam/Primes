@@ -1,13 +1,13 @@
 // This file contains all helper functions
 
 // defaults
-#define compile_verbose_level           3   // Set to 1-4 to enable compiling different verbose levels
+#define compile_verbose_level           0  // Set to 1-4 to enable compiling different verbose levels
 #define anticiped_cache_line_bytesize   256 // How to align the caches
 #define COMPILE_CHECKALL                 // Set to 1 to enable all checks
 
 #ifdef COMPILE_EXPLAIN // define compile_explain with compilation options
 #undef compile_verbose_level
-#define compile_verbose_level           4
+#define compile_verbose_level           5
 #endif
 
 #define bitshift_t uint64_t // type used to shift bits
@@ -30,8 +30,8 @@
 // #endif
 
 // set this to the level of verbose messages that will be compiled
-  #define verbose(level)    if (level <= compile_verbose_level) if (option.verbose_level >= level) 
-  #define verbose_at(level) if (level <= compile_verbose_level) if (option.verbose_level == level) 
+  // #define verbose(level)    if (level <= compile_verbose_level) if (option.verbose_level >= level) 
+  // #define verbose_at(level) if (level <= compile_verbose_level) if (option.verbose_level == level) 
 // #endif
 
 #define verbose1(statement)

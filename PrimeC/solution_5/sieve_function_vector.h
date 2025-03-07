@@ -172,8 +172,6 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
     verbose5(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange vector (%ju occurances; %ju stamps) ", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_counter*step))); )
     timer_lapstart(time_setBitsTrue_largeRange_vector);
 
-    verbose5(  printf("\n..Going to the start %ju of the next vector %ju",(uintmax_t)vectorstart(range_start) + VECTOR_SIZE_counter); ) 
-
     if (step <= VECTORWORD_SIZE_counter) {
         setBitsTrue_largeRange_vector_wordstep(bitstorage, range_start, step, range_stop);
         return;

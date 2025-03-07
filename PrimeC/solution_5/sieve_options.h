@@ -44,7 +44,7 @@ static struct options_t setDefaultOptions() {
     option.show_explain_factor_max = 0;
     option.show_tuning_results_max = 100;
     option.show_primes_on_error    = 100;
-    option.verbose_level           = 2;
+    option.verbose_level           = 5;
     option.explain                 = 0;
     option.timers                  = 0;
 
@@ -68,7 +68,7 @@ static struct options_t setDefaultOptions() {
 
     #ifdef COMPILE_EXPLAIN
     option.explain = 1;
-    option.verbose_level = 4;
+    option.verbose_level = 5;
     #endif
 
     #ifdef COMPILE_TIMERS
