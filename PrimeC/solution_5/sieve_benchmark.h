@@ -1,3 +1,5 @@
+
+
 static inline char* benchmark_settings_as_string(char* settings_string, benchmark_settings_t benchmark_settings) {
     sprintf(settings_string, "s%03ju-m%03ju-l%03ju-b%07ju-u%02ju-v%02ju", 
         (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.largestep_faster, 
@@ -49,11 +51,14 @@ static inline double benchmarkTime() {
 static inline benchmark_settings_t check_benchmark_settings(benchmark_settings_t benchmark_settings) {
     counter_t prime_max = usqrt(benchmark_settings.factor_max) / 2;
 
+    // printf("Before Prime max %ju stripe faster %ju medium faster %ju large faster %ju blocksize %ju\n", (uintmax_t)prime_max, (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.largestep_faster, (uintmax_t)benchmark_settings.blocksize_bits);
+
     benchmark_settings.stripe_faster     = min(benchmark_settings.stripe_faster, prime_max);
     benchmark_settings.mediumstep_faster = min(min(benchmark_settings.mediumstep_faster, prime_max), VECTOR_SIZE_counter);
     benchmark_settings.largestep_faster  = min(min(benchmark_settings.largestep_faster, prime_max), VECTOR_SIZE_counter);
     benchmark_settings.blocksize_bits    = min(benchmark_settings.blocksize_bits, benchmark_settings.factor_max);
 
+    // printf("After  Prime max %ju stripe faster %ju medium faster %ju large faster %ju blocksize %ju\n", (uintmax_t)prime_max, (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.largestep_faster, (uintmax_t)benchmark_settings.blocksize_bits);
     return benchmark_settings;
 }
 
@@ -64,6 +69,16 @@ static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settin
     global_blocksize_bits     = benchmark_settings.blocksize_bits;
 
     verbose4( printf("Setting globals from benchmark: Stripe=%ju, Medium=%ju, Large=%ju, Block=%ju\n", (uintmax_t)global_stripeprime_faster, (uintmax_t)global_mediumstep_faster, (uintmax_t)global_largestep_faster, (uintmax_t)global_blocksize_bits); )
+}
+
+static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
+{
+    const counter_t factor_max = benchmark_settings.factor_max;
+    prepareBenchmarkGlobals(benchmark_settings);
+    struct sieve_t* sieve_check = sieve_shake(factor_max);
+    const int valid = validatePrimeCount(sieve_check, factor_max);
+    sieve_delete(sieve_check);
+    return valid;
 }
 
 static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings) 
@@ -204,6 +219,17 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
                         tuning_settings.sample_duration = sample_duration;
                         tuning_results++;
 
+                        #ifdef COMPILE_CHECKALL
+                        tuning_settings = check_benchmark_settings(tuning_settings);
+                        const int valid = checkSieveWithBenchmarkSettings(tuning_settings);
+                        if (!valid) {
+                            printf("Stripe faster %ju\n", (uintmax_t) tuning_settings.stripe_faster);
+                            char settings_string[100]=""; benchmark_settings_as_string(settings_string, tuning_settings);
+                            fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for settings %s with factor %ju\n", settings_string, (uintmax_t) tuning_settings.factor_max);
+                            exit(1);
+                        }
+                        #endif
+                        
                         tuning_result[tuning_result_index] = benchmark(tuning_settings);
                         verbose4( { printf("...."); tuning_result_print(tuning_result[tuning_result_index]); } )
 
@@ -368,6 +394,16 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
             counter_t passes       = tuning_result[i].passes;
             double    elapsed_time = tuning_result[i].elapsed_time;
 
+            #ifdef COMPILE_CHECKALL
+            tuning_settings = check_benchmark_settings(tuning_settings);
+            const int valid = checkSieveWithBenchmarkSettings(tuning_settings);
+            if (!valid) {
+                char settings_string[100]=""; benchmark_settings_as_string(settings_string, tuning_settings);
+                fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for settings %s with factor %ju\n", settings_string, (uintmax_t) tuning_settings.factor_max);
+                exit(1);
+            }
+            #endif
+            
             // PERFORM THE BENCHMARK
             tuning_result[i] = benchmark(tuning_settings);
 

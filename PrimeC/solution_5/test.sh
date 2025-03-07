@@ -15,9 +15,9 @@
 OS="$(uname -s)"
 
 # CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11"
-CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11" # -Wvector-operation-performance"
+CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11  -Wno-unused-function"
 if [ "$OS" = "Linux" ]; then
-    CC="gcc $CC -Wno-psabi -s -fopt-info-vec-all=vec_report.txt -masm=intel -fverbose-asm  -mavx"
+    CC="gcc $CC -Wno-psabi -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
     PAR="-fopenmp"
     STRIP="strip"
 elif [ "$OS" = "Darwin" ]; then
@@ -30,17 +30,6 @@ else
     exit 1
 fi
 PAREXT="_epar"
-
-# Set default value for $1 if empty
-# if [ -z "$1" ]; then
-#     set -- "sieve_extend-u64_v4" "$2" "$3" "$4" "$5" "$6" "$7"
-# fi
-
-# set -- "sieve_extend-u64_v4"
-# set -- "sieve_base-u64_v4"
-
-# extra options for testing and debugging
-# CC="$CC -malign-data=cacheline -fverbose-asm -mavx -W -Wall -Wno-unused-function -Wvector-operation-performance"
 
 # Check if first argument is --explain
 DEFINE_FLAGS=""

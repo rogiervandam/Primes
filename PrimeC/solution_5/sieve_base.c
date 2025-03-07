@@ -60,8 +60,11 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     return sieve;
 }
 
-#include "sieve_benchmark.h"
 #include "sieve_checks.h"
+#include "sieve_benchmark.h"
+#include "sieve_checks2.h"
 
-char algorithm_name[] = "rogiervandam_base";
+static char algorithm_name[] = "rogiervandam_base";
+static char algorithm_type[] = "base";
+
 #include "sieve_commandline.h"

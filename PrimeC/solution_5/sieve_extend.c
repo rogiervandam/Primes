@@ -122,6 +122,11 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     // fill the entire sieve for lower primes by adding en copying incrementally
     counter_t prime = sieve_block_extend(sieve, sieve_bits);
     
+    if (stripeprime_faster >= prime_max) {
+        printf("Stripe prime faster is too large for the sieve size\n");
+        exit(1);
+    }
+
     // continue from the prime that was processed in the pattern until the tuned value for blockwise processing
     // stripe off all the multiples of primes in the sieve
     prime = sieve_stripe(bitstorage, sieve_bits, prime, stripeprime_faster);
@@ -142,8 +147,11 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     return sieve;
 } 
 
-#include "sieve_benchmark.h"
 #include "sieve_checks.h"
+#include "sieve_benchmark.h"
+#include "sieve_checks2.h"
 
 static char algorithm_name[] = "rogiervandam_extend";
+static char algorithm_type[] = "other";
+
 #include "sieve_commandline.h"

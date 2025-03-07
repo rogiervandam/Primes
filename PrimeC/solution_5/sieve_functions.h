@@ -93,6 +93,7 @@ static inline void __attribute__((always_inline)) applyMask_word(bitword_t* rest
 
     #pragma GCC ivdep
     while (index_ptr < fast_loop_ptr) {
+        // __builtin_prefetch(index_ptr + step_4, 1, 3); // prefetch the memory that will be written soon
         *index_ptr            |= mask; 
         *(index_ptr + step  ) |= mask; 
         *(index_ptr + step_2) |= mask; 
@@ -109,43 +110,6 @@ static inline void __attribute__((always_inline)) applyMask_word(bitword_t* rest
     // doing this instead of index_ptr <= above is faster. unexplained. 
     if (index_ptr == range_stop_ptr) { // index_ptr could also end above range_stop_ptr, depending on steps. 
         *index_ptr |= mask; // chop not needed is block-size aligned with word size
-    }
-
-    timer_laptime(time_applyMask_word); verbose4( printf("\n"); )
-}
-
-// same as word mask, but at a vector level - uses the sse/avx extensions, hopefully
-static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitvector_t mask, counter_t index_vector) 
-{
-    verbose4( printf("Applying mask with step %ju in range until %ju", (uintmax_t)step, (uintmax_t)range_stop); )
-    timer_lapstart(time_applyMask_word);
-
-    const counter_t range_stop_vector = vectorindex(range_stop);
-    register const counter_t step_4 = step << 2;
-    register bitvector_t* restrict index_ptr      =  __builtin_assume_aligned(&bitstorage[index_vector],sizeof(bitvector_t));
-    #if is_signed(counter_t)
-    register bitvector_t* restrict fast_loop_ptr  =  __builtin_assume_aligned(&bitstorage[range_stop_vector] - step_4,sizeof(bitvector_t));
-    #else
-    register bitvector_t* restrict fast_loop_ptr  =  __builtin_assume_aligned(&bitstorage[((range_stop_vector > step_4) ? (range_stop_vector - step_4):0)],sizeof(bitvector_t));
-    #endif
-
-    #pragma GCC ivdep
-    while likely(index_ptr < fast_loop_ptr) {
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-    }
-    
-    register const bitvector_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage[(range_stop_vector)],sizeof(bitvector_t));
-    
-    for (counter_t i=4; i-- && likely(index_ptr < range_stop_ptr); index_ptr += step) { // signal compiler that only <4 iterations are left
-        *index_ptr |= mask; 
-    }
-
-    // doing this instead of index_ptr <= above is faster. unexplained. 
-    if (index_ptr == range_stop_ptr) {
-        *index_ptr |= mask; 
     }
 
     timer_laptime(time_applyMask_word); verbose4( printf("\n"); )
@@ -301,7 +265,7 @@ static inline __attribute__((always_inline)) counter_t sieve_block_stripe0(bitwo
     counter_t prime = prime_start;
     const counter_t mediumstep_faster = global_mediumstep_faster;
     // const counter_t prime_endloop1 = min(mediumstep_faster, prime_max);
-    const counter_t prime_endloop1 = mediumstep_faster;
+    const counter_t prime_endloop1 = min(mediumstep_faster, prime_max);;
     
     while (prime < prime_endloop1) {
         const counter_t step  = prime * 2 + 1;
@@ -338,7 +302,7 @@ static inline  __attribute__((always_inline)) counter_t sieve_stripe(bitword_t* 
     counter_t prime = prime_start;
     const counter_t largestep_faster = global_largestep_faster; // largestep_faster is twice the prime size
     // const counter_t prime_endloop1 = min(largestep_faster, prime_max);
-    const counter_t prime_endloop1 = largestep_faster;
+    const counter_t prime_endloop1 = min(largestep_faster, prime_max);
     // allow the use of vector optimizations in a tunable range
     while (prime < prime_endloop1) {
         const counter_t step  = prime * 2 + 1;

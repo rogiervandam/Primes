@@ -1,8 +1,9 @@
 // This file contains all helper functions
 
 // defaults
-#define compile_verbose_level           2   // Set to 1-4 to enable compiling different verbose levels
+#define compile_verbose_level           3   // Set to 1-4 to enable compiling different verbose levels
 #define anticiped_cache_line_bytesize   256 // How to align the caches
+#define COMPILE_CHECKALL                 // Set to 1 to enable all checks
 
 #ifdef COMPILE_EXPLAIN // define compile_explain with compilation options
 #undef compile_verbose_level
@@ -37,10 +38,12 @@
 #define verbose2(statement)
 #define verbose3(statement)
 #define verbose4(statement)
+#define verbose5(statement)
 #define verbose1_at(statement)
 #define verbose2_at(statement)
 #define verbose3_at(statement)
 #define verbose4_at(statement)
+#define verbose5_at(statement)
 
 #if compile_verbose_level >= 1
   #undef verbose1
@@ -65,6 +68,12 @@
   #define verbose4(statement) if (option.verbose_level >= 4) statement
   #undef verbose4_at
   #define verbose4_at(statement) if (option.verbose_level == 4) statement
+#endif
+#if compile_verbose_level >= 5
+  #undef verbose4
+  #define verbose4(statement) if (option.verbose_level >= 5) statement
+  #undef verbose4_at
+  #define verbose4_at(statement) if (option.verbose_level == 5) statement
 #endif
 
 // helper calc functions
@@ -180,6 +189,7 @@ static counter_t global_mediumstep_faster   = 16ULL; // if step < MEDIUMSTEP_FAS
 static counter_t global_largestep_faster    = 128ULL; // if step < VECTORSTAP_FASTER, use large steps
 static counter_t global_blocksize_bits      = 128*1024*8; // blocksize in bits
 static counter_t debug_hits                 = 0;
+static counter_t debug_hits2                = 0;
 static counter_t debug_final_benchmarking   = 0;
 
 // Patterns based on types
@@ -251,19 +261,6 @@ static counter_t debug_final_benchmarking   = 0;
     #define builtin_ctz(x) __builtin_ctzl((int32_t)(x))
 #endif
 
-// // structures
-// struct sieve_t {
-//   bitword_t* bitstorage;
-//   counter_t  bits;
-//   counter_t  size;
-// };
-
-struct sieve_t {
-  bitword_t* bitstorage __attribute__((aligned(anticiped_cache_line_bytesize)));  // Align to cache line
-  counter_t bits;
-} __attribute__((aligned(anticiped_cache_line_bytesize)));  // Align the whole structure
-
-
 // used only for debugging
 static inline void printWord(bitword_t bitword)
 {
@@ -324,13 +321,6 @@ static unsigned int usqrt(int n)
     return x;
 }
 
-static inline char* extension_as_string(char* extension) {
-    #ifdef _OPENMP
-    sprintf(extension,"_epar-u%juv%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS);
-    #else
-    sprintf(extension,"-u%juv%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS);
-    #endif
-    return extension;
-}
+
 
 

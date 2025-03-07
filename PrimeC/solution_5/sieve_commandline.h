@@ -1,3 +1,11 @@
+static inline char* extension_as_string(char* extension) {
+    #ifdef _OPENMP
+    sprintf(extension,"_epar-u%juv%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS);
+    #else
+    sprintf(extension,"-u%juv%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS);
+    #endif
+    return extension;
+}
 
 static void usage(char *program_name, int exit_code) 
 {
@@ -9,16 +17,21 @@ static void usage(char *program_name, int exit_code)
 #ifdef COMPILE_EXPLAIN
         "  --explain                 Explain the steps of the algorithm - only when compiled for explain\n"
 #endif
-#ifdef COMPILE_TIMERS
-        "  --timers                  Give the timings for submodules - only when compiled for timers\n"
-#endif
         "  --help                    This help function\n"
+        "  --max                     Set the maximum prime to examine\n"
+        "  --set s<prime>            Set the cutoff prime for blockwise striping\n"
+        "        m<bits>             Set the cutoff number of bits for wordwise striping\n"
+        "        l<bits>             Set the cutoff number of bits for vectorwise striping\n"
+        "        b<bits>             Set the block size to a specific <size> in bits\n"
         "  --show  <maximum>         Show the primes found up to the maximum\n"
 #ifdef _OPENMP
         "  --threads <count>         Set the maximum number of threads to be used (only when compiled for openmp)\n"
         "                            Use 'all' to use all available threads or 'half' for /2 (e.g. for no hyperthreading)\n"
 #endif
         "  --time  <seconds>         The maximum time (in seconds) to run passes of the sieve algorithm\n"
+#ifdef COMPILE_TIMERS
+        "  --timers                  Give the timings for submodules - only when compiled for timers\n"
+#endif
         "  --tune  <level>           find the best settings for the current os and hardware\n"
         "                            0 - no tuning\n"
         "                            1 - fast tuning\n"
@@ -29,10 +42,6 @@ static void usage(char *program_name, int exit_code)
         "                            2 - show general progress within the phase\n"
         "                            3 - show actual work\n"
         "                            4 - show timing\n"
-        "  --set s<prime>            Set the cutoff prime for blockwise striping\n"
-        "        m<bits>             Set the cutoff number of bits for wordwise striping\n"
-        "        l<bits>             Set the cutoff number of bits for vectorwise striping\n"
-        "        b<bits>             Set the block size to a specific <size> in bits\n"
         "[maximum] is the heighest prime to examine. Defaults to %ju\n";
     
     
@@ -86,6 +95,13 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             }
             verbose1( printf("Show maximum set to %ju\n",(uintmax_t)option.show_explain_factor_max); )
         }
+        else if (strcmp(argv[arg], "--max")==0) { option.fixed_benchmark_settings.factor_max = 0;
+            if (++arg >= argc) { fprintf(stderr, "No show maximum specified\n"); usage(program_name, 1); }
+            if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.fixed_benchmark_settings.factor_max) != 1) {
+                fprintf(stderr, "Error: Invalid show maximum: %s\n", argv[arg]); usage(program_name, 1);
+            }
+            verbose1( printf("Maximum set to %ju\n",(uintmax_t)option.fixed_benchmark_settings.factor_max); )
+        }
         else if (strcmp(argv[arg], "--set")==0) {
             if (++arg >= argc) {
                 fprintf(stderr, "No settings specified for --set\n");
@@ -134,7 +150,7 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             }
             
             verbose1( {
-                printf("Settings: blockwise=%ju, stripe_faster=%ju, largestep=%ju, blocksize=%ju kB\n", 
+                printf("Settings: blockwise=%ju, stripe_faster=%ju, largestep=%ju, blocksize=%ju bits \n", 
                 (uintmax_t)option.fixed_benchmark_settings.stripe_faster,
                 (uintmax_t)option.fixed_benchmark_settings.mediumstep_faster,
                 (uintmax_t)option.fixed_benchmark_settings.largestep_faster,
@@ -222,11 +238,15 @@ int main(int argc, char *argv[])
         // report results
         char extension[50] = "";      extension_as_string(extension);      
         benchmark_settings_as_string(settings_string, benchmark_result.settings);
-        printf("%s-%s%s;%ju;%f;%ju;algorithm=base,faithful=yes,bits=1\n",algorithm_name,extension,settings_string,(uintmax_t)benchmark_result.passes,benchmark_result.elapsed_time,(uintmax_t)threads);
+        printf("%s%s;%ju;%f;%ju;algorithm=%s,faithful=yes,bits=1",algorithm_name,extension,(uintmax_t)benchmark_result.passes,benchmark_result.elapsed_time,(uintmax_t)threads, algorithm_type);
     }
 
     // show results for --show command line option
     if (option.show_explain_factor_max > 0) showResult(option.fixed_benchmark_settings);
 
     if (option.timers) print_timing_table();
+
+    // if (debug_hits || debug_hits2) 
+    printf("Hits: %ju %ju\n",(uintmax_t)debug_hits, (uintmax_t)debug_hits2);
+
 }
