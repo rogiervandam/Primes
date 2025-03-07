@@ -87,6 +87,6 @@ echo "Executing ./$PROG $@"
 # best for i8700
 # s004-m000-l080-b0262144-u64-v256 
 
-./$PROG --set s004-m000-l080-b0262144-u64-v256  "$@" --tune 0
+# ./$PROG --set s004-m000-l080-b0262144-u64-v256  "$@" --tune 0
 
-# ./$PROG "$@"
+./$PROG "$@"
