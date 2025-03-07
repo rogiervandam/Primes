@@ -179,7 +179,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     
     verbose2( { 
         verbose3( printf("\n"); )
-        printf("Tuning... compiled for \033[1;32m%ju_%ju\033[0m (word, vector)", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
+        printf("Tuning... compiled for \033[1;32mu%ju_v%ju\033[0m (word, vector)", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
         verbose3( {
             benchmark_settings_as_string(settings_string, start_tuning_settings);
             printf(".. best options (shown when found) for steps s%jum%juv%ju:\n", (uintmax_t)stripe_faster_steps, (uintmax_t) mediumstep_faster_steps, (uintmax_t) largestep_faster_steps); 

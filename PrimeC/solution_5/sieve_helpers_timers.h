@@ -1,21 +1,6 @@
 
 // helper functions for timing parts of code in debugging mode
-// call timerLapStart() to start timing a part of code
-// call timerLapTime() to mark this lap and output the elapsed time with color for extra quick feedback
 static struct timespec timer_lap, timer_elapsed;
-// #define timerLapStart() clock_gettime(CLOCK_PROCESS_CPUTIME_ID ,&timer_lap)
-
-// static void timerLapTime() {
-//   clock_gettime(CLOCK_PROCESS_CPUTIME_ID ,&timer_elapsed);
-//   long seconds = timer_elapsed.tv_sec - timer_lap.tv_sec;
-//   long nanoseconds = timer_elapsed.tv_nsec - timer_lap.tv_nsec;
-//   double elapsed_time = seconds*1e-9 + nanoseconds;
-//   // double elapsed_time = timer_elapsed.tv_sec + timer_elapsed.tv_nsec*1e-9 - timer_lap.tv_sec - timer_lap.tv_nsec*1e-9;
-//   if      (elapsed_time > 2000) printf("...time: \033[0;31m%.0f\033[0m ns\n", elapsed_time);
-//   else if (elapsed_time > 1000) printf("...time: \033[0;35m%.0f\033[0m ns\n", elapsed_time);
-//   else if (elapsed_time > 100)  printf("...time: \033[0;36m%.0f\033[0m ns\n", elapsed_time);
-//   else                          printf("...time: %.0f ns\n", elapsed_time);
-// }
 
 #define timer_count 100
 struct timespec timer_timers[timer_count];

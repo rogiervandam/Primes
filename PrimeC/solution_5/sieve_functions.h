@@ -306,12 +306,40 @@ static inline  __attribute__((always_inline)) counter_t sieve_stripe(bitword_t* 
     counter_t prime = prime_start;
     const counter_t largestep_faster = global_largestep_faster; // largestep_faster is twice the prime size
     // const counter_t prime_endloop1 = min(largestep_faster, prime_max);
-    const counter_t prime_endloop1 = min(largestep_faster, prime_max);
+    const counter_t prime_endloop1 = min(VECTORWORD_SIZE_counter/2-1, prime_max);
+    const counter_t prime_endloop2 = min(VECTOR_SIZE_counter/2-1, prime_max);
+    const counter_t prime_endloop3 = min(max(VECTOR_SIZE_counter/2-1,largestep_faster), prime_max);
+    // const counter_t prime_endloop3 = prime_max;
+
     // allow the use of vector optimizations in a tunable range
+
     while (prime < prime_endloop1) {
         const counter_t step  = prime * 2 + 1;
         const counter_t start = prime * (step + 1);
-        setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);
+        setBitsTrue_largeRange_vector_wordstep(bitstorage, start, step, block_stop);
+        prime = searchBitFalse(bitstorage, prime);
+    }
+
+    while (prime < prime_endloop2) {
+        const counter_t step  = prime * 2 + 1;
+        const counter_t start = prime * (step + 1);
+        // if (step >= VECTOR_SIZE_counter) {
+        //     printf("step %ju\n", (uintmax_t) step);
+        //     exit(0);
+        // }
+        // setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);
+        setBitsTrue_largeRange_vector_vectorstep(bitstorage, start, step, block_stop);
+        prime = searchBitFalse(bitstorage, prime);
+    }
+
+    while (prime < prime_endloop3) {
+        const counter_t step  = prime * 2 + 1;
+        const counter_t start = prime * (step + 1);
+        const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
+        if unlikely(range_stop_unique <= block_stop) { // the range will repeat itself; try to resuse the mask
+            break;
+        }
+        setBitsTrue_largeRange_repeat(bitstorage, start, step, block_stop);
         prime = searchBitFalse(bitstorage, prime);
     }
 
@@ -319,11 +347,7 @@ static inline  __attribute__((always_inline)) counter_t sieve_stripe(bitword_t* 
         const counter_t step  = prime * 2 + 1;
         const counter_t start = prime * (step + 1);
         const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
-        if likely(range_stop_unique <= block_stop) { // the range will repeat itself; try to resuse the mask
-            setBitsTrue_largeRange_repeat(bitstorage, start, step, block_stop);
-        } else {
-            setBitsTrue_largeRange_norepeat(bitstorage, start, step, block_stop);
-        }
+        setBitsTrue_largeRange_norepeat(bitstorage, start, step, block_stop);
         prime = searchBitFalse_largeRange(bitstorage, prime);
     }
 

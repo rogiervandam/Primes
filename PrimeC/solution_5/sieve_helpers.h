@@ -21,14 +21,6 @@
     #error "counter_t must be defined as int32_t, uint32_t, int64_t, or uint64_t"
 #endif
 
-//set compile_debuggable to 1 to enable explain plan
-// #define compile_debuggable (0 || compile_explain_level)
-// #if compile_debuggable
-// #define debug if (compile_debuggable && option.explain)
-// #else
-// #define debug if unlikely(0)
-// #endif
-
 // set this to the level of verbose messages that will be compiled
   #define verbose(level)    if (level <= compile_verbose_level) if (option.verbose_level >= level) 
   #define verbose_at(level) if (level <= compile_verbose_level) if (option.verbose_level == level) 

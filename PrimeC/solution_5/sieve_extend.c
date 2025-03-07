@@ -122,11 +122,6 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     // fill the entire sieve for lower primes by adding en copying incrementally
     counter_t prime = sieve_block_extend(sieve, sieve_bits);
     
-    if (stripeprime_faster >= prime_max) {
-        printf("Stripe prime faster is too large for the sieve size\n");
-        exit(1);
-    }
-
     // continue from the prime that was processed in the pattern until the tuned value for blockwise processing
     // stripe off all the multiples of primes in the sieve
     prime = sieve_stripe(bitstorage, sieve_bits, prime, stripeprime_faster);
@@ -140,6 +135,7 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
 
     // process the remaining blocks
     for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start <= sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
+        debug_hits += debug_final_benchmarking;
         sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
     } 
 
