@@ -223,7 +223,6 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
                         tuning_settings = check_benchmark_settings(tuning_settings);
                         const int valid = checkSieveWithBenchmarkSettings(tuning_settings);
                         if (!valid) {
-                            printf("Stripe faster %ju\n", (uintmax_t) tuning_settings.stripe_faster);
                             char settings_string[100]=""; benchmark_settings_as_string(settings_string, tuning_settings);
                             fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for settings %s with factor %ju\n", settings_string, (uintmax_t) tuning_settings.factor_max);
                             exit(1);

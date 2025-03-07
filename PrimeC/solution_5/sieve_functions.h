@@ -147,7 +147,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_smallStep_norepea
     for (register counter_t index = range_start; index <= range_stop;) {
         register const counter_t index_word = wordindex(index);                    // set index_word here because the for loop will change index
         register bitword_t mask = SAFE_ZERO;
-        for(register const counter_t index_word_start = wordstart(index); wordstart(index) == index_word_start; index += step) mask |= markmask(index);
+        for(; wordindex(index) == index_word; index += step) mask |= markmask(index);
         bitstorage[index_word] |= mask;
     }
     timer_laptime(time_setBitsTrue_smallStep_norepeat); verbose5( printf("\n"); )
