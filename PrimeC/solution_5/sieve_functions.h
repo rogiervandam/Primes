@@ -139,18 +139,22 @@ static inline void __attribute__((always_inline)) setBitsTrue_smallStep_repeat(b
 
 // Small steps (< WORD_SIZE) could be within the same word (e.g. less than 64 bits apart).
 // is we know that the mask will not repeat, we can save some time by not checking
-static inline void  __attribute__((always_inline)) setBitsTrue_smallStep_norepeat(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+static inline counter_t  __attribute__((always_inline)) setBitsTrue_smallStep_norepeat(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose5( printf("Setting bits step %ju in %ju bit range (%ju-%ju) using smallstep-norepeat (%ju unique occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
     timer_lapstart(time_setBitsTrue_smallStep_norepeat);
 
-    for (register counter_t index = range_start; index <= range_stop;) {
+    register counter_t index = range_start;
+
+    // #pragma GCC no_unroll no_vector
+    for (; index < range_stop;) {
         register const counter_t index_word = wordindex(index);                    // set index_word here because the for loop will change index
         register bitword_t mask = SAFE_ZERO;
         for(; wordindex(index) == index_word; index += step) mask |= markmask(index);
         bitstorage[index_word] |= mask;
     }
     timer_laptime(time_setBitsTrue_smallStep_norepeat); verbose5( printf("\n"); )
+    return index;
 }
 
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
