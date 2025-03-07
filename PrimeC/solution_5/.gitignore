@@ -17,4 +17,8 @@ sieve_base_epar-u*
 sieve_base-u*
 .vscode
 tuning_results*
+callgrind*
+profile*
+vec_report*
+gmon*
 

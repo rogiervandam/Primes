@@ -1,6 +1,7 @@
 FROM ubuntu:24.04
 
 RUN apt-get update && apt-get -y install build-essential \
+#    valgrind nano kcachegrind \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
