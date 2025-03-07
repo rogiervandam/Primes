@@ -7,7 +7,7 @@
 
 #ifdef COMPILE_EXPLAIN // define compile_explain with compilation options
 #undef compile_verbose_level
-#define compile_verbose_level           4
+#define compile_verbose_level           5
 #endif
 
 #define bitshift_t uint64_t // type used to shift bits

@@ -1,8 +1,8 @@
 // same as word mask, but at a vector level - uses the sse/avx extensions, hopefully
 static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitvector_t mask, counter_t index_vector) 
 {
-    verbose5( printf("Applying mask with step %ju in range until %ju", (uintmax_t)step, (uintmax_t)range_stop); )
-    timer_lapstart(time_applyMask_word);
+    verbose5( printf("Applying mask vector with step %ju in range until %ju starting at vector %ju\n", (uintmax_t)step, (uintmax_t)range_stop, (uintmax_t) index_vector); )
+    timer_lapstart(time_applyMask_vector);
 
     const counter_t range_stop_vector = vectorindex(range_stop);
     register const counter_t step_4 = step << 2;
@@ -46,15 +46,15 @@ static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* 
         *index_ptr |= mask; 
     }
 
-    timer_laptime(time_applyMask_word); verbose5( printf("\n"); )
+    timer_laptime(time_applyMask_vector); //verbose5( printf("\n"); )
 }
 
 // Smallstep (< WORD_SIZE ) means the same vectormask can be reused
 // THe vectormask can be build by extending the WORD size mask
 // TODO: check loop unrolling this
-static inline void create_mask_vector_smallstep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop_unique, const counter_t range_stop)
+static inline void create_mask_vector_smallstep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
-    verbose5(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using create_mask_vector_smallstep (%ju occurances; %ju stamps)", 
+    verbose5(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using create_mask_vector_smallstep (%ju occurances; %ju stamps)\n", 
         (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(VECTOR_SIZE_counter*step))); )
     timer_lapstart(time_create_mask_vector_smallstep);
 
@@ -83,10 +83,12 @@ static inline void create_mask_vector_smallstep(bitword_t* restrict bitstorage, 
 
     register bitvector_t quadmask = quadmask_base << shift_vector_minimal;
     register const bitshift_t pattern_vectorshift = ((pattern_size - VECTORWORD_SIZE_bitshift) * (bitshift_t)VECTOR_ELEMENTS) % step_shift;
+    const counter_t range_stop_unique = min(range_start + step * VECTOR_SIZE_counter, range_stop);
     register const counter_t vector_max = vectorindex(range_stop_unique);
-    for (counter_t current_vector = vectorindex(range_start); current_vector < vector_max; current_vector++) {
+    for (counter_t current_vector = vectorindex(range_start); current_vector <= vector_max; current_vector++) {
         // debug_hits += debug_final_benchmarking;
         applyMask_vector(bitstorage_vector, step, range_stop, quadmask, current_vector);
+        // bitstorage_vector[current_vector] |= quadmask; 
         quadmask = (quadmask << pattern_vectorshift) | (quadmask >> (step_shift - pattern_vectorshift));
     }
     timer_laptime(time_create_mask_vector_smallstep); verbose5( printf("\n"); )
@@ -96,7 +98,7 @@ static inline void create_mask_vector_smallstep(bitword_t* restrict bitstorage, 
 static inline void __attribute__((always_inline)) create_mask_vector_largestep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop_unique, const counter_t range_stop)
 {
     verbose5(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using create_mask_vector_largestep (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
-    timer_lapstart(time_create_mask_vector_smallstep);
+    timer_lapstart(time_create_mask_vector_largestep);
 
     bitvector_t* restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, anticiped_cache_line_bytesize);
     counter_t current_vector = vectorindex(range_start);
@@ -116,37 +118,62 @@ static inline void __attribute__((always_inline)) create_mask_vector_largestep(b
         current_vector++;
     }
 
-    timer_laptime(time_create_mask_vector_smallstep); verbose5( printf("\n"); )
+    timer_laptime(time_create_mask_vector_largestep); verbose5( printf("\n"); )
 }
 
 
 static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector_wordstep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
+    verbose5(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange vector_wordstep (%ju occurances; %ju stamps) \n", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_counter*step))); )
     timer_lapstart(time_setBitsTrue_largeRange_vector_wordstep);
 
     const counter_t range_start_nexttvector = vectorstart(range_start) + VECTOR_SIZE_counter; // find next vector
-    const counter_t range_start_new = setBitsTrue_smallStep_norepeat(bitstorage, range_start, step, range_start_nexttvector);
-    const counter_t range_stop_unique_vector = range_start_new + VECTOR_SIZE_counter * step; 
-    verbose5(  printf("..building masks with size %ju < %ju in range %ju-%ju with %ju bit vectors", (uintmax_t)step, (uintmax_t) WORD_SIZE_counter, (uintmax_t)range_start_new, (uintmax_t)range_stop_unique_vector, (uintmax_t)VECTOR_SIZE_counter); )
+    // const counter_t range_start_new = setBitsTrue_smallStep_norepeat(bitstorage, range_start, step, range_start_nexttvector);
+
+    register counter_t range_start_new = range_start;
+    for (; range_start_new < range_start_nexttvector; ) {
+        const counter_t index_word = wordindex(range_start_new);                    // set index_word here because the for loop will change index
+        bitword_t mask = SAFE_ZERO;
+
+        // #pragma GCC no_unroll no_vector
+        for(; wordindex(range_start_new) == index_word; range_start_new += step) mask |= markmask(range_start_new);
+        bitstorage[index_word] |= mask;
+    }
+
+    // const counter_t range_stop_unique_vector = range_start_new + VECTOR_SIZE_counter * step; 
+    verbose5(  printf("..building masks with size %ju < %ju in range %ju-%ju with %ju bit vectors\n", (uintmax_t)step, (uintmax_t) WORD_SIZE_counter, (uintmax_t)range_start_new,  (uintmax_t)range_stop, (uintmax_t)VECTOR_SIZE_counter); )
     // create_mask_vector_smallstep_totalshift(bitstorage, range_start, step, range_stop_unique, range_stop);
     // create_mask_vector_smallstep_newpattern(bitstorage, range_start, step, range_stop_unique, range_stop);
-    create_mask_vector_smallstep(bitstorage, range_start_new, step, range_stop_unique_vector, range_stop);
+
+    if (range_start_new > range_stop) return;
+    create_mask_vector_smallstep(bitstorage, range_start_new, step, range_stop);
 
     timer_laptime(time_setBitsTrue_largeRange_vector_wordstep); verbose5( printf("\n"); )
 }
 
 static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector_vectorstep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
+    verbose5(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using largerange vector_vectorstep (%ju occurances; %ju stamps) ", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_counter*step))); )
     timer_lapstart(time_setBitsTrue_largeRange_vector_vectorstep);
 
     const counter_t range_start_nexttvector = vectorstart(range_start) + VECTOR_SIZE_counter; // find next vector
-    register counter_t range_start_new = setBitsTrue_smallStep_norepeat(bitstorage, range_start, step, range_start_nexttvector);
+    // register counter_t range_start_new = setBitsTrue_smallStep_norepeat(bitstorage, range_start, step, range_start_nexttvector);
+
+    register counter_t range_start_new = range_start;
+    for (; range_start_new < range_start_nexttvector; ) {
+        const counter_t index_word = wordindex(range_start_new);                    // set index_word here because the for loop will change index
+        bitword_t mask = SAFE_ZERO;
+
+        // #pragma GCC no_unroll no_vector
+        for(; wordindex(range_start_new) == index_word; range_start_new += step) mask |= markmask(range_start_new);
+        bitstorage[index_word] |= mask;
+    }
+
     const counter_t range_stop_unique_vector = range_start_new + VECTOR_SIZE_counter * step; 
-    
     if (range_stop_unique_vector <= range_stop) {
         verbose5(  printf("..building masks in range %ju-%ju with %ju bit vectors", (uintmax_t)range_start_new, (uintmax_t)range_stop_unique_vector, (uintmax_t)VECTOR_SIZE_counter); )
         create_mask_vector_largestep(bitstorage, range_start_new, step, range_stop_unique_vector, range_stop);
-        timer_laptime(time_setBitsTrue_largeRange_vector); verbose5( printf("\n"); )
+        timer_laptime(time_setBitsTrue_largeRange_vector_vectorstep); verbose5( printf("\n"); )
         return;
     }
     else { // else fall back to other methods

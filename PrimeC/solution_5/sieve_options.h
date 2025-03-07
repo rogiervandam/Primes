@@ -68,7 +68,7 @@ static struct options_t setDefaultOptions() {
 
     #ifdef COMPILE_EXPLAIN
     option.explain = 1;
-    option.verbose_level = 4;
+    option.verbose_level = 5;
     #endif
 
     #ifdef COMPILE_TIMERS

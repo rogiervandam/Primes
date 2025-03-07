@@ -202,7 +202,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     for (counter_t stripe_faster = 0; stripe_faster <= prime_max; stripe_faster += stripe_faster_steps, stripe_faster_steps*=2) { // increase the stepsize exponentially to reduce the number of options
         for (counter_t mediumstep_faster = VECTORWORD_SIZE_counter/2-1; mediumstep_faster <= VECTOR_SIZE_counter/2-1; mediumstep_faster += mediumstep_faster_steps) {
             for (counter_t largestep_faster = VECTOR_SIZE_counter/2-1; largestep_faster <= prime_max; largestep_faster += largestep_faster_steps) { // TODO: start vectorstep at a nice % from mediumstep
-                for (counter_t blocksize_bits=128*1024*8; blocksize_bits>=16*1024*8; blocksize_bits /= 2) {
+                for (counter_t blocksize_bits=128*1024*8; blocksize_bits>=9*1024*8; blocksize_bits /= 2) {
                     for (counter_t smallprime_direction=0; smallprime_direction<=1; smallprime_direction++) { // helper to exponentially start at top and bottom of range
 
                         // hack to ovrrule tuning of user setting
@@ -212,7 +212,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
                         if (option.fixed_benchmark_settings.blocksize_bits)    { blocksize_bits = option.fixed_benchmark_settings.blocksize_bits; }
 
                         // set variables
-                        tuning_settings.blocksize_bits = blocksize_bits;
+                        tuning_settings.blocksize_bits = blocksize_bits - 4 * 1024 * 8; // keep some room for the beginning of the sieve
                         tuning_settings.stripe_faster = (smallprime_direction==0) ? stripe_faster : (prime_max - stripe_faster);
                         tuning_settings.mediumstep_faster = mediumstep_faster;
                         tuning_settings.largestep_faster = largestep_faster;

@@ -359,6 +359,6 @@ static inline  __attribute__((always_inline)) counter_t sieve_stripe(bitword_t* 
         prime = searchBitFalse(bitstorage, prime);
     }
 
-    timer_laptime(time_sieve_stripe); verbose5( printf("\n"); )
+    timer_laptime(time_sieve_stripe); //verbose5( printf("\n"); )
     return prime; 
 }
