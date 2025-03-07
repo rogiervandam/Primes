@@ -218,7 +218,20 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
         counter_t start = prime * (step + 1);
         if unlikely(block_stop < start) { timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); ) return prime; }
         if likely(start < block_start)  { start = (block_start + prime) + prime - ((block_start + prime) % step);}
-        setBitsTrue_largeRange_vector_wordstep(bitstorage, start, step, block_stop);
+
+        const counter_t range_stop_unique_vector = start + VECTORWORD_SIZE * step;
+        if unlikely(range_stop_unique_vector <= block_stop) {
+            setBitsTrue_largeRange_vector_wordstep(bitstorage, start, step, block_stop);
+        }
+        else {
+            const counter_t range_stop_unique_word = start + WORD_SIZE_counter * step;
+            if unlikely(range_stop_unique_word <= block_stop) {
+                setBitsTrue_largeRange_repeat(bitstorage, start, step, block_stop);
+            }
+            else {
+                setBitsTrue_largeRange_norepeat(bitstorage, start, step, block_stop);
+            }
+        }
         prime = searchBitFalse(bitstorage, prime);
     }
 
@@ -260,56 +273,57 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
 
 static inline __attribute__((always_inline)) counter_t sieve_block_stripe0(bitword_t* restrict bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
-    verbose5(  printf("\nBlock stripe for block %ju - %ju\n",(uintmax_t)0,(uintmax_t)block_stop); )
-    timer_lapstart(time_sieve_block_stripe0);
+    return sieve_block_stripe(bitstorage, 0, block_stop, prime_start, prime_max);
+    // verbose5(  printf("\nBlock stripe for block %ju - %ju\n",(uintmax_t)0,(uintmax_t)block_stop); )
+    // timer_lapstart(time_sieve_block_stripe0);
 
-    // allow the use of vector optimizations in a tunable range
-    counter_t prime_endloop1 = min(prime_max, VECTORWORD_SIZE_counter/2-1);                 // wordstep cannot be used beyong VECTORWORD_SIZE
-    counter_t prime_endloop2 = min(prime_max, global_mediumstep_faster);  // allow to tune when not to use vectorstep anymore
-              prime_endloop2 = min(prime_endloop2, VECTOR_SIZE_counter/2-1);
-    counter_t prime_endloop3 = min(prime_max, global_largestep_faster);     
+    // // allow the use of vector optimizations in a tunable range
+    // counter_t prime_endloop1 = min(prime_max, VECTORWORD_SIZE_counter/2-1);                 // wordstep cannot be used beyong VECTORWORD_SIZE
+    // counter_t prime_endloop2 = min(prime_max, global_mediumstep_faster);  // allow to tune when not to use vectorstep anymore
+    //           prime_endloop2 = min(prime_endloop2, VECTOR_SIZE_counter/2-1);
+    // counter_t prime_endloop3 = min(prime_max, global_largestep_faster);     
 
-    counter_t prime = prime_start;
+    // counter_t prime = prime_start;
 
-    while (prime < prime_endloop1) {
-        const counter_t step  = prime * 2 + 1;
-        counter_t start = prime * (step + 1);
-        if unlikely(block_stop < start) { timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); ) return prime; }
-        setBitsTrue_largeRange_vector_wordstep(bitstorage, start, step, block_stop);
-        prime = searchBitFalse(bitstorage, prime);
-    }
+    // while (prime < prime_endloop1) {
+    //     const counter_t step  = prime * 2 + 1;
+    //     counter_t start = prime * (step + 1);
+    //     if unlikely(block_stop < start) { timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); ) return prime; }
+    //     setBitsTrue_largeRange_vector_wordstep(bitstorage, start, step, block_stop);
+    //     prime = searchBitFalse(bitstorage, prime);
+    // }
 
-    while (prime < prime_endloop2) {
-        const counter_t step  = prime * 2 + 1;
-        counter_t start = prime * (step + 1);
-        if unlikely(block_stop < start) { timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); ) return prime; }
-        setBitsTrue_largeRange_vector_vectorstep(bitstorage, start, step, block_stop);
-        prime = searchBitFalse(bitstorage, prime);
-    }
+    // while (prime < prime_endloop2) {
+    //     const counter_t step  = prime * 2 + 1;
+    //     counter_t start = prime * (step + 1);
+    //     if unlikely(block_stop < start) { timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); ) return prime; }
+    //     setBitsTrue_largeRange_vector_vectorstep(bitstorage, start, step, block_stop);
+    //     prime = searchBitFalse(bitstorage, prime);
+    // }
 
-    while (prime < prime_endloop3) {
-        const counter_t step  = prime * 2 + 1;
-        counter_t start = prime * (step + 1);
-        if unlikely(block_stop < start) { timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); ) return prime; }
-        const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
-        if unlikely(range_stop_unique <= block_stop) { // the range will repeat itself; try to resuse the mask
-            break;
-        }
-        setBitsTrue_largeRange_repeat(bitstorage, start, step, block_stop);
-        prime = searchBitFalse_largeRange(bitstorage, prime);
-    }
+    // while (prime < prime_endloop3) {
+    //     const counter_t step  = prime * 2 + 1;
+    //     counter_t start = prime * (step + 1);
+    //     if unlikely(block_stop < start) { timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); ) return prime; }
+    //     const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
+    //     if unlikely(range_stop_unique <= block_stop) { // the range will repeat itself; try to resuse the mask
+    //         break;
+    //     }
+    //     setBitsTrue_largeRange_repeat(bitstorage, start, step, block_stop);
+    //     prime = searchBitFalse_largeRange(bitstorage, prime);
+    // }
 
-    while (prime < prime_max) {
-        const counter_t step  = prime * 2 + 1;
-        counter_t start = prime * (step + 1);
-        if unlikely(block_stop < start) { timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); ) return prime; }
-        const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
-        setBitsTrue_largeRange_norepeat(bitstorage, start, step, block_stop);
-        prime = searchBitFalse_largeRange(bitstorage, prime);
-    }
+    // while (prime < prime_max) {
+    //     const counter_t step  = prime * 2 + 1;
+    //     counter_t start = prime * (step + 1);
+    //     if unlikely(block_stop < start) { timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); ) return prime; }
+    //     const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
+    //     setBitsTrue_largeRange_norepeat(bitstorage, start, step, block_stop);
+    //     prime = searchBitFalse_largeRange(bitstorage, prime);
+    // }
 
-    timer_laptime(time_sieve_block_stripe0); verbose5( printf("\n"); )
-    return prime; 
+    // timer_laptime(time_sieve_block_stripe0); verbose5( printf("\n"); )
+    // return prime; 
 }
 
 // assume that prim
@@ -329,7 +343,19 @@ static inline  __attribute__((always_inline)) counter_t sieve_stripe(bitword_t* 
     while (prime < prime_endloop1) {
         const counter_t step  = prime * 2 + 1;
         const counter_t start = prime * (step + 1);
-        setBitsTrue_largeRange_vector_wordstep(bitstorage, start, step, block_stop);
+        const counter_t range_stop_unique_vector = start + VECTORWORD_SIZE * step;
+        if unlikely(range_stop_unique_vector <= block_stop) {
+            setBitsTrue_largeRange_vector_wordstep(bitstorage, start, step, block_stop);
+        }
+        else {
+            const counter_t range_stop_unique_word = start + WORD_SIZE_counter * step;
+            if unlikely(range_stop_unique_word <= block_stop) {
+                setBitsTrue_largeRange_repeat(bitstorage, start, step, block_stop);
+            }
+            else {
+                setBitsTrue_largeRange_norepeat(bitstorage, start, step, block_stop);
+            }
+        }
         prime = searchBitFalse(bitstorage, prime);
     }
 
