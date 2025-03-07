@@ -67,11 +67,11 @@ static int validatePrimeCount(struct sieve_t *sieve, counter_t factor_max)
     }
 
     int valid = (valid_primes == primecount);
-    verbose4( if (valid) printf("Result: Sievesize %ju is expected to have %ju primes. algorithm produced %ju primes\n",(uintmax_t)factor_max,(uintmax_t)valid_primes,(uintmax_t)primecount ); )
-    verbose1( if (!valid) {
+    verbose5( if (valid) printf("Result: Sievesize %ju is expected to have %ju primes. algorithm produced %ju primes\n",(uintmax_t)factor_max,(uintmax_t)valid_primes,(uintmax_t)primecount ); )
+    verbose2( if (!valid) {
         printf("No valid result. Sievesize %ju was expected to have %ju primes, but algorithm produced %ju primes\n",(uintmax_t)factor_max,(uintmax_t)valid_primes,(uintmax_t)primecount );
-        verbose2( show_primes(sieve, option.show_primes_on_error); )
-        verbose2( deepAnalyzePrimes(sieve); )
+        verbose3( show_primes(sieve, option.show_primes_on_error); )
+        verbose3( deepAnalyzePrimes(sieve); )
     })
     return (valid);
 }

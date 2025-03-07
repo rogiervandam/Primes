@@ -38,10 +38,12 @@ static void usage(char *program_name, int exit_code)
         "                            2 - refined tuning\n"
         "                            3 - maximum tuning (takes long)\n"
         "  --verbose <level>         Show more output to a certain level:\n"
-        "                            1 - show phase progress\n"
-        "                            2 - show general progress within the phase\n"
-        "                            3 - show actual work\n"
-        "                            4 - show timing\n"
+        "                            0 - only show result string"
+        "                            1 - show result string with additional setings information"
+        "                            2 - show general phase progress\n"
+        "                            3 - show general progress within the phase\n"
+        "                            4 - show actual work\n"
+        "                            5 - show timing\n"
         "[maximum] is the heighest prime to examine. Defaults to %ju\n";
     
     
@@ -64,7 +66,7 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             if (sscanf(argv[arg], "%d", &option.verbose_level) != 1 || option.verbose_level > 4) {
                 fprintf(stderr, "Error: Invalid measurement time: %s\n", argv[arg]); usage(program_name, 1);
             }
-            verbose1( printf("Verbose level set to %d\n",option.verbose_level); )
+            verbose2( printf("Verbose level set to %d\n",option.verbose_level); )
         } 
         #ifdef COMPILE_EXPLAIN
         else if (strcmp(argv[arg], "--explain")==0) { option.explain=1; }
@@ -79,28 +81,28 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             if (sscanf(argv[arg], "%d", &option.tunelevel) != 1 || option.tunelevel > 4) {
                 fprintf(stderr, "Error: Invalid tune level: %s\n", argv[arg]); usage(program_name, 1);
             }
-            verbose1( printf("Tune level set to %d\n",option.tunelevel); )
+            verbose2( printf("Tune level set to %d\n",option.tunelevel); )
         }
         else if (strcmp(argv[arg], "--time")==0) { option.time_max=0;
             if (++arg >= argc) { fprintf(stderr, "No time specified\n"); usage(program_name, 1); }
             if (sscanf(argv[arg], "%lf", &option.time_max) != 1 ) {
                 fprintf(stderr, "Error: Invalid max time: %s\n", argv[arg]); usage(program_name, 1);
             }
-            verbose1( printf("Max time is set to %f seconds\n",option.time_max); )
+            verbose2( printf("Max time is set to %f seconds\n",option.time_max); )
         }
         else if (strcmp(argv[arg], "--show")==0) { option.show_explain_factor_max=0;
             if (++arg >= argc) { fprintf(stderr, "No show maximum specified\n"); usage(program_name, 1); }
             if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.show_explain_factor_max) != 1 || option.show_explain_factor_max > option.fixed_benchmark_settings.factor_max) {
                 fprintf(stderr, "Error: Invalid show maximum: %s\n", argv[arg]); usage(program_name, 1);
             }
-            verbose1( printf("Show maximum set to %ju\n",(uintmax_t)option.show_explain_factor_max); )
+            verbose2( printf("Show maximum set to %ju\n",(uintmax_t)option.show_explain_factor_max); )
         }
         else if (strcmp(argv[arg], "--max")==0) { option.fixed_benchmark_settings.factor_max = 0;
             if (++arg >= argc) { fprintf(stderr, "No show maximum specified\n"); usage(program_name, 1); }
             if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.fixed_benchmark_settings.factor_max) != 1) {
                 fprintf(stderr, "Error: Invalid show maximum: %s\n", argv[arg]); usage(program_name, 1);
             }
-            verbose1( printf("Maximum set to %ju\n",(uintmax_t)option.fixed_benchmark_settings.factor_max); )
+            verbose2( printf("Maximum set to %ju\n",(uintmax_t)option.fixed_benchmark_settings.factor_max); )
         }
         else if (strcmp(argv[arg], "--set")==0) {
             if (++arg >= argc) {
@@ -149,7 +151,7 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
                 }
             }
             
-            verbose1( {
+            verbose2( {
                 printf("Settings: blockwise=%ju, stripe_faster=%ju, largestep=%ju, blocksize=%ju bits \n", 
                 (uintmax_t)option.fixed_benchmark_settings.stripe_faster,
                 (uintmax_t)option.fixed_benchmark_settings.mediumstep_faster,
@@ -166,9 +168,9 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             else if (sscanf(argv[arg], "%d", (int *)&option.fixed_benchmark_settings.threads) != 1 ) { fprintf(stderr, "Error: Invalid max threads: %s\n", argv[arg]); usage(program_name, 1); }
             if (option.fixed_benchmark_settings.threads <1)  option.fixed_benchmark_settings.threads = 1;
             if (option.fixed_benchmark_settings.threads > max_threads)  option.fixed_benchmark_settings.threads = max_threads;
-            verbose1( printf("Thread maximum set to %ju\n",(uintmax_t)option.fixed_benchmark_settings.threads); )
+            verbose2( printf("Thread maximum set to %ju\n",(uintmax_t)option.fixed_benchmark_settings.threads); )
         #else
-            verbose1( printf("This is the version without multithreading - ignoring threads\n"); )
+            verbose2( printf("This is the version without multithreading - ignoring threads\n"); )
         #endif
         }
         else if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.fixed_benchmark_settings.factor_max) != 1) {
@@ -185,11 +187,11 @@ int main(int argc, char *argv[])
 
     option = setDefaultOptions();
     option = parseCommandLine(argc, argv, option);
-    verbose2({
+    verbose3({
         printf("Sieve algorithm by Rogier van Dam - 2025\n");
         printf("Find all primes up to \033[1;33m%ju\033[0m using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)\n", (uintmax_t)option.fixed_benchmark_settings.factor_max);
     })
-    verbose1( printf("\nRunning sieve_extend variant \033[1;33m%s\033[0m u%juv%ju... \n", algorithm_name, (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); )
+    verbose2( printf("\nRunning sieve_extend variant \033[1;33m%s\033[0m u%juv%ju... \n", algorithm_name, (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); )
     
     #ifdef COMPILE_EXPLAIN
     if (option.explain >= 1) {
@@ -201,7 +203,7 @@ int main(int argc, char *argv[])
     #ifdef COMPILE_TIMERS
     if (option.timers) {
         timer_init();
-        verbose1( printf("Timing the different parts of the algorithm\n"); )
+        verbose2( printf("Timing the different parts of the algorithm\n"); )
     }
     #endif
 
@@ -221,24 +223,25 @@ int main(int argc, char *argv[])
 
         // encode settings for reporting
         char settings_string[100]=""; benchmark_settings_as_string(settings_string, benchmark_settings);
-        verbose1( { printf("Benchmarking with settings: \033[1;32m%s\033[0m (stripeprime, mediumstep, largestep, blocksize, wordsize, vectorsize) and \033[1;32m%ju\033[0m threads for \033[1;32m%.1f\033[0m seconds\nResults: \033[5m(wait \033[1;32m%.1lf\033[39m seconds)\033[25m...\033[0m", 
+        verbose2( { printf("Benchmarking with settings: \033[1;32m%s\033[0m (stripeprime, mediumstep, largestep, blocksize, wordsize, vectorsize) and \033[1;32m%ju\033[0m threads for \033[1;32m%.1f\033[0m seconds\nResults: \033[5m(wait \033[1;32m%.1lf\033[39m seconds)\033[25m...\033[0m", 
             settings_string,(uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
         })
 
         // one last check to make sure this is a valid algorithm for these settings
         if (!checkSieveWithBenchmarkSettings(benchmark_settings)) { fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for settings %s with factor %ju\n", settings_string, (uintmax_t) benchmark_settings.factor_max); exit(1); }
-        else { verbose1(  printf("(verified that settings %s and max %ju is \033[1;32mvalid\033[0m)", settings_string, (uintmax_t) benchmark_settings.factor_max); ) }
+        else { verbose2(  printf("(verified that settings %s and max %ju is \033[1;32mvalid\033[0m)", settings_string, (uintmax_t) benchmark_settings.factor_max); ) }
     
         // perform benchmark -> outputs passes, elapsed time and avg in result 
         debug_final_benchmarking = 1;
         benchmark_result_t benchmark_result = benchmark(benchmark_settings);
         debug_final_benchmarking = 0;
-        verbose1(outputBenchmarkStats(benchmark_result);)
+        verbose2(outputBenchmarkStats(benchmark_result);)
 
         // report results
         char extension[50] = "";      extension_as_string(extension);      
         benchmark_settings_as_string(settings_string, benchmark_result.settings);
         printf("%s%s;%ju;%f;%ju;algorithm=%s,faithful=yes,bits=1",algorithm_name,extension,(uintmax_t)benchmark_result.passes,benchmark_result.elapsed_time,(uintmax_t)threads, algorithm_type);
+        verbose1( { printf(";%s",settings_string); } ) printf("\n");
     }
 
     // show results for --show command line option
@@ -247,6 +250,6 @@ int main(int argc, char *argv[])
     if (option.timers) print_timing_table();
 
     // if (debug_hits || debug_hits2) 
-    printf("Hits: %ju %ju\n",(uintmax_t)debug_hits, (uintmax_t)debug_hits2);
+    verbose2( printf("Hits: %ju %ju\n",(uintmax_t)debug_hits, (uintmax_t)debug_hits2); )
 
 }

@@ -35,7 +35,7 @@
 // block stop should not exceed sieve size for faster handling
 static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block_stop) 
 {
-    verbose4(  printf("Extending sieve block to %ju\n",(uintmax_t)block_stop); )
+    verbose5(  printf("Extending sieve block to %ju\n",(uintmax_t)block_stop); )
     timer_lapstart(time_sieve_block_extend);
 
     bitword_t* restrict bitstorage = sieve->bitstorage;
@@ -116,8 +116,8 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     // const counter_t largestep_faster = global_largestep_faster;
     const counter_t blocksize_bits = global_blocksize_bits;
 
-    verbose4( printf("\nShaking sieve to find all primes up to %ju by marking multiples of all primes up to %ju\n", (uintmax_t)sieve_size, (uintmax_t)usqrt(sieve_size)); )
-    verbose4( printf("Using compressed primes up to %ju with sieve size %ju and blocksize %ju\n",(uintmax_t)prime_max, (uintmax_t)sieve_bits,(uintmax_t)blocksize_bits); )
+    verbose5( printf("\nShaking sieve to find all primes up to %ju by marking multiples of all primes up to %ju\n", (uintmax_t)sieve_size, (uintmax_t)usqrt(sieve_size)); )
+    verbose5( printf("Using compressed primes up to %ju with sieve size %ju and blocksize %ju\n",(uintmax_t)prime_max, (uintmax_t)sieve_bits,(uintmax_t)blocksize_bits); )
 
     // fill the entire sieve for lower primes by adding en copying incrementally
     counter_t prime = sieve_block_extend(sieve, sieve_bits);

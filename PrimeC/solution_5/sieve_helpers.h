@@ -1,7 +1,7 @@
 // This file contains all helper functions
 
 // defaults
-#define compile_verbose_level           3   // Set to 1-4 to enable compiling different verbose levels
+#define compile_verbose_level           4   // Set to 1-4 to enable compiling different verbose levels
 #define anticiped_cache_line_bytesize   256 // How to align the caches
 #define COMPILE_CHECKALL                 // Set to 1 to enable all checks
 
@@ -39,41 +39,32 @@
 #define verbose3(statement)
 #define verbose4(statement)
 #define verbose5(statement)
-#define verbose1_at(statement)
-#define verbose2_at(statement)
-#define verbose3_at(statement)
-#define verbose4_at(statement)
-#define verbose5_at(statement)
+#define verbose_at2(statement)
+#define verbose_at3(statement)
 
 #if compile_verbose_level >= 1
   #undef verbose1
   #define verbose1(statement) if (option.verbose_level >= 1) statement
-  #undef verbose1_at
-  #define verbose1_at(statement) if (option.verbose_level == 1) statement
 #endif
 #if compile_verbose_level >= 2
   #undef verbose2
   #define verbose2(statement) if (option.verbose_level >= 2) statement
-  #undef verbose2_at
-  #define verbose2_at(statement) if (option.verbose_level == 2) statement
+  #undef verbose_at2
+  #define verbose_at2(statement) if (option.verbose_level == 2) statement
 #endif
 #if compile_verbose_level >= 3
   #undef verbose3
   #define verbose3(statement) if (option.verbose_level >= 3) statement
-  #undef verbose3_at
-  #define verbose3_at(statement) if (option.verbose_level == 3) statement
+  #undef verbose_at3
+  #define verbose_at3(statement) if (option.verbose_level == 3) statement
 #endif
 #if compile_verbose_level >= 4
   #undef verbose4
   #define verbose4(statement) if (option.verbose_level >= 4) statement
-  #undef verbose4_at
-  #define verbose4_at(statement) if (option.verbose_level == 4) statement
 #endif
 #if compile_verbose_level >= 5
-  #undef verbose4
-  #define verbose4(statement) if (option.verbose_level >= 5) statement
-  #undef verbose4_at
-  #define verbose4_at(statement) if (option.verbose_level == 5) statement
+  #undef verbose5
+  #define verbose5(statement) if (option.verbose_level >= 5) statement
 #endif
 
 // helper calc functions

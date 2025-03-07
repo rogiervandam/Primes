@@ -68,7 +68,7 @@ static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settin
     global_largestep_faster   = benchmark_settings.largestep_faster;
     global_blocksize_bits     = benchmark_settings.blocksize_bits;
 
-    verbose4( printf("Setting globals from benchmark: Stripe=%ju, Medium=%ju, Large=%ju, Block=%ju\n", (uintmax_t)global_stripeprime_faster, (uintmax_t)global_mediumstep_faster, (uintmax_t)global_largestep_faster, (uintmax_t)global_blocksize_bits); )
+    verbose5( printf("Setting globals from benchmark: Stripe=%ju, Medium=%ju, Large=%ju, Block=%ju\n", (uintmax_t)global_stripeprime_faster, (uintmax_t)global_mediumstep_faster, (uintmax_t)global_largestep_faster, (uintmax_t)global_blocksize_bits); )
 }
 
 static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
@@ -177,10 +177,10 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
             break;
     }
     
-    verbose1( { 
-        verbose2( printf("\n"); )
+    verbose2( { 
+        verbose3( printf("\n"); )
         printf("Tuning... compiled for \033[1;32m%ju_%ju\033[0m (word, vector)", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
-        verbose2( {
+        verbose3( {
             benchmark_settings_as_string(settings_string, start_tuning_settings);
             printf(".. best options (shown when found) for steps s%jum%juv%ju:\n", (uintmax_t)stripe_faster_steps, (uintmax_t) mediumstep_faster_steps, (uintmax_t) largestep_faster_steps); 
         } )
@@ -231,14 +231,14 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
                         #endif
                         
                         tuning_result[tuning_result_index] = benchmark(tuning_settings);
-                        verbose4( { printf("...."); tuning_result_print(tuning_result[tuning_result_index]); } )
+                        verbose5( { printf("...."); tuning_result_print(tuning_result[tuning_result_index]); } )
 
                         if ( tuning_result[tuning_result_index].avg >= best_tuning_result.avg) {
                             best_tuning_result = tuning_result[tuning_result_index];
-                            verbose2( { printf("\033[0;37m.(<)\033[0m"); tuning_result_print(best_tuning_result); } )
+                            verbose3( { printf("\033[0;37m.(<)\033[0m"); tuning_result_print(best_tuning_result); } )
                         }
                         tuning_result_index++;
-                        verbose1_at( { printf("\rTuning...tuning \033[1;32m%5ju\033[0m options..in \033[1;32m%lf\033[0m seconds  ",(uintmax_t)tuning_results, (double)tuning_results*sample_duration ); } )
+                        verbose_at2( { printf("\rTuning...tuning \033[1;32m%5ju\033[0m options..in \033[1;32m%lf\033[0m seconds  ",(uintmax_t)tuning_results, (double)tuning_results*sample_duration ); } )
                         if (option.fixed_benchmark_settings.stripe_faster) break;
                     }
                     if (option.fixed_benchmark_settings.blocksize_bits) break;
@@ -249,8 +249,8 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
         }
         if (option.fixed_benchmark_settings.stripe_faster) break;
     }
-    verbose1_at( { printf("\rTuning...tuned %ju options..",(uintmax_t)tuning_results); } )
-    verbose2( {
+    verbose_at2( { printf("\rTuning...tuned %ju options..",(uintmax_t)tuning_results); } )
+    verbose3( {
         benchmark_settings_as_string(settings_string, best_tuning_result.settings);
         printf("Finished scan of \033[1;33m%ju\033[0m options. Inital best %s\n",(uintmax_t)tuning_results, settings_string);
         printf("Finding the best option by reevaluating the top options with a longer sample duration.\n");
@@ -270,18 +270,18 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
 
         // prevent the tuning from running too long
         // after sorting so the best results are on top
-        if ((double)clock() > time_target) { verbose2( { printf("\nTune time expired\n"); } );  break; }
+        if ((double)clock() > time_target) { verbose3( { printf("\nTune time expired\n"); } );  break; }
 
         // keep the best results
         counter_t tuning_results_selected = tuning_results * option.tune_keeppercent / 100;
         if (tuning_results_selected < 1) break;
 
         // verbose messages
-        verbose2( {
+        verbose3( {
             printf("\n");
             printf("\r\033[0;90m(iteration %1ju) - %5ju options left - selecting %5ju\033[0m options\n",(uintmax_t)step, (uintmax_t)tuning_results,(uintmax_t)tuning_results_selected) ; 
-            verbose2_at(  printf(">> \033[0;34m");tuning_result_print(tuning_result[0]); printf("\033[0m");  )
-            verbose2( {
+            verbose_at3(  printf(">> \033[0;34m");tuning_result_print(tuning_result[0]); printf("\033[0m");  )
+            verbose3( {
                 for (tuning_result_index=1; tuning_result_index<min( option.show_tuning_results_max,tuning_results); tuning_result_index++) {
                     printf("...\033[0;90m"); tuning_result_print(tuning_result[tuning_result_index]); printf("\033[0m");
                 }
@@ -386,7 +386,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
             benchmark_settings_t tuning_settings = tuning_result[i].settings;
 
             tuning_settings.sample_duration += 2 * step * sample_duration;
-            verbose1( { 
+            verbose2( { 
                 benchmark_settings_as_string(settings_string, tuning_settings);
                 printf("\rTuning step \033[1;32m%2ju\033[0m with \033[1;33m%5ju\033[0m options. Benchmarking option \033[1;32m%5ju\033[0m: %s in progress  ",(uintmax_t)step,(uintmax_t)tuning_results, (uintmax_t)i, settings_string  ); 
             })
@@ -419,7 +419,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     // take best result
     benchmark_result_t best_result = tuning_result[0];
     free(tuning_result);
-    verbose1( { printf("\33[2K\rTuning done. Evaluated %ju options in %ju steps. Best result: ", (uintmax_t) tuning_results_max, (uintmax_t) step ); tuning_result_print(best_result);} );
+    verbose2( { printf("\33[2K\rTuning done. Evaluated %ju options in %ju steps. Best result: ", (uintmax_t) tuning_results_max, (uintmax_t) step ); tuning_result_print(best_result);} );
     return best_result;
 }
 

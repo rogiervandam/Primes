@@ -104,7 +104,7 @@ static void timer_laptime_function(counter_t timer) {
     timer_time[timer] += elapsed_time;
     timer_hits[timer]++;
 
-    verbose4({
+    verbose5({
         if      (elapsed_time > 2000) printf("...time: \033[0;31m%.0f\033[0mns", elapsed_time);
         else if (elapsed_time > 1000) printf("...time: \033[0;35m%.0f\033[0mns", elapsed_time);
         else if (elapsed_time > 100)  printf("...time: \033[0;36m%.0f\033[0mns", elapsed_time);

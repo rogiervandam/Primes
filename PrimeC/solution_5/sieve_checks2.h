@@ -23,22 +23,22 @@ static void explainSieveShake(benchmark_settings_t benchmark_settings)
 
 static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 {
-    verbose1( { 
+    verbose2( { 
         printf("Validating variant u%juv%ju... ", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
-        verbose2( printf("\n");) 
+        verbose3( printf("\n");) 
     })
 
     char settings_string[100] = ""; 
 
     // validate algorithm - run one time for all sizes
     for (counter_t sieveSize_check = 100; sieveSize_check <= 1000000; sieveSize_check *=10) {
-        verbose2( {
+        verbose3( {
             printf("..Checking size %ju ...",(uintmax_t)sieveSize_check); 
-            verbose3( printf("\n"); )
+            verbose4( printf("\n"); )
         })
         struct sieve_t *sieve_check;
         for (counter_t blocksize_bits=1024; blocksize_bits<=32*1024*8; blocksize_bits *= 2) {
-            verbose3( printf("....Blocksize %ju:",(uintmax_t)blocksize_bits); )
+            verbose4( printf("....Blocksize %ju:",(uintmax_t)blocksize_bits); )
             benchmark_settings.blocksize_bits = blocksize_bits;
             benchmark_settings.factor_max = sieveSize_check;
 
@@ -55,12 +55,12 @@ static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
                 exit(1); 
             }
             else {
-                verbose3( printf("\033[0;32mvalid\033[0;0m for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
+                verbose4( printf("\033[0;32mvalid\033[0;0m for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
             }
         }
-        verbose2( printf("\033[0;32mvalid\033[0;0m for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
+        verbose3( printf("\033[0;32mvalid\033[0;0m for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
     }
-    verbose1( printf("\033[0;32mvalid\033[0;0m algorithm\n"); )
+    verbose2( printf("\033[0;32mvalid\033[0;0m algorithm\n"); )
     
     if (option.check == 2) exit(0);
 }
