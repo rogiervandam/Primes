@@ -119,6 +119,51 @@ static inline void __attribute__((always_inline)) create_mask_vector_largestep(b
     timer_laptime(time_create_mask_vector_smallstep); verbose5( printf("\n"); )
 }
 
+
+static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector_wordstep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+{
+    timer_lapstart(time_setBitsTrue_largeRange_vector_wordstep);
+
+    const counter_t range_start_nexttvector = vectorstart(range_start) + VECTOR_SIZE_counter; // find next vector
+    const counter_t range_start_new = setBitsTrue_smallStep_norepeat(bitstorage, range_start, step, range_start_nexttvector);
+    const counter_t range_stop_unique_vector = range_start_new + VECTOR_SIZE_counter * step; 
+    verbose5(  printf("..building masks with size %ju < %ju in range %ju-%ju with %ju bit vectors", (uintmax_t)step, (uintmax_t) WORD_SIZE_counter, (uintmax_t)range_start_new, (uintmax_t)range_stop_unique_vector, (uintmax_t)VECTOR_SIZE_counter); )
+    // create_mask_vector_smallstep_totalshift(bitstorage, range_start, step, range_stop_unique, range_stop);
+    // create_mask_vector_smallstep_newpattern(bitstorage, range_start, step, range_stop_unique, range_stop);
+    create_mask_vector_smallstep(bitstorage, range_start_new, step, range_stop_unique_vector, range_stop);
+
+    timer_laptime(time_setBitsTrue_largeRange_vector_wordstep); verbose5( printf("\n"); )
+}
+
+static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector_vectorstep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+{
+    timer_lapstart(time_setBitsTrue_largeRange_vector_vectorstep);
+
+    const counter_t range_start_nexttvector = vectorstart(range_start) + VECTOR_SIZE_counter; // find next vector
+    register counter_t range_start_new = setBitsTrue_smallStep_norepeat(bitstorage, range_start, step, range_start_nexttvector);
+    const counter_t range_stop_unique_vector = range_start_new + VECTOR_SIZE_counter * step; 
+    
+    if (range_stop_unique_vector <= range_stop) {
+        verbose5(  printf("..building masks in range %ju-%ju with %ju bit vectors", (uintmax_t)range_start_new, (uintmax_t)range_stop_unique_vector, (uintmax_t)VECTOR_SIZE_counter); )
+        create_mask_vector_largestep(bitstorage, range_start_new, step, range_stop_unique_vector, range_stop);
+        timer_laptime(time_setBitsTrue_largeRange_vector); verbose5( printf("\n"); )
+        return;
+    }
+    else { // else fall back to other methods
+        verbose5( printf("\n..Vector will not repeat. Changing methods..\n"); )
+        const counter_t range_stop_unique_word = range_start + WORD_SIZE_counter * step;
+        if (range_stop_unique_word <= range_stop) { // the range will repeat itself; try to resuse the mask
+            setBitsTrue_largeRange_repeat(bitstorage, range_start, step, range_stop);
+        } 
+        else {
+            setBitsTrue_largeRange_norepeat(bitstorage, range_start, step, range_stop);
+        }
+    }
+
+    timer_laptime(time_setBitsTrue_largeRange_vector_vectorstep); verbose5( printf("\n"); )
+    return;
+}
+
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
 // This version uses vectorization for the larger ranges
 // assumes the range is larger than VECTOR_SIZE_counter
@@ -130,31 +175,17 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
     verbose5(  printf("\n..Going to the start %ju of the next vector %ju",(uintmax_t)vectorstart(range_start) + VECTOR_SIZE_counter); ) 
 
     if (step <= VECTORWORD_SIZE_counter) {
-        const counter_t range_start_nexttvector = vectorstart(range_start) + VECTOR_SIZE_counter; // find next vector
-        const counter_t range_start_new = setBitsTrue_smallStep_norepeat(bitstorage, range_start, step, range_start_nexttvector);
-        const counter_t range_stop_unique_vector = range_start_new + VECTOR_SIZE_counter * step; 
-        verbose5(  printf("..building masks with size %ju < %ju in range %ju-%ju with %ju bit vectors", (uintmax_t)step, (uintmax_t) WORD_SIZE_counter, (uintmax_t)range_start_new, (uintmax_t)range_stop_unique_vector, (uintmax_t)VECTOR_SIZE_counter); )
-        // create_mask_vector_smallstep_totalshift(bitstorage, range_start, step, range_stop_unique, range_stop);
-        // create_mask_vector_smallstep_newpattern(bitstorage, range_start, step, range_stop_unique, range_stop);
-        create_mask_vector_smallstep(bitstorage, range_start_new, step, range_stop_unique_vector, range_stop);
-        timer_laptime(time_setBitsTrue_largeRange_vector); verbose5( printf("\n"); )
+        setBitsTrue_largeRange_vector_wordstep(bitstorage, range_start, step, range_stop);
         return;
     }
 
     if (step <= VECTOR_SIZE_counter) {
-        const counter_t range_start_nexttvector = vectorstart(range_start) + VECTOR_SIZE_counter; // find next vector
-        register counter_t range_start_new = setBitsTrue_smallStep_norepeat(bitstorage, range_start, step, range_start_nexttvector);
-            const counter_t range_stop_unique_vector = range_start_new + VECTOR_SIZE_counter * step; 
-        if (range_stop_unique_vector <= range_stop) {
-            verbose5(  printf("..building masks in range %ju-%ju with %ju bit vectors", (uintmax_t)range_start_new, (uintmax_t)range_stop_unique_vector, (uintmax_t)VECTOR_SIZE_counter); )
-            create_mask_vector_largestep(bitstorage, range_start_new, step, range_stop_unique_vector, range_stop);
-            timer_laptime(time_setBitsTrue_largeRange_vector); verbose5( printf("\n"); )
-            return;
-        }
+        setBitsTrue_largeRange_vector_vectorstep(bitstorage, range_start, step, range_stop);
+        return;
     }
 
-    const counter_t range_stop_unique_word = range_start + WORD_SIZE_counter * step;
     verbose5( printf("\n..Vector will not repeat. Changing methods..\n"); )
+    const counter_t range_stop_unique_word = range_start + WORD_SIZE_counter * step;
     if (range_stop_unique_word <= range_stop) { // the range will repeat itself; try to resuse the mask
         setBitsTrue_largeRange_repeat(bitstorage, range_start, step, range_stop);
     } else {
