@@ -205,12 +205,14 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
     verbose5(  printf("\nBlock stripe for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
     timer_lapstart(time_sieve_block_stripe);
 
-    counter_t prime_endloop1 = min(prime_max, global_mediumstep_faster);          // should not exceed prime_max
+    counter_t prime_endloop1 = prime_max;
+            //   prime_endloop1 = min(prime_endloop1, global_mediumstep_faster);          // should not exceed prime_max
               prime_endloop1 = min(prime_endloop1, VECTORWORD_SIZE_counter/2-1);  // cannot be used beyond VECTORWORD_SIZE
               prime_endloop1 = min(prime_endloop1, prime_max);
 
-    counter_t prime_endloop2 = min(prime_max, global_largestep_faster);           // should not exceed prime_max
-              prime_endloop2 = max(global_mediumstep_faster, global_largestep_faster); // should not be smaller than mediumstep
+    counter_t prime_endloop2 = prime_max;
+            //   prime_endloop2 = min(prime_endloop2, global_largestep_faster);           // should not exceed prime_max
+            //   prime_endloop2 = max(global_mediumstep_faster, global_largestep_faster); // should not be smaller than mediumstep
               prime_endloop2 = min(prime_endloop2, VECTOR_SIZE_counter/2-1);      // cannot be used beyond VECTOR_SIZE
               prime_endloop2 = min(prime_endloop2, prime_max);
               if (prime_endloop1 < (VECTORWORD_SIZE_counter/2)-1) {

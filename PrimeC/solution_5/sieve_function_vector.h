@@ -100,8 +100,6 @@ static inline void __attribute__((always_inline)) create_mask_vector_largestep(b
     verbose5(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using create_mask_vector_largestep (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
     timer_lapstart(time_create_mask_vector_largestep);
 
-    debug_hits += debug_final_benchmarking;
-
     bitvector_t* restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, anticiped_cache_line_bytesize);
     counter_t current_vector = vectorindex(range_start);
     for (counter_t index = range_start; index < range_stop_unique;) {
