@@ -1,5 +1,5 @@
 // same as word mask, but at a vector level - uses the sse/avx extensions, hopefully
-static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitvector_t mask, counter_t index_vector) 
+static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitvector_t *mask, counter_t index_vector) 
 {
     verbose5( printf("Applying mask with step %ju in range until %ju", (uintmax_t)step, (uintmax_t)range_stop); )
     timer_lapstart(time_applyMask_word);
@@ -19,10 +19,10 @@ static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* 
     
     #pragma GCC ivdep
     while likely(index_ptr < fast_loop_ptr) {
-        *index_ptr            |= mask; 
-        *(index_ptr + step  ) |= mask; 
-        *(index_ptr + step_2) |= mask; 
-        *(index_ptr + step_3) |= mask; 
+        *index_ptr            |= *mask; 
+        *(index_ptr + step  ) |= *mask; 
+        *(index_ptr + step_2) |= *mask; 
+        *(index_ptr + step_3) |= *mask; 
         index_ptr += step_4;
     }
     
@@ -30,12 +30,12 @@ static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* 
     
     for (counter_t i=4; i-- && likely(index_ptr < range_stop_ptr); index_ptr += step) { // signal compiler that only <4 iterations are left
         // __builtin_prefetch(index_ptr + step, 1, 3); // prefetch the memory that will be written soon
-        *index_ptr |= mask; 
+        *index_ptr |= *mask; 
     }
 
     // doing this instead of index_ptr <= above is faster. unexplained. 
     if (index_ptr == range_stop_ptr) {
-        *index_ptr |= mask; 
+        *index_ptr |= *mask; 
     }
 
     timer_laptime(time_applyMask_word); verbose5( printf("\n"); )
@@ -44,7 +44,7 @@ static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* 
 // Smallstep (< WORD_SIZE ) means the same vectormask can be reused
 // THe vectormask can be build by extending the WORD size mask
 // TODO: check loop unrolling this
-static inline void create_mask_vector_smallstep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop_unique, const counter_t range_stop)
+static inline void __attribute__((always_inline)) create_mask_vector_smallstep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop_unique, const counter_t range_stop)
 {
     verbose5(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using create_mask_vector_smallstep (%ju occurances; %ju stamps starting at %ju)\n", 
         (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(VECTOR_SIZE_counter*step)), (uintmax_t)range_stop_unique ); )
@@ -71,13 +71,13 @@ static inline void create_mask_vector_smallstep(bitword_t* restrict bitstorage, 
     const bitvector_t shift_vector = shift_base_vector + pattern_wordshift_vector;
     const bitvector_t shift_vector_minimal = shift_vector % step_vector;
 
-    register bitvector_t quadmask = quadmask_base << shift_vector_minimal;
+    bitvector_t quadmask = quadmask_base << shift_vector_minimal;
     register const bitshift_t pattern_vectorshift = ((pattern_size - VECTORWORD_SIZE_bitshift) * (bitshift_t)VECTOR_ELEMENTS) % step_shift;
     register const counter_t vector_max = vectorindex(range_stop_unique);
     // debug_hits += debug_final_plan;
     for (counter_t current_vector = vectorindex(range_start); current_vector < vector_max; current_vector++) {
         // debug_hits += debug_final_benchmarking;
-        applyMask_vector(bitstorage_vector, step, range_stop, quadmask, current_vector);
+        applyMask_vector(bitstorage_vector, step, range_stop, &quadmask, current_vector);
         quadmask = (quadmask << pattern_vectorshift) | (quadmask >> (step_shift - pattern_vectorshift));
     }
     timer_laptime(time_create_mask_vector_smallstep); verbose5( printf("\n"); )
@@ -107,7 +107,7 @@ static inline void __attribute__((always_inline)) create_mask_vector_largestep(b
         }
 
         // use mask on all n*step multiples
-        applyMask_vector(bitstorage_vector, step, range_stop, quadmask, current_vector);
+        applyMask_vector(bitstorage_vector, step, range_stop, &quadmask, current_vector);
         current_vector++;
     }
 
