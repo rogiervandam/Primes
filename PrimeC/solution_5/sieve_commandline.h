@@ -228,11 +228,13 @@ int main(int argc, char *argv[])
         })
 
         // one last check to make sure this is a valid algorithm for these settings
+        debug_final_plan = 1; // allow to count something in only one run
         if (!checkSieveWithBenchmarkSettings(benchmark_settings)) { fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for settings %s with factor %ju\n", settings_string, (uintmax_t) benchmark_settings.factor_max); exit(1); }
         else { verbose2(  printf("(verified that settings %s and max %ju is \033[1;32mvalid\033[0m)", settings_string, (uintmax_t) benchmark_settings.factor_max); ) }
+        debug_final_plan = 0;
     
         // perform benchmark -> outputs passes, elapsed time and avg in result 
-        debug_final_benchmarking = 1;
+        debug_final_benchmarking = 1; // allow to count something in the final benchmark runs
         benchmark_result_t benchmark_result = benchmark(benchmark_settings);
         debug_final_benchmarking = 0;
         verbose2(outputBenchmarkStats(benchmark_result);)

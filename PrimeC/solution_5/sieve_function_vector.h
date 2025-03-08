@@ -84,6 +84,7 @@ static inline void create_mask_vector_smallstep(bitword_t* restrict bitstorage, 
     register bitvector_t quadmask = quadmask_base << shift_vector_minimal;
     register const bitshift_t pattern_vectorshift = ((pattern_size - VECTORWORD_SIZE_bitshift) * (bitshift_t)VECTOR_ELEMENTS) % step_shift;
     register const counter_t vector_max = vectorindex(range_stop_unique);
+    debug_hits += debug_final_plan;
     for (counter_t current_vector = vectorindex(range_start); current_vector < vector_max; current_vector++) {
         // debug_hits += debug_final_benchmarking;
         applyMask_vector(bitstorage_vector, step, range_stop, quadmask, current_vector);

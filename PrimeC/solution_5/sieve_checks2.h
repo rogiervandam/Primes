@@ -6,7 +6,10 @@ static void explainSieveShake(benchmark_settings_t benchmark_settings)
     benchmark_settings = check_benchmark_settings(benchmark_settings);
     prepareBenchmarkGlobals(benchmark_settings);
 
+    debug_final_benchmarking = 1;
     struct sieve_t* sieve = sieve_shake(benchmark_settings.factor_max);
+    debug_final_benchmarking = 0;
+
     printf("\nResult set:\n");
     option.verbose_level = 3; // set back to 3 because we don't need explanations anymore
     if (option.show_explain_factor_max) {

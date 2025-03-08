@@ -182,6 +182,7 @@ static counter_t global_blocksize_bits      = 128*1024*8; // blocksize in bits
 static counter_t debug_hits                 = 0;
 static counter_t debug_hits2                = 0;
 static counter_t debug_final_benchmarking   = 0;
+static counter_t debug_final_plan           = 0;
 
 // Patterns based on types
 #define SAFE_SHIFTBIT        (bitshift_t)1ULL
