@@ -18,7 +18,7 @@ static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* 
     
     #pragma GCC ivdep
     while likely(index_ptr < fast_loop_ptr) {
-        __builtin_prefetch(index_ptr + step_4, 1, 3); // prefetch the memory that will be written soon
+        // __builtin_prefetch(index_ptr + step_4, 1, 3); // prefetch the memory that will be written soon
         // __builtin_prefetch(index_ptr + step_4 + step, 1, 3); // prefetch the memory that will be written soon
         // __builtin_prefetch(index_ptr + step_4 + step * 2, 1, 3); // prefetch the memory that will be written soon
         // __builtin_prefetch(index_ptr + step_4 + step * 3, 1, 3); // prefetch the memory that will be written soon
@@ -37,7 +37,7 @@ static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* 
     register const bitvector_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage[(range_stop_vector)],sizeof(bitvector_t));
     
     for (counter_t i=4; i-- && likely(index_ptr < range_stop_ptr); index_ptr += step) { // signal compiler that only <4 iterations are left
-        __builtin_prefetch(index_ptr + step, 1, 3); // prefetch the memory that will be written soon
+        // __builtin_prefetch(index_ptr + step, 1, 3); // prefetch the memory that will be written soon
         *index_ptr |= mask; 
     }
 
@@ -59,6 +59,7 @@ static inline void create_mask_vector_smallstep(bitword_t* restrict bitstorage, 
     timer_lapstart(time_create_mask_vector_smallstep);
 
     register bitvector_t* restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, anticiped_cache_line_bytesize);
+    __builtin_prefetch(&bitstorage_vector[vectorindex(range_start)], 1, 3); // prefetch the memory that will be written soon
 
     const bitword_t pattern_base = BITVECTORWORD_SHIFTBIT;
     register bitword_t pattern   = BITVECTORWORD_SHIFTBIT;
@@ -86,7 +87,6 @@ static inline void create_mask_vector_smallstep(bitword_t* restrict bitstorage, 
     const counter_t range_stop_unique = min(range_start + step * VECTOR_SIZE_counter, range_stop);
     register const counter_t vector_max = vectorindex(range_stop_unique);
     for (counter_t current_vector = vectorindex(range_start); current_vector <= vector_max; current_vector++) {
-        // debug_hits += debug_final_benchmarking;
         applyMask_vector(bitstorage_vector, step, range_stop, quadmask, current_vector);
         // bitstorage_vector[current_vector] |= quadmask; 
         quadmask = (quadmask << pattern_vectorshift) | (quadmask >> (step_shift - pattern_vectorshift));
@@ -99,6 +99,8 @@ static inline void __attribute__((always_inline)) create_mask_vector_largestep(b
 {
     verbose5(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using create_mask_vector_largestep (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
     timer_lapstart(time_create_mask_vector_largestep);
+
+    debug_hits += debug_final_benchmarking;
 
     bitvector_t* restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, anticiped_cache_line_bytesize);
     counter_t current_vector = vectorindex(range_start);

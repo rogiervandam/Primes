@@ -43,8 +43,8 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
     bitstorage[0] = SAFE_ZERO; // only the first word has to be cleared; the rest is populated by the extension procedure
 
     // const counter_t stripeprime_faster = global_stripeprime_faster;
-    const counter_t mediumstep_faster = global_mediumstep_faster;
-    const counter_t largestep_faster = global_largestep_faster;
+    // const counter_t mediumstep_faster = global_mediumstep_faster;
+    // const counter_t largestep_faster = global_largestep_faster;
 
     counter_t prime                  = 1;
     counter_t step                   = prime * 2 + 1;
@@ -119,7 +119,6 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
 
     // process the remaining blocks
     for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start <= sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
-        debug_hits += debug_final_benchmarking;
         sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
     } 
 

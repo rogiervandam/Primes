@@ -113,8 +113,8 @@ static void timer_init() {
 
 #else
 
-#define timer_lapstart(timer) ((void)0)
-#define timer_laptime(timer) ((void)0)
+#define timer_lapstart(timer)
+#define timer_laptime(timer)
 
 #endif
 
