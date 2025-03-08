@@ -84,7 +84,8 @@ static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settin
 static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings) 
 {
     benchmark_result_t benchmark_result;
-    benchmark_result.settings = check_benchmark_settings(benchmark_settings);
+    benchmark_settings = check_benchmark_settings(benchmark_settings);
+    benchmark_result.settings = benchmark_settings;
 
     counter_t sieve_bits = benchmark_settings.factor_max >> 1;
 
