@@ -18,7 +18,7 @@ static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* 
     
     #pragma GCC ivdep
     while likely(index_ptr < fast_loop_ptr) {
-        __builtin_prefetch(index_ptr + step_4, 1, 3); // prefetch the memory that will be written soon
+        // __builtin_prefetch(index_ptr + step_4, 1, 3); // prefetch the memory that will be written soon
         // __builtin_prefetch(index_ptr + step_4 + step, 1, 3); // prefetch the memory that will be written soon
         // __builtin_prefetch(index_ptr + step_4 + step * 2, 1, 3); // prefetch the memory that will be written soon
         // __builtin_prefetch(index_ptr + step_4 + step * 3, 1, 3); // prefetch the memory that will be written soon
@@ -37,7 +37,7 @@ static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* 
     register const bitvector_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage[(range_stop_vector)],sizeof(bitvector_t));
     
     for (counter_t i=4; i-- && likely(index_ptr < range_stop_ptr); index_ptr += step) { // signal compiler that only <4 iterations are left
-        __builtin_prefetch(index_ptr + step, 1, 3); // prefetch the memory that will be written soon
+        // __builtin_prefetch(index_ptr + step, 1, 3); // prefetch the memory that will be written soon
         *index_ptr |= mask; 
     }
 
@@ -173,12 +173,28 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
     timer_lapstart(time_setBitsTrue_largeRange_vector);
 
     if (step <= VECTORWORD_SIZE_counter) {
-        setBitsTrue_largeRange_vector_wordstep(bitstorage, range_start, step, range_stop);
-        return;
+        const counter_t range_stop_unique_vector = range_start + VECTOR_SIZE_counter * step; 
+        if (range_stop_unique_vector <= range_stop) {
+            setBitsTrue_largeRange_vector_wordstep(bitstorage, range_start, step, range_stop);
+            return;
+        }
+
+        const counter_t range_stop_unique_word = range_start + WORD_SIZE_counter * step;
+        if (range_stop_unique_word <= range_stop) { // the range will repeat itself; try to resuse the mask
+            setBitsTrue_largeRange_repeat(bitstorage, range_start, step, range_stop);
+            timer_laptime(time_setBitsTrue_largeRange_vector); verbose5( printf("\n"); )
+            return;
+        } 
+        else {
+            setBitsTrue_largeRange_norepeat(bitstorage, range_start, step, range_stop);
+            timer_laptime(time_setBitsTrue_largeRange_vector); verbose5( printf("\n"); )
+            return;
+        }
     }
 
     if (step <= VECTOR_SIZE_counter) {
         setBitsTrue_largeRange_vector_vectorstep(bitstorage, range_start, step, range_stop);
+        timer_laptime(time_setBitsTrue_largeRange_vector); verbose5( printf("\n"); )
         return;
     }
 

@@ -44,7 +44,7 @@ static struct options_t setDefaultOptions() {
     option.show_explain_factor_max = 0;
     option.show_tuning_results_max = 100;
     option.show_primes_on_error    = 100;
-    option.verbose_level           = 5;
+    option.verbose_level           = 2;
     option.explain                 = 0;
     option.timers                  = 0;
 
