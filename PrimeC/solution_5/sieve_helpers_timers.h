@@ -47,6 +47,7 @@ double timer_time[timer_count];
 #define time_time_setBitsTrue_largeRange_vector 21
 #define time_setBitsTrue_largeRange_vector_wordstep 22
 #define time_setBitsTrue_largeRange_vector_vectorstep 23
+#define time_create_mask_vector_largestep 24
 
 static const char* timer_function_names[100] = {
     [time_setBitsTrue_largeRange_vector] = "setBitsTrue_largeRange_vector",
@@ -73,6 +74,7 @@ static const char* timer_function_names[100] = {
     [time_time_setBitsTrue_largeRange_vector] = "setBitsTrue_largeRange_vector",
     [time_setBitsTrue_largeRange_vector_wordstep] = "setBitsTrue_largeRange_vector_wordstep",
     [time_setBitsTrue_largeRange_vector_vectorstep] = "setBitsTrue_largeRange_vector_vectorstep",
+    [time_create_mask_vector_largestep] = "create_mask_vector_largestep"
     
     // voeg hier andere functienamen toe op basis van hun timer-ID
   };

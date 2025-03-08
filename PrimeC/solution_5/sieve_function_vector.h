@@ -114,49 +114,6 @@ static inline void __attribute__((always_inline)) create_mask_vector_largestep(b
     timer_laptime(time_create_mask_vector_largestep); verbose5( printf("\n"); )
 }
 
-// formula to get the prime number at which there will be no repeating blocks in the range to range_stop
-// a block is repeating if blocksize * step is smaller than the range
-// the range starts at prime * (step + 1) and ends at range_stop
-// blocksize can be VECTORWORD_SIZE or VECTOR_SIZE
-// step is defined as prime * 2 + 1
-// static inline counter_t get_prime_no_repeat_block(const counter_t range_start, const counter_t range_stop, const counter_t blocksize) {
-//     counter_t prime = 1;
-//     counter_t step = prime * 2 + 1;
-//     while ((blocksize * step) < (range_stop - range_start)) {
-//         prime++;
-//         step = prime * 2 + 1;
-//     }
-//     return prime;
-// }
-
-// static inline counter_t get_prime_no_repeat_block(const counter_t range_start, const counter_t range_stop, const counter_t blocksize) {
-//     // Calculate discriminant
-//     double b = -(blocksize + 1.0);
-//     double discriminant = (blocksize + 1.0) * (blocksize + 1.0) + 2.0 * (range_stop - blocksize);
-    
-//     if (discriminant < 0) {
-//         // This shouldn't happen with valid inputs, but just in case
-//         return 1;
-//     }
-    
-//     // Apply quadratic formula
-//     double result = (b + sqrt(discriminant)) / 2.0;
-    
-//     // Take ceiling of the result to get the smallest integer value that satisfies
-//     // If result is already an integer, we need to add 1 (to match the behavior of the while loop)
-//     counter_t prime = (counter_t)ceil(result);
-    
-//     // Verify our result (optional, can be removed for performance)
-//     counter_t step = prime * 2 + 1;
-//     if (blocksize * step < (range_stop - range_start)) {
-//         prime++;
-//     }
-    
-//     return prime;
-// }
-
-
-
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
 // This version uses vectorization for the larger ranges
 // assumes the range is larger than VECTOR_SIZE_counter
