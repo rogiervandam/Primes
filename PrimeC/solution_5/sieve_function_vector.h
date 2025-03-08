@@ -145,7 +145,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
     // create_mask_vector_smallstep_totalshift(bitstorage, range_start, step, range_stop_unique, range_stop);
     // create_mask_vector_smallstep_newpattern(bitstorage, range_start, step, range_stop_unique, range_stop);
 
-    if (range_start_new > range_stop) return;
+    // if (range_start_new > range_stop) return;
     create_mask_vector_smallstep(bitstorage, range_start_new, step, range_stop);
 
     timer_laptime(time_setBitsTrue_largeRange_vector_wordstep); verbose5( printf("\n"); )
@@ -170,12 +170,12 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
     }
 
     const counter_t range_stop_unique_vector = range_start_new + VECTOR_SIZE_counter * step; 
-    if (range_stop_unique_vector <= range_stop) {
+    // if (range_stop_unique_vector <= range_stop) {
         verbose5(  printf("..building masks in range %ju-%ju with %ju bit vectors", (uintmax_t)range_start_new, (uintmax_t)range_stop_unique_vector, (uintmax_t)VECTOR_SIZE_counter); )
         create_mask_vector_largestep(bitstorage, range_start_new, step, range_stop_unique_vector, range_stop);
         timer_laptime(time_setBitsTrue_largeRange_vector_vectorstep); verbose5( printf("\n"); )
         return;
-    }
+    // }
     // else { // else fall back to other methods
     //     verbose5( printf("\n..Vector will not repeat. Changing methods..\n"); )
     //     const counter_t range_stop_unique_word = range_start + WORD_SIZE_counter * step;
