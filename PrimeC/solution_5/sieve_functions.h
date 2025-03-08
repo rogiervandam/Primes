@@ -206,7 +206,7 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
     timer_lapstart(time_sieve_block_stripe);
 
     counter_t prime = prime_start;
-    const counter_t mediumstep_faster = global_mediumstep_faster;
+    const counter_t mediumstep_faster = global_mediumstep_faster/2;
     const counter_t prime_endloop1 = min(mediumstep_faster, prime_max);
 
     while (prime < prime_endloop1) {
@@ -220,6 +220,12 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
         }
         if likely(start < block_start) {
             start = (block_start + prime) + prime - ((block_start + prime) % step);
+            // there might be higher primes that will align before block_stop
+            // early exit (optional; setbittrue does not set beyond block_stop)
+            if (block_stop < start) {
+                prime = searchBitFalse(bitstorage, prime);
+                continue; 
+            }
         }
 
         setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);

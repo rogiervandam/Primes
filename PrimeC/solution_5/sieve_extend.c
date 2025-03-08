@@ -72,25 +72,27 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
         continuePattern(bitstorage, pattern_start, patternsize_bits, range_stop);
         patternsize_bits *= step;
 
-        if (step < mediumstep_faster) {
-            const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
-            if (range_stop_unique < range_stop ) setBitsTrue_smallStep_repeat(bitstorage, start, step, range_stop);
-            else                                 setBitsTrue_smallStep_norepeat(bitstorage, start, step, range_stop);
+        setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
 
-        }
-        else if (step < largestep_faster) {
-            setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
+        // if (step < mediumstep_faster) {
+        //     const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
+        //     if (range_stop_unique < range_stop ) setBitsTrue_smallStep_repeat(bitstorage, start, step, range_stop);
+        //     else                                 setBitsTrue_smallStep_norepeat(bitstorage, start, step, range_stop);
 
-        }
-        else {             
-            const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
-            if likely(range_stop_unique <= range_stop) { // the range will repeat itself; try to resuse the mask
-                setBitsTrue_largeRange_repeat(bitstorage, start, step, range_stop);
-            } else {
-                setBitsTrue_largeRange_norepeat(bitstorage, start, step, range_stop);
-            }     
+        // }
+        // else if (step < largestep_faster) {
+        //     setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
+
+        // }
+        // else {             
+            // const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
+            // if likely(range_stop_unique <= range_stop) { // the range will repeat itself; try to resuse the mask
+            //     setBitsTrue_largeRange_repeat(bitstorage, start, step, range_stop);
+            // } else {
+            //     setBitsTrue_largeRange_norepeat(bitstorage, start, step, range_stop);
+            // }     
         //   setBitsTrue_largeRange(bitstorage, start, step, range_stop);
-        }
+        // }
     } 
 
     // continue the found pattern to the entire sieve
@@ -112,8 +114,6 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
 
     // use globals as constant
     const counter_t stripeprime_faster = global_stripeprime_faster;
-    // const counter_t mediumstep_faster = global_mediumstep_faster;
-    // const counter_t largestep_faster = global_largestep_faster;
     const counter_t blocksize_bits = global_blocksize_bits;
 
     verbose5( printf("\nShaking sieve to find all primes up to %ju by marking multiples of all primes up to %ju\n", (uintmax_t)sieve_size, (uintmax_t)usqrt(sieve_size)); )

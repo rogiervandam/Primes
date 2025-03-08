@@ -57,6 +57,7 @@ static inline benchmark_settings_t check_benchmark_settings(benchmark_settings_t
     benchmark_settings.mediumstep_faster = min(min(benchmark_settings.mediumstep_faster, prime_max), VECTOR_SIZE_counter);
     benchmark_settings.largestep_faster  = min(min(benchmark_settings.largestep_faster, prime_max), VECTOR_SIZE_counter);
     benchmark_settings.blocksize_bits    = min(benchmark_settings.blocksize_bits, benchmark_settings.factor_max);
+    benchmark_settings.blocksize_bits    = max(benchmark_settings.blocksize_bits, 1024);
 
     // printf("After  Prime max %ju stripe faster %ju medium faster %ju large faster %ju blocksize %ju\n", (uintmax_t)prime_max, (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.largestep_faster, (uintmax_t)benchmark_settings.blocksize_bits);
     return benchmark_settings;
@@ -156,7 +157,18 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     counter_t prime_max               = usqrt(start_tuning_settings.factor_max) / 2; // divide by 2 to compensate for bitwise representation 
     char settings_string[100]=""; 
 
-    // determines the size of the resultset
+    // warm up the cache
+    verbose2( printf("Warming up the cache and processing units\n"); )	
+    for(counter_t i=0; i<256; i++ ) { 
+        benchmark_settings_t tuning_settings = benchmarkInit(start_tuning_settings.threads);
+        tuning_settings.stripe_faster = 10;
+        tuning_settings.mediumstep_faster = VECTORWORD_SIZE_counter/4;
+        tuning_settings.largestep_faster = VECTOR_SIZE_counter/4;
+        tuning_settings.blocksize_bits = tuning_settings.factor_max/2;
+        tuning_settings = check_benchmark_settings(tuning_settings);
+        const int valid = checkSieveWithBenchmarkSettings(tuning_settings);
+    }
+
     switch (tune_level) {
         case 1:
             stripe_faster_steps = 16;
