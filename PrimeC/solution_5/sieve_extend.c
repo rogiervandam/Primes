@@ -118,7 +118,7 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     sieve_block_stripe0(bitstorage, min(blocksize_bits-1, sieve_bits), prime, prime_max);
 
     // process the remaining blocks
-    for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start <= sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
+    for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
         sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
     } 
 

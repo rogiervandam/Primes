@@ -200,83 +200,222 @@ static inline void __attribute__((always_inline)) setBitsTrue_largeRange_norepea
 
 #include "sieve_function_vector.h"
 
-static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitword_t* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+// integer Newton's method 
+static inline counter_t prime_stripe_start_beyond_block_stop_calc(counter_t block_stop) {
+    // Initial guess close to the solution
+    counter_t prime = block_stop / 4;
+    
+    while (2 * prime * (prime + 1) <= block_stop) {
+        prime++;
+    }
+    
+    while (2 * prime * (prime + 1) > block_stop) {
+        prime--;
+    }
+    
+    return prime;
+}
+
+static inline counter_t get_prime_no_repeat_block_calc(const counter_t range_start, const counter_t range_stop, const counter_t blocksize) {
+    // We need to solve: 2*prime² + 2*(blocksize+1)*prime + blocksize >= range_stop
+    // Binary search approach to find the smallest prime that satisfies the condition
+    
+    counter_t low = 1;
+    counter_t high;
+    
+    // Find a reasonable upper bound
+    // Since prime grows roughly with sqrt(range_stop), we can start with a simple estimate
+    if (range_stop > blocksize) {
+        high = range_stop / (2 * blocksize);
+    } else {
+        high = 1;
+    }
+    
+    // Double until we find a valid upper bound
+    while (1) {
+        counter_t step = high * 2 + 1;
+        counter_t calculated_range_start = high * 2 * (high + 1);
+        
+        if (blocksize * step >= (range_stop - calculated_range_start) || high >= (counter_t)-1/2) {
+            break;
+        }
+        
+        high = high * 2;
+    }
+    
+    // Binary search for the smallest value that satisfies our condition
+    while (low < high) {
+        counter_t mid = low + (high - low) / 2;
+        counter_t step = mid * 2 + 1;
+        counter_t calculated_range_start = mid * 2 * (mid + 1);
+        
+        if (blocksize * step >= (range_stop - calculated_range_start)) {
+            high = mid;
+        } else {
+            low = mid + 1;
+        }
+    }
+    
+    return low;
+}
+
+static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitword_t* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max_org)
 {
+    // printf("\nBlock stripe for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop);
     verbose5(  printf("\nBlock stripe for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
     timer_lapstart(time_sieve_block_stripe);
+
+    counter_t prime_stripe_start_beyond_block_stop = prime_stripe_start_beyond_block_stop_calc(block_stop);
+    counter_t prime_stripe_get_prime_no_repeat_vectorword = get_prime_no_repeat_block_calc(block_start, block_stop, VECTORWORD_SIZE_counter);
+    counter_t prime_stripe_get_prime_no_repeat_vector = get_prime_no_repeat_block_calc(block_start, block_stop, VECTOR_SIZE_counter);
+
+    // prime_stripe_start_beyond_block_stop = prime_max_org;
+    
+    // counter_t prime_max = min(prime_max, prime_stripe_start_beyond_block_stop);
+    counter_t prime_max = prime_max_org;
 
     counter_t prime_endloop1 = prime_max;
             //   prime_endloop1 = min(prime_endloop1, global_mediumstep_faster);          // should not exceed prime_max
               prime_endloop1 = min(prime_endloop1, VECTORWORD_SIZE_counter/2-1);  // cannot be used beyond VECTORWORD_SIZE
-              prime_endloop1 = min(prime_endloop1, prime_max);
+              prime_endloop1 = min(prime_endloop1, prime_stripe_get_prime_no_repeat_vectorword);
+              prime_endloop1 = min(prime_endloop1, prime_stripe_start_beyond_block_stop);
+            //   prime_endloop1 = min(prime_endloop1, prime_max);
 
     counter_t prime_endloop2 = prime_max;
             //   prime_endloop2 = min(prime_endloop2, global_largestep_faster);           // should not exceed prime_max
             //   prime_endloop2 = max(global_mediumstep_faster, global_largestep_faster); // should not be smaller than mediumstep
               prime_endloop2 = min(prime_endloop2, VECTOR_SIZE_counter/2-1);      // cannot be used beyond VECTOR_SIZE
               prime_endloop2 = min(prime_endloop2, prime_max);
+              prime_endloop2 = min(prime_endloop2, prime_stripe_start_beyond_block_stop);
+              prime_endloop2 = min(prime_endloop2, prime_stripe_get_prime_no_repeat_vector);
               if (prime_endloop1 < (VECTORWORD_SIZE_counter/2)-1) {
                 prime_endloop2 = 0;
               }
 
+    // printf("Prime start beyond block stop: %ju prime_max_org %ju\n", (uintmax_t) prime_stripe_start_beyond_block_stop, (uintmax_t) prime_max_org);
+
     // counter_t prime_endloop3 = max(prime_endloop2, prime_max);     
     counter_t prime_endloop3 = prime_max;     
+              prime_endloop3 = min(prime_endloop3, prime_stripe_get_prime_no_repeat_vectorword);
+              prime_endloop3 = min(prime_endloop3, prime_stripe_start_beyond_block_stop);
+
+    counter_t prime_endloop4 = prime_max;
+              prime_endloop4 = min(prime_endloop4, prime_stripe_start_beyond_block_stop+1);
+
+
+    // printf("Endloop1 %ju Endloop2 %ju Endloop3 %ju Endloop4 %ju Beyond block %ju NoRepeatVectorWord %ju NoRepeatVector %ju\n", (uintmax_t) prime_endloop1, (uintmax_t) prime_endloop2, (uintmax_t) prime_endloop3, (uintmax_t) prime_endloop4, (uintmax_t) prime_stripe_start_beyond_block_stop, (uintmax_t) prime_stripe_get_prime_no_repeat_vectorword, (uintmax_t) prime_stripe_get_prime_no_repeat_vector);
+    // printf("Block start %ju Block stop %ju Prime start %ju Prime max %ju\n", (uintmax_t) block_start, (uintmax_t) block_stop, (uintmax_t) prime_start, (uintmax_t) prime_max_org);
+  
 
     counter_t prime = prime_start;
 
     while (prime < prime_endloop1) {
         const counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
-        if unlikely(block_stop < start) { timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); ) return prime; }
+        if unlikely(block_stop < start) { 
+            printf("\033[0;31mBreaking endloop 1\033[0;0m at prime %ju with step %ju because block stop %ju is before start %ju\n", (uintmax_t) prime, (uintmax_t) step, (uintmax_t) block_stop, (uintmax_t) start);
+            printf("Endloop1 %ju Endloop2 %ju Endloop3 %ju Beyond block %ju NoRepeatVectorWord %ju NoRepeatVector %ju\n", (uintmax_t) prime_endloop1, (uintmax_t) prime_endloop2, (uintmax_t) prime_endloop3, (uintmax_t) prime_stripe_start_beyond_block_stop, (uintmax_t) prime_stripe_get_prime_no_repeat_vectorword, (uintmax_t) prime_stripe_get_prime_no_repeat_vector);
+            printf("Block start %ju Block stop %ju\n", (uintmax_t) block_start, (uintmax_t) block_stop);
+            timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); ) 
+            return prime; 
+        }
         if likely(start < block_start)  { start = (block_start + prime) + prime - ((block_start + prime) % step);}
 
-        const counter_t range_stop_unique_vector = start + VECTORWORD_SIZE * step;
-        if unlikely(range_stop_unique_vector <= block_stop) {
-            setBitsTrue_largeRange_vector_wordstep(bitstorage, start, step, block_stop);
+        const counter_t range_stop_unique_vectorword = start + VECTORWORD_SIZE_counter * step;
+        if (range_stop_unique_vectorword > block_stop) {
+            printf("\033[0;31mBreaking endloop 1\033[0;0m at prime %ju with step %ju because range_stop_unique_vectorword %ju is larger than %ju\n", (uintmax_t) prime, (uintmax_t) step, (uintmax_t) range_stop_unique_vectorword, (uintmax_t) block_stop);
+            printf("Endloop1 %ju Endloop2 %ju Endloop3 %ju Beyond block %ju NoRepeatVectorWord %ju NoRepeatVector %ju\n", (uintmax_t) prime_endloop1, (uintmax_t) prime_endloop2, (uintmax_t) prime_endloop3, (uintmax_t) prime_stripe_start_beyond_block_stop, (uintmax_t) prime_stripe_get_prime_no_repeat_vectorword, (uintmax_t) prime_stripe_get_prime_no_repeat_vector);
+            printf("Block start %ju Block stop %ju\n", (uintmax_t) block_start, (uintmax_t) block_stop);
+            break;
         }
-        else {
-            const counter_t range_stop_unique_word = start + WORD_SIZE_counter * step;
-            if unlikely(range_stop_unique_word <= block_stop) {
-                setBitsTrue_largeRange_repeat(bitstorage, start, step, block_stop);
-            }
-            else {
-                setBitsTrue_largeRange_norepeat(bitstorage, start, step, block_stop);
-            }
+        if (step > VECTORWORD_SIZE_counter) {
+            printf("\033[0;31mBreaking endloop 1\033[0;0m at prime %ju with step %ju because step is larger than %ju\n", (uintmax_t) prime, (uintmax_t) step, (uintmax_t) VECTORWORD_SIZE_counter);
+            printf("Endloop1 %ju Endloop2 %ju Endloop3 %ju Beyond block %ju NoRepeatVectorWord %ju NoRepeatVector %ju\n", (uintmax_t) prime_endloop1, (uintmax_t) prime_endloop2, (uintmax_t) prime_endloop3, (uintmax_t) prime_stripe_start_beyond_block_stop, (uintmax_t) prime_stripe_get_prime_no_repeat_vectorword, (uintmax_t) prime_stripe_get_prime_no_repeat_vector);
+            printf("Block start %ju Block stop %ju\n", (uintmax_t) block_start, (uintmax_t) block_stop);
+            break;
         }
+
+        setBitsTrue_largeRange_vector_wordstep(bitstorage, start, step, block_stop);
         prime = searchBitFalse(bitstorage, prime);
     }
+    // printf("Prime after loop 1: %ju\n", (uintmax_t) prime);
 
     while (prime < prime_endloop2) {
         const counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
-        if unlikely(block_stop < start) { timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); ) return prime; }
+        if unlikely(block_stop < start) { 
+            printf("\033[0;31mBreaking endloop 2\033[0;0m at prime %ju with step %ju because block stop %ju is before start %ju\n", (uintmax_t) prime, (uintmax_t) step, (uintmax_t) block_stop, (uintmax_t) start);
+            printf("Endloop1 %ju Endloop2 %ju Endloop3 %ju Beyond block %ju NoRepeatVectorWord %ju NoRepeatVector %ju\n", (uintmax_t) prime_endloop1, (uintmax_t) prime_endloop2, (uintmax_t) prime_endloop3, (uintmax_t) prime_stripe_start_beyond_block_stop, (uintmax_t) prime_stripe_get_prime_no_repeat_vectorword, (uintmax_t) prime_stripe_get_prime_no_repeat_vector);
+            printf("Block start %ju Block stop %ju\n", (uintmax_t) block_start, (uintmax_t) block_stop);
+
+            timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); ) 
+            return prime; 
+        }
         if likely(start < block_start)  { start = (block_start + prime) + prime - ((block_start + prime) % step);}
+        if (step > VECTOR_SIZE_counter) {
+            printf("\033[0;31mBreaking endloop 2\033[0;0m at prime %ju with step %ju because step is larger than %ju\n", (uintmax_t) prime, (uintmax_t) step, (uintmax_t) VECTOR_SIZE_counter);
+            printf("Endloop1 %ju Endloop2 %ju Endloop3 %ju Beyond block %ju NoRepeatVectorWord %ju NoRepeatVector %ju\n", (uintmax_t) prime_endloop1, (uintmax_t) prime_endloop2, (uintmax_t) prime_endloop3, (uintmax_t) prime_stripe_start_beyond_block_stop, (uintmax_t) prime_stripe_get_prime_no_repeat_vectorword, (uintmax_t) prime_stripe_get_prime_no_repeat_vector);
+            printf("Block start %ju Block stop %ju\n", (uintmax_t) block_start, (uintmax_t) block_stop);
+            break;
+        }
+        if (step < VECTORWORD_SIZE_counter) {
+            printf("\033[0;31mBreaking endloop 2\033[0;0m at prime %ju with step %ju because step in vectorstep is smaller than %ju\n", (uintmax_t) prime, (uintmax_t) step, (uintmax_t) VECTORWORD_SIZE_counter);
+            printf("Endloop1 %ju Endloop2 %ju Endloop3 %ju Beyond block %ju NoRepeatVectorWord %ju NoRepeatVector %ju\n", (uintmax_t) prime_endloop1, (uintmax_t) prime_endloop2, (uintmax_t) prime_endloop3, (uintmax_t) prime_stripe_start_beyond_block_stop, (uintmax_t) prime_stripe_get_prime_no_repeat_vectorword, (uintmax_t) prime_stripe_get_prime_no_repeat_vector);
+            printf("Block start %ju Block stop %ju\n", (uintmax_t) block_start, (uintmax_t) block_stop);
+            break;
+        }
+
+        const counter_t range_stop_unique_vector = start + VECTOR_SIZE_counter * step;
+        if (range_stop_unique_vector > block_stop) {
+            printf("\033[0;31mBreaking endloop 2\033[0;0m at prime %ju with step %ju because range_stop_unique_vector %ju is larger than %ju\n", (uintmax_t) prime, (uintmax_t) step, (uintmax_t) range_stop_unique_vector, (uintmax_t) block_stop);
+            printf("Endloop1 %ju Endloop2 %ju Endloop3 %ju Beyond block %ju NoRepeatVectorWord %ju NoRepeatVector %ju\n", (uintmax_t) prime_endloop1, (uintmax_t) prime_endloop2, (uintmax_t) prime_endloop3, (uintmax_t) prime_stripe_start_beyond_block_stop, (uintmax_t) prime_stripe_get_prime_no_repeat_vectorword, (uintmax_t) prime_stripe_get_prime_no_repeat_vector);
+            printf("Block start %ju Block stop %ju\n", (uintmax_t) block_start, (uintmax_t) block_stop);
+            break;
+        }
         setBitsTrue_largeRange_vector_vectorstep(bitstorage, start, step, block_stop);
         prime = searchBitFalse(bitstorage, prime);
     }
+    // printf("Prime after loop 2: %ju\n", (uintmax_t) prime);
 
     while (prime < prime_endloop3) {
         const counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
-        if unlikely(block_stop < start) { timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); ) return prime; }
+        if unlikely(block_stop < start) { 
+            printf("\033[0;31mBreaking endloop 3\033[0;0m at prime %ju with step %ju because block stop %ju is before start %ju\n", (uintmax_t) prime, (uintmax_t) step, (uintmax_t) block_stop, (uintmax_t) start);
+            printf("Endloop1 %ju Endloop2 %ju Endloop3 %ju Beyond block %ju NoRepeatVectorWord %ju NoRepeatVector %ju\n", (uintmax_t) prime_endloop1, (uintmax_t) prime_endloop2, (uintmax_t) prime_endloop3, (uintmax_t) prime_stripe_start_beyond_block_stop, (uintmax_t) prime_stripe_get_prime_no_repeat_vectorword, (uintmax_t) prime_stripe_get_prime_no_repeat_vector);
+            printf("Block start %ju Block stop %ju\n", (uintmax_t) block_start, (uintmax_t) block_stop);
+            timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); ) 
+            return prime; 
+        }
         if likely(start < block_start)  { start = (block_start + prime) + prime - ((block_start + prime) % step);}
-        const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
-        if unlikely(range_stop_unique <= block_stop) { // the range will repeat itself; try to resuse the mask
+        const counter_t range_stop_unique_word = start + WORD_SIZE_counter * step;
+        if (range_stop_unique_word > block_stop) {
+            printf("\033[0;31mBreaking endloop 3\033[0;0m at prime %ju with step %ju because range_stop_unique_vectorword %ju is larger than %ju\n", (uintmax_t) prime, (uintmax_t) step, (uintmax_t) range_stop_unique_word, (uintmax_t) block_stop);
+            printf("Endloop1 %ju Endloop2 %ju Endloop3 %ju Beyond block %ju NoRepeatVectorWord %ju NoRepeatVector %ju\n", (uintmax_t) prime_endloop1, (uintmax_t) prime_endloop2, (uintmax_t) prime_endloop3, (uintmax_t) prime_stripe_start_beyond_block_stop, (uintmax_t) prime_stripe_get_prime_no_repeat_vectorword, (uintmax_t) prime_stripe_get_prime_no_repeat_vector);
+            printf("Block start %ju Block stop %ju\n", (uintmax_t) block_start, (uintmax_t) block_stop);
             break;
         }
+
         setBitsTrue_largeRange_repeat(bitstorage, start, step, block_stop);
         prime = searchBitFalse_largeRange(bitstorage, prime);
     }
+    // printf("Prime after loop 3: %ju\n", (uintmax_t) prime);
 
-    while (prime < prime_max) {
+    while (prime < prime_endloop4) {
         const counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
-        if unlikely(block_stop < start) { timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); ) return prime; }
-        if likely(start < block_start)  { start = (block_start + prime) + prime - ((block_start + prime) % step);}
-        const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
+        if unlikely(block_stop < start) { 
+            printf("\033[0;31mBreaking endloop 4\033[0;0m at prime %ju with step %ju because block stop %ju is before start %ju\n", (uintmax_t) prime, (uintmax_t) step, (uintmax_t) block_stop, (uintmax_t) start);
+            printf("Endloop1 %ju Endloop2 %ju Endloop3 %ju Beyond block %ju NoRepeatVectorWord %ju NoRepeatVector %ju\n", (uintmax_t) prime_endloop1, (uintmax_t) prime_endloop2, (uintmax_t) prime_endloop3, (uintmax_t) prime_stripe_start_beyond_block_stop, (uintmax_t) prime_stripe_get_prime_no_repeat_vectorword, (uintmax_t) prime_stripe_get_prime_no_repeat_vector);
+            printf("Block start %ju Block stop %ju\n", (uintmax_t) block_start, (uintmax_t) block_stop);
+            timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); ) 
+            return prime; 
+        }
+        if (start < block_start)  { start = (block_start + prime) + prime - ((block_start + prime) % step);}
         setBitsTrue_largeRange_norepeat(bitstorage, start, step, block_stop);
         prime = searchBitFalse_largeRange(bitstorage, prime);
     }
+    // printf("Prime after loop 4: %ju\n", (uintmax_t) prime);
 
     timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); )
     return prime; 
