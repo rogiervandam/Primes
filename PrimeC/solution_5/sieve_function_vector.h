@@ -18,10 +18,10 @@ static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* 
     
     #pragma GCC ivdep
     while likely(index_ptr < fast_loop_ptr) {
-        // __builtin_prefetch(index_ptr + step_4, 1, 3); // prefetch the memory that will be written soon
-        // __builtin_prefetch(index_ptr + step_4 + step, 1, 3); // prefetch the memory that will be written soon
-        // __builtin_prefetch(index_ptr + step_4 + step * 2, 1, 3); // prefetch the memory that will be written soon
-        // __builtin_prefetch(index_ptr + step_4 + step * 3, 1, 3); // prefetch the memory that will be written soon
+        // __builtin_prefetch(index_ptr + 1, 1, 3); // prefetch the memory that will be written soon
+        // __builtin_prefetch(index_ptr + step + 1, 1, 3); // prefetch the memory that will be written soon
+        // __builtin_prefetch(index_ptr + step_2 + 1, 1, 3); // prefetch the memory that will be written soon
+        // __builtin_prefetch(index_ptr + step_3 + 1, 1, 3); // prefetch the memory that will be written soon
         // *index_ptr |= mask; index_ptr += step;
         // *index_ptr |= mask; index_ptr += step;
         // *index_ptr |= mask; index_ptr += step;
@@ -54,8 +54,8 @@ static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* 
 // TODO: check loop unrolling this
 static inline void create_mask_vector_smallstep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop_unique, const counter_t range_stop)
 {
-    verbose5(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using create_mask_vector_smallstep (%ju occurances; %ju stamps)", 
-        (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(VECTOR_SIZE_counter*step))); )
+    verbose5(  printf("Setting bits step %ju in %ju bit range (%ju-%ju) using create_mask_vector_smallstep (%ju occurances; %ju stamps starting at %ju)\n", 
+        (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(VECTOR_SIZE_counter*step)), (uintmax_t)range_stop_unique ); )
     timer_lapstart(time_create_mask_vector_smallstep);
 
     register bitvector_t* restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, anticiped_cache_line_bytesize);
@@ -84,7 +84,7 @@ static inline void create_mask_vector_smallstep(bitword_t* restrict bitstorage, 
     register bitvector_t quadmask = quadmask_base << shift_vector_minimal;
     register const bitshift_t pattern_vectorshift = ((pattern_size - VECTORWORD_SIZE_bitshift) * (bitshift_t)VECTOR_ELEMENTS) % step_shift;
     register const counter_t vector_max = vectorindex(range_stop_unique);
-    debug_hits += debug_final_plan;
+    // debug_hits += debug_final_plan;
     for (counter_t current_vector = vectorindex(range_start); current_vector < vector_max; current_vector++) {
         // debug_hits += debug_final_benchmarking;
         applyMask_vector(bitstorage_vector, step, range_stop, quadmask, current_vector);

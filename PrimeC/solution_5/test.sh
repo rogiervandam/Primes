@@ -55,14 +55,20 @@ for s in $PROG; do
     x=$(echo "$s" | sed -E 's/-(u[^-]*)$//')
     y=$(echo "$s" | grep -oE 'u[^-]*$')
 
-        echo "Compiling $x-$y $DEFINE_FLAGS"
-        echo "Issuing command: $CC -o $x-$y $x.c -D$y $DEFINE_FLAGS"
-        $CC -o $x-$y $x.c -D$y $DEFINE_FLAGS
-        $STRIP $x-$y
+    if [ -n "$y" ]; then
+        PROGTOTAL="$x-$y"
+        DEFINE_FLAGS="-D$y $DEFINE_FLAGS"
+    else
+        PROGTOTAL="$x"
+    fi
+    echo "Compiling $PROGTOTAL $DEFINE_FLAGS"
+    echo "Issuing command: $CC -o $PROGTOTAL $x.c $DEFINE_FLAGS"
+    $CC -o $PROGTOTAL $x.c $DEFINE_FLAGS
+    $STRIP $PROGTOTAL
 
-        # echo "Compiling $x-$y$PAREXT $DEFINE_FLAGS"
-        # $CC $PAR -o $x$PAREXT-$y $x.c -D$y $DEFINE_FLAGS
-        # $STRIP $x$PAREXT-$y
+    # echo "Compiling $x-$y$PAREXT $DEFINE_FLAGS"
+    # $CC $PAR -o $x$PAREXT-$y $x.c -D$y $DEFINE_FLAGS
+    # $STRIP $x$PAREXT-$y
 done
 # ./$1 $2 $3 $4 $5 $6 $7
 # ./$1 --set s112-m004-l158-b0262144 --verbose 3

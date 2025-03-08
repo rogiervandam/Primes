@@ -40,30 +40,22 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     const counter_t sieve_bits = sieve->bits;
     const counter_t prime_max = 1+usqrt(sieve_size)/2;
 
-    // use globals as constant
-    const counter_t stripeprime_faster = global_stripeprime_faster;
-    // const counter_t mediumstep_faster = global_mediumstep_faster;
-    // const counter_t largestep_faster = global_largestep_faster;
-    const counter_t blocksize_bits = global_blocksize_bits;
-    
-    verbose5(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size); )
+    verbose5(  printf("\nShaking sieve to find all primes up to %ju\n",(uintmax_t)sieve_size); )
 
-    // code for algorithm = base
     sieve_clear(sieve);
     counter_t prime = 1;
+ 
+    while (prime < prime_max) {
+        const counter_t step  = prime * 2 + 1;
+        const counter_t start = prime * (step + 1);
 
-    // stripe off all the multiples of primes in the sieve
-    prime = sieve_stripe(bitstorage, sieve_bits, prime, stripeprime_faster );
+        for(counter_t i=start; i < sieve_bits; i += step) {
+            bitstorage[wordindex(i)] |= markmask(i);
+        }
 
-    // do this block by block to minimize cache misses
-    // first block requires fewer operations; it might be the whole sieve...
-    sieve_block_stripe0(bitstorage, min(blocksize_bits, sieve_bits), prime, prime_max);
+        do { prime++; } while (bitstorage[wordindex(prime)] & markmask(prime));
+    }
 
-    // // process the remaining blocks
-    for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start <= sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
-        sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
-    } 
-    
     // return the completed sieve
     return sieve;
 }
@@ -72,7 +64,7 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
 #include "sieve_benchmark.h"
 #include "sieve_checks2.h"
 
-static char algorithm_name[] = "rogiervandam_base";
-static char algorithm_type[] = "base";
+static char algorithm_name[] = "rogiervandam_classic";
+static char algorithm_type[] = "classic";
 
 #include "sieve_commandline.h"
