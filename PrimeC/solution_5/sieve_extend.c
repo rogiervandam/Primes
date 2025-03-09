@@ -73,26 +73,6 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
         patternsize_bits *= step;
 
         setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
-
-        // if (step < mediumstep_faster) {
-        //     const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
-        //     if (range_stop_unique < range_stop ) setBitsTrue_smallStep_repeat(bitstorage, start, step, range_stop);
-        //     else                                 setBitsTrue_smallStep_norepeat(bitstorage, start, step, range_stop);
-
-        // }
-        // else if (step < largestep_faster) {
-        //     setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
-
-        // }
-        // else {             
-            // const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
-            // if likely(range_stop_unique <= range_stop) { // the range will repeat itself; try to resuse the mask
-            //     setBitsTrue_largeRange_repeat(bitstorage, start, step, range_stop);
-            // } else {
-            //     setBitsTrue_largeRange_norepeat(bitstorage, start, step, range_stop);
-            // }     
-        //   setBitsTrue_largeRange(bitstorage, start, step, range_stop);
-        // }
     } 
 
     // continue the found pattern to the entire sieve

@@ -207,8 +207,8 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
 
     counter_t prime = prime_start;
     const counter_t mediumstep_faster = global_mediumstep_faster/2;
-    const counter_t prime_endloop1 = min(mediumstep_faster, prime_max);
-    // counter_t prime_endloop1 = prime_max;
+    // const counter_t prime_endloop1 = min(mediumstep_faster, prime_max);
+    counter_t prime_endloop1 = prime_max;
 
     while (prime < prime_endloop1) {
         const counter_t step  = prime * 2 + 1;
