@@ -203,7 +203,7 @@ static inline void __attribute__((always_inline)) setBitsTrue_largeRange_norepea
 // integer Newton's method 
 // TODO: Overflow with factor_max 10000000
 // TODO: this procedure is really slow when switched to 64 bit
-static inline counter_t prime_stripe_start_beyond_block_stop_calc(const counter_t block_stop) {
+static inline counter_t __attribute__((always_inline)) prime_stripe_start_beyond_block_stop_calc(const counter_t block_stop) {
     // Initial guess close to the solution
     counter_t prime = block_stop / 4;
     const counter_t block_stop_internal = block_stop;
@@ -212,7 +212,7 @@ static inline counter_t prime_stripe_start_beyond_block_stop_calc(const counter_
     return (counter_t) prime;
 }
 
-static inline counter_t prime_pattern_not_repeating_in_block(const counter_t range_start, const counter_t range_stop, const counter_t blocksize) {
+static inline counter_t __attribute__((always_inline)) prime_pattern_not_repeating_in_block(const counter_t range_start, const counter_t range_stop, const counter_t blocksize) {
     // We need to solve: 2*prime² + 2*(blocksize+1)*prime + blocksize >= range_stop
     // Binary search approach to find the smallest prime that satisfies the condition
     counter_t low = 1;
