@@ -73,8 +73,8 @@ for s in $PROG; do
     # $CC -o $PROGTOTAL $x.c $DEFINE_FLAGS -fprofile-use
     # $STRIP $PROGTOTAL
 
-    $CC -o $PROGTOTAL $x.c $DEFINE_FLAGS
-    $STRIP $PROGTOTAL
+    $CC -o ./bin/$PROGTOTAL ./src/$x.c $DEFINE_FLAGS
+    $STRIP ./bin/$PROGTOTAL
 
     # echo "Compiling $x-$y$PAREXT $DEFINE_FLAGS"
     # $CC $PAR -o $x$PAREXT-$y $x.c -D$y $DEFINE_FLAGS
@@ -86,7 +86,7 @@ done
 # taskset -c 0-$(nproc --all) nice -n -0 ./$1
 # ./$1 --set s4520-m080-l048-b0262144-u64-v256
 # ./$1 --set s001-m001-l256-b0262144-u64-v256
-echo "Executing ./$PROGTOTAL $@"
+echo "Executing ./bin/$PROGTOTAL $@"
 # ./$PROG --set s004-m048-l048-b1000000-u64-v256 "$@"
 
 # best for i8700
@@ -94,4 +94,4 @@ echo "Executing ./$PROGTOTAL $@"
 
 # ./$PROG --set s004-m000-l080-b0262144-u64-v256  "$@" --tune 0
 
-./$PROGTOTAL "$@"
+bin/$PROGTOTAL "$@"

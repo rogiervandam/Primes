@@ -21,13 +21,15 @@
 #include <omp.h>
 #endif
 
+static char algorithm_name[] = "rogiervandam_base";
+static char algorithm_type[] = "base";
 
 // include helper functions
-#include "sieve_helpers.h"
-#include "sieve_options.h"
-#include "sieve_helpers_timers.h"
-#include "sieve_functions.h"
-#include "sieve_extend_continuePattern.h"
+#include "benchmark/sieve_helpers.h"
+#include "benchmark/sieve_options.h"
+#include "benchmark/sieve_helpers_timers.h"
+#include "sieve/sieve_functions.h"
+// #include "sieve/sieve_extend_continuePattern.h"
 
 /* This is the main module that directs all the work
    sieve_size in a real number that is the maximum in the sieve (not in bits)
@@ -68,11 +70,7 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     return sieve;
 }
 
-#include "sieve_checks.h"
-#include "sieve_benchmark.h"
-#include "sieve_checks2.h"
-
-static char algorithm_name[] = "rogiervandam_base";
-static char algorithm_type[] = "base";
-
-#include "sieve_commandline.h"
+#include "benchmark/sieve_checks.h"
+#include "benchmark/sieve_benchmark.h"
+#include "benchmark/sieve_checks2.h"
+#include "benchmark/sieve_commandline.h"
