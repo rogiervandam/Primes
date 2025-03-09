@@ -53,11 +53,11 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep(b
     register bitvector_t* restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, anticiped_cache_line_bytesize);
     __builtin_prefetch(&bitstorage_vector[vectorindex(range_start)], 1, 3); // prefetch the memory that will be written soon while creating mask
 
-    register const bitshift_t step_shift = (bitshift_t) step; // to enable the compiler to optimize the shift
+    register const bitshift_t step_shift = vector_bitindex_calc(step); // to enable the compiler to optimize the shift
     register bitshift_t pattern_size = step_shift;
     register bitword_t pattern = BITVECTORWORD_SHIFTBIT;
     while (pattern_size <= VECTORWORD_SIZE_bitshift) {
-        pattern |= (BITVECTORWORD_SHIFTBIT << pattern_size); 
+        pattern |= vector_markmask(pattern_size);
         pattern_size += step_shift;
     }
 
@@ -76,12 +76,12 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep(b
     // shorter alternative; maybe just as fast
     bitvector_t quadmask = VECTOR_BASE(pattern);
     for (counter_t i=0; i<VECTOR_ELEMENTS; i++) {
-        counter_t totalshift = (shift + pattern_wordshift * i);
+        bitword_vector_t totalshift = (shift + pattern_wordshift * i);
         while (totalshift >= step) totalshift -= step;
         quadmask[i] = quadmask[i] << totalshift;
     }
 
-    register const bitshift_t pattern_vectorshift = ((pattern_size - VECTORWORD_SIZE_bitshift) * (bitshift_t)VECTOR_ELEMENTS) % step_shift;
+    register const bitword_vector_t pattern_vectorshift = (bitword_vector_t) (((pattern_size - VECTORWORD_SIZE_bitshift) * (bitshift_t)VECTOR_ELEMENTS) % step_shift) & VECTORWORDMASK;
     register const counter_t vector_max = vectorindex(range_stop_unique);
     // debug_hits += debug_final_plan;
     for (counter_t current_vector = vectorindex(range_start); current_vector < vector_max; current_vector++) {
@@ -140,8 +140,6 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
             const counter_t range_stop_unique_vector = range_start_new + VECTOR_SIZE_counter * step; 
 
             verbose5(  printf("..building masks with size %ju < %ju in range %ju-%ju with %ju bit vectors", (uintmax_t)step, (uintmax_t) WORD_SIZE_counter, (uintmax_t)range_start_new, (uintmax_t)range_stop_unique_vector, (uintmax_t)VECTOR_SIZE_counter); )
-            // create_mask_vector_smallstep_totalshift(bitstorage, range_start, step, range_stop_unique, range_stop);
-            // create_mask_vector_smallstep_newpattern(bitstorage, range_start, step, range_stop_unique, range_stop);
             create_mask_vector_smallstep(bitstorage, range_start_new, step, range_stop_unique_vector, range_stop);
             return;
         }

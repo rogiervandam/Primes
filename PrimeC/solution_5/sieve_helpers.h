@@ -10,7 +10,7 @@
 #define compile_verbose_level           5
 #endif
 
-#define bitshift_t int64_t // type used to shift bits
+#define bitshift_t uint64_t // type used to shift bits
 #define counter_t  int64_t  // type used to count loops, etc. Some processors/compilers are faster at 32 bits
 
 #if defined(counter_t) && (counter_t == int32_t || counter_t == uint32_t)
@@ -175,6 +175,12 @@
 typedef bitword_vector_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes), aligned(anticiped_cache_line_bytesize))); 
 // typedef bitword_vector_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes), aligned(64))); 
 
+// this might be handy
+// typedef union {
+//   bitvector_t vec;
+//   char dummy[sizeof(bitvector_t) < anticiped_cache_line_bytesize ? anticiped_cache_line_bytesize : sizeof(bitvector_t)];
+// } aligned_bitvector_t;
+
 // globals for tuning
 static counter_t global_stripeprime_faster  = 32ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
 static counter_t global_mediumstep_faster   = 16ULL; // if step < MEDIUMSTEP_FASTER, use medium steps
@@ -221,6 +227,24 @@ static counter_t debug_final_plan           = 0;
 #define vector_bitindex(index)      ((bitshift_t)(index))
 #define vector_bitindex_calc(index) ((bitshift_t)(((counter_t)(index))&((counter_t)(VECTORWORDMASK))))
 
+// #define wordindex(index)     ((index) >> SHIFT_WORD)
+// #define wordend(index)       ((index) |  WORDMASK)
+// #define wordstart(index)     ((index) &  (~WORDMASK))
+// #define vectorindex(index)   ((index) >> SHIFT_VECTOR)
+// #define vectorstart(index)   ((index) &  ~VECTORMASK)
+// #define vectorend(index)     ((index) |  VECTORMASK)
+// #define vector_wordstart(index)     ((index) & (~VECTORWORDMASK))
+// #define vector_wordindex(index)     ((index) >> SHIFT_VECTORWORD)
+// // #define vectorfromword(word) ((counter_t)(word ) >> (counter_t)SHIFT_VECTOR-SHIFT_WORD))
+// // #define wordinvector(index)  (((counter_t)index >> SHIFT_WORD) & (VECTORMASK >> SHIFT_WORD))
+
+// // modern processors do a & over the shiftssize, so we only have to do that ourselve when using the shiftsize in calculations. 
+// #define bitindex_calc(index)        ((((index))&(WORDMASK)))
+// #define vector_bitindex(index)      ((index))
+// #define vector_bitindex_calc(index) ((((index))&(VECTORWORDMASK)))
+
+
+
 #if SAFE_SHIFT == 1
 #define bitindex(index)      ((bitshift_t)(index)&((bitshift_t)(WORDMASK)))
 #else
@@ -232,9 +256,9 @@ static counter_t debug_final_plan           = 0;
 
 // vector_markmask
 #ifdef VECTORWORDSIZE_64 // mask will be applied automatically
-#define vector_markmask(index) (BITWORD_SHIFTBIT << vector_bitindex(index))
+#define vector_markmask(index) (BITVECTORWORD_SHIFTBIT << vector_bitindex(index))
 #else
-#define vector_markmask(index) (BITWORD_SHIFTBIT << vector_bitindex_calc(index))
+#define vector_markmask(index) (BITVECTORWORD_SHIFTBIT << vector_bitindex_calc(index))
 #endif
 
 #define chopmask(index)        (SAFE_FILL >> (WORD_SIZE_bitshift-SAFE_SHIFTBIT-bitindex_calc(index)))

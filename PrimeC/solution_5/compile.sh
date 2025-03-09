@@ -5,7 +5,7 @@ OS="$(uname -s)"
 
 CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -flto"
 if [ "$OS" = "Linux" ]; then
-    CC="gcc $CC -Wno-psabi -funroll-all-loops -s"
+    CC="gcc $CC -Wno-psabi -fwhole-program -s"
     PAR="-fopenmp"
     STRIP="strip"
 elif [ "$OS" = "Darwin" ]; then

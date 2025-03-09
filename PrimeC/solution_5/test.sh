@@ -18,7 +18,7 @@ OS="$(uname -s)"
 # CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11"
 CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11"  #  -Wno-unused-function
 if [ "$OS" = "Linux" ]; then
-    CC="gcc  $CC -Wno-psabi " # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
+    CC="gcc-14  $CC -Wno-psabi -fwhole-program -flto" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
     PAR="-fopenmp"
     STRIP="strip"
 elif [ "$OS" = "Darwin" ]; then
@@ -64,6 +64,15 @@ for s in $PROG; do
     fi
     echo "Compiling $PROGTOTAL $DEFINE_FLAGS"
     echo "Issuing command: $CC -o $PROGTOTAL $x.c $DEFINE_FLAGS"
+    # $CC -o $PROGTOTAL $x.c $DEFINE_FLAGS -fprofile-generate
+    # echo "Executing ./$PROGTOTAL $@ for profiling" 
+    # # ./$PROG "$@" "--verbose 2"
+    # ./$PROGTOTAL "$@"
+
+    # echo "Recompiling $PROGTOTAL $DEFINE_FLAGS"
+    # $CC -o $PROGTOTAL $x.c $DEFINE_FLAGS -fprofile-use
+    # $STRIP $PROGTOTAL
+
     $CC -o $PROGTOTAL $x.c $DEFINE_FLAGS
     $STRIP $PROGTOTAL
 
@@ -77,7 +86,7 @@ done
 # taskset -c 0-$(nproc --all) nice -n -0 ./$1
 # ./$1 --set s4520-m080-l048-b0262144-u64-v256
 # ./$1 --set s001-m001-l256-b0262144-u64-v256
-echo "Executing ./$PROG $@"
+echo "Executing ./$PROGTOTAL $@"
 # ./$PROG --set s004-m048-l048-b1000000-u64-v256 "$@"
 
 # best for i8700
@@ -85,4 +94,4 @@ echo "Executing ./$PROG $@"
 
 # ./$PROG --set s004-m000-l080-b0262144-u64-v256  "$@" --tune 0
 
-./$PROG "$@"
+./$PROGTOTAL "$@"
