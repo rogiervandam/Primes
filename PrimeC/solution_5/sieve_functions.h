@@ -207,42 +207,27 @@ static inline counter_t prime_stripe_start_beyond_block_stop_calc(const counter_
     // Initial guess close to the solution
     counter_t prime = block_stop / 4;
     const counter_t block_stop_internal = block_stop;
-    
-    while (2 * prime * (prime ) <= block_stop_internal) {
-        prime++;
-    }
-    
-    while (2 * prime * (prime ) > block_stop_internal) {
-        prime--;
-    }
-
+    while (2 * prime * (prime ) <= block_stop_internal) prime++;
+    while (2 * prime * (prime ) > block_stop_internal)  prime--;
     return (counter_t) prime;
 }
 
 static inline counter_t get_prime_no_repeat_block_calc(const counter_t range_start, const counter_t range_stop, const counter_t blocksize) {
     // We need to solve: 2*prime² + 2*(blocksize+1)*prime + blocksize >= range_stop
     // Binary search approach to find the smallest prime that satisfies the condition
-    
     counter_t low = 1;
     counter_t high;
     
     // Find a reasonable upper bound
     // Since prime grows roughly with sqrt(range_stop), we can start with a simple estimate
-    if (range_stop > blocksize) {
-        high = range_stop / (2 * blocksize);
-    } else {
-        high = 1;
-    }
+    if (range_stop > blocksize) { high = range_stop / (2 * blocksize);} 
+    else { high = 1; }
     
     // Double until we find a valid upper bound
     while (1) {
         counter_t step = high * 2 + 1;
         counter_t calculated_range_start = high * 2 * (high + 1);
-        
-        if (blocksize * step >= (range_stop - calculated_range_start) || high >= (counter_t)-1/2) {
-            break;
-        }
-        
+        if (blocksize * step >= (range_stop - calculated_range_start) || high >= (counter_t)-1/2) break;
         high = high * 2;
     }
     
@@ -252,11 +237,8 @@ static inline counter_t get_prime_no_repeat_block_calc(const counter_t range_sta
         counter_t step = mid * 2 + 1;
         counter_t calculated_range_start = mid * 2 * (mid + 1);
         
-        if (blocksize * step >= (range_stop - calculated_range_start)) {
-            high = mid;
-        } else {
-            low = mid + 1;
-        }
+        if (blocksize * step >= (range_stop - calculated_range_start)) { high = mid; } 
+        else { low = mid + 1; }
     }
     
     return low;
