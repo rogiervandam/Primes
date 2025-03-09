@@ -15,7 +15,7 @@
 OS="$(uname -s)"
 
 # CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11"
-CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11 -flto"  #  -Wno-unused-function
+CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11 "  #  -Wno-unused-function
 if [ "$OS" = "Linux" ]; then
     CC="gcc  $CC -Wno-psabi " # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
     PAR="-fopenmp"
