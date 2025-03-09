@@ -24,11 +24,11 @@ echo "Compiling for ${OS} with $CC"
 for x in sieve_base sieve_extend; do
     for y in u32_v8 u64_v4 u64_v8 u64_v2; do
         echo "Compiling $x-$y"
-        $CC -o $x-$y $x.c -D$y
-        $STRIP $x-$y
+        $CC -o ./bin/$x-$y ./src/$x.c -D$y
+        $STRIP ./bin/$x-$y
 
         echo "Compiling $x-$y$PAREXT"
-        $CC $PAR -o $x$PAREXT-$y $x.c -D$y
-        $STRIP $x$PAREXT-$y
+        $CC $PAR -o ./bin/$x$PAREXT-$y ./src/$x.c -D$y
+        $STRIP ./bin/$x$PAREXT-$y
     done
 done

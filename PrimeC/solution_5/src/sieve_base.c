@@ -28,8 +28,12 @@ static char algorithm_type[] = "base";
 #include "benchmark/sieve_helpers.h"
 #include "benchmark/sieve_options.h"
 #include "benchmark/sieve_helpers_timers.h"
-#include "sieve/sieve_functions.h"
-// #include "sieve/sieve_extend_continuePattern.h"
+
+#include "sieve/sieve_manager.c"
+#include "sieve/sieve_search.c"
+#include "sieve/sieve_setbitstrue_word.c"
+#include "sieve/sieve_setbitstrue_vector.c"
+#include "sieve/sieve_stripe.c"
 
 /* This is the main module that directs all the work
    sieve_size in a real number that is the maximum in the sieve (not in bits)
@@ -70,7 +74,10 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     return sieve;
 }
 
-#include "benchmark/sieve_checks.h"
-#include "benchmark/sieve_benchmark.h"
-#include "benchmark/sieve_checks2.h"
-#include "benchmark/sieve_commandline.h"
+#include "benchmark/sieve_check.c"
+#include "benchmark/sieve_benchmark.c"
+#include "benchmark/sieve_benchmark_tune.c"
+#include "benchmark/sieve_validate.c"
+#include "benchmark/sieve_usage.c"
+#include "benchmark/sieve_parse_commandline.c"
+#include "benchmark/sieve_main.c"
