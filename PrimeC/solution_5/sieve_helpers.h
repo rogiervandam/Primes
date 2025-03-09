@@ -10,8 +10,8 @@
 #define compile_verbose_level           5
 #endif
 
-#define bitshift_t uint64_t // type used to shift bits
-#define counter_t  int32_t  // type used to count loops, etc. Some processors/compilers are faster at 32 bits
+#define bitshift_t int64_t // type used to shift bits
+#define counter_t  int64_t  // type used to count loops, etc. Some processors/compilers are faster at 32 bits
 
 #if defined(counter_t) && (counter_t == int32_t || counter_t == uint32_t)
     #define COUNTER_T_MAX_SAFE_VALUE 1000000000ULL
