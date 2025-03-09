@@ -254,7 +254,7 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
     counter_t prime_stripe_get_prime_no_repeat_word = get_prime_no_repeat_block_calc(block_start, block_stop, WORD_SIZE_counter);
 
     counter_t prime_endloop1 = prime_max;
-              prime_endloop1 = min(prime_endloop1, global_mediumstep_faster);                // allow tuning with mediumstep
+              prime_endloop1 = min(prime_endloop1, global_mediumstep_faster/2);                // allow tuning with mediumstep
               prime_endloop1 = min(prime_endloop1, VECTORWORD_SIZE_counter/2-1);             // cannot be used beyond VECTORWORD_SIZE
               prime_endloop1 = min(prime_endloop1, prime_vectorpattern_not_repeating_in_block);
               prime_endloop1 = min(prime_endloop1, prime_stripe_start_beyond_block_stop);
@@ -267,7 +267,7 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
               prime_endloop1c = min(prime_endloop1c, VECTORWORD_SIZE_counter/2-1); 
 
     counter_t prime_endloop2 = prime_max;
-              prime_endloop2 = min(prime_endloop2, global_largestep_faster);                 // allow tuning with largestep
+              prime_endloop2 = min(prime_endloop2, global_largestep_faster/2);                 // allow tuning with largestep
               prime_endloop2 = min(prime_endloop2, VECTOR_SIZE_counter/2-1);                 // cannot be used beyond VECTOR_SIZE
               prime_endloop2 = min(prime_endloop2, prime_vectorpattern_not_repeating_in_block);
               prime_endloop2 = min(prime_endloop2, prime_stripe_start_beyond_block_stop);
@@ -345,94 +345,7 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
 
 static inline __attribute__((always_inline)) counter_t sieve_block_stripe0(bitword_t* restrict bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
-    verbose5(  printf("\nBlock stripe for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
-    timer_lapstart(time_sieve_block_stripe);
-
-    counter_t prime_stripe_start_beyond_block_stop = prime_stripe_start_beyond_block_stop_calc(block_stop-1);
-    counter_t prime_vectorpattern_not_repeating_in_block = get_prime_no_repeat_block_calc(0, block_stop, VECTOR_SIZE_counter);
-    counter_t prime_stripe_get_prime_no_repeat_word = get_prime_no_repeat_block_calc(0, block_stop, WORD_SIZE_counter);
-
-    counter_t prime_endloop1 = prime_max;
-              prime_endloop1 = min(prime_endloop1, global_mediumstep_faster);                // allow tuning with mediumstep
-              prime_endloop1 = min(prime_endloop1, VECTORWORD_SIZE_counter/2-1);             // cannot be used beyond VECTORWORD_SIZE
-              prime_endloop1 = min(prime_endloop1, prime_vectorpattern_not_repeating_in_block);
-              prime_endloop1 = min(prime_endloop1, prime_stripe_start_beyond_block_stop);
-
-    counter_t prime_endloop1b = prime_max;
-              prime_endloop1b = min(prime_endloop1b, prime_stripe_get_prime_no_repeat_word);
-              prime_endloop1b = min(prime_endloop1b, VECTORWORD_SIZE_counter/2-1); 
-
-    counter_t prime_endloop1c = prime_max;
-              prime_endloop1c = min(prime_endloop1c, VECTORWORD_SIZE_counter/2-1); 
-
-    counter_t prime_endloop2 = prime_max;
-              prime_endloop2 = min(prime_endloop2, global_largestep_faster);                 // allow tuning with largestep
-              prime_endloop2 = min(prime_endloop2, VECTOR_SIZE_counter/2-1);                 // cannot be used beyond VECTOR_SIZE
-              prime_endloop2 = min(prime_endloop2, prime_vectorpattern_not_repeating_in_block);
-              prime_endloop2 = min(prime_endloop2, prime_stripe_start_beyond_block_stop);
-
-    counter_t prime_endloop3 = prime_max;     
-              prime_endloop3 = min(prime_endloop3, prime_stripe_get_prime_no_repeat_word);
-              prime_endloop3 = min(prime_endloop3, prime_stripe_start_beyond_block_stop);
-
-    counter_t prime_endloop4 = prime_max;
-              prime_endloop4 = min(prime_endloop4, prime_stripe_start_beyond_block_stop);
-
-    // printf("Endloop1 %ju Endloop2 %ju Endloop3 %ju Endloop4 %ju Beyond block %ju NoRepeatVectorWord %ju NoRepeatVector %ju\n", (uintmax_t) prime_endloop1, (uintmax_t) prime_endloop2, (uintmax_t) prime_endloop3, (uintmax_t) prime_endloop4, (uintmax_t) prime_stripe_start_beyond_block_stop, (uintmax_t) prime_stripe_get_prime_no_repeat_vectorword, (uintmax_t) prime_vectorpattern_not_repeating_in_block);
-    // printf("Block start %ju Block stop %ju Prime start %ju Prime max %ju\n", (uintmax_t) block_start, (uintmax_t) block_stop, (uintmax_t) prime_start, (uintmax_t) prime_max_org);
-  
-    counter_t prime = prime_start;
-
-    while (prime < prime_endloop1) {
-        const counter_t step  = prime * 2 + 1;
-        counter_t start = prime * (step + 1);
-        setBitsTrue_largeRange_vector_wordstep(bitstorage, start, step, block_stop);
-        prime = searchBitFalse(bitstorage, prime);
-    }
-
-    while (prime < prime_endloop1b) {
-        const counter_t step  = prime * 2 + 1;
-        counter_t start = prime * (step + 1);
-        setBitsTrue_largeRange_repeat(bitstorage, start, step, block_stop);
-        prime = searchBitFalse_largeRange(bitstorage, prime);
-    }
-
-    while (prime < prime_endloop1c) {
-        const counter_t step  = prime * 2 + 1;
-        counter_t start = prime * (step + 1);
-        setBitsTrue_largeRange_norepeat(bitstorage, start, step, block_stop);
-        prime = searchBitFalse_largeRange(bitstorage, prime);
-    }
-
-    while (prime < prime_endloop2) {
-        const counter_t step  = prime * 2 + 1;
-        counter_t start = prime * (step + 1);
-        setBitsTrue_largeRange_vector_vectorstep(bitstorage, start, step, block_stop);
-        prime = searchBitFalse(bitstorage, prime);
-    }
-
-    while (prime < prime_endloop3) {
-        const counter_t step  = prime * 2 + 1;
-        counter_t start = prime * (step + 1);
-        setBitsTrue_largeRange_repeat(bitstorage, start, step, block_stop);
-        prime = searchBitFalse_largeRange(bitstorage, prime);
-    }
-
-    while (prime < prime_endloop4) {
-        const counter_t step  = prime * 2 + 1;
-        counter_t start = prime * (step + 1);
-        setBitsTrue_largeRange_norepeat(bitstorage, start, step, block_stop);
-        prime = searchBitFalse_largeRange(bitstorage, prime);
-    }
-
-    while (prime < prime_max) {
-        const counter_t step  = prime * 2 + 1;
-        counter_t start = prime * (step + 1);
-        setBitsTrue_largeRange_norepeat(bitstorage, start, step, block_stop);
-        prime = searchBitFalse_largeRange(bitstorage, prime);
-    }
-    timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); )
-    return prime; 
+    return sieve_block_stripe(bitstorage, 0, block_stop, prime_start, prime_max);
 }
 
 // assume that prim

@@ -54,11 +54,11 @@ static inline benchmark_settings_t check_benchmark_settings(benchmark_settings_t
     // printf("Before Prime max %ju stripe faster %ju medium faster %ju large faster %ju blocksize %ju\n", (uintmax_t)prime_max, (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.largestep_faster, (uintmax_t)benchmark_settings.blocksize_bits);
 
     benchmark_settings.stripe_faster     = min(benchmark_settings.stripe_faster, prime_max);
-    benchmark_settings.mediumstep_faster = min(benchmark_settings.mediumstep_faster, VECTORWORD_SIZE_counter/2-1);
+    benchmark_settings.mediumstep_faster = min(benchmark_settings.mediumstep_faster, VECTORWORD_SIZE_counter);
     benchmark_settings.mediumstep_faster = min(benchmark_settings.mediumstep_faster, prime_max);
     benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, benchmark_settings.mediumstep_faster);
-    benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, VECTORWORD_SIZE_counter/2);
-    benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, VECTOR_SIZE_counter/2);
+    benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, VECTORWORD_SIZE_counter);
+    benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, VECTOR_SIZE_counter);
     benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, prime_max);
     // benchmark_settings.blocksize_bits    = max(benchmark_settings.blocksize_bits, benchmark_settings.factor_max);
     benchmark_settings.blocksize_bits    = min(benchmark_settings.blocksize_bits, benchmark_settings.factor_max/2+1);
@@ -206,8 +206,8 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
 
     // build the tuning table
     for (counter_t stripe_faster = 0; stripe_faster <= prime_max; stripe_faster += stripe_faster_steps, stripe_faster_steps*=2) { // increase the stepsize exponentially to reduce the number of options
-        for (counter_t mediumstep_faster = 0; mediumstep_faster <= VECTORWORD_SIZE_counter/2-1; mediumstep_faster += mediumstep_faster_steps) {
-            for (counter_t largestep_faster = VECTORWORD_SIZE_counter/2-1; largestep_faster <= VECTOR_SIZE_counter/2-1; largestep_faster += largestep_faster_steps) { // TODO: start vectorstep at a nice % from mediumstep
+        for (counter_t mediumstep_faster = 0; mediumstep_faster <= VECTORWORD_SIZE_counter; mediumstep_faster += mediumstep_faster_steps) {
+            for (counter_t largestep_faster = VECTORWORD_SIZE_counter; largestep_faster <= VECTOR_SIZE_counter; largestep_faster += largestep_faster_steps) { // TODO: start vectorstep at a nice % from mediumstep
                 for (counter_t blocksize_bits=128*1024*8; blocksize_bits>=9*1024*8; blocksize_bits /= 2) {
                     for (counter_t smallprime_direction=0; smallprime_direction<=1; smallprime_direction++) { // helper to exponentially start at top and bottom of range
 
