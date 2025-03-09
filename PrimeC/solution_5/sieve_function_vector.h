@@ -63,15 +63,24 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep(b
 
     const bitshift_t shift = vector_bitindex_calc(range_start); 
     const bitshift_t pattern_wordshift = pattern_size - VECTORWORD_SIZE_bitshift;
-    const bitvector_t shift_base_vector = VECTOR_BASE(shift);
-    const bitvector_t vector_byteindex = VECTOR_BYTEINDEX;
-    const bitvector_t pattern_wordshift_vector = VECTOR_BASE(pattern_wordshift) * vector_byteindex;
-    const bitvector_t step_vector = VECTOR_BASE(step);
-    const bitvector_t quadmask_base = VECTOR_BASE(pattern);
-    const bitvector_t shift_vector = shift_base_vector + pattern_wordshift_vector;
-    const bitvector_t shift_vector_minimal = shift_vector % step_vector;
 
-    bitvector_t quadmask = quadmask_base << shift_vector_minimal;
+    // const bitvector_t shift_base_vector = VECTOR_BASE(shift);
+    // const bitvector_t vector_byteindex = VECTOR_BYTEINDEX;
+    // const bitvector_t pattern_wordshift_vector = VECTOR_BASE(pattern_wordshift) * vector_byteindex;
+    // const bitvector_t step_vector = VECTOR_BASE(step);
+    // const bitvector_t quadmask_base = VECTOR_BASE(pattern);
+    // const bitvector_t shift_vector = shift_base_vector + pattern_wordshift_vector;
+    // bitvector_t shift_vector_minimal = shift_vector % step_vector;
+    // bitvector_t quadmask = quadmask_base << shift_vector_minimal;
+
+    // shorter alternative; maybe just as fast
+    bitvector_t quadmask = VECTOR_BASE(pattern);
+    for (counter_t i=0; i<VECTOR_ELEMENTS; i++) {
+        counter_t totalshift = (shift + pattern_wordshift * i);
+        while (totalshift >= step) totalshift -= step;
+        quadmask[i] = quadmask[i] << totalshift;
+    }
+
     register const bitshift_t pattern_vectorshift = ((pattern_size - VECTORWORD_SIZE_bitshift) * (bitshift_t)VECTOR_ELEMENTS) % step_shift;
     register const counter_t vector_max = vectorindex(range_stop_unique);
     // debug_hits += debug_final_plan;

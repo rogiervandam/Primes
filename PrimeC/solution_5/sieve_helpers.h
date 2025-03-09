@@ -1,8 +1,8 @@
 // This file contains all helper functions
 
 // defaults
-#define compile_verbose_level           3  // Set to 1-4 to enable compiling different verbose levels
-#define anticiped_cache_line_bytesize   256 // How to align the caches
+#define compile_verbose_level           0  // Set to 1-4 to enable compiling different verbose levels
+#define anticiped_cache_line_bytesize   64 // How to align the caches
 // #define COMPILE_CHECKALL                 // Set to 1 to enable all checks
 
 #ifdef COMPILE_EXPLAIN // define compile_explain with compilation options
@@ -172,7 +172,8 @@
 #define SHIFT_VECTOR        ((bitshift_t)(pow(VECTOR_SIZE,1)+pow(VECTOR_SIZE,2)+pow(VECTOR_SIZE,3)+pow(VECTOR_SIZE,4)+pow(VECTOR_SIZE,5)+pow(VECTOR_SIZE,6)+pow(VECTOR_SIZE,7)+pow(VECTOR_SIZE,8)+pow(VECTOR_SIZE,9)+pow(VECTOR_SIZE,10)))
 
 // types (II) - calculated
-typedef bitword_vector_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes))); 
+typedef bitword_vector_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes), aligned(anticiped_cache_line_bytesize))); 
+// typedef bitword_vector_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes), aligned(64))); 
 
 // globals for tuning
 static counter_t global_stripeprime_faster  = 32ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve

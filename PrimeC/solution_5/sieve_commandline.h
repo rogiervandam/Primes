@@ -1,8 +1,8 @@
 static inline char* extension_as_string(char* extension) {
     #ifdef _OPENMP
-    sprintf(extension,"_epar-u%juv%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS);
+    verbose1( sprintf(extension,"_epar-u%juv%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); )
     #else
-    sprintf(extension,"-u%juv%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS);
+    verbose1( sprintf(extension,"-u%juv%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); )
     #endif
     return extension;
 }
@@ -46,10 +46,15 @@ static void usage(char *program_name, int exit_code)
         "                            5 - show timing\n"
         "[maximum] is the heighest prime to examine. Defaults to %ju\n";
     
-    
-    if (exit_code == 0) fprintf(stdout, help_text, program_name, (uintmax_t)option.fixed_benchmark_settings.factor_max);
-    else                fprintf(stderr, help_text, program_name, (uintmax_t)option.fixed_benchmark_settings.factor_max);
+    verbose1(
+        if (exit_code == 0) fprintf(stdout, help_text, program_name, (uintmax_t)option.fixed_benchmark_settings.factor_max);
+        else                fprintf(stderr, help_text, program_name, (uintmax_t)option.fixed_benchmark_settings.factor_max);
+    )
     exit(exit_code);
+}
+
+static inline int local_isdigit(int c) {
+    return (c >= '0' && c <= '9');
 }
 
 static struct options_t parseCommandLine(int argc, char *argv[], struct options_t option)
@@ -64,7 +69,7 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
         else if (strcmp(argv[arg], "--verbose")==0) { option.verbose_level=0;
             if (++arg >= argc) { fprintf(stderr, "No verbose level specified\n"); usage(program_name, 1); }
             if (sscanf(argv[arg], "%d", &option.verbose_level) != 1 || option.verbose_level > 4) {
-                fprintf(stderr, "Error: Invalid measurement time: %s\n", argv[arg]); usage(program_name, 1);
+                verbose1( fprintf(stderr, "Error: Invalid measurement time: %s\n", argv[arg]); usage(program_name, 1); )
             }
             verbose2( printf("Verbose level set to %d\n",option.verbose_level); )
         } 
@@ -79,14 +84,14 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
         else if (strcmp(argv[arg], "--tune")==0) { option.tunelevel=0;
             if (++arg >= argc) { fprintf(stderr, "No tune level specified\n"); usage(program_name, 1); }
             if (sscanf(argv[arg], "%d", &option.tunelevel) != 1 || option.tunelevel > 4) {
-                fprintf(stderr, "Error: Invalid tune level: %s\n", argv[arg]); usage(program_name, 1);
+                verbose1( fprintf(stderr, "Error: Invalid tune level: %s\n", argv[arg]); usage(program_name, 1); )
             }
             verbose2( printf("Tune level set to %d\n",option.tunelevel); )
         }
         else if (strcmp(argv[arg], "--time")==0) { option.time_max=0;
             if (++arg >= argc) { fprintf(stderr, "No time specified\n"); usage(program_name, 1); }
             if (sscanf(argv[arg], "%lf", &option.time_max) != 1 ) {
-                fprintf(stderr, "Error: Invalid max time: %s\n", argv[arg]); usage(program_name, 1);
+                verbose1( fprintf(stderr, "Error: Invalid max time: %s\n", argv[arg]); usage(program_name, 1); )
             }
             verbose2( printf("Max time is set to %f seconds\n",option.time_max); )
         }
@@ -100,7 +105,7 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
         else if (strcmp(argv[arg], "--max")==0) { option.fixed_benchmark_settings.factor_max = 0;
             if (++arg >= argc) { fprintf(stderr, "No show maximum specified\n"); usage(program_name, 1); }
             if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.fixed_benchmark_settings.factor_max) != 1) {
-                fprintf(stderr, "Error: Invalid show maximum: %s\n", argv[arg]); usage(program_name, 1);
+                verbose1( fprintf(stderr, "Error: Invalid show maximum: %s\n", argv[arg]); usage(program_name, 1); )
             }
             verbose2( printf("Maximum set to %ju\n",(uintmax_t)option.fixed_benchmark_settings.factor_max); )
         }
@@ -123,10 +128,10 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
                 uintmax_t value = 0;
                 
                 // Skip to first digit
-                while (*p && !isdigit(*p)) p++;
+                while (*p && !local_isdigit(*p)) p++;
                 
                 // Parse the number
-                if (*p && isdigit(*p)) {
+                if (*p && local_isdigit(*p)) {
                     if (sscanf(p, "%ju", &value) != 1) {
                         fprintf(stderr, "Error: Invalid number after '%c'\n", param_type);
                         usage(program_name, 1);
@@ -147,7 +152,7 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
                     }
                     
                     // Skip the parsed number
-                    while (*p && isdigit(*p)) p++;
+                    while (*p && local_isdigit(*p)) p++;
                 }
             }
             
@@ -174,8 +179,8 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
         #endif
         }
         else if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.fixed_benchmark_settings.factor_max) != 1) {
-            fprintf(stderr, "Invalid size %s\n",argv[arg]); usage(program_name, 1); 
-            printf("Maximum set to %ju\n",(uintmax_t)option.fixed_benchmark_settings.factor_max);
+            verbose1( fprintf(stderr, "Invalid size %s\n",argv[arg]); usage(program_name, 1); )
+            verbose2( printf("Maximum set to %ju\n",(uintmax_t)option.fixed_benchmark_settings.factor_max); )
         }
     }
     return option;
@@ -240,10 +245,11 @@ int main(int argc, char *argv[])
         verbose2(outputBenchmarkStats(benchmark_result);)
 
         // report results
-        char extension[50] = "";      extension_as_string(extension);      
+        char extension[50] = ""; extension_as_string(extension);      
         benchmark_settings_as_string(settings_string, benchmark_result.settings);
         printf("%s%s;%ju;%f;%ju;algorithm=%s,faithful=yes,bits=1",algorithm_name,extension,(uintmax_t)benchmark_result.passes,benchmark_result.elapsed_time,(uintmax_t)threads, algorithm_type);
-        verbose1( { printf(";%s",settings_string); } ) printf("\n");
+        verbose1( { printf(";%s",settings_string); } ) 
+        printf("\n");
     }
 
     // show results for --show command line option
@@ -251,7 +257,6 @@ int main(int argc, char *argv[])
 
     if (option.timers) print_timing_table();
 
-    // if (debug_hits || debug_hits2) 
-    verbose2( printf("Hits: %ju %ju\n",(uintmax_t)debug_hits, (uintmax_t)debug_hits2); )
+    if (debug_hits || debug_hits2) { verbose2( printf("Hits: %ju %ju\n",(uintmax_t)debug_hits, (uintmax_t)debug_hits2); ) }
 
 }

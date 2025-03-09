@@ -15,7 +15,6 @@
 #include <stdint.h>
 #include <time.h>
 #include <string.h>
-#include <ctype.h> /* For isdigit() function */
 #include <inttypes.h>
 #ifdef _OPENMP
 #include <omp.h>

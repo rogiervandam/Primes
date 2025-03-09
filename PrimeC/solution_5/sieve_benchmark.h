@@ -144,8 +144,8 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
 static inline void tuning_result_print(benchmark_result_t tuning_result) 
 {
     char settings[100]=""; benchmark_settings_as_string(settings, tuning_result.settings);
-    printf("average \033[1;33m%f\033[0m with options \033[1;32m%s\033[0m was achieved with \033[1;33m%3ju\033[0m passes in \033[1;33m%f\033[0m seconds\n", 
-    tuning_result.avg, settings, (uintmax_t)tuning_result.passes, tuning_result.elapsed_time);
+    verbose2( printf("average \033[1;33m%f\033[0m with options \033[1;32m%s\033[0m was achieved with \033[1;33m%3ju\033[0m passes in \033[1;33m%f\033[0m seconds\n", 
+    tuning_result.avg, settings, (uintmax_t)tuning_result.passes, tuning_result.elapsed_time); )
 }
 
 static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning_settings) 
@@ -237,7 +237,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
                         const int valid = checkSieveWithBenchmarkSettings(tuning_settings);
                         if (!valid) {
                             char settings_string[100]=""; benchmark_settings_as_string(settings_string, tuning_settings);
-                            fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for settings %s with factor %ju\n", settings_string, (uintmax_t) tuning_settings.factor_max);
+                            verbose1( { fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for settings %s with factor %ju\n", settings_string, (uintmax_t) tuning_settings.factor_max); } )
                             exit(1);
                         }
                         #endif
@@ -412,7 +412,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
             const int valid = checkSieveWithBenchmarkSettings(tuning_settings);
             if (!valid) {
                 char settings_string[100]=""; benchmark_settings_as_string(settings_string, tuning_settings);
-                fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for settings %s with factor %ju\n", settings_string, (uintmax_t) tuning_settings.factor_max);
+                verbose1( fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for settings %s with factor %ju\n", settings_string, (uintmax_t) tuning_settings.factor_max); )
                 exit(1);
             }
             #endif
@@ -438,13 +438,12 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
 
 static void outputBenchmarkStats(benchmark_result_t benchmark_result)
 {
-    
-    printf("\rResult: Passes \033[1;33m%ju\033[0m \033[0;32m(per %.1f seconds)\033[0m - average \033[1;33m%.1f\033[0m per second \n", 
-        (uintmax_t) benchmark_result.passes, benchmark_result.elapsed_time, benchmark_result.passes/benchmark_result.elapsed_time);
+    verbose1( printf("\rResult: Passes \033[1;33m%ju\033[0m \033[0;32m(per %.1f seconds)\033[0m - average \033[1;33m%.1f\033[0m per second \n", 
+        (uintmax_t) benchmark_result.passes, benchmark_result.elapsed_time, benchmark_result.passes/benchmark_result.elapsed_time);)
     // if (option.time_max!=5.0)     printf("\033[0;32m(Passes - per %.1f seconds: \033[1;33m%f\033[0m - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", 5.0, 5.0*benchmark_result.passes/benchmark_result.elapsed_time, benchmark_result.passes/benchmark_result.elapsed_time);
     // if (threads>1) printf("        \033[0;32mPasses per thread (total %ju) - per %.1f seconds: %.1f - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", 
     //                      (uintmax_t)benchmark_result.settings.threads, benchmark_result.settings.sample_duration, option.time_max*benchmark_result.passes/benchmark_result.elapsed_time/threads, benchmark_result.passes/benchmark_result.elapsed_time/threads);
-    printf("\033[0;32mOutput message:\033[0m ");
+    verbose1( printf("\033[0;32mOutput message:\033[0m "); )
 }
 
 
