@@ -15,7 +15,8 @@
 #include <stdint.h>
 #include <time.h>
 #include <string.h>
-#include <inttypes.h>
+
+// #include <inttypes.h>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
