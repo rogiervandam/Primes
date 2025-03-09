@@ -60,7 +60,7 @@ static inline benchmark_settings_t check_benchmark_settings(benchmark_settings_t
     benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, VECTORWORD_SIZE_counter/2);
     benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, VECTOR_SIZE_counter/2);
     benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, prime_max);
-    benchmark_settings.blocksize_bits    = max(benchmark_settings.blocksize_bits, benchmark_settings.factor_max);
+    // benchmark_settings.blocksize_bits    = max(benchmark_settings.blocksize_bits, benchmark_settings.factor_max);
     benchmark_settings.blocksize_bits    = min(benchmark_settings.blocksize_bits, benchmark_settings.factor_max/2+1);
 
     // printf("After  Prime max %ju stripe faster %ju medium faster %ju large faster %ju blocksize %ju\n", (uintmax_t)prime_max, (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.largestep_faster, (uintmax_t)benchmark_settings.blocksize_bits);
@@ -218,7 +218,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
                         if (option.fixed_benchmark_settings.blocksize_bits)    { blocksize_bits = option.fixed_benchmark_settings.blocksize_bits; }
 
                         // set variables
-                        tuning_settings.blocksize_bits = blocksize_bits - 4 * 1024 * 8; // keep some room for the beginning of the sieve
+                        tuning_settings.blocksize_bits = blocksize_bits; // keep some room for the beginning of the sieve
                         tuning_settings.stripe_faster = (smallprime_direction==0) ? stripe_faster : (prime_max - stripe_faster);
                         tuning_settings.mediumstep_faster = mediumstep_faster;
                         tuning_settings.largestep_faster = largestep_faster;
