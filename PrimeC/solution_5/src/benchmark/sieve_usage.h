@@ -36,7 +36,9 @@ static void usage(char *program_name, int exit_code)
         "                            4 - show actual work\n"
         "                            5 - show high-level plan\n"
         "                            6 - show detailed plan\n"
-        "                            7 - show timing\n"
+        "                            7 - show more details\n"
+        "                            8 - show debug details\n"
+        "                            9 - show timing\n"
         "[maximum] is the heighest prime to examine. Defaults to %ju\n";
     
     verbose1({

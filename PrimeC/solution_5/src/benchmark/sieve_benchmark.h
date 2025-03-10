@@ -13,10 +13,12 @@ static inline benchmark_settings_t check_benchmark_settings(benchmark_settings_t
     benchmark_settings.stripe_faster     = min(benchmark_settings.stripe_faster, prime_max);
     benchmark_settings.mediumstep_faster = min(benchmark_settings.mediumstep_faster, VECTORWORD_SIZE_counter);
     benchmark_settings.mediumstep_faster = min(benchmark_settings.mediumstep_faster, prime_max);
+    benchmark_settings.mediumstep_faster = max(benchmark_settings.mediumstep_faster, 2); // allow for conversion from step to prime
     benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, benchmark_settings.mediumstep_faster);
     benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, VECTORWORD_SIZE_counter);
     benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, VECTOR_SIZE_counter);
     benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, prime_max);
+    benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, 2); // allow for conversion from step to prime
     benchmark_settings.blocksize_bits    = min(benchmark_settings.blocksize_bits, benchmark_settings.factor_max/2);
     if (benchmark_settings.blocksize_bits == 0) benchmark_settings.blocksize_bits = benchmark_settings.factor_max/2;
     return benchmark_settings;
@@ -78,7 +80,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
     counter_t sieve_bits = benchmark_settings.factor_max >> 1;
 
     // set global variables used in the sieve functions
-    prepareBenchmarkGlobals(benchmark_settings);
+    prepareBenchmarkGlobals(benchmark_result.settings); // TODO; change back to benchmark_settings
 
     // prepare for the benchmark
     counter_t passes = 0;

@@ -13,7 +13,7 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
         if (strcmp(argv[arg], "--help")==0) { usage(program_name, 0); }
         else if (strcmp(argv[arg], "--verbose")==0) { option.verbose_level=0;
             if (++arg >= argc) { fprintf(stderr, "No verbose level specified\n"); usage(program_name, 1); }
-            if (sscanf(argv[arg], "%d", &option.verbose_level) != 1 || option.verbose_level > 7) {
+            if (sscanf(argv[arg], "%d", &option.verbose_level) != 1 || option.verbose_level > 9) {
                 verbose1( fprintf(stderr, "Error: Invalid measurement time: %s\n", argv[arg]); usage(program_name, 1); )
             }
             verbose2( printf("Verbose level set to %d\n",option.verbose_level); )

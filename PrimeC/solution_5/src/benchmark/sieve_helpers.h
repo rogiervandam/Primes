@@ -10,8 +10,8 @@
 #define compile_verbose_level           7
 #endif
 
-#define bitshift_t uint64_t // type used to shift bits
-#define counter_t  int32_t  // type used to count loops, etc. Some processors/compilers are faster at 32 bits
+#define bitshift_t int64_t // type used to shift bits
+#define counter_t  int64_t  // type used to count loops, etc. Some processors/compilers are faster at 32 bits
 
 #if defined(counter_t) && (counter_t == int32_t || counter_t == uint32_t)
     #define COUNTER_T_MAX_SAFE_VALUE 1000000000ULL
@@ -41,6 +41,8 @@
 #define verbose5(statement)
 #define verbose6(statement)
 #define verbose7(statement)
+#define verbose8(statement)
+#define verbose9(statement)
 #define verbose_at2(statement)
 #define verbose_at3(statement)
 
@@ -76,6 +78,15 @@
   #undef verbose7
   #define verbose7(statement) if (option.verbose_level >= 7) statement
 #endif
+#if compile_verbose_level >= 8
+  #undef verbose8
+  #define verbose8(statement) if (option.verbose_level >= 8) statement
+#endif
+#if compile_verbose_level >= 9
+  #undef verbose9
+  #define verbose9(statement) if (option.verbose_level >= 9) statement
+#endif
+
 
 // helper calc functions
 #define pow(base,pow)       (pow*((base>>pow)&1U))

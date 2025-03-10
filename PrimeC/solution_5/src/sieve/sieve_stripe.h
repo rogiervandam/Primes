@@ -55,23 +55,23 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
     counter_t prime_vectorpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, VECTOR_SIZE_counter);
     counter_t prime_wordpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, WORD_SIZE_counter);
 
-    counter_t prime_endloop4 = min(prime_max, prime_stripe_start_beyond_block_stop);
-    counter_t prime_endloop3 = min(prime_endloop4, prime_wordpattern_not_repeating_in_block);
-    counter_t prime_endloop2 = min(prime_endloop3, prime_vectorpattern_not_repeating_in_block);
-              prime_endloop2 = min(prime_endloop2, VECTOR_SIZE_counter/2-1);                 // cannot be used beyond VECTOR_SIZE
-              prime_endloop2 = min(prime_endloop2, global_largestep_faster/2-1);                 // allow tuning with largestep
+    counter_t prime_endloop5 = min(prime_max, prime_stripe_start_beyond_block_stop);
+    counter_t prime_endloop4 = min(prime_endloop5, prime_wordpattern_not_repeating_in_block);
+    counter_t prime_endloop3 = min(prime_endloop4, prime_vectorpattern_not_repeating_in_block);
+              prime_endloop3 = min(prime_endloop3, VECTOR_SIZE_counter/2-1);                 // cannot be used beyond VECTOR_SIZE
+              prime_endloop3 = min(prime_endloop3, global_largestep_faster/2-1);                 // allow tuning with largestep
 
-    counter_t prime_endloop1b = min(prime_endloop2, VECTORWORD_SIZE_counter/2-1);  
-    counter_t prime_endloop1  = min(prime_endloop1b, global_mediumstep_faster/2-1);
+    counter_t prime_endloop2 = min(prime_endloop3, VECTORWORD_SIZE_counter/2-1);  
+    counter_t prime_endloop1 = min(prime_endloop2, global_mediumstep_faster/2-1);
  
     counter_t prime = prime_start;
 
     verbose5( printf("Plan start with prime %ju up to %ju using range %ju - %ju:\n", (uintmax_t)prime_start*2+1, (uintmax_t)prime_max*2+1, (uintmax_t)block_start, (uintmax_t)block_stop ); )
     verbose5( printf("(1) Prime %3ju - %3ju : Use vectors with wordroll  for primes up to %ju\n", (uintmax_t)prime_start    *2+1, (uintmax_t)prime_endloop1 *2+1, (uintmax_t)prime_endloop1); )
-    verbose5( printf("(2) Prime %3ju - %3ju : Use repeating word masks   for primes up to %ju\n", (uintmax_t)prime_endloop1 *2+1, (uintmax_t)prime_endloop1b*2+1, (uintmax_t)prime_endloop1b); )
-    verbose5( printf("(3) Prime %3ju - %3ju : Use vectors sparse steps   for primes up to %ju\n", (uintmax_t)prime_endloop1b*2+1, (uintmax_t)prime_endloop2 *2+1, (uintmax_t)prime_endloop2); )
-    verbose5( printf("(4) Prime %3ju - %3ju : Use repeating word masks   for primes up to %ju\n", (uintmax_t)prime_endloop2 *2+1, (uintmax_t)prime_endloop3 *2+1, (uintmax_t)prime_endloop3); )
-    verbose5( printf("(5) Prime %3ju - %3ju : Use setting bit one by one for primes up to %ju\n", (uintmax_t)prime_endloop3 *2+1, (uintmax_t)prime_endloop4 *2+1, (uintmax_t)prime_endloop4); )
+    verbose5( printf("(2) Prime %3ju - %3ju : Use repeating word masks   for primes up to %ju\n", (uintmax_t)prime_endloop1 *2+1, (uintmax_t)prime_endloop2 *2+1, (uintmax_t)prime_endloop3); )
+    verbose5( printf("(3) Prime %3ju - %3ju : Use vectors sparse steps   for primes up to %ju\n", (uintmax_t)prime_endloop2 *2+1, (uintmax_t)prime_endloop3 *2+1, (uintmax_t)prime_endloop4); )
+    verbose5( printf("(4) Prime %3ju - %3ju : Use repeating word masks   for primes up to %ju\n", (uintmax_t)prime_endloop3 *2+1, (uintmax_t)prime_endloop4 *2+1, (uintmax_t)prime_endloop5); )
+    verbose5( printf("(5) Prime %3ju - %3ju : Use setting bit one by one for primes up to %ju\n", (uintmax_t)prime_endloop4 *2+1, (uintmax_t)prime_endloop5 *2+1, (uintmax_t)prime_endloop5); )
 
     while (prime < prime_endloop1) {
         const counter_t step  = prime * 2 + 1;
@@ -80,43 +80,38 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
         setBitsTrue_smallstep_vector(bitstorage, start, step, block_stop);
         prime = searchBitFalse(bitstorage, prime);
     }
-    verbose5( printf("Prime endloop 1: %ju\n", (uintmax_t)prime); )
 
-    while (prime < prime_endloop1b) {
+    while (prime < prime_endloop2) {
         const counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
         if likely(start < block_start)  { start = (block_start + prime) + prime - ((block_start + prime) % step);}
         setBitsTrue_smallstep_repeat(bitstorage, start, step, block_stop);
         prime = searchBitFalse(bitstorage, prime);
     }
-    verbose5( printf("Prime endloop 1b: %ju\n", (uintmax_t)prime); )
 
-    while (prime < prime_endloop2) {
+    while (prime < prime_endloop3) {
         const counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
         if likely(start < block_start)  { start = (block_start + prime) + prime - ((block_start + prime) % step);}
         setBitsTrue_largestep_vector(bitstorage, start, step, block_stop);
         prime = searchBitFalse(bitstorage, prime);
     }
-    verbose5( printf("Prime endloop 2: %ju\n", (uintmax_t)prime); )
 
-    while (prime < prime_endloop3) {
+    while (prime < prime_endloop4) {
         const counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
         if likely(start < block_start)  { start = (block_start + prime) + prime - ((block_start + prime) % step);}
         setBitsTrue_largestep_repeat(bitstorage, start, step, block_stop);
         prime = searchBitFalse_largeRange(bitstorage, prime);
     }
-    verbose5( printf("Prime endloop 3: %ju\n", (uintmax_t)prime); )
 
-    while (prime < prime_endloop4) {
+    while (prime < prime_endloop5) {
         const counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
         if (start < block_start)  { start = (block_start + prime) + prime - ((block_start + prime) % step);}
         setBitsTrue_largestep_norepeat(bitstorage, start, step, block_stop);
         prime = searchBitFalse_largeRange(bitstorage, prime);
     }
-    verbose5( printf("Prime endloop 4: %ju\n", (uintmax_t)prime); )
 
     while (prime < prime_max) {
         const counter_t step  = prime * 2 + 1;
@@ -125,7 +120,6 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
         setBitsTrue_largestep_norepeat(bitstorage, start, step, block_stop);
         prime = searchBitFalse_largeRange(bitstorage, prime);
     }
-    verbose5( printf("Prime endloop final: %ju\n", (uintmax_t)prime); )
 
     timer_laptime(time_sieve_block_stripe); verbose7( printf("\n"); )
     return prime; 
