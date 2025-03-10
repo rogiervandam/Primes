@@ -257,7 +257,7 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
     counter_t prime_endloop3 = min(prime_endloop4, prime_wordpattern_not_repeating_in_block);
     counter_t prime_endloop2 = min(prime_endloop3, prime_vectorpattern_not_repeating_in_block);
               prime_endloop2 = min(prime_endloop2, VECTOR_SIZE_counter/2-1);                 // cannot be used beyond VECTOR_SIZE
-              prime_endloop2 = min(prime_endloop2, global_largestep_faster/2);                 // allow tuning with largestep
+              prime_endloop2 = min(prime_endloop2, global_largestep_faster/2-1);                 // allow tuning with largestep
 
     counter_t prime_endloop1b = min(prime_endloop2, VECTORWORD_SIZE_counter/2-1);  
     counter_t prime_endloop1  = min(prime_endloop1b, global_mediumstep_faster/2-1);
