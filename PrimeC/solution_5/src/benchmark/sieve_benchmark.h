@@ -142,7 +142,7 @@ static inline void tuning_result_print(benchmark_result_t tuning_result)
 
 static void outputBenchmarkStats(benchmark_result_t benchmark_result)
 {
-    verbose1( printf("\rResult: Passes \033[1;33m%ju\033[0m \033[0;32m(per %.1f seconds)\033[0m - average \033[1;33m%.1f\033[0m per second \n", 
+    verbose1( printf("\nResult: Passes \033[1;33m%ju\033[0m \033[0;32m(per %.1f seconds)\033[0m - average \033[1;33m%.1f\033[0m per second \n", 
         (uintmax_t) benchmark_result.passes, benchmark_result.elapsed_time, benchmark_result.passes/benchmark_result.elapsed_time);)
     // if (option.time_max!=5.0)     printf("\033[0;32m(Passes - per %.1f seconds: \033[1;33m%f\033[0m - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", 5.0, 5.0*benchmark_result.passes/benchmark_result.elapsed_time, benchmark_result.passes/benchmark_result.elapsed_time);
     // if (threads>1) printf("        \033[0;32mPasses per thread (total %ju) - per %.1f seconds: %.1f - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", 

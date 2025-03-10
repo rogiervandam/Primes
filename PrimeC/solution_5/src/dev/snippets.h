@@ -20,12 +20,14 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
 
         const counter_t range_stop_unique_word = range_start + WORD_SIZE_counter * step; // * 3 added to force some reuse of the mask
         if (range_stop_unique_word <= range_stop) { // the range will repeat itself; try to resuse the mask
-            setBitsTrue_largestep_repeat(bitstorage, range_start, step, range_stop);
+            setBitsTrue_smallstep_repeat(bitstorage, range_start, step, range_stop);
+            // setBitsTrue_largestep_repeat(bitstorage, range_start, step, range_stop);
             timer_laptime(time_setBitsTrue_largeRange_vector); verbose7( printf("\n"); )
             return;
         } 
         else {
-            setBitsTrue_largestep_norepeat(bitstorage, range_start, step, range_stop);
+            setBitsTrue_smallstep_norepeat(bitstorage, range_start, step, range_stop);
+            // setBitsTrue_largestep_norepeat(bitstorage, range_start, step, range_stop);
             timer_laptime(time_setBitsTrue_largeRange_vector); verbose7( printf("\n"); )
             return;
         }
@@ -43,7 +45,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
             }
         }
 
-        verbose7( printf("\n..Vector will not repeat. Changing methods..\n"); )
+        verbose6( printf("\n..Vector will not repeat. Changing methods..\n"); )
         const counter_t range_stop_unique_word = range_start + WORD_SIZE_counter * step; // * 3 added to force some reuse of the mask
         if (range_stop_unique_word <= range_stop) { // the range will repeat itself; try to resuse the mask
             setBitsTrue_largestep_repeat(bitstorage, range_start, step, range_stop);
@@ -57,7 +59,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largeRange_vector
         }
     }
     else {
-        verbose7( printf("\n..Vector will not repeat. Changing methods..\n"); )
+        verbose6( printf("\n..Vector will not repeat. Changing methods..\n"); )
         const counter_t range_stop_unique_word = range_start + WORD_SIZE_counter * step; // * 3 added to force some reuse of the mask
         if (range_stop_unique_word <= range_stop) { // the range will repeat itself; try to resuse the mask
             setBitsTrue_largestep_repeat(bitstorage, range_start, step, range_stop);

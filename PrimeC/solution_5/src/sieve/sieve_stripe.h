@@ -51,7 +51,7 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
     verbose5(  printf("\nBlock stripe (new) for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
     timer_lapstart(time_sieve_block_stripe);
 
-    counter_t prime_stripe_start_beyond_block_stop = prime_stripe_start_beyond_block_stop_calc(block_stop-1);
+    counter_t prime_stripe_start_beyond_block_stop = prime_stripe_start_beyond_block_stop_calc(block_stop);
     counter_t prime_vectorpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, VECTOR_SIZE_counter);
     counter_t prime_wordpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, WORD_SIZE_counter);
 
@@ -105,7 +105,7 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
         prime = searchBitFalse_largeRange(bitstorage, prime);
     }
 
-    while (prime < prime_endloop5) {
+    while (prime <= prime_endloop5) {
         const counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
         if (start < block_start)  { start = (block_start + prime) + prime - ((block_start + prime) % step);}
@@ -113,13 +113,13 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
         prime = searchBitFalse_largeRange(bitstorage, prime);
     }
 
-    while (prime < prime_max) {
-        const counter_t step  = prime * 2 + 1;
-        counter_t start = prime * (step + 1);
-        if (start < block_start)  { start = (block_start + prime) + prime - ((block_start + prime) % step);}
-        setBitsTrue_largestep_norepeat(bitstorage, start, step, block_stop);
-        prime = searchBitFalse_largeRange(bitstorage, prime);
-    }
+    // while (prime < prime_max) {
+    //     const counter_t step  = prime * 2 + 1;
+    //     counter_t start = prime * (step + 1);
+    //     if (start < block_start)  { start = (block_start + prime) + prime - ((block_start + prime) % step);}
+    //     setBitsTrue_largestep_norepeat(bitstorage, start, step, block_stop);
+    //     prime = searchBitFalse_largeRange(bitstorage, prime);
+    // }
 
     timer_laptime(time_sieve_block_stripe); verbose7( printf("\n"); )
     return prime; 
