@@ -71,7 +71,7 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep(b
     const bitvector_t step_vector = VECTOR_BASE(step);
     const bitvector_t quadmask_base = VECTOR_BASE(pattern);
     const bitvector_t shift_vector = shift_base_vector + pattern_wordshift_vector;
-    bitvector_t shift_vector_minimal = shift_vector % step_vector;
+    const bitvector_t shift_vector_minimal = shift_vector % step_vector;
     bitvector_t quadmask = quadmask_base << shift_vector_minimal;
 
     // shorter alternative; maybe just as fast
