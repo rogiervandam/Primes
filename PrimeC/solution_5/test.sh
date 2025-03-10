@@ -63,7 +63,7 @@ for s in $PROG; do
         PROGTOTAL="$x"
     fi
     echo "Compiling $PROGTOTAL $DEFINE_FLAGS"
-    echo "Issuing command: $CC -o $PROGTOTAL $x.c $DEFINE_FLAGS"
+    echo "Issuing command: $CC -o ./src/$PROGTOTAL $x.c $DEFINE_FLAGS"
     # $CC -o $PROGTOTAL $x.c $DEFINE_FLAGS -fprofile-generate
     # echo "Executing ./$PROGTOTAL $@ for profiling" 
     # # ./$PROG "$@" "--verbose 2"
