@@ -25,12 +25,11 @@
 #include "benchmark/sieve_helpers.h"
 #include "benchmark/sieve_options.h"
 #include "benchmark/sieve_helpers_timers.h"
-
-#include "sieve/sieve_manager.c"
-#include "sieve/sieve_search.c"
-#include "sieve/sieve_setbitstrue_word.c"
-#include "sieve/sieve_setbitstrue_vector.c"
-#include "sieve/sieve_stripe.c"
+#include "sieve/sieve_manager.h"
+#include "sieve/sieve_search.h"
+#include "sieve/sieve_setbitstrue_word.h"
+#include "sieve/sieve_setbitstrue_vector.h"
+#include "sieve/sieve_stripe.h"
 
 static char algorithm_name[] = "rogiervandam_classic";
 static char algorithm_type[] = "classic";
@@ -46,7 +45,7 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     const counter_t sieve_bits = sieve->bits;
     const counter_t prime_max = 1+usqrt(sieve_size)/2;
 
-    verbose5(  printf("\nShaking sieve to find all primes up to %ju\n",(uintmax_t)sieve_size); )
+    verbose7(  printf("\nShaking sieve to find all primes up to %ju\n",(uintmax_t)sieve_size); )
 
     sieve_clear(sieve);
     counter_t prime = 1;
@@ -66,10 +65,10 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     return sieve;
 }
 
-#include "benchmark/sieve_check.c"
-#include "benchmark/sieve_benchmark.c"
-#include "benchmark/sieve_benchmark_tune.c"
-#include "benchmark/sieve_validate.c"
-#include "benchmark/sieve_usage.c"
-#include "benchmark/sieve_parse_commandline.c"
-#include "benchmark/sieve_main.c"
+#include "benchmark/sieve_check.h"
+#include "benchmark/sieve_benchmark.h"
+#include "benchmark/sieve_benchmark_tune.h"
+#include "benchmark/sieve_validate.h"
+#include "benchmark/sieve_usage.h"
+#include "benchmark/sieve_parse_commandline.h"
+#include "benchmark/sieve_main.h"

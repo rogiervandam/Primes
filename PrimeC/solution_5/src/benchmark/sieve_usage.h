@@ -34,7 +34,9 @@ static void usage(char *program_name, int exit_code)
         "                            2 - show general phase progress\n"
         "                            3 - show general progress within the phase\n"
         "                            4 - show actual work\n"
-        "                            5 - show timing\n"
+        "                            5 - show high-level plan\n"
+        "                            6 - show detailed plan\n"
+        "                            7 - show timing\n"
         "[maximum] is the heighest prime to examine. Defaults to %ju\n";
     
     verbose1({

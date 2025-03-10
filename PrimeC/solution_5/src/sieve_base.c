@@ -28,12 +28,11 @@ static char algorithm_type[] = "base";
 #include "benchmark/sieve_helpers.h"
 #include "benchmark/sieve_options.h"
 #include "benchmark/sieve_helpers_timers.h"
-
-#include "sieve/sieve_manager.c"
-#include "sieve/sieve_search.c"
-#include "sieve/sieve_setbitstrue_word.c"
-#include "sieve/sieve_setbitstrue_vector.c"
-#include "sieve/sieve_stripe.c"
+#include "sieve/sieve_manager.h"
+#include "sieve/sieve_search.h"
+#include "sieve/sieve_setbitstrue_word.h"
+#include "sieve/sieve_setbitstrue_vector.h"
+#include "sieve/sieve_stripe.h"
 
 /* This is the main module that directs all the work
    sieve_size in a real number that is the maximum in the sieve (not in bits)
@@ -52,7 +51,7 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     // const counter_t largestep_faster = global_largestep_faster;
     const counter_t blocksize_bits = global_blocksize_bits;
     
-    verbose5(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size); )
+    verbose7(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size); )
 
     // code for algorithm = base
     sieve_clear(sieve);
@@ -74,10 +73,10 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     return sieve;
 }
 
-#include "benchmark/sieve_check.c"
-#include "benchmark/sieve_benchmark.c"
-#include "benchmark/sieve_benchmark_tune.c"
-#include "benchmark/sieve_validate.c"
-#include "benchmark/sieve_usage.c"
-#include "benchmark/sieve_parse_commandline.c"
-#include "benchmark/sieve_main.c"
+#include "benchmark/sieve_check.h"
+#include "benchmark/sieve_benchmark.h"
+#include "benchmark/sieve_benchmark_tune.h"
+#include "benchmark/sieve_validate.h"
+#include "benchmark/sieve_usage.h"
+#include "benchmark/sieve_parse_commandline.h"
+#include "benchmark/sieve_main.h"

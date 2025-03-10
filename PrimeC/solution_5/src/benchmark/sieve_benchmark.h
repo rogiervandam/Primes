@@ -17,8 +17,8 @@ static inline benchmark_settings_t check_benchmark_settings(benchmark_settings_t
     benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, VECTORWORD_SIZE_counter);
     benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, VECTOR_SIZE_counter);
     benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, prime_max);
-    benchmark_settings.blocksize_bits    = min(benchmark_settings.blocksize_bits, benchmark_settings.factor_max/2+1);
-    // benchmark_settings.blocksize_bits    = max(benchmark_settings.blocksize_bits, 1024); // prevent 0
+    benchmark_settings.blocksize_bits    = min(benchmark_settings.blocksize_bits, benchmark_settings.factor_max/2);
+    if (benchmark_settings.blocksize_bits == 0) benchmark_settings.blocksize_bits = benchmark_settings.factor_max/2;
     return benchmark_settings;
 }
 

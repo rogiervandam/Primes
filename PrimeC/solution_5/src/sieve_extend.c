@@ -25,12 +25,12 @@
 #include "benchmark/sieve_helpers.h"
 #include "benchmark/sieve_options.h"
 #include "benchmark/sieve_helpers_timers.h"
-#include "sieve/sieve_manager.c"
-#include "sieve/sieve_search.c"
-#include "sieve/sieve_setbitstrue_word.c"
-#include "sieve/sieve_setbitstrue_vector.c"
-#include "sieve/sieve_stripe.c"
-#include "sieve/sieve_extend_continuePattern.c"
+#include "sieve/sieve_manager.h"
+#include "sieve/sieve_search.h"
+#include "sieve/sieve_setbitstrue_word.h"
+#include "sieve/sieve_setbitstrue_vector.h"
+#include "sieve/sieve_stripe.h"
+#include "sieve/sieve_extend_continuePattern.h"
 
 static char algorithm_name[] = "rogiervandam_extend";
 static char algorithm_type[] = "other";
@@ -41,7 +41,7 @@ static char algorithm_type[] = "other";
 // block stop should not exceed sieve size for faster handling
 static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block_stop) 
 {
-    verbose5(  printf("Extending sieve block to %ju\n",(uintmax_t)block_stop); )
+    verbose5(  printf("Extending sieve block to range %ju\n",(uintmax_t)block_stop); )
     timer_lapstart(time_sieve_block_extend);
 
     bitword_t* restrict bitstorage = sieve->bitstorage;
@@ -125,21 +125,21 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     // process the sieve and stripe all the multiples of primes > start_prime
     // do this block by block to minimize cache misses
     // first block requires fewer operations; it might be the whole sieve...
-    sieve_block_stripe0(bitstorage, min(blocksize_bits-1, sieve_bits), prime, prime_max);
+    sieve_block_stripe0(bitstorage, min(blocksize_bits, sieve_bits), prime, prime_max);
 
     // process the remaining blocks
     for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
-        sieve_block_stripe_new(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
+        sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
     } 
 
     // return the completed sieve
     return sieve;
 } 
 
-#include "benchmark/sieve_check.c"
-#include "benchmark/sieve_benchmark.c"
-#include "benchmark/sieve_benchmark_tune.c"
-#include "benchmark/sieve_validate.c"
-#include "benchmark/sieve_usage.c"
-#include "benchmark/sieve_parse_commandline.c"
-#include "benchmark/sieve_main.c"
+#include "benchmark/sieve_check.h"
+#include "benchmark/sieve_benchmark.h"
+#include "benchmark/sieve_benchmark_tune.h"
+#include "benchmark/sieve_validate.h"
+#include "benchmark/sieve_usage.h"
+#include "benchmark/sieve_parse_commandline.h"
+#include "benchmark/sieve_main.h"

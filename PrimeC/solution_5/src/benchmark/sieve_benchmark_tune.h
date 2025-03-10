@@ -100,7 +100,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
                         #endif
                         
                         tuning_result[tuning_result_index] = benchmark(tuning_settings);
-                        verbose5( { printf("...."); tuning_result_print(tuning_result[tuning_result_index]); } )
+                        verbose7( { printf("...."); tuning_result_print(tuning_result[tuning_result_index]); } )
 
                         if ( tuning_result[tuning_result_index].avg >= best_tuning_result.avg) {
                             best_tuning_result = tuning_result[tuning_result_index];

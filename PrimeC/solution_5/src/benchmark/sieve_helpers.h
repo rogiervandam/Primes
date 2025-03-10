@@ -1,16 +1,16 @@
 // This file contains all helper functions
 
 // defaults
-#define compile_verbose_level           4  // Set to 1-4 to enable compiling different verbose levels
+#define compile_verbose_level           7  // Set to 1-4 to enable compiling different verbose levels
 #define anticiped_cache_line_bytesize   128 // How to align the caches
 // #define COMPILE_CHECKALL                 // Set to 1 to enable all checks
 
 #ifdef COMPILE_EXPLAIN // define compile_explain with compilation options
 #undef compile_verbose_level
-#define compile_verbose_level           5
+#define compile_verbose_level           7
 #endif
 
-#define bitshift_t uint64_t // type used to shift bits
+#define bitshift_t int64_t // type used to shift bits
 #define counter_t  int64_t  // type used to count loops, etc. Some processors/compilers are faster at 32 bits
 
 #if defined(counter_t) && (counter_t == int32_t || counter_t == uint32_t)
@@ -39,6 +39,8 @@
 #define verbose3(statement)
 #define verbose4(statement)
 #define verbose5(statement)
+#define verbose6(statement)
+#define verbose7(statement)
 #define verbose_at2(statement)
 #define verbose_at3(statement)
 
@@ -65,6 +67,14 @@
 #if compile_verbose_level >= 5
   #undef verbose5
   #define verbose5(statement) if (option.verbose_level >= 5) statement
+#endif
+#if compile_verbose_level >= 6
+  #undef verbose6
+  #define verbose6(statement) if (option.verbose_level >= 6) statement
+#endif
+#if compile_verbose_level >= 7
+  #undef verbose7
+  #define verbose7(statement) if (option.verbose_level >= 7) statement
 #endif
 
 // helper calc functions

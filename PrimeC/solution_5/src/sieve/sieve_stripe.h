@@ -1,70 +1,70 @@
-// static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitword_t* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
-// {
-//     verbose5(  printf("\nBlock stripe for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
-//     timer_lapstart(time_sieve_block_stripe);
+static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitword_t* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+{
+    verbose5(  printf("\nBlock stripe for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
+    timer_lapstart(time_sieve_block_stripe);
 
-//     counter_t prime = prime_start;
-//     const counter_t mediumstep_faster = global_mediumstep_faster/2;
-//     // const counter_t prime_endloop1 = min(mediumstep_faster, prime_max);
-//     counter_t prime_endloop1 = prime_max;
+    counter_t prime = prime_start;
+    const counter_t mediumstep_faster = global_mediumstep_faster;
+    // const counter_t prime_endloop1 = min(mediumstep_faster, prime_max);
+    counter_t prime_endloop1 = prime_max;
 
-//     while (prime < prime_endloop1) {
-//         const counter_t step  = prime * 2 + 1;
-//         counter_t start = prime * (step + 1);
+    while (prime < prime_endloop1) {
+        const counter_t step  = prime * 2 + 1;
+        counter_t start = prime * (step + 1);
 
-//         // early exit when start is beyond block
-//         if unlikely(block_stop < start) {
-//             timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); )
-//             return prime;
-//         }
-//         if likely(start < block_start) {
-//             start = (block_start + prime) + prime - ((block_start + prime) % step);
-//             // there might be higher primes that will align before block_stop
-//             // early exit (optional; setbittrue does not set beyond block_stop)
-//             if (block_stop < start) {
-//                 prime = searchBitFalse(bitstorage, prime);
-//                 continue; 
-//             }
-//         }
+        // early exit when start is beyond block
+        if unlikely(block_stop < start) {
+            timer_laptime(time_sieve_block_stripe); verbose7( printf("\n"); )
+            return prime;
+        }
+        if likely(start < block_start) {
+            start = (block_start + prime) + prime - ((block_start + prime) % step);
+            // there might be higher primes that will align before block_stop
+            // early exit (optional; setbittrue does not set beyond block_stop)
+            if (block_stop < start) {
+                prime = searchBitFalse(bitstorage, prime);
+                continue; 
+            }
+        }
 
-//         setBitsTrue_largeRange_vector(bitstorage, start, step, block_stop);
-//         prime = searchBitFalse(bitstorage, prime);
-//     }
+        setBitsTrue_largeRange_vector_old(bitstorage, start, step, block_stop);
+        prime = searchBitFalse(bitstorage, prime);
+    }
 
-//     while (prime < prime_max) {
-//         counter_t step  = prime * 2 + 1;
-//         counter_t start = prime * (step + 1);
+    while (prime < prime_max) {
+        counter_t step  = prime * 2 + 1;
+        counter_t start = prime * (step + 1);
 
-//         // early exit when start is beyond block
-//         if unlikely(block_stop < start) {
-//             timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); )
-//             return prime;
-//         }
-//         if likely(start < block_start) {
-//             start = (block_start + prime) + prime - ((block_start + prime) % step);
+        // early exit when start is beyond block
+        if unlikely(block_stop < start) {
+            timer_laptime(time_sieve_block_stripe); verbose7( printf("\n"); )
+            return prime;
+        }
+        if likely(start < block_start) {
+            start = (block_start + prime) + prime - ((block_start + prime) % step);
 
-//             // there might be higher primes that will align before block_stop
-//             // early exit (optional; setbittrue does not set beyond block_stop)
-//             if (block_stop < start) {
-//                 prime = searchBitFalse(bitstorage, prime);
-//                 continue; 
-//             }
-//         }
+            // there might be higher primes that will align before block_stop
+            // early exit (optional; setbittrue does not set beyond block_stop)
+            if (block_stop < start) {
+                prime = searchBitFalse(bitstorage, prime);
+                continue; 
+            }
+        }
 
-//         const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
-//         if likely(range_stop_unique <= block_stop) { // the range will repeat itself; try to resuse the mask
-//             setBitsTrue_largeRange_repeat(bitstorage, start, step, block_stop);
-//         } else {
-//             setBitsTrue_largeRange_norepeat(bitstorage, start, step, block_stop);
-//         }
+        const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
+        if likely(range_stop_unique <= block_stop) { // the range will repeat itself; try to resuse the mask
+            setBitsTrue_largeRange_repeat(bitstorage, start, step, block_stop);
+        } else {
+            setBitsTrue_largeRange_norepeat(bitstorage, start, step, block_stop);
+        }
 
-//         // setBitsTrue_largeRange(bitstorage, start, step, block_stop);
-//         prime = searchBitFalse_largeRange(bitstorage, prime);
-//     }
+        // setBitsTrue_largeRange(bitstorage, start, step, block_stop);
+        prime = searchBitFalse_largeRange(bitstorage, prime);
+    }
 
-//     timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); )
-//     return prime; 
-// }
+    timer_laptime(time_sieve_block_stripe); verbose7( printf("\n"); )
+    return prime; 
+}
 
 // integer Newton's method 
 // TODO: Overflow with factor_max 10000000
@@ -83,12 +83,14 @@ static inline counter_t __attribute__((always_inline)) prime_pattern_not_repeati
     // Binary search approach to find the smallest prime that satisfies the condition
     counter_t low = 1;
     counter_t high;
-    
+
+    // if ((range_stop - range_start) > blocksize) return 0;
+
     // Find a reasonable upper bound
     // Since prime grows roughly with sqrt(range_stop), we can start with a simple estimate
     if (range_stop > blocksize) { high = range_stop / (2 * blocksize);} 
     else { high = 1; }
-    
+
     // Double until we find a valid upper bound
     while (1) {
         counter_t step = high * 2 + 1;
@@ -112,7 +114,7 @@ static inline counter_t __attribute__((always_inline)) prime_pattern_not_repeati
 
 static inline counter_t __attribute__((always_inline)) sieve_block_stripe_new(bitword_t* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
-    verbose5(  printf("\nBlock stripe for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
+    verbose5(  printf("\nBlock stripe (new) for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
     timer_lapstart(time_sieve_block_stripe);
 
     counter_t prime_stripe_start_beyond_block_stop = prime_stripe_start_beyond_block_stop_calc(block_stop-1);
@@ -130,6 +132,13 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe_new(bi
  
     counter_t prime = prime_start;
 
+    verbose5( printf("Plan start with prime %ju up to %ju using range %ju - %ju:\n", (uintmax_t)prime_start, (uintmax_t)prime_max, (uintmax_t)block_start, (uintmax_t)block_stop ); )
+    verbose5( printf("(1) Prime %3ju - %3ju : Use vectors with wordroll  for primes up to %ju\n", (uintmax_t)prime_start, (uintmax_t)prime_endloop1, (uintmax_t)prime_endloop1); )
+    verbose5( printf("(2) Prime %3ju - %3ju : Use repeating word masks   for primes up to %ju\n", (uintmax_t)prime_endloop1, (uintmax_t)prime_endloop1b, (uintmax_t)prime_endloop1b); )
+    verbose5( printf("(3) Prime %3ju - %3ju : Use vectors sparse steps   for primes up to %ju\n", (uintmax_t)prime_endloop1b, (uintmax_t)prime_endloop2, (uintmax_t)prime_endloop2); )
+    verbose5( printf("(4) Prime %3ju - %3ju : Use repeating word masks   for primes up to %ju\n", (uintmax_t)prime_endloop2, (uintmax_t)prime_endloop3, (uintmax_t)prime_endloop3); )
+    verbose5( printf("(5) Prime %3ju - %3ju : Use setting bit one by one for primes up to %ju\n", (uintmax_t)prime_endloop3, (uintmax_t)prime_endloop4, (uintmax_t)prime_endloop4); )
+
     while (prime < prime_endloop1) {
         const counter_t step  = prime * 2 + 1;
         counter_t start = prime * (step + 1);
@@ -137,6 +146,7 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe_new(bi
         setBitsTrue_largeRange_vector_wordstep(bitstorage, start, step, block_stop);
         prime = searchBitFalse(bitstorage, prime);
     }
+    verbose5( printf("Prime endloop 1: %ju\n", (uintmax_t)prime); )
 
     while (prime < prime_endloop1b) {
         const counter_t step  = prime * 2 + 1;
@@ -145,6 +155,7 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe_new(bi
         setBitsTrue_largeRange_repeat(bitstorage, start, step, block_stop);
         prime = searchBitFalse_largeRange(bitstorage, prime);
     }
+    verbose5( printf("Prime endloop 1b: %ju\n", (uintmax_t)prime); )
 
     while (prime < prime_endloop2) {
         const counter_t step  = prime * 2 + 1;
@@ -153,6 +164,7 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe_new(bi
         setBitsTrue_largeRange_vector_vectorstep(bitstorage, start, step, block_stop);
         prime = searchBitFalse(bitstorage, prime);
     }
+    verbose5( printf("Prime endloop 2: %ju\n", (uintmax_t)prime); )
 
     while (prime < prime_endloop3) {
         const counter_t step  = prime * 2 + 1;
@@ -161,6 +173,7 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe_new(bi
         setBitsTrue_largeRange_repeat(bitstorage, start, step, block_stop);
         prime = searchBitFalse_largeRange(bitstorage, prime);
     }
+    verbose5( printf("Prime endloop 3: %ju\n", (uintmax_t)prime); )
 
     while (prime < prime_endloop4) {
         const counter_t step  = prime * 2 + 1;
@@ -169,6 +182,7 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe_new(bi
         setBitsTrue_largeRange_norepeat(bitstorage, start, step, block_stop);
         prime = searchBitFalse_largeRange(bitstorage, prime);
     }
+    verbose5( printf("Prime endloop 4: %ju\n", (uintmax_t)prime); )
 
     while (prime < prime_max) {
         const counter_t step  = prime * 2 + 1;
@@ -177,18 +191,20 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe_new(bi
         setBitsTrue_largeRange_norepeat(bitstorage, start, step, block_stop);
         prime = searchBitFalse_largeRange(bitstorage, prime);
     }
-    timer_laptime(time_sieve_block_stripe); verbose5( printf("\n"); )
+    verbose5( printf("Prime endloop final: %ju\n", (uintmax_t)prime); )
+
+    timer_laptime(time_sieve_block_stripe); verbose7( printf("\n"); )
     return prime; 
 }
 
 static inline __attribute__((always_inline)) counter_t sieve_block_stripe0(bitword_t* restrict bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
-    verbose5(  printf("\nBlock stripe for block %ju - %ju\n",(uintmax_t)0,(uintmax_t)block_stop); )
+    verbose5(  printf("\nBlock stripe0 for block %ju - %ju\n",(uintmax_t)0,(uintmax_t)block_stop); )
     timer_lapstart(time_sieve_block_stripe0);
 
-    const counter_t prime = sieve_block_stripe_new(bitstorage, 0, block_stop, prime_start, prime_max);
+    const counter_t prime = sieve_block_stripe(bitstorage, 0, block_stop, prime_start, prime_max);
 
-    timer_laptime(time_sieve_block_stripe0); verbose5( printf("\n"); )
+    timer_laptime(time_sieve_block_stripe0); verbose7( printf("\n"); )
     return prime; 
 }
 
@@ -200,6 +216,6 @@ static inline  __attribute__((always_inline)) counter_t sieve_stripe(bitword_t* 
 
     const counter_t prime = sieve_block_stripe0(bitstorage, block_stop, prime_start, prime_max);
 
-    timer_laptime(time_sieve_stripe); verbose5( printf("\n"); )
+    timer_laptime(time_sieve_stripe); verbose7( printf("\n"); )
     return prime; 
 }
