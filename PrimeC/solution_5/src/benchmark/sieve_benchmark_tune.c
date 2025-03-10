@@ -167,7 +167,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
             counter_t largestep_faster_steps_diff = largestep_faster_steps >> step; 
             if (!option.fixed_benchmark_settings.largestep_faster) {
                 if (largestep_faster_steps_diff > 1) {
-                    if (tuning_settings.largestep_faster < VECTOR_SIZE_counter/2-1 - largestep_faster_steps_diff) {
+                    if (tuning_settings.largestep_faster < VECTOR_SIZE_counter - largestep_faster_steps_diff) {
                         reset_benchmark_result(&tuning_result[tuning_results], tuning_settings);
                         tuning_result[tuning_results].settings.largestep_faster += largestep_faster_steps_diff;
                         tuning_results++;
@@ -184,7 +184,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
             if (!option.fixed_benchmark_settings.mediumstep_faster) {
                 if (mediumstep_faster_steps_diff > 1) {
 
-                        if (tuning_settings.mediumstep_faster < VECTORWORD_SIZE_counter/2-1 - mediumstep_faster_steps_diff) {
+                        if (tuning_settings.mediumstep_faster < VECTORWORD_SIZE_counter - mediumstep_faster_steps_diff) {
                         reset_benchmark_result(&tuning_result[tuning_results], tuning_settings);
                         tuning_result[tuning_results].settings.mediumstep_faster += mediumstep_faster_steps_diff;
                         tuning_results++;
