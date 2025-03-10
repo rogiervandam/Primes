@@ -79,7 +79,7 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
         patternsize_bits *= step;
 
         const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
-        if (range_stop_unique < range_stop ) setBitsTrue_smallStep_repeat(bitstorage, start, step, range_stop);
+        if (range_stop_unique < range_stop ) setBitsTrue_smallstep_repeat(bitstorage, start, step, range_stop);
         else                                 setBitsTrue_smallStep_norepeat(bitstorage, start, step, range_stop);
         // setBitsTrue_largeRange_vector(bitstorage, start, step, range_stop);
     } 
@@ -129,7 +129,7 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
 
     // process the remaining blocks
     for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
-        sieve_block_stripe_new(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
+        sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
     } 
 
     // return the completed sieve
