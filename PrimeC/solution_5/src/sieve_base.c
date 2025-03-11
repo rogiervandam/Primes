@@ -27,7 +27,7 @@ static char algorithm_type[] = "base";
 // include helper functions
 #include "benchmark/sieve_helpers.h"
 #include "benchmark/sieve_options.h"
-#include "benchmark/sieve_helpers_timers.h"
+#include "benchmark/sieve_timers.h"
 #include "sieve/sieve_manager.h"
 #include "sieve/sieve_search.h"
 #include "sieve/sieve_setbitstrue_word.h"

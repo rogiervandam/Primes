@@ -24,31 +24,30 @@ counter_t timer_hits[timer_count];
 double timer_time[timer_count];
 
 #define time_setBitsTrue_largeRange_vector 0
-#define time_applyMask_word 1
-#define time_searchBitFalse_largeRange 2
-#define time_applyMask_vector 3
-#define time_setBitsTrue_smallStep_repeat 4
-#define time_setBitsTrue_smallStep_norepeat 5
-#define time_continuePattern_smallSize 6
-#define time_continuePattern_aligned 7
-#define time_continuePattern_shiftleft_unrolled 8
-#define time_continuePattern_shiftleft 9
-#define time_continuePattern_shiftright 10
-#define time_setBitsTrue_largeRange_repeat 11
-#define time_setBitsTrue_largeRange_norepeat 12
-#define time_sieve_block_stripe0 13
-#define time_sieve_stripe 14
-#define time_sieve_block_stripe 15
-#define time_sieve_block_stripe_vector 16
-#define time_continuePattern 17
-#define time_create_mask_vector_smallstep 18 
-#define time_searchBitFalse 19
-#define time_sieve_block_extend 20
-#define time_time_setBitsTrue_largeRange_vector 21
-#define time_setBitsTrue_largeRange_vector_wordstep 22
-#define time_setBitsTrue_largeRange_vector_vectorstep 23
-#define time_create_mask_vector_largestep 24
-#define time_setBitsTrue_largestep_repeat 25
+#define time_setBitsTrue_largeRange_vector_wordstep 1
+#define time_setBitsTrue_largeRange_vector_vectorstep 2
+#define time_create_mask_vector_smallstep 3
+#define time_create_mask_vector_largestep 4
+#define time_applyMask_vector 5
+#define time_setBitsTrue_smallStep_repeat 10
+#define time_setBitsTrue_smallStep_norepeat 11
+#define time_setBitsTrue_largestep_repeat 12
+#define time_setBitsTrue_largeRange_repeat 13
+#define time_setBitsTrue_largeRange_norepeat 14
+#define time_applyMask_word 15
+#define time_searchBitFalse 20
+#define time_searchBitFalse_largeRange 21
+#define time_continuePattern 40
+#define time_continuePattern_smallSize 41
+#define time_continuePattern_aligned 42
+#define time_continuePattern_shiftleft_unrolled 43
+#define time_continuePattern_shiftleft 44
+#define time_continuePattern_shiftright 45
+#define time_sieve_stripe 50
+#define time_sieve_block_stripe 51
+#define time_sieve_block_stripe0 52
+#define time_sieve_block_stripe_vector 53
+#define time_sieve_block_extend 54
 
 static const char* timer_function_names[100] = {
     [time_setBitsTrue_largeRange_vector] = "setBitsTrue_largeRange_vector",
@@ -72,7 +71,6 @@ static const char* timer_function_names[100] = {
     [time_create_mask_vector_smallstep] = "create_mask_vector_smallstep",
     [time_searchBitFalse] = "searchBitFalse",
     [time_sieve_block_extend] = "sieve_block_extend",
-    [time_time_setBitsTrue_largeRange_vector] = "setBitsTrue_largeRange_vector",
     [time_setBitsTrue_largeRange_vector_wordstep] = "setBitsTrue_largeRange_vector_wordstep",
     [time_setBitsTrue_largeRange_vector_vectorstep] = "setBitsTrue_largeRange_vector_vectorstep",
     [time_create_mask_vector_largestep] = "create_mask_vector_largestep",
