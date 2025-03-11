@@ -120,6 +120,7 @@ static void timer_laptime_function(counter_t timer) {
         printf(" (%s) ", timer_function_names[timer]);
 
     })
+    return elapsed_time;
 }
 
 static void timer_init() {

@@ -4,12 +4,8 @@
 // TODO: Overflow with factor_max 10000000
 // TODO: this procedure is really slow when switched to 64 bit
 static inline counter_t __attribute__((always_inline)) prime_stripe_start_beyond_block_stop_calc(const counter_t block_stop) {
-    // Initial guess close to the solution
-    counter_t prime = block_stop / 4;
-    const counter_t block_stop_internal = block_stop;
-    while (2 * prime * (prime ) <= block_stop_internal) prime++;
-    while (2 * prime * (prime ) > block_stop_internal)  prime--;
-    return (counter_t) prime;
+
+    return (counter_t) (usqrt(block_stop << 1) - 1) >> 1;
 }
 
 static inline counter_t __attribute__((always_inline)) prime_pattern_not_repeating_in_block(const counter_t range_start, const counter_t range_stop, const counter_t blocksize) {

@@ -11,7 +11,7 @@
 #endif
 
 #define bitshift_t int64_t // type used to shift bits
-#define counter_t  int64_t  // type used to count loops, etc. Some processors/compilers are faster at 32 bits
+#define counter_t  int32_t  // type used to count loops, etc. Some processors/compilers are faster at 32 bits
 
 #if defined(counter_t) && (counter_t == int32_t || counter_t == uint32_t)
     #define COUNTER_T_MAX_SAFE_VALUE 1000000000ULL
@@ -339,26 +339,19 @@ static void printVector(bitvector_t bitvector)
 static void printVectorNumeric(bitvector_t bitvector)
 {
   for(counter_t i=0; i < VECTOR_ELEMENTS; i++) {
-        printf("%ju,", (uintmax_t) bitvector[i]);
+      printf("%ju,", (uintmax_t) bitvector[i]);
   }
   printf("\n");	
 }
 
-static unsigned int usqrt(int n)
-{
-    unsigned int x;
-    unsigned int xLast;
+static inline counter_t __attribute__((always_inline)) usqrt(counter_t x) {
+  union { float f; int i; } conv;
 
-    xLast = 0;
-    x = n / 2;
+  float x2 = 0.5F * x;
+  conv.f = (float) x;
+  conv.i = 0x5f3759df - (conv.i >> 1); 
+  float y = conv.f;
+  y = y * (1.5F - (x2 * y * y));
 
-    while (x != xLast) {
-        xLast = x;
-        x = (x + n / x) / 2;
-    }
-    return x;
+  return (counter_t) (x * y + 1.5f); // 1.5f for rounding and increment by 1 to alyways round up
 }
-
-
-
-
