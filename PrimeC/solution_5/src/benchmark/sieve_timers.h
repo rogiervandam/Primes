@@ -23,20 +23,19 @@ struct timespec timer_timers[timer_count];
 counter_t timer_hits[timer_count];
 double timer_time[timer_count];
 
-#define time_setBitsTrue_largeRange_vector 0
-#define time_setBitsTrue_largeRange_vector_wordstep 1
-#define time_setBitsTrue_largeRange_vector_vectorstep 2
+#define time_setBitsTrue_largestep_vector 0
+#define time_setBitsTrue_largestep_vector_wordstep 1
+#define time_setBitsTrue_largestep_vector_vectorstep 2
 #define time_create_mask_vector_smallstep 3
 #define time_create_mask_vector_largestep 4
 #define time_applyMask_vector 5
-#define time_setBitsTrue_smallStep_repeat 10
-#define time_setBitsTrue_smallStep_norepeat 11
+#define time_setBitsTrue_smallstep_repeat 10
+#define time_setBitsTrue_smallstep_norepeat 11
 #define time_setBitsTrue_largestep_repeat 12
-#define time_setBitsTrue_largeRange_repeat 13
-#define time_setBitsTrue_largeRange_norepeat 14
+#define time_setBitsTrue_largestep_norepeat 13
 #define time_applyMask_word 15
 #define time_searchBitFalse 20
-#define time_searchBitFalse_largeRange 21
+#define time_searchBitFalse_largestep 21
 #define time_continuePattern 40
 #define time_continuePattern_smallSize 41
 #define time_continuePattern_aligned 42
@@ -50,31 +49,30 @@ double timer_time[timer_count];
 #define time_sieve_block_extend 54
 
 static const char* timer_function_names[100] = {
-    [time_setBitsTrue_largeRange_vector] = "setBitsTrue_largeRange_vector",
-    [time_applyMask_word] = "applyMask_word",	
-    [time_searchBitFalse_largeRange] = "searchBitFalse_largeRange",
+    [time_setBitsTrue_largestep_vector] = "setBitsTrue_largestep_vector",
+    [time_setBitsTrue_largestep_vector_wordstep] = "setBitsTrue_largestep_vector_wordstep",
+    [time_setBitsTrue_largestep_vector_vectorstep] = "setBitsTrue_largestep_vector_vectorstep",
+    [time_create_mask_vector_largestep] = "create_mask_vector_largestep",
+    [time_create_mask_vector_smallstep] = "create_mask_vector_smallstep",
     [time_applyMask_vector] = "applyMask_vector",
-    [time_setBitsTrue_smallStep_repeat] = "setBitsTrue_smallStep_repeat",
-    [time_setBitsTrue_smallStep_norepeat] = "setBitsTrue_smallStep_norepeat",
+    [time_setBitsTrue_largestep_repeat] = "setBitsTrue_largestep_repeat",
+    [time_setBitsTrue_largestep_norepeat] = "setBitsTrue_largestep_norepeat",
+    [time_setBitsTrue_smallstep_repeat] = "setBitsTrue_smallstep_repeat",
+    [time_setBitsTrue_smallstep_norepeat] = "setBitsTrue_smallstep_norepeat",
+    [time_applyMask_word] = "applyMask_word",	
+    [time_searchBitFalse_largestep] = "searchBitFalse_largestep",
+    [time_continuePattern] = "continuePattern",
     [time_continuePattern_smallSize] = "continuePattern_smallSize",
     [time_continuePattern_aligned] = "continuePattern_aligned",
     [time_continuePattern_shiftleft_unrolled] = "continuePattern_shiftleft_unrolled",
     [time_continuePattern_shiftleft] = "continuePattern_shiftleft",
     [time_continuePattern_shiftright] = "continuePattern_shiftright",
-    [time_setBitsTrue_largeRange_repeat] = "setBitsTrue_largeRange_repeat",
-    [time_setBitsTrue_largeRange_norepeat] = "setBitsTrue_largeRange_norepeat",
-    [time_sieve_block_stripe0] = "sieve_block_stripe0",
     [time_sieve_stripe] = "sieve_stripe",
+    [time_sieve_block_stripe0] = "sieve_block_stripe0",
     [time_sieve_block_stripe] = "sieve_block_stripe",
     [time_sieve_block_stripe_vector] = "sieve_block_stripe_vector",
-    [time_continuePattern] = "continuePattern",
-    [time_create_mask_vector_smallstep] = "create_mask_vector_smallstep",
     [time_searchBitFalse] = "searchBitFalse",
     [time_sieve_block_extend] = "sieve_block_extend",
-    [time_setBitsTrue_largeRange_vector_wordstep] = "setBitsTrue_largeRange_vector_wordstep",
-    [time_setBitsTrue_largeRange_vector_vectorstep] = "setBitsTrue_largeRange_vector_vectorstep",
-    [time_create_mask_vector_largestep] = "create_mask_vector_largestep",
-    [time_setBitsTrue_largestep_repeat] = "setBitsTrue_largestep_repeat",
   };
 
 #ifdef COMPILE_TIMERS

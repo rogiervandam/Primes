@@ -48,7 +48,7 @@ static inline void __attribute__((always_inline)) setBitsTrue_smallstep_repeat(b
     const counter_t range_stop_unique = range_start + WORD_SIZE_counter * step;
 
     verbose6( printf("Setting bits step %3ju using smallstep-repeat in %ju bit range (%ju-%ju) (%ju repeating occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(step*WORD_SIZE_counter))); )
-    timer_lapstart(time_setBitsTrue_smallStep_repeat);
+    timer_lapstart(time_setBitsTrue_smallstep_repeat);
 
     for (register counter_t index = range_start; index <= range_stop_unique;) {
         const counter_t index_word = wordindex(index);                        // set index_word here because the for loop will change index
@@ -57,7 +57,7 @@ static inline void __attribute__((always_inline)) setBitsTrue_smallstep_repeat(b
         applyMask_word(bitstorage, step, range_stop, mask, index_word);
     }
 
-    timer_laptime(time_setBitsTrue_smallStep_repeat); verbose6( printf("\n"); )
+    timer_laptime(time_setBitsTrue_smallstep_repeat); verbose6( printf("\n"); )
 }
 
 // Small steps (< WORD_SIZE) could be within the same word (e.g. less than 64 bits apart).
@@ -65,7 +65,7 @@ static inline void __attribute__((always_inline)) setBitsTrue_smallstep_repeat(b
 static inline void  __attribute__((always_inline)) setBitsTrue_smallstep_norepeat(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose6( printf("Setting bits step %3ju using smallstep-norepeat in %ju bit range (%ju-%ju)  (%ju unique occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
-    timer_lapstart(time_setBitsTrue_smallStep_norepeat);
+    timer_lapstart(time_setBitsTrue_smallstep_norepeat);
 
     for (register counter_t index = range_start; index < range_stop;) {
         register const counter_t index_word = wordindex(index);                    // set index_word here because the for loop will change index
@@ -73,7 +73,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_smallstep_norepea
         for(; wordindex(index) == index_word; index += step) mask |= markmask(index);
         bitstorage[index_word] |= mask;
     }
-    timer_laptime(time_setBitsTrue_smallStep_norepeat); verbose6( printf("\n"); )
+    timer_laptime(time_setBitsTrue_smallstep_norepeat); verbose6( printf("\n"); )
 }
 
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
@@ -93,7 +93,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largestep_repeat(
 static inline void __attribute__((always_inline)) setBitsTrue_largestep_norepeat(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose6( printf("Setting bits step %3ju using largestep-norepeat in %ju bit range (%ju-%ju)  (%ju unique occurances)..", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)step)); )
-    timer_lapstart(time_setBitsTrue_largeRange_norepeat);
+    timer_lapstart(time_setBitsTrue_largestep_norepeat);
 
     const counter_t step_2 = step * 2;
     #if is_signed(counter_t)
@@ -115,5 +115,5 @@ static inline void __attribute__((always_inline)) setBitsTrue_largestep_norepeat
     if unlikely(index==range_stop)
         bitstorage[wordindex(index)] |= markmask(index);
 
-    timer_laptime(time_setBitsTrue_largeRange_norepeat); verbose6( printf("\n"); )
+    timer_laptime(time_setBitsTrue_largestep_norepeat); verbose6( printf("\n"); )
 }

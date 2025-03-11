@@ -98,7 +98,7 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
         counter_t start = prime * (step + 1);
         if likely(start < block_start)  { start = (block_start + prime) + prime - ((block_start + prime) % step);}
         setBitsTrue_largestep_repeat(bitstorage, start, step, block_stop);
-        prime = searchBitFalse_largeRange(bitstorage, prime);
+        prime = searchBitFalse_largestep(bitstorage, prime);
     }
 
     while (prime <= prime_endloop5) {
@@ -106,7 +106,7 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
         counter_t start = prime * (step + 1);
         if (start < block_start)  { start = (block_start + prime) + prime - ((block_start + prime) % step);}
         setBitsTrue_largestep_norepeat(bitstorage, start, step, block_stop);
-        prime = searchBitFalse_largeRange(bitstorage, prime);
+        prime = searchBitFalse_largestep(bitstorage, prime);
     }
 
     timer_laptime(time_sieve_block_stripe); verbose7( printf("\n"); )

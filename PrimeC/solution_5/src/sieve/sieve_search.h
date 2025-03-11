@@ -13,10 +13,10 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse(const bitw
 
 // Finds the index of the next unset (false) bit in a bitmap, starting from a given index
 // Optimized function for large ranges which are not common
-static inline counter_t __attribute__((always_inline)) searchBitFalse_largeRange(const bitword_t* restrict bitstorage, register counter_t index) 
+static inline counter_t __attribute__((always_inline)) searchBitFalse_largestep(const bitword_t* restrict bitstorage, register counter_t index) 
 {
-    verbose8( printf("searchBitFalse_largeRange from %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1); )
-    timer_lapstart(time_searchBitFalse_largeRange);
+    verbose8( printf("searchBitFalse_largestep from %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1); )
+    timer_lapstart(time_searchBitFalse_largestep);
 
     // Move to the next position after the starting index
     ++index;
@@ -41,7 +41,7 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse_largeRange
         index += WORD_SIZE_bitshift;
     }
 
-    timer_laptime(time_searchBitFalse_largeRange); verbose8( printf(" next prime %ju (step %ju)\n", (uintmax_t) (index + builtin_ctz(~current_word)), (uintmax_t)(index + builtin_ctz(~current_word))*2+1));
+    timer_laptime(time_searchBitFalse_largestep); verbose8( printf(" next prime %ju (step %ju)\n", (uintmax_t) (index + builtin_ctz(~current_word)), (uintmax_t)(index + builtin_ctz(~current_word))*2+1));
     // Find the first unset bit using builtin_ffs
     // Note: ~current_word inverts the bits so we find first 0 instead of 1
     return index + builtin_ctz(~current_word);
