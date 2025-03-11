@@ -1,7 +1,7 @@
 FROM ubuntu:24.04
 
 RUN apt-get update && apt-get -y install build-essential \
-    && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 60 \
+    # && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 60 \
 #    valgrind nano kcachegrind \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*

@@ -3,7 +3,7 @@
 # Detect OS
 OS="$(uname -s)"
 
-CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer -flto"
+CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -fomit-frame-pointer"
 if [ "$OS" = "Linux" ]; then
     CC="gcc $CC -Wno-psabi -fwhole-program -s"
     PAR="-fopenmp"

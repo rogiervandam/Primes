@@ -41,7 +41,7 @@ static void deepAnalyzePrimes(struct sieve_t *sieve)
     }
 }
 
-static int validatePrimeCount(struct sieve_t *sieve, counter_t factor_max)
+static inline int validatePrimeCount(struct sieve_t *sieve, counter_t factor_max)
 {
     counter_t primecount = count_primes(sieve);
     counter_t valid_primes = 0;
@@ -61,13 +61,6 @@ static int validatePrimeCount(struct sieve_t *sieve, counter_t factor_max)
         default:            valid_primes= 0;
     }
 
-    int valid = (valid_primes == primecount);
-    verbose7( if (valid) printf("Result: Sievesize %ju is expected to have %ju primes. algorithm produced %ju primes\n",(uintmax_t)factor_max,(uintmax_t)valid_primes,(uintmax_t)primecount ); )
-    verbose2( if (!valid) {
-        printf("No valid result. Sievesize %ju was expected to have %ju primes, but algorithm produced %ju primes\n",(uintmax_t)factor_max,(uintmax_t)valid_primes,(uintmax_t)primecount );
-        verbose3( show_primes(sieve, option.show_primes_on_error); )
-        verbose3( deepAnalyzePrimes(sieve); )
-    })
-    return (valid);
+    return (valid_primes == primecount);
 }
 
