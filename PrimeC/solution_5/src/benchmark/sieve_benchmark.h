@@ -133,13 +133,6 @@ static inline char* benchmark_settings_as_string(char* settings_string, benchmar
     return settings_string;
 }
 
-static inline void tuning_result_print(benchmark_result_t tuning_result) 
-{
-    char settings[100]=""; benchmark_settings_as_string(settings, tuning_result.settings);
-    verbose2( printf("average \033[1;33m%f\033[0m with options \033[1;32m%s\033[0m was achieved with \033[1;33m%3ju\033[0m passes in \033[1;33m%f\033[0m seconds\n", 
-    tuning_result.avg, settings, (uintmax_t)tuning_result.passes, tuning_result.elapsed_time); )
-}
-
 static void outputBenchmarkStats(benchmark_result_t benchmark_result)
 {
     verbose1( printf("\nResult: Passes \033[1;33m%ju\033[0m \033[0;32m(per %.1f seconds)\033[0m - average \033[1;33m%.1f\033[0m per second \n", 
