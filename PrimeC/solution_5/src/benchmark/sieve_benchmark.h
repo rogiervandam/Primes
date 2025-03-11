@@ -40,6 +40,13 @@ static inline benchmark_settings_t benchmarkInit(counter_t threads)
     return benchmark_settings;
 }
 
+static inline char* benchmark_settings_as_string(char* settings_string, benchmark_settings_t benchmark_settings) {
+    sprintf(settings_string, "s%03ju-m%03ju-l%03ju-b%07ju-u%02ju-v%02ju", 
+        (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.largestep_faster, 
+        (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_SIZE_counter);
+    return settings_string;
+}
+
 static inline double benchmarkTime() 
 {
     struct timespec t;
@@ -58,7 +65,7 @@ static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settin
     global_largestep_faster   = benchmark_settings.largestep_faster;
     global_blocksize_bits     = benchmark_settings.blocksize_bits;
 
-    verbose5( printf("Setting globals from benchmark: Stripe=%ju, Medium=%ju, Large=%ju, Block=%ju\n", (uintmax_t)global_stripeprime_faster, (uintmax_t)global_mediumstep_faster, (uintmax_t)global_largestep_faster, (uintmax_t)global_blocksize_bits); )
+    verbose5 ( { char settings_string[100]=""; benchmark_settings_as_string(settings_string, benchmark_settings); printf("Using settings \033[1;32m%s\033[0m\n",settings_string); } )
 }
 
 static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
@@ -125,13 +132,6 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
 
 
 // REPORTING
-
-static inline char* benchmark_settings_as_string(char* settings_string, benchmark_settings_t benchmark_settings) {
-    sprintf(settings_string, "s%03ju-m%03ju-l%03ju-b%07ju-u%02ju-v%02ju", 
-        (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.largestep_faster, 
-        (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_SIZE_counter);
-    return settings_string;
-}
 
 static void outputBenchmarkStats(benchmark_result_t benchmark_result)
 {

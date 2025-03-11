@@ -51,9 +51,6 @@ static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 
             int valid = checkSieveWithBenchmarkSettings(benchmark_settings); 
 
-            // printf("Bitstorage is %s\n", is_aligned(sieve_check->bitstorage, anticiped_cache_line_bytesize) ? "aligned" : "not aligned");
-            // printf("Sieve is %s\n", is_aligned(sieve_check, anticiped_cache_line_bytesize) ? "aligned" : "not aligned");
-
             if (!valid) {
                 fprintf(stderr,"Invalid count for %ju Settings used: %s\n",(uintmax_t)sieveSize_check, settings_string);
                 exit(1); 
