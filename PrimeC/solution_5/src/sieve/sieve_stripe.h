@@ -109,14 +109,6 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
         prime = searchBitFalse_largeRange(bitstorage, prime);
     }
 
-    // while (prime < prime_max) {
-    //     const counter_t step  = prime * 2 + 1;
-    //     counter_t start = prime * (step + 1);
-    //     if (start < block_start)  { start = (block_start + prime) + prime - ((block_start + prime) % step);}
-    //     setBitsTrue_largestep_norepeat(bitstorage, start, step, block_stop);
-    //     prime = searchBitFalse_largeRange(bitstorage, prime);
-    // }
-
     timer_laptime(time_sieve_block_stripe); verbose7( printf("\n"); )
     return prime; 
 }

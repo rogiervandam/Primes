@@ -10,7 +10,6 @@ static inline struct sieve_t * __attribute__((always_inline)) sieve_create(const
     struct sieve_t *sieve = malloc(((sizeof(struct sieve_t) + (size_t)(size>>1))|(anticiped_cache_line_bytesize-1))+1+anticiped_cache_line_bytesize);
     sieve->bitstorage     = __builtin_assume_aligned((void *) (( (uintptr_t) (sieve + sizeof(struct sieve_t))|(anticiped_cache_line_bytesize-1))+1),anticiped_cache_line_bytesize);
     sieve->bits           = size >> 1;
-    sieve->bitstorage = __builtin_assume_aligned(sieve->bitstorage, anticiped_cache_line_bytesize);
     return sieve;
 }
 
