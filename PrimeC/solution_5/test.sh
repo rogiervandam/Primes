@@ -16,7 +16,7 @@ OS="$(uname -s)"
 
 # TODO: Try to get -flto working with int32_t counter_t
 # CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11"
-CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11 -fno-common -fdata-sections -ffunction-sections "  #  -Wno-unused-function
+CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11  "  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections
 if [ "$OS" = "Linux" ]; then
     CC="gcc-14  $CC -Wno-psabi -fwhole-program -flto" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
     PAR="-fopenmp"
@@ -34,7 +34,7 @@ PAREXT="_epar"
 
 # Check if first argument is --explain
 DEFINE_FLAGS=""
-PROG="sieve_extend-u64_v4"  # default program
+PROG="sieve_extend-u64v4"  # default program
 
 for arg in "$@"; do
     if [ "$arg" = "--explain" ]; then

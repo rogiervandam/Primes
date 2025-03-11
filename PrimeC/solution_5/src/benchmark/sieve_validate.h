@@ -10,18 +10,23 @@ static void explainSieveShake(benchmark_settings_t benchmark_settings)
     struct sieve_t* sieve = sieve_shake(benchmark_settings.factor_max);
     debug_final_benchmarking = 0;
 
-    // printf("\nResult set:\n");
-    // option.verbose_level = 3; // set back to 3 because we don't need explanations anymore
-    // if (option.show_explain_factor_max) {
-    //     show_primes(sieve, min(option.show_explain_factor_max, 100));
-    // }
-    // int valid = validatePrimeCount(sieve, benchmark_settings.factor_max);
-    // if (!valid) printf("The sieve is \033[0;31m\033[5mNOT\033[0;0m valid...\n");
-    // else printf("The sieve is \033[0;32mvalid\033[0;0m\n");
-    // sieve_delete(sieve);
-    // printf("Hits: %ju\n",(uintmax_t)debug_hits);
-    // if (option.timers) print_timing_table();
-    exit(0);
+    printf("\nResult set:\n");
+    option.verbose_level = 3; // set back to 3 because we don't need explanations anymore
+    if (option.show_explain_factor_max) {
+        show_primes(sieve, option.show_explain_factor_max);
+    }
+    int valid = validatePrimeCount(sieve, benchmark_settings.factor_max);
+    if (!valid) {
+        printf("The sieve is \033[0;31m\033[5mNOT\033[0;0m valid...\n");
+        deepAnalyzePrimes(sieve);
+    }
+    else {
+        printf("The sieve is \033[0;32mvalid\033[0;0m\n");
+    }
+    sieve_delete(sieve);
+
+    printf("Hits: %ju\n",(uintmax_t)debug_hits);
+    if (option.timers) print_timing_table();
 }
 #endif
 

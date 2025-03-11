@@ -1,10 +1,5 @@
 
-
-// integer Newton's method 
-// TODO: Overflow with factor_max 10000000
-// TODO: this procedure is really slow when switched to 64 bit
 static inline counter_t __attribute__((always_inline)) prime_stripe_start_beyond_block_stop_calc(const counter_t block_stop) {
-
     return (counter_t) (usqrt(block_stop << 1) - 1) >> 1;
 }
 
@@ -42,8 +37,7 @@ static inline counter_t __attribute__((always_inline)) prime_pattern_not_repeati
     return low;
 }
 
-static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitword_t* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
-{
+static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitword_t* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max) {
     verbose5(  printf("\nBlock stripe (new) for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
     timer_lapstart(time_sieve_block_stripe);
 

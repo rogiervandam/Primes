@@ -13,6 +13,7 @@ int main(int argc, char *argv[])
 
     option = setDefaultOptions();
     option = parseCommandLine(argc, argv, option);
+
     verbose3({
         printf("Sieve algorithm by Rogier van Dam - 2025\n");
         printf("Find all primes up to \033[1;33m%ju\033[0m using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)\n", (uintmax_t)option.fixed_benchmark_settings.factor_max);

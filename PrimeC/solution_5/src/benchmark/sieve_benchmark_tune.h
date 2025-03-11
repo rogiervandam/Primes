@@ -57,7 +57,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     
     verbose2( { 
         verbose3( printf("\n"); )
-        printf("Tuning... compiled for \033[1;32m%ju_%ju\033[0m (word, vector)", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
+        printf("Tuning... compiled for \033[1;32mu%juv%ju\033[0m (word, vector)", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
         verbose3( {
             benchmark_settings_as_string(settings_string, start_tuning_settings);
             printf(".. best options (shown when found) for steps s%jum%juv%ju:\n", (uintmax_t)stripe_faster_steps, (uintmax_t) mediumstep_faster_steps, (uintmax_t) largestep_faster_steps); 
@@ -76,7 +76,6 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     const double time_start = (double)clock();
     const double time_target = time_start + option.tune_duration_max * CLOCKS_PER_SEC;
 
-    printf("Prime max %ju\n", (uintmax_t)prime_max);
     // build the tuning table
     for (counter_t stripe_faster = 0; stripe_faster <= prime_max; stripe_faster += stripe_faster_steps, stripe_faster_steps*=2) { // increase the stepsize exponentially to reduce the number of options
         for (counter_t smallprime_direction = 0; smallprime_direction<=1; smallprime_direction++) { // helper to exponentially start at top and bottom of range

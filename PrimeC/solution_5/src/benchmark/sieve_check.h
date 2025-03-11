@@ -24,10 +24,11 @@ static void deepAnalyzePrimes(struct sieve_t *sieve)
     counter_t warn_prime = 0;
     counter_t warn_nonprime = 0;
     for (counter_t prime = 1; prime < sieve->bits; prime++ ) {
-        if ((sieve->bitstorage[wordindex(prime)] & markmask_calc(prime))==0) { // is this a prime?
+        if ((sieve->bitstorage[wordindex(prime)] & markmask(prime))==0) { // is this a prime?
             for(counter_t c=1; c<=sieve->bits && c*c <= prime*2+1; c++) {
                 if ((prime*2+1) % (c*2+1) == 0 && (c*2+1) != (prime*2+1)) {
-                    if (warn_prime++ < 30) printf("Number %ju (%ju) was marked prime, but %ju * %ju = %ju\n", (uintmax_t)prime*2+1, (uintmax_t)prime, (uintmax_t)c*2+1, (uintmax_t)((prime*2+1)/(c*2+1)), (uintmax_t)prime*2+1 );
+                    if (warn_prime++ < 30) printf("Factor %ju was marked prime, but %ju * %ju = %ju (in prime/2: %ju,%ju and %ju)\n",
+                         (uintmax_t)prime*2+1, (uintmax_t)c*2+1, (uintmax_t)((prime*2+1)/(c*2+1)), (uintmax_t)prime*2+1, (uintmax_t)c, (uintmax_t)((prime*2+1)/(c*2+1)/2),(uintmax_t)prime);
                 }
             }
         }

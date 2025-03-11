@@ -26,7 +26,7 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe_old(bi
             }
         }
 
-        setBitsTrue_largestep_vector(bitstorage, start, step, block_stop);
+        setBitsTrue(bitstorage, start, step, block_stop);
         prime = searchBitFalse(bitstorage, prime);
     }
 

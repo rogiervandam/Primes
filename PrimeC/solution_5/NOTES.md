@@ -10,24 +10,37 @@
 
 
 
-
-
-Old
+New
 ----
-Shaking sieve to find all primes up to 1000 by marking multiples of all primes up to 31
-Using compressed primes up to 16 with sieve size 500 and blocksize 500
+Running sieve variant rogiervandam_extend u64v4... 
+Using settings s000-m016-l016-b0000500-u64-v256
+
+Shaking sieve to find all primes up to 1000 by marking multiples of all primes up to 33
+Using compressed primes up to 17 with sieve size 500 and blocksize 500
 Extending sieve block to range 500
 Setting bits step   3 using smallstep-norepeat in 2 bit range (4-6)  (0 unique occurances)
+Setting bits step   5 using setBitsTrue in 18 bit range (12-30)  (3 occurances; 0 stamps) 
 Setting bits step   5 using smallstep-norepeat in 18 bit range (12-30)  (3 unique occurances)
+Setting bits step   7 using setBitsTrue in 186 bit range (24-210)  (26 occurances; 0 stamps) 
 Setting bits step   7 using smallstep-norepeat in 186 bit range (24-210)  (26 unique occurances)
 
 Block stripe for block 0 - 500
-Setting bits step  11 using largestep-norepeat in 440 bit range (60-500)  (40 unique occurances)..
-Setting bits step  13 using largestep-norepeat in 416 bit range (84-500)  (32 unique occurances)..
-Setting bits step  17 using largestep-norepeat in 356 bit range (144-500)  (20 unique occurances)..
-Setting bits step  19 using largestep-norepeat in 320 bit range (180-500)  (16 unique occurances)..
-Setting bits step  23 using largestep-norepeat in 236 bit range (264-500)  (10 unique occurances)..
-Setting bits step  29 using largestep-norepeat in 80 bit range (420-500)  (2 unique occurances)..
 
 Block stripe for block 0 - 500
-Setting bits step  31 using largestep-norepeat in 20 bit range (480-500)  (0 unique occurances)..
+Setting bits step  11 using setBitsTrue in 440 bit range (60-500)  (40 occurances; 0 stamps) 
+Setting bits step  11 using smallstep-norepeat in 440 bit range (60-500)  (40 unique occurances)
+Setting bits step  13 using setBitsTrue in 416 bit range (84-500)  (32 occurances; 0 stamps) 
+Setting bits step  13 using smallstep-norepeat in 416 bit range (84-500)  (32 unique occurances)
+Setting bits step  17 using setBitsTrue in 356 bit range (144-500)  (20 occurances; 0 stamps) 
+Setting bits step  17 using smallstep-norepeat in 356 bit range (144-500)  (20 unique occurances)
+Setting bits step  19 using setBitsTrue in 320 bit range (180-500)  (16 occurances; 0 stamps) 
+Setting bits step  19 using smallstep-norepeat in 320 bit range (180-500)  (16 unique occurances)
+Setting bits step  23 using setBitsTrue in 236 bit range (264-500)  (10 occurances; 0 stamps) 
+Setting bits step  23 using smallstep-norepeat in 236 bit range (264-500)  (10 unique occurances)
+Setting bits step  29 using setBitsTrue in 80 bit range (420-500)  (2 occurances; 0 stamps) 
+Setting bits step  29 using smallstep-norepeat in 80 bit range (420-500)  (2 unique occurances)
+Setting bits step  31 using setBitsTrue in 20 bit range (480-500)  (0 occurances; 0 stamps) 
+Setting bits step  31 using smallstep-norepeat in 20 bit range (480-500)  (0 unique occurances)
+
+
+

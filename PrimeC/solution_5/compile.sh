@@ -22,7 +22,7 @@ PAREXT="_epar"
 
 echo "Compiling for ${OS} with $CC"
 for x in sieve_base sieve_extend; do
-    for y in u32_v8 u64_v4 u64_v8 u64_v2; do
+    for y in u32v8 u64v4 u64v8 u64v2 u32v4; do
         echo "Compiling $x-$y"
         $CC -o ./bin/$x-$y ./src/$x.c -D$y
         $STRIP ./bin/$x-$y

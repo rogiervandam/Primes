@@ -22,7 +22,11 @@
 #endif
 
 // include helper functions
-#include "benchmark/sieve_helpers.h"
+#include "general/preset.h"
+#include "general/helpers.h"
+#include "general/types.h"
+#include "general/tools.h"
+#include "general/verbose.h"
 #include "benchmark/sieve_options.h"
 #include "benchmark/sieve_timers.h"
 #include "sieve/sieve_manager.h"
