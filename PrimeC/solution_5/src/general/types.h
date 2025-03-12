@@ -1,7 +1,7 @@
 // defaults
 #define compile_verbose_level           3  // Set to 1-4 to enable compiling different verbose levels
-#define anticiped_cache_line_bytesize   256 // How to align the caches
-// #define COMPILE_CHECKALL                 // Set to 1 to enable all checks
+#define anticiped_cache_line_bytesize   64 // How to align the caches
+#define COMPILE_CHECKALL                 // Set to 1 to enable all checks
 
 #ifdef COMPILE_EXPLAIN // define compile_explain with compilation options
 #undef compile_verbose_level
@@ -14,7 +14,7 @@
 #endif
 
 #ifndef bitshift_t
-    #define bitshift_t uint32_t // type used to shift bits
+    #define bitshift_t uint64_t // type used to shift bits
 #endif
 
 #ifndef counter_t
@@ -34,9 +34,9 @@
 #ifndef VECTOR_ELEMENTS
 #define VECTOR_ELEMENTS 4
 #endif
-#ifndef VECTOR_SETTING
-#define VECTOR_SETTING PPCAT(bitword_t,VECTOR_ELEMENTS)
-#endif
+// #ifndef VECTOR_SETTING
+// #define VECTOR_SETTING PPCAT(bitword_t,VECTOR_ELEMENTS)
+// #endif
 
 // follow main bitword setting in vectors. Change is otherwise needed
 #define bitword_vector_t bitword_t
