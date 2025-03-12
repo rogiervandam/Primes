@@ -5,7 +5,7 @@
 // - switched to one malloc for the sieve, instead of one for the sieve and one for the storage
 // - bitstorage will be aligned on the anticiped_cache_line_bytesize
 
-#include <sys/mman.h>
+// #include <sys/mman.h>
 
     // Allocate memory with read and write permissions, anonymously and privately.
 // static inline void *allocate_via_mmap(size_t size) {

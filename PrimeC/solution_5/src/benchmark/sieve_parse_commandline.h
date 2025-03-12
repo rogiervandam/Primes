@@ -103,8 +103,9 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
                         case 'm': option.fixed_benchmark_settings.mediumstep_faster = value; break;
                         case 'l': option.fixed_benchmark_settings.largestep_faster = value; break;
                         case 'b': option.fixed_benchmark_settings.blocksize_bits = value; break; 
-                        case 'u': break;
-                        case 'v': break;
+                        case 'u': break; // can only set compile time; ignore
+                        case 'v': break; // can only set compile time; ignore
+                        case 'c': break; // can only set compile time; ignore
                         case 't': option.fixed_benchmark_settings.threads = value; break;
                         default:
                             fprintf(stderr, "Error: Unknown parameter '%c'\n", param_type);

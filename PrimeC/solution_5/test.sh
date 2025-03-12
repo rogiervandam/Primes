@@ -53,45 +53,27 @@ fi
 
 echo "Compiling for ${OS} with $CC $DEFINE_FLAGS"
 for s in $PROG; do
-    x=$(echo "$s" | sed -E 's/-(u[^-]*)$//')
+    x=$(echo "$s" | sed -E 's/-.*//')
     y=$(echo "$s" | grep -oE 'u[^-]*$')
+    c=$(echo "$s" | grep -oE '(ci32|ci64|cu32|cu64)$')
 
     if [ -n "$y" ]; then
-        PROGTOTAL="$x-$y"
+        PROGTOTAL="$x-$y-$c"
         DEFINE_FLAGS="-D$y $DEFINE_FLAGS"
     else
-        PROGTOTAL="$x"
+        PROGTOTAL="$PROGTOTAL$x"
     fi
+
+    if [ -n "$c" ]; then
+        DEFINE_FLAGS="-D$c $DEFINE_FLAGS"
+    fi
+
     echo "Compiling $PROGTOTAL $DEFINE_FLAGS"
     echo "Issuing command: $CC -o ./src/$PROGTOTAL $x.c $DEFINE_FLAGS"
-    # $CC -o $PROGTOTAL $x.c $DEFINE_FLAGS -fprofile-generate
-    # echo "Executing ./$PROGTOTAL $@ for profiling" 
-    # # ./$PROG "$@" "--verbose 2"
-    # ./$PROGTOTAL "$@"
-
-    # echo "Recompiling $PROGTOTAL $DEFINE_FLAGS"
-    # $CC -o $PROGTOTAL $x.c $DEFINE_FLAGS -fprofile-use
-    # $STRIP $PROGTOTAL
 
     $CC -o ./bin/$PROGTOTAL ./src/$x.c $DEFINE_FLAGS
-    $STRIP ./bin/$PROGTOTAL -x -c
+    $STRIP ./bin/$PROGTOTAL
 
-    # echo "Compiling $x-$y$PAREXT $DEFINE_FLAGS"
-    # $CC $PAR -o $x$PAREXT-$y $x.c -D$y $DEFINE_FLAGS
-    # $STRIP $x$PAREXT-$y
 done
-# ./$1 $2 $3 $4 $5 $6 $7
-# ./$1 --set s112-m004-l158-b0262144 --verbose 3
-# ./$1 --set s016-m004-l160-b0262144
-# taskset -c 0-$(nproc --all) nice -n -0 ./$1
-# ./$1 --set s4520-m080-l048-b0262144-u64-v256
-# ./$1 --set s001-m001-l256-b0262144-u64-v256
 echo "Executing ./bin/$PROGTOTAL $@"
-# ./$PROG --set s004-m048-l048-b1000000-u64-v256 "$@"
-
-# best for i8700
-# s004-m000-l080-b0262144-u64-v256 
-
-# ./$PROG --set s004-m000-l080-b0262144-u64-v256  "$@" --tune 0
-
 bin/$PROGTOTAL "$@"

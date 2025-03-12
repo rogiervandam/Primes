@@ -13,3 +13,17 @@
 
 #define PPCAT_NX(A, B) A ## B
 #define PPCAT(A, B) PPCAT_NX(A, B)
+
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
+#include <stdint.h>
+#if __STDC_VERSION__ >= 201112L
+    #define TYPE_SHORT_NAME(x) _Generic((x)0, \
+         uint32_t: "u32", \
+         uint64_t: "u64", \
+         int32_t:  "i32", \
+         int64_t:  "i64", \
+         default:  "unknown" )
+#else
+    #define TYPE_SHORT_NAME(x) "unsupported"
+#endif
