@@ -5,7 +5,7 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse(const bitw
     timer_lapstart(time_searchBitFalse);
 
     // Normal function - really fast for small offsets
-    do { index++; } while (bitstorage[wordindex(index)] & markmask(index));
+    do { index++; } while (bitstorage[wordindex(index)] & markmask_calc(index));
 
     timer_laptime(time_searchBitFalse); verbose8( printf(" next prime %ju (step %ju)\n", (uintmax_t) index, (uintmax_t)index*2+1); )
     return index;

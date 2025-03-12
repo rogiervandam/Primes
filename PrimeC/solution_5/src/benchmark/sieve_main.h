@@ -83,8 +83,10 @@ int main(int argc, char *argv[])
     // show results for --show command line option
     if (option.show_explain_factor_max > 0) showResult(option.fixed_benchmark_settings);
 
+    #ifdef COMPILE_TIMERS
     if (option.timers) print_timing_table();
-
+    #endif
+    
     if (debug_hits || debug_hits2) { verbose2( printf("Hits: %ju %ju\n",(uintmax_t)debug_hits, (uintmax_t)debug_hits2); ) }
 
 }

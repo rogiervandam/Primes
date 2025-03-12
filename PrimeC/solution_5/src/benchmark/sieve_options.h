@@ -1,7 +1,3 @@
-struct sieve_t {
-    bitword_t* bitstorage __attribute__((aligned(anticiped_cache_line_bytesize)));  // Align to cache line
-    counter_t bits;
-  } __attribute__((aligned(anticiped_cache_line_bytesize)));  // Align the whole structure
 
 typedef struct  {
     counter_t factor_max;

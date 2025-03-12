@@ -23,6 +23,12 @@
 //     }
 // }
 
+struct sieve_t {
+    bitword_t* bitstorage __attribute__((aligned(anticiped_cache_line_bytesize)));  // Align to cache line
+    counter_t bits;
+  } __attribute__((aligned(anticiped_cache_line_bytesize)));  // Align the whole structure
+
+  
 static inline struct sieve_t * __attribute__((always_inline)) sieve_create(const counter_t size) 
 {
     // struct sieve_t *sieve = allocate_via_mmap(((sizeof(struct sieve_t) + (size_t)(size>>1))|(anticiped_cache_line_bytesize-1))+1+anticiped_cache_line_bytesize);

@@ -15,8 +15,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <string.h>
-#include <ctype.h> /* For isdigit() function */
-#include <inttypes.h>
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -26,10 +25,11 @@ static char algorithm_type[] = "base";
 
 // include helper functions
 #include "general/preset.h"
+#include "general/settings.h"
 #include "general/helpers.h"
 #include "general/types.h"
-#include "general/tools.h"
 #include "general/verbose.h"
+#include "general/tools.h"
 #include "benchmark/sieve_options.h"
 #include "benchmark/sieve_timers.h"
 #include "sieve/sieve_manager.h"
@@ -51,11 +51,9 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
 
     // use globals as constant
     const counter_t stripeprime_faster = global_stripeprime_faster;
-    // const counter_t mediumstep_faster = global_mediumstep_faster;
-    // const counter_t largestep_faster = global_largestep_faster;
     const counter_t blocksize_bits = global_blocksize_bits;
     
-    verbose7(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size); )
+    verbose5(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size); )
 
     // code for algorithm = base
     sieve_clear(sieve);
@@ -69,7 +67,7 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     sieve_block_stripe0(bitstorage, min(blocksize_bits, sieve_bits), prime, prime_max);
 
     // // process the remaining blocks
-    for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start <= sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
+    for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
         sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
     } 
     

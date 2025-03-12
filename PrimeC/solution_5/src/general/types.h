@@ -1,26 +1,27 @@
 // defaults
-#define compile_verbose_level           2  // Set to 1-4 to enable compiling different verbose levels
-#define anticiped_cache_line_bytesize   64 // How to align the caches
-#define COMPILE_CHECKALL                 // Set to 1 to enable all checks
+// #define compile_verbose_level           0  // Set to 1-4 to enable compiling different verbose levels
+// #define anticiped_cache_line_bytesize   128 // How to align the caches
+// // #define COMPILE_CHECKALL                 
+// // #define COMPILE_EXPLAIN                  
 
-#ifdef COMPILE_EXPLAIN // define compile_explain with compilation options
-#undef compile_verbose_level
-#define compile_verbose_level           7
-#endif
+// #ifndef bitword_t
+//     #define bitword_t  uint64_t // type used to store bits
+//     #define BITWORD_T_SIZE_PP 64
+// #endif
 
-#ifndef bitword_t
-    #define bitword_t  uint64_t // type used to store bits
-    #define BITWORD_T_SIZE_PP 64
-#endif
+// #ifndef bitshift_t
+//     #define bitshift_t uint64_t // type used to shift bits
+// #endif
 
-#ifndef bitshift_t
-    #define bitshift_t uint64_t // type used to shift bits
-#endif
+// #ifndef counter_t
+//     #define counter_t  int64_t  // type used to count loops, etc. Some processors/compilers are faster at 32 bits
+//     #define COUNTER_T_SIZE_PP 64
+// #endif
 
-#ifndef counter_t
-    #define counter_t  int64_t  // type used to count loops, etc. Some processors/compilers are faster at 32 bits
-    #define COUNTER_T_SIZE_PP 64
-#endif
+// #ifdef COMPILE_EXPLAIN // define compile_explain with compilation options
+// #undef compile_verbose_level
+// #define compile_verbose_level           7
+// #endif
 
 #if COUNTER_T_SIZE_PP == 32
     #define COUNTER_T_MAX_SAFE_VALUE 1000000000ULL
@@ -29,14 +30,10 @@
 #endif
 
 
-// WORD_SIZE_PP -> Word size available in Preprocessor -> have to set this manually
-// defaults
+
 #ifndef VECTOR_ELEMENTS
 #define VECTOR_ELEMENTS 4
 #endif
-// #ifndef VECTOR_SETTING
-// #define VECTOR_SETTING PPCAT(bitword_t,VECTOR_ELEMENTS)
-// #endif
 
 // follow main bitword setting in vectors. Change is otherwise needed
 #define bitword_vector_t bitword_t
@@ -100,33 +97,12 @@ static counter_t debug_final_plan           = 0;
 #define vectorend(index)     (((counter_t)index) |  (counter_t)VECTORMASK)
 #define vector_wordstart(index)     ((counter_t)(index) & (counter_t)(~VECTORWORDMASK))
 #define vector_wordindex(index)     (((counter_t)index) >> SHIFT_VECTORWORD)
-// #define vectorfromword(word) ((counter_t)(word ) >> (counter_t)SHIFT_VECTOR-SHIFT_WORD))
-// #define wordinvector(index)  (((counter_t)index >> SHIFT_WORD) & (VECTORMASK >> SHIFT_WORD))
 
 // modern processors do a & over the shiftssize, so we only have to do that ourselve when using the shiftsize in calculations. 
 #define bitindex_calc(index)        ((bitshift_t)(((counter_t)(index))&((counter_t)(WORDMASK))))
 #define vector_bitindex(index)      ((bitshift_t)(index))
 #define vector_bitindex_calc(index) ((bitshift_t)(((counter_t)(index))&((counter_t)(VECTORWORDMASK))))
 
-// #define wordindex(index)     ((index) >> SHIFT_WORD)
-// #define wordend(index)       ((index) |  WORDMASK)
-// #define wordstart(index)     ((index) &  (~WORDMASK))
-// #define vectorindex(index)   ((index) >> SHIFT_VECTOR)
-// #define vectorstart(index)   ((index) &  ~VECTORMASK)
-// #define vectorend(index)     ((index) |  VECTORMASK)
-// #define vector_wordstart(index)     ((index) & (~VECTORWORDMASK))
-// #define vector_wordindex(index)     ((index) >> SHIFT_VECTORWORD)
-// // #define vectorfromword(word) ((counter_t)(word ) >> (counter_t)SHIFT_VECTOR-SHIFT_WORD))
-// // #define wordinvector(index)  (((counter_t)index >> SHIFT_WORD) & (VECTORMASK >> SHIFT_WORD))
-
-// // modern processors do a & over the shiftssize, so we only have to do that ourselve when using the shiftsize in calculations. 
-// #define bitindex_calc(index)        ((((index))&(WORDMASK)))
-// #define vector_bitindex(index)      ((index))
-// #define vector_bitindex_calc(index) ((((index))&(VECTORWORDMASK)))
-
-
-
-// #if SAFE_SHIFT == 1
 #if BITWORD_T_SIZE_PP == 64
 #define bitindex(index)      ((bitshift_t)(index))
 #else

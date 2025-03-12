@@ -16,13 +16,16 @@
 #include <time.h>
 #include <string.h> // for memset and memcpy
 
-// #include <inttypes.h>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
+static char algorithm_name[] = "rogiervandam_extend";
+static char algorithm_type[] = "other";
+
 // include helper functions
 #include "general/preset.h"
+#include "general/settings.h"
 #include "general/helpers.h"
 #include "general/types.h"
 #include "general/verbose.h"
@@ -36,9 +39,6 @@
 #include "dev/snippets.h"
 #include "sieve/sieve_stripe.h"
 #include "sieve/sieve_extend_continuePattern.h"
-
-static char algorithm_name[] = "rogiervandam_extend";
-static char algorithm_type[] = "other";
 
 // returns prime that could not be handled:
 // start is too large
@@ -119,16 +119,16 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     // prime = sieve_stripe(bitstorage, sieve_bits, prime, stripeprime_faster);
     // prime = sieve_block_stripe_old(bitstorage, 0, sieve_bits, prime, stripeprime_faster);
 
-
     // in the sieve all bits for the multiples of primes up to startprime have been set
     // process the sieve and stripe all the multiples of primes > start_prime
     // do this block by block to minimize cache misses
     // first block requires fewer operations; it might be the whole sieve...
     // sieve_block_stripe0(bitstorage, min(blocksize_bits, sieve_bits), prime, prime_max);
 
-    prime = sieve_block_stripe(bitstorage, 0, sieve_bits, prime, stripeprime_faster);
+    prime = sieve_stripe(bitstorage, sieve_bits, prime, stripeprime_faster);
     if (prime >= prime_max) return sieve;
-    sieve_block_stripe(bitstorage, 0, min(blocksize_bits, sieve_bits), prime, prime_max);
+
+    sieve_block_stripe0(bitstorage, min(blocksize_bits, sieve_bits), prime, prime_max);
     for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
         sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
     } 

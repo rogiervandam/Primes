@@ -15,18 +15,21 @@
 #include <stdint.h>
 #include <time.h>
 #include <string.h>
-#include <ctype.h> /* For isdigit() function */
-#include <inttypes.h>
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
+static char algorithm_name[] = "rogiervandam_classic";
+static char algorithm_type[] = "classic";
+
 // include helper functions
 #include "general/preset.h"
+#include "general/settings.h"
 #include "general/helpers.h"
 #include "general/types.h"
-#include "general/tools.h"
 #include "general/verbose.h"
+#include "general/tools.h"
 #include "benchmark/sieve_options.h"
 #include "benchmark/sieve_timers.h"
 #include "sieve/sieve_manager.h"
@@ -34,9 +37,6 @@
 #include "sieve/sieve_setbitstrue_word.h"
 #include "sieve/sieve_setbitstrue_vector.h"
 #include "sieve/sieve_stripe.h"
-
-static char algorithm_name[] = "rogiervandam_classic";
-static char algorithm_type[] = "classic";
 
 /* This is the main module that directs all the work
    sieve_size in a real number that is the maximum in the sieve (not in bits)
@@ -49,7 +49,7 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     const counter_t sieve_bits = sieve->bits;
     const counter_t prime_max = 1+usqrt(sieve_size)/2;
 
-    verbose7(  printf("\nShaking sieve to find all primes up to %ju\n",(uintmax_t)sieve_size); )
+    verbose5(  printf("\nShaking sieve to find all primes up to %ju\n",(uintmax_t)sieve_size); )
 
     sieve_clear(sieve);
     counter_t prime = 1;

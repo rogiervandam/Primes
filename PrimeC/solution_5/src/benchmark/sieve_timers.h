@@ -1,3 +1,4 @@
+#ifdef COMPILE_TIMERS
 
 // helper functions for timing parts of code in debugging mode
 // call timerLapStart() to start timing a part of code
@@ -75,8 +76,6 @@ static const char* timer_function_names[100] = {
     [time_sieve_block_extend] = "sieve_block_extend",
   };
 
-#ifdef COMPILE_TIMERS
-
 // static inline double time_mark() {
 //     struct timespec t;
 //     clock_gettime(CLOCK_UPTIME_RAW, &t);
@@ -124,13 +123,6 @@ static void timer_init() {
 
 }
 
-#else
-
-#define timer_lapstart(timer) 
-#define timer_laptime(timer) 
-
-#endif
-
 static void print_timing_table(void) {
     verbose1( printf("%-40s %15s %20s\n", "Functions", "Hits", "Total time (s)"); )
     for (counter_t i = 0; i < timer_count; i++) {
@@ -138,4 +130,12 @@ static void print_timing_table(void) {
         verbose1( printf("%-40s %15ju %20.9f\n", timer_function_names[i], (uintmax_t)timer_hits[i], timer_time[i] * 1e-9); )
     }
 }
+
+#else
+
+#define timer_lapstart(timer) 
+#define timer_laptime(timer) 
+
+#endif
+
   

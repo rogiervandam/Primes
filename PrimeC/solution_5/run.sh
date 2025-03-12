@@ -1,9 +1,7 @@
 #!/bin/sh
 # for x in sieve_base sieve_extend sieve_base_epar sieve_extend_epar; do
-for x in sieve_extend sieve_base; do
-    for y in u64v4 u32v4 u32v8 u64v8; do
-        bin/$x-$y $1 $2 $3 $4 $5 $6 $7 $8 $9
-    done
+
+for arg in u32-v4-ci64 u32-v4-ci32 u32-v8-ci64 u32-v8-ci32 u64-v4-ci64 u64-v4-ci32 u64-v8-ci64 u64-v8-ci32; do
+    ./bin/sieve_base-$arg "$@"
+    ./bin/sieve_extend-$arg "$@"
 done
-
-

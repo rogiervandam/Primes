@@ -18,7 +18,7 @@ OS="$(uname -s)"
 # CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11"
 CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11  "  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections
 if [ "$OS" = "Linux" ]; then
-    CC="gcc-14  $CC -Wno-psabi -fwhole-program -flto -s -Wl,--gc-sections" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
+    CC="gcc-14  $CC -Wno-psabi -fwhole-program -flto -s -Wl,--gc-sections -s" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
     PAR="-fopenmp"
     STRIP="strip"
 elif [ "$OS" = "Darwin" ]; then
@@ -32,48 +32,55 @@ else
 fi
 PAREXT="_epar"
 
-# Check if first argument is --explain
-DEFINE_FLAGS=""
-PROG="sieve_extend-u64v4"  # default program
-
-for arg in "$@"; do
-    if [ "$arg" = "--explain" ]; then
-        DEFINE_FLAGS="-DCOMPILE_EXPLAIN $DEFINE_FLAGS"
-    fi
-    if [ "$arg" = "--timers" ]; then
-        DEFINE_FLAGS="-DCOMPILE_TIMERS $DEFINE_FLAGS"
-    fi
-done
-
-# If first argument doesn't start with '-', use it as PROG and remove it
-if [ -n "$1" ] && [ "$(printf '%c' "$1")" != "-" ]; then
-    PROG="$1"
+# If the first argument does not start with '-', assign it as the base and discard it
+if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
+    base="$1"
     shift
 fi
 
-echo "Compiling for ${OS} with $CC $DEFINE_FLAGS"
-for s in $PROG; do
-    x=$(echo "$s" | sed -E 's/-.*//')
-    y=$(echo "$s" | grep -oE 'u[^-]*$')
-    c=$(echo "$s" | grep -oE '(ci32|ci64|cu32|cu64)$')
+DEFINE_FLAGS=""
 
-    if [ -n "$y" ]; then
-        PROGTOTAL="$x-$y-$c"
-        DEFINE_FLAGS="-D$y $DEFINE_FLAGS"
-    else
-        PROGTOTAL="$PROGTOTAL$x"
-    fi
+# Set default tokens
+set_x="u64"
+set_y="v4"
+set_z="ci32"
 
-    if [ -n "$c" ]; then
-        DEFINE_FLAGS="-D$c $DEFINE_FLAGS"
-    fi
-
-    echo "Compiling $PROGTOTAL $DEFINE_FLAGS"
-    echo "Issuing command: $CC -o ./src/$PROGTOTAL $x.c $DEFINE_FLAGS"
-
-    $CC -o ./bin/$PROGTOTAL ./src/$x.c $DEFINE_FLAGS
-    $STRIP ./bin/$PROGTOTAL
-
+# Loop through all arguments.
+for arg in "$@"; do
+    # Split each argument on dash and check every token.
+    for token in $(echo "$arg" | tr '-' ' '); do
+        case "$token" in
+            u32|u64)
+                set_x="$token"
+                DEFINE_FLAGS="-D${set_x} $DEFINE_FLAGS"
+                ;;
+            v4|v8)
+                set_y="$token"
+                DEFINE_FLAGS="-D${set_y} $DEFINE_FLAGS"
+                ;;
+            ci32|ci64|cu32|cu64)
+                set_z="$token"
+                DEFINE_FLAGS="-D${set_z} $DEFINE_FLAGS"
+                ;;
+            explain|--explain)
+                DEFINE_FLAGS="-DCOMPILE_EXPLAIN $DEFINE_FLAGS"
+                ;;
+            timers|--timers)
+                DEFINE_FLAGS="-DCOMPILE_TIMERS $DEFINE_FLAGS"
+                ;;
+            # Ignore other tokens.
+        esac
+    done
 done
-echo "Executing ./bin/$PROGTOTAL $@"
-bin/$PROGTOTAL "$@"
+
+# Compose a program name using a default base name.
+PROGTOTAL="${base}-${set_x}${set_y}-${set_z}"
+
+echo "Compiling for ${OS} with $CC $DEFINE_FLAGS"
+echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
+$CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS
+$STRIP ./bin/$PROGTOTAL
+
+echo "Running ./bin/$PROGTOTAL $@"
+./bin/$PROGTOTAL $@
+
