@@ -13,7 +13,7 @@
 
 #if compile_verbose_level >= 1
   #undef verbose1
-  #define verbose1(statement) if (option.verbose_level >= 1) statement
+  #define verbose1(statement) statement
 #endif
 #if compile_verbose_level >= 2
   #undef verbose2

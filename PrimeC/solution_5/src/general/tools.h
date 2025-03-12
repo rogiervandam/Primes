@@ -8,7 +8,7 @@ static inline void printWord(bitword_t bitword)
       if (!(i%8)) row[col++] = ' ';
     }
 
-    printf("%s", row);
+    verbose1( printf("%s", row); )
 }
 
 static void printVector(bitvector_t bitvector)
@@ -32,15 +32,15 @@ static void printVector(bitvector_t bitvector)
         row[col++] = 'x'; row[col++] = ' ';
       }
     row[col] = '\0';
-    printf("%s\n", row);
+    verbose1( printf("%s\n", row); )
 }
 
 static void printVectorNumeric(bitvector_t bitvector)
 {
   for(counter_t i=0; i < VECTOR_ELEMENTS; i++) {
-      printf("%ju,", (uintmax_t) bitvector[i]);
+      verbose1( printf("%ju,", (uintmax_t) bitvector[i]); )
   }
-  printf("\n");	
+  verbose1( printf("\n");	)
 }
 
 // fast integer square root

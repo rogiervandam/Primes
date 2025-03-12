@@ -132,10 +132,10 @@ static void timer_init() {
 #endif
 
 static void print_timing_table(void) {
-    printf("%-40s %15s %20s\n", "Functions", "Hits", "Total time (s)");
+    verbose1( printf("%-40s %15s %20s\n", "Functions", "Hits", "Total time (s)"); )
     for (counter_t i = 0; i < timer_count; i++) {
         if (timer_hits[i] == 0) continue;
-        printf("%-40s %15ju %20.9f\n", timer_function_names[i], (uintmax_t)timer_hits[i], timer_time[i] * 1e-9);
+        verbose1( printf("%-40s %15ju %20.9f\n", timer_function_names[i], (uintmax_t)timer_hits[i], timer_time[i] * 1e-9); )
     }
 }
   

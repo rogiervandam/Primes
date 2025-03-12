@@ -227,7 +227,5 @@ static inline void  __attribute__((always_inline)) setBitsTrue(bitword_t* restri
         }
     }
 
-    printf("We should no be here\n");
-
     timer_laptime(time_setBitsTrue_largestep_vector); verbose7( printf("\n"); )
 }

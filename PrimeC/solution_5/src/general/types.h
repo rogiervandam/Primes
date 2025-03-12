@@ -1,5 +1,5 @@
 // defaults
-#define compile_verbose_level           3  // Set to 1-4 to enable compiling different verbose levels
+#define compile_verbose_level           2  // Set to 1-4 to enable compiling different verbose levels
 #define anticiped_cache_line_bytesize   64 // How to align the caches
 #define COMPILE_CHECKALL                 // Set to 1 to enable all checks
 

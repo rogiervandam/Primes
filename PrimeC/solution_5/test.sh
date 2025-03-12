@@ -18,11 +18,11 @@ OS="$(uname -s)"
 # CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11"
 CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11  "  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections
 if [ "$OS" = "Linux" ]; then
-    CC="gcc-14  $CC -Wno-psabi -fwhole-program -flto" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
+    CC="gcc-14  $CC -Wno-psabi -fwhole-program -flto -s -Wl,--gc-sections" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
     PAR="-fopenmp"
     STRIP="strip"
 elif [ "$OS" = "Darwin" ]; then
-    CC="clang $CC -Wno-psabi"
+    CC="clang $CC -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections -Wl,-dead_strip"
     # Ensure Clang finds OpenMP headers and library
     PAR="-Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include -L$(brew --prefix libomp)/lib -lomp"
     STRIP="strip"
@@ -74,7 +74,7 @@ for s in $PROG; do
     # $STRIP $PROGTOTAL
 
     $CC -o ./bin/$PROGTOTAL ./src/$x.c $DEFINE_FLAGS
-    $STRIP ./bin/$PROGTOTAL
+    $STRIP ./bin/$PROGTOTAL -x -c
 
     # echo "Compiling $x-$y$PAREXT $DEFINE_FLAGS"
     # $CC $PAR -o $x$PAREXT-$y $x.c -D$y $DEFINE_FLAGS

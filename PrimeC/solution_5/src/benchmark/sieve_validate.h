@@ -30,7 +30,7 @@ static void explainSieveShake(benchmark_settings_t benchmark_settings)
 }
 #endif
 
-static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
+static int checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 {
     verbose2( { 
         printf("Validating variant u%juv%ju... ", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
@@ -57,8 +57,8 @@ static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
             int valid = checkSieveWithBenchmarkSettings(benchmark_settings); 
 
             if (!valid) {
-                fprintf(stderr,"Invalid count for %ju Settings used: %s\n",(uintmax_t)sieveSize_check, settings_string);
-                exit(1); 
+                verbose1( fprintf(stderr,"Invalid count for %ju Settings used: %s\n",(uintmax_t)sieveSize_check, settings_string); )
+                return valid;
             }
             else {
                 verbose4( printf("\033[0;32mvalid\033[0;0m for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
@@ -68,12 +68,12 @@ static void checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
     }
     verbose2( printf("\033[0;32mvalid\033[0;0m algorithm\n"); )
     
-    if (option.check == 2) exit(0);
+    return 1;
 }
 
 static void showResult(benchmark_settings_t benchmark_settings)
 {
-    printf("Show result set:\n");
+    verbose2( printf("Show result set:\n"); )
     struct sieve_t* sieve = sieve_shake(benchmark_settings.factor_max);
     show_primes(sieve, option.show_explain_factor_max);
     sieve_delete(sieve);

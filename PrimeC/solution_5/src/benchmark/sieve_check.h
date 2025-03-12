@@ -11,24 +11,27 @@ static void show_primes(struct sieve_t *sieve, counter_t factor_max)
     for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor)) {
         primecount++;
         if (factor < factor_max/2) {
-            printf("%3ju ",(uintmax_t)factor*2+1);
-            if (primecount % 10 == 0) printf("\n");
+            verbose2( printf("%3ju ",(uintmax_t)factor*2+1); )
+            if (primecount % 10 == 0) { verbose2( printf("\n"); ) }
         }
     }
-    printf("\nFound %ju primes until %ju\n",(uintmax_t)primecount, (uintmax_t)sieve->bits*2+1);
+    verbose1( printf("\nFound %ju primes until %ju\n",(uintmax_t)primecount, (uintmax_t)sieve->bits*2+1); )
 }
 
 static void deepAnalyzePrimes(struct sieve_t *sieve) 
 {
-    printf("DeepAnalyzing\n");
+    verbose2( printf("DeepAnalyzing\n"); )
     counter_t warn_prime = 0;
     counter_t warn_nonprime = 0;
     for (counter_t prime = 1; prime < sieve->bits; prime++ ) {
         if ((sieve->bitstorage[wordindex(prime)] & markmask(prime))==0) { // is this a prime?
             for(counter_t c=1; c<=sieve->bits && c*c <= prime*2+1; c++) {
                 if ((prime*2+1) % (c*2+1) == 0 && (c*2+1) != (prime*2+1)) {
-                    if (warn_prime++ < 30) printf("Factor %ju was marked prime, but %ju * %ju = %ju (in prime/2: %ju,%ju and %ju)\n",
-                         (uintmax_t)prime*2+1, (uintmax_t)c*2+1, (uintmax_t)((prime*2+1)/(c*2+1)), (uintmax_t)prime*2+1, (uintmax_t)c, (uintmax_t)((prime*2+1)/(c*2+1)/2),(uintmax_t)prime);
+                    if (warn_prime++ < 30) {
+                        verbose2( printf("Factor %ju was marked prime, but %ju * %ju = %ju (in prime/2: %ju,%ju and %ju)\n",
+                         (uintmax_t)prime*2+1, (uintmax_t)c*2+1, (uintmax_t)((prime*2+1)/(c*2+1)), (uintmax_t)prime*2+1, 
+                         (uintmax_t)c, (uintmax_t)((prime*2+1)/(c*2+1)/2),(uintmax_t)prime); )
+                    }
                 }
             }
         }
@@ -37,7 +40,10 @@ static void deepAnalyzePrimes(struct sieve_t *sieve)
             for(counter_t c=1; c<=sieve->bits && c*c <= prime*2+1; c++) {
                 if ((prime*2+1) % (c*2+1) == 0 && (c*2+1) != (prime*2+1)) c_prime++;
             }
-            if (c_prime==0 && warn_nonprime++ < 30) printf("Number %ju (%ju) was marked non-prime, but no factors found. So it is prime\n", (uintmax_t)prime*2+1,(uintmax_t) prime);
+            if (c_prime==0 && warn_nonprime++ < 30) {
+                verbose2( printf("Number %ju (%ju) was marked non-prime, but no factors found. So it is prime\n", 
+                    (uintmax_t)prime*2+1,(uintmax_t) prime); )
+            }
         }
     }
 }

@@ -14,8 +14,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <time.h>
-#include <string.h>
-// #include <math.h>
+#include <string.h> // for memset and memcpy
 
 // #include <inttypes.h>
 #ifdef _OPENMP
@@ -26,8 +25,8 @@
 #include "general/preset.h"
 #include "general/helpers.h"
 #include "general/types.h"
-#include "general/tools.h"
 #include "general/verbose.h"
+#include "general/tools.h"
 #include "benchmark/sieve_options.h"
 #include "benchmark/sieve_timers.h"
 #include "sieve/sieve_manager.h"
@@ -115,11 +114,6 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     // fill the entire sieve for lower primes by adding en copying incrementally
     counter_t prime = sieve_block_extend(sieve, sieve_bits);
     
-    if (stripeprime_faster >= prime_max) {
-        printf("Stripe prime faster is too large for the sieve size\n");
-        exit(1);
-    }
-
     // continue from the prime that was processed in the pattern until the tuned value for blockwise processing
     // stripe off all the multiples of primes in the sieve
     // prime = sieve_stripe(bitstorage, sieve_bits, prime, stripeprime_faster);
