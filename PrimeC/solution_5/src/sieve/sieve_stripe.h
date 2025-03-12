@@ -48,11 +48,11 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
     counter_t prime_endloop5 = min(prime_max, prime_stripe_start_beyond_block_stop);
     counter_t prime_endloop4 = min(prime_endloop5, prime_wordpattern_not_repeating_in_block);
     counter_t prime_endloop3 = min(prime_endloop4, prime_vectorpattern_not_repeating_in_block);
-              prime_endloop3 = min(prime_endloop3, VECTOR_SIZE_counter/2-1);                 // cannot be used beyond VECTOR_SIZE
-              prime_endloop3 = min(prime_endloop3, global_largestep_faster/2-1);                 // allow tuning with largestep
+              prime_endloop3 = min(prime_endloop3, VECTOR_SIZE_counter/2);                 // cannot be used beyond VECTOR_SIZE
+              prime_endloop3 = min(prime_endloop3, global_largestep_faster/2);                 // allow tuning with largestep
 
-    counter_t prime_endloop2 = min(prime_endloop3, VECTORWORD_SIZE_counter/2-1);  
-    counter_t prime_endloop1 = min(prime_endloop2, global_mediumstep_faster/2-1);
+    counter_t prime_endloop2 = min(prime_endloop3, VECTORWORD_SIZE_counter/2);  
+    counter_t prime_endloop1 = min(prime_endloop2, global_mediumstep_faster/2);
  
     counter_t prime = prime_start;
 
@@ -62,6 +62,9 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
     verbose5( printf("(3) Prime %3ju - %3ju : Use vectors sparse steps   for primes up to %ju\n", (uintmax_t)prime_endloop2 *2+1, (uintmax_t)prime_endloop3 *2+1, (uintmax_t)prime_endloop4); )
     verbose5( printf("(4) Prime %3ju - %3ju : Use repeating word masks   for primes up to %ju\n", (uintmax_t)prime_endloop3 *2+1, (uintmax_t)prime_endloop4 *2+1, (uintmax_t)prime_endloop5); )
     verbose5( printf("(5) Prime %3ju - %3ju : Use setting bit one by one for primes up to %ju\n", (uintmax_t)prime_endloop4 *2+1, (uintmax_t)prime_endloop5 *2+1, (uintmax_t)prime_endloop5); )
+
+    // the < instad of <= is to prevent the last prime to be processed in all the loop
+    // the implication is that the prime_endloop must be met step/2, not spep/2-1
 
     while (prime < prime_endloop1) {
         const counter_t step  = prime * 2 + 1;

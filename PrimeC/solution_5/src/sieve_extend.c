@@ -132,19 +132,19 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     // first block requires fewer operations; it might be the whole sieve...
     // sieve_block_stripe0(bitstorage, min(blocksize_bits, sieve_bits), prime, prime_max);
 
-    // prime = sieve_block_stripe(bitstorage, 0, sieve_bits, prime, stripeprime_faster);
-    // if (prime >= prime_max) return sieve;
-    // sieve_block_stripe(bitstorage, 0, min(blocksize_bits, sieve_bits), prime, prime_max);
-    // for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
-    //     sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
-    // } 
-
-    prime = sieve_block_stripe_old(bitstorage, 0, sieve_bits, prime, stripeprime_faster);
+    prime = sieve_block_stripe(bitstorage, 0, sieve_bits, prime, stripeprime_faster);
     if (prime >= prime_max) return sieve;
-    sieve_block_stripe_old(bitstorage, 0, min(blocksize_bits, sieve_bits), prime, prime_max);
+    sieve_block_stripe(bitstorage, 0, min(blocksize_bits, sieve_bits), prime, prime_max);
     for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
-        sieve_block_stripe_old(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
+        sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
     } 
+
+    // prime = sieve_block_stripe_old(bitstorage, 0, sieve_bits, prime, stripeprime_faster);
+    // if (prime >= prime_max) return sieve;
+    // sieve_block_stripe_old(bitstorage, 0, min(blocksize_bits, sieve_bits), prime, prime_max);
+    // for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
+    //     sieve_block_stripe_old(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
+    // } 
 
     // return the completed sieve
     return sieve;
