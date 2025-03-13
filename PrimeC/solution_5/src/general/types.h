@@ -9,8 +9,10 @@
 #endif
 
 // follow main bitword setting in vectors. Change is otherwise needed
-#define bitword_vector_t bitword_t
-#define VECTORWORDSIZE_PP BITWORD_T_SIZE_PP 
+#ifndef bitword_vector_t
+  #define bitword_vector_t uint64_t
+  #define VECTORWORDSIZE_PP 64
+#endif
 
 // masks and mask helpers
 #define SHIFT_BYTE          3
@@ -22,12 +24,12 @@
 #define VECTORWORD_SIZE           (sizeof(bitword_vector_t)*8)
 #define VECTORWORD_SIZE_counter   ((counter_t)VECTORWORD_SIZE)
 #define VECTORWORD_SIZE_bitshift  ((bitshift_t)VECTORWORD_SIZE)
-#define SHIFT_VECTORWORD          ((bitshift_t)(pow(VECTORWORD_SIZE,1)+pow(VECTORWORD_SIZE,2)+pow(VECTORWORD_SIZE,3)+pow(VECTORWORD_SIZE,4)+pow(VECTORWORD_SIZE,5)+pow(VECTORWORD_SIZE,6)+pow(VECTORWORD_SIZE,7)+pow(VECTORWORD_SIZE,8)+pow(VECTORWORD_SIZE,9)+pow(VECTORWORD_SIZE,10)))
+#define SHIFT_VECTORWORD          ((counter_t)(pow(VECTORWORD_SIZE,1)+pow(VECTORWORD_SIZE,2)+pow(VECTORWORD_SIZE,3)+pow(VECTORWORD_SIZE,4)+pow(VECTORWORD_SIZE,5)+pow(VECTORWORD_SIZE,6)+pow(VECTORWORD_SIZE,7)+pow(VECTORWORD_SIZE,8)+pow(VECTORWORD_SIZE,9)+pow(VECTORWORD_SIZE,10)))
 
 #define VECTOR_SIZE_bytes   (sizeof(bitword_vector_t)*VECTOR_ELEMENTS)
 #define VECTOR_SIZE         (VECTOR_SIZE_bytes*8)
 #define VECTOR_SIZE_counter ((counter_t)VECTOR_SIZE_bytes*8)
-#define SHIFT_VECTOR        ((bitshift_t)(pow(VECTOR_SIZE,1)+pow(VECTOR_SIZE,2)+pow(VECTOR_SIZE,3)+pow(VECTOR_SIZE,4)+pow(VECTOR_SIZE,5)+pow(VECTOR_SIZE,6)+pow(VECTOR_SIZE,7)+pow(VECTOR_SIZE,8)+pow(VECTOR_SIZE,9)+pow(VECTOR_SIZE,10)))
+#define SHIFT_VECTOR        ((bitshift_t)(pow(VECTOR_SIZE,1)+pow(VECTOR_SIZE,2)+pow(VECTOR_SIZE,3)+pow(VECTOR_SIZE,4)+pow(VECTOR_SIZE,5)+pow(VECTOR_SIZE,6)+pow(VECTOR_SIZE,7)+pow(VECTOR_SIZE,8)+pow(VECTOR_SIZE,9)+pow(VECTOR_SIZE,10)+pow(VECTOR_SIZE,11)+pow(VECTOR_SIZE,12)))
 
 // types (II) - calculated
 typedef bitword_vector_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes), aligned(anticiped_cache_line_bytesize))); 
@@ -45,12 +47,13 @@ static counter_t debug_final_plan           = 0;
 // Patterns based on types
 #define SAFE_SHIFTBIT        (bitshift_t)1ULL
 #define SAFE_ZERO            (bitword_t)0ULL
+#define VECTOR_SAFE_ZERO     (bitword_vector_t)0ULL
 #define SAFE_FILL            (bitword_t)~0ULL
 #define BITWORD_SHIFTBIT     (bitword_t)1ULL
 #define BITVECTORWORD_SHIFTBIT (bitword_vector_t)1ULL
 #define WORDMASK             ((((counter_t)1)<<SHIFT_WORD)-(counter_t)1)
 #define VECTORWORDMASK       ((((counter_t)1)<<SHIFT_VECTORWORD)-(counter_t)1)
-#define VECTORMASK           ((((counter_t)1)<<SHIFT_VECTOR)-(counter_t)1)
+#define VECTORMASK           ((((bitshift_t)1)<<SHIFT_VECTOR)-(counter_t)1)
 #if VECTOR_ELEMENTS == 8
   #define VECTOR_BASE(pattern) ((bitvector_t){ pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern })
   #define VECTOR_BYTEINDEX     ((bitvector_t){ 0, 1, 2, 3, 4, 5, 6, 7 })
@@ -91,6 +94,8 @@ static counter_t debug_final_plan           = 0;
 #else
 #define vector_markmask(index) (BITVECTORWORD_SHIFTBIT << vector_bitindex_calc(index))
 #endif
+
+#define vector_markmask_calc(index) (BITVECTORWORD_SHIFTBIT << vector_bitindex_calc(index))
 
 #define chopmask(index)        (SAFE_FILL >> (WORD_SIZE_bitshift-SAFE_SHIFTBIT-bitindex_calc(index)))
 #define keepmask(index)        (SAFE_FILL << (bitindex(index)))

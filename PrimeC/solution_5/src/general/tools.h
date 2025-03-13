@@ -16,7 +16,7 @@ static void printVector(bitvector_t bitvector)
     // Use a union to extract the scalar elements from the vector
     union {
         bitvector_t vec;
-        bitword_t arr[VECTOR_ELEMENTS];
+        bitword_vector_t arr[VECTOR_ELEMENTS];
     } u;
     u.vec = bitvector;
 
@@ -24,8 +24,8 @@ static void printVector(bitvector_t bitvector)
     int col = 0;
     // Each vector element is a bitword_t with WORD_SIZE bits
     for (int j = VECTOR_ELEMENTS - 1; j >= 0; j--) {
-        for (int i = WORD_SIZE - 1; i >= 0; i--) {
-            row[col++] = (u.arr[j] & (BITWORD_SHIFTBIT << i)) ? '1' : '.';
+        for (int i = VECTORWORD_SIZE - 1; i >= 0; i--) {
+            row[col++] = (u.arr[j] & (BITVECTORWORD_SHIFTBIT << i)) ? '1' : '.';
             if (i % 8 == 0)
                 row[col++] = ' ';
         }

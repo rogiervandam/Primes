@@ -89,19 +89,20 @@ static inline counter_t __attribute__((always_inline)) prime_pattern_not_repeati
 
 static inline counter_t __attribute__((always_inline)) compute_start(const counter_t prime, const counter_t block_start) {
     register const counter_t step = prime * 2 + 1;
-    counter_t start = prime * (step + 1);
+    register counter_t start = prime * (step + 1);
     if (block_start && start < block_start) {
         start = (block_start + prime) + prime - ((block_start + prime) % step);
     }
     return start;
 }
+
 static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitword_t* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max) {
     verbose5(  printf("\nBlock stripe (new) for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
     timer_lapstart(time_sieve_block_stripe);
 
     const counter_t prime_stripe_start_beyond_block_stop = prime_stripe_start_beyond_block_stop_calc(block_stop);
     const counter_t prime_vectorpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, VECTOR_SIZE_counter);
-    const counter_t prime_wordpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, WORD_SIZE_counter*6);
+    const counter_t prime_wordpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, WORD_SIZE_counter*4);
 
     const counter_t prime_endloop5 = min(prime_max, prime_stripe_start_beyond_block_stop);
     const counter_t prime_endloop4 = min(prime_endloop5, prime_wordpattern_not_repeating_in_block);

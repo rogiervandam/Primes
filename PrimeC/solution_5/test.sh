@@ -68,11 +68,11 @@ for arg in "$@"; do
 
     for token in $(echo "$arg" | tr '-' ' '); do
         case "$token" in
-            u32|u64)
+            u16|u32|u64)
                 set_x="$token"
                 DEFINE_FLAGS="-D${set_x} $DEFINE_FLAGS"
                 ;;
-            v4|v8)
+            v4|v8|v4u32|v8u32|v4u64|v8u64)
                 set_y="$token"
                 DEFINE_FLAGS="-D${set_y} $DEFINE_FLAGS"
                 ;;
