@@ -118,11 +118,9 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             }
             
             verbose2( {
-                printf("Settings: blockwise=%ju, stripe_faster=%ju, largestep=%ju, blocksize=%ju bits \n", 
-                (uintmax_t)option.fixed_benchmark_settings.stripe_faster,
-                (uintmax_t)option.fixed_benchmark_settings.mediumstep_faster,
-                (uintmax_t)option.fixed_benchmark_settings.largestep_faster,
-                (uintmax_t)option.fixed_benchmark_settings.blocksize_bits);
+                char settings_string[100] = "";
+                benchmark_settings_as_string(settings_string, option.fixed_benchmark_settings);
+                printf("Inital settings: \033[1;32m%s\033[0m\n", settings_string);
             })
         }
         else if (strcmp_local(argv[arg], "--threads")==0) { 
