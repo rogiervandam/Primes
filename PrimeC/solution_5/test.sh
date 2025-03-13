@@ -32,6 +32,7 @@ else
 fi
 PAREXT="_epar"
 
+base="sieve_extend" 
 # If the first argument does not start with '-', assign it as the base and discard it
 if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
     base="$1"

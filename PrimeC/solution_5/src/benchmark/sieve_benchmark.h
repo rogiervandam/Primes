@@ -44,8 +44,13 @@ static inline char* benchmark_settings_as_string(char* settings_string, benchmar
     verbose1({
         sprintf(settings_string, "s%03ju-m%03ju-l%03ju-b%07ju-u%02ju-v%ju-c%s", 
             (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.largestep_faster, 
-            (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_SIZE_counter/WORD_SIZE_counter, TYPE_SHORT_NAME(counter_t));
+            (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)WORD_SIZE_counter, (uintmax_t)(VECTOR_SIZE_counter/WORD_SIZE_counter), TYPE_SHORT_NAME(counter_t));
     })
+    // verbose1({
+    //     sprintf(settings_string, "s%03ju-m%03ju-l%03ju-b%07ju-u%02ju-v%ju-c", 
+    //         (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.largestep_faster, 
+    //         (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)WORD_SIZE_counter, (uintmax_t)(VECTOR_SIZE_counter/WORD_SIZE_counter);
+    // })
     return settings_string;
 }
 
