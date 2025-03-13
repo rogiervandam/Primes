@@ -24,7 +24,7 @@ struct timespec timer_timers[timer_count];
 counter_t timer_hits[timer_count];
 double timer_time[timer_count];
 
-#define time_setBitsTrue_largestep_vector 0
+#define time_setBitsTrue 0
 #define time_setBitsTrue_largestep_vector_wordstep 1
 #define time_setBitsTrue_largestep_vector_vectorstep 2
 #define time_create_mask_vector_smallstep 3
@@ -50,7 +50,7 @@ double timer_time[timer_count];
 #define time_sieve_block_extend 54
 
 static const char* timer_function_names[100] = {
-    [time_setBitsTrue_largestep_vector] = "setBitsTrue_largestep_vector",
+    [time_setBitsTrue] = "setBitsTrue",
     [time_setBitsTrue_largestep_vector_wordstep] = "setBitsTrue_largestep_vector_wordstep",
     [time_setBitsTrue_largestep_vector_vectorstep] = "setBitsTrue_largestep_vector_vectorstep",
     [time_create_mask_vector_largestep] = "create_mask_vector_largestep",

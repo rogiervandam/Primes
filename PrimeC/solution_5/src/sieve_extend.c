@@ -36,8 +36,8 @@ static char algorithm_type[] = "other";
 #include "sieve/sieve_manager.h"
 #include "sieve/sieve_search.h"
 #include "sieve/sieve_setbitstrue_word.h"
-#include "sieve/sieve_setbitstrue_vector.h"
 #include "dev/snippets.h"
+#include "sieve/sieve_setbitstrue_vector.h"
 #include "sieve/sieve_stripe.h"
 #include "sieve/sieve_extend_continuePattern.h"
 

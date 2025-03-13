@@ -46,9 +46,26 @@ set_x="u64"
 set_y="v4"
 set_z="ci32"
 
+verbose_next=0
 # Loop through all arguments.
 for arg in "$@"; do
     # Split each argument on dash and check every token.
+
+    # Check if previous arg was --verbose and this is the value
+    if [ $verbose_next -eq 1 ]; then
+        if echo "$arg" | grep -q '^[0-9]\+$'; then
+            DEFINE_FLAGS="-DCOMPILE_VERBOSE_LEVEL=$arg $DEFINE_FLAGS"
+        fi
+        verbose_next=0
+        continue
+    fi
+
+    # Check for standalone --verbose flag
+    if [ "$arg" = "--verbose" ] || [ "$arg" = "verbose" ]; then
+        verbose_next=1
+        continue
+    fi
+
     for token in $(echo "$arg" | tr '-' ' '); do
         case "$token" in
             u32|u64)

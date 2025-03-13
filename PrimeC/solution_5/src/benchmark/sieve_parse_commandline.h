@@ -1,4 +1,4 @@
-#if compile_verbose_level >= 1
+#if COMPILE_VERBOSE_LEVEL >= 1
 
 static inline int isdigit_local(int c) {
     return (c >= '0' && c <= '9');
@@ -34,7 +34,7 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             verbose2( printf("Verbose level set to %d\n",option.verbose_level); )
         } 
         #ifdef COMPILE_EXPLAIN
-        else if (strcmp_local(argv[arg], "--explain")==0) { option.explain=1; }
+        else if (strcmp_local(argv[arg], "--explain")==0) { option.explain=1;  verbose2( printf("Explain ON\n"); ) }
         #endif
         #ifdef COMPILE_TIMERS
         else if (strcmp_local(argv[arg], "--timers")==0) { option.timers=1; }

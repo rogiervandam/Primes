@@ -26,8 +26,11 @@ static void explainSieveShake(benchmark_settings_t benchmark_settings)
     sieve_delete(sieve);
 
     printf("Hits: %ju\n",(uintmax_t)debug_hits);
+    #ifdef COMPILE_TIMERS
     if (option.timers) print_timing_table();
+    #endif
 }
+
 #endif
 
 static int checkSieveAlgorithm(benchmark_settings_t benchmark_settings)

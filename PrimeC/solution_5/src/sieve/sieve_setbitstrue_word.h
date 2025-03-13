@@ -13,11 +13,27 @@ static inline void __attribute__((always_inline)) applyMask_word(bitword_t* rest
     register const counter_t step_4 = step << 2;
 
     const counter_t range_stop_word = wordindex(range_stop);
-    register const bitword_t* restrict fast_loop_ptr = __builtin_assume_aligned(&bitstorage[((range_stop_word>step_4) ? (range_stop_word - step_4):0)], sizeof(bitword_t));
 
+    // register const counter_t step_8 = step << 3;
+    // register const bitword_t* restrict fast_loop_ptr8 = __builtin_assume_aligned(&bitstorage[((range_stop_word>step_8) ? (range_stop_word - step_8):0)], sizeof(bitword_t));
+
+    // #pragma GCC ivdep
+    // while (index_ptr < fast_loop_ptr8) {
+    //     // __builtin_prefetch(index_ptr + step_4, 1, 3); // prefetch the memory that will be written soon
+    //     *index_ptr            |= mask; 
+    //     *(index_ptr + step  ) |= mask; 
+    //     *(index_ptr + step_2) |= mask; 
+    //     *(index_ptr + step_3) |= mask; 
+    //     *(index_ptr + step_4         ) |= mask; 
+    //     *(index_ptr + step_4 + step  ) |= mask; 
+    //     *(index_ptr + step_4 + step_2) |= mask; 
+    //     *(index_ptr + step_4 + step_3) |= mask; 
+    //     index_ptr += step_8;
+    // }
+
+    register const bitword_t* restrict fast_loop_ptr = __builtin_assume_aligned(&bitstorage[((range_stop_word>step_4) ? (range_stop_word - step_4):0)], sizeof(bitword_t));
     #pragma GCC ivdep
     while (index_ptr < fast_loop_ptr) {
-        // __builtin_prefetch(index_ptr + step_4, 1, 3); // prefetch the memory that will be written soon
         *index_ptr            |= mask; 
         *(index_ptr + step  ) |= mask; 
         *(index_ptr + step_2) |= mask; 
@@ -26,14 +42,8 @@ static inline void __attribute__((always_inline)) applyMask_word(bitword_t* rest
     }
 
     register const bitword_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage[range_stop_word], sizeof(bitword_t));
-
-    for (counter_t i=4; i-- && likely(index_ptr < range_stop_ptr); index_ptr += step) { // signal compiler that only <4 iterations are left
+    for (counter_t i=5; i-- && (index_ptr <= range_stop_ptr); index_ptr += step) { // signal compiler that only <4 iterations are left
         *index_ptr |= mask; 
-    }
-
-    // doing this instead of index_ptr <= above is faster. unexplained. 
-    if (index_ptr == range_stop_ptr) { // index_ptr could also end above range_stop_ptr, depending on steps. 
-        *index_ptr |= mask; // chop not needed is block-size aligned with word size
     }
 
     timer_laptime(time_applyMask_word); verbose8( printf("\n"); )
