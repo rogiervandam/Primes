@@ -15,7 +15,8 @@
 #endif
 
 // masks and mask helpers
-#define SHIFT_BYTE          3
+#define SHIFT_SIZE          1 // the shift needed to get from SIZE to BIT (1 because even numbers arr not storing in the bitstorage)
+#define SHIFT_BYTE          3 // the shift needed to get from BIT to BYTE
 #define WORD_SIZE           (sizeof(bitword_t)*8)
 #define WORD_SIZE_counter   ((counter_t)WORD_SIZE)
 #define WORD_SIZE_bitshift  ((bitshift_t)WORD_SIZE)
@@ -32,7 +33,7 @@
 #define SHIFT_VECTOR        ((bitshift_t)(pow(VECTOR_SIZE,1)+pow(VECTOR_SIZE,2)+pow(VECTOR_SIZE,3)+pow(VECTOR_SIZE,4)+pow(VECTOR_SIZE,5)+pow(VECTOR_SIZE,6)+pow(VECTOR_SIZE,7)+pow(VECTOR_SIZE,8)+pow(VECTOR_SIZE,9)+pow(VECTOR_SIZE,10)+pow(VECTOR_SIZE,11)+pow(VECTOR_SIZE,12)))
 
 // types (II) - calculated
-typedef bitword_vector_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes), aligned(anticiped_cache_line_bytesize))); 
+typedef bitword_vector_t bitvector_t __attribute__ ((vector_size(VECTOR_SIZE_bytes), aligned(cache_line_bytes))); 
 
 // globals for tuning
 static counter_t global_stripeprime_faster  = 32ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve

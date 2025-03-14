@@ -3,7 +3,7 @@
     #define COMPILE_VERBOSE_LEVEL 2  // Set to 1-9 to enable compiling different verbose levels
 #endif
 
-#define anticiped_cache_line_bytesize   256 // How to align the caches
+#define cache_line_bytes   256 // How to align the caches
 // #define COMPILE_CHECKALL                 
 // #define COMPILE_EXPLAIN                  
 

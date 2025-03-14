@@ -42,7 +42,7 @@ static inline benchmark_settings_t benchmarkInit(counter_t threads)
 
 static inline char* benchmark_settings_as_string(char* settings_string, benchmark_settings_t benchmark_settings) {
     verbose1({
-        sprintf(settings_string, "s%03ju-m%03ju-l%03ju-b%07ju-u%02ju-v%ju%s-c%s", 
+        snprintf(settings_string, 50, "s%03ju-m%03ju-l%03ju-b%07ju-u%02ju-v%ju%s-c%s", 
             (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.largestep_faster, 
             (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)WORD_SIZE_counter, (uintmax_t)(VECTOR_SIZE_counter/WORD_SIZE_counter), TYPE_SHORT_NAME(bitword_vector_t), TYPE_SHORT_NAME(counter_t));
     })
@@ -72,7 +72,7 @@ static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settin
     global_largestep_faster   = benchmark_settings.largestep_faster;
     global_blocksize_bits     = benchmark_settings.blocksize_bits;
 
-    verbose5 ( { char settings_string[100]=""; benchmark_settings_as_string(settings_string, benchmark_settings); printf("Using settings \033[1;32m%s\033[0m\n",settings_string); } )
+    verbose5 ( { char settings_string[50]=""; benchmark_settings_as_string(settings_string, benchmark_settings); printf("Using settings \033[1;32m%s\033[0m\n",settings_string); } )
 }
 
 static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 

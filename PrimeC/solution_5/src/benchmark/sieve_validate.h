@@ -40,7 +40,7 @@ static int checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
         verbose3( printf("\n");) 
     })
 
-    char settings_string[100] = ""; 
+    char settings_string[50] = ""; 
 
     // validate algorithm - run one time for all sizes
     for (counter_t sieveSize_check = 100; sieveSize_check <= 1000000; sieveSize_check *=10) {

@@ -7,7 +7,7 @@ static int compare_tuning_result(const void *a, const void *b)
 
 static inline void tuning_result_print(benchmark_result_t tuning_result) 
 {
-    char settings[100]=""; benchmark_settings_as_string(settings, tuning_result.settings);
+    char settings[50]=""; benchmark_settings_as_string(settings, tuning_result.settings);
     verbose2( printf("average \033[1;33m%13.6f\033[0m with options \033[1;32m%s\033[0m was achieved with \033[1;33m%3ju\033[0m passes in \033[1;33m%f\033[0m seconds\n", 
     tuning_result.avg, settings, (uintmax_t)tuning_result.passes, tuning_result.elapsed_time); )
 }
@@ -20,7 +20,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     double    sample_duration         = option.sample_duration;
     counter_t prime_max               = usqrt(start_tuning_settings.factor_max) / 2; // divide by 2 to compensate for bitwise representation 
     counter_t sieve_bits              = start_tuning_settings.factor_max >> 1;
-    char settings_string[100]=""; 
+    char settings_string[50]=""; 
 
     // warm up the cache
     verbose2( printf("Warming up the cache and processing units\n"); )	
@@ -106,7 +106,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
                         tuning_settings = check_benchmark_settings(tuning_settings);
                         const int valid = checkSieveWithBenchmarkSettings(tuning_settings);
                         if (!valid) {
-                            char settings_string[100]=""; benchmark_settings_as_string(settings_string, tuning_settings);
+                            char settings_string[50]=""; benchmark_settings_as_string(settings_string, tuning_settings);
                             verbose1( { fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for settings %s with factor %ju\n", settings_string, (uintmax_t) tuning_settings.factor_max); } )
                             // exit(1);
                         }
@@ -227,14 +227,14 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
             }
 
             // reset_benchmark_result(&tuning_result[tuning_results], tuning_settings);
-            // tuning_result[tuning_results].settings.blocksize_bits += anticiped_cache_line_bytesize*8;
+            // tuning_result[tuning_results].settings.blocksize_bits += cache_line_bytes*8;
             // tuning_results++;
             // decrease blocksize slightly to allow room for starting of the sieve
 
             // if (!option.fixed_benchmark_settings.blocksize_bits) {
-            //     if (tuning_settings.blocksize_bits > anticiped_cache_line_bytesize*8) { 
+            //     if (tuning_settings.blocksize_bits > cache_line_bytes*8) { 
             //         reset_benchmark_result(&tuning_result[tuning_results], tuning_settings);
-            //         tuning_result[tuning_results].settings.blocksize_bits -= anticiped_cache_line_bytesize*8;
+            //         tuning_result[tuning_results].settings.blocksize_bits -= cache_line_bytes*8;
             //         tuning_results++;
             //     }
             // }
@@ -284,7 +284,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
             tuning_settings = check_benchmark_settings(tuning_settings);
             const int valid = checkSieveWithBenchmarkSettings(tuning_settings);
             if (!valid) {
-                char settings_string[100]=""; benchmark_settings_as_string(settings_string, tuning_settings);
+                char settings_string[50]=""; benchmark_settings_as_string(settings_string, tuning_settings);
                 verbose1( fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for settings %s with factor %ju\n", settings_string, (uintmax_t) tuning_settings.factor_max); )
                 exit(1);
             }

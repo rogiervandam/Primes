@@ -1,7 +1,5 @@
-// This file is part of the sieve of Eratosthenes project and is exclusively used for the sieve_extend module.
 // This file contains the continuePattern function that is used to extend (copy) a pattern in a bitstorage.
 // The function is optimized for different sizes and offsets of the pattern and uses different algorithms for this.
-
 
 static inline void __attribute__((always_inline)) continuePattern_smallSize(bitword_t* restrict bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
 {
@@ -59,6 +57,7 @@ static inline void  __attribute__((always_inline)) continuePattern_aligned(bitwo
     
     bitstorage[copy_word] = bitstorage[source_word] & ~chopmask(copy_start);
 
+    // TODO: check if destionation_stop_word - copy_word % step would help
     while (copy_word + size <= destination_stop_word) {
         memcpy(&bitstorage[copy_word], &bitstorage[source_word], (uintmax_t)size*sizeof(bitword_t) );
         copy_word += size;
@@ -99,7 +98,7 @@ static inline void  __attribute__((always_inline)) continuePattern_shiftright(bi
     
     copy_word++;
 
-    verbose7( printf("...start - %ju - %ju - end..",(uintmax_t)wordindex(copy_start), (uintmax_t)destination_stop_word); )
+    verbose7( printf("...startword - %ju - copystartword %ju - endword %ju..",(uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)destination_stop_word); )
 
     if (copy_word < source_word + VECTOR_ELEMENTS) {
         verbose7(  printf("...continue word by word (because source and copy are close together).."); )
@@ -109,16 +108,18 @@ static inline void  __attribute__((always_inline)) continuePattern_shiftright(bi
         return; 
     }
 
-    counter_t copy_size_byte  = size;
-    counter_t copy_start_word = wordindex(vectorend(copy_start + (copy_size_byte << SHIFT_BYTE))+1); 
+    // search for the first word that is aligned at bytelevel
+    counter_t copy_size_bytes = size; // at bytelevel, the size is the same
+    counter_t copy_start_word = wordindex(vectorend(copy_start + (copy_size_bytes << SHIFT_BYTE))+1); 
     if (copy_start_word > destination_stop_word) copy_start_word = destination_stop_word;
 
-    // copy with shift - needed the not aligned at bytelevel
+    // copy with shift - needed when not aligned at bytelevel
     // speed up when source and copy are further apart - may vectorize the loop
 
     verbose7(  printf("...speed copy until word %ju..", (uintmax_t)copy_start_word); )
 
-    #ifdef WORD_SIZE_64
+    // copy the pattern until we reach bytelevel alignment
+    #if BITWORD_T_SIZE_PP == 64
         #pragma GCC ivdep // only for 64bit
         for (; copy_word <= copy_start_word; copy_word++, source_word++ ) 
             bitstorage[copy_word] = (bitstorage[source_word] >> shift_flipped) | (bitstorage[source_word+1] << shift);
@@ -126,22 +127,25 @@ static inline void  __attribute__((always_inline)) continuePattern_shiftright(bi
         for (; copy_word <= copy_start_word; copy_word++, source_word++ ) 
             bitstorage[copy_word] = (bitstorage[source_word] >> shift_flipped) | (bitstorage[source_word+1] << shift);
     #endif
+
     // end if we reached the destination already
     if (copy_word >= destination_stop_word) {
         timer_laptime(time_continuePattern_shiftright); verbose7( printf("\n"); )
         return;
     }
 
-    register uint8_t* restrict source_byte            = (uint8_t*)((uintptr_t) bitstorage + (copy_start_word << (SHIFT_WORD-SHIFT_BYTE) ) - copy_size_byte);
-    register uint8_t* restrict copy_byte              = (uint8_t*)((uintptr_t) bitstorage + (copy_start_word << (SHIFT_WORD-SHIFT_BYTE) ));
-    const uint8_t* restrict destination_stop_byte     = (uint8_t*)((uintptr_t) bitstorage + ((destination_stop_word + 1) << SHIFT_BYTE) );
+    uint8_t* source_byte           = (uint8_t*) &bitstorage[copy_start_word] - copy_size_bytes;
+    uint8_t* copy_byte             = (uint8_t*) &bitstorage[copy_start_word];
+    uint8_t* destination_stop_byte = (uint8_t*) &bitstorage[destination_stop_word+1];
 
+    // Copy the pattern. Now the pattern is 2x the size of the original pattern. Repeat.
     do {
-        memcpy(copy_byte, source_byte, copy_size_byte);
-        copy_byte += copy_size_byte;
-        copy_size_byte += copy_size_byte;
-    } while (copy_byte + copy_size_byte < destination_stop_byte);
+        memcpy(copy_byte, source_byte, copy_size_bytes);
+        copy_byte += copy_size_bytes;
+        copy_size_bytes += copy_size_bytes;
+    } while (copy_byte + copy_size_bytes < destination_stop_byte);
 
+    // Copy the last part of the pattern
     memcpy(copy_byte, source_byte, destination_stop_byte - copy_byte);
 
     timer_laptime(time_continuePattern_shiftright); verbose7( printf("\n"); )

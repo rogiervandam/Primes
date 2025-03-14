@@ -1,8 +1,8 @@
 static inline char* extension_as_string(char* extension) {
     #ifdef _OPENMP
-    verbose1( sprintf(extension,"_epar-u%juv%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); )
+    verbose1( snprintf(extension,50,"_epar-u%juv%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); )
     #else
-    verbose1( sprintf(extension,"-u%juv%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); )
+    verbose1( snprintf(extension,50,"-u%juv%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); )
     #endif
     return extension;
 }
@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
         }
 
         // encode settings for reporting
-        verbose1( char settings_string[100]=""; benchmark_settings_as_string(settings_string, benchmark_settings); )
+        verbose1( char settings_string[50]=""; benchmark_settings_as_string(settings_string, benchmark_settings); )
         verbose2( { printf("Benchmarking with settings: \033[1;32m%s\033[0m (stripeprime, mediumstep, largestep, blocksize, wordsize, vectorsize) and \033[1;32m%ju\033[0m threads for \033[1;32m%.1f\033[0m seconds\nResults: \033[5m(wait \033[1;32m%.1lf\033[39m seconds)\033[25m...\033[0m", 
             settings_string,(uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
         })

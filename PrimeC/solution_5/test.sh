@@ -14,7 +14,7 @@
 # Detect OS
 OS="$(uname -s)"
 
-# TODO: Try to get -flto working with int32_t counter_t
+CC=""
 # CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11"
 CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11  "  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections
 if [ "$OS" = "Linux" ]; then
@@ -23,6 +23,8 @@ if [ "$OS" = "Linux" ]; then
     STRIP="strip"
 elif [ "$OS" = "Darwin" ]; then
     CC="clang $CC -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections -Wl,-dead_strip"
+    # CC="clang -fsanitize=address " # use this for debugging
+    # CC="clang"
     # Ensure Clang finds OpenMP headers and library
     PAR="-Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include -L$(brew --prefix libomp)/lib -lomp"
     STRIP="strip"

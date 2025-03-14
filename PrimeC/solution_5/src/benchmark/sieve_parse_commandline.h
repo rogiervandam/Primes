@@ -118,7 +118,7 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
             }
             
             verbose2( {
-                char settings_string[100] = "";
+                char settings_string[50] = "";
                 benchmark_settings_as_string(settings_string, option.fixed_benchmark_settings);
                 printf("Inital settings: \033[1;32m%s\033[0m\n", settings_string);
             })
