@@ -3,10 +3,11 @@
 // The sieve is a data structure that is used to store the prime numbers.
 // - bitstorage is the aligned bitstorage for the sieve
 // - bits is the number of bits in the sieve. It is half the sive of the sieve, because we don't store bits for even numbers
-struct sieve_t {
+struct sieve_t 
+{
     bitword_t* bitstorage __attribute__((aligned(cache_line_bytes)));  // Align to cache line
     counter_t bits;
-  } __attribute__((aligned(cache_line_bytes)));  // Align the whole structure
+} __attribute__((aligned(cache_line_bytes)));  // Align the whole structure
 
 
 // create a sieve with a given size including the bitstorage
@@ -14,17 +15,14 @@ static inline struct sieve_t * __attribute__((always_inline)) sieve_create(const
 {
     // alocate memory for the sieve and include all the memory voor the bitstorage, so we have only one malloc
     // make sure there is enought room to align the bitstorage on the cache line
-    size_t bitstorage_bytesize = size >> (SHIFT_SIZE + SHIFT_BYTE); // shift >> 1 for not storing even and shift >>3 for bit to bytesize
-    size_t alloc_size = sizeof(struct sieve_t) + bitstorage_bytesize + cache_line_bytes;
+    const size_t bitstorage_bytesize = size >> (SHIFT_SIZE + SHIFT_BYTE); // shift >> 1 for not storing even and shift >>3 for bit to bytesize
+    const size_t alloc_size = sizeof(struct sieve_t) + bitstorage_bytesize + cache_line_bytes;
     struct sieve_t *sieve = malloc(alloc_size);
-    if (!sieve) {
-        perror("malloc failed");
-        exit(EXIT_FAILURE);
-    }
+    if (!sieve) { perror("malloc failed"); exit(EXIT_FAILURE);  }
 
     // align bitstorage
-    uintptr_t raw_address = (uintptr_t)sieve + sizeof(struct sieve_t);
-    uintptr_t aligned_address = (raw_address + (cache_line_bytes - 1)) & ~(cache_line_bytes - 1);
+    const uintptr_t raw_address = (uintptr_t)sieve + sizeof(struct sieve_t);
+    const uintptr_t aligned_address = (raw_address + (cache_line_bytes - 1)) & ~(cache_line_bytes - 1);
     sieve->bitstorage = __builtin_assume_aligned((void *)aligned_address, cache_line_bytes);
 
     sieve->bits           = size >> SHIFT_SIZE;

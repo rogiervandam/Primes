@@ -102,7 +102,7 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
 
     const counter_t prime_stripe_start_beyond_block_stop = prime_stripe_start_beyond_block_stop_calc(block_stop);
     const counter_t prime_vectorpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, VECTOR_SIZE_counter);
-    const counter_t prime_wordpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, WORD_SIZE_counter*4);
+    const counter_t prime_wordpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, WORD_SIZE_counter*2);
 
     const counter_t prime_endloop5 = min(prime_max, prime_stripe_start_beyond_block_stop);
     const counter_t prime_endloop4 = min(prime_endloop5, prime_wordpattern_not_repeating_in_block);

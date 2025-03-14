@@ -114,22 +114,16 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
 
     // fill the entire sieve for lower primes by adding en copying incrementally
     counter_t prime = sieve_block_extend(sieve, sieve_bits);
-    // sieve_clear(sieve);
-    // counter_t prime = 1;
     
     // continue from the prime that was processed in the pattern until the tuned value for blockwise processing
     // stripe off all the multiples of primes in the sieve
-    // prime = sieve_stripe(bitstorage, sieve_bits, prime, stripeprime_faster);
-    // prime = sieve_block_stripe_old(bitstorage, 0, sieve_bits, prime, stripeprime_faster);
+    prime = sieve_stripe(bitstorage, sieve_bits, prime, stripeprime_faster);
+    if (prime >= prime_max) return sieve;
 
     // in the sieve all bits for the multiples of primes up to startprime have been set
     // process the sieve and stripe all the multiples of primes > start_prime
     // do this block by block to minimize cache misses
     // first block requires fewer operations; it might be the whole sieve...
-    // sieve_block_stripe0(bitstorage, min(blocksize_bits, sieve_bits), prime, prime_max);
-
-    prime = sieve_stripe(bitstorage, sieve_bits, prime, stripeprime_faster);
-    if (prime >= prime_max) return sieve;
 
     sieve_block_stripe0(bitstorage, min(blocksize_bits, sieve_bits), prime, prime_max);
     for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
