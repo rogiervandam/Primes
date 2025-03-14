@@ -1,9 +1,9 @@
 # TODO
 - auto profile the best option
 - detect if using blocksize for words different from vectors helps
-- differentiate functions to type and then benchmark between them
+- differentiate functions in type and then benchmark between them
 - revisit continuepattern functions
-- smallmasks in pairs
+- (done) smallmasks in pairs
 
 # Analysis
 - When using -flto linker option, if the with counter_t is set to 32 bit, the sieve will not be valid.

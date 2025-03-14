@@ -28,7 +28,7 @@ static inline void __attribute__((always_inline)) applyMask_vector(bitvector_t* 
     
     register const bitvector_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage[(range_stop_vector)],sizeof(bitvector_t));
     
-    for (counter_t i=4; i-- && likely(index_ptr <= range_stop_ptr); index_ptr += step) { // signal compiler that only <4 iterations are left
+    for (counter_t i=5; i-- && likely(index_ptr <= range_stop_ptr); index_ptr += step) { // signal compiler that only <4 iterations are left
         *index_ptr |= mask; 
     }
 
@@ -69,11 +69,14 @@ static inline void __attribute__((always_inline)) applyMask_vector_pair(bitvecto
     
     register const bitvector_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage[(range_stop_vector)],sizeof(bitvector_t));
     
-    for (counter_t i=4; i-- && likely(index_ptr <= range_stop_ptr); index_ptr += step) { // signal compiler that only <4 iterations are left
+    for (counter_t i=5; i-- && likely(index_ptr < range_stop_ptr); index_ptr += step) { // signal compiler that only <4 iterations are left
         *index_ptr     |= mask1; 
         *(index_ptr+1) |= mask2; 
     }
-
+    
+    if (index_ptr == range_stop_ptr) {
+        *index_ptr     |= mask1; 
+    }
     timer_laptime(time_applyMask_vector); verbose8( printf("\n"); )
 }
 // smallstep (< WORD_SIZE ) means the same vectormask can be reused
@@ -292,9 +295,13 @@ static inline void __attribute__((always_inline)) create_mask_vector_largestep(b
     timer_lapstart(time_create_mask_vector_largestep);
 
     bitvector_t* restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    const counter_t range_stop_unique_vector = range_start + VECTOR_SIZE_counter * step; 
+    const counter_t range_stop_unique_vector = range_start + VECTOR_SIZE_counter * step + VECTOR_SIZE_counter; 
     counter_t current_vector = vectorindex(range_start);
-    for (counter_t index = range_start; index < range_stop_unique_vector;) {
+    // if (step==79) {
+    //     printf("\nAt step 79 - range stop %ju\n", (uintmax_t)range_stop_unique_vector);
+    //     exit(0);
+    // }
+    for (counter_t index = range_start; index <= range_stop_unique_vector;) {
         const counter_t current_vector_start = vectorstart(index);
         bitvector_t quadmask = VECTOR_BASE(VECTOR_SAFE_ZERO);
         for (counter_t i=0; i<VECTOR_ELEMENTS; i++) {
