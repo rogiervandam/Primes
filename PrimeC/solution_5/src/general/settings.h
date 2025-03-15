@@ -10,7 +10,7 @@
 
 
 // How to align the caches
-#define cache_line_bytes      256 
+#define cache_line_bytes      128 
 
 
 // type for handling non-vector bitwise operations in the bitstorage

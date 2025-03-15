@@ -18,7 +18,7 @@ static inline counter_t __attribute__((always_inline)) usqrt(counter_t x)
 // we have to take the sqaure of the real number, so we have to double, square root en divide by 2 again
 // 1 is added for rounding errors
 static inline counter_t __attribute__((always_inline)) prime_stop(const counter_t range_stop) {
-    return (1 + usqrt( (range_stop << 1) + 1 ) >> 1);
+    return ((1 + usqrt( (range_stop << 1) + 1 )) >> 1);
 }
 
 static inline counter_t __attribute__((always_inline)) prime_pattern_not_repeating_in_block(const counter_t range_start, const counter_t range_stop, const counter_t blocksize) {
