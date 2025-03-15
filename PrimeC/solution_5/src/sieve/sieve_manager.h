@@ -9,7 +9,6 @@ struct sieve_t
     counter_t bits;
 } __attribute__((aligned(cache_line_bytes)));  // Align the whole structure
 
-
 // create a sieve with a given size including the bitstorage
 static inline struct sieve_t * __attribute__((always_inline)) sieve_create(const counter_t size) 
 {

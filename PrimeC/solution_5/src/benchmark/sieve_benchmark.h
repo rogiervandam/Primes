@@ -8,7 +8,7 @@ static inline void setSettingsFromTuning(benchmark_settings_t* benchmark_setting
 
 static inline benchmark_settings_t check_benchmark_settings(benchmark_settings_t benchmark_settings) 
 {
-    counter_t prime_max = usqrt(benchmark_settings.factor_max) / 2;
+    counter_t prime_max = prime_stop(benchmark_settings.factor_max);
 
     benchmark_settings.stripe_faster     = min(benchmark_settings.stripe_faster, prime_max);
     benchmark_settings.mediumstep_faster = min(benchmark_settings.mediumstep_faster, VECTORWORD_SIZE_counter);

@@ -24,7 +24,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
 
     // warm up the cache
     verbose2( printf("Warming up the cache and processing units\n"); )	
-    for(counter_t i=0; i<256; i++ ) { 
+    for(counter_t i=0; i<10; i++ ) { 
         benchmark_settings_t tuning_settings = benchmarkInit(start_tuning_settings.threads);
         tuning_settings.stripe_faster = 10;
         tuning_settings.mediumstep_faster = VECTORWORD_SIZE_counter/4;

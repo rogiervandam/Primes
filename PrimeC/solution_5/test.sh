@@ -37,8 +37,13 @@ PAREXT="_epar"
 base="sieve_extend" 
 # If the first argument does not start with '-', assign it as the base and discard it
 if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
-    base="$1"
-    shift
+    if echo "$1" | grep -qE '^[0-9]+$'; then
+        # If it's a number, keep it as an argument
+        :
+    else
+        base="$1"
+        shift
+    fi
 fi
 
 DEFINE_FLAGS=""

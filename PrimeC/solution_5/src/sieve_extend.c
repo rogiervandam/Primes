@@ -36,7 +36,6 @@ static char algorithm_type[] = "other";
 #include "sieve/sieve_manager.h"
 #include "sieve/sieve_search.h"
 #include "sieve/sieve_setbitstrue_word.h"
-#include "dev/snippets.h"
 #include "sieve/sieve_setbitstrue_vector.h"
 #include "sieve/sieve_stripe.h"
 #include "sieve/sieve_extend_continuePattern.h"
@@ -99,7 +98,7 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     struct sieve_t *sieve = sieve_create(sieve_size);
     bitword_t* bitstorage = sieve->bitstorage;
     const counter_t sieve_bits = sieve->bits;
-    const counter_t prime_max = 1+usqrt(sieve_size)/2;
+    const counter_t prime_max = prime_stop(sieve_bits);
 
     // use globals as constant
     const counter_t stripeprime_faster = global_stripeprime_faster;

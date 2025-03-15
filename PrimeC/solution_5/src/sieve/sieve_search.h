@@ -46,3 +46,4 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse_largestep(
     // Note: ~current_word inverts the bits so we find first 0 instead of 1
     return index + builtin_ctz(~current_word);
 }
+

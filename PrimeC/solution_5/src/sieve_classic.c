@@ -47,7 +47,7 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     struct sieve_t *sieve = sieve_create(sieve_size);
     bitword_t* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
     const counter_t sieve_bits = sieve->bits;
-    const counter_t prime_max = 1+usqrt(sieve_size)/2;
+    const counter_t prime_max =prime_stop(sieve_bits);
 
     verbose5(  printf("\nShaking sieve to find all primes up to %ju\n",(uintmax_t)sieve_size); )
 

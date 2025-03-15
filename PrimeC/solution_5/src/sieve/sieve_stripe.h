@@ -1,5 +1,22 @@
-static inline counter_t __attribute__((always_inline)) prime_stripe_start_beyond_block_stop_calc(const counter_t block_stop) {
-    return (counter_t) (usqrt(block_stop << 1) - 1) >> 1;
+// fast integer square root
+// https://en.wikipedia.org/wiki/Fast_inverse_square_root
+static inline counter_t __attribute__((always_inline)) usqrt(counter_t x) 
+{
+    union { float f; int i; } conv;
+  
+    float x2 = 0.5F * x;
+    conv.f = (float) x;
+    conv.i = 0x5f3759df - (conv.i >> 1); 
+    float y = conv.f;
+    y = y * (1.5F - (x2 * y * y));
+    y = y * (1.5F - (x2 * y * y));
+  
+    return (counter_t) (x * y + 1.5f); // 1.5f for rounding and increment by 1 to alyways round up
+}
+
+// calculate the maximum prime number that can be used for a given range in bits
+static inline counter_t __attribute__((always_inline)) prime_stop(const counter_t range_stop) {
+    return (1 + usqrt( (range_stop << 1) + 1 ) >> 1);
 }
 
 static inline counter_t __attribute__((always_inline)) prime_pattern_not_repeating_in_block(const counter_t range_start, const counter_t range_stop, const counter_t blocksize) {
@@ -49,7 +66,6 @@ static inline counter_t __attribute__((always_inline)) prime_pattern_not_repeati
     
     // Binary search
     while (low < high) {
-        debug_hits += debug_final_plan;
         counter_t mid = low + (high - low) / 2;
         counter_t step = mid * 2 + 1;
         
@@ -106,7 +122,7 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
     verbose5(  printf("\nBlock stripe (new) for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
     timer_lapstart(time_sieve_block_stripe);
 
-    const counter_t prime_stripe_start_beyond_block_stop = prime_stripe_start_beyond_block_stop_calc(block_stop);
+    const counter_t prime_stripe_start_beyond_block_stop = prime_stop(block_stop) ;
     const counter_t prime_vectorpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, VECTOR_SIZE_counter);
     const counter_t prime_wordpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, WORD_SIZE_counter*3);
 
@@ -118,12 +134,12 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
  
     counter_t prime = prime_start;
 
-    verbose5( printf("Plan start with prime %ju up to %ju using range %ju - %ju:\n", (uintmax_t)prime_start*2+1, (uintmax_t)prime_max*2+1, (uintmax_t)block_start, (uintmax_t)block_stop ); )
-    verbose5( if(prime_start    < prime_endloop1) printf("(1) Prime %3ju - %3ju : Use vectors with rolling words for bitsize %3ju up to %3ju\n", (uintmax_t)prime_start    *2+1, (uintmax_t)prime_endloop1 *2+1, (uintmax_t)prime_start,    (uintmax_t)prime_endloop1); )
-    verbose5( if(prime_endloop1 < prime_endloop2) printf("(2) Prime %3ju - %3ju : Use repeating wordsize masks   for bitsize %3ju up to %3ju\n", (uintmax_t)prime_endloop1 *2+1, (uintmax_t)prime_endloop2 *2+1, (uintmax_t)prime_endloop1, (uintmax_t)prime_endloop2); )
-    verbose5( if(prime_endloop2 < prime_endloop3) printf("(3) Prime %3ju - %3ju : Use vectors with large steps   for bitsize %3ju up to %3ju\n", (uintmax_t)prime_endloop2 *2+1, (uintmax_t)prime_endloop3 *2+1, (uintmax_t)prime_endloop2, (uintmax_t)prime_endloop3); )
-    verbose5( if(prime_endloop3 < prime_endloop4) printf("(4) Prime %3ju - %3ju : Use repeating word masks       for bitsize %3ju up to %3ju\n", (uintmax_t)prime_endloop3 *2+1, (uintmax_t)prime_endloop4 *2+1, (uintmax_t)prime_endloop3, (uintmax_t)prime_endloop4); )
-    verbose5( if(prime_endloop4 < prime_endloop5) printf("(5) Prime %3ju - %3ju : Use setting bit one by one     for bitsize %3ju up to %3ju\n", (uintmax_t)prime_endloop4 *2+1, (uintmax_t)prime_endloop5 *2+1, (uintmax_t)prime_endloop4, (uintmax_t)prime_endloop5); )
+    verbose5( printf("Plan start with factor %ju up to %ju using range %ju - %ju:\n", (uintmax_t)prime_start*2+1, (uintmax_t)prime_max*2+1, (uintmax_t)block_start, (uintmax_t)block_stop ); )
+    verbose5( if(prime_start    < prime_endloop1) printf("(1) Factor %4ju - %4ju : Use vectors with rolling words (bitsize %4ju up to %4ju)\n", (uintmax_t)prime_start    *2+1, (uintmax_t)prime_endloop1 *2+1, (uintmax_t)prime_start,    (uintmax_t)prime_endloop1); )
+    verbose5( if(prime_endloop1 < prime_endloop2) printf("(2) Factor %4ju - %4ju : Use repeating wordsize masks   (bitsize %4ju up to %4ju)\n", (uintmax_t)prime_endloop1 *2+1, (uintmax_t)prime_endloop2 *2+1, (uintmax_t)prime_endloop1, (uintmax_t)prime_endloop2); )
+    verbose5( if(prime_endloop2 < prime_endloop3) printf("(3) Factor %4ju - %4ju : Use vectors with large steps   (bitsize %4ju up to %4ju)\n", (uintmax_t)prime_endloop2 *2+1, (uintmax_t)prime_endloop3 *2+1, (uintmax_t)prime_endloop2, (uintmax_t)prime_endloop3); )
+    verbose5( if(prime_endloop3 < prime_endloop4) printf("(4) Factor %4ju - %4ju : Use repeating word masks       (bitsize %4ju up to %4ju)\n", (uintmax_t)prime_endloop3 *2+1, (uintmax_t)prime_endloop4 *2+1, (uintmax_t)prime_endloop3, (uintmax_t)prime_endloop4); )
+    verbose5( if(prime_endloop4 < prime_endloop5) printf("(5) Factor %4ju - %4ju : Use setting bit one by one     (bitsize %4ju up to %4ju)\n", (uintmax_t)prime_endloop4 *2+1, (uintmax_t)prime_endloop5 *2+1, (uintmax_t)prime_endloop4, (uintmax_t)prime_endloop5); )
     timer_laptime(time_sieve_block_stripe); verbose7( printf("\n"); )
 
     // the < instad of <= is to prevent the last prime to be processed in all the loop

@@ -43,16 +43,3 @@ static void printVectorNumeric(bitvector_t bitvector)
   verbose1( printf("\n");	)
 }
 
-// fast integer square root
-// https://en.wikipedia.org/wiki/Fast_inverse_square_root
-static inline counter_t __attribute__((always_inline)) usqrt(counter_t x) {
-    union { float f; int i; } conv;
-  
-    float x2 = 0.5F * x;
-    conv.f = (float) x;
-    conv.i = 0x5f3759df - (conv.i >> 1); 
-    float y = conv.f;
-    y = y * (1.5F - (x2 * y * y));
-  
-    return (counter_t) (x * y + 1.5f); // 1.5f for rounding and increment by 1 to alyways round up
-  }

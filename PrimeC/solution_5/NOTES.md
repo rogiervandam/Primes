@@ -1,4 +1,5 @@
 # TODO
+- sieve not working for max > 1000000
 - auto profile the best option
 - detect if using blocksize for words different from vectors helps
 - differentiate functions in type and then benchmark between them
@@ -19,5 +20,3 @@
 
 
 ## Compiler flags
-
-

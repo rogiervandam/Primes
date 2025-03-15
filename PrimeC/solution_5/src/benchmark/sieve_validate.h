@@ -52,7 +52,6 @@ static int checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
             verbose4( printf("....Blocksize %ju:",(uintmax_t)blocksize_bits); )
             benchmark_settings.blocksize_bits = blocksize_bits;
             benchmark_settings.factor_max = sieveSize_check;
-
             benchmark_settings = check_benchmark_settings(benchmark_settings);
             benchmark_settings_as_string(settings_string, benchmark_settings);
 
