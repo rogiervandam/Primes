@@ -44,13 +44,8 @@ static inline char* benchmark_settings_as_string(char* settings_string, benchmar
     verbose1({
         snprintf(settings_string, 50, "s%03ju-m%03ju-l%03ju-b%07ju-u%02ju-v%ju%s-c%s", 
             (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.largestep_faster, 
-            (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)WORD_SIZE_counter, (uintmax_t)(VECTOR_SIZE_counter/WORD_SIZE_counter), TYPE_SHORT_NAME(bitword_vector_t), TYPE_SHORT_NAME(counter_t));
+            (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)WORD_SIZE_counter, (uintmax_t)(VECTOR_SIZE_counter/VECTORWORD_SIZE_counter), TYPE_SHORT_NAME(bitword_vector_t), TYPE_SHORT_NAME(counter_t));
     })
-    // verbose1({
-    //     sprintf(settings_string, "s%03ju-m%03ju-l%03ju-b%07ju-u%02ju-v%ju-c", 
-    //         (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.largestep_faster, 
-    //         (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)WORD_SIZE_counter, (uintmax_t)(VECTOR_SIZE_counter/WORD_SIZE_counter);
-    // })
     return settings_string;
 }
 
@@ -90,8 +85,6 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
     benchmark_result_t benchmark_result;
     benchmark_settings = check_benchmark_settings(benchmark_settings);
     benchmark_result.settings = benchmark_settings;
-
-    counter_t sieve_bits = benchmark_settings.factor_max >> 1;
 
     // set global variables used in the sieve functions
     prepareBenchmarkGlobals(benchmark_result.settings); // TODO; change back to benchmark_settings

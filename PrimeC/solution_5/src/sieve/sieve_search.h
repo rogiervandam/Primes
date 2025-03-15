@@ -43,7 +43,6 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse_largestep(
 
     timer_laptime(time_searchBitFalse_largestep); verbose8( printf(" next prime %ju (step %ju)\n", (uintmax_t) (index + builtin_ctz(~current_word)), (uintmax_t)(index + builtin_ctz(~current_word))*2+1));
 
-    // Find the first unset bit using builtin_ffs
     // Note: ~current_word inverts the bits so we find first 0 instead of 1
     return index + builtin_ctz(~current_word);
 }

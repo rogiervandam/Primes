@@ -225,19 +225,6 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
                     }
                 }
             }
-
-            // reset_benchmark_result(&tuning_result[tuning_results], tuning_settings);
-            // tuning_result[tuning_results].settings.blocksize_bits += cache_line_bytes*8;
-            // tuning_results++;
-            // decrease blocksize slightly to allow room for starting of the sieve
-
-            // if (!option.fixed_benchmark_settings.blocksize_bits) {
-            //     if (tuning_settings.blocksize_bits > cache_line_bytes*8) { 
-            //         reset_benchmark_result(&tuning_result[tuning_results], tuning_settings);
-            //         tuning_result[tuning_results].settings.blocksize_bits -= cache_line_bytes*8;
-            //         tuning_results++;
-            //     }
-            // }
         }
 
         // join results with the same settings

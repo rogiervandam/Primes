@@ -7,29 +7,10 @@ static inline void __attribute__((always_inline)) applyMask_word(bitword_t* rest
     timer_lapstart(time_applyMask_word);
 
     register bitword_t* restrict index_ptr = __builtin_assume_aligned(&bitstorage[index_word], sizeof(bitword_t));
-
     register const counter_t step_2 = step << 1;
     register const counter_t step_3 = step_2 + step;
     register const counter_t step_4 = step << 2;
-
     const counter_t range_stop_word = wordindex(range_stop);
-
-    // register const counter_t step_8 = step << 3;
-    // register const bitword_t* restrict fast_loop_ptr8 = __builtin_assume_aligned(&bitstorage[((range_stop_word>step_8) ? (range_stop_word - step_8):0)], sizeof(bitword_t));
-
-    // #pragma GCC ivdep
-    // while (index_ptr < fast_loop_ptr8) {
-    //     // __builtin_prefetch(index_ptr + step_4, 1, 3); // prefetch the memory that will be written soon
-    //     *index_ptr            |= mask; 
-    //     *(index_ptr + step  ) |= mask; 
-    //     *(index_ptr + step_2) |= mask; 
-    //     *(index_ptr + step_3) |= mask; 
-    //     *(index_ptr + step_4         ) |= mask; 
-    //     *(index_ptr + step_4 + step  ) |= mask; 
-    //     *(index_ptr + step_4 + step_2) |= mask; 
-    //     *(index_ptr + step_4 + step_3) |= mask; 
-    //     index_ptr += step_8;
-    // }
 
     register const bitword_t* restrict fast_loop_ptr = __builtin_assume_aligned(&bitstorage[((range_stop_word>step_4) ? (range_stop_word - step_4):0)], sizeof(bitword_t));
     #pragma GCC ivdep

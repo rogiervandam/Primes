@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
             char extension[50] = ""; extension_as_string(extension);      
             benchmark_settings_as_string(settings_string, benchmark_result.settings);
             printf("%s%s;%ju;%f;%ju;algorithm=%s,faithful=yes,bits=1",algorithm_name,extension,(uintmax_t)benchmark_result.passes,benchmark_result.elapsed_time,(uintmax_t)threads, algorithm_type);
-            verbose1( { printf(";%s",settings_string); } ) 
+            verbose1( { printf(";\033[1;32m%s\033[0m total \033[1;33m%ju\033[0m",settings_string, (uintmax_t)benchmark_result.passes); } ) 
             printf("\n");
         )
     }

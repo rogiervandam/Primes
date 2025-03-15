@@ -66,9 +66,7 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
     counter_t patternsize_bits       = 3;
 
     setBitsTrue_smallstep_norepeat(bitstorage, start, step, range_stop);
-    // setBitsTrue_largestep_vector(bitstorage, start, step, range_stop);
 
-    // TODO: check if splittsing the loop in two parts is faster
     for (;range_stop < block_stop;) {
         prime = searchBitFalse(bitstorage, prime);
 
@@ -80,16 +78,14 @@ static counter_t sieve_block_extend(struct sieve_t *sieve, const counter_t block
         if unlikely(range_stop > block_stop) break;
 
         // continue the found pattern to the entire sieve
-        pattern_start = patternsize_bits;
-        continuePattern(bitstorage, pattern_start, patternsize_bits, range_stop);
+        continuePattern(bitstorage, patternsize_bits, patternsize_bits, range_stop);
         patternsize_bits *= step;
 
-        const counter_t range_stop_unique = start + WORD_SIZE_counter * step;
         setBitsTrue(bitstorage, start, step, range_stop);
     } 
 
     // continue the found pattern to the entire sieve
-    continuePattern(bitstorage, pattern_start, patternsize_bits, sieve_bits);
+    continuePattern(bitstorage, patternsize_bits, patternsize_bits, sieve_bits);
     return prime;
 }
 

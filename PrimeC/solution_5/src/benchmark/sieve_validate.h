@@ -48,7 +48,6 @@ static int checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
             printf("..Checking size %ju ...",(uintmax_t)sieveSize_check); 
             verbose4( printf("\n"); )
         })
-        struct sieve_t *sieve_check;
         for (counter_t blocksize_bits=1024; blocksize_bits<=32*1024*8; blocksize_bits *= 2) {
             verbose4( printf("....Blocksize %ju:",(uintmax_t)blocksize_bits); )
             benchmark_settings.blocksize_bits = blocksize_bits;

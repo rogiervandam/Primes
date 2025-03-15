@@ -216,10 +216,8 @@ static inline void __attribute__((always_inline)) continuePattern_shiftleft(bitw
     source_word = copy_word - size; // recalibrate
     const size_t memsize = (size_t)size*sizeof(bitword_t);
 
-    // TODO: check if memsize could be larger or applyword could be reused
     for (;copy_word + size <= destination_stop_word; copy_word += size) 
-    bitstorage[copy_word] = bitstorage[source_word];
-        // memcpy(&bitstorage[copy_word], &bitstorage[source_word],memsize );
+        bitstorage[copy_word] = bitstorage[source_word];
 
     for (;copy_word <= destination_stop_word; copy_word++, source_word++)
         bitstorage[copy_word] = bitstorage[source_word];

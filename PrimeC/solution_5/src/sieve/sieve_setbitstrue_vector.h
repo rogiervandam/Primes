@@ -346,6 +346,7 @@ static inline void __attribute__((always_inline)) setBitsTrue_smallstep_vector(b
 
     if (range_start_new > range_stop) return;
     create_mask_vector_smallstep_rotate_pair(bitstorage, range_start_new, step, range_stop);
+    // create_mask_vector_smallstep(bitstorage, range_start_new, step, range_stop);
 
     timer_laptime(time_setBitsTrue_largestep_vector_wordstep); verbose6( printf("\n"); )
 }

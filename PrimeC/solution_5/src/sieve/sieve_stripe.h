@@ -22,26 +22,26 @@ static inline counter_t __attribute__((always_inline)) prime_pattern_not_repeati
 #if COUNTER_T_SIZE_PP == 32
         // Use 64-bit arithmetic to avoid overflow on 32-bit types
         uint64_t high64 = (counter_t)high;
-        uint64_t calculated_range_start = high64 * 2 * (high64 + 1);
+        uint64_t calculated = high64 * 2 * (high64 + 1);
         
         // Check if we'd exceed range_stop or if multiplication would overflow
-        if (calculated_range_start > range_stop || 
+        if (calculated > range_stop || 
             step > UINT32_MAX / blocksize ||     // Check for multiplication overflow
             high >= UINT32_MAX / 4) break;       // Prevent overflow in high*2*(high+1)
             
         // Check if the condition is satisfied
         counter_t block_step = (counter_t)blocksize * step;
-        if (block_step >= (range_stop - (counter_t)calculated_range_start)) break;
+        if (block_step >= (range_stop - (counter_t)calculated)) break;
 #else
         // For 64-bit types, we can do direct calculations in most cases
         // Only check for extreme values
-        counter_t calculated_range_start = high * 2 * (high + 1);
+        counter_t calculated = high * 2 * (high + 1);
                
         // Only check for overflow in extreme cases
-        if (high > (UINT64_MAX / 4) || calculated_range_start > range_stop) break;
+        if (high > (UINT64_MAX / 4) || calculated > range_stop) break;
 
         // Check if the condition is satisfied
-        if (blocksize * step >= (range_stop - calculated_range_start)) break;
+        if (blocksize * step >= (range_stop - calculated)) break;
 #endif
         
         high = high * 2;
@@ -56,13 +56,16 @@ static inline counter_t __attribute__((always_inline)) prime_pattern_not_repeati
 #if COUNTER_T_SIZE_PP == 32
         // Use 64-bit arithmetic for calculations
         uint64_t mid64 = (uint64_t)mid;
-        uint64_t calculated_range_start = mid64 * 2 * (mid64 + 1);
+        uint64_t calculated = mid64 * 2 * (mid64 + 1);
         
-        if (calculated_range_start > range_stop) {
+        // Adjust calculation to account for range_start
+        calculated = calculated < range_start ? range_start : calculated;
+        
+        if (calculated > range_stop) {
             high = mid;
         } else {
             uint64_t block_step = (uint64_t)blocksize * step;
-            if (block_step >= (range_stop - (counter_t)calculated_range_start)) {
+            if (block_step >= (range_stop - (counter_t)calculated)) {
                 high = mid;
             } else {
                 low = mid + 1;
@@ -70,12 +73,15 @@ static inline counter_t __attribute__((always_inline)) prime_pattern_not_repeati
         }
 #else
         // 64-bit direct calculation
-        counter_t calculated_range_start = mid * 2 * (mid + 1);
+        counter_t calculated = mid * 2 * (mid + 1);
         
-        if (calculated_range_start > range_stop) {
+        // Adjust calculation to account for range_start
+        calculated = calculated < range_start ? range_start : calculated;
+        
+        if (calculated > range_stop) {
             high = mid;
         } else {
-            if (blocksize * step >= (range_stop - calculated_range_start)) {
+            if (blocksize * step >= (range_stop - calculated)) {
                 high = mid;
             } else {
                 low = mid + 1;
@@ -102,7 +108,7 @@ static inline counter_t __attribute__((always_inline)) sieve_block_stripe(bitwor
 
     const counter_t prime_stripe_start_beyond_block_stop = prime_stripe_start_beyond_block_stop_calc(block_stop);
     const counter_t prime_vectorpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, VECTOR_SIZE_counter);
-    const counter_t prime_wordpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, WORD_SIZE_counter*2);
+    const counter_t prime_wordpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, WORD_SIZE_counter*3);
 
     const counter_t prime_endloop5 = min(prime_max, prime_stripe_start_beyond_block_stop);
     const counter_t prime_endloop4 = min(prime_endloop5, prime_wordpattern_not_repeating_in_block);
