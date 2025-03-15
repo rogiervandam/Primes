@@ -3,22 +3,22 @@
 #if COMPILE_EXPLAIN
 static void explainSieveShake(benchmark_settings_t benchmark_settings) 
 {
-    benchmark_settings = check_benchmark_settings(benchmark_settings);
+    benchmark_settings = checkBenchmarkSettings(benchmark_settings);
     prepareBenchmarkGlobals(benchmark_settings);
 
     debug_final_benchmarking = 1;
-    struct sieve_t* sieve = sieve_shake(benchmark_settings.factor_max);
+    struct sieve_t* sieve = shakeSieve(benchmark_settings.factor_max);
     debug_final_benchmarking = 0;
 
     printf("\nResult set:\n");
     option.verbose_level = 3; // set back to 3 because we don't need explanations anymore
     if (option.show_explain_factor_max) {
-        show_primes(sieve, option.show_explain_factor_max);
+        showPrimesinSieve(sieve, option.show_explain_factor_max);
     }
-    int valid = validatePrimeCount(sieve, benchmark_settings.factor_max);
+    int valid = validateSieve(sieve, benchmark_settings.factor_max);
     if (!valid) {
         printf("The sieve is \033[0;31m\033[5mNOT\033[0;0m valid...\n");
-        deepAnalyzePrimes(sieve);
+        deepAnalyzeSieve(sieve);
     }
     else {
         printf("The sieve is \033[0;32mvalid\033[0;0m\n");
@@ -52,8 +52,8 @@ static int checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
             verbose4( printf("....Blocksize %ju:",(uintmax_t)blocksize_bits); )
             benchmark_settings.blocksize_bits = blocksize_bits;
             benchmark_settings.factor_max = sieveSize_check;
-            benchmark_settings = check_benchmark_settings(benchmark_settings);
-            benchmark_settings_as_string(settings_string, benchmark_settings);
+            benchmark_settings = checkBenchmarkSettings(benchmark_settings);
+            setBenchmarkSettingAsString(settings_string, benchmark_settings);
 
             int valid = checkSieveWithBenchmarkSettings(benchmark_settings); 
 
@@ -75,8 +75,8 @@ static int checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 static void showResult(benchmark_settings_t benchmark_settings)
 {
     verbose2( printf("Show result set:\n"); )
-    struct sieve_t* sieve = sieve_shake(benchmark_settings.factor_max);
-    show_primes(sieve, option.show_explain_factor_max);
+    struct sieve_t* sieve = shakeSieve(benchmark_settings.factor_max);
+    showPrimesinSieve(sieve, option.show_explain_factor_max);
     sieve_delete(sieve);
 }
 

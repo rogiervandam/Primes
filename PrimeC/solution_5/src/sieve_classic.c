@@ -32,24 +32,23 @@ static char algorithm_type[] = "classic";
 #include "general/tools.h"
 #include "benchmark/sieve_options.h"
 #include "benchmark/sieve_timers.h"
+#include "bitstorage/bitstorage_search.h"
+#include "bitstorage/bitstorage_setBitsTrue.h"
+#include "sieve/sieve_prime_calculations.h"
 #include "sieve/sieve_manager.h"
-#include "sieve/sieve_search.h"
-#include "sieve/sieve_setbitstrue_word.h"
-#include "sieve/sieve_setbitstrue_vector.h"
+#include "sieve/sieve_extend.h"
 #include "sieve/sieve_stripe.h"
 
-/* This is the main module that directs all the work
-   sieve_size in a real number that is the maximum in the sieve (not in bits)
-   block_size is in bits and determines how large the blocks are which are processed 
-*/
-static struct sieve_t* sieve_shake(const counter_t sieve_size)
+// This is the main module that directs all the work
+// sieve_size in a real number that is the maximum in the sieve (not in bits)
+static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
     struct sieve_t *sieve = sieve_create(sieve_size);
     bitword_t* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
     const counter_t sieve_bits = sieve->bits;
-    const counter_t prime_max =prime_stop(sieve_bits);
+    const counter_t prime_max = prime_stop(sieve_bits);
 
-    verbose5(  printf("\nShaking sieve to find all primes up to %ju\n",(uintmax_t)sieve_size); )
+    verbose5( printf("\nShaking sieve to find all primes up to %ju\n",(uintmax_t)sieve_size); )
 
     sieve_clear(sieve);
     counter_t prime = 1;

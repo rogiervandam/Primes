@@ -21,14 +21,16 @@
 
 // type for describing the index of a bit in the sieve and general loops
 #ifndef counter_t
-    #define counter_t         int32_t
-    #define COUNTER_T_SIZE_PP 32
+    #if defined(USE_64BIT_COUNTER)
+        #define counter_t         int64_t
+        #define COUNTER_T_SIZE_PP 64
+    #else
+        #define counter_t         int32_t
+        #define COUNTER_T_SIZE_PP 32
+    #endif
 #endif
 
 // type used to shift bits
 #ifndef bitshift_t
     #define bitshift_t counter_t 
 #endif
-
-
-

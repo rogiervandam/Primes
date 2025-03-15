@@ -32,17 +32,18 @@ static char algorithm_type[] = "base";
 #include "general/tools.h"
 #include "benchmark/sieve_options.h"
 #include "benchmark/sieve_timers.h"
+#include "bitstorage/bitstorage_search.h"
+#include "bitstorage/bitstorage_setBitsTrue.h"
+#include "sieve/sieve_prime_calculations.h"
 #include "sieve/sieve_manager.h"
-#include "sieve/sieve_search.h"
-#include "sieve/sieve_setbitstrue_word.h"
-#include "sieve/sieve_setbitstrue_vector.h"
+#include "sieve/sieve_extend.h"
 #include "sieve/sieve_stripe.h"
 
 /* This is the main module that directs all the work
    sieve_size in a real number that is the maximum in the sieve (not in bits)
    block_size is in bits and determines how large the blocks are which are processed 
 */
-static struct sieve_t* sieve_shake(const counter_t sieve_size)
+static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
     struct sieve_t *sieve = sieve_create(sieve_size);
     bitword_t* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
@@ -60,15 +61,15 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     counter_t prime = 1;
 
     // stripe off all the multiples of primes in the sieve
-    prime = sieve_stripe(bitstorage, sieve_bits, prime, stripeprime_faster );
+    prime = stripeSieve(bitstorage, sieve_bits, prime, stripeprime_faster );
 
     // do this block by block to minimize cache misses
     // first block requires fewer operations; it might be the whole sieve...
-    sieve_block_stripe0(bitstorage, min(blocksize_bits, sieve_bits), prime, prime_max);
+    stripeSieveBlock0(bitstorage, min(blocksize_bits, sieve_bits), prime, prime_max);
 
     // // process the remaining blocks
     for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
-        sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
+        stripeSieveBlock(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
     } 
     
     // return the completed sieve

@@ -1,24 +1,25 @@
-static counter_t count_primes(struct sieve_t *sieve) 
+static counter_t countPrimesInSieve(struct sieve_t *sieve) 
 {
-    counter_t primecount = 1;
-    for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor)) primecount++;
-    return primecount;
+    counter_t prime_count = 1;
+    for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor)) prime_count++;
+    return prime_count;
 }
 
-static void show_primes(struct sieve_t *sieve, counter_t factor_max) 
+static void showPrimesinSieve(struct sieve_t *sieve, counter_t factor_max) 
 {
-    counter_t primecount = 1;    // We already have 2
+    counter_t prime_count = 1;    // We already have 2
     for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor)) {
-        primecount++;
+        prime_count++;
         if (factor < factor_max/2) {
             verbose2( printf("%3ju ",(uintmax_t)factor*2+1); )
-            if (primecount % 10 == 0) { verbose2( printf("\n"); ) }
+            if (prime_count
+         % 10 == 0) { verbose2( printf("\n"); ) }
         }
     }
-    verbose1( printf("\nFound %ju primes until %ju\n",(uintmax_t)primecount, (uintmax_t)sieve->bits*2+1); )
+    verbose1( printf("\nFound %ju primes until %ju\n",(uintmax_t)prime_count, (uintmax_t)sieve->bits*2+1); )
 }
 
-static void deepAnalyzePrimes(struct sieve_t *sieve) 
+static void deepAnalyzeSieve(struct sieve_t *sieve) 
 {
     verbose2( printf("DeepAnalyzing\n"); )
     counter_t warn_prime = 0;
@@ -48,9 +49,9 @@ static void deepAnalyzePrimes(struct sieve_t *sieve)
     }
 }
 
-static inline int validatePrimeCount(struct sieve_t *sieve, counter_t factor_max)
+static inline int validateSieve(struct sieve_t *sieve, counter_t factor_max)
 {
-    counter_t primecount = count_primes(sieve);
+    counter_t prime_count = countPrimesInSieve(sieve);
     counter_t valid_primes = 0;
     switch(factor_max) {
         case 10:            valid_primes = 4;         break;
@@ -68,6 +69,6 @@ static inline int validatePrimeCount(struct sieve_t *sieve, counter_t factor_max
         default:            valid_primes= 0;
     }
 
-    return (valid_primes == primecount);
+    return (valid_primes == prime_count);
 }
 

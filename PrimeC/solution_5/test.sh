@@ -54,6 +54,8 @@ set_y="v4"
 set_z="ci32"
 
 verbose_next=0
+highest_number=0
+
 # Loop through all arguments.
 for arg in "$@"; do
     # Split each argument on dash and check every token.
@@ -70,6 +72,14 @@ for arg in "$@"; do
     # Check for standalone --verbose flag
     if [ "$arg" = "--verbose" ] || [ "$arg" = "verbose" ]; then
         verbose_next=1
+        continue
+    fi
+
+    # Check if the argument is a number and update the highest number
+    if echo "$arg" | grep -qE '^[0-9]+$'; then
+        if [ "$arg" -gt "$highest_number" ]; then
+            highest_number="$arg"
+        fi
         continue
     fi
 
@@ -97,6 +107,12 @@ for arg in "$@"; do
         esac
     done
 done
+
+# Check if the highest number fits in 32 bits
+if [ "$highest_number" -gt 999999999 ]; then
+    echo "Number exceeds 32-bit range. Using 64-bit counter."
+    DEFINE_FLAGS="$DEFINE_FLAGS -DUSE_64BIT_COUNTER"
+fi
 
 # Compose a program name using a default base name.
 PROGTOTAL="${base}-${set_x}-${set_y}-${set_z}"

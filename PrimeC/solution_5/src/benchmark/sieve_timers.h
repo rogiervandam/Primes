@@ -28,10 +28,10 @@ double timer_time[timer_count];
 #define time_continuePattern_shiftleft_unrolled 43
 #define time_continuePattern_shiftleft 44
 #define time_continuePattern_shiftright 45
-#define time_sieve_stripe 50
-#define time_sieve_block_stripe 51
-#define time_sieve_block_stripe0 52
-#define time_sieve_block_stripe_vector 53
+#define time_stripeSieve 50
+#define time_sieveStripeBlock 51
+#define time_stripeSieveBlock0 52
+#define time_sieveStripeBlock_vector 53
 #define time_sieve_block_extend 54
 
 static const char* timer_function_names[100] = {
@@ -53,10 +53,10 @@ static const char* timer_function_names[100] = {
     [time_continuePattern_shiftleft_unrolled] = "continuePattern_shiftleft_unrolled",
     [time_continuePattern_shiftleft] = "continuePattern_shiftleft",
     [time_continuePattern_shiftright] = "continuePattern_shiftright",
-    [time_sieve_stripe] = "sieve_stripe",
-    [time_sieve_block_stripe0] = "sieve_block_stripe0",
-    [time_sieve_block_stripe] = "sieve_block_stripe",
-    [time_sieve_block_stripe_vector] = "sieve_block_stripe_vector",
+    [time_stripeSieve] = "stripeSieve",
+    [time_stripeSieveBlock0] = "stripeSieveBlock0",
+    [time_sieveStripeBlock] = "sieveStripeBlock",
+    [time_sieveStripeBlock_vector] = "sieveStripeBlock_vector",
     [time_searchBitFalse] = "searchBitFalse",
     [time_sieve_block_extend] = "sieve_block_extend",
   };
