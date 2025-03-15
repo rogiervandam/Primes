@@ -4,22 +4,39 @@
 // This file includes all the building blocks for the sieve algorithm "base"
 // This enables the compiler to optimize the code better
 
+#ifdef __APPLE__
+#include <mach/mach_time.h>
+#else
+#define _POSIX_C_SOURCE 199309L
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <time.h>
 #include <string.h>
-#include <ctype.h> /* For isdigit() function */
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
+static char algorithm_name[] = "rogiervandam_base";
+static char algorithm_type[] = "base";
+
 // include helper functions
-#include "sieve_helpers.h"
-#include "sieve_options.h"
-#include "sieve_helpers_timers.h"
-#include "sieve_functions.h"
-#include "sieve_extend_continuePattern.h"
+#include "general/preset.h"
+#include "general/settings.h"
+#include "general/helpers.h"
+#include "general/types.h"
+#include "general/verbose.h"
+#include "general/tools.h"
+#include "benchmark/sieve_options.h"
+#include "benchmark/sieve_timers.h"
+#include "sieve/sieve_manager.h"
+#include "sieve/sieve_search.h"
+#include "sieve/sieve_setbitstrue_word.h"
+#include "sieve/sieve_setbitstrue_vector.h"
+#include "sieve/sieve_stripe.h"
 
 /* This is the main module that directs all the work
    sieve_size in a real number that is the maximum in the sieve (not in bits)
@@ -28,14 +45,12 @@
 static struct sieve_t* sieve_shake(const counter_t sieve_size)
 {
     struct sieve_t *sieve = sieve_create(sieve_size);
-    bitword_t* bitstorage = sieve->bitstorage;
+    bitword_t* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
     const counter_t sieve_bits = sieve->bits;
     const counter_t prime_max = 1+usqrt(sieve_size)/2;
 
     // use globals as constant
     const counter_t stripeprime_faster = global_stripeprime_faster;
-    // const counter_t mediumstep_faster = global_mediumstep_faster;
-    // const counter_t largestep_faster = global_largestep_faster;
     const counter_t blocksize_bits = global_blocksize_bits;
     
     verbose5(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size); )
@@ -52,7 +67,7 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     sieve_block_stripe0(bitstorage, min(blocksize_bits, sieve_bits), prime, prime_max);
 
     // // process the remaining blocks
-    for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start <= sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
+    for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
         sieve_block_stripe(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
     } 
     
@@ -60,11 +75,10 @@ static struct sieve_t* sieve_shake(const counter_t sieve_size)
     return sieve;
 }
 
-#include "sieve_checks.h"
-#include "sieve_benchmark.h"
-#include "sieve_checks2.h"
-
-static char algorithm_name[] = "rogiervandam_base";
-static char algorithm_type[] = "base";
-
-#include "sieve_commandline.h"
+#include "benchmark/sieve_check.h"
+#include "benchmark/sieve_benchmark.h"
+#include "benchmark/sieve_benchmark_tune.h"
+#include "benchmark/sieve_validate.h"
+#include "benchmark/sieve_usage.h"
+#include "benchmark/sieve_parse_commandline.h"
+#include "benchmark/sieve_main.h"

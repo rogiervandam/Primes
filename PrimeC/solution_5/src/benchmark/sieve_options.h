@@ -1,7 +1,3 @@
-struct sieve_t {
-    bitword_t* bitstorage __attribute__((aligned(anticiped_cache_line_bytesize)));  // Align to cache line
-    counter_t bits;
-  } __attribute__((aligned(anticiped_cache_line_bytesize)));  // Align the whole structure
 
 typedef struct  {
     counter_t factor_max;
@@ -50,7 +46,7 @@ static struct options_t setDefaultOptions() {
 
     option.check                   = 1; // set to 2 to stop after the check algorithm
     option.tunelevel               = 1;
-    option.sample_duration         = 0.0002;
+    option.sample_duration         = 0.0008;
     option.tune_duration_max       = 5.0;
     option.tune_keeppercent        = 10;
 
@@ -68,7 +64,7 @@ static struct options_t setDefaultOptions() {
 
     #ifdef COMPILE_EXPLAIN
     option.explain = 1;
-    option.verbose_level = 4;
+    option.verbose_level = 5;
     #endif
 
     #ifdef COMPILE_TIMERS

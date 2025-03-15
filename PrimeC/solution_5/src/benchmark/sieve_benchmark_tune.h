@@ -1,27 +1,3 @@
-
-
-static inline char* benchmark_settings_as_string(char* settings_string, benchmark_settings_t benchmark_settings) {
-    sprintf(settings_string, "s%03ju-m%03ju-l%03ju-b%07ju-u%02ju-v%02ju", 
-        (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.largestep_faster, 
-        (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_SIZE_counter);
-    return settings_string;
-}
-
-static inline void reset_benchmark_result(benchmark_result_t* benchmark_result, benchmark_settings_t benchmark_settings) {
-    benchmark_result->settings = benchmark_settings;
-    benchmark_result->passes = 0;
-    benchmark_result->elapsed_time = 0;
-    benchmark_result->avg = 0;
-}
-
-static inline benchmark_settings_t benchmarkInit(counter_t threads) {
-    benchmark_settings_t benchmark_settings = option.fixed_benchmark_settings;
-    // benchmark_settings.factor_max        = option.factor_max;
-    benchmark_settings.threads           = threads;
-    benchmark_settings.sample_duration   = option.time_max;
-    return benchmark_settings;
-}
-
 static int compare_tuning_result(const void *a, const void *b) 
 {
     benchmark_result_t *resultA = (benchmark_result_t *)a;
@@ -29,127 +5,11 @@ static int compare_tuning_result(const void *a, const void *b)
     return (resultB->avg > resultA->avg ? 1 : -1);
 }
 
-static void setSettingsFromTuning(benchmark_settings_t* benchmark_settings, benchmark_settings_t* tuning_settings) {
-    benchmark_settings->stripe_faster     = tuning_settings->stripe_faster;
-    benchmark_settings->mediumstep_faster = tuning_settings->mediumstep_faster;
-    benchmark_settings->largestep_faster  = tuning_settings->largestep_faster;
-    benchmark_settings->blocksize_bits    = tuning_settings->blocksize_bits;
-}
-
-static inline double benchmarkTime() {
-    struct timespec t;
-
-    #ifdef __APPLE__
-        clock_gettime(CLOCK_MONOTONIC_RAW, &t);
-    #else
-        clock_gettime(CLOCK_MONOTONIC, &t);
-    #endif
-    return (t.tv_sec + t.tv_nsec * 1e-9);
-  //    return (double)clock();
- }
-
-static inline benchmark_settings_t check_benchmark_settings(benchmark_settings_t benchmark_settings) {
-    counter_t prime_max = usqrt(benchmark_settings.factor_max) / 2;
-
-    // printf("Before Prime max %ju stripe faster %ju medium faster %ju large faster %ju blocksize %ju\n", (uintmax_t)prime_max, (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.largestep_faster, (uintmax_t)benchmark_settings.blocksize_bits);
-
-    benchmark_settings.stripe_faster     = min(benchmark_settings.stripe_faster, prime_max);
-    benchmark_settings.mediumstep_faster = min(benchmark_settings.mediumstep_faster, VECTORWORD_SIZE_counter);
-    benchmark_settings.mediumstep_faster = min(benchmark_settings.mediumstep_faster, prime_max);
-    benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, benchmark_settings.mediumstep_faster);
-    benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, VECTORWORD_SIZE_counter);
-    benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, VECTOR_SIZE_counter);
-    benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, prime_max);
-    // benchmark_settings.blocksize_bits    = max(benchmark_settings.blocksize_bits, benchmark_settings.factor_max);
-    benchmark_settings.blocksize_bits    = min(benchmark_settings.blocksize_bits, benchmark_settings.factor_max/2+1);
-
-    // printf("After  Prime max %ju stripe faster %ju medium faster %ju large faster %ju blocksize %ju\n", (uintmax_t)prime_max, (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.largestep_faster, (uintmax_t)benchmark_settings.blocksize_bits);
-    return benchmark_settings;
-}
-
-static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settings) {
-    global_stripeprime_faster = benchmark_settings.stripe_faster;
-    global_mediumstep_faster  = benchmark_settings.mediumstep_faster;
-    global_largestep_faster   = benchmark_settings.largestep_faster;
-    global_blocksize_bits     = benchmark_settings.blocksize_bits;
-
-    verbose5( printf("Setting globals from benchmark: Stripe=%ju, Medium=%ju, Large=%ju, Block=%ju\n", (uintmax_t)global_stripeprime_faster, (uintmax_t)global_mediumstep_faster, (uintmax_t)global_largestep_faster, (uintmax_t)global_blocksize_bits); )
-}
-
-static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
-{
-    const counter_t factor_max = benchmark_settings.factor_max;
-    prepareBenchmarkGlobals(benchmark_settings);
-    struct sieve_t* sieve_check = sieve_shake(factor_max);
-    const int valid = validatePrimeCount(sieve_check, factor_max);
-    sieve_delete(sieve_check);
-    return valid;
-}
-
-static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings) 
-{
-    benchmark_result_t benchmark_result;
-    benchmark_settings = check_benchmark_settings(benchmark_settings);
-    benchmark_result.settings = benchmark_settings;
-
-    counter_t sieve_bits = benchmark_settings.factor_max >> 1;
-
-    // check logic
-    // if (benchmark_result.settings.largestep_faster > VECTOR_SIZE_counter ) benchmark_result.settings.largestep_faster = VECTOR_SIZE_counter;
-    // if (benchmark_result.settings.blocksize_bits > sieve_bits) benchmark_result.settings.blocksize_bits = sieve_bits;
-
-
-    // set global variables used in the sieve functions
-    prepareBenchmarkGlobals(benchmark_settings);
-
-    // prepare for the benchmark
-    counter_t passes = 0;
-    const counter_t sieve_size = benchmark_result.settings.factor_max;
-    // const counter_t blocksize_bits = benchmark_result.settings.blocksize_bits;
-    const double time_sample = benchmark_result.settings.sample_duration * benchmark_settings.threads; // do this before we set the clock
-//    const double time_sample = benchmark_result.settings.sample_duration * CLOCKS_PER_SEC * benchmark_settings.threads; // do this before we set the clock
-
-    double time_elapsed = 0;
-    const double time_start = benchmarkTime();
-    const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
-
-    #ifdef _OPENMP
-    omp_set_num_threads(benchmark_settings.threads);
-    #pragma omp parallel reduction(+:passes)
-    {
-        double time_elapsed = 0;
-        // const double time_start = benchmarkTime();
-        // const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
-        while (time_elapsed <= time_target) {
-            struct sieve_t *sieve = sieve_shake(sieve_size);
-            sieve_delete(sieve);
-            time_elapsed = benchmarkTime();         
-            passes++;
-        }
-    }
-    #else
-    while (time_elapsed <= time_target) {
-        struct sieve_t *sieve = sieve_shake(sieve_size);
-        sieve_delete(sieve);
-        time_elapsed = benchmarkTime();         
-        passes++;
-    }
-    time_elapsed = benchmarkTime() - time_start;         
-    #endif
-
-    // calculate results
-    benchmark_result.passes       = passes;
-    benchmark_result.elapsed_time = time_elapsed / benchmark_settings.threads;
-    benchmark_result.avg          = benchmark_result.passes / benchmark_result.elapsed_time; // TODO: check if thhreads are correct
-
-    return benchmark_result;
-}
-
 static inline void tuning_result_print(benchmark_result_t tuning_result) 
 {
-    char settings[100]=""; benchmark_settings_as_string(settings, tuning_result.settings);
-    printf("average \033[1;33m%f\033[0m with options \033[1;32m%s\033[0m was achieved with \033[1;33m%3ju\033[0m passes in \033[1;33m%f\033[0m seconds\n", 
-    tuning_result.avg, settings, (uintmax_t)tuning_result.passes, tuning_result.elapsed_time);
+    char settings[50]=""; benchmark_settings_as_string(settings, tuning_result.settings);
+    verbose2( printf("average \033[1;33m%13.6f\033[0m with options \033[1;32m%s\033[0m was achieved with \033[1;33m%3ju\033[0m passes in \033[1;33m%f\033[0m seconds\n", 
+    tuning_result.avg, settings, (uintmax_t)tuning_result.passes, tuning_result.elapsed_time); )
 }
 
 static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning_settings) 
@@ -159,33 +19,45 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     counter_t largestep_faster_steps = 32;
     double    sample_duration         = option.sample_duration;
     counter_t prime_max               = usqrt(start_tuning_settings.factor_max) / 2; // divide by 2 to compensate for bitwise representation 
-    char settings_string[100]=""; 
+    counter_t sieve_bits              = start_tuning_settings.factor_max >> 1;
+    char settings_string[50]=""; 
 
-    // determines the size of the resultset
+    // warm up the cache
+    verbose2( printf("Warming up the cache and processing units\n"); )	
+    for(counter_t i=0; i<256; i++ ) { 
+        benchmark_settings_t tuning_settings = benchmarkInit(start_tuning_settings.threads);
+        tuning_settings.stripe_faster = 10;
+        tuning_settings.mediumstep_faster = VECTORWORD_SIZE_counter/4;
+        tuning_settings.largestep_faster = VECTOR_SIZE_counter/4;
+        tuning_settings.blocksize_bits = tuning_settings.factor_max/2;
+        tuning_settings = check_benchmark_settings(tuning_settings);
+        const int valid = checkSieveWithBenchmarkSettings(tuning_settings);
+    }
+
     switch (tune_level) {
         case 1:
-            stripe_faster_steps = 16;
-            mediumstep_faster_steps = 16;
-            largestep_faster_steps = 32;
+            stripe_faster_steps = prime_max/4;
+            mediumstep_faster_steps = VECTORWORD_SIZE_counter/4;
+            largestep_faster_steps = VECTOR_SIZE_counter/4;
             sample_duration = option.sample_duration;
             break;
         case 2:
-            stripe_faster_steps = 8;
-            mediumstep_faster_steps = 8;
-            largestep_faster_steps = VECTOR_SIZE_counter/16;
+            stripe_faster_steps = prime_max/8;
+            mediumstep_faster_steps = VECTORWORD_SIZE_counter/8;
+            largestep_faster_steps = VECTOR_SIZE_counter/8;
             sample_duration = option.sample_duration*2;
             break;
         case 3:
-            stripe_faster_steps = 4;
-            mediumstep_faster_steps = 4;
-            largestep_faster_steps = VECTOR_SIZE_counter/32;
-            sample_duration =option.sample_duration*4;
+            stripe_faster_steps = prime_max/16;
+            mediumstep_faster_steps = VECTORWORD_SIZE_counter/16;
+            largestep_faster_steps = VECTOR_SIZE_counter/16;
+            sample_duration =option.sample_duration*3;
             break;
     }
     
     verbose2( { 
         verbose3( printf("\n"); )
-        printf("Tuning... compiled for \033[1;32mu%ju_v%ju\033[0m (word, vector)", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
+        printf("Tuning... compiled for \033[1;32mu%juv%ju\033[0m (word, vector)", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
         verbose3( {
             benchmark_settings_as_string(settings_string, start_tuning_settings);
             printf(".. best options (shown when found) for steps s%jum%juv%ju:\n", (uintmax_t)stripe_faster_steps, (uintmax_t) mediumstep_faster_steps, (uintmax_t) largestep_faster_steps); 
@@ -206,10 +78,15 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
 
     // build the tuning table
     for (counter_t stripe_faster = 0; stripe_faster <= prime_max; stripe_faster += stripe_faster_steps, stripe_faster_steps*=2) { // increase the stepsize exponentially to reduce the number of options
-        for (counter_t mediumstep_faster = 0; mediumstep_faster <= VECTORWORD_SIZE_counter; mediumstep_faster += mediumstep_faster_steps) {
-            for (counter_t largestep_faster = VECTORWORD_SIZE_counter; largestep_faster <= VECTOR_SIZE_counter; largestep_faster += largestep_faster_steps) { // TODO: start vectorstep at a nice % from mediumstep
-                for (counter_t blocksize_bits=128*1024*8; blocksize_bits>=8*1024*8; blocksize_bits /= 2) {
-                    for (counter_t smallprime_direction=0; smallprime_direction<=1; smallprime_direction++) { // helper to exponentially start at top and bottom of range
+        for (counter_t smallprime_direction = 0; smallprime_direction<=1; smallprime_direction++) { // helper to exponentially start at top and bottom of range
+            for (counter_t mediumstep_faster = 0; mediumstep_faster <= VECTORWORD_SIZE_counter; mediumstep_faster += mediumstep_faster_steps) {
+                for (counter_t largestep_faster = VECTORWORD_SIZE_counter; largestep_faster <= VECTOR_SIZE_counter; largestep_faster += largestep_faster_steps) { // TODO: start vectorstep at a nice % from mediumstep
+                    counter_t blocksize_bits=8*1024*8;
+                    do {
+                        blocksize_bits *= 2;
+                        counter_t stripe_faster_directed = (smallprime_direction==0) ? stripe_faster : (prime_max - stripe_faster);
+                        if (blocksize_bits > sieve_bits) blocksize_bits = sieve_bits; // try to avoid duplicate results and prevent from doing too much work
+                        if (stripe_faster_directed >= prime_max) blocksize_bits = sieve_bits; // avoid blocksize if not doing blockwise stripe
 
                         // hack to ovrrule tuning of user setting
                         if (option.fixed_benchmark_settings.stripe_faster)     { stripe_faster = option.fixed_benchmark_settings.stripe_faster; }
@@ -229,28 +106,30 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
                         tuning_settings = check_benchmark_settings(tuning_settings);
                         const int valid = checkSieveWithBenchmarkSettings(tuning_settings);
                         if (!valid) {
-                            char settings_string[100]=""; benchmark_settings_as_string(settings_string, tuning_settings);
-                            fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for settings %s with factor %ju\n", settings_string, (uintmax_t) tuning_settings.factor_max);
-                            exit(1);
+                            char settings_string[50]=""; benchmark_settings_as_string(settings_string, tuning_settings);
+                            verbose1( { fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for settings %s with factor %ju\n", settings_string, (uintmax_t) tuning_settings.factor_max); } )
+                            // exit(1);
                         }
                         #endif
                         
                         tuning_result[tuning_result_index] = benchmark(tuning_settings);
-                        verbose5( { printf("...."); tuning_result_print(tuning_result[tuning_result_index]); } )
+                        verbose4( { printf("...."); tuning_result_print(tuning_result[tuning_result_index]); } )
 
                         if ( tuning_result[tuning_result_index].avg >= best_tuning_result.avg) {
                             best_tuning_result = tuning_result[tuning_result_index];
                             verbose3( { printf("\033[0;37m.(<)\033[0m"); tuning_result_print(best_tuning_result); } )
                         }
+
                         tuning_result_index++;
                         verbose_at2( { printf("\rTuning...tuning \033[1;32m%5ju\033[0m options..in \033[1;32m%lf\033[0m seconds  ",(uintmax_t)tuning_results, (double)tuning_results*sample_duration ); } )
-                        if (option.fixed_benchmark_settings.stripe_faster) break;
-                    }
-                    if (option.fixed_benchmark_settings.blocksize_bits) break;
+
+                        if (option.fixed_benchmark_settings.blocksize_bits) break;
+                    } while (blocksize_bits < sieve_bits);
+                    if (option.fixed_benchmark_settings.largestep_faster) break;
                 }
-                if (option.fixed_benchmark_settings.largestep_faster) break;
+                if (option.fixed_benchmark_settings.mediumstep_faster) break;
             }
-            if (option.fixed_benchmark_settings.mediumstep_faster) break;
+            if (option.fixed_benchmark_settings.stripe_faster) break;
         }
         if (option.fixed_benchmark_settings.stripe_faster) break;
     }
@@ -261,13 +140,8 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
         printf("Finding the best option by reevaluating the top options with a longer sample duration.\n");
     })
 
-    // char filename[256];
-    // sprintf(filename,"tuning_results-u%juv%ju.csv", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS);
-    // saveTuningResultsToCSV(filename, tuning_result, tuning_results); 
-
     // reduce the tuning results to the best options
     // keep the best of the results and reevaluate them with a longer sample duration
-
     counter_t tuning_results_max = tuning_results; // keep this value for verbose messages
     counter_t step=1;
     for (; tuning_results > 1; step++) {
@@ -295,6 +169,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
         })
 
         tuning_results = tuning_results_selected;
+        tuning_results_max += tuning_results;
 
         // add variations of the best results
         for (counter_t i=0; i<tuning_results_selected; i++) {
@@ -320,7 +195,7 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
             if (!option.fixed_benchmark_settings.mediumstep_faster) {
                 if (mediumstep_faster_steps_diff > 1) {
 
-                        if (tuning_settings.mediumstep_faster < VECTORWORD_SIZE_counter - mediumstep_faster_steps_diff) {
+                    if (tuning_settings.mediumstep_faster < VECTORWORD_SIZE_counter - mediumstep_faster_steps_diff) {
                         reset_benchmark_result(&tuning_result[tuning_results], tuning_settings);
                         tuning_result[tuning_results].settings.mediumstep_faster += mediumstep_faster_steps_diff;
                         tuning_results++;
@@ -336,25 +211,18 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
             counter_t stripe_faster_steps_diff = stripe_faster_steps >> step; 
             if (!option.fixed_benchmark_settings.stripe_faster) {
                 if (stripe_faster_steps_diff > 1) {
-                    reset_benchmark_result(&tuning_result[tuning_results], tuning_settings);
-                    tuning_result[tuning_results].settings.stripe_faster += stripe_faster_steps_diff;
-                    tuning_results++;
-                    if (tuning_settings.stripe_faster > stripe_faster_steps_diff) {
+
+                    if (tuning_settings.stripe_faster < prime_max - stripe_faster_steps_diff) {
                         reset_benchmark_result(&tuning_result[tuning_results], tuning_settings);
-                        tuning_result[tuning_results].settings.stripe_faster -= stripe_faster_steps_diff;
+                        tuning_result[tuning_results].settings.stripe_faster += stripe_faster_steps_diff;
                         tuning_results++;
                     }
-                }
-            }
 
-            // reset_benchmark_result(&tuning_result[tuning_results], tuning_settings);
-            // tuning_result[tuning_results].settings.blocksize_bits += anticiped_cache_line_bytesize*8;
-            // tuning_results++;
-            if (!option.fixed_benchmark_settings.blocksize_bits) {
-                if (tuning_settings.blocksize_bits > anticiped_cache_line_bytesize*8) {
-                    reset_benchmark_result(&tuning_result[tuning_results], tuning_settings);
-                    tuning_result[tuning_results].settings.blocksize_bits -= anticiped_cache_line_bytesize*8;
-                    tuning_results++;
+                    if (tuning_settings.stripe_faster > stripe_faster_steps_diff) {
+                            reset_benchmark_result(&tuning_result[tuning_results], tuning_settings);
+                            tuning_result[tuning_results].settings.stripe_faster -= stripe_faster_steps_diff;
+                            tuning_results++;
+                    }
                 }
             }
         }
@@ -403,8 +271,8 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
             tuning_settings = check_benchmark_settings(tuning_settings);
             const int valid = checkSieveWithBenchmarkSettings(tuning_settings);
             if (!valid) {
-                char settings_string[100]=""; benchmark_settings_as_string(settings_string, tuning_settings);
-                fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for settings %s with factor %ju\n", settings_string, (uintmax_t) tuning_settings.factor_max);
+                char settings_string[50]=""; benchmark_settings_as_string(settings_string, tuning_settings);
+                verbose1( fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for settings %s with factor %ju\n", settings_string, (uintmax_t) tuning_settings.factor_max); )
                 exit(1);
             }
             #endif
@@ -427,19 +295,3 @@ static benchmark_result_t tune(int tune_level, benchmark_settings_t start_tuning
     verbose2( { printf("\33[2K\rTuning done. Evaluated %ju options in %ju steps. Best result: ", (uintmax_t) tuning_results_max, (uintmax_t) step ); tuning_result_print(best_result);} );
     return best_result;
 }
-
-static void outputBenchmarkStats(benchmark_result_t benchmark_result)
-{
-    
-    printf("\rResult: Passes \033[1;33m%ju\033[0m \033[0;32m(per %.1f seconds)\033[0m - average \033[1;33m%.1f\033[0m per second \n", 
-        (uintmax_t) benchmark_result.passes, benchmark_result.elapsed_time, benchmark_result.passes/benchmark_result.elapsed_time);
-    // if (option.time_max!=5.0)     printf("\033[0;32m(Passes - per %.1f seconds: \033[1;33m%f\033[0m - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", 5.0, 5.0*benchmark_result.passes/benchmark_result.elapsed_time, benchmark_result.passes/benchmark_result.elapsed_time);
-    // if (threads>1) printf("        \033[0;32mPasses per thread (total %ju) - per %.1f seconds: %.1f - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", 
-    //                      (uintmax_t)benchmark_result.settings.threads, benchmark_result.settings.sample_duration, option.time_max*benchmark_result.passes/benchmark_result.elapsed_time/threads, benchmark_result.passes/benchmark_result.elapsed_time/threads);
-    printf("\033[0;32mOutput message:\033[0m ");
-}
-
-
-
-
-

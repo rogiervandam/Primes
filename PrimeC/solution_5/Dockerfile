@@ -1,16 +1,26 @@
 FROM ubuntu:24.04
 
-RUN apt-get update && apt-get -y install build-essential \
-#    valgrind nano kcachegrind \
+RUN apt-get update \
+    && apt-get install -y software-properties-common \
+    && add-apt-repository ppa:ubuntu-toolchain-r/test -y \
+    && apt-get update \
+    && apt-get install -y build-essential gcc-14 \
+    && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 60 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home/primes
 
+# Copy all shell scripts, C source, and header files
 COPY *.sh *.c *.h ./
 
-RUN chmod +x ./*.sh
+# Copy the additional directory structure
+COPY src/ ./src
 
+# Ensure the bin directory exists
+RUN mkdir -p bin
+
+RUN chmod +x ./*.sh
 RUN sed -i 's/\r$//' *.sh
 
 RUN ./compile.sh
