@@ -60,3 +60,34 @@ static inline void __attribute__((always_inline)) applyMask_uint16(bitword_t* re
 
     timer_laptime(time_applyMask_word); verbose8( printf("\n"); )
 }
+
+// static inline void __attribute__((always_inline)) applyMask_uint8(bitword_t* restrict bitstorage, const counter_t step, const counter_t range_stop, const uint8_t mask, const counter_t index_word) 
+// {
+//     uint8_t* restrict bitstorage_uint8 = (uint8_t*) __builtin_assume_aligned(bitstorage, cache_line_bytes);
+
+//     verbose8( printf("Applying mask %ju at step %ju in range %ju", (uintmax_t)mask, (uintmax_t)step, (uintmax_t)range_stop); )
+//     timer_lapstart(time_applyMask_word);
+
+//     register uint8_t* restrict index_ptr = &bitstorage_uint8[index_word];
+//     register const counter_t step_2 = step << 1;
+//     register const counter_t step_3 = step_2 + step;
+//     register const counter_t step_4 = step << 2;
+//     const counter_t range_stop_word = range_stop >> 4;
+
+//     register const uint8_t* restrict fast_loop_ptr = &bitstorage_uint8[((range_stop_word>step_4) ? (range_stop_word - step_4):0)];
+//     #pragma GCC ivdep
+//     while (index_ptr < fast_loop_ptr) {
+//         *index_ptr            |= mask; 
+//         *(index_ptr + step  ) |= mask; 
+//         *(index_ptr + step_2) |= mask; 
+//         *(index_ptr + step_3) |= mask; 
+//         index_ptr += step_4;
+//     }
+
+//     register const uint8_t* restrict range_stop_ptr = (&bitstorage_uint8[range_stop_word]);
+//     for (counter_t i=5; i-- && (index_ptr <= range_stop_ptr); index_ptr += step) { // signal compiler that only <4 iterations are left
+//         *index_ptr |= mask; 
+//     }
+
+//     timer_laptime(time_applyMask_word); verbose8( printf("\n"); )
+// }
