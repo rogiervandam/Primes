@@ -21,7 +21,7 @@
 #endif
 
 static char algorithm_name[] = "rogiervandam_classic";
-static char algorithm_type[] = "classic";
+static char algorithm_type[] = "base";
 
 // include helper functions
 #include "general/preset.h"
@@ -36,7 +36,6 @@ static char algorithm_type[] = "classic";
 #include "bitstorage/bitstorage_setBitsTrue.h"
 #include "sieve/sieve_prime_calculations.h"
 #include "sieve/sieve_manager.h"
-#include "sieve/sieve_extend.h"
 #include "sieve/sieve_stripe.h"
 
 // This is the main module that directs all the work

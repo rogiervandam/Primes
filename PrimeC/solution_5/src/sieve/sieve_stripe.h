@@ -1,5 +1,5 @@
 
-static inline counter_t __attribute__((always_inline)) sieveStripeBlock(bitword_t* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max) {
+static inline counter_t __attribute__((always_inline)) stripeSieveBlock(bitword_t* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max) {
     verbose5(  printf("\nBlock stripe (new) for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
     timer_lapstart(time_sieveStripeBlock);
 
@@ -66,10 +66,10 @@ static inline counter_t __attribute__((always_inline)) sieveStripeBlock(bitword_
 
 static inline __attribute__((always_inline)) counter_t stripeSieveBlock0(bitword_t* restrict bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
-    return sieveStripeBlock(bitstorage, 0, block_stop, prime_start, prime_max);
+    return stripeSieveBlock(bitstorage, 0, block_stop, prime_start, prime_max);
 }
 
 static inline  __attribute__((always_inline)) counter_t stripeSieve(bitword_t* restrict bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
-    return  sieveStripeBlock(bitstorage, 0, block_stop, prime_start, prime_max);
+    return  stripeSieveBlock(bitstorage, 0, block_stop, prime_start, prime_max);
 }
