@@ -23,5 +23,4 @@ vec_report*
 gmon*
 bin/*
 build/*
-dev/*
 tests/bin/*

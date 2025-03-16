@@ -17,7 +17,7 @@ OS="$(uname -s)"
 CC=""
 CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11  "  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections
 if [ "$OS" = "Linux" ]; then
-    CC="gcc-14 $CC -Wno-psabi -fwhole-program -flto -s -Wl,--gc-sections -s" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
+    CC="gcc $CC -Wno-psabi -fwhole-program -flto -s -Wl,--gc-sections -s" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
     # CC="clang $CC -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections"
     PAR="-fopenmp"
     STRIP="strip"
