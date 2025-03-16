@@ -87,7 +87,7 @@ for arg in "$@"; do
                 set_x="$token"
                 DEFINE_FLAGS="-D${set_x} $DEFINE_FLAGS"
                 ;;
-            v4|v8|v4u32|v8u32|v4u64|v8u64|v16u16|v16u32)
+            v4|v8|v4u32|v8u32|v4u64|v8u64|v16u16|v16u32|v8u16)
                 set_y="$token"
                 DEFINE_FLAGS="-D${set_y} $DEFINE_FLAGS"
                 ;;

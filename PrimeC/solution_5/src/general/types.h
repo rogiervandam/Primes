@@ -38,7 +38,10 @@
 
 typedef bitword_vector_t bitvector_t __attribute__ ((vector_size( VECTOR_SIZE_BYTES ), aligned( cache_line_bytes ))); 
 
-#if VECTOR_ELEMENTS == 8
+#if VECTOR_ELEMENTS == 16
+  #define VECTOR_BASE(pattern)      ((bitvector_t){ pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern })
+  #define VECTOR_BYTEINDEX          ((bitvector_t){ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 })
+#elif VECTOR_ELEMENTS == 8
   #define VECTOR_BASE(pattern)      ((bitvector_t){ pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern })
   #define VECTOR_BYTEINDEX          ((bitvector_t){ 0, 1, 2, 3, 4, 5, 6, 7 })
 #elif VECTOR_ELEMENTS == 4
