@@ -16,7 +16,13 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largestep(bitword
         setBitsTrue_largestep_repeat(bitstorage, range_start, step, range_stop);
     } 
     else {
-        setBitsTrue_largestep_norepeat(bitstorage, range_start, step, range_stop);
+        const counter_t range_stop_unique_uint16 = range_start + 16 * step; 
+        if (range_stop_unique_uint16 <= range_stop) { // the range will repeat itself; try to resuse the mask
+            setBitsTrue_largestep_repeat_uint16(bitstorage, range_start, step, range_stop);
+        } 
+        else {
+            setBitsTrue_largestep_norepeat(bitstorage, range_start, step, range_stop);
+        }
     }
 }
 
