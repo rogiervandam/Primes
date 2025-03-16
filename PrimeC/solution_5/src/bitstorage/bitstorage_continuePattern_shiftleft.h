@@ -10,7 +10,7 @@ static inline counter_t  __attribute__((always_inline)) continuePattern_shiftlef
     const counter_t fast_loop_stop_word = (aligned_copy_word>2) ? (aligned_copy_word - 2) : 0; // safe for unsigned ints
     #endif
 
-    register const bitshift_t shift_flipped = WORD_SIZE_bitshift-shift;
+    register const bitshift_t shift_flipped = WORD_SIZE_BITS-shift;
     counter_t distance = 0;
 
     while (copy_word < fast_loop_stop_word) {
@@ -36,7 +36,7 @@ static inline void __attribute__((always_inline)) continuePattern_shiftleft(bitw
     const counter_t destination_stop_word = wordindex(destination_stop);
     const counter_t copy_start = source_start + size;
     register const bitshift_t shift = bitindex_calc(source_start) - bitindex_calc(copy_start);
-    register const bitshift_t shift_flipped = WORD_SIZE_bitshift-shift;
+    register const bitshift_t shift_flipped = WORD_SIZE_BITS-shift;
     register counter_t source_word = wordindex(source_start);
     register counter_t copy_word = wordindex(copy_start);
     bitstorage[copy_word] |= ((bitstorage[source_word] >> shift)
@@ -62,7 +62,7 @@ static inline void __attribute__((always_inline)) continuePattern_shiftleft(bitw
     }
 
     source_word = copy_word - size; // recalibrate
-    const size_t memsize = (size_t)size*sizeof(bitword_t);
+    // const size_t memsize = (size_t)size*sizeof(bitword_t);
 
     for (;copy_word + size <= destination_stop_word; copy_word += size) 
         bitstorage[copy_word] = bitstorage[source_word];

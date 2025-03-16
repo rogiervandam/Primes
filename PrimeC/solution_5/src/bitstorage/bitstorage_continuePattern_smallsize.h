@@ -4,18 +4,18 @@ static inline void __attribute__((always_inline)) continuePattern_smallSize(bitw
     timer_lapstart(time_continuePattern_smallSize);
 
     const counter_t source_word = wordindex(source_start);
-    register const bitword_t base_pattern = ((bitstorage[source_word] >> bitindex(source_start)) | (bitstorage[source_word+1] << (WORD_SIZE_counter-bitindex_calc(source_start)))) & chopmask(size);
+    register const bitword_t base_pattern = ((bitstorage[source_word] >> bitindex(source_start)) | (bitstorage[source_word+1] << (WORD_SIZE_BITS-bitindex_calc(source_start)))) & chopmask(size);
     register bitword_t pattern = base_pattern;
 
     register counter_t pattern_size = size;
-    if (pattern_size < (WORD_SIZE_counter >> 2)) {
+    if (pattern_size < (WORD_SIZE_BITS >> 2)) {
         pattern |= (base_pattern << size) | (base_pattern << size*2) | (base_pattern << size*3);
         pattern_size = size << 2;
     }
 
     const counter_t destination_start = source_start + size;
     if ((destination_stop - destination_start) > pattern_size) {
-        for (; pattern_size <= WORD_SIZE_counter; pattern_size += size) pattern |= (base_pattern << pattern_size);
+        for (; pattern_size <= WORD_SIZE_BITS; pattern_size += size) pattern |= (base_pattern << pattern_size);
         pattern_size -= size;
     }
 
@@ -29,8 +29,8 @@ static inline void __attribute__((always_inline)) continuePattern_smallSize(bitw
 
     bitstorage[destination_start_word] |= (pattern << bitindex(destination_start));
 
-    register const bitshift_t pattern_shift = WORD_SIZE_bitshift - pattern_size;
-    register bitshift_t shift = (WORD_SIZE_bitshift - bitindex_calc(destination_start)) & WORDMASK; // be sure this stays > 0
+    register const bitshift_t pattern_shift = WORD_SIZE_BITS - pattern_size;
+    register bitshift_t shift = (WORD_SIZE_BITS - bitindex_calc(destination_start)) & WORDMASK; // be sure this stays > 0
     register counter_t loop_range = destination_stop_word - destination_start_word;
     destination_start_word++;
     

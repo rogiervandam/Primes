@@ -11,12 +11,12 @@ static inline benchmark_settings_t checkBenchmarkSettings(benchmark_settings_t b
     counter_t prime_max = prime_stop(benchmark_settings.factor_max);
 
     benchmark_settings.stripe_faster     = min(benchmark_settings.stripe_faster, prime_max);
-    benchmark_settings.mediumstep_faster = min(benchmark_settings.mediumstep_faster, VECTORWORD_SIZE_counter);
+    benchmark_settings.mediumstep_faster = min(benchmark_settings.mediumstep_faster, VECTORWORD_SIZE_BITS);
     benchmark_settings.mediumstep_faster = min(benchmark_settings.mediumstep_faster, prime_max);
     benchmark_settings.mediumstep_faster = max(benchmark_settings.mediumstep_faster, 2); // allow for conversion from step to prime
     benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, benchmark_settings.mediumstep_faster);
-    benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, VECTORWORD_SIZE_counter);
-    benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, VECTOR_SIZE_counter);
+    benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, VECTORWORD_SIZE_BITS);
+    benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, VECTOR_SIZE_BITS);
     benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, prime_max);
     benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, 2); // allow for conversion from step to prime
     benchmark_settings.blocksize_bits    = min(benchmark_settings.blocksize_bits, benchmark_settings.factor_max/2);
@@ -37,7 +37,7 @@ static inline char* setBenchmarkSettingAsString(char* settings_string, benchmark
     verbose1({
         snprintf(settings_string, 50, "s%03ju-m%03ju-l%03ju-b%07ju-u%02ju-v%ju%s-c%s", 
             (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.largestep_faster, 
-            (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)WORD_SIZE_counter, (uintmax_t)(VECTOR_SIZE_counter/VECTORWORD_SIZE_counter), TYPE_SHORT_NAME(bitword_vector_t), TYPE_SHORT_NAME(counter_t));
+            (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)WORD_SIZE_BITS, (uintmax_t)(VECTOR_SIZE_BITS/VECTORWORD_SIZE_BITS), TYPE_SHORT_NAME(bitword_vector_t), TYPE_SHORT_NAME(counter_t));
     })
     return settings_string;
 }

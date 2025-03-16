@@ -4,13 +4,13 @@ static inline counter_t __attribute__((always_inline)) sieveStripeBlock(bitword_
     timer_lapstart(time_sieveStripeBlock);
 
     const counter_t prime_stripe_start_beyond_block_stop = prime_stop(block_stop) ;
-    const counter_t prime_vectorpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, VECTOR_SIZE_counter);
-    const counter_t prime_wordpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, WORD_SIZE_counter*3);
+    const counter_t prime_vectorpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, VECTOR_SIZE_BITS);
+    const counter_t prime_wordpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, WORD_SIZE_BITS*3);
 
     const counter_t prime_endloop5 = min(prime_max, prime_stripe_start_beyond_block_stop);
     const counter_t prime_endloop4 = min(prime_endloop5, prime_wordpattern_not_repeating_in_block);
-    const counter_t prime_endloop3 = min(min(min(prime_endloop4, prime_vectorpattern_not_repeating_in_block), VECTOR_SIZE_counter/2),  global_largestep_faster/2);
-    const counter_t prime_endloop2 = min(prime_endloop3, VECTORWORD_SIZE_counter/2);  
+    const counter_t prime_endloop3 = min(min(min(prime_endloop4, prime_vectorpattern_not_repeating_in_block), VECTOR_SIZE_BITS/2),  global_largestep_faster/2);
+    const counter_t prime_endloop2 = min(prime_endloop3, VECTORWORD_SIZE_BITS/2);  
     const counter_t prime_endloop1 = min(prime_endloop2, global_mediumstep_faster/2);
  
     counter_t prime = prime_start;

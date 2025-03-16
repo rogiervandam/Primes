@@ -20,7 +20,7 @@ static counter_t sieve_block_extend0(struct sieve_t *sieve, const counter_t bloc
     counter_t step                   = prime * 2 + 1;
     counter_t start                  = prime * (step + 1);
     counter_t range_stop             = step * 2;  // range is x2 so the second block cointains all multiples of primes
-    counter_t pattern_start          = 0;
+    // counter_t pattern_start          = 0;
     counter_t patternsize_bits       = 3;
 
     setBitsTrue_smallstep_norepeat(bitstorage, start, step, range_stop);

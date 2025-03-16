@@ -28,17 +28,17 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse_largestep(
 
     if likely(bit_index) {
         current_word >>= bit_index ;
-        current_word |= (bitstorage[word_index+1] << (WORD_SIZE_bitshift - bit_index));
+        current_word |= (bitstorage[word_index+1] << (WORD_SIZE_BITS - bit_index));
 
         if (current_word == SAFE_FILL) {
             current_word = bitstorage[++word_index];
-            index += (WORD_SIZE_bitshift - bit_index);
+            index += (WORD_SIZE_BITS - bit_index);
         }
     }
 
     while (current_word == SAFE_FILL) {
         current_word = bitstorage[++word_index];
-        index += WORD_SIZE_bitshift;
+        index += WORD_SIZE_BITS;
     }
 
     timer_laptime(time_searchBitFalse_largestep); verbose8( printf(" next prime %ju (step %ju)\n", (uintmax_t) (index + builtin_ctz(~current_word)), (uintmax_t)(index + builtin_ctz(~current_word))*2+1));

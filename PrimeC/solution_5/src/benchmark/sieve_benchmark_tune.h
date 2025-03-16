@@ -35,37 +35,37 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     for(counter_t i=0; i<10; i++ ) { 
         benchmark_settings_t tuning_settings = initBenchmarkSettings(start_tuning_settings.threads);
         tuning_settings.stripe_faster = 10;
-        tuning_settings.mediumstep_faster = VECTORWORD_SIZE_counter/4;
-        tuning_settings.largestep_faster = VECTOR_SIZE_counter/4;
+        tuning_settings.mediumstep_faster = VECTORWORD_SIZE_BITS/4;
+        tuning_settings.largestep_faster = VECTOR_SIZE_BITS/4;
         tuning_settings.blocksize_bits = tuning_settings.factor_max/2;
         tuning_settings = checkBenchmarkSettings(tuning_settings);
-        const int valid = checkSieveWithBenchmarkSettings(tuning_settings);
+        checkSieveWithBenchmarkSettings(tuning_settings);
     }
 
     switch (tune_level) {
         case 1:
             stripe_faster_steps = prime_max/4;
-            mediumstep_faster_steps = VECTORWORD_SIZE_counter/4;
-            largestep_faster_steps = VECTOR_SIZE_counter/4;
+            mediumstep_faster_steps = VECTORWORD_SIZE_BITS/4;
+            largestep_faster_steps = VECTOR_SIZE_BITS/4;
             sample_duration = option.sample_duration;
             break;
         case 2:
             stripe_faster_steps = prime_max/8;
-            mediumstep_faster_steps = VECTORWORD_SIZE_counter/8;
-            largestep_faster_steps = VECTOR_SIZE_counter/8;
+            mediumstep_faster_steps = VECTORWORD_SIZE_BITS/8;
+            largestep_faster_steps = VECTOR_SIZE_BITS/8;
             sample_duration = option.sample_duration*2;
             break;
         case 3:
             stripe_faster_steps = prime_max/16;
-            mediumstep_faster_steps = VECTORWORD_SIZE_counter/16;
-            largestep_faster_steps = VECTOR_SIZE_counter/16;
+            mediumstep_faster_steps = VECTORWORD_SIZE_BITS/16;
+            largestep_faster_steps = VECTOR_SIZE_BITS/16;
             sample_duration =option.sample_duration*3;
             break;
     }
     
     verbose2( { 
         verbose3( printf("\n"); )
-        printf("Tuning... compiled for \033[1;32mu%juv%ju\033[0m (word, vector)", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
+        printf("Tuning... compiled for \033[1;32mu%juv%ju\033[0m (word, vector)", (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS); 
         verbose3( {
             setBenchmarkSettingAsString(settings_string, start_tuning_settings);
             printf(".. best options (shown when found) for steps s%jum%juv%ju:\n", (uintmax_t)stripe_faster_steps, (uintmax_t) mediumstep_faster_steps, (uintmax_t) largestep_faster_steps); 
@@ -73,7 +73,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     })
 
     // prepare a table to store the tuning results
-    const size_t max_results = ((stripe_faster_steps)+1) * ((size_t)(VECTOR_SIZE_counter/mediumstep_faster_steps)+1) * ((size_t)(VECTOR_SIZE_counter/largestep_faster_steps)+1) * 32;
+    const size_t max_results = ((stripe_faster_steps)+1) * ((size_t)(VECTOR_SIZE_BITS/mediumstep_faster_steps)+1) * ((size_t)(VECTOR_SIZE_BITS/largestep_faster_steps)+1) * 32;
     benchmark_result_t* tuning_result = malloc(max_results * sizeof(tuning_result));
     benchmark_settings_t tuning_settings = initBenchmarkSettings(start_tuning_settings.threads);
     benchmark_result_t best_tuning_result = tuning_result[0];
@@ -87,8 +87,8 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     // build the tuning table
     for (counter_t stripe_faster = 0; stripe_faster <= prime_max; stripe_faster += stripe_faster_steps, stripe_faster_steps*=2) { // increase the stepsize exponentially to reduce the number of options
         for (counter_t smallprime_direction = 0; smallprime_direction<=1; smallprime_direction++) { // helper to exponentially start at top and bottom of range
-            for (counter_t mediumstep_faster = 0; mediumstep_faster <= VECTORWORD_SIZE_counter; mediumstep_faster += mediumstep_faster_steps) {
-                for (counter_t largestep_faster = VECTORWORD_SIZE_counter; largestep_faster <= VECTOR_SIZE_counter; largestep_faster += largestep_faster_steps) { // TODO: start vectorstep at a nice % from mediumstep
+            for (counter_t mediumstep_faster = 0; mediumstep_faster <= VECTORWORD_SIZE_BITS; mediumstep_faster += mediumstep_faster_steps) {
+                for (counter_t largestep_faster = VECTORWORD_SIZE_BITS; largestep_faster <= VECTOR_SIZE_BITS; largestep_faster += largestep_faster_steps) { // TODO: start vectorstep at a nice % from mediumstep
                     counter_t blocksize_bits=8*1024*8;
                     do {
                         blocksize_bits *= 2;
@@ -186,7 +186,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
             counter_t largestep_faster_steps_diff = largestep_faster_steps >> step; 
             if (!option.fixed_benchmark_settings.largestep_faster) {
                 if (largestep_faster_steps_diff > 1) {
-                    if (tuning_settings.largestep_faster < VECTOR_SIZE_counter - largestep_faster_steps_diff) {
+                    if (tuning_settings.largestep_faster < VECTOR_SIZE_BITS - largestep_faster_steps_diff) {
                         resetBenchmarkResult(&tuning_result[tuning_results], tuning_settings);
                         tuning_result[tuning_results].settings.largestep_faster += largestep_faster_steps_diff;
                         tuning_results++;
@@ -203,7 +203,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
             if (!option.fixed_benchmark_settings.mediumstep_faster) {
                 if (mediumstep_faster_steps_diff > 1) {
 
-                    if (tuning_settings.mediumstep_faster < VECTORWORD_SIZE_counter - mediumstep_faster_steps_diff) {
+                    if (tuning_settings.mediumstep_faster < VECTORWORD_SIZE_BITS - mediumstep_faster_steps_diff) {
                         resetBenchmarkResult(&tuning_result[tuning_results], tuning_settings);
                         tuning_result[tuning_results].settings.mediumstep_faster += mediumstep_faster_steps_diff;
                         tuning_results++;

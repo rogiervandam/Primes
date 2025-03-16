@@ -92,7 +92,7 @@ void test_continuePattern_aligned() {
     printf("Testing continuePattern_aligned...\n");
     
     const counter_t bitstorage_size = 512;
-    const counter_t word_size = WORD_SIZE_counter;
+    const counter_t word_size = WORD_SIZE_BITS;
     bitword_t* bitstorage = (bitword_t*)calloc(wordindex(bitstorage_size) + 1, sizeof(bitword_t));
     
     // Create a pattern that's exactly one word long and aligned
@@ -159,7 +159,7 @@ void test_continuePattern_shiftright() {
     bitword_t* bitstorage = (bitword_t*)calloc(wordindex(bitstorage_size) + 1, sizeof(bitword_t));
     
     // Create a pattern with a specific offset to ensure right shift
-    const counter_t source_start = WORD_SIZE_counter - 10;  // Near the end of first word
+    const counter_t source_start = WORD_SIZE_BITS - 10;  // Near the end of first word
     const counter_t pattern_size = 20;  // Crossing word boundary
     
     // Set a simple pattern
@@ -209,7 +209,7 @@ void test_continuePattern_shiftleft() {
     
     // Create a pattern with a specific offset to ensure left shift
     const counter_t source_start = 10;  // In the middle of a word
-    const counter_t pattern_size = WORD_SIZE_counter;  // One word size
+    const counter_t pattern_size = WORD_SIZE_BITS;  // One word size
     
     // Make sure first word of source has some bits set
     bit_set(bitstorage, source_start);
@@ -218,8 +218,8 @@ void test_continuePattern_shiftleft() {
     bit_set(bitstorage, source_start + 6);
     
     // And the second word too
-    bit_set(bitstorage, source_start + WORD_SIZE_counter - 5);
-    bit_set(bitstorage, source_start + WORD_SIZE_counter - 2);
+    bit_set(bitstorage, source_start + WORD_SIZE_BITS - 5);
+    bit_set(bitstorage, source_start + WORD_SIZE_BITS - 2);
     
     // Ensure we have a left shift scenario (source_bit > copy_bit)
     const counter_t copy_start = source_start + pattern_size;
@@ -245,7 +245,7 @@ void test_continuePattern_shiftleft() {
     memset(bitstorage, 0, (wordindex(bitstorage_size) + 1) * sizeof(bitword_t));
     
     // Set up a longer pattern to exercise unrolling
-    const counter_t unroll_size = WORD_SIZE_counter * 4;
+    const counter_t unroll_size = WORD_SIZE_BITS * 4;
     for (counter_t i = 0; i < unroll_size; i++) {
         if ((i / 4) % 3 == 0) {
             bit_set(bitstorage, source_start + i);
@@ -284,8 +284,8 @@ void test_continuePattern_main() {
     
     // Test right shift pattern
     memset(bitstorage, 0, (wordindex(bitstorage_size) + 1) * sizeof(bitword_t));
-    const counter_t right_start = WORD_SIZE_counter - 3;
-    const counter_t right_size = WORD_SIZE_counter + 5;
+    const counter_t right_start = WORD_SIZE_BITS - 3;
+    const counter_t right_size = WORD_SIZE_BITS + 5;
     
     // Set a pattern
     for (counter_t i = 0; i < right_size; i++) {
@@ -309,7 +309,7 @@ void test_continuePattern_main() {
     // Test left shift pattern
     memset(bitstorage, 0, (wordindex(bitstorage_size) + 1) * sizeof(bitword_t));
     const counter_t left_start = 8;
-    const counter_t left_size = WORD_SIZE_counter + 10;
+    const counter_t left_size = WORD_SIZE_BITS + 10;
     
     // Set a pattern
     for (counter_t i = 0; i < left_size; i++) {
@@ -332,8 +332,8 @@ void test_continuePattern_main() {
     
     // Test aligned pattern
     memset(bitstorage, 0, (wordindex(bitstorage_size) + 1) * sizeof(bitword_t));
-    const counter_t aligned_start = WORD_SIZE_counter * 2;
-    const counter_t aligned_size = WORD_SIZE_counter * 2;
+    const counter_t aligned_start = WORD_SIZE_BITS * 2;
+    const counter_t aligned_size = WORD_SIZE_BITS * 2;
     
     // Set a pattern
     for (counter_t i = 0; i < aligned_size; i++) {

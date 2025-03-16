@@ -1,9 +1,9 @@
 // used only for debugging
 static inline void printWord(bitword_t bitword)
 {
-    char row[WORD_SIZE*2] = {};
+    char row[WORD_SIZE_BITS*2] = {};
     int col=0;
-    for (int i=WORD_SIZE-1; i>=0; i--) {
+    for (int i=WORD_SIZE_BITS-1; i>=0; i--) {
       row[col++] = (bitword & (BITWORD_SHIFTBIT<<i))?'1':'.';
       if (!(i%8)) row[col++] = ' ';
     }
@@ -20,11 +20,11 @@ static void printVector(bitvector_t bitvector)
     } u;
     u.vec = bitvector;
 
-    char row[VECTOR_SIZE*2] = {0};
+    char row[VECTOR_SIZE_BITS*2] = {0};
     int col = 0;
     // Each vector element is a bitword_t with WORD_SIZE bits
     for (int j = VECTOR_ELEMENTS - 1; j >= 0; j--) {
-        for (int i = VECTORWORD_SIZE - 1; i >= 0; i--) {
+        for (int i = VECTORWORD_SIZE_BITS - 1; i >= 0; i--) {
             row[col++] = (u.arr[j] & (BITVECTORWORD_SHIFTBIT << i)) ? '1' : '.';
             if (i % 8 == 0)
                 row[col++] = ' ';

@@ -36,7 +36,7 @@ static void explainSieveShake(benchmark_settings_t benchmark_settings)
 static int checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 {
     verbose2( { 
-        printf("Validating variant u%juv%ju... ", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); 
+        printf("Validating variant u%juv%ju... ", (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS); 
         verbose3( printf("\n");) 
     })
 

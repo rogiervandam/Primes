@@ -6,7 +6,7 @@ static inline void  __attribute__((always_inline)) continuePattern_shiftright(bi
     const counter_t destination_stop_word = wordindex(destination_stop);
     const counter_t copy_start = source_start + size;
     register const bitshift_t shift = bitindex_calc(copy_start) - bitindex_calc(source_start);
-    register const bitshift_t shift_flipped = WORD_SIZE_bitshift-shift;
+    register const bitshift_t shift_flipped = WORD_SIZE_BITS-shift;
     register counter_t source_word = wordindex(source_start);
     register counter_t copy_word = wordindex(copy_start);
 

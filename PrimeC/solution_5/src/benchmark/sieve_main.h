@@ -1,9 +1,9 @@
 static inline char* extension_as_string(char* extension) 
 {
     #ifdef _OPENMP
-    verbose1( snprintf(extension,50,"_epar-u%juv%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); )
+    verbose1( snprintf(extension,50,"_epar-u%juv%ju", (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS); )
     #else
-    verbose1( snprintf(extension,50,"-u%juv%ju", (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS); )
+    verbose1( snprintf(extension,50,"-u%juv%ju", (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS); )
     #endif
     return extension;
 }
@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
         printf("Find all primes up to \033[1;33m%ju\033[0m using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)\n", (uintmax_t)option.fixed_benchmark_settings.factor_max);
     })
     verbose2( printf("\nRunning sieve variant \033[1;33m%s\033[0m u%ju-v%ju-c%s with max %ju \n", algorithm_name, 
-        (uintmax_t)WORD_SIZE_counter, (uintmax_t)VECTOR_ELEMENTS, TYPE_SHORT_NAME(counter_t), (uintmax_t)option.fixed_benchmark_settings.factor_max); )
+        (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS, TYPE_SHORT_NAME(counter_t), (uintmax_t)option.fixed_benchmark_settings.factor_max); )
     
     #ifdef COMPILE_EXPLAIN
     if (option.explain >= 1) {

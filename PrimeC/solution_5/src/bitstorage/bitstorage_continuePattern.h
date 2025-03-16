@@ -15,7 +15,7 @@ static inline void __attribute__((always_inline)) continuePattern(bitword_t* bit
 {
     verbose7( printf("Continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size)); )
     timer_lapstart(time_continuePattern);
-    if (size < WORD_SIZE_counter) {
+    if (size < WORD_SIZE_BITS) {
         continuePattern_smallSize(bitstorage, source_start, size, destination_stop);
         timer_laptime(time_continuePattern); verbose7( printf("\n"); )
         return;
