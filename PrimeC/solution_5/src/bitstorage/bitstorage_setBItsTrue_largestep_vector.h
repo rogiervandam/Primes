@@ -7,10 +7,7 @@ static inline void __attribute__((always_inline)) create_mask_vector_largestep(b
     bitvector_t* restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, cache_line_bytes);
     const counter_t range_stop_unique_vector = range_start + VECTOR_SIZE_BITS * step + VECTOR_SIZE_BITS; 
     counter_t current_vector = vectorindex(range_start);
-    // if (step==79) {
-    //     printf("\nAt step 79 - range stop %ju\n", (uintmax_t)range_stop_unique_vector);
-    //     exit(0);
-    // }
+
     for (counter_t index = range_start; index <= range_stop_unique_vector;) {
         const counter_t current_vector_start = vectorstart(index);
         bitvector_t quadmask = VECTOR_BASE(VECTOR_SAFE_ZERO);

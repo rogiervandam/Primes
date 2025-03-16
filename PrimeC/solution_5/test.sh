@@ -16,21 +16,19 @@ OS="$(uname -s)"
 
 CC=""
 CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11  -Wall -Wno-unused-function -Wno-unused-variable"  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections
-if [ "$OS" = "Linux" ]; then
-    CC="gcc $CC -Wno-psabi -fwhole-program -flto -s -Wl,--gc-sections -s" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
-    # CC="clang $CC -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections"
-    PAR="-fopenmp"
-    STRIP="strip"
-elif [ "$OS" = "Darwin" ]; then
-    CC="clang $CC -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections -Wl,-dead_strip"
+
+if ! command -v gcc >/dev/null 2>&1; then
+    CC="clang $CC -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections " # -Wl,-dead_strip
     # CC="clang -fsanitize=address " # use this for debugging
     # CC="clang"
     # Ensure Clang finds OpenMP headers and library
     PAR="-Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include -L$(brew --prefix libomp)/lib -lomp"
     STRIP="strip"
 else
-    echo "Unsupported OS: $OS"
-    exit 1
+    CC="gcc $CC -Wno-psabi -fwhole-program -flto -s -Wl,--gc-sections -s" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
+    # CC="clang $CC -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections"
+    PAR="-fopenmp"
+    STRIP="strip"
 fi
 PAREXT="_epar"
 

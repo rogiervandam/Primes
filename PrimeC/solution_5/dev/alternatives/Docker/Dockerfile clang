@@ -1,0 +1,19 @@
+FROM silkeh/clang:19
+
+WORKDIR /home/primes
+
+# Copy all shell scripts, C source, and header files
+COPY *.sh *.c *.h ./
+
+# Copy the additional directory structure
+COPY src/ ./src
+
+# Ensure the bin directory exists
+RUN mkdir -p bin
+
+RUN chmod +x ./*.sh
+RUN sed -i 's/\r$//' *.sh
+
+# RUN ./compile.sh
+
+ENTRYPOINT [ "./test.sh" ]

@@ -57,18 +57,17 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 
     // code for algorithm = base
     sieve_clear(sieve);
-    counter_t prime = 1;
 
-    // stripe off all the multiples of primes in the sieve
-    prime = stripeSieve(bitstorage, sieve_bits, prime, stripeprime_faster );
+    for (counter_t block_start = 0, block_stop = blocksize_bits-1; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
+        counter_t prime = 1;
 
-    // do this block by block to minimize cache misses
-    // first block requires fewer operations; it might be the whole sieve...
-    stripeSieveBlock0(bitstorage, min(blocksize_bits, sieve_bits), prime, prime_max);
-
-    // // process the remaining blocks
-    for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
-        stripeSieveBlock(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
+        while (prime < prime_max) {
+            register const counter_t step  = prime * 2 + 1;
+            register counter_t start = compute_start(prime, block_start);
+            // setBitsTrue_largestep(bitstorage, start, step, min(sieve_bits, block_stop));
+            setBitsTrue(bitstorage, start, step, min(sieve_bits, block_stop));
+            prime = searchBitFalse(bitstorage, prime);
+        }
     } 
     
     // return the completed sieve

@@ -29,7 +29,7 @@ static inline void __attribute__((always_inline)) setBitsTrue_largestep_norepeat
     #pragma GCC ivdep
     for (; index < loop_stop; index += step_2) {
         bitstorage[wordindex(index         )] |= markmask(index);
-        bitstorage[wordindex(index + step  )] |= markmask(index + step  );
+        bitstorage[wordindex(index + step  )] |= markmask(index + step );
     }
 
     for (counter_t i=2; i-- && index < range_stop; index += step) 
