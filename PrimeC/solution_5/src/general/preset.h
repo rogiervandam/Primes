@@ -26,6 +26,12 @@
 #define VECTOR_ELEMENTS 2
 #endif
 
+#if defined v16u16
+#define VECTOR_ELEMENTS 16
+#define bitword_vector_t uint16_t
+#define VECTORWORDSIZE_PP 16
+#endif
+
 #if defined v8u32
 #define VECTOR_ELEMENTS 8
 #define bitword_vector_t uint32_t
