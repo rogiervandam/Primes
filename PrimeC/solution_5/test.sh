@@ -109,6 +109,12 @@ done
 
 DEFINE_FLAGS="-DCOMPILE_VERBOSE_LEVEL=$verbose_level $DEFINE_FLAGS"
 
+# Add default verbose arguments if not explicitly specified
+run_args="$@"
+if [ $verbose_next -eq 0 ]; then
+    run_args="$run_args --verbose 2"
+fi
+
 # Check if the highest number fits in 32 bits
 if [ "$highest_number" -gt 999999999 ]; then
     echo "Number exceeds 32-bit range. Using 64-bit counter."
@@ -127,5 +133,5 @@ $STRIP ./bin/$PROGTOTAL
 
 echo "Running ./bin/$PROGTOTAL $@"
 # while true; do
-./bin/$PROGTOTAL $@
+./bin/$PROGTOTAL $@ $run_args
 # done
