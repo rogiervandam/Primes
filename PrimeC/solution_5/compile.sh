@@ -33,15 +33,15 @@ PAREXT="_epar"
 #     done
 # done
 for base in sieve_base sieve_extend; do
-    for arg in u32-v4-ci64 u32-v4-ci32 u32-v8-ci64 u32-v8-ci32 u64-v4-ci64 u64-v4-ci32 u64-v8-ci64 u64-v8-ci32; do
+    for arg in u32-v8u32-ci32 u32-v4u32-ci32 u32-v8u64-ci32 u32-v4u64-ci32 ; do
         DEFINE_FLAGS=""
         for token in $(echo "$arg" | tr '-' ' '); do
             case "$token" in
-                u32|u64)
+                u16|u32|u64)
                     set_x="$token"
                     DEFINE_FLAGS="-D${set_x} $DEFINE_FLAGS"
                     ;;
-                v4|v8)
+                v4|v8|v4u32|v8u32|v4u64|v8u64|v16u16|v16u32|v8u16)
                     set_y="$token"
                     DEFINE_FLAGS="-D${set_y} $DEFINE_FLAGS"
                     ;;

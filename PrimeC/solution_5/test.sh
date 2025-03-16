@@ -50,6 +50,7 @@ DEFINE_FLAGS=""
 set_x="u64"
 set_y="v4"
 set_z="ci32"
+verbose_level=2  # Default verbose level
 
 verbose_next=0
 highest_number=0
@@ -61,7 +62,7 @@ for arg in "$@"; do
     # Check if previous arg was --verbose and this is the value
     if [ $verbose_next -eq 1 ]; then
         if echo "$arg" | grep -q '^[0-9]\+$'; then
-            DEFINE_FLAGS="-DCOMPILE_VERBOSE_LEVEL=$arg $DEFINE_FLAGS"
+            verbose_level="$arg"
         fi
         verbose_next=0
         continue
@@ -105,6 +106,8 @@ for arg in "$@"; do
         esac
     done
 done
+
+DEFINE_FLAGS="-DCOMPILE_VERBOSE_LEVEL=$verbose_level $DEFINE_FLAGS"
 
 # Check if the highest number fits in 32 bits
 if [ "$highest_number" -gt 999999999 ]; then

@@ -85,49 +85,53 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
 
     // prepare for the benchmark
     counter_t passes = 0;
+
     const counter_t sieve_size = benchmark_result.settings.factor_max;
-    const double time_sample = benchmark_result.settings.sample_duration * benchmark_settings.threads; // do this before we set the clock
+    const double time_sample = benchmark_result.settings.sample_duration; // do this before we set the clock
 
     double time_elapsed = 0;
-    const double time_start = benchmarkTime();
-    const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
-
+    
     #ifdef _OPENMP
     omp_set_num_threads(benchmark_settings.threads);
-    #pragma omp parallel reduction(+:passes)
+    #pragma omp parallel reduction(+:passes) reduction(+:time_elapsed)
     {
-        double time_elapsed = 0;
+        const double time_start = benchmarkTime();
+        double thread_elapsed = 0;
+        const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
         // const double time_start = benchmarkTime();
         // const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
-        while (time_elapsed <= time_target) {
+        while (thread_elapsed <= time_target) {
             struct sieve_t *sieve = shakeSieve(sieve_size);
             sieve_delete(sieve);
-            time_elapsed = benchmarkTime();         
+            thread_elapsed = benchmarkTime();         
             passes++;
         }
+        time_elapsed = thread_elapsed - time_start;
     }
     #else
+    const double time_start = benchmarkTime();
+    const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
     while (time_elapsed <= time_target) {
         struct sieve_t *sieve = shakeSieve(sieve_size);
         sieve_delete(sieve);
         time_elapsed = benchmarkTime();         
         passes++;
     }
-    time_elapsed = benchmarkTime() - time_start;         
+    time_elapsed -= time_start;         
     #endif
 
     // calculate results
     benchmark_result.passes       = passes;
-    benchmark_result.elapsed_time = time_elapsed / benchmark_settings.threads;
-    benchmark_result.avg          = benchmark_result.passes / benchmark_result.elapsed_time; // TODO: check if thhreads are correct
+    benchmark_result.elapsed_time = time_elapsed / benchmark_settings.threads; 
+    benchmark_result.avg          = benchmark_result.passes / benchmark_result.elapsed_time / benchmark_settings.threads; 
 
     return benchmark_result;
 }
 
 static void outputBenchmarkStats(benchmark_result_t benchmark_result)
 {
-    verbose1( printf("\nResult: Passes \033[1;33m%ju\033[0m \033[0;32m(per %.1f seconds)\033[0m - average \033[1;33m%.1f\033[0m per second \n", 
-        (uintmax_t) benchmark_result.passes, benchmark_result.elapsed_time, benchmark_result.passes/benchmark_result.elapsed_time);)
+    verbose1( printf("\nResult: Passes \033[1;33m%ju\033[0m \033[0;32m(per %.1f seconds)\033[0m - average \033[1;33m%.1f\033[0m per second per thread \n", 
+        (uintmax_t) benchmark_result.passes, benchmark_result.elapsed_time, benchmark_result.avg);)
     // if (option.time_max!=5.0)     printf("\033[0;32m(Passes - per %.1f seconds: \033[1;33m%f\033[0m - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", 5.0, 5.0*benchmark_result.passes/benchmark_result.elapsed_time, benchmark_result.passes/benchmark_result.elapsed_time);
     // if (threads>1) printf("        \033[0;32mPasses per thread (total %ju) - per %.1f seconds: %.1f - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", 
     //                      (uintmax_t)benchmark_result.settings.threads, benchmark_result.settings.sample_duration, option.time_max*benchmark_result.passes/benchmark_result.elapsed_time/threads, benchmark_result.passes/benchmark_result.elapsed_time/threads);

@@ -6,7 +6,7 @@
   #endif
 #endif
 
-
+#define verbose0(statement) statement
 #define verbose1(statement)
 #define verbose2(statement)
 #define verbose3(statement)

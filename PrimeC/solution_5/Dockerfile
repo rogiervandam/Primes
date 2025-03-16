@@ -23,6 +23,6 @@ RUN mkdir -p bin
 RUN chmod +x ./*.sh
 RUN sed -i 's/\r$//' *.sh
 
-# RUN ./compile.sh
+RUN ./compile.sh
 
-ENTRYPOINT [ "./test.sh" ]
+ENTRYPOINT [ "./run.sh" ]

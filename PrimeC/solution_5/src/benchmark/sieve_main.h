@@ -1,9 +1,9 @@
 static inline char* extension_as_string(char* extension) 
 {
     #ifdef _OPENMP
-    verbose1( snprintf(extension,50,"_epar-u%juv%ju", (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS); )
+    verbose0( snprintf(extension,50,"_epar-u%ju-v%ju%s-c%s", (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS, TYPE_SHORT_NAME(bitword_vector_t),TYPE_SHORT_NAME(counter_t)); )
     #else
-    verbose1( snprintf(extension,50,"-u%juv%ju", (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS); )
+    verbose0( snprintf(extension,50,"-u%ju-v%ju%s-c%s",      (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS, TYPE_SHORT_NAME(bitword_vector_t),TYPE_SHORT_NAME(counter_t)); )
     #endif
     return extension;
 }
@@ -19,8 +19,8 @@ int main(int argc, char *argv[])
         printf("Sieve algorithm by Rogier van Dam - 2025\n");
         printf("Find all primes up to \033[1;33m%ju\033[0m using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)\n", (uintmax_t)option.fixed_benchmark_settings.factor_max);
     })
-    verbose2( printf("\nRunning sieve variant \033[1;33m%s\033[0m u%ju-v%ju-c%s with max %ju \n", algorithm_name, 
-        (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS, TYPE_SHORT_NAME(counter_t), (uintmax_t)option.fixed_benchmark_settings.factor_max); )
+    verbose2( printf("\nRunning sieve variant \033[1;33m%s\033[0m u%ju-v%ju%s-c%s with max %ju \n", algorithm_name, 
+        (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS, TYPE_SHORT_NAME(bitword_vector_t), TYPE_SHORT_NAME(counter_t), (uintmax_t)option.fixed_benchmark_settings.factor_max); )
     
     #ifdef COMPILE_EXPLAIN
     if (option.explain >= 1) {
@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
         }
 
         // encode settings for reporting
-        verbose1( char settings_string[50]=""; setBenchmarkSettingAsString(settings_string, benchmark_settings); )
+        verbose0( char settings_string[50]=""; setBenchmarkSettingAsString(settings_string, benchmark_settings); )
         verbose2( { printf("Benchmarking with settings: \033[1;32m%s\033[0m (stripeprime, mediumstep, largestep, blocksize, wordsize, vectorsize) and \033[1;32m%ju\033[0m threads for \033[1;32m%.1f\033[0m seconds\nResults: \033[5m(wait \033[1;32m%.1lf\033[39m seconds)\033[25m...\033[0m", 
             settings_string,(uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
         })
@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
         verbose2(outputBenchmarkStats(benchmark_result);)
 
         // report results
-        verbose1 (
+        verbose0(
             char extension[50] = ""; extension_as_string(extension);      
             setBenchmarkSettingAsString(settings_string, benchmark_result.settings);
             printf("%s%s;%ju;%f;%ju;algorithm=%s,faithful=yes,bits=1",algorithm_name,extension,(uintmax_t)benchmark_result.passes,benchmark_result.elapsed_time,(uintmax_t)threads, algorithm_type);
