@@ -10,14 +10,14 @@ static inline void __attribute__((always_inline)) create_mask_vector_largestep(b
 
     for (counter_t index = range_start; index <= range_stop_unique_vector;) {
         const counter_t current_vector_start = vectorstart(index);
-        bitvector_t quadmask = VECTOR_BASE(VECTOR_SAFE_ZERO);
+        bitvector_t mask_vector = VECTOR_BASE(VECTOR_SAFE_ZERO);
         for (counter_t i=0; i<VECTOR_ELEMENTS; i++) {
             if (vector_wordstart(index) == (current_vector_start + (VECTORWORD_SIZE_BITS*i))) {
-                quadmask[i] = vector_markmask_calc(index); // TODO: this was sensitive to wordsize. vector_markmask(index) didnt work; markmask_calc(index) worked
+                mask_vector[i] = vector_markmask_calc(index); // TODO: this was sensitive to wordsize. vector_markmask(index) didnt work; markmask_calc(index) worked
                 index += step;
             }
         }
-        applyMask_vector(bitstorage_vector, step, range_stop, quadmask, current_vector);
+        applyMask_vector(bitstorage_vector, step, range_stop, mask_vector, current_vector);
         current_vector++;
     }
     timer_laptime(time_create_mask_vector_largestep); 

@@ -6,18 +6,18 @@ static inline counter_t __attribute__((always_inline)) create_mask_vector(bitwor
     bitvector_t* restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, cache_line_bytes);
     counter_t current_vector = vectorindex(range_start);
 
-    bitvector_t quadmask = VECTOR_BASE(VECTOR_SAFE_ZERO);
+    bitvector_t mask_vector = VECTOR_BASE(VECTOR_SAFE_ZERO);
     counter_t current_vector_start = vectorstart(range_start);
     counter_t index = range_start;
 
     while ( index <= range_stop ) {
         while (vectorstart(index) == current_vector_start) {
             const counter_t vector_element = ((index) & VECTORMASK) >> SHIFT_VECTORWORD;
-            quadmask[vector_element] |= vector_markmask_calc(index);
+            mask_vector[vector_element] |= vector_markmask_calc(index);
             index += step;
         }
-        bitstorage_vector[current_vector] |= quadmask;
-        for (int i=0; i<VECTOR_ELEMENTS; i++) quadmask[i] = VECTOR_SAFE_ZERO;
+        bitstorage_vector[current_vector] |= mask_vector;
+        for (int i=0; i<VECTOR_ELEMENTS; i++) mask_vector[i] = VECTOR_SAFE_ZERO;
         current_vector_start = vectorstart(index);
         current_vector = vectorindex(index);
     }
