@@ -1,43 +1,27 @@
 
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
 // this is a BASE ALGORITHM COMPLIANT: each bit is set individually
-static inline void  __attribute__((always_inline)) setBitsTrue_largestep_repeat(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
-{
-    const counter_t range_stop_unique = range_start + WORD_SIZE_BITS * step;
-    verbose6(  printf("Setting bits step %3ju using largestep-repeat in %ju bit range (%ju-%ju)  (%ju repeating occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(WORD_SIZE_BITS*step))); )
-    timer_lapstart(time_setBitsTrue_largestep_repeat);
-
-    for (register counter_t index = range_start; index < range_stop_unique; index += step) {
-        applyMask_word(bitstorage, step, range_stop, markmask(index), wordindex(index));
-    }
-    timer_laptime(time_setBitsTrue_largestep_repeat); verbose6( printf("\n"); )
+#define SET_BITS_TRUE_LARGESTEP_REPEAT(suffix, word_type, bits_width, shift_amount, apply_mask_func, mask_expr, index_expr) \
+static inline void __attribute__((always_inline)) setBitsTrue_largestep_repeat##suffix( \
+    bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) \
+{ \
+    const counter_t range_stop_unique = range_start + bits_width * step; \
+    verbose6(printf("Setting bits step %3ju using largestep-repeat" #suffix " in %ju bit range (%ju-%ju) (%ju repeating occurrences)", \
+        (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start, \
+        (uintmax_t)range_start, (uintmax_t)range_stop, \
+        (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bits_width*step)))); \
+    timer_lapstart(time_setBitsTrue_largestep_repeat); \
+    \
+    for (register counter_t index = range_start; index < range_stop_unique; index += step) { \
+        apply_mask_func(bitstorage, step, range_stop, mask_expr, index_expr); \
+    } \
+    timer_laptime(time_setBitsTrue_largestep_repeat); verbose6(printf("\n")); \
 }
 
-// this is a BASE ALGORITHM COMPLIANT: each bit is set individually
-static inline void  __attribute__((always_inline)) setBitsTrue_largestep_repeat_uint16(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
-{
-    const counter_t range_stop_unique = range_start + 16 * step;
-    verbose6(  printf("Setting bits step %3ju using largestep-repeat-uint16 in %ju bit range (%ju-%ju)  (%ju repeating occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(16*step))); )
-    timer_lapstart(time_setBitsTrue_largestep_repeat);
-
-    for (register counter_t index = range_start; index < range_stop_unique; index += step) {
-        applyMask_uint16(bitstorage, step, range_stop, ((uint16_t)1) << (index & 15), index >> 4);
-    }
-    timer_laptime(time_setBitsTrue_largestep_repeat); verbose6( printf("\n"); )
-}
-
-// this is a BASE ALGORITHM COMPLIANT: each bit is set individually
-static inline void  __attribute__((always_inline)) setBitsTrue_largestep_repeat_uint8(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
-{
-    const counter_t range_stop_unique = range_start + 8 * step;
-    verbose6(  printf("Setting bits step %3ju using largestep-repeat-uint8 in %ju bit range (%ju-%ju)  (%ju repeating occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(16*step))); )
-    timer_lapstart(time_setBitsTrue_largestep_repeat);
-
-    for (register counter_t index = range_start; index < range_stop_unique; index += step) {
-        applyMask_uint8(bitstorage, step, range_stop, ((uint8_t)1) << (uint8_t)(index & 7), index >> 3);
-    }
-    timer_laptime(time_setBitsTrue_largestep_repeat); verbose6( printf("\n"); )
-}
+// Generate the three versions
+SET_BITS_TRUE_LARGESTEP_REPEAT(,         bitword_t, WORD_SIZE_BITS, SHIFT_WORD, applyMask_word,            markmask(index),                  wordindex(index))
+SET_BITS_TRUE_LARGESTEP_REPEAT(_uint16,  uint16_t,  16,            4,          applyMask_uint16_unroll8,  ((uint16_t)1) << (index & 15),    index >> 4)
+SET_BITS_TRUE_LARGESTEP_REPEAT(_uint8,   uint8_t,   8,             3,          applyMask_uint8_unroll8,   ((uint8_t)1) << (index & 7),      index >> 3)
 
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
 // this is a BASE ALGORITHM COMPLIANT: each bit is set individually

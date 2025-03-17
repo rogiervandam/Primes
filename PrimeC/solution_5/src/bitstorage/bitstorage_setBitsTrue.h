@@ -17,17 +17,17 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largestep(bitword
     //     return;
     // } 
 
-    // const counter_t range_stop_unique_uint16 = range_start + 16 * step; 
-    // if (range_stop_unique_uint16 <= range_stop) { // the range will repeat itself; try to resuse the mask
-    //     setBitsTrue_largestep_repeat_uint16(bitstorage, range_start, step, range_stop);
-    //     return;
-    // } 
-
-    const counter_t range_stop_unique_uint8 = range_start + 8 * step; 
-    if (range_stop_unique_uint8 <= range_stop) { // the range will repeat itself; try to resuse the mask
-        setBitsTrue_largestep_repeat_uint8(bitstorage, range_start, step, range_stop);
+    const counter_t range_stop_unique_uint16 = range_start + 16 * step; 
+    if (range_stop_unique_uint16 <= range_stop) { // the range will repeat itself; try to resuse the mask
+        setBitsTrue_largestep_repeat_uint16(bitstorage, range_start, step, range_stop);
         return;
     } 
+
+    // const counter_t range_stop_unique_uint8 = range_start + 8 * step; 
+    // if (range_stop_unique_uint8 <= range_stop) { // the range will repeat itself; try to resuse the mask
+    //     setBitsTrue_largestep_repeat_uint8(bitstorage, range_start, step, range_stop);
+    //     return;
+    // } 
 
     setBitsTrue_largestep_norepeat(bitstorage, range_start, step, range_stop);
 }
@@ -53,11 +53,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue(bitword_t* restri
         if (step < WORD_SIZE_BITS /2) {
             const counter_t range_stop_unique_word = range_start + WORD_SIZE_BITS * step; 
             if (range_stop_unique_word <= range_stop) { // the wordmask will be reused
-                #ifdef ALGORITHM_BASE
-                setBitsTrue_smallstep_repeat_base(bitstorage, range_start, step, range_stop);
-                #else
                 setBitsTrue_smallstep_repeat(bitstorage, range_start, step, range_stop);
-                #endif
                 timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
                 return;
             }

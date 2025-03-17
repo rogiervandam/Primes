@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # rm -f *.s
 # rm -f *.o
 
@@ -7,10 +7,37 @@
 # Detect OS
 OS="$(uname -s)"
 
+# Initialize compiler override variable
+COMPILER_OVERRIDE=""
+# Process arguments to check for compiler override
+ARGS_TO_KEEP=()
+for arg in "$@"; do
+    if [ "$arg" = "gcc" ]; then
+        COMPILER_OVERRIDE="gcc"
+    elif [ "$arg" = "clang" ]; then
+        COMPILER_OVERRIDE="clang"
+    else
+        ARGS_TO_KEEP+=("$arg")
+    fi
+done
+# Replace arguments with the filtered list
+set -- "${ARGS_TO_KEEP[@]}"
+
 CC=""
 CC="-march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11  -Wall -Wno-unused-function -Wno-unused-variable -Wno-unknown-pragmas"  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections
 
-if command -v clang >/dev/null 2>&1 || [ "$(gcc --version 2>/dev/null | head -n 1 | grep -i clang)" ] || [ "$OS" = "Darwin" ]; then
+# Determine which compiler to use based on override or auto-detection
+USE_CLANG=0
+if [ "$COMPILER_OVERRIDE" = "clang" ]; then
+    USE_CLANG=1
+elif [ "$COMPILER_OVERRIDE" = "gcc" ]; then
+    USE_CLANG=0
+elif command -v clang >/dev/null 2>&1 || [ "$(gcc --version 2>/dev/null | head -n 1 | grep -i clang)" ] || [ "$OS" = "Darwin" ]; then
+    USE_CLANG=1
+fi
+
+# Configure compiler settings based on selection
+if [ $USE_CLANG -eq 1 ]; then
     CC="clang $CC -O3 -ffast-math -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections " # -Wl,-dead_strip
     # CC="clang -fsanitize=address " # use this for debugging
     # CC="clang"
@@ -39,13 +66,12 @@ if command -v clang >/dev/null 2>&1 || [ "$(gcc --version 2>/dev/null | head -n 
             PAR="-fopenmp -lomp"
         fi
     fi
-    STRIP="strip"
 else
     CC="gcc $CC -Ofast -Wno-psabi -fwhole-program -flto -s -Wl,--gc-sections -s" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
     # CC="clang $CC -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections"
     PAR="-fopenmp"
-    STRIP="strip"
 fi
+STRIP="strip"
 PAREXT="_epar"
 
 base="sieve_extend" 
