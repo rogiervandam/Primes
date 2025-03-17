@@ -15,9 +15,9 @@
 OS="$(uname -s)"
 
 CC=""
-CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11  -Wall -Wno-unused-function -Wno-unused-variable"  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections
+CC="-Ofast -march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11  -Wall -Wno-unused-function -Wno-unused-variable -Wno-unknown-pragmas"  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections
 
-if ! command -v gcc >/dev/null 2>&1; then
+if ! command -v gcc >/dev/null 2>&1 || [ "$(gcc --version 2>/dev/null | head -n 1 | grep -i clang)" ] || [ "$OS" = "Darwin" ]; then
     CC="clang $CC -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections " # -Wl,-dead_strip
     # CC="clang -fsanitize=address " # use this for debugging
     # CC="clang"
@@ -124,8 +124,8 @@ fi
 # Compose a program name using a default base name.
 PROGTOTAL="${base}-${set_x}-${set_y}-${set_z}"
 
-echo "Compiling for ${OS} with $CC $DEFINE_FLAGS"
-echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
+echo "Compiling for ${OS} "
+# echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
 $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS
 $STRIP ./bin/$PROGTOTAL
 
