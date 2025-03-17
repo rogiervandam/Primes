@@ -1,5 +1,6 @@
 
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
+// this is a BASE ALGORITHM COMPLIANT: each bit is set individually
 static inline void  __attribute__((always_inline)) setBitsTrue_largestep_repeat(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     const counter_t range_stop_unique = range_start + WORD_SIZE_BITS * step;
@@ -12,6 +13,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largestep_repeat(
     timer_laptime(time_setBitsTrue_largestep_repeat); verbose6( printf("\n"); )
 }
 
+// this is a BASE ALGORITHM COMPLIANT: each bit is set individually
 static inline void  __attribute__((always_inline)) setBitsTrue_largestep_repeat_uint16(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     const counter_t range_stop_unique = range_start + 16 * step;
@@ -24,6 +26,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largestep_repeat_
     timer_laptime(time_setBitsTrue_largestep_repeat); verbose6( printf("\n"); )
 }
 
+// this is a BASE ALGORITHM COMPLIANT: each bit is set individually
 static inline void  __attribute__((always_inline)) setBitsTrue_largestep_repeat_uint8(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     const counter_t range_stop_unique = range_start + 8 * step;
@@ -37,6 +40,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largestep_repeat_
 }
 
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
+// this is a BASE ALGORITHM COMPLIANT: each bit is set individually
 static inline void __attribute__((always_inline)) setBitsTrue_largestep_norepeat(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose6( printf("Setting bits step %3ju using largestep-norepeat in %ju bit range (%ju-%ju)  (%ju unique occurances)..", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)step)); )

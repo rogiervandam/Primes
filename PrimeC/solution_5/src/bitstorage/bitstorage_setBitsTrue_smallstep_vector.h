@@ -2,6 +2,7 @@
 // smallstep (< WORD_SIZE ) means the same vectormask can be reused
 // THe vectormask can be build by extending the WORD size mask
 // TODO: check loop unrolling this
+// this is *NOT* BASE ALGORITHM COMPLIANT: some bits are set together
 static inline void __attribute__((always_inline)) create_mask_vector_smallstep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
     // verbose7(  { const counter_t range_stop_unique = min(range_start + step * VECTOR_SIZE_BITS, range_stop);
@@ -210,6 +211,7 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep_r
 //     }
 // }
 
+// this is *NOT* BASE ALGORITHM COMPLIANT: some bits are set together
 static inline void __attribute__((always_inline)) setBitsTrue_smallstep_vector(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose6(  printf("Setting bits step %3ju using largestep vector_word in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps)", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step))); )

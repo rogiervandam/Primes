@@ -23,6 +23,7 @@ static inline void __attribute__((always_inline)) create_mask_vector_largestep(b
     timer_laptime(time_create_mask_vector_largestep); 
 }
 
+// this is a BASE ALGORITHM COMPLIANT: each bit is set individually
 static inline void __attribute__((always_inline)) setBitsTrue_largestep_vector(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose6(  printf("Setting bits step %3ju using largestep vector_vectorstep in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps) ", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step))); )
