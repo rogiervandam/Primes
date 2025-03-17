@@ -55,17 +55,23 @@ int main(int argc, char *argv[])
 
         // encode settings for reporting
         verbose0( char settings_string[50]=""; setBenchmarkSettingAsString(settings_string, benchmark_settings); )
-        verbose2( { printf("Benchmarking with settings: \033[1;32m%s\033[0m (stripeprime, mediumstep, largestep, blocksize, wordsize, vectorsize) and \033[1;32m%ju\033[0m threads for \033[1;32m%.1f\033[0m seconds\nResults: \033[5m(wait \033[1;32m%.1lf\033[39m seconds)\033[25m...\033[0m", 
-            settings_string,(uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
-        })
 
         // one last check to make sure this is a valid algorithm for these settings
         debug_final_plan = 1; // allow to count something in only one run
         if (!checkSieveWithBenchmarkSettings(benchmark_settings)) { verbose1( fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for settings %s with factor %ju\n", settings_string, (uintmax_t) benchmark_settings.factor_max) ); return 1; } 
-        else { verbose2(  printf("(verified that settings %s and max %ju is \033[1;32mvalid\033[0m)", settings_string, (uintmax_t) benchmark_settings.factor_max); ) }
+        else { verbose2(  printf("Verified that algortihm with settings %s and max %ju is \033[1;32mvalid\033[0m.\n", settings_string, (uintmax_t) benchmark_settings.factor_max); ) }
         debug_final_plan = 0;
     
+        // warm up the cache
+        verbose2( printf("Warming up the cache and processing units\n"); )	
+        benchmark_settings_t final_tuning_settings = benchmark_settings;
+        final_tuning_settings.sample_duration = 1;
+        benchmark(final_tuning_settings);
+
         // perform benchmark -> outputs passes, elapsed time and avg in result 
+        verbose2( { printf("Benchmarking with settings: \033[1;32m%s\033[0m (stripeprime, mediumstep, largestep, blocksize, wordsize, vectorsize) and \033[1;32m%ju\033[0m threads for \033[1;32m%.1f\033[0m seconds\nResults: \033[5m(wait \033[1;32m%.1lf\033[39m seconds)\033[25m...\033[0m", 
+            settings_string,(uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
+        })
         debug_final_benchmarking = 1; // allow to count something in the final benchmark runs
         benchmark_result_t benchmark_result = benchmark(benchmark_settings);
         debug_final_benchmarking = 0;

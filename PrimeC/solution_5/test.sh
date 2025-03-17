@@ -50,8 +50,7 @@ DEFINE_FLAGS=""
 set_x="u64"
 set_y="v4"
 set_z="ci32"
-verbose_level=2  # Default verbose level
-
+verbose_level=0  
 verbose_next=0
 highest_number=0
 
@@ -107,13 +106,14 @@ for arg in "$@"; do
     done
 done
 
-DEFINE_FLAGS="-DCOMPILE_VERBOSE_LEVEL=$verbose_level $DEFINE_FLAGS"
-
 # Add default verbose arguments if not explicitly specified
-run_args="$@"
-if [ $verbose_next -eq 0 ]; then
+run_args=""
+if [ $verbose_level -eq 0 ]; then
     run_args="$run_args --verbose 2"
+    verbose_level=2
 fi
+
+DEFINE_FLAGS="-DCOMPILE_VERBOSE_LEVEL=$verbose_level $DEFINE_FLAGS"
 
 # Check if the highest number fits in 32 bits
 if [ "$highest_number" -gt 999999999 ]; then
@@ -125,13 +125,13 @@ fi
 PROGTOTAL="${base}-${set_x}-${set_y}-${set_z}"
 
 echo "Compiling for ${OS} "
-# echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
+echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
 $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS
 $STRIP ./bin/$PROGTOTAL
 
 # gcc-14 -Ofast -S -fno-asynchronous-unwind-tables -fno-exceptions -fverbose-asm -Wall -Wextra -Ofast -masm=intel -S -mavx -fopt-info-vec-all=vec_report.txt -o ./dev/$PROGTOTAL.s ./src/${base}.c $DEFINE_FLAGS
 
-echo "Running ./bin/$PROGTOTAL $@"
+echo "Running ./bin/$PROGTOTAL $run_args $@"
 # while true; do
-./bin/$PROGTOTAL $@ $run_args
+./bin/$PROGTOTAL $run_args $@ 
 # done

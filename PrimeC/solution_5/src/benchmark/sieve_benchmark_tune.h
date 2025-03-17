@@ -30,18 +30,6 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     counter_t sieve_bits              = start_tuning_settings.factor_max >> 1;
     char settings_string[50]=""; 
 
-    // warm up the cache
-    verbose2( printf("Warming up the cache and processing units\n"); )	
-    for(counter_t i=0; i<10; i++ ) { 
-        benchmark_settings_t tuning_settings = initBenchmarkSettings(start_tuning_settings.threads);
-        tuning_settings.stripe_faster = 10;
-        tuning_settings.mediumstep_faster = VECTORWORD_SIZE_BITS/4;
-        tuning_settings.largestep_faster = VECTOR_SIZE_BITS/4;
-        tuning_settings.blocksize_bits = tuning_settings.factor_max/2;
-        tuning_settings = checkBenchmarkSettings(tuning_settings);
-        checkSieveWithBenchmarkSettings(tuning_settings);
-    }
-
     switch (tune_level) {
         case 1:
             stripe_faster_steps = prime_max/4;
@@ -300,6 +288,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     // take best result
     benchmark_result_t best_result = tuning_result[0];
     free(tuning_result);
+
     verbose2( { printf("\33[2K\rTuning done. Evaluated %ju options in %ju steps. Best result: ", (uintmax_t) tuning_results_max, (uintmax_t) step ); printTuningResult(best_result);} );
     return best_result;
 }
