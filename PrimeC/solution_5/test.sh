@@ -7,42 +7,10 @@
 # Detect OS
 OS="$(uname -s)"
 
-# Check for Docker argument first
-if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
-    if [ $# -gt 1 ]; then
-        DOCKER_TYPE="$2"
-        echo "Building and running Docker container for type: $DOCKER_TYPE"
-        DOCKERFILE="dev/docker/Dockerfile_$DOCKER_TYPE"
-        
-        if [ -f "$DOCKERFILE" ]; then
-            # Build the Docker image
-            docker build --pull --rm -f "$DOCKERFILE" -t "sieve-$DOCKER_TYPE" .
-            if [ $? -ne 0 ]; then
-                echo "Error: Docker build failed."
-                exit 1
-            fi
-            
-            # Shift past the first two arguments (docker and type)
-            shift 2
-            
-            # Run the Docker container with any remaining arguments
-            echo "Running Docker container with arguments: $@"
-            docker run "sieve-$DOCKER_TYPE" "$@"
-            exit $?
-        else
-            echo "Error: Dockerfile '$DOCKERFILE' not found."
-            exit 1
-        fi
-    else
-        echo "Error: Docker type not specified. Usage: $0 docker <type>"
-        exit 1
-    fi
-fi
-
 CC=""
 CC="-march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11  -Wall -Wno-unused-function -Wno-unused-variable -Wno-unknown-pragmas"  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections
 
-if ! command -v gcc >/dev/null 2>&1 || [ "$(gcc --version 2>/dev/null | head -n 1 | grep -i clang)" ] || [ "$OS" = "Darwin" ]; then
+if command -v clang >/dev/null 2>&1 || [ "$(gcc --version 2>/dev/null | head -n 1 | grep -i clang)" ] || [ "$OS" = "Darwin" ]; then
     CC="clang $CC -O3 -ffast-math -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections " # -Wl,-dead_strip
     # CC="clang -fsanitize=address " # use this for debugging
     # CC="clang"
@@ -81,16 +49,6 @@ fi
 PAREXT="_epar"
 
 base="sieve_extend" 
-# If the first argument does not start with '-', assign it as the base and discard it
-if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
-    if echo "$1" | grep -qE '^[0-9]+$'; then
-        # If it's a number, keep it as an argument
-        :
-    else
-        base="$1"
-        shift
-    fi
-fi
 
 DEFINE_FLAGS=""
 
@@ -175,11 +133,95 @@ if [ "$highest_number" -gt 999999999 ]; then
     DEFINE_FLAGS="$DEFINE_FLAGS -DUSE_64BIT_COUNTER"
 fi
 
-echo "Compiling for ${OS} "
+
+# Check for Docker argument first
+if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
+    if [ $# -gt 1 ]; then
+        DOCKER_TYPE="$2"
+        if [ "$DOCKER_TYPE" = "all" ]; then
+            # Loop through all Dockerfiles in ./dev/docker
+            for DOCKERFILE in ./dev/docker/Dockerfile_*; do
+                EXTENSION="${DOCKERFILE#*Dockerfile_}" # Extract the extension
+                if [ $verbose_level -gt 1 ]; then
+                    echo "Building and running Docker container for type: $EXTENSION"
+                    echo "Running command: docker build --pull --rm -f $DOCKERFILE -t sieve-$EXTENSION ." 
+                fi
+                
+                # Build the Docker image
+                docker build --pull --rm -f "$DOCKERFILE" -t "sieve-$EXTENSION" . 2> ./dev/build.log
+                if [ $? -ne 0 ]; then
+                    echo "Error: Docker build failed for $EXTENSION."
+                    exit 1
+                fi
+                
+                # Run the Docker container with any remaining arguments
+                if [ $verbose_level -gt 1 ]; then
+                    echo "Running Docker container with arguments: $@"
+                fi
+                docker run --rm -e DOCKERFILE_TYPE="$EXTENSION" "sieve-$EXTENSION" "${@:3}"
+                if [ $? -ne 0 ]; then
+                    echo "Error: Docker run failed for $EXTENSION."
+                    exit 1
+                fi
+            done
+            exit 0
+        fi
+
+        DOCKERFILE="dev/docker/Dockerfile_$DOCKER_TYPE"
+        if [ $verbose_level -gt 1 ]; then
+            echo "Building and running Docker container for type: $DOCKER_TYPE"
+            echo "Running command: docker build --pull --rm -f $DOCKERFILE -t sieve-$DOCKER_TYPE ." 
+        fi
+        
+        if [ -f "$DOCKERFILE" ]; then
+            # Build the Docker image
+            docker build --pull --rm -f "$DOCKERFILE" -t "sieve-$DOCKER_TYPE" . 2> ./dev/build.log
+            if [ $? -ne 0 ]; then
+                echo "Error: Docker build failed."
+                exit 1
+            fi
+            
+            # Shift past the first two arguments (docker and type)
+            shift 2
+            
+            # Run the Docker container with any remaining arguments
+            if [ $verbose_level -gt 1 ]; then
+                echo "Running Docker container with arguments: $@"
+                echo "Run with: docker run --rm -e DOCKERFILE_TYPE=\"$DOCKER_TYPE\" \"sieve-$DOCKER_TYPE\" \"$@\""
+                echo "Go in with: docker run --rm -e DOCKERFILE_TYPE=$DOCKER_TYPE -it --entrypoint /bin/bash sieve-$DOCKER_TYPE"  
+            fi
+            docker run --rm -e DOCKERFILE_TYPE="$DOCKER_TYPE" "sieve-$DOCKER_TYPE" "$@"
+            exit $?
+        else
+            echo "Error: Dockerfile '$DOCKERFILE' not found."
+            exit 1
+        fi
+    else
+        echo "Error: Docker type not specified. Usage: $0 docker <type>"
+        exit 1
+    fi
+fi
+
+# If the first argument does not start with '-', assign it as the base and discard it
+if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
+    if echo "$1" | grep -qE '^[0-9]+$'; then
+        # If it's a number, keep it as an argument
+        :
+    else
+        base="$1"
+        shift
+    fi
+fi
+
+if [ $verbose_level -gt 1 ]; then
+    echo "Compiling for ${OS} "
+fi
 
 # Compose a program name using a default base name.
 PROGTOTAL="${base}-${set_x}-${set_y}-${set_z}"
-echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
+if [ $verbose_level -gt 1 ]; then
+  echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
+fi
 $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS
 if [ $? -ne 0 ]; then
     echo "Error: Compilation failed for sequential version."
@@ -188,7 +230,9 @@ fi
 $STRIP ./bin/$PROGTOTAL
 
 PROGTOTALPAR="${base}$PAREXT-${set_x}-${set_y}-${set_z}"
-echo "Issuing command: $CC  $PAR -o ./bin/$PROGTOTALPAR ./src/${base}.c $DEFINE_FLAGS"
+if [ $verbose_level -gt 1 ]; then
+  echo "Issuing command: $CC  $PAR -o ./bin/$PROGTOTALPAR ./src/${base}.c $DEFINE_FLAGS"
+fi
 $CC $PAR -o ./bin/$PROGTOTALPAR ./src/${base}.c $DEFINE_FLAGS
 if [ $? -ne 0 ]; then
     echo "Error: Compilation failed for parallel version."
@@ -200,10 +244,14 @@ $STRIP ./bin/$PROGTOTALPAR
 
 # while true; do
 if [ $threads -gt 0 ]; then
-    echo "Running parallel version: ./bin/$PROGTOTALPAR $run_args $@"
+    if [ $verbose_level -gt 1 ]; then
+        echo "Running parallel version: ./bin/$PROGTOTALPAR $run_args $@"
+    fi
     ./bin/$PROGTOTALPAR $run_args $@
 else
-    echo "Running ./bin/$PROGTOTAL $run_args $@"
+    if [ $verbose_level -gt 1 ]; then
+        echo "Running ./bin/$PROGTOTAL $run_args $@"
+    fi
     ./bin/$PROGTOTAL $run_args $@
 fi
 # done

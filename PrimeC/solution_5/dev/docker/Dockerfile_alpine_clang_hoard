@@ -1,0 +1,32 @@
+FROM alpine:3.21.3
+
+# Install necessary dependencies
+RUN apk add --no-cache build-base clang openmp-dev bash wget git
+
+# Download and build Hoard memory allocator
+WORKDIR /tmp
+RUN git clone https://github.com/emeryberger/Hoard.git && \
+    cd Hoard/src && \
+    make && \
+    cp libhoard.so /usr/lib/
+
+# Set Hoard as the default memory allocator using LD_PRELOAD
+ENV LD_PRELOAD=/usr/lib/libhoard.so
+
+WORKDIR /home/primes
+
+# Copy all shell scripts, C source, and header files
+COPY *.sh *.c *.h ./
+
+# Copy the additional directory structure
+COPY src/ ./src
+
+# Ensure the bin directory exists
+RUN mkdir -p bin
+
+RUN chmod +x ./*.sh
+RUN sed -i 's/\r$//' *.sh
+
+# RUN ./compile.sh
+
+ENTRYPOINT [ "./test.sh" ]

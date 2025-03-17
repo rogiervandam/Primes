@@ -77,7 +77,7 @@ Or do it all in one go:
 
 ```bash
 docker build --pull --rm -f "Dockerfile" -t c:latest .; docker run c:latest 
-docker run --cpuset-cpus="0" --cpu-shares=1024 c:latest 
+docker run --rm --cpuset-cpus="0" --cpu-shares=1024 c:latest 
 ```
 
 Remember you can go in to the container like this:

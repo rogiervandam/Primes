@@ -11,6 +11,7 @@ static inline char* extension_as_string(char* extension)
 int main(int argc, char *argv[]) 
 {
     verbose1( setbuf(stdout, NULL); ) // prevent buffering of stdout
+    const char *dockerfile_type = getenv("DOCKERFILE_TYPE"); 
 
     option = setDefaultOptions();
     verbose1( option = parseCommandLine(argc, argv, option); )
@@ -19,9 +20,11 @@ int main(int argc, char *argv[])
         printf("Sieve algorithm by Rogier van Dam - 2025\n");
         printf("Find all primes up to \033[1;33m%ju\033[0m using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)\n", (uintmax_t)option.fixed_benchmark_settings.factor_max);
     })
-    verbose2( printf("\nRunning sieve variant \033[1;33m%s\033[0m u%ju-v%ju%s-c%s with max %ju \n", algorithm_name, 
-        (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS, TYPE_SHORT_NAME(bitword_vector_t), TYPE_SHORT_NAME(counter_t), (uintmax_t)option.fixed_benchmark_settings.factor_max); )
-    
+    verbose2( printf("\nRunning sieve variant \033[1;33m%s\033[0m u%ju-v%ju%s-c%s ", algorithm_name, 
+        (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS, TYPE_SHORT_NAME(bitword_vector_t), TYPE_SHORT_NAME(counter_t) ); )
+    verbose2( if (dockerfile_type) printf("in docker \033[1;34m%s\033[0m ", dockerfile_type); )
+    verbose2( printf("with max %ju \n", (uintmax_t)option.fixed_benchmark_settings.factor_max); )
+        
     #ifdef COMPILE_EXPLAIN
     if (option.explain >= 1) {
         explainSieveShake(option.fixed_benchmark_settings);
@@ -79,10 +82,28 @@ int main(int argc, char *argv[])
 
         // report results
         verbose0(
+            verbose2( 
+                printf("\nResult: Passes \033[1;33m%ju\033[0m \033[0;32m(per %.1f seconds)\033[0m - average \033[1;33m%.1f\033[0m per second using \033[0;35m%ju\033[0m threads\n", 
+                (uintmax_t) benchmark_result.passes, benchmark_result.elapsed_time, benchmark_result.avg, (uintmax_t) benchmark_result.settings.threads);
+            )
+        
+            verbose2( if (benchmark_result.settings.threads > 1) 
+                printf(  "Used \033[0;35m%ju\033[0m threads. Passes per thread: \033[0;33m%ju\033[0m \033[0;32m(per %.1f seconds)\033[0m - average \033[1;33m%.1f\033[0m per second per thread.\n", 
+                                 (uintmax_t)benchmark_result.settings.threads, (uintmax_t) benchmark_result.passes / benchmark_result.settings.threads, benchmark_result.elapsed_time, benchmark_result.avg / benchmark_result.settings.threads);
+            )
+            verbose2( printf("\033[0;32mOutput message:\033[0m \n"); )
+
             char extension[50] = ""; extension_as_string(extension);      
-            setBenchmarkSettingAsString(settings_string, benchmark_result.settings);
+            // setBenchmarkSettingAsString(settings_string, benchmark_result.settings);
+
+            // output the results in a format that can be parsed by the benchmarking system
             printf("%s%s;%ju;%f;%ju;algorithm=%s,faithful=yes,bits=1",algorithm_name,extension,(uintmax_t)benchmark_result.passes,benchmark_result.elapsed_time,(uintmax_t)threads, algorithm_type);
-            verbose1( { printf(";\033[1;32m%s\033[0m total \033[1;33m%ju\033[0m",settings_string, (uintmax_t)benchmark_result.passes); } ) 
+
+            // add extra information to the output for research purposes
+            verbose1( { 
+                if (dockerfile_type) printf(";docker=\033[1;34m%s\033[0m",dockerfile_type);
+                printf(";\033[1;32m%s\033[0m total \033[1;33m%ju\033[0m",settings_string, (uintmax_t)benchmark_result.passes); 
+            } ) 
             printf("\n");
         )
     }

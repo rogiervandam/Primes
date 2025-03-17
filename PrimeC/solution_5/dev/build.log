@@ -1,0 +1,51 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile_ubuntu_gcc
+#1 transferring dockerfile: 715B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/ubuntu:24.04
+#2 DONE 0.5s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/8] FROM docker.io/library/ubuntu:24.04@sha256:72297848456d5d37d1262630108ab308d3e9ec7ed1c3286a32fe09856619a782
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 2.22kB done
+#5 DONE 0.0s
+
+#6 [2/8] RUN apt-get update     && apt-get install -y software-properties-common     && add-apt-repository ppa:ubuntu-toolchain-r/test -y     && apt-get update     && apt-get install -y build-essential gcc-14     && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 60     && apt-get clean     && rm -rf /var/lib/apt/lists/*
+#6 CACHED
+
+#7 [3/8] WORKDIR /home/primes
+#7 CACHED
+
+#8 [4/8] COPY *.sh *.c *.h ./
+#8 CACHED
+
+#9 [5/8] COPY src/ ./src
+#9 DONE 0.0s
+
+#10 [6/8] RUN mkdir -p bin
+#10 DONE 0.1s
+
+#11 [7/8] RUN chmod +x ./*.sh
+#11 DONE 0.1s
+
+#12 [8/8] RUN sed -i 's/\r$//' *.sh
+#12 DONE 0.1s
+
+#13 exporting to image
+#13 exporting layers 0.0s done
+#13 writing image sha256:24c899ac36d6aecba462c8cd10c08f5715f49437ecc30d452a11abebc21e964e done
+#13 naming to docker.io/library/sieve-ubuntu_gcc done
+#13 DONE 0.0s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/2i4l88o2pt4y3llxfio32j2m4
+[1m
+What's next:[0m
+    View a summary of image vulnerabilities and recommendations → [36mdocker scout quickview [0m

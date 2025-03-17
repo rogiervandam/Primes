@@ -1,9 +1,10 @@
-FROM silkeh/clang:19
+FROM alpine:3.21.3
 
-RUN apt-get update && \
-    apt-get install -y libomp-dev && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Install necessary dependencies
+RUN apk add build-base mimalloc2-dev clang openmp-dev bash
+
+# Set mimalloc as the default memory allocator using LD_PRELOAD
+ENV LD_PRELOAD=/usr/lib/libmimalloc.so
 
 WORKDIR /home/primes
 
@@ -22,3 +23,4 @@ RUN sed -i 's/\r$//' *.sh
 # RUN ./compile.sh
 
 ENTRYPOINT [ "./test.sh" ]
+

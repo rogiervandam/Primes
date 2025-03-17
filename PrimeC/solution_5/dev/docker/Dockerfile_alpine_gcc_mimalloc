@@ -1,7 +1,10 @@
-FROM debian:buster-slim as builder
+FROM alpine:3.21.3
 
-RUN apt-get update \
-    && apt install build-essential -y
+# Install necessary dependencies
+RUN apk add build-base mimalloc2-dev bash
+
+# Set mimalloc as the default memory allocator using LD_PRELOAD
+ENV LD_PRELOAD=/usr/lib/libmimalloc.so
 
 WORKDIR /home/primes
 
@@ -20,3 +23,4 @@ RUN sed -i 's/\r$//' *.sh
 # RUN ./compile.sh
 
 ENTRYPOINT [ "./test.sh" ]
+

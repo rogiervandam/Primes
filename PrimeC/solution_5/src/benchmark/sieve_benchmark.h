@@ -130,16 +130,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
 
 static void outputBenchmarkStats(benchmark_result_t benchmark_result)
 {
-    verbose1( 
-        printf("\nResult: Passes \033[1;33m%ju\033[0m \033[0;32m(per %.1f seconds)\033[0m - average \033[1;33m%.1f\033[0m per second using \033[0;35m%ju\033[0m threads\n", 
-        (uintmax_t) benchmark_result.passes, benchmark_result.elapsed_time, benchmark_result.avg, (uintmax_t) benchmark_result.settings.threads);
-    )
 
-    verbose1( if (benchmark_result.settings.threads > 1) 
-        printf(  "Used \033[0;35m%ju\033[0m threads. Passes per thread: \033[0;33m%ju\033[0m \033[0;32m(per %.1f seconds)\033[0m - average \033[1;33m%.1f\033[0m per second per thread.\n", 
-                         (uintmax_t)benchmark_result.settings.threads, (uintmax_t) benchmark_result.passes / benchmark_result.settings.threads, benchmark_result.elapsed_time, benchmark_result.avg / benchmark_result.settings.threads);
-    )
-    verbose1( printf("\033[0;32mOutput message:\033[0m "); )
 }
 
 
