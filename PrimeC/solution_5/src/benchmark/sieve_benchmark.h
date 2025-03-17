@@ -123,18 +123,22 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
     // calculate results
     benchmark_result.passes       = passes;
     benchmark_result.elapsed_time = time_elapsed / benchmark_settings.threads; 
-    benchmark_result.avg          = benchmark_result.passes / benchmark_result.elapsed_time / benchmark_settings.threads; 
+    benchmark_result.avg          = benchmark_result.passes / benchmark_result.elapsed_time; 
 
     return benchmark_result;
 }
 
 static void outputBenchmarkStats(benchmark_result_t benchmark_result)
 {
-    verbose1( printf("\nResult: Passes \033[1;33m%ju\033[0m \033[0;32m(per %.1f seconds)\033[0m - average \033[1;33m%.1f\033[0m per second per thread \n", 
-        (uintmax_t) benchmark_result.passes, benchmark_result.elapsed_time, benchmark_result.avg);)
-    // if (option.time_max!=5.0)     printf("\033[0;32m(Passes - per %.1f seconds: \033[1;33m%f\033[0m - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", 5.0, 5.0*benchmark_result.passes/benchmark_result.elapsed_time, benchmark_result.passes/benchmark_result.elapsed_time);
-    // if (threads>1) printf("        \033[0;32mPasses per thread (total %ju) - per %.1f seconds: %.1f - per second \033[1;33m%.1f\033[0;32m)\033[0m\n", 
-    //                      (uintmax_t)benchmark_result.settings.threads, benchmark_result.settings.sample_duration, option.time_max*benchmark_result.passes/benchmark_result.elapsed_time/threads, benchmark_result.passes/benchmark_result.elapsed_time/threads);
+    verbose1( 
+        printf("\nResult: Passes \033[1;33m%ju\033[0m \033[0;32m(per %.1f seconds)\033[0m - average \033[1;33m%.1f\033[0m per second using \033[0;35m%ju\033[0m threads\n", 
+        (uintmax_t) benchmark_result.passes, benchmark_result.elapsed_time, benchmark_result.avg, (uintmax_t) benchmark_result.settings.threads);
+    )
+
+    verbose1( if (benchmark_result.settings.threads > 1) 
+        printf(  "Used \033[0;35m%ju\033[0m threads. Passes per thread: \033[0;33m%ju\033[0m \033[0;32m(per %.1f seconds)\033[0m - average \033[1;33m%.1f\033[0m per second per thread.\n", 
+                         (uintmax_t)benchmark_result.settings.threads, (uintmax_t) benchmark_result.passes / benchmark_result.settings.threads, benchmark_result.elapsed_time, benchmark_result.avg / benchmark_result.settings.threads);
+    )
     verbose1( printf("\033[0;32mOutput message:\033[0m "); )
 }
 

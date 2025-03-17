@@ -50,9 +50,10 @@ DEFINE_FLAGS=""
 set_x="u64"
 set_y="v4"
 set_z="ci32"
-verbose_level=0  
+verbose_level=10  
 verbose_next=0
 highest_number=0
+threads=0
 
 # Loop through all arguments.
 for arg in "$@"; do
@@ -70,6 +71,11 @@ for arg in "$@"; do
     # Check for standalone --verbose flag
     if [ "$arg" = "--verbose" ] || [ "$arg" = "verbose" ]; then
         verbose_next=1
+        continue
+    fi
+
+    if [ "$arg" = "--threads" ] || [ "$arg" = "threads" ]; then
+        threads=1
         continue
     fi
 
@@ -108,7 +114,7 @@ done
 
 # Add default verbose arguments if not explicitly specified
 run_args=""
-if [ $verbose_level -eq 0 ]; then
+if [ $verbose_level -eq 10 ]; then
     run_args="$run_args --verbose 2"
     verbose_level=2
 fi
@@ -121,17 +127,35 @@ if [ "$highest_number" -gt 999999999 ]; then
     DEFINE_FLAGS="$DEFINE_FLAGS -DUSE_64BIT_COUNTER"
 fi
 
+echo "Compiling for ${OS} "
+
 # Compose a program name using a default base name.
 PROGTOTAL="${base}-${set_x}-${set_y}-${set_z}"
-
-echo "Compiling for ${OS} "
-echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
+# echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
 $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS
+if [ $? -ne 0 ]; then
+    echo "Error: Compilation failed for sequential version."
+    exit 1
+fi
 $STRIP ./bin/$PROGTOTAL
+
+PROGTOTALPAR="${base}$PAREXT-${set_x}-${set_y}-${set_z}"
+# echo "Issuing command: $CC -o ./bin/$PROGTOTALPAR ./src/${base}.c $DEFINE_FLAGS"
+$CC $PAR -o ./bin/$PROGTOTALPAR ./src/${base}.c $DEFINE_FLAGS
+if [ $? -ne 0 ]; then
+    echo "Error: Compilation failed for parallel version."
+    exit 1
+fi
+$STRIP ./bin/$PROGTOTALPAR
 
 # gcc-14 -Ofast -S -fno-asynchronous-unwind-tables -fno-exceptions -fverbose-asm -Wall -Wextra -Ofast -masm=intel -S -mavx -fopt-info-vec-all=vec_report.txt -o ./dev/$PROGTOTAL.s ./src/${base}.c $DEFINE_FLAGS
 
-echo "Running ./bin/$PROGTOTAL $run_args $@"
 # while true; do
-./bin/$PROGTOTAL $run_args $@ 
+if [ $threads -gt 0 ]; then
+    echo "Running parallel version: ./bin/$PROGTOTALPAR $run_args $@"
+    ./bin/$PROGTOTALPAR $run_args $@
+else
+    echo "Running ./bin/$PROGTOTAL $run_args $@"
+    ./bin/$PROGTOTAL $run_args $@
+fi
 # done

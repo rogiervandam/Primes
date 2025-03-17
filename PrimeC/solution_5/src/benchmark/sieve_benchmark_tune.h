@@ -289,6 +289,8 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     benchmark_result_t best_result = tuning_result[0];
     free(tuning_result);
 
-    verbose2( { printf("\33[2K\rTuning done. Evaluated %ju options in %ju steps. Best result: ", (uintmax_t) tuning_results_max, (uintmax_t) step ); printTuningResult(best_result);} );
+    if (tuning_results_max) {
+        verbose2( { printf("\33[2K\rTuning done. Evaluated %ju options in %ju steps. Best result: ", (uintmax_t) tuning_results_max, (uintmax_t) step ); printTuningResult(best_result);} );
+    }
     return best_result;
 }
