@@ -14,6 +14,8 @@
   #define VECTORWORDSIZE_PP 64
 #endif
 
+
+
 // masks and mask helpers
 #define SHIFT_SIZE                  1 // the shift needed to get from SIZE to BIT (1 because even numbers arr not storing in the bitstorage)
 #define SHIFT_BYTE                  3 // the shift needed to get from BIT to BYTE
@@ -21,9 +23,10 @@
 #define VECTORWORD_SIZE_BITS        (sizeof(bitword_vector_t) * 8)
 #define VECTOR_SIZE_BYTES           (sizeof(bitword_vector_t)*VECTOR_ELEMENTS)
 #define VECTOR_SIZE_BITS            (VECTOR_SIZE_BYTES * 8)
-#define SHIFT_WORD                  ((pow(WORD_SIZE_BITS,1)+pow(WORD_SIZE_BITS,2)+pow(WORD_SIZE_BITS,3)+pow(WORD_SIZE_BITS,4)+pow(WORD_SIZE_BITS,5)+pow(WORD_SIZE_BITS,6)+pow(WORD_SIZE_BITS,7)+pow(WORD_SIZE_BITS,8)+pow(WORD_SIZE_BITS,9)+pow(WORD_SIZE_BITS,10)))
-#define SHIFT_VECTORWORD            ((pow(VECTORWORD_SIZE_BITS,1)+pow(VECTORWORD_SIZE_BITS,2)+pow(VECTORWORD_SIZE_BITS,3)+pow(VECTORWORD_SIZE_BITS,4)+pow(VECTORWORD_SIZE_BITS,5)+pow(VECTORWORD_SIZE_BITS,6)+pow(VECTORWORD_SIZE_BITS,7)+pow(VECTORWORD_SIZE_BITS,8)+pow(VECTORWORD_SIZE_BITS,9)+pow(VECTORWORD_SIZE_BITS,10)))
-#define SHIFT_VECTOR                ((pow(VECTOR_SIZE_BITS,1)+pow(VECTOR_SIZE_BITS,2)+pow(VECTOR_SIZE_BITS,3)+pow(VECTOR_SIZE_BITS,4)+pow(VECTOR_SIZE_BITS,5)+pow(VECTOR_SIZE_BITS,6)+pow(VECTOR_SIZE_BITS,7)+pow(VECTOR_SIZE_BITS,8)+pow(VECTOR_SIZE_BITS,9)+pow(VECTOR_SIZE_BITS,10)+pow(VECTOR_SIZE_BITS,11)+pow(VECTOR_SIZE_BITS,12)))
+#define SHIFT_WORD                  shift_calc(WORD_SIZE_BITS)
+#define SHIFT_VECTORWORD            shift_calc(VECTORWORD_SIZE_BITS) 
+#define SHIFT_VECTOR                shift_calc(VECTOR_SIZE_BITS)
+
 
 // Patterns based on types
 #define SAFE_SHIFTBIT               (bitshift_t)        1

@@ -10,6 +10,7 @@
 #define likely(x)           (__builtin_expect((x),1))
 #define unlikely(x)         (__builtin_expect((x),0))
 #define is_signed(type) (((type)-1)<0)
+#define shift_calc(TYPE)    ((pow(TYPE,1)+pow(TYPE,2)+pow(TYPE,3)+pow(TYPE,4)+pow(TYPE,5)+pow(TYPE,6)+pow(TYPE,7)+pow(TYPE,8)+pow(TYPE,9)+pow(TYPE,10)+pow(TYPE,11)+pow(TYPE,12)))
 
 #define PPCAT_NX(A, B) A ## B
 #define PPCAT(A, B) PPCAT_NX(A, B)
