@@ -12,8 +12,7 @@ static void showPrimesinSieve(struct sieve_t *sieve, counter_t factor_max)
         prime_count++;
         if (factor < factor_max/2) {
             verbose2( printf("%3ju ",(uintmax_t)factor*2+1); )
-            if (prime_count
-         % 10 == 0) { verbose2( printf("\n"); ) }
+            if (prime_count % 10 == 0) { verbose2( printf("\n"); ) }
         }
     }
     verbose1( printf("\nFound %ju primes until %ju\n",(uintmax_t)prime_count, (uintmax_t)sieve->bits*2+1); )

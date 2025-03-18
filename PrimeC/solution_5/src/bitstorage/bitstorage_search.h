@@ -1,11 +1,17 @@
 // Finds the index of the next unset (false) bit in a bitstorage, starting from a given index.
+static inline counter_t __attribute__((always_inline)) checkBitFalse(const bitword_t* restrict bitstorage, register counter_t index) 
+{
+    return bitstorage[wordindex(index)] & markmask_calc(index);
+}
+
+
 static inline counter_t __attribute__((always_inline)) searchBitFalse(const bitword_t* restrict bitstorage, register counter_t index) 
 {
     verbose8( printf("searchBitFalse from prime %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1); )
     timer_lapstart(time_searchBitFalse);
 
     // Normal function - really fast for small offsets
-    do { index++; } while (bitstorage[wordindex(index)] & markmask_calc(index));
+    do { index++; } while (checkBitFalse(bitstorage, index));
 
     timer_laptime(time_searchBitFalse); verbose8( printf(" next prime %ju (step %ju)\n", (uintmax_t) index, (uintmax_t)index*2+1); )
     return index;
