@@ -21,7 +21,7 @@ static inline void __attribute__((always_inline)) setBitsTrue_largestep_repeat##
 // Generate the three versions
 SET_BITS_TRUE_LARGESTEP_REPEAT(,         bitword_t, WORD_SIZE_BITS, SHIFT_WORD, applyMask_word,            markmask(index),                  wordindex(index))
 SET_BITS_TRUE_LARGESTEP_REPEAT(_uint16,  uint16_t,  16,            4,          applyMask_uint16_unroll8,  ((uint16_t)1) << (index & 15),    index >> 4)
-SET_BITS_TRUE_LARGESTEP_REPEAT(_uint8,   uint8_t,   8,             3,          applyMask_uint8_unroll8,   ((uint8_t)1) << (index & 7),      index >> 3)
+SET_BITS_TRUE_LARGESTEP_REPEAT(_uint8,   uint8_t,   8,             3,          applyMask_uint8_unroll4,   ((uint8_t)1) << (index & 7),      index >> 3)
 
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
 // this is a BASE ALGORITHM COMPLIANT: each bit is set individually

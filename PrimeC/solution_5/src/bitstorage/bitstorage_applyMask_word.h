@@ -33,6 +33,10 @@ static inline void __attribute__((always_inline)) funcname( \
 // Generate all the versions you need
 APPLY_MASK_GENERIC(uint8_t, 3, 4, applyMask_uint8_unroll4)
 APPLY_MASK_GENERIC(uint8_t, 3, 8, applyMask_uint8_unroll8)
+APPLY_MASK_GENERIC(uint8_t, 3, 8, applyMask_uint8_unroll16)
+APPLY_MASK_GENERIC(uint8_t, 3, 8, applyMask_uint8_unroll32)
 APPLY_MASK_GENERIC(uint16_t, 4, 4, applyMask_uint16_unroll4)
 APPLY_MASK_GENERIC(uint16_t, 4, 8, applyMask_uint16_unroll8)
+APPLY_MASK_GENERIC(uint16_t, 4, 8, applyMask_uint16_unroll16)
+APPLY_MASK_GENERIC(uint16_t, 4, 8, applyMask_uint16_unroll32)
 APPLY_MASK_GENERIC(bitword_t, SHIFT_WORD, 4, applyMask_word)
