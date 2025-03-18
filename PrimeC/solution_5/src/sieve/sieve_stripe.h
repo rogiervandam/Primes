@@ -114,7 +114,7 @@ static inline void benschmark_stripe(bitword_t* restrict bitstorage, const count
         register const counter_t step  = prime * 2 + 1;
         register counter_t start = compute_start(prime, block_start);
 
-        #define methods 18
+        #define methods 19
         for(int method=0; method<=methods; method++) {
             const double time_start = stripeBenchmarkTime();
             const double time_target = time_start + 0.002; 
@@ -142,7 +142,7 @@ static inline void benschmark_stripe(bitword_t* restrict bitstorage, const count
                     case 16: setBitsTrue_largestep_repeat_uint32_unroll16(bitstorage, start, step, block_stop); passes++; break;
                     case 17: setBitsTrue_largestep_repeat_uint8_unroll32(bitstorage, start, step, block_stop); passes++; break;
                     case 18: setBitsTrue_largestep_repeat_uint16_unroll32(bitstorage, start, step, block_stop); passes++; break;
-
+                    case 19: setBitsTrue_largestep_norepeat_unroll2(bitstorage, start, step, block_stop); passes++; break;
                 }
                 time_elapsed = stripeBenchmarkTime();         
             }
@@ -179,15 +179,19 @@ static inline void benschmark_stripe(bitword_t* restrict bitstorage, const count
             
             // Print all method values, highlighting the max and second largest among methods 4-18
             for(int method=0; method<=methods; method++) {
-                if (method >= 4 && method <= 18 && stripe_passes[step][method] == max_value && max_value > 0) {
+                if (method >= 4 && stripe_passes[step][method] == max_value && max_value > 0) {
                     printf("\033[32m%6ju\033[0m ", (uintmax_t)stripe_passes[step][method]); // Green for max
-                } else if (method >= 4 && method <= 18 && stripe_passes[step][method] == second_max_value && second_max_value > 0) {
+                } else if (method >= 4  && stripe_passes[step][method] == second_max_value && second_max_value > 0) {
                     printf("\033[33m%6ju\033[0m ", (uintmax_t)stripe_passes[step][method]); // Yellow for second largest
+                } else if (method == 0 && max_value > 0 && stripe_passes[step][0] <= max_value * 0.95) {
+                    printf("\033[33;1m%6ju\033[0m ", (uintmax_t)stripe_passes[step][method]); // Orange (bold yellow) for method 0 when 10% worse
                 } else {
                     printf("%6ju ", (uintmax_t)stripe_passes[step][method]);
                 }
             }
-            printf("\n");
+            counter_t range = block_stop - block_start;
+            printf("     rep:%7ju  m4 %5ju  m8 %5ju  m16 %5ju  m32 %5ju\n", (uintmax_t)range/step, 
+                (uintmax_t)(range/step/4), (uintmax_t)(range/step/8), (uintmax_t)(range/step/16), (uintmax_t)(range/step/32));
         }
     }
 

@@ -10,33 +10,13 @@
 
 static inline void  __attribute__((always_inline)) setBitsTrue_largestep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
-    // const counter_t range_stop_unique_word = range_start + WORD_SIZE_BITS * step; 
-    // if (range_stop_unique_word <= range_stop) { // the range will repeat itself; try to resuse the mask
-    //     setBitsTrue_largestep_repeat(bitstorage, range_start, step, range_stop);
-    //     return;
-    // } 
-
-    // const counter_t range_stop_unique_uint64 = range_start + 64 * step * 8; 
-    // if (range_stop_unique_uint64 <= range_stop) { // the range will repeat itself; try to resuse the mask
-    //     setBitsTrue_largestep_repeat_uint64(bitstorage, range_start, step, range_stop);
-    //     return;
-    // } 
-
-    // const counter_t range_stop_unique_uint32 = range_start + 32 * step * 8; 
-    // if (range_stop_unique_uint32 <= range_stop) { // the range will repeat itself; try to resuse the mask
-    //     setBitsTrue_largestep_repeat_uint32(bitstorage, range_start, step, range_stop);
-    //     return;
-    // } 
-
-    // const counter_t range_stop_unique_uint16 = range_start + 16 * step * 8; 
-    // if (range_stop_unique_uint16 <= range_stop) { // the range will repeat itself; try to resuse the mask
-    //     setBitsTrue_largestep_repeat_uint16(bitstorage, range_start, step, range_stop);
-    //     return;
-    // } 
-
-    const counter_t range_stop_unique_uint8 = range_start + 8 * step; 
-    if (range_stop_unique_uint8 <= range_stop) { // the range will repeat itself; try to resuse the mask
+    if (range_start + step * 8 * 8 * 8 <= range_stop) { // // 8 bit 8 roll 8 tuned value
         setBitsTrue_largestep_repeat_uint8_unroll8(bitstorage, range_start, step, range_stop);
+        return;
+    } 
+
+    if (range_start + step * 8 * 6  <= range_stop) {  // 8 bit 4 roll 8 tuned value
+        setBitsTrue_largestep_repeat_uint8_unroll4(bitstorage, range_start, step, range_stop);
         return;
     } 
 

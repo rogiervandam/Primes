@@ -23,9 +23,25 @@
 
 Snelheid
 
-Op i8700 voor het blok 250000 - 500000:
-- setBitsTrue_largestep_repeat_uint8_unroll4 is het snelste, tot step 971, dan setBitsTrue_largestep_norepeat sneller
-- largestep_vector is van step 67-107 interessanter
-- smallstep_vector is tot step 67 veel interessanter
-- smaalstep_repreat is tot step 31 sneller dan setBitsTrue_largestep_repeat
+On i8700 for block 250000 - 500000:
+- setBitsTrue_largestep_repeat_uint8_unroll4 fastest, until step 971, then setBitsTrue_largestep_norepeat faster
+- largestep_vector starting at step 67-107 interesting
+- smallstep_vector starting at step 67 veemuch more interesting
+- smaalstep_repreat starting at step 31 faster than setBitsTrue_largestep_repeat
 
+On m1 mac for block 250000 - 500000:
+- mixed view
+- setBitsTrue_largestep_repeat_uint8_unroll8 fast in range step 277 - 937
+- setBitsTrue_largestep_repeat_uint8_unroll4 mostly the fastest
+- from step 967 setBitsTrue_largestep_norepeat fastest
+
+-> uint8_unroll8 -> uint8_unroll4 when range/step/8 <= 43 -> /8 = 5
+-> uint8_unroll4 -> nopeat when range/step/4 <= 64 -> /8 = 8
+
+On m1 for blcok 0-500000:
+-> uint8_unroll8 -> uint8_unroll4 when range/step/8 <= 80 -> 
+-> uint8_unroll4 -> nopeat when range/step/4 <= 129
+
+On m1 for block 0-250000:
+-> uint8_unroll8 -> uint8_unroll4 when range/step/8 <= not really better
+-> uint8_unroll4 -> nopeat when range/step/4 <= 92  (step 673)
