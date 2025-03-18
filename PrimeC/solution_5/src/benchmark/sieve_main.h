@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
     // Testing here
 
     struct sieve_t* sieve = shakeSieve(option.fixed_benchmark_settings.factor_max);
-    benschmark_stripe(sieve->bitstorage, 1000000/2, 5, 500);
+    benschmark_stripe(sieve->bitstorage, 1000000/4, 2*1000000/4, 2, 500);
     sieve_delete(sieve);
 
     exit(0);

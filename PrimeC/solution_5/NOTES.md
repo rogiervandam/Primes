@@ -20,3 +20,12 @@
 
 
 ## Compiler flags
+
+Snelheid
+
+Op i8700 voor het blok 250000 - 500000:
+- setBitsTrue_largestep_repeat_uint8_unroll4 is het snelste, tot step 971, dan setBitsTrue_largestep_norepeat sneller
+- largestep_vector is van step 67-107 interessanter
+- smallstep_vector is tot step 67 veel interessanter
+- smaalstep_repreat is tot step 31 sneller dan setBitsTrue_largestep_repeat
+

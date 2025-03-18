@@ -100,7 +100,7 @@ static inline double stripeBenchmarkTime()
 // it benchmarks the different methods and keeps the resulting times or passed in an array
 // it sorts the results from best to worst
 // the array contains for each stepsize the best method
-static inline void benschmark_stripe(bitword_t* restrict bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+static inline void benschmark_stripe(bitword_t* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
     counter_t prime = prime_start;
 
@@ -112,7 +112,7 @@ static inline void benschmark_stripe(bitword_t* restrict bitstorage, const count
 
     while (prime < prime_max) {
         register const counter_t step  = prime * 2 + 1;
-        register counter_t start = compute_start(prime, 0);
+        register counter_t start = compute_start(prime, block_start);
 
         #define methods 18
         for(int method=0; method<=methods; method++) {
@@ -165,18 +165,24 @@ static inline void benschmark_stripe(bitword_t* restrict bitstorage, const count
         if (checkBitFalse(bitstorage, prime)==0 ) {
             printf("Step %4ju ", (uintmax_t)step);
             
-            // Find the maximum value among methods 4-18
+            // Find the maximum and second largest value among methods 4-18
             counter_t max_value = 0;
+            counter_t second_max_value = 0;
             for(int method=4; method<=methods; method++) {
                 if (stripe_passes[step][method] > max_value) {
+                    second_max_value = max_value;
                     max_value = stripe_passes[step][method];
+                } else if (stripe_passes[step][method] > second_max_value) {
+                    second_max_value = stripe_passes[step][method];
                 }
             }
             
-            // Print all method values, highlighting the max among methods 4-18
+            // Print all method values, highlighting the max and second largest among methods 4-18
             for(int method=0; method<=methods; method++) {
                 if (method >= 4 && method <= 18 && stripe_passes[step][method] == max_value && max_value > 0) {
-                    printf("\033[32m%6ju\033[0m ", (uintmax_t)stripe_passes[step][method]); // Green text
+                    printf("\033[32m%6ju\033[0m ", (uintmax_t)stripe_passes[step][method]); // Green for max
+                } else if (method >= 4 && method <= 18 && stripe_passes[step][method] == second_max_value && second_max_value > 0) {
+                    printf("\033[33m%6ju\033[0m ", (uintmax_t)stripe_passes[step][method]); // Yellow for second largest
                 } else {
                     printf("%6ju ", (uintmax_t)stripe_passes[step][method]);
                 }
