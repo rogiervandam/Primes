@@ -10,10 +10,10 @@
 
 static inline void  __attribute__((always_inline)) setBitsTrue_largestep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
-    if (range_start + step * 8 * 8 * 8 <= range_stop) { // // 8 bit 8 roll 8 tuned value
-        setBitsTrue_largestep_repeat_uint8_unroll8(bitstorage, range_start, step, range_stop);
-        return;
-    } 
+    // if (range_start + step * 8 * 8 * 8 <= range_stop) { // // 8 bit 8 roll 8 tuned value
+    //     setBitsTrue_largestep_repeat_uint8_unroll8(bitstorage, range_start, step, range_stop);
+    //     return;
+    // } 
 
     if (range_start + step * 8 * 6  <= range_stop) {  // 8 bit 4 roll 8 tuned value
         setBitsTrue_largestep_repeat_uint8_unroll4(bitstorage, range_start, step, range_stop);

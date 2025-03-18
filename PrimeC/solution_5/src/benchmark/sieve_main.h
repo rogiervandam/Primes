@@ -25,15 +25,12 @@ int main(int argc, char *argv[])
     verbose2( if (dockerfile_type) printf("in docker \033[1;34m%s\033[0m ", dockerfile_type); )
     verbose2( printf("with max %ju \n", (uintmax_t)option.fixed_benchmark_settings.factor_max); )
         
-    // Testing here
-
+    #ifdef COMPILE_FUNCTION_TIMINGS
     struct sieve_t* sieve = shakeSieve(option.fixed_benchmark_settings.factor_max);
-    benschmark_stripe(sieve->bitstorage, 1000000/4, 2*1000000/4, 2, 500);
+    benchmarkSetBitsTrue(sieve->bitstorage, 1000000/4, 2*1000000/4, 2, 500);
     sieve_delete(sieve);
-
     exit(0);
-
-    //
+    #endif
 
     #ifdef COMPILE_EXPLAIN
     if (option.explain >= 1) {
