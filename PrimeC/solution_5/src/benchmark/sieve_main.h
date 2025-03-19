@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
         
     #ifdef COMPILE_FUNCTION_TIMINGS
     struct sieve_t* sieve = shakeSieve(option.fixed_benchmark_settings.factor_max);
-    benchmarkSetBitsTrue(sieve->bitstorage, 1000000/4, 2*1000000/4, 2, 500);
+    benchmarkSetBitsTrue(sieve->bitstorage, 256*1024, min(1000000/2, 512*1024), 2, 500);
     sieve_delete(sieve);
     exit(0);
     #endif

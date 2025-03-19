@@ -226,6 +226,46 @@ static inline void __attribute__((always_inline)) setBitsTrue_smallstep_vector(b
 
     if (range_start_new > range_stop) return;
     create_mask_vector_smallstep_rotate_pair(bitstorage, range_start_new, step, range_stop);
+    create_mask_vector_smallstep(bitstorage, range_start_new, step, range_stop);
+
+    timer_laptime(time_setBitsTrue_largestep_vector_wordstep); verbose6( printf("\n"); )
+}
+
+// this is *NOT* BASE ALGORITHM COMPLIANT: some bits are set together
+static inline void __attribute__((always_inline)) setBitsTrue_smallstep_vector_rotate(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+{
+    verbose6(  printf("Setting bits step %3ju using largestep vector_word in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps)", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step))); )
+    timer_lapstart(time_setBitsTrue_largestep_vector_wordstep);
+
+    const counter_t range_start_nexttvector = vectorstart(range_start) + VECTOR_SIZE_BITS; // find next vector
+
+    register counter_t range_start_new = range_start;
+    for (; range_start_new <= range_start_nexttvector; range_start_new += step) {
+        bitstorage[wordindex(range_start_new)] |= markmask_calc(range_start_new);
+    }
+
+    if (range_start_new > range_stop) return;
+    create_mask_vector_smallstep_rotate(bitstorage, range_start_new, step, range_stop);
+    // create_mask_vector_smallstep(bitstorage, range_start_new, step, range_stop);
+
+    timer_laptime(time_setBitsTrue_largestep_vector_wordstep); verbose6( printf("\n"); )
+}
+
+// this is *NOT* BASE ALGORITHM COMPLIANT: some bits are set together
+static inline void __attribute__((always_inline)) setBitsTrue_smallstep_vector_rotate_pair(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+{
+    verbose6(  printf("Setting bits step %3ju using largestep vector_word in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps)", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step))); )
+    timer_lapstart(time_setBitsTrue_largestep_vector_wordstep);
+
+    const counter_t range_start_nexttvector = vectorstart(range_start) + VECTOR_SIZE_BITS; // find next vector
+
+    register counter_t range_start_new = range_start;
+    for (; range_start_new <= range_start_nexttvector; range_start_new += step) {
+        bitstorage[wordindex(range_start_new)] |= markmask_calc(range_start_new);
+    }
+
+    if (range_start_new > range_stop) return;
+    create_mask_vector_smallstep_rotate_pair(bitstorage, range_start_new, step, range_stop);
     // create_mask_vector_smallstep(bitstorage, range_start_new, step, range_stop);
 
     timer_laptime(time_setBitsTrue_largestep_vector_wordstep); verbose6( printf("\n"); )

@@ -40,6 +40,7 @@ static char algorithm_type[] = "other";
 #include "sieve/sieve_manager.h"
 #include "sieve/sieve_extend.h"
 #include "sieve/sieve_stripe.h"
+#include "benchmark/benchmark_setBitsTrue_functions.h"
 
 /* This is the main module that directs all the work
    sieve_size in a real number that is the maximum in the sieve (not in bits)

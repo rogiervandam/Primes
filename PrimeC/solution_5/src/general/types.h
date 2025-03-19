@@ -39,7 +39,14 @@
 #define VECTORWORDMASK              ((SAFE_SHIFTBIT<<SHIFT_VECTORWORD)-SAFE_SHIFTBIT)
 #define VECTORMASK                  ((SAFE_SHIFTBIT<<SHIFT_VECTOR    )-SAFE_SHIFTBIT)
 
-typedef bitword_vector_t bitvector_t __attribute__ ((vector_size( VECTOR_SIZE_BYTES ), aligned( cache_line_bytes ))); 
+typedef bitword_vector_t bitvector_t   __attribute__ ((vector_size( VECTOR_SIZE_BYTES ), aligned( cache_line_bytes ))); 
+typedef uint64_t uint64v8_bitvector_t  __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
+typedef uint64_t uint64v4_bitvector_t  __attribute__ ((vector_size(32), aligned(cache_line_bytes)));
+typedef uint64_t uint64v2_bitvector_t  __attribute__ ((vector_size(16), aligned(cache_line_bytes)));
+typedef uint32_t uint32v16_bitvector_t __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
+typedef uint32_t uint32v8_bitvector_t  __attribute__ ((vector_size(32), aligned(cache_line_bytes)));
+typedef uint16_t uint16v32_bitvector_t __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
+typedef uint16_t uint16v8_bitvector_t  __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
 
 #if VECTOR_ELEMENTS == 16
   #define VECTOR_BASE(pattern)      ((bitvector_t){ pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern })
@@ -110,8 +117,8 @@ typedef bitword_vector_t bitvector_t __attribute__ ((vector_size( VECTOR_SIZE_BY
 
 // globals for tuning
 static counter_t global_stripeprime_faster  = 32ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
-static counter_t global_mediumstep_faster   = 16ULL; // if step < MEDIUMSTEP_FASTER, use medium steps
-static counter_t global_largestep_faster    = 128ULL; // if step < VECTORSTAP_FASTER, use large steps
+static counter_t global_mediumstep_faster   = WORD_SIZE_BITS; // if step < MEDIUMSTEP_FASTER, use medium steps
+static counter_t global_largestep_faster    = VECTOR_SIZE_BITS; // if step < VECTORSTAP_FASTER, use large steps
 static counter_t global_blocksize_bits      = 128*1024*8; // blocksize in bits
 static counter_t debug_hits                 = 0;
 static counter_t debug_hits2                = 0;

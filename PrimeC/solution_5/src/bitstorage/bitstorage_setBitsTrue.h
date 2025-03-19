@@ -10,10 +10,10 @@
 
 static inline void  __attribute__((always_inline)) setBitsTrue_largestep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
-    // if (range_start + step * 8 * 8 * 8 <= range_stop) { // // 8 bit 8 roll 8 tuned value
-    //     setBitsTrue_largestep_repeat_uint8_unroll8(bitstorage, range_start, step, range_stop);
-    //     return;
-    // } 
+    if (range_start + step * 8 * 8 * 8 <= range_stop) { // // 8 bit 8 roll 8 tuned value
+        setBitsTrue_largestep_repeat_uint8_unroll8(bitstorage, range_start, step, range_stop);
+        return;
+    } 
 
     if (range_start + step * 8 * 6  <= range_stop) {  // 8 bit 4 roll 8 tuned value
         setBitsTrue_largestep_repeat_uint8_unroll4(bitstorage, range_start, step, range_stop);
@@ -35,7 +35,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue(bitword_t* restri
         if (step < global_mediumstep_faster) {
             const counter_t range_stop_unique_vector = range_start + VECTOR_SIZE_BITS * step; 
             if (range_stop_unique_vector <= range_stop) { // the vectormask will be reused
-                setBitsTrue_smallstep_vector(bitstorage, range_start, step, range_stop);
+                setBitsTrue_smallstep_vector_rotate_pair(bitstorage, range_start, step, range_stop);
                 timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
                 return;
             }
@@ -59,11 +59,19 @@ static inline void  __attribute__((always_inline)) setBitsTrue(bitword_t* restri
         timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
         return;
     }
+    // else if (step > 64 && step <= 512) {
+    //     const counter_t range_stop_unique_vector = range_start + 512 * step;
+    //     if (range_stop_unique_vector <= range_stop) {
+    //         setBitsTrue_largestep_vector_uint64v8(bitstorage, range_start, step, range_stop);
+    //         timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
+    //         return;
+    //     }
+    // }
     else if (step <= VECTOR_SIZE_BITS) {
         if (step < global_largestep_faster) {
             const counter_t range_stop_unique_vector = range_start + VECTOR_SIZE_BITS * step;
             if (range_stop_unique_vector <= range_stop) {
-                setBitsTrue_largestep_vector(bitstorage, range_start, step, range_stop);
+                setBitsTrue_largestep_vector_uint64v2(bitstorage, range_start, step, range_stop);
                 timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
                 return;
             }

@@ -27,41 +27,41 @@ static inline counter_t __attribute__((always_inline)) stripeSieveBlock(bitword_
     // the < instad of <= is to prevent the last prime to be processed in all the loop
     // the implication is that the prime_endloop must be met step/2, not spep/2-1
 
-    // while (prime < prime_max) {
+    while (prime < prime_max) {
+        register const counter_t step  = prime * 2 + 1;
+        register counter_t start = compute_start(prime, block_start);
+        setBitsTrue(bitstorage, start, step, block_stop);
+        prime = searchBitFalse(bitstorage, prime);
+    }
+
+    // while (prime < prime_endloop1) {
     //     register const counter_t step  = prime * 2 + 1;
     //     register counter_t start = compute_start(prime, block_start);
-    //     setBitsTrue(bitstorage, start, step, block_stop);
+    //     setBitsTrue_smallstep_vector(bitstorage, start, step, block_stop);
     //     prime = searchBitFalse(bitstorage, prime);
     // }
 
-    while (prime < prime_endloop1) {
-        register const counter_t step  = prime * 2 + 1;
-        register counter_t start = compute_start(prime, block_start);
-        setBitsTrue_smallstep_vector(bitstorage, start, step, block_stop);
-        prime = searchBitFalse(bitstorage, prime);
-    }
+    // while (prime < prime_endloop2) {
+    //     register const counter_t step  = prime * 2 + 1;
+    //     register counter_t start = compute_start(prime, block_start);
+    //     setBitsTrue_smallstep_repeat(bitstorage, start, step, block_stop);
+    //     prime = searchBitFalse(bitstorage, prime);
+    // }
 
-    while (prime < prime_endloop2) {
-        register const counter_t step  = prime * 2 + 1;
-        register counter_t start = compute_start(prime, block_start);
-        setBitsTrue_smallstep_repeat(bitstorage, start, step, block_stop);
-        prime = searchBitFalse(bitstorage, prime);
-    }
+    // while (prime < prime_endloop3) {
+    //     register const counter_t step  = prime * 2 + 1;
+    //     register counter_t start = compute_start(prime, block_start);
+    //     setBitsTrue_largestep_vector(bitstorage, start, step, block_stop);
+    //     prime = searchBitFalse(bitstorage, prime);
+    // }
 
-    while (prime < prime_endloop3) {
-        register const counter_t step  = prime * 2 + 1;
-        register counter_t start = compute_start(prime, block_start);
-        setBitsTrue_largestep_vector(bitstorage, start, step, block_stop);
-        prime = searchBitFalse(bitstorage, prime);
-    }
-
-    while (prime < prime_endloop4) {
-        register const counter_t step  = prime * 2 + 1;
-        register counter_t start = compute_start(prime, block_start);
-        // setBitsTrue_largestep_repeat(bitstorage, start, step, block_stop);
-        setBitsTrue_largestep(bitstorage, start, step, block_stop);
-        prime = searchBitFalse_largestep(bitstorage, prime);
-    }
+    // while (prime < prime_endloop4) {
+    //     register const counter_t step  = prime * 2 + 1;
+    //     register counter_t start = compute_start(prime, block_start);
+    //     // setBitsTrue_largestep_repeat(bitstorage, start, step, block_stop);
+    //     setBitsTrue_largestep(bitstorage, start, step, block_stop);
+    //     prime = searchBitFalse_largestep(bitstorage, prime);
+    // }
 
     // while (prime <= prime_endloop5) {
     //     register const counter_t step  = prime * 2 + 1;

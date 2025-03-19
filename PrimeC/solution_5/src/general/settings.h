@@ -33,3 +33,5 @@
 #ifndef bitshift_t
     #define bitshift_t counter_t 
 #endif
+
+// #define COMPILE_FUNCTION_TIMINGS
