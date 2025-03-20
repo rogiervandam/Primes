@@ -6,7 +6,7 @@
 #include <assert.h>
 #include <stdbool.h>
 
-#include "../../src/general/all.h"
+#include "../../src/generic/all.h"
 #include "../../src/sieve/sieve_extend_continuePattern.h"
 
 int bit_get(bitword_t* bitstorage, counter_t index) {

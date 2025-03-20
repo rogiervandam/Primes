@@ -62,6 +62,14 @@ typedef uint16_t uint16v8_bitvector_t  __attribute__ ((vector_size(64), aligned(
   #define VECTOR_BYTEINDEX          ((bitvector_t){ 0, 1})
 #endif
 
+#define vectorindex_type(index, type)    ((index)>>shift_type(type))
+#define index_type(index, type)          ((index)>>shift_type(type)) // type is how the bits are stored, e.g.: uint8_t, uint16_t
+#define mask_type(type)                  (sizeof(type)*8-1)
+#define bitindex_calc_type(index, type)  ((index) & mask_type(type))
+#define markmask_calc_type(index, type)  ((type)1U << bitindex_calc_type(index, type))
+#define markmask_type(index, type)       ((type)1U << (index))
+#define bitcount_type(type)              (sizeof(type)*8) 
+
 // helper macros for word/vector indexing
 #define wordindex(index)            ((index) >>       SHIFT_WORD)
 #define wordend(index)              ((index) |          WORDMASK)

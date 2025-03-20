@@ -33,7 +33,8 @@ static inline void __attribute__((always_inline)) setBitsTrue_largestep_vector(b
     register counter_t range_start_new = range_start; // not in the inner loop because we want to use the value after the loop
 
     for (; range_start_new <= range_start_nexttvector; range_start_new += step) {
-        bitstorage[wordindex(range_start_new)] |= markmask_calc(range_start_new);
+        setBitTrue(bitstorage, range_start_new);
+        // bitstorage[wordindex(range_start_new)] |= markmask_calc(range_start_new);
     }
 
     create_mask_vector_largestep(bitstorage, range_start_new, step, range_stop);

@@ -1,3 +1,24 @@
+
+#define bitbucket_t uint8_t
+static inline void __attribute__((always_inline)) setBitTrue(void* restrict bitstorage, const register counter_t index) 
+{
+    ((bitbucket_t*)bitstorage)[index_type(index,bitbucket_t)] |= markmask_calc_type(index, bitbucket_t);
+    // bitstorage[wordindex(index)] |= markmask_calc(index);
+}
+
+// static inline void __attribute__((always_inline)) setBitTrue(bitbucket_t* restrict bitstorage, const register counter_t index) {
+//     bitstorage[index_type(index,bitbucket_t)] |= markmask_calc_type(index, bitbucket_t);
+//     // bitstorage[wordindex(index)] |= markmask_calc(index);
+// }
+#undef bitbucket_t
+
+
+static inline void __attribute__((always_inline)) setBitsTrue_range(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+{
+    for(register counter_t index = range_start; index < range_stop; index += step) setBitTrue(bitstorage, index);
+}
+
+
 // vector size operations
 #include "bitstorage_applyMask_vector.h"
 #include "bitstorage_setBItsTrue_largestep_vector.h"

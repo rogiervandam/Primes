@@ -22,7 +22,7 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
     struct timespec stripe_lapstart;
     struct timespec stripe_lapend;
 
-    counter_t stripe_passes[1000][20];
+    counter_t stripe_passes[1000][30];
     for(int i=0; i<1000; i++) { for(int j=0; j<20; j++) { stripe_passes[i][j] = 0; } }
 
     while (prime < prime_max) {
@@ -33,7 +33,7 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
         #define nonvector 1
         for(int method=0; method<=methods; method++) {
             const double time_start = stripeBenchmarkTime();
-            const double time_target = time_start + 0.004; 
+            const double time_target = time_start + 0.002; 
             double time_elapsed = 0;
             counter_t passes = 0;
             
@@ -46,10 +46,10 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
                     case  4: if (step > 64 && step < 512) { setBitsTrue_largestep_vector_uint64v8(bitstorage, start, step, block_stop); passes++; } break;
                     case  5: if (step > 64 && step < 256) { setBitsTrue_largestep_vector_uint64v4(bitstorage, start, step, block_stop); passes++; } break;
                     case  6: if (step > 64 && step < 128) { setBitsTrue_largestep_vector_uint64v2(bitstorage, start, step, block_stop); passes++; } break;
-                    case  7: if (step > 32 && step < 256) { setBitsTrue_largestep_vector_uint32v8(bitstorage, start, step, block_stop); passes++; } break;
-                    case  8: if (step > 16 && step < 128) { setBitsTrue_largestep_vector_uint16v8(bitstorage, start, step, block_stop); passes++; } break;
-                    case  9: if (step > VECTORWORD_SIZE_BITS ) { setBitsTrue_largestep_vector(bitstorage, start, step, block_stop); passes++; } break;
-                    case 10: setBitsTrue_largestep_repeat(bitstorage, start, step, block_stop); passes++; break;
+                    // case  7: if (step > 32 && step < 256) { setBitsTrue_largestep_vector_uint32v8(bitstorage, start, step, block_stop); passes++; } break;
+                    // case  8: if (step > 16 && step < 128) { setBitsTrue_largestep_vector_uint16v8(bitstorage, start, step, block_stop); passes++; } break;
+                    // case  9: if (step > VECTORWORD_SIZE_BITS ) { setBitsTrue_largestep_vector(bitstorage, start, step, block_stop); passes++; } break;
+                    // case 10: setBitsTrue_largestep_repeat(bitstorage, start, step, block_stop); passes++; break;
                     case 11: setBitsTrue_largestep_norepeat(bitstorage, start, step, block_stop); passes++; break;
                     case 12: setBitsTrue_largestep_repeat_uint8_unroll4(bitstorage, start, step, block_stop); passes++; break;
                     case 13: setBitsTrue_largestep_repeat_uint16_unroll4(bitstorage, start, step, block_stop); passes++; break;

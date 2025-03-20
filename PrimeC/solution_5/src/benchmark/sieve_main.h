@@ -26,10 +26,11 @@ int main(int argc, char *argv[])
     verbose2( printf("with max %ju \n", (uintmax_t)option.fixed_benchmark_settings.factor_max); )
         
     #ifdef COMPILE_FUNCTION_TIMINGS
-    struct sieve_t* sieve = shakeSieve(option.fixed_benchmark_settings.factor_max);
-    benchmarkSetBitsTrue(sieve->bitstorage, 256*1024, min(1000000/2, 512*1024), 2, 500);
-    sieve_delete(sieve);
-    exit(0);
+    if (option.timers) {
+        struct sieve_t* sieve = shakeSieve(option.fixed_benchmark_settings.factor_max);
+        benchmarkSetBitsTrue(sieve->bitstorage, 256*1024, min(1000000/2, 512*1024), 2, 500);
+        sieve_delete(sieve);
+    }
     #endif
 
     #ifdef COMPILE_EXPLAIN

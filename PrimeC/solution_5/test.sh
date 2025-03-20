@@ -136,8 +136,11 @@ for arg in "$@"; do
             explain|--explain)
                 DEFINE_FLAGS="-DCOMPILE_EXPLAIN $DEFINE_FLAGS"
                 ;;
-            timers|--timers)
+            timings|--timings)
                 DEFINE_FLAGS="-DCOMPILE_TIMERS $DEFINE_FLAGS"
+                ;;
+            timers|--timers)
+                DEFINE_FLAGS="-DCOMPILE_FUNCTION_TIMINGS $DEFINE_FLAGS"
                 ;;
             # Ignore other tokens.
         esac

@@ -5,9 +5,9 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include "../../src/general/helpers.h"
-#include "../../src/general/settings.h"
-#include "../../src/general/types.h"
+#include "../../src/generic/helpers.h"
+#include "../../src/generic/settings.h"
+#include "../../src/generic/types.h"
 #include "../../src/sieve/sieve_manager.h"
 
 

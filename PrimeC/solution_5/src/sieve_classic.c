@@ -24,12 +24,12 @@ static char algorithm_name[] = "rogiervandam_classic";
 static char algorithm_type[] = "base";
 
 // include helper functions
-#include "general/preset.h"
-#include "general/settings.h"
-#include "general/helpers.h"
-#include "general/types.h"
-#include "general/verbose.h"
-#include "general/tools.h"
+#include "generic/preset.h"
+#include "generic/settings.h"
+#include "generic/helpers.h"
+#include "generic/types.h"
+#include "generic/verbose.h"
+#include "generic/tools.h"
 #include "benchmark/sieve_options.h"
 #include "benchmark/sieve_timers.h"
 #include "bitstorage/bitstorage_search.h"

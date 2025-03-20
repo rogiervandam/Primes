@@ -36,7 +36,10 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
         #ifdef COMPILE_EXPLAIN
         else if (strcmp_local(argv[arg], "--explain")==0) { option.explain=1;  verbose2( printf("Explain ON\n"); ) }
         #endif
-        #ifdef COMPILE_TIMERS
+        #ifdef COMPILE_TIMERS 
+        else if (strcmp_local(argv[arg], "--timers")==0) { option.timers=2; }
+        #endif
+        #ifdef COMPILE_FUNCTION_TIMINGS 
         else if (strcmp_local(argv[arg], "--timers")==0) { option.timers=1; }
         #endif
         else if (strcmp_local(argv[arg], "--check")==0) { option.check=1; }
