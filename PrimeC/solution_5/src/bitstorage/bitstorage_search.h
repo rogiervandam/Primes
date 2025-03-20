@@ -18,6 +18,15 @@ static inline counter_t __attribute__((always_inline)) countInvalidInStripe(cons
     return count;
 }
 
+static inline counter_t __attribute__((always_inline)) countBitsTrue(const bitword_t* restrict bitstorage, const counter_t range_start, const counter_t range_stop) 
+{
+    counter_t count = 0;
+    for (counter_t index = range_start; index < range_stop; index++) {
+        count += checkBitTrue(bitstorage, index) ? 1 : 0;
+    }
+    return count;
+}
+
 static inline counter_t __attribute__((always_inline)) faultInvalidInStripe(const bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     counter_t count = 0;

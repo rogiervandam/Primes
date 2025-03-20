@@ -1,7 +1,8 @@
-#ifdef variant
-#define bitbucket_t NAME(variant, _t)
-#define variantsuffix NAME(_,variant)
-#else
+// #ifdef variant
+// #define bitbucket_t NAME(variant, _t)
+// #define variantsuffix NAME(_,variant)
+
+#ifndef variant
 #define bitbucket_t uint8_t
 
 static inline void __attribute__((always_inline)) 
@@ -67,15 +68,5 @@ static inline void  __attribute__((always_inline)) NAME(setBitsTrue_smallstep,su
     timer_laptime(time_setBitsTrue_smallstep_norepeat); verbose6( printf("\n"); )
 }
 
-#undef variant
-#undef variantsuffix
-#undef unrollssuffix
-#undef fullvariantsuffix
-#undef bitbucket_t
-#undef suffix
-#undef subfunction
+#include "../generic/cleansuffix.h"
 
-#ifdef UNSET_UNROLLS
-    #undef unrolls
-    #undef UNSET_UNROLLS
-#endif

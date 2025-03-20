@@ -1,8 +1,6 @@
-#ifdef variant
-    #define bitbucket_t NAME(variant, _t)
-    #define variantsuffix NAME(_,variant)
-#else
-    #define bitbucket_t bitword_t
+
+#ifndef variant
+#define bitbucket_t uint8_t
 #endif
 
 #define subfunction _repeat
@@ -70,16 +68,6 @@ static inline void __attribute__((always_inline)) NAME(setBitsTrue_largestep,suf
     } 
     timer_laptime(time_setBitsTrue_largestep_repeat); verbose6(printf("\n")); 
 }
-    
-#undef variant
-#undef variantsuffix
-#undef unrollssuffix
-#undef fullvariantsuffix
-#undef bitbucket_t
-#undef suffix
-#undef subfunction
 
-#ifdef UNSET_UNROLLS
-    #undef unrolls
-    #undef UNSET_UNROLLS
-#endif
+#include "../generic/cleansuffix.h"
+

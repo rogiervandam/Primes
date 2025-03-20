@@ -52,15 +52,16 @@ static inline void __attribute__((always_inline)) NAME(applyMask,suffix)(bitbuck
     timer_laptime(time_applyMask_vector); verbose8( printf("\n"); )
 }
 
-#undef variant
-#undef variantsuffix
-#undef unrollssuffix
-#undef fullvariantsuffix
-#undef bitbucket_t
-#undef suffix
-#undef subfunction
+#include "../generic/cleansuffix.h"
+// #undef variant
+// #undef variantsuffix
+// #undef unrollssuffix
+// #undef fullvariantsuffix
+// #undef bitbucket_t
+// #undef suffix
+// #undef subfunction
 
-#ifdef UNSET_UNROLLS
-    #undef unrolls
-    #undef UNSET_UNROLLS
-#endif
+// #ifdef UNSET_UNROLLS
+//     #undef unrolls
+//     #undef UNSET_UNROLLS
+// #endif

@@ -5,6 +5,8 @@ static counter_t countPrimesInSieve(struct sieve_t *sieve)
     return prime_count;
 }
 
+
+
 static void showPrimesinSieve(struct sieve_t *sieve, counter_t factor_max) 
 {
     counter_t prime_count = 1;    // We already have 2

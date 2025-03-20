@@ -1,3 +1,8 @@
+#ifdef variant
+    #define bitbucket_t NAME(variant, _t)
+    #define variantsuffix NAME(_,variant)
+#endif
+
 #undef suffix
 #undef fullvariantsuffix
 #undef unrollsuffix

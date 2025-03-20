@@ -39,7 +39,7 @@ static inline void __attribute__((always_inline)) sieve_clear(struct sieve_t *si
     }
 
     // alternative, but dependent on <string.h>
-    // memset(sieve->bitstorage, 0, (sieve->bits >> 3) + 1 ); // add one to make sure the 
+    // memset(sieve->bitstorage, 0, (sieve->bits >> 3) + 1 ); // add one to make sure  
 }
 
 // delete the sieve

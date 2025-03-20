@@ -26,7 +26,11 @@ static const SetBitsTrueMethod setBitsTrueMethods[] = {
     {6, "largestep_vector_uint64v4", setBitsTrue_largestep_vector_uint64v4, 65, 255, 1},
     {7, "largestep_vector_uint64v2", setBitsTrue_largestep_vector_uint64v2, 65, 127, 1},
     {8, "largestep_vector_uint32v8", setBitsTrue_largestep_vector_uint32v8, 33, 255, 0},
+    {8, "largestep_vector_uint32v8", setBitsTrue_largestep_vector_uint32v4, 33, 255, 0},
+    {8, "largestep_vector_uint32v8", setBitsTrue_largestep_vector_uint32v2, 33, 255, 0},
     {9, "largestep_vector_uint16v8", setBitsTrue_largestep_vector_uint16v8, 17, 127, 0},
+    {9, "largestep_vector_uint16v8", setBitsTrue_largestep_vector_uint16v4, 17, 127, 0},
+    {9, "largestep_vector_uint16v8", setBitsTrue_largestep_vector_uint16v2, 17, 127, 0},
     {9, "largestep_vector_uint16v8_unroll8", setBitsTrue_largestep_vector_uint16v8_unroll8, 17, 127, 0},
     // {10, "largestep_vector", setBitsTrue_largestep_vector, VECTORWORD_SIZE_BITS+1, INT32_MAX, 0},
     {11, "largestep_norepeat", setBitsTrue_largestep_norepeat, 0, INT32_MAX, 1},
@@ -40,6 +44,41 @@ static const SetBitsTrueMethod setBitsTrueMethods[] = {
     {19, "largestep_repeat_uint64_unroll8", setBitsTrue_largestep_repeat_uint64_unroll8, 0, INT32_MAX, 1},
     // {20, "largestep_norepeat_unroll2", setBitsTrue_largestep_norepeat_unroll2, 0, INT32_MAX, 0}
 };
+
+static int checkSetBitsTrueMethod(const SetBitsTrueMethod* method, const counter_t range_start, const counter_t step, const counter_t range_stop)
+{
+    // create sieve
+    bitword_t* bitstorage = (bitword_t*)calloc(1, index_type(range_stop, uint8_t));
+    if (bitstorage == NULL) {
+        fprintf(stderr, "Error: Unable to allocate memory for bitstorage\n");
+        exit(1);
+    }
+    memset(bitstorage, 0,  index_type(range_stop, uint8_t));
+
+    setBitsTrue_range(bitstorage, range_start, step, range_stop);
+    counter_t target_count = countBitsTrue(bitstorage, range_start, range_stop);
+    memset(bitstorage, 0, index_type(range_stop, uint8_t));
+
+    method->func(bitstorage, range_start, step, range_stop);
+    counter_t actual_count = countBitsTrue(bitstorage, range_start, range_stop);
+
+    if (actual_count != target_count) {
+        printf("Method %s failed with %ju bits set, expected %ju\n", method->name, (uintmax_t)actual_count, (uintmax_t)target_count);
+        free(bitstorage);
+        return 0;
+    }
+    
+    // check if the method is correct
+    counter_t invalid = countInvalidInStripe(bitstorage, range_start, step, range_stop);
+    if (invalid) {
+        printf("Method %s failed with %ju invalid bits\n", method->name, (uintmax_t)invalid);
+        free(bitstorage);
+        return 0;
+    }
+
+    free(bitstorage);
+    return 1;
+}  
 
 #define NUM_METHODS (sizeof(setBitsTrueMethods) / sizeof(SetBitsTrueMethod))
 static inline double stripeBenchmarkTime() 
@@ -65,7 +104,7 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
     counter_t stripe_passes[1000][30];
     for(int i=0; i<1000; i++) { for(int j=0; j<30; j++) { stripe_passes[i][j] = 0; } }
 
-    #define methods 19
+    #define methods NUM_METHODS
     #define nonvector 1
 
     while (prime < prime_max) {
@@ -104,7 +143,11 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
     // Output method names in a separate row for reference
     printf("Name      ");
     for(int method=0; method<=methods; method++) {
-        printf("%3d %s \n", method, setBitsTrueMethods[method].name);
+        printf("%3d %s ", method, setBitsTrueMethods[method].name);
+        // int valid = checkSetBitsTrueMethod(&setBitsTrueMethods[method], block_start, 1, block_stop);
+        // if (valid) printf("\033[32m✓ valid\033[0m ");
+        // else printf("\033[31m✗ NOT VALID\033[0m ");
+        // printf("\n");
     }
     printf("\n");
 

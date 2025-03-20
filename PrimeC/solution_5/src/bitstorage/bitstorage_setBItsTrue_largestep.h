@@ -1,9 +1,3 @@
-#ifdef variant
-    #define bitbucket_t NAME(variant, _t)
-    #define variantsuffix NAME(_,variant)
-#else
-    #define bitbucket_t uint64v4
-#endif
 
 #define subfunction _largestep
 #include "../generic/setsuffix.h"
@@ -34,8 +28,6 @@ static inline void __attribute__((always_inline)) NAME(create_mask_vector,suffix
         NAME(applyMask,fullvariantsuffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
         current_vector++;
     }
-    // setBitsTrue_range(bitstorage, range_start_new, step, range_stop);
-    // faultInvalidInStripe(bitstorage, range_start, step, range_stop);
 
     timer_laptime(time_create_mask_vector_largestep); 
 }
@@ -62,15 +54,4 @@ static inline void __attribute__((always_inline)) NAME(setBitsTrue_largestep,suf
     timer_laptime(time_setBitsTrue_largestep_vector_vectorstep); verbose6( printf("\n"); )
 }
 
-#undef variant
-#undef variantsuffix
-#undef unrollssuffix
-#undef fullvariantsuffix
-#undef bitbucket_t
-#undef suffix
-#undef subfunction
-
-#ifdef UNSET_UNROLLS
-#undef unrolls
-#undef UNSET_UNROLLS
-#endif
+#include "../generic/cleansuffix.h"

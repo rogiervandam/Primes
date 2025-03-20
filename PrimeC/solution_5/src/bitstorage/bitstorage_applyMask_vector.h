@@ -11,9 +11,19 @@
 #include "bitstorage_applyMask.h"
 #define variant uint64v8
 #include "bitstorage_applyMask.h"
+#define variant uint16v2
+#include "bitstorage_applyMask.h"
+#define variant uint16v4
+#include "bitstorage_applyMask.h"
 #define variant uint16v8
 #include "bitstorage_applyMask.h"
+#define variant uint16v16
+#include "bitstorage_applyMask.h"
 #define variant uint16v32
+#include "bitstorage_applyMask.h"
+#define variant uint32v2
+#include "bitstorage_applyMask.h"
+#define variant uint32v4
 #include "bitstorage_applyMask.h"
 #define variant uint32v8
 #include "bitstorage_applyMask.h"
@@ -28,9 +38,19 @@
 #include "bitstorage_applyMask.h"
 #define variant uint64v8
 #include "bitstorage_applyMask.h"
+#define variant uint16v2
+#include "bitstorage_applyMask.h"
+#define variant uint16v4
+#include "bitstorage_applyMask.h"
 #define variant uint16v8
 #include "bitstorage_applyMask.h"
+#define variant uint16v16
+#include "bitstorage_applyMask.h"
 #define variant uint16v32
+#include "bitstorage_applyMask.h"
+#define variant uint32v2
+#include "bitstorage_applyMask.h"
+#define variant uint32v4
 #include "bitstorage_applyMask.h"
 #define variant uint32v8
 #include "bitstorage_applyMask.h"
@@ -44,9 +64,19 @@
 #include "bitstorage_applyMask.h"
 #define variant uint64v8
 #include "bitstorage_applyMask.h"
+#define variant uint16v2
+#include "bitstorage_applyMask.h"
+#define variant uint16v4
+#include "bitstorage_applyMask.h"
 #define variant uint16v8
 #include "bitstorage_applyMask.h"
+#define variant uint16v16
+#include "bitstorage_applyMask.h"
 #define variant uint16v32
+#include "bitstorage_applyMask.h"
+#define variant uint32v2
+#include "bitstorage_applyMask.h"
+#define variant uint32v4
 #include "bitstorage_applyMask.h"
 #define variant uint32v8
 #include "bitstorage_applyMask.h"
