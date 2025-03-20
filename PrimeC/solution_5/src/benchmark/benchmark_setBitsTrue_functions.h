@@ -43,9 +43,10 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
                     case  1: if (step < VECTORWORD_SIZE_BITS) { setBitsTrue_smallstep_vector_rotate_pair(bitstorage, start, step, block_stop); passes++; } break;
                     case  2: if (step < VECTORWORD_SIZE_BITS) { setBitsTrue_smallstep_vector_rotate(bitstorage, start, step, block_stop); passes++; } break;
                     case  3: if (step < WORD_SIZE_BITS) { setBitsTrue_smallstep_repeat(bitstorage, start, step, block_stop); passes++; } break;
-                    case  4: if (step > 64 && step < 512) { setBitsTrue_largestep_vector_uint64v8(bitstorage, start, step, block_stop); passes++; } break;
-                    case  5: if (step > 64 && step < 256) { setBitsTrue_largestep_vector_uint64v4(bitstorage, start, step, block_stop); passes++; } break;
-                    case  6: if (step > 64 && step < 128) { setBitsTrue_largestep_vector_uint64v2(bitstorage, start, step, block_stop); passes++; } break;
+                    case  4: if (step < WORD_SIZE_BITS) { setBitsTrue_smallstep_repeat_uint64_unroll8(bitstorage, start, step, block_stop); passes++; } break;
+                    case  5: if (step > 64 && step < 512) { setBitsTrue_largestep_vector_uint64v8(bitstorage, start, step, block_stop); passes++; } break;
+                    case  6: if (step > 64 && step < 256) { setBitsTrue_largestep_vector_uint64v4(bitstorage, start, step, block_stop); passes++; } break;
+                    case  7: if (step > 64 && step < 128) { setBitsTrue_largestep_vector_uint64v2(bitstorage, start, step, block_stop); passes++; } break;
                     // case  7: if (step > 32 && step < 256) { setBitsTrue_largestep_vector_uint32v8(bitstorage, start, step, block_stop); passes++; } break;
                     // case  8: if (step > 16 && step < 128) { setBitsTrue_largestep_vector_uint16v8(bitstorage, start, step, block_stop); passes++; } break;
                     // case  9: if (step > VECTORWORD_SIZE_BITS ) { setBitsTrue_largestep_vector(bitstorage, start, step, block_stop); passes++; } break;

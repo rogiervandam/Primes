@@ -22,6 +22,31 @@ setBitsTrue_range(void* restrict bitstorage, const counter_t range_start, const 
 #include "bitstorage_setBitsTrue_largestep_word.h"
 #include "bitstorage_setBitsTrue_smallstep_word.h"
 
+#undef unrolls
+#undef variant
+#include "bitstorage_setBitsTrue_repeat.h"
+
+#define variant uint8
+#include "bitstorage_setBitsTrue_repeat.h"
+#define variant uint16
+#include "bitstorage_setBitsTrue_repeat.h"
+#define variant uint32
+#include "bitstorage_setBitsTrue_repeat.h"
+#define variant uint64
+#include "bitstorage_setBitsTrue_repeat.h"
+
+#define unrolls 8
+#define variant uint8
+#include "bitstorage_setBitsTrue_repeat.h"
+#define variant uint16
+#include "bitstorage_setBitsTrue_repeat.h"
+#define variant uint32
+#include "bitstorage_setBitsTrue_repeat.h"
+#define variant uint64
+#include "bitstorage_setBitsTrue_repeat.h"
+#undef unrolls
+
+
 static inline void  __attribute__((always_inline)) setBitsTrue_largestep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
     if (range_start + step * 8 * 8 * 8 <= range_stop) { // // 8 bit 8 roll 8 tuned value

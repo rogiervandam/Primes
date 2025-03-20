@@ -26,3 +26,13 @@
 #define variant uint64
 #include "bitstorage_applyMask.h"
 #undef unrolls
+
+// convenience function without unrolls, default to 4
+#define variant uint8
+#include "bitstorage_applyMask.h"
+#define variant uint16
+#include "bitstorage_applyMask.h"
+#define variant uint32
+#include "bitstorage_applyMask.h"
+#define variant uint64
+#include "bitstorage_applyMask.h"

@@ -76,8 +76,6 @@ typedef uint16_t uint16v8_t  __attribute__ ((vector_size(64), aligned(cache_line
 #define markmask_calc_type(index, type)   ((type)1U << bitindex_calc_type(index, type))
 #define markmask_unsafe_type(index, type) ((type)1U << (index))
 #define markmask_type(index, type)        (sizeof(type)==8 ? markmask_unsafe_type(index, type) : markmask_calc_type(index, type))
-
-
 #define bitcount_type(type)              (sizeof(type)*8) 
 
 // helper macros for word/vector indexing
