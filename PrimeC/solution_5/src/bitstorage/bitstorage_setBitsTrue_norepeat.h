@@ -3,7 +3,21 @@
 #define variantsuffix NAME(_,variant)
 #else
 #define bitbucket_t uint8_t
+
+static inline void __attribute__((always_inline)) 
+setBitTrue(void* restrict bitstorage, const register counter_t index) 
+{
+    ((bitbucket_t*)bitstorage)[index_type(index,bitbucket_t)] |= markmask_calc_type(index, bitbucket_t);
+}
+
+static inline void __attribute__((always_inline)) 
+setBitsTrue_range(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+{
+    for(register counter_t index = range_start; index < range_stop; index += step) setBitTrue(bitstorage, index);
+}
+
 #endif
+
 
 #define subfunction _norepeat
 #include "../generic/setsuffix.h"

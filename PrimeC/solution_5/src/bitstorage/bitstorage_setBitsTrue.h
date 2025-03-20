@@ -1,16 +1,8 @@
-#define bitbucket_t uint8_t
-static inline void __attribute__((always_inline)) 
-setBitTrue(void* restrict bitstorage, const register counter_t index) 
-{
-    ((bitbucket_t*)bitstorage)[index_type(index,bitbucket_t)] |= markmask_calc_type(index, bitbucket_t);
-}
-#undef bitbucket_t
+#undef variant
+#include "bitstorage_setBitsTrue_norepeat.h"
 
-static inline void __attribute__((always_inline)) 
-setBitsTrue_range(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
-{
-    for(register counter_t index = range_start; index < range_stop; index += step) setBitTrue(bitstorage, index);
-}
+#define variant uint8
+#include "bitstorage_setBitsTrue_norepeat.h"
 
 
 // vector size operations
@@ -19,12 +11,6 @@ setBitsTrue_range(void* restrict bitstorage, const counter_t range_start, const 
 
 // word size operations
 #include "bitstorage_applyMask_word.h"
-
-#define variant uint8
-#include "bitstorage_setBitsTrue_norepeat.h"
-
-#undef variant
-#include "bitstorage_setBitsTrue_norepeat.h"
 
 #undef unrolls
 #define variant_base_type uint64_t 
