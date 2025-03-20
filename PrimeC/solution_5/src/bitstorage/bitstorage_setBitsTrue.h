@@ -38,7 +38,13 @@
 // #include "bitstorage_setBItsTrue_largestep.h" 
 #define variant uint16v8
 #include "bitstorage_setBItsTrue_largestep.h" 
-
+#define unrolls 8
+// #define variant uint16v2
+// #include "bitstorage_setBItsTrue_largestep.h" 
+// #define variant uint16v4
+// #include "bitstorage_setBItsTrue_largestep.h" 
+#define variant uint16v8
+#include "bitstorage_setBItsTrue_largestep.h" 
 
 // create smallstep functions
 #undef unrolls
@@ -68,7 +74,7 @@
 #undef unrolls
 
 
-static inline void  __attribute__((always_inline)) setBitsTrue_largestep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+static inline void  __attribute__((always_inline)) setBitsTrue_largestep(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
     if (range_start + step * 8 * 8 * 8 <= range_stop) { // // 8 bit 8 roll 8 tuned value
         setBitsTrue_largestep_repeat_uint8_unroll8(bitstorage, range_start, step, range_stop);
@@ -86,7 +92,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largestep(bitword
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
 // This version uses vectorization for the larger ranges
 // assumes the range is larger than VECTOR_SIZE_BITS
-static inline void  __attribute__((always_inline)) setBitsTrue(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+static inline void  __attribute__((always_inline)) setBitsTrue(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose6(  printf("Setting bits step %3ju using setBitsTrue in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps) \n", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step))); )
     timer_lapstart(time_setBitsTrue);

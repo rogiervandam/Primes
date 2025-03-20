@@ -3,7 +3,7 @@
 // THe vectormask can be build by extending the WORD size mask
 // TODO: check loop unrolling this
 // this is *NOT* BASE ALGORITHM COMPLIANT: some bits are set together
-static inline void __attribute__((always_inline)) create_mask_vector_smallstep(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+static inline void __attribute__((always_inline)) create_mask_vector_smallstep(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
     // verbose7(  { const counter_t range_stop_unique = min(range_start + step * VECTOR_SIZE_BITS, range_stop);
     //     printf("\n..Setting bits step %3ju using create_mask_vector_smallstep in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps starting at %ju)", 
@@ -38,7 +38,7 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep(b
     timer_laptime(time_create_mask_vector_smallstep); 
 }
 
-static inline void __attribute__((always_inline)) create_mask_vector_smallstep_rotate(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+static inline void __attribute__((always_inline)) create_mask_vector_smallstep_rotate(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
     // verbose7(  { const counter_t range_stop_unique = min(range_start + step * VECTOR_SIZE_BITS, range_stop);
     //     printf("\n..Setting bits step %3ju using create_mask_vector_smallstep in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps starting at %ju)", 
@@ -72,7 +72,7 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep_r
     timer_laptime(time_create_mask_vector_smallstep); 
 }
 
-static inline void __attribute__((always_inline)) create_mask_vector_smallstep_rotate_pair(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+static inline void __attribute__((always_inline)) create_mask_vector_smallstep_rotate_pair(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
     // verbose7(  { const counter_t range_stop_unique = min(range_start + step * VECTOR_SIZE_BITS, range_stop);
     //     printf("\n..Setting bits step %3ju using create_mask_vector_smallstep in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps starting at %ju)", 
@@ -231,7 +231,7 @@ static inline void __attribute__((always_inline)) create_mask_vector_smallstep_r
 // }
 
 // this is *NOT* BASE ALGORITHM COMPLIANT: some bits are set together
-static inline void __attribute__((always_inline)) setBitsTrue_smallstep_vector_rotate(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+static inline void __attribute__((always_inline)) setBitsTrue_smallstep_vector_rotate(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose6(  printf("Setting bits step %3ju using largestep vector_word in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps)", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step))); )
     timer_lapstart(time_setBitsTrue_largestep_vector_wordstep);
@@ -240,7 +240,7 @@ static inline void __attribute__((always_inline)) setBitsTrue_smallstep_vector_r
 
     register counter_t range_start_new = range_start;
     for (; range_start_new <= range_start_nexttvector; range_start_new += step) {
-        bitstorage[wordindex(range_start_new)] |= markmask_calc(range_start_new);
+        setBitTrue(bitstorage, range_start_new);
     }
 
     if (range_start_new > range_stop) return;
@@ -250,7 +250,7 @@ static inline void __attribute__((always_inline)) setBitsTrue_smallstep_vector_r
 }
 
 // this is *NOT* BASE ALGORITHM COMPLIANT: some bits are set together
-static inline void __attribute__((always_inline)) setBitsTrue_smallstep_vector_rotate_pair(bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+static inline void __attribute__((always_inline)) setBitsTrue_smallstep_vector_rotate_pair(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose6(  printf("Setting bits step %3ju using largestep vector_word in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps)", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step))); )
     timer_lapstart(time_setBitsTrue_largestep_vector_wordstep);
@@ -259,7 +259,7 @@ static inline void __attribute__((always_inline)) setBitsTrue_smallstep_vector_r
 
     register counter_t range_start_new = range_start;
     for (; range_start_new <= range_start_nexttvector; range_start_new += step) {
-        bitstorage[wordindex(range_start_new)] |= markmask_calc(range_start_new);
+        setBitTrue(bitstorage, range_start_new);
     }
 
     if (range_start_new > range_stop) return;
