@@ -12,6 +12,8 @@ setBitsTrue_range(void* restrict bitstorage, const counter_t range_start, const 
     for(register counter_t index = range_start; index < range_stop; index += step) setBitTrue(bitstorage, index);
 }
 
+
+
 // vector size operations
 #include "bitstorage_applyMask_vector.h"
 #include "bitstorage_setBItsTrue_largestep_vector.h"
@@ -19,13 +21,19 @@ setBitsTrue_range(void* restrict bitstorage, const counter_t range_start, const 
 
 // word size operations
 #include "bitstorage_applyMask_word.h"
-#include "bitstorage_setBitsTrue_largestep_word.h"
-#include "bitstorage_setBitsTrue_smallstep_word.h"
 
+#define variant uint8
+#include "bitstorage_setBitsTrue_norepeat.h"
+
+#undef variant
+#include "bitstorage_setBitsTrue_norepeat.h"
+
+// create smallstep functions
 #undef unrolls
 #undef variant
 #include "bitstorage_setBitsTrue_repeat.h"
 
+#define unrolls 4
 #define variant uint8
 #include "bitstorage_setBitsTrue_repeat.h"
 #define variant uint16
@@ -34,6 +42,7 @@ setBitsTrue_range(void* restrict bitstorage, const counter_t range_start, const 
 #include "bitstorage_setBitsTrue_repeat.h"
 #define variant uint64
 #include "bitstorage_setBitsTrue_repeat.h"
+#undef unrolls
 
 #define unrolls 8
 #define variant uint8
@@ -98,24 +107,24 @@ static inline void  __attribute__((always_inline)) setBitsTrue(bitword_t* restri
         timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
         return;
     }
-    // else if (step > 64 && step <= 512) {
-    //     const counter_t range_stop_unique_vector = range_start + 512 * step;
+    // else if (step > 64 && step <= 256) {
+    //     const counter_t range_stop_unique_vector = range_start + 256 * step;
     //     if (range_stop_unique_vector <= range_stop) {
-    //         setBitsTrue_largestep_vector_uint64v8(bitstorage, range_start, step, range_stop);
+    //         setBitsTrue_largestep_vector_uint64v4(bitstorage, range_start, step, range_stop);
     //         timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
     //         return;
     //     }
     // }
-    else if (step <= VECTOR_SIZE_BITS) {
-        if (step < global_largestep_faster) {
-            const counter_t range_stop_unique_vector = range_start + VECTOR_SIZE_BITS * step;
-            if (range_stop_unique_vector <= range_stop) {
-                setBitsTrue_largestep_vector_uint64v2(bitstorage, range_start, step, range_stop);
-                timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
-                return;
-            }
-        }
-    }
+    // else if (step <= VECTOR_SIZE_BITS) {
+    //     if (step < global_largestep_faster) {
+    //         const counter_t range_stop_unique_vector = range_start + VECTOR_SIZE_BITS * step;
+    //         if (range_stop_unique_vector <= range_stop) {
+    //             setBitsTrue_largestep_vector_uint64v2(bitstorage, range_start, step, range_stop);
+    //             timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
+    //             return;
+    //         }
+    //     }
+    // }
  
     setBitsTrue_largestep(bitstorage, range_start, step, range_stop);
     timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )

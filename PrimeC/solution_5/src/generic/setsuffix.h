@@ -1,5 +1,10 @@
 #undef suffix
 #undef fullvariantsuffix
+#undef unrollsuffix
+#ifdef UNSET_UNROLLS
+    #undef unrolls
+    #undef UNSET_UNROLLS
+#endif
 
 #ifdef unrolls
     #define unrollssuffix NAME(_unroll,unrolls)

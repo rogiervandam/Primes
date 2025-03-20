@@ -51,8 +51,14 @@ typedef uint64_t uint64v4_t  __attribute__ ((vector_size(32), aligned(cache_line
 typedef uint64_t uint64v2_t  __attribute__ ((vector_size(16), aligned(cache_line_bytes)));
 typedef uint32_t uint32v16_t __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
 typedef uint32_t uint32v8_t  __attribute__ ((vector_size(32), aligned(cache_line_bytes)));
+typedef uint32_t uint32v4_t  __attribute__ ((vector_size(16), aligned(cache_line_bytes)));
+typedef uint32_t uint32v2_t  __attribute__ ((vector_size(8), aligned(cache_line_bytes)));
 typedef uint16_t uint16v32_t __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
-typedef uint16_t uint16v8_t  __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
+typedef uint16_t uint16v16_t __attribute__ ((vector_size(32), aligned(cache_line_bytes)));
+typedef uint16_t uint16v8_t  __attribute__ ((vector_size(16), aligned(cache_line_bytes)));
+typedef uint16_t uint16v4_t  __attribute__ ((vector_size(8), aligned(cache_line_bytes)));
+typedef uint16_t uint16v2_t  __attribute__ ((vector_size(4), aligned(cache_line_bytes)));
+
 
 
 #if VECTOR_ELEMENTS == 16
@@ -76,7 +82,9 @@ typedef uint16_t uint16v8_t  __attribute__ ((vector_size(64), aligned(cache_line
 #define markmask_calc_type(index, type)   ((type)1U << bitindex_calc_type(index, type))
 #define markmask_unsafe_type(index, type) ((type)1U << (index))
 #define markmask_type(index, type)        (sizeof(type)==8 ? markmask_unsafe_type(index, type) : markmask_calc_type(index, type))
-#define bitcount_type(type)              (sizeof(type)*8) 
+#define bitcount_type(type)               (sizeof(type)*8) 
+#define vectorstart_type(index, type)     ((index) & ~mask_type(type))
+
 
 // helper macros for word/vector indexing
 #define wordindex(index)            ((index) >>       SHIFT_WORD)

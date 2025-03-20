@@ -80,7 +80,7 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
 
     for(int step=1; step<prime_max*2+1; step+=2) {
         counter_t prime = (step-1) >> 1;
-        if (checkBitFalse(bitstorage, prime)==0 ) {
+        if (checkBitFalse(bitstorage, prime) ) {
             printf("Step %4ju ", (uintmax_t)step);
             
             // Find the maximum and second largest value among methods 4-18

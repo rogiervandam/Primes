@@ -24,7 +24,7 @@ done
 set -- "${ARGS_TO_KEEP[@]}"
 
 CC=""
-CC="-march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -std=c11  -Wall -Wno-unused-function -Wno-unused-variable -Wno-unknown-pragmas"  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections
+CC="-march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions   -Wall -Wno-unused-function -Wno-unused-variable -Wno-unknown-pragmas"  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections -std=c11
 
 # Determine which compiler to use based on override or auto-detection
 USE_CLANG=0
