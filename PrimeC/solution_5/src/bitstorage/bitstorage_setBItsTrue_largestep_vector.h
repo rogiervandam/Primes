@@ -17,7 +17,8 @@ static inline void __attribute__((always_inline)) create_mask_vector_largestep(b
                 index += step;
             }
         }
-        applyMask_vector(bitstorage_vector, step, range_stop, mask_vector, current_vector);
+        // applyMask_vector(bitstorage_vector, step, range_stop, mask_vector, current_vector);
+        applyMask_uint64v4(bitstorage_vector, step, range_stop, mask_vector, current_vector);
         current_vector++;
     }
     timer_laptime(time_create_mask_vector_largestep); 
@@ -195,7 +196,7 @@ static inline void __attribute__((always_inline)) create_mask_vector_largestep_#
                 index += step; \
             } \
         } \
-        applyMask_vector_##TYPE_PREFIX(bitstorage_vector, step, range_stop, mask_vector, current_vector); \
+        applyMask_##TYPE_PREFIX(bitstorage_vector, step, range_stop, mask_vector, current_vector); \
         current_vector++; \
     } \
     timer_laptime(time_create_mask_vector_largestep); \

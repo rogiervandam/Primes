@@ -1,56 +1,24 @@
-
-#define variant uint8
-#define unrolls 4
+#define unrolls 4 
+#define variant uint8 
 #include "bitstorage_setBitsTrue_largestep_body.h"
-
-#define variant uint8
-#define unrolls 8
-#include "bitstorage_setBitsTrue_largestep_body.h"
-
-#define variant uint8
-#define unrolls 16
-#include "bitstorage_setBitsTrue_largestep_body.h"
-
-#define variant uint8
-#define unrolls 32
-#include "bitstorage_setBitsTrue_largestep_body.h"
-
 #define variant uint16
-#define unrolls 4
 #include "bitstorage_setBitsTrue_largestep_body.h"
-
-#define variant uint16
-#define unrolls 8
-#include "bitstorage_setBitsTrue_largestep_body.h"
-
-#define variant uint16
-#define unrolls 16
-#include "bitstorage_setBitsTrue_largestep_body.h"
-
-#define variant uint16
-#define unrolls 32
-#include "bitstorage_setBitsTrue_largestep_body.h"
-
 #define variant uint32
-#define unrolls 4
 #include "bitstorage_setBitsTrue_largestep_body.h"
-
-#define variant uint32
-#define unrolls 8
-#include "bitstorage_setBitsTrue_largestep_body.h"
-
-#define variant uint32
-#define unrolls 16
-#include "bitstorage_setBitsTrue_largestep_body.h"
-
 #define variant uint64
-#define unrolls 4
 #include "bitstorage_setBitsTrue_largestep_body.h"
+#undef unrolls
 
+#define unrolls 8   
+#define variant uint8 
+#include "bitstorage_setBitsTrue_largestep_body.h"
+#define variant uint16
+#include "bitstorage_setBitsTrue_largestep_body.h"
+#define variant uint32
+#include "bitstorage_setBitsTrue_largestep_body.h"
 #define variant uint64
-#define unrolls 8
 #include "bitstorage_setBitsTrue_largestep_body.h"
-
+#undef unrolls
 
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
 // this is a BASE ALGORITHM COMPLIANT: each bit is set individually

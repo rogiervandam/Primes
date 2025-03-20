@@ -29,7 +29,7 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
         register const counter_t step  = prime * 2 + 1;
         register counter_t start = compute_start(prime, block_start);
 
-        #define methods 24
+        #define methods 19
         #define nonvector 1
         for(int method=0; method<=methods; method++) {
             const double time_start = stripeBenchmarkTime();
@@ -59,11 +59,6 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
                     case 17: setBitsTrue_largestep_repeat_uint16_unroll8(bitstorage, start, step, block_stop); passes++; break;
                     case 18: setBitsTrue_largestep_repeat_uint32_unroll8(bitstorage, start, step, block_stop); passes++; break;
                     case 19: setBitsTrue_largestep_repeat_uint64_unroll8(bitstorage, start, step, block_stop); passes++; break;
-                    case 20: setBitsTrue_largestep_repeat_uint8_unroll16(bitstorage, start, step, block_stop); passes++; break;
-                    case 21: setBitsTrue_largestep_repeat_uint16_unroll16(bitstorage, start, step, block_stop); passes++; break;
-                    case 22: setBitsTrue_largestep_repeat_uint32_unroll16(bitstorage, start, step, block_stop); passes++; break;
-                    case 23: setBitsTrue_largestep_repeat_uint8_unroll32(bitstorage, start, step, block_stop); passes++; break;
-                    case 24: setBitsTrue_largestep_repeat_uint16_unroll32(bitstorage, start, step, block_stop); passes++; break;
                     // case 19: setBitsTrue_largestep_norepeat_unroll2(bitstorage, start, step, block_stop); passes++; break;
                 }
                 time_elapsed = stripeBenchmarkTime();         

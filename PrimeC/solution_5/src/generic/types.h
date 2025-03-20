@@ -14,8 +14,6 @@
   #define VECTORWORDSIZE_PP 64
 #endif
 
-
-
 // masks and mask helpers
 #define SHIFT_SIZE                  1 // the shift needed to get from SIZE to BIT (1 because even numbers arr not storing in the bitstorage)
 #define SHIFT_BYTE                  3 // the shift needed to get from BIT to BYTE
@@ -47,6 +45,15 @@ typedef uint32_t uint32v16_bitvector_t __attribute__ ((vector_size(64), aligned(
 typedef uint32_t uint32v8_bitvector_t  __attribute__ ((vector_size(32), aligned(cache_line_bytes)));
 typedef uint16_t uint16v32_bitvector_t __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
 typedef uint16_t uint16v8_bitvector_t  __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
+
+typedef uint64_t uint64v8_t  __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
+typedef uint64_t uint64v4_t  __attribute__ ((vector_size(32), aligned(cache_line_bytes)));
+typedef uint64_t uint64v2_t  __attribute__ ((vector_size(16), aligned(cache_line_bytes)));
+typedef uint32_t uint32v16_t __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
+typedef uint32_t uint32v8_t  __attribute__ ((vector_size(32), aligned(cache_line_bytes)));
+typedef uint16_t uint16v32_t __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
+typedef uint16_t uint16v8_t  __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
+
 
 #if VECTOR_ELEMENTS == 16
   #define VECTOR_BASE(pattern)      ((bitvector_t){ pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern })

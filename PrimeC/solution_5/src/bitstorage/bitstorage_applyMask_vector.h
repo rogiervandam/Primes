@@ -1,3 +1,6 @@
+#define variantsuffix _vector
+#define bitbucket_t bitvector_t
+// #undef unrolls
 #include "bitstorage_applyMask.h"
 
 #define variant uint64v2
@@ -20,7 +23,6 @@
 
 #define variant uint32v16
 #include "bitstorage_applyMask.h"
-
 
 static inline void __attribute__((always_inline)) applyMask_vector_pair(bitvector_t* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitvector_t mask1, const bitvector_t mask2, counter_t index_vector) 
 {

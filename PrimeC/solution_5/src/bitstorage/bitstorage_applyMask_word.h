@@ -106,21 +106,50 @@ static inline void __attribute__((always_inline)) funcname( \
     timer_laptime(time_applyMask_word); verbose8( printf("\n"); ) \
 }
 
-// Generate all the versions you need
-APPLY_MASK_GENERIC(uint8_t, 3, 4, applyMask_uint8_unroll4)
-APPLY_MASK_GENERIC(uint8_t, 3, 8, applyMask_uint8_unroll8)
-APPLY_MASK_GENERIC(uint8_t, 3, 16, applyMask_uint8_unroll16)
-APPLY_MASK_GENERIC(uint8_t, 3, 32, applyMask_uint8_unroll32)
-APPLY_MASK_GENERIC(uint16_t, 4, 4, applyMask_uint16_unroll4)
-APPLY_MASK_GENERIC(uint16_t, 4, 8, applyMask_uint16_unroll8)
-APPLY_MASK_GENERIC(uint16_t, 4, 16, applyMask_uint16_unroll16)
-APPLY_MASK_GENERIC(uint16_t, 4, 32, applyMask_uint16_unroll32)
-APPLY_MASK_GENERIC(uint32_t, 5, 4, applyMask_uint32_unroll4)
-APPLY_MASK_GENERIC(uint32_t, 5, 8, applyMask_uint32_unroll8)
-APPLY_MASK_GENERIC(uint32_t, 5, 8, applyMask_uint32_unroll16)
-APPLY_MASK_GENERIC(uint64_t, 6, 4, applyMask_uint64_unroll4)
-APPLY_MASK_GENERIC(uint64_t, 6, 8, applyMask_uint64_unroll8)
-APPLY_MASK_GENERIC(bitword_t, SHIFT_WORD, 4, applyMask_word)
+// // Generate all the versions you need
+// APPLY_MASK_GENERIC(uint8_t, 3, 4, applyMask_uint8_unroll4)
+// APPLY_MASK_GENERIC(uint16_t, 4, 4, applyMask_uint16_unroll4)
+// APPLY_MASK_GENERIC(uint32_t, 5, 4, applyMask_uint32_unroll4)
+// APPLY_MASK_GENERIC(uint64_t, 6, 4, applyMask_uint64_unroll4)
+
+// APPLY_MASK_GENERIC(uint8_t, 3, 8, applyMask_uint8_unroll8)
+// APPLY_MASK_GENERIC(uint16_t, 4, 8, applyMask_uint16_unroll8)
+// APPLY_MASK_GENERIC(uint32_t, 5, 8, applyMask_uint32_unroll8)
+// APPLY_MASK_GENERIC(uint64_t, 6, 8, applyMask_uint64_unroll8)
+
+
+// // APPLY_MASK_GENERIC(uint8_t, 3, 16, applyMask_uint8_unroll16)
+// // APPLY_MASK_GENERIC(uint8_t, 3, 32, applyMask_uint8_unroll32)
+// // APPLY_MASK_GENERIC(uint16_t, 4, 16, applyMask_uint16_unroll16)
+// // APPLY_MASK_GENERIC(uint16_t, 4, 32, applyMask_uint16_unroll32)
+// // APPLY_MASK_GENERIC(uint32_t, 5, 8, applyMask_uint32_unroll16)
+// APPLY_MASK_GENERIC(bitword_t, SHIFT_WORD, 4, applyMask_word)
+
+#define variantsuffix _word
+#define bitbucket_t bitword_t
+#include "bitstorage_applyMask.h"
+
+#define unrolls 4
+#define variant uint8
+#include "bitstorage_applyMask.h"
+#define variant uint16
+#include "bitstorage_applyMask.h"
+#define variant uint32
+#include "bitstorage_applyMask.h"
+#define variant uint64
+#include "bitstorage_applyMask.h"
+#undef unrolls
+
+#define unrolls 8
+#define variant uint8
+#include "bitstorage_applyMask.h"
+#define variant uint16
+#include "bitstorage_applyMask.h"
+#define variant uint32
+#include "bitstorage_applyMask.h"
+#define variant uint64
+#include "bitstorage_applyMask.h"
+#undef unrolls
 
 // static inline void __attribute__((always_inline)) applyMask_uint8_unroll16(bitword_t* restrict bitstorage, const counter_t step, const counter_t range_stop, const uint8_t mask, const counter_t index_word) 
 // {
