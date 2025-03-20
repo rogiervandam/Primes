@@ -50,14 +50,14 @@ static inline void  __attribute__((always_inline)) setBitsTrue(void* restrict bi
         timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
         return;
     }
-    else if (step > 64 && step <= 108) {
-        const counter_t range_stop_unique_vector = range_start + 256 * step;
-        if (range_stop_unique_vector <= range_stop) {
-            setBitsTrue_largestep_vector_uint64v4(bitstorage, range_start, step, range_stop);
-            timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
-            return;
-        }
-    }
+    // else if (step > 64 && step <= 108) {
+    //     const counter_t range_stop_unique_vector = range_start + 256 * step;
+    //     if (range_stop_unique_vector <= range_stop) {
+    //         setBitsTrue_largestep_vector_uint64v4(bitstorage, range_start, step, range_stop);
+    //         timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
+    //         return;
+    //     }
+    // }
     // else if (step <= VECTOR_SIZE_BITS) {
     //     if (step < global_largestep_faster) {
     //         const counter_t range_stop_unique_vector = range_start + VECTOR_SIZE_BITS * step;

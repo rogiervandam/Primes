@@ -1,6 +1,6 @@
 
 #ifndef variant
-#define bitbucket_t uint8_t
+#define bitbucket_t bitword_t
 #endif
 
 #define subfunction _repeat
@@ -60,7 +60,7 @@ static inline void __attribute__((always_inline)) NAME(setBitsTrue_smallstep,suf
 static inline void __attribute__((always_inline)) NAME(setBitsTrue_largestep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 { 
     const counter_t range_stop_unique = range_start + bitcount_type(bitbucket_t) * step; 
-    verbose6(printf("Setting bits step %3ju using largestep-repeat" ##suffix " in %ju bit range (%ju-%ju) (%ju repeating occurrences)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bits_width*step)))); 
+    verbose6(printf("Setting bits step %3ju using largestep-repeat in %ju bit range (%ju-%ju) (%ju repeating occurrences)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)))); 
     timer_lapstart(time_setBitsTrue_largestep_repeat); 
     
     for (register counter_t index = range_start; index < range_stop_unique; index += step) { 
@@ -70,4 +70,3 @@ static inline void __attribute__((always_inline)) NAME(setBitsTrue_largestep,suf
 }
 
 #include "../generic/cleansuffix.h"
-
