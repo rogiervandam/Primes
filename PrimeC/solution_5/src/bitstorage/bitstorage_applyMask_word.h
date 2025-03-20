@@ -36,3 +36,4 @@
 #include "bitstorage_applyMask.h"
 #define variant uint64
 #include "bitstorage_applyMask.h"
+#undef unrolls

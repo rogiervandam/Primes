@@ -13,10 +13,8 @@ setBitsTrue_range(void* restrict bitstorage, const counter_t range_start, const 
 }
 
 
-
 // vector size operations
 #include "bitstorage_applyMask_vector.h"
-#include "bitstorage_setBItsTrue_largestep_vector.h"
 #include "bitstorage_setBitsTrue_smallstep_vector.h"
 
 // word size operations
@@ -27,6 +25,34 @@ setBitsTrue_range(void* restrict bitstorage, const counter_t range_start, const 
 
 #undef variant
 #include "bitstorage_setBitsTrue_norepeat.h"
+
+#undef unrolls
+#define variant_base_type uint64_t 
+#define variant uint64v2
+#include "bitstorage_setBItsTrue_largestep.h" 
+#define variant uint64v4
+#include "bitstorage_setBItsTrue_largestep.h" 
+#define variant uint64v8
+#include "bitstorage_setBItsTrue_largestep.h" 
+
+#undef variant_base_type
+#define variant_base_type uint32_t 
+// #define variant uint32v2
+// #include "bitstorage_setBItsTrue_largestep.h" 
+// #define variant uint32v4
+// #include "bitstorage_setBItsTrue_largestep.h" 
+#define variant uint32v8
+#include "bitstorage_setBItsTrue_largestep.h" 
+
+#undef variant_base_type
+#define variant_base_type uint16_t 
+// #define variant uint16v2
+// #include "bitstorage_setBItsTrue_largestep.h" 
+// #define variant uint16v4
+// #include "bitstorage_setBItsTrue_largestep.h" 
+#define variant uint16v8
+#include "bitstorage_setBItsTrue_largestep.h" 
+
 
 // create smallstep functions
 #undef unrolls
@@ -107,14 +133,14 @@ static inline void  __attribute__((always_inline)) setBitsTrue(bitword_t* restri
         timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
         return;
     }
-    // else if (step > 64 && step <= 256) {
-    //     const counter_t range_stop_unique_vector = range_start + 256 * step;
-    //     if (range_stop_unique_vector <= range_stop) {
-    //         setBitsTrue_largestep_vector_uint64v4(bitstorage, range_start, step, range_stop);
-    //         timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
-    //         return;
-    //     }
-    // }
+    else if (step > 64 && step <= 108) {
+        const counter_t range_stop_unique_vector = range_start + 256 * step;
+        if (range_stop_unique_vector <= range_stop) {
+            setBitsTrue_largestep_vector_uint64v4(bitstorage, range_start, step, range_stop);
+            timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
+            return;
+        }
+    }
     // else if (step <= VECTOR_SIZE_BITS) {
     //     if (step < global_largestep_faster) {
     //         const counter_t range_stop_unique_vector = range_start + VECTOR_SIZE_BITS * step;

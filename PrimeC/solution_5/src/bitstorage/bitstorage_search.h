@@ -9,6 +9,28 @@ static inline counter_t __attribute__((always_inline)) checkBitTrue(const bitwor
     return bitstorage[wordindex(index)] & markmask_calc(index);
 }
 
+static inline counter_t __attribute__((always_inline)) countInvalidInStripe(const bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+{
+    counter_t count = 0;
+    for (counter_t index = range_start; index < range_stop; index += step) {
+        count += checkBitFalse(bitstorage, index) ? 1 : 0;
+    }
+    return count;
+}
+
+static inline counter_t __attribute__((always_inline)) faultInvalidInStripe(const bitword_t* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+{
+    counter_t count = 0;
+    for (counter_t index = range_start; index < range_stop; index += step) {
+        count += checkBitFalse(bitstorage, index) ? 1 : 0;
+        if (count) {
+            printf("In range from %ju to %ju, found bit not set at index %ju\n", (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)index);
+            exit(0);
+        }
+    }
+    return count;
+}
+
 static inline counter_t __attribute__((always_inline)) searchBitFalse(const bitword_t* restrict bitstorage, register counter_t index) 
 {
     verbose8( printf("searchBitFalse from prime %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1); )

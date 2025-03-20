@@ -22,6 +22,9 @@ static inline void __attribute__((always_inline)) NAME(create_mask_vector,suffix
         const counter_t current_vector_start = vectorstart_type(index, bitbucket_t);
         bitbucket_t mask_vector; //
         for (counter_t i=0; i < bitcount_type(bitbucket_t)/bitcount_type(variant_base_type); i++) {
+            mask_vector[i]= (variant_base_type) 0U;
+        }
+        for (counter_t i=0; i < bitcount_type(bitbucket_t)/bitcount_type(variant_base_type); i++) {
             if ((index & ~mask_type(variant_base_type)) == (current_vector_start + (bitcount_type(variant_base_type)*i))) {
                 mask_vector[i] = markmask_type(index, variant_base_type); // TODO: this was sensitive to wordsize. vector_markmask(index) didnt work; markmask_calc(index) worked
                 index += step;
@@ -31,10 +34,9 @@ static inline void __attribute__((always_inline)) NAME(create_mask_vector,suffix
         NAME(applyMask,fullvariantsuffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
         current_vector++;
     }
-    // if (checkInvalid_range(bitstorage, range_start, step, range_stop)) {
-    //    printf("not valid");
-    //    exit(1);
-    // }
+    // setBitsTrue_range(bitstorage, range_start_new, step, range_stop);
+    // faultInvalidInStripe(bitstorage, range_start, step, range_stop);
+
     timer_laptime(time_create_mask_vector_largestep); 
 }
 
@@ -54,7 +56,6 @@ static inline void __attribute__((always_inline)) NAME(setBitsTrue_largestep,suf
 
     for (; range_start_new <= range_start_nexttvector; range_start_new += step) {
         setBitTrue(bitstorage, range_start_new);
-        // bitstorage[wordindex(range_start_new)] |= markmask_calc(range_start_new);
     }
 
     NAME(create_mask_vector_largestep,fullvariantsuffix)(bitstorage, range_start_new, step, range_stop);
