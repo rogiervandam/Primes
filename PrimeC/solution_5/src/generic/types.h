@@ -60,7 +60,6 @@ typedef uint16_t uint16v4_t  __attribute__ ((vector_size(8), aligned(cache_line_
 typedef uint16_t uint16v2_t  __attribute__ ((vector_size(4), aligned(cache_line_bytes)));
 
 
-
 #if VECTOR_ELEMENTS == 16
   #define VECTOR_BASE(pattern)      ((bitvector_t){ pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern })
   #define VECTOR_BYTEINDEX          ((bitvector_t){ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 })

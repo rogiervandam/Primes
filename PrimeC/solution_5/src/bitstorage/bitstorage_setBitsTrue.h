@@ -9,40 +9,53 @@
 #include "bitstorage_applyMask_vector.h"
 #include "bitstorage_setBitsTrue_smallstep_vector.h"
 
+
 // word size operations
 #include "bitstorage_applyMask_word.h"
 
 #undef unrolls
-#define variant_base_type uint64_t 
-#define variant uint64v2
-#include "bitstorage_setBitsTrue_largestep.h" 
-#define variant uint64v4
-#include "bitstorage_setBitsTrue_largestep.h" 
+#define variant_base_type_t uint64_t 
+#define variant_elements 8
 #define variant uint64v8
-#include "bitstorage_setBitsTrue_largestep.h" 
+#include "bitstorage_setBitsTrue_assemble.h" 
+#define variant_elements 4
+#define variant uint64v4
+#include "bitstorage_setBitsTrue_assemble.h" 
+#define variant_elements 2
+#define variant uint64v2
+#include "bitstorage_setBitsTrue_assemble.h" 
 
-#undef variant_base_type
-#define variant_base_type uint32_t 
+#undef variant_base_type_t
+#define variant_base_type_t uint32_t 
 #define variant uint32v2
-#include "bitstorage_setBitsTrue_largestep.h" 
+#define variant_elements 2
+#include "bitstorage_setBitsTrue_assemble.h" 
+#define variant_elements 4
 #define variant uint32v4
-#include "bitstorage_setBitsTrue_largestep.h" 
+#include "bitstorage_setBitsTrue_assemble.h" 
+#define variant_elements 8
 #define variant uint32v8
-#include "bitstorage_setBitsTrue_largestep.h" 
+#include "bitstorage_setBitsTrue_assemble.h" 
 
-#undef variant_base_type
-#define variant_base_type uint16_t 
+#undef variant_base_type_t
+#define variant_base_type_t uint16_t 
+#define variant_elements 2
 #define variant uint16v2
 #include "bitstorage_setBitsTrue_largestep.h" 
+#define variant_elements 4
 #define variant uint16v4
 #include "bitstorage_setBitsTrue_largestep.h" 
+#define variant_elements 8
 #define variant uint16v8
 #include "bitstorage_setBitsTrue_largestep.h" 
 #define unrolls 8
+#define variant_elements 2
 #define variant uint16v2
 #include "bitstorage_setBitsTrue_largestep.h" 
+#define variant_elements 4
 #define variant uint16v4
 #include "bitstorage_setBitsTrue_largestep.h" 
+#define variant_elements 8
 #define variant uint16v8
 #include "bitstorage_setBitsTrue_largestep.h" 
 

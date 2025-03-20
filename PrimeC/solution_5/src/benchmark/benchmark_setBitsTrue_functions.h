@@ -15,13 +15,21 @@ typedef struct {
     int enabled;                    // Whether this function is enabled in benchmarking
 } SetBitsTrueMethod;
 
+
 // Global array with all setBitsTrue functions
 static const SetBitsTrueMethod setBitsTrueMethods[] = {
     {0, "setBitsTrue", setBitsTrue, 0, INT32_MAX, 1},
-    {1, "smallstep_vector_rotate_pair", setBitsTrue_smallstep_vector_rotate_pair, 0, VECTORWORD_SIZE_BITS-1, 1},
-    {2, "smallstep_vector_rotate", setBitsTrue_smallstep_vector_rotate, 0, VECTORWORD_SIZE_BITS-1, 1},
-    {3, "smallstep_repeat", setBitsTrue_smallstep_repeat, 0, WORD_SIZE_BITS-1, 1},
-    {4, "smallstep_repeat_uint64_unroll8", setBitsTrue_smallstep_repeat_uint64_unroll8, 0, WORD_SIZE_BITS-1, 1},
+    {1, "setBitsTrue_smallstep_rotate_pair_uint64v8", setBitsTrue_smallstep_rotate_pair_uint64v8, 0, 63, 1},
+    {1, "setBitsTrue_smallstep_rotate_pair_uint64v4", setBitsTrue_smallstep_rotate_pair_uint64v4, 0, 63, 1},
+    {1, "setBitsTrue_smallstep_rotate_pair_uint64v2", setBitsTrue_smallstep_rotate_pair_uint64v2, 0, 63, 1},
+    {1, "setBitsTrue_smallstep_rotate_pair_uint32v8", setBitsTrue_smallstep_rotate_pair_uint32v8, 0, 31, 1},
+    {1, "setBitsTrue_smallstep_rotate_pair_uint32v4", setBitsTrue_smallstep_rotate_pair_uint32v4, 0, 31, 1},
+    // {1, "setBitsTrue_smallstep_rotate_pair_uint32v2", setBitsTrue_smallstep_rotate_pair_uint32v2, 0, 31, 1},
+    {2, "setBitsTrue_smallstep_vector_rotate", setBitsTrue_smallstep_rotate_uint64v4, 0, 63, 1},
+    {2, "setBitsTrue_smallstep_vector_rotate_uint64v4", setBitsTrue_smallstep_rotate_uint64v4, 0, 63, 1},
+    {2, "setBitsTrue_smallstep_vector_rotate_uint64v8", setBitsTrue_smallstep_rotate_uint64v8, 0, 63, 1},
+    {3, "setBitsTrue_smallstep_repeat", setBitsTrue_smallstep_repeat, 0, WORD_SIZE_BITS-1, 1},
+    {4, "setBitsTrue_smallstep_repeat_uint64_unroll8", setBitsTrue_smallstep_repeat_uint64_unroll8, 0, WORD_SIZE_BITS-1, 1},
     {5, "setBitsTrue_largestep_vector_uint64v8", setBitsTrue_largestep_vector_uint64v8, 65, 511, 1},
     {6, "setBitsTrue_largestep_vector_uint64v4", setBitsTrue_largestep_vector_uint64v4, 65, 255, 1},
     {7, "setBitsTrue_largestep_vector_uint64v2", setBitsTrue_largestep_vector_uint64v2, 65, 127, 1},
@@ -103,18 +111,28 @@ static inline double stripeBenchmarkTime()
 static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
     counter_t prime = prime_start;
-    
-    counter_t stripe_passes[1000][30];
-    for(int i=0; i<1000; i++) { for(int j=0; j<30; j++) { stripe_passes[i][j] = 0; } }
 
     #define methods NUM_METHODS
     #define nonvector 1
+
+    counter_t stripe_passes[1000][methods+1];
+    for(int i=0; i<1000; i++) { for(int j=0; j<methods; j++) { stripe_passes[i][j] = 0; } }
+
+    for(int method=0; method<methods; method++) {
+        printf("%3d %s ", method, setBitsTrueMethods[method].name);
+        counter_t min_step = max(setBitsTrueMethods[method].min_step, 3);
+        int valid = checkSetBitsTrueMethod(&setBitsTrueMethods[method], compute_start(min_step, block_start), min_step, block_stop);
+        if (valid) printf("\033[32m✓ valid\033[0m ");
+        else printf("\033[31m✗ NOT VALID\033[0m ");
+        printf("\n");
+    }
+    printf("\n\n");
 
     while (prime < prime_max) {
         register const counter_t step = prime * 2 + 1;
         register counter_t start = compute_start(prime, block_start);
 
-        for(int m=0; m < NUM_METHODS; m++) {
+        for(int m=0; m < methods; m++) {
             const SetBitsTrueMethod* method = &setBitsTrueMethods[m];
             
             // Skip disabled methods
@@ -144,25 +162,15 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
 
     // Output results header with method numbers
     // Output method names in a separate row for reference
-    printf("Name      ");
-    for(int method=0; method<methods; method++) {
-        printf("%3d %s ", method, setBitsTrueMethods[method].name);
-        counter_t min_step = max(setBitsTrueMethods[method].min_step, 3);
-        int valid = checkSetBitsTrueMethod(&setBitsTrueMethods[method], compute_start(min_step, block_start), min_step, block_stop);
-        if (valid) printf("\033[32m✓ valid\033[0m ");
-        else printf("\033[31m✗ NOT VALID\033[0m ");
-        printf("\n");
-    }
-    printf("\n");
 
     printf("Step      ");
-    for(int method=0; method<=methods; method++) {
+    for(int method=0; method<methods; method++) {
         printf("%6ju ", (uintmax_t)method);
     }
     printf("\n");
 
     
-    printf("Step      "); for(int method=0; method<=methods; method++) printf("%6ju ", (uintmax_t) method); printf("\n");
+    printf("Step      "); for(int method=0; method<methods; method++) printf("%6ju ", (uintmax_t) method); printf("\n");
 
     for(int step=1; step<prime_max*2+1; step+=2) {
         counter_t prime = (step-1) >> 1;
@@ -172,7 +180,7 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
             // Find the maximum and second largest value among methods 4-18
             counter_t max_value = 0;
             counter_t second_max_value = 0;
-            for(int method=1; method<=methods; method++) {
+            for(int method=0; method<methods; method++) {
                 if (stripe_passes[step][method] > max_value) {
                     second_max_value = max_value;
                     max_value = stripe_passes[step][method];
@@ -182,7 +190,7 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
             }
             
             // Print all method values, highlighting the max and second largest among methods 4-18
-            for(int method=0; method<=methods; method++) {
+            for(int method=0; method<methods; method++) {
                 if (method >= nonvector && stripe_passes[step][method] == max_value && max_value > 0) {
                     printf("\033[32m%6ju\033[0m ", (uintmax_t)stripe_passes[step][method]); // Green for max
                 } else if (method >= nonvector && stripe_passes[step][method] >= max_value * 0.95 && stripe_passes[step][method] < max_value && max_value > 0) {

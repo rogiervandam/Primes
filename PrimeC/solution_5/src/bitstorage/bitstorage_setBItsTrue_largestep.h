@@ -15,12 +15,12 @@ static inline void __attribute__((always_inline)) NAME(create_mask_vector,suffix
     for (counter_t index = range_start; index <= range_stop_unique_vector;) {
         const counter_t current_vector_start = vectorstart_type(index, bitbucket_t);
         bitbucket_t mask_vector; //
-        for (counter_t i=0; i < bitcount_type(bitbucket_t)/bitcount_type(variant_base_type); i++) {
-            mask_vector[i]= (variant_base_type) 0U;
+        for (counter_t i=0; i < bitcount_type(bitbucket_t)/bitcount_type(variant_base_type_t); i++) {
+            mask_vector[i]= (variant_base_type_t) 0U;
         }
-        for (counter_t i=0; i < bitcount_type(bitbucket_t)/bitcount_type(variant_base_type); i++) {
-            if ((index & ~mask_type(variant_base_type)) == (current_vector_start + (bitcount_type(variant_base_type)*i))) {
-                mask_vector[i] = markmask_type(index, variant_base_type); // TODO: this was sensitive to wordsize. vector_markmask(index) didnt work; markmask_calc(index) worked
+        for (counter_t i=0; i < bitcount_type(bitbucket_t)/bitcount_type(variant_base_type_t); i++) {
+            if ((index & ~mask_type(variant_base_type_t)) == (current_vector_start + (bitcount_type(variant_base_type_t)*i))) {
+                mask_vector[i] = markmask_type(index, variant_base_type_t); // TODO: this was sensitive to wordsize. vector_markmask(index) didnt work; markmask_calc(index) worked
                 index += step;
             }
         }
