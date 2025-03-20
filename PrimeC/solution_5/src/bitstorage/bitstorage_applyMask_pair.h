@@ -1,4 +1,5 @@
 
+
 static inline void __attribute__((always_inline)) applyMask_vector_pair(bitvector_t* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitvector_t mask1, const bitvector_t mask2, counter_t index_vector) 
 {
     verbose8( printf("Applying mask with step %ju in range until %ju", (uintmax_t)step, (uintmax_t)range_stop); )

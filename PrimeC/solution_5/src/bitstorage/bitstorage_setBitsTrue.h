@@ -1,10 +1,9 @@
-
 #define bitbucket_t uint8_t
-static inline void __attribute__((always_inline)) setBitTrue(void* restrict bitstorage, const register counter_t index) 
+static inline void __attribute__((always_inline)) 
+setBitTrue(void* restrict bitstorage, const register counter_t index) 
 {
     ((bitbucket_t*)bitstorage)[index_type(index,bitbucket_t)] |= markmask_calc_type(index, bitbucket_t);
 }
-
 #undef bitbucket_t
 
 static inline void __attribute__((always_inline)) 

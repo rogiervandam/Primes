@@ -1,9 +1,6 @@
 #ifdef variant
 #define bitbucket_t NAME(variant, _t)
 #define variantsuffix NAME(_,variant)
-// #else
-// #define bitbucket_t bitvector_t
-// #define variantsuffix _vector
 #endif
 
 #ifdef unrolls

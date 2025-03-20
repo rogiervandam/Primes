@@ -24,3 +24,4 @@ setBitsTrue_largestep_repeat,suffix)(void* restrict bitstorage, const counter_t 
 #undef unrollsuffix
 #undef variantsuffix
 #undef bitbucket_t
+#undef suffix
