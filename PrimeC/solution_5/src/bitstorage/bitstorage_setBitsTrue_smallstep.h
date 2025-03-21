@@ -26,9 +26,9 @@
 // setBitsTrue_smallstep_vector_rotate_shorter
 static inline void __attribute__((always_inline)) NAME(create_mask_smallstep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
-    // verbose7(  { const counter_t range_stop_unique = min(range_start + step * VECTOR_SIZE_BITS, range_stop);
+    // verbose7(  { const counter_t range_stop_unique = min(range_start + step * bitcount_type(bitbucket_t), range_stop);
     //     printf("\n..Setting bits step %3ju using create_mask_vector_smallstep in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps starting at %ju)", 
-    //     (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(VECTOR_SIZE_BITS*step)), (uintmax_t)range_stop_unique ); })
+    //     (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)), (uintmax_t)range_stop_unique ); })
     timer_lapstart(time_create_mask_vector_smallstep);
 
     register bitbucket_t* restrict bitstorage_vector = (bitbucket_t*) __builtin_assume_aligned(bitstorage, cache_line_bytes);
@@ -59,7 +59,7 @@ static inline void __attribute__((always_inline)) NAME(create_mask_smallstep,suf
 
 static inline void __attribute__((always_inline)) NAME(setBitsTrue_smallstep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
-    verbose6(  printf("Setting bits step %3ju using largestep vector_word in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps)", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step))); )
+    verbose6(  printf("Setting bits step %3ju using largestep vector_word in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps)", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step))); )
     timer_lapstart(time_setBitsTrue_largestep_vector_wordstep);
 
     const counter_t range_start_nexttvector = vectorstart_type(range_start, bitbucket_t) + bitcount_type(bitbucket_t); // find next vector
@@ -78,9 +78,9 @@ static inline void __attribute__((always_inline)) NAME(setBitsTrue_smallstep,suf
 
 static inline void __attribute__((always_inline)) NAME(create_mask_smallstep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
-    // verbose7(  { const counter_t range_stop_unique = min(range_start + step * VECTOR_SIZE_BITS, range_stop);
+    // verbose7(  { const counter_t range_stop_unique = min(range_start + step * bitcount_type(bitbucket_t), range_stop);
     //     printf("\n..Setting bits step %3ju using create_mask_vector_smallstep in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps starting at %ju)", 
-    //     (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(VECTOR_SIZE_BITS*step)), (uintmax_t)range_stop_unique ); })
+    //     (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)), (uintmax_t)range_stop_unique ); })
     timer_lapstart(time_create_mask_vector_smallstep);
 
     register bitbucket_t* restrict bitstorage_vector = (bitbucket_t*) __builtin_assume_aligned(bitstorage, cache_line_bytes);
@@ -101,7 +101,7 @@ static inline void __attribute__((always_inline)) NAME(create_mask_smallstep,suf
     bitbucket_t mask_vector = BITBUCKET_BASE(pattern) << (BITBUCKET_BASE(shift) + (BITBUCKET_BASE(pattern_wordshift) * BITBUCKET_BYTEINDEX)) % BITBUCKET_BASE(step);
 
     // precaulcate the unique range_stop
-    const counter_t range_stop_unique_vector = min(range_start + step * VECTOR_SIZE_BITS, range_stop);
+    const counter_t range_stop_unique_vector = min(range_start + step * bitcount_type(bitbucket_t), range_stop);
     register const counter_t vector_max = index_type(range_stop_unique_vector, bitbucket_t);
     
     counter_t current_vector = index_type(range_start, bitbucket_t);
@@ -130,12 +130,17 @@ static inline void __attribute__((always_inline)) NAME(create_mask_smallstep,suf
 
 static inline void __attribute__((always_inline)) NAME(setBitsTrue_smallstep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
-    verbose6(  printf("Setting bits step %3ju using largestep vector_word in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps)", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step))); )
+    verbose6(  printf("Setting bits step %3ju using largestep vector_word in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps)", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step))); )
     timer_lapstart(time_setBitsTrue_largestep_vector_wordstep);
 
     const counter_t range_start_nexttvector = vectorstart_type(range_start, bitbucket_t) + bitcount_type(bitbucket_t); // find next vector
+    if (range_start_nexttvector + 4 * bitcount_type(bitbucket_t) > range_stop) {
+        setBitsTrue_range(bitstorage, range_start, step, range_stop);
+        timer_laptime(time_setBitsTrue_largestep_vector_wordstep); verbose6( printf("\n"); )
+        return;
+    }
+
     const counter_t range_start_new = setBitsTrue_range(bitstorage, range_start, step, range_start_nexttvector);
-    if (range_start_new > range_stop) return;
     NAME(create_mask_smallstep,suffix)(bitstorage, range_start_new, step, range_stop);
 
     timer_laptime(time_setBitsTrue_largestep_vector_wordstep); verbose6( printf("\n"); )

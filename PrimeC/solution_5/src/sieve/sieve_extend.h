@@ -23,7 +23,7 @@ static counter_t sieve_block_extend0(struct sieve_t *sieve, const counter_t bloc
     // counter_t pattern_start          = 0;
     counter_t patternsize_bits       = 3;
 
-    setBitsTrue_smallstep_norepeat(bitstorage, start, step, range_stop);
+    setBitsTrue_range(bitstorage, start, step, range_stop);
 
     for (;range_stop < block_stop;) {
         prime = searchBitFalse(bitstorage, prime);

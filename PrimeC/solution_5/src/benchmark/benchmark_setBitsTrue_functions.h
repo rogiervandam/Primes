@@ -25,9 +25,9 @@ static const SetBitsTrueMethod setBitsTrueMethods[] = {
     {1, "setBitsTrue_smallstep_rotate_pair_uint32v8", setBitsTrue_smallstep_rotate_pair_uint32v8, 0, 31, 1},
     {1, "setBitsTrue_smallstep_rotate_pair_uint32v4", setBitsTrue_smallstep_rotate_pair_uint32v4, 0, 31, 1},
     // {1, "setBitsTrue_smallstep_rotate_pair_uint32v2", setBitsTrue_smallstep_rotate_pair_uint32v2, 0, 31, 1},
-    {2, "setBitsTrue_smallstep_rotate_uint64v2", setBitsTrue_smallstep_rotate_uint64v2, 10, 63, 1},
-    {2, "setBitsTrue_smallstep_rotate_uint64v4", setBitsTrue_smallstep_rotate_uint64v4, 10, 63, 1},
-    {2, "setBitsTrue_smallstep_rotate_uint64v8", setBitsTrue_smallstep_rotate_uint64v8, 10, 63, 1},
+    {2, "setBitsTrue_smallstep_rotate_uint64v2", setBitsTrue_smallstep_rotate_uint64v2, 1, 63, 1},
+    {2, "setBitsTrue_smallstep_rotate_uint64v4", setBitsTrue_smallstep_rotate_uint64v4, 1, 63, 1},
+    {2, "setBitsTrue_smallstep_rotate_uint64v8", setBitsTrue_smallstep_rotate_uint64v8, 1, 63, 1},
     {3, "setBitsTrue_smallstep_repeat", setBitsTrue_smallstep_repeat, 0, WORD_SIZE_BITS-1, 1},
     {4, "setBitsTrue_smallstep_repeat_uint64_unroll8", setBitsTrue_smallstep_repeat_uint64_unroll8, 0, WORD_SIZE_BITS-1, 1},
     {5, "setBitsTrue_largestep_vector_uint64v8", setBitsTrue_largestep_vector_uint64v8, 65, 511, 1},
@@ -40,6 +40,7 @@ static const SetBitsTrueMethod setBitsTrueMethods[] = {
     {9, "setBitsTrue_largestep_vector_uint16v4", setBitsTrue_largestep_vector_uint16v4, 17, 63, 0},
     {9, "setBitsTrue_largestep_vector_uint16v2", setBitsTrue_largestep_vector_uint16v2, 17, 31, 0},
     {9, "largestep_vector_uint16v8_unroll8", setBitsTrue_largestep_vector_uint16v8_unroll8, 17, 127, 0},
+    {9, "setBitsTrue_largestep", setBitsTrue_largestep, 3, INT32_MAX, 1},
     // {10, "largestep_vector", setBitsTrue_largestep_vector, VECTORWORD_SIZE_BITS+1, INT32_MAX, 0},
     {11, "largestep_norepeat", setBitsTrue_largestep_norepeat, 0, INT32_MAX, 1},
     {12, "largestep_repeat_uint8_unroll4", setBitsTrue_largestep_repeat_uint8_unroll4, 0, INT32_MAX, 1},
@@ -131,14 +132,36 @@ static inline int checkSetBitsTrueMethods(const SetBitsTrueMethod* SetBitsTrueMe
         SetBitsTrueMethod setBitsTrueMethod = SetBitsTrueMethods[m];
 
         printf("%3d %s ", m, setBitsTrueMethod.name);
-        counter_t min_step = max(setBitsTrueMethod.min_step, 3);
-        int valid = checkSetBitsTrueMethod(&setBitsTrueMethod, compute_start(min_step, range_start), range_stop);
+        int valid = checkSetBitsTrueMethod(&setBitsTrueMethod, range_start, range_stop);
         if (valid) { printf("\033[32m✓ valid\033[0m "); }
         else { printf("\033[31m✗ NOT VALID\033[0m "); allvalid = 0; }
         printf("\n");
     }
     return allvalid;
 }
+
+static inline int checkSetBitsTrueMethodsBlocks(const SetBitsTrueMethod* SetBitsTrueMethods, const counter_t range_start, const counter_t range_stop) 
+{
+    int allvalid = 1;
+
+    for(int m=0; m<methods; m++) {
+        SetBitsTrueMethod setBitsTrueMethod = SetBitsTrueMethods[m];
+        printf("%3d %s ", m, setBitsTrueMethod.name);
+        int methodvalid = 1;
+        for (counter_t blocksize_bits=1024; blocksize_bits<=32*1024*8; blocksize_bits *= 2) {
+            for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start < range_stop; block_start += blocksize_bits, block_stop += blocksize_bits) {
+                int valid = checkSetBitsTrueMethod(&setBitsTrueMethod, block_start, min(block_stop, range_stop));
+                if (!valid) { allvalid = 0; methodvalid=0;  }
+            } 
+        }
+        if (methodvalid) { printf("\033[32m✓ valid\033[0m "); }
+        else { printf("\033[31m✗ NOT VALID\033[0m "); }
+        printf("\n");
+    }
+    
+    return allvalid;
+}
+
 
 static inline double stripeBenchmarkTime() 
 {
@@ -165,8 +188,6 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
 
     counter_t stripe_passes[1000][methods+1];
     for(int i=0; i<1000; i++) { for(int j=0; j<methods; j++) { stripe_passes[i][j] = 0; } }
-
-    checkSetBitsTrueMethods(&setBitsTrueMethods[0], block_start, block_stop);
     // for(int method=0; method<methods; method++) {
     //     printf("%3d %s ", method, setBitsTrueMethods[method].name);
     //     counter_t min_step = max(setBitsTrueMethods[method].min_step, 3);

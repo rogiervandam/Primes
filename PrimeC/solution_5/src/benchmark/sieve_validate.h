@@ -59,6 +59,7 @@ static int checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 
             if (!valid) {
                 verbose1( fprintf(stderr,"Invalid count for %ju Settings used: %s\n",(uintmax_t)sieveSize_check, settings_string); )
+                deepAnalyzeWithBenchmarkSettings(benchmark_settings);
                 return valid;
             }
             else {

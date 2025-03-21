@@ -74,6 +74,14 @@ static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settin
     return valid;
 }
 
+static void deepAnalyzeWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
+{
+    prepareBenchmarkGlobals(benchmark_settings);
+    struct sieve_t* sieve = shakeSieve(benchmark_settings.factor_max);
+    deepAnalyzeSieve(sieve);
+    sieve_delete(sieve);
+}
+
 static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings) 
 {
     benchmark_result_t benchmark_result;
