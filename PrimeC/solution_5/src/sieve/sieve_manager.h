@@ -33,13 +33,19 @@ static inline void __attribute__((always_inline)) sieve_clear(struct sieve_t *si
 {
     counter_t vector_max = vectorindex(sieve->bits) + 1;
     bitvector_t *bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
-    // bitvector_t vector_zero = VECTOR_BASE( VECTOR_SAFE_ZERO );
-    // for (counter_t i = 0; i <= vector_max; i++) {
-    //     bitstorage[i] = vector_zero;
-    // }
+    bitvector_t vector_zero = VECTOR_BASE( VECTOR_SAFE_ZERO );
+    for (counter_t i = 0; i <= vector_max; i++) {
+        bitstorage[i] = vector_zero;
+    }
 
     // alternative, but dependent on <string.h>
-    memset(sieve->bitstorage, 0, (sieve->bits >> 3) + 1 ); // add one to make sure  
+    // memset(sieve->bitstorage, 0, (sieve->bits >> 3) + 1 ); // add one to make sure  
+    // uint64_t *bitstorage = (uint64_t *) __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
+    // counter_t max = index_type(sieve->bits, uint64_t);
+    // for(counter_t i = 0; i < max; i++) {
+    //     bitstorage[i] = 0;
+    // }
+
 }
 
 // delete the sieve

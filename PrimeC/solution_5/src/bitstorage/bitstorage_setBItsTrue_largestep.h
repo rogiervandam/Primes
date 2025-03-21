@@ -43,15 +43,13 @@ static inline void __attribute__((always_inline)) NAME(setBitsTrue_largestep,suf
     verbose6(  printf("Setting bits step %3ju using largestep vector_vectorstep in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps) ", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step))); )
     timer_lapstart(time_setBitsTrue_largestep_vector_vectorstep);
 
-    const counter_t range_start_nexttvector = index_type(range_start, bitbucket_t) + bitcount_type(bitbucket_t); // find next vector
-    register counter_t range_start_new = range_start; // not in the inner loop because we want to use the value after the loop
-
-    for (; range_start_new <= range_start_nexttvector; range_start_new += step) {
-        setBitTrue(bitstorage, range_start_new);
-    }
-
+    const counter_t range_start_nexttvector = vectorstart_type(range_start, bitbucket_t) + bitcount_type(bitbucket_t); // find next vector
+    const counter_t range_start_new = setBitsTrue_range(bitstorage, range_start, step, range_start_nexttvector);
+    if (range_start_new > range_stop) return;
     NAME(create_mask_vector_largestep,fullvariantsuffix)(bitstorage, range_start_new, step, range_stop);
     timer_laptime(time_setBitsTrue_largestep_vector_vectorstep); verbose6( printf("\n"); )
 }
 
 #include "../generic/cleansuffix.h"
+
+

@@ -25,20 +25,20 @@ static const SetBitsTrueMethod setBitsTrueMethods[] = {
     {1, "setBitsTrue_smallstep_rotate_pair_uint32v8", setBitsTrue_smallstep_rotate_pair_uint32v8, 0, 31, 1},
     {1, "setBitsTrue_smallstep_rotate_pair_uint32v4", setBitsTrue_smallstep_rotate_pair_uint32v4, 0, 31, 1},
     // {1, "setBitsTrue_smallstep_rotate_pair_uint32v2", setBitsTrue_smallstep_rotate_pair_uint32v2, 0, 31, 1},
-    {2, "setBitsTrue_smallstep_vector_rotate", setBitsTrue_smallstep_rotate_uint64v4, 0, 63, 1},
-    {2, "setBitsTrue_smallstep_vector_rotate_uint64v4", setBitsTrue_smallstep_rotate_uint64v4, 0, 63, 1},
-    {2, "setBitsTrue_smallstep_vector_rotate_uint64v8", setBitsTrue_smallstep_rotate_uint64v8, 0, 63, 1},
+    {2, "setBitsTrue_smallstep_rotate_uint64v2", setBitsTrue_smallstep_rotate_uint64v2, 10, 63, 1},
+    {2, "setBitsTrue_smallstep_rotate_uint64v4", setBitsTrue_smallstep_rotate_uint64v4, 10, 63, 1},
+    {2, "setBitsTrue_smallstep_rotate_uint64v8", setBitsTrue_smallstep_rotate_uint64v8, 10, 63, 1},
     {3, "setBitsTrue_smallstep_repeat", setBitsTrue_smallstep_repeat, 0, WORD_SIZE_BITS-1, 1},
     {4, "setBitsTrue_smallstep_repeat_uint64_unroll8", setBitsTrue_smallstep_repeat_uint64_unroll8, 0, WORD_SIZE_BITS-1, 1},
     {5, "setBitsTrue_largestep_vector_uint64v8", setBitsTrue_largestep_vector_uint64v8, 65, 511, 1},
     {6, "setBitsTrue_largestep_vector_uint64v4", setBitsTrue_largestep_vector_uint64v4, 65, 255, 1},
     {7, "setBitsTrue_largestep_vector_uint64v2", setBitsTrue_largestep_vector_uint64v2, 65, 127, 1},
     {8, "setBitsTrue_largestep_vector_uint32v8", setBitsTrue_largestep_vector_uint32v8, 33, 255, 0},
-    {8, "setBitsTrue_largestep_vector_uint32v4", setBitsTrue_largestep_vector_uint32v4, 33, 255, 0},
-    {8, "setBitsTrue_largestep_vector_uint32v2", setBitsTrue_largestep_vector_uint32v2, 33, 255, 0},
+    {8, "setBitsTrue_largestep_vector_uint32v4", setBitsTrue_largestep_vector_uint32v4, 33, 127, 0},
+    {8, "setBitsTrue_largestep_vector_uint32v2", setBitsTrue_largestep_vector_uint32v2, 33, 63, 0},
     {9, "setBitsTrue_largestep_vector_uint16v8", setBitsTrue_largestep_vector_uint16v8, 17, 127, 0},
-    {9, "setBitsTrue_largestep_vector_uint16v4", setBitsTrue_largestep_vector_uint16v4, 17, 127, 0},
-    {9, "setBitsTrue_largestep_vector_uint16v2", setBitsTrue_largestep_vector_uint16v2, 17, 127, 0},
+    {9, "setBitsTrue_largestep_vector_uint16v4", setBitsTrue_largestep_vector_uint16v4, 17, 63, 0},
+    {9, "setBitsTrue_largestep_vector_uint16v2", setBitsTrue_largestep_vector_uint16v2, 17, 31, 0},
     {9, "largestep_vector_uint16v8_unroll8", setBitsTrue_largestep_vector_uint16v8_unroll8, 17, 127, 0},
     // {10, "largestep_vector", setBitsTrue_largestep_vector, VECTORWORD_SIZE_BITS+1, INT32_MAX, 0},
     {11, "largestep_norepeat", setBitsTrue_largestep_norepeat, 0, INT32_MAX, 1},
@@ -52,30 +52,32 @@ static const SetBitsTrueMethod setBitsTrueMethods[] = {
     {19, "largestep_repeat_uint64_unroll8", setBitsTrue_largestep_repeat_uint64_unroll8, 0, INT32_MAX, 1},
     // {20, "largestep_norepeat_unroll2", setBitsTrue_largestep_norepeat_unroll2, 0, INT32_MAX, 0}
 };
+#define NUM_METHODS (sizeof(setBitsTrueMethods) / sizeof(SetBitsTrueMethod))
 
-static int checkSetBitsTrueMethod(const SetBitsTrueMethod* method, const counter_t range_start, const counter_t step, const counter_t range_stop)
+#define methods NUM_METHODS
+#define nonvector 1
+
+
+static int checkSetBitsTrueMethod_stripe(const SetBitsTrueMethod* method, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
     // create sieve
-    struct sieve_t* sieve = sieve_create(range_stop);
+    struct sieve_t* sieve = sieve_create(range_stop*2);
     void* bitstorage = sieve->bitstorage;
-    if (bitstorage == NULL) {
-        fprintf(stderr, "Error: Unable to allocate memory for bitstorage\n");
-        exit(1);
-    }
-
     sieve_clear(sieve);
-
     setBitsTrue_range(bitstorage, range_start, step, range_stop);
     counter_t target_count = countBitsTrue(bitstorage, range_start, range_stop);
+    sieve_delete(sieve);
+    // sieve_clear(sieve);
 
+    sieve = sieve_create(range_stop*2);
+    bitstorage = sieve->bitstorage;
     sieve_clear(sieve);
-
+    setBitsTrue_range(bitstorage, range_start, step, range_stop);
     method->func(bitstorage, range_start, step, range_stop);
     counter_t actual_count = countBitsTrue(bitstorage, range_start, range_stop);
 
     if (actual_count != target_count) {
-        printf("Method %s failed with %ju bits set, expected %ju", method->name, (uintmax_t)actual_count, (uintmax_t)target_count);
-        sieve_delete(sieve);
+        printf("Method %s for stripe with step %ju in range %ju-%ju failed with %ju bits set, expected %ju", method->name, (uintmax_t) step, (uintmax_t) range_start, (uintmax_t) range_stop, (uintmax_t)actual_count, (uintmax_t)target_count);
         return 0;
     }
     
@@ -83,15 +85,61 @@ static int checkSetBitsTrueMethod(const SetBitsTrueMethod* method, const counter
     counter_t invalid = countInvalidInStripe(bitstorage, range_start, step, range_stop);
     if (invalid) {
         printf("Method %s failed with %ju invalid bits", method->name, (uintmax_t)invalid);
-        sieve_delete(sieve);
         return 0;
     }
-
     sieve_delete(sieve);
+
     return 1;
 }  
 
-#define NUM_METHODS (sizeof(setBitsTrueMethods) / sizeof(SetBitsTrueMethod))
+static inline int checkSetBitsTrueMethod(const SetBitsTrueMethod* method, const counter_t range_start, const counter_t range_stop) 
+{
+    // build a base sieve for getting the right primes
+    struct sieve_t* sieve_base = sieve_create(range_stop*2);
+    void* bitstorage_base = sieve_base->bitstorage;
+    counter_t prime = 1, prime_max = prime_stop(range_stop);
+
+    while (prime < prime_max) {
+        register const counter_t step  = prime * 2 + 1;
+        register counter_t start = compute_start(prime, range_start);
+        setBitsTrue_range(bitstorage_base, start, step, range_stop);
+        prime = searchBitFalse(bitstorage_base, prime);
+    }
+
+    // reset prime to 1; loop through all primes and when min_step < step < max_step, check the method
+    int allvalid = 1;
+    prime = 1;
+    while (prime < prime_max) {
+        register const counter_t step  = prime * 2 + 1;
+        if (step >= method->min_step && step <= method->max_step) {
+            // printf("Checking method %s for step %ju\n", method->name, (uintmax_t)step);
+            if (!checkSetBitsTrueMethod_stripe(method, compute_start(prime, range_start), step, range_stop)) {
+                allvalid = 0;
+                break;
+            }
+        }
+        prime = searchBitFalse(bitstorage_base, prime);
+    }
+    sieve_delete (sieve_base);
+    return allvalid;
+}
+
+static inline int checkSetBitsTrueMethods(const SetBitsTrueMethod* SetBitsTrueMethods, const counter_t range_start, const counter_t range_stop) {
+    int allvalid = 1;
+
+    for(int m=0; m<methods; m++) {
+        SetBitsTrueMethod setBitsTrueMethod = SetBitsTrueMethods[m];
+
+        printf("%3d %s ", m, setBitsTrueMethod.name);
+        counter_t min_step = max(setBitsTrueMethod.min_step, 3);
+        int valid = checkSetBitsTrueMethod(&setBitsTrueMethod, compute_start(min_step, range_start), range_stop);
+        if (valid) { printf("\033[32m✓ valid\033[0m "); }
+        else { printf("\033[31m✗ NOT VALID\033[0m "); allvalid = 0; }
+        printf("\n");
+    }
+    return allvalid;
+}
+
 static inline double stripeBenchmarkTime() 
 {
     struct timespec t;
@@ -103,6 +151,9 @@ static inline double stripeBenchmarkTime()
     #endif
     return (t.tv_sec + t.tv_nsec * 1e-9);
 }
+
+
+
 // this function is used for the benchmarking
 // it knows all the different ways to setBitsTrue for a given range and step
 // it benchmarks the different methods and keeps the resulting times or passed in an array
@@ -112,21 +163,19 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
 {
     counter_t prime = prime_start;
 
-    #define methods NUM_METHODS
-    #define nonvector 1
-
     counter_t stripe_passes[1000][methods+1];
     for(int i=0; i<1000; i++) { for(int j=0; j<methods; j++) { stripe_passes[i][j] = 0; } }
 
-    for(int method=0; method<methods; method++) {
-        printf("%3d %s ", method, setBitsTrueMethods[method].name);
-        counter_t min_step = max(setBitsTrueMethods[method].min_step, 3);
-        int valid = checkSetBitsTrueMethod(&setBitsTrueMethods[method], compute_start(min_step, block_start), min_step, block_stop);
-        if (valid) printf("\033[32m✓ valid\033[0m ");
-        else printf("\033[31m✗ NOT VALID\033[0m ");
-        printf("\n");
-    }
-    printf("\n\n");
+    checkSetBitsTrueMethods(&setBitsTrueMethods[0], block_start, block_stop);
+    // for(int method=0; method<methods; method++) {
+    //     printf("%3d %s ", method, setBitsTrueMethods[method].name);
+    //     counter_t min_step = max(setBitsTrueMethods[method].min_step, 3);
+    //     int valid = checkSetBitsTrueMethod_stripe(&setBitsTrueMethods[method], compute_start(min_step, block_start), min_step, block_stop);
+    //     if (valid) printf("\033[32m✓ valid\033[0m ");
+    //     else printf("\033[31m✗ NOT VALID\033[0m ");
+    //     printf("\n");
+    // }
+    // printf("\n\n");
 
     while (prime < prime_max) {
         register const counter_t step = prime * 2 + 1;
