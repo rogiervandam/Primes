@@ -1,7 +1,6 @@
 // Define a function pointer type for setBitsTrue functions
 typedef void (*setBitsTrueFunc)(void* restrict, const counter_t, const counter_t, const counter_t);
 
-
 static inline void clear_cache() {
     // Clear the cache
     const size_t size = 128*1024*1024;
@@ -27,7 +26,7 @@ typedef struct {
 
 
 // Global array with all setBitsTrue functions
-static const SetBitsTrueMethod setBitsTrueMethods[] = {
+static SetBitsTrueMethod setBitsTrueMethods[] = {
     {0, "setBitsTrue", setBitsTrue, 0, INT32_MAX, 1},
     {0, "setBitsTrue_range", setBitsTrue_range, 0, INT32_MAX, 1},
     // {1, "setBitsTrue_smallstep_rotate_pair_uint32v2", setBitsTrue_smallstep_rotate_pair_uint32v2, 0, 31, 1},
@@ -68,11 +67,11 @@ static const SetBitsTrueMethod setBitsTrueMethods[] = {
     {1, "setBitsTrue_smallstep_rotate_pair_uint32v4", setBitsTrue_smallstep_rotate_pair_uint32v4, 0, 31, 1},
     // {20, "largestep_norepeat_unroll2", setBitsTrue_largestep_norepeat_unroll2, 0, INT32_MAX, 0}
 };
-#define NUM_METHODS (sizeof(setBitsTrueMethods) / sizeof(SetBitsTrueMethod))
 
-#define methods NUM_METHODS
+#define methods (sizeof(setBitsTrueMethods) / sizeof(SetBitsTrueMethod))
 #define nonvector 1
 
+int stepplan[1000];
 
 static uint8_t checkSetBitsTrueMethod_stripe(const SetBitsTrueMethod* method, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
@@ -204,6 +203,18 @@ static inline double stripeBenchmarkTime()
 }
 
 
+static void listSetBitsTrueMethods() {
+    // List methods    
+    // checkSetBitsTrueMethods(setBitsTrueMethods, block_start, block_stop);
+    printf("----------------------\n");
+    for (int m = 0; m < methods; m++) {
+        printf("%3d %-50s", m, setBitsTrueMethods[m].name);
+        if ((m + 1) % 4 == 0 || m == methods - 1) {
+            printf("\n");
+        }
+    }
+    printf("----------------------\n");
+}
 
 // this function is used for the benchmarking
 // it knows all the different ways to setBitsTrue for a given range and step
@@ -217,16 +228,8 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
     counter_t stripe_passes[1000][methods+1];
     for(int i=0; i<1000; i++) { for(int j=0; j<methods; j++) { stripe_passes[i][j] = 0; } }
 
-    // List methods    
-    // checkSetBitsTrueMethods(setBitsTrueMethods, block_start, block_stop);
-    printf("----------------------\n");
-    for (int m = 0; m < methods; m++) {
-        printf("%3d %-30s", m, setBitsTrueMethods[m].name);
-        if ((m + 1) % 4 == 0 || m == methods - 1) {
-            printf("\n");
-        }
-    }
-    printf("----------------------\n");
+    listSetBitsTrueMethods();
+
 
     // Loop through all primes and benchmark the methods
     while (prime < prime_max) {
@@ -312,5 +315,106 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
 
 }
 
+static void playStepplan(struct sieve_t* sieve, const counter_t prime_max) 
+{
+    counter_t prime = 1, range_start = 0;
+    while (prime < prime_max) {
+        register const counter_t step  = prime * 2 + 1;
+        register counter_t start = compute_start(prime, range_start);
+        int method = stepplan[step];
+        setBitsTrueMethods[method].func(sieve->bitstorage, start, step, sieve->bits);
+        // setBitsTrue_range(bitstorage_base, start, step, range_stop);
+        prime = searchBitFalse(sieve->bitstorage, prime);
+    }
+   
+}
 
+static void createStepplan(benchmark_settings_t settings) {
+    counter_t range_start = 0, range_stop = settings.factor_max/2;
+    counter_t prime = 1;
+    counter_t prime_max = prime_stop(range_stop);
 
+    struct sieve_t* sieve = sieve_create(range_stop*2);
+    void* bitstorage = sieve->bitstorage;
+    counter_t stripe_passes[1000][methods+1];
+    for(int i=0; i<1000; i++) { for(int j=0; j<methods; j++) { stripe_passes[i][j] = 0; } }
+
+    listSetBitsTrueMethods();
+
+    while (prime < prime_max) {
+        register const counter_t step  = prime * 2 + 1;
+        register counter_t start = compute_start(prime, range_start);
+
+        printf("Step %4ju ", (uintmax_t)step);
+
+        // try all methods for this step and benchmark them
+        for(int m=0; m<methods; m++) {
+            SetBitsTrueMethod method = setBitsTrueMethods[m];
+            if (step >= method.min_step && step <= method.max_step) {
+                const double time_start = stripeBenchmarkTime();
+                const double time_target = time_start + BENCHMARK_DURATION;
+                double time_elapsed = 0;
+                counter_t passes = 0;
+                
+                while (time_elapsed <= time_target) {
+                        // prepare the cache in the relevant state
+                        playStepplan(sieve, prime-1);
+                        method.func(bitstorage, start, step, range_stop);
+                        passes++;
+                        time_elapsed = stripeBenchmarkTime();
+                }
+                stripe_passes[step][m] = passes;
+            }
+        }
+
+        // find the best method for this step
+        counter_t max_value = 0;
+        counter_t best_method = 0;
+        for(int m=0; m<methods; m++) {
+            if (stripe_passes[step][m] > max_value) {
+                max_value = stripe_passes[step][m];
+                best_method = m;
+            }
+        }
+        stepplan[step] = best_method;
+        
+        for(int method=0; method<methods; method++) {
+            if (method >= nonvector && stripe_passes[step][method] == max_value && max_value > 0) {
+                printf("\033[32m%6ju\033[0m ", (uintmax_t)stripe_passes[step][method]); // Green for max
+            } else if (method >= nonvector && stripe_passes[step][method] >= max_value * 0.95 && stripe_passes[step][method] < max_value && max_value > 0) {
+                printf("\033[33m%6ju\033[0m ", (uintmax_t)stripe_passes[step][method]); // Yellow for within 5% of max
+            } else if (method == 0 && max_value > 0 && stripe_passes[step][0] >= max_value * 0.95) {
+                printf("\033[32;1m%6ju\033[0m ", (uintmax_t)stripe_passes[step][method]); // Green for method when 95% of max
+            } else {
+                printf("%6ju ", (uintmax_t)stripe_passes[step][method]);
+            }
+        }
+
+        printf("Selecting method %d\n", best_method);
+
+        prime = searchBitFalse(sieve->bitstorage, prime);
+    }
+    sieve_delete(sieve);
+
+    // print final stepplan
+    for(int step=1; step<prime_max*2+1; step+=2) {
+        if (stepplan[step] != 0)  printf("Step %4ju: %s\n", (uintmax_t)step, setBitsTrueMethods[stepplan[step]].name);
+    }
+
+    // benchmark the final stepplan for 5 seconds
+    printf("Benchmarking the final stepplan for 5 seconds\n");
+    double time_elapsed = 0;
+    counter_t passes = 0;
+    const double time_start = stripeBenchmarkTime();
+    const double time_target = time_start + 5.0;
+
+    while (time_elapsed <= time_target) {
+            // prepare the cache in the relevant state
+            playStepplan(sieve, prime_max);
+            passes++;
+            time_elapsed = stripeBenchmarkTime();
+    }
+
+    printf("Final stepplan: %ju passes in 5 seconds\n", (uintmax_t)passes);
+
+}

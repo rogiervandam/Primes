@@ -42,6 +42,9 @@ int main(int argc, char *argv[])
 
     #ifdef COMPILE_FUNCTION_TIMINGS
     if (option.timers) {
+        createStepplan(option.fixed_benchmark_settings);
+        exit(0);
+
         struct sieve_t* sieve = shakeSieve(option.fixed_benchmark_settings.factor_max);
         benchmarkSetBitsTrue(sieve->bitstorage, 256*1024, min(1000000/2, 512*1024), 2, 500);
         sieve_delete(sieve);
