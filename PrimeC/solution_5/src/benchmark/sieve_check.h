@@ -22,11 +22,12 @@ static void showPrimesinSieve(struct sieve_t *sieve, counter_t factor_max)
 
 static void deepAnalyzeSieve(struct sieve_t *sieve) 
 {
+    bitword_t *bitstorage = sieve->bitstorage;
     verbose2( printf("DeepAnalyzing\n"); )
     counter_t warn_prime = 0;
     counter_t warn_nonprime = 0;
     for (counter_t prime = 1; prime < sieve->bits; prime++ ) {
-        if ((sieve->bitstorage[wordindex(prime)] & markmask(prime))==0) { // is this a prime?
+        if ((bitstorage[wordindex(prime)] & markmask(prime))==0) { // is this a prime?
             for(counter_t c=1; c<=sieve->bits && c*c <= prime*2+1; c++) {
                 if ((prime*2+1) % (c*2+1) == 0 && (c*2+1) != (prime*2+1)) {
                     if (warn_prime++ < 30) {

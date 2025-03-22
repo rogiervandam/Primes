@@ -25,6 +25,7 @@ setBitsTrue_range(void* restrict bitstorage, const counter_t range_start, const 
 #define subfunction _norepeat
 #include "../generic/setsuffix.h"
 
+#if unrolls == 4
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
 // this is a BASE ALGORITHM COMPLIANT: each bit is set individually
 static inline void __attribute__((always_inline)) NAME(setBitsTrue_largestep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
@@ -49,10 +50,11 @@ static inline void __attribute__((always_inline)) NAME(setBitsTrue_largestep,suf
 
     timer_laptime(time_setBitsTrue_largestep_norepeat); verbose6( printf("\n"); )
 }
-
+#endif
 #define subfunction _norepeat
 #include "../generic/setsuffix.h"
 
+#if unrolls == 4
 // Small steps (< WORD_SIZE) could be within the same word (e.g. less than 64 bits apart).
 // if we know that the mask will not repeat, we can save some time by not checking
 // this is a BASE ALGORITHM COMPLIANT: each bit is set individually
@@ -69,6 +71,7 @@ static inline void  __attribute__((always_inline)) NAME(setBitsTrue_smallstep,su
     }
     timer_laptime(time_setBitsTrue_smallstep_norepeat); verbose6( printf("\n"); )
 }
+#endif
 
 #include "../generic/cleansuffix.h"
 

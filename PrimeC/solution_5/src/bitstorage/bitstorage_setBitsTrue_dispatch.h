@@ -24,50 +24,48 @@ static inline void  __attribute__((always_inline)) setBitsTrue(void* restrict bi
 
     if (step <= 63) {
         if (step < global_mediumstep_faster) {
-            const counter_t range_stop_unique_vector = range_start + 512 * step; 
-            if (range_stop_unique_vector < range_stop) { // the vectormask will be reused
-                setBitsTrue_smallstep_rotate_pair_uint64v8(bitstorage, range_start, step, range_stop);
-                timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
-                return;
-            }
+            // no check for repeat needed; this is fast
+            setBitsTrue_smallstep_rotate_pair_uint64v4(bitstorage, range_start, step, range_stop);
+            timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
+            return;
         }
 
-        if (step < WORD_SIZE_BITS /2) {
-            const counter_t range_stop_unique_word = range_start + WORD_SIZE_BITS * step; 
-            if (range_stop_unique_word <= range_stop) { // the wordmask will be reused
-                setBitsTrue_smallstep_repeat(bitstorage, range_start, step, range_stop);
-                timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
-                return;
-            }
-            else {
-                setBitsTrue_smallstep_norepeat(bitstorage, range_start, step, range_stop);
-                timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
-                return;
-            }
-        }
+        // if (step < WORD_SIZE_BITS /2) {
+        //     const counter_t range_stop_unique_word = range_start + WORD_SIZE_BITS * step; 
+        //     if (range_stop_unique_word <= range_stop) { // the wordmask will be reused
+        //         setBitsTrue_smallstep_repeat(bitstorage, range_start, step, range_stop);
+        //         timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
+        //         return;
+        //     }
+        //     else {
+        //         setBitsTrue_smallstep_norepeat(bitstorage, range_start, step, range_stop);
+        //         timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
+        //         return;
+        //     }
+        // }
 
         setBitsTrue_largestep(bitstorage, range_start, step, range_stop);
         timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
         return;
     }
-    else if (step > 64 && step <= 108) {
-        // const counter_t range_stop_unique_vector = range_start + 256 * step;
-        // if (range_stop_unique_vector <= range_stop) {
-            setBitsTrue_largestep_vector_uint32v4(bitstorage, range_start, step, range_stop);
-            timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
-            return;
-        // }
-    }
-    // else if (step <= VECTOR_SIZE_BITS) {
-    //     if (step < global_largestep_faster) {
-    //         const counter_t range_stop_unique_vector = range_start + VECTOR_SIZE_BITS * step;
-    //         if (range_stop_unique_vector <= range_stop) {
-    //             setBitsTrue_largestep_vector_uint64v2(bitstorage, range_start, step, range_stop);
-    //             timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
-    //             return;
-    //         }
+    // else if (step > 64 && step <= 108) {
+    //     const counter_t range_stop_unique_vector = range_start + 256 * step;
+    //     if (range_stop_unique_vector <= range_stop) {
+    //         setBitsTrue_largestep_vector_uint64v4(bitstorage, range_start, step, range_stop);
+    //         timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
+    //         return;
     //     }
     // }
+    else if (step <= 255) {
+        if (step < global_largestep_faster) {
+            const counter_t range_stop_unique_vector = range_start + 255 * step;
+            if (range_stop_unique_vector <= range_stop) {
+                setBitsTrue_largestep_vector_uint64v4(bitstorage, range_start, step, range_stop);
+                timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
+                return;
+            }
+        }
+    }
  
     setBitsTrue_largestep(bitstorage, range_start, step, range_stop);
     timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )

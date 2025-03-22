@@ -3,40 +3,40 @@
 // THe vectormask can be build by extending the WORD size mask
 // TODO: check loop unrolling this
 // this is *NOT* BASE ALGORITHM COMPLIANT: some bits are set together
-static inline void __attribute__((always_inline)) create_mask_vector_smallstep(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
-{
-    // verbose7(  { const counter_t range_stop_unique = min(range_start + step * VECTOR_SIZE_BITS, range_stop);
-    //     printf("\n..Setting bits step %3ju using create_mask_vector_smallstep in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps starting at %ju)", 
-    //     (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(VECTOR_SIZE_BITS*step)), (uintmax_t)range_stop_unique ); })
-    timer_lapstart(time_create_mask_vector_smallstep);
+// static inline void __attribute__((always_inline)) create_mask_vector_smallstep(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+// {
+//     // verbose7(  { const counter_t range_stop_unique = min(range_start + step * VECTOR_SIZE_BITS, range_stop);
+//     //     printf("\n..Setting bits step %3ju using create_mask_vector_smallstep in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps starting at %ju)", 
+//     //     (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(VECTOR_SIZE_BITS*step)), (uintmax_t)range_stop_unique ); })
+//     timer_lapstart(time_create_mask_vector_smallstep);
 
-    register bitvector_t* restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    __builtin_prefetch(&bitstorage_vector[vectorindex(range_start)], 1, 3); // prefetch the memory that will be written soon while creating mask
+//     register bitvector_t* restrict bitstorage_vector = (bitvector_t*) __builtin_assume_aligned(bitstorage, cache_line_bytes);
+//     __builtin_prefetch(&bitstorage_vector[vectorindex(range_start)], 1, 3); // prefetch the memory that will be written soon while creating mask
 
-    // build the pattern, pattern_size en pattern_wordshift efficiently
-    register const bitshift_t step_shift = vector_bitindex_calc(step); // to enable the compiler to optimize the shift
-    register bitshift_t pattern_size = step_shift;
-    register bitword_vector_t pattern = BITVECTORWORD_SHIFTBIT;
-    while (pattern_size <= VECTORWORD_SIZE_BITS) { pattern |= vector_markmask(pattern_size); pattern_size += step_shift; }
-    const bitshift_t pattern_wordshift = pattern_size - VECTORWORD_SIZE_BITS;
+//     // build the pattern, pattern_size en pattern_wordshift efficiently
+//     register const bitshift_t step_shift = vector_bitindex_calc(step); // to enable the compiler to optimize the shift
+//     register bitshift_t pattern_size = step_shift;
+//     register bitword_vector_t pattern = BITVECTORWORD_SHIFTBIT;
+//     while (pattern_size <= VECTORWORD_SIZE_BITS) { pattern |= vector_markmask(pattern_size); pattern_size += step_shift; }
+//     const bitshift_t pattern_wordshift = pattern_size - VECTORWORD_SIZE_BITS;
 
-    register const bitword_vector_t pattern_vectorshift = (bitword_vector_t) (((pattern_size - VECTORWORD_SIZE_BITS) * (bitshift_t)VECTOR_ELEMENTS) % step_shift) & VECTORWORDMASK;
+//     register const bitword_vector_t pattern_vectorshift = (bitword_vector_t) (((pattern_size - VECTORWORD_SIZE_BITS) * (bitshift_t)VECTOR_ELEMENTS) % step_shift) & VECTORWORDMASK;
 
-    register bitvector_t pattern_vectorshift_vector = VECTOR_BASE(pattern_vectorshift);
-    register bitvector_t step_shift_vector = VECTOR_BASE(step_shift);
+//     register bitvector_t pattern_vectorshift_vector = VECTOR_BASE(pattern_vectorshift);
+//     register bitvector_t step_shift_vector = VECTOR_BASE(step_shift);
 
-    const bitshift_t shift = vector_bitindex_calc(range_start); 
-    bitvector_t mask_vector = VECTOR_BASE(pattern) << (VECTOR_BASE(shift) + (VECTOR_BASE(pattern_wordshift) * VECTOR_BYTEINDEX)) % VECTOR_BASE(step);
+//     const bitshift_t shift = vector_bitindex_calc(range_start); 
+//     bitvector_t mask_vector = VECTOR_BASE(pattern) << (VECTOR_BASE(shift) + (VECTOR_BASE(pattern_wordshift) * VECTOR_BYTEINDEX)) % VECTOR_BASE(step);
 
-    // precaulcate the unique range_stop
-    const counter_t range_stop_unique_vector = min(range_start + step * VECTOR_SIZE_BITS, range_stop);
-    register const counter_t vector_max = vectorindex(range_stop_unique_vector);
-    for (counter_t current_vector = vectorindex(range_start); current_vector < vector_max; current_vector++) {
-        applyMask_vector(bitstorage_vector, step, range_stop, mask_vector, current_vector);
-        mask_vector = (mask_vector << pattern_vectorshift_vector) | (mask_vector >> (step_shift_vector - pattern_vectorshift_vector)); 
-    }
-    timer_laptime(time_create_mask_vector_smallstep); 
-}
+//     // precaulcate the unique range_stop
+//     const counter_t range_stop_unique_vector = min(range_start + step * VECTOR_SIZE_BITS, range_stop);
+//     register const counter_t vector_max = vectorindex(range_stop_unique_vector);
+//     for (counter_t current_vector = vectorindex(range_start); current_vector < vector_max; current_vector++) {
+//         applyMask_vector(bitstorage_vector, step, range_stop, mask_vector, current_vector);
+//         mask_vector = (mask_vector << pattern_vectorshift_vector) | (mask_vector >> (step_shift_vector - pattern_vectorshift_vector)); 
+//     }
+//     timer_laptime(time_create_mask_vector_smallstep); 
+// }
 
 // static inline void __attribute__((always_inline)) create_mask_vector_smallstep_rotate(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 // {

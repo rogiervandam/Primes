@@ -5,7 +5,7 @@
 // - bits is the number of bits in the sieve. It is half the sive of the sieve, because we don't store bits for even numbers
 struct sieve_t 
 {
-    bitword_t* bitstorage __attribute__((aligned(cache_line_bytes)));  // Align to cache line
+    void* bitstorage __attribute__((aligned(cache_line_bytes)));  // Align to cache line
     counter_t bits;
 } __attribute__((aligned(cache_line_bytes)));  // Align the whole structure
 
@@ -31,20 +31,20 @@ static inline struct sieve_t * __attribute__((always_inline)) sieve_create(const
 // set the entire bitstorage in the sieve to zero
 static inline void __attribute__((always_inline)) sieve_clear(struct sieve_t *sieve) 
 {
-    counter_t vector_max = vectorindex(sieve->bits) + 1;
-    bitvector_t *bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
-    bitvector_t vector_zero = VECTOR_BASE( VECTOR_SAFE_ZERO );
-    for (counter_t i = 0; i <= vector_max; i++) {
-        bitstorage[i] = vector_zero;
-    }
+    // counter_t vector_max = vectorindex(sieve->bits) + 1;
+    // bitvector_t *bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
+    // bitvector_t vector_zero = VECTOR_BASE( VECTOR_SAFE_ZERO );
+    // for (counter_t i = 0; i <= vector_max; i++) {
+    //     bitstorage[i] = vector_zero;
+    // }
 
     // alternative, but dependent on <string.h>
     // memset(sieve->bitstorage, 0, (sieve->bits >> 3) + 1 ); // add one to make sure  
-    // uint64_t *bitstorage = (uint64_t *) __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
-    // counter_t max = index_type(sieve->bits, uint64_t);
-    // for(counter_t i = 0; i < max; i++) {
-    //     bitstorage[i] = 0;
-    // }
+    uint64_t *bitstorage = (uint64_t *) __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
+    counter_t max = index_type(sieve->bits, uint64_t);
+    for(counter_t i = 0; i < max; i++) {
+        bitstorage[i] = 0;
+    }
 
 }
 

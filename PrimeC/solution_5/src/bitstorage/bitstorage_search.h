@@ -22,7 +22,7 @@ static inline counter_t __attribute__((always_inline)) countBitsTrue(const bitwo
 {
     counter_t count = 0;
     for (counter_t index = range_start; index < range_stop; index++) {
-        count += checkBitTrue(bitstorage, index) ? 1 : 0;
+        count += (checkBitTrue(bitstorage, index)>0) ? 1 : 0;
     }
     return count;
 }

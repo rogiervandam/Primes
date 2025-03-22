@@ -1,3 +1,5 @@
+#include "../generic/varianttypes.h"
+
 #ifdef variant
     #define bitbucket_t NAME(variant, _t)
     #define variantsuffix NAME(_,variant)
@@ -21,12 +23,20 @@
 #ifdef variantsuffix
     #ifdef unrollssuffix
         #define fullvariantsuffix NAME(variantsuffix, unrollssuffix)
-        #define suffix NAME(subfunction, fullvariantsuffix)
+        #ifdef subfunction
+            #define suffix NAME(subfunction, fullvariantsuffix)
+        #else
+            #define suffix fullvariantsuffix
+        #endif
     #else
-        #define suffix NAME(subfunction,variantsuffix)
         #define fullvariantsuffix variantsuffix
+        #ifdef subfunction
+            #define suffix NAME(subfunction,variantsuffix)
+        #else
+            #define suffix variantsuffix
+        #endif
     #endif
 #else
-#define suffix subfunction
-#define fullvariantsuffix _word // TODO: remove when full converted
+    #define suffix subfunction
+    #define fullvariantsuffix _word // TODO: remove when full converted
 #endif

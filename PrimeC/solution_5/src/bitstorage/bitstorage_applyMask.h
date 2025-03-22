@@ -1,16 +1,4 @@
-#ifdef variant
-#define bitbucket_t NAME(variant, _t)
-#define variantsuffix NAME(_,variant)
-#endif
-
-#ifdef unrolls
-    #define unrollssuffix NAME(_unroll,unrolls)
-    #define suffix NAME(variantsuffix, unrollssuffix)
-#else
-    #define unrolls 4
-    #define UNSET_UNROLLS 1
-    #define suffix variantsuffix
-#endif
+#include "../generic/setsuffix.h"
 
 static inline void __attribute__((always_inline)) NAME(applyMask,suffix)(bitbucket_t* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitbucket_t mask, counter_t index_vector) 
 {
@@ -100,17 +88,4 @@ static inline void __attribute__((always_inline)) NAME(applyMask_pair,suffix)(bi
     timer_laptime(time_applyMask_vector); verbose8( printf("\n"); )
 }
 
-
 #include "../generic/cleansuffix.h"
-// #undef variant
-// #undef variantsuffix
-// #undef unrollssuffix
-// #undef fullvariantsuffix
-// #undef bitbucket_t
-// #undef suffix
-// #undef subfunction
-
-// #ifdef UNSET_UNROLLS
-//     #undef unrolls
-//     #undef UNSET_UNROLLS
-// #endif

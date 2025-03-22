@@ -19,16 +19,15 @@ typedef struct {
 // Global array with all setBitsTrue functions
 static const SetBitsTrueMethod setBitsTrueMethods[] = {
     {0, "setBitsTrue", setBitsTrue, 0, INT32_MAX, 1},
-    {1, "setBitsTrue_smallstep_rotate_pair_uint64v8", setBitsTrue_smallstep_rotate_pair_uint64v8, 0, 63, 1},
-    {1, "setBitsTrue_smallstep_rotate_pair_uint64v4", setBitsTrue_smallstep_rotate_pair_uint64v4, 0, 63, 1},
-    {1, "setBitsTrue_smallstep_rotate_pair_uint64v2", setBitsTrue_smallstep_rotate_pair_uint64v2, 0, 63, 1},
-    {1, "setBitsTrue_smallstep_rotate_pair_uint32v8", setBitsTrue_smallstep_rotate_pair_uint32v8, 0, 31, 1},
-    {1, "setBitsTrue_smallstep_rotate_pair_uint32v4", setBitsTrue_smallstep_rotate_pair_uint32v4, 0, 31, 1},
     // {1, "setBitsTrue_smallstep_rotate_pair_uint32v2", setBitsTrue_smallstep_rotate_pair_uint32v2, 0, 31, 1},
     {2, "setBitsTrue_smallstep_rotate_uint64v2", setBitsTrue_smallstep_rotate_uint64v2, 1, 63, 1},
     {2, "setBitsTrue_smallstep_rotate_uint64v4", setBitsTrue_smallstep_rotate_uint64v4, 1, 63, 1},
     {2, "setBitsTrue_smallstep_rotate_uint64v8", setBitsTrue_smallstep_rotate_uint64v8, 1, 63, 1},
+    {2, "setBitsTrue_smallstep_totalshift_uint64v4", setBitsTrue_smallstep_totalshift_uint64v4, 1, 63, 1},
+    {2, "setBitsTrue_smallstep_totalshift_uint64v8", setBitsTrue_smallstep_totalshift_uint64v8, 1, 63, 1},
     {3, "setBitsTrue_smallstep_repeat", setBitsTrue_smallstep_repeat, 0, WORD_SIZE_BITS-1, 1},
+    {3, "setBitsTrue_smallstep_norepeat", setBitsTrue_smallstep_repeat, 0, WORD_SIZE_BITS-1, 1},
+    {3, "setBitsTrue_smallstep_norepeat_uint64", setBitsTrue_smallstep_norepeat_uint64, 0, 63, 1},
     {4, "setBitsTrue_smallstep_repeat_uint64_unroll8", setBitsTrue_smallstep_repeat_uint64_unroll8, 0, WORD_SIZE_BITS-1, 1},
     {5, "setBitsTrue_largestep_vector_uint64v8", setBitsTrue_largestep_vector_uint64v8, 65, 511, 1},
     {6, "setBitsTrue_largestep_vector_uint64v4", setBitsTrue_largestep_vector_uint64v4, 65, 255, 1},
@@ -51,6 +50,11 @@ static const SetBitsTrueMethod setBitsTrueMethods[] = {
     {17, "largestep_repeat_uint16_unroll8", setBitsTrue_largestep_repeat_uint16_unroll8, 0, INT32_MAX, 1},
     {18, "largestep_repeat_uint32_unroll8", setBitsTrue_largestep_repeat_uint32_unroll8, 0, INT32_MAX, 1},
     {19, "largestep_repeat_uint64_unroll8", setBitsTrue_largestep_repeat_uint64_unroll8, 0, INT32_MAX, 1},
+    {1, "setBitsTrue_smallstep_rotate_pair_uint64v8", setBitsTrue_smallstep_rotate_pair_uint64v8, 0, 63, 1},
+    {1, "setBitsTrue_smallstep_rotate_pair_uint64v4", setBitsTrue_smallstep_rotate_pair_uint64v4, 0, 63, 1},
+    {1, "setBitsTrue_smallstep_rotate_pair_uint64v2", setBitsTrue_smallstep_rotate_pair_uint64v2, 0, 63, 1},
+    {1, "setBitsTrue_smallstep_rotate_pair_uint32v8", setBitsTrue_smallstep_rotate_pair_uint32v8, 0, 31, 1},
+    {1, "setBitsTrue_smallstep_rotate_pair_uint32v4", setBitsTrue_smallstep_rotate_pair_uint32v4, 0, 31, 1},
     // {20, "largestep_norepeat_unroll2", setBitsTrue_largestep_norepeat_unroll2, 0, INT32_MAX, 0}
 };
 #define NUM_METHODS (sizeof(setBitsTrueMethods) / sizeof(SetBitsTrueMethod))
@@ -62,7 +66,7 @@ static const SetBitsTrueMethod setBitsTrueMethods[] = {
 static int checkSetBitsTrueMethod_stripe(const SetBitsTrueMethod* method, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
     // create sieve
-    struct sieve_t* sieve = sieve_create(range_stop*2);
+    struct sieve_t* sieve = sieve_create(range_stop*2+1024);
     void* bitstorage = sieve->bitstorage;
     sieve_clear(sieve);
     setBitsTrue_range(bitstorage, range_start, step, range_stop);
@@ -70,10 +74,11 @@ static int checkSetBitsTrueMethod_stripe(const SetBitsTrueMethod* method, const 
     sieve_delete(sieve);
     // sieve_clear(sieve);
 
-    sieve = sieve_create(range_stop*2);
+    sieve = sieve_create(range_stop*2+1024); // reserve extra to check set bits after range stop
     bitstorage = sieve->bitstorage;
     sieve_clear(sieve);
-    setBitsTrue_range(bitstorage, range_start, step, range_stop);
+    // setBitsTrue_range(bitstorage, range_start, step, range_stop);
+
     method->func(bitstorage, range_start, step, range_stop);
     counter_t actual_count = countBitsTrue(bitstorage, range_start, range_stop);
 
@@ -188,16 +193,14 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
 
     counter_t stripe_passes[1000][methods+1];
     for(int i=0; i<1000; i++) { for(int j=0; j<methods; j++) { stripe_passes[i][j] = 0; } }
-    // for(int method=0; method<methods; method++) {
-    //     printf("%3d %s ", method, setBitsTrueMethods[method].name);
-    //     counter_t min_step = max(setBitsTrueMethods[method].min_step, 3);
-    //     int valid = checkSetBitsTrueMethod_stripe(&setBitsTrueMethods[method], compute_start(min_step, block_start), min_step, block_stop);
-    //     if (valid) printf("\033[32m✓ valid\033[0m ");
-    //     else printf("\033[31m✗ NOT VALID\033[0m ");
-    //     printf("\n");
-    // }
-    // printf("\n\n");
 
+    // List methods    
+    checkSetBitsTrueMethods(setBitsTrueMethods, block_start, block_stop);
+    // for(int m=0; m<methods; m++) {
+    //     printf("%3d %s \n", m, setBitsTrueMethods[m].name);
+    // }
+
+    // Loop through all primes and benchmark the methods
     while (prime < prime_max) {
         register const counter_t step = prime * 2 + 1;
         register counter_t start = compute_start(prime, block_start);
