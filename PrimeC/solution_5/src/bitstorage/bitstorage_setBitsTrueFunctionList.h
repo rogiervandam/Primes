@@ -1,0 +1,53 @@
+// Structure to hold function information
+typedef struct {
+    int number;                     // Method number/index
+    const char* name;               // Function name 
+    setBitsTrueFunc func;           // Function pointer
+    counter_t min_step;             // Minimum applicable step value
+    counter_t max_step;             // Maximum applicable step value
+    int enabled;                    // Whether this function is enabled in benchmarking
+} SetBitsTrueMethod;
+
+
+// Global array with all setBitsTrue functions
+static SetBitsTrueMethod setBitsTrueMethods[] = {
+    {0, "setBitsTrue", setBitsTrue, 0, INT32_MAX, 1},
+    {0, "setBitsTrue_range", setBitsTrue_range, 0, INT32_MAX, 1},
+    // {1, "setBitsTrue_smallstep_rotate_pair_uint32v2", setBitsTrue_smallstep_rotate_pair_uint32v2, 0, 31, 1},
+    {2, "setBitsTrue_smallstep_rotate_uint64v2", setBitsTrue_smallstep_rotate_uint64v2, 1, 63, 1},
+    {2, "setBitsTrue_smallstep_rotate_uint64v4", setBitsTrue_smallstep_rotate_uint64v4, 1, 63, 1},
+    {2, "setBitsTrue_smallstep_rotate_uint64v8", setBitsTrue_smallstep_rotate_uint64v8, 1, 63, 1},
+    {2, "setBitsTrue_smallstep_totalshift_uint64v4", setBitsTrue_smallstep_totalshift_uint64v4, 1, 63, 1},
+    {2, "setBitsTrue_smallstep_totalshift_uint64v8", setBitsTrue_smallstep_totalshift_uint64v8, 1, 63, 1},
+    {3, "setBitsTrue_smallstep_repeat", setBitsTrue_smallstep_repeat, 0, WORD_SIZE_BITS-1, 1},
+    {3, "setBitsTrue_smallstep_norepeat", setBitsTrue_smallstep_repeat, 0, WORD_SIZE_BITS-1, 1},
+    {3, "setBitsTrue_smallstep_norepeat_uint64", setBitsTrue_smallstep_norepeat_uint64, 0, 63, 1},
+    {4, "setBitsTrue_smallstep_repeat_uint64_unroll8", setBitsTrue_smallstep_repeat_uint64_unroll8, 0, WORD_SIZE_BITS-1, 1},
+    {5, "setBitsTrue_largestep_vector_uint64v8", setBitsTrue_largestep_vector_uint64v8, 65, 511, 1},
+    {6, "setBitsTrue_largestep_vector_uint64v4", setBitsTrue_largestep_vector_uint64v4, 65, 255, 1},
+    {7, "setBitsTrue_largestep_vector_uint64v2", setBitsTrue_largestep_vector_uint64v2, 65, 127, 1},
+    {8, "setBitsTrue_largestep_vector_uint32v8", setBitsTrue_largestep_vector_uint32v8, 33, 255, 0},
+    {8, "setBitsTrue_largestep_vector_uint32v4", setBitsTrue_largestep_vector_uint32v4, 33, 127, 0},
+    {8, "setBitsTrue_largestep_vector_uint32v2", setBitsTrue_largestep_vector_uint32v2, 33, 63, 0},
+    {9, "setBitsTrue_largestep_vector_uint16v8", setBitsTrue_largestep_vector_uint16v8, 17, 127, 0},
+    {9, "setBitsTrue_largestep_vector_uint16v4", setBitsTrue_largestep_vector_uint16v4, 17, 63, 0},
+    {9, "setBitsTrue_largestep_vector_uint16v2", setBitsTrue_largestep_vector_uint16v2, 17, 31, 0},
+    {9, "largestep_vector_uint16v8_unroll8", setBitsTrue_largestep_vector_uint16v8_unroll8, 17, 127, 0},
+    {9, "setBitsTrue_largestep", setBitsTrue_largestep, 3, INT32_MAX, 1},
+    // {10, "largestep_vector", setBitsTrue_largestep_vector, VECTORWORD_SIZE_BITS+1, INT32_MAX, 0},
+    {11, "largestep_norepeat", setBitsTrue_largestep_norepeat, 0, INT32_MAX, 1},
+    {12, "largestep_repeat_uint8_unroll4", setBitsTrue_largestep_repeat_uint8_unroll4, 0, INT32_MAX, 1},
+    {13, "largestep_repeat_uint16_unroll4", setBitsTrue_largestep_repeat_uint16_unroll4, 0, INT32_MAX, 1},
+    {14, "largestep_repeat_uint32_unroll4", setBitsTrue_largestep_repeat_uint32_unroll4, 0, INT32_MAX, 1},
+    {15, "largestep_repeat_uint64_unroll4", setBitsTrue_largestep_repeat_uint64_unroll4, 0, INT32_MAX, 1},
+    {16, "largestep_repeat_uint8_unroll8", setBitsTrue_largestep_repeat_uint8_unroll8, 0, INT32_MAX, 1},
+    {17, "largestep_repeat_uint16_unroll8", setBitsTrue_largestep_repeat_uint16_unroll8, 0, INT32_MAX, 1},
+    {18, "largestep_repeat_uint32_unroll8", setBitsTrue_largestep_repeat_uint32_unroll8, 0, INT32_MAX, 1},
+    {19, "largestep_repeat_uint64_unroll8", setBitsTrue_largestep_repeat_uint64_unroll8, 0, INT32_MAX, 1},
+    {1, "setBitsTrue_smallstep_rotate_pair_uint64v8", setBitsTrue_smallstep_rotate_pair_uint64v8, 0, 63, 1},
+    {1, "setBitsTrue_smallstep_rotate_pair_uint64v4", setBitsTrue_smallstep_rotate_pair_uint64v4, 0, 63, 1},
+    {1, "setBitsTrue_smallstep_rotate_pair_uint64v2", setBitsTrue_smallstep_rotate_pair_uint64v2, 0, 63, 1},
+    {1, "setBitsTrue_smallstep_rotate_pair_uint32v8", setBitsTrue_smallstep_rotate_pair_uint32v8, 0, 31, 1},
+    {1, "setBitsTrue_smallstep_rotate_pair_uint32v4", setBitsTrue_smallstep_rotate_pair_uint32v4, 0, 31, 1},
+    // {20, "largestep_norepeat_unroll2", setBitsTrue_largestep_norepeat_unroll2, 0, INT32_MAX, 0}
+};
