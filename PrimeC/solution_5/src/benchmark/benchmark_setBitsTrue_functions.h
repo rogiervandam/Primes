@@ -72,6 +72,7 @@ static SetBitsTrueMethod setBitsTrueMethods[] = {
 #define nonvector 1
 
 int stepplan[1000];
+setBitsTrueFunc best_stepfunction[1000];
 
 static uint8_t checkSetBitsTrueMethod_stripe(const SetBitsTrueMethod* method, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
@@ -321,9 +322,7 @@ static void playStepplan(struct sieve_t* sieve, const counter_t prime_max)
     while (prime < prime_max) {
         register const counter_t step  = prime * 2 + 1;
         register counter_t start = compute_start(prime, range_start);
-        int method = stepplan[step];
-        setBitsTrueMethods[method].func(sieve->bitstorage, start, step, sieve->bits);
-        // setBitsTrue_range(bitstorage_base, start, step, range_stop);
+        (*best_stepfunction[step])(sieve->bitstorage, start, step, sieve->bits);
         prime = searchBitFalse(sieve->bitstorage, prime);
     }
    
@@ -341,6 +340,12 @@ static void createStepplan(benchmark_settings_t settings) {
 
     listSetBitsTrueMethods();
 
+    printf("Step      ");
+    for(int method=0; method<methods; method++) {
+        printf("%6ju ", (uintmax_t)method);
+    }
+    printf("\n");
+
     while (prime < prime_max) {
         register const counter_t step  = prime * 2 + 1;
         register counter_t start = compute_start(prime, range_start);
@@ -352,7 +357,7 @@ static void createStepplan(benchmark_settings_t settings) {
             SetBitsTrueMethod method = setBitsTrueMethods[m];
             if (step >= method.min_step && step <= method.max_step) {
                 const double time_start = stripeBenchmarkTime();
-                const double time_target = time_start + BENCHMARK_DURATION;
+                const double time_target = time_start + 0.005;
                 double time_elapsed = 0;
                 counter_t passes = 0;
                 
@@ -367,16 +372,17 @@ static void createStepplan(benchmark_settings_t settings) {
             }
         }
 
-        // find the best method for this step
+        // find the best method for this step - skip 0
         counter_t max_value = 0;
         counter_t best_method = 0;
-        for(int m=0; m<methods; m++) {
+        for(int m=1; m<methods; m++) {
             if (stripe_passes[step][m] > max_value) {
                 max_value = stripe_passes[step][m];
                 best_method = m;
             }
         }
         stepplan[step] = best_method;
+        best_stepfunction[step] = setBitsTrueMethods[best_method].func;
         
         for(int method=0; method<methods; method++) {
             if (method >= nonvector && stripe_passes[step][method] == max_value && max_value > 0) {
@@ -390,16 +396,16 @@ static void createStepplan(benchmark_settings_t settings) {
             }
         }
 
-        printf("Selecting method %d\n", best_method);
+        printf("Selecting method %2d %s \n", best_method, setBitsTrueMethods[best_method].name);
 
         prime = searchBitFalse(sieve->bitstorage, prime);
     }
     sieve_delete(sieve);
 
-    // print final stepplan
-    for(int step=1; step<prime_max*2+1; step+=2) {
-        if (stepplan[step] != 0)  printf("Step %4ju: %s\n", (uintmax_t)step, setBitsTrueMethods[stepplan[step]].name);
-    }
+    // // print final stepplan
+    // for(int step=1; step<prime_max*2+1; step+=2) {
+    //     if (stepplan[step] != 0)  printf("Step %4ju: %s\n", (uintmax_t)step, setBitsTrueMethods[stepplan[step]].name);
+    // }
 
     // benchmark the final stepplan for 5 seconds
     printf("Benchmarking the final stepplan for 5 seconds\n");
