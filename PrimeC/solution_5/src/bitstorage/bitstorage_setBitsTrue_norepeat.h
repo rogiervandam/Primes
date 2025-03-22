@@ -11,8 +11,16 @@ setBitTrue(void* restrict bitstorage, const register counter_t index)
     ((bitbucket_t*)bitstorage)[index_type(index,bitbucket_t)] |= markmask_calc_type(index, bitbucket_t);
 }
 
-static inline counter_t __attribute__((always_inline)) 
+static inline void __attribute__((always_inline)) 
 setBitsTrue_range(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+{
+    for( register counter_t index = range_start; index < range_stop; index += step) setBitTrue(bitstorage, index);
+}
+
+// this function returns the last index that was set
+
+static inline counter_t __attribute__((always_inline)) 
+setBitsTrue_range_return(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     register counter_t index = range_start;
     for(; index < range_stop; index += step) setBitTrue(bitstorage, index);

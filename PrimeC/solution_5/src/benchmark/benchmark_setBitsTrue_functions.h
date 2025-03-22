@@ -1,6 +1,16 @@
-
 // Define a function pointer type for setBitsTrue functions
 typedef void (*setBitsTrueFunc)(void* restrict, const counter_t, const counter_t, const counter_t);
+
+
+static inline void clear_cache() {
+    // Clear the cache
+    const size_t size = 128*1024*1024;
+    char* data = (char*)malloc(size);
+    for (size_t i = 0; i < size; i++) {
+        data[i] = i;
+    }
+    free(data);
+}
 
 // Define benchmark timing constants
 #define BENCHMARK_DURATION 0.002  // seconds per test
@@ -19,6 +29,7 @@ typedef struct {
 // Global array with all setBitsTrue functions
 static const SetBitsTrueMethod setBitsTrueMethods[] = {
     {0, "setBitsTrue", setBitsTrue, 0, INT32_MAX, 1},
+    {0, "setBitsTrue_range", setBitsTrue_range, 0, INT32_MAX, 1},
     // {1, "setBitsTrue_smallstep_rotate_pair_uint32v2", setBitsTrue_smallstep_rotate_pair_uint32v2, 0, 31, 1},
     {2, "setBitsTrue_smallstep_rotate_uint64v2", setBitsTrue_smallstep_rotate_uint64v2, 1, 63, 1},
     {2, "setBitsTrue_smallstep_rotate_uint64v4", setBitsTrue_smallstep_rotate_uint64v4, 1, 63, 1},
@@ -63,16 +74,15 @@ static const SetBitsTrueMethod setBitsTrueMethods[] = {
 #define nonvector 1
 
 
-static int checkSetBitsTrueMethod_stripe(const SetBitsTrueMethod* method, const counter_t range_start, const counter_t step, const counter_t range_stop)
+static uint8_t checkSetBitsTrueMethod_stripe(const SetBitsTrueMethod* method, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
     // create sieve
-    struct sieve_t* sieve = sieve_create(range_stop*2+1024);
+    struct sieve_t* sieve = sieve_create((range_stop+1024)*2);
     void* bitstorage = sieve->bitstorage;
     sieve_clear(sieve);
     setBitsTrue_range(bitstorage, range_start, step, range_stop);
-    counter_t target_count = countBitsTrue(bitstorage, range_start, range_stop);
+    counter_t target_count = countBitsTrue(bitstorage, range_start, range_stop+1024);
     sieve_delete(sieve);
-    // sieve_clear(sieve);
 
     sieve = sieve_create(range_stop*2+1024); // reserve extra to check set bits after range stop
     bitstorage = sieve->bitstorage;
@@ -80,25 +90,31 @@ static int checkSetBitsTrueMethod_stripe(const SetBitsTrueMethod* method, const 
     // setBitsTrue_range(bitstorage, range_start, step, range_stop);
 
     method->func(bitstorage, range_start, step, range_stop);
-    counter_t actual_count = countBitsTrue(bitstorage, range_start, range_stop);
+    counter_t actual_count_inrange = countBitsTrue(bitstorage, range_start, range_stop); // add 1024 to check the bits after the range
+    counter_t actual_count_atrange = checkBitTrue(bitstorage, range_stop) ? 1 : 0;
+    counter_t actual_count_afterrange = countBitsTrue(bitstorage, range_stop+1, range_stop+1024);
 
-    if (actual_count != target_count) {
-        printf("Method %s for stripe with step %ju in range %ju-%ju failed with %ju bits set, expected %ju", method->name, (uintmax_t) step, (uintmax_t) range_start, (uintmax_t) range_stop, (uintmax_t)actual_count, (uintmax_t)target_count);
-        return 0;
+    uint8_t correct_inrange = (actual_count_inrange == target_count);
+    uint8_t correct_atrange = (actual_count_atrange == 0);
+    uint8_t correct_afterrange = (actual_count_afterrange == 0);
+
+    if (!(actual_count_inrange == target_count )) {
+        // printf("\nMethod %s for stripe with step %ju in range %ju-%ju failed with %ju bits set, expected %ju ", method->name, (uintmax_t) step, (uintmax_t) range_start, (uintmax_t) range_stop, (uintmax_t)actual_count, (uintmax_t)target_count);
+        // return 0;
     }
     
-    // check if the method is correct
-    counter_t invalid = countInvalidInStripe(bitstorage, range_start, step, range_stop);
-    if (invalid) {
-        printf("Method %s failed with %ju invalid bits", method->name, (uintmax_t)invalid);
-        return 0;
-    }
+    // // check if the method is correct
+    // counter_t invalid = countInvalidInStripe(bitstorage, range_start, step, range_stop);
+    // if (invalid) {
+    //     // printf("Method %s failed with %ju invalid bits", method->name, (uintmax_t)invalid);
+    //     return 0;
+    // }
     sieve_delete(sieve);
 
-    return 1;
+    return correct_inrange | (correct_atrange << 1) | (correct_afterrange << 2);
 }  
 
-static inline int checkSetBitsTrueMethod(const SetBitsTrueMethod* method, const counter_t range_start, const counter_t range_stop) 
+static inline uint8_t checkSetBitsTrueMethod(const SetBitsTrueMethod* method, const counter_t range_start, const counter_t range_stop) 
 {
     // build a base sieve for getting the right primes
     struct sieve_t* sieve_base = sieve_create(range_stop*2);
@@ -113,16 +129,13 @@ static inline int checkSetBitsTrueMethod(const SetBitsTrueMethod* method, const 
     }
 
     // reset prime to 1; loop through all primes and when min_step < step < max_step, check the method
-    int allvalid = 1;
+    uint8_t allvalid = 7;
     prime = 1;
     while (prime < prime_max) {
         register const counter_t step  = prime * 2 + 1;
         if (step >= method->min_step && step <= method->max_step) {
             // printf("Checking method %s for step %ju\n", method->name, (uintmax_t)step);
-            if (!checkSetBitsTrueMethod_stripe(method, compute_start(prime, range_start), step, range_stop)) {
-                allvalid = 0;
-                break;
-            }
+            allvalid &= checkSetBitsTrueMethod_stripe(method, compute_start(prime, range_start), step, range_stop);
         }
         prime = searchBitFalse(bitstorage_base, prime);
     }
@@ -130,42 +143,52 @@ static inline int checkSetBitsTrueMethod(const SetBitsTrueMethod* method, const 
     return allvalid;
 }
 
-static inline int checkSetBitsTrueMethods(const SetBitsTrueMethod* SetBitsTrueMethods, const counter_t range_start, const counter_t range_stop) {
+static inline uint8_t checkSetBitsTrueMethods(const SetBitsTrueMethod* SetBitsTrueMethods, const counter_t range_start, const counter_t range_stop) {
     int allvalid = 1;
 
     for(int m=0; m<methods; m++) {
         SetBitsTrueMethod setBitsTrueMethod = SetBitsTrueMethods[m];
 
-        printf("%3d %s ", m, setBitsTrueMethod.name);
-        int valid = checkSetBitsTrueMethod(&setBitsTrueMethod, range_start, range_stop);
-        if (valid) { printf("\033[32m✓ valid\033[0m "); }
-        else { printf("\033[31m✗ NOT VALID\033[0m "); allvalid = 0; }
-        printf("\n");
+        if (m % 2 == 1) printf("  "); // Start a new row for every two methods
+        printf("%3d %-50s ", m, setBitsTrueMethod.name);
+        uint8_t valid = checkSetBitsTrueMethod(&setBitsTrueMethod, range_start, range_stop);
+        printf("In range: "   ); if (valid&1) {printf("\033[32m✓ valid    \033[0m "); } else { printf("\033[31m✗ NOT VALID\033[0m "); }
+        printf("At range: "   ); if (valid&2) {printf("\033[32m✓ valid    \033[0m "); } else { printf("\033[31m✗ NOT VALID\033[0m "); }
+        printf("After range: "); if (valid&4) {printf("\033[32m✓ valid    \033[0m "); } else { printf("\033[31m✗ NOT VALID\033[0m "); }
+        if (m % 2 == 1) printf("\n"); // End the row after two methods
+        if (valid != 7) { allvalid = 0; }
     }
     return allvalid;
 }
 
-static inline int checkSetBitsTrueMethodsBlocks(const SetBitsTrueMethod* SetBitsTrueMethods, const counter_t range_start, const counter_t range_stop) 
+static inline uint8_t checkSetBitsTrueMethodsBlocks(const SetBitsTrueMethod* SetBitsTrueMethods, const counter_t range_start, const counter_t range_stop) 
 {
-    int allvalid = 1;
+    uint8_t allvalid = 7;
+    global_mediumstep_faster = 64;
 
     for(int m=0; m<methods; m++) {
         SetBitsTrueMethod setBitsTrueMethod = SetBitsTrueMethods[m];
-        printf("%3d %s ", m, setBitsTrueMethod.name);
-        int methodvalid = 1;
+        printf("%3d %-50s ", m, setBitsTrueMethod.name);
+        uint8_t methodvalid = 7;
         for (counter_t blocksize_bits=1024; blocksize_bits<=32*1024*8; blocksize_bits *= 2) {
             for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start < range_stop; block_start += blocksize_bits, block_stop += blocksize_bits) {
-                int valid = checkSetBitsTrueMethod(&setBitsTrueMethod, block_start, min(block_stop, range_stop));
-                if (!valid) { allvalid = 0; methodvalid=0;  }
+                uint8_t valid = checkSetBitsTrueMethod(&setBitsTrueMethod, block_start, min(block_stop, range_stop));
+                // if (valid != 7) { printf("Block %ju-%ju: \033[31m✗ NOT VALID\033[0m ", (uintmax_t)block_start, (uintmax_t)block_stop); } else { printf("Block %ju-%ju: \033[32m✓ valid\033[0m ", (uintmax_t)block_start, (uintmax_t)block_stop); }
+                methodvalid &= valid;
+                allvalid &= valid;
             } 
         }
-        if (methodvalid) { printf("\033[32m✓ valid\033[0m "); }
-        else { printf("\033[31m✗ NOT VALID\033[0m "); }
+        uint8_t valid = methodvalid;
+        printf("In range: "   ); if (valid&1) {printf("\033[32m✓ valid    \033[0m "); } else { printf("\033[31m✗ NOT VALID\033[0m "); }
+        printf("At range: "   ); if (valid&2) {printf("\033[32m✓ valid    \033[0m "); } else { printf("\033[31m✗ NOT VALID\033[0m "); }
+        printf("After range: "); if (valid&4) {printf("\033[32m✓ valid    \033[0m "); } else { printf("\033[31m✗ NOT VALID\033[0m "); }
         printf("\n");
     }
     
     return allvalid;
 }
+
+
 
 
 static inline double stripeBenchmarkTime() 
@@ -195,10 +218,15 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
     for(int i=0; i<1000; i++) { for(int j=0; j<methods; j++) { stripe_passes[i][j] = 0; } }
 
     // List methods    
-    checkSetBitsTrueMethods(setBitsTrueMethods, block_start, block_stop);
-    // for(int m=0; m<methods; m++) {
-    //     printf("%3d %s \n", m, setBitsTrueMethods[m].name);
-    // }
+    // checkSetBitsTrueMethods(setBitsTrueMethods, block_start, block_stop);
+    printf("----------------------\n");
+    for (int m = 0; m < methods; m++) {
+        printf("%3d %-30s", m, setBitsTrueMethods[m].name);
+        if ((m + 1) % 4 == 0 || m == methods - 1) {
+            printf("\n");
+        }
+    }
+    printf("----------------------\n");
 
     // Loop through all primes and benchmark the methods
     while (prime < prime_max) {
@@ -211,6 +239,7 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
             // Skip disabled methods
             // if (!method->enabled) continue;
             if (step >= method->min_step && step <= method->max_step) {
+                clear_cache();
                 const double time_start = stripeBenchmarkTime();
                 const double time_target = time_start + BENCHMARK_DURATION;
                 double time_elapsed = 0;

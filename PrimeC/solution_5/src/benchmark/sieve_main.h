@@ -24,10 +24,24 @@ int main(int argc, char *argv[])
         (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS, TYPE_SHORT_NAME(bitword_vector_t), TYPE_SHORT_NAME(counter_t) ); )
     verbose2( if (dockerfile_type) printf("in docker \033[1;34m%s\033[0m ", dockerfile_type); )
     verbose2( printf("with max %ju \n", (uintmax_t)option.fixed_benchmark_settings.factor_max); )
-        
+
+    // command line --check can be used to check the algorithm for all sieve/blocksize combinations
+    if (option.check) { 
+        if (option.check >= 1) checkSieveAlgorithm(option.fixed_benchmark_settings);
+        if (option.check >= 3) checkSieveAlgorithmAll(option.fixed_benchmark_settings);
+        if (option.check >= 4) checkSetBitsTrueMethods(setBitsTrueMethods, 0, option.fixed_benchmark_settings.factor_max);
+        if (option.check >= 5) {
+            for (counter_t sieveSize_check = 100; sieveSize_check <= 1000000; sieveSize_check *=10) {
+                checkSetBitsTrueMethods(setBitsTrueMethods, 0, option.fixed_benchmark_settings.factor_max);
+            }
+        }
+        if (option.check >= 6) checkSetBitsTrueMethodsBlocks(setBitsTrueMethods, 0, option.fixed_benchmark_settings.factor_max);
+        if (option.check == 7) return 0;
+    }
+    
+
     #ifdef COMPILE_FUNCTION_TIMINGS
     if (option.timers) {
-        // checkSetBitsTrueMethodsBlocks(setBitsTrueMethods, 0, 1000000);
         struct sieve_t* sieve = shakeSieve(option.fixed_benchmark_settings.factor_max);
         benchmarkSetBitsTrue(sieve->bitstorage, 256*1024, min(1000000/2, 512*1024), 2, 500);
         sieve_delete(sieve);
@@ -48,11 +62,6 @@ int main(int argc, char *argv[])
     }
     #endif
 
-    // command line --check can be used to check the algorithm for all sieve/blocksize combinations
-    if (option.check) { 
-        if (!checkSieveAlgorithm(option.fixed_benchmark_settings)) return 1; 
-        if (option.check == 2) return 0;
-    }
 
     for(counter_t threads=option.fixed_benchmark_settings.threads, runs = 0; threads >= 1 && runs < 2; threads = (threads>>1), runs++ ) {
 

@@ -42,7 +42,13 @@ static struct options_t parseCommandLine(int argc, char *argv[], struct options_
         #ifdef COMPILE_FUNCTION_TIMINGS 
         else if (strcmp_local(argv[arg], "--timers")==0) { option.timers=1; }
         #endif
-        else if (strcmp_local(argv[arg], "--check")==0) { option.check=1; }
+        else if (strcmp_local(argv[arg], "--check")==0) { option.check=1;
+            if (++arg >= argc) { fprintf(stderr, "No check level specified\n"); usage(program_name, 1); }
+            if (sscanf(argv[arg], "%d", &option.check) != 1 || option.check > 6) {
+                verbose1( fprintf(stderr, "Error: Invalid check level: %s\n", argv[arg]); usage(program_name, 1); )
+            }
+            verbose2( printf("Check level set to %d\n",option.check); )
+        }
         else if (strcmp_local(argv[arg], "--nocheck")==0) { option.check=0; }
         else if (strcmp_local(argv[arg], "--tune")==0) { option.tunelevel=0;
             if (++arg >= argc) { fprintf(stderr, "No tune level specified\n"); usage(program_name, 1); }

@@ -40,12 +40,11 @@ static inline void __attribute__((always_inline)) sieve_clear(struct sieve_t *si
 
     // alternative, but dependent on <string.h>
     // memset(sieve->bitstorage, 0, (sieve->bits >> 3) + 1 ); // add one to make sure  
-    uint64_t *bitstorage = (uint64_t *) __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
-    counter_t max = index_type(sieve->bits, uint64_t);
-    for(counter_t i = 0; i < max; i++) {
-        bitstorage[i] = 0;
+    uint32_t *bitstorage = (uint32_t *) __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
+    counter_t max = index_type(sieve->bits, uint32_t);
+    for(counter_t i = 0; i <= max; i++) {
+        bitstorage[i] = (uint32_t)0U;
     }
-
 }
 
 // delete the sieve

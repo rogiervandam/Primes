@@ -44,6 +44,43 @@ static int checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 
     // validate algorithm - run one time for all sizes
     for (counter_t sieveSize_check = 100; sieveSize_check <= 1000000; sieveSize_check *=10) {
+    verbose3( {
+        printf("..Checking size %ju ...",(uintmax_t)sieveSize_check); 
+        verbose4( printf("\n"); )
+    })
+        benchmark_settings.blocksize_bits = sieveSize_check / 2;
+        benchmark_settings.factor_max = sieveSize_check;
+        benchmark_settings = checkBenchmarkSettings(benchmark_settings);
+        setBenchmarkSettingAsString(settings_string, benchmark_settings);
+
+        int valid = checkSieveWithBenchmarkSettings(benchmark_settings); 
+
+        if (!valid) {
+            verbose1( fprintf(stderr,"Invalid count for %ju Settings used: %s\n",(uintmax_t)sieveSize_check, settings_string); )
+            deepAnalyzeWithBenchmarkSettings(benchmark_settings);
+            return valid;
+        }
+        else {
+            verbose4( printf("\033[0;32mvalid\033[0;0m for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
+        }
+        verbose3( printf("\033[0;32mvalid\033[0;0m for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
+    }
+    verbose2( printf("\033[0;32mvalid\033[0;0m algorithm\n"); )
+    
+    return 1;
+}
+
+static int checkSieveAlgorithmAll(benchmark_settings_t benchmark_settings)
+{
+    verbose2( { 
+        printf("Validating variant u%juv%ju... ", (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS); 
+        verbose3( printf("\n");) 
+    })
+
+    char settings_string[50] = ""; 
+
+    // validate algorithm - run one time for all sizes
+    for (counter_t sieveSize_check = 100; sieveSize_check <= 1000000; sieveSize_check *=10) {
         verbose3( {
             printf("..Checking size %ju ...",(uintmax_t)sieveSize_check); 
             verbose4( printf("\n"); )

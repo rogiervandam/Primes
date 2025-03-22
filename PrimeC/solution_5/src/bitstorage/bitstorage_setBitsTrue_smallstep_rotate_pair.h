@@ -65,7 +65,7 @@ static inline void __attribute__((always_inline)) NAME(setBitsTrue_smallstep,suf
         return;
     }
 
-    const counter_t range_start_new = setBitsTrue_range(bitstorage, range_start, step, range_start_nexttvector);
+    const counter_t range_start_new = setBitsTrue_range_return(bitstorage, range_start, step, range_start_nexttvector);
     NAME(create_mask_smallstep,suffix)(bitstorage, range_start_new, step, range_stop);
 
     timer_laptime(time_setBitsTrue_largestep_vector_wordstep); verbose6( printf("\n"); )
