@@ -43,12 +43,6 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
             largestep_faster_steps = VECTOR_SIZE_BITS/8;
             sample_duration = option.sample_duration*2;
             break;
-        case 3:
-            stripe_faster_steps = prime_max/16;
-            mediumstep_faster_steps = VECTORWORD_SIZE_BITS/16;
-            largestep_faster_steps = VECTOR_SIZE_BITS/16;
-            sample_duration =option.sample_duration*3;
-            break;
     }
     
     verbose2( { 

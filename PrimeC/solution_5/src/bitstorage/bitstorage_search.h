@@ -40,7 +40,7 @@ static inline counter_t __attribute__((always_inline)) faultInvalidInStripe(cons
     return count;
 }
 
-static inline counter_t __attribute__((always_inline)) searchBitFalse(const bitword_t* restrict bitstorage, register counter_t index) 
+static inline counter_t __attribute__((always_inline)) searchBitFalse(void* restrict bitstorage, register counter_t index) 
 {
     verbose8( printf("searchBitFalse from prime %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1); )
     timer_lapstart(time_searchBitFalse);
@@ -51,6 +51,7 @@ static inline counter_t __attribute__((always_inline)) searchBitFalse(const bitw
     timer_laptime(time_searchBitFalse); verbose8( printf(" next prime %ju (step %ju)\n", (uintmax_t) index, (uintmax_t)index*2+1); )
     return index;
 }
+
 
 // Finds the index of the next unset (false) bit in a bitmap, starting from a given index
 // Optimized function for large ranges which are not common

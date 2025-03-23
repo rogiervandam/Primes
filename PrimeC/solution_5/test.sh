@@ -135,6 +135,7 @@ for arg in "$@"; do
                 ;;
             explain|--explain)
                 DEFINE_FLAGS="-DCOMPILE_EXPLAIN $DEFINE_FLAGS"
+                verbose_level=5
                 ;;
             timings|--timings)
                 DEFINE_FLAGS="-DCOMPILE_TIMERS $DEFINE_FLAGS"

@@ -26,30 +26,20 @@ int main(int argc, char *argv[])
     verbose2( printf("with max %ju \n", (uintmax_t)option.fixed_benchmark_settings.factor_max); )
 
     // command line --check can be used to check the algorithm for all sieve/blocksize combinations
-    if (option.check) { 
-        if (option.check >= 1) checkSieveAlgorithm(option.fixed_benchmark_settings);
-        if (option.check >= 3) checkSieveAlgorithmAll(option.fixed_benchmark_settings);
-        if (option.check >= 4) checkSetBitsTrueMethods(setBitsTrueMethods, 0, option.fixed_benchmark_settings.factor_max);
-        if (option.check >= 5) {
-            for (counter_t sieveSize_check = 100; sieveSize_check <= 1000000; sieveSize_check *=10) {
-                checkSetBitsTrueMethods(setBitsTrueMethods, 0, option.fixed_benchmark_settings.factor_max);
-            }
+    if (option.check) CheckOptions(option.check, option.fixed_benchmark_settings);
+
+    if (option.tunelevel) {
+        if (option.tunelevel == 3) {
+            struct sieve_t* sieve = shakeSieve(option.fixed_benchmark_settings.factor_max);
+            benchmarkSetBitsTrue(sieve->bitstorage, 256*1024, min(1000000/2, 512*1024), 2, 500);
+            sieve_delete(sieve);
+            return 0;
         }
-        if (option.check >= 6) checkSetBitsTrueMethodsBlocks(setBitsTrueMethods, 0, option.fixed_benchmark_settings.factor_max);
-        if (option.check == 7) return 0;
+        if (option.tunelevel == 4) {
+            createStepplan(option.fixed_benchmark_settings);
+            exit(0);
+        }
     }
-    
-
-    #ifdef COMPILE_FUNCTION_TIMINGS
-    if (option.timers) {
-        createStepplan(option.fixed_benchmark_settings);
-        exit(0);
-
-        struct sieve_t* sieve = shakeSieve(option.fixed_benchmark_settings.factor_max);
-        benchmarkSetBitsTrue(sieve->bitstorage, 256*1024, min(1000000/2, 512*1024), 2, 500);
-        sieve_delete(sieve);
-    }
-    #endif
 
     #ifdef COMPILE_EXPLAIN
     if (option.explain >= 1) {

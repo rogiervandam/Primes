@@ -75,8 +75,17 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     // do this block by block to minimize cache misses
     // first block requires fewer operations; it might be the whole sieve...
 
-    stripeSieveBlock0(bitstorage, min(blocksize_bits, sieve_bits), prime, prime_max);
-    for (counter_t block_start = blocksize_bits, block_stop = 2*blocksize_bits-1; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
+    if (blocksize_bits >= sieve_bits) {
+        stripeSieveBlock0(bitstorage, sieve_bits, prime, prime_max);
+        return sieve;
+    }
+
+    counter_t block_start = ((sieve_bits % blocksize_bits) + cache_line_bytes*8) & ~(cache_line_bytes*8-1); 
+    // counter_t block_start = ((stripeprime_faster * stripeprime_faster) + cache_line_bytes*8) & ~(cache_line_bytes*8-1); 
+
+    stripeSieveBlock0(bitstorage, min(block_start, sieve_bits), prime, prime_max);
+    // counter_t block_start = ((sieve_bits % blocksize_bits)) ;// + cache_line_bytes) & (cache_line_bytes-1); 
+    for (counter_t block_stop = block_start + blocksize_bits; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
         stripeSieveBlock(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
     } 
 

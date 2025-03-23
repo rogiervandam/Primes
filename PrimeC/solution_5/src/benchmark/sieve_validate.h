@@ -118,3 +118,16 @@ static void showResult(benchmark_settings_t benchmark_settings)
     sieve_delete(sieve);
 }
 
+static inline void CheckOptions(int check, benchmark_settings_t benchmark_settings) {
+    if (check >= 1) checkSieveAlgorithm(benchmark_settings);
+    if (check >= 3) checkSieveAlgorithmAll(benchmark_settings);
+    if (check >= 4) checkSetBitsTrueMethods(setBitsTrueMethods, 0, benchmark_settings.factor_max);
+    if (check >= 5) {
+        for (counter_t sieveSize_check = 100; sieveSize_check <= 1000000; sieveSize_check *=10) {
+            checkSetBitsTrueMethods(setBitsTrueMethods, 0, benchmark_settings.factor_max);
+        }
+    }
+    if (check >= 6) checkSetBitsTrueMethodsBlocks(setBitsTrueMethods, 0, benchmark_settings.factor_max);
+    if (check == 7) exit(0);
+   
+}

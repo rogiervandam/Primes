@@ -5,8 +5,8 @@ static inline counter_t __attribute__((always_inline)) stripeSieveBlock(bitword_
 
     const counter_t prime_stripe_start_beyond_block_stop = prime_stop(block_stop) ;
     const counter_t prime_vectorpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, VECTOR_SIZE_BITS);
-    // const counter_t prime_wordpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, WORD_SIZE_BITS*3);
-    const counter_t prime_wordpattern_not_repeating_in_block = prime_max;
+    const counter_t prime_wordpattern_not_repeating_in_block = prime_pattern_not_repeating_in_block(block_start, block_stop, WORD_SIZE_BITS*3);
+    // const counter_t prime_wordpattern_not_repeating_in_block = prime_max;
 
     const counter_t prime_endloop5 = min(prime_max, prime_stripe_start_beyond_block_stop);
     const counter_t prime_endloop4 = min(prime_endloop5, prime_wordpattern_not_repeating_in_block);
@@ -27,7 +27,7 @@ static inline counter_t __attribute__((always_inline)) stripeSieveBlock(bitword_
     // the < instad of <= is to prevent the last prime to be processed in all the loop
     // the implication is that the prime_endloop must be met step/2, not spep/2-1
 
-    while (prime < prime_max) {
+    while (prime < prime_endloop5) {
         register const counter_t step  = prime * 2 + 1;
         register counter_t start = compute_start(prime, block_start);
         setBitsTrue(bitstorage, start, step, block_stop);
@@ -37,7 +37,7 @@ static inline counter_t __attribute__((always_inline)) stripeSieveBlock(bitword_
     // while (prime < prime_endloop1) {
     //     register const counter_t step  = prime * 2 + 1;
     //     register counter_t start = compute_start(prime, block_start);
-    //     setBitsTrue_smallstep_vector(bitstorage, start, step, block_stop);
+    //     setBitsTrue_smallstep_rotate_pair_uint64v8(bitstorage, start, step, block_stop);
     //     prime = searchBitFalse(bitstorage, prime);
     // }
 
@@ -51,7 +51,7 @@ static inline counter_t __attribute__((always_inline)) stripeSieveBlock(bitword_
     // while (prime < prime_endloop3) {
     //     register const counter_t step  = prime * 2 + 1;
     //     register counter_t start = compute_start(prime, block_start);
-    //     setBitsTrue_largestep_vector(bitstorage, start, step, block_stop);
+    //     setBitsTrue_largestep_vector_uint64v4(bitstorage, start, step, block_stop);
     //     prime = searchBitFalse(bitstorage, prime);
     // }
 

@@ -1,14 +1,11 @@
-// #ifdef variant
-// #define bitbucket_t NAME(variant, _t)
-// #define variantsuffix NAME(_,variant)
-
 #ifndef variant
 #define bitbucket_t uint8_t
 
 static inline void __attribute__((always_inline)) 
 setBitTrue(void* restrict bitstorage, const register counter_t index) 
 {
-    ((bitbucket_t*)bitstorage)[index_type(index,bitbucket_t)] |= markmask_calc_type(index, bitbucket_t);
+    register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
+    bitstorage_sized[index_type(index,bitbucket_t)] |= markmask_calc_type(index, bitbucket_t);
 }
 
 static inline void __attribute__((always_inline)) 
@@ -33,32 +30,40 @@ setBitsTrue_range_return(void* restrict bitstorage, const counter_t range_start,
 #define subfunction _norepeat
 #include "../generic/setsuffix.h"
 
-#if unrolls == 4
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
 // this is a BASE ALGORITHM COMPLIANT: each bit is set individually
 static inline void __attribute__((always_inline)) NAME(setBitsTrue_largestep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
-    verbose6( printf("Setting bits step %3ju using largestep-norepeat in %ju bit range (%ju-%ju)  (%ju unique occurances)..", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)step)); )
+    verbose6( printf("Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju)  (%ju unique occurances)..", (uintmax_t)step,  STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)step)); )
     timer_lapstart(time_setBitsTrue_largestep_norepeat);
 
-    const counter_t step_2 = step * 2;
-    const counter_t loop_stop = safe_diff_type(range_stop,step_2, counter_t);
+    register const counter_t step_max = step * unrolls;
+    register const counter_t loop_stop = safe_diff_type(range_stop, step_max, counter_t);
     register counter_t index = range_start;
 
     #pragma GCC ivdep
-    for (; index < loop_stop; index += step_2) {
+    for (; index < loop_stop; index += step_max) {
+        __builtin_prefetch(&bitstorage[index_type(index, bitbucket_t)], 1, 3);
         setBitTrue(bitstorage, index);
-        setBitTrue(bitstorage, index + step);
+        setBitTrue(bitstorage, index + step    );
+        setBitTrue(bitstorage, index + step * 2);
+        setBitTrue(bitstorage, index + step * 3);
+        #if unrolls == 8
+        setBitTrue(bitstorage, index + step * 4);
+        setBitTrue(bitstorage, index + step * 5);
+        setBitTrue(bitstorage, index + step * 6);
+        setBitTrue(bitstorage, index + step * 7);
+        #endif
     }
 
-    for (counter_t i=2; i-- && index < range_stop; index += step) 
+    for (counter_t i=unrolls; i-- && index < range_stop; index += step) 
         setBitTrue(bitstorage, index);
 
     if unlikely(index==range_stop) setBitTrue(bitstorage, index);
 
     timer_laptime(time_setBitsTrue_largestep_norepeat); verbose6( printf("\n"); )
 }
-#endif
+
 #define subfunction _norepeat
 #include "../generic/setsuffix.h"
 
@@ -68,14 +73,16 @@ static inline void __attribute__((always_inline)) NAME(setBitsTrue_largestep,suf
 // this is a BASE ALGORITHM COMPLIANT: each bit is set individually
 static inline void  __attribute__((always_inline)) NAME(setBitsTrue_smallstep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
-    verbose6( printf("Setting bits step %3ju using smallstep-norepeat in %ju bit range (%ju-%ju)  (%ju unique occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
+    verbose6( printf("Setting bits step %3ju using smallstep%s in %ju bit range (%ju-%ju)  (%ju unique occurances)", (uintmax_t)step, STR(suffix),  (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
     timer_lapstart(time_setBitsTrue_smallstep_norepeat);
+
+    register bitbucket_t* restrict bitstorage_sized = (bitbucket_t*) __builtin_assume_aligned(bitstorage, cache_line_bytes);
 
     for (register counter_t index = range_start; index < range_stop;) {
         register const counter_t index_bucket = index_type(index, bitbucket_t);  // set index_word here because the for loop will change index
         register bitbucket_t mask = (bitbucket_t)0U;
         for(; index_type(index, bitbucket_t) == index_bucket; index += step) mask |= markmask_type(index, bitbucket_t);
-        ((bitbucket_t*)bitstorage)[index_bucket] |= mask;
+        bitstorage_sized[index_bucket] |= mask;
     }
     timer_laptime(time_setBitsTrue_smallstep_norepeat); verbose6( printf("\n"); )
 }

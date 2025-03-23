@@ -1,18 +1,6 @@
 #undef variant
 #include "bitstorage_setBitsTrue_norepeat.h"
 
-// #define variant uint8
-// #include "bitstorage_setBitsTrue_norepeat.h"
-// #define variant uint64
-// #include "bitstorage_setBitsTrue_norepeat.h"
-
-// vector size operations
-// #include "bitstorage_applyMask_vector.h"
-#include "bitstorage_setBitsTrue_smallstep_vector.h"
-
-// word size operations
-// #include "bitstorage_applyMask_word.h"
-
 #define variantsuffix _word
 #define bitbucket_t bitword_t
 #include "bitstorage_applyMask.h"
@@ -49,6 +37,14 @@
 #include "bitstorage_setBitsTrue_assemble_vector.h"  
 #define preset_uint16v8
 #include "bitstorage_setBitsTrue_assemble_vector.h"  
+
+#undef variant_base_type_t
+#define preset_uint64v8
+#include "bitstorage_setBitsTrue_assemble_vector.h" 
+#define preset_uint64v4
+#include "bitstorage_setBitsTrue_assemble_vector.h" 
+#define preset_uint64v2
+#include "bitstorage_setBitsTrue_assemble_vector.h" 
 
 // create smallstep functions
 #undef unrolls

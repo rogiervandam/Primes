@@ -15,7 +15,7 @@ static inline void __attribute__((always_inline)) NAME(setBitsTrue_smallstep,suf
 {
     const counter_t range_stop_unique = range_start + bitcount_type(bitbucket_t) * step;
 
-    verbose6( printf("Setting bits step %3ju using smallstep-repeat in %ju bit range (%ju-%ju) (%ju repeating occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(step*bitcount_type(bitbucket_t)))); )
+    verbose6( printf("Setting bits step %3ju using smallstep%s in %ju bit range (%ju-%ju) (%ju repeating occurances)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(step*bitcount_type(bitbucket_t)))); )
     timer_lapstart(time_setBitsTrue_smallstep_repeat);
 
     for (register counter_t index = range_start; index <= range_stop_unique;) {
@@ -38,7 +38,7 @@ static inline void __attribute__((always_inline)) NAME(setBitsTrue_smallstep,suf
 {
     const counter_t range_stop_unique = range_start + bitcount_type(bitbucket_t) * step;
 
-    verbose6( printf("Setting bits step %3ju using smallstep-repeat in %ju bit range (%ju-%ju) (%ju repeating occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(step*bitcount_type(bitbucket_t)))); )
+    verbose6( printf("Setting bits step %3ju using smallstep%s in %ju bit range (%ju-%ju) (%ju repeating occurances)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(step*bitcount_type(bitbucket_t)))); )
     timer_lapstart(time_setBitsTrue_smallstep_repeat);
 
     for (register counter_t index = range_start; index <= range_stop_unique;) {
@@ -60,11 +60,11 @@ static inline void __attribute__((always_inline)) NAME(setBitsTrue_smallstep,suf
 static inline void __attribute__((always_inline)) NAME(setBitsTrue_largestep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 { 
     const counter_t range_stop_unique = range_start + bitcount_type(bitbucket_t) * step; 
-    verbose6(printf("Setting bits step %3ju using largestep-repeat in %ju bit range (%ju-%ju) (%ju repeating occurrences)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)))); 
+    verbose6(printf("Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju) (%ju repeating occurrences)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)))); 
     timer_lapstart(time_setBitsTrue_largestep_repeat); 
     
     for (register counter_t index = range_start; index < range_stop_unique; index += step) { 
-        NAME(applyMask,fullvariantsuffix)(bitstorage, step, range_stop, markmask_calc_type(index, bitbucket_t), index_type(index, bitbucket_t));
+        NAME(applyMask,fullvariantsuffix)(bitstorage, step, range_stop, markmask_type(index, bitbucket_t), index_type(index, bitbucket_t));
     } 
     timer_laptime(time_setBitsTrue_largestep_repeat); verbose6(printf("\n")); 
 }
