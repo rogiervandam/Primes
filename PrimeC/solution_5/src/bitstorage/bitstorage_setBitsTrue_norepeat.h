@@ -5,7 +5,7 @@ static inline void __attribute__((always_inline))
 setBitTrue(void* restrict bitstorage, const register counter_t index) 
 {
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
-    bitstorage_sized[index_type(index,bitbucket_t)] |= markmask_calc_type(index, bitbucket_t);
+    bitstorage_sized[index_type(index,bitbucket_t)] |= markmask_type(index, bitbucket_t);
 }
 
 static inline void __attribute__((always_inline)) 
@@ -37,13 +37,15 @@ static inline void __attribute__((always_inline)) NAME(setBitsTrue_largestep,suf
     verbose6( printf("Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju)  (%ju unique occurances)..", (uintmax_t)step,  STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)step)); )
     timer_lapstart(time_setBitsTrue_largestep_norepeat);
 
+    register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
+
     register const counter_t step_max = step * unrolls;
     register const counter_t loop_stop = safe_diff_type(range_stop, step_max, counter_t);
     register counter_t index = range_start;
 
     #pragma GCC ivdep
     for (; index < loop_stop; index += step_max) {
-        __builtin_prefetch(&bitstorage[index_type(index, bitbucket_t)], 1, 3);
+        __builtin_prefetch(&bitstorage_sized[index_type(index + step_max, bitbucket_t)], 1, 3);
         setBitTrue(bitstorage, index);
         setBitTrue(bitstorage, index + step    );
         setBitTrue(bitstorage, index + step * 2);
@@ -76,7 +78,7 @@ static inline void  __attribute__((always_inline)) NAME(setBitsTrue_smallstep,su
     verbose6( printf("Setting bits step %3ju using smallstep%s in %ju bit range (%ju-%ju)  (%ju unique occurances)", (uintmax_t)step, STR(suffix),  (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
     timer_lapstart(time_setBitsTrue_smallstep_norepeat);
 
-    register bitbucket_t* restrict bitstorage_sized = (bitbucket_t*) __builtin_assume_aligned(bitstorage, cache_line_bytes);
+    register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
 
     for (register counter_t index = range_start; index < range_stop;) {
         register const counter_t index_bucket = index_type(index, bitbucket_t);  // set index_word here because the for loop will change index

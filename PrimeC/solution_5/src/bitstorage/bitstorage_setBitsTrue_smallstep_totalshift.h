@@ -10,8 +10,8 @@ static inline void __attribute__((always_inline)) NAME(create_mask_smallstep,suf
     //     (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)), (uintmax_t)range_stop_unique ); })
     timer_lapstart(time_create_mask_vector_smallstep);
 
-    register bitbucket_t* restrict bitstorage_vector = (bitbucket_t*) __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    __builtin_prefetch(&bitstorage_vector[index_type(range_start, bitbucket_t)], 1, 3); // prefetch the memory that will be written soon while creating mask
+    register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
+    __builtin_prefetch(&bitstorage_sized[index_type(range_start, bitbucket_t)], 1, 3); // prefetch the memory that will be written soon while creating mask
 
     // build the pattern, pattern_size en pattern_wordshift efficiently
     register const bitshift_t step_shift = bitindex_calc_type(step, variant_base_type_t); // to enable the compiler to optimize the shift
@@ -32,18 +32,18 @@ static inline void __attribute__((always_inline)) NAME(create_mask_smallstep,suf
     variant_base_type_t index_vector = 0U;
     for (; index_vector+4 < index_vector_max; index_vector+=4) {
         register const bitbucket_t mask_vector1 = mask_vector_base << ((shift_vector + ((variant_base_type_t)index_vector * pattern_vectorshift_vector) ) % step_vector);
-        NAME(applyMask,fullvariantsuffix)(bitstorage_vector, step, range_stop, mask_vector1, range_startvector + index_vector);
+        NAME(applyMask,fullvariantsuffix)(bitstorage_sized, step, range_stop, mask_vector1, range_startvector + index_vector);
         register const bitbucket_t mask_vector2 = mask_vector_base << ((shift_vector + ((variant_base_type_t)(index_vector+1) * pattern_vectorshift_vector) ) % step_vector);
-        NAME(applyMask,fullvariantsuffix)(bitstorage_vector, step, range_stop, mask_vector2, range_startvector + index_vector+1);
+        NAME(applyMask,fullvariantsuffix)(bitstorage_sized, step, range_stop, mask_vector2, range_startvector + index_vector+1);
         register const bitbucket_t mask_vector3 = mask_vector_base << ((shift_vector + ((variant_base_type_t)(index_vector+2) * pattern_vectorshift_vector) ) % step_vector);
-        NAME(applyMask,fullvariantsuffix)(bitstorage_vector, step, range_stop, mask_vector3, range_startvector + index_vector+2);
+        NAME(applyMask,fullvariantsuffix)(bitstorage_sized, step, range_stop, mask_vector3, range_startvector + index_vector+2);
         register const bitbucket_t mask_vector4 = mask_vector_base << ((shift_vector + ((variant_base_type_t)(index_vector+3) * pattern_vectorshift_vector) ) % step_vector);
-        NAME(applyMask,fullvariantsuffix)(bitstorage_vector, step, range_stop, mask_vector4, range_startvector + index_vector+3);
+        NAME(applyMask,fullvariantsuffix)(bitstorage_sized, step, range_stop, mask_vector4, range_startvector + index_vector+3);
     }
 
     for (; index_vector <= index_vector_max; index_vector++) {
         const bitbucket_t mask_vector = mask_vector_base << ((shift_vector + ((BITBUCKET_BASE(index_vector)) * pattern_vectorshift_vector) ) % step_vector);
-        NAME(applyMask,fullvariantsuffix)(bitstorage_vector, step, range_stop, mask_vector, range_startvector + index_vector);
+        NAME(applyMask,fullvariantsuffix)(bitstorage_sized, step, range_stop, mask_vector, range_startvector + index_vector);
     }
 
     timer_laptime(time_create_mask_vector_smallstep); 

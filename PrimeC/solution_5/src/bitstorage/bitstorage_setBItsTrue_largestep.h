@@ -8,7 +8,7 @@ static inline void __attribute__((always_inline)) NAME(create_mask_vector,suffix
     // verbose6(  printf("\n..Setting bits step %3ju using create_mask_vector_largestep in %ju bit range (%ju-%ju)  (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
     timer_lapstart(time_create_mask_vector_largestep);
 
-    bitbucket_t* restrict bitstorage_vector = (bitbucket_t*) __builtin_assume_aligned(bitstorage, cache_line_bytes);
+    bitbucket_t* restrict bitstorage_vector = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     const counter_t range_stop_unique_vector = range_start + step * bitcount_type(bitbucket_t) + bitcount_type(bitbucket_t);  // extra size TODO: is sometime needed when size < blocklimit
     counter_t current_vector = index_type(range_start, bitbucket_t);
 
@@ -16,8 +16,8 @@ static inline void __attribute__((always_inline)) NAME(create_mask_vector,suffix
         const counter_t current_vector_start = vectorstart_type(index, bitbucket_t);
         bitbucket_t mask_vector = BITBUCKET_BASE((variant_base_type_t) 0U);
         for (counter_t i=0; i < BITBUCKET_ELEMENTS; i++) {
-            if ((index & ~mask_type(variant_base_type_t)) == (current_vector_start + (bitcount_type(variant_base_type_t)*i))) {
-                mask_vector[i] = markmask_type(index, variant_base_type_t); // TODO: this was sensitive to wordsize. vector_markmask(index) didnt work; markmask_calc(index) worked
+            if (vectorstart_type(index,variant_base_type_t) == (current_vector_start + (bitcount_type(variant_base_type_t)*i))) {
+                mask_vector[i] = markmask_calc_type(index, variant_base_type_t); // in clang, markmask_type is enough, not in gcc
                 index += step;
             }
         }

@@ -47,7 +47,7 @@ static uint8_t checkSetBitsTrueMethod_stripe(const SetBitsTrueMethod* method, co
     uint8_t correct_afterrange = (actual_count_afterrange == 0);
 
     if (!(actual_count_inrange == target_count )) {
-        // printf("\nMethod %s for stripe with step %ju in range %ju-%ju failed with %ju bits set, expected %ju ", method->name, (uintmax_t) step, (uintmax_t) range_start, (uintmax_t) range_stop, (uintmax_t)actual_count, (uintmax_t)target_count);
+        printf("\nMethod %s for stripe with step %ju in range %ju-%ju failed with %ju bits set, expected %ju ", method->name, (uintmax_t) step, (uintmax_t) range_start, (uintmax_t) range_stop, (uintmax_t)actual_count_inrange, (uintmax_t)target_count);
         // return 0;
     }
     

@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
         // warm up the cache
         verbose2( printf("Warming up the cache and processing units\n"); )	
         benchmark_settings_t final_tuning_settings = benchmark_settings;
-        final_tuning_settings.sample_duration = 1;
+        final_tuning_settings.sample_duration = 3;
         benchmark(final_tuning_settings);
 
         // perform benchmark -> outputs passes, elapsed time and avg in result 

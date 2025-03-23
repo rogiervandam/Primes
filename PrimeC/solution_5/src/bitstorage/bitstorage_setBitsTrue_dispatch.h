@@ -6,7 +6,7 @@ static inline void  __attribute__((always_inline)) setBitsTrue_largestep(void* r
         return;
     } 
 
-    if (range_start + step * 8 * 6  <= range_stop) {  // 8 bit 4 roll 8 tuned value
+    if (range_start + step * 8 * 4  <= range_stop) {  // 8 bit 4 roll 8 tuned value
         setBitsTrue_largestep_repeat_uint8_unroll4(bitstorage, range_start, step, range_stop);
         return;
     } 
@@ -33,12 +33,12 @@ static inline void  __attribute__((always_inline)) setBitsTrue(void* restrict bi
         if (step < WORD_SIZE_BITS /2) {
             const counter_t range_stop_unique_word = range_start + WORD_SIZE_BITS * step; 
             if (range_stop_unique_word <= range_stop) { // the wordmask will be reused
-                setBitsTrue_smallstep_repeat(bitstorage, range_start, step, range_stop);
+                setBitsTrue_smallstep_repeat_uint64(bitstorage, range_start, step, range_stop);
                 timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
                 return;
             }
             else {
-                setBitsTrue_smallstep_norepeat(bitstorage, range_start, step, range_stop);
+                setBitsTrue_smallstep_norepeat_uint8(bitstorage, range_start, step, range_stop);
                 timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
                 return;
             }
@@ -50,12 +50,12 @@ static inline void  __attribute__((always_inline)) setBitsTrue(void* restrict bi
     }
     else if (step <= 255) {
         if (step < global_largestep_faster) {
-            const counter_t range_stop_unique_vector = range_start + 255 * step;
-            if (range_stop_unique_vector <= range_stop) {
+            // const counter_t range_stop_unique_vector = range_start + 255 * step;
+            // if (range_stop_unique_vector <= range_stop) {
                 setBitsTrue_largestep_vector_uint64v4(bitstorage, range_start, step, range_stop);
                 timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
                 return;
-            }
+            // }
         }
     }
  
