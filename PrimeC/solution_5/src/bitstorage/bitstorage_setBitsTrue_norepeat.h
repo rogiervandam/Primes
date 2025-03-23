@@ -1,14 +1,14 @@
 #ifndef variant
 #define bitbucket_t uint8_t
 
-static inline void __attribute__((always_inline)) 
+static inline void __attribute__((always_inline)) __attribute__((hot))
 setBitTrue(void* restrict bitstorage, const register counter_t index) 
 {
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
     bitstorage_sized[index_type(index,bitbucket_t)] |= markmask_type(index, bitbucket_t);
 }
 
-static inline void __attribute__((always_inline)) 
+static inline void __attribute__((always_inline)) __attribute__((hot))
 setBitsTrue_range(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     for( register counter_t index = range_start; index < range_stop; index += step) setBitTrue(bitstorage, index);
@@ -16,7 +16,7 @@ setBitsTrue_range(void* restrict bitstorage, const counter_t range_start, const 
 
 // this function returns the last index that was set
 
-static inline counter_t __attribute__((always_inline)) 
+static inline counter_t __attribute__((always_inline)) __attribute__((hot))
 setBitsTrue_range_return(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     register counter_t index = range_start;

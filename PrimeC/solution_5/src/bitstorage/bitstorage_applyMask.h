@@ -1,6 +1,7 @@
 #include "../generic/setsuffix.h"
 
-static inline void __attribute__((always_inline)) NAME(applyMask,suffix)(void* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitbucket_t mask, counter_t index_vector) 
+static inline void __attribute__((always_inline)) __attribute__((hot))
+NAME(applyMask,suffix)(void* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitbucket_t mask, counter_t index_vector) 
 {
     verbose8( printf("Applying " ##bitbucket_t " mask with step %ju in range until %ju", (uintmax_t)step, (uintmax_t)range_stop); )
     timer_lapstart(time_applyMask_vector);
@@ -41,7 +42,8 @@ static inline void __attribute__((always_inline)) NAME(applyMask,suffix)(void* r
     timer_laptime(time_applyMask_vector); verbose8( printf("\n"); )
 }
 
-static inline void __attribute__((always_inline)) NAME(applyMask_pair,suffix)(void* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitbucket_t mask1, const bitbucket_t mask2, counter_t index_vector) 
+static inline void __attribute__((always_inline)) __attribute__((hot))
+NAME(applyMask_pair,suffix)(void* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitbucket_t mask1, const bitbucket_t mask2, counter_t index_vector) 
 {
     verbose8( printf("Applying " ##bitbucket_t " mask with step %ju in range until %ju", (uintmax_t)step, (uintmax_t)range_stop); )
     timer_lapstart(time_applyMask_vector);
