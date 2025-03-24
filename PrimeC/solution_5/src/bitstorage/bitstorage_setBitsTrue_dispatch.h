@@ -1,5 +1,5 @@
 
-static inline void  __attribute__((always_inline)) setBitsTrue_largestep(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+static inline void  __attribute__((always_inline, nonnull)) setBitsTrue_largestep(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
     if (range_start + step * 8 * 8 * 8 <= range_stop) { // // 8 bit 8 roll 8 tuned value
         setBitsTrue_largestep_repeat_uint8_unroll8(bitstorage, range_start, step, range_stop);
@@ -30,8 +30,8 @@ static inline void  __attribute__((always_inline)) setBitsTrue(void* restrict bi
             return;
         // }
 
-        if (step < WORD_SIZE_BITS /2) {
-            const counter_t range_stop_unique_word = range_start + WORD_SIZE_BITS * step; 
+        if (step < bitcount_type(uint64_t) /2) {
+            const counter_t range_stop_unique_word = range_start + bitcount_type(uint64_t) * step; 
             if (range_stop_unique_word <= range_stop) { // the wordmask will be reused
                 setBitsTrue_smallstep_repeat_uint64(bitstorage, range_start, step, range_stop);
                 timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )

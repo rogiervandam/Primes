@@ -32,12 +32,15 @@ static inline void __attribute__((always_inline)) NAME(create_mask_vector,suffix
 #define subfunction _vector
 #include "../generic/setsuffix.h"
 
-static inline void __attribute__((always_inline)) NAME(setBitsTrue_largestep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+static inline void __attribute__((always_inline, nonnull)) 
+NAME(setBitsTrue_largestep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose6(  printf("Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps) ", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step))); )
     timer_lapstart(time_setBitsTrue_largestep_vector_vectorstep);
 
-    const counter_t range_start_nexttvector = vectorstart_type(range_start, bitbucket_t) + bitcount_type(bitbucket_t); // find next vector
+    // const counter_t range_start_nexttvector = vectorstart_type(range_start, bitbucket_t) + bitcount_type(bitbucket_t); // find next vector
+    const counter_t range_start_nexttvector = vectorindex_next_type(range_start, bitbucket_t); // find next vector
+
     const counter_t range_start_new = setBitsTrue_range_return(bitstorage, range_start, step, range_start_nexttvector);
     if (range_start_new > range_stop) return;
     NAME(create_mask_vector_largestep,fullvariantsuffix)(bitstorage, range_start_new, step, range_stop);

@@ -1,42 +1,46 @@
-static inline void  __attribute__((always_inline)) continuePattern_shiftright(bitword_t* restrict bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
+static inline void  __attribute__((always_inline, hot, nonnull)) 
+continuePattern_shiftright(void* restrict bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
 {
     verbose7( printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using continuePattern_shiftright (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size)); )
     timer_lapstart(time_continuePattern_shiftright);
 
-    const counter_t destination_stop_word = wordindex(destination_stop);
+    bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
+
+    const counter_t destination_stop_word = index_type(destination_stop, bitbucket_t);
     const counter_t copy_start = source_start + size;
-    register const bitshift_t shift = bitindex_calc(copy_start) - bitindex_calc(source_start);
-    register const bitshift_t shift_flipped = WORD_SIZE_BITS-shift;
-    register counter_t source_word = wordindex(source_start);
-    register counter_t copy_word = wordindex(copy_start);
+    register const bitshift_t shift = bitindex_calc_type(copy_start, bitbucket_t) - bitindex_calc_type(source_start, bitbucket_t);
+    register const bitshift_t shift_flipped = bitcount_type(bitbucket_t)-shift;
+    register counter_t source_word = index_type(source_start, bitbucket_t);
+    register counter_t copy_word = index_type(copy_start, bitbucket_t);
 
     if unlikely(copy_word >= destination_stop_word) { 
-        bitstorage[copy_word] |= ((bitstorage[source_word] << shift)  // or the start in to not lose data
-                                | (bitstorage[copy_word] >> shift_flipped))
-                                & keepmask(copy_start) & chopmask(destination_stop);
+        bitstorage_sized[copy_word] |= ((bitstorage_sized[source_word] << shift)  // or the start in to not lose data
+                                | (bitstorage_sized[copy_word] >> shift_flipped))
+                                & keepmask_type(copy_start, bitbucket_t) & chopmask_type(destination_stop, bitbucket_t);
         timer_laptime(time_continuePattern_shiftright); verbose7( printf("\n"); )
         return; // rapid exit for one word variant
     }
 
-    bitstorage[copy_word] |= ((bitstorage[source_word] << shift)  // or the start in to not lose data
-                                | (bitstorage[copy_word] >> shift_flipped))
-                                & keepmask(copy_start);
+    bitstorage_sized[copy_word] |= ((bitstorage_sized[source_word] << shift)  // or the start in to not lose data
+                                | (bitstorage_sized[copy_word] >> shift_flipped))
+                                & keepmask_type(copy_start, bitbucket_t);
     
     copy_word++;
 
     verbose7( printf("...startword - %ju - copystartword %ju - endword %ju..",(uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)destination_stop_word); )
 
-    if (copy_word < source_word + VECTOR_ELEMENTS) {
+    if (copy_word < source_word + elementcount_type(bitbucket_t, variant_base_type_t)) { // TODO: check if this is needed
         verbose7(  printf("...continue word by word (because source and copy are close together).."); )
         for (;copy_word <= destination_stop_word; copy_word++, source_word++ ) 
-            bitstorage[copy_word] = (bitstorage[source_word] >> shift_flipped) | (bitstorage[source_word+1] << shift);
+        bitstorage_sized[copy_word] = (bitstorage_sized[source_word] >> shift_flipped) | (bitstorage_sized[source_word+1] << shift);
         timer_laptime(time_continuePattern_shiftright); verbose7( printf("\n"); )
         return; 
     }
 
     // search for the first word that is aligned at bytelevel
     counter_t copy_size_bytes = size; // at bytelevel, the size is the same
-    counter_t copy_start_word = wordindex(vectorend(copy_start + (copy_size_bytes << SHIFT_BYTE))+1); 
+    // counter_t copy_start_word = index_type(vectorend(copy_start + (copy_size_bytes << SHIFT_BYTE))+1 , bitbucket_t); 
+    counter_t copy_start_word = vectorindex_next_type(copy_start + (copy_size_bytes << SHIFT_BYTE), bitbucket_t); 
     if (copy_start_word > destination_stop_word) copy_start_word = destination_stop_word;
 
     // copy with shift - needed when not aligned at bytelevel
@@ -45,14 +49,11 @@ static inline void  __attribute__((always_inline)) continuePattern_shiftright(bi
     verbose7(  printf("...speed copy until word %ju..", (uintmax_t)copy_start_word); )
 
     // copy the pattern until we reach bytelevel alignment
-    #if BITWORD_T_SIZE_PP == 64
-        #pragma GCC ivdep // only for 64bit
+        // #if BITWORD_T_SIZE_PP == 64
+        // #pragma GCC ivdep // only for 64bit
+        // #endif
         for (; copy_word <= copy_start_word; copy_word++, source_word++ ) 
-            bitstorage[copy_word] = (bitstorage[source_word] >> shift_flipped) | (bitstorage[source_word+1] << shift);
-    #else
-        for (; copy_word <= copy_start_word; copy_word++, source_word++ ) 
-            bitstorage[copy_word] = (bitstorage[source_word] >> shift_flipped) | (bitstorage[source_word+1] << shift);
-    #endif
+        bitstorage_sized[copy_word] = (bitstorage_sized[source_word] >> shift_flipped) | (bitstorage_sized[source_word+1] << shift);
 
     // end if we reached the destination already
     if (copy_word >= destination_stop_word) {
@@ -60,9 +61,9 @@ static inline void  __attribute__((always_inline)) continuePattern_shiftright(bi
         return;
     }
 
-    uint8_t* source_byte           = (uint8_t*) &bitstorage[copy_start_word] - copy_size_bytes;
-    uint8_t* copy_byte             = (uint8_t*) &bitstorage[copy_start_word];
-    uint8_t* destination_stop_byte = (uint8_t*) &bitstorage[destination_stop_word+1];
+    uint8_t* source_byte           = (uint8_t*) &bitstorage_sized[copy_start_word] - copy_size_bytes;
+    uint8_t* copy_byte             = (uint8_t*) &bitstorage_sized[copy_start_word];
+    uint8_t* destination_stop_byte = (uint8_t*) &bitstorage_sized[destination_stop_word+1];
 
     // Copy the pattern. Now the pattern is 2x the size of the original pattern. Repeat.
     do {

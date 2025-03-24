@@ -1,13 +1,13 @@
-static counter_t countPrimesInSieve(struct sieve_t *sieve) 
+static counter_t __attribute__((cold, nonnull)) 
+countPrimesInSieve(struct sieve_t *sieve) 
 {
     counter_t prime_count = 1;
     for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor)) prime_count++;
     return prime_count;
 }
 
-
-
-static void showPrimesinSieve(struct sieve_t *sieve, counter_t factor_max) 
+static void __attribute__((cold, nonnull)) 
+showPrimesinSieve(struct sieve_t *sieve, counter_t factor_max) 
 {
     counter_t prime_count = 1;    // We already have 2
     for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor)) {
@@ -20,14 +20,15 @@ static void showPrimesinSieve(struct sieve_t *sieve, counter_t factor_max)
     verbose1( printf("\nFound %ju primes until %ju\n",(uintmax_t)prime_count, (uintmax_t)sieve->bits*2+1); )
 }
 
-static void deepAnalyzeSieve(struct sieve_t *sieve) 
+static void __attribute__((cold, nonnull)) 
+deepAnalyzeSieve(struct sieve_t *sieve) 
 {
     bitword_t *bitstorage = sieve->bitstorage;
     verbose2( printf("DeepAnalyzing\n"); )
     counter_t warn_prime = 0;
     counter_t warn_nonprime = 0;
     for (counter_t prime = 1; prime < sieve->bits; prime++ ) {
-        if ((bitstorage[wordindex(prime)] & markmask(prime))==0) { // is this a prime?
+        if ((bitstorage[index_type(prime, uint8_t)] & markmask_type(prime,uint8_t ))==0) { // is this a prime?
             for(counter_t c=1; c<=sieve->bits && c*c <= prime*2+1; c++) {
                 if ((prime*2+1) % (c*2+1) == 0 && (c*2+1) != (prime*2+1)) {
                     if (warn_prime++ < 30) {
@@ -51,7 +52,8 @@ static void deepAnalyzeSieve(struct sieve_t *sieve)
     }
 }
 
-static inline int validateSieve(struct sieve_t *sieve, counter_t factor_max)
+static inline int __attribute__((cold, nonnull)) 
+validateSieve(struct sieve_t *sieve, counter_t factor_max)
 {
     counter_t prime_count = countPrimesInSieve(sieve);
     counter_t valid_primes = 0;

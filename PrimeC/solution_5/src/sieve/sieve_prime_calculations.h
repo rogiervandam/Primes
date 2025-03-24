@@ -1,6 +1,7 @@
 // fast integer square root
 // https://en.wikipedia.org/wiki/Fast_inverse_square_root
-static inline counter_t __attribute__((always_inline)) usqrt(counter_t x) 
+static inline counter_t __attribute__((always_inline, const)) 
+usqrt(counter_t x) 
 {
     union { float f; int i; } conv;
   
@@ -17,11 +18,13 @@ static inline counter_t __attribute__((always_inline)) usqrt(counter_t x)
 // calculate the maximum prime number that can be used for a given range in bits
 // we have to take the sqaure of the real number, so we have to double, square root en divide by 2 again
 // 1 is added for rounding errors
-static inline counter_t __attribute__((always_inline)) prime_stop(const counter_t range_stop) {
+static inline counter_t __attribute__((always_inline, const)) 
+prime_stop(const counter_t range_stop) {
     return ((1 + usqrt( (range_stop << 1) + 1 )) >> 1);
 }
 
-static inline counter_t __attribute__((always_inline)) prime_pattern_not_repeating_in_block(const counter_t range_start, const counter_t range_stop, const counter_t blocksize) {
+static inline counter_t __attribute__((always_inline, const)) 
+prime_pattern_not_repeating_in_block(const counter_t range_start, const counter_t range_stop, const counter_t blocksize) {
     // We need to solve: 2*prime² + 2*(blocksize+1)*prime + blocksize >= range_stop
     counter_t low = 1;
     counter_t high;
@@ -111,7 +114,8 @@ static inline counter_t __attribute__((always_inline)) prime_pattern_not_repeati
     return low;
 }
 
-static inline counter_t __attribute__((always_inline)) compute_start(const counter_t prime, const counter_t block_start) {
+static inline counter_t __attribute__((always_inline, const))
+compute_start(const counter_t prime, const counter_t block_start) {
     register const counter_t step = prime * 2 + 1;
     register counter_t start = prime * (step + 1);
     if (block_start && start < block_start) {

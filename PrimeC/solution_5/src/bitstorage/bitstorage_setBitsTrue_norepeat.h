@@ -1,14 +1,14 @@
 #ifndef variant
 #define bitbucket_t uint8_t
 
-static inline void __attribute__((always_inline)) __attribute__((hot))
+static inline void __attribute__((always_inline, hot, nonnull)) 
 setBitTrue(void* restrict bitstorage, const register counter_t index) 
 {
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
     bitstorage_sized[index_type(index,bitbucket_t)] |= markmask_type(index, bitbucket_t);
 }
 
-static inline void __attribute__((always_inline)) __attribute__((hot))
+static inline void __attribute__((always_inline, , hot, nonnull)) 
 setBitsTrue_range(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     for( register counter_t index = range_start; index < range_stop; index += step) setBitTrue(bitstorage, index);
@@ -16,7 +16,7 @@ setBitsTrue_range(void* restrict bitstorage, const counter_t range_start, const 
 
 // this function returns the last index that was set
 
-static inline counter_t __attribute__((always_inline)) __attribute__((hot))
+static inline counter_t __attribute__((always_inline, hot, nonnull)) 
 setBitsTrue_range_return(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     register counter_t index = range_start;
@@ -32,7 +32,8 @@ setBitsTrue_range_return(void* restrict bitstorage, const counter_t range_start,
 
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
 // this is a BASE ALGORITHM COMPLIANT: each bit is set individually
-static inline void __attribute__((always_inline)) NAME(setBitsTrue_largestep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+static inline void __attribute__((always_inline, nonnull)) 
+NAME(setBitsTrue_largestep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose6( printf("Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju)  (%ju unique occurances)..", (uintmax_t)step,  STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)step)); )
     timer_lapstart(time_setBitsTrue_largestep_norepeat);
@@ -73,7 +74,8 @@ static inline void __attribute__((always_inline)) NAME(setBitsTrue_largestep,suf
 // Small steps (< WORD_SIZE) could be within the same word (e.g. less than 64 bits apart).
 // if we know that the mask will not repeat, we can save some time by not checking
 // this is a BASE ALGORITHM COMPLIANT: each bit is set individually
-static inline void  __attribute__((always_inline)) NAME(setBitsTrue_smallstep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+static inline void  __attribute__((always_inline, nonnull)) 
+NAME(setBitsTrue_smallstep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose6( printf("Setting bits step %3ju using smallstep%s in %ju bit range (%ju-%ju)  (%ju unique occurances)", (uintmax_t)step, STR(suffix),  (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
     timer_lapstart(time_setBitsTrue_smallstep_norepeat);

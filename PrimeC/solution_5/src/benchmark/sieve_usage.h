@@ -1,4 +1,5 @@
-static void usage(char *program_name, int exit_code) 
+static void __attribute__((cold, nonnull)) 
+usage(char *program_name, int exit_code) 
 {
     const char help_text[] =
         "Usage: %s [options] [maximum]\n"

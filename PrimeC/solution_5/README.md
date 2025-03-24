@@ -42,6 +42,7 @@ Sources:
 - https://github.com/simd-everywhere/simde
 - https://www.cprogramming.com/tips/tip/common-optimization-tips
 - https://gcc.gnu.org/onlinedocs/gcc/Vector-Extensions.html
+- https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html
 
 ## Run instructions
 

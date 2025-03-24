@@ -1,5 +1,6 @@
 // used only for debugging
-static inline void printWord(bitword_t bitword)
+static inline void __attribute__ ((cold))
+printWord(bitword_t bitword)
 {
     char row[WORD_SIZE_BITS*2] = {};
     int col=0;
@@ -11,7 +12,8 @@ static inline void printWord(bitword_t bitword)
     verbose1( printf("%s", row); )
 }
 
-static void printVector(bitvector_t bitvector)
+static void __attribute__ ((cold)) 
+printVector(bitvector_t bitvector)
 {
     // Use a union to extract the scalar elements from the vector
     union {
@@ -35,7 +37,7 @@ static void printVector(bitvector_t bitvector)
     verbose1( printf("%s\n", row); )
 }
 
-static void printVectorNumeric(bitvector_t bitvector)
+static void __attribute__ ((cold)) printVectorNumeric(bitvector_t bitvector)
 {
   for(counter_t i=0; i < VECTOR_ELEMENTS; i++) {
       verbose1( printf("%ju,", (uintmax_t) bitvector[i]); )

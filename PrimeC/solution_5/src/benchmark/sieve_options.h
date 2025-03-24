@@ -34,7 +34,8 @@ static struct options_t {
     counter_t tune_keeppercent;
 } option;
 
-static struct options_t setDefaultOptions() {
+static struct options_t __attribute__((cold)) 
+setDefaultOptions() {
     option.time_max                = 5;
 
     option.show_explain_factor_max = 0;

@@ -9,14 +9,15 @@
 #endif
 
 // follow main bitword setting in vectors. Change is otherwise needed
-#ifndef bitword_vector_t
-  #define bitword_vector_t uint64_t
-  #define VECTORWORDSIZE_PP 64
-#endif
+// #ifndef bitword_vector_t
+//   #define bitword_vector_t uint64_t
+//   #define VECTORWORDSIZE_PP 64
+// #endif
 
 // masks and mask helpers
 #define SHIFT_SIZE                  1 // the shift needed to get from SIZE to BIT (1 because even numbers arr not storing in the bitstorage)
 #define SHIFT_BYTE                  3 // the shift needed to get from BIT to BYTE
+
 #define WORD_SIZE_BITS              (sizeof(bitword_t) * 8)
 #define VECTORWORD_SIZE_BITS        (sizeof(bitword_vector_t) * 8)
 #define VECTOR_SIZE_BYTES           (sizeof(bitword_vector_t)*VECTOR_ELEMENTS)
@@ -26,9 +27,10 @@
 #define SHIFT_VECTOR                shift_calc(VECTOR_SIZE_BITS)
 
 
-// Patterns based on types
+// // Patterns based on types
 #define SAFE_SHIFTBIT               (bitshift_t)        1
 #define SAFE_ZERO                   (bitword_t)         0
+
 #define VECTOR_SAFE_ZERO            (bitword_vector_t)  0
 #define SAFE_FILL                   (bitword_t)        ~0
 #define BITWORD_SHIFTBIT            (bitword_t)         1
@@ -37,7 +39,7 @@
 #define VECTORWORDMASK              ((SAFE_SHIFTBIT<<SHIFT_VECTORWORD)-SAFE_SHIFTBIT)
 #define VECTORMASK                  ((SAFE_SHIFTBIT<<SHIFT_VECTOR    )-SAFE_SHIFTBIT)
 
-typedef bitword_vector_t bitvector_t   __attribute__ ((vector_size( VECTOR_SIZE_BYTES ), aligned( cache_line_bytes ))); 
+typedef bitword_vector_t bitvector_t   __attribute__ ((vector_size( VECTOR_SIZE_BYTES ), aligned( cache_line_bytes ))); // for use in tools
 typedef uint64_t uint64v8_bitvector_t  __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
 typedef uint64_t uint64v4_bitvector_t  __attribute__ ((vector_size(32), aligned(cache_line_bytes)));
 typedef uint64_t uint64v2_bitvector_t  __attribute__ ((vector_size(16), aligned(cache_line_bytes)));
@@ -74,30 +76,35 @@ typedef uint16_t uint16v2_t  __attribute__ ((vector_size(4), aligned(cache_line_
   #define VECTOR_BYTEINDEX          ((bitvector_t){ 0, 1})
 #endif
 
-#define vectorindex_type(index, type)     ((index)>>shift_type(type))
-#define index_type(index, type)           ((index)>>shift_type(type)) // type is how the bits are stored, e.g.: uint8_t, uint16_t
-#define mask_type(type)                   (sizeof(type)*8-1)
-#define bitindex_calc_type(index, type)   ((index) & mask_type(type))
-#define markmask_calc_type(index, type)   ((type)1U << bitindex_calc_type(index, type))
-#define markmask_unsafe_type(index, type) ((type)1U << (index))
-#define markmask_type(index, type)        (sizeof(type)==8 ? markmask_unsafe_type(index, type) : markmask_calc_type(index, type))
-#define bitcount_type(type)               (sizeof(type)*8) 
-#define vectorstart_type(index, type)     ((index) & ~mask_type(type))
-
-
+#define vectorindex_type(index, type)      ((index)>>shift_type(type))
+#define index_type(index, type)            ((index)>>shift_type(type)) // type is how the bits are stored, e.g.: uint8_t, uint16_t
+#define mask_type(type)                    (sizeof(type)*8-1)
+#define bitindex_calc_type(index, type)    ((index) & mask_type(type))
+#define bitindex_unsafe_type(index, type)  ((index))
+#define bitindex_type(index, type)         (sizeof(type)==8 ? bitindex_unsafe_type(index, type) : bitindex_calc_type(index, type))
+#define markmask_calc_type(index, type)    ((type)1U << bitindex_calc_type(index, type))
+#define markmask_unsafe_type(index, type)  ((type)1U << (index))
+#define markmask_type(index, type)         (sizeof(type)==8 ? markmask_unsafe_type(index, type) : markmask_calc_type(index, type))
+#define bitcount_type(type)                (sizeof(type)*8) 
+#define elementcount_type(type, base_type) (sizeof(type)/sizeof(base_type))
+#define vectorstart_type(index, type)      ((index) & ~mask_type(type))
+#define keepmask_type(index, type)         ((type)~0U << bitindex_calc_type(index, type))
+#define chopmask_type(index, type)         ((type)~0U >> (bitcount_type(type) - SAFE_SHIFTBIT - bitindex_calc_type(index, type)))
+#define vectorindex_next_type(index, type) (vectorstart_type(index, type) + bitcount_type(type))
+#define safe_fill_type(type)               ((type)~0U)
 // helper macros for word/vector indexing
-#define wordindex(index)            ((index) >>       SHIFT_WORD)
-#define wordend(index)              ((index) |          WORDMASK)
-#define wordstart(index)            ((index) &         ~WORDMASK)
-#define vectorindex(index)          ((index) >>     SHIFT_VECTOR)
-#define vectorstart(index)          ((index) &       ~VECTORMASK)
-#define vectorend(index)            ((index) |        VECTORMASK)
-#define vector_wordstart(index)     ((index) &   ~VECTORWORDMASK)
-#define vector_wordindex(index)     ((index) >> SHIFT_VECTORWORD)
+// #define wordindex(index)            ((index) >>       SHIFT_WORD)
+// #define wordend(index)              ((index) |          WORDMASK)
+// #define wordstart(index)            ((index) &         ~WORDMASK)
+// #define vectorindex(index)          ((index) >>     SHIFT_VECTOR)
+// #define vectorstart(index)          ((index) &       ~VECTORMASK)
+// #define vectorend(index)            ((index) |        VECTORMASK)
+// #define vector_wordstart(index)     ((index) &   ~VECTORWORDMASK)
+// #define vector_wordindex(index)     ((index) >> SHIFT_VECTORWORD)
 
-#define bitindex_calc(index)        ((index) & WORDMASK)
-#define vector_bitindex(index)      (index)
-#define vector_bitindex_calc(index) ((index) & VECTORWORDMASK)
+// #define bitindex_calc(index)        ((index) & WORDMASK)
+// #define vector_bitindex(index)      (index)
+// #define vector_bitindex_calc(index) ((index) & VECTORWORDMASK)
 
 #if BITWORD_T_SIZE_PP == 64
 #define bitindex(index)             (index)
@@ -106,10 +113,10 @@ typedef uint16_t uint16v2_t  __attribute__ ((vector_size(4), aligned(cache_line_
 #endif
 
 // helper macros for masking and shifting
-#define markmask(index)             (BITWORD_SHIFTBIT << bitindex(index))
-#define markmask_calc(index)        (BITWORD_SHIFTBIT << bitindex_calc(index))
-#define chopmask(index)             (SAFE_FILL >> (WORD_SIZE_BITS - SAFE_SHIFTBIT - bitindex_calc(index)))
-#define keepmask(index)             (SAFE_FILL << (bitindex(index)))
+// #define markmask(index)             (BITWORD_SHIFTBIT << bitindex(index))
+// #define markmask_calc(index)        (BITWORD_SHIFTBIT << bitindex_calc(index))
+// #define chopmask(index)             (SAFE_FILL >> (WORD_SIZE_BITS - SAFE_SHIFTBIT - bitindex_calc(index)))
+// #define keepmask(index)             (SAFE_FILL << (bitindex(index)))
 
 // vector_markmasks
 // modern processors do a & over the shiftssize, so we only have to do that ourselve when using the shiftsize in calculations. 
@@ -119,7 +126,7 @@ typedef uint16_t uint16v2_t  __attribute__ ((vector_size(4), aligned(cache_line_
 #define vector_markmask(index)      (BITVECTORWORD_SHIFTBIT << vector_bitindex_calc(index))
 #endif
 
-#define vector_markmask_calc(index) (BITVECTORWORD_SHIFTBIT << vector_bitindex_calc(index))
+// #define vector_markmask_calc(index) (BITVECTORWORD_SHIFTBIT << vector_bitindex_calc(index))
 
 
 

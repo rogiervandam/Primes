@@ -1,5 +1,9 @@
 // This file contains the continuePattern function that is used to extend (copy) a pattern in a bitstorage.
 // The function is optimized for different sizes and offsets of the pattern and uses different algorithms for this.
+#undef bitbucket_t
+#define bitbucket_t uint32_t
+#undef variant_base_type_t
+#define variant_base_type_t bitbucket_t
 
 #include "bitstorage_continuePattern_smallsize.h"
 #include "bitstorage_continuePattern_aligned.h"
@@ -11,18 +15,20 @@
 // for small sizes, this is done on a word level
 // for larger sizes, we look at the offset / start bit and apply the appropriate algorithm.
 // note that these algorithms are general for bitstorage and have no specialized assumptions for the sieve application
-static inline void __attribute__((always_inline)) continuePattern(void* restrict bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
+static inline void __attribute__((always_inline, nonnull)) 
+continuePattern(void* restrict bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
 {
     verbose7( printf("Continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size)); )
     timer_lapstart(time_continuePattern);
-    if (size < WORD_SIZE_BITS) {
+
+    if (size < bitcount_type(bitbucket_t)) {
         continuePattern_smallSize(bitstorage, source_start, size, destination_stop);
         timer_laptime(time_continuePattern); verbose7( printf("\n"); )
         return;
     }
 
-    const bitshift_t copy_bit   = bitindex_calc(source_start + size);
-    const bitshift_t source_bit = bitindex_calc(source_start);
+    const bitshift_t copy_bit   = bitindex_calc_type(source_start + size, bitbucket_t);
+    const bitshift_t source_bit = bitindex_calc_type(source_start, bitbucket_t);
 
     if      (source_bit > copy_bit) continuePattern_shiftleft (bitstorage, source_start, size, destination_stop);
     else if (source_bit < copy_bit) continuePattern_shiftright(bitstorage, source_start, size, destination_stop);

@@ -1,4 +1,5 @@
-static inline char* extension_as_string(char* extension) 
+static inline char* __attribute__((cold, nonnull, returns_nonnull)) 
+extension_as_string(char* extension) 
 {
     #ifdef _OPENMP
     verbose0( snprintf(extension,50,"_epar-u%ju-v%ju%s-c%s", (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS, TYPE_SHORT_NAME(bitword_vector_t),TYPE_SHORT_NAME(counter_t)); )

@@ -1,7 +1,8 @@
 
 
 #if COMPILE_EXPLAIN
-static void explainSieveShake(benchmark_settings_t benchmark_settings) 
+static void __attribute__((cold)) 
+explainSieveShake(benchmark_settings_t benchmark_settings) 
 {
     benchmark_settings = checkBenchmarkSettings(benchmark_settings);
     prepareBenchmarkGlobals(benchmark_settings);
@@ -33,7 +34,8 @@ static void explainSieveShake(benchmark_settings_t benchmark_settings)
 
 #endif
 
-static int checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
+static int __attribute__((cold)) 
+checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 {
     verbose2( { 
         printf("Validating variant u%juv%ju... ", (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS); 
@@ -70,7 +72,8 @@ static int checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
     return 1;
 }
 
-static int checkSieveAlgorithmAll(benchmark_settings_t benchmark_settings)
+static int __attribute__((cold)) 
+checkSieveAlgorithmAll(benchmark_settings_t benchmark_settings)
 {
     verbose2( { 
         printf("Validating variant u%juv%ju... ", (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS); 
@@ -110,7 +113,8 @@ static int checkSieveAlgorithmAll(benchmark_settings_t benchmark_settings)
     return 1;
 }
 
-static void showResult(benchmark_settings_t benchmark_settings)
+static void __attribute__((cold)) 
+showResult(benchmark_settings_t benchmark_settings)
 {
     verbose2( printf("Show result set:\n"); )
     struct sieve_t* sieve = shakeSieve(benchmark_settings.factor_max);
@@ -118,7 +122,8 @@ static void showResult(benchmark_settings_t benchmark_settings)
     sieve_delete(sieve);
 }
 
-static inline void CheckOptions(int check, benchmark_settings_t benchmark_settings) {
+static inline void __attribute__((cold)) 
+CheckOptions(int check, benchmark_settings_t benchmark_settings) {
     if (check >= 1) checkSieveAlgorithm(benchmark_settings);
     if (check >= 3) checkSieveAlgorithmAll(benchmark_settings);
     if (check >= 4) checkSetBitsTrueMethods(setBitsTrueMethods, 0, benchmark_settings.factor_max);

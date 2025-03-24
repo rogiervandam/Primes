@@ -1,10 +1,12 @@
 #if COMPILE_VERBOSE_LEVEL >= 1
 
-static inline int isdigit_local(int c) {
+static inline int __attribute__((cold, const)) 
+isdigit_local(int c) {
     return (c >= '0' && c <= '9');
 }
 
-static inline char *strrchr_local(const char *s, int c) {
+static inline char __attribute__((cold, nonnull, returns_nonnull)) 
+*strrchr_local(const char *s, int c) {
     const char *p = NULL;
     for (;;) {
         if (*s == (char)c) p = s;
@@ -12,12 +14,14 @@ static inline char *strrchr_local(const char *s, int c) {
     }
 }
 
-static inline int strcmp_local(const char *s1, const char *s2) {
+static inline int __attribute__((cold)) 
+strcmp_local(const char *s1, const char *s2) {
     while (*s1 && (*s1 == *s2)) { s1++; s2++; }
     return (unsigned char)*s1 - (unsigned char)*s2;
 }
 
-static struct options_t parseCommandLine(int argc, char *argv[], struct options_t option)
+static struct options_t __attribute__((cold)) 
+parseCommandLine(int argc, char *argv[], struct options_t option)
 {
     char *program_name = argv[0];
     program_name = max(program_name, strrchr_local(program_name, '/')+1);
