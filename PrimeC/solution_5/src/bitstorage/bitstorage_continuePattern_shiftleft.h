@@ -6,26 +6,52 @@ continuePattern_shiftleft_unrolled(void* restrict bitstorage, const counter_t al
     timer_lapstart(time_continuePattern_shiftleft_unrolled);
 
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    const counter_t fast_loop_stop_word = safe_diff_type(aligned_copy_word, 2, counter_t); // safe for signed ints
-    register const bitshift_t shift_flipped = bitcount_type(bitbucket_t)-shift;
+    const counter_t fast_loop_stop_word = safe_diff_type(aligned_copy_word, 4, counter_t); // Increase unrolling to 4
+    const bitshift_t shift_flipped = bitcount_type(bitbucket_t)-shift;
     counter_t distance = 0;
 
+    // Add prefetching to reduce cache misses
+    __builtin_prefetch(&bitstorage_sized[source_word + 8], 0, 0);
+    
+    // 4x unrolled loop for better instruction-level parallelism
     while (copy_word < fast_loop_stop_word) {
-        register const bitbucket_t source0 = bitstorage_sized[source_word  ];
-        register const bitbucket_t source1 = bitstorage_sized[source_word+1];
-        bitstorage_sized[copy_word  ] = (source0 >> shift) | (source1 << shift_flipped);
-        register const bitbucket_t source2 = bitstorage_sized[source_word+2];
+        // Prefetch data for future iterations
+        __builtin_prefetch(&bitstorage_sized[source_word + 12], 0, 0);
+        
+        // Load all source data first to help with out-of-order execution
+        const bitbucket_t source0 = bitstorage_sized[source_word];
+        const bitbucket_t source1 = bitstorage_sized[source_word+1];
+        const bitbucket_t source2 = bitstorage_sized[source_word+2];
+        const bitbucket_t source3 = bitstorage_sized[source_word+3];
+        const bitbucket_t source4 = bitstorage_sized[source_word+4];
+        
+        // Store results
+        bitstorage_sized[copy_word]   = (source0 >> shift) | (source1 << shift_flipped);
         bitstorage_sized[copy_word+1] = (source1 >> shift) | (source2 << shift_flipped);
-        copy_word += 2;
-        source_word += 2;
-        distance += 2;
+        bitstorage_sized[copy_word+2] = (source2 >> shift) | (source3 << shift_flipped);
+        bitstorage_sized[copy_word+3] = (source3 >> shift) | (source4 << shift_flipped);
+        
+        copy_word += 4;
+        source_word += 4;
+        distance += 4;
+    }
+    
+    // Handle remaining elements (0-3)
+    while (copy_word < aligned_copy_word) {
+        const bitbucket_t source0 = bitstorage_sized[source_word];
+        const bitbucket_t source1 = bitstorage_sized[source_word+1];
+        bitstorage_sized[copy_word] = (source0 >> shift) | (source1 << shift_flipped);
+        copy_word++;
+        source_word++;
+        distance++;
     }
 
     timer_laptime(time_continuePattern_shiftleft_unrolled); verbose7( printf("\n"); )
     return distance;
 }
 
-static inline void __attribute__((always_inline)) continuePattern_shiftleft(void* restrict bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
+static inline void __attribute__((always_inline)) 
+continuePattern_shiftleft(void* restrict bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
 {
     verbose7( printf("Continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_shiftleft (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size)); )
     timer_lapstart(time_continuePattern_shiftleft);
@@ -51,6 +77,15 @@ static inline void __attribute__((always_inline)) continuePattern_shiftleft(void
     source_word += distance;
     copy_word += distance;
 
+    // 4-way unrolled loop for better ILP
+    for (;copy_word + 3 <= aligned_copy_word; copy_word += 4, source_word += 4) {
+        bitstorage_sized[copy_word] = (bitstorage_sized[source_word] >> shift) | (bitstorage_sized[source_word+1] << shift_flipped);
+        bitstorage_sized[copy_word+1] = (bitstorage_sized[source_word+1] >> shift) | (bitstorage_sized[source_word+2] << shift_flipped);
+        bitstorage_sized[copy_word+2] = (bitstorage_sized[source_word+2] >> shift) | (bitstorage_sized[source_word+3] << shift_flipped);
+        bitstorage_sized[copy_word+3] = (bitstorage_sized[source_word+3] >> shift) | (bitstorage_sized[source_word+4] << shift_flipped);
+    }
+    
+    // Handle remaining elements
     for (;copy_word <= aligned_copy_word; copy_word++,source_word++) {
         bitstorage_sized[copy_word] = (bitstorage_sized[source_word] >> shift) | (bitstorage_sized[source_word+1] << shift_flipped);
     }
@@ -61,11 +96,28 @@ static inline void __attribute__((always_inline)) continuePattern_shiftleft(void
     }
 
     source_word = copy_word - size; // recalibrate
-    // const size_t memsize = (size_t)size*sizeof(bitword_t);
+    
+    // Use memcpy for bulk operations if the pattern size is large enough
+    const size_t word_size = sizeof(bitbucket_t);
+    if (size >= 8) {
+        const size_t memsize = (size_t)size*word_size;
+        // Copy in larger chunks with memcpy
+        counter_t src_pos = source_word;
+        while (copy_word + size <= destination_stop_word) {
+            memcpy(&bitstorage_sized[copy_word], &bitstorage_sized[src_pos], memsize);
+            copy_word += size;
+        }
+    } else {
+        // Original loop but fixed to increment source_word properly
+        for (;copy_word + size <= destination_stop_word; copy_word += size, source_word += size) {
+            // Unroll small patterns for better performance
+            for (counter_t i = 0; i < size; i++) {
+                bitstorage_sized[copy_word + i] = bitstorage_sized[source_word + i];
+            }
+        }
+    }
 
-    for (;copy_word + size <= destination_stop_word; copy_word += size) 
-        bitstorage_sized[copy_word] = bitstorage_sized[source_word];
-
+    // Handle remaining elements
     for (;copy_word <= destination_stop_word; copy_word++, source_word++)
         bitstorage_sized[copy_word] = bitstorage_sized[source_word];
 
