@@ -13,10 +13,10 @@ continuePattern_smallSize(void* restrict bitstorage, const counter_t source_star
     register bitbucket_t pattern = base_pattern;
 
     register counter_t pattern_size = size;
-    if (pattern_size < (bitcount_type(bitbucket_t) >> 2)) {
-        pattern |= (base_pattern << size) | (base_pattern << size*2) | (base_pattern << size*3);
-        pattern_size = size << 2;
-    }
+    // if (pattern_size < (bitcount_type(bitbucket_t) >> 2)) {
+    //     pattern |= (base_pattern << size) | (base_pattern << size*2) | (base_pattern << size*3);
+    //     pattern_size = size << 2;
+    // }
 
     const counter_t destination_start = source_start + size;
     if ((destination_stop - destination_start) > pattern_size) {

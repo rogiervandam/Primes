@@ -39,7 +39,7 @@ NAME(setBitsTrue_largestep,suffix)(void* restrict bitstorage, const counter_t ra
     timer_lapstart(time_setBitsTrue_largestep_vector_vectorstep);
 
     // const counter_t range_start_nexttvector = vectorstart_type(range_start, bitbucket_t) + bitcount_type(bitbucket_t); // find next vector
-    const counter_t range_start_nexttvector = vectorindex_next_type(range_start, bitbucket_t); // find next vector
+    const counter_t range_start_nexttvector = index_next_type(range_start, bitbucket_t); // find next vector
 
     const counter_t range_start_new = setBitsTrue_range_return(bitstorage, range_start, step, range_start_nexttvector);
     if (range_start_new > range_stop) return;

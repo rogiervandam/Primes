@@ -1,7 +1,7 @@
 // This file contains the continuePattern function that is used to extend (copy) a pattern in a bitstorage.
 // The function is optimized for different sizes and offsets of the pattern and uses different algorithms for this.
 #undef bitbucket_t
-#define bitbucket_t uint32_t
+#define bitbucket_t bitword_t
 #undef variant_base_type_t
 #define variant_base_type_t bitbucket_t
 

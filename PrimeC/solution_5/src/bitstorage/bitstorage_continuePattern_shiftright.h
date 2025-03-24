@@ -39,8 +39,7 @@ continuePattern_shiftright(void* restrict bitstorage, const counter_t source_sta
 
     // search for the first word that is aligned at bytelevel
     counter_t copy_size_bytes = size; // at bytelevel, the size is the same
-    // counter_t copy_start_word = index_type(vectorend(copy_start + (copy_size_bytes << SHIFT_BYTE))+1 , bitbucket_t); 
-    counter_t copy_start_word = vectorindex_next_type(copy_start + (copy_size_bytes << SHIFT_BYTE), bitbucket_t); 
+    counter_t copy_start_word = index_type(index_next_type(copy_start + (copy_size_bytes << SHIFT_BYTE), bitbucket_t), bitbucket_t); 
     if (copy_start_word > destination_stop_word) copy_start_word = destination_stop_word;
 
     // copy with shift - needed when not aligned at bytelevel
@@ -49,11 +48,9 @@ continuePattern_shiftright(void* restrict bitstorage, const counter_t source_sta
     verbose7(  printf("...speed copy until word %ju..", (uintmax_t)copy_start_word); )
 
     // copy the pattern until we reach bytelevel alignment
-        // #if BITWORD_T_SIZE_PP == 64
-        // #pragma GCC ivdep // only for 64bit
-        // #endif
-        for (; copy_word <= copy_start_word; copy_word++, source_word++ ) 
-        bitstorage_sized[copy_word] = (bitstorage_sized[source_word] >> shift_flipped) | (bitstorage_sized[source_word+1] << shift);
+ //   #pragma GCC ivdep // This pragma caused problems in the past with <64 bit 
+    for (; copy_word <= copy_start_word; copy_word++, source_word++ ) 
+    bitstorage_sized[copy_word] = (bitstorage_sized[source_word] >> shift_flipped) | (bitstorage_sized[source_word+1] << shift);
 
     // end if we reached the destination already
     if (copy_word >= destination_stop_word) {

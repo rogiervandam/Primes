@@ -8,9 +8,9 @@ sieve_block_extend0(struct sieve_t *sieve, const counter_t block_stop)
     verbose5(  printf("Extending sieve block to range %ju\n",(uintmax_t)block_stop); )
     timer_lapstart(time_sieve_block_extend);
 
-    bitword_t* restrict bitstorage = sieve->bitstorage;
+    void* restrict bitstorage = sieve->bitstorage;
     const counter_t sieve_bits = sieve->bits;
-    bitstorage[0] = SAFE_ZERO; // only the first word has to be cleared; the rest is populated by the extension procedure
+    ((uint64_t*)bitstorage)[0] = (uint64_t)0ULL; // only the first word has to be cleared; the rest is populated by the extension procedure
 
     // const counter_t stripeprime_faster = global_stripeprime_faster;
     // const counter_t mediumstep_faster = global_mediumstep_faster;
