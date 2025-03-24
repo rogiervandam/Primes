@@ -39,7 +39,7 @@ continuePattern_smallSize(void* restrict bitstorage, const counter_t source_star
     register counter_t loop_range = destination_stop_word - destination_start_word;
     destination_start_word++;
     
-    // #pragma GCC ivdep
+    #pragma ivdep
     for (counter_t i=0; i<=loop_range; ++i ) {
         bitstorage_sized[destination_start_word+i] = (pattern << (pattern_size - ((shift+i*pattern_shift) & mask_type(bitbucket_t))  ) ) 
                                                    | (pattern >> ((shift+i*pattern_shift) & mask_type(bitbucket_t)));

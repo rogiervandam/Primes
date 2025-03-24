@@ -48,7 +48,7 @@ continuePattern_shiftright(void* restrict bitstorage, const counter_t source_sta
     verbose7(  printf("...speed copy until word %ju..", (uintmax_t)copy_start_word); )
 
     // copy the pattern until we reach bytelevel alignment
- //   #pragma GCC ivdep // This pragma caused problems in the past with <64 bit 
+    #pragma ivdep // This pragma caused problems in the past with <64 bit 
     for (; copy_word <= copy_start_word; copy_word++, source_word++ ) 
     bitstorage_sized[copy_word] = (bitstorage_sized[source_word] >> shift_flipped) | (bitstorage_sized[source_word+1] << shift);
 

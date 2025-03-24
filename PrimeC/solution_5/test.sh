@@ -38,6 +38,7 @@ fi
 
 # Configure compiler settings based on selection
 if [ $USE_CLANG -eq 1 ]; then
+    COMPILER="clang"	
     CC="clang $CC -O3 -ffast-math -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections -I/usr/lib/llvm-18/lib/clang/18/include/immintrin.h" # -Wl,-dead_strip
     # CC="clang -fsanitize=address " # use this for debugging
     # CC="clang"
@@ -67,6 +68,7 @@ if [ $USE_CLANG -eq 1 ]; then
         fi
     fi
 else
+    COMPILER="gcc"
     CC="gcc-14 $CC -Ofast -Wno-psabi -fwhole-program -flto -s -Wl,--gc-sections -s -I/usr/lib/gcc/x86_64-linux-gnu/14/include/" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
     # CC="clang $CC -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections"
     PAR="-fopenmp"
@@ -244,7 +246,7 @@ if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
 fi
 
 if [ $verbose_level -gt 1 ]; then
-    echo "Compiling for ${OS} "
+    echo "Compiling for ${OS} with ${COMPILER} "
 fi
 
 # Compose a program name using a default base name.

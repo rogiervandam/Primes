@@ -1,46 +1,83 @@
-
-static inline counter_t  __attribute__((always_inline, hot, nonnull)) 
+static inline counter_t __attribute__((always_inline, hot, nonnull)) 
 continuePattern_shiftleft_unrolled(void* restrict bitstorage, const counter_t aligned_copy_word, const bitshift_t shift, counter_t copy_word, counter_t source_word) 
 {
     verbose7( printf("...continuePattern_shiftleft_unrolled with aligned copy word %ju, shift %ju, copy_word %ju, source_word %ju..", (uintmax_t)aligned_copy_word, (uintmax_t)shift, (uintmax_t)copy_word, (uintmax_t)source_word); )
     timer_lapstart(time_continuePattern_shiftleft_unrolled);
 
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    const counter_t fast_loop_stop_word = safe_diff_type(aligned_copy_word, 4, counter_t); // Increase unrolling to 4
+    const counter_t fast_loop_stop_word = safe_diff_type(aligned_copy_word, 8, counter_t); // Increase unrolling to 8
     const bitshift_t shift_flipped = bitcount_type(bitbucket_t)-shift;
     counter_t distance = 0;
 
-    // Add prefetching to reduce cache misses
-    __builtin_prefetch(&bitstorage_sized[source_word + 8], 0, 0);
+    // Set up direct pointers for faster access
+    bitbucket_t* restrict src_ptr = &bitstorage_sized[source_word];
+    bitbucket_t* restrict dst_ptr = &bitstorage_sized[copy_word];
     
-    // 4x unrolled loop for better instruction-level parallelism
+    // Add more aggressive prefetching
+    __builtin_prefetch(src_ptr + 16, 0, 0);
+    __builtin_prefetch(src_ptr + 24, 0, 0);
+    
+    // 8x unrolled loop for better instruction-level parallelism
     while (copy_word < fast_loop_stop_word) {
         // Prefetch data for future iterations
-        __builtin_prefetch(&bitstorage_sized[source_word + 12], 0, 0);
+        __builtin_prefetch(src_ptr + 32, 0, 0);
         
-        // Load all source data first to help with out-of-order execution
-        const bitbucket_t source0 = bitstorage_sized[source_word];
-        const bitbucket_t source1 = bitstorage_sized[source_word+1];
-        const bitbucket_t source2 = bitstorage_sized[source_word+2];
-        const bitbucket_t source3 = bitstorage_sized[source_word+3];
-        const bitbucket_t source4 = bitstorage_sized[source_word+4];
+        // Load all source data first (using direct pointer dereferencing)
+        const bitbucket_t source0 = src_ptr[0];
+        const bitbucket_t source1 = src_ptr[1];
+        const bitbucket_t source2 = src_ptr[2];
+        const bitbucket_t source3 = src_ptr[3];
+        const bitbucket_t source4 = src_ptr[4];
+        const bitbucket_t source5 = src_ptr[5];
+        const bitbucket_t source6 = src_ptr[6];
+        const bitbucket_t source7 = src_ptr[7];
+        const bitbucket_t source8 = src_ptr[8];
         
-        // Store results
-        bitstorage_sized[copy_word]   = (source0 >> shift) | (source1 << shift_flipped);
-        bitstorage_sized[copy_word+1] = (source1 >> shift) | (source2 << shift_flipped);
-        bitstorage_sized[copy_word+2] = (source2 >> shift) | (source3 << shift_flipped);
-        bitstorage_sized[copy_word+3] = (source3 >> shift) | (source4 << shift_flipped);
+        // Store results directly via pointers
+        dst_ptr[0] = (source0 >> shift) | (source1 << shift_flipped);
+        dst_ptr[1] = (source1 >> shift) | (source2 << shift_flipped);
+        dst_ptr[2] = (source2 >> shift) | (source3 << shift_flipped);
+        dst_ptr[3] = (source3 >> shift) | (source4 << shift_flipped);
+        dst_ptr[4] = (source4 >> shift) | (source5 << shift_flipped);
+        dst_ptr[5] = (source5 >> shift) | (source6 << shift_flipped);
+        dst_ptr[6] = (source6 >> shift) | (source7 << shift_flipped);
+        dst_ptr[7] = (source7 >> shift) | (source8 << shift_flipped);
         
+        src_ptr += 8;
+        dst_ptr += 8;
+        copy_word += 8;
+        source_word += 8;
+        distance += 8;
+    }
+    
+    // 4x unrolled loop for remaining elements that can be processed in groups of 4
+    while (copy_word + 3 < aligned_copy_word) {
+        const bitbucket_t source0 = src_ptr[0];
+        const bitbucket_t source1 = src_ptr[1];
+        const bitbucket_t source2 = src_ptr[2];
+        const bitbucket_t source3 = src_ptr[3];
+        const bitbucket_t source4 = src_ptr[4];
+        
+        dst_ptr[0] = (source0 >> shift) | (source1 << shift_flipped);
+        dst_ptr[1] = (source1 >> shift) | (source2 << shift_flipped);
+        dst_ptr[2] = (source2 >> shift) | (source3 << shift_flipped);
+        dst_ptr[3] = (source3 >> shift) | (source4 << shift_flipped);
+        
+        src_ptr += 4;
+        dst_ptr += 4;
         copy_word += 4;
         source_word += 4;
         distance += 4;
     }
     
-    // Handle remaining elements (0-3)
+    // Handle final elements one by one
     while (copy_word < aligned_copy_word) {
-        const bitbucket_t source0 = bitstorage_sized[source_word];
-        const bitbucket_t source1 = bitstorage_sized[source_word+1];
-        bitstorage_sized[copy_word] = (source0 >> shift) | (source1 << shift_flipped);
+        const bitbucket_t source0 = *src_ptr;
+        const bitbucket_t source1 = *(src_ptr + 1);
+        *dst_ptr = (source0 >> shift) | (source1 << shift_flipped);
+        
+        src_ptr++;
+        dst_ptr++;
         copy_word++;
         source_word++;
         distance++;

@@ -12,12 +12,12 @@ continuePattern_aligned(void* restrict bitstorage, const counter_t source_start,
     register counter_t copy_word = index_type(copy_start, bitbucket_t);
     
     bitstorage_sized[copy_word] = bitstorage_sized[source_word] & ~chopmask_type(copy_start, bitbucket_t);
-
+    
     // TODO: check if destionation_stop_word - copy_word % step would help
     while (copy_word + size <= destination_stop_word) {
         memcpy(&bitstorage_sized[copy_word], &bitstorage_sized[source_word], (uintmax_t)size * sizeof(bitbucket_t) );
-        copy_word += size;
-    }
+            copy_word += size;
+        }
 
     while (copy_word < destination_stop_word) {
         bitstorage_sized[copy_word] = bitstorage_sized[source_word];

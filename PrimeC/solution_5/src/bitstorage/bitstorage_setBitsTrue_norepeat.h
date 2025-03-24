@@ -44,7 +44,7 @@ NAME(setBitsTrue_largestep,suffix)(void* restrict bitstorage, const counter_t ra
     register const counter_t loop_stop = safe_diff_type(range_stop, step_max, counter_t);
     register counter_t index = range_start;
 
-    #pragma GCC ivdep
+    #pragma ivdep
     for (; index < loop_stop; index += step_max) {
         __builtin_prefetch(&bitstorage_sized[index_type(index + step_max, bitbucket_t)], 1, 3);
         setBitTrue(bitstorage, index);
