@@ -23,7 +23,7 @@ showPrimesinSieve(struct sieve_t *sieve, counter_t factor_max)
 static void __attribute__((cold, nonnull)) 
 deepAnalyzeSieve(struct sieve_t *sieve) 
 {
-    bitword_t *bitstorage = sieve->bitstorage;
+    uint8_t *bitstorage = sieve->bitstorage;
     verbose2( printf("DeepAnalyzing\n"); )
     counter_t warn_prime = 0;
     counter_t warn_nonprime = 0;

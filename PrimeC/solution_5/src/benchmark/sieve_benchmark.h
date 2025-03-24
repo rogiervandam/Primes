@@ -70,6 +70,7 @@ static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settin
     prepareBenchmarkGlobals(benchmark_settings);
     struct sieve_t* sieve_check = shakeSieve(factor_max);
     const int valid = validateSieve(sieve_check, factor_max);
+    verbose3( if (!valid) deepAnalyzeSieve(sieve_check); )
     sieve_delete(sieve_check);
     return valid;
 }

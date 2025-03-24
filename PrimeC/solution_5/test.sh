@@ -249,9 +249,9 @@ fi
 
 # Compose a program name using a default base name.
 PROGTOTAL="${base}-${set_x}-${set_y}-${set_z}"
-if [ $verbose_level -gt 1 ]; then
-  echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
-fi
+# if [ $verbose_level -gt 1 ]; then
+#   echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
+# fi
 $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS
 if [ $? -ne 0 ]; then
     echo "Error: Compilation failed for sequential version."
@@ -260,9 +260,9 @@ fi
 $STRIP ./bin/$PROGTOTAL
 
 PROGTOTALPAR="${base}$PAREXT-${set_x}-${set_y}-${set_z}"
-if [ $verbose_level -gt 1 ]; then
-  echo "Issuing command: $CC  $PAR -o ./bin/$PROGTOTALPAR ./src/${base}.c $DEFINE_FLAGS"
-fi
+# if [ $verbose_level -gt 1 ]; then
+#   echo "Issuing command: $CC  $PAR -o ./bin/$PROGTOTALPAR ./src/${base}.c $DEFINE_FLAGS"
+# fi
 $CC $PAR -o ./bin/$PROGTOTALPAR ./src/${base}.c $DEFINE_FLAGS
 if [ $? -ne 0 ]; then
     echo "Error: Compilation failed for parallel version."

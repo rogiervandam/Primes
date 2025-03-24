@@ -9,10 +9,10 @@
 #endif
 
 // follow main bitword setting in vectors. Change is otherwise needed
-// #ifndef bitword_vector_t
-//   #define bitword_vector_t uint64_t
-//   #define VECTORWORDSIZE_PP 64
-// #endif
+#ifndef bitword_vector_t
+  #define bitword_vector_t uint64_t
+  #define VECTORWORDSIZE_PP 64
+#endif
 
 // masks and mask helpers
 #define SHIFT_SIZE                  1 // the shift needed to get from SIZE to BIT (1 because even numbers arr not storing in the bitstorage)
@@ -89,10 +89,10 @@ typedef uint16_t uint16v2_t  __attribute__ ((vector_size(4), aligned(cache_line_
 #define bitcount_type(type)                (sizeof(type)*8) 
 #define elementcount_type(type, base_type) (sizeof(type)/sizeof(base_type))
 #define vectorstart_type(index, type)      ((index) & ~mask_type(type))
-#define keepmask_type(index, type)         ((type)~0U << bitindex_calc_type(index, type))
-#define chopmask_type(index, type)         ((type)~0U >> (bitcount_type(type) - SAFE_SHIFTBIT - bitindex_calc_type(index, type)))
+#define safe_fill_type(type)               ((type)(~(type)0U))
+#define keepmask_type(index, type)         (safe_fill_type(type) << bitindex_calc_type(index, type))
+#define chopmask_type(index, type)         (safe_fill_type(type) >> (bitcount_type(type) - bitindex_calc_type(index, type) - 1))
 #define index_next_type(index, type)       (vectorstart_type(index, type) + bitcount_type(type))
-#define safe_fill_type(type)               ((type)~0U)
 // helper macros for word/vector indexing
 // #define wordindex(index)            ((index) >>       SHIFT_WORD)
 // #define wordend(index)              ((index) |          WORDMASK)

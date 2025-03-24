@@ -85,7 +85,7 @@ searchBitFalse_largestep(const void* restrict bitstorage, register counter_t ind
     // Get the current word and bit position
     register const bitshift_t bit_index_in_word = bitindex_calc_type(index, bitbucket_t);
     register counter_t word_index = index_type(index, bitbucket_t);
-    register bitword_t current_word = bitstorage_sized[word_index];
+    register bitbucket_t current_word = bitstorage_sized[word_index];
 
     if likely(bit_index_in_word) {
         current_word >>= bit_index_in_word ;

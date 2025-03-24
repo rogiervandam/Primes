@@ -1,11 +1,25 @@
 // used only for debugging
 static inline void __attribute__ ((cold))
-printWord(bitword_t bitword)
+printWord_uint64(uint64_t bitword)
 {
-    char row[WORD_SIZE_BITS*2] = {};
+    printf("\n");
+    char row[64*2] = {};
     int col=0;
-    for (int i=WORD_SIZE_BITS-1; i>=0; i--) {
-      row[col++] = (bitword & (BITWORD_SHIFTBIT<<i))?'1':'.';
+    for (int i=64-1; i>=0; i--) {
+      row[col++] = (bitword & (1ULL<<i))?'1':'.';
+      if (!(i%8)) row[col++] = ' ';
+    }
+
+    verbose1( printf("%s", row); )
+}
+
+static inline void __attribute__ ((cold))
+printWord_uint32(uint64_t bitword)
+{
+    char row[32*2] = {};
+    int col=0;
+    for (int i=32-1; i>=0; i--) {
+      row[col++] = (bitword & (1ULL<<i))?'1':'.';
       if (!(i%8)) row[col++] = ' ';
     }
 

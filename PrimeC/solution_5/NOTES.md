@@ -5,6 +5,7 @@
 - differentiate functions in type and then benchmark between them
 - revisit continuepattern functions
 - (done) smallmasks in pairs
+- look at continuepattern copy methods
 
 # Analysis
 - When using -flto linker option, if the with counter_t is set to 32 bit, the sieve will not be valid.
