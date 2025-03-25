@@ -41,7 +41,7 @@ printVector(bitvector_t bitvector)
     // Each vector element is a bitword_t with WORD_SIZE bits
     for (int j = VECTOR_ELEMENTS - 1; j >= 0; j--) {
         for (int i = VECTORWORD_SIZE_BITS - 1; i >= 0; i--) {
-            row[col++] = (u.arr[j] & (BITVECTORWORD_SHIFTBIT << i)) ? '1' : '.';
+            row[col++] = (u.arr[j] & (1U << i)) ? '1' : '.';
             if (i % 8 == 0)
                 row[col++] = ' ';
         }

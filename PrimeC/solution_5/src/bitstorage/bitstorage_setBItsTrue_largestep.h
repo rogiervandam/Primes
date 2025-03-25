@@ -12,11 +12,13 @@ static inline void __attribute__((always_inline)) NAME(create_mask_vector,suffix
     const counter_t range_stop_unique_vector = range_start + step * bitcount_type(bitbucket_t) + bitcount_type(bitbucket_t);  // extra size TODO: is sometime needed when size < blocklimit
     counter_t current_vector = index_type(range_start, bitbucket_t);
 
+    #pragma GCC ivdep
     for (counter_t index = range_start; index <= range_stop_unique_vector; current_vector++) {
         const counter_t current_vector_start = vectorstart_type(index, bitbucket_t);
         bitbucket_t mask_vector = BITBUCKET_BASE((variant_base_type_t) 0U);
 
-        #pragma unroll(BITBUCKET_ELEMENTS)
+        #pragma clang loop vectorize(enable) interleave(enable)
+        #pragma GCC ivdep
         for (counter_t i=0; i < BITBUCKET_ELEMENTS; i++) {
             if (vectorstart_type(index,variant_base_type_t) == (current_vector_start + (bitcount_type(variant_base_type_t)*i))) {
                 mask_vector[i] = markmask_calc_type(index, variant_base_type_t); // in clang, markmask_type is enough, not in gcc

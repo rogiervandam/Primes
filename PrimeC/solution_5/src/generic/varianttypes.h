@@ -99,7 +99,7 @@
 
 #if defined preset_uint8v2
   #define variant_base_type_t uint8_t
-  #define variant_elements 2
+  #define variant_elements __builtin_vectorelements(variant_base_type_t)
   #define variant uint8v2
 #endif
 

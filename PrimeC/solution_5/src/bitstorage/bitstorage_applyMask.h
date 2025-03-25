@@ -10,28 +10,49 @@ NAME(applyMask,suffix)(void* restrict bitstorage, const counter_t step, const co
     const counter_t range_stop_vector = index_type(range_stop, bitbucket_t);
    
     register const counter_t step_max = step * unrolls;
+
     register bitbucket_t* restrict index_ptr            =  __builtin_assume_aligned(&bitstorage_sized[index_vector],sizeof(bitbucket_t));
     register const bitbucket_t* restrict fast_loop_ptr  =  __builtin_assume_aligned(&bitstorage_sized[safe_diff(range_stop_vector,step_max)],sizeof(bitbucket_t));
 
-    register const counter_t step_2 = step << 1;
-    register const counter_t step_3 = step_2 + step;
-    
-    #pragma ivdep vectorize
-    while likely(index_ptr < fast_loop_ptr) {
-        *index_ptr            |= mask; 
-        *(index_ptr + step  ) |= mask; 
-        *(index_ptr + step_2) |= mask; 
-        *(index_ptr + step_3) |= mask;
-        #if unrolls <= 4
-        index_ptr += step_max;
-        #else
-        *(index_ptr + step * 4) |= mask;
-        *(index_ptr + step * 5) |= mask;
-        *(index_ptr + step * 6) |= mask;
-        *(index_ptr + step * 7) |= mask;
-        index_ptr += step_max;
-        #endif 
-    }
+    #if defined(__GNUC__) && !defined(__clang__)// This code is best for GCC
+        #if unrolls == 4
+            #pragma GCC ivdep
+            #pragma GCC unroll 4
+            for(;likely(index_ptr < fast_loop_ptr);) {
+                *index_ptr |= mask;  index_ptr += step;
+                *index_ptr |= mask;  index_ptr += step;
+                *index_ptr |= mask;  index_ptr += step;
+                *index_ptr |= mask;  index_ptr += step;
+            }
+        #elif unrolls == 8
+            #pragma GCC ivdep
+            #pragma GCC unroll 8
+            for(;likely(index_ptr < fast_loop_ptr);) {
+                *index_ptr |= mask;  index_ptr += step;
+                *index_ptr |= mask;  index_ptr += step;
+                *index_ptr |= mask;  index_ptr += step;
+                *index_ptr |= mask;  index_ptr += step;
+                *index_ptr |= mask;  index_ptr += step;
+                *index_ptr |= mask;  index_ptr += step;
+                *index_ptr |= mask;  index_ptr += step;
+                *index_ptr |= mask;  index_ptr += step;
+            }
+        #endif
+    #else // best for clang
+        #pragma ivdep 
+        for(const counter_t step_2 = step * 2, step_3 = step_2 + step; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
+            *index_ptr            |= mask; 
+            *(index_ptr + step  ) |= mask; 
+            *(index_ptr + step_2) |= mask; 
+            *(index_ptr + step_3) |= mask;
+            #if unrolls > 4
+            *(index_ptr + step * 4) |= mask;
+            *(index_ptr + step * 5) |= mask;
+            *(index_ptr + step * 6) |= mask;
+            *(index_ptr + step * 7) |= mask;
+            #endif 
+        }
+    #endif
     
     register const bitbucket_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[range_stop_vector],sizeof(bitbucket_t));
     

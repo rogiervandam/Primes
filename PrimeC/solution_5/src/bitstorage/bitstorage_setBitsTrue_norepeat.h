@@ -44,20 +44,29 @@ NAME(setBitsTrue_largestep,suffix)(void* restrict bitstorage, const counter_t ra
     register const counter_t loop_stop = safe_diff_type(range_stop, step_max, counter_t);
     register counter_t index = range_start;
 
-    #pragma ivdep
-    for (; index < loop_stop; index += step_max) {
-        __builtin_prefetch(&bitstorage_sized[index_type(index + step_max, bitbucket_t)], 1, 3);
-        setBitTrue(bitstorage, index);
-        setBitTrue(bitstorage, index + step    );
-        setBitTrue(bitstorage, index + step * 2);
-        setBitTrue(bitstorage, index + step * 3);
-        #if unrolls == 8
-        setBitTrue(bitstorage, index + step * 4);
-        setBitTrue(bitstorage, index + step * 5);
-        setBitTrue(bitstorage, index + step * 6);
-        setBitTrue(bitstorage, index + step * 7);
-        #endif
-    }
+    #if unrolls == 4
+        #pragma GCC ivdep
+        #pragma GCC unroll 4
+        for (; index < loop_stop; ) {
+            setBitTrue(bitstorage, index);  index += step;
+            setBitTrue(bitstorage, index);  index += step;
+            setBitTrue(bitstorage, index);  index += step;
+            setBitTrue(bitstorage, index);  index += step;
+        }
+    #elif unrolls == 8
+        #pragma GCC ivdep
+        #pragma GCC unroll 8
+        for (; index < loop_stop; ) {
+            setBitTrue(bitstorage, index);  index += step;
+            setBitTrue(bitstorage, index);  index += step;
+            setBitTrue(bitstorage, index);  index += step;
+            setBitTrue(bitstorage, index);  index += step;
+            setBitTrue(bitstorage, index);  index += step;
+            setBitTrue(bitstorage, index);  index += step;
+            setBitTrue(bitstorage, index);  index += step;
+            setBitTrue(bitstorage, index);  index += step;
+        }
+    #endif            
 
     for (counter_t i=unrolls; i-- && index < range_stop; index += step) 
         setBitTrue(bitstorage, index);
