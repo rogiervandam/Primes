@@ -16,7 +16,7 @@ NAME(applyMask,suffix)(void* restrict bitstorage, const counter_t step, const co
     register const counter_t step_2 = step << 1;
     register const counter_t step_3 = step_2 + step;
     
-    #pragma ivdep
+    #pragma ivdep vectorize
     while likely(index_ptr < fast_loop_ptr) {
         *index_ptr            |= mask; 
         *(index_ptr + step  ) |= mask; 

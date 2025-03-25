@@ -9,10 +9,8 @@
 #define likely(x)           (__builtin_expect((x),1))
 #define unlikely(x)         (__builtin_expect((x),0))
 #define is_signed(type)     (((type)-1)<0)
-#define shift_calc(bits)    (__builtin_ctz(bits))
-// #define shift_calc(bits)    (pow(bits,1)+pow(bits,2)+pow(bits,3)+pow(bits,4)+pow(bits,5)+pow(bits,6)+pow(bits,7)+pow(bits,8)+pow(bits,9)+pow(bits,10)+pow(bits,11)+pow(bits,12))
-#define shift_type(TYPE)    (shift_calc(sizeof(TYPE)*8))
 
+// #define shift_calc(bits)    (pow(bits,1)+pow(bits,2)+pow(bits,3)+pow(bits,4)+pow(bits,5)+pow(bits,6)+pow(bits,7)+pow(bits,8)+pow(bits,9)+pow(bits,10)+pow(bits,11)+pow(bits,12))
 #define safe_diff(a,b)            ((a>b) ? (a-b) : 0)
 #define safe_diff_type(a,b,type)  (is_signed(type) ? a-b : ((a>b) ? (a-b) : 0))
 

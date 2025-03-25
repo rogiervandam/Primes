@@ -76,6 +76,9 @@ typedef uint16_t uint16v2_t  __attribute__ ((vector_size(4), aligned(cache_line_
   #define VECTOR_BYTEINDEX          ((bitvector_t){ 0, 1})
 #endif
 
+#define shift_calc(bits)                   (__builtin_ctz(bits))
+#define shift_type(TYPE)                   (shift_calc(sizeof(TYPE)*8))
+#define shift_type_from_to(index,from,to)  (sizeof(from) > sizeof(to) ? ((index) << shift_calc(sizeof(from)/sizeof(to))) : ((index) >> shift_calc(sizeof(from)/sizeof(to))))
 #define vectorindex_type(index, type)      ((index)>>shift_type(type))
 #define index_type(index, type)            ((index)>>shift_type(type)) // type is how the bits are stored, e.g.: uint8_t, uint16_t
 #define mask_type(type)                    (sizeof(type)*8-1)

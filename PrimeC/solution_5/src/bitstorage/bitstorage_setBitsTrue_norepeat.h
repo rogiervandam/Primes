@@ -11,7 +11,7 @@ setBitTrue(void* restrict bitstorage, const register counter_t index)
 static inline void __attribute__((always_inline, , hot, nonnull)) 
 setBitsTrue_range(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
-    for( register counter_t index = range_start; index < range_stop; index += step) setBitTrue(bitstorage, index);
+    for(register counter_t index = range_start; index < range_stop; index += step) setBitTrue(bitstorage, index);
 }
 
 // this function returns the last index that was set
