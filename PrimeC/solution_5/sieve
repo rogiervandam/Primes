@@ -194,7 +194,7 @@ if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
             cat "$DOCKERFILE" > Dockerfile
             echo "" >> Dockerfile
             cat "./dev/docker/Dockerfile_common" >> Dockerfile
-            docker build --pull --rm -t "sieve_$DOCKER_TYPE" . 2> ./dev/build.log
+            docker build --pull --rm -t "sieve_$DOCKER_TYPE" . 2> ./dev/build/docker_sieve_$DOCKER_TYPE_build.log
             if [ $? -ne 0 ]; then
                 echo "Error: Docker build failed."
                 exit 1

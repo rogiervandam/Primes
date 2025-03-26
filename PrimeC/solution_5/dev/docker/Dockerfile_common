@@ -11,7 +11,7 @@ COPY sieve ./sieve
 RUN mkdir -p bin
 
 # Make the sieve executable and resolve LF/CRLF issues
-RUN chmod +x ./tools/*.sh ./sieve
-RUN sed -i 's/\r$//' ./tools/*.sh ./sieve
+RUN chmod +x ./tools/* ./sieve
+RUN sed -i 's/\r$//' ./tools/* ./sieve
 
 ENTRYPOINT [ "./sieve" ]
