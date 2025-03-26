@@ -46,11 +46,6 @@
 #define preset_uint64v2
 #include "bitstorage_setBitsTrue_assemble_vector.h" 
 
-// create smallstep functions
-#undef unrolls
-#undef variant
-#include "bitstorage_setBitsTrue_repeat.h"
-
 #undef unrolls
 #define variant uint8
 #include "bitstorage_setBitsTrue_assemble_word.h" 

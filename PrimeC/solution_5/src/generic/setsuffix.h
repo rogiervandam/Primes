@@ -37,6 +37,10 @@
         #endif
     #endif
 #else
-    #define suffix subfunction
-    #define fullvariantsuffix _word // TODO: remove when full converted
+    #ifdef subfunction
+        #define suffix subfunction
+    #else
+        #define suffix
+    #endif
+    // #define fullvariantsuffix _word // TODO: remove when full converted
 #endif

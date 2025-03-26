@@ -11,12 +11,12 @@ setBitsTrue_base(bitword_t* restrict bitstorage, const counter_t range_start, co
     if (step < bitcount_type(uint64_t) /2) {
         const counter_t range_stop_unique_word = range_start + bitcount_type(uint64_t) * step; 
         if (range_stop_unique_word <= range_stop) { // the wordmask will be reused
-            setBitsTrue_smallstep_repeat_base(bitstorage, range_start, step, range_stop);
+            setBitsTrue_smallstep_repeat_base_uint8(bitstorage, range_start, step, range_stop);
             timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
             return;
         }
         else {
-            setBitsTrue_smallstep_norepeat(bitstorage, range_start, step, range_stop);
+            setBitsTrue_smallstep_norepeat_uint8(bitstorage, range_start, step, range_stop);
             timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
             return;
         }

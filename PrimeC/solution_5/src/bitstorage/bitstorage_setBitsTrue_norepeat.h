@@ -32,8 +32,7 @@ setBitsTrue_range_return(void* restrict bitstorage, const counter_t range_start,
 
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
 // this is a BASE ALGORITHM COMPLIANT: each bit is set individually
-static inline void __attribute__((always_inline, nonnull)) 
-NAME(setBitsTrue_largestep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+static inline void __attribute__((always_inline, nonnull)) NAME(setBitsTrue_largestep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose6( printf("Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju)  (%ju unique occurances)..", (uintmax_t)step,  STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)step)); )
     timer_lapstart(time_setBitsTrue_largestep_norepeat);

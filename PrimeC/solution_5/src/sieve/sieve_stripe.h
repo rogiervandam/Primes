@@ -32,7 +32,7 @@ stripeSieveBlock(bitword_t* restrict bitstorage, const counter_t block_start, co
         register const counter_t step  = prime * 2 + 1;
         register counter_t start = compute_start(prime, block_start);
         setBitsTrue(bitstorage, start, step, block_stop);
-        prime = searchBitFalse(bitstorage, prime);
+        prime = searchBitFalse_uint8(bitstorage, prime);
     }
 
     // while (prime < prime_endloop1) {

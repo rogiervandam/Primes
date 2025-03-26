@@ -38,6 +38,7 @@ static char algorithm_type[] = "base";
 #include "sieve/sieve_prime_calculations.h"
 #include "sieve/sieve_manager.h"
 #include "sieve/sieve_stripe.h"
+#include "benchmark/benchmark_setBitsTrue_functions.h"
 
 /* This is the main module that directs all the work
    sieve_size in a real number that is the maximum in the sieve (not in bits)
@@ -54,12 +55,12 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     const counter_t stripeprime_faster = global_stripeprime_faster;
     const counter_t blocksize_bits = global_blocksize_bits;
     
-    verbose5(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)block_size); )
+    verbose5(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)blocksize_bits); )
 
     // code for algorithm = base
     sieve_clear(sieve);
 
-    for (counter_t block_start = 0, block_stop = blocksize_bits-1; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
+    for (counter_t block_start = 0, block_stop = blocksize_bits; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
         counter_t prime = 1;
 
         while (prime < prime_max) {

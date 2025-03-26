@@ -1,9 +1,10 @@
 
+// Largestep (> WORD_SIZE and < VECTOR_SIZE) means the same vectormask can be reused
+#undef subfunction
 #define subfunction _largestep
 #include "../generic/setsuffix.h"
-
-// Largestep (> WORD_SIZE and < VECTOR_SIZE) means the same vectormask can be reused
-static inline void __attribute__((always_inline)) NAME(create_mask_vector,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+static inline void __attribute__((always_inline)) 
+NAME(create_mask_vector,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
     // verbose6(  printf("\n..Setting bits step %3ju using create_mask_vector_largestep in %ju bit range (%ju-%ju)  (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
     timer_lapstart(time_create_mask_vector_largestep);

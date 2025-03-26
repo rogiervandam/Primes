@@ -11,11 +11,11 @@
 #endif
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
+#include <stdlib.h> // for malloc, free, exit and getenv
+#include <stdint.h> 
 #include <time.h>
 #include <string.h> // for memset and memcpy
-#include <inttypes.h>
+// #include <inttypes.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -33,6 +33,8 @@ static char algorithm_type[] = "other";
 #include "generic/tools.h"
 #include "benchmark/sieve_options.h"
 #include "benchmark/sieve_timers.h"
+#include "bitstorage/bitstorage_search.h"
+#define variant uint8
 #include "bitstorage/bitstorage_search.h"
 #include "bitstorage/bitstorage_setBitsTrue.h"
 #include "bitstorage/bitstorage_continuePattern.h"

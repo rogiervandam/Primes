@@ -1,16 +1,11 @@
-
-#ifndef variant
-#define bitbucket_t bitword_t
-#endif
-
-#define subfunction _repeat
-#include "../generic/setsuffix.h"
-
 // Small steps (< WORD_SIZE) could be within the same word (e.g. less than 64 bits apart).
 // By joining the masks and then writing to memory, we might save some time.
 // This is especially true for small steps over long ranges
 // but it needs tuning, because there is some overhead of checking if the next step is in the same word
 // this is *NOT* BASE ALGORITHM COMPLIANT: some bits are set together
+#undef subfunction
+#define subfunction _repeat
+#include "../generic/setsuffix.h"
 static inline void __attribute__((always_inline, nonnull)) 
 NAME(setBitsTrue_smallstep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
@@ -29,12 +24,11 @@ NAME(setBitsTrue_smallstep,suffix)(void* restrict bitstorage, const counter_t ra
     timer_laptime(time_setBitsTrue_smallstep_repeat); verbose6( printf("\n"); )
 }
 
+// this is a BASE ALGORITHM COMPLIANT: each bit is set individually
+// doing this multiple times on the same word is likely to have the cache still ready
 #undef subfunction
 #define subfunction _repeat_base
 #include "../generic/setsuffix.h"
-
-// this is a BASE ALGORITHM COMPLIANT: each bit is set individually
-// doing this multiple times on the same word is likely to have the cache still ready
 static inline void __attribute__((always_inline, nonnull)) 
 NAME(setBitsTrue_smallstep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {

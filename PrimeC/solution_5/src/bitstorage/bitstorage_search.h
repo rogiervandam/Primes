@@ -5,24 +5,29 @@
 //     return bitstorage[wordindex(index)] & markmask_calc(index);
 // }
 
-#undef bitbucket_t
+// #define variant uint8
+// #undef subfunction
+#include "../generic/setsuffix.h"
+
+#ifndef variant
 #define bitbucket_t uint8_t
+#endif
 
 static inline counter_t __attribute__((always_inline, hot, nonnull)) 
-checkBitTrue(const void* restrict bitstorage, register counter_t index) 
+NAME(checkBitTrue,suffix)(const void* restrict bitstorage, register counter_t index) 
 {
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     return (bitstorage_sized[index_type(index, bitbucket_t)] & markmask_type(index, bitbucket_t));
 }
 
 static inline counter_t __attribute__((always_inline, hot, nonnull)) 
-checkBitFalse(const void* restrict bitstorage, register counter_t index) 
+NAME(checkBitFalse,suffix)(const void* restrict bitstorage, register counter_t index) 
 {
     return !checkBitTrue(bitstorage, index);
 }
 
 static inline counter_t __attribute__((always_inline)) 
-countInvalidInStripe(const void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+NAME(countInvalidInStripe,suffix)(const void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     counter_t count = 0;
     for (counter_t index = range_start; index < range_stop; index += step) {
@@ -32,7 +37,7 @@ countInvalidInStripe(const void* restrict bitstorage, const counter_t range_star
 }
 
 static inline counter_t __attribute__((always_inline)) 
-countBitsTrue(const void* bitstorage, const counter_t range_start, const counter_t range_stop) 
+NAME(countBitsTrue,suffix)(const void* bitstorage, const counter_t range_start, const counter_t range_stop) 
 {
     counter_t count = 0;
     for (counter_t index = range_start; index < range_stop; index++) {
@@ -42,7 +47,7 @@ countBitsTrue(const void* bitstorage, const counter_t range_start, const counter
 }
 
 static inline counter_t __attribute__((always_inline)) 
-faultInvalidInStripe(const void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+NAME(faultInvalidInStripe,suffix)(const void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     counter_t count = 0;
     for (counter_t index = range_start; index < range_stop; index += step) {
@@ -56,7 +61,7 @@ faultInvalidInStripe(const void* restrict bitstorage, const counter_t range_star
 }
 
 static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
-searchBitFalse(void* restrict bitstorage, register counter_t index) 
+NAME(searchBitFalse,suffix)(void* restrict bitstorage, register counter_t index) 
 {
     verbose8( printf("searchBitFalse from prime %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1); )
     timer_lapstart(time_searchBitFalse);
@@ -72,7 +77,7 @@ searchBitFalse(void* restrict bitstorage, register counter_t index)
 // Finds the index of the next unset (false) bit in a bitmap, starting from a given index
 // Optimized function for large ranges which are not common
 static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
-searchBitFalse_largestep(const void* restrict bitstorage, register counter_t index) 
+NAME(searchBitFalse_largestep,suffix)(const void* restrict bitstorage, register counter_t index) 
 {
     verbose8( printf("searchBitFalse_largestep from %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1); )
     timer_lapstart(time_searchBitFalse_largestep);
@@ -108,3 +113,4 @@ searchBitFalse_largestep(const void* restrict bitstorage, register counter_t ind
     return index + builtin_ctz(~current_word);
 }
 
+#undef bitbucket_t
