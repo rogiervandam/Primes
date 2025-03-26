@@ -5,6 +5,7 @@ OS="$(uname -s)"
 
 # Initialize compiler override variable
 COMPILER_OVERRIDE=""
+COMPILER_ASM=""
 # Process arguments to check for compiler override
 ARGS_TO_KEEP=()
 for arg in "$@"; do
@@ -12,6 +13,8 @@ for arg in "$@"; do
         COMPILER_OVERRIDE="gcc"
     elif [ "$arg" = "clang" ]; then
         COMPILER_OVERRIDE="clang"
+    elif [ "$arg" = "asm" ]; then
+        COMPILER_ASM="asm"
     else
         ARGS_TO_KEEP+=("$arg")
     fi
@@ -19,8 +22,10 @@ done
 # Replace arguments with the filtered list
 set -- "${ARGS_TO_KEEP[@]}"
 
-CC=""
+# Set default compiler flags
 CC="-march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions   -Wall -Wno-unused-function -Wno-unused-variable -Wno-unknown-pragmas"  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections -std=c11
+CCWARN=""
+# CCWARN="-Wall -Wno-unknown-pragmas" 
 
 # Determine which compiler to use based on override or auto-detection
 USE_CLANG=0
@@ -35,16 +40,16 @@ fi
 # Configure compiler settings based on selection
 if [ $USE_CLANG -eq 1 ]; then
     COMPILER="clang"	
-    CC="clang $CC -O3 -ffast-math -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections -I/usr/lib/llvm-18/lib/clang/18/include/immintrin.h" # -Wl,-dead_strip
+    CCASM="clang $CC -S -g -Wno-psabi -masm=intel -mllvm --x86-asm-syntax=intel -fverbose-asm" 
+    CC="clang $CC -O3 -ffast-math -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections -I/usr/lib/llvm-18/lib/clang/18/include/immintrin.h"  # -Wl,-dead_strip
     # CC="clang -fsanitize=address " # use this for debugging
-    # CC="clang"
+
     # Ensure Clang finds OpenMP headers and library
-    # PAR="-Xpreprocessor -fopenmp -I$(brew --prefix libomp)/include -L$(brew --prefix libomp)/lib -lomp"
     if [ "$OS" = "Darwin" ]; then
-        # macOS specific paths
+        # macOS paths for Clang omp
         PAR="-Xpreprocessor -fopenmp -lomp -I$(brew --prefix libomp)/include -L$(brew --prefix libomp)/lib"
     else
-        # Linux paths for Clang - find the actual omp.h location
+        # Linux paths for Clang omp - find the actual omp.h location
         OMP_INCLUDE=$(find /usr/lib/llvm* -name "omp.h" -path "*/include*" | head -n 1)
         if [ -n "$OMP_INCLUDE" ]; then
             OMP_DIR=$(dirname "$OMP_INCLUDE")
@@ -65,7 +70,7 @@ if [ $USE_CLANG -eq 1 ]; then
     fi
 else
     COMPILER="gcc"
-    CCASM="gcc $CC -S -g -Wno-psabi -masm=intel -fverbose-asm -fopt-info-vec-all=vec_report.txt" # -mavx
+    CCASM="gcc $CC -S -g -Wno-psabi -masm=intel -fverbose-asm -Wall -Wextra -fopt-info-vec-all=vec_report.txt" # -mavx
     CC="gcc $CC -Ofast -Wno-psabi -fwhole-program -flto -s -Wl,--gc-sections -s -I/usr/lib/gcc/x86_64-linux-gnu/14/include/" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
     PAR="-fopenmp"
 fi
@@ -135,9 +140,6 @@ for arg in "$@"; do
                 DEFINE_FLAGS="-DCOMPILE_EXPLAIN $DEFINE_FLAGS"
                 verbose_level=5
                 ;;
-            # timings|--timings)
-            #     DEFINE_FLAGS="-DCOMPILE_TIMERS $DEFINE_FLAGS"
-            #     ;;
             timers|--timers)
                 DEFINE_FLAGS="-DCOMPILE_TIMERS $DEFINE_FLAGS"
                 ;;
@@ -166,6 +168,8 @@ fi
 if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
     if [ $# -gt 1 ]; then
         DOCKER_TYPE="$2"
+
+        # support running all Dockerfiles
         if [ "$DOCKER_TYPE" = "all" ]; then
             for DOCKERFILE in ./dev/docker/Dockerfile_*; do
                 if [[ "$DOCKERFILE" == *"Dockerfile_common"* ]]; then
@@ -176,35 +180,9 @@ if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
                 $0 docker "$EXTENSION" "${@:3}"
 
             done
-
-            # # Loop through all Dockerfiles in ./dev/docker
-            # for DOCKERFILE in ./dev/docker/Dockerfile_*; do
-            #     EXTENSION="${DOCKERFILE#*Dockerfile_}" # Extract the extension
-            #     if [ $verbose_level -gt 1 ]; then
-            #         echo "Building and running Docker container for type: $EXTENSION"
-            #         echo "Running command: docker build --pull --rm -f $DOCKERFILE -t sieve-$EXTENSION ." 
-            #     fi
-                
-            #     # Build the Docker image
-            #     docker build --pull --rm -f "$DOCKERFILE" -t "sieve-$EXTENSION" . 2> ./dev/build/docker.log
-            #     if [ $? -ne 0 ]; then
-            #         echo "Error: Docker build failed for $EXTENSION."
-            #         exit 1
-            #     fi
-                
-            #     # Run the Docker container with any remaining arguments
-            #     if [ $verbose_level -gt 1 ]; then
-            #         echo "Running Docker container with arguments: $@"
-            #     fi
-            #     docker run --rm -e DOCKERFILE_TYPE="$EXTENSION" "sieve-$EXTENSION" "${@:3}"
-            #     if [ $? -ne 0 ]; then
-            #         echo "Error: Docker run failed for $EXTENSION."
-            #         exit 1
-            #     fi
-            # done
-            # exit 0
         fi
 
+        # support running a single Dockerfile
         DOCKERFILE="dev/docker/Dockerfile_$DOCKER_TYPE"
         if [ $verbose_level -gt 1 ]; then
             echo "Building and running Docker container for type: $DOCKER_TYPE"
@@ -263,9 +241,15 @@ PROGTOTAL="${base}-${set_x}-${set_y}-${set_z}"
 # if [ $verbose_level -gt 1 ]; then
 #   echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
 # fi
-$CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS
-if [ "$COMPILTER" = "gcc" ]; then
-    $CCASM -o ./dev/build/$PROGTOTAL.s ./src/${base}.c $DEFINE_FLAGS
+$CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS $CCWARN
+
+if [ "$COMPILER_ASM" = "asm" ]; then
+    if [ "$COMPILER" = "gcc" ]; then
+        $CCASM -o ./dev/build/$PROGTOTAL.s ./src/${base}.c $DEFINE_FLAGS
+    else #clang
+        echo "Running $CCASM -o ./dev/build/$PROGTOTAL.s ./src/${base}.c $DEFINE_FLAGS" 
+        $CCASM -o ./dev/build/$PROGTOTAL.s ./src/${base}.c $DEFINE_FLAGS
+    fi
 fi
 if [ $? -ne 0 ]; then
     echo "Error: Compilation failed for sequential version."
@@ -283,8 +267,6 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 $STRIP ./bin/$PROGTOTALPAR
-
-# gcc-14 -Ofast -S -fno-asynchronous-unwind-tables -fno-exceptions -fverbose-asm -Wall -Wextra -Ofast -masm=intel -S -mavx -fopt-info-vec-all=vec_report.txt -o ./dev/$PROGTOTAL.s ./src/${base}.c $DEFINE_FLAGS
 
 # while true; do
 if [ $threads -gt 0 ]; then

@@ -38,10 +38,7 @@ NAME(setBitsTrue_largestep,suffix)(void* restrict bitstorage, const counter_t ra
     verbose6( printf("Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju)  (%ju unique occurances)..", (uintmax_t)step,  STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)step)); )
     timer_lapstart(time_setBitsTrue_largestep_norepeat);
 
-    register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
-
-    register const counter_t step_max = step * unrolls;
-    register const counter_t loop_stop = safe_diff_type(range_stop, step_max, counter_t);
+    register const counter_t loop_stop = safe_diff_type(range_stop, step * unrolls, counter_t);
     register counter_t index = range_start;
 
     #if unrolls == 4

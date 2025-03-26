@@ -39,7 +39,6 @@ NAME(applyMask,suffix)(void* restrict bitstorage, const counter_t step, const co
             }
         #endif
     #else // best for clang
-        #pragma ivdep 
         for(const counter_t step_2 = step * 2, step_3 = step_2 + step; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *index_ptr            |= mask; 
             *(index_ptr + step  ) |= mask; 
@@ -79,7 +78,7 @@ NAME(applyMask_pair,suffix)(void* restrict bitstorage, const counter_t step, con
     register const counter_t step_2 = step << 1;
     register const counter_t step_3 = step_2 + step;
     
-    #pragma ivdep
+    #pragma GCC ivdep
     while likely(index_ptr < fast_loop_ptr) {
         *index_ptr                |= mask1;
         *(index_ptr + 1         ) |= mask2;  

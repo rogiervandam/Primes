@@ -27,7 +27,7 @@ Inspired by:
 
 ## Lessons learned
 - 32 bit vectors can be faster than 64 bit
-- Use #pragma ivdep to signal the compiler that it should not care about rereading memory in a loop.
+- Use #pragma GCC ivdep to signal the compiler that it should not care about rereading memory in a loop.
 - Use manual unroll for small sizes
 - Small changes in code can have huge impact due to -Ofast of -O3 optimizations
 - Using vector can greatly speed thing up, because of the sse/avx extensions
