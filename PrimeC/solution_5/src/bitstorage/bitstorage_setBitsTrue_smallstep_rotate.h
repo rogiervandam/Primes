@@ -1,10 +1,7 @@
 
-#undef subfunction
-#define subfunction _rotate
 #include "../generic/setsuffix.h"
-
 static inline void __attribute__((always_inline)) 
-NAME(create_mask_smallstep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+NAME(create_mask_smallstep_rotate,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
     // verbose7(  { const counter_t range_stop_unique = min(range_start + step * bitcount_type(bitbucket_t), range_stop);
     //     printf("\n..Setting bits step %3ju using create_mask_vector_smallstep in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps starting at %ju)", 
@@ -41,7 +38,7 @@ NAME(create_mask_smallstep,suffix)(void* restrict bitstorage, const counter_t ra
 }
 
 static inline void __attribute__((always_inline)) 
-NAME(setBitsTrue_smallstep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+NAME(setBitsTrue_smallstep_rotate,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose6(  printf("Setting bits step %3ju using largestep vector_word in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps)", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step))); )
     timer_lapstart(time_setBitsTrue_largestep_vector_wordstep);
@@ -54,7 +51,7 @@ NAME(setBitsTrue_smallstep,suffix)(void* restrict bitstorage, const counter_t ra
     }
 
     const counter_t range_start_new = setBitsTrue_range_return(bitstorage, range_start, step, range_start_nexttvector);
-    NAME(create_mask_smallstep,suffix)(bitstorage, range_start_new, step, range_stop);
+    NAME(create_mask_smallstep_rotate,suffix)(bitstorage, range_start_new, step, range_stop);
 
     timer_laptime(time_setBitsTrue_largestep_vector_wordstep); verbose6( printf("\n"); )
 }

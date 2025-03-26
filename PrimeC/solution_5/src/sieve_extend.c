@@ -34,8 +34,6 @@ static char algorithm_type[] = "other";
 #include "benchmark/sieve_options.h"
 #include "benchmark/sieve_timers.h"
 #include "bitstorage/bitstorage_search.h"
-#define variant uint8
-#include "bitstorage/bitstorage_search.h"
 #include "bitstorage/bitstorage_setBitsTrue.h"
 #include "bitstorage/bitstorage_continuePattern.h"
 #include "sieve/sieve_prime_calculations.h"

@@ -7,6 +7,7 @@
 
 // #define variant uint8
 // #undef subfunction
+
 #include "../generic/setsuffix.h"
 
 #ifndef variant
@@ -114,3 +115,18 @@ NAME(searchBitFalse_largestep,suffix)(const void* restrict bitstorage, register 
 }
 
 #undef bitbucket_t
+
+#include "../generic/cleansuffix.h"
+
+#ifndef BITSTORAGE_SEARCH_INCLUDE_GUARD
+    #define BITSTORAGE_SEARCH_INCLUDE_GUARD
+    #define variant uint8
+    #include "bitstorage_search.h"
+    #define variant uint16
+    #include "bitstorage_search.h"
+    #define variant uint32
+    #include "bitstorage_search.h"
+    #define variant uint64
+    #include "bitstorage_search.h"
+#endif
+

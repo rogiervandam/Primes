@@ -37,13 +37,17 @@ static char algorithm_type[] = "base";
 #include "sieve/sieve_prime_calculations.h"
 #include "sieve/sieve_manager.h"
 #include "sieve/sieve_stripe.h"
+#include "benchmark/benchmark_setBitsTrue_functions.h"
 
 // This is the main module that directs all the work
 // sieve_size in a real number that is the maximum in the sieve (not in bits)
+
+#define bitbucket_t uint8_t
+
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
     struct sieve_t *sieve = sieve_create(sieve_size);
-    bitword_t* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
+    bitbucket_t* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
     const counter_t sieve_bits = sieve->bits;
     const counter_t prime_max = prime_stop(sieve_bits);
 
@@ -57,10 +61,10 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
         const counter_t start = prime * (step + 1);
 
         for(counter_t i=start; i < sieve_bits; i += step) {
-            bitstorage[wordindex(i)] |= markmask(i);
+            bitstorage[index_type(i, bitbucket_t)] |= markmask_calc_type(i,bitbucket_t);
         }
 
-        do { prime++; } while (bitstorage[wordindex(prime)] & markmask(prime));
+        do { prime++; } while (bitstorage[index_type(prime, bitbucket_t)] & markmask_type(prime, bitbucket_t));
     }
 
     // return the completed sieve

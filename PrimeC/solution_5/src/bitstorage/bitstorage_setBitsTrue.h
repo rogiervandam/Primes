@@ -1,84 +1,65 @@
-#undef variant
-#include "bitstorage_setBitsTrue_norepeat.h"
 
-#define variantsuffix _word
-#define bitbucket_t bitword_t
-#include "bitstorage_applyMask.h"
-
-#undef unrolls
-#define preset_uint64v8
-#include "bitstorage_setBitsTrue_assemble_vector.h" 
-#define preset_uint64v4
-#include "bitstorage_setBitsTrue_assemble_vector.h" 
-#define preset_uint64v2
+#include "bitstorage_setBitsTrue_assemble_word.h" 
 #include "bitstorage_setBitsTrue_assemble_vector.h" 
 
-#undef variant_base_type_t
-#define preset_uint32v2
-#include "bitstorage_setBitsTrue_assemble_vector.h" 
-#define preset_uint32v4
-#include "bitstorage_setBitsTrue_assemble_vector.h" 
-#define preset_uint32v8
-#include "bitstorage_setBitsTrue_assemble_vector.h" 
+static inline void  __attribute__((always_inline, nonnull)) 
+setBitsTrue_largestep(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+{
+    if (range_start + step * 8 * 8 * 8 <= range_stop) { // // 8 bit 8 roll 8 tuned value
+        setBitsTrue_largestep_repeat_uint8_unroll8(bitstorage, range_start, step, range_stop);
+        return;
+    } 
 
-#undef variant_base_type_t
-#define preset_uint16v2
-#include "bitstorage_setBitsTrue_assemble_vector.h" 
-#define preset_uint16v4
-#include "bitstorage_setBitsTrue_assemble_vector.h"  
-#define preset_uint16v8
-#include "bitstorage_setBitsTrue_assemble_vector.h"  
+    if (range_start + step * 8 * 4  <= range_stop) {  // 8 bit 4 roll 8 tuned value
+        setBitsTrue_largestep_repeat_uint8_unroll4(bitstorage, range_start, step, range_stop);
+        return;
+    } 
 
-#undef variant_base_type_t
-#define unrolls 8
-#define preset_uint16v2
-#include "bitstorage_setBitsTrue_assemble_vector.h" 
-#define preset_uint16v4
-#include "bitstorage_setBitsTrue_assemble_vector.h"  
-#define preset_uint16v8
-#include "bitstorage_setBitsTrue_assemble_vector.h"  
+    setBitsTrue_largestep_norepeat_uint8_unroll8(bitstorage, range_start, step, range_stop);
+}
 
-#undef variant_base_type_t
-#define preset_uint64v8
-#include "bitstorage_setBitsTrue_assemble_vector.h" 
-#define preset_uint64v4
-#include "bitstorage_setBitsTrue_assemble_vector.h" 
-#define preset_uint64v2
-#include "bitstorage_setBitsTrue_assemble_vector.h" 
+// Large ranges (> WORD_SIZE * step) mean the same mask can be reused
+// This version uses vectorization for the larger ranges
+// assumes the range is larger than VECTOR_SIZE_BITS
+static inline void  __attribute__((always_inline, nonnull)) 
+setBitsTrue(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+{
+    // verbose6(  printf("Setting bits step %3ju using setBitsTrue in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps) \n", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step))); )
+    timer_lapstart(time_setBitsTrue);
 
-#undef unrolls
-#define variant uint8
-#include "bitstorage_setBitsTrue_assemble_word.h" 
-#define variant uint16
-#include "bitstorage_setBitsTrue_assemble_word.h" 
-#define variant uint32
-#include "bitstorage_setBitsTrue_assemble_word.h" 
-#define variant uint64
-#include "bitstorage_setBitsTrue_assemble_word.h" 
+    if (step <= 63) {
+            // no check for repeat needed; this is fast
+            setBitsTrue_smallstep_rotate_pair_uint64v4(bitstorage, range_start, step, range_stop);
+            timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
+            return;
 
-#define unrolls 4
-#define variant uint8
-#include "bitstorage_setBitsTrue_assemble_word.h" 
-#define variant uint16
-#include "bitstorage_setBitsTrue_assemble_word.h" 
-#define variant uint32
-#include "bitstorage_setBitsTrue_assemble_word.h" 
-#define variant uint64
-#include "bitstorage_setBitsTrue_assemble_word.h" 
-#undef unrolls
+        if (step < bitcount_type(uint64_t) /2) {
+            const counter_t range_stop_unique_word = range_start + bitcount_type(uint64_t) * step; 
+            if (range_stop_unique_word <= range_stop) { // the wordmask will be reused
+                setBitsTrue_smallstep_repeat_uint64(bitstorage, range_start, step, range_stop);
+                timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
+                return;
+            }
+            else {
+                setBitsTrue_smallstep_norepeat_uint8(bitstorage, range_start, step, range_stop);
+                timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
+                return;
+            }
+        }
+        setBitsTrue_largestep(bitstorage, range_start, step, range_stop);
+        timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
+        return;
+    }
+    else if (step <= 255) {
+        if (step < global_largestep_faster) {
+            setBitsTrue_largestep_vector_uint64v4(bitstorage, range_start, step, range_stop);
+            timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
+            return;
+        }
+    }
+ 
+    setBitsTrue_largestep(bitstorage, range_start, step, range_stop);
+    timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
+}
 
-#define unrolls 8
-#define variant uint8
-#include "bitstorage_setBitsTrue_assemble_word.h" 
-#define variant uint16
-#include "bitstorage_setBitsTrue_assemble_word.h" 
-#define variant uint32
-#include "bitstorage_setBitsTrue_assemble_word.h" 
-#define variant uint64
-#include "bitstorage_setBitsTrue_assemble_word.h" 
-#undef unrolls
-
-#include "bitstorage_setBitsTrue_dispatch.h"
 #include "bitstorage_setBitsTrue_base.h"
-
-

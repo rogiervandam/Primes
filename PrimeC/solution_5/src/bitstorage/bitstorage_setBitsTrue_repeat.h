@@ -3,11 +3,10 @@
 // This is especially true for small steps over long ranges
 // but it needs tuning, because there is some overhead of checking if the next step is in the same word
 // this is *NOT* BASE ALGORITHM COMPLIANT: some bits are set together
-#undef subfunction
-#define subfunction _repeat
+
 #include "../generic/setsuffix.h"
 static inline void __attribute__((always_inline, nonnull)) 
-NAME(setBitsTrue_smallstep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+NAME(setBitsTrue_smallstep_repeat,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     const counter_t range_stop_unique = range_start + bitcount_type(bitbucket_t) * step;
 
@@ -26,11 +25,10 @@ NAME(setBitsTrue_smallstep,suffix)(void* restrict bitstorage, const counter_t ra
 
 // this is a BASE ALGORITHM COMPLIANT: each bit is set individually
 // doing this multiple times on the same word is likely to have the cache still ready
-#undef subfunction
-#define subfunction _repeat_base
+
 #include "../generic/setsuffix.h"
 static inline void __attribute__((always_inline, nonnull)) 
-NAME(setBitsTrue_smallstep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+NAME(setBitsTrue_smallstep_repeat_base,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     const counter_t range_stop_unique = range_start + bitcount_type(bitbucket_t) * step;
 
@@ -49,12 +47,10 @@ NAME(setBitsTrue_smallstep,suffix)(void* restrict bitstorage, const counter_t ra
     timer_laptime(time_setBitsTrue_smallstep_repeat); verbose6( printf("\n"); )
 }
 
-#undef subfunction
-#define subfunction _repeat
-#include "../generic/setsuffix.h"
 
+#include "../generic/setsuffix.h"
 static inline void __attribute__((always_inline, nonnull)) 
-NAME(setBitsTrue_largestep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+NAME(setBitsTrue_largestep_repeat,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 { 
     const counter_t range_stop_unique = range_start + bitcount_type(bitbucket_t) * step; 
     verbose6(printf("Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju) (%ju repeating occurrences)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)))); 

@@ -62,12 +62,12 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 
     for (counter_t block_start = 0, block_stop = blocksize_bits; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
         counter_t prime = 1;
+        const counter_t range_stop = min(sieve_bits, block_stop);
 
         while (prime < prime_max) {
             register const counter_t step  = prime * 2 + 1;
             register counter_t start = compute_start(prime, block_start);
-            // setBitsTrue_largestep(bitstorage, start, step, min(sieve_bits, block_stop));
-            setBitsTrue_base(bitstorage, start, step, min(sieve_bits, block_stop));
+            setBitsTrue_base(bitstorage, start, step, range_stop);
             prime = searchBitFalse(bitstorage, prime);
         }
     } 

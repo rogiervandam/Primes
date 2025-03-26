@@ -6,6 +6,7 @@ OS="$(uname -s)"
 # Initialize compiler override variable
 COMPILER_OVERRIDE=""
 COMPILER_ASM=""
+RUNALL=""
 # Process arguments to check for compiler override
 ARGS_TO_KEEP=()
 for arg in "$@"; do
@@ -15,12 +16,21 @@ for arg in "$@"; do
         COMPILER_OVERRIDE="clang"
     elif [ "$arg" = "asm" ]; then
         COMPILER_ASM="asm"
+    elif [ "$arg" = "runall" ]; then
+        RUNALL="runall"
     else
         ARGS_TO_KEEP+=("$arg")
     fi
 done
 # Replace arguments with the filtered list
 set -- "${ARGS_TO_KEEP[@]}"
+
+if [ "$RUNALL" = "runall" ]; then
+    for base in sieve_classic sieve_base sieve_extend; do
+        $0 $base "$@"
+    done
+    exit 0
+fi
 
 # Set default compiler flags
 CC="-march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions   -Wall -Wno-unused-function -Wno-unused-variable -Wno-unknown-pragmas"  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections -std=c11
@@ -150,10 +160,18 @@ done
 
 # Add default verbose arguments if not explicitly specified
 run_args=""
+
+# if running in docker and environment variable DOCKERFILE_TYPE is not set, set verbose level to 1 and runall
+if [ -z "$DOCKERFILE_TYPE" ] && [ -f /.dockerenv ] && [ $verbose_level -eq 10 ]; then
+    $0 runall "$@" --verbose 1
+    exit 0
+fi
+
 if [ $verbose_level -eq 10 ]; then
     run_args="$run_args --verbose 2"
     verbose_level=2
 fi
+
 
 DEFINE_FLAGS="-DCOMPILE_VERBOSE_LEVEL=$verbose_level $DEFINE_FLAGS"
 

@@ -1,10 +1,8 @@
 
 // Largestep (> WORD_SIZE and < VECTOR_SIZE) means the same vectormask can be reused
-#undef subfunction
-#define subfunction _largestep
 #include "../generic/setsuffix.h"
 static inline void __attribute__((always_inline)) 
-NAME(create_mask_vector,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+NAME(create_mask_vector_largestep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
     // verbose6(  printf("\n..Setting bits step %3ju using create_mask_vector_largestep in %ju bit range (%ju-%ju)  (%ju occurances)", (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
     timer_lapstart(time_create_mask_vector_largestep);
@@ -32,13 +30,9 @@ NAME(create_mask_vector,suffix)(void* restrict bitstorage, const counter_t range
     timer_laptime(time_create_mask_vector_largestep); 
 }
 
-// #undef unrolls
-#undef subfunction
-#define subfunction _vector
 #include "../generic/setsuffix.h"
-
 static inline void __attribute__((always_inline, nonnull)) 
-NAME(setBitsTrue_largestep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+NAME(setBitsTrue_largestep_vector,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose6(  printf("Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps) ", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step))); )
     timer_lapstart(time_setBitsTrue_largestep_vector_vectorstep);

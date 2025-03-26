@@ -21,6 +21,7 @@ COPY sieve ./sieve
 
 # Ensure the bin directory exists
 RUN mkdir -p bin
+RUN mkdir -p dev/build
 
 # Make the sieve executable and resolve LF/CRLF issues
 RUN chmod +x ./tools/* ./sieve
