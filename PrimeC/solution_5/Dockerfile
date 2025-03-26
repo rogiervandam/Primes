@@ -9,20 +9,21 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /home/primes
+
+WORKDIR /home/sieve
 
 # Copy all shell scripts, C source, and header files
-COPY *.sh *.c *.h ./
+COPY src/ ./src/
+COPY tools/ ./tools/
 
-# Copy the additional directory structure
-COPY src/ ./src
+# Copy builder
+COPY sieve ./sieve
 
 # Ensure the bin directory exists
 RUN mkdir -p bin
 
-RUN chmod +x ./*.sh
-RUN sed -i 's/\r$//' *.sh
+# Make the sieve executable and resolve LF/CRLF issues
+RUN chmod +x ./tools/*.sh ./sieve
+RUN sed -i 's/\r$//' ./tools/*.sh ./sieve
 
-RUN ./compile.sh
-
-ENTRYPOINT [ "./run.sh" ]
+ENTRYPOINT [ "./sieve" ]
