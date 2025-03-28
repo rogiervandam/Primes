@@ -25,7 +25,7 @@ NAME(create_mask_vector_largestep,suffix)(void* restrict bitstorage, const count
                 index += step;
             }
         }
-        NAME(applyMask,fullvariantsuffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
+        NAME(applyMask,suffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
     }
 
     timer_laptime(time_create_mask_vector_largestep); 
@@ -42,7 +42,7 @@ NAME(setBitsTrue_largestep_vector,suffix)(void* restrict bitstorage, const count
     const counter_t range_start_nexttvector = index_next_type(range_start, bitbucket_t); // find next vector
     const counter_t range_start_new = setBitsTrue_range_return(bitstorage, range_start, step, range_start_nexttvector);
     if (range_start_new > range_stop) return;
-    NAME(create_mask_vector_largestep,fullvariantsuffix)(bitstorage, range_start_new, step, range_stop);
+    NAME(create_mask_vector_largestep,suffix)(bitstorage, range_start_new, step, range_stop);
     timer_laptime(time_setBitsTrue_largestep_vector_vectorstep); verbose6( printf("\n"); )
 }
 

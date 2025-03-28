@@ -5,42 +5,12 @@
     #define variantsuffix NAME(_,variant)
 #endif
 
-#undef suffix
-#undef fullvariantsuffix
-#undef unrollsuffix
-#ifdef UNSET_UNROLLS
-    #undef unrolls
-    #undef UNSET_UNROLLS
-#endif
-
-#ifdef unrolls
-    #define unrollssuffix NAME(_unroll,unrolls)
-#else
-    #define unrolls 4
-    #define UNSET_UNROLLS 1
-#endif
-
-#ifdef variantsuffix
-    #ifdef unrollssuffix
-        #define fullvariantsuffix NAME(variantsuffix, unrollssuffix)
-        #ifdef subfunction
-            #define suffix NAME(subfunction, fullvariantsuffix)
-        #else
-            #define suffix fullvariantsuffix
-        #endif
+#if defined variantsuffix
+    #if defined unrolls && unrolls != 4
+        #define suffix NAME(variantsuffix, NAME(_unroll,unrolls))
     #else
-        #define fullvariantsuffix variantsuffix
-        #ifdef subfunction
-            #define suffix NAME(subfunction,variantsuffix)
-        #else
-            #define suffix variantsuffix
-        #endif
+        #define suffix variantsuffix
     #endif
-#else
-    #ifdef subfunction
-        #define suffix subfunction
-    #else
-        #define suffix
-    #endif
-    // #define fullvariantsuffix _word // TODO: remove when full converted
+#else    
+    #define suffix
 #endif

@@ -18,7 +18,7 @@ NAME(setBitsTrue_smallstep_repeat,suffix)(void* restrict bitstorage, const count
         const counter_t index_bucket = index_type(index, bitbucket_t); // set index_word here because the for loop will change index
         register bitbucket_t mask = (bitbucket_t)0U;
         for(; index_type(index, bitbucket_t) == index_bucket; index += step) mask |= markmask_type(index, bitbucket_t);
-        NAME(applyMask,fullvariantsuffix)(bitstorage, step, range_stop, mask, index_bucket);
+        NAME(applyMask,suffix)(bitstorage, step, range_stop, mask, index_bucket);
     }
 
     timer_laptime(time_setBitsTrue_smallstep_repeat); verbose6( printf("\n"); )
@@ -42,7 +42,7 @@ NAME(setBitsTrue_smallstep_repeat_base,suffix)(void* restrict bitstorage, const 
         register bitbucket_t mask = (bitbucket_t)0U;
         for(; index_type(index, bitbucket_t) == index_bucket; index += step) {
             mask |= markmask_type(index, bitbucket_t);
-            NAME(applyMask,fullvariantsuffix)(bitstorage, step, range_stop, mask, index_bucket);
+            NAME(applyMask,suffix)(bitstorage, step, range_stop, mask, index_bucket);
         }
     }
 
@@ -60,7 +60,7 @@ NAME(setBitsTrue_largestep_repeat,suffix)(void* restrict bitstorage, const count
     timer_lapstart(time_setBitsTrue_largestep_repeat); 
     
     for (register counter_t index = range_start; index < range_stop_unique; index += step) { 
-        NAME(applyMask,fullvariantsuffix)(bitstorage, step, range_stop, markmask_type(index, bitbucket_t), index_type(index, bitbucket_t));
+        NAME(applyMask,suffix)(bitstorage, step, range_stop, markmask_type(index, bitbucket_t), index_type(index, bitbucket_t));
     } 
     timer_laptime(time_setBitsTrue_largestep_repeat); verbose6(printf("\n")); 
 }

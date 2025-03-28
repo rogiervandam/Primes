@@ -1,7 +1,9 @@
 #ifndef BITSTORAGE_ASSEMBLE_VECTOR_GUARD
     #define BITSTORAGE_ASSEMBLE_VECTOR_GUARD
     
+    // #undef unrolls
     #undef unrolls
+    #define unrolls 4
     #define preset_uint64v8
     #include "bitstorage_setBitsTrue_assemble_vector.h" 
     #define preset_uint64v4
@@ -28,6 +30,7 @@
     #include "bitstorage_setBitsTrue_assemble_vector.h"  
     
     #undef variant_base_type_t
+    #undef unrolls
     #define unrolls 8
     #define preset_uint16v2
     #include "bitstorage_setBitsTrue_assemble_vector.h" 

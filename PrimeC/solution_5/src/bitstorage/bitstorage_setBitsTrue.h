@@ -48,7 +48,7 @@ setBitsTrue(void* restrict bitstorage, const counter_t range_start, const counte
         return;
     }
     if (step < 128) {
-        if (ratio > 128) {
+        if (step < global_largestep_faster) {
             setBitsTrue_largestep_vector_uint64v2_unroll8(bitstorage, range_start, step, range_stop);
             timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
             return;
@@ -77,11 +77,11 @@ setBitsTrue(void* restrict bitstorage, const counter_t range_start, const counte
 
     // if (range_start + step * 8 * 4  <= range_stop) {  // 8 bit 4 roll 8 tuned value
     if (ratio > 32) {
-        setBitsTrue_largestep_repeat_uint8_unroll4(bitstorage, range_start, step, range_stop);
+        setBitsTrue_largestep_repeat_uint8(bitstorage, range_start, step, range_stop);
         return;
     } 
 
-    setBitsTrue_largestep_norepeat_uint8_unroll4(bitstorage, range_start, step, range_stop);
+    setBitsTrue_largestep_norepeat_uint8(bitstorage, range_start, step, range_stop);
     timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
 }
 

@@ -33,19 +33,19 @@ NAME(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const 
 
     // Apply this vectormask standalone until we align on the cache line
     for (;current_vector&1; current_vector++) {
-        NAME(applyMask,fullvariantsuffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
+        NAME(applyMask,suffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
         mask_vector = (mask_vector << pattern_vectorshift_vector) | (mask_vector >> (step_shift_vector - pattern_vectorshift_vector)); 
     }
 
     // Process vectormasks in pairs from the cacheline
     for (; current_vector < vector_max; current_vector += 2) {
         bitbucket_t mask_vector2 = (mask_vector << pattern_vectorshift_vector) | (mask_vector >> (step_shift_vector - pattern_vectorshift_vector)); 
-        NAME(applyMask_pair,fullvariantsuffix)(bitstorage_vector, step, range_stop, mask_vector, mask_vector2, current_vector);
+        NAME(applyMask_pair,suffix)(bitstorage_vector, step, range_stop, mask_vector, mask_vector2, current_vector);
         mask_vector = (mask_vector2 << pattern_vectorshift_vector) | (mask_vector2 >> (step_shift_vector - pattern_vectorshift_vector)); 
     }
 
     // Process the last vectormask if needed
-    NAME(applyMask,fullvariantsuffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
+    NAME(applyMask,suffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
 
     timer_laptime(time_create_mask_vector_smallstep); 
 }
