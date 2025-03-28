@@ -14,12 +14,11 @@ double timer_time[timer_count];
 #define time_setBitsTrue_largestep_vector_vectorstep 2
 #define time_create_mask_vector_smallstep 3
 #define time_create_mask_vector_largestep 4
-#define time_applyMask_vector 5
+#define time_applyMask 5
 #define time_setBitsTrue_smallstep_repeat 10
 #define time_setBitsTrue_smallstep_norepeat 11
 #define time_setBitsTrue_largestep_repeat 12
 #define time_setBitsTrue_largestep_norepeat 13
-#define time_applyMask_word 15
 #define time_searchBitFalse 20
 #define time_searchBitFalse_largestep 21
 #define time_continuePattern 40
@@ -40,12 +39,11 @@ static const char* timer_function_names[100] = {
     [time_setBitsTrue_largestep_vector_vectorstep] = "setBitsTrue_largestep_vector_vectorstep",
     [time_create_mask_vector_largestep] = "create_mask_vector_largestep",
     [time_create_mask_vector_smallstep] = "create_mask_vector_smallstep",
-    [time_applyMask_vector] = "applyMask_vector",
+    [time_applyMask_vector] = "applyMask",
     [time_setBitsTrue_largestep_repeat] = "setBitsTrue_largestep_repeat",
     [time_setBitsTrue_largestep_norepeat] = "setBitsTrue_largestep_norepeat",
     [time_setBitsTrue_smallstep_repeat] = "setBitsTrue_smallstep_repeat",
     [time_setBitsTrue_smallstep_norepeat] = "setBitsTrue_smallstep_norepeat",
-    [time_applyMask_word] = "applyMask_word",	
     [time_searchBitFalse_largestep] = "searchBitFalse_largestep",
     [time_continuePattern] = "continuePattern",
     [time_continuePattern_smallSize] = "continuePattern_smallSize",

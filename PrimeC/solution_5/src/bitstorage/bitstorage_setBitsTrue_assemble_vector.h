@@ -16,6 +16,8 @@
     #include "bitstorage_setBitsTrue_assemble_vector.h" 
     #define preset_uint32v8
     #include "bitstorage_setBitsTrue_assemble_vector.h" 
+    #define preset_uint32v16
+    #include "bitstorage_setBitsTrue_assemble_vector.h" 
     
     #undef variant_base_type_t
     #define preset_uint16v2

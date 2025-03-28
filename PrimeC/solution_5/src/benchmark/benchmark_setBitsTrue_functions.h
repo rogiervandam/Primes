@@ -136,9 +136,6 @@ static inline uint8_t checkSetBitsTrueMethodsBlocks(const SetBitsTrueMethod* Set
     return allvalid;
 }
 
-
-
-
 static inline double stripeBenchmarkTime() 
 {
     struct timespec t;
@@ -255,9 +252,9 @@ static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const co
                     printf("%6ju ", (uintmax_t)stripe_passes[step][method]);
                 }
             }
-            counter_t range = block_stop - block_start;
-            printf("     rep:%7ju  m4 %5ju  m8 %5ju  m16 %5ju  m32 %5ju\n", (uintmax_t)range/step, 
-                (uintmax_t)(range/step/4), (uintmax_t)(range/step/8), (uintmax_t)(range/step/16), (uintmax_t)(range/step/32));
+            // counter_t range = block_stop - block_start;
+            // printf("     rep:%7ju  m4 %5ju  m8 %5ju  m16 %5ju  m32 %5ju\n", (uintmax_t)range/step, 
+            //     (uintmax_t)(range/step/4), (uintmax_t)(range/step/8), (uintmax_t)(range/step/16), (uintmax_t)(range/step/32));
             printf("\n");
         }
     }
