@@ -47,16 +47,29 @@ static uint8_t checkSetBitsTrueMethod_stripe(const SetBitsTrueMethod* method, co
     uint8_t correct_afterrange = (actual_count_afterrange == 0);
 
     if (!(actual_count_inrange == target_count )) {
-        printf("\nMethod %s for stripe with step %ju in range %ju-%ju failed with %ju bits set, expected %ju ", method->name, (uintmax_t) step, (uintmax_t) range_start, (uintmax_t) range_stop, (uintmax_t)actual_count_inrange, (uintmax_t)target_count);
-        // return 0;
+        printf("\nMethod %s for stripe with step %ju in range %ju-%ju failed with %ju bits set, expected %ju \n", method->name, (uintmax_t) step, (uintmax_t) range_start, (uintmax_t) range_stop, (uintmax_t)actual_count_inrange, (uintmax_t)target_count);
+        // set the correctly set bits false
+
+        counter_t max_messages = 0;
+        for (counter_t index = range_start; index <= range_stop; index += step) {
+            if (checkBitTrue(bitstorage, index)) { setBitFalse(bitstorage, index); }
+            else {
+                if (max_messages==0) printf("Not set        : "); 
+                if (max_messages++ < 10) { printf(" %ju ", (uintmax_t)index); } 
+            }
+        }
+        if (max_messages > 0) printf("\n");
+
+        max_messages = 0;
+        // what is left as set, is incorrectly set
+        for (counter_t index = range_start; index <= range_stop; index++) {
+            if (checkBitTrue(bitstorage, index)) { 
+                if (max_messages==0) printf("Incorrectly set: "); 
+                if (max_messages++ < 10) printf(" %ju ", (uintmax_t)index); 
+            } 
+        }
+        if (max_messages > 0) printf("\n");
     }
-    
-    // // check if the method is correct
-    // counter_t invalid = countInvalidInStripe(bitstorage, range_start, step, range_stop);
-    // if (invalid) {
-    //     // printf("Method %s failed with %ju invalid bits", method->name, (uintmax_t)invalid);
-    //     return 0;
-    // }
     sieve_delete(sieve);
 
     return correct_inrange | (correct_atrange << 1) | (correct_afterrange << 2);
@@ -106,6 +119,7 @@ static inline uint8_t checkSetBitsTrueMethods(const SetBitsTrueMethod* SetBitsTr
         if (m % 2 == 1) printf("\n"); // End the row after two methods
         if (valid != 7) { allvalid = 0; }
     }
+    printf("\n");
     return allvalid;
 }
 

@@ -113,7 +113,7 @@ NAME(applyMask_pair,suffix)(void* restrict bitstorage, const counter_t step, con
     if (index_ptr == range_stop_ptr) {
         *index_ptr     |= mask1; 
     }
-    timer_laptime(time_applyMask_vector); verbose8( printf("\n"); )
+    timer_laptime(time_applyMask); verbose8( printf("\n"); )
 }
 
 #include "../generic/cleansuffix.h"

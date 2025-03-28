@@ -27,28 +27,39 @@ printWord_uint32(uint64_t bitword)
 }
 
 static void __attribute__ ((cold)) 
-printVector(bitvector_t bitvector)
+printVector(uint64v4_t bitvector)
 {
+  #define PRINT_VECTOR_ELEMENTS 4
+  #define PRINT_WORD_SIZE_BITS 64
     // Use a union to extract the scalar elements from the vector
     union {
-        bitvector_t vec;
-        bitword_vector_t arr[VECTOR_ELEMENTS];
+      uint64v4_t vec;
+      uint64_t   arr[PRINT_VECTOR_ELEMENTS];
     } u;
     u.vec = bitvector;
 
-    char row[VECTOR_SIZE_BITS*2] = {0};
+    char row[PRINT_VECTOR_ELEMENTS*PRINT_WORD_SIZE_BITS*2] = {0};
+    char notes[400] = "\0";
     int col = 0;
     // Each vector element is a bitword_t with WORD_SIZE bits
-    for (int j = VECTOR_ELEMENTS - 1; j >= 0; j--) {
-        for (int i = VECTORWORD_SIZE_BITS - 1; i >= 0; i--) {
-            row[col++] = (u.arr[j] & (1U << i)) ? '1' : '.';
+    for (int j = PRINT_VECTOR_ELEMENTS - 1; j >= 0; j--) {
+        for (int i = PRINT_WORD_SIZE_BITS - 1; i >= 0; i--) {
+            row[col++] = (u.vec[j] & (1ULL << i)) ? '1' : '.';
             if (i % 8 == 0)
                 row[col++] = ' ';
         }
         row[col++] = 'x'; row[col++] = ' ';
       }
+
+    for (int j = PRINT_VECTOR_ELEMENTS - 1; j >= 0; j--) {
+      for (int i = PRINT_WORD_SIZE_BITS - 1; i >= 0; i--) {
+         if (u.arr[j] & (1ULL << i)) sprintf(notes, "%s %ju", notes, (uintmax_t) i + j*PRINT_WORD_SIZE_BITS  );
+      }
+    }
+
     row[col] = '\0';
-    verbose1( printf("%s\n", row); )
+    verbose1( printf("%s %s\n", row, notes); )
+
 }
 
 static void __attribute__ ((cold)) printVectorNumeric(bitvector_t bitvector)

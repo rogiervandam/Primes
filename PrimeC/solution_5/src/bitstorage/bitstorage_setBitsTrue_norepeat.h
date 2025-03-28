@@ -11,6 +11,13 @@ NAME(setBitTrue,suffix)(void* restrict bitstorage, const register counter_t inde
     bitstorage_sized[index_type(index,bitbucket_t)] |= markmask_type(index, bitbucket_t);
 }
 
+static void
+NAME(setBitFalse,suffix)(void* restrict bitstorage, const register counter_t index) 
+{
+    register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
+    bitstorage_sized[index_type(index,bitbucket_t)] &= ~markmask_type(index, bitbucket_t);
+}
+
 // static inline void __attribute__((always_inline, , hot, nonnull)) 
 static void
 NAME(setBitsTrue_range,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
