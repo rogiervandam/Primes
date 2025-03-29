@@ -113,6 +113,7 @@ parseCommandLine(int argc, char *argv[], struct options_t option)
                     // Apply the value based on parameter type
                     switch(param_type) {
                         case 's': option.fixed_benchmark_settings.stripe_faster = value; break;
+                        case 'm': option.fixed_benchmark_settings.mediumstep_faster = value; break;
                         case 'l': option.fixed_benchmark_settings.largestep_faster = value; break;
                         case 'b': option.fixed_benchmark_settings.blocksize_bits = value; break; 
                         case 'u': break; // can only set compile time; ignore

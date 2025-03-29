@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
         benchmark(final_tuning_settings);
 
         // perform benchmark -> outputs passes, elapsed time and avg in result 
-        verbose2( { printf("Benchmarking with settings: \033[1;32m%s\033[0m (stripeprime, largestep, blocksize, wordsize, vectorsize) and \033[1;32m%ju\033[0m threads for \033[1;32m%.1f\033[0m seconds\nResults: \033[5m(wait \033[1;32m%.1lf\033[39m seconds)\033[25m...\033[0m", 
+        verbose2( { printf("Benchmarking with settings: \033[1;32m%s\033[0m (stripeprime, mediumstep, largestep, blocksize, wordsize, vectorsize) and \033[1;32m%ju\033[0m threads for \033[1;32m%.1f\033[0m seconds\nResults: \033[5m(wait \033[1;32m%.1lf\033[39m seconds)\033[25m...\033[0m", 
             settings_string,(uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
         })
         debug_final_benchmarking = 1; // allow to count something in the final benchmark runs

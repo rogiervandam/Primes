@@ -126,6 +126,7 @@ static inline uint8_t checkSetBitsTrueMethods(const SetBitsTrueMethod* SetBitsTr
 static inline uint8_t checkSetBitsTrueMethodsBlocks(const SetBitsTrueMethod* SetBitsTrueMethods, const counter_t range_start, const counter_t range_stop) 
 {
     uint8_t allvalid = 7;
+    global_mediumstep_faster = 64;
 
     for(int m=0; m<methods; m++) {
         SetBitsTrueMethod setBitsTrueMethod = SetBitsTrueMethods[m];
