@@ -18,8 +18,8 @@ NAME(create_mask_largestep_rotate_pair,suffix)(void* restrict bitstorage, const 
         const counter_t current_vector_start = vectorstart_type(index, bitbucket_t);
         bitbucket_t mask_vector = BITBUCKET_BASE((variant_base_type_t) 0U);
 
-        // #pragma clang loop vectorize(enable) interleave(enable)
-        // #pragma GCC ivdep
+        #pragma clang loop vectorize(enable) interleave(enable)
+        #pragma GCC ivdep
         for (counter_t i=0; i < BITBUCKET_ELEMENTS; i++) {
             if (vectorstart_type(index,variant_base_type_t) == (current_vector_start + (bitcount_type(variant_base_type_t)*i))) {
                 mask_vector[i] = markmask_calc_type(index, variant_base_type_t); // in clang, markmask_type is enough, not in gcc

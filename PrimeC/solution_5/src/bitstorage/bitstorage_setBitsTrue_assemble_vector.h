@@ -28,6 +28,8 @@
     #include "bitstorage_setBitsTrue_assemble_vector.h"  
     #define preset_uint16v8
     #include "bitstorage_setBitsTrue_assemble_vector.h"  
+    #define preset_uint16v16
+    #include "bitstorage_setBitsTrue_assemble_vector.h"  
     
     #undef variant_base_type_t
     #undef unrolls
@@ -53,9 +55,9 @@
     #define KEEP_VARIANT
     #include "../bitstorage/bitstorage_applyMask.h"
     #include "../bitstorage/bitstorage_setBitsTrue_largestep.h" 
-    #include "../bitstorage/bitstorage_setBitsTrue_largestep_rotate.h" 
-    #include "../bitstorage/bitstorage_setBitsTrue_largestep_rotate_pair.h" 
-    #include "../bitstorage/bitstorage_setBitsTrue_smallstep_rotate.h" 
+    // #include "../bitstorage/bitstorage_setBitsTrue_largestep_rotate.h" 
+    // #include "../bitstorage/bitstorage_setBitsTrue_largestep_rotate_pair.h" 
+    // #include "../bitstorage/bitstorage_setBitsTrue_smallstep_rotate.h" 
     #include "../bitstorage/bitstorage_setBitsTrue_smallstep_rotate_pair.h" 
     #undef KEEP_VARIANT
     #include "../generic/cleansuffix.h"
