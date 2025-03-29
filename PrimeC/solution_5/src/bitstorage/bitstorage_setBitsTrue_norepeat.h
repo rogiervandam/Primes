@@ -3,8 +3,7 @@
 #define bitbucket_t uint8_t
 #define suffix
 // #include "../generic/setsuffix.h"
-// static inline void __attribute__((always_inline, hot, nonnull)) 
-static void
+static inline void __attribute__((always_inline, hot, nonnull)) 
 NAME(setBitTrue,suffix)(void* restrict bitstorage, const register counter_t index) 
 {
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
@@ -37,13 +36,10 @@ NAME(setBitsTrue_range_return,suffix)(void* restrict bitstorage, const counter_t
 
 #endif
 
-
-
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
 // this is a BASE ALGORITHM COMPLIANT: each bit is set individually
 #include "../generic/setsuffix.h"
-// static inline void __attribute__((always_inline, nonnull)) 
-static void
+static inline void __attribute__((always_inline, nonnull, hot )) 
 NAME(setBitsTrue_largestep_norepeat,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose6( printf("Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju)  (%ju unique occurances)..", (uintmax_t)step,  STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)step)); )

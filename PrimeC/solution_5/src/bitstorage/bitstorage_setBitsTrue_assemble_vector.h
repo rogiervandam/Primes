@@ -55,9 +55,6 @@
     #define KEEP_VARIANT
     #include "../bitstorage/bitstorage_applyMask.h"
     #include "../bitstorage/bitstorage_setBitsTrue_largestep.h" 
-    // #include "../bitstorage/bitstorage_setBitsTrue_largestep_rotate.h" 
-    // #include "../bitstorage/bitstorage_setBitsTrue_largestep_rotate_pair.h" 
-    // #include "../bitstorage/bitstorage_setBitsTrue_smallstep_rotate.h" 
     #include "../bitstorage/bitstorage_setBitsTrue_smallstep_rotate_pair.h" 
     #undef KEEP_VARIANT
     #include "../generic/cleansuffix.h"

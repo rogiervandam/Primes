@@ -1,12 +1,4 @@
 // Finds the index of the next unset (false) bit in a bitstorage, starting from a given index.
-// static inline counter_t __attribute__((always_inline, hot, nonnull)) 
-// checkBitTrue(const bitword_t* restrict bitstorage, register counter_t index) 
-// {
-//     return bitstorage[wordindex(index)] & markmask_calc(index);
-// }
-
-// #define variant uint8
-// #undef subfunction
 
 #include "../generic/setsuffix.h"
 
