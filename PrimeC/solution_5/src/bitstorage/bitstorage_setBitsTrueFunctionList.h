@@ -41,7 +41,7 @@ static SetBitsTrueMethod setBitsTrueMethods[] = {
     // {3, "setBitsTrue_smallstep_norepeat_uint16", setBitsTrue_smallstep_norepeat_uint16, 0, 15, 1},
     // {3, "setBitsTrue_smallstep_norepeat_uint8", setBitsTrue_smallstep_norepeat_uint8, 0, 7, 1},
     // {5, "setBitsTrue_largestep_vector_uint64v8", setBitsTrue_largestep_vector_uint64v8, 65, 511, 1},
-    {6, "setBitsTrue_largestep_vector_uint64v4", setBitsTrue_largestep_vector_uint64v4, 65, 255, 1},
+    // {6, "setBitsTrue_largestep_vector_uint64v4", setBitsTrue_largestep_vector_uint64v4, 65, 255, 1},
     // {7, "setBitsTrue_largestep_vector_uint64v2", setBitsTrue_largestep_vector_uint64v2, 65, 127, 1},
     // {8, "setBitsTrue_largestep_vector_uint32v8", setBitsTrue_largestep_vector_uint32v8, 33, 255, 0},
     // {8, "setBitsTrue_largestep_vector_uint32v4", setBitsTrue_largestep_vector_uint32v4, 33, 127, 0},
@@ -63,7 +63,7 @@ static SetBitsTrueMethod setBitsTrueMethods[] = {
     // {17, "setBitsTrue_largestep_repeat_uint16_unroll8", setBitsTrue_largestep_repeat_uint16_unroll8, 0, INT32_MAX, 1},
     // {17, "setBitsTrue_largestep_repeat_uint16_unroll4", setBitsTrue_largestep_repeat_uint16, 0, INT32_MAX, 1},
     // {12, "setBitsTrue_largestep_repeat_uint8_unroll8", setBitsTrue_largestep_repeat_uint8_unroll8, 0, INT32_MAX, 1},
-    {12, "setBitsTrue_largestep_repeat_uint8_unroll4", setBitsTrue_largestep_repeat_uint8, 0, INT32_MAX, 1},
+    // {12, "setBitsTrue_largestep_repeat_uint8_unroll4", setBitsTrue_largestep_repeat_uint8, 0, INT32_MAX, 1},
     // {11, "setBitsTrue_largestep_norepeat_uint8_unroll8", setBitsTrue_largestep_norepeat_uint8_unroll8, 0, INT32_MAX, 1},
     // {11, "setBitsTrue_largestep_norepeat_uint8_unroll4", setBitsTrue_largestep_norepeat_uint8, 0, INT32_MAX, 1},
 };

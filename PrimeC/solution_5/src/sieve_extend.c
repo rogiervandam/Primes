@@ -46,7 +46,6 @@ static char algorithm_type[] = "other";
    sieve_size in a real number that is the maximum in the sieve (not in bits)
    block_size is in bits and determines how large the blocks are which are processed 
 */
-//static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t block_size, const counter_t stripeprime_faster, const counter_t mediumstep_faster, const counter_t largestep_faster)
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
     struct sieve_t *sieve = sieve_create(sieve_size);

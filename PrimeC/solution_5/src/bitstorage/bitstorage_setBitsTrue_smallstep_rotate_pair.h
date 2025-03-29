@@ -1,6 +1,5 @@
 #include "../generic/setsuffix.h"
-// static inline void __attribute__((always_inline, nonnull)) 
-static void
+static inline void __attribute__((always_inline, nonnull, hot)) 
 NAME(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
     // verbose7(  { const counter_t range_stop_unique = min(range_start + step * bitcount_type(bitbucket_t), range_stop);
@@ -51,7 +50,7 @@ NAME(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const 
 }
 
 // static inline void __attribute__((always_inline, nonnull)) 
-static void
+static void  __attribute__((nonnull)) 
 NAME(setBitsTrue_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose6(  printf("Setting bits step %3ju using smallstep%s in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps)", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step))); )

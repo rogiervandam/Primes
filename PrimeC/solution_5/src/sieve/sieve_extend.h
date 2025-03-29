@@ -12,10 +12,6 @@ sieve_block_extend0(struct sieve_t *sieve, const counter_t block_stop)
     const counter_t sieve_bits = sieve->bits;
     ((uint64_t*)bitstorage)[0] = (uint64_t)0ULL; // only the first word has to be cleared; the rest is populated by the extension procedure
 
-    // const counter_t stripeprime_faster = global_stripeprime_faster;
-    // const counter_t mediumstep_faster = global_mediumstep_faster;
-    // const counter_t largestep_faster = global_largestep_faster;
-
     counter_t prime_start            = 1;
     counter_t prime                  = 1;
     counter_t step                   = prime * 2 + 1;

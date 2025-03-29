@@ -47,7 +47,6 @@ NAME(setBitsTrue_smallstep_repeat_base,suffix)(void* restrict bitstorage, const 
     timer_laptime(time_setBitsTrue_smallstep_repeat); verbose6( printf("\n"); )
 }
 
-
 #include "../generic/setsuffix.h"
 static inline void __attribute__((always_inline, nonnull)) 
 NAME(setBitsTrue_largestep_repeat,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
