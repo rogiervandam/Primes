@@ -39,7 +39,8 @@ NAME(setBitsTrue_range_return,suffix)(void* restrict bitstorage, const counter_t
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
 // this is a BASE ALGORITHM COMPLIANT: each bit is set individually
 #include "../generic/setsuffix.h"
-static inline void __attribute__((always_inline, nonnull, hot )) 
+// static inline void __attribute__((always_inline, nonnull, hot )) 
+static void
 NAME(setBitsTrue_largestep_norepeat,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose6( printf("Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju)  (%ju unique occurances)..", (uintmax_t)step,  STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)step)); )
@@ -87,7 +88,8 @@ NAME(setBitsTrue_largestep_norepeat,suffix)(void* restrict bitstorage, const cou
 // Small steps (< WORD_SIZE) could be within the same word (e.g. less than 64 bits apart).
 // if we know that the mask will not repeat, we can save some time by not checking
 // this is a BASE ALGORITHM COMPLIANT: each bit is set individually
-static inline void  __attribute__((always_inline, nonnull)) 
+// static inline void  __attribute__((always_inline, nonnull)) 
+static void
 NAME(setBitsTrue_smallstep_norepeat,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     verbose6( printf("Setting bits step %3ju using smallstep%s in %ju bit range (%ju-%ju)  (%ju unique occurances)", (uintmax_t)step, STR(suffix),  (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
