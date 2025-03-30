@@ -1,3 +1,11 @@
+static inline benchmark_settings_t initBenchmarkSettings(counter_t threads) 
+{
+    benchmark_settings_t benchmark_settings = option.fixed_benchmark_settings;
+    benchmark_settings.threads              = threads;
+    benchmark_settings.sample_duration      = option.time_max;
+    return benchmark_settings;
+}
+
 static inline void setSettingsFromTuning(benchmark_settings_t* benchmark_settings, benchmark_settings_t* tuning_settings) 
 {
     benchmark_settings->stripe_faster     = tuning_settings->stripe_faster;
@@ -5,25 +13,17 @@ static inline void setSettingsFromTuning(benchmark_settings_t* benchmark_setting
     benchmark_settings->blocksize_bits    = tuning_settings->blocksize_bits;
 }
 
+// check the settings to make sure they are valid
 static inline benchmark_settings_t checkBenchmarkSettings(benchmark_settings_t benchmark_settings) 
 {
     counter_t prime_max = prime_stop(benchmark_settings.factor_max);
-
     benchmark_settings.stripe_faster     = min(benchmark_settings.stripe_faster, prime_max);
     benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, VECTORWORD_SIZE_BITS);
     benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, VECTOR_SIZE_BITS);
-    benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, prime_max);
+    benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, prime_max*2+1);
     benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, 2); // allow for conversion from step to prime
     benchmark_settings.blocksize_bits    = min(benchmark_settings.blocksize_bits, benchmark_settings.factor_max/2);
     if (benchmark_settings.blocksize_bits == 0) benchmark_settings.blocksize_bits = benchmark_settings.factor_max/2;
-    return benchmark_settings;
-}
-
-static inline benchmark_settings_t initBenchmarkSettings(counter_t threads) 
-{
-    benchmark_settings_t benchmark_settings = option.fixed_benchmark_settings;
-    benchmark_settings.threads           = threads;
-    benchmark_settings.sample_duration   = option.time_max;
     return benchmark_settings;
 }
 
@@ -35,18 +35,6 @@ static inline char* setBenchmarkSettingAsString(char* settings_string, benchmark
             (uintmax_t)benchmark_settings.blocksize_bits, TYPE_SHORT_NAME(counter_t));
     })
     return settings_string;
-}
-
-static inline double benchmarkTime() 
-{
-    struct timespec t;
-
-    #ifdef __APPLE__
-        clock_gettime(CLOCK_MONOTONIC_RAW, &t);
-    #else
-        clock_gettime(CLOCK_MONOTONIC, &t);
-    #endif
-    return (t.tv_sec + t.tv_nsec * 1e-9);
 }
 
 static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settings) 
@@ -77,50 +65,60 @@ static void deepAnalyzeWithBenchmarkSettings(benchmark_settings_t benchmark_sett
     sieve_delete(sieve);
 }
 
+static inline double benchmarkTime() 
+{
+    struct timespec t;
+
+    #ifdef __APPLE__
+        clock_gettime(CLOCK_MONOTONIC_RAW, &t);
+    #else
+        clock_gettime(CLOCK_MONOTONIC, &t);
+    #endif
+    return (t.tv_sec + t.tv_nsec * 1e-9);
+}
+
 static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings) 
 {
     benchmark_result_t benchmark_result;
-    benchmark_settings = checkBenchmarkSettings(benchmark_settings);
-    benchmark_result.settings = benchmark_settings;
+    benchmark_result.settings = checkBenchmarkSettings(benchmark_settings);
 
     // set global variables used in the sieve functions
     prepareBenchmarkGlobals(benchmark_result.settings); // TODO; change back to benchmark_settings
 
     // prepare for the benchmark
-    counter_t passes = 0;
-
     const counter_t sieve_size = benchmark_result.settings.factor_max;
     const double time_sample = benchmark_result.settings.sample_duration; // do this before we set the clock
 
     double time_elapsed = 0;
+    counter_t passes = 0;
     
     #ifdef _OPENMP
-    omp_set_num_threads(benchmark_settings.threads);
-    #pragma omp parallel reduction(+:passes) reduction(+:time_elapsed)
-    {
+        omp_set_num_threads(benchmark_result.settings.threads);
+        #pragma omp parallel reduction(+:passes) reduction(+:time_elapsed)
+        {
+            const double time_start = benchmarkTime();
+            double thread_elapsed = 0;
+            const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
+            // const double time_start = benchmarkTime();
+            // const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
+            while (thread_elapsed <= time_target) {
+                struct sieve_t *sieve = shakeSieve(sieve_size);
+                sieve_delete(sieve);
+                thread_elapsed = benchmarkTime();         
+                passes++;
+            }
+            time_elapsed = thread_elapsed - time_start;
+        }
+    #else
         const double time_start = benchmarkTime();
-        double thread_elapsed = 0;
         const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
-        // const double time_start = benchmarkTime();
-        // const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
-        while (thread_elapsed <= time_target) {
+        while (time_elapsed <= time_target) {
             struct sieve_t *sieve = shakeSieve(sieve_size);
             sieve_delete(sieve);
-            thread_elapsed = benchmarkTime();         
+            time_elapsed = benchmarkTime();         
             passes++;
         }
-        time_elapsed = thread_elapsed - time_start;
-    }
-    #else
-    const double time_start = benchmarkTime();
-    const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
-    while (time_elapsed <= time_target) {
-        struct sieve_t *sieve = shakeSieve(sieve_size);
-        sieve_delete(sieve);
-        time_elapsed = benchmarkTime();         
-        passes++;
-    }
-    time_elapsed -= time_start;         
+        time_elapsed -= time_start;         
     #endif
 
     // calculate results
@@ -130,13 +128,3 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
 
     return benchmark_result;
 }
-
-static void outputBenchmarkStats(benchmark_result_t benchmark_result)
-{
-
-}
-
-
-
-
-

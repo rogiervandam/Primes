@@ -89,7 +89,6 @@ int main(int argc, char *argv[])
         debug_final_benchmarking = 1; // allow to count something in the final benchmark runs
         benchmark_result_t benchmark_result = benchmark(benchmark_settings);
         debug_final_benchmarking = 0;
-        verbose2(outputBenchmarkStats(benchmark_result);)
 
         // report results
         verbose0(
