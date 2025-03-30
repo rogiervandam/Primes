@@ -3,9 +3,9 @@
 static void
 NAME(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
-    // verbose7(  { const counter_t range_stop_unique = min(range_start + step * bitcount_type(bitbucket_t), range_stop);
-    //     printf("\n..Setting bits step %3ju using create_mask_vector_smallstep in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps starting at %ju)", 
-    //     (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)), (uintmax_t)range_stop_unique ); })
+    verbose7(  { const counter_t range_stop_unique = min(range_start + step * bitcount_type(bitbucket_t), range_stop);
+        printf("\n..Setting bits step %3ju using create_mask_vector_smallstep in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps starting at %ju)", 
+        (uintmax_t)step, (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step), (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)), (uintmax_t)range_stop_unique ); })
     timer_lapstart(time_create_mask_vector_smallstep);
 
     register bitbucket_t* restrict bitstorage_vector = __builtin_assume_aligned(bitstorage, cache_line_bytes);
@@ -15,7 +15,7 @@ NAME(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const 
     register const bitshift_t step_shift = bitindex_calc_type(step, variant_base_type_t); // to enable the compiler to optimize the shift
     register bitshift_t pattern_size = step_shift;
     register variant_base_type_t pattern = (variant_base_type_t) 1U;
-    while (pattern_size <= bitcount_type(variant_base_type_t)) { pattern |= markmask_type(pattern_size, variant_base_type_t); pattern_size += step_shift; }
+    for (;pattern_size < bitcount_type(variant_base_type_t); pattern_size += step_shift) { pattern |= markmask_type(pattern_size, variant_base_type_t);  }
     const bitshift_t pattern_wordshift = pattern_size - bitcount_type(variant_base_type_t);
 
     register const variant_base_type_t pattern_vectorshift = (variant_base_type_t) (((pattern_size - bitcount_type(variant_base_type_t)) * (bitshift_t)BITBUCKET_ELEMENTS) % step_shift) & mask_type(variant_base_type_t);

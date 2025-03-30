@@ -6,7 +6,7 @@
 #define bitbucket_t uint8_t
 #endif
 
-static inline counter_t __attribute__((always_inline, hot, nonnull)) 
+static inline counter_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes), access (read_only, 1))) 
 NAME(checkBitTrue,suffix)(const void* restrict bitstorage, register counter_t index) 
 {
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
@@ -53,7 +53,7 @@ NAME(faultInvalidInStripe,suffix)(const void* restrict bitstorage, const counter
     return count;
 }
 
-static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
+static inline counter_t __attribute__((always_inline, hot, nonnull, const, access (read_only, 1))) 
 NAME(searchBitFalse,suffix)(void* restrict bitstorage, register counter_t index) 
 {
     verbose8( printf("searchBitFalse from prime %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1); )
@@ -69,7 +69,7 @@ NAME(searchBitFalse,suffix)(void* restrict bitstorage, register counter_t index)
 
 // Finds the index of the next unset (false) bit in a bitmap, starting from a given index
 // Optimized function for large ranges which are not common
-static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
+static inline counter_t __attribute__((always_inline, hot, nonnull, const, access (read_only, 1))) 
 NAME(searchBitFalse_largestep,suffix)(const void* restrict bitstorage, register counter_t index) 
 {
     verbose8( printf("searchBitFalse_largestep from %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1); )

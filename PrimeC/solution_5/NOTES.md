@@ -46,3 +46,15 @@ On m1 for blcok 0-500000:
 On m1 for block 0-250000:
 -> uint8_unroll8 -> uint8_unroll4 when range/step/8 <= not really better
 -> uint8_unroll4 -> nopeat when range/step/4 <= 92  (step 673)
+
+
+Running sieve variant rogiervandam_extend u32-v4u64-ci32 with max 1000000
+Validating variant u32v4... valid algorithm
+Tuning done. Evaluated 374 options in 6 steps. Best result: average  18490.852366 with options s062-m008-l098-b0262144-u32-v4u64-ci32 was achieved with 459 passes in 0.024823 seconds
+Verified that algortihm with settings s062-m008-l098-b0262144-u32-v4u64-ci32 and max 1000000 is valid.
+Warming up the cache and processing units
+Benchmarking with settings: s062-m008-l098-b0262144-u32-v4u64-ci32 (stripeprime, mediumstep, largestep, blocksize, wordsize, vectorsize) and 1 threads for 5.0 seconds
+Results: (wait 5.0 seconds)...
+Result: Passes 91928 (per 5.0 seconds) - average 18385.6 per second using 1 threads
+Output message:
+rogiervandam_extend-u32-v4u64-ci32;91928;5.000008;1;algorithm=other,faithful=yes,bits=1;s062-m008-l098-b0262144-u32-v4u64-ci32 total 91928

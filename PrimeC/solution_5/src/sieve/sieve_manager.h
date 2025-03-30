@@ -10,7 +10,7 @@ struct sieve_t
 } __attribute__((aligned(cache_line_bytes)));  // Align the whole structure
 
 // create a sieve with a given size including the bitstorage
-static inline struct sieve_t * __attribute__((always_inline, malloc, returns_nonnull))
+static inline struct sieve_t * __attribute__((always_inline, malloc, returns_nonnull, assume_aligned(cache_line_bytes)))
 sieve_create(const counter_t size) 
 {
     // alocate memory for the sieve and include all the memory voor the bitstorage, so we have only one malloc

@@ -33,7 +33,7 @@ if [ "$RUNALL" = "runall" ]; then
 fi
 
 # Set default compiler flags
-CC="-march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions   -Wall -Wno-unused-function -Wno-unused-variable -Wno-unknown-pragmas"  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections -std=c11
+CC="-march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -Wall -Wno-unused-function -Wno-unused-variable -Wno-unknown-pragmas -std=c11 -fno-common -fdata-sections -ffunction-sections"  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections 
 CCWARN=""
 # CCWARN="-Wall -Wno-unknown-pragmas" 
 
