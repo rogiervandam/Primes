@@ -70,7 +70,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     for (counter_t stripe_faster = 16; stripe_faster <= prime_max; stripe_faster += stripe_faster_steps) { // increase the stepsize exponentially to reduce the number of options
         // for (counter_t smallprime_direction = 0; smallprime_direction<=1; smallprime_direction++) { // helper to exponentially start at top and bottom of range
             // for (counter_t mediumstep_faster = 0; mediumstep_faster <= VECTORWORD_SIZE_BITS; mediumstep_faster += mediumstep_faster_steps) {
-                // for (counter_t largestep_faster = VECTORWORD_SIZE_BITS; largestep_faster <= VECTOR_SIZE_BITS; largestep_faster += largestep_faster_steps) { // TODO: start vectorstep at a nice % from mediumstep
+                for (counter_t largestep_faster = VECTORWORD_SIZE_BITS; largestep_faster <= VECTOR_SIZE_BITS; largestep_faster += largestep_faster_steps) { // TODO: start vectorstep at a nice % from mediumstep
                     counter_t blocksize_bits=8*1024*8;
                     do {
                         blocksize_bits += 8*1024;
@@ -88,7 +88,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
                         tuning_settings.blocksize_bits = blocksize_bits; // keep some room for the beginning of the sieve
                         tuning_settings.stripe_faster =  stripe_faster; //(smallprime_direction==0) ? stripe_faster : (prime_max - stripe_faster);
                         tuning_settings.mediumstep_faster = 64;
-                        tuning_settings.largestep_faster = 128;
+                        tuning_settings.largestep_faster = largestep_faster;
                         tuning_settings.sample_duration = sample_duration;
                         tuning_results++;
 
@@ -115,8 +115,8 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
 
                         if (option.fixed_benchmark_settings.blocksize_bits) break;
                     } while (blocksize_bits < sieve_bits);
-            //         if (option.fixed_benchmark_settings.largestep_faster) break;
-            //     }
+                    if (option.fixed_benchmark_settings.largestep_faster) break;
+                }
             //     if (option.fixed_benchmark_settings.mediumstep_faster) break;
             // }
             // if (option.fixed_benchmark_settings.stripe_faster) break;
