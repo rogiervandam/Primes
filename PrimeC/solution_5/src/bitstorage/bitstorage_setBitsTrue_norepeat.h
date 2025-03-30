@@ -25,7 +25,6 @@ NAME(setBitsTrue_range,suffix)(void* restrict bitstorage, const counter_t range_
 }
 
 // this function returns the last index that was set
-
 static inline counter_t __attribute__((always_inline, hot, nonnull)) 
 NAME(setBitsTrue_range_return,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {

@@ -26,11 +26,12 @@ printWord_uint32(uint64_t bitword)
     verbose1( printf("%s", row); )
 }
 
+#define PRINT_VECTOR_ELEMENTS 4
+#define PRINT_WORD_SIZE_BITS 64
+
 static void __attribute__ ((cold)) 
 printVector(uint64v4_t bitvector)
 {
-  #define PRINT_VECTOR_ELEMENTS 4
-  #define PRINT_WORD_SIZE_BITS 64
     // Use a union to extract the scalar elements from the vector
     union {
       uint64v4_t vec;
@@ -62,11 +63,13 @@ printVector(uint64v4_t bitvector)
 
 }
 
-static void __attribute__ ((cold)) printVectorNumeric(bitvector_t bitvector)
+static void __attribute__ ((cold)) printVectorNumeric(uint64v4_t bitvector)
 {
-  for(counter_t i=0; i < VECTOR_ELEMENTS; i++) {
+  for(counter_t i=0; i < PRINT_VECTOR_ELEMENTS; i++) {
       verbose1( printf("%ju,", (uintmax_t) bitvector[i]); )
   }
   verbose1( printf("\n");	)
 }
 
+#undef PRINT_VECTOR_ELEMENTS
+#undef PRINT_WORD_SIZE_BITS

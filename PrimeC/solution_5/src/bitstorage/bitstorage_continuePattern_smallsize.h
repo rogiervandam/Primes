@@ -11,12 +11,7 @@ continuePattern_smallSize(void* restrict bitstorage, const counter_t source_star
                                             | (bitstorage_sized[source_word+1] << (bitcount_type(bitbucket_t)-bitindex_calc_type(source_start, bitbucket_t)))) 
                                             & chopmask_type(size, bitbucket_t);
     register bitbucket_t pattern = base_pattern;
-
     register counter_t pattern_size = size;
-    // if (pattern_size < (bitcount_type(bitbucket_t) >> 2)) {
-    //     pattern |= (base_pattern << size) | (base_pattern << size*2) | (base_pattern << size*3);
-    //     pattern_size = size << 2;
-    // }
 
     const counter_t destination_start = source_start + size;
     if ((destination_stop - destination_start) > pattern_size) {
