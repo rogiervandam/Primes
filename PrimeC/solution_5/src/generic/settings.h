@@ -7,16 +7,8 @@
 
 // #define COMPILE_EXPLAIN                  
 
-
 // How to align the caches
-#define cache_line_bytes      256 
-
-
-// type for handling non-vector bitwise operations in the bitstorage
-#ifndef bitword_t
-    #define bitword_t         uint32_t 
-    #define BITWORD_T_SIZE_PP 32
-#endif
+#define cache_line_bytes      128
 
 // type for describing the index of a bit in the sieve and general loops
 #ifndef counter_t

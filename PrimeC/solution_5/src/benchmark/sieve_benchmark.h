@@ -30,9 +30,9 @@ static inline benchmark_settings_t initBenchmarkSettings(counter_t threads)
 static inline char* setBenchmarkSettingAsString(char* settings_string, benchmark_settings_t benchmark_settings) 
 {
     verbose1({
-        snprintf(settings_string, 50, "s%03ju-l%03ju-b%07ju-u%02ju-v%ju%s-c%s", 
+        snprintf(settings_string, 50, "s%03ju-l%03ju-b%07ju-c%s", 
             (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.largestep_faster, 
-            (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)WORD_SIZE_BITS, (uintmax_t)(VECTOR_SIZE_BITS/VECTORWORD_SIZE_BITS), TYPE_SHORT_NAME(bitword_vector_t), TYPE_SHORT_NAME(counter_t));
+            (uintmax_t)benchmark_settings.blocksize_bits, TYPE_SHORT_NAME(counter_t));
     })
     return settings_string;
 }

@@ -4,24 +4,14 @@
     #define COUNTER_T_MAX_SAFE_VALUE 10000000000ULL
 #endif
 
-#ifndef VECTOR_ELEMENTS
-#define VECTOR_ELEMENTS 4
-#endif
-
-// follow main bitword setting in vectors. Change is otherwise needed
-#ifndef bitword_vector_t
-  #define bitword_vector_t uint64_t
-  #define VECTORWORDSIZE_PP 64
-#endif
-
 // masks and mask helpers
 #define SHIFT_SIZE                  1 // the shift needed to get from SIZE to BIT (1 because even numbers arr not storing in the bitstorage)
 #define SHIFT_BYTE                  3 // the shift needed to get from BIT to BYTE
 
-#define WORD_SIZE_BITS              (sizeof(bitword_t) * 8)
-#define VECTORWORD_SIZE_BITS        (sizeof(bitword_vector_t) * 8)
-#define VECTOR_SIZE_BYTES           (sizeof(bitword_vector_t)*VECTOR_ELEMENTS)
-#define VECTOR_SIZE_BITS            (VECTOR_SIZE_BYTES * 8)
+// #define WORD_SIZE_BITS              (sizeof(bitword_t) * 8)
+#define VECTORWORD_SIZE_BITS        64
+#define VECTOR_SIZE_BYTES           64
+#define VECTOR_SIZE_BITS            512
 
 typedef uint64_t uint64v8_t  __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
 typedef uint64_t uint64v4_t  __attribute__ ((vector_size(32), aligned(cache_line_bytes)));
@@ -44,7 +34,6 @@ typedef uint16_t uint16v2_t  __attribute__ ((vector_size( 4), aligned(cache_line
 #define mask_type(type)                    (sizeof(type)*8-1)
 #define bitindex_calc_type(index, type)    ((index) & mask_type(type))
 #define bitindex_unsafe_type(index, type)  ((index))
-// #define bitindex_type(index, type)         (sizeof(type)==8 ? bitindex_unsafe_type(index, type) : bitindex_calc_type(index, type))
 #define bitindex_type(index, type)         ((bitindex_calc_type(index, type)))
 #define markmask_calc_type(index, type)    ((type)1U << bitindex_calc_type(index, type))
 #define markmask_unsafe_type(index, type)  ((type)1U << (index))

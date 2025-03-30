@@ -1,5 +1,5 @@
 static inline counter_t __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
-stripeSieveBlock(bitword_t* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max) {
+stripeSieveBlock(void* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max) {
     verbose5(  printf("\nBlock stripe (new) for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
     timer_lapstart(time_sieveStripeBlock);
 
@@ -25,13 +25,13 @@ stripeSieveBlock(bitword_t* restrict bitstorage, const counter_t block_start, co
 }
 
 static inline counter_t __attribute__((always_inline, nonnull)) 
-stripeSieveBlock0(bitword_t* restrict bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+stripeSieveBlock0(void* restrict bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
     return stripeSieveBlock(bitstorage, 0, block_stop, prime_start, prime_max);
 }
 
 static inline void __attribute__((always_inline, nonnull)) 
-stripeSieveBlockByBlock(bitword_t* restrict bitstorage, const counter_t sieve_bits, const counter_t blocksize_bits, const counter_t prime_start, const counter_t prime_max)
+stripeSieveBlockByBlock(void* restrict bitstorage, const counter_t sieve_bits, const counter_t blocksize_bits, const counter_t prime_start, const counter_t prime_max)
 {
     if (prime_start >= prime_max) return;
 
@@ -52,7 +52,7 @@ stripeSieveBlockByBlock(bitword_t* restrict bitstorage, const counter_t sieve_bi
 }
 
 static inline counter_t __attribute__((always_inline, nonnull)) 
-stripeSieve(bitword_t* restrict bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+stripeSieve(void* restrict bitstorage, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
     return stripeSieveBlock(bitstorage, 0, block_stop, prime_start, prime_max);
 }

@@ -32,19 +32,19 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     switch (tune_level) {
         case 1:
             stripe_faster_steps = prime_max/4;
-            largestep_faster_steps = VECTOR_SIZE_BITS/4;
+            largestep_faster_steps = 64;
             sample_duration = option.sample_duration;
             break;
         case 2:
             stripe_faster_steps = prime_max/8;
-            largestep_faster_steps = VECTOR_SIZE_BITS/8;
+            largestep_faster_steps = 32;
             sample_duration = option.sample_duration*2;
             break;
     }
     
     verbose2( { 
         verbose3( printf("\n"); )
-        printf("Tuning... compiled for \033[1;32mu%juv%ju\033[0m (word, vector)", (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS); 
+        printf("Tuning... "); 
         verbose3( {
             setBenchmarkSettingAsString(settings_string, start_tuning_settings);
             printf(".. best options (shown when found) for steps s%juv%ju:\n", (uintmax_t)stripe_faster_steps, (uintmax_t) largestep_faster_steps); 
@@ -66,9 +66,8 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     // build the tuning table
     for (counter_t stripe_faster = 16; stripe_faster <= prime_max; stripe_faster += stripe_faster_steps) { // increase the stepsize exponentially to reduce the number of options
         for (counter_t largestep_faster = VECTORWORD_SIZE_BITS; largestep_faster <= VECTOR_SIZE_BITS; largestep_faster += largestep_faster_steps) { 
-            counter_t blocksize_bits=8*1024*8;
-            do {
-                blocksize_bits += 8*1024;
+            ;
+            for (counter_t blocksize_bits=8*1024*8; blocksize_bits <= sieve_bits; blocksize_bits += 8*1024) {
                 if (blocksize_bits > sieve_bits) blocksize_bits = sieve_bits; // try to avoid duplicate results and prevent from doing too much work
 
                 // hack to ovrrule tuning of user setting
@@ -105,7 +104,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
                 verbose_at2( { printf("\rTuning...tuning \033[1;32m%5ju\033[0m options..in \033[1;32m%lf\033[0m seconds  ",(uintmax_t)tuning_results, (double)tuning_results*sample_duration ); } )
 
                 if (option.fixed_benchmark_settings.blocksize_bits) break;
-            } while (blocksize_bits < sieve_bits);
+            }
             if (option.fixed_benchmark_settings.largestep_faster) break;
         }
         if (option.fixed_benchmark_settings.stripe_faster) break;

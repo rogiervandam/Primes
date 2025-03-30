@@ -38,7 +38,7 @@ static int __attribute__((cold))
 checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 {
     verbose2( { 
-        printf("Validating variant u%juv%ju... ", (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS); 
+        printf("Validating variant .. "); 
         verbose3( printf("\n");) 
     })
 
@@ -76,7 +76,7 @@ static int __attribute__((cold))
 checkSieveAlgorithmAll(benchmark_settings_t benchmark_settings)
 {
     verbose2( { 
-        printf("Validating variant u%juv%ju... ", (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS); 
+        printf("Validating variant... "); 
         verbose3( printf("\n");) 
     })
 

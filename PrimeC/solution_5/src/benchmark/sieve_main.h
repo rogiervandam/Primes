@@ -2,9 +2,9 @@ static inline char* __attribute__((cold, nonnull, returns_nonnull))
 extension_as_string(char* extension) 
 {
     #ifdef _OPENMP
-    verbose0( snprintf(extension,50,"_epar-u%ju-v%ju%s-c%s", (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS, TYPE_SHORT_NAME(bitword_vector_t),TYPE_SHORT_NAME(counter_t)); )
+    verbose0( snprintf(extension,50,"_epar-c%s", TYPE_SHORT_NAME(counter_t)); )
     #else
-    verbose0( snprintf(extension,50,"-u%ju-v%ju%s-c%s",      (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS, TYPE_SHORT_NAME(bitword_vector_t),TYPE_SHORT_NAME(counter_t)); )
+    verbose0( snprintf(extension,50,"-c%s",      TYPE_SHORT_NAME(counter_t)); )
     #endif
     return extension;
 }
@@ -21,8 +21,7 @@ int main(int argc, char *argv[])
         printf("Sieve algorithm by Rogier van Dam - 2025\n");
         printf("Find all primes up to \033[1;33m%ju\033[0m using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)\n", (uintmax_t)option.fixed_benchmark_settings.factor_max);
     })
-    verbose2( printf("\nRunning sieve variant \033[1;33m%s\033[0m u%ju-v%ju%s-c%s ", algorithm_name, 
-        (uintmax_t)WORD_SIZE_BITS, (uintmax_t)VECTOR_ELEMENTS, TYPE_SHORT_NAME(bitword_vector_t), TYPE_SHORT_NAME(counter_t) ); )
+    verbose2( printf("\nRunning sieve variant \033[1;33m%s\033[0m c%s ", algorithm_name, TYPE_SHORT_NAME(counter_t) ); )
     verbose2( if (dockerfile_type) printf("in docker \033[1;34m%s\033[0m ", dockerfile_type); )
     verbose2( printf("with max %ju \n", (uintmax_t)option.fixed_benchmark_settings.factor_max); )
 

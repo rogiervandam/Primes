@@ -180,7 +180,7 @@ static void listSetBitsTrueMethods() {
 // it benchmarks the different methods and keeps the resulting times or passed in an array
 // it sorts the results from best to worst
 // the array contains for each stepsize the best method
-static inline void benchmarkSetBitsTrue(bitword_t* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+static inline void benchmarkSetBitsTrue(void* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
 {
     counter_t prime = prime_start;
 
