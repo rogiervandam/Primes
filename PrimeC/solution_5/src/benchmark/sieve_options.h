@@ -48,7 +48,7 @@ setDefaultOptions() {
     option.tunelevel               = 1;
     option.sample_duration         = 0.0008;
     option.tune_duration_max       = 15.0;
-    option.tune_keeppercent        = 20;
+    option.tune_keeppercent        = 15;
 
     option.fixed_benchmark_settings.factor_max              = 1000000;
     option.fixed_benchmark_settings.threads                 = 1;

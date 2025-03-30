@@ -5,7 +5,7 @@
     #undef variant
 
     #define unrolls 4
-    #include "../bitstorage/bitstorage_setBitsTrue_norepeat.h"
+    #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
 
     #define unrolls 4
     #define variant uint8
@@ -32,9 +32,9 @@
 
     #include "../generic/setsuffix.h"
     #define KEEP_VARIANT
-    #include "../bitstorage/bitstorage_applyMask.h"
-    #include "../bitstorage/bitstorage_setBitsTrue_repeat.h"
-    #include "../bitstorage/bitstorage_setBitsTrue_norepeat.h"
+    #include "../bitstorage/bitstorage_setBitsTrue_applyMask.h"
+    #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
+    #include "../bitstorage/bitstorage_setBitsTrue_largestep_word.h"
     #undef KEEP_VARIANT
     #include "../generic/cleansuffix.h"
 

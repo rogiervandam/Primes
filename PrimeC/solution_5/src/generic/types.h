@@ -23,15 +23,6 @@
 #define VECTOR_SIZE_BYTES           (sizeof(bitword_vector_t)*VECTOR_ELEMENTS)
 #define VECTOR_SIZE_BITS            (VECTOR_SIZE_BYTES * 8)
 
-// typedef bitword_vector_t bitvector_t   __attribute__ ((vector_size( VECTOR_SIZE_BYTES ), aligned( cache_line_bytes ))); // for use in tools
-// typedef uint64_t uint64v8_bitvector_t  __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
-// typedef uint64_t uint64v4_bitvector_t  __attribute__ ((vector_size(32), aligned(cache_line_bytes)));
-// typedef uint64_t uint64v2_bitvector_t  __attribute__ ((vector_size(16), aligned(cache_line_bytes)));
-// typedef uint32_t uint32v16_bitvector_t __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
-// typedef uint32_t uint32v8_bitvector_t  __attribute__ ((vector_size(32), aligned(cache_line_bytes)));
-// typedef uint16_t uint16v32_bitvector_t __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
-// typedef uint16_t uint16v8_bitvector_t  __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
-
 typedef uint64_t uint64v8_t  __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
 typedef uint64_t uint64v4_t  __attribute__ ((vector_size(32), aligned(cache_line_bytes)));
 typedef uint64_t uint64v2_t  __attribute__ ((vector_size(16), aligned(cache_line_bytes)));

@@ -53,7 +53,7 @@
 
     #include "../generic/setsuffix.h"
     #define KEEP_VARIANT
-    #include "../bitstorage/bitstorage_applyMask.h"
+    #include "../bitstorage/bitstorage_setBitsTrue_applyMask.h"
     #include "../bitstorage/bitstorage_setBitsTrue_largestep_vector.h" 
     #include "../bitstorage/bitstorage_setBitsTrue_smallstep_rotate_pair.h" 
     #undef KEEP_VARIANT
