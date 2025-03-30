@@ -1,7 +1,6 @@
 static inline void setSettingsFromTuning(benchmark_settings_t* benchmark_settings, benchmark_settings_t* tuning_settings) 
 {
     benchmark_settings->stripe_faster     = tuning_settings->stripe_faster;
-    benchmark_settings->mediumstep_faster = tuning_settings->mediumstep_faster;
     benchmark_settings->largestep_faster  = tuning_settings->largestep_faster;
     benchmark_settings->blocksize_bits    = tuning_settings->blocksize_bits;
 }
@@ -11,10 +10,6 @@ static inline benchmark_settings_t checkBenchmarkSettings(benchmark_settings_t b
     counter_t prime_max = prime_stop(benchmark_settings.factor_max);
 
     benchmark_settings.stripe_faster     = min(benchmark_settings.stripe_faster, prime_max);
-    benchmark_settings.mediumstep_faster = min(benchmark_settings.mediumstep_faster, VECTORWORD_SIZE_BITS);
-    benchmark_settings.mediumstep_faster = min(benchmark_settings.mediumstep_faster, prime_max);
-    benchmark_settings.mediumstep_faster = max(benchmark_settings.mediumstep_faster, 2); // allow for conversion from step to prime
-    benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, benchmark_settings.mediumstep_faster);
     benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, VECTORWORD_SIZE_BITS);
     benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, VECTOR_SIZE_BITS);
     benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, prime_max);
@@ -35,8 +30,8 @@ static inline benchmark_settings_t initBenchmarkSettings(counter_t threads)
 static inline char* setBenchmarkSettingAsString(char* settings_string, benchmark_settings_t benchmark_settings) 
 {
     verbose1({
-        snprintf(settings_string, 50, "s%03ju-m%03ju-l%03ju-b%07ju-u%02ju-v%ju%s-c%s", 
-            (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.mediumstep_faster, (uintmax_t)benchmark_settings.largestep_faster, 
+        snprintf(settings_string, 50, "s%03ju-l%03ju-b%07ju-u%02ju-v%ju%s-c%s", 
+            (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.largestep_faster, 
             (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)WORD_SIZE_BITS, (uintmax_t)(VECTOR_SIZE_BITS/VECTORWORD_SIZE_BITS), TYPE_SHORT_NAME(bitword_vector_t), TYPE_SHORT_NAME(counter_t));
     })
     return settings_string;
@@ -57,7 +52,6 @@ static inline double benchmarkTime()
 static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settings) 
 {
     global_stripeprime_faster = benchmark_settings.stripe_faster;
-    global_mediumstep_faster  = benchmark_settings.mediumstep_faster;
     global_largestep_faster   = benchmark_settings.largestep_faster;
     global_blocksize_bits     = benchmark_settings.blocksize_bits;
 

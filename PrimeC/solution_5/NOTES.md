@@ -53,7 +53,7 @@ Validating variant u32v4... valid algorithm
 Tuning done. Evaluated 374 options in 6 steps. Best result: average  18490.852366 with options s062-m008-l098-b0262144-u32-v4u64-ci32 was achieved with 459 passes in 0.024823 seconds
 Verified that algortihm with settings s062-m008-l098-b0262144-u32-v4u64-ci32 and max 1000000 is valid.
 Warming up the cache and processing units
-Benchmarking with settings: s062-m008-l098-b0262144-u32-v4u64-ci32 (stripeprime, mediumstep, largestep, blocksize, wordsize, vectorsize) and 1 threads for 5.0 seconds
+Benchmarking with settings: s062-m008-l098-b0262144-u32-v4u64-ci32 (stripeprime, largestep, blocksize, wordsize, vectorsize) and 1 threads for 5.0 seconds
 Results: (wait 5.0 seconds)...
 Result: Passes 91928 (per 5.0 seconds) - average 18385.6 per second using 1 threads
 Output message:
