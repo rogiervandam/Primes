@@ -28,23 +28,10 @@
 
 #endif
 
-// #undef variant_base_type_t
 #undef variantsuffix
 #undef unrollssuffix
-// #undef fullvariantsuffix
 #undef bitbucket_t
 #undef suffix
-// #undef subfunction
-#undef BITBUCKET_ELEMENTS
-#undef BITBUCKET_BASE
-#undef BITBUCKET_BYTEINDEX
-
-// #ifdef UNSET_UNROLLS
-//     #undef unrolls
-//     #undef UNSET_UNROLLS
-// #endif
-
-
 #undef BITBUCKET_ELEMENTS
 #undef BITBUCKET_BASE
 #undef BITBUCKET_BYTEINDEX

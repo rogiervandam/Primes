@@ -106,7 +106,7 @@ NAME(searchBitFalse_largestep,suffix)(const void* restrict bitstorage, register 
     return index + builtin_ctz(~current_word);
 }
 
-#undef bitbucket_t
+// #undef bitbucket_t
 
 #include "../generic/cleansuffix.h"
 

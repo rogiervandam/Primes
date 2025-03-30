@@ -1,8 +1,10 @@
-
+// assemble the word and vector functions
+// these will make differt versions of themselves for different types of bitstorage
 #include "bitstorage_setBitsTrue_assemble_word.h" 
 #include "bitstorage_setBitsTrue_assemble_vector.h" 
 
-static inline void  __attribute__((always_inline, nonnull)) 
+// Function to dispatch the correct setBitsTrue function based on the step size and occurrences
+static inline void  __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 setBitsTrue(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
 

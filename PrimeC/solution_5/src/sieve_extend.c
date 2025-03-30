@@ -46,7 +46,6 @@ static char algorithm_type[] = "other";
    sieve_size in a real number that is the maximum in the sieve (not in bits)
    block_size is in bits and determines how large the blocks are which are processed 
 */
-//static struct sieve_t* sieve_shake(const counter_t sieve_size, const counter_t block_size, const counter_t stripeprime_faster, const counter_t mediumstep_faster, const counter_t largestep_faster)
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
     struct sieve_t *sieve = sieve_create(sieve_size);
@@ -68,26 +67,13 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     // continue from the prime that was processed in the pattern until the tuned value for blockwise processing
     // stripe off all the multiples of primes in the sieve
     prime = stripeSieve(bitstorage, sieve_bits, prime, stripeprime_faster);
-    if (prime >= prime_max) return sieve;
 
     // in the sieve all bits for the multiples of primes up to startprime have been set
     // process the sieve and stripe all the multiples of primes > start_prime
     // do this block by block to minimize cache misses
     // first block requires fewer operations; it might be the whole sieve...
 
-    if (blocksize_bits >= sieve_bits) {
-        stripeSieveBlock0(bitstorage, sieve_bits, prime, prime_max);
-        return sieve;
-    }
-
-    counter_t block_start = ((sieve_bits % blocksize_bits) + cache_line_bytes*8) & ~(cache_line_bytes*8-1); 
-    // counter_t block_start = ((stripeprime_faster * stripeprime_faster) + cache_line_bytes*8) & ~(cache_line_bytes*8-1); 
-
-    stripeSieveBlock0(bitstorage, min(block_start, sieve_bits), prime, prime_max);
-    // counter_t block_start = ((sieve_bits % blocksize_bits)) ;// + cache_line_bytes) & (cache_line_bytes-1); 
-    for (counter_t block_stop = block_start + blocksize_bits; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
-        stripeSieveBlock(bitstorage, block_start, min(block_stop, sieve_bits), prime, prime_max);
-    } 
+    stripeSieveBlockByBlock(bitstorage, sieve_bits, blocksize_bits, prime, prime_max);
 
     // return the completed sieve
     return sieve;

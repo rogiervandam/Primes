@@ -38,12 +38,12 @@ typedef uint64_t uint64v2_t  __attribute__ ((vector_size(16), aligned(cache_line
 typedef uint32_t uint32v16_t __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
 typedef uint32_t uint32v8_t  __attribute__ ((vector_size(32), aligned(cache_line_bytes)));
 typedef uint32_t uint32v4_t  __attribute__ ((vector_size(16), aligned(cache_line_bytes)));
-typedef uint32_t uint32v2_t  __attribute__ ((vector_size(8), aligned(cache_line_bytes)));
+typedef uint32_t uint32v2_t  __attribute__ ((vector_size( 8), aligned(cache_line_bytes)));
 typedef uint16_t uint16v32_t __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
 typedef uint16_t uint16v16_t __attribute__ ((vector_size(32), aligned(cache_line_bytes)));
 typedef uint16_t uint16v8_t  __attribute__ ((vector_size(16), aligned(cache_line_bytes)));
-typedef uint16_t uint16v4_t  __attribute__ ((vector_size(8), aligned(cache_line_bytes)));
-typedef uint16_t uint16v2_t  __attribute__ ((vector_size(4), aligned(cache_line_bytes)));
+typedef uint16_t uint16v4_t  __attribute__ ((vector_size( 8), aligned(cache_line_bytes)));
+typedef uint16_t uint16v2_t  __attribute__ ((vector_size( 4), aligned(cache_line_bytes)));
 
 #define shift_calc(bits)                   (__builtin_ctz(bits))
 #define shift_type(TYPE)                   (shift_calc(sizeof(TYPE)*8))

@@ -2,7 +2,7 @@
 // start is too large
 // range is too big
 // block stop should not exceed sieve size for faster handling
-static inline counter_t __attribute__((always_inline, nonnull)) 
+static inline counter_t __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 sieve_block_extend0(struct sieve_t *sieve, const counter_t block_stop) 
 {
     verbose5(  printf("Extending sieve block to range %ju\n",(uintmax_t)block_stop); )

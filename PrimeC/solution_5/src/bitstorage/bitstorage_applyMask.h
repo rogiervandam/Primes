@@ -1,6 +1,6 @@
 #include "../generic/setsuffix.h"
 
-static inline void __attribute__((always_inline, hot, nonnull)) 
+static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
 NAME(applyMask,suffix)(void* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitbucket_t mask, counter_t index_vector) 
 {
     verbose8( printf("Applying " ##bitbucket_t " mask with step %ju in range until %ju", (uintmax_t)step, (uintmax_t)range_stop); )
@@ -61,7 +61,7 @@ NAME(applyMask,suffix)(void* restrict bitstorage, const counter_t step, const co
     timer_laptime(time_applyMask); verbose8( printf("\n"); )
 }
 
-static inline void __attribute__((always_inline)) __attribute__((hot))
+static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes)))
 NAME(applyMask_pair,suffix)(void* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitbucket_t mask1, const bitbucket_t mask2, counter_t index_vector) 
 {
     verbose8( printf("Applying " ##bitbucket_t " mask with step %ju in range until %ju", (uintmax_t)step, (uintmax_t)range_stop); )

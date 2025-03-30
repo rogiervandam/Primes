@@ -5,7 +5,7 @@
 // this is *NOT* BASE ALGORITHM COMPLIANT: some bits are set together
 
 #include "../generic/setsuffix.h"
-static inline void __attribute__((always_inline, nonnull)) 
+static inline void __attribute__((always_inline, nonnull,  aligned(cache_line_bytes))) 
 NAME(setBitsTrue_smallstep_repeat,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     const counter_t range_stop_unique = range_start + bitcount_type(bitbucket_t) * step;
@@ -27,7 +27,7 @@ NAME(setBitsTrue_smallstep_repeat,suffix)(void* restrict bitstorage, const count
 // doing this multiple times on the same word is likely to have the cache still ready
 
 #include "../generic/setsuffix.h"
-static inline void __attribute__((always_inline, nonnull)) 
+static inline void __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 NAME(setBitsTrue_smallstep_repeat_base,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     const counter_t range_stop_unique = range_start + bitcount_type(bitbucket_t) * step;
@@ -49,7 +49,7 @@ NAME(setBitsTrue_smallstep_repeat_base,suffix)(void* restrict bitstorage, const 
 
 
 #include "../generic/setsuffix.h"
-static inline void __attribute__((always_inline, nonnull)) 
+static inline void __attribute__((always_inline, nonnull,  aligned(cache_line_bytes))) 
 NAME(setBitsTrue_largestep_repeat,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 { 
     const counter_t range_stop_unique = range_start + bitcount_type(bitbucket_t) * step; 
