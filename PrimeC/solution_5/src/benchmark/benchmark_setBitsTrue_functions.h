@@ -354,7 +354,7 @@ static void createStepplan(benchmark_settings_t settings) {
             }
         }
 
-        printf("Selecting method %2d %s \n", best_method, setBitsTrueMethods[best_method].name);
+        printf("Selecting method %2ju %s \n", (uintmax_t) best_method, setBitsTrueMethods[best_method].name);
 
         prime = searchBitFalse(sieve->bitstorage, prime);
     }
