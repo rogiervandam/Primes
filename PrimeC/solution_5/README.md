@@ -91,6 +91,7 @@ if something is wrong with a .sh file: this might help:
 
 ```bash
 sed -i 's/\r$//' *.sh
+sed -i 's/\r$//' sieve
 ```
 
 ### Command line options

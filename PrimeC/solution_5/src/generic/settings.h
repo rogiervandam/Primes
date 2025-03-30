@@ -26,4 +26,3 @@
     #define bitshift_t counter_t 
 #endif
 
-// #define COMPILE_FUNCTION_TIMINGS // must be defined at command line

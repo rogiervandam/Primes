@@ -47,7 +47,7 @@ setDefaultOptions() {
     option.check                   = 1; // set to 2 to stop after the check algorithm
     option.tunelevel               = 1;
     option.sample_duration         = 0.0008;
-    option.tune_duration_max       = 15.0;
+    option.tune_duration_max       = 5.0;
     option.tune_keeppercent        = 10;
 
     option.fixed_benchmark_settings.factor_max              = 1000000;

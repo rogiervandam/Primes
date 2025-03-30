@@ -21,17 +21,24 @@ static inline void resetBenchmarkResult(benchmark_result_t* benchmark_result, be
 
 static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t start_tuning_settings) 
 {
-    counter_t stripe_faster_steps = 16;
-    counter_t largestep_faster_steps = 32;
-    double    sample_duration         = option.sample_duration;
     counter_t prime_max               = usqrt(start_tuning_settings.factor_max) / 2; // divide by 2 to compensate for bitwise representation 
+    counter_t stripe_faster_steps     = 64;
+    counter_t largestep_faster_steps  = 32;
+    double    sample_duration         = option.sample_duration;
     counter_t sieve_bits              = start_tuning_settings.factor_max >> 1;
     char settings_string[50]=""; 
 
-    if (tune_level == 2) {
-        stripe_faster_steps = prime_max/8;
-        largestep_faster_steps = 32;
-        sample_duration = option.sample_duration*2;
+    switch (tune_level) {
+        case 1:
+            stripe_faster_steps = prime_max/4;
+            largestep_faster_steps = 32;
+            sample_duration = option.sample_duration;
+            break;
+        case 2:
+            stripe_faster_steps = prime_max/8;
+            largestep_faster_steps = 32;
+            sample_duration = option.sample_duration*2;
+            break;
     }
     
     verbose2( { 
@@ -44,7 +51,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     })
 
     // prepare a table to store the tuning results
-    const size_t max_results = ((stripe_faster_steps)+1) * ((size_t)(VECTOR_SIZE_BITS/largestep_faster_steps)+1) * 32;
+    const size_t max_results = ((prime_max)+1) * ((size_t)(VECTOR_SIZE_BITS/largestep_faster_steps)+1) * 32;
     benchmark_result_t* tuning_result = malloc(max_results * sizeof(tuning_result));
     benchmark_settings_t tuning_settings = initBenchmarkSettings(start_tuning_settings.threads);
     benchmark_result_t best_tuning_result = tuning_result[0];
@@ -56,7 +63,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     const double time_target = time_start + option.tune_duration_max * CLOCKS_PER_SEC;
 
     // build the tuning table
-    for (counter_t stripe_faster = 16; stripe_faster <= prime_max; stripe_faster += stripe_faster_steps) { // increase the stepsize exponentially to reduce the number of options
+    for (counter_t stripe_faster = 0; stripe_faster <= prime_max; stripe_faster += stripe_faster_steps) { // increase the stepsize exponentially to reduce the number of options
         for (counter_t largestep_faster = VECTORWORD_SIZE_BITS; largestep_faster <= VECTOR_SIZE_BITS; largestep_faster += largestep_faster_steps) { 
             for (counter_t blocksize_bits=8*1024*8; blocksize_bits <= sieve_bits; blocksize_bits += 8*1024) {
                 if (blocksize_bits > sieve_bits) blocksize_bits = sieve_bits; // try to avoid duplicate results and prevent from doing too much work

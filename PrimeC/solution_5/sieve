@@ -25,9 +25,11 @@ done
 # Replace arguments with the filtered list
 set -- "${ARGS_TO_KEEP[@]}"
 
+# running the full benchmark set
 if [ "$RUNALL" = "runall" ]; then
     for base in sieve_classic sieve_base sieve_extend; do
         $0 $base "$@"
+        $0 $base "--threads all" "$@"
     done
     exit 0
 fi
@@ -146,9 +148,9 @@ done
 # Add default verbose arguments if not explicitly specified
 run_args=""
 
-# if running in docker and environment variable DOCKERFILE_TYPE is not set, set verbose level to 1 and runall
+# if running in docker and environment variable DOCKERFILE_TYPE is not set, set verbose level to 0 and runall
 if [ -z "$DOCKERFILE_TYPE" ] && [ -f /.dockerenv ] && [ $verbose_level -eq 10 ]; then
-    $0 runall "$@" --verbose 1
+    $0 runall "$@" --verbose 0
     exit 0
 fi
 
@@ -192,19 +194,30 @@ if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
             echo "Running command: docker build --pull --rm -t sieve-$DOCKER_TYPE ." 
         fi
         
+        DOCKERFILE_FULL="build/Dockerfile_$DOCKER_TYPE"
+
         if [ -f "$DOCKERFILE" ]; then
             # Build the Docker image
-            cat "$DOCKERFILE" > Dockerfile
-            echo "" >> Dockerfile
-            cat "./dev/docker/Dockerfile_common" >> Dockerfile
-            docker build --pull --rm -t "sieve_$DOCKER_TYPE" . 2> ./dev/build/docker_sieve_$DOCKER_TYPE_build.log
+            cat "$DOCKERFILE" > "$DOCKERFILE_FULL"
+            echo "" >> "$DOCKERFILE_FULL"
+            cat "./dev/docker/Dockerfile_common" >> "$DOCKERFILE_FULL"
+            docker build --pull --file "$DOCKERFILE_FULL" --rm -t "sieve_$DOCKER_TYPE" . 2> ./dev/build/docker_sieve_${DOCKER_TYPE}_build.log
             if [ $? -ne 0 ]; then
                 echo "Error: Docker build failed."
                 exit 1
             fi
             
-            # Shift past the first two arguments (docker and type)
-            shift 2
+            # Check if third argument is "set" to copy Dockerfile to main folder
+            if [ $# -gt 2 ] && [ "$3" = "set" ]; then
+                # Copy the Dockerfile to the main folder
+                cp "$DOCKERFILE_FULL" "./Dockerfile"
+                echo "Copied $DOCKERFILE_FULL to ./Dockerfile"
+                # Shift past the first three arguments (docker, type, and set)
+                shift 3
+            else
+                # Original behavior: shift past the first two arguments only
+                shift 2
+            fi
             
             # Run the Docker container with any remaining arguments
             if [ $verbose_level -gt 1 ]; then

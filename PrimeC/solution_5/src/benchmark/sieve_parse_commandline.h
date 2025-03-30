@@ -43,9 +43,6 @@ parseCommandLine(int argc, char *argv[], struct options_t option)
         #ifdef COMPILE_TIMERS 
         else if (strcmp_local(argv[arg], "--timers")==0) { option.timers=2; }
         #endif
-        #ifdef COMPILE_FUNCTION_TIMINGS 
-        else if (strcmp_local(argv[arg], "--timers")==0) { option.timers=1; }
-        #endif
         else if (strcmp_local(argv[arg], "--check")==0) { option.check=1;
             if (++arg >= argc) { fprintf(stderr, "No check level specified\n"); usage(program_name, 1); }
             if (sscanf(argv[arg], "%d", &option.check) != 1 || option.check > 6) {

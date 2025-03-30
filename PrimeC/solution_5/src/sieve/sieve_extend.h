@@ -17,7 +17,6 @@ sieve_block_extend0(struct sieve_t *sieve, const counter_t block_stop)
     counter_t step                   = prime * 2 + 1;
     counter_t start                  = prime * (step + 1);
     counter_t range_stop             = step * 2;  // range is x2 so the second block cointains all multiples of primes
-    // counter_t pattern_start          = 0;
     counter_t patternsize_bits       = 3;
 
     setBitsTrue_range(bitstorage, start, step, range_stop);
@@ -38,7 +37,6 @@ sieve_block_extend0(struct sieve_t *sieve, const counter_t block_stop)
 
         setBitsTrue(bitstorage, start, step, range_stop);
     } 
-    verbose5( printf("Plan: fill pattern and continue pattern for factor %ju up to %ju in range %ju - %ju:\n", (uintmax_t)prime_start*2+1, (uintmax_t)prime*2+1, (uintmax_t)0, (uintmax_t)block_stop ); )
 
     // continue the found pattern to the entire sieve
     continuePattern(bitstorage, patternsize_bits, patternsize_bits, sieve_bits);

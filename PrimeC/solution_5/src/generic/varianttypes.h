@@ -1,6 +1,3 @@
-
-
-
 #if defined preset_uint64v8
   #define variant_base_type_t uint64_t
   #define variant_elements 8
