@@ -50,7 +50,7 @@ typedef uint16_t uint16v2_t  __attribute__ ((vector_size( 4), aligned(cache_line
 #define builtin_ctz(x) __builtin_ctzll((int64_t)(x))
 
 // globals for tuning
-static counter_t global_stripeprime_faster  = 32ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
+static counter_t global_stripeprime_faster  = 64ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
 static counter_t global_largestep_faster    = 128; // if step < VECTORSTAP_FASTER, use large steps
 static counter_t global_blocksize_bits      = 128*1024*8; // blocksize in bits
 static counter_t debug_hits                 = 0;

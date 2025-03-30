@@ -1,8 +1,7 @@
-static int compareTuningResults(const void *a, const void *b) 
+
+static int compareTuningResults(const void *resultA, const void *resultB) 
 {
-    benchmark_result_t *resultA = (benchmark_result_t *)a;
-    benchmark_result_t *resultB = (benchmark_result_t *)b;
-    return (resultB->avg > resultA->avg ? 1 : -1);
+    return ( ((benchmark_result_t *)resultB)->avg >  ((benchmark_result_t *)resultA)->avg ? 1 : -1);
 }
 
 static inline void printTuningResult(benchmark_result_t tuning_result) 
@@ -29,17 +28,10 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     counter_t sieve_bits              = start_tuning_settings.factor_max >> 1;
     char settings_string[50]=""; 
 
-    switch (tune_level) {
-        case 1:
-            stripe_faster_steps = prime_max/4;
-            largestep_faster_steps = 64;
-            sample_duration = option.sample_duration;
-            break;
-        case 2:
-            stripe_faster_steps = prime_max/8;
-            largestep_faster_steps = 32;
-            sample_duration = option.sample_duration*2;
-            break;
+    if (tune_level == 2) {
+        stripe_faster_steps = prime_max/8;
+        largestep_faster_steps = 32;
+        sample_duration = option.sample_duration*2;
     }
     
     verbose2( { 
@@ -66,36 +58,34 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     // build the tuning table
     for (counter_t stripe_faster = 16; stripe_faster <= prime_max; stripe_faster += stripe_faster_steps) { // increase the stepsize exponentially to reduce the number of options
         for (counter_t largestep_faster = VECTORWORD_SIZE_BITS; largestep_faster <= VECTOR_SIZE_BITS; largestep_faster += largestep_faster_steps) { 
-            ;
             for (counter_t blocksize_bits=8*1024*8; blocksize_bits <= sieve_bits; blocksize_bits += 8*1024) {
                 if (blocksize_bits > sieve_bits) blocksize_bits = sieve_bits; // try to avoid duplicate results and prevent from doing too much work
 
-                // hack to ovrrule tuning of user setting
-                if (option.fixed_benchmark_settings.stripe_faster)     { stripe_faster = option.fixed_benchmark_settings.stripe_faster; }
+                // ovrrule tuning of user setting
+                if (option.fixed_benchmark_settings.stripe_faster)     { stripe_faster    = option.fixed_benchmark_settings.stripe_faster; }
                 if (option.fixed_benchmark_settings.largestep_faster)  { largestep_faster = option.fixed_benchmark_settings.largestep_faster; }
-                if (option.fixed_benchmark_settings.blocksize_bits)    { blocksize_bits = option.fixed_benchmark_settings.blocksize_bits; }
+                if (option.fixed_benchmark_settings.blocksize_bits)    { blocksize_bits   = option.fixed_benchmark_settings.blocksize_bits; }
 
                 // set variables
-                tuning_settings.blocksize_bits = blocksize_bits; // keep some room for the beginning of the sieve
-                tuning_settings.stripe_faster =  stripe_faster; //(smallprime_direction==0) ? stripe_faster : (prime_max - stripe_faster);
+                tuning_settings.blocksize_bits   = blocksize_bits; // keep some room for the beginning of the sieve
+                tuning_settings.stripe_faster    = stripe_faster; //(smallprime_direction==0) ? stripe_faster : (prime_max - stripe_faster);
                 tuning_settings.largestep_faster = largestep_faster;
-                tuning_settings.sample_duration = sample_duration;
+                tuning_settings.sample_duration  = sample_duration;
                 tuning_results++;
 
-                // #ifdef COMPILE_CHECKALL
+                #ifdef COMPILE_CHECKALL
                 tuning_settings = checkBenchmarkSettings(tuning_settings);
                 const int valid = checkSieveWithBenchmarkSettings(tuning_settings);
                 if (!valid) {
                     char settings_string[50]=""; setBenchmarkSettingAsString(settings_string, tuning_settings);
                     verbose1( { fprintf(stderr, "The sieve is \033[0;31mNOT\033[0m valid for settings %s with factor %ju\n", settings_string, (uintmax_t) tuning_settings.factor_max); } )
-                    // exit(1);
                 }
-                // #endif
+                #endif
                 
                 tuning_result[tuning_result_index] = benchmark(tuning_settings);
                 verbose4( { printf("...."); printTuningResult(tuning_result[tuning_result_index]); } )
 
-                if ( tuning_result[tuning_result_index].avg >= best_tuning_result.avg) {
+                if (tuning_result[tuning_result_index].avg >= best_tuning_result.avg) {
                     best_tuning_result = tuning_result[tuning_result_index];
                     verbose3( { printf("\033[0;37m.(<)\033[0m"); printTuningResult(best_tuning_result); } )
                 }

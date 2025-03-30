@@ -80,7 +80,7 @@ if [ $USE_CLANG -eq 1 ]; then
     fi
 else
     COMPILER="gcc"
-    CCASM="gcc $CC -S -g -Wno-psabi -masm=intel -fverbose-asm -Wall -Wextra -fopt-info-vec-all=vec_report.txt" # -mavx
+    CCASM="gcc $CC -S -g -Wno-psabi -masm=intel -fverbose-asm -Wextra -fopt-info-vec-all=vec_report.txt" # -mavx
     CC="gcc $CC -Ofast -Wno-psabi -fwhole-program -flto -s -Wl,--gc-sections -s -I/usr/lib/gcc/x86_64-linux-gnu/14/include/" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
     PAR="-fopenmp"
 fi
@@ -92,9 +92,6 @@ base="sieve_extend"
 DEFINE_FLAGS=""
 
 # Set default tokens
-set_x="u64"
-set_y="v4"
-set_z="ci32"
 verbose_level=10  
 verbose_next=0
 highest_number=0
@@ -134,18 +131,6 @@ for arg in "$@"; do
 
     for token in $(echo "$arg" | tr '-' ' '); do
         case "$token" in
-            u16|u32|u64)
-                set_x="$token"
-                DEFINE_FLAGS="-D${set_x} $DEFINE_FLAGS"
-                ;;
-            v4|v8|v4u32|v8u32|v4u64|v8u64|v16u16|v16u32|v8u16)
-                set_y="$token"
-                DEFINE_FLAGS="-D${set_y} $DEFINE_FLAGS"
-                ;;
-            ci32|ci64|cu32|cu64)
-                set_z="$token"
-                DEFINE_FLAGS="-D${set_z} $DEFINE_FLAGS"
-                ;;
             explain|--explain)
                 DEFINE_FLAGS="-DCOMPILE_EXPLAIN $DEFINE_FLAGS"
                 verbose_level=5
@@ -255,7 +240,7 @@ if [ $verbose_level -gt 1 ]; then
 fi
 
 # Compose a program name using a default base name.
-PROGTOTAL="${base}-${set_x}-${set_y}-${set_z}"
+PROGTOTAL="${base}"
 # if [ $verbose_level -gt 1 ]; then
 #   echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
 # fi
@@ -275,7 +260,7 @@ if [ $? -ne 0 ]; then
 fi
 $STRIP ./bin/$PROGTOTAL
 
-PROGTOTALPAR="${base}$PAREXT-${set_x}-${set_y}-${set_z}"
+PROGTOTALPAR="${base}$PAREXT"
 # if [ $verbose_level -gt 1 ]; then
 #   echo "Issuing command: $CC  $PAR -o ./bin/$PROGTOTALPAR ./src/${base}.c $DEFINE_FLAGS"
 # fi

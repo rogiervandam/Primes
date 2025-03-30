@@ -12,12 +12,10 @@ static inline void clear_cache() {
 }
 
 // Define benchmark timing constants
-#define BENCHMARK_DURATION 0.002  // seconds per test
-
 #include "../bitstorage/bitstorage_setBitsTrueFunctionList.h"
-
 #define methods (sizeof(setBitsTrueMethods) / sizeof(SetBitsTrueMethod))
 #define nonvector 1
+#define BENCHMARK_DURATION 0.002  // seconds per test
 
 int stepplan[1000];
 setBitsTrueFunc best_stepfunction[1000];
