@@ -5,18 +5,16 @@ NAME(applyMask,suffix)(void* restrict bitstorage, const counter_t step, const co
 {
     verbose8( printf("Applying " ##bitbucket_t " mask with step %ju in range until %ju", (uintmax_t)step, (uintmax_t)range_stop); )
     timer_lapstart(time_applyMask);
+  
+    register const counter_t step_max                   = step * unrolls;
+    register bitbucket_t* restrict bitstorage_sized     = __builtin_assume_aligned(bitstorage, cache_line_bytes);
+    register bitbucket_t* restrict index_ptr            = __builtin_assume_aligned(&bitstorage_sized[index_vector],sizeof(bitbucket_t));
+    register const bitbucket_t* restrict fast_loop_ptr  = __builtin_assume_aligned(&bitstorage_sized[safe_diff(index_type(range_stop, bitbucket_t),step_max)],sizeof(bitbucket_t));
 
-    register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    const counter_t range_stop_vector = index_type(range_stop, bitbucket_t);
-   
-    register const counter_t step_max = step * unrolls;
-    register bitbucket_t* restrict index_ptr            =  __builtin_assume_aligned(&bitstorage_sized[index_vector],sizeof(bitbucket_t));
-    register const bitbucket_t* restrict fast_loop_ptr  =  __builtin_assume_aligned(&bitstorage_sized[safe_diff(range_stop_vector,step_max)],sizeof(bitbucket_t));
-
-    #if defined(__GNUC__) && !defined(__clang__)// optimized for GCC
+    #if defined(__GNUC__) && !defined(__clang__) // optimized for GCC
         #if unrolls == 4
             #pragma GCC ivdep
-            #pragma unroll 4
+            #pragma GCC unroll 4
             for(;likely(index_ptr < fast_loop_ptr);) {
                 *index_ptr |= mask;  index_ptr += step;
                 *index_ptr |= mask;  index_ptr += step;
@@ -25,7 +23,7 @@ NAME(applyMask,suffix)(void* restrict bitstorage, const counter_t step, const co
             }
         #elif unrolls == 8
             #pragma GCC ivdep
-            #pragma unroll 8
+            #pragma GCC unroll 8
             for(;likely(index_ptr < fast_loop_ptr);) {
                 *index_ptr |= mask;  index_ptr += step;
                 *index_ptr |= mask;  index_ptr += step;
@@ -52,7 +50,7 @@ NAME(applyMask,suffix)(void* restrict bitstorage, const counter_t step, const co
         }
     #endif
     
-    register const bitbucket_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[range_stop_vector],sizeof(bitbucket_t));
+    register const bitbucket_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[index_type(range_stop, bitbucket_t)],sizeof(bitbucket_t));
     
     for (counter_t i=(unrolls+1); i-- && likely(index_ptr <= range_stop_ptr); index_ptr += step) { // signal compiler that only <4 iterations are left
         *index_ptr |= mask; 

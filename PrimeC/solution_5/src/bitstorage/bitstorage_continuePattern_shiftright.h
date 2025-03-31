@@ -67,13 +67,13 @@ continuePattern_shiftright(void* restrict bitstorage, const counter_t source_sta
 
     // Copy the pattern and double it, until it is larger than what is remaining. 
     do {
-        local_memcpy(copy_byte, source_byte, copy_size_bytes);
+        memcpy(copy_byte, source_byte, copy_size_bytes);
         copy_byte += copy_size_bytes;
         copy_size_bytes += copy_size_bytes;
     } while (copy_byte + copy_size_bytes < destination_stop_byte);
 
     // Copy the last part of the pattern
-    local_memcpy(copy_byte, source_byte, destination_stop_byte - copy_byte);
+    memcpy(copy_byte, source_byte, destination_stop_byte - copy_byte);
 
     timer_laptime(time_continuePattern_shiftright); verbose7( printf("\n"); )
 }

@@ -21,7 +21,7 @@ static inline void __attribute__((always_inline, , hot, nonnull))
 NAME(setBitsTrue_range,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     #pragma GCC ivdep
-    #pragma unroll 32
+    #pragma GCC unroll 32
     for(register counter_t index = range_start; index < range_stop; index += step) NAME(setBitTrue,suffix)(bitstorage, index);
 }
 
@@ -31,7 +31,7 @@ NAME(setBitsTrue_range_return,suffix)(void* restrict bitstorage, const counter_t
 {
     register counter_t index = range_start;
     #pragma GCC ivdep
-    #pragma unroll 32
+    #pragma GCC unroll 32
     for(; index < range_stop; index += step) NAME(setBitTrue,suffix)(bitstorage, index);
     return index;
 }

@@ -62,7 +62,7 @@ NAME(searchBitFalse,suffix)(void* restrict bitstorage, register counter_t index)
     timer_lapstart(time_searchBitFalse);
 
     #pragma GCC ivdep
-    #pragma unroll 4
+    #pragma GCC unroll 4
     for (;checkBitTrue(bitstorage, ++index);)
 
     timer_laptime(time_searchBitFalse); verbose8( printf(" next prime %ju (step %ju)\n", (uintmax_t) index, (uintmax_t)index*2+1); )

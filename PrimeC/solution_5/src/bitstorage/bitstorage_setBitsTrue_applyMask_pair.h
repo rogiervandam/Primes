@@ -16,7 +16,7 @@ NAME(applyMask_pair,suffix)(void* restrict bitstorage, const counter_t step, con
     
     #if unrolls == 4
         #pragma GCC ivdep
-        #pragma unroll 4
+        #pragma GCC unroll 4
         for(;likely(index_ptr < fast_loop_ptr);) {
             *index_ptr                |= mask1; 
             *(index_ptr + 1         ) |= mask2; 
@@ -30,7 +30,7 @@ NAME(applyMask_pair,suffix)(void* restrict bitstorage, const counter_t step, con
         }
     #elif unrolls == 8
         #pragma GCC ivdep
-        #pragma unroll 8
+        #pragma GCC unroll 8
         while likely(index_ptr < fast_loop_ptr) {
             *index_ptr                  |= mask1;
             *(index_ptr + 1           ) |= mask2;  

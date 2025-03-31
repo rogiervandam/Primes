@@ -18,9 +18,9 @@ NAME(create_mask_vector_largestep,suffix)(void* restrict bitstorage, const count
 
         #pragma clang loop vectorize(enable) interleave(enable)
         #pragma GCC ivdep
-        for (counter_t i=0; i < BITBUCKET_ELEMENTS; i++) {
-            if (vectorstart_type(index,variant_base_type_t) == (current_vector_start + (bitcount_type(variant_base_type_t)*i))) {
-                mask_vector[i] = markmask_calc_type(index, variant_base_type_t); // in clang, markmask_type is enough, not in gcc
+        for (counter_t element = 0; element < BITBUCKET_ELEMENTS; element++) {
+            if (vectorstart_type(index,variant_base_type_t) == (current_vector_start + (bitcount_type(variant_base_type_t) * element))) {
+                mask_vector[element] = markmask_calc_type(index, variant_base_type_t); // in clang, markmask_type is enough, not in gcc
                 index += step;
             }
         }

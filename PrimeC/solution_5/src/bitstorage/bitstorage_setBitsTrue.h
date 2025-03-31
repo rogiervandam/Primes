@@ -15,8 +15,8 @@ setBitsTrue(void* restrict bitstorage, const counter_t range_start, const counte
     else if (step  < 256 && step < global_largestep_faster)  setBitsTrue_largestep_vector_uint64v8(bitstorage, range_start, step, range_stop); 
     else {
         const counter_t range = range_stop - range_start, ratio = range / step;
-        if      (ratio > 512) { setBitsTrue_largestep_repeat_uint8_unroll8 (bitstorage, range_start, step, range_stop);   } 
-        else if (ratio >  32) { setBitsTrue_largestep_repeat_uint8         (bitstorage, range_start, step, range_stop);   } 
+        if      (ratio > 512) { setBitsTrue_largestep_repeat_uint8_unroll8 (bitstorage, range_start, step, range_stop); } 
+        else if (ratio >  32) { setBitsTrue_largestep_repeat_uint8         (bitstorage, range_start, step, range_stop); } 
         else                    setBitsTrue_largestep_norepeat_uint8       (bitstorage, range_start, step, range_stop);
     }
 }

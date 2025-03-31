@@ -1,5 +1,4 @@
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
-// this is not BASE ALGORITHM COMPLIANT: multiple bits set are copied
 #include "../generic/setsuffix.h"
 static inline void __attribute__((always_inline, nonnull,  aligned(cache_line_bytes))) 
 NAME(setBitsTrue_largestep_repeat,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
@@ -15,7 +14,6 @@ NAME(setBitsTrue_largestep_repeat,suffix)(void* restrict bitstorage, const count
 }
 
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
-// this is a BASE ALGORITHM COMPLIANT: each bit is set individually
 #include "../generic/setsuffix.h"
 static inline void __attribute__((always_inline, nonnull, hot,  aligned(cache_line_bytes) )) 
 NAME(setBitsTrue_largestep_norepeat,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
@@ -28,7 +26,7 @@ NAME(setBitsTrue_largestep_norepeat,suffix)(void* restrict bitstorage, const cou
 
     #if unrolls == 4
         #pragma GCC ivdep
-        #pragma unroll 4
+        #pragma GCC unroll 4
         for (; index < loop_stop; ) {
             setBitTrue(bitstorage, index);  index += step;
             setBitTrue(bitstorage, index);  index += step;
@@ -37,7 +35,7 @@ NAME(setBitsTrue_largestep_norepeat,suffix)(void* restrict bitstorage, const cou
         }
     #elif unrolls == 8
         #pragma GCC ivdep
-        #pragma unroll 8
+        #pragma GCC unroll 8
         for (; index < loop_stop; ) {
             setBitTrue(bitstorage, index);  index += step;
             setBitTrue(bitstorage, index);  index += step;

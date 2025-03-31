@@ -1,55 +1,37 @@
 #ifndef BITSTORAGE_ASSEMBLE_VECTOR_GUARD
     #define BITSTORAGE_ASSEMBLE_VECTOR_GUARD
-    
-    // #undef unrolls
+
+    // in the first iteration, read this file for each preset
+    // the guard will prevent an infinite loop of includes
+
     #undef unrolls
     #define unrolls 4
     #define preset_uint64v8
     #include "bitstorage_setBitsTrue_assemble_vector.h" 
     #define preset_uint64v4
     #include "bitstorage_setBitsTrue_assemble_vector.h" 
-    #define preset_uint64v2
-    #include "bitstorage_setBitsTrue_assemble_vector.h" 
+    // #define preset_uint64v2
+    // #include "bitstorage_setBitsTrue_assemble_vector.h" 
     
-    #undef variant_base_type_t
-    #define preset_uint32v2
-    #include "bitstorage_setBitsTrue_assemble_vector.h" 
-    #define preset_uint32v4
-    #include "bitstorage_setBitsTrue_assemble_vector.h" 
-    #define preset_uint32v8
-    #include "bitstorage_setBitsTrue_assemble_vector.h" 
     #define preset_uint32v16
     #include "bitstorage_setBitsTrue_assemble_vector.h" 
+    // #define preset_uint32v8
+    // #include "bitstorage_setBitsTrue_assemble_vector.h" 
+    // #define preset_uint32v4
+    // #include "bitstorage_setBitsTrue_assemble_vector.h" 
+    // #define preset_uint32v2
+    // #include "bitstorage_setBitsTrue_assemble_vector.h" 
     
-    #undef variant_base_type_t
-    #define preset_uint16v2
-    #include "bitstorage_setBitsTrue_assemble_vector.h" 
-    #define preset_uint16v4
-    #include "bitstorage_setBitsTrue_assemble_vector.h"  
-    #define preset_uint16v8
-    #include "bitstorage_setBitsTrue_assemble_vector.h"  
     #define preset_uint16v16
     #include "bitstorage_setBitsTrue_assemble_vector.h"  
-    
-    #undef variant_base_type_t
-    #undef unrolls
-    #define unrolls 8
-    #define preset_uint16v2
-    #include "bitstorage_setBitsTrue_assemble_vector.h" 
-    #define preset_uint16v4
-    #include "bitstorage_setBitsTrue_assemble_vector.h"  
-    #define preset_uint16v8
-    #include "bitstorage_setBitsTrue_assemble_vector.h"  
-    
-    #undef variant_base_type_t
-    #define preset_uint64v8
-    #include "bitstorage_setBitsTrue_assemble_vector.h" 
-    #define preset_uint64v4
-    #include "bitstorage_setBitsTrue_assemble_vector.h" 
-    #define preset_uint64v2
-    #include "bitstorage_setBitsTrue_assemble_vector.h" 
-
-#else
+    // #define preset_uint16v8
+    // #include "bitstorage_setBitsTrue_assemble_vector.h"  
+    // #define preset_uint16v4
+    // #include "bitstorage_setBitsTrue_assemble_vector.h"  
+    // #define preset_uint16v2
+    // #include "bitstorage_setBitsTrue_assemble_vector.h" 
+   
+#else // this section will be read for each preset
 
     #include "../generic/setsuffix.h"
     #define KEEP_VARIANT

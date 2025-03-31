@@ -2,6 +2,7 @@
 #ifndef KEEP_VARIANT
     #undef variant
     #undef variant_elements
+    #undef variant_base_type_t
     #undef preset_uint64v8
     #undef preset_uint64v4
     #undef preset_uint64v2
