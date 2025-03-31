@@ -15,7 +15,7 @@ continuePattern_aligned(void* restrict bitstorage, const counter_t source_start,
     
     // TODO: check if destionation_stop_word - copy_word % step would help
     while (copy_word + size <= destination_stop_word) {
-        memcpy(&bitstorage_sized[copy_word], &bitstorage_sized[source_word], (uintmax_t)size * sizeof(bitbucket_t) );
+        local_memcpy(&bitstorage_sized[copy_word], &bitstorage_sized[source_word], (uintmax_t)size * sizeof(bitbucket_t) );
             copy_word += size;
         }
 

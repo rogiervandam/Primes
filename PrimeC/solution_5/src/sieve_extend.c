@@ -14,7 +14,7 @@
 #include <stdlib.h> // for malloc, free, exit and getenv
 #include <stdint.h> 
 #include <time.h>
-#include <string.h> // for memset and memcpy
+// #include <string.h> // for memset and memcpy
 // #include <inttypes.h>
 
 #ifdef _OPENMP
