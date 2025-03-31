@@ -28,7 +28,7 @@ NAME(setBitsTrue_largestep_norepeat,suffix)(void* restrict bitstorage, const cou
 
     #if unrolls == 4
         #pragma GCC ivdep
-        #pragma GCC unroll 4
+        #pragma unroll 4
         for (; index < loop_stop; ) {
             setBitTrue(bitstorage, index);  index += step;
             setBitTrue(bitstorage, index);  index += step;
@@ -37,7 +37,7 @@ NAME(setBitsTrue_largestep_norepeat,suffix)(void* restrict bitstorage, const cou
         }
     #elif unrolls == 8
         #pragma GCC ivdep
-        #pragma GCC unroll 8
+        #pragma unroll 8
         for (; index < loop_stop; ) {
             setBitTrue(bitstorage, index);  index += step;
             setBitTrue(bitstorage, index);  index += step;

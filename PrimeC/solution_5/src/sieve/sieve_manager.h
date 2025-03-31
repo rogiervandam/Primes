@@ -39,7 +39,7 @@ sieve_clear(struct sieve_t *sieve)
     bitbucket_t* bitstorage  = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
     bitbucket_t  vector_zero = BITBUCKET_BASE( (uint64_t) 0ULL );
     #pragma GCC ivdep
-    #pragma GCC unroll 8
+    #pragma unroll 8
     for (counter_t i = 0; i <= vector_max; i++) {
         bitstorage[i] = vector_zero;
     }

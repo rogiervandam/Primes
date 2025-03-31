@@ -25,3 +25,4 @@ bin/*
 build/*
 tests/bin/*
 dev/build/*
+dev/dockerfiles/*

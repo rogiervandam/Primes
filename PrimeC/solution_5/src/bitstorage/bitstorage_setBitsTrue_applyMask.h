@@ -16,7 +16,7 @@ NAME(applyMask,suffix)(void* restrict bitstorage, const counter_t step, const co
     #if defined(__GNUC__) && !defined(__clang__)// optimized for GCC
         #if unrolls == 4
             #pragma GCC ivdep
-            #pragma GCC unroll 4
+            #pragma unroll 4
             for(;likely(index_ptr < fast_loop_ptr);) {
                 *index_ptr |= mask;  index_ptr += step;
                 *index_ptr |= mask;  index_ptr += step;
@@ -25,7 +25,7 @@ NAME(applyMask,suffix)(void* restrict bitstorage, const counter_t step, const co
             }
         #elif unrolls == 8
             #pragma GCC ivdep
-            #pragma GCC unroll 8
+            #pragma unroll 8
             for(;likely(index_ptr < fast_loop_ptr);) {
                 *index_ptr |= mask;  index_ptr += step;
                 *index_ptr |= mask;  index_ptr += step;
