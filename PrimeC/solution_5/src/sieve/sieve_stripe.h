@@ -42,6 +42,8 @@ stripeSieveBlockByBlock(void* restrict bitstorage, const counter_t sieve_bits, c
 
     // size the first block, optimizing for large following blocks and aligning to cache line
     counter_t block0_stop = ((sieve_bits % blocksize_bits) + cache_line_bytes*8) & ~(cache_line_bytes*8-1); 
+
+    // first block requires fewer operations; it might be the whole sieve...
     stripeSieveBlock0(bitstorage, min(block0_stop, sieve_bits), prime_start, prime_max);
 
     // process the rest of the sieve in blocks of blocksize_bits

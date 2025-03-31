@@ -52,7 +52,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     const counter_t sieve_bits = sieve->bits;
     const counter_t prime_max = prime_stop(sieve_bits);
 
-    // use globals as constant
+    // use globals as constant - these get optimized
     const counter_t stripeprime_faster = global_stripeprime_faster;
     const counter_t blocksize_bits = global_blocksize_bits;
 
@@ -61,7 +61,6 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 
     // fill the entire sieve for lower primes by adding en copying incrementally
     counter_t prime = sieve_block_extend0(sieve, sieve_bits);
-    // counter_t prime = 1;
     
     // continue from the prime that was processed in the pattern until the tuned value for blockwise processing
     // stripe off all the multiples of primes in the sieve
@@ -70,7 +69,6 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     // in the sieve all bits for the multiples of primes up to startprime have been set
     // process the sieve and stripe all the multiples of primes > start_prime
     // do this block by block to minimize cache misses
-    // first block requires fewer operations; it might be the whole sieve...
     stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, prime, prime_max);
 
     // return the completed sieve

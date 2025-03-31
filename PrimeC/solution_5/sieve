@@ -82,8 +82,9 @@ if [ $USE_CLANG -eq 1 ]; then
     fi
 else
     COMPILER="gcc"
-    CCASM="gcc $CC -S -g -Wno-psabi -masm=intel -fverbose-asm -Wextra -fopt-info-vec-all=vec_report.txt" # -mavx
-    CC="gcc $CC -Ofast -Wno-psabi -fwhole-program -flto -s -Wl,--gc-sections -s -I/usr/lib/gcc/x86_64-linux-gnu/14/include/" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
+    COMPILER_NAME="gcc"
+    CCASM="$COMPILER_NAME $CC -S -g -Wno-psabi -masm=intel -fverbose-asm -Wextra -fopt-info-vec-all=vec_report.txt" # -mavx
+    CC="$COMPILER_NAME $CC -Ofast -Wno-psabi -fwhole-program -flto -s -Wl,--gc-sections -s -I/usr/lib/gcc/x86_64-linux-gnu/14/include/" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
     PAR="-fopenmp"
 fi
 STRIP="strip"
@@ -194,7 +195,7 @@ if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
             echo "Running command: docker build --pull --rm -t sieve-$DOCKER_TYPE ." 
         fi
         
-        DOCKERFILE_FULL="build/Dockerfile_$DOCKER_TYPE"
+        DOCKERFILE_FULL="dev/dockerfiles/Dockerfile_$DOCKER_TYPE"
 
         if [ -f "$DOCKERFILE" ]; then
             # Build the Docker image

@@ -17,8 +17,7 @@ NAME(setBitFalse,suffix)(void* restrict bitstorage, const register counter_t ind
     bitstorage_sized[index_type(index,bitbucket_t)] &= ~markmask_type(index, bitbucket_t);
 }
 
-// static inline void __attribute__((always_inline, , hot, nonnull)) 
-static void
+static inline void __attribute__((always_inline, , hot, nonnull)) 
 NAME(setBitsTrue_range,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     #pragma GCC ivdep

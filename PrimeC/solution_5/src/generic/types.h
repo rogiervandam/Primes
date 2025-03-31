@@ -1,9 +1,3 @@
-#if COUNTER_T_SIZE_PP == 32
-    #define COUNTER_T_MAX_SAFE_VALUE 1000000000ULL
-#elif COUNTER_T_SIZE_PP == 64
-    #define COUNTER_T_MAX_SAFE_VALUE 10000000000ULL
-#endif
-
 // masks and mask helpers
 #define SHIFT_SIZE                  1 // the shift needed to get from SIZE to BIT (1 because even numbers arr not storing in the bitstorage)
 #define SHIFT_BYTE                  3 // the shift needed to get from BIT to BYTE
@@ -35,8 +29,8 @@ typedef uint16_t uint16v2_t  __attribute__ ((vector_size( 4), aligned(cache_line
 #define bitindex_calc_type(index, type)    ((index) & mask_type(type))
 #define bitindex_unsafe_type(index, type)  ((index))
 #define bitindex_type(index, type)         ((bitindex_calc_type(index, type)))
-#define markmask_calc_type(index, type)    ((type)1U << bitindex_calc_type(index, type))
-#define markmask_unsafe_type(index, type)  ((type)1U << (index))
+#define markmask_calc_type(index, type)    ((type)1ULL << bitindex_calc_type(index, type))
+#define markmask_unsafe_type(index, type)  ((type)1ULL << (index))
 #define markmask_type(index, type)         (sizeof(type)==8 ? markmask_unsafe_type(index, type) : markmask_calc_type(index, type))
 #define bitcount_type(type)                (sizeof(type)*8) 
 #define elementcount_type(type, base_type) (sizeof(type)/sizeof(base_type))
@@ -57,3 +51,9 @@ static counter_t debug_hits                 = 0;
 static counter_t debug_hits2                = 0;
 static counter_t debug_final_benchmarking   = 0;
 static counter_t debug_final_plan           = 0;
+
+#if COUNTER_T_SIZE_PP == 32
+    #define COUNTER_T_MAX_SAFE_VALUE 1000000000ULL
+#elif COUNTER_T_SIZE_PP == 64
+    #define COUNTER_T_MAX_SAFE_VALUE 10000000000ULL
+#endif
