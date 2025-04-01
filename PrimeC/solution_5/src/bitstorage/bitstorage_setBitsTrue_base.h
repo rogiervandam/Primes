@@ -1,10 +1,7 @@
-// Large ranges (> WORD_SIZE * step) mean the same mask can be reused
-// This version uses vectorization for the larger ranges
-// assumes the range is larger than VECTOR_SIZE_BITS
-// This is the BASE ALGORITHM COMPLIANT version
-
-// this is a BASE ALGORITHM COMPLIANT: each bit is set individually
-// doing this multiple times on the same word is likely to have the cache still ready
+// assemble the word and vector functions
+// these will make differt versions of themselves for different types of bitstorage
+#include "bitstorage_setBitsTrue_assemble_word.h" 
+#include "bitstorage_setBitsTrue_assemble_vector.h" 
 
 #define bitbucket_t uint64_t
 static inline void __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 

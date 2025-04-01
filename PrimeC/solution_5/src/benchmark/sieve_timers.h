@@ -11,8 +11,8 @@ double timer_time[timer_count];
 
 #define time_setBitsTrue 0
 #define time_setBitsTrue_largestep_vector_wordstep 1
-#define time_setBitsTrue_largestep_vector_vectorstep 2
-#define time_create_mask_vector_smallstep 3
+#define time_setBitsTrue_largestep_vector 2
+#define time_setBitsTrue_smallstep_rotate_pair 3
 #define time_create_mask_vector_largestep 4
 #define time_applyMask 5
 #define time_setBitsTrue_smallstep_repeat 10
@@ -36,10 +36,10 @@ double timer_time[timer_count];
 static const char* timer_function_names[100] = {
     [time_setBitsTrue] = "setBitsTrue",
     [time_setBitsTrue_largestep_vector_wordstep] = "setBitsTrue_largestep_vector_wordstep",
-    [time_setBitsTrue_largestep_vector_vectorstep] = "setBitsTrue_largestep_vector_vectorstep",
+    [time_setBitsTrue_largestep_vector] = "setBitsTrue_largestep_vector",
+    [time_setBitsTrue_smallstep_rotate_pair] = "setBitsTrue_smallstep_rotate_pair",
     [time_create_mask_vector_largestep] = "create_mask_vector_largestep",
-    [time_create_mask_vector_smallstep] = "create_mask_vector_smallstep",
-    [time_applyMask_vector] = "applyMask",
+    [time_applyMask] = "applyMask",
     [time_setBitsTrue_largestep_repeat] = "setBitsTrue_largestep_repeat",
     [time_setBitsTrue_largestep_norepeat] = "setBitsTrue_largestep_norepeat",
     [time_setBitsTrue_smallstep_repeat] = "setBitsTrue_smallstep_repeat",
@@ -91,10 +91,10 @@ static void timer_laptime_function(counter_t timer) {
     timer_hits[timer]++;
 
     verbose7({
-        if      (elapsed_time > 2000) printf("...time: \033[0;31m%.0f\033[0mns", elapsed_time);
-        else if (elapsed_time > 1000) printf("...time: \033[0;35m%.0f\033[0mns", elapsed_time);
-        else if (elapsed_time > 100)  printf("...time: \033[0;36m%.0f\033[0mns", elapsed_time);
-        else                          printf("...time: \033[0;32m%.0f\033[0mns", elapsed_time);
+        if      (elapsed_time > 2000) printf("...time: \033[0;31m%.0f" COLOR_RESET "ns", elapsed_time);
+        else if (elapsed_time > 1000) printf("...time: \033[0;35m%.0f" COLOR_RESET "ns", elapsed_time);
+        else if (elapsed_time > 100)  printf("...time: \033[0;36m%.0f" COLOR_RESET "ns", elapsed_time);
+        else                          printf("...time: \033[0;32m%.0f" COLOR_RESET "ns", elapsed_time);
         printf(" (%s) ", timer_function_names[timer]);
 
     })

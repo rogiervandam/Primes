@@ -9,10 +9,12 @@ usage(char *program_name, int exit_code)
         "                            1 - check prime count for the sieve size\n"
         "                            2 - check prime count for every sieve size\n"
         "                            3 - check prime count for every sieve size and blocksize\n"
+#ifdef COMPILE_CHECK_STRIPERS
         "                            4 - check stripe algorithms for the sieve size\n"
         "                            5 - check stripe algorithms for every sieve size\n"
         "                            6 - check stripe algorithms for the sieve size and every blocksize\n"
         "                            7 - check all and halt\n"
+#endif
         "  --nocheck                 Skip check of the correctness of the algorithm\n"
 #ifdef COMPILE_EXPLAIN
         "  --explain                 Explain the steps of the algorithm - only when compiled for explain\n"
@@ -20,7 +22,6 @@ usage(char *program_name, int exit_code)
         "  --help                    This help function\n"
         "  --max                     Set the maximum prime to examine\n"
         "  --set s<prime>            Set the cutoff prime for blockwise striping\n"
-        "        m<bits>             Set the cutoff number of bits for wordwise striping\n"
         "        l<bits>             Set the cutoff number of bits for vectorwise striping\n"
         "        b<bits>             Set the block size to a specific <size> in bits\n"
         "  --show  <maximum>         Show the primes found up to the maximum\n"
@@ -32,12 +33,16 @@ usage(char *program_name, int exit_code)
 #ifdef COMPILE_TIMERS
         "  --timers                  Give the timings for submodules - only when compiled for timers\n"
 #endif
+#ifdef COMPILE_TUNE
         "  --tune  <level>           find the best settings for the current os and hardware\n"
         "                            0 - no tuning\n"
         "                            1 - fast tuning\n"
         "                            2 - refined tuning\n"
+#endif
+#ifdef COMPILE_BENCHMARK_STRIPERS
         "                            3 - benchmark invidual stripe functions\n"
         "                            4 - benchmark iterative stripe functions\n"
+#endif
         "  --verbose <level>         Show more output to a certain level:\n"
         "                            0 - only show result string"
         "                            1 - show result string with additional setings information"

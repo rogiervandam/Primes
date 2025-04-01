@@ -4,41 +4,27 @@
 // This file includes all the building blocks for the sieve algorithm "extend"
 // This enables the compiler to optimize the code better
 
-#ifdef __APPLE__
-#include <mach/mach_time.h>
-#else
-#define _POSIX_C_SOURCE 199309L
-#endif
-
+#include "generic/timepriority.h"
 #include <stdio.h>
 #include <stdlib.h> // for malloc, free, exit and getenv
-#include <stdint.h> 
 #include <time.h>
-#include <string.h> // for memcpy
+#include <stdint.h> 
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif
+
 
 static char algorithm_name[] = "rogiervandam_extend";
 static char algorithm_type[] = "other";
 
 // include helper functions
 #include "generic/settings.h"
-#include "generic/helpers.h"
-#include "generic/types.h"
-#include "generic/verbose.h"
-#include "generic/tools.h"
 #include "benchmark/sieve_options.h"
-#include "benchmark/sieve_timers.h"
 #include "bitstorage/bitstorage_search.h"
 #include "bitstorage/bitstorage_setBitsTrue.h"
 #include "bitstorage/bitstorage_continuePattern.h"
-#include "sieve/sieve_prime_calculations.h"
+#include "sieve/sieve_calc.h"
 #include "sieve/sieve_manager.h"
 #include "sieve/sieve_extend.h"
 #include "sieve/sieve_stripe.h"
-#include "benchmark/benchmark_setBitsTrue_functions.h"
 
 /* This is the main module that directs all the work
    sieve_size in a real number that is the maximum in the sieve (not in bits)
@@ -73,10 +59,4 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     return sieve;
 } 
 
-#include "benchmark/sieve_check.h"
-#include "benchmark/sieve_benchmark.h"
-#include "benchmark/sieve_benchmark_tune.h"
-#include "benchmark/sieve_validate.h"
-#include "benchmark/sieve_usage.h"
-#include "benchmark/sieve_parse_commandline.h"
 #include "benchmark/sieve_main.h"

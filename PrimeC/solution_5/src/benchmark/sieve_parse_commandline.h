@@ -129,7 +129,7 @@ parseCommandLine(int argc, char *argv[], struct options_t option)
             verbose2( {
                 char settings_string[50] = "";
                 setBenchmarkSettingAsString(settings_string, option.fixed_benchmark_settings);
-                printf("Inital settings: \033[1;32m%s\033[0m\n", settings_string);
+                printf("Inital settings: " COLOR_BOLD_GREEN "%s" COLOR_RESET "\n", settings_string);
             })
         }
         else if (strcmp_local(argv[arg], "--threads")==0) { 

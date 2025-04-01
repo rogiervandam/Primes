@@ -1,38 +1,10 @@
-
-
-#if COMPILE_EXPLAIN
-static void __attribute__((cold)) 
-explainSieveShake(benchmark_settings_t benchmark_settings) 
+static void deepAnalyzeWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
 {
-    benchmark_settings = checkBenchmarkSettings(benchmark_settings);
     prepareBenchmarkGlobals(benchmark_settings);
-
-    debug_final_benchmarking = 1;
     struct sieve_t* sieve = shakeSieve(benchmark_settings.factor_max);
-    debug_final_benchmarking = 0;
-
-    printf("\nResult set:\n");
-    option.verbose_level = 3; // set back to 3 because we don't need explanations anymore
-    if (option.show_explain_factor_max) {
-        showPrimesinSieve(sieve, option.show_explain_factor_max);
-    }
-    int valid = validateSieve(sieve, benchmark_settings.factor_max);
-    if (!valid) {
-        printf("The sieve for factors up to %ju is \033[0;31m\033[5mNOT\033[0;0m valid...\n", (uintmax_t) benchmark_settings.factor_max);
-        deepAnalyzeSieve(sieve);
-    }
-    else {
-        printf("The sieve for factors up to %ju is \033[0;32mvalid\033[0;0m\n", (uintmax_t) benchmark_settings.factor_max);
-    }
+    deepAnalyzeSieve(sieve);
     sieve_delete(sieve);
-
-    printf("Hits: %ju\n",(uintmax_t)debug_hits);
-    #ifdef COMPILE_TIMERS
-    if (option.timers) print_timing_table();
-    #endif
 }
-
-#endif
 
 static int __attribute__((cold)) 
 checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
@@ -63,11 +35,11 @@ checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
             return valid;
         }
         else {
-            verbose4( printf("\033[0;32mvalid\033[0;0m for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
+            verbose4( printf(COLOR_GREEN "valid" COLOR_RESET " for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
         }
-        verbose3( printf("\033[0;32mvalid\033[0;0m for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
+        verbose3( printf(COLOR_GREEN "valid" COLOR_RESET " for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
     }
-    verbose2( printf("\033[0;32mvalid\033[0;0m algorithm\n"); )
+    verbose2( printf(COLOR_GREEN "valid" COLOR_RESET " algorithm\n"); )
     
     return 1;
 }
@@ -103,12 +75,12 @@ checkSieveAlgorithmAll(benchmark_settings_t benchmark_settings)
                 return valid;
             }
             else {
-                verbose4( printf("\033[0;32mvalid\033[0;0m for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
+                verbose4( printf(COLOR_GREEN "valid" COLOR_RESET " for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
             }
         }
-        verbose3( printf("\033[0;32mvalid\033[0;0m for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
+        verbose3( printf(COLOR_GREEN "valid" COLOR_RESET " for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
     }
-    verbose2( printf("\033[0;32mvalid\033[0;0m algorithm\n"); )
+    verbose2( printf(COLOR_GREEN "valid" COLOR_RESET " algorithm\n"); )
     
     return 1;
 }
@@ -126,6 +98,8 @@ static inline void __attribute__((cold))
 CheckOptions(int check, benchmark_settings_t benchmark_settings) {
     if (check >= 1) checkSieveAlgorithm(benchmark_settings);
     if (check >= 3) checkSieveAlgorithmAll(benchmark_settings);
+
+    #ifdef COMPILE_CHECK_STRIPERS
     if (check >= 4) checkSetBitsTrueMethods(setBitsTrueMethods, 0, benchmark_settings.factor_max);
     if (check >= 5) {
         for (counter_t sieveSize_check = 100; sieveSize_check <= 1000000; sieveSize_check *=10) {
@@ -134,5 +108,5 @@ CheckOptions(int check, benchmark_settings_t benchmark_settings) {
     }
     if (check >= 6) checkSetBitsTrueMethodsBlocks(setBitsTrueMethods, 0, benchmark_settings.factor_max);
     if (check == 7) exit(0);
-   
+    #endif
 }

@@ -5,6 +5,7 @@
 #undef variant_base_type_t
 #define variant_base_type_t bitbucket_t
 
+#include <string.h> // for memcpy
 #include "bitstorage_continuePattern_smallsize.h"
 #include "bitstorage_continuePattern_aligned.h"
 #include "bitstorage_continuePattern_shiftleft.h"

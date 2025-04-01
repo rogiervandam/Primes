@@ -35,7 +35,9 @@ if [ "$RUNALL" = "runall" ]; then
 fi
 
 # Set default compiler flags
-CC="-march=native -mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -Wall -Wno-unused-function -Wno-unused-variable -Wno-unknown-pragmas -std=c11 -fno-common -fdata-sections -ffunction-sections"  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections 
+CC="-mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -Wall -Wno-unused-function -Wno-unused-variable -Wno-unknown-pragmas -std=c11 -fno-common -fdata-sections -ffunction-sections"  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections 
+# CC="-march=native $CC" 
+CC="-fno-ident  -ffreestanding $CC" # -nostdlib
 CCWARN=""
 # CCWARN="-Wall -Wno-unknown-pragmas" 
 
@@ -83,8 +85,13 @@ if [ $USE_CLANG -eq 1 ]; then
 else
     COMPILER="gcc"
     COMPILER_NAME="gcc"
+    if [ "$OS" = "Darwin" ]; then
+        COMPILER_NAME="gcc-14"
+        CC=" -mcpu=apple-m1 $CC" # -march=armv8.5-a
+    fi
     CCASM="$COMPILER_NAME $CC -S -g -Wno-psabi -masm=intel -fverbose-asm -Wextra -fopt-info-vec-all=vec_report.txt" # -mavx
-    CC="$COMPILER_NAME $CC -Ofast -Wno-psabi -fwhole-program -flto -s -Wl,--gc-sections -s -I/usr/lib/gcc/x86_64-linux-gnu/14/include/" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
+    CC="$COMPILER_NAME $CC -Ofast -Wno-psabi -fwhole-program -flto -I/usr/lib/gcc/x86_64-linux-gnu/14/include/" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
+    # CC="-Wl,--gc-sections -s $CC"
     PAR="-fopenmp"
 fi
 STRIP="strip"
@@ -99,6 +106,10 @@ verbose_level=10
 verbose_next=0
 highest_number=0
 threads=0
+tune_level=0
+tune_next=0
+check_level=0
+check_next=0
 
 # Loop through all arguments.
 for arg in "$@"; do
@@ -112,10 +123,40 @@ for arg in "$@"; do
         verbose_next=0
         continue
     fi
+    
+    # Check if previous arg was --tune and this is the value
+    if [ $tune_next -eq 1 ]; then
+        if echo "$arg" | grep -q '^[0-9]\+$'; then
+            tune_level="$arg"
+        fi
+        tune_next=0
+        continue
+    fi
+
+    # Check if previous arg was --check and this is the value
+    if [ $check_next -eq 1 ]; then
+        if echo "$arg" | grep -q '^[0-9]\+$'; then
+            check_level="$arg"
+        fi
+        check_next=0
+        continue
+    fi
 
     # Check for standalone --verbose flag
     if [ "$arg" = "--verbose" ] || [ "$arg" = "verbose" ]; then
         verbose_next=1
+        continue
+    fi
+    
+    # Check for standalone --tune flag
+    if [ "$arg" = "--tune" ] || [ "$arg" = "tune" ]; then
+        tune_next=1
+        continue
+    fi
+
+    # Check for standalone --check flag
+    if [ "$arg" = "--check" ] || [ "$arg" = "check" ]; then
+        check_next=1
         continue
     fi
 
@@ -146,6 +187,19 @@ for arg in "$@"; do
     done
 done
 
+# If tune level is 3 or higher, add the COMPILE_BENCHMARK_STRIPERS flag
+if [ "$tune_level" -ge 3 ]; then
+    DEFINE_FLAGS="-DCOMPILE_BENCHMARK_STRIPERS $DEFINE_FLAGS"
+fi
+
+if [ "$tune_level" -ge 1 ]; then
+    DEFINE_FLAGS="-DCOMPILE_TUNE $DEFINE_FLAGS"
+fi
+
+# If check level is 4 or higher, add the COMPILE_CHECK_STRIPERS flag
+if [ "$check_level" -ge 4 ]; then
+    DEFINE_FLAGS="-DCOMPILE_CHECK_STRIPERS $DEFINE_FLAGS"
+fi
 # Add default verbose arguments if not explicitly specified
 run_args=""
 

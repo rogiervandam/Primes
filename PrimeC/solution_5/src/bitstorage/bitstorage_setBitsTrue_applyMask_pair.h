@@ -4,7 +4,7 @@ static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))
 NAME(applyMask_pair,suffix)(void* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitbucket_t mask1, const bitbucket_t mask2, counter_t index_vector) 
 {
     verbose8( printf("Applying " ##bitbucket_t " mask with step %ju in range until %ju", (uintmax_t)step, (uintmax_t)range_stop); )
-    timer_lapstart(time_applyMask_vector);
+    timer_lapstart(time_applyMask);
 
     register const counter_t step_max                     = step * unrolls;
     register const bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);

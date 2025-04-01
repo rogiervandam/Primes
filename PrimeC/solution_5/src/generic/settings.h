@@ -4,8 +4,10 @@
 #endif
 
 // #define COMPILE_CHECKALL                 
-
 // #define COMPILE_EXPLAIN                  
+// #define COMPILE_BENCHMARK_STRIPERS
+// #define COMPILE_CHECK_STRIPERS
+// #define COMPILE_TUNE
 
 // How to align the caches
 #define cache_line_bytes      128
@@ -24,3 +26,7 @@
     #define bitshift_t counter_t 
 #endif
 
+#include "helpers.h"
+#include "types.h"
+#include "verbose.h"
+// #include "tools.h"

@@ -1,6 +1,7 @@
 #include "../generic/setsuffix.h"
+
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-NAME(setBitTrue,suffix)(void* restrict bitstorage __attribute__((aligned(cache_line_bytes))), const register counter_t index) 
+NAME(setBitTrue,suffix)(void* restrict bitstorage, const register counter_t index) 
 {
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
     bitstorage_sized[index_type(index,bitbucket_t)] |= markmask_type(index, bitbucket_t);

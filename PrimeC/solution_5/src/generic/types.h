@@ -2,7 +2,7 @@
 #define SHIFT_SIZE                  1 // the shift needed to get from SIZE to BIT (1 because even numbers arr not storing in the bitstorage)
 #define SHIFT_BYTE                  3 // the shift needed to get from BIT to BYTE
 
-// #define WORD_SIZE_BITS              (sizeof(bitword_t) * 8)
+// these are used to describe the max size of the bitstorage (uint64_v8) and use for the benchmarking
 #define VECTORWORD_SIZE_BITS        64
 #define VECTOR_SIZE_BYTES           64
 #define VECTOR_SIZE_BITS            512
@@ -46,7 +46,7 @@ typedef uint16_t uint16v2_t  __attribute__ ((vector_size( 4), aligned(cache_line
 // globals for tuning
 static counter_t global_stripeprime_faster  = 64ULL; // if step > BLOCKSTEP use blocks, else use the whole sieve
 static counter_t global_largestep_faster    = 128; // if step < VECTORSTAP_FASTER, use large steps
-static counter_t global_blocksize_bits      = 128*1024*8; // blocksize in bits
+static counter_t global_blocksize_bits      = 32*1024*8; // blocksize in bits
 static counter_t debug_hits                 = 0;
 static counter_t debug_hits2                = 0;
 static counter_t debug_final_benchmarking   = 0;

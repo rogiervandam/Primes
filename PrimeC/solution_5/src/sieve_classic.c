@@ -4,40 +4,21 @@
 // This file includes all the building blocks for the sieve algorithm "base"
 // This enables the compiler to optimize the code better
 
-#ifdef __APPLE__
-#include <mach/mach_time.h>
-#else
-#define _POSIX_C_SOURCE 199309L
-#endif
-
+#include "generic/timepriority.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <time.h>
-#include <string.h>
-
-#ifdef _OPENMP
-#include <omp.h>
-#endif
+#include <stdint.h>
 
 static char algorithm_name[] = "rogiervandam_classic";
 static char algorithm_type[] = "base";
 
 // include helper functions
-#include "generic/preset.h"
 #include "generic/settings.h"
-#include "generic/helpers.h"
-#include "generic/types.h"
-#include "generic/verbose.h"
-#include "generic/tools.h"
 #include "benchmark/sieve_options.h"
-#include "benchmark/sieve_timers.h"
 #include "bitstorage/bitstorage_search.h"
-#include "bitstorage/bitstorage_setBitsTrue.h"
-#include "sieve/sieve_prime_calculations.h"
+#include "sieve/sieve_calc.h"
 #include "sieve/sieve_manager.h"
-#include "sieve/sieve_stripe.h"
-#include "benchmark/benchmark_setBitsTrue_functions.h"
 
 // This is the main module that directs all the work
 // sieve_size in a real number that is the maximum in the sieve (not in bits)
@@ -60,21 +41,19 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
         const counter_t step  = prime * 2 + 1;
         const counter_t start = prime * (step + 1);
 
+        #pragma GCC ivdep
+        #pragma GCC unroll 32
         for(counter_t i=start; i < sieve_bits; i += step) {
             bitstorage[index_type(i, bitbucket_t)] |= markmask_calc_type(i,bitbucket_t);
         }
 
-        do { prime++; } while (bitstorage[index_type(prime, bitbucket_t)] & markmask_type(prime, bitbucket_t));
+        #pragma GCC ivdep
+        #pragma GCC unroll 32
+        for (prime++; bitstorage[index_type(prime, bitbucket_t)] & markmask_type(prime, bitbucket_t); prime++);
     }
 
     // return the completed sieve
     return sieve;
 }
 
-#include "benchmark/sieve_check.h"
-#include "benchmark/sieve_benchmark.h"
-#include "benchmark/sieve_benchmark_tune.h"
-#include "benchmark/sieve_validate.h"
-#include "benchmark/sieve_usage.h"
-#include "benchmark/sieve_parse_commandline.h"
 #include "benchmark/sieve_main.h"

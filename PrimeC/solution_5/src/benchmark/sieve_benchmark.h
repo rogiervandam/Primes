@@ -6,12 +6,6 @@ static inline benchmark_settings_t initBenchmarkSettings(counter_t threads)
     return benchmark_settings;
 }
 
-static inline void setSettingsFromTuning(benchmark_settings_t* benchmark_settings, benchmark_settings_t* tuning_settings) 
-{
-    benchmark_settings->stripe_faster     = tuning_settings->stripe_faster;
-    benchmark_settings->largestep_faster  = tuning_settings->largestep_faster;
-    benchmark_settings->blocksize_bits    = tuning_settings->blocksize_bits;
-}
 
 // check the settings to make sure they are valid
 static inline benchmark_settings_t checkBenchmarkSettings(benchmark_settings_t benchmark_settings) 
@@ -29,11 +23,7 @@ static inline benchmark_settings_t checkBenchmarkSettings(benchmark_settings_t b
 
 static inline char* setBenchmarkSettingAsString(char* settings_string, benchmark_settings_t benchmark_settings) 
 {
-    verbose1({
-        snprintf(settings_string, 50, "s%03ju-l%03ju-b%07ju-c%s", 
-            (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.largestep_faster, 
-            (uintmax_t)benchmark_settings.blocksize_bits, TYPE_SHORT_NAME(counter_t));
-    })
+    snprintf(settings_string, 50, "s%03ju-l%03ju-b%07ju", (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.largestep_faster, (uintmax_t)benchmark_settings.blocksize_bits);
     return settings_string;
 }
 
@@ -42,13 +32,13 @@ static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settin
     global_stripeprime_faster = benchmark_settings.stripe_faster;
     global_largestep_faster   = benchmark_settings.largestep_faster;
     global_blocksize_bits     = benchmark_settings.blocksize_bits;
-
-    verbose5 ( { char settings_string[50]=""; setBenchmarkSettingAsString(settings_string, benchmark_settings); printf("Using settings \033[1;32m%s\033[0m\n",settings_string); } )
+    verbose5 ( { char settings_string[50]=""; setBenchmarkSettingAsString(settings_string, benchmark_settings); printf("Using settings " COLOR_GREEN "%s" COLOR_RESET "\n",settings_string); } )
 }
 
 static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
 {
     const counter_t factor_max = benchmark_settings.factor_max;
+    benchmark_settings = checkBenchmarkSettings(benchmark_settings);
     prepareBenchmarkGlobals(benchmark_settings);
     struct sieve_t* sieve_check = shakeSieve(factor_max);
     const int valid = validateSieve(sieve_check, factor_max);
@@ -57,50 +47,60 @@ static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settin
     return valid;
 }
 
-static void deepAnalyzeWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
+static inline void requestPower(void) 
 {
-    prepareBenchmarkGlobals(benchmark_settings);
-    struct sieve_t* sieve = shakeSieve(benchmark_settings.factor_max);
-    deepAnalyzeSieve(sieve);
-    sieve_delete(sieve);
+    #ifdef __APPLE__
+    pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
+    #elif defined(__linux__)
+    struct sched_param param;
+    param.sched_priority = sched_get_priority_max(SCHED_FIFO) / 2; // Mid-level real-time priority
+    if (sched_setscheduler(0, SCHED_FIFO, &param) != 0) {
+        // Fallback if we don't have permission
+        param.sched_priority = 0;
+        sched_setscheduler(0, SCHED_OTHER, &param);
+        nice(-10); // Try to increase priority within normal scheduling
+    }
+    #endif
 }
 
 static inline double benchmarkTime() 
 {
-    struct timespec t;
-
+    struct timespec time;
     #ifdef __APPLE__
-        clock_gettime(CLOCK_MONOTONIC_RAW, &t);
+        clock_gettime(CLOCK_MONOTONIC_RAW, &time);
     #else
-        clock_gettime(CLOCK_MONOTONIC, &t);
+        clock_gettime(CLOCK_MONOTONIC, &time);
     #endif
-    return (t.tv_sec + t.tv_nsec * 1e-9);
+    return (time.tv_sec + time.tv_nsec * 1e-9);
+}
+
+static inline void updateBenchmarkResult(benchmark_result_t *result, counter_t passes, double time_elapsed) {
+    result->passes       += passes;
+    result->elapsed_time += time_elapsed / result->settings.threads;
+    result->avg           = result->passes / result->elapsed_time;
 }
 
 static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings) 
 {
-    benchmark_result_t benchmark_result;
-    benchmark_result.settings = checkBenchmarkSettings(benchmark_settings);
+    benchmark_result_t benchmark_result = { .settings = checkBenchmarkSettings(benchmark_settings) };
 
     // set global variables used in the sieve functions
     prepareBenchmarkGlobals(benchmark_result.settings); // TODO; change back to benchmark_settings
 
     // prepare for the benchmark
-    const counter_t sieve_size = benchmark_result.settings.factor_max;
-    const double time_sample = benchmark_result.settings.sample_duration; // do this before we set the clock
-
-    double time_elapsed = 0;
-    counter_t passes = 0;
+    const counter_t sieve_size   = benchmark_result.settings.factor_max;
+    const double time_sample     = benchmark_result.settings.sample_duration; // do this before we set the clock
+    register double time_elapsed = 0;
+    register counter_t passes    = 0;
     
     #ifdef _OPENMP
         omp_set_num_threads(benchmark_result.settings.threads);
         #pragma omp parallel reduction(+:passes) reduction(+:time_elapsed)
         {
+            requestPower();
             const double time_start = benchmarkTime();
             double thread_elapsed = 0;
             const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
-            // const double time_start = benchmarkTime();
-            // const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
             while (thread_elapsed <= time_target) {
                 struct sieve_t *sieve = shakeSieve(sieve_size);
                 sieve_delete(sieve);
@@ -110,6 +110,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
             time_elapsed = thread_elapsed - time_start;
         }
     #else
+        requestPower();
         const double time_start = benchmarkTime();
         const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
         while (time_elapsed <= time_target) {
@@ -122,9 +123,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
     #endif
 
     // calculate results
-    benchmark_result.passes       = passes;
-    benchmark_result.elapsed_time = time_elapsed / benchmark_settings.threads; 
-    benchmark_result.avg          = benchmark_result.passes / benchmark_result.elapsed_time; 
+    updateBenchmarkResult(&benchmark_result, passes, time_elapsed);
 
     return benchmark_result;
 }

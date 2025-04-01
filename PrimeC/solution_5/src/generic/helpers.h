@@ -34,3 +34,18 @@ static inline void local_memcpy(void *dest, void *src, size_t n)
     // Copy contents of src[] to dest[] 
     for (int i=0; i<n; i++) cdest[i] = csrc[i]; 
 } 
+
+// ANSI color codes
+#define COLOR_RED         "\033[31m"
+#define COLOR_GREEN       "\033[32m"
+#define COLOR_YELLOW      "\033[33m"
+#define COLOR_BLUE        "\033[34m"
+#define COLOR_MAGENTA     "\033[35m"
+#define COLOR_BOLD        "\033[1m"
+#define COLOR_BLINK       "\033[5m"
+#define COLOR_BLINK_OFF   "\033[25m"
+#define COLOR_UNDERLINE   "\033[4m"
+#define COLOR_RESET       "\033[0m"
+#define COLOR_BOLD_YELLOW "\033[1;33m"
+#define COLOR_BOLD_GREEN  "\033[1;32m"
+#define COLOR_DARK_GRAY   "\033[0;90m"
