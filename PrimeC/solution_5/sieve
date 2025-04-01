@@ -250,12 +250,12 @@ if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
 
         # support running a single Dockerfile
         DOCKERFILE="dev/docker/Dockerfile_$DOCKER_TYPE"
+        DOCKERFILE_FULL="dev/dockerfiles/Dockerfile_$DOCKER_TYPE"
         if [ $verbose_level -gt 1 ]; then
             echo "Building and running Docker container for type: $DOCKER_TYPE"
-            echo "Running command: docker build --pull --rm -t sieve-$DOCKER_TYPE ." 
+            echo "Running command: docker build --pull --file $DOCKERFILE_FULL --rm -t sieve_$DOCKER_TYPE ." 
         fi
-        
-        DOCKERFILE_FULL="dev/dockerfiles/Dockerfile_$DOCKER_TYPE"
+
 
         if [ -f "$DOCKERFILE" ]; then
             # Build the Docker image
@@ -315,9 +315,9 @@ fi
 
 # Compose a program name using a default base name.
 PROGTOTAL="${base}"
-# if [ $verbose_level -gt 1 ]; then
-#   echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
-# fi
+if [ $verbose_level -gt 1 ]; then
+  echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
+fi
 $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS $CCWARN
 
 if [ "$COMPILER_ASM" = "asm" ]; then
