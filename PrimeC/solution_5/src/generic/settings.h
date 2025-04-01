@@ -11,14 +11,12 @@
 #define cache_line_bytes      128
 
 // type for describing the index of a bit in the sieve and general loops
-#ifndef counter_t
-    #if defined(USE_64BIT_COUNTER)
-        #define counter_t         int64_t
-        #define COUNTER_T_SIZE_PP 64
-    #else
-        #define counter_t         int32_t
-        #define COUNTER_T_SIZE_PP 32
-    #endif
+#if defined(USE_64BIT_COUNTER)
+    typedef int64_t counter_t;
+    #define COUNTER_T_MAX_VALUE INT64_MAX
+#else
+    typedef int32_t counter_t;
+    #define COUNTER_T_MAX_VALUE INT32_MAX
 #endif
 
 // type used to shift bits

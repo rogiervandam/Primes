@@ -24,7 +24,6 @@ static char algorithm_name[] = "rogiervandam_extend";
 static char algorithm_type[] = "other";
 
 // include helper functions
-#include "generic/preset.h"
 #include "generic/settings.h"
 #include "generic/helpers.h"
 #include "generic/types.h"

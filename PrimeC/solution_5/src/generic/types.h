@@ -51,9 +51,3 @@ static counter_t debug_hits                 = 0;
 static counter_t debug_hits2                = 0;
 static counter_t debug_final_benchmarking   = 0;
 static counter_t debug_final_plan           = 0;
-
-#if COUNTER_T_SIZE_PP == 32
-    #define COUNTER_T_MAX_SAFE_VALUE 1000000000ULL
-#elif COUNTER_T_SIZE_PP == 64
-    #define COUNTER_T_MAX_SAFE_VALUE 10000000000ULL
-#endif

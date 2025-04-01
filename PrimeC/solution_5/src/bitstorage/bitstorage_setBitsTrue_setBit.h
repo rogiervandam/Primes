@@ -1,10 +1,6 @@
-
-#ifndef variant
-#define bitbucket_t uint8_t
-#define suffix
-// #include "../generic/setsuffix.h"
+#include "../generic/setsuffix.h"
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-NAME(setBitTrue,suffix)(void* restrict bitstorage, const register counter_t index) 
+NAME(setBitTrue,suffix)(void* restrict bitstorage __attribute__((aligned(cache_line_bytes))), const register counter_t index) 
 {
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
     bitstorage_sized[index_type(index,bitbucket_t)] |= markmask_type(index, bitbucket_t);
@@ -17,7 +13,7 @@ NAME(setBitFalse,suffix)(void* restrict bitstorage, const register counter_t ind
     bitstorage_sized[index_type(index,bitbucket_t)] &= ~markmask_type(index, bitbucket_t);
 }
 
-static inline void __attribute__((always_inline, , hot, nonnull)) 
+static inline void __attribute__((always_inline, hot, nonnull)) 
 NAME(setBitsTrue_range,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     #pragma GCC ivdep
@@ -35,8 +31,6 @@ NAME(setBitsTrue_range_return,suffix)(void* restrict bitstorage, const counter_t
     for(; index < range_stop; index += step) NAME(setBitTrue,suffix)(bitstorage, index);
     return index;
 }
-
-#endif
 
 #include "../generic/cleansuffix.h"
 

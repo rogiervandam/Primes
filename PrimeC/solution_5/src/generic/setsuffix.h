@@ -3,6 +3,8 @@
 #ifdef variant
     #define bitbucket_t NAME(variant, _t)
     #define variantsuffix NAME(_,variant)
+#elif !defined bitbucket_t
+        #define bitbucket_t uint8_t
 #endif
 
 #if defined variantsuffix

@@ -52,6 +52,7 @@ deepAnalyzeSieve(struct sieve_t *sieve)
     }
 }
 
+
 static inline int __attribute__((cold, nonnull)) 
 validateSieve(struct sieve_t *sieve, counter_t factor_max)
 {
@@ -66,7 +67,7 @@ validateSieve(struct sieve_t *sieve, counter_t factor_max)
         case 1000000:       valid_primes = 78498;     break;
         case 10000000:      valid_primes = 664579;    break;
         case 100000000:     valid_primes = 5761455;   break;
-        #if COUNTER_T_MAX_SAFE_VALUE >= 10000000000ULL
+        #if COUNTER_T_MAX_VALUE >= 10000000000ULL
         case 1000000000:    valid_primes = 50847534;  break;
         case 10000000000:   valid_primes = 455052511; break;
         #endif
