@@ -52,13 +52,21 @@ static inline void requestPower(void)
     #ifdef __APPLE__
     pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
     #elif defined(__linux__)
+    if (option.fixed_benchmark_settings.threads == 1) {
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        CPU_SET(0, &cpuset);
+        sched_setaffinity(0, sizeof(cpu_set_t), &cpuset);
+    }   
+    // Set real-time scheduling
     struct sched_param param;
-    param.sched_priority = sched_get_priority_max(SCHED_FIFO) / 2; // Mid-level real-time priority
+    param.sched_priority = sched_get_priority_max(SCHED_FIFO); // Mid-level real-time priority
     if (sched_setscheduler(0, SCHED_FIFO, &param) != 0) {
         // Fallback if we don't have permission
         param.sched_priority = 0;
         sched_setscheduler(0, SCHED_OTHER, &param);
-        nice(-10); // Try to increase priority within normal scheduling
+        int n10 = nice(-10); // Try to increase priority within normal scheduling
+        int n20 = nice(-20); // Try to increase priority within normal scheduling
     }
     #endif
 }

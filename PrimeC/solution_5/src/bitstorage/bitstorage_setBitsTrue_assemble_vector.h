@@ -10,8 +10,8 @@
     #include "bitstorage_setBitsTrue_assemble_vector.h" 
     #define preset_uint64v4
     #include "bitstorage_setBitsTrue_assemble_vector.h" 
-    // #define preset_uint64v2
-    // #include "bitstorage_setBitsTrue_assemble_vector.h" 
+    #define preset_uint64v2
+    #include "bitstorage_setBitsTrue_assemble_vector.h" 
     
     #define preset_uint32v16
     #include "bitstorage_setBitsTrue_assemble_vector.h" 

@@ -36,7 +36,6 @@ fi
 
 # Set default compiler flags
 CC="-mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -Wall -Wno-unused-function -Wno-unused-variable -Wno-unknown-pragmas -std=c11 -fno-common -fdata-sections -ffunction-sections"  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections 
-# CC="-march=native $CC" 
 CC="-fno-ident  -ffreestanding $CC" # -nostdlib
 CCWARN=""
 # CCWARN="-Wall -Wno-unknown-pragmas" 
@@ -47,8 +46,13 @@ if [ "$COMPILER_OVERRIDE" = "clang" ]; then
     USE_CLANG=1
 elif [ "$COMPILER_OVERRIDE" = "gcc" ]; then
     USE_CLANG=0
+elif command -v gcc-14 >/dev/null 2>&1 && [ "$OS" != "Darwin" ]; then
+    USE_CLANG=0
 elif command -v clang >/dev/null 2>&1 || [ "$(gcc --version 2>/dev/null | head -n 1 | grep -i clang)" ] || [ "$OS" = "Darwin" ]; then
     USE_CLANG=1
+fi
+if command -v gcc-14 >/dev/null 2>&1; then
+            COMPILER_NAME="gcc-14"
 fi
 
 # Configure compiler settings based on selection
@@ -88,6 +92,8 @@ else
     if [ "$OS" = "Darwin" ]; then
         COMPILER_NAME="gcc-14"
         CC=" -mcpu=apple-m1 $CC" # -march=armv8.5-a
+    else
+        CC="-march=native $CC" 
     fi
     CCASM="$COMPILER_NAME $CC -S -g -Wno-psabi -masm=intel -fverbose-asm -Wextra -fopt-info-vec-all=vec_report.txt" # -mavx
     CC="$COMPILER_NAME $CC -Ofast -Wno-psabi -fwhole-program -flto -I/usr/lib/gcc/x86_64-linux-gnu/14/include/" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
@@ -106,7 +112,7 @@ verbose_level=10
 verbose_next=0
 highest_number=0
 threads=0
-tune_level=0
+tune_level=1
 tune_next=0
 check_level=0
 check_next=0
