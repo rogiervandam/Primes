@@ -18,6 +18,8 @@
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
+#define FUNCTION(name, suffix) NAME(name, suffix)
+
 #define TYPE_SHORT_NAME(x) _Generic((x)0, \
 uint32_t: "u32", \
 uint64_t: "u64", \

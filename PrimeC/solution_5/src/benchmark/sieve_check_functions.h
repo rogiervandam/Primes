@@ -13,15 +13,14 @@ static uint8_t checkSetBitsTrueMethod_stripe(const SetBitsTrueMethod* method, co
     sieve = sieve_create(range_stop*2+1024); // reserve extra to check set bits after range stop
     bitstorage = sieve->bitstorage;
     sieve_clear(sieve);
-    // setBitsTrue_range(bitstorage, range_start, step, range_stop);
 
     method->func(bitstorage, range_start, step, range_stop);
-    counter_t actual_count_inrange = countBitsTrue(bitstorage, range_start, range_stop); // add 1024 to check the bits after the range
-    counter_t actual_count_atrange = checkBitTrue(bitstorage, range_stop) ? 1 : 0;
+    counter_t actual_count_inrange    = countBitsTrue(bitstorage, range_start, range_stop); // add 1024 to check the bits after the range
+    counter_t actual_count_atrange    = checkBitTrue(bitstorage, range_stop) ? 1 : 0;
     counter_t actual_count_afterrange = countBitsTrue(bitstorage, range_stop+1, range_stop+1024);
 
-    uint8_t correct_inrange = (actual_count_inrange == target_count);
-    uint8_t correct_atrange = (actual_count_atrange == 0);
+    uint8_t correct_inrange    = (actual_count_inrange == target_count);
+    uint8_t correct_atrange    = (actual_count_atrange == 0);
     uint8_t correct_afterrange = (actual_count_afterrange == 0);
 
     if (!(actual_count_inrange == target_count )) {
@@ -88,12 +87,11 @@ static inline uint8_t checkSetBitsTrueMethods(const SetBitsTrueMethod* SetBitsTr
     for(int m=0; m<methods; m++) {
         SetBitsTrueMethod setBitsTrueMethod = SetBitsTrueMethods[m];
 
-        // if (m % 2 == 1) printf("  "); // Start a new row for every two methods
         printf("%3d %-50s ", m, setBitsTrueMethod.name);
         uint8_t valid = checkSetBitsTrueMethod(&setBitsTrueMethod, range_start, range_stop);
-        printf("In range: "   ); if (valid&1) {printf("\033[32m✓ valid    " COLOR_RESET " "); } else { printf("\033[31m✗ NOT VALID" COLOR_RESET " "); }
-        printf("At range: "   ); if (valid&2) {printf("\033[32m✓ valid    " COLOR_RESET " "); } else { printf("\033[31m✗ NOT VALID" COLOR_RESET " "); }
-        printf("After range: "); if (valid&4) {printf("\033[32m✓ valid    " COLOR_RESET " "); } else { printf("\033[31m✗ NOT VALID" COLOR_RESET " "); }
+        printf("In range: "   ); if (valid&1) { printf( COLOR_GREEN "✓ valid    " COLOR_RESET " "); } else { printf( COLOR_RED "✗ NOT VALID" COLOR_RESET " "); }
+        printf("At range: "   ); if (valid&2) { printf( COLOR_GREEN "✓ valid    " COLOR_RESET " "); } else { printf( COLOR_RED "✗ NOT VALID" COLOR_RESET " "); }
+        printf("After range: "); if (valid&4) { printf( COLOR_GREEN "✓ valid    " COLOR_RESET " "); } else { printf( COLOR_RED "✗ NOT VALID" COLOR_RESET " "); }
         printf("\n"); // End the row after two methods
         if (valid != 7) { allvalid = 0; }
     }
@@ -118,9 +116,9 @@ static inline uint8_t checkSetBitsTrueMethodsBlocks(const SetBitsTrueMethod* Set
             } 
         }
         uint8_t valid = methodvalid;
-        printf("In range: "   ); if (valid&1) {printf("\033[32m✓ valid    " COLOR_RESET " "); } else { printf("\033[31m✗ NOT VALID" COLOR_RESET " "); }
-        printf("At range: "   ); if (valid&2) {printf("\033[32m✓ valid    " COLOR_RESET " "); } else { printf("\033[31m✗ NOT VALID" COLOR_RESET " "); }
-        printf("After range: "); if (valid&4) {printf("\033[32m✓ valid    " COLOR_RESET " "); } else { printf("\033[31m✗ NOT VALID" COLOR_RESET " "); }
+        printf("In range: "   ); if (valid&1) { printf( COLOR_GREEN "✓ valid    " COLOR_RESET " "); } else { printf( COLOR_RED "✗ NOT VALID" COLOR_RESET " "); }
+        printf("At range: "   ); if (valid&2) { printf( COLOR_GREEN "✓ valid    " COLOR_RESET " "); } else { printf( COLOR_RED "✗ NOT VALID" COLOR_RESET " "); }
+        printf("After range: "); if (valid&4) { printf( COLOR_GREEN "✓ valid    " COLOR_RESET " "); } else { printf( COLOR_RED "✗ NOT VALID" COLOR_RESET " "); }
         printf("\n");
     }
     

@@ -90,7 +90,7 @@ static inline void updateBenchmarkResult(benchmark_result_t *result, counter_t p
 
 static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings) 
 {
-    benchmark_result_t benchmark_result = { .settings = checkBenchmarkSettings(benchmark_settings) };
+    benchmark_result_t benchmark_result = { .settings = checkBenchmarkSettings(benchmark_settings), .passes = 0, .elapsed_time = 0, .avg = 0 };
 
     // set global variables used in the sieve functions
     prepareBenchmarkGlobals(benchmark_result.settings); // TODO; change back to benchmark_settings
@@ -106,9 +106,8 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
         #pragma omp parallel reduction(+:passes) reduction(+:time_elapsed)
         {
             requestPower();
-            const double time_start = benchmarkTime();
             double thread_elapsed = 0;
-            const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
+            const double time_start = benchmarkTime(), time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
             while (thread_elapsed <= time_target) {
                 struct sieve_t *sieve = shakeSieve(sieve_size);
                 sieve_delete(sieve);
@@ -119,8 +118,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
         }
     #else
         requestPower();
-        const double time_start = benchmarkTime();
-        const double time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
+        const double time_start = benchmarkTime(), time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
         while (time_elapsed <= time_target) {
             struct sieve_t *sieve = shakeSieve(sieve_size);
             sieve_delete(sieve);
