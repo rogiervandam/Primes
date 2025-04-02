@@ -6,6 +6,7 @@ static void deepAnalyzeWithBenchmarkSettings(benchmark_settings_t benchmark_sett
     sieve_delete(sieve);
 }
 
+// check with every sievesize, but not with every blocksize
 static int __attribute__((cold)) 
 checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 {
@@ -17,7 +18,7 @@ checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
     char settings_string[50] = ""; 
 
     // validate algorithm - run one time for all sizes
-    for (counter_t sieveSize_check = 100; sieveSize_check <= 1000000; sieveSize_check *=10) {
+    for (counter_t sieveSize_check = 100; sieveSize_check <= 10000000; sieveSize_check *=10) {
     verbose3( {
         printf("..Checking size %ju ...",(uintmax_t)sieveSize_check); 
         verbose4( printf("\n"); )
@@ -32,6 +33,7 @@ checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
         if (!valid) {
             verbose1( fprintf(stderr,"Invalid count for %ju Settings used: %s\n",(uintmax_t)sieveSize_check, settings_string); )
             deepAnalyzeWithBenchmarkSettings(benchmark_settings);
+            if (option.check == 7) exit(1);
             return valid;
         }
         else {
@@ -44,6 +46,7 @@ checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
     return 1;
 }
 
+// check with every sievesize and blocksize
 static int __attribute__((cold)) 
 checkSieveAlgorithmAll(benchmark_settings_t benchmark_settings)
 {
@@ -72,6 +75,7 @@ checkSieveAlgorithmAll(benchmark_settings_t benchmark_settings)
             if (!valid) {
                 verbose1( fprintf(stderr,"Invalid count for %ju Settings used: %s\n",(uintmax_t)sieveSize_check, settings_string); )
                 deepAnalyzeWithBenchmarkSettings(benchmark_settings);
+                if (option.check == 7) exit(1);
                 return valid;
             }
             else {
@@ -96,17 +100,19 @@ showResult(benchmark_settings_t benchmark_settings)
 
 static inline void __attribute__((cold)) 
 CheckOptions(int check, benchmark_settings_t benchmark_settings) {
-    if (check >= 1) checkSieveAlgorithm(benchmark_settings);
-    if (check >= 3) checkSieveAlgorithmAll(benchmark_settings);
-
     #ifdef COMPILE_CHECK_STRIPERS
     if (check >= 4) checkSetBitsTrueMethods(setBitsTrueMethods, 0, benchmark_settings.factor_max);
     if (check >= 5) {
         for (counter_t sieveSize_check = 100; sieveSize_check <= 1000000; sieveSize_check *=10) {
-            checkSetBitsTrueMethods(setBitsTrueMethods, 0, benchmark_settings.factor_max);
+            checkSetBitsTrueMethods(setBitsTrueMethods, 0, sieveSize_check);
         }
     }
     if (check >= 6) checkSetBitsTrueMethodsBlocks(setBitsTrueMethods, 0, benchmark_settings.factor_max);
-    if (check == 7) exit(0);
     #endif
+
+    if (check >= 1) checkSieveWithBenchmarkSettings(benchmark_settings);
+    if (check >= 2) checkSieveAlgorithm(benchmark_settings);
+    if (check >= 3) checkSieveAlgorithmAll(benchmark_settings);
+
+    if (check == 7) exit(0);
 }

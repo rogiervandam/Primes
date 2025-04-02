@@ -45,7 +45,7 @@ parseCommandLine(int argc, char *argv[], struct options_t option)
         #endif
         else if (strcmp_local(argv[arg], "--check")==0) { option.check=1;
             if (++arg >= argc) { fprintf(stderr, "No check level specified\n"); usage(program_name, 1); }
-            if (sscanf(argv[arg], "%d", &option.check) != 1 || option.check > 6) {
+            if (sscanf(argv[arg], "%d", &option.check) != 1 || option.check > 7) {
                 verbose1( fprintf(stderr, "Error: Invalid check level: %s\n", argv[arg]); usage(program_name, 1); )
             }
             verbose2( printf("Check level set to %d\n",option.check); )

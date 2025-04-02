@@ -84,6 +84,8 @@ static inline uint8_t checkSetBitsTrueMethod(const SetBitsTrueMethod* method, co
 static inline uint8_t checkSetBitsTrueMethods(const SetBitsTrueMethod* SetBitsTrueMethods, const counter_t range_start, const counter_t range_stop) {
     int allvalid = 1;
 
+    printf( COLOR_BLUE "..Checking methods in %ju bit range (%ju-%ju) ...\n" COLOR_RESET,(uintmax_t)range_stop - range_start, (uintmax_t)range_start, (uintmax_t)range_stop);
+
     for(int m=0; m<methods; m++) {
         SetBitsTrueMethod setBitsTrueMethod = SetBitsTrueMethods[m];
 
@@ -92,7 +94,7 @@ static inline uint8_t checkSetBitsTrueMethods(const SetBitsTrueMethod* SetBitsTr
         printf("In range: "   ); if (valid&1) { printf( COLOR_GREEN "✓ valid    " COLOR_RESET " "); } else { printf( COLOR_RED "✗ NOT VALID" COLOR_RESET " "); }
         printf("At range: "   ); if (valid&2) { printf( COLOR_GREEN "✓ valid    " COLOR_RESET " "); } else { printf( COLOR_RED "✗ NOT VALID" COLOR_RESET " "); }
         printf("After range: "); if (valid&4) { printf( COLOR_GREEN "✓ valid    " COLOR_RESET " "); } else { printf( COLOR_RED "✗ NOT VALID" COLOR_RESET " "); }
-        printf("\n"); // End the row after two methods
+        printf("\n"); 
         if (valid != 7) { allvalid = 0; }
     }
     printf("\n");
@@ -102,6 +104,8 @@ static inline uint8_t checkSetBitsTrueMethods(const SetBitsTrueMethod* SetBitsTr
 static inline uint8_t checkSetBitsTrueMethodsBlocks(const SetBitsTrueMethod* SetBitsTrueMethods, const counter_t range_start, const counter_t range_stop) 
 {
     uint8_t allvalid = 7;
+
+    printf( COLOR_BLUE "..Checking methods in %ju bit range (%ju-%ju) ...\n" COLOR_RESET,(uintmax_t)range_stop - range_start, (uintmax_t)range_start, (uintmax_t)range_stop);
 
     for(int m=0; m<methods; m++) {
         SetBitsTrueMethod setBitsTrueMethod = SetBitsTrueMethods[m];

@@ -33,6 +33,8 @@ continuePattern_shiftright(void* restrict bitstorage, const counter_t source_sta
     verbose7( printf("...startword - %ju - copystartword %ju - endword %ju..",(uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)destination_stop_word); )
 
     // if (copy_word < source_word + elementcount_type(bitbucket_t, variant_base_type_t)) { // TODO: check if this is needed
+
+    // if (copy_word < source_word + 3) { // TODO: check if this is needed
     //     verbose7(  printf("...continue word by word (because source and copy are close together).."); )
     //     for (;copy_word <= destination_stop_word; copy_word++, source_word++ ) 
     //     bitstorage_sized[copy_word] = (bitstorage_sized[source_word] >> shift_flipped) | (bitstorage_sized[source_word+1] << shift);
@@ -61,19 +63,21 @@ continuePattern_shiftright(void* restrict bitstorage, const counter_t source_sta
         return;
     }
 
-    uint8_t* source_byte           = (uint8_t*) &bitstorage_sized[copy_start_word] - copy_size_bytes;
-    uint8_t* copy_byte             = (uint8_t*) &bitstorage_sized[copy_start_word];
-    uint8_t* destination_stop_byte = (uint8_t*) &bitstorage_sized[destination_stop_word+1];
+    // uint8_t* start_byte = (uint8_t*)&bitstorage_sized[0]; // for readable output
 
-    // Copy the pattern and double it, until it is larger than what is remaining. 
-    do {
+    uint8_t* source_byte           = (uint8_t*)&bitstorage_sized[copy_start_word];
+    uint8_t* copy_byte             = (uint8_t*)&bitstorage_sized[copy_start_word];
+    uint8_t* destination_stop_byte = (uint8_t*)&bitstorage_sized[destination_stop_word+1];
+    source_byte -= copy_size_bytes;
+
+    while (copy_byte + copy_size_bytes < destination_stop_byte) {
         memcpy(copy_byte, source_byte, copy_size_bytes);
         copy_byte += copy_size_bytes;
         copy_size_bytes += copy_size_bytes;
-    } while (copy_byte + copy_size_bytes < destination_stop_byte);
+    }
 
-    // Copy the last part of the pattern
-    memcpy(copy_byte, source_byte, destination_stop_byte - copy_byte);
+    size_t memcpy_size = destination_stop_byte - copy_byte;
+    memcpy(copy_byte, source_byte, memcpy_size);
 
     timer_laptime(time_continuePattern_shiftright); verbose7( printf("\n"); )
 }
