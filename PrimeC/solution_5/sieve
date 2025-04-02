@@ -5,8 +5,8 @@ OS="$(uname -s)"
 
 # Initialize compiler override variable
 COMPILER_OVERRIDE=""
-COMPILER_ASM=""
 RUNALL=""
+
 # Process arguments to check for compiler override
 ARGS_TO_KEEP=()
 for arg in "$@"; do
@@ -14,6 +14,8 @@ for arg in "$@"; do
         COMPILER_OVERRIDE="gcc"
     elif [ "$arg" = "clang" ]; then
         COMPILER_OVERRIDE="clang"
+    elif [ "$arg" = "intel" ] || [ "$arg" = "icx" ] || [ "$arg" = "oneapi" ]; then
+        COMPILER_OVERRIDE="icx"
     elif [ "$arg" = "asm" ]; then
         COMPILER_ASM="asm"
     elif [ "$arg" = "runall" ]; then
@@ -34,72 +36,7 @@ if [ "$RUNALL" = "runall" ]; then
     exit 0
 fi
 
-# Set default compiler flags
-CC="-mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -Wall -Wno-unused-function -Wno-unused-variable -Wno-unknown-pragmas -std=c11 -fno-common -fdata-sections -ffunction-sections"  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections 
-CC="-fno-ident  -ffreestanding $CC" # -nostdlib
-CCWARN=""
-# CCWARN="-Wall -Wno-unknown-pragmas" 
 
-# Determine which compiler to use based on override or auto-detection
-USE_CLANG=0
-if [ "$COMPILER_OVERRIDE" = "clang" ]; then
-    USE_CLANG=1
-elif [ "$COMPILER_OVERRIDE" = "gcc" ]; then
-    USE_CLANG=0
-elif command -v gcc-14 >/dev/null 2>&1 && [ "$OS" != "Darwin" ]; then
-    USE_CLANG=0
-elif command -v clang >/dev/null 2>&1 || [ "$(gcc --version 2>/dev/null | head -n 1 | grep -i clang)" ] || [ "$OS" = "Darwin" ]; then
-    USE_CLANG=1
-fi
-if command -v gcc-14 >/dev/null 2>&1; then
-            COMPILER_NAME="gcc-14"
-fi
-
-# Configure compiler settings based on selection
-if [ $USE_CLANG -eq 1 ]; then
-    COMPILER="clang"	
-    CCASM="clang $CC -S -g -Wno-psabi -masm=intel -mllvm --x86-asm-syntax=intel -fverbose-asm" 
-    CC="clang $CC -O3 -ffast-math -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections -I/usr/lib/llvm-18/lib/clang/18/include/immintrin.h"  # -Wl,-dead_strip
-    # CC="clang -fsanitize=address " # use this for debugging
-
-    # Ensure Clang finds OpenMP headers and library
-    if [ "$OS" = "Darwin" ]; then
-        # macOS paths for Clang omp
-        PAR="-Xpreprocessor -fopenmp -lomp -I$(brew --prefix libomp)/include -L$(brew --prefix libomp)/lib"
-    else
-        # Linux paths for Clang omp - find the actual omp.h location
-        OMP_INCLUDE=$(find /usr/lib/llvm* -name "omp.h" -path "*/include*" | head -n 1)
-        if [ -n "$OMP_INCLUDE" ]; then
-            OMP_DIR=$(dirname "$OMP_INCLUDE")
-            # Find the library directory by looking for libomp.so
-            OMP_LIB_DIR=$(find /usr/lib/llvm* -name "libomp.so" | head -n 1)
-            if [ -n "$OMP_LIB_DIR" ]; then
-                OMP_LIB_PATH=$(dirname "$OMP_LIB_DIR")
-                PAR="-fopenmp -I$OMP_DIR -L$OMP_LIB_PATH -lomp"
-            else
-                # Try guessing the lib directory structure
-                OMP_LIB_PATH=$(echo "$OMP_DIR" | sed 's|/include.*$|/lib|')
-                PAR="-fopenmp -I$OMP_DIR -L$OMP_LIB_PATH -lomp"
-            fi
-        else
-            # Fallback to standard OpenMP paths when installed with libomp-dev
-            PAR="-fopenmp -lomp -I/usr/lib/gcc/x86_64-linux-gnu/14/include/ "
-        fi
-    fi
-else
-    COMPILER="gcc"
-    COMPILER_NAME="gcc"
-    if [ "$OS" = "Darwin" ]; then
-        COMPILER_NAME="gcc-14"
-        CC=" -mcpu=apple-m1 $CC" # -march=armv8.5-a
-    else
-        CC="-march=native $CC" 
-    fi
-    CCASM="$COMPILER_NAME $CC -S -g -Wno-psabi -masm=intel -fverbose-asm -Wextra -fopt-info-vec-all=vec_report.txt" # -mavx
-    CC="$COMPILER_NAME $CC -Ofast -Wno-psabi -fwhole-program -flto -I/usr/lib/gcc/x86_64-linux-gnu/14/include/" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
-    # CC="-Wl,--gc-sections -s $CC"
-    PAR="-fopenmp"
-fi
 STRIP="strip"
 PAREXT="_epar"
 
@@ -309,9 +246,96 @@ if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
     fi
 fi
 
+# Set default compiler flags for all compilers
+COMPILER_ASM=""
+COMPILER=""
+CC="-mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -Wall -Wno-unused-function -Wno-unused-variable -Wno-unknown-pragmas -std=c11 -fno-common -fdata-sections -ffunction-sections"  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections 
+CC="-fno-ident  -ffreestanding $CC" # -nostdlib
+CCWARN=""
+# CCWARN="-Wall -Wno-unknown-pragmas" 
+
+# Determine which compiler to use based on override or auto-detection
+# Prefer icx (intel) if available on intel systems, otherwise fallback to clang on macOS or gcc on Linux
+if [ -n "$COMPILER_OVERRIDE" ]; then
+  COMPILER="$COMPILER_OVERRIDE"
+elif [ "$OS" = "Darwin" ]; then
+    if command -v icx >/dev/null 2>&1; then
+        COMPILER="icx"
+    elif command -v clang >/dev/null 2>&1; then
+        COMPILER="clang"
+    else
+        COMPILER="gcc"
+    fi
+elif [ "$OS" = "Linux" ]; then
+    if command -v icx >/dev/null 2>&1; then
+        COMPILER="icx"
+    elif command -v gcc-14 >/dev/null 2>&1; then
+        COMPILER="gcc-14"
+    elif command -v clang >/dev/null 2>&1; then
+        COMPILER="clang"
+    else
+        COMPILER="gcc"
+    fi
+else
+    echo "Unsupported OS: $OS, defaulting to gcc"
+    COMPILER="gcc"
+fi
+
+# Configure compiler settings based on selection
+if [ "$COMPILER" = "clang" ]; then
+    CCASM="clang $CC -S -g -Wno-psabi -masm=intel -mllvm --x86-asm-syntax=intel -fverbose-asm" 
+    CC="clang $CC -O3 -ffast-math -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections -I/usr/lib/llvm-18/lib/clang/18/include/immintrin.h"  # -Wl,-dead_strip
+    # CC="clang -fsanitize=address " # use this for debugging
+
+    # Ensure Clang finds OpenMP headers and library
+    if [ "$OS" = "Darwin" ]; then
+        # macOS paths for Clang omp
+        PAR="-Xpreprocessor -fopenmp -lomp -I$(brew --prefix libomp)/include -L$(brew --prefix libomp)/lib"
+    else
+        # Linux paths for Clang omp - find the actual omp.h location
+        OMP_INCLUDE=$(find /usr/lib/llvm* -name "omp.h" -path "*/include*" | head -n 1)
+        if [ -n "$OMP_INCLUDE" ]; then
+            OMP_DIR=$(dirname "$OMP_INCLUDE")
+            # Find the library directory by looking for libomp.so
+            OMP_LIB_DIR=$(find /usr/lib/llvm* -name "libomp.so" | head -n 1)
+            if [ -n "$OMP_LIB_DIR" ]; then
+                OMP_LIB_PATH=$(dirname "$OMP_LIB_DIR")
+                PAR="-fopenmp -I$OMP_DIR -L$OMP_LIB_PATH -lomp"
+            else
+                # Try guessing the lib directory structure
+                OMP_LIB_PATH=$(echo "$OMP_DIR" | sed 's|/include.*$|/lib|')
+                PAR="-fopenmp -I$OMP_DIR -L$OMP_LIB_PATH -lomp"
+            fi
+        else
+            # Fallback to standard OpenMP paths when installed with libomp-dev
+            PAR="-fopenmp -lomp -I/usr/lib/gcc/x86_64-linux-gnu/14/include/ "
+        fi
+    fi
+elif [ "$COMPILER" = "icx" ] || [ "$COMPILER" = "intel" ] || [ "$COMPILER" = "oneapi" ]; then
+    CCASM="icx $CC -S -g -Wno-psabi -masm=intel -mllvm --x86-asm-syntax=intel -fverbose-asm" 
+    CC="icx $CC -O3 -ffast-math -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections"  # -Wl,-dead_strip
+elif [ "$COMPILER" = "gcc" ] || [ "$COMPILER" = "gcc-14" ]; then
+    COMPILER_NAME="gcc"
+    if command -v gcc-14 >/dev/null 2>&1; then
+        COMPILER_NAME="gcc-14"
+    fi
+    if [ "$OS" = "Darwin" ]; then
+        CC=" -mcpu=apple-m1 $CC" # -march=armv8.5-a
+    else
+        CC="-march=native $CC" 
+    fi
+    echo "Using compiler: $COMPILER_NAME"
+    CCASM="$COMPILER_NAME $CC -S -g -Wno-psabi -masm=intel -fverbose-asm -Wextra -fopt-info-vec-all=vec_report.txt" # -mavx
+    CC="$COMPILER_NAME $CC -Ofast -Wno-psabi -fwhole-program -flto -I/usr/lib/gcc/x86_64-linux-gnu/14/include/" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
+    echo "At 1 Using compiler: $COMPILER_NAME and CC set to $CC"
+    # CC="-Wl,--gc-sections -s $CC"
+    PAR="-fopenmp"
+fi
+
 if [ $verbose_level -gt 1 ]; then
     echo "Compiling for ${OS} with ${COMPILER} "
 fi
+
 
 # Compose a program name using a default base name.
 PROGTOTAL="${base}"
