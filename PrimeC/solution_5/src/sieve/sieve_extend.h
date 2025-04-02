@@ -94,7 +94,6 @@ extendSieveBlock(void* restrict bitstorage, const counter_t block_start, const c
 
     // continue the found pattern to the entire block
     continuePattern(bitstorage, block_start, block.pattern_size, block_stop);
-    verbose5( printf("Copied bitpattern from %ju - %ju to range %ju - %ju:\n", (uintmax_t)block_start, (uintmax_t)block_start + block.pattern_size-1, (uintmax_t)block_start + 2*block.pattern_size, (uintmax_t)block_stop ); )
     return block.prime_next;
 }
 
