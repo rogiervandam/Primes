@@ -63,8 +63,6 @@ continuePattern_shiftright(void* restrict bitstorage, const counter_t source_sta
         return;
     }
 
-    // uint8_t* start_byte = (uint8_t*)&bitstorage_sized[0]; // for readable output
-
     uint8_t* source_byte           = (uint8_t*)&bitstorage_sized[copy_start_word];
     uint8_t* copy_byte             = (uint8_t*)&bitstorage_sized[copy_start_word];
     uint8_t* destination_stop_byte = (uint8_t*)&bitstorage_sized[destination_stop_word+1];
