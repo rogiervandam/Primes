@@ -27,7 +27,7 @@ function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
 
     // Apply this vectormask standalone until we align on the cache line
     for (;current_vector&1; current_vector++) {
-        NAME(applyMask,suffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
+        function(applyMask,suffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
         mask_vector = (mask_vector << pattern_vectorshift_vector) | (mask_vector >> (step_shift_vector - pattern_vectorshift_vector)); 
     }
 

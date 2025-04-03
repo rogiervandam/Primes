@@ -7,20 +7,20 @@
 #endif
 
 static inline counter_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
-NAME(checkBitTrue,suffix)(const void* restrict bitstorage, register counter_t index) 
+function(checkBitTrue,suffix)(const void* restrict bitstorage, register counter_t index) 
 {
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     return (bitstorage_sized[index_type(index, bitbucket_t)] & markmask_type(index, bitbucket_t));
 }
 
 static inline counter_t __attribute__((always_inline, hot, nonnull)) 
-NAME(checkBitFalse,suffix)(const void* restrict bitstorage, register counter_t index) 
+function(checkBitFalse,suffix)(const void* restrict bitstorage, register counter_t index) 
 {
     return !checkBitTrue(bitstorage, index);
 }
 
 static inline counter_t __attribute__((always_inline)) 
-NAME(countInvalidInStripe,suffix)(const void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+function(countInvalidInStripe,suffix)(const void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     counter_t count = 0;
     for (counter_t index = range_start; index < range_stop; index += step) {
@@ -30,7 +30,7 @@ NAME(countInvalidInStripe,suffix)(const void* restrict bitstorage, const counter
 }
 
 static inline counter_t __attribute__((always_inline)) 
-NAME(countBitsTrue,suffix)(const void* bitstorage, const counter_t range_start, const counter_t range_stop) 
+function(countBitsTrue,suffix)(const void* bitstorage, const counter_t range_start, const counter_t range_stop) 
 {
     counter_t count = 0;
     for (counter_t index = range_start; index < range_stop; index++) {
@@ -40,7 +40,7 @@ NAME(countBitsTrue,suffix)(const void* bitstorage, const counter_t range_start, 
 }
 
 static inline counter_t __attribute__((always_inline)) 
-NAME(faultInvalidInStripe,suffix)(const void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+function(faultInvalidInStripe,suffix)(const void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     counter_t count = 0;
     for (counter_t index = range_start; index < range_stop; index += step) {
@@ -56,7 +56,7 @@ NAME(faultInvalidInStripe,suffix)(const void* restrict bitstorage, const counter
 // Finds the index of the next unset (false) bit in a bitmap, starting from a given index
 // Optimized function for short ranges which are common
 static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
-NAME(searchBitFalse,suffix)(void* restrict bitstorage, register counter_t index) 
+function(searchBitFalse,suffix)(void* restrict bitstorage, register counter_t index) 
 {
     startAnalysis8(time_searchBitFalse, "searchBitFalse from prime %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1);
 
@@ -72,7 +72,7 @@ NAME(searchBitFalse,suffix)(void* restrict bitstorage, register counter_t index)
 // Finds the index of the next unset (false) bit in a bitmap, starting from a given index
 // Optimized function for large ranges which are not common
 static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
-NAME(searchBitFalse_largestep,suffix)(const void* restrict bitstorage, register counter_t index) 
+function(searchBitFalse_largestep,suffix)(const void* restrict bitstorage, register counter_t index) 
 {
     startAnalysis8(time_searchBitFalse_largestep, "searchBitFalse_largestep from prime %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1);
 
