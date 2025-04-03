@@ -7,8 +7,8 @@
 #ifdef __linux__
     #define _POSIX_C_SOURCE 200809L
     #define _GNU_SOURCE
-    #include <sched.h>      // For sched_setscheduler
-    #include <unistd.h>     // For nice
+    #include <sched.h>        // For sched_setscheduler
+    #include <unistd.h>       // For nice
     #include <sys/resource.h> // For setpriority
 #endif
 

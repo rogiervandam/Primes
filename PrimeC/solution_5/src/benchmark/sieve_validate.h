@@ -10,36 +10,26 @@ static void deepAnalyzeWithBenchmarkSettings(benchmark_settings_t benchmark_sett
 static int __attribute__((cold)) 
 checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 {
-    verbose2( { 
-        printf("Validating variant .. "); 
-        verbose3( printf("\n");) 
-    })
-
-    char settings_string[50] = ""; 
+    verbose2( printf("Validating variant .. "); )
+    verbose3( printf("\n"); )
 
     // validate algorithm - run one time for all sizes
     for (counter_t sieveSize_check = 100; sieveSize_check <= 10000000; sieveSize_check *=10) {
-    verbose3( {
-        printf("..Checking size %ju ...",(uintmax_t)sieveSize_check); 
-        verbose4( printf("\n"); )
-    })
+        verbose3( printf("..Checking size %ju ...",(uintmax_t)sieveSize_check); ) verbose4( printf("\n"); )
         benchmark_settings.blocksize_bits = sieveSize_check / 2;
         benchmark_settings.factor_max = sieveSize_check;
         benchmark_settings = checkBenchmarkSettings(benchmark_settings);
-        setBenchmarkSettingAsString(settings_string, benchmark_settings);
+        setBenchmarkSettingAsString(global_settings_string, benchmark_settings);
 
         int valid = checkSieveWithBenchmarkSettings(benchmark_settings); 
 
         if (!valid) {
-            verbose1( fprintf(stderr,"Invalid count for %ju Settings used: %s\n",(uintmax_t)sieveSize_check, settings_string); )
+            verbose1( fprintf(stderr,"Invalid count for %ju Settings used: %s\n",(uintmax_t)sieveSize_check, global_settings_string); )
             deepAnalyzeWithBenchmarkSettings(benchmark_settings);
             if (option.check == 7) exit(1);
             return valid;
         }
-        else {
-            verbose4( printf(COLOR_GREEN "valid" COLOR_RESET " for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
-        }
-        verbose3( printf(COLOR_GREEN "valid" COLOR_RESET " for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
+        verbose3( printf(COLOR_GREEN "valid" COLOR_RESET " for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, global_settings_string); )
     }
     verbose2( printf(COLOR_GREEN "valid" COLOR_RESET " algorithm\n"); )
     
@@ -50,12 +40,7 @@ checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 static int __attribute__((cold)) 
 checkSieveAlgorithmAll(benchmark_settings_t benchmark_settings)
 {
-    verbose2( { 
-        printf("Validating variant... "); 
-        verbose3( printf("\n");) 
-    })
-
-    char settings_string[50] = ""; 
+    verbose2( printf("Validating variant... "); ) verbose3( printf("\n"); ) 
 
     // validate algorithm - run one time for all sizes
     for (counter_t sieveSize_check = 100; sieveSize_check <= 1000000; sieveSize_check *=10) {
@@ -68,21 +53,21 @@ checkSieveAlgorithmAll(benchmark_settings_t benchmark_settings)
             benchmark_settings.blocksize_bits = blocksize_bits;
             benchmark_settings.factor_max = sieveSize_check;
             benchmark_settings = checkBenchmarkSettings(benchmark_settings);
-            setBenchmarkSettingAsString(settings_string, benchmark_settings);
+            setBenchmarkSettingAsString(global_settings_string, benchmark_settings);
 
             int valid = checkSieveWithBenchmarkSettings(benchmark_settings); 
 
             if (!valid) {
-                verbose1( fprintf(stderr,"Invalid count for %ju Settings used: %s\n",(uintmax_t)sieveSize_check, settings_string); )
+                verbose1( fprintf(stderr,"Invalid count for %ju Settings used: %s\n",(uintmax_t)sieveSize_check, global_settings_string); )
                 deepAnalyzeWithBenchmarkSettings(benchmark_settings);
                 if (option.check == 7) exit(1);
                 return valid;
             }
             else {
-                verbose4( printf(COLOR_GREEN "valid" COLOR_RESET " for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
+                verbose4( printf(COLOR_GREEN "valid" COLOR_RESET " for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, global_settings_string); )
             }
         }
-        verbose3( printf(COLOR_GREEN "valid" COLOR_RESET " for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, settings_string); )
+        verbose3( printf(COLOR_GREEN "valid" COLOR_RESET " for %ju Settings used: %s\n", (uintmax_t)sieveSize_check, global_settings_string); )
     }
     verbose2( printf(COLOR_GREEN "valid" COLOR_RESET " algorithm\n"); )
     

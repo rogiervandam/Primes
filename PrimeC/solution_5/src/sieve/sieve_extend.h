@@ -5,8 +5,7 @@
 static inline counter_t __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 extendSieveBlock0(void* restrict bitstorage, const counter_t block_stop) 
 {
-    verbose5(  printf("Extending sieve block 0 to range 0-%ju\n",(uintmax_t)block_stop); )
-    timer_lapstart(time_sieve_block_extend);
+    startAnalysis5(time_sieve_block_extend, "\nExtending sieve block 0 to range %ju - %ju\n",(uintmax_t)0,(uintmax_t)block_stop)
 
     ((uint64_t*)bitstorage)[0] = (uint64_t)0ULL; // only the first word has to be cleared; the rest is populated by the extension procedure
 
@@ -37,9 +36,9 @@ extendSieveBlock0(void* restrict bitstorage, const counter_t block_stop)
     } 
 
     // continue the found pattern to the entire sieve
-    verbose5( printf("Copy bitpattern from %ju - %ju to range %ju - %ju:\n", (uintmax_t)patternsize_bits, (uintmax_t)2*patternsize_bits-1, (uintmax_t)2*patternsize_bits, (uintmax_t)block_stop ); )
     continuePattern(bitstorage, patternsize_bits, patternsize_bits, block_stop);
 
+    endAnalysis5(time_sieve_block_extend, "Copy bitpattern from %ju - %ju to range %ju - %ju:\n", (uintmax_t)patternsize_bits, (uintmax_t)2*patternsize_bits-1, (uintmax_t)2*patternsize_bits, (uintmax_t)block_stop);
     return prime;
 }
 
@@ -52,8 +51,7 @@ struct block {
 static inline counter_t 
 extendSieveBlock(void* restrict bitstorage, const counter_t block_start, const counter_t block_stop) 
 {
-    verbose5(  printf("Extending sieve to range %ju-%ju with extendSieveBlock\n",(uintmax_t)block_start, (uintmax_t)block_stop); )
-    timer_lapstart(time_sieve_block_extend);
+    startAnalysis5(time_sieve_block_extend, "\nExtending sieve block to range %ju - %ju with extendSieveBlock\n",(uintmax_t)block_start,(uintmax_t)block_stop)
 
     register counter_t prime         = 0;
     counter_t patternsize_bits       = 1;
@@ -90,10 +88,10 @@ extendSieveBlock(void* restrict bitstorage, const counter_t block_start, const c
         setBitsTrue_range(bitstorage, start, step, range_stop);
     } 
 
-    verbose5( printf("Copy bitpattern from %ju - %ju to range %ju - %ju:\n", (uintmax_t)block_start, (uintmax_t)block_start + patternsize_bits-1, (uintmax_t)block_start + 2*patternsize_bits, (uintmax_t)block_stop ); )
-
     // continue the found pattern to the entire block
     continuePattern(bitstorage, block_start, block.pattern_size, block_stop);
+
+    endAnalysis5(time_sieve_block_extend, "Copy bitpattern from %ju - %ju to range %ju - %ju:\n", (uintmax_t)block.pattern_size, (uintmax_t)2*block.pattern_size-1, (uintmax_t)2*block.pattern_size, (uintmax_t)block_stop);
     return block.prime_next;
 }
 

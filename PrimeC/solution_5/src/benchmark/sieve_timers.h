@@ -1,63 +1,54 @@
 #ifdef COMPILE_TIMERS
 
 // helper functions for timing parts of code in debugging mode
-static struct timespec timer_lap, timer_elapsed;
 
 #define timer_count 100
 struct timespec timer_timers[timer_count];
-// static double timer_timers[timer_count];
 counter_t timer_hits[timer_count];
 double timer_time[timer_count];
 
 #define time_setBitsTrue 0
-#define time_setBitsTrue_largestep_vector_wordstep 1
-#define time_setBitsTrue_largestep_vector 2
-#define time_setBitsTrue_smallstep_rotate_pair 3
-#define time_create_mask_vector_largestep 4
-#define time_applyMask 5
-#define time_applyMask_pair 6
-#define time_setBitsTrue_smallstep_repeat 10
-#define time_setBitsTrue_smallstep_norepeat 11
-#define time_setBitsTrue_largestep_repeat 12
-#define time_setBitsTrue_largestep_norepeat 13
-#define time_searchBitFalse 20
-#define time_searchBitFalse_largestep 21
-#define time_continuePattern 40
-#define time_continuePattern_smallSize 41
-#define time_continuePattern_aligned 42
-#define time_continuePattern_shiftleft_unrolled 43
-#define time_continuePattern_shiftleft 44
-#define time_continuePattern_shiftright 45
-#define time_stripeSieve 50
-#define time_sieveStripeBlock 51
-#define time_stripeSieveBlock0 52
-#define time_sieveStripeBlock_vector 53
-#define time_sieve_block_extend 54
+#define time_searchBitFalse 1
+#define time_searchBitFalse_largestep 2
+#define time_applyMask 3
+#define time_applyMask_pair 4
+#define time_setBitsTrue_smallstep_rotate_pair 10
+#define time_setBitsTrue_smallstep_repeat 11
+#define time_setBitsTrue_smallstep_norepeat 12
+#define time_setBitsTrue_largestep_vector 13
+#define time_setBitsTrue_largestep_repeat 14
+#define time_setBitsTrue_largestep_norepeat 15
+#define time_continuePattern 20
+#define time_continuePattern_smallSize 21
+#define time_continuePattern_aligned 22
+#define time_continuePattern_shiftleft_unrolled 23
+#define time_continuePattern_shiftleft 24
+#define time_continuePattern_shiftright 25
+#define time_sieveStripeBlock 30
+#define time_stripeSieve 32
+#define time_sieve_block_extend 33
+// #define time_sieveStripeBlock_vector 
 
 static const char* timer_function_names[100] = {
     [time_setBitsTrue] = "setBitsTrue",
-    [time_setBitsTrue_largestep_vector_wordstep] = "setBitsTrue_largestep_vector_wordstep",
-    [time_setBitsTrue_largestep_vector] = "setBitsTrue_largestep_vector",
-    [time_setBitsTrue_smallstep_rotate_pair] = "setBitsTrue_smallstep_rotate_pair",
-    [time_create_mask_vector_largestep] = "create_mask_vector_largestep",
+    [time_searchBitFalse] = "searchBitFalse",
+    [time_searchBitFalse_largestep] = "searchBitFalse_largestep",
     [time_applyMask] = "applyMask",
     [time_applyMask_pair] = "applyMask_pair",
-    [time_setBitsTrue_largestep_repeat] = "setBitsTrue_largestep_repeat",
-    [time_setBitsTrue_largestep_norepeat] = "setBitsTrue_largestep_norepeat",
+    [time_setBitsTrue_smallstep_rotate_pair] = "setBitsTrue_smallstep_rotate_pair",
     [time_setBitsTrue_smallstep_repeat] = "setBitsTrue_smallstep_repeat",
     [time_setBitsTrue_smallstep_norepeat] = "setBitsTrue_smallstep_norepeat",
-    [time_searchBitFalse_largestep] = "searchBitFalse_largestep",
+    [time_setBitsTrue_largestep_vector] = "setBitsTrue_largestep_vector",
+    [time_setBitsTrue_largestep_repeat] = "setBitsTrue_largestep_repeat",
+    [time_setBitsTrue_largestep_norepeat] = "setBitsTrue_largestep_norepeat",
     [time_continuePattern] = "continuePattern",
     [time_continuePattern_smallSize] = "continuePattern_smallSize",
     [time_continuePattern_aligned] = "continuePattern_aligned",
     [time_continuePattern_shiftleft_unrolled] = "continuePattern_shiftleft_unrolled",
     [time_continuePattern_shiftleft] = "continuePattern_shiftleft",
     [time_continuePattern_shiftright] = "continuePattern_shiftright",
-    [time_stripeSieve] = "stripeSieve",
-    [time_stripeSieveBlock0] = "stripeSieveBlock0",
     [time_sieveStripeBlock] = "sieveStripeBlock",
-    [time_sieveStripeBlock_vector] = "sieveStripeBlock_vector",
-    [time_searchBitFalse] = "searchBitFalse",
+    [time_stripeSieve] = "stripeSieve",
     [time_sieve_block_extend] = "sieve_block_extend",
   };
 
@@ -70,9 +61,6 @@ time_mark(struct timespec* timer) {
         clock_gettime(CLOCK_MONOTONIC, timer);
     #endif
 }
-
-#define timer_lapstart(timer) time_mark(&timer_timers[timer]);
-#define timer_laptime(timer) timer_laptime_function(timer);
 
 static void timer_laptime_function(counter_t timer) {
     struct timespec lapend;
@@ -87,7 +75,6 @@ static void timer_laptime_function(counter_t timer) {
         else if (elapsed_time > 100)  printf("...time: \033[0;36m%.0f" COLOR_RESET "ns", elapsed_time);
         else                          printf("...time: \033[0;32m%.0f" COLOR_RESET "ns", elapsed_time);
         printf(" (%s) ", timer_function_names[timer]);
-
     })
 }
 
@@ -104,9 +91,10 @@ static void print_timing_table(void) {
     }
 }
 
+#define timer_lapstart(timer) time_mark(&timer_timers[timer]);
+#define timer_laptime(timer) timer_laptime_function(timer);
+
 #else
     #define timer_lapstart(timer) 
     #define timer_laptime(timer) 
 #endif
-
-  

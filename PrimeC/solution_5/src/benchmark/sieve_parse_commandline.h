@@ -34,11 +34,12 @@ ensure_next_arg(int arg, int argc, char *program_name, const char *option_name) 
 // Helper function for integer argument parsing
 static inline int __attribute__((cold))
 parse_int_arg(char *arg_str, counter_t *value, counter_t max_value, char *program_name, const char *error_msg) {
-    uintmax_t* temp_value = (uintmax_t*)value;
-    if (sscanf(arg_str, "%ju", temp_value) != 1 || *temp_value > max_value) {
+    uintmax_t temp_value; // Use a local variable instead of a pointer
+    if (sscanf(arg_str, "%ju", &temp_value) != 1 || temp_value > max_value) {
         verbose1(fprintf(stderr, "Error: %s: %s\n", error_msg, arg_str); usage(program_name, 1));
         return 0; // Never reached due to usage() exit
     }
+    *value = (counter_t)temp_value; // Assign the value after casting
     return 1;
 }
 
@@ -69,8 +70,8 @@ handle_set_parameter(char param_type, uintmax_t value, struct options_t *option)
     }
 }
 
-static struct options_t __attribute__((cold)) 
-parseCommandLine(int argc, char *argv[], struct options_t option)
+static void __attribute__((cold)) 
+parseCommandLine(int argc, char *argv[])
 {
     char *program_name = argv[0];
     program_name = max(program_name, strrchr_local(program_name, '/')+1);
@@ -122,7 +123,7 @@ parseCommandLine(int argc, char *argv[], struct options_t option)
         }
         else if (strcmp_local(argv[arg], "--max")) {
             ensure_next_arg(++arg, argc, program_name, "show maximum");
-            parse_int_arg(argv[arg], &option.fixed_benchmark_settings.factor_max, COUNTER_T_MAX_VALUE, program_name, "Invalid show maximum");
+            parse_int_arg(argv[arg], &option.fixed_benchmark_settings.factor_max, COUNTER_T_MAX_VALUE, program_name, "Invalid sieve maximum");
             verbose2(printf("Maximum set to %ju\n", (uintmax_t)option.fixed_benchmark_settings.factor_max));
         }
         else if (strcmp_local(argv[arg], "--set")==0) {
@@ -200,6 +201,5 @@ parseCommandLine(int argc, char *argv[], struct options_t option)
             verbose2(printf("Maximum set to %ju\n", (uintmax_t)option.fixed_benchmark_settings.factor_max));
         }
     }
-    return option;
 }
 #endif

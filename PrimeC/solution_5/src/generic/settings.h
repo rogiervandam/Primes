@@ -3,6 +3,7 @@
     #define COMPILE_VERBOSE_LEVEL 2  // Set to 1-9 to enable compiling different verbose levels
 #endif
 
+// these options are set useing the command line tool
 // #define COMPILE_CHECKALL                 
 // #define COMPILE_EXPLAIN                  
 // #define COMPILE_BENCHMARK_STRIPERS

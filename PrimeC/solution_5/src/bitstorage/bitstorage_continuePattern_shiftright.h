@@ -68,13 +68,13 @@ continuePattern_shiftright(void* restrict bitstorage, const counter_t source_sta
     source_byte -= copy_size_bytes;
 
     while (copy_byte + copy_size_bytes < destination_stop_byte) {
-        memcpy(copy_byte, source_byte, copy_size_bytes);
+        local_memcpy(copy_byte, source_byte, copy_size_bytes);
         copy_byte += copy_size_bytes;
         copy_size_bytes += copy_size_bytes;
     }
 
     size_t memcpy_size = destination_stop_byte - copy_byte;
-    memcpy(copy_byte, source_byte, memcpy_size);
+    local_memcpy(copy_byte, source_byte, memcpy_size);
 
     endAnalysis7(time_continuePattern_shiftright,"\n");
 }

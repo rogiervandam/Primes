@@ -12,7 +12,7 @@ printWord_uint64(uint64_t bitword)
     }
 
   printf("%s", row); 
-)
+  )
 }
 
 static inline void __attribute__ ((cold))

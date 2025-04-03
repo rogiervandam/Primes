@@ -38,13 +38,21 @@ int main(int argc, char *argv[])
     setbuf(stdout, NULL); // prevent buffering of stdout
     const char *dockerfile_type = getenv("DOCKERFILE_TYPE"); 
 
-    option = parseCommandLine(argc, argv, setDefaultOptions());
+    setDefaultOptions();
+    parseCommandLine(argc, argv);
 
     verbose3( { printf("Sieve algorithm by Rogier van Dam - 2025\n"
                        "Find all primes up to " COLOR_YELLOW "%ju" COLOR_RESET 
                        " using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)\n", (uintmax_t)option.fixed_benchmark_settings.factor_max);})
     verbose2( { printf("\nRunning sieve variant " COLOR_YELLOW "%s" COLOR_RESET "%s" COLOR_BLUE "%s" COLOR_RESET " with max %ju\n" , 
                   algorithm_name, (dockerfile_type ? " in docker " : ""), (dockerfile_type ? dockerfile_type : ""), (uintmax_t)option.fixed_benchmark_settings.factor_max); })
+
+    #ifdef COMPILE_EXPLAIN
+    if (option.explain >= 1) {
+        explainSieveShake(option.fixed_benchmark_settings);
+        return(0);
+    }
+    #endif
 
     // command line --check can be used to check the algorithm for all sieve/blocksize combinations
     if (option.check) CheckOptions(option.check, option.fixed_benchmark_settings);
@@ -61,13 +69,6 @@ int main(int argc, char *argv[])
             createStepplan(option.fixed_benchmark_settings);
             exit(0);
         }
-    }
-    #endif
-
-    #ifdef COMPILE_EXPLAIN
-    if (option.explain >= 1) {
-        explainSieveShake(option.fixed_benchmark_settings);
-        return(0);
     }
     #endif
 

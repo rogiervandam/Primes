@@ -1,7 +1,6 @@
 static inline counter_t __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 stripeSieveBlock(void* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max) {
-    verbose5(  printf("\nBlock stripe (new) for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop); )
-    timer_lapstart(time_sieveStripeBlock);
+    startAnalysis5(time_sieveStripeBlock, "\nBlock stripe (new) for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop)
 
     const counter_t prime_endloop_shortstepsearch = min(prime_max, 128/2);
     counter_t prime = prime_start;
@@ -20,7 +19,7 @@ stripeSieveBlock(void* restrict bitstorage, const counter_t block_start, const c
         prime = searchBitFalse_largestep_uint8(bitstorage, prime);
     }
 
-    timer_laptime(time_sieveStripeBlock); verbose7( printf("\n"); )
+    endAnalysis7(time_sieveStripeBlock, "\n");
     return prime; 
 }
 

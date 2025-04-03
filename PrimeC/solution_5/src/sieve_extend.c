@@ -8,9 +8,8 @@
 #include <stdio.h>
 #include <stdlib.h> // for malloc, free, exit and getenv
 #include <time.h>
-#include <stdint.h> 
-
-
+#include <stdint.h>
+// #include <string.h> // for memcpy
 
 static char algorithm_name[] = "rogiervandam_extend";
 static char algorithm_type[] = "other";
