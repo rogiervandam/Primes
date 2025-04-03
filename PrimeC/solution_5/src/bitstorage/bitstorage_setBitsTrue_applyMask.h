@@ -1,7 +1,7 @@
 #include "../generic/setsuffix.h"
 
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
-function(applyMask,suffix)(void* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitbucket_t mask, counter_t index_vector) 
+function(applyMask,suffix)(void* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitbucket_t mask, const counter_t index_vector) 
 {
     startAnalysis8(time_applyMask, "\nApplying %s mask with step %ju in range until %ju", STR(bitbucket_t), (uintmax_t)step, (uintmax_t)range_stop);
   

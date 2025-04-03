@@ -73,8 +73,7 @@ static inline void benchmarkSetBitsTrue(void* restrict bitstorage, const counter
         prime = searchBitFalse(bitstorage, prime);
     }
 
-    // Print the results
-    // First row has the method numbers
+    // Print the results. First row has the method numbers
     printf( COLOR_BLUE "Step      ");  for(int method=0; method < methods; method++) printf("%6ju ", (uintmax_t)method);  printf( COLOR_RESET "\n");
 
     // Loop through all steps and print the results
@@ -171,10 +170,10 @@ static void createStepplan(benchmark_settings_t settings) {
 
     // benchmark the final stepplan for 5 seconds
     printf("Benchmarking the final stepplan of the best functions for 5 seconds\n");
-    double time_elapsed = 0;
     counter_t passes = 0;
     const double time_start = benchmarkTime();
     const double time_target = time_start + 5.0;
+    double time_elapsed = 0;
 
     while (time_elapsed <= time_target) {
             // prepare the cache in the relevant state

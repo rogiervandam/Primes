@@ -16,46 +16,47 @@ typedef struct  {
 } benchmark_result_t;
 
 static struct options_t {
-    double    time_max;
-    
     benchmark_settings_t fixed_benchmark_settings;
     counter_t show_explain_factor_max;
     counter_t show_tuning_results_max;
-    int       show_primes_on_error;
-    int       verbose_level;
-    int       explain;
-    int       timers;
-    int       check;
-    int       tunelevel;
-    int       extended_output;
-    double    sample_duration;
+    counter_t show_primes_on_error;
+    counter_t verbose_level;
+    counter_t explain;
+    counter_t timers;
+    counter_t check;
+    counter_t tunelevel;
+    counter_t extended_output;
+    double    initial_sample_duration;
+    double    next_sample_duration;
     double    tune_duration_max;
-    counter_t tune_keeppercent;
+    counter_t tune_keeppercent_longlist;
+    counter_t tune_keeppercent_shortlist;
 } option;
 
 static struct options_t __attribute__((cold)) 
 setDefaultOptions() 
 {
-    option.time_max                = 5;
+    option.show_explain_factor_max    = 0;
+    option.show_tuning_results_max    = 50;
+    option.show_primes_on_error       = 100;
+    option.verbose_level              = 0;
+    option.explain                    = 0;
+    option.timers                     = 0;
 
-    option.show_explain_factor_max = 0;
-    option.show_tuning_results_max = 100;
-    option.show_primes_on_error    = 100;
-    option.verbose_level           = 0;
-    option.explain                 = 0;
-    option.timers                  = 0;
-
-    option.check                   = 1; // set to 2 to stop after the check algorithm
-    option.tunelevel               = 1;
-    option.sample_duration         = 0.0008;
-    option.tune_duration_max       = 5.0;
-    option.tune_keeppercent        = 25;
+    option.check                      = 1; // set to 2 to stop after the check algorithm
+    option.tunelevel                  = 1;
+    option.initial_sample_duration    = 0.004;
+    option.next_sample_duration       = 0.008;
+    option.tune_duration_max          = 15.0;
+    option.tune_keeppercent_longlist  = 10;
+    option.tune_keeppercent_shortlist = 60;
 
     option.fixed_benchmark_settings.factor_max              = 1000000;
     option.fixed_benchmark_settings.threads                 = 1;
     option.fixed_benchmark_settings.stripe_faster           = 0;
     option.fixed_benchmark_settings.largestep_faster        = 0;
     option.fixed_benchmark_settings.blocksize_bits          = 0;
+    option.fixed_benchmark_settings.sample_duration         = 5;
 
     // changes though compilation options
     #ifdef _OPENMP

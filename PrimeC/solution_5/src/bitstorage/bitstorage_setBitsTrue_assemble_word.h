@@ -1,3 +1,5 @@
+// in the first iteration, read this file for each preset
+// the guard will prevent an infinite loop of includes
 #ifndef BITSTORAGE_ASSEMBLE_WORD_GUARD
     #define BITSTORAGE_ASSEMBLE_WORD_GUARD
 
@@ -29,13 +31,10 @@
     // #include "bitstorage_setBitsTrue_assemble_word.h" 
 
 #else
-
-    #include "../generic/setsuffix.h"
     #define KEEP_VARIANT
     #include "../bitstorage/bitstorage_setBitsTrue_applyMask.h"
     #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
     #include "../bitstorage/bitstorage_setBitsTrue_largestep_word.h"
     #undef KEEP_VARIANT
     #include "../generic/cleansuffix.h"
-
 #endif

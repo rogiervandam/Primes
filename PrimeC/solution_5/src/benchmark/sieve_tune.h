@@ -1,7 +1,6 @@
-
 static int compareTuningResults(const void *resultA, const void *resultB) 
 {
-    return ( ((benchmark_result_t *)resultB)->avg >  ((benchmark_result_t *)resultA)->avg ? 1 : -1);
+    return (((benchmark_result_t *)resultB)->avg > ((benchmark_result_t *)resultA)->avg ? 1 : -1);
 }
 
 static inline int sameTuningResult(benchmark_result_t* resultA, benchmark_result_t* resultB) 
@@ -29,31 +28,44 @@ static inline void resetBenchmarkResult(benchmark_result_t* benchmark_result, be
 static inline void printTuningResult(benchmark_result_t tuning_result) 
 {
     char settings[50]=""; setBenchmarkSettingAsString(settings, tuning_result.settings);
-    verbose2( printf("average " COLOR_BOLD_YELLOW "%13.6f" COLOR_RESET " with options " COLOR_BOLD_GREEN "%s" COLOR_RESET 
-                     " was achieved with " COLOR_BOLD_YELLOW "%3ju" COLOR_RESET " passes in " COLOR_BOLD_YELLOW "%f" COLOR_RESET " seconds\n", 
-                    tuning_result.avg, settings, (uintmax_t)tuning_result.passes, tuning_result.elapsed_time); )
+    verbose2({
+        if (tuning_result.settings.stripe_faster == usqrt(tuning_result.settings.factor_max)/2) {
+            printf(COLOR_BLUE "average" COLOR_RESET);
+        } else {
+            printf("average");
+        }
+        printf( COLOR_BOLD_YELLOW "%13.6f" COLOR_RESET " with options " COLOR_BOLD_GREEN "%s" COLOR_RESET 
+                " was achieved with " COLOR_BOLD_YELLOW "%3ju" COLOR_RESET " passes in " COLOR_BOLD_YELLOW "%f" COLOR_RESET " seconds\n", 
+            tuning_result.avg, settings, (uintmax_t)tuning_result.passes, tuning_result.elapsed_time); 
+    })
 }
 
 typedef struct {
+    counter_t sieve_bits;
     counter_t prime_max;
     counter_t stripe_faster_steps;
     counter_t largestep_faster_steps;
-    double    sample_duration;
-    counter_t sieve_bits;
+    counter_t blocksize_steps;
     double    time_target;
+    double    sample_duration;
     counter_t tuning_results_max;
     counter_t step;
 } tuning_parameters_t;
 
 static counter_t buildInitialTuningTable(benchmark_result_t* tuning_result, benchmark_settings_t tuning_settings, tuning_parameters_t tuning_parameters) {
     counter_t tuning_results = 0;
-    
-    for (counter_t stripe_faster = 0; stripe_faster <= tuning_parameters.prime_max; stripe_faster += tuning_parameters.stripe_faster_steps) {
+    counter_t stripe_faster = 0;
+    do {
+        stripe_faster += tuning_parameters.stripe_faster_steps; // do this here to over force processing of prime_max as well
         for (counter_t largestep_faster = VECTORWORD_SIZE_BITS; largestep_faster <= VECTOR_SIZE_BITS; largestep_faster += tuning_parameters.largestep_faster_steps) { 
-            counter_t blocksize_bits=8*1024*8;
+            counter_t blocksize_bits=0;
             do { // do loop because user can set this beyound sieve_bits
+                blocksize_bits += tuning_parameters.blocksize_steps;
                 if (blocksize_bits > tuning_parameters.sieve_bits) blocksize_bits = tuning_parameters.sieve_bits;
-                if (stripe_faster == tuning_parameters.prime_max) blocksize_bits = tuning_parameters.sieve_bits;
+                if (stripe_faster >= tuning_parameters.prime_max)  {
+                    blocksize_bits = tuning_parameters.sieve_bits;
+                    stripe_faster  = tuning_parameters.prime_max;
+                }
 
                 // override with user settings if specified
                 if (option.fixed_benchmark_settings.stripe_faster)     { stripe_faster    = option.fixed_benchmark_settings.stripe_faster; }
@@ -65,6 +77,9 @@ static counter_t buildInitialTuningTable(benchmark_result_t* tuning_result, benc
                 tuning_settings.stripe_faster    = stripe_faster;
                 tuning_settings.largestep_faster = largestep_faster;
                 tuning_settings.sample_duration  = tuning_parameters.sample_duration;
+
+                if (tuning_settings.stripe_faster < tuning_parameters.prime_max && tuning_settings.blocksize_bits == tuning_parameters.sieve_bits) break; // stipe will do the entire sieve as well
+
                 resetBenchmarkResult(&tuning_result[tuning_results++], checkBenchmarkSettings(tuning_settings));
 
                 // tuning_result_index++;
@@ -73,12 +88,12 @@ static counter_t buildInitialTuningTable(benchmark_result_t* tuning_result, benc
 
                 if (option.fixed_benchmark_settings.blocksize_bits) break;
                 if (stripe_faster == tuning_parameters.prime_max) break;
-                blocksize_bits += 8*1024*8;
-            } while ( blocksize_bits <= tuning_parameters.sieve_bits );
+            } while ( blocksize_bits < tuning_parameters.sieve_bits );
             if (option.fixed_benchmark_settings.largestep_faster) break;
         }
         if (option.fixed_benchmark_settings.stripe_faster) break;
-    }
+
+    } while (stripe_faster < tuning_parameters.prime_max); 
 
     return tuning_results;
 }
@@ -107,7 +122,8 @@ static counter_t addTuningVariations(benchmark_result_t* tuning_result, counter_
         }
 
         counter_t stripe_faster_steps_diff = tuning_parameters.stripe_faster_steps >> tuning_parameters.step; 
-        if (!option.fixed_benchmark_settings.stripe_faster) {
+        if (!option.fixed_benchmark_settings.stripe_faster 
+            && tuning_settings.blocksize_bits != tuning_parameters.sieve_bits) { // lower than stripe_faster is same as full sieve
             if (stripe_faster_steps_diff > 1) {
                 if (tuning_settings.stripe_faster < tuning_parameters.prime_max - stripe_faster_steps_diff) {
                     resetBenchmarkResult(&tuning_result[new_tuning_results], tuning_settings);
@@ -150,46 +166,35 @@ static counter_t joinTuningResults(benchmark_result_t* tuning_result, const coun
 
 static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t start_tuning_settings) 
 {
-    counter_t prime_max               = usqrt(start_tuning_settings.factor_max) / 2; // divide by 2 to compensate for bitwise representation 
-    // counter_t stripe_faster_steps     = 64;
-    // counter_t largestep_faster_steps  = 32;
-    // double    sample_duration         = option.sample_duration;
-    // counter_t sieve_bits              = start_tuning_settings.factor_max >> 1;
-    char      settings_string[50]     = ""; 
+    verbose2( printf("Tuning... "); )
+
+    counter_t prime_max = usqrt(start_tuning_settings.factor_max) / 2; // divide by 2 to compensate for bitwise representation 
 
     tuning_parameters_t tuning_parameters = {
-        .prime_max = prime_max / 2,
+        .prime_max = prime_max ,
         .stripe_faster_steps = 64,
         .largestep_faster_steps = 32,
-        .sample_duration = option.sample_duration,
+        .sample_duration = option.initial_sample_duration,
         .sieve_bits = start_tuning_settings.factor_max >> 1,
         .time_target = 0, // This field wasn't initialized in your original code
         .step = 0,
-        .tuning_results_max = 0
+        .tuning_results_max = 0,
+        .blocksize_steps = 8*1024*8
     };
     
     switch (tune_level) {
         case 1:
             tuning_parameters.stripe_faster_steps    = prime_max/4;
             tuning_parameters.largestep_faster_steps = 32;
-            tuning_parameters.sample_duration        = option.sample_duration;
+            tuning_parameters.sample_duration        = option.initial_sample_duration;
             break;
         case 2:
             tuning_parameters.stripe_faster_steps    = prime_max/8;
             tuning_parameters.largestep_faster_steps = 32;
-            tuning_parameters.sample_duration        = option.sample_duration*2;
+            tuning_parameters.sample_duration        = option.initial_sample_duration*2;
             break;
     }
     
-    verbose2( { 
-        verbose3( printf("\n"); )
-        printf("Tuning... "); 
-        verbose3( {
-            setBenchmarkSettingAsString(settings_string, start_tuning_settings);
-            printf(".. best options (shown when found) for steps s%juv%ju:\n", (uintmax_t)tuning_parameters.stripe_faster_steps, (uintmax_t) tuning_parameters.largestep_faster_steps); 
-        } )
-    })
-
     // prepare a table to store the tuning results
     const size_t max_results = ((prime_max)+1) * ((size_t)(VECTOR_SIZE_BITS/tuning_parameters.largestep_faster_steps)+1) * 32;
     benchmark_result_t* tuning_result = malloc(max_results * sizeof(tuning_result));
@@ -213,24 +218,28 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     // reduce the tuning results to the best options
     // keep the best of the results and reevaluate them with a longer sample duration
     counter_t tuning_results_max = tuning_results; // keep this value for verbose messages
-    tuning_parameters.step = 0;
-
-    for (; tuning_results > 1; tuning_parameters.step++) {
+    
+    for (tuning_parameters.step = 0; tuning_results > 1; tuning_parameters.step++) {
         for (counter_t i=0; i<tuning_results; i++) {
             benchmark_settings_t tuning_settings = tuning_result[i].settings;
 
-            tuning_settings.sample_duration += 2 * tuning_parameters.step * tuning_parameters.sample_duration;
+            if (tuning_parameters.step < 8 && tuning_results > 16) {
+                tuning_settings.sample_duration = tuning_parameters.step * option.initial_sample_duration;
+            }
+            else {
+                tuning_settings.sample_duration = tuning_parameters.step * option.next_sample_duration;
+            }
             verbose2( { 
-                setBenchmarkSettingAsString(settings_string, tuning_settings);
-                printf("\rTuning step " COLOR_BOLD_GREEN "%2ju" COLOR_RESET " with " COLOR_BOLD_YELLOW "%5ju" COLOR_RESET " options. Benchmarking option " COLOR_BOLD_GREEN "%5ju" COLOR_RESET ": %s in progress  ",(uintmax_t)tuning_parameters.step,(uintmax_t)tuning_results, (uintmax_t)i, settings_string  ); 
+                setBenchmarkSettingAsString(global_settings_string, tuning_settings);
+                printf("\rTuning step " COLOR_BOLD_GREEN "%2ju" COLOR_RESET " with " COLOR_BOLD_YELLOW "%5ju" COLOR_RESET " options. Benchmarking option " COLOR_BOLD_GREEN "%5ju" COLOR_RESET ": %s in progress  ",(uintmax_t)tuning_parameters.step,(uintmax_t)tuning_results, (uintmax_t)i, global_settings_string  ); 
             })
             
             #ifdef COMPILE_CHECKALL
             tuning_settings = checkBenchmarkSettings(tuning_settings);
             const int valid = checkSieveWithBenchmarkSettings(tuning_settings);
             if (!valid) {
-                char settings_string[50]=""; setBenchmarkSettingAsString(settings_string, tuning_settings);
-                verbose1( fprintf(stderr, "The sieve is \033[0;31mNOT" COLOR_RESET " valid for settings %s with factor %ju\n", settings_string, (uintmax_t) tuning_settings.factor_max); )
+                setBenchmarkSettingAsString(global_settings_string, tuning_settings);
+                verbose1( fprintf(stderr, "The sieve is " COLOR_RED "NOT" COLOR_RESET " valid for settings %s with factor %ju\n", global_settings_string, (uintmax_t) tuning_settings.factor_max); )
                 exit(1);
             }
             #endif
@@ -238,43 +247,42 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
             // PERFORM THE BENCHMARK
             tuning_result[i] = benchmark(tuning_settings);
 
-            if ((double)clock() > time_target) { break; }
+            if ((double)clock() > time_target) { break; } // stop when time expired
         }
         qsort(tuning_result, (size_t)tuning_results, sizeof(benchmark_result_t), compareTuningResults);
 
-        // prevent the tuning from running too long
-        // after sorting so the best results are on top
+        // Prevent the tuning from running too long. After sorting so the best results are on top, so good time to stop
         if ((double)clock() > time_target) { verbose3( { printf("\nTune time expired\n"); } );  break; }
 
         // keep the best results
-        counter_t tuning_results_selected = tuning_results * option.tune_keeppercent / 100;
+        counter_t tuning_results_selected = tuning_results * option.tune_keeppercent_longlist / 100;
+        if (tuning_results_selected < 16 && tuning_results > 16) tuning_results_selected = 16;
+        if (tuning_results_selected < 16) tuning_results_selected = tuning_results * option.tune_keeppercent_shortlist / 100;
         if (tuning_results_selected < 1) break;
 
         verbose3( {
-            printf("\n");
-            printf("\r\033[0;90m(iteration %1ju) - %5ju options left - selecting %5ju" COLOR_RESET " options\n",(uintmax_t)tuning_parameters.step, (uintmax_t)tuning_results,(uintmax_t)tuning_results_selected) ; 
-            verbose_at3(  printf(">> \033[0;34m");printTuningResult(tuning_result[0]); printf("" COLOR_RESET "");  )
-            verbose3( {
-                for (counter_t tuning_result_index=1; tuning_result_index<min( option.show_tuning_results_max,tuning_results); tuning_result_index++) {
-                    printf("...\033[0;90m"); printTuningResult(tuning_result[tuning_result_index]); printf("" COLOR_RESET "");
-                }
-            })
+            printf("\n\r" COLOR_DARK_GRAY "(iteration %1ju) - %5ju options left - selecting %5ju" COLOR_RESET " options\n",(uintmax_t)tuning_parameters.step, (uintmax_t)tuning_results,(uintmax_t)tuning_results_selected) ; 
+            printf(">> "); printTuningResult(tuning_result[0]); printf("" COLOR_RESET "");
+            for (counter_t tuning_result_index = 1; tuning_result_index < min( option.show_tuning_results_max,tuning_results); tuning_result_index++) {
+                if (tuning_result_index < tuning_results_selected) printf(">>."); else printf("...");
+                printTuningResult(tuning_result[tuning_result_index]);
+            }
         })
 
         tuning_results = tuning_results_selected;
         tuning_results_max += tuning_results;
 
         // add variations of the best results
-        tuning_results = addTuningVariations(tuning_result, tuning_results, tuning_results_selected, tuning_parameters);
-        tuning_results = joinTuningResults(tuning_result, tuning_results);
+        if (tuning_parameters.step < 8) { // allow for 2^8 = 256 variations
+            tuning_results = addTuningVariations(tuning_result, tuning_results, tuning_results_selected, tuning_parameters);
+            tuning_results = joinTuningResults(tuning_result, tuning_results);
+        }
     }
 
     // take best result
     benchmark_result_t best_result = tuning_result[0];
     free(tuning_result);
 
-    if (tuning_results_max) {
-        verbose2( { printf("\33[2K\rTuning done. Evaluated %ju options in %ju steps. Best result: ", (uintmax_t) tuning_results_max, (uintmax_t) tuning_parameters.step ); printTuningResult(best_result);} );
-    }
+    verbose2( { printf(COLOR_CLEAR_LINE "Tuning done. Evaluated %ju options in %ju steps. Best result: ", (uintmax_t) tuning_results_max, (uintmax_t) tuning_parameters.step ); printTuningResult(best_result);} );
     return best_result;
 }

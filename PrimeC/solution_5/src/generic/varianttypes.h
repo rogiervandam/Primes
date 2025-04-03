@@ -105,7 +105,10 @@
 #undef BITBUCKET_BYTEINDEX
 
 #define BITBUCKET_ELEMENTS variant_elements
-#if BITBUCKET_ELEMENTS == 16
+#if BITBUCKET_ELEMENTS == 32
+  #define BITBUCKET_BASE(pattern)      ((bitbucket_t){ pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern })
+  #define BITBUCKET_BYTEINDEX          ((bitbucket_t){ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 })
+#elif BITBUCKET_ELEMENTS == 16
   #define BITBUCKET_BASE(pattern)      ((bitbucket_t){ pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern })
   #define BITBUCKET_BYTEINDEX          ((bitbucket_t){ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 })
 #elif BITBUCKET_ELEMENTS == 8

@@ -1,4 +1,4 @@
-static void __attribute__((cold, nonnull)) 
+static void __attribute__((cold)) 
 usage(char *program_name, int exit_code) 
 {
     const char help_text[] =

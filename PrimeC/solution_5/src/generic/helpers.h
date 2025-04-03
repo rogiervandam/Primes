@@ -51,7 +51,7 @@ static inline void local_memcpy(void *dest, void *src, size_t n)
 #define COLOR_BOLD_YELLOW "\033[1;33m"
 #define COLOR_BOLD_GREEN  "\033[1;32m"
 #define COLOR_DARK_GRAY   "\033[0;90m"
-
+#define COLOR_CLEAR_LINE  "\33[2K\r"
 
 #define startAnalysis0(timer, printf_args...) verbose0(printf(printf_args);) timer_lapstart(timer); 
 #define startAnalysis1(timer, printf_args...) verbose1(printf(printf_args);) timer_lapstart(timer); 

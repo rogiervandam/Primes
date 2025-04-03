@@ -54,9 +54,9 @@ deepAnalyzeSieve(struct sieve_t *sieve)
 
 
 static inline int __attribute__((cold, nonnull)) 
-validateSieve(struct sieve_t *sieve, counter_t factor_max)
+validateSieve(struct sieve_t *sieve, const counter_t factor_max)
 {
-    counter_t prime_count = countPrimesInSieve(sieve);
+    const counter_t prime_count = countPrimesInSieve(sieve);
     counter_t valid_primes = 0;
     switch(factor_max) {
         case 10:            valid_primes = 4;         break;

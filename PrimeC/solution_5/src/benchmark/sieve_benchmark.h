@@ -1,13 +1,13 @@
-static inline benchmark_settings_t initBenchmarkSettings(counter_t threads) 
+// prepare the benchmark settings using defaults
+static inline benchmark_settings_t initBenchmarkSettings(const counter_t threads) 
 {
     benchmark_settings_t benchmark_settings = option.fixed_benchmark_settings;
     benchmark_settings.threads              = threads;
-    benchmark_settings.sample_duration      = option.time_max;
     return benchmark_settings;
 }
 
 
-// check the settings to make sure they are valid
+// check the settings to make sure they are valid, dont overlap, etc.
 static inline benchmark_settings_t checkBenchmarkSettings(benchmark_settings_t benchmark_settings) 
 {
     counter_t prime_max = prime_stop(benchmark_settings.factor_max);
@@ -32,43 +32,42 @@ static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settin
     global_stripeprime_faster = benchmark_settings.stripe_faster;
     global_largestep_faster   = benchmark_settings.largestep_faster;
     global_blocksize_bits     = benchmark_settings.blocksize_bits;
-    verbose5 ( { char settings_string[50]=""; setBenchmarkSettingAsString(settings_string, benchmark_settings); printf("Using settings " COLOR_GREEN "%s" COLOR_RESET "\n",settings_string); } )
+    verbose5 ( { setBenchmarkSettingAsString(global_settings_string, benchmark_settings); printf("Using settings " COLOR_GREEN "%s" COLOR_RESET "\n",global_settings_string); } )
 }
 
 static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
 {
-    const counter_t factor_max = benchmark_settings.factor_max;
     benchmark_settings = checkBenchmarkSettings(benchmark_settings);
     prepareBenchmarkGlobals(benchmark_settings);
+    const counter_t factor_max = benchmark_settings.factor_max;
     struct sieve_t* sieve_check = shakeSieve(factor_max);
     const int valid = validateSieve(sieve_check, factor_max);
     verbose3( if (!valid) deepAnalyzeSieve(sieve_check); )
     sieve_delete(sieve_check);
-    if (!valid) exit(1);
     return valid;
 }
 
 static inline void requestPower(void) 
 {
     #ifdef __APPLE__
-    pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
+        pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
     #elif defined(__linux__)
-    if (option.fixed_benchmark_settings.threads == 1) {
-        cpu_set_t cpuset;
-        CPU_ZERO(&cpuset);
-        CPU_SET(0, &cpuset);
-        sched_setaffinity(0, sizeof(cpu_set_t), &cpuset);
-    }   
-    // Set real-time scheduling
-    struct sched_param param;
-    param.sched_priority = sched_get_priority_max(SCHED_FIFO); // Mid-level real-time priority
-    if (sched_setscheduler(0, SCHED_FIFO, &param) != 0) {
-        // Fallback if we don't have permission
-        param.sched_priority = 0;
-        sched_setscheduler(0, SCHED_OTHER, &param);
-        int n10 = nice(-10); // Try to increase priority within normal scheduling
-        int n20 = nice(-20); // Try to increase priority within normal scheduling
-    }
+        if (option.fixed_benchmark_settings.threads == 1) {
+            cpu_set_t cpuset;
+            CPU_ZERO(&cpuset);
+            CPU_SET(0, &cpuset);
+            sched_setaffinity(0, sizeof(cpu_set_t), &cpuset);
+        }   
+        // Set real-time scheduling
+        struct sched_param param;
+        param.sched_priority = sched_get_priority_max(SCHED_FIFO); // Mid-level real-time priority
+        if (sched_setscheduler(0, SCHED_FIFO, &param) != 0) {
+            // Fallback if we don't have permission
+            param.sched_priority = 0;
+            sched_setscheduler(0, SCHED_OTHER, &param);
+            int n10 = nice(-10); // Try to increase priority within normal scheduling
+            int n20 = nice(-20); // Try to increase priority within normal scheduling
+        }
     #endif
 }
 
@@ -83,7 +82,7 @@ static inline double benchmarkTime()
     return (time.tv_sec + time.tv_nsec * 1e-9);
 }
 
-static inline void updateBenchmarkResult(benchmark_result_t *result, counter_t passes, double time_elapsed) {
+static inline void updateBenchmarkResult(benchmark_result_t *result, const counter_t passes, const double time_elapsed) {
     result->passes       += passes;
     result->elapsed_time += time_elapsed / result->settings.threads;
     result->avg           = result->passes / result->elapsed_time;

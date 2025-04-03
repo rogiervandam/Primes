@@ -33,6 +33,7 @@ function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
 
     // Process vectormasks in pairs from the cacheline
     for (; current_vector < vector_max; current_vector += 2) {
+        __builtin_prefetch(&bitstorage_vector[current_vector+step], 1, 3); // prefetch the memory that will be written soon while creating mask
         bitbucket_t mask_vector2 = (mask_vector << pattern_vectorshift_vector) | (mask_vector >> (step_shift_vector - pattern_vectorshift_vector)); 
         function(applyMask_pair,suffix)(bitstorage_vector, step, range_stop, mask_vector, mask_vector2, current_vector);
         mask_vector = (mask_vector2 << pattern_vectorshift_vector) | (mask_vector2 >> (step_shift_vector - pattern_vectorshift_vector)); 
@@ -46,7 +47,7 @@ function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
 static void __attribute__((nonnull, aligned(cache_line_bytes))) 
 function(setBitsTrue_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
-    startAnalysis6(time_setBitsTrue_smallstep_rotate_pair, "Setting bits step %3ju using smallstep%s in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps)", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
+    startAnalysis6(time_setBitsTrue_smallstep_rotate_pair, "Setting bits step %3ju using smallstep%-10s in %ju bit range (%ju-%ju) with %ju bits to set; using %ju copies of %ju bit mask", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)), (uintmax_t)bitcount_type(bitbucket_t));
 
     const counter_t range_start_nexttvector = vectorstart_type(range_start, bitbucket_t) + bitcount_type(bitbucket_t); // find next vector
     if (range_start_nexttvector + 4 * bitcount_type(bitbucket_t) > range_stop) {

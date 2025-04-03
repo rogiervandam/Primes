@@ -120,31 +120,28 @@ int main(int argc, char *argv[])
         debug_final_benchmarking = 0;
 
         // report results
-        verbose0(
-            verbose2( 
-                printf("\nResult: Passes " COLOR_YELLOW "%ju" COLOR_RESET " " COLOR_GREEN "(per %.1f seconds)" COLOR_RESET " - average " COLOR_YELLOW "%.1f" COLOR_RESET " per second using " COLOR_MAGENTA "%ju" COLOR_RESET " threads\n", 
-                (uintmax_t) benchmark_result.passes, benchmark_result.elapsed_time, benchmark_result.avg, (uintmax_t) benchmark_result.settings.threads);
-            )
+        verbose2({
+            printf("\nResult: Passes " COLOR_YELLOW "%ju" COLOR_RESET " " COLOR_GREEN "(per %.1f seconds)" COLOR_RESET " - average " COLOR_YELLOW "%.1f" COLOR_RESET " per second using " COLOR_MAGENTA "%ju" COLOR_RESET " threads\n", 
+            (uintmax_t) benchmark_result.passes, benchmark_result.elapsed_time, benchmark_result.avg, (uintmax_t) benchmark_result.settings.threads);
+
+            if (benchmark_result.settings.threads > 1) 
+            printf(  "Used " COLOR_MAGENTA "%ju" COLOR_RESET " threads. Passes per thread: " COLOR_YELLOW "%ju" COLOR_RESET " " COLOR_GREEN "(per %.1f seconds)" COLOR_RESET " - average " COLOR_YELLOW "%.1f" COLOR_RESET " per second per thread.\n", 
+                                (uintmax_t)benchmark_result.settings.threads, (uintmax_t) benchmark_result.passes / benchmark_result.settings.threads, benchmark_result.elapsed_time, benchmark_result.avg / benchmark_result.settings.threads);
+            
+            printf(COLOR_GREEN "Output message:" COLOR_RESET " \n"); 
+        })
         
-            verbose2( if (benchmark_result.settings.threads > 1) 
-                printf(  "Used " COLOR_MAGENTA "%ju" COLOR_RESET " threads. Passes per thread: " COLOR_YELLOW "%ju" COLOR_RESET " " COLOR_GREEN "(per %.1f seconds)" COLOR_RESET " - average " COLOR_YELLOW "%.1f" COLOR_RESET " per second per thread.\n", 
-                                 (uintmax_t)benchmark_result.settings.threads, (uintmax_t) benchmark_result.passes / benchmark_result.settings.threads, benchmark_result.elapsed_time, benchmark_result.avg / benchmark_result.settings.threads);
-            )
-            verbose2( printf(COLOR_GREEN "Output message:" COLOR_RESET " \n"); )
+        char extension[50] = ""; extension_as_string(extension);      
 
-            char extension[50] = ""; extension_as_string(extension);      
-            // setBenchmarkSettingAsString(settings_string, benchmark_result.settings);
+        // output the results in a format that can be parsed by the benchmarking system
+        printf("%s%s;%ju;%f;%ju;algorithm=%s,faithful=yes,bits=1",algorithm_name,extension,(uintmax_t)benchmark_result.passes,benchmark_result.elapsed_time,(uintmax_t)threads, algorithm_type);
 
-            // output the results in a format that can be parsed by the benchmarking system
-            printf("%s%s;%ju;%f;%ju;algorithm=%s,faithful=yes,bits=1",algorithm_name,extension,(uintmax_t)benchmark_result.passes,benchmark_result.elapsed_time,(uintmax_t)threads, algorithm_type);
-
-            // add extra information to the output for research purposes
-            verbose1( { 
-                if (dockerfile_type) printf(";docker=" COLOR_BLUE "%s" COLOR_RESET "",dockerfile_type);
-                printf(";" COLOR_GREEN "%s" COLOR_RESET " total " COLOR_YELLOW "%ju" COLOR_RESET "",settings_string, (uintmax_t)benchmark_result.passes); 
-            } ) 
-            printf("\n");
-        )
+        // add extra information to the output for research purposes
+        verbose1( { 
+            if (dockerfile_type) printf(";docker=" COLOR_BLUE "%s" COLOR_RESET "",dockerfile_type);
+            printf(";" COLOR_GREEN "%s" COLOR_RESET " total " COLOR_YELLOW "%ju" COLOR_RESET "",settings_string, (uintmax_t)benchmark_result.passes); 
+        } ) 
+        printf("\n");
     }
 
     // show results for --show command line option
