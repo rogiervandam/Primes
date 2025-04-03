@@ -8,9 +8,7 @@ static inline void __attribute__((always_inline, nonnull, aligned(cache_line_byt
 setBitsTrue_smallstep_repeat_base(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     const counter_t range_stop_unique = range_start + bitcount_type(bitbucket_t) * step;
-
-    verbose6( printf("Setting bits step %3ju using smallstep%s in %ju bit range (%ju-%ju) (%ju repeating occurances)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(step*bitcount_type(bitbucket_t)))); )
-    timer_lapstart(time_setBitsTrue_smallstep_repeat);
+    startAnalysis6(time_setBitsTrue_smallstep_repeat, "Setting bits step %3ju using smallstep%s in %ju bit range (%ju-%ju) (%ju repeating occurances)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(step*bitcount_type(bitbucket_t))));
 
     for (register counter_t index = range_start; index <= range_stop_unique;) {
         const counter_t index_bucket = index_type(index, bitbucket_t); // set index_word here because the for loop will change index
@@ -21,7 +19,7 @@ setBitsTrue_smallstep_repeat_base(void* restrict bitstorage, const counter_t ran
         }
     }
 
-    timer_laptime(time_setBitsTrue_smallstep_repeat); verbose6( printf("\n"); )
+    endAnalysis6(time_setBitsTrue_smallstep_repeat,"\n");
 }
 
 // Small steps (< WORD_SIZE) could be within the same word (e.g. less than 64 bits apart).
@@ -30,8 +28,7 @@ setBitsTrue_smallstep_repeat_base(void* restrict bitstorage, const counter_t ran
 static inline void  __attribute__((always_inline, nonnull)) 
 setBitsTrue_smallstep_norepeat(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
-    verbose6( printf("Setting bits step %3ju using smallstep%s in %ju bit range (%ju-%ju)  (%ju unique occurances)", (uintmax_t)step, STR(suffix),  (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step)); )
-    timer_lapstart(time_setBitsTrue_smallstep_norepeat);
+    startAnalysis6(time_setBitsTrue_smallstep_norepeat, "Setting bits step %3ju using smallstep%s in %ju bit range (%ju-%ju)  (%ju unique occurances)", (uintmax_t)step, STR(suffix),  (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
 
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
 
@@ -41,15 +38,15 @@ setBitsTrue_smallstep_norepeat(void* restrict bitstorage, const counter_t range_
         for(; index_type(index, bitbucket_t) == index_bucket; index += step) mask |= markmask_type(index, bitbucket_t);
         bitstorage_sized[index_bucket] |= mask;
     }
-    timer_laptime(time_setBitsTrue_smallstep_norepeat); verbose6( printf("\n"); )
+
+    endAnalysis6(time_setBitsTrue_smallstep_norepeat,"\n");
 }
 #undef bitbucket_t
 
 static inline void  __attribute__((always_inline, nonnull)) 
 setBitsTrue_base(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
-    verbose6(  printf("Setting bits step %3ju using setBitsTrue_base in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps) \n", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step))); )
-    timer_lapstart(time_setBitsTrue);
+    startAnalysis6(time_setBitsTrue, "Setting bits step %3ju using setBitsTrue_base in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps)\n", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step)));
 
     if (step < bitcount_type(uint64_t) /2) {
         const counter_t range_stop_unique_word = range_start + bitcount_type(uint64_t) * step; 
@@ -77,5 +74,5 @@ setBitsTrue_base(void* restrict bitstorage, const counter_t range_start, const c
 
     setBitsTrue_largestep_norepeat_uint8(bitstorage, range_start, step, range_stop);
 
-    timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
+    endAnalysis6(time_setBitsTrue);
 }

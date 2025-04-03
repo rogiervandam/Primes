@@ -15,6 +15,7 @@ double timer_time[timer_count];
 #define time_setBitsTrue_smallstep_rotate_pair 3
 #define time_create_mask_vector_largestep 4
 #define time_applyMask 5
+#define time_applyMask_pair 6
 #define time_setBitsTrue_smallstep_repeat 10
 #define time_setBitsTrue_smallstep_norepeat 11
 #define time_setBitsTrue_largestep_repeat 12
@@ -40,6 +41,7 @@ static const char* timer_function_names[100] = {
     [time_setBitsTrue_smallstep_rotate_pair] = "setBitsTrue_smallstep_rotate_pair",
     [time_create_mask_vector_largestep] = "create_mask_vector_largestep",
     [time_applyMask] = "applyMask",
+    [time_applyMask_pair] = "applyMask_pair",
     [time_setBitsTrue_largestep_repeat] = "setBitsTrue_largestep_repeat",
     [time_setBitsTrue_largestep_norepeat] = "setBitsTrue_largestep_norepeat",
     [time_setBitsTrue_smallstep_repeat] = "setBitsTrue_smallstep_repeat",
@@ -59,14 +61,9 @@ static const char* timer_function_names[100] = {
     [time_sieve_block_extend] = "sieve_block_extend",
   };
 
-// static inline double time_mark() {
-//     struct timespec t;
-//     clock_gettime(CLOCK_UPTIME_RAW, &t);
-//     return t;
-//     // return (t.tv_sec + t.tv_nsec * 1e-9) ;
-// //    return (double)clock();
-// }
-static inline void time_mark(struct timespec* timer) {
+
+static inline void __attribute__((always_inline, hot))
+time_mark(struct timespec* timer) {
     #ifdef __APPLE__
         clock_gettime(CLOCK_MONOTONIC_RAW, timer);
     #else
@@ -80,12 +77,6 @@ static inline void time_mark(struct timespec* timer) {
 static void timer_laptime_function(counter_t timer) {
     struct timespec lapend;
     time_mark(&lapend);
-
-    // printf("\nlapstart tv_sec: %ld, lapstart.tv_nsec: %ld\n", timer_timers[timer].tv_sec, timer_timers[timer].tv_nsec);
-    // printf(  "lapend  .tv_sec: %ld, lapend.  tv_nsec: %ld\n", lapend.tv_sec, lapend.tv_nsec);
-
-    // const double timer_lap = time_mark();
-    // const double elapsed_time_s = timer_lap - timer_timers[timer];
     double elapsed_time = (lapend.tv_sec - timer_timers[timer].tv_sec) * 1e9 + (lapend.tv_nsec - timer_timers[timer].tv_nsec);
     timer_time[timer] += elapsed_time;
     timer_hits[timer]++;
@@ -103,7 +94,6 @@ static void timer_laptime_function(counter_t timer) {
 static void timer_init() {
     for (counter_t i = 0; i < timer_count; i++) timer_hits[i] = 0;
     for (counter_t i = 0; i < timer_count; i++) timer_time[i] = 0;
-
 }
 
 static void print_timing_table(void) {
@@ -115,10 +105,8 @@ static void print_timing_table(void) {
 }
 
 #else
-
-#define timer_lapstart(timer) 
-#define timer_laptime(timer) 
-
+    #define timer_lapstart(timer) 
+    #define timer_laptime(timer) 
 #endif
 
   

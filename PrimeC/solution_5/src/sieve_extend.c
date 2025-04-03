@@ -47,6 +47,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 
     switch (strategy) {
         case 1: // use extend for the entire sieve
+        {
             // fill the entire sieve for lower primes by adding en copying incrementally
             counter_t prime = extendSieveBlock0(sieve->bitstorage, sieve_bits);
             
@@ -58,16 +59,19 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
             // process the sieve and stripe all the multiples of primes > start_prime
             // do this block by block to minimize cache misses
             stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, prime, prime_max);
-            break;
+        }
+        break;
 
-        case 2: // use extend blockwise 
+        case 2: // use extend blockwise and with different blcoksize for stipe vs extend
+        {
             counter_t prime_next = extendSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, stripeprime_faster);
 
             // in the sieve all bits for the multiples of primes up to startprime have been set
             // process the sieve and stripe all the multiples of primes > start_prime
             // do this block by block to minimize cache misses
             stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits/2, prime_next, prime_max);
-            break;
+        }
+        break;
     }
 
     // return the completed sieve

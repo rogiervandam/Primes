@@ -1,8 +1,7 @@
 static inline counter_t __attribute__((always_inline, hot, nonnull)) 
 continuePattern_shiftleft_unrolled(void* restrict bitstorage, const counter_t aligned_copy_word, const bitshift_t shift, counter_t copy_word, counter_t source_word) 
 {
-    verbose7( printf("...continuePattern_shiftleft_unrolled with aligned copy word %ju, shift %ju, copy_word %ju, source_word %ju..", (uintmax_t)aligned_copy_word, (uintmax_t)shift, (uintmax_t)copy_word, (uintmax_t)source_word); )
-    timer_lapstart(time_continuePattern_shiftleft_unrolled);
+    startAnalysis7(time_continuePattern_shiftleft_unrolled, "...continuePattern_shiftleft_unrolled with aligned copy word %ju, shift %ju, copy_word %ju, source_word %ju..", (uintmax_t)aligned_copy_word, (uintmax_t)shift, (uintmax_t)copy_word, (uintmax_t)source_word);
 
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     const counter_t fast_loop_stop_word = safe_diff_type(aligned_copy_word, 2, counter_t); // safe for signed ints
@@ -68,7 +67,7 @@ static inline void __attribute__((always_inline)) continuePattern_shiftleft(void
     for (;copy_word <= destination_stop_word; copy_word++, source_word++)
         bitstorage_sized[copy_word] = bitstorage_sized[source_word];
 
-    timer_laptime(time_continuePattern_shiftleft); verbose7( printf("\n"); )
+    endAnalysis7(time_continuePattern_shiftleft,"\n");
 }
 
 

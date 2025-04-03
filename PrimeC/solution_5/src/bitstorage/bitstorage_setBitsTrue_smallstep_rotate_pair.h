@@ -1,6 +1,6 @@
 #include "../generic/setsuffix.h"
 static inline void __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
-NAME(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
     register bitbucket_t* restrict bitstorage_vector = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     __builtin_prefetch(&bitstorage_vector[index_type(range_start, bitbucket_t)], 1, 3); // prefetch the memory that will be written soon while creating mask
@@ -34,20 +34,19 @@ NAME(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const 
     // Process vectormasks in pairs from the cacheline
     for (; current_vector < vector_max; current_vector += 2) {
         bitbucket_t mask_vector2 = (mask_vector << pattern_vectorshift_vector) | (mask_vector >> (step_shift_vector - pattern_vectorshift_vector)); 
-        NAME(applyMask_pair,suffix)(bitstorage_vector, step, range_stop, mask_vector, mask_vector2, current_vector);
+        function(applyMask_pair,suffix)(bitstorage_vector, step, range_stop, mask_vector, mask_vector2, current_vector);
         mask_vector = (mask_vector2 << pattern_vectorshift_vector) | (mask_vector2 >> (step_shift_vector - pattern_vectorshift_vector)); 
     }
 
     // Process the last vectormask if needed
-    NAME(applyMask,suffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
+    function(applyMask,suffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
 }
 
 // static inline void __attribute__((always_inline, nonnull)) 
 static void __attribute__((nonnull, aligned(cache_line_bytes))) 
-NAME(setBitsTrue_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+function(setBitsTrue_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
-    verbose6(  printf("Setting bits step %3ju using smallstep%s in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps)", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step))); )
-    timer_lapstart(time_setBitsTrue_smallstep_rotate_pair);
+    startAnalysis6(time_setBitsTrue_smallstep_rotate_pair, "Setting bits step %3ju using smallstep%s in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps)", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
 
     const counter_t range_start_nexttvector = vectorstart_type(range_start, bitbucket_t) + bitcount_type(bitbucket_t); // find next vector
     if (range_start_nexttvector + 4 * bitcount_type(bitbucket_t) > range_stop) {
@@ -57,9 +56,9 @@ NAME(setBitsTrue_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const 
     }
 
     const counter_t range_start_new = setBitsTrue_range_return(bitstorage, range_start, step, range_start_nexttvector);
-    NAME(create_mask_smallstep_rotate_pair,suffix)(bitstorage, range_start_new, step, range_stop);
+    function(create_mask_smallstep_rotate_pair,suffix)(bitstorage, range_start_new, step, range_stop);
 
-    timer_laptime(time_setBitsTrue_smallstep_rotate_pair); verbose6( printf("\n"); )
+    endAnalysis6(time_setBitsTrue_smallstep_rotate_pair,"\n");
 }
 
 #include "../generic/cleansuffix.h"

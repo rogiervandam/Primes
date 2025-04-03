@@ -24,7 +24,7 @@ NAME(countInvalidInStripe,suffix)(const void* restrict bitstorage, const counter
 {
     counter_t count = 0;
     for (counter_t index = range_start; index < range_stop; index += step) {
-        count += checkBitFalse(bitstorage, index) ? 1 : 0;
+        if (checkBitFalse(bitstorage, index)) count++;
     }
     return count;
 }
@@ -58,14 +58,13 @@ NAME(faultInvalidInStripe,suffix)(const void* restrict bitstorage, const counter
 static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
 NAME(searchBitFalse,suffix)(void* restrict bitstorage, register counter_t index) 
 {
-    verbose8( printf("searchBitFalse from prime %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1); )
-    timer_lapstart(time_searchBitFalse);
+    startAnalysis8(time_searchBitFalse, "searchBitFalse from prime %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1);
 
     #pragma GCC ivdep
     #pragma GCC unroll 4
     for (;checkBitTrue(bitstorage, ++index);)
 
-    timer_laptime(time_searchBitFalse); verbose8( printf(" next prime %ju (step %ju)\n", (uintmax_t) index, (uintmax_t)index*2+1); )
+    endAnalysis8(time_searchBitFalse, " next prime %ju (step %ju)\n", (uintmax_t) index, (uintmax_t)index*2+1);
     return index;
 }
 
@@ -75,8 +74,7 @@ NAME(searchBitFalse,suffix)(void* restrict bitstorage, register counter_t index)
 static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
 NAME(searchBitFalse_largestep,suffix)(const void* restrict bitstorage, register counter_t index) 
 {
-    verbose8( printf("searchBitFalse_largestep from %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1); )
-    timer_lapstart(time_searchBitFalse_largestep);
+    startAnalysis8(time_searchBitFalse_largestep, "searchBitFalse_largestep from prime %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1);
 
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
 
@@ -103,16 +101,15 @@ NAME(searchBitFalse_largestep,suffix)(const void* restrict bitstorage, register 
         index += bitcount_type(bitbucket_t);
     }
 
-    timer_laptime(time_searchBitFalse_largestep); verbose8( printf(" next prime %ju (step %ju)\n", (uintmax_t) (index + builtin_ctz(~current_word)), (uintmax_t)(index + builtin_ctz(~current_word))*2+1));
+    endAnalysis8(time_searchBitFalse_largestep, " next prime %ju (step %ju)\n", (uintmax_t) (index + builtin_ctz(~current_word)), (uintmax_t)(index + builtin_ctz(~current_word))*2+1);
 
     // Note: ~current_word inverts the bits so we find first 0 instead of 1
     return index + builtin_ctz(~current_word);
 }
 
-// #undef bitbucket_t
-
 #include "../generic/cleansuffix.h"
 
+// make explicit versions for all types with different suffixes for different bitbucket_t sizes
 #ifndef BITSTORAGE_SEARCH_INCLUDE_GUARD
     #define BITSTORAGE_SEARCH_INCLUDE_GUARD
     #define variant uint8

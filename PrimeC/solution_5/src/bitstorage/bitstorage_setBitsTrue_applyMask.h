@@ -3,8 +3,7 @@
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
 NAME(applyMask,suffix)(void* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitbucket_t mask, counter_t index_vector) 
 {
-    verbose8( printf("Applying " ##bitbucket_t " mask with step %ju in range until %ju", (uintmax_t)step, (uintmax_t)range_stop); )
-    timer_lapstart(time_applyMask);
+    startAnalysis8(time_applyMask, "\nApplying %s mask with step %ju in range until %ju", STR(bitbucket_t), (uintmax_t)step, (uintmax_t)range_stop);
   
     register const counter_t step_max                   = step * unrolls;
     register bitbucket_t* restrict bitstorage_sized     = __builtin_assume_aligned(bitstorage, cache_line_bytes);
@@ -56,7 +55,7 @@ NAME(applyMask,suffix)(void* restrict bitstorage, const counter_t step, const co
         *index_ptr |= mask; 
     }
 
-    timer_laptime(time_applyMask); verbose8( printf("\n"); )
+    endAnalysis8(time_applyMask);
 }
 
 #include "../generic/cleansuffix.h"

@@ -1,8 +1,7 @@
 static inline void __attribute__((always_inline, hot, nonnull)) 
 continuePattern_smallSize(void* restrict bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
 {
-    verbose7( printf("Continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_smallSize (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size)); )
-    timer_lapstart(time_continuePattern_smallSize);
+    startAnalysis7(time_continuePattern_smallSize, "Continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_smallSize (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
 
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
 
@@ -36,9 +35,9 @@ continuePattern_smallSize(void* restrict bitstorage, const counter_t source_star
     
     #pragma GCC ivdep
     for (counter_t i=0; i<=loop_range; ++i ) {
-        bitstorage_sized[destination_start_word+i] = (pattern << (pattern_size - ((shift+i*pattern_shift) & mask_type(bitbucket_t))  ) ) 
-                                                   | (pattern >> ((shift+i*pattern_shift) & mask_type(bitbucket_t)));
+        bitstorage_sized[destination_start_word+i] = (pattern << (pattern_size - ((shift+i*pattern_shift) & mask_type(bitbucket_t)))) 
+                                                   | (pattern >>                 ((shift+i*pattern_shift) & mask_type(bitbucket_t)));
     }
     // bitstorage[destination_stop_word] &= chopmask(destination_stop); // not needed with appropriate block_size
-    timer_laptime(time_continuePattern_smallSize); verbose7( printf("\n"); )
+    endAnalysis7(time_continuePattern_smallSize,"\n");
 }

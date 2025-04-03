@@ -2,8 +2,7 @@
 static inline void  __attribute__((always_inline, hot, nonnull)) 
 continuePattern_shiftright(void* restrict bitstorage, const counter_t source_start, const counter_t size_bits, const counter_t destination_stop)
 {
-    verbose7( printf("Extending sieve size %ju in %ju bit range (%ju-%ju) using continuePattern_shiftright (%ju copies)", (uintmax_t)size_bits, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size_bits)); )
-    timer_lapstart(time_continuePattern_shiftright);
+    startAnalysis7(time_continuePattern_shiftright, "Extending sieve size %ju in %ju bit range (%ju-%ju) using continuePattern_shiftright (%ju copies)", (uintmax_t)size_bits, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size_bits));
 
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
 
@@ -77,5 +76,5 @@ continuePattern_shiftright(void* restrict bitstorage, const counter_t source_sta
     size_t memcpy_size = destination_stop_byte - copy_byte;
     memcpy(copy_byte, source_byte, memcpy_size);
 
-    timer_laptime(time_continuePattern_shiftright); verbose7( printf("\n"); )
+    endAnalysis7(time_continuePattern_shiftright,"\n");
 }

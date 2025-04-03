@@ -1,10 +1,9 @@
 #include "../generic/setsuffix.h"
 
 static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes)))
-NAME(applyMask_pair,suffix)(void* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitbucket_t mask1, const bitbucket_t mask2, counter_t index_vector) 
+function(applyMask_pair,suffix)(void* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitbucket_t mask1, const bitbucket_t mask2, counter_t index_vector) 
 {
-    verbose8( printf("Applying " ##bitbucket_t " mask with step %ju in range until %ju", (uintmax_t)step, (uintmax_t)range_stop); )
-    timer_lapstart(time_applyMask);
+    startAnalysis8(time_applyMask_pair, "\nApplying %s mask in pairs with step %ju in range until %ju", STR(bitbucket_t), (uintmax_t)step, (uintmax_t)range_stop);
 
     register const counter_t step_max                     = step * unrolls;
     register const bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
@@ -60,7 +59,8 @@ NAME(applyMask_pair,suffix)(void* restrict bitstorage, const counter_t step, con
     if (index_ptr == range_stop_ptr) {
         *index_ptr     |= mask1; 
     }
-    timer_laptime(time_applyMask); verbose8( printf("\n"); )
+
+    endAnalysis8(time_applyMask_pair);
 }
 
 #include "../generic/cleansuffix.h"
