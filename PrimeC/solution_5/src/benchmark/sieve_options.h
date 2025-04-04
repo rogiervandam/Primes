@@ -45,9 +45,9 @@ setDefaultOptions()
 
     option.check                      = 1; // set to 2 to stop after the check algorithm
     option.tunelevel                  = 1;
-    option.initial_sample_duration    = 0.004;
-    option.next_sample_duration       = 0.008;
-    option.tune_duration_max          = 15.0;
+    option.initial_sample_duration    = 0.002;
+    option.next_sample_duration       = 0.004;
+    option.tune_duration_max          = 5.0;
     option.tune_keeppercent_longlist  = 10;
     option.tune_keeppercent_shortlist = 60;
 

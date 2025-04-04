@@ -1,34 +1,34 @@
-#include "../benchmark/sieve_check.h"
-#include "../benchmark/sieve_benchmark.h"
+#include "sieve_check.h"
+#include "sieve_benchmark.h"
 
 #ifdef COMPILE_EXPLAIN
-#include "../benchmark/sieve_explain.h"
+#include "sieve_explain.h"
 #endif
 
 #ifdef COMPILE_CHECK_STRIPERS
-#include "../benchmark/sieve_check_functions.h"
+#include "sieve_checkFunctions.h"
 #endif
 
 #ifdef COMPILE_BENCHMARK_STRIPERS
-#include "../benchmark/sieve_benchmark_functions.h"
+#include "sieve_benchmarkFunctions.h"
 #endif
 
 #ifdef COMPILE_TUNE
-#include "../benchmark/sieve_tune.h"
+#include "sieve_tune.h"
 #endif
 
-#include "../benchmark/sieve_validate.h"
-#include "../benchmark/sieve_usage.h"
-#include "../benchmark/sieve_parse_commandline.h"
+#include "sieve_validate.h"
+#include "sieve_usage.h"
+#include "sieve_parseCommandline.h"
 
 
 static inline char* __attribute__((cold, nonnull, returns_nonnull)) 
 extension_as_string(char* extension) 
 {
     #ifdef _OPENMP
-    verbose0( snprintf(extension,50,"_epar-c%s", TYPE_SHORT_NAME(counter_t)); )
+    return "_epar";
     #else
-    verbose0( snprintf(extension,50,"-c%s",      TYPE_SHORT_NAME(counter_t)); )
+    return "";
     #endif
     return extension;
 }
@@ -97,24 +97,29 @@ int main(int argc, char *argv[])
             benchmark_settings = checkBenchmarkSettings(benchmark_settings);
         #endif
 
-        // encode settings for reporting
-        verbose0( char settings_string[50]=""; setBenchmarkSettingAsString(settings_string, benchmark_settings); )
-
         // one last check to make sure this is a valid algorithm for these settings
         debug_final_plan = 1; // allow to count something in only one run
-        if (!checkSieveWithBenchmarkSettings(benchmark_settings)) { verbose1( fprintf(stderr, "The sieve is " COLOR_RED "NOT" COLOR_RESET " valid for settings %s with factor %ju\n", settings_string, (uintmax_t) benchmark_settings.factor_max) ); return 1; } 
-        else { verbose2(  printf("Verified that algortihm with settings %s and max %ju is " COLOR_GREEN "valid" COLOR_RESET ".\n", settings_string, (uintmax_t) benchmark_settings.factor_max); ) }
+        setBenchmarkSettingAsString(global_settings_string, benchmark_settings);
+        if (!checkSieveWithBenchmarkSettings(benchmark_settings)) { 
+            verbose1( fprintf(stderr, "The sieve is " COLOR_RED "NOT" COLOR_RESET " valid for settings %s with factor %ju\n", global_settings_string, (uintmax_t) benchmark_settings.factor_max) ); 
+            return 1; 
+        } 
+        else { verbose2({ setBenchmarkSettingAsString(global_settings_string, benchmark_settings); 
+            printf("Verified that algortihm with settings %s and max %ju is " COLOR_GREEN "valid" COLOR_RESET ".\n", global_settings_string, (uintmax_t) benchmark_settings.factor_max); 
+        })}
         debug_final_plan = 0;
     
-        // warm up the cache
+        // warm up the cache for 3 seconds
         verbose2( printf("Warming up the cache and processing units\n"); )	
         benchmark_settings_t final_tuning_settings = benchmark_settings;
         final_tuning_settings.sample_duration = 3;
         benchmark(final_tuning_settings);
 
         // perform benchmark -> outputs passes, elapsed time and avg in result 
-        verbose2( { printf("Benchmarking with settings: " COLOR_GREEN "%s" COLOR_RESET " (stripeprime, largestep, blocksize, wordsize, vectorsize) and " COLOR_GREEN "%ju" COLOR_RESET " threads for " COLOR_GREEN "%.1f" COLOR_RESET " seconds\nResults: " COLOR_BLINK "(wait " COLOR_GREEN "%.1lf" COLOR_RESET " seconds)" COLOR_BLINK_OFF "...", 
-            settings_string,(uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
+        verbose2({ 
+            setBenchmarkSettingAsString(global_settings_string, benchmark_settings);
+            printf("Benchmarking with settings: " COLOR_GREEN "%s" COLOR_RESET " (stripeprime, largestep, blocksize) and " COLOR_GREEN "%ju" COLOR_RESET " threads for " COLOR_GREEN "%.1f" COLOR_RESET " seconds\nResults: " COLOR_BLINK "(wait " COLOR_GREEN "%.1lf" COLOR_RESET " seconds)" COLOR_BLINK_OFF "...", 
+            global_settings_string,(uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
         })
         debug_final_benchmarking = 1; // allow to count something in the final benchmark runs
         benchmark_result_t benchmark_result = benchmark(benchmark_settings);
@@ -140,7 +145,8 @@ int main(int argc, char *argv[])
         // add extra information to the output for research purposes
         verbose1( { 
             if (dockerfile_type) printf(";docker=" COLOR_BLUE "%s" COLOR_RESET "",dockerfile_type);
-            printf(";" COLOR_GREEN "%s" COLOR_RESET " total " COLOR_YELLOW "%ju" COLOR_RESET "",settings_string, (uintmax_t)benchmark_result.passes); 
+            setBenchmarkSettingAsString(global_settings_string, benchmark_settings);
+            printf(";" COLOR_GREEN "%s" COLOR_RESET " total " COLOR_YELLOW "%ju" COLOR_RESET "",global_settings_string, (uintmax_t)benchmark_result.passes); 
         } ) 
         printf("\n");
     }

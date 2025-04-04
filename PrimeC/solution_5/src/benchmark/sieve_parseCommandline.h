@@ -116,17 +116,17 @@ parseCommandLine(int argc, char *argv[])
             parse_double_arg(argv[arg], &option.fixed_benchmark_settings.sample_duration, program_name, "Invalid max time");
             verbose2(printf("Max time is set to %f seconds\n", option.fixed_benchmark_settings.sample_duration));
         }
-        else if (strcmp_local(argv[arg], "--show")==0) {
+        else if (strcmp_local(argv[arg], "--show")) {
             ensure_next_arg(++arg, argc, program_name, "show maximum");
             parse_int_arg(argv[arg], &option.show_explain_factor_max, option.fixed_benchmark_settings.factor_max, program_name, "Invalid show maximum");
             verbose2(printf("Show maximum set to %ju\n", (uintmax_t)option.show_explain_factor_max));
         }
         else if (strcmp_local(argv[arg], "--max")) {
-            ensure_next_arg(++arg, argc, program_name, "show maximum");
+            ensure_next_arg(++arg, argc, program_name, "sieve maximum");
             parse_int_arg(argv[arg], &option.fixed_benchmark_settings.factor_max, COUNTER_T_MAX_VALUE, program_name, "Invalid sieve maximum");
             verbose2(printf("Maximum set to %ju\n", (uintmax_t)option.fixed_benchmark_settings.factor_max));
         }
-        else if (strcmp_local(argv[arg], "--set")==0) {
+        else if (strcmp_local(argv[arg], "--set")) {
             arg++;
             ensure_next_arg(arg, argc, program_name, "settings for --set");
             

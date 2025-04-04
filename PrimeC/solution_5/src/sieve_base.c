@@ -36,7 +36,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 
     // use globals as constant
     const counter_t stripeprime_faster = global_stripeprime_faster;
-    const counter_t blocksize_bits = global_blocksize_bits;
+    const counter_t blocksize_bits     = global_blocksize_bits;
     
     verbose5(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)blocksize_bits); )
 

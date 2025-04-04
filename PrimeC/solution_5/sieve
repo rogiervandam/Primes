@@ -6,6 +6,7 @@ OS="$(uname -s)"
 # Initialize compiler override variable
 COMPILER_OVERRIDE=""
 RUNALL=""
+COMPILE=""
 
 # Process arguments to check for compiler override
 ARGS_TO_KEEP=()
@@ -20,6 +21,10 @@ for arg in "$@"; do
         COMPILER_ASM="asm"
     elif [ "$arg" = "runall" ]; then
         RUNALL="runall"
+    elif [ "$arg" = "compile" ]; then
+        COMPILE="compile"
+    elif [ "$arg" = "compileall" ]; then
+        COMPILE="compileall"
     else
         ARGS_TO_KEEP+=("$arg")
     fi
@@ -32,6 +37,14 @@ if [ "$RUNALL" = "runall" ]; then
     for base in sieve_classic sieve_base sieve_extend; do
         $0 $base "$@"
         $0 $base "--threads all" "$@"
+    done
+    exit 0
+fi
+
+if [ "$COMPILE" = "compileall" ]; then
+    for base in sieve_classic sieve_base sieve_extend; do
+        $0 $base "compile" "$@"
+        $0 $base "compile" "--threads all" "$@"
     done
     exit 0
 fi
@@ -369,7 +382,10 @@ if [ $? -ne 0 ]; then
 fi
 $STRIP ./bin/$PROGTOTALPAR
 
-# while true; do
+if [ "$COMPILE" = "compile" ]; then
+    exit 0; # stop here
+fi
+
 if [ $threads -gt 0 ]; then
     if [ $verbose_level -gt 1 ]; then
         echo "Running parallel version: ./bin/$PROGTOTALPAR $run_args $@"
