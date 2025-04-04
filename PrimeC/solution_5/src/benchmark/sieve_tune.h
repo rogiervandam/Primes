@@ -279,7 +279,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
         })
 
         tuning_results = tuning_results_selected;
-        tuning_results_max += tuning_results;
+        verbose2( tuning_results_max += tuning_results; )
 
         // Add variations of the best results
         if (tuning_parameters.step < 8) { // allow for 2^8 = 256 variations

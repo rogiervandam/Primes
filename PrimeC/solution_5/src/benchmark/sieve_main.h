@@ -21,7 +21,6 @@
 #include "sieve_usage.h"
 #include "sieve_parseCommandline.h"
 
-
 static inline char* __attribute__((cold, nonnull, returns_nonnull)) 
 extension_as_string(char* extension) 
 {
@@ -35,9 +34,7 @@ extension_as_string(char* extension)
 
 int main(int argc, char *argv[]) 
 {
-    setbuf(stdout, NULL); // prevent buffering of stdout
-    const char *dockerfile_type = getenv("DOCKERFILE_TYPE"); 
-
+    verbose1( setbuf(stdout, NULL); ) // prevent buffering of stdout
     setDefaultOptions();
     parseCommandLine(argc, argv);
 
@@ -45,7 +42,7 @@ int main(int argc, char *argv[])
                        "Find all primes up to " COLOR_YELLOW "%ju" COLOR_RESET 
                        " using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)\n", (uintmax_t)option.fixed_benchmark_settings.factor_max);})
     verbose2( { printf("\nRunning sieve variant " COLOR_YELLOW "%s" COLOR_RESET "%s" COLOR_BLUE "%s" COLOR_RESET " with max %ju\n" , 
-                  algorithm_name, (dockerfile_type ? " in docker " : ""), (dockerfile_type ? dockerfile_type : ""), (uintmax_t)option.fixed_benchmark_settings.factor_max); })
+                  algorithm_name, (option.dockerfile_type ? " in docker " : ""), (option.dockerfile_type ? option.dockerfile_type : ""), (uintmax_t)option.fixed_benchmark_settings.factor_max); })
 
     #ifdef COMPILE_EXPLAIN
     if (option.explain >= 1) {
@@ -144,7 +141,7 @@ int main(int argc, char *argv[])
 
         // add extra information to the output for research purposes
         verbose1( { 
-            if (dockerfile_type) printf(";docker=" COLOR_BLUE "%s" COLOR_RESET "",dockerfile_type);
+            if (option.dockerfile_type) printf(";docker=" COLOR_BLUE "%s" COLOR_RESET "",option.dockerfile_type);
             setBenchmarkSettingAsString(global_settings_string, benchmark_settings);
             printf(";" COLOR_GREEN "%s" COLOR_RESET " total " COLOR_YELLOW "%ju" COLOR_RESET "",global_settings_string, (uintmax_t)benchmark_result.passes); 
         } ) 

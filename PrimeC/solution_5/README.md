@@ -77,7 +77,7 @@ To run with Docker take the following steps:
 Or do it all in one go:
 
 ```bash
-docker build --pull --rm -f "Dockerfile" -t c:latest .; docker run c:latest 
+docker build --pull --rm -f "Dockerfile" -t c:latest .
 docker run --rm --cpuset-cpus="0" --cpu-shares=1024 c:latest 
 ```
 

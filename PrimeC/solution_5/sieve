@@ -32,23 +32,20 @@ done
 # Replace arguments with the filtered list
 set -- "${ARGS_TO_KEEP[@]}"
 
-# running the full benchmark set
-if [ "$RUNALL" = "runall" ]; then
-    for base in sieve_classic sieve_base sieve_extend; do
-        $0 $base "$@"
-        $0 $base "--threads all" "$@"
-    done
-    exit 0
-fi
-
 if [ "$COMPILE" = "compileall" ]; then
     for base in sieve_classic sieve_base sieve_extend; do
         $0 $base "compile" "$@"
-        $0 $base "compile" "--threads all" "$@"
+    done
+fi
+
+# running the full benchmark set
+if [ "$RUNALL" = "runall" ]; then
+    for base in sieve_extend sieve_base sieve_classic; do
+        bin/${base} "$@"
+        bin/${base}_epar --threads all "$@"
     done
     exit 0
 fi
-
 
 STRIP="strip"
 PAREXT="_epar"
@@ -159,7 +156,10 @@ fi
 # Add default verbose arguments if not explicitly specified
 run_args=""
 
-# if running in docker and environment variable DOCKERFILE_TYPE is not set, set verbose level to 0 and runall
+# Detect doing the full benchmark: 
+# - running in docker container
+# - and environment variable DOCKERFILE_TYPE is not set
+# Then: set verbose level to 0 and runall
 if [ -z "$DOCKERFILE_TYPE" ] && [ -f /.dockerenv ] && [ $verbose_level -eq 10 ]; then
     $0 runall "$@" --verbose 0
     exit 0
@@ -212,12 +212,7 @@ if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
             cat "$DOCKERFILE" > "$DOCKERFILE_FULL"
             echo "" >> "$DOCKERFILE_FULL"
             cat "./dev/docker/Dockerfile_common" >> "$DOCKERFILE_FULL"
-            docker build --pull --file "$DOCKERFILE_FULL" --rm -t "sieve_$DOCKER_TYPE" . 2> ./dev/build/docker_sieve_${DOCKER_TYPE}_build.log
-            if [ $? -ne 0 ]; then
-                echo "Error: Docker build failed."
-                exit 1
-            fi
-            
+
             # Check if third argument is "set" to copy Dockerfile to main folder
             if [ $# -gt 2 ] && [ "$3" = "set" ]; then
                 # Copy the Dockerfile to the main folder
@@ -229,6 +224,13 @@ if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
                 # Original behavior: shift past the first two arguments only
                 shift 2
             fi
+
+            docker build --pull --file "$DOCKERFILE_FULL" --rm -t "sieve_$DOCKER_TYPE" . 2> ./dev/build/docker_sieve_${DOCKER_TYPE}_build.log
+            if [ $? -ne 0 ]; then
+                echo "Error: Docker build failed."
+                exit 1
+            fi
+            
             
             # Run the Docker container with any remaining arguments
             if [ $verbose_level -gt 1 ]; then
@@ -340,7 +342,6 @@ elif [ "$COMPILER" = "gcc" ] || [ "$COMPILER" = "gcc-14" ]; then
     echo "Using compiler: $COMPILER_NAME"
     CCASM="$COMPILER_NAME $CC -S -g -Wno-psabi -masm=intel -fverbose-asm -Wextra -fopt-info-vec-all=vec_report.txt" # -mavx
     CC="$COMPILER_NAME $CC -Ofast -Wno-psabi -fwhole-program -flto -I/usr/lib/gcc/x86_64-linux-gnu/14/include/" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
-    echo "At 1 Using compiler: $COMPILER_NAME and CC set to $CC"
     # CC="-Wl,--gc-sections -s $CC"
     PAR="-fopenmp"
 fi
@@ -352,7 +353,7 @@ fi
 
 # Compose a program name using a default base name.
 PROGTOTAL="${base}"
-if [ $verbose_level -gt 1 ]; then
+if [ $verbose_level -gt 2 ]; then
   echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
 fi
 $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS $CCWARN
@@ -392,7 +393,7 @@ if [ $threads -gt 0 ]; then
     fi
     ./bin/$PROGTOTALPAR $run_args $@
 else
-    if [ $verbose_level -gt 1 ]; then
+    if [ $verbose_level -gt 2 ]; then
         echo "Running ./bin/$PROGTOTAL $run_args $@"
     fi
     ./bin/$PROGTOTAL $run_args $@

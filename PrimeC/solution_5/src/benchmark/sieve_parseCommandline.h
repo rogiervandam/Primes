@@ -1,5 +1,3 @@
-#if COMPILE_VERBOSE_LEVEL >= 1
-
 static inline int __attribute__((cold, const)) 
 isdigit_local(int c) {
     return (c >= '0' && c <= '9');
@@ -73,9 +71,10 @@ handle_set_parameter(char param_type, uintmax_t value, struct options_t *option)
 static void __attribute__((cold)) 
 parseCommandLine(int argc, char *argv[])
 {
-    char *program_name = argv[0];
-    program_name = max(program_name, strrchr_local(program_name, '/')+1);
-    program_name = max(program_name, strrchr_local(program_name, '\\')+1);
+    option.program_name = argv[0];
+    option.program_name = max(option.program_name, strrchr_local(option.program_name, '/')+1);
+    option.program_name = max(option.program_name, strrchr_local(option.program_name, '\\')+1);
+    char *program_name = option.program_name;
 
     // processing command line changes to options
     for (int arg=1; arg < argc; arg++) {
@@ -85,7 +84,6 @@ parseCommandLine(int argc, char *argv[])
         else if (strcmp_local(argv[arg], "--verbose")) { 
             ensure_next_arg(++arg, argc, program_name, "verbose level");
             parse_int_arg(argv[arg], &option.verbose_level, 9, program_name, "Invalid measurement time");
-            verbose2(printf("Verbose level set to %d\n", option.verbose_level));
         } 
         #ifdef COMPILE_EXPLAIN
         else if (strcmp_local(argv[arg], "--explain")) { 
@@ -127,8 +125,7 @@ parseCommandLine(int argc, char *argv[])
             verbose2(printf("Maximum set to %ju\n", (uintmax_t)option.fixed_benchmark_settings.factor_max));
         }
         else if (strcmp_local(argv[arg], "--set")) {
-            arg++;
-            ensure_next_arg(arg, argc, program_name, "settings for --set");
+            ensure_next_arg(++arg, argc, program_name, "settings for --set");
             
             char *p = argv[arg];
             while (*p) {
@@ -167,8 +164,7 @@ parseCommandLine(int argc, char *argv[])
             })
         }
         else if (strcmp_local(argv[arg], "--threads")) { 
-            arg++;
-            ensure_next_arg(arg, argc, program_name, "thread maximum");
+            ensure_next_arg(++arg, argc, program_name, "thread maximum");
             
         #ifdef _OPENMP
             counter_t max_threads = (counter_t) omp_get_max_threads();
@@ -202,4 +198,3 @@ parseCommandLine(int argc, char *argv[])
         }
     }
 }
-#endif

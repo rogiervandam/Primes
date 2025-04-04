@@ -31,6 +31,8 @@ static struct options_t {
     double    tune_duration_max;
     counter_t tune_keeppercent_longlist;
     counter_t tune_keeppercent_shortlist;
+    char*     program_name;
+    char*     dockerfile_type;
 } option;
 
 static struct options_t __attribute__((cold)) 
@@ -57,6 +59,8 @@ setDefaultOptions()
     option.fixed_benchmark_settings.largestep_faster        = 0;
     option.fixed_benchmark_settings.blocksize_bits          = 0;
     option.fixed_benchmark_settings.sample_duration         = 5;
+
+    option.dockerfile_type = getenv("DOCKERFILE_TYPE"); 
 
     // changes though compilation options
     #ifdef _OPENMP
