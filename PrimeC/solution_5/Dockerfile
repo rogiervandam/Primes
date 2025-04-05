@@ -1,10 +1,5 @@
-FROM alpine:3.21.3
+FROM gcc:14.2.0
 
-# Install necessary dependencies
-RUN apk add build-base mimalloc2-dev clang openmp-dev bash
-
-# Set mimalloc as the default memory allocator using LD_PRELOAD
-ENV LD_PRELOAD=/usr/lib/libmimalloc.so
 
 WORKDIR /home/sieve
 

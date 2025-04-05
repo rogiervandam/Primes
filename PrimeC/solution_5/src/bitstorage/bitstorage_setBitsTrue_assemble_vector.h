@@ -16,8 +16,8 @@
     #include "bitstorage_setBitsTrue_assemble_vector.h" 
     #define preset_uint32v8
     #include "bitstorage_setBitsTrue_assemble_vector.h" 
-    // #define preset_uint32v4
-    // #include "bitstorage_setBitsTrue_assemble_vector.h" 
+    #define preset_uint32v4
+    #include "bitstorage_setBitsTrue_assemble_vector.h" 
     // #define preset_uint32v2
     // #include "bitstorage_setBitsTrue_assemble_vector.h" 
     
@@ -25,8 +25,8 @@
     #include "bitstorage_setBitsTrue_assemble_vector.h"  
     #define preset_uint16v16
     #include "bitstorage_setBitsTrue_assemble_vector.h"  
-    // #define preset_uint16v8
-    // #include "bitstorage_setBitsTrue_assemble_vector.h"  
+    #define preset_uint16v8
+    #include "bitstorage_setBitsTrue_assemble_vector.h"  
     // #define preset_uint16v4
     // #include "bitstorage_setBitsTrue_assemble_vector.h"  
     // #define preset_uint16v2

@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
     }
     #endif
 
-    for(counter_t threads=option.fixed_benchmark_settings.threads, runs = 0; threads >= 1 && runs < 2; threads = (threads>>1), runs++ ) {
+    for(counter_t threads=option.fixed_benchmark_settings.threads, runs = 0; threads >= 1 && runs < 3; threads = (threads>>1), runs++ ) {
 
         // prepare settings
         benchmark_settings_t benchmark_settings = initBenchmarkSettings(threads);

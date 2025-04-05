@@ -87,6 +87,16 @@ Remember you can go in to the container like this:
 docker run -it --entrypoint /bin/bash c:latest
 ```
 
+Command to create a dockerfile
+```bash
+sed -i 's/\r$//' sieve;./sieve docker alpine_gcc_mimalloc set
+```
+
+Command to run the formal benchmark:
+```bash
+cd ../..; make DIRECTORY=PrimeC/solution_5
+```
+
 if something is wrong with a .sh file: this might help:
 
 ```bash
