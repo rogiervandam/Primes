@@ -23,15 +23,16 @@ static inline benchmark_settings_t checkBenchmarkSettings(benchmark_settings_t b
 
 static inline char* setBenchmarkSettingAsString(char* settings_string, benchmark_settings_t benchmark_settings) 
 {
-    snprintf(settings_string, 50, "s%03ju-l%03ju-b%07ju", (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.largestep_faster, (uintmax_t)benchmark_settings.blocksize_bits);
+    snprintf(settings_string, 50, "s%03ju-l%03ju-b%07ju-v%1ju", (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.largestep_faster, (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)benchmark_settings.strategy);
     return settings_string;
 }
 
 static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settings) 
 {
-    global_stripeprime_faster = benchmark_settings.stripe_faster;
-    global_largestep_faster   = benchmark_settings.largestep_faster;
-    global_blocksize_bits     = benchmark_settings.blocksize_bits;
+    global_stripeprime_faster   = benchmark_settings.stripe_faster;
+    global_largestep_faster     = benchmark_settings.largestep_faster;
+    global_blocksize_bits       = benchmark_settings.blocksize_bits;
+    global_strategy             = benchmark_settings.strategy;  
     verbose5 ( { setBenchmarkSettingAsString(global_settings_string, benchmark_settings); printf("Using settings " COLOR_GREEN "%s" COLOR_RESET "\n",global_settings_string); } )
 }
 
@@ -42,7 +43,11 @@ static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settin
     const counter_t factor_max = benchmark_settings.factor_max;
     struct sieve_t* sieve_check = shakeSieve(factor_max);
     const int valid = validateSieve(sieve_check, factor_max);
-    verbose3( if (!valid) deepAnalyzeSieve(sieve_check); )
+    verbose3( if (!valid) {
+        setBenchmarkSettingAsString(global_settings_string, benchmark_settings);
+        printf("The sieve is " COLOR_RED "NOT" COLOR_RESET " valid for settings " COLOR_GREEN "%s" COLOR_RESET " with factor %ju\n", global_settings_string, (uintmax_t) factor_max);
+        deepAnalyzeSieve(sieve_check);
+    })
     sieve_delete(sieve_check);
     return valid;
 }

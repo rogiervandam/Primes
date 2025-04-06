@@ -19,7 +19,7 @@ stripeSieveBlock(void* restrict bitstorage, const counter_t block_start, const c
         prime = searchBitFalse_largestep_uint8(bitstorage, prime);
     }
 
-    endAnalysis7(time_sieveStripeBlock, "\n");
+    endAnalysis5(time_sieveStripeBlock, "\n");
     return prime; 
 }
 
