@@ -212,7 +212,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
 
     // start the timer
     const double time_start = (double)clock();
-    const double time_target = time_start + option.tune_duration_max * CLOCKS_PER_SEC;
+    const double time_target = time_start + option.tune_duration_max * CLOCKS_PER_SEC * tuning_settings.threads; // in seconds
 
     // build the initial tuning table
     counter_t tuning_results = buildInitialTuningTable(tuning_result, tuning_settings, tuning_parameters);
