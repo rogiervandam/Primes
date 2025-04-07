@@ -27,13 +27,19 @@ static inline char* setBenchmarkSettingAsString(char* settings_string, benchmark
     return settings_string;
 }
 
+static char      global_settings_string[50] = ""; // settings string to use where it is directly outputted
+static inline char *getBenchmarkSettingAsString(benchmark_settings_t benchmark_settings) 
+{
+    return setBenchmarkSettingAsString(global_settings_string, benchmark_settings);
+}
+
 static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settings) 
 {
     global_stripeprime_faster   = benchmark_settings.stripe_faster;
     global_largestep_faster     = benchmark_settings.largestep_faster;
     global_blocksize_bits       = benchmark_settings.blocksize_bits;
     global_strategy             = benchmark_settings.strategy;  
-    verbose5 ( { setBenchmarkSettingAsString(global_settings_string, benchmark_settings); printf("Using settings " COLOR_GREEN "%s" COLOR_RESET "\n",global_settings_string); } )
+    verbose5 ( { printf("Using settings " COLOR_GREEN "%s" COLOR_RESET "\n", getBenchmarkSettingAsString(benchmark_settings)); } )
 }
 
 static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
@@ -44,8 +50,7 @@ static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settin
     struct sieve_t* sieve_check = shakeSieve(factor_max);
     const int valid = validateSieve(sieve_check, factor_max);
     verbose3( if (!valid) {
-        setBenchmarkSettingAsString(global_settings_string, benchmark_settings);
-        printf("The sieve is " COLOR_RED "NOT" COLOR_RESET " valid for settings " COLOR_GREEN "%s" COLOR_RESET " with factor %ju\n", global_settings_string, (uintmax_t) factor_max);
+        printf("The sieve is " COLOR_RED "NOT" COLOR_RESET " valid for settings " COLOR_GREEN "%s" COLOR_RESET " with factor %ju\n", getBenchmarkSettingAsString(benchmark_settings), (uintmax_t) factor_max);
         deepAnalyzeSieve(sieve_check);
     })
     sieve_delete(sieve_check);

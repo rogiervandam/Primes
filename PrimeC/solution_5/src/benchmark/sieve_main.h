@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
     }
     #endif
 
-    for(counter_t threads=option.fixed_benchmark_settings.threads, runs = 0; threads >= 1 && runs < 3; threads = (threads>>1), runs++ ) {
+    for(counter_t threads=option.fixed_benchmark_settings.threads, runs = 0; threads >= 1 && runs < 4; threads = (threads/2), runs++ ) {
 
         // prepare settings
         benchmark_settings_t benchmark_settings = initBenchmarkSettings(threads);
@@ -91,19 +91,21 @@ int main(int argc, char *argv[])
             if (!option.fixed_benchmark_settings.stripe_faster)     { benchmark_settings.stripe_faster    = 64; }
             if (!option.fixed_benchmark_settings.largestep_faster ) { benchmark_settings.largestep_faster = 128; }
             if (!option.fixed_benchmark_settings.blocksize_bits)    { benchmark_settings.blocksize_bits   = 32*1024*8; }
+            if (!option.fixed_benchmark_settings.strategy)          { benchmark_settings.strategy         = 1; }
             benchmark_settings = checkBenchmarkSettings(benchmark_settings);
         #endif
 
         // one last check to make sure this is a valid algorithm for these settings
         debug_final_plan = 1; // allow to count something in only one run
-        setBenchmarkSettingAsString(global_settings_string, benchmark_settings);
         if (!checkSieveWithBenchmarkSettings(benchmark_settings)) { 
-            verbose1( fprintf(stderr, "The sieve is " COLOR_RED "NOT" COLOR_RESET " valid for settings %s with factor %ju\n", global_settings_string, (uintmax_t) benchmark_settings.factor_max) ); 
+            verbose1({
+                fprintf(stderr, "The sieve is " COLOR_RED "NOT" COLOR_RESET " valid for settings %s with factor %ju\n", getBenchmarkSettingAsString(benchmark_settings), (uintmax_t) benchmark_settings.factor_max);
+            })
             return 1; 
         } 
-        else { verbose2({ setBenchmarkSettingAsString(global_settings_string, benchmark_settings); 
-            printf("Verified that algortihm with settings %s and max %ju is " COLOR_GREEN "valid" COLOR_RESET ".\n", global_settings_string, (uintmax_t) benchmark_settings.factor_max); 
-        })}
+        else { verbose2( 
+            printf("Verified that algortihm with settings %s and max %ju is " COLOR_GREEN "valid" COLOR_RESET ".\n", getBenchmarkSettingAsString(benchmark_settings), (uintmax_t) benchmark_settings.factor_max); 
+        )}
         debug_final_plan = 0;
     
         // warm up the cache for 3 seconds
@@ -114,9 +116,8 @@ int main(int argc, char *argv[])
 
         // perform benchmark -> outputs passes, elapsed time and avg in result 
         verbose2({ 
-            setBenchmarkSettingAsString(global_settings_string, benchmark_settings);
             printf("Benchmarking with settings: " COLOR_GREEN "%s" COLOR_RESET " (stripeprime, largestep, blocksize) and " COLOR_GREEN "%ju" COLOR_RESET " threads for " COLOR_GREEN "%.1f" COLOR_RESET " seconds\nResults: " COLOR_BLINK "(wait " COLOR_GREEN "%.1lf" COLOR_RESET " seconds)" COLOR_BLINK_OFF "...", 
-            global_settings_string,(uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
+            getBenchmarkSettingAsString(benchmark_settings) ,(uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
         })
         debug_final_benchmarking = 1; // allow to count something in the final benchmark runs
         benchmark_result_t benchmark_result = benchmark(benchmark_settings);
@@ -142,13 +143,14 @@ int main(int argc, char *argv[])
         // add extra information to the output for research purposes
         verbose1( { 
             if (option.dockerfile_type) printf(";docker=" COLOR_BLUE "%s" COLOR_RESET "",option.dockerfile_type);
-            setBenchmarkSettingAsString(global_settings_string, benchmark_settings);
-            printf(";" COLOR_GREEN "%s" COLOR_RESET " total " COLOR_YELLOW "%ju" COLOR_RESET "",global_settings_string, (uintmax_t)benchmark_result.passes); 
-        } ) 
+            printf(";" COLOR_GREEN "%s" COLOR_RESET " total " COLOR_YELLOW "%ju" COLOR_RESET "", getBenchmarkSettingAsString(benchmark_settings), (uintmax_t)benchmark_result.passes); 
+        }) 
         printf("\n");
+
+        if (threads > 4 && threads < 8) threads = 8; // force looking at 4 and 2 by setting threads to 8 which will be halved (4) next loop run
     }
 
-    // show results for --show command line option
+    // show results for --show command line option and other developer information
     if (option.show_explain_factor_max > 0) showResult(option.fixed_benchmark_settings);
 
     #ifdef COMPILE_TIMERS

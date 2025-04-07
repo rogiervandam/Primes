@@ -158,9 +158,7 @@ parseCommandLine(int argc, char *argv[])
             }
             
             verbose2({
-                char settings_string[50] = "";
-                setBenchmarkSettingAsString(settings_string, option.fixed_benchmark_settings);
-                printf("Initial settings: " COLOR_BOLD_GREEN "%s" COLOR_RESET "\n", settings_string);
+                printf("Initial settings: " COLOR_BOLD_GREEN "%s" COLOR_RESET "\n", getBenchmarkSettingAsString(option.fixed_benchmark_settings));
             })
         }
         else if (strcmp_local(argv[arg], "--threads")) { 

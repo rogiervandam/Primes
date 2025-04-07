@@ -5,7 +5,7 @@
 
 // Function to dispatch the correct setBitsTrue function based on the step size and occurrences
 static inline void  
-__attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
+// __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 setBitsTrue_v512(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
 
@@ -24,7 +24,7 @@ setBitsTrue_v512(void* restrict bitstorage, const counter_t range_start, const c
 
 // Function to dispatch the correct setBitsTrue function based on the step size and occurrences
 static inline void  
-__attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
+// __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 setBitsTrue_v256(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
 
@@ -43,7 +43,7 @@ setBitsTrue_v256(void* restrict bitstorage, const counter_t range_start, const c
 
 // Function to dispatch the correct setBitsTrue function based on the step size and occurrences
 static inline void  
-__attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
+// __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 setBitsTrue_v128(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     if      (step  <  16)  setBitsTrue_smallstep_rotate_pair_uint16v8(bitstorage, range_start, step, range_stop);

@@ -52,4 +52,3 @@ static counter_t debug_hits                 = 0;
 static counter_t debug_hits2                = 0;
 static counter_t debug_final_benchmarking   = 0;
 static counter_t debug_final_plan           = 0;
-static char      global_settings_string[50] = ""; // settings string to use where it is directly outputted

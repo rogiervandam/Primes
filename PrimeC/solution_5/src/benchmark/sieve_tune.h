@@ -30,7 +30,6 @@ static inline void resetBenchmarkResult(benchmark_result_t* benchmark_result, be
 
 static inline void printTuningResult(benchmark_result_t tuning_result) 
 {
-    char settings[50]=""; setBenchmarkSettingAsString(settings, tuning_result.settings);
     verbose2({
         if (tuning_result.settings.stripe_faster == usqrt(tuning_result.settings.factor_max)/2) {
             printf(COLOR_BLUE "average" COLOR_RESET);
@@ -39,7 +38,7 @@ static inline void printTuningResult(benchmark_result_t tuning_result)
         }
         printf( COLOR_BOLD_YELLOW "%13.6f" COLOR_RESET " with options " COLOR_BOLD_GREEN "%s" COLOR_RESET 
                 " was achieved with " COLOR_BOLD_YELLOW "%3ju" COLOR_RESET " passes in " COLOR_BOLD_YELLOW "%f" COLOR_RESET " seconds\n", 
-            tuning_result.avg, settings, (uintmax_t)tuning_result.passes, tuning_result.elapsed_time); 
+            tuning_result.avg, getBenchmarkSettingAsString(tuning_result.settings), (uintmax_t)tuning_result.passes, tuning_result.elapsed_time); 
     })
 }
 
@@ -92,9 +91,9 @@ static counter_t buildInitialTuningTable(benchmark_result_t* tuning_result, benc
 
                     resetBenchmarkResult(&tuning_result[tuning_results++], checkBenchmarkSettings(tuning_settings));
 
-                    verbose4( { setBenchmarkSettingAsString(global_settings_string, tuning_settings);
+                    verbose4( { 
                         printf("\rTuning...adding option " COLOR_BOLD_GREEN "%5ju" COLOR_RESET " for settings " COLOR_GREEN "%s" COLOR_RESET "\n", 
-                        (uintmax_t)tuning_results, global_settings_string); 
+                        (uintmax_t)tuning_results, getBenchmarkSettingAsString(tuning_settings)); 
                     })
 
                     if (option.fixed_benchmark_settings.blocksize_bits) break;
@@ -241,8 +240,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
                 tuning_settings.sample_duration = tuning_parameters.step * option.next_sample_duration;
             }
             verbose2( { 
-                setBenchmarkSettingAsString(global_settings_string, tuning_settings);
-                printf("\rTuning step " COLOR_BOLD_GREEN "%2ju" COLOR_RESET " with " COLOR_BOLD_YELLOW "%5ju" COLOR_RESET " options. Benchmarking option " COLOR_BOLD_GREEN "%5ju" COLOR_RESET ": %s in progress  ",(uintmax_t)tuning_parameters.step,(uintmax_t)tuning_results, (uintmax_t)i, global_settings_string  ); 
+                printf("\rTuning step " COLOR_BOLD_GREEN "%2ju" COLOR_RESET " with " COLOR_BOLD_YELLOW "%5ju" COLOR_RESET " options. Benchmarking option " COLOR_BOLD_GREEN "%5ju" COLOR_RESET ": %s in progress  ",(uintmax_t)tuning_parameters.step,(uintmax_t)tuning_results, (uintmax_t)i, getBenchmarkSettingAsString(tuning_settings)  ); 
             })
             
             // Check if the settings are valid
@@ -250,8 +248,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
             tuning_settings = checkBenchmarkSettings(tuning_settings);
             const int valid = checkSieveWithBenchmarkSettings(tuning_settings);
             if (!valid) {
-                setBenchmarkSettingAsString(global_settings_string, tuning_settings);
-                verbose1( fprintf(stderr, "The sieve is " COLOR_RED "NOT" COLOR_RESET " valid for settings %s with factor %ju\n", global_settings_string, (uintmax_t) tuning_settings.factor_max); )
+                verbose1( fprintf(stderr, "The sieve is " COLOR_RED "NOT" COLOR_RESET " valid for settings %s with factor %ju\n", getBenchmarkSettingAsString(tuning_settings), (uintmax_t) tuning_settings.factor_max); )
                 exit(1);
             }
             #endif
