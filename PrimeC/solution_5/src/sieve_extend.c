@@ -38,14 +38,14 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     // use globals as constant - these get optimized
     const counter_t stripeprime_faster  = global_stripeprime_faster;
     const counter_t blocksize_bits      = global_blocksize_bits;
-    const counter_t strategy            = global_strategy;
+    const counter_t algorithm            = global_algorithm;
 
     verbose5({
         printf("\nShaking sieve to find all primes up to %ju by marking multiples of all primes up to %ju\n", (uintmax_t)sieve_size, (uintmax_t)usqrt(sieve_size));
         printf("Using compressed primes up to %ju with sieve size %ju and blocksize %ju\n",(uintmax_t)prime_max, (uintmax_t)sieve_bits,(uintmax_t)blocksize_bits);
     })
 
-    if (strategy >=1 && strategy <= 3) {
+    if (algorithm >=1 && algorithm <= 3) {
         // fill the entire sieve for lower primes by adding en copying incrementally
         counter_t prime = extendSieveBlock0(sieve->bitstorage, sieve_bits);
         

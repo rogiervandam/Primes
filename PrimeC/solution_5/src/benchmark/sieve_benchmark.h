@@ -5,7 +5,8 @@ static inline benchmark_settings_t initBenchmarkSettings(const counter_t threads
     if (!option.fixed_benchmark_settings.stripe_faster    ) { benchmark_settings.stripe_faster    = 64;        }
     if (!option.fixed_benchmark_settings.largestep_faster ) { benchmark_settings.largestep_faster = 128;       }
     if (!option.fixed_benchmark_settings.blocksize_bits   ) { benchmark_settings.blocksize_bits   = 32*1024*8; }
-    if (!option.fixed_benchmark_settings.strategy         ) { benchmark_settings.strategy         = 1;         }
+    if (!option.fixed_benchmark_settings.vectorsize       ) { benchmark_settings.vectorsize       = 256;       }
+    if (!option.fixed_benchmark_settings.algorithm        ) { benchmark_settings.algorithm        = 1;         }
     benchmark_settings.threads = threads;
     return benchmark_settings;
 }
@@ -16,18 +17,22 @@ static inline benchmark_settings_t checkBenchmarkSettings(benchmark_settings_t b
 {
     counter_t prime_max = prime_stop(benchmark_settings.factor_max);
     benchmark_settings.stripe_faster     = min(benchmark_settings.stripe_faster, prime_max);
-    benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, VECTORWORD_SIZE_BITS);
+    benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, 64);
     benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, VECTOR_SIZE_BITS);
     benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, prime_max*2+1);
     benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, 2); // allow for conversion from step to prime
     benchmark_settings.blocksize_bits    = min(benchmark_settings.blocksize_bits, benchmark_settings.factor_max/2);
     if (benchmark_settings.blocksize_bits == 0) benchmark_settings.blocksize_bits = benchmark_settings.factor_max/2;
+    if (benchmark_settings.algorithm < 1 || benchmark_settings.algorithm >23) benchmark_settings.algorithm = 1; // default to sieve algorithm 1
+    if (benchmark_settings.vectorsize != 128 && benchmark_settings.vectorsize != 256 && benchmark_settings.vectorsize != 512) {
+        benchmark_settings.vectorsize = 256; // default to 256 bit vectors
+    }
     return benchmark_settings;
 }
 
 static inline char* setBenchmarkSettingAsString(char* settings_string, benchmark_settings_t benchmark_settings) 
 {
-    snprintf(settings_string, 50, "s%03ju-l%03ju-b%07ju-v%1ju", (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.largestep_faster, (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)benchmark_settings.strategy);
+    snprintf(settings_string, 50, "s%03ju-l%03ju-b%07ju-v%3ju-a%1ju", (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.largestep_faster, (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)benchmark_settings.vectorsize, (uintmax_t)benchmark_settings.algorithm);
     return settings_string;
 }
 
@@ -42,7 +47,7 @@ static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settin
     global_stripeprime_faster   = benchmark_settings.stripe_faster;
     global_largestep_faster     = benchmark_settings.largestep_faster;
     global_blocksize_bits       = benchmark_settings.blocksize_bits;
-    global_strategy             = benchmark_settings.strategy;  
+    global_algorithm             = benchmark_settings.algorithm;  
     verbose5({ printf("Using settings " COLOR_GREEN "%s" COLOR_RESET "\n", getBenchmarkSettingAsString(benchmark_settings)); })
 }
 

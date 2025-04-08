@@ -4,7 +4,8 @@ typedef struct  {
     counter_t stripe_faster;
     counter_t largestep_faster;
     counter_t blocksize_bits;
-    counter_t strategy;
+    counter_t vectorsize;
+    counter_t algorithm;
     counter_t threads;
     double    sample_duration;
 } benchmark_settings_t;
@@ -62,7 +63,8 @@ setDefaultOptions()
     option.fixed_benchmark_settings.stripe_faster           = 0;
     option.fixed_benchmark_settings.largestep_faster        = 0;
     option.fixed_benchmark_settings.blocksize_bits          = 0;
-    option.fixed_benchmark_settings.strategy                = 0;
+    option.fixed_benchmark_settings.vectorsize              = 0;
+    option.fixed_benchmark_settings.algorithm               = 0;
     option.fixed_benchmark_settings.sample_duration         = 5;
 
     option.dockerfile_type = getenv("DOCKERFILE_TYPE"); 

@@ -111,14 +111,47 @@ handle_set_parameter(char param_type, uintmax_t value, struct options_t *option)
         case 's': option->fixed_benchmark_settings.stripe_faster = value; break;
         case 'l': option->fixed_benchmark_settings.largestep_faster = value; break;
         case 'b': option->fixed_benchmark_settings.blocksize_bits = value; break; 
-        case 'u': break; // can only set compile time; ignore
-        case 'v': break; // can only set compile time; ignore
-        case 'c': break; // can only set compile time; ignore
+        case 'v': option->fixed_benchmark_settings.vectorsize = value; break;
+        case 'a': option->fixed_benchmark_settings.algorithm = value; break;
         case 't': option->fixed_benchmark_settings.threads = value; break;
         default:
             fprintf(stderr, "Error: Unknown parameter '%c'\n", param_type);
             usage(NULL, 1); // program_name will be set when function is called
     }
+}
+
+static inline void __attribute__((cold))
+parse_set_parameter(char *arg, char *program_name, struct options_t *option) {
+    char *p = arg;
+    while (*p) {
+        // Skip any hyphens
+        if (*p == '-') {
+            p++;
+            continue;
+        }
+
+        // Get the parameter type
+        char param_type = *p++;
+        uintmax_t value = 0;
+
+        // Skip to first digit
+        while (*p && !isdigit_local(*p)) p++;
+
+        // Parse the number
+        if (*p && isdigit_local(*p)) {
+            if (str_to_uintmax(p, &value) != 1) {
+                fprintf(stderr, "Error: Invalid number after '%c'\n", param_type);
+                usage(program_name, 1);
+            }
+
+            // Apply the value based on parameter type
+            handle_set_parameter(param_type, value, option);
+
+            // Skip the parsed number
+            while (*p && isdigit_local(*p)) p++;
+        }
+    }
+
 }
 
 static void __attribute__((cold)) 
@@ -170,49 +203,17 @@ parseCommandLine(int argc, char *argv[])
         else if (strcmp_local(argv[arg], "--show")) {
             ensure_next_arg(++arg, argc, program_name, "show maximum");
             parse_int_arg(argv[arg], &option.show_explain_factor_max, option.fixed_benchmark_settings.factor_max, program_name, "Invalid show maximum");
-            verbose2(printf("Show maximum set to %ju\n", (uintmax_t)option.show_explain_factor_max));
+            verbose2(printf("Show maximum set to %ju\n", (uintmax_t)option.show_explain_factor_max);)
         }
         else if (strcmp_local(argv[arg], "--max")) {
             ensure_next_arg(++arg, argc, program_name, "sieve maximum");
             parse_int_arg(argv[arg], &option.fixed_benchmark_settings.factor_max, COUNTER_T_MAX_VALUE, program_name, "Invalid sieve maximum");
-            verbose2(printf("Maximum set to %ju\n", (uintmax_t)option.fixed_benchmark_settings.factor_max));
+            verbose2(printf("Maximum set to %ju\n", (uintmax_t)option.fixed_benchmark_settings.factor_max);)
         }
         else if (strcmp_local(argv[arg], "--set")) {
             ensure_next_arg(++arg, argc, program_name, "settings for --set");
-            
-            char *p = argv[arg];
-            while (*p) {
-                // Skip any hyphens
-                if (*p == '-') {
-                    p++;
-                    continue;
-                }
-                
-                // Get the parameter type
-                char param_type = *p++;
-                uintmax_t value = 0;
-                
-                // Skip to first digit
-                while (*p && !isdigit_local(*p)) p++;
-                
-                // Parse the number
-                if (*p && isdigit_local(*p)) {
-                    if (str_to_uintmax(p, &value) != 1) {
-                        fprintf(stderr, "Error: Invalid number after '%c'\n", param_type);
-                        usage(program_name, 1);
-                    }
-                    
-                    // Apply the value based on parameter type
-                    handle_set_parameter(param_type, value, &option);
-                    
-                    // Skip the parsed number
-                    while (*p && isdigit_local(*p)) p++;
-                }
-            }
-            
-            verbose2({
-                printf("Initial settings: " COLOR_BOLD_GREEN "%s" COLOR_RESET "\n", getBenchmarkSettingAsString(option.fixed_benchmark_settings));
-            })
+            parse_set_parameter(argv[arg], program_name, &option);
+            verbose2(printf("Initial settings: " COLOR_BOLD_GREEN "%s" COLOR_RESET "\n", getBenchmarkSettingAsString(option.fixed_benchmark_settings));)
         }
         else if (strcmp_local(argv[arg], "--threads")) { 
             ensure_next_arg(++arg, argc, program_name, "thread maximum");

@@ -57,7 +57,7 @@ setBitsTrue_v512(void* restrict bitstorage, const counter_t range_start, const c
 static inline void  __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 setBitsTrue(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
-    switch(global_strategy) {
+    switch(global_algorithm) {
         case 0: setBitsTrue_range(bitstorage, range_start, step, range_stop); break;
         case 1: setBitsTrue_v128 (bitstorage, range_start, step, range_stop); break;
         case 2: setBitsTrue_v256 (bitstorage, range_start, step, range_stop); break;

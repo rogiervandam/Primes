@@ -8,7 +8,8 @@ static inline int sameTuningResult(benchmark_result_t* resultA, benchmark_result
     return (resultA->settings.stripe_faster    == resultB->settings.stripe_faster &&
             resultA->settings.largestep_faster == resultB->settings.largestep_faster &&
             resultA->settings.blocksize_bits   == resultB->settings.blocksize_bits &&
-            resultA->settings.strategy        == resultB->settings.strategy
+            resultA->settings.vectorsize       == resultB->settings.vectorsize &&
+            resultA->settings.algorithm        == resultB->settings.algorithm
         );
 }
 
@@ -17,7 +18,8 @@ static inline void setSettingsFromTuning(benchmark_settings_t* benchmark_setting
     benchmark_settings->stripe_faster     = tuning_settings->stripe_faster;
     benchmark_settings->largestep_faster  = tuning_settings->largestep_faster;
     benchmark_settings->blocksize_bits    = tuning_settings->blocksize_bits;
-    benchmark_settings->strategy          = tuning_settings->strategy;
+    benchmark_settings->vectorsize        = tuning_settings->vectorsize;
+    benchmark_settings->algorithm         = tuning_settings->algorithm;
 }
 
 static inline void resetBenchmarkResult(benchmark_result_t* benchmark_result, benchmark_settings_t benchmark_settings) 
@@ -56,54 +58,59 @@ typedef struct {
 
 static counter_t buildInitialTuningTable(benchmark_result_t* tuning_result, benchmark_settings_t tuning_settings, tuning_parameters_t tuning_parameters) {
     counter_t tuning_results = 0;
-    for (counter_t strategy=1; strategy <= 6; strategy++) {
-        counter_t stripe_faster = 0;
-        do {
-            stripe_faster += tuning_parameters.stripe_faster_steps; // do this here to over force processing of prime_max as well
-            for (counter_t largestep_faster = VECTORWORD_SIZE_BITS; largestep_faster <= VECTOR_SIZE_BITS; largestep_faster += tuning_parameters.largestep_faster_steps) { 
-                counter_t blocksize_bits=0;
-                do { // do loop because user can set this beyound sieve_bits
-                    blocksize_bits += tuning_parameters.blocksize_steps;
+    for (counter_t algorithm=1; algorithm <= 2; algorithm++) {
+        for (counter_t vectorsize = 128; vectorsize <= 512; vectorsize *= 2) {
+            counter_t stripe_faster = 0;
+            do {
+                stripe_faster += tuning_parameters.stripe_faster_steps; // do this here to over force processing of prime_max as well
+                for (counter_t largestep_faster = 64; largestep_faster <= vectorsize; largestep_faster += tuning_parameters.largestep_faster_steps) { 
+                    counter_t blocksize_bits=0;
+                    do { // do loop because user can set this beyound sieve_bits
+                        blocksize_bits += tuning_parameters.blocksize_steps;
 
-                    // override with user settings if specified
-                    if (option.fixed_benchmark_settings.stripe_faster)      { stripe_faster     = option.fixed_benchmark_settings.stripe_faster; }
-                    if (option.fixed_benchmark_settings.largestep_faster)   { largestep_faster  = option.fixed_benchmark_settings.largestep_faster; }
-                    if (option.fixed_benchmark_settings.blocksize_bits)     { blocksize_bits    = option.fixed_benchmark_settings.blocksize_bits; }
-                    if (option.fixed_benchmark_settings.strategy)           { strategy          = option.fixed_benchmark_settings.strategy; }
+                        // override with user settings if specified
+                        if (option.fixed_benchmark_settings.stripe_faster)    { stripe_faster    = option.fixed_benchmark_settings.stripe_faster;    }
+                        if (option.fixed_benchmark_settings.largestep_faster) { largestep_faster = option.fixed_benchmark_settings.largestep_faster; }
+                        if (option.fixed_benchmark_settings.blocksize_bits)   { blocksize_bits   = option.fixed_benchmark_settings.blocksize_bits;   }
+                        if (option.fixed_benchmark_settings.vectorsize)       { vectorsize       = option.fixed_benchmark_settings.vectorsize;       }
+                        if (option.fixed_benchmark_settings.algorithm)        { algorithm        = option.fixed_benchmark_settings.algorithm;        }
 
-                    if (blocksize_bits > tuning_parameters.sieve_bits) blocksize_bits = tuning_parameters.sieve_bits;
-                    if (stripe_faster >= tuning_parameters.prime_max)  {
-                        blocksize_bits = tuning_parameters.sieve_bits;
-                        stripe_faster  = tuning_parameters.prime_max;
-                    }
+                        if (blocksize_bits > tuning_parameters.sieve_bits) blocksize_bits = tuning_parameters.sieve_bits;
+                        if (stripe_faster >= tuning_parameters.prime_max)  {
+                            blocksize_bits = tuning_parameters.sieve_bits;
+                            stripe_faster  = tuning_parameters.prime_max;
+                        }
 
-                    // set variables
-                    tuning_settings.blocksize_bits   = blocksize_bits;
-                    tuning_settings.stripe_faster    = stripe_faster;
-                    tuning_settings.largestep_faster = largestep_faster;
-                    tuning_settings.strategy         = strategy;
-                    tuning_settings.sample_duration  = tuning_parameters.sample_duration;
+                        // set variables
+                        tuning_settings.blocksize_bits   = blocksize_bits;
+                        tuning_settings.stripe_faster    = stripe_faster;
+                        tuning_settings.largestep_faster = largestep_faster;
+                        tuning_settings.vectorsize       = vectorsize;
+                        tuning_settings.algorithm        = algorithm;
+                        tuning_settings.sample_duration  = tuning_parameters.sample_duration;
 
-                    if (tuning_settings.stripe_faster < tuning_parameters.prime_max 
-                        && tuning_settings.blocksize_bits == tuning_parameters.sieve_bits
-                        && (option.fixed_benchmark_settings.stripe_faster == 0) // only break if user didn't set this
-                    ) break; // stripe will do the entire sieve as well
+                        if (tuning_settings.stripe_faster < tuning_parameters.prime_max 
+                            && tuning_settings.blocksize_bits == tuning_parameters.sieve_bits
+                            && (option.fixed_benchmark_settings.stripe_faster == 0) // only break if user didn't set this
+                        ) break; // stripe will do the entire sieve as well
 
-                    resetBenchmarkResult(&tuning_result[tuning_results++], checkBenchmarkSettings(tuning_settings));
+                        resetBenchmarkResult(&tuning_result[tuning_results++], checkBenchmarkSettings(tuning_settings));
 
-                    verbose4( { 
-                        printf("\rTuning...adding option " COLOR_BOLD_GREEN "%5ju" COLOR_RESET " for settings " COLOR_GREEN "%s" COLOR_RESET "\n", 
-                        (uintmax_t)tuning_results, getBenchmarkSettingAsString(tuning_settings)); 
-                    })
+                        verbose4( { 
+                            printf("\rTuning...adding option " COLOR_BOLD_GREEN "%5ju" COLOR_RESET " for settings " COLOR_GREEN "%s" COLOR_RESET "\n", 
+                            (uintmax_t)tuning_results, getBenchmarkSettingAsString(tuning_settings)); 
+                        })
 
-                    if (option.fixed_benchmark_settings.blocksize_bits) break;
-                    if (stripe_faster == tuning_parameters.prime_max) break;
-                } while ( blocksize_bits < tuning_parameters.sieve_bits );
-                if (option.fixed_benchmark_settings.largestep_faster) break;
-            }
-            if (option.fixed_benchmark_settings.stripe_faster) break;
-
-        } while (stripe_faster < tuning_parameters.prime_max); 
+                        if (option.fixed_benchmark_settings.blocksize_bits) break;
+                        if (stripe_faster == tuning_parameters.prime_max) break;
+                    } while ( blocksize_bits < tuning_parameters.sieve_bits );
+                    if (option.fixed_benchmark_settings.largestep_faster) break;
+                }
+                if (option.fixed_benchmark_settings.stripe_faster) break;
+           } while (stripe_faster < tuning_parameters.prime_max); 
+           if (option.fixed_benchmark_settings.vectorsize) break;
+        }
+        if (option.fixed_benchmark_settings.algorithm) break;
     }
     return tuning_results;
 }
