@@ -81,7 +81,7 @@ showResult(benchmark_settings_t benchmark_settings)
 }
 
 static inline void __attribute__((cold)) 
-CheckOptions(int check, benchmark_settings_t benchmark_settings) {
+CheckHandler(int check, benchmark_settings_t benchmark_settings) {
     #ifdef COMPILE_CHECK_STRIPERS
     if (check >= 4) checkSetBitsTrueMethods(setBitsTrueMethods, 0, benchmark_settings.factor_max);
     if (check >= 5) {

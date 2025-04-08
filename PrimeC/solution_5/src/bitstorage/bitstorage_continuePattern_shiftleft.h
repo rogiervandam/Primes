@@ -19,7 +19,7 @@ continuePattern_shiftleft_unrolled(void* restrict bitstorage, const counter_t al
         distance += 2;
     }
 
-    timer_laptime(time_continuePattern_shiftleft_unrolled); verbose7( printf("\n"); )
+    endAnalysis7(time_continuePattern_shiftleft_unrolled,"\n");
     return distance;
 }
 
@@ -54,12 +54,11 @@ static inline void __attribute__((always_inline)) continuePattern_shiftleft(void
     }
 
     if (copy_word >= destination_stop_word) {
-        timer_laptime(time_continuePattern_shiftleft); verbose7( printf("\n"); )
+        endAnalysis7(time_continuePattern_shiftleft,"\n");
         return;
     }
 
     source_word = copy_word - size; // recalibrate
-    // const size_t memsize = (size_t)size*sizeof(bitword_t);
 
     for (;copy_word + size <= destination_stop_word; copy_word += size) 
         bitstorage_sized[copy_word] = bitstorage_sized[source_word];

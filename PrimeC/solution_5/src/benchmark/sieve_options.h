@@ -29,6 +29,7 @@ static struct options_t {
     counter_t extended_output;
     double    initial_sample_duration;
     double    next_sample_duration;
+    double    warmup_duration;
     double    tune_duration_max;
     counter_t tune_keeppercent_longlist;
     counter_t tune_keeppercent_shortlist;
@@ -50,6 +51,7 @@ setDefaultOptions()
     option.tunelevel                  = 1;
     option.initial_sample_duration    = 0.0005;
     option.next_sample_duration       = 0.002;
+    option.warmup_duration            = 3;
     option.tune_duration_max          = 5.0;
     option.tune_keeppercent_longlist  = 10;
     option.tune_keeppercent_shortlist = 60;

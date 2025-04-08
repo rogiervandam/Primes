@@ -9,11 +9,12 @@ countPrimesInSieve(struct sieve_t *sieve)
 static void __attribute__((cold, nonnull)) 
 showPrimesinSieve(struct sieve_t *sieve, counter_t factor_max) 
 {
+    verbose1( printf("Result set:\n"); )
     counter_t prime_count = 1;    // We already have 2
     for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor)) {
         prime_count++;
         if (factor < factor_max/2) {
-            verbose2( printf("%3ju ",(uintmax_t)factor*2+1); )
+            verbose1( printf("%3ju ",(uintmax_t)factor*2+1); )
             if (prime_count % 10 == 0) { verbose2( printf("\n"); ) }
         }
     }

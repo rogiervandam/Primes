@@ -1,7 +1,7 @@
 static void __attribute__((cold)) 
 usage(char *program_name, int exit_code) 
 {
-    const char help_text[] =
+    const char usage_text[] =
         "Usage: %s [options] [maximum]\n"
         "Options:\n"
         "  --check                   Check the correctness of the algorithm\n"
@@ -57,8 +57,8 @@ usage(char *program_name, int exit_code)
         "[maximum] is the heighest prime to examine. Defaults to %ju\n";
     
     verbose1({
-        if (exit_code == 0) { fprintf(stdout, help_text, program_name, (uintmax_t)option.fixed_benchmark_settings.factor_max); }
-        else {                fprintf(stderr, help_text, program_name, (uintmax_t)option.fixed_benchmark_settings.factor_max); }
+        if (exit_code == 0) { fprintf(stdout, usage_text, program_name, (uintmax_t)option.fixed_benchmark_settings.factor_max); }
+        else {                fprintf(stderr, usage_text, program_name, (uintmax_t)option.fixed_benchmark_settings.factor_max); }
     })
     exit(exit_code);
 }

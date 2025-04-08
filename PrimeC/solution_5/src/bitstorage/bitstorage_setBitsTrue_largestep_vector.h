@@ -5,15 +5,13 @@ static inline void __attribute__((always_inline, aligned(cache_line_bytes)))
 function(create_mask_vector_largestep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
     bitbucket_t* restrict bitstorage_vector = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    const counter_t range_stop_unique_vector = range_start + step * bitcount_type(bitbucket_t) + bitcount_type(bitbucket_t);  // extra size TODO: is sometime needed when size < blocklimit
-    counter_t current_vector = index_type(range_start, bitbucket_t);
+    const counter_t range_stop_unique_vector = range_start + step * bitcount_type(bitbucket_t) + bitcount_type(bitbucket_t);  // extra size is sometime needed when size < blocklimit
 
     #pragma GCC ivdep
-    for (counter_t index = range_start; index <= range_stop_unique_vector; current_vector++) {
+    for (counter_t index = range_start, current_vector = index_type(range_start, bitbucket_t); index <= range_stop_unique_vector; current_vector++) {
         const counter_t current_vector_start = vectorstart_type(index, bitbucket_t);
         bitbucket_t mask_vector = BITBUCKET_BASE((variant_base_type_t) 0U);
 
-        #pragma clang loop vectorize(enable) interleave(enable)
         #pragma GCC ivdep
         for (counter_t element = 0; element < BITBUCKET_ELEMENTS; element++) {
             if (vectorstart_type(index,variant_base_type_t) == (current_vector_start + (bitcount_type(variant_base_type_t) * element))) {

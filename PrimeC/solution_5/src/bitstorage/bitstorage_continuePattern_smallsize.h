@@ -22,7 +22,7 @@ continuePattern_smallSize(void* restrict bitstorage, const counter_t source_star
     const counter_t destination_stop_word = index_type(destination_stop, bitbucket_t);
     if (destination_start_word >= destination_stop_word) {
         bitstorage_sized[destination_start_word] |= (pattern << bitindex_calc_type(destination_start, bitbucket_t)) & chopmask_type(destination_stop, bitbucket_t);
-        timer_laptime(time_continuePattern_smallSize); verbose7( printf("early exit\n"); )
+        endAnalysis7(time_continuePattern_smallSize,"\n");
         return;
     }
 

@@ -18,7 +18,7 @@ continuePattern_shiftright(void* restrict bitstorage, const counter_t source_sta
         bitstorage_sized[copy_word] |= ((bitstorage_sized[source_word] << shift)  // or the start in to not lose data
                                 | (bitstorage_sized[copy_word] >> shift_flipped))
                                 & keepmask_type(copy_start, bitbucket_t) & chopmask_type(destination_stop, bitbucket_t);
-        timer_laptime(time_continuePattern_shiftright); verbose7( printf("\n"); )
+                                endAnalysis7(time_continuePattern_shiftright,"\n");
         return; // rapid exit for one word variant
     }
 
@@ -37,7 +37,7 @@ continuePattern_shiftright(void* restrict bitstorage, const counter_t source_sta
     //     verbose7(  printf("...continue word by word (because source and copy are close together).."); )
     //     for (;copy_word <= destination_stop_word; copy_word++, source_word++ ) 
     //     bitstorage_sized[copy_word] = (bitstorage_sized[source_word] >> shift_flipped) | (bitstorage_sized[source_word+1] << shift);
-    //     timer_laptime(time_continuePattern_shiftright); verbose7( printf("\n"); )
+    //     endAnalysis7(time_continuePattern_shiftright,"\n");
     //     return; 
     // }
 
@@ -67,11 +67,11 @@ continuePattern_shiftright(void* restrict bitstorage, const counter_t source_sta
     uint8_t* destination_stop_byte = (uint8_t*)&bitstorage_sized[destination_stop_word+1];
     source_byte -= copy_size_bytes;
 
-    while (copy_byte + copy_size_bytes < destination_stop_byte) {
-        local_memcpy(copy_byte, source_byte, copy_size_bytes);
-        copy_byte += copy_size_bytes;
-        copy_size_bytes += copy_size_bytes;
-    }
+    // while (copy_byte + copy_size_bytes < destination_stop_byte) {
+    //     local_memcpy(copy_byte, source_byte, copy_size_bytes);
+    //     copy_byte += copy_size_bytes;
+    //     copy_size_bytes += copy_size_bytes;
+    // }
 
     size_t memcpy_size = destination_stop_byte - copy_byte;
     local_memcpy(copy_byte, source_byte, memcpy_size);

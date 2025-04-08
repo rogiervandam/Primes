@@ -29,11 +29,35 @@ ensure_next_arg(int arg, int argc, char *program_name, const char *option_name) 
     return 1;
 }
 
+// Custom string to uintmax_t converter
+static inline int __attribute__((cold))
+str_to_uintmax(const char *str, uintmax_t *value) {
+    // skip empty string and non-digit characters
+    if (!str || !*str || !isdigit_local(*str)) return 0;
+    
+    uintmax_t result = 0;
+    for (; *str && isdigit_local(*str); str++) {
+        // Check for overflow before adding new digit
+        if (result > UINTMAX_MAX / 10) return 0;
+        result *= 10;
+        
+        uintmax_t digit = *str - '0';
+        if (result > UINTMAX_MAX - digit) return 0;
+        result += digit;
+    }
+    
+    // If we stopped on non-whitespace/null, it's invalid
+    if (*str && *str != ' ' && *str != '\t') return 0;
+    
+    *value = result;
+    return 1;
+}
+
 // Helper function for integer argument parsing
 static inline int __attribute__((cold))
 parse_int_arg(char *arg_str, counter_t *value, counter_t max_value, char *program_name, const char *error_msg) {
     uintmax_t temp_value; // Use a local variable instead of a pointer
-    if (sscanf(arg_str, "%ju", &temp_value) != 1 || temp_value > max_value) {
+    if (str_to_uintmax(arg_str, &temp_value) != 1 || temp_value > max_value) {
         verbose1(fprintf(stderr, "Error: %s: %s\n", error_msg, arg_str); usage(program_name, 1));
         return 0; // Never reached due to usage() exit
     }
@@ -41,10 +65,39 @@ parse_int_arg(char *arg_str, counter_t *value, counter_t max_value, char *progra
     return 1;
 }
 
+// Custom string to double converter
+static inline int __attribute__((cold))
+str_to_double(const char *str, double *value) {
+    if (!str || !*str) return 0;
+    
+    // Parse integer part
+    double result = 0.0;
+    int have_digits = 0;
+    for (; *str && isdigit_local(*str); str++) {
+        result = result * 10.0 + (*str - '0');
+    }
+    
+    // Parse fractional part
+    if (*str == '.') {
+        str++;
+        double fraction = 0.1;
+        for (;*str && isdigit_local(*str); str++) {
+            result += (*str - '0') * fraction;
+            fraction *= 0.1;
+        }
+    }
+   
+    // If we stopped on non-whitespace/null, it's invalid
+    if (*str && *str != ' ' && *str != '\t') return 0;
+    
+    *value = result;
+    return 1;
+}
+
 // Helper function for double argument parsing
 static inline int __attribute__((cold))
 parse_double_arg(char *arg_str, double *value,  char *program_name, const char *error_msg) {
-    if (sscanf(arg_str, "%lf", value) != 1) {
+    if (str_to_double(arg_str, value) != 1) {
         verbose1(fprintf(stderr, "Error: %s: %s\n", error_msg, arg_str); usage(program_name, 1));
         return 0; // Never reached due to usage() exit
     }
@@ -144,7 +197,7 @@ parseCommandLine(int argc, char *argv[])
                 
                 // Parse the number
                 if (*p && isdigit_local(*p)) {
-                    if (sscanf(p, "%ju", &value) != 1) {
+                    if (str_to_uintmax(p, &value) != 1) {
                         fprintf(stderr, "Error: Invalid number after '%c'\n", param_type);
                         usage(program_name, 1);
                     }

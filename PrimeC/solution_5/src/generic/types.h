@@ -49,6 +49,5 @@ static counter_t global_largestep_faster    = 128; // if step < VECTORSTAP_FASTE
 static counter_t global_blocksize_bits      = 32*1024*8; // blocksize in bits
 static counter_t global_strategy            = 1; // strategy to use for the sieve
 static counter_t debug_hits                 = 0;
-static counter_t debug_hits2                = 0;
 static counter_t debug_final_benchmarking   = 0;
 static counter_t debug_final_plan           = 0;

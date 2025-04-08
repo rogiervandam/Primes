@@ -18,8 +18,6 @@
 static inline void __attribute__((always_inline, nonnull)) 
 continuePattern(void* restrict bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
 {
-    // verbose7( printf("Continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size)); )
-    // timer_lapstart(time_continuePattern);
     startAnalysis7(time_continuePattern, "Continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
 
     if (size < bitcount_type(bitbucket_t)) {

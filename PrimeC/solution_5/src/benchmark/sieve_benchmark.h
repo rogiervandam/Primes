@@ -2,7 +2,11 @@
 static inline benchmark_settings_t initBenchmarkSettings(const counter_t threads) 
 {
     benchmark_settings_t benchmark_settings = option.fixed_benchmark_settings;
-    benchmark_settings.threads              = threads;
+    if (!option.fixed_benchmark_settings.stripe_faster    ) { benchmark_settings.stripe_faster    = 64;        }
+    if (!option.fixed_benchmark_settings.largestep_faster ) { benchmark_settings.largestep_faster = 128;       }
+    if (!option.fixed_benchmark_settings.blocksize_bits   ) { benchmark_settings.blocksize_bits   = 32*1024*8; }
+    if (!option.fixed_benchmark_settings.strategy         ) { benchmark_settings.strategy         = 1;         }
+    benchmark_settings.threads = threads;
     return benchmark_settings;
 }
 
@@ -39,7 +43,7 @@ static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settin
     global_largestep_faster     = benchmark_settings.largestep_faster;
     global_blocksize_bits       = benchmark_settings.blocksize_bits;
     global_strategy             = benchmark_settings.strategy;  
-    verbose5 ( { printf("Using settings " COLOR_GREEN "%s" COLOR_RESET "\n", getBenchmarkSettingAsString(benchmark_settings)); } )
+    verbose5({ printf("Using settings " COLOR_GREEN "%s" COLOR_RESET "\n", getBenchmarkSettingAsString(benchmark_settings)); })
 }
 
 static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
