@@ -46,8 +46,8 @@ str_to_uintmax(const char *str, uintmax_t *value) {
         result += digit;
     }
     
-    // If we stopped on non-whitespace/null, it's invalid
-    if (*str && *str != ' ' && *str != '\t') return 0;
+    // If we stopped on non-whitespace/null/hyphen, it's invalid
+    if (*str && *str != ' ' && *str != '\t'  && *str != '-') return 0;
     
     *value = result;
     return 1;

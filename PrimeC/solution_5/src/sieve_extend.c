@@ -38,29 +38,31 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     // use globals as constant - these get optimized
     const counter_t stripeprime_faster  = global_stripeprime_faster;
     const counter_t blocksize_bits      = global_blocksize_bits;
-    const counter_t algorithm            = global_algorithm;
+    const counter_t algorithm           = global_algorithm;
 
     verbose5({
         printf("\nShaking sieve to find all primes up to %ju by marking multiples of all primes up to %ju\n", (uintmax_t)sieve_size, (uintmax_t)usqrt(sieve_size));
         printf("Using compressed primes up to %ju with sieve size %ju and blocksize %ju\n",(uintmax_t)prime_max, (uintmax_t)sieve_bits,(uintmax_t)blocksize_bits);
     })
 
-    if (algorithm >=1 && algorithm <= 3) {
-        // fill the entire sieve for lower primes by adding en copying incrementally
-        counter_t prime = extendSieveBlock0(sieve->bitstorage, sieve_bits);
-        
-        // continue from the prime that was processed in the pattern until the tuned value for blockwise processing
-        // stripe off all the multiples of primes in the sieve
-        prime = stripeSieve(sieve->bitstorage, sieve_bits, prime, stripeprime_faster);
+    switch( algorithm ) 
+    {
+        case 1:
+            // fill the entire sieve for lower primes by adding en copying incrementally
+            counter_t prime = extendSieveBlock0(sieve->bitstorage, sieve_bits);
+            
+            // continue from last the prime that was processed and stripe off the multiples of this prime
+            // repeat until it is faster to do this block by block
+            prime = stripeSieve(sieve->bitstorage, sieve_bits, prime, stripeprime_faster);
 
-        // in the sieve all bits for the multiples of primes up to startprime have been set
-        // process the sieve and stripe all the multiples of primes > start_prime
-        // do this block by block to minimize cache misses
-        stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, prime, prime_max);
-    }
-    else {
-        counter_t prime_next = extendSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, stripeprime_faster);
-        stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits/2, prime_next, prime_max);
+            // process the remaining primes block by block to minimize cache misses
+            stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, prime, prime_max);
+            break;
+
+        case 2: // process everything block by block
+            counter_t prime_next = extendSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, stripeprime_faster);
+            stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits/2, prime_next, prime_max);
+            break;
     }
 
     // return the completed sieve
