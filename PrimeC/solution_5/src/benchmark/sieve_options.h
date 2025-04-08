@@ -35,6 +35,7 @@ static struct options_t {
     counter_t tune_keeppercent_shortlist;
     char*     program_name;
     char*     dockerfile_type;
+    char*     extension;
 } option;
 
 static struct options_t __attribute__((cold)) 
@@ -81,6 +82,11 @@ setDefaultOptions()
     option.timers = 1;
     #endif
 
+    #ifdef _OPENMP
+    option.extension = "_epar";
+    #else
+    option.extension = "";
+    #endif
     return option;
 }
 
