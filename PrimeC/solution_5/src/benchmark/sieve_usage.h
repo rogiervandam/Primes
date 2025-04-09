@@ -4,7 +4,7 @@ usage(char *program_name, int exit_code)
     const char usage_text[] =
         "Usage: %s [options] [maximum]\n"
         "Options:\n"
-        "  --check                   Check the correctness of the algorithm\n"
+        "  --check <level>           Check the correctness of the algorithm\n"
         "                            0 - no check\n"
         "                            1 - check prime count for the sieve size\n"
         "                            2 - check prime count for every sieve size\n"
@@ -24,6 +24,8 @@ usage(char *program_name, int exit_code)
         "  --set s<prime>            Set the cutoff prime for blockwise striping\n"
         "        l<bits>             Set the cutoff number of bits for vectorwise striping\n"
         "        b<bits>             Set the block size to a specific <size> in bits\n"
+        "        v<size>             Set the vector size to a specific <size> in bits\n"
+        "        a<algorithm>        Set the algorithm to a specific <algorithm>\n"
         "  --show  <maximum>         Show the primes found up to the maximum\n"
 #ifdef _OPENMP
         "  --threads <count>         Set the maximum number of threads to be used (only when compiled for openmp)\n"
@@ -44,8 +46,8 @@ usage(char *program_name, int exit_code)
         "                            4 - benchmark iterative stripe functions\n"
 #endif
         "  --verbose <level>         Show more output to a certain level:\n"
-        "                            0 - only show result string"
-        "                            1 - show result string with additional setings information"
+        "                            0 - only show result string\n"
+        "                            1 - show result string with additional setings information\n"
         "                            2 - show general phase progress\n"
         "                            3 - show general progress within the phase\n"
         "                            4 - show actual work\n"

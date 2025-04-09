@@ -12,7 +12,7 @@ The algorithm is developed in NodeJS and C in parallel.
 ## The extend algorithm
 The extend algorithm marks all the multiples of a prime factor in the range of the product of the prime and all previous primes x2. E.g.: all multiples of 2,3 and 5 are marked until 2x (1x2x3x5) = 30. The range from 15-30 is a reoccuring pattern. So when we find 7, we can extend the pattern 15-30 until 7x15 = 105. Then we can mark all multiples of 7, and so on. So by gradually extending the seive by repeating the current pattern, we can have significant efficiency gains. 
 
-For larger primes, the range will be so large that it can't be effiently handled by the L1 cache. Therefore, the sieve is divided in blocks, so that the multiples are handler per group. The blocks can be entirely independent (start at prime x and then use the extend algortim again), but a hybrid approach is faster: keep extending till the range for the first product of primes extends the sieve. Then, stripe of per block. 
+For larger primes, the range will be so large that it can't be effiently handled by the L1/L2 cache. Therefore, the sieve is divided in blocks, so that the multiples are handler per group. The blocks can be entirely independent (start at prime x and then use the extend algortim again), but a hybrid approach is faster: keep extending till the range for the first product of primes extends the sieve. Then, stripe of per block. 
 
 A number of techniques have been used to enable bit-level patterns to be extended fast. 
 Also all possible optimizations have been used to speed up the code in C.
@@ -26,13 +26,27 @@ Inspired by:
 - PrimeC/solution_2 - danielspaangberg_1of2_epar. Inspired the multiprocessor versions. 
 
 ## Lessons learned
-- 32 bit vectors can be faster than 64 bit
+- 8 bit handling with shift and mask is faster than 32 or 64 bit
+- using 32bit integers for counters is faster than 64bit uint or int; especially on apple m1
+
 - Use #pragma GCC ivdep to signal the compiler that it should not care about rereading memory in a loop.
 - Use manual unroll for small sizes
-- Small changes in code can have huge impact due to -Ofast of -O3 optimizations
+- a large performance gain resulted from a manual unroll AND a unroll hint in applymask
+
+- use cache lines as much as possible - alignment might be key
 - Using vector can greatly speed thing up, because of the sse/avx extensions
-- __attribute__((always_inline)) can force inlining a function
+- pairing vector manipulations together with the next one gains some performance
+
+- Small changes in code can have huge impact due to -Ofast of -O3 optimizations
+- using flto is also beneficial
+- __attribute__((always_inline)) can force inlining a function. Using inline is not enough
+
 - doing while (index<range_stop) and then if (index==range_stop) is faster than while (index<=range_stop)
+- switched to one malloc for the sieve, instead of one for the sieve and one for the storage
+- bitstorage will be aligned on the cache_line_bytes
+
+- alpine docker images are slow because of the standard malloc. Integrating jemalloc or mimalloc helps
+- clang is better for apple m1 compilations, gcc is better for intel
 
 Sources:
 - https://www.agner.org/optimize/ - excellent manuals on optimization
@@ -44,18 +58,22 @@ Sources:
 - https://gcc.gnu.org/onlinedocs/gcc/Vector-Extensions.html
 - https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html
 
-## Run instructions
+## Build and run instructions
+The sieve command (./sieve) contains the bash script for build & run iterations. It read the arguments on the commandline and sets the needed defines accordingly to build the right version of the sieve app in the build folder. It runs it automatically after building. So the script can be used as if it is the final program. There are some extra command line options for the build process:
 
+Special build commands of the ./sieve command script:
 
-### Build and run native
-To run this solution you need the gcc compiler and dependencies.
+./sieve compileall                                - Compile all possible versions and put them in ./build/ folder.
+./sieve runall                                    - Run all possible versions. If it runs in the Primeview docker container, verbosity is lowered.
+./sieve docker <dockerfile extension> <arguments> - Run sieve in a docker container with the given arguments. 
+                                                    Looks in ./dev/docker/ for a Dockerfile_<extension>. E.g. ubuntu_gcc.
+./sieve docker all <arguments>                    - Run sieve in all the possible docker files
+./sieve docker <dockerfile extension> set         - Sets the dockerfile as the default Dockerfile in ./
+./sieve <arguments> gcc <arguments>               - Use gcc as compiler. Can be anywhere on the argument list.
+./sieve <arguments> clang <arguments>             - Use clang as compiler. Can be anywhere on the argument list.
+./sieve <arguments> icx <arguments>               - Use icx as compiler. Can be anywhere on the argument list.
 
-```bash
-cd path/to/sieve
-./compile.sh
-./run.sh
-```
-or use the shortcut ./test.sh sieve_extend
+"make" is an alternative for building. 
 
 ### Run with Docker
 
@@ -97,67 +115,83 @@ Command to run the formal benchmark:
 cd ../..; make DIRECTORY=PrimeC/solution_5
 ```
 
-if something is wrong with a .sh file: this might help:
+If something is wrong with running the "./sieve" file, it is probably due to CRLF/LF problems.
+This might help:
 
 ```bash
-sed -i 's/\r$//' *.sh
 sed -i 's/\r$//' sieve
 ```
 
 ### Command line options
 ```bash
-Usage: ./sieve_extend [options] [maximum]
-Options:
-  --block <kilobyte> Set the block size to a specific <size> in kilobytes
-  --check            Check the correctness of the algorithm
-  --help             This help function
-  --show  <maximum>  Show the primes found up to the maximum
-  --time  <seconds>  The maximum time (in seconds) to run passes of the sieve algorithm
-  --tune  <level>    find the best settings for the current os and hardware
-                     1 - fast tuning
-                     2 - refined tuning
-                     3 - maximum tuning (takes long)
-  --verbose <level>  Show more output to a certain level:
-                     1 - show phase progress
-                     2 - show general progress within the phase
-                     3 - show actual work
+Usage: ./sieve [options] [maximum]
+[options] is optional one or more of the following:
+  --check                   Check the correctness of the algorithm
+                            0 - no check
+                            1 - check prime count for the sieve size
+                            2 - check prime count for every sieve size
+                            3 - check prime count for every sieve size and blocksize
+                            4 - check stripe algorithms for the sieve size
+                            5 - check stripe algorithms for every sieve size
+                            6 - check stripe algorithms for the sieve size and every blocksize
+                            7 - check all and halt
+  --nocheck                 Skip check of the correctness of the algorithm
+  --explain                 Explain the steps of the algorithm - only when compiled for explain
+  --help                    This help function
+  --max <maximum>           Set the maximum prime to examine
+  --set s<prime>            Set the cutoff prime for blockwise striping
+        l<bits>             Set the cutoff number of bits for vectorwise striping
+        b<bits>             Set the block size to a specific <size> in bits
+        v<size>             Set the vector size to a specific <size> in bits
+        a<algorithm>        Set the algorithm to a specific <algorithm>
+  --show  <maximum>         Show the primes found up to the maximum
+  --threads <maximum>       Set the maximum number of threads to be used (only when compiled for openmp)
+                             Use 'all' to use all available threads or 'half' for /2 (e.g. for no hyperthreading)
+  --time  <seconds>         The maximum time (in seconds) to run passes of the sieve algorithm
+  --timers                  Give the timings for submodules - only when compiled for timers
+  --tune  <level>           find the best settings for the current os and hardware
+                            0 - no tuning
+                            1 - fast tuning
+                            2 - refined tuning
+                            3 - benchmark invidual stripe functions
+                            4 - benchmark iterative stripe functions
+  --verbose <level>         Show more output to a certain level:
+                            0 - only show result string
+                            1 - show result string with additional setings information
+                            2 - show general phase progress
+                            3 - show general progress within the phase
+                            4 - show actual work
+                            5 - show high-level plan
+                            6 - show detailed plan
+                            7 - show more details
+                            8 - show debug details
+                            9 - show timing
+[maximum] is the heighest prime to examine. Defaults to 1000000
+
+More options are available in the ./src/benchmark/sieve_options.h file.
 ```
 
 ## Output
-The extension means the following:
+The output at verbosity 1 and up has some extra settings information.
+Before doing the benchmark, the program tunes some settings. Theses settings are in the output.
 ```bash
-u32v8b31t3
-u32---------> unsigned 32 bit to store integers
-   v8-------> vectorized extending and striping using 8 x u 32 (or otherwise specified above)
-     b31----> block size of 31kB 
-        t3--> threads = 3 
+Example:
+s063-l128-b0262144-v256-a1
+s063-----------------------> Use striping the whole sieve up to this factor
+     l128------------------> Use large vectorsteps until we reach this factor
+          b0262144---------> Use this blocksize above the "s" factor
+                   v256----> vectorsize: 128, 256 or 512
+                        a1-> algorithm 1 (extend and stripe the whole sieve and then blockwise)
+                             or algorithm 2 (all blockwise; see src/sieve/sieve_extend.h for details)
 ```
 
 Below is an example of the output on my machine, running with Docker.
 ```bash
-rogiervandam_extend-u64v2b31;62520;5.000061;1;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend-u32v4b32;62281;5.000014;1;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend-u32v8b32;68550;5.000067;1;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend-u64v4b32;72737;5.000043;1;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend-u64v8b31;37117;5.000108;1;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u64v2b31t12;326098;5.000173;12;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u64v2b31t6;291160;5.000140;6;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u64v2b31t3;168067;5.000066;3;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u64v2b31;60189;5.000004;1;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u32v4b15t12;323704;5.000171;12;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u32v4b15t6;270277;5.000113;6;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u32v4b15t3;157055;5.000071;3;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u32v4b15;55885;5.000028;1;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u32v8b15t12;372283;5.000150;12;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u32v8b15t6;296594;5.000084;6;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u32v8b15t3;175971;5.000070;3;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u32v8b15;62281;5.000028;1;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u64v4b32t12;349984;5.000152;12;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u64v4b32t6;302958;5.000100;6;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u64v4b32t3;181114;5.000065;3;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u64v4b32;64122;5.000054;1;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u64v8b32t12;264962;5.000275;12;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u64v8b32t6;172144;5.000174;6;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u64v8b32t3;93330;5.000147;3;algorithm=other,faithful=yes,bits=1
-rogiervandam_extend_epar-u64v8b32;32110;5.000124;1;algorithm=other,faithful=yes,bits=1
+rogiervandam_extend;83501;5.000029;1;algorithm=other,faithful=yes,bits=1;s063-l128-b0262144-v256-a1 total 83501
+rogiervandam_base;20651;5.000002;1;algorithm=base,faithful=yes,bits=1;s122-l236-b0262144-v256-a1 total 20651
+rogiervandam_classic;8571;5.000516;1;algorithm=base,faithful=yes,bits=1;s064-l128-b0262144-v256-a1 total 8571
+rogiervandam_extend_epar;449870;5.000058;12;algorithm=other,faithful=yes,bits=1;s067-l134-b0131072-v256-a1 total 449870
+rogiervandam_extend_epar;311811;5.000044;6;algorithm=other,faithful=yes,bits=1;s079-l128-b0262144-v256-a2 total 311811
+rogiervandam_extend_epar;255389;5.000096;4;algorithm=other,faithful=yes,bits=1;s368-l124-b0262144-v256-a2 total 255389
+rogiervandam_extend_epar;154190;5.000031;2;algorithm=other,faithful=yes,bits=1;s060-l130-b0262144-v256-a1 total 154190
 ```
