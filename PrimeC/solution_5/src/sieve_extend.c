@@ -31,9 +31,9 @@ static char algorithm_type[] = "other";
 */
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
-    struct sieve_t *sieve = sieve_create(sieve_size);
+    struct sieve_t *sieve      = sieve_create(sieve_size);
     const counter_t sieve_bits = sieve->bits;
-    const counter_t prime_max = prime_stop(sieve_bits);
+    const counter_t prime_max  = prime_stop(sieve_bits);
 
     // use globals as constant - these get optimized
     const counter_t stripeprime_faster  = global_stripeprime_faster;
@@ -48,6 +48,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     switch( algorithm ) 
     {
         case 1:
+        {
             // fill the entire sieve for lower primes by adding en copying incrementally
             counter_t prime = extendSieveBlock0(sieve->bitstorage, sieve_bits);
             
@@ -57,12 +58,13 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 
             // process the remaining primes block by block to minimize cache misses
             stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, prime, prime_max);
-            break;
+        } break;
 
         case 2: // process everything block by block
+        {
             counter_t prime_next = extendSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, stripeprime_faster);
             stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits/2, prime_next, prime_max);
-            break;
+        } break;
     }
 
     // return the completed sieve

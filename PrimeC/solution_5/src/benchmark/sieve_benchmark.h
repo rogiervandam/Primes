@@ -11,7 +11,6 @@ static inline benchmark_settings_t initBenchmarkSettings(const counter_t threads
     return benchmark_settings;
 }
 
-
 // check the settings to make sure they are valid, dont overlap, etc.
 static inline benchmark_settings_t checkBenchmarkSettings(benchmark_settings_t benchmark_settings) 
 {
@@ -30,6 +29,16 @@ static inline benchmark_settings_t checkBenchmarkSettings(benchmark_settings_t b
     return benchmark_settings;
 }
 
+static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settings) 
+{
+    global_stripeprime_faster   = benchmark_settings.stripe_faster;
+    global_largestep_faster     = benchmark_settings.largestep_faster;
+    global_blocksize_bits       = benchmark_settings.blocksize_bits;
+    global_vectorsize           = benchmark_settings.vectorsize;
+    global_algorithm            = benchmark_settings.algorithm;  
+    verbose5({ printf("Using settings " COLOR_GREEN "%s" COLOR_RESET "\n", getBenchmarkSettingAsString(benchmark_settings)); })
+}
+
 static inline char* setBenchmarkSettingAsString(char* settings_string, benchmark_settings_t benchmark_settings) 
 {
     snprintf(settings_string, 50, "s%03ju-l%03ju-b%07ju-v%3ju-a%1ju", (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.largestep_faster, (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)benchmark_settings.vectorsize, (uintmax_t)benchmark_settings.algorithm);
@@ -40,15 +49,6 @@ static char      global_settings_string[50] = ""; // settings string to use wher
 static inline char *getBenchmarkSettingAsString(benchmark_settings_t benchmark_settings) 
 {
     return setBenchmarkSettingAsString(global_settings_string, benchmark_settings);
-}
-
-static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settings) 
-{
-    global_stripeprime_faster   = benchmark_settings.stripe_faster;
-    global_largestep_faster     = benchmark_settings.largestep_faster;
-    global_blocksize_bits       = benchmark_settings.blocksize_bits;
-    global_algorithm             = benchmark_settings.algorithm;  
-    verbose5({ printf("Using settings " COLOR_GREEN "%s" COLOR_RESET "\n", getBenchmarkSettingAsString(benchmark_settings)); })
 }
 
 static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 

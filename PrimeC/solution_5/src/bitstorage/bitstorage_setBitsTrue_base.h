@@ -48,31 +48,20 @@ setBitsTrue_base(void* restrict bitstorage, const counter_t range_start, const c
 {
     startAnalysis6(time_setBitsTrue, "Setting bits step %3ju using setBitsTrue_base in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps)\n", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step)));
 
-    if (step < bitcount_type(uint64_t) /2) {
+    if (step < 32) {
         const counter_t range_stop_unique_word = range_start + bitcount_type(uint64_t) * step; 
         if (range_stop_unique_word <= range_stop) { // the wordmask will be reused
             setBitsTrue_smallstep_repeat_base(bitstorage, range_start, step, range_stop);
-            timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
-            return;
         }
         else {
             setBitsTrue_smallstep_norepeat(bitstorage, range_start, step, range_stop);
-            timer_laptime(time_setBitsTrue); verbose7( printf("\n"); )
-            return;
         }
     }
-
-    if (range_start + step * 8 * 8 * 8 <= range_stop) { // // 8 bit 8 roll 8 tuned value
-        setBitsTrue_largestep_repeat_uint8_unroll8(bitstorage, range_start, step, range_stop);
-        return;
-    } 
-
-    if (range_start + step * 8 * 4  <= range_stop) {  // 8 bit 4 roll 8 tuned value
-        setBitsTrue_largestep_repeat_uint8(bitstorage, range_start, step, range_stop);
-        return;
-    } 
-
-    setBitsTrue_largestep_norepeat_uint8(bitstorage, range_start, step, range_stop);
-
+    else {
+        const counter_t range = range_stop - range_start, ratio = range / step;
+        if      (range > 512) { setBitsTrue_largestep_repeat_uint8_unroll8(bitstorage, range_start, step, range_stop); } 
+        else if (range >  32) { setBitsTrue_largestep_repeat_uint8        (bitstorage, range_start, step, range_stop); } 
+        else                    setBitsTrue_largestep_norepeat_uint8      (bitstorage, range_start, step, range_stop);
+    }
     endAnalysis6(time_setBitsTrue);
 }

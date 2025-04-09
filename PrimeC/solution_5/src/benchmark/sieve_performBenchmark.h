@@ -13,9 +13,8 @@ static int performBenchmarks(struct options_t option)
         }
         #endif
 
-        benchmark_settings = checkBenchmarkSettings(benchmark_settings);
-
         // one last check to make sure this is a valid algorithm for these settings
+        benchmark_settings = checkBenchmarkSettings(benchmark_settings);
         debug_final_plan = 1; // allow to count something in only one run
         if (!checkSieveWithBenchmarkSettings(benchmark_settings)) { 
             verbose1( fprintf(stderr, "The sieve is " COLOR_RED "NOT" COLOR_RESET " valid for settings %s with factor %ju\n", 
@@ -27,7 +26,7 @@ static int performBenchmarks(struct options_t option)
         )}
         debug_final_plan = 0;
     
-        // warm up the cache for 3 seconds
+        // warm up the cache for a short time
         verbose2( printf("Warming up the cache and processing units\n"); )	
         benchmark_settings_t final_tuning_settings = benchmark_settings;
         final_tuning_settings.sample_duration = option.warmup_duration;

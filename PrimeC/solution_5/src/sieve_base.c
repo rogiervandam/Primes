@@ -43,9 +43,10 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     // code for algorithm = base
     sieve_clear(sieve);
 
-    for (counter_t block_start = 0, block_stop = blocksize_bits; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
-        counter_t prime = 1;
+    for (counter_t block_start = 0; block_start < sieve_bits; block_start += blocksize_bits) {
+        const counter_t block_stop = block_start + blocksize_bits;
         const counter_t range_stop = min(sieve_bits, block_stop);
+        counter_t prime = 1;
 
         while (prime < prime_max) {
             register const counter_t step  = prime * 2 + 1;

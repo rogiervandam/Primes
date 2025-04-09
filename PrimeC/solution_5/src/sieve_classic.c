@@ -1,8 +1,7 @@
 // Sieve algorithm by Rogier van Dam - 2025
 // Find all primes up to <max int> using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)
 
-// This file includes all the building blocks for the sieve algorithm "base"
-// This enables the compiler to optimize the code better
+// This file includes all the building blocks for the sieve algorithm "classic style"
 
 #include "generic/timepriority.h"
 #include <stdio.h>
@@ -12,6 +11,7 @@
 
 static char algorithm_name[] = "rogiervandam_classic";
 static char algorithm_type[] = "base";
+#define ALGORITHM_CLASSIC 1
 
 // include helper functions
 #include "generic/settings.h"

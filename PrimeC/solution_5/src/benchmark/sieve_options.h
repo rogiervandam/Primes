@@ -89,6 +89,11 @@ setDefaultOptions()
     #else
     option.extension = "";
     #endif
+
+    #ifdef ALGORITHM_CLASSIC
+    option.tunelevel = 0;
+    #endif
+
     return option;
 }
 
