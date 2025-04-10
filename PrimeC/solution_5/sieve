@@ -231,7 +231,7 @@ if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
                 echo "Run with: docker run --rm -e DOCKERFILE_TYPE=\"$DOCKER_TYPE\" \"sieve_$DOCKER_TYPE\" \"$@\""
                 echo "Go in with: docker run --rm --name "sieve_$DOCKER_TYPE" -e DOCKERFILE_TYPE=$DOCKER_TYPE -it --entrypoint /bin/bash sieve_$DOCKER_TYPE"  
             fi
-            docker run --rm --name "sieve_$DOCKER_TYPE" -e DOCKERFILE_TYPE="$DOCKER_TYPE" "sieve_$DOCKER_TYPE" "$@"
+            docker run --rm --name "sieve_$DOCKER_TYPE" -e DOCKERFILE_TYPE="$DOCKER_TYPE" "sieve_$DOCKER_TYPE" "$@" "$COMPILER_OVERRIDE"
             exit $?
         else
             echo "Error: Dockerfile '$DOCKERFILE' not found."
