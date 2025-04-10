@@ -58,7 +58,7 @@ static inline int __attribute__((cold))
 parse_int_arg(char *arg_str, counter_t *value, counter_t max_value, char *program_name, const char *error_msg) {
     uintmax_t temp_value; // Use a local variable instead of a pointer
     if (str_to_uintmax(arg_str, &temp_value) != 1 || temp_value > max_value) {
-        verbose1(fprintf(stderr, "Error: %s: %s\n", error_msg, arg_str); usage(program_name, 1));
+        verbose1({ fprintf(stderr, "Error: %s: %s\n", error_msg, arg_str); usage(program_name, 1); });
         return 0; // Never reached due to usage() exit
     }
     *value = (counter_t)temp_value; // Assign the value after casting
@@ -98,7 +98,7 @@ str_to_double(const char *str, double *value) {
 static inline int __attribute__((cold))
 parse_double_arg(char *arg_str, double *value,  char *program_name, const char *error_msg) {
     if (str_to_double(arg_str, value) != 1) {
-        verbose1(fprintf(stderr, "Error: %s: %s\n", error_msg, arg_str); usage(program_name, 1));
+        verbose1({ fprintf(stderr, "Error: %s: %s\n", error_msg, arg_str); usage(program_name, 1); });
         return 0; // Never reached due to usage() exit
     }
     return 1;
@@ -245,7 +245,7 @@ parseCommandLine(int argc, char *argv[])
         #endif
         }
         else if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.fixed_benchmark_settings.factor_max) != 1) {
-            verbose1(fprintf(stderr, "Invalid size %s\n", argv[arg]); usage(program_name, 1));
+            verbose1({ fprintf(stderr, "Invalid size %s\n", argv[arg]); usage(program_name, 1); });
             verbose2(printf("Maximum set to %ju\n", (uintmax_t)option.fixed_benchmark_settings.factor_max));
         }
     }

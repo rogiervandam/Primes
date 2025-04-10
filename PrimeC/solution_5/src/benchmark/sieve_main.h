@@ -24,7 +24,7 @@
 
 int main(int argc, char *argv[]) 
 {
-    verbose1( setbuf(stdout, NULL); ) // prevent buffering of stdout
+    setbuf(stdout, NULL); // prevent buffering of stdout
     setDefaultOptions();
     parseCommandLine(argc, argv);
 
