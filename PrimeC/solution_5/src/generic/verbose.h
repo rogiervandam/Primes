@@ -1,4 +1,5 @@
 
+// Verbose level allows some code to only be compiled when targeting a certain verbose level
 #ifdef COMPILE_EXPLAIN
   #if COMPILE_VERBOSE_LEVEL < 7
      #undef COMPILE_VERBOSE_LEVEL

@@ -7,6 +7,7 @@
 #define VECTOR_SIZE_BYTES           64
 #define VECTOR_SIZE_BITS            512
 
+// types of vector alignments, used by presets in varianttypes.h
 typedef uint64_t uint64v8_t  __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
 typedef uint64_t uint64v4_t  __attribute__ ((vector_size(32), aligned(cache_line_bytes)));
 typedef uint64_t uint64v2_t  __attribute__ ((vector_size(16), aligned(cache_line_bytes)));
@@ -40,8 +41,6 @@ typedef uint16_t uint16v2_t  __attribute__ ((vector_size( 4), aligned(cache_line
 #define keepmask_type(index, type)         (safe_fill_type(type) << bitindex_calc_type(index, type))
 #define chopmask_type(index, type)         (safe_fill_type(type) >> (bitcount_type(type) - bitindex_calc_type(index, type) - 1))
 #define index_next_type(index, type)       (vectorstart_type(index, type) + bitcount_type(type))
-
-// builtin_ctz
 
 // globals for tuning
 static counter_t global_stripeprime_faster  = 0; // if step > BLOCKSTEP use blocks, else use the whole sieve

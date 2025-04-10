@@ -1,3 +1,6 @@
+// used for more reliable timing on apple and wsl
+// is largely ignored in docker containers
+
 #ifdef __APPLE__
     #include <mach/mach_time.h>
     #include <pthread.h>

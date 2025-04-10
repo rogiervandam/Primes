@@ -21,7 +21,9 @@ usage(char *program_name, int exit_code)
 #endif
         "  --help                    This help function\n"
         "  --max                     Set the maximum prime to examine\n"
-        "  --set s<prime>            Set the cutoff prime for blockwise striping\n"
+        "  --set <string>            The string is can be one or multiple of the following, connected by hyphens\n" 
+        "                            e.g. s063-l128-b0262144-v256-a1\n"
+        "        s<factor>           Set the cutoff prime for blockwise striping"
         "        l<bits>             Set the cutoff number of bits for vectorwise striping\n"
         "        b<bits>             Set the block size to a specific <size> in bits\n"
         "        v<size>             Set the vector size to a specific <size> in bits\n"

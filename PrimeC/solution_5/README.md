@@ -49,16 +49,19 @@ For comparison, of the framework, a classic and base implementation are added:
 
 - alpine docker images are slow because of the standard malloc. Integrating jemalloc or mimalloc helps
 - clang is better for apple m1 compilations, gcc is better for intel
+- Managed to get the canocical "doom" fast square root in for speed (src/sieve/sieve_calc)
 
 Sources:
 - https://www.agner.org/optimize/ - excellent manuals on optimization
 - https://stackoverflow.com/questions/21681300/diferences-between-pragmas-simd-and-ivdep-vector-always
 - https://stackoverflow.com/questions/25248766/emulating-shifts-on-32-bytes-with-avx
 - https://stackoverflow.com/questions/3005564/gcc-recommendations-and-options-for-fastest-code
+- https://clang.llvm.org/docs/UsersManual.html
 - https://github.com/simd-everywhere/simde
 - https://www.cprogramming.com/tips/tip/common-optimization-tips
 - https://gcc.gnu.org/onlinedocs/gcc/Vector-Extensions.html
 - https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html
+- https://en.wikipedia.org/wiki/Fast_inverse_square_root
 
 ## Source code organization
 During development, a framework emerged for benchmarking sieve functions. This framework spans the folders:
