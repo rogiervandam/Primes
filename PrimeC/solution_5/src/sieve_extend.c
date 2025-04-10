@@ -9,7 +9,6 @@
 #include <stdlib.h> // for malloc, free, exit and getenv
 #include <time.h>
 #include <stdint.h>
-// #include <string.h> // for memcpy
 
 static char algorithm_name[] = "rogiervandam_extend";
 static char algorithm_type[] = "other";
@@ -60,10 +59,15 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
             stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, prime, prime_max);
         } break;
 
-        case 2: // process everything block by block
+        case 2: // process extend and stripe block by block
         {
             counter_t prime_next = extendSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, stripeprime_faster);
             stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits/2, prime_next, prime_max);
+        } break;
+
+        case 3: // process everything block by block -- can be set via --set a3 on command line
+        {
+            stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, 1, prime_max);
         } break;
     }
 

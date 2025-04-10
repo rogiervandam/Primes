@@ -9,7 +9,7 @@
 #include <time.h>
 #include <stdint.h>
 
-static char algorithm_name[] = "rogiervandam_classic";
+static char algorithm_name[] = "rogiervandam_classic64bit";
 static char algorithm_type[] = "base";
 #define ALGORITHM_CLASSIC 1
 
@@ -23,7 +23,7 @@ static char algorithm_type[] = "base";
 // This is the main module that directs all the work
 // sieve_size in a real number that is the maximum in the sieve (not in bits)
 
-#define bitbucket_t uint8_t
+#define bitbucket_t uint64_t
 
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
@@ -41,13 +41,13 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
         const counter_t step  = prime * 2 + 1;
         const counter_t start = prime * (step + 1);
 
-        #pragma GCC ivdep
+        // #pragma GCC ivdep
         #pragma GCC unroll 32
         for(counter_t i=start; i < sieve_bits; i += step) {
             bitstorage[index_type(i, bitbucket_t)] |= markmask_calc_type(i,bitbucket_t);
         }
 
-        #pragma GCC ivdep
+        // #pragma GCC ivdep
         #pragma GCC unroll 32
         for (prime++; bitstorage[index_type(prime, bitbucket_t)] & markmask_type(prime, bitbucket_t); prime++);
     }

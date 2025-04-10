@@ -1,4 +1,4 @@
-#if COMPILE_EXPLAIN
+#ifdef COMPILE_EXPLAIN
 static void __attribute__((cold)) 
 explainSieveShake(benchmark_settings_t benchmark_settings) 
 {

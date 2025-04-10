@@ -20,7 +20,8 @@ typedef uint16_t uint16v8_t  __attribute__ ((vector_size(16), aligned(cache_line
 typedef uint16_t uint16v4_t  __attribute__ ((vector_size( 8), aligned(cache_line_bytes)));
 typedef uint16_t uint16v2_t  __attribute__ ((vector_size( 4), aligned(cache_line_bytes)));
 
-#define shift_calc(bits)                   (__builtin_ctz(bits))
+#define builtin_ctz(x)                     __builtin_ctzll((int64_t)(x))
+#define shift_calc(bits)                   (builtin_ctz(bits))
 #define shift_type(TYPE)                   (shift_calc(sizeof(TYPE)*8))
 #define shift_type_from_to(index,from,to)  (sizeof(from) > sizeof(to) ? ((index) << shift_calc(sizeof(from)/sizeof(to))) : ((index) >> shift_calc(sizeof(from)/sizeof(to))))
 #define vectorindex_type(index, type)      ((index)>>shift_type(type))
@@ -41,7 +42,6 @@ typedef uint16_t uint16v2_t  __attribute__ ((vector_size( 4), aligned(cache_line
 #define index_next_type(index, type)       (vectorstart_type(index, type) + bitcount_type(type))
 
 // builtin_ctz
-#define builtin_ctz(x) __builtin_ctzll((int64_t)(x))
 
 // globals for tuning
 static counter_t global_stripeprime_faster  = 0; // if step > BLOCKSTEP use blocks, else use the whole sieve

@@ -27,7 +27,7 @@ static int performBenchmarks(struct options_t option)
         debug_final_plan = 0;
     
         // warm up the cache for a short time
-        verbose2( printf("Warming up the cache and processing units\n"); )	
+        verbose2( printf("Warming up the cache and processing units in %.1f seconds\n", option.warmup_duration); )	
         benchmark_settings_t final_tuning_settings = benchmark_settings;
         final_tuning_settings.sample_duration = option.warmup_duration;
         benchmark(final_tuning_settings);

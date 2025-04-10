@@ -169,7 +169,7 @@ parseCommandLine(int argc, char *argv[])
         }
         else if (strcmp_local(argv[arg], "--verbose")) { 
             ensure_next_arg(++arg, argc, program_name, "verbose level");
-            parse_int_arg(argv[arg], &option.verbose_level, 9, program_name, "Invalid measurement time");
+            parse_int_arg(argv[arg], &option.verbose_level, 9, program_name, "Invalid verbose level");
         } 
         #ifdef COMPILE_EXPLAIN
         else if (strcmp_local(argv[arg], "--explain")) { 

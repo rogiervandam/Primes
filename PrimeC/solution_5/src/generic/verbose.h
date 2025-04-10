@@ -21,7 +21,7 @@
 
 #if COMPILE_VERBOSE_LEVEL >= 1
   #undef verbose1
-  #define verbose1(statement) statement
+  #define verbose1(statement) if (option.verbose_level >= 1) statement
 #endif
 #if COMPILE_VERBOSE_LEVEL >= 2
   #undef verbose2

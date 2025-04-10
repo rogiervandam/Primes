@@ -31,24 +31,12 @@ continuePattern_shiftright(void* restrict bitstorage, const counter_t source_sta
 
     verbose7( printf("...startword - %ju - copystartword %ju - endword %ju..",(uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)destination_stop_word); )
 
-    // if (copy_word < source_word + elementcount_type(bitbucket_t, variant_base_type_t)) { // TODO: check if this is needed
-
-    // if (copy_word < source_word + 3) { // TODO: check if this is needed
-    //     verbose7(  printf("...continue word by word (because source and copy are close together).."); )
-    //     for (;copy_word <= destination_stop_word; copy_word++, source_word++ ) 
-    //     bitstorage_sized[copy_word] = (bitstorage_sized[source_word] >> shift_flipped) | (bitstorage_sized[source_word+1] << shift);
-    //     endAnalysis7(time_continuePattern_shiftright,"\n");
-    //     return; 
-    // }
-
     // search for the first word that is aligned at bytelevel
     counter_t copy_size_bytes = size_bits; // at bytelevel, the size is the same
     counter_t copy_start_word = index_type(index_next_type(copy_start + (copy_size_bytes << SHIFT_BYTE), bitbucket_t), bitbucket_t); 
     if (copy_start_word > destination_stop_word) copy_start_word = destination_stop_word;
 
     // copy with shift - needed when not aligned at bytelevel
-    // speed up when source and copy are further apart - may vectorize the loop
-
     verbose7(  printf("\n...speed copy until word %ju..", (uintmax_t)copy_start_word); )
 
     // copy the pattern until we reach bytelevel alignment
@@ -66,12 +54,6 @@ continuePattern_shiftright(void* restrict bitstorage, const counter_t source_sta
     uint8_t* copy_byte             = (uint8_t*)&bitstorage_sized[copy_start_word];
     uint8_t* destination_stop_byte = (uint8_t*)&bitstorage_sized[destination_stop_word+1];
     source_byte -= copy_size_bytes;
-
-    // while (copy_byte + copy_size_bytes < destination_stop_byte) {
-    //     local_memcpy(copy_byte, source_byte, copy_size_bytes);
-    //     copy_byte += copy_size_bytes;
-    //     copy_size_bytes += copy_size_bytes;
-    // }
 
     size_t memcpy_size = destination_stop_byte - copy_byte;
     local_memcpy(copy_byte, source_byte, memcpy_size);

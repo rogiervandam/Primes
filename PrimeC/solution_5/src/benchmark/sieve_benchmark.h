@@ -51,7 +51,6 @@ static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settin
     verbose5({ printf("Using settings " COLOR_GREEN "%s" COLOR_RESET "\n", getBenchmarkSettingAsString(benchmark_settings)); })
 }
 
-
 static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
 {
     benchmark_settings = checkBenchmarkSettings(benchmark_settings);
@@ -113,7 +112,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
     benchmark_result_t benchmark_result = { .settings = checkBenchmarkSettings(benchmark_settings), .passes = 0, .elapsed_time = 0, .avg = 0 };
 
     // set global variables used in the sieve functions
-    prepareBenchmarkGlobals(benchmark_result.settings); // TODO; change back to benchmark_settings
+    prepareBenchmarkGlobals(benchmark_result.settings); 
 
     // prepare for the benchmark
     const counter_t sieve_size   = benchmark_result.settings.factor_max;

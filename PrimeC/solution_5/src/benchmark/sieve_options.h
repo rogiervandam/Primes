@@ -51,10 +51,11 @@ setDefaultOptions()
 
     option.check                      = 1; // set to 2 to stop after the check algorithm
     option.tunelevel                  = 1;
-    option.initial_sample_duration    = 0.0005;
+    // option.initial_sample_duration    = 0.0005;
+    option.initial_sample_duration    = 0.005;
     option.next_sample_duration       = 0.002;
-    option.warmup_duration            = 3;
-    option.tune_duration_max          = 5.0;
+    option.warmup_duration            = 1;
+    option.tune_duration_max          = 10.0;
     option.tune_keeppercent_longlist  = 10;
     option.tune_keeppercent_shortlist = 60;
 
@@ -72,12 +73,6 @@ setDefaultOptions()
     // changes though compilation options
     #ifdef _OPENMP
     option.fixed_benchmark_settings.threads                 = omp_get_max_threads();
-    #endif
-
-    #ifdef COMPILE_EXPLAIN
-    option.explain = 1;
-    option.verbose_level = 5;
-    option.check = 0;
     #endif
 
     #ifdef COMPILE_TIMERS

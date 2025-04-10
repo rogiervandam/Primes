@@ -1,13 +1,10 @@
-FROM ubuntu:24.04
+FROM alpine:3.21.3
 
-RUN apt-get update \
-    && apt-get install -y software-properties-common \
-    && add-apt-repository ppa:ubuntu-toolchain-r/test -y \
-    && apt-get update \
-    && apt-get install -y build-essential gcc-14 \
-    && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 60 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# Install necessary dependencies
+RUN apk add build-base mimalloc2-dev clang openmp-dev bash
+
+# Set mimalloc as the default memory allocator using LD_PRELOAD
+ENV LD_PRELOAD=/usr/lib/libmimalloc.so
 
 WORKDIR /home/sieve
 

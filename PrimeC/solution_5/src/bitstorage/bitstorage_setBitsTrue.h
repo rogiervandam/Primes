@@ -45,6 +45,7 @@ setBitsTrue_v512(void* restrict bitstorage, const counter_t range_start, const c
 
     if      (step  <  16)  setBitsTrue_smallstep_rotate_pair_uint16v32(bitstorage, range_start, step, range_stop);
     else if (step  <  32)  setBitsTrue_smallstep_rotate_pair_uint32v16(bitstorage, range_start, step, range_stop);
+    else if (step  <  64)  setBitsTrue_smallstep_rotate_pair_uint64v8 (bitstorage, range_start, step, range_stop); 
     else if (step  < 512 && step < global_largestep_faster)  setBitsTrue_largestep_vector_uint64v8(bitstorage, range_start, step, range_stop); 
     else {
         const counter_t range = range_stop - range_start, ratio = range / step;
@@ -62,6 +63,4 @@ setBitsTrue(void* restrict bitstorage, const counter_t range_start, const counte
         case 256: setBitsTrue_v256 (bitstorage, range_start, step, range_stop); break;
         case 512: setBitsTrue_v512 (bitstorage, range_start, step, range_stop); break;
     }
-
-    // setBitsTrue_v128 (bitstorage, range_start, step, range_stop); 
 }

@@ -11,17 +11,11 @@ continuePattern_aligned(void* restrict bitstorage, const counter_t source_start,
    
     bitstorage_sized[copy_word] = bitstorage_sized[source_word] & ~chopmask_type(copy_start, bitbucket_t);
     
-    // TODO: check if destionation_stop_word - copy_word % step would help
-    while (copy_word + size <= destination_stop_word) {
+    for (; copy_word + size <= destination_stop_word; copy_word += size) 
         local_memcpy(&bitstorage_sized[copy_word], &bitstorage_sized[source_word], (uintmax_t)size * sizeof(bitbucket_t) );
-            copy_word += size;
-        }
 
-    while (copy_word < destination_stop_word) {
-        bitstorage_sized[copy_word] = bitstorage_sized[source_word];
-        source_word++;
-        copy_word++;
-    }
+    for (; copy_word < destination_stop_word; )
+        bitstorage_sized[copy_word++] = bitstorage_sized[source_word++];
 
     endAnalysis7(time_continuePattern_aligned,"\n");
 }

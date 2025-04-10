@@ -58,9 +58,7 @@ usage(char *program_name, int exit_code)
         "                            9 - show timing\n"
         "[maximum] is the heighest prime to examine. Defaults to %ju\n";
     
-    verbose1({
-        if (exit_code == 0) { fprintf(stdout, usage_text, program_name, (uintmax_t)option.fixed_benchmark_settings.factor_max); }
-        else {                fprintf(stderr, usage_text, program_name, (uintmax_t)option.fixed_benchmark_settings.factor_max); }
-    })
+    if (exit_code == 0) { fprintf(stdout, usage_text, program_name, (uintmax_t)option.fixed_benchmark_settings.factor_max); }
+    else {                fprintf(stderr, usage_text, program_name, (uintmax_t)option.fixed_benchmark_settings.factor_max); }
     exit(exit_code);
 }

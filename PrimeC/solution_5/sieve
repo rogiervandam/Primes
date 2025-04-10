@@ -2,11 +2,13 @@
 
 # Detect OS
 OS="$(uname -s)"
+ARCH="$(uname -m)"
 
 # Initialize compiler override variable
 COMPILER_OVERRIDE=""
 RUNALL=""
 COMPILE=""
+COMPILEFULL=""
 
 # Process arguments to check for compiler override
 ARGS_TO_KEEP=()
@@ -25,29 +27,14 @@ for arg in "$@"; do
         COMPILE="compile"
     elif [ "$arg" = "compileall" ]; then
         COMPILE="compileall"
+    elif [ "$arg" = "compilefull" ]; then
+        COMPILE_FULL="compilefull"
     else
         ARGS_TO_KEEP+=("$arg")
     fi
 done
 # Replace arguments with the filtered list
 set -- "${ARGS_TO_KEEP[@]}"
-
-# if [ "$COMPILE" = "compileall" ]; then
-#     for base in sieve_classic sieve_base sieve_extend; do
-#         $0 $base "compile" "$@"
-#     done
-# fi
-
-# # running the full benchmark set
-# if [ "$RUNALL" = "runall" ]; then
-#     for base in sieve_extend sieve_base sieve_classic; do
-#         bin/${base} "$@"
-#     done
-#     for base in sieve_extend; do
-#         bin/${base}_epar --threads all "$@"
-#     done
-#     exit 0
-# fi
 
 STRIP="strip"
 PAREXT="_epar"
@@ -132,7 +119,7 @@ for arg in "$@"; do
         case "$token" in
             explain|--explain)
                 DEFINE_FLAGS="-DCOMPILE_EXPLAIN $DEFINE_FLAGS"
-                verbose_level=5
+                verbose_level=6
                 ;;
             timers|--timers)
                 DEFINE_FLAGS="-DCOMPILE_TIMERS $DEFINE_FLAGS"
@@ -155,6 +142,11 @@ fi
 if [ "$check_level" -ge 4 ]; then
     DEFINE_FLAGS="-DCOMPILE_CHECK_STRIPERS $DEFINE_FLAGS"
 fi
+
+if [ "$COMPILE_FULL" = "compilefull" ]; then
+    DEFINE_FLAGS="-DCOMPILE_FULL $DEFINE_FLAGS"
+fi
+
 # Add default verbose arguments if not explicitly specified
 run_args=""
 
@@ -252,18 +244,19 @@ if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
 fi
 
 if [ "$COMPILE" = "compileall" ]; then
-    for base in sieve_classic sieve_base sieve_extend; do
+    for base in sieve_base sieve_extend sieve_classic64 sieve_classic8; do
         $0 $base "compile" "$@"
     done
+    exit 0
 fi
 
 # running the full benchmark set
 if [ "$RUNALL" = "runall" ]; then
-    for base in sieve_base sieve_extend ; do
-        bin/${base} "$@"
-    done
     for base in sieve_extend; do
         bin/${base}_epar --threads all "$@"
+    done
+    for base in sieve_extend sieve_base sieve_classic64 sieve_classic8 ; do
+        bin/${base} "$@"
     done
     exit 0
 fi
@@ -291,7 +284,7 @@ CCWARN=""
 # Prefer icx (intel) if available on intel systems, otherwise fallback to clang on macOS or gcc on Linux
 if [ -n "$COMPILER_OVERRIDE" ]; then
   COMPILER="$COMPILER_OVERRIDE"
-elif [ "$OS" = "Darwin" ]; then
+elif [ "$ARCH" = "arm64" ]; then
     if command -v icx >/dev/null 2>&1; then
         COMPILER="icx"
     elif command -v clang >/dev/null 2>&1; then
@@ -299,7 +292,7 @@ elif [ "$OS" = "Darwin" ]; then
     else
         COMPILER="gcc"
     fi
-elif [ "$OS" = "Linux" ]; then
+else 
     if command -v icx >/dev/null 2>&1; then
         COMPILER="icx"
     elif command -v gcc-14 >/dev/null 2>&1; then
@@ -309,9 +302,6 @@ elif [ "$OS" = "Linux" ]; then
     else
         COMPILER="gcc"
     fi
-else
-    echo "Unsupported OS: $OS, defaulting to gcc"
-    COMPILER="gcc"
 fi
 
 # Configure compiler settings based on selection
@@ -364,13 +354,14 @@ elif [ "$COMPILER" = "gcc" ] || [ "$COMPILER" = "gcc-14" ]; then
     PAR="-fopenmp"
 fi
 
-if [ $verbose_level -gt 1 ]; then
-    echo "Compiling for ${OS} with ${COMPILER} "
-fi
-
 
 # Compose a program name using a default base name.
 PROGTOTAL="${base}"
+
+if [ $verbose_level -gt 1 ]; then
+    echo "Compiling ${PROGTOTAL} for ${OS} with ${COMPILER} "
+fi
+
 if [ $verbose_level -gt 2 ]; then
   echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
 fi
@@ -391,9 +382,13 @@ fi
 $STRIP ./bin/$PROGTOTAL
 
 PROGTOTALPAR="${base}$PAREXT"
-# if [ $verbose_level -gt 1 ]; then
-#   echo "Issuing command: $CC  $PAR -o ./bin/$PROGTOTALPAR ./src/${base}.c $DEFINE_FLAGS"
-# fi
+if [ $verbose_level -gt 1 ]; then
+    echo "Compiling ${PROGTOTALPAR} for ${OS} with ${COMPILER} "
+fi
+
+if [ $verbose_level -gt 2 ]; then
+  echo "Issuing command: $CC  $PAR -o ./bin/$PROGTOTALPAR ./src/${base}.c $DEFINE_FLAGS"
+fi
 $CC $PAR -o ./bin/$PROGTOTALPAR ./src/${base}.c $DEFINE_FLAGS
 if [ $? -ne 0 ]; then
     echo "Error: Compilation failed for parallel version."

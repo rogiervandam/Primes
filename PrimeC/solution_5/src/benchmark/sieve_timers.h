@@ -2,7 +2,7 @@
 
 // helper functions for timing parts of code in debugging mode
 
-#define timer_count 100
+#define timer_count 20
 struct timespec timer_timers[timer_count];
 counter_t timer_hits[timer_count];
 double timer_time[timer_count];
@@ -12,22 +12,21 @@ double timer_time[timer_count];
 #define time_searchBitFalse_largestep 2
 #define time_applyMask 3
 #define time_applyMask_pair 4
-#define time_setBitsTrue_smallstep_rotate_pair 10
-#define time_setBitsTrue_smallstep_repeat 11
-#define time_setBitsTrue_smallstep_norepeat 12
-#define time_setBitsTrue_largestep_vector 13
-#define time_setBitsTrue_largestep_repeat 14
-#define time_setBitsTrue_largestep_norepeat 15
-#define time_continuePattern 20
-#define time_continuePattern_smallSize 21
-#define time_continuePattern_aligned 22
-#define time_continuePattern_shiftleft_unrolled 23
-#define time_continuePattern_shiftleft 24
-#define time_continuePattern_shiftright 25
-#define time_sieveStripeBlock 30
-#define time_stripeSieve 32
-#define time_sieve_block_extend 33
-// #define time_sieveStripeBlock_vector 
+#define time_setBitsTrue_smallstep_rotate_pair 5
+#define time_setBitsTrue_smallstep_repeat 6
+#define time_setBitsTrue_smallstep_norepeat 7
+#define time_setBitsTrue_largestep_vector 8
+#define time_setBitsTrue_largestep_repeat 9
+#define time_setBitsTrue_largestep_norepeat 10
+#define time_continuePattern 11
+#define time_continuePattern_smallSize 12
+#define time_continuePattern_aligned 13
+#define time_continuePattern_shiftleft_unrolled 14
+#define time_continuePattern_shiftleft 15
+#define time_continuePattern_shiftright 16
+#define time_sieveStripeBlock 17
+#define time_stripeSieve 18
+#define time_sieve_block_extend 19
 
 static const char* timer_function_names[100] = {
     [time_setBitsTrue] = "setBitsTrue",

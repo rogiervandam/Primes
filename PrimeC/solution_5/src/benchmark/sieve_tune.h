@@ -218,8 +218,9 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     benchmark_settings_t tuning_settings = initBenchmarkSettings(start_tuning_settings.threads);
 
     // start the timer
-    const double time_start = (double)clock();
-    const double time_target = time_start + option.tune_duration_max * CLOCKS_PER_SEC * tuning_settings.threads; // in seconds
+    const double time_start = benchmarkTime();
+    const double time_target = time_start + option.tune_duration_max; // in seconds
+    double time_elapsed = time_start;
 
     // build the initial tuning table
     counter_t tuning_results = buildInitialTuningTable(tuning_result, tuning_settings, tuning_parameters);
@@ -263,12 +264,14 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
             // Perform the benchmark
             tuning_result[i] = benchmark(tuning_settings);
 
-            if ((double)clock() > time_target) { break; } // stop when time expired
+            time_elapsed = benchmarkTime();
+            if (time_elapsed > time_target) { break; } // stop when time expired
         }
 
         // Sort the results by average time and then exit if we ran out of time. After sorting so the best results are on top, so good time to stop
         qsort(tuning_result, (size_t)tuning_results, sizeof(benchmark_result_t), compareTuningResults);
-        if ((double)clock() > time_target) { 
+        time_elapsed = benchmarkTime();
+        if (time_elapsed > time_target) { 
             verbose3( { printf("\nTune time expired\n"); } );  
             break; 
         }
@@ -302,6 +305,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     benchmark_result_t best_result = tuning_result[0];
     free(tuning_result);
 
-    verbose2( { printf(COLOR_CLEAR_LINE "Tuning done. Evaluated %ju options in %ju steps. Best result: ", (uintmax_t) tuning_results_max, (uintmax_t) tuning_parameters.step ); printTuningResult(best_result);} );
+    time_elapsed = (time_elapsed - time_start);
+    verbose2( { printf(COLOR_CLEAR_LINE "Tuning done in %.1f seconds. Evaluated %ju options in %ju steps. Best result: ", (time_elapsed), (uintmax_t) tuning_results_max, (uintmax_t) tuning_parameters.step ); printTuningResult(best_result);} );
     return best_result;
 }
