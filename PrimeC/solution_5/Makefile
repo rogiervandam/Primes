@@ -6,6 +6,7 @@ all:
 	$(MAKE) sieve_extend
 	$(MAKE) sieve_classic
 	$(MAKE) sieve_base
+	./sieve runall
 
 # Rule to build each variant
 sieve_extend:
@@ -14,7 +15,8 @@ sieve_extend:
 
 sieve_classic:
 	@echo "Building variant: sieve_classic"
-	./sieve sieve_classic compile
+	./sieve sieve_classic64 compile
+	./sieve sieve_classic8 compile
 
 sieve_base:
 	@echo "Building variant: sieve_base"
@@ -25,6 +27,7 @@ clean:
 	@echo "Cleaning build artifacts..."
 	rm -f bin/*
 	rm -rf dev/build/*
+	rm -rf dev/docker/dockerfiles/*
 	@echo "Clean complete"
 
 # Help target to show available targets
