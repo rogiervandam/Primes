@@ -2,17 +2,13 @@ WORKDIR /home/sieve
 
 # Copy all shell scripts, C source, and header files
 COPY src/ ./src/
-
-# Copy builder
 COPY sieve ./sieve
 
 # Ensure the bin directory exists
-RUN mkdir -p bin
-RUN mkdir -p dev/build
+RUN mkdir -p bin dev/build && \
+    chmod +x ./sieve && \
+    sed -i 's/\r$//' ./sieve
 
-# Make the sieve executable and resolve LF/CRLF issues
-RUN chmod +x ./sieve
-RUN sed -i 's/\r$//' ./sieve
 RUN ./sieve compileall
 
 ENTRYPOINT [ "./sieve" ]

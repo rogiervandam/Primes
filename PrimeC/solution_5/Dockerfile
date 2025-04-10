@@ -1,7 +1,8 @@
 FROM alpine:3.21.3
 
 # Install necessary dependencies
-RUN apk add build-base mimalloc2-dev clang openmp-dev bash
+RUN apk add --no-cache build-base mimalloc2-dev clang openmp-dev bash && \
+    rm -rf /var/cache/apk/*
 
 # Set mimalloc as the default memory allocator using LD_PRELOAD
 ENV LD_PRELOAD=/usr/lib/libmimalloc.so
@@ -10,17 +11,13 @@ WORKDIR /home/sieve
 
 # Copy all shell scripts, C source, and header files
 COPY src/ ./src/
-
-# Copy builder
 COPY sieve ./sieve
 
 # Ensure the bin directory exists
-RUN mkdir -p bin
-RUN mkdir -p dev/build
+RUN mkdir -p bin dev/build && \
+    chmod +x ./sieve && \
+    sed -i 's/\r$//' ./sieve
 
-# Make the sieve executable and resolve LF/CRLF issues
-RUN chmod +x ./sieve
-RUN sed -i 's/\r$//' ./sieve
 RUN ./sieve compileall
 
 ENTRYPOINT [ "./sieve" ]

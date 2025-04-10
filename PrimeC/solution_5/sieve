@@ -218,20 +218,20 @@ if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
                 shift 2
             fi
 
+            docker rmi "sieve_$DOCKER_TYPE"
             docker build --pull --file "$DOCKERFILE_FULL" --rm -t "sieve_$DOCKER_TYPE" . 2> ./dev/build/docker_sieve_${DOCKER_TYPE}_build.log
             if [ $? -ne 0 ]; then
                 echo "Error: Docker build failed."
                 exit 1
             fi
             
-            
             # Run the Docker container with any remaining arguments
             if [ $verbose_level -gt 1 ]; then
                 echo "Running Docker container with arguments: $@"
-                echo "Run with: docker run --rm -e DOCKERFILE_TYPE=\"$DOCKER_TYPE\" \"sieve_$DOCKER_TYPE\" \"$@\""
+                echo "Run with: docker run --rm -e DOCKERFILE_TYPE=\"$DOCKER_TYPE\" \"sieve_$DOCKER_TYPE\" $@"
                 echo "Go in with: docker run --rm --name "sieve_$DOCKER_TYPE" -e DOCKERFILE_TYPE=$DOCKER_TYPE -it --entrypoint /bin/bash sieve_$DOCKER_TYPE"  
             fi
-            docker run --rm --name "sieve_$DOCKER_TYPE" -e DOCKERFILE_TYPE="$DOCKER_TYPE" "sieve_$DOCKER_TYPE" "$@" "$COMPILER_OVERRIDE"
+            docker run --rm --name "sieve_$DOCKER_TYPE" -e DOCKERFILE_TYPE="$DOCKER_TYPE" "sieve_$DOCKER_TYPE" $@ $COMPILER_OVERRIDE
             exit $?
         else
             echo "Error: Dockerfile '$DOCKERFILE' not found."
