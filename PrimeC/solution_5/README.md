@@ -11,12 +11,11 @@ This is an implementation in C.
 The algorithm is developed in NodeJS and C in parallel. 
 
 ## The extend algorithm
-The extend algorithm marks all the multiples of a prime factor in the range of the product of the prime and all previous primes x2. E.g.: all multiples of 2,3 and 5 are marked until 2x (1x2x3x5) = 30. The range from 15-30 is a reoccuring pattern. So when we find 7, we can extend the pattern 15-30 until 7x15 = 105. Then we can mark all multiples of 7, and so on. So by gradually extending the seive by repeating the current pattern, we can have significant efficiency gains. 
+The extend algorithm marks all the multiples of a prime factor in the range of the product of the prime and all previous primes x2. E.g.: all multiples of 2,3 and 5 are marked until 2x (1x2x3x5) = 30. The range from 15-30 is a reoccuring pattern. So when we handle e.g. 7, we can extend the copy pattern in 15-30 a few times up to 7x15 = 105. Then we can mark all multiples of 7 in this pattern, ranging from 15-105. Now we can copy that pattern 11 times, and so on. So by gradually extending the seive by repeating the current pattern, we can have significant efficiency gains. 
 
 For larger primes, the range will be so large that it can't be effiently handled by the L1/L2 cache. Therefore, the sieve is divided in blocks, so that the multiples are handler per group. The blocks can be entirely independent (start at prime x and then use the extend algortim again), but a hybrid approach is faster: keep extending till the range for the first product of primes extends the sieve. Then, stripe of per block. 
 
-A number of techniques have been used to enable bit-level patterns to be extended fast. 
-Also, all possible optimizations have been used to speed up the code in C.
+The extend algorithm marks more than one multiple at the time, by copying patterns. Thats the only deviation from the base algorithm. Now that we are setting multiples in one go, we can also use words and vectors to speed things up. We fill vectors with the step pattern and then apply these vectors at the appropriate locations. The vectors can be rotated to fit the next position, thereby using a lot of speedup potential. A number of techniques have been used to enable bit-level patterns to be extended fast. Also, all possible optimizations have been used to speed up the code in C.
 
 Inspired by: 
 - nodeJS/solution_1 - rogiervandam-memcopy. This is the implementation in C, to see how much speed can be gained by moving from nodeJS to C. 
