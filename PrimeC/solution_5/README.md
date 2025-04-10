@@ -62,7 +62,7 @@ Sources:
 
 ## Source code organization
 During development, a framework emerged for benchmarking sieve functions. This framework spans the folders:
-```bash
+```none
 src             Contains the basic high-levle algorithms fils. Each should include all the neccessary files 
                 and contain a function with the name "shakeSieve(counter_t sieve_size)" 
 src/benchmark   Contains all functions to benchmark an algorithm
@@ -83,7 +83,7 @@ The sieve command (./sieve) contains the bash script for build & run iterations.
 
 Special build commands of the ./sieve command script:
 
-```bash
+```none
 ./sieve compileall                                - Compile all possible versions and put them in ./build/ folder.
 ./sieve runall                                    - Run all possible versions. If it runs in the Primeview docker 
                                                     container, verbosity is lowered.
@@ -103,7 +103,7 @@ Special build commands of the ./sieve command script:
 ```
 
 ### Command line options
-```bash
+```none
 Usage: ./sieve [options] [maximum]
 [options] is optional one or more of the following:
   --check                   Check the correctness of the algorithm
@@ -203,7 +203,7 @@ sed -i 's/\r$//' sieve
 ## Output
 The output at verbosity 1 and up has some extra settings information.
 Before doing the benchmark, the program tunes some settings. Theses settings are in the output.
-```bash
+```none
 Example:
 s063-l128-b0262144-v256-a1
 s063-----------------------> Use striping the whole sieve up to this factor
@@ -215,7 +215,7 @@ s063-----------------------> Use striping the whole sieve up to this factor
 ```
 
 Below is an example of the output on my machine, running with Docker.
-```bash
+```none
 rogiervandam_extend;83501;5.000029;1;algorithm=other,faithful=yes,bits=1;s063-l128-b0262144-v256-a1 total 83501
 rogiervandam_base;20651;5.000002;1;algorithm=base,faithful=yes,bits=1;s122-l236-b0262144-v256-a1 total 20651
 rogiervandam_classic;8571;5.000516;1;algorithm=base,faithful=yes,bits=1;s064-l128-b0262144-v256-a1 total 8571
