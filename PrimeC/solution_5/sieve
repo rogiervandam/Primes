@@ -297,8 +297,6 @@ else
         COMPILER="icx"
     elif command -v gcc-14 >/dev/null 2>&1; then
         COMPILER="gcc-14"
-    elif command -v clang >/dev/null 2>&1; then
-        COMPILER="clang"
     else
         COMPILER="gcc"
     fi

@@ -65,10 +65,10 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
             stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits/2, prime_next, prime_max);
         } break;
 
-        case 3: // process everything block by block -- can be set via --set a3 on command line
-        {
-            stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, 1, prime_max);
-        } break;
+        // case 3: // process everything block by block -- can be set via --set a3 on command line
+        // {
+        //     stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, 1, prime_max);
+        // } break;
     }
 
     // return the completed sieve
