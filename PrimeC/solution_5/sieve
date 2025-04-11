@@ -212,9 +212,9 @@ if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
             echo "" >> "$DOCKERFILE_FULL"
             cat "./dev/docker/Dockerfile_common" >> "$DOCKERFILE_FULL"
 
-            # Check if third argument is "set" to copy Dockerfile to main folder
+            # Check if third argument is "set" to copy Dockerfile to main directory
             if [ $# -gt 2 ] && [ "$3" = "set" ]; then
-                # Copy the Dockerfile to the main folder
+                # Copy the Dockerfile to the main directory
                 cp "$DOCKERFILE_FULL" "./Dockerfile"
                 echo "Copied $DOCKERFILE_FULL to ./Dockerfile"
                 exit 0
@@ -357,7 +357,7 @@ elif [ "$COMPILER" = "gcc" ] || [ "$COMPILER" = "gcc-14" ]; then
     PAR="-fopenmp"
 fi
 
-# create a bin folder if it does not exist
+# create a bin directory if it does not exist
 [ -d ./bin ] || mkdir ./bin
 
 # Compose a program name using a default base name.
