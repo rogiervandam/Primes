@@ -207,7 +207,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
             break;
         case 2:
             tuning_parameters.stripe_faster_steps    = prime_max/8;
-            tuning_parameters.largestep_faster_steps = 32;
+            tuning_parameters.largestep_faster_steps = 16;
             tuning_parameters.sample_duration        = option.initial_sample_duration*2;
             break;
     }

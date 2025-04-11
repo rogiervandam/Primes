@@ -193,59 +193,72 @@ if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
                 EXTENSION="${DOCKERFILE#*Dockerfile_}" # Extract the extension
                 # RUN the same command line again, but "all" is replaced with the actual extension
                 $0 docker "$EXTENSION" "${@:3}"
-
             done
+            exit 0
         fi
 
-        # support running a single Dockerfile
-        DOCKERFILE="dev/docker/Dockerfile_$DOCKER_TYPE"
-        DOCKERFILE_FULL="dev/dockerfiles/Dockerfile_$DOCKER_TYPE"
-        if [ $verbose_level -gt 1 ]; then
-            echo "Building and running Docker container for type: $DOCKER_TYPE"
-            echo "Running command: docker build --pull --file $DOCKERFILE_FULL --rm -t sieve_$DOCKER_TYPE ." 
-        fi
+        if [ "$DOCKER_TYPE" = "default" ]; then
+            DOCKERFILE="Dockerfile"
+            DOCKERFILE_FULL="Dockerfile"
+            DOCKER_TYPE="default"
+            shift 2
+        else
+            # support running a single Dockerfile
+            DOCKERFILE="dev/docker/Dockerfile_$DOCKER_TYPE"
+            DOCKERFILE_FULL="dev/dockerfiles/Dockerfile_$DOCKER_TYPE"
+            if [ -f "$DOCKERFILE" ]; then
+                # Build the Docker image
+                cat "$DOCKERFILE" > "$DOCKERFILE_FULL"
+                echo "" >> "$DOCKERFILE_FULL"
+                cat "./dev/docker/Dockerfile_common" >> "$DOCKERFILE_FULL"
 
-
-        if [ -f "$DOCKERFILE" ]; then
-            # Build the Docker image
-            cat "$DOCKERFILE" > "$DOCKERFILE_FULL"
-            echo "" >> "$DOCKERFILE_FULL"
-            cat "./dev/docker/Dockerfile_common" >> "$DOCKERFILE_FULL"
-
-            # Check if third argument is "set" to copy Dockerfile to main directory
-            if [ $# -gt 2 ] && [ "$3" = "set" ]; then
-                # Copy the Dockerfile to the main directory
-                cp "$DOCKERFILE_FULL" "./Dockerfile"
-                echo "Copied $DOCKERFILE_FULL to ./Dockerfile"
-                exit 0
+                # Check if third argument is "set" to copy Dockerfile to main directory
+                if [ $# -gt 2 ] && [ "$3" = "set" ]; then
+                    # Copy the Dockerfile to the main directory
+                    cp "$DOCKERFILE_FULL" "./Dockerfile"
+                    echo "Copied $DOCKERFILE_FULL to ./Dockerfile"
+                    exit 0
+                else
+                    # Original behavior: shift past the first two arguments only
+                    shift 2
+                fi
             else
-                # Original behavior: shift past the first two arguments only
-                shift 2
-            fi
-
-            docker rmi "sieve_$DOCKER_TYPE"
-            docker build --pull --file "$DOCKERFILE_FULL" --rm -t "sieve_$DOCKER_TYPE" . 2> ./dev/build/docker_sieve_${DOCKER_TYPE}_build.log
-            if [ $? -ne 0 ]; then
-                echo "Error: Docker build failed."
+                echo "Error: Dockerfile '$DOCKERFILE' not found."
                 exit 1
             fi
-            
-            # Run the Docker container with any remaining arguments
-            if [ $verbose_level -gt 1 ]; then
-                echo "Running Docker container with arguments: $@"
-                echo "Run with: docker run --rm -e DOCKERFILE_TYPE=\"$DOCKER_TYPE\" \"sieve_$DOCKER_TYPE\" $@"
-                echo "Go in with: docker run --rm --name "sieve_$DOCKER_TYPE" -e DOCKERFILE_TYPE=$DOCKER_TYPE -it --entrypoint /bin/bash sieve_$DOCKER_TYPE"  
-            fi
-            docker run --rm --name "sieve_$DOCKER_TYPE" -e DOCKERFILE_TYPE="$DOCKER_TYPE" "sieve_$DOCKER_TYPE" $@ $COMPILER_OVERRIDE
-            exit $?
-        else
-            echo "Error: Dockerfile '$DOCKERFILE' not found."
-            exit 1
         fi
     else
-        echo "Error: Docker type not specified. Usage: $0 docker <type>"
+        echo "Docker type not specified. Using default"
+        DOCKERFILE="Dockerfile"
+        DOCKERFILE_FULL="Dockerfile"
+        DOCKER_TYPE="default"
+        shift 1
+    fi
+
+    if [ $verbose_level -gt 1 ]; then
+        echo "Building and running Docker container for type: $DOCKER_TYPE"
+        echo "Running command: docker build --pull --file $DOCKERFILE_FULL --rm -t sieve_$DOCKER_TYPE ." 
+    fi
+
+    # Check if the Docker image exists before attempting to remove it
+    if [ "$(docker images -q "sieve_$DOCKER_TYPE" 2> /dev/null)" ]; then
+        docker rmi "sieve_$DOCKER_TYPE"
+    fi
+
+    docker build --pull --file "$DOCKERFILE_FULL" --rm -t "sieve_$DOCKER_TYPE" . 2> ./dev/build/docker_sieve_${DOCKER_TYPE}_build.log
+    if [ $? -ne 0 ]; then
+        echo "Error: Docker build failed."
         exit 1
     fi
+    
+    # Run the Docker container with any remaining arguments
+    if [ $verbose_level -gt 1 ]; then
+        echo "Running Docker container with arguments: $@"
+        echo "Run with: docker run --rm -e DOCKERFILE_TYPE=\"$DOCKER_TYPE\" \"sieve_$DOCKER_TYPE\" $@ $COMPILER_OVERRIDE" 
+        echo "Go in with: docker run --rm --name "sieve_$DOCKER_TYPE" -e DOCKERFILE_TYPE=$DOCKER_TYPE -it --entrypoint /bin/bash sieve_$DOCKER_TYPE"  
+    fi
+    docker run --rm --name "sieve_$DOCKER_TYPE" -e DOCKERFILE_TYPE="$DOCKER_TYPE" "sieve_$DOCKER_TYPE" $@ $COMPILER_OVERRIDE
+    exit $?
 fi
 
 if [ "$COMPILE" = "compileall" ]; then
