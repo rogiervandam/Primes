@@ -16,6 +16,7 @@ sieve_extend_epar-i*
 sieve_base_epar-u*
 sieve_base-u*
 .vscode
+.vscode/*
 tuning_results*
 callgrind*
 profile*
