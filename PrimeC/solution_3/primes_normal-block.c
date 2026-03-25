@@ -63,9 +63,10 @@ static inline void delete_sieve(struct sieve_state *sieve_state) {
 
 //     unsigned int block_idx = index / BITS_IN_BLOCK;
 //     unsigned int offset = index % BITS_IN_BLOCK;
-//     unsigned int bit_idx = offset / BLOCK_SIZE;
-//     unsigned int word_idx = offset % BLOCK_SIZE;
-//     sieve_state->block_index[block_idx][word_idx] |=  OFFSET_MASK[bit_idx];
+//     unsigned int bit_idx = offset % 32;
+//     unsigned int word_idx = offset >> 5;
+//     TYPE OFFSET_MASKDYN = (TYPE) 1 << bit_idx;
+//     sieve_state->block_index[block_idx][word_idx] |=  OFFSET_MASKDYN;
 // }
 
 static inline TYPE getBit (struct sieve_state *sieve_state,unsigned int index) {
@@ -75,9 +76,10 @@ static inline TYPE getBit (struct sieve_state *sieve_state,unsigned int index) {
 
     unsigned int block_idx = index / BITS_IN_BLOCK;
     unsigned int offset = index % BITS_IN_BLOCK;
-    unsigned int bit_idx = offset / BLOCK_SIZE;
-    unsigned int word_idx = offset % BLOCK_SIZE;
-    return (TYPE) sieve_state->block_index[block_idx][word_idx] & OFFSET_MASK[bit_idx];
+    unsigned int bit_idx = offset % 32;
+    unsigned int word_idx = offset >> 5;
+    TYPE OFFSET_MASKDYN = (TYPE) 1 << bit_idx;
+    return (TYPE) sieve_state->block_index[block_idx][word_idx] & OFFSET_MASKDYN;
 }
 
 static inline void bit_cross_out(
@@ -85,54 +87,68 @@ static inline void bit_cross_out(
     unsigned int prime
 ) {
     unsigned int start_index = ((prime * prime)>>1U);
-    unsigned int block_idx_start = start_index / BITS_IN_BLOCK;
-    unsigned int offset_idx = start_index % BITS_IN_BLOCK;
-    unsigned int bit_idx = offset_idx / BLOCK_SIZE;
-    unsigned int word_idx = offset_idx % BLOCK_SIZE;
+    
+    for (unsigned int index = start_index; index < sieve_state->size; index += prime) {
 
-    unsigned int prime_2 = prime * 2;
-    unsigned int prime_3 = prime * 3;
-    unsigned int prime_4 = prime * 4;
-
-    for (unsigned int block_idx = block_idx_start; block_idx < sieve_state->nr_of_blocks;block_idx++) {
-        while (bit_idx < BITS_IN_WORD) {
-            unsigned int stripe_start_position = (block_idx * BITS_IN_BLOCK) + (bit_idx * BLOCK_SIZE);
-            unsigned int effective_len = (sieve_state->size - stripe_start_position);
-
-            if (effective_len > BLOCK_SIZE) {
-                effective_len = BLOCK_SIZE;
-            }
-
-            unsigned int save_len = 0;
-            if (effective_len > prime_3) {
-                save_len = effective_len - prime_3;
-            }
-            
-            while ( word_idx < save_len ) {
-                sieve_state->block_index[block_idx][word_idx] |= OFFSET_MASK[bit_idx];
-                sieve_state->block_index[block_idx][word_idx + prime] |= OFFSET_MASK[bit_idx];
-                sieve_state->block_index[block_idx][word_idx + prime_2 ] |= OFFSET_MASK[bit_idx];
-                sieve_state->block_index[block_idx][word_idx + prime_3 ] |= OFFSET_MASK[bit_idx];
-                
-                word_idx += prime_4;
-            }
-
-            // the rest at the end
-            while (word_idx < effective_len) {
-                sieve_state->block_index[block_idx][word_idx] |= OFFSET_MASK[bit_idx];
-                word_idx += prime;
-            }
-
-            if (effective_len != BLOCK_SIZE) {
-                return;
-            }
-
-            bit_idx++;
-            word_idx -= BLOCK_SIZE;
-        }
-
-        bit_idx = 0;
+        unsigned int block_idx = index / BITS_IN_BLOCK;
+        unsigned int offset = index % BITS_IN_BLOCK;
+        unsigned int bit_idx = offset % 32;
+        unsigned int word_idx = offset >> 5;
+        TYPE OFFSET_MASKDYN = (TYPE) 1 << bit_idx;
+        sieve_state->block_index[block_idx][word_idx] |=  OFFSET_MASKDYN;
     }
+
+    // unsigned int block_idx_start = start_index / BITS_IN_BLOCK;
+    // unsigned int offset_idx = start_index % BITS_IN_BLOCK;
+    // unsigned int bit_idx = offset_idx % 32;
+    // unsigned int word_idx = offset_idx >> 5;
+
+    // unsigned int prime_2 = prime * 2;
+    // unsigned int prime_3 = prime * 3;
+    // unsigned int prime_4 = prime * 4;
+
+
+    // for (unsigned int block_idx = block_idx_start; block_idx < sieve_state->nr_of_blocks;block_idx++) {
+        // while (bit_idx < BITS_IN_WORD) {
+        //     unsigned int stripe_start_position = (block_idx * BITS_IN_BLOCK) + (word_idx << 5);
+        //     unsigned int effective_len = (sieve_state->size - stripe_start_position);
+
+        //     if (effective_len > BLOCK_SIZE) {
+        //         effective_len = BLOCK_SIZE;
+        //     }
+
+        //     unsigned int save_len = 0;
+        //     if (effective_len > prime_3) {
+        //         save_len = effective_len - prime_3;
+        //     }
+            
+        //     TYPE OFFSET_MASKDYN = (TYPE) 1 << bit_idx;
+
+        //     // while ( word_idx < save_len ) {
+        //     //     sieve_state->block_index[block_idx][word_idx] |= OFFSET_MASKDYN;
+        //     //     sieve_state->block_index[block_idx][word_idx + prime] |= OFFSET_MASKDYN;
+        //     //     sieve_state->block_index[block_idx][word_idx + prime_2 ] |= OFFSET_MASKDYN;
+        //     //     sieve_state->block_index[block_idx][word_idx + prime_3 ] |= OFFSET_MASKDYN;
+                
+        //     //     word_idx += prime_4;
+        //     // }
+
+        //     // the rest at the end
+        //     while (word_idx < effective_len) {
+        //         sieve_state->block_index[block_idx][word_idx] |= OFFSET_MASKDYN;
+        //         word_idx += prime;
+        //     }
+
+        //     if (effective_len != BLOCK_SIZE) {
+        //         return;
+        //     }
+
+        //     bit_idx++;
+        //     word_idx -= BLOCK_SIZE;
+        // }
+
+        // bit_idx = 0;
+    // }
 }
 
 void run_sieve(struct sieve_state *sieve_state) {
@@ -229,17 +245,19 @@ void print_results (
         print_primes(sieve_state);
     }
 
-    printf("Passes: %d, Time: %f, Avg: %f, Limit: %d, Count: %d, Valid: %s\n",
+    printf("Passes: %d, Time: %f, Avg: %f, Limit: %d, Count: %d, Valid: %s. Bits in Block: %d  Blocksize: %d\n",
             passes,
             duration,
             (duration / passes),
             sieve_state->limit,
             count, 
-            valid 
+            valid,
+            BITS_IN_BLOCK,
+            BLOCK_SIZE
         );
 
-	printf("\n");
-	printf("fvbakel_Cstriped-block;%d;%f;1;algorithm=base,faithful=yes,bits=%lu\n", passes, duration,1LU);
+	// printf("\n");
+	printf("fvbakel_Cnormal-block;%d;%f;1;algorithm=base,faithful=yes,bits=%lu\n", passes, duration,1LU);
 }
 
 double run_timed_sieve(  
