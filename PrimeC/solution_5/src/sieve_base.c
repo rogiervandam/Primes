@@ -48,6 +48,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
         const counter_t range_stop = min(sieve_bits, block_stop);
         counter_t prime = 1;
 
+        #pragma GCC unroll 16
         while (prime < prime_max) {
             register const counter_t step  = prime * 2 + 1;
             register counter_t start = compute_start(prime, block_start);

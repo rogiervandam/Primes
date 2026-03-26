@@ -23,10 +23,10 @@
     #define unrolls 8
     #define variant uint8
     #include "bitstorage_setBitsTrue_assemble_word.h" 
-    // #define variant uint16
-    // #include "bitstorage_setBitsTrue_assemble_word.h" 
-    // #define variant uint32
-    // #include "bitstorage_setBitsTrue_assemble_word.h" 
+    #define variant uint16
+    #include "bitstorage_setBitsTrue_assemble_word.h" 
+    #define variant uint32
+    #include "bitstorage_setBitsTrue_assemble_word.h" 
     // #define variant uint64
     // #include "bitstorage_setBitsTrue_assemble_word.h" 
 
