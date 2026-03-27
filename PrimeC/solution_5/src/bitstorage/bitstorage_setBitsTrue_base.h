@@ -1,12 +1,12 @@
 // assemble the word and vector functions
 // these will make differt versions of themselves for different types of bitstorage
 #include "bitstorage_setBitsTrue_assemble_word.h" 
-#include "bitstorage_setBitsTrue_assemble_vector.h" 
+// #include "bitstorage_setBitsTrue_assemble_vector.h" 
 
 #define variant uint16
 #include "../generic/setsuffix.h"
 
-#define suffixunroll NAME(suffix, _unroll8)
+// #define suffixunroll NAME(suffix, _unroll8)
 static inline void __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 setBitsTrue_smallstep_repeat_base(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
@@ -18,7 +18,7 @@ setBitsTrue_smallstep_repeat_base(void* restrict bitstorage, const counter_t ran
         register bitbucket_t mask = (bitbucket_t)0U;
         for(; index_type(index, bitbucket_t) == index_bucket; index += step) {
             mask |= markmask_type(index, bitbucket_t);
-            function(applyMask, suffixunroll)(bitstorage, step, range_stop, mask, index_bucket);
+            function(applyMask, suffix)(bitstorage, step, range_stop, mask, index_bucket);
         }
     }
 
