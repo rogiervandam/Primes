@@ -23,6 +23,54 @@ function(setBitsTrue_largestep_norepeat,suffix)(void* restrict bitstorage, const
 {
     startAnalysis6(time_setBitsTrue_largestep_norepeat, "Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju)  (%ju unique occurances)", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)step));
 
+    #if unrolls == 1
+
+    counter_t i=((range_start-range_start)/step);
+    while (i>16) {
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        i-=16;
+    }
+    while (i>8) {
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        i-=8;
+    }
+    while (i>4) {
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        setBitTrue(bitstorage, index);  index += step;
+        i-=4;
+    }
+    for (; i-- && index < range_stop; index += step) {
+        setBitTrue(bitstorage, index);
+    }
+    if unlikely(index==range_stop) setBitTrue(bitstorage, index);
+    endAnalysis6(time_setBitsTrue_largestep_norepeat,"\n");
+    return;
+    #endif
+
     register const counter_t loop_stop = safe_diff_type(range_stop, step * unrolls, counter_t);
     register counter_t index = range_start;
 

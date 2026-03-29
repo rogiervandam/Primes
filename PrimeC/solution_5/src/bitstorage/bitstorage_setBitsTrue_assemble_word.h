@@ -6,9 +6,10 @@
     #undef unrolls
     #undef variant
 
-    #define unrolls 4
+    #define unrolls 1
     #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
-
+    #undef unrolls
+    
     #define unrolls 4
     #define variant uint8
     #include "bitstorage_setBitsTrue_assemble_word.h" 

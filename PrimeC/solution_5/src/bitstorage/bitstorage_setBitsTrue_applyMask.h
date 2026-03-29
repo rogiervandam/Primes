@@ -5,6 +5,29 @@ function(applyMask,suffix)(void* restrict bitstorage, const counter_t step, cons
 {
     startAnalysis8(time_applyMask, "\nApplying %s mask with step %ju in range until %ju", STR(bitbucket_t), (uintmax_t)step, (uintmax_t)range_stop);
   
+    #if unrolls == 1
+    register bitbucket_t* restrict bitstorage_sized     = __builtin_assume_aligned(bitstorage, cache_line_bytes);
+    register bitbucket_t* restrict index_ptr            = __builtin_assume_aligned(&bitstorage_sized[index_vector],sizeof(bitbucket_t));
+    register const bitbucket_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[index_type(range_stop, bitbucket_t)],sizeof(bitbucket_t));
+
+    counter_t i=(range_stop - range_start)/step;
+    for(;i;i-=8) {
+        for(int j=8; i--;) {
+            *index_ptr |= mask;  index_ptr += step;
+        }
+    }
+    for(;i;i-=4) {
+        for(int j=4; i--;) {
+            *index_ptr |= mask;  index_ptr += step;
+        }
+    }
+    for (; i--; index_ptr += step) { // signal compiler that only < unrolls iterations are left
+        *index_ptr |= mask; 
+    }
+
+    endAnalysis8(time_applyMask);
+    #endif
+
     register const counter_t step_max                   = step * unrolls;
     register bitbucket_t* restrict bitstorage_sized     = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     register bitbucket_t* restrict index_ptr            = __builtin_assume_aligned(&bitstorage_sized[index_vector],sizeof(bitbucket_t));
