@@ -3,7 +3,7 @@
 #include "bitstorage_setBitsTrue_assemble_word.h" 
 // #include "bitstorage_setBitsTrue_assemble_vector.h" 
 
-#define variant uint16
+#define variant uint8
 #include "../generic/setsuffix.h"
 
 // #define suffixunroll NAME(suffix, _unroll8)
@@ -65,9 +65,11 @@ setBitsTrue_base(void* restrict bitstorage, const counter_t range_start, const c
     }
     else {
         const counter_t range = range_stop - range_start, ratio = range / step;
-        if      (ratio > 64) { setBitsTrue_largestep_repeat_uint8_unroll8(bitstorage, range_start, step, range_stop); } 
-        else if (ratio > 32) { setBitsTrue_largestep_repeat_uint8        (bitstorage, range_start, step, range_stop); } 
-        else                   setBitsTrue_largestep_norepeat_uint8      (bitstorage, range_start, step, range_stop);
+        if (1!=1) {}
+        // else if (ratio > 32)  { setBitsTrue_largestep_repeat_uint8_unroll16(bitstorage, range_start, step, range_stop); } 
+        else if (ratio > 16)   { setBitsTrue_largestep_repeat_uint8_unroll8 (bitstorage, range_start, step, range_stop); } 
+        else if (ratio > 4)   { setBitsTrue_largestep_repeat_uint8         (bitstorage, range_start, step, range_stop); } 
+        else                  { setBitsTrue_largestep_norepeat_uint8       (bitstorage, range_start, step, range_stop); }
     }
     endAnalysis6(time_setBitsTrue);
 }

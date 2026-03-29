@@ -7,8 +7,8 @@ function(setBitsTrue_largestep_repeat,suffix)(void* restrict bitstorage, const c
 
     const counter_t range_stop_unique = range_start + bitcount_type(bitbucket_t) * step; 
 
-    #pragma GCC ivdep
-    #pragma GCC unroll 4
+    // #pragma GCC ivdep
+    // #pragma GCC unroll 4
     for (register counter_t index = range_start; index < range_stop_unique; index += step) { 
         function(applyMask,suffix)(bitstorage, step, range_stop, markmask_type(index, bitbucket_t), index_type(index, bitbucket_t));
     } 
