@@ -54,14 +54,21 @@ function(applyMask_new,suffix)(void* restrict bitstorage, const counter_t index,
 
     register counter_t i = safe_diff(range_stop, index) / (step * bitcount_type(bitbucket_t));
     // gcc
-    // for(counter_t j=8; j>=4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
-    //     for(;i>j;i-=j) {
-    //         for(counter_t k=j; k--; index_ptr += step) {
-    //             *index_ptr |= mask; 
+    for(counter_t j=unrolls; j>=4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
+        for(;i>j;i-=j) {
+            for(counter_t k=j; k--; index_ptr += step) {
+                *index_ptr |= mask; 
+            }
+        }
+    }
+
+    // for(int j=8; j>=4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
+    //     for(;i>j; i-=j, index_ptr += step * j) {
+    //         for(int k = 0; k < j; ++k ) {
+    //             index_ptr[k * step] |= mask;
     //         }
     //     }
     // }
-
     // clang
     // for(counter_t j=8; j>2; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
     //     for(;i>j;i-=j,index_ptr += step * j) {
@@ -107,85 +114,86 @@ function(applyMask_new,suffix)(void* restrict bitstorage, const counter_t index,
     // }
     // #endif
 
-    #if unrolls >= 32
-    for (;i>32; i-=32, index_ptr += step * 32) {
-        index_ptr[step * 0] |= mask;
-        index_ptr[step * 1] |= mask;
-        index_ptr[step * 2] |= mask;
-        index_ptr[step * 3] |= mask;
-        index_ptr[step * 4] |= mask;
-        index_ptr[step * 5] |= mask;
-        index_ptr[step * 6] |= mask;
-        index_ptr[step * 7] |= mask;
-        index_ptr[step * 8] |= mask;
-        index_ptr[step * 9] |= mask;
-        index_ptr[step * 10] |= mask;
-        index_ptr[step * 11] |= mask;
-        index_ptr[step * 12] |= mask;
-        index_ptr[step * 13] |= mask;
-        index_ptr[step * 14] |= mask;
-        index_ptr[step * 15] |= mask;
-        index_ptr[step * 16] |= mask;
-        index_ptr[step * 17] |= mask;
-        index_ptr[step * 18] |= mask;
-        index_ptr[step * 19] |= mask;
-        index_ptr[step * 20] |= mask;
-        index_ptr[step * 21] |= mask;
-        index_ptr[step * 22] |= mask;
-        index_ptr[step * 23] |= mask;
-        index_ptr[step * 24] |= mask;
-        index_ptr[step * 25] |= mask;
-        index_ptr[step * 26] |= mask;
-        index_ptr[step * 27] |= mask;
-        index_ptr[step * 28] |= mask;
-        index_ptr[step * 29] |= mask;
-        index_ptr[step * 30] |= mask;
-        index_ptr[step * 31] |= mask;
-    }
-    #endif
+    // MAC VERSION FROM HERE //
+    // #if unrolls >= 32
+    // for (;i>32; i-=32, index_ptr += step * 32) {
+    //     index_ptr[step * 0] |= mask;
+    //     index_ptr[step * 1] |= mask;
+    //     index_ptr[step * 2] |= mask;
+    //     index_ptr[step * 3] |= mask;
+    //     index_ptr[step * 4] |= mask;
+    //     index_ptr[step * 5] |= mask;
+    //     index_ptr[step * 6] |= mask;
+    //     index_ptr[step * 7] |= mask;
+    //     index_ptr[step * 8] |= mask;
+    //     index_ptr[step * 9] |= mask;
+    //     index_ptr[step * 10] |= mask;
+    //     index_ptr[step * 11] |= mask;
+    //     index_ptr[step * 12] |= mask;
+    //     index_ptr[step * 13] |= mask;
+    //     index_ptr[step * 14] |= mask;
+    //     index_ptr[step * 15] |= mask;
+    //     index_ptr[step * 16] |= mask;
+    //     index_ptr[step * 17] |= mask;
+    //     index_ptr[step * 18] |= mask;
+    //     index_ptr[step * 19] |= mask;
+    //     index_ptr[step * 20] |= mask;
+    //     index_ptr[step * 21] |= mask;
+    //     index_ptr[step * 22] |= mask;
+    //     index_ptr[step * 23] |= mask;
+    //     index_ptr[step * 24] |= mask;
+    //     index_ptr[step * 25] |= mask;
+    //     index_ptr[step * 26] |= mask;
+    //     index_ptr[step * 27] |= mask;
+    //     index_ptr[step * 28] |= mask;
+    //     index_ptr[step * 29] |= mask;
+    //     index_ptr[step * 30] |= mask;
+    //     index_ptr[step * 31] |= mask;
+    // }
+    // #endif
 
-    #if unrolls >= 16
-    for (;i>16; i-=16, index_ptr += step * 16) {
-        index_ptr[step * 0] |= mask;
-        index_ptr[step * 1] |= mask;
-        index_ptr[step * 2] |= mask;
-        index_ptr[step * 3] |= mask;
-        index_ptr[step * 4] |= mask;
-        index_ptr[step * 5] |= mask;
-        index_ptr[step * 6] |= mask;
-        index_ptr[step * 7] |= mask;
-        index_ptr[step * 8] |= mask;
-        index_ptr[step * 9] |= mask;
-        index_ptr[step * 10] |= mask;
-        index_ptr[step * 11] |= mask;
-        index_ptr[step * 12] |= mask;
-        index_ptr[step * 13] |= mask;
-        index_ptr[step * 14] |= mask;
-        index_ptr[step * 15] |= mask;
-    }
-    #endif
+    // #if unrolls >= 16
+    // for (;i>16; i-=16, index_ptr += step * 16) {
+    //     index_ptr[step * 0] |= mask;
+    //     index_ptr[step * 1] |= mask;
+    //     index_ptr[step * 2] |= mask;
+    //     index_ptr[step * 3] |= mask;
+    //     index_ptr[step * 4] |= mask;
+    //     index_ptr[step * 5] |= mask;
+    //     index_ptr[step * 6] |= mask;
+    //     index_ptr[step * 7] |= mask;
+    //     index_ptr[step * 8] |= mask;
+    //     index_ptr[step * 9] |= mask;
+    //     index_ptr[step * 10] |= mask;
+    //     index_ptr[step * 11] |= mask;
+    //     index_ptr[step * 12] |= mask;
+    //     index_ptr[step * 13] |= mask;
+    //     index_ptr[step * 14] |= mask;
+    //     index_ptr[step * 15] |= mask;
+    // }
+    // #endif
 
-    #if unrolls >= 8
-    for (;i>8; i-=8, index_ptr += step * 8) {
-        index_ptr[step * 0] |= mask;
-        index_ptr[step * 1] |= mask;
-        index_ptr[step * 2] |= mask;
-        index_ptr[step * 3] |= mask;
-        index_ptr[step * 4] |= mask;
-        index_ptr[step * 5] |= mask;
-        index_ptr[step * 6] |= mask;
-        index_ptr[step * 7] |= mask;
-    }
-    #endif
+    // #if unrolls >= 8
+    // for (;i>8; i-=8, index_ptr += step * 8) {
+    //     index_ptr[step * 0] |= mask;
+    //     index_ptr[step * 1] |= mask;
+    //     index_ptr[step * 2] |= mask;
+    //     index_ptr[step * 3] |= mask;
+    //     index_ptr[step * 4] |= mask;
+    //     index_ptr[step * 5] |= mask;
+    //     index_ptr[step * 6] |= mask;
+    //     index_ptr[step * 7] |= mask;
+    // }
+    // #endif
 
-    #if unrolls >= 4
-    for (;i>4; i-=4, index_ptr += step * 4) {
-        index_ptr[step * 0] |= mask;
-        index_ptr[step * 1] |= mask;
-        index_ptr[step * 2] |= mask;
-        index_ptr[step * 3] |= mask;
-    }
-    #endif
+    // #if unrolls >= 4
+    // for (;i>4; i-=4, index_ptr += step * 4) {
+    //     index_ptr[step * 0] |= mask;
+    //     index_ptr[step * 1] |= mask;
+    //     index_ptr[step * 2] |= mask;
+    //     index_ptr[step * 3] |= mask;
+    // }
+    // #endif
 
     // #if unrolls == 32
     // for(;(index_ptr < fast_loop_ptr); index_ptr += step * 32) {

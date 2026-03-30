@@ -315,8 +315,8 @@ elif [ "$ARCH" = "arm64" ]; then
 else 
     if command -v icx >/dev/null 2>&1; then
         COMPILER="icx"
-    elif command -v gcc-14 >/dev/null 2>&1; then
-        COMPILER="gcc-14"
+    elif command -v gcc-15 >/dev/null 2>&1; then
+        COMPILER="gcc-15"
     else
         COMPILER="gcc"
     fi
@@ -356,10 +356,10 @@ if [ "$COMPILER" = "clang" ]; then
 elif [ "$COMPILER" = "icx" ] || [ "$COMPILER" = "intel" ] || [ "$COMPILER" = "oneapi" ]; then
     CCASM="icx $CC -S -g -Wno-psabi -masm=intel -mllvm --x86-asm-syntax=intel -fverbose-asm" 
     CC="icx $CC -O3 -ffast-math -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections"  # -Wl,-dead_strip
-elif [ "$COMPILER" = "gcc" ] || [ "$COMPILER" = "gcc-14" ]; then
+elif [ "$COMPILER" = "gcc" ] || [ "$COMPILER" = "gcc-15" ]; then
     COMPILER_NAME="gcc"
-    if command -v gcc-14 >/dev/null 2>&1; then
-        COMPILER_NAME="gcc-14"
+    if command -v gcc-15 >/dev/null 2>&1; then
+        COMPILER_NAME="gcc-15"
     fi
     if [ "$OS" = "Darwin" ]; then
         CC=" -mcpu=apple-m1 $CC" # -march=armv8.5-a

@@ -67,7 +67,7 @@ setBitsTrue_base(void* restrict bitstorage, const counter_t range_start, const c
         }
     }
     else {
-        setBitsTrue_largestep_repeat_uint8_unroll16(bitstorage, range_start, step, range_stop);
+        setBitsTrue_largestep_repeat_uint8_unroll8(bitstorage, range_start, step, range_stop);
         // return;
 
         // const counter_t range = range_stop - range_start, ratio = range / step / bitcount_type(bitbucket_t);
