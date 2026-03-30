@@ -8,8 +8,10 @@
 
     #define unrolls 1
     #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
+    #define variant uint8
+    #include "bitstorage_setBitsTrue_assemble_word.h" 
     #undef unrolls
-    
+
     #define unrolls 4
     #define variant uint8
     #include "bitstorage_setBitsTrue_assemble_word.h" 

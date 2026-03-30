@@ -19,8 +19,8 @@ function(create_mask_vector_largestep,suffix)(void* restrict bitstorage, const c
                 index += step;
             }
         }
-        // function(applyMask,suffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
-        function(applyMask,suffix)(bitstorage_vector, range_start, step, range_stop, mask_vector);
+        function(applyMask,suffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
+        // function(applyMask_new,suffix)(bitstorage_vector, range_start, step, range_stop, mask_vector);
     }
 }
 

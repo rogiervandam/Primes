@@ -15,7 +15,7 @@
 #endif
 
 #if defined variantsuffix
-    #if defined unrolls && unrolls != 4
+    #if defined unrolls && unrolls != 1
         #define suffix NAME(variantsuffix, NAME(_unroll,unrolls))
     #else
         #define suffix variantsuffix

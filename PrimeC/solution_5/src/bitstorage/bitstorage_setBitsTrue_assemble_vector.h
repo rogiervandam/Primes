@@ -3,6 +3,7 @@
 #ifndef BITSTORAGE_ASSEMBLE_VECTOR_GUARD
 #define BITSTORAGE_ASSEMBLE_VECTOR_GUARD
     #undef unrolls
+
     #define unrolls 4
 
     #define preset_uint64v8

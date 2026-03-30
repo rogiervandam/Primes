@@ -7,11 +7,11 @@
 static inline void  
 setBitsTrue_v128(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
-    if      (step  <  16)  setBitsTrue_smallstep_rotate_pair_uint16v8(bitstorage, range_start, step, range_stop);
-    else if (step  <  32)  setBitsTrue_smallstep_rotate_pair_uint32v4(bitstorage, range_start, step, range_stop);
-    else if (step  <  64)  setBitsTrue_smallstep_rotate_pair_uint64v2(bitstorage, range_start, step, range_stop); 
-    else if (step  < 128 && step < global_largestep_faster)  setBitsTrue_largestep_vector_uint64v2(bitstorage, range_start, step, range_stop); 
-    else if (step  < 256 && step < global_largestep_faster)  setBitsTrue_largestep_vector_uint64v4(bitstorage, range_start, step, range_stop); 
+    if      (step  <  16)  setBitsTrue_smallstep_rotate_pair_uint16v8_unroll4(bitstorage, range_start, step, range_stop);
+    else if (step  <  32)  setBitsTrue_smallstep_rotate_pair_uint32v4_unroll4(bitstorage, range_start, step, range_stop);
+    else if (step  <  64)  setBitsTrue_smallstep_rotate_pair_uint64v2_unroll4(bitstorage, range_start, step, range_stop); 
+    else if (step  < 128 && step < global_largestep_faster)  setBitsTrue_largestep_vector_uint64v2_unroll4(bitstorage, range_start, step, range_stop); 
+    else if (step  < 256 && step < global_largestep_faster)  setBitsTrue_largestep_vector_uint64v4_unroll4(bitstorage, range_start, step, range_stop); 
     else {
         // setBitsTrue_largestep_repeat_uint8         (bitstorage, range_start, step, range_stop);
         // return;
@@ -27,11 +27,11 @@ static inline void
 setBitsTrue_v256(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
 
-    if      (step  <  16)  setBitsTrue_smallstep_rotate_pair_uint16v16(bitstorage, range_start, step, range_stop);
-    else if (step  <  32)  setBitsTrue_smallstep_rotate_pair_uint32v8 (bitstorage, range_start, step, range_stop);
-    else if (step  <  64)  setBitsTrue_smallstep_rotate_pair_uint64v4 (bitstorage, range_start, step, range_stop); 
-    else if (step  < 128 && step < global_largestep_faster)  setBitsTrue_largestep_vector_uint64v4(bitstorage, range_start, step, range_stop); 
-    else if (step  < 512 && step < global_largestep_faster)  setBitsTrue_largestep_vector_uint64v8(bitstorage, range_start, step, range_stop); 
+    if      (step  <  16)  setBitsTrue_smallstep_rotate_pair_uint16v16_unroll4(bitstorage, range_start, step, range_stop);
+    else if (step  <  32)  setBitsTrue_smallstep_rotate_pair_uint32v8_unroll4 (bitstorage, range_start, step, range_stop);
+    else if (step  <  64)  setBitsTrue_smallstep_rotate_pair_uint64v4_unroll4 (bitstorage, range_start, step, range_stop); 
+    else if (step  < 128 && step < global_largestep_faster)  setBitsTrue_largestep_vector_uint64v4_unroll4(bitstorage, range_start, step, range_stop); 
+    else if (step  < 512 && step < global_largestep_faster)  setBitsTrue_largestep_vector_uint64v8_unroll4(bitstorage, range_start, step, range_stop); 
     else {
         // setBitsTrue_largestep_repeat_uint8         (bitstorage, range_start, step, range_stop);
         // return;
@@ -47,10 +47,10 @@ static inline void
 setBitsTrue_v512(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
 
-    if      (step  <  16)  setBitsTrue_smallstep_rotate_pair_uint16v32(bitstorage, range_start, step, range_stop);
-    else if (step  <  32)  setBitsTrue_smallstep_rotate_pair_uint32v16(bitstorage, range_start, step, range_stop);
-    else if (step  <  64)  setBitsTrue_smallstep_rotate_pair_uint64v8 (bitstorage, range_start, step, range_stop); 
-    else if (step  < 512 && step < global_largestep_faster)  setBitsTrue_largestep_vector_uint64v8(bitstorage, range_start, step, range_stop); 
+    if      (step  <  16)  setBitsTrue_smallstep_rotate_pair_uint16v32_unroll4(bitstorage, range_start, step, range_stop);
+    else if (step  <  32)  setBitsTrue_smallstep_rotate_pair_uint32v16_unroll4(bitstorage, range_start, step, range_stop);
+    else if (step  <  64)  setBitsTrue_smallstep_rotate_pair_uint64v8_unroll4 (bitstorage, range_start, step, range_stop); 
+    else if (step  < 512 && step < global_largestep_faster)  setBitsTrue_largestep_vector_uint64v8_unroll4(bitstorage, range_start, step, range_stop); 
     else {
         // setBitsTrue_largestep_repeat_uint8         (bitstorage, range_start, step, range_stop);
         // return;

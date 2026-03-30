@@ -4,29 +4,6 @@ static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_lin
 function(applyMask,suffix)(void* restrict bitstorage, const counter_t step, const counter_t range_stop, const bitbucket_t mask, const counter_t index_vector) 
 {
     startAnalysis8(time_applyMask, "\nApplying %s mask with step %ju in range until %ju", STR(bitbucket_t), (uintmax_t)step, (uintmax_t)range_stop);
-  
-    #if unrolls == 1
-    register bitbucket_t* restrict bitstorage_sized     = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    register bitbucket_t* restrict index_ptr            = __builtin_assume_aligned(&bitstorage_sized[index_vector],sizeof(bitbucket_t));
-    register const bitbucket_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[index_type(range_stop, bitbucket_t)],sizeof(bitbucket_t));
-
-    counter_t i=(range_stop - range_start)/step;
-    for(;i;i-=8) {
-        for(int j=8; i--;) {
-            *index_ptr |= mask;  index_ptr += step;
-        }
-    }
-    for(;i;i-=4) {
-        for(int j=4; i--;) {
-            *index_ptr |= mask;  index_ptr += step;
-        }
-    }
-    for (; i--; index_ptr += step) { // signal compiler that only < unrolls iterations are left
-        *index_ptr |= mask; 
-    }
-
-    endAnalysis8(time_applyMask);
-    #endif
 
     register const counter_t step_max                   = step * unrolls;
     register bitbucket_t* restrict bitstorage_sized     = __builtin_assume_aligned(bitstorage, cache_line_bytes);
@@ -41,6 +18,7 @@ function(applyMask,suffix)(void* restrict bitstorage, const counter_t step, cons
         }
     #else // optimized for clang
         for(const counter_t step_2 = step * 2, step_3 = step_2 + step; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
+            // __builtin_prefetch(index_ptr + step * 4, 1, 3); // Prefetch for write, moderate locality
             *index_ptr            |= mask; 
             *(index_ptr + step  ) |= mask; 
             *(index_ptr + step_2) |= mask; 
@@ -68,19 +46,35 @@ function(applyMask_new,suffix)(void* restrict bitstorage, const counter_t range_
 {
     startAnalysis8(time_applyMask, "\nApplying %s mask with step %ju in range until %ju", STR(bitbucket_t), (uintmax_t)step, (uintmax_t)range_stop);
   
+    register const counter_t step_max                   = step * unrolls;
     register bitbucket_t* restrict bitstorage_sized     = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     register bitbucket_t* restrict index_ptr            = __builtin_assume_aligned(&bitstorage_sized[index_type(range_start, bitbucket_t)],sizeof(bitbucket_t));
     register const bitbucket_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[index_type(range_stop, bitbucket_t)],sizeof(bitbucket_t));
+    register const bitbucket_t* restrict fast_loop_ptr  = __builtin_assume_aligned(&bitstorage_sized[safe_diff(index_type(range_stop, bitbucket_t),step_max)],sizeof(bitbucket_t));
 
-    counter_t i = safe_diff(range_stop, range_start) / (step * bitcount_type(bitbucket_t));
+    register counter_t i = safe_diff(range_stop, range_start) / (step * bitcount_type(bitbucket_t));
+    // for(register counter_t j=8; j>2; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
+    //     for(;i>j;i-=j) {
+    //         for(register counter_t k=j; k--; index_ptr += step) {
+    //             *index_ptr |= mask; 
+    //         }
+    //     }
+    // }
 
-    for(counter_t j=256; j>2; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
-        for(;i>j;i-=j) {
-            for(counter_t k=j; k--; index_ptr += step) {
-                *index_ptr |= mask; 
+    for(register counter_t j=unrolls; j; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
+        // __builtin_prefetch(index_ptr + step * 4, 1, 3); // Prefetch for write, moderate locality
+        for(;i>j;i-=j,index_ptr += step * j) {
+            for(register counter_t k=0; k<j; k++) {
+                *(index_ptr + k * step) |= mask;
             }
         }
     }
+
+    // for(;likely(index_ptr < fast_loop_ptr); index_ptr += step * 4) {
+    //     for(int k = 0; k<4; k++) {
+    //         *(index_ptr + k * step) |= mask;
+    //     }
+    // }
 
     for (; likely(index_ptr <= range_stop_ptr); index_ptr += step) { // signal compiler that only < unrolls iterations are left
         *index_ptr |= mask; 

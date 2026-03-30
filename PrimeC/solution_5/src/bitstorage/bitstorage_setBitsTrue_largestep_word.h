@@ -25,68 +25,17 @@ function(setBitsTrue_largestep_norepeat,suffix)(void* restrict bitstorage, const
 {
     startAnalysis6(time_setBitsTrue_largestep_norepeat, "Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju)  (%ju unique occurances)", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)step));
 
-    #if unrolls == 1
-
-    counter_t i=((range_start-range_start)/step);
-    for(counter_t j=256; j; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
+    register counter_t index = range_start;
+    register counter_t i=((range_start-range_start)/step);
+    for(register counter_t j=256; j>4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
         for(;i>j;i-=j) {
-            for(int k=k; k--; index_ptr += step) {
-                setBitTrue(bitstorage, index);  index += step;
+            for(register int k=j; k--; index += step) {
+                setBitTrue(bitstorage, index);
             }
         }
     }
 
-    // for (;i>16;i-=16) {
-    //     for(int j=16; j--;) {
-    //         setBitTrue(bitstorage, index);  index += step;
-    //     }
-    // }
-    // for (;i>8;i-=8) {
-    //     for(int j=8; j--;) {
-    //         setBitTrue(bitstorage, index);  index += step;
-    //     }
-    // }
-    // for (;i>4;i-=4) {
-    //     for(int j=4; j--;) {
-    //         setBitTrue(bitstorage, index);  index += step;
-    //     }
-    // }
-    // for (; i-- && index < range_stop; index += step) {
-    //     setBitTrue(bitstorage, index);
-    // }
-    // if unlikely(index==range_stop) setBitTrue(bitstorage, index);
-    endAnalysis6(time_setBitsTrue_largestep_norepeat,"\n");
-    return;
-    #endif
-
-    register const counter_t loop_stop = safe_diff_type(range_stop, step * unrolls, counter_t);
-    register counter_t index = range_start;
-
-    #if unrolls == 4
-        #pragma GCC ivdep
-        #pragma GCC unroll 4
-        for (; index < loop_stop; ) {
-            setBitTrue(bitstorage, index);  index += step;
-            setBitTrue(bitstorage, index);  index += step;
-            setBitTrue(bitstorage, index);  index += step;
-            setBitTrue(bitstorage, index);  index += step;
-        }
-    #elif unrolls == 8
-        #pragma GCC ivdep
-        #pragma GCC unroll 8
-        for (; index < loop_stop; ) {
-            setBitTrue(bitstorage, index);  index += step;
-            setBitTrue(bitstorage, index);  index += step;
-            setBitTrue(bitstorage, index);  index += step;
-            setBitTrue(bitstorage, index);  index += step;
-            setBitTrue(bitstorage, index);  index += step;
-            setBitTrue(bitstorage, index);  index += step;
-            setBitTrue(bitstorage, index);  index += step;
-            setBitTrue(bitstorage, index);  index += step;
-        }
-    #endif            
-
-    for (counter_t i=unrolls; i-- && index < range_stop; index += step) 
+    for (; index < range_stop; index += step) 
         setBitTrue(bitstorage, index);
 
     if unlikely(index==range_stop) setBitTrue(bitstorage, index);
