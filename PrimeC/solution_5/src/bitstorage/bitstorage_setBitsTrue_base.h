@@ -38,7 +38,9 @@ setBitsTrue_smallstep_norepeat(void* restrict bitstorage, const counter_t range_
     for (register counter_t index = range_start; index < range_stop;) {
         register const counter_t index_bucket = index_type(index, bitbucket_t);  // set index_word here because the for loop will change index
         register bitbucket_t mask = (bitbucket_t)0U;
-        for(; index_type(index, bitbucket_t) == index_bucket; index += step) mask |= markmask_type(index, bitbucket_t);
+        for(; index_type(index, bitbucket_t) == index_bucket; index += step) {
+            mask |= markmask_type(index, bitbucket_t);
+        }
         bitstorage_sized[index_bucket] |= mask;
     }
 
@@ -50,11 +52,7 @@ setBitsTrue_base(void* restrict bitstorage, const counter_t range_start, const c
 {
     startAnalysis6(time_setBitsTrue, "Setting bits step %3ju using setBitsTrue_base in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps)\n", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step)));
 
-    // setBitsTrue_largestep_norepeat_uint8      (bitstorage, range_start, step, range_stop);
-    // endAnalysis6(time_setBitsTrue);
-    // return;
-
-    if (1!=1 && bitcount_type(bitbucket_t)/2 >=15 && step < bitcount_type(bitbucket_t)/2) {
+    if (1==1 && bitcount_type(bitbucket_t)/2 >=15 && step < bitcount_type(bitbucket_t)/2) {
         const counter_t range_stop_unique_word = range_start + bitcount_type(bitbucket_t) * step; 
         if (range_stop_unique_word <= range_stop) { // the wordmask will be reused
             setBitsTrue_smallstep_repeat_base(bitstorage, range_start, step, range_stop);
@@ -66,13 +64,13 @@ setBitsTrue_base(void* restrict bitstorage, const counter_t range_start, const c
     else {
         // setBitsTrue_largestep_repeat_uint8         (bitstorage, range_start, step, range_stop);
 
-        const counter_t range = range_stop - range_start, ratio = range / step;
+        const counter_t range = range_stop - range_start, ratio = range / step / bitcount_type(bitbucket_t);
         if (1!=1) {}
         // else if (ratio > 32)  { setBitsTrue_largestep_repeat_uint8_unroll16(bitstorage, range_start, step, range_stop); } 
-        // else if (ratio > 32)   { setBitsTrue_largestep_repeat_uint8_unroll8 (bitstorage, range_start, step, range_stop); } 
-        else if (ratio > 32)   { setBitsTrue_largestep_repeat_uint8_unroll4 (bitstorage, range_start, step, range_stop); } 
-        else if (ratio > 4)   { setBitsTrue_largestep_repeat_uint8         (bitstorage, range_start, step, range_stop); } 
-        else                  { setBitsTrue_largestep_norepeat_uint8       (bitstorage, range_start, step, range_stop); }
+        else if (ratio >= 16)   { setBitsTrue_largestep_repeat_uint8_unroll8 (bitstorage, range_start, step, range_stop); } 
+        else if (ratio >= 8)   { setBitsTrue_largestep_repeat_uint8_unroll4 (bitstorage, range_start, step, range_stop); } 
+        else if (ratio >= 1)   { setBitsTrue_largestep_repeat_uint8         (bitstorage, range_start, step, range_stop); } 
+        else                   { setBitsTrue_largestep_norepeat_uint8       (bitstorage, range_start, step, range_stop); }
     }
     endAnalysis6(time_setBitsTrue);
 }

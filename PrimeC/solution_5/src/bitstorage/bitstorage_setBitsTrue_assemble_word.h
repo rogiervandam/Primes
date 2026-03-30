@@ -10,6 +10,10 @@
     #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
     #define variant uint8
     #include "bitstorage_setBitsTrue_assemble_word.h" 
+    #define variant uint16
+    #include "bitstorage_setBitsTrue_assemble_word.h" 
+    #define variant uint32
+    #include "bitstorage_setBitsTrue_assemble_word.h" 
     #undef unrolls
 
     #define unrolls 4
