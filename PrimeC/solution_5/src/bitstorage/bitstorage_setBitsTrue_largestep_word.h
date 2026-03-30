@@ -10,7 +10,9 @@ function(setBitsTrue_largestep_repeat,suffix)(void* restrict bitstorage, const c
     // #pragma GCC ivdep
     // #pragma GCC unroll 4
     for (register counter_t index = range_start; index < range_stop_unique; index += step) { 
-        function(applyMask,suffix)(bitstorage, step, range_stop, markmask_type(index, bitbucket_t), index_type(index, bitbucket_t));
+        function(applyMask_new,suffix)(bitstorage, index, step, range_stop, markmask_type(index, bitbucket_t));
+        // function(applyMask,suffix)(bitstorage, step, range_stop, markmask_type(index, bitbucket_t), index_type(index, bitbucket_t));
+
     } 
 
     endAnalysis6(time_setBitsTrue_largestep_repeat,"\n");
@@ -26,47 +28,33 @@ function(setBitsTrue_largestep_norepeat,suffix)(void* restrict bitstorage, const
     #if unrolls == 1
 
     counter_t i=((range_start-range_start)/step);
-    while (i>16) {
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        i-=16;
+    for(counter_t j=256; j; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
+        for(;i>j;i-=j) {
+            for(int k=k; k--; index_ptr += step) {
+                setBitTrue(bitstorage, index);  index += step;
+            }
+        }
     }
-    while (i>8) {
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        i-=8;
-    }
-    while (i>4) {
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        setBitTrue(bitstorage, index);  index += step;
-        i-=4;
-    }
-    for (; i-- && index < range_stop; index += step) {
-        setBitTrue(bitstorage, index);
-    }
-    if unlikely(index==range_stop) setBitTrue(bitstorage, index);
+
+    // for (;i>16;i-=16) {
+    //     for(int j=16; j--;) {
+    //         setBitTrue(bitstorage, index);  index += step;
+    //     }
+    // }
+    // for (;i>8;i-=8) {
+    //     for(int j=8; j--;) {
+    //         setBitTrue(bitstorage, index);  index += step;
+    //     }
+    // }
+    // for (;i>4;i-=4) {
+    //     for(int j=4; j--;) {
+    //         setBitTrue(bitstorage, index);  index += step;
+    //     }
+    // }
+    // for (; i-- && index < range_stop; index += step) {
+    //     setBitTrue(bitstorage, index);
+    // }
+    // if unlikely(index==range_stop) setBitTrue(bitstorage, index);
     endAnalysis6(time_setBitsTrue_largestep_norepeat,"\n");
     return;
     #endif

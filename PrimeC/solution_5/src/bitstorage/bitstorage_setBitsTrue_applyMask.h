@@ -63,4 +63,28 @@ function(applyMask,suffix)(void* restrict bitstorage, const counter_t step, cons
     endAnalysis8(time_applyMask);
 }
 
+static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
+function(applyMask_new,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop, const bitbucket_t mask) 
+{
+    startAnalysis8(time_applyMask, "\nApplying %s mask with step %ju in range until %ju", STR(bitbucket_t), (uintmax_t)step, (uintmax_t)range_stop);
+  
+    register bitbucket_t* restrict bitstorage_sized     = __builtin_assume_aligned(bitstorage, cache_line_bytes);
+    register bitbucket_t* restrict index_ptr            = __builtin_assume_aligned(&bitstorage_sized[index_type(range_start, bitbucket_t)],sizeof(bitbucket_t));
+    register const bitbucket_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[index_type(range_stop, bitbucket_t)],sizeof(bitbucket_t));
+
+    counter_t i = safe_diff(range_stop, range_start) / (step * bitcount_type(bitbucket_t));
+
+    for(counter_t j=256; j>2; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
+        for(;i>j;i-=j) {
+            for(counter_t k=j; k--; index_ptr += step) {
+                *index_ptr |= mask; 
+            }
+        }
+    }
+
+    for (; likely(index_ptr <= range_stop_ptr); index_ptr += step) { // signal compiler that only < unrolls iterations are left
+        *index_ptr |= mask; 
+    }
+}
+
 #include "../generic/cleansuffix.h"
