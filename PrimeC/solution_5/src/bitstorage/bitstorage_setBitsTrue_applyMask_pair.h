@@ -12,23 +12,38 @@ function(applyMask_pair,suffix)(void* restrict bitstorage, const counter_t step,
     register bitbucket_t* restrict index_ptr              = __builtin_assume_aligned(&bitstorage_sized[index_vector],sizeof(bitbucket_t));
     
     #if unrolls == 4
+    for(;(index_ptr < fast_loop_ptr); index_ptr += step * 4) {
+        index_ptr[step * 0] |= mask1; 
+        index_ptr[step * 1] |= mask1; 
+        index_ptr[step * 2] |= mask1; 
+        index_ptr[step * 3] |= mask1; 
+        index_ptr[step * 0 + 1] |= mask2; 
+        index_ptr[step * 1 + 1] |= mask2; 
+        index_ptr[step * 2 + 1] |= mask2; 
+        index_ptr[step * 3 + 1] |= mask2; 
+    }
+    #endif
+
+    // #if unrolls == 4
+    //     #pragma GCC ivdep
+    //     // #pragma GCC unroll 4
+    //     for(;likely(index_ptr < fast_loop_ptr);) {
+    //         *index_ptr                |= mask1; 
+    //         *(index_ptr + step      ) |= mask1; 
+    //         *(index_ptr + step_2)     |= mask1; 
+    //         *(index_ptr + step_3)     |= mask1; 
+    //         *(index_ptr + 1         ) |= mask2; 
+    //         *(index_ptr + step + 1  ) |= mask2; 
+    //         *(index_ptr + step_2 + 1) |= mask2; 
+    //         *(index_ptr + step_3 + 1) |= mask2; 
+    //         index_ptr += step_max;
+    //     }
+    // #endif
+
+    #if unrolls == 8
         #pragma GCC ivdep
-        #pragma GCC unroll 4
-        for(;likely(index_ptr < fast_loop_ptr);) {
-            *index_ptr                |= mask1; 
-            *(index_ptr + step      ) |= mask1; 
-            *(index_ptr + step_2)     |= mask1; 
-            *(index_ptr + step_3)     |= mask1; 
-            *(index_ptr + 1         ) |= mask2; 
-            *(index_ptr + step + 1  ) |= mask2; 
-            *(index_ptr + step_2 + 1) |= mask2; 
-            *(index_ptr + step_3 + 1) |= mask2; 
-            index_ptr += step_max;
-        }
-    #elif unrolls == 8
-        #pragma GCC ivdep
-        #pragma GCC unroll 8
-        while likely(index_ptr < fast_loop_ptr) {
+        // #pragma GCC unroll 8
+        for(; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *index_ptr                  |= mask1;
             *(index_ptr + 1           ) |= mask2;  
             *(index_ptr + step        ) |= mask1; 
@@ -45,7 +60,6 @@ function(applyMask_pair,suffix)(void* restrict bitstorage, const counter_t step,
             *(index_ptr + step * 6 + 1) |= mask2;
             *(index_ptr + step * 7    ) |= mask1;
             *(index_ptr + step * 7 + 1) |= mask2;
-            index_ptr += step_max;
         }
     #endif 
         

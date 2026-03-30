@@ -29,7 +29,7 @@ function(setBitsTrue_largestep_norepeat,suffix)(void* restrict bitstorage, const
     register counter_t i=((range_start-range_start)/step);
     for(register counter_t j=256; j>4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
         for(;i>j;i-=j) {
-            for(register int k=j; k--; index += step) {
+            for(int k=j; k--; index += step) {
                 setBitTrue(bitstorage, index);
             }
         }

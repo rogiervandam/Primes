@@ -18,8 +18,8 @@ static char algorithm_type[] = "base";
 #include "generic/settings.h"
 #include "benchmark/sieve_options.h"
 #include "bitstorage/bitstorage_search.h"
+#include "bitstorage/bitstorage_setBitsTrue.h"
 #include "bitstorage/bitstorage_setBitsTrue_base.h"
-// #include "bitstorage/bitstorage_setBitsTrue.h"
 #include "sieve/sieve_calc.h"
 #include "sieve/sieve_manager.h"
 
@@ -53,7 +53,9 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
             register const counter_t step  = prime * 2 + 1;
             register counter_t start = compute_start(prime, block_start);
             setBitsTrue_base(bitstorage, start, step, range_stop);
-            prime = searchBitFalse(bitstorage, prime);
+            // prime = searchBitFalse_uint8(bitstorage, prime);
+            prime = searchBitFalse_largestep_uint16(bitstorage, prime);
+            
         }
     } 
     

@@ -43,6 +43,11 @@
     #include "bitstorage_setBitsTrue_assemble_word.h" 
     #undef unrolls
 
+    #define unrolls 32
+    #define variant uint8
+    #include "bitstorage_setBitsTrue_assemble_word.h" 
+    #undef unrolls
+
 #else
     #define KEEP_VARIANT
     #include "../bitstorage/bitstorage_setBitsTrue_applyMask.h"
