@@ -295,7 +295,7 @@ COMPILER_ASM=""
 COMPILER=""
 CC="-mtune=native -fno-asynchronous-unwind-tables -fno-exceptions -Wall -Wno-unused-function -Wno-unused-variable -Wno-unknown-pragmas -std=c11 -fno-common -fdata-sections -ffunction-sections"  #  -Wno-unused-function -fno-common -fdata-sections -ffunction-sections 
 CC="-fno-ident  -ffreestanding $CC" # -nostdlib
-CC="$CC -funroll-loops "
+# CC="$CC -funroll-loops "
 # CC="$CC -Rpass=loop-unroll -Rpass-missed=loop-unroll"
 CCWARN=""
 # CCWARN="-Wall -Wno-unknown-pragmas" 
