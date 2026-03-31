@@ -53,22 +53,35 @@ function(applyMask_new,suffix)(void* restrict bitstorage, const counter_t index,
     register const bitbucket_t* restrict fast_loop_ptr  = __builtin_assume_aligned(&bitstorage_sized[safe_diff(index_type(range_stop, bitbucket_t),step_max)],sizeof(bitbucket_t));
 
     register counter_t i = safe_diff(range_stop, index) / (step * bitcount_type(bitbucket_t));
-    // gcc
+
+    #if defined(__GNUC__) && !defined(__clang__) // optimized for GCC
+    #pragma GCC ivdep
+    #pragma GCC unroll 4
+    for(;(index_ptr < fast_loop_ptr); index_ptr += step * 4) {
+        index_ptr[step * 0] |= mask;
+        index_ptr[step * 1] |= mask;
+        index_ptr[step * 2] |= mask;
+        index_ptr[step * 3] |= mask;
+    }
+
     // for(counter_t j=unrolls; j>=4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
     //     for(;i>j;i-=j) {
-    //         for(counter_t k=j; k--; index_ptr += step) {
-    //             *index_ptr |= mask; 
+    //         for(counter_t k=0; k<j>; k++) {
+    //             *index_ptr |= mask; index_ptr += step;
     //         }
     //     }
     // }
 
-    // for(int j=8; j>=4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
+    // #pragma GCC ivdep
+    // #pragma GCC unroll 4
+    // for(int j=unrolls; j>=4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
     //     for(;i>j; i-=j, index_ptr += step * j) {
     //         for(int k = 0; k < j; ++k ) {
     //             index_ptr[k * step] |= mask;
     //         }
     //     }
     // }
+
     // clang
     // for(counter_t j=8; j>2; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
     //     for(;i>j;i-=j,index_ptr += step * j) {
@@ -94,16 +107,7 @@ function(applyMask_new,suffix)(void* restrict bitstorage, const counter_t index,
     //     }
     // }
 
-    // for(;likely(index_ptr < fast_loop_ptr); index_ptr += step * 8) {
-    //     *(index_ptr + step * 0) |= mask; 
-    //     *(index_ptr + step * 1) |= mask; 
-    //     *(index_ptr + step * 2) |= mask; 
-    //     *(index_ptr + step * 3) |= mask;
-    //     *(index_ptr + step * 4) |= mask;
-    //     *(index_ptr + step * 5) |= mask;
-    //     *(index_ptr + step * 6) |= mask;
-    //     *(index_ptr + step * 7) |= mask;
-    // }
+    #elif defined(__clang__) // optimized for clang
 
     // #if unrolls == 16
     // for(;likely(index_ptr < fast_loop_ptr);index_ptr += step * 16) {
@@ -318,6 +322,8 @@ function(applyMask_new,suffix)(void* restrict bitstorage, const counter_t index,
     //         *(index_ptr + k * step) |= mask;
     //     }
     // }
+
+    #endif
 
     for (; likely(index_ptr <= range_stop_ptr); index_ptr += step) { // signal compiler that only < unrolls iterations are left
         *index_ptr |= mask; 
