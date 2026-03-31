@@ -55,14 +55,55 @@ function(applyMask_new,suffix)(void* restrict bitstorage, const counter_t index,
     register counter_t i = safe_diff(range_stop, index) / (step * bitcount_type(bitbucket_t));
 
     #if defined(__GNUC__) && !defined(__clang__) // optimized for GCC
+
+    #if unrolls == 16
     #pragma GCC ivdep
-    #pragma GCC unroll 4
-    for(;(index_ptr < fast_loop_ptr); index_ptr += step * 4) {
-        index_ptr[step * 0] |= mask;
-        index_ptr[step * 1] |= mask;
-        index_ptr[step * 2] |= mask;
-        index_ptr[step * 3] |= mask;
+    #pragma GCC unroll 32
+    for(;(index_ptr < fast_loop_ptr); ) {
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
     }
+    #endif
+
+    #if unrolls == 8
+    #pragma GCC ivdep
+    #pragma GCC unroll 64
+    for(;(index_ptr < fast_loop_ptr); ) {
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+    }
+    #endif
+
+    #if unrolls == 4
+    #pragma GCC ivdep
+    #pragma GCC unroll 64
+    for(;(index_ptr < fast_loop_ptr); ) {
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+        *index_ptr |= mask; index_ptr += step;
+    }
+    #endif
 
     // for(counter_t j=unrolls; j>=4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
     //     for(;i>j;i-=j) {

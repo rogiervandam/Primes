@@ -27,7 +27,7 @@ function(applyMask_pair,suffix)(void* restrict bitstorage, const counter_t step,
 
     #if unrolls == 4
         #pragma GCC ivdep
-        // #pragma GCC unroll 4
+        #pragma GCC unroll 32
         for(;likely(index_ptr < fast_loop_ptr);) {
             *index_ptr                |= mask1; 
             *(index_ptr + 1         ) |= mask2; 
@@ -43,7 +43,7 @@ function(applyMask_pair,suffix)(void* restrict bitstorage, const counter_t step,
 
     #if unrolls == 8
         #pragma GCC ivdep
-        // #pragma GCC unroll 8
+        #pragma GCC unroll 32
         for(; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *index_ptr                  |= mask1;
             *(index_ptr + 1           ) |= mask2;  
