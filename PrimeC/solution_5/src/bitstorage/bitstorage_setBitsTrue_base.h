@@ -10,8 +10,6 @@
 
 #include "../generic/setsuffix.h"
 
-
-// #define suffixunroll NAME(suffix, _unroll8)
 static inline void __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 setBitsTrue_smallstep_repeat_base(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
@@ -57,7 +55,7 @@ setBitsTrue_base(void* restrict bitstorage, const counter_t range_start, const c
 {
     startAnalysis6(time_setBitsTrue, "Setting bits step %3ju using setBitsTrue_base in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps)\n", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step)));
 
-    if (1!=1 && bitcount_type(bitbucket_t)/2 >=15 && step < bitcount_type(bitbucket_t)/2) {
+    if (bitcount_type(bitbucket_t)/2 >=15 && step < bitcount_type(bitbucket_t)/2) {
         const counter_t range_stop_unique_word = range_start + bitcount_type(bitbucket_t) * step; 
         if (range_stop_unique_word <= range_stop) { // the wordmask will be reused
             setBitsTrue_smallstep_repeat_base(bitstorage, range_start, step, range_stop);
@@ -67,17 +65,9 @@ setBitsTrue_base(void* restrict bitstorage, const counter_t range_start, const c
         }
     }
     else {
-        setBitsTrue_largestep_repeat_uint8_unroll16(bitstorage, range_start, step, range_stop);
-        // return;
-
-        // const counter_t range = range_stop - range_start, ratio = range / step / bitcount_type(bitbucket_t);
-        // if (1!=1) {}
-        // else if (ratio >= 32)  { setBitsTrue_largestep_repeat_uint8_unroll16(bitstorage, range_start, step, range_stop); } 
-        // else if (ratio >= 16)   { setBitsTrue_largestep_repeat_uint8_unroll8 (bitstorage, range_start, step, range_stop); } 
-        // else if (ratio >= 8)   { setBitsTrue_largestep_repeat_uint8_unroll4 (bitstorage, range_start, step, range_stop); } 
-        // else if (ratio >= 1)   { setBitsTrue_largestep_repeat_uint8         (bitstorage, range_start, step, range_stop); } 
-        // else                   { setBitsTrue_largestep_norepeat_uint8       (bitstorage, range_start, step, range_stop); }
+        setBitsTrue_largestep_repeat_uint8_unroll8(bitstorage, range_start, step, range_stop);
     }
+    
     endAnalysis6(time_setBitsTrue);
 }
 
