@@ -1,4 +1,7 @@
+#ifndef ALGORITHM_WHEEL
 #include "sieve_check.h"
+#endif
+
 #include "sieve_benchmark.h"
 
 #ifdef COMPILE_EXPLAIN

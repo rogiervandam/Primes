@@ -62,7 +62,7 @@ function(searchBitFalse,suffix)(void* restrict bitstorage, register counter_t in
 
     #pragma GCC ivdep
     #pragma GCC unroll 4
-    for (;checkBitTrue(bitstorage, ++index);)
+    for (;checkBitTrue(bitstorage, ++index););
 
     endAnalysis8(time_searchBitFalse, " next prime %ju (step %ju)\n", (uintmax_t) index, (uintmax_t)index*2+1);
     return index;
