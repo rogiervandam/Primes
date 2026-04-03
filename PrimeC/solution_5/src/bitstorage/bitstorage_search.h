@@ -6,14 +6,14 @@
 #define bitbucket_t uint8_t
 #endif
 
-static inline counter_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
+static inline bitbucket_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
 function(checkBitTrue,suffix)(const void* restrict bitstorage, register counter_t index) 
 {
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     return (bitstorage_sized[index_type(index, bitbucket_t)] & markmask_type(index, bitbucket_t));
 }
 
-static inline counter_t __attribute__((always_inline, hot, nonnull)) 
+static inline bitbucket_t __attribute__((always_inline, hot, nonnull)) 
 function(checkBitFalse,suffix)(const void* restrict bitstorage, register counter_t index) 
 {
     return !checkBitTrue(bitstorage, index);

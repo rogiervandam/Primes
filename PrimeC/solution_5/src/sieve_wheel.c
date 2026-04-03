@@ -28,7 +28,7 @@ static char algorithm_type[] = "wheel";
 static unsigned int wheel[WHEEL_SIZE/2];
 static unsigned int wheelprimes[WHEEL_MAX/2]; // can't be more than highest prime in the wheel
 
-static inline counter_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
+static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
 checkBitTrue_wheel(const void* restrict bitstorage, register counter_t index) 
 {
     if (index <= WHEEL_MAX/2) return wheelprimes[index];
@@ -45,6 +45,25 @@ searchBitFalse_wheel(void* restrict bitstorage, register counter_t index)
     #pragma GCC ivdep
     #pragma GCC unroll 4
     for (;checkBitTrue_wheel(bitstorage, ++index););
+    return index;
+}
+
+// this is the same as checkBitTrue_wheel but without the check for the wheel primes
+// this is used in searchBitFalse_wheel_unsafe which is called in the inner loop of the sieve and thus needs to be as fast as possible
+static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
+checkBitTrue_wheel_unsafe(const void* restrict bitstorage, register counter_t index)
+{
+    uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
+    if (wheel[index % (WHEEL_SIZE/2)]) return 1; 
+    return (bitstorage_sized[index_type(index, uint8_t)] & markmask_type(index, uint8_t));
+}
+
+static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
+searchBitFalse_wheel_unsafe(void* restrict bitstorage, register counter_t index) 
+{
+    #pragma GCC ivdep
+    #pragma GCC unroll 4
+    for (;checkBitTrue_wheel_unsafe(bitstorage, ++index););
     return index;
 }
 
@@ -110,13 +129,13 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     for (counter_t block_start = 0; block_start < sieve_bits; block_start += blocksize_bits) {
         const counter_t block_stop = block_start + blocksize_bits;
         const counter_t range_stop = min(sieve_bits, block_stop);
-        counter_t prime = searchBitFalse_wheel(bitstorage, WHEEL_MAX/2); 
+        counter_t prime = searchBitFalse_wheel_unsafe(bitstorage, WHEEL_MAX/2); 
         #pragma GCC unroll 16
         while (prime < prime_max) {
             register const counter_t step = prime * 2 + 1;
             register counter_t start = compute_start(prime, block_start);
             setBitsTrue_base(bitstorage, start, step, range_stop);
-            prime = searchBitFalse_wheel(bitstorage, prime);
+            prime = searchBitFalse_wheel_unsafe(bitstorage, prime);
         }
     } 
     
