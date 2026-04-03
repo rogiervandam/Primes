@@ -37,6 +37,10 @@ int main(int argc, char *argv[])
     verbose2({ printf("\nRunning sieve variant " COLOR_YELLOW "%s" COLOR_RESET "%s" COLOR_BLUE "%s" COLOR_RESET " with max %ju\n", 
                          algorithm_name, (option.dockerfile_type ? " in docker " : ""), (option.dockerfile_type ? option.dockerfile_type : ""), (uintmax_t)option.fixed_benchmark_settings.factor_max); })
 
+    #ifdef PREPARE_FUNCTION
+      prepareSieveFunction();
+    #endif
+
     #ifdef COMPILE_EXPLAIN
     if (option.explain) {
         if (option.verbose_level < 6) option.verbose_level = 6;
