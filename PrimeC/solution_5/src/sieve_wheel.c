@@ -10,9 +10,12 @@
 #include <time.h>
 #include <stdint.h>
 
-static char algorithm_name[] = "rogiervandam_wheel";
+static char algorithm_name[60] = "rogiervandam_wheel";
 static char algorithm_type[] = "wheel";
 #define ALGORITHM_WHEEL 1
+
+#define WHEEL_SIZE 2*3*5*7*11*13
+#define WHEEL_MAX 13 // highest number in the wheel
 
 // include helper functions
 #include "generic/settings.h"
@@ -23,10 +26,9 @@ static char algorithm_type[] = "wheel";
 #include "sieve/sieve_calc.h"
 #include "sieve/sieve_manager.h"
 
-#define WHEEL_SIZE 2*3*5*7*11*13
-#define WHEEL_MAX 13 // highest number in the wheel
-static unsigned int wheel[WHEEL_SIZE/2];
-static unsigned int wheelprimes[WHEEL_MAX/2]; // can't be more than highest prime in the wheel
+// static unsigned int wheel[WHEEL_SIZE/2];
+static unsigned int wheelprimes[WHEEL_MAX]; // can't be more than highest prime in the wheel
+static uint8_t wheelmask[WHEEL_SIZE];
 
 static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
 checkBitTrue_wheel(const void* restrict bitstorage, register counter_t index) 
@@ -34,8 +36,9 @@ checkBitTrue_wheel(const void* restrict bitstorage, register counter_t index)
     if (index <= WHEEL_MAX/2) return wheelprimes[index];
 
     uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    uint8_t wheelmask = wheel[index % (WHEEL_SIZE/2)];
-    if (wheelmask) return 1; 
+    // if (wheel[index % (WHEEL_SIZE/2)]) return 1; 
+    counter_t wheelindex = index % (WHEEL_SIZE/2);
+    if (wheelmask[index_type(wheelindex, uint8_t)] & markmask_type(wheelindex, uint8_t)) return 1;
     return (bitstorage_sized[index_type(index, uint8_t)] & markmask_type(index, uint8_t));
 }
 
@@ -54,7 +57,9 @@ static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_
 checkBitTrue_wheel_unsafe(const void* restrict bitstorage, register counter_t index)
 {
     uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    if (wheel[index % (WHEEL_SIZE/2)]) return 1; 
+    // if (wheel[index % (WHEEL_SIZE/2)]) return 1; 
+    counter_t wheelindex = index % (WHEEL_SIZE/2);
+    if (wheelmask[index_type(wheelindex, uint8_t)] & markmask_type(wheelindex, uint8_t)) return 1;
     return (bitstorage_sized[index_type(index, uint8_t)] & markmask_type(index, uint8_t));
 }
 
@@ -68,7 +73,7 @@ searchBitFalse_wheel_unsafe(void* restrict bitstorage, register counter_t index)
 }
 
 void build_wheel() {
-    // find all the primes in the wheel up to WHEEL_MAX and store them in /2
+    // find all the primes in the wheel up to WHEEL_MAX and store them in /2 format
     for (counter_t i = 0; i <= WHEEL_MAX/2; i++) {
         wheelprimes[i]=0;
         for (counter_t f = 1; f < i; f++) {
@@ -79,26 +84,43 @@ void build_wheel() {
         }
     }
 
-    // // Print the primes in the wheel
-    // printf("Wheel primes up to %u: \n", WHEEL_MAX);
-    // for (counter_t i = 0; i <= WHEEL_MAX/2; i++) {
-    //     printf("%ju -> %ju mark %u \n", (uintmax_t)(i*2+1), (uintmax_t)i, wheelprimes[i]);
+    // clear the wheelmask
+    for (counter_t i=0; i < WHEEL_SIZE/2/8; i++) {
+            wheelmask[i] = 0; 
+    }
+
+    // for (counter_t i = 0; i < WHEEL_SIZE/2; i++) {
+    //     wheel[i] = 0;
+    //     for (counter_t f = 1; f <= WHEEL_MAX/2; f++) {
+    //         if (((i*2+1)+WHEEL_SIZE) % (f*2+1) == 0) {
+    //             wheel[i] = 1;
+    //             break;
+    //         }
+    //     }
     // }
 
+    // make a mask pattern to check if the modulus WHEEL_SIZE/2 of a number is divisible by any of the primes in the wheel
+    // this is used in checkBitTrue_wheel to quickly check if a number is divisible by any of the wheel primes
     for (counter_t i = 0; i < WHEEL_SIZE/2; i++) {
-        wheel[i] = 0;
         for (counter_t f = 1; f <= WHEEL_MAX/2; f++) {
             if (((i*2+1)+WHEEL_SIZE) % (f*2+1) == 0) {
-                wheel[i] = 1;
+                wheelmask[index_type(i, uint8_t)] |= markmask_type(i, uint8_t);
                 break;
             }
         }
     }
 
-    // printf("Wheel for numbers coprime to %u: \n", WHEEL_SIZE/2);
+    // print the wheelmask for debugging
     // for (counter_t i = 0; i < WHEEL_SIZE/2; i++) {
-    //     printf("%ju -> %ju = %ju \n", (uintmax_t)WHEEL_SIZE+(i*2+1), (uintmax_t)i, (uintmax_t)wheel[i]);
+    //     printf("wheelmask[%ju] =%u\n", (uintmax_t)i, wheelmask[index_type(i, uint8_t)] & markmask_type(i, uint8_t) ? 1 : 0);
     // }
+
+    counter_t wheelmask_count = 0;
+    for (counter_t i=0; i <= WHEEL_SIZE/2/8; i++) {
+        wheelmask_count += __builtin_popcount(wheelmask[i]);
+    }
+    sprintf(algorithm_name, "rogiervandam_wheel_%uof%u", (WHEEL_SIZE/2)-wheelmask_count, WHEEL_SIZE);
+
 }
 
 #define PREPARE_FUNCTION 1 // signals sieve_main to call prepareSieveFunction() before the benchmark starts, this is used to build the wheel
@@ -121,7 +143,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     const counter_t stripeprime_faster = global_stripeprime_faster;
     const counter_t blocksize_bits     = global_blocksize_bits;
     
-    verbose5(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)blocksize_bits); )
+    verbose5(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju using the wheel with primes up to %ju\n",(uintmax_t)sieve_size,(uintmax_t)blocksize_bits,(uintmax_t)WHEEL_MAX); )
 
     // code for algorithm = base
     sieve_clear(sieve);

@@ -1,6 +1,3 @@
-
-
-
 static counter_t __attribute__((cold, nonnull)) 
 countPrimesInSieve(struct sieve_t *sieve) 
 {
