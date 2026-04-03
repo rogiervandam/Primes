@@ -262,7 +262,7 @@ if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
 fi
 
 if [ "$COMPILE" = "compileall" ]; then
-    for base in sieve_base sieve_extend sieve_classic64 sieve_classic8; do
+    for base in sieve_base sieve_extend sieve_classic64 sieve_classic8 sieve_wheel sieve_wheel_8of30; do
         $0 $base "compile" "$@"
     done
     exit 0
@@ -273,7 +273,7 @@ if [ "$RUNALL" = "runall" ]; then
     for base in sieve_extend; do
         bin/${base}_epar --threads all "$@"
     done
-    for base in sieve_extend sieve_base sieve_classic64 sieve_classic8 ; do
+    for base in sieve_extend sieve_base sieve_classic64 sieve_classic8 sieve_wheel sieve_wheel_8of30 ; do
         bin/${base} "$@"
     done
     exit 0

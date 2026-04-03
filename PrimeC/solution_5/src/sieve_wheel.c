@@ -14,8 +14,10 @@ static char algorithm_name[60] = "rogiervandam_wheel";
 static char algorithm_type[] = "wheel";
 #define ALGORITHM_WHEEL 1
 
-#define WHEEL_SIZE 2*3*5*7*11*13
-#define WHEEL_MAX 13 // highest number in the wheel
+#ifndef WHEEL_SIZE
+    #define WHEEL_SIZE 2*3*5*7*11*13
+    #define WHEEL_MAX 13 // highest number in the wheel
+#endif
 
 // include helper functions
 #include "generic/settings.h"

@@ -6,6 +6,7 @@ all:
 	$(MAKE) sieve_extend
 	$(MAKE) sieve_classic
 	$(MAKE) sieve_base
+	$(MAKE) sieve_wheel
 	./sieve runall
 
 # Rule to build each variant
@@ -21,6 +22,11 @@ sieve_classic:
 sieve_base:
 	@echo "Building variant: sieve_base"
 	./sieve sieve_base compile
+
+sieve_wheel:
+	@echo "Building variant: sieve_wheel"
+	./sieve sieve_wheel compile
+	./sieve sieve_wheel_8of30 compile
 
 # Clean target to remove generated files
 clean:
@@ -43,4 +49,4 @@ help:
 	@echo "Available variants: $(VARIANTS:%=bin/sieve_%)"
 
 # Force rebuilding variants even if files with those names exist
-.PHONY: all clean help sieve_extend sieve_classic sieve_base
+.PHONY: all clean help sieve_extend sieve_classic sieve_base sieve_wheel
