@@ -23,16 +23,19 @@ static char algorithm_type[] = "wheel";
 #include "sieve/sieve_calc.h"
 #include "sieve/sieve_manager.h"
 
-#define WHEEL_SIZE 2*3*5*7
-#define WHEEL_MAX 7 // highest number in the wheel
+#define WHEEL_SIZE 2*3*5*7*11*13
+#define WHEEL_MAX 13 // highest number in the wheel
 static unsigned int wheel[WHEEL_SIZE/2];
+static unsigned int wheelprimes[WHEEL_MAX/2]; // can't be more than highest prime in the wheel
 
 static inline counter_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
 checkBitTrue_wheel(const void* restrict bitstorage, register counter_t index) 
 {
+    if (index <= WHEEL_MAX/2) return wheelprimes[index];
+
     uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     uint8_t wheelmask = wheel[index % (WHEEL_SIZE/2)];
-    if (wheelmask && index > (WHEEL_MAX/2)) return 1; // if the number is not coprime
+    if (wheelmask) return 1; 
     return (bitstorage_sized[index_type(index, uint8_t)] & markmask_type(index, uint8_t));
 }
 
@@ -42,11 +45,27 @@ searchBitFalse_wheel(void* restrict bitstorage, register counter_t index)
     #pragma GCC ivdep
     #pragma GCC unroll 4
     for (;checkBitTrue_wheel(bitstorage, ++index););
-
     return index;
 }
 
 void build_wheel() {
+    // find all the primes in the wheel up to WHEEL_MAX and store them in /2
+    for (counter_t i = 0; i <= WHEEL_MAX/2; i++) {
+        wheelprimes[i]=0;
+        for (counter_t f = 1; f < i; f++) {
+            if (((i*2+1) % (f*2+1)) == 0) {
+                wheelprimes[i] = 1; // mark as non-prime
+                break;
+            }
+        }
+    }
+
+    // // Print the primes in the wheel
+    // printf("Wheel primes up to %u: \n", WHEEL_MAX);
+    // for (counter_t i = 0; i <= WHEEL_MAX/2; i++) {
+    //     printf("%ju -> %ju mark %u \n", (uintmax_t)(i*2+1), (uintmax_t)i, wheelprimes[i]);
+    // }
+
     for (counter_t i = 0; i < WHEEL_SIZE/2; i++) {
         wheel[i] = 0;
         for (counter_t f = 1; f <= WHEEL_MAX/2; f++) {
@@ -91,9 +110,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     for (counter_t block_start = 0; block_start < sieve_bits; block_start += blocksize_bits) {
         const counter_t block_stop = block_start + blocksize_bits;
         const counter_t range_stop = min(sieve_bits, block_stop);
-        counter_t prime = WHEEL_MAX/2, wheel_step = 0;
-
-        prime = searchBitFalse_wheel(bitstorage, prime);
+        counter_t prime = searchBitFalse_wheel(bitstorage, WHEEL_MAX/2); 
         #pragma GCC unroll 16
         while (prime < prime_max) {
             register const counter_t step = prime * 2 + 1;
