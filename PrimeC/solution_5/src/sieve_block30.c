@@ -15,7 +15,7 @@ static char algorithm_type[] = "base";
 #define ALTERNATIVE_CHECK 1 // signals sieve_check to use the alternative check function
 
 #define CALCSIZE 1000000
-#define BLOCKS 30
+#define BLOCKS 210
 #define BLOCK_CACHES ((CALCSIZE/BLOCKS/8/cache_line_bytes)+1)
 #define BLOCKSIZE_BITS (BLOCK_CACHES*cache_line_bytes*8)
 #define BLOCKSIZE_UNIT8 (BLOCKSIZE_BITS/8)
@@ -41,6 +41,7 @@ static char algorithm_type[] = "base";
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
 setBitTrue_block(void* restrict bitstorage, const register counter_t index) 
 {
+    // if (index %2 == 0) return; // skip even numbers, they are not stored in the sieve
     register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
     counter_t block_index = index / BLOCKS;
     counter_t block = index % BLOCKS;
@@ -55,6 +56,7 @@ setBitTrue_block(void* restrict bitstorage, const register counter_t index)
 static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
 checkBitTrue_block(const void* restrict bitstorage, register counter_t index) 
 {
+    if (index % 2 == 0) return 1; // even numbers are not stored in the sieve, so they are always marked as true (not prime)
     uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     counter_t block_index = index / BLOCKS;
     counter_t block = index % BLOCKS;
@@ -102,13 +104,13 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     verbose5( printf("\nShaking sieve to find all primes up to %ju\n",(uintmax_t)sieve_size); )
 
     sieve_clear(sieve);
-    counter_t prime = 2;
+    counter_t prime = 3;
  
     // printf("Starting with prime %ju, marking multiples up to %ju\n",(uintmax_t)prime,(uintmax_t)sieve_bits);
     // printf("Block size: %ju bits, %ju bytes\n",(uintmax_t)BLOCKSIZE_BITS,(uintmax_t)BLOCKSIZE_UNIT8);
 
     while (prime < prime_max) {
-        const counter_t step  = prime;
+        const counter_t step  = prime * 2;
         const counter_t start = prime * prime;
 
         // #pragma GCC ivdep
