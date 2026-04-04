@@ -42,12 +42,13 @@ static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_li
 setBitTrue_block(void* restrict bitstorage, const register counter_t index) 
 {
     register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
-    // counter_t block = index / BLOCKSIZE_BITS;
-    // counter_t block_index = index % BLOCKSIZE_BITS;
-    // counter_t block_byte = block * BLOCKSIZE_UNIT8 + block_index / 8;
-    // counter_t bit_index = block_index % 8;
-    counter_t block_byte = index / 8;
-    counter_t bit_index = index % 8;
+    counter_t block_index = index / BLOCKS;
+    counter_t block = index % BLOCKS;
+    counter_t block_byte = block * BLOCKSIZE_UNIT8 + block_index / 8;
+    counter_t bit_index = block_index % 8;
+    // counter_t block_byte = index / 8;
+    // counter_t bit_index = index % 8;
+    // printf("Setting bit for index %ju: block %ju, block_index %ju, block_byte %ju, bit_index %ju\n",(uintmax_t)index,(uintmax_t)block,(uintmax_t)block_index,(uintmax_t)block_byte,(uintmax_t)bit_index);
     bitstorage_sized[block_byte] |= (uint8_t)((uint8_t)1ULL << bit_index);
 }
 
@@ -55,10 +56,12 @@ static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_
 checkBitTrue_block(const void* restrict bitstorage, register counter_t index) 
 {
     uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    // counter_t block = index / BLOCKSIZE_BITS;
-    // counter_t block_index = index % BLOCKSIZE_BITS;
-    counter_t block_byte = index  / 8;
-    counter_t bit_index = index % 8;
+    counter_t block_index = index / BLOCKS;
+    counter_t block = index % BLOCKS;
+    counter_t block_byte = block * BLOCKSIZE_UNIT8 + block_index / 8;
+    counter_t bit_index = block_index % 8;
+    // counter_t block_byte = index  / 8;
+    // counter_t bit_index = index % 8;
 
     return (bitstorage_sized[block_byte] & (uint8_t)((uint8_t)1ULL << bit_index));
 }
@@ -90,9 +93,10 @@ compute_start_full(const counter_t prime, const counter_t block_start) {
 
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
-    struct sieve_t *sieve = sieve_create(sieve_size);
+    struct sieve_t *sieve = sieve_create(sieve_size*8);
+    sieve->bits = sieve_size;
     bitbucket_t* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
-    const counter_t sieve_bits = sieve->bits;
+    const counter_t sieve_bits = sieve_size;
     const counter_t prime_max = prime_stop_full(sieve_bits);
 
     verbose5( printf("\nShaking sieve to find all primes up to %ju\n",(uintmax_t)sieve_size); )
@@ -100,6 +104,9 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     sieve_clear(sieve);
     counter_t prime = 2;
  
+    // printf("Starting with prime %ju, marking multiples up to %ju\n",(uintmax_t)prime,(uintmax_t)sieve_bits);
+    // printf("Block size: %ju bits, %ju bytes\n",(uintmax_t)BLOCKSIZE_BITS,(uintmax_t)BLOCKSIZE_UNIT8);
+
     while (prime < prime_max) {
         const counter_t step  = prime;
         const counter_t start = prime * prime;
@@ -110,11 +117,13 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
         for(counter_t i=start; i < sieve_bits; i += step) {
             // printf("Marking %ju\n",(uintmax_t)i);
             setBitTrue_block(bitstorage, i);
+            // if (i>100) break;
         }
 
         // #pragma GCC ivdep
         // #pragma GCC unroll 32
         for (prime++; checkBitTrue_block(bitstorage, prime); prime++);
+        // break;
     }
 
     // return the completed sieve

@@ -11,14 +11,15 @@ showPrimesinSieve(struct sieve_t *sieve, counter_t factor_max)
 {
     verbose1( printf("Result set:\n"); )
     counter_t prime_count = 0;    // We already have 2
-    for (counter_t factor=2; factor < sieve->bits; factor = searchBitFalse_block(sieve->bitstorage, factor)) {
+    for (counter_t factor=2; factor < sieve->bits; factor++) {
+        if (checkBitTrue_block(sieve->bitstorage, factor)) continue; // is this a prime?
         prime_count++;
         if (factor < factor_max) {
             verbose1( printf("%3ju ",(uintmax_t)factor); )
             if (prime_count % 10 == 0) { verbose2( printf("\n"); ) }
         }
     }
-    verbose1( printf("\nFound %ju primes until %ju\n",(uintmax_t)prime_count, (uintmax_t)sieve->bits*2+1); )
+    verbose1( printf("\nFound %ju primes until %ju\n",(uintmax_t)prime_count, (uintmax_t)sieve->bits); )
 }
 
 static void __attribute__((cold, nonnull)) 
