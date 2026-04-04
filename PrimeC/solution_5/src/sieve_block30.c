@@ -22,10 +22,15 @@ static char algorithm_type[] = "base";
 
 // include helper functions
 #include "generic/settings.h"
+
+#undef SHIFT_SIZE
+#define SHIFT_SIZE 0 // correct because we are not storing even numbers, so the number of bits is the same as the size of the sieve
+
 #include "benchmark/sieve_options.h"
 #include "bitstorage/bitstorage_search.h"
 #include "sieve/sieve_calc.h"
 #include "sieve/sieve_manager.h"
+
 
 // This is the main module that directs all the work
 // sieve_size in a real number that is the maximum in the sieve (not in bits)
@@ -101,9 +106,9 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 
         // #pragma GCC ivdep
         // #pragma GCC unroll 32
-        printf("Marking multiples of %ju starting at %ju\n",(uintmax_t)prime,(uintmax_t)start);
+        // printf("Marking multiples of %ju starting at %ju\n",(uintmax_t)prime,(uintmax_t)start);
         for(counter_t i=start; i < sieve_bits; i += step) {
-            printf("Marking %ju\n",(uintmax_t)i);
+            // printf("Marking %ju\n",(uintmax_t)i);
             setBitTrue_block(bitstorage, i);
         }
 

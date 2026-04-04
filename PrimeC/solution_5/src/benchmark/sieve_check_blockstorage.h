@@ -1,8 +1,8 @@
 static counter_t __attribute__((cold, nonnull)) 
 countPrimesInSieve(struct sieve_t *sieve) 
 {
-    counter_t prime_count = 1;
-    for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse_block(sieve->bitstorage, factor)) prime_count++;
+    counter_t prime_count = 0;
+    for (counter_t factor=2; factor < sieve->bits; factor = searchBitFalse_block(sieve->bitstorage, factor)) prime_count++;
     return prime_count;
 }
 
@@ -10,8 +10,8 @@ static void __attribute__((cold, nonnull))
 showPrimesinSieve(struct sieve_t *sieve, counter_t factor_max) 
 {
     verbose1( printf("Result set:\n"); )
-    counter_t prime_count = 1;    // We already have 2
-    for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse_block(sieve->bitstorage, factor)) {
+    counter_t prime_count = 0;    // We already have 2
+    for (counter_t factor=2; factor < sieve->bits; factor = searchBitFalse_block(sieve->bitstorage, factor)) {
         prime_count++;
         if (factor < factor_max) {
             verbose1( printf("%3ju ",(uintmax_t)factor); )
