@@ -1,4 +1,4 @@
-#ifndef ALGORITHM_WHEEL
+#ifndef ALTERNATIVE_CHECK
 #include "sieve_check.h"
 #endif
 

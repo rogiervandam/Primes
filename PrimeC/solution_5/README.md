@@ -177,6 +177,7 @@ To access the container's shell:
 
 ```bash
 docker run -it --entrypoint /bin/bash c:latest
+docker run -it --entrypoint /bin/bash primec_solution_5
 ```
 
 Command to create a dockerfile

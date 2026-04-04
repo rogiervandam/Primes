@@ -13,6 +13,7 @@
 static char algorithm_name[60] = "rogiervandam_wheel";
 static char algorithm_type[] = "wheel";
 #define ALGORITHM_WHEEL 1
+#define ALTERNATIVE_CHECK 1 // signals sieve_check to use the alternative check function
 
 #ifndef WHEEL_SIZE
     #define WHEEL_SIZE 2*3*5*7*11*13
