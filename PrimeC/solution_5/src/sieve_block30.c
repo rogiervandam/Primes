@@ -45,12 +45,13 @@ setBitTrue_block(void* restrict bitstorage, const register counter_t index)
     register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
     counter_t block_index = index / BLOCKS;
     counter_t block = index % BLOCKS;
-    counter_t block_byte = block * BLOCKSIZE_UNIT8 + block_index / 8;
-    counter_t bit_index = block_index % 8;
+    // counter_t block_byte = block * BLOCKSIZE_UNIT8 + block_index / 8;
+    // counter_t bit_index = block_index % 8;
     // counter_t block_byte = index / 8;
     // counter_t bit_index = index % 8;
     // printf("Setting bit for index %ju: block %ju, block_index %ju, block_byte %ju, bit_index %ju\n",(uintmax_t)index,(uintmax_t)block,(uintmax_t)block_index,(uintmax_t)block_byte,(uintmax_t)bit_index);
-    bitstorage_sized[block_byte] |= (uint8_t)((uint8_t)1ULL << bit_index);
+    // bitstorage_sized[block_byte] |= (uint8_t)((uint8_t)1ULL << bit_index);
+    bitstorage_sized[block * BLOCKSIZE_UNIT8 + index_type(block_index, uint8_t)] |= markmask_calc_type(block_index, uint8_t);
 }
 
 static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
@@ -60,12 +61,12 @@ checkBitTrue_block(const void* restrict bitstorage, register counter_t index)
     uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     counter_t block_index = index / BLOCKS;
     counter_t block = index % BLOCKS;
-    counter_t block_byte = block * BLOCKSIZE_UNIT8 + block_index / 8;
-    counter_t bit_index = block_index % 8;
+    // counter_t block_byte = block * BLOCKSIZE_UNIT8 + block_index / 8;
+    // counter_t bit_index = block_index % 8;
     // counter_t block_byte = index  / 8;
     // counter_t bit_index = index % 8;
 
-    return (bitstorage_sized[block_byte] & (uint8_t)((uint8_t)1ULL << bit_index));
+    return bitstorage_sized[block * BLOCKSIZE_UNIT8 + index_type(block_index, uint8_t)] & markmask_calc_type(block_index, uint8_t);
 }
 
 static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
