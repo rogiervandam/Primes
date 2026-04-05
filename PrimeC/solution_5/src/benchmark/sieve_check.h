@@ -19,7 +19,7 @@ showPrimesinSieve(struct sieve_t *sieve, counter_t factor_max)
 }
 
 static void __attribute__((cold, nonnull)) 
-deepAnalyzeSieve(struct sieve_t *sieve) 
+deepAnalyzeSieve(struct sieve_t *sieve, counter_t factor_max) 
 {
     uint8_t *bitstorage = sieve->bitstorage;
     verbose2( printf("DeepAnalyzing\n"); )

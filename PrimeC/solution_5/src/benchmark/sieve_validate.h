@@ -2,7 +2,7 @@ static void deepAnalyzeWithBenchmarkSettings(benchmark_settings_t benchmark_sett
 {
     prepareBenchmarkGlobals(benchmark_settings);
     struct sieve_t* sieve = shakeSieve(benchmark_settings.factor_max);
-    deepAnalyzeSieve(sieve);
+    deepAnalyzeSieve(sieve, benchmark_settings.factor_max);
     sieve_delete(sieve);
 }
 

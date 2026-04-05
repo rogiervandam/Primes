@@ -124,7 +124,7 @@ compute_start_full(const counter_t prime, const counter_t block_start) {
 
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
-    struct sieve_t *sieve = sieve_create(sieve_size*8);
+    struct sieve_t *sieve = sieve_create(sieve_size, sieve_size*8);
     sieve->bits = sieve_size;
     bitbucket_t* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
     const counter_t sieve_bits = sieve_size;

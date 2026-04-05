@@ -43,10 +43,14 @@ static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_li
 setBitTrue_wheel(void* restrict bitstorage, const register counter_t index) 
 {
     register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
-    counter_t wheelindex = index % WHEEL_SIZE;
+    counter_t wheel_index = index % WHEEL_SIZE;
+    counter_t wheel_block = index / WHEEL_SIZE;
 
-    verbose7( printf("Marking index %ju as non-prime (wheelindex %ju in wheel %ju). Byte: %ju mask %ju\n",(uintmax_t)index,(uintmax_t)wheelindex,(uintmax_t)WHEEL_SIZE, index_type(wheelindex,uint8_t), wheelmask_compressed[wheelindex]); )
-    bitstorage_sized[index_type(index, uint8_t)] |= wheelmask_compressed[wheelindex]; // first check if the number is divisible by any of the wheel primes, if it is, mark it as non-prime
+    // verbose7( printf("Marking index %ju as non-prime (wheelindex %ju in wheel %ju). Byte: %ju mask %ju\n",(uintmax_t)index,(uintmax_t)wheelindex,(uintmax_t)WHEEL_SIZE, index_type(wheelindex,uint8_t), wheelmask_compressed[wheelindex]); )
+
+    // if (index_type(wheel_block, uint8_t) > 1000000/8/8) printf("Setting beyond bound %ju\n", index);
+
+    bitstorage_sized[wheel_block] |= wheelmask_compressed[wheel_index]; // first check if the number is divisible by any of the wheel primes, if it is, mark it as non-prime
 }
 
 // this is the same as checkBitTrue_wheel but without the check for the wheel primes
@@ -54,19 +58,12 @@ setBitTrue_wheel(void* restrict bitstorage, const register counter_t index)
 static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
 checkBitTrue_wheel_unsafe(const void* restrict bitstorage, register counter_t index)
 {
-    uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    counter_t wheelindex = index % WHEEL_SIZE;
+    register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
+    counter_t wheel_index = index % WHEEL_SIZE;
+    counter_t wheel_block = index / WHEEL_SIZE;
 
-    verbose7( printf("Checking if index %ju is non-prime (wheelindex  %ju in wheel %ju) ..: ",(uintmax_t)index,(uintmax_t)wheelindex,(uintmax_t)WHEEL_SIZE); )
-    if (wheelmask[index_type(wheelindex, uint8_t)] & markmask_type(wheelindex, uint8_t)) {
-        verbose7( printf("marked in wheel %ju\n", (uintmax_t) 1); )
-        return 1;
-    }
-
-    uint8_t result = bitstorage_sized[index_type(index, uint8_t)] & wheelmask_compressed[wheelindex];
-
-    verbose7( printf("marked %ju\n", (uintmax_t) result); )
-    return result;
+    return !wheelmask_compressed[wheel_index] || 
+           (bitstorage_sized[wheel_block] & wheelmask_compressed[wheel_index]);
 }
 
 static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
@@ -186,10 +183,10 @@ void prepareSieveFunction() {
 */
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
-    struct sieve_t *sieve = sieve_create(sieve_size);
+    struct sieve_t *sieve = sieve_create(sieve_size, sieve_size*8/30);
     void* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
-    const counter_t sieve_bits = sieve->bits;
-    const counter_t prime_max = prime_stop_full(sieve_bits);
+    // const counter_t sieve_bits = sieve->bits;
+    const counter_t prime_max = prime_stop_full(sieve_size);
 
     // use globals as constant
     const counter_t stripeprime_faster = global_stripeprime_faster;
@@ -197,7 +194,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     
     verbose5(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju using the wheel with primes up to %ju\n",(uintmax_t)sieve_size,(uintmax_t)blocksize_bits,(uintmax_t)WHEEL_MAX); )
     verbose6(  printf("Prime max is %ju\n",(uintmax_t)prime_max); )
-    verbose6(  printf("Sieve bits is %ju\n",(uintmax_t)sieve_bits); )
+    verbose6(  printf("Sieve size is %ju\n",(uintmax_t)sieve_size); )
 
     // code for algorithm = base
     sieve_clear(sieve);
@@ -209,7 +206,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     {
         verbose6( printf("Processing block starting at %ju\n",(uintmax_t)block_start); )
         const counter_t block_stop = block_start + blocksize_bits;
-        const counter_t range_stop = min(sieve_bits, block_stop);
+        const counter_t range_stop = min(sieve_size, block_stop);
 
         counter_t prime = 2;//searchBitFalse_wheel(bitstorage, WHEEL_MAX); 
         verbose6( printf("First prime in block is %ju\n",(uintmax_t)prime); )
@@ -218,7 +215,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
         while (prime < prime_max) {
             // verbose6( printf("Processing prime %ju in block starting at %ju\n",(uintmax_t)prime,(uintmax_t)block_start); )
 
-            register const counter_t step = prime;
+            register const counter_t step = prime * 2;
             register counter_t start = compute_start_full(prime, block_start);
 
             // verbose6( printf("First multiple of prime %ju in block is %ju\n",(uintmax_t)prime,(uintmax_t)start); )
@@ -239,6 +236,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     } 
     
     // return the completed sieve
+    // printf("Completed sieve\n");
     return sieve;
 }
 

@@ -43,7 +43,7 @@ counter_t validPrimes(counter_t factor_max) {
 }
 
 static void __attribute__((cold, nonnull)) 
-deepAnalyzeSieve(struct sieve_t *sieve) 
+deepAnalyzeSieve(struct sieve_t *sieve, counter_t factor_max) 
 {
     uint8_t *bitstorage = sieve->bitstorage;
 
@@ -51,13 +51,13 @@ deepAnalyzeSieve(struct sieve_t *sieve)
     verbose2( printf("Checking if the numbers up to %ju are correctly marked as prime or non-prime\n",(uintmax_t)sieve->bits); )
     verbose2( printf("Prime count is %ju and should be %ju \n", (uintmax_t)countPrimesInSieve(sieve, sieve->bits), (uintmax_t)validPrimes(sieve->bits)); )
     verbose2( printf("\n"); )
-    showPrimesinSieve(sieve, sieve->bits);
+    showPrimesinSieve(sieve, factor_max);
 
     counter_t warn_prime = 0;
     counter_t warn_nonprime = 0;
-    for (counter_t prime = 2; prime < sieve->bits; prime++ ) {
+    for (counter_t prime = 2; prime < factor_max; prime++ ) {
         if (!checkBitTrue_generic(bitstorage, prime)) { // is this a prime?
-            for(counter_t c=2; c<=sieve->bits && c*c <= prime; c++) {
+            for(counter_t c=2; c<=factor_max && c*c <= prime; c++) {
                 if ((prime % c) == 0 && (c != prime)) {
                     if (warn_prime++ < 30) {
                         verbose2( printf("Factor %ju was marked prime, but %ju * %ju = %ju (in bits: %ju, %ju and %ju)\n",
