@@ -51,7 +51,7 @@ deepAnalyzeSieve(struct sieve_t *sieve, counter_t factor_max)
     verbose2( printf("Checking if the numbers up to %ju are correctly marked as prime or non-prime\n",(uintmax_t)sieve->bits); )
     verbose2( printf("Prime count is %ju and should be %ju \n", (uintmax_t)countPrimesInSieve(sieve, sieve->bits), (uintmax_t)validPrimes(sieve->bits)); )
     verbose2( printf("\n"); )
-    showPrimesinSieve(sieve, factor_max);
+    showPrimesinSieve(sieve, 100);
 
     counter_t warn_prime = 0;
     counter_t warn_nonprime = 0;
