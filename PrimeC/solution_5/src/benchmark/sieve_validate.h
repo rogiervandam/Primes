@@ -77,6 +77,9 @@ showResult(benchmark_settings_t benchmark_settings)
     verbose2( printf("Show result set:\n"); )
     struct sieve_t* sieve = shakeSieve(benchmark_settings.factor_max);
     showPrimesinSieve(sieve, option.show_explain_factor_max);
+    counter_t prime_count = countPrimesInSieve(sieve, benchmark_settings.factor_max);
+    verbose1( printf("\nFound %ju primes until %ju\n",(uintmax_t)prime_count, (uintmax_t)benchmark_settings.factor_max); )
+
     sieve_delete(sieve);
 }
 

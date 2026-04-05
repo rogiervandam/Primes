@@ -1,8 +1,8 @@
 static counter_t __attribute__((cold, nonnull)) 
-countPrimesInSieve(struct sieve_t *sieve) 
+countPrimesInSieve(struct sieve_t *sieve, counter_t factor_max) 
 {
     counter_t prime_count = 0;
-    for (counter_t factor=2; factor < sieve->bits; factor = searchBitFalse_block(sieve->bitstorage, factor)) prime_count++;
+    for (counter_t factor=2; factor < factor_max; factor = searchBitFalse_block(sieve->bitstorage, factor)) prime_count++;
     return prime_count;
 }
 
@@ -58,7 +58,7 @@ deepAnalyzeSieve(struct sieve_t *sieve)
 static inline int __attribute__((cold, nonnull)) 
 validateSieve(struct sieve_t *sieve, const counter_t factor_max)
 {
-    const counter_t prime_count = countPrimesInSieve(sieve);
+    const counter_t prime_count = countPrimesInSieve(sieve, factor_max);
     counter_t valid_primes = 0;
     switch(factor_max) {
         case 10:            valid_primes = 4;         break;

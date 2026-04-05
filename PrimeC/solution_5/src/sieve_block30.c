@@ -84,8 +84,8 @@ setBitsTrue_range_block(void* restrict bitstorage, const counter_t range_start, 
         counter_t byte_stop = BLOCKS * BLOCKSIZE_UNIT8;
         uint8_t markmask = markmask_calc_type(block_index, uint8_t);
 
-        for (counter_t b = block_byte; b < byte_stop; b += BLOCKSIZE_UNIT8 * step) {
-            bitstorage_sized[b] |= markmask_calc_type(block_index, uint8_t);
+        for (counter_t b = block_byte; b <= byte_stop; b += BLOCKSIZE_UNIT8 * step) {
+            bitstorage_sized[b] |= markmask;
         }
         // bitstorage_sized[block * BLOCKSIZE_UNIT8 + index_type(block_index, uint8_t)] |= markmask_calc_type(block_index, uint8_t);
 

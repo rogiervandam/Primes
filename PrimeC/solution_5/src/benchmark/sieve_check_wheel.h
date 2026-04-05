@@ -1,5 +1,5 @@
 static counter_t __attribute__((cold, nonnull)) 
-countPrimesInSieve(struct sieve_t *sieve) 
+countPrimesInSieve(struct sieve_t *sieve, counter_t factor_max) 
 {
     counter_t prime_count = 1;
     for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse_wheel(sieve->bitstorage, factor)) prime_count++;
@@ -13,12 +13,12 @@ showPrimesinSieve(struct sieve_t *sieve, counter_t factor_max)
     counter_t prime_count = 1;    // We already have 2
     for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse_wheel(sieve->bitstorage, factor)) {
         prime_count++;
-        if (factor < factor_max/2) {
+        // if (factor < factor_max/2) {
             verbose1( printf("%3ju ",(uintmax_t)factor*2+1); )
             if (prime_count % 10 == 0) { verbose2( printf("\n"); ) }
-        }
+        // }
     }
-    verbose1( printf("\nFound %ju primes until %ju\n",(uintmax_t)prime_count, (uintmax_t)sieve->bits*2+1); )
+    // verbose1( printf("\nFound %ju primes until %ju\n",(uintmax_t)prime_count, (uintmax_t)sieve->bits*2+1); )
 }
 
 static void __attribute__((cold, nonnull)) 
@@ -57,7 +57,7 @@ deepAnalyzeSieve(struct sieve_t *sieve)
 static inline int __attribute__((cold, nonnull)) 
 validateSieve(struct sieve_t *sieve, const counter_t factor_max)
 {
-    const counter_t prime_count = countPrimesInSieve(sieve);
+    const counter_t prime_count = countPrimesInSieve(sieve, factor_max);
     counter_t valid_primes = 0;
     switch(factor_max) {
         case 10:            valid_primes = 4;         break;

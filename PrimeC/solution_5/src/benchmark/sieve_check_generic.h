@@ -1,19 +1,22 @@
 static counter_t __attribute__((cold, nonnull)) 
 countPrimesInSieve(struct sieve_t *sieve, counter_t factor_max) 
 {
-    counter_t prime_count = 1;
-    for (counter_t factor=1; factor < sieve->bits; factor = searchBitFalse(sieve->bitstorage, factor)) prime_count++;
+    counter_t prime_count = 0;
+    for (counter_t factor=2; factor < factor_max; factor++) {
+        if (checkBitTrue_generic(sieve->bitstorage, factor)) prime_count++;
+    }
     return prime_count;
 }
 
 static void __attribute__((cold, nonnull)) 
 showPrimesinSieve(struct sieve_t *sieve, counter_t factor_max) 
-{
+{ 
     verbose1( printf("Result set:\n"); )
-    counter_t prime_count = 1;    // We already have 2
-    for (counter_t factor=1; factor < factor_max/2; factor = searchBitFalse(sieve->bitstorage, factor)) {
+    counter_t prime_count = 0;
+    for (counter_t factor=2; factor < factor_max; factor++) {
+        if (checkBitTrue_generic(sieve->bitstorage, factor)) continue; // is this a prime?
         prime_count++;
-        verbose1( printf("%3ju ",(uintmax_t)factor*2+1); )
+        verbose1( printf("%3ju ",(uintmax_t)factor); )
         if (prime_count % 10 == 0) { verbose2( printf("\n"); ) }
     }
 }
@@ -26,7 +29,7 @@ deepAnalyzeSieve(struct sieve_t *sieve)
     counter_t warn_prime = 0;
     counter_t warn_nonprime = 0;
     for (counter_t prime = 1; prime < sieve->bits; prime++ ) {
-        if ((bitstorage[index_type(prime, uint8_t)] & markmask_type(prime,uint8_t ))==0) { // is this a prime?
+        if (!checkBitTrue_generic(bitstorage, prime)) { // is this a prime?
             for(counter_t c=1; c<=sieve->bits && c*c <= prime*2+1; c++) {
                 if ((prime*2+1) % (c*2+1) == 0 && (c*2+1) != (prime*2+1)) {
                     if (warn_prime++ < 30) {

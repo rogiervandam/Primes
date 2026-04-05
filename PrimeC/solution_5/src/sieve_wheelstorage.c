@@ -10,14 +10,15 @@
 #include <time.h>
 #include <stdint.h>
 
-static char algorithm_name[60] = "rogiervandam_wheel";
+static char algorithm_name[60] = "rogiervandam_wheelstorage";
 static char algorithm_type[] = "wheel";
+
 #define ALGORITHM_WHEEL 1
 #define ALTERNATIVE_CHECK 1 // signals sieve_check to use the alternative check function
 
 #ifndef WHEEL_SIZE
-    #define WHEEL_SIZE 2*3*5*7*11*13
-    #define WHEEL_MAX 13 // highest number in the wheel
+    #define WHEEL_SIZE 2*3*5
+    #define WHEEL_MAX 5 // highest number in the wheel
 #endif
 
 // include helper functions
@@ -76,11 +77,12 @@ searchBitFalse_wheel_unsafe(void* restrict bitstorage, register counter_t index)
 }
 
 uint8_t checkBitTrue_generic(void* restrict bitstorage, register counter_t index) {
-    return checkBitTrue_wheel(bitstorage, index);
+    if (index % 2 == 0) return 1; // even numbers are not prime
+    return checkBitTrue_wheel(bitstorage, index/2);
 }
-uint8_t searchBitFalse_generic(void* restrict bitstorage, register counter_t index) {
-    return searchBitFalse_wheel(bitstorage, index);
-};
+// uint8_t searchBitFalse_generic(void* restrict bitstorage, register counter_t index) {
+//     return searchBitFalse_wheel(bitstorage, index);
+// };
 
 void build_wheel() {
     // find all the primes in the wheel up to WHEEL_MAX and store them in /2 format
@@ -129,7 +131,10 @@ void build_wheel() {
     for (counter_t i=0; i <= WHEEL_SIZE/2/8; i++) {
         wheelmask_count += __builtin_popcount(wheelmask[i]);
     }
-    sprintf(algorithm_name, "rogiervandam_wheel_%uof%u", (WHEEL_SIZE/2)-wheelmask_count, WHEEL_SIZE);
+
+    // append the wheel size to the algorithm name
+    size_t prefix_len = 0; while (algorithm_name[prefix_len] != '\0') prefix_len++;
+    sprintf(algorithm_name + prefix_len, "_%uof%u", (WHEEL_SIZE/2)-wheelmask_count, WHEEL_SIZE);
 
 }
 
@@ -176,4 +181,5 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 }
 
 #include "benchmark/sieve_check_wheel.h"
+// #include "benchmark/sieve_check_generic.h"
 #include "benchmark/sieve_main.h"
