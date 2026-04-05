@@ -45,11 +45,6 @@ setBitTrue_wheel(void* restrict bitstorage, const register counter_t index)
     register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
     counter_t wheel_index = index % WHEEL_SIZE;
     counter_t wheel_block = index / WHEEL_SIZE;
-
-    // verbose7( printf("Marking index %ju as non-prime (wheelindex %ju in wheel %ju). Byte: %ju mask %ju\n",(uintmax_t)index,(uintmax_t)wheelindex,(uintmax_t)WHEEL_SIZE, index_type(wheelindex,uint8_t), wheelmask_compressed[wheelindex]); )
-
-    // if (index_type(wheel_block, uint8_t) > 1000000/8/8) printf("Setting beyond bound %ju\n", index);
-
     bitstorage_sized[wheel_block] |= wheelmask_compressed[wheel_index]; // first check if the number is divisible by any of the wheel primes, if it is, mark it as non-prime
 }
 
@@ -213,30 +208,18 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 
         #pragma GCC unroll 16
         while (prime < prime_max) {
-            // verbose6( printf("Processing prime %ju in block starting at %ju\n",(uintmax_t)prime,(uintmax_t)block_start); )
-
             register const counter_t step = prime * 2;
             register counter_t start = compute_start_full(prime, block_start);
 
-            // verbose6( printf("First multiple of prime %ju in block is %ju\n",(uintmax_t)prime,(uintmax_t)start); )
-
             for(counter_t i = start; i < range_stop; i += step) {
                 setBitTrue_wheel(bitstorage, i);
-                // getchar(); // for benchmarking purposes, this allows us to see the progress of the sieve and how long it takes to process each multiple
             }
             
-            // verbose6( printf("Searching for next prime after %ju until %ju\n",(uintmax_t)prime,(uintmax_t)block_stop); )
-            // getchar(); // for benchmarking purposes, this allows us to see the progress of the sieve and how long it takes to process each prime
-            prime = searchBitFalse_wheel_maxcheck(bitstorage, prime, block_stop);
+            prime = searchBitFalse_wheel(bitstorage, prime);
 
-            // verbose6( printf("Next prime is %ju\n",(uintmax_t)prime); )
-            // getchar(); // for benchmarking purposes, this allows us to see the progress of the sieve and how long it takes to process each prime
         }
-        // getchar(); // for benchmarking purposes, this allows us to see the progress of the sieve and how long it takes to process each block
     } 
     
-    // return the completed sieve
-    // printf("Completed sieve\n");
     return sieve;
 }
 
