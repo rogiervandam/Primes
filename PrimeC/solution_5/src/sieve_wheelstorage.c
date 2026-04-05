@@ -48,6 +48,28 @@ setBitTrue_wheel(void* restrict bitstorage, const register counter_t index)
     bitstorage_sized[wheel_block] |= wheelmask_compressed[wheel_index]; // first check if the number is divisible by any of the wheel primes, if it is, mark it as non-prime
 }
 
+static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
+setBitTrue_wheel_repeat(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+{
+    register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
+
+    const counter_t range_stop_unique = range_start + WHEEL_SIZE * step; 
+    counter_t byte_stop = range_stop / WHEEL_SIZE;
+
+    for (register counter_t index = range_start; index < range_stop_unique; index += step) { 
+        counter_t wheel_index = index % WHEEL_SIZE;
+        uint8_t markmask = wheelmask_compressed[wheel_index];
+        if (markmask) {
+            counter_t wheel_block = index / WHEEL_SIZE;
+            // counter_t b = wheel_block;
+            // bitstorage_sized[b] |= markmask;
+            for (counter_t b = wheel_block; b <= byte_stop; b += step) {
+                bitstorage_sized[b] |= markmask;
+            }
+        }
+    } 
+}
+
 // this is the same as checkBitTrue_wheel but without the check for the wheel primes
 // this can only be used if index > WHEEL_MAX
 static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
@@ -211,9 +233,10 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
             register const counter_t step = prime * 2;
             register counter_t start = compute_start_full(prime, block_start);
 
-            for(counter_t i = start; i < range_stop; i += step) {
-                setBitTrue_wheel(bitstorage, i);
-            }
+            // for(counter_t i = start; i < range_stop; i += step) {
+            //     setBitTrue_wheel(bitstorage, i);
+            // }
+            setBitTrue_wheel_repeat(bitstorage, start, step, range_stop);
             
             prime = searchBitFalse_wheel(bitstorage, prime);
 
