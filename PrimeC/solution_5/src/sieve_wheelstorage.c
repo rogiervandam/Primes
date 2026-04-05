@@ -34,34 +34,12 @@ static char algorithm_type[] = "wheel";
 static unsigned int wheelprimes[WHEEL_MAX]; // can't be more than highest prime in the wheel
 static uint8_t wheelmask[WHEEL_SIZE];
 
-static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
-checkBitTrue_wheel(const void* restrict bitstorage, register counter_t index) 
-{
-    if (index <= WHEEL_MAX/2) return wheelprimes[index];
-
-    uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    // if (wheel[index % (WHEEL_SIZE/2)]) return 1; 
-    counter_t wheelindex = index % (WHEEL_SIZE/2);
-    if (wheelmask[index_type(wheelindex, uint8_t)] & markmask_type(wheelindex, uint8_t)) return 1;
-    return (bitstorage_sized[index_type(index, uint8_t)] & markmask_type(index, uint8_t));
-}
-
-static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
-searchBitFalse_wheel(void* restrict bitstorage, register counter_t index) 
-{
-    #pragma GCC ivdep
-    #pragma GCC unroll 4
-    for (;checkBitTrue_wheel(bitstorage, ++index););
-    return index;
-}
-
 // this is the same as checkBitTrue_wheel but without the check for the wheel primes
-// this is used in searchBitFalse_wheel_unsafe which is called in the inner loop of the sieve and thus needs to be as fast as possible
+// this can only be used if index > WHEEL_MAX
 static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
 checkBitTrue_wheel_unsafe(const void* restrict bitstorage, register counter_t index)
 {
     uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    // if (wheel[index % (WHEEL_SIZE/2)]) return 1; 
     counter_t wheelindex = index % (WHEEL_SIZE/2);
     if (wheelmask[index_type(wheelindex, uint8_t)] & markmask_type(wheelindex, uint8_t)) return 1;
     return (bitstorage_sized[index_type(index, uint8_t)] & markmask_type(index, uint8_t));
@@ -75,6 +53,24 @@ searchBitFalse_wheel_unsafe(void* restrict bitstorage, register counter_t index)
     for (;checkBitTrue_wheel_unsafe(bitstorage, ++index););
     return index;
 }
+
+static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
+checkBitTrue_wheel(const void* restrict bitstorage, register counter_t index) 
+{
+    if (index <= WHEEL_MAX/2) return wheelprimes[index];
+    return checkBitTrue_wheel_unsafe(bitstorage, index);
+}
+
+static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
+searchBitFalse_wheel(void* restrict bitstorage, register counter_t index) 
+{
+    #pragma GCC ivdep
+    #pragma GCC unroll 4
+    for (;checkBitTrue_wheel(bitstorage, ++index););
+    return index;
+}
+
+
 
 uint8_t checkBitTrue_generic(void* restrict bitstorage, register counter_t index) {
     if (index % 2 == 0) return 1; // even numbers are not prime
