@@ -6,7 +6,7 @@ usage(char *program_name, int exit_code)
         "Options:\n"
         "  --check <level>           Check the correctness of the algorithm\n"
         "                            0 - no check\n"
-        "                            1 - check prime count for the sieve size\n"
+        "                            1 - check prime count for the sieve size and stop\n"
         "                            2 - check prime count for every sieve size\n"
         "                            3 - check prime count for every sieve size and blocksize\n"
 #ifdef COMPILE_CHECK_STRIPERS
@@ -23,7 +23,7 @@ usage(char *program_name, int exit_code)
         "  --max                     Set the maximum prime to examine\n"
         "  --set <string>            The string is can be one or multiple of the following, connected by hyphens\n" 
         "                            e.g. s063-l128-b0262144-v256-a1\n"
-        "        s<factor>           Set the cutoff prime for blockwise striping"
+        "        s<factor>           Set the cutoff prime for blockwise striping\n"
         "        l<bits>             Set the cutoff number of bits for vectorwise striping\n"
         "        b<bits>             Set the block size to a specific <size> in bits\n"
         "        v<size>             Set the vector size to a specific <size> in bits\n"
