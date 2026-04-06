@@ -78,6 +78,25 @@ setBitTrue_wheel_repeat(void* restrict bitstorage, const counter_t range_start, 
     } 
 }
 
+static inline void __attribute__((always_inline, nonnull, hot,  aligned(cache_line_bytes) )) 
+setBitsTrue_wheel_norepeat(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+{
+    register counter_t index = range_start;
+    register counter_t i=((range_start-range_start)/step);
+    for(register counter_t j=256; j>4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
+        for(;i>j;i-=j) {
+            for(int k=j; k--; index += step) {
+                setBitTrue_wheel(bitstorage, index);
+            }
+        }
+    }
+
+    for (; index < range_stop; index += step) 
+        setBitTrue_wheel(bitstorage, index);
+
+    if unlikely(index==range_stop) setBitTrue_wheel(bitstorage, index);
+}
+
 // this is the same as checkBitTrue_wheel but without the check for the wheel primes
 // this can only be used if index > WHEEL_MAX
 static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
@@ -212,7 +231,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
             setBitTrue_wheel_repeat(bitstorage, start, step, range_stop);
             prime = searchBitFalse_wheel(bitstorage, ++prime);
         }
-    } 
+    }
     
     return sieve;
 }
