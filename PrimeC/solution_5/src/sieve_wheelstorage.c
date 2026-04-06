@@ -38,98 +38,6 @@ static unsigned int wheelprimes[WHEEL_MAX+1]; // can't be more than highest prim
 static uint8_t wheelmask[WHEEL_SIZE];
 static uint8_t wheelmask_compressed[WHEEL_SIZE];
 
-static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
-function(applyMask_index,_uint8_unroll8)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop, const uint8_t mask) 
-{
-    startAnalysis8(time_applyMask, "\nApplying %s mask with step %ju in range until %ju", STR(bitbucket_t), (uintmax_t)step, (uintmax_t)range_stop);
-  
-    register const counter_t step_max                   = step * unrolls;
-    register uint8_t* restrict bitstorage_sized     = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    register uint8_t* restrict index_ptr            = __builtin_assume_aligned(&bitstorage_sized[range_start],sizeof(uint8_t));
-    register const uint8_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[range_stop],sizeof(uint8_t));
-    register counter_t i = safe_diff(range_stop, range_start) / step;
-
-    #if defined(__GNUC__) && !defined(__clang__) // optimized for GCC
-    register const uint8_t* restrict fast_loop_ptr  = __builtin_assume_aligned(&bitstorage_sized[safe_diff(range_stop,step_max)],sizeof(uint8_t));
-
-    #if unrolls == 16
-    #pragma GCC ivdep
-    #pragma GCC unroll 32
-    for(;(index_ptr < fast_loop_ptr); ) {
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-    }
-    #endif
-
-    #if unrolls == 8
-    #pragma GCC ivdep
-    #pragma GCC unroll 64
-    for(;(index_ptr < fast_loop_ptr); ) {
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-    }
-    #endif
-
-    #if unrolls == 4
-    #pragma GCC ivdep
-    #pragma GCC unroll 64
-    for(;(index_ptr < fast_loop_ptr); ) {
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-        *index_ptr |= mask; index_ptr += step;
-    }
-    #endif
-
-    #elif defined(__clang__) // optimized for clang
-
-    #if unrolls >= 8
-        for (;i>8; i-=8, index_ptr += step * 8) {
-            index_ptr[step * 0] |= mask;
-            index_ptr[step * 1] |= mask;
-            index_ptr[step * 2] |= mask;
-            index_ptr[step * 3] |= mask;
-            index_ptr[step * 4] |= mask;
-            index_ptr[step * 5] |= mask;
-            index_ptr[step * 6] |= mask;
-            index_ptr[step * 7] |= mask;
-        }
-    #elif unrolls >= 4
-        for (;i>4; i-=4, index_ptr += step * 4) {
-            index_ptr[step * 0] |= mask;
-            index_ptr[step * 1] |= mask;
-            index_ptr[step * 2] |= mask;
-            index_ptr[step * 3] |= mask;
-        }
-    #endif
-
-    #endif
-
-    for (; likely(index_ptr <= range_stop_ptr); index_ptr += step) { // signal compiler that only < unrolls iterations are left
-        *index_ptr |= mask; 
-    }
-}
-
 // Set one bit to true
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
 setBitTrue_wheel(void* restrict bitstorage, const register counter_t index) 
@@ -151,6 +59,9 @@ setBitTrue_wheel_repeat(void* restrict bitstorage, const counter_t range_start, 
         uint8_t markmask = wheelmask_compressed[wheel_index];
         if (markmask) {
             counter_t wheel_block = index / WHEEL_SIZE;
+            // for (counter_t b = wheel_block; b <= byte_stop; b += step) {
+            //     bitstorage_sized[b] |= markmask;
+            // }
             applyMask_index_uint8_unroll8(bitstorage, wheel_block, step, byte_stop, markmask);
         }
     } 
@@ -303,6 +214,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     sieve_clear(sieve);
 
     // #pragma GCC unroll 2
+    blocksize_bits = sieve_size; // TODO: get blocksize working again
     for (counter_t block_start = 0; block_start < sieve_size; block_start += blocksize_bits) {
         const counter_t range_stop = min(sieve_size, block_start + blocksize_bits);
         verbose6( printf("Processing block starting at %ju stop at \n",(uintmax_t)block_start, (uintmax_t)range_stop); )
