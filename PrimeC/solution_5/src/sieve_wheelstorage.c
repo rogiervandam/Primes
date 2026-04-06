@@ -196,11 +196,11 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     sieve_clear(sieve);
 
     // #pragma GCC unroll 2
-    blocksize_bits = sieve_size; // TODO: get blocksize working again
+    // blocksize_bits = sieve_size; // TODO: get blocksize working again
     for (counter_t block_start = 0; block_start < sieve_size; block_start += blocksize_bits) {
 
         const counter_t range_stop = min(sieve_size, block_start + blocksize_bits);
-        verbose6( printf("Processing block starting at %ju stop at \n",(uintmax_t)block_start, (uintmax_t)range_stop); )
+        verbose6( printf("Processing block starting at %ju stop at %ju\n",(uintmax_t)block_start, (uintmax_t)range_stop); )
 
         counter_t prime = 2;
 

@@ -27,7 +27,6 @@ sieve_create(const counter_t size, const counter_t bits)
     sieve->bitstorage = __builtin_assume_aligned((void *)aligned_address, cache_line_bytes);
     sieve->bits       = bits;
     sieve->size       = size;
-    // printf("Alloc with size %ju\n", sieve->bits);
     return sieve;
 }
 

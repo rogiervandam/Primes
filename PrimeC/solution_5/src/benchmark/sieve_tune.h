@@ -192,7 +192,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
         .stripe_faster_steps = 64,
         .largestep_faster_steps = 32,
         .sample_duration = option.initial_sample_duration,
-        .sieve_bits = start_tuning_settings.factor_max >> 1,
+        .sieve_bits = start_tuning_settings.factor_max >> SHIFT_SIZE,
         .time_target = 0, // This field wasn't initialized in your original code
         .step = 0,
         .tuning_results_max = 0,

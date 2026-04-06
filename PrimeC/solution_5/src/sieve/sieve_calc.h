@@ -39,7 +39,7 @@ prime_stop_full(const counter_t range_stop) {
 // calculate the first multiple of a prime number in a given range
 static inline counter_t __attribute__((always_inline, const))
 compute_start_full(const counter_t prime, const counter_t block_start) {
-    register const counter_t step = prime;
+    register const counter_t step = 2 * prime;
     register counter_t start = prime * prime;
     if (block_start && start < block_start) {
         start = (block_start + prime) + prime - ((block_start + prime) % step);
