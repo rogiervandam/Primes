@@ -37,6 +37,9 @@ static char algorithm_type[] = "wheel";
 static unsigned int wheelprimes[WHEEL_MAX+1]; // can't be more than highest prime in the wheel
 static uint8_t wheelmask[WHEEL_SIZE];
 static uint8_t wheelmask_compressed[WHEEL_SIZE];
+static uint8_t wheelmask_index[WHEEL_SIZE];
+// static const counter_t wheelmask_stripes = 8; // the number of possible primes per wheel, e.g. 8 when storing 8of30
+static counter_t wheelmask_stripes; // the number of possible primes per wheel, e.g. 8 when storing 8of30
 
 // Set one bit to true
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
@@ -44,7 +47,7 @@ setBitTrue_wheel(void* restrict bitstorage, const register counter_t index)
 {
     register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
     counter_t wheel_index = index % WHEEL_SIZE;
-    counter_t wheel_block = index / WHEEL_SIZE;
+    counter_t wheel_block = index_type(wheelmask_stripes * (index / WHEEL_SIZE), uint8_t) + wheelmask_index[wheel_index];
     bitstorage_sized[wheel_block] |= wheelmask_compressed[wheel_index]; // first check if the number is divisible by any of the wheel primes, if it is, mark it as non-prime
 }
 
@@ -53,12 +56,12 @@ setBitTrue_wheel_repeat(void* restrict bitstorage, const counter_t range_start, 
 {
     register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
     const counter_t range_stop_unique = range_start + WHEEL_SIZE * step; 
-    counter_t byte_stop = range_stop / WHEEL_SIZE;
+    counter_t byte_stop = index_type(wheelmask_stripes * (range_stop / WHEEL_SIZE), uint8_t) + index_type(wheelmask_stripes, uint8_t);
     for (register counter_t index = range_start; index < range_stop_unique; index += step) { 
         counter_t wheel_index = index % WHEEL_SIZE;
         uint8_t markmask = wheelmask_compressed[wheel_index];
         if (markmask) {
-            counter_t wheel_block = index / WHEEL_SIZE;
+            counter_t wheel_block = index_type(wheelmask_stripes * (index / WHEEL_SIZE), uint8_t) + wheelmask_index[wheel_index];
             // for (counter_t b = wheel_block; b <= byte_stop; b += step) {
             //     bitstorage_sized[b] |= markmask;
             // }
@@ -74,7 +77,7 @@ checkBitTrue_wheel_unsafe(const void* restrict bitstorage, register counter_t in
 {
     register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     counter_t wheel_index = index % WHEEL_SIZE;
-    counter_t wheel_block = index / WHEEL_SIZE;
+    counter_t wheel_block = index_type(wheelmask_stripes * (index / WHEEL_SIZE), uint8_t) + wheelmask_index[wheel_index];
 
     return !wheelmask_compressed[wheel_index] || 
            (bitstorage_sized[wheel_block] & wheelmask_compressed[wheel_index]);
@@ -105,14 +108,14 @@ searchBitFalse_wheel(void* restrict bitstorage, register counter_t index)
     return index;
 }
 
-static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
-searchBitFalse_wheel_maxcheck(void* restrict bitstorage, register counter_t index, register counter_t maxindex) 
-{
-    #pragma GCC ivdep
-    #pragma GCC unroll 4
-    for (;index < maxindex && checkBitTrue_wheel(bitstorage, ++index););
-    return index;
-}
+// static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
+// searchBitFalse_wheel_maxcheck(void* restrict bitstorage, register counter_t index, register counter_t maxindex) 
+// {
+//     #pragma GCC ivdep
+//     #pragma GCC unroll 4
+//     for (;index < maxindex && checkBitTrue_wheel(bitstorage, ++index););
+//     return index;
+// }
 
 uint8_t checkBitTrue_generic(void* restrict bitstorage, register counter_t index) {
     // if (index % 2 == 0) return 1; // even numbers are not prime
@@ -157,6 +160,7 @@ void build_wheel() {
     counter_t stripe_count = 0;
     for (counter_t i = 0; i < WHEEL_SIZE; i++) {
         wheelmask_compressed[i]=0;
+        wheelmask_index[i]=0;
         for (counter_t f = 2; f <= WHEEL_MAX; f++) {
             if (((i+WHEEL_SIZE) % f) == 0) { // this is a non-prime
                 wheelmask[index_type(i, uint8_t)] |= markmask_type(i, uint8_t); // mark it in the mask
@@ -165,15 +169,18 @@ void build_wheel() {
         }
         if (!(wheelmask[index_type(i, uint8_t)] & markmask_type(i, uint8_t))) {
             wheelmask_compressed[i] |= markmask_type(stripe_count, uint8_t);
+            wheelmask_index[i] = index_type(stripe_count, uint8_t);
             stripe_count++;
         }
     }
+    wheelmask_stripes = stripe_count;
 
     // show the wheelmask
     // every value from i to WHEEL_SIZE for debugging
     // for (counter_t i = 0; i < WHEEL_SIZE; i++) {
-    //     printf("Wheelmask %4ju is %4ju compressed %4ju\n", i, (wheelmask[index_type(i, uint8_t)] & markmask_type(i, uint8_t) ) ? 1 : 0,wheelmask_compressed[i]);
+    //     printf("Wheelmask %4ju is %4ju compressed %4ju index %ju\n", i, (wheelmask[index_type(i, uint8_t)] & markmask_type(i, uint8_t) ) ? 1 : 0,wheelmask_compressed[i], wheelmask_index[i]);
     // }
+    // printf("Wheelmask stripes: %ju", (uintmax_t)wheelmask_stripes);
 
     counter_t wheelmask_count = 0;
     for (counter_t i=0; i <= WHEEL_SIZE/8; i++) {
@@ -228,7 +235,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
             register const counter_t step = prime * 2;
 
             setBitTrue_wheel_repeat(bitstorage, start, step, range_stop);
-            
+
             prime = searchBitFalse_wheel(bitstorage, prime);
         }
     } 
