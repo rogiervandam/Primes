@@ -95,9 +95,9 @@ handleCheckOption(int check, benchmark_settings_t benchmark_settings) {
     if (check >= 6) checkSetBitsTrueMethodsBlocks(setBitsTrueMethods, 0, benchmark_settings.factor_max);
     #endif
 
-    if (check >= 1) checkSieveWithBenchmarkSettings(benchmark_settings);
-    if (check >= 2) checkSieveAlgorithm(benchmark_settings);
-    if (check >= 3) checkSieveAlgorithmAll(benchmark_settings);
+    if (check >= 1) if (!checkSieveWithBenchmarkSettings(benchmark_settings)) exit(1);
+    if (check >= 2) if (!checkSieveAlgorithm(benchmark_settings)) exit(1);
+    if (check >= 3) if (!checkSieveAlgorithmAll(benchmark_settings)) exit(1);
 
     if (check == 7) exit(0);
 }

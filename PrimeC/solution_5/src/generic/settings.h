@@ -40,4 +40,4 @@
 #include "helpers.h"
 #include "types.h"
 #include "verbose.h"
-// #include "tools.h" // used for debugging
+#include "tools.h" // used for debugging
