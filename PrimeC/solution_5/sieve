@@ -397,6 +397,7 @@ fi
 if [ $verbose_level -gt 2 ]; then
   echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
 fi
+
 $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS $CCWARN
 
 if [ "$COMPILER_ASM" = "asm" ]; then

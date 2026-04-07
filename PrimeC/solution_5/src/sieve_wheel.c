@@ -13,7 +13,7 @@
 static char algorithm_name[60] = "rogiervandam_wheel";
 static char algorithm_type[] = "wheel";
 #define ALGORITHM_WHEEL 1
-#define ALTERNATIVE_CHECK 1 // signals sieve_check to use the alternative check function
+// #define ALTERNATIVE_CHECK 1 // signals sieve_check to use the alternative check function
 
 #ifndef WHEEL_SIZE
     #define WHEEL_SIZE 2*3*5*7*11*13
@@ -75,12 +75,20 @@ searchBitFalse_wheel_unsafe(void* restrict bitstorage, register counter_t index)
     return index;
 }
 
-uint8_t checkBitTrue_generic(void* restrict bitstorage, register counter_t index) {
-    return checkBitTrue_wheel(bitstorage, index);
+// uint8_t checkBitTrue_generic(void* restrict bitstorage, register counter_t index) {
+//     return checkBitTrue_wheel(bitstorage, index);
+// }
+// uint8_t searchBitFalse_generic(void* restrict bitstorage, register counter_t index) {
+//     return searchBitFalse_wheel(bitstorage, index);
+// };
+
+// custom function for storage, used in sieve_check.
+#define CHECK_FACTOR
+uint8_t checkFactor(void* restrict bitstorage, register counter_t factor) {
+    if (factor > 2 && factor % 2 == 0) return 1;
+    return checkBitTrue_wheel(bitstorage, factor/2);
 }
-uint8_t searchBitFalse_generic(void* restrict bitstorage, register counter_t index) {
-    return searchBitFalse_wheel(bitstorage, index);
-};
+
 
 void build_wheel() {
     // find all the primes in the wheel up to WHEEL_MAX and store them in /2 format
@@ -175,5 +183,4 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     return sieve;
 }
 
-#include "benchmark/sieve_check_wheel.h"
 #include "benchmark/sieve_main.h"

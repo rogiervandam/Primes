@@ -306,6 +306,6 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     free(tuning_result);
 
     time_elapsed = (time_elapsed - time_start);
-    verbose2( { printf(COLOR_CLEAR_LINE "Tuning done in %.1f seconds. Evaluated %ju options in %ju steps. Best result: ", (time_elapsed), (uintmax_t) tuning_results_max, (uintmax_t) tuning_parameters.step ); printTuningResult(best_result);} );
+    verbose2( { printf(COLOR_CLEAR_LINE "Tuning done in %.1f seconds. Evaluated %ju options in %ju steps. \nBest result: ", (time_elapsed), (uintmax_t) tuning_results_max, (uintmax_t) tuning_parameters.step ); printTuningResult(best_result);} );
     return best_result;
 }

@@ -14,7 +14,7 @@ static char algorithm_name[60] = "rogiervandam_wheelstorage";
 static char algorithm_type[] = "wheel";
 
 #define ALGORITHM_WHEEL 1
-#define ALTERNATIVE_CHECK 1 // signals sieve_check to use the alternative check function
+// #define ALTERNATIVE_CHECK 1 // signals sieve_check to use the alternative check function
 
 #ifndef WHEEL_SIZE
     #define WHEEL_MAX 5 // highest number in the wheel
@@ -44,10 +44,10 @@ static uint8_t wheelmask_index[WHEEL_SIZE];
 static counter_t wheelmask_stripes; // the number of possible primes per wheel, e.g. 8 when storing 8of30
 static counter_t wheelmask_stripe_bytes; // the number of bytes for storing <WHEEL_SIZE> bits
 
-static inline counter_t __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
 wheel_block_calc(counter_t index) {
     counter_t wheel_index = index % WHEEL_SIZE;
-    return index_type(wheelmask_stripe_bytes * 8 * (index / WHEEL_SIZE), uint8_t) + wheelmask_index[wheel_index];
+    return index_type(wheelmask_stripe_bytes * 8 * index / WHEEL_SIZE, uint8_t) + wheelmask_index[wheel_index];
 }
 
 // Set one bit to true
@@ -126,19 +126,12 @@ searchBitFalse_wheel(void* restrict bitstorage, register counter_t index)
     return index;
 }
 
-// static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
-// searchBitFalse_wheel_maxcheck(void* restrict bitstorage, register counter_t index, register counter_t maxindex) 
-// {
-//     #pragma GCC ivdep
-//     #pragma GCC unroll 4
-//     for (;index < maxindex && checkBitTrue_wheel(bitstorage, ++index););
-//     return index;
-// }
-
-uint8_t checkBitTrue_generic(void* restrict bitstorage, register counter_t index) {
-    // if (index % 2 == 0) return 1; // even numbers are not prime
-    return checkBitTrue_wheel(bitstorage, index);
+// custom function for storage, used in sieve_check.
+#define CHECK_FACTOR
+uint8_t checkFactor(void* restrict bitstorage, register counter_t factor) {
+    return checkBitTrue_wheel(bitstorage, factor);
 }
+
 
 void build_wheel() {
     // find all the primes in the wheel up to WHEEL_MAX and store them
@@ -236,6 +229,4 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     return sieve;
 }
 
-// #include "benchmark/sieve_check_wheel.h"
-#include "benchmark/sieve_check_generic.h"
 #include "benchmark/sieve_main.h"

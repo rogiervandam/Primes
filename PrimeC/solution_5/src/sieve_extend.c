@@ -30,8 +30,8 @@ static char algorithm_type[] = "other";
 */
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
-    struct sieve_t *sieve      = sieve_create(sieve_size, sieve_size>>1);
-    const counter_t sieve_bits = sieve->bits;
+    const counter_t sieve_bits = sieve_size >> 1;
+    struct sieve_t *sieve      = sieve_create(sieve_size, sieve_bits);
     const counter_t prime_max  = prime_stop(sieve_bits);
 
     // use globals as constant - these get optimized

@@ -12,7 +12,6 @@
 static char algorithm_name[] = "rogiervandam_blockstorage30";
 static char algorithm_type[] = "base";
 #define ALGORITHM_CLASSIC 1
-#define ALTERNATIVE_CHECK 1 // signals sieve_check to use the alternative check function
 
 #define CALCSIZE 1000000
 #define BLOCKS 30
@@ -106,20 +105,26 @@ searchBitFalse_block(void* restrict bitstorage, register counter_t index)
     return index;
 }
 
-static inline counter_t __attribute__((always_inline, const)) 
-prime_stop_full(const counter_t range_stop) {
-    return ((1 + usqrt( (range_stop) + 1 )));
-}
+// static inline counter_t __attribute__((always_inline, const)) 
+// prime_stop_full(const counter_t range_stop) {
+//     return ((1 + usqrt( (range_stop) + 1 )));
+// }
 
-// calculate the first multiple of a prime number in a given range
-static inline counter_t __attribute__((always_inline, const))
-compute_start_full(const counter_t prime, const counter_t block_start) {
-    register const counter_t step = prime * 2 + 1;
-    register counter_t start = prime * (step + 1);
-    if (block_start && start < block_start) {
-        start = (block_start + prime) + prime - ((block_start + prime) % step);
-    }
-    return start;
+// // calculate the first multiple of a prime number in a given range
+// static inline counter_t __attribute__((always_inline, const))
+// compute_start_full(const counter_t prime, const counter_t block_start) {
+//     register const counter_t step = prime * 2 + 1;
+//     register counter_t start = prime * (step + 1);
+//     if (block_start && start < block_start) {
+//         start = (block_start + prime) + prime - ((block_start + prime) % step);
+//     }
+//     return start;
+// }
+
+// custom function for storage, used in sieve_check.
+#define CHECK_FACTOR
+uint8_t checkFactor(void* restrict bitstorage, register counter_t factor) {
+    return checkBitTrue_block(bitstorage, factor);
 }
 
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
