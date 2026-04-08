@@ -29,6 +29,7 @@ static char algorithm_type[] = "wheel";
 #define SHIFT_SIZE 0 // correct because we are not storing even numbers, so the number of bits is the same as the size of the sieve
 
 #include "benchmark/sieve_options.h"
+#include "generic/tools.h" // used for debugging
 #include "bitstorage/bitstorage_search.h"
 #include "bitstorage/bitstorage_setBitsTrue.h"
 #include "bitstorage/bitstorage_setBitsTrue_base.h"
@@ -274,15 +275,16 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
         const counter_t range_stop = min(sieve_size, block_start + blocksize_bits);
         verbose6( printf("Processing block starting at %ju stop at %ju\n",(uintmax_t)block_start, (uintmax_t)range_stop); )
 
-        counter_t prime = searchBitFalse_wheel(bitstorage, WHEEL_MAX);
+        counter_t prime = searchBitFalse_wheel(bitstorage, WHEEL_MAX+1);
 
         #pragma GCC unroll 32
         while (prime < prime_max) {
+            // if (prime % 2 == 0) { prime++; continue; } // skip even numbers, they are not stored in the sieve
             register counter_t start = compute_start_full(prime, block_start);
             register const counter_t step = prime * 2;
 
-            setBitTrue_wheel_small_repeat_uint64(bitstorage, start, step, range_stop);
-            // setBitTrue_wheel_repeat(bitstorage, start, step, range_stop);
+            // setBitTrue_wheel_small_repeat_uint64(bitstorage, start, step, range_stop);
+            setBitTrue_wheel_repeat(bitstorage, start, step, range_stop);
             prime = searchBitFalse_wheel(bitstorage, ++prime);
         }
     }

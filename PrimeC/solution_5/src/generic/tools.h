@@ -11,14 +11,14 @@ printWord_uint64(uint64_t bitword)
       if (!(i%8)) row[col++] = ' ';
     }
 
-  printf("%s", row); 
+    printf("%s", row); 
   )
 }
 
 static inline void __attribute__ ((cold))
 printWord_uint32(uint64_t bitword)
 {
-  verbose1(
+  // verbose1(
     char row[32*2] = {};
       int col=0;
       for (int i=32-1; i>=0; i--) {
@@ -26,7 +26,7 @@ printWord_uint32(uint64_t bitword)
         if (!(i%8)) row[col++] = ' ';
       }
     printf("%s", row); 
-  )
+  // )
 }
 
 #define PRINT_VECTOR_ELEMENTS 4
@@ -35,7 +35,7 @@ printWord_uint32(uint64_t bitword)
 static void __attribute__ ((cold)) 
 printVector(uint64v4_t bitvector)
 {
-  verbose1(
+  // verbose1(
     // Use a union to extract the scalar elements from the vector
     union {
       uint64v4_t vec;
@@ -64,7 +64,7 @@ printVector(uint64v4_t bitvector)
 
     row[col] = '\0';
     printf("%s %s\n", row, notes); 
-  )
+  // )
 }
 
 static void __attribute__ ((cold)) printVectorNumeric(uint64v4_t bitvector)
