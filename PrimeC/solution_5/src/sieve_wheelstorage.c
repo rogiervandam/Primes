@@ -76,6 +76,9 @@ setBitTrue_wheel_repeat(void* restrict bitstorage, const counter_t range_start, 
 
     const counter_t byte_stop = wheel_block_calc(range_stop + 1);
     const counter_t wheel_step = step * wheelmask_stripe_bytes;
+
+    // Every WHEEL_BASIC_SIZE * wheel_step, the pattern of which bits to mark as true in the wheel repeats at byte level 
+    // Because when the wheel is completely done, we are wheelmask_stripe_bytes further in the bitstorage
     const counter_t range_stop_unique = range_start + WHEEL_BASIC_SIZE * wheel_step; 
 
     for (register counter_t index = range_start; index <= range_stop_unique; index += step) { 
@@ -91,51 +94,47 @@ static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_li
 setBitTrue_wheel_small_repeat_uint64(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
     register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
+    register uint64_t* restrict bitstorage_sized_64 = __builtin_assume_aligned(bitstorage,cache_line_bytes);
 
     if (step >= 32) {
         setBitTrue_wheel_repeat(bitstorage, range_start, step, range_stop);
         return;
     }
 
-    const counter_t byte_stop = wheel_block_calc(range_stop + 1);
+    const counter_t block_stop = wheel_block_calc_uint64(range_stop + 1);
     const counter_t wheel_step = step * wheelmask_stripe_bytes;
-    const counter_t range_stop_unique = range_start + WHEEL_BASIC_SIZE * wheel_step * 64/8; 
+    const counter_t range_stop_unique = range_start + WHEEL_BASIC_SIZE * wheel_step * 8 + WHEEL_BASIC_SIZE * 8; 
 
     uint64_t reuse_markmask = 0ULL;
     counter_t reuse_block_start = 0;
 
-    printf("range_start: %ju, step: %ju, range_stop: %ju, byte_stop: %ju, wheel_step: %ju, range_stop_unique: %ju\n", (uintmax_t)range_start, (uintmax_t)step, (uintmax_t)range_stop, (uintmax_t)byte_stop, (uintmax_t)wheel_step, (uintmax_t)range_stop_unique);
-
-    for (register counter_t index = range_start; index <= range_stop_unique + WHEEL_SIZE; index += step) { 
-        counter_t wheel_block = wheel_block_calc_uint64(index);
+    for (register counter_t index = range_start; index <= range_stop_unique; index += step) { 
+        const counter_t wheel_block = wheel_block_calc_uint64(index);
 
         if (reuse_block_start < wheel_block) { // at first step from aligned
             if (reuse_block_start && reuse_markmask) { // apply previous mask if it exists
-                // applyMask_index_uint64_unroll8(bitstorage, reuse_block_start, wheel_step * (64/8), byte_stop, reuse_markmask);
+                applyMask_index_uint64_unroll8(bitstorage, reuse_block_start, wheel_step, block_stop, reuse_markmask);
             }
             reuse_markmask = 0ULL;
-            reuse_block_start = wheel_block_calc_uint64(index);
+            reuse_block_start = wheel_block;
         }
 
         const counter_t wheel_index = index % WHEEL_SIZE;
         const uint8_t markmask = wheelmask_compressed[wheel_index];
         if (markmask) {
             if (reuse_block_start) {
-                reuse_markmask |= markmask << (8 * (wheel_block_calc(index) % 8)); // combine the markmask for the current block if it is the same as the previous one
+                reuse_markmask |= (uint64_t)markmask << (8 * (wheel_block_calc(index) % 8)); // combine the markmask for the current block if it is the same as the previous one
             }
-            else applyMask_index_uint8_unroll8(bitstorage, wheel_block_calc(index), wheel_step, byte_stop, markmask);
-            // applyMask_index_uint8_unroll8(bitstorage, wheel_block_calc(index), wheel_step, byte_stop, markmask);
+            else bitstorage_sized[wheel_block_calc(index)] |= markmask; // first check if the number is divisible by any of the wheel primes, if it is, mark it as non-prime
         }
 
     } 
+
+    // do last block if early exit
     if (reuse_block_start && reuse_markmask) {
-       applyMask_index_uint64_unroll8(bitstorage, reuse_block_start, wheel_step * (64/8), byte_stop, reuse_markmask);
-    }
-    for(counter_t r=0;r<8;r++) {
-        printWord_uint64(((uint64_t*)bitstorage)[r]);
+       applyMask_index_uint64_unroll8(bitstorage, reuse_block_start, wheel_step, block_stop, reuse_markmask);
     }
 
-    getchar();
 }
 
 static inline void __attribute__((always_inline, nonnull, hot,  aligned(cache_line_bytes) )) 
@@ -279,12 +278,14 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 
         #pragma GCC unroll 32
         while (prime < prime_max) {
-            // if (prime % 2 == 0) { prime++; continue; } // skip even numbers, they are not stored in the sieve
+
             register counter_t start = compute_start_full(prime, block_start);
             register const counter_t step = prime * 2;
 
-            // setBitTrue_wheel_small_repeat_uint64(bitstorage, start, step, range_stop);
-            setBitTrue_wheel_repeat(bitstorage, start, step, range_stop);
+            setBitTrue_wheel_small_repeat_uint64(bitstorage, start, step, range_stop);
+
+            // setBitTrue_wheel_repeat(bitstorage, start, step, range_stop);
+
             prime = searchBitFalse_wheel(bitstorage, ++prime);
         }
     }
