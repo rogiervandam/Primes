@@ -61,7 +61,7 @@ wheel_block_calc_uint64(counter_t index) {
 
 // Set one bit to true
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-setBitTrue_wheel(void* restrict bitstorage, const register counter_t index) 
+setBitsTrue_wheel(void* restrict bitstorage, const register counter_t index) 
 {
     register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
     counter_t wheel_index = index % WHEEL_SIZE;
@@ -70,7 +70,7 @@ setBitTrue_wheel(void* restrict bitstorage, const register counter_t index)
 }
 
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-setBitTrue_wheel_repeat(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+setBitsTrue_wheel_repeat(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
     register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
 
@@ -91,19 +91,18 @@ setBitTrue_wheel_repeat(void* restrict bitstorage, const counter_t range_start, 
 }
 
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-setBitTrue_wheel_small_repeat_uint64(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+setBitsTrue_wheel_small_repeat_uint64(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
 {
-    register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
     register uint64_t* restrict bitstorage_sized_64 = __builtin_assume_aligned(bitstorage,cache_line_bytes);
 
     if (step >= 32) {
-        setBitTrue_wheel_repeat(bitstorage, range_start, step, range_stop);
+        setBitsTrue_wheel_repeat(bitstorage, range_start, step, range_stop);
         return;
     }
 
     const counter_t block_stop = wheel_block_calc_uint64(range_stop + 1);
     const counter_t wheel_step = step * wheelmask_stripe_bytes;
-    const counter_t range_stop_unique = range_start + WHEEL_BASIC_SIZE * wheel_step * 8 + WHEEL_BASIC_SIZE * 8; 
+    const counter_t range_stop_unique = range_start + WHEEL_BASIC_SIZE * wheel_step * 8 + WHEEL_BASIC_SIZE * 8 * wheelmask_stripe_bytes; 
 
     uint64_t reuse_markmask = 0ULL;
     counter_t reuse_block_start = 0;
@@ -111,22 +110,20 @@ setBitTrue_wheel_small_repeat_uint64(void* restrict bitstorage, const counter_t 
     for (register counter_t index = range_start; index <= range_stop_unique; index += step) { 
         const counter_t wheel_block = wheel_block_calc_uint64(index);
 
-        if (reuse_block_start < wheel_block) { // at first step from aligned
-            if (reuse_block_start && reuse_markmask) { // apply previous mask if it exists
-                applyMask_index_uint64_unroll8(bitstorage, reuse_block_start, wheel_step, block_stop, reuse_markmask);
+        if (reuse_block_start < wheel_block) { // when going to the next block
+            if (reuse_markmask) { // apply previous mask if it exists
+                if (reuse_block_start) {  // don't repeat the first block, it may be misaligned
+                    applyMask_index_uint64_unroll8(bitstorage, reuse_block_start, wheel_step, block_stop, reuse_markmask);
+                }
+                else bitstorage_sized_64[0] |= reuse_markmask; // if the previous block was the first block, we can apply the mask directly without going through the function
             }
-            reuse_markmask = 0ULL;
             reuse_block_start = wheel_block;
+            reuse_markmask = 0ULL;
         }
 
         const counter_t wheel_index = index % WHEEL_SIZE;
-        const uint8_t markmask = wheelmask_compressed[wheel_index];
-        if (markmask) {
-            if (reuse_block_start) {
-                reuse_markmask |= (uint64_t)markmask << (8 * (wheel_block_calc(index) % 8)); // combine the markmask for the current block if it is the same as the previous one
-            }
-            else bitstorage_sized[wheel_block_calc(index)] |= markmask; // first check if the number is divisible by any of the wheel primes, if it is, mark it as non-prime
-        }
+        const uint64_t markmask = wheelmask_compressed[wheel_index];
+        reuse_markmask |= markmask << ((wheel_block_calc(index) & 7) << 3); // combine the markmask for the current block if it is the same as the previous one
 
     } 
 
@@ -145,15 +142,15 @@ setBitsTrue_wheel_norepeat(void* restrict bitstorage, const counter_t range_star
     for(register counter_t j=256; j>4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
         for(;i>j;i-=j) {
             for(int k=j; k--; index += step) {
-                setBitTrue_wheel(bitstorage, index);
+                setBitsTrue_wheel(bitstorage, index);
             }
         }
     }
 
     for (; index < range_stop; index += step) 
-        setBitTrue_wheel(bitstorage, index);
+        setBitsTrue_wheel(bitstorage, index);
 
-    if unlikely(index==range_stop) setBitTrue_wheel(bitstorage, index);
+    if unlikely(index==range_stop) setBitsTrue_wheel(bitstorage, index);
 }
 
 // this is the same as checkBitTrue_wheel but without the check for the wheel primes
@@ -259,7 +256,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     const counter_t prime_max = prime_stop_full(sieve_size);
 
     // use globals as constant
-    const counter_t stripeprime_faster = global_stripeprime_faster;
+    const counter_t largestep_faster   = global_largestep_faster;
     counter_t blocksize_bits           = global_blocksize_bits;
     
     verbose5(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju using the wheel with primes up to %ju\n",(uintmax_t)sieve_size,(uintmax_t)blocksize_bits,(uintmax_t)WHEEL_MAX); )
@@ -282,9 +279,12 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
             register counter_t start = compute_start_full(prime, block_start);
             register const counter_t step = prime * 2;
 
-            setBitTrue_wheel_small_repeat_uint64(bitstorage, start, step, range_stop);
-
-            // setBitTrue_wheel_repeat(bitstorage, start, step, range_stop);
+            if (step*(8*wheelmask_stripe_bytes)/WHEEL_BASIC_SIZE < largestep_faster) {
+                setBitsTrue_wheel_small_repeat_uint64(bitstorage, start, step, range_stop);
+            }
+            else {
+                setBitsTrue_wheel_norepeat(bitstorage, start, step, range_stop);
+            }
 
             prime = searchBitFalse_wheel(bitstorage, ++prime);
         }
