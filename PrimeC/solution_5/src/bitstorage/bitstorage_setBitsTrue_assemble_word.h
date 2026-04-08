@@ -51,6 +51,7 @@
 #else
     #define KEEP_VARIANT
     #include "../bitstorage/bitstorage_setBitsTrue_applyMask.h"
+    #include "../bitstorage/bitstorage_setBitsTrue_applyMask_pair.h"
     #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
     #include "../bitstorage/bitstorage_setBitsTrue_largestep_word.h"
     #undef KEEP_VARIANT

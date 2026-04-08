@@ -95,10 +95,10 @@ setBitsTrue_wheel_small_repeat_uint64(void* restrict bitstorage, const counter_t
 {
     register uint64_t* restrict bitstorage_sized_64 = __builtin_assume_aligned(bitstorage,cache_line_bytes);
 
-    // if (step >= 64) {
-    //     setBitsTrue_wheel_repeat(bitstorage, range_start, step, range_stop);
-    //     return;
-    // }
+    if (step >= 96) {
+        setBitsTrue_wheel_repeat(bitstorage, range_start, step, range_stop);
+        return;
+    }
     const counter_t block_stop = wheel_block_calc_uint64(range_stop + 1);
     const counter_t wheel_step = step * wheelmask_stripe_bytes;
     const counter_t range_stop_unique = min(range_start + WHEEL_BASIC_SIZE * wheel_step * 8 + WHEEL_BASIC_SIZE * 8 * wheelmask_stripe_bytes, range_stop); 
@@ -128,6 +128,67 @@ setBitsTrue_wheel_small_repeat_uint64(void* restrict bitstorage, const counter_t
     // we can ignore the last mask because it should already be set
     // can be wrong if wheel is large and range is small.
     bitstorage_sized_64[reuse_block_start] |= reuse_markmask;
+}
+
+static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
+setBitsTrue_wheel_small_repeat_pair_uint64(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+{
+    register uint64_t* restrict bitstorage_sized_64 = __builtin_assume_aligned(bitstorage,cache_line_bytes);
+
+    if (step >= 32) {
+        setBitsTrue_wheel_repeat(bitstorage, range_start, step, range_stop);
+        return;
+    }
+    const counter_t block_stop = wheel_block_calc_uint64(range_stop + 1);
+    const counter_t wheel_step = step * wheelmask_stripe_bytes;
+    const counter_t range_stop_unique = min(range_start + WHEEL_BASIC_SIZE * wheel_step * 8 + 2 * WHEEL_BASIC_SIZE * 8 * wheelmask_stripe_bytes, range_stop); 
+
+    uint64_t reuse_markmask = 0ULL;
+    uint64_t reuse_markmask1 = 0ULL;
+    counter_t reuse_block_start = 0;
+
+    register counter_t index = range_start;
+
+    for (; index <= range_stop_unique; index += step) { 
+        const counter_t wheel_block = wheel_block_calc_uint64(index);
+        if ((wheel_block & 1) == 0)  break;
+        setBitsTrue_wheel(bitstorage, index); 
+    }
+
+    for (register counter_t index = range_start; index <= range_stop_unique; index += step) { 
+        const counter_t wheel_block = wheel_block_calc_uint64(index);
+
+        if ((reuse_block_start + 1) < wheel_block) { // when going to the next block
+            if (reuse_markmask || reuse_markmask1) { // apply previous mask if it exists
+                if (reuse_block_start) {  // don't repeat the first block, it may be misaligned
+                    // applyMask_index_uint64_unroll8(bitstorage, reuse_block_start, wheel_step, block_stop, reuse_markmask);
+                    // applyMask_index_uint64_unroll8(bitstorage, reuse_block_start+1, wheel_step, block_stop, reuse_markmask1);
+                    applyMask_index_pair_uint64_unroll8(bitstorage, reuse_block_start, wheel_step, block_stop, reuse_markmask, reuse_markmask1);
+                }
+                else {
+                    bitstorage_sized_64[0] |= reuse_markmask; // if the previous block was the first block, we can apply the mask directly without going through the function
+                    bitstorage_sized_64[1] |= reuse_markmask1;
+                }
+            }
+            reuse_block_start = wheel_block;
+            reuse_markmask = 0ULL;
+            reuse_markmask1 = 0ULL;
+        }
+
+        const counter_t wheel_index = index % WHEEL_SIZE;
+        const uint64_t markmask = wheelmask_compressed[wheel_index];
+        uint8_t wheel_mask_block = wheel_block_calc(index);
+        if (wheel_mask_block & 8) { // if the mask is for the next block, put it in the second markmask
+            reuse_markmask1 |= markmask << ((wheel_mask_block & 7) << 3); // combine the markmask for the current block if it is the same as the previous one
+        }
+        else
+        reuse_markmask |= markmask << ((wheel_mask_block & 7) << 3); // combine the markmask for the current block if it is the same as the previous one
+    } 
+
+    // we can ignore the last mask because it should already be set
+    // can be wrong if wheel is large and range is small.
+    bitstorage_sized_64[reuse_block_start] |= reuse_markmask;
+    bitstorage_sized_64[reuse_block_start + 1] |= reuse_markmask1;
 }
 
 static inline void __attribute__((always_inline, nonnull, hot,  aligned(cache_line_bytes) )) 
@@ -278,6 +339,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
             // const counter_t bitstep = step * wheelmask_stripe_bytes * 8 / WHEEL_SIZE;
 
             if (prime < smallstep_faster) {
+                // setBitsTrue_wheel_small_repeat_pair_uint64(bitstorage, start, step, range_stop);
                 setBitsTrue_wheel_small_repeat_uint64(bitstorage, start, step, range_stop);
             }
             else 
