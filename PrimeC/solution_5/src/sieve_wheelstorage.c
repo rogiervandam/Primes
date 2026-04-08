@@ -95,7 +95,7 @@ setBitsTrue_wheel_small_repeat_uint64(void* restrict bitstorage, const counter_t
 {
     register uint64_t* restrict bitstorage_sized_64 = __builtin_assume_aligned(bitstorage,cache_line_bytes);
 
-    if (step >= 96) {
+    if (step >= 64) {
         setBitsTrue_wheel_repeat(bitstorage, range_start, step, range_stop);
         return;
     }
@@ -135,10 +135,10 @@ setBitsTrue_wheel_small_repeat_pair_uint64(void* restrict bitstorage, const coun
 {
     register uint64_t* restrict bitstorage_sized_64 = __builtin_assume_aligned(bitstorage,cache_line_bytes);
 
-    if (step >= 32) {
-        setBitsTrue_wheel_repeat(bitstorage, range_start, step, range_stop);
-        return;
-    }
+    // if (step >= 32) {
+    //     setBitsTrue_wheel_repeat(bitstorage, range_start, step, range_stop);
+    //     return;
+    // }
     const counter_t block_stop = wheel_block_calc_uint64(range_stop + 1);
     const counter_t wheel_step = step * wheelmask_stripe_bytes;
     const counter_t range_stop_unique = min(range_start + WHEEL_BASIC_SIZE * wheel_step * 8 + 2 * WHEEL_BASIC_SIZE * 8 * wheelmask_stripe_bytes, range_stop); 
@@ -313,7 +313,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     const counter_t prime_max = prime_stop_full(sieve_size);
 
     // use globals as constant
-    const counter_t largestep_faster   = global_largestep_faster * WHEEL_SIZE / (wheelmask_stripe_bytes * 8) ; 
+    const counter_t largestep_faster   = global_largestep_faster * WHEEL_SIZE / (wheelmask_stripe_bytes * 8)*8 ; 
     const counter_t smallstep_faster   = global_stripeprime_faster * WHEEL_SIZE / (wheelmask_stripe_bytes * 8);
     counter_t blocksize_bits           = global_blocksize_bits;
     
@@ -323,7 +323,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     sieve_clear(sieve);
 
     // #pragma GCC unroll 2
-    blocksize_bits = sieve_size; // TODO: get blocksize working again
+    // blocksize_bits = sieve_size; // TODO: get blocksize working again
     for (counter_t block_start = 0; block_start < sieve_size; block_start += blocksize_bits) {
 
         const counter_t range_stop = min(sieve_size, block_start + blocksize_bits);
