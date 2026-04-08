@@ -95,11 +95,10 @@ setBitsTrue_wheel_small_repeat_uint64(void* restrict bitstorage, const counter_t
 {
     register uint64_t* restrict bitstorage_sized_64 = __builtin_assume_aligned(bitstorage,cache_line_bytes);
 
-    if (step >= 32) {
-        setBitsTrue_wheel_repeat(bitstorage, range_start, step, range_stop);
-        return;
-    }
-
+    // if (step >= 64) {
+    //     setBitsTrue_wheel_repeat(bitstorage, range_start, step, range_stop);
+    //     return;
+    // }
     const counter_t block_stop = wheel_block_calc_uint64(range_stop + 1);
     const counter_t wheel_step = step * wheelmask_stripe_bytes;
     const counter_t range_stop_unique = min(range_start + WHEEL_BASIC_SIZE * wheel_step * 8 + WHEEL_BASIC_SIZE * 8 * wheelmask_stripe_bytes, range_stop); 
@@ -128,6 +127,7 @@ setBitsTrue_wheel_small_repeat_uint64(void* restrict bitstorage, const counter_t
 
     // we can ignore the last mask because it should already be set
     // can be wrong if wheel is large and range is small.
+    bitstorage_sized_64[reuse_block_start] |= reuse_markmask;
 }
 
 static inline void __attribute__((always_inline, nonnull, hot,  aligned(cache_line_bytes) )) 
@@ -252,7 +252,8 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     const counter_t prime_max = prime_stop_full(sieve_size);
 
     // use globals as constant
-    const counter_t largestep_faster   = global_largestep_faster;
+    const counter_t largestep_faster   = global_largestep_faster * WHEEL_SIZE / (wheelmask_stripe_bytes * 8) ; 
+    const counter_t smallstep_faster   = global_stripeprime_faster * WHEEL_SIZE / (wheelmask_stripe_bytes * 8);
     counter_t blocksize_bits           = global_blocksize_bits;
     
     verbose5(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju using the wheel with primes up to %ju\n",(uintmax_t)sieve_size,(uintmax_t)blocksize_bits,(uintmax_t)WHEEL_MAX); )
@@ -261,7 +262,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     sieve_clear(sieve);
 
     // #pragma GCC unroll 2
-    // blocksize_bits = sieve_size; // TODO: get blocksize working again
+    blocksize_bits = sieve_size; // TODO: get blocksize working again
     for (counter_t block_start = 0; block_start < sieve_size; block_start += blocksize_bits) {
 
         const counter_t range_stop = min(sieve_size, block_start + blocksize_bits);
@@ -274,12 +275,17 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 
             register counter_t start = compute_start_full(prime, block_start);
             register const counter_t step = prime * 2;
+            // const counter_t bitstep = step * wheelmask_stripe_bytes * 8 / WHEEL_SIZE;
 
-            if (step*(8*wheelmask_stripe_bytes)/WHEEL_BASIC_SIZE < largestep_faster) {
+            if (prime < smallstep_faster) {
                 setBitsTrue_wheel_small_repeat_uint64(bitstorage, start, step, range_stop);
             }
+            else 
+            if (prime < largestep_faster) {
+                setBitsTrue_wheel_repeat(bitstorage, start, step, range_stop);
+            }
             else {
-                setBitsTrue_wheel_norepeat(bitstorage, start, step, range_stop);
+            setBitsTrue_wheel_norepeat(bitstorage, start, step, range_stop);
             }
 
             prime = searchBitFalse_wheel(bitstorage, ++prime);

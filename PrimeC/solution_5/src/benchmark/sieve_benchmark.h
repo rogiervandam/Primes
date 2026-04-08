@@ -14,7 +14,7 @@ static inline benchmark_settings_t initBenchmarkSettings(const counter_t threads
 // check the settings to make sure they are valid, dont overlap, etc.
 static inline benchmark_settings_t checkBenchmarkSettings(benchmark_settings_t benchmark_settings) 
 {
-    counter_t prime_max = prime_stop(benchmark_settings.factor_max);
+    counter_t prime_max = prime_stop_full(benchmark_settings.factor_max ) >> SHIFT_SIZE;
     benchmark_settings.stripe_faster     = min(benchmark_settings.stripe_faster, prime_max);
     benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, 64);
     benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, VECTOR_SIZE_BITS);
