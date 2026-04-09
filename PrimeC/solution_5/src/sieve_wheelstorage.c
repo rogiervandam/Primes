@@ -60,6 +60,13 @@ wheel_block_calc_uint64(counter_t index) {
     return index_type(wheelmask_stripe_bytes * 8 * index / WHEEL_SIZE, uint64_t) + wheelmask_index[wheel_index];
 }
 
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+wheel_block_calc_uint64v4(counter_t index) {
+    counter_t wheel_index = index % WHEEL_SIZE;
+    return index_type(wheelmask_stripe_bytes * 8 * index / WHEEL_SIZE, uint64v4_t) + wheelmask_index[wheel_index];
+}
+
+
 // Set one bit to true
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
 setBitsTrue_wheel(void* restrict bitstorage, const register counter_t index) 
@@ -136,6 +143,60 @@ setBitsTrue_wheel_small_repeat_uint64(void* restrict bitstorage, const counter_t
     // can be wrong if wheel is large and range is small.
     bitstorage_sized_64[reuse_block_start] |= reuse_markmask;
 }
+
+#define preset_uint64v4
+#include "generic/setsuffix.h"
+static inline void __attribute__((always_inline, aligned(cache_line_bytes))) 
+function(create_mask_vector_largestep_wheel,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+{
+    bitbucket_t* restrict bitstorage_vector = __builtin_assume_aligned(bitstorage, cache_line_bytes);
+    const counter_t range_stop_unique_vector = range_start + step * bitcount_type(bitbucket_t) + bitcount_type(bitbucket_t);  // extra size is sometime needed when size < blocklimit
+
+    #pragma GCC ivdep
+    for (counter_t index = range_start, current_vector = index_type(range_start, bitbucket_t); index <= range_stop_unique_vector; current_vector++) {
+        const counter_t current_vector_start = vectorstart_type(index, bitbucket_t);
+        bitbucket_t mask_vector = BITBUCKET_BASE((variant_base_type_t) 0U);
+
+        #pragma GCC ivdep
+        for (counter_t element = 0; element < BITBUCKET_ELEMENTS; element++) {
+            if (vectorstart_type(index,variant_base_type_t) == (current_vector_start + (bitcount_type(variant_base_type_t) * element))) {
+                mask_vector[element] = markmask_calc_type(index, variant_base_type_t); // in clang, markmask_type is enough, not in gcc
+                index += step;
+            }
+        }
+        // function(applyMask,suffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
+        // function(applyMask,suffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
+        function(applyMask_new,suffix)(bitstorage_vector, current_vector*bitcount_type(bitbucket_t), step, range_stop, mask_vector);
+    }
+}
+
+#include "generic/setsuffix.h"
+static inline void __attribute__((always_inline, nonnull,  aligned(cache_line_bytes))) 
+function(setBitsTrue_largestep_vector_wheel,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+{
+    startAnalysis6(time_setBitsTrue_largestep_vector, "Setting bits step %3ju using largestep_vector%s in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps)", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step)));
+
+    const counter_t start_vector = index_type(range_start, bitbucket_t);
+    counter_t current_vector = start_vector;
+
+    // TODO: refactor
+    register counter_t index = range_start; 
+
+    // walk to next vector, setting bits on the way 
+    #pragma GCC ivdep
+    #pragma GCC unroll 32
+    for(; index <= range_stop; index += step) { 
+        current_vector = index_type(index, bitbucket_t);
+        if (current_vector != start_vector) break; // if we are in a new vector, we need to recalculate the mask vector, because the pattern of which bits to mark as true in the wheel repeats every WHEEL_BASIC_SIZE * step
+        setBitsTrue_wheel(bitstorage, index);
+    }
+    function(create_mask_vector_largestep_wheel,suffix)(bitstorage, index, step, range_stop);
+    
+    endAnalysis6(time_setBitsTrue_largestep_vector,"\n");
+}
+
+#include "generic/cleansuffix.h"
+
 
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
 setBitsTrue_wheel_small_repeat_pair_uint64(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
