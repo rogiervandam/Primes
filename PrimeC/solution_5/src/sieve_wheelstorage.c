@@ -39,9 +39,9 @@ static char algorithm_type[] = "wheel";
 // static unsigned int wheel[WHEEL_SIZE/2];
 static unsigned int wheelprimes[WHEEL_MAX+1]; // can't be more than highest prime in the wheel
 static uint8_t wheelmask[WHEEL_SIZE];
-static uint8_t wheelmask_compressed[WHEEL_SIZE];
+static uint64_t wheelmask_compressed[WHEEL_SIZE];
 static uint8_t wheelmask_index[WHEEL_SIZE];
-// static uint8_t wheelmask_offset[WHEEL_SIZE];
+static uint8_t wheelmask_offset[WHEEL_SIZE];
 
 // static const counter_t wheelmask_stripes = 8; // the number of possible primes per wheel, e.g. 8 when storing 8of30
 static counter_t wheelmask_stripes; // the number of possible primes per wheel, e.g. 8 when storing 8of30
@@ -49,8 +49,9 @@ static counter_t wheelmask_stripe_bytes; // the number of bytes for storing <WHE
 
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
 wheel_block_calc(counter_t index) {
-    counter_t wheel_index = index % WHEEL_SIZE;
-    return index_type(wheelmask_stripe_bytes * 8 * index / WHEEL_SIZE, uint8_t) + wheelmask_index[wheel_index];
+    // counter_t wheel_index = index % WHEEL_SIZE;
+    // return index_type(wheelmask_stripe_bytes * 8 * index / WHEEL_SIZE, uint8_t) + wheelmask_index[index % WHEEL_SIZE];
+    return wheelmask_stripe_bytes * index / WHEEL_SIZE + wheelmask_index[index % WHEEL_SIZE];
 }
 
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
@@ -104,6 +105,7 @@ setBitsTrue_wheel_small_repeat_uint64(void* restrict bitstorage, const counter_t
     const counter_t range_stop_unique = min(range_start + WHEEL_BASIC_SIZE * wheel_step * 8 + WHEEL_BASIC_SIZE * 8 * wheelmask_stripe_bytes, range_stop); 
 
     uint64_t reuse_markmask = 0ULL;
+    uint64_t reuse_markmask_new = 0ULL;
     counter_t reuse_block_start = 0;
 
     for (register counter_t index = range_start; index <= range_stop_unique; index += step) { 
@@ -118,11 +120,16 @@ setBitsTrue_wheel_small_repeat_uint64(void* restrict bitstorage, const counter_t
             }
             reuse_block_start = wheel_block;
             reuse_markmask = 0ULL;
+            // reuse_markmask_new = 0ULL;
         }
 
         const counter_t wheel_index = index % WHEEL_SIZE;
         const uint64_t markmask = wheelmask_compressed[wheel_index];
-        reuse_markmask |= markmask << ((wheel_block_calc(index) & 7) << 3); // combine the markmask for the current block if it is the same as the previous one
+        // if (wheelmask_offset[wheel_index]) {
+        //     reuse_markmask |= (1ULL << (((wheelmask_stripe_bytes * index / WHEEL_SIZE) & 7)*8+(wheelmask_offset[wheel_index]-1)));
+        // }
+        reuse_markmask |= markmask << ((wheel_block_calc(index) & 7) *8); // combine the markmask for the current block if it is the same as the previous one
+        // reuse_markmask |= wheelmask_compressed[index % WHEEL_SIZE] << ((wheel_block_calc(index) & 7) << 3); // combine the markmask for the current block if it is the same as the previous one
     } 
 
     // we can ignore the last mask because it should already be set
@@ -268,7 +275,7 @@ void build_wheel() {
     for (counter_t i = 0; i < WHEEL_SIZE; i++) {
         wheelmask_compressed[i]=0;
         wheelmask_index[i]=0;
-        // wheelmask_offset[i]=0;
+        wheelmask_offset[i]=0;
         for (counter_t f = 2; f <= WHEEL_MAX; f++) {
             if (((i+WHEEL_SIZE) % f) == 0) { // this is a non-prime
                 wheelmask[index_type(i, uint8_t)] |= markmask_type(i, uint8_t); // mark it in the mask
@@ -278,7 +285,7 @@ void build_wheel() {
         if (!(wheelmask[index_type(i, uint8_t)] & markmask_type(i, uint8_t))) {
             wheelmask_compressed[i] |= markmask_type(stripe_count, uint8_t);
             wheelmask_index[i] = index_type(stripe_count, uint8_t);
-            // wheelmask_offset[i] = stripe_count;
+            wheelmask_offset[i] = stripe_count + 1;
             stripe_count++;
         }
     }
@@ -299,6 +306,11 @@ void build_wheel() {
 #define PREPARE_FUNCTION 1 // signals sieve_main to call prepareSieveFunction() before the benchmark starts, this is used to build the wheel
 void prepareSieveFunction() {
     build_wheel();
+    // option.fixed_benchmark_settings.stripe_faster           = 1;
+    // option.fixed_benchmark_settings.largestep_faster        = 1;
+    option.fixed_benchmark_settings.blocksize_bits          = 1000000;
+    option.fixed_benchmark_settings.vectorsize              = 256;
+    option.fixed_benchmark_settings.algorithm               = 1;
 }
 
 /* This is the main module that directs all the work

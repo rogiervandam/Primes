@@ -50,13 +50,13 @@ setDefaultOptions()
     option.timers                     = 0;
 
     option.check                      = 1; // set to 2 to stop after the check algorithm
-    option.tunelevel                  = 1;
-    option.initial_sample_duration    = 0.001;
-    option.next_sample_duration       = 0.003;
+    option.tunelevel                  = 2;
+    option.initial_sample_duration    = 0.002;
+    option.next_sample_duration       = 0.020;
     option.warmup_duration            = 1;
-    option.tune_duration_max          = 10.0;
-    option.tune_keeppercent_longlist  = 10;
-    option.tune_keeppercent_shortlist = 60;
+    option.tune_duration_max          = 20.0;
+    option.tune_keeppercent_longlist  = 20;
+    option.tune_keeppercent_shortlist = 70;
 
     option.fixed_benchmark_settings.factor_max              = 1000000;
     option.fixed_benchmark_settings.threads                 = 1;
