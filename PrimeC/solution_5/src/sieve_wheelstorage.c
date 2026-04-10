@@ -64,13 +64,13 @@ wheel_block_calc(counter_t index) {
 
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
 wheel_block_calc_uint64(counter_t index) {
-    counter_t wheel_index = index % WHEEL_SIZE;
+    // counter_t wheel_index = index % WHEEL_SIZE;
     return index_type(wheelmask_stripe_bytes * 8 * index / WHEEL_SIZE, uint64_t);
 }
 
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
 wheel_block_calc_uint64v4(counter_t index) {
-    counter_t wheel_index = index % WHEEL_SIZE;
+    // counter_t wheel_index = index % WHEEL_SIZE;
     return index_type(wheelmask_stripe_bytes * 8 * index / WHEEL_SIZE, uint64v4_t);
 }
 
@@ -224,12 +224,13 @@ function(setBitsTrue_smallstep_rotate_pair_wheel,suffix)(void* restrict bitstora
         if (current_vector != start_vector) break; // if we are in a new vector, we need to recalculate the mask vector, because the pattern of which bits to mark as true in the wheel repeats every WHEEL_BASIC_SIZE * step
         setBitsTrue_wheel(bitstorage, index);
     }
+    
     counter_t vector_start_index = index;
     bitbucket_t mask_vector = BITBUCKET_BASE(0LL);
     start_vector = current_vector;
 
     // guarantee that all variations can land
-    const counter_t range_stop_unique = min(vector_start_index + WHEEL_BASIC_SIZE * step * 32, range_stop);
+    const counter_t range_stop_unique = min(vector_start_index + WHEEL_BASIC_SIZE * bitcount_type(bitbucket_t) / (wheelmask_stripe_bytes * 8) * step, range_stop);
     counter_t range_stop_vector = wheel_block_calc_uint64v4(range_stop);
     
     for(counter_t i = index; i <= range_stop_unique; i += step) {
@@ -241,7 +242,8 @@ function(setBitsTrue_smallstep_rotate_pair_wheel,suffix)(void* restrict bitstora
             start_vector = current_vector;
         }
         if (wheelmask_compressed[i % WHEEL_SIZE]) {
-            counter_t vector_element = (wheel_bit_calc(i) / bitcount_type(variant_base_type_t)) % elementcount_type(bitbucket_t, variant_base_type_t);
+            // counter_t vector_element = (wheel_bit_calc(i) / bitcount_type(variant_base_type_t)) % elementcount_type(bitbucket_t, variant_base_type_t);
+            counter_t vector_element = wheel_block_calc_uint64(i) & 3;
             mask_vector[vector_element] |= wheelmask_compressed[i % WHEEL_SIZE] << ((wheel_block_calc(i) & 7) *8);
         }
     }
@@ -468,7 +470,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
             register const counter_t step = prime * 2;
             // const counter_t bitstep = step * wheelmask_stripe_bytes * 8 / WHEEL_SIZE;
 
-            if (prime <= 11 ) {
+            if (prime <= 13 ) {
                 setBitsTrue_smallstep_rotate_pair_wheel_uint64v4_unroll8(bitstorage, start, prime, range_stop);
             }
             else 
