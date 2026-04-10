@@ -224,27 +224,43 @@ function(setBitsTrue_smallstep_rotate_pair_wheel,suffix)(void* restrict bitstora
         if (current_vector != start_vector) break; // if we are in a new vector, we need to recalculate the mask vector, because the pattern of which bits to mark as true in the wheel repeats every WHEEL_BASIC_SIZE * step
         setBitsTrue_wheel(bitstorage, index);
     }
-    
-    counter_t vector_start_index = index;
-    bitbucket_t mask_vector = BITBUCKET_BASE(0LL);
     start_vector = current_vector;
+    
+    // counter_t vector_start_index = index;
+    bitbucket_t mask_vector = BITBUCKET_BASE(0LL);
+    variant_base_type_t mask_element = 0LL;
+    counter_t mask_element_index = 0;
 
     // guarantee that all variations can land
-    const counter_t range_stop_unique = min(vector_start_index + WHEEL_BASIC_SIZE * bitcount_type(bitbucket_t) / (wheelmask_stripe_bytes * 8) * step, range_stop);
-    counter_t range_stop_vector = wheel_block_calc_uint64v4(range_stop);
+    const counter_t range_stop_vector = wheel_block_calc_uint64v4(range_stop);
+    const counter_t range_stop_unique = min(index + WHEEL_BASIC_SIZE * bitcount_type(bitbucket_t) / (wheelmask_stripe_bytes * 8) * step, range_stop);
     
-    for(counter_t i = index; i <= range_stop_unique; i += step) {
-        current_vector = wheel_block_calc_uint64v4(i);
+    for(; index <= range_stop_unique; index += step) {
+        current_vector = wheel_block_calc_uint64v4(index);
 
         if (current_vector != start_vector) {
+            if (mask_element) {
+                mask_vector[mask_element_index] = mask_element;
+                mask_element = 0LL;
+            }
             function(applyMask_index,suffix)(bitstorage, start_vector, step, range_stop_vector, mask_vector);
             mask_vector = BITBUCKET_BASE(0LL);
             start_vector = current_vector;
+            mask_element_index = 0;
         }
-        if (wheelmask_compressed[i % WHEEL_SIZE]) {
+
+        counter_t vector_element = wheel_block_calc_uint64(index) & 3;
+        if (mask_element_index != vector_element) {
+            if (mask_element) {
+                mask_vector[mask_element_index] = mask_element;
+                mask_element = 0LL;
+            }
+            mask_element_index = vector_element;
+        }
+        if (wheelmask_compressed[index % WHEEL_SIZE]) {
             // counter_t vector_element = (wheel_bit_calc(i) / bitcount_type(variant_base_type_t)) % elementcount_type(bitbucket_t, variant_base_type_t);
-            counter_t vector_element = wheel_block_calc_uint64(i) & 3;
-            mask_vector[vector_element] |= wheelmask_compressed[i % WHEEL_SIZE] << ((wheel_block_calc(i) & 7) *8);
+            // mask_vector[vector_element] |= wheelmask_compressed[index % WHEEL_SIZE] << ((wheel_block_calc(index) & 7) *8);
+            mask_element |= wheelmask_compressed[index % WHEEL_SIZE] << ((wheel_block_calc(index) & 7) *8);
         }
     }
     // function(applyMask_index,suffix)(bitstorage, start_vector, step, range_stop_vector, mask_vector);
@@ -470,7 +486,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
             register const counter_t step = prime * 2;
             // const counter_t bitstep = step * wheelmask_stripe_bytes * 8 / WHEEL_SIZE;
 
-            if (prime <= 13 ) {
+            if (prime <= 17 ) {
                 setBitsTrue_smallstep_rotate_pair_wheel_uint64v4_unroll8(bitstorage, start, prime, range_stop);
             }
             else 
