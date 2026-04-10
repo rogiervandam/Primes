@@ -70,6 +70,7 @@
     #include "../bitstorage/bitstorage_setBitsTrue_applyMask_pair.h"
     #include "../bitstorage/bitstorage_setBitsTrue_largestep_vector.h" 
     #include "../bitstorage/bitstorage_setBitsTrue_smallstep_rotate_pair.h" 
+    // #include "../bitstorage/bitstorage_setBitsTrue_wheel.h" 
     #undef KEEP_VARIANT
     #include "../generic/cleansuffix.h"
 #endif

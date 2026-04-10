@@ -41,7 +41,7 @@ typedef uint16_t uint16v2_t  __attribute__ ((vector_size( 4), aligned(cache_line
 #define keepmask_type(index, type)         (safe_fill_type(type) << bitindex_calc_type(index, type))
 #define chopmask_type(index, type)         (safe_fill_type(type) >> (bitcount_type(type) - bitindex_calc_type(index, type) - 1))
 #define index_next_type(index, type)       (vectorstart_type(index, type) + bitcount_type(type))
-#define vectorelement_type(index, type)    (index_type(index, type) % elementcount_type(type, variant_base_type_t))
+#define vectorelement_type(index, type, base_type)    ((index_type((index), base_type)) & (elementcount_type(type, base_type) -1))
 
 // globals for tuning
 static counter_t global_stripeprime_faster  = 0; // if step > BLOCKSTEP use blocks, else use the whole sieve
