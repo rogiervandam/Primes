@@ -1,6 +1,7 @@
 #include "../generic/setsuffix.h"
 static inline void __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
-function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+// function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop, variant_base_type_t base_pattern)
 {
     register bitbucket_t* restrict bitstorage_vector = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     __builtin_prefetch(&bitstorage_vector[index_type(range_start, bitbucket_t)], 1, 3); // prefetch the memory that will be written soon while creating mask
@@ -8,12 +9,12 @@ function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
     // build the wordsize pattern, pattern_size en pattern_wordshift efficiently
     register const bitshift_t step_shift = bitindex_calc_type(step, variant_base_type_t); // to enable the compiler to optimize the shift
     register bitshift_t pattern_size = step_shift;
-    register variant_base_type_t pattern = (variant_base_type_t) 1U;
-    for (;pattern_size < bitcount_type(variant_base_type_t); pattern_size += step_shift) { pattern |= markmask_type(pattern_size, variant_base_type_t);  }
+    register variant_base_type_t pattern = base_pattern;
+    for (;pattern_size < bitcount_type(variant_base_type_t); pattern_size += step_shift) { pattern |= base_pattern << pattern_size;  }
     const bitshift_t pattern_wordshift = pattern_size - bitcount_type(variant_base_type_t);
 
     // prepare the vectorsized shifts and mask
-    register const variant_base_type_t pattern_vectorshift = (variant_base_type_t) (((pattern_size - bitcount_type(variant_base_type_t)) * (bitshift_t)BITBUCKET_ELEMENTS) % step_shift) & mask_type(variant_base_type_t);
+    register const variant_base_type_t pattern_vectorshift = (variant_base_type_t) ((pattern_wordshift * (bitshift_t)BITBUCKET_ELEMENTS) % step_shift) & mask_type(variant_base_type_t);
     register bitbucket_t pattern_vectorshift_vector = BITBUCKET_BASE(pattern_vectorshift);
     register bitbucket_t step_shift_vector = BITBUCKET_BASE(step_shift);
     const bitshift_t shift = bitindex_calc_type(range_start, variant_base_type_t); 
@@ -23,6 +24,13 @@ function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
     const counter_t range_stop_unique_vector = min(range_start + step * bitcount_type(bitbucket_t), range_stop);
     register const counter_t vector_max = index_type(range_stop_unique_vector, bitbucket_t);
     counter_t current_vector = index_type(range_start, bitbucket_t);
+
+        #if defined preset_uint64v4 
+        printf("\n");
+        printVector(mask_vector);
+        getch();
+        #endif
+
 
     // Apply this vectormask standalone until we align on the cache line
     for (;current_vector&1; current_vector++) {
@@ -58,7 +66,7 @@ function(setBitsTrue_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
     }
 
     const counter_t range_start_new = setBitsTrue_range_return(bitstorage, range_start, step, range_start_nexttvector);
-    function(create_mask_smallstep_rotate_pair,suffix)(bitstorage, range_start_new, step, range_stop);
+    function(create_mask_smallstep_rotate_pair,suffix)(bitstorage, range_start_new, step, range_stop, 1ULL);
 
     endAnalysis6(time_setBitsTrue_smallstep_rotate_pair,"\n");
 }

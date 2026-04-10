@@ -46,6 +46,7 @@ printVector(uint64v4_t bitvector)
     char row[PRINT_VECTOR_ELEMENTS*PRINT_WORD_SIZE_BITS*2] = {0};
     char notes[400] = "\0";
     int col = 0;
+
     // Each vector element is a bitword_t with WORD_SIZE bits
     for (int j = PRINT_VECTOR_ELEMENTS - 1; j >= 0; j--) {
         for (int i = PRINT_WORD_SIZE_BITS - 1; i >= 0; i--) {
@@ -77,3 +78,17 @@ static void __attribute__ ((cold)) printVectorNumeric(uint64v4_t bitvector)
 
 #undef PRINT_VECTOR_ELEMENTS
 #undef PRINT_WORD_SIZE_BITS
+
+#include <termios.h>
+#include <unistd.h>
+
+int getch(void) {
+    struct termios oldt, newt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    int c = getchar();
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    return c;
+}

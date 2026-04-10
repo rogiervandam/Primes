@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stdint.h>
+#include <inttypes.h> // needed for PRIx macros
 
 static char algorithm_name[60] = "rogiervandam_wheelstorage";
 static char algorithm_type[] = "wheel";
@@ -155,7 +156,7 @@ function(create_mask_vector_largestep_wheel,suffix)(void* restrict bitstorage, c
     #pragma GCC ivdep
     for (counter_t index = range_start, current_vector = index_type(range_start, bitbucket_t); index <= range_stop_unique_vector; current_vector++) {
         const counter_t current_vector_start = vectorstart_type(index, bitbucket_t);
-        bitbucket_t mask_vector = BITBUCKET_BASE((variant_base_type_t) 0U);
+        bitbucket_t mask_vector = BITBUCKET_BASE((variant_base_type_t) 0ULL);
 
         #pragma GCC ivdep
         for (counter_t element = 0; element < BITBUCKET_ELEMENTS; element++) {
@@ -193,6 +194,33 @@ function(setBitsTrue_largestep_vector_wheel,suffix)(void* restrict bitstorage, c
     function(create_mask_vector_largestep_wheel,suffix)(bitstorage, index, step, range_stop);
     
     endAnalysis6(time_setBitsTrue_largestep_vector,"\n");
+}
+
+static void __attribute__((nonnull, aligned(cache_line_bytes))) 
+function(setBitsTrue_smallstep_rotate_pair_wheel,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+{
+    startAnalysis6(time_setBitsTrue_smallstep_rotate_pair, "Setting bits step %3ju using smallstep%-10s in %ju bit range (%ju-%ju) with %ju bits to set; using %ju copies of %ju bit mask", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)), (uintmax_t)bitcount_type(bitbucket_t));
+
+    const counter_t start_vector = index_type(range_start, bitbucket_t);
+    counter_t current_vector = start_vector;
+
+    // TODO: refactor
+    register counter_t index = range_start; 
+
+    // walk to next vector, setting bits on the way 
+    #pragma GCC ivdep
+    #pragma GCC unroll 32
+    for(; index <= range_stop; index += step) { 
+        current_vector = index_type(index, bitbucket_t);
+        if (current_vector != start_vector) break; // if we are in a new vector, we need to recalculate the mask vector, because the pattern of which bits to mark as true in the wheel repeats every WHEEL_BASIC_SIZE * step
+        setBitsTrue_wheel(bitstorage, index);
+    }
+    const counter_t vector_start_index = index;
+    variant_base_type_t base_pattern = (variant_base_type_t)wheelmask_compressed[index % WHEEL_SIZE] << ((wheel_block_calc(index) & 7) *8);
+
+    function(create_mask_smallstep_rotate_pair,suffix)(bitstorage, index, step, range_stop, base_pattern);
+
+    endAnalysis6(time_setBitsTrue_smallstep_rotate_pair,"\n");
 }
 
 #include "generic/cleansuffix.h"
@@ -413,7 +441,8 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 
             if (prime < smallstep_faster) {
                 // setBitsTrue_wheel_small_repeat_pair_uint64(bitstorage, start, step, range_stop);
-                setBitsTrue_wheel_small_repeat_uint64(bitstorage, start, step, range_stop);
+                // setBitsTrue_wheel_small_repeat_uint64(bitstorage, start, step, range_stop);
+                setBitsTrue_smallstep_rotate_pair_wheel_uint64v4_unroll8(bitstorage, start, step, range_stop);
             }
             else 
             if (prime < largestep_faster) {

@@ -5,6 +5,7 @@
 // The bitbucket_t type can be provided by setting "variant" or by providing a "preset"
 // The possibilities are listed in varianttypes.h
 
+#include <inttypes.h>
 #include "../generic/varianttypes.h"
 
 #ifdef variant
@@ -23,3 +24,4 @@
 #else    
     #define suffix
 #endif
+
