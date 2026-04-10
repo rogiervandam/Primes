@@ -11,6 +11,7 @@ function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
     register bitshift_t pattern_size = step_shift;
     register variant_base_type_t pattern = base_pattern;
     for (;pattern_size < bitcount_type(variant_base_type_t); pattern_size += step_shift) { pattern |= base_pattern << pattern_size;  }
+    // const bitshift_t pattern_wordshift = pattern_size - bitcount_type(variant_base_type_t);
     const bitshift_t pattern_wordshift = pattern_size - bitcount_type(variant_base_type_t);
 
     // prepare the vectorsized shifts and mask
@@ -24,13 +25,6 @@ function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
     const counter_t range_stop_unique_vector = min(range_start + step * bitcount_type(bitbucket_t), range_stop);
     register const counter_t vector_max = index_type(range_stop_unique_vector, bitbucket_t);
     counter_t current_vector = index_type(range_start, bitbucket_t);
-
-        #if defined preset_uint64v4 
-        printf("\n");
-        printVector(mask_vector);
-        getch();
-        #endif
-
 
     // Apply this vectormask standalone until we align on the cache line
     for (;current_vector&1; current_vector++) {

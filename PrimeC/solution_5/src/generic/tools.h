@@ -54,14 +54,14 @@ printVector(uint64v4_t bitvector)
             if (i % 8 == 0)
                 row[col++] = ' ';
         }
-        row[col++] = 'x'; row[col++] = ' ';
+        row[col++] = 'x'; row[col++] = ' '; //row[col++] = '\n';
       }
 
-    for (int j = PRINT_VECTOR_ELEMENTS - 1; j >= 0; j--) {
-      for (int i = PRINT_WORD_SIZE_BITS - 1; i >= 0; i--) {
-         if (u.arr[j] & (1ULL << i)) sprintf(notes, "%s %ju", notes, (uintmax_t) i + j*PRINT_WORD_SIZE_BITS  );
-      }
-    }
+    // for (int j = PRINT_VECTOR_ELEMENTS - 1; j >= 0; j--) {
+    //   for (int i = PRINT_WORD_SIZE_BITS - 1; i >= 0; i--) {
+    //      if (u.arr[j] & (1ULL << i)) sprintf(notes, "%s %ju", notes, (uintmax_t) i + j*PRINT_WORD_SIZE_BITS  );
+    //   }
+    // }
 
     row[col] = '\0';
     printf("%s %s\n", row, notes); 
