@@ -8,6 +8,9 @@
 // #include <inttypes.h>
 #include "../generic/varianttypes.h"
 
+// #undef bitbucket_t
+// #undef suffix
+
 #ifdef variant
     #define bitbucket_t NAME(variant, _t)
     #define variantsuffix NAME(_,variant)

@@ -1,8 +1,8 @@
-#define include_once
+#define include_once 1
 #include INCLUDE_FILE
 #undef include_once
 
-#define include_forvectors
+#define include_forvectors 1
 #undef unrolls
     #undef variant
 
@@ -64,8 +64,11 @@
         // // #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
         #define variant uint32
         #include INCLUDE_FILE 
+        #undef variant
         #define variant uint64
         #include INCLUDE_FILE 
+        #undef variant
+
         // #undef unrolls
 
         // #define unrolls 4
@@ -84,3 +87,4 @@
         // #define preset uint64v4
         // #include INCLUDE_FILE
     #undef include_for_words
+    #undef INCLUDE_FILE
