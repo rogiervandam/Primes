@@ -1,116 +1,25 @@
+// this file is included multiple times with different macro definitions to generate different variants of the function, 
+// so we need to use include guards to prevent multiple definitions of the same function in the same compilation unit
 #ifndef BITSTORAGE_ASSEMBLE_WHEEL_GUARD
     #define BITSTORAGE_ASSEMBLE_WHEEL_GUARD
-
-    #undef unrolls
-    #undef variant
-
-        #define preset_uint64v8
-        #include "bitstorage_setBitsTrue_wheel.h"
-        #define preset_uint64v4
-        #include "bitstorage_setBitsTrue_wheel.h"
-        #define preset_uint64v2
-        #include "bitstorage_setBitsTrue_wheel.h"
-
-    #define unrolls 4
-
-        #define preset_uint64v8
-        #include "bitstorage_setBitsTrue_wheel.h"
-        #define preset_uint64v4
-        #include "bitstorage_setBitsTrue_wheel.h"
-        #define preset_uint64v2
-        #include "bitstorage_setBitsTrue_wheel.h"
-    
-    // #define preset_uint32v16
-    // #include "bitstorage_setBitsTrue_wheel.h"
-    // #define preset_uint32v8
-    // #include "bitstorage_setBitsTrue_wheel.h"
-    // #define preset_uint32v4
-    // #include "bitstorage_setBitsTrue_wheel.h"
-    // #define preset_uint32v2
-    // #include "bitstorage_setBitsTrue_assemble_vector.h" 
-    
-    // #define preset_uint16v32
-    // #include "bitstorage_setBitsTrue_wheel.h"
-    // #define preset_uint16v16
-    // #include "bitstorage_setBitsTrue_wheel.h"
-    // #define preset_uint16v8
-    // #include "bitstorage_setBitsTrue_wheel.h"
-        #undef unrolls
-
-    #define unrolls 8
-
-        #define preset_uint64v8
-        #include "bitstorage_setBitsTrue_wheel.h"
-        #define preset_uint64v4
-        #include "bitstorage_setBitsTrue_wheel.h"
-        #define preset_uint64v2
-        #include "bitstorage_setBitsTrue_wheel.h"
-   
-    // #define preset_uint16v32
-    // #include "bitstorage_setBitsTrue_wheel.h"
-    // #define preset_uint16v16
-    // #include "bitstorage_setBitsTrue_wheel.h"
-    // #define preset_uint16v8
-    // #include "bitstorage_setBitsTrue_wheel.h"
-
-        #undef unrolls
-
-    // #define unrolls 1
-    // // #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
-    #define variant uint32
-    #include "bitstorage_setBitsTrue_wheel.h" 
-    #define variant uint64
-    #include "bitstorage_setBitsTrue_wheel.h" 
-    // #undef unrolls
-
-    // #define unrolls 4
-    // #define variant uint32
-    // #include "bitstorage_setBitsTrue_wheel.h" 
-    // #define variant uint64
-    // #include "bitstorage_setBitsTrue_wheel.h" 
-    // #undef unrolls
-
-    // #define unrolls 8
-    // #define variant uint32
-    // #include "bitstorage_setBitsTrue_wheel.h" 
-    // #define variant uint64
-    // #include "bitstorage_setBitsTrue_wheel.h" 
-    #undef unrolls
-    // #define preset uint64v4
-    // #include "bitstorage_setBitsTrue_wheel.h"
+    #define INCLUDE_FILE "../../src/bitstorage/bitstorage_setBitsTrue_wheel.h"
+    #include "../generic/generate_varianttypes.h"
 #else
 
-#include "../generic/setsuffix.h"
+    #include "../generic/setsuffix.h"
 
-#ifndef unrolls
+    #ifndef unrolls
 
-    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    function(wheel_block_calc,variantsuffix)(counter_t index) {
-        return index_type(wheelmask_stripe_bytes * 8 * index / WHEEL_SIZE, bitbucket_t);
-    }
+        static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+        function(wheel_block_calc,variantsuffix)(counter_t index) {
+            return index_type(wheelmask_stripe_bytes * 8 * index / WHEEL_SIZE, bitbucket_t);
+        }
 
-    // static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    // wheel_block_calc_uint64(counter_t index) {
-    //     // counter_t wheel_index = index % WHEEL_SIZE;
-    //     return index_type(wheelmask_stripe_bytes * 8 * index / WHEEL_SIZE, uint64_t);
-    // }
+    #endif
 
-    // static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    // wheel_block_calc_uint64v4(counter_t index) {
-    //     // counter_t wheel_index = index % WHEEL_SIZE;
-    //     return index_type(wheelmask_stripe_bytes * 8 * index / WHEEL_SIZE, uint64v4_t);
-    // }
+    #ifndef variant_elements // only for non-vectors
 
-    // static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    // wheel_block_calc_uint64v2(counter_t index) {
-    //     // counter_t wheel_index = index % WHEEL_SIZE;
-    //     return index_type(wheelmask_stripe_bytes * 8 * index / WHEEL_SIZE, uint64v2_t);
-    // }
-#endif
-
-#ifndef variant_elements // only for non-vectors
-
-#endif
+    #endif
 //     #define KEEP_VARIANT
 // #include "../generic/cleansuffix.h"
 

@@ -17,45 +17,29 @@ static char algorithm_type[] = "base";
 // include helper functions
 #include "generic/settings.h"
 #include "benchmark/sieve_options.h"
-#include "bitstorage/bitstorage_search.h"
-#include "bitstorage/bitstorage_setBitsTrue.h"
-#include "bitstorage/bitstorage_setBitsTrue_base.h"
-#include "sieve/sieve_calc.h"
 #include "sieve/sieve_manager.h"
+#include "sieve/sieve_storage_half.h"
 
 /* This is the main module that directs all the work
-   sieve_size in a real number that is the maximum in the sieve (not in bits)
-   block_size is in bits and determines how large the blocks are which are processed 
 */
+
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
-    struct sieve_t *sieve = sieve_create(sieve_size, sieve_size>>1);
-    void* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
-    const counter_t sieve_bits = sieve->bits;
-    const counter_t prime_max = prime_stop(sieve_bits);
-
-    // use globals as constant
-    const counter_t stripeprime_faster = global_stripeprime_faster;
-    const counter_t blocksize_bits     = global_blocksize_bits;
-    
-    verbose5(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)blocksize_bits); )
-
-    // code for algorithm = base
+    sieve_t *sieve = sieve_create(sieve_size, sieve_size>>1);
     sieve_clear(sieve);
 
-    for (counter_t block_start = 0; block_start < sieve_bits; block_start += blocksize_bits) {
-        const counter_t block_stop = block_start + blocksize_bits;
-        const counter_t range_stop = min(sieve_bits, block_stop);
-        counter_t prime = 1;
+    const counter_t prime_max = calcFactor_max(sieve_size);
+    const counter_t stripeprime_faster = global_stripeprime_faster;
+    const counter_t factorBlock        = global_blocksize_bits * 2;
+    
+    verbose5(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)factorBlock); )
+
+    for (counter_t block_start = 0; block_start < sieve_size; block_start += factorBlock) {
+        const counter_t range_stop = min(sieve_size, block_start + factorBlock);
 
         #pragma GCC unroll 16
-        while (prime < prime_max) {
-            register const counter_t step  = prime * 2 + 1;
-            register counter_t start = compute_start(prime, block_start);
-            setBitsTrue_base(bitstorage, start, step, range_stop);
-            // prime = searchBitFalse_uint8(bitstorage, prime);
-            prime = searchBitFalse_largestep_uint16(bitstorage, prime);
-            
+        for (counter_t prime = 3; prime < prime_max; prime = findUnmarked(sieve, prime)) {
+            markFactors(sieve, calcFactor_start(prime, block_start), range_stop, calcFactor_step(prime));
         }
     } 
     
