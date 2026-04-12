@@ -14,6 +14,8 @@ static inline void __attribute__((always_inline, nonnull, aligned(cache_line_byt
 setBitsTrue_smallstep_repeat_base(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 {
     const counter_t range_stop_unique = range_start + bitcount_type(bitbucket_t) * step;
+    const counter_t range_stop_index = index_type(range_stop, bitbucket_t);
+
     startAnalysis6(time_setBitsTrue_smallstep_repeat, "Setting bits step %3ju using smallstep_repeat%s in %ju bit range (%ju-%ju) (%ju repeating occurances)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(step*bitcount_type(bitbucket_t))));
 
     for (register counter_t index = range_start; index <= range_stop_unique;) {
@@ -21,7 +23,8 @@ setBitsTrue_smallstep_repeat_base(void* restrict bitstorage, const counter_t ran
         register bitbucket_t mask = (bitbucket_t)0U;
         for(; index_type(index, bitbucket_t) == index_bucket; index += step) {
             mask |= markmask_type(index, bitbucket_t);
-            function(applyMask, suffix)(bitstorage, step, range_stop, mask, index_bucket);
+            // function(applyMask, suffix)(bitstorage, step, range_stop, mask, index_bucket);
+            function(applyMask_index, suffix)(bitstorage, index_bucket, range_stop_index, step, mask);
         }
     }
 

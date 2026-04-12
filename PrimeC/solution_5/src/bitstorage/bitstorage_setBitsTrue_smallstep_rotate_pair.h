@@ -23,12 +23,15 @@ function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
 
     // precaulcate the unique range_stop
     const counter_t range_stop_unique_vector = min(range_start + step * bitcount_type(bitbucket_t), range_stop);
+    const counter_t range_stop_index = index_type(range_stop, bitbucket_t);
+
     register const counter_t vector_max = index_type(range_stop_unique_vector, bitbucket_t);
     counter_t current_vector = index_type(range_start, bitbucket_t);
 
     // Apply this vectormask standalone until we align on the cache line
     for (;current_vector&1; current_vector++) {
-        function(applyMask,suffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
+        // function(applyMask,suffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
+        function(applyMask_index,suffix)(bitstorage, current_vector, range_stop_index, step, mask_vector);
         mask_vector = (mask_vector << pattern_vectorshift_vector) | (mask_vector >> (step_shift_vector - pattern_vectorshift_vector)); 
     }
 
@@ -41,7 +44,8 @@ function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
     }
 
     // Process the last vectormask if needed
-    function(applyMask,suffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
+    // function(applyMask,suffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
+    function(applyMask_index,suffix)(bitstorage, current_vector, range_stop_index, step, mask_vector);
 }
 
 // static inline void __attribute__((always_inline, nonnull)) 
