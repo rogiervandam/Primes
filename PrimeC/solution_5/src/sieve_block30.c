@@ -86,11 +86,6 @@ setBitsTrue_range_block(void* restrict bitstorage, const counter_t range_start, 
         for (counter_t b = block_byte; b <= byte_stop; b += BLOCKSIZE_UNIT8 * step) {
             bitstorage_sized[b] |= markmask;
         }
-        // bitstorage_sized[block * BLOCKSIZE_UNIT8 + index_type(block_index, uint8_t)] |= markmask_calc_type(block_index, uint8_t);
-
-        // function(applyMask_new,_uint8_unroll8)(bitstorage, index, step * BLOCKSIZE_UNIT8, range_stop, markmask_type(block_index, uint8_t));
-        // function(applyMask,suffix)(bitstorage, step, range_stop, markmask_type(index, bitbucket_t), index_type(index, bitbucket_t));
-
     } 
 
     endAnalysis6(time_setBitsTrue_largestep_repeat,"\n");

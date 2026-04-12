@@ -43,7 +43,7 @@ function(applyMask,suffix)(void* restrict bitstorage, const counter_t step, cons
 
 // This applyMask variant takes range_start and range_stop as the word/vector index
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
-function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop, const bitbucket_t mask) 
+function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step, const bitbucket_t mask) 
 {
     startAnalysis8(time_applyMask, "\nApplying %s mask with step %ju in range until %ju", STR(bitbucket_t), (uintmax_t)step, (uintmax_t)range_stop);
   
@@ -132,12 +132,6 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
     for (; likely(index_ptr <= range_stop_ptr); index_ptr += step) { // signal compiler that only < unrolls iterations are left
         *index_ptr |= mask; 
     }
-}
-
-static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
-function(applyMask_new,suffix)(void* restrict bitstorage, const counter_t index, const counter_t step, const counter_t range_stop, const bitbucket_t mask) 
-{
-    return function(applyMask_index,suffix)(bitstorage, index_type(index, bitbucket_t), step, index_type(range_stop, bitbucket_t), mask);
 }
 
 #include "../generic/cleansuffix.h"

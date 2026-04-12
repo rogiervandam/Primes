@@ -99,7 +99,7 @@
             const counter_t wheel_index = index % WHEEL_SIZE;
             const uint8_t markmask = wheelmask_compressed[wheel_index];
             if (markmask) {
-                applyMask_index_uint8_unroll8(sieve->bitstorage, wheel_block_calc(index), wheel_step, byte_stop, markmask);
+                applyMask_index_uint8_unroll8(sieve->bitstorage, wheel_block_calc(index), byte_stop, wheel_step, markmask);
             }
         } 
     }
@@ -213,7 +213,7 @@
             if (reuse_block_start < wheel_block) { // when going to the next block
                 if (reuse_markmask) { // apply previous mask if it exists
                     if (reuse_block_start) {  // don't repeat the first block, it may be misaligned
-                        applyMask_index_uint64_unroll8(sieve->bitstorage, reuse_block_start, wheel_step, block_stop, reuse_markmask);
+                        applyMask_index_uint64_unroll8(sieve->bitstorage, reuse_block_start, block_stop, wheel_step, reuse_markmask);
                     }
                     else bitstorage_sized_64[0] |= reuse_markmask; // if the previous block was the first block, we can apply the mask directly without going through the function
                 }
@@ -269,9 +269,7 @@
                 if ((reuse_block_start + 1) < wheel_block) { // when going to the next block
                     if (reuse_markmask || reuse_markmask1) { // apply previous mask if it exists
                         if (reuse_block_start) {  // don't repeat the first block, it may be misaligned
-                            // applyMask_index_uint64_unroll8(bitstorage, reuse_block_start, wheel_step, block_stop, reuse_markmask);
-                            // applyMask_index_uint64_unroll8(bitstorage, reuse_block_start+1, wheel_step, block_stop, reuse_markmask1);
-                            function(applyMask_index_pair,suffix)(sieve->bitstorage, reuse_block_start, wheel_step, block_stop, reuse_markmask, reuse_markmask1);
+                            function(applyMask_index_pair,suffix)(sieve->bitstorage, reuse_block_start, block_stop, wheel_step, reuse_markmask, reuse_markmask1);
                         }
                         else {
                             bitstorage_sized_64[0] |= reuse_markmask; // if the previous block was the first block, we can apply the mask directly without going through the function
@@ -333,7 +331,7 @@
             counter_t mask_element_index = 0;
 
             // guarantee that all variations can land
-            const counter_t range_stop_vector = function(wheel_block_calc,variantsuffix)(range_stop);
+            const counter_t range_stop_index = function(wheel_block_calc,variantsuffix)(range_stop);
             const counter_t range_stop_unique = min(index + WHEEL_BASIC_SIZE * bitcount_type(bitbucket_t) / (wheelmask_stripe_bytes * 8) * step, range_stop);
             
             for(; index <= range_stop_unique; index += step) {
@@ -344,7 +342,7 @@
                         mask_vector[mask_element_index] = mask_element;
                         mask_element = 0LL;
                     }
-                    function(applyMask_index,suffix)(sieve->bitstorage, start_vector, step, range_stop_vector, mask_vector);
+                    function(applyMask_index,suffix)(sieve->bitstorage, start_vector, range_stop_index, step, mask_vector);
                     mask_vector = BITBUCKET_BASE(0LL);
                     start_vector = current_vector;
                     mask_element_index = 0;
@@ -367,7 +365,7 @@
                     mask_element |= wheelmask_compressed[index % WHEEL_SIZE] << ((wheel_block_calc(index) & 7) *8);
                 }
             }
-            // function(applyMask_index,suffix)(bitstorage, start_vector, step, range_stop_vector, mask_vector);
+            // function(applyMask_index,suffix)(bitstorage, start_vector, range_stop_vector, step, mask_vector);
             // bitstorage_sized[start_vector] |= mask_vector; // apply the last mask
 
             endAnalysis6(time_setBitsTrue_smallstep_rotate_pair,"\n");
