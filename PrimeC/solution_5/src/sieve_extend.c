@@ -32,11 +32,13 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
     const counter_t sieve_bits = sieve_size >> 1;
     struct sieve_t *sieve      = sieve_create(sieve_size, sieve_bits);
-    const counter_t prime_max  = calcFactor_max_half(sieve_bits);
+    const counter_t prime_max_half  = calcFactor_max_half(sieve_bits);
+    const counter_t prime_max       = calcFactor_max(sieve_size);
 
     // use globals as constant - these get optimized
     const counter_t stripeprime_faster  = global_stripeprime_faster;
     const counter_t blocksize_bits      = global_blocksize_bits;
+    const counter_t blocksize_factor    = blocksize_bits * 2;
     const counter_t algorithm           = global_algorithm;
 
     verbose5({
@@ -56,13 +58,14 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
             prime = stripeSieve(sieve->bitstorage, sieve_bits, prime, stripeprime_faster);
 
             // process the remaining primes block by block to minimize cache misses
-            stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, prime, prime_max);
+            stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, prime, prime_max_half);
         } break;
 
         case 2: // process extend and stripe block by block
         {
             counter_t prime_next = extendSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, stripeprime_faster);
-            stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits/2, prime_next, prime_max);
+            // stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, prime_next, prime_max_half);
+            markSieveBlockByBlock(sieve, sieve_size, blocksize_factor, prime_next * 2 + 1, prime_max_half * 2 + 1);
         } break;
 
         // case 3: // process everything block by block -- can be set via --set a3 on command line
