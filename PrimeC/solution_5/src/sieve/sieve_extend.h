@@ -3,7 +3,7 @@
 // range is too big
 // block stop should not exceed sieve size for faster handling
 static inline counter_t __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
-extendSieveBlock0(void* restrict bitstorage, const counter_t block_stop) 
+extendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop) 
 {
     startAnalysis5(time_sieve_block_extend, "\nExtending sieve block 0 to range %ju - %ju\n",(uintmax_t)0,(uintmax_t)block_stop)
 
@@ -49,7 +49,7 @@ struct block {
 };
 
 static inline counter_t 
-extendSieveBlock(void* restrict bitstorage, const counter_t block_start, const counter_t block_stop) 
+extendSieveBlock_half(void* restrict bitstorage, const counter_t block_start, const counter_t block_stop) 
 {
     startAnalysis5(time_sieve_block_extend, "\nExtending sieve block to range %ju - %ju with extendSieveBlock\n",(uintmax_t)block_start,(uintmax_t)block_stop)
 
@@ -96,7 +96,7 @@ extendSieveBlock(void* restrict bitstorage, const counter_t block_start, const c
 }
 
 static inline counter_t __attribute__((always_inline, nonnull)) 
-extendSieveBlockByBlock(void* restrict bitstorage, const counter_t sieve_bits, const counter_t blocksize_bits, const counter_t prime_max)
+extendSieveBlockByBlock_half(void* restrict bitstorage, const counter_t sieve_bits, const counter_t blocksize_bits, const counter_t prime_max)
 {
     // size the first block, optimizing for large following blocks and aligning to cache line
     counter_t block0_stop = ((sieve_bits % blocksize_bits) + cache_line_bytes*8) & ~(cache_line_bytes*8-1); 
@@ -106,13 +106,13 @@ extendSieveBlockByBlock(void* restrict bitstorage, const counter_t sieve_bits, c
     }
 
     // first block requires fewer operations; it might be the whole sieve...
-    counter_t prime_start = extendSieveBlock0(bitstorage, min(block0_stop, sieve_bits));
+    counter_t prime_start = extendSieveBlock0_half(bitstorage, min(block0_stop, sieve_bits));
     counter_t prime_next = stripeSieveBlock0(bitstorage, min(block0_stop, sieve_bits), prime_start, prime_max);
 
     // process the rest of the sieve in blocks of blocksize_bits
     for (counter_t block_start = block0_stop, block_stop = block_start + blocksize_bits; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
         // stripe a block, stopping at the end of the sieve and only for primes that have multiples are in the block
-        prime_start = extendSieveBlock(bitstorage, block_start, min(block_stop, sieve_bits));
+        prime_start = extendSieveBlock_half(bitstorage, block_start, min(block_stop, sieve_bits));
         stripeSieveBlock(bitstorage, block_start, min(block_stop, sieve_bits), prime_start, min(calcFactor_max_half(block_stop),prime_max));
     }
     return prime_next; 
