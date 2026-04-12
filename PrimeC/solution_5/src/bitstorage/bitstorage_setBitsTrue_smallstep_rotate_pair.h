@@ -39,7 +39,7 @@ function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
     for (; current_vector < vector_max; current_vector += 2) {
         __builtin_prefetch(&bitstorage_vector[current_vector+step], 1, 3); // prefetch the memory that will be written soon while creating mask
         bitbucket_t mask_vector2 = (mask_vector << pattern_vectorshift_vector) | (mask_vector >> (step_shift_vector - pattern_vectorshift_vector)); 
-        function(applyMask_pair,suffix)(bitstorage_vector, step, range_stop, mask_vector, mask_vector2, current_vector);
+        function(applyMask_index_pair,suffix)(bitstorage_vector, current_vector, range_stop_index, step, mask_vector, mask_vector2);
         mask_vector = (mask_vector2 << pattern_vectorshift_vector) | (mask_vector2 >> (step_shift_vector - pattern_vectorshift_vector)); 
     }
 
