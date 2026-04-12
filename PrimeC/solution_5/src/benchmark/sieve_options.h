@@ -54,7 +54,7 @@ setDefaultOptions()
     option.initial_sample_duration    = 0.001;
     option.next_sample_duration       = 0.004;
     option.warmup_duration            = 1;
-    option.tune_duration_max          = 20.0;
+    option.tune_duration_max          = 5.0;
     option.tune_keeppercent_longlist  = 10;
     option.tune_keeppercent_shortlist = 20;
 

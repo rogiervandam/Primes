@@ -1,6 +1,42 @@
-#define include_once 1
+#undef preset
+#undef unrolls
+#undef variant
+
+#define include_once_first 1
 #include INCLUDE_FILE
-#undef include_once
+#undef include_once_first
+
+    #define include_for_words 1
+        
+        // #define unrolls 1
+        // // #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
+        #define variant uint32
+        #include INCLUDE_FILE 
+        // #undef variant
+        #define variant uint64
+        #include INCLUDE_FILE 
+        // #undef variant
+
+        // #undef unrolls
+
+        // #define unrolls 4
+        // #define variant uint32
+        // #include INCLUDE_FILE 
+        // #define variant uint64
+        // #include INCLUDE_FILE 
+        // #undef unrolls
+
+        // #define unrolls 8
+        // #define variant uint32
+        // #include INCLUDE_FILE 
+        // #define variant uint64
+        // #include INCLUDE_FILE 
+        #undef unrolls
+        // #define preset uint64v4
+        // #include INCLUDE_FILE
+    #undef include_for_words
+    #undef variant
+
 
 #define include_forvectors 1
 #undef unrolls
@@ -58,33 +94,9 @@
         #undef unrolls
 
     #undef include_forvectors
-    #define include_for_words
-        
-        // #define unrolls 1
-        // // #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
-        #define variant uint32
-        #include INCLUDE_FILE 
-        #undef variant
-        #define variant uint64
-        #include INCLUDE_FILE 
-        #undef variant
 
-        // #undef unrolls
+    #define include_once_last 1
+    #include INCLUDE_FILE
+    #undef include_once_last
 
-        // #define unrolls 4
-        // #define variant uint32
-        // #include INCLUDE_FILE 
-        // #define variant uint64
-        // #include INCLUDE_FILE 
-        // #undef unrolls
-
-        // #define unrolls 8
-        // #define variant uint32
-        // #include INCLUDE_FILE 
-        // #define variant uint64
-        // #include INCLUDE_FILE 
-        #undef unrolls
-        // #define preset uint64v4
-        // #include INCLUDE_FILE
-    #undef include_for_words
     #undef INCLUDE_FILE

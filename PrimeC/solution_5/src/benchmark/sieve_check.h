@@ -2,9 +2,9 @@
 #define CHECK_FACTOR
 
 // This function decouples the factor from the bitstorage
-static inline int checkFactor(void* restrict bitstorage, counter_t factor) {
+static inline int checkFactor(sieve_t *sieve, counter_t factor) {
     if (factor > 2 && factor % 2 == 0) return 1;
-    return checkBitTrue(bitstorage, factor/2);
+    return checkBitTrue(sieve->bitstorage, factor >> 1);
 }
 
 #endif
@@ -15,7 +15,7 @@ countPrimesInSieve(struct sieve_t *sieve, counter_t factor_max)
     verbose5( printf("Counting primes in sieve up to %ju\n",(uintmax_t)factor_max); )
     counter_t prime_count = 0;
     for (counter_t factor=2; factor < factor_max; factor++) {
-        if (!checkFactor(sieve->bitstorage, factor)) prime_count++;
+        if (!checkFactor(sieve, factor)) prime_count++;
     }
     verbose5( printf("Result: %ju primes in sieve up to %ju\n",(uintmax_t)prime_count,(uintmax_t)factor_max); )
     return prime_count;
@@ -27,7 +27,7 @@ showPrimesinSieve(struct sieve_t *sieve, counter_t factor_max)
     verbose1( printf("Result set:\n"); )
     counter_t prime_count = 0;
     for (counter_t factor=2; factor < factor_max; factor++) {
-        if (checkFactor(sieve->bitstorage, factor)) continue; // is this a prime?
+        if (checkFactor(sieve, factor)) continue; // is this a prime?
         prime_count++;
         verbose1( printf("%3ju ",(uintmax_t)factor); )
         if (prime_count % 20 == 0) { verbose2( printf("\n"); ) }
@@ -56,8 +56,6 @@ counter_t validPrimes(counter_t factor_max) {
 static void __attribute__((cold, nonnull)) 
 deepAnalyzeSieve(struct sieve_t *sieve, counter_t factor_max) 
 {
-    uint8_t *bitstorage = sieve->bitstorage;
-
     verbose2( printf("DeepAnalyzing\n"); )
     verbose2( printf("Checking if the numbers up to %ju are correctly marked as prime or non-prime\n",(uintmax_t)factor_max); )
     verbose2( printf("Prime count is %ju and should be %ju \n", (uintmax_t)countPrimesInSieve(sieve, factor_max), (uintmax_t)validPrimes(factor_max)); )
@@ -67,7 +65,7 @@ deepAnalyzeSieve(struct sieve_t *sieve, counter_t factor_max)
     counter_t warn_prime = 0;
     counter_t warn_nonprime = 0;
     for (counter_t prime = 2; prime < factor_max; prime++ ) {
-        if (!checkFactor(bitstorage, prime)) { // is this a prime?
+        if (!checkFactor(sieve, prime)) { // is this a prime?
             for(counter_t c = 2; c <= factor_max && c*c <= prime; c++) {
                 if ((prime % c) == 0 && (c != prime)) {
                     if (warn_prime++ < 30) {
