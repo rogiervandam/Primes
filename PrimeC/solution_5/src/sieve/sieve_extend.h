@@ -9,20 +9,16 @@ extendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop)
 
     ((uint64_t*)bitstorage)[0] = (uint64_t)0ULL; // only the first word has to be cleared; the rest is populated by the extension procedure
 
-    counter_t prime_start            = 1;
     counter_t prime                  = 1;
-    counter_t step                   = prime * 2 + 1;
-    counter_t start                  = prime * (step + 1);
-    counter_t range_stop             = step * 2;  // range is x2 so the second block cointains all multiples of primes
     counter_t patternsize_bits       = 3;
 
-    setBitsTrue_range(bitstorage, start, step, range_stop);
+    setBitsTrue_range(bitstorage, prime * (prime * 2 + 1 + 1), prime * 2 + 1, 2*(prime * 2 + 1));
 
-    for (;range_stop < block_stop;) {
+    for (counter_t range_stop = 2*(prime * 2 + 1);range_stop < block_stop;) {
         prime = searchBitFalse(bitstorage, prime);
 
-        step = prime * 2 + 1;
-        start = prime * (step + 1);
+        const counter_t step = prime * 2 + 1;
+        const counter_t start = prime * (step + 1);
         if unlikely(start > block_stop) break;
 
         range_stop = patternsize_bits * step * 2;  // range is x2 so the second block cointains all multiples of primes
