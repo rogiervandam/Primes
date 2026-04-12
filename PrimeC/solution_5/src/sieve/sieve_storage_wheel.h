@@ -175,9 +175,9 @@ checkBitTrue_wheel_unsafe(const void* restrict bitstorage, register counter_t in
 
 #define CHECK_FACTOR
 static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
-checkFactor(void* restrict bitstorage, register counter_t factor) {
+checkFactor(sieve_t* sieve, register counter_t factor) {
     if (factor <= WHEEL_MAX) return wheelprimes[factor];
-    return checkBitTrue_wheel_unsafe(bitstorage, factor);
+    return checkBitTrue_wheel_unsafe(sieve->bitstorage, factor);
 
     // return checkBitTrue_wheel(bitstorage, factor);
 }
@@ -187,7 +187,7 @@ findUnmarked(sieve_t *sieve, counter_t factor)
 {
     #pragma GCC ivdep
     #pragma GCC unroll 4
-    for (;checkFactor(sieve->bitstorage, ++factor););
+    for (;checkFactor(sieve, ++factor););
     return factor;
 
     // return searchBitFalse_wheel(sieve->bitstorage, start);
