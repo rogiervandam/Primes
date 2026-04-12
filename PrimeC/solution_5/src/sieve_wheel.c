@@ -84,9 +84,9 @@ searchBitFalse_wheel_unsafe(void* restrict bitstorage, register counter_t index)
 
 // custom function for storage, used in sieve_check.
 #define CHECK_FACTOR
-uint8_t checkFactor(void* restrict bitstorage, register counter_t factor) {
+uint8_t checkFactor(struct sieve_t *sieve, register counter_t factor) {
     if (factor > 2 && factor % 2 == 0) return 1;
-    return checkBitTrue_wheel(bitstorage, factor/2);
+    return checkBitTrue_wheel(sieve->bitstorage, factor >> 1);
 }
 
 
