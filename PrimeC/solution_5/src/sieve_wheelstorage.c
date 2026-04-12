@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stdint.h>
-#include <inttypes.h> // needed for PRIx macros
+// #include <inttypes.h> // needed for PRIx macros
 
 static char algorithm_name[60] = "rogiervandam_wheelstorage";
 static char algorithm_type[] = "wheel";
@@ -37,6 +37,16 @@ static char algorithm_type[] = "wheel";
 #define PREPARE_FUNCTION 1 // signals sieve_main to call prepareSieveFunction() before the benchmark starts, this is used to build the wheel
 void prepareSieveFunction() {
     build_wheel();
+
+    // append the wheel size to the algorithm name
+    // counter_t wheelmask_count = 0;
+    // for (counter_t i=0; i <= WHEEL_SIZE/8; i++) {
+    //     wheelmask_count += __builtin_popcount(wheelmask[i]);
+    // }
+    size_t prefix_len = 0; while (algorithm_name[prefix_len] != '\0') prefix_len++;
+    // sprintf(algorithm_name + prefix_len, "_%uof%u", WHEEL_SIZE-wheelmask_count, WHEEL_SIZE);
+    sprintf(algorithm_name + prefix_len, "_%uof%u", wheelmask_stripes, WHEEL_SIZE);
+
     option.fixed_benchmark_settings.blocksize_bits          = 1000000;
     option.fixed_benchmark_settings.vectorsize              = 256;
     option.fixed_benchmark_settings.algorithm               = 1;
@@ -49,38 +59,22 @@ void prepareSieveFunction() {
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
     struct sieve_t *sieve = sieve_create(sieve_size, sieve_size * wheelmask_stripe_bytes * 8 / WHEEL_SIZE ); // TODO: can sieve_size be smaller?
-    void* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
-    // const counter_t sieve_bits = sieve->bits;
-    const counter_t prime_max = prime_stop_full(sieve_size);
-
-    // use globals as constant
-    const counter_t largestep_faster   = global_largestep_faster * WHEEL_SIZE / (wheelmask_stripe_bytes * 8)*8 ; 
-    const counter_t smallstep_faster   = global_stripeprime_faster * WHEEL_SIZE / (wheelmask_stripe_bytes * 8);
-    counter_t blocksize_bits           = global_blocksize_bits;
-    
-    verbose5(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju using the wheel with primes up to %ju\n",(uintmax_t)sieve_size,(uintmax_t)blocksize_bits,(uintmax_t)WHEEL_MAX); )
-
-    // code for algorithm = base
     sieve_clear(sieve);
 
-    // #pragma GCC unroll 2
-    blocksize_bits = sieve_size; // TODO: get blocksize working again
-    for (counter_t block_start = 0; block_start < sieve_size; block_start += blocksize_bits) {
+    const counter_t prime_max = calcFactor_max(sieve_size);
+    const counter_t factorBlock = global_blocksize_bits * 2;
 
-        const counter_t range_stop = min(sieve_size, block_start + blocksize_bits);
-        verbose6( printf("Processing block starting at %ju stop at %ju\n",(uintmax_t)block_start, (uintmax_t)range_stop); )
+    verbose5( printf("\nShaking sieve to find all primes up to %ju with blocks %ju using the wheel with primes up to %ju\n",(uintmax_t)sieve_size,(uintmax_t)factorBlock,(uintmax_t)WHEEL_MAX); )
 
-        // counter_t prime = searchBitFalse_wheel(bitstorage, WHEEL_MAX+1);
-        counter_t prime = findUnmarked(sieve, WHEEL_MAX+1);
+    #pragma GCC unroll 2
+    for (counter_t block_start = 0; block_start < sieve_size; block_start += factorBlock) {
+        const counter_t block_stop = min(sieve_size, block_start + factorBlock);
+
+        verbose6( printf("Processing block with range%ju - %ju\n",(uintmax_t)block_start, (uintmax_t)block_stop); )
 
         #pragma GCC unroll 32
-        while (prime < prime_max) {
-
-            register counter_t start = compute_start_full(prime, block_start);
-            register const counter_t step = prime * 2;
-
-            markFactors(sieve, start, range_stop, step);
-            prime = findUnmarked(sieve, ++prime);
+        for (counter_t prime = findUnmarked(sieve, WHEEL_MAX+1); prime < prime_max;  prime = findUnmarked(sieve, ++prime)) {
+            markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
         }
     }
     

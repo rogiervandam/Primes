@@ -46,3 +46,21 @@ compute_start_full(const counter_t prime, const counter_t block_start) {
     }
     return start;
 }
+
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+calcFactor_start(counter_t prime, counter_t block_start) 
+{
+    return compute_start_full(prime, block_start);
+}
+
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+calcFactor_step(counter_t prime) 
+{
+    return prime * 2;
+}
+
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
+calcFactor_max(counter_t sieve_size) 
+{
+    return prime_stop_full(sieve_size);
+}

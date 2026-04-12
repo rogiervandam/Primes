@@ -75,20 +75,12 @@ searchBitFalse_wheel_unsafe(void* restrict bitstorage, register counter_t index)
     return index;
 }
 
-// uint8_t checkBitTrue_generic(void* restrict bitstorage, register counter_t index) {
-//     return checkBitTrue_wheel(bitstorage, index);
-// }
-// uint8_t searchBitFalse_generic(void* restrict bitstorage, register counter_t index) {
-//     return searchBitFalse_wheel(bitstorage, index);
-// };
-
 // custom function for storage, used in sieve_check.
 #define CHECK_FACTOR
 uint8_t checkFactor(struct sieve_t *sieve, register counter_t factor) {
     if (factor > 2 && factor % 2 == 0) return 1;
     return checkBitTrue_wheel(sieve->bitstorage, factor >> 1);
 }
-
 
 void build_wheel() {
     // find all the primes in the wheel up to WHEEL_MAX and store them in /2 format

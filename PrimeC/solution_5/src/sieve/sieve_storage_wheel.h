@@ -64,16 +64,7 @@ void build_wheel() {
     }
     wheelmask_stripes = stripe_count;
     wheelmask_stripe_bytes = (wheelmask_stripes - 1) / 8 + 1;
-    printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju\n", WHEEL_SIZE, (uintmax_t)wheelmask_stripes, (uintmax_t)wheelmask_stripe_bytes);
-
-    counter_t wheelmask_count = 0;
-    for (counter_t i=0; i <= WHEEL_SIZE/8; i++) {
-        wheelmask_count += __builtin_popcount(wheelmask[i]);
-    }
-
-    // append the wheel size to the algorithm name
-    size_t prefix_len = 0; while (algorithm_name[prefix_len] != '\0') prefix_len++;
-    sprintf(algorithm_name + prefix_len, "_%uof%u", WHEEL_SIZE-wheelmask_count, WHEEL_SIZE);
+    verbose3 (printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju\n", WHEEL_SIZE, (uintmax_t)wheelmask_stripes, (uintmax_t)wheelmask_stripe_bytes) );
 
 }
 
@@ -194,7 +185,7 @@ findUnmarked(sieve_t *sieve, counter_t factor)
 }
 #elif defined include_once_last //---- include this once after all variants
 
-    static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
 markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
 {
     const counter_t prime = step / 2;
