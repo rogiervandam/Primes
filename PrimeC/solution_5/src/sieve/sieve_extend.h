@@ -95,28 +95,28 @@ extendSieveBlock_half(void* restrict bitstorage, const counter_t block_start, co
     return block.prime_next;
 }
 
-static inline counter_t __attribute__((always_inline, nonnull)) 
-extendSieveBlockByBlock_half(void* restrict bitstorage, const counter_t sieve_bits, const counter_t blocksize_bits, const counter_t prime_max)
-{
-    // size the first block, optimizing for large following blocks and aligning to cache line
-    counter_t block0_stop = ((sieve_bits % blocksize_bits) + cache_line_bytes*8) & ~(cache_line_bytes*8-1); 
+// static inline counter_t __attribute__((always_inline, nonnull)) 
+// extendSieveBlockByBlock_half(void* restrict bitstorage, const counter_t sieve_bits, const counter_t blocksize_bits, const counter_t prime_max)
+// {
+//     // size the first block, optimizing for large following blocks and aligning to cache line
+//     counter_t block0_stop = ((sieve_bits % blocksize_bits) + cache_line_bytes*8) & ~(cache_line_bytes*8-1); 
 
-    if (blocksize_bits >= sieve_bits) {
-        block0_stop = sieve_bits;
-    }
+//     if (blocksize_bits >= sieve_bits) {
+//         block0_stop = sieve_bits;
+//     }
 
-    // first block requires fewer operations; it might be the whole sieve...
-    counter_t prime_start = extendSieveBlock0_half(bitstorage, min(block0_stop, sieve_bits));
-    counter_t prime_next = stripeSieveBlock0(bitstorage, min(block0_stop, sieve_bits), prime_start, prime_max);
+//     // first block requires fewer operations; it might be the whole sieve...
+//     counter_t prime_start = extendSieveBlock0_half(bitstorage, min(block0_stop, sieve_bits));
+//     counter_t prime_next = stripeSieveBlock0(bitstorage, min(block0_stop, sieve_bits), prime_start, prime_max);
 
-    // process the rest of the sieve in blocks of blocksize_bits
-    for (counter_t block_start = block0_stop, block_stop = block_start + blocksize_bits; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
-        // stripe a block, stopping at the end of the sieve and only for primes that have multiples are in the block
-        prime_start = extendSieveBlock_half(bitstorage, block_start, min(block_stop, sieve_bits));
-        stripeSieveBlock(bitstorage, block_start, min(block_stop, sieve_bits), prime_start, min(calcFactor_max_half(block_stop),prime_max));
-    }
-    return prime_next; 
-}
+//     // process the rest of the sieve in blocks of blocksize_bits
+//     for (counter_t block_start = block0_stop, block_stop = block_start + blocksize_bits; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
+//         // stripe a block, stopping at the end of the sieve and only for primes that have multiples are in the block
+//         prime_start = extendSieveBlock_half(bitstorage, block_start, min(block_stop, sieve_bits));
+//         stripeSieveBlock(bitstorage, block_start, min(block_stop, sieve_bits), prime_start, min(calcFactor_max_half(block_stop),prime_max));
+//     }
+//     return prime_next; 
+// }
 
 static inline counter_t __attribute__((always_inline, nonnull)) 
 extendSieveBlockByBlock(sieve_t* sieve, const counter_t sieve_size, const counter_t blocksize_factor, const counter_t prime_max)

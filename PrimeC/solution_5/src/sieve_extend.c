@@ -16,11 +16,12 @@ static char algorithm_type[] = "other";
 // include helper functions
 #include "generic/settings.h"
 #include "benchmark/sieve_options.h"
-#include "bitstorage/bitstorage_search.h"
-#include "bitstorage/bitstorage_setBitsTrue.h"
+// #include "bitstorage/bitstorage_search.h"
+// #include "bitstorage/bitstorage_setBitsTrue.h"
 #include "bitstorage/bitstorage_continuePattern.h"
-#include "sieve/sieve_calc.h"
+// #include "sieve/sieve_calc.h"
 #include "sieve/sieve_manager.h"
+#include "sieve/sieve_storage_half.h"
 #include "sieve/sieve_stripe.h"
 #include "sieve/sieve_extend.h"
 

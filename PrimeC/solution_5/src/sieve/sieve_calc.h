@@ -85,6 +85,12 @@ calcFactor_step_half(counter_t prime)
     return prime * 2 + 1;
 }
 
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+calcFactor_half(counter_t prime) 
+{
+    return ((prime << 1) & 1);
+}
+
 // calculate the maximum prime number that can be used for a given range in bits
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
 calcFactor_max(counter_t range_stop) 

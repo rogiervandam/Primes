@@ -33,11 +33,11 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 
     #pragma GCC unroll 2
     for (counter_t block_start = 0; block_start < sieve_size; block_start += factorBlock) {
-        const counter_t range_stop = min(sieve_size, block_start + factorBlock);
+        const counter_t block_stop = min(sieve_size, block_start + factorBlock);
 
         #pragma GCC unroll 16
         for (counter_t prime = 3; prime < prime_max; prime = findUnmarked(sieve, prime)) {
-            markFactors(sieve, calcFactor_start(prime, block_start), range_stop, calcFactor_step(prime));
+            markFactors_base(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
         }
     } 
     
