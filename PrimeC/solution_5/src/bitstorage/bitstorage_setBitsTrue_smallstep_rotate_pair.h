@@ -54,10 +54,10 @@ function(setBitsTrue_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
 {
     startAnalysis6(time_setBitsTrue_smallstep_rotate_pair, "Setting bits step %3ju using smallstep%-10s in %ju bit range (%ju-%ju) with %ju bits to set; using %ju copies of %ju bit mask", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)), (uintmax_t)bitcount_type(bitbucket_t));
 
-    const counter_t range_start_nexttvector = vectorstart_type(range_start, bitbucket_t) + bitcount_type(bitbucket_t); // find next vector
+    const counter_t range_start_nexttvector = vectorend_type(range_start, bitbucket_t) + 1; // find next vector
     // if ((index_type(range_start, bitbucket_t) & 1) == 1) range_start_nexttvector += bitcount_type(bitbucket_t); // if we are already in the second vector
 
-    if (range_start_nexttvector + 4 * bitcount_type(bitbucket_t) > range_stop) {
+    if (range_start_nexttvector + step * bitcount_type(bitbucket_t) > range_stop) {
         setBitsTrue_range(bitstorage, range_start, step, range_stop);
         timer_laptime(time_setBitsTrue_smallstep_rotate_pair); verbose6( printf("\n"); )
         return;

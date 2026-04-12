@@ -37,6 +37,7 @@ typedef uint16_t uint16v2_t  __attribute__ ((vector_size( 4), aligned(cache_line
 #define bitcount_type(type)                (sizeof(type)*8) 
 #define elementcount_type(type, base_type) (sizeof(type)/sizeof(base_type))
 #define vectorstart_type(index, type)      ((index) & ~mask_type(type))
+#define vectorend_type(index, type)        ((index) | mask_type(type))
 #define safe_fill_type(type)               ((type)(~(type)0U))
 #define keepmask_type(index, type)         (safe_fill_type(type) << bitindex_calc_type(index, type))
 #define chopmask_type(index, type)         (safe_fill_type(type) >> (bitcount_type(type) - bitindex_calc_type(index, type) - 1))
