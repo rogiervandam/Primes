@@ -95,22 +95,17 @@ static inline counter_t __attribute__((always_inline, nonnull))
 extendSieveBlockByBlock(sieve_t* sieve, const counter_t sieve_size, const counter_t blocksize_factor, const counter_t prime_max)
 {
     // size the first block, optimizing for large following blocks and aligning to cache line
-    counter_t block0_stop = (((sieve_size % blocksize_factor) + cache_line_bytes*8) & ~(cache_line_bytes*8-1)) * 2; 
-
-    if (blocksize_factor >= sieve_size) {
-        block0_stop = sieve_size;
-    }
+    counter_t block0_stop = min((((sieve_size % blocksize_factor) + cache_line_bytes*8) & ~(cache_line_bytes*8-1)) * 2, sieve_size); 
 
     // first block requires fewer operations; it might be the whole sieve...
-    counter_t prime_start = extendSieveBlock0_half(sieve->bitstorage, min(block0_stop/2, sieve_size/2)) * 2 + 1;
-    // counter_t prime_next = stripeSieveBlock0(sieve->bitstorage, min(block0_stop/2, sieve_size/2), prime_start/2, prime_max/2) * 2 + 1;
+    counter_t prime_start = extendSieveBlock0_half(sieve->bitstorage, min(block0_stop >> 1, sieve_size >> 1)) * 2 + 1;
     counter_t prime_next = markSieveBlock0(sieve, min(block0_stop, sieve_size), prime_start, prime_max);
 
     // process the rest of the sieve in blocks of blocksize_bits
     for (counter_t block_start = block0_stop, block_stop = block_start + blocksize_factor; block_start < sieve_size; block_start += blocksize_factor, block_stop += blocksize_factor) {
 
         // stripe a block, stopping at the end of the sieve and only for primes that have multiples are in the block
-        prime_start = extendSieveBlock_half(sieve->bitstorage, block_start/2, min(block_stop/2, sieve_size/2)) * 2 + 1;
+        prime_start = extendSieveBlock_half(sieve->bitstorage, block_start >> 1, min(block_stop >> 1, sieve_size >> 1)) * 2 + 1;
         markSieveBlock(sieve, block_start, min(block_stop, sieve_size), prime_start, min(calcFactor_max(block_stop),prime_max));
     }
     return prime_next; 
