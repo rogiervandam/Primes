@@ -21,9 +21,6 @@
 
     // #include "../bitstorage/bitstorage_setBitsTrue_wheel.h"
 #elif defined include_once_first //---- include this once
-
-    // #ifdef include_once_first //---- include this once
-
     
 void build_wheel() {
     // find all the primes in the wheel up to WHEEL_MAX and store them
@@ -83,19 +80,49 @@ void build_wheel() {
     }
 
     // Set one bit to true
+    // static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
+    // setBitsTrue_wheel(void* restrict bitstorage, const register counter_t index) 
+    // {
+    //     register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
+    //     counter_t wheel_index = index % WHEEL_SIZE;
+    //     counter_t wheel_block = wheel_block_calc(index);
+    //     bitstorage_sized[wheel_block] |= wheelmask_compressed[wheel_index]; // first check if the number is divisible by any of the wheel primes, if it is, mark it as non-prime
+    // }
+
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-    setBitsTrue_wheel(void* restrict bitstorage, const register counter_t index) 
+    markFactors_wheel(sieve_t* sieve, const register counter_t index) 
     {
-        register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
+        register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
         counter_t wheel_index = index % WHEEL_SIZE;
         counter_t wheel_block = wheel_block_calc(index);
         bitstorage_sized[wheel_block] |= wheelmask_compressed[wheel_index]; // first check if the number is divisible by any of the wheel primes, if it is, mark it as non-prime
     }
 
+    // static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
+    // setBitsTrue_wheel_repeat(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+    // {
+    //     register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
+
+    //     const counter_t byte_stop = wheel_block_calc(range_stop + 1);
+    //     const counter_t wheel_step = step * wheelmask_stripe_bytes;
+
+    //     // Every WHEEL_BASIC_SIZE * wheel_step, the pattern of which bits to mark as true in the wheel repeats at byte level 
+    //     // Because when the wheel is completely done, we are wheelmask_stripe_bytes further in the bitstorage
+    //     const counter_t range_stop_unique = range_start + WHEEL_BASIC_SIZE * wheel_step; 
+
+    //     for (register counter_t index = range_start; index <= range_stop_unique; index += step) { 
+    //         const counter_t wheel_index = index % WHEEL_SIZE;
+    //         const uint8_t markmask = wheelmask_compressed[wheel_index];
+    //         if (markmask) {
+    //             applyMask_index_uint8_unroll8(bitstorage, wheel_block_calc(index), wheel_step, byte_stop, markmask);
+    //         }
+    //     } 
+    // }
+
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-    setBitsTrue_wheel_repeat(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+    markFactors_wheel_repeat(sieve_t* sieve, const counter_t range_start, counter_t range_stop, const counter_t step)
     {
-        register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
+        register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
         const counter_t byte_stop = wheel_block_calc(range_stop + 1);
         const counter_t wheel_step = step * wheelmask_stripe_bytes;
@@ -108,7 +135,7 @@ void build_wheel() {
             const counter_t wheel_index = index % WHEEL_SIZE;
             const uint8_t markmask = wheelmask_compressed[wheel_index];
             if (markmask) {
-                applyMask_index_uint8_unroll8(bitstorage, wheel_block_calc(index), wheel_step, byte_stop, markmask);
+                applyMask_index_uint8_unroll8(sieve->bitstorage, wheel_block_calc(index), wheel_step, byte_stop, markmask);
             }
         } 
     }
@@ -116,31 +143,62 @@ void build_wheel() {
 
 
 
+//     static inline void __attribute__((always_inline, nonnull, hot,  aligned(cache_line_bytes) )) 
+// setBitsTrue_wheel_norepeat(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+// {
+//     register counter_t index = range_start;
+//     register counter_t i=((range_start-range_start)/step);
+//     for(register counter_t j=256; j>4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
+//         for(;i>j;i-=j) {
+//             for(int k=j; k--; index += step) {
+//                 setBitsTrue_wheel(bitstorage, index);
+//             }
+//         }
+//     }
+
+//     for (; index < range_stop; index += step) 
+//         setBitsTrue_wheel(bitstorage, index);
+
+//     if unlikely(index==range_stop) setBitsTrue_wheel(bitstorage, index);
+// }
+
     static inline void __attribute__((always_inline, nonnull, hot,  aligned(cache_line_bytes) )) 
-setBitsTrue_wheel_norepeat(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+markFactors_wheel_norepeat(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step) 
 {
     register counter_t index = range_start;
     register counter_t i=((range_start-range_start)/step);
     for(register counter_t j=256; j>4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
         for(;i>j;i-=j) {
             for(int k=j; k--; index += step) {
-                setBitsTrue_wheel(bitstorage, index);
+                // setBitsTrue_wheel(sieve->bitstorage, index);
+                markFactors_wheel(sieve, index);
             }
         }
     }
 
     for (; index < range_stop; index += step) 
-        setBitsTrue_wheel(bitstorage, index);
+        markFactors_wheel(sieve, index);
 
-    if unlikely(index==range_stop) setBitsTrue_wheel(bitstorage, index);
+    if unlikely(index==range_stop) markFactors_wheel(sieve, index);
 }
 
 // this is the same as checkBitTrue_wheel but without the check for the wheel primes
 // this can only be used if index > WHEEL_MAX
+// static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
+// checkBitTrue_wheel_unsafe(const void* restrict bitstorage, register counter_t index)
+// {
+//     register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
+//     counter_t wheel_index = index % WHEEL_SIZE;
+//     counter_t wheel_block = wheel_block_calc(index);
+
+//     return !wheelmask_compressed[wheel_index] || 
+//            (bitstorage_sized[wheel_block] & wheelmask_compressed[wheel_index]);
+// }
+
 static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
-checkBitTrue_wheel_unsafe(const void* restrict bitstorage, register counter_t index)
+checkFactor_wheel_unsafe(sieve_t* sieve, register counter_t index)
 {
-    register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
+    register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
     counter_t wheel_index = index % WHEEL_SIZE;
     counter_t wheel_block = wheel_block_calc(index);
 
@@ -168,7 +226,7 @@ checkBitTrue_wheel_unsafe(const void* restrict bitstorage, register counter_t in
 static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
 checkFactor(sieve_t* sieve, register counter_t factor) {
     if (factor <= WHEEL_MAX) return wheelprimes[factor];
-    return checkBitTrue_wheel_unsafe(sieve->bitstorage, factor);
+    return checkFactor_wheel_unsafe(sieve, factor);
 
     // return checkBitTrue_wheel(bitstorage, factor);
 }
@@ -190,19 +248,19 @@ markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step)
 {
     const counter_t prime = step / 2;
     if (prime <= 5 ) {
-        setBitsTrue_smallstep_rotate_pair_wheel_uint64v8_unroll8(sieve->bitstorage, start, step, stop);
+        markFactors_wheel_smallstep_rotate_vectorpair_uint64v8_unroll8(sieve, start, stop, step);
     }
     else 
     if (prime < global_stripeprime_faster * WHEEL_SIZE / (wheelmask_stripe_bytes * 8)) {
-        // setBitsTrue_wheel_small_repeat_pair_uint64(bitstorage, start, step, range_stop);
-        setBitsTrue_wheel_small_repeat_uint64(sieve->bitstorage, start, step, stop);
+        markFactors_wheel_small_repeat_uint64(sieve, start, stop, step);
     }
     else 
     if (prime < global_largestep_faster * WHEEL_SIZE / (wheelmask_stripe_bytes * 8)*8) {
-        setBitsTrue_wheel_repeat(sieve->bitstorage, start, step, stop);
+        markFactors_wheel_repeat(sieve, start, stop, step);
     }
-    else {
-    setBitsTrue_wheel_norepeat(sieve->bitstorage, start, step, stop);
+    else 
+    {
+        markFactors_wheel_norepeat(sieve, start, stop, step);
     }
 }
 #else
@@ -220,12 +278,12 @@ markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step)
     #ifdef include_for_words //---- include only the variant function
 
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-    function(setBitsTrue_wheel_small_repeat,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+    function(markFactors_wheel_small_repeat,suffix)(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step)
     {
-        register uint64_t* restrict bitstorage_sized_64 = __builtin_assume_aligned(bitstorage,cache_line_bytes);
+        register uint64_t* restrict bitstorage_sized_64 = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
         if (step >= 64) {
-            setBitsTrue_wheel_repeat(bitstorage, range_start, step, range_stop);
+            markFactors_wheel_repeat(sieve, range_start, range_stop, step);
             return;
         }
         const counter_t block_stop = function(wheel_block_calc,variantsuffix)(range_stop + 1);
@@ -242,7 +300,7 @@ markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step)
             if (reuse_block_start < wheel_block) { // when going to the next block
                 if (reuse_markmask) { // apply previous mask if it exists
                     if (reuse_block_start) {  // don't repeat the first block, it may be misaligned
-                        applyMask_index_uint64_unroll8(bitstorage, reuse_block_start, wheel_step, block_stop, reuse_markmask);
+                        applyMask_index_uint64_unroll8(sieve->bitstorage, reuse_block_start, wheel_step, block_stop, reuse_markmask);
                     }
                     else bitstorage_sized_64[0] |= reuse_markmask; // if the previous block was the first block, we can apply the mask directly without going through the function
                 }
@@ -267,9 +325,9 @@ markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step)
 
     #if defined unrolls && unrolls > 1
         static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-        function(setBitsTrue_wheel_small_repeat_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
+        function(markFactors_wheel_small_repeat_pair,suffix)(sieve_t* sieve, const counter_t range_start, const counter_t step, const counter_t range_stop)
         {
-            register uint64_t* restrict bitstorage_sized_64 = __builtin_assume_aligned(bitstorage,cache_line_bytes);
+            register uint64_t* restrict bitstorage_sized_64 = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
             // if (step >= 32) {
             //     setBitsTrue_wheel_repeat(bitstorage, range_start, step, range_stop);
@@ -288,7 +346,8 @@ markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step)
             for (; index <= range_stop_unique; index += step) { 
                 const counter_t wheel_block = function(wheel_block_calc,variantsuffix)(index);
                 if ((wheel_block & 1) == 0)  break;
-                setBitsTrue_wheel(bitstorage, index); 
+                markFactors_wheel(sieve, index);
+                // setBitsTrue_wheel(bitstorage, index); 
             }
 
             for (register counter_t index = range_start; index <= range_stop_unique; index += step) { 
@@ -299,7 +358,7 @@ markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step)
                         if (reuse_block_start) {  // don't repeat the first block, it may be misaligned
                             // applyMask_index_uint64_unroll8(bitstorage, reuse_block_start, wheel_step, block_stop, reuse_markmask);
                             // applyMask_index_uint64_unroll8(bitstorage, reuse_block_start+1, wheel_step, block_stop, reuse_markmask1);
-                            function(applyMask_index_pair,suffix)(bitstorage, reuse_block_start, wheel_step, block_stop, reuse_markmask, reuse_markmask1);
+                            function(applyMask_index_pair,suffix)(sieve->bitstorage, reuse_block_start, wheel_step, block_stop, reuse_markmask, reuse_markmask1);
                         }
                         else {
                             bitstorage_sized_64[0] |= reuse_markmask; // if the previous block was the first block, we can apply the mask directly without going through the function
@@ -334,12 +393,13 @@ markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step)
         #if defined unrolls && unrolls != 1
 
         static void __attribute__((nonnull, aligned(cache_line_bytes))) 
-        function(setBitsTrue_smallstep_rotate_pair_wheel,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+        function(markFactors_wheel_smallstep_rotate_vectorpair,suffix)(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step) 
         {
-            register bitbucket_t* restrict bitstorage_sized     = __builtin_assume_aligned(bitstorage, cache_line_bytes);
+            register bitbucket_t* restrict bitstorage_sized     = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
 
             counter_t start_vector = function(wheel_block_calc,variantsuffix)(range_start);
             counter_t current_vector = start_vector;
+        // function(setBitsTrue_smallstep_rotate_pair_wheel,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
 
             // TODO: refactor
             register counter_t index = range_start; 
@@ -350,7 +410,7 @@ markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step)
             for(; index <= range_stop; index += step) { 
                 current_vector = function(wheel_block_calc,variantsuffix)(index);
                 if (current_vector != start_vector) break; // if we are in a new vector, we need to recalculate the mask vector, because the pattern of which bits to mark as true in the wheel repeats every WHEEL_BASIC_SIZE * step
-                setBitsTrue_wheel(bitstorage, index);
+                markFactors_wheel(sieve, index);
             }
             start_vector = current_vector;
             
@@ -371,7 +431,7 @@ markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step)
                         mask_vector[mask_element_index] = mask_element;
                         mask_element = 0LL;
                     }
-                    function(applyMask_index,suffix)(bitstorage, start_vector, step, range_stop_vector, mask_vector);
+                    function(applyMask_index,suffix)(sieve->bitstorage, start_vector, step, range_stop_vector, mask_vector);
                     mask_vector = BITBUCKET_BASE(0LL);
                     start_vector = current_vector;
                     mask_element_index = 0;
