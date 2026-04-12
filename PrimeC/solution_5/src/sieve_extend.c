@@ -64,9 +64,12 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 
         case 2: // process extend and stripe block by block
         {
-            counter_t prime_next = extendSieveBlockByBlock_half(sieve->bitstorage, sieve_bits, blocksize_bits, stripeprime_faster);
+            // counter_t prime_next = extendSieveBlockByBlock_half(sieve->bitstorage, sieve_bits, blocksize_bits, stripeprime_faster);
+            // markSieveBlockByBlock(sieve, sieve_size, blocksize_factor, prime_next * 2 + 1, prime_max_half * 2 + 1);
+
+            counter_t prime_next = extendSieveBlockByBlock(sieve, sieve_size, blocksize_factor, stripeprime_faster * 2 + 1);
+            markSieveBlockByBlock(sieve, sieve_size, blocksize_factor, prime_next, prime_max_half * 2 + 1);
             // stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, prime_next, prime_max_half);
-            markSieveBlockByBlock(sieve, sieve_size, blocksize_factor, prime_next * 2 + 1, prime_max_half * 2 + 1);
         } break;
 
         // case 3: // process everything block by block -- can be set via --set a3 on command line
