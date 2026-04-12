@@ -9,7 +9,7 @@ function(setBitsTrue_largestep_vector,suffix)(void* restrict bitstorage, const c
     if (range_start_new > range_stop) return;
     // function(create_mask_vector_largestep,suffix)(bitstorage, range_start_new, range_stop, step);
     
-    bitbucket_t* restrict bitstorage_vector = __builtin_assume_aligned(bitstorage, cache_line_bytes);
+    // bitbucket_t* restrict bitstorage_vector = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     const counter_t range_stop_unique_vector = index_type(range_start_new, bitbucket_t) + step;  // extra size is sometimes needed when size < blocklimit
     const counter_t range_stop_index = index_type(range_stop, bitbucket_t);
     const bitbucket_t empty_vector = BITBUCKET_BASE((variant_base_type_t) 0U);
@@ -17,9 +17,11 @@ function(setBitsTrue_largestep_vector,suffix)(void* restrict bitstorage, const c
     #pragma GCC ivdep
     for (counter_t index = range_start_new, current_vector = index_type(range_start_new, bitbucket_t); current_vector <= range_stop_unique_vector; current_vector++) {
         const counter_t current_vector_start = vectorstart_type(index, bitbucket_t);
+        const counter_t current_vector_end = current_vector_start + bitcount_type(bitbucket_t);
         register bitbucket_t mask_vector = empty_vector;
 
         #pragma GCC ivdep
+        #pragma unroll 8
         for (counter_t element = 0; element < BITBUCKET_ELEMENTS; element++) {
             if (vectorelement_type(index, bitbucket_t, variant_base_type_t) == element) {
                 mask_vector[element] = markmask_calc_type(index, variant_base_type_t); // in clang, markmask_type is enough, not in gcc
@@ -27,13 +29,40 @@ function(setBitsTrue_largestep_vector,suffix)(void* restrict bitstorage, const c
             }
         }
 
-        // const counter_t current_vector_end = min(index_next_type(index, bitbucket_t), range_stop);
         // #pragma GCC ivdep
-        // for(; index < current_vector_end; index += step) {
+        // for (counter_t element = 0; element < BITBUCKET_ELEMENTS; element++) {
+        //     if (vectorelement_type(index, bitbucket_t, variant_base_type_t) == element) {
+        //         mask_vector[element] = markmask_calc_type(index, variant_base_type_t); // in clang, markmask_type is enough, not in gcc
+        //         index += step;
+        //     }
+        // }
+        
+        // const counter_t current_vector_end = min(index_next_type(index, bitbucket_t), range_stop);
+
+        // counter_t fillcount = 1 + (current_vector_end - current_vector_start) / step;
+        // if (index + fillcount * step >= current_vector_end) fillcount--;
+        // if (index + fillcount * step >= current_vector_end) fillcount--;
+        // if (index + fillcount * step >= current_vector_end) fillcount--;
+        // if (index + fillcount * step >= current_vector_end) fillcount--;
+        // if (index + fillcount * step >= current_vector_end) fillcount--;
+        // if (index + fillcount * step >= current_vector_end) fillcount--;
+
+        // counter_t fillcount = (current_vector_end - index - 1) / step;
+        // #pragma GCC ivdep
+        // #pragma unroll 8
+        // for(counter_t fills = 0, elements = BITBUCKET_ELEMENTS; fills <= fillcount && elements > 0; fills++, elements--) {
+        //     mask_vector[vectorelement_type(index + fills * step, bitbucket_t, variant_base_type_t)] = markmask_calc_type(index + fills * step, variant_base_type_t);
+        // }
+        // index += (fillcount + 1) * step;
+
+        // const counter_t current_vector_end = current_vector_start + bitcount_type(bitbucket_t);
+        // counter_t count = 0;
+        // #pragma GCC unroll 32
+        // for (; index < current_vector_end && count < BITBUCKET_ELEMENTS; index += step, count++) {
         //     mask_vector[vectorelement_type(index, bitbucket_t, variant_base_type_t)] = markmask_calc_type(index, variant_base_type_t);
         // }
 
-        function(applyMask_index,suffix)(bitstorage_vector, current_vector, range_stop_index, step, mask_vector);
+        function(applyMask_index,suffix)(bitstorage, current_vector, range_stop_index, step, mask_vector);
     }
 
     endAnalysis6(time_setBitsTrue_largestep_vector,"\n");
