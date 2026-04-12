@@ -5,7 +5,7 @@ static inline void __attribute__((always_inline, aligned(cache_line_bytes)))
 function(create_mask_vector_largestep,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step)
 {
     bitbucket_t* restrict bitstorage_vector = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    const counter_t range_stop_unique_vector = range_start + step * bitcount_type(bitbucket_t) + bitcount_type(bitbucket_t);  // extra size is sometime needed when size < blocklimit
+    const counter_t range_stop_unique_vector = range_start + step * bitcount_type(bitbucket_t) + bitcount_type(bitbucket_t);  // extra size is sometimes needed when size < blocklimit
     const counter_t range_stop_index = index_type(range_stop, bitbucket_t);
 
     #pragma GCC ivdep
