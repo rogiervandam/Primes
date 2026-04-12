@@ -113,7 +113,7 @@ extendSieveBlockByBlock(void* restrict bitstorage, const counter_t sieve_bits, c
     for (counter_t block_start = block0_stop, block_stop = block_start + blocksize_bits; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
         // stripe a block, stopping at the end of the sieve and only for primes that have multiples are in the block
         prime_start = extendSieveBlock(bitstorage, block_start, min(block_stop, sieve_bits));
-        stripeSieveBlock(bitstorage, block_start, min(block_stop, sieve_bits), prime_start, min(prime_stop(block_stop),prime_max));
+        stripeSieveBlock(bitstorage, block_start, min(block_stop, sieve_bits), prime_start, min(calcFactor_max_half(block_stop),prime_max));
     }
     return prime_next; 
 }

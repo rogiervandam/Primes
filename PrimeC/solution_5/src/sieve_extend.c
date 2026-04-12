@@ -32,7 +32,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
     const counter_t sieve_bits = sieve_size >> 1;
     struct sieve_t *sieve      = sieve_create(sieve_size, sieve_bits);
-    const counter_t prime_max  = prime_stop(sieve_bits);
+    const counter_t prime_max  = calcFactor_max_half(sieve_bits);
 
     // use globals as constant - these get optimized
     const counter_t stripeprime_faster  = global_stripeprime_faster;

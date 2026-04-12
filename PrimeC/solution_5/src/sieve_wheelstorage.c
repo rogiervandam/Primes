@@ -1,7 +1,7 @@
 // Sieve algorithm by Rogier van Dam - 2025
 // Find all primes up to <max int> using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)
 
-// This file includes all the building blocks for the sieve algorithm "base"
+// This file includes all the building blocks for the sieve algorithm "wheelstorage"
 // This enables the compiler to optimize the code better
 
 #include "generic/timepriority.h"
@@ -39,12 +39,7 @@ void prepareSieveFunction() {
     build_wheel();
 
     // append the wheel size to the algorithm name
-    // counter_t wheelmask_count = 0;
-    // for (counter_t i=0; i <= WHEEL_SIZE/8; i++) {
-    //     wheelmask_count += __builtin_popcount(wheelmask[i]);
-    // }
     size_t prefix_len = 0; while (algorithm_name[prefix_len] != '\0') prefix_len++;
-    // sprintf(algorithm_name + prefix_len, "_%uof%u", WHEEL_SIZE-wheelmask_count, WHEEL_SIZE);
     sprintf(algorithm_name + prefix_len, "_%uof%u", wheelmask_stripes, WHEEL_SIZE);
 
     option.fixed_benchmark_settings.blocksize_bits          = 1000000;

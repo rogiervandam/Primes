@@ -185,7 +185,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
 {
     verbose2( printf("Tuning...building options..."); )
 
-    counter_t prime_max = prime_stop_full(start_tuning_settings.factor_max) >> SHIFT_SIZE;
+    counter_t prime_max = calcFactor_max(start_tuning_settings.factor_max) >> SHIFT_SIZE;
         //TODO: remove usqrt(start_tuning_settings.factor_max) / 2; // divide by 2 to compensate for bitwise representation 
 
     tuning_parameters_t tuning_parameters = {

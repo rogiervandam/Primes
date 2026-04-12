@@ -7,14 +7,14 @@ stripeSieveBlock(void* restrict bitstorage, const counter_t block_start, const c
 
     while (prime < prime_endloop_shortstepsearch) {
         register const counter_t step  = prime * 2 + 1;
-        register counter_t start = compute_start(prime, block_start);
+        register counter_t start = calcFactor_start_half(prime, block_start);
         setBitsTrue(bitstorage, start, step, block_stop);
         prime = searchBitFalse_uint8(bitstorage, prime);
     }
 
     while (prime < prime_max) {
         register const counter_t step  = prime * 2 + 1;
-        register counter_t start = compute_start(prime, block_start);
+        register counter_t start = calcFactor_start_half(prime, block_start);
         setBitsTrue(bitstorage, start, step, block_stop);
         prime = searchBitFalse_largestep_uint8(bitstorage, prime);
     }
@@ -48,7 +48,7 @@ stripeSieveBlockByBlock(void* restrict bitstorage, const counter_t sieve_bits, c
     // process the rest of the sieve in blocks of blocksize_bits
     for (counter_t block_start = block0_stop, block_stop = block_start + blocksize_bits; block_start < sieve_bits; block_start += blocksize_bits, block_stop += blocksize_bits) {
         // stripe a block, stopping at the end of the sieve and only for primes that have multiples are in the block
-        stripeSieveBlock(bitstorage, block_start, min(block_stop, sieve_bits), prime_start, min(prime_stop(block_stop),prime_max));
+        stripeSieveBlock(bitstorage, block_start, min(block_stop, sieve_bits), prime_start, min(calcFactor_max_half(block_stop),prime_max));
     } 
 }
 
