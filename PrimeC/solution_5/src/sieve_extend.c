@@ -32,7 +32,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 
     // use globals as constant - these get optimized
     const counter_t stripeprime_faster  = global_stripeprime_faster;
-    const counter_t blocksize_factor    = calcBitsize(global_blocksize_bits, STORAGE_HALF);
+    const counter_t blocksize_factor    = calcFactorsize(global_blocksize_bits, STORAGE_HALF);
     const counter_t algorithm           = global_algorithm;
 
     verbose5({
