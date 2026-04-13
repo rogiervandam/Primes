@@ -9,12 +9,13 @@
     static uint8_t wheelmask_offset[WHEEL_SIZE];
 
     // static const counter_t wheelmask_stripes = 8; // the number of possible primes per wheel, e.g. 8 when storing 8of30
-    static counter_t wheelmask_stripes; // the number of possible primes per wheel, e.g. 8 when storing 8of30
-    static counter_t wheelmask_stripe_bytes; // the number of bytes for storing <WHEEL_SIZE> bits
-    static counter_t wheelmask_stripe_bits; // the number of bits for storing <WHEEL_SIZE> bits, should be wheelmask_stripe_bytes * 8
+    static counter_t wheelmask_stripes_var;      // the number of possible primes per wheel, e.g. 8 when storing 8of30
+    static counter_t wheelmask_stripe_bytes_var; // the number of bytes for storing <WHEEL_SIZE> bits
+    static counter_t wheelmask_stripe_bits_var;  // the number of bits for storing <WHEEL_SIZE> bits, should be wheelmask_stripe_bytes * 8
 
-    // #define wheelmask_stripe_bytes 1
-    // #define wheelmask_stripe_bits 8
+    #define wheelmask_stripes      8 // wheelmask_stripes_var
+    #define wheelmask_stripe_bytes 1 // wheelmask_stripe_bytes_var
+    #define wheelmask_stripe_bits  8 // wheelmask_stripe_bits_var
 
     #include "../bitstorage/bitstorage_search.h"
     #include "../bitstorage/bitstorage_setBitsTrue.h"
@@ -63,9 +64,9 @@
                 stripe_count++;
             }
         }
-        wheelmask_stripes = stripe_count;
-        wheelmask_stripe_bytes = (wheelmask_stripes - 1) / 8 + 1;
-        wheelmask_stripe_bits = wheelmask_stripe_bytes * 8; 
+        wheelmask_stripes_var      = stripe_count;
+        wheelmask_stripe_bytes_var = (wheelmask_stripes - 1) / 8 + 1;
+        wheelmask_stripe_bits_var  = wheelmask_stripe_bytes * 8; 
         verbose3 (printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju\n", WHEEL_SIZE, (uintmax_t)wheelmask_stripes, (uintmax_t)wheelmask_stripe_bytes) );
     }
 
