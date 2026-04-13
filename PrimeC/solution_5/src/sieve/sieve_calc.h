@@ -38,39 +38,20 @@ calcFactor_max_half(const counter_t range_stop) {
 // // calculate the first multiple of a prime number in a given range
 static inline counter_t __attribute__((always_inline, const))
 calcFactor_start_half(const counter_t prime, const counter_t block_start) {
-    register const counter_t step = prime * 2 + 1;
-    register counter_t start = prime * (step + 1);
-    if (block_start && start < block_start) {
-        start = (block_start + prime) + prime - ((block_start + prime) % step);
-    }
-    return start;
+    if (block_start) 
+        return prime + (block_start + prime) - ((block_start + prime) % (prime * 2 + 1));
+    else 
+        return prime * (prime * 2 + 1);
 }
 
-// static inline counter_t __attribute__((always_inline, const)) 
-// prime_stop_full(const counter_t range_stop) {
-//     return ((1 + usqrt( (range_stop) + 1 )));
-// }
-
 // calculate the first multiple of a prime number in a given range
-// static inline counter_t __attribute__((always_inline, const))
-// compute_start_full(const counter_t prime, const counter_t block_start) {
-//     register const counter_t step = 2 * prime;
-//     register counter_t start = prime * prime;
-//     if (block_start && start < block_start) {
-//         start = (block_start + prime) + prime - ((block_start + prime) % step);
-//     }
-//     return start;
-// }
-
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
 calcFactor_start(counter_t prime, counter_t block_start) 
 {
-    register const counter_t step = 2 * prime;
-    register counter_t start = prime * prime;
-    if (block_start && start < block_start) {
-        start = (block_start + prime) + prime - ((block_start + prime) % step);
-    }
-    return start;
+    if (block_start) 
+        return prime + (block_start + prime) - ((block_start + prime) % (2 * prime));
+    else 
+        return prime * prime;
 }
 
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 

@@ -53,7 +53,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
         {
             // fill the entire sieve for lower primes by striping off the multiples in a small sieve
             // and copying this pattern to a extended sieve, until the sieve size matches the entire sieve
-            counter_t prime = extendSieveBlock0_half(sieve->bitstorage, sieve_bits) * 2 + 1;
+            counter_t prime = extendSieveBlock0(sieve, sieve_size);
             
             // continue from last the prime that was processed and stripe off the multiples of this prime
             // repeat until it is faster to do this block by block

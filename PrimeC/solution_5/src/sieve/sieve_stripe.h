@@ -17,7 +17,7 @@ markSieveBlock(sieve_t* sieve, const counter_t block_start, const counter_t bloc
 }
 
 static inline counter_t __attribute__((always_inline, nonnull)) 
-markSieveBlock0(sieve_t* sieve, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max) {
+markSieve(sieve_t* sieve, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max) {
     return markSieveBlock(sieve, 0, block_stop, prime_start, prime_max);
 }
 
@@ -26,7 +26,7 @@ markSieveBlockByBlock(sieve_t* sieve, const counter_t sieve_size, const counter_
     if (prime_start >= prime_max) return;
 
     if (blocksize_factor >= sieve_size) {
-        markSieveBlock0(sieve, sieve_size, prime_start, prime_max);
+        markSieve(sieve, sieve_size, prime_start, prime_max);
         return;
     }
 
@@ -34,16 +34,13 @@ markSieveBlockByBlock(sieve_t* sieve, const counter_t sieve_size, const counter_
     counter_t block0_stop = ((sieve_size % blocksize_factor) + cache_line_bytes*8) & ~(cache_line_bytes*8-1); 
 
     // first block requires fewer operations; it might be the whole sieve...
-    markSieveBlock0(sieve, min(block0_stop, sieve_size), prime_start, prime_max);
+    markSieveBlock(sieve, 0, min(block0_stop, sieve_size), prime_start, prime_max);
 
     // process the rest of the sieve in blocks of blocksize_factor
     for (counter_t block_start = block0_stop, block_stop = block_start + blocksize_factor; block_start < sieve_size; block_start += blocksize_factor, block_stop += blocksize_factor) {
+        
         // stripe a block, stopping at the end of the sieve and only for primes that have multiples are in the block
         markSieveBlock(sieve, block_start, min(block_stop, sieve_size), prime_start, min(calcFactor_max(block_stop),prime_max));
     } 
 }
 
-static inline counter_t __attribute__((always_inline, nonnull)) 
-markSieve(sieve_t* sieve, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max) {
-    return markSieveBlock(sieve, 0, block_stop, prime_start, prime_max);
-}

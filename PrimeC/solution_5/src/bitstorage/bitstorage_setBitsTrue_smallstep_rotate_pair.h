@@ -27,7 +27,7 @@ function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
 
     register const counter_t vector_max = index_type(range_stop_unique_vector, bitbucket_t);
     counter_t current_vector = index_type(range_start, bitbucket_t);
-
+ 
     // Apply this vectormask standalone until we align on the cache line
     for (;current_vector&1; current_vector++) {
         // function(applyMask,suffix)(bitstorage_vector, step, range_stop, mask_vector, current_vector);
