@@ -81,7 +81,7 @@
     }
 
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-    markFactors_wheel(sieve_t* sieve, const register counter_t index) 
+    markFactor_wheel(sieve_t* sieve, const register counter_t index) 
     {
         register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
         bitstorage_sized[ wheel_block_calc(index)] |= wheelmask_compressed[index % WHEEL_SIZE]; // first check if the number is divisible by any of the wheel primes, if it is, mark it as non-prime
@@ -116,15 +116,15 @@
             for(;i>j;i-=j) {
                 for(int k=j; k--; index += step) {
                     // setBitsTrue_wheel(sieve->bitstorage, index);
-                    markFactors_wheel(sieve, index);
+                    markFactor_wheel(sieve, index);
                 }
             }
         }
 
         for (; index < range_stop; index += step) 
-            markFactors_wheel(sieve, index);
+            markFactor_wheel(sieve, index);
 
-        if unlikely(index==range_stop) markFactors_wheel(sieve, index);
+        if unlikely(index==range_stop) markFactor_wheel(sieve, index);
     }
 
     // this is the same as checkFactor_wheel but without the check for the wheel primes
@@ -327,7 +327,7 @@
             for(; index <= range_stop; index += step) { 
                 current_vector = function(wheel_block_calc,variantsuffix)(index);
                 if (current_vector != start_vector) break; // if we are in a new vector, we need to recalculate the mask vector, because the pattern of which bits to mark as true in the wheel repeats every WHEEL_BASIC_SIZE * step
-                markFactors_wheel(sieve, index);
+                markFactor_wheel(sieve, index);
             }
             start_vector = current_vector;
             
