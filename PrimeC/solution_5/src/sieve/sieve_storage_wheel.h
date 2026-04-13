@@ -332,8 +332,8 @@
             start_vector = current_vector;
             
             // counter_t vector_start_index = index;
-            bitbucket_t mask_vector = BITBUCKET_BASE(0LL);
-            variant_base_type_t mask_element = 0LL;
+            bitbucket_t mask_vector = BITBUCKET0;
+            variant_base_type_t mask_element = (variant_base_type_t)0;
             counter_t mask_element_index = 0;
 
             // guarantee that all variations can land
@@ -346,10 +346,10 @@
                 if (current_vector != start_vector) {
                     if (mask_element) {
                         mask_vector[mask_element_index] = mask_element;
-                        mask_element = 0LL;
+                        mask_element = (variant_base_type_t)0;
                     }
                     function(applyMask_index,suffix)(sieve->bitstorage, start_vector, range_stop_index, step, mask_vector);
-                    mask_vector = BITBUCKET_BASE(0LL);
+                    mask_vector = BITBUCKET0;
                     start_vector = current_vector;
                     mask_element_index = 0;
                 }
@@ -361,7 +361,7 @@
                 if (mask_element_index != vector_element) {
                     if (mask_element) {
                         mask_vector[mask_element_index] = mask_element;
-                        mask_element = 0LL;
+                        mask_element = (variant_base_type_t)0;
                     }
                     mask_element_index = vector_element;
                 }

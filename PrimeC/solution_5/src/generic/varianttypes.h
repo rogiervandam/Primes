@@ -137,3 +137,4 @@ typedef uint16_t uint16v2_t  __attribute__ ((vector_size( 4), aligned(cache_line
   #define BITBUCKET_BYTEINDEX          ((bitbucket_t){ 0, 1})
 #endif
 
+#define BITBUCKET0                     BITBUCKET_BASE((variant_base_type_t)0ULL)
