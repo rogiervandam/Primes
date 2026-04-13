@@ -185,7 +185,7 @@ parseCommandLine(int argc, char *argv[])
         else if (strcmp_local(argv[arg], "--check")) { 
             ensure_next_arg(++arg, argc, program_name, "check level");
             parse_int_arg(argv[arg], &option.check, 7, program_name, "Invalid check level");
-            verbose2(printf("Check level set to %d\n", option.check));
+            verbose4(printf("Check level set to %d\n", option.check));
         }
         else if (strcmp_local(argv[arg], "--nocheck")) { 
             option.check = 0; 
@@ -193,27 +193,30 @@ parseCommandLine(int argc, char *argv[])
         else if (strcmp_local(argv[arg], "--tune")) { 
             ensure_next_arg(++arg, argc, program_name, "tune level");
             parse_int_arg(argv[arg], &option.tunelevel, 4, program_name, "Invalid tune level");
-            verbose2(printf("Tune level set to %d\n", option.tunelevel));
+            verbose4(printf("Tune level set to %d\n", option.tunelevel));
+        }
+        else if (strcmp_local(argv[arg], "--notune")) { 
+            option.tunelevel = 0; 
         }
         else if (strcmp_local(argv[arg], "--time")) {
             ensure_next_arg(++arg, argc, program_name, "time");
             parse_double_arg(argv[arg], &option.fixed_benchmark_settings.sample_duration, program_name, "Invalid max time");
-            verbose2(printf("Max time is set to %f seconds\n", option.fixed_benchmark_settings.sample_duration));
+            verbose4(printf("Max time is set to %f seconds\n", option.fixed_benchmark_settings.sample_duration));
         }
         else if (strcmp_local(argv[arg], "--show")) {
             ensure_next_arg(++arg, argc, program_name, "show maximum");
             parse_int_arg(argv[arg], &option.show_explain_factor_max, option.fixed_benchmark_settings.factor_max, program_name, "Invalid show maximum");
-            verbose2(printf("Show maximum set to %ju\n", (uintmax_t)option.show_explain_factor_max);)
+            verbose4(printf("Show maximum set to %ju\n", (uintmax_t)option.show_explain_factor_max);)
         }
         else if (strcmp_local(argv[arg], "--max")) {
             ensure_next_arg(++arg, argc, program_name, "sieve maximum");
             parse_int_arg(argv[arg], &option.fixed_benchmark_settings.factor_max, COUNTER_T_MAX_VALUE, program_name, "Invalid sieve maximum");
-            verbose2(printf("Maximum set to %ju\n", (uintmax_t)option.fixed_benchmark_settings.factor_max);)
+            verbose4(printf("Maximum set to %ju\n", (uintmax_t)option.fixed_benchmark_settings.factor_max);)
         }
         else if (strcmp_local(argv[arg], "--set")) {
             ensure_next_arg(++arg, argc, program_name, "settings for --set");
             parse_set_parameter(argv[arg], program_name, &option);
-            verbose2(printf("Initial settings: " COLOR_BOLD_GREEN "%s" COLOR_RESET "\n", getBenchmarkSettingAsString(option.fixed_benchmark_settings));)
+            verbose4(printf("Initial settings: " COLOR_BOLD_GREEN "%s" COLOR_RESET "\n", getBenchmarkSettingAsString(option.fixed_benchmark_settings));)
         }
         else if (strcmp_local(argv[arg], "--threads")) { 
             ensure_next_arg(++arg, argc, program_name, "thread maximum");
@@ -239,14 +242,16 @@ parseCommandLine(int argc, char *argv[])
                 option.fixed_benchmark_settings.threads = max_threads;
             }
             
-            verbose2(printf("Thread maximum set to %ju\n", (uintmax_t)option.fixed_benchmark_settings.threads));
+            verbose4(printf("Thread maximum set to %ju\n", (uintmax_t)option.fixed_benchmark_settings.threads));
         #else
             verbose2(printf("This is the version without multithreading - ignoring threads\n"));
         #endif
         }
         else if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.fixed_benchmark_settings.factor_max) != 1) {
             verbose1({ fprintf(stderr, "Invalid size %s\n", argv[arg]); usage(program_name, 1); });
-            verbose2(printf("Maximum set to %ju\n", (uintmax_t)option.fixed_benchmark_settings.factor_max));
+        }
+        else {
+            verbose4(printf("Maximum set to %ju\n", (uintmax_t)option.fixed_benchmark_settings.factor_max);)
         }
     }
 }

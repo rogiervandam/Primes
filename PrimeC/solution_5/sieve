@@ -10,6 +10,8 @@ RUNALL=""
 COMPILE=""
 COMPILEFULL=""
 
+SIEVEVARIANTS="sieve_base sieve_extend sieve_classic64 sieve_classic8 sieve_wheel sieve_wheel_8of30 sieve_wheelstorage"
+
 # Process arguments to check for compiler override
 ARGS_TO_KEEP=()
 for arg in "$@"; do
@@ -23,6 +25,8 @@ for arg in "$@"; do
         COMPILER_ASM="asm"
     elif [ "$arg" = "runall" ]; then
         RUNALL="runall"
+    elif [ "$arg" = "test" ]; then
+        TESTALL="testall"
     elif [ "$arg" = "compile" ]; then
         COMPILE="compile"
     elif [ "$arg" = "compileall" ]; then
@@ -273,8 +277,17 @@ if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
 fi
 
 if [ "$COMPILE" = "compileall" ]; then
-    for base in sieve_base sieve_extend sieve_classic64 sieve_classic8 sieve_wheel sieve_wheel_8of30; do
+    for base in $SIEVEVARIANTS; do
+    # for base in sieve_base sieve_extend sieve_classic64 sieve_classic8 sieve_wheel sieve_wheel_8of30; do
         $0 $base "compile" "$@"
+    done
+    exit 0
+fi
+
+if [ "$TESTALL" = "testall" ]; then
+    for base in $SIEVEVARIANTS; do
+    # for base in sieve_base sieve_extend sieve_classic64 sieve_classic8 sieve_wheel sieve_wheel_8of30; do
+        $0 $base "--check 3 --verbose 3" "$@"
     done
     exit 0
 fi
@@ -284,7 +297,7 @@ if [ "$RUNALL" = "runall" ]; then
     for base in sieve_extend; do
         bin/${base}_epar --threads all "$@"
     done
-    for base in sieve_extend sieve_base sieve_classic64 sieve_classic8 sieve_wheel sieve_wheel_8of30 ; do
+    for base in $SIEVEVARIANTS; do
         bin/${base} "$@"
     done
     exit 0
@@ -377,7 +390,7 @@ elif [ "$COMPILER" = "gcc" ] || [ "$COMPILER" = "gcc-15" ]; then
     else
         CC="-march=native $CC" 
     fi
-    echo "Using compiler: $COMPILER_NAME"
+
     CCASM="$COMPILER_NAME $CC -S -g -Wno-psabi -masm=intel -fverbose-asm -Wextra -fopt-info-vec-all=vec_report.txt" # -mavx
     CC="$COMPILER_NAME $CC -Ofast -Wno-psabi -fwhole-program -flto -I/usr/lib/gcc/x86_64-linux-gnu/14/include/ -flto=auto" # -static -Wvector-operation-performance " # for windows add this: -s -masm=intel -fverbose-asm -mavx -fopt-info-vec-all=vec_report.txt
     # CC="-Wl,--gc-sections -s $CC"

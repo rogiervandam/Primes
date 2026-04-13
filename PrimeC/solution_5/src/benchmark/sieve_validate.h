@@ -39,7 +39,7 @@ checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 static int __attribute__((cold)) 
 checkSieveAlgorithmAll(benchmark_settings_t benchmark_settings)
 {
-    verbose2( printf("Validating variant... "); ) verbose3( printf("\n"); ) 
+    verbose2( printf("Validating variant with different block sizes... "); ) verbose3( printf("\n"); ) 
 
     // validate algorithm - run one time for all sizes
     for (counter_t sieveSize_check = 100; sieveSize_check <= 1000000; sieveSize_check *=10) {
@@ -100,5 +100,6 @@ handleCheckOption(int check, benchmark_settings_t benchmark_settings) {
     if (check >= 3) if (!checkSieveAlgorithmAll(benchmark_settings)) exit(1);
 
     if (check == 1) exit(0);
+    if (check == 3) exit(0);
     if (check == 7) exit(0);
 }

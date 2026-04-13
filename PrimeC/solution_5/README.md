@@ -86,6 +86,7 @@ The ./sieve command is a bash script for building and running the sieve applicat
 
 ```none
 ./sieve compileall                                - Compile all possible versions and place them in the ./build/ directory.
+./sieve testall                                   - Test all possible versions.
 ./sieve runall                                    - Run all possible versions. In the Primeview Docker container, verbosity is reduced.
 ./sieve docker <dockerfile extension> <arguments> - Run sieve in a Docker container with the specified arguments. 
                                                     Looks for Dockerfile_<extension> in ./dev/docker/.
@@ -134,6 +135,7 @@ Usage: ./sieve [options] [maximum]
                             2 - Refined tuning.
                             3 - Benchmark individual stripe functions.
                             4 - Benchmark iterative stripe functions.
+  --notune                  Shorthand for --tune 0
   --verbose <level>         Set verbosity level:
                             0 - Only show result string.
                             1 - Include additional settings information.

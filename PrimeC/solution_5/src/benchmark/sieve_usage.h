@@ -8,7 +8,7 @@ usage(char *program_name, int exit_code)
         "                            0 - no check\n"
         "                            1 - check prime count for the sieve size and stop\n"
         "                            2 - check prime count for every sieve size\n"
-        "                            3 - check prime count for every sieve size and blocksize\n"
+        "                            3 - check prime count for every sieve size and blocksize and stop\n"
 #ifdef COMPILE_CHECK_STRIPERS
         "                            4 - check stripe algorithms for the sieve size\n"
         "                            5 - check stripe algorithms for every sieve size\n"

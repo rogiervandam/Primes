@@ -11,10 +11,10 @@
 
 static char algorithm_name[] = "rogiervandam_classic64bit";
 static char algorithm_type[] = "base";
-#define ALGORITHM_CLASSIC 1
+// #define ALGORITHM_CLASSIC 1
 
 // include helper functions
-#include "generic/settings.h"
+// #include "generic/settings.h"
 #include "benchmark/sieve_options.h"
 #include "bitstorage/bitstorage_search.h"
 #include "sieve/sieve_calc.h"
@@ -30,7 +30,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     struct sieve_t *sieve = sieve_create(sieve_size, sieve_size>>1);
     bitbucket_t* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
     const counter_t sieve_bits = sieve->bits;
-    const counter_t prime_max = prime_stop(sieve_bits);
+    const counter_t prime_max = calcFactor_max_half(sieve_bits);
 
     verbose5( printf("\nShaking sieve to find all primes up to %ju\n",(uintmax_t)sieve_size); )
 

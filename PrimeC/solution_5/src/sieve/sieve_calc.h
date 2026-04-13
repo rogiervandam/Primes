@@ -76,7 +76,7 @@ calcFactor_half(counter_t prime)
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
 calcFactor_max(counter_t range_stop) 
 {
-    return (usqrt(range_stop)-1);
+    return (usqrt(range_stop));
 }
 
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
