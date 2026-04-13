@@ -13,7 +13,7 @@ usage(char *program_name, int exit_code)
         "                            4 - check stripe algorithms for the sieve size\n"
         "                            5 - check stripe algorithms for every sieve size\n"
         "                            6 - check stripe algorithms for the sieve size and every blocksize\n"
-        "                            7 - check all and halt\n"
+        "                            7 - check all and stop\n"
 #endif
         "  --nocheck                 Skip check of the correctness of the algorithm\n"
 #ifdef COMPILE_EXPLAIN

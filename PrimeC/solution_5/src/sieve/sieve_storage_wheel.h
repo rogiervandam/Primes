@@ -14,7 +14,7 @@
     static counter_t wheelmask_stripe_bits_var;  // the number of bits for storing <WHEEL_SIZE> bits, should be wheelmask_stripe_bytes * 8
 
     #define wheelmask_stripes      8 // wheelmask_stripes_var
-    #define wheelmask_stripe_bytes 2 // wheelmask_stripe_bytes_var
+    #define wheelmask_stripe_bytes 1 // wheelmask_stripe_bytes_var
     #define wheelmask_stripe_bits  (8*wheelmask_stripe_bytes) // wheelmask_stripe_bits_var
 
     #include "../bitstorage/bitstorage_search.h"

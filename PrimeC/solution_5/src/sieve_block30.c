@@ -22,8 +22,8 @@ static char algorithm_type[] = "base";
 // include helper functions
 #include "generic/settings.h"
 
-#undef SHIFT_SIZE
-#define SHIFT_SIZE 0 // correct because we are not storing even numbers, so the number of bits is the same as the size of the sieve
+// #undef SHIFT_SIZE
+// #define SHIFT_SIZE 0 // correct because we are not storing even numbers, so the number of bits is the same as the size of the sieve
 
 #include "benchmark/sieve_options.h"
 #include "bitstorage/bitstorage_search.h"

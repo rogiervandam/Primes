@@ -8,16 +8,16 @@
 
 // these options are set using the command line tool ./sieve
 #ifdef COMPILE_FULL
-#undef COMPILE_CHECKALL
-#undef COMPILE_EXPLAIN                  
-#undef COMPILE_BENCHMARK_STRIPERS
-#undef COMPILE_CHECK_STRIPERS
-#undef COMPILE_TUNE
-#define COMPILE_CHECKALL                 
-#define COMPILE_EXPLAIN                  
-#define COMPILE_BENCHMARK_STRIPERS
-#define COMPILE_CHECK_STRIPERS
-#define COMPILE_TUNE
+    #undef COMPILE_CHECKALL
+    #undef COMPILE_EXPLAIN                  
+    #undef COMPILE_BENCHMARK_STRIPERS
+    #undef COMPILE_CHECK_STRIPERS
+    #undef COMPILE_TUNE
+    #define COMPILE_CHECKALL                 
+    #define COMPILE_EXPLAIN                  
+    #define COMPILE_BENCHMARK_STRIPERS
+    #define COMPILE_CHECK_STRIPERS
+    #define COMPILE_TUNE
 #endif
 
 // How to align the caches
@@ -37,6 +37,6 @@
     #define bitshift_t counter_t 
 #endif
 
-#include "helpers.h"
 #include "types.h"
+#include "helpers.h"
 #include "verbose.h"

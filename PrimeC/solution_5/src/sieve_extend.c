@@ -14,15 +14,11 @@ static char algorithm_name[] = "rogiervandam_extend";
 static char algorithm_type[] = "other";
 
 // include helper functions
-#include "generic/settings.h"
 #include "benchmark/sieve_options.h"
-// #include "bitstorage/bitstorage_search.h"
-// #include "bitstorage/bitstorage_setBitsTrue.h"
-#include "bitstorage/bitstorage_continuePattern.h"
-// #include "sieve/sieve_calc.h"
 #include "sieve/sieve_manager.h"
 #include "sieve/sieve_storage_half.h"
 #include "sieve/sieve_stripe.h"
+#include "bitstorage/bitstorage_continuePattern.h"
 #include "sieve/sieve_extend.h"
 
 /* This is the main module that directs all the work
@@ -33,13 +29,11 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
     const counter_t sieve_bits = sieve_size >> 1;
     struct sieve_t *sieve      = sieve_create(sieve_size, sieve_bits);
-    // const counter_t prime_max_half  = calcFactor_max_half(sieve_bits);
     const counter_t prime_max       = calcFactor_max(sieve_size);
 
     // use globals as constant - these get optimized
     const counter_t stripeprime_faster  = global_stripeprime_faster;
-    const counter_t blocksize_bits      = global_blocksize_bits;
-    const counter_t blocksize_factor    = blocksize_bits * 2;
+    const counter_t blocksize_factor    = calcBitsize(global_blocksize_bits, STORAGE_HALF);
     const counter_t algorithm           = global_algorithm;
 
     verbose5({

@@ -78,3 +78,15 @@ calcFactor_max(counter_t range_stop)
 {
     return (1 + usqrt( range_stop + 1 ));
 }
+
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
+calcBitsize(counter_t factorsize, int storage_id) 
+{
+    return (factorsize * storage_table[storage_id].bitsize) / storage_table[storage_id].factorsize;
+}
+
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
+calcFactorsize(counter_t bitsize, int storage_id) 
+{
+    return (bitsize * storage_table[storage_id].factorsize) / storage_table[storage_id].bitsize;
+}

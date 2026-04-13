@@ -1,25 +1,35 @@
 // masks and mask helpers
-#define SHIFT_SIZE                  1 // the shift needed to get from SIZE to BIT (1 because even numbers arr not storing in the bitstorage)
 #define SHIFT_BYTE                  3 // the shift needed to get from BIT to BYTE
 
 // these are used to describe the max size of the bitstorage (uint64_v8) and use for the benchmarking
 #define VECTORWORD_SIZE_BITS        64
 #define VECTOR_SIZE_BYTES           64
 #define VECTOR_SIZE_BITS            512
+typedef struct  {
+    counter_t storage_id;
+    counter_t bitsize;
+    counter_t factorsize;
+} storage_t;
 
-// types of vector alignments, used by presets in varianttypes.h
-typedef uint64_t uint64v8_t  __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
-typedef uint64_t uint64v4_t  __attribute__ ((vector_size(32), aligned(cache_line_bytes)));
-typedef uint64_t uint64v2_t  __attribute__ ((vector_size(16), aligned(cache_line_bytes)));
-typedef uint32_t uint32v16_t __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
-typedef uint32_t uint32v8_t  __attribute__ ((vector_size(32), aligned(cache_line_bytes)));
-typedef uint32_t uint32v4_t  __attribute__ ((vector_size(16), aligned(cache_line_bytes)));
-typedef uint32_t uint32v2_t  __attribute__ ((vector_size( 8), aligned(cache_line_bytes)));
-typedef uint16_t uint16v32_t __attribute__ ((vector_size(64), aligned(cache_line_bytes)));
-typedef uint16_t uint16v16_t __attribute__ ((vector_size(32), aligned(cache_line_bytes)));
-typedef uint16_t uint16v8_t  __attribute__ ((vector_size(16), aligned(cache_line_bytes)));
-typedef uint16_t uint16v4_t  __attribute__ ((vector_size( 8), aligned(cache_line_bytes)));
-typedef uint16_t uint16v2_t  __attribute__ ((vector_size( 4), aligned(cache_line_bytes)));
+enum {
+    STORAGE_FULL             = 0,
+    STORAGE_HALF             = 1,
+    STORAGE_WHEEL2OF6        = 2,
+    STORAGE_WHEEL8OF30       = 3,
+    STORAGE_WHEEL48OF210     = 4,
+    STORAGE_WHEEL480OF2310   = 5,
+    STORAGE_WHEEL5760OF30030 = 6
+};
+
+static const storage_t storage_table[STORAGE_WHEEL5760OF30030+1] = {
+    [STORAGE_FULL] = { STORAGE_FULL, 1, 1 },
+    [STORAGE_HALF] = { STORAGE_HALF, 1, 2 },
+    [STORAGE_WHEEL2OF6] = { STORAGE_WHEEL2OF6, 2, 6 },
+    [STORAGE_WHEEL8OF30] = { STORAGE_WHEEL8OF30, 8, 30 },
+    [STORAGE_WHEEL48OF210] = { STORAGE_WHEEL48OF210, 48, 210 },
+    [STORAGE_WHEEL480OF2310] = { STORAGE_WHEEL480OF2310, 480, 2310 },
+    [STORAGE_WHEEL5760OF30030] = { STORAGE_WHEEL5760OF30030, 5760, 30030 }
+};
 
 #define builtin_ctz(x)                     __builtin_ctzll((int64_t)(x))
 #define shift_calc(bits)                   ((bits) ? builtin_ctz(bits) : 0)
@@ -55,6 +65,9 @@ static counter_t global_largestep_faster    = 0; // if step < VECTORSTAP_FASTER,
 static counter_t global_blocksize_bits      = 0; // blocksize in bits
 static counter_t global_vectorsize          = 0; // vectorsize in bits
 static counter_t global_algorithm           = 0; // algorithm to use for the sieve
+static counter_t global_storage             = 0; // storage type to use for the sieve
 static counter_t debug_hits                 = 0;
 static counter_t debug_final_benchmarking   = 0;
 static counter_t debug_final_plan           = 0;
+
+#include "varianttypes.h"

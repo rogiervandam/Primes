@@ -1,3 +1,5 @@
+
+
 static int compareTuningResults(const void *resultA, const void *resultB) 
 {
     return (((benchmark_result_t *)resultB)->avg > ((benchmark_result_t *)resultA)->avg ? 1 : -1);
@@ -185,7 +187,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
 {
     verbose2( printf("Tuning...building options..."); )
 
-    counter_t prime_max = calcFactor_max(start_tuning_settings.factor_max) >> SHIFT_SIZE;
+    counter_t prime_max = calcFactor_max(start_tuning_settings.factor_max);
         //TODO: remove usqrt(start_tuning_settings.factor_max) / 2; // divide by 2 to compensate for bitwise representation 
 
     tuning_parameters_t tuning_parameters = {
@@ -193,7 +195,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
         .stripe_faster_steps = 64,
         .largestep_faster_steps = 32,
         .sample_duration = option.initial_sample_duration,
-        .sieve_bits = start_tuning_settings.factor_max >> SHIFT_SIZE,
+        .sieve_bits = calcBitsize(start_tuning_settings.factor_max, start_tuning_settings.storage),
         .time_target = 0, // This field wasn't initialized in your original code
         .step = 0,
         .tuning_results_max = 0,

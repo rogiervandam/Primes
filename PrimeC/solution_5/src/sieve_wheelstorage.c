@@ -9,7 +9,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stdint.h>
-// #include <inttypes.h> // needed for PRIx macros
 
 static char algorithm_name[60] = "rogiervandam_wheelstorage";
 static char algorithm_type[] = "wheel";
@@ -24,13 +23,7 @@ static char algorithm_type[] = "wheel";
     #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS) 
 #endif
 
-// include helper functions
-#include "generic/settings.h"
-#undef SHIFT_SIZE
-#define SHIFT_SIZE 0 // correct because we are not storing even numbers, so the number of bits is the same as the size of the sieve
-
 #include "benchmark/sieve_options.h"
-#include "generic/tools.h" // used for debugging
 #include "sieve/sieve_manager.h"
 #include "sieve/sieve_storage_wheel.h"
 

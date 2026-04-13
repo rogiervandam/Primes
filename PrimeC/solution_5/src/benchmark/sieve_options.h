@@ -1,4 +1,6 @@
 
+#include "../generic/settings.h"
+
 typedef struct  {
     counter_t factor_max;
     counter_t stripe_faster;
@@ -6,6 +8,7 @@ typedef struct  {
     counter_t blocksize_bits;
     counter_t vectorsize;
     counter_t algorithm;
+    counter_t storage;
     counter_t threads;
     double    sample_duration;
 } benchmark_settings_t;
@@ -49,7 +52,7 @@ setDefaultOptions()
     option.explain                    = 0;
     option.timers                     = 0;
 
-    option.check                      = 1; // set to 2 to stop after the check algorithm
+    option.check                      = 2;
     option.tunelevel                  = 2;
     option.initial_sample_duration    = 0.001;
     option.next_sample_duration       = 0.004;
@@ -65,6 +68,7 @@ setDefaultOptions()
     option.fixed_benchmark_settings.blocksize_bits          = 0;
     option.fixed_benchmark_settings.vectorsize              = 0;
     option.fixed_benchmark_settings.algorithm               = 0;
+    option.fixed_benchmark_settings.storage                 = 0;
     option.fixed_benchmark_settings.sample_duration         = 5;
 
     option.dockerfile_type = getenv("DOCKERFILE_TYPE"); 
@@ -92,3 +96,4 @@ setDefaultOptions()
 }
 
 #include "sieve_timers.h"
+#include "../generic/tools.h"

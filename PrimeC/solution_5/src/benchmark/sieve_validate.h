@@ -99,5 +99,6 @@ handleCheckOption(int check, benchmark_settings_t benchmark_settings) {
     if (check >= 2) if (!checkSieveAlgorithm(benchmark_settings)) exit(1);
     if (check >= 3) if (!checkSieveAlgorithmAll(benchmark_settings)) exit(1);
 
+    if (check == 1) exit(0);
     if (check == 7) exit(0);
 }
