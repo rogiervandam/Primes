@@ -20,7 +20,7 @@ static char algorithm_type[] = "wheel";
 #endif
 
 // include helper functions
-#include "generic/settings.h"
+// #include "generic/settings.h"
 #include "benchmark/sieve_options.h"
 #include "bitstorage/bitstorage_search.h"
 #include "bitstorage/bitstorage_setBitsTrue.h"
@@ -135,6 +135,10 @@ void build_wheel() {
 #define PREPARE_FUNCTION 1 // signals sieve_main to call prepareSieveFunction() before the benchmark starts, this is used to build the wheel
 void prepareSieveFunction() {
     build_wheel();
+
+    option.fixed_benchmark_settings.largestep_faster        = 256;
+    option.fixed_benchmark_settings.algorithm               = ALGORITHM_WHEEL;
+    option.fixed_benchmark_settings.storage                 = STORAGE_HALF;
 }
 
 /* This is the main module that directs all the work
@@ -146,7 +150,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     struct sieve_t *sieve = sieve_create(sieve_size, sieve_size>>1);
     void* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
     const counter_t sieve_bits = sieve->bits;
-    const counter_t prime_max = prime_stop(sieve_bits);
+    const counter_t prime_max = calcFactor_max_half(sieve_bits);
 
     // use globals as constant
     const counter_t stripeprime_faster = global_stripeprime_faster;
@@ -164,8 +168,8 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
         #pragma GCC unroll 16
         while (prime < prime_max) {
             register const counter_t step = prime * 2 + 1;
-            register counter_t start = compute_start(prime, block_start);
-            setBitsTrue_base(bitstorage, start, step, range_stop);
+            register counter_t start = calcFactor_start_half(prime, block_start);
+            setBitsTrue_base(bitstorage, start, range_stop, step);
             prime = searchBitFalse_wheel_unsafe(bitstorage, prime);
         }
     } 

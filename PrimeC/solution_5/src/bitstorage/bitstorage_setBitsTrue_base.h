@@ -53,7 +53,7 @@ setBitsTrue_smallstep_norepeat(void* restrict bitstorage, const counter_t range_
 }
 
 static inline void  __attribute__((always_inline, nonnull)) 
-setBitsTrue_base(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+setBitsTrue_base(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
 {
     startAnalysis6(time_setBitsTrue, "Setting bits step %3ju using setBitsTrue_base in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps)\n", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step)));
 

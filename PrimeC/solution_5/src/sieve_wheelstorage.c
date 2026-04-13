@@ -54,13 +54,13 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 
     verbose5( printf("\nShaking sieve to find all primes up to %ju with blocks %ju using the wheel with primes up to %ju\n",(uintmax_t)sieve_size,(uintmax_t)factorBlock,(uintmax_t)WHEEL_MAX); )
 
-    #pragma GCC unroll 2
+    // #pragma GCC unroll 2
     for (counter_t block_start = 0; block_start < sieve_size; block_start += factorBlock) {
         const counter_t block_stop = min(sieve_size, block_start + factorBlock);
 
         verbose6( printf("Processing block with range%ju - %ju\n",(uintmax_t)block_start, (uintmax_t)block_stop); )
 
-        #pragma GCC unroll 32
+        // #pragma GCC unroll 32
         for (counter_t prime = findUnmarked(sieve, WHEEL_MAX+1); prime < prime_max;  prime = findUnmarked(sieve, ++prime)) {
             markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
         }
