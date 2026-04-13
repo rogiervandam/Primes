@@ -93,7 +93,7 @@
         register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
         const counter_t byte_stop = wheel_block_calc(range_stop + 1);
-        const counter_t wheel_step = step * wheelmask_stripe_bytes;
+        const counter_t wheel_step = (step >> shift_calc(step)) * (bitcount_type(uint8_t) / wheelmask_stripe_bits); // step in terms of the number of bitbuckets
 
         // Every WHEEL_BASIC_SIZE * wheel_step, the pattern of which bits to mark as true in the wheel repeats at byte level 
         // Because when the wheel is completely done, we are wheelmask_stripe_bytes further in the bitstorage
@@ -162,10 +162,10 @@
     markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
     {
         const counter_t prime = step / 2;
-        if (prime <= 5 ) {
-            markFactors_wheel_smallstep_rotate_vectorpair_uint64v8_unroll8(sieve, start, stop, step);
-        }
-        else 
+        // if (prime <= 7 ) {
+        //     markFactors_wheel_smallstep_rotate_vectorpair_uint64v8_unroll8(sieve, start, stop, step);
+        // }
+        // else 
         if (prime < global_stripeprime_faster * WHEEL_SIZE / (wheelmask_stripe_bits)) {
             markFactors_wheel_small_repeat_uint64(sieve, start, stop, step);
         }
@@ -203,8 +203,11 @@
             return;
         }
         const counter_t block_stop = function(wheel_block_calc,variantsuffix)(range_stop + 1);
-        const counter_t wheel_step = step * wheelmask_stripe_bytes;
-        const counter_t range_stop_unique = min(range_start + WHEEL_BASIC_SIZE * step * wheelmask_stripe_bits + WHEEL_BASIC_SIZE * wheelmask_stripe_bits, range_stop); 
+        // const counter_t wheel_step = step * wheelmask_stripe_bytes;
+        // const counter_t range_stop_unique = min(range_start + WHEEL_BASIC_SIZE * step * wheelmask_stripe_bits + WHEEL_BASIC_SIZE * wheelmask_stripe_bits, range_stop); 
+
+        const counter_t wheel_step = step >> shift_calc(step); // step in terms of the number of bitbuckets
+        const counter_t range_stop_unique = min(range_start + bitcount_type(uint64_t) / wheelmask_stripe_bits * WHEEL_BASIC_SIZE * (wheel_step + 1), range_stop); 
 
         uint64_t reuse_markmask = 0ULL;
         uint64_t reuse_markmask_new = 0ULL;

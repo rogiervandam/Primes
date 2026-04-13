@@ -82,7 +82,7 @@ static void __attribute__ ((cold)) printVectorNumeric(uint64v4_t bitvector)
 #include <termios.h>
 #include <unistd.h>
 
-int getch(void) {
+int waitforkey(void) {
     struct termios oldt, newt;
     tcgetattr(STDIN_FILENO, &oldt);
     newt = oldt;
