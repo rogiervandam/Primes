@@ -13,28 +13,27 @@
     #define variant uint8
     #include INCLUDE_FILE 
 
-    #define variant uint32
-    #include INCLUDE_FILE 
-    // #undef variant
-    #define variant uint64
-    #include INCLUDE_FILE 
-    // #undef variant
-
-    // #undef unrolls
-
-    // #define unrolls 4
-    // #define variant uint32
-    // #include INCLUDE_FILE 
-    // #define variant uint64
-    // #include INCLUDE_FILE 
-    // #undef unrolls
-
-    // #define unrolls 8
-    // #define variant uint32
-    // #include INCLUDE_FILE 
-    // #define variant uint64
-    // #include INCLUDE_FILE 
     #undef unrolls
+        #define variant uint32
+        #include INCLUDE_FILE 
+        // #undef variant
+        #define variant uint64
+        #include INCLUDE_FILE 
+    // #undef variant
+
+    #define unrolls 4
+        #define variant uint32
+        #include INCLUDE_FILE 
+        #define variant uint64
+        #include INCLUDE_FILE 
+        #undef unrolls
+
+    #define unrolls 8
+        #define variant uint32
+        #include INCLUDE_FILE 
+        #define variant uint64
+        #include INCLUDE_FILE 
+        #undef unrolls
     // #define preset uint64v4
     // #include INCLUDE_FILE
 #undef include_for_words
