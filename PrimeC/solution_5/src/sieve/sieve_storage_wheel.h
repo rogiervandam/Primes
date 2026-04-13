@@ -173,10 +173,10 @@ function(markFactors_wheel_small_repeat,suffix)(sieve_t* sieve, const counter_t 
 {
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
-    if (step >= bitcount_type(bitbucket_t)) {
-        markFactors_wheel_repeat(sieve, range_start, range_stop, step);
-        return;
-    }
+    // if (step >= bitcount_type(bitbucket_t)) {
+    //     markFactors_wheel_repeat(sieve, range_start, range_stop, step);
+    //     return;
+    // }
     const counter_t block_stop = function(wheel_block_calc,variantsuffix)(range_stop + 1);
     // const counter_t wheel_step = step * wheelmask_stripe_bytes;
     // const counter_t range_stop_unique = min(range_start + WHEEL_BASIC_SIZE * step * wheelmask_stripe_bits + WHEEL_BASIC_SIZE * wheelmask_stripe_bits, range_stop); 
@@ -363,15 +363,16 @@ function(markFactors_wheel_small_repeat,suffix)(sieve_t* sieve, const counter_t 
     markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
     {
         const counter_t prime = step / 2;
+        
         // if (prime <= 7 ) {
         //     markFactors_wheel_smallstep_rotate_vectorpair_uint64v8_unroll8(sieve, start, stop, step);
         // }
         // else 
-        if (prime < global_stripeprime_faster * WHEEL_SIZE / (wheelmask_stripe_bits)) {
+        if (prime < global_stripeprime_faster ) {
             markFactors_wheel_small_repeat_uint64_unroll8(sieve, start, stop, step);
         }
         else 
-        if (prime < global_largestep_faster * WHEEL_SIZE / (wheelmask_stripe_bits)*8) {
+        if ( (stop-start) > (step * bitcount_type(uint8_t) / wheelmask_stripe_bits * WHEEL_BASIC_SIZE)) { // if the range is large enough to benefit from the repeat function, use it, otherwise use the non-repeat function which has less overhead for small ranges
             markFactors_wheel_repeat(sieve, start, stop, step);
         }
         else 

@@ -21,6 +21,14 @@ enum {
     STORAGE_WHEEL5760OF30030 = 6
 };
 
+enum {
+    ALGORITHM_CLASSIC = 0,
+    ALGORITHM_EXTEND1 = 1,
+    ALGORITHM_EXTEND2 = 2,
+    ALGORITHM_STRIPED = 3,
+    ALGORITHM_WHEEL   = 4
+};
+
 static const storage_t storage_table[STORAGE_WHEEL5760OF30030+1] = {
     [STORAGE_FULL] = { STORAGE_FULL, 1, 1 },
     [STORAGE_HALF] = { STORAGE_HALF, 1, 2 },

@@ -13,7 +13,6 @@
 static char algorithm_name[60] = "rogiervandam_wheelstorage";
 static char algorithm_type[] = "wheel";
 
-#define ALGORITHM_WHEEL 1
 // #define ALTERNATIVE_CHECK 1 // signals sieve_check to use the alternative check function
 
 #ifndef WHEEL_SIZE
@@ -21,6 +20,7 @@ static char algorithm_type[] = "wheel";
     #define WHEEL_BASIC_SIZE (2*3*5)
     #define WHEEL_REPEATS 1
     #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS) 
+    #define WHEEL_STORAGE STORAGE_WHEEL8OF30
 #endif
 
 #include "benchmark/sieve_options.h"
@@ -37,7 +37,9 @@ void prepareSieveFunction() {
 
     option.fixed_benchmark_settings.blocksize_bits          = 1000000;
     option.fixed_benchmark_settings.vectorsize              = 256;
-    option.fixed_benchmark_settings.algorithm               = 1;
+    option.fixed_benchmark_settings.largestep_faster        = 256;
+    option.fixed_benchmark_settings.algorithm               = ALGORITHM_WHEEL;
+    option.fixed_benchmark_settings.storage                 = WHEEL_STORAGE;
 }
 
 /* This is the main module that directs all the work
@@ -50,7 +52,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     sieve_clear(sieve);
 
     const counter_t prime_max = calcFactor_max(sieve_size);
-    const counter_t factorBlock = global_blocksize_bits * 2;
+    const counter_t factorBlock = calcFactorsize(global_blocksize_bits, global_storage);
 
     verbose5( printf("\nShaking sieve to find all primes up to %ju with blocks %ju using the wheel with primes up to %ju\n",(uintmax_t)sieve_size,(uintmax_t)factorBlock,(uintmax_t)WHEEL_MAX); )
 

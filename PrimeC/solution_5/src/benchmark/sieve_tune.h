@@ -93,7 +93,8 @@ static counter_t buildInitialTuningTable(benchmark_result_t* tuning_result, benc
 
                         if (tuning_settings.stripe_faster < tuning_parameters.prime_max 
                             && tuning_settings.blocksize_bits == tuning_parameters.sieve_bits
-                            && (option.fixed_benchmark_settings.stripe_faster == 0) // only break if user didn't set this
+                            && (option.fixed_benchmark_settings.stripe_faster == 0 // only break if user didn't set this
+                            && algorithm != ALGORITHM_WHEEL) 
                         ) break; // stripe will do the entire sieve as well
 
                         resetBenchmarkResult(&tuning_result[tuning_results++], checkBenchmarkSettings(tuning_settings));
@@ -142,7 +143,8 @@ static counter_t addTuningVariations(benchmark_result_t* tuning_result, counter_
 
         counter_t stripe_faster_steps_diff = tuning_parameters.stripe_faster_steps >> tuning_parameters.step; 
         if (!option.fixed_benchmark_settings.stripe_faster 
-            && tuning_settings.blocksize_bits != tuning_parameters.sieve_bits) { // lower than stripe_faster is same as full sieve
+            && (tuning_settings.blocksize_bits != tuning_parameters.sieve_bits || tuning_settings.algorithm == ALGORITHM_WHEEL)
+        ) { // lower than stripe_faster is same as full sieve
             if (stripe_faster_steps_diff > 1) {
                 if (tuning_settings.stripe_faster < tuning_parameters.prime_max - stripe_faster_steps_diff) {
                     resetBenchmarkResult(&tuning_result[new_tuning_results], tuning_settings);
@@ -283,6 +285,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
         counter_t tuning_results_selected = tuning_results * option.tune_keeppercent_longlist / 100;
         if (tuning_results_selected < 16 && tuning_results > 16) tuning_results_selected = 16;
         if (tuning_results_selected < 16) tuning_results_selected = tuning_results * option.tune_keeppercent_shortlist / 100;
+        if (tuning_results_selected < 8 && tuning_parameters.step < 8) tuning_results_selected = max(8-tuning_parameters.step, tuning_results_selected);
         if (tuning_results_selected <= 1) break;
 
         verbose3( {

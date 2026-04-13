@@ -10,10 +10,11 @@
     
     // #define unrolls 1
     // // #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
-    #define variant uint8
-    #include INCLUDE_FILE 
-
     #undef unrolls
+        #define variant uint8
+        #include INCLUDE_FILE 
+        #define variant uint16
+        #include INCLUDE_FILE 
         #define variant uint32
         #include INCLUDE_FILE 
         // #undef variant
@@ -22,6 +23,10 @@
     // #undef variant
 
     #define unrolls 4
+        #define variant uint8
+        #include INCLUDE_FILE 
+        #define variant uint16
+        #include INCLUDE_FILE 
         #define variant uint32
         #include INCLUDE_FILE 
         #define variant uint64
@@ -29,6 +34,10 @@
         #undef unrolls
 
     #define unrolls 8
+        #define variant uint8
+        #include INCLUDE_FILE 
+        #define variant uint16
+        #include INCLUDE_FILE 
         #define variant uint32
         #include INCLUDE_FILE 
         #define variant uint64
