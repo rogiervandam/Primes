@@ -33,7 +33,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
     const counter_t sieve_bits = sieve_size >> 1;
     struct sieve_t *sieve      = sieve_create(sieve_size, sieve_bits);
-    const counter_t prime_max_half  = calcFactor_max_half(sieve_bits);
+    // const counter_t prime_max_half  = calcFactor_max_half(sieve_bits);
     const counter_t prime_max       = calcFactor_max(sieve_size);
 
     // use globals as constant - these get optimized
@@ -51,27 +51,28 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     {
         case 1:
         {
-            // fill the entire sieve for lower primes by adding en copying incrementally
-            counter_t prime = extendSieveBlock0_half(sieve->bitstorage, sieve_bits);
+            // fill the entire sieve for lower primes by striping off the multiples in a small sieve
+            // and copying this pattern to a extended sieve, until the sieve size matches the entire sieve
+            counter_t prime = extendSieveBlock0_half(sieve->bitstorage, sieve_bits) * 2 + 1;
             
             // continue from last the prime that was processed and stripe off the multiples of this prime
             // repeat until it is faster to do this block by block
-            prime = markSieve(sieve, sieve_size, prime * 2 + 1, stripeprime_faster * 2 + 1) / 2;
+            prime = markSieve(sieve, sieve_size, prime, stripeprime_faster);
 
             // process the remaining primes block by block to minimize cache misses
-            markSieveBlockByBlock(sieve, sieve_size, blocksize_factor, prime * 2 + 1, prime_max_half * 2 + 1);
+            markSieveBlockByBlock(sieve, sieve_size, blocksize_factor, prime, prime_max);
         } break;
 
-        case 2: // process extend and stripe block by block
+        case 2: // process both extend and stripe block by block
         {
-            counter_t prime_next = extendSieveBlockByBlock(sieve, sieve_size, blocksize_factor, stripeprime_faster * 2 + 1);
-            markSieveBlockByBlock(sieve, sieve_size, blocksize_factor, prime_next, prime_max_half * 2 + 1);
+            counter_t prime_next = extendSieveBlockByBlock(sieve, sieve_size, blocksize_factor, stripeprime_faster);
+            markSieveBlockByBlock(sieve, sieve_size, blocksize_factor, prime_next, prime_max);
         } break;
 
-        // case 3: // process everything block by block -- can be set via --set a3 on command line
-        // {
-        //     stripeSieveBlockByBlock(sieve->bitstorage, sieve_bits, blocksize_bits, 1, prime_max);
-        // } break;
+        case 3: // process everything block by block -- can be set via --set a3 on command line
+        {
+            markSieveBlockByBlock(sieve, sieve_size, blocksize_factor, 3, prime_max);
+        } break;
     }
 
     // return the completed sieve
