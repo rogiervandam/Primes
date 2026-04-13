@@ -4,6 +4,12 @@
 OS="$(uname -s)"
 ARCH="$(uname -m)"
 
+# Color codes
+CYELLOW="\033[1;33m"
+CCYAN="\033[1;36m"
+CGREEN="\033[1;32m"
+CRESET="\033[0m"
+
 # Initialize compiler override variable
 COMPILER_OVERRIDE=""
 RUNALL=""
@@ -26,6 +32,8 @@ for arg in "$@"; do
     elif [ "$arg" = "runall" ]; then
         RUNALL="runall"
     elif [ "$arg" = "test" ]; then
+        TESTALL="testall"
+    elif [ "$arg" = "testall" ]; then
         TESTALL="testall"
     elif [ "$arg" = "compile" ]; then
         COMPILE="compile"
@@ -231,14 +239,14 @@ if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
                 if [ $# -gt 2 ] && [ "$3" = "set" ]; then
                     # Copy the Dockerfile to the main directory
                     cp "$DOCKERFILE_FULL" "./Dockerfile"
-                    echo "Copied $DOCKERFILE_FULL to ./Dockerfile"
+                    echo -e "Copied ${CYELLOW}$DOCKERFILE_FULL${CRESET} to ./Dockerfile"
                     exit 0
                 else
                     # Original behavior: shift past the first two arguments only
                     shift 2
                 fi
             else
-                echo "Error: Dockerfile '$DOCKERFILE' not found."
+                echo -e "Error: Dockerfile '${CYELLOW}$DOCKERFILE${CRESET}' not found."
                 exit 1
             fi
         fi
@@ -251,8 +259,8 @@ if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
     fi
 
     if [ $verbose_level -gt 1 ]; then
-        echo "Building and running Docker container for type: $DOCKER_TYPE"
-        echo "Running command: docker build --pull --file $DOCKERFILE_FULL --rm -t sieve_$DOCKER_TYPE ." 
+        echo -e "Building and running Docker container for type: ${CYELLOW}$DOCKER_TYPE${CRESET}"
+        echo -e "Running command: docker build --pull --file ${CYELLOW}$DOCKERFILE_FULL${CRESET} --rm -t ${CYELLOW}sieve_$DOCKER_TYPE${CRESET} ." 
     fi
 
     # Check if the Docker image exists before attempting to remove it
@@ -268,9 +276,9 @@ if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
     
     # Run the Docker container with any remaining arguments
     if [ $verbose_level -gt 1 ]; then
-        echo "Running Docker container with arguments: $@"
-        echo "Run with: docker run --rm -e DOCKERFILE_TYPE=\"$DOCKER_TYPE\" \"sieve_$DOCKER_TYPE\" $@ $COMPILER_OVERRIDE" 
-        echo "Go in with: docker run --rm --name "sieve_$DOCKER_TYPE" -e DOCKERFILE_TYPE=$DOCKER_TYPE -it --entrypoint /bin/bash sieve_$DOCKER_TYPE"  
+        echo -e "Running Docker container with arguments: $@"
+        echo -e "Run with: docker run --rm -e DOCKERFILE_TYPE=\"${CYELLOW}$DOCKER_TYPE${CRESET}\" \"${CYELLOW}sieve_$DOCKER_TYPE${CRESET}\" $@ $COMPILER_OVERRIDE" 
+        echo -e "Go in with: docker run --rm --name "${CYELLOW}sieve_$DOCKER_TYPE${CRESET}" -e DOCKERFILE_TYPE=${CYELLOW}$DOCKER_TYPE${CRESET} -it --entrypoint /bin/bash ${CYELLOW}sieve_$DOCKER_TYPE${CRESET}"  
     fi
     docker run --rm --name "sieve_$DOCKER_TYPE" -e DOCKERFILE_TYPE="$DOCKER_TYPE" "sieve_$DOCKER_TYPE" $@ $COMPILER_OVERRIDE
     exit $?
@@ -404,11 +412,11 @@ fi
 PROGTOTAL="${base}"
 
 if [ $verbose_level -gt 1 ]; then
-    echo "Compiling ${PROGTOTAL} for ${OS} with ${COMPILER} "
+    echo -e "Compiling ${CYELLOW}${PROGTOTAL}${CRESET} for ${CCYAN}${OS}${CRESET} with ${CGREEN}${COMPILER}${CRESET} "
 fi
 
 if [ $verbose_level -gt 2 ]; then
-  echo "Issuing command: $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS"
+  echo -e "Issuing command: ${CGREEN}$CC${CRESET} -o ./bin/${CYELLOW}$PROGTOTAL${CRESET} ./src/${CYELLOW}${base}.c${CRESET} $DEFINE_FLAGS"
 fi
 
 $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS $CCWARN
@@ -417,7 +425,7 @@ if [ "$COMPILER_ASM" = "asm" ]; then
     if [ "$COMPILER" = "gcc" ]; then
         $CCASM -o ./dev/build/$PROGTOTAL.s ./src/${base}.c $DEFINE_FLAGS
     else #clang
-        echo "Running $CCASM -o ./dev/build/$PROGTOTAL.s ./src/${base}.c $DEFINE_FLAGS" 
+        echo -e "Running ${CGREEN}$CCASM${CRESET} -o ./dev/build/${CYELLOW}$PROGTOTAL.s${CRESET} ./src/${CYELLOW}${base}.c${CRESET} $DEFINE_FLAGS" 
         $CCASM -o ./dev/build/$PROGTOTAL.s ./src/${base}.c $DEFINE_FLAGS
     fi
 fi
@@ -430,11 +438,11 @@ $STRIP ./bin/$PROGTOTAL
 if [ $threads -gt 0 ]; then
     PROGTOTALPAR="${base}$PAREXT"
     if [ $verbose_level -gt 1 ]; then
-        echo "Compiling ${PROGTOTALPAR} for ${OS} with ${COMPILER} "
+        echo -e "Compiling ${CYELLOW}${PROGTOTALPAR}${CRESET} for ${CCYAN}${OS}${CRESET} with ${CGREEN}${COMPILER}${CRESET} "
     fi
 
     if [ $verbose_level -gt 2 ]; then
-    echo "Issuing command: $CC  $PAR -o ./bin/$PROGTOTALPAR ./src/${base}.c $DEFINE_FLAGS"
+    echo -e "Issuing command: ${CGREEN}$CC${CRESET} $PAR -o ./bin/${CYELLOW}$PROGTOTALPAR${CRESET} ./src/${CYELLOW}${base}.c${CRESET} $DEFINE_FLAGS"
     fi
     $CC $PAR -o ./bin/$PROGTOTALPAR ./src/${base}.c $DEFINE_FLAGS
     if [ $? -ne 0 ]; then
@@ -450,12 +458,12 @@ fi
 
 if [ $threads -gt 0 ]; then
     if [ $verbose_level -gt 1 ]; then
-        echo "Running parallel version: ./bin/$PROGTOTALPAR $run_args $@"
+        echo -e "Running parallel version: ${CYELLOW}./bin/$PROGTOTALPAR${CRESET} $run_args $@"
     fi
     ./bin/$PROGTOTALPAR $run_args $@
 else
     if [ $verbose_level -gt 2 ]; then
-        echo "Running ./bin/$PROGTOTAL $run_args $@"
+        echo -e "Running ${CYELLOW}./bin/$PROGTOTAL${CRESET} $run_args $@"
     fi
     ./bin/$PROGTOTAL $run_args $@
 fi

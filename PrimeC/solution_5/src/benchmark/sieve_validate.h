@@ -10,7 +10,7 @@ static void deepAnalyzeWithBenchmarkSettings(benchmark_settings_t benchmark_sett
 static int __attribute__((cold)) 
 checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 {
-    verbose2( printf("Validating variant .. "); )
+    verbose2( printf("Validating variant " COLOR_YELLOW "%s" COLOR_RESET ".. ", algorithm_name); )
     verbose3( printf("\n"); )
 
     // validate algorithm - run one time for all sizes
@@ -39,7 +39,7 @@ checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 static int __attribute__((cold)) 
 checkSieveAlgorithmAll(benchmark_settings_t benchmark_settings)
 {
-    verbose2( printf("Validating variant with different block sizes... "); ) verbose3( printf("\n"); ) 
+    verbose2( printf("Validating variant " COLOR_YELLOW "%s" COLOR_RESET " with different block sizes... ", algorithm_name); ) verbose3( printf("\n"); ) 
 
     // validate algorithm - run one time for all sizes
     for (counter_t sieveSize_check = 100; sieveSize_check <= 1000000; sieveSize_check *=10) {
