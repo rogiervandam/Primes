@@ -2,43 +2,43 @@
 #undef unrolls
 #undef variant
 
-#define include_once_first 1
+// includ
 #include INCLUDE_FILE
-#undef include_once_first
+#define included_once 1
 
-    #define include_for_words 1
-        
-        // #define unrolls 1
-        // // #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
-        #define variant uint8
-        #include INCLUDE_FILE 
+#define include_for_words 1
+    
+    // #define unrolls 1
+    // // #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
+    #define variant uint8
+    #include INCLUDE_FILE 
 
-        #define variant uint32
-        #include INCLUDE_FILE 
-        // #undef variant
-        #define variant uint64
-        #include INCLUDE_FILE 
-        // #undef variant
+    #define variant uint32
+    #include INCLUDE_FILE 
+    // #undef variant
+    #define variant uint64
+    #include INCLUDE_FILE 
+    // #undef variant
 
-        // #undef unrolls
+    // #undef unrolls
 
-        // #define unrolls 4
-        // #define variant uint32
-        // #include INCLUDE_FILE 
-        // #define variant uint64
-        // #include INCLUDE_FILE 
-        // #undef unrolls
+    // #define unrolls 4
+    // #define variant uint32
+    // #include INCLUDE_FILE 
+    // #define variant uint64
+    // #include INCLUDE_FILE 
+    // #undef unrolls
 
-        // #define unrolls 8
-        // #define variant uint32
-        // #include INCLUDE_FILE 
-        // #define variant uint64
-        // #include INCLUDE_FILE 
-        #undef unrolls
-        // #define preset uint64v4
-        // #include INCLUDE_FILE
-    #undef include_for_words
-    #undef variant
+    // #define unrolls 8
+    // #define variant uint32
+    // #include INCLUDE_FILE 
+    // #define variant uint64
+    // #include INCLUDE_FILE 
+    #undef unrolls
+    // #define preset uint64v4
+    // #include INCLUDE_FILE
+#undef include_for_words
+#undef variant
 
 
 #define include_forvectors 1
@@ -98,8 +98,9 @@
 
     #undef include_forvectors
 
-    #define include_once_last 1
-    #include INCLUDE_FILE
-    #undef include_once_last
+#define include_once_last
+#include INCLUDE_FILE
+#undef include_once_last
 
-    #undef INCLUDE_FILE
+#undef included_once
+#undef INCLUDE_FILE

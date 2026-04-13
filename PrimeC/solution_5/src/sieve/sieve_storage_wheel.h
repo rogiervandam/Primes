@@ -1,6 +1,7 @@
-#ifndef BITSTORAGE_ASSEMBLE_WHEELSTORAGE_GUARD
-    #define BITSTORAGE_ASSEMBLE_WHEELSTORAGE_GUARD
-    
+
+
+// #ifndef included_once //---- include this once
+#ifndef ASSEMBLE_WHEELSTORAGE_GUARD
     // static unsigned int wheel[WHEEL_SIZE/2];
     static unsigned int wheelprimes[WHEEL_MAX+1]; // can't be more than highest prime in the wheel
     static uint8_t wheelmask[WHEEL_SIZE];
@@ -20,13 +21,8 @@
     #include "../bitstorage/bitstorage_search.h"
     #include "../bitstorage/bitstorage_setBitsTrue.h"
     #include "../sieve/sieve_calc.h"
+    #include "../generic/cleansuffix.h"
 
-    #define INCLUDE_FILE "../../src/sieve/sieve_storage_wheel.h"
-    #include "../generic/generate_varianttypes.h"
-
-    // #include "../bitstorage/bitstorage_setBitsTrue_wheel.h"
-#elif defined include_once_first //---- include this once
-    
     void build_wheel() {
         // find all the primes in the wheel up to WHEEL_MAX and store them
         for (counter_t i = 0; i < WHEEL_MAX; i++) {
@@ -155,8 +151,210 @@
         for (;checkFactor(sieve, ++factor););
         return factor;
     }
+#endif
 
-#elif defined include_once_last //---- include this once after all variants
+#include "../generic/setsuffix.h" 
+// sets bitbucket_t (e.g. uint64_t), variantsuffix (e.g. _uint64) and suffix (e.g. _uint64_unroll8) 
+// for the current variant, based on the presets defined in varianttypes.h
+
+#if defined variantsuffix && !defined unrolls
+    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+    function(wheel_block_calc,variantsuffix)(counter_t index) {
+        return index_type(wheelmask_stripe_bits * (index / WHEEL_SIZE), bitbucket_t);
+    }
+#endif
+
+#ifdef include_for_words //---- include only the variant function
+
+static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
+function(markFactors_wheel_small_repeat,suffix)(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step)
+{
+    register bitbucket_t* restrict bitstorage_sized_64 = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
+
+    if (step >= bitcount_type(bitbucket_t)) {
+        markFactors_wheel_repeat(sieve, range_start, range_stop, step);
+        return;
+    }
+    const counter_t block_stop = function(wheel_block_calc,variantsuffix)(range_stop + 1);
+    // const counter_t wheel_step = step * wheelmask_stripe_bytes;
+    // const counter_t range_stop_unique = min(range_start + WHEEL_BASIC_SIZE * step * wheelmask_stripe_bits + WHEEL_BASIC_SIZE * wheelmask_stripe_bits, range_stop); 
+
+    const counter_t wheel_step = step >> shift_calc(step); // step in terms of the number of bitbuckets
+    const counter_t range_stop_unique = min(range_start + bitcount_type(bitbucket_t) / wheelmask_stripe_bits * WHEEL_BASIC_SIZE * (wheel_step + 1), range_stop); 
+
+    bitbucket_t reuse_markmask = 0ULL;
+    bitbucket_t reuse_markmask_new = 0ULL;
+    counter_t reuse_block_start = 0;
+
+    for (register counter_t index = range_start; index <= range_stop_unique; index += step) { 
+        const counter_t wheel_block = function(wheel_block_calc,variantsuffix)(index);
+
+        if (reuse_block_start < wheel_block) { // when going to the next block
+            if (reuse_markmask) { // apply previous mask if it exists
+                if (reuse_block_start) {  // don't repeat the first block, it may be misaligned
+                    function(applyMask_index,_uint64_unroll8)(sieve->bitstorage, reuse_block_start, block_stop, wheel_step, reuse_markmask);
+                }
+                else bitstorage_sized_64[0] |= reuse_markmask; // if the previous block was the first block, we can apply the mask directly without going through the function
+            }
+            reuse_block_start = wheel_block;
+            reuse_markmask = 0ULL;
+            // reuse_markmask_new = 0ULL;
+        }
+
+        const counter_t wheel_index = index % WHEEL_SIZE;
+        const uint64_t markmask = wheelmask_compressed[wheel_index];
+        // if (wheelmask_offset[wheel_index]) {
+        //     reuse_markmask |= (1ULL << (((wheelmask_stripe_bytes * index / WHEEL_SIZE) & 7)*8+(wheelmask_offset[wheel_index]-1)));
+        // }
+        reuse_markmask |= markmask << ((wheel_block_calc(index) & 7) *8); // combine the markmask for the current block if it is the same as the previous one
+        // reuse_markmask |= wheelmask_compressed[index % WHEEL_SIZE] << ((wheel_block_calc(index) & 7) << 3); // combine the markmask for the current block if it is the same as the previous one
+    } 
+
+    // we can ignore the last mask because it should already be set
+    // can be wrong if wheel is large and range is small.
+    bitstorage_sized_64[reuse_block_start] |= reuse_markmask;
+}
+
+#if defined unrolls && unrolls > 1
+    static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
+    function(markFactors_wheel_small_repeat_pair,suffix)(sieve_t* sieve, const counter_t range_start, const counter_t step, const counter_t range_stop)
+    {
+        register uint64_t* restrict bitstorage_sized_64 = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
+
+        // if (step >= 32) {
+        //     setBitsTrue_wheel_repeat(bitstorage, range_start, step, range_stop);
+        //     return;
+        // }
+        const counter_t block_stop = function(wheel_block_calc,variantsuffix)(range_stop + 1);
+        const counter_t wheel_step = step * wheelmask_stripe_bytes;
+        const counter_t range_stop_unique = min(range_start + WHEEL_BASIC_SIZE * wheel_step * 8 + 2 * WHEEL_BASIC_SIZE * wheelmask_stripe_bits, range_stop); 
+
+        uint64_t reuse_markmask = 0ULL;
+        uint64_t reuse_markmask1 = 0ULL;
+        counter_t reuse_block_start = 0;
+
+        register counter_t index = range_start;
+
+        for (; index <= range_stop_unique; index += step) { 
+            const counter_t wheel_block = function(wheel_block_calc,variantsuffix)(index);
+            if ((wheel_block & 1) == 0)  break;
+            markFactors_wheel(sieve, index);
+            // setBitsTrue_wheel(bitstorage, index); 
+        }
+
+        for (register counter_t index = range_start; index <= range_stop_unique; index += step) { 
+            const counter_t wheel_block = function(wheel_block_calc,variantsuffix)(index);
+
+            if ((reuse_block_start + 1) < wheel_block) { // when going to the next block
+                if (reuse_markmask || reuse_markmask1) { // apply previous mask if it exists
+                    if (reuse_block_start) {  // don't repeat the first block, it may be misaligned
+                        function(applyMask_index_pair,suffix)(sieve->bitstorage, reuse_block_start, block_stop, wheel_step, reuse_markmask, reuse_markmask1);
+                    }
+                    else {
+                        bitstorage_sized_64[0] |= reuse_markmask; // if the previous block was the first block, we can apply the mask directly without going through the function
+                        bitstorage_sized_64[1] |= reuse_markmask1;
+                    }
+                }
+                reuse_block_start = wheel_block;
+                reuse_markmask = 0ULL;
+                reuse_markmask1 = 0ULL;
+            }
+
+            const counter_t wheel_index = index % WHEEL_SIZE;
+            const uint64_t markmask = wheelmask_compressed[wheel_index];
+            uint8_t wheel_mask_block = function(wheel_block_calc,variantsuffix)(index);
+            if (wheel_mask_block & 8) { // if the mask is for the next block, put it in the second markmask
+                reuse_markmask1 |= markmask << ((wheel_mask_block & 7) << 3); // combine the markmask for the current block if it is the same as the previous one
+            }
+            else
+            reuse_markmask |= markmask << ((wheel_mask_block & 7) << 3); // combine the markmask for the current block if it is the same as the previous one
+        } 
+        
+
+        // we can ignore the last mask because it should already be set
+        // can be wrong if wheel is large and range is small.
+        bitstorage_sized_64[reuse_block_start] |= reuse_markmask;
+        bitstorage_sized_64[reuse_block_start + 1] |= reuse_markmask1;
+    }
+    #endif // end of unrolled function
+#endif
+
+#ifdef include_forvectors 
+    #if defined unrolls && unrolls != 1
+
+    static void __attribute__((nonnull, aligned(cache_line_bytes))) 
+    function(markFactors_wheel_smallstep_rotate_vectorpair,suffix)(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step) 
+    {
+        register bitbucket_t* restrict bitstorage_sized     = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
+
+        counter_t start_vector = function(wheel_block_calc,variantsuffix)(range_start);
+        counter_t current_vector = start_vector;
+    // function(setBitsTrue_smallstep_rotate_pair_wheel,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+
+        // TODO: refactor
+        register counter_t index = range_start; 
+
+        // walk to next vector, setting bits on the way 
+        #pragma GCC ivdep
+        #pragma GCC unroll 32
+        for(; index <= range_stop; index += step) { 
+            current_vector = function(wheel_block_calc,variantsuffix)(index);
+            if (current_vector != start_vector) break; // if we are in a new vector, we need to recalculate the mask vector, because the pattern of which bits to mark as true in the wheel repeats every WHEEL_BASIC_SIZE * step
+            markFactor_wheel(sieve, index);
+        }
+        start_vector = current_vector;
+        
+        // counter_t vector_start_index = index;
+        bitbucket_t mask_vector = BITBUCKET0;
+        variant_base_type_t mask_element = (variant_base_type_t)0;
+        counter_t mask_element_index = 0;
+
+        // guarantee that all variations can land
+        const counter_t range_stop_index = function(wheel_block_calc,variantsuffix)(range_stop);
+        const counter_t range_stop_unique = min(index + WHEEL_BASIC_SIZE * bitcount_type(bitbucket_t) / (wheelmask_stripe_bits) * step, range_stop);
+        
+        for(; index <= range_stop_unique; index += step) {
+            current_vector = function(wheel_block_calc,variantsuffix)(index);
+
+            if (current_vector != start_vector) {
+                if (mask_element) {
+                    mask_vector[mask_element_index] = mask_element;
+                    mask_element = (variant_base_type_t)0;
+                }
+                function(applyMask_index,suffix)(sieve->bitstorage, start_vector, range_stop_index, step, mask_vector);
+                mask_vector = BITBUCKET0;
+                start_vector = current_vector;
+                mask_element_index = 0;
+            }
+
+            // counter_t vector_element = wheel_block_calc_uint64(index) & (elementcount_type(bitbucket_t, variant_base_type_t)-1);
+            // counter_t vector_element = index_type(wheelmask_stripe_bytes * 8 * index / WHEEL_SIZE, uint64_t) & (elementcount_type(bitbucket_t, variant_base_type_t)-1);
+            counter_t vector_element = vectorelement_type((wheelmask_stripe_bits * (index / WHEEL_SIZE)), bitbucket_t, variant_base_type_t);
+
+            if (mask_element_index != vector_element) {
+                if (mask_element) {
+                    mask_vector[mask_element_index] = mask_element;
+                    mask_element = (variant_base_type_t)0;
+                }
+                mask_element_index = vector_element;
+            }
+            if (wheelmask_compressed[index % WHEEL_SIZE]) {
+                // counter_t vector_element = (wheel_bit_calc(i) / bitcount_type(variant_base_type_t)) % elementcount_type(bitbucket_t, variant_base_type_t);
+                // mask_vector[vector_element] |= wheelmask_compressed[index % WHEEL_SIZE] << ((wheel_block_calc(index) & 7) *8);
+                mask_element |= wheelmask_compressed[index % WHEEL_SIZE] << ((wheel_block_calc(index) & 7) *8);
+            }
+        }
+        // function(applyMask_index,suffix)(bitstorage, start_vector, range_stop_vector, step, mask_vector);
+        // bitstorage_sized[start_vector] |= mask_vector; // apply the last mask
+
+        endAnalysis6(time_setBitsTrue_smallstep_rotate_pair,"\n");
+    }
+    #endif // end of unrolled function
+#endif // end of vector only function
+#include "../generic/cleansuffix.h"
+
+
+#if defined include_once_last //---- include this once after all variants
 
     static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
@@ -178,210 +376,10 @@
             markFactors_wheel_norepeat(sieve, start, stop, step);
         }
     }
-
-#else //---- include this for all variants
-
-
-    #include "../generic/setsuffix.h"
-
-    #ifndef unrolls
-        static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-        function(wheel_block_calc,variantsuffix)(counter_t index) {
-            return index_type(wheelmask_stripe_bits * (index / WHEEL_SIZE), bitbucket_t);
-        }
-    #endif
-
-    #ifdef include_for_words //---- include only the variant function
-
-    static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-    function(markFactors_wheel_small_repeat,suffix)(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step)
-    {
-        register uint64_t* restrict bitstorage_sized_64 = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
-
-        if (step >= 64) {
-            markFactors_wheel_repeat(sieve, range_start, range_stop, step);
-            return;
-        }
-        const counter_t block_stop = function(wheel_block_calc,variantsuffix)(range_stop + 1);
-        // const counter_t wheel_step = step * wheelmask_stripe_bytes;
-        // const counter_t range_stop_unique = min(range_start + WHEEL_BASIC_SIZE * step * wheelmask_stripe_bits + WHEEL_BASIC_SIZE * wheelmask_stripe_bits, range_stop); 
-
-        const counter_t wheel_step = step >> shift_calc(step); // step in terms of the number of bitbuckets
-        const counter_t range_stop_unique = min(range_start + bitcount_type(uint64_t) / wheelmask_stripe_bits * WHEEL_BASIC_SIZE * (wheel_step + 1), range_stop); 
-
-        uint64_t reuse_markmask = 0ULL;
-        uint64_t reuse_markmask_new = 0ULL;
-        counter_t reuse_block_start = 0;
-
-        for (register counter_t index = range_start; index <= range_stop_unique; index += step) { 
-            const counter_t wheel_block = function(wheel_block_calc,variantsuffix)(index);
-
-            if (reuse_block_start < wheel_block) { // when going to the next block
-                if (reuse_markmask) { // apply previous mask if it exists
-                    if (reuse_block_start) {  // don't repeat the first block, it may be misaligned
-                        applyMask_index_uint64_unroll8(sieve->bitstorage, reuse_block_start, block_stop, wheel_step, reuse_markmask);
-                    }
-                    else bitstorage_sized_64[0] |= reuse_markmask; // if the previous block was the first block, we can apply the mask directly without going through the function
-                }
-                reuse_block_start = wheel_block;
-                reuse_markmask = 0ULL;
-                // reuse_markmask_new = 0ULL;
-            }
-
-            const counter_t wheel_index = index % WHEEL_SIZE;
-            const uint64_t markmask = wheelmask_compressed[wheel_index];
-            // if (wheelmask_offset[wheel_index]) {
-            //     reuse_markmask |= (1ULL << (((wheelmask_stripe_bytes * index / WHEEL_SIZE) & 7)*8+(wheelmask_offset[wheel_index]-1)));
-            // }
-            reuse_markmask |= markmask << ((wheel_block_calc(index) & 7) *8); // combine the markmask for the current block if it is the same as the previous one
-            // reuse_markmask |= wheelmask_compressed[index % WHEEL_SIZE] << ((wheel_block_calc(index) & 7) << 3); // combine the markmask for the current block if it is the same as the previous one
-        } 
-
-        // we can ignore the last mask because it should already be set
-        // can be wrong if wheel is large and range is small.
-        bitstorage_sized_64[reuse_block_start] |= reuse_markmask;
-    }
-
-    #if defined unrolls && unrolls > 1
-        static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-        function(markFactors_wheel_small_repeat_pair,suffix)(sieve_t* sieve, const counter_t range_start, const counter_t step, const counter_t range_stop)
-        {
-            register uint64_t* restrict bitstorage_sized_64 = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
-
-            // if (step >= 32) {
-            //     setBitsTrue_wheel_repeat(bitstorage, range_start, step, range_stop);
-            //     return;
-            // }
-            const counter_t block_stop = function(wheel_block_calc,variantsuffix)(range_stop + 1);
-            const counter_t wheel_step = step * wheelmask_stripe_bytes;
-            const counter_t range_stop_unique = min(range_start + WHEEL_BASIC_SIZE * wheel_step * 8 + 2 * WHEEL_BASIC_SIZE * wheelmask_stripe_bits, range_stop); 
-
-            uint64_t reuse_markmask = 0ULL;
-            uint64_t reuse_markmask1 = 0ULL;
-            counter_t reuse_block_start = 0;
-
-            register counter_t index = range_start;
-
-            for (; index <= range_stop_unique; index += step) { 
-                const counter_t wheel_block = function(wheel_block_calc,variantsuffix)(index);
-                if ((wheel_block & 1) == 0)  break;
-                markFactors_wheel(sieve, index);
-                // setBitsTrue_wheel(bitstorage, index); 
-            }
-
-            for (register counter_t index = range_start; index <= range_stop_unique; index += step) { 
-                const counter_t wheel_block = function(wheel_block_calc,variantsuffix)(index);
-
-                if ((reuse_block_start + 1) < wheel_block) { // when going to the next block
-                    if (reuse_markmask || reuse_markmask1) { // apply previous mask if it exists
-                        if (reuse_block_start) {  // don't repeat the first block, it may be misaligned
-                            function(applyMask_index_pair,suffix)(sieve->bitstorage, reuse_block_start, block_stop, wheel_step, reuse_markmask, reuse_markmask1);
-                        }
-                        else {
-                            bitstorage_sized_64[0] |= reuse_markmask; // if the previous block was the first block, we can apply the mask directly without going through the function
-                            bitstorage_sized_64[1] |= reuse_markmask1;
-                        }
-                    }
-                    reuse_block_start = wheel_block;
-                    reuse_markmask = 0ULL;
-                    reuse_markmask1 = 0ULL;
-                }
-
-                const counter_t wheel_index = index % WHEEL_SIZE;
-                const uint64_t markmask = wheelmask_compressed[wheel_index];
-                uint8_t wheel_mask_block = function(wheel_block_calc,variantsuffix)(index);
-                if (wheel_mask_block & 8) { // if the mask is for the next block, put it in the second markmask
-                    reuse_markmask1 |= markmask << ((wheel_mask_block & 7) << 3); // combine the markmask for the current block if it is the same as the previous one
-                }
-                else
-                reuse_markmask |= markmask << ((wheel_mask_block & 7) << 3); // combine the markmask for the current block if it is the same as the previous one
-            } 
-            
-
-            // we can ignore the last mask because it should already be set
-            // can be wrong if wheel is large and range is small.
-            bitstorage_sized_64[reuse_block_start] |= reuse_markmask;
-            bitstorage_sized_64[reuse_block_start + 1] |= reuse_markmask1;
-        }
-        #endif // end of unrolled function
-    #endif
-
-    #ifdef include_forvectors 
-        #if defined unrolls && unrolls != 1
-
-        static void __attribute__((nonnull, aligned(cache_line_bytes))) 
-        function(markFactors_wheel_smallstep_rotate_vectorpair,suffix)(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step) 
-        {
-            register bitbucket_t* restrict bitstorage_sized     = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
-
-            counter_t start_vector = function(wheel_block_calc,variantsuffix)(range_start);
-            counter_t current_vector = start_vector;
-        // function(setBitsTrue_smallstep_rotate_pair_wheel,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
-
-            // TODO: refactor
-            register counter_t index = range_start; 
-
-            // walk to next vector, setting bits on the way 
-            #pragma GCC ivdep
-            #pragma GCC unroll 32
-            for(; index <= range_stop; index += step) { 
-                current_vector = function(wheel_block_calc,variantsuffix)(index);
-                if (current_vector != start_vector) break; // if we are in a new vector, we need to recalculate the mask vector, because the pattern of which bits to mark as true in the wheel repeats every WHEEL_BASIC_SIZE * step
-                markFactor_wheel(sieve, index);
-            }
-            start_vector = current_vector;
-            
-            // counter_t vector_start_index = index;
-            bitbucket_t mask_vector = BITBUCKET0;
-            variant_base_type_t mask_element = (variant_base_type_t)0;
-            counter_t mask_element_index = 0;
-
-            // guarantee that all variations can land
-            const counter_t range_stop_index = function(wheel_block_calc,variantsuffix)(range_stop);
-            const counter_t range_stop_unique = min(index + WHEEL_BASIC_SIZE * bitcount_type(bitbucket_t) / (wheelmask_stripe_bits) * step, range_stop);
-            
-            for(; index <= range_stop_unique; index += step) {
-                current_vector = function(wheel_block_calc,variantsuffix)(index);
-
-                if (current_vector != start_vector) {
-                    if (mask_element) {
-                        mask_vector[mask_element_index] = mask_element;
-                        mask_element = (variant_base_type_t)0;
-                    }
-                    function(applyMask_index,suffix)(sieve->bitstorage, start_vector, range_stop_index, step, mask_vector);
-                    mask_vector = BITBUCKET0;
-                    start_vector = current_vector;
-                    mask_element_index = 0;
-                }
-
-                // counter_t vector_element = wheel_block_calc_uint64(index) & (elementcount_type(bitbucket_t, variant_base_type_t)-1);
-                // counter_t vector_element = index_type(wheelmask_stripe_bytes * 8 * index / WHEEL_SIZE, uint64_t) & (elementcount_type(bitbucket_t, variant_base_type_t)-1);
-                counter_t vector_element = vectorelement_type((wheelmask_stripe_bits * (index / WHEEL_SIZE)), bitbucket_t, variant_base_type_t);
-
-                if (mask_element_index != vector_element) {
-                    if (mask_element) {
-                        mask_vector[mask_element_index] = mask_element;
-                        mask_element = (variant_base_type_t)0;
-                    }
-                    mask_element_index = vector_element;
-                }
-                if (wheelmask_compressed[index % WHEEL_SIZE]) {
-                    // counter_t vector_element = (wheel_bit_calc(i) / bitcount_type(variant_base_type_t)) % elementcount_type(bitbucket_t, variant_base_type_t);
-                    // mask_vector[vector_element] |= wheelmask_compressed[index % WHEEL_SIZE] << ((wheel_block_calc(index) & 7) *8);
-                    mask_element |= wheelmask_compressed[index % WHEEL_SIZE] << ((wheel_block_calc(index) & 7) *8);
-                }
-            }
-            // function(applyMask_index,suffix)(bitstorage, start_vector, range_stop_vector, step, mask_vector);
-            // bitstorage_sized[start_vector] |= mask_vector; // apply the last mask
-
-            endAnalysis6(time_setBitsTrue_smallstep_rotate_pair,"\n");
-        }
-        #endif // end of unrolled function
-    #endif // end of vector only function
-    #include "../generic/cleansuffix.h"
-
-
-
 #endif
 
-
+#ifndef ASSEMBLE_WHEELSTORAGE_GUARD
+    #define ASSEMBLE_WHEELSTORAGE_GUARD
+    #define INCLUDE_FILE "../../src/sieve/sieve_storage_wheel.h"
+    #include "../generic/generate_varianttypes.h"
+#endif
