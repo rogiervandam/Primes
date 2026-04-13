@@ -35,8 +35,6 @@ void prepareSieveFunction() {
     size_t prefix_len = 0; while (algorithm_name[prefix_len] != '\0') prefix_len++;
     sprintf(algorithm_name + prefix_len, "_%uof%u", wheelmask_stripes, WHEEL_SIZE);
 
-    option.fixed_benchmark_settings.blocksize_bits          = 1000000;
-    option.fixed_benchmark_settings.vectorsize              = 256;
     option.fixed_benchmark_settings.largestep_faster        = 256;
     option.fixed_benchmark_settings.algorithm               = ALGORITHM_WHEEL;
     option.fixed_benchmark_settings.storage                 = WHEEL_STORAGE;
