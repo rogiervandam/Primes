@@ -20,6 +20,16 @@ static char algorithm_type[] = "base";
 #include "sieve/sieve_calc.h"
 #include "sieve/sieve_manager.h"
 
+static inline uint8_t checkFactor(sieve_t *sieve, counter_t factor) {
+    uint8_t* bitstorage = sieve->bitstorage;
+    if (factor > 2 && factor % 2 == 0) return 1;
+    return (uint8_t)(bitstorage[index_type(factor>>1, uint8_t)] & markmask_type(factor>>1, uint8_t));
+}
+static inline counter_t findUnmarked(sieve_t *sieve, counter_t start) {
+    for (; checkFactor(sieve, start); start++);
+    return start * 2 + 1;
+}
+
 // This is the main module that directs all the work
 // sieve_size in a real number that is the maximum in the sieve (not in bits)
 

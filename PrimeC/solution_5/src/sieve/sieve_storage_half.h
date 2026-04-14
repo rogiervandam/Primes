@@ -9,7 +9,7 @@ markFactor(sieve_t *sieve, counter_t index)
 }
 
 static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-markFactors_fast(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
+markFactors_half(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
 {
     setBitsTrue(sieve->bitstorage, start>>1, stop>>1, step>>1);
 }
@@ -21,7 +21,7 @@ findUnmarked_large(sieve_t *sieve, counter_t start)
 }
 
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-findUnmarked(sieve_t *sieve, counter_t start) 
+findUnmarked_half(sieve_t *sieve, counter_t start) 
 {
     return searchBitFalse_uint8(sieve->bitstorage, start>>1) * 2 + 1;
 }
@@ -44,11 +44,8 @@ findUnmarked(sieve_t *sieve, counter_t start)
 //     return prime_stop_full(sieve_size);
 // }
 
-#ifndef CHECK_FACTOR
-#define CHECK_FACTOR
 // This function decouples the factor from the bitstorage
-static inline int checkFactor(sieve_t *sieve, counter_t factor) {
+static inline uint8_t checkFactor_half(sieve_t *sieve, counter_t factor) {
     if (factor > 2 && factor % 2 == 0) return 1;
     return checkBitTrue(sieve->bitstorage, factor >> 1);
 }
-#endif

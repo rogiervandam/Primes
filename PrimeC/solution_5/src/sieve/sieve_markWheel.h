@@ -15,23 +15,21 @@ checkBitTrue_wheel(const void* restrict bitstorage, register counter_t factor)
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
 markFactors_wheel(sieve_t *sieve, const counter_t start, const counter_t stop, const counter_t step)
 {
-    setBitsTrue_range_uint8(sieve->bitstorage, start >> 1, stop >> 1, step >> 1);
+    setBitsTrue(sieve->bitstorage, start >> 1, stop >> 1, step >> 1);
 }
 
-// custom function for storage, used in sieve_check.
-#define CHECK_FACTOR
-uint8_t checkFactor(struct sieve_t *sieve, register counter_t factor) {
+uint8_t checkFactor_wheel(struct sieve_t *sieve, register counter_t factor) {
     if (factor > 2 && factor % 2 == 0) return 1;
     if (factor <= WHEEL_MAX) return wheelprimes[factor];
     return checkBitTrue_wheel(sieve->bitstorage, factor);
 }
 
 static inline counter_t __attribute__((always_inline, hot, nonnull, const))
-findUnmarked(sieve_t *sieve, register counter_t factor)
+findUnmarked_wheel(sieve_t *sieve, register counter_t factor)
 {
     #pragma GCC ivdep
     #pragma GCC unroll 4
-    for (; checkFactor(sieve, factor += 2););
+    for (; checkFactor_wheel(sieve, factor += 2););
     return factor;
 }
 

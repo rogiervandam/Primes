@@ -21,6 +21,11 @@ static char algorithm_type[] = "base";
 #include "sieve/sieve_storage_half.h"
 #include "sieve/sieve_markBase.h"
 
+// implement the 3 functions to integrate with sieve_check and the storage level
+static inline void markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) { markFactors_base(sieve, start, stop, step); }
+static inline uint8_t checkFactor(sieve_t* sieve, register counter_t factor) { return checkFactor_half(sieve, factor); }
+static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return findUnmarked_half(sieve, factor); }
+
 // This is the main module that directs all the work 
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
@@ -38,7 +43,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 
         #pragma GCC unroll 16
         for (counter_t prime = 3; prime < prime_max; prime = findUnmarked(sieve, prime)) {
-            markFactors_base(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
+            markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
         }
     } 
     

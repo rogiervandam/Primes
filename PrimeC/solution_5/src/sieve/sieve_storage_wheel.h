@@ -69,14 +69,14 @@
     }
 
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-    markFactor_wheel(sieve_t* sieve, const register counter_t index) 
+    markFactor_wheelstorage(sieve_t* sieve, const register counter_t index) 
     {
         register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
         bitstorage_sized[ wheel_block_calc(index)] |= wheelmask_compressed[index % WHEEL_SIZE]; // first check if the number is divisible by any of the wheel primes, if it is, mark it as non-prime
     }
 
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-    markFactors_wheel_repeat(sieve_t* sieve, const counter_t range_start, counter_t range_stop, const counter_t step)
+    markFactors_wheelstorage_repeat(sieve_t* sieve, const counter_t range_start, counter_t range_stop, const counter_t step)
     {
         register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
@@ -96,7 +96,7 @@
     }
 
     static inline void __attribute__((always_inline, nonnull, hot,  aligned(cache_line_bytes) )) 
-    markFactors_wheel_norepeat(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step) 
+    markFactors_wheelstorage_norepeat(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step) 
     {
         register counter_t index = range_start;
         register counter_t i=((range_start-range_start)/step);
@@ -104,21 +104,21 @@
             for(;i>j;i-=j) {
                 for(int k=j; k--; index += step) {
                     // setBitsTrue_wheel(sieve->bitstorage, index);
-                    markFactor_wheel(sieve, index);
+                    markFactor_wheelstorage(sieve, index);
                 }
             }
         }
 
         for (; index < range_stop; index += step) 
-            markFactor_wheel(sieve, index);
+            markFactor_wheelstorage(sieve, index);
 
-        if unlikely(index==range_stop) markFactor_wheel(sieve, index);
+        if unlikely(index==range_stop) markFactor_wheelstorage(sieve, index);
     }
 
     // this is the same as checkFactor_wheel but without the check for the wheel primes
     // this can only be used if index > WHEEL_MAX
     static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
-    checkFactor_wheel_unsafe(sieve_t* sieve, register counter_t index)
+    checkFactor_wheelstorage_unsafe(sieve_t* sieve, register counter_t index)
     {
         register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
         counter_t wheel_index = index % WHEEL_SIZE;
@@ -130,17 +130,17 @@
 
     #define CHECK_FACTOR
     static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
-    checkFactor(sieve_t* sieve, register counter_t factor) {
+    checkFactor_wheelstorage(sieve_t* sieve, register counter_t factor) {
         if (factor <= WHEEL_MAX) return wheelprimes[factor];
-        return checkFactor_wheel_unsafe(sieve, factor);
+        return checkFactor_wheelstorage_unsafe(sieve, factor);
     }
 
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    findUnmarked(sieve_t *sieve, counter_t factor) 
+    findUnmarked_wheelstorage(sieve_t *sieve, counter_t factor) 
     {
         #pragma GCC ivdep
         #pragma GCC unroll 4
-        for (;checkFactor(sieve, ++factor););
+        for (;checkFactor_wheelstorage(sieve, ++factor););
         return factor;
     }
 #endif
@@ -161,12 +161,12 @@
 #if defined unrolls && unrolls > 1
 
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-function(markFactors_wheel_small_repeat,suffix)(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step)
+function(markFactors_wheelstorage_small_repeat,suffix)(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step)
 {
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
     // if (step >= bitcount_type(bitbucket_t)) {
-    //     markFactors_wheel_repeat(sieve, range_start, range_stop, step);
+    //     markFactors_wheelstorage_repeat(sieve, range_start, range_stop, step);
     //     return;
     // }
     const counter_t block_stop = function(wheel_block_calc,variantsuffix)(range_stop + 1);
@@ -212,7 +212,7 @@ function(markFactors_wheel_small_repeat,suffix)(sieve_t* sieve, const counter_t 
 
 #if defined unrolls && unrolls > 1
     static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
-    function(markFactors_wheel_small_repeat_pair,suffix)(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step)
+    function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step)
     {
         register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
 
@@ -286,20 +286,20 @@ function(markFactors_wheel_small_repeat,suffix)(sieve_t* sieve, const counter_t 
 #if defined include_once_last //---- include this once after all variants
 
     static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
+    markFactors_wheelstorage(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
     {
         const counter_t prime = step / 2;
         
         if (prime < global_stripeprime_faster ) {
-            markFactors_wheel_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
+            markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
         }
         else 
         if ( (stop-start) > (step * bitcount_type(uint8_t) / wheelmask_stripe_bits * WHEEL_BASIC_SIZE)) { // if the range is large enough to benefit from the repeat function, use it, otherwise use the non-repeat function which has less overhead for small ranges
-            markFactors_wheel_repeat(sieve, start, stop, step);
+            markFactors_wheelstorage_repeat(sieve, start, stop, step);
         }
         else 
         {
-            markFactors_wheel_norepeat(sieve, start, stop, step);
+            markFactors_wheelstorage_norepeat(sieve, start, stop, step);
         }
     }
 #endif

@@ -1,14 +1,3 @@
-#ifndef CHECK_FACTOR
-#define CHECK_FACTOR
-
-// This function decouples the factor from the bitstorage
-static inline int checkFactor(sieve_t *sieve, counter_t factor) {
-    if (factor > 2 && factor % 2 == 0) return 1;
-    return checkBitTrue(sieve->bitstorage, factor >> 1);
-}
-
-#endif
-
 static counter_t __attribute__((cold, nonnull)) 
 countPrimesInSieve(struct sieve_t *sieve, counter_t factor_max) 
 {

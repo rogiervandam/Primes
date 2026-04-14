@@ -28,6 +28,11 @@ static char algorithm_type[] = "wheel";
 #include "sieve/sieve_manager.h"
 #include "sieve/sieve_markWheel.h"
 
+// implement the 3 functions to integrate with sieve_check and the storage level
+static inline void markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) { markFactors_wheel(sieve, start, stop, step); }
+static inline uint8_t checkFactor(sieve_t* sieve, register counter_t factor) { return checkFactor_wheel(sieve, factor); }
+static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return findUnmarked_wheel(sieve, factor); }
+
 #define PREPARE_FUNCTION 1 // signals sieve_main to call prepareSieveFunction() before the benchmark starts, this is used to build the wheel
 void prepareSieveFunction() {
     build_wheel();

@@ -5,11 +5,11 @@ markSieveBlock(sieve_t* sieve, const counter_t block_start, const counter_t bloc
     const counter_t prime_endloop_shortstepsearch = min(prime_max, 128);
 
     for (; prime < prime_endloop_shortstepsearch; prime = findUnmarked(sieve, prime)) {
-        markFactors_fast(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
+        markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
     }
 
     for (; prime < prime_max; prime = findUnmarked(sieve, prime)) {
-        markFactors_fast(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
+        markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
     }
 
     endAnalysis5(time_sieveStripeBlock, "\n");
