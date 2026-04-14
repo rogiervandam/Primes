@@ -168,7 +168,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
         while (prime < prime_max) {
             register const counter_t step = prime * 2 + 1;
             register counter_t start = calcFactor_start_half(prime, block_start);
-            setBitsTrue(bitstorage, start, range_stop, step);
+            setBitsTrue_range_uint8(bitstorage, start, step, range_stop);
             prime = searchBitFalse_wheel_unsafe(bitstorage, prime);
         }
     } 
