@@ -56,12 +56,12 @@ setDefaultOptions()
 
     option.check                      = 2;
     option.tunelevel                  = 2;
-    option.initial_sample_duration    = 0.001;
-    option.next_sample_duration       = 0.004;
+    option.initial_sample_duration    = 0.0005;
+    option.next_sample_duration       = 0.002;
     option.warmup_duration            = 1;
     option.tune_duration_max          = 5.0;
-    option.tune_keeppercent_longlist  = 10;
-    option.tune_keeppercent_shortlist = 20;
+    option.tune_keeppercent_longlist  = 20;
+    option.tune_keeppercent_shortlist = 25;
 
     option.fixed_benchmark_settings.factor_max              = 1000000;
     option.fixed_benchmark_settings.threads                 = 1;
