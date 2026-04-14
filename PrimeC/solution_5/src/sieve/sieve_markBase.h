@@ -52,20 +52,20 @@ setBitsTrue_smallstep_norepeat(void* restrict bitstorage, const counter_t range_
 #define variant uint64
 #include "../generic/setsuffix.h"
 
-static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+static inline void __attribute__((always_inline, hot)) 
 markFactors_base(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
 {
-    if (bitcount_type(bitbucket_t)/2 >=15 && step/2 < bitcount_type(bitbucket_t)/2) {
-        if ( start/2 + bitcount_type(bitbucket_t) * step <= stop/2) { // the wordmask will be reused
-            setBitsTrue_smallstep_repeat_base(sieve->bitstorage, start/2, stop/2, step/2);
-        }
-        else {
-            setBitsTrue_smallstep_norepeat(sieve->bitstorage, start/2, stop/2, step/2);
-        }
-    }
-    else {
-        setBitsTrue_largestep_repeat_uint8_unroll8(sieve->bitstorage, start/2, step/2, stop/2);
-    }    
+    // if (bitcount_type(bitbucket_t)/2 >=15 && step/2 < bitcount_type(bitbucket_t)/2) {
+    //     if ( start/2 + bitcount_type(bitbucket_t) * step <= stop/2) { // the wordmask will be reused
+    //         setBitsTrue_smallstep_repeat_base(sieve->bitstorage, start/2, stop/2, step/2);
+    //     }
+    //     else {
+    //         setBitsTrue_smallstep_norepeat(sieve->bitstorage, start/2, stop/2, step/2);
+    //     }
+    // }
+    // else {
+        setBitsTrue_largestep_repeat_uint8_unroll8(sieve->bitstorage, start>>1, step>>1, stop>>1);
+    // }    
 }
 
 #include "../generic/cleansuffix.h"
