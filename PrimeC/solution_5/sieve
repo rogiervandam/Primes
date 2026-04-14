@@ -287,7 +287,7 @@ fi
 if [ "$COMPILE" = "compileall" ]; then
     for base in $SIEVEVARIANTS; do
     # for base in sieve_base sieve_extend sieve_classic64 sieve_classic8 sieve_wheel sieve_wheel_8of30; do
-        $0 $base "compile" "$@"
+        $0 $base "compile" "$@" || exit $?
     done
     exit 0
 fi
@@ -295,7 +295,7 @@ fi
 if [ "$TESTALL" = "testall" ]; then
     for base in $SIEVEVARIANTS; do
     # for base in sieve_base sieve_extend sieve_classic64 sieve_classic8 sieve_wheel sieve_wheel_8of30; do
-        $0 $base "--check 3 --verbose 3" "$@"
+        $0 $base "--check 3 --verbose 3" "$@" || exit $?
     done
     exit 0
 fi
@@ -421,6 +421,12 @@ fi
 
 $CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS $CCWARN
 
+compile_status=$?
+if [ $compile_status -ne 0 ]; then
+    echo "Error: Compilation failed for sequential version."
+    exit $compile_status
+fi
+
 if [ "$COMPILER_ASM" = "asm" ]; then
     if [ "$COMPILER" = "gcc" ]; then
         $CCASM -o ./dev/build/$PROGTOTAL.s ./src/${base}.c $DEFINE_FLAGS
@@ -429,11 +435,13 @@ if [ "$COMPILER_ASM" = "asm" ]; then
         $CCASM -o ./dev/build/$PROGTOTAL.s ./src/${base}.c $DEFINE_FLAGS
     fi
 fi
-if [ $? -ne 0 ]; then
-    echo "Error: Compilation failed for sequential version."
-    exit 1
-fi
 $STRIP ./bin/$PROGTOTAL
+
+strip_status=$?
+if [ $strip_status -ne 0 ]; then
+    echo "Error: Stripping failed for sequential version."
+    exit $strip_status
+fi
 
 if [ $threads -gt 0 ]; then
     PROGTOTALPAR="${base}$PAREXT"
@@ -445,11 +453,17 @@ if [ $threads -gt 0 ]; then
     echo -e "Issuing command: ${CGREEN}$CC${CRESET} $PAR -o ./bin/${CYELLOW}$PROGTOTALPAR${CRESET} ./src/${CYELLOW}${base}.c${CRESET} $DEFINE_FLAGS"
     fi
     $CC $PAR -o ./bin/$PROGTOTALPAR ./src/${base}.c $DEFINE_FLAGS
-    if [ $? -ne 0 ]; then
+    compile_par_status=$?
+    if [ $compile_par_status -ne 0 ]; then
         echo "Error: Compilation failed for parallel version."
-        exit 1
+        exit $compile_par_status
     fi
     $STRIP ./bin/$PROGTOTALPAR
+    strip_par_status=$?
+    if [ $strip_par_status -ne 0 ]; then
+        echo "Error: Stripping failed for parallel version."
+        exit $strip_par_status
+    fi
 fi
 
 if [ "$COMPILE" = "compile" ]; then
