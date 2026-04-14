@@ -17,7 +17,7 @@ explainSieveShake(benchmark_settings_t benchmark_settings)
     int valid = validateSieve(sieve, benchmark_settings.factor_max);
     if (!valid) {
         printf("The sieve for factors up to %ju is \033[0;31m\033[5mNOT\033[0;0m valid...\n", (uintmax_t) benchmark_settings.factor_max);
-        deepAnalyzeSieve(sieve);
+        deepAnalyzeSieve(sieve, benchmark_settings.factor_max);
     }
     else {
         printf("The sieve for factors up to %ju is \033[0;32mvalid\033[0;0m\n", (uintmax_t) benchmark_settings.factor_max);
