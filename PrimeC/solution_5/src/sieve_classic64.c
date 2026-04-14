@@ -27,9 +27,9 @@ static char algorithm_type[] = "base";
 
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
-    struct sieve_t *sieve = sieve_create(sieve_size, sieve_size>>1);
+    const counter_t sieve_bits = sieve_size>>1;
+    struct sieve_t *sieve = sieve_create(sieve_size, sieve_bits);
     bitbucket_t* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
-    const counter_t sieve_bits = sieve->bits;
     const counter_t prime_max = calcFactor_max_half(sieve_bits);
 
     verbose5( printf("\nShaking sieve to find all primes up to %ju\n",(uintmax_t)sieve_size); )
