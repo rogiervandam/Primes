@@ -26,110 +26,7 @@ static char algorithm_type[] = "wheel";
 #include "bitstorage/bitstorage_setBitsTrue.h"
 #include "sieve/sieve_calc.h"
 #include "sieve/sieve_manager.h"
-
-// static unsigned int wheel[WHEEL_SIZE/2];
-static unsigned int wheelprimes[WHEEL_MAX]; // can't be more than highest prime in the wheel
-static uint8_t wheelmask[WHEEL_SIZE];
-
-static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
-checkBitTrue_wheel(const void* restrict bitstorage, register counter_t index) 
-{
-    if (index <= WHEEL_MAX/2) return wheelprimes[index];
-
-    uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    // if (wheel[index % (WHEEL_SIZE/2)]) return 1; 
-    counter_t wheelindex = index % (WHEEL_SIZE/2);
-    if (wheelmask[index_type(wheelindex, uint8_t)] & markmask_type(wheelindex, uint8_t)) return 1;
-    return (bitstorage_sized[index_type(index, uint8_t)] & markmask_type(index, uint8_t));
-}
-
-static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
-searchBitFalse_wheel(void* restrict bitstorage, register counter_t index) 
-{
-    #pragma GCC ivdep
-    #pragma GCC unroll 4
-    for (;checkBitTrue_wheel(bitstorage, ++index););
-    return index;
-}
-
-// this is the same as checkBitTrue_wheel but without the check for the wheel primes
-// this is used in searchBitFalse_wheel_unsafe which is called in the inner loop of the sieve and thus needs to be as fast as possible
-static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
-checkBitTrue_wheel_unsafe(const void* restrict bitstorage, register counter_t index)
-{
-    uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    // if (wheel[index % (WHEEL_SIZE/2)]) return 1; 
-    counter_t wheelindex = index % (WHEEL_SIZE/2);
-    if (wheelmask[index_type(wheelindex, uint8_t)] & markmask_type(wheelindex, uint8_t)) return 1;
-    return (bitstorage_sized[index_type(index, uint8_t)] & markmask_type(index, uint8_t));
-}
-
-static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
-searchBitFalse_wheel_unsafe(void* restrict bitstorage, register counter_t index) 
-{
-    #pragma GCC ivdep
-    #pragma GCC unroll 4
-    for (;checkBitTrue_wheel_unsafe(bitstorage, ++index););
-    return index;
-}
-
-// custom function for storage, used in sieve_check.
-#define CHECK_FACTOR
-uint8_t checkFactor(struct sieve_t *sieve, register counter_t factor) {
-    if (factor > 2 && factor % 2 == 0) return 1;
-    return checkBitTrue_wheel(sieve->bitstorage, factor >> 1);
-}
-
-void build_wheel() {
-    // find all the primes in the wheel up to WHEEL_MAX and store them in /2 format
-    for (counter_t i = 0; i <= WHEEL_MAX/2; i++) {
-        wheelprimes[i]=0;
-        for (counter_t f = 1; f < i; f++) {
-            if (((i*2+1) % (f*2+1)) == 0) {
-                wheelprimes[i] = 1; // mark as non-prime
-                break;
-            }
-        }
-    }
-
-    // clear the wheelmask
-    for (counter_t i=0; i < WHEEL_SIZE/2/8; i++) {
-            wheelmask[i] = 0; 
-    }
-
-    // for (counter_t i = 0; i < WHEEL_SIZE/2; i++) {
-    //     wheel[i] = 0;
-    //     for (counter_t f = 1; f <= WHEEL_MAX/2; f++) {
-    //         if (((i*2+1)+WHEEL_SIZE) % (f*2+1) == 0) {
-    //             wheel[i] = 1;
-    //             break;
-    //         }
-    //     }
-    // }
-
-    // make a mask pattern to check if the modulus WHEEL_SIZE/2 of a number is divisible by any of the primes in the wheel
-    // this is used in checkBitTrue_wheel to quickly check if a number is divisible by any of the wheel primes
-    for (counter_t i = 0; i < WHEEL_SIZE/2; i++) {
-        for (counter_t f = 1; f <= WHEEL_MAX/2; f++) {
-            if (((i*2+1)+WHEEL_SIZE) % (f*2+1) == 0) {
-                wheelmask[index_type(i, uint8_t)] |= markmask_type(i, uint8_t);
-                break;
-            }
-        }
-    }
-
-    // print the wheelmask for debugging
-    // for (counter_t i = 0; i < WHEEL_SIZE/2; i++) {
-    //     printf("wheelmask[%ju] =%u\n", (uintmax_t)i, wheelmask[index_type(i, uint8_t)] & markmask_type(i, uint8_t) ? 1 : 0);
-    // }
-
-    counter_t wheelmask_count = 0;
-    for (counter_t i=0; i <= WHEEL_SIZE/2/8; i++) {
-        wheelmask_count += __builtin_popcount(wheelmask[i]);
-    }
-    sprintf(algorithm_name, "rogiervandam_wheel_%uof%u", (WHEEL_SIZE/2)-wheelmask_count, WHEEL_SIZE);
-
-}
+#include "sieve/sieve_markWheel.h"
 
 #define PREPARE_FUNCTION 1 // signals sieve_main to call prepareSieveFunction() before the benchmark starts, this is used to build the wheel
 void prepareSieveFunction() {
@@ -146,30 +43,19 @@ void prepareSieveFunction() {
 */
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
-    struct sieve_t *sieve = sieve_create(sieve_size, sieve_size>>1);
-    void* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
-    const counter_t sieve_bits = sieve->bits;
-    const counter_t prime_max = calcFactor_max_half(sieve_bits);
-
-    // use globals as constant
-    const counter_t stripeprime_faster = global_stripeprime_faster;
-    const counter_t blocksize_bits     = global_blocksize_bits;
-    
-    verbose5(  printf("\nShaking sieve to find all primes up to %ju with blocksize %ju using the wheel with primes up to %ju\n",(uintmax_t)sieve_size,(uintmax_t)blocksize_bits,(uintmax_t)WHEEL_MAX); )
-
-    // code for algorithm = base
+    sieve_t *sieve = sieve_create(sieve_size, calcBitsize(sieve_size, STORAGE_HALF));
     sieve_clear(sieve);
 
-    for (counter_t block_start = 0; block_start < sieve_bits; block_start += blocksize_bits) {
-        const counter_t block_stop = block_start + blocksize_bits;
-        const counter_t range_stop = min(sieve_bits, block_stop);
-        counter_t prime = searchBitFalse_wheel_unsafe(bitstorage, WHEEL_MAX/2); 
-        // #pragma GCC unroll 16
-        while (prime < prime_max) {
-            register const counter_t step = prime * 2 + 1;
-            register counter_t start = calcFactor_start_half(prime, block_start);
-            setBitsTrue_range_uint8(bitstorage, start, step, range_stop);
-            prime = searchBitFalse_wheel_unsafe(bitstorage, prime);
+    const counter_t prime_max = calcFactor_max(sieve_size);
+    const counter_t factorBlock = calcFactorsize(global_blocksize_bits, STORAGE_HALF);
+
+    verbose5( printf("\nShaking sieve to find all primes up to %ju with blocksize %ju using the wheel with primes up to %ju\n",(uintmax_t)sieve_size,(uintmax_t)factorBlock,(uintmax_t)WHEEL_MAX); )
+
+    for (counter_t block_start = 0; block_start < sieve_size; block_start += factorBlock) {
+        const counter_t block_stop = min(sieve_size, block_start + factorBlock);
+
+        for (counter_t prime = findUnmarked(sieve, WHEEL_MAX); prime < prime_max; prime = findUnmarked(sieve, prime)) {
+            markFactors_wheel(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
         }
     } 
     

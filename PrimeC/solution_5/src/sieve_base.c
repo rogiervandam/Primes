@@ -24,7 +24,7 @@ static char algorithm_type[] = "base";
 // This is the main module that directs all the work 
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
-    sieve_t *sieve = sieve_create(sieve_size, sieve_size>>1);
+    sieve_t *sieve = sieve_create(sieve_size, calcBitsize(sieve_size, STORAGE_HALF));
     sieve_clear(sieve);
 
     const counter_t prime_max = calcFactor_max(sieve_size);

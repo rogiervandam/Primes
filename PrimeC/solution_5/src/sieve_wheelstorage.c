@@ -46,7 +46,7 @@ void prepareSieveFunction() {
 */
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
-    struct sieve_t *sieve = sieve_create(sieve_size, sieve_size * wheelmask_stripe_bytes * 8 / WHEEL_SIZE ); // TODO: can sieve_size be smaller?
+    struct sieve_t *sieve = sieve_create(sieve_size, calcBitsize(sieve_size, WHEEL_STORAGE) ); 
     sieve_clear(sieve);
 
     const counter_t prime_max = calcFactor_max(sieve_size);
