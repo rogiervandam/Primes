@@ -53,21 +53,6 @@ static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settin
     verbose5({ printf("Using settings " COLOR_GREEN "%s" COLOR_RESET "\n", getBenchmarkSettingAsString(benchmark_settings)); })
 }
 
-static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
-{
-    benchmark_settings = checkBenchmarkSettings(benchmark_settings);
-    prepareBenchmarkGlobals(benchmark_settings);
-    const counter_t factor_max = benchmark_settings.factor_max;
-    struct sieve_t* sieve_check = shakeSieve(factor_max);
-    const int valid = validateSieve(sieve_check, factor_max);
-    verbose3( if (!valid) {
-        printf("The sieve is " COLOR_RED "NOT" COLOR_RESET " valid for settings " COLOR_GREEN "%s" COLOR_RESET " with factor %ju\n", getBenchmarkSettingAsString(benchmark_settings), (uintmax_t) factor_max);
-        deepAnalyzeSieve(sieve_check, factor_max);
-    })
-    sieve_delete(sieve_check);
-    return valid;
-}
-
 static inline void requestPower(void) 
 {
     #ifdef __APPLE__

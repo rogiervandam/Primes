@@ -6,6 +6,21 @@ static void deepAnalyzeWithBenchmarkSettings(benchmark_settings_t benchmark_sett
     sieve_delete(sieve);
 }
 
+static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
+{
+    benchmark_settings = checkBenchmarkSettings(benchmark_settings);
+    prepareBenchmarkGlobals(benchmark_settings);
+    const counter_t factor_max = benchmark_settings.factor_max;
+    struct sieve_t* sieve_check = shakeSieve(factor_max);
+    const int valid = validateSieve(sieve_check, factor_max);
+    verbose1( if (!valid) {
+        fprintf(stderr, "The sieve is " COLOR_RED "NOT" COLOR_RESET " valid for settings " COLOR_GREEN "%s" COLOR_RESET " with factor %ju\n", getBenchmarkSettingAsString(benchmark_settings), (uintmax_t) factor_max);
+        deepAnalyzeSieve(sieve_check, factor_max);
+    })
+    sieve_delete(sieve_check);
+    return valid;
+}
+
 // check with every sievesize, but not with every blocksize
 static int __attribute__((cold)) 
 checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
@@ -55,6 +70,7 @@ checkSieveAlgorithmAll(benchmark_settings_t benchmark_settings)
             int valid = checkSieveWithBenchmarkSettings(benchmark_settings); 
 
             if (!valid) {
+                verbose1( printf("Test\n"); )
                 verbose1( fprintf(stderr,"Invalid count for %ju Settings used: %s\n",(uintmax_t)sieveSize_check, getBenchmarkSettingAsString(benchmark_settings)); )
                 deepAnalyzeWithBenchmarkSettings(benchmark_settings);
                 if (option.check == 7) exit(1);

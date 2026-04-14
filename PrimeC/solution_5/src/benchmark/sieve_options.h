@@ -25,6 +25,7 @@ static struct options_t {
     counter_t show_explain_factor_max;
     counter_t show_tuning_results_max;
     counter_t show_primes_on_error;
+    counter_t show_nonprimes_on_error;
     counter_t verbose_level;
     counter_t explain;
     counter_t timers;
@@ -48,6 +49,7 @@ setDefaultOptions()
     option.show_explain_factor_max    = 0;
     option.show_tuning_results_max    = 50;
     option.show_primes_on_error       = 100;
+    option.show_nonprimes_on_error    = 10;
     option.verbose_level              = 0;
     option.explain                    = 0;
     option.timers                     = 0;

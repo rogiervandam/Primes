@@ -24,13 +24,13 @@ countPrimesInSieve(struct sieve_t *sieve, counter_t factor_max)
 static void __attribute__((cold, nonnull)) 
 showPrimesinSieve(struct sieve_t *sieve, counter_t factor_max) 
 { 
-    verbose1( printf("Result set:\n"); )
+    verbose1( printf("Result set (<%ju):\n",(uintmax_t)factor_max); )
     counter_t prime_count = 0;
     for (counter_t factor=2; factor < factor_max; factor++) {
         if (checkFactor(sieve, factor)) continue; // is this a prime?
         prime_count++;
-        verbose1( printf("%3ju ",(uintmax_t)factor); )
-        if (prime_count % 20 == 0) { verbose2( printf("\n"); ) }
+        verbose1( printf("%4ju ",(uintmax_t)factor); )
+        if (prime_count % 10 == 0) { verbose2( printf("\n"); ) }
     }
     verbose1( printf("\n"); )
 }
@@ -56,11 +56,13 @@ counter_t validPrimes(counter_t factor_max) {
 static void __attribute__((cold, nonnull)) 
 deepAnalyzeSieve(struct sieve_t *sieve, counter_t factor_max) 
 {
-    verbose2( printf("DeepAnalyzing\n"); )
-    verbose2( printf("Checking if the numbers up to %ju are correctly marked as prime or non-prime\n",(uintmax_t)factor_max); )
-    verbose2( printf("Prime count is %ju and should be %ju \n", (uintmax_t)countPrimesInSieve(sieve, factor_max), (uintmax_t)validPrimes(factor_max)); )
+    verbose2( printf("\nDeepAnalyzing...\n"); )
+    verbose2( printf("Checking if the numbers up to " COLOR_BOLD_YELLOW "%ju" COLOR_RESET " are correctly marked as prime or non-prime\n",(uintmax_t)factor_max); )
+    verbose2( printf("Prime count is " COLOR_BOLD_YELLOW "%ju" COLOR_RESET " and should be " COLOR_BOLD_YELLOW "%ju" COLOR_RESET "\n", (uintmax_t)countPrimesInSieve(sieve, factor_max), (uintmax_t)validPrimes(factor_max)); )
     verbose2( printf("\n"); )
-    showPrimesinSieve(sieve, 100);
+    showPrimesinSieve(sieve, option.show_primes_on_error);
+
+    verbose2( printf("\nErrors:\n"); )
 
     counter_t warn_prime = 0;
     counter_t warn_nonprime = 0;
@@ -68,8 +70,8 @@ deepAnalyzeSieve(struct sieve_t *sieve, counter_t factor_max)
         if (!checkFactor(sieve, prime)) { // is this a prime?
             for(counter_t c = 2; c <= factor_max && c*c <= prime; c++) {
                 if ((prime % c) == 0 && (c != prime)) {
-                    if (warn_prime++ < 30) {
-                        verbose2( printf("Factor %ju was marked prime, but %ju * %ju = %ju\n",
+                    if (warn_prime++ < option.show_nonprimes_on_error) {
+                        verbose2( printf("Number " COLOR_RED "%4ju" COLOR_RESET " was marked prime, but %4ju * %4ju = " COLOR_RED "%4ju" COLOR_RESET "\n",
                          (uintmax_t)prime, (uintmax_t)c, (uintmax_t)(prime/c), (uintmax_t)prime ); )
                     }
                 }
@@ -80,9 +82,9 @@ deepAnalyzeSieve(struct sieve_t *sieve, counter_t factor_max)
             for(counter_t c=1; c<=sieve->bits && c*c <= prime; c++) {
                 if ((prime) % (c) == 0 && (c) != (prime)) c_prime++;
             }
-            if (c_prime == 0 && warn_nonprime++ < 30) {
-                verbose2( printf("Number %ju (%ju) was marked non-prime, but no factors found. So it is prime\n", 
-                    (uintmax_t)prime,(uintmax_t) prime); )
+            if (c_prime == 0 && warn_nonprime++ < option.show_nonprimes_on_error) {
+                verbose2( printf("Number " COLOR_RED "%4ju" COLOR_RESET " was marked non-prime, but no factors found. So it is prime\n", 
+                    (uintmax_t)prime); )
             }
         }
     }

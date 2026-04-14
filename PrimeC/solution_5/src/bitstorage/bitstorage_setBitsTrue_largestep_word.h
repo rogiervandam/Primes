@@ -5,7 +5,7 @@ function(setBitsTrue_largestep_repeat,suffix)(void* restrict bitstorage, const c
 { 
     startAnalysis6(time_setBitsTrue_largestep_repeat, "Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju) (%ju repeating occurrences)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
 
-    const counter_t range_stop_unique = (range_start + bitcount_type(bitbucket_t) * step); 
+    const counter_t range_stop_unique = range_start + bitcount_type(bitbucket_t) * step; 
     const counter_t range_stop_index = index_type(range_stop, bitbucket_t);
 
     #pragma GCC ivdep
