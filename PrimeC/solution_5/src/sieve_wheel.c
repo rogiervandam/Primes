@@ -15,8 +15,8 @@ static char algorithm_type[] = "wheel";
 // #define ALTERNATIVE_CHECK 1 // signals sieve_check to use the alternative check function
 
 #ifndef WHEEL_SIZE
-    #define WHEEL_SIZE 2*3*5
-    #define WHEEL_MAX 5 // highest number in the wheel
+    #define WHEEL_SIZE 2*3*5*7*11*13
+    #define WHEEL_MAX 13 // highest number in the wheel
 #endif
 
 // include helper functions
@@ -60,7 +60,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
         const counter_t block_stop = min(sieve_size, block_start + factorBlock);
 
         for (counter_t prime = findUnmarked(sieve, WHEEL_MAX); prime < prime_max; prime = findUnmarked(sieve, prime)) {
-            markFactors_wheel(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
+            markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
         }
     } 
     
