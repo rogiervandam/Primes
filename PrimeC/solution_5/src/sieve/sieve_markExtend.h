@@ -3,7 +3,7 @@
 // range is too big
 // block stop should not exceed sieve size for faster handling
 static inline counter_t __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
-extendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop) 
+markExtendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop) 
 {
     startAnalysis5(time_sieve_block_extend, "\nExtending sieve block 0 to range %ju - %ju\n",(uintmax_t)0,(uintmax_t)block_stop)
 
@@ -39,8 +39,8 @@ extendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop)
 }
 
 static inline counter_t __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
-extendSieveBlock0(sieve_t* sieve, const counter_t block_stop) {
-    return extendSieveBlock0_half(sieve->bitstorage, block_stop>>1) * 2 + 1;
+markExtendSieveBlock0(sieve_t* sieve, const counter_t block_stop) {
+    return markExtendSieveBlock0_half(sieve->bitstorage, block_stop>>1) * 2 + 1;
 }
 struct block {
     counter_t pattern_size; // size of pattern applied 
@@ -49,9 +49,9 @@ struct block {
 };
 
 static inline counter_t 
-extendSieveBlock_half(void* restrict bitstorage, const counter_t block_start, const counter_t block_stop) 
+markExtendSieveBlock_half(void* restrict bitstorage, const counter_t block_start, const counter_t block_stop) 
 {
-    startAnalysis5(time_sieve_block_extend, "\nExtending sieve block to range %ju - %ju with extendSieveBlock\n",(uintmax_t)block_start,(uintmax_t)block_stop)
+    startAnalysis5(time_sieve_block_extend, "\nExtending sieve block to range %ju - %ju with markExtendSieveBlock\n",(uintmax_t)block_start,(uintmax_t)block_stop)
 
     register counter_t prime         = 0;
     counter_t patternsize_bits       = 1;
@@ -96,27 +96,27 @@ extendSieveBlock_half(void* restrict bitstorage, const counter_t block_start, co
 }
 
 static inline counter_t 
-extendSieveBlock(sieve_t* sieve, const counter_t block_start, const counter_t block_stop) {
-    return extendSieveBlock_half(sieve->bitstorage, block_start>>1, block_stop>>1) * 2 + 1;
+markExtendSieveBlock(sieve_t* sieve, const counter_t block_start, const counter_t block_stop) {
+    return markExtendSieveBlock_half(sieve->bitstorage, block_start>>1, block_stop>>1) * 2 + 1;
 }
 
 
 
 static inline counter_t __attribute__((always_inline, nonnull)) 
-extendSieveBlockByBlock(sieve_t* sieve, const counter_t sieve_size, const counter_t blocksize_factor, const counter_t prime_max)
+markExtendSieveBlockByBlock(sieve_t* sieve, const counter_t sieve_size, const counter_t blocksize_factor, const counter_t prime_max)
 {
     // size the first block, optimizing for large following blocks and aligning to cache line
     counter_t block0_stop = min((((sieve_size % blocksize_factor) + cache_line_bytes*8) & ~(cache_line_bytes*8-1)) * 2, sieve_size); 
 
     // first block requires fewer operations; it might be the whole sieve...
-    counter_t prime_start = extendSieveBlock0_half(sieve->bitstorage, min(block0_stop >> 1, sieve_size >> 1)) * 2 + 1;
+    counter_t prime_start = markExtendSieveBlock0_half(sieve->bitstorage, min(block0_stop >> 1, sieve_size >> 1)) * 2 + 1;
     counter_t prime_next = markSieveBlock(sieve, 0, min(block0_stop, sieve_size), prime_start, prime_max);
 
     // process the rest of the sieve in blocks of blocksize_bits
     for (counter_t block_start = block0_stop, block_stop = block_start + blocksize_factor; block_start < sieve_size; block_start += blocksize_factor, block_stop += blocksize_factor) {
 
         // stripe a block, stopping at the end of the sieve and only for primes that have multiples are in the block
-        prime_start = extendSieveBlock_half(sieve->bitstorage, block_start >> 1, min(block_stop >> 1, sieve_size >> 1)) * 2 + 1;
+        prime_start = markExtendSieveBlock_half(sieve->bitstorage, block_start >> 1, min(block_stop >> 1, sieve_size >> 1)) * 2 + 1;
         markSieveBlock(sieve, block_start, min(block_stop, sieve_size), prime_start, min(calcFactor_max(block_stop),prime_max));
     }
     return prime_next; 

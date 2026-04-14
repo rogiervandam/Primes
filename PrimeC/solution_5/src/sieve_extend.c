@@ -17,9 +17,9 @@ static char algorithm_type[] = "other";
 #include "benchmark/sieve_options.h"
 #include "sieve/sieve_manager.h"
 #include "sieve/sieve_storage_half.h"
-#include "sieve/sieve_stripe.h"
 #include "bitstorage/bitstorage_continuePattern.h"
-#include "sieve/sieve_extend.h"
+#include "sieve/sieve_markStripe.h"
+#include "sieve/sieve_markExtend.h"
 
 /* This is the main module that directs all the work
    sieve_size in a real number that is the maximum in the sieve (not in bits)
@@ -46,7 +46,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
         {
             // fill the entire sieve for lower primes by striping off the multiples in a small sieve
             // and copying this pattern to a extended sieve, until the sieve size matches the entire sieve
-            counter_t prime = extendSieveBlock0(sieve, sieve_size);
+            counter_t prime = markExtendSieveBlock0(sieve, sieve_size);
             
             // continue from last the prime that was processed and stripe off the multiples of this prime
             // repeat until it is faster to do this block by block
@@ -58,7 +58,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
 
         case 2: // process both extend and stripe block by block
         {
-            counter_t prime_next = extendSieveBlockByBlock(sieve, sieve_size, blocksize_factor, stripeprime_faster);
+            counter_t prime_next = markExtendSieveBlockByBlock(sieve, sieve_size, blocksize_factor, stripeprime_faster);
             markSieveBlockByBlock(sieve, sieve_size, blocksize_factor, prime_next, prime_max);
         } break;
 
