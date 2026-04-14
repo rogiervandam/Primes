@@ -47,30 +47,25 @@ setBitsTrue_smallstep_norepeat(void* restrict bitstorage, const counter_t range_
     endAnalysis6(time_setBitsTrue_smallstep_norepeat,"\n");
 }
 
-static inline void  __attribute__((always_inline, nonnull)) 
-setBitsTrue_base(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
-{
-    startAnalysis6(time_setBitsTrue, "Setting bits step %3ju using setBitsTrue_base in %ju bit range (%ju-%ju)  (%ju occurances; %ju stamps)\n", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(VECTOR_SIZE_BITS*step)));
-
-    if (bitcount_type(bitbucket_t)/2 >=15 && step < bitcount_type(bitbucket_t)/2) {
-        if ( range_start + bitcount_type(bitbucket_t) * step <= range_stop) { // the wordmask will be reused
-            setBitsTrue_smallstep_repeat_base(bitstorage, range_start, range_stop, step);
-        }
-        else {
-            setBitsTrue_smallstep_norepeat(bitstorage, range_start, range_stop, step);
-        }
-    }
-    else {
-        setBitsTrue_largestep_repeat_uint8_unroll8(bitstorage, range_start, step, range_stop);
-    }
-    
-    endAnalysis6(time_setBitsTrue);
-}
-
 #include "../generic/cleansuffix.h"
+
+#define variant uint64
+#include "../generic/setsuffix.h"
 
 static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
 markFactors_base(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
 {
-    setBitsTrue_base(sieve->bitstorage, start>>1, stop>>1, step>>1);
+    if (bitcount_type(bitbucket_t)/2 >=15 && step/2 < bitcount_type(bitbucket_t)/2) {
+        if ( start/2 + bitcount_type(bitbucket_t) * step <= stop/2) { // the wordmask will be reused
+            setBitsTrue_smallstep_repeat_base(sieve->bitstorage, start/2, stop/2, step/2);
+        }
+        else {
+            setBitsTrue_smallstep_norepeat(sieve->bitstorage, start/2, stop/2, step/2);
+        }
+    }
+    else {
+        setBitsTrue_largestep_repeat_uint8_unroll8(sieve->bitstorage, start/2, step/2, stop/2);
+    }    
 }
+
+#include "../generic/cleansuffix.h"
