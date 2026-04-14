@@ -138,3 +138,7 @@ typedef uint16_t uint16v2_t  __attribute__ ((vector_size( 4), aligned(cache_line
 #endif
 
 #define BITBUCKET0                     BITBUCKET_BASE((variant_base_type_t)0ULL)
+
+#define VARIANT_IS_UINT8(variant_name) VARIANT_IS_UINT8_IMPL(variant_name)
+#define VARIANT_IS_UINT8_IMPL(variant_name) VARIANT_IS_UINT8_##variant_name
+#define VARIANT_IS_UINT8_uint8 1

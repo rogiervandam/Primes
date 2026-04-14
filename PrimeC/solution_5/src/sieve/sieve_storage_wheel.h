@@ -64,7 +64,7 @@
     }
 
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    wheel_block_calc(counter_t index) {
+    wheel_block_calc_uint8(counter_t index) {
         return (wheelmask_stripe_bytes * (index / WHEEL_SIZE)) + wheelmask_index[index % WHEEL_SIZE];
     }
 
@@ -72,7 +72,7 @@
     markFactor_wheelstorage(sieve_t* sieve, const register counter_t index) 
     {
         register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
-        bitstorage_sized[ wheel_block_calc(index)] |= wheelmask_compressed[index % WHEEL_SIZE]; // first check if the number is divisible by any of the wheel primes, if it is, mark it as non-prime
+        bitstorage_sized[ wheel_block_calc_uint8(index)] |= wheelmask_compressed[index % WHEEL_SIZE]; // first check if the number is divisible by any of the wheel primes, if it is, mark it as non-prime
     }
 
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
@@ -80,7 +80,7 @@
     {
         register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
-        const counter_t byte_stop = wheel_block_calc(range_stop + 1);
+        const counter_t byte_stop = wheel_block_calc_uint8(range_stop + 1);
         const counter_t wheel_step = (step >> shift_calc(step)) * (bitcount_type(uint8_t) / wheelmask_stripe_bits); // step in terms of the number of bitbuckets
 
         // Every WHEEL_BASIC_SIZE * wheel_step, the pattern of which bits to mark as true in the wheel repeats at byte level 
@@ -90,7 +90,7 @@
         for (register counter_t index = range_start; index <= range_stop_unique; index += step) { 
             const uint8_t markmask = wheelmask_compressed[ index % WHEEL_SIZE];
             if (markmask) {
-                applyMask_index_uint8_unroll8(sieve->bitstorage, wheel_block_calc(index), byte_stop, wheel_step, markmask);
+                applyMask_index_uint8_unroll8(sieve->bitstorage, wheel_block_calc_uint8(index), byte_stop, wheel_step, markmask);
             }
         } 
     }
@@ -122,7 +122,7 @@
     {
         register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
         counter_t wheel_index = index % WHEEL_SIZE;
-        counter_t wheel_block = wheel_block_calc(index);
+        counter_t wheel_block = wheel_block_calc_uint8(index);
 
         return !wheelmask_compressed[wheel_index] || 
             (bitstorage_sized[wheel_block] & wheelmask_compressed[wheel_index]);
@@ -150,10 +150,13 @@
 // for the current variant, based on the presets defined in varianttypes.h
 
 #if defined variantsuffix && !defined unrolls
+
+    #if defined variant && !VARIANT_IS_UINT8(variant)
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     function(wheel_block_calc,variantsuffix)(counter_t index) {
         return index_type(wheelmask_stripe_bits * (index / WHEEL_SIZE), bitbucket_t);
     }
+    #endif
 #endif
 
 #ifdef include_for_words //---- include only the variant function
@@ -200,8 +203,8 @@ function(markFactors_wheelstorage_small_repeat,suffix)(sieve_t* sieve, const cou
         // if (wheelmask_offset[wheel_index]) {
         //     reuse_markmask |= (1ULL << (((wheelmask_stripe_bytes * index / WHEEL_SIZE) & 7)*8+(wheelmask_offset[wheel_index]-1)));
         // }
-        reuse_markmask |= markmask << ((wheel_block_calc(index) & 7) *8); // combine the markmask for the current block if it is the same as the previous one
-        // reuse_markmask |= wheelmask_compressed[index % WHEEL_SIZE] << ((wheel_block_calc(index) & 7) << 3); // combine the markmask for the current block if it is the same as the previous one
+        reuse_markmask |= markmask << ((wheel_block_calc_uint8(index) & 7) *8); // combine the markmask for the current block if it is the same as the previous one
+        // reuse_markmask |= wheelmask_compressed[index % WHEEL_SIZE] << ((wheel_block_calc_uint8(index) & 7) << 3); // combine the markmask for the current block if it is the same as the previous one
     } 
 
     // we can ignore the last mask because it should already be set
@@ -265,7 +268,7 @@ function(markFactors_wheelstorage_small_repeat,suffix)(sieve_t* sieve, const cou
                 current_mask = (bitbucket_t)0U;
             }
 
-            const counter_t wheel_block_byte = wheel_block_calc(index);
+            const counter_t wheel_block_byte = wheel_block_calc_uint8(index);
             const bitbucket_t markmask = (bitbucket_t) wheelmask_compressed[index % WHEEL_SIZE];
             current_mask |= markmask << ((bitshift_t)((wheel_block_byte & word_bytemask) << SHIFT_BYTE));
         }
