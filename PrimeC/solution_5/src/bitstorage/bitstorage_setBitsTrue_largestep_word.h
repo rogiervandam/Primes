@@ -5,12 +5,14 @@ function(setBitsTrue_largestep_repeat,suffix)(void* restrict bitstorage, const c
 { 
     startAnalysis6(time_setBitsTrue_largestep_repeat, "Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju) (%ju repeating occurrences)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
 
-    const counter_t range_stop_unique = range_start + bitcount_type(bitbucket_t) * step; 
+    const counter_t range_stop_unique = bitbucket_end_type(range_start + bitcount_type(bitbucket_t) * step, bitbucket_t) ; 
     const counter_t range_stop_index = index_type(range_stop, bitbucket_t);
+
+    register counter_t index = function(setBitsTrue_range_return,suffix)(bitstorage, range_start, step, bitbucket_next_type(range_start, bitbucket_t)); 
 
     #pragma GCC ivdep
     #pragma GCC unroll 8
-    for (register counter_t index = range_start; index < range_stop_unique; index += step) { 
+    for (; index <= range_stop_unique; index += step) { 
         function(applyMask_index,suffix)(bitstorage, index_type(index, bitbucket_t), range_stop_index, step, markmask_type(index, bitbucket_t));
     } 
 

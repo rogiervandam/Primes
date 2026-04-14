@@ -57,8 +57,9 @@ static const storage_t storage_table[STORAGE_WHEEL5760OF30030+1] = {
 #define elementcount_type(type, base_type) (sizeof(type)/sizeof(base_type))
 #define vectorstart_type(index, type)      ((index) & ~mask_type(type))
 #define vectorend_type(index, type)        ((index) | mask_type(type))
-#define bitbucket_start_type(index, type)      ((index) & ~mask_type(type))
-#define bitbucket_end_type(index, type)        ((index) | mask_type(type))
+#define bitbucket_start_type(index, type)  ((index) & ~mask_type(type))
+#define bitbucket_end_type(index, type)    ((index) | mask_type(type))
+#define bitbucket_next_type(index, type)   (((index) | mask_type(type)) + 1)
 
 #define safe_fill_type(type)               ((type)(~(type)0U))
 #define keepmask_type(index, type)         (safe_fill_type(type) << bitindex_calc_type(index, type))
