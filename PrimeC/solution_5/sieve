@@ -16,7 +16,7 @@ RUNALL=""
 COMPILE=""
 COMPILEFULL=""
 
-SIEVEVARIANTS="sieve_base sieve_extend sieve_classic64 sieve_classic8 sieve_wheel sieve_wheel_8of30 sieve_wheelstorage"
+SIEVEVARIANTS="sieve_classic8 sieve_classic64 sieve_base sieve_wheel sieve_wheel_8of30 sieve_wheelstorage sieve_extend"
 
 # Process arguments to check for compiler override
 ARGS_TO_KEEP=()

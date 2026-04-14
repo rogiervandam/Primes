@@ -10,12 +10,6 @@ markFactor(sieve_t *sieve, counter_t index)
 }
 
 static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-markFactors_base(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
-{
-    setBitsTrue_base(sieve->bitstorage, start>>1, stop>>1, step>>1);
-}
-
-static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
 markFactors_fast(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
 {
     setBitsTrue(sieve->bitstorage, start>>1, step>>1, stop>>1);

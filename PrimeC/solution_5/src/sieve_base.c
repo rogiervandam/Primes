@@ -19,6 +19,7 @@ static char algorithm_type[] = "base";
 #include "benchmark/sieve_options.h"
 #include "sieve/sieve_manager.h"
 #include "sieve/sieve_storage_half.h"
+#include "sieve/sieve_markBase.h"
 
 // This is the main module that directs all the work 
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
@@ -32,11 +33,11 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
     verbose5( printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)factorBlock); )
     verbose5( printf("Calculated prime_max = %ju\n", (uintmax_t)prime_max); )
 
-    // #pragma GCC unroll 2
+    #pragma GCC unroll 2
     for (counter_t block_start = 0; block_start < sieve_size; block_start += factorBlock) {
         const counter_t block_stop = min(sieve_size, block_start + factorBlock);
 
-        // #pragma GCC unroll 16
+        #pragma GCC unroll 16
         for (counter_t prime = 3; prime < prime_max; prime = findUnmarked(sieve, prime)) {
             markFactors_base(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
         }

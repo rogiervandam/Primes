@@ -24,7 +24,6 @@ static char algorithm_type[] = "wheel";
 #include "benchmark/sieve_options.h"
 #include "bitstorage/bitstorage_search.h"
 #include "bitstorage/bitstorage_setBitsTrue.h"
-#include "bitstorage/bitstorage_setBitsTrue_base.h"
 #include "sieve/sieve_calc.h"
 #include "sieve/sieve_manager.h"
 
@@ -165,11 +164,11 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
         const counter_t block_stop = block_start + blocksize_bits;
         const counter_t range_stop = min(sieve_bits, block_stop);
         counter_t prime = searchBitFalse_wheel_unsafe(bitstorage, WHEEL_MAX/2); 
-        #pragma GCC unroll 16
+        // #pragma GCC unroll 16
         while (prime < prime_max) {
             register const counter_t step = prime * 2 + 1;
             register counter_t start = calcFactor_start_half(prime, block_start);
-            setBitsTrue_base(bitstorage, start, range_stop, step);
+            setBitsTrue(bitstorage, start, range_stop, step);
             prime = searchBitFalse_wheel_unsafe(bitstorage, prime);
         }
     } 

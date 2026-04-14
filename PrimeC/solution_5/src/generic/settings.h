@@ -39,4 +39,5 @@
 
 #include "types.h"
 #include "helpers.h"
+#include "terminal.h"
 #include "verbose.h"

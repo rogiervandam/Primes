@@ -40,9 +40,9 @@ static inline void printTuningResult(benchmark_result_t tuning_result)
         } else {
             printf("average");
         }
-        printf( COLOR_BOLD_YELLOW "%13.6f" COLOR_RESET " with options " COLOR_BOLD_GREEN "%s" COLOR_RESET 
-                " was achieved with " COLOR_BOLD_YELLOW "%3ju" COLOR_RESET " passes in " COLOR_BOLD_YELLOW "%f" COLOR_RESET " seconds\n", 
-            tuning_result.avg, getBenchmarkSettingAsString(tuning_result.settings), (uintmax_t)tuning_result.passes, tuning_result.elapsed_time); 
+        printf( " " COLOR_BOLD_YELLOW "%7.0f" COLOR_RESET " with options " COLOR_BOLD_GREEN "%s" COLOR_RESET 
+                ": " COLOR_BOLD_YELLOW "%3ju" COLOR_RESET " passes in " COLOR_BOLD_YELLOW "%f" COLOR_RESET " secs\n", 
+            tuning_result.avg*5, getBenchmarkSettingAsString(tuning_result.settings), (uintmax_t)tuning_result.passes, tuning_result.elapsed_time); 
     })
 }
 
@@ -253,7 +253,10 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
                 tuning_settings.sample_duration = tuning_parameters.step * option.next_sample_duration;
             }
             verbose2( { 
-                printf("\rTuning step " COLOR_BOLD_GREEN "%2ju" COLOR_RESET " with " COLOR_BOLD_YELLOW "%5ju" COLOR_RESET " options. Benchmarking option " COLOR_BOLD_GREEN "%5ju" COLOR_RESET ": %s in progress  ",(uintmax_t)tuning_parameters.step,(uintmax_t)tuning_results, (uintmax_t)i, getBenchmarkSettingAsString(tuning_settings)  ); 
+                printf_statusline("Tuning step " COLOR_BOLD_GREEN "%2ju" COLOR_RESET " with " COLOR_BOLD_YELLOW "%5ju" COLOR_RESET " options. "
+                                "Benchmarking " COLOR_BOLD_GREEN "%s" COLOR_RESET " (" COLOR_BOLD_GREEN "%ju" COLOR_RESET ")...",
+                                (uintmax_t)tuning_parameters.step, (uintmax_t)tuning_results,
+                                getBenchmarkSettingAsString(tuning_settings), (uintmax_t)i); 
             })
             
             // Check if the settings are valid

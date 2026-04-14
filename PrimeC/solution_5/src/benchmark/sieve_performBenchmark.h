@@ -33,7 +33,7 @@ static int performBenchmarks(struct options_t option)
         benchmark(final_tuning_settings);
 
         // perform benchmark -> outputs passes, elapsed time and avg in result 
-        verbose2( printf("Benchmarking with settings: " COLOR_GREEN "%s" COLOR_RESET " (stripeprime, largestep, blocksize) and " COLOR_GREEN "%ju" COLOR_RESET " threads for " COLOR_GREEN "%.1f" COLOR_RESET " seconds\n"
+        verbose2( printf("Benchmarking with settings: " COLOR_GREEN "%s" COLOR_RESET " and " COLOR_GREEN "%ju" COLOR_RESET " threads for " COLOR_GREEN "%.1f" COLOR_RESET " seconds\n"
                          "Results: " COLOR_BLINK "(wait " COLOR_GREEN "%.1lf" COLOR_RESET " seconds)" COLOR_BLINK_OFF "...", 
                          getBenchmarkSettingAsString(benchmark_settings),(uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
         )
@@ -59,7 +59,7 @@ static int performBenchmarks(struct options_t option)
         // add extra information to the output for research purposes
         verbose1({ 
             if (option.dockerfile_type) printf(";docker=" COLOR_BLUE "%s" COLOR_RESET "",option.dockerfile_type);
-            printf(";" COLOR_GREEN "%s" COLOR_RESET " total " COLOR_YELLOW "%ju" COLOR_RESET "", getBenchmarkSettingAsString(benchmark_settings), (uintmax_t)benchmark_result.passes); 
+            printf(";" COLOR_GREEN "%s" COLOR_RESET, getBenchmarkSettingAsString(benchmark_settings)); 
         }) 
         printf("\n");
 
