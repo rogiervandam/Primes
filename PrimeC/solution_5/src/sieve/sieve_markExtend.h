@@ -12,7 +12,7 @@ markExtendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop
     counter_t prime                  = 1;
     counter_t patternsize_bits       = 3;
 
-    setBitsTrue_range(bitstorage, prime * (prime * 2 + 1 + 1), prime * 2 + 1, 2*(prime * 2 + 1));
+    setBitsTrue_range(bitstorage, prime * (prime * 2 + 1 + 1), 2*(prime * 2 + 1), prime * 2 + 1);
 
     for (counter_t range_stop = 2*(prime * 2 + 1);range_stop < block_stop;) {
         prime = searchBitFalse(bitstorage, prime);
@@ -25,14 +25,14 @@ markExtendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop
         if unlikely(range_stop > block_stop) break;
 
         // continue the found pattern to the entire sieve
-        continuePattern(bitstorage, patternsize_bits, patternsize_bits, range_stop);
+        continuePattern(bitstorage, patternsize_bits, range_stop, patternsize_bits);
         patternsize_bits *= step;
 
-        setBitsTrue(bitstorage, start, step, range_stop);
+        setBitsTrue(bitstorage, start, range_stop, step);
     } 
 
     // continue the found pattern to the entire sieve
-    continuePattern(bitstorage, patternsize_bits, patternsize_bits, block_stop);
+    continuePattern(bitstorage, patternsize_bits, block_stop, patternsize_bits);
 
     endAnalysis5(time_sieve_block_extend, "Copy bitpattern from %ju - %ju to range %ju - %ju:\n", (uintmax_t)patternsize_bits, (uintmax_t)2*patternsize_bits-1, (uintmax_t)2*patternsize_bits, (uintmax_t)block_stop);
     return prime;
@@ -81,15 +81,15 @@ markExtendSieveBlock_half(void* restrict bitstorage, const counter_t block_start
 
         if likely(patternsize_bits>1) {
             pattern_start = block_start | patternsize_bits;
-            continuePattern(bitstorage, pattern_start, patternsize_bits, range_stop);
+            continuePattern(bitstorage, pattern_start, range_stop, patternsize_bits);
         }
         patternsize_bits *= step;
 
-        setBitsTrue_range(bitstorage, start, step, range_stop);
+        setBitsTrue_range(bitstorage, start, range_stop, step);
     } 
 
     // continue the found pattern to the entire block
-    continuePattern(bitstorage, block_start, block.pattern_size, block_stop);
+    continuePattern(bitstorage, block_start, block_stop, block.pattern_size);
 
     endAnalysis5(time_sieve_block_extend, "Copy bitpattern from %ju - %ju to range %ju - %ju:\n", (uintmax_t)block.pattern_size, (uintmax_t)2*block.pattern_size-1, (uintmax_t)2*block.pattern_size, (uintmax_t)block_stop);
     return block.prime_next;

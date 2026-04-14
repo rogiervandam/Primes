@@ -69,7 +69,7 @@ checkBitTrue_block(const void* restrict bitstorage, register counter_t index)
 }
 
 static inline void __attribute__((always_inline, nonnull,  aligned(cache_line_bytes))) 
-setBitsTrue_range_block(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+setBitsTrue_range_block(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
 { 
     startAnalysis6(time_setBitsTrue_largestep_repeat, "Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju) (%ju repeating occurrences)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
     uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
@@ -145,7 +145,7 @@ static struct sieve_t* shakeSieve(const counter_t sieve_size)
         // #pragma GCC ivdep
         // #pragma GCC unroll 32
         // printf("Marking multiples of %ju starting at %ju\n",(uintmax_t)prime,(uintmax_t)start);
-        setBitsTrue_range_block(bitstorage, start, step, sieve_bits);
+        setBitsTrue_range_block(bitstorage, start, sieve_bits, step);
 
         // for(counter_t i=start; i < sieve_bits; i += step) {
         //     // printf("Marking %ju\n",(uintmax_t)i);

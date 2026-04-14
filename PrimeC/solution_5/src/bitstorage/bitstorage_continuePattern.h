@@ -16,12 +16,12 @@
 // for larger sizes, look at the offset / start bit and apply the appropriate algorithm.
 // note that these algorithms are general for bitstorage and have no specialized assumptions for the sieve application
 static inline void __attribute__((always_inline, nonnull)) 
-continuePattern(void* restrict bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
+continuePattern(void* restrict bitstorage, const counter_t source_start, const counter_t destination_stop, const counter_t size)
 {
     startAnalysis7(time_continuePattern, "Continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
 
     if (size < bitcount_type(bitbucket_t)) {
-        continuePattern_smallSize(bitstorage, source_start, size, destination_stop);
+        continuePattern_smallSize(bitstorage, source_start, destination_stop, size);
         timer_laptime(time_continuePattern); verbose7( printf("\n"); )
         return;
     }
@@ -29,9 +29,9 @@ continuePattern(void* restrict bitstorage, const counter_t source_start, const c
     const bitshift_t copy_bit   = bitindex_calc_type(source_start + size, bitbucket_t);
     const bitshift_t source_bit = bitindex_calc_type(source_start, bitbucket_t);
 
-    if      (source_bit > copy_bit) continuePattern_shiftleft (bitstorage, source_start, size, destination_stop);
-    else if (source_bit < copy_bit) continuePattern_shiftright(bitstorage, source_start, size, destination_stop);
-    else                            continuePattern_aligned   (bitstorage, source_start, size, destination_stop);
+    if      (source_bit > copy_bit) continuePattern_shiftleft (bitstorage, source_start, destination_stop, size);
+    else if (source_bit < copy_bit) continuePattern_shiftright(bitstorage, source_start, destination_stop, size);
+    else                            continuePattern_aligned   (bitstorage, source_start, destination_stop, size);
 
     // timer_laptime(time_continuePattern); verbose7( printf("\n"); )
     endAnalysis7(time_continuePattern,"\n");

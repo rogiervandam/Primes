@@ -1,12 +1,12 @@
 #include "../bitstorage/bitstorage_setBitsTrueFunctionList.h"
 
-static uint8_t checkSetBitsTrueMethod_stripe(const SetBitsTrueMethod* method, const counter_t range_start, const counter_t step, const counter_t range_stop)
+static uint8_t checkSetBitsTrueMethod_stripe(const SetBitsTrueMethod* method, const counter_t range_start, const counter_t range_stop, const counter_t step)
 {
     // create sieve
     struct sieve_t* sieve = sieve_create((range_stop+1024)*2);
     void* bitstorage = sieve->bitstorage;
     sieve_clear(sieve);
-    setBitsTrue_range(bitstorage, range_start, step, range_stop);
+    setBitsTrue_range(bitstorage, range_start, range_stop, step);
     counter_t target_count = countBitsTrue(bitstorage, range_start, range_stop+1024);
     sieve_delete(sieve);
 
@@ -14,7 +14,7 @@ static uint8_t checkSetBitsTrueMethod_stripe(const SetBitsTrueMethod* method, co
     bitstorage = sieve->bitstorage;
     sieve_clear(sieve);
 
-    method->func(bitstorage, range_start, step, range_stop);
+    method->func(bitstorage, range_start, range_stop, step);
     counter_t actual_count_inrange    = countBitsTrue(bitstorage, range_start, range_stop); // add 1024 to check the bits after the range
     counter_t actual_count_atrange    = checkBitTrue(bitstorage, range_stop) ? 1 : 0;
     counter_t actual_count_afterrange = countBitsTrue(bitstorage, range_stop+1, range_stop+1024);
@@ -62,7 +62,7 @@ static inline uint8_t checkSetBitsTrueMethod(const SetBitsTrueMethod* method, co
     while (prime < prime_max) {
         register const counter_t step  = prime * 2 + 1;
         register counter_t start = compute_start(prime, range_start);
-        setBitsTrue_range(bitstorage_base, start, step, range_stop);
+        setBitsTrue_range(bitstorage_base, start, range_stop, step);
         prime = searchBitFalse(bitstorage_base, prime);
     }
 
@@ -73,7 +73,7 @@ static inline uint8_t checkSetBitsTrueMethod(const SetBitsTrueMethod* method, co
         register const counter_t step  = prime * 2 + 1;
         if (step >= method->min_step && step <= method->max_step) {
             // printf("Checking method %s for step %ju\n", method->name, (uintmax_t)step);
-            allvalid &= checkSetBitsTrueMethod_stripe(method, compute_start(prime, range_start), step, range_stop);
+            allvalid &= checkSetBitsTrueMethod_stripe(method, compute_start(prime, range_start), range_stop, step);
         }
         prime = searchBitFalse(bitstorage_base, prime);
     }

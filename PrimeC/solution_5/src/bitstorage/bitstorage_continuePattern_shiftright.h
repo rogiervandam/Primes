@@ -1,6 +1,6 @@
 
 static inline void  __attribute__((always_inline, hot, nonnull)) 
-continuePattern_shiftright(void* restrict bitstorage, const counter_t source_start, const counter_t size_bits, const counter_t destination_stop)
+continuePattern_shiftright(void* restrict bitstorage, const counter_t source_start, const counter_t destination_stop, const counter_t size_bits)
 {
     startAnalysis7(time_continuePattern_shiftright, "Extending sieve size %ju in %ju bit range (%ju-%ju) using continuePattern_shiftright (%ju copies)", (uintmax_t)size_bits, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size_bits));
 

@@ -23,7 +23,7 @@ continuePattern_shiftleft_unrolled(void* restrict bitstorage, const counter_t al
     return distance;
 }
 
-static inline void __attribute__((always_inline)) continuePattern_shiftleft(void* restrict bitstorage, const counter_t source_start, const counter_t size, const counter_t destination_stop)
+static inline void __attribute__((always_inline)) continuePattern_shiftleft(void* restrict bitstorage, const counter_t source_start, const counter_t destination_stop, const counter_t size)
 {
     verbose7( printf("Continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_shiftleft (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size)); )
     timer_lapstart(time_continuePattern_shiftleft);

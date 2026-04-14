@@ -1,7 +1,7 @@
 #include "../generic/setsuffix.h"
 static inline void __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
-// function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop)
-function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop, variant_base_type_t base_pattern)
+// function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step)
+function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step, variant_base_type_t base_pattern)
 {
     register bitbucket_t* restrict bitstorage_vector = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     __builtin_prefetch(&bitstorage_vector[index_type(range_start, bitbucket_t)], 1, 3); // prefetch the memory that will be written soon while creating mask
@@ -50,7 +50,7 @@ function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
 
 // static inline void __attribute__((always_inline, nonnull)) 
 static void __attribute__((nonnull, aligned(cache_line_bytes))) 
-function(setBitsTrue_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+function(setBitsTrue_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
 {
     startAnalysis6(time_setBitsTrue_smallstep_rotate_pair, "Setting bits step %3ju using smallstep%-10s in %ju bit range (%ju-%ju) with %ju bits to set; using %ju copies of %ju bit mask", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)), (uintmax_t)bitcount_type(bitbucket_t));
 
@@ -58,13 +58,13 @@ function(setBitsTrue_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
     // if ((index_type(range_start, bitbucket_t) & 1) == 1) range_start_nexttvector += bitcount_type(bitbucket_t); // if we are already in the second vector
 
     if (range_start_nexttvector + step * bitcount_type(bitbucket_t) > range_stop) {
-        setBitsTrue_range(bitstorage, range_start, step, range_stop);
+        setBitsTrue_range(bitstorage, range_start, range_stop, step);
         timer_laptime(time_setBitsTrue_smallstep_rotate_pair); verbose6( printf("\n"); )
         return;
     }
 
-    const counter_t range_start_new = setBitsTrue_range_return(bitstorage, range_start, step, range_start_nexttvector);
-    function(create_mask_smallstep_rotate_pair,suffix)(bitstorage, range_start_new, step, range_stop, 1ULL);
+    const counter_t range_start_new = setBitsTrue_range_return(bitstorage, range_start, range_start_nexttvector, step);
+    function(create_mask_smallstep_rotate_pair,suffix)(bitstorage, range_start_new, range_stop, step, 1ULL);
 
     endAnalysis6(time_setBitsTrue_smallstep_rotate_pair,"\n");
 }

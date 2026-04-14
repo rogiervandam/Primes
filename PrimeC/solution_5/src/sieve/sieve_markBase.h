@@ -64,7 +64,7 @@ markFactors_base(sieve_t *sieve, counter_t start, counter_t stop, counter_t step
     //     }
     // }
     // else {
-        setBitsTrue_largestep_repeat_uint8_unroll8(sieve->bitstorage, start>>1, step>>1, stop>>1);
+        setBitsTrue_largestep_repeat_uint8_unroll8(sieve->bitstorage, start>>1, stop>>1, step>>1);
     // }    
 }
 

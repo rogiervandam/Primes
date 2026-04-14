@@ -20,7 +20,7 @@ function(checkBitFalse,suffix)(const void* restrict bitstorage, register counter
 }
 
 static inline counter_t __attribute__((always_inline)) 
-function(countInvalidInStripe,suffix)(const void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+function(countInvalidInStripe,suffix)(const void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
 {
     counter_t count = 0;
     for (counter_t index = range_start; index < range_stop; index += step) {
@@ -40,7 +40,7 @@ function(countBitsTrue,suffix)(const void* bitstorage, const counter_t range_sta
 }
 
 static inline counter_t __attribute__((always_inline)) 
-function(faultInvalidInStripe,suffix)(const void* restrict bitstorage, const counter_t range_start, const counter_t step, const counter_t range_stop) 
+function(faultInvalidInStripe,suffix)(const void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
 {
     counter_t count = 0;
     for (counter_t index = range_start; index < range_stop; index += step) {

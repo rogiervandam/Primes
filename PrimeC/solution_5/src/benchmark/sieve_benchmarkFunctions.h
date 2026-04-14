@@ -63,7 +63,7 @@ static inline void benchmarkSetBitsTrue(void* restrict bitstorage, const counter
                 counter_t passes = 0;
                 
                 while (time_elapsed <= time_target) {
-                        method->func(bitstorage, start, step, block_stop);
+                        method->func(bitstorage, start, block_stop, step);
                         passes++;
                         time_elapsed = benchmarkTime();
                 }
@@ -113,7 +113,7 @@ static void playStepplan(struct sieve_t* sieve, const counter_t prime_max, setBi
     while (prime < prime_max) {
         register const counter_t step  = prime * 2 + 1;
         register counter_t start = compute_start(prime, range_start);
-        (*local_best_stepfunction[step])(sieve->bitstorage, start, step, sieve->bits);
+        (*local_best_stepfunction[step])(sieve->bitstorage, start, sieve->bits, step);
         prime = searchBitFalse(sieve->bitstorage, prime);
     }
 }
@@ -149,7 +149,7 @@ static void createStepplan(benchmark_settings_t settings) {
                 
                 while (time_elapsed <= time_target) {
                         playStepplan(sieve, prime-1, &best_stepfunction[0]); // prepare the cache in the relevant state by replaying the stepplan
-                        method.func(bitstorage, start, step, range_stop);
+                        method.func(bitstorage, start, range_stop, step);
                         passes++;
                         time_elapsed = benchmarkTime();
                 }

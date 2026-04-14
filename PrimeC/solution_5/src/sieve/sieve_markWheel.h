@@ -15,7 +15,7 @@ checkBitTrue_wheel(const void* restrict bitstorage, register counter_t factor)
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
 markFactors_wheel(sieve_t *sieve, const counter_t start, const counter_t stop, const counter_t step)
 {
-    setBitsTrue_range_uint8(sieve->bitstorage, start >> 1, step >> 1, stop >> 1);
+    setBitsTrue_range_uint8(sieve->bitstorage, start >> 1, stop >> 1, step >> 1);
 }
 
 // custom function for storage, used in sieve_check.
