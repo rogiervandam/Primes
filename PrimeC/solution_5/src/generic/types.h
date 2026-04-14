@@ -11,6 +11,12 @@ typedef struct  {
     counter_t factorsize;
 } storage_t;
 
+#define WHEEL_STORAGE_2OF6        2
+#define WHEEL_STORAGE_8OF30       3
+#define WHEEL_STORAGE_48OF210     4
+#define WHEEL_STORAGE_480OF2310   5
+#define WHEEL_STORAGE_5760OF30030 6
+
 enum {
     STORAGE_FULL             = 0,
     STORAGE_HALF             = 1,
@@ -28,6 +34,44 @@ enum {
     ALGORITHM_STRIPED = 3,
     ALGORITHM_WHEEL   = 4
 };
+
+#if defined(WHEEL_STORAGE) && !defined(WHEEL_SIZE)
+    #if WHEEL_STORAGE == WHEEL_STORAGE_2OF6
+        #define WHEEL_MAX 3
+        #define WHEEL_BASIC_SIZE (2 * 3)
+        #define WHEEL_STRIPES 2
+    #elif WHEEL_STORAGE == WHEEL_STORAGE_8OF30
+        #define WHEEL_MAX 5
+        #define WHEEL_BASIC_SIZE (2 * 3 * 5)
+        #define WHEEL_STRIPES 8
+    #elif WHEEL_STORAGE == WHEEL_STORAGE_48OF210
+        #define WHEEL_MAX 7
+        #define WHEEL_BASIC_SIZE (2 * 3 * 5 * 7)
+        #define WHEEL_STRIPES 48
+    #elif WHEEL_STORAGE == WHEEL_STORAGE_480OF2310
+        #define WHEEL_MAX 11
+        #define WHEEL_BASIC_SIZE (2 * 3 * 5 * 7 * 11)
+        #define WHEEL_STRIPES 480
+    #elif WHEEL_STORAGE == WHEEL_STORAGE_5760OF30030
+        #define WHEEL_MAX 13
+        #define WHEEL_BASIC_SIZE (2 * 3 * 5 * 7 * 11 * 13)
+        #define WHEEL_STRIPES 5760
+    #else
+        #error Unsupported WHEEL_STORAGE configuration
+    #endif
+
+    #ifndef WHEEL_REPEATS
+        #define WHEEL_REPEATS 1
+    #endif
+
+    #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
+    #define WHEEL_STRIPE_BYTES (((WHEEL_STRIPES) - 1) / 8 + 1)
+    #define WHEEL_STRIPE_BITS  ((WHEEL_STRIPE_BYTES) * 8)
+
+    #if WHEEL_STRIPE_BYTES > 1
+        #error WHEEL_STORAGE selects a multi-byte wheel stripe. The current wheelstorage implementation supports only single-byte stripe wheels (2of6 and 8of30).
+    #endif
+#endif
 
 static const storage_t storage_table[STORAGE_WHEEL5760OF30030+1] = {
     [STORAGE_FULL] = { STORAGE_FULL, 1, 1 },

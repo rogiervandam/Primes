@@ -15,12 +15,8 @@ static char algorithm_type[] = "wheel";
 
 // #define ALTERNATIVE_CHECK 1 // signals sieve_check to use the alternative check function
 
-#ifndef WHEEL_SIZE
-    #define WHEEL_MAX 5 // highest number in the wheel
-    #define WHEEL_BASIC_SIZE (2*3*5)
-    #define WHEEL_REPEATS 1
-    #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS) 
-    #define WHEEL_STORAGE STORAGE_WHEEL8OF30
+#ifndef WHEEL_STORAGE
+    #define WHEEL_STORAGE WHEEL_STORAGE_8OF30
 #endif
 
 #include "benchmark/sieve_options.h"
