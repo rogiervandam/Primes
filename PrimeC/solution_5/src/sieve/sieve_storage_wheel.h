@@ -3,11 +3,14 @@
 // #ifndef included_once //---- include this once
 #ifndef ASSEMBLE_WHEELSTORAGE_GUARD
     // static unsigned int wheel[WHEEL_SIZE/2];
+
+    #define wheelmask_t uint8_t
+
     static unsigned int wheelprimes[WHEEL_MAX+1]; // can't be more than highest prime in the wheel
     static uint8_t wheelmask[WHEEL_SIZE];
-    static uint64_t wheelmask_compressed[WHEEL_SIZE];
-    static counter_t wheelmask_index[WHEEL_SIZE];
-    static counter_t wheelmask_offset[WHEEL_SIZE];
+    static wheelmask_t wheelmask_compressed[WHEEL_SIZE];
+    static uint8_t wheelmask_index[WHEEL_SIZE];
+    // static counter_t wheelmask_offset[WHEEL_SIZE];
 
     #define wheelmask_stripes      WHEEL_STRIPES
     #define wheelmask_stripe_bytes WHEEL_STRIPE_BYTES
@@ -41,7 +44,7 @@
         for (counter_t i = 0; i < WHEEL_SIZE; i++) {
             wheelmask_compressed[i]=0;
             wheelmask_index[i]=0;
-            wheelmask_offset[i]=0;
+            // wheelmask_offset[i]=0;
             for (counter_t f = 2; f <= WHEEL_MAX; f++) {
                 if (((i+WHEEL_SIZE) % f) == 0) { // this is a non-prime
                     wheelmask[index_type(i, uint8_t)] |= markmask_type(i, uint8_t); // mark it in the mask
@@ -49,100 +52,15 @@
                 }
             }
             if (!(wheelmask[index_type(i, uint8_t)] & markmask_type(i, uint8_t))) {
-                wheelmask_compressed[i] |= markmask_type(stripe_count, uint8_t);
-                wheelmask_index[i] = index_type(stripe_count, uint8_t);
-                wheelmask_offset[i] = stripe_count + 1;
+                wheelmask_compressed[i] |= markmask_type(stripe_count, wheelmask_t);
+                wheelmask_index[i] = index_type(stripe_count, wheelmask_t);
+                // wheelmask_offset[i] = stripe_count + 1;
                 stripe_count++;
             }
         }
         verbose3 (printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju\n", WHEEL_SIZE, (uintmax_t)wheelmask_stripes, (uintmax_t)wheelmask_stripe_bytes) );
     }
 
-    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    wheel_bit_calc(counter_t index) {
-        return wheelmask_stripe_bits * (index / WHEEL_SIZE)  + wheelmask_index[index % WHEEL_SIZE] * 8 + shift_calc(wheelmask_compressed[index % WHEEL_SIZE]);
-    }
-
-    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    wheel_block_calc_uint8(counter_t index) {
-        return (wheelmask_stripe_bytes * (index / WHEEL_SIZE)) + wheelmask_index[index % WHEEL_SIZE];
-    }
-
-    static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-    markFactor_wheelstorage(sieve_t* sieve, const register counter_t index) 
-    {
-        register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
-        bitstorage_sized[ wheel_block_calc_uint8(index)] |= wheelmask_compressed[index % WHEEL_SIZE]; // first check if the number is divisible by any of the wheel primes, if it is, mark it as non-prime
-    }
-
-    static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-    markFactors_wheelstorage_repeat(sieve_t* sieve, const counter_t range_start, counter_t range_stop, const counter_t step)
-    {
-        register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
-
-        const counter_t byte_stop = wheel_block_calc_uint8(range_stop + 1);
-        const counter_t wheel_step = (step >> shift_calc(step)) * (bitcount_type(uint8_t) / wheelmask_stripe_bits); // step in terms of the number of bitbuckets
-
-        // Every WHEEL_BASIC_SIZE * wheel_step, the pattern of which bits to mark as true in the wheel repeats at byte level 
-        // Because when the wheel is completely done, we are wheelmask_stripe_bytes further in the bitstorage
-        const counter_t range_stop_unique = range_start + WHEEL_BASIC_SIZE * wheel_step; 
-
-        for (register counter_t index = range_start; index <= range_stop_unique; index += step) { 
-            const uint8_t markmask = wheelmask_compressed[ index % WHEEL_SIZE];
-            if (markmask) {
-                applyMask_index_uint8_unroll8(sieve->bitstorage, wheel_block_calc_uint8(index), byte_stop, wheel_step, markmask);
-            }
-        } 
-    }
-
-    static inline void __attribute__((always_inline, nonnull, hot,  aligned(cache_line_bytes) )) 
-    markFactors_wheelstorage_norepeat(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step) 
-    {
-        register counter_t index = range_start;
-        register counter_t i=((range_start-range_start)/step);
-        for(register counter_t j=256; j>4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
-            for(;i>j;i-=j) {
-                for(int k=j; k--; index += step) {
-                    // setBitsTrue_wheel(sieve->bitstorage, index);
-                    markFactor_wheelstorage(sieve, index);
-                }
-            }
-        }
-
-        for (; index < range_stop; index += step) 
-            markFactor_wheelstorage(sieve, index);
-
-        if unlikely(index==range_stop) markFactor_wheelstorage(sieve, index);
-    }
-
-    // this is the same as checkFactor_wheel but without the check for the wheel primes
-    // this can only be used if index > WHEEL_MAX
-    static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
-    checkFactor_wheelstorage_unsafe(sieve_t* sieve, register counter_t index)
-    {
-        register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
-        counter_t wheel_index = index % WHEEL_SIZE;
-        counter_t wheel_block = wheel_block_calc_uint8(index);
-
-        return !wheelmask_compressed[wheel_index] || 
-            (bitstorage_sized[wheel_block] & wheelmask_compressed[wheel_index]);
-    }
-
-    #define CHECK_FACTOR
-    static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
-    checkFactor_wheelstorage(sieve_t* sieve, register counter_t factor) {
-        if (factor <= WHEEL_MAX) return wheelprimes[factor];
-        return checkFactor_wheelstorage_unsafe(sieve, factor);
-    }
-
-    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    findUnmarked_wheelstorage(sieve_t *sieve, counter_t factor) 
-    {
-        #pragma GCC ivdep
-        #pragma GCC unroll 4
-        for (;checkFactor_wheelstorage(sieve, ++factor););
-        return factor;
-    }
 #endif
 
 #include "../generic/setsuffix.h" 
@@ -151,12 +69,17 @@
 
 #if defined variantsuffix && !defined unrolls
 
-    #if defined variant && !VARIANT_IS_UINT8(variant)
+    // #if defined variant && !VARIANT_IS_UINT8(variant)
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     function(wheel_block_calc,variantsuffix)(counter_t index) {
-        return index_type(wheelmask_stripe_bits * (index / WHEEL_SIZE), bitbucket_t);
+
+        if (wheelmask_stripe_bits <= bitcount_type(wheelmask_t)) {
+            return index_type(wheelmask_stripe_bits * (index / WHEEL_SIZE), bitbucket_t);
+        }
+
+        return (index_type(wheelmask_stripe_bits * (index / WHEEL_SIZE), wheelmask_t)) + wheelmask_index[index % WHEEL_SIZE];
     }
-    #endif
+    // #endif
 #endif
 
 #ifdef include_for_words //---- include only the variant function
@@ -287,6 +210,95 @@ function(markFactors_wheelstorage_small_repeat,suffix)(sieve_t* sieve, const cou
 
 
 #if defined include_once_last //---- include this once after all variants
+
+
+    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+    wheel_bit_calc(counter_t index) {
+        return wheelmask_stripe_bits * (index / WHEEL_SIZE) + wheelmask_index[index % WHEEL_SIZE] * bitcount_type(wheelmask_t) + shift_calc(wheelmask_compressed[index % WHEEL_SIZE]);
+    }
+
+    // static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+    // wheel_block_calc_uint8(counter_t index) {
+    //     return (wheelmask_stripe_bytes * (index / WHEEL_SIZE)) + wheelmask_index[index % WHEEL_SIZE];
+    // }
+
+    static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
+    markFactor_wheelstorage(sieve_t* sieve, const register counter_t index) 
+    {
+        register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
+        bitstorage_sized[ wheel_block_calc_uint8(index)] |= wheelmask_compressed[index % WHEEL_SIZE]; // first check if the number is divisible by any of the wheel primes, if it is, mark it as non-prime
+    }
+
+    static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
+    markFactors_wheelstorage_repeat(sieve_t* sieve, const counter_t range_start, counter_t range_stop, const counter_t step)
+    {
+        register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
+
+        const counter_t byte_stop = wheel_block_calc_uint8(range_stop + 1);
+        const counter_t wheel_step = (step >> shift_calc(step)) * (bitcount_type(uint8_t) / wheelmask_stripe_bits); // step in terms of the number of bitbuckets
+
+        // Every WHEEL_BASIC_SIZE * wheel_step, the pattern of which bits to mark as true in the wheel repeats at byte level 
+        // Because when the wheel is completely done, we are wheelmask_stripe_bytes further in the bitstorage
+        const counter_t range_stop_unique = range_start + WHEEL_BASIC_SIZE * wheel_step; 
+
+        for (register counter_t index = range_start; index <= range_stop_unique; index += step) { 
+            const uint8_t markmask = wheelmask_compressed[ index % WHEEL_SIZE];
+            if (markmask) {
+                applyMask_index_uint8_unroll8(sieve->bitstorage, wheel_block_calc_uint8(index), byte_stop, wheel_step, markmask);
+            }
+        } 
+    }
+
+    static inline void __attribute__((always_inline, nonnull, hot,  aligned(cache_line_bytes) )) 
+    markFactors_wheelstorage_norepeat(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step) 
+    {
+        register counter_t index = range_start;
+        register counter_t i=((range_start-range_start)/step);
+        for(register counter_t j=256; j>4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
+            for(;i>j;i-=j) {
+                for(int k=j; k--; index += step) {
+                    // setBitsTrue_wheel(sieve->bitstorage, index);
+                    markFactor_wheelstorage(sieve, index);
+                }
+            }
+        }
+
+        for (; index < range_stop; index += step) 
+            markFactor_wheelstorage(sieve, index);
+
+        if unlikely(index==range_stop) markFactor_wheelstorage(sieve, index);
+    }
+
+    // this is the same as checkFactor_wheel but without the check for the wheel primes
+    // this can only be used if index > WHEEL_MAX
+    static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
+    checkFactor_wheelstorage_unsafe(sieve_t* sieve, register counter_t index)
+    {
+        register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
+        counter_t wheel_index = index % WHEEL_SIZE;
+        counter_t wheel_block = wheel_block_calc_uint8(index);
+
+        return !wheelmask_compressed[wheel_index] || 
+            (bitstorage_sized[wheel_block] & wheelmask_compressed[wheel_index]);
+    }
+
+    #define CHECK_FACTOR
+    static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
+    checkFactor_wheelstorage(sieve_t* sieve, register counter_t factor) {
+        if (factor <= WHEEL_MAX) {
+            return wheelprimes[factor];
+        }
+        return checkFactor_wheelstorage_unsafe(sieve, factor);
+    }
+
+    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+    findUnmarked_wheelstorage(sieve_t *sieve, counter_t factor) 
+    {
+        #pragma GCC ivdep
+        #pragma GCC unroll 4
+        for (;checkFactor_wheelstorage(sieve, ++factor););
+        return factor;
+    }
 
     static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     markFactors_wheelstorage(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
