@@ -37,7 +37,8 @@ static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return 
 void prepareSieveFunction() {
     build_wheel();
 
-    option.fixed_benchmark_settings.largestep_faster        = 256;
+    option.fixed_benchmark_settings.stripe_faster           = 1; // unused
+    option.fixed_benchmark_settings.largestep_faster        = 1; // unused
     option.fixed_benchmark_settings.algorithm               = ALGORITHM_WHEEL;
     option.fixed_benchmark_settings.storage                 = STORAGE_HALF;
 }
