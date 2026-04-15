@@ -54,11 +54,11 @@ int main(int argc, char *argv[])
 
     #ifdef COMPILE_BENCHMARK_STRIPERS
     if (option.tunelevel) {
-        if (option.tunelevel == 3) {
+        if (option.tunelevel == 4) {
             benchmarkSieveSetBitsTrue();
             return (0);
         }
-        if (option.tunelevel == 4) {
+        if (option.tunelevel == 5) {
             createStepplan(option.fixed_benchmark_settings);
             return (0);
         }

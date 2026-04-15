@@ -153,7 +153,7 @@ for arg in "$@"; do
 done
 
 # If tune level is 3 or higher, add the COMPILE_BENCHMARK_STRIPERS flag
-if [ "$tune_level" -ge 3 ]; then
+if [ "$tune_level" -ge 4 ]; then
     DEFINE_FLAGS="-DCOMPILE_BENCHMARK_STRIPERS $DEFINE_FLAGS"
 fi
 

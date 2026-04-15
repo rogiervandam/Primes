@@ -11,6 +11,9 @@ static int performBenchmarks(struct options_t option)
             benchmark_result_t tuning_result = tuneSieveSettings(option.tunelevel, benchmark_settings);
             setSettingsFromTuning(&benchmark_settings, &(tuning_result.settings));
         }
+        if (option.tunelevel == 3) { // do one extra tuning run with the best settings to get a better result for the final benchmark
+            return 0;
+        }
         #endif
 
         // one last check to make sure this is a valid algorithm for these settings

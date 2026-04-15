@@ -213,6 +213,14 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
             tuning_parameters.largestep_faster_steps = 16;
             tuning_parameters.sample_duration        = option.initial_sample_duration*2;
             break;
+        case 3:
+            tuning_parameters.stripe_faster_steps    = prime_max/16;
+            tuning_parameters.largestep_faster_steps = 8;
+            tuning_parameters.sample_duration        = option.initial_sample_duration*4;
+            option.tune_duration_max          = 10.0; // TODO: fold these in tuning parameters as well
+            option.tune_keeppercent_longlist  = 25;
+            option.tune_keeppercent_shortlist = 50;
+            break;
     }
     
     // prepare a table to store the tuning results
