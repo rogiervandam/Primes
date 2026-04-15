@@ -14,7 +14,7 @@ typedef struct  {
 #define builtin_ctz(x)                     __builtin_ctzll((int64_t)(x))
 #define shift_calc(bits)                   ((bits) ? builtin_ctz(bits) : 0)
 #define shift_type(TYPE)                   (shift_calc(sizeof(TYPE)*8))
-#define shift_type_from_to(index,from,to)  (sizeof(from) > sizeof(to) ? ((index) << shift_calc(sizeof(from)/sizeof(to))) : ((index) >> shift_calc(sizeof(from)/sizeof(to))))
+#define shift_type_from_to(index,from,to)  (sizeof(from) > sizeof(to) ? ((index) << shift_calc(sizeof(from)/sizeof(to))) : ((index) >> shift_calc(sizeof(to)/sizeof(from))))
 #define vectorindex_type(index, type)      ((index)>>shift_type(type))
 #define bitbucket_index_type(index, type)  ((index)>>shift_type(type))
 #define index_type(index, type)            ((index)>>shift_type(type)) // type is how the bits are stored, e.g.: uint8_t, uint16_t
@@ -38,6 +38,7 @@ typedef struct  {
 #define chopmask_type(index, type)         (safe_fill_type(type) >> (bitcount_type(type) - bitindex_calc_type(index, type) - 1))
 #define index_next_type(index, type)       (vectorstart_type(index, type) + bitcount_type(type))
 #define vectorelement_type(index, type, base_type)    ((index_type((index), base_type)) & (elementcount_type(type, base_type) -1))
+#define bitbucket_element_mask(type, base_type)      (elementcount_type(type, base_type)-1)
 #define bitbucketelement_type(index, type, base_type)    ((index_type((index), base_type)) & (elementcount_type(type, base_type) -1))
 
 // globals for tuning

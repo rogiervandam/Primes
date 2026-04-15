@@ -48,7 +48,10 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(sieve_t* siev
 
         const counter_t wheel_block_byte = wheel_block_calc_uint8(index);
         const variant_base_type_t markmask = (variant_base_type_t) wheelmask_compressed[index % WHEEL_SIZE];
-        const counter_t element = (wheel_block_byte >> 3) & 3;
+        // const counter_t element = (wheel_block_byte >> 3) & (bitbucket_element_mask(bitbucket_t, variant_base_type_t));
+        // const counter_t element = (wheel_block_byte >> 3) & (bitbucket_element_mask(bitbucket_t, variant_base_type_t));
+        const counter_t element = shift_type_from_to(wheel_block_byte, uint8_t, variant_base_type_t ) & (bitbucket_element_mask(bitbucket_t, variant_base_type_t));
+
         current_mask[element] |= markmask << ((bitshift_t)((wheel_block_byte & word_bytemask) << SHIFT_BYTE));
     }
 
