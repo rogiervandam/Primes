@@ -50,6 +50,7 @@ static counter_t global_storage             = 0; // storage type to use for the 
 static counter_t debug_hits                 = 0;
 static counter_t debug_final_benchmarking   = 0;
 static counter_t debug_final_plan           = 0;
+static counter_t debug_waitforkeys          = 0;
 
 enum {
     ALGORITHM_CLASSIC = 0,

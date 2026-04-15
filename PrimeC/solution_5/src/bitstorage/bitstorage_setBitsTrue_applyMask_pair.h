@@ -1,15 +1,15 @@
 #include "../generic/setsuffix.h"
 
 static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes)))
-function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t index_vector, const counter_t range_stop, const counter_t step, const bitbucket_t mask1, const bitbucket_t mask2) 
+function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step, const bitbucket_t mask1, const bitbucket_t mask2) 
 {
-    startAnalysis8(time_applyMask_pair, "\nApplying %s mask in pairs with step %ju in range until %ju", STR(bitbucket_t), (uintmax_t)step, (uintmax_t)range_stop);
+    startAnalysis8(time_applyMask_pair, "\nApplying %s mask in pairs with step %ju in range (%ju - %ju)", STR(bitbucket_t), (uintmax_t)step, (uintmax_t)range_start * bitcount_type(bitbucket_t), (uintmax_t)range_stop * bitcount_type(bitbucket_t));
 
     register const counter_t step_max = step * unrolls, step_2 = step * 2, step_3 = step_2 + step;
     register const bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     register const bitbucket_t* restrict fast_loop_ptr    = __builtin_assume_aligned(&bitstorage_sized[safe_diff(range_stop,step_max)],sizeof(bitbucket_t));
     register const bitbucket_t* restrict range_stop_ptr   = __builtin_assume_aligned(&bitstorage_sized[range_stop],sizeof(bitbucket_t));
-    register bitbucket_t* restrict index_ptr              = __builtin_assume_aligned(&bitstorage_sized[index_vector],sizeof(bitbucket_t));
+    register bitbucket_t* restrict index_ptr              = __builtin_assume_aligned(&bitstorage_sized[range_start],sizeof(bitbucket_t));
     
     #if unrolls == 4
         #pragma GCC ivdep

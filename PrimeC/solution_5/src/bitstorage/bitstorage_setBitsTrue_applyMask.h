@@ -4,7 +4,7 @@
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
 function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, counter_t step, const bitbucket_t mask) 
 {
-    startAnalysis8(time_applyMask, "\nApplying %s mask with step %ju in range until %ju", STR(bitbucket_t), (uintmax_t)step, (uintmax_t)range_stop);
+    startAnalysis8(time_applyMask, "\nApplying %s mask in pairs with step %ju in range (%ju - %ju)", STR(bitbucket_t), (uintmax_t)step, (uintmax_t)range_start * bitcount_type(bitbucket_t), (uintmax_t)range_stop * bitcount_type(bitbucket_t));
   
     register       bitbucket_t* restrict bitstorage_sized   = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     register       bitbucket_t* restrict index_ptr          = __builtin_assume_aligned(&bitstorage_sized[range_start],sizeof(bitbucket_t));

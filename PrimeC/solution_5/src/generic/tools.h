@@ -83,12 +83,17 @@ static void __attribute__ ((cold)) printVectorNumeric(uint64v4_t bitvector)
 #include <unistd.h>
 
 int waitforkey(void) {
-    struct termios oldt, newt;
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
-    newt.c_lflag &= ~(ICANON | ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-    int c = getchar();
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    return c;
+   if (debug_waitforkeys++ > 10) {
+      debug_waitforkeys = 0;
+      struct termios oldt, newt;
+      tcgetattr(STDIN_FILENO, &oldt);
+      newt = oldt;
+      newt.c_lflag &= ~(ICANON | ECHO);
+      tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+      int c = getchar();
+      tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+      return c;
+   }
+   return 0;
+
 }

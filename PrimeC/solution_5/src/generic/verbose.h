@@ -54,9 +54,9 @@
 #endif
 #if COMPILE_VERBOSE_LEVEL >= 8
   #undef verbose8
-  #define verbose8(statement) if (option.verbose_level >= 8) statement
+  #define verbose8(statement) if (option.verbose_level >= 8) { waitforkey(); { statement } }
 #endif
 #if COMPILE_VERBOSE_LEVEL >= 9
   #undef verbose9
-  #define verbose9(statement) if (option.verbose_level >= 9) statement
+  #define verbose9(statement) if (option.verbose_level >= 9) { waitforkey(); { statement } }
 #endif

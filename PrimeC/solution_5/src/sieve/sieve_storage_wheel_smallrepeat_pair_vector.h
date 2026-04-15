@@ -1,6 +1,8 @@
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
 function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(sieve_t* sieve, counter_t range_start, const counter_t range_stop, const counter_t step)
 {
+    startAnalysis6(time_markFactors_wheelstorage_small_repeat_pair_vector, "Setting bits step %3ju using markFactors_wheelstorage_small_repeat_pair_vector %s in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps)", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
+
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
     register uint8_t* restrict bitstorage_sized_uint8 = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
 
@@ -58,4 +60,6 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(sieve_t* siev
     //     function(applyMask_index,suffix)(sieve->bitstorage, current_block, block_stop, wheel_step, current_mask);
     // }
     bitstorage_sized[current_block] |= current_mask;
+
+    endAnalysis6(time_markFactors_wheelstorage_small_repeat_pair_vector,"\n");
 }

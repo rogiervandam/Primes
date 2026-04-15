@@ -110,11 +110,11 @@ static const storage_t storage_table[STORAGE_WHEELTESTING + 1] = {
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
 calcBitsize(counter_t factorsize, int storage_id) 
 {
-    return (factorsize * storage_table[storage_id].bitsize) / storage_table[storage_id].factorsize;
+    return (factorsize * storage_table[storage_id].bitsize) / storage_table[storage_id].factorsize + ((factorsize * storage_table[storage_id].bitsize) % storage_table[storage_id].factorsize != 0);
 }
 
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
 calcFactorsize(counter_t bitsize, int storage_id) 
 {
-    return (bitsize * storage_table[storage_id].factorsize) / storage_table[storage_id].bitsize;
+    return (bitsize * storage_table[storage_id].factorsize) / storage_table[storage_id].bitsize + ((bitsize * storage_table[storage_id].factorsize) % storage_table[storage_id].bitsize != 0);
 }
