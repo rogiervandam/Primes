@@ -15,9 +15,9 @@ static char algorithm_type[] = "wheel";
 
 // #define ALTERNATIVE_CHECK 1 // signals sieve_check to use the alternative check function
 
-#ifndef WHEEL_STORAGE
-    #define WHEEL_STORAGE WHEEL_STORAGE_8OF30
-#endif
+// #ifndef WHEEL_STORAGE
+//     #define WHEEL_STORAGE WHEEL_STORAGE_8OF30
+// #endif
 
 #include "benchmark/sieve_options.h"
 #include "sieve/sieve_manager.h"
@@ -39,7 +39,7 @@ void prepareSieveFunction() {
 
     option.fixed_benchmark_settings.largestep_faster        = 256;
     option.fixed_benchmark_settings.algorithm               = ALGORITHM_WHEEL;
-    option.fixed_benchmark_settings.storage                 = WHEEL_STORAGE;
+    option.fixed_benchmark_settings.storage                 = STORAGE_WHEELTESTING;
 }
 
 /* This is the main module that directs all the work
@@ -48,7 +48,7 @@ void prepareSieveFunction() {
 */
 static struct sieve_t* shakeSieve(const counter_t sieve_size)
 {
-    struct sieve_t *sieve = sieve_create(sieve_size, calcBitsize(sieve_size, WHEEL_STORAGE) ); 
+    struct sieve_t *sieve = sieve_create(sieve_size, calcBitsize(sieve_size, STORAGE_WHEELTESTING) ); 
     sieve_clear(sieve);
 
     const counter_t prime_max = calcFactor_max(sieve_size);

@@ -3,23 +3,105 @@
 // #ifndef included_once //---- include this once
 #ifndef ASSEMBLE_WHEELSTORAGE_GUARD
     // static unsigned int wheel[WHEEL_SIZE/2];
+    #include "../bitstorage/bitstorage_search.h"
+    #include "../bitstorage/bitstorage_setBitsTrue.h"
 
     #define wheelmask_t uint8_t
+
+    #define WHEEL_STORAGE_2OF6        2
+#define WHEEL_STORAGE_8OF30       3
+#define WHEEL_STORAGE_48OF210     4
+#define WHEEL_STORAGE_480OF2310   5
+#define WHEEL_STORAGE_5760OF30030 6
+
+enum {
+    STORAGE_FULL             = 0,
+    STORAGE_HALF             = 1,
+    STORAGE_WHEEL2OF6        = 2,
+    STORAGE_WHEEL8OF30       = 3,
+    STORAGE_WHEEL48OF210     = 4,
+    STORAGE_WHEEL480OF2310   = 5,
+    STORAGE_WHEEL5760OF30030 = 6,
+    STORAGE_WHEELTESTING     = 99
+};
+
+enum {
+    ALGORITHM_CLASSIC = 0,
+    ALGORITHM_EXTEND1 = 1,
+    ALGORITHM_EXTEND2 = 2,
+    ALGORITHM_STRIPED = 3,
+    ALGORITHM_WHEEL   = 4
+};
+
+    #define WHEEL_MAX 5
+    #define WHEEL_BASIC_SIZE (2 * 3 * 5)
+    #define WHEEL_STRIPES 8
+    #define WHEEL_REPEATS 1
+
+    #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
+    #define WHEEL_STRIPE_BYTES 1//(((WHEEL_STRIPES) - 1) / 8 + 1)
+    #define WHEEL_STRIPE_BITS  ((WHEEL_STRIPE_BYTES) * 8)
+
+// #if defined(WHEEL_STORAGE) && !defined(WHEEL_SIZE)
+//     #if WHEEL_STORAGE == WHEEL_STORAGE_2OF6
+//         #define WHEEL_MAX 3
+//         #define WHEEL_BASIC_SIZE (2 * 3)
+//         #define WHEEL_STRIPES 2
+//     #elif WHEEL_STORAGE == WHEEL_STORAGE_8OF30
+//         #define WHEEL_MAX 5
+//         #define WHEEL_BASIC_SIZE (2 * 3 * 5)
+//         #define WHEEL_STRIPES 8
+//     #elif WHEEL_STORAGE == WHEEL_STORAGE_48OF210
+//         #define WHEEL_MAX 7
+//         #define WHEEL_BASIC_SIZE (2 * 3 * 5 * 7)
+//         #define WHEEL_STRIPES 48
+//     #elif WHEEL_STORAGE == WHEEL_STORAGE_480OF2310
+//         #define WHEEL_MAX 11
+//         #define WHEEL_BASIC_SIZE (2 * 3 * 5 * 7 * 11)
+//         #define WHEEL_STRIPES 480
+//     #elif WHEEL_STORAGE == WHEEL_STORAGE_5760OF30030
+//         #define WHEEL_MAX 13
+//         #define WHEEL_BASIC_SIZE (2 * 3 * 5 * 7 * 11 * 13)
+//         #define WHEEL_STRIPES 5760
+//     #else
+//         #error Unsupported WHEEL_STORAGE configuration
+//     #endif
+
+//     #ifndef WHEEL_REPEATS
+//         #define WHEEL_REPEATS 1
+//     #endif
+
+//     #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
+//     #define WHEEL_STRIPE_BYTES (((WHEEL_STRIPES) - 1) / 8 + 1)
+//     #define WHEEL_STRIPE_BITS  ((WHEEL_STRIPE_BYTES) * 8)
+
+//     #if WHEEL_STRIPE_BYTES > 1
+//         #error WHEEL_STORAGE selects a multi-byte wheel stripe. The current wheelstorage implementation supports only single-byte stripe wheels (2of6 and 8of30).
+//     #endif
+// #endif
+
+static const storage_t storage_table[STORAGE_WHEELTESTING + 1] = {
+    [STORAGE_FULL] = { STORAGE_FULL, 1, 1 },
+    [STORAGE_HALF] = { STORAGE_HALF, 1, 2 },
+    [STORAGE_WHEEL2OF6] = { STORAGE_WHEEL2OF6, 2, 6 },
+    [STORAGE_WHEEL8OF30] = { STORAGE_WHEEL8OF30, 8, 30 },
+    [STORAGE_WHEEL48OF210] = { STORAGE_WHEEL48OF210, 48, 210 },
+    [STORAGE_WHEEL480OF2310] = { STORAGE_WHEEL480OF2310, 480, 2310 },
+    [STORAGE_WHEEL5760OF30030] = { STORAGE_WHEEL5760OF30030, 5760, 30030 },
+    [STORAGE_WHEELTESTING] = { STORAGE_WHEELTESTING, WHEEL_STRIPE_BITS, WHEEL_SIZE } // this is used for testing the wheel storage with a small wheel, it is not a real storage type
+};
+
+    #define wheelmask_stripes      WHEEL_STRIPES
+    #define wheelmask_stripe_bytes WHEEL_STRIPE_BYTES
+    #define wheelmask_stripe_bits  WHEEL_STRIPE_BITS
+
+    #include "../sieve/sieve_calc.h"
 
     static unsigned int wheelprimes[WHEEL_MAX+1]; // can't be more than highest prime in the wheel
     static uint8_t wheelmask[WHEEL_SIZE];
     static wheelmask_t wheelmask_compressed[WHEEL_SIZE];
     static uint8_t wheelmask_index[WHEEL_SIZE];
     // static counter_t wheelmask_offset[WHEEL_SIZE];
-
-    #define wheelmask_stripes      WHEEL_STRIPES
-    #define wheelmask_stripe_bytes WHEEL_STRIPE_BYTES
-    #define wheelmask_stripe_bits  WHEEL_STRIPE_BITS
-
-    #include "../bitstorage/bitstorage_search.h"
-    #include "../bitstorage/bitstorage_setBitsTrue.h"
-    #include "../sieve/sieve_calc.h"
-    #include "../generic/cleansuffix.h"
 
     void build_wheel() {
         // find all the primes in the wheel up to WHEEL_MAX and store them
