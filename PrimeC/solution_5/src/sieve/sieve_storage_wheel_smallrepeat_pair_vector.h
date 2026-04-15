@@ -1,5 +1,5 @@
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-function(markFactors_wheelstorage_small_repeat_pair_new,suffix)(sieve_t* sieve, counter_t range_start, const counter_t range_stop, const counter_t step)
+function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(sieve_t* sieve, counter_t range_start, const counter_t range_stop, const counter_t step)
 {
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
     register uint8_t* restrict bitstorage_sized_uint8 = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
@@ -27,27 +27,18 @@ function(markFactors_wheelstorage_small_repeat_pair_new,suffix)(sieve_t* sieve, 
         const counter_t wheel_block_word = function(wheel_block_calc,variantsuffix)(index);
 
         if (wheel_block_word != current_block) {
-            if (pending_block) {
-                if ((pending_block + 1) == current_block) {
-                    if (pending_mask || current_mask) {
-                        function(applyMask_index_pair,suffix)(sieve->bitstorage, pending_block, block_stop, wheel_step, pending_mask, current_mask);
-                    }
-                    pending_block = 0;
-                    pending_mask = (bitbucket_t)0U;
+            if (pending_mask) {
+                if (current_mask && ((pending_block + 1) == current_block)) { //} && ((pending_block&1)==0)) {
+                    function(applyMask_index_pair,suffix)(sieve->bitstorage, pending_block, block_stop, wheel_step, pending_mask, current_mask);
+                    current_mask = (bitbucket_t)0U;
                 }
                 else {
-                    if (pending_mask) {
-                        function(applyMask_index,suffix)(sieve->bitstorage, pending_block, block_stop, wheel_step, pending_mask);
-                    }
-                    pending_block = current_block;
-                    pending_mask = current_mask;
+                    function(applyMask_index,suffix)(sieve->bitstorage, pending_block, block_stop, wheel_step, pending_mask);
                 }
             }
-            else {
-                pending_block = current_block;
-                pending_mask = current_mask;
-            }
 
+            pending_block = current_block;
+            pending_mask = current_mask;
             current_block = wheel_block_word;
             current_mask = (bitbucket_t)0U;
         }
@@ -57,9 +48,12 @@ function(markFactors_wheelstorage_small_repeat_pair_new,suffix)(sieve_t* sieve, 
         current_mask |= markmask << ((bitshift_t)((wheel_block_byte & word_bytemask) << SHIFT_BYTE));
     }
 
-    if (current_block < 0) return;
-    if (pending_block >= 0 && pending_mask) {
+    // Choosing range_stop_unique avoids dealing with the last cases
+    if (pending_mask) {
         function(applyMask_index,suffix)(sieve->bitstorage, pending_block, block_stop, wheel_step, pending_mask);
     }
-    bitstorage_sized[current_block] |= current_mask;
+    if (current_mask) {
+        function(applyMask_index,suffix)(sieve->bitstorage, current_block, block_stop, wheel_step, current_mask);
+    }
+    // bitstorage_sized[current_block] |= current_mask;
 }
