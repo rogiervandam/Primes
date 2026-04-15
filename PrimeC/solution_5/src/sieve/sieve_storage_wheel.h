@@ -6,6 +6,7 @@
     #include "../bitstorage/bitstorage_search.h"
     #include "../bitstorage/bitstorage_setBitsTrue.h"
 
+    #define wheelvariant _uint8
     #define wheelmask_t uint8_t
 
     #define WHEEL_STORAGE_2OF6        2
@@ -93,7 +94,7 @@
     static uint8_t wheelmask[WHEEL_SIZE];
     static wheelmask_t wheelmask_compressed[WHEEL_SIZE];
     static uint8_t wheelmask_index[WHEEL_SIZE];
-    static counter_t wheelmask_bitpoint[WHEEL_SIZE];
+    static uint64_t wheelmask_bitpoint[WHEEL_SIZE];
 
     void build_wheel() {
         // find all the primes in the wheel up to WHEEL_MAX and store them
@@ -187,7 +188,7 @@
     markFactor_wheelstorage(sieve_t* sieve, const register counter_t index) 
     {
         register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
-        bitstorage_sized[ wheel_block_calc_uint8(index)] |= wheelmask_compressed[index % WHEEL_SIZE]; // first check if the number is divisible by any of the wheel primes, if it is, mark it as non-prime
+        bitstorage_sized[ function(wheel_block_calc,wheelvariant)(index)] |= wheelmask_compressed[index % WHEEL_SIZE]; // first check if the number is divisible by any of the wheel primes, if it is, mark it as non-prime
     }
 
     #define bitbucket_t uint8_t
@@ -269,9 +270,9 @@
         // markFactors_wheelstorage_repeat(sieve, start, stop, step); return;
         
         if (prime < global_stripeprime_faster ) {
-            markFactors_wheelstorage_small_repeat_pair_vector_uint64v2_unroll8(sieve, start, stop, step);
+            // markFactors_wheelstorage_small_repeat_pair_vector_uint64v2_unroll8(sieve, start, stop, step);
             // markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
-            // markFactors_wheelstorage_small_repeat_uint64_unroll8(sieve, start, stop, step);
+            markFactors_wheelstorage_small_repeat_uint64_unroll8(sieve, start, stop, step);
         }
         else 
         if ( (stop-start) > (step * wheelmask_stripe_bits * WHEEL_SIZE)) { // TODO: rough estimate
