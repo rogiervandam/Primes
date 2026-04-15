@@ -93,7 +93,7 @@
     static uint8_t wheelmask[WHEEL_SIZE];
     static wheelmask_t wheelmask_compressed[WHEEL_SIZE];
     static uint8_t wheelmask_index[WHEEL_SIZE];
-    // static counter_t wheelmask_offset[WHEEL_SIZE];
+    static counter_t wheelmask_bitpoint[WHEEL_SIZE];
 
     void build_wheel() {
         // find all the primes in the wheel up to WHEEL_MAX and store them
@@ -118,7 +118,7 @@
         for (counter_t i = 0; i < WHEEL_SIZE; i++) {
             wheelmask_compressed[i]=0;
             wheelmask_index[i]=0;
-            // wheelmask_offset[i]=0;
+            wheelmask_bitpoint[i]=0;
             for (counter_t f = 2; f <= WHEEL_MAX; f++) {
                 if (((i+WHEEL_SIZE) % f) == 0) { // this is a non-prime
                     wheelmask[index_type(i, uint8_t)] |= markmask_type(i, uint8_t); // mark it in the mask
@@ -128,7 +128,7 @@
             if (!(wheelmask[index_type(i, uint8_t)] & markmask_type(i, uint8_t))) {
                 wheelmask_compressed[i] |= markmask_type(stripe_count, wheelmask_t);
                 wheelmask_index[i] = index_type(stripe_count, wheelmask_t);
-                // wheelmask_offset[i] = stripe_count + 1;
+                wheelmask_bitpoint[i] = stripe_count + 1;
                 stripe_count++;
             }
         }
@@ -147,11 +147,12 @@
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     function(wheel_block_calc,variantsuffix)(counter_t index) {
 
-        if (wheelmask_stripe_bits <= bitcount_type(wheelmask_t)) {
-            return index_type(wheelmask_stripe_bits * (index / WHEEL_SIZE), bitbucket_t);
-        }
+        // if (wheelmask_stripe_bits <= bitcount_type(wheelmask_t)) {
+        //     return index_type(wheelmask_stripe_bits * (index / WHEEL_SIZE), bitbucket_t);
+        // }
 
-        return (index_type(wheelmask_stripe_bits * (index / WHEEL_SIZE), wheelmask_t)) + wheelmask_index[index % WHEEL_SIZE];
+        // return (index_type(wheelmask_stripe_bits * (index / WHEEL_SIZE), wheelmask_t)) + wheelmask_index[index % WHEEL_SIZE];
+        return index_type((wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[index % WHEEL_SIZE], bitbucket_t);
     }
 #endif
 
@@ -268,8 +269,8 @@
         // markFactors_wheelstorage_repeat(sieve, start, stop, step); return;
         
         if (prime < global_stripeprime_faster ) {
-            // markFactors_wheelstorage_small_repeat_pair_vector_uint64v2_unroll8(sieve, start, stop, step);
-            markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
+            markFactors_wheelstorage_small_repeat_pair_vector_uint64v2_unroll8(sieve, start, stop, step);
+            // markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
             // markFactors_wheelstorage_small_repeat_uint64_unroll8(sieve, start, stop, step);
         }
         else 
