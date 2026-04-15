@@ -9,10 +9,10 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(sieve_t* siev
     const counter_t range_stop_unique = min(range_start + bitcount_type(bitbucket_t) / wheelmask_stripe_bits * WHEEL_BASIC_SIZE * (wheel_step + 2), range_stop);
     const counter_t word_bytemask = sizeof(bitbucket_t) - 1;
 
-    bitbucket_t current_mask = (bitbucket_t)0U;
+    bitbucket_t current_mask = BITBUCKET0;
     counter_t current_block = function(wheel_block_calc,variantsuffix)(range_start);
 
-    bitbucket_t pending_mask = (bitbucket_t)0U;
+    bitbucket_t pending_mask = BITBUCKET0;
     counter_t pending_block = 0;
 
     // go to first aligned block 
@@ -27,10 +27,11 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(sieve_t* siev
         const counter_t wheel_block_word = function(wheel_block_calc,variantsuffix)(index);
 
         if (wheel_block_word != current_block) {
-            if (pending_mask) {
-                if (current_mask && ((pending_block + 1) == current_block)) { //} && ((pending_block&1)==0)) {
+            if (pending_block) {
+                if (((pending_block + 1) == current_block)) { //} && ((pending_block&1)==0)) {
                     function(applyMask_index_pair,suffix)(sieve->bitstorage, pending_block, block_stop, wheel_step, pending_mask, current_mask);
-                    current_mask = (bitbucket_t)0U;
+                    current_mask = BITBUCKET0; // will be copied to pending_mask
+                    current_block = 0; //
                 }
                 else {
                     function(applyMask_index,suffix)(sieve->bitstorage, pending_block, block_stop, wheel_step, pending_mask);
@@ -40,20 +41,21 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(sieve_t* siev
             pending_block = current_block;
             pending_mask = current_mask;
             current_block = wheel_block_word;
-            current_mask = (bitbucket_t)0U;
+            current_mask = BITBUCKET0;
         }
 
         const counter_t wheel_block_byte = wheel_block_calc_uint8(index);
-        const bitbucket_t markmask = (bitbucket_t) wheelmask_compressed[index % WHEEL_SIZE];
-        current_mask |= markmask << ((bitshift_t)((wheel_block_byte & word_bytemask) << SHIFT_BYTE));
+        const variant_base_type_t markmask = (variant_base_type_t) wheelmask_compressed[index % WHEEL_SIZE];
+        const counter_t element = (wheel_block_byte >> 3) & 3;
+        current_mask[element] |= markmask << ((bitshift_t)((wheel_block_byte & word_bytemask) << SHIFT_BYTE));
     }
 
     // Choosing range_stop_unique avoids dealing with the last cases
-    if (pending_mask) {
+    if (pending_block) {
         function(applyMask_index,suffix)(sieve->bitstorage, pending_block, block_stop, wheel_step, pending_mask);
     }
-    if (current_mask) {
-        function(applyMask_index,suffix)(sieve->bitstorage, current_block, block_stop, wheel_step, current_mask);
-    }
-    // bitstorage_sized[current_block] |= current_mask;
+    // if (current_mask) {
+    //     function(applyMask_index,suffix)(sieve->bitstorage, current_block, block_stop, wheel_step, current_mask);
+    // }
+    bitstorage_sized[current_block] |= current_mask;
 }

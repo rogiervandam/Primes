@@ -2,7 +2,7 @@
 #undef unrolls
 #undef variant
 
-// includ
+// include
 #include INCLUDE_FILE
 #define included_once 1
 
@@ -49,7 +49,7 @@
 #undef variant
 
 
-#define include_forvectors 1
+#define include_for_vectors 1
 #undef unrolls
     #undef variant
 

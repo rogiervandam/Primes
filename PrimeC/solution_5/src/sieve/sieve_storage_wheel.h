@@ -153,10 +153,10 @@
 
         return (index_type(wheelmask_stripe_bits * (index / WHEEL_SIZE), wheelmask_t)) + wheelmask_index[index % WHEEL_SIZE];
     }
-    // #endif
 #endif
 
-#ifdef include_for_words //---- include only the variant function
+#if defined include_for_words //---- include only the variant function
+
     #if defined unrolls && unrolls > 1
         #include "sieve_storage_wheel_smallrepeat.h"
     #endif
@@ -164,6 +164,9 @@
     #if defined unrolls && unrolls > 1
         #include "sieve_storage_wheel_smallrepeat_pair.h"
     #endif // end of unrolled function
+#endif
+
+#ifdef include_for_vectors   
 
     #if defined unrolls && unrolls > 1
         #include "sieve_storage_wheel_smallrepeat_pair_vector.h"
@@ -171,7 +174,7 @@
 
 #endif
 
-#include "../generic/cleansuffix.h"
+
 
 
 #if defined include_once_last //---- include this once after all variants
@@ -273,8 +276,8 @@
         const counter_t prime = step / 2;
         
         if (prime < global_stripeprime_faster ) {
-            // markFactors_wheelstorage_small_repeat_pair_new_uint64_unroll8(sieve, start, stop, step);
-            markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
+            markFactors_wheelstorage_small_repeat_pair_vector_uint64v4_unroll8(sieve, start, stop, step);
+            // markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
             // markFactors_wheelstorage_small_repeat_uint64_unroll8(sieve, start, stop, step);
         }
         else 
@@ -287,6 +290,8 @@
         }
     }
 #endif
+
+#include "../generic/cleansuffix.h"
 
 #ifndef ASSEMBLE_WHEELSTORAGE_GUARD
     #define ASSEMBLE_WHEELSTORAGE_GUARD
