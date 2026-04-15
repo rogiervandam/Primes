@@ -83,6 +83,30 @@ calcFactor_max(counter_t range_stop)
     return (usqrt(range_stop));
 }
 
+enum {
+    STORAGE_FULL             = 0,
+    STORAGE_HALF             = 1,
+    STORAGE_WHEEL2OF6        = 2,
+    STORAGE_WHEEL8OF30       = 3,
+    STORAGE_WHEEL48OF210     = 4,
+    STORAGE_WHEEL480OF2310   = 5,
+    STORAGE_WHEEL5760OF30030 = 6,
+    STORAGE_WHEELTESTING     = 99
+};
+
+static const storage_t storage_table[STORAGE_WHEELTESTING + 1] = {
+    [STORAGE_FULL] = { STORAGE_FULL, 1, 1 }
+    ,[STORAGE_HALF] = { STORAGE_HALF, 1, 2 }
+#if defined WHEEL_SIZE && defined WHEEL_STRIPE_BITS
+    ,[STORAGE_WHEEL2OF6] = { STORAGE_WHEEL2OF6, 2, 6 }
+    ,[STORAGE_WHEEL8OF30] = { STORAGE_WHEEL8OF30, 8, 30 }
+    ,[STORAGE_WHEEL48OF210] = { STORAGE_WHEEL48OF210, 48, 210 }
+    ,[STORAGE_WHEEL480OF2310] = { STORAGE_WHEEL480OF2310, 480, 2310 }
+    ,[STORAGE_WHEEL5760OF30030] = { STORAGE_WHEEL5760OF30030, 5760, 30030 }
+    ,[STORAGE_WHEELTESTING] = { STORAGE_WHEELTESTING, WHEEL_STRIPE_BITS, WHEEL_SIZE } // this is used for testing the wheel storage with a small wheel, it is not a real storage type
+#endif
+};
+
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
 calcBitsize(counter_t factorsize, int storage_id) 
 {

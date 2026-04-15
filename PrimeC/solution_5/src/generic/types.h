@@ -51,4 +51,12 @@ static counter_t debug_hits                 = 0;
 static counter_t debug_final_benchmarking   = 0;
 static counter_t debug_final_plan           = 0;
 
+enum {
+    ALGORITHM_CLASSIC = 0,
+    ALGORITHM_EXTEND1 = 1,
+    ALGORITHM_EXTEND2 = 2,
+    ALGORITHM_STRIPED = 3,
+    ALGORITHM_WHEEL   = 4
+};
+
 #include "varianttypes.h"

@@ -9,29 +9,21 @@
     #define wheelmask_t uint8_t
 
     #define WHEEL_STORAGE_2OF6        2
-#define WHEEL_STORAGE_8OF30       3
-#define WHEEL_STORAGE_48OF210     4
-#define WHEEL_STORAGE_480OF2310   5
-#define WHEEL_STORAGE_5760OF30030 6
+    #define WHEEL_STORAGE_8OF30       3
+    #define WHEEL_STORAGE_48OF210     4
+    #define WHEEL_STORAGE_480OF2310   5
+    #define WHEEL_STORAGE_5760OF30030 6
 
-enum {
-    STORAGE_FULL             = 0,
-    STORAGE_HALF             = 1,
-    STORAGE_WHEEL2OF6        = 2,
-    STORAGE_WHEEL8OF30       = 3,
-    STORAGE_WHEEL48OF210     = 4,
-    STORAGE_WHEEL480OF2310   = 5,
-    STORAGE_WHEEL5760OF30030 = 6,
-    STORAGE_WHEELTESTING     = 99
-};
-
-enum {
-    ALGORITHM_CLASSIC = 0,
-    ALGORITHM_EXTEND1 = 1,
-    ALGORITHM_EXTEND2 = 2,
-    ALGORITHM_STRIPED = 3,
-    ALGORITHM_WHEEL   = 4
-};
+// enum {
+//     STORAGE_FULL             = 0,
+//     STORAGE_HALF             = 1,
+//     STORAGE_WHEEL2OF6        = 2,
+//     STORAGE_WHEEL8OF30       = 3,
+//     STORAGE_WHEEL48OF210     = 4,
+//     STORAGE_WHEEL480OF2310   = 5,
+//     STORAGE_WHEEL5760OF30030 = 6,
+//     STORAGE_WHEELTESTING     = 99
+// };
 
     #define WHEEL_MAX 5
     #define WHEEL_BASIC_SIZE (2 * 3 * 5)
@@ -80,16 +72,16 @@ enum {
 //     #endif
 // #endif
 
-static const storage_t storage_table[STORAGE_WHEELTESTING + 1] = {
-    [STORAGE_FULL] = { STORAGE_FULL, 1, 1 },
-    [STORAGE_HALF] = { STORAGE_HALF, 1, 2 },
-    [STORAGE_WHEEL2OF6] = { STORAGE_WHEEL2OF6, 2, 6 },
-    [STORAGE_WHEEL8OF30] = { STORAGE_WHEEL8OF30, 8, 30 },
-    [STORAGE_WHEEL48OF210] = { STORAGE_WHEEL48OF210, 48, 210 },
-    [STORAGE_WHEEL480OF2310] = { STORAGE_WHEEL480OF2310, 480, 2310 },
-    [STORAGE_WHEEL5760OF30030] = { STORAGE_WHEEL5760OF30030, 5760, 30030 },
-    [STORAGE_WHEELTESTING] = { STORAGE_WHEELTESTING, WHEEL_STRIPE_BITS, WHEEL_SIZE } // this is used for testing the wheel storage with a small wheel, it is not a real storage type
-};
+// static const storage_t storage_table[STORAGE_WHEELTESTING + 1] = {
+//     [STORAGE_FULL] = { STORAGE_FULL, 1, 1 },
+//     [STORAGE_HALF] = { STORAGE_HALF, 1, 2 },
+//     [STORAGE_WHEEL2OF6] = { STORAGE_WHEEL2OF6, 2, 6 },
+//     [STORAGE_WHEEL8OF30] = { STORAGE_WHEEL8OF30, 8, 30 },
+//     [STORAGE_WHEEL48OF210] = { STORAGE_WHEEL48OF210, 48, 210 },
+//     [STORAGE_WHEEL480OF2310] = { STORAGE_WHEEL480OF2310, 480, 2310 },
+//     [STORAGE_WHEEL5760OF30030] = { STORAGE_WHEEL5760OF30030, 5760, 30030 },
+//     [STORAGE_WHEELTESTING] = { STORAGE_WHEELTESTING, WHEEL_STRIPE_BITS, WHEEL_SIZE } // this is used for testing the wheel storage with a small wheel, it is not a real storage type
+// };
 
     #define wheelmask_stripes      WHEEL_STRIPES
     #define wheelmask_stripe_bytes WHEEL_STRIPE_BYTES
@@ -311,13 +303,15 @@ function(markFactors_wheelstorage_small_repeat,suffix)(sieve_t* sieve, const cou
         bitstorage_sized[ wheel_block_calc_uint8(index)] |= wheelmask_compressed[index % WHEEL_SIZE]; // first check if the number is divisible by any of the wheel primes, if it is, mark it as non-prime
     }
 
+    #define bitbucket_t uint8_t
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
     markFactors_wheelstorage_repeat(sieve_t* sieve, const counter_t range_start, counter_t range_stop, const counter_t step)
     {
-        register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
+        // register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
         const counter_t byte_stop = wheel_block_calc_uint8(range_stop + 1);
-        const counter_t wheel_step = (step >> shift_calc(step)) * (bitcount_type(uint8_t) / wheelmask_stripe_bits); // step in terms of the number of bitbuckets
+        // const counter_t wheel_step = (step >> shift_calc(step)) * (bitcount_type(uint8_t) / wheelmask_stripe_bits); // step in terms of the number of bitbuckets
+        const counter_t wheel_step = (step >> shift_calc(step)) * (bitcount_type(bitbucket_t) / min(bitcount_type(bitbucket_t), wheelmask_stripe_bits)); // step in terms of the number of bitbuckets
 
         // Every WHEEL_BASIC_SIZE * wheel_step, the pattern of which bits to mark as true in the wheel repeats at byte level 
         // Because when the wheel is completely done, we are wheelmask_stripe_bytes further in the bitstorage
@@ -389,9 +383,10 @@ function(markFactors_wheelstorage_small_repeat,suffix)(sieve_t* sieve, const cou
         
         if (prime < global_stripeprime_faster ) {
             markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
+            // markFactors_wheelstorage_small_repeat_uint64_unroll8(sieve, start, stop, step);
         }
         else 
-        if ( (stop-start) > (step * bitcount_type(uint8_t) / wheelmask_stripe_bits * WHEEL_BASIC_SIZE)) { // if the range is large enough to benefit from the repeat function, use it, otherwise use the non-repeat function which has less overhead for small ranges
+        if ( (stop-start) > (step * wheelmask_stripe_bits * WHEEL_BASIC_SIZE)) { // TODO: ough estimate
             markFactors_wheelstorage_repeat(sieve, start, stop, step);
         }
         else 
