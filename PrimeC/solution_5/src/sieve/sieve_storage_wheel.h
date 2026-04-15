@@ -31,7 +31,7 @@
     #define WHEEL_REPEATS 1
 
     #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
-    #define WHEEL_STRIPE_BYTES 1//(((WHEEL_STRIPES) - 1) / 8 + 1)
+    #define WHEEL_STRIPE_BYTES 1 //(((WHEEL_STRIPES) - 1) / 8 + 1)
     #define WHEEL_STRIPE_BITS  ((WHEEL_STRIPE_BYTES) * 8)
 
 // #if defined(WHEEL_STORAGE) && !defined(WHEEL_SIZE)
@@ -175,20 +175,12 @@
 #endif
 
 
-
-
 #if defined include_once_last //---- include this once after all variants
-
 
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     wheel_bit_calc(counter_t index) {
         return wheelmask_stripe_bits * (index / WHEEL_SIZE) + wheelmask_index[index % WHEEL_SIZE] * bitcount_type(wheelmask_t) + shift_calc(wheelmask_compressed[index % WHEEL_SIZE]);
     }
-
-    // static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    // wheel_block_calc_uint8(counter_t index) {
-    //     return (wheelmask_stripe_bytes * (index / WHEEL_SIZE)) + wheelmask_index[index % WHEEL_SIZE];
-    // }
 
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
     markFactor_wheelstorage(sieve_t* sieve, const register counter_t index) 
@@ -204,15 +196,14 @@
         // register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
         const counter_t byte_stop = wheel_block_calc_uint8(range_stop + 1);
-        // const counter_t wheel_step = (step >> shift_calc(step)) * (bitcount_type(uint8_t) / wheelmask_stripe_bits); // step in terms of the number of bitbuckets
         const counter_t wheel_step = (step >> shift_calc(step)) * (bitcount_type(bitbucket_t) / min(bitcount_type(bitbucket_t), wheelmask_stripe_bits)); // step in terms of the number of bitbuckets
 
         // Every WHEEL_BASIC_SIZE * wheel_step, the pattern of which bits to mark as true in the wheel repeats at byte level 
         // Because when the wheel is completely done, we are wheelmask_stripe_bytes further in the bitstorage
-        const counter_t range_stop_unique = range_start + WHEEL_BASIC_SIZE * wheel_step; 
+        const counter_t range_stop_unique = range_start + WHEEL_SIZE * (wheel_step + 1); 
 
         for (register counter_t index = range_start; index <= range_stop_unique; index += step) { 
-            const uint8_t markmask = wheelmask_compressed[ index % WHEEL_SIZE];
+            const uint8_t markmask = wheelmask_compressed[ index % WHEEL_SIZE ];
             if (markmask) {
                 applyMask_index_uint8_unroll8(sieve->bitstorage, wheel_block_calc_uint8(index), byte_stop, wheel_step, markmask);
             }
@@ -227,7 +218,6 @@
         for(register counter_t j=256; j>4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
             for(;i>j;i-=j) {
                 for(int k=j; k--; index += step) {
-                    // setBitsTrue_wheel(sieve->bitstorage, index);
                     markFactor_wheelstorage(sieve, index);
                 }
             }
@@ -274,6 +264,8 @@
     markFactors_wheelstorage(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
     {
         const counter_t prime = step / 2;
+
+        // markFactors_wheelstorage_repeat(sieve, start, stop, step); return;
         
         if (prime < global_stripeprime_faster ) {
             // markFactors_wheelstorage_small_repeat_pair_vector_uint64v2_unroll8(sieve, start, stop, step);
@@ -281,7 +273,7 @@
             // markFactors_wheelstorage_small_repeat_uint64_unroll8(sieve, start, stop, step);
         }
         else 
-        if ( (stop-start) > (step * wheelmask_stripe_bits * WHEEL_BASIC_SIZE)) { // TODO: ough estimate
+        if ( (stop-start) > (step * wheelmask_stripe_bits * WHEEL_SIZE)) { // TODO: rough estimate
             markFactors_wheelstorage_repeat(sieve, start, stop, step);
         }
         else 

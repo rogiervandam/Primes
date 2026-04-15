@@ -5,8 +5,8 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
     register uint8_t* restrict bitstorage_sized_uint8 = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
 
     const counter_t block_stop = function(wheel_block_calc,variantsuffix)(range_stop + 1);
-    const counter_t wheel_step = step >> shift_calc(step);
-    const counter_t range_stop_unique = min(range_start + bitcount_type(bitbucket_t) / wheelmask_stripe_bits * WHEEL_BASIC_SIZE * (wheel_step + 2), range_stop);
+    const counter_t wheel_step = reduce2power(step);
+    const counter_t range_stop_unique = min(range_start + bitcount_type(bitbucket_t) / wheelmask_stripe_bits * WHEEL_SIZE * (wheel_step + 2), range_stop);
     const counter_t word_bytemask = sizeof(bitbucket_t) - 1;
 
     bitbucket_t current_mask = (bitbucket_t)0U;

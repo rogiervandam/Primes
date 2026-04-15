@@ -11,8 +11,8 @@ function(markFactors_wheelstorage_small_repeat,suffix)(sieve_t* sieve, const cou
     // const counter_t wheel_step = step * wheelmask_stripe_bytes;
     // const counter_t range_stop_unique = min(range_start + WHEEL_BASIC_SIZE * step * wheelmask_stripe_bits + WHEEL_BASIC_SIZE * wheelmask_stripe_bits, range_stop); 
 
-    const counter_t wheel_step = step >> shift_calc(step); // step in terms of the number of bitbuckets
-    const counter_t range_stop_unique = min(range_start + bitcount_type(bitbucket_t) / wheelmask_stripe_bits * WHEEL_BASIC_SIZE * (wheel_step + 1), range_stop); 
+    const counter_t wheel_step = reduce2power(step); // step in terms of the number of bitbuckets
+    const counter_t range_stop_unique = min(range_start + bitcount_type(bitbucket_t) * WHEEL_BASIC_SIZE * (wheel_step + 1) / wheelmask_stripe_bits , range_stop); 
 
     bitbucket_t reuse_markmask = 0ULL;
     bitbucket_t reuse_markmask_new = 0ULL;
