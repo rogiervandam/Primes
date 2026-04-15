@@ -1,6 +1,6 @@
 // Finds the index of the next unset (false) bit in a bitstorage, starting from a given index.
 
-#include "../generic/setsuffix.h"
+#include "../generic/variants/setsuffix.h"
 
 #ifndef variant
 #define bitbucket_t uint8_t
@@ -107,7 +107,7 @@ function(searchBitFalse_largestep,suffix)(const void* restrict bitstorage, regis
     return index + builtin_ctz(~current_word);
 }
 
-#include "../generic/cleansuffix.h"
+#include "../generic/variants/cleansuffix.h"
 
 // make explicit versions for all types with different suffixes for different bitbucket_t sizes
 #ifndef BITSTORAGE_SEARCH_INCLUDE_GUARD

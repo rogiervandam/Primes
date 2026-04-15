@@ -1,4 +1,4 @@
-#include "../generic/setsuffix.h"
+#include "../generic/variants/setsuffix.h"
 
 // This applyMask variant takes range_start and range_stop as the word/vector index
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
@@ -96,4 +96,4 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
     }
 }
 
-#include "../generic/cleansuffix.h"
+#include "../generic/variants/cleansuffix.h"

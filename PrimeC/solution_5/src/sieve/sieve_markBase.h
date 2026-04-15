@@ -3,7 +3,7 @@
 #define variant uint8
 #endif
 
-#include "../generic/setsuffix.h"
+#include "../generic/variants/setsuffix.h"
 
 static inline void __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 setBitsTrue_smallstep_repeat_base(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
@@ -47,10 +47,10 @@ setBitsTrue_smallstep_norepeat(void* restrict bitstorage, const counter_t range_
     endAnalysis6(time_setBitsTrue_smallstep_norepeat,"\n");
 }
 
-#include "../generic/cleansuffix.h"
+#include "../generic/variants/cleansuffix.h"
 
 #define variant uint64
-#include "../generic/setsuffix.h"
+#include "../generic/variants/setsuffix.h"
 
 static inline void __attribute__((always_inline, hot)) 
 markFactors_base(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
@@ -68,4 +68,4 @@ markFactors_base(sieve_t *sieve, counter_t start, counter_t stop, counter_t step
     // }    
 }
 
-#include "../generic/cleansuffix.h"
+#include "../generic/variants/cleansuffix.h"

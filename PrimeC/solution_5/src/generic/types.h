@@ -61,4 +61,4 @@ enum {
     ALGORITHM_WHEEL   = 4
 };
 
-#include "varianttypes.h"
+#include "variants/varianttypes.h"

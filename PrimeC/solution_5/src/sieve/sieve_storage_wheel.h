@@ -137,7 +137,7 @@
 
 #endif
 
-#include "../generic/setsuffix.h" 
+#include "../generic/variants/setsuffix.h" 
 // sets bitbucket_t (e.g. uint64_t), variantsuffix (e.g. _uint64) and suffix (e.g. _uint64_unroll8) 
 // for the current variant, based on the presets defined in varianttypes.h
 
@@ -166,7 +166,7 @@
     #endif // end of unrolled function
 #endif
 
-#ifdef include_for_vectors   
+#if defined include_for_vectors   
 
     #if defined unrolls && unrolls > 1
         #include "sieve_storage_wheel_smallrepeat_pair_vector.h"
@@ -276,7 +276,7 @@
         const counter_t prime = step / 2;
         
         if (prime < global_stripeprime_faster ) {
-            markFactors_wheelstorage_small_repeat_pair_vector_uint64v4_unroll8(sieve, start, stop, step);
+            markFactors_wheelstorage_small_repeat_pair_vector_uint32v2_unroll8(sieve, start, stop, step);
             // markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
             // markFactors_wheelstorage_small_repeat_uint64_unroll8(sieve, start, stop, step);
         }
@@ -291,10 +291,10 @@
     }
 #endif
 
-#include "../generic/cleansuffix.h"
+#include "../generic/variants/cleansuffix.h"
 
 #ifndef ASSEMBLE_WHEELSTORAGE_GUARD
     #define ASSEMBLE_WHEELSTORAGE_GUARD
-    #define INCLUDE_FILE "../../src/sieve/sieve_storage_wheel.h"
-    #include "../generic/generate_varianttypes.h"
+    #define INCLUDE_FILE "../../../src/sieve/sieve_storage_wheel.h"
+    #include "../generic/variants/generate.h"
 #endif

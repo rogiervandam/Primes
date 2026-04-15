@@ -1,4 +1,4 @@
-#include "../generic/setsuffix.h"
+#include "../generic/variants/setsuffix.h"
 
 // Set one bit to true
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
@@ -43,5 +43,5 @@ function(setBitsTrue_range_return,suffix)(void* restrict bitstorage, const count
     return index;
 }
 
-#include "../generic/cleansuffix.h"
+#include "../generic/variants/cleansuffix.h"
 

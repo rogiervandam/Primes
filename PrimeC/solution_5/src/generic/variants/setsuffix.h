@@ -6,7 +6,7 @@
 // The possibilities are listed in varianttypes.h
 
 // #include <inttypes.h>
-#include "../generic/varianttypes.h"
+#include "varianttypes.h"
 
 // #undef bitbucket_t
 // #undef suffix
