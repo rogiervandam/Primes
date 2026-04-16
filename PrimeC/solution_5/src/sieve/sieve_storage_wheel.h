@@ -35,6 +35,7 @@
     static wheelmask_t wheelmask_compressed[WHEEL_SIZE];
     static uint8_t wheelmask_index[WHEEL_SIZE];
     static counter_t wheelmask_bitpoint[WHEEL_SIZE];
+    static counter_t wheelmask_mask[8] = { 1, 2, 4, 8, 16, 32, 64, 128};
 
     void build_wheel() {
         // find all the primes in the wheel up to WHEEL_MAX and store them
@@ -135,7 +136,7 @@
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
     function(markFactors_wheelstorage_repeat,suffix)(sieve_t* sieve, const counter_t range_start, counter_t range_stop, const counter_t step)
     {
-        const counter_t byte_stop = function(wheel_block_calc,variantsuffix)(range_stop + 1);
+        const counter_t bucket_stop = function(wheel_block_calc,variantsuffix)(range_stop + 1);
         const counter_t wheel_step = reduce2power(step) * (bitcount_type(bitbucket_t) / min(bitcount_type(bitbucket_t), wheelmask_stripe_bits)); // step in terms of the number of bitbuckets
 
         // Every WHEEL_BASIC_SIZE * wheel_step, the pattern of which bits to mark as true in the wheel repeats at byte level 
@@ -144,22 +145,40 @@
 
         for (register counter_t index = range_start; index <= range_stop_unique; index += step) { 
 
-            // -- option with wheel_bit_calc
+            // 77k
             // const counter_t wheel_bit = wheel_bit_calc(index);
             // if (wheel_bit <= 0) continue; // if the number is divisible by any
             // const bitbucket_t markmask = markmask_type(wheel_bit, bitbucket_t);
-            // function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), byte_stop, wheel_step, markmask);
-            // applyMask_index_uint8_unroll8(sieve->bitstorage, wheel_block_calc_uint8(index), byte_stop, wheel_step, markmask);
+            // function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), bucket_stop, wheel_step, markmask);
+            // applyMask_index_uint8_unroll8(sieve->bitstorage, wheel_block_calc_uint8(index), bucket_stop, wheel_step, markmask);
 
             // if (wheel_bit) {
             //     const bitbucket_t markmask = markmask_type(wheel_bit, bitbucket_t);
-            //     function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), byte_stop, wheel_step, markmask);
+            //     function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), bucket_stop, wheel_step, markmask);
             // }
 
-            // -- option with precomputed wheelmask_compressed
-            const uint8_t markmask = wheelmask_compressed[ index % WHEEL_SIZE ];
+            // 83k
+            // const uint8_t markmask = wheelmask_compressed[ index % WHEEL_SIZE ];
+            // if (markmask) {
+            //     applyMask_index_uint8_unroll8(sieve->bitstorage, wheel_block_calc_uint8(index), bucket_stop, wheel_step, markmask);
+            // }
+
+            // 83k
+            // const counter_t wheel_bit = wheel_bit_calc(index);
+            // if (wheel_bit < 0) continue; // if the number is divisible by any
+            // const uint8_t markmask = wheelmask_mask[(wheel_bit & 7)] ;
+
+            // function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), bucket_stop, wheel_step, markmask);
+
+            // 84k
+            const counter_t wheel_index = index % WHEEL_SIZE;
+            const bitbucket_t markmask = wheelmask_compressed[ wheel_index ];
             if (markmask) {
-                applyMask_index_uint8_unroll8(sieve->bitstorage, wheel_block_calc_uint8(index), byte_stop, wheel_step, markmask);
+                counter_t block_start_index = (wheelmask_stripe_bits <= bitcount_type(bitbucket_t)) 
+                        ? index_type(( index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t)
+                        : index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index], bitbucket_t);
+                
+                applyMask_index_uint8_unroll8(sieve->bitstorage, block_start_index, bucket_stop, wheel_step, markmask);
             }
         } 
     }
