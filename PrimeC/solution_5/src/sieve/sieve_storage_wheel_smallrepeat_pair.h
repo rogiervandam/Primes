@@ -6,7 +6,7 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
 
     const counter_t stop_bucket = function(wheel_block_calc,variantsuffix)(range_stop + 1);
     const counter_t wheel_step = reduce2power(step);
-    const counter_t range_stop_unique = min(range_start + bitcount_type(bitbucket_t) / wheelmask_stripe_bits * WHEEL_SIZE * (wheel_step + 2), range_stop);
+    const counter_t range_stop_unique = min(range_start + (bitcount_type(bitbucket_t) / wheelmask_stripe_bits) * WHEEL_SIZE * (wheel_step + 2), range_stop);
 
     counter_t current_bucket = 0;
 

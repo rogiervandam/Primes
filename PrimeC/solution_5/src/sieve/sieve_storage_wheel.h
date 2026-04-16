@@ -77,9 +77,9 @@
         verbose3 (printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju\n", WHEEL_SIZE, (uintmax_t)wheelmask_stripes, (uintmax_t)wheelmask_stripe_bytes) );
 
         // print the wheel for debugging
-        for (counter_t i = 0; i < WHEEL_SIZE; i++) {
-            printf("%u: %u, %u, %u, %ju\n", i, wheelmask[i/8], wheelmask_compressed[i], wheelmask_index[i], (uintmax_t)wheelmask_bitpoint[i]);
-        }    
+        // for (counter_t i = 0; i < WHEEL_SIZE; i++) {
+        //     printf("%u: %u, %u, %u, %ju\n", i, wheelmask[i/8], wheelmask_compressed[i], wheelmask_index[i], (uintmax_t)wheelmask_bitpoint[i]);
+        // }    
 
     }
 
@@ -174,11 +174,12 @@
             const counter_t wheel_index = index % WHEEL_SIZE;
             const bitbucket_t markmask = wheelmask_compressed[ wheel_index ];
             if (markmask) {
-                counter_t block_start_index = (wheelmask_stripe_bits <= bitcount_type(bitbucket_t)) 
+                counter_t bucket_start = (wheelmask_stripe_bits <= bitcount_type(bitbucket_t)) 
                         ? index_type(( index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t)
                         : index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index], bitbucket_t);
                 
-                applyMask_index_uint8_unroll8(sieve->bitstorage, block_start_index, bucket_stop, wheel_step, markmask);
+                // applyMask_index_uint8_unroll8(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
+                function(applyMask_index, suffix)(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
             }
         } 
     }

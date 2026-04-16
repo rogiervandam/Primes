@@ -7,7 +7,7 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(sieve_t* siev
 
     const counter_t stop_bucket = function(wheel_block_calc,variantsuffix)(range_stop + 1);
     const counter_t wheel_step = reduce2power(step);
-    const counter_t range_stop_unique = min(range_start + bitcount_type(bitbucket_t) / wheelmask_stripe_bits * WHEEL_SIZE * (wheel_step + 1), range_stop);
+    const counter_t range_stop_unique = min(range_start + (bitcount_type(bitbucket_t) / wheelmask_stripe_bits) * WHEEL_SIZE * (wheel_step + 1), range_stop);
 
     // go to first aligned block 
     counter_t current_bucket = 0;
@@ -51,7 +51,7 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(sieve_t* siev
     if (pending_bucket) {
         function(applyMask_index,suffix)(sieve->bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask);
     }
-    bitstorage_sized[current_bucket] |= current_mask;
+    // bitstorage_sized[current_bucket] |= current_mask;
 
     endAnalysis6(time_markFactors_wheelstorage_small_repeat_pair_vector,"\n");
 }
