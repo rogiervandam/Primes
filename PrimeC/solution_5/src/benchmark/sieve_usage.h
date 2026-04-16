@@ -43,10 +43,11 @@ usage(char *program_name, int exit_code)
         "                            1 - fast tuning\n"
         "                            2 - refined tuning\n"
         "                            3 - deep tuning\n"
+        "                            4 - continuous benchmarking of top 4 options\n"
 #endif
 #ifdef COMPILE_BENCHMARK_STRIPERS
-        "                            4 - benchmark invidual stripe functions\n"
-        "                            5 - benchmark iterative stripe functions\n"
+        "                            5 - benchmark invidual stripe functions\n"
+        "                            6 - benchmark iterative stripe functions\n"
 #endif
         "  --verbose <level>         Show more output to a certain level:\n"
         "                            0 - only show result string\n"

@@ -10,6 +10,9 @@ typedef struct {
     counter_t step;
 } tuning_parameters_t;
 
+static benchmark_result_t tuning_top_results[4];
+static counter_t tuning_top_results_count = 0;
+
 static int compareTuningResults(const void *resultA, const void *resultB) 
 {
     return (((benchmark_result_t *)resultB)->avg > ((benchmark_result_t *)resultA)->avg ? 1 : -1);
@@ -221,6 +224,11 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
             option.tune_keeppercent_longlist  = 25;
             option.tune_keeppercent_shortlist = 50;
             break;
+        case 4:
+            tuning_parameters.stripe_faster_steps    = prime_max/8;
+            tuning_parameters.largestep_faster_steps = 16;
+            tuning_parameters.sample_duration        = option.initial_sample_duration*2;
+            break;
     }
     
     // prepare a table to store the tuning results
@@ -316,6 +324,12 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
             tuning_results = addTuningVariations(tuning_result, tuning_results, tuning_results_selected, tuning_parameters);
             tuning_results = joinTuningResults(tuning_result, tuning_results);
         }
+    }
+
+    // Save top results for tunelevel 4 continuous benchmarking
+    tuning_top_results_count = min(4, tuning_results);
+    for (counter_t i = 0; i < tuning_top_results_count; i++) {
+        tuning_top_results[i] = tuning_result[i];
     }
 
     // Take best result

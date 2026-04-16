@@ -192,7 +192,7 @@ parseCommandLine(int argc, char *argv[])
         }
         else if (strcmp_local(argv[arg], "--tune")) { 
             ensure_next_arg(++arg, argc, program_name, "tune level");
-            parse_int_arg(argv[arg], &option.tunelevel, 4, program_name, "Invalid tune level");
+            parse_int_arg(argv[arg], &option.tunelevel, 6, program_name, "Invalid tune level");
             verbose4(printf("Tune level set to %d\n", option.tunelevel));
         }
         else if (strcmp_local(argv[arg], "--notune")) { 
