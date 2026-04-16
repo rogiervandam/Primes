@@ -24,9 +24,11 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
 
     for (counter_t index = range_start; index <= range_stop_unique; index += step) {
         const counter_t wheel_bit = wheel_bit_calc(index);
-        if (wheel_bit <= 0) continue; // if the number is divisible by any of the wheel primes, skip it
 
         const counter_t new_bucket = index_type(wheel_bit, bitbucket_t);
+        // const counter_t new_bucket = function(wheel_block_calc,variantsuffix)(index);
+
+        if (wheel_bit <= 0) continue; // if the number is divisible by any of the wheel primes, skip it
 
         if (new_bucket != current_bucket) {
             if (pending_mask) {
