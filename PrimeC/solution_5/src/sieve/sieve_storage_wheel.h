@@ -88,12 +88,21 @@
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     function(wheel_block_calc,variantsuffix)(counter_t index) {
 
-        if (wheelmask_stripe_bits <= bitcount_type(wheelmask_t)) {
-            return index_type(wheelmask_stripe_bits * (index / WHEEL_SIZE), bitbucket_t);
+        // if (wheelmask_stripe_bits <= bitcount_type(wheelmask_t)) {
+        //     return index_type(wheelmask_stripe_bits * (index / WHEEL_SIZE), bitbucket_t);
+        // }
+
+        // return (index_type(wheelmask_stripe_bits * (index / WHEEL_SIZE), wheelmask_t)) + wheelmask_index[index % WHEEL_SIZE];
+
+        // compile time short path to avoid the index % WHEEL_SIZE
+        if (wheelmask_stripe_bits <= bitcount_type(bitbucket_t)) {
+            return index_type((index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t);
+            // return index_type((index / WHEEL_SIZE) << shift_calc(wheelmask_stripe_bits), bitbucket_t);
+            // return (index / WHEEL_SIZE) >> (shift_type(bitbucket_t) - shift_calc(wheelmask_stripe_bits));
         }
 
-        return (index_type(wheelmask_stripe_bits * (index / WHEEL_SIZE), wheelmask_t)) + wheelmask_index[index % WHEEL_SIZE];
-        // return index_type((wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[index % WHEEL_SIZE], bitbucket_t);
+        return index_type((wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[index % WHEEL_SIZE], bitbucket_t);
+
     }
 #endif
 
