@@ -69,8 +69,7 @@
             if (!(wheelmask[index_type(i, uint8_t)] & markmask_type(i, uint8_t))) {
                 wheelmask_compressed[i] |= markmask_type(stripe_count, wheelmask_t);
                 wheelmask_index[i] = index_type(stripe_count, wheelmask_t);
-                // wheelmask_bitpoint[i] = stripe_count;
-                wheelmask_bitpoint[i] = stripe_count + 1;
+                wheelmask_bitpoint[i] = stripe_count;
                 stripe_count++;
             }
         }
@@ -91,8 +90,8 @@
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     wheel_bit_calc(counter_t index) {
         const counter_t wheel_index = index % WHEEL_SIZE;
-        if (wheelmask_bitpoint[wheel_index] <= 0) return -1; 
-        return (wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index] - 1;// - 1;
+        if (wheelmask_bitpoint[wheel_index] < 0) return -1; 
+        return (wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index];
     }
 
     #define bitbucket_t uint64_t
@@ -123,9 +122,9 @@
         }
 
         const counter_t wheel_index = index % WHEEL_SIZE;
-        if (wheelmask_bitpoint[wheel_index] <= 0) return 0;
+        if (wheelmask_bitpoint[wheel_index] < 0) return 0;
 
-        return index_type((wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index] - 1, bitbucket_t); // -1
+        return index_type((wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index], bitbucket_t);
     }
 
 #endif
