@@ -263,8 +263,8 @@
         // markFactors_wheelstorage_norepeat(sieve, start, stop, step); return;
         
         if (prime < global_stripeprime_faster ) {
-            // markFactors_wheelstorage_small_repeat_pair_vector_uint64v2_unroll8(sieve, start, stop, step);
-            markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
+            markFactors_wheelstorage_small_repeat_pair_vector_uint64v4_unroll8(sieve, start, stop, step);
+            // markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
             // markFactors_wheelstorage_small_repeat_uint64_unroll8(sieve, start, stop, step);
         }
         else markFactors_wheelstorage_repeat(sieve, start, stop, step);
