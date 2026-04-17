@@ -28,7 +28,7 @@ sieve_create(const counter_t size, const counter_t bits)
     sieve->bits       = bits;
     sieve->size       = size;
 
-    // verbose7 ( printf("Allocated sieve with size %ju bits (%zu bytes) at address %p (bitstorage aligned to %p)\n", (uintmax_t)bits, bitstorage_bytesize, (void*)sieve, (void*)sieve->bitstorage); )
+    verbose7 ( printf("Allocated sieve with size %ju bits (%zu bytes) at address %p (bitstorage aligned to %p)\n", (uintmax_t)bits, bitstorage_bytesize, (void*)sieve, (void*)sieve->bitstorage); )
 
     return sieve;
 }

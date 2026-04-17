@@ -143,7 +143,7 @@
         register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
         // const counter_t bucket_stop = function(wheel_block_calc,variantsuffix)(range_stop + 1);
-        const counter_t bucket_stop = function(wheel_block_calc,variantsuffix)(range_stop+1);
+        const counter_t bucket_stop = function(wheel_block_calc,variantsuffix)(range_stop) + index_type(WHEEL_STRIPE_BITS-1, bitbucket_t); // + because: don't stop too soon
 
         const counter_t wheel_step = reduce2power(step) * (bitcount_type(bitbucket_t) / min(bitcount_type(bitbucket_t), wheelmask_stripe_bits)); // step in terms of the number of bitbuckets
         // const counter_t wheel_step = step; // step in terms of the number of bitbuckets
@@ -188,8 +188,9 @@
                         ? index_type(( index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t)
                         : index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index], bitbucket_t);
                 
-                applyMask_index_uint8_unroll8(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
-                // function(applyMask_index, suffix)(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
+                verbose8({ printf("Marking index %ju in factorrange (%ju-%ju) with step %ju with markmask %ju at bucket start %ju bucket stop %ju with wheelstep %ju\n", (uintmax_t)index, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)step, (uintmax_t)markmask, (uintmax_t)bucket_start, (uintmax_t)bucket_stop, (uintmax_t)wheel_step); waitforkey(); })
+                // applyMask_index_uint8_unroll8(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
+                function(applyMask_index, suffix)(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
             }
 
             // const counter_t wheel_bit = wheel_bit_calc(index);
@@ -200,6 +201,8 @@
             //     // bitstorage_sized[ index_type(wheel_bit, bitbucket_t)] |= markmask;//markmask_type(wheel_bit, bitbucket_t);
                 
             //     counter_t bucket_start = function(wheel_block_calc,variantsuffix)(index);
+            //     // bitstorage_sized[ bucket_start] |= markmask;//markmask_type(wheel_bit, bitbucket_t);
+
             //     verbose8({ printf("Marking pos %ju with markmask %ju at bucket start %ju for index %ju\n", (uintmax_t)wheel_bit, (uintmax_t)markmask, (uintmax_t)bucket_start, (uintmax_t)index); })
             //     applyMask_index_uint8_unroll8(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
             //     // function(applyMask_index, suffix)(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
@@ -305,7 +308,7 @@
         const counter_t prime = step / 2;
 
         // markFactors_wheelstorage_norepeat(sieve, start, stop, step); return;
-        // markFactors_wheelstorage_repeat_uint8_unroll8(sieve, start, stop, step); return;
+        // markFactors_wheelstorage_repeat_uint16_unroll8(sieve, start, stop, step); return;
         
         if (prime < global_stripeprime_faster ) {
             // markFactors_wheelstorage_small_repeat_pair_vector_uint64v4_unroll4(sieve, start, stop, step);
