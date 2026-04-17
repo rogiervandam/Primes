@@ -101,6 +101,16 @@ showResult(benchmark_settings_t benchmark_settings)
 
 static inline void __attribute__((cold)) 
 handleCheckOption(int check, benchmark_settings_t benchmark_settings) {
+
+    #ifdef COMPILE_EXPLAIN
+    if (option.explain) {
+        if (option.verbose_level < 6) option.verbose_level = 6;
+        option.check = 0;
+        explainSieveShake(option.fixed_benchmark_settings);
+        return (0);
+    }
+    #endif
+
     #ifdef COMPILE_CHECK_STRIPERS
     if (check >= 4) checkSetBitsTrueMethods(setBitsTrueMethods, 0, benchmark_settings.factor_max);
     if (check >= 5) {

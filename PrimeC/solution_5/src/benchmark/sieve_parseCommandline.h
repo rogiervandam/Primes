@@ -157,6 +157,9 @@ parse_set_parameter(char *arg, char *program_name, struct options_t *option) {
 static void __attribute__((cold)) 
 parseCommandLine(int argc, char *argv[])
 {
+    setbuf(stdout, NULL); // prevent buffering of stdout
+    setDefaultOptions();
+
     option.program_name = argv[0];
     option.program_name = max(option.program_name, strrchr_local(option.program_name, '/')+1);
     option.program_name = max(option.program_name, strrchr_local(option.program_name, '\\')+1);
