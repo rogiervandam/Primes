@@ -1,22 +1,7 @@
 #include "sieve_check.h"
 #include "sieve_benchmark.h"
-
-#ifdef COMPILE_EXPLAIN
 #include "sieve_explain.h"
-#endif
-
-#ifdef COMPILE_CHECK_STRIPERS
-#include "sieve_checkFunctions.h"
-#endif
-
-#ifdef COMPILE_BENCHMARK_STRIPERS
-#include "sieve_benchmarkFunctions.h"
-#endif
-
-#ifdef COMPILE_TUNE
 #include "sieve_tune.h"
-#endif
-
 #include "sieve_validate.h"
 #include "sieve_performBenchmark.h"
 #include "sieve_usage.h"
@@ -39,36 +24,10 @@ int main(int argc, char *argv[])
     // command line --check can be used to check the algorithm for all sieve/blocksize combinations
     if (option.check) handleCheckOption(option.check, option.fixed_benchmark_settings);
 
-    #ifdef COMPILE_BENCHMARK_STRIPERS
-    if (option.tunelevel) {
-        if (option.tunelevel == 5) {
-            benchmarkSieveSetBitsTrue();
-            return (0);
-        }
-        if (option.tunelevel == 6) {
-            createStepplan(option.fixed_benchmark_settings);
-            return (0);
-        }
-    }
-    #endif
-
-    #ifdef COMPILE_TIMERS
-    if (option.timers) {
-        timer_init();
-        verbose2( printf("Timing the different parts of the algorithm\n"); )
-    }
-    #endif
-
     int valid = performBenchmarks(option, shakeSieve);
 
     // show results for --show command line option and other developer information
-    if (option.show_explain_factor_max > 0) showResult(option.fixed_benchmark_settings);
-
-    #ifdef COMPILE_TIMERS
-    if (option.timers) print_timing_table();
-    #endif
-    
-    if (debug_hits) { verbose2( printf("Hits: %ju\n",(uintmax_t)debug_hits); ) }
+    if (option.show_explain_factor_max > 0 && option.tunelevel <= 4) showResult(option.fixed_benchmark_settings);
 
     return valid;
 }

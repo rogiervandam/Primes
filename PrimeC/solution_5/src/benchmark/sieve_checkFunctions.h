@@ -1,3 +1,4 @@
+#ifdef COMPILE_CHECK_STRIPERS
 #include "../bitstorage/bitstorage_setBitsTrueFunctionList.h"
 
 static uint8_t checkSetBitsTrueMethod_stripe(const SetBitsTrueMethod* method, const counter_t range_start, const counter_t range_stop, const counter_t step)
@@ -128,3 +129,4 @@ static inline uint8_t checkSetBitsTrueMethodsBlocks(const SetBitsTrueMethod* Set
     
     return allvalid;
 }
+#endif

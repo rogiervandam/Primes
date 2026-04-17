@@ -1,4 +1,6 @@
 // Define benchmark timing constants
+#ifdef COMPILE_BENCHMARK_STRIPERS
+
 #include "../bitstorage/bitstorage_setBitsTrueFunctionList.h"
 
 #define nonvector 1
@@ -191,3 +193,4 @@ static void createStepplan(benchmark_settings_t settings) {
     printf("Final stepplan: %ju passes in 5 seconds\n", (uintmax_t)passes);
 
 }
+#endif

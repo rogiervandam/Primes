@@ -1,4 +1,6 @@
 // prepare the benchmark settings using defaults
+#include "sieve_benchmarkFunctions.h"
+
 static inline benchmark_settings_t initBenchmarkSettings(const counter_t threads) 
 {
     benchmark_settings_t benchmark_settings = option.fixed_benchmark_settings;

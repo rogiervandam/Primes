@@ -15,6 +15,26 @@ saveLastSettings(benchmark_settings_t settings)
 
 static int performBenchmarks(struct options_t option, sieve_t* (*benchmarkableFunction)(const counter_t))
 {
+    #ifdef COMPILE_BENCHMARK_STRIPERS
+    if (option.tunelevel) {
+        if (option.tunelevel == 5) {
+            benchmarkSieveSetBitsTrue();
+            return (0);
+        }
+        if (option.tunelevel == 6) {
+            createStepplan(option.fixed_benchmark_settings);
+            return (0);
+        }
+    }
+    #endif
+
+    #ifdef COMPILE_TIMERS
+    if (option.timers) {
+        timer_init();
+        verbose2( printf("Timing the different parts of the algorithm\n"); )
+    }
+    #endif
+
     for(counter_t threads=option.fixed_benchmark_settings.threads, runs = 0; threads >= 1 && runs < 4; threads = (threads/2), runs++ ) {
 
         // prepare settings

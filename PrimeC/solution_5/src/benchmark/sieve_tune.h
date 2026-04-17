@@ -1,3 +1,4 @@
+#ifdef COMPILE_TUNE
 typedef struct {
     counter_t sieve_bits;
     counter_t prime_max;
@@ -340,3 +341,5 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     verbose2( { printf(COLOR_CLEAR_LINE "Tuning done in %.1f seconds. Evaluated %ju options in %ju steps. \nBest result: ", (time_elapsed), (uintmax_t) tuning_results_max, (uintmax_t) tuning_parameters.step ); printTuningResult(best_result);} );
     return best_result;
 }
+
+#endif
