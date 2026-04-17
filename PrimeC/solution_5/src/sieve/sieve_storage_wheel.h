@@ -21,7 +21,7 @@
     #define WHEEL_REPEATS 1
 
     #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
-    #define WHEEL_STRIPE_BYTES 1 //(((WHEEL_STRIPES) - 1) / 8 + 1)
+    #define WHEEL_STRIPE_BYTES 3 //(((WHEEL_STRIPES) - 1) / 8 + 1)
     #define WHEEL_STRIPE_BITS  ((WHEEL_STRIPE_BYTES) * 8)
 
     #define wheelmask_stripes      WHEEL_STRIPES

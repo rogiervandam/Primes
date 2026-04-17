@@ -7,7 +7,8 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(sieve_t* siev
 
     const counter_t stop_bucket = function(wheel_block_calc,variantsuffix)(range_stop + 1);
     const counter_t wheel_step = reduce2power(step) * reduce2power(wheelmask_stripe_bits); // step in words, accounting for stripe alignment
-    const counter_t range_stop_unique = min(range_start + ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits) * WHEEL_SIZE * (wheel_step + 1), range_stop);
+    // +2 ensures all unique masks are flushed by bucket transitions
+    const counter_t range_stop_unique = min(range_start + ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits) * WHEEL_SIZE * (wheel_step + 2), range_stop);
 
     // go to first aligned block 
     counter_t current_bucket = 0;

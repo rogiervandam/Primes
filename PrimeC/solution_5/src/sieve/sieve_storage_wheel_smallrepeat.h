@@ -5,6 +5,7 @@ function(markFactors_wheelstorage_small_repeat,suffix)(sieve_t* sieve, const cou
 
     const counter_t stop_bucket = function(wheel_block_calc,variantsuffix)(range_stop + 1);
     const counter_t wheel_step = reduce2power(step) * reduce2power(wheelmask_stripe_bits); // step in words, accounting for stripe alignment
+    // +2 ensures we iterate past the last unique bucket, so all masks get flushed by a bucket transition
     const counter_t range_stop_unique = min(range_start + ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits) * WHEEL_BASIC_SIZE * (wheel_step + 1), range_stop); 
 
     bitbucket_t current_mask = 0ULL;
@@ -29,7 +30,7 @@ function(markFactors_wheelstorage_small_repeat,suffix)(sieve_t* sieve, const cou
         current_mask |= markmask_type(wheel_bit, bitbucket_t);
     } 
 
-    // can be optimized by choosing range_stop_unique to avoid dealing with the last cases
+    // TODO: This can be left out if WHEEL aligns well and range_stop_unique is chosen carefully
     if (current_mask) {
         function(applyMask_index,suffix)(sieve->bitstorage, current_bucket, stop_bucket, wheel_step, current_mask);
     }
