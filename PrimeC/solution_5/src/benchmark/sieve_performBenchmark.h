@@ -35,38 +35,40 @@ static int performBenchmarks(struct options_t option, sieve_t* (*benchmarkableFu
             return 0;
         }
         if (option.tunelevel == 4) { // continuous benchmarking of top 4 options
-            counter_t top_count = tuning_top_results_count;
-            benchmark_result_t accumulated[4];
-            char settings_strings[4][50];
-            for (counter_t i = 0; i < top_count; i++) {
-                accumulated[i].settings = checkBenchmarkSettings(tuning_top_results[i].settings);
-                accumulated[i].passes = 0;
-                accumulated[i].elapsed_time = 0;
-                accumulated[i].avg = 0;
-                setBenchmarkSettingAsString(settings_strings[i], accumulated[i].settings);
-            }
-            printf("Continuous benchmarking of top %ju options (Ctrl+C to stop)\n", (uintmax_t)top_count);
-            for (counter_t i = 0; i < top_count; i++) {
-                printf("  Option %ju: %s\n", (uintmax_t)(i+1), settings_strings[i]);
-            }
-            counter_t round = 0;
-            while (1) {
+            verbose3(
+                counter_t top_count = tuning_top_results_count;
+                benchmark_result_t accumulated[4];
+                char settings_strings[4][50];
                 for (counter_t i = 0; i < top_count; i++) {
-                    benchmark_settings_t bench_settings = accumulated[i].settings;
-                    bench_settings.sample_duration = 2.0;
-                    benchmark_result_t result = benchmark(bench_settings, benchmarkableFunction);
-                    updateBenchmarkResult(&accumulated[i], result.passes, result.elapsed_time);
-                    printf(COLOR_CLEAR_LINE "Round %ju | ", (uintmax_t)(round + 1));
-                    for (counter_t j = 0; j < top_count; j++) {
-                        double extrapolated = accumulated[j].avg * 5.0;
-                        if (j == i) printf("[" COLOR_BOLD_YELLOW "%ju" COLOR_RESET ":" COLOR_BOLD_GREEN "%7.0f" COLOR_RESET "] ", (uintmax_t)(j+1), extrapolated);
-                        else        printf(" " COLOR_YELLOW "%ju" COLOR_RESET ":" COLOR_GREEN "%7.0f" COLOR_RESET "  ", (uintmax_t)(j+1), extrapolated);
-                    }
-                    fflush(stdout);
+                    accumulated[i].settings = checkBenchmarkSettings(tuning_top_results[i].settings);
+                    accumulated[i].passes = 0;
+                    accumulated[i].elapsed_time = 0;
+                    accumulated[i].avg = 0;
+                    setBenchmarkSettingAsString(settings_strings[i], accumulated[i].settings);
                 }
-                round++;
-            }
-            return 0;
+                printf("Continuous benchmarking of top %ju options (Ctrl+C to stop)\n", (uintmax_t)top_count);
+                for (counter_t i = 0; i < top_count; i++) {
+                    printf("  Option %ju: %s\n", (uintmax_t)(i+1), settings_strings[i]);
+                }
+                counter_t round = 0;
+                while (1) {
+                    for (counter_t i = 0; i < top_count; i++) {
+                        benchmark_settings_t bench_settings = accumulated[i].settings;
+                        bench_settings.sample_duration = 2.0;
+                        benchmark_result_t result = benchmark(bench_settings, benchmarkableFunction);
+                        updateBenchmarkResult(&accumulated[i], result.passes, result.elapsed_time);
+                        printf(COLOR_CLEAR_LINE "Round %ju | ", (uintmax_t)(round + 1));
+                        for (counter_t j = 0; j < top_count; j++) {
+                            double extrapolated = accumulated[j].avg * 5.0;
+                            if (j == i) printf("[" COLOR_BOLD_YELLOW "%ju" COLOR_RESET ":" COLOR_BOLD_GREEN "%7.0f" COLOR_RESET "] ", (uintmax_t)(j+1), extrapolated);
+                            else        printf(" " COLOR_YELLOW "%ju" COLOR_RESET ":" COLOR_GREEN "%7.0f" COLOR_RESET "  ", (uintmax_t)(j+1), extrapolated);
+                        }
+                        fflush(stdout);
+                    }
+                    round++;
+                }
+            )
+            exit(0);
         }
         #endif
 

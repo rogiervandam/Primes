@@ -19,7 +19,7 @@ sieve_create(const counter_t size, const counter_t bits)
     const size_t bitstorage_bytesize = (64 + bits) >> SHIFT_BYTE; // shift >> 1 for not storing even and shift >>3 for bit to bytesize
     const size_t alloc_size = sizeof(struct sieve_t) + bitstorage_bytesize + 10 * cache_line_bytes; // add 2 * cache_line_bytes to make sure we can align the bitstorage
     sieve_t* sieve = malloc(alloc_size);
-    if (!sieve) { perror("Allocation of sieve failed"); exit(EXIT_FAILURE);  }
+    if (!sieve) { verbose1( perror("Allocation of sieve failed"); exit(EXIT_FAILURE); ) }
 
     // align bitstorage
     const uintptr_t raw_address = (uintptr_t)sieve + sizeof(struct sieve_t);

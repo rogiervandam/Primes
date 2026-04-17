@@ -22,7 +22,7 @@ strcmp_local(const char *s1, const char *s2) {
 static inline int __attribute__((cold))
 ensure_next_arg(int arg, int argc, char *program_name, const char *option_name) {
     if (arg >= argc) {
-        fprintf(stderr, "No %s specified\n", option_name);
+        verbose1( fprintf(stderr, "No %s specified\n", option_name); )
         usage(program_name, 1);
         return 0; // Never reached due to usage() exit
     }
@@ -115,7 +115,7 @@ handle_set_parameter(char param_type, uintmax_t value, struct options_t *option)
         case 'a': option->fixed_benchmark_settings.algorithm = value; break;
         case 't': option->fixed_benchmark_settings.threads = value; break;
         default:
-            fprintf(stderr, "Error: Unknown parameter '%c'\n", param_type);
+            verbose1( fprintf(stderr, "Error: Unknown parameter '%c'\n", param_type); )
             usage(NULL, 1); // program_name will be set when function is called
     }
 }
@@ -140,7 +140,7 @@ parse_set_parameter(char *arg, char *program_name, struct options_t *option) {
         // Parse the number
         if (*p && isdigit_local(*p)) {
             if (str_to_uintmax(p, &value) != 1) {
-                fprintf(stderr, "Error: Invalid number after '%c'\n", param_type);
+                verbose1( fprintf(stderr, "Error: Invalid number after '%c'\n", param_type); )
                 usage(program_name, 1);
             }
 
@@ -215,7 +215,7 @@ saveLastSettings(benchmark_settings_t settings)
     if (f) {
         char settings_string[50];
         setBenchmarkSettingAsString(settings_string, settings);
-        fprintf(f, "%s\n", settings_string);
+        verbose1( fprintf(f, "%s\n", settings_string); )
         fclose(f);
         verbose3(printf("Saved settings to %s\n", settings_path);)
     }
@@ -300,7 +300,7 @@ parseCommandLine(int argc, char *argv[])
                 option.fixed_benchmark_settings.threads = max_threads>>1;
             }
             else if (sscanf(argv[arg], "%d", (int *)&option.fixed_benchmark_settings.threads) != 1) { 
-                fprintf(stderr, "Error: Invalid max threads: %s\n", argv[arg]); 
+                verbose1( fprintf(stderr, "Error: Invalid max threads: %s\n", argv[arg]); )
                 usage(program_name, 1); 
             }
             
