@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
     #ifdef PREPARE_FUNCTION
       prepareSieveFunction();
     #endif
-    
+  
     verbose3({ printf("Sieve algorithm by Rogier van Dam - 2025\n"
                        "Find all primes up to " COLOR_YELLOW "%ju" COLOR_RESET " using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)\n"
                        , (uintmax_t)option.fixed_benchmark_settings.factor_max);})
