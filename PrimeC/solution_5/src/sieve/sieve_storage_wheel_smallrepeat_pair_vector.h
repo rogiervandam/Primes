@@ -14,7 +14,7 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(sieve_t* siev
 
     // align to first full bucket
     for (; (current_bucket = function(wheel_block_calc,variantsuffix)(range_start)) < 1 && range_start <= range_stop_unique; range_start += step) {
-        markFactor_wheelstorage_new(sieve, range_start);
+        markFactor_wheelstorage(sieve, range_start);
     }
 
     bitbucket_t current_mask = BITBUCKET0, pending_mask = BITBUCKET0;

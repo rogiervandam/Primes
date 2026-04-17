@@ -21,7 +21,7 @@
     #define WHEEL_REPEATS 1
 
     #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
-    #define WHEEL_STRIPE_BYTES 1 //(((WHEEL_STRIPES) - 1) / 8 + 1)
+    #define WHEEL_STRIPE_BYTES 2 //(((WHEEL_STRIPES) - 1) / 8 + 1)
     #define WHEEL_STRIPE_BITS  ((WHEEL_STRIPE_BYTES) * 8)
 
     #define wheelmask_stripes      WHEEL_STRIPES
@@ -97,7 +97,7 @@
 
     #define bitbucket_t uint64_t
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-    markFactor_wheelstorage_new(sieve_t* sieve, const register counter_t index) 
+    markFactor_wheelstorage(sieve_t* sieve, const register counter_t index) 
     {
         register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
         const counter_t wheel_bit = wheel_bit_calc(index);
@@ -222,15 +222,15 @@
         for(register counter_t j=256; j>4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
             for(;i>j;i-=j) {
                 for(int k=j; k--; index += step) {
-                    markFactor_wheelstorage_new(sieve, index);
+                    markFactor_wheelstorage(sieve, index);
                 }
             }
         }
 
         for (; index < range_stop; index += step) 
-            markFactor_wheelstorage_new(sieve, index);
+            markFactor_wheelstorage(sieve, index);
 
-        if unlikely(index==range_stop) markFactor_wheelstorage_new(sieve, index);
+        if unlikely(index==range_stop) markFactor_wheelstorage(sieve, index);
     }
 
     // this is the same as checkFactor_wheel but without the check for the wheel primes
@@ -274,7 +274,7 @@
     {
         const counter_t prime = step / 2;
 
-        // markFactors_wheelstorage_norepeat(sieve, start, stop, step); return;
+        markFactors_wheelstorage_norepeat(sieve, start, stop, step); return;
         
         if (prime < global_stripeprime_faster ) {
             // markFactors_wheelstorage_small_repeat_pair_vector_uint64v4_unroll4(sieve, start, stop, step);
