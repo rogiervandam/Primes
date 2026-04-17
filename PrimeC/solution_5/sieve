@@ -465,6 +465,20 @@ EMBED_EOF
     run_args="$run_args --notune --nocheck --set $EMBED_SET"
 fi
 
+# Strip .c extension if provided
+base="${base%.c}"
+
+# Resolve source file: try ./src/${base}.c, then ./src/sieve_${base}.c
+if [ -f "./src/${base}.c" ]; then
+    srcfile="./src/${base}.c"
+elif [ -f "./src/sieve_${base}.c" ]; then
+    base="sieve_${base}"
+    srcfile="./src/${base}.c"
+else
+    echo "Error: Source file not found: ./src/${base}.c or ./src/sieve_${base}.c"
+    exit 1
+fi
+
 # Compose a program name using a default base name.
 PROGTOTAL="${base}"
 
@@ -473,10 +487,10 @@ if [ $verbose_level -gt 1 ]; then
 fi
 
 if [ $verbose_level -gt 2 ]; then
-  echo -e "Issuing command: ${CGREEN}$CC${CRESET} -o ./bin/${CYELLOW}$PROGTOTAL${CRESET} ./src/${CYELLOW}${base}.c${CRESET} $DEFINE_FLAGS"
+  echo -e "Issuing command: ${CGREEN}$CC${CRESET} -o ./bin/${CYELLOW}$PROGTOTAL${CRESET} ${CYELLOW}${srcfile}${CRESET} $DEFINE_FLAGS"
 fi
 
-$CC -o ./bin/$PROGTOTAL ./src/${base}.c $DEFINE_FLAGS $CCWARN
+$CC -o ./bin/$PROGTOTAL $srcfile $DEFINE_FLAGS $CCWARN
 
 compile_status=$?
 if [ $compile_status -ne 0 ]; then
@@ -486,10 +500,10 @@ fi
 
 if [ "$COMPILER_ASM" = "asm" ]; then
     if [ "$COMPILER" = "gcc" ]; then
-        $CCASM -o ./dev/build/$PROGTOTAL.s ./src/${base}.c $DEFINE_FLAGS
+        $CCASM -o ./dev/build/$PROGTOTAL.s $srcfile $DEFINE_FLAGS
     else #clang
-        echo -e "Running ${CGREEN}$CCASM${CRESET} -o ./dev/build/${CYELLOW}$PROGTOTAL.s${CRESET} ./src/${CYELLOW}${base}.c${CRESET} $DEFINE_FLAGS" 
-        $CCASM -o ./dev/build/$PROGTOTAL.s ./src/${base}.c $DEFINE_FLAGS
+        echo -e "Running ${CGREEN}$CCASM${CRESET} -o ./dev/build/${CYELLOW}$PROGTOTAL.s${CRESET} ${CYELLOW}${srcfile}${CRESET} $DEFINE_FLAGS" 
+        $CCASM -o ./dev/build/$PROGTOTAL.s $srcfile $DEFINE_FLAGS
     fi
 fi
 $STRIP ./bin/$PROGTOTAL
@@ -507,9 +521,9 @@ if [ $threads -gt 0 ]; then
     fi
 
     if [ $verbose_level -gt 2 ]; then
-    echo -e "Issuing command: ${CGREEN}$CC${CRESET} $PAR -o ./bin/${CYELLOW}$PROGTOTALPAR${CRESET} ./src/${CYELLOW}${base}.c${CRESET} $DEFINE_FLAGS"
+    echo -e "Issuing command: ${CGREEN}$CC${CRESET} $PAR -o ./bin/${CYELLOW}$PROGTOTALPAR${CRESET} ${CYELLOW}${srcfile}${CRESET} $DEFINE_FLAGS"
     fi
-    $CC $PAR -o ./bin/$PROGTOTALPAR ./src/${base}.c $DEFINE_FLAGS
+    $CC $PAR -o ./bin/$PROGTOTALPAR $srcfile $DEFINE_FLAGS
     compile_par_status=$?
     if [ $compile_par_status -ne 0 ]; then
         echo "Error: Compilation failed for parallel version."
