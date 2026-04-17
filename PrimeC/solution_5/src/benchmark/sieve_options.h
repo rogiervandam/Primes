@@ -41,6 +41,7 @@ static struct options_t {
     char*     program_name;
     char*     dockerfile_type;
     char*     extension;
+    char*     emit_embed_path;
 } option;
 
 static struct options_t __attribute__((cold)) 
@@ -73,6 +74,7 @@ setDefaultOptions()
     option.fixed_benchmark_settings.storage                 = 0;
     option.fixed_benchmark_settings.sample_duration         = 5;
 
+    option.emit_embed_path            = NULL;
     option.dockerfile_type = getenv("DOCKERFILE_TYPE"); 
 
     // changes though compilation options

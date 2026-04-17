@@ -16,8 +16,9 @@ usage(char *program_name, int exit_code)
         "                            7 - check all and stop\n"
 #endif
         "  --nocheck                 Skip check of the correctness of the algorithm\n"
-        "  --embed                   Embed --set values as compile-time constants (use with ./sieve)\n"
-        "                            Generates sieve_embed.h and recompiles with constant propagation\n"
+        "  --embed                   Embed settings as compile-time constants (use with ./sieve)\n"
+        "                            Without --set, uses settings saved from last benchmark run\n"
+        "  --emit-embed <file>       Generate a .h file with current settings as constants and exit\n"
 #ifdef COMPILE_EXPLAIN
         "  --explain                 Explain the steps of the algorithm - only when compiled for explain\n"
 #endif
