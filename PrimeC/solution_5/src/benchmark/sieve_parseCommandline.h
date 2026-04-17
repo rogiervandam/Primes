@@ -235,8 +235,6 @@ parseCommandLine(int argc, char *argv[])
     // processing command line changes to options
     for (int arg=1; arg < argc; arg++) {
 
-        int currentarg = arg;
-        
         if (strcmp_local(argv[arg], "--verbose")) { 
             ensure_next_arg(++arg, argc, program_name, "verbose level");
             parse_int_arg(argv[arg], &option.verbose_level, 9, program_name, "Invalid verbose level");
@@ -245,9 +243,6 @@ parseCommandLine(int argc, char *argv[])
             ensure_next_arg(++arg, argc, program_name, "tune level");
             parse_int_arg(argv[arg], &option.tunelevel, 6, program_name, "Invalid tune level");
             verbose4(printf("Tune level set to %d\n", option.tunelevel));
-        }
-        else if (strcmp_local(argv[arg], "--notune")) { 
-            option.tunelevel = 0; 
         }
         else if (strcmp_local(argv[arg], "--time")) {
             ensure_next_arg(++arg, argc, program_name, "time");
@@ -293,42 +288,37 @@ parseCommandLine(int argc, char *argv[])
                 verbose2(printf("This is the version without multithreading - ignoring threads\n"));
             #endif
         }
-
-        if (arg != currentarg) continue; // if we consumed an additional argument, skip the rest of the checks for this loop iteration
-
-        verbose1({
-            if (strcmp_local(argv[arg], "--help")) { 
-                usage(program_name, 0); 
-            }
-            else if (strcmp_local(argv[arg], "--show")) {
-                ensure_next_arg(++arg, argc, program_name, "show maximum");
-                parse_int_arg(argv[arg], &option.show_explain_factor_max, option.fixed_benchmark_settings.factor_max, program_name, "Invalid show maximum");
-                verbose4(printf("Show maximum set to %ju\n", (uintmax_t)option.show_explain_factor_max);)
-            }
-            #ifdef COMPILE_EXPLAIN
-            else if (strcmp_local(argv[arg], "--explain")) { 
-                option.explain = 1;  
-                verbose2(printf("Explain ON\n"));
-            }
-            #endif
-            #ifdef COMPILE_TIMERS 
-            else if (strcmp_local(argv[arg], "--timers")) { 
-                option.timers = 2; 
-            }
-            #endif
-            else if (strcmp_local(argv[arg], "--check")) { 
-                ensure_next_arg(++arg, argc, program_name, "check level");
-                parse_int_arg(argv[arg], &option.check, 7, program_name, "Invalid check level");
-                verbose4(printf("Check level set to %d\n", option.check));
-            }
-            else if (strcmp_local(argv[arg], "--nocheck")) { 
-                option.check = 0; 
-            }
-        })
-
-        if (arg != currentarg) continue; // if we consumed an additional argument, skip the rest of the checks for this loop iteration
-
-        if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.fixed_benchmark_settings.factor_max) != 1) {
+        else if (strcmp_local(argv[arg], "--show")) {
+            ensure_next_arg(++arg, argc, program_name, "show maximum");
+            parse_int_arg(argv[arg], &option.show_explain_factor_max, option.fixed_benchmark_settings.factor_max, program_name, "Invalid show maximum");
+            verbose4(printf("Show maximum set to %ju\n", (uintmax_t)option.show_explain_factor_max);)
+        }
+        else if (strcmp_local(argv[arg], "--help")) { 
+            usage(program_name, 0); 
+        }
+        #ifdef COMPILE_EXPLAIN
+        else if (strcmp_local(argv[arg], "--explain")) { 
+            option.explain = 1;  
+            verbose2(printf("Explain ON\n"));
+        }
+        #endif
+        #ifdef COMPILE_TIMERS 
+        else if (strcmp_local(argv[arg], "--timers")) { 
+            option.timers = 2; 
+        }
+        #endif
+        else if (strcmp_local(argv[arg], "--check")) { 
+            ensure_next_arg(++arg, argc, program_name, "check level");
+            parse_int_arg(argv[arg], &option.check, 7, program_name, "Invalid check level");
+            verbose4(printf("Check level set to %d\n", option.check));
+        }
+        else if (strcmp_local(argv[arg], "--nocheck")) { 
+            option.check = 0; 
+        }
+        else if (strcmp_local(argv[arg], "--notune")) { 
+            option.tunelevel = 0; 
+        }
+        else if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.fixed_benchmark_settings.factor_max) != 1) {
             verbose1({ fprintf(stderr, "Invalid size %s\n", argv[arg]); usage(program_name, 1); });
         }
         else {
