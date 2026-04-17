@@ -122,9 +122,9 @@ uint8_t checkFactor(void* restrict bitstorage, register counter_t factor) {
     return checkBitTrue_block(bitstorage, factor);
 }
 
-static struct sieve_t* shakeSieve(const counter_t sieve_size)
+static sieve_t* shakeSieve(const counter_t sieve_size)
 {
-    struct sieve_t *sieve = sieve_create(sieve_size, sieve_size*8);
+    sieve_t* sieve = sieve_create(sieve_size, sieve_size*8);
     sieve->bits = sieve_size;
     bitbucket_t* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
     const counter_t sieve_bits = sieve_size;

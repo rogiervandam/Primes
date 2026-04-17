@@ -27,7 +27,7 @@ static inline uint8_t checkFactor(sieve_t* sieve, register counter_t factor) { r
 static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return findUnmarked_half(sieve, factor); }
 
 // This is the main module that directs all the work 
-static struct sieve_t* shakeSieve(const counter_t sieve_size)
+static sieve_t* shakeSieve(const counter_t sieve_size)
 {
     sieve_t *sieve = sieve_create(sieve_size, calcBitsize(sieve_size, STORAGE_HALF));
     sieve_clear(sieve);

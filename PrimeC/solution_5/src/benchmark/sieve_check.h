@@ -1,5 +1,5 @@
 static counter_t __attribute__((cold, nonnull)) 
-countPrimesInSieve(struct sieve_t *sieve, counter_t factor_max) 
+countPrimesInSieve(sieve_t* sieve, counter_t factor_max) 
 {
     verbose5( printf("Counting primes in sieve up to %ju\n",(uintmax_t)factor_max); )
     counter_t prime_count = 0;
@@ -11,7 +11,7 @@ countPrimesInSieve(struct sieve_t *sieve, counter_t factor_max)
 }
 
 static void __attribute__((cold, nonnull)) 
-showPrimesinSieve(struct sieve_t *sieve, counter_t factor_max) 
+showPrimesinSieve(sieve_t* sieve, counter_t factor_max) 
 { 
     verbose1( printf("Result set (<%ju):\n",(uintmax_t)factor_max); )
     counter_t prime_count = 0;
@@ -43,7 +43,7 @@ counter_t validPrimes(counter_t factor_max) {
 }
 
 static void __attribute__((cold, nonnull)) 
-deepAnalyzeSieve(struct sieve_t *sieve, counter_t factor_max) 
+deepAnalyzeSieve(sieve_t* sieve, counter_t factor_max) 
 {
     verbose2( printf("\nDeepAnalyzing...\n"); )
     verbose2( printf("Checking if the numbers up to " COLOR_BOLD_YELLOW "%ju" COLOR_RESET " are correctly marked as prime or non-prime\n",(uintmax_t)factor_max); )
@@ -80,7 +80,7 @@ deepAnalyzeSieve(struct sieve_t *sieve, counter_t factor_max)
 }
 
 static inline int __attribute__((cold, nonnull)) 
-validateSieve(struct sieve_t *sieve, const counter_t factor_max)
+validateSieve(sieve_t* sieve, const counter_t factor_max)
 {
     const counter_t prime_count = countPrimesInSieve(sieve, factor_max);
     return (prime_count == validPrimes(factor_max));

@@ -31,9 +31,9 @@ static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return 
    sieve_size in a real number that is the maximum in the sieve (not in bits)
    block_size is in bits and determines how large the blocks are which are processed 
 */
-static struct sieve_t* shakeSieve(const counter_t sieve_size)
+static sieve_t* shakeSieve(const counter_t sieve_size)
 {
-    struct sieve_t *sieve      = sieve_create(sieve_size, calcBitsize(sieve_size, STORAGE_HALF));
+    sieve_t* sieve      = sieve_create(sieve_size, calcBitsize(sieve_size, STORAGE_HALF));
     const counter_t prime_max  = calcFactor_max(sieve_size);
 
     // use globals as constant - these get optimized

@@ -39,7 +39,7 @@ saveLastSettings(benchmark_settings_t settings)
     }
 }
 
-static int performBenchmarks(struct options_t option)
+static int performBenchmarks(struct options_t option, )
 {
     for(counter_t threads=option.fixed_benchmark_settings.threads, runs = 0; threads >= 1 && runs < 4; threads = (threads/2), runs++ ) {
 

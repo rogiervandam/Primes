@@ -1,7 +1,7 @@
 static void deepAnalyzeWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
 {
     prepareBenchmarkGlobals(benchmark_settings);
-    struct sieve_t* sieve = shakeSieve(benchmark_settings.factor_max);
+    sieve_t* sieve = shakeSieve(benchmark_settings.factor_max);
     deepAnalyzeSieve(sieve, benchmark_settings.factor_max);
     sieve_delete(sieve);
 }
@@ -11,7 +11,7 @@ static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settin
     benchmark_settings = checkBenchmarkSettings(benchmark_settings);
     prepareBenchmarkGlobals(benchmark_settings);
     const counter_t factor_max = benchmark_settings.factor_max;
-    struct sieve_t* sieve_check = shakeSieve(factor_max);
+    sieve_t* sieve_check = shakeSieve(factor_max);
     const int valid = validateSieve(sieve_check, factor_max);
     verbose1( if (!valid) {
         fprintf(stderr, "The sieve is " COLOR_RED "NOT" COLOR_RESET " valid for settings " COLOR_GREEN "%s" COLOR_RESET " with factor %ju\n", getBenchmarkSettingAsString(benchmark_settings), (uintmax_t) factor_max);
@@ -91,7 +91,7 @@ static void __attribute__((cold))
 showResult(benchmark_settings_t benchmark_settings)
 {
     verbose2( printf("Show result set:\n"); )
-    struct sieve_t* sieve = shakeSieve(benchmark_settings.factor_max);
+    sieve_t* sieve = shakeSieve(benchmark_settings.factor_max);
     showPrimesinSieve(sieve, option.show_explain_factor_max);
     counter_t prime_count = countPrimesInSieve(sieve, benchmark_settings.factor_max);
     verbose1( printf("\nFound %ju primes until %ju\n",(uintmax_t)prime_count, (uintmax_t)benchmark_settings.factor_max); )

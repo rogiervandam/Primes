@@ -117,7 +117,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
             double thread_elapsed = 0;
             const double time_start = benchmarkTime(), time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
             while (thread_elapsed <= time_target) {
-                struct sieve_t *sieve = shakeSieve(sieve_size);
+                sieve_t* sieve = shakeSieve(sieve_size);
                 sieve_delete(sieve);
                 thread_elapsed = benchmarkTime();         
                 passes++;
@@ -128,7 +128,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
         requestPower();
         const double time_start = benchmarkTime(), time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
         while (time_elapsed <= time_target) {
-            struct sieve_t *sieve = shakeSieve(sieve_size);
+            sieve_t* sieve = shakeSieve(sieve_size);
             sieve_delete(sieve);
             time_elapsed = benchmarkTime();         
             passes++;

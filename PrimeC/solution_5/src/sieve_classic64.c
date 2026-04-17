@@ -35,10 +35,10 @@ static inline counter_t findUnmarked(sieve_t *sieve, counter_t start) {
 
 #define bitbucket_t uint64_t
 
-static struct sieve_t* shakeSieve(const counter_t sieve_size)
+static sieve_t* shakeSieve(const counter_t sieve_size)
 {
     const counter_t sieve_bits = sieve_size>>1;
-    struct sieve_t *sieve = sieve_create(sieve_size, sieve_bits);
+    sieve_t* sieve = sieve_create(sieve_size, sieve_bits);
     bitbucket_t* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
     const counter_t prime_max = calcFactor_max_half(sieve_bits);
 

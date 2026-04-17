@@ -94,7 +94,7 @@ markFactors_wheel(sieve_t *sieve, const counter_t start, const counter_t stop, c
     setBitsTrue(sieve->bitstorage, start >> 1, stop >> 1, step >> 1);
 }
 
-uint8_t checkFactor_wheel(struct sieve_t *sieve, register counter_t factor) {
+uint8_t checkFactor_wheel(sieve_t* sieve, register counter_t factor) {
     if (factor > 2 && factor % 2 == 0) return 1;
     if (factor <= WHEEL_MAX) return wheelprimes[factor];
     return checkBitTrue_wheel(sieve->bitstorage, factor);

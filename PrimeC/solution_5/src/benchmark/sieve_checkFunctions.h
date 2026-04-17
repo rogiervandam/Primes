@@ -3,7 +3,7 @@
 static uint8_t checkSetBitsTrueMethod_stripe(const SetBitsTrueMethod* method, const counter_t range_start, const counter_t range_stop, const counter_t step)
 {
     // create sieve
-    struct sieve_t* sieve = sieve_create((range_stop+1024)*2);
+    sieve_t* sieve = sieve_create((range_stop+1024)*2);
     void* bitstorage = sieve->bitstorage;
     sieve_clear(sieve);
     setBitsTrue_range(bitstorage, range_start, range_stop, step);
@@ -55,7 +55,7 @@ static uint8_t checkSetBitsTrueMethod_stripe(const SetBitsTrueMethod* method, co
 static inline uint8_t checkSetBitsTrueMethod(const SetBitsTrueMethod* method, const counter_t range_start, const counter_t range_stop) 
 {
     // build a base sieve for getting the right primes
-    struct sieve_t* sieve_base = sieve_create(range_stop*2);
+    sieve_t* sieve_base = sieve_create(range_stop*2);
     void* bitstorage_base = sieve_base->bitstorage;
     counter_t prime = 1, prime_max = prime_stop(range_stop);
 
