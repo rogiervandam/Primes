@@ -26,23 +26,46 @@ findUnmarked_half(sieve_t *sieve, counter_t start)
     return searchBitFalse_uint8(sieve->bitstorage, start>>1) * 2 + 1;
 }
 
-// static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-// calcFactor_start(counter_t prime, counter_t block_start) 
-// {
-//     return compute_start_full(prime, block_start);
-// }
+static inline counter_t __attribute__((always_inline, const)) 
+calcFactor_max_half(const counter_t range_stop) {
+    return ((1 + usqrt( (range_stop << 1) + 1 )) >> 1);
+}
 
-// static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-// calcFactor_step(counter_t prime) 
-// {
-//     return prime * 2;
-// }
+// // calculate the first multiple of a prime number in a given range
+static inline counter_t __attribute__((always_inline, const))
+calcFactor_start_half(const counter_t prime, const counter_t block_start) {
+    register const counter_t step = prime * 2 + 1;
+    register counter_t start = prime * (step + 1);
+    if (block_start && start < block_start) {
+        start = (block_start + prime) + prime - ((block_start + prime) % step);
+    }
+    return start;
+}
 
-// static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
-// calcFactor_max(counter_t sieve_size) 
-// {
-//     return prime_stop_full(sieve_size);
-// }
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+calcFactor_step_half(counter_t prime) 
+{
+    return prime * 2 + 1;
+}
+
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+calcFactor_half(counter_t prime) 
+{
+    return ((prime << 1) & 1);
+}
+
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+calcBitsize_half(counter_t factorsize) 
+{
+    return (factorsize >> 1) + (factorsize & 1);
+}
+
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
+calcFactorsize_half(counter_t bitsize) 
+{
+    return (bitsize << 1);
+}
+
 
 // This function decouples the factor from the bitstorage
 static inline uint8_t checkFactor_half(sieve_t *sieve, counter_t factor) {

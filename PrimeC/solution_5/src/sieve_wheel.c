@@ -22,10 +22,11 @@ static char algorithm_type[] = "wheel";
 // include helper functions
 // #include "generic/settings.h"
 #include "benchmark/sieve_options.h"
-#include "bitstorage/bitstorage_search.h"
-#include "bitstorage/bitstorage_setBitsTrue.h"
-#include "sieve/sieve_calc.h"
+// #include "bitstorage/bitstorage_search.h"
+// #include "bitstorage/bitstorage_setBitsTrue.h"
+// #include "sieve/sieve_calc.h"
 #include "sieve/sieve_manager.h"
+#include "sieve/sieve_storage_half.h"
 #include "sieve/sieve_markWheel.h"
 
 // implement the 3 functions to integrate with sieve_check and the storage level
@@ -49,11 +50,11 @@ void prepareSieveFunction() {
 */
 static sieve_t* shakeSieve(const counter_t sieve_size)
 {
-    sieve_t *sieve = sieve_create(sieve_size, calcBitsize(sieve_size, STORAGE_HALF));
+    sieve_t *sieve = sieve_create(sieve_size, calcBitsize_half(sieve_size));
     sieve_clear(sieve);
 
     const counter_t prime_max = calcFactor_max(sieve_size);
-    const counter_t factorBlock = calcFactorsize(global_blocksize_bits, STORAGE_HALF);
+    const counter_t factorBlock = calcFactorsize_half(global_blocksize_bits);
 
     verbose5( printf("\nShaking sieve to find all primes up to %ju with blocksize %ju using the wheel with primes up to %ju\n",(uintmax_t)sieve_size,(uintmax_t)factorBlock,(uintmax_t)WHEEL_MAX); )
 

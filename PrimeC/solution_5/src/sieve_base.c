@@ -29,11 +29,11 @@ static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return 
 // This is the main module that directs all the work 
 static sieve_t* shakeSieve(const counter_t sieve_size)
 {
-    sieve_t *sieve = sieve_create(sieve_size, calcBitsize(sieve_size, STORAGE_HALF));
+    sieve_t *sieve = sieve_create(sieve_size, calcBitsize_half(sieve_size));
     sieve_clear(sieve);
 
     const counter_t prime_max = calcFactor_max(sieve_size);
-    const counter_t factorBlock = calcFactorsize(global_blocksize_bits, STORAGE_HALF);
+    const counter_t factorBlock = calcFactorsize_half(global_blocksize_bits);
     
     verbose5( printf("\nShaking sieve to find all primes up to %ju with blocksize %ju\n",(uintmax_t)sieve_size,(uintmax_t)factorBlock); )
 

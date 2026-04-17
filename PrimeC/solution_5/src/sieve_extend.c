@@ -33,12 +33,12 @@ static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return 
 */
 static sieve_t* shakeSieve(const counter_t sieve_size)
 {
-    sieve_t* sieve      = sieve_create(sieve_size, calcBitsize(sieve_size, STORAGE_HALF));
+    sieve_t* sieve      = sieve_create(sieve_size, calcBitsize_half(sieve_size));
     const counter_t prime_max  = calcFactor_max(sieve_size);
 
     // use globals as constant - these get optimized
     const counter_t stripeprime_faster  = global_stripeprime_faster;
-    const counter_t blocksize_factor    = calcFactorsize(global_blocksize_bits, STORAGE_HALF);
+    const counter_t blocksize_factor    = calcFactorsize_half(global_blocksize_bits);
     const counter_t algorithm           = global_algorithm;
 
     verbose5({
