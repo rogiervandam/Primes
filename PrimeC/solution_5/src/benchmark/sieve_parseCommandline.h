@@ -234,32 +234,13 @@ parseCommandLine(int argc, char *argv[])
 
     // processing command line changes to options
     for (int arg=1; arg < argc; arg++) {
-        if (strcmp_local(argv[arg], "--help")) { 
-            usage(program_name, 0); 
-        }
-        else if (strcmp_local(argv[arg], "--verbose")) { 
+
+        int currentarg = arg;
+        
+        if (strcmp_local(argv[arg], "--verbose")) { 
             ensure_next_arg(++arg, argc, program_name, "verbose level");
             parse_int_arg(argv[arg], &option.verbose_level, 9, program_name, "Invalid verbose level");
         } 
-        #ifdef COMPILE_EXPLAIN
-        else if (strcmp_local(argv[arg], "--explain")) { 
-            option.explain = 1;  
-            verbose2(printf("Explain ON\n"));
-        }
-        #endif
-        #ifdef COMPILE_TIMERS 
-        else if (strcmp_local(argv[arg], "--timers")) { 
-            option.timers = 2; 
-        }
-        #endif
-        else if (strcmp_local(argv[arg], "--check")) { 
-            ensure_next_arg(++arg, argc, program_name, "check level");
-            parse_int_arg(argv[arg], &option.check, 7, program_name, "Invalid check level");
-            verbose4(printf("Check level set to %d\n", option.check));
-        }
-        else if (strcmp_local(argv[arg], "--nocheck")) { 
-            option.check = 0; 
-        }
         else if (strcmp_local(argv[arg], "--tune")) { 
             ensure_next_arg(++arg, argc, program_name, "tune level");
             parse_int_arg(argv[arg], &option.tunelevel, 6, program_name, "Invalid tune level");
@@ -272,11 +253,6 @@ parseCommandLine(int argc, char *argv[])
             ensure_next_arg(++arg, argc, program_name, "time");
             parse_double_arg(argv[arg], &option.fixed_benchmark_settings.sample_duration, program_name, "Invalid max time");
             verbose4(printf("Max time is set to %f seconds\n", option.fixed_benchmark_settings.sample_duration));
-        }
-        else if (strcmp_local(argv[arg], "--show")) {
-            ensure_next_arg(++arg, argc, program_name, "show maximum");
-            parse_int_arg(argv[arg], &option.show_explain_factor_max, option.fixed_benchmark_settings.factor_max, program_name, "Invalid show maximum");
-            verbose4(printf("Show maximum set to %ju\n", (uintmax_t)option.show_explain_factor_max);)
         }
         else if (strcmp_local(argv[arg], "--max")) {
             ensure_next_arg(++arg, argc, program_name, "sieve maximum");
@@ -291,33 +267,68 @@ parseCommandLine(int argc, char *argv[])
         else if (strcmp_local(argv[arg], "--threads")) { 
             ensure_next_arg(++arg, argc, program_name, "thread maximum");
             
-        #ifdef _OPENMP
-            counter_t max_threads = (counter_t) omp_get_max_threads();
-            if (strcmp_local(argv[arg], "all")) {
-                option.fixed_benchmark_settings.threads = max_threads;
-            }
-            else if (strcmp_local(argv[arg], "half")) {
-                option.fixed_benchmark_settings.threads = max_threads>>1;
-            }
-            else if (sscanf(argv[arg], "%d", (int *)&option.fixed_benchmark_settings.threads) != 1) { 
-                verbose1( fprintf(stderr, "Error: Invalid max threads: %s\n", argv[arg]); )
-                usage(program_name, 1); 
-            }
-            
-            // Ensure thread count is within valid range
-            if (option.fixed_benchmark_settings.threads < 1) {
-                option.fixed_benchmark_settings.threads = 1;
-            }
-            if (option.fixed_benchmark_settings.threads > max_threads) {
-                option.fixed_benchmark_settings.threads = max_threads;
-            }
-            
-            verbose4(printf("Thread maximum set to %ju\n", (uintmax_t)option.fixed_benchmark_settings.threads));
-        #else
-            verbose2(printf("This is the version without multithreading - ignoring threads\n"));
-        #endif
+            #ifdef _OPENMP
+                counter_t max_threads = (counter_t) omp_get_max_threads();
+                if (strcmp_local(argv[arg], "all")) {
+                    option.fixed_benchmark_settings.threads = max_threads;
+                }
+                else if (strcmp_local(argv[arg], "half")) {
+                    option.fixed_benchmark_settings.threads = max_threads>>1;
+                }
+                else if (sscanf(argv[arg], "%d", (int *)&option.fixed_benchmark_settings.threads) != 1) { 
+                    verbose1( fprintf(stderr, "Error: Invalid max threads: %s\n", argv[arg]); )
+                    usage(program_name, 1); 
+                }
+                
+                // Ensure thread count is within valid range
+                if (option.fixed_benchmark_settings.threads < 1) {
+                    option.fixed_benchmark_settings.threads = 1;
+                }
+                if (option.fixed_benchmark_settings.threads > max_threads) {
+                    option.fixed_benchmark_settings.threads = max_threads;
+                }
+                
+                verbose4(printf("Thread maximum set to %ju\n", (uintmax_t)option.fixed_benchmark_settings.threads));
+            #else
+                verbose2(printf("This is the version without multithreading - ignoring threads\n"));
+            #endif
         }
-        else if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.fixed_benchmark_settings.factor_max) != 1) {
+
+        if (arg != currentarg) continue; // if we consumed an additional argument, skip the rest of the checks for this loop iteration
+
+        verbose1({
+            if (strcmp_local(argv[arg], "--help")) { 
+                usage(program_name, 0); 
+            }
+            else if (strcmp_local(argv[arg], "--show")) {
+                ensure_next_arg(++arg, argc, program_name, "show maximum");
+                parse_int_arg(argv[arg], &option.show_explain_factor_max, option.fixed_benchmark_settings.factor_max, program_name, "Invalid show maximum");
+                verbose4(printf("Show maximum set to %ju\n", (uintmax_t)option.show_explain_factor_max);)
+            }
+            #ifdef COMPILE_EXPLAIN
+            else if (strcmp_local(argv[arg], "--explain")) { 
+                option.explain = 1;  
+                verbose2(printf("Explain ON\n"));
+            }
+            #endif
+            #ifdef COMPILE_TIMERS 
+            else if (strcmp_local(argv[arg], "--timers")) { 
+                option.timers = 2; 
+            }
+            #endif
+            else if (strcmp_local(argv[arg], "--check")) { 
+                ensure_next_arg(++arg, argc, program_name, "check level");
+                parse_int_arg(argv[arg], &option.check, 7, program_name, "Invalid check level");
+                verbose4(printf("Check level set to %d\n", option.check));
+            }
+            else if (strcmp_local(argv[arg], "--nocheck")) { 
+                option.check = 0; 
+            }
+        })
+
+        if (arg != currentarg) continue; // if we consumed an additional argument, skip the rest of the checks for this loop iteration
+
+        if (sscanf(argv[arg], "%ju", (uintmax_t*)&option.fixed_benchmark_settings.factor_max) != 1) {
             verbose1({ fprintf(stderr, "Invalid size %s\n", argv[arg]); usage(program_name, 1); });
         }
         else {
