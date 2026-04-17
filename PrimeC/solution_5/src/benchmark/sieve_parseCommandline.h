@@ -106,14 +106,14 @@ parse_double_arg(char *arg_str, double *value,  char *program_name, const char *
 
 // Helper function to handle set parameters
 static inline void __attribute__((cold))
-handle_set_parameter(char param_type, uintmax_t value, struct options_t *option) {
+handle_set_parameter(char param_type, uintmax_t value, struct options_t *optionref) {
     switch(param_type) {
-        case 's': option->fixed_benchmark_settings.stripe_faster = value; break;
-        case 'l': option->fixed_benchmark_settings.largestep_faster = value; break;
-        case 'b': option->fixed_benchmark_settings.blocksize_bits = value; break; 
-        case 'v': option->fixed_benchmark_settings.vectorsize = value; break;
-        case 'a': option->fixed_benchmark_settings.algorithm = value; break;
-        case 't': option->fixed_benchmark_settings.threads = value; break;
+        case 's': optionref->fixed_benchmark_settings.stripe_faster = value; break;
+        case 'l': optionref->fixed_benchmark_settings.largestep_faster = value; break;
+        case 'b': optionref->fixed_benchmark_settings.blocksize_bits = value; break; 
+        case 'v': optionref->fixed_benchmark_settings.vectorsize = value; break;
+        case 'a': optionref->fixed_benchmark_settings.algorithm = value; break;
+        case 't': optionref->fixed_benchmark_settings.threads = value; break;
         default:
             verbose1( fprintf(stderr, "Error: Unknown parameter '%c'\n", param_type); )
             usage(NULL, 1); // program_name will be set when function is called
@@ -121,7 +121,7 @@ handle_set_parameter(char param_type, uintmax_t value, struct options_t *option)
 }
 
 static inline void __attribute__((cold))
-parse_set_parameter(char *arg, char *program_name, struct options_t *option) {
+parse_set_parameter(char *arg, char *program_name, struct options_t *optionref) {
     char *p = arg;
     while (*p) {
         // Skip any hyphens
@@ -145,7 +145,7 @@ parse_set_parameter(char *arg, char *program_name, struct options_t *option) {
             }
 
             // Apply the value based on parameter type
-            handle_set_parameter(param_type, value, option);
+            handle_set_parameter(param_type, value, optionref);
 
             // Skip the parsed number
             while (*p && isdigit_local(*p)) p++;

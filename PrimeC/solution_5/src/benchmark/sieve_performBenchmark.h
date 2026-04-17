@@ -35,7 +35,7 @@ static int performBenchmarks(struct options_t option, sieve_t* (*benchmarkableFu
             return 0;
         }
         if (option.tunelevel == 4) { // continuous benchmarking of top 4 options
-            verbose3(
+            verbose3({
                 counter_t top_count = tuning_top_results_count;
                 benchmark_result_t accumulated[4];
                 char settings_strings[4][50];
@@ -67,7 +67,7 @@ static int performBenchmarks(struct options_t option, sieve_t* (*benchmarkableFu
                     }
                     round++;
                 }
-            )
+            })
             exit(0);
         }
         #endif
