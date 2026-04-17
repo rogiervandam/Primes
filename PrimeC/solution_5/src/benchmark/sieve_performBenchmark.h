@@ -39,7 +39,7 @@ saveLastSettings(benchmark_settings_t settings)
     }
 }
 
-static int performBenchmarks(struct options_t option, )
+static int performBenchmarks(struct options_t option, sieve_t* (*benchmarkableFunction)(const counter_t))
 {
     for(counter_t threads=option.fixed_benchmark_settings.threads, runs = 0; threads >= 1 && runs < 4; threads = (threads/2), runs++ ) {
 
@@ -49,7 +49,7 @@ static int performBenchmarks(struct options_t option, )
         // tuning - try combinations of different settings and apply these
         #ifdef COMPILE_TUNE
         if (option.tunelevel) { 
-            benchmark_result_t tuning_result = tuneSieveSettings(option.tunelevel, benchmark_settings);
+            benchmark_result_t tuning_result = tuneSieveSettings(option.tunelevel, benchmark_settings, benchmarkableFunction);
             setSettingsFromTuning(&benchmark_settings, &(tuning_result.settings));
         }
         if (option.tunelevel == 3) { // do one extra tuning run with the best settings to get a better result for the final benchmark
@@ -75,7 +75,7 @@ static int performBenchmarks(struct options_t option, )
                 for (counter_t i = 0; i < top_count; i++) {
                     benchmark_settings_t bench_settings = accumulated[i].settings;
                     bench_settings.sample_duration = 2.0;
-                    benchmark_result_t result = benchmark(bench_settings);
+                    benchmark_result_t result = benchmark(bench_settings, benchmarkableFunction);
                     updateBenchmarkResult(&accumulated[i], result.passes, result.elapsed_time);
                     printf(COLOR_CLEAR_LINE "Round %ju | ", (uintmax_t)(round + 1));
                     for (counter_t j = 0; j < top_count; j++) {
@@ -112,7 +112,7 @@ static int performBenchmarks(struct options_t option, )
         verbose2( printf("Warming up the cache and processing units in %.1f seconds\n", option.warmup_duration); )	
         benchmark_settings_t final_tuning_settings = benchmark_settings;
         final_tuning_settings.sample_duration = option.warmup_duration;
-        benchmark(final_tuning_settings);
+        benchmark(final_tuning_settings, benchmarkableFunction);
 
         // perform benchmark -> outputs passes, elapsed time and avg in result 
         verbose2( printf("Benchmarking with settings: " COLOR_GREEN "%s" COLOR_RESET " and " COLOR_GREEN "%ju" COLOR_RESET " threads for " COLOR_GREEN "%.1f" COLOR_RESET " seconds\n"
@@ -120,7 +120,7 @@ static int performBenchmarks(struct options_t option, )
                          getBenchmarkSettingAsString(benchmark_settings),(uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
         )
         debug_final_benchmarking = 1; // allow to count something in the final benchmark runs
-        benchmark_result_t benchmark_result = benchmark(benchmark_settings);
+        benchmark_result_t benchmark_result = benchmark(benchmark_settings, benchmarkableFunction);
         debug_final_benchmarking = 0;
 
         // report results

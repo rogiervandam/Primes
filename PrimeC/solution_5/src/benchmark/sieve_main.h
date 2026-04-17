@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
     }
     #endif
 
-    int valid = performBenchmarks(option);
+    int valid = performBenchmarks(option, shakeSieve);
 
     // show results for --show command line option and other developer information
     if (option.show_explain_factor_max > 0) showResult(option.fixed_benchmark_settings);

@@ -96,7 +96,7 @@ static inline void updateBenchmarkResult(benchmark_result_t *result, const count
     result->avg           = result->passes / result->elapsed_time;
 }
 
-static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings) 
+static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings, sieve_t* (*benchmarkableFunction)(const counter_t))
 {
     benchmark_result_t benchmark_result = { .settings = checkBenchmarkSettings(benchmark_settings), .passes = 0, .elapsed_time = 0, .avg = 0 };
 
@@ -117,7 +117,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
             double thread_elapsed = 0;
             const double time_start = benchmarkTime(), time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
             while (thread_elapsed <= time_target) {
-                sieve_t* sieve = shakeSieve(sieve_size);
+                sieve_t* sieve = benchmarkableFunction(sieve_size);
                 sieve_delete(sieve);
                 thread_elapsed = benchmarkTime();         
                 passes++;
@@ -128,7 +128,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings)
         requestPower();
         const double time_start = benchmarkTime(), time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
         while (time_elapsed <= time_target) {
-            sieve_t* sieve = shakeSieve(sieve_size);
+            sieve_t* sieve = benchmarkableFunction(sieve_size);
             sieve_delete(sieve);
             time_elapsed = benchmarkTime();         
             passes++;

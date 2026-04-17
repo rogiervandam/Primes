@@ -186,7 +186,7 @@ static counter_t joinTuningResults(benchmark_result_t* tuning_result, const coun
     return tuning_results_selected;
 }
 
-static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t start_tuning_settings) 
+static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t start_tuning_settings, sieve_t* (*benchmarkableFunction)(const counter_t))
 {
     verbose2( printf("Tuning...building options..."); )
 
@@ -233,7 +233,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     
     // prepare a table to store the tuning results
     const size_t max_results = ((prime_max)+1) * ((size_t)(VECTOR_SIZE_BITS/tuning_parameters.largestep_faster_steps)+1) * 32 * 6; // 6 strategies
-    benchmark_result_t* tuning_result = malloc(max_results * sizeof(tuning_result));
+    benchmark_result_t* tuning_result = malloc(max_results * sizeof(benchmark_result_t));
     benchmark_settings_t tuning_settings = initBenchmarkSettings(start_tuning_settings.threads);
 
     // start the timer
@@ -285,7 +285,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
             #endif
             
             // Perform the benchmark
-            tuning_result[i] = benchmark(tuning_settings);
+            tuning_result[i] = benchmark(tuning_settings, benchmarkableFunction);
 
             time_elapsed = benchmarkTime();
             if (tuning_result[i].avg > best_avg) best_avg = tuning_result[i].avg; // keep track of the best result for verbose messages
