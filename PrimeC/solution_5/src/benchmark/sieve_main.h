@@ -1,11 +1,11 @@
 #include "sieve_check.h"
+#include "sieve_usage.h"
+#include "sieve_parseCommandline.h"
 #include "sieve_benchmark.h"
 #include "sieve_explain.h"
 #include "sieve_tune.h"
 #include "sieve_validate.h"
 #include "sieve_performBenchmark.h"
-#include "sieve_usage.h"
-#include "sieve_parseCommandline.h"
 
 int main(int argc, char *argv[]) 
 {
@@ -25,6 +25,9 @@ int main(int argc, char *argv[])
     if (option.check) handleCheckOption(option.check, option.fixed_benchmark_settings);
 
     int valid = performBenchmarks(option, shakeSieve);
+
+    // // save settings for future --embed use
+    // saveLastSettings(option.fixed_benchmark_settings);
 
     // show results for --show command line option and other developer information
     if (option.show_explain_factor_max > 0 && option.tunelevel <= 4) showResult(option.fixed_benchmark_settings);

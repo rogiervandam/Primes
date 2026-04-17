@@ -1,18 +1,3 @@
-static void __attribute__((cold))
-saveLastSettings(benchmark_settings_t settings)
-{
-    char settings_path[256];
-    snprintf(settings_path, sizeof(settings_path), "dev/build/%s_settings.txt", option.program_name);
-    FILE* f = fopen(settings_path, "w");
-    if (f) {
-        char settings_string[50];
-        setBenchmarkSettingAsString(settings_string, settings);
-        fprintf(f, "%s\n", settings_string);
-        fclose(f);
-        verbose3(printf("Saved settings to %s\n", settings_path);)
-    }
-}
-
 static int performBenchmarks(struct options_t option, sieve_t* (*benchmarkableFunction)(const counter_t))
 {
     #ifdef COMPILE_BENCHMARK_STRIPERS
