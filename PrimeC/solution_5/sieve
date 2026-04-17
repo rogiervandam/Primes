@@ -361,7 +361,8 @@ fi
 if [ "$COMPILER" = "clang" ]; then
     CC="$CC -march=armv8-a+simd"
     CCASM="clang $CC -S -g -Wno-psabi -masm=intel -mllvm --x86-asm-syntax=intel -fverbose-asm" 
-    CC="clang $CC -O3 -ffast-math -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections -I/usr/lib/llvm-18/lib/clang/18/include/immintrin.h"  # -Wl,-dead_strip
+    CC="clang $CC -O3 -ffast-math -Wno-psabi -flto -fvisibility=hidden -ffunction-sections -fdata-sections -I/usr/lib/llvm-18/lib/clang/18/include/immintrin.h"  
+    CC="$CC -Wl,-dead_strip"
     # CC="clang -fsanitize=address " # use this for debugging
 
     # Ensure Clang finds OpenMP headers and library
