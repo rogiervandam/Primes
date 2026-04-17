@@ -21,7 +21,7 @@
     #define WHEEL_REPEATS 1
 
     #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
-    #define WHEEL_STRIPE_BYTES 2 //(((WHEEL_STRIPES) - 1) / 8 + 1)
+    #define WHEEL_STRIPE_BYTES 1 //(((WHEEL_STRIPES) - 1) / 8 + 1)
     #define WHEEL_STRIPE_BITS  ((WHEEL_STRIPE_BYTES) * 8)
 
     #define wheelmask_stripes      WHEEL_STRIPES
@@ -70,11 +70,11 @@
             if (!(wheelmask[index_type(i, uint8_t)] & markmask_type(i, uint8_t))) {
                 wheelmask_compressed[i] |= markmask_type(stripe_count, wheelmask_t);
                 wheelmask_index[i] = index_type(stripe_count, wheelmask_t);
-                wheelmask_bitpoint[i] = stripe_count;
+                wheelmask_bitpoint[i] = stripe_count + 1;
                 stripe_count++;
             }
         }
-        verbose3 (printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju\n", WHEEL_SIZE, (uintmax_t)wheelmask_stripes, (uintmax_t)wheelmask_stripe_bytes) );
+        verbose2 (printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju Wheel stripe bits: %ju\n", WHEEL_SIZE, (uintmax_t)wheelmask_stripes, (uintmax_t)wheelmask_stripe_bytes, (uintmax_t)wheelmask_stripe_bits) );
 
         // print the wheel for debugging
         // for (counter_t i = 0; i < WHEEL_SIZE; i++) {
@@ -92,7 +92,7 @@
     wheel_bit_calc(counter_t index) {
         const counter_t wheel_index = index % WHEEL_SIZE;
         if (wheelmask_bitpoint[wheel_index] < 0) return -1; 
-        return (wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index];
+        return (wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index] -1 ;
     }
 
     #define bitbucket_t uint64_t
@@ -114,6 +114,8 @@
 #if defined variantsuffix && !defined unrolls
 
     // #if defined variant && !VARIANT_IS_UINT8(variant)
+
+    // wheel_bucket is guaranteed to give back a bucket, regardless of the index is a multiple of a prime
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     function(wheel_block_calc,variantsuffix)(counter_t index) {
 
@@ -123,9 +125,9 @@
         }
 
         const counter_t wheel_index = index % WHEEL_SIZE;
-        if (wheelmask_bitpoint[wheel_index] < 0) return 0;
+        // if (wheelmask_bitpoint[wheel_index] < 0) return 0;
 
-        return index_type((wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index], bitbucket_t);
+        return index_type((wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index]-1, bitbucket_t);
     }
 
 #endif
@@ -136,12 +138,18 @@
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
     function(markFactors_wheelstorage_repeat,suffix)(sieve_t* sieve, const counter_t range_start, counter_t range_stop, const counter_t step)
     {
-        const counter_t bucket_stop = function(wheel_block_calc,variantsuffix)(range_stop + 1);
+        register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
+
+        // const counter_t bucket_stop = function(wheel_block_calc,variantsuffix)(range_stop + 1);
+        const counter_t bucket_stop = index_type(wheel_bit_calc(range_stop+1), bitbucket_t);
+
         const counter_t wheel_step = reduce2power(step) * (bitcount_type(bitbucket_t) / min(bitcount_type(bitbucket_t), wheelmask_stripe_bits)); // step in terms of the number of bitbuckets
+        // const counter_t wheel_step = step; // step in terms of the number of bitbuckets
 
         // Every WHEEL_BASIC_SIZE * wheel_step, the pattern of which bits to mark as true in the wheel repeats at byte level 
         // Because when the wheel is completely done, we are wheelmask_stripe_bytes further in the bitstorage
         const counter_t range_stop_unique = range_start + WHEEL_SIZE * (wheel_step + 1); 
+        // const counter_t range_stop_unique = range_stop;
 
         for (register counter_t index = range_start; index <= range_stop_unique; index += step) { 
 
@@ -178,9 +186,16 @@
                         ? index_type(( index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t)
                         : index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index], bitbucket_t);
                 
-                // applyMask_index_uint8_unroll8(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
-                function(applyMask_index, suffix)(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
+                applyMask_index_uint8_unroll8(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
+                // function(applyMask_index, suffix)(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
             }
+
+            // const counter_t wheel_bit = wheel_bit_calc(index);
+            // if (wheel_bit <= 0) continue; // if the number is divisible by any
+            // const bitbucket_t markmask = markmask_type(wheel_bit, bitbucket_t);
+            // // bitstorage_sized[ index_type(wheel_bit, bitbucket_t)] |= markmask_type(wheel_bit, bitbucket_t);
+            // function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), bucket_stop, wheel_step, markmask);
+            // // function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), index_type(wheel_bit, bitbucket_t), wheel_step, markmask);
         } 
     }
 
@@ -274,7 +289,8 @@
     {
         const counter_t prime = step / 2;
 
-        markFactors_wheelstorage_norepeat(sieve, start, stop, step); return;
+        // markFactors_wheelstorage_repeat_uint8_unroll8(sieve, start, stop, step); return;
+        // markFactors_wheelstorage_norepeat(sieve, start, stop, step); return;
         
         if (prime < global_stripeprime_faster ) {
             // markFactors_wheelstorage_small_repeat_pair_vector_uint64v4_unroll4(sieve, start, stop, step);
