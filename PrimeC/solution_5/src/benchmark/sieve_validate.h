@@ -1,19 +1,21 @@
+#pragma once
+
 #include "sieve_checkFunctions.h"
 
-static void deepAnalyzeWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
+static void deepAnalyzeWithBenchmarkSettings(sieve_t* (*sieveFunction)(const counter_t), benchmark_settings_t benchmark_settings) 
 {
     prepareBenchmarkGlobals(benchmark_settings);
-    sieve_t* sieve = shakeSieve(benchmark_settings.factor_max);
+    sieve_t* sieve = sieveFunction(benchmark_settings.factor_max);
     deepAnalyzeSieve(sieve, benchmark_settings.factor_max);
     sieve_delete(sieve);
 }
 
-static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settings) 
+static int checkSieveWithBenchmarkSettings(sieve_t* (*sieveFunction)(const counter_t), benchmark_settings_t benchmark_settings) 
 {
     benchmark_settings = checkBenchmarkSettings(benchmark_settings);
     prepareBenchmarkGlobals(benchmark_settings);
     const counter_t factor_max = benchmark_settings.factor_max;
-    sieve_t* sieve_check = shakeSieve(factor_max);
+    sieve_t* sieve_check = sieveFunction(factor_max);
     const int valid = validateSieve(sieve_check, factor_max);
     verbose1( if (!valid) {
         fprintf(stderr, "The sieve is " COLOR_RED "NOT" COLOR_RESET " valid for settings " COLOR_GREEN "%s" COLOR_RESET " with factor %ju\n", getBenchmarkSettingAsString(benchmark_settings), (uintmax_t) factor_max);
@@ -25,7 +27,7 @@ static int checkSieveWithBenchmarkSettings(benchmark_settings_t benchmark_settin
 
 // check with every sievesize, but not with every blocksize
 static int __attribute__((cold)) 
-checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
+checkSieveAlgorithm(sieve_t* (*sieveFunction)(const counter_t), benchmark_settings_t benchmark_settings)
 {
     verbose2( printf("Validating variant " COLOR_YELLOW "%s" COLOR_RESET ".. ", algorithm_name); )
     verbose3( printf("\n"); )
@@ -37,11 +39,11 @@ checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
         benchmark_settings.factor_max = sieveSize_check;
         benchmark_settings = checkBenchmarkSettings(benchmark_settings);
 
-        int valid = checkSieveWithBenchmarkSettings(benchmark_settings); 
+        int valid = checkSieveWithBenchmarkSettings(sieveFunction, benchmark_settings); 
 
         if (!valid) {
             verbose1( fprintf(stderr,"Invalid count for %ju Settings used: %s\n",(uintmax_t)sieveSize_check, getBenchmarkSettingAsString(benchmark_settings)); )
-            deepAnalyzeWithBenchmarkSettings(benchmark_settings);
+            deepAnalyzeWithBenchmarkSettings(sieveFunction, benchmark_settings);
             if (option.check == 7) exit(1);
             return valid;
         }
@@ -54,7 +56,7 @@ checkSieveAlgorithm(benchmark_settings_t benchmark_settings)
 
 // check with every sievesize and blocksize
 static int __attribute__((cold)) 
-checkSieveAlgorithmAll(benchmark_settings_t benchmark_settings)
+checkSieveAlgorithmAll(sieve_t* (*sieveFunction)(const counter_t), benchmark_settings_t benchmark_settings)
 {
     verbose2( printf("Validating variant " COLOR_YELLOW "%s" COLOR_RESET " with different block sizes... ", algorithm_name); ) verbose3( printf("\n"); ) 
 
@@ -69,12 +71,12 @@ checkSieveAlgorithmAll(benchmark_settings_t benchmark_settings)
             benchmark_settings.blocksize_bits = blocksize_bits;
             benchmark_settings.factor_max = sieveSize_check;
             benchmark_settings = checkBenchmarkSettings(benchmark_settings);
-            int valid = checkSieveWithBenchmarkSettings(benchmark_settings); 
+            int valid = checkSieveWithBenchmarkSettings(sieveFunction, benchmark_settings); 
 
             if (!valid) {
                 verbose1( printf("Test\n"); )
                 verbose1( fprintf(stderr,"Invalid count for %ju Settings used: %s\n",(uintmax_t)sieveSize_check, getBenchmarkSettingAsString(benchmark_settings)); )
-                deepAnalyzeWithBenchmarkSettings(benchmark_settings);
+                deepAnalyzeWithBenchmarkSettings(sieveFunction, benchmark_settings);
                 if (option.check == 7) exit(1);
                 return valid;
             }
@@ -90,10 +92,10 @@ checkSieveAlgorithmAll(benchmark_settings_t benchmark_settings)
 }
 
 static void __attribute__((cold)) 
-showResult(benchmark_settings_t benchmark_settings)
+showResult(sieve_t* (*sieveFunction)(const counter_t), benchmark_settings_t benchmark_settings)
 {
     verbose2( printf("Show result set:\n"); )
-    sieve_t* sieve = shakeSieve(benchmark_settings.factor_max);
+    sieve_t* sieve = sieveFunction(benchmark_settings.factor_max);
     showPrimesinSieve(sieve, option.show_explain_factor_max);
     counter_t prime_count = countPrimesInSieve(sieve, benchmark_settings.factor_max);
     verbose1( printf("\nFound %ju primes until %ju\n",(uintmax_t)prime_count, (uintmax_t)benchmark_settings.factor_max); )
@@ -109,7 +111,7 @@ showResult(benchmark_settings_t benchmark_settings)
 }
 
 static inline void __attribute__((cold)) 
-handleCheckOption(int check, benchmark_settings_t benchmark_settings) {
+handleCheckOption(int check, sieve_t* (*sieveFunction)(const counter_t), benchmark_settings_t benchmark_settings) {
 
     #ifdef COMPILE_EXPLAIN
     if (option.explain) {
@@ -130,9 +132,9 @@ handleCheckOption(int check, benchmark_settings_t benchmark_settings) {
     if (check >= 6) checkSetBitsTrueMethodsBlocks(setBitsTrueMethods, 0, benchmark_settings.factor_max);
     #endif
 
-    if (check >= 1) if (!checkSieveWithBenchmarkSettings(benchmark_settings)) exit(1);
-    if (check >= 2) if (!checkSieveAlgorithm(benchmark_settings)) exit(1);
-    if (check >= 3) if (!checkSieveAlgorithmAll(benchmark_settings)) exit(1);
+    if (check >= 1) if (!checkSieveWithBenchmarkSettings(sieveFunction, benchmark_settings)) exit(1);
+    if (check >= 2) if (!checkSieveAlgorithm(sieveFunction, benchmark_settings)) exit(1);
+    if (check >= 3) if (!checkSieveAlgorithmAll(sieveFunction, benchmark_settings)) exit(1);
 
     if (check == 1) exit(0);
     if (check == 3) exit(0);

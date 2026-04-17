@@ -1,4 +1,4 @@
-static int performBenchmarks(struct options_t option, sieve_t* (*benchmarkableFunction)(const counter_t))
+static int performBenchmarks(struct options_t option, sieve_t* (*sieveFunction)(const counter_t))
 {
     #ifdef COMPILE_BENCHMARK_STRIPERS
     if (option.tunelevel) {
@@ -28,7 +28,7 @@ static int performBenchmarks(struct options_t option, sieve_t* (*benchmarkableFu
         // tuning - try combinations of different settings and apply these
         #ifdef COMPILE_TUNE
         if (option.tunelevel) { 
-            benchmark_result_t tuning_result = tuneSieveSettings(option.tunelevel, benchmark_settings, benchmarkableFunction);
+            benchmark_result_t tuning_result = tuneSieveSettings(option.tunelevel, benchmark_settings, sieveFunction);
             setSettingsFromTuning(&benchmark_settings, &(tuning_result.settings));
         }
         if (option.tunelevel == 3) { // do one extra tuning run with the best settings to get a better result for the final benchmark
@@ -55,7 +55,7 @@ static int performBenchmarks(struct options_t option, sieve_t* (*benchmarkableFu
                     for (counter_t i = 0; i < top_count; i++) {
                         benchmark_settings_t bench_settings = accumulated[i].settings;
                         bench_settings.sample_duration = 2.0;
-                        benchmark_result_t result = benchmark(bench_settings, benchmarkableFunction);
+                        benchmark_result_t result = benchmark(bench_settings, sieveFunction);
                         updateBenchmarkResult(&accumulated[i], result.passes, result.elapsed_time);
                         printf(COLOR_CLEAR_LINE "Round %ju | ", (uintmax_t)(round + 1));
                         for (counter_t j = 0; j < top_count; j++) {
@@ -79,7 +79,7 @@ static int performBenchmarks(struct options_t option, sieve_t* (*benchmarkableFu
         saveLastSettings(benchmark_settings);
 
         debug_final_plan = 1; // allow to count something in only one run
-        if (!checkSieveWithBenchmarkSettings(benchmark_settings)) { 
+        if (!checkSieveWithBenchmarkSettings(sieveFunction, benchmark_settings)) { 
             verbose1( fprintf(stderr, "The sieve is " COLOR_RED "NOT" COLOR_RESET " valid for settings %s with factor %ju\n", 
                               getBenchmarkSettingAsString(benchmark_settings), (uintmax_t) benchmark_settings.factor_max); )
             return 1; 
@@ -93,7 +93,7 @@ static int performBenchmarks(struct options_t option, sieve_t* (*benchmarkableFu
         verbose2( printf("Warming up the cache and processing units in %.1f seconds\n", option.warmup_duration); )	
         benchmark_settings_t final_tuning_settings = benchmark_settings;
         final_tuning_settings.sample_duration = option.warmup_duration;
-        benchmark(final_tuning_settings, benchmarkableFunction);
+        benchmark(final_tuning_settings, sieveFunction);
 
         // perform benchmark -> outputs passes, elapsed time and avg in result 
         verbose2( printf("Benchmarking with settings: " COLOR_GREEN "%s" COLOR_RESET " and " COLOR_GREEN "%ju" COLOR_RESET " threads for " COLOR_GREEN "%.1f" COLOR_RESET " seconds\n"
@@ -101,7 +101,7 @@ static int performBenchmarks(struct options_t option, sieve_t* (*benchmarkableFu
                          getBenchmarkSettingAsString(benchmark_settings),(uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
         )
         debug_final_benchmarking = 1; // allow to count something in the final benchmark runs
-        benchmark_result_t benchmark_result = benchmark(benchmark_settings, benchmarkableFunction);
+        benchmark_result_t benchmark_result = benchmark(benchmark_settings, sieveFunction);
         debug_final_benchmarking = 0;
 
         // report results

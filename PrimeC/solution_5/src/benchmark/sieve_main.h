@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
                          algorithm_name, (option.dockerfile_type ? " in docker " : ""), (option.dockerfile_type ? option.dockerfile_type : ""), (uintmax_t)option.fixed_benchmark_settings.factor_max); })
 
     // command line --check can be used to check the algorithm for all sieve/blocksize combinations
-    if (option.check) handleCheckOption(option.check, option.fixed_benchmark_settings);
+    if (option.check) handleCheckOption(option.check, shakeSieve, option.fixed_benchmark_settings);
 
     int valid = performBenchmarks(option, shakeSieve);
 
@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
     // saveLastSettings(option.fixed_benchmark_settings);
 
     // show results for --show command line option and other developer information
-    if (option.show_explain_factor_max > 0 && option.tunelevel <= 4) showResult(option.fixed_benchmark_settings);
+    if (option.show_explain_factor_max > 0 && option.tunelevel <= 4) showResult(shakeSieve, option.fixed_benchmark_settings);
 
     return valid;
 }
