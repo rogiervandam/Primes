@@ -44,10 +44,12 @@ static inline char *getBenchmarkSettingAsString(benchmark_settings_t benchmark_s
 
 static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settings) 
 {
+#ifndef EMBED_SETTINGS
     global_stripeprime_faster   = benchmark_settings.stripe_faster;
     global_largestep_faster     = benchmark_settings.largestep_faster;
     global_blocksize_bits       = benchmark_settings.blocksize_bits;
     global_vectorsize           = benchmark_settings.vectorsize;
+#endif
     global_algorithm            = benchmark_settings.algorithm;  
     global_storage              = benchmark_settings.storage;
     verbose5({ printf("Using settings " COLOR_GREEN "%s" COLOR_RESET "\n", getBenchmarkSettingAsString(benchmark_settings)); })

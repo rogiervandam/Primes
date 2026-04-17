@@ -18,6 +18,7 @@ sieve_base-u*
 .vscode
 .vscode/*
 tuning_results*
+src/generic/sieve_embed.h
 callgrind*
 profile*
 vec_report*

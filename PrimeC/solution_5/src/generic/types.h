@@ -43,10 +43,16 @@ typedef struct  {
 #define bitbucketelement_type(index, type, base_type)    ((index_type((index), base_type)) & (elementcount_type(type, base_type) -1))
 
 // globals for tuning
+// When EMBED_SETTINGS is defined, hot-path globals are compile-time constants from sieve_embed.h
+// allowing the compiler to eliminate dead branches and optimize dispatch
+#ifdef EMBED_SETTINGS
+#include "sieve_embed.h"
+#else
 static counter_t global_stripeprime_faster  = 0; // if step > BLOCKSTEP use blocks, else use the whole sieve
 static counter_t global_largestep_faster    = 0; // if step < VECTORSTAP_FASTER, use large steps
 static counter_t global_blocksize_bits      = 0; // blocksize in bits
 static counter_t global_vectorsize          = 0; // vectorsize in bits
+#endif
 static counter_t global_algorithm           = 0; // algorithm to use for the sieve
 static counter_t global_storage             = 0; // storage type to use for the sieve
 static counter_t debug_hits                 = 0;
