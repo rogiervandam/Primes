@@ -221,10 +221,6 @@ parseCommandLine(int argc, char *argv[])
             parse_set_parameter(argv[arg], program_name, &option);
             verbose4(printf("Initial settings: " COLOR_BOLD_GREEN "%s" COLOR_RESET "\n", getBenchmarkSettingAsString(option.fixed_benchmark_settings));)
         }
-        else if (strcmp_local(argv[arg], "--emit-embed")) {
-            ensure_next_arg(++arg, argc, program_name, "embed output file path");
-            option.emit_embed_path = argv[arg];
-        }
         else if (strcmp_local(argv[arg], "--threads")) { 
             ensure_next_arg(++arg, argc, program_name, "thread maximum");
             

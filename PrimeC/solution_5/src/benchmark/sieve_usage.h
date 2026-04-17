@@ -17,8 +17,7 @@ usage(char *program_name, int exit_code)
 #endif
         "  --nocheck                 Skip check of the correctness of the algorithm\n"
         "  --embed                   Embed settings as compile-time constants (use with ./sieve)\n"
-        "                            Without --set, uses settings saved from last benchmark run\n"
-        "  --emit-embed <file>       Generate a .h file with current settings as constants and exit\n"
+        "                            Uses settings saved from last benchmark run\n"
 #ifdef COMPILE_EXPLAIN
         "  --explain                 Explain the steps of the algorithm - only when compiled for explain\n"
 #endif
