@@ -4,8 +4,8 @@ function(markFactors_wheelstorage_small_repeat,suffix)(sieve_t* sieve, const cou
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
     const counter_t stop_bucket = function(wheel_block_calc,variantsuffix)(range_stop + 1);
-    const counter_t wheel_step = reduce2power(step); // step in terms of the number of bitbuckets
-    const counter_t range_stop_unique = min(range_start + bitcount_type(bitbucket_t) * WHEEL_BASIC_SIZE * (wheel_step + 1) / wheelmask_stripe_bits , range_stop); 
+    const counter_t wheel_step = reduce2power(step) * reduce2power(wheelmask_stripe_bits); // step in words, accounting for stripe alignment
+    const counter_t range_stop_unique = min(range_start + ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits) * WHEEL_BASIC_SIZE * (wheel_step + 1), range_stop); 
 
     bitbucket_t current_mask = 0ULL;
     counter_t current_bucket = 0;
@@ -29,7 +29,8 @@ function(markFactors_wheelstorage_small_repeat,suffix)(sieve_t* sieve, const cou
         current_mask |= markmask_type(wheel_bit, bitbucket_t);
     } 
 
-    // ignore the last mask because it should already be set
-    // can be wrong if wheel is large and range is small.
-    bitstorage_sized[current_bucket] |= current_mask;
+    // can be optimized by choosing range_stop_unique to avoid dealing with the last cases
+    if (current_mask) {
+        function(applyMask_index,suffix)(sieve->bitstorage, current_bucket, stop_bucket, wheel_step, current_mask);
+    }
 }

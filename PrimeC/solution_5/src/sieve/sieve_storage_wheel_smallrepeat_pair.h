@@ -5,8 +5,8 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
     register uint8_t* restrict bitstorage_sized_uint8 = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
 
     const counter_t stop_bucket = function(wheel_block_calc,variantsuffix)(range_stop + 1);
-    const counter_t wheel_step = reduce2power(step);
-    const counter_t range_stop_unique = min(range_start + (bitcount_type(bitbucket_t) / wheelmask_stripe_bits) * WHEEL_SIZE * (wheel_step + 2), range_stop);
+    const counter_t wheel_step = reduce2power(step) * reduce2power(wheelmask_stripe_bits); // step in words, accounting for stripe alignment
+    const counter_t range_stop_unique = min(range_start + ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits) * WHEEL_SIZE * (wheel_step + 2), range_stop);
 
     counter_t current_bucket = 0;
 
@@ -45,9 +45,10 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
         current_mask |= markmask_type(wheel_bit, bitbucket_t);
     }
 
-    // Choosing range_stop_unique avoids dealing with the last cases
     if (pending_mask) {
         function(applyMask_index,suffix)(sieve->bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask);
     }
-    bitstorage_sized[current_bucket] |= current_mask;
+    if (current_mask) {
+        function(applyMask_index,suffix)(sieve->bitstorage, current_bucket, stop_bucket, wheel_step, current_mask);
+    }
 }
