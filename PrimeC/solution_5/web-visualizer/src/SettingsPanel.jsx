@@ -1,5 +1,5 @@
 import React from 'react';
-import { BIT_LAYOUTS, BYTE_LAYOUTS } from './SieveRenderer';
+import { BIT_LAYOUTS, BYTE_LAYOUTS, VECTOR_GROUPS } from './SieveRenderer';
 
 /**
  * Settings panel for layout modes, spacing, and rendering options.
@@ -65,6 +65,15 @@ export default function SettingsPanel({ settings, onChange, open, onClose }) {
                    onChange={(e) => numSet('byteSpacingV', e)} />
             <span className="val">{settings.byteSpacingV}</span>
           </div>
+        </div>
+
+        <div className="settings-section">
+          <label>Vector grouping</label>
+          <select value={settings.vectorGroup} onChange={(e) => set('vectorGroup', parseInt(e.target.value))}>
+            {Object.entries(VECTOR_GROUPS).map(([k, v]) => (
+              <option key={k} value={k}>{v.label}</option>
+            ))}
+          </select>
         </div>
 
         <div className="settings-section">

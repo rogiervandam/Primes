@@ -137,6 +137,7 @@ trace_init(const char* filename, uint64_t sieve_size, uint64_t bit_count)
     fprintf(g_trace.file, "  \"version\": %d,\n", TRACE_FORMAT_VERSION);
     fprintf(g_trace.file, "  \"sieve_size\": %llu,\n", (unsigned long long)sieve_size);
     fprintf(g_trace.file, "  \"bit_count\": %llu,\n", (unsigned long long)bit_count);
+    fprintf(g_trace.file, "  \"max_number\": %llu,\n", (unsigned long long)sieve_size);
     fprintf(g_trace.file, "  \"steps\": [\n");
 
     g_trace.enabled = 1;
@@ -269,6 +270,45 @@ trace_record_step_fmt(void* bitstorage, const char* fmt, ...)
     va_end(args);
 
     trace_record_step_full(bitstorage, annotation, NULL, -1, -1, -1, -1);
+}
+
+/*
+ * Write a standalone memory dump file (no step-by-step changes).
+ * Format: { "version": 3, "type": "dump", "sieve_size": N, "bit_count": N,
+ *           "max_number": N, "format": "hex", "data": "<hex>" }
+ */
+static void __attribute__((cold))
+trace_dump_memory(const char* filename, void* bitstorage,
+                  uint64_t sieve_size, uint64_t bit_count)
+{
+    uint32_t bytes = (uint32_t)((bit_count + 7) / 8);
+    const uint8_t* data = (const uint8_t*)bitstorage;
+
+    trace_mkdir("log");
+
+    FILE* f = fopen(filename, "w");
+    if (!f) {
+        fprintf(stderr, "Trace dump: failed to open %s\n", filename);
+        return;
+    }
+
+    fprintf(f, "{\n");
+    fprintf(f, "  \"version\": %d,\n", TRACE_FORMAT_VERSION);
+    fprintf(f, "  \"type\": \"dump\",\n");
+    fprintf(f, "  \"sieve_size\": %llu,\n", (unsigned long long)sieve_size);
+    fprintf(f, "  \"bit_count\": %llu,\n", (unsigned long long)bit_count);
+    fprintf(f, "  \"max_number\": %llu,\n", (unsigned long long)sieve_size);
+    fprintf(f, "  \"format\": \"hex\",\n");
+    fprintf(f, "  \"data\": \"");
+
+    for (uint32_t i = 0; i < bytes; i++) {
+        fprintf(f, "%02x", data[i]);
+    }
+
+    fprintf(f, "\"\n}\n");
+    fclose(f);
+
+    fprintf(stderr, "Trace dump: wrote %u bytes to %s\n", bytes, filename);
 }
 
 /*
@@ -418,6 +458,7 @@ trace_init(const char* filename, uint64_t sieve_size, uint64_t bit_count)
     fprintf(g_trace.file, "  \"version\": %d,\n", TRACE_FORMAT_VERSION);
     fprintf(g_trace.file, "  \"sieve_size\": %llu,\n", (unsigned long long)sieve_size);
     fprintf(g_trace.file, "  \"bit_count\": %llu,\n", (unsigned long long)bit_count);
+    fprintf(g_trace.file, "  \"max_number\": %llu,\n", (unsigned long long)sieve_size);
     fprintf(g_trace.file, "  \"steps\": [\n");
 
     g_trace.enabled = 1;

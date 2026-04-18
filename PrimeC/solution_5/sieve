@@ -16,6 +16,8 @@ RUNALL=""
 COMPILE=""
 COMPILEFULL=""
 EMBED=""
+VISUALIZE=""
+RENDER=""
 
 SIEVEVARIANTS="sieve_classic8 sieve_classic64 sieve_base sieve_wheel sieve_wheel_8of30 sieve_wheelstorage sieve_extend"
 
@@ -44,6 +46,12 @@ for arg in "$@"; do
         COMPILE_FULL="compilefull"
     elif [ "$arg" = "--embed" ] || [ "$arg" = "embed" ]; then
         EMBED="embed"
+    elif [ "$arg" = "visualize" ]; then
+        VISUALIZE="visualize"
+    elif [ "$arg" = "render" ]; then
+        RENDER="render"
+    elif [ "$arg" = "trace" ] || [ "$arg" = "--trace" ]; then
+        TRACE="trace"
     else
         ARGS_TO_KEEP+=("$arg")
     fi
@@ -57,6 +65,11 @@ PAREXT="_epar"
 base="sieve_extend" 
 
 DEFINE_FLAGS=""
+
+# Visualize mode automatically enables trace logging
+if [ "$VISUALIZE" = "visualize" ] || [ "$TRACE" = "trace" ]; then
+    DEFINE_FLAGS="-DCOMPILE_TRACE"
+fi
 
 # Set default tokens
 verbose_level=10  
@@ -150,9 +163,6 @@ for arg in "$@"; do
             timers|--timers)
                 DEFINE_FLAGS="-DCOMPILE_TIMERS $DEFINE_FLAGS"
                 ;;
-            trace|--trace)
-                DEFINE_FLAGS="-DCOMPILE_TRACE $DEFINE_FLAGS"
-                ;;
             # Ignore other tokens.
         esac
     done
@@ -191,6 +201,11 @@ fi
 if [ $verbose_level -eq 10 ]; then
     run_args="$run_args --verbose 2"
     verbose_level=2
+fi
+
+# Add --trace to run_args when trace or visualize is active
+if [ "$TRACE" = "trace" ] || [ "$VISUALIZE" = "visualize" ]; then
+    run_args="$run_args --trace"
 fi
 
 
@@ -315,6 +330,38 @@ if [ "$RUNALL" = "runall" ]; then
         bin/${base} "$@"
     done
     exit 0
+fi
+
+# Handle render command: export video from a trace file
+if [ "$RENDER" = "render" ]; then
+    RENDER_FILE=""
+    # Look for a .sievetrace file in remaining args
+    for arg in "$@"; do
+        case "$arg" in
+            *.sievetrace) RENDER_FILE="$arg" ;;
+        esac
+    done
+    # Default to latest trace file
+    if [ -z "$RENDER_FILE" ]; then
+        RENDER_FILE=$(ls -t log/*.sievetrace 2>/dev/null | head -1)
+    fi
+    # Try log/ prefix
+    if [ -n "$RENDER_FILE" ] && [ ! -f "$RENDER_FILE" ] && [ -f "log/$RENDER_FILE" ]; then
+        RENDER_FILE="log/$RENDER_FILE"
+    fi
+    if [ -z "$RENDER_FILE" ] || [ ! -f "$RENDER_FILE" ]; then
+        echo -e "No trace file found. Generate one with: ${CCYAN}./sieve trace <variant>${CRESET}"
+        exit 1
+    fi
+    RENDER_FILE="$(cd "$(dirname "$RENDER_FILE")" && pwd)/$(basename "$RENDER_FILE")"
+    echo -e "Rendering video from ${CYELLOW}$(basename "$RENDER_FILE")${CRESET}..."
+    # Ensure web visualizer is built
+    if [ ! -d web-visualizer/dist ]; then
+        echo "Building web visualizer..."
+        (cd web-visualizer && npx vite build 2>&1 | tail -5)
+    fi
+    node web-visualizer/render-video.mjs "$RENDER_FILE"
+    exit $?
 fi
 
 # If the first argument does not start with '-', assign it as the base and discard it
@@ -555,5 +602,38 @@ else
         echo -e "Running ${CYELLOW}./bin/$PROGTOTAL${CRESET} $run_args $@"
     fi
     ./bin/$PROGTOTAL $run_args $@
+fi
+
+# Handle visualize: start web visualizer with the latest trace
+if [ "$VISUALIZE" = "visualize" ]; then
+    LATEST=$(ls -t log/*.sievetrace 2>/dev/null | head -1)
+    if [ -n "$LATEST" ]; then
+        FILE_PARAM=$(basename "$LATEST")
+        echo ""
+        echo -e "Opening visualizer with ${CYELLOW}${FILE_PARAM}${CRESET}..."
+
+        # Ensure web visualizer dependencies are installed
+        if [ ! -d web-visualizer/node_modules ]; then
+            echo "Installing web visualizer dependencies..."
+            (cd web-visualizer && npm install 2>&1 | tail -5)
+        fi
+
+        URL="http://localhost:5173/?file=${FILE_PARAM}"
+
+        # Start Vite dev server in background
+        (cd web-visualizer && npx vite) &
+        VITE_PID=$!
+        sleep 3
+
+        # Try to open browser
+        (wslview "$URL" || xdg-open "$URL" || open "$URL" || sensible-browser "$URL") 2>/dev/null || \
+            echo -e "Open ${CCYAN}${URL}${CRESET} in your browser."
+
+        echo -e "Visualizer running at ${CCYAN}${URL}${CRESET}"
+        echo "Press Ctrl+C to stop."
+        wait $VITE_PID
+    else
+        echo "No trace file generated."
+    fi
 fi
 # done

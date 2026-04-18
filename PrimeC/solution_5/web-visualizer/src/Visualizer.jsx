@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { SieveRenderer } from './SieveRenderer';
 import StepPanel from './StepPanel';
+import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
 import {
   SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
-  ZoomIn, ZoomOut, Camera, Sun, Moon, Settings
+  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Settings
 } from './Icons';
 
 const DEFAULT_SETTINGS = {
@@ -16,9 +17,10 @@ const DEFAULT_SETTINGS = {
   byteSpacingV: 0,
   u64SpacingH: 2,
   u64SpacingV: 2,
+  vectorGroup: 1,
 };
 
-export default function Visualizer({ trace, fileName, onClose }) {
+export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
@@ -32,9 +34,14 @@ export default function Visualizer({ trace, fileName, onClose }) {
   const [theme, setTheme] = useState('dark');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [layoutSettings, setLayoutSettings] = useState(DEFAULT_SETTINGS);
+  const [detailOpen, setDetailOpen] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
 
   const bitStateRef = useRef(null);
   const playTimerRef = useRef(null);
+  const exportCancelRef = useRef(false);
+  const rippleRef = useRef(null); // animation frame id
 
   const { header, steps } = trace;
 
@@ -68,6 +75,7 @@ export default function Visualizer({ trace, fileName, onClose }) {
     r.byteSpacingV = layoutSettings.byteSpacingV;
     r.u64SpacingH = layoutSettings.u64SpacingH;
     r.u64SpacingV = layoutSettings.u64SpacingV;
+    r.vectorGroup = layoutSettings.vectorGroup;
     r.render();
   }, [theme, layoutSettings]);
 
@@ -120,6 +128,8 @@ export default function Visualizer({ trace, fileName, onClose }) {
       changedSet.add(step.changedBits[j]);
     }
 
+    // Set operation for color-coded highlighting
+    r.currentOperation = step.operation;
     r.setState(bs, changedSet);
     const el = containerRef.current;
     if (el) {
@@ -128,12 +138,39 @@ export default function Visualizer({ trace, fileName, onClose }) {
     }
     r.render();
     setCurrentStep(target);
+
+    // Trigger ripple animation for changed bits
+    if (changedSet.size > 0 && changedSet.size < 100000) {
+      if (rippleRef.current) cancelAnimationFrame(rippleRef.current);
+      const duration = 600; // ms
+      const start = performance.now();
+      const animate = (now) => {
+        const elapsed = now - start;
+        const progress = Math.min(1, elapsed / duration);
+        r.render();
+        r.renderRipple(progress);
+        if (progress < 1) {
+          rippleRef.current = requestAnimationFrame(animate);
+        } else {
+          rippleRef.current = null;
+        }
+      };
+      rippleRef.current = requestAnimationFrame(animate);
+    }
   }, [currentStep, steps]);
 
   // Initial render
   useEffect(() => {
     if (steps.length > 0) goToStep(0);
   }, [steps]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-render mode (for CLI video export via puppeteer)
+  useEffect(() => {
+    if (autoRender && steps.length > 0 && !exporting) {
+      const timer = setTimeout(() => exportVideo(), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [autoRender, steps.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Play/pause
   useEffect(() => {
@@ -223,12 +260,15 @@ export default function Visualizer({ trace, fileName, onClose }) {
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
     el.addEventListener('wheel', onWheel, { passive: false });
+    const onMouseLeave = () => { if (!dragging) setHoverInfo(''); };
+    el.addEventListener('mouseleave', onMouseLeave);
 
     return () => {
       el.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
       el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('mouseleave', onMouseLeave);
     };
   }, []);
 
@@ -246,6 +286,7 @@ export default function Visualizer({ trace, fileName, onClose }) {
         case '-':          e.preventDefault(); doZoom(1 / 1.5); break;
         case '0':          e.preventDefault(); resetZoom(); break;
         case 't': case 'T': e.preventDefault(); setTheme(t => t === 'dark' ? 'light' : 'dark'); break;
+        case 'd': case 'D': e.preventDefault(); setDetailOpen(o => !o); break;
         default: break;
       }
     };
@@ -264,6 +305,74 @@ export default function Visualizer({ trace, fileName, onClose }) {
     a.click();
   }, [currentStep]);
 
+  // Export Video (WebM)
+  const exportVideo = useCallback(async () => {
+    const r = rendererRef.current;
+    if (!r || steps.length === 0 || exporting) return;
+    setExporting(true);
+    setExportProgress(0);
+    exportCancelRef.current = false;
+
+    try {
+      const stream = r.canvas.captureStream(0);
+      const track = stream.getVideoTracks()[0];
+      const recorder = new MediaRecorder(stream, {
+        mimeType: 'video/webm;codecs=vp9',
+        videoBitsPerSecond: 5000000,
+      });
+      const chunks = [];
+      recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+      recorder.start();
+
+      const bs = new Uint8Array(header.bitCount);
+      for (let i = 0; i < steps.length; i++) {
+        if (exportCancelRef.current) break;
+        const s = steps[i];
+        for (let j = 0; j < s.changedBits.length; j++) {
+          const idx = s.changedBits[j];
+          if (idx < bs.length) bs[idx] = 1;
+        }
+        const changed = new Set(s.changedBits);
+        r.currentOperation = s.operation;
+        r.setState(bs, changed);
+        r.render();
+        if (track.requestFrame) track.requestFrame();
+        await new Promise(resolve => setTimeout(resolve, 33));
+        setExportProgress(Math.round(((i + 1) / steps.length) * 100));
+      }
+
+      recorder.stop();
+      await new Promise(resolve => { recorder.onstop = resolve; });
+
+      if (!exportCancelRef.current) {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        if (autoRender) {
+          // CLI mode: store on window for puppeteer to pick up
+          window.__exportedVideo = blob;
+          window.__renderComplete = true;
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'sieve_trace.webm';
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+      }
+    } catch (err) {
+      console.error('Video export failed:', err);
+    }
+
+    setExporting(false);
+    setExportProgress(0);
+    // Restore current step
+    goToStep(currentStep);
+  }, [steps, header.bitCount, currentStep, exporting, goToStep]);
+
+  const cancelExport = useCallback(() => {
+    exportCancelRef.current = true;
+  }, []);
+
   const currentStepData = steps[currentStep] || null;
 
   return (
@@ -274,17 +383,17 @@ export default function Visualizer({ trace, fileName, onClose }) {
           <button className="btn-icon" onClick={onClose} title="Close file">✕</button>
           <span className="file-name">{fileName}</span>
           <span className="sieve-info">
-            Sieve: {header.sieveSize.toLocaleString()} | Bits: {header.bitCount.toLocaleString()} | Steps: {header.stepCount} | v{header.version}
+            Max: {header.maxNumber.toLocaleString()} | Bits: {header.bitCount.toLocaleString()} | Steps: {header.stepCount} | v{header.version}
           </span>
         </div>
         <div className="toolbar-center">
-          <button className="btn-icon" onClick={() => goToStep(0)} title="First (Home)"><SkipBack /></button>
-          <button className="btn-icon" onClick={() => goToStep(currentStep - 1)} title="Previous (←)"><StepBack /></button>
-          <button className="btn-icon" onClick={() => setPlaying(p => !p)} title="Play/Pause (Space)">
+          <button className="btn-icon" onClick={() => goToStep(0)} title="First (Home)" disabled={exporting}><SkipBack /></button>
+          <button className="btn-icon" onClick={() => goToStep(currentStep - 1)} title="Previous (←)" disabled={exporting}><StepBack /></button>
+          <button className="btn-icon" onClick={() => setPlaying(p => !p)} title="Play/Pause (Space)" disabled={exporting}>
             {playing ? <Pause /> : <Play />}
           </button>
-          <button className="btn-icon" onClick={() => goToStep(currentStep + 1)} title="Next (→)"><StepForward /></button>
-          <button className="btn-icon" onClick={() => goToStep(steps.length - 1)} title="Last (End)"><SkipForward /></button>
+          <button className="btn-icon" onClick={() => goToStep(currentStep + 1)} title="Next (→)" disabled={exporting}><StepForward /></button>
+          <button className="btn-icon" onClick={() => goToStep(steps.length - 1)} title="Last (End)" disabled={exporting}><SkipForward /></button>
           <input
             type="range"
             className="step-slider"
@@ -292,6 +401,7 @@ export default function Visualizer({ trace, fileName, onClose }) {
             max={Math.max(0, steps.length - 1)}
             value={currentStep}
             onChange={(e) => goToStep(parseInt(e.target.value))}
+            disabled={exporting}
           />
           <span className="step-counter">{currentStep} / {steps.length - 1}</span>
         </div>
@@ -300,6 +410,13 @@ export default function Visualizer({ trace, fileName, onClose }) {
           <button className="btn-text" onClick={resetZoom} title="Reset Zoom (0)">{zoom.toFixed(1)}x</button>
           <button className="btn-icon" onClick={() => doZoom(1 / 1.5)} title="Zoom Out (−)"><ZoomOut /></button>
           <button className="btn-icon" onClick={exportPng} title="Export PNG"><Camera /></button>
+          {!exporting ? (
+            <button className="btn-icon" onClick={exportVideo} title="Export Video (WebM)"><Film /></button>
+          ) : (
+            <button className="btn-export-cancel" onClick={cancelExport} title="Cancel export">
+              {exportProgress}%
+            </button>
+          )}
           <button className="btn-icon" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} title="Toggle theme (T)">
             {theme === 'dark' ? <Sun /> : <Moon />}
           </button>
@@ -320,6 +437,13 @@ export default function Visualizer({ trace, fileName, onClose }) {
         </div>
       </header>
 
+      {/* Export progress bar */}
+      {exporting && (
+        <div className="export-progress">
+          <div className="export-progress-bar" style={{ width: `${exportProgress}%` }} />
+        </div>
+      )}
+
       {/* Main content */}
       <div className="main-content">
         <StepPanel
@@ -335,29 +459,14 @@ export default function Visualizer({ trace, fileName, onClose }) {
             <canvas ref={canvasRef} />
           </div>
           {hoverInfo && <div className="hover-info">{hoverInfo}</div>}
-          {currentStepData && (
-            <div className="step-detail">
-              <strong>Step {currentStep}</strong>
-              {currentStepData.operation && (
-                <span className="detail-tag op-tag">{currentStepData.operation}</span>
-              )}
-              {currentStepData.prime != null && (
-                <span className="detail-tag prime-tag">prime: {currentStepData.prime}</span>
-              )}
-              {currentStepData.blockStart != null && currentStepData.blockStop != null && (
-                <span className="detail-tag block-tag">
-                  block: [{currentStepData.blockStart}–{currentStepData.blockStop}]
-                </span>
-              )}
-              {currentStepData.factorStep != null && (
-                <span className="detail-tag step-tag">step: {currentStepData.factorStep}</span>
-              )}
-              <span className="detail-changes">
-                {currentStepData.numChanged} bits changed
-              </span>
-              <span className="detail-annotation">{currentStepData.annotation}</span>
-            </div>
-          )}
+
+          {/* Detail panel at the bottom of the canvas area */}
+          <DetailPanel
+            step={currentStepData}
+            stepIndex={currentStep}
+            open={detailOpen}
+            onToggle={() => setDetailOpen(o => !o)}
+          />
         </div>
       </div>
 

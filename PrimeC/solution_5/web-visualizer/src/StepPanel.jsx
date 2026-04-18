@@ -82,22 +82,36 @@ export default function StepPanel({ steps, currentStep, onStepClick, width, onWi
       </div>
 
       <div className="step-list" ref={listRef}>
-        {filteredSteps.map((s) => (
-          <div
-            key={s.originalIndex}
-            className={`step-item${s.originalIndex === currentStep ? ' active' : ''}`}
-            onClick={() => onStepClick(s.originalIndex)}
-          >
-            <span className="step-num">{s.originalIndex}</span>
-            {s.operation && <span className="step-op">{s.operation}</span>}
-            <span className="step-changes">
-              {s.numChanged > 0 ? `+${s.numChanged}` : ''}
-            </span>
-            <span className="step-text">
-              {s.annotation.length > 50 ? s.annotation.substring(0, 50) + '…' : s.annotation}
-            </span>
-          </div>
-        ))}
+        {filteredSteps.map((s) => {
+          const tooltip = [
+            `Step ${s.originalIndex}`,
+            s.operation ? `Operation: ${s.operation}` : null,
+            s.prime != null ? `Prime: ${s.prime}` : null,
+            s.blockStart != null ? `Block: [${s.blockStart} – ${s.blockStop}]` : null,
+            s.factorStep != null ? `Factor step: ${s.factorStep}` : null,
+            `Bits changed: ${s.numChanged}`,
+            s.annotation,
+          ].filter(Boolean).join('\n');
+
+          return (
+            <div
+              key={s.originalIndex}
+              className={`step-item${s.originalIndex === currentStep ? ' active' : ''}`}
+              onClick={() => onStepClick(s.originalIndex)}
+              title={tooltip}
+            >
+              <span className="step-num">{s.originalIndex}</span>
+              {s.operation && <span className="step-op">{s.operation}</span>}
+              <span className="step-changes">
+                {s.numChanged > 0 ? `+${s.numChanged}` : ''}
+              </span>
+              <span className="step-prime">
+                {s.prime != null ? `p${s.prime}` : ''}
+              </span>
+              <span className="step-text">{s.annotation}</span>
+            </div>
+          );
+        })}
       </div>
 
       {/* Resize handle */}

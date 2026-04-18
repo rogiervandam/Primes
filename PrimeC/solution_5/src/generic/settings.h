@@ -50,19 +50,32 @@
       trace_record_step_meta(bitstorage_ptr, op, prime, bstart, bstop, fstep, fmt, ##__VA_ARGS__)
   #define TRACE_ANALYSIS_START(op, bstart, bstop) trace_set_context(op, (int64_t)(bstart), (int64_t)(bstop))
   #define TRACE_ANALYSIS_END() trace_clear_context()
+  #define TRACE_DUMP(filename, bitstorage_ptr, sieve_size, bit_count) \
+      trace_dump_memory(filename, bitstorage_ptr, sieve_size, bit_count)
 
   // Combined startAnalysis + trace context: folds trace into the analysis construct
   #define startAnalysisTrace5(timer, trace_op, bstart, bstop, printf_args...) \
       startAnalysis5(timer, printf_args) TRACE_ANALYSIS_START(trace_op, bstart, bstop);
   #define endAnalysisTrace5(timer, ...) \
       TRACE_ANALYSIS_END(); endAnalysis5(timer, ##__VA_ARGS__)
+
+  // Subtask-level trace macros (level 8 = applyMask granularity)
+  #define startAnalysisTrace8(timer, trace_op, bstart, bstop, printf_args...) \
+      startAnalysis8(timer, printf_args) TRACE_ANALYSIS_START(trace_op, bstart, bstop);
+  #define endAnalysisTrace8(timer, ...) \
+      TRACE_ANALYSIS_END(); endAnalysis8(timer, ##__VA_ARGS__)
 #else
   #define TRACE_STEP(bitstorage_ptr, fmt, ...)
   #define TRACE_STEP_META(bitstorage_ptr, op, prime, bstart, bstop, fstep, fmt, ...)
   #define TRACE_ANALYSIS_START(op, bstart, bstop)
   #define TRACE_ANALYSIS_END()
+  #define TRACE_DUMP(filename, bitstorage_ptr, sieve_size, bit_count)
   #define startAnalysisTrace5(timer, trace_op, bstart, bstop, printf_args...) \
       startAnalysis5(timer, printf_args)
   #define endAnalysisTrace5(timer, ...) \
       endAnalysis5(timer, ##__VA_ARGS__)
+  #define startAnalysisTrace8(timer, trace_op, bstart, bstop, printf_args...) \
+      startAnalysis8(timer, printf_args)
+  #define endAnalysisTrace8(timer, ...) \
+      endAnalysis8(timer, ##__VA_ARGS__)
 #endif

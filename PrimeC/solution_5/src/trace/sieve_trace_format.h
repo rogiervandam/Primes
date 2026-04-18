@@ -8,6 +8,7 @@
  *   "version": 3,
  *   "sieve_size": <uint64>,
  *   "bit_count": <uint64>,
+ *   "max_number": <uint64>,
  *   "steps": [
  *     {
  *       "step": <int>,
@@ -25,6 +26,17 @@
  *
  * Changed bits are indices into the bitstorage (half-storage: bit i = number 2*i+1).
  * Only bits that changed (0->1) between this step and the previous step are recorded.
+ *
+ * Memory dump format (type "dump"):
+ * {
+ *   "version": 3,
+ *   "type": "dump",
+ *   "sieve_size": <uint64>,
+ *   "bit_count": <uint64>,
+ *   "max_number": <uint64>,
+ *   "format": "hex" | "binary",
+ *   "data": "<string>"
+ * }
  */
 
 #define TRACE_FORMAT_VERSION 3
