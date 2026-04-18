@@ -150,6 +150,9 @@ for arg in "$@"; do
             timers|--timers)
                 DEFINE_FLAGS="-DCOMPILE_TIMERS $DEFINE_FLAGS"
                 ;;
+            trace|--trace)
+                DEFINE_FLAGS="-DCOMPILE_TRACE $DEFINE_FLAGS"
+                ;;
             # Ignore other tokens.
         esac
     done

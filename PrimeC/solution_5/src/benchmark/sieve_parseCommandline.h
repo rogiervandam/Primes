@@ -315,6 +315,18 @@ parseCommandLine(int argc, char *argv[])
         else if (strcmp_local(argv[arg], "--nocheck")) { 
             option.check = 0; 
         }
+        #ifdef COMPILE_TRACE
+        else if (strcmp_local(argv[arg], "--trace")) {
+            /* --trace [optional filename] */
+            if (arg + 1 < argc && argv[arg + 1][0] != '-') {
+                option.trace_filename = argv[++arg];
+            } else {
+                /* Generate default: log/YYYY-MM-DD_HH-MM_<program>.sievetrace */
+                option.trace_filename = (char*)trace_generate_default_filename(program_name);
+            }
+            verbose2(printf("Trace output: %s\n", option.trace_filename));
+        }
+        #endif
         else if (strcmp_local(argv[arg], "--notune")) { 
             option.tunelevel = 0; 
         }

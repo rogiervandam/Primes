@@ -39,6 +39,11 @@ usage(char *program_name, int exit_code)
 #ifdef COMPILE_TIMERS
         "  --timers                  Give the timings for submodules - only when compiled for timers\n"
 #endif
+#ifdef COMPILE_TRACE
+        "  --trace [filename]        Record a trace of bitstorage changes to a .sievetrace file\n"
+        "                            Filename is optional; defaults to log/<timestamp>_<program>.sievetrace\n"
+        "                            Use the visualizer tool to view the trace afterwards\n"
+#endif
 #ifdef COMPILE_TUNE
         "  --tune  <level>           find the best settings for the current os and hardware\n"
         "                            0 - no tuning\n"

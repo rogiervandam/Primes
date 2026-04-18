@@ -18,6 +18,10 @@ sieve_base-u*
 .vscode
 .vscode/*
 tuning_results*
+*.sievetrace
+log/
+visualizer/node_modules
+visualizer/dist
 src/generic/sieve_embed.h
 callgrind*
 profile*

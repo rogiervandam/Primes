@@ -128,5 +128,32 @@ static int performBenchmarks(struct options_t option, sieve_t* (*sieveFunction)(
 
         if (threads > 4 && threads < 8) threads = 8; // force looking at 4 and 2 by setting threads to 8 which will be halved (4) next loop run
     }
+
+    #ifdef COMPILE_TRACE
+    if (option.trace_filename) {
+        /* Run one extra traced sieve after benchmark to capture the final result */
+        benchmark_settings_t trace_settings = initBenchmarkSettings(1);
+        trace_settings = checkBenchmarkSettings(trace_settings);
+        prepareBenchmarkGlobals(trace_settings);
+        counter_t trace_sieve_size = trace_settings.factor_max;
+        counter_t trace_bit_count  = calcBitsize(trace_sieve_size, trace_settings.storage);
+
+        trace_init(option.trace_filename, (uint64_t)trace_sieve_size, (uint64_t)trace_bit_count);
+        if (g_trace.enabled) {
+            /* Record initial empty state before the sieve runs */
+            uint8_t* empty = (uint8_t*)calloc(1, (trace_bit_count + 7) / 8);
+            if (empty) {
+                trace_record_step(empty, "Initial state: all bits clear");
+                free(empty);
+            }
+            sieve_t* trace_sieve = sieveFunction(trace_sieve_size);
+            trace_record_step(trace_sieve->bitstorage, "Final state: sieve complete");
+            trace_finalize();
+            sieve_delete(trace_sieve);
+            verbose2( printf("Trace saved to %s\n", option.trace_filename); )
+        }
+    }
+    #endif
+
     return 0;
 }

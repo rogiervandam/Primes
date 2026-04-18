@@ -41,3 +41,11 @@
 #include "helpers.h"
 #include "terminal.h"
 #include "verbose.h"
+
+// Trace macros: compile-time gated via -DCOMPILE_TRACE
+#ifdef COMPILE_TRACE
+  #include "../trace/sieve_trace.h"
+  #define TRACE_STEP(bitstorage_ptr, fmt, ...) trace_record_step_fmt(bitstorage_ptr, fmt, ##__VA_ARGS__)
+#else
+  #define TRACE_STEP(bitstorage_ptr, fmt, ...)
+#endif

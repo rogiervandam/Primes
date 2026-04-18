@@ -1,0 +1,23 @@
+i want a new feature in PrimeC/solution 5: a visual tool for windows and macos to display the bitstorage though every step in the process:
+1. create a logging feature to capture all the steps taken to change the bitstorage. Store them in readable text.
+2. After creation of the sieve, take a snapshot of the bitstorage.
+3. After each tiny step, take another snapshot of the bitstorage and compare it to the one before it.
+3. Capture the changed bits in some format, e.g. step[44]: { bits_set: [ 123,456,789], annotation: { text: Applymask_index setting bits, range_start: x, range_stop. y } , etc. But take whatever is best practise.
+4. Store all steps in the file. 
+5. Create a visualation tool for the test file that can be started afterwards. The tool must visualise the sieve as a canvas. I want to see groups of bits as byte, groep of bytes as a uint64, and cache lines. Think of using pixels as a representation of a bit and using colors to highlight changes and set bits. 
+6. In the visualation tool, i want to be able to 
+a. zoom in and out to regions of memory, by using the mouse and/or keyboard. 
+b. move forward and backward in time/steps
+c. want to see the annotions for each step, and be able to click on a step to see the details of the changes made in that step.
+7. The visualisation tool should be cross-platform and work on both Windows and MacOS.
+8. Consider using a framework like Electron or Qt for the visualisation tool to ensure cross-platform compatibility and ease of development.
+9. Ensure that the logging and visualization features do not significantly impact the performance of the PrimeC/solution 5 algorithm, especially when processing large datasets. Consider using something like the verbose1-9 levels, but it might need to be a saparate level.
+10. Provide clear documentation on how to use the logging and visualization features, including instructions for installing any necessary dependencies and running the visualisation tool.
+11 Make a feature to export the visualisation as a video or a series of images, so that users can share their findings or create presentations based on the visualisation.
+
+12 The log filename filename is optional. Defaults to a save to new ./log directory with a filename like e.g. 2026-04-18_ 00-08_sieve_extend_sievetrace. For input in the visualser, just default to the most recent file in the ./log directory.
+13 Use a json format for the logging. 
+14 Monitor the changes step by step. 
+15 Start by logging each change after a call to MarkFactor() is completed. 
+
+

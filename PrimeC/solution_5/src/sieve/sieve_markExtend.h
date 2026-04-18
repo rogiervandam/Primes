@@ -13,6 +13,8 @@ markExtendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop
     counter_t patternsize_bits       = 3;
 
     setBitsTrue_range(bitstorage, prime * (prime * 2 + 1 + 1), 2*(prime * 2 + 1), prime * 2 + 1);
+    TRACE_STEP(bitstorage, "extend: mark multiples of 3, range [%jd-%jd] step 3",
+               (intmax_t)(prime * (prime * 2 + 1 + 1)), (intmax_t)(2*(prime * 2 + 1)));
 
     for (counter_t range_stop = 2*(prime * 2 + 1);range_stop < block_stop;) {
         prime = searchBitFalse(bitstorage, prime);
@@ -26,13 +28,19 @@ markExtendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop
 
         // continue the found pattern to the entire sieve
         continuePattern(bitstorage, patternsize_bits, range_stop, patternsize_bits);
+        TRACE_STEP(bitstorage, "extend: copy pattern %jd bits to [0-%jd] for prime %jd",
+                   (intmax_t)patternsize_bits, (intmax_t)range_stop, (intmax_t)step);
         patternsize_bits *= step;
 
         setBitsTrue(bitstorage, start, range_stop, step);
+        TRACE_STEP(bitstorage, "extend: mark multiples of %jd, range [%jd-%jd] step %jd",
+                   (intmax_t)step, (intmax_t)start, (intmax_t)range_stop, (intmax_t)step);
     } 
 
     // continue the found pattern to the entire sieve
     continuePattern(bitstorage, patternsize_bits, block_stop, patternsize_bits);
+    TRACE_STEP(bitstorage, "extend: final copy pattern %jd bits to [0-%jd]",
+               (intmax_t)patternsize_bits, (intmax_t)block_stop);
 
     endAnalysis5(time_sieve_block_extend, "Copy bitpattern from %ju - %ju to range %ju - %ju:\n", (uintmax_t)patternsize_bits, (uintmax_t)2*patternsize_bits-1, (uintmax_t)2*patternsize_bits, (uintmax_t)block_stop);
     return prime;

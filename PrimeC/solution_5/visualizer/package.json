@@ -1,0 +1,33 @@
+{
+  "name": "sieve-visualizer",
+  "version": "1.0.0",
+  "description": "Visual tool for inspecting PrimeC solution_5 bitstorage traces",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "author": "Rogier van Dam",
+  "license": "MIT",
+  "dependencies": {
+    "gif.js": "^0.2.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.primes.sieve-visualizer",
+    "productName": "Sieve Visualizer",
+    "mac": {
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}
