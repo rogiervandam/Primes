@@ -17,6 +17,7 @@ COMPILE=""
 COMPILEFULL=""
 EMBED=""
 VISUALIZE=""
+VISUALIZE_MODE="" # "native", "web", or "" (auto)
 RENDER=""
 
 SIEVEVARIANTS="sieve_classic8 sieve_classic64 sieve_base sieve_wheel sieve_wheel_8of30 sieve_wheelstorage sieve_extend"
@@ -48,6 +49,10 @@ for arg in "$@"; do
         EMBED="embed"
     elif [ "$arg" = "visualize" ]; then
         VISUALIZE="visualize"
+    elif [ "$arg" = "native" ]; then
+        VISUALIZE_MODE="native"
+    elif [ "$arg" = "web" ]; then
+        VISUALIZE_MODE="web"
     elif [ "$arg" = "render" ]; then
         RENDER="render"
     elif [ "$arg" = "trace" ] || [ "$arg" = "--trace" ]; then
@@ -618,8 +623,17 @@ if [ "$VISUALIZE" = "visualize" ]; then
             (cd web-visualizer && npm install 2>&1 | tail -5)
         fi
 
-        # Try Electron (native) first, fall back to web browser
-        if command -v npx >/dev/null 2>&1 && (cd web-visualizer && npx electron --version >/dev/null 2>&1); then
+        # Determine mode: native, web, or auto-detect
+        USE_ELECTRON=false
+        if [ "$VISUALIZE_MODE" = "native" ]; then
+            USE_ELECTRON=true
+        elif [ "$VISUALIZE_MODE" = "web" ]; then
+            USE_ELECTRON=false
+        elif command -v npx >/dev/null 2>&1 && (cd web-visualizer && npx electron --version >/dev/null 2>&1); then
+            USE_ELECTRON=true
+        fi
+
+        if [ "$USE_ELECTRON" = true ]; then
             # Build the web app if needed
             if [ ! -d web-visualizer/dist ]; then
                 echo "Building web visualizer..."

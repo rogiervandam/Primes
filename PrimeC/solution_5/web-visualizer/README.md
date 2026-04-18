@@ -36,6 +36,43 @@ Other variants work too:
 ./sieve trace wheelstorage 1000
 ```
 
+## Prerequisites
+
+The visualizer requires **Node.js** (v18+) and **npm**. Install them if you haven't already:
+
+### Windows
+
+1. Download the installer from https://nodejs.org/ (LTS recommended).
+2. Run the `.msi` installer and follow the prompts — npm is included automatically.
+3. Verify in PowerShell:
+   ```powershell
+   node --version
+   npm --version
+   ```
+
+Alternatively, install via **winget**:
+
+```powershell
+winget install OpenJS.NodeJS.LTS
+```
+
+### macOS
+
+Install via **Homebrew** (recommended):
+
+```bash
+brew install node
+```
+
+Or download the `.pkg` installer from https://nodejs.org/.
+
+Verify:
+
+```bash
+node --version
+npm --version
+```
+
 ## Development
 
 ```bash

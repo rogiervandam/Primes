@@ -1,9 +1,10 @@
 import React, { useMemo, useCallback } from 'react';
+import { bitToNumber } from './SieveRenderer';
 
 /**
  * Collapsible detail panel with adjustable height.
  */
-export default function DetailPanel({ step, stepIndex, open, onToggle, height, onHeightChange, width, onWidthChange, playing, stepStats }) {
+export default function DetailPanel({ step, stepIndex, open, onToggle, height, onHeightChange, width, onWidthChange, playing, stepStats, storageModel }) {
   // Compact representation of changed bit ranges
   const bitRanges = useMemo(() => {
     if (!step || step.changedBits.length === 0) return '';
@@ -26,15 +27,16 @@ export default function DetailPanel({ step, stepIndex, open, onToggle, height, o
     return ranges.join(', ');
   }, [step]);
 
-  // Convert changed bits to number representation (bit i → number 2i+1)
+  // Convert changed bits to number representation
   const numberSummary = useMemo(() => {
     if (!step || step.changedBits.length === 0) return '';
     const bits = Array.from(step.changedBits).sort((a, b) => a - b);
-    const nums = bits.slice(0, 20).map(b => b * 2 + 1);
+    const model = storageModel || 'half';
+    const nums = bits.slice(0, 20).map(b => bitToNumber(b, model));
     let text = nums.join(', ');
     if (bits.length > 20) text += ` … (+${bits.length - 20} more)`;
     return text;
-  }, [step]);
+  }, [step, storageModel]);
 
   // Height drag handler
   const handleHeightDrag = useCallback((e) => {

@@ -3,12 +3,38 @@ import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 /**
  * Hierarchical step panel grouped by prime, with collapse/expand.
  */
-export default function StepPanel({ steps, currentStep, onStepClick, width, onWidthChange }) {
+export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange }) {
   const listRef = useRef(null);
   const scrollTopRef = useRef(0);
   const [search, setSearch] = useState('');
   const [filterOp, setFilterOp] = useState('');
   const [collapsed, setCollapsed] = useState(new Set());
+  const lastClickedRef = useRef(null);
+
+  const handleStepClick = useCallback((stepIdx, e) => {
+    if (e.ctrlKey || e.metaKey) {
+      // Toggle individual step in selection
+      onMultiStepSelect(prev => {
+        const next = new Set(prev);
+        if (next.has(stepIdx)) next.delete(stepIdx);
+        else next.add(stepIdx);
+        return next;
+      });
+    } else if (e.shiftKey && lastClickedRef.current != null) {
+      // Range select
+      const from = Math.min(lastClickedRef.current, stepIdx);
+      const to = Math.max(lastClickedRef.current, stepIdx);
+      onMultiStepSelect(() => {
+        const next = new Set();
+        for (let i = from; i <= to; i++) next.add(i);
+        return next;
+      });
+    } else {
+      onStepClick(stepIdx);
+      onMultiStepSelect(new Set());
+    }
+    lastClickedRef.current = stepIdx;
+  }, [onStepClick, onMultiStepSelect]);
 
   // Unique operations for filter
   const operations = useMemo(() => {
@@ -136,7 +162,7 @@ export default function StepPanel({ steps, currentStep, onStepClick, width, onWi
       <div className="step-list" ref={listRef}>
         {filteredTree.map((group) => {
           const isCollapsed = collapsed.has(group.id);
-          const containsActive = group.children.some(s => s.originalIndex === currentStep);
+          const containsActive = group.children.some(s => s.originalIndex === currentStep || selectedSteps.has(s.originalIndex));
 
           return (
             <div key={group.id} className="step-group">
@@ -157,6 +183,7 @@ export default function StepPanel({ steps, currentStep, onStepClick, width, onWi
 
               {!isCollapsed && group.children.map(s => {
                 const isActive = s.originalIndex === currentStep;
+                const isSelected = selectedSteps.has(s.originalIndex);
                 const tooltip = [
                   s.prime != null ? `Prime ${s.prime}` : null,
                   `Step ${s.originalIndex}`,
@@ -170,8 +197,8 @@ export default function StepPanel({ steps, currentStep, onStepClick, width, onWi
                 return (
                   <div
                     key={s.originalIndex}
-                    className={`step-item step-child${isActive ? ' active' : ''}`}
-                    onClick={() => onStepClick(s.originalIndex)}
+                    className={`step-item step-child${isActive ? ' active' : ''}${isSelected ? ' selected' : ''}`}
+                    onClick={(e) => handleStepClick(s.originalIndex, e)}
                     title={tooltip}
                   >
                     <span className="step-num">{s.originalIndex}</span>

@@ -155,5 +155,55 @@ Top:
 
 Remove any old code relating to the old implementation under /visualizer. Think deep, long and hard about this. I like the web version as it is now. Provide a way to turn this in a native app for windows and macos, using something like Electron or Qt, while still sharing the same codebase for the visualisation logic and rendering, to ensure consistency and reduce development effort across both platforms. This will allow users to choose their preferred platform for using the visualisation tool while still benefiting from the same features and functionality, enhancing the overall accessibility and usability of the tool for a wider range of users analyzing the prime sieve algorithm. On the other platforms, it should feel as native as possible. So window, icons, interactions etc. should be adapted to the platform, while still maintaining the same core visualisation logic and rendering across all platforms for consistency and ease of maintenance. This will provide users with a seamless and enjoyable experience when using the visualisation tool on their preferred platform, while still benefiting from the powerful features and insights it provides for analyzing the prime sieve algorithm.
 
-Make the 
+make instructions for how to install npm on windows and mac in the visualiser README
+
+General
+- make "sieve visualize native" start the native app and "sieve visualize web" start the web version
+- allow the user to highlight the changed bits in two or more steps, by selecting multiple steps in the steps panel, to visually compare the changes being made to the bitstorage across different steps and identify patterns or trends in the changes.
+- allow different annotations of bits, and bytes for different storage model. We have a storage model full (1 bit = 1 number), half (only bits for uneven numbers, e.g. but 0 = 1, but 1=3,etc) and wheel, where we only have bits for numbers that are not divisible by the first few primes (e.g. 2,3,5). Allow users to choose which storage model they want to visualize, and adjust the annotations accordingly to provide a clearer and more accurate representation of the bitstorage in the visualisation based on the chosen storage model. This will enhance the overall usability and effectiveness of the visualisation tool for users analyzing different configurations of the sieve algorithm and their corresponding bitstorage representations.
+- 
+
+Interfase
+Layout settings panel
+- move to a more direct and visual interface: replace the dropdowns with visual representations (icons) of the different arrangements for bits, bytes and groupings, e.g:
+- show the animation styles as buttons with little representations of the sieve with the animation applied to it.
+- show the animation mode as buttons with a preview of what is will be
+- ..etc
+- also use + and - buttons for adjusting the spacing between bits, bytes, and uint64 groups, allowing users to easily increase or decrease the spacing with a simple click, providing a more intuitive and user-friendly way to customize the visualisation based on their preferences and the specific patterns they are looking for in the bitstorage. This will enhance the overall user experience and make the visualisation more engaging and informative, allowing users to better understand the dynamics of the changes being made to the bitstorage throughout the execution of the sieve algorithm.
+- move the bit spacing near the bit layouts, byte spaceing nead the byte layouts, etc. to make it more clear which spacing settings belong to which layout settings.
+
+Canvas
+- Show the history of a bit as a detail panel when clicking on a bit, showing all the steps where that bit was changed, along with the details of each change (e.g., which operation caused the change, the range of memory affected, etc.).
+- in this panel, allow the user to click on the step that changed this like a link and then go to this step in the steps panel.
+
+Top bar:
+- don't use a slider for speed, but buttons for slower or faster
+- add a search icon for using the search box. 
+
+-=--
+General
+- make a hot/cold cache highlight overlay feature, where vectors or cache lines that are changed frequently across steps are highlighted in a different color (e.g., red for hot bits that change often, orange for warm bits that change occasionally, blue for cold bits that change rarely), allowing users to quickly identify which bits are more active and which are more stable throughout the execution of the sieve algorithm
+- make it possible to color vector or cache lines in hot, medium cold (red, orange, blue), based on their last access: red if accessed in the last step. Dial to orange and then blue as the steps go by without access. This will allow users to visually track the activity of different parts of the bitstorage over time, providing insights into which areas are more frequently modified and which are more stable, enhancing the overall analysis and understanding of the sieve algorithm's behavior.
+- let the user choose a cacheline size, next to bit, byte and vector groupings. This allows the user to see how the processor can optimize the access to the bitstorage based on cacheline sizes, providing insights into the performance implications of different access patterns in the sieve algorithm and helping users understand how to optimize their implementations for better performance.
+- let the user choose the cachesize as a number, a preset or a processor model. For the processor model, devise a way to get the L1 and L2 cache sizes for the most common processors, and use these to calculate the cacheline groupings in the visualisation, allowing users to see how the sieve algorithm interacts with the cache hierarchy of their specific processor, providing insights into potential performance bottlenecks and optimization opportunities based on cache usage patterns in the sieve algorithm. This will enhance the overall analysis and understanding of the sieve algorithm's behavior in relation to the underlying hardware architecture.
+- make the steps panel collapsable, so that users can hide it when they want to focus on the visualisation and have more space to analyze the changes being made to the bitstorage, providing a more flexible and customizable user experience when exploring the visualisation of the sieve algorithm.
+- make the layout settings panel collapsable as well, so that users can hide it.
+
+Layout settings:
+- when choosing a wheel storage model variant, make it possible to greoup bits based on the wheelsize
+- for the layout buttons, make a hover tooltip that shows a small text about and preview of the layout, so that users can quickly understand what each layout option will look like before selecting it
+- do icon buttons for the vectof groupings as well, with tooltips
+- Make the spacing more intuitive, by showing a small model of the bits/bytes/uint64 groups with the spacing applied to it and in it, show the buttons to increase or decrease the spacing, so that users can visually understand the effect of the spacing settings and easily adjust them to their preferences, enhancing the overall user experience and making the visualisation more engaging and informative. This will allow users to better understand the dynamics of the changes being made to the bitstorage throughout the execution of the sieve algorithm, while also providing a more customizable and visually appealing visualisation experience.
+
+Canvas:
+- don't use purple for animations; it isn't clear enough
+- when hovering over the canvas, don't show the hand cursor, but a normal one which is more precise for selecting a bit, byte, etc. This will enhance the precision and usability of the visualisation tool when users are trying to interact with specific elements in the bitstorage, allowing for a more seamless and efficient user experience when analyzing the changes being made to the bitstorage throughout the execution of the sieve algorithm.
+- when zooming in or out, don't change the arragement of the bits. Just try to fit them on the first screen as best as possible, but keep the same arrangement. This will allow users to maintain their mental map of the layout of the bitstorage while zooming in and out to analyze specific sections in more detail, enhancing the overall usability and effectiveness of the visualisation tool when analyzing the prime sieve algorithm.
+
+
+
+
+
+
+
 

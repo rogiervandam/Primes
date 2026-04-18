@@ -44,6 +44,7 @@ export function parseTrace(buffer) {
     bitCount: json.bit_count,
     maxNumber: json.max_number ?? json.sieve_size,
     stepCount: rawSteps.length,
+    storageModel: json.storage_model || null,
   };
 
   const steps = rawSteps.map((s) => ({

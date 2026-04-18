@@ -1,5 +1,5 @@
 import React from 'react';
-import { BIT_LAYOUTS, BYTE_LAYOUTS, VECTOR_GROUPS, COLOR_PRESETS } from './SieveRenderer';
+import { BIT_LAYOUTS, BYTE_LAYOUTS, VECTOR_GROUPS, COLOR_PRESETS, STORAGE_MODELS } from './SieveRenderer';
 
 function rgbToHex(rgb) {
   if (!rgb || rgb.length < 3) return '#555555';
@@ -21,14 +21,49 @@ export default function SettingsPanel({
   bitAnimInterval, onBitAnimIntervalChange,
   colorPreset, onColorPresetChange,
   customColors, onCustomColorsChange,
+  storageModel, onStorageModelChange,
 }) {
   if (!open) return null;
 
   const set = (key, val) => onChange({ ...settings, [key]: val });
-  const numSet = (key, e) => {
-    const v = parseInt(e.target.value, 10);
-    if (!isNaN(v) && v >= 0 && v <= 20) set(key, v);
+  const incr = (key, max) => set(key, Math.min(max, (settings[key] || 0) + 1));
+  const decr = (key, min = 0) => set(key, Math.max(min, (settings[key] || 0) - 1));
+
+  /** Mini SVG preview of a layout grid */
+  const LayoutIcon = ({ cols, rows, grid3x3, active, onClick, size = 32 }) => {
+    const gap = 1;
+    const cellW = (size - (cols - 1) * gap) / cols;
+    const cellH = (size - (rows - 1) * gap) / rows;
+    return (
+      <svg width={size} height={size} onClick={onClick}
+           style={{ cursor: 'pointer', border: active ? '2px solid var(--accent)' : '2px solid var(--border)', borderRadius: 4, padding: 2 }}>
+        {Array.from({ length: rows * cols }, (_, i) => {
+          if (grid3x3 && i === 4) return null; // center cell empty
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          return <rect key={i} x={col * (cellW + gap)} y={row * (cellH + gap)} width={cellW} height={cellH}
+                       fill={active ? 'var(--accent)' : 'var(--fg-dim)'} rx={1} />;
+        })}
+      </svg>
+    );
   };
+
+  const SpacingControl = ({ label, valueH, valueV, keyH, keyV, max = 20 }) => (
+    <div className="settings-section">
+      <label>{label}</label>
+      <div className="settings-row">
+        <span>H</span>
+        <button className="btn-icon btn-sm" onClick={() => decr(keyH)}>−</button>
+        <span className="val">{valueH}</span>
+        <button className="btn-icon btn-sm" onClick={() => incr(keyH, max)}>+</button>
+        <span style={{ width: 8 }} />
+        <span>V</span>
+        <button className="btn-icon btn-sm" onClick={() => decr(keyV)}>−</button>
+        <span className="val">{valueV}</span>
+        <button className="btn-icon btn-sm" onClick={() => incr(keyV, max)}>+</button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="settings-overlay">
@@ -39,50 +74,41 @@ export default function SettingsPanel({
         </div>
 
         <div className="settings-section">
-          <label>Bits in byte</label>
-          <select value={settings.bitLayout} onChange={(e) => set('bitLayout', e.target.value)}>
-            {Object.entries(BIT_LAYOUTS).map(([k, v]) => (
-              <option key={k} value={k}>{v.label}</option>
+          <label>Storage model</label>
+          <select value={storageModel || 'half'} onChange={(e) => onStorageModelChange(e.target.value)}>
+            {Object.entries(STORAGE_MODELS).map(([k, v]) => (
+              <option key={k} value={k}>{v.label} — {v.description}</option>
             ))}
           </select>
         </div>
+
+        <div className="settings-section">
+          <label>Bits in byte</label>
+          <div className="layout-icons">
+            {Object.entries(BIT_LAYOUTS).map(([k, v]) => (
+              <LayoutIcon key={k} cols={v.grid3x3 ? 3 : v.cols} rows={v.grid3x3 ? 3 : v.rows}
+                          grid3x3={v.grid3x3} active={settings.bitLayout === k}
+                          onClick={() => set('bitLayout', k)} />
+            ))}
+          </div>
+        </div>
+
+        <SpacingControl label="Bit spacing" valueH={settings.bitSpacingH} valueV={settings.bitSpacingV}
+                        keyH="bitSpacingH" keyV="bitSpacingV" max={10} />
 
         <div className="settings-section">
           <label>Bytes in uint64</label>
-          <select value={settings.byteLayout} onChange={(e) => set('byteLayout', e.target.value)}>
+          <div className="layout-icons">
             {Object.entries(BYTE_LAYOUTS).map(([k, v]) => (
-              <option key={k} value={k}>{v.label}</option>
+              <LayoutIcon key={k} cols={v.grid3x3 ? 3 : v.cols} rows={v.grid3x3 ? 3 : v.rows}
+                          grid3x3={v.grid3x3} active={settings.byteLayout === k}
+                          onClick={() => set('byteLayout', k)} />
             ))}
-          </select>
-        </div>
-
-        <div className="settings-section">
-          <label>Bit spacing</label>
-          <div className="settings-row">
-            <span>H</span>
-            <input type="range" min="0" max="10" value={settings.bitSpacingH}
-                   onChange={(e) => numSet('bitSpacingH', e)} />
-            <span className="val">{settings.bitSpacingH}</span>
-            <span>V</span>
-            <input type="range" min="0" max="10" value={settings.bitSpacingV}
-                   onChange={(e) => numSet('bitSpacingV', e)} />
-            <span className="val">{settings.bitSpacingV}</span>
           </div>
         </div>
 
-        <div className="settings-section">
-          <label>Byte spacing</label>
-          <div className="settings-row">
-            <span>H</span>
-            <input type="range" min="0" max="20" value={settings.byteSpacingH}
-                   onChange={(e) => numSet('byteSpacingH', e)} />
-            <span className="val">{settings.byteSpacingH}</span>
-            <span>V</span>
-            <input type="range" min="0" max="20" value={settings.byteSpacingV}
-                   onChange={(e) => numSet('byteSpacingV', e)} />
-            <span className="val">{settings.byteSpacingV}</span>
-          </div>
-        </div>
+        <SpacingControl label="Byte spacing" valueH={settings.byteSpacingH} valueV={settings.byteSpacingV}
+                        keyH="byteSpacingH" keyV="byteSpacingV" max={20} />
 
         <div className="settings-section">
           <label>Vector grouping</label>
@@ -93,19 +119,8 @@ export default function SettingsPanel({
           </select>
         </div>
 
-        <div className="settings-section">
-          <label>uint64 spacing</label>
-          <div className="settings-row">
-            <span>H</span>
-            <input type="range" min="0" max="20" value={settings.u64SpacingH}
-                   onChange={(e) => numSet('u64SpacingH', e)} />
-            <span className="val">{settings.u64SpacingH}</span>
-            <span>V</span>
-            <input type="range" min="0" max="20" value={settings.u64SpacingV}
-                   onChange={(e) => numSet('u64SpacingV', e)} />
-            <span className="val">{settings.u64SpacingV}</span>
-          </div>
-        </div>
+        <SpacingControl label="uint64 spacing" valueH={settings.u64SpacingH} valueV={settings.u64SpacingV}
+                        keyH="u64SpacingH" keyV="u64SpacingV" max={20} />
 
         <div className="settings-section">
           <label>Labels</label>
@@ -134,24 +149,21 @@ export default function SettingsPanel({
 
         <div className="settings-section">
           <label>Animation style</label>
-          <div className="settings-row">
-            <select value={animStyle || 'ripple'} onChange={(e) => onAnimStyleChange(e.target.value)}>
-              <option value="ripple">Ripple</option>
-              <option value="fade">Fade</option>
-              <option value="pulse">Pulse</option>
-              <option value="none">None</option>
-            </select>
+          <div className="btn-group">
+            {['ripple', 'fade', 'pulse', 'none'].map(s => (
+              <button key={s} className={`btn-option${(animStyle || 'ripple') === s ? ' active' : ''}`}
+                      onClick={() => onAnimStyleChange(s)}>{s}</button>
+            ))}
           </div>
         </div>
 
         <div className="settings-section">
           <label>Animation mode</label>
-          <div className="settings-row">
-            <select value={animMode || 'all'} onChange={(e) => onAnimModeChange(e.target.value)}>
-              <option value="all">All at once</option>
-              <option value="sequential">Sequential (per bit)</option>
-              <option value="bounce">Bounce (forward &amp; back)</option>
-            </select>
+          <div className="btn-group">
+            {[['all', 'All'], ['sequential', 'Sequential'], ['bounce', 'Bounce']].map(([k, l]) => (
+              <button key={k} className={`btn-option${(animMode || 'all') === k ? ' active' : ''}`}
+                      onClick={() => onAnimModeChange(k)}>{l}</button>
+            ))}
           </div>
         </div>
 

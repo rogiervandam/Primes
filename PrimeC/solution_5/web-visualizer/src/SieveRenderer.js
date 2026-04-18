@@ -98,6 +98,41 @@ export const VECTOR_GROUPS = {
 // Map a linear index (0-7) to a position in a 3x3 grid skipping center (4)
 const GRID3X3_MAP = [0, 1, 2, 3, /*skip 4*/ 5, 6, 7, 8];
 
+// Storage model definitions
+export const STORAGE_MODELS = {
+  half:  { label: 'Half (odd only)',   description: 'bit i → 2i+1' },
+  full:  { label: 'Full (all)',        description: 'bit i → i' },
+  wheel: { label: 'Wheel 8-of-30',    description: 'bit i → wheel30 residue' },
+};
+
+const WHEEL30_RESIDUES = [1, 7, 11, 13, 17, 19, 23, 29];
+
+/** Convert a bit index to a number for the given storage model */
+export function bitToNumber(bitIdx, model) {
+  switch (model) {
+    case 'full':  return bitIdx;
+    case 'wheel': return Math.floor(bitIdx / 8) * 30 + WHEEL30_RESIDUES[bitIdx % 8];
+    case 'half':
+    default:      return bitIdx * 2 + 1;
+  }
+}
+
+/** Convert a number to a bit index, or -1 if not representable */
+export function numberToBit(num, model) {
+  switch (model) {
+    case 'full':  return num;
+    case 'wheel': {
+      const group = Math.floor(num / 30);
+      const rem = num % 30;
+      const idx = WHEEL30_RESIDUES.indexOf(rem);
+      return idx >= 0 ? group * 8 + idx : -1;
+    }
+    case 'half':
+    default:
+      return (num < 1 || num % 2 === 0) ? -1 : (num - 1) / 2;
+  }
+}
+
 export class SieveRenderer {
   constructor() {
     this.canvas = null;
@@ -138,6 +173,9 @@ export class SieveRenderer {
     // Label toggles
     this.showBitLabels = false;
     this.showByteLabels = false;
+
+    // Storage model for bit-to-number mapping
+    this.storageModel = 'half';
 
     // Canvas width for wrapping (set by resize)
     this.canvasWidth = 0;
@@ -409,7 +447,7 @@ export class SieveRenderer {
 
               // Bit label (number represented by this bit)
               if (showBitLabels && px >= 12) {
-                const number = globalBit * 2 + 1;
+                const number = bitToNumber(globalBit, this.storageModel);
                 ctx.font = `${Math.max(6, Math.min(9, px * 0.4))}px monospace`;
                 ctx.fillStyle = this.changedBits.has(globalBit) ? '#fff' :
                   (this.bitState[globalBit] ? `rgb(${bitColors.cleared.join(',')})` : `rgb(${bitColors.set.join(',')})`);
@@ -513,7 +551,7 @@ export class SieveRenderer {
 
   getBitInfo(bitIdx) {
     if (bitIdx < 0 || bitIdx >= this.bitCount) return '';
-    const number = bitIdx * 2 + 1;
+    const number = bitToNumber(bitIdx, this.storageModel);
     const byteIdx = Math.floor(bitIdx / 8);
     const u64Idx = Math.floor(bitIdx / 64);
     const cacheLineIdx = Math.floor(bitIdx / 512);

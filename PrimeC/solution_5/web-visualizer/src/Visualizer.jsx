@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { SieveRenderer } from './SieveRenderer';
+import { SieveRenderer, bitToNumber, numberToBit, STORAGE_MODELS } from './SieveRenderer';
 import StepPanel from './StepPanel';
 import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
 import {
   SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
-  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Settings
+  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Settings, Search, Minus, Plus
 } from './Icons';
 
 const DEFAULT_SETTINGS = {
@@ -23,6 +23,8 @@ const DEFAULT_SETTINGS = {
 };
 
 export default function Visualizer({ trace, fileName, onClose, autoRender }) {
+  const { header, steps } = trace;
+
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
@@ -52,6 +54,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [customColors, setCustomColors] = useState({ setBit: null, clearedBit: null, unchangedBit: null });
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResult, setSearchResult] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [storageModel, setStorageModel] = useState(header.storageModel || 'half');
+  const [selectedSteps, setSelectedSteps] = useState(new Set());
 
   const bitStateRef = useRef(null);
   const stepsRef = useRef([]);
@@ -63,7 +68,6 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const detailOpenRef = useRef(true);
   const detailHeightRef = useRef(200);
 
-  const { header, steps } = trace;
   stepsRef.current = steps;
 
   // Keep refs in sync for use in callbacks
@@ -118,6 +122,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.showBitLabels = layoutSettings.showBitLabels;
     r.showByteLabels = layoutSettings.showByteLabels;
     r.colorPreset = colorPreset;
+    r.storageModel = storageModel;
     r.customSetBit = customColors.setBit;
     r.customClearedBit = customColors.clearedBit;
     r.customUnchangedBit = customColors.unchangedBit;
@@ -135,7 +140,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     }
     r.render();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [theme, layoutSettings, showMinimap, colorPreset, customColors]);
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel]);
 
   // Resize handler
   useEffect(() => {
@@ -331,6 +336,20 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     if (steps.length > 0) goToStep(0);
   }, [steps]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Multi-step selection: merge changedBits from selected steps
+  useEffect(() => {
+    const r = rendererRef.current;
+    if (!r || selectedSteps.size === 0) return;
+    const merged = new Set();
+    for (const idx of selectedSteps) {
+      const s = steps[idx];
+      if (s) for (let j = 0; j < s.changedBits.length; j++) merged.add(s.changedBits[j]);
+    }
+    r.changedBits = merged;
+    r.render();
+    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+  }, [selectedSteps, steps]);
+
   // Auto-render mode (for CLI video export via puppeteer)
   useEffect(() => {
     if (autoRender && steps.length > 0 && !exporting) {
@@ -467,7 +486,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
               }
             }
           }
-          setBitHistoryModal({ bitIndex: idx, number: idx * 2 + 1, history });
+          setBitHistoryModal({ bitIndex: idx, number: bitToNumber(idx, storageModel), history });
         }
       }
       dragging = false; minimapDragging = false; el.classList.remove('dragging');
@@ -631,9 +650,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       case 'uint64': bitIdx = val * 64; break;
       case 'vector': bitIdx = val * 64 * r.vectorGroup; break;
       case 'number': case 'num': case '#':
-        // Half-storage: bit i = number 2*i+1, so number N → bit (N-1)/2
-        if (val < 1 || val % 2 === 0) { setSearchResult('Only odd numbers ≥ 1'); return; }
-        bitIdx = (val - 1) / 2;
+        bitIdx = numberToBit(val, storageModel);
+        if (bitIdx < 0) { setSearchResult('Not representable in this storage model'); return; }
         break;
       default:
         // Plain number — treat as bit index
@@ -667,9 +685,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
     r.render();
     r.renderMinimap(r.canvasWidth, rect.height, getMinimapDetailH());
-    const num = bitIdx * 2 + 1;
+    const num = bitToNumber(bitIdx, storageModel);
     setSearchResult(`Bit ${bitIdx} → Number ${num}`);
-  }, []);
+  }, [storageModel]);
 
   const currentStepData = steps[currentStep] || null;
 
@@ -692,18 +710,11 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           </button>
           <button className="btn-icon" onClick={() => goToStep(currentStep + 1)} title="Next (→)" disabled={exporting}><StepForward /></button>
           <button className="btn-icon" onClick={() => goToStep(steps.length - 1)} title="Last (End)" disabled={exporting}><SkipForward /></button>
-          <input
-            type="range"
-            className="speed-slider"
-            min={10}
-            max={2000}
-            step={10}
-            value={playSpeed}
-            onChange={(e) => setPlaySpeed(Math.max(10, parseInt(e.target.value) || 100))}
-            title={`Speed: ${playSpeed}ms`}
-            disabled={exporting}
-          />
-          <span className="speed-val" title="Playback interval (ms)">{playSpeed}ms</span>
+          <span className="speed-group">
+            <button className="btn-icon" onClick={() => setPlaySpeed(s => Math.min(2000, s + 50))} title="Slower" disabled={exporting}><Minus size={14} /></button>
+            <span className="speed-val" title="Playback interval (ms)">{playSpeed}ms</span>
+            <button className="btn-icon" onClick={() => setPlaySpeed(s => Math.max(10, s - 50))} title="Faster" disabled={exporting}><Plus size={14} /></button>
+          </span>
           <input
             type="range"
             className="step-slider"
@@ -717,16 +728,22 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         </div>
         <div className="toolbar-right">
           <div className="search-box">
-            <input
-              type="text"
-              className="search-input"
-              placeholder="bit 42 / byte 5 / number 97…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(searchQuery); }}
-              title="Search: bit N, byte N, uint64 N, vector N, number N"
-            />
-            {searchResult && <span className="search-result">{searchResult}</span>}
+            <button className="btn-icon" onClick={() => setSearchOpen(o => !o)} title="Search (bit/byte/number)"><Search /></button>
+            {searchOpen && (
+              <>
+                <input
+                  type="text"
+                  className="search-input"
+                  placeholder="bit 42 / byte 5 / number 97…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(searchQuery); if (e.key === 'Escape') setSearchOpen(false); }}
+                  autoFocus
+                  title="Search: bit N, byte N, uint64 N, vector N, number N"
+                />
+                {searchResult && <span className="search-result">{searchResult}</span>}
+              </>
+            )}
           </div>
           <button className="btn-icon" onClick={() => doZoom(1.5)} title="Zoom In (+)"><ZoomIn /></button>
           <button className="btn-text" onClick={resetZoom} title="Reset Zoom (0)">{zoom.toFixed(1)}x</button>
@@ -758,7 +775,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         <StepPanel
           steps={steps}
           currentStep={currentStep}
+          selectedSteps={selectedSteps}
           onStepClick={goToStep}
+          onMultiStepSelect={setSelectedSteps}
           width={panelWidth}
           onWidthChange={setPanelWidth}
         />
@@ -768,6 +787,36 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
             <canvas ref={canvasRef} />
           </div>
           {hoverInfo && <div className="hover-info">{hoverInfo}</div>}
+
+          {bitHistoryModal && (
+            <div className="bit-history-panel">
+              <div className="bit-history-header">
+                <span>Bit {bitHistoryModal.bitIndex} — Number {bitHistoryModal.number}</span>
+                <button className="bit-history-close" onClick={() => setBitHistoryModal(null)}>✕</button>
+              </div>
+              <div className="bit-history-body">
+                {bitHistoryModal.history.length === 0 ? (
+                  <p className="bit-history-empty">No steps have modified this bit.</p>
+                ) : (
+                  <table className="bit-history-table">
+                    <thead>
+                      <tr><th>Step</th><th>Operation</th><th>Prime</th></tr>
+                    </thead>
+                    <tbody>
+                      {bitHistoryModal.history.map(h => (
+                        <tr key={h.stepIndex} className={h.stepIndex === currentStep ? 'bh-current' : ''}
+                            onClick={() => { goToStep(h.stepIndex); }}>
+                          <td>{h.stepIndex}</td>
+                          <td>{h.operation || '—'}</td>
+                          <td>{h.prime != null ? h.prime : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Detail panel at the bottom of the canvas area */}
           <DetailPanel
@@ -781,6 +830,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
             onWidthChange={setDetailWidth}
             playing={playing}
             stepStats={stepStats}
+            storageModel={storageModel}
           />
         </div>
       </div>
@@ -802,39 +852,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         onColorPresetChange={setColorPreset}
         customColors={customColors}
         onCustomColorsChange={setCustomColors}
+        storageModel={storageModel}
+        onStorageModelChange={setStorageModel}
       />
-
-      {bitHistoryModal && (
-        <div className="bit-history-overlay" onClick={() => setBitHistoryModal(null)}>
-          <div className="bit-history-modal" onClick={e => e.stopPropagation()}>
-            <div className="bit-history-header">
-              <span>Bit {bitHistoryModal.bitIndex} — Number {bitHistoryModal.number}</span>
-              <button className="bit-history-close" onClick={() => setBitHistoryModal(null)}>✕</button>
-            </div>
-            <div className="bit-history-body">
-              {bitHistoryModal.history.length === 0 ? (
-                <p className="bit-history-empty">No steps have modified this bit.</p>
-              ) : (
-                <table className="bit-history-table">
-                  <thead>
-                    <tr><th>Step</th><th>Operation</th><th>Prime</th></tr>
-                  </thead>
-                  <tbody>
-                    {bitHistoryModal.history.map(h => (
-                      <tr key={h.stepIndex} className={h.stepIndex === currentStep ? 'bh-current' : ''}
-                          onClick={() => { goToStep(h.stepIndex); }}>
-                        <td>{h.stepIndex}</td>
-                        <td>{h.operation || '—'}</td>
-                        <td>{h.prime != null ? h.prime : '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
