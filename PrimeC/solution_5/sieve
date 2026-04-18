@@ -618,22 +618,33 @@ if [ "$VISUALIZE" = "visualize" ]; then
             (cd web-visualizer && npm install 2>&1 | tail -5)
         fi
 
-        URL="http://localhost:5173/?file=${FILE_PARAM}"
+        # Try Electron (native) first, fall back to web browser
+        if command -v npx >/dev/null 2>&1 && (cd web-visualizer && npx electron --version >/dev/null 2>&1); then
+            # Build the web app if needed
+            if [ ! -d web-visualizer/dist ]; then
+                echo "Building web visualizer..."
+                (cd web-visualizer && npx vite build 2>&1 | tail -5)
+            fi
+            TRACE_PATH="$(cd "$(dirname "$LATEST")" && pwd)/$(basename "$LATEST")"
+            echo -e "Starting native app..."
+            (cd web-visualizer && npx electron . "$TRACE_PATH")
+        else
+            URL="http://localhost:5173/?file=${FILE_PARAM}"
 
-        # Start Vite dev server in background
-        (cd web-visualizer && npx vite) &
-        VITE_PID=$!
-        sleep 3
+            # Start Vite dev server in background
+            (cd web-visualizer && npx vite) &
+            VITE_PID=$!
+            sleep 3
 
-        # Try to open browser
-        (wslview "$URL" || xdg-open "$URL" || open "$URL" || sensible-browser "$URL") 2>/dev/null || \
-            echo -e "Open ${CCYAN}${URL}${CRESET} in your browser."
+            # Try to open browser
+            (wslview "$URL" || xdg-open "$URL" || open "$URL" || sensible-browser "$URL") 2>/dev/null || \
+                echo -e "Open ${CCYAN}${URL}${CRESET} in your browser."
 
-        echo -e "Visualizer running at ${CCYAN}${URL}${CRESET}"
-        echo "Press Ctrl+C to stop."
-        wait $VITE_PID
+            echo -e "Visualizer running at ${CCYAN}${URL}${CRESET}"
+            echo "Press Ctrl+C to stop."
+            wait $VITE_PID
+        fi
     else
         echo "No trace file generated."
     fi
 fi
-# done

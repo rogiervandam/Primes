@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#1a1a2e"/>
+  <g transform="translate(56, 56)">
+    <!-- Grid of bits -->
+    <g fill="#2d6a4f" opacity="0.4">
+      <rect x="0" y="0" width="40" height="40" rx="4"/>
+      <rect x="50" y="0" width="40" height="40" rx="4"/>
+      <rect x="100" y="0" width="40" height="40" rx="4"/>
+      <rect x="150" y="0" width="40" height="40" rx="4"/>
+      <rect x="200" y="0" width="40" height="40" rx="4"/>
+      <rect x="250" y="0" width="40" height="40" rx="4"/>
+      <rect x="300" y="0" width="40" height="40" rx="4"/>
+      <rect x="350" y="0" width="40" height="40" rx="4"/>
+      <rect x="0" y="50" width="40" height="40" rx="4"/>
+      <rect x="50" y="50" width="40" height="40" rx="4"/>
+      <rect x="100" y="50" width="40" height="40" rx="4"/>
+      <rect x="150" y="50" width="40" height="40" rx="4"/>
+      <rect x="200" y="50" width="40" height="40" rx="4"/>
+      <rect x="250" y="50" width="40" height="40" rx="4"/>
+      <rect x="300" y="50" width="40" height="40" rx="4"/>
+      <rect x="350" y="50" width="40" height="40" rx="4"/>
+      <rect x="0" y="100" width="40" height="40" rx="4"/>
+      <rect x="50" y="100" width="40" height="40" rx="4"/>
+      <rect x="100" y="100" width="40" height="40" rx="4"/>
+      <rect x="150" y="100" width="40" height="40" rx="4"/>
+      <rect x="200" y="100" width="40" height="40" rx="4"/>
+      <rect x="250" y="100" width="40" height="40" rx="4"/>
+      <rect x="300" y="100" width="40" height="40" rx="4"/>
+      <rect x="350" y="100" width="40" height="40" rx="4"/>
+    </g>
+    <!-- Highlighted prime bits -->
+    <g fill="#52b788">
+      <rect x="100" y="0" width="40" height="40" rx="4"/>
+      <rect x="250" y="0" width="40" height="40" rx="4"/>
+      <rect x="350" y="0" width="40" height="40" rx="4"/>
+      <rect x="50" y="50" width="40" height="40" rx="4"/>
+      <rect x="200" y="50" width="40" height="40" rx="4"/>
+      <rect x="300" y="50" width="40" height="40" rx="4"/>
+      <rect x="0" y="100" width="40" height="40" rx="4"/>
+      <rect x="150" y="100" width="40" height="40" rx="4"/>
+      <rect x="350" y="100" width="40" height="40" rx="4"/>
+    </g>
+    <!-- "P" letterform -->
+    <text x="200" y="330" font-family="system-ui, -apple-system, sans-serif"
+          font-size="200" font-weight="700" fill="#e9ecef"
+          text-anchor="middle" dominant-baseline="central">P</text>
+  </g>
+</svg>

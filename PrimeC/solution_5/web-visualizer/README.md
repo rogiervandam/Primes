@@ -1,6 +1,6 @@
-# Sieve Web Visualizer
+# Sieve Visualizer
 
-A React-based web application for visualizing the bitstorage changes in PrimeC solution_5's Sieve of Eratosthenes trace output.
+A React-based application for visualizing the bitstorage changes in PrimeC solution_5's Sieve of Eratosthenes trace output. Runs as a **web app** in any browser and as a **native desktop app** on Windows and macOS (via Electron), sharing the same visualization codebase.
 
 ![Sieve Visualizer](https://img.shields.io/badge/React-18-blue) ![Vite](https://img.shields.io/badge/Vite-5-purple) ![Docker](https://img.shields.io/badge/Docker-ready-blue)
 
@@ -65,6 +65,54 @@ docker run -p 8080:80 sieve-visualizer
 
 Open http://localhost:8080.
 
+## Desktop App (Electron)
+
+The same visualization runs as a native desktop app using Electron. It wraps the built Vite
+output and provides native menus, file-open dialogs, and platform-appropriate window chrome.
+
+### Quick start
+
+```bash
+cd web-visualizer
+npm install
+npm run electron:dev    # builds + launches the desktop app
+```
+
+### Run with an existing build
+
+```bash
+npm run build           # build the React app once
+npm run electron        # launch Electron from the existing dist/
+```
+
+You can also pass a trace file directly:
+
+```bash
+npx electron . /path/to/trace.sievetrace
+```
+
+### Package for distribution
+
+```bash
+npm run dist:win        # Windows installer (NSIS + portable)
+npm run dist:mac        # macOS DMG (x64 + arm64)
+npm run dist:all        # both platforms
+```
+
+Packaged output goes to `release/`.
+
+### Platform integration
+
+| Platform | Details |
+|----------|---------|
+| **macOS** | Hidden-inset title bar, standard app menu, DMG + ZIP targets |
+| **Windows** | NSIS installer + portable exe, desktop shortcut |
+
+The Electron wrapper automatically:
+- Opens the most recent `.sievetrace` from `../log/` on launch
+- Provides a **File → Open Trace…** dialog pointing at the log directory
+- Runs a local HTTP server so the React app's `/api/logs` endpoints work unchanged
+
 ## Keyboard Shortcuts
 
 | Key | Action |
@@ -105,16 +153,19 @@ Version 2 traces (without metadata fields) are also supported.
 
 ```
 web-visualizer/
-├── src/
-│   ├── main.jsx          # Entry point
-│   ├── App.jsx           # File upload / welcome screen
-│   ├── Visualizer.jsx    # Main visualization UI
-│   ├── StepPanel.jsx     # Step list with search/filter/resize
-│   ├── SieveRenderer.js  # Canvas rendering engine
-│   ├── traceParser.js    # JSON trace file parser
-│   └── styles.css        # All styles
-├── Dockerfile            # Multi-stage build → nginx
+├── src/                          # Shared visualization codebase
+│   ├── main.jsx                  # Entry point
+│   ├── App.jsx                   # File upload / welcome screen
+│   ├── Visualizer.jsx            # Main visualization UI
+│   ├── StepPanel.jsx             # Step list with search/filter/resize
+│   ├── SieveRenderer.js          # Canvas rendering engine
+│   ├── traceParser.js            # JSON trace file parser
+│   └── styles.css                # All styles
+├── electron/                     # Native desktop wrapper
+│   ├── main.mjs                  # Electron main process
+│   └── icons/                    # Platform icons (svg, ico, icns)
+├── Dockerfile                    # Multi-stage build → nginx
 ├── index.html
 ├── vite.config.js
-└── package.json
+└── package.json                  # Web + Electron scripts & config
 ```

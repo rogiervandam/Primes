@@ -20,10 +20,9 @@ sieve_base-u*
 tuning_results*
 *.sievetrace
 log/
-visualizer/node_modules
-visualizer/dist
 web-visualizer/node_modules
 web-visualizer/dist
+web-visualizer/release
 src/generic/sieve_embed.h
 callgrind*
 profile*
