@@ -200,8 +200,9 @@ Canvas:
 - when hovering over the canvas, don't show the hand cursor, but a normal one which is more precise for selecting a bit, byte, etc. This will enhance the precision and usability of the visualisation tool when users are trying to interact with specific elements in the bitstorage, allowing for a more seamless and efficient user experience when analyzing the changes being made to the bitstorage throughout the execution of the sieve algorithm.
 - when zooming in or out, don't change the arragement of the bits. Just try to fit them on the first screen as best as possible, but keep the same arrangement. This will allow users to maintain their mental map of the layout of the bitstorage while zooming in and out to analyze specific sections in more detail, enhancing the overall usability and effectiveness of the visualisation tool when analyzing the prime sieve algorithm.
 
-
-
+--
+- when starting, i also have to klink the zoom level to get the layout correctly. do this automatic. 
+- make the layout settings panel collapsible and delete the settings button
 
 
 

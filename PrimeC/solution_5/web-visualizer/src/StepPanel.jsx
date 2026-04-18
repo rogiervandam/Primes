@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 /**
  * Hierarchical step panel grouped by prime, with collapse/expand.
  */
-export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange }) {
+export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse }) {
   const listRef = useRef(null);
   const scrollTopRef = useRef(0);
   const [search, setSearch] = useState('');
@@ -141,7 +141,12 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
   const totalVisible = filteredTree.reduce((a, g) => a + g.children.length, 0);
 
   return (
-    <div className="step-panel" style={{ width: `${width}px` }}>
+    <div className={`step-panel${panelCollapsed ? ' collapsed' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
+      <button className="step-panel-collapse-btn" onClick={onToggleCollapse} title={panelCollapsed ? 'Expand steps panel' : 'Collapse steps panel'}>
+        {panelCollapsed ? '▶' : '◀'}
+      </button>
+      {!panelCollapsed && (
+        <>
       <div className="step-panel-header">
         <h3>Steps ({totalVisible}/{steps.length})</h3>
         <input
@@ -216,6 +221,8 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       </div>
 
       <div className="resize-handle" onMouseDown={handleMouseDown} />
+        </>
+      )}
     </div>
   );
 }

@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { SieveRenderer, bitToNumber, numberToBit, STORAGE_MODELS } from './SieveRenderer';
+import { SieveRenderer, bitToNumber, numberToBit, STORAGE_MODELS, CACHE_PRESETS } from './SieveRenderer';
 import StepPanel from './StepPanel';
 import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
 import {
   SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
-  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Settings, Search, Minus, Plus
+  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Settings, Search, Minus, Plus, Thermometer
 } from './Icons';
 
 const DEFAULT_SETTINGS = {
@@ -57,6 +57,10 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [storageModel, setStorageModel] = useState(header.storageModel || 'half');
   const [selectedSteps, setSelectedSteps] = useState(new Set());
+  const [heatMapEnabled, setHeatMapEnabled] = useState(false);
+  const [cachelineSize, setCachelineSize] = useState(64);
+  const [cachePreset, setCachePreset] = useState('custom');
+  const [stepsPanelCollapsed, setStepsPanelCollapsed] = useState(false);
 
   const bitStateRef = useRef(null);
   const stepsRef = useRef([]);
@@ -103,7 +107,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     return () => { rendererRef.current = null; };
   }, [header.bitCount, header.sieveSize]);
 
-  const prevLayoutRef = useRef({ bitLayout: DEFAULT_SETTINGS.bitLayout, byteLayout: DEFAULT_SETTINGS.byteLayout });
+  const prevLayoutRef = useRef({ bitLayout: DEFAULT_SETTINGS.bitLayout, byteLayout: DEFAULT_SETTINGS.byteLayout, cachelineSize: 64 });
 
   // Apply layout settings + theme to renderer
   useEffect(() => {
@@ -123,24 +127,29 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.showByteLabels = layoutSettings.showByteLabels;
     r.colorPreset = colorPreset;
     r.storageModel = storageModel;
+    r.cachelineSize = cachelineSize;
+    r.heatMapEnabled = heatMapEnabled;
     r.customSetBit = customColors.setBit;
     r.customClearedBit = customColors.clearedBit;
     r.customUnchangedBit = customColors.unchangedBit;
-    // Reset zoom when bit/byte layout changes
+    // Reset zoom when bit/byte layout or cacheline size changes
     const prev = prevLayoutRef.current;
-    if (prev.bitLayout !== layoutSettings.bitLayout || prev.byteLayout !== layoutSettings.byteLayout) {
+    if (prev.bitLayout !== layoutSettings.bitLayout || prev.byteLayout !== layoutSettings.byteLayout || prev.cachelineSize !== cachelineSize) {
+      r.unfreezeLayout();
       const el = containerRef.current;
       if (el) {
         const rect = el.getBoundingClientRect();
         r.zoomToFit(rect.width, rect.height);
         setZoom(r.zoom);
       }
+      r.freezeLayout();
       prev.bitLayout = layoutSettings.bitLayout;
       prev.byteLayout = layoutSettings.byteLayout;
+      prev.cachelineSize = cachelineSize;
     }
     r.render();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel]);
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled]);
 
   // Resize handler
   useEffect(() => {
@@ -150,13 +159,15 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       if (!r || !el) return;
       const rect = el.getBoundingClientRect();
       r.resize(rect.width, rect.height);
+      r.unfreezeLayout();
+      r.freezeLayout();
       r.render();
       if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
     };
     onResize();
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, [panelWidth, showMinimap]);
+  }, [panelWidth, showMinimap, stepsPanelCollapsed]);
 
   // Go to step
   const goToStep = useCallback((target) => {
@@ -211,6 +222,12 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     // Set operation for color-coded highlighting
     r.currentOperation = step.operation;
     r.setState(bs, changedSet);
+
+    // Update heat map
+    if (r.heatMapEnabled) {
+      r.rebuildHeatMap(steps, target);
+    }
+
     const el = containerRef.current;
     if (el) {
       const rect = el.getBoundingClientRect();
@@ -219,6 +236,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       if (!initialFitDoneRef.current) {
         r.zoomToFit(rect.width, rect.height);
         setZoom(r.zoom);
+        r.freezeLayout();
         initialFitDoneRef.current = true;
       }
     }
@@ -394,7 +412,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     const el = containerRef.current;
     if (el) {
       const rect = el.getBoundingClientRect();
+      r.unfreezeLayout();
       r.zoomToFit(rect.width, rect.height);
+      r.freezeLayout();
     } else {
       r.zoom = 1; r.panX = 0; r.panY = 0;
     }
@@ -748,6 +768,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           <button className="btn-icon" onClick={() => doZoom(1.5)} title="Zoom In (+)"><ZoomIn /></button>
           <button className="btn-text" onClick={resetZoom} title="Reset Zoom (0)">{zoom.toFixed(1)}x</button>
           <button className="btn-icon" onClick={() => doZoom(1 / 1.5)} title="Zoom Out (−)"><ZoomOut /></button>
+          <button className={`btn-icon${heatMapEnabled ? ' active' : ''}`} onClick={() => setHeatMapEnabled(h => !h)} title="Toggle heat map overlay"><Thermometer /></button>
           <button className="btn-icon" onClick={exportPng} title="Export PNG"><Camera /></button>
           {!exporting ? (
             <button className="btn-icon" onClick={exportVideo} title="Export Video (WebM)"><Film /></button>
@@ -780,6 +801,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           onMultiStepSelect={setSelectedSteps}
           width={panelWidth}
           onWidthChange={setPanelWidth}
+          panelCollapsed={stepsPanelCollapsed}
+          onToggleCollapse={() => setStepsPanelCollapsed(c => !c)}
         />
 
         <div className="canvas-area">
@@ -854,6 +877,12 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         onCustomColorsChange={setCustomColors}
         storageModel={storageModel}
         onStorageModelChange={setStorageModel}
+        cachelineSize={cachelineSize}
+        onCachelineSizeChange={setCachelineSize}
+        cachePreset={cachePreset}
+        onCachePresetChange={setCachePreset}
+        heatMapEnabled={heatMapEnabled}
+        onHeatMapToggle={setHeatMapEnabled}
       />
     </div>
   );

@@ -422,7 +422,7 @@ code, pre {
 .canvas-container {
   flex: 1;
   overflow: hidden;
-  cursor: grab;
+  cursor: crosshair;
   position: relative;
 }
 .canvas-container.dragging { cursor: grabbing; }
@@ -711,3 +711,71 @@ code, pre {
 .bit-history-table td { padding: 4px 8px; cursor: pointer; }
 .bit-history-table tr:hover td { background: var(--bg-raised); }
 .bit-history-table tr.bh-current td { background: var(--accent); color: var(--fg-bright); }
+
+/* ---- Collapsible Step Panel ---- */
+.step-panel.collapsed {
+  min-width: 32px;
+  max-width: 32px;
+  overflow: hidden;
+}
+.step-panel-collapse-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  z-index: 5;
+}
+.step-panel-collapse-btn:hover { color: var(--fg-bright); background: var(--bg-input); }
+.step-panel.collapsed .step-panel-collapse-btn {
+  right: auto;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* ---- Spacing Model ---- */
+.spacing-model-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.spacing-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.spacing-ctrl-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--fg-dim);
+}
+.spacing-ctrl-row .val {
+  min-width: 18px;
+  text-align: right;
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* ---- Settings Hint ---- */
+.settings-hint {
+  display: block;
+  font-size: 10px;
+  color: var(--fg-dim);
+  margin-top: 2px;
+  font-style: italic;
+}
+
+/* ---- Heat Map Active Button ---- */
+.btn-icon.active {
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-radius: 4px;
+}

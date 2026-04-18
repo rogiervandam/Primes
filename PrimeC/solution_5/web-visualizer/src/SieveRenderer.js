@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Canvas-based renderer for sieve bitstorage visualization.
  *
  * Supports configurable layouts, adjustable spacing, light/dark themes,
@@ -21,7 +21,7 @@ export const THEMES = {
       extend:          [68,  136, 255],  // blue
       continuePattern: [68,  220, 136],  // green
       setBitsTrue:     [255, 180, 68],   // orange
-      applyMask:       [200, 120, 255],  // purple
+      applyMask:       [0,  188, 212],   // teal/cyan
     },
   },
   light: {
@@ -38,7 +38,7 @@ export const THEMES = {
       extend:          [30,  90,  200],
       continuePattern: [20,  160, 80],
       setBitsTrue:     [200, 140, 20],
-      applyMask:       [140, 60,  200],
+      applyMask:       [0,   150, 170],  // teal/cyan
     },
   },
 };
@@ -76,7 +76,7 @@ export const BIT_LAYOUTS = {
   '8x1': { label: '8 bits in a row',  cols: 8, rows: 1, grid3x3: false },
   '4x2': { label: '4 bits in a row',  cols: 4, rows: 2, grid3x3: false },
   '1x8': { label: '8 bits in a column', cols: 1, rows: 8, grid3x3: false },
-  '3x3': { label: '3×3 grid (center empty)', cols: 3, rows: 3, grid3x3: true },
+  '3x3': { label: '3Ã—3 grid (center empty)', cols: 3, rows: 3, grid3x3: true },
 };
 
 // Byte-in-uint64 layout modes
@@ -84,7 +84,7 @@ export const BYTE_LAYOUTS = {
   '8x1': { label: '8 bytes in a row',  cols: 8, rows: 1, grid3x3: false },
   '4x2': { label: '4 bytes in a row',  cols: 4, rows: 2, grid3x3: false },
   '1x8': { label: '8 bytes in a column', cols: 1, rows: 8, grid3x3: false },
-  '3x3': { label: '3×3 grid (center empty)', cols: 3, rows: 3, grid3x3: true },
+  '3x3': { label: '3Ã—3 grid (center empty)', cols: 3, rows: 3, grid3x3: true },
 };
 
 // Vector grouping options
@@ -95,14 +95,37 @@ export const VECTOR_GROUPS = {
   8:  { label: 'uint64v8 (AVX-512/512-bit)', u64sPerGroup: 8 },
 };
 
+// Cacheline size presets
+export const CACHELINE_SIZES = {
+  32:  { label: '32 bytes (256 bits)' },
+  64:  { label: '64 bytes (512 bits)' },
+  128: { label: '128 bytes (1024 bits)' },
+};
+
+// Processor cache presets with L1/L2 sizes and cacheline size
+export const CACHE_PRESETS = {
+  custom:              { label: 'Custom',                         l1: 0,          l2: 0,            cachelineSize: 64 },
+  'intel-alder-lake':  { label: 'Intel Alder Lake (12th Gen)',    l1: 48*1024,    l2: 1280*1024,    cachelineSize: 64 },
+  'intel-raptor-lake': { label: 'Intel Raptor Lake (13/14th Gen)',l1: 48*1024,    l2: 2048*1024,    cachelineSize: 64 },
+  'amd-zen3':          { label: 'AMD Zen 3 (Ryzen 5000)',        l1: 32*1024,    l2: 512*1024,     cachelineSize: 64 },
+  'amd-zen4':          { label: 'AMD Zen 4 (Ryzen 7000)',        l1: 32*1024,    l2: 1024*1024,    cachelineSize: 64 },
+  'amd-zen5':          { label: 'AMD Zen 5 (Ryzen 9000)',        l1: 32*1024,    l2: 1024*1024,    cachelineSize: 64 },
+  'apple-m1':          { label: 'Apple M1',                      l1: 192*1024,   l2: 12*1024*1024, cachelineSize: 128 },
+  'apple-m2':          { label: 'Apple M2',                      l1: 192*1024,   l2: 16*1024*1024, cachelineSize: 128 },
+  'apple-m3':          { label: 'Apple M3',                      l1: 192*1024,   l2: 16*1024*1024, cachelineSize: 128 },
+  'apple-m4':          { label: 'Apple M4',                      l1: 192*1024,   l2: 16*1024*1024, cachelineSize: 128 },
+  'arm-cortex-a78':    { label: 'ARM Cortex-A78',                l1: 64*1024,    l2: 512*1024,     cachelineSize: 64 },
+  'snapdragon-8gen3':  { label: 'Snapdragon 8 Gen 3',            l1: 64*1024,    l2: 2048*1024,    cachelineSize: 64 },
+};
+
 // Map a linear index (0-7) to a position in a 3x3 grid skipping center (4)
 const GRID3X3_MAP = [0, 1, 2, 3, /*skip 4*/ 5, 6, 7, 8];
 
 // Storage model definitions
 export const STORAGE_MODELS = {
-  half:  { label: 'Half (odd only)',   description: 'bit i → 2i+1' },
-  full:  { label: 'Full (all)',        description: 'bit i → i' },
-  wheel: { label: 'Wheel 8-of-30',    description: 'bit i → wheel30 residue' },
+  half:  { label: 'Half (odd only)',   description: 'bit i â†’ 2i+1' },
+  full:  { label: 'Full (all)',        description: 'bit i â†’ i' },
+  wheel: { label: 'Wheel 8-of-30',    description: 'bit i â†’ wheel30 residue' },
 };
 
 const WHEEL30_RESIDUES = [1, 7, 11, 13, 17, 19, 23, 29];
@@ -179,6 +202,17 @@ export class SieveRenderer {
 
     // Canvas width for wrapping (set by resize)
     this.canvasWidth = 0;
+
+    // Cacheline size in bytes (default 64)
+    this.cachelineSize = 64;
+
+    // Heat map: tracks recency of access per bit
+    this.heatMapEnabled = false;
+    this.lastAccessStep = null;   // Int32Array, per-bit last step index (-1 = never)
+    this.heatMapCurrentStep = 0;
+
+    // Frozen wrapping: once set, zoom doesn't change layout
+    this._frozenClPerVRow = 0;
   }
 
   get colors() { return THEMES[this.theme] || THEMES.dark; }
@@ -212,11 +246,65 @@ export class SieveRenderer {
     this.sieveSize = sieveSize;
     this.bitState = new Uint8Array(bitCount);
     this.changedBits = new Set();
+    this.lastAccessStep = new Int32Array(bitCount).fill(-1);
+    this._frozenClPerVRow = 0;
+  }
+
+  get bitsPerCacheLine() {
+    return this.cachelineSize * 8;
   }
 
   setState(bitState, changedBits) {
     this.bitState = bitState;
     this.changedBits = changedBits;
+  }
+
+  /** Update heat map tracking: mark changed bits with current step */
+  updateHeatMap(changedBits, stepIndex) {
+    if (!this.lastAccessStep) return;
+    this.heatMapCurrentStep = stepIndex;
+    for (const bit of changedBits) {
+      if (bit < this.lastAccessStep.length) {
+        this.lastAccessStep[bit] = stepIndex;
+      }
+    }
+  }
+
+  /** Rebuild heat map from scratch up to targetStep */
+  rebuildHeatMap(steps, targetStep) {
+    if (!this.lastAccessStep) return;
+    this.lastAccessStep.fill(-1);
+    for (let i = 0; i <= targetStep && i < steps.length; i++) {
+      const s = steps[i];
+      for (let j = 0; j < s.changedBits.length; j++) {
+        const bit = s.changedBits[j];
+        if (bit < this.lastAccessStep.length) {
+          this.lastAccessStep[bit] = i;
+        }
+      }
+    }
+    this.heatMapCurrentStep = targetStep;
+  }
+
+  /** Compute heat color for a bit based on recency */
+  _heatColor(bitIdx) {
+    const lastStep = this.lastAccessStep[bitIdx];
+    if (lastStep < 0) return [40, 40, 80]; // never accessed - dark blue-gray
+
+    const age = this.heatMapCurrentStep - lastStep;
+    if (age === 0) return [255, 50, 50];     // hot - red
+    if (age <= 2) {
+      // transition red -> orange
+      const t = age / 2;
+      return [255, Math.round(50 + t * 130), Math.round(50 * (1 - t))];
+    }
+    // transition orange -> blue over ~20 steps
+    const t = Math.min(1, (age - 2) / 20);
+    return [
+      Math.round(255 * (1 - t) + 40 * t),
+      Math.round(180 * (1 - t) + 80 * t),
+      Math.round(0 * (1 - t) + 220 * t),
+    ];
   }
 
   resize(width, height) {
@@ -228,6 +316,10 @@ export class SieveRenderer {
     this.canvas.style.height = height + 'px';
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.canvasWidth = width;
+    // Recompute frozen layout on resize
+    if (this._frozenClPerVRow > 0) {
+      this._frozenClPerVRow = this._computeClPerVRow();
+    }
   }
 
   _bitPosInByte(bitInByte) {
@@ -283,22 +375,44 @@ export class SieveRenderer {
     };
   }
 
-  _numVectorsPerRow() { return Math.max(1, 8 / this.vectorGroup); }
+  _numVectorsPerRow() {
+    const u64sPerCL = this.bitsPerCacheLine / 64;
+    return Math.max(1, u64sPerCL / this.vectorGroup);
+  }
 
   // How many cache lines to wrap per visual row based on canvas width
+  // When frozen, zoom changes don't alter the wrapping layout
   _cacheLinesPerVisualRow() {
+    if (this._frozenClPerVRow > 0) return this._frozenClPerVRow;
+    return this._computeClPerVRow();
+  }
+
+  _computeClPerVRow() {
     if (!this.canvasWidth || this.canvasWidth <= 0) return 1;
+    // Compute row width at zoom=1 for stable measurement
+    const savedZoom = this.zoom;
+    this.zoom = 1;
     const rowW = this._rowDims().w;
+    this.zoom = savedZoom;
     if (rowW <= 0) return 1;
-    // Available width (account for pan — use raw canvas width)
     const avail = this.canvasWidth;
-    const count = Math.floor(avail / (rowW + this.u64SpacingH * this.zoom));
+    const count = Math.floor(avail / (rowW + this.u64SpacingH));
     // Round down to nearest power of 2 or factor of 4 for clean alignment
     if (count >= 16) return 16;
     if (count >= 8) return 8;
     if (count >= 4) return 4;
     if (count >= 2) return 2;
     return 1;
+  }
+
+  /** Freeze the current wrapping layout so zoom doesn't change it */
+  freezeLayout() {
+    this._frozenClPerVRow = this._computeClPerVRow();
+  }
+
+  /** Unfreeze layout (e.g. when window is resized or layout settings change) */
+  unfreezeLayout() {
+    this._frozenClPerVRow = 0;
   }
 
   // Row = one cache line = numVectors vector groups
@@ -330,7 +444,7 @@ export class SieveRenderer {
     ctx.fillRect(0, 0, cw, ch);
 
     const px = this.pixelSize * this.zoom;
-    const bitsPerCacheLine = 512;
+    const bitsPerCacheLine = this.bitsPerCacheLine;
     const totalCacheLines = Math.ceil(this.bitCount / bitsPerCacheLine);
     const rowD = this._rowDims();
     const labelH = this._labelHeight();
@@ -392,7 +506,8 @@ export class SieveRenderer {
         }
 
         // Render bits
-        for (let u64Idx = 0; u64Idx < 8; u64Idx++) {
+        const u64sPerCL = bitsPerCacheLine / 64;
+        for (let u64Idx = 0; u64Idx < u64sPerCL; u64Idx++) {
           const u64BitStart = rowBitStart + u64Idx * 64;
           if (u64BitStart >= this.bitCount) break;
 
@@ -431,7 +546,9 @@ export class SieveRenderer {
               if (bitX + px < 0 || bitX > cw || bitY + px < 0 || bitY > ch) continue;
 
               let color;
-              if (this.changedBits.has(globalBit)) {
+              if (this.heatMapEnabled && this.lastAccessStep) {
+                color = this._heatColor(globalBit);
+              } else if (this.changedBits.has(globalBit)) {
                 color = changedColor;
               } else if (this.bitState[globalBit]) {
                 color = bitColors.set;
@@ -460,12 +577,12 @@ export class SieveRenderer {
           }
         }
       }
-      // No separator line — spacing between rows is transparent (background color)
+      // No separator line â€” spacing between rows is transparent (background color)
     }
   }
 
   canvasToBitIndex(canvasX, canvasY) {
-    const bitsPerCacheLine = 512;
+    const bitsPerCacheLine = this.bitsPerCacheLine;
     const rowD = this._rowDims();
     const labelH = this._labelHeight();
     const clPerVRow = this._cacheLinesPerVisualRow();
@@ -504,7 +621,8 @@ export class SieveRenderer {
     if (intraIdx < 0 || intraIdx >= this.vectorGroup) return -1;
 
     const u64Idx = vecIdx * this.vectorGroup + intraIdx;
-    if (u64Idx >= 8) return -1;
+    const u64sPerCL = bitsPerCacheLine / 64;
+    if (u64Idx >= u64sPerCL) return -1;
 
     const inU64X = inVecX - intraIdx * u64InVecStep;
 
@@ -557,7 +675,7 @@ export class SieveRenderer {
     const cacheLineIdx = Math.floor(bitIdx / 512);
     const state = this.bitState[bitIdx] ? 'composite' : 'prime candidate';
     const changed = this.changedBits.has(bitIdx) ? ' [CHANGED]' : '';
-    return `Bit ${bitIdx} → Number ${number} | Byte ${byteIdx} | u64 ${u64Idx} | Cache line ${cacheLineIdx} | ${state}${changed}`;
+    return `Bit ${bitIdx} â†’ Number ${number} | Byte ${byteIdx} | u64 ${u64Idx} | Cache line ${cacheLineIdx} | ${state}${changed}`;
   }
 
   toDataURL() {
@@ -579,7 +697,7 @@ export class SieveRenderer {
     const ch = this.canvas.height / (window.devicePixelRatio || 1);
     const px = this.pixelSize * this.zoom;
 
-    const bitsPerCacheLine = 512;
+    const bitsPerCacheLine = this.bitsPerCacheLine;
     const labelH = this._labelHeight();
     const rowD = this._rowDims();
     const clPerVRow = this._cacheLinesPerVisualRow();
@@ -666,7 +784,7 @@ export class SieveRenderer {
 
     const ctx = this.ctx;
     const px = this.pixelSize * this.zoom;
-    const bitsPerCacheLine = 512;
+    const bitsPerCacheLine = this.bitsPerCacheLine;
     const labelH = this._labelHeight();
     const rowD = this._rowDims();
     const clPerVRow = this._cacheLinesPerVisualRow();
@@ -719,7 +837,7 @@ export class SieveRenderer {
 
     const ctx = this.ctx;
     const px = this.pixelSize * this.zoom;
-    const bitsPerCacheLine = 512;
+    const bitsPerCacheLine = this.bitsPerCacheLine;
     const labelH = this._labelHeight();
     const rowD = this._rowDims();
     const clPerVRow = this._cacheLinesPerVisualRow();
@@ -773,7 +891,7 @@ export class SieveRenderer {
 
   /** Content dimensions at current zoom */
   contentDimensions() {
-    const bitsPerCacheLine = 512;
+    const bitsPerCacheLine = this.bitsPerCacheLine;
     const totalCL = Math.ceil(this.bitCount / bitsPerCacheLine);
     const clPerVRow = this._cacheLinesPerVisualRow();
     const totalVRows = Math.ceil(totalCL / clPerVRow);
@@ -850,7 +968,7 @@ export class SieveRenderer {
     ctx.strokeRect(mx, my, mapW, mapH);
 
     // Content outline only (no per-bit colors)
-    const bitsPerCacheLine = 512;
+    const bitsPerCacheLine = this.bitsPerCacheLine;
     const totalCL = Math.ceil(this.bitCount / bitsPerCacheLine);
     const clPerVRow = this._cacheLinesPerVisualRow();
     const totalVRows = Math.ceil(totalCL / clPerVRow);
