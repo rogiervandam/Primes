@@ -20,4 +20,40 @@ c. want to see the annotions for each step, and be able to click on a step to se
 14 Monitor the changes step by step. 
 15 Start by logging each change after a call to MarkFactor() is completed. 
 
+Make a web version of the visutaliation tool using a framework like React or Vue.js, allowing users to access it through a web browser without needing to install any software. 
+The web version should have the same features as the desktop version, including zooming, stepping through changes, and viewing annotations.
+The web version should be able to run in a docker dontainer for easy deployment and scalability. 
+Ensure that the web version is responsive and works well on different screen sizes, including mobile devices.
+Provide clear documentation on how to set up and run the web version of the visualization tool, including instructions for installing any necessary dependencies and running the application in a Docker container. 
+Integrate the logging into the functions that modify the bitstorage, ensuring that all changes are captured accurately and efficiently.
+Hook the logging into the existing startAnalysis and endAnalysis constructs: keep the extra added lines for logging to a minimium.
+Review all added trace_steps and trace analysis_start and trace_analysis_end calls to see if the are placed in the most optimal way to capture the necessary information without adding unnecessary overhead or clutter to the code.
+Fold the logging into the existing startAnalysis and endAnalysis constructs, ensuring that the logging captures the necessary information for each step while minimizing the impact on performance and code readability.
+Modify or add these startanalysys functions to capture the steps. E.g. if an extra Startanalysis is needed for the MarkFactor() function, create it and make sure it captures the necessary information for logging. 
+Ensure that the logging captures not only the changes to the bitstorage but also any relevant metadata, such as the current step number, the specific operation being performed, and any parameters or inputs used in that operation.
+
+The width of the steps panel on the left should be adjustable, allowing users to customize their view of the steps and annotations.
+The visualization tool should include a search functionality, allowing users to quickly find specific steps or annotations based on keywords or step numbers.
+Consider implementing a feature to filter the steps based on certain criteria, such as the type of operation performed, the range of memory affected, or specific annotations. 
+
+Use proper icons for navigating the steps, such as play, pause, forward, and backward buttons, to enhance the user experience when stepping through the changes in the bitstorage.
+Let the user choose between a light and dark theme for the visualization tool, allowing for better visibility and comfort during extended use.
+Allow users to better visualize the changes based on their preferences and the specific patterns they are looking for in the bitstorage, by doing the following:
+Let the user choose different arrangements for the bits in a byte:
+- 8 bits in a row, 
+- 4 bits in a row, 
+- 8 bits in a column. 
+- 3x3 grid with the center pixel empty.
+Let the user choose different arrangements for the bits/bytes in a uint64:
+- 8 bytes in a row,
+- 4 bytes in a row,
+- 8 bytes in a column,
+- 3x3 grid with the center byte empty
+Let the user adjust the horizontal and vertical spacing between the bits, bytes, and uint64 groups in the visualization, allowing for better visibility and differentiation between the groups. Start at 0, but space out
+
+In the visualiser tool, based on the log data (start, stop, step), calculate which bits had to be changed and highlight those bits in the visualisation. Consider using different colors or patterns to indicate the type of change (e.g., setting a bit, clearing a bit, etc.) and the specific operation that caused the change. This will help users quickly identify and understand the changes being made to the bitstorage throughout the process.
+Make it possible for the user to click on a specific step in the steps panel and have the corresponding changes in the bitstorage highlighted in the visualisation, allowing for an interactive exploration of the changes and their effects on the overall sieve.
+
+
+
 

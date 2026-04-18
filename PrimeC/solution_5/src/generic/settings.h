@@ -46,6 +46,23 @@
 #ifdef COMPILE_TRACE
   #include "../trace/sieve_trace.h"
   #define TRACE_STEP(bitstorage_ptr, fmt, ...) trace_record_step_fmt(bitstorage_ptr, fmt, ##__VA_ARGS__)
+  #define TRACE_STEP_META(bitstorage_ptr, op, prime, bstart, bstop, fstep, fmt, ...) \
+      trace_record_step_meta(bitstorage_ptr, op, prime, bstart, bstop, fstep, fmt, ##__VA_ARGS__)
+  #define TRACE_ANALYSIS_START(op, bstart, bstop) trace_set_context(op, (int64_t)(bstart), (int64_t)(bstop))
+  #define TRACE_ANALYSIS_END() trace_clear_context()
+
+  // Combined startAnalysis + trace context: folds trace into the analysis construct
+  #define startAnalysisTrace5(timer, trace_op, bstart, bstop, printf_args...) \
+      startAnalysis5(timer, printf_args) TRACE_ANALYSIS_START(trace_op, bstart, bstop);
+  #define endAnalysisTrace5(timer, ...) \
+      TRACE_ANALYSIS_END(); endAnalysis5(timer, ##__VA_ARGS__)
 #else
   #define TRACE_STEP(bitstorage_ptr, fmt, ...)
+  #define TRACE_STEP_META(bitstorage_ptr, op, prime, bstart, bstop, fstep, fmt, ...)
+  #define TRACE_ANALYSIS_START(op, bstart, bstop)
+  #define TRACE_ANALYSIS_END()
+  #define startAnalysisTrace5(timer, trace_op, bstart, bstop, printf_args...) \
+      startAnalysis5(timer, printf_args)
+  #define endAnalysisTrace5(timer, ...) \
+      endAnalysis5(timer, ##__VA_ARGS__)
 #endif

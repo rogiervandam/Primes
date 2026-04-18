@@ -1,24 +1,28 @@
 static inline counter_t __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 markSieveBlock(sieve_t* sieve, const counter_t block_start, const counter_t block_stop, counter_t prime, const counter_t prime_max) {
-    startAnalysis5(time_sieveStripeBlock, "\nBlock stripe (new) for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop);
+    startAnalysisTrace5(time_sieveStripeBlock, "markFactors", block_start, block_stop, "\nBlock stripe (new) for block %ju - %ju\n",(uintmax_t)block_start,(uintmax_t)block_stop);
 
     const counter_t prime_endloop_shortstepsearch = min(prime_max, 128);
 
     for (; prime < prime_endloop_shortstepsearch; prime = findUnmarked(sieve, prime)) {
         markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
-        TRACE_STEP(sieve->bitstorage, "stripe: prime %jd (idx %jd), block [%jd-%jd] step %jd",
+        TRACE_STEP_META(sieve->bitstorage, "markFactors", (int64_t)(prime*2+1),
+                   (int64_t)block_start, (int64_t)block_stop, (int64_t)calcFactor_step(prime),
+                   "stripe: prime %jd (idx %jd), block [%jd-%jd] step %jd",
                    (intmax_t)(prime*2+1), (intmax_t)prime, (intmax_t)block_start,
                    (intmax_t)block_stop, (intmax_t)calcFactor_step(prime));
     }
 
     for (; prime < prime_max; prime = findUnmarked(sieve, prime)) {
         markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
-        TRACE_STEP(sieve->bitstorage, "stripe: prime %jd (idx %jd), block [%jd-%jd] step %jd",
+        TRACE_STEP_META(sieve->bitstorage, "markFactors", (int64_t)(prime*2+1),
+                   (int64_t)block_start, (int64_t)block_stop, (int64_t)calcFactor_step(prime),
+                   "stripe: prime %jd (idx %jd), block [%jd-%jd] step %jd",
                    (intmax_t)(prime*2+1), (intmax_t)prime, (intmax_t)block_start,
                    (intmax_t)block_stop, (intmax_t)calcFactor_step(prime));
     }
 
-    endAnalysis5(time_sieveStripeBlock, "\n");
+    endAnalysisTrace5(time_sieveStripeBlock, "\n");
     return prime; 
 }
 

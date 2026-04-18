@@ -22,6 +22,8 @@ tuning_results*
 log/
 visualizer/node_modules
 visualizer/dist
+web-visualizer/node_modules
+web-visualizer/dist
 src/generic/sieve_embed.h
 callgrind*
 profile*
