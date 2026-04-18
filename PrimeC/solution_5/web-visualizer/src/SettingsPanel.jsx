@@ -4,7 +4,7 @@ import { BIT_LAYOUTS, BYTE_LAYOUTS, VECTOR_GROUPS } from './SieveRenderer';
 /**
  * Settings panel for layout modes, spacing, and rendering options.
  */
-export default function SettingsPanel({ settings, onChange, open, onClose }) {
+export default function SettingsPanel({ settings, onChange, open, onClose, repeatAnim, onRepeatAnimChange }) {
   if (!open) return null;
 
   const set = (key, val) => onChange({ ...settings, [key]: val });
@@ -87,6 +87,35 @@ export default function SettingsPanel({ settings, onChange, open, onClose }) {
             <input type="range" min="0" max="20" value={settings.u64SpacingV}
                    onChange={(e) => numSet('u64SpacingV', e)} />
             <span className="val">{settings.u64SpacingV}</span>
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <label>Labels</label>
+          <div className="settings-row">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+              <input type="checkbox" checked={settings.showBitLabels || false}
+                     onChange={(e) => set('showBitLabels', e.target.checked)} />
+              Bit numbers
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+              <input type="checkbox" checked={settings.showByteLabels || false}
+                     onChange={(e) => set('showByteLabels', e.target.checked)} />
+              Byte indices
+            </label>
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <label>Repeat animation</label>
+          <div className="settings-row">
+            <select value={repeatAnim || 0} onChange={(e) => onRepeatAnimChange(parseInt(e.target.value))}>
+              <option value={0}>Off</option>
+              <option value={1000}>1s</option>
+              <option value={2000}>2s</option>
+              <option value={3000}>3s</option>
+              <option value={5000}>5s</option>
+            </select>
           </div>
         </div>
       </div>

@@ -84,14 +84,14 @@ export class SieveRenderer {
 
     // Layout config
     this.pixelSize = 2;
-    this.bitLayout = '8x1';
-    this.byteLayout = '8x1';
-    this.bitSpacingH = 0;
-    this.bitSpacingV = 0;
-    this.byteSpacingH = 1;
-    this.byteSpacingV = 0;
-    this.u64SpacingH = 2;
-    this.u64SpacingV = 2;
+    this.bitLayout = '4x2';
+    this.byteLayout = '4x2';
+    this.bitSpacingH = 1;
+    this.bitSpacingV = 1;
+    this.byteSpacingH = 2;
+    this.byteSpacingV = 2;
+    this.u64SpacingH = 4;
+    this.u64SpacingV = 4;
     this.theme = 'dark';
 
     // Operation-based coloring
@@ -99,6 +99,13 @@ export class SieveRenderer {
 
     // Vector grouping
     this.vectorGroup = 1;  // 1, 2, 4, or 8 uint64s per vector
+
+    // Label toggles
+    this.showBitLabels = false;
+    this.showByteLabels = false;
+
+    // Canvas width for wrapping (set by resize)
+    this.canvasWidth = 0;
   }
 
   get colors() { return THEMES[this.theme] || THEMES.dark; }
@@ -136,6 +143,7 @@ export class SieveRenderer {
     this.canvas.style.width = width + 'px';
     this.canvas.style.height = height + 'px';
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.canvasWidth = width;
   }
 
   _bitPosInByte(bitInByte) {
@@ -193,6 +201,22 @@ export class SieveRenderer {
 
   _numVectorsPerRow() { return Math.max(1, 8 / this.vectorGroup); }
 
+  // How many cache lines to wrap per visual row based on canvas width
+  _cacheLinesPerVisualRow() {
+    if (!this.canvasWidth || this.canvasWidth <= 0) return 1;
+    const rowW = this._rowDims().w;
+    if (rowW <= 0) return 1;
+    // Available width (account for pan — use raw canvas width)
+    const avail = this.canvasWidth;
+    const count = Math.floor(avail / (rowW + this.u64SpacingH * this.zoom));
+    // Round down to nearest power of 2 or factor of 4 for clean alignment
+    if (count >= 16) return 16;
+    if (count >= 8) return 8;
+    if (count >= 4) return 4;
+    if (count >= 2) return 2;
+    return 1;
+  }
+
   // Row = one cache line = numVectors vector groups
   _rowDims() {
     const vecD = this._vectorDims();
@@ -223,13 +247,18 @@ export class SieveRenderer {
 
     const px = this.pixelSize * this.zoom;
     const bitsPerCacheLine = 512;
-    const totalRows = Math.ceil(this.bitCount / bitsPerCacheLine);
+    const totalCacheLines = Math.ceil(this.bitCount / bitsPerCacheLine);
     const rowD = this._rowDims();
     const labelH = this._labelHeight();
-    const rowHeight = labelH + rowD.h + this.u64SpacingV * this.zoom;
 
-    const startRow = Math.max(0, Math.floor(-this.panY / rowHeight));
-    const endRow = Math.min(totalRows, Math.ceil((ch - this.panY) / rowHeight) + 1);
+    // Wrapping: how many cache lines fit per visual row
+    const clPerVRow = this._cacheLinesPerVisualRow();
+    const vRowWidth = clPerVRow * rowD.w + (clPerVRow - 1) * this.u64SpacingH * this.zoom;
+    const vRowHeight = labelH + rowD.h + this.u64SpacingV * this.zoom;
+    const totalVRows = Math.ceil(totalCacheLines / clPerVRow);
+
+    const startVRow = Math.max(0, Math.floor(-this.panY / vRowHeight));
+    const endVRow = Math.min(totalVRows, Math.ceil((ch - this.panY) / vRowHeight) + 1);
 
     const u64D = this._u64Dims();
     const vecD = this._vectorDims();
@@ -238,100 +267,115 @@ export class SieveRenderer {
     const numVec = this._numVectorsPerRow();
     const changedColor = this._opColor();
 
-    for (let row = startRow; row < endRow; row++) {
-      const rowBaseY = this.panY + row * rowHeight;
-      const rowDataY = rowBaseY + labelH;
-      if (rowDataY + rowD.h < 0 || rowBaseY > ch) continue;
+    // Font for labels (bit/byte labels need higher zoom)
+    const bitLabelFontSize = Math.max(6, Math.min(10, 2 * this.zoom));
+    const showBitLabels = this.showBitLabels && this.zoom >= 6;
+    const showByteLabels = this.showByteLabels && this.zoom >= 4;
 
-      const rowBitStart = row * bitsPerCacheLine;
+    for (let vRow = startVRow; vRow < endVRow; vRow++) {
+      const vRowBaseY = this.panY + vRow * vRowHeight;
+      const vRowDataY = vRowBaseY + labelH;
+      if (vRowDataY + rowD.h < 0 || vRowBaseY > ch) continue;
 
-      // Render vector labels
-      if (labelH > 0 && this.vectorGroup > 1) {
-        const fontSize = Math.max(8, Math.min(14, 3 * this.zoom));
-        ctx.font = `${fontSize}px monospace`;
-        ctx.fillStyle = C.LABEL_COLOR;
-        ctx.textBaseline = 'top';
+      for (let clInRow = 0; clInRow < clPerVRow; clInRow++) {
+        const clIdx = vRow * clPerVRow + clInRow;
+        if (clIdx >= totalCacheLines) break;
 
-        for (let vi = 0; vi < numVec; vi++) {
-          const vecX = this.panX + vi * (vecD.w + this.u64SpacingH * this.zoom);
-          const u64Start = vi * this.vectorGroup;
-          const bitStart = rowBitStart + u64Start * 64;
-          const bitEnd = Math.min(bitStart + this.vectorGroup * 64 - 1, this.bitCount - 1);
-          if (bitStart >= this.bitCount) break;
+        const clOffsetX = clInRow * (rowD.w + this.u64SpacingH * this.zoom);
+        const rowBitStart = clIdx * bitsPerCacheLine;
 
-          const label = `uint64v${this.vectorGroup}[${vi}] bits ${bitStart}–${bitEnd}`;
-          const labelX = Math.max(0, vecX);
-          if (labelX < cw && rowBaseY >= -labelH && rowBaseY < ch) {
-            ctx.fillText(label, labelX, Math.round(rowBaseY + 1));
+        // Render vector labels
+        if (labelH > 0 && this.vectorGroup > 1) {
+          const fontSize = Math.max(8, Math.min(14, 3 * this.zoom));
+          ctx.font = `${fontSize}px monospace`;
+          ctx.fillStyle = C.LABEL_COLOR;
+          ctx.textBaseline = 'top';
+
+          for (let vi = 0; vi < numVec; vi++) {
+            const vecX = this.panX + clOffsetX + vi * (vecD.w + this.u64SpacingH * this.zoom);
+            const u64Start = vi * this.vectorGroup;
+            const bitStart = rowBitStart + u64Start * 64;
+            const bitEnd = Math.min(bitStart + this.vectorGroup * 64 - 1, this.bitCount - 1);
+            if (bitStart >= this.bitCount) break;
+
+            const label = `uint64v${this.vectorGroup}[${vi}] bits ${bitStart}\u2013${bitEnd}`;
+            const labelX = Math.max(0, vecX);
+            if (labelX < cw && vRowBaseY >= -labelH && vRowBaseY < ch) {
+              ctx.fillText(label, labelX, Math.round(vRowBaseY + 1));
+            }
           }
         }
-      }
 
-      // Render bits
-      for (let u64Idx = 0; u64Idx < 8; u64Idx++) {
-        const u64BitStart = rowBitStart + u64Idx * 64;
-        if (u64BitStart >= this.bitCount) break;
+        // Render bits
+        for (let u64Idx = 0; u64Idx < 8; u64Idx++) {
+          const u64BitStart = rowBitStart + u64Idx * 64;
+          if (u64BitStart >= this.bitCount) break;
 
-        // Calculate x position accounting for vector grouping
-        const vecIdx = Math.floor(u64Idx / this.vectorGroup);
-        const intraIdx = u64Idx % this.vectorGroup;
-        const vecX = this.panX + vecIdx * (vecD.w + this.u64SpacingH * this.zoom);
-        const u64X = vecX + intraIdx * (u64D.w + vecD.intraGap);
+          const vecIdx = Math.floor(u64Idx / this.vectorGroup);
+          const intraIdx = u64Idx % this.vectorGroup;
+          const vecX = this.panX + clOffsetX + vecIdx * (vecD.w + this.u64SpacingH * this.zoom);
+          const u64X = vecX + intraIdx * (u64D.w + vecD.intraGap);
 
-        for (let byteIdx = 0; byteIdx < 8; byteIdx++) {
-          const byteBitStart = u64BitStart + byteIdx * 8;
-          if (byteBitStart >= this.bitCount) break;
+          for (let byteIdx = 0; byteIdx < 8; byteIdx++) {
+            const byteBitStart = u64BitStart + byteIdx * 8;
+            if (byteBitStart >= this.bitCount) break;
 
-          const bytePos = this._bytePosInU64(byteIdx);
-          const byteX = u64X + bytePos.col * (byteD.w + this.byteSpacingH * this.zoom);
-          const byteY = rowDataY + bytePos.row * (byteD.h + this.byteSpacingV * this.zoom);
+            const bytePos = this._bytePosInU64(byteIdx);
+            const byteX = u64X + bytePos.col * (byteD.w + this.byteSpacingH * this.zoom);
+            const byteY = vRowDataY + bytePos.row * (byteD.h + this.byteSpacingV * this.zoom);
 
-          for (let bitIdx = 0; bitIdx < 8; bitIdx++) {
-            const globalBit = byteBitStart + bitIdx;
-            if (globalBit >= this.bitCount) break;
-
-            if (bitBl.grid3x3 && bitIdx >= 8) continue;
-
-            const bitPos = this._bitPosInByte(bitIdx);
-            const bitX = byteX + bitPos.col * (px + this.bitSpacingH * this.zoom);
-            const bitY = byteY + bitPos.row * (px + this.bitSpacingV * this.zoom);
-
-            if (bitX + px < 0 || bitX > cw || bitY + px < 0 || bitY > ch) continue;
-
-            let color;
-            if (this.changedBits.has(globalBit)) {
-              color = changedColor;
-            } else if (this.bitState[globalBit]) {
-              color = C.BIT_ONE;
-            } else {
-              color = C.BIT_ZERO;
+            // Byte label
+            if (showByteLabels) {
+              ctx.font = `${Math.max(7, bitLabelFontSize)}px monospace`;
+              ctx.fillStyle = C.LABEL_COLOR;
+              ctx.textBaseline = 'bottom';
+              const byteLabel = `B${byteIdx}`;
+              ctx.fillText(byteLabel, Math.round(byteX), Math.round(byteY - 1));
             }
 
-            ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
-            ctx.fillRect(
-              Math.round(bitX), Math.round(bitY),
-              Math.max(1, Math.round(px)), Math.max(1, Math.round(px))
-            );
-          }
-        }
-      }
+            for (let bitIdx = 0; bitIdx < 8; bitIdx++) {
+              const globalBit = byteBitStart + bitIdx;
+              if (globalBit >= this.bitCount) break;
 
-      // Cache-line separator: only span data width, not full canvas
-      if (this.u64SpacingV > 0) {
-        ctx.fillStyle = `rgb(${C.CACHE_BORDER.join(',')})`;
-        const sepY = rowDataY + rowD.h;
-        if (sepY >= 0 && sepY <= ch) {
-          const dataStartX = Math.max(0, this.panX);
-          const dataEndX = Math.min(cw, this.panX + rowD.w);
-          if (dataEndX > dataStartX) {
-            ctx.fillRect(
-              Math.round(dataStartX), Math.round(sepY),
-              Math.round(dataEndX - dataStartX),
-              Math.max(1, Math.round(this.u64SpacingV * this.zoom))
-            );
+              if (bitBl.grid3x3 && bitIdx >= 8) continue;
+
+              const bitPos = this._bitPosInByte(bitIdx);
+              const bitX = byteX + bitPos.col * (px + this.bitSpacingH * this.zoom);
+              const bitY = byteY + bitPos.row * (px + this.bitSpacingV * this.zoom);
+
+              if (bitX + px < 0 || bitX > cw || bitY + px < 0 || bitY > ch) continue;
+
+              let color;
+              if (this.changedBits.has(globalBit)) {
+                color = changedColor;
+              } else if (this.bitState[globalBit]) {
+                color = C.BIT_ONE;
+              } else {
+                color = C.BIT_ZERO;
+              }
+
+              ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+              ctx.fillRect(
+                Math.round(bitX), Math.round(bitY),
+                Math.max(1, Math.round(px)), Math.max(1, Math.round(px))
+              );
+
+              // Bit label (number represented by this bit)
+              if (showBitLabels && px >= 12) {
+                const number = globalBit * 2 + 1;
+                ctx.font = `${Math.max(6, Math.min(9, px * 0.4))}px monospace`;
+                ctx.fillStyle = this.changedBits.has(globalBit) ? '#fff' :
+                  (this.bitState[globalBit] ? `rgb(${C.BIT_ZERO.join(',')})` : `rgb(${C.BIT_ONE.join(',')})`);
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(String(number), Math.round(bitX + px / 2), Math.round(bitY + px / 2));
+                ctx.textAlign = 'start';
+              }
+            }
           }
         }
       }
+      // No separator line — spacing between rows is transparent (background color)
     }
   }
 
@@ -339,26 +383,35 @@ export class SieveRenderer {
     const bitsPerCacheLine = 512;
     const rowD = this._rowDims();
     const labelH = this._labelHeight();
-    const rowHeight = labelH + rowD.h + this.u64SpacingV * this.zoom;
+    const clPerVRow = this._cacheLinesPerVisualRow();
+    const vRowHeight = labelH + rowD.h + this.u64SpacingV * this.zoom;
     const u64D = this._u64Dims();
     const byteD = this._byteDims();
     const vecD = this._vectorDims();
     const px = this.pixelSize * this.zoom;
     const numVec = this._numVectorsPerRow();
+    const clStepX = rowD.w + this.u64SpacingH * this.zoom;
 
-    const row = Math.floor((canvasY - this.panY) / rowHeight);
-    if (row < 0) return -1;
+    const vRow = Math.floor((canvasY - this.panY) / vRowHeight);
+    if (vRow < 0) return -1;
 
-    const localY = canvasY - this.panY - row * rowHeight - labelH;
+    const localY = canvasY - this.panY - vRow * vRowHeight - labelH;
     const localX = canvasX - this.panX;
     if (localX < 0 || localY < 0 || localY > rowD.h) return -1;
 
+    // Which cache line within the visual row
+    const clInRow = Math.floor(localX / clStepX);
+    if (clInRow < 0 || clInRow >= clPerVRow) return -1;
+    const clIdx = vRow * clPerVRow + clInRow;
+
+    const clLocalX = localX - clInRow * clStepX;
+
     // Find which vector group
     const vecStep = vecD.w + this.u64SpacingH * this.zoom;
-    const vecIdx = Math.floor(localX / vecStep);
+    const vecIdx = Math.floor(clLocalX / vecStep);
     if (vecIdx < 0 || vecIdx >= numVec) return -1;
 
-    const inVecX = localX - vecIdx * vecStep;
+    const inVecX = clLocalX - vecIdx * vecStep;
 
     // Find which u64 within the vector
     const u64InVecStep = u64D.w + vecD.intraGap;
@@ -406,7 +459,7 @@ export class SieveRenderer {
     }
     if (bitInByte < 0) return -1;
 
-    const globalBit = row * bitsPerCacheLine + u64Idx * 64 + byteIdx * 8 + bitInByte;
+    const globalBit = clIdx * bitsPerCacheLine + u64Idx * 64 + byteIdx * 8 + bitInByte;
     if (globalBit < 0 || globalBit >= this.bitCount) return -1;
     return globalBit;
   }
@@ -444,7 +497,9 @@ export class SieveRenderer {
     const bitsPerCacheLine = 512;
     const labelH = this._labelHeight();
     const rowD = this._rowDims();
-    const rowHeight = labelH + rowD.h + this.u64SpacingV * this.zoom;
+    const clPerVRow = this._cacheLinesPerVisualRow();
+    const vRowHeight = labelH + rowD.h + this.u64SpacingV * this.zoom;
+    const clStepX = rowD.w + this.u64SpacingH * this.zoom;
     const u64D = this._u64Dims();
     const vecD = this._vectorDims();
     const byteD = this._byteDims();
@@ -470,18 +525,21 @@ export class SieveRenderer {
     for (const globalBit of this.changedBits) {
       if (globalBit >= this.bitCount) continue;
 
-      const row = Math.floor(globalBit / bitsPerCacheLine);
+      const clIdx = Math.floor(globalBit / bitsPerCacheLine);
       const bitInRow = globalBit % bitsPerCacheLine;
       const u64Idx = Math.floor(bitInRow / 64);
       const bitInU64 = bitInRow % 64;
       const byteIdx = Math.floor(bitInU64 / 8);
       const bitInByte = bitInU64 % 8;
 
-      const rowDataY = this.panY + row * rowHeight + labelH;
+      const vRow = Math.floor(clIdx / clPerVRow);
+      const clInRow = clIdx % clPerVRow;
+      const clOffsetX = clInRow * clStepX;
+      const rowDataY = this.panY + vRow * vRowHeight + labelH;
 
       const vecIdx = Math.floor(u64Idx / this.vectorGroup);
       const intraIdx = u64Idx % this.vectorGroup;
-      const vecX = this.panX + vecIdx * (vecD.w + this.u64SpacingH * this.zoom);
+      const vecX = this.panX + clOffsetX + vecIdx * (vecD.w + this.u64SpacingH * this.zoom);
       const u64X = vecX + intraIdx * (u64D.w + vecD.intraGap);
 
       const bytePos = this._bytePosInU64(byteIdx);

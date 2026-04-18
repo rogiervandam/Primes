@@ -318,13 +318,12 @@ parseCommandLine(int argc, char *argv[])
         #ifdef COMPILE_TRACE
         else if (strcmp_local(argv[arg], "--trace")) {
             /* --trace [optional filename] */
-            if (arg + 1 < argc && argv[arg + 1][0] != '-') {
+            if (arg + 1 < argc && argv[arg + 1][0] != '-' && !isdigit_local(argv[arg + 1][0])) {
                 option.trace_filename = argv[++arg];
             } else {
-                /* Generate default: log/YYYY-MM-DD_HH-MM_<program>.sievetrace */
-                option.trace_filename = (char*)trace_generate_default_filename(program_name);
+                /* Mark for auto-generation after all args are parsed (factor_max may not be set yet) */
+                option.trace_filename = (char*)"__auto__";
             }
-            verbose2(printf("Trace output: %s\n", option.trace_filename));
         }
         #endif
         else if (strcmp_local(argv[arg], "--notune")) { 
@@ -337,6 +336,15 @@ parseCommandLine(int argc, char *argv[])
             verbose4(printf("Maximum set to %ju\n", (uintmax_t)option.fixed_benchmark_settings.factor_max);)
         }
     }
+
+    #ifdef COMPILE_TRACE
+    /* Generate default trace filename now that factor_max is known */
+    if (option.trace_filename && strcmp(option.trace_filename, "__auto__") == 0) {
+        option.trace_filename = (char*)trace_generate_default_filename(
+            program_name, option.fixed_benchmark_settings.factor_max);
+        verbose2(printf("Trace output: %s\n", option.trace_filename));
+    }
+    #endif
 
     // if no tuning and no explicit --set, load previously saved settings
     if (!option.tunelevel && !hasExplicitSettings()) {

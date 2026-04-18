@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -46,10 +47,10 @@ static char  g_trace_default_path[512] = {0};
 
 /*
  * Generate a default trace filename under ./log/
- * Format: log/YYYY-MM-DD_HH-MM_<program_name>.sievetrace
+ * Format: log/YYYY-MM-DD_HH-MM_<program_name>_<max_factor>.sievetrace
  */
 static const char* __attribute__((cold))
-trace_generate_default_filename(const char* program_name)
+trace_generate_default_filename(const char* program_name, uint64_t max_factor)
 {
     trace_mkdir("log");
 
@@ -64,7 +65,7 @@ trace_generate_default_filename(const char* program_name)
     }
 
     snprintf(g_trace_default_path, sizeof(g_trace_default_path),
-             "log/%s_%s.sievetrace", timestamp, base);
+             "log/%s_%s_%" PRIu64 ".sievetrace", timestamp, base, max_factor);
     return g_trace_default_path;
 }
 
@@ -344,6 +345,7 @@ trace_finalize(void)
 #include <string.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -384,10 +386,10 @@ static char  g_trace_default_path[512] = {0};
 
 /*
  * Generate a default trace filename under ./log/
- * Format: log/YYYY-MM-DD_HH-MM_<program_name>.sievetrace
+ * Format: log/YYYY-MM-DD_HH-MM_<program_name>_<max_factor>.sievetrace
  */
 static const char* __attribute__((cold))
-trace_generate_default_filename(const char* program_name)
+trace_generate_default_filename(const char* program_name, uint64_t max_factor)
 {
     /* Create log directory if it does not exist */
     trace_mkdir("log");
@@ -405,7 +407,7 @@ trace_generate_default_filename(const char* program_name)
     }
 
     snprintf(g_trace_default_path, sizeof(g_trace_default_path),
-             "log/%s_%s.sievetrace", timestamp, base);
+             "log/%s_%s_%" PRIu64 ".sievetrace", timestamp, base, max_factor);
     return g_trace_default_path;
 }
 

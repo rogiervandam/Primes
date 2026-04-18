@@ -9,15 +9,17 @@ import {
 } from './Icons';
 
 const DEFAULT_SETTINGS = {
-  bitLayout: '8x1',
-  byteLayout: '8x1',
-  bitSpacingH: 0,
-  bitSpacingV: 0,
-  byteSpacingH: 1,
-  byteSpacingV: 0,
-  u64SpacingH: 2,
-  u64SpacingV: 2,
+  bitLayout: '4x2',
+  byteLayout: '4x2',
+  bitSpacingH: 1,
+  bitSpacingV: 1,
+  byteSpacingH: 2,
+  byteSpacingV: 2,
+  u64SpacingH: 4,
+  u64SpacingV: 4,
   vectorGroup: 1,
+  showBitLabels: false,
+  showByteLabels: false,
 };
 
 export default function Visualizer({ trace, fileName, onClose, autoRender }) {
@@ -37,6 +39,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [detailOpen, setDetailOpen] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
+  const [repeatAnim, setRepeatAnim] = useState(0); // 0 = off, else interval in ms
 
   const bitStateRef = useRef(null);
   const playTimerRef = useRef(null);
@@ -76,6 +79,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.u64SpacingH = layoutSettings.u64SpacingH;
     r.u64SpacingV = layoutSettings.u64SpacingV;
     r.vectorGroup = layoutSettings.vectorGroup;
+    r.showBitLabels = layoutSettings.showBitLabels;
+    r.showByteLabels = layoutSettings.showByteLabels;
     r.render();
   }, [theme, layoutSettings]);
 
@@ -140,24 +145,35 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     setCurrentStep(target);
 
     // Trigger ripple animation for changed bits
-    if (changedSet.size > 0 && changedSet.size < 100000) {
-      if (rippleRef.current) cancelAnimationFrame(rippleRef.current);
-      const duration = 600; // ms
-      const start = performance.now();
-      const animate = (now) => {
-        const elapsed = now - start;
-        const progress = Math.min(1, elapsed / duration);
-        r.render();
-        r.renderRipple(progress);
-        if (progress < 1) {
-          rippleRef.current = requestAnimationFrame(animate);
-        } else {
-          rippleRef.current = null;
-        }
-      };
-      rippleRef.current = requestAnimationFrame(animate);
-    }
+    triggerRipple();
   }, [currentStep, steps]);
+
+  const triggerRipple = useCallback(() => {
+    const r = rendererRef.current;
+    if (!r || !r.changedBits || r.changedBits.size === 0 || r.changedBits.size >= 100000) return;
+    if (rippleRef.current) cancelAnimationFrame(rippleRef.current);
+    const duration = 600;
+    const start = performance.now();
+    const animate = (now) => {
+      const elapsed = now - start;
+      const progress = Math.min(1, elapsed / duration);
+      r.render();
+      r.renderRipple(progress);
+      if (progress < 1) {
+        rippleRef.current = requestAnimationFrame(animate);
+      } else {
+        rippleRef.current = null;
+      }
+    };
+    rippleRef.current = requestAnimationFrame(animate);
+  }, []);
+
+  // Repeat animation timer
+  useEffect(() => {
+    if (repeatAnim <= 0) return;
+    const timer = setInterval(triggerRipple, repeatAnim);
+    return () => clearInterval(timer);
+  }, [repeatAnim, triggerRipple]);
 
   // Initial render
   useEffect(() => {
@@ -475,6 +491,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         onChange={setLayoutSettings}
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+        repeatAnim={repeatAnim}
+        onRepeatAnimChange={setRepeatAnim}
       />
     </div>
   );
