@@ -39,14 +39,48 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [detailOpen, setDetailOpen] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
-  const [repeatAnim, setRepeatAnim] = useState(0); // 0 = off, else interval in ms
+  const [repeatAnim, setRepeatAnim] = useState(500);
+  const [animMode, setAnimMode] = useState('all'); // 'all' or 'sequential'
+  const [animStyle, setAnimStyle] = useState('ripple'); // 'ripple', 'fade', 'pulse', 'none'
+  const [bitAnimInterval, setBitAnimInterval] = useState(50); // ms between sequential bits
+  const [detailHeight, setDetailHeight] = useState(200);
+  const [detailWidth, setDetailWidth] = useState(0);
+  const [showMinimap, setShowMinimap] = useState(true);
+  const [stepStats, setStepStats] = useState(null); // { totalSet, newlySet, reSet }
+  const [bitHistoryModal, setBitHistoryModal] = useState(null); // { bitIndex, history[] }
+  const [colorPreset, setColorPreset] = useState(null); // null = theme default
+  const [customColors, setCustomColors] = useState({ setBit: null, clearedBit: null, unchangedBit: null });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResult, setSearchResult] = useState(null);
 
   const bitStateRef = useRef(null);
+  const stepsRef = useRef([]);
   const playTimerRef = useRef(null);
   const exportCancelRef = useRef(false);
-  const rippleRef = useRef(null); // animation frame id
+  const rippleRef = useRef(null);
+  const seqTimerRef = useRef(null); // sequential animation timer
+  const initialFitDoneRef = useRef(false);
+  const detailOpenRef = useRef(true);
+  const detailHeightRef = useRef(200);
 
   const { header, steps } = trace;
+  stepsRef.current = steps;
+
+  // Keep refs in sync for use in callbacks
+  const getMinimapDetailH = useCallback(() => {
+    return detailOpenRef.current ? (detailHeightRef.current + 30) : 30; // 30px for toggle bar
+  }, []);
+
+  // Wrap setDetailOpen/setDetailHeight to keep refs updated
+  const updateDetailOpen = useCallback((val) => {
+    const next = typeof val === 'function' ? val(detailOpenRef.current) : val;
+    detailOpenRef.current = next;
+    setDetailOpen(next);
+  }, []);
+  const updateDetailHeight = useCallback((val) => {
+    detailHeightRef.current = val;
+    setDetailHeight(val);
+  }, []);
 
   // Apply theme to document
   useEffect(() => {
@@ -65,6 +99,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     return () => { rendererRef.current = null; };
   }, [header.bitCount, header.sieveSize]);
 
+  const prevLayoutRef = useRef({ bitLayout: DEFAULT_SETTINGS.bitLayout, byteLayout: DEFAULT_SETTINGS.byteLayout });
+
   // Apply layout settings + theme to renderer
   useEffect(() => {
     const r = rendererRef.current;
@@ -81,8 +117,25 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.vectorGroup = layoutSettings.vectorGroup;
     r.showBitLabels = layoutSettings.showBitLabels;
     r.showByteLabels = layoutSettings.showByteLabels;
+    r.colorPreset = colorPreset;
+    r.customSetBit = customColors.setBit;
+    r.customClearedBit = customColors.clearedBit;
+    r.customUnchangedBit = customColors.unchangedBit;
+    // Reset zoom when bit/byte layout changes
+    const prev = prevLayoutRef.current;
+    if (prev.bitLayout !== layoutSettings.bitLayout || prev.byteLayout !== layoutSettings.byteLayout) {
+      const el = containerRef.current;
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        r.zoomToFit(rect.width, rect.height);
+        setZoom(r.zoom);
+      }
+      prev.bitLayout = layoutSettings.bitLayout;
+      prev.byteLayout = layoutSettings.byteLayout;
+    }
     r.render();
-  }, [theme, layoutSettings]);
+    if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors]);
 
   // Resize handler
   useEffect(() => {
@@ -93,11 +146,12 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       const rect = el.getBoundingClientRect();
       r.resize(rect.width, rect.height);
       r.render();
+      if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
     };
     onResize();
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, [panelWidth]);
+  }, [panelWidth, showMinimap]);
 
   // Go to step
   const goToStep = useCallback((target) => {
@@ -108,9 +162,10 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     let bs = bitStateRef.current;
     if (!bs) return;
 
-    if (target < currentStep) {
+    // Build state up to step before target (for stats)
+    if (target <= currentStep) {
       bs.fill(0);
-      for (let i = 0; i <= target; i++) {
+      for (let i = 0; i < target; i++) {
         const s = steps[i];
         for (let j = 0; j < s.changedBits.length; j++) {
           const idx = s.changedBits[j];
@@ -118,7 +173,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         }
       }
     } else {
-      for (let i = currentStep + 1; i <= target; i++) {
+      for (let i = currentStep + 1; i < target; i++) {
         const s = steps[i];
         for (let j = 0; j < s.changedBits.length; j++) {
           const idx = s.changedBits[j];
@@ -127,11 +182,26 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       }
     }
 
-    const changedSet = new Set();
+    // bs is now at state just before target — compute stats
     const step = steps[target];
+    let newlySet = 0, reSet = 0;
     for (let j = 0; j < step.changedBits.length; j++) {
-      changedSet.add(step.changedBits[j]);
+      const idx = step.changedBits[j];
+      if (idx < bs.length && bs[idx]) reSet++;
+      else newlySet++;
     }
+
+    // Apply target step
+    for (let j = 0; j < step.changedBits.length; j++) {
+      const idx = step.changedBits[j];
+      if (idx < bs.length) bs[idx] = 1;
+    }
+
+    let totalSet = 0;
+    for (let i = 0; i < bs.length; i++) { if (bs[i]) totalSet++; }
+    setStepStats({ totalSet, newlySet, reSet });
+
+    const changedSet = new Set(step.changedBits);
 
     // Set operation for color-coded highlighting
     r.currentOperation = step.operation;
@@ -140,40 +210,121 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     if (el) {
       const rect = el.getBoundingClientRect();
       r.resize(rect.width, rect.height);
+      // Zoom to fit on first render
+      if (!initialFitDoneRef.current) {
+        r.zoomToFit(rect.width, rect.height);
+        setZoom(r.zoom);
+        initialFitDoneRef.current = true;
+      }
     }
     r.render();
+    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
     setCurrentStep(target);
 
-    // Trigger ripple animation for changed bits
-    triggerRipple();
+    // Trigger animation for changed bits
+    triggerAnimation(changedSet);
   }, [currentStep, steps]);
 
-  const triggerRipple = useCallback(() => {
+  // Stop any running sequential animation
+  const stopSeqAnim = useCallback(() => {
+    if (seqTimerRef.current) { clearTimeout(seqTimerRef.current); seqTimerRef.current = null; }
+    if (rippleRef.current) { cancelAnimationFrame(rippleRef.current); rippleRef.current = null; }
+  }, []);
+
+  // Run a single ripple/fade/pulse effect on current changedBits
+  const runEffect = useCallback((style) => {
     const r = rendererRef.current;
-    if (!r || !r.changedBits || r.changedBits.size === 0 || r.changedBits.size >= 100000) return;
+    if (!r || !r.changedBits || r.changedBits.size === 0) return;
     if (rippleRef.current) cancelAnimationFrame(rippleRef.current);
+    if (style === 'none') return;
+
     const duration = 600;
     const start = performance.now();
     const animate = (now) => {
       const elapsed = now - start;
       const progress = Math.min(1, elapsed / duration);
       r.render();
-      r.renderRipple(progress);
+      if (style === 'ripple') r.renderRipple(progress);
+      else if (style === 'fade') r.renderFade(progress);
+      else if (style === 'pulse') r.renderPulse(progress);
+      // Re-render minimap only at end to avoid flickering
       if (progress < 1) {
         rippleRef.current = requestAnimationFrame(animate);
       } else {
+        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
         rippleRef.current = null;
       }
     };
     rippleRef.current = requestAnimationFrame(animate);
   }, []);
 
+  // Main animation trigger — all-at-once, sequential per-bit, or bounce
+  const triggerAnimation = useCallback((changedSet) => {
+    stopSeqAnim();
+    const r = rendererRef.current;
+    if (!r || !changedSet || changedSet.size === 0 || changedSet.size >= 100000) return;
+
+    if ((animMode === 'sequential' || animMode === 'bounce') && bitAnimInterval > 0) {
+      // Sequential / bounce: reveal bits one-by-one
+      const bits = Array.from(changedSet).sort((a, b) => a - b);
+      const fullChanged = new Set(changedSet);
+      let idx = 0;
+      let direction = 1; // 1 = forward, -1 = backward
+
+      const revealNext = () => {
+        if (!rendererRef.current) return;
+        if (idx < 0 || idx >= bits.length) {
+          if (animMode === 'bounce') {
+            direction *= -1;
+            idx = direction > 0 ? 0 : bits.length - 1;
+          } else {
+            // Sequential done — restore full set
+            r.changedBits = fullChanged;
+            r.render();
+            r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+            return;
+          }
+        }
+
+        const partial = new Set();
+        if (direction > 0) {
+          for (let i = 0; i <= idx; i++) partial.add(bits[i]);
+        } else {
+          for (let i = idx; i < bits.length; i++) partial.add(bits[i]);
+        }
+        r.changedBits = partial;
+        r.render();
+        // Small effect on the just-added bit
+        if (animStyle !== 'none') {
+          const singleSet = new Set([bits[idx]]);
+          r.changedBits = singleSet;
+          if (animStyle === 'ripple') r.renderRipple(0.3);
+          else if (animStyle === 'fade') r.renderFade(0.3);
+          else if (animStyle === 'pulse') r.renderPulse(0.3);
+          r.changedBits = partial;
+        }
+        idx += direction;
+        seqTimerRef.current = setTimeout(revealNext, bitAnimInterval);
+      };
+
+      r.changedBits = new Set();
+      r.render();
+      seqTimerRef.current = setTimeout(revealNext, bitAnimInterval);
+    } else {
+      // All at once with chosen effect style
+      runEffect(animStyle);
+    }
+  }, [animMode, animStyle, bitAnimInterval, stopSeqAnim, runEffect]);
+
   // Repeat animation timer
   useEffect(() => {
     if (repeatAnim <= 0) return;
-    const timer = setInterval(triggerRipple, repeatAnim);
+    const timer = setInterval(() => {
+      const r = rendererRef.current;
+      if (r && r.changedBits) triggerAnimation(r.changedBits);
+    }, repeatAnim);
     return () => clearInterval(timer);
-  }, [repeatAnim, triggerRipple]);
+  }, [repeatAnim, triggerAnimation]);
 
   // Initial render
   useEffect(() => {
@@ -215,14 +366,22 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.zoom = Math.max(0.1, Math.min(64, r.zoom * factor));
     setZoom(r.zoom);
     r.render();
+    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
   }, []);
 
   const resetZoom = useCallback(() => {
     const r = rendererRef.current;
     if (!r) return;
-    r.zoom = 1; r.panX = 0; r.panY = 0;
-    setZoom(1);
+    const el = containerRef.current;
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      r.zoomToFit(rect.width, rect.height);
+    } else {
+      r.zoom = 1; r.panX = 0; r.panY = 0;
+    }
+    setZoom(r.zoom);
     r.render();
+    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
   }, []);
 
   // Mouse pan & zoom on canvas
@@ -231,20 +390,56 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     if (!el) return;
 
     let dragging = false, startX = 0, startY = 0, panSX = 0, panSY = 0;
+    let minimapDragging = false;
+    let didDrag = false;
 
     const onMouseDown = (e) => {
-      dragging = true;
-      startX = e.clientX; startY = e.clientY;
       const r = rendererRef.current;
+      if (!r) return;
+      const rect = el.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const canvasW = rect.width;
+      const canvasH = rect.height;
+
+      // Check minimap hit first
+      const hit = r.minimapHitTest(x, y, canvasW, canvasH);
+      if (hit) {
+        minimapDragging = true;
+        didDrag = true;
+        r.panX = hit.panX;
+        r.panY = hit.panY;
+        r.render();
+        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        el.classList.add('dragging');
+        return;
+      }
+
+      dragging = true;
+      didDrag = false;
+      startX = e.clientX; startY = e.clientY;
       if (r) { panSX = r.panX; panSY = r.panY; }
       el.classList.add('dragging');
     };
     const onMouseMove = (e) => {
       const r = rendererRef.current;
-      if (dragging && r) {
+      if (minimapDragging && r) {
+        const rect = el.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const hit = r.minimapHitTest(x, y, rect.width, rect.height);
+        if (hit) {
+          r.panX = hit.panX;
+          r.panY = hit.panY;
+          r.render();
+          r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        }
+      } else if (dragging && r) {
+        didDrag = true;
         r.panX = panSX + (e.clientX - startX);
         r.panY = panSY + (e.clientY - startY);
         r.render();
+        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
       } else if (r && !dragging) {
         const rect = el.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -253,7 +448,30 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         setHoverInfo(idx >= 0 ? r.getBitInfo(idx) : '');
       }
     };
-    const onMouseUp = () => { dragging = false; el.classList.remove('dragging'); };
+    const onMouseUp = (e) => {
+      if (!didDrag && !minimapDragging && rendererRef.current) {
+        const rect = el.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const r = rendererRef.current;
+        const idx = r.canvasToBitIndex(x, y);
+        if (idx >= 0) {
+          // Find all steps that affected this bit
+          const history = [];
+          for (let i = 0; i < stepsRef.current.length; i++) {
+            const s = stepsRef.current[i];
+            for (let j = 0; j < s.changedBits.length; j++) {
+              if (s.changedBits[j] === idx) {
+                history.push({ stepIndex: i, operation: s.operation, prime: s.prime, annotation: s.annotation });
+                break;
+              }
+            }
+          }
+          setBitHistoryModal({ bitIndex: idx, number: idx * 2 + 1, history });
+        }
+      }
+      dragging = false; minimapDragging = false; el.classList.remove('dragging');
+    };
     const onWheel = (e) => {
       e.preventDefault();
       const r = rendererRef.current;
@@ -270,6 +488,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       r.panY = my - scale * (my - r.panY);
       setZoom(r.zoom);
       r.render();
+      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
     };
 
     el.addEventListener('mousedown', onMouseDown);
@@ -389,6 +608,69 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     exportCancelRef.current = true;
   }, []);
 
+  // Search: navigate to a specific bit, byte, uint64, vector, or number
+  const handleSearch = useCallback((query) => {
+    const r = rendererRef.current;
+    const el = containerRef.current;
+    if (!r || !el || !query.trim()) { setSearchResult(null); return; }
+
+    const q = query.trim().toLowerCase();
+    let bitIdx = -1;
+
+    // Parse: "bit N", "byte N", "uint32 N", "uint64 N", "vector N", "number N", or just a plain number
+    const m = q.match(/^(bit|byte|uint32|uint64|vector|number|num|#)?\s*(\d+)$/);
+    if (!m) { setSearchResult('Invalid query'); return; }
+
+    const type = m[1] || '';
+    const val = parseInt(m[2], 10);
+
+    switch (type) {
+      case 'bit':    bitIdx = val; break;
+      case 'byte':   bitIdx = val * 8; break;
+      case 'uint32': bitIdx = val * 32; break;
+      case 'uint64': bitIdx = val * 64; break;
+      case 'vector': bitIdx = val * 64 * r.vectorGroup; break;
+      case 'number': case 'num': case '#':
+        // Half-storage: bit i = number 2*i+1, so number N → bit (N-1)/2
+        if (val < 1 || val % 2 === 0) { setSearchResult('Only odd numbers ≥ 1'); return; }
+        bitIdx = (val - 1) / 2;
+        break;
+      default:
+        // Plain number — treat as bit index
+        bitIdx = val;
+    }
+
+    if (bitIdx < 0 || bitIdx >= r.bitCount) {
+      setSearchResult(`Out of range (0–${r.bitCount - 1})`);
+      return;
+    }
+
+    // Calculate the canvas position of this bit and pan to center it
+    const bitsPerCacheLine = 512;
+    const clIdx = Math.floor(bitIdx / bitsPerCacheLine);
+    const clPerVRow = r._cacheLinesPerVisualRow();
+    const vRow = Math.floor(clIdx / clPerVRow);
+    const rowD = r._rowDims();
+    const labelH = r._labelHeight();
+    const vRowHeight = labelH + rowD.h + r.u64SpacingV * r.zoom;
+
+    const rect = el.getBoundingClientRect();
+    // Center vertically on the visual row
+    const targetY = vRow * vRowHeight + labelH + rowD.h / 2;
+    r.panY = rect.height / 2 - targetY;
+
+    // Center horizontally
+    const clInRow = clIdx % clPerVRow;
+    const clStepX = rowD.w + r.u64SpacingH * r.zoom;
+    const targetX = clInRow * clStepX + rowD.w / 2;
+    r.panX = rect.width / 2 - targetX;
+
+    r.render();
+    r.renderMinimap(r.canvasWidth, rect.height, getMinimapDetailH());
+    const num = bitIdx * 2 + 1;
+    setSearchResult(`Bit ${bitIdx} → Number ${num}`);
+  }, []);
+
   const currentStepData = steps[currentStep] || null;
 
   return (
@@ -412,6 +694,18 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           <button className="btn-icon" onClick={() => goToStep(steps.length - 1)} title="Last (End)" disabled={exporting}><SkipForward /></button>
           <input
             type="range"
+            className="speed-slider"
+            min={10}
+            max={2000}
+            step={10}
+            value={playSpeed}
+            onChange={(e) => setPlaySpeed(Math.max(10, parseInt(e.target.value) || 100))}
+            title={`Speed: ${playSpeed}ms`}
+            disabled={exporting}
+          />
+          <span className="speed-val" title="Playback interval (ms)">{playSpeed}ms</span>
+          <input
+            type="range"
             className="step-slider"
             min={0}
             max={Math.max(0, steps.length - 1)}
@@ -422,6 +716,18 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           <span className="step-counter">{currentStep} / {steps.length - 1}</span>
         </div>
         <div className="toolbar-right">
+          <div className="search-box">
+            <input
+              type="text"
+              className="search-input"
+              placeholder="bit 42 / byte 5 / number 97…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(searchQuery); }}
+              title="Search: bit N, byte N, uint64 N, vector N, number N"
+            />
+            {searchResult && <span className="search-result">{searchResult}</span>}
+          </div>
           <button className="btn-icon" onClick={() => doZoom(1.5)} title="Zoom In (+)"><ZoomIn /></button>
           <button className="btn-text" onClick={resetZoom} title="Reset Zoom (0)">{zoom.toFixed(1)}x</button>
           <button className="btn-icon" onClick={() => doZoom(1 / 1.5)} title="Zoom Out (−)"><ZoomOut /></button>
@@ -437,19 +743,6 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
             {theme === 'dark' ? <Sun /> : <Moon />}
           </button>
           <button className="btn-icon" onClick={() => setSettingsOpen(o => !o)} title="Layout settings"><Settings /></button>
-          <label className="speed-label" title="Playback speed (ms)">
-            Speed
-            <input
-              type="number"
-              className="speed-input"
-              min={10}
-              max={2000}
-              step={10}
-              value={playSpeed}
-              onChange={(e) => setPlaySpeed(Math.max(10, parseInt(e.target.value) || 100))}
-            />
-            ms
-          </label>
         </div>
       </header>
 
@@ -481,7 +774,13 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
             step={currentStepData}
             stepIndex={currentStep}
             open={detailOpen}
-            onToggle={() => setDetailOpen(o => !o)}
+            onToggle={() => updateDetailOpen(o => !o)}
+            height={detailHeight}
+            onHeightChange={updateDetailHeight}
+            width={detailWidth}
+            onWidthChange={setDetailWidth}
+            playing={playing}
+            stepStats={stepStats}
           />
         </div>
       </div>
@@ -493,7 +792,49 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         onClose={() => setSettingsOpen(false)}
         repeatAnim={repeatAnim}
         onRepeatAnimChange={setRepeatAnim}
+        animMode={animMode}
+        onAnimModeChange={setAnimMode}
+        animStyle={animStyle}
+        onAnimStyleChange={setAnimStyle}
+        bitAnimInterval={bitAnimInterval}
+        onBitAnimIntervalChange={setBitAnimInterval}
+        colorPreset={colorPreset}
+        onColorPresetChange={setColorPreset}
+        customColors={customColors}
+        onCustomColorsChange={setCustomColors}
       />
+
+      {bitHistoryModal && (
+        <div className="bit-history-overlay" onClick={() => setBitHistoryModal(null)}>
+          <div className="bit-history-modal" onClick={e => e.stopPropagation()}>
+            <div className="bit-history-header">
+              <span>Bit {bitHistoryModal.bitIndex} — Number {bitHistoryModal.number}</span>
+              <button className="bit-history-close" onClick={() => setBitHistoryModal(null)}>✕</button>
+            </div>
+            <div className="bit-history-body">
+              {bitHistoryModal.history.length === 0 ? (
+                <p className="bit-history-empty">No steps have modified this bit.</p>
+              ) : (
+                <table className="bit-history-table">
+                  <thead>
+                    <tr><th>Step</th><th>Operation</th><th>Prime</th></tr>
+                  </thead>
+                  <tbody>
+                    {bitHistoryModal.history.map(h => (
+                      <tr key={h.stepIndex} className={h.stepIndex === currentStep ? 'bh-current' : ''}
+                          onClick={() => { goToStep(h.stepIndex); }}>
+                        <td>{h.stepIndex}</td>
+                        <td>{h.operation || '—'}</td>
+                        <td>{h.prime != null ? h.prime : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

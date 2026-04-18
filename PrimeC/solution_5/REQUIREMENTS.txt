@@ -117,4 +117,40 @@ In the step details panel:
 - make the panel height adjustable, revealing more of the bit-ranges and numbers marked values
 
 
+Layout panel:
+- when layout settings is opened, i must still be able to scroll the canvas and see the visualisation, so that users can adjust the layout settings while still being able to view and analyze the visualisation, providing a more seamless and efficient user experience when customizing the visualisation settings.
+- default to repeat animation .5 seconds, but make it possible to adjust this in the settings. Make it a slider from 0 (no repeat) to a few seconds, allowing users to control the pace of the animation and customize their experience based on their preferences and the specific patterns they are looking for in the bitstorage. This will enhance the overall user experience and make the visualisation more engaging and informative, allowing users to better understand the dynamics of the changes being made to the bitstorage throughout the execution of the sieve algorithm.
+- animation mode should have all at once, sequential, bounce (forwards, backwords, forwards, etc).
+- when changing a bits in byteo or bytes in uint64, reset the zoom to show all
 
+Canvas:
+- default to center the view
+- make the view more boxed, e.g. when having 500 bits, show the two uint64v4 groups under eachother, instead of next to each other, to make better use of the available space and provide a clearer and more organized layout for the visualisation. This will help users quickly identify and differentiate between different groups of bits and their corresponding changes, enhancing the overall usability and effectiveness of the visualisation tool.
+
+New:
+- if the user clicks or drags in the minimap, go to the according section
+- the minimap should not be behind the detail panel
+- when the user hits play, the height of the step detail panel should stay fixed, so it doesn't go up and down over the canvas
+- At each step, also calculate how many bits were set, cleared, or changed in total, and include this information in the annotations and step details, allowing users to quickly grasp the magnitude of the changes being made to the bitstorage in each step and understand their significance in the context of the sieve algorithm. This will enhance the overall informativeness and usefulness of the visualisation tool for users analyzing the prime sieve algorithm.
+- make it possible to inspect a bit and see its history of changes across all steps (include if a bit was set, but was set again because it was set in another range as well), providing users with a detailed view of how specific bits were modified throughout the execution of the sieve algorithm, allowing for a deeper analysis and understanding of the changes being made to the bitstorage. This will enhance the overall user experience and effectiveness of the visualisation tool, especially for users who want to focus on specific bits or patterns in the bitstorage.
+
+Layout panel:
+- let the user different colorsets. Colors include for example:
+- default: set bits are green, cleared bits are red, unchanged bits are gray.
+- high contrast: set bits are bright green, cleared bits are bright red, unchanged bits are black.
+- pastel: set bits are pastel green, cleared bits are pastel red, unchanged bits are pastel gray.
+- dark mode: set bits are light green, cleared bits are light red, unchanged bits are dark gray.
+- allow users to customize the colors for set bits, cleared bits, and unchanged bits, providing a more personalized and visually appealing experience in the visualisation tool. This will allow users to tailor the visualisation to their preferences and enhance their understanding of the changes being made to the bitstorage throughout the execution of the sieve algorithm, making the visualisation more engaging and informative.
+
+Canvas:
+- make sure the minimap is always visible and not obscured by other panels, allowing users to easily access and utilize the minimap for navigation within the visualisation, enhancing the overall usability and effectiveness of the visualisation tool when analyzing large and complex changes in the bitstorage that may require frequent zooming and panning to fully understand. Also make sure it isn't flickering with animations. 
+- make sure the minimap only shows a general sense of the bits, e.g. no colors and an outline of the most outer boundaries
+- make sure that the sieve is in the center of the view when starting the visualisation, so that users can immediately see the overall structure of the bitstorage and the changes being made to it from the start, providing a clear and comprehensive view of the visualisation right from the beginning. This will help users quickly grasp the layout and organization of the bitstorage in the visualisation, enhancing their understanding and analysis of the changes being made throughout the execution of the sieve algorithm. 
+
+Top:
+- create a search functionality to find a precise bit, byte, uint32, uint64, vector or range of these in the visualisation, allowing users to quickly locate and analyze specific sections of the bitstorage based on their interests or areas of focus, enhancing the overall usability and effectiveness of the visualisation tool for users analyzing the prime sieve algorithm. This will provide a more efficient way for users to navigate through the visualisation and find the information they need to gain insights into the changes being made to the bitstorage throughout the execution of the sieve algorithm.
+- use a slider or some other tool for the speed and move it closer to the play/pause buttons, to provide users with a more intuitive and convenient way to control the pace of the animation when stepping through the changes in the bitstorage, enhancing the overall user experience and effectiveness of the visualisation tool when analyzing the prime sieve algorithm. This will allow users to easily adjust the speed of the animation to their preferences and better understand the dynamics of the changes being made to the bitstorage throughout the execution of the sieve algorithm.
+- 
+
+
+Think deep, long and hard about this. I like the web version as it is now. Provide a way to turn this in a native app for windows and macos, using something like Electron or Qt, while still sharing the same codebase for the visualisation logic and rendering, to ensure consistency and reduce development effort across both platforms. This will allow users to choose their preferred platform for using the visualisation tool while still benefiting from the same features and functionality, enhancing the overall accessibility and usability of the tool for a wider range of users analyzing the prime sieve algorithm. On the other platforms, it should feel as native as possible. So window, icons, etc. should be adapted to the platform, while still maintaining the same core visualisation logic and rendering across all platforms for consistency and ease of maintenance. This will provide users with a seamless and enjoyable experience when using the visualisation tool on their preferred platform, while still benefiting from the powerful features and insights it provides for analyzing the prime sieve algorithm.

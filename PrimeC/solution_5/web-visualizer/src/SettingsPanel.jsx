@@ -1,10 +1,27 @@
 import React from 'react';
-import { BIT_LAYOUTS, BYTE_LAYOUTS, VECTOR_GROUPS } from './SieveRenderer';
+import { BIT_LAYOUTS, BYTE_LAYOUTS, VECTOR_GROUPS, COLOR_PRESETS } from './SieveRenderer';
+
+function rgbToHex(rgb) {
+  if (!rgb || rgb.length < 3) return '#555555';
+  return '#' + rgb.map(c => Math.max(0, Math.min(255, c)).toString(16).padStart(2, '0')).join('');
+}
+function hexToRgb(hex) {
+  const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [0, 0, 0];
+}
 
 /**
  * Settings panel for layout modes, spacing, and rendering options.
  */
-export default function SettingsPanel({ settings, onChange, open, onClose, repeatAnim, onRepeatAnimChange }) {
+export default function SettingsPanel({
+  settings, onChange, open, onClose,
+  repeatAnim, onRepeatAnimChange,
+  animMode, onAnimModeChange,
+  animStyle, onAnimStyleChange,
+  bitAnimInterval, onBitAnimIntervalChange,
+  colorPreset, onColorPresetChange,
+  customColors, onCustomColorsChange,
+}) {
   if (!open) return null;
 
   const set = (key, val) => onChange({ ...settings, [key]: val });
@@ -14,8 +31,8 @@ export default function SettingsPanel({ settings, onChange, open, onClose, repea
   };
 
   return (
-    <div className="settings-overlay" onClick={onClose}>
-      <div className="settings-panel" onClick={(e) => e.stopPropagation()}>
+    <div className="settings-overlay">
+      <div className="settings-panel">
         <div className="settings-header">
           <h3>Layout Settings</h3>
           <button className="btn-icon" onClick={onClose}>×</button>
@@ -107,16 +124,92 @@ export default function SettingsPanel({ settings, onChange, open, onClose, repea
         </div>
 
         <div className="settings-section">
-          <label>Repeat animation</label>
+          <label>Repeat animation: {repeatAnim === 0 ? 'Off' : `${(repeatAnim / 1000).toFixed(1)}s`}</label>
           <div className="settings-row">
-            <select value={repeatAnim || 0} onChange={(e) => onRepeatAnimChange(parseInt(e.target.value))}>
-              <option value={0}>Off</option>
-              <option value={1000}>1s</option>
-              <option value={2000}>2s</option>
-              <option value={3000}>3s</option>
-              <option value={5000}>5s</option>
+            <input type="range" min={0} max={5000} step={100}
+                   value={repeatAnim}
+                   onChange={(e) => onRepeatAnimChange(parseInt(e.target.value))} />
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <label>Animation style</label>
+          <div className="settings-row">
+            <select value={animStyle || 'ripple'} onChange={(e) => onAnimStyleChange(e.target.value)}>
+              <option value="ripple">Ripple</option>
+              <option value="fade">Fade</option>
+              <option value="pulse">Pulse</option>
+              <option value="none">None</option>
             </select>
           </div>
+        </div>
+
+        <div className="settings-section">
+          <label>Animation mode</label>
+          <div className="settings-row">
+            <select value={animMode || 'all'} onChange={(e) => onAnimModeChange(e.target.value)}>
+              <option value="all">All at once</option>
+              <option value="sequential">Sequential (per bit)</option>
+              <option value="bounce">Bounce (forward &amp; back)</option>
+            </select>
+          </div>
+        </div>
+
+        {(animMode === 'sequential' || animMode === 'bounce') && (
+          <div className="settings-section">
+            <label>Per-bit interval: {bitAnimInterval}ms</label>
+            <div className="settings-row">
+              <input type="range" min={10} max={500} step={10}
+                     value={bitAnimInterval || 50}
+                     onChange={(e) => onBitAnimIntervalChange(parseInt(e.target.value))} />
+            </div>
+          </div>
+        )}
+
+        <div className="settings-section">
+          <label>Color preset</label>
+          <div className="settings-row">
+            <select value={colorPreset || ''} onChange={(e) => {
+              const val = e.target.value || null;
+              onColorPresetChange(val);
+              if (val) onCustomColorsChange({ setBit: null, clearedBit: null, unchangedBit: null });
+            }}>
+              <option value="">Theme default</option>
+              {Object.entries(COLOR_PRESETS).map(([k, v]) => (
+                <option key={k} value={k}>{v.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <label>Custom bit colors</label>
+          <div className="settings-row color-row">
+            <label className="color-label">
+              Set
+              <input type="color"
+                value={rgbToHex(customColors?.setBit || (colorPreset && COLOR_PRESETS[colorPreset] ? COLOR_PRESETS[colorPreset].setBit : [85, 85, 85]))}
+                onChange={(e) => onCustomColorsChange({ ...customColors, setBit: hexToRgb(e.target.value) })} />
+            </label>
+            <label className="color-label">
+              Cleared
+              <input type="color"
+                value={rgbToHex(customColors?.clearedBit || (colorPreset && COLOR_PRESETS[colorPreset] ? COLOR_PRESETS[colorPreset].clearedBit : [232, 232, 232]))}
+                onChange={(e) => onCustomColorsChange({ ...customColors, clearedBit: hexToRgb(e.target.value) })} />
+            </label>
+            <label className="color-label">
+              Unchanged
+              <input type="color"
+                value={rgbToHex(customColors?.unchangedBit || (colorPreset && COLOR_PRESETS[colorPreset] ? COLOR_PRESETS[colorPreset].unchangedBit : [232, 232, 232]))}
+                onChange={(e) => onCustomColorsChange({ ...customColors, unchangedBit: hexToRgb(e.target.value) })} />
+            </label>
+          </div>
+          {(customColors?.setBit || customColors?.clearedBit || customColors?.unchangedBit) && (
+            <button className="btn-text" style={{ marginTop: 4, fontSize: '0.8rem' }}
+                    onClick={() => onCustomColorsChange({ setBit: null, clearedBit: null, unchangedBit: null })}>
+              Reset custom colors
+            </button>
+          )}
         </div>
       </div>
     </div>

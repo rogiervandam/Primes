@@ -43,6 +43,34 @@ export const THEMES = {
   },
 };
 
+// Color presets for set/cleared/unchanged bits
+export const COLOR_PRESETS = {
+  default: {
+    label: 'Default',
+    setBit:       [76, 175, 80],   // green
+    clearedBit:   [244, 67, 54],   // red
+    unchangedBit: [158, 158, 158], // gray
+  },
+  highContrast: {
+    label: 'High Contrast',
+    setBit:       [0, 255, 0],     // bright green
+    clearedBit:   [255, 0, 0],     // bright red
+    unchangedBit: [0, 0, 0],       // black
+  },
+  pastel: {
+    label: 'Pastel',
+    setBit:       [165, 214, 167], // pastel green
+    clearedBit:   [239, 154, 154], // pastel red
+    unchangedBit: [224, 224, 224], // pastel gray
+  },
+  darkMode: {
+    label: 'Dark Mode',
+    setBit:       [129, 199, 132], // light green
+    clearedBit:   [229, 115, 115], // light red
+    unchangedBit: [66, 66, 66],    // dark gray
+  },
+};
+
 // Bit-in-byte layout modes
 export const BIT_LAYOUTS = {
   '8x1': { label: '8 bits in a row',  cols: 8, rows: 1, grid3x3: false },
@@ -97,6 +125,13 @@ export class SieveRenderer {
     // Operation-based coloring
     this.currentOperation = null;
 
+    // Color preset: null = use theme defaults, or a preset key from COLOR_PRESETS
+    this.colorPreset = null;
+    // Custom colors override preset (each is [r,g,b] or null)
+    this.customSetBit = null;
+    this.customClearedBit = null;
+    this.customUnchangedBit = null;
+
     // Vector grouping
     this.vectorGroup = 1;  // 1, 2, 4, or 8 uint64s per vector
 
@@ -109,6 +144,17 @@ export class SieveRenderer {
   }
 
   get colors() { return THEMES[this.theme] || THEMES.dark; }
+
+  // Get effective bit colors (preset > custom > theme default)
+  _bitColors() {
+    const C = this.colors;
+    const preset = this.colorPreset && COLOR_PRESETS[this.colorPreset];
+    return {
+      set:       this.customSetBit || (preset ? preset.setBit : C.BIT_ONE),
+      cleared:   this.customClearedBit || (preset ? preset.clearedBit : C.BIT_ZERO),
+      unchanged: this.customUnchangedBit || (preset ? preset.unchangedBit : C.BIT_ZERO),
+    };
+  }
 
   _opColor() {
     const C = this.colors;
@@ -266,6 +312,7 @@ export class SieveRenderer {
     const bitBl = BIT_LAYOUTS[this.bitLayout];
     const numVec = this._numVectorsPerRow();
     const changedColor = this._opColor();
+    const bitColors = this._bitColors();
 
     // Font for labels (bit/byte labels need higher zoom)
     const bitLabelFontSize = Math.max(6, Math.min(10, 2 * this.zoom));
@@ -349,9 +396,9 @@ export class SieveRenderer {
               if (this.changedBits.has(globalBit)) {
                 color = changedColor;
               } else if (this.bitState[globalBit]) {
-                color = C.BIT_ONE;
+                color = bitColors.set;
               } else {
-                color = C.BIT_ZERO;
+                color = bitColors.cleared;
               }
 
               ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
@@ -365,7 +412,7 @@ export class SieveRenderer {
                 const number = globalBit * 2 + 1;
                 ctx.font = `${Math.max(6, Math.min(9, px * 0.4))}px monospace`;
                 ctx.fillStyle = this.changedBits.has(globalBit) ? '#fff' :
-                  (this.bitState[globalBit] ? `rgb(${C.BIT_ZERO.join(',')})` : `rgb(${C.BIT_ONE.join(',')})`);
+                  (this.bitState[globalBit] ? `rgb(${bitColors.cleared.join(',')})` : `rgb(${bitColors.set.join(',')})`);
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(String(number), Math.round(bitX + px / 2), Math.round(bitY + px / 2));
@@ -572,5 +619,244 @@ export class SieveRenderer {
     }
 
     ctx.restore();
+  }
+
+  /** Fade animation: changed bits fade from transparent to full color */
+  renderFade(progress) {
+    if (!this.ctx || !this.changedBits || this.changedBits.size === 0) return;
+    if (progress <= 0 || progress > 1) return;
+
+    const ctx = this.ctx;
+    const px = this.pixelSize * this.zoom;
+    const bitsPerCacheLine = 512;
+    const labelH = this._labelHeight();
+    const rowD = this._rowDims();
+    const clPerVRow = this._cacheLinesPerVisualRow();
+    const vRowHeight = labelH + rowD.h + this.u64SpacingV * this.zoom;
+    const clStepX = rowD.w + this.u64SpacingH * this.zoom;
+    const u64D = this._u64Dims();
+    const vecD = this._vectorDims();
+    const byteD = this._byteDims();
+    const color = this._opColor();
+    const alpha = 1 - progress; // fades out over time
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+
+    for (const globalBit of this.changedBits) {
+      if (globalBit >= this.bitCount) continue;
+      const clIdx = Math.floor(globalBit / bitsPerCacheLine);
+      const bitInRow = globalBit % bitsPerCacheLine;
+      const u64Idx = Math.floor(bitInRow / 64);
+      const bitInU64 = bitInRow % 64;
+      const byteIdx = Math.floor(bitInU64 / 8);
+      const bitInByte = bitInU64 % 8;
+
+      const vRow = Math.floor(clIdx / clPerVRow);
+      const clInRow = clIdx % clPerVRow;
+      const clOffsetX = clInRow * clStepX;
+      const rowDataY = this.panY + vRow * vRowHeight + labelH;
+
+      const vecIdx = Math.floor(u64Idx / this.vectorGroup);
+      const intraIdx = u64Idx % this.vectorGroup;
+      const vecX = this.panX + clOffsetX + vecIdx * (vecD.w + this.u64SpacingH * this.zoom);
+      const u64X = vecX + intraIdx * (u64D.w + vecD.intraGap);
+      const bytePos = this._bytePosInU64(byteIdx);
+      const byteX = u64X + bytePos.col * (byteD.w + this.byteSpacingH * this.zoom);
+      const byteY = rowDataY + bytePos.row * (byteD.h + this.byteSpacingV * this.zoom);
+      const bitPos = this._bitPosInByte(bitInByte);
+      const bx = byteX + bitPos.col * (px + this.bitSpacingH * this.zoom);
+      const by = byteY + bitPos.row * (px + this.bitSpacingV * this.zoom);
+
+      ctx.fillRect(bx - 1, by - 1, px + 2, px + 2);
+    }
+    ctx.restore();
+  }
+
+  /** Pulse animation: changed bits scale up then back down */
+  renderPulse(progress) {
+    if (!this.ctx || !this.changedBits || this.changedBits.size === 0) return;
+    if (progress <= 0 || progress > 1) return;
+
+    const ctx = this.ctx;
+    const px = this.pixelSize * this.zoom;
+    const bitsPerCacheLine = 512;
+    const labelH = this._labelHeight();
+    const rowD = this._rowDims();
+    const clPerVRow = this._cacheLinesPerVisualRow();
+    const vRowHeight = labelH + rowD.h + this.u64SpacingV * this.zoom;
+    const clStepX = rowD.w + this.u64SpacingH * this.zoom;
+    const u64D = this._u64Dims();
+    const vecD = this._vectorDims();
+    const byteD = this._byteDims();
+    const color = this._opColor();
+
+    // Scale: grow to 1.6x at 30%, then shrink back
+    const peak = 0.3;
+    const scale = progress < peak
+      ? 1 + 0.6 * (progress / peak)
+      : 1 + 0.6 * (1 - (progress - peak) / (1 - peak));
+    const alpha = progress < 0.7 ? 0.8 : 0.8 * (1 - (progress - 0.7) / 0.3);
+
+    ctx.save();
+    ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${Math.max(0, alpha)})`;
+
+    for (const globalBit of this.changedBits) {
+      if (globalBit >= this.bitCount) continue;
+      const clIdx = Math.floor(globalBit / bitsPerCacheLine);
+      const bitInRow = globalBit % bitsPerCacheLine;
+      const u64Idx = Math.floor(bitInRow / 64);
+      const bitInU64 = bitInRow % 64;
+      const byteIdx = Math.floor(bitInU64 / 8);
+      const bitInByte = bitInU64 % 8;
+
+      const vRow = Math.floor(clIdx / clPerVRow);
+      const clInRow = clIdx % clPerVRow;
+      const clOffsetX = clInRow * clStepX;
+      const rowDataY = this.panY + vRow * vRowHeight + labelH;
+
+      const vecIdx = Math.floor(u64Idx / this.vectorGroup);
+      const intraIdx = u64Idx % this.vectorGroup;
+      const vecX = this.panX + clOffsetX + vecIdx * (vecD.w + this.u64SpacingH * this.zoom);
+      const u64X = vecX + intraIdx * (u64D.w + vecD.intraGap);
+      const bytePos = this._bytePosInU64(byteIdx);
+      const byteX = u64X + bytePos.col * (byteD.w + this.byteSpacingH * this.zoom);
+      const byteY = rowDataY + bytePos.row * (byteD.h + this.byteSpacingV * this.zoom);
+      const bitPos = this._bitPosInByte(bitInByte);
+      const cx = byteX + bitPos.col * (px + this.bitSpacingH * this.zoom) + px / 2;
+      const cy = byteY + bitPos.row * (px + this.bitSpacingV * this.zoom) + px / 2;
+
+      const s = px * scale;
+      ctx.fillRect(cx - s / 2, cy - s / 2, s, s);
+    }
+    ctx.restore();
+  }
+
+  /** Content dimensions at current zoom */
+  contentDimensions() {
+    const bitsPerCacheLine = 512;
+    const totalCL = Math.ceil(this.bitCount / bitsPerCacheLine);
+    const clPerVRow = this._cacheLinesPerVisualRow();
+    const totalVRows = Math.ceil(totalCL / clPerVRow);
+    const rowD = this._rowDims();
+    const labelH = this._labelHeight();
+    const w = clPerVRow * (rowD.w + this.u64SpacingH * this.zoom) - this.u64SpacingH * this.zoom;
+    const h = totalVRows * (labelH + rowD.h + this.u64SpacingV * this.zoom);
+    return { width: Math.max(1, w), height: Math.max(1, h) };
+  }
+
+  /** Set zoom & pan so all content fits with a border */
+  zoomToFit(canvasW, canvasH) {
+    if (this.bitCount === 0 || canvasW <= 0 || canvasH <= 0) return;
+
+    // Measure base dimensions at zoom=1
+    const saved = this.zoom;
+    this.zoom = 1;
+    const dims = this.contentDimensions();
+    this.zoom = saved;
+
+    // Everything scales linearly with zoom
+    const margin = 0.9;
+    const fitZoom = Math.min(
+      (canvasW * margin) / dims.width,
+      (canvasH * margin) / dims.height
+    );
+    this.zoom = Math.max(0.1, Math.min(fitZoom, 4));
+
+    // Center content
+    const finalDims = this.contentDimensions();
+    this.panX = (canvasW - finalDims.width) / 2;
+    this.panY = (canvasH - finalDims.height) / 2;
+  }
+
+  /** Viewport info for scrollbars/minimap */
+  viewportInfo(canvasW, canvasH) {
+    const dims = this.contentDimensions();
+    return {
+      contentW: dims.width,
+      contentH: dims.height,
+      viewX: -this.panX,
+      viewY: -this.panY,
+      viewW: canvasW,
+      viewH: canvasH,
+    };
+  }
+
+  /** Render minimap overlay in bottom-right corner, offset above detailH */
+  renderMinimap(canvasW, canvasH, detailH = 0) {
+    if (this.bitCount === 0) return;
+    const dims = this.contentDimensions();
+    if (dims.width <= canvasW && dims.height <= canvasH) return;
+
+    const ctx = this.ctx;
+    const pad = 4;
+
+    const scale = Math.min(
+      (130) / dims.width,
+      (130) / dims.height
+    );
+    const mapW = dims.width * scale + 2 * pad;
+    const mapH = dims.height * scale + 2 * pad;
+    const mx = canvasW - mapW - 10;
+    const my = canvasH - mapH - 10 - detailH;
+
+    // Store minimap geometry for hit testing
+    this._minimapRect = { mx, my, mapW, mapH, scale, pad, dims };
+
+    // Background
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.fillRect(mx, my, mapW, mapH);
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(mx, my, mapW, mapH);
+
+    // Content outline only (no per-bit colors)
+    const bitsPerCacheLine = 512;
+    const totalCL = Math.ceil(this.bitCount / bitsPerCacheLine);
+    const clPerVRow = this._cacheLinesPerVisualRow();
+    const totalVRows = Math.ceil(totalCL / clPerVRow);
+    const contentW = mapW - 2 * pad;
+    const contentH = mapH - 2 * pad;
+
+    // Draw a simple filled rectangle for the content area
+    ctx.fillStyle = 'rgba(180,180,180,0.15)';
+    ctx.fillRect(mx + pad, my + pad, contentW, contentH);
+
+    // Draw outline of the content boundary
+    ctx.strokeStyle = 'rgba(200,200,200,0.4)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(mx + pad, my + pad, contentW, contentH);
+
+    // Viewport rectangle
+    const vpX = mx + pad + (-this.panX) * scale;
+    const vpY = my + pad + (-this.panY) * scale;
+    const vpW = canvasW * scale;
+    const vpH = canvasH * scale;
+
+    ctx.strokeStyle = 'rgba(255,68,68,0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(
+      Math.max(mx + pad, Math.min(vpX, mx + mapW - pad)),
+      Math.max(my + pad, Math.min(vpY, my + mapH - pad)),
+      Math.min(vpW, mapW - 2 * pad),
+      Math.min(vpH, mapH - 2 * pad)
+    );
+  }
+
+  /** Test if (x,y) in canvas coords is inside the minimap; returns {panX, panY} to center there */
+  minimapHitTest(x, y, canvasW, canvasH) {
+    const r = this._minimapRect;
+    if (!r) return null;
+    const { mx, my, mapW, mapH, scale, pad } = r;
+    if (x < mx || x > mx + mapW || y < my || y > my + mapH) return null;
+    // Map click position to content coordinates
+    const contentX = (x - mx - pad) / scale;
+    const contentY = (y - my - pad) / scale;
+    // Center the viewport on that content point
+    return {
+      panX: -(contentX - canvasW / 2),
+      panY: -(contentY - canvasH / 2),
+    };
   }
 }
