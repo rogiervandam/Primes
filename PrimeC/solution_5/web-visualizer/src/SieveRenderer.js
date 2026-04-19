@@ -199,6 +199,15 @@ export class SieveRenderer {
     this.showByteLabels = false;
     this.showVectorLabels = true;
 
+    // Optional grouping outlines
+    this.outlineEnabled = false;
+    this.outlineTarget = 'byte'; // 'byte' | 'vector' | 'cacheline'
+    this.outlineStyle = 'thin'; // 'thin' | 'thick' | 'dashed' | 'dotted'
+    this.outlineColor = '#5ccf8d';
+    this.outlineRounded = false;
+    this.outlineHoverActive = false;
+    this.outlineHoverPulse = 0;
+
     // Storage model for bit-to-number mapping
     this.storageModel = 'half';
 
@@ -236,6 +245,95 @@ export class SieveRenderer {
       return C.OPERATION_COLORS[this.currentOperation];
     }
     return C.BIT_CHANGED;
+  }
+
+  _outlineConfig() {
+    return { lineWidth: 2.2, dash: [7, 5], radius: 7 };
+  }
+
+  _outlinePadding() {
+    // Keep a visible gap between pixels and the outline border.
+    return 3;
+  }
+
+  _outlineTopExtra(kind) {
+    if (kind === 'byte' && this.showByteLabels) {
+      return Math.max(8, Math.min(14, 2 + 2 * this.zoom));
+    }
+    if (kind === 'vector' && this.showVectorLabels) {
+      return Math.max(10, Math.min(18, 3 + 2 * this.zoom));
+    }
+    return 0;
+  }
+
+  _hexToRgb(hex) {
+    if (!hex || typeof hex !== 'string') return [92, 207, 141];
+    const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+    if (!m) return [92, 207, 141];
+    return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+  }
+
+  _mixRgb(a, b, t) {
+    return [
+      Math.round(a[0] * (1 - t) + b[0] * t),
+      Math.round(a[1] * (1 - t) + b[1] * t),
+      Math.round(a[2] * (1 - t) + b[2] * t),
+    ];
+  }
+
+  _drawOutlineRect(ctx, x, y, w, h) {
+    const cfg = this._outlineConfig();
+    let lineWidth = cfg.lineWidth;
+    const dash = cfg.dash;
+    const radius = cfg.radius;
+    let strokeRgb = this._hexToRgb(this.outlineColor || '#5ccf8d');
+    let inflate = 0;
+
+    if (this.outlineHoverActive) {
+      const p = Math.max(0, Math.min(1, this.outlineHoverPulse || 0));
+      lineWidth += 0.8 + 1.0 * p;
+      inflate = 0.8 + 1.6 * p;
+      strokeRgb = this._mixRgb(strokeRgb, [255, 255, 255], 0.22 + 0.28 * p);
+    }
+
+    x -= inflate;
+    y -= inflate;
+    w += inflate * 2;
+    h += inflate * 2;
+
+    ctx.save();
+    ctx.strokeStyle = `rgb(${strokeRgb[0]},${strokeRgb[1]},${strokeRgb[2]})`;
+    ctx.lineWidth = lineWidth;
+    ctx.setLineDash(dash);
+    if (radius > 0) {
+      const rr = Math.min(radius, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + rr, y);
+      ctx.arcTo(x + w, y, x + w, y + h, rr);
+      ctx.arcTo(x + w, y + h, x, y + h, rr);
+      ctx.arcTo(x, y + h, x, y, rr);
+      ctx.arcTo(x, y, x + w, y, rr);
+      ctx.closePath();
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
+    }
+    ctx.restore();
+  }
+
+  _isNearRectEdge(px, py, x, y, w, h, tol = 4) {
+    const insideX = px >= x - tol && px <= x + w + tol;
+    const insideY = py >= y - tol && py <= y + h + tol;
+    if (!insideX || !insideY) return false;
+    const dl = Math.abs(px - x);
+    const dr = Math.abs(px - (x + w));
+    const dt = Math.abs(py - y);
+    const db = Math.abs(py - (y + h));
+    return Math.min(dl, dr, dt, db) <= tol;
+  }
+
+  _pointInRect(px, py, x, y, w, h, tol = 0) {
+    return px >= x - tol && px <= x + w + tol && py >= y - tol && py <= y + h + tol;
   }
 
   attach(canvas) {
@@ -485,6 +583,13 @@ export class SieveRenderer {
         const clOffsetX = clInRow * (rowD.w + this.u64SpacingH * this.zoom);
         const rowBitStart = clIdx * bitsPerCacheLine;
 
+        if (this.outlineEnabled && this.outlineTarget === 'cacheline') {
+          const clX = this.panX + clOffsetX;
+          const pad = this._outlinePadding();
+          const topExtra = this._outlineTopExtra('cacheline');
+          this._drawOutlineRect(ctx, clX - pad, vRowDataY - pad - topExtra, rowD.w + 2 * pad, rowD.h + 2 * pad + topExtra);
+        }
+
         // Render vector labels
         if (labelH > 0 && this.vectorGroup > 1 && this.showVectorLabels) {
           const fontSize = Math.max(7, Math.min(13, 2 + 2 * this.zoom));
@@ -519,6 +624,12 @@ export class SieveRenderer {
           const vecX = this.panX + clOffsetX + vecIdx * (vecD.w + this.u64SpacingH * this.zoom);
           const u64X = vecX + intraIdx * (u64D.w + vecD.intraGap);
 
+          if (this.outlineEnabled && this.outlineTarget === 'vector' && intraIdx === 0) {
+            const pad = this._outlinePadding();
+            const topExtra = this._outlineTopExtra('vector');
+            this._drawOutlineRect(ctx, vecX - pad, vRowDataY - pad - topExtra, vecD.w + 2 * pad, vecD.h + 2 * pad + topExtra);
+          }
+
           for (let byteIdx = 0; byteIdx < 8; byteIdx++) {
             const byteBitStart = u64BitStart + byteIdx * 8;
             if (byteBitStart >= this.bitCount) break;
@@ -526,6 +637,12 @@ export class SieveRenderer {
             const bytePos = this._bytePosInU64(byteIdx);
             const byteX = u64X + bytePos.col * (byteD.w + this.byteSpacingH * this.zoom);
             const byteY = vRowDataY + bytePos.row * (byteD.h + this.byteSpacingV * this.zoom);
+
+            if (this.outlineEnabled && this.outlineTarget === 'byte') {
+              const pad = this._outlinePadding();
+              const topExtra = this._outlineTopExtra('byte');
+              this._drawOutlineRect(ctx, byteX - pad, byteY - pad - topExtra, byteD.w + 2 * pad, byteD.h + 2 * pad + topExtra);
+            }
 
             // Byte label
             if (showByteLabels) {
@@ -668,6 +785,220 @@ export class SieveRenderer {
     const globalBit = clIdx * bitsPerCacheLine + u64Idx * 64 + byteIdx * 8 + bitInByte;
     if (globalBit < 0 || globalBit >= this.bitCount) return -1;
     return globalBit;
+  }
+
+  hitTestOutline(canvasX, canvasY, options = {}) {
+    if (!this.outlineEnabled) return null;
+    const includeInterior = options.includeInterior !== false;
+
+    const bitsPerCacheLine = this.bitsPerCacheLine;
+    const rowD = this._rowDims();
+    const labelH = this._labelHeight();
+    const clPerVRow = this._cacheLinesPerVisualRow();
+    const vRowHeight = labelH + rowD.h + this.u64SpacingV * this.zoom;
+    const u64D = this._u64Dims();
+    const byteD = this._byteDims();
+    const vecD = this._vectorDims();
+    const numVec = this._numVectorsPerRow();
+    const clStepX = rowD.w + this.u64SpacingH * this.zoom;
+
+    const vRow = Math.floor((canvasY - this.panY) / vRowHeight);
+    if (vRow < 0) return null;
+
+    const localY = canvasY - this.panY - vRow * vRowHeight - labelH;
+    const localX = canvasX - this.panX;
+    if (localX < 0 || localY < 0 || localY > rowD.h) return null;
+
+    const clInRow = Math.floor(localX / clStepX);
+    if (clInRow < 0 || clInRow >= clPerVRow) return null;
+    const clIdx = vRow * clPerVRow + clInRow;
+    const totalCacheLines = Math.ceil(this.bitCount / bitsPerCacheLine);
+    if (clIdx >= totalCacheLines) return null;
+
+    const clOffsetX = clInRow * clStepX;
+    const clX = this.panX + clOffsetX;
+    const rowDataY = this.panY + vRow * vRowHeight + labelH;
+
+    if (this.outlineTarget === 'cacheline') {
+      const pad = this._outlinePadding();
+      const topExtra = this._outlineTopExtra('cacheline');
+      const rx = clX - pad;
+      const ry = rowDataY - pad - topExtra;
+      const rw = rowD.w + 2 * pad;
+      const rh = rowD.h + 2 * pad + topExtra;
+      const edgeHit = this._isNearRectEdge(canvasX, canvasY, rx, ry, rw, rh, 10);
+      const hit = edgeHit || (includeInterior && this._pointInRect(canvasX, canvasY, rx, ry, rw, rh, 1));
+      return hit ? 'cacheline' : null;
+    }
+
+    const clLocalX = localX - clInRow * clStepX;
+    const vecStep = vecD.w + this.u64SpacingH * this.zoom;
+    const vecIdx = Math.floor(clLocalX / vecStep);
+    if (vecIdx < 0 || vecIdx >= numVec) return null;
+    const vecX = clX + vecIdx * vecStep;
+
+    if (this.outlineTarget === 'vector') {
+      const pad = this._outlinePadding();
+      const topExtra = this._outlineTopExtra('vector');
+      const rx = vecX - pad;
+      const ry = rowDataY - pad - topExtra;
+      const rw = vecD.w + 2 * pad;
+      const rh = vecD.h + 2 * pad + topExtra;
+      const edgeHit = this._isNearRectEdge(canvasX, canvasY, rx, ry, rw, rh, 10);
+      const hit = edgeHit || (includeInterior && this._pointInRect(canvasX, canvasY, rx, ry, rw, rh, 1));
+      return hit ? 'vector' : null;
+    }
+
+    const inVecX = clLocalX - vecIdx * vecStep;
+    const u64InVecStep = u64D.w + vecD.intraGap;
+    const intraIdx = Math.floor(inVecX / u64InVecStep);
+    if (intraIdx < 0 || intraIdx >= this.vectorGroup) return null;
+    const u64X = vecX + intraIdx * u64InVecStep;
+
+    const inU64X = inVecX - intraIdx * u64InVecStep;
+    const byteStep_w = byteD.w + this.byteSpacingH * this.zoom;
+    const byteStep_h = byteD.h + this.byteSpacingV * this.zoom;
+    const byteBl = BYTE_LAYOUTS[this.byteLayout];
+    const bCols = byteBl.grid3x3 ? 3 : byteBl.cols;
+
+    const byteCol = Math.floor(inU64X / byteStep_w);
+    const byteRow = Math.floor(localY / byteStep_h);
+    if (byteCol < 0 || byteCol >= bCols || byteRow < 0) return null;
+
+    let byteIdx = -1;
+    for (let i = 0; i < 8; i++) {
+      const pos = this._bytePosInU64(i);
+      if (pos.col === byteCol && pos.row === byteRow) { byteIdx = i; break; }
+    }
+    if (byteIdx < 0) return null;
+
+    const bytePos = this._bytePosInU64(byteIdx);
+    const byteX = u64X + bytePos.col * byteStep_w;
+    const byteY = rowDataY + bytePos.row * byteStep_h;
+    const pad = this._outlinePadding();
+    const topExtra = this._outlineTopExtra('byte');
+    const rx = byteX - pad;
+    const ry = byteY - pad - topExtra;
+    const rw = byteD.w + 2 * pad;
+    const rh = byteD.h + 2 * pad + topExtra;
+    const edgeHit = this._isNearRectEdge(canvasX, canvasY, rx, ry, rw, rh, 9);
+    const hit = edgeHit || (includeInterior && this._pointInRect(canvasX, canvasY, rx, ry, rw, rh, 1));
+    return hit ? 'byte' : null;
+  }
+
+  getOutlineSpacingGuide(canvasX, canvasY) {
+    if (!this.outlineEnabled) return null;
+
+    const bitsPerCacheLine = this.bitsPerCacheLine;
+    const rowD = this._rowDims();
+    const labelH = this._labelHeight();
+    const clPerVRow = this._cacheLinesPerVisualRow();
+    const vRowHeight = labelH + rowD.h + this.u64SpacingV * this.zoom;
+    const u64D = this._u64Dims();
+    const byteD = this._byteDims();
+    const vecD = this._vectorDims();
+    const numVec = this._numVectorsPerRow();
+    const clStepX = rowD.w + this.u64SpacingH * this.zoom;
+
+    const vRow = Math.floor((canvasY - this.panY) / vRowHeight);
+    if (vRow < 0) return null;
+
+    const localY = canvasY - this.panY - vRow * vRowHeight - labelH;
+    const localX = canvasX - this.panX;
+    if (localX < 0 || localY < 0 || localY > rowD.h) return null;
+
+    const clInRow = Math.floor(localX / clStepX);
+    if (clInRow < 0 || clInRow >= clPerVRow) return null;
+    const clIdx = vRow * clPerVRow + clInRow;
+    const totalCacheLines = Math.ceil(this.bitCount / bitsPerCacheLine);
+    if (clIdx >= totalCacheLines) return null;
+
+    const pad = this._outlinePadding();
+    const clOffsetX = clInRow * clStepX;
+    const clX = this.panX + clOffsetX;
+    const rowDataY = this.panY + vRow * vRowHeight + labelH;
+
+    if (this.outlineTarget === 'cacheline') {
+      const topExtra = this._outlineTopExtra('cacheline');
+      const rect1 = { x: clX - pad, y: rowDataY - pad - topExtra, w: rowD.w + 2 * pad, h: rowD.h + 2 * pad + topExtra };
+      let rect2 = null;
+      let axis = 'H';
+
+      if (clInRow + 1 < clPerVRow && clIdx + 1 < totalCacheLines) {
+        const nx = this.panX + (clInRow + 1) * clStepX;
+        rect2 = { x: nx - pad, y: rect1.y, w: rect1.w, h: rect1.h };
+      } else if (clIdx + clPerVRow < totalCacheLines) {
+        axis = 'V';
+        const ny = this.panY + (vRow + 1) * vRowHeight + labelH;
+        rect2 = { x: rect1.x, y: ny - pad - topExtra, w: rect1.w, h: rect1.h };
+      }
+      if (!rect2) return null;
+
+      if (axis === 'H') {
+        const y = rect1.y + rect1.h / 2;
+        return { focus: 'cacheline', axis, x1: rect1.x + rect1.w, y1: y, x2: rect2.x, y2: y, anchorX: canvasX, anchorY: canvasY };
+      }
+      const x = rect1.x + rect1.w / 2;
+      return { focus: 'cacheline', axis, x1: x, y1: rect1.y + rect1.h, x2: x, y2: rect2.y, anchorX: canvasX, anchorY: canvasY };
+    }
+
+    const clLocalX = localX - clInRow * clStepX;
+    const vecStep = vecD.w + this.u64SpacingH * this.zoom;
+    const vecIdx = Math.floor(clLocalX / vecStep);
+    if (vecIdx < 0 || vecIdx >= numVec) return null;
+    const vecX = clX + vecIdx * vecStep;
+
+    if (this.outlineTarget === 'vector') {
+      const topExtra = this._outlineTopExtra('vector');
+      const rect1 = { x: vecX - pad, y: rowDataY - pad - topExtra, w: vecD.w + 2 * pad, h: vecD.h + 2 * pad + topExtra };
+      if (vecIdx + 1 >= numVec) return null;
+      const nVecX = clX + (vecIdx + 1) * vecStep;
+      const rect2 = { x: nVecX - pad, y: rect1.y, w: rect1.w, h: rect1.h };
+      const y = rect1.y + rect1.h / 2;
+      return { focus: 'vector', axis: 'H', x1: rect1.x + rect1.w, y1: y, x2: rect2.x, y2: y, anchorX: canvasX, anchorY: canvasY };
+    }
+
+    const inVecX = clLocalX - vecIdx * vecStep;
+    const u64InVecStep = u64D.w + vecD.intraGap;
+    const intraIdx = Math.floor(inVecX / u64InVecStep);
+    if (intraIdx < 0 || intraIdx >= this.vectorGroup) return null;
+    const u64X = vecX + intraIdx * u64InVecStep;
+
+    const inU64X = inVecX - intraIdx * u64InVecStep;
+    const byteStep_w = byteD.w + this.byteSpacingH * this.zoom;
+    const byteStep_h = byteD.h + this.byteSpacingV * this.zoom;
+    const byteBl = BYTE_LAYOUTS[this.byteLayout];
+    const bCols = byteBl.grid3x3 ? 3 : byteBl.cols;
+    const bRows = byteBl.grid3x3 ? 3 : byteBl.rows;
+
+    const byteCol = Math.floor(inU64X / byteStep_w);
+    const byteRow = Math.floor(localY / byteStep_h);
+    if (byteCol < 0 || byteCol >= bCols || byteRow < 0 || byteRow >= bRows) return null;
+
+    const topExtra = this._outlineTopExtra('byte');
+    const rect1 = {
+      x: u64X + byteCol * byteStep_w - pad,
+      y: rowDataY + byteRow * byteStep_h - pad - topExtra,
+      w: byteD.w + 2 * pad,
+      h: byteD.h + 2 * pad + topExtra,
+    };
+
+    let axis = 'H';
+    let rect2 = null;
+    if (byteCol + 1 < bCols) {
+      rect2 = { ...rect1, x: rect1.x + byteStep_w };
+    } else if (byteRow + 1 < bRows) {
+      axis = 'V';
+      rect2 = { ...rect1, y: rect1.y + byteStep_h };
+    }
+    if (!rect2) return null;
+
+    if (axis === 'H') {
+      const y = rect1.y + rect1.h / 2;
+      return { focus: 'byte', axis, x1: rect1.x + rect1.w, y1: y, x2: rect2.x, y2: y, anchorX: canvasX, anchorY: canvasY };
+    }
+    const x = rect1.x + rect1.w / 2;
+    return { focus: 'byte', axis, x1: x, y1: rect1.y + rect1.h, x2: x, y2: rect2.y, anchorX: canvasX, anchorY: canvasY };
   }
 
   getBitInfo(bitIdx) {

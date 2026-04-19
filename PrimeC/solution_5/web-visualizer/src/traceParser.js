@@ -55,7 +55,7 @@ function parseJsonTrace(text) {
     bitCount: json.bit_count,
     maxNumber: json.max_number ?? json.sieve_size,
     stepCount: rawSteps.length,
-    storageModel: json.storage_model || null,
+    storageModel: json.storage_model || 'half',
   };
 
   const steps = rawSteps.map((s) => {
@@ -156,7 +156,7 @@ function parseTextTrace(text) {
     bitCount: toNumberOr(headerKv.bit_count, 0),
     maxNumber: toNumberOr(firstDefined(headerKv.max_number, headerKv.sieve_size), 0),
     stepCount: steps.length,
-    storageModel: headerKv.storage_model || null,
+    storageModel: headerKv.storage_model || 'half',
   };
 
   return { header, steps };

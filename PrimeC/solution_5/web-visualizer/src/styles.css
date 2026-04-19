@@ -462,6 +462,32 @@ code, pre {
 .canvas-container canvas {
   display: block;
 }
+.outline-spacing-guide {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+}
+.outline-spacing-line {
+  stroke: #3b82f6;
+  stroke-width: 2;
+  stroke-dasharray: 8 6;
+  opacity: 0.95;
+  pointer-events: none;
+}
+.outline-spacing-arrow {
+  fill: #3b82f6;
+  opacity: 0.95;
+  pointer-events: none;
+}
+.outline-spacing-handle {
+  fill: #3b82f6;
+  stroke: #dbeafe;
+  stroke-width: 2;
+  cursor: grab;
+}
+.outline-spacing-handle:active {
+  cursor: grabbing;
+}
 .hover-info {
   position: absolute;
   bottom: 44px;
@@ -803,6 +829,9 @@ code, pre {
   gap: 6px;
   margin-bottom: 5px;
 }
+.lo-level-row-stacked {
+  align-items: flex-start;
+}
 .lo-level-tag {
   min-width: 32px;
   text-align: right;
@@ -811,6 +840,13 @@ code, pre {
   font-weight: 700;
   flex-shrink: 0;
   letter-spacing: 0.02em;
+}
+.lo-subtag {
+  font-size: 10px;
+  color: var(--fg-dim);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 .lo-vec-wrap {
   display: flex;
@@ -841,6 +877,62 @@ code, pre {
   flex-direction: column;
   gap: 3px;
   margin-top: 4px;
+}
+
+.anno-btn-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.anno-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  padding: 6px;
+  color: var(--fg-muted);
+}
+
+.anno-btn:hover {
+  background: var(--bg-input);
+  color: var(--fg);
+}
+
+.anno-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--fg-bright);
+}
+
+.anno-btn-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.anno-btn-preview svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+}
+
+.anno-btn-preview text {
+  fill: currentColor;
+  stroke: none;
+}
+
+.anno-btn-title {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.anno-btn-hint {
+  font-size: 10px;
+  color: var(--fg-dim);
 }
 .lo-sp-row {
   display: flex;

@@ -64,6 +64,8 @@ export default function SettingsPanel({
   cachePreset, onCachePresetChange,
   heatMapEnabled, onHeatMapToggle,
   showMinimap, onShowMinimapChange,
+  outlineSettings, onOutlineChange,
+  spacingFocus, onAdjustSpacingFromOutline,
 }) {
   const s = settings || {};
   const set = (key, val) => {
@@ -140,93 +142,30 @@ export default function SettingsPanel({
     );
   };
 
+  const AnnotationButton = ({ title, hint, active, onClick, preview }) => (
+    <button
+      type="button"
+      className={`anno-btn${active ? ' active' : ''}`}
+      onClick={onClick}
+      title={hint}
+    >
+      <span className="anno-btn-preview">{preview}</span>
+      <span className="anno-btn-title">{title}</span>
+      <span className="anno-btn-hint">{hint}</span>
+    </button>
+  );
+
+  const outline = outlineSettings || {
+    target: 'none',
+  };
+
   /**
-   * Unified layout overview — shows all three nesting levels (bit → byte → vector) in one
-   * live SVG preview, with layout icon-buttons per level and compact H/V spacing controls.
+   * Unified layout controls with icon buttons and spacing rows.
+   * No large preview block so panel height remains stable while changing options.
    */
   const LayoutOverview = () => {
-    const BIT_PX = 3;
-    const blKey = s.bitLayout  || '4x2';
-    const byKey = s.byteLayout || '4x2';
-    const vg    = Math.max(1, parseInt(s.vectorGroup) || 1);
-
-    const bl  = BIT_LAYOUTS[blKey]  || { cols: 4, rows: 2, grid3x3: false };
-    const byl = BYTE_LAYOUTS[byKey] || { cols: 4, rows: 2, grid3x3: false };
     const vectorBaseBits = s.vectorBaseBits ?? 64;
     const vectorLanes = s.vectorLanes ?? 1;
-
-    const bitCols  = bl.grid3x3  ? 3 : (bl.cols  || 4);
-    const bitRows  = bl.grid3x3  ? 3 : (bl.rows  || 2);
-    const byteCols = byl.grid3x3 ? 3 : (byl.cols || 4);
-    const byteRows = byl.grid3x3 ? 3 : (byl.rows || 2);
-
-    // Clamp spacing to small values so the preview fits no matter what the user sets
-    const bsH = Math.min(4, Math.max(0, s.bitSpacingH  ?? 1));
-    const bsV = Math.min(4, Math.max(0, s.bitSpacingV  ?? 1));
-    const ysH = Math.min(5, Math.max(0, s.byteSpacingH ?? 2));
-    const ysV = Math.min(5, Math.max(0, s.byteSpacingV ?? 2));
-    const vsH = Math.min(7, Math.max(0, s.u64SpacingH  ?? 4));
-    const vsV = Math.min(7, Math.max(0, s.u64SpacingV  ?? 4));
-
-    // Pixel dimensions of one byte / one uint64 in the preview
-    const byteW = bitCols  * BIT_PX + Math.max(0, bitCols  - 1) * bsH;
-    const byteH = bitRows  * BIT_PX + Math.max(0, bitRows  - 1) * bsV;
-    const u64W  = byteCols * byteW  + Math.max(0, byteCols - 1) * ysH;
-    const u64H  = byteRows * byteH  + Math.max(0, byteRows - 1) * ysV;
-
-    // Show at most 2×2 vectors so the preview doesn't get huge
-    const vecShowW = Math.min(vg, 2);
-    const vecShowH = Math.min(Math.ceil(vg / vecShowW), 2);
-    const rawW = vecShowW * u64W + Math.max(0, vecShowW - 1) * vsH + 4;
-    const rawH = vecShowH * u64H + Math.max(0, vecShowH - 1) * vsV + 4;
-
-    // Auto-scale to fit the panel (max 175 px wide; allow up-scale for tiny previews)
-    const MAX_W  = 175;
-    const scale  = Math.min(2.5, MAX_W / Math.max(1, rawW));
-    const svgW   = Math.round(rawW * scale);
-    const svgH   = Math.round(rawH * scale);
-
-    // Build SVG elements (vector outline → byte background → bit cell)
-    const vecBgs = [], byteBgs = [], bitCells = [];
-    for (let vy = 0; vy < vecShowH; vy++) {
-      for (let vx = 0; vx < vecShowW; vx++) {
-        const vox = 2 + vx * (u64W + vsH);
-        const voy = 2 + vy * (u64H + vsV);
-
-        vecBgs.push(
-          <rect key={`vbg-${vy}-${vx}`}
-            x={vox - 1} y={voy - 1} width={u64W + 2} height={u64H + 2}
-            fill="none" stroke="var(--accent)" strokeWidth={0.6} rx={1} opacity={0.55} />
-        );
-
-        for (let bi = 0; bi < byteCols * byteRows; bi++) {
-          if (byl.grid3x3 && bi === 4) continue;
-          const bc  = bi % byteCols;
-          const br  = Math.floor(bi / byteCols);
-          const box = vox + bc * (byteW + ysH);
-          const boy = voy + br * (byteH + ysV);
-
-          byteBgs.push(
-            <rect key={`bbg-${vy}-${vx}-${bi}`}
-              x={box} y={boy} width={byteW} height={byteH}
-              fill="var(--fg-muted)" opacity={0.15} rx={0.5} />
-          );
-
-          for (let pi = 0; pi < bitCols * bitRows; pi++) {
-            if (bl.grid3x3 && pi === 4) continue;
-            const pc = pi % bitCols;
-            const pr = Math.floor(pi / bitCols);
-            bitCells.push(
-              <rect key={`bit-${vy}-${vx}-${bi}-${pi}`}
-                x={box + pc * (BIT_PX + bsH)}
-                y={boy + pr * (BIT_PX + bsV)}
-                width={BIT_PX} height={BIT_PX}
-                fill="var(--fg-dim)" rx={0.5} />
-            );
-          }
-        }
-      }
-    }
 
     // Compact H/V spacing control row
     const SpRow = ({ label, dot, keyH, keyV, max }) => (
@@ -245,8 +184,9 @@ export default function SettingsPanel({
     );
 
     return (
+      <>
       <div className="settings-section lo-section">
-        <label>Layout</label>
+        <label>Grouping</label>
 
         {/* Bit layout row */}
         <div className="lo-level-row">
@@ -259,6 +199,7 @@ export default function SettingsPanel({
             ))}
           </div>
         </div>
+        <p className="layout-description">{BIT_LAYOUT_TIPS[s.bitLayout] || 'Pick how bits are arranged inside a byte.'}</p>
 
         {/* Byte layout row */}
         <div className="lo-level-row">
@@ -271,11 +212,12 @@ export default function SettingsPanel({
             ))}
           </div>
         </div>
+        <p className="layout-description">{BYTE_LAYOUT_TIPS[s.byteLayout] || 'Pick how bytes are arranged inside a uint64.'}</p>
 
-        {/* Vector grouping row */}
-        <div className="lo-level-row">
-          <span className="lo-level-tag">Vec</span>
+        <div className="lo-level-row lo-level-row-stacked">
+          <span className="lo-level-tag">Vector</span>
           <div className="lo-vec-wrap">
+            <span className="lo-subtag">Type</span>
             <div className="lo-vec-bases">
               {VECTOR_BASE_OPTIONS.map((opt) => (
                 <button key={opt.bits}
@@ -286,6 +228,7 @@ export default function SettingsPanel({
                 </button>
               ))}
             </div>
+            <span className="lo-subtag">Lanes</span>
             <div className="lo-vec-lanes">
               {VECTOR_LANE_OPTIONS.map((lane) => (
                 <button key={lane}
@@ -296,32 +239,28 @@ export default function SettingsPanel({
                 </button>
               ))}
             </div>
+            <span className="lo-subtag">Grouping</span>
             <div className="lo-vec-icons">
               {Object.entries(VECTOR_GROUPS).map(([k]) => (
                 <VectorIcon key={k} count={parseInt(k)} active={s.vectorGroup === parseInt(k)}
                             onClick={() => set('vectorGroup', parseInt(k))} tooltip={VECTOR_TIPS[k]} size={20} />
               ))}
             </div>
+            <p className="layout-description">Current: {buildVectorLabel(vectorBaseBits, vectorLanes)} ({s.vectorGroup || 1}x uint64 group)</p>
           </div>
         </div>
+      </div>
 
         {/* Spacing controls — colour-coded to match preview */}
+      <div className="settings-section lo-section">
+        <label>Spacing</label>
         <div className="lo-sp-table">
           <SpRow label="Bit"  dot="var(--fg-dim)"   keyH="bitSpacingH"  keyV="bitSpacingV"  max={10} />
           <SpRow label="Byte" dot="var(--border)"   keyH="byteSpacingH" keyV="byteSpacingV" max={20} />
           <SpRow label="u64"  dot="var(--accent)"   keyH="u64SpacingH"  keyV="u64SpacingV"  max={20} />
         </div>
-
-        {/* Live SVG preview — stays below +/- controls so controls do not shift */}
-        <div className="lo-preview-wrap">
-          <svg className="lo-preview" width={svgW} height={svgH}
-               viewBox={`0 0 ${rawW} ${rawH}`}>
-            {vecBgs}
-            {byteBgs}
-            {bitCells}
-          </svg>
-        </div>
       </div>
+      </>
     );
   };
 
@@ -376,52 +315,131 @@ export default function SettingsPanel({
           <div className="layout-icons">
             {Object.entries(CACHELINE_SIZES).map(([k, v]) => (
               <button key={k} className={`btn-option${cachelineSize === parseInt(k) ? ' active' : ''}`}
-                      onClick={() => onCachelineSizeChange(parseInt(k))} title={v.label}>
+                      onClick={() => {
+                        onCachelineSizeChange(parseInt(k));
+                        onCachePresetChange('fixed');
+                      }} title={v.label}>
                 {k}B
               </button>
             ))}
+            <button className={`btn-option${(cachePreset || 'fixed') !== 'fixed' ? ' active' : ''}`}
+                    onClick={() => onCachePresetChange('custom')} title="Custom cacheline size">
+              custom
+            </button>
           </div>
         </div>
 
-        {/* Cache presets (processor model) */}
-        <div className="settings-section">
-          <label>Processor cache preset</label>
-          <select value={cachePreset || 'custom'} onChange={(e) => {
-            const key = e.target.value;
-            onCachePresetChange(key);
-            if (key !== 'custom') {
-              const p = CACHE_PRESETS[key];
-              if (p) onCachelineSizeChange(p.cachelineSize);
-            }
-          }}>
-            {Object.entries(CACHE_PRESETS).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v.label}{v.l1 ? ` — L1: ${(v.l1/1024).toFixed(0)}KB, L2: ${(v.l2/1024/1024).toFixed(1)}MB` : ''}
-              </option>
-            ))}
-          </select>
-        </div>
+        {(cachePreset || 'fixed') !== 'fixed' && (
+          <>
+            {/* Cache presets (processor model) */}
+            <div className="settings-section">
+              <label>Processor cache preset</label>
+              <select value={(cachePreset || 'custom') === 'fixed' ? 'custom' : (cachePreset || 'custom')} onChange={(e) => {
+                const key = e.target.value;
+                onCachePresetChange(key);
+                if (key !== 'custom') {
+                  const p = CACHE_PRESETS[key];
+                  if (p) onCachelineSizeChange(p.cachelineSize);
+                }
+              }}>
+                {Object.entries(CACHE_PRESETS).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v.label}{v.l1 ? ` — L1: ${(v.l1/1024).toFixed(0)}KB, L2: ${(v.l2/1024/1024).toFixed(1)}MB` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="settings-section">
+              <label>Custom cacheline bytes</label>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={cachelineSize > 0 ? cachelineSize : ''}
+                placeholder="e.g. 64"
+                onChange={(e) => {
+                  const n = Math.max(1, parseInt(e.target.value || '0', 10) || 0);
+                  if (n > 0) onCachelineSizeChange(n);
+                }}
+              />
+            </div>
+          </>
+        )}
 
         <div className="settings-section">
           <label>Annotations</label>
-          <div className="settings-row" style={{ flexDirection: 'column', gap: 4 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-              <input type="checkbox" checked={s.showBitLabels || false}
-                     onChange={(e) => set('showBitLabels', e.target.checked)} />
-              Bit numbers <span className="settings-hint" style={{ marginLeft: 4 }}>(zoom ≥6×)</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-              <input type="checkbox" checked={s.showByteLabels || false}
-                     onChange={(e) => set('showByteLabels', e.target.checked)} />
-              Byte indices <span className="settings-hint" style={{ marginLeft: 4 }}>(zoom ≥4×)</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-              <input type="checkbox" checked={s.showVectorLabels !== false}
-                     onChange={(e) => set('showVectorLabels', e.target.checked)} />
-              Vector / uint64 labels
-            </label>
+          <div className="anno-btn-grid">
+            <AnnotationButton
+              title="Bits"
+              hint="Bit numbers (zoom >= 6x)"
+              active={!!s.showBitLabels}
+              onClick={() => set('showBitLabels', !s.showBitLabels)}
+              preview={(
+                <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
+                  <rect x="1" y="1" width="6" height="6" rx="1" />
+                  <rect x="9" y="1" width="6" height="6" rx="1" />
+                  <rect x="17" y="1" width="6" height="6" rx="1" />
+                  <text x="2" y="16" fontSize="7">0 1 2</text>
+                </svg>
+              )}
+            />
+            <AnnotationButton
+              title="Bytes"
+              hint="Byte indices (zoom >= 4x)"
+              active={!!s.showByteLabels}
+              onClick={() => set('showByteLabels', !s.showByteLabels)}
+              preview={(
+                <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
+                  <rect x="1" y="1" width="18" height="8" rx="1" />
+                  <rect x="23" y="1" width="18" height="8" rx="1" />
+                  <text x="2" y="16" fontSize="7">b0    b1</text>
+                </svg>
+              )}
+            />
+            <AnnotationButton
+              title="Vectors"
+              hint="Vector and uint64 labels"
+              active={s.showVectorLabels !== false}
+              onClick={() => set('showVectorLabels', s.showVectorLabels === false)}
+              preview={(
+                <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
+                  <rect x="1" y="4" width="42" height="8" rx="2" />
+                  <line x1="15" y1="4" x2="15" y2="12" />
+                  <line x1="29" y1="4" x2="29" y2="12" />
+                  <text x="2" y="17" fontSize="7">v0  v1  v2</text>
+                </svg>
+              )}
+            />
           </div>
         </div>
+
+        <div className="settings-section">
+          <label>Grouping outlines</label>
+          <div className="settings-row" style={{ flexDirection: 'column', gap: 6 }}>
+            <select
+              value={outline.target || 'none'}
+              onChange={(e) => onOutlineChange({ ...outline, target: e.target.value })}
+            >
+              <option value="none">None</option>
+              <option value="byte">Byte outline</option>
+              <option value="vector">Vector outline</option>
+              <option value="cacheline">Cacheline outline</option>
+            </select>
+          </div>
+          <span className="settings-hint">Click an outline in the canvas to set spacing focus.</span>
+        </div>
+
+        {spacingFocus && (
+          <div className="settings-section">
+            <label>Spacing focus: {spacingFocus}</label>
+            <div className="settings-row" style={{ gap: 8 }}>
+              <button className="btn-option btn-sm" onClick={() => onAdjustSpacingFromOutline(spacingFocus, 'H', -1)}>H−</button>
+              <button className="btn-option btn-sm" onClick={() => onAdjustSpacingFromOutline(spacingFocus, 'H', 1)}>H+</button>
+              <button className="btn-option btn-sm" onClick={() => onAdjustSpacingFromOutline(spacingFocus, 'V', -1)}>V−</button>
+              <button className="btn-option btn-sm" onClick={() => onAdjustSpacingFromOutline(spacingFocus, 'V', 1)}>V+</button>
+            </div>
+          </div>
+        )}
 
         {/* Minimap */}
         <div className="settings-section">

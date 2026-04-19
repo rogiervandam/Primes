@@ -24,6 +24,9 @@ const DEFAULT_SETTINGS = {
   showBitLabels: false,
   showByteLabels: false,
   showVectorLabels: true,
+  outlines: {
+    target: 'none',
+  },
 };
 
 export default function Visualizer({ trace, fileName, onClose, autoRender }) {
@@ -64,8 +67,11 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [selectedSteps, setSelectedSteps] = useState(new Set());
   const [heatMapEnabled, setHeatMapEnabled] = useState(false);
   const [cachelineSize, setCachelineSize] = useState(64);
-  const [cachePreset, setCachePreset] = useState('custom');
+  const [cachePreset, setCachePreset] = useState('fixed');
   const [stepsPanelCollapsed, setStepsPanelCollapsed] = useState(false);
+  const [spacingFocus, setSpacingFocus] = useState(null);
+  const [spacingGuide, setSpacingGuide] = useState(null); // { focus, axis, x1, y1, x2, y2, anchorX, anchorY }
+  const [guideDrag, setGuideDrag] = useState(null); // { focus, axis, handle, startX, startY, startSpacing, anchorX, anchorY }
 
   const bitStateRef = useRef(null);
   const stepsRef = useRef([]);
@@ -74,6 +80,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const rippleRef = useRef(null);
   const seqTimerRef = useRef(null); // sequential animation timer
   const animBusyUntilRef = useRef(0);
+  const outlineHoverRafRef = useRef(null);
   const initialFitDoneRef = useRef(false);
   const detailOpenRef = useRef(true);
   const detailHeightRef = useRef(200);
@@ -152,6 +159,12 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.showBitLabels = layoutSettings.showBitLabels;
     r.showByteLabels = layoutSettings.showByteLabels;
     r.showVectorLabels = layoutSettings.showVectorLabels !== false;
+    const outlineTarget = layoutSettings.outlines?.target || 'none';
+    r.outlineEnabled = outlineTarget !== 'none';
+    r.outlineTarget = outlineTarget;
+    r.outlineStyle = 'dashed';
+    r.outlineColor = '#3b82f6';
+    r.outlineRounded = true;
     r.colorPreset = colorPreset;
     r.storageModel = storageModel;
     r.cachelineSize = cachelineSize;
@@ -177,6 +190,108 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.render();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
   }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled]);
+
+  const adjustSpacingFromOutline = useCallback((focus, axis, delta) => {
+    const keyMap = {
+      byte: axis === 'H' ? 'byteSpacingH' : 'byteSpacingV',
+      vector: axis === 'H' ? 'u64SpacingH' : 'u64SpacingV',
+      cacheline: axis === 'H' ? 'u64SpacingH' : 'u64SpacingV',
+    };
+    const key = keyMap[focus];
+    if (!key) return;
+    setLayoutSettings((prev) => {
+      const max = key.includes('bitSpacing') ? 10 : 20;
+      const next = Math.max(0, Math.min(max, (prev[key] || 0) + delta));
+      return { ...prev, [key]: next };
+    });
+  }, []);
+
+  useEffect(() => {
+    const r = rendererRef.current;
+    if (!r || !spacingGuide) return;
+    const next = r.getOutlineSpacingGuide(spacingGuide.anchorX, spacingGuide.anchorY);
+    if (!next) {
+      setSpacingGuide(null);
+      return;
+    }
+    if (
+      next.focus !== spacingGuide.focus ||
+      next.axis !== spacingGuide.axis ||
+      next.x1 !== spacingGuide.x1 ||
+      next.y1 !== spacingGuide.y1 ||
+      next.x2 !== spacingGuide.x2 ||
+      next.y2 !== spacingGuide.y2
+    ) {
+      setSpacingGuide(next);
+    }
+  }, [layoutSettings, spacingGuide?.anchorX, spacingGuide?.anchorY]);
+
+  useEffect(() => {
+    if (!guideDrag) return;
+
+    const mapKey = {
+      byte: guideDrag.axis === 'H' ? 'byteSpacingH' : 'byteSpacingV',
+      vector: guideDrag.axis === 'H' ? 'u64SpacingH' : 'u64SpacingV',
+      cacheline: guideDrag.axis === 'H' ? 'u64SpacingH' : 'u64SpacingV',
+    };
+    const key = mapKey[guideDrag.focus];
+    if (!key) return;
+
+    const onMove = (e) => {
+      const r = rendererRef.current;
+      const z = Math.max(0.25, r?.zoom || 1);
+      const axisDelta = guideDrag.axis === 'H'
+        ? (e.clientX - guideDrag.startX)
+        : (e.clientY - guideDrag.startY);
+      let sign = 1;
+      if (guideDrag.axis === 'H' && guideDrag.handle === 'start') sign = -1;
+      if (guideDrag.axis === 'V' && guideDrag.handle === 'start') sign = -1;
+      const stepDelta = Math.round((sign * axisDelta) / z);
+      const max = key.includes('bitSpacing') ? 10 : 20;
+      const nextVal = Math.max(0, Math.min(max, guideDrag.startSpacing + stepDelta));
+      setLayoutSettings((prev) => ({ ...prev, [key]: nextVal }));
+    };
+
+    const onUp = () => setGuideDrag(null);
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [guideDrag]);
+
+  const stopOutlineHoverAnim = useCallback(() => {
+    if (outlineHoverRafRef.current) {
+      cancelAnimationFrame(outlineHoverRafRef.current);
+      outlineHoverRafRef.current = null;
+    }
+    const r = rendererRef.current;
+    if (r) {
+      r.outlineHoverActive = false;
+      r.outlineHoverPulse = 0;
+    }
+  }, []);
+
+  const startOutlineHoverAnim = useCallback(() => {
+    const r = rendererRef.current;
+    if (!r || outlineHoverRafRef.current) return;
+
+    const tick = () => {
+      const rr = rendererRef.current;
+      if (!rr || !rr.outlineHoverActive) {
+        outlineHoverRafRef.current = null;
+        return;
+      }
+      rr.outlineHoverPulse = (Math.sin(performance.now() / 140) + 1) / 2;
+      rr.render();
+      rr.renderMinimap(rr.canvasWidth, rr.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      outlineHoverRafRef.current = requestAnimationFrame(tick);
+    };
+
+    outlineHoverRafRef.current = requestAnimationFrame(tick);
+  }, [getMinimapDetailH]);
 
   // Resize handler
   useEffect(() => {
@@ -525,6 +640,16 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         const idx = r.canvasToBitIndex(x, y);
+        const outlineHit = idx >= 0 ? null : r.hitTestOutline(x, y, { includeInterior: false });
+        const onOutline = !!outlineHit;
+        r.outlineHoverActive = onOutline;
+        if (onOutline) {
+          el.style.cursor = 'pointer';
+          startOutlineHoverAnim();
+        } else {
+          el.style.cursor = 'crosshair';
+          stopOutlineHoverAnim();
+        }
         setHoverInfo(idx >= 0 ? r.getBitInfo(idx) : '');
         // Update hover panel only when bit index changes
         if (idx !== lastHoveredIdxRef.current) {
@@ -544,6 +669,15 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         const y = e.clientY - rect.top;
         const r = rendererRef.current;
         const idx = r.canvasToBitIndex(x, y);
+        const outlineHit = idx >= 0 ? null : r.hitTestOutline(x, y, { includeInterior: false });
+        if (outlineHit) {
+          setSpacingFocus(outlineHit);
+          setSpacingGuide(r.getOutlineSpacingGuide(x, y));
+          setBitHistoryModal(null);
+          dragging = false; minimapDragging = false; el.classList.remove('dragging');
+          return;
+        }
+        setSpacingGuide(null);
         if (idx >= 0) {
           const info = computeBitInfo(idx);
           // Toggle lock: clicking same bit unlocks, clicking different bit locks
@@ -577,7 +711,15 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
     el.addEventListener('wheel', onWheel, { passive: false });
-    const onMouseLeave = () => { if (!dragging) { setHoverInfo(''); lastHoveredIdxRef.current = -1; setHoveredBitInfo(null); } };
+    const onMouseLeave = () => {
+      if (!dragging) {
+        setHoverInfo('');
+        lastHoveredIdxRef.current = -1;
+        setHoveredBitInfo(null);
+      }
+      stopOutlineHoverAnim();
+      el.style.cursor = 'crosshair';
+    };
     el.addEventListener('mouseleave', onMouseLeave);
 
     return () => {
@@ -586,8 +728,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       window.removeEventListener('mouseup', onMouseUp);
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('mouseleave', onMouseLeave);
+      stopOutlineHoverAnim();
     };
-  }, []);
+  }, [computeBitInfo, getMinimapDetailH, startOutlineHoverAnim, stopOutlineHoverAnim]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -752,6 +895,29 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     setSearchResult(`Bit ${bitIdx} → Number ${num}`);
   }, [storageModel]);
 
+  const beginGuideDrag = useCallback((handle, e) => {
+    if (!spacingGuide) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const keyMap = {
+      byte: spacingGuide.axis === 'H' ? 'byteSpacingH' : 'byteSpacingV',
+      vector: spacingGuide.axis === 'H' ? 'u64SpacingH' : 'u64SpacingV',
+      cacheline: spacingGuide.axis === 'H' ? 'u64SpacingH' : 'u64SpacingV',
+    };
+    const key = keyMap[spacingGuide.focus];
+    if (!key) return;
+    setGuideDrag({
+      focus: spacingGuide.focus,
+      axis: spacingGuide.axis,
+      handle,
+      startX: e.clientX,
+      startY: e.clientY,
+      startSpacing: layoutSettings[key] || 0,
+      anchorX: spacingGuide.anchorX,
+      anchorY: spacingGuide.anchorY,
+    });
+  }, [spacingGuide, layoutSettings]);
+
   const currentStepData = steps[currentStep] || null;
 
   return (
@@ -850,6 +1016,43 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         <div className="canvas-area">
           <div className="canvas-container" ref={containerRef}>
             <canvas ref={canvasRef} />
+            {spacingGuide && (
+              <svg className="outline-spacing-guide" width="100%" height="100%">
+                <line
+                  x1={spacingGuide.x1}
+                  y1={spacingGuide.y1}
+                  x2={spacingGuide.x2}
+                  y2={spacingGuide.y2}
+                  className="outline-spacing-line"
+                />
+                <polygon
+                  points={spacingGuide.axis === 'H'
+                    ? `${spacingGuide.x1},${spacingGuide.y1} ${spacingGuide.x1 + 10},${spacingGuide.y1 - 6} ${spacingGuide.x1 + 10},${spacingGuide.y1 + 6}`
+                    : `${spacingGuide.x1},${spacingGuide.y1} ${spacingGuide.x1 - 6},${spacingGuide.y1 + 10} ${spacingGuide.x1 + 6},${spacingGuide.y1 + 10}`}
+                  className="outline-spacing-arrow"
+                />
+                <polygon
+                  points={spacingGuide.axis === 'H'
+                    ? `${spacingGuide.x2},${spacingGuide.y2} ${spacingGuide.x2 - 10},${spacingGuide.y2 - 6} ${spacingGuide.x2 - 10},${spacingGuide.y2 + 6}`
+                    : `${spacingGuide.x2},${spacingGuide.y2} ${spacingGuide.x2 - 6},${spacingGuide.y2 - 10} ${spacingGuide.x2 + 6},${spacingGuide.y2 - 10}`}
+                  className="outline-spacing-arrow"
+                />
+                <circle
+                  cx={spacingGuide.x1}
+                  cy={spacingGuide.y1}
+                  r={7}
+                  className="outline-spacing-handle"
+                  onMouseDown={(e) => beginGuideDrag('start', e)}
+                />
+                <circle
+                  cx={spacingGuide.x2}
+                  cy={spacingGuide.y2}
+                  r={7}
+                  className="outline-spacing-handle"
+                  onMouseDown={(e) => beginGuideDrag('end', e)}
+                />
+              </svg>
+            )}
           </div>
           {hoverInfo && <div className="hover-info">{hoverInfo}</div>}
 
@@ -954,6 +1157,10 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           onHeatMapToggle={setHeatMapEnabled}
           showMinimap={showMinimap}
           onShowMinimapChange={setShowMinimap}
+          outlineSettings={layoutSettings.outlines}
+          onOutlineChange={(outlines) => setLayoutSettings((prev) => ({ ...prev, outlines }))}
+          spacingFocus={spacingFocus}
+          onAdjustSpacingFromOutline={adjustSpacingFromOutline}
         />
       </div>
     </div>

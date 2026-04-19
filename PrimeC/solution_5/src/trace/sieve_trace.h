@@ -148,6 +148,9 @@ trace_clear_context(void)
 static void __attribute__((cold))
 trace_init(const char* filename, uint64_t sieve_size, uint64_t bit_count)
 {
+    const char* storage_model = getenv("TRACE_STORAGE_MODEL");
+    if (!storage_model || !*storage_model) storage_model = "half";
+
     g_trace.sieve_size       = sieve_size;
     g_trace.bit_count        = bit_count;
     g_trace.bitstorage_bytes = (uint32_t)((bit_count + 7) / 8);
@@ -176,11 +179,12 @@ trace_init(const char* filename, uint64_t sieve_size, uint64_t bit_count)
     }
 
     fprintf(g_trace.file,
-            "TRACE version=%d format=text sieve_size=%llu bit_count=%llu max_number=%llu\n",
+            "TRACE version=%d format=text sieve_size=%llu bit_count=%llu max_number=%llu storage_model=%s\n",
             TRACE_FORMAT_VERSION,
             (unsigned long long)sieve_size,
             (unsigned long long)bit_count,
-            (unsigned long long)sieve_size);
+            (unsigned long long)sieve_size,
+            storage_model);
 
     const char* json_secondary = getenv("TRACE_JSON_SECONDARY");
     if (json_secondary && strcmp(json_secondary, "0") != 0) {
@@ -189,11 +193,12 @@ trace_init(const char* filename, uint64_t sieve_size, uint64_t bit_count)
         g_trace.json_file = fopen(json_path, "w");
         if (g_trace.json_file) {
             fprintf(g_trace.json_file,
-                    "{\"version\":%d,\"sieve_size\":%llu,\"bit_count\":%llu,\"max_number\":%llu,\"steps\":[",
+                    "{\"version\":%d,\"sieve_size\":%llu,\"bit_count\":%llu,\"max_number\":%llu,\"storage_model\":\"%s\",\"steps\":[",
                     TRACE_FORMAT_VERSION,
                     (unsigned long long)sieve_size,
                     (unsigned long long)bit_count,
-                    (unsigned long long)sieve_size);
+                    (unsigned long long)sieve_size,
+                    storage_model);
             g_trace.json_enabled = 1;
             fprintf(stderr, "Trace: JSON companion enabled: %s\n", json_path);
         } else {
