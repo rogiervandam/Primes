@@ -20,6 +20,10 @@ static char algorithm_type[] = "base";
 #include "sieve/sieve_calc.h"
 #include "sieve/sieve_manager.h"
 
+#ifndef log5
+#define log5(fmt, ...) verbose5(printf((fmt) "\n", ##__VA_ARGS__))
+#endif
+
 static inline uint8_t checkFactor(sieve_t *sieve, counter_t factor) {
     uint8_t* bitstorage = sieve->bitstorage;
     if (factor > 2 && factor % 2 == 0) return 1;
@@ -51,9 +55,12 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
         const counter_t step  = prime * 2 + 1;
         const counter_t start = prime * (step + 1);
 
+        log5("Setting bits with step %d in range %d-%d", (int)step, (int)start, (int)sieve_bits);
+
         // #pragma GCC ivdep
         #pragma GCC unroll 32
         for(counter_t i=start; i < sieve_bits; i += step) {
+            log5("Setting bit %d", (int)i);
             bitstorage[index_type(i, bitbucket_t)] |= markmask_calc_type(i,bitbucket_t);
         }
 

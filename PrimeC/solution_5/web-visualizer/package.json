@@ -8,6 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "clean:reinstall": "node -e \"const fs=require('fs'); fs.rmSync('node_modules',{recursive:true,force:true}); fs.rmSync('package-lock.json',{force:true});\" && npm install --include=optional",
+    "clean:rebuild": "npm run clean:reinstall && npm run build",
     "render": "node render-video.mjs",
     "electron": "electron .",
     "electron:dev": "vite build && electron .",

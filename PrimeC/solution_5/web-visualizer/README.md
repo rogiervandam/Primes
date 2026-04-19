@@ -17,6 +17,8 @@ A React-based application for visualizing the bitstorage changes in PrimeC solut
 - **Export**: Download the current view as PNG
 - **Responsive**: Adapts to mobile screens; step panel hides on very small screens
 - **Drag & drop**: Drop a `.sievetrace` file onto the page to load it
+- **Plain text logs**: Also parses human-readable `.log`/`.txt` traces, including
+  `Setting bits with step <n> in range <start>-<stop>` and `Setting bit <i>`
 
 ## Generating a Trace File
 
@@ -79,6 +81,18 @@ npm --version
 cd web-visualizer
 npm install
 npm run dev
+```
+
+If you hit optional dependency issues (for example missing Rollup native packages when switching between Windows and WSL), run:
+
+```bash
+npm run clean:reinstall
+```
+
+Or run clean reinstall + production build in one step:
+
+```bash
+npm run clean:rebuild
 ```
 
 Open http://localhost:5173 and drag a `.sievetrace` file onto the page.
@@ -185,6 +199,20 @@ Each step in the JSON trace contains:
 - `changed_bits`: Bit indices that changed in this step (XOR diff from previous state)
 
 Version 2 traces (without metadata fields) are also supported.
+
+## Plain Log Support (Minimal Integration)
+
+Besides structured `STEP ...` trace files, the parser also accepts free-form text logs.
+This enables minimal instrumentation in `sieve_classic8` by adding only two log lines:
+
+```c
+log5("Setting bits with step %d in range %d-%d", step, start, sieve_bit);
+log5("Setting bit %d", i);
+```
+
+The visualizer auto-detects these lines and derives changed bits automatically.
+If analysis start/end messages are present (for example from `startAnalysis...` /
+`endAnalysis...` logging), they are used to build nested step hierarchy levels.
 
 ## Architecture
 

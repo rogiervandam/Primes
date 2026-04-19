@@ -22,6 +22,24 @@ function buildDepthTree(steps) {
     stack.push(node);
   }
 
+  const annotate = (node) => {
+    const own = Number(node.numChanged || 0);
+    let aggregateChanged = own;
+    const aggregateStepIndices = [node.originalIndex];
+
+    for (const child of (node.children || [])) {
+      annotate(child);
+      aggregateChanged += Number(child.aggregateChanged || 0);
+      if (Array.isArray(child.aggregateStepIndices)) {
+        aggregateStepIndices.push(...child.aggregateStepIndices);
+      }
+    }
+
+    node.aggregateChanged = aggregateChanged;
+    node.aggregateStepIndices = aggregateStepIndices;
+  };
+
+  for (const n of root.children) annotate(n);
   return root.children;
 }
 
@@ -163,6 +181,9 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     const isActive = node.originalIndex === currentStep;
     const isSelected = selectedSteps.has(node.originalIndex);
     const hasChildren = node.children && node.children.length > 0;
+    const changedCount = hasChildren
+      ? Number(node.aggregateChanged || node.numChanged || 0)
+      : Number(node.numChanged || 0);
     const collapseKey = `node-${node.originalIndex}`;
     const isNodeCollapsed = collapsed.has(collapseKey);
 
@@ -174,7 +195,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       node.operationPath?.length ? `Path: ${node.operationPath.join(' > ')}` : null,
       node.start != null ? `Range: [${node.start} – ${node.stop}]` : null,
       node.factorStep != null ? `Factor step: ${node.factorStep}` : null,
-      `Bits changed: ${node.numChanged}`,
+      `Bits changed: ${changedCount}`,
       node.annotation,
     ].filter(Boolean).join('\n');
 
@@ -185,6 +206,12 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
           style={{ paddingLeft: `${8 + nodeDepth * 14}px` }}
           onClick={(e) => {
             if (hasChildren && e.target.classList.contains('step-depth-toggle')) return;
+            if (hasChildren && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+              onStepClick(node.originalIndex);
+              onMultiStepSelect(new Set(node.aggregateStepIndices || [node.originalIndex]));
+              lastClickedRef.current = node.originalIndex;
+              return;
+            }
             handleStepClick(node.originalIndex, e);
           }}
           title={tooltip}
@@ -200,7 +227,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
           {!hasChildren && <span className="step-depth-bullet">·</span>}
           <span className="step-num">{node.originalIndex}</span>
           {node.operation && <span className="step-op">{node.operation}</span>}
-          <span className="step-changes">{node.numChanged > 0 ? `+${node.numChanged}` : ''}</span>
+          <span className="step-changes">{changedCount > 0 ? `+${changedCount}` : ''}</span>
           <span className="step-text">{node.annotation}</span>
         </div>
         {hasChildren && !isNodeCollapsed && (
@@ -210,7 +237,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
         )}
       </div>
     );
-  }, [currentStep, selectedSteps, collapsed, handleStepClick, toggleGroup]);
+  }, [currentStep, selectedSteps, collapsed, handleStepClick, toggleGroup, onStepClick, onMultiStepSelect]);
 
   // Resize with scroll preservation
   const handleMouseDown = useCallback((e) => {

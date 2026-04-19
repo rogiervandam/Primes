@@ -106,7 +106,7 @@ export default function App() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".sievetrace,.json"
+              accept=".sievetrace,.json,.log,.txt"
               onChange={handleFileInput}
               hidden
             />

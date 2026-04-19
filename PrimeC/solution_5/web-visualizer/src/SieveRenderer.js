@@ -1299,7 +1299,10 @@ export class SieveRenderer {
   renderMinimap(canvasW, canvasH, detailH = 0) {
     if (this.bitCount === 0) return;
     const dims = this.contentDimensions();
-    if (dims.width <= canvasW && dims.height <= canvasH) return;
+    if (dims.width <= canvasW && dims.height <= canvasH) {
+      this._minimapRect = null;
+      return;
+    }
 
     const ctx = this.ctx;
     const pad = 4;

@@ -114,6 +114,10 @@ function parseTextTrace(text) {
   }
 
   const stepLines = lines.filter((l) => l.startsWith('STEP '));
+  if (stepLines.length === 0) {
+    return parseFreeformTextTrace(lines, headerKv);
+  }
+
   const steps = stepLines.map((line, idx) => {
     const kv = parseKvLine(line.slice('STEP '.length));
     const inferred = inferMetaFromAnnotation(kv.annotation || '');
@@ -160,6 +164,226 @@ function parseTextTrace(text) {
   };
 
   return { header, steps };
+}
+
+function parseFreeformTextTrace(lines, headerKv = {}) {
+  const header = {
+    version: toNumberOr(headerKv.version, TRACE_FALLBACK_VERSION),
+    sieveSize: toNumberOr(headerKv.sieve_size, 0),
+    bitCount: toNumberOr(headerKv.bit_count, 0),
+    maxNumber: toNumberOr(firstDefined(headerKv.max_number, headerKv.sieve_size), 0),
+    stepCount: 0,
+    storageModel: headerKv.storage_model || 'half',
+  };
+
+  const steps = [];
+  const opStack = [];
+  let depth = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line || line.startsWith('TRACE ') || line.startsWith('DUMP ')) continue;
+
+    const startEvent = parseAnalysisStartLine(line);
+    if (startEvent) {
+      const opName = startEvent.operation || 'analysis';
+      const inferred = inferMetaFromAnnotation(line);
+      steps.push(createParsedStep({
+        rawStepId: steps.length,
+        annotation: line,
+        operation: opName,
+        prime: startEvent.prime,
+        start: inferred.start,
+        stop: inferred.stop,
+        factorStep: inferred.factorStep,
+        changedBits: [],
+        depth,
+        operationPath: [...opStack, opName],
+      }));
+
+      opStack.push(opName);
+      depth += 1;
+      continue;
+    }
+
+    if (isAnalysisEndLine(line)) {
+      if (depth > 0) depth -= 1;
+      if (opStack.length > 0) opStack.pop();
+      continue;
+    }
+
+    const event = parseFreeformStepEvent(line, header.bitCount);
+    if (!event) continue;
+
+    steps.push(createParsedStep({
+      rawStepId: steps.length,
+      annotation: line,
+      operation: event.operation,
+      prime: event.prime,
+      start: event.start,
+      stop: event.stop,
+      factorStep: event.factorStep,
+      changedBits: event.changedBits,
+      depth,
+      operationPath: [...opStack, event.operation],
+    }));
+  }
+
+  header.stepCount = steps.length;
+
+  // Ensure we have useful defaults even for plain logs without TRACE header.
+  if (!header.bitCount) {
+    let maxBit = -1;
+    for (let i = 0; i < steps.length; i++) {
+      const cb = steps[i].changedBits;
+      for (let j = 0; j < cb.length; j++) maxBit = Math.max(maxBit, cb[j]);
+    }
+    header.bitCount = maxBit >= 0 ? maxBit + 1 : 0;
+    header.sieveSize = header.sieveSize || header.maxNumber || header.bitCount * 2;
+    header.maxNumber = header.maxNumber || header.sieveSize;
+  }
+
+  return { header, steps };
+}
+
+function createParsedStep({
+  rawStepId,
+  annotation,
+  operation,
+  prime,
+  start,
+  stop,
+  factorStep,
+  changedBits,
+  depth,
+  operationPath,
+}) {
+  return {
+    stepId: rawStepId,
+    annotation: annotation || '',
+    operation: operation || 'step',
+    prime: toNullableNumber(prime),
+    start: toNullableNumber(start),
+    stop: toNullableNumber(stop),
+    factorStep: toNullableNumber(factorStep),
+    changedBits: new Uint32Array(changedBits || []),
+    numChanged: (changedBits || []).length,
+    depth: Math.max(0, toNumberOr(depth, 0)),
+    operationPath: Array.isArray(operationPath) && operationPath.length > 0
+      ? operationPath
+      : [operation || 'step'],
+    parentId: null,
+  };
+}
+
+function parseFreeformStepEvent(line, bitCountHint = 0) {
+  const text = String(line || '');
+
+  // Example: "Setting bits with step 47 in range 123-456"
+  const rangeMatch = text.match(/setting\s+bits?.*?(?:step|stride|inc|increment|stap)\s*(-?\d+).*?(?:range|from)\s*(-?\d+)\s*(?:-|\.\.|to)\s*(-?\d+)/i);
+  if (rangeMatch) {
+    const factorStep = Number(rangeMatch[1]);
+    const start = Number(rangeMatch[2]);
+    const stop = Number(rangeMatch[3]);
+    return {
+      operation: 'setBitsRange',
+      prime: parsePrimeFromText(text),
+      start,
+      stop,
+      factorStep,
+      changedBits: expandChangedBitsFromRange(start, stop, factorStep, bitCountHint),
+    };
+  }
+
+  // Example: "Setting bit 123"
+  const singleBitMatch = text.match(/setting\s+bit\s*(-?\d+)/i);
+  if (singleBitMatch) {
+    const idx = Number(singleBitMatch[1]);
+    return {
+      operation: 'setBit',
+      prime: parsePrimeFromText(text),
+      start: idx,
+      stop: idx,
+      factorStep: null,
+      changedBits: Number.isFinite(idx) && idx >= 0 ? [idx] : [],
+    };
+  }
+
+  // Generic fallback: infer aliases (start/stop/step) from sentence.
+  const inferred = inferMetaFromAnnotation(text);
+  if (inferred.start != null || inferred.stop != null || inferred.factorStep != null) {
+    const start = inferred.start;
+    const stop = inferred.stop;
+    const factorStep = inferred.factorStep;
+    const canExpand = start != null && stop != null && factorStep != null;
+
+    return {
+      operation: 'setBits',
+      prime: parsePrimeFromText(text),
+      start,
+      stop,
+      factorStep,
+      changedBits: canExpand
+        ? expandChangedBitsFromRange(start, stop, factorStep, bitCountHint)
+        : [],
+    };
+  }
+
+  return null;
+}
+
+function expandChangedBitsFromRange(start, stop, step, bitCountHint = 0) {
+  const s = Number(start);
+  const e = Number(stop);
+  let inc = Number(step);
+  if (!Number.isFinite(s) || !Number.isFinite(e)) return [];
+
+  // Keep logs permissive: absent/invalid step means "set every bit in range".
+  if (!Number.isFinite(inc) || inc === 0) inc = 1;
+  const dir = s <= e ? 1 : -1;
+  if (inc < 0) inc = Math.abs(inc);
+  inc *= dir;
+
+  const out = [];
+  const maxBits = 2_000_000;
+  const bound = Number.isFinite(bitCountHint) && bitCountHint > 0 ? bitCountHint : Number.MAX_SAFE_INTEGER;
+
+  if (dir > 0) {
+    for (let i = s; i < e; i += inc) {
+      if (i >= 0 && i < bound) out.push(i);
+      if (out.length >= maxBits) break;
+    }
+  } else {
+    for (let i = s; i > e; i += inc) {
+      if (i >= 0 && i < bound) out.push(i);
+      if (out.length >= maxBits) break;
+    }
+  }
+
+  return out;
+}
+
+function parsePrimeFromText(text) {
+  const m = String(text || '').match(/\bprime\s+(-?\d+)\b/i);
+  return m ? Number(m[1]) : null;
+}
+
+function parseAnalysisStartLine(line) {
+  const text = String(line || '');
+  if (!/startanalysis|analysis_start|trace_analysis_start/i.test(text)) return null;
+
+  // Prefer explicit operation/function name if present.
+  const fnMatch = text.match(/(?:op|operation|function|func)\s*[:=]\s*([A-Za-z0-9_./-]+)/i)
+    || text.match(/\bstartanalysis\s*\(?\s*([A-Za-z0-9_./-]+)/i);
+
+  return {
+    operation: fnMatch ? fnMatch[1] : 'analysis',
+    prime: parsePrimeFromText(text),
+  };
+}
+
+function isAnalysisEndLine(line) {
+  return /endanalysis|analysis_end|trace_analysis_end/i.test(String(line || ''));
 }
 
 const TRACE_FALLBACK_VERSION = 4;

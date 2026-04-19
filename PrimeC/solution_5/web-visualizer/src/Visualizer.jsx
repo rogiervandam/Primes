@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { SieveRenderer, bitToNumber, numberToBit, STORAGE_MODELS, CACHE_PRESETS } from './SieveRenderer';
 import StepPanel from './StepPanel';
 import DetailPanel from './DetailPanel';
@@ -55,6 +55,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [detailHeight, setDetailHeight] = useState(200);
   const [detailWidth, setDetailWidth] = useState(0);
   const [showMinimap, setShowMinimap] = useState(true);
+  const [minimapAvailable, setMinimapAvailable] = useState(false);
   const [stepStats, setStepStats] = useState(null); // { totalSet, newlySet, reSet }
   const [bitHistoryModal, setBitHistoryModal] = useState(null); // { bitIndex, history[] } — locked by click
   const [hoveredBitInfo, setHoveredBitInfo] = useState(null);  // { bitIndex, history[] } — updated on hover
@@ -82,6 +83,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const playTimeoutRef = useRef(null);
   const animBusyUntilRef = useRef(0);
   const outlineHoverRafRef = useRef(null);
+  const selectedAnimLoopRef = useRef(null);
   const initialFitDoneRef = useRef(false);
   const detailOpenRef = useRef(true);
   const detailHeightRef = useRef(200);
@@ -121,6 +123,20 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const updateDetailHeight = useCallback((val) => {
     detailHeightRef.current = val;
     setDetailHeight(val);
+  }, []);
+
+  const updateMinimapAvailability = useCallback(() => {
+    const r = rendererRef.current;
+    const el = containerRef.current;
+    if (!r || !el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const dims = r.contentDimensions();
+    const available = dims.width > rect.width || dims.height > rect.height;
+    setMinimapAvailable(available);
+    if (!available) {
+      r._minimapRect = null;
+    }
   }, []);
 
   // Apply theme to document
@@ -190,7 +206,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     }
     r.render();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled]);
+    updateMinimapAvailability();
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, updateMinimapAvailability]);
 
   const adjustSpacingFromOutline = useCallback((focus, axis, delta) => {
     const keyMap = {
@@ -306,11 +323,27 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       r.freezeLayout();
       r.render();
       if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
+      updateMinimapAvailability();
     };
+
+    let raf1 = null;
+    let raf2 = null;
+    const transitionRefreshTimer = setTimeout(onResize, 190);
+
     onResize();
+    // Run an extra post-layout refresh to catch CSS transition-based width changes.
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(onResize);
+    });
     window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [panelWidth, showMinimap, stepsPanelCollapsed, settingsCollapsed]);
+
+    return () => {
+      window.removeEventListener('resize', onResize);
+      clearTimeout(transitionRefreshTimer);
+      if (raf1 != null) cancelAnimationFrame(raf1);
+      if (raf2 != null) cancelAnimationFrame(raf2);
+    };
+  }, [panelWidth, showMinimap, stepsPanelCollapsed, settingsCollapsed, updateMinimapAvailability]);
 
   // Go to step
   const goToStep = useCallback((target) => {
@@ -385,11 +418,12 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     }
     r.render();
     r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+    updateMinimapAvailability();
     setCurrentStep(target);
 
     // Trigger animation for changed bits
     triggerAnimation(changedSet);
-  }, [currentStep, steps]);
+  }, [currentStep, steps, updateMinimapAvailability]);
 
   // Stop any running sequential animation
   const stopSeqAnim = useCallback(() => {
@@ -573,10 +607,47 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       const s = steps[idx];
       if (s) for (let j = 0; j < s.changedBits.length; j++) merged.add(s.changedBits[j]);
     }
+    r.currentOperation = 'aggregate-selection';
     r.changedBits = merged;
     r.render();
     r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [selectedSteps, steps]);
+    updateMinimapAvailability();
+    // Animate cumulative impact when selecting higher-level hierarchy nodes.
+    if (merged.size > 0) triggerAnimation(merged);
+  }, [selectedSteps, steps, triggerAnimation, getMinimapDetailH, updateMinimapAvailability]);
+
+  // Repeat selected-step animation until selection changes.
+  useEffect(() => {
+    if (selectedAnimLoopRef.current) {
+      clearTimeout(selectedAnimLoopRef.current);
+      selectedAnimLoopRef.current = null;
+    }
+    if (playing || selectedSteps.size === 0) return;
+
+    const merged = new Set();
+    for (const idx of selectedSteps) {
+      const s = steps[idx];
+      if (!s) continue;
+      for (let j = 0; j < s.changedBits.length; j++) merged.add(s.changedBits[j]);
+    }
+    if (merged.size === 0) return;
+
+    const loop = () => {
+      triggerAnimation(merged);
+      const waitMs = Math.max(0, repeatAnim || 0) + estimateAnimDuration(merged.size);
+      selectedAnimLoopRef.current = setTimeout(loop, waitMs);
+    };
+
+    // Initial replay starts after configured delay to keep cadence predictable.
+    selectedAnimLoopRef.current = setTimeout(loop, Math.max(0, repeatAnim || 0));
+
+    return () => {
+      if (selectedAnimLoopRef.current) {
+        clearTimeout(selectedAnimLoopRef.current);
+        selectedAnimLoopRef.current = null;
+      }
+    };
+  }, [selectedSteps, steps, playing, repeatAnim, triggerAnimation, estimateAnimDuration]);
 
   // Auto-render mode (for CLI video export via puppeteer)
   useEffect(() => {
@@ -603,6 +674,11 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         playTimeoutRef.current = null;
       }
       return;
+    }
+
+    if (selectedAnimLoopRef.current) {
+      clearTimeout(selectedAnimLoopRef.current);
+      selectedAnimLoopRef.current = null;
     }
 
     const scheduleNext = () => {
@@ -655,7 +731,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     setZoom(r.zoom);
     r.render();
     r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, []);
+    updateMinimapAvailability();
+  }, [getMinimapDetailH, updateMinimapAvailability]);
 
   const resetZoom = useCallback(() => {
     const r = rendererRef.current;
@@ -672,7 +749,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     setZoom(r.zoom);
     r.render();
     r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, []);
+    updateMinimapAvailability();
+  }, [getMinimapDetailH, updateMinimapAvailability]);
 
   // Mouse pan & zoom on canvas
   useEffect(() => {
@@ -701,6 +779,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         r.panY = hit.panY;
         r.render();
         r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        updateMinimapAvailability();
         el.classList.add('dragging');
         return;
       }
@@ -723,6 +802,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           r.panY = hit.panY;
           r.render();
           r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+          updateMinimapAvailability();
         }
       } else if (dragging && r) {
         didDrag = true;
@@ -730,6 +810,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         r.panY = panSY + (e.clientY - startY);
         r.render();
         r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        updateMinimapAvailability();
       } else if (r && !dragging) {
         const rect = el.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -800,6 +881,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       setZoom(r.zoom);
       r.render();
       r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      updateMinimapAvailability();
     };
 
     el.addEventListener('mousedown', onMouseDown);
@@ -825,7 +907,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       el.removeEventListener('mouseleave', onMouseLeave);
       stopOutlineHoverAnim();
     };
-  }, [computeBitInfo, getMinimapDetailH, startOutlineHoverAnim, stopOutlineHoverAnim]);
+  }, [computeBitInfo, getMinimapDetailH, startOutlineHoverAnim, stopOutlineHoverAnim, updateMinimapAvailability]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1013,7 +1095,63 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     });
   }, [spacingGuide, layoutSettings]);
 
-  const currentStepData = steps[currentStep] || null;
+  const currentStepData = useMemo(() => {
+    if (selectedSteps.size <= 1) return steps[currentStep] || null;
+
+    const indices = Array.from(selectedSteps)
+      .filter((idx) => idx >= 0 && idx < steps.length)
+      .sort((a, b) => a - b);
+    if (indices.length === 0) return steps[currentStep] || null;
+
+    const union = new Set();
+    let prime = null;
+    let operation = null;
+    let minStart = null;
+    let maxStop = null;
+    let factorStep = null;
+    let annotation = '';
+
+    for (let i = 0; i < indices.length; i++) {
+      const s = steps[indices[i]];
+      if (!s) continue;
+      if (prime == null && s.prime != null) prime = s.prime;
+      if (!operation && s.operation) operation = s.operation;
+      if (factorStep == null && s.factorStep != null) factorStep = s.factorStep;
+      if (s.start != null) minStart = minStart == null ? s.start : Math.min(minStart, s.start);
+      if (s.stop != null) maxStop = maxStop == null ? s.stop : Math.max(maxStop, s.stop);
+      for (let j = 0; j < s.changedBits.length; j++) union.add(s.changedBits[j]);
+    }
+
+    annotation = `Aggregated ${indices.length} selected steps (${indices[0]}-${indices[indices.length - 1]})`;
+
+    const changed = new Uint32Array(Array.from(union).sort((a, b) => a - b));
+    return {
+      stepId: currentStep,
+      annotation,
+      operation: operation ? `${operation} (aggregate)` : 'Aggregate',
+      prime,
+      start: minStart,
+      stop: maxStop,
+      factorStep,
+      changedBits: changed,
+      numChanged: changed.length,
+    };
+  }, [steps, currentStep, selectedSteps]);
+
+  const currentStepBanner = useMemo(() => {
+    const s = currentStepData;
+    if (!s) return 'No step selected';
+    const parts = [];
+    parts.push(`Step ${currentStep}`);
+    if (s.operation) parts.push(s.operation);
+    if (s.prime != null) parts.push(`Prime ${s.prime}`);
+    if (s.numChanged != null) parts.push(`+${s.numChanged} bits`);
+    if (s.start != null && s.stop != null) parts.push(`Range ${s.start}-${s.stop}`);
+    if (s.factorStep != null) parts.push(`Step size ${s.factorStep}`);
+    const head = parts.join(' | ');
+    const tail = s.annotation ? ` | ${s.annotation}` : '';
+    return head + tail;
+  }, [currentStep, currentStepData]);
 
   return (
     <div className="visualizer">
@@ -1109,6 +1247,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         />
 
         <div className="canvas-area">
+          <div className="step-focus-banner" title={currentStepBanner}>
+            {currentStepBanner}
+          </div>
           <div className="canvas-container" ref={containerRef}>
             <canvas ref={canvasRef} />
             {spacingGuide && (
@@ -1220,7 +1361,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
             width={detailWidth}
             onWidthChange={setDetailWidth}
             playing={playing}
-            stepStats={stepStats}
+            stepStats={selectedSteps.size > 1 ? null : stepStats}
             storageModel={storageModel}
           />
         </div>
@@ -1252,6 +1393,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           onHeatMapToggle={setHeatMapEnabled}
           showMinimap={showMinimap}
           onShowMinimapChange={setShowMinimap}
+          minimapControlVisible={minimapAvailable}
           outlineSettings={layoutSettings.outlines}
           onOutlineChange={(outlines) => setLayoutSettings((prev) => ({ ...prev, outlines }))}
           spacingFocus={spacingFocus}

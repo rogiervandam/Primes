@@ -31,9 +31,9 @@ const BYTE_LAYOUT_TIPS = {
 };
 const VECTOR_TIPS = {
   1: 'No grouping — each uint64 is standalone',
-  2: 'SSE/128-bit — group 2 uint64s together',
-  4: 'AVX2/256-bit — group 4 uint64s together',
-  8: 'AVX-512/512-bit — group 8 uint64s together',
+  2: 'Group 2 uint64 values together',
+  4: 'Group 4 uint64 values together',
+  8: 'Group 8 uint64 values together',
   '1': 'Single vector',
   '2': '2 vectors',
   '4': '4 vectors',
@@ -64,6 +64,7 @@ export default function SettingsPanel({
   cachePreset, onCachePresetChange,
   heatMapEnabled, onHeatMapToggle,
   showMinimap, onShowMinimapChange,
+  minimapControlVisible = true,
   outlineSettings, onOutlineChange,
   spacingFocus, onAdjustSpacingFromOutline,
 }) {
@@ -118,6 +119,7 @@ export default function SettingsPanel({
       vectorGroupDescription: VECTOR_TIPS[group] || '',
     });
   };
+  const vectorLabelForGroup = (group) => (group <= 1 ? 'uint64' : `uint64v${group}`);
 
   /** Mini SVG preview of a layout grid */
   const LayoutIcon = ({ cols, rows, grid3x3, active, onClick, size = 32, tooltip }) => {
@@ -240,24 +242,53 @@ export default function SettingsPanel({
           <span className="lo-level-tag">Vector</span>
           <div className="lo-vec-wrap">
             <span className="lo-subtag">Grouping (clear presets)</span>
-            <div className="lo-vec-icons">
-              {Object.entries(VECTOR_GROUPS).map(([k, v]) => (
+            <div className="lo-vec-icons lo-vec-icons-tight">
+              {Object.entries(VECTOR_GROUPS).map(([k]) => (
                 <button
                   key={k}
-                  className={`btn-option${s.vectorGroup === parseInt(k) ? ' active' : ''}`}
+                  className={`btn-option vector-chip${s.vectorGroup === parseInt(k) ? ' active' : ''}`}
                   title={VECTOR_TIPS[k]}
                   onClick={() => setVectorGroupSimple(parseInt(k))}
                 >
-                  {v.label}
+                  {vectorLabelForGroup(parseInt(k))}
                 </button>
               ))}
             </div>
-            <p className="layout-description">Current: {VECTOR_GROUPS[s.vectorGroup || 1]?.label || 'uint64'}</p>
+            <p className="layout-description">Current: {vectorLabelForGroup(s.vectorGroup || 1)}</p>
+          </div>
+        </div>
+
+        <div className="lo-level-row lo-level-row-stacked">
+          <span className="lo-level-tag">Cache</span>
+          <div className="lo-vec-wrap">
+            <span className="lo-subtag">Cacheline size</span>
+            <div className="lo-vec-icons lo-cache-icons">
+              {Object.entries(CACHELINE_SIZES).map(([k]) => (
+                <button
+                  key={k}
+                  className={`btn-option vector-chip${cachelineSize === parseInt(k) ? ' active' : ''}`}
+                  onClick={() => {
+                    onCachelineSizeChange(parseInt(k));
+                    onCachePresetChange('fixed');
+                  }}
+                  title={`${k} byte cacheline`}
+                >
+                  {k}B
+                </button>
+              ))}
+              <button
+                className={`btn-option vector-chip${(cachePreset || 'fixed') !== 'fixed' ? ' active' : ''}`}
+                onClick={() => onCachePresetChange('custom')}
+                title="Custom cacheline size"
+              >
+                custom
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-        {/* Spacing controls — colour-coded to match preview */}
+        {/* Spacing controls — direct edits + on-canvas drag handles */}
       <div className="settings-section lo-section">
         <label>Spacing</label>
         <div className="lo-sp-table">
@@ -265,6 +296,7 @@ export default function SettingsPanel({
           <SpRow label="Byte" dot="var(--border)"   keyH="byteSpacingH" keyV="byteSpacingV" max={20} />
           <SpRow label="u64"  dot="var(--accent)"   keyH="u64SpacingH"  keyV="u64SpacingV"  max={20} />
         </div>
+        <span className="settings-hint">Tip: click an outline on the canvas and drag the blue arrow handles to adjust spacing visually.</span>
       </div>
       </>
     );
@@ -272,22 +304,47 @@ export default function SettingsPanel({
 
   return (
     <div className={`settings-sidebar${collapsed ? ' collapsed' : ''}`}>
-      <button className="settings-collapse-btn" onClick={onToggleCollapse} title={collapsed ? 'Expand settings' : 'Collapse settings'}>
-        {collapsed ? '◀' : '▶'}
-      </button>
+      <div className="settings-header-rail" title="Layout Settings">
+        <h3>Layout</h3>
+        <button className="settings-collapse-btn" onClick={onToggleCollapse} title={collapsed ? 'Expand settings' : 'Collapse settings'}>
+          {collapsed ? '◀' : '▶'}
+        </button>
+      </div>
       {!collapsed && (
         <div className="settings-panel-content">
-          <div className="settings-header">
-            <h3>Layout Settings</h3>
-          </div>
-
-        {/* Heat Map Toggle */}
         <div className="settings-section">
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-            <input type="checkbox" checked={heatMapEnabled || false} onChange={(e) => onHeatMapToggle(e.target.checked)} />
-            Heat map overlay
-          </label>
-          <span className="settings-hint">Color bits by recency: red (hot) → orange → blue (cold)</span>
+          <label>View Overlays</label>
+          <div className="preview-btn-grid preview-btn-grid-2">
+            <PreviewOptionButton
+              compact
+              label="Heat map"
+              hint="Color bits by recency: hot to cold"
+              active={!!heatMapEnabled}
+              onClick={() => onHeatMapToggle(!heatMapEnabled)}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="4" y="5" width="10" height="12" fill="#ef4444" stroke="none" />
+                  <rect x="18" y="5" width="10" height="12" fill="#f59e0b" stroke="none" />
+                  <rect x="32" y="5" width="10" height="12" fill="#3b82f6" stroke="none" />
+                </svg>
+              )}
+            />
+            {minimapControlVisible && (
+              <PreviewOptionButton
+                compact
+                label="Minimap"
+                hint="Show navigation minimap"
+                active={showMinimap !== false}
+                onClick={() => onShowMinimapChange && onShowMinimapChange(!(showMinimap !== false))}
+                preview={(
+                  <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                    <rect x="3" y="3" width="42" height="16" rx="2" />
+                    <rect x="18" y="7" width="12" height="8" rx="1" />
+                  </svg>
+                )}
+              />
+            )}
+          </div>
         </div>
 
         <div className="settings-section">
@@ -298,7 +355,6 @@ export default function SettingsPanel({
             ))}
           </select>
         </div>
-
         {/* Wheel grouping (only when storage model is wheel) */}
         {storageModel === 'wheel' && (
           <div className="settings-section">
@@ -312,28 +368,6 @@ export default function SettingsPanel({
             </div>
           </div>
         )}
-
-        <LayoutOverview />
-
-        {/* Cacheline size */}
-        <div className="settings-section">
-          <label>Cacheline size</label>
-          <div className="layout-icons">
-            {Object.entries(CACHELINE_SIZES).map(([k, v]) => (
-              <button key={k} className={`btn-option${cachelineSize === parseInt(k) ? ' active' : ''}`}
-                      onClick={() => {
-                        onCachelineSizeChange(parseInt(k));
-                        onCachePresetChange('fixed');
-                      }} title={v.label}>
-                {k}B
-              </button>
-            ))}
-            <button className={`btn-option${(cachePreset || 'fixed') !== 'fixed' ? ' active' : ''}`}
-                    onClick={() => onCachePresetChange('custom')} title="Custom cacheline size">
-              custom
-            </button>
-          </div>
-        </div>
 
         {(cachePreset || 'fixed') !== 'fixed' && (
           <>
@@ -487,15 +521,6 @@ export default function SettingsPanel({
           </div>
         )}
 
-        {/* Minimap */}
-        <div className="settings-section">
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-            <input type="checkbox" checked={showMinimap !== false}
-                   onChange={(e) => onShowMinimapChange && onShowMinimapChange(e.target.checked)} />
-            Show minimap
-          </label>
-        </div>
-
         <div className="settings-section">
           <label>Animation style</label>
           <div className="preview-btn-grid preview-btn-grid-4">
@@ -607,12 +632,12 @@ export default function SettingsPanel({
         {animStyle !== 'none' && (
           <div className="settings-section">
             <label>Animation timing</label>
-            <div className="settings-row animation-timing-row" style={{ alignItems: 'flex-start', gap: 10 }}>
+            <div className="settings-row animation-timing-row" style={{ alignItems: 'flex-start', gap: 8 }}>
               <div className="timing-control">
                 <span className="timing-title">Per-bit interval</span>
                 <div className="settings-row" style={{ alignItems: 'center', gap: 6, opacity: animMode === 'all' ? 0.55 : 1 }}>
                   <button className="btn-option btn-sm" onClick={() => adjustBitInterval(-50)} title="Decrease per-bit interval by 0.05s" disabled={animMode === 'all'}>−</button>
-                  <span className="speed-val" style={{ minWidth: 62, textAlign: 'center' }}>{((bitAnimInterval || 100) / 1000).toFixed(2)}s</span>
+                  <span className="timing-value">{((bitAnimInterval || 100) / 1000).toFixed(2)}s</span>
                   <button className="btn-option btn-sm" onClick={() => adjustBitInterval(50)} title="Increase per-bit interval by 0.05s" disabled={animMode === 'all'}>+</button>
                 </div>
               </div>
@@ -620,7 +645,7 @@ export default function SettingsPanel({
                 <span className="timing-title">Animation delay</span>
                 <div className="settings-row" style={{ alignItems: 'center', gap: 6 }}>
                   <button className="btn-option btn-sm" onClick={() => adjustRepeatAnim(-100)} title="Decrease animation delay by 0.1s">−</button>
-                  <span className="speed-val" style={{ minWidth: 58, textAlign: 'center' }}>{repeatAnim === 0 ? 'Off' : `${(repeatAnim / 1000).toFixed(1)}s`}</span>
+                  <span className="timing-value">{repeatAnim === 0 ? 'Off' : `${(repeatAnim / 1000).toFixed(1)}s`}</span>
                   <button className="btn-option btn-sm" onClick={() => adjustRepeatAnim(100)} title="Increase animation delay by 0.1s">+</button>
                 </div>
               </div>
