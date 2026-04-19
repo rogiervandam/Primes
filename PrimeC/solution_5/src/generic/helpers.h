@@ -76,3 +76,4 @@ static inline void local_memcpy(void *dest, void *src, size_t n)
 #define endAnalysis6(timer, ...) timer_laptime(timer); __VA_OPT__(verbose6(printf(__VA_ARGS__);))
 #define endAnalysis7(timer, ...) timer_laptime(timer); __VA_OPT__(verbose7(printf(__VA_ARGS__);))
 #define endAnalysis8(timer, ...) timer_laptime(timer); __VA_OPT__(verbose8(printf(__VA_ARGS__);))
+

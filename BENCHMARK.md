@@ -7,6 +7,7 @@ Some solutions are not included in the automated benchmark runs, either because 
 ## Table of contents <!-- omit in toc -->
 
 - [What operating system to use?](#what-operating-system-to-use)
+- [Reducing local benchmark variance](#reducing-local-benchmark-variance)
 - [General working mechanism](#general-working-mechanism)
 - [Linux](#linux)
   - [Linux run instructions](#linux-run-instructions)
@@ -27,6 +28,17 @@ Some solutions are not included in the automated benchmark runs, either because 
 ## What operating system to use?
 
 A Unix-like operating system is the preferred operating system to run this benchmark. Linux and macOS are Unix-like operating systems. This will result in the best performance because the benchmark is based on Unix technologies. Running with Windows or other operating systems is possible but will always require some extra layer of virtualization that impact the performance. Running the benchmark with Windows can have a significant impact on the performance, up to 50%.
+
+## Reducing local benchmark variance
+
+If you are validating a small performance change, use a stable local setup first:
+
+- Keep benchmark source and data inside the Linux filesystem when using WSL2 (for example `~/Primes`), not under `/mnt/c/...`.
+- Use single-thread mode where possible and pin execution to a single CPU.
+- Run warmup iterations, then report median from multiple measured runs.
+- Keep background load and thermal conditions stable while measuring.
+
+For an end-to-end example (WSL + Linux + macOS scripts and instructions), see `PrimeC/solution_5/dev/benchmark/README.md`.
 
 ## General working mechanism
 

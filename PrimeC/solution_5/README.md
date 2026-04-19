@@ -92,6 +92,9 @@ The ./sieve command is a bash script for building and running the sieve applicat
                                                     Looks for Dockerfile_<extension> in ./dev/docker/.
 ./sieve docker all <arguments>                    - Run sieve in all available Docker containers.
 ./sieve docker <dockerfile extension> set         - Set the specified Dockerfile as the default in ./.
+./sieve stable <arguments>                        - Run benchmark in stable mode with OS autodetection.
+./sieve stable-setup                              - Apply host setup for stable mode (WSL only; no-op on Linux/macOS).
+./sieve stable-wsl-host <arguments>               - From WSL, run with host affinity (Windows) plus guest pinning.
 ./sieve <arguments> gcc <arguments>               - Use GCC as the compiler (can appear anywhere in the argument list).
 ./sieve <arguments> clang <arguments>             - Use Clang as the compiler (can appear anywhere in the argument list).
 ./sieve <arguments> icx <arguments>               - Use Intel's ICX compiler (can appear anywhere in the argument list).
@@ -100,6 +103,33 @@ The ./sieve command is a bash script for building and running the sieve applicat
 ./sieve sieve_extend                              - Compile the extend algorithm variant (default).
 ```
 Alternatively, you can use make for building.
+
+### Stable benchmarking on Linux, WSL, and macOS
+
+This solution includes helper scripts in `./dev/benchmark` to reduce run-to-run variance:
+
+- `./dev/benchmark/setup-wsl-benchmark.ps1`
+- `./dev/benchmark/run-wsl-benchmark.ps1`
+- `./dev/benchmark/run-linux-stable.sh`
+- `./dev/benchmark/run-macos-stable.sh`
+
+For setup and usage details, see `./dev/benchmark/README.md`.
+
+Examples:
+
+```bash
+./sieve stable sieve_extend --threads 1 --time 5
+./sieve stable-setup
+./sieve stable-wsl-host sieve_extend --threads 1 --time 5
+```
+
+The benchmark code also supports an optional CPU pinning override for single-thread runs:
+
+```bash
+PRIME_BENCHMARK_CPU=0
+```
+
+If not set, CPU `0` is used.
 
 ### Command line options
 ```none

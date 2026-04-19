@@ -19,6 +19,9 @@ EMBED=""
 VISUALIZE=""
 VISUALIZE_MODE="" # "native", "web", or "" (auto)
 RENDER=""
+STABLE_MODE=""
+STABLE_SETUP=""
+STABLE_WSL_HOST=""
 
 SIEVEVARIANTS="sieve_classic8 sieve_classic64 sieve_base sieve_wheel sieve_wheel_8of30 sieve_wheelstorage sieve_extend"
 
@@ -55,6 +58,12 @@ for arg in "$@"; do
         VISUALIZE_MODE="web"
     elif [ "$arg" = "render" ]; then
         RENDER="render"
+    elif [ "$arg" = "stable" ] || [ "$arg" = "--stable" ]; then
+        STABLE_MODE="stable"
+    elif [ "$arg" = "stable-setup" ] || [ "$arg" = "--stable-setup" ]; then
+        STABLE_SETUP="stable-setup"
+    elif [ "$arg" = "stable-wsl-host" ] || [ "$arg" = "--stable-wsl-host" ]; then
+        STABLE_WSL_HOST="stable-wsl-host"
     elif [ "$arg" = "trace" ] || [ "$arg" = "--trace" ]; then
         TRACE="trace"
     else
@@ -227,6 +236,40 @@ fi
 [ -d ./dev/build ] || mkdir ./dev/build
 [ -d ./dev/docker ] || mkdir ./dev/docker
 [ -d ./dev/dockerfiles ] || mkdir ./dev/dockerfiles
+
+is_wsl_environment() {
+    [ "$OS" = "Linux" ] && { [ -n "$WSL_DISTRO_NAME" ] || grep -qi microsoft /proc/version 2>/dev/null; }
+}
+
+if [ "$STABLE_SETUP" = "stable-setup" ]; then
+    if is_wsl_environment && command -v powershell.exe >/dev/null 2>&1; then
+        PS1_WIN_PATH=$(wslpath -w "$(pwd)/dev/benchmark/setup-wsl-benchmark.ps1")
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PS1_WIN_PATH" \
+            -Processors "${PRIME_BENCHMARK_WSL_PROCESSORS:-1}" \
+            -MemoryGb "${PRIME_BENCHMARK_WSL_MEMORY_GB:-4}" \
+            -SwapGb "${PRIME_BENCHMARK_WSL_SWAP_GB:-0}"
+        exit $?
+    fi
+
+    if [ "$OS" = "Linux" ]; then
+        echo "stable-setup: no host setup needed on native Linux."
+        exit 0
+    fi
+
+    if [ "$OS" = "Darwin" ]; then
+        echo "stable-setup: no host setup needed on macOS."
+        exit 0
+    fi
+
+    echo "stable-setup is only supported from WSL/Linux/macOS shells."
+    exit 1
+fi
+
+if [ "$STABLE_WSL_HOST" = "stable-wsl-host" ] && ! is_wsl_environment; then
+    echo "stable-wsl-host must be run from inside WSL."
+    echo "Use './dev/benchmark/run-wsl-benchmark.ps1' from Windows PowerShell if you are not in WSL."
+    exit 1
+fi
 
 # Check for Docker argument first
 if [ $# -gt 0 ] && [ "$1" = "docker" ]; then
@@ -598,15 +641,70 @@ if [ "$COMPILE" = "compile" ]; then
 fi
 
 if [ $threads -gt 0 ]; then
+    EXECUTABLE_PATH="./bin/$PROGTOTALPAR"
     if [ $verbose_level -gt 1 ]; then
-        echo -e "Running parallel version: ${CYELLOW}./bin/$PROGTOTALPAR${CRESET} $run_args $@"
+        echo -e "Running parallel version: ${CYELLOW}${EXECUTABLE_PATH}${CRESET} $run_args $@"
     fi
-    ./bin/$PROGTOTALPAR $run_args $@
 else
+    EXECUTABLE_PATH="./bin/$PROGTOTAL"
     if [ $verbose_level -gt 2 ]; then
-        echo -e "Running ${CYELLOW}./bin/$PROGTOTAL${CRESET} $run_args $@"
+        echo -e "Running ${CYELLOW}${EXECUTABLE_PATH}${CRESET} $run_args $@"
     fi
-    ./bin/$PROGTOTAL $run_args $@
+fi
+
+if [ "$STABLE_MODE" = "stable" ]; then
+    if [ "$OS" = "Darwin" ]; then
+        if [ $verbose_level -gt 0 ]; then
+            echo -e "Stable mode autodetect: ${CCYAN}macOS${CRESET}"
+        fi
+        bash ./dev/benchmark/run-macos-stable.sh "$EXECUTABLE_PATH" $run_args "$@"
+    elif [ "$OS" = "Linux" ]; then
+        if is_wsl_environment && [ $verbose_level -gt 0 ]; then
+            echo -e "Stable mode autodetect: ${CCYAN}WSL/Linux guest${CRESET}"
+            echo "Hint: for host affinity + .wslconfig setup, run './sieve stable-setup' and use the PowerShell launcher in ./dev/benchmark."
+        elif [ $verbose_level -gt 0 ]; then
+            echo -e "Stable mode autodetect: ${CCYAN}Linux${CRESET}"
+        fi
+        bash ./dev/benchmark/run-linux-stable.sh "$EXECUTABLE_PATH" $run_args "$@"
+    else
+        echo "Stable mode not supported on this OS. Running once instead."
+        "$EXECUTABLE_PATH" $run_args "$@"
+    fi
+else
+    if [ "$STABLE_WSL_HOST" = "stable-wsl-host" ]; then
+        if [ $verbose_level -gt 0 ]; then
+            echo -e "Stable mode autodetect: ${CCYAN}WSL host+guest${CRESET}"
+        fi
+
+        if ! command -v powershell.exe >/dev/null 2>&1; then
+            echo "powershell.exe not found. Cannot launch host-affinity benchmark from WSL."
+            exit 1
+        fi
+
+        PS1_WIN_PATH=$(wslpath -w "$(pwd)/dev/benchmark/run-wsl-benchmark.ps1")
+        DISTRO_NAME="${WSL_DISTRO_NAME:-Ubuntu}"
+        AFFINITY_MASK="${PRIME_BENCHMARK_AFFINITY_MASK:-1}"
+        LINUX_REPO_PATH="$(pwd)"
+
+        benchmark_words=("./dev/benchmark/run-linux-stable.sh" "$EXECUTABLE_PATH")
+        if [ -n "$run_args" ]; then
+            # shellcheck disable=SC2206
+            run_args_words=($run_args)
+            benchmark_words+=("${run_args_words[@]}")
+        fi
+        benchmark_words+=("$@")
+
+        printf -v BENCHMARK_COMMAND_ESCAPED '%q ' "${benchmark_words[@]}"
+        BENCHMARK_COMMAND_ESCAPED="${BENCHMARK_COMMAND_ESCAPED% }"
+
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$PS1_WIN_PATH" \
+            -Distro "$DISTRO_NAME" \
+            -AffinityMask "$AFFINITY_MASK" \
+            -LinuxRepoPath "$LINUX_REPO_PATH" \
+            -BenchmarkCommand "$BENCHMARK_COMMAND_ESCAPED"
+    else
+        "$EXECUTABLE_PATH" $run_args "$@"
+    fi
 fi
 
 # Handle visualize: start web visualizer with the latest trace

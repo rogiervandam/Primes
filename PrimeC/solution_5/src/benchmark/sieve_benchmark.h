@@ -45,28 +45,70 @@ static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settin
     verbose5({ printf("Using settings " COLOR_GREEN "%s" COLOR_RESET "\n", getBenchmarkSettingAsString(benchmark_settings)); })
 }
 
-static inline void requestPower(void) 
+#include <errno.h>
+#include <sched.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/resource.h>
+#include <unistd.h>
+
+static inline int getBenchmarkPinnedCpu(void)
 {
-    #ifdef __APPLE__
-        pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
-    #elif defined(__linux__)
-        if (option.fixed_benchmark_settings.threads == 1) {
-            cpu_set_t cpuset;
-            CPU_ZERO(&cpuset);
-            CPU_SET(0, &cpuset);
-            sched_setaffinity(0, sizeof(cpu_set_t), &cpuset);
-        }   
-        // Set real-time scheduling
-        struct sched_param param;
-        param.sched_priority = sched_get_priority_max(SCHED_FIFO); // Mid-level real-time priority
-        if (sched_setscheduler(0, SCHED_FIFO, &param) != 0) {
-            // Fallback if we don't have permission
-            param.sched_priority = 0;
-            sched_setscheduler(0, SCHED_OTHER, &param);
-            int n10 = nice(-10); // Try to increase priority within normal scheduling
-            int n20 = nice(-20); // Try to increase priority within normal scheduling
+#ifdef __linux__
+    const char* env_cpu = getenv("PRIME_BENCHMARK_CPU");
+    if (env_cpu == NULL || env_cpu[0] == '\0') {
+        return 0;
+    }
+
+    char* endptr = NULL;
+    errno = 0;
+    long cpu = strtol(env_cpu, &endptr, 10);
+    if (errno != 0 || endptr == env_cpu || *endptr != '\0') {
+        fprintf(stderr, "Ignoring invalid PRIME_BENCHMARK_CPU value: %s\n", env_cpu);
+        return 0;
+    }
+
+    if (cpu < 0 || cpu >= CPU_SETSIZE) {
+        fprintf(stderr, "Ignoring out-of-range PRIME_BENCHMARK_CPU value: %ld\n", cpu);
+        return 0;
+    }
+
+    return (int)cpu;
+#else
+    return 0;
+#endif
+}
+
+static inline void requestBenchmarkStability(void)
+{
+    static int warned_setpriority = 0;
+    static int warned_affinity = 0;
+#ifdef __APPLE__
+    pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
+
+#elif defined(__linux__)
+    if (option.fixed_benchmark_settings.threads == 1) {
+        const int target_cpu = getBenchmarkPinnedCpu();
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        CPU_SET(target_cpu, &cpuset);
+
+        if (sched_setaffinity(0, sizeof(cpuset), &cpuset) != 0 && warned_affinity == 0) {
+            fprintf(stderr, "sched_setaffinity failed: %s\n", strerror(errno));
+            warned_affinity = 1;
         }
-    #endif
+    }
+
+    // Stay in normal scheduling class; optionally try a slightly better nice.
+    errno = 0;
+    if (setpriority(PRIO_PROCESS, 0, -10) != 0 && errno != 0 && warned_setpriority == 0) {
+        if (errno != EPERM && errno != EACCES) {
+            fprintf(stderr, "setpriority failed: %s\n", strerror(errno));
+        }
+        warned_setpriority = 1;
+    }
+#endif
 }
 
 static inline double benchmarkTime() 
@@ -103,7 +145,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings, sie
         omp_set_num_threads(benchmark_result.settings.threads);
         #pragma omp parallel reduction(+:passes) reduction(+:time_elapsed)
         {
-            requestPower();
+            requestBenchmarkStability();
             double thread_elapsed = 0;
             const double time_start = benchmarkTime(), time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
             while (thread_elapsed <= time_target) {
@@ -115,7 +157,7 @@ static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings, sie
             time_elapsed = thread_elapsed - time_start;
         }
     #else
-        requestPower();
+        requestBenchmarkStability();
         const double time_start = benchmarkTime(), time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
         while (time_elapsed <= time_target) {
             sieve_t* sieve = benchmarkableFunction(sieve_size);
