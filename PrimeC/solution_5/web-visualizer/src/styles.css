@@ -990,6 +990,26 @@ code, pre {
   font-size: 10px;
   color: var(--fg-dim);
 }
+
+.animation-timing-row {
+  flex-wrap: wrap;
+}
+
+.timing-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+}
+
+.timing-title {
+  font-size: 10px;
+  color: var(--fg-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
 .lo-sp-row {
   display: flex;
   align-items: center;

@@ -257,12 +257,9 @@ export class SieveRenderer {
   }
 
   _outlineTopExtra(kind) {
-    if (kind === 'byte' && this.showByteLabels) {
-      return Math.max(8, Math.min(14, 2 + 2 * this.zoom));
-    }
-    if (kind === 'vector' && this.showVectorLabels) {
-      return Math.max(10, Math.min(18, 3 + 2 * this.zoom));
-    }
+    const bands = this._labelBands();
+    if (kind === 'byte') return bands.byte;
+    if (kind === 'vector') return bands.total;
     return 0;
   }
 
@@ -525,11 +522,28 @@ export class SieveRenderer {
     };
   }
 
-  // Height of a label area above each row (only when zoomed in enough)
+  // Height of stacked label bands above each row.
+  // Vector labels are above byte labels; byte labels stay closer to bits.
+  _labelBands() {
+    const showByte = this.showByteLabels && this.zoom >= 4;
+    const showVector = this.showVectorLabels;
+    const vectorFont = Math.max(7, Math.min(13, 2 + 2 * this.zoom));
+    const byteFont = Math.max(7, Math.min(12, 2 + 2 * this.zoom));
+    const vector = showVector ? (vectorFont + 4) : 0;
+    const byte = showByte ? (byteFont + 3) : 0;
+    return {
+      vector,
+      byte,
+      total: vector + byte,
+      vectorFont,
+      byteFont,
+      showVector,
+      showByte,
+    };
+  }
+
   _labelHeight() {
-    if (this.vectorGroup <= 1) return 0;
-    const fontSize = Math.max(7, Math.min(13, 2 + 2 * this.zoom));
-    return this.showVectorLabels ? (fontSize + 4) : 0;
+    return this._labelBands().total;
   }
 
   render() {
@@ -547,7 +561,8 @@ export class SieveRenderer {
     const bitsPerCacheLine = this.bitsPerCacheLine;
     const totalCacheLines = Math.ceil(this.bitCount / bitsPerCacheLine);
     const rowD = this._rowDims();
-    const labelH = this._labelHeight();
+    const labelBands = this._labelBands();
+    const labelH = labelBands.total;
 
     // Wrapping: how many cache lines fit per visual row
     const clPerVRow = this._cacheLinesPerVisualRow();
@@ -569,7 +584,10 @@ export class SieveRenderer {
     // Font for labels (bit/byte labels need higher zoom)
     const bitLabelFontSize = Math.max(6, Math.min(10, 2 * this.zoom));
     const showBitLabels = this.showBitLabels && this.zoom >= 6;
-    const showByteLabels = this.showByteLabels && this.zoom >= 4;
+    const showByteLabels = labelBands.showByte;
+    const showVectorLabels = labelBands.showVector;
+    const vectorLabelY = vRow => this.panY + vRow * vRowHeight + 1;
+    const byteLabelY = vRow => this.panY + vRow * vRowHeight + labelBands.vector + 1;
 
     for (let vRow = startVRow; vRow < endVRow; vRow++) {
       const vRowBaseY = this.panY + vRow * vRowHeight;
@@ -590,9 +608,9 @@ export class SieveRenderer {
           this._drawOutlineRect(ctx, clX - pad, vRowDataY - pad - topExtra, rowD.w + 2 * pad, rowD.h + 2 * pad + topExtra);
         }
 
-        // Render vector labels
-        if (labelH > 0 && this.showVectorLabels) {
-          const fontSize = Math.max(7, Math.min(13, 2 + 2 * this.zoom));
+        // Render vector labels (stacked above byte labels)
+        if (showVectorLabels) {
+          const fontSize = labelBands.vectorFont;
           ctx.font = `${fontSize}px monospace`;
           ctx.fillStyle = C.LABEL_COLOR;
           ctx.textBaseline = 'top';
@@ -604,11 +622,11 @@ export class SieveRenderer {
             const bitEnd = Math.min(bitStart + this.vectorGroup * 64 - 1, this.bitCount - 1);
             if (bitStart >= this.bitCount) break;
 
-            const vecLabel = this.vectorLabel || `uint64v${this.vectorGroup}`;
-            const label = `${vecLabel}[${vi}] bits ${bitStart}\u2013${bitEnd}`;
+            const globalVectorIndex = clIdx * numVec + vi;
+            const label = `Vector ${globalVectorIndex} bits ${bitStart}-${bitEnd}`;
             const labelX = Math.max(0, vecX);
             if (labelX < cw && vRowBaseY >= -labelH && vRowBaseY < ch) {
-              ctx.fillText(label, labelX, Math.round(vRowBaseY + 1));
+              ctx.fillText(label, labelX, Math.round(vectorLabelY(vRow)));
             }
           }
         }
@@ -646,11 +664,11 @@ export class SieveRenderer {
 
             // Byte label
             if (showByteLabels) {
-              ctx.font = `${Math.max(7, bitLabelFontSize)}px monospace`;
+              ctx.font = `${labelBands.byteFont}px monospace`;
               ctx.fillStyle = C.LABEL_COLOR;
-              ctx.textBaseline = 'bottom';
-              const byteLabel = `B${byteIdx}`;
-              ctx.fillText(byteLabel, Math.round(byteX), Math.round(byteY - 1));
+              ctx.textBaseline = 'top';
+              const byteLabel = `Byte ${byteIdx}`;
+              ctx.fillText(byteLabel, Math.round(byteX), Math.round(byteLabelY(vRow)));
             }
 
             for (let bitIdx = 0; bitIdx < 8; bitIdx++) {

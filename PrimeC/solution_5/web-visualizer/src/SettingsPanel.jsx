@@ -107,6 +107,17 @@ export default function SettingsPanel({
   };
   const incr = (key, max) => set(key, Math.min(max, (s[key] || 0) + 1));
   const decr = (key, min = 0) => set(key, Math.max(min, (s[key] || 0) - 1));
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  const adjustRepeatAnim = (deltaMs) => onRepeatAnimChange(clamp((repeatAnim || 0) + deltaMs, 0, 5000));
+  const adjustBitInterval = (deltaMs) => onBitAnimIntervalChange(clamp((bitAnimInterval || 100) + deltaMs, 20, 2000));
+  const setVectorGroupSimple = (group) => {
+    onChange({
+      ...s,
+      vectorGroup: group,
+      vectorLabel: group > 1 ? `uint64v${group}` : 'uint64',
+      vectorGroupDescription: VECTOR_TIPS[group] || '',
+    });
+  };
 
   /** Mini SVG preview of a layout grid */
   const LayoutIcon = ({ cols, rows, grid3x3, active, onClick, size = 32, tooltip }) => {
@@ -177,8 +188,6 @@ export default function SettingsPanel({
    * No large preview block so panel height remains stable while changing options.
    */
   const LayoutOverview = () => {
-    const vectorBaseBits = s.vectorBaseBits ?? 64;
-    const vectorLanes = s.vectorLanes ?? 1;
 
     // Compact H/V spacing control row
     const SpRow = ({ label, dot, keyH, keyV, max }) => (
@@ -230,36 +239,20 @@ export default function SettingsPanel({
         <div className="lo-level-row lo-level-row-stacked">
           <span className="lo-level-tag">Vector</span>
           <div className="lo-vec-wrap">
-            <span className="lo-subtag">Type</span>
-            <div className="lo-vec-bases">
-              {VECTOR_BASE_OPTIONS.map((opt) => (
-                <button key={opt.bits}
-                        className={`btn-option btn-sm${vectorBaseBits === opt.bits ? ' active' : ''}`}
-                        title={`Vector base type: ${opt.label}`}
-                        onClick={() => setVectorProfile(opt.bits, vectorLanes)}>
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            <span className="lo-subtag">Lanes</span>
-            <div className="lo-vec-lanes">
-              {VECTOR_LANE_OPTIONS.map((lane) => (
-                <button key={lane}
-                        className={`btn-option btn-sm${vectorLanes === lane ? ' active' : ''}`}
-                        title={`Vector lanes: ${lane}`}
-                        onClick={() => setVectorProfile(vectorBaseBits, lane)}>
-                  v{lane}
-                </button>
-              ))}
-            </div>
-            <span className="lo-subtag">Grouping</span>
+            <span className="lo-subtag">Grouping (clear presets)</span>
             <div className="lo-vec-icons">
-              {Object.entries(VECTOR_GROUPS).map(([k]) => (
-                <VectorIcon key={k} count={parseInt(k)} active={s.vectorGroup === parseInt(k)}
-                            onClick={() => set('vectorGroup', parseInt(k))} tooltip={VECTOR_TIPS[k]} size={20} />
+              {Object.entries(VECTOR_GROUPS).map(([k, v]) => (
+                <button
+                  key={k}
+                  className={`btn-option${s.vectorGroup === parseInt(k) ? ' active' : ''}`}
+                  title={VECTOR_TIPS[k]}
+                  onClick={() => setVectorGroupSimple(parseInt(k))}
+                >
+                  {v.label}
+                </button>
               ))}
             </div>
-            <p className="layout-description">Current: {buildVectorLabel(vectorBaseBits, vectorLanes)} ({s.vectorGroup || 1}x uint64 group)</p>
+            <p className="layout-description">Current: {VECTOR_GROUPS[s.vectorGroup || 1]?.label || 'uint64'}</p>
           </div>
         </div>
       </div>
@@ -428,16 +421,56 @@ export default function SettingsPanel({
 
         <div className="settings-section">
           <label>Grouping outlines</label>
-          <div className="settings-row" style={{ flexDirection: 'column', gap: 6 }}>
-            <select
-              value={outline.target || 'none'}
-              onChange={(e) => onOutlineChange({ ...outline, target: e.target.value })}
-            >
-              <option value="none">None</option>
-              <option value="byte">Byte outline</option>
-              <option value="vector">Vector outline</option>
-              <option value="cacheline">Cacheline outline</option>
-            </select>
+          <div className="preview-btn-grid preview-btn-grid-4">
+            <PreviewOptionButton
+              compact
+              label="None"
+              hint="Disable outlines"
+              active={(outline.target || 'none') === 'none'}
+              onClick={() => onOutlineChange({ ...outline, target: 'none' })}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <line x1="8" y1="11" x2="40" y2="11" />
+                </svg>
+              )}
+            />
+            <PreviewOptionButton
+              compact
+              label="Byte"
+              hint="Thick dashed blue byte outlines"
+              active={(outline.target || 'none') === 'byte'}
+              onClick={() => onOutlineChange({ ...outline, target: 'byte' })}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="9" y="5" width="10" height="12" rx="3" strokeDasharray="4 3" stroke="#3b82f6" strokeWidth="2" fill="none" />
+                  <rect x="29" y="5" width="10" height="12" rx="3" strokeDasharray="4 3" stroke="#3b82f6" strokeWidth="2" fill="none" />
+                </svg>
+              )}
+            />
+            <PreviewOptionButton
+              compact
+              label="Vector"
+              hint="Thick dashed blue vector outlines"
+              active={(outline.target || 'none') === 'vector'}
+              onClick={() => onOutlineChange({ ...outline, target: 'vector' })}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="4" y="4" width="40" height="14" rx="4" strokeDasharray="5 3" stroke="#3b82f6" strokeWidth="2" fill="none" />
+                </svg>
+              )}
+            />
+            <PreviewOptionButton
+              compact
+              label="Cacheline"
+              hint="Thick dashed blue cacheline outlines"
+              active={(outline.target || 'none') === 'cacheline'}
+              onClick={() => onOutlineChange({ ...outline, target: 'cacheline' })}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="2" y="3" width="44" height="16" rx="4" strokeDasharray="6 3" stroke="#3b82f6" strokeWidth="2" fill="none" />
+                </svg>
+              )}
+            />
           </div>
           <span className="settings-hint">Click an outline in the canvas to set spacing focus.</span>
         </div>
@@ -461,15 +494,6 @@ export default function SettingsPanel({
                    onChange={(e) => onShowMinimapChange && onShowMinimapChange(e.target.checked)} />
             Show minimap
           </label>
-        </div>
-
-        <div className="settings-section">
-          <label>Repeat animation: {repeatAnim === 0 ? 'Off' : `${(repeatAnim / 1000).toFixed(1)}s`}</label>
-          <div className="settings-row">
-            <input type="range" min={0} max={5000} step={100}
-                   value={repeatAnim}
-                   onChange={(e) => onRepeatAnimChange(parseInt(e.target.value))} />
-          </div>
         </div>
 
         <div className="settings-section">
@@ -580,14 +604,28 @@ export default function SettingsPanel({
           </div>
         </div>
 
-        {(animMode === 'sequential' || animMode === 'bounce') && (
+        {animStyle !== 'none' && (
           <div className="settings-section">
-            <label>Per-bit interval: {bitAnimInterval}ms</label>
-            <div className="settings-row">
-              <input type="range" min={20} max={700} step={10}
-                     value={bitAnimInterval || 50}
-                     onChange={(e) => onBitAnimIntervalChange(parseInt(e.target.value))} />
+            <label>Animation timing</label>
+            <div className="settings-row animation-timing-row" style={{ alignItems: 'flex-start', gap: 10 }}>
+              <div className="timing-control">
+                <span className="timing-title">Per-bit interval</span>
+                <div className="settings-row" style={{ alignItems: 'center', gap: 6, opacity: animMode === 'all' ? 0.55 : 1 }}>
+                  <button className="btn-option btn-sm" onClick={() => adjustBitInterval(-50)} title="Decrease per-bit interval by 0.05s" disabled={animMode === 'all'}>−</button>
+                  <span className="speed-val" style={{ minWidth: 62, textAlign: 'center' }}>{((bitAnimInterval || 100) / 1000).toFixed(2)}s</span>
+                  <button className="btn-option btn-sm" onClick={() => adjustBitInterval(50)} title="Increase per-bit interval by 0.05s" disabled={animMode === 'all'}>+</button>
+                </div>
+              </div>
+              <div className="timing-control">
+                <span className="timing-title">Animation delay</span>
+                <div className="settings-row" style={{ alignItems: 'center', gap: 6 }}>
+                  <button className="btn-option btn-sm" onClick={() => adjustRepeatAnim(-100)} title="Decrease animation delay by 0.1s">−</button>
+                  <span className="speed-val" style={{ minWidth: 58, textAlign: 'center' }}>{repeatAnim === 0 ? 'Off' : `${(repeatAnim / 1000).toFixed(1)}s`}</span>
+                  <button className="btn-option btn-sm" onClick={() => adjustRepeatAnim(100)} title="Increase animation delay by 0.1s">+</button>
+                </div>
+              </div>
             </div>
+            <span className="settings-hint">Per-bit interval controls bit-to-bit pace. Animation delay waits after step animation completes before next step starts.</span>
           </div>
         )}
 

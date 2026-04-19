@@ -21,11 +21,11 @@ const DEFAULT_SETTINGS = {
   vectorBaseBits: 64,
   vectorLanes: 1,
   vectorLabel: 'uint64',
-  showBitLabels: false,
-  showByteLabels: false,
+  showBitLabels: true,
+  showByteLabels: true,
   showVectorLabels: true,
   outlines: {
-    target: 'none',
+    target: 'vector',
   },
 };
 
@@ -51,7 +51,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [repeatAnim, setRepeatAnim] = useState(500);
   const [animMode, setAnimMode] = useState('sequential'); // 'all' or 'sequential'
   const [animStyle, setAnimStyle] = useState('ripple'); // 'ripple', 'fade', 'pulse', 'none'
-  const [bitAnimInterval, setBitAnimInterval] = useState(80); // ms between sequential bits
+  const [bitAnimInterval, setBitAnimInterval] = useState(100); // ms between sequential bits (0.1s default)
   const [detailHeight, setDetailHeight] = useState(200);
   const [detailWidth, setDetailWidth] = useState(0);
   const [showMinimap, setShowMinimap] = useState(true);
@@ -79,6 +79,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const exportCancelRef = useRef(false);
   const rippleRef = useRef(null);
   const seqTimerRef = useRef(null); // sequential animation timer
+  const playTimeoutRef = useRef(null);
   const animBusyUntilRef = useRef(0);
   const outlineHoverRafRef = useRef(null);
   const initialFitDoneRef = useRef(false);
@@ -423,18 +424,66 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     rippleRef.current = requestAnimationFrame(animate);
   }, []);
 
+  const clampMs = useCallback((value, min, max) => Math.max(min, Math.min(max, value)), []);
+
+  const estimateAnimDuration = useCallback((bitCount) => {
+    const holdMs = 280;
+    const dissolvePerBit = 8;
+    const dissolveMax = 1200;
+
+    if (bitCount <= 0 || animStyle === 'none') {
+      return holdMs;
+    }
+
+    if (animMode === 'all' || bitAnimInterval <= 0) {
+      return 620 + holdMs + Math.min(dissolveMax, Math.max(120, bitCount * dissolvePerBit));
+    }
+
+    let revealMs = bitCount * Math.max(10, bitAnimInterval);
+    if (animMode === 'bounce') {
+      revealMs *= 2;
+    }
+
+    return revealMs + holdMs + Math.min(dissolveMax, Math.max(120, bitCount * dissolvePerBit));
+  }, [animMode, animStyle, bitAnimInterval]);
+
+  const dissolveInOrder = useCallback((r, bits, holdMs = 280) => {
+    if (!r || bits.length === 0) return;
+    const dissolveStepMs = clampMs(Math.floor((bitAnimInterval || 100) * 0.45), 12, 140);
+    const fullSet = new Set(bits);
+
+    seqTimerRef.current = setTimeout(() => {
+      let idx = 0;
+
+      const dissolveNext = () => {
+        if (!rendererRef.current) return;
+        if (idx >= bits.length) {
+          r.changedBits = new Set();
+          r.render();
+          r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+          return;
+        }
+
+        fullSet.delete(bits[idx]);
+        r.changedBits = new Set(fullSet);
+        r.render();
+        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        idx += 1;
+        seqTimerRef.current = setTimeout(dissolveNext, dissolveStepMs);
+      };
+
+      dissolveNext();
+    }, Math.max(80, holdMs));
+  }, [bitAnimInterval, clampMs, getMinimapDetailH]);
+
   // Main animation trigger — all-at-once, sequential per-bit, or bounce
   const triggerAnimation = useCallback((changedSet) => {
     stopSeqAnim();
     const r = rendererRef.current;
     if (!r || !changedSet || changedSet.size === 0 || changedSet.size >= 100000) return;
 
-    if ((animMode === 'sequential' || animMode === 'bounce') && bitAnimInterval > 0) {
-      const est = Math.min(12000, Math.max(220, changedSet.size * bitAnimInterval + 180));
-      animBusyUntilRef.current = performance.now() + est;
-    } else {
-      animBusyUntilRef.current = performance.now() + (animStyle === 'none' ? 100 : 650);
-    }
+    const est = estimateAnimDuration(changedSet.size);
+    animBusyUntilRef.current = performance.now() + est + Math.max(0, repeatAnim || 0);
 
     if ((animMode === 'sequential' || animMode === 'bounce') && bitAnimInterval > 0) {
       // Sequential / bounce: reveal bits one-by-one
@@ -442,19 +491,31 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       const fullChanged = new Set(changedSet);
       let idx = 0;
       let direction = 1; // 1 = forward, -1 = backward
+      let bounced = false;
+      const revealOrder = [];
+      const holdMs = 280;
 
       const revealNext = () => {
         if (!rendererRef.current) return;
         if (idx < 0 || idx >= bits.length) {
           if (animMode === 'bounce') {
-            direction *= -1;
-            idx = direction > 0 ? 0 : bits.length - 1;
+            if (!bounced) {
+              bounced = true;
+              direction *= -1;
+              idx = direction > 0 ? 0 : bits.length - 1;
+            } else {
+              r.changedBits = fullChanged;
+              r.render();
+              r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+              dissolveInOrder(r, revealOrder.length ? revealOrder : bits, holdMs);
+              return;
+            }
           } else {
-            // Sequential done — restore full set
+            // Sequential done — restore full set and dissolve in reveal order
             r.changedBits = fullChanged;
             r.render();
             r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-            animBusyUntilRef.current = 0;
+            dissolveInOrder(r, revealOrder.length ? revealOrder : bits, holdMs);
             return;
           }
         }
@@ -468,6 +529,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         r.changedBits = partial;
         r.render();
         r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        revealOrder.push(bits[idx]);
         // Small effect on the just-added bit
         if (animStyle !== 'none') {
           const singleSet = new Set([bits[idx]]);
@@ -488,18 +550,11 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     } else {
       // All at once with chosen effect style
       runEffect(animStyle);
+      const bits = Array.from(changedSet).sort((a, b) => a - b);
+      const holdMs = animStyle === 'none' ? 200 : 300;
+      dissolveInOrder(r, bits, holdMs);
     }
-  }, [animMode, animStyle, bitAnimInterval, stopSeqAnim, runEffect]);
-
-  // Repeat animation timer
-  useEffect(() => {
-    if (repeatAnim <= 0 || playing) return;
-    const timer = setInterval(() => {
-      const r = rendererRef.current;
-      if (r && r.changedBits) triggerAnimation(r.changedBits);
-    }, repeatAnim);
-    return () => clearInterval(timer);
-  }, [repeatAnim, playing, triggerAnimation]);
+  }, [animMode, animStyle, bitAnimInterval, stopSeqAnim, runEffect, estimateAnimDuration, repeatAnim, dissolveInOrder, getMinimapDetailH]);
 
   // Initial render — delay one frame so the container has its final dimensions
   useEffect(() => {
@@ -531,26 +586,66 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     }
   }, [autoRender, steps.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Replay current step when animation mode changes so all bits are animated in the new mode
+  useEffect(() => {
+    const step = steps[currentStep];
+    if (!step || !step.changedBits || step.changedBits.length === 0) return;
+    const currentChanged = new Set(step.changedBits);
+    triggerAnimation(currentChanged);
+  }, [animMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Play/pause
   useEffect(() => {
-    if (playing) {
-      playTimerRef.current = setInterval(() => {
-        setCurrentStep((prev) => {
-          if (performance.now() < animBusyUntilRef.current) return prev;
-          const next = prev + 1;
-          if (next >= steps.length) {
-            setPlaying(false);
-            return prev;
-          }
-          setTimeout(() => goToStep(next), 0);
-          return next;
-        });
-      }, Math.max(120, playSpeed));
-    } else {
+    if (!playing) {
       clearInterval(playTimerRef.current);
+      if (playTimeoutRef.current) {
+        clearTimeout(playTimeoutRef.current);
+        playTimeoutRef.current = null;
+      }
+      return;
     }
-    return () => clearInterval(playTimerRef.current);
+
+    const scheduleNext = () => {
+      if (!playing || !rendererRef.current) return;
+
+      if (performance.now() < animBusyUntilRef.current) {
+        playTimeoutRef.current = setTimeout(scheduleNext, 16);
+        return;
+      }
+
+      setCurrentStep((prev) => {
+        const next = prev + 1;
+        if (next >= steps.length) {
+          setPlaying(false);
+          return prev;
+        }
+        setTimeout(() => goToStep(next), 0);
+        return next;
+      });
+
+      const waitMs = Math.max(120, playSpeed);
+      playTimeoutRef.current = setTimeout(scheduleNext, waitMs);
+    };
+
+    playTimeoutRef.current = setTimeout(scheduleNext, 0);
+
+    return () => {
+      clearInterval(playTimerRef.current);
+      if (playTimeoutRef.current) {
+        clearTimeout(playTimeoutRef.current);
+        playTimeoutRef.current = null;
+      }
+    };
   }, [playing, playSpeed, steps.length, goToStep]);
+
+  const handlePlayPause = useCallback(() => {
+    if (!playing && currentStep >= Math.max(0, steps.length - 1)) {
+      goToStep(0);
+      setPlaying(true);
+      return;
+    }
+    setPlaying((p) => !p);
+  }, [playing, currentStep, steps.length, goToStep]);
 
   // Zoom
   const doZoom = useCallback((factor) => {
@@ -741,7 +836,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         case 'ArrowRight': e.preventDefault(); goToStep(currentStep + 1); break;
         case 'Home':       e.preventDefault(); goToStep(0); break;
         case 'End':        e.preventDefault(); goToStep(steps.length - 1); break;
-        case ' ':          e.preventDefault(); setPlaying(p => !p); break;
+        case ' ':          e.preventDefault(); handlePlayPause(); break;
         case '+': case '=': e.preventDefault(); doZoom(1.5); break;
         case '-':          e.preventDefault(); doZoom(1 / 1.5); break;
         case '0':          e.preventDefault(); resetZoom(); break;
@@ -752,7 +847,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [currentStep, goToStep, doZoom, resetZoom, steps.length]);
+  }, [currentStep, goToStep, doZoom, resetZoom, steps.length, handlePlayPause]);
 
   // Export PNG
   const exportPng = useCallback(() => {
@@ -934,7 +1029,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         <div className="toolbar-center">
           <button className="btn-icon" onClick={() => goToStep(0)} title="First (Home)" disabled={exporting}><SkipBack /></button>
           <button className="btn-icon" onClick={() => goToStep(currentStep - 1)} title="Previous (←)" disabled={exporting}><StepBack /></button>
-          <button className="btn-icon" onClick={() => setPlaying(p => !p)} title="Play/Pause (Space)" disabled={exporting}>
+          <button className="btn-icon" onClick={handlePlayPause} title="Play/Pause (Space)" disabled={exporting}>
             {playing ? <Pause /> : <Play />}
           </button>
           <button className="btn-icon" onClick={() => goToStep(currentStep + 1)} title="Next (→)" disabled={exporting}><StepForward /></button>
