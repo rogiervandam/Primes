@@ -591,7 +591,7 @@ export class SieveRenderer {
         }
 
         // Render vector labels
-        if (labelH > 0 && this.vectorGroup > 1 && this.showVectorLabels) {
+        if (labelH > 0 && this.showVectorLabels) {
           const fontSize = Math.max(7, Math.min(13, 2 + 2 * this.zoom));
           ctx.font = `${fontSize}px monospace`;
           ctx.fillStyle = C.LABEL_COLOR;

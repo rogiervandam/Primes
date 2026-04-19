@@ -155,6 +155,19 @@ export default function SettingsPanel({
     </button>
   );
 
+  const PreviewOptionButton = ({ label, hint, active, onClick, preview, compact = false }) => (
+    <button
+      type="button"
+      className={`preview-btn${active ? ' active' : ''}${compact ? ' compact' : ''}`}
+      onClick={onClick}
+      title={hint}
+    >
+      <span className="preview-btn-swatch">{preview}</span>
+      <span className="preview-btn-title">{label}</span>
+      <span className="preview-btn-hint">{hint}</span>
+    </button>
+  );
+
   const outline = outlineSettings || {
     target: 'none',
   };
@@ -461,21 +474,109 @@ export default function SettingsPanel({
 
         <div className="settings-section">
           <label>Animation style</label>
-          <div className="btn-group">
-            {['ripple', 'fade', 'pulse', 'none'].map(st => (
-              <button key={st} className={`btn-option${(animStyle || 'ripple') === st ? ' active' : ''}`}
-                      onClick={() => onAnimStyleChange(st)}>{st}</button>
-            ))}
+          <div className="preview-btn-grid preview-btn-grid-4">
+            <PreviewOptionButton
+              label="Ripple"
+              hint="Contracting ripple ring"
+              active={(animStyle || 'ripple') === 'ripple'}
+              onClick={() => onAnimStyleChange('ripple')}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <circle cx="24" cy="11" r="8" />
+                  <circle cx="24" cy="11" r="4" />
+                  <circle cx="24" cy="11" r="1.5" fill="currentColor" stroke="none" />
+                </svg>
+              )}
+            />
+            <PreviewOptionButton
+              label="Fade"
+              hint="Soft fading highlight"
+              active={(animStyle || 'ripple') === 'fade'}
+              onClick={() => onAnimStyleChange('fade')}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="4" y="5" width="8" height="12" opacity="0.3" />
+                  <rect x="16" y="5" width="8" height="12" opacity="0.5" />
+                  <rect x="28" y="5" width="8" height="12" opacity="0.75" />
+                  <rect x="40" y="5" width="4" height="12" opacity="1" />
+                </svg>
+              )}
+            />
+            <PreviewOptionButton
+              label="Pulse"
+              hint="Expand and contract"
+              active={(animStyle || 'ripple') === 'pulse'}
+              onClick={() => onAnimStyleChange('pulse')}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <circle cx="12" cy="11" r="3" />
+                  <circle cx="24" cy="11" r="5" />
+                  <circle cx="36" cy="11" r="7" />
+                </svg>
+              )}
+            />
+            <PreviewOptionButton
+              label="None"
+              hint="No animation"
+              active={(animStyle || 'ripple') === 'none'}
+              onClick={() => onAnimStyleChange('none')}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <line x1="8" y1="11" x2="40" y2="11" />
+                  <line x1="10" y1="4" x2="38" y2="18" />
+                </svg>
+              )}
+            />
           </div>
         </div>
 
         <div className="settings-section">
           <label>Animation mode</label>
-          <div className="btn-group">
-            {[['all', 'All'], ['sequential', 'Sequential'], ['bounce', 'Bounce']].map(([k, l]) => (
-              <button key={k} className={`btn-option${(animMode || 'all') === k ? ' active' : ''}`}
-                      onClick={() => onAnimModeChange(k)}>{l}</button>
-            ))}
+          <div className="preview-btn-grid preview-btn-grid-3">
+            <PreviewOptionButton
+              compact
+              label="All"
+              hint="All bits at once"
+              active={(animMode || 'all') === 'all'}
+              onClick={() => onAnimModeChange('all')}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="6" y="6" width="8" height="8" />
+                  <rect x="20" y="6" width="8" height="8" />
+                  <rect x="34" y="6" width="8" height="8" />
+                </svg>
+              )}
+            />
+            <PreviewOptionButton
+              compact
+              label="Sequential"
+              hint="Step through bits"
+              active={(animMode || 'all') === 'sequential'}
+              onClick={() => onAnimModeChange('sequential')}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="6" y="6" width="8" height="8" opacity="1" />
+                  <rect x="20" y="6" width="8" height="8" opacity="0.6" />
+                  <rect x="34" y="6" width="8" height="8" opacity="0.3" />
+                  <line x1="14" y1="10" x2="20" y2="10" />
+                  <line x1="28" y1="10" x2="34" y2="10" />
+                </svg>
+              )}
+            />
+            <PreviewOptionButton
+              compact
+              label="Bounce"
+              hint="Forward and backward"
+              active={(animMode || 'all') === 'bounce'}
+              onClick={() => onAnimModeChange('bounce')}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <line x1="6" y1="10" x2="42" y2="10" />
+                  <polygon points="42,10 36,7 36,13" fill="currentColor" stroke="none" />
+                  <polygon points="6,10 12,7 12,13" fill="currentColor" stroke="none" />
+                </svg>
+              )}
+            />
           </div>
         </div>
 
