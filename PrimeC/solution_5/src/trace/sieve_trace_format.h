@@ -2,43 +2,25 @@
 #define SIEVE_TRACE_FORMAT_H
 
 /*
- * JSON trace file format (.sievetrace)
+ * Primary trace format (.sievetrace): human-readable line format.
  *
- * {
- *   "version": 3,
- *   "sieve_size": <uint64>,
- *   "bit_count": <uint64>,
- *   "max_number": <uint64>,
- *   "steps": [
- *     {
- *       "step": <int>,
- *       "annotation": "<string>",
- *       "operation": "<string>",       // e.g. "markFactors", "extend", "continuePattern"
- *       "prime": <int | null>,         // the prime being processed (number, not index)
- *       "block_start": <int | null>,   // block range start
- *       "block_stop": <int | null>,    // block range stop
- *       "factor_step": <int | null>,   // step size for marking
- *       "changed_bits": [<int>, ...]
- *     },
- *     ...
- *   ]
- * }
+ * Header:
+ * TRACE version=<int> format=text sieve_size=<u64> bit_count=<u64> max_number=<u64>
  *
- * Changed bits are indices into the bitstorage (half-storage: bit i = number 2*i+1).
- * Only bits that changed (0->1) between this step and the previous step are recorded.
+ * Step line:
+ * STEP step=<u32> op="<name>" prime=<i64|null> start=<i64|null> stop=<i64|null>
+ *      factor_step=<i64|null> depth=<int> changed_count=<u32>
+ *      changed_bits=[1,2,3] annotation="<text>"
  *
- * Memory dump format (type "dump"):
- * {
- *   "version": 3,
- *   "type": "dump",
- *   "sieve_size": <uint64>,
- *   "bit_count": <uint64>,
- *   "max_number": <uint64>,
- *   "format": "hex" | "binary",
- *   "data": "<string>"
- * }
+ * Optional secondary JSON companion output can be enabled with:
+ * TRACE_JSON_SECONDARY=1 (written to <tracefilename>.json)
+ *
+ * JSON compatibility format fields use canonical keys:
+ * start, stop, factor_step (legacy block_start/block_stop accepted by parser).
+ *
+ * Memory dump supports both hex and binary payloads.
  */
 
-#define TRACE_FORMAT_VERSION 3
+#define TRACE_FORMAT_VERSION 4
 
 #endif /* SIEVE_TRACE_FORMAT_H */

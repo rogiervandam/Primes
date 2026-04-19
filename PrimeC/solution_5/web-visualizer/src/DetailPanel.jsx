@@ -108,10 +108,10 @@ export default function DetailPanel({ step, stepIndex, open, onToggle, height, o
                   <td><span className="detail-tag prime-tag">{step.prime}</span></td>
                 </tr>
               )}
-              {step.blockStart != null && step.blockStop != null && (
+              {step.start != null && step.stop != null && (
                 <tr>
-                  <td className="dt-label">Block range</td>
-                  <td><span className="detail-tag block-tag">[{step.blockStart} – {step.blockStop}]</span></td>
+                  <td className="dt-label">Range</td>
+                  <td><span className="detail-tag block-tag">[{step.start} – {step.stop}]</span></td>
                 </tr>
               )}
               {step.factorStep != null && (

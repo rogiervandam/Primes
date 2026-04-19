@@ -18,6 +18,17 @@ export function parseTrace(buffer) {
     throw new Error('Invalid buffer type');
   }
 
+  const trimmed = text.trim();
+  if (!trimmed) throw new Error('Invalid trace file: empty input');
+
+  if (trimmed[0] === '{' || trimmed[0] === '[') {
+    return parseJsonTrace(trimmed);
+  }
+
+  return parseTextTrace(trimmed);
+}
+
+function parseJsonTrace(text) {
   let json;
   try {
     json = JSON.parse(text);
@@ -47,14 +58,26 @@ export function parseTrace(buffer) {
     storageModel: json.storage_model || null,
   };
 
-  const steps = rawSteps.map((s) => ({
+  const steps = rawSteps.map((s) => {
+    const inferred = inferMetaFromAnnotation(s.annotation || '');
+    const start = toNullableNumber(
+      firstDefined(s.start, s.block_start, s.init, inferred.start)
+    );
+    const stop = toNullableNumber(
+      firstDefined(s.stop, s.block_stop, s.end, s.stop_block, inferred.stop)
+    );
+    const factorStep = toNullableNumber(
+      firstDefined(s.factor_step, s.step, s.stride, s.inc, inferred.factorStep)
+    );
+
+    return {
     stepId: s.step,
     annotation: s.annotation || '',
     operation: s.operation || null,
     prime: s.prime ?? null,
-    blockStart: s.block_start ?? null,
-    blockStop: s.block_stop ?? null,
-    factorStep: s.factor_step ?? null,
+    start,
+    stop,
+    factorStep,
     changedBits: new Uint32Array(s.changed_bits || []),
     numChanged: (s.changed_bits || []).length,
     // Hierarchy / nesting support (dynamic depth levels)
@@ -63,9 +86,184 @@ export function parseTrace(buffer) {
       ? s.operation_path.filter(Boolean)
       : (s.operation ? [s.operation] : []),
     parentId: s.parent_id ?? s.parentId ?? null,
-  }));
+  }});
 
   return { header, steps };
+}
+
+function parseTextTrace(text) {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) throw new Error('Invalid trace file: empty text log');
+
+  const headerLine = lines.find((l) => l.startsWith('TRACE '));
+  const headerKv = headerLine ? parseKvLine(headerLine.slice('TRACE '.length)) : {};
+
+  if (lines.some((l) => l.startsWith('DUMP '))) {
+    const dumpLine = lines.find((l) => l.startsWith('DUMP '));
+    const kv = parseKvLine(dumpLine.slice('DUMP '.length));
+    const dumpJson = {
+      version: toNumberOr(kv.version, TRACE_FALLBACK_VERSION),
+      type: 'dump',
+      sieve_size: toNumberOr(kv.sieve_size, 0),
+      bit_count: toNumberOr(kv.bit_count, 0),
+      max_number: toNumberOr(firstDefined(kv.max_number, kv.sieve_size), 0),
+      format: (kv.format || 'hex').toLowerCase(),
+      data: kv.data || '',
+    };
+    return parseDump(dumpJson);
+  }
+
+  const stepLines = lines.filter((l) => l.startsWith('STEP '));
+  const steps = stepLines.map((line, idx) => {
+    const kv = parseKvLine(line.slice('STEP '.length));
+    const inferred = inferMetaFromAnnotation(kv.annotation || '');
+
+    const start = toNullableNumber(
+      firstAliasValue(kv, START_ALIASES, inferred.start)
+    );
+    const stop = toNullableNumber(
+      firstAliasValue(kv, STOP_ALIASES, inferred.stop)
+    );
+    const factorStep = toNullableNumber(
+      firstAliasValue(kv, STEP_ALIASES, inferred.factorStep)
+    );
+
+    const changedBits = parseChangedBits(kv.changed_bits || '');
+    const operation = kv.op || kv.operation || 'Initialization';
+    const operationPath = Array.isArray(kv.operation_path)
+      ? kv.operation_path
+      : (kv.operation_path ? String(kv.operation_path).split('/').map((s) => s.trim()).filter(Boolean) : [operation]);
+
+    return {
+      stepId: toNumberOr(kv.step, idx),
+      annotation: kv.annotation || '',
+      operation,
+      prime: toNullableNumber(kv.prime),
+      start,
+      stop,
+      factorStep,
+      changedBits: new Uint32Array(changedBits),
+      numChanged: changedBits.length,
+      depth: Math.max(0, toNumberOr(firstDefined(kv.depth, kv.call_depth), 0)),
+      operationPath,
+      parentId: toNullableNumber(firstDefined(kv.parent_id, kv.parentId)),
+    };
+  });
+
+  const header = {
+    version: toNumberOr(headerKv.version, TRACE_FALLBACK_VERSION),
+    sieveSize: toNumberOr(headerKv.sieve_size, 0),
+    bitCount: toNumberOr(headerKv.bit_count, 0),
+    maxNumber: toNumberOr(firstDefined(headerKv.max_number, headerKv.sieve_size), 0),
+    stepCount: steps.length,
+    storageModel: headerKv.storage_model || null,
+  };
+
+  return { header, steps };
+}
+
+const TRACE_FALLBACK_VERSION = 4;
+
+const START_ALIASES = [
+  'start', 'init', 'block_start', 'range_start', 'start_block', 'begin',
+];
+const STOP_ALIASES = [
+  'stop', 'block_stop', 'stop_block', 'end', 'range_stop', 'finish',
+];
+const STEP_ALIASES = [
+  'factor_step', 'step', 'stride', 'inc', 'increment', 'stap',
+];
+
+function firstDefined(...vals) {
+  for (let i = 0; i < vals.length; i++) {
+    if (vals[i] !== undefined && vals[i] !== null) return vals[i];
+  }
+  return null;
+}
+
+function toNumberOr(v, fallback) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function toNullableNumber(v) {
+  if (v == null) return null;
+  if (typeof v === 'string' && v.toLowerCase() === 'null') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseKvLine(text) {
+  const kv = {};
+  const re = /(\w+)=("(?:\\.|[^"])*"|\[[^\]]*\]|[^\s]+)/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const key = m[1];
+    let raw = m[2];
+    if (raw.startsWith('"') && raw.endsWith('"')) {
+      raw = raw.slice(1, -1)
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t')
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, '\\');
+    }
+    kv[key] = raw;
+  }
+  return kv;
+}
+
+function parseChangedBits(raw) {
+  if (!raw || raw === '[]') return [];
+  const cleaned = raw.replace(/^\[/, '').replace(/\]$/, '').trim();
+  if (!cleaned) return [];
+  return cleaned
+    .split(',')
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isFinite(n) && n >= 0);
+}
+
+function firstAliasValue(obj, aliases, fallback) {
+  for (let i = 0; i < aliases.length; i++) {
+    const key = aliases[i];
+    if (obj[key] !== undefined) return obj[key];
+  }
+
+  const keys = Object.keys(obj);
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i].toLowerCase();
+    if (aliases.some((a) => k.includes(a))) return obj[keys[i]];
+  }
+
+  return fallback;
+}
+
+function inferMetaFromAnnotation(annotation) {
+  const text = String(annotation || '');
+  const lower = text.toLowerCase();
+  const out = { start: null, stop: null, factorStep: null };
+
+  const range = lower.match(/(\d+)\s*(?:-|\.\.|to)\s*(\d+)/);
+  if (range) {
+    out.start = Number(range[1]);
+    out.stop = Number(range[2]);
+  }
+
+  out.start = firstAliasNumberInText(text, START_ALIASES, out.start);
+  out.stop = firstAliasNumberInText(text, STOP_ALIASES, out.stop);
+  out.factorStep = firstAliasNumberInText(text, STEP_ALIASES, out.factorStep);
+
+  return out;
+}
+
+function firstAliasNumberInText(text, aliases, fallback) {
+  for (let i = 0; i < aliases.length; i++) {
+    const a = aliases[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`(?:\\b${a}\\b|${a}\\s*[:=])\\s*[:=]?\\s*(-?\\d+)`, 'i');
+    const m = text.match(re);
+    if (m) return Number(m[1]);
+  }
+  return fallback;
 }
 
 /**
@@ -123,8 +321,8 @@ function parseDump(json) {
     annotation: 'Memory dump',
     operation: 'dump',
     prime: null,
-    blockStart: null,
-    blockStop: null,
+    start: null,
+    stop: null,
     factorStep: null,
     changedBits: new Uint32Array(setBits),
     numChanged: setBits.length,

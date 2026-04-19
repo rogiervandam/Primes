@@ -228,4 +228,20 @@ Canvas:
 - make annotations for bytes like: "byte 0 in uint64v4[0], 8192 from start"
 - make annotations for uint64 like: "uint64 3 in uint64v4[0], 515 from start"
 
+--
+- the log format should not have "block_start" and "block_stop", but just "start" and "stop". It should not have the concept of blocks in the log system
+- it must be really easy to do the logging in the code, so that it is easy to integrate the logging into other sieve implementations in C or other languages:
+    - provide memory dumps of the entire sieve in binary or hex format. 
+    - provide the ability to just have logging strings that are interpreted automatically by the visualisation tool: e.g. the log says 
+      "set bits with stap z in range x-y", and the visualisation tool automatically parses this and knows start = x, stop =y and step=z. Know these aliases: init, start, block_start, *start, * start for start. stop, block_stop, stop_block,*stop, stop*, end, end*, *end for stop. And for step it is step, stride, inc, etc. This will allow for a more standardized and efficient logging format that can be easily integrated into different sieve implementations, providing a consistent and comprehensive visualisation experience for users analyzing the prime sieve algorithm across various implementations and programming languages. Keep the json as well, but make it optional and secondary to the more human-readable log format, which should be designed to be easily parsed by the visualisation tool while still being informative and concise for users analyzing the sieve algorithm. This will enhance the overall usability and effectiveness of the visualisation tool for a wider range of users and implementations of the prime sieve algorithm.
+- try to integrate the verbose logging messages that are already there in the log and exploit them for this information.
+
+- in the layout settings, don't show a preview of the layout; it isn't necessary and takes up a varying about of space, pushing the rest of the controls up and down when changing the arrangement. Keep the previews on the buttons though. 
+- make an option to outline bytes vectors or cachelines in the canvas by putting a thin border around them (let the user choose from a few styles, e.g. thick, dashed, dotted, rounded corners, and a few colors etc.) to visually differentiate between different groupings of bits in the visualisation, enhancing the overall clarity and organization of the visualisation tool when analyzing the prime sieve algorithm. This will allow users to quickly identify and understand the structure of the bitstorage based on their chosen grouping, improving their analysis and understanding of the changes being made to the bitstorage throughout the execution of the sieve algorithm.
+- when the users clicks on an outline, let the user then adjust the spacing from there. If this is good, we might not need the H + - and V + - buttons for spacing, as the user can just click on the outline of the grouping they want to adjust and then adjust the spacing from there, providing a more intuitive and direct way to customize the visualisation based on their preferences and the specific patterns they are looking for in the bitstorage. This will enhance the overall user experience and make the visualisation more engaging and informative, allowing users to better understand the dynamics of the changes being made to the bitstorage throughout the execution of the sieve algorithm while also providing a more customizable and visually appealing visualisation experience.
+- let the logging provide the correct type of storage. If no storage type is provided, default to "half".
+
+
+
+
 

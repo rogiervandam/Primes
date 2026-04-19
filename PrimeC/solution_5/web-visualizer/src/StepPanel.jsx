@@ -172,7 +172,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       node.depth > 0 ? `Depth: ${node.depth}` : null,
       node.operation ? `Operation: ${node.operation}` : null,
       node.operationPath?.length ? `Path: ${node.operationPath.join(' > ')}` : null,
-      node.blockStart != null ? `Block: [${node.blockStart} – ${node.blockStop}]` : null,
+      node.start != null ? `Range: [${node.start} – ${node.stop}]` : null,
       node.factorStep != null ? `Factor step: ${node.factorStep}` : null,
       `Bits changed: ${node.numChanged}`,
       node.annotation,

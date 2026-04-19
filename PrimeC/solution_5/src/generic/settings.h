@@ -52,6 +52,10 @@
   #define TRACE_ANALYSIS_END() trace_clear_context()
   #define TRACE_DUMP(filename, bitstorage_ptr, sieve_size, bit_count) \
       trace_dump_memory(filename, bitstorage_ptr, sieve_size, bit_count)
+  #define TRACE_DUMP_HEX(filename, bitstorage_ptr, sieve_size, bit_count) \
+      trace_dump_memory_with_format(filename, bitstorage_ptr, sieve_size, bit_count, "hex")
+  #define TRACE_DUMP_BINARY(filename, bitstorage_ptr, sieve_size, bit_count) \
+      trace_dump_memory_with_format(filename, bitstorage_ptr, sieve_size, bit_count, "binary")
 
   // Combined startAnalysis + trace context: folds trace into the analysis construct
   #define startAnalysisTrace5(timer, trace_op, bstart, bstop, printf_args...) \
@@ -82,6 +86,8 @@
   #define TRACE_ANALYSIS_START(level, op, bstart, bstop)
   #define TRACE_ANALYSIS_END()
   #define TRACE_DUMP(filename, bitstorage_ptr, sieve_size, bit_count)
+    #define TRACE_DUMP_HEX(filename, bitstorage_ptr, sieve_size, bit_count)
+    #define TRACE_DUMP_BINARY(filename, bitstorage_ptr, sieve_size, bit_count)
   #define startAnalysisTrace5(timer, trace_op, bstart, bstop, printf_args...) \
       startAnalysis5(timer, printf_args)
   #define endAnalysisTrace5(timer, ...) \
