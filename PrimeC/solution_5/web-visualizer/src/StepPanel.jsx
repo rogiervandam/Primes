@@ -52,6 +52,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
   const [search, setSearch] = useState('');
   const [filterOp, setFilterOp] = useState('');
   const [collapsed, setCollapsed] = useState(new Set());
+  const initialCollapseDoneRef = useRef(false);
   const lastClickedRef = useRef(null);
 
   const handleStepClick = useCallback((stepIdx, e) => {
@@ -155,6 +156,12 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       return { ...g, children: fc, depthTree: buildDepthTree(fc) };
     }).filter(g => g.children.length > 0);
   }, [tree, search, filterOp]);
+
+  useEffect(() => {
+    if (initialCollapseDoneRef.current || tree.length === 0) return;
+    setCollapsed(new Set(tree.map((g) => g.id)));
+    initialCollapseDoneRef.current = true;
+  }, [tree]);
 
   // Scroll active step into view
   useEffect(() => {
@@ -260,6 +267,14 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
 
   const totalVisible = filteredTree.reduce((a, g) => a + g.children.length, 0);
 
+  const handleGroupClick = useCallback((group) => {
+    const indices = (group.children || []).map((s) => s.originalIndex);
+    if (indices.length === 0) return;
+    onStepClick(indices[0]);
+    onMultiStepSelect(new Set(indices));
+    lastClickedRef.current = indices[0];
+  }, [onStepClick, onMultiStepSelect]);
+
   return (
     <div className={`step-panel${panelCollapsed ? ' collapsed' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
       <button className="step-panel-collapse-btn" onClick={onToggleCollapse} title={panelCollapsed ? 'Expand steps panel' : 'Collapse steps panel'}>
@@ -293,9 +308,14 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
             <div key={group.id} className="step-group">
               <div
                 className={`step-group-header${containsActive ? ' active-group' : ''}`}
-                onClick={() => toggleGroup(group.id)}
+                onClick={() => handleGroupClick(group)}
               >
-                <span className="step-group-toggle">{isCollapsed ? '▶' : '▼'}</span>
+                <span
+                  className="step-group-toggle"
+                  onClick={(e) => { e.stopPropagation(); toggleGroup(group.id); }}
+                >
+                  {isCollapsed ? '▶' : '▼'}
+                </span>
                 <span className="step-group-prime">{group.label}</span>
                 {group.operation && group.operation !== 'Initialization' && (
                   <span className="step-op">{group.operation}</span>

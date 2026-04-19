@@ -14,7 +14,6 @@ static char algorithm_type[] = "base";
 // #define ALGORITHM_CLASSIC 1
 
 // include helper functions
-// #include "generic/settings.h"
 #include "benchmark/sieve_options.h"
 #include "bitstorage/bitstorage_search.h"
 #include "sieve/sieve_calc.h"
@@ -22,6 +21,10 @@ static char algorithm_type[] = "base";
 
 #ifndef log5
 #define log5(fmt, ...) verbose5(printf((fmt) "\n", ##__VA_ARGS__))
+#endif
+
+#ifndef log6
+#define log6(fmt, ...) verbose6(printf((fmt) "\n", ##__VA_ARGS__))
 #endif
 
 static inline uint8_t checkFactor(sieve_t *sieve, counter_t factor) {
@@ -55,14 +58,36 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
         const counter_t step  = prime * 2 + 1;
         const counter_t start = prime * (step + 1);
 
+        TRACE_ANALYSIS_START(5, "setBitsRange_classic8", start, sieve_bits);
         log5("Setting bits with step %d in range %d-%d", (int)step, (int)start, (int)sieve_bits);
+        TRACE_STEP_META(bitstorage,
+                        "setBitsRange_classic8",
+                        (int64_t)step,
+                        (int64_t)start,
+                        (int64_t)sieve_bits,
+                        (int64_t)step,
+                        "Setting bits with step %d in range %d-%d",
+                        (int)step,
+                        (int)start,
+                        (int)sieve_bits);
 
         // #pragma GCC ivdep
         #pragma GCC unroll 32
         for(counter_t i=start; i < sieve_bits; i += step) {
-            log5("Setting bit %d", (int)i);
+            TRACE_ANALYSIS_START(6, "setBit_classic8", i, i);
+            log6("Setting bit %d", (int)i);
             bitstorage[index_type(i, bitbucket_t)] |= markmask_calc_type(i,bitbucket_t);
+            TRACE_STEP_META(bitstorage,
+                            "setBit_classic8",
+                            (int64_t)step,
+                            (int64_t)i,
+                            (int64_t)i,
+                            (int64_t)step,
+                            "Setting bit %d",
+                            (int)i);
+            TRACE_ANALYSIS_END();
         }
+        TRACE_ANALYSIS_END();
 
         // #pragma GCC ivdep
         #pragma GCC unroll 32

@@ -17,10 +17,12 @@ const DEFAULT_SETTINGS = {
   byteSpacingV: 2,
   u64SpacingH: 4,
   u64SpacingV: 4,
+  vectorMode: 'preset',
   vectorGroup: 1,
   vectorBaseBits: 64,
   vectorLanes: 1,
   vectorLabel: 'uint64',
+  customGroupBits: 0,
   showBitLabels: true,
   showByteLabels: true,
   showVectorLabels: true,
@@ -88,6 +90,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const detailOpenRef = useRef(true);
   const detailHeightRef = useRef(200);
   const lastHoveredIdxRef = useRef(-1); // tracks last hovered bit to avoid redundant recomputes
+  const layoutRefreshTimeoutRef = useRef(null);
+  const layoutRefreshRaf1Ref = useRef(null);
+  const layoutRefreshRaf2Ref = useRef(null);
 
   stepsRef.current = steps;
 
@@ -139,6 +144,86 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     }
   }, []);
 
+  const captureViewportAnchor = useCallback((xRatio = 0.5, yRatio = 0.5) => {
+    const r = rendererRef.current;
+    const el = containerRef.current;
+    if (!r || !el) return null;
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    const clientX = rect.left + rect.width * xRatio;
+    const clientY = rect.top + rect.height * yRatio;
+    const localX = clientX - rect.left;
+    const localY = clientY - rect.top;
+    const bitIdx = r.canvasToBitIndex(localX, localY);
+    if (bitIdx < 0) return null;
+    return { bitIdx, clientX, clientY };
+  }, []);
+
+  const refreshCanvasLayout = useCallback((anchor = null) => {
+    const r = rendererRef.current;
+    const el = containerRef.current;
+    if (!r || !el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    r.resize(rect.width, rect.height);
+    r.unfreezeLayout();
+    r.freezeLayout();
+
+    if (anchor && anchor.bitIdx >= 0) {
+      const desiredX = Math.max(0, Math.min(rect.width, anchor.clientX - rect.left));
+      const desiredY = Math.max(0, Math.min(rect.height, anchor.clientY - rect.top));
+      const mapped = r.bitIndexToCanvas(anchor.bitIdx);
+      if (mapped) {
+        r.panX += desiredX - mapped.x;
+        r.panY += desiredY - mapped.y;
+      }
+    }
+
+    r.render();
+    if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
+    updateMinimapAvailability();
+  }, [showMinimap, getMinimapDetailH, updateMinimapAvailability]);
+
+  const clearScheduledLayoutRefresh = useCallback(() => {
+    if (layoutRefreshTimeoutRef.current != null) {
+      clearTimeout(layoutRefreshTimeoutRef.current);
+      layoutRefreshTimeoutRef.current = null;
+    }
+    if (layoutRefreshRaf1Ref.current != null) {
+      cancelAnimationFrame(layoutRefreshRaf1Ref.current);
+      layoutRefreshRaf1Ref.current = null;
+    }
+    if (layoutRefreshRaf2Ref.current != null) {
+      cancelAnimationFrame(layoutRefreshRaf2Ref.current);
+      layoutRefreshRaf2Ref.current = null;
+    }
+  }, []);
+
+  const schedulePostLayoutRefresh = useCallback((anchor = null) => {
+    clearScheduledLayoutRefresh();
+    layoutRefreshRaf1Ref.current = requestAnimationFrame(() => {
+      layoutRefreshRaf2Ref.current = requestAnimationFrame(() => {
+        refreshCanvasLayout(anchor);
+      });
+    });
+    layoutRefreshTimeoutRef.current = setTimeout(() => {
+      refreshCanvasLayout(anchor);
+    }, 210);
+  }, [clearScheduledLayoutRefresh, refreshCanvasLayout]);
+
+  const toggleStepsPanel = useCallback(() => {
+    const anchor = captureViewportAnchor(0.5, 0.5);
+    setStepsPanelCollapsed((c) => !c);
+    schedulePostLayoutRefresh(anchor);
+  }, [captureViewportAnchor, schedulePostLayoutRefresh]);
+
+  const toggleDetailPanel = useCallback(() => {
+    const anchor = captureViewportAnchor(0.5, 0.5);
+    updateDetailOpen((o) => !o);
+    schedulePostLayoutRefresh(anchor);
+  }, [captureViewportAnchor, updateDetailOpen, schedulePostLayoutRefresh]);
+
   // Apply theme to document
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -156,7 +241,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     return () => { rendererRef.current = null; };
   }, [header.bitCount, header.sieveSize]);
 
-  const prevLayoutRef = useRef({ bitLayout: DEFAULT_SETTINGS.bitLayout, byteLayout: DEFAULT_SETTINGS.byteLayout, cachelineSize: 64 });
+  const prevLayoutRef = useRef({ bitLayout: DEFAULT_SETTINGS.bitLayout, byteLayout: DEFAULT_SETTINGS.byteLayout, cachelineSize: 64, customGroupBits: 0 });
 
   // Apply layout settings + theme to renderer
   useEffect(() => {
@@ -171,8 +256,10 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.byteSpacingV = layoutSettings.byteSpacingV;
     r.u64SpacingH = layoutSettings.u64SpacingH;
     r.u64SpacingV = layoutSettings.u64SpacingV;
+    const isCustomVectorMode = layoutSettings.vectorMode === 'custom';
     r.vectorGroup = layoutSettings.vectorGroup;
     r.vectorLabel = layoutSettings.vectorLabel || `uint64v${layoutSettings.vectorGroup || 1}`;
+    r.customGroupingBits = isCustomVectorMode ? Math.max(1, parseInt(layoutSettings.customGroupBits || 1, 10) || 1) : 0;
     r.showBitLabels = layoutSettings.showBitLabels;
     r.showByteLabels = layoutSettings.showByteLabels;
     r.showVectorLabels = layoutSettings.showVectorLabels !== false;
@@ -182,6 +269,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.outlineStyle = 'dashed';
     r.outlineColor = '#3b82f6';
     r.outlineRounded = true;
+    r.minimapEnabled = showMinimap !== false;
     r.colorPreset = colorPreset;
     r.storageModel = storageModel;
     r.cachelineSize = cachelineSize;
@@ -191,7 +279,13 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.customUnchangedBit = customColors.unchangedBit;
     // Reset zoom when bit/byte layout or cacheline size changes
     const prev = prevLayoutRef.current;
-    if (prev.bitLayout !== layoutSettings.bitLayout || prev.byteLayout !== layoutSettings.byteLayout || prev.cachelineSize !== cachelineSize) {
+    const nextCustomGroupBits = isCustomVectorMode ? Math.max(1, parseInt(layoutSettings.customGroupBits || 1, 10) || 1) : 0;
+    if (
+      prev.bitLayout !== layoutSettings.bitLayout ||
+      prev.byteLayout !== layoutSettings.byteLayout ||
+      prev.cachelineSize !== cachelineSize ||
+      prev.customGroupBits !== nextCustomGroupBits
+    ) {
       r.unfreezeLayout();
       const el = containerRef.current;
       if (el) {
@@ -203,6 +297,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       prev.bitLayout = layoutSettings.bitLayout;
       prev.byteLayout = layoutSettings.byteLayout;
       prev.cachelineSize = cachelineSize;
+      prev.customGroupBits = nextCustomGroupBits;
     }
     r.render();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
@@ -314,36 +409,26 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   // Resize handler
   useEffect(() => {
     const onResize = () => {
-      const r = rendererRef.current;
-      const el = containerRef.current;
-      if (!r || !el) return;
-      const rect = el.getBoundingClientRect();
-      r.resize(rect.width, rect.height);
-      r.unfreezeLayout();
-      r.freezeLayout();
-      r.render();
-      if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
-      updateMinimapAvailability();
+      const anchor = captureViewportAnchor(0.5, 0.5);
+      refreshCanvasLayout(anchor);
     };
 
-    let raf1 = null;
-    let raf2 = null;
+    clearScheduledLayoutRefresh();
     const transitionRefreshTimer = setTimeout(onResize, 190);
 
     onResize();
     // Run an extra post-layout refresh to catch CSS transition-based width changes.
-    raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(onResize);
+    layoutRefreshRaf1Ref.current = requestAnimationFrame(() => {
+      layoutRefreshRaf2Ref.current = requestAnimationFrame(onResize);
     });
     window.addEventListener('resize', onResize);
 
     return () => {
       window.removeEventListener('resize', onResize);
       clearTimeout(transitionRefreshTimer);
-      if (raf1 != null) cancelAnimationFrame(raf1);
-      if (raf2 != null) cancelAnimationFrame(raf2);
+      clearScheduledLayoutRefresh();
     };
-  }, [panelWidth, showMinimap, stepsPanelCollapsed, settingsCollapsed, updateMinimapAvailability]);
+  }, [panelWidth, showMinimap, stepsPanelCollapsed, settingsCollapsed, detailOpen, detailHeight, captureViewportAnchor, refreshCanvasLayout, clearScheduledLayoutRefresh]);
 
   // Go to step
   const goToStep = useCallback((target) => {
@@ -923,7 +1008,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         case '-':          e.preventDefault(); doZoom(1 / 1.5); break;
         case '0':          e.preventDefault(); resetZoom(); break;
         case 't': case 'T': e.preventDefault(); setTheme(t => t === 'dark' ? 'light' : 'dark'); break;
-        case 'd': case 'D': e.preventDefault(); setDetailOpen(o => !o); break;
+        case 'd': case 'D': e.preventDefault(); toggleDetailPanel(); break;
         default: break;
       }
     };
@@ -1047,7 +1132,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     }
 
     // Calculate the canvas position of this bit and pan to center it
-    const bitsPerCacheLine = 512;
+    const bitsPerCacheLine = Math.max(1, r.bitsPerCacheLine || 512);
     const clIdx = Math.floor(bitIdx / bitsPerCacheLine);
     const clPerVRow = r._cacheLinesPerVisualRow();
     const vRow = Math.floor(clIdx / clPerVRow);
@@ -1140,17 +1225,30 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
   const currentStepBanner = useMemo(() => {
     const s = currentStepData;
-    if (!s) return 'No step selected';
-    const parts = [];
-    parts.push(`Step ${currentStep}`);
-    if (s.operation) parts.push(s.operation);
-    if (s.prime != null) parts.push(`Prime ${s.prime}`);
-    if (s.numChanged != null) parts.push(`+${s.numChanged} bits`);
-    if (s.start != null && s.stop != null) parts.push(`Range ${s.start}-${s.stop}`);
-    if (s.factorStep != null) parts.push(`Step size ${s.factorStep}`);
-    const head = parts.join(' | ');
-    const tail = s.annotation ? ` | ${s.annotation}` : '';
-    return head + tail;
+    if (!s) {
+      return {
+        line1: `Step ${currentStep} | No step selected`,
+        line2: '',
+        title: 'No step selected',
+      };
+    }
+
+    const functionName = s.operation || 'Unknown';
+    const line1 = `Step ${currentStep} | ${functionName}`;
+
+    const line2Parts = [];
+    if (s.prime != null) line2Parts.push(`Prime ${s.prime}`);
+    if (s.factorStep != null) line2Parts.push(`Step size ${s.factorStep}`);
+    if (s.start != null && s.stop != null) line2Parts.push(`Range ${s.start}-${s.stop}`);
+    if (s.numChanged != null) line2Parts.push(`+${s.numChanged} bits changed`);
+    if (s.annotation) line2Parts.push(s.annotation);
+    const line2 = line2Parts.join(' | ');
+
+    return {
+      line1,
+      line2,
+      title: `${line1}${line2 ? ` | ${line2}` : ''}`,
+    };
   }, [currentStep, currentStepData]);
 
   return (
@@ -1243,12 +1341,13 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           width={panelWidth}
           onWidthChange={setPanelWidth}
           panelCollapsed={stepsPanelCollapsed}
-          onToggleCollapse={() => setStepsPanelCollapsed(c => !c)}
+          onToggleCollapse={toggleStepsPanel}
         />
 
         <div className="canvas-area">
-          <div className="step-focus-banner" title={currentStepBanner}>
-            {currentStepBanner}
+          <div className="step-focus-banner" title={currentStepBanner.title}>
+            <div className="step-focus-line1">{currentStepBanner.line1}</div>
+            {currentStepBanner.line2 && <div className="step-focus-line2">{currentStepBanner.line2}</div>}
           </div>
           <div className="canvas-container" ref={containerRef}>
             <canvas ref={canvasRef} />
@@ -1355,7 +1454,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
             step={currentStepData}
             stepIndex={currentStep}
             open={detailOpen}
-            onToggle={() => updateDetailOpen(o => !o)}
+            onToggle={toggleDetailPanel}
             height={detailHeight}
             onHeightChange={updateDetailHeight}
             width={detailWidth}
@@ -1393,7 +1492,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           onHeatMapToggle={setHeatMapEnabled}
           showMinimap={showMinimap}
           onShowMinimapChange={setShowMinimap}
-          minimapControlVisible={minimapAvailable}
+          minimapControlVisible={true}
           outlineSettings={layoutSettings.outlines}
           onOutlineChange={(outlines) => setLayoutSettings((prev) => ({ ...prev, outlines }))}
           spacingFocus={spacingFocus}

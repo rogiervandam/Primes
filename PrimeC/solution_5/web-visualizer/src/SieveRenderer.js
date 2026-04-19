@@ -207,15 +207,18 @@ export class SieveRenderer {
     this.outlineRounded = false;
     this.outlineHoverActive = false;
     this.outlineHoverPulse = 0;
+    this.minimapEnabled = true;
 
     // Storage model for bit-to-number mapping
     this.storageModel = 'half';
 
     // Canvas width for wrapping (set by resize)
     this.canvasWidth = 0;
+    this.canvasHeight = 0;
 
     // Cacheline size in bytes (default 64)
     this.cachelineSize = 64;
+    this.customGroupingBits = 0;
 
     // Heat map: tracks recency of access per bit
     this.heatMapEnabled = false;
@@ -348,6 +351,8 @@ export class SieveRenderer {
   }
 
   get bitsPerCacheLine() {
+    const customBits = Math.floor(this.customGroupingBits || 0);
+    if (customBits > 0) return customBits;
     return this.cachelineSize * 8;
   }
 
@@ -413,6 +418,7 @@ export class SieveRenderer {
     this.canvas.style.height = height + 'px';
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.canvasWidth = width;
+    this.canvasHeight = height;
     // Recompute frozen layout on resize
     if (this._frozenClPerVRow > 0) {
       this._frozenClPerVRow = this._computeClPerVRow();
@@ -473,8 +479,8 @@ export class SieveRenderer {
   }
 
   _numVectorsPerRow() {
-    const u64sPerCL = this.bitsPerCacheLine / 64;
-    return Math.max(1, u64sPerCL / this.vectorGroup);
+    const u64sPerCL = Math.max(1, Math.ceil(this.bitsPerCacheLine / 64));
+    return Math.max(1, Math.ceil(u64sPerCL / this.vectorGroup));
   }
 
   // How many cache lines to wrap per visual row based on canvas width
@@ -486,20 +492,58 @@ export class SieveRenderer {
 
   _computeClPerVRow() {
     if (!this.canvasWidth || this.canvasWidth <= 0) return 1;
-    // Compute row width at zoom=1 for stable measurement
+    const bitsPerCacheLine = this.bitsPerCacheLine;
+    const totalCacheLines = Math.max(1, Math.ceil(this.bitCount / bitsPerCacheLine));
+    // Compute dimensions at zoom=1 for stable wrapping independent of zoom.
     const savedZoom = this.zoom;
     this.zoom = 1;
     const rowW = this._rowDims().w;
+    const rowH = this._rowDims().h;
+    const labelH = this._labelHeight();
     this.zoom = savedZoom;
-    if (rowW <= 0) return 1;
+
+    if (rowW <= 0 || rowH <= 0) return 1;
     const avail = this.canvasWidth;
-    const count = Math.floor(avail / (rowW + this.u64SpacingH));
-    // Round down to nearest power of 2 or factor of 4 for clean alignment
-    if (count >= 16) return 16;
-    if (count >= 8) return 8;
-    if (count >= 4) return 4;
-    if (count >= 2) return 2;
-    return 1;
+    const availH = Math.max(1, this.canvasHeight || this.canvas.width / (window.devicePixelRatio || 1));
+    const clStepX = rowW + this.u64SpacingH;
+    const vRowH = labelH + rowH + this.u64SpacingV;
+    const maxByWidth = Math.max(1, Math.floor(avail / clStepX));
+    const maxCandidate = Math.min(totalCacheLines, Math.max(1, maxByWidth));
+
+    let best = 1;
+    let bestScore = Number.POSITIVE_INFINITY;
+    const targetAspect = Math.max(0.2, Math.min(5, avail / availH));
+
+    const sectionAnchors = [maxCandidate, Math.floor(maxCandidate / 2), Math.floor(maxCandidate / 4), Math.floor(maxCandidate / 8)]
+      .filter((v, i, arr) => v >= 1 && arr.indexOf(v) === i);
+
+    for (let n = 1; n <= maxCandidate; n++) {
+      const visualRows = Math.ceil(totalCacheLines / n);
+      const layoutW = n * rowW + Math.max(0, n - 1) * this.u64SpacingH;
+      const layoutH = visualRows * vRowH;
+      if (layoutW <= 0 || layoutH <= 0) continue;
+
+      const layoutAspect = layoutW / layoutH;
+      const aspectPenalty = Math.abs(Math.log(layoutAspect / targetAspect));
+
+      const widthFill = Math.min(1, layoutW / avail);
+      const heightFill = Math.min(1, layoutH / availH);
+      const fillPenalty = 1 - (widthFill * heightFill);
+
+      let sectionBias = 0;
+      for (const anchor of sectionAnchors) {
+        const dist = Math.abs(n - anchor);
+        sectionBias = Math.max(sectionBias, Math.exp(-dist / 2));
+      }
+
+      const score = aspectPenalty + fillPenalty * 0.7 - sectionBias * 0.12;
+      if (score < bestScore) {
+        bestScore = score;
+        best = n;
+      }
+    }
+
+    return Math.max(1, Math.min(maxCandidate, best));
   }
 
   /** Freeze the current wrapping layout so zoom doesn't change it */
@@ -600,6 +644,7 @@ export class SieveRenderer {
 
         const clOffsetX = clInRow * (rowD.w + this.u64SpacingH * this.zoom);
         const rowBitStart = clIdx * bitsPerCacheLine;
+        const rowBitStop = Math.min(rowBitStart + bitsPerCacheLine, this.bitCount);
 
         if (this.outlineEnabled && this.outlineTarget === 'cacheline') {
           const clX = this.panX + clOffsetX;
@@ -619,8 +664,8 @@ export class SieveRenderer {
             const vecX = this.panX + clOffsetX + vi * (vecD.w + this.u64SpacingH * this.zoom);
             const u64Start = vi * this.vectorGroup;
             const bitStart = rowBitStart + u64Start * 64;
-            const bitEnd = Math.min(bitStart + this.vectorGroup * 64 - 1, this.bitCount - 1);
-            if (bitStart >= this.bitCount) break;
+            const bitEnd = Math.min(bitStart + this.vectorGroup * 64 - 1, rowBitStop - 1, this.bitCount - 1);
+            if (bitStart >= rowBitStop) break;
 
             const globalVectorIndex = clIdx * numVec + vi;
             const label = `Vector ${globalVectorIndex} bits ${bitStart}-${bitEnd}`;
@@ -632,10 +677,10 @@ export class SieveRenderer {
         }
 
         // Render bits
-        const u64sPerCL = bitsPerCacheLine / 64;
+        const u64sPerCL = Math.max(1, Math.ceil(bitsPerCacheLine / 64));
         for (let u64Idx = 0; u64Idx < u64sPerCL; u64Idx++) {
           const u64BitStart = rowBitStart + u64Idx * 64;
-          if (u64BitStart >= this.bitCount) break;
+          if (u64BitStart >= rowBitStop) break;
 
           const vecIdx = Math.floor(u64Idx / this.vectorGroup);
           const intraIdx = u64Idx % this.vectorGroup;
@@ -650,7 +695,7 @@ export class SieveRenderer {
 
           for (let byteIdx = 0; byteIdx < 8; byteIdx++) {
             const byteBitStart = u64BitStart + byteIdx * 8;
-            if (byteBitStart >= this.bitCount) break;
+            if (byteBitStart >= rowBitStop) break;
 
             const bytePos = this._bytePosInU64(byteIdx);
             const byteX = u64X + bytePos.col * (byteD.w + this.byteSpacingH * this.zoom);
@@ -673,7 +718,7 @@ export class SieveRenderer {
 
             for (let bitIdx = 0; bitIdx < 8; bitIdx++) {
               const globalBit = byteBitStart + bitIdx;
-              if (globalBit >= this.bitCount) break;
+              if (globalBit >= rowBitStop || globalBit >= this.bitCount) break;
 
               if (bitBl.grid3x3 && bitIdx >= 8) continue;
 
@@ -759,7 +804,7 @@ export class SieveRenderer {
     if (intraIdx < 0 || intraIdx >= this.vectorGroup) return -1;
 
     const u64Idx = vecIdx * this.vectorGroup + intraIdx;
-    const u64sPerCL = bitsPerCacheLine / 64;
+    const u64sPerCL = Math.max(1, Math.ceil(bitsPerCacheLine / 64));
     if (u64Idx >= u64sPerCL) return -1;
 
     const inU64X = inVecX - intraIdx * u64InVecStep;
@@ -801,8 +846,56 @@ export class SieveRenderer {
     if (bitInByte < 0) return -1;
 
     const globalBit = clIdx * bitsPerCacheLine + u64Idx * 64 + byteIdx * 8 + bitInByte;
+    const rowBitStart = clIdx * bitsPerCacheLine;
+    const rowBitStop = Math.min(rowBitStart + bitsPerCacheLine, this.bitCount);
+    if (globalBit >= rowBitStop) return -1;
     if (globalBit < 0 || globalBit >= this.bitCount) return -1;
     return globalBit;
+  }
+
+  bitIndexToCanvas(bitIdx) {
+    if (bitIdx < 0 || bitIdx >= this.bitCount) return null;
+
+    const bitsPerCacheLine = this.bitsPerCacheLine;
+    const rowD = this._rowDims();
+    const labelH = this._labelHeight();
+    const clPerVRow = this._cacheLinesPerVisualRow();
+    const vRowHeight = labelH + rowD.h + this.u64SpacingV * this.zoom;
+    const u64D = this._u64Dims();
+    const byteD = this._byteDims();
+    const vecD = this._vectorDims();
+    const clStepX = rowD.w + this.u64SpacingH * this.zoom;
+
+    const clIdx = Math.floor(bitIdx / bitsPerCacheLine);
+    const bitInRow = bitIdx % bitsPerCacheLine;
+    const u64Idx = Math.floor(bitInRow / 64);
+    const bitInU64 = bitInRow % 64;
+    const byteIdx = Math.floor(bitInU64 / 8);
+    const bitInByte = bitInU64 % 8;
+
+    const u64sPerCL = Math.max(1, Math.ceil(bitsPerCacheLine / 64));
+    if (u64Idx < 0 || u64Idx >= u64sPerCL) return null;
+
+    const vRow = Math.floor(clIdx / clPerVRow);
+    const clInRow = clIdx % clPerVRow;
+    const clOffsetX = clInRow * clStepX;
+    const rowDataY = this.panY + vRow * vRowHeight + labelH;
+
+    const vecIdx = Math.floor(u64Idx / this.vectorGroup);
+    const intraIdx = u64Idx % this.vectorGroup;
+    const vecX = this.panX + clOffsetX + vecIdx * (vecD.w + this.u64SpacingH * this.zoom);
+    const u64X = vecX + intraIdx * (u64D.w + vecD.intraGap);
+
+    const bytePos = this._bytePosInU64(byteIdx);
+    const byteX = u64X + bytePos.col * (byteD.w + this.byteSpacingH * this.zoom);
+    const byteY = rowDataY + bytePos.row * (byteD.h + this.byteSpacingV * this.zoom);
+
+    const px = this.pixelSize * this.zoom;
+    const bitPos = this._bitPosInByte(bitInByte);
+    const x = byteX + bitPos.col * (px + this.bitSpacingH * this.zoom) + px / 2;
+    const y = byteY + bitPos.row * (px + this.bitSpacingV * this.zoom) + px / 2;
+
+    return { x, y };
   }
 
   hitTestOutline(canvasX, canvasY, options = {}) {
@@ -1297,6 +1390,10 @@ export class SieveRenderer {
 
   /** Render minimap overlay in bottom-right corner, offset above detailH */
   renderMinimap(canvasW, canvasH, detailH = 0) {
+    if (!this.minimapEnabled) {
+      this._minimapRect = null;
+      return;
+    }
     if (this.bitCount === 0) return;
     const dims = this.contentDimensions();
     if (dims.width <= canvasW && dims.height <= canvasH) {

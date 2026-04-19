@@ -74,6 +74,8 @@ export default function SettingsPanel({
     if (key === 'bitLayout') updatedSettings.bitLayoutDescription = BIT_LAYOUT_TIPS[val] || '';
     else if (key === 'byteLayout') updatedSettings.byteLayoutDescription = BYTE_LAYOUT_TIPS[val] || '';
     else if (key === 'vectorGroup') {
+      updatedSettings.vectorMode = 'preset';
+      updatedSettings.customGroupBits = 0;
       updatedSettings.vectorGroupDescription = VECTOR_TIPS[val] || '';
       updatedSettings.vectorLabel = val > 1 ? `uint64v${val}` : 'uint64';
       updatedSettings.vectorBaseBits = 64;
@@ -114,12 +116,30 @@ export default function SettingsPanel({
   const setVectorGroupSimple = (group) => {
     onChange({
       ...s,
+      vectorMode: 'preset',
       vectorGroup: group,
+      customGroupBits: 0,
       vectorLabel: group > 1 ? `uint64v${group}` : 'uint64',
       vectorGroupDescription: VECTOR_TIPS[group] || '',
     });
   };
+  const setCustomVectorGrouping = (bits) => {
+    const nextBits = Math.max(1, parseInt(bits || '0', 10) || 1);
+    onChange({
+      ...s,
+      vectorMode: 'custom',
+      customGroupBits: nextBits,
+      bitLayout: '8x1',
+      byteLayout: '8x1',
+      bitLayoutDescription: BIT_LAYOUT_TIPS['8x1'] || '',
+      byteLayoutDescription: BYTE_LAYOUT_TIPS['8x1'] || '',
+      vectorLabel: `custom (${nextBits}b)`,
+      vectorGroupDescription: `Custom grouping: ${nextBits} bits`,
+    });
+  };
   const vectorLabelForGroup = (group) => (group <= 1 ? 'uint64' : `uint64v${group}`);
+  const wheelGroupPresets = [2, 6, 30, 210];
+  const isCustomVectorMode = s.vectorMode === 'custom' && (parseInt(s.customGroupBits || 0, 10) || 0) > 0;
 
   /** Mini SVG preview of a layout grid */
   const LayoutIcon = ({ cols, rows, grid3x3, active, onClick, size = 32, tooltip }) => {
@@ -219,11 +239,11 @@ export default function SettingsPanel({
             {Object.entries(BIT_LAYOUTS).map(([k, v]) => (
               <LayoutIcon key={k} cols={v.grid3x3 ? 3 : v.cols} rows={v.grid3x3 ? 3 : v.rows}
                           grid3x3={v.grid3x3} active={s.bitLayout === k}
-                          onClick={() => set('bitLayout', k)} tooltip={BIT_LAYOUT_TIPS[k]} size={26} />
+                          onClick={() => set('bitLayout', k)} tooltip={BIT_LAYOUT_TIPS[k]} size={30} />
             ))}
           </div>
         </div>
-        <p className="layout-description">{BIT_LAYOUT_TIPS[s.bitLayout] || 'Pick how bits are arranged inside a byte.'}</p>
+        <p className="layout-description layout-description-grouping">{BIT_LAYOUT_TIPS[s.bitLayout] || 'Pick how bits are arranged inside a byte.'}</p>
 
         {/* Byte layout row */}
         <div className="lo-level-row">
@@ -232,29 +252,68 @@ export default function SettingsPanel({
             {Object.entries(BYTE_LAYOUTS).map(([k, v]) => (
               <LayoutIcon key={k} cols={v.grid3x3 ? 3 : v.cols} rows={v.grid3x3 ? 3 : v.rows}
                           grid3x3={v.grid3x3} active={s.byteLayout === k}
-                          onClick={() => set('byteLayout', k)} tooltip={BYTE_LAYOUT_TIPS[k]} size={26} />
+                          onClick={() => set('byteLayout', k)} tooltip={BYTE_LAYOUT_TIPS[k]} size={30} />
             ))}
           </div>
         </div>
-        <p className="layout-description">{BYTE_LAYOUT_TIPS[s.byteLayout] || 'Pick how bytes are arranged inside a uint64.'}</p>
+        <p className="layout-description layout-description-grouping">{BYTE_LAYOUT_TIPS[s.byteLayout] || 'Pick how bytes are arranged inside a uint64.'}</p>
 
         <div className="lo-level-row lo-level-row-stacked">
           <span className="lo-level-tag">Vector</span>
           <div className="lo-vec-wrap">
-            <span className="lo-subtag">Grouping (clear presets)</span>
             <div className="lo-vec-icons lo-vec-icons-tight">
               {Object.entries(VECTOR_GROUPS).map(([k]) => (
                 <button
                   key={k}
-                  className={`btn-option vector-chip${s.vectorGroup === parseInt(k) ? ' active' : ''}`}
+                  className={`btn-option vector-chip${!isCustomVectorMode && s.vectorGroup === parseInt(k) ? ' active' : ''}`}
                   title={VECTOR_TIPS[k]}
                   onClick={() => setVectorGroupSimple(parseInt(k))}
                 >
                   {vectorLabelForGroup(parseInt(k))}
                 </button>
               ))}
+              <button
+                className={`btn-option vector-chip${isCustomVectorMode ? ' active' : ''}`}
+                title="Custom bit grouping mode"
+                onClick={() => setCustomVectorGrouping((parseInt(s.customGroupBits || 0, 10) || wheelGroupPresets[2]))}
+              >
+                custom
+              </button>
             </div>
-            <p className="layout-description">Current: {vectorLabelForGroup(s.vectorGroup || 1)}</p>
+            {!isCustomVectorMode && <p className="layout-description">Current: {vectorLabelForGroup(s.vectorGroup || 1)}</p>}
+            {isCustomVectorMode && (
+              <>
+                <div className="lo-vec-icons lo-cache-icons" style={{ marginTop: 4, marginBottom: 6 }}>
+                  {wheelGroupPresets.map((p) => (
+                    <button
+                      key={p}
+                      className={`btn-option vector-chip${Number(s.customGroupBits) === p ? ' active' : ''}`}
+                      onClick={() => setCustomVectorGrouping(p)}
+                      title={`Group rows by ${p} bits`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+                <div className="settings-row" style={{ alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span className="timing-title" style={{ minWidth: 84 }}>Custom bits</span>
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={Math.max(1, parseInt(s.customGroupBits || 1, 10) || 1)}
+                    onChange={(e) => setCustomVectorGrouping(e.target.value)}
+                    placeholder="e.g. 30"
+                    style={{ width: 90 }}
+                  />
+                  <span className="settings-hint">bits per group</span>
+                </div>
+                <div className="vector-custom-size-wrap">
+                  <span className="vector-custom-size-label">Current custom size:</span>
+                  <span className="vector-custom-size-value">{Math.max(1, parseInt(s.customGroupBits || 1, 10) || 1)} bits</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -329,21 +388,19 @@ export default function SettingsPanel({
                 </svg>
               )}
             />
-            {minimapControlVisible && (
-              <PreviewOptionButton
-                compact
-                label="Minimap"
-                hint="Show navigation minimap"
-                active={showMinimap !== false}
-                onClick={() => onShowMinimapChange && onShowMinimapChange(!(showMinimap !== false))}
-                preview={(
-                  <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                    <rect x="3" y="3" width="42" height="16" rx="2" />
-                    <rect x="18" y="7" width="12" height="8" rx="1" />
-                  </svg>
-                )}
-              />
-            )}
+            <PreviewOptionButton
+              compact
+              label="Minimap"
+              hint="Show navigation minimap"
+              active={showMinimap !== false}
+              onClick={() => onShowMinimapChange && onShowMinimapChange(!(showMinimap !== false))}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="3" y="3" width="42" height="16" rx="2" />
+                  <rect x="18" y="7" width="12" height="8" rx="1" />
+                </svg>
+              )}
+            />
           </div>
         </div>
 
@@ -368,6 +425,8 @@ export default function SettingsPanel({
             </div>
           </div>
         )}
+
+        <LayoutOverview />
 
         {(cachePreset || 'fixed') !== 'fixed' && (
           <>
