@@ -70,10 +70,12 @@ function parseJsonTrace(text) {
       firstDefined(s.factor_step, s.step, s.stride, s.inc, inferred.factorStep)
     );
 
+    const inferredOp = inferOperationFromAnnotation(s.annotation || '');
+
     return {
     stepId: s.step,
     annotation: s.annotation || '',
-    operation: s.operation || null,
+    operation: (s.operation && s.operation !== 'Initialization') ? s.operation : inferredOp,
     prime: s.prime ?? null,
     start,
     stop,
@@ -88,6 +90,7 @@ function parseJsonTrace(text) {
     parentId: s.parent_id ?? s.parentId ?? null,
   }});
 
+  inferMissingPrimes(steps, header.storageModel);
   return { header, steps };
 }
 
@@ -133,7 +136,7 @@ function parseTextTrace(text) {
     );
 
     const changedBits = parseChangedBits(kv.changed_bits || '');
-    const operation = kv.op || kv.operation || 'Initialization';
+    const operation = kv.op || kv.operation || inferOperationFromAnnotation(kv.annotation || '');
     const operationPath = Array.isArray(kv.operation_path)
       ? kv.operation_path
       : (kv.operation_path ? String(kv.operation_path).split('/').map((s) => s.trim()).filter(Boolean) : [operation]);
@@ -163,6 +166,7 @@ function parseTextTrace(text) {
     storageModel: headerKv.storage_model || 'half',
   };
 
+  inferMissingPrimes(steps, header.storageModel);
   return { header, steps };
 }
 
@@ -243,6 +247,7 @@ function parseFreeformTextTrace(lines, headerKv = {}) {
     header.maxNumber = header.maxNumber || header.sieveSize;
   }
 
+  inferMissingPrimes(steps, header.storageModel);
   return { header, steps };
 }
 
@@ -478,6 +483,62 @@ function inferMetaFromAnnotation(annotation) {
   out.factorStep = firstAliasNumberInText(text, STEP_ALIASES, out.factorStep);
 
   return out;
+}
+
+function inferOperationFromAnnotation(annotation) {
+  const text = String(annotation || '').trim();
+  if (!text) return 'step';
+
+  // Preferred: explicit operation prefix before ';'
+  const semicolonIdx = text.indexOf(';');
+  if (semicolonIdx > 0) {
+    const candidate = sanitizeOperationToken(text.slice(0, semicolonIdx));
+    if (candidate) return candidate;
+  }
+
+  // Common log style in this codebase: "function_name: message"
+  const colonIdx = text.indexOf(':');
+  if (colonIdx > 0) {
+    const candidate = sanitizeOperationToken(text.slice(0, colonIdx));
+    if (candidate) return candidate;
+  }
+
+  // C-style function call snippets in logs: "foo_bar(...)"
+  const callMatch = text.match(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/);
+  if (callMatch) return callMatch[1];
+
+  return 'step';
+}
+
+function sanitizeOperationToken(token) {
+  const cleaned = String(token || '')
+    .trim()
+    .replace(/^"+|"+$/g, '')
+    .replace(/\s+/g, ' ');
+  if (!cleaned) return null;
+  return cleaned;
+}
+
+function inferMissingPrimes(steps, storageModel) {
+  const mode = String(storageModel || '').toLowerCase();
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    if (step.prime != null) continue;
+
+    const prime = inferPrimeFromFactorStep(step.factorStep, mode);
+    if (prime != null) step.prime = prime;
+  }
+}
+
+function inferPrimeFromFactorStep(factorStep, storageModel) {
+  const fs = toNullableNumber(factorStep);
+  if (fs == null) return null;
+
+  // User rule:
+  // - half storage: prime = stepSize
+  // - full storage: prime = stepSize / 2
+  if (storageModel.includes('full')) return fs / 2;
+  return fs;
 }
 
 function firstAliasNumberInText(text, aliases, fallback) {

@@ -104,13 +104,6 @@ trace_write_json_i64_or_null(FILE* f, int64_t value)
     else fputs("null", f);
 }
 
-static void
-trace_write_text_i64_or_null(FILE* f, int64_t value)
-{
-    if (value >= 0) fprintf(f, "%lld", (long long)value);
-    else fputs("null", f);
-}
-
 /* Set the current analysis context (called from TRACE_ANALYSIS_START macro) */
 static void
 trace_set_context(int level, const char* operation, int64_t block_start, int64_t block_stop)
@@ -237,18 +230,17 @@ trace_record_step_full(void* bitstorage, const char* annotation,
     int64_t start = block_start >= 0 ? block_start : g_trace.current_start;
     int64_t stop = block_stop >= 0 ? block_stop : g_trace.current_stop;
 
-    /* Human-readable primary format */
-    fprintf(g_trace.file, "STEP step=%u op=", step_id);
-    trace_write_json_string(g_trace.file, op_name);
-    fputs(" prime=", g_trace.file);
-    trace_write_text_i64_or_null(g_trace.file, prime_number);
-    fputs(" start=", g_trace.file);
-    trace_write_text_i64_or_null(g_trace.file, start);
-    fputs(" stop=", g_trace.file);
-    trace_write_text_i64_or_null(g_trace.file, stop);
-    fputs(" factor_step=", g_trace.file);
-    trace_write_text_i64_or_null(g_trace.file, factor_step);
-    fprintf(g_trace.file, " depth=%d", g_trace.depth);
+    /* Human-readable primary format: keep compact, omit empty/null metadata */
+    fprintf(g_trace.file, "STEP step=%u", step_id);
+    if (operation || g_trace.current_operation) {
+        fputs(" op=", g_trace.file);
+        trace_write_json_string(g_trace.file, op_name);
+    }
+    if (prime_number >= 0) fprintf(g_trace.file, " prime=%lld", (long long)prime_number);
+    if (start >= 0) fprintf(g_trace.file, " start=%lld", (long long)start);
+    if (stop >= 0) fprintf(g_trace.file, " stop=%lld", (long long)stop);
+    if (factor_step >= 0) fprintf(g_trace.file, " factor_step=%lld", (long long)factor_step);
+    if (g_trace.depth > 0) fprintf(g_trace.file, " depth=%d", g_trace.depth);
 
     uint32_t changed_count = 0;
     for (uint32_t byte_idx = 0; byte_idx < g_trace.bitstorage_bytes; byte_idx++) {
@@ -257,6 +249,9 @@ trace_record_step_full(void* bitstorage, const char* annotation,
             if (diff & 1) changed_count++;
         }
     }
+
+    fputs(" annotation=", g_trace.file);
+    trace_write_json_string(g_trace.file, annotation ? annotation : "");
 
     fprintf(g_trace.file, " changed_count=%u changed_bits=[", changed_count);
     int first = 1;
@@ -272,8 +267,7 @@ trace_record_step_full(void* bitstorage, const char* annotation,
         }
     }
 
-    fputs("] annotation=", g_trace.file);
-    trace_write_json_string(g_trace.file, annotation ? annotation : "");
+    fputc(']', g_trace.file);
     fputc('\n', g_trace.file);
 
     /* Optional JSON companion output */
