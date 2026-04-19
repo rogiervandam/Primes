@@ -10,35 +10,35 @@ export const THEMES = {
   dark: {
     BIT_ZERO:     [232, 232, 232],
     BIT_ONE:      [85,  85,  85],
-    BIT_CHANGED:  [255, 68,  68],
+    BIT_CHANGED:  [46,  204, 113],
     BACKGROUND:   [26,  26,  26],
     BYTE_BORDER:  [50,  50,  50],
     U64_BORDER:   [70,  70,  70],
     CACHE_BORDER: [100, 100, 100],
     LABEL_COLOR:  'rgba(200,200,200,0.7)',
     OPERATION_COLORS: {
-      markFactors:     [255, 68,  68],   // red
+      markFactors:     [72,  201, 176],
       extend:          [68,  136, 255],  // blue
       continuePattern: [68,  220, 136],  // green
-      setBitsTrue:     [255, 180, 68],   // orange
-      applyMask:       [0,  188, 212],   // teal/cyan
+      setBitsTrue:     [46,  204, 113],
+      applyMask:       [39,  174, 96],
     },
   },
   light: {
     BIT_ZERO:     [240, 240, 240],
     BIT_ONE:      [60,  60,  60],
-    BIT_CHANGED:  [220, 40,  40],
+    BIT_CHANGED:  [46,  160, 67],
     BACKGROUND:   [255, 255, 255],
     BYTE_BORDER:  [200, 200, 200],
     U64_BORDER:   [170, 170, 170],
     CACHE_BORDER: [130, 130, 130],
     LABEL_COLOR:  'rgba(60,60,60,0.7)',
     OPERATION_COLORS: {
-      markFactors:     [200, 30,  30],
+      markFactors:     [34,  139, 34],
       extend:          [30,  90,  200],
       continuePattern: [20,  160, 80],
-      setBitsTrue:     [200, 140, 20],
-      applyMask:       [0,   150, 170],  // teal/cyan
+      setBitsTrue:     [46,  160, 67],
+      applyMask:       [27,  120, 54],
     },
   },
 };
@@ -192,10 +192,12 @@ export class SieveRenderer {
 
     // Vector grouping
     this.vectorGroup = 1;  // 1, 2, 4, or 8 uint64s per vector
+    this.vectorLabel = 'uint64';
 
     // Label toggles
     this.showBitLabels = false;
     this.showByteLabels = false;
+    this.showVectorLabels = true;
 
     // Storage model for bit-to-number mapping
     this.storageModel = 'half';
@@ -428,8 +430,8 @@ export class SieveRenderer {
   // Height of a label area above each row (only when zoomed in enough)
   _labelHeight() {
     if (this.vectorGroup <= 1) return 0;
-    const fontSize = Math.max(8, Math.min(14, 3 * this.zoom));
-    return (fontSize > 6 && this.zoom >= 2) ? fontSize + 4 : 0;
+    const fontSize = Math.max(7, Math.min(13, 2 + 2 * this.zoom));
+    return this.showVectorLabels ? (fontSize + 4) : 0;
   }
 
   render() {
@@ -484,8 +486,8 @@ export class SieveRenderer {
         const rowBitStart = clIdx * bitsPerCacheLine;
 
         // Render vector labels
-        if (labelH > 0 && this.vectorGroup > 1) {
-          const fontSize = Math.max(8, Math.min(14, 3 * this.zoom));
+        if (labelH > 0 && this.vectorGroup > 1 && this.showVectorLabels) {
+          const fontSize = Math.max(7, Math.min(13, 2 + 2 * this.zoom));
           ctx.font = `${fontSize}px monospace`;
           ctx.fillStyle = C.LABEL_COLOR;
           ctx.textBaseline = 'top';
@@ -497,7 +499,8 @@ export class SieveRenderer {
             const bitEnd = Math.min(bitStart + this.vectorGroup * 64 - 1, this.bitCount - 1);
             if (bitStart >= this.bitCount) break;
 
-            const label = `uint64v${this.vectorGroup}[${vi}] bits ${bitStart}\u2013${bitEnd}`;
+            const vecLabel = this.vectorLabel || `uint64v${this.vectorGroup}`;
+            const label = `${vecLabel}[${vi}] bits ${bitStart}\u2013${bitEnd}`;
             const labelX = Math.max(0, vecX);
             if (labelX < cw && vRowBaseY >= -labelH && vRowBaseY < ch) {
               ctx.fillText(label, labelX, Math.round(vRowBaseY + 1));
@@ -672,10 +675,14 @@ export class SieveRenderer {
     const number = bitToNumber(bitIdx, this.storageModel);
     const byteIdx = Math.floor(bitIdx / 8);
     const u64Idx = Math.floor(bitIdx / 64);
-    const cacheLineIdx = Math.floor(bitIdx / 512);
+    const cacheLineIdx = Math.floor(bitIdx / this.bitsPerCacheLine);
+    const vectorIdx = Math.floor(u64Idx / this.vectorGroup);
+    const u64InVector = u64Idx % this.vectorGroup;
+    const byteInVector = byteIdx % (this.vectorGroup * 8);
+    const vecLabel = this.vectorLabel || `uint64v${this.vectorGroup}`;
     const state = this.bitState[bitIdx] ? 'composite' : 'prime candidate';
     const changed = this.changedBits.has(bitIdx) ? ' [CHANGED]' : '';
-    return `Bit ${bitIdx} â†’ Number ${number} | Byte ${byteIdx} | u64 ${u64Idx} | Cache line ${cacheLineIdx} | ${state}${changed}`;
+    return `Bit ${bitIdx} -> Number ${number} | byte ${byteInVector} in ${vecLabel}[${vectorIdx}], ${byteIdx} from start | uint64 ${u64InVector} in ${vecLabel}[${vectorIdx}], ${u64Idx} from start | Cache line ${cacheLineIdx} | ${state}${changed}`;
   }
 
   toDataURL() {

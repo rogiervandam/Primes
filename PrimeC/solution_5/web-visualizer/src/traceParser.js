@@ -57,6 +57,12 @@ export function parseTrace(buffer) {
     factorStep: s.factor_step ?? null,
     changedBits: new Uint32Array(s.changed_bits || []),
     numChanged: (s.changed_bits || []).length,
+    // Hierarchy / nesting support (dynamic depth levels)
+    depth: Math.max(0, s.depth ?? s.call_depth ?? 0),
+    operationPath: Array.isArray(s.operation_path)
+      ? s.operation_path.filter(Boolean)
+      : (s.operation ? [s.operation] : []),
+    parentId: s.parent_id ?? s.parentId ?? null,
   }));
 
   return { header, steps };

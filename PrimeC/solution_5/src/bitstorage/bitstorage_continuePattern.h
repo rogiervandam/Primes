@@ -18,7 +18,7 @@
 static inline void __attribute__((always_inline, nonnull)) 
 continuePattern(void* restrict bitstorage, const counter_t source_start, const counter_t destination_stop, const counter_t size)
 {
-    startAnalysis7(time_continuePattern, "Continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
+    startAnalysisTrace7(time_continuePattern, "continuePattern", source_start, destination_stop, "Continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
 
     if (size < bitcount_type(bitbucket_t)) {
         continuePattern_smallSize(bitstorage, source_start, destination_stop, size);
@@ -34,5 +34,5 @@ continuePattern(void* restrict bitstorage, const counter_t source_start, const c
     else                            continuePattern_aligned   (bitstorage, source_start, destination_stop, size);
 
     // timer_laptime(time_continuePattern); verbose7( printf("\n"); )
-    endAnalysis7(time_continuePattern,"\n");
+    endAnalysisTrace7(time_continuePattern,"\n");
 }

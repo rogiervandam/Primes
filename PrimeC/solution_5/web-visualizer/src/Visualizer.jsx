@@ -5,7 +5,7 @@ import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
 import {
   SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
-  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Settings, Search, Minus, Plus, Thermometer
+  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Thermometer
 } from './Icons';
 
 const DEFAULT_SETTINGS = {
@@ -18,8 +18,12 @@ const DEFAULT_SETTINGS = {
   u64SpacingH: 4,
   u64SpacingV: 4,
   vectorGroup: 1,
+  vectorBaseBits: 64,
+  vectorLanes: 1,
+  vectorLabel: 'uint64',
   showBitLabels: false,
   showByteLabels: false,
+  showVectorLabels: true,
 };
 
 export default function Visualizer({ trace, fileName, onClose, autoRender }) {
@@ -31,25 +35,26 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
   const [currentStep, setCurrentStep] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [playSpeed, setPlaySpeed] = useState(100);
+  const [playSpeed, setPlaySpeed] = useState(300);
   const [zoom, setZoom] = useState(1);
   const [hoverInfo, setHoverInfo] = useState('');
   const [panelWidth, setPanelWidth] = useState(320);
   const [theme, setTheme] = useState('dark');
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsCollapsed, setSettingsCollapsed] = useState(false);
   const [layoutSettings, setLayoutSettings] = useState(DEFAULT_SETTINGS);
   const [detailOpen, setDetailOpen] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [repeatAnim, setRepeatAnim] = useState(500);
-  const [animMode, setAnimMode] = useState('all'); // 'all' or 'sequential'
+  const [animMode, setAnimMode] = useState('sequential'); // 'all' or 'sequential'
   const [animStyle, setAnimStyle] = useState('ripple'); // 'ripple', 'fade', 'pulse', 'none'
-  const [bitAnimInterval, setBitAnimInterval] = useState(50); // ms between sequential bits
+  const [bitAnimInterval, setBitAnimInterval] = useState(80); // ms between sequential bits
   const [detailHeight, setDetailHeight] = useState(200);
   const [detailWidth, setDetailWidth] = useState(0);
   const [showMinimap, setShowMinimap] = useState(true);
   const [stepStats, setStepStats] = useState(null); // { totalSet, newlySet, reSet }
-  const [bitHistoryModal, setBitHistoryModal] = useState(null); // { bitIndex, history[] }
+  const [bitHistoryModal, setBitHistoryModal] = useState(null); // { bitIndex, history[] } — locked by click
+  const [hoveredBitInfo, setHoveredBitInfo] = useState(null);  // { bitIndex, history[] } — updated on hover
   const [colorPreset, setColorPreset] = useState(null); // null = theme default
   const [customColors, setCustomColors] = useState({ setBit: null, clearedBit: null, unchangedBit: null });
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,11 +73,31 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const exportCancelRef = useRef(false);
   const rippleRef = useRef(null);
   const seqTimerRef = useRef(null); // sequential animation timer
+  const animBusyUntilRef = useRef(0);
   const initialFitDoneRef = useRef(false);
   const detailOpenRef = useRef(true);
   const detailHeightRef = useRef(200);
+  const lastHoveredIdxRef = useRef(-1); // tracks last hovered bit to avoid redundant recomputes
 
   stepsRef.current = steps;
+
+  /** Compute bit history info object for a given bit index */
+  const computeBitInfo = useCallback((idx) => {
+    const r = rendererRef.current;
+    const sm = r ? r.storageModel : 'half';
+    const history = [];
+    const allSteps = stepsRef.current;
+    for (let i = 0; i < allSteps.length; i++) {
+      const st = allSteps[i];
+      for (let j = 0; j < st.changedBits.length; j++) {
+        if (st.changedBits[j] === idx) {
+          history.push({ stepIndex: i, operation: st.operation, prime: st.prime, annotation: st.annotation });
+          break;
+        }
+      }
+    }
+    return { bitIndex: idx, number: bitToNumber(idx, sm), history };
+  }, []);
 
   // Keep refs in sync for use in callbacks
   const getMinimapDetailH = useCallback(() => {
@@ -123,8 +148,10 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.u64SpacingH = layoutSettings.u64SpacingH;
     r.u64SpacingV = layoutSettings.u64SpacingV;
     r.vectorGroup = layoutSettings.vectorGroup;
+    r.vectorLabel = layoutSettings.vectorLabel || `uint64v${layoutSettings.vectorGroup || 1}`;
     r.showBitLabels = layoutSettings.showBitLabels;
     r.showByteLabels = layoutSettings.showByteLabels;
+    r.showVectorLabels = layoutSettings.showVectorLabels !== false;
     r.colorPreset = colorPreset;
     r.storageModel = storageModel;
     r.cachelineSize = cachelineSize;
@@ -167,7 +194,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     onResize();
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, [panelWidth, showMinimap, stepsPanelCollapsed]);
+  }, [panelWidth, showMinimap, stepsPanelCollapsed, settingsCollapsed]);
 
   // Go to step
   const goToStep = useCallback((target) => {
@@ -270,11 +297,11 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       if (style === 'ripple') r.renderRipple(progress);
       else if (style === 'fade') r.renderFade(progress);
       else if (style === 'pulse') r.renderPulse(progress);
-      // Re-render minimap only at end to avoid flickering
+      // Keep minimap visible during animation frames
+      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
       if (progress < 1) {
         rippleRef.current = requestAnimationFrame(animate);
       } else {
-        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
         rippleRef.current = null;
       }
     };
@@ -286,6 +313,13 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     stopSeqAnim();
     const r = rendererRef.current;
     if (!r || !changedSet || changedSet.size === 0 || changedSet.size >= 100000) return;
+
+    if ((animMode === 'sequential' || animMode === 'bounce') && bitAnimInterval > 0) {
+      const est = Math.min(12000, Math.max(220, changedSet.size * bitAnimInterval + 180));
+      animBusyUntilRef.current = performance.now() + est;
+    } else {
+      animBusyUntilRef.current = performance.now() + (animStyle === 'none' ? 100 : 650);
+    }
 
     if ((animMode === 'sequential' || animMode === 'bounce') && bitAnimInterval > 0) {
       // Sequential / bounce: reveal bits one-by-one
@@ -305,6 +339,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
             r.changedBits = fullChanged;
             r.render();
             r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+            animBusyUntilRef.current = 0;
             return;
           }
         }
@@ -317,6 +352,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         }
         r.changedBits = partial;
         r.render();
+        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
         // Small effect on the just-added bit
         if (animStyle !== 'none') {
           const singleSet = new Set([bits[idx]]);
@@ -332,6 +368,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
       r.changedBits = new Set();
       r.render();
+      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
       seqTimerRef.current = setTimeout(revealNext, bitAnimInterval);
     } else {
       // All at once with chosen effect style
@@ -341,17 +378,20 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
   // Repeat animation timer
   useEffect(() => {
-    if (repeatAnim <= 0) return;
+    if (repeatAnim <= 0 || playing) return;
     const timer = setInterval(() => {
       const r = rendererRef.current;
       if (r && r.changedBits) triggerAnimation(r.changedBits);
     }, repeatAnim);
     return () => clearInterval(timer);
-  }, [repeatAnim, triggerAnimation]);
+  }, [repeatAnim, playing, triggerAnimation]);
 
-  // Initial render
+  // Initial render — delay one frame so the container has its final dimensions
   useEffect(() => {
-    if (steps.length > 0) goToStep(0);
+    if (steps.length > 0) {
+      const raf = requestAnimationFrame(() => goToStep(0));
+      return () => cancelAnimationFrame(raf);
+    }
   }, [steps]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Multi-step selection: merge changedBits from selected steps
@@ -381,6 +421,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     if (playing) {
       playTimerRef.current = setInterval(() => {
         setCurrentStep((prev) => {
+          if (performance.now() < animBusyUntilRef.current) return prev;
           const next = prev + 1;
           if (next >= steps.length) {
             setPlaying(false);
@@ -389,7 +430,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           setTimeout(() => goToStep(next), 0);
           return next;
         });
-      }, playSpeed);
+      }, Math.max(120, playSpeed));
     } else {
       clearInterval(playTimerRef.current);
     }
@@ -485,6 +526,15 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         const y = e.clientY - rect.top;
         const idx = r.canvasToBitIndex(x, y);
         setHoverInfo(idx >= 0 ? r.getBitInfo(idx) : '');
+        // Update hover panel only when bit index changes
+        if (idx !== lastHoveredIdxRef.current) {
+          lastHoveredIdxRef.current = idx;
+          if (idx >= 0) {
+            setHoveredBitInfo(computeBitInfo(idx));
+          } else {
+            setHoveredBitInfo(null);
+          }
+        }
       }
     };
     const onMouseUp = (e) => {
@@ -495,18 +545,11 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         const r = rendererRef.current;
         const idx = r.canvasToBitIndex(x, y);
         if (idx >= 0) {
-          // Find all steps that affected this bit
-          const history = [];
-          for (let i = 0; i < stepsRef.current.length; i++) {
-            const s = stepsRef.current[i];
-            for (let j = 0; j < s.changedBits.length; j++) {
-              if (s.changedBits[j] === idx) {
-                history.push({ stepIndex: i, operation: s.operation, prime: s.prime, annotation: s.annotation });
-                break;
-              }
-            }
-          }
-          setBitHistoryModal({ bitIndex: idx, number: bitToNumber(idx, storageModel), history });
+          const info = computeBitInfo(idx);
+          // Toggle lock: clicking same bit unlocks, clicking different bit locks
+          setBitHistoryModal(prev => (prev && prev.bitIndex === idx) ? null : info);
+        } else {
+          setBitHistoryModal(null);
         }
       }
       dragging = false; minimapDragging = false; el.classList.remove('dragging');
@@ -534,7 +577,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
     el.addEventListener('wheel', onWheel, { passive: false });
-    const onMouseLeave = () => { if (!dragging) setHoverInfo(''); };
+    const onMouseLeave = () => { if (!dragging) { setHoverInfo(''); lastHoveredIdxRef.current = -1; setHoveredBitInfo(null); } };
     el.addEventListener('mouseleave', onMouseLeave);
 
     return () => {
@@ -731,9 +774,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           <button className="btn-icon" onClick={() => goToStep(currentStep + 1)} title="Next (→)" disabled={exporting}><StepForward /></button>
           <button className="btn-icon" onClick={() => goToStep(steps.length - 1)} title="Last (End)" disabled={exporting}><SkipForward /></button>
           <span className="speed-group">
-            <button className="btn-icon" onClick={() => setPlaySpeed(s => Math.min(2000, s + 50))} title="Slower" disabled={exporting}><Minus size={14} /></button>
+            <button className="btn-icon" onClick={() => setPlaySpeed(s => Math.min(3000, s + 50))} title="Slower" disabled={exporting}><Minus size={14} /></button>
             <span className="speed-val" title="Playback interval (ms)">{playSpeed}ms</span>
-            <button className="btn-icon" onClick={() => setPlaySpeed(s => Math.max(10, s - 50))} title="Faster" disabled={exporting}><Plus size={14} /></button>
+            <button className="btn-icon" onClick={() => setPlaySpeed(s => Math.max(120, s - 50))} title="Faster" disabled={exporting}><Plus size={14} /></button>
           </span>
           <input
             type="range"
@@ -780,7 +823,6 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           <button className="btn-icon" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} title="Toggle theme (T)">
             {theme === 'dark' ? <Sun /> : <Moon />}
           </button>
-          <button className="btn-icon" onClick={() => setSettingsOpen(o => !o)} title="Layout settings"><Settings /></button>
         </div>
       </header>
 
@@ -811,35 +853,63 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           </div>
           {hoverInfo && <div className="hover-info">{hoverInfo}</div>}
 
-          {bitHistoryModal && (
-            <div className="bit-history-panel">
-              <div className="bit-history-header">
-                <span>Bit {bitHistoryModal.bitIndex} — Number {bitHistoryModal.number}</span>
-                <button className="bit-history-close" onClick={() => setBitHistoryModal(null)}>✕</button>
-              </div>
-              <div className="bit-history-body">
-                {bitHistoryModal.history.length === 0 ? (
-                  <p className="bit-history-empty">No steps have modified this bit.</p>
-                ) : (
-                  <table className="bit-history-table">
-                    <thead>
-                      <tr><th>Step</th><th>Operation</th><th>Prime</th></tr>
-                    </thead>
+          {/* Bit history panel: shown when locked (clicked) or hovered */}
+          {(bitHistoryModal || hoveredBitInfo) && (() => {
+            const info = bitHistoryModal || hoveredBitInfo;
+            const locked = !!bitHistoryModal;
+            const bi = info.bitIndex;
+            const byteIdx   = Math.floor(bi / 8);
+            const bitInByte = bi % 8;
+            const u32Idx    = Math.floor(bi / 32);
+            const bitInU32  = bi % 32;
+            const u64Idx    = Math.floor(bi / 64);
+            const bitInU64  = bi % 64;
+            const clIdx     = Math.floor(bi / (cachelineSize * 8));
+            return (
+              <div className={`bit-history-panel${locked ? ' locked' : ''}`}>
+                <div className="bit-history-header">
+                  <span>
+                    {locked ? '📌 ' : ''}Bit {bi} → #{info.number}
+                  </span>
+                  {locked && <button className="bit-history-close" onClick={() => setBitHistoryModal(null)}>✕</button>}
+                </div>
+                <div className="bit-history-indices">
+                  <table className="bit-index-table">
                     <tbody>
-                      {bitHistoryModal.history.map(h => (
-                        <tr key={h.stepIndex} className={h.stepIndex === currentStep ? 'bh-current' : ''}
-                            onClick={() => { goToStep(h.stepIndex); }}>
-                          <td>{h.stepIndex}</td>
-                          <td>{h.operation || '—'}</td>
-                          <td>{h.prime != null ? h.prime : '—'}</td>
-                        </tr>
-                      ))}
+                      <tr><td>Bit</td><td>{bi}</td></tr>
+                      <tr><td>Number</td><td>{info.number}</td></tr>
+                      <tr><td>uint8 (byte)</td><td>byte #{byteIdx}, bit {bitInByte}</td></tr>
+                      <tr><td>uint32</td><td>word #{u32Idx}, bit {bitInU32}</td></tr>
+                      <tr><td>uint64</td><td>qword #{u64Idx}, bit {bitInU64}</td></tr>
+                      <tr><td>Cache line</td><td>#{clIdx} ({cachelineSize}B)</td></tr>
                     </tbody>
                   </table>
-                )}
+                </div>
+                <div className="bit-history-body">
+                  {info.history.length === 0 ? (
+                    <p className="bit-history-empty">No steps have modified this bit.</p>
+                  ) : (
+                    <table className="bit-history-table">
+                      <thead>
+                        <tr><th>Step</th><th>Operation</th><th>Prime</th></tr>
+                      </thead>
+                      <tbody>
+                        {info.history.map(h => (
+                          <tr key={h.stepIndex} className={h.stepIndex === currentStep ? 'bh-current' : ''}
+                              onClick={() => { goToStep(h.stepIndex); }}>
+                            <td>{h.stepIndex}</td>
+                            <td>{h.operation || '—'}</td>
+                            <td>{h.prime != null ? h.prime : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+                {!locked && <div className="bit-history-hint">Click bit to lock this panel</div>}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Detail panel at the bottom of the canvas area */}
           <DetailPanel
@@ -856,34 +926,36 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
             storageModel={storageModel}
           />
         </div>
-      </div>
 
-      <SettingsPanel
-        settings={layoutSettings}
-        onChange={setLayoutSettings}
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        repeatAnim={repeatAnim}
-        onRepeatAnimChange={setRepeatAnim}
-        animMode={animMode}
-        onAnimModeChange={setAnimMode}
-        animStyle={animStyle}
-        onAnimStyleChange={setAnimStyle}
-        bitAnimInterval={bitAnimInterval}
-        onBitAnimIntervalChange={setBitAnimInterval}
-        colorPreset={colorPreset}
-        onColorPresetChange={setColorPreset}
-        customColors={customColors}
-        onCustomColorsChange={setCustomColors}
-        storageModel={storageModel}
-        onStorageModelChange={setStorageModel}
-        cachelineSize={cachelineSize}
-        onCachelineSizeChange={setCachelineSize}
-        cachePreset={cachePreset}
-        onCachePresetChange={setCachePreset}
-        heatMapEnabled={heatMapEnabled}
-        onHeatMapToggle={setHeatMapEnabled}
-      />
+        <SettingsPanel
+          settings={layoutSettings}
+          onChange={setLayoutSettings}
+          collapsed={settingsCollapsed}
+          onToggleCollapse={() => setSettingsCollapsed(c => !c)}
+          repeatAnim={repeatAnim}
+          onRepeatAnimChange={setRepeatAnim}
+          animMode={animMode}
+          onAnimModeChange={setAnimMode}
+          animStyle={animStyle}
+          onAnimStyleChange={setAnimStyle}
+          bitAnimInterval={bitAnimInterval}
+          onBitAnimIntervalChange={setBitAnimInterval}
+          colorPreset={colorPreset}
+          onColorPresetChange={setColorPreset}
+          customColors={customColors}
+          onCustomColorsChange={setCustomColors}
+          storageModel={storageModel}
+          onStorageModelChange={setStorageModel}
+          cachelineSize={cachelineSize}
+          onCachelineSizeChange={setCachelineSize}
+          cachePreset={cachePreset}
+          onCachePresetChange={setCachePreset}
+          heatMapEnabled={heatMapEnabled}
+          onHeatMapToggle={setHeatMapEnabled}
+          showMinimap={showMinimap}
+          onShowMinimapChange={setShowMinimap}
+        />
+      </div>
     </div>
   );
 }

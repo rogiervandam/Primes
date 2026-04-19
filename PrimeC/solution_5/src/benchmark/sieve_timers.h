@@ -2,7 +2,7 @@
 
 // helper functions for timing parts of code in debugging mode
 
-#define timer_count 20
+#define timer_count 24
 struct timespec timer_timers[timer_count];
 counter_t timer_hits[timer_count];
 double timer_time[timer_count];
@@ -27,6 +27,10 @@ double timer_time[timer_count];
 #define time_sieveStripeBlock 17
 #define time_stripeSieve 18
 #define time_sieve_block_extend 19
+#define time_setBitsTrue_range 20
+#define time_setBitsTrue_range_return 21
+#define time_setBitsTrue_largestep_bitbucket 22
+#define time_markFactors_wheelstorage_small_repeat_pair_vector 23
 
 static const char* timer_function_names[100] = {
     [time_setBitsTrue] = "setBitsTrue",
@@ -49,6 +53,10 @@ static const char* timer_function_names[100] = {
     [time_sieveStripeBlock] = "sieveStripeBlock",
     [time_stripeSieve] = "stripeSieve",
     [time_sieve_block_extend] = "sieve_block_extend",
+        [time_setBitsTrue_range] = "setBitsTrue_range",
+        [time_setBitsTrue_range_return] = "setBitsTrue_range_return",
+        [time_setBitsTrue_largestep_bitbucket] = "setBitsTrue_largestep_bitbucket",
+        [time_markFactors_wheelstorage_small_repeat_pair_vector] = "markFactors_wheelstorage_small_repeat_pair_vector",
   };
 
 

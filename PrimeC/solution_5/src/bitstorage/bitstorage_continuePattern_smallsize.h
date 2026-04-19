@@ -1,7 +1,7 @@
 static inline void __attribute__((always_inline, hot, nonnull)) 
 continuePattern_smallSize(void* restrict bitstorage, const counter_t source_start, const counter_t destination_stop, const counter_t size)
 {
-    startAnalysis7(time_continuePattern_smallSize, "Continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_smallSize (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
+    startAnalysisTrace7(time_continuePattern_smallSize, "continuePattern_smallSize", source_start, destination_stop, "Continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_smallSize (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
 
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
 
@@ -22,7 +22,7 @@ continuePattern_smallSize(void* restrict bitstorage, const counter_t source_star
     const counter_t destination_stop_word = index_type(destination_stop, bitbucket_t);
     if (destination_start_word >= destination_stop_word) {
         bitstorage_sized[destination_start_word] |= (pattern << bitindex_calc_type(destination_start, bitbucket_t)) & chopmask_type(destination_stop, bitbucket_t);
-        endAnalysis7(time_continuePattern_smallSize,"\n");
+        endAnalysisTrace7(time_continuePattern_smallSize,"\n");
         return;
     }
 
@@ -39,5 +39,5 @@ continuePattern_smallSize(void* restrict bitstorage, const counter_t source_star
                                                    | (pattern >>                 ((shift+i*pattern_shift) & mask_type(bitbucket_t)));
     }
     // bitstorage[destination_stop_word] &= chopmask(destination_stop); // not needed with appropriate block_size
-    endAnalysis7(time_continuePattern_smallSize,"\n");
+    endAnalysisTrace7(time_continuePattern_smallSize,"\n");
 }

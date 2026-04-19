@@ -21,7 +21,7 @@
     #define WHEEL_REPEATS 1
 
     #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
-    #define WHEEL_STRIPE_BYTES 3 //(((WHEEL_STRIPES) - 1) / 8 + 1)
+    #define WHEEL_STRIPE_BYTES 1 //(((WHEEL_STRIPES) - 1) / 8 + 1)
     #define WHEEL_STRIPE_BITS  ((WHEEL_STRIPE_BYTES) * 8)
 
     #define wheelmask_stripes      WHEEL_STRIPES
@@ -141,6 +141,7 @@
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
     function(markFactors_wheelstorage_repeat,suffix)(sieve_t* sieve, const counter_t range_start, counter_t range_stop, const counter_t step)
     {
+        TRACE_ANALYSIS_START(6, "markFactors_wheelstorage_repeat", range_start, range_stop);
         register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
         // const counter_t bucket_stop = function(wheel_block_calc,variantsuffix)(range_stop + 1);
@@ -216,6 +217,7 @@
             // function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), bucket_stop, wheel_step, markmask);
             // // function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), index_type(wheel_bit, bitbucket_t), wheel_step, markmask);
         } 
+        TRACE_ANALYSIS_END();
     }
 
 #endif
@@ -251,6 +253,7 @@
     static inline void __attribute__((always_inline, nonnull, hot,  aligned(cache_line_bytes) )) 
     markFactors_wheelstorage_norepeat(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step) 
     {
+        TRACE_ANALYSIS_START(6, "markFactors_wheelstorage_norepeat", range_start, range_stop);
         register counter_t index = range_start;
         register counter_t i=((range_start-range_start)/step);
         for(register counter_t j=256; j>4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
@@ -265,6 +268,7 @@
             markFactor_wheelstorage(sieve, index);
 
         if unlikely(index==range_stop) markFactor_wheelstorage(sieve, index);
+        TRACE_ANALYSIS_END();
     }
 
     // this is the same as checkFactor_wheel but without the check for the wheel primes
@@ -306,7 +310,14 @@
     static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     markFactors_wheelstorage(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
     {
+        TRACE_ANALYSIS_START(5, "markFactors_wheelstorage", start, stop);
         const counter_t prime = step / 2;
+
+        TRACE_STEP_META(sieve->bitstorage, "markFactors", (int64_t)(step + 1),
+                   (int64_t)start, (int64_t)stop, (int64_t)step,
+                   "markFactors_wheelstorage: prime %jd (idx %jd), factors [%jd-%jd] step %jd",
+                   (intmax_t)(step + 1), (intmax_t)prime, (intmax_t)start,
+                   (intmax_t)stop, (intmax_t)step);
 
         // markFactors_wheelstorage_norepeat(sieve, start, stop, step); return;
         // markFactors_wheelstorage_repeat_uint16_unroll8(sieve, start, stop, step); return;
@@ -319,6 +330,7 @@
         else 
         markFactors_wheelstorage_repeat_uint8_unroll8(sieve, start, stop, step);
         // markFactors_wheelstorage_norepeat(sieve, start, stop, step);
+        TRACE_ANALYSIS_END();
     }
 #endif
 

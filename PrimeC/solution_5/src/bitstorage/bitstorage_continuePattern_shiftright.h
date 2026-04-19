@@ -2,7 +2,7 @@
 static inline void  __attribute__((always_inline, hot, nonnull)) 
 continuePattern_shiftright(void* restrict bitstorage, const counter_t source_start, const counter_t destination_stop, const counter_t size_bits)
 {
-    startAnalysis7(time_continuePattern_shiftright, "Extending sieve size %ju in %ju bit range (%ju-%ju) using continuePattern_shiftright (%ju copies)", (uintmax_t)size_bits, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size_bits));
+    startAnalysisTrace7(time_continuePattern_shiftright, "continuePattern_shiftright", source_start, destination_stop, "Extending sieve size %ju in %ju bit range (%ju-%ju) using continuePattern_shiftright (%ju copies)", (uintmax_t)size_bits, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size_bits));
 
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
 
@@ -18,7 +18,7 @@ continuePattern_shiftright(void* restrict bitstorage, const counter_t source_sta
         bitstorage_sized[copy_word] |= ((bitstorage_sized[source_word] << shift)  // or the start in to not lose data
                                 | (bitstorage_sized[copy_word] >> shift_flipped))
                                 & keepmask_type(copy_start, bitbucket_t) & chopmask_type(destination_stop, bitbucket_t);
-                                endAnalysis7(time_continuePattern_shiftright,"\n");
+                                endAnalysisTrace7(time_continuePattern_shiftright,"\n");
         return; // rapid exit for one word variant
     }
 
@@ -46,7 +46,7 @@ continuePattern_shiftright(void* restrict bitstorage, const counter_t source_sta
 
     // end if we reached the destination already
     if (copy_word >= destination_stop_word) {
-        timer_laptime(time_continuePattern_shiftright); verbose7( printf("\n"); )
+        timer_laptime(time_continuePattern_shiftright); TRACE_ANALYSIS_END(); verbose7( printf("\n"); )
         return;
     }
 
@@ -58,5 +58,5 @@ continuePattern_shiftright(void* restrict bitstorage, const counter_t source_sta
     size_t memcpy_size = destination_stop_byte - copy_byte;
     local_memcpy(copy_byte, source_byte, memcpy_size);
 
-    endAnalysis7(time_continuePattern_shiftright,"\n");
+    endAnalysisTrace7(time_continuePattern_shiftright,"\n");
 }

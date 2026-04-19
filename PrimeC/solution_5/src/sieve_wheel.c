@@ -62,12 +62,12 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
         const counter_t block_stop = min(sieve_size, block_start + factorBlock);
 
         for (counter_t prime = findUnmarked(sieve, WHEEL_MAX); prime < prime_max; prime = findUnmarked(sieve, prime)) {
-            markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
             TRACE_STEP_META(sieve->bitstorage, "markFactors", (int64_t)(prime*2+1),
                        (int64_t)block_start, (int64_t)block_stop, (int64_t)calcFactor_step(prime),
                        "wheel: prime %jd (idx %jd), block [%jd-%jd] step %jd",
                        (intmax_t)(prime*2+1), (intmax_t)prime, (intmax_t)block_start,
                        (intmax_t)block_stop, (intmax_t)calcFactor_step(prime));
+            markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
         }
     } 
     

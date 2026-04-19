@@ -201,10 +201,31 @@ Canvas:
 - when zooming in or out, don't change the arragement of the bits. Just try to fit them on the first screen as best as possible, but keep the same arrangement. This will allow users to maintain their mental map of the layout of the bitstorage while zooming in and out to analyze specific sections in more detail, enhancing the overall usability and effectiveness of the visualisation tool when analyzing the prime sieve algorithm.
 
 --
-- when starting, i also have to klink the zoom level to get the layout correctly. do this automatic. 
+- when starting, the user shoudn't have to click the zoom level to get the layout correctly
 - make the layout settings panel collapsible and delete the settings button
 
+- in the layout settings, show a tooltip when hovering over a but/byte/vector layout button which explain the grouping, e.g. 8x1 or 4c2, etc. Add a small text below the butttons as well, explaining the layout of the selected button. This will help users quickly understand the different layout options and their implications for the visualisation, allowing them to make informed choices about how they want to view the changes being made to the bitstorage in the visualisation tool, enhancing their overall experience and understanding of the sieve algorithm's behavior.
+
+- in the layout settings, let the user turn the minimap on or off
+- when hovering over a bit in the canvas, show and update the panel as if it was clicked
+- in the details of a bit, also show the index in different arrangements: uint8, uint32, uint64, etc. This will provide users with a clearer understanding of the position and significance of each bit 
+- let the user toggle annotations on or off for bits, bytes, uint64s, etc. This will allow users to customize the visualisation based on their preferences and the specific patterns they are looking for in the bitstorage, providing a more personalized and insightful visualisation experience.
+- enable having the step hierarchy in the steps panel to go up to six level deep, indenting each level to visually represent the call stack and function hierarchy in the execution of the sieve algorithm, allowing users to easily understand the structure and flow of the execution in the visualisation tool, enhancing their analysis and understanding of the sieve algorithm's behavior. This will provide a clearer and more organized presentation of the steps and their relationships, improving the overall usability and effectiveness of the visualisation tool for users analyzing the prime sieve algorithm.
+
+- integrate the bit, byte and vector spacing settings into one layout overview, where users can see a visual representation of the spacing and grouping of bits, bytes, and vectors, and adjust the spacing settings directly on this overview using + and - buttons or sliders, providing a more intuitive and user-friendly way to customize the visualisation based on their preferences and the specific patterns they are looking for in the bitstorage. This will enhance the overall user experience and make the visualisation more engaging and informative, allowing users to better understand the dynamics of the changes being made to the bitstorage throughout the execution of the sieve algorithm while also providing a more customizable and visually appealing visualisation experience.
+
+- add a startanalysis and endanalyse call in every function that changes a bit or a range of bits, so that users can easily identify the sections of the execution where changes are being made to the bitstorage and focus their analysis on those sections in the visualisation tool, enhancing their understanding of the sieve algorithm's behavior and the impact of different functions on the bitstorage throughout the execution. This will provide a clearer and more informative presentation of the execution flow and the changes being made to the bitstorage, improving the overall usability and effectiveness of the visualisation tool for users analyzing the prime sieve algorithm.
 
 
+- put the +/- for bit/byte/vector spacing above the visual representation of the spacing, so that when you press a button, it doesn't move due to the preview
+- make a seperate grouping for vectors, so bit, byte, uint 16/32/64, vector 16v2, 16v4, 16v8, 32v2, etc.
+- when the user plays the animation with the play button, make sure that there is enough time to see the sequental effect of settings the bits in the sieve
+- when marking which bits are being set, favor the color green. 
+- default the animation to sequentail/ripple
+- stop flickering in the minimap. It seems to be connected to the per-bit and repeat animation interval: when high, it doesn't flicker
+
+- make the sieve_trace code more concise: collapse multuple fprintf commands into one, and make the log format more compact, while still containing all the necessary information for the visualisation tool to accurately represent the changes being made to the bitstorage in each step of the execution. This will improve the efficiency of the logging process and reduce the size of the log files, while still providing all the necessary details for a comprehensive and informative visualisation experience for users analyzing the prime sieve algorithm.
+- make annotations for bytes like: "byte 0 in uint64v4[0], 8192 from start"
+- make annotations for uint64 like: "uint64 3 in uint64v4[0], 515 from start"
 
 

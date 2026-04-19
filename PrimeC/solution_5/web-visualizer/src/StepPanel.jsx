@@ -1,6 +1,31 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 
 /**
+ * Convert a flat list of steps (each with a `depth` field, 0-based) into
+ * a tree structure, capped at maxDepth levels.
+ */
+function buildDepthTree(steps) {
+  const root = { children: [], isRoot: true, _depth: -1 };
+  const stack = [root];
+
+  for (const step of steps) {
+    const d = Math.max(0, step.depth || 0);
+    const node = { ...step, children: [], _depth: d };
+
+    // Absolute-depth model: same depth => sibling, larger depth => nested
+    while (stack.length > 1 && stack[stack.length - 1]._depth >= d) {
+      stack.pop();
+    }
+
+    const parent = stack[stack.length - 1];
+    parent.children.push(node);
+    stack.push(node);
+  }
+
+  return root.children;
+}
+
+/**
  * Hierarchical step panel grouped by prime, with collapse/expand.
  */
 export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse }) {
@@ -39,17 +64,23 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
   // Unique operations for filter
   const operations = useMemo(() => {
     const ops = new Set();
-    for (const s of steps) if (s.operation) ops.add(s.operation);
+    for (const s of steps) {
+      if (s.operation) ops.add(s.operation);
+      for (const op of (s.operationPath || [])) ops.add(op);
+    }
     return Array.from(ops).sort();
   }, [steps]);
 
-  // Build hierarchical tree grouped by prime
+  // Build hierarchical tree grouped by prime, then nested by depth within each group
   const tree = useMemo(() => {
     const groups = [];
     let current = null;
+    let lastPrime = null;
 
     for (let i = 0; i < steps.length; i++) {
       const s = steps[i];
+      const effectivePrime = s.prime != null ? s.prime : lastPrime;
+      if (s.prime != null) lastPrime = s.prime;
 
       // Step 0 with no prime => Sieve Creation
       if (i === 0 && s.prime == null) {
@@ -66,11 +97,11 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       }
 
       // Group by prime
-      if (!current || current.prime !== s.prime) {
+      if (!current || current.prime !== effectivePrime) {
         current = {
           id: groups.length,
-          prime: s.prime,
-          label: s.prime != null ? `Prime ${s.prime}` : (s.operation || 'Unknown'),
+          prime: effectivePrime,
+          label: effectivePrime != null ? `Prime ${effectivePrime}` : (s.operation || 'Unknown'),
           operation: s.operation || '',
           children: [],
           totalChanged: 0,
@@ -82,23 +113,28 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       current.totalChanged += s.numChanged;
     }
 
-    return groups;
+    // Within each group, build a depth tree from the flat children list
+    return groups.map(g => ({
+      ...g,
+      depthTree: buildDepthTree(g.children),
+    }));
   }, [steps]);
 
-  // Filter
+  // Filter — operates on flat children before depth-tree is built
   const filteredTree = useMemo(() => {
     if (!search && !filterOp) return tree;
     const lower = search.toLowerCase();
     return tree.map(g => {
       const fc = g.children.filter(s => {
-        if (filterOp && s.operation !== filterOp) return false;
+        const path = s.operationPath || [];
+        if (filterOp && s.operation !== filterOp && !path.includes(filterOp)) return false;
         if (lower) {
-          const text = `${s.stepId} ${s.annotation} ${s.operation || ''} ${s.prime ?? ''} ${g.label}`.toLowerCase();
+          const text = `${s.stepId} ${s.annotation} ${s.operation || ''} ${(s.operationPath || []).join(' ')} ${s.prime ?? ''} ${g.label}`.toLowerCase();
           if (!text.includes(lower)) return false;
         }
         return true;
       });
-      return { ...g, children: fc };
+      return { ...g, children: fc, depthTree: buildDepthTree(fc) };
     }).filter(g => g.children.length > 0);
   }, [tree, search, filterOp]);
 
@@ -118,6 +154,63 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       return next;
     });
   }, []);
+
+  /**
+   * Recursive renderer for a depth-tree node.
+   * `nodeDepth` = visual indent level (0 = group child, 1..5 = nested).
+   */
+  const renderStepNode = useCallback((node, nodeDepth = 0) => {
+    const isActive = node.originalIndex === currentStep;
+    const isSelected = selectedSteps.has(node.originalIndex);
+    const hasChildren = node.children && node.children.length > 0;
+    const collapseKey = `node-${node.originalIndex}`;
+    const isNodeCollapsed = collapsed.has(collapseKey);
+
+    const tooltip = [
+      node.prime != null ? `Prime ${node.prime}` : null,
+      `Step ${node.originalIndex}`,
+      node.depth > 0 ? `Depth: ${node.depth}` : null,
+      node.operation ? `Operation: ${node.operation}` : null,
+      node.operationPath?.length ? `Path: ${node.operationPath.join(' > ')}` : null,
+      node.blockStart != null ? `Block: [${node.blockStart} – ${node.blockStop}]` : null,
+      node.factorStep != null ? `Factor step: ${node.factorStep}` : null,
+      `Bits changed: ${node.numChanged}`,
+      node.annotation,
+    ].filter(Boolean).join('\n');
+
+    return (
+      <div key={node.originalIndex} className={`step-depth-node depth-${Math.min(6, nodeDepth)}`}>
+        <div
+          className={`step-item step-child${isActive ? ' active' : ''}${isSelected ? ' selected' : ''}${hasChildren ? ' has-children' : ''}`}
+          style={{ paddingLeft: `${8 + nodeDepth * 14}px` }}
+          onClick={(e) => {
+            if (hasChildren && e.target.classList.contains('step-depth-toggle')) return;
+            handleStepClick(node.originalIndex, e);
+          }}
+          title={tooltip}
+        >
+          {hasChildren && (
+            <span
+              className="step-depth-toggle"
+              onClick={(e) => { e.stopPropagation(); toggleGroup(collapseKey); }}
+            >
+              {isNodeCollapsed ? '▶' : '▼'}
+            </span>
+          )}
+          {!hasChildren && <span className="step-depth-bullet">·</span>}
+          <span className="step-num">{node.originalIndex}</span>
+          {node.operation && <span className="step-op">{node.operation}</span>}
+          <span className="step-changes">{node.numChanged > 0 ? `+${node.numChanged}` : ''}</span>
+          <span className="step-text">{node.annotation}</span>
+        </div>
+        {hasChildren && !isNodeCollapsed && (
+          <div className="step-depth-children">
+            {node.children.map(child => renderStepNode(child, nodeDepth + 1))}
+          </div>
+        )}
+      </div>
+    );
+  }, [currentStep, selectedSteps, collapsed, handleStepClick, toggleGroup]);
 
   // Resize with scroll preservation
   const handleMouseDown = useCallback((e) => {
@@ -186,35 +279,11 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
                 </span>
               </div>
 
-              {!isCollapsed && group.children.map(s => {
-                const isActive = s.originalIndex === currentStep;
-                const isSelected = selectedSteps.has(s.originalIndex);
-                const tooltip = [
-                  s.prime != null ? `Prime ${s.prime}` : null,
-                  `Step ${s.originalIndex}`,
-                  s.operation ? `Operation: ${s.operation}` : null,
-                  s.blockStart != null ? `Block: [${s.blockStart} – ${s.blockStop}]` : null,
-                  s.factorStep != null ? `Factor step: ${s.factorStep}` : null,
-                  `Bits changed: ${s.numChanged}`,
-                  s.annotation,
-                ].filter(Boolean).join('\n');
-
-                return (
-                  <div
-                    key={s.originalIndex}
-                    className={`step-item step-child${isActive ? ' active' : ''}${isSelected ? ' selected' : ''}`}
-                    onClick={(e) => handleStepClick(s.originalIndex, e)}
-                    title={tooltip}
-                  >
-                    <span className="step-num">{s.originalIndex}</span>
-                    {s.operation && <span className="step-op">{s.operation}</span>}
-                    <span className="step-changes">
-                      {s.numChanged > 0 ? `+${s.numChanged}` : ''}
-                    </span>
-                    <span className="step-text">{s.annotation}</span>
-                  </div>
-                );
-              })}
+              {!isCollapsed && (
+                <div className="step-group-children">
+                  {group.depthTree.map(node => renderStepNode(node, 0))}
+                </div>
+              )}
             </div>
           );
         })}
