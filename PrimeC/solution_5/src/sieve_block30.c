@@ -71,7 +71,7 @@ checkBitTrue_block(const void* restrict bitstorage, register counter_t index)
 static inline void __attribute__((always_inline, nonnull,  aligned(cache_line_bytes))) 
 setBitsTrue_range_block(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
 { 
-    startAnalysisTrace6(time_setBitsTrue_largestep_repeat, "setBitsTrue_range_block", range_start, range_stop, "Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju) (%ju repeating occurrences)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
+    startAnalysisTrace6(time_setBitsTrue_largestep_repeat, "SetBitsTrueRangeBlock: setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju) (%ju repeating occurrences)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
     uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
 
     const counter_t range_stop_unique = range_start + BLOCKSIZE_UNIT8 * step * 8; 

@@ -4,7 +4,7 @@
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
 function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, counter_t step, const bitbucket_t mask) 
 {
-    startAnalysisTrace8(time_applyMask, "applyMask_index", range_start * bitcount_type(bitbucket_t), (range_stop+1) * bitcount_type(bitbucket_t)-1, "Applying %s (%ju bit) mask with step %ju in bitrange (%ju - %ju)", STR(bitbucket_t), bitcount_type(bitbucket_t),(uintmax_t)step, (uintmax_t)range_start * bitcount_type(bitbucket_t), (uintmax_t)(range_stop+1) * bitcount_type(bitbucket_t)-1);
+    startAnalysisTrace8(time_applyMask, "ApplyMask: apply %s (%ju bit) mask with step %ju in bitrange (%ju - %ju)", STR(bitbucket_t), bitcount_type(bitbucket_t),(uintmax_t)step, (uintmax_t)range_start * bitcount_type(bitbucket_t), (uintmax_t)(range_stop+1) * bitcount_type(bitbucket_t)-1);
   
     register       bitbucket_t* restrict bitstorage_sized   = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     register       bitbucket_t* restrict index_ptr          = __builtin_assume_aligned(&bitstorage_sized[range_start],sizeof(bitbucket_t));
@@ -94,11 +94,8 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
     for (; likely(index_ptr <= range_stop_ptr); index_ptr += step) { // signal compiler that only < unrolls iterations are left
         *index_ptr |= mask; 
     }
-    TRACE_STEP_META(bitstorage, "applyMask", -1,
-        (int64_t)(range_start * bitcount_type(bitbucket_t)),
-        (int64_t)((range_stop + 1) * bitcount_type(bitbucket_t) - 1),
-        (int64_t)step,
-        "applyMask %s step %ju bits %ju-%ju",
+    TRACE_EVENT(bitstorage,
+        "ApplyMask: apply %s mask with step %ju in bitrange %ju-%ju",
         STR(bitbucket_t), (uintmax_t)step,
         (uintmax_t)(range_start * bitcount_type(bitbucket_t)),
         (uintmax_t)((range_stop + 1) * bitcount_type(bitbucket_t) - 1));

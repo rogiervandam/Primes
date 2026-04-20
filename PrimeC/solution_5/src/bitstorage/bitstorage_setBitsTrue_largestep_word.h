@@ -3,7 +3,7 @@
 static inline void __attribute__((always_inline, nonnull,  aligned(cache_line_bytes))) 
 function(setBitsTrue_largestep_repeat,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
 { 
-    startAnalysisTrace6(time_setBitsTrue_largestep_repeat, "setBitsTrue_largestep_repeat", range_start, range_stop, "Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju) (%ju repeating occurrences)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
+    startAnalysisTrace6(time_setBitsTrue_largestep_repeat, "SetBitsTrueLargestepRepeat: setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju) (%ju repeating occurrences)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
 
     const counter_t range_stop_index = index_type(range_stop, bitbucket_t);
     const counter_t range_stop_unique = bitbucket_end_type(range_start + bitcount_type(bitbucket_t) * step, bitbucket_t) ; 
@@ -23,7 +23,7 @@ function(setBitsTrue_largestep_repeat,suffix)(void* restrict bitstorage, const c
 static inline void __attribute__((always_inline, nonnull, hot,  aligned(cache_line_bytes) )) 
 function(setBitsTrue_largestep_norepeat,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
 {
-    startAnalysisTrace6(time_setBitsTrue_largestep_norepeat, "setBitsTrue_largestep_norepeat", range_start, range_stop, "Setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju)  (%ju unique occurances)", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)step));
+    startAnalysisTrace6(time_setBitsTrue_largestep_norepeat, "SetBitsTrueLargestepNoRepeat: setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju) (%ju unique occurances)", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)step));
 
     register counter_t index = range_start;
     register counter_t i=((range_start-range_start)/step);

@@ -141,7 +141,7 @@
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
     function(markFactors_wheelstorage_repeat,suffix)(sieve_t* sieve, const counter_t range_start, counter_t range_stop, const counter_t step)
     {
-        TRACE_ANALYSIS_START(6, "markFactors_wheelstorage_repeat", range_start, range_stop);
+        TRACE_ANALYSIS_START(6, range_start, range_stop);
         register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
         // const counter_t bucket_stop = function(wheel_block_calc,variantsuffix)(range_stop + 1);
@@ -253,7 +253,7 @@
     static inline void __attribute__((always_inline, nonnull, hot,  aligned(cache_line_bytes) )) 
     markFactors_wheelstorage_norepeat(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step) 
     {
-        TRACE_ANALYSIS_START(6, "markFactors_wheelstorage_norepeat", range_start, range_stop);
+        TRACE_ANALYSIS_START(6, range_start, range_stop);
         register counter_t index = range_start;
         register counter_t i=((range_start-range_start)/step);
         for(register counter_t j=256; j>4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
@@ -310,12 +310,11 @@
     static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     markFactors_wheelstorage(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
     {
-        TRACE_ANALYSIS_START(5, "markFactors_wheelstorage", start, stop);
+        TRACE_ANALYSIS_START(5, start, stop);
         const counter_t prime = step / 2;
 
-        TRACE_STEP_META(sieve->bitstorage, "markFactors", (int64_t)(step + 1),
-                   (int64_t)start, (int64_t)stop, (int64_t)step,
-                   "markFactors_wheelstorage: prime %jd (idx %jd), factors [%jd-%jd] step %jd",
+        TRACE_EVENT(sieve->bitstorage,
+               "MarkFactorsWheelStorage: prime %jd (idx %jd), factors [%jd-%jd] step %jd",
                    (intmax_t)(step + 1), (intmax_t)prime, (intmax_t)start,
                    (intmax_t)stop, (intmax_t)step);
 

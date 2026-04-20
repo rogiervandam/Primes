@@ -88,11 +88,20 @@
 #ifdef COMPILE_TRACE
   #include "../trace/sieve_trace.h"
   #define TRACE_STEP(bitstorage_ptr, fmt, ...) trace_record_step_fmt(bitstorage_ptr, fmt, ##__VA_ARGS__)
+  #define TRACE_EVENT(bitstorage_ptr, fmt, ...) \
+      trace_record_step_fmt(bitstorage_ptr, fmt, ##__VA_ARGS__)
   #define TRACE_STEP_META(bitstorage_ptr, op, prime, bstart, bstop, fstep, fmt, ...) \
-      trace_record_step_meta(bitstorage_ptr, op, prime, bstart, bstop, fstep, fmt, ##__VA_ARGS__)
-  #define TRACE_TEXT(fmt, ...) trace_append_text_fmt(fmt, ##__VA_ARGS__)
-  #define TRACE_ANALYSIS_START(level, op, bstart, bstop) trace_set_context(level, op, (int64_t)(bstart), (int64_t)(bstop))
-  #define TRACE_ANALYSIS_END() trace_clear_context()
+      TRACE_EVENT(bitstorage_ptr, fmt, ##__VA_ARGS__)
+    #define TRACE_TEXT(fmt, ...) trace_append_text_fmt(fmt, ##__VA_ARGS__)
+    #define TRACE_ANALYSIS_PUSH(level) trace_set_context(level)
+    #define TRACE_ANALYSIS_START(level, ...) do { \
+      TRACE_TEXT("startAnalysis level=%d", level); \
+      TRACE_ANALYSIS_PUSH(level); \
+    } while (0)
+    #define TRACE_ANALYSIS_END() do { \
+      TRACE_TEXT("endAnalysis"); \
+      trace_clear_context(); \
+    } while (0)
   #define TRACE_DUMP(filename, bitstorage_ptr, sieve_size, bit_count) \
       trace_dump_memory(filename, bitstorage_ptr, sieve_size, bit_count)
   #define TRACE_DUMP_HEX(filename, bitstorage_ptr, sieve_size, bit_count) \
@@ -100,44 +109,46 @@
   #define TRACE_DUMP_BINARY(filename, bitstorage_ptr, sieve_size, bit_count) \
       trace_dump_memory_with_format(filename, bitstorage_ptr, sieve_size, bit_count, "binary")
 
-  #define startAnalysisTrace5(timer, trace_op, bstart, bstop, printf_args...) \
-      startAnalysis5(timer, printf_args) TRACE_ANALYSIS_START(5, trace_op, bstart, bstop);
+    #define startAnalysisTrace5(timer, printf_args...) \
+      startAnalysis5(timer, printf_args) TRACE_TEXT(printf_args); TRACE_ANALYSIS_PUSH(5);
   #define endAnalysisTrace5(timer, ...) \
       TRACE_ANALYSIS_END(); endAnalysis5(timer, ##__VA_ARGS__)
-  #define startAnalysisTrace6(timer, trace_op, bstart, bstop, printf_args...) \
-      startAnalysis6(timer, printf_args) TRACE_ANALYSIS_START(6, trace_op, bstart, bstop);
+    #define startAnalysisTrace6(timer, printf_args...) \
+      startAnalysis6(timer, printf_args) TRACE_TEXT(printf_args); TRACE_ANALYSIS_PUSH(6);
   #define endAnalysisTrace6(timer, ...) \
       TRACE_ANALYSIS_END(); endAnalysis6(timer, ##__VA_ARGS__)
-  #define startAnalysisTrace7(timer, trace_op, bstart, bstop, printf_args...) \
-      startAnalysis7(timer, printf_args) TRACE_ANALYSIS_START(7, trace_op, bstart, bstop);
+    #define startAnalysisTrace7(timer, printf_args...) \
+      startAnalysis7(timer, printf_args) TRACE_TEXT(printf_args); TRACE_ANALYSIS_PUSH(7);
   #define endAnalysisTrace7(timer, ...) \
       TRACE_ANALYSIS_END(); endAnalysis7(timer, ##__VA_ARGS__)
-  #define startAnalysisTrace8(timer, trace_op, bstart, bstop, printf_args...) \
-      startAnalysis8(timer, printf_args) TRACE_ANALYSIS_START(8, trace_op, bstart, bstop);
+    #define startAnalysisTrace8(timer, printf_args...) \
+      startAnalysis8(timer, printf_args) TRACE_TEXT(printf_args); TRACE_ANALYSIS_PUSH(8);
   #define endAnalysisTrace8(timer, ...) \
       TRACE_ANALYSIS_END(); endAnalysis8(timer, ##__VA_ARGS__)
 #else
   #define TRACE_STEP(bitstorage_ptr, fmt, ...)
+  #define TRACE_EVENT(bitstorage_ptr, fmt, ...)
   #define TRACE_STEP_META(bitstorage_ptr, op, prime, bstart, bstop, fstep, fmt, ...)
   #define TRACE_TEXT(fmt, ...)
-  #define TRACE_ANALYSIS_START(level, op, bstart, bstop)
+  #define TRACE_ANALYSIS_PUSH(level)
+  #define TRACE_ANALYSIS_START(level, ...)
   #define TRACE_ANALYSIS_END()
   #define TRACE_DUMP(filename, bitstorage_ptr, sieve_size, bit_count)
   #define TRACE_DUMP_HEX(filename, bitstorage_ptr, sieve_size, bit_count)
   #define TRACE_DUMP_BINARY(filename, bitstorage_ptr, sieve_size, bit_count)
-  #define startAnalysisTrace5(timer, trace_op, bstart, bstop, printf_args...) \
+    #define startAnalysisTrace5(timer, printf_args...) \
       startAnalysis5(timer, printf_args)
   #define endAnalysisTrace5(timer, ...) \
       endAnalysis5(timer, ##__VA_ARGS__)
-  #define startAnalysisTrace6(timer, trace_op, bstart, bstop, printf_args...) \
+    #define startAnalysisTrace6(timer, printf_args...) \
       startAnalysis6(timer, printf_args)
   #define endAnalysisTrace6(timer, ...) \
       endAnalysis6(timer, ##__VA_ARGS__)
-  #define startAnalysisTrace7(timer, trace_op, bstart, bstop, printf_args...) \
+    #define startAnalysisTrace7(timer, printf_args...) \
       startAnalysis7(timer, printf_args)
   #define endAnalysisTrace7(timer, ...) \
       endAnalysis7(timer, ##__VA_ARGS__)
-  #define startAnalysisTrace8(timer, trace_op, bstart, bstop, printf_args...) \
+    #define startAnalysisTrace8(timer, printf_args...) \
       startAnalysis8(timer, printf_args)
   #define endAnalysisTrace8(timer, ...) \
       endAnalysis8(timer, ##__VA_ARGS__)

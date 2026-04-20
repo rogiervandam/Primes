@@ -1,7 +1,7 @@
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
 function(markFactors_wheelstorage_small_repeat,suffix)(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step)
 {
-    TRACE_ANALYSIS_START(6, "markFactors_wheelstorage_small_repeat", range_start, range_stop);
+    TRACE_ANALYSIS_START(6, range_start, range_stop);
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
     const counter_t stop_bucket = function(wheel_block_calc,variantsuffix)(range_stop + 1);

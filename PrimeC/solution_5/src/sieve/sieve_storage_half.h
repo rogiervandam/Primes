@@ -11,7 +11,7 @@ markFactor(sieve_t *sieve, counter_t index)
 static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
 markFactors_half(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
 {
-    TRACE_ANALYSIS_START(5, "markFactors_half", start>>1, stop>>1);
+    TRACE_ANALYSIS_START(5, start>>1, stop>>1);
     setBitsTrue(sieve->bitstorage, start>>1, stop>>1, step>>1);
     TRACE_ANALYSIS_END();
 }

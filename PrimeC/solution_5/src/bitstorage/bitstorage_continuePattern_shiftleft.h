@@ -1,7 +1,7 @@
 static inline counter_t __attribute__((always_inline, hot, nonnull)) 
 continuePattern_shiftleft_unrolled(void* restrict bitstorage, const counter_t aligned_copy_word, const bitshift_t shift, counter_t copy_word, counter_t source_word) 
 {
-    startAnalysisTrace7(time_continuePattern_shiftleft_unrolled, "continuePattern_shiftleft_unrolled", copy_word, aligned_copy_word, "...continuePattern_shiftleft_unrolled with aligned copy word %ju, shift %ju, copy_word %ju, source_word %ju..", (uintmax_t)aligned_copy_word, (uintmax_t)shift, (uintmax_t)copy_word, (uintmax_t)source_word);
+    startAnalysisTrace7(time_continuePattern_shiftleft_unrolled, "ContinuePatternShiftLeftUnrolled: aligned copy word %ju, shift %ju, copy_word %ju, source_word %ju", (uintmax_t)aligned_copy_word, (uintmax_t)shift, (uintmax_t)copy_word, (uintmax_t)source_word);
 
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     const counter_t fast_loop_stop_word = safe_diff_type(aligned_copy_word, 2, counter_t); // safe for signed ints
@@ -25,7 +25,7 @@ continuePattern_shiftleft_unrolled(void* restrict bitstorage, const counter_t al
 
 static inline void __attribute__((always_inline)) continuePattern_shiftleft(void* restrict bitstorage, const counter_t source_start, const counter_t destination_stop, const counter_t size)
 {
-    startAnalysisTrace7(time_continuePattern_shiftleft, "continuePattern_shiftleft", source_start, destination_stop, "Continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_shiftleft (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
+    startAnalysisTrace7(time_continuePattern_shiftleft, "ContinuePatternShiftLeft: continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_shiftleft (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
 
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
 

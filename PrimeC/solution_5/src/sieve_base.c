@@ -43,9 +43,8 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
 
         #pragma GCC unroll 16
         for (counter_t prime = 3; prime < prime_max; prime = findUnmarked(sieve, prime)) {
-            TRACE_STEP_META(sieve->bitstorage, "markFactors", (int64_t)(prime*2+1),
-                       (int64_t)block_start, (int64_t)block_stop, (int64_t)calcFactor_step(prime),
-                       "base: prime %jd (idx %jd), block [%jd-%jd] step %jd",
+            TRACE_EVENT(sieve->bitstorage,
+                       "MarkFactors: base prime %jd (idx %jd), block [%jd-%jd] step %jd",
                        (intmax_t)(prime*2+1), (intmax_t)prime, (intmax_t)block_start,
                        (intmax_t)block_stop, (intmax_t)calcFactor_step(prime));
             markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
