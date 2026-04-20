@@ -222,10 +222,12 @@ Command to run the formal benchmark for the primeview results:
 cd ../..; make DIRECTORY=PrimeC/solution_5; cd PrimeC/solution_5
 ```
 
-If you encounter issues running the ./sieve file (e.g., due to CRLF/LF problems), use the following command:
+Line endings are now managed by `./.gitattributes` so `sieve` and `*.sh` are checked out as LF on Windows (including VS Code + WSL).
+
+If your local checkout predates this change, run a one-time renormalization:
 
 ```bash
-sed -i 's/\r$//' sieve
+git add --renormalize .
 ```
 
 ## Output

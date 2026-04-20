@@ -1,0 +1,15 @@
+# Normalize text files, then enforce platform-specific line endings where needed.
+* text=auto
+
+# Bash/WSL scripts must stay LF to execute correctly.
+sieve text eol=lf
+*.sh text eol=lf
+Makefile text eol=lf
+Dockerfile text eol=lf
+
+# Windows PowerShell scripts are easier to work with as CRLF on Windows.
+*.ps1 text eol=crlf
+
+# Keep native Windows command scripts as CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
