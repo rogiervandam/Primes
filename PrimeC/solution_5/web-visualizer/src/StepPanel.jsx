@@ -46,7 +46,7 @@ function buildDepthTree(steps) {
 /**
  * Hierarchical step panel grouped by prime, with collapse/expand.
  */
-export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse }) {
+export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, fileName, onClose }) {
   const listRef = useRef(null);
   const scrollTopRef = useRef(0);
   const [search, setSearch] = useState('');
@@ -193,15 +193,16 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       : Number(node.numChanged || 0);
     const collapseKey = `node-${node.originalIndex}`;
     const isNodeCollapsed = collapsed.has(collapseKey);
+    const eventId = node.stepId ?? node.originalIndex;
 
     const tooltip = [
       node.prime != null ? `Prime ${node.prime}` : null,
-      `Step ${node.originalIndex}`,
+      `Event ${eventId}`,
       node.depth > 0 ? `Depth: ${node.depth}` : null,
       node.operation ? `Operation: ${node.operation}` : null,
       node.operationPath?.length ? `Path: ${node.operationPath.join(' > ')}` : null,
       node.start != null ? `Range: [${node.start} – ${node.stop}]` : null,
-      node.factorStep != null ? `Factor step: ${node.factorStep}` : null,
+      node.factorStep != null ? `Step size: ${node.factorStep}` : null,
       `Bits changed: ${changedCount}`,
       node.annotation,
     ].filter(Boolean).join('\n');
@@ -232,7 +233,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
             </span>
           )}
           {!hasChildren && <span className="step-depth-bullet">·</span>}
-          <span className="step-num">{node.originalIndex}</span>
+          <span className="step-num">{eventId}</span>
           {node.operation && <span className="step-op">{node.operation}</span>}
           <span className="step-changes">{changedCount > 0 ? `+${changedCount}` : ''}</span>
           <span className="step-text">{node.annotation}</span>
@@ -277,17 +278,41 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
 
   return (
     <div className={`step-panel${panelCollapsed ? ' collapsed' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
-      <button className="step-panel-collapse-btn" onClick={onToggleCollapse} title={panelCollapsed ? 'Expand steps panel' : 'Collapse steps panel'}>
-        {panelCollapsed ? '▶' : '◀'}
-      </button>
+      {panelCollapsed && fileName && (
+        <div className="step-panel-floating-title">
+          <button className="step-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Expand events panel">
+            ▶
+          </button>
+          <span className="file-name" title={fileName}>{fileName}</span>
+          {onClose && <button className="btn-icon btn-icon-sm" onClick={onClose} title="Close file">✕</button>}
+        </div>
+      )}
+      {panelCollapsed && (
+        <div className="step-panel-collapsed-dock">
+          <div className="step-panel-collapsed-header" title="Events">
+            <h3>Events</h3>
+          </div>
+        </div>
+      )}
       {!panelCollapsed && (
         <>
+      {fileName && (
+        <div className="step-panel-file-header">
+          <span className="file-name" title={fileName}>{fileName}</span>
+          {onClose && <button className="btn-icon btn-icon-sm" onClick={onClose} title="Close file">✕</button>}
+        </div>
+      )}
       <div className="step-panel-header">
-        <h3>Steps ({totalVisible}/{steps.length})</h3>
+        <div className="step-panel-header-title-row">
+          <h3>Events ({totalVisible}/{steps.length})</h3>
+          <button className="step-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Collapse events panel">
+            ◀
+          </button>
+        </div>
         <input
           className="step-search"
           type="text"
-          placeholder="Search steps…"
+          placeholder="Search events…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -298,7 +323,6 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
           </select>
         )}
       </div>
-
       <div className="step-list" ref={listRef}>
         {filteredTree.map((group) => {
           const isCollapsed = collapsed.has(group.id);
@@ -321,7 +345,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
                   <span className="step-op">{group.operation}</span>
                 )}
                 <span className="step-group-info">
-                  {group.children.length > 1 ? `${group.children.length} steps` : '1 step'}
+                  {group.children.length > 1 ? `${group.children.length} events` : '1 event'}
                   {group.totalChanged > 0 ? ` · +${group.totalChanged}` : ''}
                 </span>
               </div>

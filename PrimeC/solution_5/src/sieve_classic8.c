@@ -23,7 +23,7 @@ static char algorithm_type[] = "base";
 #ifdef COMPILE_TRACE
 #define log5(fmt, ...) do { \
     verbose5(printf((fmt) "\n", ##__VA_ARGS__)); \
-    TRACE_STEP(bitstorage, fmt, ##__VA_ARGS__); \
+    TRACE_TEXT(fmt, ##__VA_ARGS__); \
 } while (0)
 #else
 #define log5(fmt, ...) verbose5(printf((fmt) "\n", ##__VA_ARGS__))
@@ -56,7 +56,7 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
     bitbucket_t* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
     const counter_t prime_max = ((1 + usqrt( (sieve_size) + 1 )) >> 1);
 
-    verbose5( printf("\nShaking sieve to find all primes up to %ju\n",(uintmax_t)sieve_size); )
+    log5("Shaking sieve to find all primes up to %ju\n",(uintmax_t)sieve_size);
 
     sieve_clear(sieve);
     counter_t prime = 1;
@@ -65,6 +65,8 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
         const counter_t step  = prime * 2 + 1;
         const counter_t start = prime * (step + 1);
 
+        log5("setBitsRange_classic8: Setting bits with step %d in range %d-%d", (int)step, (int)start, (int)sieve_bits);
+
         // #pragma GCC ivdep
         #pragma GCC unroll 32
         for(counter_t i=start; i < sieve_bits; i += step) {
@@ -72,13 +74,14 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
             bitstorage[index_type(i, bitbucket_t)] |= markmask_calc_type(i,bitbucket_t);
         }
 
-        log5("setBitsRange_classic8: Setting bits with step %d in range %d-%d", (int)step, (int)start, (int)sieve_bits);
 
         // #pragma GCC ivdep
         #pragma GCC unroll 32
         for (prime++; bitstorage[index_type(prime, bitbucket_t)] & markmask_type(prime, bitbucket_t); prime++);
     }
 
+    log5("Finished shaking sieve. Found all primes up to %ju\n",(uintmax_t)sieve_size);
+    
     // return the completed sieve
     return sieve;
 }

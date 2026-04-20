@@ -185,8 +185,8 @@ trace_init(const char* filename, uint64_t sieve_size, uint64_t bit_count)
         snprintf(json_path, sizeof(json_path), "%s.json", filename);
         g_trace.json_file = fopen(json_path, "w");
         if (g_trace.json_file) {
-            fprintf(g_trace.json_file,
-                    "{\"version\":%d,\"sieve_size\":%llu,\"bit_count\":%llu,\"max_number\":%llu,\"storage_model\":\"%s\",\"steps\":[",
+                fprintf(g_trace.json_file,
+                    "{\"version\":%d,\"sieve_size\":%llu,\"bit_count\":%llu,\"max_number\":%llu,\"storage_model\":\"%s\",\"events\":[",
                     TRACE_FORMAT_VERSION,
                     (unsigned long long)sieve_size,
                     (unsigned long long)bit_count,
@@ -231,7 +231,7 @@ trace_record_step_full(void* bitstorage, const char* annotation,
     int64_t stop = block_stop >= 0 ? block_stop : g_trace.current_stop;
 
     /* Human-readable primary format: keep compact, omit empty/null metadata */
-    fprintf(g_trace.file, "STEP step=%u", step_id);
+    fputs("EVENT", g_trace.file);
     if (operation || g_trace.current_operation) {
         fputs(" op=", g_trace.file);
         trace_write_json_string(g_trace.file, op_name);
@@ -274,7 +274,7 @@ trace_record_step_full(void* bitstorage, const char* annotation,
     if (g_trace.json_enabled && g_trace.json_file) {
         if (step_id > 0) fputc(',', g_trace.json_file);
 
-        fprintf(g_trace.json_file, "{\"step\":%u,\"annotation\":", step_id);
+        fputs("{\"annotation\":", g_trace.json_file);
         trace_write_json_string(g_trace.json_file, annotation ? annotation : "");
         fputs(",\"operation\":", g_trace.json_file);
         trace_write_json_string(g_trace.json_file, op_name);
@@ -372,6 +372,19 @@ trace_record_step_fmt(void* bitstorage, const char* fmt, ...)
     va_end(args);
 
     trace_record_step_full(bitstorage, annotation, NULL, -1, -1, -1, -1);
+}
+
+static void
+trace_append_text_fmt(const char* fmt, ...)
+{
+    if (!g_trace.enabled || !g_trace.file) return;
+
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(g_trace.file, fmt, args);
+    va_end(args);
+
+    fputc('\n', g_trace.file);
 }
 
 /*
@@ -475,7 +488,7 @@ trace_finalize(void)
         g_trace.snapshot = NULL;
     }
 
-    fprintf(stderr, "Trace: recorded %u steps\n", g_trace.step_count);
+    fprintf(stderr, "Trace: recorded %u events\n", g_trace.step_count);
 
     g_trace.enabled = 0;
 }

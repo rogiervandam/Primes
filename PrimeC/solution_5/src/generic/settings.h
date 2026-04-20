@@ -48,6 +48,7 @@
   #define TRACE_STEP(bitstorage_ptr, fmt, ...) trace_record_step_fmt(bitstorage_ptr, fmt, ##__VA_ARGS__)
   #define TRACE_STEP_META(bitstorage_ptr, op, prime, bstart, bstop, fstep, fmt, ...) \
       trace_record_step_meta(bitstorage_ptr, op, prime, bstart, bstop, fstep, fmt, ##__VA_ARGS__)
+    #define TRACE_TEXT(fmt, ...) trace_append_text_fmt(fmt, ##__VA_ARGS__)
   #define TRACE_ANALYSIS_START(level, op, bstart, bstop) trace_set_context(level, op, (int64_t)(bstart), (int64_t)(bstop))
   #define TRACE_ANALYSIS_END() trace_clear_context()
   #define TRACE_DUMP(filename, bitstorage_ptr, sieve_size, bit_count) \
@@ -83,6 +84,7 @@
 #else
   #define TRACE_STEP(bitstorage_ptr, fmt, ...)
   #define TRACE_STEP_META(bitstorage_ptr, op, prime, bstart, bstop, fstep, fmt, ...)
+    #define TRACE_TEXT(fmt, ...)
   #define TRACE_ANALYSIS_START(level, op, bstart, bstop)
   #define TRACE_ANALYSIS_END()
   #define TRACE_DUMP(filename, bitstorage_ptr, sieve_size, bit_count)

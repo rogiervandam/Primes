@@ -76,7 +76,7 @@ export default function DetailPanel({ step, stepIndex, open, onToggle, height, o
 
   const panelTitle = [
     step.prime != null ? `Prime ${step.prime}` : null,
-    `Step ${stepIndex}`,
+    `Event ${step.stepId ?? stepIndex}`,
     step.operation || null,
     step.numChanged > 0 ? `+${step.numChanged} bits` : null,
   ].filter(Boolean).join(' | ');
@@ -116,7 +116,7 @@ export default function DetailPanel({ step, stepIndex, open, onToggle, height, o
               )}
               {step.factorStep != null && (
                 <tr>
-                  <td className="dt-label">Factor step</td>
+                  <td className="dt-label">Step size</td>
                   <td><span className="detail-tag step-tag">{step.factorStep}</span></td>
                 </tr>
               )}

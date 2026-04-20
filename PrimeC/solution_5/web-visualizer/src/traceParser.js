@@ -47,7 +47,7 @@ function parseJsonTrace(text) {
     return parseDump(json);
   }
 
-  const rawSteps = json.steps || [];
+  const rawSteps = json.events || json.steps || [];
 
   const header = {
     version: json.version,
@@ -58,7 +58,7 @@ function parseJsonTrace(text) {
     storageModel: json.storage_model || 'half',
   };
 
-  const steps = rawSteps.map((s) => {
+  const steps = rawSteps.map((s, idx) => {
     const inferred = inferMetaFromAnnotation(s.annotation || '');
     const start = toNullableNumber(
       firstDefined(s.start, s.block_start, s.init, inferred.start)
@@ -67,13 +67,13 @@ function parseJsonTrace(text) {
       firstDefined(s.stop, s.block_stop, s.end, s.stop_block, inferred.stop)
     );
     const factorStep = toNullableNumber(
-      firstDefined(s.factor_step, s.step, s.stride, s.inc, inferred.factorStep)
+      firstDefined(s.factor_step, s.step_size, s.step, s.stride, s.inc, s.increment, s.stap, inferred.factorStep)
     );
 
     const inferredOp = inferOperationFromAnnotation(s.annotation || '');
 
     return {
-    stepId: s.step,
+    stepId: toNumberOr(firstDefined(s.event_id, s.event, s.index, s.ordinal, s.sequence), idx),
     annotation: s.annotation || '',
     operation: (s.operation && s.operation !== 'Initialization') ? s.operation : inferredOp,
     prime: s.prime ?? null,
@@ -116,46 +116,100 @@ function parseTextTrace(text) {
     return parseDump(dumpJson);
   }
 
-  const stepLines = lines.filter((l) => l.startsWith('STEP '));
-  if (stepLines.length === 0) {
+  const hasStructuredSteps = lines.some((l) => /^STEP\s|^EVENT\s/i.test(l));
+  if (!hasStructuredSteps) {
     return parseFreeformTextTrace(lines, headerKv);
   }
 
-  const steps = stepLines.map((line, idx) => {
-    const kv = parseKvLine(line.slice('STEP '.length));
-    const inferred = inferMetaFromAnnotation(kv.annotation || '');
+  const steps = [];
+  const opStack = [];
+  let depth = 0;
 
-    const start = toNullableNumber(
-      firstAliasValue(kv, START_ALIASES, inferred.start)
-    );
-    const stop = toNullableNumber(
-      firstAliasValue(kv, STOP_ALIASES, inferred.stop)
-    );
-    const factorStep = toNullableNumber(
-      firstAliasValue(kv, STEP_ALIASES, inferred.factorStep)
-    );
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = lines[idx];
+    if (!line || line.startsWith('TRACE ') || line.startsWith('DUMP ')) continue;
 
-    const changedBits = parseChangedBits(kv.changed_bits || '');
-    const operation = kv.op || kv.operation || inferOperationFromAnnotation(kv.annotation || '');
-    const operationPath = Array.isArray(kv.operation_path)
-      ? kv.operation_path
-      : (kv.operation_path ? String(kv.operation_path).split('/').map((s) => s.trim()).filter(Boolean) : [operation]);
+    if (/^STEP\s|^EVENT\s/i.test(line)) {
+      const prefixLen = line.toUpperCase().startsWith('EVENT ') ? 'EVENT '.length : 'STEP '.length;
+      const kv = parseKvLine(line.slice(prefixLen));
+      const inferred = inferMetaFromAnnotation(kv.annotation || '');
 
-    return {
-      stepId: toNumberOr(kv.step, idx),
-      annotation: kv.annotation || '',
-      operation,
-      prime: toNullableNumber(kv.prime),
-      start,
-      stop,
-      factorStep,
-      changedBits: new Uint32Array(changedBits),
-      numChanged: changedBits.length,
-      depth: Math.max(0, toNumberOr(firstDefined(kv.depth, kv.call_depth), 0)),
-      operationPath,
-      parentId: toNullableNumber(firstDefined(kv.parent_id, kv.parentId)),
-    };
-  });
+      const start = toNullableNumber(
+        firstAliasValue(kv, START_ALIASES, inferred.start)
+      );
+      const stop = toNullableNumber(
+        firstAliasValue(kv, STOP_ALIASES, inferred.stop)
+      );
+      const factorStep = toNullableNumber(
+        firstExactAliasValue(kv, FACTOR_STEP_ALIASES, inferred.factorStep)
+      );
+
+      const changedBits = parseChangedBits(kv.changed_bits || '');
+      const operation = kv.op || kv.operation || inferOperationFromAnnotation(kv.annotation || '');
+      const operationPath = Array.isArray(kv.operation_path)
+        ? kv.operation_path
+        : (kv.operation_path ? String(kv.operation_path).split('/').map((s) => s.trim()).filter(Boolean) : [operation]);
+
+      steps.push({
+        stepId: steps.length,
+        annotation: kv.annotation || '',
+        operation,
+        prime: toNullableNumber(kv.prime),
+        start,
+        stop,
+        factorStep,
+        changedBits: new Uint32Array(changedBits),
+        numChanged: changedBits.length,
+        depth: Math.max(0, toNumberOr(firstDefined(kv.depth, kv.call_depth), 0)),
+        operationPath,
+        parentId: toNullableNumber(firstDefined(kv.parent_id, kv.parentId)),
+      });
+      continue;
+    }
+
+    const startEvent = parseAnalysisStartLine(line);
+    if (startEvent) {
+      const opName = startEvent.operation || 'analysis';
+      const inferred = inferMetaFromAnnotation(line);
+      steps.push(createParsedStep({
+        rawStepId: steps.length,
+        annotation: line,
+        operation: opName,
+        prime: startEvent.prime,
+        start: inferred.start,
+        stop: inferred.stop,
+        factorStep: inferred.factorStep,
+        changedBits: [],
+        depth,
+        operationPath: [...opStack, opName],
+      }));
+      opStack.push(opName);
+      depth += 1;
+      continue;
+    }
+
+    if (isAnalysisEndLine(line)) {
+      if (depth > 0) depth -= 1;
+      if (opStack.length > 0) opStack.pop();
+      continue;
+    }
+
+    const event = parseFreeformStepEvent(line, headerKv.bit_count ? toNumberOr(headerKv.bit_count, 0) : 0);
+    if (!event) continue;
+
+    steps.push(createParsedStep({
+      rawStepId: steps.length,
+      annotation: line,
+      operation: event.operation,
+      prime: event.prime,
+      start: event.start,
+      stop: event.stop,
+      factorStep: event.factorStep,
+      changedBits: event.changedBits,
+      depth,
+      operationPath: [...opStack, event.operation],
+    }));
+  }
 
   const header = {
     version: toNumberOr(headerKv.version, TRACE_FALLBACK_VERSION),
@@ -266,7 +320,7 @@ function createParsedStep({
   return {
     stepId: rawStepId,
     annotation: annotation || '',
-    operation: operation || 'step',
+    operation: operation || 'event',
     prime: toNullableNumber(prime),
     start: toNullableNumber(start),
     stop: toNullableNumber(stop),
@@ -276,7 +330,7 @@ function createParsedStep({
     depth: Math.max(0, toNumberOr(depth, 0)),
     operationPath: Array.isArray(operationPath) && operationPath.length > 0
       ? operationPath
-      : [operation || 'step'],
+      : [operation || 'event'],
     parentId: null,
   };
 }
@@ -343,7 +397,7 @@ function expandChangedBitsFromRange(start, stop, step, bitCountHint = 0) {
   let inc = Number(step);
   if (!Number.isFinite(s) || !Number.isFinite(e)) return [];
 
-  // Keep logs permissive: absent/invalid step means "set every bit in range".
+  // Keep logs permissive: absent/invalid step size means "set every bit in range".
   if (!Number.isFinite(inc) || inc === 0) inc = 1;
   const dir = s <= e ? 1 : -1;
   if (inc < 0) inc = Math.abs(inc);
@@ -399,8 +453,11 @@ const START_ALIASES = [
 const STOP_ALIASES = [
   'stop', 'block_stop', 'stop_block', 'end', 'range_stop', 'finish',
 ];
-const STEP_ALIASES = [
-  'factor_step', 'step', 'stride', 'inc', 'increment', 'stap',
+const EVENT_INDEX_ALIASES = [
+  'event_id', 'event', 'index', 'ordinal', 'sequence',
+];
+const FACTOR_STEP_ALIASES = [
+  'factor_step', 'step_size', 'stride', 'inc', 'increment', 'stap',
 ];
 
 function firstDefined(...vals) {
@@ -442,6 +499,14 @@ function parseKvLine(text) {
   return kv;
 }
 
+function firstExactAliasValue(obj, aliases, fallback) {
+  for (let i = 0; i < aliases.length; i++) {
+    const key = aliases[i];
+    if (Object.prototype.hasOwnProperty.call(obj, key)) return obj[key];
+  }
+  return fallback;
+}
+
 function parseChangedBits(raw) {
   if (!raw || raw === '[]') return [];
   const cleaned = raw.replace(/^\[/, '').replace(/\]$/, '').trim();
@@ -480,14 +545,14 @@ function inferMetaFromAnnotation(annotation) {
 
   out.start = firstAliasNumberInText(text, START_ALIASES, out.start);
   out.stop = firstAliasNumberInText(text, STOP_ALIASES, out.stop);
-  out.factorStep = firstAliasNumberInText(text, STEP_ALIASES, out.factorStep);
+  out.factorStep = firstFactorStepNumberInText(text, out.factorStep);
 
   return out;
 }
 
 function inferOperationFromAnnotation(annotation) {
   const text = String(annotation || '').trim();
-  if (!text) return 'step';
+  if (!text) return 'event';
 
   // Preferred: explicit operation prefix before ';'
   const semicolonIdx = text.indexOf(';');
@@ -507,7 +572,7 @@ function inferOperationFromAnnotation(annotation) {
   const callMatch = text.match(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/);
   if (callMatch) return callMatch[1];
 
-  return 'step';
+  return 'event';
 }
 
 function sanitizeOperationToken(token) {
@@ -521,12 +586,31 @@ function sanitizeOperationToken(token) {
 
 function inferMissingPrimes(steps, storageModel) {
   const mode = String(storageModel || '').toLowerCase();
+  let lastPrime = null;
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
-    if (step.prime != null) continue;
+    if (step.prime != null) {
+      lastPrime = step.prime;
+      continue;
+    }
+
+    const inferredFromText = inferPrimeFromAnnotation(step.annotation, step.factorStep, mode);
+    if (inferredFromText != null) {
+      step.prime = inferredFromText;
+      lastPrime = inferredFromText;
+      continue;
+    }
 
     const prime = inferPrimeFromFactorStep(step.factorStep, mode);
-    if (prime != null) step.prime = prime;
+    if (prime != null) {
+      step.prime = prime;
+      lastPrime = prime;
+      continue;
+    }
+
+    if (lastPrime != null && step.operation === 'setBit') {
+      step.prime = lastPrime;
+    }
   }
 }
 
@@ -541,6 +625,19 @@ function inferPrimeFromFactorStep(factorStep, storageModel) {
   return fs;
 }
 
+function inferPrimeFromAnnotation(annotation, factorStep, storageModel) {
+  const explicitPrime = parsePrimeFromText(annotation);
+  if (explicitPrime != null) return explicitPrime;
+
+  const text = String(annotation || '');
+  const classicRangeMatch = text.match(/setting\s+bits?.*?(?:with\s+)?step\s*(-?\d+)\s+in\s+range\s*(-?\d+)\s*(?:-|\.\.|to)\s*(-?\d+)/i);
+  if (classicRangeMatch) {
+    return inferPrimeFromFactorStep(Number(classicRangeMatch[1]), storageModel);
+  }
+
+  return inferPrimeFromFactorStep(factorStep, storageModel);
+}
+
 function firstAliasNumberInText(text, aliases, fallback) {
   for (let i = 0; i < aliases.length; i++) {
     const a = aliases[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -548,6 +645,17 @@ function firstAliasNumberInText(text, aliases, fallback) {
     const m = text.match(re);
     if (m) return Number(m[1]);
   }
+  return fallback;
+}
+
+function firstFactorStepNumberInText(text, fallback) {
+  const explicitAliases = ['factor_step', 'step_size', 'stride', 'inc', 'increment', 'stap'];
+  const aliased = firstAliasNumberInText(text, explicitAliases, null);
+  if (aliased != null) return aliased;
+
+  const naturalLanguage = String(text || '').match(/(?:with\s+)?step\s*(-?\d+)\b/i);
+  if (naturalLanguage) return Number(naturalLanguage[1]);
+
   return fallback;
 }
 

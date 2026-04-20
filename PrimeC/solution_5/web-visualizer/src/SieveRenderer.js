@@ -160,6 +160,8 @@ export class SieveRenderer {
   constructor() {
     this.canvas = null;
     this.ctx = null;
+    this.minimapCanvas = null;
+    this.minimapCtx = null;
     this.bitCount = 0;
     this.sieveSize = 0;
     this.bitState = null;
@@ -196,6 +198,7 @@ export class SieveRenderer {
 
     // Label toggles
     this.showBitLabels = false;
+    this.showNumberLabels = false;
     this.showByteLabels = false;
     this.showVectorLabels = true;
 
@@ -251,12 +254,41 @@ export class SieveRenderer {
   }
 
   _outlineConfig() {
-    return { lineWidth: 2.2, dash: [7, 5], radius: 7 };
+    const zoom = Math.max(0.18, this.zoom || 1);
+    const scale = Math.max(0.24, Math.min(1.18, Math.pow(zoom, 0.42)));
+    return {
+      lineWidth: Math.max(0.45, 1.2 * scale),
+      dash: [Math.max(2.25, 5 * scale), Math.max(1.8, 3.6 * scale)],
+      radius: Math.max(3, 7 * scale),
+    };
+  }
+
+  _groupLabelBase() {
+    if (this.customGroupingBits > 0) return 'group';
+
+    const label = this.vectorLabel || `uint64v${this.vectorGroup}`;
+    const uintMatch = label.match(/^uint(\d+)(?:v(\d+))?$/);
+    if (uintMatch) {
+      const [, bits, lanes] = uintMatch;
+      return lanes ? `${bits}x${lanes} group` : `${bits}bit group`;
+    }
+
+    const simpleMatch = label.match(/^(bit|byte)(?:v(\d+))?$/);
+    if (simpleMatch) {
+      const [, kind, lanes] = simpleMatch;
+      return lanes ? `${kind}x${lanes} group` : `${kind} group`;
+    }
+
+    return `${label} group`;
+  }
+
+  _groupLabel(index) {
+    return `${this._groupLabelBase()} ${index + 1}`;
   }
 
   _outlinePadding() {
     // Keep a visible gap between pixels and the outline border.
-    return 3;
+    return Math.max(4, Math.min(7, 4 + this.zoom * 0.35));
   }
 
   _outlineTopExtra(kind) {
@@ -281,6 +313,47 @@ export class SieveRenderer {
     ];
   }
 
+  _labelTextColor(fillRgb) {
+    const [r, g, b] = fillRgb;
+    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return luminance > 150 ? 'rgba(17, 24, 39, 0.95)' : 'rgba(249, 250, 251, 0.96)';
+  }
+
+  _fitLabelFontSize(ctx, text, maxWidth, preferredSize, minSize = 4, style = '') {
+    if (!text || maxWidth <= 0) return 0;
+    let size = preferredSize;
+    while (size > minSize) {
+      ctx.font = `${style}${size}px monospace`;
+      if (ctx.measureText(text).width <= maxWidth) return size;
+      size -= 0.5;
+    }
+    ctx.font = `${style}${minSize}px monospace`;
+    return ctx.measureText(text).width <= maxWidth ? minSize : 0;
+  }
+
+  _drawFittedLabel(ctx, text, x, y, maxWidth, preferredSize, color, options = {}) {
+    const {
+      minSize = 4,
+      style = '',
+      paddingX = 0,
+      clipHeight = preferredSize + 4,
+    } = options;
+
+    const fitWidth = Math.max(0, maxWidth - paddingX * 2);
+    const size = this._fitLabelFontSize(ctx, text, fitWidth, preferredSize, minSize, style);
+    if (size <= 0) return;
+
+    ctx.save();
+    ctx.font = `${style}${size}px monospace`;
+    ctx.fillStyle = color;
+    ctx.textBaseline = 'top';
+    ctx.beginPath();
+    ctx.rect(x, y, maxWidth, clipHeight);
+    ctx.clip();
+    ctx.fillText(text, x + paddingX, Math.round(y));
+    ctx.restore();
+  }
+
   _drawOutlineRect(ctx, x, y, w, h) {
     const cfg = this._outlineConfig();
     let lineWidth = cfg.lineWidth;
@@ -291,7 +364,7 @@ export class SieveRenderer {
 
     if (this.outlineHoverActive) {
       const p = Math.max(0, Math.min(1, this.outlineHoverPulse || 0));
-      lineWidth += 0.8 + 1.0 * p;
+      lineWidth += 0.45 + 0.7 * p;
       inflate = 0.8 + 1.6 * p;
       strokeRgb = this._mixRgb(strokeRgb, [255, 255, 255], 0.22 + 0.28 * p);
     }
@@ -339,6 +412,11 @@ export class SieveRenderer {
   attach(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d', { willReadFrequently: true });
+  }
+
+  attachMinimapCanvas(canvas) {
+    this.minimapCanvas = canvas;
+    this.minimapCtx = canvas ? canvas.getContext('2d') : null;
   }
 
   init(bitCount, sieveSize) {
@@ -571,10 +649,10 @@ export class SieveRenderer {
   _labelBands() {
     const showByte = this.showByteLabels && this.zoom >= 4;
     const showVector = this.showVectorLabels;
-    const vectorFont = Math.max(7, Math.min(13, 2 + 2 * this.zoom));
-    const byteFont = Math.max(7, Math.min(12, 2 + 2 * this.zoom));
-    const vector = showVector ? (vectorFont + 4) : 0;
-    const byte = showByte ? (byteFont + 3) : 0;
+    const vectorFont = Math.max(4, Math.min(13, 1.5 + 1.6 * this.zoom));
+    const byteFont = Math.max(4, Math.min(11, 1.5 + 1.5 * this.zoom));
+    const vector = showVector ? (vectorFont + 3) : 0;
+    const byte = showByte ? (byteFont + 2) : 0;
     return {
       vector,
       byte,
@@ -628,6 +706,7 @@ export class SieveRenderer {
     // Font for labels (bit/byte labels need higher zoom)
     const bitLabelFontSize = Math.max(6, Math.min(10, 2 * this.zoom));
     const showBitLabels = this.showBitLabels && this.zoom >= 6;
+    const showNumberLabels = this.showNumberLabels && this.zoom >= 6;
     const showByteLabels = labelBands.showByte;
     const showVectorLabels = labelBands.showVector;
     const vectorLabelY = vRow => this.panY + vRow * vRowHeight + 1;
@@ -656,10 +735,6 @@ export class SieveRenderer {
         // Render vector labels (stacked above byte labels)
         if (showVectorLabels) {
           const fontSize = labelBands.vectorFont;
-          ctx.font = `${fontSize}px monospace`;
-          ctx.fillStyle = C.LABEL_COLOR;
-          ctx.textBaseline = 'top';
-
           for (let vi = 0; vi < numVec; vi++) {
             const vecX = this.panX + clOffsetX + vi * (vecD.w + this.u64SpacingH * this.zoom);
             const u64Start = vi * this.vectorGroup;
@@ -668,10 +743,15 @@ export class SieveRenderer {
             if (bitStart >= rowBitStop) break;
 
             const globalVectorIndex = clIdx * numVec + vi;
-            const label = `Vector ${globalVectorIndex} bits ${bitStart}-${bitEnd}`;
-            const labelX = Math.max(0, vecX);
-            if (labelX < cw && vRowBaseY >= -labelH && vRowBaseY < ch) {
-              ctx.fillText(label, labelX, Math.round(vectorLabelY(vRow)));
+            const label = `${this._groupLabel(globalVectorIndex)} bits ${bitStart}-${bitEnd}`;
+            const labelX = Math.round(vecX);
+            const labelY = Math.round(vectorLabelY(vRow));
+            if (labelX + vecD.w > 0 && labelX < cw && vRowBaseY >= -labelH && vRowBaseY < ch) {
+              this._drawFittedLabel(ctx, label, labelX, labelY, Math.max(8, vecD.w - 2), fontSize, C.LABEL_COLOR, {
+                minSize: 3.5,
+                paddingX: 1,
+                clipHeight: labelBands.vector,
+              });
             }
           }
         }
@@ -709,11 +789,17 @@ export class SieveRenderer {
 
             // Byte label
             if (showByteLabels) {
-              ctx.font = `${labelBands.byteFont}px monospace`;
-              ctx.fillStyle = C.LABEL_COLOR;
-              ctx.textBaseline = 'top';
               const byteLabel = `Byte ${byteIdx}`;
-              ctx.fillText(byteLabel, Math.round(byteX), Math.round(byteLabelY(vRow)));
+              this._drawFittedLabel(
+                ctx,
+                byteLabel,
+                Math.round(byteX),
+                Math.round(byteLabelY(vRow)),
+                Math.max(8, byteD.w - 2),
+                labelBands.byteFont,
+                C.LABEL_COLOR,
+                { minSize: 3.5, paddingX: 1, clipHeight: labelBands.byte }
+              );
             }
 
             for (let bitIdx = 0; bitIdx < 8; bitIdx++) {
@@ -745,15 +831,37 @@ export class SieveRenderer {
                 Math.max(1, Math.round(px)), Math.max(1, Math.round(px))
               );
 
-              // Bit label (number represented by this bit)
-              if (showBitLabels && px >= 12) {
-                const number = bitToNumber(globalBit, this.storageModel);
-                ctx.font = `${Math.max(6, Math.min(9, px * 0.4))}px monospace`;
-                ctx.fillStyle = this.changedBits.has(globalBit) ? '#fff' :
-                  (this.bitState[globalBit] ? `rgb(${bitColors.cleared.join(',')})` : `rgb(${bitColors.set.join(',')})`);
+              const dualLabelMode = showBitLabels && showNumberLabels;
+              if (((dualLabelMode && px >= 22) || (!dualLabelMode && (showBitLabels || showNumberLabels) && px >= 12))) {
+                const lines = [];
+                if (showBitLabels) lines.push(String(globalBit));
+                if (showNumberLabels) lines.push(String(bitToNumber(globalBit, this.storageModel)));
+
+                const dualLine = lines.length > 1;
+                const zoomBoost = this.zoom > 20
+                  ? 1 + Math.min(1, (this.zoom - 20) / 24)
+                  : 1;
+                const baseFontSize = dualLine
+                  ? Math.max(5, Math.min(8, px * 0.2))
+                  : Math.max(5, Math.min(9, px * 0.34));
+                const fontSize = baseFontSize * zoomBoost;
+                const centerX = Math.round(bitX + px / 2);
+                const centerY = Math.round(bitY + px / 2);
+                const textColor = this._labelTextColor(color);
+
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(String(number), Math.round(bitX + px / 2), Math.round(bitY + px / 2));
+                if (dualLine) {
+                  ctx.fillStyle = textColor;
+                  ctx.font = `${fontSize}px monospace`;
+                  ctx.fillText(lines[0], centerX, Math.round(bitY + px * 0.32));
+                  ctx.font = `italic ${Math.max(4.5, fontSize - 0.25)}px monospace`;
+                  ctx.fillText(lines[1], centerX, Math.round(bitY + px * 0.7));
+                } else {
+                  ctx.fillStyle = textColor;
+                  ctx.font = `${showNumberLabels ? 'italic ' : ''}${fontSize}px monospace`;
+                  ctx.fillText(lines[0], centerX, centerY);
+                }
                 ctx.textAlign = 'start';
               }
             }
@@ -1121,10 +1229,10 @@ export class SieveRenderer {
     const vectorIdx = Math.floor(u64Idx / this.vectorGroup);
     const u64InVector = u64Idx % this.vectorGroup;
     const byteInVector = byteIdx % (this.vectorGroup * 8);
-    const vecLabel = this.vectorLabel || `uint64v${this.vectorGroup}`;
+    const groupLabel = this._groupLabel(vectorIdx);
     const state = this.bitState[bitIdx] ? 'composite' : 'prime candidate';
     const changed = this.changedBits.has(bitIdx) ? ' [CHANGED]' : '';
-    return `Bit ${bitIdx} -> Number ${number} | byte ${byteInVector} in ${vecLabel}[${vectorIdx}], ${byteIdx} from start | uint64 ${u64InVector} in ${vecLabel}[${vectorIdx}], ${u64Idx} from start | Cache line ${cacheLineIdx} | ${state}${changed}`;
+    return `Bit ${bitIdx} -> Number ${number} | byte ${byteInVector} in ${groupLabel}, ${byteIdx} from start | uint64 ${u64InVector} in ${groupLabel}, ${u64Idx} from start | Cache line ${cacheLineIdx} | ${state}${changed}`;
   }
 
   toDataURL() {
@@ -1157,20 +1265,15 @@ export class SieveRenderer {
     const byteD = this._byteDims();
 
     const color = this._opColor();
-    // Ease-out cubic for smooth deceleration
     const ease = 1 - Math.pow(1 - progress, 3);
-
-    // Contracting ring: starts large, contracts to 0
-    const maxRadius = Math.max(12, px * 8);
-    const ringRadius = maxRadius * (1 - ease);
-    // Ring line width: thick at start, thins out
-    const ringWidth = Math.max(1, 3 * (1 - ease));
-    // Ring alpha: visible throughout, fading at end
-    const ringAlpha = Math.max(0, 0.7 * (1 - ease * ease));
-
-    // Inner flash: bright fill that fades quickly
-    const flashAlpha = progress < 0.3 ? 0.5 * (1 - progress / 0.3) : 0;
-    const flashRadius = px * 0.7;
+    const maxRadius = Math.max(18, px * 10);
+    const outerRadius = maxRadius * (1 - ease * 0.86);
+    const innerRadius = Math.max(px * 0.85, outerRadius * 0.34);
+    const coreRadius = Math.max(px * 0.52, px * (0.5 + 0.35 * (1 - progress)));
+    const ringWidth = Math.max(1.2, 4.8 * (1 - ease * 0.72));
+    const ringAlpha = Math.max(0, 0.92 * Math.pow(1 - progress, 0.65));
+    const haloAlpha = Math.max(0, 0.22 * Math.pow(1 - progress, 1.25));
+    const coreAlpha = Math.max(0, 0.72 * Math.pow(1 - progress, 0.55));
 
     ctx.save();
 
@@ -1205,20 +1308,25 @@ export class SieveRenderer {
       // Skip off-screen bits
       if (cx + maxRadius < 0 || cx - maxRadius > cw || cy + maxRadius < 0 || cy - maxRadius > ch) continue;
 
-      // Contracting ring
+      if (haloAlpha > 0.01) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, outerRadius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${haloAlpha})`;
+        ctx.fill();
+      }
+
       if (ringAlpha > 0.01) {
         ctx.beginPath();
-        ctx.arc(cx, cy, ringRadius, 0, Math.PI * 2);
+        ctx.arc(cx, cy, innerRadius, 0, Math.PI * 2);
         ctx.strokeStyle = `rgba(${color[0]},${color[1]},${color[2]},${ringAlpha})`;
         ctx.lineWidth = ringWidth;
         ctx.stroke();
       }
 
-      // Inner bright flash
-      if (flashAlpha > 0.01) {
+      if (coreAlpha > 0.01) {
         ctx.beginPath();
-        ctx.arc(cx, cy, flashRadius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${flashAlpha})`;
+        ctx.arc(cx, cy, coreRadius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${coreAlpha})`;
         ctx.fill();
       }
     }
@@ -1390,18 +1498,30 @@ export class SieveRenderer {
 
   /** Render minimap overlay in bottom-right corner, offset above detailH */
   renderMinimap(canvasW, canvasH, detailH = 0) {
+    let ctx = this.ctx;
+    if (this.minimapCanvas && this.minimapCtx) {
+      const dpr = window.devicePixelRatio || 1;
+      const viewW = this.canvas?.clientWidth || this.minimapCanvas.clientWidth || canvasW;
+      const viewH = this.canvas?.clientHeight || this.minimapCanvas.clientHeight || canvasH;
+      canvasW = viewW;
+      canvasH = viewH;
+      if (this.minimapCanvas.width !== Math.round(viewW * dpr) || this.minimapCanvas.height !== Math.round(viewH * dpr)) {
+        this.minimapCanvas.width = Math.round(viewW * dpr);
+        this.minimapCanvas.height = Math.round(viewH * dpr);
+        this.minimapCanvas.style.width = `${viewW}px`;
+        this.minimapCanvas.style.height = `${viewH}px`;
+      }
+      ctx = this.minimapCtx;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, canvasW, canvasH);
+    }
+
     if (!this.minimapEnabled) {
       this._minimapRect = null;
       return;
     }
     if (this.bitCount === 0) return;
     const dims = this.contentDimensions();
-    if (dims.width <= canvasW && dims.height <= canvasH) {
-      this._minimapRect = null;
-      return;
-    }
-
-    const ctx = this.ctx;
     const pad = 4;
 
     const scale = Math.min(
@@ -1454,6 +1574,90 @@ export class SieveRenderer {
       Math.min(vpW, mapW - 2 * pad),
       Math.min(vpH, mapH - 2 * pad)
     );
+  }
+
+  /**
+   * Get bounding box of an element (bit, byte, vector, cacheline) for camera targeting.
+   * @param {'bit'|'byte'|'vector'|'cacheline'} type
+   * @param {number} index - global index of the element
+   * @returns {{ x: number, y: number, w: number, h: number, cx: number, cy: number } | null}
+   */
+  getElementBounds(type, index) {
+    if (this.bitCount === 0) return null;
+    const px = this.pixelSize * this.zoom;
+    const bitsPerCacheLine = this.bitsPerCacheLine;
+    const rowD = this._rowDims();
+    const labelH = this._labelHeight();
+    const clPerVRow = this._cacheLinesPerVisualRow();
+    const vRowHeight = labelH + rowD.h + this.u64SpacingV * this.zoom;
+    const u64D = this._u64Dims();
+    const byteD = this._byteDims();
+    const vecD = this._vectorDims();
+    const clStepX = rowD.w + this.u64SpacingH * this.zoom;
+
+    if (type === 'bit') {
+      const pos = this.bitIndexToCanvas(index);
+      if (!pos) return null;
+      return { x: pos.x - px / 2, y: pos.y - px / 2, w: px, h: px, cx: pos.x, cy: pos.y };
+    }
+
+    if (type === 'byte') {
+      const bitStart = index * 8;
+      if (bitStart >= this.bitCount) return null;
+      const clIdx = Math.floor(bitStart / bitsPerCacheLine);
+      const vRow = Math.floor(clIdx / clPerVRow);
+      const clInRow = clIdx % clPerVRow;
+      const bitInRow = bitStart % bitsPerCacheLine;
+      const u64Idx = Math.floor(bitInRow / 64);
+      const byteIdx = Math.floor((bitInRow % 64) / 8);
+      const vecIdx = Math.floor(u64Idx / this.vectorGroup);
+      const intraIdx = u64Idx % this.vectorGroup;
+      const clOffsetX = clInRow * clStepX;
+      const rowDataY = this.panY + vRow * vRowHeight + labelH;
+      const vecX = this.panX + clOffsetX + vecIdx * (vecD.w + this.u64SpacingH * this.zoom);
+      const u64X = vecX + intraIdx * (u64D.w + vecD.intraGap);
+      const bytePos = this._bytePosInU64(byteIdx);
+      const bx = u64X + bytePos.col * (byteD.w + this.byteSpacingH * this.zoom);
+      const by = rowDataY + bytePos.row * (byteD.h + this.byteSpacingV * this.zoom);
+      return { x: bx, y: by, w: byteD.w, h: byteD.h, cx: bx + byteD.w / 2, cy: by + byteD.h / 2 };
+    }
+
+    if (type === 'vector') {
+      const u64Start = index * this.vectorGroup;
+      const bitStart = u64Start * 64;
+      if (bitStart >= this.bitCount) return null;
+      const clIdx = Math.floor(bitStart / bitsPerCacheLine);
+      const vRow = Math.floor(clIdx / clPerVRow);
+      const clInRow = clIdx % clPerVRow;
+      const clOffsetX = clInRow * clStepX;
+      const rowDataY = this.panY + vRow * vRowHeight + labelH;
+      const u64sPerCL = Math.max(1, Math.ceil(bitsPerCacheLine / 64));
+      const vecIdxInCL = Math.floor((u64Start % u64sPerCL) / this.vectorGroup);
+      const vecX = this.panX + clOffsetX + vecIdxInCL * (vecD.w + this.u64SpacingH * this.zoom);
+      return { x: vecX, y: rowDataY, w: vecD.w, h: vecD.h, cx: vecX + vecD.w / 2, cy: rowDataY + vecD.h / 2 };
+    }
+
+    if (type === 'cacheline') {
+      if (index * bitsPerCacheLine >= this.bitCount) return null;
+      const vRow = Math.floor(index / clPerVRow);
+      const clInRow = index % clPerVRow;
+      const clOffsetX = clInRow * clStepX;
+      const rowDataY = this.panY + vRow * vRowHeight + labelH;
+      const rx = this.panX + clOffsetX;
+      return { x: rx, y: rowDataY, w: rowD.w, h: rowD.h, cx: rx + rowD.w / 2, cy: rowDataY + rowD.h / 2 };
+    }
+
+    return null;
+  }
+
+  /** Identify what kind of element a bit belongs to, for click-to-focus */
+  identifyElement(bitIdx) {
+    if (bitIdx < 0 || bitIdx >= this.bitCount) return null;
+    const byteIdx = Math.floor(bitIdx / 8);
+    const u64Idx = Math.floor(bitIdx / 64);
+    const vectorIdx = Math.floor(u64Idx / this.vectorGroup);
+    const clIdx = Math.floor(bitIdx / this.bitsPerCacheLine);
+    return { bitIdx, byteIdx, u64Idx, vectorIdx, clIdx };
   }
 
   /** Test if (x,y) in canvas coords is inside the minimap; returns {panX, panY} to center there */

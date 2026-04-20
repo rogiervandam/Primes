@@ -1,5 +1,5 @@
 import React from 'react';
-import { BIT_LAYOUTS, BYTE_LAYOUTS, VECTOR_GROUPS, COLOR_PRESETS, STORAGE_MODELS, CACHELINE_SIZES, CACHE_PRESETS } from './SieveRenderer';
+import { BIT_LAYOUTS, BYTE_LAYOUTS, COLOR_PRESETS, STORAGE_MODELS, CACHELINE_SIZES, CACHE_PRESETS } from './SieveRenderer';
 
 function rgbToHex(rgb) {
   if (!rgb || rgb.length < 3) return '#555555';
@@ -39,6 +39,41 @@ const VECTOR_TIPS = {
   '4': '4 vectors',
 };
 
+const GROUPING_PRESETS = {
+  '16bit': { label: '16bit', title: 'Group bits as uint16 blocks', baseBits: 16, lanes: 1 },
+  '16x2': { label: '16x2', title: '2 uint16 values per grouping', baseBits: 16, lanes: 2 },
+  '16x4': { label: '16x4', title: '4 uint16 values per grouping', baseBits: 16, lanes: 4 },
+  '16x8': { label: '16x8', title: '8 uint16 values per grouping', baseBits: 16, lanes: 8 },
+  '32bit': { label: '32bit', title: 'Group bits as uint32 blocks', baseBits: 32, lanes: 1 },
+  '32x2': { label: '32x2', title: '2 uint32 values per grouping', baseBits: 32, lanes: 2 },
+  '32x4': { label: '32x4', title: '4 uint32 values per grouping', baseBits: 32, lanes: 4 },
+  '32x8': { label: '32x8', title: '8 uint32 values per grouping', baseBits: 32, lanes: 8 },
+  '64bit': { label: '64bit', title: 'Single uint64 grouping', baseBits: 64, lanes: 1 },
+  '64x2': { label: '64x2', title: '2 uint64 values per grouping', baseBits: 64, lanes: 2 },
+  '64x4': { label: '64x4', title: '4 uint64 values per grouping', baseBits: 64, lanes: 4 },
+  '64x8': { label: '64x8', title: '8 uint64 values per grouping', baseBits: 64, lanes: 8 },
+};
+
+const GROUPING_FAMILIES = [
+  { familyKey: '16', defaultKey: '16bit', optionKeys: ['16bit', '16x2', '16x4', '16x8'] },
+  { familyKey: '32', defaultKey: '32bit', optionKeys: ['32bit', '32x2', '32x4', '32x8'] },
+  { familyKey: '64', defaultKey: '64bit', optionKeys: ['64bit', '64x2', '64x4', '64x8'] },
+];
+
+const CUSTOM_GROUP_PRESETS = [2, 6, 30, 210];
+
+const groupingPreviewClassName = (presetKey) => {
+  switch (presetKey) {
+    case '16bit': return 'grouping-chip-preview-16';
+    case '32bit': return 'grouping-chip-preview-32';
+    case '64x2': return 'grouping-chip-preview-64x2';
+    case '64x4': return 'grouping-chip-preview-64x4';
+    case '64x8': return 'grouping-chip-preview-64x8';
+    case '64bit': return 'grouping-chip-preview-64';
+    default: return 'grouping-chip-preview-custom';
+  }
+};
+
 const VECTOR_BASE_OPTIONS = [
   { bits: 1, label: 'bit' },
   { bits: 8, label: 'byte' },
@@ -69,6 +104,9 @@ export default function SettingsPanel({
   spacingFocus, onAdjustSpacingFromOutline,
 }) {
   const s = settings || {};
+  const [groupingMenuOpen, setGroupingMenuOpen] = React.useState(false);
+  const [customPresetMenuOpen, setCustomPresetMenuOpen] = React.useState(false);
+
   const set = (key, val) => {
     const updatedSettings = { ...s, [key]: val };
     if (key === 'bitLayout') updatedSettings.bitLayoutDescription = BIT_LAYOUT_TIPS[val] || '';
@@ -101,9 +139,11 @@ export default function SettingsPanel({
     const profileLabel = buildVectorLabel(baseBits, lanes);
     onChange({
       ...s,
+      vectorMode: 'preset',
       vectorBaseBits: baseBits,
       vectorLanes: lanes,
       vectorGroup: vg,
+      customGroupBits: 0,
       vectorLabel: profileLabel,
       vectorGroupDescription: `${profileLabel} (${vg}×uint64 layout group)`
     });
@@ -112,7 +152,7 @@ export default function SettingsPanel({
   const decr = (key, min = 0) => set(key, Math.max(min, (s[key] || 0) - 1));
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
   const adjustRepeatAnim = (deltaMs) => onRepeatAnimChange(clamp((repeatAnim || 0) + deltaMs, 0, 5000));
-  const adjustBitInterval = (deltaMs) => onBitAnimIntervalChange(clamp((bitAnimInterval || 100) + deltaMs, 20, 2000));
+  const adjustBitInterval = (deltaMs) => onBitAnimIntervalChange(clamp((bitAnimInterval || 20) + deltaMs, 5, 5000));
   const setVectorGroupSimple = (group) => {
     onChange({
       ...s,
@@ -138,8 +178,90 @@ export default function SettingsPanel({
     });
   };
   const vectorLabelForGroup = (group) => (group <= 1 ? 'uint64' : `uint64v${group}`);
-  const wheelGroupPresets = [2, 6, 30, 210];
   const isCustomVectorMode = s.vectorMode === 'custom' && (parseInt(s.customGroupBits || 0, 10) || 0) > 0;
+  const activeGroupingKey = (() => {
+    if (isCustomVectorMode) return 'custom';
+    const baseBits = parseInt(s.vectorBaseBits || 64, 10) || 64;
+    const lanes = parseInt(s.vectorLanes || 1, 10) || 1;
+    if (baseBits === 16 && lanes === 1) return '16bit';
+    if (baseBits === 16 && lanes === 2) return '16x2';
+    if (baseBits === 16 && lanes === 4) return '16x4';
+    if (baseBits === 16 && lanes === 8) return '16x8';
+    if (baseBits === 32 && lanes === 1) return '32bit';
+    if (baseBits === 32 && lanes === 2) return '32x2';
+    if (baseBits === 32 && lanes === 4) return '32x4';
+    if (baseBits === 32 && lanes === 8) return '32x8';
+    if (baseBits === 64 && lanes === 1) return '64bit';
+    if (baseBits === 64 && lanes === 2) return '64x2';
+    if (baseBits === 64 && lanes === 4) return '64x4';
+    if (baseBits === 64 && lanes === 8) return '64x8';
+    return '64bit';
+  })();
+  const activeFamily = GROUPING_FAMILIES.find((family) => family.optionKeys.includes(activeGroupingKey)) || GROUPING_FAMILIES[2];
+  const activeFamilyKey = activeFamily.optionKeys.includes(activeGroupingKey) ? activeGroupingKey : activeFamily.defaultKey;
+  const activeGroupingLabel = isCustomVectorMode
+    ? `custom (${Math.max(1, parseInt(s.customGroupBits || 1, 10) || 1)} bits)`
+    : GROUPING_PRESETS[activeGroupingKey]?.label || (s.vectorLabel || '64bit');
+  const selectGroupingPreset = (presetKey) => {
+    const preset = GROUPING_PRESETS[presetKey];
+    if (!preset) return;
+    setVectorProfile(preset.baseBits, preset.lanes);
+    setGroupingMenuOpen(false);
+    setCustomPresetMenuOpen(false);
+  };
+
+  const renderGroupingFamily = (family) => {
+    const activeKey = family.optionKeys.includes(activeGroupingKey) ? activeGroupingKey : family.defaultKey;
+    const menuOpen = groupingMenuOpen === family.familyKey;
+    return (
+      <div key={family.familyKey} className={`grouping-family grouping-family-${family.familyKey}${family.optionKeys.includes(activeGroupingKey) ? ' active-family' : ''}${menuOpen ? ' open' : ''}`}>
+        <button
+          type="button"
+          className={`btn-option grouping-family-main${family.optionKeys.includes(activeGroupingKey) ? ' active' : ''}`}
+          title={GROUPING_PRESETS[activeKey].title}
+          onClick={() => selectGroupingPreset(activeKey)}
+        >
+          <span className={`grouping-chip-preview ${groupingPreviewClassName(activeKey)}`} aria-hidden="true">
+            <span />
+            <span />
+            <span />
+            <span />
+          </span>
+          <span>{GROUPING_PRESETS[activeKey].label}</span>
+        </button>
+        <button
+          type="button"
+          className={`btn-option grouping-family-toggle${menuOpen ? ' active' : ''}`}
+          title={menuOpen ? `Hide ${family.familyKey}-bit grouping options` : `Show ${family.familyKey}-bit grouping options`}
+          aria-expanded={menuOpen ? 'true' : 'false'}
+          onClick={() => setGroupingMenuOpen((open) => open === family.familyKey ? false : family.familyKey)}
+        >
+          {menuOpen ? '▴' : '▾'}
+        </button>
+        {menuOpen && (
+          <div className="grouping-family-menu">
+            {family.optionKeys.map((key) => (
+              <button
+                key={key}
+                type="button"
+                className={`btn-option grouping-menu-chip${activeGroupingKey === key ? ' active' : ''}`}
+                title={GROUPING_PRESETS[key].title}
+                onClick={() => selectGroupingPreset(key)}
+              >
+                <span className={`grouping-chip-preview ${groupingPreviewClassName(key)}`} aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                </span>
+                <span>{GROUPING_PRESETS[key].label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   /** Mini SVG preview of a layout grid */
   const LayoutIcon = ({ cols, rows, grid3x3, active, onClick, size = 32, tooltip }) => {
@@ -239,7 +361,7 @@ export default function SettingsPanel({
             {Object.entries(BIT_LAYOUTS).map(([k, v]) => (
               <LayoutIcon key={k} cols={v.grid3x3 ? 3 : v.cols} rows={v.grid3x3 ? 3 : v.rows}
                           grid3x3={v.grid3x3} active={s.bitLayout === k}
-                          onClick={() => set('bitLayout', k)} tooltip={BIT_LAYOUT_TIPS[k]} size={30} />
+                          onClick={() => set('bitLayout', k)} tooltip={BIT_LAYOUT_TIPS[k]} size={40} />
             ))}
           </div>
         </div>
@@ -252,65 +374,78 @@ export default function SettingsPanel({
             {Object.entries(BYTE_LAYOUTS).map(([k, v]) => (
               <LayoutIcon key={k} cols={v.grid3x3 ? 3 : v.cols} rows={v.grid3x3 ? 3 : v.rows}
                           grid3x3={v.grid3x3} active={s.byteLayout === k}
-                          onClick={() => set('byteLayout', k)} tooltip={BYTE_LAYOUT_TIPS[k]} size={30} />
+                          onClick={() => set('byteLayout', k)} tooltip={BYTE_LAYOUT_TIPS[k]} size={40} />
             ))}
           </div>
         </div>
         <p className="layout-description layout-description-grouping">{BYTE_LAYOUT_TIPS[s.byteLayout] || 'Pick how bytes are arranged inside a uint64.'}</p>
 
         <div className="lo-level-row lo-level-row-stacked">
-          <span className="lo-level-tag">Vector</span>
+          <span className="lo-level-tag">Grouping</span>
           <div className="lo-vec-wrap">
-            <div className="lo-vec-icons lo-vec-icons-tight">
-              {Object.entries(VECTOR_GROUPS).map(([k]) => (
-                <button
-                  key={k}
-                  className={`btn-option vector-chip${!isCustomVectorMode && s.vectorGroup === parseInt(k) ? ' active' : ''}`}
-                  title={VECTOR_TIPS[k]}
-                  onClick={() => setVectorGroupSimple(parseInt(k))}
-                >
-                  {vectorLabelForGroup(parseInt(k))}
-                </button>
-              ))}
+            <div className="grouping-preset-row">
+              {GROUPING_FAMILIES.map(renderGroupingFamily)}
               <button
-                className={`btn-option vector-chip${isCustomVectorMode ? ' active' : ''}`}
+                type="button"
+                className={`btn-option grouping-chip${isCustomVectorMode ? ' active' : ''}`}
                 title="Custom bit grouping mode"
-                onClick={() => setCustomVectorGrouping((parseInt(s.customGroupBits || 0, 10) || wheelGroupPresets[2]))}
+                onClick={() => {
+                  setGroupingMenuOpen(false);
+                  setCustomPresetMenuOpen(false);
+                  setCustomVectorGrouping((parseInt(s.customGroupBits || 0, 10) || CUSTOM_GROUP_PRESETS[2]));
+                }}
               >
-                custom
+                <span className="grouping-chip-preview grouping-chip-preview-custom" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </span>
+                <span>custom</span>
               </button>
             </div>
-            {!isCustomVectorMode && <p className="layout-description">Current: {vectorLabelForGroup(s.vectorGroup || 1)}</p>}
+            <p className="layout-description">Current: {activeGroupingLabel}</p>
             {isCustomVectorMode && (
               <>
-                <div className="lo-vec-icons lo-cache-icons" style={{ marginTop: 4, marginBottom: 6 }}>
-                  {wheelGroupPresets.map((p) => (
+                <div className="grouping-custom-control">
+                  <div className={`grouping-custom-input-wrap${customPresetMenuOpen ? ' open' : ''}`}>
+                    <input
+                      className="grouping-custom-input"
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={Math.max(1, parseInt(s.customGroupBits || 1, 10) || 1)}
+                      onChange={(e) => setCustomVectorGrouping(e.target.value)}
+                      placeholder="bits"
+                    />
                     <button
-                      key={p}
-                      className={`btn-option vector-chip${Number(s.customGroupBits) === p ? ' active' : ''}`}
-                      onClick={() => setCustomVectorGrouping(p)}
-                      title={`Group rows by ${p} bits`}
+                      type="button"
+                      className={`grouping-custom-toggle${customPresetMenuOpen ? ' active' : ''}`}
+                      title={customPresetMenuOpen ? 'Hide preset group sizes' : 'Show preset group sizes'}
+                      aria-expanded={customPresetMenuOpen ? 'true' : 'false'}
+                      onClick={() => setCustomPresetMenuOpen((open) => !open)}
                     >
-                      {p}
+                      {customPresetMenuOpen ? '▴' : '▾'}
                     </button>
-                  ))}
-                </div>
-                <div className="settings-row" style={{ alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span className="timing-title" style={{ minWidth: 84 }}>Custom bits</span>
-                  <input
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={Math.max(1, parseInt(s.customGroupBits || 1, 10) || 1)}
-                    onChange={(e) => setCustomVectorGrouping(e.target.value)}
-                    placeholder="e.g. 30"
-                    style={{ width: 90 }}
-                  />
+                    {customPresetMenuOpen && (
+                      <div className="grouping-custom-menu">
+                        {CUSTOM_GROUP_PRESETS.map((p) => (
+                          <button
+                            key={p}
+                            type="button"
+                            className={`btn-option grouping-custom-menu-item${Number(s.customGroupBits) === p ? ' active' : ''}`}
+                            onClick={() => {
+                              setCustomVectorGrouping(p);
+                              setCustomPresetMenuOpen(false);
+                            }}
+                            title={`Use ${p} bits per grouping`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <span className="settings-hint">bits per group</span>
-                </div>
-                <div className="vector-custom-size-wrap">
-                  <span className="vector-custom-size-label">Current custom size:</span>
-                  <span className="vector-custom-size-value">{Math.max(1, parseInt(s.customGroupBits || 1, 10) || 1)} bits</span>
                 </div>
               </>
             )}
@@ -469,8 +604,21 @@ export default function SettingsPanel({
           <label>Annotations</label>
           <div className="anno-btn-grid">
             <AnnotationButton
+              title="Number"
+              hint="Represented numbers in squares"
+              active={!!s.showNumberLabels}
+              onClick={() => set('showNumberLabels', !s.showNumberLabels)}
+              preview={(
+                <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
+                  <rect x="1" y="1" width="10" height="8" rx="1" />
+                  <rect x="15" y="1" width="12" height="8" rx="1" />
+                  <text x="2" y="16" fontSize="7">1 3 5</text>
+                </svg>
+              )}
+            />
+            <AnnotationButton
               title="Bits"
-              hint="Bit numbers (zoom >= 6x)"
+              hint="Bit indices in squares"
               active={!!s.showBitLabels}
               onClick={() => set('showBitLabels', !s.showBitLabels)}
               preview={(
@@ -496,8 +644,8 @@ export default function SettingsPanel({
               )}
             />
             <AnnotationButton
-              title="Vectors"
-              hint="Vector and uint64 labels"
+              title="Grouping"
+              hint="Grouping and uint64 labels"
               active={s.showVectorLabels !== false}
               onClick={() => set('showVectorLabels', s.showVectorLabels === false)}
               preview={(
@@ -542,8 +690,8 @@ export default function SettingsPanel({
             />
             <PreviewOptionButton
               compact
-              label="Vector"
-              hint="Thick dashed blue vector outlines"
+              label="Grouping"
+              hint="Thin dashed blue grouping outlines"
               active={(outline.target || 'none') === 'vector'}
               onClick={() => onOutlineChange({ ...outline, target: 'vector' })}
               preview={(
@@ -572,22 +720,22 @@ export default function SettingsPanel({
           <div className="settings-section">
             <label>Spacing focus: {spacingFocus}</label>
             <div className="settings-row" style={{ gap: 8 }}>
-              <button className="btn-option btn-sm" onClick={() => onAdjustSpacingFromOutline(spacingFocus, 'H', -1)}>H−</button>
-              <button className="btn-option btn-sm" onClick={() => onAdjustSpacingFromOutline(spacingFocus, 'H', 1)}>H+</button>
-              <button className="btn-option btn-sm" onClick={() => onAdjustSpacingFromOutline(spacingFocus, 'V', -1)}>V−</button>
-              <button className="btn-option btn-sm" onClick={() => onAdjustSpacingFromOutline(spacingFocus, 'V', 1)}>V+</button>
+              <button className="btn-option btn-sm spacing-adjust-btn" onClick={() => onAdjustSpacingFromOutline(spacingFocus, 'H', -1)}>H−</button>
+              <button className="btn-option btn-sm spacing-adjust-btn" onClick={() => onAdjustSpacingFromOutline(spacingFocus, 'H', 1)}>H+</button>
+              <button className="btn-option btn-sm spacing-adjust-btn" onClick={() => onAdjustSpacingFromOutline(spacingFocus, 'V', -1)}>V−</button>
+              <button className="btn-option btn-sm spacing-adjust-btn" onClick={() => onAdjustSpacingFromOutline(spacingFocus, 'V', 1)}>V+</button>
             </div>
           </div>
         )}
 
         <div className="settings-section">
           <label>Animation style</label>
-          <div className="preview-btn-grid preview-btn-grid-4">
+          <div className="preview-btn-grid preview-btn-grid-3">
             <PreviewOptionButton
               label="Ripple"
               hint="Contracting ripple ring"
               active={(animStyle || 'ripple') === 'ripple'}
-              onClick={() => onAnimStyleChange('ripple')}
+              onClick={() => onAnimStyleChange((animStyle || 'ripple') === 'ripple' ? 'none' : 'ripple')}
               preview={(
                 <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
                   <circle cx="24" cy="11" r="8" />
@@ -600,7 +748,7 @@ export default function SettingsPanel({
               label="Fade"
               hint="Soft fading highlight"
               active={(animStyle || 'ripple') === 'fade'}
-              onClick={() => onAnimStyleChange('fade')}
+              onClick={() => onAnimStyleChange((animStyle || 'ripple') === 'fade' ? 'none' : 'fade')}
               preview={(
                 <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
                   <rect x="4" y="5" width="8" height="12" opacity="0.3" />
@@ -614,7 +762,7 @@ export default function SettingsPanel({
               label="Pulse"
               hint="Expand and contract"
               active={(animStyle || 'ripple') === 'pulse'}
-              onClick={() => onAnimStyleChange('pulse')}
+              onClick={() => onAnimStyleChange((animStyle || 'ripple') === 'pulse' ? 'none' : 'pulse')}
               preview={(
                 <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
                   <circle cx="12" cy="11" r="3" />
@@ -623,70 +771,60 @@ export default function SettingsPanel({
                 </svg>
               )}
             />
-            <PreviewOptionButton
-              label="None"
-              hint="No animation"
-              active={(animStyle || 'ripple') === 'none'}
-              onClick={() => onAnimStyleChange('none')}
-              preview={(
-                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                  <line x1="8" y1="11" x2="40" y2="11" />
-                  <line x1="10" y1="4" x2="38" y2="18" />
-                </svg>
-              )}
-            />
           </div>
         </div>
 
-        <div className="settings-section">
-          <label>Animation mode</label>
-          <div className="preview-btn-grid preview-btn-grid-3">
-            <PreviewOptionButton
-              compact
-              label="All"
-              hint="All bits at once"
-              active={(animMode || 'all') === 'all'}
-              onClick={() => onAnimModeChange('all')}
-              preview={(
-                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                  <rect x="6" y="6" width="8" height="8" />
-                  <rect x="20" y="6" width="8" height="8" />
-                  <rect x="34" y="6" width="8" height="8" />
-                </svg>
-              )}
-            />
-            <PreviewOptionButton
-              compact
-              label="Sequential"
-              hint="Step through bits"
-              active={(animMode || 'all') === 'sequential'}
-              onClick={() => onAnimModeChange('sequential')}
-              preview={(
-                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                  <rect x="6" y="6" width="8" height="8" opacity="1" />
-                  <rect x="20" y="6" width="8" height="8" opacity="0.6" />
-                  <rect x="34" y="6" width="8" height="8" opacity="0.3" />
-                  <line x1="14" y1="10" x2="20" y2="10" />
-                  <line x1="28" y1="10" x2="34" y2="10" />
-                </svg>
-              )}
-            />
-            <PreviewOptionButton
-              compact
-              label="Bounce"
-              hint="Forward and backward"
-              active={(animMode || 'all') === 'bounce'}
-              onClick={() => onAnimModeChange('bounce')}
-              preview={(
-                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                  <line x1="6" y1="10" x2="42" y2="10" />
-                  <polygon points="42,10 36,7 36,13" fill="currentColor" stroke="none" />
-                  <polygon points="6,10 12,7 12,13" fill="currentColor" stroke="none" />
-                </svg>
-              )}
-            />
+        {animStyle !== 'none' && (
+          <div className="settings-section">
+            <label>Animation mode</label>
+            <div className="preview-btn-grid preview-btn-grid-3">
+              <PreviewOptionButton
+                compact
+                label="All"
+                hint="All bits at once"
+                active={(animMode || 'all') === 'all'}
+                onClick={() => onAnimModeChange('all')}
+                preview={(
+                  <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                    <rect x="6" y="6" width="8" height="8" />
+                    <rect x="20" y="6" width="8" height="8" />
+                    <rect x="34" y="6" width="8" height="8" />
+                  </svg>
+                )}
+              />
+              <PreviewOptionButton
+                compact
+                label="Sequential"
+                hint="Step through bits"
+                active={(animMode || 'all') === 'sequential'}
+                onClick={() => onAnimModeChange('sequential')}
+                preview={(
+                  <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                    <rect x="6" y="6" width="8" height="8" opacity="1" />
+                    <rect x="20" y="6" width="8" height="8" opacity="0.6" />
+                    <rect x="34" y="6" width="8" height="8" opacity="0.3" />
+                    <line x1="14" y1="10" x2="20" y2="10" />
+                    <line x1="28" y1="10" x2="34" y2="10" />
+                  </svg>
+                )}
+              />
+              <PreviewOptionButton
+                compact
+                label="Bounce"
+                hint="Forward and backward"
+                active={(animMode || 'all') === 'bounce'}
+                onClick={() => onAnimModeChange('bounce')}
+                preview={(
+                  <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                    <line x1="6" y1="10" x2="42" y2="10" />
+                    <polygon points="42,10 36,7 36,13" fill="currentColor" stroke="none" />
+                    <polygon points="6,10 12,7 12,13" fill="currentColor" stroke="none" />
+                  </svg>
+                )}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {animStyle !== 'none' && (
           <div className="settings-section">
@@ -695,9 +833,9 @@ export default function SettingsPanel({
               <div className="timing-control">
                 <span className="timing-title">Per-bit interval</span>
                 <div className="settings-row" style={{ alignItems: 'center', gap: 6, opacity: animMode === 'all' ? 0.55 : 1 }}>
-                  <button className="btn-option btn-sm" onClick={() => adjustBitInterval(-50)} title="Decrease per-bit interval by 0.05s" disabled={animMode === 'all'}>−</button>
-                  <span className="timing-value">{((bitAnimInterval || 100) / 1000).toFixed(2)}s</span>
-                  <button className="btn-option btn-sm" onClick={() => adjustBitInterval(50)} title="Increase per-bit interval by 0.05s" disabled={animMode === 'all'}>+</button>
+                  <button className="btn-option btn-sm" onClick={() => adjustBitInterval(-10)} title="Decrease per-bit interval by 0.01s" disabled={animMode === 'all'}>−</button>
+                  <span className="timing-value">{((bitAnimInterval || 20) / 1000).toFixed(2)}s</span>
+                  <button className="btn-option btn-sm" onClick={() => adjustBitInterval(10)} title="Increase per-bit interval by 0.01s" disabled={animMode === 'all'}>+</button>
                 </div>
               </div>
               <div className="timing-control">
