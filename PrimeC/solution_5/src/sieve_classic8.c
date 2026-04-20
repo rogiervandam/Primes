@@ -19,21 +19,6 @@ static char algorithm_type[] = "base";
 #include "sieve/sieve_calc.h"
 #include "sieve/sieve_manager.h"
 
-#ifndef log5
-#ifdef COMPILE_TRACE
-#define log5(fmt, ...) do { \
-    verbose5(printf((fmt) "\n", ##__VA_ARGS__)); \
-    TRACE_TEXT(fmt, ##__VA_ARGS__); \
-} while (0)
-#else
-#define log5(fmt, ...) verbose5(printf((fmt) "\n", ##__VA_ARGS__))
-#endif
-#endif
-
-#ifndef log6
-#define log6(fmt, ...) verbose6(printf((fmt) "\n", ##__VA_ARGS__))
-#endif
-
 static inline uint8_t checkFactor(sieve_t *sieve, counter_t factor) {
     uint8_t* bitstorage = sieve->bitstorage;
     if (factor > 2 && factor % 2 == 0) return 1;

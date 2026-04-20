@@ -58,22 +58,4 @@ static inline void local_memcpy(void *dest, void *src, size_t n)
     for (int i=0; i<n; i++) cdest[i] = csrc[i]; 
 } 
 
-#define startAnalysis0(timer, printf_args...) verbose0(printf(printf_args);) timer_lapstart(timer); 
-#define startAnalysis1(timer, printf_args...) verbose1(printf(printf_args);) timer_lapstart(timer); 
-#define startAnalysis2(timer, printf_args...) verbose2(printf(printf_args);) timer_lapstart(timer); 
-#define startAnalysis3(timer, printf_args...) verbose3(printf(printf_args);) timer_lapstart(timer); 
-#define startAnalysis4(timer, printf_args...) verbose4(printf(printf_args);) timer_lapstart(timer); 
-#define startAnalysis5(timer, printf_args...) verbose5(printf(printf_args);) timer_lapstart(timer); 
-#define startAnalysis6(timer, printf_args...) verbose6(printf(printf_args);) timer_lapstart(timer); 
-#define startAnalysis7(timer, printf_args...) verbose7(printf(printf_args);) timer_lapstart(timer); 
-#define startAnalysis8(timer, printf_args...) verbose8(printf(printf_args);) timer_lapstart(timer); 
-#define endAnalysis0(timer, ...) timer_laptime(timer); __VA_OPT__(verbose0(printf(__VA_ARGS__);))
-#define endAnalysis1(timer, ...) timer_laptime(timer); __VA_OPT__(verbose1(printf(__VA_ARGS__);))
-#define endAnalysis2(timer, ...) timer_laptime(timer); __VA_OPT__(verbose2(printf(__VA_ARGS__);))
-#define endAnalysis3(timer, ...) timer_laptime(timer); __VA_OPT__(verbose3(printf(__VA_ARGS__);))
-#define endAnalysis4(timer, ...) timer_laptime(timer); __VA_OPT__(verbose4(printf(__VA_ARGS__);))
-#define endAnalysis5(timer, ...) timer_laptime(timer); __VA_OPT__(verbose5(printf(__VA_ARGS__);))
-#define endAnalysis6(timer, ...) timer_laptime(timer); __VA_OPT__(verbose6(printf(__VA_ARGS__);))
-#define endAnalysis7(timer, ...) timer_laptime(timer); __VA_OPT__(verbose7(printf(__VA_ARGS__);))
-#define endAnalysis8(timer, ...) timer_laptime(timer); __VA_OPT__(verbose8(printf(__VA_ARGS__);))
 
