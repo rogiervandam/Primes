@@ -5,7 +5,7 @@
  * Primary trace format (.sievetrace): human-readable line format.
  *
  * Header:
- * TRACE version=<int> format=text sieve_size=<u64> bit_count=<u64> max_number=<u64>
+ * TRACE version=<int> format=text sieve_size=<u64> bit_count=<u64> max_number=<u64> [benchmark_settings=<token>]
  *
  * Step line:
  * STEP step=<u32> op="<name>" depth=<int> changed_count=<u32>

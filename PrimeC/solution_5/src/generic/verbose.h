@@ -122,10 +122,10 @@ int waitforkey(void);
       #define TRACE_TEXT_TIMER(timer, fmt, ...) TRACE_TEXT(fmt, ##__VA_ARGS__)
       #define TRACE_EVENT_TIMER(bitstorage_ptr, timer, fmt, ...) TRACE_EVENT(bitstorage_ptr, fmt, ##__VA_ARGS__)
     #endif
-    #define TRACE_ANALYSIS_PUSH(level) trace_set_context(level)
+    #define TRACE_ANALYSIS_PUSH(level) primes_trace_set_context(level)
     #define TRACE_ANALYSIS_START(level, ...) do { TRACE_ANALYSIS_PUSH(level); } while (0)
     #define TRACE_ANALYSIS_END() do { \
-      trace_clear_context(); \
+      primes_trace_clear_context(); \
     } while (0)
   #define TRACE_DUMP(filename, bitstorage_ptr, sieve_size, bit_count) \
       trace_dump_memory(filename, bitstorage_ptr, sieve_size, bit_count)

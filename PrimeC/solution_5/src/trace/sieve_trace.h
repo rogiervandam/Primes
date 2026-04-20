@@ -99,7 +99,7 @@ trace_optional_label(const char* label)
 
 /* Set the current analysis context depth (called from TRACE_ANALYSIS_START macro) */
 static void
-trace_set_context(int level)
+primes_trace_set_context(int level)
 {
     if (g_trace.depth_sp < 16) {
         g_trace.prev_depths[g_trace.depth_sp++] = g_trace.depth;
@@ -109,7 +109,7 @@ trace_set_context(int level)
 
 /* Clear the analysis context (called from TRACE_ANALYSIS_END macro) */
 static void
-trace_clear_context(void)
+primes_trace_clear_context(void)
 {
     if (g_trace.depth_sp > 0) {
         g_trace.depth = g_trace.prev_depths[--g_trace.depth_sp];
@@ -120,7 +120,7 @@ trace_clear_context(void)
 
 /* Initialize the trace system. Opens the output file and writes JSON header. */
 static void __attribute__((cold))
-trace_init(const char* filename, uint64_t sieve_size, uint64_t bit_count)
+trace_init(const char* filename, uint64_t sieve_size, uint64_t bit_count, const char* benchmark_settings)
 {
     const char* storage_model = getenv("TRACE_STORAGE_MODEL");
     if (!storage_model || !*storage_model) storage_model = "half";
@@ -149,13 +149,24 @@ trace_init(const char* filename, uint64_t sieve_size, uint64_t bit_count)
         return;
     }
 
-    fprintf(g_trace.file,
-            "TRACE version=%d format=text sieve_size=%llu bit_count=%llu max_number=%llu storage_model=%s\n",
-            TRACE_FORMAT_VERSION,
-            (unsigned long long)sieve_size,
-            (unsigned long long)bit_count,
-            (unsigned long long)sieve_size,
-            storage_model);
+    if (benchmark_settings && *benchmark_settings) {
+        fprintf(g_trace.file,
+                "TRACE version=%d format=text sieve_size=%llu bit_count=%llu max_number=%llu storage_model=%s benchmark_settings=%s\n",
+                TRACE_FORMAT_VERSION,
+                (unsigned long long)sieve_size,
+                (unsigned long long)bit_count,
+                (unsigned long long)sieve_size,
+                storage_model,
+                benchmark_settings);
+    } else {
+        fprintf(g_trace.file,
+                "TRACE version=%d format=text sieve_size=%llu bit_count=%llu max_number=%llu storage_model=%s\n",
+                TRACE_FORMAT_VERSION,
+                (unsigned long long)sieve_size,
+                (unsigned long long)bit_count,
+                (unsigned long long)sieve_size,
+                storage_model);
+    }
 
     const char* json_secondary = getenv("TRACE_JSON_SECONDARY");
     if (json_secondary && strcmp(json_secondary, "0") != 0) {
@@ -163,13 +174,24 @@ trace_init(const char* filename, uint64_t sieve_size, uint64_t bit_count)
         snprintf(json_path, sizeof(json_path), "%s.json", filename);
         g_trace.json_file = fopen(json_path, "w");
         if (g_trace.json_file) {
-                fprintf(g_trace.json_file,
-                    "{\"version\":%d,\"sieve_size\":%llu,\"bit_count\":%llu,\"max_number\":%llu,\"storage_model\":\"%s\",\"events\":[",
-                    TRACE_FORMAT_VERSION,
-                    (unsigned long long)sieve_size,
-                    (unsigned long long)bit_count,
-                    (unsigned long long)sieve_size,
-                    storage_model);
+                if (benchmark_settings && *benchmark_settings) {
+                    fprintf(g_trace.json_file,
+                        "{\"version\":%d,\"sieve_size\":%llu,\"bit_count\":%llu,\"max_number\":%llu,\"storage_model\":\"%s\",\"benchmark_settings\":\"%s\",\"events\":[",
+                        TRACE_FORMAT_VERSION,
+                        (unsigned long long)sieve_size,
+                        (unsigned long long)bit_count,
+                        (unsigned long long)sieve_size,
+                        storage_model,
+                        benchmark_settings);
+                } else {
+                    fprintf(g_trace.json_file,
+                        "{\"version\":%d,\"sieve_size\":%llu,\"bit_count\":%llu,\"max_number\":%llu,\"storage_model\":\"%s\",\"events\":[",
+                        TRACE_FORMAT_VERSION,
+                        (unsigned long long)sieve_size,
+                        (unsigned long long)bit_count,
+                        (unsigned long long)sieve_size,
+                        storage_model);
+                }
             g_trace.json_enabled = 1;
             fprintf(stderr, "Trace: JSON companion enabled: %s\n", json_path);
         } else {

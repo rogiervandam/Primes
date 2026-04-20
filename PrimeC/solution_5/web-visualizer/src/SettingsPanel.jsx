@@ -101,11 +101,12 @@ export default function SettingsPanel({
   showMinimap, onShowMinimapChange,
   minimapControlVisible = true,
   outlineSettings, onOutlineChange,
-  spacingFocus, onAdjustSpacingFromOutline,
+  isWindowsPlatform = false,
 }) {
   const s = settings || {};
   const [groupingMenuOpen, setGroupingMenuOpen] = React.useState(false);
   const [customPresetMenuOpen, setCustomPresetMenuOpen] = React.useState(false);
+  const [customGroupDraft, setCustomGroupDraft] = React.useState('');
 
   const set = (key, val) => {
     const updatedSettings = { ...s, [key]: val };
@@ -177,6 +178,11 @@ export default function SettingsPanel({
       vectorGroupDescription: `Custom grouping: ${nextBits} bits`,
     });
   };
+  const commitCustomGrouping = React.useCallback((value) => {
+    const parsed = Math.max(1, parseInt(value || '0', 10) || 1);
+    setCustomGroupDraft(String(parsed));
+    setCustomVectorGrouping(parsed);
+  }, [setCustomVectorGrouping]);
   const vectorLabelForGroup = (group) => (group <= 1 ? 'uint64' : `uint64v${group}`);
   const isCustomVectorMode = s.vectorMode === 'custom' && (parseInt(s.customGroupBits || 0, 10) || 0) > 0;
   const activeGroupingKey = (() => {
@@ -213,6 +219,7 @@ export default function SettingsPanel({
   const renderGroupingFamily = (family) => {
     const activeKey = family.optionKeys.includes(activeGroupingKey) ? activeGroupingKey : family.defaultKey;
     const menuOpen = groupingMenuOpen === family.familyKey;
+    const showGroupingMenuItems = !isWindowsPlatform;
     return (
       <div key={family.familyKey} className={`grouping-family grouping-family-${family.familyKey}${family.optionKeys.includes(activeGroupingKey) ? ' active-family' : ''}${menuOpen ? ' open' : ''}`}>
         <button
@@ -229,16 +236,18 @@ export default function SettingsPanel({
           </span>
           <span>{GROUPING_PRESETS[activeKey].label}</span>
         </button>
-        <button
-          type="button"
-          className={`btn-option grouping-family-toggle${menuOpen ? ' active' : ''}`}
-          title={menuOpen ? `Hide ${family.familyKey}-bit grouping options` : `Show ${family.familyKey}-bit grouping options`}
-          aria-expanded={menuOpen ? 'true' : 'false'}
-          onClick={() => setGroupingMenuOpen((open) => open === family.familyKey ? false : family.familyKey)}
-        >
-          {menuOpen ? '▴' : '▾'}
-        </button>
-        {menuOpen && (
+        {showGroupingMenuItems && (
+          <button
+            type="button"
+            className={`btn-option grouping-family-toggle${menuOpen ? ' active' : ''}`}
+            title={menuOpen ? `Hide ${family.familyKey}-bit grouping options` : `Show ${family.familyKey}-bit grouping options`}
+            aria-expanded={menuOpen ? 'true' : 'false'}
+            onClick={() => setGroupingMenuOpen((open) => open === family.familyKey ? false : family.familyKey)}
+          >
+            {menuOpen ? '▴' : '▾'}
+          </button>
+        )}
+        {showGroupingMenuItems && menuOpen && (
           <div className="grouping-family-menu">
             {family.optionKeys.map((key) => (
               <button
@@ -327,12 +336,29 @@ export default function SettingsPanel({
     target: 'none',
   };
 
-  const bitAnnotationModeLabel = !s.showBitLabels
-    ? 'Off'
-    : (s.bitLabelMode === 'byte' ? 'Relative to byte' : s.bitLabelMode === 'group' ? 'Relative to grouping' : 'Entire sieve');
-  const byteAnnotationModeLabel = !s.showByteLabels
-    ? 'Off'
-    : ((s.byteLabelMode || 'group') === 'global' ? 'Entire sieve' : 'Relative to grouping');
+  const annotationGroupingLabel = isCustomVectorMode
+    ? `custom (${Math.max(1, parseInt(s.customGroupBits || 1, 10) || 1)} bits)`
+    : activeGroupingLabel;
+  const bitAnnotationHint = !s.showBitLabels
+    ? 'Bit labels are hidden.'
+    : (s.bitLabelMode === 'byte'
+      ? 'Shows bit position relative to each byte.'
+      : s.bitLabelMode === 'group'
+        ? 'Shows bit position inside each grouping.'
+        : 'Shows global bit index in the full sieve.');
+  const byteAnnotationHint = !s.showByteLabels
+    ? 'Byte labels are hidden.'
+    : ((s.byteLabelMode || 'group') === 'global'
+      ? 'Shows byte index across the full sieve.'
+      : 'Shows byte index relative to each grouping.');
+
+  React.useEffect(() => {
+    if (isCustomVectorMode) {
+      setCustomGroupDraft(String(Math.max(1, parseInt(s.customGroupBits || 1, 10) || 1)));
+      return;
+    }
+    setCustomGroupDraft('');
+  }, [isCustomVectorMode, s.customGroupBits]);
 
   const cycleBitAnnotation = () => {
     if (!s.showBitLabels) {
@@ -408,7 +434,7 @@ export default function SettingsPanel({
               {Object.entries(BIT_LAYOUTS).map(([k, v]) => (
                 <LayoutIcon key={k} cols={v.grid3x3 ? 3 : v.cols} rows={v.grid3x3 ? 3 : v.rows}
                             grid3x3={v.grid3x3} active={s.bitLayout === k}
-                            onClick={() => set('bitLayout', k)} tooltip={BIT_LAYOUT_TIPS[k]} size={48} />
+                            onClick={() => set('bitLayout', k)} tooltip={BIT_LAYOUT_TIPS[k]} size={40} />
               ))}
             </div>
             <SpacingControl title="Bit spacing" keyH="bitSpacingH" keyV="bitSpacingV" max={10} />
@@ -424,7 +450,7 @@ export default function SettingsPanel({
               {Object.entries(BYTE_LAYOUTS).map(([k, v]) => (
                 <LayoutIcon key={k} cols={v.grid3x3 ? 3 : v.cols} rows={v.grid3x3 ? 3 : v.rows}
                             grid3x3={v.grid3x3} active={s.byteLayout === k}
-                            onClick={() => set('byteLayout', k)} tooltip={BYTE_LAYOUT_TIPS[k]} size={48} />
+                            onClick={() => set('byteLayout', k)} tooltip={BYTE_LAYOUT_TIPS[k]} size={40} />
               ))}
             </div>
             <SpacingControl title="Byte spacing" keyH="byteSpacingH" keyV="byteSpacingV" max={20} />
@@ -469,8 +495,14 @@ export default function SettingsPanel({
                         type="number"
                         min={1}
                         step={1}
-                        value={Math.max(1, parseInt(s.customGroupBits || 1, 10) || 1)}
-                        onChange={(e) => setCustomVectorGrouping(e.target.value)}
+                        value={customGroupDraft}
+                        onChange={(e) => setCustomGroupDraft(e.target.value)}
+                        onBlur={(e) => commitCustomGrouping(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            commitCustomGrouping(e.currentTarget.value);
+                          }
+                        }}
                         placeholder="bits"
                       />
                       <button
@@ -490,7 +522,7 @@ export default function SettingsPanel({
                               type="button"
                               className={`btn-option grouping-custom-menu-item${Number(s.customGroupBits) === p ? ' active' : ''}`}
                               onClick={() => {
-                                setCustomVectorGrouping(p);
+                                commitCustomGrouping(String(p));
                                 setCustomPresetMenuOpen(false);
                               }}
                               title={`Use ${p} bits per grouping`}
@@ -540,17 +572,17 @@ export default function SettingsPanel({
         </div>
       </div>
 
-        {/* Spacing controls — direct edits + on-canvas drag handles */}
+        {/* Spacing controls — direct edits from this panel */}
       <div className="settings-section lo-section">
         <label>Spacing</label>
-        <span className="settings-hint">Tip: click an outline on the canvas and drag the blue arrow handles to adjust spacing visually.</span>
+        <span className="settings-hint">Use the spacing controls above to tune horizontal and vertical gaps.</span>
       </div>
       </>
     );
   };
 
   return (
-    <div className={`settings-sidebar${collapsed ? ' collapsed' : ''}`}>
+    <div className={`settings-sidebar${collapsed ? ' collapsed' : ''}${isWindowsPlatform ? ' platform-windows' : ''}`}>
       <div className="settings-header-rail" title="Layout Settings">
         <h3>Layout</h3>
         <button className="settings-collapse-btn" onClick={onToggleCollapse} title={collapsed ? 'Expand settings' : 'Collapse settings'}>
@@ -671,7 +703,7 @@ export default function SettingsPanel({
             />
             <AnnotationButton
               title="Bits"
-              hint=""
+              hint={bitAnnotationHint}
               active={!!s.showBitLabels}
               onClick={cycleBitAnnotation}
               preview={(
@@ -685,7 +717,7 @@ export default function SettingsPanel({
             />
             <AnnotationButton
               title="Bytes"
-              hint=""
+              hint={byteAnnotationHint}
               active={!!s.showByteLabels}
               onClick={cycleByteAnnotation}
               preview={(
@@ -698,7 +730,7 @@ export default function SettingsPanel({
             />
             <AnnotationButton
               title="Grouping"
-              hint="Grouping and uint64 labels"
+              hint={`Grouping and uint64 labels (${annotationGroupingLabel})`}
               active={s.showVectorLabels !== false}
               onClick={() => set('showVectorLabels', s.showVectorLabels === false)}
               preview={(
@@ -766,20 +798,8 @@ export default function SettingsPanel({
               )}
             />
           </div>
-          <span className="settings-hint">Click an outline in the canvas to set spacing focus.</span>
+          <span className="settings-hint">Outlines are optional helpers for structure visibility.</span>
         </div>
-
-        {spacingFocus && (
-          <div className="settings-section">
-            <label>Spacing focus: {spacingFocus}</label>
-            <div className="settings-row" style={{ gap: 8 }}>
-              <button className="btn-option btn-sm spacing-adjust-btn" onClick={() => onAdjustSpacingFromOutline(spacingFocus, 'H', -1)}>H−</button>
-              <button className="btn-option btn-sm spacing-adjust-btn" onClick={() => onAdjustSpacingFromOutline(spacingFocus, 'H', 1)}>H+</button>
-              <button className="btn-option btn-sm spacing-adjust-btn" onClick={() => onAdjustSpacingFromOutline(spacingFocus, 'V', -1)}>V−</button>
-              <button className="btn-option btn-sm spacing-adjust-btn" onClick={() => onAdjustSpacingFromOutline(spacingFocus, 'V', 1)}>V+</button>
-            </div>
-          </div>
-        )}
 
         <div className="settings-section">
           <label>Animation style</label>

@@ -55,7 +55,7 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
         // #pragma GCC ivdep
         #pragma GCC unroll 32
         for(counter_t i=start; i < sieve_bits; i += step) {
-            log6(bitstorage, "Setting bit %d", (int)i);
+            // log6(bitstorage, "Setting bit %d", (int)i);
             bitstorage[index_type(i, bitbucket_t)] |= markmask_calc_type(i,bitbucket_t);
         }
 

@@ -5,7 +5,7 @@
 static inline counter_t __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 markExtendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop) 
 {
-    logBegin5(time_sieve_block_extend, "Extend: extend sieve block 0 to range %ju - %ju",(uintmax_t)0,(uintmax_t)block_stop)
+    logBegin5(time_sieve_block_extend, "Extend: extend sieve block 0 to range %ju - %ju",(uintmax_t)0,(uintmax_t)block_stop);
 
     ((uint64_t*)bitstorage)[0] = (uint64_t)0ULL; // only the first word has to be cleared; the rest is populated by the extension procedure
 
@@ -63,7 +63,7 @@ struct block {
 static inline counter_t 
 markExtendSieveBlock_half(void* restrict bitstorage, const counter_t block_start, const counter_t block_stop) 
 {
-    logBegin5(time_sieve_block_extend, "Extend: extend sieve block to range %ju - %ju with markExtendSieveBlock",(uintmax_t)block_start,(uintmax_t)block_stop)
+    logBegin5(time_sieve_block_extend, "Extend: extend sieve block to range %ju - %ju with markExtendSieveBlock",(uintmax_t)block_start,(uintmax_t)block_stop);
 
     register counter_t prime         = 0;
     counter_t patternsize_bits       = 1;

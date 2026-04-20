@@ -215,8 +215,6 @@ export class SieveRenderer {
     this.outlineStyle = 'thin'; // 'thin' | 'thick' | 'dashed' | 'dotted'
     this.outlineColor = '#5ccf8d';
     this.outlineRounded = false;
-    this.outlineHoverActive = false;
-    this.outlineHoverPulse = 0;
     this.minimapEnabled = true;
 
     // Storage model for bit-to-number mapping
@@ -363,18 +361,11 @@ export class SieveRenderer {
 
   _drawOutlineRect(ctx, x, y, w, h) {
     const cfg = this._outlineConfig();
-    let lineWidth = cfg.lineWidth;
+    const lineWidth = cfg.lineWidth;
     const dash = cfg.dash;
     const radius = cfg.radius;
-    let strokeRgb = this._hexToRgb(this.outlineColor || '#5ccf8d');
-    let inflate = 0;
-
-    if (this.outlineHoverActive) {
-      const p = Math.max(0, Math.min(1, this.outlineHoverPulse || 0));
-      lineWidth += 0.45 + 0.7 * p;
-      inflate = 0.8 + 1.6 * p;
-      strokeRgb = this._mixRgb(strokeRgb, [255, 255, 255], 0.22 + 0.28 * p);
-    }
+    const strokeRgb = this._hexToRgb(this.outlineColor || '#5ccf8d');
+    const inflate = 0;
 
     x -= inflate;
     y -= inflate;
@@ -399,21 +390,6 @@ export class SieveRenderer {
       ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
     }
     ctx.restore();
-  }
-
-  _isNearRectEdge(px, py, x, y, w, h, tol = 4) {
-    const insideX = px >= x - tol && px <= x + w + tol;
-    const insideY = py >= y - tol && py <= y + h + tol;
-    if (!insideX || !insideY) return false;
-    const dl = Math.abs(px - x);
-    const dr = Math.abs(px - (x + w));
-    const dt = Math.abs(py - y);
-    const db = Math.abs(py - (y + h));
-    return Math.min(dl, dr, dt, db) <= tol;
-  }
-
-  _pointInRect(px, py, x, y, w, h, tol = 0) {
-    return px >= x - tol && px <= x + w + tol && py >= y - tol && py <= y + h + tol;
   }
 
   attach(canvas) {
@@ -778,13 +754,19 @@ export class SieveRenderer {
     const vectorFont = Math.max(4, Math.min(13, 1.5 + 1.6 * this.zoom));
     const byteFont = Math.max(4, Math.min(11, 1.5 + 1.5 * this.zoom));
     const vector = showVector ? (vectorFont + 3) : 0;
-    const byte = showByte ? (byteFont + 2) : 0;
+    // Byte labels are drawn relative to each byte's own position (just above its first bit row),
+    // so they do not consume an extra global top band.
+    const byteRows = 0;
+    const byteLine = showByte ? (byteFont + 1) : 0;
+    const byte = 0;
     return {
       vector,
       byte,
       total: vector + byte,
       vectorFont,
       byteFont,
+      byteRows,
+      byteLine,
       showVector,
       showByte,
     };
@@ -836,7 +818,7 @@ export class SieveRenderer {
     const showByteLabels = labelBands.showByte;
     const showVectorLabels = labelBands.showVector;
     const vectorLabelY = vRow => this.panY + vRow * vRowHeight + 1;
-    const byteLabelY = vRow => this.panY + vRow * vRowHeight + labelBands.vector + 1;
+    const byteLabelY = (byteTopY) => byteTopY - labelBands.byteFont - 1;
 
     for (let vRow = startVRow; vRow < endVRow; vRow++) {
       const vRowBaseY = this.panY + vRow * vRowHeight;
@@ -920,11 +902,11 @@ export class SieveRenderer {
                 ctx,
                 byteLabel,
                 Math.round(byteX),
-                Math.round(byteLabelY(vRow)),
+                Math.round(byteLabelY(byteY)),
                 Math.max(8, byteD.w - 2),
                 labelBands.byteFont,
                 C.LABEL_COLOR,
-                { minSize: 3.5, paddingX: 1, clipHeight: labelBands.byte }
+                { minSize: 3.5, paddingX: 1, clipHeight: Math.max(6, labelBands.byteFont + 2) }
               );
             }
 
@@ -967,17 +949,18 @@ export class SieveRenderer {
                 );
               }
 
-              if (this.targetBits?.has(globalBit)) {
+              const showTargetOutline = this.targetBits?.has(globalBit) && this.zoom >= 1.4 && px >= 2.5;
+              if (showTargetOutline) {
                 ctx.save();
                 ctx.strokeStyle = 'rgba(59, 130, 246, 0.95)';
-                ctx.lineWidth = Math.max(1, px * 0.12);
+                ctx.lineWidth = Math.max(0.35, Math.min(1.25, px * 0.08));
                 ctx.strokeRect(
-                  Math.round(bitX - 1), Math.round(bitY - 1),
-                  Math.max(3, Math.round(px + 2)), Math.max(3, Math.round(px + 2))
+                  Math.round(bitX - 0.5), Math.round(bitY - 0.5),
+                  Math.max(2, Math.round(px + 1)), Math.max(2, Math.round(px + 1))
                 );
-                if (targetHitCount > 1) {
+                if (targetHitCount > 1 && this.zoom >= 2.2 && px >= 4) {
                   ctx.strokeStyle = 'rgba(245, 158, 11, 0.95)';
-                  ctx.lineWidth = Math.max(1, px * 0.16);
+                  ctx.lineWidth = Math.max(0.5, Math.min(1.6, px * 0.11));
                   ctx.strokeRect(
                     Math.round(bitX + 1), Math.round(bitY + 1),
                     Math.max(1, Math.round(px - 2)), Math.max(1, Math.round(px - 2))
@@ -1161,220 +1144,6 @@ export class SieveRenderer {
     const y = byteY + bitPos.row * (px + this.bitSpacingV * this.zoom) + px / 2;
 
     return { x, y };
-  }
-
-  hitTestOutline(canvasX, canvasY, options = {}) {
-    if (!this.outlineEnabled) return null;
-    const includeInterior = options.includeInterior !== false;
-
-    const bitsPerCacheLine = this.bitsPerCacheLine;
-    const rowD = this._rowDims();
-    const labelH = this._labelHeight();
-    const clPerVRow = this._cacheLinesPerVisualRow();
-    const vRowHeight = labelH + rowD.h + this.u64SpacingV * this.zoom;
-    const u64D = this._u64Dims();
-    const byteD = this._byteDims();
-    const vecD = this._vectorDims();
-    const numVec = this._numVectorsPerRow();
-    const clStepX = rowD.w + this.u64SpacingH * this.zoom;
-
-    const vRow = Math.floor((canvasY - this.panY) / vRowHeight);
-    if (vRow < 0) return null;
-
-    const localY = canvasY - this.panY - vRow * vRowHeight - labelH;
-    const localX = canvasX - this.panX;
-    if (localX < 0 || localY < 0 || localY > rowD.h) return null;
-
-    const clInRow = Math.floor(localX / clStepX);
-    if (clInRow < 0 || clInRow >= clPerVRow) return null;
-    const clIdx = vRow * clPerVRow + clInRow;
-    const totalCacheLines = Math.ceil(this.bitCount / bitsPerCacheLine);
-    if (clIdx >= totalCacheLines) return null;
-
-    const clOffsetX = clInRow * clStepX;
-    const clX = this.panX + clOffsetX;
-    const rowDataY = this.panY + vRow * vRowHeight + labelH;
-
-    if (this.outlineTarget === 'cacheline') {
-      const pad = this._outlinePadding();
-      const topExtra = this._outlineTopExtra('cacheline');
-      const rx = clX - pad;
-      const ry = rowDataY - pad - topExtra;
-      const rw = rowD.w + 2 * pad;
-      const rh = rowD.h + 2 * pad + topExtra;
-      const edgeHit = this._isNearRectEdge(canvasX, canvasY, rx, ry, rw, rh, 10);
-      const hit = edgeHit || (includeInterior && this._pointInRect(canvasX, canvasY, rx, ry, rw, rh, 1));
-      return hit ? 'cacheline' : null;
-    }
-
-    const clLocalX = localX - clInRow * clStepX;
-    const vecStep = vecD.w + this.u64SpacingH * this.zoom;
-    const vecIdx = Math.floor(clLocalX / vecStep);
-    if (vecIdx < 0 || vecIdx >= numVec) return null;
-    const vecX = clX + vecIdx * vecStep;
-
-    if (this.outlineTarget === 'vector') {
-      const pad = this._outlinePadding();
-      const topExtra = this._outlineTopExtra('vector');
-      const rx = vecX - pad;
-      const ry = rowDataY - pad - topExtra;
-      const rw = vecD.w + 2 * pad;
-      const rh = vecD.h + 2 * pad + topExtra;
-      const edgeHit = this._isNearRectEdge(canvasX, canvasY, rx, ry, rw, rh, 10);
-      const hit = edgeHit || (includeInterior && this._pointInRect(canvasX, canvasY, rx, ry, rw, rh, 1));
-      return hit ? 'vector' : null;
-    }
-
-    const inVecX = clLocalX - vecIdx * vecStep;
-    const u64InVecStep = u64D.w + vecD.intraGap;
-    const intraIdx = Math.floor(inVecX / u64InVecStep);
-    if (intraIdx < 0 || intraIdx >= this.vectorGroup) return null;
-    const u64X = vecX + intraIdx * u64InVecStep;
-
-    const inU64X = inVecX - intraIdx * u64InVecStep;
-    const byteStep_w = byteD.w + this.byteSpacingH * this.zoom;
-    const byteStep_h = byteD.h + this.byteSpacingV * this.zoom;
-    const byteBl = BYTE_LAYOUTS[this.byteLayout];
-    const bCols = byteBl.grid3x3 ? 3 : byteBl.cols;
-
-    const byteCol = Math.floor(inU64X / byteStep_w);
-    const byteRow = Math.floor(localY / byteStep_h);
-    if (byteCol < 0 || byteCol >= bCols || byteRow < 0) return null;
-
-    let byteIdx = -1;
-    for (let i = 0; i < 8; i++) {
-      const pos = this._bytePosInU64(i);
-      if (pos.col === byteCol && pos.row === byteRow) { byteIdx = i; break; }
-    }
-    if (byteIdx < 0) return null;
-
-    const bytePos = this._bytePosInU64(byteIdx);
-    const byteX = u64X + bytePos.col * byteStep_w;
-    const byteY = rowDataY + bytePos.row * byteStep_h;
-    const pad = this._outlinePadding();
-    const topExtra = this._outlineTopExtra('byte');
-    const rx = byteX - pad;
-    const ry = byteY - pad - topExtra;
-    const rw = byteD.w + 2 * pad;
-    const rh = byteD.h + 2 * pad + topExtra;
-    const edgeHit = this._isNearRectEdge(canvasX, canvasY, rx, ry, rw, rh, 9);
-    const hit = edgeHit || (includeInterior && this._pointInRect(canvasX, canvasY, rx, ry, rw, rh, 1));
-    return hit ? 'byte' : null;
-  }
-
-  getOutlineSpacingGuide(canvasX, canvasY) {
-    if (!this.outlineEnabled) return null;
-
-    const bitsPerCacheLine = this.bitsPerCacheLine;
-    const rowD = this._rowDims();
-    const labelH = this._labelHeight();
-    const clPerVRow = this._cacheLinesPerVisualRow();
-    const vRowHeight = labelH + rowD.h + this.u64SpacingV * this.zoom;
-    const u64D = this._u64Dims();
-    const byteD = this._byteDims();
-    const vecD = this._vectorDims();
-    const numVec = this._numVectorsPerRow();
-    const clStepX = rowD.w + this.u64SpacingH * this.zoom;
-
-    const vRow = Math.floor((canvasY - this.panY) / vRowHeight);
-    if (vRow < 0) return null;
-
-    const localY = canvasY - this.panY - vRow * vRowHeight - labelH;
-    const localX = canvasX - this.panX;
-    if (localX < 0 || localY < 0 || localY > rowD.h) return null;
-
-    const clInRow = Math.floor(localX / clStepX);
-    if (clInRow < 0 || clInRow >= clPerVRow) return null;
-    const clIdx = vRow * clPerVRow + clInRow;
-    const totalCacheLines = Math.ceil(this.bitCount / bitsPerCacheLine);
-    if (clIdx >= totalCacheLines) return null;
-
-    const pad = this._outlinePadding();
-    const clOffsetX = clInRow * clStepX;
-    const clX = this.panX + clOffsetX;
-    const rowDataY = this.panY + vRow * vRowHeight + labelH;
-
-    if (this.outlineTarget === 'cacheline') {
-      const topExtra = this._outlineTopExtra('cacheline');
-      const rect1 = { x: clX - pad, y: rowDataY - pad - topExtra, w: rowD.w + 2 * pad, h: rowD.h + 2 * pad + topExtra };
-      let rect2 = null;
-      let axis = 'H';
-
-      if (clInRow + 1 < clPerVRow && clIdx + 1 < totalCacheLines) {
-        const nx = this.panX + (clInRow + 1) * clStepX;
-        rect2 = { x: nx - pad, y: rect1.y, w: rect1.w, h: rect1.h };
-      } else if (clIdx + clPerVRow < totalCacheLines) {
-        axis = 'V';
-        const ny = this.panY + (vRow + 1) * vRowHeight + labelH;
-        rect2 = { x: rect1.x, y: ny - pad - topExtra, w: rect1.w, h: rect1.h };
-      }
-      if (!rect2) return null;
-
-      if (axis === 'H') {
-        const y = rect1.y + rect1.h / 2;
-        return { focus: 'cacheline', axis, x1: rect1.x + rect1.w, y1: y, x2: rect2.x, y2: y, anchorX: canvasX, anchorY: canvasY };
-      }
-      const x = rect1.x + rect1.w / 2;
-      return { focus: 'cacheline', axis, x1: x, y1: rect1.y + rect1.h, x2: x, y2: rect2.y, anchorX: canvasX, anchorY: canvasY };
-    }
-
-    const clLocalX = localX - clInRow * clStepX;
-    const vecStep = vecD.w + this.u64SpacingH * this.zoom;
-    const vecIdx = Math.floor(clLocalX / vecStep);
-    if (vecIdx < 0 || vecIdx >= numVec) return null;
-    const vecX = clX + vecIdx * vecStep;
-
-    if (this.outlineTarget === 'vector') {
-      const topExtra = this._outlineTopExtra('vector');
-      const rect1 = { x: vecX - pad, y: rowDataY - pad - topExtra, w: vecD.w + 2 * pad, h: vecD.h + 2 * pad + topExtra };
-      if (vecIdx + 1 >= numVec) return null;
-      const nVecX = clX + (vecIdx + 1) * vecStep;
-      const rect2 = { x: nVecX - pad, y: rect1.y, w: rect1.w, h: rect1.h };
-      const y = rect1.y + rect1.h / 2;
-      return { focus: 'vector', axis: 'H', x1: rect1.x + rect1.w, y1: y, x2: rect2.x, y2: y, anchorX: canvasX, anchorY: canvasY };
-    }
-
-    const inVecX = clLocalX - vecIdx * vecStep;
-    const u64InVecStep = u64D.w + vecD.intraGap;
-    const intraIdx = Math.floor(inVecX / u64InVecStep);
-    if (intraIdx < 0 || intraIdx >= this.vectorGroup) return null;
-    const u64X = vecX + intraIdx * u64InVecStep;
-
-    const inU64X = inVecX - intraIdx * u64InVecStep;
-    const byteStep_w = byteD.w + this.byteSpacingH * this.zoom;
-    const byteStep_h = byteD.h + this.byteSpacingV * this.zoom;
-    const byteBl = BYTE_LAYOUTS[this.byteLayout];
-    const bCols = byteBl.grid3x3 ? 3 : byteBl.cols;
-    const bRows = byteBl.grid3x3 ? 3 : byteBl.rows;
-
-    const byteCol = Math.floor(inU64X / byteStep_w);
-    const byteRow = Math.floor(localY / byteStep_h);
-    if (byteCol < 0 || byteCol >= bCols || byteRow < 0 || byteRow >= bRows) return null;
-
-    const topExtra = this._outlineTopExtra('byte');
-    const rect1 = {
-      x: u64X + byteCol * byteStep_w - pad,
-      y: rowDataY + byteRow * byteStep_h - pad - topExtra,
-      w: byteD.w + 2 * pad,
-      h: byteD.h + 2 * pad + topExtra,
-    };
-
-    let axis = 'H';
-    let rect2 = null;
-    if (byteCol + 1 < bCols) {
-      rect2 = { ...rect1, x: rect1.x + byteStep_w };
-    } else if (byteRow + 1 < bRows) {
-      axis = 'V';
-      rect2 = { ...rect1, y: rect1.y + byteStep_h };
-    }
-    if (!rect2) return null;
-
-    if (axis === 'H') {
-      const y = rect1.y + rect1.h / 2;
-      return { focus: 'byte', axis, x1: rect1.x + rect1.w, y1: y, x2: rect2.x, y2: y, anchorX: canvasX, anchorY: canvasY };
-    }
-    const x = rect1.x + rect1.w / 2;
-    return { focus: 'byte', axis, x1: x, y1: rect1.y + rect1.h, x2: x, y2: rect2.y, anchorX: canvasX, anchorY: canvasY };
   }
 
   getBitInfo(bitIdx) {
@@ -1605,6 +1374,89 @@ export class SieveRenderer {
     ctx.restore();
   }
 
+  /**
+   * Stamp animation for applyMask: a mask rectangle moves over each grouping
+   * and lowers where bits are affected.
+   */
+  renderMaskStamp(progress) {
+    if (!this.ctx || !this.changedBits || this.changedBits.size === 0) return;
+    const t = Math.max(0, Math.min(1, progress));
+
+    const ctx = this.ctx;
+    const color = this._opColor();
+    const groupBits = this.customGroupingBits > 0 ? this.customGroupingBits : Math.max(1, this.vectorGroup * 64);
+    const px = this.pixelSize * this.zoom;
+    const lift = Math.max(10, Math.min(28, px * 5.2));
+
+    const groupMap = new Map();
+    for (const bit of this.changedBits) {
+      const gid = Math.floor(bit / groupBits);
+      const arr = groupMap.get(gid);
+      if (arr) arr.push(bit);
+      else groupMap.set(gid, [bit]);
+    }
+    const groups = Array.from(groupMap.keys()).sort((a, b) => a - b);
+    if (groups.length === 0) return;
+
+    const stampProgress = t * groups.length;
+
+    ctx.save();
+    ctx.setLineDash([]);
+
+    for (let i = 0; i < groups.length; i++) {
+      const local = stampProgress - i;
+      if (local < -0.25 || local > 1.2) continue;
+
+      const phase = Math.max(0, Math.min(1, local));
+      let yOffset;
+      if (phase < 0.45) {
+        yOffset = -lift * (1 - phase / 0.45);
+      } else if (phase < 0.75) {
+        yOffset = Math.sin(((phase - 0.45) / 0.3) * Math.PI) * 2;
+      } else {
+        yOffset = -lift * ((phase - 0.75) / 0.25);
+      }
+
+      const gid = groups[i];
+      const startBit = gid * groupBits;
+      const count = Math.max(1, Math.min(groupBits, this.bitCount - startBit));
+      if (count <= 0) continue;
+      const bounds = this._multiBitBounds(startBit, count);
+      if (!bounds) continue;
+
+      const alpha = local < 0 ? Math.max(0, 0.28 + local * 1.1) : Math.max(0.22, 0.84 - phase * 0.42);
+      const inset = Math.max(2, Math.min(6, px * 0.7));
+      const rx = bounds.x - inset;
+      const ry = bounds.y - inset + yOffset;
+      const rw = bounds.w + inset * 2;
+      const rh = bounds.h + inset * 2;
+
+      ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha * 0.14})`;
+      ctx.strokeStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha})`;
+      ctx.lineWidth = Math.max(0.8, Math.min(2.2, px * 0.11));
+      ctx.beginPath();
+      ctx.roundRect(rx, ry, rw, rh, Math.max(4, Math.min(10, 4 + px * 0.16)));
+      ctx.fill();
+      ctx.stroke();
+
+      const hitBits = groupMap.get(gid) || [];
+      const markSize = Math.max(1.5, Math.min(5, px * 0.42));
+      ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${Math.max(0.26, alpha * 0.78)})`;
+      ctx.strokeStyle = `rgba(255,255,255,${Math.max(0.2, alpha * 0.42)})`;
+      ctx.lineWidth = Math.max(0.45, Math.min(1.1, px * 0.07));
+      for (let j = 0; j < hitBits.length; j++) {
+        const pos = this.bitIndexToCanvas(hitBits[j]);
+        if (!pos) continue;
+        const bx = pos.x - markSize / 2;
+        const by = pos.y - markSize / 2 + yOffset;
+        ctx.fillRect(bx, by, markSize, markSize);
+        ctx.strokeRect(bx, by, markSize, markSize);
+      }
+    }
+
+    ctx.restore();
+  }
+
   /** Content dimensions at current zoom */
   contentDimensions() {
     const bitsPerCacheLine = this.bitsPerCacheLine;
@@ -1690,7 +1542,8 @@ export class SieveRenderer {
     const mapW = dims.width * scale + 2 * pad;
     const mapH = dims.height * scale + 2 * pad;
     const mx = canvasW - mapW - 10;
-    const my = canvasH - mapH - 10 - detailH;
+    const panelClearance = detailH > 0 ? 8 : 10;
+    const my = canvasH - mapH - panelClearance - detailH;
 
     // Store minimap geometry for hit testing
     this._minimapRect = { mx, my, mapW, mapH, scale, pad, dims };

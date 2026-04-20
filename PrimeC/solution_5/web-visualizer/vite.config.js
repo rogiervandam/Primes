@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  clearScreen: false,
   plugins: [
     react(),
     logApiPlugin(path.resolve(__dirname, '../log')),

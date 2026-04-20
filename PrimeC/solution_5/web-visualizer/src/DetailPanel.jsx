@@ -45,7 +45,7 @@ export default function DetailPanel({ step, stepIndex, open, onToggle, height, o
     const startHeight = height || 200;
     const onMove = (ev) => {
       const delta = startY - ev.clientY;
-      onHeightChange(Math.max(80, Math.min(600, startHeight + delta)));
+      onHeightChange(Math.max(180, Math.min(700, startHeight + delta)));
     };
     const onUp = () => {
       window.removeEventListener('mousemove', onMove);

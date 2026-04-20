@@ -137,9 +137,17 @@ static int performBenchmarks(struct options_t option, sieve_t* (*sieveFunction)(
         prepareBenchmarkGlobals(trace_settings);
         counter_t trace_sieve_size = trace_settings.factor_max;
         counter_t trace_bit_count  = calcBitsize(trace_sieve_size, trace_settings.storage);
+        char trace_settings_tag[128];
+        snprintf(trace_settings_tag, sizeof(trace_settings_tag), "%s;t=%ju;d=%.3f;storage=%ju;factor_max=%ju",
+                 getBenchmarkSettingAsString(trace_settings),
+                 (uintmax_t)trace_settings.threads,
+                 trace_settings.sample_duration,
+                 (uintmax_t)trace_settings.storage,
+                 (uintmax_t)trace_settings.factor_max);
 
-        trace_init(option.trace_filename, (uint64_t)trace_sieve_size, (uint64_t)trace_bit_count);
+        trace_init(option.trace_filename, (uint64_t)trace_sieve_size, (uint64_t)trace_bit_count, trace_settings_tag);
         if (g_trace.enabled) {
+            trace_record_text_fmt("Settings used: %s", trace_settings_tag);
             /* Record initial empty state before the sieve runs */
             uint8_t* empty = (uint8_t*)calloc(1, (trace_bit_count + 7) / 8);
             if (empty) {

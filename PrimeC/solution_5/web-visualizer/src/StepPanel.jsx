@@ -163,6 +163,15 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     initialCollapseDoneRef.current = true;
   }, [tree]);
 
+  // New trace import: clear stale filters/collapsed state so all events are visible.
+  useEffect(() => {
+    setSearch('');
+    setFilterOp('');
+    setCollapsed(new Set());
+    initialCollapseDoneRef.current = false;
+    lastClickedRef.current = null;
+  }, [steps]);
+
   // Scroll active step into view
   useEffect(() => {
     const el = listRef.current;

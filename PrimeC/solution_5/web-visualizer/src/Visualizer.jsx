@@ -31,7 +31,7 @@ const DEFAULT_SETTINGS = {
   bitLabelMode: 'global',
   byteLabelMode: 'group',
   outlines: {
-    target: 'vector',
+    target: 'none',
   },
 };
 
@@ -44,7 +44,15 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const rendererRef = useRef(null);
   const isMacPlatform = useMemo(() => {
     if (typeof navigator === 'undefined') return false;
-    return /(Mac|iPhone|iPad|iPod)/i.test(navigator.platform || navigator.userAgent || '');
+    const uaDataPlatform = navigator.userAgentData?.platform || '';
+    const probe = `${uaDataPlatform} ${navigator.platform || ''} ${navigator.userAgent || ''} ${navigator.appVersion || ''}`;
+    return /(Mac|iPhone|iPad|iPod)/i.test(probe);
+  }, []);
+  const isWindowsPlatform = useMemo(() => {
+    if (typeof navigator === 'undefined') return false;
+    const uaDataPlatform = navigator.userAgentData?.platform || '';
+    const probe = `${uaDataPlatform} ${navigator.platform || ''} ${navigator.userAgent || ''} ${navigator.appVersion || ''}`;
+    return /Win/i.test(probe);
   }, []);
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -63,7 +71,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [animMode, setAnimMode] = useState('sequential'); // 'all' or 'sequential'
   const [animStyle, setAnimStyle] = useState('ripple'); // 'ripple', 'fade', 'pulse', 'none'
   const [bitAnimInterval, setBitAnimInterval] = useState(20); // ms between sequential bits (0.02s default)
-  const [detailHeight, setDetailHeight] = useState(200);
+  const [detailHeight, setDetailHeight] = useState(280);
   const [detailWidth, setDetailWidth] = useState(0);
   const [showMinimap, setShowMinimap] = useState(true);
   const [minimapAvailable, setMinimapAvailable] = useState(true);
@@ -81,9 +89,6 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [cachelineSize, setCachelineSize] = useState(64);
   const [cachePreset, setCachePreset] = useState('fixed');
   const [stepsPanelCollapsed, setStepsPanelCollapsed] = useState(true);
-  const [spacingFocus, setSpacingFocus] = useState(null);
-  const [spacingGuide, setSpacingGuide] = useState(null); // { focus, axis, x1, y1, x2, y2, anchorX, anchorY }
-  const [guideDrag, setGuideDrag] = useState(null); // { focus, axis, handle, startX, startY, startSpacing, anchorX, anchorY }
 
   // 3D camera state
   const [mode3D, setMode3D] = useState(false);
@@ -101,11 +106,11 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const triggerAnimationRef = useRef(null);
   const playTimeoutRef = useRef(null);
   const animBusyUntilRef = useRef(0);
-  const outlineHoverRafRef = useRef(null);
   const selectedAnimLoopRef = useRef(null);
+  const pausedStepAnimLoopRef = useRef(null);
   const initialFitDoneRef = useRef(false);
   const detailOpenRef = useRef(true);
-  const detailHeightRef = useRef(200);
+  const detailHeightRef = useRef(280);
   const lastHoveredIdxRef = useRef(-1); // tracks last hovered bit to avoid redundant recomputes
   const layoutRefreshTimeoutRef = useRef(null);
   const layoutRefreshRaf1Ref = useRef(null);
@@ -136,7 +141,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
   // Keep refs in sync for use in callbacks
   const getMinimapDetailH = useCallback(() => {
-    return detailOpenRef.current ? (detailHeightRef.current + 30) : 30; // 30px for toggle bar
+    return detailOpenRef.current ? (detailHeightRef.current + 28) : 28;
   }, []);
 
   // Wrap setDetailOpen/setDetailHeight to keep refs updated
@@ -326,6 +331,12 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const prevLayoutRef = useRef({
     bitLayout: DEFAULT_SETTINGS.bitLayout,
     byteLayout: DEFAULT_SETTINGS.byteLayout,
+    bitSpacingH: DEFAULT_SETTINGS.bitSpacingH,
+    bitSpacingV: DEFAULT_SETTINGS.bitSpacingV,
+    byteSpacingH: DEFAULT_SETTINGS.byteSpacingH,
+    byteSpacingV: DEFAULT_SETTINGS.byteSpacingV,
+    u64SpacingH: DEFAULT_SETTINGS.u64SpacingH,
+    u64SpacingV: DEFAULT_SETTINGS.u64SpacingV,
     cachelineSize: 64,
     customGroupBits: 0,
     vectorMode: DEFAULT_SETTINGS.vectorMode,
@@ -371,29 +382,61 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.customSetBit = customColors.setBit;
     r.customClearedBit = customColors.clearedBit;
     r.customUnchangedBit = customColors.unchangedBit;
-    // Reset zoom when bit/byte layout or cacheline size changes
+    // Preserve centered bit while layout geometry changes.
     const prev = prevLayoutRef.current;
     const nextCustomGroupBits = isCustomVectorMode ? Math.max(1, parseInt(layoutSettings.customGroupBits || 1, 10) || 1) : 0;
-    if (
+    const structureChanged = (
       prev.bitLayout !== layoutSettings.bitLayout ||
       prev.byteLayout !== layoutSettings.byteLayout ||
+      prev.bitSpacingH !== layoutSettings.bitSpacingH ||
+      prev.bitSpacingV !== layoutSettings.bitSpacingV ||
+      prev.byteSpacingH !== layoutSettings.byteSpacingH ||
+      prev.byteSpacingV !== layoutSettings.byteSpacingV ||
+      prev.u64SpacingH !== layoutSettings.u64SpacingH ||
+      prev.u64SpacingV !== layoutSettings.u64SpacingV ||
       prev.cachelineSize !== cachelineSize ||
       prev.customGroupBits !== nextCustomGroupBits ||
       prev.vectorMode !== layoutSettings.vectorMode ||
       prev.vectorGroup !== layoutSettings.vectorGroup ||
       prev.vectorBaseBits !== layoutSettings.vectorBaseBits ||
       prev.vectorLanes !== layoutSettings.vectorLanes
-    ) {
-      r.unfreezeLayout();
+    );
+
+    let centerAnchorBit = -1;
+    let desiredX = null;
+    let desiredY = null;
+    if (structureChanged) {
       const el = containerRef.current;
       if (el) {
         const rect = el.getBoundingClientRect();
-        r.zoomToFit(rect.width, rect.height, { alignTop: header.bitCount > 16384 });
-        setZoom(r.zoom);
+        const canvasCssHeight = (r.canvas?.height || rect.height * (window.devicePixelRatio || 1)) / (window.devicePixelRatio || 1);
+        const planeOffsetX = Math.max(0, (r.canvasWidth - rect.width) / 2);
+        const planeOffsetY = Math.max(0, (canvasCssHeight - rect.height) / 2);
+        desiredX = planeOffsetX + rect.width / 2;
+        desiredY = planeOffsetY + rect.height / 2;
+        centerAnchorBit = r.canvasToBitIndex(desiredX, desiredY);
       }
+    }
+
+    if (structureChanged) {
+      r.unfreezeLayout();
+      if (centerAnchorBit >= 0 && desiredX != null && desiredY != null) {
+        const nextPos = r.bitIndexToCanvas(centerAnchorBit);
+        if (nextPos) {
+          r.panX += desiredX - nextPos.x;
+          r.panY += desiredY - nextPos.y;
+        }
+      }
+      setZoom(r.zoom);
       r.freezeLayout();
       prev.bitLayout = layoutSettings.bitLayout;
       prev.byteLayout = layoutSettings.byteLayout;
+      prev.bitSpacingH = layoutSettings.bitSpacingH;
+      prev.bitSpacingV = layoutSettings.bitSpacingV;
+      prev.byteSpacingH = layoutSettings.byteSpacingH;
+      prev.byteSpacingV = layoutSettings.byteSpacingV;
+      prev.u64SpacingH = layoutSettings.u64SpacingH;
+      prev.u64SpacingV = layoutSettings.u64SpacingV;
       prev.cachelineSize = cachelineSize;
       prev.customGroupBits = nextCustomGroupBits;
       prev.vectorMode = layoutSettings.vectorMode;
@@ -406,113 +449,10 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     updateMinimapAvailability();
   }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, updateMinimapAvailability]);
 
-  const adjustSpacingFromOutline = useCallback((focus, axis, delta) => {
-    const keyMap = {
-      byte: axis === 'H' ? 'byteSpacingH' : 'byteSpacingV',
-      vector: axis === 'H' ? 'u64SpacingH' : 'u64SpacingV',
-      cacheline: axis === 'H' ? 'u64SpacingH' : 'u64SpacingV',
-    };
-    const key = keyMap[focus];
-    if (!key) return;
-    setLayoutSettings((prev) => {
-      const max = key.includes('bitSpacing') ? 10 : 20;
-      const next = Math.max(0, Math.min(max, (prev[key] || 0) + delta));
-      return { ...prev, [key]: next };
-    });
-  }, []);
-
-  useEffect(() => {
-    const r = rendererRef.current;
-    if (!r || !spacingGuide) return;
-    const next = r.getOutlineSpacingGuide(spacingGuide.anchorX, spacingGuide.anchorY);
-    if (!next) {
-      setSpacingGuide(null);
-      return;
-    }
-    if (
-      next.focus !== spacingGuide.focus ||
-      next.axis !== spacingGuide.axis ||
-      next.x1 !== spacingGuide.x1 ||
-      next.y1 !== spacingGuide.y1 ||
-      next.x2 !== spacingGuide.x2 ||
-      next.y2 !== spacingGuide.y2
-    ) {
-      setSpacingGuide(next);
-    }
-  }, [layoutSettings, spacingGuide?.anchorX, spacingGuide?.anchorY]);
-
-  useEffect(() => {
-    if (!guideDrag) return;
-
-    const mapKey = {
-      byte: guideDrag.axis === 'H' ? 'byteSpacingH' : 'byteSpacingV',
-      vector: guideDrag.axis === 'H' ? 'u64SpacingH' : 'u64SpacingV',
-      cacheline: guideDrag.axis === 'H' ? 'u64SpacingH' : 'u64SpacingV',
-    };
-    const key = mapKey[guideDrag.focus];
-    if (!key) return;
-
-    const onMove = (e) => {
-      const r = rendererRef.current;
-      const z = Math.max(0.25, r?.zoom || 1);
-      const axisDelta = guideDrag.axis === 'H'
-        ? (e.clientX - guideDrag.startX)
-        : (e.clientY - guideDrag.startY);
-      let sign = 1;
-      if (guideDrag.axis === 'H' && guideDrag.handle === 'start') sign = -1;
-      if (guideDrag.axis === 'V' && guideDrag.handle === 'start') sign = -1;
-      const stepDelta = Math.round((sign * axisDelta) / z);
-      const max = key.includes('bitSpacing') ? 10 : 20;
-      const nextVal = Math.max(0, Math.min(max, guideDrag.startSpacing + stepDelta));
-      setLayoutSettings((prev) => ({ ...prev, [key]: nextVal }));
-    };
-
-    const onUp = () => setGuideDrag(null);
-
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-  }, [guideDrag]);
-
-  const stopOutlineHoverAnim = useCallback(() => {
-    if (outlineHoverRafRef.current) {
-      cancelAnimationFrame(outlineHoverRafRef.current);
-      outlineHoverRafRef.current = null;
-    }
-    const r = rendererRef.current;
-    if (r) {
-      r.outlineHoverActive = false;
-      r.outlineHoverPulse = 0;
-    }
-  }, []);
-
-  const startOutlineHoverAnim = useCallback(() => {
-    const r = rendererRef.current;
-    if (!r || outlineHoverRafRef.current) return;
-
-    const tick = () => {
-      const rr = rendererRef.current;
-      if (!rr || !rr.outlineHoverActive) {
-        outlineHoverRafRef.current = null;
-        return;
-      }
-      rr.outlineHoverPulse = (Math.sin(performance.now() / 140) + 1) / 2;
-      rr.render();
-      rr.renderMinimap(rr.canvasWidth, rr.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-      outlineHoverRafRef.current = requestAnimationFrame(tick);
-    };
-
-    outlineHoverRafRef.current = requestAnimationFrame(tick);
-  }, [getMinimapDetailH]);
-
   // Resize handler
   useEffect(() => {
     const onResize = () => {
-      const anchor = captureViewportAnchor(0.5, 0.5);
-      refreshCanvasLayout(anchor);
+      refreshCanvasLayout(null);
     };
 
     clearScheduledLayoutRefresh();
@@ -530,7 +470,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       clearTimeout(transitionRefreshTimer);
       clearScheduledLayoutRefresh();
     };
-  }, [panelWidth, showMinimap, stepsPanelCollapsed, settingsCollapsed, detailOpen, detailHeight, mode3D, captureViewportAnchor, refreshCanvasLayout, clearScheduledLayoutRefresh]);
+  }, [panelWidth, showMinimap, stepsPanelCollapsed, settingsCollapsed, detailOpen, detailHeight, mode3D, refreshCanvasLayout, clearScheduledLayoutRefresh]);
 
   // Go to step
   const goToStep = useCallback((target, options = {}) => {
@@ -713,9 +653,11 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
     const cam = camera3DRef.current;
     if (cam && cam.enabled) {
+      const planeW = r.canvasWidth || rect.width;
+      const planeH = (r.canvas?.height || rect.height * (window.devicePixelRatio || 1)) / (window.devicePixelRatio || 1);
       return cam.flyTo(
         { canvasX: targetPos.x, canvasY: targetPos.y },
-        { containerW: rect.width, containerH: rect.height },
+        { containerW: planeW, containerH: planeH, centerX: planeW / 2, centerY: planeH / 2 },
         { panX: r.panX, panY: r.panY, zoom: r.zoom },
         targetZoom,
         950,
@@ -821,6 +763,39 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     }, Math.max(80, holdMs));
   }, [clampMs, getMinimapDetailH, getAnimationBitInterval, getCurrentLoopInterval]);
 
+  const runMaskStampAnimation = useCallback(() => {
+    const r = rendererRef.current;
+    if (!r || !r.changedBits || r.changedBits.size === 0) return Promise.resolve();
+
+    const bits = Array.from(r.changedBits);
+    const groupBits = r.customGroupingBits > 0 ? r.customGroupingBits : Math.max(1, r.vectorGroup * 64);
+    const groupCount = new Set(bits.map((b) => Math.floor(b / groupBits))).size;
+    const duration = Math.max(520, Math.min(2200, 280 + groupCount * 130));
+    const startedAt = performance.now();
+
+    if (rippleRef.current) {
+      cancelAnimationFrame(rippleRef.current);
+      rippleRef.current = null;
+    }
+
+    return new Promise((resolve) => {
+      const tick = (now) => {
+        const t = Math.min(1, (now - startedAt) / duration);
+        r.render();
+        r.renderMaskStamp(t);
+        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        if (t < 1) {
+          rippleRef.current = requestAnimationFrame(tick);
+          return;
+        }
+        rippleRef.current = null;
+        resolve();
+      };
+
+      rippleRef.current = requestAnimationFrame(tick);
+    });
+  }, [getMinimapDetailH]);
+
   // Main animation trigger — all-at-once, sequential per-bit, or bounce
   const triggerAnimation = useCallback((changedSet, options = {}) => {
     if (!options.keepProgress) {
@@ -832,6 +807,14 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     const effectiveBitInterval = getAnimationBitInterval(changedSet.size, options);
     const est = estimateAnimDuration(changedSet.size, options);
     animBusyUntilRef.current = performance.now() + est + Math.max(0, repeatAnim || 0);
+
+    if (r.currentOperation === 'applyMask') {
+      const bits = Array.from(changedSet).sort((a, b) => a - b);
+      runMaskStampAnimation().then(() => {
+        dissolveInOrder(r, bits, 220, options);
+      });
+      return;
+    }
 
     if ((animMode === 'sequential' || animMode === 'bounce') && effectiveBitInterval > 0) {
       // Sequential / bounce: reveal bits one-by-one
@@ -929,7 +912,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       const holdMs = 300;
       dissolveInOrder(r, bits, holdMs, options);
     }
-  }, [animMode, animStyle, stopSeqAnim, runEffect, estimateAnimDuration, repeatAnim, dissolveInOrder, getMinimapDetailH, getAnimationBitInterval, getCurrentLoopInterval]);
+  }, [animMode, animStyle, stopSeqAnim, runEffect, estimateAnimDuration, repeatAnim, dissolveInOrder, getMinimapDetailH, getAnimationBitInterval, getCurrentLoopInterval, runMaskStampAnimation]);
 
   useEffect(() => {
     triggerAnimationRef.current = triggerAnimation;
@@ -1009,6 +992,35 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       }
     };
   }, [selectedSteps, steps, playing, repeatAnim, animStyle, triggerAnimation, estimateAnimDuration]);
+
+  // When paused on a single step, keep replaying that step's animation.
+  useEffect(() => {
+    if (pausedStepAnimLoopRef.current) {
+      clearTimeout(pausedStepAnimLoopRef.current);
+      pausedStepAnimLoopRef.current = null;
+    }
+
+    if (playing || selectedSteps.size > 0 || initialHighlightHoldRef.current) return;
+    const step = steps[currentStep];
+    if (!step || !step.changedBits || step.changedBits.length === 0) return;
+
+    const changed = new Set(step.changedBits);
+    const intervalMs = Math.max(40, repeatAnim || 0);
+
+    const loop = () => {
+      triggerAnimation(changed, { adaptiveDuration: false });
+      pausedStepAnimLoopRef.current = setTimeout(loop, intervalMs);
+    };
+
+    pausedStepAnimLoopRef.current = setTimeout(loop, intervalMs);
+
+    return () => {
+      if (pausedStepAnimLoopRef.current) {
+        clearTimeout(pausedStepAnimLoopRef.current);
+        pausedStepAnimLoopRef.current = null;
+      }
+    };
+  }, [playing, selectedSteps, steps, currentStep, repeatAnim, triggerAnimation]);
 
   // Auto-render mode (for CLI video export via puppeteer)
   useEffect(() => {
@@ -1307,16 +1319,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       } else if (r && !dragging) {
         const coords = screenToCanvasCoords(e.clientX, e.clientY);
         const idx = r.canvasToBitIndex(coords.x, coords.y);
-        const outlineHit = idx >= 0 ? null : r.hitTestOutline(coords.x, coords.y, { includeInterior: false });
-        const onOutline = !!outlineHit;
-        r.outlineHoverActive = onOutline;
-        if (onOutline) {
-          el.style.cursor = 'pointer';
-          startOutlineHoverAnim();
-        } else {
-          el.style.cursor = 'crosshair';
-          stopOutlineHoverAnim();
-        }
+        el.style.cursor = 'crosshair';
         setHoverInfo(idx >= 0 ? r.getBitInfo(idx) : '');
         // Update hover panel only when bit index changes
         if (idx !== lastHoveredIdxRef.current) {
@@ -1344,15 +1347,6 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         const coords = screenToCanvasCoords(e.clientX, e.clientY);
         const r = rendererRef.current;
         const idx = r.canvasToBitIndex(coords.x, coords.y);
-        const outlineHit = idx >= 0 ? null : r.hitTestOutline(coords.x, coords.y, { includeInterior: false });
-        if (outlineHit) {
-          setSpacingFocus(outlineHit);
-          setSpacingGuide(r.getOutlineSpacingGuide(coords.x, coords.y));
-          setBitHistoryModal(null);
-          dragging = false; minimapDragging = false; el.classList.remove('dragging');
-          return;
-        }
-        setSpacingGuide(null);
         if (idx >= 0) {
           const cam = camera3DRef.current;
           // In 3D mode, clicking flies to the element cinematically
@@ -1410,7 +1404,6 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         lastHoveredIdxRef.current = -1;
         setHoveredBitInfo(null);
       }
-      stopOutlineHoverAnim();
       el.style.cursor = 'crosshair';
     };
     el.addEventListener('mouseleave', onMouseLeave);
@@ -1422,9 +1415,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       window.removeEventListener('mouseup', onMouseUp);
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('mouseleave', onMouseLeave);
-      stopOutlineHoverAnim();
     };
-  }, [computeBitInfo, flyToElement, getMinimapDetailH, startOutlineHoverAnim, stopOutlineHoverAnim, updateMinimapAvailability]);
+  }, [computeBitInfo, flyToElement, getMinimapDetailH, updateMinimapAvailability]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1662,29 +1654,6 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     setSearchResult(null);
   }, [searchOpen, getMinimapDetailH]);
 
-  const beginGuideDrag = useCallback((handle, e) => {
-    if (!spacingGuide) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const keyMap = {
-      byte: spacingGuide.axis === 'H' ? 'byteSpacingH' : 'byteSpacingV',
-      vector: spacingGuide.axis === 'H' ? 'u64SpacingH' : 'u64SpacingV',
-      cacheline: spacingGuide.axis === 'H' ? 'u64SpacingH' : 'u64SpacingV',
-    };
-    const key = keyMap[spacingGuide.focus];
-    if (!key) return;
-    setGuideDrag({
-      focus: spacingGuide.focus,
-      axis: spacingGuide.axis,
-      handle,
-      startX: e.clientX,
-      startY: e.clientY,
-      startSpacing: layoutSettings[key] || 0,
-      anchorX: spacingGuide.anchorX,
-      anchorY: spacingGuide.anchorY,
-    });
-  }, [spacingGuide, layoutSettings]);
-
   const currentStepData = useMemo(() => {
     if (selectedSteps.size <= 1) return steps[currentStep] || null;
 
@@ -1760,7 +1729,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const playSpeedLabel = useMemo(() => `${(1000 / Math.max(1, playSpeed)).toFixed(1)}/s`, [playSpeed]);
 
   return (
-    <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}`}>
+    <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}`}>
       {/* Header bar */}
       <header className="toolbar">
         <div className="toolbar-left">
@@ -1793,46 +1762,50 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           <span className="step-counter">{currentStep} / {steps.length - 1}</span>
         </div>
         <div className="toolbar-right">
-          <div className={`search-box${searchOpen ? ' expanded' : ''}`}>
-            <button className="btn-icon" onClick={() => setSearchOpen(o => !o)} title="Search (bit/byte/number)"><Search /></button>
-            {searchOpen && (
-              <div className="search-popover">
-                <input
-                  type="text"
-                  className="search-input"
-                  placeholder="bit 42 / byte 5 / number 97"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(searchQuery); if (e.key === 'Escape') setSearchOpen(false); }}
-                  autoFocus
-                  title="Search: bit N, byte N, uint64 N, vector N, number N"
-                />
-                {searchResult && <div className="search-result">{searchResult}</div>}
+          {!isWindowsPlatform && (
+            <>
+              <div className={`search-box${searchOpen ? ' expanded' : ''}`}>
+                <button className="btn-icon" onClick={() => setSearchOpen(o => !o)} title="Search (bit/byte/number)"><Search /></button>
+                {searchOpen && (
+                  <div className="search-popover">
+                    <input
+                      type="text"
+                      className="search-input"
+                      placeholder="bit 42 / byte 5 / number 97"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(searchQuery); if (e.key === 'Escape') setSearchOpen(false); }}
+                      autoFocus
+                      title="Search: bit N, byte N, uint64 N, vector N, number N"
+                    />
+                    {searchResult && <div className="search-result">{searchResult}</div>}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <button className="btn-icon" onClick={() => doZoom(1.5)} title="Zoom In (+)"><ZoomIn /></button>
-          <button className="btn-text" onClick={resetZoom} title="Reset Zoom (0)">{zoom.toFixed(1)}x</button>
-          <button className="btn-icon" onClick={() => doZoom(1 / 1.5)} title="Zoom Out (−)"><ZoomOut /></button>
-          <button className={`btn-icon${heatMapEnabled ? ' active' : ''}`} onClick={() => setHeatMapEnabled(h => !h)} title="Toggle heat map overlay"><Thermometer /></button>
-          <button className={`btn-icon${mode3D ? ' active' : ''}`} onClick={toggle3D} title="Toggle 3D view (3)">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M2 11L8 14L14 11" />
-              <path d="M2 8L8 11L14 8" />
-              <path d="M2 5L8 2L14 5L8 8Z" />
-            </svg>
-          </button>
-          <button className="btn-icon" onClick={exportPng} title="Export PNG"><Camera /></button>
-          {!exporting ? (
-            <button className="btn-icon" onClick={exportVideo} title="Export Video (WebM)"><Film /></button>
-          ) : (
-            <button className="btn-export-cancel" onClick={cancelExport} title="Cancel export">
-              {exportProgress}%
-            </button>
+              <button className="btn-icon" onClick={() => doZoom(1.5)} title="Zoom In (+)"><ZoomIn /></button>
+              <button className="btn-text" onClick={resetZoom} title="Reset Zoom (0)">{zoom.toFixed(1)}x</button>
+              <button className="btn-icon" onClick={() => doZoom(1 / 1.5)} title="Zoom Out (−)"><ZoomOut /></button>
+              <button className={`btn-icon${heatMapEnabled ? ' active' : ''}`} onClick={() => setHeatMapEnabled(h => !h)} title="Toggle heat map overlay"><Thermometer /></button>
+              <button className={`btn-icon${mode3D ? ' active' : ''}`} onClick={toggle3D} title="Toggle 3D view (3)">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M2 11L8 14L14 11" />
+                  <path d="M2 8L8 11L14 8" />
+                  <path d="M2 5L8 2L14 5L8 8Z" />
+                </svg>
+              </button>
+              <button className="btn-icon" onClick={exportPng} title="Export PNG"><Camera /></button>
+              {!exporting ? (
+                <button className="btn-icon" onClick={exportVideo} title="Export Video (WebM)"><Film /></button>
+              ) : (
+                <button className="btn-export-cancel" onClick={cancelExport} title="Cancel export">
+                  {exportProgress}%
+                </button>
+              )}
+              <button className="btn-icon" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} title="Toggle theme (T)">
+                {theme === 'dark' ? <Sun /> : <Moon />}
+              </button>
+            </>
           )}
-          <button className="btn-icon" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} title="Toggle theme (T)">
-            {theme === 'dark' ? <Sun /> : <Moon />}
-          </button>
         </div>
       </header>
 
@@ -1880,43 +1853,6 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
                 : { transform: camera3DTransform, transformStyle: 'preserve-3d', transformOrigin: '50% 50%' }}
             />
             <canvas ref={minimapCanvasRef} className="minimap-overlay-canvas" aria-hidden="true" />
-            {spacingGuide && (
-              <svg className="outline-spacing-guide" width="100%" height="100%">
-                <line
-                  x1={spacingGuide.x1}
-                  y1={spacingGuide.y1}
-                  x2={spacingGuide.x2}
-                  y2={spacingGuide.y2}
-                  className="outline-spacing-line"
-                />
-                <polygon
-                  points={spacingGuide.axis === 'H'
-                    ? `${spacingGuide.x1},${spacingGuide.y1} ${spacingGuide.x1 + 10},${spacingGuide.y1 - 6} ${spacingGuide.x1 + 10},${spacingGuide.y1 + 6}`
-                    : `${spacingGuide.x1},${spacingGuide.y1} ${spacingGuide.x1 - 6},${spacingGuide.y1 + 10} ${spacingGuide.x1 + 6},${spacingGuide.y1 + 10}`}
-                  className="outline-spacing-arrow"
-                />
-                <polygon
-                  points={spacingGuide.axis === 'H'
-                    ? `${spacingGuide.x2},${spacingGuide.y2} ${spacingGuide.x2 - 10},${spacingGuide.y2 - 6} ${spacingGuide.x2 - 10},${spacingGuide.y2 + 6}`
-                    : `${spacingGuide.x2},${spacingGuide.y2} ${spacingGuide.x2 - 6},${spacingGuide.y2 - 10} ${spacingGuide.x2 + 6},${spacingGuide.y2 - 10}`}
-                  className="outline-spacing-arrow"
-                />
-                <circle
-                  cx={spacingGuide.x1}
-                  cy={spacingGuide.y1}
-                  r={7}
-                  className="outline-spacing-handle"
-                  onMouseDown={(e) => beginGuideDrag('start', e)}
-                />
-                <circle
-                  cx={spacingGuide.x2}
-                  cy={spacingGuide.y2}
-                  r={7}
-                  className="outline-spacing-handle"
-                  onMouseDown={(e) => beginGuideDrag('end', e)}
-                />
-              </svg>
-            )}
           </div>
           {hoverInfo && <div className="hover-info">{hoverInfo}</div>}
 
@@ -2024,8 +1960,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           minimapControlVisible={true}
           outlineSettings={layoutSettings.outlines}
           onOutlineChange={(outlines) => setLayoutSettings((prev) => ({ ...prev, outlines }))}
-          spacingFocus={spacingFocus}
-          onAdjustSpacingFromOutline={adjustSpacingFromOutline}
+          isWindowsPlatform={isWindowsPlatform}
         />
       </div>
     </div>
