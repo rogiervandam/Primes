@@ -3,7 +3,7 @@
 static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes)))
 function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step, const bitbucket_t mask1, const bitbucket_t mask2) 
 {
-    startAnalysisTrace8(time_applyMask_pair, "ApplyMaskPair: apply %s (%ju bit) mask in pairs with step %ju in bitrange (%ju - %ju)", STR(bitbucket_t), bitcount_type(bitbucket_t), (uintmax_t)step, (uintmax_t)range_start * bitcount_type(bitbucket_t), (uintmax_t)range_stop * bitcount_type(bitbucket_t));
+    logBegin8(time_applyMask_pair, "ApplyMaskPair: apply %s (%ju bit) mask in pairs with step %ju in bitrange (%ju - %ju)", STR(bitbucket_t), bitcount_type(bitbucket_t), (uintmax_t)step, (uintmax_t)range_start * bitcount_type(bitbucket_t), (uintmax_t)range_stop * bitcount_type(bitbucket_t));
 
     register const counter_t step_max = step * unrolls, step_2 = step * 2, step_3 = step_2 + step;
     register const bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
@@ -59,7 +59,7 @@ function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t
         *index_ptr     |= mask1; 
     }
 
-    endAnalysisTrace8(time_applyMask_pair);
+    logEnd8(time_applyMask_pair);
 }
 
 #include "../generic/variants/cleansuffix.h"

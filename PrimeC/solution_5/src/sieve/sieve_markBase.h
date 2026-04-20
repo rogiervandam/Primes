@@ -11,7 +11,7 @@ setBitsTrue_smallstep_repeat_base(void* restrict bitstorage, const counter_t ran
     const counter_t range_stop_unique = range_start + bitcount_type(bitbucket_t) * step;
     const counter_t range_stop_index = index_type(range_stop, bitbucket_t);
 
-    startAnalysisTrace6(time_setBitsTrue_smallstep_repeat, "SetBitsTrueSmallstepRepeatBase: setting bits step %3ju using smallstep_repeat%s in %ju bit range (%ju-%ju) (%ju repeating occurances)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(step*bitcount_type(bitbucket_t))));
+    logBegin6(time_setBitsTrue_smallstep_repeat, "SetBitsTrueSmallstepRepeatBase: setting bits step %3ju using smallstep_repeat%s in %ju bit range (%ju-%ju) (%ju repeating occurances)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(step*bitcount_type(bitbucket_t))));
 
     for (register counter_t index = range_start; index <= range_stop_unique;) {
         const counter_t word_index = index_type(index, bitbucket_t); // set index_word here because the for loop will change index
@@ -22,7 +22,7 @@ setBitsTrue_smallstep_repeat_base(void* restrict bitstorage, const counter_t ran
         }
     }
 
-    endAnalysisTrace6(time_setBitsTrue_smallstep_repeat,"\n");
+    logEnd6(time_setBitsTrue_smallstep_repeat,"\n");
 }
 
 // Small steps (< WORD_SIZE) could be within the same word (e.g. less than 64 bits apart).
@@ -31,7 +31,7 @@ setBitsTrue_smallstep_repeat_base(void* restrict bitstorage, const counter_t ran
 static inline void  __attribute__((always_inline, nonnull)) 
 setBitsTrue_smallstep_norepeat(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
 {
-    startAnalysisTrace6(time_setBitsTrue_smallstep_norepeat, "SetBitsTrueSmallstepNoRepeat: setting bits step %3ju using smallstep_norepeat%s in %ju bit range (%ju-%ju) (%ju unique occurances)", (uintmax_t)step, STR(suffix),  (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
+    logBegin6(time_setBitsTrue_smallstep_norepeat, "SetBitsTrueSmallstepNoRepeat: setting bits step %3ju using smallstep_norepeat%s in %ju bit range (%ju-%ju) (%ju unique occurances)", (uintmax_t)step, STR(suffix),  (uintmax_t)range_stop-(uintmax_t)range_start,(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)step));
 
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
 
@@ -44,7 +44,7 @@ setBitsTrue_smallstep_norepeat(void* restrict bitstorage, const counter_t range_
         bitstorage_sized[word_index] |= mask;
     }
 
-    endAnalysisTrace6(time_setBitsTrue_smallstep_norepeat,"\n");
+    logEnd6(time_setBitsTrue_smallstep_norepeat,"\n");
 }
 
 #include "../generic/variants/cleansuffix.h"

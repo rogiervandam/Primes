@@ -118,7 +118,7 @@ handleCheckOption(int check, sieve_t* (*sieveFunction)(const counter_t), benchma
         if (option.verbose_level < 6) option.verbose_level = 6;
         option.check = 0;
         explainSieveShake(option.fixed_benchmark_settings);
-        return (0);
+        return;
     }
     #endif
 

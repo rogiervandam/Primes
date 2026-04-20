@@ -1,26 +1,26 @@
 static inline counter_t __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 markSieveBlock(sieve_t* sieve, const counter_t block_start, const counter_t block_stop, counter_t prime, const counter_t prime_max) {
-    startAnalysisTrace5(time_sieveStripeBlock, "MarkFactorsStripe: block stripe for block %ju - %ju",(uintmax_t)block_start,(uintmax_t)block_stop);
+    logBegin5(time_sieveStripeBlock, "MarkFactorsStripe: block stripe for block %ju - %ju",(uintmax_t)block_start,(uintmax_t)block_stop);
 
     const counter_t prime_endloop_shortstepsearch = min(prime_max, 128);
 
     for (; prime < prime_endloop_shortstepsearch; prime = findUnmarked(sieve, prime)) {
-        TRACE_EVENT(sieve->bitstorage,
-               "MarkFactors: stripe prime %jd (idx %jd), block [%jd-%jd] step %jd",
+         log5(sieve->bitstorage,
+             "MarkFactors: stripe prime %jd (idx %jd), block [%jd-%jd] step %jd",
                    (intmax_t)(prime*2+1), (intmax_t)prime, (intmax_t)block_start,
                    (intmax_t)block_stop, (intmax_t)calcFactor_step(prime));
         markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
     }
 
     for (; prime < prime_max; prime = findUnmarked(sieve, prime)) {
-        TRACE_EVENT(sieve->bitstorage,
-               "MarkFactors: stripe prime %jd (idx %jd), block [%jd-%jd] step %jd",
+         log5(sieve->bitstorage,
+             "MarkFactors: stripe prime %jd (idx %jd), block [%jd-%jd] step %jd",
                    (intmax_t)(prime*2+1), (intmax_t)prime, (intmax_t)block_start,
                    (intmax_t)block_stop, (intmax_t)calcFactor_step(prime));
         markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
     }
 
-    endAnalysisTrace5(time_sieveStripeBlock, "\n");
+    logEnd5(time_sieveStripeBlock, "\n");
     return prime; 
 }
 

@@ -116,7 +116,7 @@ function parseTextTrace(text) {
     return parseDump(dumpJson);
   }
 
-  const hasStructuredSteps = lines.some((l) => /^STEP\s|^EVENT\s/i.test(l));
+  const hasStructuredSteps = lines.some((l) => /^STEP\s|^EVENT\s|^TEXT\s/i.test(l));
   if (!hasStructuredSteps) {
     return parseFreeformTextTrace(lines, headerKv);
   }
@@ -129,8 +129,11 @@ function parseTextTrace(text) {
     const line = lines[idx];
     if (!line || line.startsWith('TRACE ') || line.startsWith('DUMP ')) continue;
 
-    if (/^STEP\s|^EVENT\s/i.test(line)) {
-      const prefixLen = line.toUpperCase().startsWith('EVENT ') ? 'EVENT '.length : 'STEP '.length;
+    if (/^STEP\s|^EVENT\s|^TEXT\s/i.test(line)) {
+      const upper = line.toUpperCase();
+      const prefixLen = upper.startsWith('EVENT ')
+        ? 'EVENT '.length
+        : (upper.startsWith('TEXT ') ? 'TEXT '.length : 'STEP '.length);
       const kv = parseKvLine(line.slice(prefixLen));
       const inferred = inferMetaFromAnnotation(kv.annotation || '');
 
@@ -144,8 +147,8 @@ function parseTextTrace(text) {
         firstExactAliasValue(kv, FACTOR_STEP_ALIASES, inferred.factorStep)
       );
 
-      const changedBits = parseChangedBits(kv.changed_bits || '');
-      const operation = kv.op || kv.operation || inferOperationFromAnnotation(kv.annotation || '');
+      const changedBits = upper.startsWith('TEXT ') ? [] : parseChangedBits(kv.changed_bits || '');
+      const operation = kv.function || kv.op || kv.operation || inferOperationFromAnnotation(kv.annotation || '');
       const operationPath = Array.isArray(kv.operation_path)
         ? kv.operation_path
         : (kv.operation_path ? String(kv.operation_path).split('/').map((s) => s.trim()).filter(Boolean) : [operation]);
@@ -241,6 +244,25 @@ function parseFreeformTextTrace(lines, headerKv = {}) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (!line || line.startsWith('TRACE ') || line.startsWith('DUMP ')) continue;
+
+    if (/^TEXT\s/i.test(line)) {
+      const kv = parseKvLine(line.slice('TEXT '.length));
+      const inferred = inferMetaFromAnnotation(kv.annotation || '');
+      const operation = kv.function || inferOperationFromAnnotation(kv.annotation || '') || 'text';
+      steps.push(createParsedStep({
+        rawStepId: steps.length,
+        annotation: kv.annotation || '',
+        operation,
+        prime: parsePrimeFromText(kv.annotation || ''),
+        start: inferred.start,
+        stop: inferred.stop,
+        factorStep: inferred.factorStep,
+        changedBits: [],
+        depth: Math.max(0, toNumberOr(firstDefined(kv.depth, kv.call_depth), 0)),
+        operationPath: [operation],
+      }));
+      continue;
+    }
 
     const startEvent = parseAnalysisStartLine(line);
     if (startEvent) {

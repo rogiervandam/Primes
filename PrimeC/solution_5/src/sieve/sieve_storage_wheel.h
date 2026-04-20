@@ -313,7 +313,7 @@
         TRACE_ANALYSIS_START(5, start, stop);
         const counter_t prime = step / 2;
 
-        TRACE_EVENT(sieve->bitstorage,
+        log5(sieve->bitstorage,
                "MarkFactorsWheelStorage: prime %jd (idx %jd), factors [%jd-%jd] step %jd",
                    (intmax_t)(step + 1), (intmax_t)prime, (intmax_t)start,
                    (intmax_t)stop, (intmax_t)step);

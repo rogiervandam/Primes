@@ -91,6 +91,12 @@ trace_write_json_string(FILE* f, const char* str)
     fputc('"', f);
 }
 
+static const char*
+trace_optional_label(const char* label)
+{
+    return (label && *label) ? label : NULL;
+}
+
 /* Set the current analysis context depth (called from TRACE_ANALYSIS_START macro) */
 static void
 trace_set_context(int level)
@@ -202,7 +208,7 @@ trace_record_step_full(void* bitstorage, const char* annotation)
     uint32_t changed_count = 0;
     for (uint32_t byte_idx = 0; byte_idx < g_trace.bitstorage_bytes; byte_idx++) {
         uint8_t diff = current[byte_idx] ^ g_trace.snapshot[byte_idx];
-        for (uint32_t bit = 0; diff; bit++, diff >>= 1) {
+        for (; diff; diff >>= 1) {
             if (diff & 1) changed_count++;
         }
     }
@@ -253,6 +259,111 @@ trace_record_step_full(void* bitstorage, const char* annotation)
     memcpy(g_trace.snapshot, current, g_trace.bitstorage_bytes);
 }
 
+static void
+trace_record_step_full_labeled(void* bitstorage, const char* annotation, const char* label)
+{
+    if (!g_trace.enabled || !g_trace.file) return;
+
+    const uint8_t* current = (const uint8_t*)bitstorage;
+    const uint32_t step_id = g_trace.step_count++;
+    const char* event_label = trace_optional_label(label);
+
+    fputs("EVENT", g_trace.file);
+    if (g_trace.depth > 0) fprintf(g_trace.file, " depth=%d", g_trace.depth);
+    if (event_label) {
+        fputs(" function=", g_trace.file);
+        trace_write_json_string(g_trace.file, event_label);
+    }
+
+    uint32_t changed_count = 0;
+    for (uint32_t byte_idx = 0; byte_idx < g_trace.bitstorage_bytes; byte_idx++) {
+        uint8_t diff = current[byte_idx] ^ g_trace.snapshot[byte_idx];
+        for (; diff; diff >>= 1) {
+            if (diff & 1) changed_count++;
+        }
+    }
+
+    fputs(" annotation=", g_trace.file);
+    trace_write_json_string(g_trace.file, annotation ? annotation : "");
+
+    fprintf(g_trace.file, " changed_count=%u changed_bits=[", changed_count);
+    int first = 1;
+    for (uint32_t byte_idx = 0; byte_idx < g_trace.bitstorage_bytes; byte_idx++) {
+        uint8_t diff = current[byte_idx] ^ g_trace.snapshot[byte_idx];
+        for (uint32_t bit = 0; diff; bit++, diff >>= 1) {
+            if (diff & 1) {
+                uint32_t bit_index = byte_idx * 8 + bit;
+                if (!first) fputc(',', g_trace.file);
+                fprintf(g_trace.file, "%u", bit_index);
+                first = 0;
+            }
+        }
+    }
+
+    fputc(']', g_trace.file);
+    fputc('\n', g_trace.file);
+
+    if (g_trace.json_enabled && g_trace.json_file) {
+        if (step_id > 0) fputc(',', g_trace.json_file);
+
+        fputs("{\"annotation\":", g_trace.json_file);
+        trace_write_json_string(g_trace.json_file, annotation ? annotation : "");
+        fprintf(g_trace.json_file, ",\"depth\":%d", g_trace.depth);
+        if (event_label) {
+            fputs(",\"function\":", g_trace.json_file);
+            trace_write_json_string(g_trace.json_file, event_label);
+        }
+        fputs(",\"changed_bits\":[", g_trace.json_file);
+
+        first = 1;
+        for (uint32_t byte_idx = 0; byte_idx < g_trace.bitstorage_bytes; byte_idx++) {
+            uint8_t diff = current[byte_idx] ^ g_trace.snapshot[byte_idx];
+            for (uint32_t bit = 0; diff; bit++, diff >>= 1) {
+                if (diff & 1) {
+                    uint32_t bit_index = byte_idx * 8 + bit;
+                    if (!first) fputc(',', g_trace.json_file);
+                    fprintf(g_trace.json_file, "%u", bit_index);
+                    first = 0;
+                }
+            }
+        }
+        fputs("]}", g_trace.json_file);
+    }
+
+    memcpy(g_trace.snapshot, current, g_trace.bitstorage_bytes);
+}
+
+static void
+trace_record_text_full(const char* annotation, const char* label)
+{
+    if (!g_trace.enabled || !g_trace.file) return;
+
+    const uint32_t step_id = g_trace.step_count++;
+    const char* event_label = trace_optional_label(label);
+
+    fputs("TEXT", g_trace.file);
+    if (g_trace.depth > 0) fprintf(g_trace.file, " depth=%d", g_trace.depth);
+    if (event_label) {
+        fputs(" function=", g_trace.file);
+        trace_write_json_string(g_trace.file, event_label);
+    }
+    fputs(" annotation=", g_trace.file);
+    trace_write_json_string(g_trace.file, annotation ? annotation : "");
+    fputc('\n', g_trace.file);
+
+    if (g_trace.json_enabled && g_trace.json_file) {
+        if (step_id > 0) fputc(',', g_trace.json_file);
+        fputs("{\"type\":\"text\",\"annotation\":", g_trace.json_file);
+        trace_write_json_string(g_trace.json_file, annotation ? annotation : "");
+        fprintf(g_trace.json_file, ",\"depth\":%d", g_trace.depth);
+        if (event_label) {
+            fputs(",\"function\":", g_trace.json_file);
+            trace_write_json_string(g_trace.json_file, event_label);
+        }
+        fputs(",\"changed_bits\":[]}", g_trace.json_file);
+    }
+}
+
 /*
  * Simple step recording (backward-compatible convenience).
  */
@@ -280,16 +391,45 @@ trace_record_step_fmt(void* bitstorage, const char* fmt, ...)
 }
 
 static void
-trace_append_text_fmt(const char* fmt, ...)
+trace_record_step_labeled_fmt(void* bitstorage, const char* label, const char* fmt, ...)
 {
-    if (!g_trace.enabled || !g_trace.file) return;
+    if (!g_trace.enabled) return;
 
+    char annotation[1024];
     va_list args;
     va_start(args, fmt);
-    vfprintf(g_trace.file, fmt, args);
+    vsnprintf(annotation, sizeof(annotation), fmt, args);
     va_end(args);
 
-    fputc('\n', g_trace.file);
+    trace_record_step_full_labeled(bitstorage, annotation, label);
+}
+
+static void
+trace_record_text_fmt(const char* fmt, ...)
+{
+    if (!g_trace.enabled) return;
+
+    char annotation[1024];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(annotation, sizeof(annotation), fmt, args);
+    va_end(args);
+
+    trace_record_text_full(annotation, NULL);
+}
+
+static void
+trace_record_text_labeled_fmt(const char* label, const char* fmt, ...)
+{
+    if (!g_trace.enabled) return;
+
+    char annotation[1024];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(annotation, sizeof(annotation), fmt, args);
+    va_end(args);
+
+    trace_record_text_full(annotation, label);
 }
 
 /*
