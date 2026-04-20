@@ -166,6 +166,11 @@ export class SieveRenderer {
     this.sieveSize = 0;
     this.bitState = null;
     this.changedBits = null;
+    this.targetBits = null;
+    this.targetHitCounts = null;
+    this.focusStart = null;
+    this.focusStop = null;
+    this.searchHighlight = null;
     this.zoom = 1;
     this.panX = 0;
     this.panY = 0;
@@ -201,6 +206,8 @@ export class SieveRenderer {
     this.showNumberLabels = false;
     this.showByteLabels = false;
     this.showVectorLabels = true;
+    this.bitLabelMode = 'global';
+    this.byteLabelMode = 'group';
 
     // Optional grouping outlines
     this.outlineEnabled = false;
@@ -424,6 +431,11 @@ export class SieveRenderer {
     this.sieveSize = sieveSize;
     this.bitState = new Uint8Array(bitCount);
     this.changedBits = new Set();
+    this.targetBits = new Set();
+    this.targetHitCounts = new Map();
+    this.focusStart = null;
+    this.focusStop = null;
+    this.searchHighlight = null;
     this.lastAccessStep = new Int32Array(bitCount).fill(-1);
     this._frozenClPerVRow = 0;
   }
@@ -434,9 +446,123 @@ export class SieveRenderer {
     return this.cachelineSize * 8;
   }
 
-  setState(bitState, changedBits) {
+  setState(bitState, changedBits, targetBits = null, targetHitCounts = null, focusRange = null) {
     this.bitState = bitState;
     this.changedBits = changedBits;
+    this.targetBits = targetBits || new Set();
+    this.targetHitCounts = targetHitCounts || new Map();
+    this.focusStart = focusRange?.focusStart ?? null;
+    this.focusStop = focusRange?.focusStop ?? null;
+  }
+
+  setSearchHighlight(type, index, bitIndex = null) {
+    this.searchHighlight = {
+      type,
+      index,
+      bitIndex,
+    };
+  }
+
+  clearSearchHighlight() {
+    this.searchHighlight = null;
+  }
+
+  _bitLabelValue(globalBit, bitInByte) {
+    if (this.bitLabelMode === 'byte') return bitInByte;
+    if (this.bitLabelMode === 'group') {
+      const groupBits = this.customGroupingBits > 0 ? this.customGroupingBits : Math.max(1, this.vectorGroup * 64);
+      return globalBit % groupBits;
+    }
+    return globalBit;
+  }
+
+  _byteLabelValue(globalBit) {
+    const globalByte = Math.floor(globalBit / 8);
+    if (this.byteLabelMode === 'global') return globalByte;
+    const groupBits = this.customGroupingBits > 0 ? this.customGroupingBits : Math.max(1, this.vectorGroup * 64);
+    const groupBytes = Math.max(1, Math.floor(groupBits / 8));
+    return globalByte % groupBytes;
+  }
+
+  _isInFocusRange(globalBit) {
+    return this.focusStart != null && this.focusStop != null && globalBit >= this.focusStart && globalBit <= this.focusStop;
+  }
+
+  _multiBitBounds(startBit, count) {
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    const px = this.pixelSize * this.zoom;
+
+    for (let offset = 0; offset < count; offset++) {
+      const pos = this.bitIndexToCanvas(startBit + offset);
+      if (!pos) continue;
+      minX = Math.min(minX, pos.x - px / 2);
+      minY = Math.min(minY, pos.y - px / 2);
+      maxX = Math.max(maxX, pos.x + px / 2);
+      maxY = Math.max(maxY, pos.y + px / 2);
+    }
+
+    if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+      return null;
+    }
+
+    return {
+      x: minX,
+      y: minY,
+      w: Math.max(px, maxX - minX),
+      h: Math.max(px, maxY - minY),
+      cx: (minX + maxX) / 2,
+      cy: (minY + maxY) / 2,
+    };
+  }
+
+  _renderSearchHighlight(ctx, canvasW, canvasH) {
+    if (!this.searchHighlight) return;
+
+    const bounds = this.getElementBounds(this.searchHighlight.type, this.searchHighlight.index);
+    if (!bounds) return;
+
+    const pad = Math.max(6, Math.min(16, 8 + this.zoom * 0.45));
+    const x = bounds.x - pad;
+    const y = bounds.y - pad;
+    const w = bounds.w + pad * 2;
+    const h = bounds.h + pad * 2;
+
+    if (x > canvasW || y > canvasH || x + w < 0 || y + h < 0) return;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.96)';
+    ctx.lineWidth = Math.max(1.5, 1.8 + this.zoom * 0.08);
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, Math.max(6, Math.min(16, 10 + this.zoom * 0.2)));
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(250, 204, 21, 0.9)';
+    ctx.lineWidth = Math.max(1, 1.1 + this.zoom * 0.04);
+    ctx.setLineDash([Math.max(3, 5 + this.zoom * 0.08), Math.max(2, 4 + this.zoom * 0.04)]);
+    ctx.stroke();
+
+    if (this.searchHighlight.bitIndex != null) {
+      const anchor = this.bitIndexToCanvas(this.searchHighlight.bitIndex);
+      if (anchor) {
+        const markerRadius = Math.max(4, Math.min(12, this.pixelSize * this.zoom * 1.8));
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(250, 204, 21, 0.92)';
+        ctx.beginPath();
+        ctx.arc(anchor.x, anchor.y, markerRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(17, 24, 39, 0.9)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+
+    ctx.restore();
   }
 
   /** Update heat map tracking: mark changed bits with current step */
@@ -789,7 +915,7 @@ export class SieveRenderer {
 
             // Byte label
             if (showByteLabels) {
-              const byteLabel = `Byte ${byteIdx}`;
+              const byteLabel = `Byte ${this._byteLabelValue(byteBitStart)}`;
               this._drawFittedLabel(
                 ctx,
                 byteLabel,
@@ -815,6 +941,8 @@ export class SieveRenderer {
               if (bitX + px < 0 || bitX > cw || bitY + px < 0 || bitY > ch) continue;
 
               let color;
+              const inFocusRange = this._isInFocusRange(globalBit);
+              const targetHitCount = this.targetHitCounts?.get(globalBit) || 0;
               if (this.heatMapEnabled && this.lastAccessStep) {
                 color = this._heatColor(globalBit);
               } else if (this.changedBits.has(globalBit)) {
@@ -831,10 +959,37 @@ export class SieveRenderer {
                 Math.max(1, Math.round(px)), Math.max(1, Math.round(px))
               );
 
+              if (inFocusRange) {
+                ctx.fillStyle = 'rgba(96, 165, 250, 0.16)';
+                ctx.fillRect(
+                  Math.round(bitX - 1), Math.round(bitY - 1),
+                  Math.max(2, Math.round(px + 2)), Math.max(2, Math.round(px + 2))
+                );
+              }
+
+              if (this.targetBits?.has(globalBit)) {
+                ctx.save();
+                ctx.strokeStyle = 'rgba(59, 130, 246, 0.95)';
+                ctx.lineWidth = Math.max(1, px * 0.12);
+                ctx.strokeRect(
+                  Math.round(bitX - 1), Math.round(bitY - 1),
+                  Math.max(3, Math.round(px + 2)), Math.max(3, Math.round(px + 2))
+                );
+                if (targetHitCount > 1) {
+                  ctx.strokeStyle = 'rgba(245, 158, 11, 0.95)';
+                  ctx.lineWidth = Math.max(1, px * 0.16);
+                  ctx.strokeRect(
+                    Math.round(bitX + 1), Math.round(bitY + 1),
+                    Math.max(1, Math.round(px - 2)), Math.max(1, Math.round(px - 2))
+                  );
+                }
+                ctx.restore();
+              }
+
               const dualLabelMode = showBitLabels && showNumberLabels;
               if (((dualLabelMode && px >= 22) || (!dualLabelMode && (showBitLabels || showNumberLabels) && px >= 12))) {
                 const lines = [];
-                if (showBitLabels) lines.push(String(globalBit));
+                if (showBitLabels) lines.push(String(this._bitLabelValue(globalBit, bitIdx)));
                 if (showNumberLabels) lines.push(String(bitToNumber(globalBit, this.storageModel)));
 
                 const dualLine = lines.length > 1;
@@ -870,6 +1025,8 @@ export class SieveRenderer {
       }
       // No separator line â€” spacing between rows is transparent (background color)
     }
+
+    this._renderSearchHighlight(ctx, cw, ch);
   }
 
   canvasToBitIndex(canvasX, canvasY) {
@@ -1232,7 +1389,9 @@ export class SieveRenderer {
     const groupLabel = this._groupLabel(vectorIdx);
     const state = this.bitState[bitIdx] ? 'composite' : 'prime candidate';
     const changed = this.changedBits.has(bitIdx) ? ' [CHANGED]' : '';
-    return `Bit ${bitIdx} -> Number ${number} | byte ${byteInVector} in ${groupLabel}, ${byteIdx} from start | uint64 ${u64InVector} in ${groupLabel}, ${u64Idx} from start | Cache line ${cacheLineIdx} | ${state}${changed}`;
+    const focused = this.targetBits?.has(bitIdx) ? ' [FOCUS]' : '';
+    const hitCount = this.targetHitCounts?.get(bitIdx) || 0;
+    return `Bit ${bitIdx} -> Number ${number} | byte ${byteInVector} in ${groupLabel}, ${byteIdx} from start | uint64 ${u64InVector} in ${groupLabel}, ${u64Idx} from start | Cache line ${cacheLineIdx} | target hits ${hitCount} | ${state}${changed}${focused}`;
   }
 
   toDataURL() {
@@ -1460,7 +1619,7 @@ export class SieveRenderer {
   }
 
   /** Set zoom & pan so all content fits with a border */
-  zoomToFit(canvasW, canvasH) {
+  zoomToFit(canvasW, canvasH, options = {}) {
     if (this.bitCount === 0 || canvasW <= 0 || canvasH <= 0) return;
 
     // Measure base dimensions at zoom=1
@@ -1480,7 +1639,7 @@ export class SieveRenderer {
     // Center content
     const finalDims = this.contentDimensions();
     this.panX = (canvasW - finalDims.width) / 2;
-    this.panY = (canvasH - finalDims.height) / 2;
+    this.panY = options.alignTop ? 12 : (canvasH - finalDims.height) / 2;
   }
 
   /** Viewport info for scrollbars/minimap */
@@ -1602,6 +1761,18 @@ export class SieveRenderer {
     }
 
     if (type === 'byte') {
+      return this._multiBitBounds(index * 8, 8);
+    }
+
+    if (type === 'uint32') {
+      return this._multiBitBounds(index * 32, 32);
+    }
+
+    if (type === 'uint64') {
+      return this._multiBitBounds(index * 64, 64);
+    }
+
+    if (type === 'byte-legacy') {
       const bitStart = index * 8;
       if (bitStart >= this.bitCount) return null;
       const clIdx = Math.floor(bitStart / bitsPerCacheLine);

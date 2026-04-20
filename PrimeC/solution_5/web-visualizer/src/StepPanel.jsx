@@ -278,20 +278,13 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
 
   return (
     <div className={`step-panel${panelCollapsed ? ' collapsed' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
-      {panelCollapsed && fileName && (
+      {panelCollapsed && (
         <div className="step-panel-floating-title">
           <button className="step-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Expand events panel">
             ▶
           </button>
-          <span className="file-name" title={fileName}>{fileName}</span>
+          <span className="file-name" title={fileName || 'Events'}>{fileName || 'Events'}</span>
           {onClose && <button className="btn-icon btn-icon-sm" onClick={onClose} title="Close file">✕</button>}
-        </div>
-      )}
-      {panelCollapsed && (
-        <div className="step-panel-collapsed-dock">
-          <div className="step-panel-collapsed-header" title="Events">
-            <h3>Events</h3>
-          </div>
         </div>
       )}
       {!panelCollapsed && (

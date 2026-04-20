@@ -60,6 +60,7 @@ function parseJsonTrace(text) {
 
   const steps = rawSteps.map((s, idx) => {
     const inferred = inferMetaFromAnnotation(s.annotation || '');
+    const maskMeta = deriveMaskMeta(s, header.bitCount);
     const start = toNullableNumber(
       firstDefined(s.start, s.block_start, s.init, inferred.start)
     );
@@ -82,6 +83,10 @@ function parseJsonTrace(text) {
     factorStep,
     changedBits: new Uint32Array(s.changed_bits || []),
     numChanged: (s.changed_bits || []).length,
+    targetBits: new Uint32Array(maskMeta.targetBits),
+    targetHitCounts: new Uint16Array(maskMeta.targetHitCounts),
+    focusStart: maskMeta.focusStart,
+    focusStop: maskMeta.focusStop,
     // Hierarchy / nesting support (dynamic depth levels)
     depth: Math.max(0, s.depth ?? s.call_depth ?? 0),
     operationPath: Array.isArray(s.operation_path)
@@ -148,6 +153,7 @@ function parseTextTrace(text) {
       );
 
       const changedBits = upper.startsWith('TEXT ') ? [] : parseChangedBits(kv.changed_bits || '');
+      const maskMeta = deriveMaskMeta(kv, headerKv.bit_count ? toNumberOr(headerKv.bit_count, 0) : 0);
       const operation = kv.function || kv.op || kv.operation || inferOperationFromAnnotation(kv.annotation || '');
       const operationPath = Array.isArray(kv.operation_path)
         ? kv.operation_path
@@ -163,6 +169,10 @@ function parseTextTrace(text) {
         factorStep,
         changedBits: new Uint32Array(changedBits),
         numChanged: changedBits.length,
+        targetBits: new Uint32Array(maskMeta.targetBits),
+        targetHitCounts: new Uint16Array(maskMeta.targetHitCounts),
+        focusStart: maskMeta.focusStart,
+        focusStop: maskMeta.focusStop,
         depth: Math.max(0, toNumberOr(firstDefined(kv.depth, kv.call_depth), 0)),
         operationPath,
         parentId: toNullableNumber(firstDefined(kv.parent_id, kv.parentId)),
@@ -209,6 +219,10 @@ function parseTextTrace(text) {
       stop: event.stop,
       factorStep: event.factorStep,
       changedBits: event.changedBits,
+      targetBits: event.targetBits,
+      targetHitCounts: event.targetHitCounts,
+      focusStart: event.focusStart,
+      focusStop: event.focusStop,
       depth,
       operationPath: [...opStack, event.operation],
     }));
@@ -304,6 +318,10 @@ function parseFreeformTextTrace(lines, headerKv = {}) {
       stop: event.stop,
       factorStep: event.factorStep,
       changedBits: event.changedBits,
+      targetBits: event.targetBits,
+      targetHitCounts: event.targetHitCounts,
+      focusStart: event.focusStart,
+      focusStop: event.focusStop,
       depth,
       operationPath: [...opStack, event.operation],
     }));
@@ -336,6 +354,10 @@ function createParsedStep({
   stop,
   factorStep,
   changedBits,
+  targetBits,
+  targetHitCounts,
+  focusStart,
+  focusStop,
   depth,
   operationPath,
 }) {
@@ -349,6 +371,10 @@ function createParsedStep({
     factorStep: toNullableNumber(factorStep),
     changedBits: new Uint32Array(changedBits || []),
     numChanged: (changedBits || []).length,
+    targetBits: new Uint32Array(targetBits || []),
+    targetHitCounts: new Uint16Array(targetHitCounts || []),
+    focusStart: toNullableNumber(focusStart),
+    focusStop: toNullableNumber(focusStop),
     depth: Math.max(0, toNumberOr(depth, 0)),
     operationPath: Array.isArray(operationPath) && operationPath.length > 0
       ? operationPath
@@ -366,13 +392,18 @@ function parseFreeformStepEvent(line, bitCountHint = 0) {
     const factorStep = Number(rangeMatch[1]);
     const start = Number(rangeMatch[2]);
     const stop = Number(rangeMatch[3]);
+    const changedBits = expandChangedBitsFromRange(start, stop, factorStep, bitCountHint);
     return {
       operation: 'setBitsRange',
       prime: parsePrimeFromText(text),
       start,
       stop,
       factorStep,
-      changedBits: expandChangedBitsFromRange(start, stop, factorStep, bitCountHint),
+      changedBits,
+      targetBits: changedBits,
+      targetHitCounts: changedBits.map(() => 1),
+      focusStart: start,
+      focusStop: stop,
     };
   }
 
@@ -387,16 +418,38 @@ function parseFreeformStepEvent(line, bitCountHint = 0) {
       stop: idx,
       factorStep: null,
       changedBits: Number.isFinite(idx) && idx >= 0 ? [idx] : [],
+      targetBits: Number.isFinite(idx) && idx >= 0 ? [idx] : [],
+      targetHitCounts: Number.isFinite(idx) && idx >= 0 ? [1] : [],
+      focusStart: idx,
+      focusStop: idx,
     };
   }
 
   // Generic fallback: infer aliases (start/stop/step) from sentence.
   const inferred = inferMetaFromAnnotation(text);
+  const maskMeta = deriveMaskMeta(text, bitCountHint);
+  if (maskMeta.targetBits.length > 0 || maskMeta.focusStart != null || maskMeta.focusStop != null) {
+    return {
+      operation: inferOperationFromAnnotation(text),
+      prime: parsePrimeFromText(text),
+      start: inferred.start,
+      stop: inferred.stop,
+      factorStep: inferred.factorStep,
+      changedBits: maskMeta.targetBits,
+      targetBits: maskMeta.targetBits,
+      targetHitCounts: maskMeta.targetHitCounts,
+      focusStart: maskMeta.focusStart,
+      focusStop: maskMeta.focusStop,
+    };
+  }
   if (inferred.start != null || inferred.stop != null || inferred.factorStep != null) {
     const start = inferred.start;
     const stop = inferred.stop;
     const factorStep = inferred.factorStep;
     const canExpand = start != null && stop != null && factorStep != null;
+    const changedBits = canExpand
+      ? expandChangedBitsFromRange(start, stop, factorStep, bitCountHint)
+      : [];
 
     return {
       operation: 'setBits',
@@ -404,9 +457,11 @@ function parseFreeformStepEvent(line, bitCountHint = 0) {
       start,
       stop,
       factorStep,
-      changedBits: canExpand
-        ? expandChangedBitsFromRange(start, stop, factorStep, bitCountHint)
-        : [],
+      changedBits,
+      targetBits: changedBits,
+      targetHitCounts: changedBits.map(() => 1),
+      focusStart: start,
+      focusStop: stop,
     };
   }
 
@@ -537,6 +592,92 @@ function parseChangedBits(raw) {
     .split(',')
     .map((s) => Number(s.trim()))
     .filter((n) => Number.isFinite(n) && n >= 0);
+}
+
+function parseIntegerList(raw) {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) return raw.map((value) => Number(value)).filter((value) => Number.isFinite(value));
+  return String(raw)
+    .split(/[\s,;]+/)
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value));
+}
+
+function buildMaskTargets(wordStart, wordStop, stepWords, wordBits, maskDescriptors, bitCountHint = 0) {
+  const hitMap = new Map();
+  const bound = Number.isFinite(bitCountHint) && bitCountHint > 0 ? bitCountHint : Number.MAX_SAFE_INTEGER;
+  if (!Number.isFinite(stepWords) || stepWords <= 0) {
+    return { targetBits: [], targetHitCounts: [] };
+  }
+
+  for (let wordIndex = wordStart; wordIndex <= wordStop; wordIndex += stepWords) {
+    for (const descriptor of maskDescriptors) {
+      const targetWord = wordIndex + descriptor.wordOffset;
+      if (targetWord < wordStart || targetWord > wordStop) continue;
+      const baseBit = targetWord * wordBits;
+      for (const relativeBit of descriptor.bits) {
+        const absoluteBit = baseBit + relativeBit;
+        if (absoluteBit < 0 || absoluteBit >= bound) continue;
+        hitMap.set(absoluteBit, (hitMap.get(absoluteBit) || 0) + 1);
+      }
+    }
+  }
+
+  return {
+    targetBits: Array.from(hitMap.keys()),
+    targetHitCounts: Array.from(hitMap.values()),
+  };
+}
+
+function deriveMaskMeta(source, bitCountHint = 0) {
+  const sourceObj = typeof source === 'string' ? parseKvLine(source) : (source || {});
+  const annotation = typeof source === 'string' ? source : String(firstDefined(sourceObj.annotation, '') || '');
+  const inferred = inferMetaFromAnnotation(annotation);
+
+  const focusStart = toNullableNumber(firstDefined(sourceObj.focus_start, sourceObj.focusStart, inferred.start));
+  const focusStop = toNullableNumber(firstDefined(sourceObj.focus_stop, sourceObj.focusStop, inferred.stop));
+
+  const explicitTargetBits = parseIntegerList(firstDefined(sourceObj.target_bits, sourceObj.targetBits));
+  const explicitTargetCounts = parseIntegerList(firstDefined(sourceObj.target_hit_counts, sourceObj.targetHitCounts));
+  if (explicitTargetBits.length > 0) {
+    return {
+      targetBits: explicitTargetBits,
+      targetHitCounts: explicitTargetBits.map((_, index) => Math.max(1, explicitTargetCounts[index] || 1)),
+      focusStart,
+      focusStop,
+    };
+  }
+
+  const wordBits = toNullableNumber(firstDefined(sourceObj.word_bits, sourceObj.wordBits));
+  const wordStart = toNullableNumber(firstDefined(sourceObj.word_start, sourceObj.wordStart));
+  const wordStop = toNullableNumber(firstDefined(sourceObj.word_stop, sourceObj.wordStop));
+  const stepWords = toNullableNumber(firstDefined(sourceObj.step_words, sourceObj.stepWords));
+  const maskBits = parseIntegerList(firstDefined(sourceObj.mask_bits, sourceObj.maskBits));
+  const mask1Bits = parseIntegerList(firstDefined(sourceObj.mask1_bits, sourceObj.mask1Bits));
+  const mask2Bits = parseIntegerList(firstDefined(sourceObj.mask2_bits, sourceObj.mask2Bits));
+
+  if (wordBits != null && wordStart != null && wordStop != null && stepWords != null) {
+    const maskDescriptors = [];
+    if (maskBits.length > 0) maskDescriptors.push({ wordOffset: 0, bits: maskBits });
+    if (mask1Bits.length > 0) maskDescriptors.push({ wordOffset: 0, bits: mask1Bits });
+    if (mask2Bits.length > 0) maskDescriptors.push({ wordOffset: 1, bits: mask2Bits });
+    if (maskDescriptors.length > 0) {
+      const built = buildMaskTargets(wordStart, wordStop, stepWords, wordBits, maskDescriptors, bitCountHint);
+      return {
+        targetBits: built.targetBits,
+        targetHitCounts: built.targetHitCounts,
+        focusStart,
+        focusStop,
+      };
+    }
+  }
+
+  return {
+    targetBits: [],
+    targetHitCounts: [],
+    focusStart,
+    focusStop,
+  };
 }
 
 function firstAliasValue(obj, aliases, fallback) {

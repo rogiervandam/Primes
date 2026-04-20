@@ -50,7 +50,7 @@ for arg in "$@"; do
         COMPILE_FULL="compilefull"
     elif [ "$arg" = "--embed" ] || [ "$arg" = "embed" ]; then
         EMBED="embed"
-    elif [ "$arg" = "visualize" ]; then
+    elif [ "$arg" = "visualize" ] || [ "$arg" = "visual" ]; then
         VISUALIZE="visualize"
     elif [ "$arg" = "native" ]; then
         VISUALIZE_MODE="native"

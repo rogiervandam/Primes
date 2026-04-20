@@ -302,11 +302,11 @@ export default function SettingsPanel({
       type="button"
       className={`anno-btn${active ? ' active' : ''}`}
       onClick={onClick}
-      title={hint}
+      title={hint || title}
     >
       <span className="anno-btn-preview">{preview}</span>
       <span className="anno-btn-title">{title}</span>
-      <span className="anno-btn-hint">{hint}</span>
+      {hint ? <span className="anno-btn-hint">{hint}</span> : null}
     </button>
   );
 
@@ -327,128 +327,186 @@ export default function SettingsPanel({
     target: 'none',
   };
 
+  const bitAnnotationModeLabel = !s.showBitLabels
+    ? 'Off'
+    : (s.bitLabelMode === 'byte' ? 'Relative to byte' : s.bitLabelMode === 'group' ? 'Relative to grouping' : 'Entire sieve');
+  const byteAnnotationModeLabel = !s.showByteLabels
+    ? 'Off'
+    : ((s.byteLabelMode || 'group') === 'global' ? 'Entire sieve' : 'Relative to grouping');
+
+  const cycleBitAnnotation = () => {
+    if (!s.showBitLabels) {
+      onChange({ ...s, showBitLabels: true, bitLabelMode: 'global' });
+      return;
+    }
+    if ((s.bitLabelMode || 'global') === 'global') {
+      onChange({ ...s, showBitLabels: true, bitLabelMode: 'byte' });
+      return;
+    }
+    if (s.bitLabelMode === 'byte') {
+      onChange({ ...s, showBitLabels: true, bitLabelMode: 'group' });
+      return;
+    }
+    onChange({ ...s, showBitLabels: false, bitLabelMode: 'global' });
+  };
+
+  const cycleByteAnnotation = () => {
+    if (!s.showByteLabels) {
+      onChange({ ...s, showByteLabels: true, byteLabelMode: 'group' });
+      return;
+    }
+    if ((s.byteLabelMode || 'group') === 'group') {
+      onChange({ ...s, showByteLabels: true, byteLabelMode: 'global' });
+      return;
+    }
+    onChange({ ...s, showByteLabels: false, byteLabelMode: 'group' });
+  };
+
   /**
    * Unified layout controls with icon buttons and spacing rows.
    * No large preview block so panel height remains stable while changing options.
    */
   const LayoutOverview = () => {
+    const primaryGroupingFamilies = GROUPING_FAMILIES.slice(0, 2);
+    const secondaryGroupingFamilies = GROUPING_FAMILIES.slice(2);
 
-    // Compact H/V spacing control row
-    const SpRow = ({ label, dot, keyH, keyV, max }) => (
-      <div className="lo-sp-row">
-        <span className="lo-sp-dot" style={{ background: dot }} />
-        <span className="lo-sp-label">{label}</span>
-        <span className="lo-sp-axis">H</span>
-        <button className="btn-icon btn-sm" onClick={() => decr(keyH)}>−</button>
-        <span className="lo-sp-val">{s[keyH] ?? 0}</span>
-        <button className="btn-icon btn-sm" onClick={() => incr(keyH, max)}>+</button>
-        <span className="lo-sp-axis">V</span>
-        <button className="btn-icon btn-sm" onClick={() => decr(keyV)}>−</button>
-        <span className="lo-sp-val">{s[keyV] ?? 0}</span>
-        <button className="btn-icon btn-sm" onClick={() => incr(keyV, max)}>+</button>
+    // Compact spacing control row
+    const SpacingControl = ({ title, keyH, keyV, max, className = '' }) => (
+      <div className={`spacing-inline-control ${className}`.trim()}>
+        <div className="spacing-inline-title">{title}</div>
+        <div className="spacing-inline-row">
+          <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => decr(keyH)} title={`Decrease ${title.toLowerCase()} horizontal spacing`}>−</button>
+          <div className="spacing-inline-preview spacing-inline-preview-h" aria-hidden="true">
+            <span className="spacing-inline-box" />
+            <span className="spacing-inline-gap">{s[keyH] ?? 0}</span>
+            <span className="spacing-inline-box" />
+          </div>
+          <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => incr(keyH, max)} title={`Increase ${title.toLowerCase()} horizontal spacing`}>+</button>
+        </div>
+        <div className="spacing-inline-row">
+          <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => decr(keyV)} title={`Decrease ${title.toLowerCase()} vertical spacing`}>−</button>
+          <div className="spacing-inline-preview spacing-inline-preview-v" aria-hidden="true">
+            <span className="spacing-inline-box" />
+            <span className="spacing-inline-gap">{s[keyV] ?? 0}</span>
+            <span className="spacing-inline-box" />
+          </div>
+          <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => incr(keyV, max)} title={`Increase ${title.toLowerCase()} vertical spacing`}>+</button>
+        </div>
       </div>
     );
 
     return (
       <>
       <div className="settings-section lo-section">
-        <label>Grouping</label>
+        <label>Grouping and arrangements</label>
 
         {/* Bit layout row */}
-        <div className="lo-level-row">
+        <div className="lo-level-row lo-level-row-with-spacing">
           <span className="lo-level-tag">Bit</span>
-          <div className="layout-icons">
-            {Object.entries(BIT_LAYOUTS).map(([k, v]) => (
-              <LayoutIcon key={k} cols={v.grid3x3 ? 3 : v.cols} rows={v.grid3x3 ? 3 : v.rows}
-                          grid3x3={v.grid3x3} active={s.bitLayout === k}
-                          onClick={() => set('bitLayout', k)} tooltip={BIT_LAYOUT_TIPS[k]} size={40} />
-            ))}
+          <div className="lo-row-body">
+            <div className="layout-icons">
+              {Object.entries(BIT_LAYOUTS).map(([k, v]) => (
+                <LayoutIcon key={k} cols={v.grid3x3 ? 3 : v.cols} rows={v.grid3x3 ? 3 : v.rows}
+                            grid3x3={v.grid3x3} active={s.bitLayout === k}
+                            onClick={() => set('bitLayout', k)} tooltip={BIT_LAYOUT_TIPS[k]} size={48} />
+              ))}
+            </div>
+            <SpacingControl title="Bit spacing" keyH="bitSpacingH" keyV="bitSpacingV" max={10} />
           </div>
         </div>
         <p className="layout-description layout-description-grouping">{BIT_LAYOUT_TIPS[s.bitLayout] || 'Pick how bits are arranged inside a byte.'}</p>
 
         {/* Byte layout row */}
-        <div className="lo-level-row">
+        <div className="lo-level-row lo-level-row-with-spacing">
           <span className="lo-level-tag">Byte</span>
-          <div className="layout-icons">
-            {Object.entries(BYTE_LAYOUTS).map(([k, v]) => (
-              <LayoutIcon key={k} cols={v.grid3x3 ? 3 : v.cols} rows={v.grid3x3 ? 3 : v.rows}
-                          grid3x3={v.grid3x3} active={s.byteLayout === k}
-                          onClick={() => set('byteLayout', k)} tooltip={BYTE_LAYOUT_TIPS[k]} size={40} />
-            ))}
+          <div className="lo-row-body">
+            <div className="layout-icons">
+              {Object.entries(BYTE_LAYOUTS).map(([k, v]) => (
+                <LayoutIcon key={k} cols={v.grid3x3 ? 3 : v.cols} rows={v.grid3x3 ? 3 : v.rows}
+                            grid3x3={v.grid3x3} active={s.byteLayout === k}
+                            onClick={() => set('byteLayout', k)} tooltip={BYTE_LAYOUT_TIPS[k]} size={48} />
+              ))}
+            </div>
+            <SpacingControl title="Byte spacing" keyH="byteSpacingH" keyV="byteSpacingV" max={20} />
           </div>
         </div>
         <p className="layout-description layout-description-grouping">{BYTE_LAYOUT_TIPS[s.byteLayout] || 'Pick how bytes are arranged inside a uint64.'}</p>
 
-        <div className="lo-level-row lo-level-row-stacked">
+        <div className="lo-level-row lo-level-row-stacked lo-level-row-with-spacing">
           <span className="lo-level-tag">Grouping</span>
-          <div className="lo-vec-wrap">
-            <div className="grouping-preset-row">
-              {GROUPING_FAMILIES.map(renderGroupingFamily)}
-              <button
-                type="button"
-                className={`btn-option grouping-chip${isCustomVectorMode ? ' active' : ''}`}
-                title="Custom bit grouping mode"
-                onClick={() => {
-                  setGroupingMenuOpen(false);
-                  setCustomPresetMenuOpen(false);
-                  setCustomVectorGrouping((parseInt(s.customGroupBits || 0, 10) || CUSTOM_GROUP_PRESETS[2]));
-                }}
-              >
-                <span className="grouping-chip-preview grouping-chip-preview-custom" aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
-                </span>
-                <span>custom</span>
-              </button>
-            </div>
-            <p className="layout-description">Current: {activeGroupingLabel}</p>
-            {isCustomVectorMode && (
-              <>
-                <div className="grouping-custom-control">
-                  <div className={`grouping-custom-input-wrap${customPresetMenuOpen ? ' open' : ''}`}>
-                    <input
-                      className="grouping-custom-input"
-                      type="number"
-                      min={1}
-                      step={1}
-                      value={Math.max(1, parseInt(s.customGroupBits || 1, 10) || 1)}
-                      onChange={(e) => setCustomVectorGrouping(e.target.value)}
-                      placeholder="bits"
-                    />
-                    <button
-                      type="button"
-                      className={`grouping-custom-toggle${customPresetMenuOpen ? ' active' : ''}`}
-                      title={customPresetMenuOpen ? 'Hide preset group sizes' : 'Show preset group sizes'}
-                      aria-expanded={customPresetMenuOpen ? 'true' : 'false'}
-                      onClick={() => setCustomPresetMenuOpen((open) => !open)}
-                    >
-                      {customPresetMenuOpen ? '▴' : '▾'}
-                    </button>
-                    {customPresetMenuOpen && (
-                      <div className="grouping-custom-menu">
-                        {CUSTOM_GROUP_PRESETS.map((p) => (
-                          <button
-                            key={p}
-                            type="button"
-                            className={`btn-option grouping-custom-menu-item${Number(s.customGroupBits) === p ? ' active' : ''}`}
-                            onClick={() => {
-                              setCustomVectorGrouping(p);
-                              setCustomPresetMenuOpen(false);
-                            }}
-                            title={`Use ${p} bits per grouping`}
-                          >
-                            {p}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+          <div className="lo-row-body lo-row-body-stacked">
+            <div className="lo-vec-wrap">
+              <div className="grouping-preset-row grouping-preset-row-primary">
+                {primaryGroupingFamilies.map(renderGroupingFamily)}
+              </div>
+              <div className="grouping-preset-row grouping-preset-row-secondary">
+                {secondaryGroupingFamilies.map(renderGroupingFamily)}
+                <button
+                  type="button"
+                  className={`btn-option grouping-chip${isCustomVectorMode ? ' active' : ''}`}
+                  title="Custom bit grouping mode"
+                  onClick={() => {
+                    setGroupingMenuOpen(false);
+                    setCustomPresetMenuOpen(false);
+                    setCustomVectorGrouping((parseInt(s.customGroupBits || 0, 10) || CUSTOM_GROUP_PRESETS[2]));
+                  }}
+                >
+                  <span className="grouping-chip-preview grouping-chip-preview-custom" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                  <span>custom</span>
+                </button>
+              </div>
+              <p className="layout-description">Current: {activeGroupingLabel}</p>
+              {isCustomVectorMode && (
+                <>
+                  <div className="grouping-custom-control">
+                    <div className={`grouping-custom-input-wrap${customPresetMenuOpen ? ' open' : ''}`}>
+                      <input
+                        className="grouping-custom-input"
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={Math.max(1, parseInt(s.customGroupBits || 1, 10) || 1)}
+                        onChange={(e) => setCustomVectorGrouping(e.target.value)}
+                        placeholder="bits"
+                      />
+                      <button
+                        type="button"
+                        className={`grouping-custom-toggle${customPresetMenuOpen ? ' active' : ''}`}
+                        title={customPresetMenuOpen ? 'Hide preset group sizes' : 'Show preset group sizes'}
+                        aria-expanded={customPresetMenuOpen ? 'true' : 'false'}
+                        onClick={() => setCustomPresetMenuOpen((open) => !open)}
+                      >
+                        {customPresetMenuOpen ? '▴' : '▾'}
+                      </button>
+                      {customPresetMenuOpen && (
+                        <div className="grouping-custom-menu">
+                          {CUSTOM_GROUP_PRESETS.map((p) => (
+                            <button
+                              key={p}
+                              type="button"
+                              className={`btn-option grouping-custom-menu-item${Number(s.customGroupBits) === p ? ' active' : ''}`}
+                              onClick={() => {
+                                setCustomVectorGrouping(p);
+                                setCustomPresetMenuOpen(false);
+                              }}
+                              title={`Use ${p} bits per grouping`}
+                            >
+                              {p}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <span className="settings-hint">bits per group</span>
                   </div>
-                  <span className="settings-hint">bits per group</span>
-                </div>
-              </>
-            )}
+                </>
+              )}
+            </div>
+            <SpacingControl title="Grouping spacing" keyH="u64SpacingH" keyV="u64SpacingV" max={20} className="spacing-inline-grouping" />
           </div>
         </div>
 
@@ -460,7 +518,7 @@ export default function SettingsPanel({
               {Object.entries(CACHELINE_SIZES).map(([k]) => (
                 <button
                   key={k}
-                  className={`btn-option vector-chip${cachelineSize === parseInt(k) ? ' active' : ''}`}
+                  className={`btn-option grouping-chip cacheline-chip${cachelineSize === parseInt(k) ? ' active' : ''}`}
                   onClick={() => {
                     onCachelineSizeChange(parseInt(k));
                     onCachePresetChange('fixed');
@@ -471,7 +529,7 @@ export default function SettingsPanel({
                 </button>
               ))}
               <button
-                className={`btn-option vector-chip${(cachePreset || 'fixed') !== 'fixed' ? ' active' : ''}`}
+                className={`btn-option grouping-chip cacheline-chip${(cachePreset || 'fixed') !== 'fixed' ? ' active' : ''}`}
                 onClick={() => onCachePresetChange('custom')}
                 title="Custom cacheline size"
               >
@@ -485,11 +543,6 @@ export default function SettingsPanel({
         {/* Spacing controls — direct edits + on-canvas drag handles */}
       <div className="settings-section lo-section">
         <label>Spacing</label>
-        <div className="lo-sp-table">
-          <SpRow label="Bit"  dot="var(--fg-dim)"   keyH="bitSpacingH"  keyV="bitSpacingV"  max={10} />
-          <SpRow label="Byte" dot="var(--border)"   keyH="byteSpacingH" keyV="byteSpacingV" max={20} />
-          <SpRow label="u64"  dot="var(--accent)"   keyH="u64SpacingH"  keyV="u64SpacingV"  max={20} />
-        </div>
         <span className="settings-hint">Tip: click an outline on the canvas and drag the blue arrow handles to adjust spacing visually.</span>
       </div>
       </>
@@ -618,9 +671,9 @@ export default function SettingsPanel({
             />
             <AnnotationButton
               title="Bits"
-              hint="Bit indices in squares"
+              hint=""
               active={!!s.showBitLabels}
-              onClick={() => set('showBitLabels', !s.showBitLabels)}
+              onClick={cycleBitAnnotation}
               preview={(
                 <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
                   <rect x="1" y="1" width="6" height="6" rx="1" />
@@ -632,9 +685,9 @@ export default function SettingsPanel({
             />
             <AnnotationButton
               title="Bytes"
-              hint="Byte indices (zoom >= 4x)"
+              hint=""
               active={!!s.showByteLabels}
-              onClick={() => set('showByteLabels', !s.showByteLabels)}
+              onClick={cycleByteAnnotation}
               preview={(
                 <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
                   <rect x="1" y="1" width="18" height="8" rx="1" />

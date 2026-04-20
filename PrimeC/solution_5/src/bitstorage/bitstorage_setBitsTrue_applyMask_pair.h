@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include "../generic/variants/setsuffix.h"
 
 static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes)))
@@ -59,6 +61,82 @@ function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t
         *index_ptr     |= mask1; 
     }
 
+    char mask1_bits[2048] = {0};
+    char mask2_bits[2048] = {0};
+    char* mask1_bits_ptr = mask1_bits;
+    char* mask2_bits_ptr = mask2_bits;
+    size_t mask1_bits_remaining = sizeof(mask1_bits);
+    size_t mask2_bits_remaining = sizeof(mask2_bits);
+
+    #if defined(variant_base_type_t) && defined(BITBUCKET_ELEMENTS)
+    for (counter_t element_index = 0; element_index < BITBUCKET_ELEMENTS; element_index++) {
+        const uintmax_t lane_mask1 = (uintmax_t)mask1[element_index];
+        const uintmax_t lane_mask2 = (uintmax_t)mask2[element_index];
+        for (counter_t bit_offset = 0; bit_offset < bitcount_type(variant_base_type_t); bit_offset++) {
+            const uintmax_t absolute_bit = (uintmax_t)(element_index * bitcount_type(variant_base_type_t) + bit_offset);
+
+            if ((lane_mask1 & ((uintmax_t)1 << bit_offset)) != 0 && mask1_bits_remaining > 1) {
+                const int written = snprintf(mask1_bits_ptr, mask1_bits_remaining, mask1_bits_ptr == mask1_bits ? "%ju" : ",%ju", absolute_bit);
+                if (written > 0 && (size_t)written < mask1_bits_remaining) {
+                    mask1_bits_ptr += written;
+                    mask1_bits_remaining -= (size_t)written;
+                } else {
+                    mask1_bits_ptr[mask1_bits_remaining - 1] = '\0';
+                    mask1_bits_remaining = 1;
+                }
+            }
+
+            if ((lane_mask2 & ((uintmax_t)1 << bit_offset)) != 0 && mask2_bits_remaining > 1) {
+                const int written = snprintf(mask2_bits_ptr, mask2_bits_remaining, mask2_bits_ptr == mask2_bits ? "%ju" : ",%ju", absolute_bit);
+                if (written > 0 && (size_t)written < mask2_bits_remaining) {
+                    mask2_bits_ptr += written;
+                    mask2_bits_remaining -= (size_t)written;
+                } else {
+                    mask2_bits_ptr[mask2_bits_remaining - 1] = '\0';
+                    mask2_bits_remaining = 1;
+                }
+            }
+        }
+    }
+    #else
+    const uintmax_t scalar_mask1 = (uintmax_t)mask1;
+    const uintmax_t scalar_mask2 = (uintmax_t)mask2;
+    for (counter_t bit_offset = 0; bit_offset < bitcount_type(bitbucket_t); bit_offset++) {
+        if ((scalar_mask1 & ((uintmax_t)1 << bit_offset)) != 0 && mask1_bits_remaining > 1) {
+            const int written = snprintf(mask1_bits_ptr, mask1_bits_remaining, mask1_bits_ptr == mask1_bits ? "%ju" : ",%ju", (uintmax_t)bit_offset);
+            if (written > 0 && (size_t)written < mask1_bits_remaining) {
+                mask1_bits_ptr += written;
+                mask1_bits_remaining -= (size_t)written;
+            } else {
+                mask1_bits_ptr[mask1_bits_remaining - 1] = '\0';
+                mask1_bits_remaining = 1;
+            }
+        }
+        if ((scalar_mask2 & ((uintmax_t)1 << bit_offset)) != 0 && mask2_bits_remaining > 1) {
+            const int written = snprintf(mask2_bits_ptr, mask2_bits_remaining, mask2_bits_ptr == mask2_bits ? "%ju" : ",%ju", (uintmax_t)bit_offset);
+            if (written > 0 && (size_t)written < mask2_bits_remaining) {
+                mask2_bits_ptr += written;
+                mask2_bits_remaining -= (size_t)written;
+            } else {
+                mask2_bits_ptr[mask2_bits_remaining - 1] = '\0';
+                mask2_bits_remaining = 1;
+            }
+        }
+    }
+    #endif
+
+    log8(bitstorage,
+        "ApplyMaskPair: word_bits=%ju word_start=%ju word_stop=%ju step_words=%ju mask1_bits=%s mask2_bits=%s focus_start=%ju focus_stop=%ju bitrange=%ju-%ju",
+        (uintmax_t)bitcount_type(bitbucket_t),
+        (uintmax_t)range_start,
+        (uintmax_t)range_stop,
+        (uintmax_t)step,
+        mask1_bits,
+        mask2_bits,
+        (uintmax_t)(range_start * bitcount_type(bitbucket_t)),
+        (uintmax_t)((range_stop + 1) * bitcount_type(bitbucket_t) - 1),
+        (uintmax_t)(range_start * bitcount_type(bitbucket_t)),
+        (uintmax_t)((range_stop + 1) * bitcount_type(bitbucket_t) - 1));
     logEnd8(time_applyMask_pair);
 }
 

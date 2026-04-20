@@ -28,6 +28,8 @@ const DEFAULT_SETTINGS = {
   showNumberLabels: false,
   showByteLabels: true,
   showVectorLabels: true,
+  bitLabelMode: 'global',
+  byteLabelMode: 'group',
   outlines: {
     target: 'vector',
   },
@@ -52,9 +54,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [hoverInfo, setHoverInfo] = useState('');
   const [panelWidth, setPanelWidth] = useState(320);
   const [theme, setTheme] = useState('dark');
-  const [settingsCollapsed, setSettingsCollapsed] = useState(false);
+  const [settingsCollapsed, setSettingsCollapsed] = useState(true);
   const [layoutSettings, setLayoutSettings] = useState(DEFAULT_SETTINGS);
-  const [detailOpen, setDetailOpen] = useState(true);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [repeatAnim, setRepeatAnim] = useState(500);
@@ -78,7 +80,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [heatMapEnabled, setHeatMapEnabled] = useState(false);
   const [cachelineSize, setCachelineSize] = useState(64);
   const [cachePreset, setCachePreset] = useState('fixed');
-  const [stepsPanelCollapsed, setStepsPanelCollapsed] = useState(false);
+  const [stepsPanelCollapsed, setStepsPanelCollapsed] = useState(true);
   const [spacingFocus, setSpacingFocus] = useState(null);
   const [spacingGuide, setSpacingGuide] = useState(null); // { focus, axis, x1, y1, x2, y2, anchorX, anchorY }
   const [guideDrag, setGuideDrag] = useState(null); // { focus, axis, handle, startX, startY, startSpacing, anchorX, anchorY }
@@ -109,6 +111,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const layoutRefreshRaf1Ref = useRef(null);
   const layoutRefreshRaf2Ref = useRef(null);
   const viewportAnimRef = useRef(null);
+  const autoplayStartedRef = useRef(false);
+  const initialHighlightHoldRef = useRef(true);
 
   stepsRef.current = steps;
 
@@ -196,9 +200,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       const scaleH = 1 / Math.max(0.3, Math.cos(ax));
       const scaleW = 1 / Math.max(0.3, Math.cos(ay));
       const diagonalOverscan = 1 + Math.hypot(Math.sin(ax), Math.sin(ay)) * 0.55;
-      const dragOverscan = 1.7;
-      canvasW = Math.max(rect.width * 2.35, rect.width * scaleW * diagonalOverscan * dragOverscan);
-      canvasH = Math.max(rect.height * 2.35, rect.height * scaleH * diagonalOverscan * dragOverscan);
+      const dragOverscan = 3.1;
+      canvasW = Math.max(rect.width * 3.2, rect.width * scaleW * diagonalOverscan * dragOverscan);
+      canvasH = Math.max(rect.height * 3.2, rect.height * scaleH * diagonalOverscan * dragOverscan);
     }
 
     r.resize(canvasW, canvasH);
@@ -272,6 +276,12 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     schedulePostLayoutRefresh(anchor);
   }, [captureViewportAnchor, updateDetailOpen, schedulePostLayoutRefresh]);
 
+  const toggleSettingsPanel = useCallback(() => {
+    const anchor = captureViewportAnchor(0.5, 0.5);
+    setSettingsCollapsed((collapsed) => !collapsed);
+    schedulePostLayoutRefresh(anchor);
+  }, [captureViewportAnchor, schedulePostLayoutRefresh]);
+
   // Apply theme to document
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -313,7 +323,16 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     };
   }, [header.bitCount, header.sieveSize]);
 
-  const prevLayoutRef = useRef({ bitLayout: DEFAULT_SETTINGS.bitLayout, byteLayout: DEFAULT_SETTINGS.byteLayout, cachelineSize: 64, customGroupBits: 0 });
+  const prevLayoutRef = useRef({
+    bitLayout: DEFAULT_SETTINGS.bitLayout,
+    byteLayout: DEFAULT_SETTINGS.byteLayout,
+    cachelineSize: 64,
+    customGroupBits: 0,
+    vectorMode: DEFAULT_SETTINGS.vectorMode,
+    vectorGroup: DEFAULT_SETTINGS.vectorGroup,
+    vectorBaseBits: DEFAULT_SETTINGS.vectorBaseBits,
+    vectorLanes: DEFAULT_SETTINGS.vectorLanes,
+  });
 
   // Apply layout settings + theme to renderer
   useEffect(() => {
@@ -336,6 +355,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.showNumberLabels = layoutSettings.showNumberLabels === true;
     r.showByteLabels = layoutSettings.showByteLabels;
     r.showVectorLabels = layoutSettings.showVectorLabels !== false;
+    r.bitLabelMode = layoutSettings.bitLabelMode || 'global';
+    r.byteLabelMode = layoutSettings.byteLabelMode || 'group';
     const outlineTarget = layoutSettings.outlines?.target || 'none';
     r.outlineEnabled = outlineTarget !== 'none';
     r.outlineTarget = outlineTarget;
@@ -357,13 +378,17 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       prev.bitLayout !== layoutSettings.bitLayout ||
       prev.byteLayout !== layoutSettings.byteLayout ||
       prev.cachelineSize !== cachelineSize ||
-      prev.customGroupBits !== nextCustomGroupBits
+      prev.customGroupBits !== nextCustomGroupBits ||
+      prev.vectorMode !== layoutSettings.vectorMode ||
+      prev.vectorGroup !== layoutSettings.vectorGroup ||
+      prev.vectorBaseBits !== layoutSettings.vectorBaseBits ||
+      prev.vectorLanes !== layoutSettings.vectorLanes
     ) {
       r.unfreezeLayout();
       const el = containerRef.current;
       if (el) {
         const rect = el.getBoundingClientRect();
-        r.zoomToFit(rect.width, rect.height);
+        r.zoomToFit(rect.width, rect.height, { alignTop: header.bitCount > 16384 });
         setZoom(r.zoom);
       }
       r.freezeLayout();
@@ -371,6 +396,10 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       prev.byteLayout = layoutSettings.byteLayout;
       prev.cachelineSize = cachelineSize;
       prev.customGroupBits = nextCustomGroupBits;
+      prev.vectorMode = layoutSettings.vectorMode;
+      prev.vectorGroup = layoutSettings.vectorGroup;
+      prev.vectorBaseBits = layoutSettings.vectorBaseBits;
+      prev.vectorLanes = layoutSettings.vectorLanes;
     }
     r.render();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
@@ -504,10 +533,12 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   }, [panelWidth, showMinimap, stepsPanelCollapsed, settingsCollapsed, detailOpen, detailHeight, mode3D, captureViewportAnchor, refreshCanvasLayout, clearScheduledLayoutRefresh]);
 
   // Go to step
-  const goToStep = useCallback((target) => {
+  const goToStep = useCallback((target, options = {}) => {
     const r = rendererRef.current;
     if (!r || steps.length === 0) return;
     target = Math.max(0, Math.min(target, steps.length - 1));
+    const suppressHighlight = options.suppressHighlight === true;
+    if (!suppressHighlight) initialHighlightHoldRef.current = false;
 
     let bs = bitStateRef.current;
     if (!bs) return;
@@ -551,11 +582,28 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     for (let i = 0; i < bs.length; i++) { if (bs[i]) totalSet++; }
     setStepStats({ totalSet, newlySet, reSet });
 
-    const changedSet = new Set(step.changedBits);
+    const changedSet = suppressHighlight ? new Set() : new Set(step.changedBits);
+    const targetBits = step.targetBits && step.targetBits.length > 0 ? step.targetBits : step.changedBits;
+    const targetSet = suppressHighlight ? new Set() : new Set(targetBits);
+    const targetHitCounts = new Map();
+    if (!suppressHighlight) {
+      if (step.targetHitCounts && step.targetHitCounts.length === targetBits.length) {
+        for (let index = 0; index < targetBits.length; index++) {
+          targetHitCounts.set(targetBits[index], step.targetHitCounts[index]);
+        }
+      } else {
+        for (let index = 0; index < targetBits.length; index++) {
+          targetHitCounts.set(targetBits[index], 1);
+        }
+      }
+    }
 
     // Set operation for color-coded highlighting
     r.currentOperation = step.operation;
-    r.setState(bs, changedSet);
+    r.setState(bs, changedSet, targetSet, targetHitCounts, {
+      focusStart: suppressHighlight ? null : step.focusStart,
+      focusStop: suppressHighlight ? null : step.focusStop,
+    });
 
     // Update heat map
     if (r.heatMapEnabled) {
@@ -568,7 +616,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       r.resize(rect.width, rect.height);
       // Zoom to fit on first render
       if (!initialFitDoneRef.current) {
-        r.zoomToFit(rect.width, rect.height);
+        r.zoomToFit(rect.width, rect.height, { alignTop: header.bitCount > 16384 });
         setZoom(r.zoom);
         r.freezeLayout();
         initialFitDoneRef.current = true;
@@ -580,7 +628,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     setCurrentStep(target);
 
     // Trigger animation for changed bits
-    if (triggerAnimationRef.current) {
+    if (!suppressHighlight && triggerAnimationRef.current) {
       triggerAnimationRef.current(changedSet, { adaptiveDuration: !playing });
     }
   }, [currentStep, steps, updateMinimapAvailability, playing]);
@@ -890,10 +938,22 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   // Initial render — delay one frame so the container has its final dimensions
   useEffect(() => {
     if (steps.length > 0) {
-      const raf = requestAnimationFrame(() => goToStep(0));
+      autoplayStartedRef.current = false;
+      initialHighlightHoldRef.current = true;
+      const raf = requestAnimationFrame(() => goToStep(0, { suppressHighlight: true }));
       return () => cancelAnimationFrame(raf);
     }
   }, [steps]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (autoRender || steps.length <= 1 || autoplayStartedRef.current) return;
+    const timer = setTimeout(() => {
+      autoplayStartedRef.current = true;
+      initialHighlightHoldRef.current = false;
+      setPlaying(true);
+    }, 260);
+    return () => clearTimeout(timer);
+  }, [autoRender, steps.length]);
 
   // Multi-step selection: merge changedBits from selected steps
   useEffect(() => {
@@ -906,6 +966,10 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     }
     r.currentOperation = 'aggregate-selection';
     r.changedBits = merged;
+    r.targetBits = merged;
+    r.targetHitCounts = new Map(Array.from(merged, (bit) => [bit, 1]));
+    r.focusStart = null;
+    r.focusStop = null;
     r.render();
     r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
     updateMinimapAvailability();
@@ -956,6 +1020,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
   // Replay current step when animation mode or style changes so the active animation stops immediately.
   useEffect(() => {
+    if (initialHighlightHoldRef.current) return;
     stopSeqAnim();
     const step = steps[currentStep];
     if (!step || !step.changedBits || step.changedBits.length === 0) return;
@@ -1044,7 +1109,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     if (el) {
       const rect = el.getBoundingClientRect();
       r.unfreezeLayout();
-      r.zoomToFit(rect.width, rect.height);
+      r.zoomToFit(rect.width, rect.height, { alignTop: header.bitCount > 16384 });
       r.freezeLayout();
     } else {
       r.zoom = 1; r.panX = 0; r.panY = 0;
@@ -1447,8 +1512,19 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           if (idx < bs.length) bs[idx] = 1;
         }
         const changed = new Set(s.changedBits);
+        const targetBits = s.targetBits && s.targetBits.length > 0 ? s.targetBits : s.changedBits;
+        const targetSet = new Set(targetBits);
+        const targetHitCounts = new Map();
+        if (s.targetHitCounts && s.targetHitCounts.length === targetBits.length) {
+          for (let index = 0; index < targetBits.length; index++) targetHitCounts.set(targetBits[index], s.targetHitCounts[index]);
+        } else {
+          for (let index = 0; index < targetBits.length; index++) targetHitCounts.set(targetBits[index], 1);
+        }
         r.currentOperation = s.operation;
-        r.setState(bs, changed);
+        r.setState(bs, changed, targetSet, targetHitCounts, {
+          focusStart: s.focusStart,
+          focusStop: s.focusStop,
+        });
         r.render();
         if (track.requestFrame) track.requestFrame();
         await new Promise(resolve => setTimeout(resolve, 33));
@@ -1490,15 +1566,28 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   // Search: navigate to a specific bit, byte, uint64, vector, or number
   const handleSearch = useCallback((query) => {
     const r = rendererRef.current;
-    if (!r || !query.trim()) { setSearchResult(null); return; }
+    if (!r || !query.trim()) {
+      setSearchResult(null);
+      r?.clearSearchHighlight();
+      r?.render();
+      if (r) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      return;
+    }
 
     const q = query.trim().toLowerCase();
     let bitIdx = -1;
     let targetKind = 'bit';
+    let highlightIndex = -1;
 
     // Parse: "bit N", "byte N", "uint32 N", "uint64 N", "vector N", "number N", or just a plain number
     const m = q.match(/^(bit|byte|uint32|uint64|vector|number|num|#)?\s*(\d+)$/);
-    if (!m) { setSearchResult('Invalid query'); return; }
+    if (!m) {
+      r.clearSearchHighlight();
+      r.render();
+      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      setSearchResult('Invalid query');
+      return;
+    }
 
     const type = m[1] || '';
     const val = parseInt(m[2], 10);
@@ -1507,43 +1596,71 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       case 'bit':
         targetKind = 'bit';
         bitIdx = val;
+        highlightIndex = val;
         break;
       case 'byte':
         targetKind = 'byte';
         bitIdx = val * 8;
+        highlightIndex = val;
         break;
       case 'uint32':
         targetKind = 'uint32';
         bitIdx = val * 32;
+        highlightIndex = val;
         break;
       case 'uint64':
         targetKind = 'uint64';
         bitIdx = val * 64;
+        highlightIndex = val;
         break;
       case 'vector':
         targetKind = 'vector';
         bitIdx = val * 64 * r.vectorGroup;
+        highlightIndex = val;
         break;
       case 'number': case 'num': case '#':
         targetKind = 'bit';
         bitIdx = numberToBit(val, storageModel);
-        if (bitIdx < 0) { setSearchResult('Not representable in this storage model'); return; }
+        if (bitIdx < 0) {
+          r.clearSearchHighlight();
+          r.render();
+          r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+          setSearchResult('Not representable in this storage model');
+          return;
+        }
+        highlightIndex = bitIdx;
         break;
       default:
         // Plain number — treat as bit index
         targetKind = 'bit';
         bitIdx = val;
+        highlightIndex = val;
     }
 
     if (bitIdx < 0 || bitIdx >= r.bitCount) {
+      r.clearSearchHighlight();
+      r.render();
+      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
       setSearchResult(`Out of range (0–${r.bitCount - 1})`);
       return;
     }
 
     const num = bitToNumber(bitIdx, storageModel);
+    r.setSearchHighlight(targetKind, highlightIndex, bitIdx);
     navigateToBit(bitIdx, targetKind);
+    r.render();
+    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
     setSearchResult(`Bit ${bitIdx} -> Number ${num}`);
-  }, [navigateToBit, storageModel]);
+  }, [navigateToBit, storageModel, getMinimapDetailH]);
+
+  useEffect(() => {
+    const r = rendererRef.current;
+    if (!r || searchOpen) return;
+    r.clearSearchHighlight();
+    r.render();
+    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+    setSearchResult(null);
+  }, [searchOpen, getMinimapDetailH]);
 
   const beginGuideDrag = useCallback((handle, e) => {
     if (!spacingGuide) return;
@@ -1881,7 +1998,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           settings={layoutSettings}
           onChange={setLayoutSettings}
           collapsed={settingsCollapsed}
-          onToggleCollapse={() => setSettingsCollapsed(c => !c)}
+          onToggleCollapse={toggleSettingsPanel}
           repeatAnim={repeatAnim}
           onRepeatAnimChange={setRepeatAnim}
           animMode={animMode}
