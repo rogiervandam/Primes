@@ -85,6 +85,11 @@ if [ "$VISUALIZE" = "visualize" ] || [ "$TRACE" = "trace" ]; then
     DEFINE_FLAGS="-DCOMPILE_TRACE"
 fi
 
+PROGRAM_SUFFIX=""
+if [ "$VISUALIZE" = "visualize" ] || [ "$TRACE" = "trace" ]; then
+    PROGRAM_SUFFIX="_trace"
+fi
+
 # Set default tokens
 verbose_level=10  
 verbose_next=0
@@ -579,7 +584,7 @@ else
 fi
 
 # Compose a program name using a default base name.
-PROGTOTAL="${base}"
+PROGTOTAL="${base}${PROGRAM_SUFFIX}"
 
 if [ $verbose_level -gt 1 ]; then
     echo -e "Compiling ${CYELLOW}${PROGTOTAL}${CRESET} for ${CCYAN}${OS}${CRESET} with ${CGREEN}${COMPILER}${CRESET} "
@@ -614,7 +619,7 @@ if [ $strip_status -ne 0 ]; then
 fi
 
 if [ $threads -gt 0 ]; then
-    PROGTOTALPAR="${base}$PAREXT"
+    PROGTOTALPAR="${base}$PAREXT${PROGRAM_SUFFIX}"
     if [ $verbose_level -gt 1 ]; then
         echo -e "Compiling ${CYELLOW}${PROGTOTALPAR}${CRESET} for ${CCYAN}${OS}${CRESET} with ${CGREEN}${COMPILER}${CRESET} "
     fi

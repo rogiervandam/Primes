@@ -166,6 +166,40 @@ static inline char *getBenchmarkSettingAsString(benchmark_settings_t benchmark_s
     return setBenchmarkSettingAsString(global_settings_string, benchmark_settings);
 }
 
+static inline const char *getBenchmarkProgramName(void)
+{
+    static char normalized_program_name[256];
+    const char *program_name = option.program_name ? option.program_name : "sieve";
+    size_t length = strlen(program_name);
+
+    if (length >= sizeof(normalized_program_name)) {
+        length = sizeof(normalized_program_name) - 1;
+    }
+
+    memcpy(normalized_program_name, program_name, length);
+    normalized_program_name[length] = '\0';
+
+    if (length >= 6 && strcmp(normalized_program_name + length - 6, "_trace") == 0) {
+        normalized_program_name[length - 6] = '\0';
+    }
+
+    return normalized_program_name;
+}
+
+static inline int hasTraceOutput(void)
+{
+    #ifdef COMPILE_TRACE
+    return option.trace_filename != NULL;
+    #else
+    return 0;
+    #endif
+}
+
+static inline int isExplainOrTraceMode(void)
+{
+    return option.explain || hasTraceOutput();
+}
+
 // check if --set was used (any of the four hot-path settings are non-zero)
 static inline int hasExplicitSettings(void) {
     return option.fixed_benchmark_settings.stripe_faster
@@ -174,11 +208,20 @@ static inline int hasExplicitSettings(void) {
         || option.fixed_benchmark_settings.vectorsize;
 }
 
+static inline int shouldLoadLastSettings(void)
+{
+    if (hasExplicitSettings()) {
+        return 0;
+    }
+
+    return option.tunelevel == 0 || isExplainOrTraceMode();
+}
+
 static void __attribute__((cold))
 loadLastSettings(void)
 {
     char settings_path[256];
-    snprintf(settings_path, sizeof(settings_path), "dev/build/%s_settings.txt", option.program_name);
+    snprintf(settings_path, sizeof(settings_path), "dev/build/%s_settings.txt", getBenchmarkProgramName());
     FILE* f = fopen(settings_path, "r");
     if (f) {
         char buf[64];
@@ -210,12 +253,12 @@ static void __attribute__((cold))
 saveLastSettings(benchmark_settings_t settings)
 {
     char settings_path[256];
-    snprintf(settings_path, sizeof(settings_path), "dev/build/%s_settings.txt", option.program_name);
+    snprintf(settings_path, sizeof(settings_path), "dev/build/%s_settings.txt", getBenchmarkProgramName());
     FILE* f = fopen(settings_path, "w");
     if (f) {
         char settings_string[50];
         setBenchmarkSettingAsString(settings_string, settings);
-        verbose1( fprintf(f, "%s\n", settings_string); )
+        fprintf(f, "%s\n", settings_string);
         fclose(f);
         verbose3(printf("Saved settings to %s\n", settings_path);)
     }
@@ -346,8 +389,8 @@ parseCommandLine(int argc, char *argv[])
     }
     #endif
 
-    // if no tuning and no explicit --set, load previously saved settings
-    if (!option.tunelevel && !hasExplicitSettings()) {
+    // if not tuning, or if explain/trace is doing a single run, load previously saved settings
+    if (shouldLoadLastSettings()) {
         loadLastSettings();
     }
 }
