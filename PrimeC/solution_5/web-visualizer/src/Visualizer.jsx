@@ -28,8 +28,10 @@ const DEFAULT_SETTINGS = {
   showNumberLabels: false,
   showByteLabels: true,
   showVectorLabels: true,
+  showVectorTouchOrder: false,
   bitLabelMode: 'global',
   byteLabelMode: 'group',
+  horizontalGroups: 0,
   outlines: {
     target: 'none',
   },
@@ -162,6 +164,18 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     setMinimapAvailable(available);
     if (!available) r._minimapRect = null;
   }, [showMinimap]);
+
+  const stopPlayback = useCallback(() => {
+    setPlaying(false);
+    if (playTimeoutRef.current) {
+      clearTimeout(playTimeoutRef.current);
+      playTimeoutRef.current = null;
+    }
+    if (playTimerRef.current) {
+      clearInterval(playTimerRef.current);
+      playTimerRef.current = null;
+    }
+  }, []);
 
   const captureViewportAnchor = useCallback((xRatio = 0.5, yRatio = 0.5) => {
     const r = rendererRef.current;
@@ -343,6 +357,10 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     vectorGroup: DEFAULT_SETTINGS.vectorGroup,
     vectorBaseBits: DEFAULT_SETTINGS.vectorBaseBits,
     vectorLanes: DEFAULT_SETTINGS.vectorLanes,
+    horizontalGroups: DEFAULT_SETTINGS.horizontalGroups,
+    showByteLabels: DEFAULT_SETTINGS.showByteLabels,
+    showVectorLabels: DEFAULT_SETTINGS.showVectorLabels,
+    showVectorTouchOrder: DEFAULT_SETTINGS.showVectorTouchOrder,
   });
 
   // Apply layout settings + theme to renderer
@@ -360,14 +378,18 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.u64SpacingV = layoutSettings.u64SpacingV;
     const isCustomVectorMode = layoutSettings.vectorMode === 'custom';
     r.vectorGroup = layoutSettings.vectorGroup;
+    r.vectorBaseBits = layoutSettings.vectorBaseBits;
+    r.vectorLanes = layoutSettings.vectorLanes;
     r.vectorLabel = layoutSettings.vectorLabel || `uint64v${layoutSettings.vectorGroup || 1}`;
     r.customGroupingBits = isCustomVectorMode ? Math.max(1, parseInt(layoutSettings.customGroupBits || 1, 10) || 1) : 0;
     r.showBitLabels = layoutSettings.showBitLabels;
     r.showNumberLabels = layoutSettings.showNumberLabels === true;
     r.showByteLabels = layoutSettings.showByteLabels;
     r.showVectorLabels = layoutSettings.showVectorLabels !== false;
+    r.showVectorTouchOrder = layoutSettings.showVectorTouchOrder === true;
     r.bitLabelMode = layoutSettings.bitLabelMode || 'global';
     r.byteLabelMode = layoutSettings.byteLabelMode || 'group';
+    r.horizontalGroups = Math.max(0, parseInt(layoutSettings.horizontalGroups || 0, 10) || 0);
     const outlineTarget = layoutSettings.outlines?.target || 'none';
     r.outlineEnabled = outlineTarget !== 'none';
     r.outlineTarget = outlineTarget;
@@ -399,7 +421,11 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       prev.vectorMode !== layoutSettings.vectorMode ||
       prev.vectorGroup !== layoutSettings.vectorGroup ||
       prev.vectorBaseBits !== layoutSettings.vectorBaseBits ||
-      prev.vectorLanes !== layoutSettings.vectorLanes
+      prev.vectorLanes !== layoutSettings.vectorLanes ||
+      prev.horizontalGroups !== (Math.max(0, parseInt(layoutSettings.horizontalGroups || 0, 10) || 0)) ||
+      prev.showByteLabels !== layoutSettings.showByteLabels ||
+      prev.showVectorLabels !== layoutSettings.showVectorLabels ||
+      prev.showVectorTouchOrder !== layoutSettings.showVectorTouchOrder
     );
 
     let centerAnchorBit = -1;
@@ -443,6 +469,10 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       prev.vectorGroup = layoutSettings.vectorGroup;
       prev.vectorBaseBits = layoutSettings.vectorBaseBits;
       prev.vectorLanes = layoutSettings.vectorLanes;
+      prev.horizontalGroups = Math.max(0, parseInt(layoutSettings.horizontalGroups || 0, 10) || 0);
+      prev.showByteLabels = layoutSettings.showByteLabels;
+      prev.showVectorLabels = layoutSettings.showVectorLabels;
+      prev.showVectorTouchOrder = layoutSettings.showVectorTouchOrder;
     }
     r.render();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
@@ -478,6 +508,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     if (!r || steps.length === 0) return;
     target = Math.max(0, Math.min(target, steps.length - 1));
     const suppressHighlight = options.suppressHighlight === true;
+    if (!options.keepPlaying && playing) stopPlayback();
     if (!suppressHighlight) initialHighlightHoldRef.current = false;
 
     let bs = bitStateRef.current;
@@ -540,9 +571,15 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
     // Set operation for color-coded highlighting
     r.currentOperation = step.operation;
+    r.currentAnnotation = step.annotation || '';
     r.setState(bs, changedSet, targetSet, targetHitCounts, {
       focusStart: suppressHighlight ? null : step.focusStart,
       focusStop: suppressHighlight ? null : step.focusStop,
+    }, suppressHighlight ? null : {
+      wordBits: step.maskWordBits,
+      targetWords: step.maskWriteOrderWords,
+      targetSlots: step.maskWriteOrderSlots,
+      slotBits: step.maskSlotBits,
     });
 
     // Update heat map
@@ -571,7 +608,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     if (!suppressHighlight && triggerAnimationRef.current) {
       triggerAnimationRef.current(changedSet, { adaptiveDuration: !playing });
     }
-  }, [currentStep, steps, updateMinimapAvailability, playing]);
+  }, [currentStep, steps, updateMinimapAvailability, playing, stopPlayback]);
 
   const cancelViewportAnimation = useCallback(() => {
     if (viewportAnimRef.current) {
@@ -588,6 +625,16 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     if (camera3DRef.current) camera3DRef.current.cancelAllAnimations();
     cancelViewportAnimation();
   }, [cancelViewportAnimation]);
+
+  const waitForDelay = useCallback((ms) => {
+    if (ms <= 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      seqTimerRef.current = setTimeout(() => {
+        seqTimerRef.current = null;
+        resolve();
+      }, ms);
+    });
+  }, []);
 
   const animateViewportTo = useCallback((targetView, duration = 650) => {
     const r = rendererRef.current;
@@ -670,29 +717,31 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   // Run a single ripple/fade/pulse effect on current changedBits
   const runEffect = useCallback((style) => {
     const r = rendererRef.current;
-    if (!r || !r.changedBits || r.changedBits.size === 0) return;
+    if (!r || !r.changedBits || r.changedBits.size === 0) return Promise.resolve();
     if (rippleRef.current) cancelAnimationFrame(rippleRef.current);
-    if (style === 'none') return;
+    if (style === 'none') return Promise.resolve();
 
     const duration = 600;
     const start = performance.now();
-    const animate = (now) => {
-      const elapsed = now - start;
-      const progress = Math.min(1, elapsed / duration);
-      r.render();
-      if (style === 'ripple') r.renderRipple(progress);
-      else if (style === 'fade') r.renderFade(progress);
-      else if (style === 'pulse') r.renderPulse(progress);
-      // Keep minimap visible during animation frames
-      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-      if (progress < 1) {
-        rippleRef.current = requestAnimationFrame(animate);
-      } else {
-        rippleRef.current = null;
-      }
-    };
-    rippleRef.current = requestAnimationFrame(animate);
-  }, []);
+    return new Promise((resolve) => {
+      const animate = (now) => {
+        const elapsed = now - start;
+        const progress = Math.min(1, elapsed / duration);
+        r.render();
+        if (style === 'ripple') r.renderRipple(progress);
+        else if (style === 'fade') r.renderFade(progress);
+        else if (style === 'pulse') r.renderPulse(progress);
+        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        if (progress < 1) {
+          rippleRef.current = requestAnimationFrame(animate);
+        } else {
+          rippleRef.current = null;
+          resolve();
+        }
+      };
+      rippleRef.current = requestAnimationFrame(animate);
+    });
+  }, [getMinimapDetailH]);
 
   const clampMs = useCallback((value, min, max) => Math.max(min, Math.min(max, value)), []);
 
@@ -712,18 +761,22 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     currentAnimIntervalRef.current = Math.max(0, bitAnimInterval || 20);
   }, [bitAnimInterval]);
 
+  const getFadeOutDuration = useCallback((bitCount, options = {}) => {
+    if (options.skipFadeOut) return 0;
+    return clampMs(Math.round(Math.min(320, Math.max(120, Math.max(1, bitCount) * 4))), 80, 420);
+  }, [clampMs]);
+
   const estimateAnimDuration = useCallback((bitCount, options = {}) => {
-    const holdMs = 280;
-    const dissolvePerBit = 8;
-    const dissolveMax = 1200;
     const effectiveBitInterval = getAnimationBitInterval(bitCount, options);
+    const currentHighlighted = rendererRef.current?.changedBits?.size || 0;
+    const fadeOutMs = currentHighlighted > 0 ? getFadeOutDuration(currentHighlighted, options) : 0;
 
     if (bitCount <= 0 || animStyle === 'none') {
-      return holdMs;
+      return fadeOutMs;
     }
 
     if (animMode === 'all' || effectiveBitInterval <= 0) {
-      return 620 + holdMs + Math.min(dissolveMax, Math.max(120, bitCount * dissolvePerBit));
+      return fadeOutMs + 620;
     }
 
     let revealMs = bitCount * Math.max(10, effectiveBitInterval);
@@ -731,37 +784,46 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       revealMs *= 2;
     }
 
-    return revealMs + holdMs + Math.min(dissolveMax, Math.max(120, bitCount * dissolvePerBit));
-  }, [animMode, animStyle, getAnimationBitInterval]);
+    return fadeOutMs + revealMs;
+  }, [animMode, animStyle, getAnimationBitInterval, getFadeOutDuration]);
 
-  const dissolveInOrder = useCallback((r, bits, holdMs = 280, options = {}) => {
-    if (!r || bits.length === 0) return;
-    const dissolveStepMs = clampMs(Math.floor(getAnimationBitInterval(bits.length, options) * 0.45), 10, 140);
-    const fullSet = new Set(bits);
+  const fadeOutCurrentHighlights = useCallback((options = {}) => {
+    const r = rendererRef.current;
+    const currentBits = r?.changedBits ? Array.from(r.changedBits) : [];
+    if (!r || currentBits.length === 0 || options.skipFadeOut) return Promise.resolve();
 
-    seqTimerRef.current = setTimeout(() => {
-      let idx = 0;
+    if (rippleRef.current) {
+      cancelAnimationFrame(rippleRef.current);
+      rippleRef.current = null;
+    }
 
-      const dissolveNext = () => {
-        if (!rendererRef.current) return;
-        if (idx >= bits.length) {
-          r.changedBits = new Set();
-          r.render();
-          r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+    const duration = getFadeOutDuration(currentBits.length, options);
+    const fadingBits = new Set(currentBits);
+    r.changedBits = fadingBits;
+    const start = performance.now();
+
+    return new Promise((resolve) => {
+      const tick = (now) => {
+        const progress = Math.min(1, (now - start) / Math.max(1, duration));
+        r.changedBits = fadingBits;
+        r.render();
+        r.renderFade(progress);
+        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        if (progress < 1) {
+          rippleRef.current = requestAnimationFrame(tick);
           return;
         }
 
-        fullSet.delete(bits[idx]);
-        r.changedBits = new Set(fullSet);
+        rippleRef.current = null;
+        r.changedBits = new Set();
         r.render();
         r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-        idx += 1;
-        seqTimerRef.current = setTimeout(dissolveNext, getCurrentLoopInterval(dissolveStepMs, options));
+        resolve();
       };
 
-      dissolveNext();
-    }, Math.max(80, holdMs));
-  }, [clampMs, getMinimapDetailH, getAnimationBitInterval, getCurrentLoopInterval]);
+      rippleRef.current = requestAnimationFrame(tick);
+    });
+  }, [getFadeOutDuration, getMinimapDetailH]);
 
   const runMaskStampAnimation = useCallback(() => {
     const r = rendererRef.current;
@@ -796,8 +858,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     });
   }, [getMinimapDetailH]);
 
-  // Main animation trigger — all-at-once, sequential per-bit, or bounce
-  const triggerAnimation = useCallback((changedSet, options = {}) => {
+  // Main animation trigger — fade old highlights, animate current step, then wait using animation delay.
+  const triggerAnimation = useCallback(async (changedSet, options = {}) => {
     if (!options.keepProgress) {
       stopSeqAnim();
     }
@@ -808,23 +870,25 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     const est = estimateAnimDuration(changedSet.size, options);
     animBusyUntilRef.current = performance.now() + est + Math.max(0, repeatAnim || 0);
 
+    if (!options.keepProgress) {
+      await fadeOutCurrentHighlights(options);
+    }
+
     if (r.currentOperation === 'applyMask') {
-      const bits = Array.from(changedSet).sort((a, b) => a - b);
-      runMaskStampAnimation().then(() => {
-        dissolveInOrder(r, bits, 220, options);
-      });
+      r.changedBits = new Set(changedSet);
+      r.render();
+      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      await runMaskStampAnimation();
+      await waitForDelay(Math.max(0, repeatAnim || 0));
       return;
     }
 
     if ((animMode === 'sequential' || animMode === 'bounce') && effectiveBitInterval > 0) {
-      // Sequential / bounce: reveal bits one-by-one
       const bits = Array.from(changedSet).sort((a, b) => a - b);
       const fullChanged = new Set(changedSet);
       let idx = 0;
-      let direction = 1; // 1 = forward, -1 = backward
+      let direction = 1;
       let bounced = false;
-      const revealOrder = [];
-      const holdMs = 280;
       const trailSize = animMode === 'bounce' ? Math.min(8, Math.max(3, Math.round(bits.length / 18))) : 0;
 
       const buildBounceTrail = () => {
@@ -837,11 +901,14 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         return trail;
       };
 
-      const revealNext = () => {
-        if (!rendererRef.current) return;
-        if (idx < 0 || idx >= bits.length) {
-          if (animMode === 'bounce') {
-            if (!bounced) {
+      await new Promise((resolve) => {
+        const revealNext = () => {
+          if (!rendererRef.current) {
+            resolve();
+            return;
+          }
+          if (idx < 0 || idx >= bits.length) {
+            if (animMode === 'bounce' && !bounced) {
               bounced = true;
               direction *= -1;
               idx = direction > 0 ? 0 : bits.length - 1;
@@ -849,70 +916,54 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
               r.changedBits = fullChanged;
               r.render();
               r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-              dissolveInOrder(r, revealOrder.length ? revealOrder : bits, holdMs, options);
+              resolve();
               return;
             }
-          } else {
-            // Sequential done — restore full set and dissolve in reveal order
-            r.changedBits = fullChanged;
-            r.render();
-            r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-            dissolveInOrder(r, revealOrder.length ? revealOrder : bits, holdMs, options);
-            return;
           }
-        }
 
-        const partial = animMode === 'bounce'
-          ? new Set(buildBounceTrail())
-          : (() => {
-              const value = new Set();
-              if (direction > 0) {
-                for (let i = 0; i <= idx; i++) value.add(bits[i]);
-              } else {
-                for (let i = idx; i < bits.length; i++) value.add(bits[i]);
-              }
-              return value;
-            })();
-        r.changedBits = partial;
-        r.render();
-        if (animMode === 'bounce' && partial.size > 0) {
-          r.renderFade(0.35);
-        }
-        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-        revealOrder.push(bits[idx]);
-        // Small effect on the just-added bit
-        if (animStyle !== 'none') {
-          const singleSet = new Set([bits[idx]]);
-          r.changedBits = singleSet;
-          if (animStyle === 'ripple') r.renderRipple(0.3);
-          else if (animStyle === 'fade') r.renderFade(0.3);
-          else if (animStyle === 'pulse') r.renderPulse(0.3);
+          const partial = animMode === 'bounce'
+            ? new Set(buildBounceTrail())
+            : (() => {
+                const value = new Set();
+                if (direction > 0) {
+                  for (let i = 0; i <= idx; i++) value.add(bits[i]);
+                } else {
+                  for (let i = idx; i < bits.length; i++) value.add(bits[i]);
+                }
+                return value;
+              })();
           r.changedBits = partial;
-        }
-        idx += direction;
-        seqTimerRef.current = setTimeout(revealNext, getCurrentLoopInterval(effectiveBitInterval, options));
-      };
+          r.render();
+          if (animMode === 'bounce' && partial.size > 0) {
+            r.renderFade(0.35);
+          }
+          r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+          idx += direction;
+          seqTimerRef.current = setTimeout(revealNext, getCurrentLoopInterval(effectiveBitInterval, options));
+        };
 
-      if (!options.keepProgress) {
         r.changedBits = new Set();
         r.render();
         r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
         seqTimerRef.current = setTimeout(revealNext, getCurrentLoopInterval(effectiveBitInterval, options));
-      }
-    } else {
-      // All at once with chosen effect style
-      if (animStyle !== 'none') runEffect(animStyle);
-      const bits = Array.from(changedSet).sort((a, b) => a - b);
-      if (animStyle === 'none') {
-        r.changedBits = new Set(changedSet);
-        r.render();
-        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-        return;
-      }
-      const holdMs = 300;
-      dissolveInOrder(r, bits, holdMs, options);
+      });
+
+      await waitForDelay(Math.max(0, repeatAnim || 0));
+      return;
     }
-  }, [animMode, animStyle, stopSeqAnim, runEffect, estimateAnimDuration, repeatAnim, dissolveInOrder, getMinimapDetailH, getAnimationBitInterval, getCurrentLoopInterval, runMaskStampAnimation]);
+
+    if (animStyle === 'none') {
+      r.changedBits = new Set(changedSet);
+      r.render();
+      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      await waitForDelay(Math.max(0, repeatAnim || 0));
+      return;
+    }
+
+    r.changedBits = new Set(changedSet);
+    await runEffect(animStyle);
+    await waitForDelay(Math.max(0, repeatAnim || 0));
+  }, [animMode, animStyle, stopSeqAnim, runEffect, estimateAnimDuration, repeatAnim, getMinimapDetailH, getAnimationBitInterval, getCurrentLoopInterval, runMaskStampAnimation, fadeOutCurrentHighlights, waitForDelay]);
 
   useEffect(() => {
     triggerAnimationRef.current = triggerAnimation;
@@ -938,27 +989,98 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     return () => clearTimeout(timer);
   }, [autoRender, steps.length]);
 
+  const buildCombinedSelectionOverlay = useCallback((selection) => {
+    const indices = Array.from(selection)
+      .filter((idx) => idx >= 0 && idx < steps.length)
+      .sort((a, b) => a - b);
+    const mergedBits = new Set();
+    const targetHitCounts = new Map();
+    const orderedWords = [];
+    const orderedSlots = [];
+    let maskWordBits = null;
+    let maskSlotBits = [];
+
+    const appendFallbackWords = (bits, wordBits) => {
+      if (!wordBits || !bits || bits.length === 0) return;
+      const seen = new Set();
+      const sortedBits = Array.from(bits).sort((a, b) => a - b);
+      for (let i = 0; i < sortedBits.length; i++) {
+        const wordIndex = Math.floor(sortedBits[i] / wordBits);
+        if (seen.has(wordIndex)) continue;
+        seen.add(wordIndex);
+        orderedWords.push(wordIndex);
+        orderedSlots.push(0);
+      }
+    };
+
+    for (let i = 0; i < indices.length; i++) {
+      const step = steps[indices[i]];
+      if (!step) continue;
+      const targetBits = step.targetBits && step.targetBits.length > 0 ? step.targetBits : step.changedBits;
+
+      for (let j = 0; j < step.changedBits.length; j++) mergedBits.add(step.changedBits[j]);
+      for (let j = 0; j < targetBits.length; j++) {
+        const bit = targetBits[j];
+        targetHitCounts.set(bit, (targetHitCounts.get(bit) || 0) + (step.targetHitCounts?.[j] || 1));
+      }
+
+      if (step.maskWordBits != null && step.maskWordBits > 0 && maskWordBits == null) {
+        maskWordBits = step.maskWordBits;
+      }
+      if (maskSlotBits.length === 0 && Array.isArray(step.maskSlotBits) && step.maskSlotBits.length > 0) {
+        maskSlotBits = Array.from(step.maskSlotBits);
+      }
+
+      if (maskWordBits != null && step.maskWordBits === maskWordBits && step.maskWriteOrderWords?.length > 0) {
+        for (let j = 0; j < step.maskWriteOrderWords.length; j++) {
+          orderedWords.push(step.maskWriteOrderWords[j]);
+          orderedSlots.push(step.maskWriteOrderSlots?.[j] ?? 0);
+        }
+      } else if (maskWordBits != null) {
+        appendFallbackWords(targetBits, maskWordBits);
+      }
+    }
+
+    return {
+      changedBits: mergedBits,
+      targetBits: mergedBits,
+      targetHitCounts,
+      annotation: indices.length > 1 ? `Selected ${indices.length} events` : (steps[indices[0]]?.annotation || ''),
+      maskMetadata: maskWordBits != null ? {
+        wordBits: maskWordBits,
+        targetWords: Uint32Array.from(orderedWords),
+        targetSlots: Uint8Array.from(orderedSlots),
+        slotBits: maskSlotBits,
+      } : null,
+    };
+  }, [steps]);
+
+  const handleStepSelection = useCallback((stepIndex) => {
+    stopPlayback();
+    goToStep(stepIndex);
+  }, [stopPlayback, goToStep]);
+
+  const handleMultiStepSelect = useCallback((nextSelection) => {
+    stopPlayback();
+    setSelectedSteps(nextSelection);
+  }, [stopPlayback]);
+
   // Multi-step selection: merge changedBits from selected steps
   useEffect(() => {
     const r = rendererRef.current;
     if (!r || selectedSteps.size === 0) return;
-    const merged = new Set();
-    for (const idx of selectedSteps) {
-      const s = steps[idx];
-      if (s) for (let j = 0; j < s.changedBits.length; j++) merged.add(s.changedBits[j]);
-    }
+    const overlay = buildCombinedSelectionOverlay(selectedSteps);
     r.currentOperation = 'aggregate-selection';
-    r.changedBits = merged;
-    r.targetBits = merged;
-    r.targetHitCounts = new Map(Array.from(merged, (bit) => [bit, 1]));
-    r.focusStart = null;
-    r.focusStop = null;
+    r.currentAnnotation = overlay.annotation || '';
+    r.setState(r.bitState, overlay.changedBits, overlay.targetBits, overlay.targetHitCounts, {
+      focusStart: null,
+      focusStop: null,
+    }, overlay.maskMetadata);
     r.render();
     r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
     updateMinimapAvailability();
-    // Animate cumulative impact when selecting higher-level hierarchy nodes.
-    if (merged.size > 0) triggerAnimation(merged, { adaptiveDuration: true });
-  }, [selectedSteps, steps, triggerAnimation, getMinimapDetailH, updateMinimapAvailability]);
+    if (overlay.changedBits.size > 0) triggerAnimation(overlay.changedBits, { adaptiveDuration: true });
+  }, [selectedSteps, buildCombinedSelectionOverlay, triggerAnimation, getMinimapDetailH, updateMinimapAvailability]);
 
   // Repeat selected-step animation until selection changes.
   useEffect(() => {
@@ -1075,7 +1197,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           setPlaying(false);
           return prev;
         }
-        setTimeout(() => goToStep(next), 0);
+        setTimeout(() => goToStep(next, { keepPlaying: true }), 0);
         return next;
       });
 
@@ -1096,7 +1218,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
   const handlePlayPause = useCallback(() => {
     if (!playing && currentStep >= Math.max(0, steps.length - 1)) {
-      goToStep(0);
+      goToStep(0, { keepPlaying: true });
       setPlaying(true);
       return;
     }
@@ -1516,6 +1638,11 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         r.setState(bs, changed, targetSet, targetHitCounts, {
           focusStart: s.focusStart,
           focusStop: s.focusStop,
+        }, {
+          wordBits: s.maskWordBits,
+          targetWords: s.maskWriteOrderWords,
+          targetSlots: s.maskWriteOrderSlots,
+          slotBits: s.maskSlotBits,
         });
         r.render();
         if (track.requestFrame) track.requestFrame();
@@ -1822,8 +1949,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           steps={steps}
           currentStep={currentStep}
           selectedSteps={selectedSteps}
-          onStepClick={goToStep}
-          onMultiStepSelect={setSelectedSteps}
+          onStepClick={handleStepSelection}
+          onMultiStepSelect={handleMultiStepSelect}
           width={panelWidth}
           onWidthChange={setPanelWidth}
           panelCollapsed={stepsPanelCollapsed}
@@ -1898,8 +2025,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
                       </thead>
                       <tbody>
                         {info.history.map(h => (
-                          <tr key={h.stepIndex} className={h.stepIndex === currentStep ? 'bh-current' : ''}
-                              onClick={() => { goToStep(h.stepIndex); }}>
+                            <tr key={h.stepIndex} className={h.stepIndex === currentStep ? 'bh-current' : ''}
+                              onClick={() => { handleStepSelection(h.stepIndex); }}>
                             <td>{h.stepIndex}</td>
                             <td>{h.operation || '—'}</td>
                             <td>{h.prime != null ? h.prime : '—'}</td>

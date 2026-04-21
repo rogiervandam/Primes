@@ -62,54 +62,134 @@ function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t
         *index_ptr     |= mask1; 
     }
 
-    verbose6( {
+    if (g_trace.enabled || option.verbose_level >= 8) {
+        char annotation[4096] = {0};
+        char mask1_bits_text[2048] = {0};
+        char mask2_bits_text[2048] = {0};
+        uint32_t mask1_bits[1024] = {0};
+        uint32_t mask2_bits[1024] = {0};
+        uint64_t* mask_target_words = NULL;
+        uint32_t* mask_target_slots = NULL;
+        uint32_t mask_target_count = 0;
+        uint32_t mask1_count = 0;
+        uint32_t mask2_count = 0;
 
-    char mask1_bits[2048] = {0};
-    char mask2_bits[2048] = {0};
-    if (primes_trace_needs_mask_analysis(option.verbose_level, 8)) {
         #if defined(variant_base_type_t) && defined(BITBUCKET_ELEMENTS)
-        primes_trace_format_mask_bits(mask1_bits,
-                                      sizeof(mask1_bits),
-                                      &mask1,
-                                      sizeof(variant_base_type_t),
-                                      BITBUCKET_ELEMENTS,
-                                      bitcount_type(variant_base_type_t));
-        primes_trace_format_mask_bits(mask2_bits,
-                                      sizeof(mask2_bits),
-                                      &mask2,
-                                      sizeof(variant_base_type_t),
-                                      BITBUCKET_ELEMENTS,
-                                      bitcount_type(variant_base_type_t));
+        mask1_count = primes_trace_collect_mask_bits(mask1_bits,
+                                                     1024,
+                                                     &mask1,
+                                                     sizeof(variant_base_type_t),
+                                                     BITBUCKET_ELEMENTS,
+                                                     bitcount_type(variant_base_type_t));
+        mask2_count = primes_trace_collect_mask_bits(mask2_bits,
+                                                     1024,
+                                                     &mask2,
+                                                     sizeof(variant_base_type_t),
+                                                     BITBUCKET_ELEMENTS,
+                                                     bitcount_type(variant_base_type_t));
         #else
-        primes_trace_format_mask_bits(mask1_bits,
-                                      sizeof(mask1_bits),
-                                      &mask1,
-                                      sizeof(bitbucket_t),
-                                      1,
-                                      bitcount_type(bitbucket_t));
-        primes_trace_format_mask_bits(mask2_bits,
-                                      sizeof(mask2_bits),
-                                      &mask2,
-                                      sizeof(bitbucket_t),
-                                      1,
-                                      bitcount_type(bitbucket_t));
+        mask1_count = primes_trace_collect_mask_bits(mask1_bits,
+                                                     1024,
+                                                     &mask1,
+                                                     sizeof(bitbucket_t),
+                                                     1,
+                                                     bitcount_type(bitbucket_t));
+        mask2_count = primes_trace_collect_mask_bits(mask2_bits,
+                                                     1024,
+                                                     &mask2,
+                                                     sizeof(bitbucket_t),
+                                                     1,
+                                                     bitcount_type(bitbucket_t));
         #endif
+
+        primes_trace_format_mask_bits(mask1_bits_text,
+                                      sizeof(mask1_bits_text),
+                                      &mask1,
+                                      #if defined(variant_base_type_t) && defined(BITBUCKET_ELEMENTS)
+                                      sizeof(variant_base_type_t),
+                                      BITBUCKET_ELEMENTS,
+                                      bitcount_type(variant_base_type_t)
+                                      #else
+                                      sizeof(bitbucket_t),
+                                      1,
+                                      bitcount_type(bitbucket_t)
+                                      #endif
+                                      );
+        primes_trace_format_mask_bits(mask2_bits_text,
+                                      sizeof(mask2_bits_text),
+                                      &mask2,
+                                      #if defined(variant_base_type_t) && defined(BITBUCKET_ELEMENTS)
+                                      sizeof(variant_base_type_t),
+                                      BITBUCKET_ELEMENTS,
+                                      bitcount_type(variant_base_type_t)
+                                      #else
+                                      sizeof(bitbucket_t),
+                                      1,
+                                      bitcount_type(bitbucket_t)
+                                      #endif
+                                      );
+
+        snprintf(annotation,
+                 sizeof(annotation),
+                 "ApplyMaskPair: word_bits=%ju word_start=%ju word_stop=%ju step_words=%ju mask1_bits=%s mask2_bits=%s focus_start=%ju focus_stop=%ju bitrange=%ju-%ju",
+                 (uintmax_t)bitcount_type(bitbucket_t),
+                 (uintmax_t)range_start,
+                 (uintmax_t)range_stop,
+                 (uintmax_t)step,
+                 mask1_bits_text,
+                 mask2_bits_text,
+                 (uintmax_t)(range_start * bitcount_type(bitbucket_t)),
+                 (uintmax_t)((range_stop + 1) * bitcount_type(bitbucket_t) - 1),
+                 (uintmax_t)(range_start * bitcount_type(bitbucket_t)),
+                 (uintmax_t)((range_stop + 1) * bitcount_type(bitbucket_t) - 1));
+
+        if (option.verbose_level >= 8) {
+            primes_log_emit_verbose(8, option.verbose_level, annotation);
+        }
+
+        if (g_trace.enabled) {
+            const uint64_t pair_capacity = range_stop > range_start ? (uint64_t)(((range_stop - range_start - 1) / step) + 1) : 0;
+            const uint64_t target_capacity = pair_capacity * 2 + 1;
+            if (target_capacity > 0) {
+                mask_target_words = (uint64_t*)malloc(sizeof(uint64_t) * (size_t)target_capacity);
+                mask_target_slots = (uint32_t*)malloc(sizeof(uint32_t) * (size_t)target_capacity);
+            }
+            if ((target_capacity == 0) || (mask_target_words && mask_target_slots)) {
+                for (counter_t word_index = range_start; word_index < range_stop; word_index += step) {
+                    mask_target_words[mask_target_count] = (uint64_t)word_index;
+                    mask_target_slots[mask_target_count] = 0;
+                    mask_target_count++;
+
+                    mask_target_words[mask_target_count] = (uint64_t)(word_index + 1);
+                    mask_target_slots[mask_target_count] = 1;
+                    mask_target_count++;
+                }
+                if (range_start <= range_stop && ((range_stop - range_start) % step) == 0) {
+                    mask_target_words[mask_target_count] = (uint64_t)range_stop;
+                    mask_target_slots[mask_target_count] = 0;
+                    mask_target_count++;
+                }
+
+                trace_record_applymask_step_labeled(bitstorage,
+                                                    annotation,
+                                                    "ApplyMaskPair",
+                                                    (uint64_t)bitcount_type(bitbucket_t),
+                                                    (uint64_t)range_start,
+                                                    (uint64_t)range_stop,
+                                                    (uint64_t)step,
+                                                    mask1_bits,
+                                                    mask1_count,
+                                                    mask2_bits,
+                                                    mask2_count,
+                                                    mask_target_words,
+                                                    mask_target_slots,
+                                                    mask_target_count);
+            }
+        }
+
+        free(mask_target_words);
+        free(mask_target_slots);
     }
-
-    log8(bitstorage,
-        "ApplyMaskPair: word_bits=%ju word_start=%ju word_stop=%ju step_words=%ju mask1_bits=%s mask2_bits=%s focus_start=%ju focus_stop=%ju bitrange=%ju-%ju",
-        (uintmax_t)bitcount_type(bitbucket_t),
-        (uintmax_t)range_start,
-        (uintmax_t)range_stop,
-        (uintmax_t)step,
-        mask1_bits,
-        mask2_bits,
-        (uintmax_t)(range_start * bitcount_type(bitbucket_t)),
-        (uintmax_t)((range_stop + 1) * bitcount_type(bitbucket_t) - 1),
-        (uintmax_t)(range_start * bitcount_type(bitbucket_t)),
-        (uintmax_t)((range_stop + 1) * bitcount_type(bitbucket_t) - 1));
-
-    })
 
     logEnd8(time_applyMask_pair);
 }

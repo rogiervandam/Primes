@@ -98,40 +98,94 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
         *index_ptr |= mask; 
     }
 
-    verbose6({
+    if (g_trace.enabled || option.verbose_level >= 8) {
+        char annotation[4096] = {0};
+        char mask_bits_text[2048] = {0};
+        uint32_t mask_bits[1024] = {0};
+        uint64_t* mask_target_words = NULL;
+        uint32_t* mask_target_slots = NULL;
+        uint32_t mask_target_count = 0;
+        uint32_t mask_count = 0;
 
-    char mask_bits[2048] = {0};
-    if (primes_trace_needs_mask_analysis(option.verbose_level, 8)) {
         #if defined(variant_base_type_t) && defined(BITBUCKET_ELEMENTS)
-        primes_trace_format_mask_bits(mask_bits,
-                                      sizeof(mask_bits),
+        mask_count = primes_trace_collect_mask_bits(mask_bits,
+                                                    1024,
+                                                    &mask,
+                                                    sizeof(variant_base_type_t),
+                                                    BITBUCKET_ELEMENTS,
+                                                    bitcount_type(variant_base_type_t));
+        #else
+        mask_count = primes_trace_collect_mask_bits(mask_bits,
+                                                    1024,
+                                                    &mask,
+                                                    sizeof(bitbucket_t),
+                                                    1,
+                                                    bitcount_type(bitbucket_t));
+        #endif
+
+        primes_trace_format_mask_bits(mask_bits_text,
+                                      sizeof(mask_bits_text),
                                       &mask,
+                                      #if defined(variant_base_type_t) && defined(BITBUCKET_ELEMENTS)
                                       sizeof(variant_base_type_t),
                                       BITBUCKET_ELEMENTS,
-                                      bitcount_type(variant_base_type_t));
-        #else
-        primes_trace_format_mask_bits(mask_bits,
-                                      sizeof(mask_bits),
-                                      &mask,
+                                      bitcount_type(variant_base_type_t)
+                                      #else
                                       sizeof(bitbucket_t),
                                       1,
-                                      bitcount_type(bitbucket_t));
-        #endif
+                                      bitcount_type(bitbucket_t)
+                                      #endif
+                                      );
+
+        snprintf(annotation,
+                 sizeof(annotation),
+                 "ApplyMask: word_bits=%ju word_start=%ju word_stop=%ju step_words=%ju mask_bits=%s focus_start=%ju focus_stop=%ju bitrange=%ju-%ju",
+                 (uintmax_t)bitcount_type(bitbucket_t),
+                 (uintmax_t)range_start,
+                 (uintmax_t)range_stop,
+                 (uintmax_t)step,
+                 mask_bits_text,
+                 (uintmax_t)(range_start * bitcount_type(bitbucket_t)),
+                 (uintmax_t)((range_stop + 1) * bitcount_type(bitbucket_t) - 1),
+                 (uintmax_t)(range_start * bitcount_type(bitbucket_t)),
+                 (uintmax_t)((range_stop + 1) * bitcount_type(bitbucket_t) - 1));
+
+        if (option.verbose_level >= 8) {
+            primes_log_emit_verbose(8, option.verbose_level, annotation);
+        }
+
+        if (g_trace.enabled) {
+            const uint64_t target_capacity = range_stop >= range_start ? (uint64_t)((range_stop - range_start) / step) + 1 : 0;
+            if (target_capacity > 0) {
+                mask_target_words = (uint64_t*)malloc(sizeof(uint64_t) * (size_t)target_capacity);
+                mask_target_slots = (uint32_t*)malloc(sizeof(uint32_t) * (size_t)target_capacity);
+            }
+            if ((target_capacity == 0) || (mask_target_words && mask_target_slots)) {
+                for (counter_t word_index = range_start; word_index <= range_stop; word_index += step) {
+                    mask_target_words[mask_target_count] = (uint64_t)word_index;
+                    mask_target_slots[mask_target_count] = 0;
+                    mask_target_count++;
+                }
+                trace_record_applymask_step_labeled(bitstorage,
+                                                    annotation,
+                                                    "ApplyMask",
+                                                    (uint64_t)bitcount_type(bitbucket_t),
+                                                    (uint64_t)range_start,
+                                                    (uint64_t)range_stop,
+                                                    (uint64_t)step,
+                                                    mask_bits,
+                                                    mask_count,
+                                                    NULL,
+                                                    0,
+                                                    mask_target_words,
+                                                    mask_target_slots,
+                                                    mask_target_count);
+            }
+        }
+
+        free(mask_target_words);
+        free(mask_target_slots);
     }
-
-    log8(bitstorage,
-        "ApplyMask: word_bits=%ju word_start=%ju word_stop=%ju step_words=%ju mask_bits=%s focus_start=%ju focus_stop=%ju bitrange=%ju-%ju",
-        (uintmax_t)bitcount_type(bitbucket_t),
-        (uintmax_t)range_start,
-        (uintmax_t)range_stop,
-        (uintmax_t)step,
-        mask_bits,
-        (uintmax_t)(range_start * bitcount_type(bitbucket_t)),
-        (uintmax_t)((range_stop + 1) * bitcount_type(bitbucket_t) - 1),
-        (uintmax_t)(range_start * bitcount_type(bitbucket_t)),
-        (uintmax_t)((range_stop + 1) * bitcount_type(bitbucket_t) - 1));
-
-    })
 
     logEnd8(time_applyMask, "\n");
 }

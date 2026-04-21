@@ -153,6 +153,56 @@ primes_trace_format_mask_bits(char* bits,
     }
 }
 
+static inline uint32_t
+primes_trace_collect_mask_bits(uint32_t* out_bits,
+                               uint32_t out_capacity,
+                               const void* mask,
+                               size_t lane_bytes,
+                               uint32_t lane_count,
+                               uint32_t lane_bits)
+{
+    uint32_t out_count = 0;
+
+    if (!mask || lane_bytes == 0 || lane_bits == 0) return 0;
+
+    for (uint32_t lane_index = 0; lane_index < lane_count; lane_index++) {
+        uintmax_t lane_mask = 0;
+        memcpy(&lane_mask, ((const uint8_t*)mask) + ((size_t)lane_index * lane_bytes), lane_bytes);
+
+        for (uint32_t bit_offset = 0; bit_offset < lane_bits; bit_offset++) {
+            if ((lane_mask & ((uintmax_t)1 << bit_offset)) == 0) continue;
+            if (out_bits && out_count < out_capacity) {
+                out_bits[out_count] = lane_index * lane_bits + bit_offset;
+            }
+            out_count++;
+        }
+    }
+
+    return out_count;
+}
+
+static void
+trace_write_uint32_array(FILE* f, const uint32_t* values, uint32_t count)
+{
+    fputc('[', f);
+    for (uint32_t index = 0; index < count; index++) {
+        if (index > 0) fputc(',', f);
+        fprintf(f, "%u", values[index]);
+    }
+    fputc(']', f);
+}
+
+static void
+trace_write_uint64_array(FILE* f, const uint64_t* values, uint32_t count)
+{
+    fputc('[', f);
+    for (uint32_t index = 0; index < count; index++) {
+        if (index > 0) fputc(',', f);
+        fprintf(f, "%llu", (unsigned long long)values[index]);
+    }
+    fputc(']', f);
+}
+
 /* Set the current analysis context depth (called from TRACE_ANALYSIS_START macro) */
 static void
 primes_trace_set_context(int level)
@@ -391,6 +441,130 @@ trace_record_step_full_labeled(void* bitstorage, const char* annotation, const c
             fputs(",\"function\":", g_trace.json_file);
             trace_write_json_string(g_trace.json_file, event_label);
         }
+        fputs(",\"changed_bits\":[", g_trace.json_file);
+
+        first = 1;
+        for (uint32_t byte_idx = 0; byte_idx < g_trace.bitstorage_bytes; byte_idx++) {
+            uint8_t diff = current[byte_idx] ^ g_trace.snapshot[byte_idx];
+            for (uint32_t bit = 0; diff; bit++, diff >>= 1) {
+                if (diff & 1) {
+                    uint32_t bit_index = byte_idx * 8 + bit;
+                    if (!first) fputc(',', g_trace.json_file);
+                    fprintf(g_trace.json_file, "%u", bit_index);
+                    first = 0;
+                }
+            }
+        }
+        fputs("]}", g_trace.json_file);
+    }
+
+    memcpy(g_trace.snapshot, current, g_trace.bitstorage_bytes);
+}
+
+static void
+trace_record_applymask_step_labeled(void* bitstorage,
+                                    const char* annotation,
+                                    const char* label,
+                                    uint64_t word_bits,
+                                    uint64_t word_start,
+                                    uint64_t word_stop,
+                                    uint64_t step_words,
+                                    const uint32_t* mask_bits,
+                                    uint32_t mask_count,
+                                    const uint32_t* mask2_bits,
+                                    uint32_t mask2_count,
+                                    const uint64_t* mask_target_words,
+                                    const uint32_t* mask_target_slots,
+                                    uint32_t mask_target_count)
+{
+    if (!g_trace.enabled || !g_trace.file) return;
+
+    const uint8_t* current = (const uint8_t*)bitstorage;
+    const uint32_t step_id = g_trace.step_count++;
+    const char* event_label = trace_optional_label(label);
+
+    fputs("EVENT", g_trace.file);
+    if (g_trace.depth > 0) fprintf(g_trace.file, " depth=%d", g_trace.depth);
+    if (event_label) {
+        fputs(" function=", g_trace.file);
+        trace_write_json_string(g_trace.file, event_label);
+    }
+
+    uint32_t changed_count = 0;
+    for (uint32_t byte_idx = 0; byte_idx < g_trace.bitstorage_bytes; byte_idx++) {
+        uint8_t diff = current[byte_idx] ^ g_trace.snapshot[byte_idx];
+        for (; diff; diff >>= 1) {
+            if (diff & 1) changed_count++;
+        }
+    }
+
+    fputs(" annotation=", g_trace.file);
+    trace_write_json_string(g_trace.file, annotation ? annotation : "");
+    fprintf(g_trace.file,
+            " word_bits=%llu word_start=%llu word_stop=%llu step_words=%llu",
+            (unsigned long long)word_bits,
+            (unsigned long long)word_start,
+            (unsigned long long)word_stop,
+            (unsigned long long)step_words);
+    if (mask2_count > 0) {
+        fputs(" mask1_bits=", g_trace.file);
+        trace_write_uint32_array(g_trace.file, mask_bits, mask_count);
+        fputs(" mask2_bits=", g_trace.file);
+        trace_write_uint32_array(g_trace.file, mask2_bits, mask2_count);
+    } else {
+        fputs(" mask_bits=", g_trace.file);
+        trace_write_uint32_array(g_trace.file, mask_bits, mask_count);
+    }
+    fputs(" mask_target_words=", g_trace.file);
+    trace_write_uint64_array(g_trace.file, mask_target_words, mask_target_count);
+    fputs(" mask_target_slots=", g_trace.file);
+    trace_write_uint32_array(g_trace.file, mask_target_slots, mask_target_count);
+
+    fprintf(g_trace.file, " changed_count=%u changed_bits=[", changed_count);
+    int first = 1;
+    for (uint32_t byte_idx = 0; byte_idx < g_trace.bitstorage_bytes; byte_idx++) {
+        uint8_t diff = current[byte_idx] ^ g_trace.snapshot[byte_idx];
+        for (uint32_t bit = 0; diff; bit++, diff >>= 1) {
+            if (diff & 1) {
+                uint32_t bit_index = byte_idx * 8 + bit;
+                if (!first) fputc(',', g_trace.file);
+                fprintf(g_trace.file, "%u", bit_index);
+                first = 0;
+            }
+        }
+    }
+    fputs("]", g_trace.file);
+    fputc('\n', g_trace.file);
+
+    if (g_trace.json_enabled && g_trace.json_file) {
+        if (step_id > 0) fputc(',', g_trace.json_file);
+
+        fputs("{\"annotation\":", g_trace.json_file);
+        trace_write_json_string(g_trace.json_file, annotation ? annotation : "");
+        fprintf(g_trace.json_file,
+                ",\"depth\":%d,\"word_bits\":%llu,\"word_start\":%llu,\"word_stop\":%llu,\"step_words\":%llu",
+                g_trace.depth,
+                (unsigned long long)word_bits,
+                (unsigned long long)word_start,
+                (unsigned long long)word_stop,
+                (unsigned long long)step_words);
+        if (event_label) {
+            fputs(",\"function\":", g_trace.json_file);
+            trace_write_json_string(g_trace.json_file, event_label);
+        }
+        if (mask2_count > 0) {
+            fputs(",\"mask1_bits\":", g_trace.json_file);
+            trace_write_uint32_array(g_trace.json_file, mask_bits, mask_count);
+            fputs(",\"mask2_bits\":", g_trace.json_file);
+            trace_write_uint32_array(g_trace.json_file, mask2_bits, mask2_count);
+        } else {
+            fputs(",\"mask_bits\":", g_trace.json_file);
+            trace_write_uint32_array(g_trace.json_file, mask_bits, mask_count);
+        }
+        fputs(",\"mask_target_words\":", g_trace.json_file);
+        trace_write_uint64_array(g_trace.json_file, mask_target_words, mask_target_count);
+        fputs(",\"mask_target_slots\":", g_trace.json_file);
+        trace_write_uint32_array(g_trace.json_file, mask_target_slots, mask_target_count);
         fputs(",\"changed_bits\":[", g_trace.json_file);
 
         first = 1;

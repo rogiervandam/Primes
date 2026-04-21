@@ -29,6 +29,13 @@ const BYTE_LAYOUT_TIPS = {
   '4c2': '4 bytes in 2 columns',
   'grid3x3': '3x3 grid with center empty',
 };
+
+function describeLayout(layoutKey, catalog, noun) {
+  const layout = catalog[layoutKey];
+  if (!layout) return `${noun} arrangement unknown.`;
+  if (layout.grid3x3) return `${noun} arranged in a 3×3 grid with the center left empty.`;
+  return `${noun} arranged as ${layout.cols} columns × ${layout.rows} rows.`;
+}
 const VECTOR_TIPS = {
   1: 'No grouping — each uint64 is standalone',
   2: 'Group 2 uint64 values together',
@@ -340,17 +347,17 @@ export default function SettingsPanel({
     ? `custom (${Math.max(1, parseInt(s.customGroupBits || 1, 10) || 1)} bits)`
     : activeGroupingLabel;
   const bitAnnotationHint = !s.showBitLabels
-    ? 'Bit labels are hidden.'
+    ? `Bit labels are hidden. ${describeLayout(s.bitLayout, BIT_LAYOUTS, 'Bits')}`
     : (s.bitLabelMode === 'byte'
-      ? 'Shows bit position relative to each byte.'
+      ? `Shows bit position relative to each byte. ${describeLayout(s.bitLayout, BIT_LAYOUTS, 'Bits')}`
       : s.bitLabelMode === 'group'
-        ? 'Shows bit position inside each grouping.'
-        : 'Shows global bit index in the full sieve.');
+        ? `Shows bit position inside each grouping. ${describeLayout(s.bitLayout, BIT_LAYOUTS, 'Bits')}`
+        : `Shows global bit index in the full sieve. ${describeLayout(s.bitLayout, BIT_LAYOUTS, 'Bits')}`);
   const byteAnnotationHint = !s.showByteLabels
-    ? 'Byte labels are hidden.'
+    ? `Byte labels are hidden. ${describeLayout(s.byteLayout, BYTE_LAYOUTS, 'Bytes')}`
     : ((s.byteLabelMode || 'group') === 'global'
-      ? 'Shows byte index across the full sieve.'
-      : 'Shows byte index relative to each grouping.');
+      ? `Shows byte index across the full sieve. ${describeLayout(s.byteLayout, BYTE_LAYOUTS, 'Bytes')}`
+      : `Shows byte index relative to each grouping. ${describeLayout(s.byteLayout, BYTE_LAYOUTS, 'Bytes')}`);
 
   React.useEffect(() => {
     if (isCustomVectorMode) {
@@ -424,7 +431,7 @@ export default function SettingsPanel({
     return (
       <>
       <div className="settings-section lo-section">
-        <label>Grouping and arrangements</label>
+        <label>Arrangements and grouping</label>
 
         {/* Bit layout row */}
         <div className="lo-level-row lo-level-row-with-spacing">
@@ -458,7 +465,7 @@ export default function SettingsPanel({
         </div>
         <p className="layout-description layout-description-grouping">{BYTE_LAYOUT_TIPS[s.byteLayout] || 'Pick how bytes are arranged inside a uint64.'}</p>
 
-        <div className="lo-level-row lo-level-row-stacked lo-level-row-with-spacing">
+        <div className="lo-level-row lo-level-row-stacked">
           <span className="lo-level-tag">Grouping</span>
           <div className="lo-row-body lo-row-body-stacked">
             <div className="lo-vec-wrap">
@@ -538,7 +545,39 @@ export default function SettingsPanel({
                 </>
               )}
             </div>
+          </div>
+        </div>
+
+        <div className="lo-level-row lo-level-row-with-spacing">
+          <span className="lo-level-tag">Row</span>
+          <div className="lo-row-body lo-row-body-stacked">
+            <div className="lo-vec-wrap">
+              <span className="settings-hint">Control how many grouping blocks are shown across each visual row.</span>
+            </div>
             <SpacingControl title="Grouping spacing" keyH="u64SpacingH" keyV="u64SpacingV" max={20} className="spacing-inline-grouping" />
+            <div className="spacing-inline-control spacing-inline-grouping">
+              <div className="spacing-inline-title">Groups per row</div>
+              <div className="spacing-inline-row">
+                <button
+                  type="button"
+                  className="btn-icon btn-sm spacing-adjust-btn"
+                  onClick={() => set('horizontalGroups', Math.max(0, (parseInt(s.horizontalGroups || 0, 10) || 0) - 1))}
+                  title="Decrease groups shown horizontally"
+                >−</button>
+                <div className="spacing-inline-preview spacing-inline-preview-h" aria-hidden="true">
+                  <span className="spacing-inline-box" />
+                  <span className="spacing-inline-gap">{parseInt(s.horizontalGroups || 0, 10) > 0 ? s.horizontalGroups : 'auto'}</span>
+                  <span className="spacing-inline-box" />
+                </div>
+                <button
+                  type="button"
+                  className="btn-icon btn-sm spacing-adjust-btn"
+                  onClick={() => set('horizontalGroups', Math.min(64, (parseInt(s.horizontalGroups || 0, 10) || 0) + 1))}
+                  title="Increase groups shown horizontally"
+                >+</button>
+              </div>
+              <span className="settings-hint">0 = automatic row fitting</span>
+            </div>
           </div>
         </div>
 
@@ -739,6 +778,21 @@ export default function SettingsPanel({
                   <line x1="15" y1="4" x2="15" y2="12" />
                   <line x1="29" y1="4" x2="29" y2="12" />
                   <text x="2" y="17" fontSize="7">v0  v1  v2</text>
+                </svg>
+              )}
+            />
+            <AnnotationButton
+              title="Touch order"
+              hint="Show the order above touched vectors. Repeated touches are grouped as (1,6)."
+              active={!!s.showVectorTouchOrder}
+              onClick={() => set('showVectorTouchOrder', !(s.showVectorTouchOrder === true))}
+              preview={(
+                <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
+                  <rect x="2" y="8" width="10" height="6" rx="1" />
+                  <rect x="16" y="8" width="10" height="6" rx="1" />
+                  <rect x="30" y="8" width="10" height="6" rx="1" />
+                  <text x="5" y="6" fontSize="6">1</text>
+                  <text x="16" y="6" fontSize="6">(2,6)</text>
                 </svg>
               )}
             />

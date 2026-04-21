@@ -74,26 +74,31 @@ function parseJsonTrace(text) {
     const inferredOp = inferOperationFromAnnotation(s.annotation || '');
 
     return {
-    stepId: toNumberOr(firstDefined(s.event_id, s.event, s.index, s.ordinal, s.sequence), idx),
-    annotation: s.annotation || '',
-    operation: (s.operation && s.operation !== 'Initialization') ? s.operation : inferredOp,
-    prime: s.prime ?? null,
-    start,
-    stop,
-    factorStep,
-    changedBits: new Uint32Array(s.changed_bits || []),
-    numChanged: (s.changed_bits || []).length,
-    targetBits: new Uint32Array(maskMeta.targetBits),
-    targetHitCounts: new Uint16Array(maskMeta.targetHitCounts),
-    focusStart: maskMeta.focusStart,
-    focusStop: maskMeta.focusStop,
-    // Hierarchy / nesting support (dynamic depth levels)
-    depth: Math.max(0, s.depth ?? s.call_depth ?? 0),
-    operationPath: Array.isArray(s.operation_path)
-      ? s.operation_path.filter(Boolean)
-      : (s.operation ? [s.operation] : []),
-    parentId: s.parent_id ?? s.parentId ?? null,
-  }});
+      stepId: toNumberOr(firstDefined(s.event_id, s.event, s.index, s.ordinal, s.sequence), idx),
+      annotation: s.annotation || '',
+      operation: (s.operation && s.operation !== 'Initialization') ? s.operation : inferredOp,
+      prime: s.prime ?? null,
+      start,
+      stop,
+      factorStep,
+      changedBits: new Uint32Array(s.changed_bits || []),
+      numChanged: (s.changed_bits || []).length,
+      targetBits: new Uint32Array(maskMeta.targetBits),
+      targetHitCounts: new Uint16Array(maskMeta.targetHitCounts),
+      focusStart: maskMeta.focusStart,
+      focusStop: maskMeta.focusStop,
+      maskWordBits: maskMeta.wordBits,
+      maskWriteOrderWords: new Uint32Array(maskMeta.targetWords),
+      maskWriteOrderSlots: new Uint8Array(maskMeta.targetSlots),
+      maskSlotBits: maskMeta.maskSlotBits.map((bits) => new Uint32Array(bits)),
+      // Hierarchy / nesting support (dynamic depth levels)
+      depth: Math.max(0, s.depth ?? s.call_depth ?? 0),
+      operationPath: Array.isArray(s.operation_path)
+        ? s.operation_path.filter(Boolean)
+        : (s.operation ? [s.operation] : []),
+      parentId: s.parent_id ?? s.parentId ?? null,
+    };
+  });
 
   inferMissingPrimes(steps, header.storageModel);
   return { header, steps };
@@ -173,6 +178,10 @@ function parseTextTrace(text) {
         targetHitCounts: new Uint16Array(maskMeta.targetHitCounts),
         focusStart: maskMeta.focusStart,
         focusStop: maskMeta.focusStop,
+        maskWordBits: maskMeta.wordBits,
+        maskWriteOrderWords: new Uint32Array(maskMeta.targetWords),
+        maskWriteOrderSlots: new Uint8Array(maskMeta.targetSlots),
+        maskSlotBits: maskMeta.maskSlotBits.map((bits) => new Uint32Array(bits)),
         depth: Math.max(0, toNumberOr(firstDefined(kv.depth, kv.call_depth), 0)),
         operationPath,
         parentId: toNullableNumber(firstDefined(kv.parent_id, kv.parentId)),
@@ -358,6 +367,10 @@ function createParsedStep({
   targetHitCounts,
   focusStart,
   focusStop,
+  maskWordBits,
+  maskWriteOrderWords,
+  maskWriteOrderSlots,
+  maskSlotBits,
   depth,
   operationPath,
 }) {
@@ -375,6 +388,10 @@ function createParsedStep({
     targetHitCounts: new Uint16Array(targetHitCounts || []),
     focusStart: toNullableNumber(focusStart),
     focusStop: toNullableNumber(focusStop),
+    maskWordBits: toNullableNumber(maskWordBits),
+    maskWriteOrderWords: new Uint32Array(maskWriteOrderWords || []),
+    maskWriteOrderSlots: new Uint8Array(maskWriteOrderSlots || []),
+    maskSlotBits: Array.isArray(maskSlotBits) ? maskSlotBits.map((bits) => new Uint32Array(bits || [])) : [],
     depth: Math.max(0, toNumberOr(depth, 0)),
     operationPath: Array.isArray(operationPath) && operationPath.length > 0
       ? operationPath
@@ -440,6 +457,10 @@ function parseFreeformStepEvent(line, bitCountHint = 0) {
       targetHitCounts: maskMeta.targetHitCounts,
       focusStart: maskMeta.focusStart,
       focusStop: maskMeta.focusStop,
+      maskWordBits: maskMeta.wordBits,
+      maskWriteOrderWords: maskMeta.targetWords,
+      maskWriteOrderSlots: maskMeta.targetSlots,
+      maskSlotBits: maskMeta.maskSlotBits,
     };
   }
   if (inferred.start != null || inferred.stop != null || inferred.factorStep != null) {
@@ -597,7 +618,10 @@ function parseChangedBits(raw) {
 function parseIntegerList(raw) {
   if (raw == null) return [];
   if (Array.isArray(raw)) return raw.map((value) => Number(value)).filter((value) => Number.isFinite(value));
-  return String(raw)
+  const cleaned = String(raw)
+    .replace(/^\[/, '')
+    .replace(/\]$/, '');
+  return cleaned
     .split(/[\s,;]+/)
     .map((value) => Number(value))
     .filter((value) => Number.isFinite(value));
@@ -629,6 +653,59 @@ function buildMaskTargets(wordStart, wordStop, stepWords, wordBits, maskDescript
   };
 }
 
+function buildOrderedMaskTargets(targetWords, targetSlots, wordBits, maskSlotBits, bitCountHint = 0) {
+  const hitMap = new Map();
+  const bound = Number.isFinite(bitCountHint) && bitCountHint > 0 ? bitCountHint : Number.MAX_SAFE_INTEGER;
+
+  for (let index = 0; index < targetWords.length; index++) {
+    const wordIndex = Number(targetWords[index]);
+    const slotIndex = Number.isFinite(targetSlots[index]) ? Number(targetSlots[index]) : 0;
+    const slotBits = maskSlotBits[slotIndex] || [];
+    if (!Number.isFinite(wordIndex) || wordIndex < 0) continue;
+
+    const baseBit = wordIndex * wordBits;
+    for (let bitIndex = 0; bitIndex < slotBits.length; bitIndex++) {
+      const absoluteBit = baseBit + slotBits[bitIndex];
+      if (absoluteBit < 0 || absoluteBit >= bound) continue;
+      hitMap.set(absoluteBit, (hitMap.get(absoluteBit) || 0) + 1);
+    }
+  }
+
+  return {
+    targetBits: Array.from(hitMap.keys()),
+    targetHitCounts: Array.from(hitMap.values()),
+  };
+}
+
+function buildMaskWriteOrder(wordStart, wordStop, stepWords, maskSlotBits) {
+  const targetWords = [];
+  const targetSlots = [];
+
+  if (!Number.isFinite(wordStart) || !Number.isFinite(wordStop) || !Number.isFinite(stepWords) || stepWords <= 0) {
+    return { targetWords, targetSlots };
+  }
+
+  const hasPrimaryMask = (maskSlotBits[0] || []).length > 0;
+  const hasSecondaryMask = (maskSlotBits[1] || []).length > 0;
+
+  for (let wordIndex = wordStart; wordIndex <= wordStop; wordIndex += stepWords) {
+    if (hasPrimaryMask) {
+      targetWords.push(wordIndex);
+      targetSlots.push(0);
+    }
+
+    if (hasSecondaryMask) {
+      const secondaryWord = wordIndex + 1;
+      if (secondaryWord <= wordStop) {
+        targetWords.push(secondaryWord);
+        targetSlots.push(1);
+      }
+    }
+  }
+
+  return { targetWords, targetSlots };
+}
+
 function deriveMaskMeta(source, bitCountHint = 0) {
   const sourceObj = typeof source === 'string' ? parseKvLine(source) : (source || {});
   const annotation = typeof source === 'string' ? source : String(firstDefined(sourceObj.annotation, '') || '');
@@ -639,15 +716,6 @@ function deriveMaskMeta(source, bitCountHint = 0) {
 
   const explicitTargetBits = parseIntegerList(firstDefined(sourceObj.target_bits, sourceObj.targetBits));
   const explicitTargetCounts = parseIntegerList(firstDefined(sourceObj.target_hit_counts, sourceObj.targetHitCounts));
-  if (explicitTargetBits.length > 0) {
-    return {
-      targetBits: explicitTargetBits,
-      targetHitCounts: explicitTargetBits.map((_, index) => Math.max(1, explicitTargetCounts[index] || 1)),
-      focusStart,
-      focusStop,
-    };
-  }
-
   const wordBits = toNullableNumber(firstDefined(sourceObj.word_bits, sourceObj.wordBits));
   const wordStart = toNullableNumber(firstDefined(sourceObj.word_start, sourceObj.wordStart));
   const wordStop = toNullableNumber(firstDefined(sourceObj.word_stop, sourceObj.wordStop));
@@ -656,6 +724,45 @@ function deriveMaskMeta(source, bitCountHint = 0) {
   const mask1Bits = parseIntegerList(firstDefined(sourceObj.mask1_bits, sourceObj.mask1Bits));
   const mask2Bits = parseIntegerList(firstDefined(sourceObj.mask2_bits, sourceObj.mask2Bits));
 
+  const maskSlotBits = [];
+  if (mask1Bits.length > 0 || mask2Bits.length > 0) {
+    maskSlotBits[0] = mask1Bits;
+    maskSlotBits[1] = mask2Bits;
+  } else if (maskBits.length > 0) {
+    maskSlotBits[0] = maskBits;
+  }
+
+  if (explicitTargetBits.length > 0) {
+    return {
+      targetBits: explicitTargetBits,
+      targetHitCounts: explicitTargetBits.map((_, index) => Math.max(1, explicitTargetCounts[index] || 1)),
+      focusStart,
+      focusStop,
+      wordBits,
+      targetWords: [],
+      targetSlots: [],
+      maskSlotBits,
+    };
+  }
+
+  const explicitTargetWords = parseIntegerList(firstDefined(sourceObj.mask_target_words, sourceObj.maskTargetWords));
+  const explicitTargetSlots = parseIntegerList(firstDefined(sourceObj.mask_target_slots, sourceObj.maskTargetSlots));
+
+  if (wordBits != null && explicitTargetWords.length > 0 && maskSlotBits.some((bits) => bits && bits.length > 0)) {
+    const targetSlots = explicitTargetWords.map((_, index) => Math.max(0, explicitTargetSlots[index] || 0));
+    const built = buildOrderedMaskTargets(explicitTargetWords, targetSlots, wordBits, maskSlotBits, bitCountHint);
+    return {
+      targetBits: built.targetBits,
+      targetHitCounts: built.targetHitCounts,
+      focusStart,
+      focusStop,
+      wordBits,
+      targetWords: explicitTargetWords,
+      targetSlots,
+      maskSlotBits,
+    };
+  }
+
   if (wordBits != null && wordStart != null && wordStop != null && stepWords != null) {
     const maskDescriptors = [];
     if (maskBits.length > 0) maskDescriptors.push({ wordOffset: 0, bits: maskBits });
@@ -663,11 +770,16 @@ function deriveMaskMeta(source, bitCountHint = 0) {
     if (mask2Bits.length > 0) maskDescriptors.push({ wordOffset: 1, bits: mask2Bits });
     if (maskDescriptors.length > 0) {
       const built = buildMaskTargets(wordStart, wordStop, stepWords, wordBits, maskDescriptors, bitCountHint);
+      const writeOrder = buildMaskWriteOrder(wordStart, wordStop, stepWords, maskSlotBits);
       return {
         targetBits: built.targetBits,
         targetHitCounts: built.targetHitCounts,
         focusStart,
         focusStop,
+        wordBits,
+        targetWords: writeOrder.targetWords,
+        targetSlots: writeOrder.targetSlots,
+        maskSlotBits,
       };
     }
   }
@@ -677,6 +789,10 @@ function deriveMaskMeta(source, bitCountHint = 0) {
     targetHitCounts: [],
     focusStart,
     focusStop,
+    wordBits,
+    targetWords: [],
+    targetSlots: [],
+    maskSlotBits,
   };
 }
 
