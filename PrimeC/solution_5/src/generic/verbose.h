@@ -66,36 +66,10 @@
 
 #define PRIMES_CAT_IMPL(a, b) a##b
 #define PRIMES_CAT(a, b) PRIMES_CAT_IMPL(a, b)
-#define PRIMES_VERBOSE(level, statement) PRIMES_CAT(verbose, level)(statement)
+// #define PRIMES_VERBOSE(level, statement) PRIMES_CAT(verbose, level)(statement)
+#define verbose(level, statement) PRIMES_CAT(verbose, level)(statement)
 
 int waitforkey(void);
-
-#define PRIMES_START_ANALYSIS(level, timer, printf_args...) \
-  PRIMES_VERBOSE(level, printf(printf_args);) timer_lapstart(timer)
-#define PRIMES_END_ANALYSIS(level, timer, ...) \
-  timer_laptime(timer); __VA_OPT__(PRIMES_VERBOSE(level, printf(__VA_ARGS__);))
-
-#define startAnalysis0(timer, printf_args...) PRIMES_START_ANALYSIS(0, timer, printf_args)
-#define startAnalysis1(timer, printf_args...) PRIMES_START_ANALYSIS(1, timer, printf_args)
-#define startAnalysis2(timer, printf_args...) PRIMES_START_ANALYSIS(2, timer, printf_args)
-#define startAnalysis3(timer, printf_args...) PRIMES_START_ANALYSIS(3, timer, printf_args)
-#define startAnalysis4(timer, printf_args...) PRIMES_START_ANALYSIS(4, timer, printf_args)
-#define startAnalysis5(timer, printf_args...) PRIMES_START_ANALYSIS(5, timer, printf_args)
-#define startAnalysis6(timer, printf_args...) PRIMES_START_ANALYSIS(6, timer, printf_args) // not used
-#define startAnalysis7(timer, printf_args...) PRIMES_START_ANALYSIS(7, timer, printf_args) // not used
-#define startAnalysis8(timer, printf_args...) PRIMES_START_ANALYSIS(8, timer, printf_args) // in bitstorage_search
-#define startAnalysis9(timer, printf_args...) PRIMES_START_ANALYSIS(9, timer, printf_args) // not used
-
-#define endAnalysis0(timer, ...) PRIMES_END_ANALYSIS(0, timer, ##__VA_ARGS__)
-#define endAnalysis1(timer, ...) PRIMES_END_ANALYSIS(1, timer, ##__VA_ARGS__)
-#define endAnalysis2(timer, ...) PRIMES_END_ANALYSIS(2, timer, ##__VA_ARGS__)
-#define endAnalysis3(timer, ...) PRIMES_END_ANALYSIS(3, timer, ##__VA_ARGS__)
-#define endAnalysis4(timer, ...) PRIMES_END_ANALYSIS(4, timer, ##__VA_ARGS__)
-#define endAnalysis5(timer, ...) PRIMES_END_ANALYSIS(5, timer, ##__VA_ARGS__)
-#define endAnalysis6(timer, ...) PRIMES_END_ANALYSIS(6, timer, ##__VA_ARGS__)
-#define endAnalysis7(timer, ...) PRIMES_END_ANALYSIS(7, timer, ##__VA_ARGS__)
-#define endAnalysis8(timer, ...) PRIMES_END_ANALYSIS(8, timer, ##__VA_ARGS__)
-#define endAnalysis9(timer, ...) PRIMES_END_ANALYSIS(9, timer, ##__VA_ARGS__)
 
 // Trace macros: compile-time gated via -DCOMPILE_TRACE
 #define PRIMES_TRACE_IS_INTEGER(x) _Generic((x), \
@@ -135,9 +109,9 @@ int waitforkey(void);
       trace_dump_memory_with_format(filename, bitstorage_ptr, sieve_size, bit_count, "binary")
 
   #define PRIMES_LOG_BEGIN(level, timer, printf_args...) \
-      PRIMES_CAT(startAnalysis, level)(timer, printf_args) TRACE_TEXT_TIMER(timer, printf_args); TRACE_ANALYSIS_PUSH(level)
+      verbose(level, printf(printf_args);) timer_lapstart(timer) TRACE_TEXT_TIMER(timer, printf_args); TRACE_ANALYSIS_PUSH(level)
   #define PRIMES_LOG_END(level, timer, ...) \
-      TRACE_ANALYSIS_END(); PRIMES_CAT(endAnalysis, level)(timer, ##__VA_ARGS__)
+      TRACE_ANALYSIS_END(); timer_laptime(timer); __VA_OPT__(verbose(level, printf(__VA_ARGS__);))
 #else
   #define TRACE_STEP(bitstorage_ptr, fmt, ...)
   #define TRACE_EVENT(bitstorage_ptr, fmt, ...)
@@ -152,9 +126,9 @@ int waitforkey(void);
   #define TRACE_DUMP_HEX(filename, bitstorage_ptr, sieve_size, bit_count)
   #define TRACE_DUMP_BINARY(filename, bitstorage_ptr, sieve_size, bit_count)
   #define PRIMES_LOG_BEGIN(level, timer, printf_args...) \
-      PRIMES_CAT(startAnalysis, level)(timer, printf_args)
+      verbose(level, printf(printf_args);) timer_lapstart(timer)
   #define PRIMES_LOG_END(level, timer, ...) \
-      PRIMES_CAT(endAnalysis, level)(timer, ##__VA_ARGS__)
+      timer_laptime(timer); __VA_OPT__(verbose(level, printf(__VA_ARGS__);))
 #endif
 
 static inline void
