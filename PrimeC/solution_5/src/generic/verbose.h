@@ -81,10 +81,10 @@ int waitforkey(void);
 #define startAnalysis3(timer, printf_args...) PRIMES_START_ANALYSIS(3, timer, printf_args)
 #define startAnalysis4(timer, printf_args...) PRIMES_START_ANALYSIS(4, timer, printf_args)
 #define startAnalysis5(timer, printf_args...) PRIMES_START_ANALYSIS(5, timer, printf_args)
-#define startAnalysis6(timer, printf_args...) PRIMES_START_ANALYSIS(6, timer, printf_args)
-#define startAnalysis7(timer, printf_args...) PRIMES_START_ANALYSIS(7, timer, printf_args)
-#define startAnalysis8(timer, printf_args...) PRIMES_START_ANALYSIS(8, timer, printf_args)
-#define startAnalysis9(timer, printf_args...) PRIMES_START_ANALYSIS(9, timer, printf_args)
+#define startAnalysis6(timer, printf_args...) PRIMES_START_ANALYSIS(6, timer, printf_args) // not used
+#define startAnalysis7(timer, printf_args...) PRIMES_START_ANALYSIS(7, timer, printf_args) // not used
+#define startAnalysis8(timer, printf_args...) PRIMES_START_ANALYSIS(8, timer, printf_args) // in bitstorage_search
+#define startAnalysis9(timer, printf_args...) PRIMES_START_ANALYSIS(9, timer, printf_args) // not used
 
 #define endAnalysis0(timer, ...) PRIMES_END_ANALYSIS(0, timer, ##__VA_ARGS__)
 #define endAnalysis1(timer, ...) PRIMES_END_ANALYSIS(1, timer, ##__VA_ARGS__)

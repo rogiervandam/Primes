@@ -58,13 +58,13 @@ function(faultInvalidInStripe,suffix)(const void* restrict bitstorage, const cou
 static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
 function(searchBitFalse,suffix)(void* restrict bitstorage, register counter_t index) 
 {
-    startAnalysis8(time_searchBitFalse, "searchBitFalse from prime %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1);
+    logBegin8(time_searchBitFalse, "searchBitFalse from prime %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1);
 
     #pragma GCC ivdep
     #pragma GCC unroll 4
     for (;checkBitTrue(bitstorage, ++index););
 
-    endAnalysis8(time_searchBitFalse, " next prime %ju (step %ju)\n", (uintmax_t) index, (uintmax_t)index*2+1);
+    logEnd8(time_searchBitFalse, " next prime %ju (step %ju)\n", (uintmax_t) index, (uintmax_t)index*2+1);
     return index;
 }
 
@@ -74,7 +74,7 @@ function(searchBitFalse,suffix)(void* restrict bitstorage, register counter_t in
 static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
 function(searchBitFalse_largestep,suffix)(const void* restrict bitstorage, register counter_t index) 
 {
-    startAnalysis8(time_searchBitFalse_largestep, "searchBitFalse_largestep from prime %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1);
+    logBegin8(time_searchBitFalse_largestep, "searchBitFalse_largestep from prime %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1);
 
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
 
@@ -101,7 +101,7 @@ function(searchBitFalse_largestep,suffix)(const void* restrict bitstorage, regis
         index += bitcount_type(bitbucket_t);
     }
 
-    endAnalysis8(time_searchBitFalse_largestep, " next prime %ju (step %ju)\n", (uintmax_t) (index + builtin_ctz(~current_word)), (uintmax_t)(index + builtin_ctz(~current_word))*2+1);
+    logEnd8(time_searchBitFalse_largestep, " next prime %ju (step %ju)\n", (uintmax_t) (index + builtin_ctz(~current_word)), (uintmax_t)(index + builtin_ctz(~current_word))*2+1);
 
     // Note: ~current_word inverts the bits so we find first 0 instead of 1
     return index + builtin_ctz(~current_word);
