@@ -38,6 +38,45 @@ export default function DetailPanel({ step, stepIndex, open, onToggle, height, o
     return text;
   }, [step, storageModel]);
 
+  const maskSummary = useMemo(() => {
+    if (!step || !Number.isFinite(step.maskWordBits) || step.maskWordBits <= 0) return null;
+
+    const slotBits = Array.isArray(step.maskSlotBits)
+      ? step.maskSlotBits
+          .map((bits, slotIndex) => {
+            const values = Array.from(bits || []).map((value) => Number(value)).filter((value) => Number.isFinite(value));
+            if (values.length === 0) return null;
+            return {
+              slotIndex,
+              text: `mask ${slotIndex + 1}: ${values.join(', ')}`,
+            };
+          })
+          .filter(Boolean)
+      : [];
+
+    const writeEntries = (() => {
+      if (!step.maskWriteOrderWords || step.maskWriteOrderWords.length === 0) return [];
+      const items = [];
+      for (let index = 0; index < step.maskWriteOrderWords.length; index++) {
+        const word = Number(step.maskWriteOrderWords[index]);
+        const slot = Number(step.maskWriteOrderSlots?.[index] ?? 0);
+        if (!Number.isFinite(word) || word < 0) continue;
+        items.push(`w${word}:${slot + 1}`);
+      }
+      return items;
+    })();
+
+    return {
+      wordBits: step.maskWordBits,
+      slotText: slotBits.length > 0 ? slotBits.map((entry) => entry.text).join(' | ') : '-',
+      routeText: writeEntries.length > 0
+        ? (writeEntries.length > 18
+          ? `${writeEntries.slice(0, 18).join(', ')} … (+${writeEntries.length - 18} more)`
+          : writeEntries.join(', '))
+        : '-',
+    };
+  }, [step]);
+
   // Height drag handler
   const handleHeightDrag = useCallback((e) => {
     e.preventDefault();
@@ -125,10 +164,22 @@ export default function DetailPanel({ step, stepIndex, open, onToggle, height, o
       content: step.numChanged > 0 ? <span className="dt-mono">{numberSummary}</span> : <span className="detail-empty">-</span>,
     },
     {
+      label: 'Mask width',
+      content: maskSummary ? <span className="detail-tag block-tag">{maskSummary.wordBits} bits</span> : <span className="detail-empty">-</span>,
+    },
+    {
+      label: 'Mask bits',
+      content: maskSummary ? <span className="dt-mono">{maskSummary.slotText}</span> : <span className="detail-empty">-</span>,
+    },
+    {
+      label: 'Mask route',
+      content: maskSummary ? <span className="dt-mono">{maskSummary.routeText}</span> : <span className="detail-empty">-</span>,
+    },
+    {
       label: 'Annotation',
       content: step.annotation ? <span className="dt-annotation">{step.annotation}</span> : <span className="detail-empty">-</span>,
     },
-  ];
+  ].filter(Boolean);
 
   return (
     <div className={`detail-panel ${open ? 'open' : 'collapsed'}`}>

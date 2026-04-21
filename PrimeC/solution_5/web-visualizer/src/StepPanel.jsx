@@ -46,7 +46,7 @@ function buildDepthTree(steps) {
 /**
  * Hierarchical step panel grouped by prime, with collapse/expand.
  */
-export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, fileName, onClose }) {
+export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, fileName, onClose, onUserScroll }) {
   const listRef = useRef(null);
   const scrollTopRef = useRef(0);
   const [search, setSearch] = useState('');
@@ -215,6 +215,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       `Bits changed: ${changedCount}`,
       node.annotation,
     ].filter(Boolean).join('\n');
+    const summaryText = formatStepSummary(node);
 
     return (
       <div key={node.originalIndex} className={`step-depth-node depth-${Math.min(6, nodeDepth)}`}>
@@ -245,7 +246,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
           <span className="step-num">{eventId}</span>
           {node.operation && <span className="step-op">{node.operation}</span>}
           <span className="step-changes">{changedCount > 0 ? `+${changedCount}` : ''}</span>
-          <span className="step-text">{node.annotation}</span>
+          <span className="step-text">{summaryText}</span>
         </div>
         {hasChildren && !isNodeCollapsed && (
           <div className="step-depth-children">
@@ -284,6 +285,13 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     onMultiStepSelect(new Set(indices));
     lastClickedRef.current = indices[0];
   }, [onStepClick, onMultiStepSelect]);
+
+  const formatStepSummary = useCallback((node) => {
+    if (node.start == null || node.stop == null) return '';
+    const rangeLabel = `range[${node.start}-${node.stop}]`;
+    if (node.factorStep != null) return `${rangeLabel} with step ${node.factorStep}`;
+    return rangeLabel;
+  }, []);
 
   return (
     <div className={`step-panel${panelCollapsed ? ' collapsed' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
@@ -325,7 +333,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
           </select>
         )}
       </div>
-      <div className="step-list" ref={listRef}>
+      <div className="step-list" ref={listRef} onWheel={onUserScroll}>
         {filteredTree.map((group) => {
           const isCollapsed = collapsed.has(group.id);
           const containsActive = group.children.some(s => s.originalIndex === currentStep || selectedSteps.has(s.originalIndex));

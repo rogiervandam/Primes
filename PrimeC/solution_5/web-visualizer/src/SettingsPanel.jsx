@@ -95,9 +95,12 @@ const VECTOR_LANE_OPTIONS = [1, 2, 4, 8];
  */
 export default function SettingsPanel({
   settings, onChange, collapsed, onToggleCollapse,
+  playSpeed, onPlaySpeedChange,
   repeatAnim, onRepeatAnimChange,
   animMode, onAnimModeChange,
   animStyle, onAnimStyleChange,
+  maskAnimationEnabled, onMaskAnimationEnabledChange,
+  animationReplayPaused, onAnimationReplayPausedChange,
   bitAnimInterval, onBitAnimIntervalChange,
   colorPreset, onColorPresetChange,
   customColors, onCustomColorsChange,
@@ -182,6 +185,28 @@ export default function SettingsPanel({
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
   const adjustRepeatAnim = (deltaMs) => onRepeatAnimChange(clamp((repeatAnim || 0) + deltaMs, 0, 5000));
   const adjustBitInterval = (deltaMs) => onBitAnimIntervalChange(clamp((bitAnimInterval || 20) + deltaMs, 5, 5000));
+  const playbackSpeedToMs = (speedValue) => {
+    const speed = clamp(parseInt(speedValue || 0, 10) || 1, 1, 100);
+    const ratio = (speed - 1) / 99;
+    return Math.round(12000 - ratio * (12000 - 4000));
+  };
+  const msToPlaybackSpeed = (intervalValue) => {
+    const interval = clamp(parseInt(intervalValue || 0, 10) || 4000, 4000, 12000);
+    const ratio = (12000 - interval) / (12000 - 4000);
+    return Math.round(1 + ratio * 99);
+  };
+  const stepSpeedToInterval = (speedValue) => {
+    const speed = clamp(parseInt(speedValue || 0, 10) || 1, 1, 100);
+    const ratio = (speed - 1) / 99;
+    return Math.round(5000 - ratio * (5000 - 5));
+  };
+  const intervalToStepSpeed = (intervalValue) => {
+    const interval = clamp(parseInt(intervalValue || 0, 10) || 20, 5, 5000);
+    const ratio = (5000 - interval) / (5000 - 5);
+    return Math.round(1 + ratio * 99);
+  };
+  const playbackSpeedValue = msToPlaybackSpeed(playSpeed || 300);
+  const stepSpeedValue = intervalToStepSpeed(bitAnimInterval || 20);
   const setVectorGroupSimple = (group) => {
     onChange({
       ...s,
@@ -336,12 +361,13 @@ export default function SettingsPanel({
 
   const SpacingIcon = ({ title }) => (
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
-      <path d="M4 8 H20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M16 4 L20 8 L16 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M8 4 L4 8 L8 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M12 20 V4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M8 8 L12 4 L16 8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M8 16 L12 20 L16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 3 V21" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M3 12 H21" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M9 6 L12 3 L15 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M9 18 L12 21 L15 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6 9 L3 12 L6 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M18 9 L21 12 L18 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="1.35" fill="currentColor" stroke="none" />
       <title>{title}</title>
     </svg>
   );
@@ -474,13 +500,13 @@ export default function SettingsPanel({
               {columnControl ? (
                 <div className="spacing-inline-row spacing-inline-row-extended">
                   <span className="spacing-inline-axis">C</span>
-                  <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={columnControl.decr} title={columnControl.decrTitle} disabled={columnControl.disabled}>−</button>
+                  <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={columnControl.decr} title={columnControl.decrTitle}>−</button>
                   <div className="spacing-inline-preview spacing-inline-preview-h" aria-hidden="true">
                     <span className="spacing-inline-box" />
                     <span className="spacing-inline-gap">{columnControl.value}</span>
                     <span className="spacing-inline-box" />
                   </div>
-                  <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={columnControl.incr} title={columnControl.incrTitle} disabled={columnControl.disabled}>+</button>
+                  <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={columnControl.incr} title={columnControl.incrTitle}>+</button>
                 </div>
               ) : null}
               {columnControl ? (
@@ -634,7 +660,6 @@ export default function SettingsPanel({
               columnControl={{
                 value: Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1),
                 auto: Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0,
-                disabled: Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0,
                 decr: () => {
                   const current = Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
                   const next = Math.max(1, current - 1);
@@ -1038,28 +1063,77 @@ export default function SettingsPanel({
           </div>
         )}
 
-        {animStyle !== 'none' && (
+        {(
           <div className="settings-section">
             <label>Animation timing</label>
             <div className="settings-row animation-timing-row" style={{ alignItems: 'flex-start', gap: 8 }}>
               <div className="timing-control">
-                <span className="timing-title">Per-bit interval</span>
-                <div className="settings-row" style={{ alignItems: 'center', gap: 6, opacity: animMode === 'all' ? 0.55 : 1 }}>
-                  <button className="btn-option btn-sm" onClick={() => adjustBitInterval(-10)} title="Decrease per-bit interval by 0.01s" disabled={animMode === 'all'}>−</button>
-                  <span className="timing-value">{((bitAnimInterval || 20) / 1000).toFixed(2)}s</span>
-                  <button className="btn-option btn-sm" onClick={() => adjustBitInterval(10)} title="Increase per-bit interval by 0.01s" disabled={animMode === 'all'}>+</button>
+                <span className="timing-title">Overall speed</span>
+                <input
+                  className="timing-slider"
+                  type="range"
+                  min={1}
+                  max={100}
+                  step={1}
+                  value={playbackSpeedValue}
+                  onChange={(e) => onPlaySpeedChange(playbackSpeedToMs(e.target.value))}
+                  title="Overall playback speed"
+                />
+                <div className="timing-scale" aria-hidden="true">
+                  <span>Slow</span>
+                  <span className="timing-value">{playbackSpeedValue}%</span>
+                  <span>Fast</span>
                 </div>
               </div>
               <div className="timing-control">
-                <span className="timing-title">Animation delay</span>
-                <div className="settings-row" style={{ alignItems: 'center', gap: 6 }}>
-                  <button className="btn-option btn-sm" onClick={() => adjustRepeatAnim(-100)} title="Decrease animation delay by 0.1s">−</button>
+                <span className="timing-title">Delay</span>
+                <input
+                  className="timing-slider"
+                  type="range"
+                  min={0}
+                  max={5000}
+                  step={100}
+                  value={repeatAnim || 0}
+                  onChange={(e) => onRepeatAnimChange(clamp(parseInt(e.target.value || '0', 10) || 0, 0, 5000))}
+                  title="Delay between steps"
+                />
+                <div className="timing-scale" aria-hidden="true">
+                  <span>Off</span>
                   <span className="timing-value">{repeatAnim === 0 ? 'Off' : `${(repeatAnim / 1000).toFixed(1)}s`}</span>
-                  <button className="btn-option btn-sm" onClick={() => adjustRepeatAnim(100)} title="Increase animation delay by 0.1s">+</button>
+                  <span>Long</span>
+                </div>
+              </div>
+              <div className="timing-control">
+                <span className="timing-title">Step animation</span>
+                <input
+                  className="timing-slider"
+                  type="range"
+                  min={1}
+                  max={100}
+                  step={1}
+                  value={stepSpeedValue}
+                  onChange={(e) => onBitAnimIntervalChange(stepSpeedToInterval(e.target.value))}
+                  title="Selected step animation speed"
+                  disabled={animMode === 'all'}
+                />
+                <div className="timing-scale" aria-hidden="true">
+                  <span>Slow</span>
+                  <span className="timing-value">{animMode === 'all' ? 'All at once' : `${stepSpeedValue}%`}</span>
+                  <span>Fast</span>
                 </div>
               </div>
             </div>
-            <span className="settings-hint">Per-bit interval controls bit-to-bit pace. Animation delay waits after step animation completes before next step starts.</span>
+            <div className="settings-row" style={{ marginTop: 8 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input type="checkbox" checked={maskAnimationEnabled !== false} onChange={(e) => onMaskAnimationEnabledChange(e.target.checked)} />
+                Mask stamp animation
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input type="checkbox" checked={animationReplayPaused === true} onChange={(e) => onAnimationReplayPausedChange(e.target.checked)} />
+                Pause event replay
+              </label>
+            </div>
+            <span className="settings-hint">Overall speed controls autoplay through the trace. Step animation controls how a selected step reveals its bits. Delay waits only after a full step animation finishes.</span>
           </div>
         )}
 
