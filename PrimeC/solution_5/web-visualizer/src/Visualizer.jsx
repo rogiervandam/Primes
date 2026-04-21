@@ -143,7 +143,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
   // Keep refs in sync for use in callbacks
   const getMinimapDetailH = useCallback(() => {
-    return detailOpenRef.current ? (detailHeightRef.current + 28) : 28;
+    return detailOpenRef.current ? 20 : 10;
   }, []);
 
   // Wrap setDetailOpen/setDetailHeight to keep refs updated
@@ -569,6 +569,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       }
     }
 
+    const previousHighlights = new Set(r.changedBits || []);
+
     // Set operation for color-coded highlighting
     r.currentOperation = step.operation;
     r.currentAnnotation = step.annotation || '';
@@ -606,7 +608,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
     // Trigger animation for changed bits
     if (!suppressHighlight && triggerAnimationRef.current) {
-      triggerAnimationRef.current(changedSet, { adaptiveDuration: !playing });
+      triggerAnimationRef.current(changedSet, { adaptiveDuration: !playing, fadeOutBits: previousHighlights });
     }
   }, [currentStep, steps, updateMinimapAvailability, playing, stopPlayback]);
 
@@ -789,7 +791,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
   const fadeOutCurrentHighlights = useCallback((options = {}) => {
     const r = rendererRef.current;
-    const currentBits = r?.changedBits ? Array.from(r.changedBits) : [];
+    const currentBits = options.fadeOutBits != null
+      ? Array.from(options.fadeOutBits)
+      : (r?.changedBits ? Array.from(r.changedBits) : []);
     if (!r || currentBits.length === 0 || options.skipFadeOut) return Promise.resolve();
 
     if (rippleRef.current) {
@@ -914,6 +918,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
               idx = direction > 0 ? 0 : bits.length - 1;
             } else {
               r.changedBits = fullChanged;
+              r.animationFocusBits = new Set();
               r.render();
               r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
               resolve();
@@ -932,10 +937,21 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
                 }
                 return value;
               })();
+          const focusBits = animMode === 'bounce'
+            ? new Set(buildBounceTrail().slice(0, Math.max(1, Math.min(3, trailSize))))
+            : new Set([bits[Math.max(0, Math.min(bits.length - 1, idx))]]);
           r.changedBits = partial;
+          r.animationFocusBits = focusBits;
           r.render();
+          if (animStyle === 'ripple' && focusBits.size > 0) {
+            r.renderRipple(0.18, focusBits, { intensity: animMode === 'bounce' ? 1.25 : 1.05, showBeacon: true });
+          } else if (animStyle === 'pulse' && focusBits.size > 0) {
+            r.renderPulse(0.28, focusBits, { intensity: animMode === 'bounce' ? 1.35 : 1.15, showHalo: true });
+          } else if (animStyle === 'fade' && partial.size > 0) {
+            r.renderFade(animMode === 'bounce' ? 0.22 : 0.35);
+          }
           if (animMode === 'bounce' && partial.size > 0) {
-            r.renderFade(0.35);
+            r.renderFade(0.25);
           }
           r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
           idx += direction;
@@ -943,11 +959,13 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         };
 
         r.changedBits = new Set();
+        r.animationFocusBits = new Set();
         r.render();
         r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
         seqTimerRef.current = setTimeout(revealNext, getCurrentLoopInterval(effectiveBitInterval, options));
       });
 
+      r.animationFocusBits = new Set();
       await waitForDelay(Math.max(0, repeatAnim || 0));
       return;
     }
@@ -961,7 +979,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     }
 
     r.changedBits = new Set(changedSet);
+    r.animationFocusBits = new Set(changedSet);
     await runEffect(animStyle);
+    r.animationFocusBits = new Set();
     await waitForDelay(Math.max(0, repeatAnim || 0));
   }, [animMode, animStyle, stopSeqAnim, runEffect, estimateAnimDuration, repeatAnim, getMinimapDetailH, getAnimationBitInterval, getCurrentLoopInterval, runMaskStampAnimation, fadeOutCurrentHighlights, waitForDelay]);
 

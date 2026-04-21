@@ -114,6 +114,21 @@ export default function SettingsPanel({
   const [groupingMenuOpen, setGroupingMenuOpen] = React.useState(false);
   const [customPresetMenuOpen, setCustomPresetMenuOpen] = React.useState(false);
   const [customGroupDraft, setCustomGroupDraft] = React.useState('');
+  const [openSpacingControl, setOpenSpacingControl] = React.useState(null);
+
+  React.useEffect(() => {
+    if (!openSpacingControl) return undefined;
+    const handlePointerDown = (event) => {
+      if (event.target instanceof Element && event.target.closest('.spacing-inline-floating')) return;
+      setOpenSpacingControl(null);
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+    };
+  }, [openSpacingControl]);
 
   const set = (key, val) => {
     const updatedSettings = { ...s, [key]: val };
@@ -285,8 +300,8 @@ export default function SettingsPanel({
     const cellW = (size - (cols - 1) * gap) / cols;
     const cellH = (size - (rows - 1) * gap) / rows;
     return (
-      <svg width={size} height={size} onClick={onClick} title={tooltip}
-           style={{ cursor: 'pointer', border: active ? '2px solid var(--accent)' : '2px solid var(--border)', borderRadius: 4, padding: 2 }}>
+      <svg width={size} height={size} viewBox={`-3 -3 ${size + 6} ${size + 6}`} onClick={onClick} title={tooltip}
+           style={{ cursor: 'pointer', border: active ? '2px solid var(--accent)' : '2px solid var(--border)', borderRadius: 4, padding: 2, overflow: 'visible', display: 'block', boxSizing: 'content-box', background: 'var(--bg-raised)' }}>
         {Array.from({ length: rows * cols }, (_, i) => {
           if (grid3x3 && i === 4) return null; // center cell empty
           const col = i % cols;
@@ -303,8 +318,8 @@ export default function SettingsPanel({
     const gap = 2;
     const boxW = (size - (count - 1) * gap) / count;
     return (
-      <svg width={size} height={size} onClick={onClick} title={tooltip}
-           style={{ cursor: 'pointer', border: active ? '2px solid var(--accent)' : '2px solid var(--border)', borderRadius: 4, padding: 2 }}>
+      <svg width={size} height={size} viewBox={`-3 -3 ${size + 6} ${size + 6}`} onClick={onClick} title={tooltip}
+           style={{ cursor: 'pointer', border: active ? '2px solid var(--accent)' : '2px solid var(--border)', borderRadius: 4, padding: 2, overflow: 'visible', display: 'block', boxSizing: 'content-box', background: 'var(--bg-raised)' }}>
         {Array.from({ length: count }, (_, i) => (
           <rect key={i} x={i * (boxW + gap)} y={2} width={boxW} height={size - 4}
                 fill={active ? 'var(--accent)' : 'var(--fg-dim)'} rx={1} />
@@ -312,6 +327,18 @@ export default function SettingsPanel({
       </svg>
     );
   };
+
+  const SpacingIcon = ({ title }) => (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+      <path d="M4 8 H20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M16 4 L20 8 L16 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8 4 L4 8 L8 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 20 V4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M8 8 L12 4 L16 8" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8 16 L12 20 L16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <title>{title}</title>
+    </svg>
+  );
 
   const AnnotationButton = ({ title, hint, active, onClick, preview }) => (
     <button
@@ -400,33 +427,61 @@ export default function SettingsPanel({
    * No large preview block so panel height remains stable while changing options.
    */
   const LayoutOverview = () => {
-    const primaryGroupingFamilies = GROUPING_FAMILIES.slice(0, 2);
-    const secondaryGroupingFamilies = GROUPING_FAMILIES.slice(2);
-
     // Compact spacing control row
-    const SpacingControl = ({ title, keyH, keyV, max, className = '' }) => (
-      <div className={`spacing-inline-control ${className}`.trim()}>
-        <div className="spacing-inline-title">{title}</div>
-        <div className="spacing-inline-row">
-          <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => decr(keyH)} title={`Decrease ${title.toLowerCase()} horizontal spacing`}>−</button>
-          <div className="spacing-inline-preview spacing-inline-preview-h" aria-hidden="true">
-            <span className="spacing-inline-box" />
-            <span className="spacing-inline-gap">{s[keyH] ?? 0}</span>
-            <span className="spacing-inline-box" />
-          </div>
-          <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => incr(keyH, max)} title={`Increase ${title.toLowerCase()} horizontal spacing`}>+</button>
+    const SpacingControl = ({ title, keyH, keyV, max, className = '', rowControl = null }) => {
+      const controlId = `${keyH}:${keyV}`;
+      const open = openSpacingControl === controlId;
+      return (
+        <div className={`spacing-inline-control spacing-inline-floating ${className}${open ? ' open' : ''}`.trim()}>
+          <button
+            type="button"
+            className={`spacing-inline-trigger${open ? ' active' : ''}`}
+            onClick={() => setOpenSpacingControl(open ? null : controlId)}
+            title={title}
+            aria-expanded={open ? 'true' : 'false'}
+          >
+            <span className="spacing-inline-trigger-icon"><SpacingIcon title={title} /></span>
+          </button>
+          {open && (
+            <div className="spacing-inline-popover">
+              <div className="spacing-inline-title">{title}</div>
+              <div className="spacing-inline-row">
+                <span className="spacing-inline-axis">H</span>
+                <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => decr(keyH)} title={`Decrease ${title.toLowerCase()} horizontal spacing`}>−</button>
+                <div className="spacing-inline-preview spacing-inline-preview-h" aria-hidden="true">
+                  <span className="spacing-inline-box" />
+                  <span className="spacing-inline-gap">{s[keyH] ?? 0}</span>
+                  <span className="spacing-inline-box" />
+                </div>
+                <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => incr(keyH, max)} title={`Increase ${title.toLowerCase()} horizontal spacing`}>+</button>
+              </div>
+              <div className="spacing-inline-row">
+                <span className="spacing-inline-axis">V</span>
+                <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => decr(keyV)} title={`Decrease ${title.toLowerCase()} vertical spacing`}>−</button>
+                <div className="spacing-inline-preview spacing-inline-preview-v" aria-hidden="true">
+                  <span className="spacing-inline-box" />
+                  <span className="spacing-inline-gap">{s[keyV] ?? 0}</span>
+                  <span className="spacing-inline-box" />
+                </div>
+                <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => incr(keyV, max)} title={`Increase ${title.toLowerCase()} vertical spacing`}>+</button>
+              </div>
+              {rowControl ? (
+                <div className="spacing-inline-row spacing-inline-row-extended">
+                  <span className="spacing-inline-axis">R</span>
+                  <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={rowControl.decr} title={rowControl.decrTitle}>−</button>
+                  <div className="spacing-inline-preview spacing-inline-preview-h" aria-hidden="true">
+                    <span className="spacing-inline-box" />
+                    <span className="spacing-inline-gap">{rowControl.value}</span>
+                    <span className="spacing-inline-box" />
+                  </div>
+                  <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={rowControl.incr} title={rowControl.incrTitle}>+</button>
+                </div>
+              ) : null}
+            </div>
+          )}
         </div>
-        <div className="spacing-inline-row">
-          <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => decr(keyV)} title={`Decrease ${title.toLowerCase()} vertical spacing`}>−</button>
-          <div className="spacing-inline-preview spacing-inline-preview-v" aria-hidden="true">
-            <span className="spacing-inline-box" />
-            <span className="spacing-inline-gap">{s[keyV] ?? 0}</span>
-            <span className="spacing-inline-box" />
-          </div>
-          <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => incr(keyV, max)} title={`Increase ${title.toLowerCase()} vertical spacing`}>+</button>
-        </div>
-      </div>
-    );
+      );
+    };
 
     return (
       <>
@@ -470,10 +525,7 @@ export default function SettingsPanel({
           <div className="lo-row-body lo-row-body-stacked">
             <div className="lo-vec-wrap">
               <div className="grouping-preset-row grouping-preset-row-primary">
-                {primaryGroupingFamilies.map(renderGroupingFamily)}
-              </div>
-              <div className="grouping-preset-row grouping-preset-row-secondary">
-                {secondaryGroupingFamilies.map(renderGroupingFamily)}
+                {GROUPING_FAMILIES.map(renderGroupingFamily)}
                 <button
                   type="button"
                   className={`btn-option grouping-chip${isCustomVectorMode ? ' active' : ''}`}
@@ -554,30 +606,20 @@ export default function SettingsPanel({
             <div className="lo-vec-wrap">
               <span className="settings-hint">Control how many grouping blocks are shown across each visual row.</span>
             </div>
-            <SpacingControl title="Grouping spacing" keyH="u64SpacingH" keyV="u64SpacingV" max={20} className="spacing-inline-grouping" />
-            <div className="spacing-inline-control spacing-inline-grouping">
-              <div className="spacing-inline-title">Groups per row</div>
-              <div className="spacing-inline-row">
-                <button
-                  type="button"
-                  className="btn-icon btn-sm spacing-adjust-btn"
-                  onClick={() => set('horizontalGroups', Math.max(0, (parseInt(s.horizontalGroups || 0, 10) || 0) - 1))}
-                  title="Decrease groups shown horizontally"
-                >−</button>
-                <div className="spacing-inline-preview spacing-inline-preview-h" aria-hidden="true">
-                  <span className="spacing-inline-box" />
-                  <span className="spacing-inline-gap">{parseInt(s.horizontalGroups || 0, 10) > 0 ? s.horizontalGroups : 'auto'}</span>
-                  <span className="spacing-inline-box" />
-                </div>
-                <button
-                  type="button"
-                  className="btn-icon btn-sm spacing-adjust-btn"
-                  onClick={() => set('horizontalGroups', Math.min(64, (parseInt(s.horizontalGroups || 0, 10) || 0) + 1))}
-                  title="Increase groups shown horizontally"
-                >+</button>
-              </div>
-              <span className="settings-hint">0 = automatic row fitting</span>
-            </div>
+            <SpacingControl
+              title="Grouping spacing"
+              keyH="u64SpacingH"
+              keyV="u64SpacingV"
+              max={20}
+              className="spacing-inline-grouping"
+              rowControl={{
+                value: parseInt(s.horizontalGroups || 0, 10) > 0 ? s.horizontalGroups : 'auto',
+                decr: () => set('horizontalGroups', Math.max(0, (parseInt(s.horizontalGroups || 0, 10) || 0) - 1)),
+                incr: () => set('horizontalGroups', Math.min(64, (parseInt(s.horizontalGroups || 0, 10) || 0) + 1)),
+                decrTitle: 'Decrease groups shown horizontally',
+                incrTitle: 'Increase groups shown horizontally',
+              }}
+            />
           </div>
         </div>
 

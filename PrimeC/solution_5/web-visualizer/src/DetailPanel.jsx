@@ -81,6 +81,55 @@ export default function DetailPanel({ step, stepIndex, open, onToggle, height, o
     step.numChanged > 0 ? `+${step.numChanged} bits` : null,
   ].filter(Boolean).join(' | ');
 
+  const rowValues = [
+    {
+      label: 'Operation',
+      content: step.operation ? <span className="detail-tag op-tag">{step.operation}</span> : <span className="detail-empty">-</span>,
+    },
+    {
+      label: 'Prime',
+      content: step.prime != null ? <span className="detail-tag prime-tag">{step.prime}</span> : <span className="detail-empty">-</span>,
+    },
+    {
+      label: 'Range',
+      content: step.start != null && step.stop != null
+        ? <span className="detail-tag block-tag">[{step.start} – {step.stop}]</span>
+        : <span className="detail-empty">-</span>,
+    },
+    {
+      label: 'Step size',
+      content: step.factorStep != null ? <span className="detail-tag step-tag">{step.factorStep}</span> : <span className="detail-empty">-</span>,
+    },
+    {
+      label: 'Bits changed',
+      content: <span className="dt-changed">{step.numChanged ?? 0}</span>,
+    },
+    {
+      label: 'Newly set',
+      content: <span className="dt-changed">{stepStats?.newlySet ?? '-'}</span>,
+    },
+    {
+      label: 'Already set',
+      content: <span className="dt-changed">{stepStats?.reSet ?? '-'}</span>,
+    },
+    {
+      label: 'Total set',
+      content: <span className="dt-changed">{stepStats?.totalSet ?? '-'}</span>,
+    },
+    {
+      label: 'Bit ranges',
+      content: step.numChanged > 0 ? <span className="dt-mono">{bitRanges}</span> : <span className="detail-empty">-</span>,
+    },
+    {
+      label: 'Numbers marked',
+      content: step.numChanged > 0 ? <span className="dt-mono">{numberSummary}</span> : <span className="detail-empty">-</span>,
+    },
+    {
+      label: 'Annotation',
+      content: step.annotation ? <span className="dt-annotation">{step.annotation}</span> : <span className="detail-empty">-</span>,
+    },
+  ];
+
   return (
     <div className={`detail-panel ${open ? 'open' : 'collapsed'}`}>
       {open && !playing && <div className="detail-panel-resize" onMouseDown={handleHeightDrag} />}
@@ -96,68 +145,12 @@ export default function DetailPanel({ step, stepIndex, open, onToggle, height, o
         }}>
           <table className="detail-table">
             <tbody>
-              {step.operation && (
-                <tr>
-                  <td className="dt-label">Operation</td>
-                  <td><span className="detail-tag op-tag">{step.operation}</span></td>
+              {rowValues.map((row) => (
+                <tr key={row.label}>
+                  <td className="dt-label">{row.label}</td>
+                  <td>{row.content}</td>
                 </tr>
-              )}
-              {step.prime != null && (
-                <tr>
-                  <td className="dt-label">Prime</td>
-                  <td><span className="detail-tag prime-tag">{step.prime}</span></td>
-                </tr>
-              )}
-              {step.start != null && step.stop != null && (
-                <tr>
-                  <td className="dt-label">Range</td>
-                  <td><span className="detail-tag block-tag">[{step.start} – {step.stop}]</span></td>
-                </tr>
-              )}
-              {step.factorStep != null && (
-                <tr>
-                  <td className="dt-label">Step size</td>
-                  <td><span className="detail-tag step-tag">{step.factorStep}</span></td>
-                </tr>
-              )}
-              <tr>
-                <td className="dt-label">Bits changed</td>
-                <td className="dt-changed">{step.numChanged}</td>
-              </tr>
-              {stepStats && (
-                <>
-                  <tr>
-                    <td className="dt-label">Newly set</td>
-                    <td className="dt-changed">{stepStats.newlySet}</td>
-                  </tr>
-                  <tr>
-                    <td className="dt-label">Already set</td>
-                    <td className="dt-changed">{stepStats.reSet}</td>
-                  </tr>
-                  <tr>
-                    <td className="dt-label">Total set</td>
-                    <td className="dt-changed">{stepStats.totalSet}</td>
-                  </tr>
-                </>
-              )}
-              {step.numChanged > 0 && (
-                <tr>
-                  <td className="dt-label">Bit ranges</td>
-                  <td className="dt-mono">{bitRanges}</td>
-                </tr>
-              )}
-              {step.numChanged > 0 && (
-                <tr>
-                  <td className="dt-label">Numbers marked</td>
-                  <td className="dt-mono">{numberSummary}</td>
-                </tr>
-              )}
-              {step.annotation && (
-                <tr>
-                  <td className="dt-label">Annotation</td>
-                  <td className="dt-annotation">{step.annotation}</td>
-                </tr>
-              )}
+              ))}
             </tbody>
           </table>
         </div>
