@@ -64,10 +64,7 @@
   #define verbose9(statement) if (option.verbose_level >= 9) { waitforkey(); { statement } }
 #endif
 
-#define PRIMES_CAT_IMPL(a, b) a##b
-#define PRIMES_CAT(a, b) PRIMES_CAT_IMPL(a, b)
-// #define PRIMES_VERBOSE(level, statement) PRIMES_CAT(verbose, level)(statement)
-#define verbose(level, statement) PRIMES_CAT(verbose, level)(statement)
+#define verbose(level, statement) function(verbose, level)(statement)
 
 int waitforkey(void);
 
@@ -108,10 +105,10 @@ int waitforkey(void);
   #define TRACE_DUMP_BINARY(filename, bitstorage_ptr, sieve_size, bit_count) \
       trace_dump_memory_with_format(filename, bitstorage_ptr, sieve_size, bit_count, "binary")
 
-  #define PRIMES_LOG_BEGIN(level, timer, printf_args...) \
-      verbose(level, printf(printf_args);) timer_lapstart(timer) TRACE_TEXT_TIMER(timer, printf_args); TRACE_ANALYSIS_PUSH(level)
-  #define PRIMES_LOG_END(level, timer, ...) \
-      TRACE_ANALYSIS_END(); timer_laptime(timer); __VA_OPT__(verbose(level, printf(__VA_ARGS__);))
+  // #define PRIMES_LOG_BEGIN(level, timer, printf_args...) \
+  //     verbose(level, printf(printf_args);) timer_lapstart(timer) TRACE_TEXT_TIMER(timer, printf_args); TRACE_ANALYSIS_PUSH(level)
+  // #define PRIMES_LOG_END(level, timer, ...) \
+  //     TRACE_ANALYSIS_END(); timer_laptime(timer); __VA_OPT__(verbose(level, printf(__VA_ARGS__);))
 #else
   #define TRACE_STEP(bitstorage_ptr, fmt, ...)
   #define TRACE_EVENT(bitstorage_ptr, fmt, ...)
@@ -125,11 +122,15 @@ int waitforkey(void);
   #define TRACE_DUMP(filename, bitstorage_ptr, sieve_size, bit_count)
   #define TRACE_DUMP_HEX(filename, bitstorage_ptr, sieve_size, bit_count)
   #define TRACE_DUMP_BINARY(filename, bitstorage_ptr, sieve_size, bit_count)
-  #define PRIMES_LOG_BEGIN(level, timer, printf_args...) \
-      verbose(level, printf(printf_args);) timer_lapstart(timer)
-  #define PRIMES_LOG_END(level, timer, ...) \
-      timer_laptime(timer); __VA_OPT__(verbose(level, printf(__VA_ARGS__);))
+  // #define PRIMES_LOG_BEGIN(level, timer, printf_args...) verbose(level, printf(printf_args);) timer_lapstart(timer)
+  // #define PRIMES_LOG_END(level, timer, ...)              timer_laptime(timer); __VA_OPT__(verbose(level, printf(__VA_ARGS__);))
 #endif
+
+
+#define PRIMES_LOG_BEGIN(level, timer, printf_args...) \
+    verbose(level, printf(printf_args);) timer_lapstart(timer) TRACE_TEXT_TIMER(timer, printf_args); TRACE_ANALYSIS_PUSH(level)
+#define PRIMES_LOG_END(level, timer, ...) \
+    TRACE_ANALYSIS_END(); timer_laptime(timer); __VA_OPT__(verbose(level, printf(__VA_ARGS__);))
 
 static inline void
 primes_log_emit_verbose(counter_t level, counter_t runtime_verbose_level, const char* annotation)
@@ -202,24 +203,13 @@ primes_log_event_timer(counter_t level, counter_t runtime_verbose_level, void* b
   char*: on_cstring, const char*: on_cstring, \
   default: on_other)
 
-#define PRIMES_VA_COUNT_IMPL( \
-  _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, \
-  N, ...) N
-#define PRIMES_VA_COUNT(...) \
-  PRIMES_VA_COUNT_IMPL(__VA_ARGS__, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1)
+#define PRIMES_VA_COUNT_IMPL(  _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, N, ...) N
+#define PRIMES_VA_COUNT(...)  PRIMES_VA_COUNT_IMPL(__VA_ARGS__, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1)
 
-#define PRIMES_LOG_DISPATCH_1(level, a1) \
-  primes_log_text(level, option.verbose_level, a1)
-
-#define PRIMES_LOG_DISPATCH_2(level, a1, a2) \
-  PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, primes_log_event)(level, option.verbose_level, a1, a2)
-
-#define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3) \
-  PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer, primes_log_event))(level, option.verbose_level, a1, a2, a3)
-
-#define PRIMES_LOG_DISPATCH_4(level, a1, a2, a3, ...) \
-  PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer, primes_log_event))(level, option.verbose_level, a1, a2, a3, ##__VA_ARGS__)
-
+#define PRIMES_LOG_DISPATCH_1(level, a1)              primes_log_text(level, option.verbose_level, a1)
+#define PRIMES_LOG_DISPATCH_2(level, a1, a2)          PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, primes_log_event)(level, option.verbose_level, a1, a2)
+#define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3)      PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer, primes_log_event))(level, option.verbose_level, a1, a2, a3)
+#define PRIMES_LOG_DISPATCH_4(level, a1, a2, a3, ...) PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer, primes_log_event))(level, option.verbose_level, a1, a2, a3, ##__VA_ARGS__)
 #define PRIMES_LOG_DISPATCH_5(level, a1, a2, a3, ...) PRIMES_LOG_DISPATCH_4(level, a1, a2, a3, ##__VA_ARGS__)
 #define PRIMES_LOG_DISPATCH_6(level, a1, a2, a3, ...) PRIMES_LOG_DISPATCH_4(level, a1, a2, a3, ##__VA_ARGS__)
 #define PRIMES_LOG_DISPATCH_7(level, a1, a2, a3, ...) PRIMES_LOG_DISPATCH_4(level, a1, a2, a3, ##__VA_ARGS__)
@@ -249,24 +239,10 @@ primes_log_event_timer(counter_t level, counter_t runtime_verbose_level, void* b
 #define logBegin9(timer, printf_args...) PRIMES_LOG_BEGIN(9, timer, printf_args)
 #define logEnd9(timer, ...) PRIMES_LOG_END(9, timer, ##__VA_ARGS__)
 
-#ifndef log5
-  #define log5(...) PRIMES_LOG_DISPATCH(5, __VA_ARGS__)
-#endif
-
-#ifndef log6
-  #define log6(...) PRIMES_LOG_DISPATCH(6, __VA_ARGS__)
-#endif
-
-#ifndef log7
-  #define log7(...) PRIMES_LOG_DISPATCH(7, __VA_ARGS__)
-#endif
-
-#ifndef log8
-  #define log8(...) PRIMES_LOG_DISPATCH(8, __VA_ARGS__)
-#endif
-
-#ifndef log9
-  #define log9(...) PRIMES_LOG_DISPATCH(9, __VA_ARGS__)
-#endif
+#define log5(...) PRIMES_LOG_DISPATCH(5, __VA_ARGS__)
+#define log6(...) PRIMES_LOG_DISPATCH(6, __VA_ARGS__)
+#define log7(...) PRIMES_LOG_DISPATCH(7, __VA_ARGS__)
+#define log8(...) PRIMES_LOG_DISPATCH(8, __VA_ARGS__)
+#define log9(...) PRIMES_LOG_DISPATCH(9, __VA_ARGS__)
 
 #endif
