@@ -829,14 +829,20 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     });
   }, [getFadeOutDuration, getMinimapDetailH]);
 
-  const runMaskStampAnimation = useCallback(() => {
+  const runMaskStampAnimation = useCallback((bitIntervalMs = null) => {
     const r = rendererRef.current;
-    if (!r || !r.changedBits || r.changedBits.size === 0) return Promise.resolve();
+    const maskWriteCount = r?.maskWriteOrderWords?.length || 0;
+    const animationBits = r?.changedBits?.size ? r.changedBits : (r?.targetBits?.size ? r.targetBits : null);
+    if (!r || (maskWriteCount === 0 && (!animationBits || animationBits.size === 0))) return Promise.resolve();
 
-    const bits = Array.from(r.changedBits);
+    const bits = animationBits ? Array.from(animationBits) : [];
     const groupBits = r.customGroupingBits > 0 ? r.customGroupingBits : Math.max(1, r.vectorGroup * 64);
     const groupCount = new Set(bits.map((b) => Math.floor(b / groupBits))).size;
-    const duration = Math.max(520, Math.min(2200, 280 + groupCount * 130));
+    const orderedWrites = maskWriteCount;
+    const perStopDuration = Math.max(140, Math.min(360, Math.round((bitIntervalMs || currentAnimIntervalRef.current || 20) * 3.4)));
+    const duration = orderedWrites > 0
+      ? Math.max(420, Math.min(3400, orderedWrites * perStopDuration))
+      : Math.max(520, Math.min(2200, 280 + groupCount * 130));
     const startedAt = performance.now();
 
     if (rippleRef.current) {
@@ -848,7 +854,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       const tick = (now) => {
         const t = Math.min(1, (now - startedAt) / duration);
         r.render();
-        r.renderMaskStamp(t);
+        if (orderedWrites > 0) r.renderMaskHover(t);
+        else r.renderMaskStamp(t);
         r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
         if (t < 1) {
           rippleRef.current = requestAnimationFrame(tick);
@@ -868,21 +875,25 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       stopSeqAnim();
     }
     const r = rendererRef.current;
-    if (!r || !changedSet || changedSet.size === 0 || changedSet.size >= 100000) return;
+    const hasMaskAnimation = !!(r && r.maskWriteOrderWords && r.maskWriteOrderWords.length > 0 && Number.isFinite(r.maskWordBits) && r.maskWordBits > 0);
+    if (!r || !changedSet || (!hasMaskAnimation && changedSet.size === 0) || changedSet.size >= 100000) return;
 
-    const effectiveBitInterval = getAnimationBitInterval(changedSet.size, options);
-    const est = estimateAnimDuration(changedSet.size, options);
+    const animatedBitCount = changedSet.size > 0 ? changedSet.size : Math.max(1, r.targetBits?.size || r.maskWriteOrderWords?.length || 1);
+    const effectiveBitInterval = getAnimationBitInterval(animatedBitCount, options);
+    const est = estimateAnimDuration(animatedBitCount, options);
     animBusyUntilRef.current = performance.now() + est + Math.max(0, repeatAnim || 0);
 
     if (!options.keepProgress) {
       await fadeOutCurrentHighlights(options);
     }
 
-    if (r.currentOperation === 'applyMask') {
-      r.changedBits = new Set(changedSet);
+    if (hasMaskAnimation) {
+      if (!r.changedBits || r.changedBits.size === 0) {
+        r.changedBits = new Set(changedSet.size > 0 ? changedSet : (r.targetBits || []));
+      }
       r.render();
       r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-      await runMaskStampAnimation();
+      await runMaskStampAnimation(effectiveBitInterval);
       await waitForDelay(Math.max(0, repeatAnim || 0));
       return;
     }

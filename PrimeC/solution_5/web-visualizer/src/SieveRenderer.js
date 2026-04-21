@@ -586,6 +586,115 @@ export class SieveRenderer {
     return Array.from(perWord.values()).sort((a, b) => a.wordIndex - b.wordIndex);
   }
 
+  _maskEntryBits(entry) {
+    if (!entry) return [];
+    const slotBits = this.maskSlotBits?.[entry.slotIndex] || [];
+    const bits = [];
+    for (let index = 0; index < slotBits.length; index++) {
+      const absoluteBit = entry.startBit + Number(slotBits[index]);
+      if (Number.isFinite(absoluteBit) && absoluteBit >= 0 && absoluteBit < this.bitCount) bits.push(absoluteBit);
+    }
+    return bits;
+  }
+
+  _maskEntryGroupBounds(entry) {
+    if (!entry) return null;
+    const groupBits = Math.max(1, this._logicalGroupBits());
+    const groupStart = Math.floor(entry.startBit / groupBits) * groupBits;
+    const groupCount = Math.max(1, Math.min(groupBits, this.bitCount - groupStart));
+    return this._multiBitBounds(groupStart, groupCount);
+  }
+
+  _drawMaskImprint(ctx, entry, x, y, options = {}) {
+    if (!entry) return;
+    const px = this.pixelSize * this.zoom;
+    const tint = this._maskTintColor(entry.slotIndex);
+    const alpha = Math.max(0, Math.min(1, options.alpha ?? 1));
+    const liftBlend = Math.max(0, Math.min(1, options.liftBlend ?? 0));
+    const showConnector = options.showConnector === true;
+    const bounds = entry.bounds;
+    const groupBounds = this._maskEntryGroupBounds(entry);
+    const dx = x - bounds.cx;
+    const dy = y - bounds.cy;
+    const wordInset = this.maskWordBits && this.maskWordBits <= 32
+      ? Math.max(0.8, Math.min(2.1, px * 0.18))
+      : Math.max(1.2, Math.min(3.6, px * 0.34));
+
+    if (groupBounds) {
+      ctx.save();
+      ctx.strokeStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},${0.92 * alpha})`;
+      ctx.lineWidth = Math.max(1.2, px * 0.14);
+      ctx.setLineDash([Math.max(4, px * 0.7), Math.max(2, px * 0.36)]);
+      ctx.beginPath();
+      ctx.roundRect(
+        groupBounds.x + dx - wordInset * 1.2,
+        groupBounds.y + dy - wordInset * 1.2,
+        groupBounds.w + wordInset * 2.4,
+        groupBounds.h + wordInset * 2.4,
+        Math.max(5, 5 + px * 0.18),
+      );
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.fillStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},${0.16 * alpha})`;
+    ctx.strokeStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},${alpha})`;
+    ctx.lineWidth = Math.max(1.2, px * 0.13);
+    ctx.beginPath();
+    ctx.roundRect(
+      bounds.x + dx - wordInset,
+      bounds.y + dy - wordInset,
+      bounds.w + wordInset * 2,
+      bounds.h + wordInset * 2,
+      Math.max(4, 4 + px * 0.14),
+    );
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    const bits = this._maskEntryBits(entry);
+    ctx.save();
+    for (let index = 0; index < bits.length; index++) {
+      const pos = this.bitIndexToCanvas(bits[index]);
+      if (!pos) continue;
+      const bx = pos.x - px / 2 + dx;
+      const by = pos.y - px / 2 + dy;
+      ctx.fillStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},${0.48 * alpha})`;
+      ctx.strokeStyle = `rgba(255,255,255,${0.92 * alpha})`;
+      ctx.lineWidth = Math.max(0.95, px * 0.11);
+      ctx.fillRect(bx, by, px, px);
+      ctx.strokeRect(bx, by, px, px);
+    }
+
+    if (showConnector) {
+      const connectorAlpha = Math.max(0.3, 0.72 * alpha);
+      ctx.strokeStyle = `rgba(255,255,255,${connectorAlpha})`;
+      ctx.lineWidth = Math.max(1.2, px * 0.1);
+      ctx.setLineDash([Math.max(4, px * 0.64), Math.max(2, px * 0.28)]);
+      ctx.beginPath();
+      ctx.moveTo(x, y + bounds.h * 0.12);
+      ctx.lineTo(bounds.cx, bounds.cy);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    if (liftBlend > 0) {
+      ctx.save();
+      ctx.fillStyle = `rgba(255,255,255,${0.08 * alpha * liftBlend})`;
+      ctx.beginPath();
+      ctx.roundRect(
+        bounds.x + dx - wordInset * 1.2,
+        bounds.y + dy - wordInset * 1.2,
+        bounds.w + wordInset * 2.4,
+        bounds.h + wordInset * 2.4,
+        Math.max(4, 4 + px * 0.14),
+      );
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
   _renderMaskWriteOverlay(ctx) {
     const entries = this._maskWriteEntries();
     if (entries.length === 0) return;
@@ -1679,6 +1788,74 @@ export class SieveRenderer {
         ctx.fillRect(bx, by, markSize, markSize);
         ctx.strokeRect(bx, by, markSize, markSize);
       }
+    }
+
+    ctx.restore();
+  }
+
+  renderMaskHover(progress) {
+    if (!this.ctx) return;
+    const entries = this._maskWriteEntries();
+    if (entries.length === 0) return;
+
+    const ctx = this.ctx;
+    const px = this.pixelSize * this.zoom;
+    const t = Math.max(0, Math.min(1, progress));
+    const segmentCount = Math.max(1, entries.length);
+    const travelLift = Math.max(28, Math.min(96, px * 10.5));
+    const totalUnits = segmentCount;
+    const unit = t * totalUnits;
+    const index = Math.min(entries.length - 1, Math.floor(unit));
+    const local = Math.max(0, Math.min(1, unit - index));
+    const from = entries[index];
+    const to = entries[Math.min(entries.length - 1, index + 1)];
+
+    ctx.save();
+
+    const fromTint = this._maskTintColor(from.slotIndex);
+
+    for (let previous = 0; previous < index; previous++) {
+      this._drawMaskImprint(ctx, entries[previous], entries[previous].bounds.cx, entries[previous].bounds.cy, {
+        alpha: 0.52,
+      });
+    }
+
+    const rise = local < 0.35 ? local / 0.35 : local > 0.68 ? (1 - local) / 0.32 : 1;
+    const smooth = local * local * (3 - 2 * local);
+    const currentX = from.bounds.cx + (to.bounds.cx - from.bounds.cx) * smooth;
+    const currentY = from.bounds.cy + (to.bounds.cy - from.bounds.cy) * smooth - travelLift * rise;
+    const stampingAlpha = local < 0.18 ? 1 : local > 0.82 ? 1 : 0.92;
+
+    if (index < entries.length - 1 && from !== to) {
+      ctx.strokeStyle = `rgba(${fromTint[0]},${fromTint[1]},${fromTint[2]},0.88)`;
+      ctx.lineWidth = Math.max(1.6, px * 0.13);
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(from.bounds.cx, from.bounds.cy - Math.max(4, px * 0.35));
+      ctx.quadraticCurveTo(
+        (from.bounds.cx + to.bounds.cx) / 2,
+        Math.min(from.bounds.cy, to.bounds.cy) - travelLift * 1.25,
+        to.bounds.cx,
+        to.bounds.cy - Math.max(4, px * 0.35),
+      );
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = Math.max(0.9, px * 0.07);
+      ctx.setLineDash([Math.max(4, px * 0.62), Math.max(3, px * 0.34)]);
+      ctx.stroke();
+    }
+
+    this._drawMaskImprint(ctx, from, currentX, currentY, {
+      alpha: stampingAlpha,
+      liftBlend: rise,
+      showConnector: rise > 0.05,
+    });
+
+    if (local > 0.78 && index < entries.length - 1) {
+      this._drawMaskImprint(ctx, to, to.bounds.cx, to.bounds.cy, {
+        alpha: (local - 0.78) / 0.22,
+      });
     }
 
     ctx.restore();

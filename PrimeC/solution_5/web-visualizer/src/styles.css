@@ -913,6 +913,35 @@ code, pre {
   min-width: 24px;
 }
 
+.spacing-inline-row-toggle {
+  grid-template-columns: 14px minmax(0, 1fr);
+}
+
+.spacing-toggle-btn {
+  width: 100%;
+  min-height: 24px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 8px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.spacing-toggle-btn:hover {
+  background: var(--bg-input);
+  color: var(--fg);
+}
+
+.spacing-toggle-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--fg-bright);
+}
+
 .spacing-inline-axis {
   font-size: 9px;
   font-weight: 700;

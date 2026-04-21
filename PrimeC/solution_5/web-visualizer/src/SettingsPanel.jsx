@@ -115,6 +115,12 @@ export default function SettingsPanel({
   const [customPresetMenuOpen, setCustomPresetMenuOpen] = React.useState(false);
   const [customGroupDraft, setCustomGroupDraft] = React.useState('');
   const [openSpacingControl, setOpenSpacingControl] = React.useState(null);
+  const lastManualColumnCountRef = React.useRef(Math.max(1, parseInt(settings?.horizontalGroups || 0, 10) || 1));
+
+  React.useEffect(() => {
+    const value = Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0);
+    if (value > 0) lastManualColumnCountRef.current = value;
+  }, [s.horizontalGroups]);
 
   React.useEffect(() => {
     if (!openSpacingControl) return undefined;
@@ -428,7 +434,7 @@ export default function SettingsPanel({
    */
   const LayoutOverview = () => {
     // Compact spacing control row
-    const SpacingControl = ({ title, keyH, keyV, max, className = '', rowControl = null }) => {
+    const SpacingControl = ({ title, keyH, keyV, max, className = '', columnControl = null }) => {
       const controlId = `${keyH}:${keyV}`;
       const open = openSpacingControl === controlId;
       return (
@@ -465,16 +471,29 @@ export default function SettingsPanel({
                 </div>
                 <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => incr(keyV, max)} title={`Increase ${title.toLowerCase()} vertical spacing`}>+</button>
               </div>
-              {rowControl ? (
+              {columnControl ? (
                 <div className="spacing-inline-row spacing-inline-row-extended">
-                  <span className="spacing-inline-axis">R</span>
-                  <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={rowControl.decr} title={rowControl.decrTitle}>−</button>
+                  <span className="spacing-inline-axis">C</span>
+                  <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={columnControl.decr} title={columnControl.decrTitle} disabled={columnControl.disabled}>−</button>
                   <div className="spacing-inline-preview spacing-inline-preview-h" aria-hidden="true">
                     <span className="spacing-inline-box" />
-                    <span className="spacing-inline-gap">{rowControl.value}</span>
+                    <span className="spacing-inline-gap">{columnControl.value}</span>
                     <span className="spacing-inline-box" />
                   </div>
-                  <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={rowControl.incr} title={rowControl.incrTitle}>+</button>
+                  <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={columnControl.incr} title={columnControl.incrTitle} disabled={columnControl.disabled}>+</button>
+                </div>
+              ) : null}
+              {columnControl ? (
+                <div className="spacing-inline-row spacing-inline-row-toggle">
+                  <span className="spacing-inline-axis">A</span>
+                  <button
+                    type="button"
+                    className={`spacing-toggle-btn${columnControl.auto ? ' active' : ''}`}
+                    onClick={columnControl.toggleAuto}
+                    title={columnControl.toggleTitle}
+                  >
+                    {columnControl.auto ? 'Auto fit on' : 'Auto fit off'}
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -601,10 +620,10 @@ export default function SettingsPanel({
         </div>
 
         <div className="lo-level-row lo-level-row-with-spacing">
-          <span className="lo-level-tag">Row</span>
+          <span className="lo-level-tag">Column</span>
           <div className="lo-row-body lo-row-body-stacked">
             <div className="lo-vec-wrap">
-              <span className="settings-hint">Control how many grouping blocks are shown across each visual row.</span>
+              <span className="settings-hint">Control how many grouping columns are shown across the layout. Auto fit can be toggled separately.</span>
             </div>
             <SpacingControl
               title="Grouping spacing"
@@ -612,12 +631,36 @@ export default function SettingsPanel({
               keyV="u64SpacingV"
               max={20}
               className="spacing-inline-grouping"
-              rowControl={{
-                value: parseInt(s.horizontalGroups || 0, 10) > 0 ? s.horizontalGroups : 'auto',
-                decr: () => set('horizontalGroups', Math.max(0, (parseInt(s.horizontalGroups || 0, 10) || 0) - 1)),
-                incr: () => set('horizontalGroups', Math.min(64, (parseInt(s.horizontalGroups || 0, 10) || 0) + 1)),
-                decrTitle: 'Decrease groups shown horizontally',
-                incrTitle: 'Increase groups shown horizontally',
+              columnControl={{
+                value: Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1),
+                auto: Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0,
+                disabled: Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0,
+                decr: () => {
+                  const current = Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
+                  const next = Math.max(1, current - 1);
+                  lastManualColumnCountRef.current = next;
+                  set('horizontalGroups', next);
+                },
+                incr: () => {
+                  const current = Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
+                  const next = Math.min(64, current + 1);
+                  lastManualColumnCountRef.current = next;
+                  set('horizontalGroups', next);
+                },
+                decrTitle: 'Decrease grouping column count',
+                incrTitle: 'Increase grouping column count',
+                toggleAuto: () => {
+                  const current = Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0);
+                  if (current === 0) {
+                    set('horizontalGroups', Math.max(1, lastManualColumnCountRef.current || 1));
+                    return;
+                  }
+                  lastManualColumnCountRef.current = current;
+                  set('horizontalGroups', 0);
+                },
+                toggleTitle: Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0
+                  ? 'Disable auto fit and use the last manual column count'
+                  : 'Enable automatic column fitting',
               }}
             />
           </div>
