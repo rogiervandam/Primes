@@ -310,13 +310,13 @@
     static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     markFactors_wheelstorage(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
     {
-        TRACE_ANALYSIS_START(5, start, stop);
+        // TRACE_ANALYSIS_START(5, start, stop);
         const counter_t prime = step / 2;
 
-        log5(sieve->bitstorage,
-               "MarkFactorsWheelStorage: prime %jd (idx %jd), factors [%jd-%jd] step %jd",
-                   (intmax_t)(step + 1), (intmax_t)prime, (intmax_t)start,
-                   (intmax_t)stop, (intmax_t)step);
+        // log5(sieve->bitstorage,
+        //        "MarkFactorsWheelStorage: prime %jd (idx %jd), factors [%jd-%jd] step %jd",
+        //            (intmax_t)(step + 1), (intmax_t)prime, (intmax_t)start,
+        //            (intmax_t)stop, (intmax_t)step);
 
         // markFactors_wheelstorage_norepeat(sieve, start, stop, step); return;
         // markFactors_wheelstorage_repeat_uint16_unroll8(sieve, start, stop, step); return;
@@ -329,7 +329,7 @@
         else 
         markFactors_wheelstorage_repeat_uint8_unroll8(sieve, start, stop, step);
         // markFactors_wheelstorage_norepeat(sieve, start, stop, step);
-        TRACE_ANALYSIS_END();
+        // TRACE_ANALYSIS_END();
     }
 #endif
 

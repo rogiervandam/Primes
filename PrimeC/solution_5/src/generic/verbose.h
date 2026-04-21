@@ -262,7 +262,7 @@ primes_log_event_timer(counter_t level, counter_t runtime_verbose_level, void* b
 #define PRIMES_LOG_DISPATCH_SELECT_IMPL(count) PRIMES_LOG_DISPATCH_##count
 #define PRIMES_LOG_DISPATCH_SELECT(count) PRIMES_LOG_DISPATCH_SELECT_IMPL(count)
 #define PRIMES_LOG_DISPATCH(level, ...) \
-  PRIMES_LOG_DISPATCH_SELECT(PRIMES_VA_COUNT(__VA_ARGS__))(level, __VA_ARGS__)
+  verbose5( PRIMES_LOG_DISPATCH_SELECT(PRIMES_VA_COUNT(__VA_ARGS__))(level, __VA_ARGS__) )
 
 #define logBegin5(timer, printf_args...) PRIMES_LOG_BEGIN(5, timer, printf_args)
 #define logEnd5(timer, ...) PRIMES_LOG_END(5, timer, ##__VA_ARGS__)

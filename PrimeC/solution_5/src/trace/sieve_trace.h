@@ -97,6 +97,62 @@ trace_optional_label(const char* label)
     return (label && *label) ? label : NULL;
 }
 
+static inline int
+primes_trace_needs_mask_analysis(int runtime_verbose_level, int level)
+{
+    return g_trace.enabled && runtime_verbose_level >= level;
+}
+
+static inline void
+primes_trace_append_mask_bit(char** bits_ptr, size_t* bits_remaining, char* bits_start, uintmax_t bit_index)
+{
+    if (*bits_remaining <= 1) return;
+
+    const int written = snprintf(*bits_ptr,
+                                 *bits_remaining,
+                                 *bits_ptr == bits_start ? "%ju" : ",%ju",
+                                 bit_index);
+
+    if (written <= 0 || (size_t)written >= *bits_remaining) {
+        (*bits_ptr)[*bits_remaining - 1] = '\0';
+        *bits_remaining = 1;
+        return;
+    }
+
+    *bits_ptr += written;
+    *bits_remaining -= (size_t)written;
+}
+
+static inline void
+primes_trace_format_mask_bits(char* bits,
+                              size_t bits_size,
+                              const void* mask,
+                              size_t lane_bytes,
+                              uint32_t lane_count,
+                              uint32_t lane_bits)
+{
+    char* bits_ptr = bits;
+    size_t bits_remaining = bits_size;
+
+    if (!bits || bits_size == 0 || !mask || lane_bytes == 0 || lane_bits == 0) return;
+
+    bits[0] = '\0';
+
+    for (uint32_t lane_index = 0; lane_index < lane_count && bits_remaining > 1; lane_index++) {
+        uintmax_t lane_mask = 0;
+        memcpy(&lane_mask, ((const uint8_t*)mask) + ((size_t)lane_index * lane_bytes), lane_bytes);
+
+        for (uint32_t bit_offset = 0; bit_offset < lane_bits && bits_remaining > 1; bit_offset++) {
+            if ((lane_mask & ((uintmax_t)1 << bit_offset)) == 0) continue;
+
+            primes_trace_append_mask_bit(&bits_ptr,
+                                         &bits_remaining,
+                                         bits,
+                                         (uintmax_t)lane_index * lane_bits + bit_offset);
+        }
+    }
+}
+
 /* Set the current analysis context depth (called from TRACE_ANALYSIS_START macro) */
 static void
 primes_trace_set_context(int level)
