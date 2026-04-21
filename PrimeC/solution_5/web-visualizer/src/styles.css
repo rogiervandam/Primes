@@ -535,6 +535,8 @@ code, pre {
   cursor: crosshair;
   position: relative;
   transform-style: preserve-3d;
+  touch-action: none;
+  user-select: none;
 }
 .canvas-container.mode-3d {
   /* perspective is set via inline style from Camera3D */
@@ -643,6 +645,60 @@ code, pre {
 .dt-annotation {
   color: var(--fg);
   word-break: break-word;
+}
+.mask-preview-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.mask-preview-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-raised) 78%, transparent);
+}
+.mask-preview-slot.slot-0 {
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.18);
+}
+.mask-preview-slot.slot-1 {
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.2);
+}
+.mask-preview-slot-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.mask-preview-word {
+  position: relative;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+}
+.mask-preview-byte {
+  position: absolute;
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+}
+.mask-preview-bit {
+  position: absolute;
+  display: block;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--bg-input) 88%, transparent);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.2);
+}
+.mask-preview-slot.slot-0 .mask-preview-bit.active {
+  background: rgba(39, 174, 96, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(240, 253, 244, 0.7);
+}
+.mask-preview-slot.slot-1 .mask-preview-bit.active {
+  background: rgba(245, 158, 11, 0.76);
+  box-shadow: inset 0 0 0 1px rgba(255, 251, 235, 0.76);
 }
 .detail-empty {
   color: var(--fg-dim);

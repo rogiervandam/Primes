@@ -1,10 +1,20 @@
 import React, { useMemo, useCallback } from 'react';
-import { bitToNumber } from './SieveRenderer';
+import { BIT_LAYOUTS, BYTE_LAYOUTS, bitToNumber } from './SieveRenderer';
+
+const GRID3X3_MAP = [0, 1, 2, 3, 5, 6, 7, 8];
+
+function layoutPos(layout, index) {
+  if (layout.grid3x3) {
+    const cell = GRID3X3_MAP[index];
+    return { col: cell % 3, row: Math.floor(cell / 3) };
+  }
+  return { col: index % layout.cols, row: Math.floor(index / layout.cols) };
+}
 
 /**
  * Collapsible detail panel with adjustable height.
  */
-export default function DetailPanel({ step, stepIndex, open, onToggle, height, onHeightChange, width, onWidthChange, playing, stepStats, storageModel }) {
+export default function DetailPanel({ step, stepIndex, open, onToggle, height, onHeightChange, width, onWidthChange, playing, stepStats, storageModel, bitLayout = '4x2', byteLayout = '4x2' }) {
   // Compact representation of changed bit ranges
   const bitRanges = useMemo(() => {
     if (!step || step.changedBits.length === 0) return '';
@@ -48,6 +58,7 @@ export default function DetailPanel({ step, stepIndex, open, onToggle, height, o
             if (values.length === 0) return null;
             return {
               slotIndex,
+              values,
               text: `mask ${slotIndex + 1}: ${values.join(', ')}`,
             };
           })
@@ -68,6 +79,7 @@ export default function DetailPanel({ step, stepIndex, open, onToggle, height, o
 
     return {
       wordBits: step.maskWordBits,
+      slotBits,
       slotText: slotBits.length > 0 ? slotBits.map((entry) => entry.text).join(' | ') : '-',
       routeText: writeEntries.length > 0
         ? (writeEntries.length > 18
@@ -76,6 +88,67 @@ export default function DetailPanel({ step, stepIndex, open, onToggle, height, o
         : '-',
     };
   }, [step]);
+
+  const maskPreview = useMemo(() => {
+    if (!maskSummary) return null;
+
+    const bitDef = BIT_LAYOUTS[bitLayout] || BIT_LAYOUTS['4x2'];
+    const byteDef = BYTE_LAYOUTS[byteLayout] || BYTE_LAYOUTS['4x2'];
+    const totalBits = Math.max(1, maskSummary.wordBits);
+    const activeBytes = Math.max(1, Math.ceil(totalBits / 8));
+    const bitSize = 10;
+    const bitGap = 2;
+    const byteGap = 4;
+    const bytePad = 4;
+    const bitCols = bitDef.grid3x3 ? 3 : bitDef.cols;
+    const bitRows = bitDef.grid3x3 ? 3 : bitDef.rows;
+    const byteWidth = bitCols * bitSize + Math.max(0, bitCols - 1) * bitGap;
+    const byteHeight = bitRows * bitSize + Math.max(0, bitRows - 1) * bitGap;
+
+    let minByteCol = Number.POSITIVE_INFINITY;
+    let maxByteCol = Number.NEGATIVE_INFINITY;
+    let minByteRow = Number.POSITIVE_INFINITY;
+    let maxByteRow = Number.NEGATIVE_INFINITY;
+    const bytePositions = [];
+
+    for (let byteIndex = 0; byteIndex < activeBytes; byteIndex++) {
+      const pos = layoutPos(byteDef, byteIndex);
+      bytePositions.push(pos);
+      minByteCol = Math.min(minByteCol, pos.col);
+      maxByteCol = Math.max(maxByteCol, pos.col);
+      minByteRow = Math.min(minByteRow, pos.row);
+      maxByteRow = Math.max(maxByteRow, pos.row);
+    }
+
+    const previewWidth = (maxByteCol - minByteCol + 1) * byteWidth + Math.max(0, maxByteCol - minByteCol) * byteGap + bytePad * 2;
+    const previewHeight = (maxByteRow - minByteRow + 1) * byteHeight + Math.max(0, maxByteRow - minByteRow) * byteGap + bytePad * 2;
+
+    const slots = maskSummary.slotBits.map((slot) => ({
+      slotIndex: slot.slotIndex,
+      activeBits: new Set(slot.values || []),
+    }));
+
+    if (slots.length === 0) return null;
+
+    return {
+      slots,
+      totalBits,
+      activeBytes,
+      bitDef,
+      byteDef,
+      bitSize,
+      bitGap,
+      byteGap,
+      bytePad,
+      byteWidth,
+      byteHeight,
+      bytePositions,
+      minByteCol,
+      minByteRow,
+      previewWidth,
+      previewHeight,
+    };
+  }, [maskSummary, bitLayout, byteLayout]);
 
   // Height drag handler
   const handleHeightDrag = useCallback((e) => {
@@ -170,6 +243,52 @@ export default function DetailPanel({ step, stepIndex, open, onToggle, height, o
     {
       label: 'Mask bits',
       content: maskSummary ? <span className="dt-mono">{maskSummary.slotText}</span> : <span className="detail-empty">-</span>,
+    },
+    {
+      label: 'Mask preview',
+      content: maskPreview ? (
+        <div className="mask-preview-list">
+          {maskPreview.slots.map((slot) => (
+            <div key={slot.slotIndex} className={`mask-preview-slot slot-${slot.slotIndex % 2}`}>
+              <div className="mask-preview-slot-label">Mask {slot.slotIndex + 1}</div>
+              <div
+                className="mask-preview-word"
+                style={{ width: `${maskPreview.previewWidth}px`, height: `${maskPreview.previewHeight}px` }}
+              >
+                {Array.from({ length: maskPreview.activeBytes }, (_, byteIndex) => {
+                  const bytePos = maskPreview.bytePositions[byteIndex];
+                  const byteLeft = maskPreview.bytePad + (bytePos.col - maskPreview.minByteCol) * (maskPreview.byteWidth + maskPreview.byteGap);
+                  const byteTop = maskPreview.bytePad + (bytePos.row - maskPreview.minByteRow) * (maskPreview.byteHeight + maskPreview.byteGap);
+                  return (
+                    <div
+                      key={byteIndex}
+                      className="mask-preview-byte"
+                      style={{ left: `${byteLeft}px`, top: `${byteTop}px`, width: `${maskPreview.byteWidth}px`, height: `${maskPreview.byteHeight}px` }}
+                    >
+                      {Array.from({ length: 8 }, (_, bitIndex) => {
+                        const absoluteBit = byteIndex * 8 + bitIndex;
+                        if (absoluteBit >= maskPreview.totalBits) return null;
+                        const bitPos = layoutPos(maskPreview.bitDef, bitIndex);
+                        const bitLeft = bitPos.col * (maskPreview.bitSize + maskPreview.bitGap);
+                        const bitTop = bitPos.row * (maskPreview.bitSize + maskPreview.bitGap);
+                        const active = slot.activeBits.has(absoluteBit);
+                        return (
+                          <span
+                            key={bitIndex}
+                            className={`mask-preview-bit${active ? ' active' : ''}`}
+                            style={{ left: `${bitLeft}px`, top: `${bitTop}px`, width: `${maskPreview.bitSize}px`, height: `${maskPreview.bitSize}px` }}
+                            title={`Bit ${absoluteBit}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : <span className="detail-empty">-</span>,
     },
     {
       label: 'Mask route',

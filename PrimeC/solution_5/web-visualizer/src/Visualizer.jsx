@@ -1583,10 +1583,10 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     const el = containerRef.current;
     if (!el) return;
 
-    let dragging = false, startX = 0, startY = 0, panSX = 0, panSY = 0;
-    let minimapDragging = false;
+    let gestureMode = 'none';
+    let activePointerId = null;
+    let startX = 0, startY = 0, panSX = 0, panSY = 0;
     let didDrag = false;
-    let rotating3D = false; // right-click drag for 3D rotation
 
     const getPlaneMetrics = () => {
       const rect = el.getBoundingClientRect();
@@ -1615,7 +1615,24 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       if (cam && cam.enabled) e.preventDefault();
     };
 
-    const onMouseDown = (e) => {
+    const isSecondaryRotateGesture = (event, cam) => {
+      if (!cam || !cam.enabled) return false;
+      if (event.button === 1 || event.button === 2) return true;
+      if (event.button === 0 && (event.ctrlKey || event.metaKey)) return true;
+      return (event.buttons & 2) === 2;
+    };
+
+    const isPointWithinRect = (clientX, clientY, rect) => (
+      clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
+    );
+
+    const clearInteraction = () => {
+      gestureMode = 'none';
+      activePointerId = null;
+      el.classList.remove('dragging');
+    };
+
+    const onPointerDown = (e) => {
       const r = rendererRef.current;
       if (!r) return;
       const rect = el.getBoundingClientRect();
@@ -1624,28 +1641,27 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       const canvasW = rect.width;
       const canvasH = rect.height;
 
-      // Right-click or middle-click: 3D rotation
       const cam = camera3DRef.current;
-      const wants3DRotate = cam && cam.enabled && (e.button !== 0 || e.ctrlKey || e.metaKey);
-      if (cam && cam.enabled && wants3DRotate) {
+      if (isSecondaryRotateGesture(e, cam)) {
         e.preventDefault();
         e.stopPropagation();
-        rotating3D = true;
+        gestureMode = 'rotate';
+        activePointerId = e.pointerId;
         startX = e.clientX;
         startY = e.clientY;
         didDrag = false;
+        if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
         el.classList.add('dragging');
         return;
       }
 
-      // Transform coordinates for 3D mode
-      const coords = screenToCanvasCoords(e.clientX, e.clientY);
-
       // Check minimap hit first (use raw screen coords for minimap)
       const hit = r.minimapHitTest(rawX, rawY, canvasW, canvasH);
       if (hit) {
-        minimapDragging = true;
+        gestureMode = 'minimap';
+        activePointerId = e.pointerId;
         didDrag = true;
+        if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
         r.panX = hit.panX;
         r.panY = hit.panY;
         r.render();
@@ -1655,22 +1671,22 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         return;
       }
 
-      dragging = true;
+      gestureMode = 'pan';
+      activePointerId = e.pointerId;
       didDrag = false;
       startX = e.clientX; startY = e.clientY;
       if (r) { panSX = r.panX; panSY = r.panY; }
+      if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
       el.classList.add('dragging');
     };
 
-    const onAuxClick = (e) => {
-      const cam = camera3DRef.current;
-      if (cam && cam.enabled && (e.button === 1 || e.button === 2)) e.preventDefault();
-    };
-    const onMouseMove = (e) => {
+    const onPointerMove = (e) => {
       const r = rendererRef.current;
+      if (!r) return;
       const cam = camera3DRef.current;
+      if (activePointerId != null && e.pointerId !== activePointerId) return;
 
-      if (rotating3D && cam && cam.enabled) {
+      if (gestureMode === 'rotate' && cam && cam.enabled) {
         didDrag = true;
         cam.rotate(e.clientX - startX, e.clientY - startY);
         startX = e.clientX;
@@ -1680,7 +1696,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         return;
       }
 
-      if (minimapDragging && r) {
+      if (gestureMode === 'minimap') {
         const rect = el.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
@@ -1692,59 +1708,67 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
           updateMinimapAvailability();
         }
-      } else if (dragging && r) {
+        return;
+      }
+
+      if (gestureMode === 'pan') {
         didDrag = true;
         r.panX = panSX + (e.clientX - startX);
         r.panY = panSY + (e.clientY - startY);
         r.render();
         r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
         updateMinimapAvailability();
-      } else if (r && !dragging) {
-        const coords = screenToCanvasCoords(e.clientX, e.clientY);
-        const idx = r.canvasToBitIndex(coords.x, coords.y);
-        el.style.cursor = 'crosshair';
-        setHoverInfo(idx >= 0 ? r.getBitInfo(idx) : '');
-        // Update hover panel only when bit index changes
-        if (idx !== lastHoveredIdxRef.current) {
-          lastHoveredIdxRef.current = idx;
-          if (idx >= 0) {
-            setHoveredBitInfo(computeBitInfo(idx));
-          } else {
-            setHoveredBitInfo(null);
-          }
+        return;
+      }
+
+      const coords = screenToCanvasCoords(e.clientX, e.clientY);
+      const idx = r.canvasToBitIndex(coords.x, coords.y);
+      el.style.cursor = 'crosshair';
+      setHoverInfo(idx >= 0 ? r.getBitInfo(idx) : '');
+      if (idx !== lastHoveredIdxRef.current) {
+        lastHoveredIdxRef.current = idx;
+        if (idx >= 0) {
+          setHoveredBitInfo(computeBitInfo(idx));
+        } else {
+          setHoveredBitInfo(null);
         }
       }
     };
-    const onMouseUp = (e) => {
-      const releasedOverCanvas = e.target instanceof Node && el.contains(e.target);
-      if (rotating3D) {
-        rotating3D = false;
-        el.classList.remove('dragging');
+
+    const onPointerEnd = (e) => {
+      if (activePointerId != null && e.pointerId !== activePointerId) return;
+      const rect = el.getBoundingClientRect();
+      const releasedOverCanvas = isPointWithinRect(e.clientX, e.clientY, rect);
+      const r = rendererRef.current;
+
+      if (gestureMode === 'rotate') {
+        clearInteraction();
         return;
       }
-      if (!dragging && !minimapDragging && !releasedOverCanvas) {
-        el.classList.remove('dragging');
+
+      if (gestureMode === 'none' && !releasedOverCanvas) {
+        clearInteraction();
         return;
       }
-      if (!didDrag && !minimapDragging && rendererRef.current) {
+
+      if (!didDrag && gestureMode !== 'minimap' && r) {
         const coords = screenToCanvasCoords(e.clientX, e.clientY);
-        const r = rendererRef.current;
         const idx = r.canvasToBitIndex(coords.x, coords.y);
         if (idx >= 0) {
           const cam = camera3DRef.current;
-          // In 3D mode, clicking flies to the element cinematically
           if (cam && cam.enabled) {
             flyToElement(idx);
           }
           const info = computeBitInfo(idx);
-          // Toggle lock: clicking same bit unlocks, clicking different bit locks
           setBitHistoryModal(prev => (prev && prev.bitIndex === idx) ? null : info);
         } else {
           setBitHistoryModal(null);
         }
       }
-      dragging = false; minimapDragging = false; el.classList.remove('dragging');
+
+      clearInteraction();
     };
+
     const onWheel = (e) => {
       e.preventDefault();
       const r = rendererRef.current;
@@ -1776,14 +1800,14 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       updateMinimapAvailability();
     };
 
-    el.addEventListener('mousedown', onMouseDown);
-    el.addEventListener('auxclick', onAuxClick);
+    el.addEventListener('pointerdown', onPointerDown);
     el.addEventListener('contextmenu', onContextMenu);
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerEnd);
+    window.addEventListener('pointercancel', onPointerEnd);
     el.addEventListener('wheel', onWheel, { passive: false });
     const onMouseLeave = () => {
-      if (!dragging && !rotating3D) {
+      if (gestureMode === 'none') {
         setHoverInfo('');
         lastHoveredIdxRef.current = -1;
         setHoveredBitInfo(null);
@@ -1793,11 +1817,11 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     el.addEventListener('mouseleave', onMouseLeave);
 
     return () => {
-      el.removeEventListener('mousedown', onMouseDown);
-      el.removeEventListener('auxclick', onAuxClick);
+      el.removeEventListener('pointerdown', onPointerDown);
       el.removeEventListener('contextmenu', onContextMenu);
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerEnd);
+      window.removeEventListener('pointercancel', onPointerEnd);
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('mouseleave', onMouseLeave);
     };
@@ -2323,6 +2347,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
             playing={playing}
             stepStats={selectedSteps.size > 1 ? null : stepStats}
             storageModel={storageModel}
+            bitLayout={layoutSettings.bitLayout}
+            byteLayout={layoutSettings.byteLayout}
           />
         </div>
 
