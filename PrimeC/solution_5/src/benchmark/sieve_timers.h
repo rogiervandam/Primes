@@ -7,30 +7,31 @@ struct timespec timer_timers[timer_count];
 counter_t timer_hits[timer_count];
 double timer_time[timer_count];
 
-#define time_setBitsTrue 0
-#define time_searchBitFalse 1
-#define time_searchBitFalse_largestep 2
-#define time_applyMask 3
-#define time_applyMask_pair 4
-#define time_setBitsTrue_smallstep_rotate_pair 5
-#define time_setBitsTrue_smallstep_repeat 6
-#define time_setBitsTrue_smallstep_norepeat 7
-#define time_setBitsTrue_largestep_vector 8
-#define time_setBitsTrue_largestep_repeat 9
-#define time_setBitsTrue_largestep_norepeat 10
-#define time_continuePattern 11
-#define time_continuePattern_smallSize 12
-#define time_continuePattern_aligned 13
-#define time_continuePattern_shiftleft_unrolled 14
-#define time_continuePattern_shiftleft 15
-#define time_continuePattern_shiftright 16
-#define time_sieveStripeBlock 17
-#define time_stripeSieve 18
-#define time_sieve_block_extend 19
-#define time_setBitsTrue_range 20
-#define time_setBitsTrue_range_return 21
-#define time_setBitsTrue_largestep_bitbucket 22
-#define time_markFactors_wheelstorage_small_repeat_pair_vector 23
+#define function_id_t int
+#define time_setBitsTrue (function_id_t) 0
+#define time_searchBitFalse (function_id_t) 1
+#define time_searchBitFalse_largestep (function_id_t) 2
+#define time_applyMask (function_id_t) 3
+#define time_applyMask_pair (function_id_t) 4
+#define time_setBitsTrue_smallstep_rotate_pair (function_id_t) 5
+#define time_setBitsTrue_smallstep_repeat (function_id_t) 6
+#define time_setBitsTrue_smallstep_norepeat (function_id_t) 7
+#define time_setBitsTrue_largestep_vector (function_id_t) 8
+#define time_setBitsTrue_largestep_repeat (function_id_t) 9
+#define time_setBitsTrue_largestep_norepeat (function_id_t) 10
+#define time_continuePattern (function_id_t) 11
+#define time_continuePattern_smallSize (function_id_t) 12
+#define time_continuePattern_aligned (function_id_t) 13
+#define time_continuePattern_shiftleft_unrolled (function_id_t) 14
+#define time_continuePattern_shiftleft (function_id_t) 15
+#define time_continuePattern_shiftright (function_id_t) 16
+#define time_sieveStripeBlock (function_id_t) 17
+#define time_stripeSieve (function_id_t) 18
+#define time_sieve_block_extend (function_id_t) 19
+#define time_setBitsTrue_range (function_id_t) 20
+#define time_setBitsTrue_range_return (function_id_t) 21
+#define time_setBitsTrue_largestep_bitbucket (function_id_t) 22
+#define time_markFactors_wheelstorage_small_repeat_pair_vector (function_id_t) 23
 
 static const char* timer_function_names[100] = {
     [time_setBitsTrue] = "setBitsTrue",

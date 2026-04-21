@@ -192,21 +192,13 @@ primes_log_event_timer(counter_t level, counter_t runtime_verbose_level, void* b
   TRACE_EVENT_TIMER(bitstorage_ptr, timer, "%s", annotation);
 }
 
-#define PRIMES_LOG_SELECT_SECOND(arg, on_integer, on_other) _Generic((arg), \
-  char: on_integer, signed char: on_integer, unsigned char: on_integer, short: on_integer, unsigned short: on_integer, \
-  int: on_integer, unsigned int: on_integer, long: on_integer, unsigned long: on_integer, long long: on_integer, unsigned long long: on_integer, \
-  default: on_other)
-
-#define PRIMES_LOG_SELECT_FIRST(arg, on_integer, on_cstring, on_other) _Generic((arg), \
-  char: on_integer, signed char: on_integer, unsigned char: on_integer, short: on_integer, unsigned short: on_integer, \
-  int: on_integer, unsigned int: on_integer, long: on_integer, unsigned long: on_integer, long long: on_integer, unsigned long long: on_integer, \
-  char*: on_cstring, const char*: on_cstring, \
-  default: on_other)
+#define PRIMES_LOG_SELECT_SECOND(arg, on_integer, on_other)            _Generic((arg), function_id_t: on_integer, default: on_other)
+#define PRIMES_LOG_SELECT_FIRST(arg, on_integer, on_cstring, on_other) _Generic((arg), function_id_t: on_integer, char*: on_cstring, const char*: on_cstring, default: on_other)
 
 #define PRIMES_VA_COUNT_IMPL(  _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, N, ...) N
 #define PRIMES_VA_COUNT(...)  PRIMES_VA_COUNT_IMPL(__VA_ARGS__, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1)
 
-#define PRIMES_LOG_DISPATCH_1(level, a1)              primes_log_text(level, option.verbose_level, a1)
+#define PRIMES_LOG_DISPATCH_1(level, a1)              verbose(level, a1)
 #define PRIMES_LOG_DISPATCH_2(level, a1, a2)          PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, primes_log_event)(level, option.verbose_level, a1, a2)
 #define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3)      PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer, primes_log_event))(level, option.verbose_level, a1, a2, a3)
 #define PRIMES_LOG_DISPATCH_4(level, a1, a2, a3, ...) PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer, primes_log_event))(level, option.verbose_level, a1, a2, a3, ##__VA_ARGS__)
