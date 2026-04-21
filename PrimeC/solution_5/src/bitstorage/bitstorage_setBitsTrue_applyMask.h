@@ -7,7 +7,7 @@
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
 function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, counter_t step, const bitbucket_t mask) 
 {
-    // logBegin8(time_applyMask, "ApplyMask: apply %s (%ju bit) mask with step %ju in bitrange (%ju - %ju)", STR(bitbucket_t), bitcount_type(bitbucket_t),(uintmax_t)step, (uintmax_t)range_start * bitcount_type(bitbucket_t), (uintmax_t)(range_stop+1) * bitcount_type(bitbucket_t)-1);
+    logBegin8(time_applyMask, "ApplyMask: apply %s (%ju bit) mask with step %ju in bitrange (%ju - %ju)", STR(bitbucket_t), bitcount_type(bitbucket_t),(uintmax_t)step, (uintmax_t)range_start * bitcount_type(bitbucket_t), (uintmax_t)(range_stop+1) * bitcount_type(bitbucket_t)-1);
   
     register       bitbucket_t* restrict bitstorage_sized   = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     register       bitbucket_t* restrict index_ptr          = __builtin_assume_aligned(&bitstorage_sized[range_start],sizeof(bitbucket_t));
@@ -133,7 +133,7 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
 
     })
 
-    // logEnd8(time_applyMask, "\n");
+    logEnd8(time_applyMask, "\n");
 }
 
 #include "../generic/variants/cleansuffix.h"
