@@ -12,7 +12,10 @@ markExtendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop
     counter_t prime                  = 1;
     counter_t patternsize_bits       = 3;
 
+    log6(bitstorage, "Processing prime %ju with step %ju in range [%ju-%ju]", (uintmax_t)prime*2+1, (uintmax_t)prime * 2 + 1, (uintmax_t)prime * (prime * 2 + 1 + 1), (uintmax_t)2*(prime * 2 + 1));
     setBitsTrue_range(bitstorage, prime * (prime * 2 + 1 + 1), 2*(prime * 2 + 1), prime * 2 + 1);
+    log6(bitstorage, "Processed prime %ju with step %ju in range [%ju-%ju]", (uintmax_t)prime*2+1, (uintmax_t)prime * 2 + 1, (uintmax_t)prime * (prime * 2 + 1 + 1), (uintmax_t)2*(prime * 2 + 1));
+
     // log5(bitstorage,
     //            "extend: mark multiples of 3, range [%jd-%jd] step 3",
     //            (intmax_t)(prime * (prime * 2 + 1 + 1)), (intmax_t)(2*(prime * 2 + 1)));
@@ -26,14 +29,14 @@ markExtendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop
         range_stop = patternsize_bits * step * 2;  // range is x2 so the second block cointains all multiples of primes
         if unlikely(range_stop > block_stop) break;
 
-        log6(bitstorage, "Processing prime %ju with step %ju in range [%ju-%ju]", (uintmax_t)prime*2+1, (uintmax_t)step, (uintmax_t)start, (uintmax_t)range_stop);
-
         // continue the found pattern to the entire sieve
         continuePattern_uint32(bitstorage, patternsize_bits, range_stop, patternsize_bits);
         // log5(bitstorage,
         //            "extend: copy pattern %jd bits to [0-%jd] for prime %jd",
         //            (intmax_t)patternsize_bits, (intmax_t)range_stop, (intmax_t)step);
         patternsize_bits *= step;
+
+        log6(bitstorage, "Processing prime %ju with step %ju in range [%ju-%ju]", (uintmax_t)prime*2+1, (uintmax_t)step, (uintmax_t)start, (uintmax_t)range_stop);
 
         setBitsTrue(bitstorage, start, range_stop, step);
         // log5(bitstorage,
@@ -101,6 +104,8 @@ markExtendSieveBlock_half(void* restrict bitstorage, const counter_t block_start
             //            (intmax_t)patternsize_bits, (intmax_t)pattern_start, (intmax_t)range_stop, (intmax_t)step);
         }
         patternsize_bits *= step;
+
+        log6(bitstorage, "Processing prime %ju with step %ju in range [%ju-%ju]", (uintmax_t)prime*2+1, (uintmax_t)step, (uintmax_t)start, (uintmax_t)range_stop);
 
         setBitsTrue_range(bitstorage, start, range_stop, step);
         // log5(bitstorage,
