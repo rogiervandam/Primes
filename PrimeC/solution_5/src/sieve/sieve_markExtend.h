@@ -5,7 +5,7 @@
 static inline counter_t __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 markExtendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop) 
 {
-    logBegin5(bitstorage, time_sieve_block_extend, "Extend: extend sieve block 0 to range %ju - %ju",(uintmax_t)0,(uintmax_t)block_stop);
+    logBegin5(time_sieve_block_extend, "Extend: extend sieve block 0 to range %ju - %ju",(uintmax_t)0,(uintmax_t)block_stop);
 
     ((uint64_t*)bitstorage)[0] = (uint64_t)0ULL; // only the first word has to be cleared; the rest is populated by the extension procedure
 
@@ -19,13 +19,14 @@ markExtendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop
 
     for (counter_t range_stop = 2*(prime * 2 + 1);range_stop < block_stop;) {
         prime = searchBitFalse(bitstorage, prime);
-
         const counter_t step = prime * 2 + 1;
         const counter_t start = prime * (step + 1);
         if unlikely(start > block_stop) break;
 
         range_stop = patternsize_bits * step * 2;  // range is x2 so the second block cointains all multiples of primes
         if unlikely(range_stop > block_stop) break;
+
+        log6(bitstorage, "Processing prime %ju with step %ju in range [%ju-%ju]", (uintmax_t)prime*2+1, (uintmax_t)step, (uintmax_t)start, (uintmax_t)range_stop);
 
         // continue the found pattern to the entire sieve
         continuePattern(bitstorage, patternsize_bits, range_stop, patternsize_bits);
@@ -46,7 +47,7 @@ markExtendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop
                "extend: final copy pattern %jd bits to [0-%jd]",
                (intmax_t)patternsize_bits, (intmax_t)block_stop);
 
-    logEnd5(bitstorage, time_sieve_block_extend, "Copy bitpattern from %ju - %ju to range %ju - %ju:\n", (uintmax_t)patternsize_bits, (uintmax_t)2*patternsize_bits-1, (uintmax_t)2*patternsize_bits, (uintmax_t)block_stop);
+    logEnd5(time_sieve_block_extend, "Copy bitpattern from %ju - %ju to range %ju - %ju:\n", (uintmax_t)patternsize_bits, (uintmax_t)2*patternsize_bits-1, (uintmax_t)2*patternsize_bits, (uintmax_t)block_stop);
     return prime;
 }
 
@@ -64,7 +65,7 @@ struct block {
 static inline counter_t 
 markExtendSieveBlock_half(void* restrict bitstorage, const counter_t block_start, const counter_t block_stop) 
 {
-    logBegin5(bitstorage, time_sieve_block_extend, "Extend: extend sieve block to range %ju - %ju with markExtendSieveBlock",(uintmax_t)block_start,(uintmax_t)block_stop);
+    logBegin5(time_sieve_block_extend, "Extend: extend sieve block to range %ju - %ju with markExtendSieveBlock",(uintmax_t)block_start,(uintmax_t)block_stop);
 
     register counter_t prime         = 0;
     counter_t patternsize_bits       = 1;
@@ -109,11 +110,11 @@ markExtendSieveBlock_half(void* restrict bitstorage, const counter_t block_start
 
     // continue the found pattern to the entire block
     continuePattern(bitstorage, block_start, block_stop, block.pattern_size);
-    // log5(bitstorage,
-    //            "extend-block: final copy pattern %jd bits to [%jd-%jd]",
-    //            (intmax_t)block.pattern_size, (intmax_t)block_start, (intmax_t)block_stop);
+    log5(bitstorage,
+               "extend-block: final copy pattern %jd bits to [%jd-%jd]",
+               (intmax_t)block.pattern_size, (intmax_t)block_start, (intmax_t)block_stop);
 
-    logEnd5(bitstorage, time_sieve_block_extend, "Copy bitpattern from %ju - %ju to range %ju - %ju:\n", (uintmax_t)block.pattern_size, (uintmax_t)2*block.pattern_size-1, (uintmax_t)2*block.pattern_size, (uintmax_t)block_stop);
+    logEnd5(time_sieve_block_extend, "Copy bitpattern from %ju - %ju to range %ju - %ju:\n", (uintmax_t)block.pattern_size, (uintmax_t)2*block.pattern_size-1, (uintmax_t)2*block.pattern_size, (uintmax_t)block_stop);
     return block.prime_next;
 }
 

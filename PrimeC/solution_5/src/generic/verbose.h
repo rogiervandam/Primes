@@ -208,4 +208,16 @@ static inline void primes_log_event_timer(counter_t level, counter_t runtime_ver
 #define log8(...) PRIMES_LOG_DISPATCH(8, __VA_ARGS__)
 #define log9(...) PRIMES_LOG_DISPATCH(9, __VA_ARGS__)
 
+#define logBegins5(bitstorage, timer, printf_args...) PRIMES_LOG_BEGIN(5, timer, printf_args); PRIMES_LOG_DISPATCH(5, bitstorage, timer, printf_args);
+#define logBegins6(bitstorage, timer, printf_args...) PRIMES_LOG_BEGIN(6, timer, printf_args); PRIMES_LOG_DISPATCH(6, bitstorage, timer, printf_args);
+#define logBegins7(bitstorage, timer, printf_args...) PRIMES_LOG_BEGIN(7, timer, printf_args); PRIMES_LOG_DISPATCH(7, bitstorage, timer, printf_args);
+#define logBegins8(bitstorage, timer, printf_args...) PRIMES_LOG_BEGIN(8, timer, printf_args); PRIMES_LOG_DISPATCH(8, bitstorage, timer, printf_args);
+#define logBegins9(bitstorage, timer, printf_args...) PRIMES_LOG_BEGIN(9, timer, printf_args); PRIMES_LOG_DISPATCH(9, bitstorage, timer, printf_args);
+
+#define logEnds5(bitstorage, timer, printf_args...) PRIMES_LOG_DISPATCH(5, bitstorage, timer, printf_args); PRIMES_LOG_END(5, timer, printf_args);
+#define logEnds6(bitstorage, timer, printf_args...) PRIMES_LOG_DISPATCH(6, bitstorage, timer, printf_args); PRIMES_LOG_END(6, timer, printf_args);
+#define logEnds7(bitstorage, timer, printf_args...) PRIMES_LOG_DISPATCH(7, bitstorage, timer, printf_args); PRIMES_LOG_END(7, timer, printf_args);
+#define logEnds8(bitstorage, timer, printf_args...) PRIMES_LOG_DISPATCH(8, bitstorage, timer, printf_args); PRIMES_LOG_END(8, timer, printf_args);
+#define logEnds9(bitstorage, timer, printf_args...) PRIMES_LOG_DISPATCH(9, bitstorage, timer, printf_args); PRIMES_LOG_END(9, timer, printf_args);
+
 #endif

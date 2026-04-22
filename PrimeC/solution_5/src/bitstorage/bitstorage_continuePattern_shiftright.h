@@ -28,7 +28,7 @@ continuePattern_shiftright(void* restrict bitstorage, const counter_t source_sta
     bitstorage_sized[copy_word] |= ((bitstorage_sized[source_word] << shift)  // or the start in to not lose data
                                 | (bitstorage_sized[copy_word] >> shift_flipped))
                                 & keepmask_type(copy_start, bitbucket_t);
-    log9(bitstorage, "ContinuePatternShiftRight: handled first word with shift copy source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size_bits);
+    log8(bitstorage, "ContinuePatternShiftRight: handled first word with shift copy source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size_bits);
 
     copy_word++;
 

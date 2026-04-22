@@ -1095,7 +1095,7 @@ function inferPrimeFromFactorStep(factorStep, storageModel) {
   if (fs == null) return null;
 
   // Keep inferred prime aligned with the user's current convention.
-  return fs / 2;
+  return fs;
 }
 
 function inferPrimeFromAnnotation(annotation, factorStep, storageModel) {
