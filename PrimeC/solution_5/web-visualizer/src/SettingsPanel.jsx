@@ -112,6 +112,7 @@ export default function SettingsPanel({
   minimapControlVisible = true,
   outlineSettings, onOutlineChange,
   isWindowsPlatform = false,
+  showAnimationControls = true,
 }) {
   const s = settings || {};
   const [groupingMenuOpen, setGroupingMenuOpen] = React.useState(false);
@@ -965,6 +966,7 @@ export default function SettingsPanel({
           <span className="settings-hint">Outlines are optional helpers for structure visibility.</span>
         </div>
 
+        {showAnimationControls && (
         <div className="settings-section">
           <label>Animation style</label>
           <div className="preview-btn-grid preview-btn-grid-3">
@@ -1010,8 +1012,9 @@ export default function SettingsPanel({
             />
           </div>
         </div>
+        )}
 
-        {animStyle !== 'none' && (
+        {showAnimationControls && animStyle !== 'none' && (
           <div className="settings-section">
             <label>Animation mode</label>
             <div className="preview-btn-grid preview-btn-grid-3">
@@ -1063,7 +1066,7 @@ export default function SettingsPanel({
           </div>
         )}
 
-        {(
+        {showAnimationControls && (
           <div className="settings-section">
             <label>Animation timing</label>
             <div className="settings-row animation-timing-row" style={{ alignItems: 'flex-start', gap: 8 }}>

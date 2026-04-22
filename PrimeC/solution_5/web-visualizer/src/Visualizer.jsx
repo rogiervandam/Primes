@@ -6,7 +6,7 @@ import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
 import {
   SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
-  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Thermometer
+  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Thermometer, Settings
 } from './Icons';
 
 const VIEW_PREFS_KEY = 'sieve-visualizer:view-preferences:v1';
@@ -72,6 +72,19 @@ const DEFAULT_SETTINGS = {
 
 export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const { header, steps } = trace;
+  const traceTitle = useMemo(() => header.title || fileName || 'Sieve Visualizer', [header.title, fileName]);
+  const traceMetaItems = useMemo(() => {
+    const items = [];
+    if (fileName) items.push(`File: ${fileName}`);
+    if (header.subtitle) items.push(header.subtitle);
+    if (Array.isArray(header.infoLines)) items.push(...header.infoLines);
+    if (header.maxNumber != null) items.push(`Max ${header.maxNumber.toLocaleString()}`);
+    if (header.storageModel) items.push(`Storage ${header.storageModel}`);
+    items.push(`Bits ${header.bitCount.toLocaleString()}`);
+    items.push(`Events ${header.stepCount}`);
+    items.push(`v${header.version}`);
+    return Array.from(new Set(items.filter(Boolean)));
+  }, [header, fileName]);
 
   const canvasRef = useRef(null);
   const minimapCanvasRef = useRef(null);
@@ -94,9 +107,10 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [playing, setPlaying] = useState(false);
   const [playSpeed, setPlaySpeed] = useState(4000);
   const [zoom, setZoom] = useState(1);
-  const [hoverInfo, setHoverInfo] = useState('');
   const [panelWidth, setPanelWidth] = useState(320);
   const [theme, setTheme] = useState(() => readViewPrefs()?.theme === 'light' ? 'light' : 'dark');
+  const [showTraceInfo, setShowTraceInfo] = useState(false);
+  const [loweredSetBits, setLoweredSetBits] = useState(false);
   const [settingsCollapsed, setSettingsCollapsed] = useState(true);
   const [layoutSettings, setLayoutSettings] = useState(() => mergeLayoutSettings(readViewPrefs()?.layoutSettings));
   const [detailOpen, setDetailOpen] = useState(false);
@@ -107,6 +121,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [animStyle, setAnimStyle] = useState('ripple'); // 'ripple', 'fade', 'pulse', 'none'
   const [maskAnimationEnabled, setMaskAnimationEnabled] = useState(true);
   const [animationReplayPaused, setAnimationReplayPaused] = useState(false);
+  const [animationWidgetOpen, setAnimationWidgetOpen] = useState(false);
   const [bitAnimInterval, setBitAnimInterval] = useState(20); // ms between sequential bits (0.02s default)
   const [detailHeight, setDetailHeight] = useState(280);
   const [detailWidth, setDetailWidth] = useState(0);
@@ -128,7 +143,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [stepsPanelCollapsed, setStepsPanelCollapsed] = useState(true);
 
   // 3D camera state
-  const [mode3D, setMode3D] = useState(() => !!readViewPrefs()?.mode3D);
+  const [mode3D, setMode3D] = useState(false);
   const [camera3DTransform, setCamera3DTransform] = useState('none');
   const [camera3DContainerStyle, setCamera3DContainerStyle] = useState({});
   const currentAnimIntervalRef = useRef(20);
@@ -155,7 +170,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const viewportAnimRef = useRef(null);
   const autoplayStartedRef = useRef(false);
   const initialHighlightHoldRef = useRef(true);
-  const initial3DRestoreDoneRef = useRef(!readViewPrefs()?.mode3D);
+  const initial3DRestoreDoneRef = useRef(true);
+  const animationWidgetRef = useRef(null);
+  const traceInfoPopoverRef = useRef(null);
 
   stepsRef.current = steps;
 
@@ -188,6 +205,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     detailOpenRef.current = next;
     setDetailOpen(next);
   }, []);
+
   const updateDetailHeight = useCallback((val) => {
     detailHeightRef.current = val;
     setDetailHeight(val);
@@ -315,6 +333,17 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     }, 210);
   }, [clearScheduledLayoutRefresh, refreshCanvasLayout]);
 
+  const applyViewportFit = useCallback((renderer, width, height) => {
+    if (!renderer || width <= 0 || height <= 0) return;
+    renderer.zoomToFit(width, height, { alignTop: header.bitCount > 16384 });
+    const dpr = window.devicePixelRatio || 1;
+    const canvasCssHeight = (renderer.canvas?.height || height * dpr) / dpr;
+    const planeOffsetX = Math.max(0, (renderer.canvasWidth - width) / 2);
+    const planeOffsetY = Math.max(0, (canvasCssHeight - height) / 2);
+    renderer.panX += planeOffsetX;
+    renderer.panY += planeOffsetY;
+  }, [header.bitCount]);
+
   const toggleStepsPanel = useCallback(() => {
     const r = rendererRef.current;
     setStepsPanelCollapsed((wasCollapsed) => {
@@ -344,6 +373,18 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     schedulePostLayoutRefresh(anchor);
   }, [captureViewportAnchor, schedulePostLayoutRefresh]);
 
+  // Close animation settings when clicking outside
+  useEffect(() => {
+    if (!animationWidgetOpen) return;
+    const handleClickOutside = (e) => {
+      if (animationWidgetRef.current && !animationWidgetRef.current.contains(e.target)) {
+        setAnimationWidgetOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [animationWidgetOpen]);
+
   // Apply theme to document
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -352,10 +393,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   useEffect(() => {
     writeViewPrefs({
       theme,
-      mode3D,
       layoutSettings,
     });
-  }, [theme, mode3D, layoutSettings]);
+  }, [theme, layoutSettings]);
 
   // Init renderer
   useEffect(() => {
@@ -452,6 +492,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.storageModel = storageModel;
     r.cachelineSize = cachelineSize;
     r.heatMapEnabled = heatMapEnabled;
+    r.loweredSetBits = loweredSetBits;
+    r.loweredSetBits3D = mode3D;
     r.customSetBit = customColors.setBit;
     r.customClearedBit = customColors.clearedBit;
     r.customUnchangedBit = customColors.unchangedBit;
@@ -528,7 +570,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.render();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
     updateMinimapAvailability();
-  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, updateMinimapAvailability]);
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, loweredSetBits, mode3D, updateMinimapAvailability]);
 
   // Resize handler
   useEffect(() => {
@@ -653,7 +695,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       }
       // Zoom to fit on first render
       if (!initialFitDoneRef.current) {
-        r.zoomToFit(rect.width, rect.height, { alignTop: header.bitCount > 16384 });
+        applyViewportFit(r, rect.width, rect.height);
         setZoom(r.zoom);
         r.freezeLayout();
         initialFitDoneRef.current = true;
@@ -673,7 +715,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         playbackDurationMs: playing ? Math.max(160, playSpeed) : null,
       });
     }
-  }, [currentStep, steps, updateMinimapAvailability, playing, stopPlayback, getCanvasTargetSize, repeatAnim, playSpeed]);
+  }, [currentStep, steps, updateMinimapAvailability, playing, stopPlayback, getCanvasTargetSize, repeatAnim, playSpeed, applyViewportFit]);
 
   const cancelViewportAnimation = useCallback(() => {
     if (viewportAnimRef.current) {
@@ -690,6 +732,16 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     if (camera3DRef.current) camera3DRef.current.cancelAllAnimations();
     cancelViewportAnimation();
   }, [cancelViewportAnimation]);
+
+  const freezeAnimationNow = useCallback(() => {
+    stopPlayback();
+    stopSeqAnim();
+    setAnimationReplayPaused(true);
+    const r = rendererRef.current;
+    if (!r) return;
+    r.render();
+    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+  }, [stopPlayback, stopSeqAnim, getMinimapDetailH]);
 
   const waitForDelay = useCallback((ms) => {
     if (ms <= 0) return Promise.resolve();
@@ -746,7 +798,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     if (rect.width <= 0 || rect.height <= 0) return Promise.resolve(false);
 
     const savedView = { panX: r.panX, panY: r.panY, zoom: r.zoom };
-    r.zoomToFit(rect.width, rect.height, { alignTop: header.bitCount > 16384 });
+    applyViewportFit(r, rect.width, rect.height);
     const targetView = { panX: r.panX, panY: r.panY, zoom: r.zoom };
     r.panX = savedView.panX;
     r.panY = savedView.panY;
@@ -763,15 +815,15 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     }
 
     return animateViewportTo(targetView, options.duration ?? 720).then(() => true);
-  }, [animateViewportTo, getMinimapDetailH, header.bitCount]);
+  }, [animateViewportTo, getMinimapDetailH, applyViewportFit]);
 
   useEffect(() => {
     const cam = camera3DRef.current;
     if (!cam || initial3DRestoreDoneRef.current || !mode3D) return;
     initial3DRestoreDoneRef.current = true;
-    cam.rotateX = 24;
+    cam.rotateX = 16;
     cam.rotateY = 0;
-    cam.perspective = 1360;
+    cam.perspective = 1500;
     cam.enable();
     setCamera3DContainerStyle(cam.getContainerStyle());
     setCamera3DTransform(cam.getCanvasTransform());
@@ -1112,6 +1164,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       let direction = 1;
       let bounced = false;
       let revealCount = 0;
+      let previousFocusBit = null;
       const trailSize = animMode === 'bounce' ? Math.min(8, Math.max(3, Math.round(bits.length / 18))) : 0;
 
       const buildBounceTrail = () => {
@@ -1159,9 +1212,17 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           const focusBits = animMode === 'bounce'
             ? new Set(buildBounceTrail().slice(0, Math.max(1, Math.min(3, trailSize))))
             : new Set([bits[Math.max(0, Math.min(bits.length - 1, idx))]]);
+          const currentFocusBit = bits[Math.max(0, Math.min(bits.length - 1, idx))];
           r.changedBits = partial;
           r.animationFocusBits = focusBits;
+          if (previousFocusBit != null && previousFocusBit !== currentFocusBit) {
+            r.addBitMotionTrail(previousFocusBit, currentFocusBit, {
+              duration: Math.max(220, Math.min(900, effectiveBitInterval * (animMode === 'bounce' ? 6 : 10))),
+              intensity: animMode === 'bounce' ? 1.2 : 1,
+            });
+          }
           r.render();
+          r.renderBitMotionTrails();
           if (animStyle === 'ripple' && focusBits.size > 0) {
             r.renderRipple(0.18, focusBits, { intensity: animMode === 'bounce' ? 1.25 : 1.05, showBeacon: true });
           } else if (animStyle === 'pulse' && focusBits.size > 0) {
@@ -1174,6 +1235,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           }
           r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
           revealCount += 1;
+          previousFocusBit = currentFocusBit;
           const totalRevealSteps = animMode === 'bounce'
             ? Math.max(1, bits.length * 2 - 1)
             : Math.max(1, bits.length);
@@ -1184,6 +1246,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
         r.changedBits = new Set();
         r.animationFocusBits = new Set();
+        r.clearBitMotionTrails();
         r.render();
         r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
         seqTimerRef.current = setTimeout(revealNext, getCurrentLoopInterval(effectiveBitInterval, timingOptions, 0));
@@ -1492,7 +1555,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     if (el) {
       const rect = el.getBoundingClientRect();
       r.unfreezeLayout();
-      r.zoomToFit(rect.width, rect.height, { alignTop: header.bitCount > 16384 });
+      applyViewportFit(r, rect.width, rect.height);
       r.freezeLayout();
     } else {
       r.zoom = 1; r.panX = 0; r.panY = 0;
@@ -1501,31 +1564,33 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.render();
     r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
     updateMinimapAvailability();
-  }, [getMinimapDetailH, updateMinimapAvailability]);
+  }, [getMinimapDetailH, updateMinimapAvailability, applyViewportFit]);
 
   // 3D mode toggle
   const toggle3D = useCallback(() => {
     const cam = camera3DRef.current;
-    const r = rendererRef.current;
-    const el = containerRef.current;
-    const anchor = captureViewportAnchor(0.5, 0.5);
     if (!cam) return;
     if (cam.enabled) {
       cam.disable();
       setMode3D(false);
       // Refresh canvas at normal size
-      schedulePostLayoutRefresh(anchor);
+      schedulePostLayoutRefresh(captureViewportAnchor(0.5, 0.5));
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          refitViewportToContent({ instant: true });
+        });
+      });
     } else {
       cam.enable();
       setCamera3DContainerStyle(cam.getContainerStyle());
       // Enter 3D with only a backward bend, not a sideways twist.
-      cam.animateTo({ rotateX: 24, rotateY: 0, perspective: 1360 }, 800);
+      cam.animateTo({ rotateX: 16, rotateY: 0, perspective: 1500 }, 520);
       setMode3D(true);
       // Refresh with enlarged canvas for 3D
-      schedulePostLayoutRefresh(anchor);
+      schedulePostLayoutRefresh(null);
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          refitViewportToContent({ duration: 820 });
+          refitViewportToContent({ instant: true });
         });
       });
     }
@@ -1587,6 +1652,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     let activePointerId = null;
     let startX = 0, startY = 0, panSX = 0, panSY = 0;
     let didDrag = false;
+    let mouseRotateActive = false;
 
     const getPlaneMetrics = () => {
       const rect = el.getBoundingClientRect();
@@ -1612,12 +1678,17 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     const onContextMenu = (e) => {
       // Prevent context menu when 3D mode is active (right-click is used for rotation)
       const cam = camera3DRef.current;
-      if (cam && cam.enabled) e.preventDefault();
+      if (mode3D || (cam && cam.enabled)) e.preventDefault();
+    };
+
+    const onAuxClick = (e) => {
+      const cam = camera3DRef.current;
+      if (cam && cam.enabled && (e.button === 1 || e.button === 2)) e.preventDefault();
     };
 
     const isSecondaryRotateGesture = (event, cam) => {
       if (!cam || !cam.enabled) return false;
-      if (event.button === 1 || event.button === 2) return true;
+      if (event.button === 1 || event.button === 2 || event.which === 3) return true;
       if (event.button === 0 && (event.ctrlKey || event.metaKey)) return true;
       return (event.buttons & 2) === 2;
     };
@@ -1629,10 +1700,12 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     const clearInteraction = () => {
       gestureMode = 'none';
       activePointerId = null;
+      mouseRotateActive = false;
       el.classList.remove('dragging');
     };
 
     const onPointerDown = (e) => {
+      if (mouseRotateActive) return;
       const r = rendererRef.current;
       if (!r) return;
       const rect = el.getBoundingClientRect();
@@ -1681,9 +1754,25 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     };
 
     const onPointerMove = (e) => {
+      if (mouseRotateActive) return;
       const r = rendererRef.current;
       if (!r) return;
       const cam = camera3DRef.current;
+
+      if (gestureMode === 'none' && cam && cam.enabled) {
+        const secondaryPressed = ((e.buttons & 2) === 2) || (((e.buttons & 1) === 1) && (e.ctrlKey || e.metaKey));
+        if (secondaryPressed) {
+          gestureMode = 'rotate';
+          activePointerId = e.pointerId;
+          startX = e.clientX;
+          startY = e.clientY;
+          didDrag = false;
+          if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
+          el.classList.add('dragging');
+          return;
+        }
+      }
+
       if (activePointerId != null && e.pointerId !== activePointerId) return;
 
       if (gestureMode === 'rotate' && cam && cam.enabled) {
@@ -1724,7 +1813,6 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       const coords = screenToCanvasCoords(e.clientX, e.clientY);
       const idx = r.canvasToBitIndex(coords.x, coords.y);
       el.style.cursor = 'crosshair';
-      setHoverInfo(idx >= 0 ? r.getBitInfo(idx) : '');
       if (idx !== lastHoveredIdxRef.current) {
         lastHoveredIdxRef.current = idx;
         if (idx >= 0) {
@@ -1736,6 +1824,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     };
 
     const onPointerEnd = (e) => {
+      if (mouseRotateActive) return;
       if (activePointerId != null && e.pointerId !== activePointerId) return;
       const rect = el.getBoundingClientRect();
       const releasedOverCanvas = isPointWithinRect(e.clientX, e.clientY, rect);
@@ -1800,11 +1889,58 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       updateMinimapAvailability();
     };
 
+    const onMouseDown = (e) => {
+      const cam = camera3DRef.current;
+      if (!mode3D && (!cam || !cam.enabled)) return;
+      const secondary = e.button === 2 || (e.button === 0 && (e.ctrlKey || e.metaKey));
+      if (!secondary) return;
+      e.preventDefault();
+      e.stopPropagation();
+      mouseRotateActive = true;
+      gestureMode = 'rotate';
+      activePointerId = null;
+      startX = e.clientX;
+      startY = e.clientY;
+      didDrag = false;
+      el.classList.add('dragging');
+    };
+
+    const onMouseMove = (e) => {
+      if (!mouseRotateActive) return;
+      const cam = camera3DRef.current;
+      const r = rendererRef.current;
+      if (!cam || !cam.enabled || !r) {
+        clearInteraction();
+        return;
+      }
+      const stillSecondary = (e.buttons & 2) === 2 || ((e.buttons & 1) === 1 && (e.ctrlKey || e.metaKey));
+      if (!stillSecondary) {
+        clearInteraction();
+        return;
+      }
+      didDrag = true;
+      cam.rotate(e.clientX - startX, e.clientY - startY);
+      startX = e.clientX;
+      startY = e.clientY;
+      r.render();
+      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      updateMinimapAvailability();
+    };
+
+    const onMouseUp = () => {
+      if (!mouseRotateActive) return;
+      clearInteraction();
+    };
+
     el.addEventListener('pointerdown', onPointerDown);
     el.addEventListener('contextmenu', onContextMenu);
+    el.addEventListener('auxclick', onAuxClick);
+    el.addEventListener('mousedown', onMouseDown);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerEnd);
     window.addEventListener('pointercancel', onPointerEnd);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
     el.addEventListener('wheel', onWheel, { passive: false });
     const onMouseLeave = () => {
       if (gestureMode === 'none') {
@@ -1819,13 +1955,17 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     return () => {
       el.removeEventListener('pointerdown', onPointerDown);
       el.removeEventListener('contextmenu', onContextMenu);
+      el.removeEventListener('auxclick', onAuxClick);
+      el.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerEnd);
       window.removeEventListener('pointercancel', onPointerEnd);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [computeBitInfo, flyToElement, getMinimapDetailH, updateMinimapAvailability]);
+  }, [computeBitInfo, flyToElement, getMinimapDetailH, updateMinimapAvailability, mode3D]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -2146,15 +2286,56 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   }, [currentStep, currentStepData]);
 
   const playSpeedLabel = useMemo(() => `${(playSpeed / 1000).toFixed(1)}s/step`, [playSpeed]);
+  const playbackSpeedValue = useMemo(() => {
+    const interval = clampMs(parseInt(playSpeed || 0, 10) || 4000, 4000, 12000);
+    const ratio = (12000 - interval) / (12000 - 4000);
+    return Math.round(1 + ratio * 99);
+  }, [playSpeed, clampMs]);
+  const stepSpeedValue = useMemo(() => {
+    const interval = clampMs(parseInt(bitAnimInterval || 0, 10) || 20, 5, 5000);
+    const ratio = (5000 - interval) / (5000 - 5);
+    return Math.round(1 + ratio * 99);
+  }, [bitAnimInterval, clampMs]);
+  const setPlaybackSpeedValue = useCallback((speedValue) => {
+    const speed = clampMs(parseInt(speedValue || 0, 10) || 1, 1, 100);
+    const ratio = (speed - 1) / 99;
+    setPlaySpeed(Math.round(12000 - ratio * (12000 - 4000)));
+  }, [clampMs]);
+  const setStepSpeedValue = useCallback((speedValue) => {
+    const speed = clampMs(parseInt(speedValue || 0, 10) || 1, 1, 100);
+    const ratio = (speed - 1) / 99;
+    setBitAnimInterval(Math.round(5000 - ratio * (5000 - 5)));
+  }, [clampMs]);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') document.title = traceTitle;
+  }, [traceTitle]);
 
   return (
     <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}`}>
       {/* Header bar */}
       <header className="toolbar">
         <div className="toolbar-left">
-          <span className="sieve-info">
-            Max: {header.maxNumber.toLocaleString()} | Bits: {header.bitCount.toLocaleString()} | Events: {header.stepCount} | v{header.version}
-          </span>
+          <div className="trace-title-block">
+            <div className="trace-title" title={traceTitle}>{traceTitle}</div>
+          </div>
+          <div className="trace-actions">
+            <button
+              className={`btn-icon btn-info${showTraceInfo ? ' active' : ''}`}
+              onClick={() => setShowTraceInfo((open) => !open)}
+              title="Trace information"
+            >
+              i
+            </button>
+            {onClose && <button className="btn-icon" onClick={onClose} title="Close trace">✕</button>}
+          </div>
+          {showTraceInfo && (
+            <div className="trace-info-popover" ref={traceInfoPopoverRef}>
+              {traceMetaItems.map((item) => (
+                <div key={item} className="trace-info-row">{item}</div>
+              ))}
+            </div>
+          )}
         </div>
         <div className="toolbar-center">
           <button className="btn-icon" onClick={() => goToStep(0)} title="First (Home)" disabled={exporting}><SkipBack /></button>
@@ -2179,6 +2360,22 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
             disabled={exporting}
           />
           <span className="step-counter">{currentStep} / {steps.length - 1}</span>
+          <button
+            className={`btn-icon${animationWidgetOpen ? ' active' : ''}`}
+            onClick={() => setAnimationWidgetOpen((value) => !value)}
+            title="Animation settings"
+            disabled={exporting}
+          >
+            <Settings size={14} />
+          </button>
+          <button
+            className={`btn-icon${animationReplayPaused ? ' active' : ''}`}
+            onClick={() => setAnimationReplayPaused((value) => !value)}
+            title={animationReplayPaused ? 'Resume automatic event animation' : 'Pause automatic event animation'}
+            disabled={exporting}
+          >
+            {animationReplayPaused ? <Play size={14} /> : <Pause size={14} />}
+          </button>
         </div>
         <div className="toolbar-right">
           {!isWindowsPlatform && (
@@ -2205,6 +2402,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
               <button className="btn-text" onClick={resetZoom} title="Reset Zoom (0)">{zoom.toFixed(1)}x</button>
               <button className="btn-icon" onClick={() => doZoom(1 / 1.5)} title="Zoom Out (−)"><ZoomOut /></button>
               <button className={`btn-icon${heatMapEnabled ? ' active' : ''}`} onClick={() => setHeatMapEnabled(h => !h)} title="Toggle heat map overlay"><Thermometer /></button>
+              <button className={`btn-icon${loweredSetBits ? ' active' : ''}`} onClick={() => setLoweredSetBits((value) => !value)} title="Toggle lowered-set-bits sieve mode">
+                ▽
+              </button>
               <button className={`btn-icon${mode3D ? ' active' : ''}`} onClick={toggle3D} title="Toggle 3D view (3)">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M2 11L8 14L14 11" />
@@ -2248,8 +2448,6 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           onWidthChange={setPanelWidth}
           panelCollapsed={stepsPanelCollapsed}
           onToggleCollapse={toggleStepsPanel}
-          fileName={fileName}
-          onClose={onClose}
         />
 
         <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
@@ -2274,8 +2472,67 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
             />
             <canvas ref={minimapCanvasRef} className="minimap-overlay-canvas" aria-hidden="true" />
           </div>
-          {hoverInfo && <div className="hover-info">{hoverInfo}</div>}
-
+          <div className={`animation-widget speed-linked${animationWidgetOpen ? ' open' : ''}`} ref={animationWidgetRef}>
+            {animationWidgetOpen && (
+              <div className="animation-widget-panel">
+                <div className="animation-widget-header">
+                  <span>Animation</span>
+                </div>
+                <div className="animation-widget-actions">
+                  <button className={`btn-option animation-chip${maskAnimationEnabled ? ' active' : ''}`} onClick={() => setMaskAnimationEnabled((value) => !value)} title={maskAnimationEnabled ? 'Disable group mark animation' : 'Enable group mark animation'}>
+                    Group mark animation
+                  </button>
+                </div>
+                <label className="animation-widget-row">
+                  <span>Overall speed</span>
+                  <input type="range" min={1} max={100} step={1} value={playbackSpeedValue} onChange={(e) => setPlaybackSpeedValue(e.target.value)} />
+                  <strong>{playSpeedLabel}</strong>
+                </label>
+                <label className="animation-widget-row">
+                  <span>Delay</span>
+                  <input type="range" min={0} max={5000} step={100} value={repeatAnim || 0} onChange={(e) => setRepeatAnim(clampMs(parseInt(e.target.value || '0', 10) || 0, 0, 5000))} />
+                  <strong>{repeatAnim === 0 ? 'Off' : `${(repeatAnim / 1000).toFixed(1)}s`}</strong>
+                </label>
+                <label className="animation-widget-row">
+                  <span>Step animation</span>
+                  <input type="range" min={1} max={100} step={1} value={stepSpeedValue} onChange={(e) => setStepSpeedValue(e.target.value)} disabled={animMode === 'all'} />
+                  <strong>{animMode === 'all' ? 'All at once' : `${stepSpeedValue}%`}</strong>
+                </label>
+                <div className="animation-widget-grid">
+                  <div className="animation-widget-choice">
+                    <span>Style</span>
+                    <div className="btn-group">
+                      {['ripple', 'fade', 'pulse', 'none'].map((style) => (
+                        <button
+                          key={style}
+                          className={`btn-option btn-anim-style-${style}${animStyle === style ? ' active' : ''}`}
+                          onClick={() => setAnimStyle(style)}
+                          title={`Animation: ${style}`}
+                        >
+                          {style}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="animation-widget-choice">
+                    <span>Mode</span>
+                    <div className="btn-group">
+                      {['all', 'sequential', 'bounce'].map((mode) => (
+                        <button
+                          key={mode}
+                          className={`btn-option btn-anim-mode-${mode}${animMode === mode ? ' active' : ''}`}
+                          onClick={() => setAnimMode(mode)}
+                          title={`Mode: ${mode}`}
+                        >
+                          {mode}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
           {/* Bit history panel: shown when locked (clicked) or hovered */}
           {(bitHistoryModal || hoveredBitInfo) && (() => {
             const info = bitHistoryModal || hoveredBitInfo;
@@ -2389,6 +2646,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           outlineSettings={layoutSettings.outlines}
           onOutlineChange={(outlines) => setLayoutSettings((prev) => ({ ...prev, outlines }))}
           isWindowsPlatform={isWindowsPlatform}
+          showAnimationControls={false}
         />
       </div>
     </div>

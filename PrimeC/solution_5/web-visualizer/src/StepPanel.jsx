@@ -46,7 +46,7 @@ function buildDepthTree(steps) {
 /**
  * Hierarchical step panel grouped by prime, with collapse/expand.
  */
-export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, fileName, onClose, onUserScroll }) {
+export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, onUserScroll }) {
   const listRef = useRef(null);
   const scrollTopRef = useRef(0);
   const [search, setSearch] = useState('');
@@ -300,18 +300,11 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
           <button className="step-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Expand events panel">
             ▶
           </button>
-          <span className="file-name" title={fileName || 'Events'}>{fileName || 'Events'}</span>
-          {onClose && <button className="btn-icon btn-icon-sm" onClick={onClose} title="Close file">✕</button>}
+          <span className="panel-label" title="Event">Event</span>
         </div>
       )}
       {!panelCollapsed && (
         <>
-      {fileName && (
-        <div className="step-panel-file-header">
-          <span className="file-name" title={fileName}>{fileName}</span>
-          {onClose && <button className="btn-icon btn-icon-sm" onClick={onClose} title="Close file">✕</button>}
-        </div>
-      )}
       <div className="step-panel-header">
         <div className="step-panel-header-title-row">
           <h3>Events ({totalVisible}/{steps.length})</h3>

@@ -56,7 +56,15 @@ function parseJsonTrace(text) {
     maxNumber: json.max_number ?? json.sieve_size,
     stepCount: rawSteps.length,
     storageModel: json.storage_model || 'half',
+    benchmarkSettings: firstDefined(json.benchmark_settings, json.settings, null),
   };
+
+  Object.assign(header, buildTracePresentation(header, {
+    title: firstDefined(json.title, json.trace_title, null),
+    subtitle: firstDefined(json.subtitle, json.trace_subtitle, null),
+    info: collectTitleInfo(firstDefined(json.title_info, json.info, json.details, null)),
+    benchmark: parseBenchmarkOutputLine(firstDefined(json.benchmark_output, json.benchmark, null)),
+  }));
 
   const steps = rawSteps.map((s, idx) => {
     const inferred = inferMetaFromAnnotation(s.annotation || '');
@@ -110,6 +118,8 @@ function parseTextTrace(text) {
 
   const headerLine = lines.find((l) => l.startsWith('TRACE '));
   const headerKv = headerLine ? parseKvLine(headerLine.slice('TRACE '.length)) : {};
+  const titleMeta = extractTitleMetadata(lines, headerKv);
+  const benchmarkMeta = extractBenchmarkMetadata(lines);
 
   if (lines.some((l) => l.startsWith('DUMP '))) {
     const dumpLine = lines.find((l) => l.startsWith('DUMP '));
@@ -244,13 +254,23 @@ function parseTextTrace(text) {
     maxNumber: toNumberOr(firstDefined(headerKv.max_number, headerKv.sieve_size), 0),
     stepCount: steps.length,
     storageModel: headerKv.storage_model || 'half',
+    benchmarkSettings: firstDefined(headerKv.benchmark_settings, headerKv.settings, null),
   };
+
+  Object.assign(header, buildTracePresentation(header, {
+    title: titleMeta.title,
+    subtitle: titleMeta.subtitle,
+    info: titleMeta.info,
+    benchmark: benchmarkMeta,
+  }));
 
   inferMissingPrimes(steps, header.storageModel);
   return { header, steps };
 }
 
 function parseFreeformTextTrace(lines, headerKv = {}) {
+  const titleMeta = extractTitleMetadata(lines, headerKv);
+  const benchmarkMeta = extractBenchmarkMetadata(lines);
   const header = {
     version: toNumberOr(headerKv.version, TRACE_FALLBACK_VERSION),
     sieveSize: toNumberOr(headerKv.sieve_size, 0),
@@ -258,6 +278,7 @@ function parseFreeformTextTrace(lines, headerKv = {}) {
     maxNumber: toNumberOr(firstDefined(headerKv.max_number, headerKv.sieve_size), 0),
     stepCount: 0,
     storageModel: headerKv.storage_model || 'half',
+    benchmarkSettings: firstDefined(headerKv.benchmark_settings, headerKv.settings, null),
   };
 
   const steps = [];
@@ -349,6 +370,13 @@ function parseFreeformTextTrace(lines, headerKv = {}) {
     header.sieveSize = header.sieveSize || header.maxNumber || header.bitCount * 2;
     header.maxNumber = header.maxNumber || header.sieveSize;
   }
+
+  Object.assign(header, buildTracePresentation(header, {
+    title: titleMeta.title,
+    subtitle: titleMeta.subtitle,
+    info: titleMeta.info,
+    benchmark: benchmarkMeta,
+  }));
 
   inferMissingPrimes(steps, header.storageModel);
   return { header, steps };
@@ -536,6 +564,98 @@ function parseAnalysisStartLine(line) {
   return {
     operation: fnMatch ? fnMatch[1] : 'analysis',
     prime: parsePrimeFromText(text),
+  };
+}
+
+function extractTitleMetadata(lines, headerKv = {}) {
+  const titleLines = lines.filter((line) => /^TITLE\s/i.test(line));
+  const kvs = titleLines.map((line) => parseKvLine(line.replace(/^TITLE\s+/i, '')));
+  const title = firstDefined(
+    ...kvs.map((kv) => firstDefined(kv.title, kv.label, null)),
+    headerKv.title,
+    headerKv.trace_title,
+    null,
+  );
+  const subtitle = firstDefined(
+    ...kvs.map((kv) => firstDefined(kv.subtitle, kv.subheading, null)),
+    headerKv.subtitle,
+    headerKv.trace_subtitle,
+    null,
+  );
+  const info = [
+    ...collectTitleInfo(firstDefined(headerKv.title_info, headerKv.info, headerKv.details, null)),
+    ...kvs.flatMap((kv) => collectTitleInfo(firstDefined(kv.info, kv.details, kv.extra, null))),
+  ];
+  return { title, subtitle, info: dedupeStrings(info) };
+}
+
+function extractBenchmarkMetadata(lines) {
+  for (let index = lines.length - 1; index >= 0; index--) {
+    const line = lines[index];
+    if (!line || /^(TRACE|TEXT|EVENT|STEP|TITLE|DUMP)\s/i.test(line)) continue;
+    const parsed = parseBenchmarkOutputLine(line);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
+function parseBenchmarkOutputLine(line) {
+  if (!line || typeof line !== 'string') return null;
+  const parts = line.trim().split(';');
+  if (parts.length < 4 || parts.length > 5) return null;
+  const iterations = Number(parts[1]);
+  const totalTime = Number(parts[2]);
+  const threads = Number(parts[3]);
+  if (!parts[0] || !Number.isFinite(iterations) || !Number.isFinite(totalTime) || !Number.isFinite(threads)) return null;
+  const tags = {};
+  if (parts[4]) {
+    for (const entry of parts[4].split(',')) {
+      const [key, value] = entry.split('=');
+      if (key && value) tags[key] = value;
+    }
+  }
+  return {
+    label: parts[0],
+    iterations,
+    totalTime,
+    threads,
+    tags,
+    summary: `${parts[0]} | ${iterations} passes | ${totalTime.toFixed(3)}s | ${threads} thread${threads === 1 ? '' : 's'}`,
+  };
+}
+
+function collectTitleInfo(raw) {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) return raw.flatMap((value) => collectTitleInfo(value));
+  const text = String(raw).trim();
+  if (!text) return [];
+  return text.split(/\s*\|\s*|\s*;\s*/).map((value) => value.trim()).filter(Boolean);
+}
+
+function dedupeStrings(values) {
+  const seen = new Set();
+  const out = [];
+  for (const value of values) {
+    const key = String(value || '').trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(key);
+  }
+  return out;
+}
+
+function buildTracePresentation(header, meta = {}) {
+  const info = [...(meta.info || [])];
+  if (header.benchmarkSettings) info.push(`Settings ${header.benchmarkSettings}`);
+  if (header.maxNumber) info.push(`Max ${header.maxNumber}`);
+  if (header.storageModel) info.push(`Storage ${header.storageModel}`);
+  if (meta.benchmark?.summary) info.push(meta.benchmark.summary);
+
+  return {
+    title: meta.title || null,
+    subtitle: meta.subtitle || null,
+    infoLines: dedupeStrings(info),
+    benchmark: meta.benchmark || null,
   };
 }
 
@@ -986,7 +1106,15 @@ function parseDump(json) {
     maxNumber: json.max_number ?? json.sieve_size,
     stepCount: 1,
     type: 'dump',
+    benchmarkSettings: firstDefined(json.benchmark_settings, json.settings, null),
   };
+
+  Object.assign(header, buildTracePresentation(header, {
+    title: firstDefined(json.title, json.trace_title, null),
+    subtitle: firstDefined(json.subtitle, json.trace_subtitle, null),
+    info: collectTitleInfo(firstDefined(json.title_info, json.info, json.details, null)),
+    benchmark: parseBenchmarkOutputLine(firstDefined(json.benchmark_output, json.benchmark, null)),
+  }));
 
   const steps = [{
     stepId: 0,

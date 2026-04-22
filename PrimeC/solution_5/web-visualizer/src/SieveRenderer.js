@@ -178,6 +178,7 @@ export class SieveRenderer {
     this.maskGhostBits = null;
     this.searchHighlight = null;
     this.animationFocusBits = new Set();
+    this.bitMotionTrails = [];
     this.zoom = 1;
     this.panX = 0;
     this.panY = 0;
@@ -219,6 +220,8 @@ export class SieveRenderer {
     this.showVectorTouchOrder = false;
     this.bitLabelMode = 'global';
     this.byteLabelMode = 'group';
+    this.loweredSetBits = false;
+    this.loweredSetBits3D = false;
 
     // Optional grouping outlines
     this.outlineEnabled = false;
@@ -465,6 +468,9 @@ export class SieveRenderer {
     this.searchHighlight = null;
     this.lastAccessStep = new Int32Array(bitCount).fill(-1);
     this.animationFocusBits = new Set();
+    this.bitMotionTrails = [];
+    this.loweredSetBits = false;
+    this.loweredSetBits3D = false;
     this._frozenClPerVRow = 0;
   }
 
@@ -487,10 +493,78 @@ export class SieveRenderer {
     this.maskWriteOrderEventIds = maskMetadata?.targetEventIds || new Int32Array(0);
     this.maskSlotBits = maskMetadata?.slotBits || [];
     this.maskGhostBits = new Set();
+    this.bitMotionTrails = [];
   }
 
   setMaskGhostBits(bits) {
     this.maskGhostBits = bits instanceof Set ? bits : new Set(bits || []);
+  }
+
+  clearBitMotionTrails() {
+    this.bitMotionTrails = [];
+  }
+
+  addBitMotionTrail(fromBit, toBit, options = {}) {
+    if (!Number.isFinite(fromBit) || !Number.isFinite(toBit) || fromBit === toBit) return;
+    this.bitMotionTrails.push({
+      fromBit,
+      toBit,
+      createdAt: performance.now(),
+      duration: Math.max(180, Math.min(1200, options.duration || 420)),
+      intensity: Math.max(0.8, Math.min(1.8, options.intensity || 1)),
+    });
+    if (this.bitMotionTrails.length > 18) {
+      this.bitMotionTrails.splice(0, this.bitMotionTrails.length - 18);
+    }
+  }
+
+  renderBitMotionTrails(now = performance.now()) {
+    if (!this.ctx || !Array.isArray(this.bitMotionTrails) || this.bitMotionTrails.length === 0) return;
+
+    const ctx = this.ctx;
+    const px = this.pixelSize * this.zoom;
+    const color = this._opColor();
+    const alive = [];
+
+    ctx.save();
+    ctx.setLineDash([]);
+    ctx.lineCap = 'round';
+
+    for (const trail of this.bitMotionTrails) {
+      const age = now - trail.createdAt;
+      const progress = Math.max(0, Math.min(1, age / Math.max(1, trail.duration)));
+      if (progress >= 1) continue;
+
+      const from = this.bitIndexToCanvas(trail.fromBit);
+      const to = this.bitIndexToCanvas(trail.toBit);
+      if (!from || !to) continue;
+
+      alive.push(trail);
+
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const distance = Math.hypot(dx, dy);
+      const lift = Math.max(px * 2.4, Math.min(distance * 0.18, px * 9));
+      const alpha = Math.max(0, (1 - progress) * 0.72 * trail.intensity);
+      const headAlpha = Math.max(0, (1 - progress) * 0.94);
+      const controlX = from.x + dx * 0.5;
+      const controlY = Math.min(from.y, to.y) - lift;
+
+      ctx.strokeStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha})`;
+      ctx.lineWidth = Math.max(1.2, px * 0.12 * (1 + trail.intensity * 0.35));
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.quadraticCurveTo(controlX, controlY, to.x, to.y);
+      ctx.stroke();
+
+      ctx.fillStyle = `rgba(255,255,255,${headAlpha})`;
+      ctx.beginPath();
+      ctx.arc(to.x, to.y, Math.max(1.2, px * 0.22), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+    this.bitMotionTrails = alive;
   }
 
   setSearchHighlight(type, index, bitIndex = null) {
@@ -1375,24 +1449,36 @@ export class SieveRenderer {
                 color = bitColors.cleared;
               }
 
+              const isSettledBit = !!this.bitState[globalBit] && !this.changedBits.has(globalBit);
+              const sinkEnabled = this.loweredSetBits && isSettledBit;
+              const sinkScale = sinkEnabled ? (this.loweredSetBits3D ? 0.62 : 0.74) : 1;
+              const sinkDrop = sinkEnabled ? px * (this.loweredSetBits3D ? 0.8 : 0.46) : 0;
+              const drawSize = Math.max(1, Math.round(px * sinkScale));
+              const drawX = Math.round(bitX + (px - drawSize) * 0.5);
+              const drawY = Math.round(bitY + sinkDrop + (px - drawSize) * 0.5);
+
               ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
               ctx.fillRect(
-                Math.round(bitX), Math.round(bitY),
-                Math.max(1, Math.round(px)), Math.max(1, Math.round(px))
+                drawX,
+                drawY,
+                drawSize,
+                drawSize
               );
 
               if (isGhostMaskedBit) {
                 ctx.save();
                 ctx.fillStyle = `rgba(${bitColors.set[0]},${bitColors.set[1]},${bitColors.set[2]},0.2)`;
                 ctx.fillRect(
-                  Math.round(bitX), Math.round(bitY),
-                  Math.max(1, Math.round(px)), Math.max(1, Math.round(px))
+                  drawX,
+                  drawY,
+                  drawSize,
+                  drawSize
                 );
                 ctx.strokeStyle = `rgba(${bitColors.set[0]},${bitColors.set[1]},${bitColors.set[2]},0.95)`;
                 ctx.lineWidth = Math.max(0.7, Math.min(1.6, px * 0.12));
                 ctx.strokeRect(
-                  Math.round(bitX - 0.5), Math.round(bitY - 0.5),
-                  Math.max(2, Math.round(px + 1)), Math.max(2, Math.round(px + 1))
+                  Math.round(drawX - 0.5), Math.round(drawY - 0.5),
+                  Math.max(2, Math.round(drawSize + 1)), Math.max(2, Math.round(drawSize + 1))
                 );
                 ctx.restore();
               }
@@ -1411,15 +1497,15 @@ export class SieveRenderer {
                 ctx.strokeStyle = 'rgba(59, 130, 246, 0.95)';
                 ctx.lineWidth = Math.max(0.35, Math.min(1.25, px * 0.08));
                 ctx.strokeRect(
-                  Math.round(bitX - 0.5), Math.round(bitY - 0.5),
-                  Math.max(2, Math.round(px + 1)), Math.max(2, Math.round(px + 1))
+                  Math.round(drawX - 0.5), Math.round(drawY - 0.5),
+                  Math.max(2, Math.round(drawSize + 1)), Math.max(2, Math.round(drawSize + 1))
                 );
                 if (targetHitCount > 1 && this.zoom >= 2.2 && px >= 4) {
                   ctx.strokeStyle = 'rgba(245, 158, 11, 0.95)';
                   ctx.lineWidth = Math.max(0.5, Math.min(1.6, px * 0.11));
                   ctx.strokeRect(
-                    Math.round(bitX + 1), Math.round(bitY + 1),
-                    Math.max(1, Math.round(px - 2)), Math.max(1, Math.round(px - 2))
+                    Math.round(drawX + 1), Math.round(drawY + 1),
+                    Math.max(1, Math.round(drawSize - 2)), Math.max(1, Math.round(drawSize - 2))
                   );
                 }
                 ctx.restore();
@@ -1763,7 +1849,7 @@ export class SieveRenderer {
     const ctx = this.ctx;
     const color = this._opColor();
     const px = this.pixelSize * this.zoom;
-    const lift = Math.max(10, Math.min(28, px * 5.2));
+    const lift = Math.max(7, Math.min(18, px * 3.1));
 
     const orderedEntries = this._maskWriteEntries();
     const stampProgress = t * (orderedEntries.length > 0 ? orderedEntries.length : 0);
@@ -1887,7 +1973,7 @@ export class SieveRenderer {
     const ctx = this.ctx;
     const px = this.pixelSize * this.zoom;
     const t = Math.max(0, Math.min(1, progress));
-    const travelLift = Math.max(28, Math.min(96, px * 10.5));
+    const travelLift = Math.max(16, Math.min(52, px * 5.8));
 
     ctx.save();
 

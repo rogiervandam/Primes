@@ -5,17 +5,29 @@ initSingleRunTrace(benchmark_settings_t benchmark_settings)
     if (option.trace_filename) {
         counter_t trace_bit_count = calcBitsize(benchmark_settings.factor_max, benchmark_settings.storage);
         char trace_settings_tag[128];
+                char trace_title[192];
+                char trace_info[256];
         snprintf(trace_settings_tag, sizeof(trace_settings_tag), "%s;t=%ju;d=%.3f;storage=%ju;factor_max=%ju",
                  getBenchmarkSettingAsString(benchmark_settings),
                  (uintmax_t)benchmark_settings.threads,
                  benchmark_settings.sample_duration,
                  (uintmax_t)benchmark_settings.storage,
                  (uintmax_t)benchmark_settings.factor_max);
+                snprintf(trace_title, sizeof(trace_title), "%s - Extend algorithm", option.program_name ? option.program_name : "sieve");
+                snprintf(trace_info, sizeof(trace_info),
+                                 "settings=%s | max=%ju | storage=%ju | threads=%ju | duration=%.3f",
+                                 getBenchmarkSettingAsString(benchmark_settings),
+                                 (uintmax_t)benchmark_settings.factor_max,
+                                 (uintmax_t)benchmark_settings.storage,
+                                 (uintmax_t)benchmark_settings.threads,
+                                 benchmark_settings.sample_duration);
 
         trace_init(option.trace_filename,
                    (uint64_t)benchmark_settings.factor_max,
                    (uint64_t)trace_bit_count,
-                   trace_settings_tag);
+                                     trace_settings_tag,
+                                     trace_title,
+                                     trace_info);
 
         if (g_trace.enabled) {
             trace_record_text_fmt("Settings used: %s", trace_settings_tag);

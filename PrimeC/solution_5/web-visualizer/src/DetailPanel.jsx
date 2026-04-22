@@ -193,14 +193,14 @@ export default function DetailPanel({ step, stepIndex, open, onToggle, height, o
     step.numChanged > 0 ? `+${step.numChanged} bits` : null,
   ].filter(Boolean).join(' | ');
 
-  const rowValues = [
-    {
-      label: 'Operation',
-      content: step.operation ? <span className="detail-tag op-tag">{step.operation}</span> : <span className="detail-empty">-</span>,
-    },
+  const primaryFacts = [
     {
       label: 'Prime',
       content: step.prime != null ? <span className="detail-tag prime-tag">{step.prime}</span> : <span className="detail-empty">-</span>,
+    },
+    {
+      label: 'Operation',
+      content: step.operation ? <span className="detail-tag op-tag">{step.operation}</span> : <span className="detail-empty">-</span>,
     },
     {
       label: 'Range',
@@ -212,30 +212,16 @@ export default function DetailPanel({ step, stepIndex, open, onToggle, height, o
       label: 'Step size',
       content: step.factorStep != null ? <span className="detail-tag step-tag">{step.factorStep}</span> : <span className="detail-empty">-</span>,
     },
-    {
-      label: 'Bits changed',
-      content: <span className="dt-changed">{step.numChanged ?? 0}</span>,
-    },
-    {
-      label: 'Newly set',
-      content: <span className="dt-changed">{stepStats?.newlySet ?? '-'}</span>,
-    },
-    {
-      label: 'Already set',
-      content: <span className="dt-changed">{stepStats?.reSet ?? '-'}</span>,
-    },
-    {
-      label: 'Total set',
-      content: <span className="dt-changed">{stepStats?.totalSet ?? '-'}</span>,
-    },
-    {
-      label: 'Bit ranges',
-      content: step.numChanged > 0 ? <span className="dt-mono">{bitRanges}</span> : <span className="detail-empty">-</span>,
-    },
-    {
-      label: 'Numbers marked',
-      content: step.numChanged > 0 ? <span className="dt-mono">{numberSummary}</span> : <span className="detail-empty">-</span>,
-    },
+  ];
+
+  const statFacts = [
+    { label: 'Bits changed', value: step.numChanged ?? 0 },
+    { label: 'Newly set', value: stepStats?.newlySet ?? '-' },
+    { label: 'Already set', value: stepStats?.reSet ?? '-' },
+    { label: 'Total set', value: stepStats?.totalSet ?? '-' },
+  ];
+
+  const maskFacts = [
     {
       label: 'Mask width',
       content: maskSummary ? <span className="detail-tag block-tag">{maskSummary.wordBits} bits</span> : <span className="detail-empty">-</span>,
@@ -245,66 +231,78 @@ export default function DetailPanel({ step, stepIndex, open, onToggle, height, o
       content: maskSummary ? <span className="dt-mono">{maskSummary.slotText}</span> : <span className="detail-empty">-</span>,
     },
     {
-      label: 'Mask preview',
-      content: maskPreview ? (
-        <div className="mask-preview-list">
-          {maskPreview.slots.map((slot) => (
-            <div key={slot.slotIndex} className={`mask-preview-slot slot-${slot.slotIndex % 2}`}>
-              <div className="mask-preview-slot-label">Mask {slot.slotIndex + 1}</div>
-              <div
-                className="mask-preview-word"
-                style={{ width: `${maskPreview.previewWidth}px`, height: `${maskPreview.previewHeight}px` }}
-              >
-                {Array.from({ length: maskPreview.activeBytes }, (_, byteIndex) => {
-                  const bytePos = maskPreview.bytePositions[byteIndex];
-                  const byteLeft = maskPreview.bytePad + (bytePos.col - maskPreview.minByteCol) * (maskPreview.byteWidth + maskPreview.byteGap);
-                  const byteTop = maskPreview.bytePad + (bytePos.row - maskPreview.minByteRow) * (maskPreview.byteHeight + maskPreview.byteGap);
-                  return (
-                    <div
-                      key={byteIndex}
-                      className="mask-preview-byte"
-                      style={{ left: `${byteLeft}px`, top: `${byteTop}px`, width: `${maskPreview.byteWidth}px`, height: `${maskPreview.byteHeight}px` }}
-                    >
-                      {Array.from({ length: 8 }, (_, bitIndex) => {
-                        const absoluteBit = byteIndex * 8 + bitIndex;
-                        if (absoluteBit >= maskPreview.totalBits) return null;
-                        const bitPos = layoutPos(maskPreview.bitDef, bitIndex);
-                        const bitLeft = bitPos.col * (maskPreview.bitSize + maskPreview.bitGap);
-                        const bitTop = bitPos.row * (maskPreview.bitSize + maskPreview.bitGap);
-                        const active = slot.activeBits.has(absoluteBit);
-                        return (
-                          <span
-                            key={bitIndex}
-                            className={`mask-preview-bit${active ? ' active' : ''}`}
-                            style={{ left: `${bitLeft}px`, top: `${bitTop}px`, width: `${maskPreview.bitSize}px`, height: `${maskPreview.bitSize}px` }}
-                            title={`Bit ${absoluteBit}`}
-                          />
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : <span className="detail-empty">-</span>,
-    },
-    {
       label: 'Mask route',
       content: maskSummary ? <span className="dt-mono">{maskSummary.routeText}</span> : <span className="detail-empty">-</span>,
     },
+  ];
+
+  const annotationFacts = [
     {
-      label: 'Annotation',
-      content: step.annotation ? <span className="dt-annotation">{step.annotation}</span> : <span className="detail-empty">-</span>,
+      label: 'Numbers marked',
+      content: step.numChanged > 0 ? <span className="dt-mono">{numberSummary}</span> : <span className="detail-empty">-</span>,
+      wide: true,
     },
-  ].filter(Boolean);
+    {
+      label: 'Bit ranges',
+      content: step.numChanged > 0 ? <span className="dt-mono">{bitRanges}</span> : <span className="detail-empty">-</span>,
+      wide: true,
+    },
+  ];
+
+  const maskPreviewContent = maskPreview ? (
+    <div className="mask-preview-list">
+      {maskPreview.slots.map((slot) => (
+        <div key={slot.slotIndex} className={`mask-preview-slot slot-${slot.slotIndex % 2}`}>
+          <div className="mask-preview-slot-label">Mask {slot.slotIndex + 1}</div>
+          <div
+            className="mask-preview-word"
+            style={{ width: `${maskPreview.previewWidth}px`, height: `${maskPreview.previewHeight}px` }}
+          >
+            {Array.from({ length: maskPreview.activeBytes }, (_, byteIndex) => {
+              const bytePos = maskPreview.bytePositions[byteIndex];
+              const byteLeft = maskPreview.bytePad + (bytePos.col - maskPreview.minByteCol) * (maskPreview.byteWidth + maskPreview.byteGap);
+              const byteTop = maskPreview.bytePad + (bytePos.row - maskPreview.minByteRow) * (maskPreview.byteHeight + maskPreview.byteGap);
+              return (
+                <div
+                  key={byteIndex}
+                  className="mask-preview-byte"
+                  style={{ left: `${byteLeft}px`, top: `${byteTop}px`, width: `${maskPreview.byteWidth}px`, height: `${maskPreview.byteHeight}px` }}
+                >
+                  {Array.from({ length: 8 }, (_, bitIndex) => {
+                    const absoluteBit = byteIndex * 8 + bitIndex;
+                    if (absoluteBit >= maskPreview.totalBits) return null;
+                    const bitPos = layoutPos(maskPreview.bitDef, bitIndex);
+                    const bitLeft = bitPos.col * (maskPreview.bitSize + maskPreview.bitGap);
+                    const bitTop = bitPos.row * (maskPreview.bitSize + maskPreview.bitGap);
+                    const active = slot.activeBits.has(absoluteBit);
+                    return (
+                      <span
+                        key={bitIndex}
+                        className={`mask-preview-bit${active ? ' active' : ''}`}
+                        style={{ left: `${bitLeft}px`, top: `${bitTop}px`, width: `${maskPreview.bitSize}px`, height: `${maskPreview.bitSize}px` }}
+                        title={`Bit ${absoluteBit}`}
+                      />
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  ) : <span className="detail-empty">-</span>;
+
+  const maskMetaLayout = maskPreview && maskPreview.previewHeight > 84 ? 'side' : 'stacked';
 
   return (
     <div className={`detail-panel ${open ? 'open' : 'collapsed'}`}>
       {open && !playing && <div className="detail-panel-resize" onMouseDown={handleHeightDrag} />}
       <div className="detail-panel-toggle" onClick={onToggle}>
-        <span className="detail-panel-title">{panelTitle}</span>
+        <div className="detail-panel-title">
+          <span className="detail-panel-title-main">{panelTitle}</span>
+          {step.annotation && <span className="detail-panel-annotation">{step.annotation}</span>}
+        </div>
         <span className="detail-panel-arrow">{open ? '▼' : '▲'}</span>
       </div>
 
@@ -313,16 +311,50 @@ export default function DetailPanel({ step, stepIndex, open, onToggle, height, o
           ...(playing ? { height: `${height || 200}px` } : { maxHeight: `${height || 200}px` }),
           ...(width > 0 ? { minWidth: `${width}px`, overflowX: 'auto' } : {}),
         }}>
-          <table className="detail-table">
-            <tbody>
-              {rowValues.map((row) => (
-                <tr key={row.label}>
-                  <td className="dt-label">{row.label}</td>
-                  <td>{row.content}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="detail-layout-4col">
+            {/* Column 1: Prime, Operation, Range, Step size */}
+            <div className="detail-col detail-col-1">
+              <div className="detail-field-grid">
+                {primaryFacts.map((row) => (
+                  <div key={row.label} className="detail-field">
+                    <div className="detail-field-label">{row.label}</div>
+                    <div className="detail-field-value">{row.content}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Column 2: Bits changed, newly set, already set, total set */}
+            <div className="detail-col detail-col-2">
+              <div className="detail-field-grid">
+                {statFacts.map((stat) => (
+                  <div key={stat.label} className="detail-field">
+                    <div className="detail-field-label">{stat.label}</div>
+                    <div className="detail-stat-value">{stat.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Column 3: Numbers marked, Bit ranges */}
+            <div className="detail-col detail-col-3">
+              <div className="detail-field-grid">
+                {annotationFacts.map((row) => (
+                  <div key={row.label} className="detail-field">
+                    <div className="detail-field-label">{row.label}</div>
+                    <div className="detail-field-value">{row.content}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Column 4: Mask preview */}
+            <div className="detail-col detail-col-4">
+              <div className="detail-field detail-field-mask-preview">
+                {maskPreviewContent}
+              </div>
+            </div>
+          </div>
         </div>
       )}
       {open && <div className="detail-panel-width-handle" onMouseDown={handleWidthDrag} />}

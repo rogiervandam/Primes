@@ -320,4 +320,3 @@ Future
 - allow for a "3d follow mode", where a camera follows the changes being made to the bitstorage in 3d space, automatically adjusting the view to focus on the areas of activity and change, providing users with an immersive and dynamic way to explore the visualisation and gain insights into the behavior of the sieve algorithm in relation to the structure of the bitstorage. This will enhance the overall user experience and make the visualisation more engaging and informative, allowing users to better understand the dynamics of the changes being made to the bitstorage throughout the execution of the sieve algorithm in a visually compelling way.
 
 
-
