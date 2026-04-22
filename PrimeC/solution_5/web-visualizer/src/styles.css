@@ -2303,10 +2303,9 @@ html, body, #root {
 .grouping-preset-row {
   display: flex;
   gap: 4px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: flex-start;
-  overflow-x: auto;
-  overflow-y: visible;
+  overflow: visible;
   width: 100%;
   padding-bottom: 2px;
 }
@@ -2387,11 +2386,11 @@ html, body, #root {
   left: 0;
   right: auto;
   display: flex;
-  flex-wrap: nowrap;
-  gap: 6px;
-  min-width: 164px;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 156px;
   width: max-content;
-  max-width: 220px;
+  max-width: min(280px, calc(100vw - 48px));
   padding: 8px;
   border: 1px solid var(--border-light);
   border-radius: 8px;
@@ -2402,12 +2401,12 @@ html, body, #root {
 }
 
 .grouping-menu-chip {
-  min-width: 36px;
-  min-height: 36px;
-  justify-content: center;
-  flex-direction: column;
-  padding: 3px 5px;
-  font-size: 8px;
+  min-width: 132px;
+  min-height: 32px;
+  justify-content: flex-start;
+  flex-direction: row;
+  padding: 5px 8px;
+  font-size: 11px;
   line-height: 1.2;
   text-transform: none;
   border: 1px solid var(--border-light);

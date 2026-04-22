@@ -49,13 +49,23 @@ function parseJsonTrace(text) {
 
   const rawSteps = json.events || json.steps || [];
 
+  const jsonStorageModel = String(json.storage_model || 'half');
+  const jsonMaxNumber = toNumberOr(firstDefined(json.max_number, json.sieve_size), 0);
+  const jsonSieveSize = toNumberOr(json.sieve_size, 0);
+  const jsonBitCount = normalizeBitCountForStorage(
+    jsonStorageModel,
+    toNumberOr(json.bit_count, 0),
+    jsonMaxNumber,
+    jsonSieveSize,
+  );
+
   const header = {
     version: json.version,
-    sieveSize: json.sieve_size,
-    bitCount: json.bit_count,
-    maxNumber: json.max_number ?? json.sieve_size,
+    sieveSize: jsonSieveSize,
+    bitCount: jsonBitCount,
+    maxNumber: jsonMaxNumber,
     stepCount: rawSteps.length,
-    storageModel: json.storage_model || 'half',
+    storageModel: jsonStorageModel,
     traceLevel: toNullableNumber(firstDefined(json.trace_level, json.log_level)),
     benchmarkSettings: firstDefined(json.benchmark_settings, json.settings, null),
   };
@@ -125,6 +135,15 @@ function parseTextTrace(text) {
 
   const headerLine = lines.find((l) => l.startsWith('TRACE '));
   const headerKv = headerLine ? parseKvLine(headerLine.slice('TRACE '.length)) : {};
+  const parsedStorageModel = String(headerKv.storage_model || 'half');
+  const parsedSieveSize = toNumberOr(headerKv.sieve_size, 0);
+  const parsedMaxNumber = toNumberOr(firstDefined(headerKv.max_number, headerKv.sieve_size), 0);
+  const parsedBitCount = normalizeBitCountForStorage(
+    parsedStorageModel,
+    toNumberOr(headerKv.bit_count, 0),
+    parsedMaxNumber,
+    parsedSieveSize,
+  );
   const titleMeta = extractTitleMetadata(lines, headerKv);
   const benchmarkMeta = extractBenchmarkMetadata(lines);
 
@@ -175,7 +194,7 @@ function parseTextTrace(text) {
       );
 
       const changedBits = upper.startsWith('TEXT ') ? [] : parseChangedBits(kv.changed_bits || '');
-      const maskMeta = deriveMaskMeta(kv, headerKv.bit_count ? toNumberOr(headerKv.bit_count, 0) : 0);
+      const maskMeta = deriveMaskMeta(kv, parsedBitCount);
       const patternMeta = derivePatternMeta(kv, maskMeta);
       const operation = kv.function || kv.op || kv.operation || inferOperationFromAnnotation(kv.annotation || '');
       const operationPath = Array.isArray(kv.operation_path)
@@ -240,7 +259,7 @@ function parseTextTrace(text) {
       continue;
     }
 
-    const event = parseFreeformStepEvent(line, headerKv.bit_count ? toNumberOr(headerKv.bit_count, 0) : 0);
+    const event = parseFreeformStepEvent(line, parsedBitCount);
     if (!event) continue;
 
     steps.push(createParsedStep({
@@ -268,11 +287,11 @@ function parseTextTrace(text) {
 
   const header = {
     version: toNumberOr(headerKv.version, TRACE_FALLBACK_VERSION),
-    sieveSize: toNumberOr(headerKv.sieve_size, 0),
-    bitCount: toNumberOr(headerKv.bit_count, 0),
-    maxNumber: toNumberOr(firstDefined(headerKv.max_number, headerKv.sieve_size), 0),
+    sieveSize: parsedSieveSize,
+    bitCount: parsedBitCount,
+    maxNumber: parsedMaxNumber,
     stepCount: steps.length,
-    storageModel: headerKv.storage_model || 'half',
+    storageModel: parsedStorageModel,
     traceLevel: toNullableNumber(firstDefined(headerKv.trace_level, headerKv.log_level)),
     benchmarkSettings: firstDefined(headerKv.benchmark_settings, headerKv.settings, null),
   };
@@ -291,13 +310,22 @@ function parseTextTrace(text) {
 function parseFreeformTextTrace(lines, headerKv = {}) {
   const titleMeta = extractTitleMetadata(lines, headerKv);
   const benchmarkMeta = extractBenchmarkMetadata(lines);
+  const parsedStorageModel = String(headerKv.storage_model || 'half');
+  const parsedSieveSize = toNumberOr(headerKv.sieve_size, 0);
+  const parsedMaxNumber = toNumberOr(firstDefined(headerKv.max_number, headerKv.sieve_size), 0);
+  const parsedBitCount = normalizeBitCountForStorage(
+    parsedStorageModel,
+    toNumberOr(headerKv.bit_count, 0),
+    parsedMaxNumber,
+    parsedSieveSize,
+  );
   const header = {
     version: toNumberOr(headerKv.version, TRACE_FALLBACK_VERSION),
-    sieveSize: toNumberOr(headerKv.sieve_size, 0),
-    bitCount: toNumberOr(headerKv.bit_count, 0),
-    maxNumber: toNumberOr(firstDefined(headerKv.max_number, headerKv.sieve_size), 0),
+    sieveSize: parsedSieveSize,
+    bitCount: parsedBitCount,
+    maxNumber: parsedMaxNumber,
     stepCount: 0,
-    storageModel: headerKv.storage_model || 'half',
+    storageModel: parsedStorageModel,
     traceLevel: toNullableNumber(firstDefined(headerKv.trace_level, headerKv.log_level)),
     benchmarkSettings: firstDefined(headerKv.benchmark_settings, headerKv.settings, null),
   };
@@ -1137,7 +1165,12 @@ function firstFactorStepNumberInText(text, fallback) {
  * Converts hex/binary data into a single step with all set bits.
  */
 function parseDump(json) {
-  const bitCount = json.bit_count;
+  const bitCount = normalizeBitCountForStorage(
+    String(json.storage_model || 'half'),
+    toNumberOr(json.bit_count, 0),
+    toNumberOr(firstDefined(json.max_number, json.sieve_size), 0),
+    toNumberOr(json.sieve_size, 0),
+  );
   const data = json.data || '';
   const format = json.format || 'hex';
 
@@ -1180,6 +1213,7 @@ function parseDump(json) {
     maxNumber: json.max_number ?? json.sieve_size,
     stepCount: 1,
     type: 'dump',
+    storageModel: json.storage_model || 'half',
     benchmarkSettings: firstDefined(json.benchmark_settings, json.settings, null),
   };
 
@@ -1203,4 +1237,18 @@ function parseDump(json) {
   }];
 
   return { header, steps };
+}
+
+function normalizeBitCountForStorage(storageModel, bitCount, maxNumber, sieveSize) {
+  const mode = String(storageModel || 'half').toLowerCase();
+  const parsedBitCount = toNumberOr(bitCount, 0);
+  if (mode !== 'half') return parsedBitCount;
+
+  const parsedMaxNumber = toNumberOr(maxNumber, 0);
+  const parsedSieveSize = toNumberOr(sieveSize, 0);
+  const sourceMax = parsedMaxNumber > 0 ? parsedMaxNumber : parsedSieveSize;
+  if (sourceMax <= 0) return parsedBitCount;
+
+  // Half storage keeps odd numbers only, so capacity follows half of max range.
+  return Math.max(1, Math.ceil(sourceMax / 2));
 }

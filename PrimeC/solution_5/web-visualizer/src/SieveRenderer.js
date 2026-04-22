@@ -179,6 +179,7 @@ export class SieveRenderer {
     this.maskWriteOrderEventIds = null;
     this.maskSlotBits = null;
     this.maskGhostBits = null;
+    this.suppressMaskWriteOverlay = false;
     this.searchHighlight = null;
     this.animationFocusBits = new Set();
     this.bitMotionTrails = [];
@@ -478,6 +479,7 @@ export class SieveRenderer {
     this.maskWriteOrderEventIds = new Int32Array(0);
     this.maskSlotBits = [];
     this.maskGhostBits = new Set();
+    this.suppressMaskWriteOverlay = false;
     this.searchHighlight = null;
     this.lastAccessStep = new Int32Array(bitCount).fill(-1);
     this.animationFocusBits = new Set();
@@ -510,6 +512,7 @@ export class SieveRenderer {
     this.maskWriteOrderEventIds = maskMetadata?.targetEventIds || new Int32Array(0);
     this.maskSlotBits = maskMetadata?.slotBits || [];
     this.maskGhostBits = new Set();
+    this.suppressMaskWriteOverlay = false;
     this.bitMotionTrails = [];
     this.changedBitRiseAt = new Map();
     const now = performance.now();
@@ -664,6 +667,45 @@ export class SieveRenderer {
     };
   }
 
+  _bitVisualRow(bitIdx) {
+    if (bitIdx < 0 || bitIdx >= this.bitCount) return -1;
+    const bitsPerCacheLine = this.bitsPerCacheLine;
+    const numVec = this._numVectorsPerRow();
+    const vecPerRow = this._vectorGroupsPerVisualRow();
+    const clIdx = Math.floor(bitIdx / bitsPerCacheLine);
+    const bitInRow = bitIdx % bitsPerCacheLine;
+    const u64Idx = Math.floor(bitInRow / 64);
+    const vecIdx = Math.floor(u64Idx / this.vectorGroup);
+    const globalVectorIndex = clIdx * numVec + vecIdx;
+    return Math.floor(globalVectorIndex / vecPerRow);
+  }
+
+  _multiBitBoundsSegments(startBit, count) {
+    const endBit = Math.min(this.bitCount, startBit + count);
+    if (startBit < 0 || endBit <= startBit) return [];
+
+    const segments = [];
+    let segmentStart = startBit;
+    let previousRow = this._bitVisualRow(startBit);
+
+    for (let bit = startBit + 1; bit < endBit; bit++) {
+      const row = this._bitVisualRow(bit);
+      if (row !== previousRow) {
+        const segmentCount = bit - segmentStart;
+        const bounds = this._multiBitBounds(segmentStart, segmentCount);
+        if (bounds) segments.push({ startBit: segmentStart, count: segmentCount, bounds, row: previousRow });
+        segmentStart = bit;
+        previousRow = row;
+      }
+    }
+
+    const finalCount = endBit - segmentStart;
+    const finalBounds = this._multiBitBounds(segmentStart, finalCount);
+    if (finalBounds) segments.push({ startBit: segmentStart, count: finalCount, bounds: finalBounds, row: previousRow });
+
+    return segments;
+  }
+
   _maskTintColor(slotIndex = 0) {
     const base = this._opColor();
     return slotIndex % 2 === 0 ? base : this._mixRgb(base, [245, 158, 11], 0.45);
@@ -683,19 +725,26 @@ export class SieveRenderer {
       const count = Math.max(1, Math.min(this.maskWordBits, this.bitCount - startBit));
       if (count <= 0) continue;
 
-      const bounds = this._multiBitBounds(startBit, count);
-      if (!bounds) continue;
+      const segments = this._multiBitBoundsSegments(startBit, count);
+      if (segments.length === 0) continue;
 
-      entries.push({
-        order: index,
-        wordIndex,
-        slotIndex,
-        eventId: Number(this.maskWriteOrderEventIds?.[index] ?? -1),
-        startBit,
-        count,
-        bounds,
-        slot: this._vectorSlotLayout(Math.floor(startBit / Math.max(1, this._logicalGroupBits()))),
-      });
+      for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex++) {
+        const segment = segments[segmentIndex];
+        entries.push({
+          order: entries.length,
+          wordIndex,
+          slotIndex,
+          eventId: Number(this.maskWriteOrderEventIds?.[index] ?? -1),
+          startBit: segment.startBit,
+          count: segment.count,
+          bounds: segment.bounds,
+          wordStartBit: startBit,
+          wordCount: count,
+          segmentIndex,
+          segmentCount: segments.length,
+          slot: this._vectorSlotLayout(Math.floor(segment.startBit / Math.max(1, this._logicalGroupBits()))),
+        });
+      }
     }
 
     return entries;
@@ -743,9 +792,14 @@ export class SieveRenderer {
     if (!entry) return [];
     const slotBits = this.maskSlotBits?.[entry.slotIndex] || [];
     const bits = [];
+    const wordStart = Number.isFinite(entry.wordStartBit) ? entry.wordStartBit : entry.startBit;
+    const rangeStart = entry.startBit;
+    const rangeStop = entry.startBit + entry.count;
     for (let index = 0; index < slotBits.length; index++) {
-      const absoluteBit = entry.startBit + Number(slotBits[index]);
-      if (Number.isFinite(absoluteBit) && absoluteBit >= 0 && absoluteBit < this.bitCount) bits.push(absoluteBit);
+      const absoluteBit = wordStart + Number(slotBits[index]);
+      if (!Number.isFinite(absoluteBit) || absoluteBit < 0 || absoluteBit >= this.bitCount) continue;
+      if (absoluteBit < rangeStart || absoluteBit >= rangeStop) continue;
+      bits.push(absoluteBit);
     }
     return bits;
   }
@@ -755,7 +809,15 @@ export class SieveRenderer {
     const groupBits = Math.max(1, this._logicalGroupBits());
     const groupStart = Math.floor(entry.startBit / groupBits) * groupBits;
     const groupCount = Math.max(1, Math.min(groupBits, this.bitCount - groupStart));
-    return this._multiBitBounds(groupStart, groupCount);
+    const groupSegments = this._multiBitBoundsSegments(groupStart, groupCount);
+    if (groupSegments.length === 0) return null;
+    for (let index = 0; index < groupSegments.length; index++) {
+      const segment = groupSegments[index];
+      if (entry.startBit >= segment.startBit && entry.startBit < segment.startBit + segment.count) {
+        return segment.bounds;
+      }
+    }
+    return groupSegments[0].bounds;
   }
 
   _drawMaskImprint(ctx, entry, x, y, options = {}) {
@@ -1640,7 +1702,10 @@ export class SieveRenderer {
                 );
               }
 
-              const showTargetOutline = this.targetBits?.has(globalBit) && this.zoom >= 1.4 && px >= 2.5;
+              const showTargetOutline = this.targetBits?.has(globalBit)
+                && !this.maskGhostBits?.has(globalBit)
+                && this.zoom >= 1.4
+                && px >= 2.5;
               if (showTargetOutline) {
                 ctx.save();
                 ctx.strokeStyle = 'rgba(59, 130, 246, 0.95)';
@@ -1700,7 +1765,9 @@ export class SieveRenderer {
       // No separator line â€” spacing between rows is transparent (background color)
     }
 
-    this._renderMaskWriteOverlay(ctx);
+    if (!this.suppressMaskWriteOverlay) {
+      this._renderMaskWriteOverlay(ctx);
+    }
     this._renderVectorTouchOrder(ctx);
     this._renderSearchHighlight(ctx, cw, ch);
   }

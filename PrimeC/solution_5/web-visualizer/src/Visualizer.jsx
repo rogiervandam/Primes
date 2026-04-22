@@ -205,6 +205,13 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [animationReplayPaused, setAnimationReplayPaused] = useState(false);
   const [animationWidgetOpen, setAnimationWidgetOpen] = useState(false);
   const [bitAnimInterval, setBitAnimInterval] = useState(20); // ms between sequential bits (0.02s default)
+  const [maskAnimInterval, setMaskAnimInterval] = useState(() => {
+    const stepIntervalDefault = 20;
+    const stepSpeedValueDefault = Math.round(1 + ((5000 - stepIntervalDefault) / (5000 - 5)) * 499);
+    const maskSpeedValueDefault = Math.max(1, Math.round(stepSpeedValueDefault * 0.2));
+    const ratio = (maskSpeedValueDefault - 1) / 499;
+    return Math.round(5000 - ratio * (5000 - 5));
+  });
   const [maxStepDurationEnabled, setMaxStepDurationEnabled] = useState(() => readViewPrefs()?.maxStepDurationEnabled === true);
   const [maxStepDurationMs, setMaxStepDurationMs] = useState(() => {
     const saved = Number(readViewPrefs()?.maxStepDurationMs);
@@ -244,6 +251,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [camera3DTransform, setCamera3DTransform] = useState('none');
   const [camera3DContainerStyle, setCamera3DContainerStyle] = useState({});
   const currentAnimIntervalRef = useRef(20);
+  const currentMaskAnimIntervalRef = useRef(20);
   const camera3DRef = useRef(null);
 
   const bitStateRef = useRef(null);
@@ -1084,7 +1092,12 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     if (!options.adaptiveDuration) return null;
     const count = Math.max(1, bitCount || 0);
     const requestedDuration = Number.isFinite(options.durationMs) ? clampMs(options.durationMs, 120, 30000) : null;
-    const preferredInterval = Math.max(18, currentAnimIntervalRef.current || bitAnimInterval || 20);
+    const preferredInterval = Math.max(
+      18,
+      Number.isFinite(options.preferredIntervalMs)
+        ? options.preferredIntervalMs
+        : (currentAnimIntervalRef.current || bitAnimInterval || 20)
+    );
     const preferredTotal = count * preferredInterval;
     const pinnedBitCount = Array.isArray(options.pinnedBitIndices) ? options.pinnedBitIndices.length : 0;
     const maxDurationEnabled = options.maxDurationEnabled === true;
@@ -1146,6 +1159,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const getAnimationBitInterval = useCallback((bitCount, options = {}) => {
     const plan = options.adaptivePlan || getAnimationTimingPlan(bitCount, options);
     if (plan) return Math.max(0, plan.startInterval || 0);
+    if (Number.isFinite(options.preferredIntervalMs)) {
+      return Math.max(0, options.preferredIntervalMs);
+    }
     return Math.max(0, currentAnimIntervalRef.current || bitAnimInterval || 20);
   }, [bitAnimInterval, getAnimationTimingPlan]);
 
@@ -1190,6 +1206,10 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   useEffect(() => {
     currentAnimIntervalRef.current = Math.max(0, bitAnimInterval || 20);
   }, [bitAnimInterval]);
+
+  useEffect(() => {
+    currentMaskAnimIntervalRef.current = Math.max(0, maskAnimInterval || 20);
+  }, [maskAnimInterval]);
 
   const getFadeOutDuration = useCallback((bitCount, options = {}) => {
     if (options.skipFadeOut) return 0;
@@ -1263,6 +1283,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     const maskWriteCount = r?.maskWriteOrderWords?.length || 0;
     const animationBits = r?.changedBits?.size ? r.changedBits : (r?.targetBits?.size ? r.targetBits : null);
     if (!r || (maskWriteCount === 0 && (!animationBits || animationBits.size === 0))) return Promise.resolve();
+    const previousSuppressMaskOverlay = r.suppressMaskWriteOverlay === true;
+    r.suppressMaskWriteOverlay = true;
 
     const bits = animationBits ? Array.from(animationBits) : [];
     const groupBits = r.customGroupingBits > 0 ? r.customGroupingBits : Math.max(1, r.vectorGroup * 64);
@@ -1279,14 +1301,15 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       return Math.max(maskWriteCount > 0 ? 1 : 0, maxWrites);
     })();
     const plan = options.adaptivePlan || getAnimationTimingPlan(Math.max(orderedWrites, groupCount, 1), options);
-    const perStopDuration = Math.max(180, Math.min(520, Math.round((bitIntervalMs || currentAnimIntervalRef.current || 20) * 3.8)));
-    const duration = Number.isFinite(options.durationMs) && options.durationMs > 0
-      ? options.durationMs
-      : plan
-      ? plan.totalDuration
-      : (orderedWrites > 0
-        ? Math.max(900, Math.min(4200, orderedWrites * perStopDuration))
-        : Math.max(900, Math.min(2600, 420 + groupCount * 160)));
+    const maskInterval = Math.max(5, Number(bitIntervalMs ?? currentMaskAnimIntervalRef.current ?? 20) || 20);
+    const durationFromInterval = orderedWrites > 0
+      ? Math.round(orderedWrites * maskInterval * 2.35)
+      : Math.round(420 + groupCount * maskInterval * 1.2);
+    const duration = clampMs(
+      Math.max(durationFromInterval, plan ? plan.totalDuration * 0.55 : 0),
+      420,
+      60000,
+    );
     const startedAt = performance.now();
     const slotGroups = orderedWrites > 0 ? r._maskEntriesBySlot() : [];
 
@@ -1326,6 +1349,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           return;
         }
         r.setMaskGhostBits(new Set());
+        r.suppressMaskWriteOverlay = previousSuppressMaskOverlay;
         r.render();
         r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
         rippleRef.current = null;
@@ -1334,7 +1358,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
       rippleRef.current = requestAnimationFrame(tick);
     });
-  }, [getAnimationTimingPlan, getMinimapDetailH]);
+  }, [getAnimationTimingPlan, getMinimapDetailH, clampMs]);
 
   // Main animation trigger — fade old highlights, animate current step, then wait using animation delay.
   const triggerAnimation = useCallback(async (changedSet, options = {}) => {
@@ -1376,10 +1400,16 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       if (!r.changedBits || r.changedBits.size === 0) {
         r.changedBits = new Set(changedSet.size > 0 ? changedSet : (r.targetBits || []));
       }
+      const { durationMs: _ignoredDurationMs, ...maskTimingBaseOptions } = timingOptions;
+      const maskTimingOptions = {
+        ...maskTimingBaseOptions,
+        preferredIntervalMs: Math.max(0, currentMaskAnimIntervalRef.current || maskAnimInterval || 20),
+      };
+      const effectiveMaskBitInterval = Math.max(5, maskTimingOptions.preferredIntervalMs || 20);
       r.setMaskGhostBits(new Set(changedSet.size > 0 ? changedSet : (r.targetBits || [])));
       r.render();
       r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-      await runMaskStampAnimation(effectiveBitInterval, timingOptions);
+      await runMaskStampAnimation(effectiveMaskBitInterval, maskTimingOptions);
       await waitForDelay(delayMs);
       return;
     }
@@ -1497,7 +1527,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     await runEffect(animStyle, timingOptions.adaptivePlan ? Math.min(3200, timingOptions.adaptivePlan.totalDuration) : undefined);
     r.animationFocusBits = new Set();
     await waitForDelay(delayMs);
-  }, [animMode, animStyle, maskAnimationEnabled, stopSeqAnim, runEffect, estimateAnimDuration, repeatAnim, getMinimapDetailH, getAnimationBitInterval, getAnimationTimingPlan, getCurrentLoopInterval, runMaskStampAnimation, fadeOutCurrentHighlights, waitForDelay, maxStepDurationEnabled, maxStepDurationMs, pinnedBitIndices, effectiveGroupBits]);
+  }, [animMode, animStyle, maskAnimationEnabled, stopSeqAnim, runEffect, estimateAnimDuration, repeatAnim, getMinimapDetailH, getAnimationBitInterval, getAnimationTimingPlan, getCurrentLoopInterval, runMaskStampAnimation, fadeOutCurrentHighlights, waitForDelay, maxStepDurationEnabled, maxStepDurationMs, pinnedBitIndices, effectiveGroupBits, maskAnimInterval]);
 
   useEffect(() => {
     triggerAnimationRef.current = triggerAnimation;
@@ -2609,6 +2639,11 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     const ratio = (5000 - interval) / (5000 - 5);
     return Math.round(1 + ratio * 499);
   }, [bitAnimInterval, clampMs]);
+  const maskSpeedValue = useMemo(() => {
+    const interval = clampMs(parseInt(maskAnimInterval || 0, 10) || 20, 5, 5000);
+    const ratio = (5000 - interval) / (5000 - 5);
+    return Math.round(1 + ratio * 499);
+  }, [maskAnimInterval, clampMs]);
   const setPlaybackSpeedValue = useCallback((speedValue) => {
     const speed = clampMs(parseInt(speedValue || 0, 10) || 1, 1, 100);
     const ratio = (speed - 1) / 99;
@@ -2618,6 +2653,11 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     const speed = clampMs(parseInt(speedValue || 0, 10) || 1, 1, 500);
     const ratio = (speed - 1) / 499;
     setBitAnimInterval(Math.round(5000 - ratio * (5000 - 5)));
+  }, [clampMs]);
+  const setMaskSpeedValue = useCallback((speedValue) => {
+    const speed = clampMs(parseInt(speedValue || 0, 10) || 1, 1, 500);
+    const ratio = (speed - 1) / 499;
+    setMaskAnimInterval(Math.round(5000 - ratio * (5000 - 5)));
   }, [clampMs]);
 
   const cycleAnimStyle = useCallback(() => {
@@ -3038,6 +3078,11 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
                   <span>Step animation</span>
                   <input type="range" min={1} max={500} step={1} value={stepSpeedValue} onChange={(e) => setStepSpeedValue(e.target.value)} disabled={animMode === 'all'} />
                   <strong>{animMode === 'all' ? 'All at once' : `${stepSpeedValue}%`}</strong>
+                </label>
+                <label className="animation-widget-row">
+                  <span>Mask animation</span>
+                  <input type="range" min={1} max={500} step={1} value={maskSpeedValue} onChange={(e) => setMaskSpeedValue(e.target.value)} disabled={!maskAnimationEnabled} />
+                  <strong>{maskAnimationEnabled ? `${maskSpeedValue}%` : 'Disabled'}</strong>
                 </label>
                 <label className="animation-widget-row animation-widget-row-checkbox">
                   <span>Limit step duration</span>
