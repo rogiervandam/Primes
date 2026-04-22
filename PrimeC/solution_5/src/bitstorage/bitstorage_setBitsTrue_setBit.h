@@ -21,7 +21,7 @@ function(setBitFalse,suffix)(void* restrict bitstorage, const register counter_t
 static inline void __attribute__((always_inline, hot, nonnull)) 
 function(setBitsTrue_range,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
 {
-    logBegin6(time_setBitsTrue_range, "SetBitsTrueRange: setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju) (%ju repeating occurrences)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
+    logBegin8(time_setBitsTrue_range, "SetBitsTrueRange: setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju) (%ju repeating occurrences)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
 
     #pragma GCC ivdep
     #pragma GCC unroll 32
@@ -33,14 +33,14 @@ function(setBitsTrue_range,suffix)(void* restrict bitstorage, const counter_t ra
                (uintmax_t)range_stop,
                (uintmax_t)step);
 
-    logEnd6(time_setBitsTrue_range,"\n");
+    logEnd8(time_setBitsTrue_range,"\n");
 }
 
 // Set bits to true with a step in a range. This function returns the last index that was set
 static inline counter_t __attribute__((always_inline, hot, nonnull)) 
 function(setBitsTrue_range_return,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
 {
-    logBegin6(time_setBitsTrue_range_return, "SetBitsTrueRangeReturn: setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju) (%ju repeating occurrences)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
+    logBegin8(time_setBitsTrue_range_return, "SetBitsTrueRangeReturn: setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju) (%ju repeating occurrences)", (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
 
     register counter_t index = range_start; // outside the loop te be able to return it
     #pragma GCC ivdep
@@ -53,7 +53,7 @@ function(setBitsTrue_range_return,suffix)(void* restrict bitstorage, const count
                (uintmax_t)range_stop,
                (uintmax_t)step);
 
-    logEnd6(time_setBitsTrue_range_return,"\n");
+    logEnd8(time_setBitsTrue_range_return,"\n");
     return index;
 }
 

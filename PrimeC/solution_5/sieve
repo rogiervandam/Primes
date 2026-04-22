@@ -29,7 +29,18 @@ SIEVEVARIANTS="sieve_classic8 sieve_classic64 sieve_base sieve_wheel sieve_wheel
 ARGS_TO_KEEP=()
 TRACE_FILENAME=""
 TRACE_EXPECTING_FILENAME=0
+TRACE_LEVEL_OVERRIDE=""
+TRACE_EXPECTING_LEVEL=0
 for arg in "$@"; do
+    if [ "$TRACE_EXPECTING_LEVEL" -eq 1 ]; then
+        if echo "$arg" | grep -qE '^[0-9]+$'; then
+            TRACE_LEVEL_OVERRIDE="$arg"
+            TRACE_EXPECTING_LEVEL=0
+            continue
+        fi
+        TRACE_EXPECTING_LEVEL=0
+    fi
+
     if [ "$TRACE_EXPECTING_FILENAME" -eq 1 ]; then
         TRACE_FILENAME="$arg"
         TRACE_EXPECTING_FILENAME=0
@@ -74,6 +85,7 @@ for arg in "$@"; do
         STABLE_WSL_HOST="stable-wsl-host"
     elif [ "$arg" = "trace" ] || [ "$arg" = "--trace" ]; then
         TRACE="trace"
+        TRACE_EXPECTING_LEVEL=1
     elif [ "$arg" = "trace-filename" ] || [ "$arg" = "--trace-filename" ]; then
         TRACE_EXPECTING_FILENAME=1
     else
@@ -236,12 +248,20 @@ if [ $verbose_level -eq 10 ]; then
 fi
 
 if [ "$VISUALIZE" = "visualize" ] || [ "$TRACE" = "trace" ]; then
-    trace_level=9
+    if [ -n "$TRACE_LEVEL_OVERRIDE" ]; then
+        trace_level="$TRACE_LEVEL_OVERRIDE"
+    else
+        trace_level=9
+    fi
 fi
 
 # Add --trace to run_args when trace or visualize is active
 if [ "$TRACE" = "trace" ] || [ "$VISUALIZE" = "visualize" ]; then
-    run_args="$run_args --trace"
+    if [ -n "$TRACE_LEVEL_OVERRIDE" ]; then
+        run_args="$run_args --trace $TRACE_LEVEL_OVERRIDE"
+    else
+        run_args="$run_args --trace"
+    fi
     if [ -n "$TRACE_FILENAME" ]; then
         run_args="$run_args --trace-filename $TRACE_FILENAME"
     fi

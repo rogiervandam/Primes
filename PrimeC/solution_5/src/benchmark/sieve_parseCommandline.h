@@ -363,8 +363,11 @@ parseCommandLine(int argc, char *argv[])
         }
         #ifdef COMPILE_TRACE
         else if (strcmp_local(argv[arg], "--trace")) {
-            /* --trace: enable trace-level logging */
-            if (option.trace_level < default_trace_level) {
+            /* --trace [optional level]: enable trace-level logging */
+            if (arg + 1 < argc && isdigit_local(argv[arg + 1][0])) {
+                parse_int_arg(argv[++arg], &option.trace_level, 9, program_name, "Invalid trace level");
+            }
+            else if (option.trace_level < default_trace_level) {
                 option.trace_level = default_trace_level;
             }
             if (!option.trace_filename) {

@@ -1,3 +1,16 @@
+/*
+Explain / Trace levels:
+
+
+5: Processing a block/subset
+6: Doing the entire stripe of a sieve
+7: Orchestrating the setting of bits in a subfunction
+8: Setting a group of bits with a mask, showing the mask and the target bits being set
+9: Setting a single bit
+
+
+*/
+
 static inline void
 initSingleRunTrace(benchmark_settings_t benchmark_settings)
 {
