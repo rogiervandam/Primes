@@ -31,7 +31,10 @@
 typedef struct {
     FILE*     file;
     FILE*     json_file;
-    uint8_t*  snapshot;          /* Previous bitstorage state            */
+    uint8_t*  snapshot;          /* Active snapshot ptr (set per-call)   */
+    uint8_t*  level_snapshots[10]; /* Per-level snapshot buffers (index=level 0-9): when level N
+                                      records an event it updates level_snapshots[N..9] so that
+                                      higher-detail levels use the coarser level as their baseline */
     uint64_t  sieve_size;        /* Max number in sieve                  */
     uint64_t  bit_count;         /* Number of bits in bitstorage         */
     uint32_t  bitstorage_bytes;  /* Byte size of bitstorage              */
@@ -232,6 +235,19 @@ primes_trace_clear_context(void)
     }
 }
 
+/* After recording an event at 'level', copy current bitstorage into
+ * level_snapshots[level..9].  This makes coarser-level events serve as the
+ * baseline for all finer-detail events that follow. */
+static inline void
+trace_cascade_update_snapshots(const uint8_t* current, int level)
+{
+    int start = (level >= 1 && level <= 9) ? level : 0;
+    int end   = (start == 0) ? 0 : 9;
+    for (int i = start; i <= end; i++) {
+        memcpy(g_trace.level_snapshots[i], current, g_trace.bitstorage_bytes);
+    }
+}
+
 /* Initialize the trace system. Opens the output file and writes JSON header. */
 static void __attribute__((cold))
 trace_init(const char* filename,
@@ -256,16 +272,20 @@ trace_init(const char* filename,
     g_trace.depth_sp            = 0;
     g_trace.configured_trace_level = trace_level;
 
-    g_trace.snapshot = (uint8_t*)calloc(1, g_trace.bitstorage_bytes);
-    if (!g_trace.snapshot) {
-        fprintf(stderr, "Trace: failed to allocate snapshot buffer (%u bytes)\n", g_trace.bitstorage_bytes);
-        return;
+    for (int _si = 0; _si < 10; _si++) {
+        g_trace.level_snapshots[_si] = (uint8_t*)calloc(1, g_trace.bitstorage_bytes);
+        if (!g_trace.level_snapshots[_si]) {
+            fprintf(stderr, "Trace: failed to allocate snapshot buffer[%d] (%u bytes)\n", _si, g_trace.bitstorage_bytes);
+            for (int _fi = 0; _fi < _si; _fi++) { free(g_trace.level_snapshots[_fi]); g_trace.level_snapshots[_fi] = NULL; }
+            return;
+        }
     }
+    g_trace.snapshot = g_trace.level_snapshots[0];
 
     g_trace.file = fopen(filename, "w");
     if (!g_trace.file) {
         fprintf(stderr, "Trace: failed to open output file: %s\n", filename);
-        free(g_trace.snapshot);
+        for (int _fi = 0; _fi < 10; _fi++) { free(g_trace.level_snapshots[_fi]); g_trace.level_snapshots[_fi] = NULL; }
         g_trace.snapshot = NULL;
         return;
     }
@@ -372,6 +392,7 @@ trace_record_step_full(void* bitstorage, const char* annotation, int level)
     if (!g_trace.enabled || !g_trace.file) return;
 
     const uint8_t* current = (const uint8_t*)bitstorage;
+    g_trace.snapshot = (level >= 1 && level <= 9) ? g_trace.level_snapshots[level] : g_trace.level_snapshots[0];
     const uint32_t step_id = g_trace.step_count++;
 
     /* Human-readable primary format: keep compact, omit empty/null metadata */
@@ -434,7 +455,7 @@ trace_record_step_full(void* bitstorage, const char* annotation, int level)
         fputs("]}", g_trace.json_file);
     }
 
-    memcpy(g_trace.snapshot, current, g_trace.bitstorage_bytes);
+    trace_cascade_update_snapshots(current, level);
 }
 
 static void
@@ -443,6 +464,7 @@ trace_record_step_full_labeled(void* bitstorage, const char* annotation, const c
     if (!g_trace.enabled || !g_trace.file) return;
 
     const uint8_t* current = (const uint8_t*)bitstorage;
+    g_trace.snapshot = (level >= 1 && level <= 9) ? g_trace.level_snapshots[level] : g_trace.level_snapshots[0];
     const uint32_t step_id = g_trace.step_count++;
     const char* event_label = trace_optional_label(label);
 
@@ -512,7 +534,7 @@ trace_record_step_full_labeled(void* bitstorage, const char* annotation, const c
         fputs("]}", g_trace.json_file);
     }
 
-    memcpy(g_trace.snapshot, current, g_trace.bitstorage_bytes);
+    trace_cascade_update_snapshots(current, level);
 }
 
 static void
@@ -535,6 +557,7 @@ trace_record_applymask_step_labeled(void* bitstorage,
     if (!g_trace.enabled || !g_trace.file) return;
 
     const uint8_t* current = (const uint8_t*)bitstorage;
+    g_trace.snapshot = (level >= 1 && level <= 9) ? g_trace.level_snapshots[level] : g_trace.level_snapshots[0];
     const uint32_t step_id = g_trace.step_count++;
     const char* event_label = trace_optional_label(label);
     const uint64_t bit_start = word_start * word_bits;
@@ -662,7 +685,7 @@ trace_record_applymask_step_labeled(void* bitstorage,
         fputs("]}", g_trace.json_file);
     }
 
-    memcpy(g_trace.snapshot, current, g_trace.bitstorage_bytes);
+    trace_cascade_update_snapshots(current, level);
 }
 
 static void

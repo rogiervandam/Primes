@@ -156,3 +156,46 @@ typedef struct { uint64v8_t* ptr; } primes_bitstorage_u64v8_view_t;
 //   you still need a separate decision for the unroll axis.
 
 #endif
+
+/*
+#define PRIMES_VARIANTS(X, name) \
+    X(name, uint8_t,  _uint8) \
+    X(name, uint16_t, _uint16) \
+    X(name, uint32_t, _uint32) \
+    X(name, uint64_t, _uint64) \
+    X(name, uint16v2_t,  _uint16v2) \
+    X(name, uint16v4_t,  _uint16v4) \
+    X(name, uint16v8_t,  _uint16v8) \
+    X(name, uint16v16_t, _uint16v16) \
+    X(name, uint16v32_t, _uint16v32) \
+    X(name, uint32v2_t,  _uint32v2) \
+    X(name, uint32v4_t,  _uint32v4) \
+    X(name, uint32v8_t,  _uint32v8) \
+    X(name, uint32v16_t, _uint32v16) \
+    X(name, uint64v2_t,  _uint64v2) \
+    X(name, uint64v4_t,  _uint64v4) \
+    X(name, uint64v8_t,  _uint64v8)
+
+#define PRIMES_GENERIC_CASE(name, type, suffix) \
+    type: function(name, suffix),
+
+#define PRIMES_SELECT(name, expr) \
+    _Generic((expr), \
+        PRIMES_VARIANTS(PRIMES_GENERIC_CASE, name) \
+    )
+Then you can write call helpers for common signature shapes:
+
+c
+
+#define PRIMES_CALL_LAST5(name, a, b, c, d, e) \
+    PRIMES_SELECT(name, e)((a), (b), (c), (d), (e))
+
+#define PRIMES_CALL_LAST6(name, a, b, c, d, e, f) \
+    PRIMES_SELECT(name, f)((a), (b), (c), (d), (e), (f))
+So for your case:
+
+c
+
+#define applyMask_index(bitstorage, start, stop, step, mask) \
+    PRIMES_CALL_LAST5(applyMask_index, bitstorage, start, stop, step, mask)
+    */

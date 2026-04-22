@@ -403,6 +403,9 @@ parseCommandLine(int argc, char *argv[])
     }
     #endif
 
+    option.verbose_level = max(option.verbose_level, option.explain_level); // ensure verbose level is sufficient for explain output
+    option.verbose_level = max(option.verbose_level, option.trace_level);   // ensure verbose level is sufficient for trace output
+
     // if not tuning, or if explain/trace is doing a single run, load previously saved settings
     if (shouldLoadLastSettings()) {
         loadLastSettings();

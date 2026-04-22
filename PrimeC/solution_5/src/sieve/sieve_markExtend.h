@@ -28,7 +28,7 @@ markExtendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop
         if unlikely(range_stop > block_stop) break;
 
         // continue the found pattern to the entire sieve
-        continuePattern(bitstorage, patternsize_bits, range_stop, patternsize_bits);
+        continuePattern_uint32(bitstorage, patternsize_bits, range_stop, patternsize_bits);
         // log5(bitstorage,
         //            "extend: copy pattern %jd bits to [0-%jd] for prime %jd",
         //            (intmax_t)patternsize_bits, (intmax_t)range_stop, (intmax_t)step);
@@ -41,7 +41,7 @@ markExtendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop
     } 
 
     // continue the found pattern to the entire sieve
-    continuePattern(bitstorage, patternsize_bits, block_stop, patternsize_bits);
+    function(continuePattern, suffix)(bitstorage, patternsize_bits, block_stop, patternsize_bits);
     log5(bitstorage,
                "extend: final copy pattern %jd bits to [0-%jd]",
                (intmax_t)patternsize_bits, (intmax_t)block_stop);
@@ -94,7 +94,7 @@ markExtendSieveBlock_half(void* restrict bitstorage, const counter_t block_start
 
         if likely(patternsize_bits>1) {
             pattern_start = block_start | patternsize_bits;
-            continuePattern(bitstorage, pattern_start, range_stop, patternsize_bits);
+            continuePattern_uint32(bitstorage, pattern_start, range_stop, patternsize_bits);
             log5(bitstorage,
                        "extend-block: copy pattern %jd bits to [%jd-%jd] for prime %jd",
                        (intmax_t)patternsize_bits, (intmax_t)pattern_start, (intmax_t)range_stop, (intmax_t)step);
@@ -108,7 +108,7 @@ markExtendSieveBlock_half(void* restrict bitstorage, const counter_t block_start
     } 
 
     // continue the found pattern to the entire block
-    continuePattern(bitstorage, block_start, block_stop, block.pattern_size);
+    continuePattern_uint32(bitstorage, block_start, block_stop, block.pattern_size);
     log5(bitstorage,
                "extend-block: final copy pattern %jd bits to [%jd-%jd]",
                (intmax_t)block.pattern_size, (intmax_t)block_start, (intmax_t)block_stop);
