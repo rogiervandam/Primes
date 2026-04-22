@@ -3,19 +3,19 @@
 #include "../generic/variants/setsuffix.h"
 #include "../trace/sieve_trace.h"
 
-// This applyMask variant takes range_start and range_stop as the word/vector index
+// This applyMask variant takes range_start_index and range_stop_index as the word/vector index
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
-function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, counter_t step, const bitbucket_t mask) 
+function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t range_start_index, const counter_t range_stop_index, counter_t step, const bitbucket_t mask) 
 {
-    logBegin8(time_applyMask, "ApplyMask: apply %s (%ju bit) mask with step %ju in bitrange (%ju - %ju)", STR(bitbucket_t), bitcount_type(bitbucket_t),(uintmax_t)step, (uintmax_t)range_start * bitcount_type(bitbucket_t), (uintmax_t)(range_stop+1) * bitcount_type(bitbucket_t)-1);
+    logBegin8(time_applyMask, "ApplyMask: apply %s (%ju bit) mask with step %ju in bitrange (%ju - %ju)", STR(bitbucket_t), bitcount_type(bitbucket_t),(uintmax_t)step, (uintmax_t)range_start_index * bitcount_type(bitbucket_t), (uintmax_t)(range_stop_index+1) * bitcount_type(bitbucket_t)-1);
   
     register       bitbucket_t* restrict bitstorage_sized   = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    register       bitbucket_t* restrict index_ptr          = __builtin_assume_aligned(&bitstorage_sized[range_start],sizeof(bitbucket_t));
-    register const bitbucket_t* restrict range_stop_ptr     = __builtin_assume_aligned(&bitstorage_sized[range_stop],sizeof(bitbucket_t));
+    register       bitbucket_t* restrict index_ptr          = __builtin_assume_aligned(&bitstorage_sized[range_start_index],sizeof(bitbucket_t));
+    register const bitbucket_t* restrict range_stop_index_ptr     = __builtin_assume_aligned(&bitstorage_sized[range_stop_index],sizeof(bitbucket_t));
  
     #if defined(__GNUC__) && !defined(__clang__) // optimized for GCC
         register const counter_t step_max                   = step * unrolls;
-        register const bitbucket_t* restrict fast_loop_ptr  = __builtin_assume_aligned(&bitstorage_sized[safe_diff(range_stop,step_max)],sizeof(bitbucket_t));
+        register const bitbucket_t* restrict fast_loop_ptr  = __builtin_assume_aligned(&bitstorage_sized[safe_diff(range_stop_index,step_max)],sizeof(bitbucket_t));
 
         #if unrolls == 16
         #pragma GCC ivdep
@@ -68,7 +68,7 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
 
     #elif defined(__clang__) // optimized for clang
 
-        register counter_t i = safe_diff(range_stop, range_start) / step;
+        register counter_t i = safe_diff(range_stop_index, range_start_index) / step;
 
         #if unrolls >= 8
             register const counter_t step_8 = step * 8;
@@ -94,11 +94,11 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
 
     #endif // end of clang section
 
-    for (; likely(index_ptr <= range_stop_ptr); index_ptr += step) { // signal compiler that only < unrolls iterations are left
+    for (; likely(index_ptr <= range_stop_index_ptr); index_ptr += step) { // signal compiler that only < unrolls iterations are left
         *index_ptr |= mask; 
     }
 
-    if (g_trace.enabled || option.verbose_level >= 8) {
+    if (primes_log_should_trace(8) || primes_log_should_explain(8)) {
         char annotation[4096] = {0};
         char mask_bits_text[2048] = {0};
         uint32_t mask_bits[1024] = {0};
@@ -141,27 +141,27 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
                  sizeof(annotation),
                  "ApplyMask: word_bits=%ju word_start=%ju word_stop=%ju step_words=%ju mask_bits=%s focus_start=%ju focus_stop=%ju bitrange=%ju-%ju",
                  (uintmax_t)bitcount_type(bitbucket_t),
-                 (uintmax_t)range_start,
-                 (uintmax_t)range_stop,
+                 (uintmax_t)range_start_index,
+                 (uintmax_t)range_stop_index,
                  (uintmax_t)step,
                  mask_bits_text,
-                 (uintmax_t)(range_start * bitcount_type(bitbucket_t)),
-                 (uintmax_t)((range_stop + 1) * bitcount_type(bitbucket_t) - 1),
-                 (uintmax_t)(range_start * bitcount_type(bitbucket_t)),
-                 (uintmax_t)((range_stop + 1) * bitcount_type(bitbucket_t) - 1));
+                 (uintmax_t)(range_start_index * bitcount_type(bitbucket_t)),
+                 (uintmax_t)((range_stop_index + 1) * bitcount_type(bitbucket_t) - 1),
+                 (uintmax_t)(range_start_index * bitcount_type(bitbucket_t)),
+                 (uintmax_t)((range_stop_index + 1) * bitcount_type(bitbucket_t) - 1));
 
-        if (option.verbose_level >= 8) {
+        if (primes_log_should_explain(8)) {
             primes_log_emit_verbose(8, option.verbose_level, annotation);
         }
 
-        if (g_trace.enabled) {
-            const uint64_t target_capacity = range_stop >= range_start ? (uint64_t)((range_stop - range_start) / step) + 1 : 0;
+        if (primes_log_should_trace(8)) {
+            const uint64_t target_capacity = range_stop_index >= range_start_index ? (uint64_t)((range_stop_index - range_start_index) / step) + 1 : 0;
             if (target_capacity > 0) {
                 mask_target_words = (uint64_t*)malloc(sizeof(uint64_t) * (size_t)target_capacity);
                 mask_target_slots = (uint32_t*)malloc(sizeof(uint32_t) * (size_t)target_capacity);
             }
             if ((target_capacity == 0) || (mask_target_words && mask_target_slots)) {
-                for (counter_t word_index = range_start; word_index <= range_stop; word_index += step) {
+                for (counter_t word_index = range_start_index; word_index <= range_stop_index; word_index += step) {
                     mask_target_words[mask_target_count] = (uint64_t)word_index;
                     mask_target_slots[mask_target_count] = 0;
                     mask_target_count++;
@@ -170,8 +170,8 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
                                                     annotation,
                                                     "ApplyMask",
                                                     (uint64_t)bitcount_type(bitbucket_t),
-                                                    (uint64_t)range_start,
-                                                    (uint64_t)range_stop,
+                                                    (uint64_t)range_start_index,
+                                                    (uint64_t)range_stop_index,
                                                     (uint64_t)step,
                                                     mask_bits,
                                                     mask_count,

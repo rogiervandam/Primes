@@ -209,9 +209,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [showMinimap, setShowMinimap] = useState(true);
   const [minimapAvailable, setMinimapAvailable] = useState(true);
   const [stepStats, setStepStats] = useState(null); // { totalSet, newlySet, reSet }
-  const [bitHistoryModal, setBitHistoryModal] = useState(null); // { bitIndex, history[] } — locked by click
+  const [pinnedBitIndices, setPinnedBitIndices] = useState([]); // clicked bits with locked balloons
   const [hoveredBitInfo, setHoveredBitInfo] = useState(null);  // { bitIndex, history[] } — updated on hover
-  const [hoverPos, setHoverPos] = useState(null); // { x, y } viewport coords for hover balloon
+  const [, setHoverPos] = useState(null); // { x, y } viewport coords for hover balloon
   const [colorPreset, setColorPreset] = useState(null); // null = theme default
   const [customColors, setCustomColors] = useState({ setBit: null, clearedBit: null, unchangedBit: null });
   const [searchQuery, setSearchQuery] = useState('');
@@ -226,6 +226,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [detailInspectorOpen, setDetailInspectorOpen] = useState(false);
   const [detailInspectorMode, setDetailInspectorMode] = useState('bits');
   const [detailInspectorQuery, setDetailInspectorQuery] = useState('');
+  const [animationWidgetPosition, setAnimationWidgetPosition] = useState({ left: 0, top: 0, pointerX: 24 });
+  const [, setBalloonLayoutTick] = useState(0);
 
   // 3D camera state
   const [mode3D, setMode3D] = useState(false);
@@ -260,6 +262,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const animationWidgetToggleRef = useRef(null);
   const traceInfoPopoverRef = useRef(null);
   const traceInfoToggleRef = useRef(null);
+  const balloonLayoutRafRef = useRef(null);
 
   stepsRef.current = steps;
 
@@ -279,6 +282,21 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       }
     }
     return { bitIndex: idx, number: bitToNumber(idx, sm), history };
+  }, []);
+
+  const scheduleBalloonRelayout = useCallback(() => {
+    if (balloonLayoutRafRef.current != null) return;
+    balloonLayoutRafRef.current = requestAnimationFrame(() => {
+      balloonLayoutRafRef.current = null;
+      setBalloonLayoutTick((value) => value + 1);
+    });
+  }, []);
+
+  useEffect(() => () => {
+    if (balloonLayoutRafRef.current != null) {
+      cancelAnimationFrame(balloonLayoutRafRef.current);
+      balloonLayoutRafRef.current = null;
+    }
   }, []);
 
   // Keep refs in sync for use in callbacks
@@ -1829,6 +1847,12 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
     );
 
+    const hideHoverBalloon = () => {
+      lastHoveredIdxRef.current = -1;
+      setHoveredBitInfo(null);
+      setHoverPos(null);
+    };
+
     const clearInteraction = () => {
       gestureMode = 'none';
       activePointerId = null;
@@ -1851,6 +1875,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         ensureTiltCamera();
         e.preventDefault();
         e.stopPropagation();
+        hideHoverBalloon();
         gestureMode = 'rotate';
         activePointerId = e.pointerId;
         startX = e.clientX;
@@ -1864,6 +1889,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       // Check minimap hit first (use raw screen coords for minimap)
       const hit = r.minimapHitTest(rawX, rawY, canvasW, canvasH);
       if (hit) {
+        hideHoverBalloon();
         gestureMode = 'minimap';
         activePointerId = e.pointerId;
         didDrag = true;
@@ -1877,6 +1903,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         return;
       }
 
+      hideHoverBalloon();
       gestureMode = 'pan';
       activePointerId = e.pointerId;
       didDrag = false;
@@ -1910,16 +1937,19 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       if (activePointerId != null && e.pointerId !== activePointerId) return;
 
       if (gestureMode === 'rotate' && cam && cam.enabled) {
+        hideHoverBalloon();
         didDrag = true;
         cam.rotate(e.clientX - startX, e.clientY - startY);
         startX = e.clientX;
         startY = e.clientY;
         r.render();
         r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        scheduleBalloonRelayout();
         return;
       }
 
       if (gestureMode === 'minimap') {
+        hideHoverBalloon();
         const rect = el.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
@@ -1930,17 +1960,27 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           r.render();
           r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
           updateMinimapAvailability();
+          scheduleBalloonRelayout();
         }
         return;
       }
 
       if (gestureMode === 'pan') {
+        hideHoverBalloon();
         didDrag = true;
         r.panX = panSX + (e.clientX - startX);
         r.panY = panSY + (e.clientY - startY);
         r.render();
         r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
         updateMinimapAvailability();
+        scheduleBalloonRelayout();
+        return;
+      }
+
+      if (animationWidgetOpen && animationWidgetRef.current?.contains(e.target)) {
+        lastHoveredIdxRef.current = -1;
+        setHoveredBitInfo(null);
+        setHoverPos(null);
         return;
       }
 
@@ -1985,10 +2025,15 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           if (cam && cam.enabled) {
             flyToElement(idx);
           }
-          const info = computeBitInfo(idx);
-          setBitHistoryModal(prev => (prev && prev.bitIndex === idx) ? null : info);
+          if ((e.detail || 0) >= 2) {
+            setPinnedBitIndices([idx]);
+          } else {
+            setPinnedBitIndices((prev) => (
+              prev.includes(idx) ? prev.filter((value) => value !== idx) : [...prev, idx]
+            ));
+          }
         } else {
-          setBitHistoryModal(null);
+          setPinnedBitIndices([]);
         }
       }
 
@@ -2024,6 +2069,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       r.render();
       r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
       updateMinimapAvailability();
+      scheduleBalloonRelayout();
     };
 
     const onMouseDown = (e) => {
@@ -2034,6 +2080,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       ensureTiltCamera();
       e.preventDefault();
       e.stopPropagation();
+      hideHoverBalloon();
       mouseRotateActive = true;
       gestureMode = 'rotate';
       activePointerId = null;
@@ -2063,6 +2110,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       r.render();
       r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
       updateMinimapAvailability();
+      scheduleBalloonRelayout();
     };
 
     const onMouseUp = () => {
@@ -2104,7 +2152,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [computeBitInfo, flyToElement, getMinimapDetailH, updateMinimapAvailability, mode3D, ensureTiltCamera]);
+  }, [computeBitInfo, flyToElement, getMinimapDetailH, updateMinimapAvailability, mode3D, ensureTiltCamera, scheduleBalloonRelayout]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -2486,6 +2534,19 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     setAnimMode(next);
   }, [animMode]);
 
+  const animStyleInfo = useMemo(() => ({
+    ripple: { label: 'Ripple', shortLabel: 'Rip', hint: 'Water-drop ripple on changed bits', swatch: '◌' },
+    fade: { label: 'Fade', shortLabel: 'Fade', hint: 'Soft fade highlight', swatch: '◔' },
+    pulse: { label: 'Pulse', shortLabel: 'Pulse', hint: 'Pulse changed bits', swatch: '◎' },
+    none: { label: 'None', shortLabel: 'Off', hint: 'No animated effect', swatch: '—' },
+  }), []);
+
+  const animModeInfo = useMemo(() => ({
+    sequential: { label: 'Sequential', hint: 'Animate bit-by-bit in order', swatch: '1→2→3' },
+    bounce: { label: 'Bounce', hint: 'Animate forward and backward', swatch: '↔' },
+    all: { label: 'All At Once', hint: 'Animate all bits simultaneously', swatch: '⋯' },
+  }), []);
+
   const detailInspectorRows = useMemo(() => {
     if (!currentStepData || !currentStepData.changedBits || currentStepData.changedBits.length === 0) return [];
     const bits = Array.from(currentStepData.changedBits).sort((a, b) => a - b);
@@ -2522,6 +2583,142 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     setDetailInspectorQuery('');
     setDetailInspectorOpen(true);
   }, []);
+
+  const getBitBalloonGeometry = useCallback((bitIndex) => {
+    const r = rendererRef.current;
+    const el = containerRef.current;
+    if (!r || !el) return null;
+
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+
+    const pos = r.bitIndexToCanvas(bitIndex);
+    if (!pos) return null;
+    const dpr = window.devicePixelRatio || 1;
+    const canvasCssHeight = (r.canvas?.height || rect.height * dpr) / dpr;
+    const planeW = r.canvasWidth || rect.width;
+    const planeH = canvasCssHeight;
+    const planeOffsetX = Math.max(0, (planeW - rect.width) / 2);
+    const planeOffsetY = Math.max(0, (planeH - rect.height) / 2);
+    const anchorX = rect.left + (pos.x - planeOffsetX);
+    const anchorY = rect.top + (pos.y - planeOffsetY);
+    const bitHalf = Math.max(2.5, (r.pixelSize || 2) * (r.zoom || 1) * 0.52);
+
+    const sideInsetLeft = stepsPanelCollapsed ? 80 : Math.max(120, panelWidth + 32);
+    const sideInsetRight = settingsCollapsed ? 48 : 360;
+    const panelApproxHalfW = 170;
+    const minLeft = sideInsetLeft + panelApproxHalfW;
+    const maxLeft = window.innerWidth - sideInsetRight - panelApproxHalfW;
+    const clampedLeft = Math.max(minLeft, Math.min(maxLeft, anchorX));
+
+    const detailPad = detailOpen ? detailHeight + 22 : 56;
+    const minTop = 96;
+    const maxTop = window.innerHeight - detailPad;
+    const clampedTop = Math.max(minTop, Math.min(maxTop, anchorY - 12));
+
+    return { left: clampedLeft, top: clampedTop, anchorX, anchorY, bitHalf };
+  }, [stepsPanelCollapsed, panelWidth, settingsCollapsed, detailOpen, detailHeight]);
+
+  const getVisibleBalloonStyles = useCallback((items) => {
+    const approxWidth = 320;
+    const approxHeight = 238;
+    const margin = 18;
+    const placed = [];
+    const result = {};
+
+    const normalized = items
+      .map((item) => {
+        const geom = getBitBalloonGeometry(item.bitIndex);
+        return geom ? { ...item, ...geom } : null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => (a.anchorY - b.anchorY) || (a.anchorX - b.anchorX));
+
+    for (const item of normalized) {
+      const candidates = [
+        { left: item.left, top: item.top },
+        { left: item.left - 180, top: item.top - 10 },
+        { left: item.left + 180, top: item.top - 10 },
+        { left: item.left, top: item.top - 44 },
+        { left: item.left - 220, top: item.top - 52 },
+        { left: item.left + 220, top: item.top - 52 },
+      ];
+
+      let chosen = candidates[0];
+      let found = false;
+      for (const candidate of candidates) {
+        const box = {
+          left: candidate.left - approxWidth / 2,
+          right: candidate.left + approxWidth / 2,
+          top: candidate.top - approxHeight,
+          bottom: candidate.top,
+        };
+        const overlaps = placed.some((other) => (
+          box.left < other.right + margin &&
+          box.right > other.left - margin &&
+          box.top < other.bottom + margin &&
+          box.bottom > other.top - margin
+        ));
+        if (!overlaps) {
+          chosen = candidate;
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        const direction = placed.length % 2 === 0 ? 1 : -1;
+        chosen = {
+          left: item.left + direction * (120 + placed.length * 18),
+          top: item.top - 68 - placed.length * 10,
+        };
+      }
+
+      const minLeft = stepsPanelCollapsed ? 170 : Math.max(200, panelWidth + 44);
+      const maxLeft = window.innerWidth - (settingsCollapsed ? 48 : 360) - 170;
+      const clampedLeft = Math.max(minLeft, Math.min(maxLeft, chosen.left));
+      const clampedTop = Math.max(96, chosen.top);
+      const box = {
+        left: clampedLeft - approxWidth / 2,
+        right: clampedLeft + approxWidth / 2,
+        top: clampedTop - approxHeight,
+        bottom: clampedTop,
+      };
+      placed.push(box);
+      result[`${item.kind}-${item.bitIndex}`] = {
+        panelStyle: {
+          left: clampedLeft,
+          top: clampedTop,
+        },
+      };
+    }
+
+    return result;
+  }, [getBitBalloonGeometry, stepsPanelCollapsed, panelWidth, settingsCollapsed]);
+
+  const updateAnimationWidgetPosition = useCallback(() => {
+    const toggle = animationWidgetToggleRef.current;
+    if (!toggle) return;
+    const rect = toggle.getBoundingClientRect();
+    const panelW = Math.min(360, Math.max(300, window.innerWidth - 56));
+    const margin = 12;
+    const left = Math.max(margin, Math.min(window.innerWidth - panelW - margin, rect.right - panelW));
+    const top = rect.bottom + 10;
+    const pointerX = Math.max(18, Math.min(panelW - 18, rect.left + rect.width / 2 - left));
+    setAnimationWidgetPosition({ left, top, pointerX });
+  }, []);
+
+  useEffect(() => {
+    if (!animationWidgetOpen) return;
+    updateAnimationWidgetPosition();
+    const onRelayout = () => updateAnimationWidgetPosition();
+    window.addEventListener('resize', onRelayout);
+    window.addEventListener('scroll', onRelayout, true);
+    return () => {
+      window.removeEventListener('resize', onRelayout);
+      window.removeEventListener('scroll', onRelayout, true);
+    };
+  }, [animationWidgetOpen, updateAnimationWidgetPosition]);
 
   useEffect(() => {
     if (typeof document !== 'undefined') document.title = traceTitle;
@@ -2701,15 +2898,30 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
             />
             <canvas ref={minimapCanvasRef} className="minimap-overlay-canvas" aria-hidden="true" />
           </div>
-          <div className={`animation-widget speed-linked${animationWidgetOpen ? ' open' : ''}`} ref={animationWidgetRef}>
+          <div
+            className={`animation-widget speed-linked${animationWidgetOpen ? ' open' : ''}`}
+            ref={animationWidgetRef}
+            style={animationWidgetOpen ? {
+              left: animationWidgetPosition.left,
+              top: animationWidgetPosition.top,
+              '--gear-pointer-x': `${animationWidgetPosition.pointerX}px`,
+            } : undefined}
+          >
             {animationWidgetOpen && (
               <div className="animation-widget-panel">
                 <div className="animation-widget-header">
                   <span>Animation</span>
                 </div>
                 <div className="animation-widget-actions">
-                  <button className={`btn-option animation-chip${maskAnimationEnabled ? ' active' : ''}`} onClick={() => setMaskAnimationEnabled((value) => !value)} title={maskAnimationEnabled ? 'Disable group mark animation' : 'Enable group mark animation'}>
-                    Group mark animation
+                  <button
+                    type="button"
+                    className={`preview-btn compact animation-option-btn animation-group-mark-btn${maskAnimationEnabled ? ' active' : ''}`}
+                    onClick={() => setMaskAnimationEnabled((value) => !value)}
+                    title={maskAnimationEnabled ? 'Disable group mark animation' : 'Enable group mark animation'}
+                  >
+                    <span className="preview-btn-swatch" aria-hidden="true">▦↓</span>
+                    <span className="preview-btn-title">Group mark animation</span>
+                    <span className="preview-btn-hint">{maskAnimationEnabled ? 'Stamp groups' : 'Stamp off'}</span>
                   </button>
                 </div>
                 <label className="animation-widget-row">
@@ -2730,55 +2942,70 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
                 <div className="animation-widget-grid">
                   <div className="animation-widget-choice">
                     <span>Style</span>
-                    <button
-                      type="button"
-                      className={`btn-option animation-cycle-btn btn-anim-style-${animStyle}${animStyle !== 'none' ? ' active' : ''}`}
-                      onClick={cycleAnimStyle}
-                      title="Cycle animation style"
-                    >
-                      Style: {animStyle}
-                    </button>
+                    <div className="animation-option-grid animation-option-grid-styles">
+                      {Object.entries(animStyleInfo).map(([styleKey, info]) => (
+                        <button
+                          key={styleKey}
+                          type="button"
+                          className={`preview-btn compact animation-option-btn btn-anim-style-${styleKey}${animStyle === styleKey ? ' active' : ''}`}
+                          onClick={() => setAnimStyle(styleKey)}
+                          title={info.hint}
+                        >
+                          <span className="preview-btn-swatch" aria-hidden="true">{info.swatch}</span>
+                          <span className="preview-btn-title">{info.shortLabel || info.label}</span>
+                          <span className="preview-btn-hint">{animStyle === styleKey ? 'On' : 'Set'}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div className="animation-widget-choice">
                     <span>Mode</span>
-                    <button
-                      type="button"
-                      className="btn-option animation-cycle-btn active"
-                      onClick={cycleAnimMode}
-                      title="Cycle animation mode"
-                    >
-                      Mode: {animMode}
-                    </button>
+                    <div className="animation-option-grid animation-option-grid-modes">
+                      {Object.entries(animModeInfo).map(([modeKey, info]) => (
+                        <button
+                          key={modeKey}
+                          type="button"
+                          className={`preview-btn compact animation-option-btn btn-anim-mode-${modeKey}${animMode === modeKey ? ' active' : ''}`}
+                          onClick={() => setAnimMode(modeKey)}
+                          title={info.hint}
+                        >
+                          <span className="preview-btn-swatch" aria-hidden="true">{info.swatch}</span>
+                          <span className="preview-btn-title">{info.label}</span>
+                          <span className="preview-btn-hint">{animMode === modeKey ? 'Selected' : 'Activate'}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
             )}
           </div>
-          {/* Bit history panel: shown when locked (clicked) or hovered */}
-          {(bitHistoryModal || hoveredBitInfo) && (() => {
-            const info = bitHistoryModal || hoveredBitInfo;
-            const locked = !!bitHistoryModal;
-            const bi = info.bitIndex;
-            const byteIdx   = Math.floor(bi / 8);
-            const bitInByte = bi % 8;
-            const u32Idx    = Math.floor(bi / 32);
-            const bitInU32  = bi % 32;
-            const u64Idx    = Math.floor(bi / 64);
-            const bitInU64  = bi % 64;
-            const clIdx     = Math.floor(bi / (cachelineSize * 8));
-            const sideInsetLeft = stepsPanelCollapsed ? 80 : Math.max(120, panelWidth + 32);
-            const sideInsetRight = settingsCollapsed ? 48 : 360;
-            const panelStyle = !locked && hoverPos ? {
-              left: Math.max(sideInsetLeft, Math.min(window.innerWidth - sideInsetRight, hoverPos.x)),
-              top: Math.max(96, hoverPos.y - 10),
-            } : undefined;
+          {/* Bit history panels: hover plus one or more click-locked balloons */}
+          {(() => {
+            const hoverBalloonVisible = !!hoveredBitInfo && !pinnedBitIndices.includes(hoveredBitInfo.bitIndex);
+            const visibleBalloonStyles = getVisibleBalloonStyles([
+              ...pinnedBitIndices.map((bitIndex) => ({ kind: 'pinned', bitIndex })),
+              ...(hoverBalloonVisible ? [{ kind: 'hover', bitIndex: hoveredBitInfo.bitIndex }] : []),
+            ]);
+
             return (
-              <div className={`bit-history-panel${locked ? ' locked' : ' hover-balloon'}`} style={panelStyle}>
+              <>
+                {pinnedBitIndices.map((bitIdx) => {
+            const info = computeBitInfo(bitIdx);
+            if (!info) return null;
+            const bi = info.bitIndex;
+            const byteIdx = Math.floor(bi / 8);
+            const bitInByte = bi % 8;
+            const u32Idx = Math.floor(bi / 32);
+            const bitInU32 = bi % 32;
+            const u64Idx = Math.floor(bi / 64);
+            const bitInU64 = bi % 64;
+            const clIdx = Math.floor(bi / (cachelineSize * 8));
+            return (
+              <div key={`locked-bit-${bi}`} className="bit-history-panel locked hover-balloon" style={visibleBalloonStyles[`pinned-${bi}`]?.panelStyle}>
                 <div className="bit-history-header">
-                  <span>
-                    {locked ? '📌 ' : ''}Bit {bi} → #{info.number}
-                  </span>
-                  {locked && <button className="bit-history-close" onClick={() => setBitHistoryModal(null)}>✕</button>}
+                  <span>📌 Bit {bi} → #{info.number}</span>
+                  <button className="bit-history-close" onClick={() => setPinnedBitIndices((prev) => prev.filter((value) => value !== bi))}>✕</button>
                 </div>
                 <div className="bit-history-indices">
                   <table className="bit-index-table">
@@ -2798,12 +3025,12 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
                   ) : (
                     <table className="bit-history-table">
                       <thead>
-                          <tr><th>Event</th><th>Operation</th><th>Prime</th></tr>
+                        <tr><th>Event</th><th>Operation</th><th>Prime</th></tr>
                       </thead>
                       <tbody>
-                        {info.history.map(h => (
-                            <tr key={h.stepIndex} className={h.stepIndex === currentStep ? 'bh-current' : ''}
-                              onClick={() => { handleStepSelection(h.stepIndex); }}>
+                        {info.history.map((h) => (
+                          <tr key={`locked-${bi}-${h.stepIndex}`} className={h.stepIndex === currentStep ? 'bh-current' : ''}
+                            onClick={() => { handleStepSelection(h.stepIndex); }}>
                             <td>{h.stepIndex}</td>
                             <td>{h.operation || '—'}</td>
                             <td>{h.prime != null ? h.prime : '—'}</td>
@@ -2813,8 +3040,63 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
                     </table>
                   )}
                 </div>
-                {!locked && <div className="bit-history-hint">Click bit to lock this panel</div>}
               </div>
+            );
+                })}
+
+                {hoverBalloonVisible && (() => {
+                  const info = hoveredBitInfo;
+                  const bi = info.bitIndex;
+                  const byteIdx = Math.floor(bi / 8);
+                  const bitInByte = bi % 8;
+                  const u32Idx = Math.floor(bi / 32);
+                  const bitInU32 = bi % 32;
+                  const u64Idx = Math.floor(bi / 64);
+                  const bitInU64 = bi % 64;
+                  const clIdx = Math.floor(bi / (cachelineSize * 8));
+                  return (
+                    <div className="bit-history-panel hover-balloon" style={visibleBalloonStyles[`hover-${bi}`]?.panelStyle}>
+                <div className="bit-history-header">
+                  <span>Bit {bi} → #{info.number}</span>
+                </div>
+                <div className="bit-history-indices">
+                  <table className="bit-index-table">
+                    <tbody>
+                      <tr><td>Bit</td><td>{bi}</td></tr>
+                      <tr><td>Number</td><td>{info.number}</td></tr>
+                      <tr><td>uint8 (byte)</td><td>byte #{byteIdx}, bit {bitInByte}</td></tr>
+                      <tr><td>uint32</td><td>word #{u32Idx}, bit {bitInU32}</td></tr>
+                      <tr><td>uint64</td><td>qword #{u64Idx}, bit {bitInU64}</td></tr>
+                      <tr><td>Cache line</td><td>#{clIdx} ({cachelineSize}B)</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div className="bit-history-body">
+                  {info.history.length === 0 ? (
+                    <p className="bit-history-empty">No events have modified this bit.</p>
+                  ) : (
+                    <table className="bit-history-table">
+                      <thead>
+                        <tr><th>Event</th><th>Operation</th><th>Prime</th></tr>
+                      </thead>
+                      <tbody>
+                        {info.history.map((h) => (
+                          <tr key={`hover-${bi}-${h.stepIndex}`} className={h.stepIndex === currentStep ? 'bh-current' : ''}
+                            onClick={() => { handleStepSelection(h.stepIndex); }}>
+                            <td>{h.stepIndex}</td>
+                            <td>{h.operation || '—'}</td>
+                            <td>{h.prime != null ? h.prime : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+                <div className="bit-history-hint">Click to lock. Double-click to keep only this balloon.</div>
+              </div>
+                  );
+                })()}
+              </>
             );
           })()}
 

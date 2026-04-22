@@ -45,8 +45,6 @@ static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settin
     verbose5({ printf("Using settings " COLOR_GREEN "%s" COLOR_RESET "\n", getBenchmarkSettingAsString(benchmark_settings)); })
 }
 
-
-
 static inline double benchmarkTime() 
 {
     struct timespec time;

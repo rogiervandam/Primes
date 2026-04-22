@@ -742,25 +742,24 @@ html, body, #root {
   z-index: 11;
 }
 .animation-widget {
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  left: auto;
-  bottom: auto;
+  position: fixed;
+  top: 0;
+  left: 0;
   transform: none;
-  z-index: 40;
+  z-index: 520;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 8px;
+  pointer-events: auto;
 }
 .animation-widget.speed-linked::before {
   content: '';
   position: absolute;
-  top: -16px;
-  left: 50%;
+  top: -14px;
+  left: var(--gear-pointer-x, 24px);
   width: 2px;
-  height: 14px;
+  height: 12px;
   transform: translateX(-50%);
   background: linear-gradient(to bottom, rgba(255,255,255,0.28), rgba(255,255,255,0));
 }
@@ -768,7 +767,8 @@ html, body, #root {
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
 }
 .animation-widget-panel {
-  width: min(320px, calc(100vw - 56px));
+  position: relative;
+  width: min(420px, calc(100vw - 56px));
   padding: 12px;
   border: 1px solid var(--border-light);
   border-radius: 12px;
@@ -776,6 +776,21 @@ html, body, #root {
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.34);
   backdrop-filter: blur(10px);
   pointer-events: auto;
+}
+.animation-widget-panel::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: calc(var(--gear-pointer-x, 24px) - 10px);
+  width: 20px;
+  height: 12px;
+  background: color-mix(in srgb, var(--bg-surface) 92%, var(--bg-raised));
+  border-top: 1px solid var(--border-light);
+  border-left: 1px solid var(--border-light);
+  border-right: 1px solid var(--border-light);
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  clip-path: polygon(50% 0, 0 100%, 100% 100%);
 }
 .animation-widget-header {
   display: flex;
@@ -790,8 +805,11 @@ html, body, #root {
 .animation-widget-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   margin-bottom: 10px;
+}
+.animation-widget-actions .preview-btn {
+  width: 92px;
 }
 .animation-chip {
   font-size: 11px;
@@ -823,13 +841,102 @@ html, body, #root {
 }
 .animation-cycle-btn {
   width: 100%;
-  min-height: 32px;
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  text-align: left;
-  padding: 6px 10px;
+}
+.animation-option-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.animation-option-grid-styles {
+  grid-template-columns: repeat(4, minmax(0, 88px));
+  justify-content: start;
+}
+.animation-option-grid-modes {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.animation-option-btn {
+  aspect-ratio: 1 / 1;
+  min-height: 84px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px;
+}
+.animation-option-grid-styles .animation-option-btn {
+  width: 88px;
+  min-height: 88px;
+  max-width: 88px;
+  padding: 7px;
+}
+.animation-option-grid-styles .animation-option-btn .preview-btn-title {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+.animation-option-grid-styles .animation-option-btn .preview-btn-hint {
+  font-size: 10px;
+}
+@media (max-width: 900px) {
+  .animation-option-grid-styles {
+    grid-template-columns: repeat(2, minmax(0, 88px));
+  }
+}
+.animation-option-btn .preview-btn-swatch {
+  font-size: 20px;
+  line-height: 1;
+  min-height: 22px;
+}
+.animation-widget-actions .animation-option-btn {
+  min-height: 92px;
+}
+.animation-group-mark-btn .preview-btn-swatch {
+  font-size: 19px;
+  animation: stamp-preview 1.3s ease-in-out infinite;
+}
+.btn-anim-style-ripple .preview-btn-swatch {
+  animation: anim-swatch-ripple 1.5s ease-out infinite;
+}
+.btn-anim-style-fade .preview-btn-swatch {
+  animation: anim-swatch-fade 1.8s ease-in-out infinite;
+}
+.btn-anim-style-pulse .preview-btn-swatch {
+  animation: anim-swatch-pulse 1.2s ease-in-out infinite;
+}
+.btn-anim-style-none .preview-btn-swatch {
+  opacity: 0.55;
+}
+.btn-anim-mode-sequential .preview-btn-swatch {
+  animation: anim-mode-sequential 1.4s steps(3, end) infinite;
+}
+.btn-anim-mode-bounce .preview-btn-swatch {
+  display: inline-block;
+  animation: anim-mode-bounce 1s ease-in-out infinite alternate;
+}
+.btn-anim-mode-all .preview-btn-swatch {
+  animation: anim-mode-all 0.9s ease-in-out infinite;
+}
+.animation-option-btn .preview-btn-title {
+  font-size: 11px;
+}
+.animation-option-btn .preview-btn-hint {
+  font-size: 10px;
+}
+.animation-cycle-tile {
+  min-height: 84px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px;
+}
+.animation-cycle-tile .preview-btn-swatch {
+  font-size: 20px;
+  line-height: 1;
+  min-height: 22px;
+}
+.animation-cycle-tile .preview-btn-title {
+  font-size: 11px;
+}
+.animation-cycle-tile .preview-btn-hint {
+  font-size: 10px;
 }
 
 /* Animation style/mode button previews */
@@ -1176,19 +1283,57 @@ html, body, #root {
       "mainBottom";
   }
 
-  .animation-widget {
-    right: 8px;
-    top: 8px;
-    bottom: auto;
-  }
-
   .animation-widget-panel {
-    width: min(300px, calc(100vw - 32px));
+    width: min(320px, calc(100vw - 20px));
   }
 
   .animation-widget-grid {
     grid-template-columns: 1fr;
   }
+
+  .animation-option-grid,
+  .animation-option-grid-modes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@keyframes anim-swatch-ripple {
+  0% { transform: scale(0.9); opacity: 0.72; }
+  60% { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1.26); opacity: 0.68; }
+}
+
+@keyframes anim-swatch-fade {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+@keyframes anim-swatch-pulse {
+  0%, 100% { transform: scale(0.88); }
+  50% { transform: scale(1.18); }
+}
+
+@keyframes anim-mode-sequential {
+  0% { letter-spacing: 0.02em; opacity: 0.45; }
+  33% { letter-spacing: 0.08em; opacity: 0.7; }
+  66% { letter-spacing: 0.14em; opacity: 0.9; }
+  100% { letter-spacing: 0.2em; opacity: 1; }
+}
+
+@keyframes anim-mode-bounce {
+  0% { transform: translateX(-4px); }
+  100% { transform: translateX(4px); }
+}
+
+@keyframes anim-mode-all {
+  0%, 100% { transform: scale(0.92); opacity: 0.72; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+@keyframes stamp-preview {
+  0%, 100% { transform: translateY(-2px) scale(0.96); }
+  45% { transform: translateY(4px) scale(1.04); }
+  70% { transform: translateY(0) scale(1); }
 }
 
 /* ---- Export Progress ---- */
@@ -1659,11 +1804,12 @@ html, body, #root {
   background: var(--bg-surface); border: 1px solid var(--border);
   border-radius: 8px; min-width: 260px; max-width: 380px; max-height: 50vh;
   display: flex; flex-direction: column; box-shadow: 0 4px 16px rgba(0,0,0,.3);
-  overflow: hidden;
+  overflow: visible;
+  transition: left 180ms ease, top 180ms ease, transform 180ms ease, opacity 180ms ease;
+  animation: bit-balloon-appear 180ms ease-out;
 }
 .bit-history-panel.locked {
-  position: absolute; top: 8px; right: 8px;
-  z-index: 50;
+  z-index: 210;
   border-color: var(--accent);
 }
 .bit-history-panel.hover-balloon {
@@ -1671,27 +1817,11 @@ html, body, #root {
   z-index: 200;
   transform: translateX(-50%) translateY(calc(-100% - 14px));
   pointer-events: none;
+  isolation: isolate;
 }
-.bit-history-panel.hover-balloon::before {
-  content: '';
-  position: absolute;
-  left: 50%;
-  bottom: -14px;
-  width: 2px;
-  height: 10px;
-  transform: translateX(-50%);
-  background: var(--border-light);
-}
-.bit-history-panel.hover-balloon::after {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  left: 50%;
-  transform: translateX(-50%) rotate(45deg);
-  width: 10px; height: 10px;
-  background: var(--bg-surface);
-  border-right: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+.bit-history-panel.hover-balloon.locked {
+  pointer-events: auto;
+  z-index: 260;
 }
 .bit-history-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -1718,6 +1848,11 @@ html, body, #root {
 .bit-history-table td { padding: 3px 6px; cursor: pointer; }
 .bit-history-table tr:hover td { background: var(--bg-raised); }
 .bit-history-table tr.bh-current td { background: var(--accent); color: var(--fg-bright); }
+
+@keyframes bit-balloon-appear {
+  0% { opacity: 0; transform: translateX(-50%) translateY(calc(-100% - 6px)) scale(0.96); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(calc(-100% - 14px)) scale(1); }
+}
 
 .detail-inspect-btn {
   width: 100%;

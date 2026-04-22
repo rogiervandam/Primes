@@ -22,6 +22,7 @@ initSingleRunTrace(benchmark_settings_t benchmark_settings)
                                  (uintmax_t)benchmark_settings.threads,
                                  benchmark_settings.sample_duration);
 
+        trace_set_console_feedback(primes_log_should_explain(2));
         trace_init(option.trace_filename,
                    (uint64_t)benchmark_settings.factor_max,
                    (uint64_t)trace_bit_count,
@@ -63,12 +64,6 @@ runSingleSievePass(benchmark_settings_t benchmark_settings, sieve_t* (*sieveFunc
 {
     benchmark_settings = checkBenchmarkSettings(benchmark_settings);
     prepareBenchmarkGlobals(benchmark_settings);
-
-    #ifdef COMPILE_EXPLAIN
-    if (option.explain && option.verbose_level < 6) {
-        option.verbose_level = 6;
-    }
-    #endif
 
     #ifdef COMPILE_TIMERS
     if (option.timers) {

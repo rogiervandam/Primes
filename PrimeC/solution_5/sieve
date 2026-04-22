@@ -27,7 +27,15 @@ SIEVEVARIANTS="sieve_classic8 sieve_classic64 sieve_base sieve_wheel sieve_wheel
 
 # Process arguments to check for compiler override
 ARGS_TO_KEEP=()
+TRACE_FILENAME=""
+TRACE_EXPECTING_FILENAME=0
 for arg in "$@"; do
+    if [ "$TRACE_EXPECTING_FILENAME" -eq 1 ]; then
+        TRACE_FILENAME="$arg"
+        TRACE_EXPECTING_FILENAME=0
+        continue
+    fi
+
     if [ "$arg" = "gcc" ]; then
         COMPILER_OVERRIDE="gcc"
     elif [ "$arg" = "clang" ]; then
@@ -66,6 +74,8 @@ for arg in "$@"; do
         STABLE_WSL_HOST="stable-wsl-host"
     elif [ "$arg" = "trace" ] || [ "$arg" = "--trace" ]; then
         TRACE="trace"
+    elif [ "$arg" = "trace-filename" ] || [ "$arg" = "--trace-filename" ]; then
+        TRACE_EXPECTING_FILENAME=1
     else
         ARGS_TO_KEEP+=("$arg")
     fi
@@ -92,6 +102,9 @@ fi
 
 # Set default tokens
 verbose_level=10  
+compile_verbose_level=0
+explain_level=0
+trace_level=0
 verbose_next=0
 highest_number=0
 threads=0
@@ -177,7 +190,7 @@ for arg in "$@"; do
         case "$token" in
             explain|--explain)
                 DEFINE_FLAGS="-DCOMPILE_EXPLAIN $DEFINE_FLAGS"
-                verbose_level=6
+                explain_level=6
                 ;;
             timers|--timers)
                 DEFINE_FLAGS="-DCOMPILE_TIMERS $DEFINE_FLAGS"
@@ -222,13 +235,28 @@ if [ $verbose_level -eq 10 ]; then
     verbose_level=2
 fi
 
+if [ "$VISUALIZE" = "visualize" ] || [ "$TRACE" = "trace" ]; then
+    trace_level=9
+fi
+
 # Add --trace to run_args when trace or visualize is active
 if [ "$TRACE" = "trace" ] || [ "$VISUALIZE" = "visualize" ]; then
     run_args="$run_args --trace"
+    if [ -n "$TRACE_FILENAME" ]; then
+        run_args="$run_args --trace-filename $TRACE_FILENAME"
+    fi
 fi
 
 
-DEFINE_FLAGS="-DCOMPILE_VERBOSE_LEVEL=$verbose_level $DEFINE_FLAGS"
+compile_verbose_level="$verbose_level"
+if [ "$compile_verbose_level" -le "$explain_level" ]; then
+    compile_verbose_level=$((explain_level + 1))
+fi
+if [ "$compile_verbose_level" -le "$trace_level" ]; then
+    compile_verbose_level=$((trace_level + 1))
+fi
+
+DEFINE_FLAGS="-DCOMPILE_VERBOSE_LEVEL=$compile_verbose_level $DEFINE_FLAGS"
 
 # Check if the highest number fits in 32 bits
 if [ "$highest_number" -gt 999999999 ]; then
@@ -369,7 +397,7 @@ fi
 if [ "$TESTALL" = "testall" ]; then
     for base in $SIEVEVARIANTS; do
     # for base in sieve_base sieve_extend sieve_classic64 sieve_classic8 sieve_wheel sieve_wheel_8of30; do
-        $0 $base "--check 3 --verbose 3" "$@" || exit $?
+        $0 $base --check 3 --verbose 3 "$@" || exit $?
     done
     exit 0
 fi

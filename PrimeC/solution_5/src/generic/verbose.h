@@ -2,6 +2,8 @@
 #ifndef VERBOSE_H
 #define VERBOSE_H
 
+#include "../benchmark/sieve_functions.h"
+
 // Verbose level allows some code to only be compiled when targeting a certain verbose level
 #ifdef COMPILE_EXPLAIN
   #if COMPILE_VERBOSE_LEVEL < 7
@@ -57,11 +59,15 @@
 #endif
 #if COMPILE_VERBOSE_LEVEL >= 8
   #undef verbose8
-  #define verbose8(statement) if (option.verbose_level >= 8) { waitforkey(); { statement } }
+  #define verbose8(statement) if (option.verbose_level >= 8) statement
 #endif
 #if COMPILE_VERBOSE_LEVEL >= 9
   #undef verbose9
-  #define verbose9(statement) if (option.verbose_level >= 9) { waitforkey(); { statement } }
+  #define verbose9(statement) if (option.verbose_level >= 9) statement
+#endif
+#if COMPILE_VERBOSE_LEVEL >= 10
+  #undef verbose9
+  #define verbose9(statement) if (option.verbose_level >= 10) { waitforkey(); { statement } }
 #endif
 
 #define verbose(level, statement) function(verbose, level)(statement)
@@ -126,71 +132,18 @@ int waitforkey(void);
   // #define PRIMES_LOG_END(level, timer, ...)              timer_laptime(timer); __VA_OPT__(verbose(level, printf(__VA_ARGS__);))
 #endif
 
+static inline int primes_log_should_explain(counter_t level);
+static inline int primes_log_should_trace(counter_t level);
+static inline void primes_log_emit_verbose(counter_t level, counter_t runtime_verbose_level, const char* annotation);
+static inline void primes_log_text(counter_t level, counter_t runtime_verbose_level, const char* fmt, ...);
+static inline void primes_log_text_timer(counter_t level, counter_t runtime_verbose_level, counter_t timer, const char* fmt, ...);
+static inline void primes_log_event(counter_t level, counter_t runtime_verbose_level, void* bitstorage_ptr, const char* fmt, ...);
+static inline void primes_log_event_timer(counter_t level, counter_t runtime_verbose_level, void* bitstorage_ptr, counter_t timer, const char* fmt, ...);
 
 #define PRIMES_LOG_BEGIN(level, timer, printf_args...) \
-    verbose(level, printf(printf_args);) timer_lapstart(timer) TRACE_TEXT_TIMER(timer, printf_args); TRACE_ANALYSIS_PUSH(level)
+    primes_log_text_timer(level, option.trace_level, timer, printf_args); timer_lapstart(timer) TRACE_ANALYSIS_PUSH(level)
 #define PRIMES_LOG_END(level, timer, ...) \
-    TRACE_ANALYSIS_END(); timer_laptime(timer); __VA_OPT__(verbose(level, printf(__VA_ARGS__);))
-
-static inline void
-primes_log_emit_verbose(counter_t level, counter_t runtime_verbose_level, const char* annotation)
-{
-  if (runtime_verbose_level < level) return;
-  if (level >= 8) waitforkey();
-  printf("%s\n", annotation);
-}
-
-static inline void
-primes_log_text(counter_t level, counter_t runtime_verbose_level, const char* fmt, ...)
-{
-  char annotation[1024];
-  va_list args;
-  va_start(args, fmt);
-  vsnprintf(annotation, sizeof(annotation), fmt, args);
-  va_end(args);
-
-  primes_log_emit_verbose(level, runtime_verbose_level, annotation);
-  TRACE_TEXT("%s", annotation);
-}
-
-static inline void
-primes_log_text_timer(counter_t level, counter_t runtime_verbose_level, counter_t timer, const char* fmt, ...)
-{
-  char annotation[1024];
-  va_list args;
-  va_start(args, fmt);
-  vsnprintf(annotation, sizeof(annotation), fmt, args);
-  va_end(args);
-
-  primes_log_emit_verbose(level, runtime_verbose_level, annotation);
-  TRACE_TEXT_TIMER(timer, "%s", annotation);
-}
-
-static inline void
-primes_log_event(counter_t level, counter_t runtime_verbose_level, void* bitstorage_ptr, const char* fmt, ...)
-{
-  char annotation[1024];
-  va_list args;
-  va_start(args, fmt);
-  vsnprintf(annotation, sizeof(annotation), fmt, args);
-  va_end(args);
-
-  primes_log_emit_verbose(level, runtime_verbose_level, annotation);
-  TRACE_EVENT(bitstorage_ptr, "%s", annotation);
-}
-
-static inline void
-primes_log_event_timer(counter_t level, counter_t runtime_verbose_level, void* bitstorage_ptr, counter_t timer, const char* fmt, ...)
-{
-  char annotation[1024];
-  va_list args;
-  va_start(args, fmt);
-  vsnprintf(annotation, sizeof(annotation), fmt, args);
-  va_end(args);
-
-  primes_log_emit_verbose(level, runtime_verbose_level, annotation);
-  TRACE_EVENT_TIMER(bitstorage_ptr, timer, "%s", annotation);
-}
+    TRACE_ANALYSIS_END(); timer_laptime(timer); __VA_OPT__(primes_log_text(level, option.trace_level, __VA_ARGS__);)
 
 #define PRIMES_LOG_SELECT_SECOND(arg, on_integer, on_other)            _Generic((arg), function_id_t: on_integer, default: on_other)
 #define PRIMES_LOG_SELECT_FIRST(arg, on_integer, on_cstring, on_other) _Generic((arg), function_id_t: on_integer, char*: on_cstring, const char*: on_cstring, default: on_other)
@@ -198,10 +151,10 @@ primes_log_event_timer(counter_t level, counter_t runtime_verbose_level, void* b
 #define PRIMES_VA_COUNT_IMPL(  _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, N, ...) N
 #define PRIMES_VA_COUNT(...)  PRIMES_VA_COUNT_IMPL(__VA_ARGS__, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1)
 
-#define PRIMES_LOG_DISPATCH_1(level, a1)              verbose(level, a1)
-#define PRIMES_LOG_DISPATCH_2(level, a1, a2)          PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, primes_log_event)(level, option.verbose_level, a1, a2)
-#define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3)      PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer, primes_log_event))(level, option.verbose_level, a1, a2, a3)
-#define PRIMES_LOG_DISPATCH_4(level, a1, a2, a3, ...) PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer, primes_log_event))(level, option.verbose_level, a1, a2, a3, ##__VA_ARGS__)
+#define PRIMES_LOG_DISPATCH_1(level, a1)              if (primes_log_should_explain(level)) { a1; }
+#define PRIMES_LOG_DISPATCH_2(level, a1, a2)          PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, primes_log_event)(level, option.trace_level, a1, a2)
+#define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3)      PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer, primes_log_event))(level, option.trace_level, a1, a2, a3)
+#define PRIMES_LOG_DISPATCH_4(level, a1, a2, a3, ...) PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer, primes_log_event))(level, option.trace_level, a1, a2, a3, ##__VA_ARGS__)
 #define PRIMES_LOG_DISPATCH_5(level, a1, a2, a3, ...) PRIMES_LOG_DISPATCH_4(level, a1, a2, a3, ##__VA_ARGS__)
 #define PRIMES_LOG_DISPATCH_6(level, a1, a2, a3, ...) PRIMES_LOG_DISPATCH_4(level, a1, a2, a3, ##__VA_ARGS__)
 #define PRIMES_LOG_DISPATCH_7(level, a1, a2, a3, ...) PRIMES_LOG_DISPATCH_4(level, a1, a2, a3, ##__VA_ARGS__)
@@ -217,8 +170,12 @@ primes_log_event_timer(counter_t level, counter_t runtime_verbose_level, void* b
 
 #define PRIMES_LOG_DISPATCH_SELECT_IMPL(count) PRIMES_LOG_DISPATCH_##count
 #define PRIMES_LOG_DISPATCH_SELECT(count) PRIMES_LOG_DISPATCH_SELECT_IMPL(count)
-#define PRIMES_LOG_DISPATCH(level, ...) \
-  verbose5( PRIMES_LOG_DISPATCH_SELECT(PRIMES_VA_COUNT(__VA_ARGS__))(level, __VA_ARGS__) )
+#if COMPILE_VERBOSE_LEVEL >= 5
+  #define PRIMES_LOG_DISPATCH(level, ...) \
+    PRIMES_LOG_DISPATCH_SELECT(PRIMES_VA_COUNT(__VA_ARGS__))(level, __VA_ARGS__)
+#else
+  #define PRIMES_LOG_DISPATCH(level, ...)
+#endif
 
 #define logBegin5(timer, printf_args...) PRIMES_LOG_BEGIN(5, timer, printf_args)
 #define logEnd5(timer, ...) PRIMES_LOG_END(5, timer, ##__VA_ARGS__)

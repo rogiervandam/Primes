@@ -28,6 +28,8 @@ static struct options_t {
     counter_t show_nonprimes_on_error;
     counter_t verbose_level;
     counter_t explain;
+    counter_t explain_level;
+    counter_t trace_level;
     counter_t timers;
     counter_t check;
     counter_t tunelevel;
@@ -44,6 +46,99 @@ static struct options_t {
     char*     trace_filename;
 } option;
 
+static inline int
+primes_log_should_explain(counter_t level)
+{
+    return option.explain_level >= level;
+}
+
+static inline int
+primes_log_should_trace(counter_t level)
+{
+    #ifdef COMPILE_TRACE
+    return g_trace.enabled && option.trace_level >= level;
+    #else
+    (void)level;
+    return 0;
+    #endif
+}
+
+static inline void
+primes_log_emit_verbose(counter_t level, counter_t runtime_verbose_level, const char* annotation)
+{
+    (void)runtime_verbose_level;
+    if (option.explain_level < level) return;
+    printf("%s\n", annotation);
+}
+
+static inline void
+primes_log_text(counter_t level, counter_t runtime_verbose_level, const char* fmt, ...)
+{
+    char annotation[1024];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(annotation, sizeof(annotation), fmt, args);
+    va_end(args);
+
+    if (primes_log_should_explain(level)) {
+        primes_log_emit_verbose(level, runtime_verbose_level, annotation);
+    }
+    if (primes_log_should_trace(level)) {
+        TRACE_TEXT("%s", annotation);
+    }
+}
+
+static inline void
+primes_log_text_timer(counter_t level, counter_t runtime_verbose_level, counter_t timer, const char* fmt, ...)
+{
+    char annotation[1024];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(annotation, sizeof(annotation), fmt, args);
+    va_end(args);
+
+    if (primes_log_should_explain(level)) {
+        primes_log_emit_verbose(level, runtime_verbose_level, annotation);
+    }
+    if (primes_log_should_trace(level)) {
+        TRACE_TEXT_TIMER(timer, "%s", annotation);
+    }
+}
+
+static inline void
+primes_log_event(counter_t level, counter_t runtime_verbose_level, void* bitstorage_ptr, const char* fmt, ...)
+{
+    char annotation[1024];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(annotation, sizeof(annotation), fmt, args);
+    va_end(args);
+
+    if (primes_log_should_explain(level)) {
+        primes_log_emit_verbose(level, runtime_verbose_level, annotation);
+    }
+    if (primes_log_should_trace(level)) {
+        TRACE_EVENT(bitstorage_ptr, "%s", annotation);
+    }
+}
+
+static inline void
+primes_log_event_timer(counter_t level, counter_t runtime_verbose_level, void* bitstorage_ptr, counter_t timer, const char* fmt, ...)
+{
+    char annotation[1024];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(annotation, sizeof(annotation), fmt, args);
+    va_end(args);
+
+    if (primes_log_should_explain(level)) {
+        primes_log_emit_verbose(level, runtime_verbose_level, annotation);
+    }
+    if (primes_log_should_trace(level)) {
+        TRACE_EVENT_TIMER(bitstorage_ptr, timer, "%s", annotation);
+    }
+}
+
 static struct options_t __attribute__((cold)) 
 setDefaultOptions() 
 {
@@ -51,8 +146,10 @@ setDefaultOptions()
     option.show_tuning_results_max    = 50;
     option.show_primes_on_error       = 100;
     option.show_nonprimes_on_error    = 10;
-    option.verbose_level              = 0;
-    option.explain                    = 0;
+    option.verbose_level              = 0; // to what max level must output generation be (pre)compiled, must be >= explain_level and trace_level to get output
+    option.explain                    = 0; //deprecated, use --explain-level instead
+    option.explain_level              = 0; // to what level must explain output be generated
+    option.trace_level                = 0; // to what level must trace output be generated
     option.timers                     = 0;
 
     option.check                      = 2;
@@ -95,6 +192,10 @@ setDefaultOptions()
     #ifdef ALGORITHM_CLASSIC
     option.tunelevel = 0;
     #endif
+
+    // good to remember
+    #define default_explain_level 6 
+    #define default_trace_level 9
 
     return option;
 }

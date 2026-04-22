@@ -62,7 +62,7 @@ function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t
         *index_ptr     |= mask1; 
     }
 
-    if (g_trace.enabled || option.verbose_level >= 8) {
+    if (primes_log_should_trace(8) || primes_log_should_explain(8)) {
         char annotation[4096] = {0};
         char mask1_bits_text[2048] = {0};
         char mask2_bits_text[2048] = {0};
@@ -143,11 +143,11 @@ function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t
                  (uintmax_t)(range_start * bitcount_type(bitbucket_t)),
                  (uintmax_t)((range_stop + 1) * bitcount_type(bitbucket_t) - 1));
 
-        if (option.verbose_level >= 8) {
+        if (primes_log_should_explain(8)) {
             primes_log_emit_verbose(8, option.verbose_level, annotation);
         }
 
-        if (g_trace.enabled) {
+        if (primes_log_should_trace(8)) {
             const uint64_t pair_capacity = range_stop > range_start ? (uint64_t)(((range_stop - range_start - 1) / step) + 1) : 0;
             const uint64_t target_capacity = pair_capacity * 2 + 1;
             if (target_capacity > 0) {

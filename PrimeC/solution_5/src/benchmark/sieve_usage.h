@@ -19,7 +19,7 @@ usage(char *program_name, int exit_code)
         "  --embed                   Embed settings as compile-time constants (use with ./sieve)\n"
         "                            Uses settings saved from last benchmark run\n"
 #ifdef COMPILE_EXPLAIN
-        "  --explain                 Explain the steps of the algorithm - only when compiled for explain\n"
+        "  --explain                 Send explain-level output to the terminal\n"
 #endif
         "  --help                    This help function\n"
         "  --max                     Set the maximum prime to examine\n"
@@ -40,8 +40,9 @@ usage(char *program_name, int exit_code)
         "  --timers                  Give the timings for submodules - only when compiled for timers\n"
 #endif
 #ifdef COMPILE_TRACE
-        "  --trace [filename]        Record a trace of bitstorage changes to a .sievetrace file\n"
-        "                            Filename is optional; defaults to log/<timestamp>_<program>.sievetrace\n"
+        "  --trace                   Record trace-level output to a .sievetrace file\n"
+        "  --trace-filename <file>   Set trace output filename (use with --trace)\n"
+        "                            Defaults to log/<timestamp>_<program>.sievetrace\n"
         "                            Use the visualizer tool to view the trace afterwards\n"
 #endif
 #ifdef COMPILE_TUNE

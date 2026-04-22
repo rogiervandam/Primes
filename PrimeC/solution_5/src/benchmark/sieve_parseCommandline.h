@@ -197,7 +197,7 @@ static inline int hasTraceOutput(void)
 
 static inline int isExplainOrTraceMode(void)
 {
-    return option.explain || hasTraceOutput();
+    return option.explain_level > 0 || hasTraceOutput();
 }
 
 // check if --set was used (any of the four hot-path settings are non-zero)
@@ -340,9 +340,12 @@ parseCommandLine(int argc, char *argv[])
             usage(program_name, 0); 
         }
         #ifdef COMPILE_EXPLAIN
-        else if (strcmp_local(argv[arg], "--explain")) { 
-            option.explain = 1;  
-            verbose2(printf("Explain ON\n"));
+        else if (strcmp_local(argv[arg], "--explain")) {
+            option.explain = 1;
+            if (option.explain_level < default_explain_level) {
+                option.explain_level = default_explain_level;
+            }
+            verbose2(printf("Explain level set to %d\n", option.explain_level));
         }
         #endif
         #ifdef COMPILE_TIMERS 
@@ -360,13 +363,18 @@ parseCommandLine(int argc, char *argv[])
         }
         #ifdef COMPILE_TRACE
         else if (strcmp_local(argv[arg], "--trace")) {
-            /* --trace [optional filename] */
-            if (arg + 1 < argc && argv[arg + 1][0] != '-' && !isdigit_local(argv[arg + 1][0])) {
-                option.trace_filename = argv[++arg];
-            } else {
+            /* --trace: enable trace-level logging */
+            if (option.trace_level < default_trace_level) {
+                option.trace_level = default_trace_level;
+            }
+            if (!option.trace_filename) {
                 /* Mark for auto-generation after all args are parsed (factor_max may not be set yet) */
                 option.trace_filename = (char*)"__auto__";
             }
+        }
+        else if (strcmp_local(argv[arg], "--trace-filename")) {
+            ensure_next_arg(++arg, argc, program_name, "trace filename");
+            option.trace_filename = argv[arg];
         }
         #endif
         else if (strcmp_local(argv[arg], "--notune")) { 

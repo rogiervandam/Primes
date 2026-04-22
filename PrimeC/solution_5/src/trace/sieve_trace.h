@@ -46,6 +46,13 @@ typedef struct {
 
 static trace_context_t g_trace = {0};
 static char  g_trace_default_path[512] = {0};
+static int   g_trace_console_feedback_enabled = 1;
+
+static inline void
+trace_set_console_feedback(int enabled)
+{
+    g_trace_console_feedback_enabled = enabled;
+}
 
 /*
  * Generate a default trace filename under ./log/
@@ -326,7 +333,9 @@ trace_init(const char* filename,
             }
             fputs(",\"events\":[", g_trace.json_file);
             g_trace.json_enabled = 1;
-            fprintf(stderr, "Trace: JSON companion enabled: %s\n", json_path);
+            if (g_trace_console_feedback_enabled) {
+                fprintf(stderr, "Trace: JSON companion enabled: %s\n", json_path);
+            }
         } else {
             fprintf(stderr, "Trace: failed to open JSON companion file: %s\n", json_path);
         }
@@ -334,11 +343,13 @@ trace_init(const char* filename,
 
     g_trace.enabled = 1;
 
-    fprintf(stderr, "Trace: recording to %s (sieve_size=%llu, bits=%llu, %u bytes)\n",
-            filename,
-            (unsigned long long)sieve_size,
-            (unsigned long long)bit_count,
-            g_trace.bitstorage_bytes);
+    if (g_trace_console_feedback_enabled) {
+        fprintf(stderr, "Trace: recording to %s (sieve_size=%llu, bits=%llu, %u bytes)\n",
+                filename,
+                (unsigned long long)sieve_size,
+                (unsigned long long)bit_count,
+                g_trace.bitstorage_bytes);
+    }
 }
 
 /*
@@ -821,7 +832,9 @@ trace_finalize(void)
         g_trace.snapshot = NULL;
     }
 
-    fprintf(stderr, "Trace: recorded %u events\n", g_trace.step_count);
+    if (g_trace_console_feedback_enabled) {
+        fprintf(stderr, "Trace: recorded %u events\n", g_trace.step_count);
+    }
 
     g_trace.enabled = 0;
 }
