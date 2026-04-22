@@ -24,7 +24,7 @@ continuePattern(void* restrict bitstorage, const counter_t source_start, const c
     if (size < bitcount_type(bitbucket_t)) {
         continuePattern_smallSize(bitstorage, source_start, destination_stop, size);
         TRACE_STEP(bitstorage,
-                   "ContinuePattern: source_start=%ju destination_stop=%ju size=%ju",
+                   "ContinuePattern: handled with small size source_start=%ju destination_stop=%ju size=%ju",
                    (uintmax_t)source_start,
                    (uintmax_t)destination_stop,
                    (uintmax_t)size);
@@ -45,6 +45,5 @@ continuePattern(void* restrict bitstorage, const counter_t source_start, const c
                (uintmax_t)destination_stop,
                (uintmax_t)size);
 
-    // timer_laptime(time_continuePattern); verbose7( printf("\n"); )
     logEnd7(time_continuePattern,"\n");
 }

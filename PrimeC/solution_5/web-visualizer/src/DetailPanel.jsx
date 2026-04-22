@@ -14,7 +14,23 @@ function layoutPos(layout, index) {
 /**
  * Collapsible detail panel with adjustable height.
  */
-export default function DetailPanel({ step, stepIndex, open, onToggle, height, onHeightChange, width, onWidthChange, playing, stepStats, storageModel, bitLayout = '4x2', byteLayout = '4x2' }) {
+export default function DetailPanel({
+  step,
+  stepIndex,
+  open,
+  onToggle,
+  height,
+  onHeightChange,
+  width,
+  onWidthChange,
+  playing,
+  stepStats,
+  storageModel,
+  bitLayout = '4x2',
+  byteLayout = '4x2',
+  onInspectChangedBits,
+  onInspectMarkedNumbers,
+}) {
   // Compact representation of changed bit ranges
   const bitRanges = useMemo(() => {
     if (!step || step.changedBits.length === 0) return '';
@@ -239,12 +255,20 @@ export default function DetailPanel({ step, stepIndex, open, onToggle, height, o
   const annotationFacts = [
     {
       label: 'Numbers marked',
-      content: step.numChanged > 0 ? <span className="dt-mono">{numberSummary}</span> : <span className="detail-empty">-</span>,
+      content: step.numChanged > 0 ? (
+        <button className="detail-inspect-btn" onClick={() => onInspectMarkedNumbers && onInspectMarkedNumbers()} title="Inspect all marked numbers in a searchable list">
+          <span className="dt-mono">{numberSummary}</span>
+        </button>
+      ) : <span className="detail-empty">-</span>,
       wide: true,
     },
     {
       label: 'Bit ranges',
-      content: step.numChanged > 0 ? <span className="dt-mono">{bitRanges}</span> : <span className="detail-empty">-</span>,
+      content: step.numChanged > 0 ? (
+        <button className="detail-inspect-btn" onClick={() => onInspectChangedBits && onInspectChangedBits()} title="Inspect all changed bits in a searchable list">
+          <span className="dt-mono">{bitRanges}</span>
+        </button>
+      ) : <span className="detail-empty">-</span>,
       wide: true,
     },
   ];

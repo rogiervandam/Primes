@@ -1017,11 +1017,8 @@ function inferPrimeFromFactorStep(factorStep, storageModel) {
   const fs = toNullableNumber(factorStep);
   if (fs == null) return null;
 
-  // User rule:
-  // - half storage: prime = stepSize
-  // - full storage: prime = stepSize / 2
-  if (storageModel.includes('full')) return fs / 2;
-  return fs;
+  // Keep inferred prime aligned with the user's current convention.
+  return fs / 2;
 }
 
 function inferPrimeFromAnnotation(annotation, factorStep, storageModel) {

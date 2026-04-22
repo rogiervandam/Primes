@@ -121,6 +121,48 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     items.push(`v${header.version}`);
     return Array.from(new Set(items.filter(Boolean)));
   }, [header, fileName]);
+  const traceInfoSections = useMemo(() => {
+    const parseKeyValue = (value) => {
+      const match = String(value || '').match(/^\s*([^:]+):\s*(.+)\s*$/);
+      if (!match) return null;
+      return { label: match[1].trim(), value: match[2].trim() };
+    };
+
+    const source = Array.from(new Set(traceMetaItems.filter(Boolean)));
+    const file = [];
+    const run = [];
+    const extra = [];
+
+    for (let i = 0; i < source.length; i++) {
+      const item = source[i];
+      const kv = parseKeyValue(item);
+      if (kv) {
+        const key = kv.label.toLowerCase();
+        if (key.includes('file')) {
+          file.push(kv);
+          continue;
+        }
+        if (key.includes('max') || key.includes('bits') || key.includes('events') || key.includes('storage') || key === 'version' || key === 'v') {
+          run.push(kv);
+          continue;
+        }
+        extra.push(kv);
+        continue;
+      }
+      const text = String(item);
+      if (/^v\d/i.test(text)) {
+        run.push({ label: 'Version', value: text.replace(/^v/i, '') });
+      } else {
+        extra.push({ label: 'Info', value: text });
+      }
+    }
+
+    return [
+      { title: 'File', rows: file },
+      { title: 'Run', rows: run },
+      { title: 'Notes', rows: extra },
+    ].filter((section) => section.rows.length > 0);
+  }, [traceMetaItems]);
 
   const canvasRef = useRef(null);
   const settledCanvasRef = useRef(null);
@@ -157,7 +199,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [exportProgress, setExportProgress] = useState(0);
   const [repeatAnim, setRepeatAnim] = useState(500);
   const [animMode, setAnimMode] = useState('sequential'); // 'all' or 'sequential'
-  const [animStyle, setAnimStyle] = useState('ripple'); // 'ripple', 'fade', 'pulse', 'none'
+  const [animStyle, setAnimStyle] = useState('fade'); // 'ripple', 'fade', 'pulse', 'none'
   const [maskAnimationEnabled, setMaskAnimationEnabled] = useState(true);
   const [animationReplayPaused, setAnimationReplayPaused] = useState(false);
   const [animationWidgetOpen, setAnimationWidgetOpen] = useState(false);
@@ -181,6 +223,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [cachelineSize, setCachelineSize] = useState(64);
   const [cachePreset, setCachePreset] = useState('fixed');
   const [stepsPanelCollapsed, setStepsPanelCollapsed] = useState(true);
+  const [detailInspectorOpen, setDetailInspectorOpen] = useState(false);
+  const [detailInspectorMode, setDetailInspectorMode] = useState('bits');
+  const [detailInspectorQuery, setDetailInspectorQuery] = useState('');
 
   // 3D camera state
   const [mode3D, setMode3D] = useState(false);
@@ -214,6 +259,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const animationWidgetRef = useRef(null);
   const animationWidgetToggleRef = useRef(null);
   const traceInfoPopoverRef = useRef(null);
+  const traceInfoToggleRef = useRef(null);
 
   stepsRef.current = steps;
 
@@ -387,7 +433,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
   const applyViewportFit = useCallback((renderer, width, height) => {
     if (!renderer || width <= 0 || height <= 0) return;
-    renderer.zoomToFit(width, height, { alignTop: header.bitCount > 16384 });
+    renderer.zoomToFit(width, height, { alignTop: false });
     const dpr = window.devicePixelRatio || 1;
     const canvasCssHeight = (renderer.canvas?.height || height * dpr) / dpr;
     const planeOffsetX = Math.max(0, (renderer.canvasWidth - width) / 2);
@@ -438,6 +484,18 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, [animationWidgetOpen]);
+
+  // Close trace info popup when clicking outside
+  useEffect(() => {
+    if (!showTraceInfo) return;
+    const handleClickOutside = (e) => {
+      const clickedInside = traceInfoPopoverRef.current && traceInfoPopoverRef.current.contains(e.target);
+      const clickedTitle = traceInfoToggleRef.current && traceInfoToggleRef.current.contains(e.target);
+      if (!clickedInside && !clickedTitle) setShowTraceInfo(false);
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showTraceInfo]);
 
   // Apply theme to document
   useEffect(() => {
@@ -2401,7 +2459,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const stepSpeedValue = useMemo(() => {
     const interval = clampMs(parseInt(bitAnimInterval || 0, 10) || 20, 5, 5000);
     const ratio = (5000 - interval) / (5000 - 5);
-    return Math.round(1 + ratio * 99);
+    return Math.round(1 + ratio * 499);
   }, [bitAnimInterval, clampMs]);
   const setPlaybackSpeedValue = useCallback((speedValue) => {
     const speed = clampMs(parseInt(speedValue || 0, 10) || 1, 1, 100);
@@ -2409,10 +2467,61 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     setPlaySpeed(Math.round(12000 - ratio * (12000 - 4000)));
   }, [clampMs]);
   const setStepSpeedValue = useCallback((speedValue) => {
-    const speed = clampMs(parseInt(speedValue || 0, 10) || 1, 1, 100);
-    const ratio = (speed - 1) / 99;
+    const speed = clampMs(parseInt(speedValue || 0, 10) || 1, 1, 500);
+    const ratio = (speed - 1) / 499;
     setBitAnimInterval(Math.round(5000 - ratio * (5000 - 5)));
   }, [clampMs]);
+
+  const cycleAnimStyle = useCallback(() => {
+    const styles = ['ripple', 'fade', 'pulse', 'none'];
+    const current = styles.indexOf(animStyle);
+    const next = styles[(current + 1 + styles.length) % styles.length];
+    setAnimStyle(next);
+  }, [animStyle]);
+
+  const cycleAnimMode = useCallback(() => {
+    const modes = ['sequential', 'bounce', 'all'];
+    const current = modes.indexOf(animMode);
+    const next = modes[(current + 1 + modes.length) % modes.length];
+    setAnimMode(next);
+  }, [animMode]);
+
+  const detailInspectorRows = useMemo(() => {
+    if (!currentStepData || !currentStepData.changedBits || currentStepData.changedBits.length === 0) return [];
+    const bits = Array.from(currentStepData.changedBits).sort((a, b) => a - b);
+    const groupBits = layoutSettings.vectorMode === 'custom'
+      ? Math.max(1, parseInt(layoutSettings.customGroupBits || 1, 10) || 1)
+      : Math.max(1, (layoutSettings.vectorGroup || 1) * 64);
+    return bits.map((bit) => {
+      const number = bitToNumber(bit, storageModel || 'half');
+      const byte = Math.floor(bit / 8);
+      const uint64 = Math.floor(bit / 64);
+      const group = Math.floor(bit / groupBits);
+      return {
+        bit,
+        number,
+        byte,
+        uint64,
+        group,
+        cacheline: Math.floor(bit / Math.max(8, cachelineSize * 8)),
+      };
+    });
+  }, [currentStepData, layoutSettings.vectorMode, layoutSettings.customGroupBits, layoutSettings.vectorGroup, storageModel, cachelineSize]);
+
+  const filteredDetailInspectorRows = useMemo(() => {
+    const q = detailInspectorQuery.trim().toLowerCase();
+    if (!q) return detailInspectorRows;
+    return detailInspectorRows.filter((row) => {
+      const haystack = `${row.bit} ${row.number} ${row.byte} ${row.uint64} ${row.group} ${row.cacheline}`.toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [detailInspectorRows, detailInspectorQuery]);
+
+  const openDetailInspector = useCallback((mode = 'bits') => {
+    setDetailInspectorMode(mode === 'numbers' ? 'numbers' : 'bits');
+    setDetailInspectorQuery('');
+    setDetailInspectorOpen(true);
+  }, []);
 
   useEffect(() => {
     if (typeof document !== 'undefined') document.title = traceTitle;
@@ -2424,22 +2533,31 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       <header className="toolbar">
         <div className="toolbar-left">
           <div className="trace-title-block">
-            <div className="trace-title" title={traceTitle}>{traceTitle}</div>
+            <button
+              ref={traceInfoToggleRef}
+              type="button"
+              className={`trace-title trace-title-button${showTraceInfo ? ' active' : ''}`}
+              title="Trace information"
+              onClick={() => setShowTraceInfo((open) => !open)}
+            >
+              {traceTitle}
+            </button>
           </div>
           <div className="trace-actions">
-            <button
-              className={`btn-icon btn-info${showTraceInfo ? ' active' : ''}`}
-              onClick={() => setShowTraceInfo((open) => !open)}
-              title="Trace information"
-            >
-              i
-            </button>
             {onClose && <button className="btn-icon" onClick={onClose} title="Close trace">✕</button>}
           </div>
           {showTraceInfo && (
             <div className="trace-info-popover" ref={traceInfoPopoverRef}>
-              {traceMetaItems.map((item) => (
-                <div key={item} className="trace-info-row">{item}</div>
+              {traceInfoSections.map((section) => (
+                <div key={section.title} className="trace-info-section">
+                  <div className="trace-info-section-title">{section.title}</div>
+                  {section.rows.map((row) => (
+                    <div key={`${section.title}-${row.label}-${row.value}`} className="trace-info-row trace-info-row-kv">
+                      <span className="trace-info-key">{row.label}</span>
+                      <span className="trace-info-value">{row.value}</span>
+                    </div>
+                  ))}
+                </div>
               ))}
             </div>
           )}
@@ -2606,39 +2724,31 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
                 </label>
                 <label className="animation-widget-row">
                   <span>Step animation</span>
-                  <input type="range" min={1} max={100} step={1} value={stepSpeedValue} onChange={(e) => setStepSpeedValue(e.target.value)} disabled={animMode === 'all'} />
+                  <input type="range" min={1} max={500} step={1} value={stepSpeedValue} onChange={(e) => setStepSpeedValue(e.target.value)} disabled={animMode === 'all'} />
                   <strong>{animMode === 'all' ? 'All at once' : `${stepSpeedValue}%`}</strong>
                 </label>
                 <div className="animation-widget-grid">
                   <div className="animation-widget-choice">
                     <span>Style</span>
-                    <div className="btn-group">
-                      {['ripple', 'fade', 'pulse', 'none'].map((style) => (
-                        <button
-                          key={style}
-                          className={`btn-option btn-anim-style-${style}${animStyle === style ? ' active' : ''}`}
-                          onClick={() => setAnimStyle(style)}
-                          title={`Animation: ${style}`}
-                        >
-                          {style}
-                        </button>
-                      ))}
-                    </div>
+                    <button
+                      type="button"
+                      className={`btn-option animation-cycle-btn btn-anim-style-${animStyle}${animStyle !== 'none' ? ' active' : ''}`}
+                      onClick={cycleAnimStyle}
+                      title="Cycle animation style"
+                    >
+                      Style: {animStyle}
+                    </button>
                   </div>
                   <div className="animation-widget-choice">
                     <span>Mode</span>
-                    <div className="btn-group">
-                      {['all', 'sequential', 'bounce'].map((mode) => (
-                        <button
-                          key={mode}
-                          className={`btn-option btn-anim-mode-${mode}${animMode === mode ? ' active' : ''}`}
-                          onClick={() => setAnimMode(mode)}
-                          title={`Mode: ${mode}`}
-                        >
-                          {mode}
-                        </button>
-                      ))}
-                    </div>
+                    <button
+                      type="button"
+                      className="btn-option animation-cycle-btn active"
+                      onClick={cycleAnimMode}
+                      title="Cycle animation mode"
+                    >
+                      Mode: {animMode}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -2656,9 +2766,11 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
             const u64Idx    = Math.floor(bi / 64);
             const bitInU64  = bi % 64;
             const clIdx     = Math.floor(bi / (cachelineSize * 8));
+            const sideInsetLeft = stepsPanelCollapsed ? 80 : Math.max(120, panelWidth + 32);
+            const sideInsetRight = settingsCollapsed ? 48 : 360;
             const panelStyle = !locked && hoverPos ? {
-              left: Math.max(160, Math.min(window.innerWidth - 160, hoverPos.x)),
-              top: hoverPos.y - 10,
+              left: Math.max(sideInsetLeft, Math.min(window.innerWidth - sideInsetRight, hoverPos.x)),
+              top: Math.max(96, hoverPos.y - 10),
             } : undefined;
             return (
               <div className={`bit-history-panel${locked ? ' locked' : ' hover-balloon'}`} style={panelStyle}>
@@ -2721,7 +2833,56 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
             storageModel={storageModel}
             bitLayout={layoutSettings.bitLayout}
             byteLayout={layoutSettings.byteLayout}
+            onInspectChangedBits={() => openDetailInspector('bits')}
+            onInspectMarkedNumbers={() => openDetailInspector('numbers')}
           />
+
+          {detailInspectorOpen && (
+            <div className="detail-inspector-overlay" role="dialog" aria-modal="true">
+              <div className="detail-inspector-panel">
+                <div className="detail-inspector-header">
+                  <div className="detail-inspector-title">{detailInspectorMode === 'numbers' ? 'Marked Numbers' : 'Changed Bits'}</div>
+                  <button className="btn-icon" onClick={() => setDetailInspectorOpen(false)} title="Close inspector">✕</button>
+                </div>
+                <div className="detail-inspector-controls">
+                  <input
+                    type="text"
+                    value={detailInspectorQuery}
+                    onChange={(e) => setDetailInspectorQuery(e.target.value)}
+                    placeholder="Search bit, number, byte, uint64, group, cacheline"
+                    className="detail-inspector-search"
+                  />
+                  <span className="detail-inspector-count">{filteredDetailInspectorRows.length} / {detailInspectorRows.length}</span>
+                </div>
+                <div className="detail-inspector-table-wrap">
+                  <table className="detail-inspector-table">
+                    <thead>
+                      <tr>
+                        <th>Bit</th>
+                        <th>Number</th>
+                        <th>Byte</th>
+                        <th>uint64</th>
+                        <th>Group</th>
+                        <th>Cacheline</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredDetailInspectorRows.map((row) => (
+                        <tr key={`di-${row.bit}`}>
+                          <td>{row.bit}</td>
+                          <td>{row.number}</td>
+                          <td>{row.byte}</td>
+                          <td>{row.uint64}</td>
+                          <td>{row.group}</td>
+                          <td>{row.cacheline}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <SettingsPanel

@@ -1858,18 +1858,18 @@ export class SieveRenderer {
     const cw = this.canvas.width / (window.devicePixelRatio || 1);
     const ch = this.canvas.height / (window.devicePixelRatio || 1);
     const px = this.pixelSize * this.zoom;
-    const intensity = Math.max(0.6, Math.min(1.8, options.intensity || 1));
+    const intensity = Math.max(0.4, Math.min(1.2, options.intensity || 1));
 
     const color = this._opColor();
     const ease = 1 - Math.pow(1 - progress, 3);
-    const maxRadius = Math.max(24, px * 14 * intensity);
-    const outerRadius = maxRadius * (1 - ease * 0.86);
-    const innerRadius = Math.max(px * 1.15, outerRadius * 0.3);
-    const coreRadius = Math.max(px * 0.9, px * (0.95 + 0.55 * (1 - progress)));
-    const ringWidth = Math.max(1.8, 6.6 * intensity * (1 - ease * 0.72));
-    const ringAlpha = Math.max(0, 0.98 * Math.pow(1 - progress, 0.5));
-    const haloAlpha = Math.max(0, 0.28 * intensity * Math.pow(1 - progress, 1.1));
-    const coreAlpha = Math.max(0, 0.86 * Math.pow(1 - progress, 0.42));
+    const maxRadius = Math.max(8, px * 3.8 * intensity);
+    const outerRadius = maxRadius * (1 - ease * 0.72);
+    const innerRadius = Math.max(px * 0.55, outerRadius * 0.48);
+    const coreRadius = Math.max(px * 0.36, px * (0.55 + 0.24 * (1 - progress)));
+    const ringWidth = Math.max(0.8, 1.7 * intensity * (1 - ease * 0.45));
+    const ringAlpha = Math.max(0, 0.5 * Math.pow(1 - progress, 0.72));
+    const haloAlpha = Math.max(0, 0.1 * intensity * Math.pow(1 - progress, 1.18));
+    const coreAlpha = Math.max(0, 0.6 * Math.pow(1 - progress, 0.56));
 
     ctx.save();
 
@@ -1905,9 +1905,9 @@ export class SieveRenderer {
       }
 
       if (options.showBeacon) {
-        const beacon = Math.max(px * 1.4, 8 * intensity);
+        const beacon = Math.max(px * 0.9, 4.5 * intensity);
         ctx.strokeStyle = `rgba(255,255,255,${Math.max(0.16, ringAlpha * 0.68)})`;
-        ctx.lineWidth = Math.max(1, px * 0.16);
+        ctx.lineWidth = Math.max(0.75, px * 0.1);
         ctx.strokeRect(cx - beacon / 2, cy - beacon / 2, beacon, beacon);
       }
     }
@@ -2200,12 +2200,12 @@ export class SieveRenderer {
     this.zoom = saved;
 
     // Everything scales linearly with zoom
-    const margin = 0.9;
+    const margin = 0.96;
     const fitZoom = Math.min(
       (canvasW * margin) / dims.width,
       (canvasH * margin) / dims.height
     );
-    this.zoom = Math.max(0.1, Math.min(fitZoom, 4));
+    this.zoom = Math.max(0.1, Math.min(fitZoom, 32));
 
     // Center content
     const finalDims = this.contentDimensions();
