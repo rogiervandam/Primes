@@ -5,7 +5,7 @@
   "type": "module",
   "main": "electron/main.mjs",
   "scripts": {
-    "dev": "vite",
+    "dev": "node dev-server.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "clean:reinstall": "node -e \"const fs=require('fs'); fs.rmSync('node_modules',{recursive:true,force:true}); fs.rmSync('package-lock.json',{force:true});\" && npm install --include=optional",

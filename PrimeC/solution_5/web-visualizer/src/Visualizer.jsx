@@ -70,6 +70,42 @@ const DEFAULT_SETTINGS = {
   },
 };
 
+const DEFAULT_EVENT_TITLE_SETTINGS = {
+  visible: true,
+  position: 'center',
+  scale: 100,
+};
+
+const DEFAULT_DEPTH_SETTINGS = {
+  strength: 80,
+  angle: 38,
+};
+
+function mergeEventTitleSettings(saved) {
+  if (!saved || typeof saved !== 'object') return DEFAULT_EVENT_TITLE_SETTINGS;
+  const scale = Math.max(70, Math.min(160, parseInt(saved.scale || DEFAULT_EVENT_TITLE_SETTINGS.scale, 10) || DEFAULT_EVENT_TITLE_SETTINGS.scale));
+  const position = ['left', 'center', 'right'].includes(saved.position) ? saved.position : DEFAULT_EVENT_TITLE_SETTINGS.position;
+  return {
+    ...DEFAULT_EVENT_TITLE_SETTINGS,
+    ...saved,
+    visible: saved.visible !== false,
+    position,
+    scale,
+  };
+}
+
+function mergeDepthSettings(saved) {
+  if (!saved || typeof saved !== 'object') return DEFAULT_DEPTH_SETTINGS;
+  const strength = Math.max(0, Math.min(100, parseInt(saved.strength ?? DEFAULT_DEPTH_SETTINGS.strength, 10) || DEFAULT_DEPTH_SETTINGS.strength));
+  const angle = Math.max(0, Math.min(90, parseInt(saved.angle ?? DEFAULT_DEPTH_SETTINGS.angle, 10) || DEFAULT_DEPTH_SETTINGS.angle));
+  return {
+    ...DEFAULT_DEPTH_SETTINGS,
+    ...saved,
+    strength,
+    angle,
+  };
+}
+
 export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const { header, steps } = trace;
   const traceTitle = useMemo(() => header.title || fileName || 'Sieve Visualizer', [header.title, fileName]);
@@ -87,6 +123,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   }, [header, fileName]);
 
   const canvasRef = useRef(null);
+  const settledCanvasRef = useRef(null);
   const minimapCanvasRef = useRef(null);
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
@@ -113,6 +150,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [loweredSetBits, setLoweredSetBits] = useState(false);
   const [settingsCollapsed, setSettingsCollapsed] = useState(true);
   const [layoutSettings, setLayoutSettings] = useState(() => mergeLayoutSettings(readViewPrefs()?.layoutSettings));
+  const [eventTitleSettings, setEventTitleSettings] = useState(() => mergeEventTitleSettings(readViewPrefs()?.eventTitleSettings));
+  const [depthSettings, setDepthSettings] = useState(() => mergeDepthSettings(readViewPrefs()?.depthSettings));
   const [detailOpen, setDetailOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
@@ -130,6 +169,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [stepStats, setStepStats] = useState(null); // { totalSet, newlySet, reSet }
   const [bitHistoryModal, setBitHistoryModal] = useState(null); // { bitIndex, history[] } — locked by click
   const [hoveredBitInfo, setHoveredBitInfo] = useState(null);  // { bitIndex, history[] } — updated on hover
+  const [hoverPos, setHoverPos] = useState(null); // { x, y } viewport coords for hover balloon
   const [colorPreset, setColorPreset] = useState(null); // null = theme default
   const [customColors, setCustomColors] = useState({ setBit: null, clearedBit: null, unchangedBit: null });
   const [searchQuery, setSearchQuery] = useState('');
@@ -172,6 +212,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const initialHighlightHoldRef = useRef(true);
   const initial3DRestoreDoneRef = useRef(true);
   const animationWidgetRef = useRef(null);
+  const animationWidgetToggleRef = useRef(null);
   const traceInfoPopoverRef = useRef(null);
 
   stepsRef.current = steps;
@@ -196,7 +237,12 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
   // Keep refs in sync for use in callbacks
   const getMinimapDetailH = useCallback(() => {
-    return detailOpenRef.current ? 20 : 10;
+    const panelEl = document.querySelector('.detail-panel');
+    if (panelEl) {
+      const rect = panelEl.getBoundingClientRect();
+      if (rect.height > 0) return Math.round(rect.height);
+    }
+    return detailOpenRef.current ? detailHeightRef.current : 36;
   }, []);
 
   // Wrap setDetailOpen/setDetailHeight to keep refs updated
@@ -214,7 +260,13 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const updateMinimapAvailability = useCallback(() => {
     const r = rendererRef.current;
     if (!r) return;
-    const available = showMinimap !== false;
+    const canvas = r.canvas;
+    const dpr = window.devicePixelRatio || 1;
+    const viewportW = canvas?.clientWidth || r.canvasWidth || 0;
+    const viewportH = canvas ? (canvas.height / dpr) : 0;
+    const fullyVisible = viewportW > 0 && viewportH > 0 ? r.isContentFullyVisible(viewportW, viewportH) : false;
+    const available = showMinimap !== false && !fullyVisible;
+    r.minimapEnabled = available;
     setMinimapAvailable(available);
     if (!available) r._minimapRect = null;
   }, [showMinimap]);
@@ -377,7 +429,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   useEffect(() => {
     if (!animationWidgetOpen) return;
     const handleClickOutside = (e) => {
-      if (animationWidgetRef.current && !animationWidgetRef.current.contains(e.target)) {
+      const clickedInsidePanel = animationWidgetRef.current && animationWidgetRef.current.contains(e.target);
+      const clickedToggle = animationWidgetToggleRef.current && animationWidgetToggleRef.current.contains(e.target);
+      if (!clickedInsidePanel && !clickedToggle) {
         setAnimationWidgetOpen(false);
       }
     };
@@ -394,8 +448,10 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     writeViewPrefs({
       theme,
       layoutSettings,
+      eventTitleSettings,
+      depthSettings,
     });
-  }, [theme, layoutSettings]);
+  }, [theme, layoutSettings, eventTitleSettings, depthSettings]);
 
   // Init renderer
   useEffect(() => {
@@ -403,6 +459,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     rendererRef.current = r;
     if (canvasRef.current) {
       r.attach(canvasRef.current);
+      if (settledCanvasRef.current) r.attachSettledCanvas(settledCanvasRef.current);
       if (minimapCanvasRef.current) r.attachMinimapCanvas(minimapCanvasRef.current);
       r.init(header.bitCount, header.sieveSize);
       bitStateRef.current = new Uint8Array(header.bitCount);
@@ -487,13 +544,15 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.outlineStyle = 'dashed';
     r.outlineColor = '#3b82f6';
     r.outlineRounded = true;
-    r.minimapEnabled = showMinimap !== false;
+    r.minimapEnabled = showMinimap !== false && minimapAvailable;
     r.colorPreset = colorPreset;
     r.storageModel = storageModel;
     r.cachelineSize = cachelineSize;
     r.heatMapEnabled = heatMapEnabled;
     r.loweredSetBits = loweredSetBits;
     r.loweredSetBits3D = mode3D;
+    r.loweredDepthStrength = Math.max(0, Math.min(1.0, (depthSettings.strength ?? 80) / 100));
+    r.loweredDepthAngle = Math.max(0, Math.min(90, depthSettings.angle ?? 38));
     r.customSetBit = customColors.setBit;
     r.customClearedBit = customColors.clearedBit;
     r.customUnchangedBit = customColors.unchangedBit;
@@ -570,7 +629,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.render();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
     updateMinimapAvailability();
-  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, loweredSetBits, mode3D, updateMinimapAvailability]);
+  }, [theme, layoutSettings, showMinimap, minimapAvailable, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, loweredSetBits, mode3D, depthSettings, updateMinimapAvailability]);
 
   // Resize handler
   useEffect(() => {
@@ -1643,6 +1702,22 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     );
   }, []);
 
+  const ensureTiltCamera = useCallback(() => {
+    const cam = camera3DRef.current;
+    if (!cam) return null;
+    if (!cam.enabled) {
+      cam.enable();
+      if (!mode3D) {
+        cam.rotateX = Math.max(10, cam.rotateX || 14);
+        cam.rotateY = cam.rotateY || 0;
+        cam.perspective = 1500;
+        setCamera3DContainerStyle(cam.getContainerStyle());
+        setCamera3DTransform(cam.getCanvasTransform());
+      }
+    }
+    return cam;
+  }, [mode3D]);
+
   // Mouse pan & zoom on canvas (with 3D rotation support)
   useEffect(() => {
     const el = containerRef.current;
@@ -1676,9 +1751,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     };
 
     const onContextMenu = (e) => {
-      // Prevent context menu when 3D mode is active (right-click is used for rotation)
-      const cam = camera3DRef.current;
-      if (mode3D || (cam && cam.enabled)) e.preventDefault();
+      // Right-click / ctrl-click is reserved for tilt gestures on the canvas.
+      if (e.button === 2 || e.ctrlKey || e.metaKey) e.preventDefault();
     };
 
     const onAuxClick = (e) => {
@@ -1687,7 +1761,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     };
 
     const isSecondaryRotateGesture = (event, cam) => {
-      if (!cam || !cam.enabled) return false;
+      if (!cam) return false;
       if (event.button === 1 || event.button === 2 || event.which === 3) return true;
       if (event.button === 0 && (event.ctrlKey || event.metaKey)) return true;
       return (event.buttons & 2) === 2;
@@ -1716,6 +1790,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
       const cam = camera3DRef.current;
       if (isSecondaryRotateGesture(e, cam)) {
+        ensureTiltCamera();
         e.preventDefault();
         e.stopPropagation();
         gestureMode = 'rotate';
@@ -1759,9 +1834,10 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       if (!r) return;
       const cam = camera3DRef.current;
 
-      if (gestureMode === 'none' && cam && cam.enabled) {
+      if (gestureMode === 'none' && cam) {
         const secondaryPressed = ((e.buttons & 2) === 2) || (((e.buttons & 1) === 1) && (e.ctrlKey || e.metaKey));
         if (secondaryPressed) {
+          ensureTiltCamera();
           gestureMode = 'rotate';
           activePointerId = e.pointerId;
           startX = e.clientX;
@@ -1821,6 +1897,9 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           setHoveredBitInfo(null);
         }
       }
+      // Always update hover position so balloon follows cursor
+      if (idx >= 0) setHoverPos({ x: e.clientX, y: e.clientY });
+      else setHoverPos(null);
     };
 
     const onPointerEnd = (e) => {
@@ -1891,9 +1970,10 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
     const onMouseDown = (e) => {
       const cam = camera3DRef.current;
-      if (!mode3D && (!cam || !cam.enabled)) return;
+      if (!mode3D && !cam) return;
       const secondary = e.button === 2 || (e.button === 0 && (e.ctrlKey || e.metaKey));
       if (!secondary) return;
+      ensureTiltCamera();
       e.preventDefault();
       e.stopPropagation();
       mouseRotateActive = true;
@@ -1947,6 +2027,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         setHoverInfo('');
         lastHoveredIdxRef.current = -1;
         setHoveredBitInfo(null);
+        setHoverPos(null);
       }
       el.style.cursor = 'crosshair';
     };
@@ -1965,7 +2046,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [computeBitInfo, flyToElement, getMinimapDetailH, updateMinimapAvailability, mode3D]);
+  }, [computeBitInfo, flyToElement, getMinimapDetailH, updateMinimapAvailability, mode3D, ensureTiltCamera]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -2285,6 +2366,32 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     };
   }, [currentStep, currentStepData]);
 
+  const eventTitleStyle = useMemo(() => {
+    const scale = Math.max(0.7, Math.min(1.6, (eventTitleSettings.scale || 100) / 100));
+    return {
+      fontSize: `${14 * scale}px`,
+      padding: `${Math.round(10 * scale)}px ${Math.round(14 * scale)}px`,
+      maxWidth: `min(${Math.round(840 * scale)}px, calc(100% - 160px))`,
+    };
+  }, [eventTitleSettings]);
+
+  const renderCanvasStyle = useMemo(() => (
+    mode3D
+      ? {
+          position: 'absolute',
+          left: '50%',
+          top: '50%',
+          transform: `translate(-50%, -50%) ${camera3DTransform}`,
+          transformStyle: 'preserve-3d',
+          transformOrigin: '50% 50%',
+        }
+      : {
+          transform: camera3DTransform,
+          transformStyle: 'preserve-3d',
+          transformOrigin: '50% 50%',
+        }
+  ), [camera3DTransform, mode3D]);
+
   const playSpeedLabel = useMemo(() => `${(playSpeed / 1000).toFixed(1)}s/step`, [playSpeed]);
   const playbackSpeedValue = useMemo(() => {
     const interval = clampMs(parseInt(playSpeed || 0, 10) || 4000, 4000, 12000);
@@ -2361,6 +2468,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           />
           <span className="step-counter">{currentStep} / {steps.length - 1}</span>
           <button
+            ref={animationWidgetToggleRef}
             className={`btn-icon${animationWidgetOpen ? ' active' : ''}`}
             onClick={() => setAnimationWidgetOpen((value) => !value)}
             title="Animation settings"
@@ -2451,24 +2559,27 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         />
 
         <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
-          <div className={`step-focus-banner${stepsPanelCollapsed ? ' shifted-for-collapsed-events' : ''}`} title={currentStepBanner.title}>
-            <div className="step-focus-line1">{currentStepBanner.line1}</div>
-            {currentStepBanner.line2 && <div className="step-focus-line2">{currentStepBanner.line2}</div>}
-          </div>
+          {eventTitleSettings.visible && (
+            <div
+              className={`step-focus-banner position-${eventTitleSettings.position}${stepsPanelCollapsed && eventTitleSettings.position === 'left' ? ' shifted-for-collapsed-events' : ''}`}
+              title={currentStepBanner.title}
+              style={eventTitleStyle}
+            >
+              <div className="step-focus-line1">{currentStepBanner.line1}</div>
+              {currentStepBanner.line2 && <div className="step-focus-line2">{currentStepBanner.line2}</div>}
+            </div>
+          )}
           <div className={`canvas-container${mode3D ? ' mode-3d' : ''}`} ref={containerRef} style={camera3DContainerStyle}>
+            <canvas
+              ref={settledCanvasRef}
+              className={`settled-render-canvas${loweredSetBits ? ' active' : ''}`}
+              style={renderCanvasStyle}
+              aria-hidden="true"
+            />
             <canvas
               ref={canvasRef}
               className="main-render-canvas"
-              style={mode3D
-                ? {
-                    position: 'absolute',
-                    left: '50%',
-                    top: '50%',
-                    transform: `translate(-50%, -50%) ${camera3DTransform}`,
-                    transformStyle: 'preserve-3d',
-                    transformOrigin: '50% 50%',
-                  }
-                : { transform: camera3DTransform, transformStyle: 'preserve-3d', transformOrigin: '50% 50%' }}
+              style={renderCanvasStyle}
             />
             <canvas ref={minimapCanvasRef} className="minimap-overlay-canvas" aria-hidden="true" />
           </div>
@@ -2545,8 +2656,12 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
             const u64Idx    = Math.floor(bi / 64);
             const bitInU64  = bi % 64;
             const clIdx     = Math.floor(bi / (cachelineSize * 8));
+            const panelStyle = !locked && hoverPos ? {
+              left: Math.max(160, Math.min(window.innerWidth - 160, hoverPos.x)),
+              top: hoverPos.y - 10,
+            } : undefined;
             return (
-              <div className={`bit-history-panel${locked ? ' locked' : ''}`}>
+              <div className={`bit-history-panel${locked ? ' locked' : ' hover-balloon'}`} style={panelStyle}>
                 <div className="bit-history-header">
                   <span>
                     {locked ? '📌 ' : ''}Bit {bi} → #{info.number}
@@ -2643,6 +2758,11 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           showMinimap={showMinimap}
           onShowMinimapChange={setShowMinimap}
           minimapControlVisible={true}
+          depthModeEnabled={loweredSetBits}
+          depthSettings={depthSettings}
+          onDepthSettingsChange={setDepthSettings}
+          eventTitleSettings={eventTitleSettings}
+          onEventTitleSettingsChange={setEventTitleSettings}
           outlineSettings={layoutSettings.outlines}
           onOutlineChange={(outlines) => setLayoutSettings((prev) => ({ ...prev, outlines }))}
           isWindowsPlatform={isWindowsPlatform}

@@ -33,4 +33,4 @@ build/*
 tests/bin/*
 dev/build/*
 dev/dockerfiles/*
-REQUIREMENTS.md
+REQUIREMENTS*

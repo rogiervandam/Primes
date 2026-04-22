@@ -1,4 +1,5 @@
 #include "../generic/variants/setsuffix.h"
+#include "../generic/verbose.h"
 
 // Set one bit to true
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
@@ -26,6 +27,12 @@ function(setBitsTrue_range,suffix)(void* restrict bitstorage, const counter_t ra
     #pragma GCC unroll 32
     for(register counter_t index = range_start; index < range_stop; index += step) function(setBitTrue,suffix)(bitstorage, index);
 
+    TRACE_STEP(bitstorage,
+               "SetBitsTrueRange: range_start=%ju range_stop=%ju step=%ju",
+               (uintmax_t)range_start,
+               (uintmax_t)range_stop,
+               (uintmax_t)step);
+
     logEnd6(time_setBitsTrue_range,"\n");
 }
 
@@ -39,6 +46,13 @@ function(setBitsTrue_range_return,suffix)(void* restrict bitstorage, const count
     #pragma GCC ivdep
     #pragma GCC unroll 32
     for(; index < range_stop; index += step) function(setBitTrue,suffix)(bitstorage, index);
+
+    TRACE_STEP(bitstorage,
+               "SetBitsTrueRangeReturn: range_start=%ju range_stop=%ju step=%ju",
+               (uintmax_t)range_start,
+               (uintmax_t)range_stop,
+               (uintmax_t)step);
+
     logEnd6(time_setBitsTrue_range_return,"\n");
     return index;
 }

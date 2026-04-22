@@ -54,6 +54,7 @@ static inline counter_t __attribute__((always_inline, nonnull, aligned(cache_lin
 markExtendSieveBlock0(sieve_t* sieve, const counter_t block_stop) {
     return markExtendSieveBlock0_half(sieve->bitstorage, block_stop>>1) * 2 + 1;
 }
+
 struct block {
     counter_t pattern_size; // size of pattern applied 
     counter_t pattern_start; // start of pattern

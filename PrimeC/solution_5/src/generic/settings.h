@@ -41,3 +41,5 @@
 #include "helpers.h"
 #include "terminal.h"
 #include "verbose.h"
+#include "environment.h"
+

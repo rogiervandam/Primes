@@ -160,6 +160,8 @@ export class SieveRenderer {
   constructor() {
     this.canvas = null;
     this.ctx = null;
+    this.settledCanvas = null;
+    this.settledCtx = null;
     this.minimapCanvas = null;
     this.minimapCtx = null;
     this.bitCount = 0;
@@ -222,6 +224,9 @@ export class SieveRenderer {
     this.byteLabelMode = 'group';
     this.loweredSetBits = false;
     this.loweredSetBits3D = false;
+    this.loweredDepthStrength = 1;
+    this.loweredDepthAngle = 38;
+    this.changedBitRiseAt = new Map();
 
     // Optional grouping outlines
     this.outlineEnabled = false;
@@ -445,6 +450,11 @@ export class SieveRenderer {
     this.ctx = canvas.getContext('2d', { willReadFrequently: true });
   }
 
+  attachSettledCanvas(canvas) {
+    this.settledCanvas = canvas;
+    this.settledCtx = canvas ? canvas.getContext('2d', { willReadFrequently: true }) : null;
+  }
+
   attachMinimapCanvas(canvas) {
     this.minimapCanvas = canvas;
     this.minimapCtx = canvas ? canvas.getContext('2d') : null;
@@ -471,6 +481,7 @@ export class SieveRenderer {
     this.bitMotionTrails = [];
     this.loweredSetBits = false;
     this.loweredSetBits3D = false;
+    this.changedBitRiseAt = new Map();
     this._frozenClPerVRow = 0;
   }
 
@@ -494,6 +505,11 @@ export class SieveRenderer {
     this.maskSlotBits = maskMetadata?.slotBits || [];
     this.maskGhostBits = new Set();
     this.bitMotionTrails = [];
+    this.changedBitRiseAt = new Map();
+    const now = performance.now();
+    if (changedBits && changedBits.size > 0) {
+      for (const bit of changedBits) this.changedBitRiseAt.set(bit, now);
+    }
   }
 
   setMaskGhostBits(bits) {
@@ -1052,6 +1068,13 @@ export class SieveRenderer {
     this.canvas.style.width = width + 'px';
     this.canvas.style.height = height + 'px';
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (this.settledCanvas && this.settledCtx) {
+      this.settledCanvas.width = width * dpr;
+      this.settledCanvas.height = height * dpr;
+      this.settledCanvas.style.width = width + 'px';
+      this.settledCanvas.style.height = height + 'px';
+      this.settledCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
     this.canvasWidth = width;
     this.canvasHeight = height;
     // Recompute frozen layout on resize
@@ -1297,11 +1320,22 @@ export class SieveRenderer {
 
     const C = this.colors;
     const ctx = this.ctx;
+    const settledCtx = this.settledCtx;
     const cw = this.canvas.width / (window.devicePixelRatio || 1);
     const ch = this.canvas.height / (window.devicePixelRatio || 1);
+    const layeredLoweredBits = this.loweredSetBits && !!settledCtx;
 
-    ctx.fillStyle = `rgb(${C.BACKGROUND.join(',')})`;
-    ctx.fillRect(0, 0, cw, ch);
+    if (layeredLoweredBits) {
+      settledCtx.clearRect(0, 0, cw, ch);
+      settledCtx.fillStyle = `rgb(${C.BACKGROUND.join(',')})`;
+      settledCtx.fillRect(0, 0, cw, ch);
+      ctx.clearRect(0, 0, cw, ch);
+    } else {
+      ctx.clearRect(0, 0, cw, ch);
+      ctx.fillStyle = `rgb(${C.BACKGROUND.join(',')})`;
+      ctx.fillRect(0, 0, cw, ch);
+      if (settledCtx) settledCtx.clearRect(0, 0, cw, ch);
+    }
 
     const px = this.pixelSize * this.zoom;
     const bitsPerCacheLine = this.bitsPerCacheLine;
@@ -1449,38 +1483,144 @@ export class SieveRenderer {
                 color = bitColors.cleared;
               }
 
-              const isSettledBit = !!this.bitState[globalBit] && !this.changedBits.has(globalBit);
-              const sinkEnabled = this.loweredSetBits && isSettledBit;
-              const sinkScale = sinkEnabled ? (this.loweredSetBits3D ? 0.62 : 0.74) : 1;
-              const sinkDrop = sinkEnabled ? px * (this.loweredSetBits3D ? 0.8 : 0.46) : 0;
-              const drawSize = Math.max(1, Math.round(px * sinkScale));
-              const drawX = Math.round(bitX + (px - drawSize) * 0.5);
-              const drawY = Math.round(bitY + sinkDrop + (px - drawSize) * 0.5);
+              const isSetBit = !!this.bitState[globalBit];
+              const isChangedBit = this.changedBits.has(globalBit);
+              const isSettledBit = isSetBit && !isChangedBit;
+              const depthModeEnabled = this.loweredSetBits;
+              const depthStrength = Math.max(0, Math.min(1.0, this.loweredDepthStrength ?? 0.8));
+              const depthAngleRad = (Math.max(0, Math.min(90, this.loweredDepthAngle ?? 38)) * Math.PI) / 180;
+              const depthScale = this.loweredSetBits3D ? 1.18 : 1;
+              const baseDrop = px * Math.sin(depthAngleRad) * 1.05 * depthStrength * depthScale;
+              const baseShiftX = px * Math.cos(depthAngleRad) * 0.55 * depthStrength * depthScale;
+              const isDepthBucket = depthModeEnabled && (isSettledBit || !isSetBit || (isSetBit && isChangedBit));
 
-              ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
-              ctx.fillRect(
-                drawX,
-                drawY,
-                drawSize,
-                drawSize
-              );
+              let sinkDrop = isDepthBucket ? baseDrop : 0;
+              let sinkShiftX = isDepthBucket ? baseShiftX : 0;
+              let sinkScale = isDepthBucket ? (this.loweredSetBits3D ? 0.56 : 0.68) : 1;
+
+              if (isDepthBucket && isSetBit && isChangedBit) {
+                const startedAt = this.changedBitRiseAt.get(globalBit) || performance.now();
+                const elapsed = performance.now() - startedAt;
+                const durationMs = 700;
+                const progress = Math.max(0, Math.min(1, elapsed / durationMs));
+                const peakLift = px * 0.42 * depthStrength;
+                let riseLift = 0;
+                if (progress < 0.32) {
+                  riseLift = peakLift * (progress / 0.32);
+                  sinkDrop = 0;
+                  sinkShiftX = 0;
+                } else if (progress < 0.56) {
+                  riseLift = peakLift * (1 - (progress - 0.32) / 0.24);
+                  sinkDrop = 0;
+                  sinkShiftX = 0;
+                } else {
+                  const settleT = (progress - 0.56) / 0.44;
+                  sinkDrop = baseDrop * settleT;
+                  sinkShiftX = baseShiftX * settleT;
+                }
+                sinkScale = 1 - (1 - sinkScale) * Math.max(0, Math.min(1, (progress - 0.56) / 0.44));
+                sinkDrop -= riseLift;
+              }
+
+              const drawSize = Math.max(1, Math.round(px * sinkScale));
+              const drawX = Math.round(bitX + sinkShiftX + (px - drawSize) * 0.5);
+              const drawY = Math.round(bitY + sinkDrop + (px - drawSize) * 0.5);
+              const drawCtx = layeredLoweredBits && isDepthBucket ? settledCtx : ctx;
+
+              if (layeredLoweredBits && isDepthBucket) {
+                const topX = Math.round(bitX);
+                const topY = Math.round(bitY);
+                const topSize = Math.max(1, Math.round(px));
+
+                // Side faces make the lowered layer read as depth instead of a flat duplicate.
+                ctx.save();
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+                ctx.beginPath();
+                ctx.moveTo(topX + topSize, topY);
+                ctx.lineTo(topX + topSize, topY + topSize);
+                ctx.lineTo(drawX + drawSize, drawY + drawSize);
+                ctx.lineTo(drawX + drawSize, drawY);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.24)';
+                ctx.beginPath();
+                ctx.moveTo(topX, topY + topSize);
+                ctx.lineTo(topX + topSize, topY + topSize);
+                ctx.lineTo(drawX + drawSize, drawY + drawSize);
+                ctx.lineTo(drawX, drawY + drawSize);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+
+                settledCtx.save();
+                settledCtx.strokeStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.38)`;
+                settledCtx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
+                settledCtx.strokeRect(
+                  Math.round(drawX) + 0.5,
+                  Math.round(drawY) + 0.5,
+                  Math.max(1, Math.round(drawSize - 1)),
+                  Math.max(1, Math.round(drawSize - 1))
+                );
+                if (isSetBit) {
+                  settledCtx.fillStyle = 'rgba(0, 0, 0, 0.24)';
+                  settledCtx.fillRect(
+                    Math.round(drawX - Math.max(1, px * 0.08)),
+                    Math.round(drawY - Math.max(1, px * 0.08)),
+                    Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16))),
+                    Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16)))
+                  );
+                  settledCtx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+                  settledCtx.fillRect(drawX, drawY, drawSize, drawSize);
+                  settledCtx.strokeStyle = `rgba(255, 255, 255, ${this.loweredSetBits3D ? '0.16' : '0.12'})`;
+                  settledCtx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
+                  settledCtx.strokeRect(
+                    Math.round(drawX) + 0.5,
+                    Math.round(drawY) + 0.5,
+                    Math.max(1, Math.round(drawSize - 1)),
+                    Math.max(1, Math.round(drawSize - 1))
+                  );
+                }
+                settledCtx.restore();
+
+                ctx.save();
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
+                ctx.fillRect(
+                  Math.round(bitX),
+                  Math.round(bitY),
+                  Math.max(1, Math.round(px)),
+                  Math.max(1, Math.round(px))
+                );
+                ctx.strokeStyle = `rgba(${color[0]},${color[1]},${color[2]},0.28)`;
+                ctx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
+                ctx.strokeRect(
+                  Math.round(bitX) + 0.5,
+                  Math.round(bitY) + 0.5,
+                  Math.max(1, Math.round(px - 1)),
+                  Math.max(1, Math.round(px - 1))
+                );
+                ctx.restore();
+              } else {
+                drawCtx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+                drawCtx.fillRect(drawX, drawY, drawSize, drawSize);
+              }
 
               if (isGhostMaskedBit) {
-                ctx.save();
-                ctx.fillStyle = `rgba(${bitColors.set[0]},${bitColors.set[1]},${bitColors.set[2]},0.2)`;
-                ctx.fillRect(
+                drawCtx.save();
+                drawCtx.fillStyle = `rgba(${bitColors.set[0]},${bitColors.set[1]},${bitColors.set[2]},0.2)`;
+                drawCtx.fillRect(
                   drawX,
                   drawY,
                   drawSize,
                   drawSize
                 );
-                ctx.strokeStyle = `rgba(${bitColors.set[0]},${bitColors.set[1]},${bitColors.set[2]},0.95)`;
-                ctx.lineWidth = Math.max(0.7, Math.min(1.6, px * 0.12));
-                ctx.strokeRect(
+                drawCtx.strokeStyle = `rgba(${bitColors.set[0]},${bitColors.set[1]},${bitColors.set[2]},0.95)`;
+                drawCtx.lineWidth = Math.max(0.7, Math.min(1.6, px * 0.12));
+                drawCtx.strokeRect(
                   Math.round(drawX - 0.5), Math.round(drawY - 0.5),
                   Math.max(2, Math.round(drawSize + 1)), Math.max(2, Math.round(drawSize + 1))
                 );
-                ctx.restore();
+                drawCtx.restore();
               }
 
               if (inFocusRange) {
@@ -2086,6 +2226,21 @@ export class SieveRenderer {
     };
   }
 
+  /** True when the current viewport already contains the full content bounds. */
+  isContentFullyVisible(viewportW, viewportH) {
+    if (this.bitCount === 0) return true;
+    const dims = this.contentDimensions();
+    const viewX = -this.panX;
+    const viewY = -this.panY;
+    const eps = 0.5;
+    return (
+      viewX <= eps &&
+      viewY <= eps &&
+      viewX + viewportW >= dims.width - eps &&
+      viewY + viewportH >= dims.height - eps
+    );
+  }
+
   /** Render minimap overlay in bottom-right corner, offset above detailH */
   renderMinimap(canvasW, canvasH, detailH = 0) {
     let ctx = this.ctx;
@@ -2115,6 +2270,10 @@ export class SieveRenderer {
       return;
     }
     if (this.bitCount === 0) return;
+    if (this.isContentFullyVisible(viewportW, viewportH)) {
+      this._minimapRect = null;
+      return;
+    }
     const dims = this.contentDimensions();
     const pad = 4;
 
@@ -2124,9 +2283,10 @@ export class SieveRenderer {
     );
     const mapW = dims.width * scale + 2 * pad;
     const mapH = dims.height * scale + 2 * pad;
-    const mx = canvasW - mapW - 10;
-    const panelClearance = detailH > 0 ? 20 : 10;
-    const my = canvasH - mapH - panelClearance;
+    const edgePad = 10;
+    const mx = Math.max(edgePad, canvasW - mapW - edgePad);
+    const panelClearance = Math.max(0, detailH) + edgePad;
+    const my = Math.max(edgePad, canvasH - mapH - panelClearance);
 
     // Store minimap geometry for hit testing
     this._minimapRect = { mx, my, mapW, mapH, scale, pad, dims };

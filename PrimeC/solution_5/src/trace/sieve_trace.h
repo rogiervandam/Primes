@@ -509,6 +509,9 @@ trace_record_applymask_step_labeled(void* bitstorage,
     const uint8_t* current = (const uint8_t*)bitstorage;
     const uint32_t step_id = g_trace.step_count++;
     const char* event_label = trace_optional_label(label);
+    const uint64_t bit_start = word_start * word_bits;
+    const uint64_t bit_stop = (word_stop + 1) * word_bits - 1;
+    const uint64_t bit_step = step_words * word_bits;
 
     fputs("EVENT", g_trace.file);
     if (g_trace.depth > 0) fprintf(g_trace.file, " depth=%d", g_trace.depth);
@@ -528,7 +531,10 @@ trace_record_applymask_step_labeled(void* bitstorage,
     fputs(" annotation=", g_trace.file);
     trace_write_json_string(g_trace.file, annotation ? annotation : "");
     fprintf(g_trace.file,
-            " word_bits=%llu word_start=%llu word_stop=%llu step_words=%llu",
+            " start=%llu stop=%llu step=%llu word_bits=%llu word_start=%llu word_stop=%llu step_words=%llu",
+            (unsigned long long)bit_start,
+            (unsigned long long)bit_stop,
+            (unsigned long long)bit_step,
             (unsigned long long)word_bits,
             (unsigned long long)word_start,
             (unsigned long long)word_stop,
@@ -569,8 +575,11 @@ trace_record_applymask_step_labeled(void* bitstorage,
         fputs("{\"annotation\":", g_trace.json_file);
         trace_write_json_string(g_trace.json_file, annotation ? annotation : "");
         fprintf(g_trace.json_file,
-                ",\"depth\":%d,\"word_bits\":%llu,\"word_start\":%llu,\"word_stop\":%llu,\"step_words\":%llu",
+            ",\"depth\":%d,\"start\":%llu,\"stop\":%llu,\"step\":%llu,\"word_bits\":%llu,\"word_start\":%llu,\"word_stop\":%llu,\"step_words\":%llu",
                 g_trace.depth,
+            (unsigned long long)bit_start,
+            (unsigned long long)bit_stop,
+            (unsigned long long)bit_step,
                 (unsigned long long)word_bits,
                 (unsigned long long)word_start,
                 (unsigned long long)word_stop,

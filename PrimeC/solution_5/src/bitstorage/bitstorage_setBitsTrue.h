@@ -4,7 +4,7 @@
 #include "bitstorage_setBitsTrue_assemble_vector.h" 
 
 // Function to dispatch the correct setBitsTrue function based on the step size and occurrences
-static inline void  
+static inline void  __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 setBitsTrue_v128(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
 {
     if      (step  <  16)  setBitsTrue_smallstep_rotate_pair_uint16v8_unroll8(bitstorage, range_start, range_stop, step);
@@ -25,7 +25,7 @@ setBitsTrue_v128(void* restrict bitstorage, const counter_t range_start, const c
 }
 
 // Function to dispatch the correct setBitsTrue function based on the step size and occurrences
-static inline void  
+static inline void  __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 setBitsTrue_v256(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
 {
 
@@ -66,7 +66,7 @@ setBitsTrue_v256(void* restrict bitstorage, const counter_t range_start, const c
 }
 
 // Function to dispatch the correct setBitsTrue function based on the step size and occurrences
-static inline void  
+static inline void  __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 setBitsTrue_v512(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
 {
 
@@ -90,6 +90,9 @@ setBitsTrue_v512(void* restrict bitstorage, const counter_t range_start, const c
 static inline void  __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 setBitsTrue(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
 {
+    // const counter_t range = range_stop - range_start, ratio = range / step;
+    // if (ratio < 16) setBitsTrue_largestep_norepeat_uint8       (bitstorage, range_start, range_stop, step);
+    // else 
     switch(global_vectorsize) {
         case 128: setBitsTrue_v128 (bitstorage, range_start, range_stop, step); break;
         case 256: setBitsTrue_v256 (bitstorage, range_start, range_stop, step); break;

@@ -9,6 +9,7 @@
 #include "bitstorage_continuePattern_aligned.h"
 #include "bitstorage_continuePattern_shiftleft.h"
 #include "bitstorage_continuePattern_shiftright.h"
+#include "../generic/verbose.h"
 
 // continue a pattern that start at <source_start> with a size of <size>.
 // repeat this pattern up to <destination_stop>.
@@ -22,6 +23,11 @@ continuePattern(void* restrict bitstorage, const counter_t source_start, const c
 
     if (size < bitcount_type(bitbucket_t)) {
         continuePattern_smallSize(bitstorage, source_start, destination_stop, size);
+        TRACE_STEP(bitstorage,
+                   "ContinuePattern: source_start=%ju destination_stop=%ju size=%ju",
+                   (uintmax_t)source_start,
+                   (uintmax_t)destination_stop,
+                   (uintmax_t)size);
         logEnd7(time_continuePattern, "\n");
         return;
     }
@@ -32,6 +38,12 @@ continuePattern(void* restrict bitstorage, const counter_t source_start, const c
     if      (source_bit > copy_bit) continuePattern_shiftleft (bitstorage, source_start, destination_stop, size);
     else if (source_bit < copy_bit) continuePattern_shiftright(bitstorage, source_start, destination_stop, size);
     else                            continuePattern_aligned   (bitstorage, source_start, destination_stop, size);
+
+    TRACE_STEP(bitstorage,
+               "ContinuePattern: source_start=%ju destination_stop=%ju size=%ju",
+               (uintmax_t)source_start,
+               (uintmax_t)destination_stop,
+               (uintmax_t)size);
 
     // timer_laptime(time_continuePattern); verbose7( printf("\n"); )
     logEnd7(time_continuePattern,"\n");

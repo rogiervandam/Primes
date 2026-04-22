@@ -611,6 +611,24 @@ html, body, #root {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
 }
 
+.step-focus-banner.position-left {
+  left: 14px;
+  right: auto;
+  transform: none;
+}
+
+.step-focus-banner.position-center {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+}
+
+.step-focus-banner.position-right {
+  left: auto;
+  right: 14px;
+  transform: none;
+}
+
 .step-focus-banner.shifted-for-collapsed-events {
   top: 56px;
 }
@@ -622,7 +640,7 @@ html, body, #root {
 
 .step-focus-line2 {
   margin-top: 3px;
-  font-size: 12.5px;
+  font-size: 0.89em;
   color: var(--fg);
 }
 .canvas-container {
@@ -639,9 +657,29 @@ html, body, #root {
   perspective-origin: 50% 50%;
   overflow: visible;
 }
+.canvas-container .settled-render-canvas,
 .canvas-container .main-render-canvas {
+  position: absolute;
+  inset: 0;
   display: block;
 }
+
+.canvas-container .settled-render-canvas {
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+.canvas-container .settled-render-canvas.active {
+  opacity: 1;
+}
+
+.canvas-container .main-render-canvas {
+  z-index: 1;
+}
+
+.canvas-container.mode-3d .settled-render-canvas,
 .canvas-container.mode-3d .main-render-canvas {
   transform-origin: 50% 50%;
   will-change: transform;
@@ -661,14 +699,15 @@ html, body, #root {
 }
 .animation-widget {
   position: absolute;
-  top: 8px;
-  left: 50%;
+  top: 10px;
+  right: 12px;
+  left: auto;
   bottom: auto;
-  transform: translateX(-50%);
-  z-index: 14;
+  transform: none;
+  z-index: 40;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
 }
 .animation-widget.speed-linked::before {
@@ -692,6 +731,7 @@ html, body, #root {
   background: color-mix(in srgb, var(--bg-surface) 92%, var(--bg-raised));
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.34);
   backdrop-filter: blur(10px);
+  pointer-events: auto;
 }
 .animation-widget-header {
   display: flex;
@@ -1084,7 +1124,8 @@ html, body, #root {
 
   .animation-widget {
     right: 8px;
-    bottom: 48px;
+    top: 8px;
+    bottom: auto;
   }
 
   .animation-widget-panel {
@@ -1224,6 +1265,31 @@ html, body, #root {
   text-align: right;
   color: var(--fg);
   font-weight: 600;
+}
+
+.overlay-inline-controls {
+  margin-top: 6px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.overlay-inline-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 110px;
+  flex: 1 1 0;
+}
+
+.overlay-inline-field span {
+  color: var(--fg-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.overlay-inline-field-range {
+  min-width: 180px;
 }
 .layout-icons {
   display: flex;
@@ -1536,14 +1602,32 @@ html, body, #root {
 
 /* ---- Bit History Panel ---- */
 .bit-history-panel {
-  position: absolute; top: 8px; right: 8px;
   background: var(--bg-surface); border: 1px solid var(--border);
-  border-radius: 8px; min-width: 280px; max-width: 400px; max-height: 50vh;
+  border-radius: 8px; min-width: 260px; max-width: 380px; max-height: 50vh;
   display: flex; flex-direction: column; box-shadow: 0 4px 16px rgba(0,0,0,.3);
-  z-index: 50; overflow: hidden;
+  overflow: hidden;
 }
 .bit-history-panel.locked {
+  position: absolute; top: 8px; right: 8px;
+  z-index: 50;
   border-color: var(--accent);
+}
+.bit-history-panel.hover-balloon {
+  position: fixed;
+  z-index: 200;
+  transform: translateX(-50%) translateY(calc(-100% - 14px));
+  pointer-events: none;
+}
+.bit-history-panel.hover-balloon::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 10px; height: 10px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 .bit-history-header {
   display: flex; justify-content: space-between; align-items: center;

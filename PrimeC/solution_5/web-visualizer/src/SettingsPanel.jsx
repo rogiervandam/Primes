@@ -110,6 +110,11 @@ export default function SettingsPanel({
   heatMapEnabled, onHeatMapToggle,
   showMinimap, onShowMinimapChange,
   minimapControlVisible = true,
+  depthModeEnabled = false,
+  depthSettings,
+  onDepthSettingsChange,
+  eventTitleSettings,
+  onEventTitleSettingsChange,
   outlineSettings, onOutlineChange,
   isWindowsPlatform = false,
   showAnimationControls = true,
@@ -758,20 +763,112 @@ export default function SettingsPanel({
                 </svg>
               )}
             />
+            {minimapControlVisible && (
+              <PreviewOptionButton
+                compact
+                label="Minimap"
+                hint="Show navigation minimap"
+                active={showMinimap !== false}
+                onClick={() => onShowMinimapChange && onShowMinimapChange(!(showMinimap !== false))}
+                preview={(
+                  <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                    <rect x="3" y="3" width="42" height="16" rx="2" />
+                    <rect x="18" y="7" width="12" height="8" rx="1" />
+                  </svg>
+                )}
+              />
+            )}
             <PreviewOptionButton
               compact
-              label="Minimap"
-              hint="Show navigation minimap"
-              active={showMinimap !== false}
-              onClick={() => onShowMinimapChange && onShowMinimapChange(!(showMinimap !== false))}
+              label="Event title"
+              hint="Show the current event title above the canvas"
+              active={eventTitleSettings?.visible !== false}
+              onClick={() => onEventTitleSettingsChange && onEventTitleSettingsChange((prev) => ({
+                ...(prev || eventTitleSettings || {}),
+                visible: !((prev || eventTitleSettings || {}).visible !== false),
+              }))}
               preview={(
                 <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                  <rect x="3" y="3" width="42" height="16" rx="2" />
-                  <rect x="18" y="7" width="12" height="8" rx="1" />
+                  <rect x="4" y="4" width="40" height="14" rx="3" />
+                  <path d="M9 9h18" />
+                  <path d="M9 13h28" />
                 </svg>
               )}
             />
           </div>
+          {eventTitleSettings?.visible !== false && (
+            <>
+              <div className="settings-row overlay-inline-controls">
+                <label className="overlay-inline-field">
+                  <span>Position</span>
+                  <select
+                    value={eventTitleSettings?.position || 'center'}
+                    onChange={(e) => onEventTitleSettingsChange && onEventTitleSettingsChange((prev) => ({
+                      ...(prev || eventTitleSettings || {}),
+                      position: e.target.value,
+                    }))}
+                  >
+                    <option value="left">Left</option>
+                    <option value="center">Center</option>
+                    <option value="right">Right</option>
+                  </select>
+                </label>
+                <label className="overlay-inline-field overlay-inline-field-range">
+                  <span>Size</span>
+                  <input
+                    type="range"
+                    min={70}
+                    max={160}
+                    step={5}
+                    value={eventTitleSettings?.scale || 100}
+                    onChange={(e) => onEventTitleSettingsChange && onEventTitleSettingsChange((prev) => ({
+                      ...(prev || eventTitleSettings || {}),
+                      scale: parseInt(e.target.value, 10),
+                    }))}
+                  />
+                  <span className="val">{eventTitleSettings?.scale || 100}%</span>
+                </label>
+              </div>
+              <span className="settings-hint">Move the title away from the trace header when the events panel is collapsed.</span>
+            </>
+          )}
+          {depthModeEnabled && (
+            <>
+              <div className="settings-row overlay-inline-controls">
+                <label className="overlay-inline-field overlay-inline-field-range">
+                  <span>Depth strength</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={depthSettings?.strength ?? 80}
+                    onChange={(e) => onDepthSettingsChange && onDepthSettingsChange((prev) => ({
+                      ...(prev || depthSettings || {}),
+                      strength: parseInt(e.target.value, 10),
+                    }))}
+                  />
+                  <span className="val">{depthSettings?.strength ?? 80}%</span>
+                </label>
+                <label className="overlay-inline-field overlay-inline-field-range">
+                  <span>Depth angle</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={90}
+                    step={1}
+                    value={depthSettings?.angle ?? 38}
+                    onChange={(e) => onDepthSettingsChange && onDepthSettingsChange((prev) => ({
+                      ...(prev || depthSettings || {}),
+                      angle: parseInt(e.target.value, 10),
+                    }))}
+                  />
+                  <span className="val">{depthSettings?.angle ?? 38}°</span>
+                </label>
+              </div>
+              <span className="settings-hint">Tune how deep and at what angle bits fall through the sieve.</span>
+            </>
+          )}
         </div>
 
         <div className="settings-section">
