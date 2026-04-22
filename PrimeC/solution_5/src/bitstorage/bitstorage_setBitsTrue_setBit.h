@@ -35,7 +35,7 @@ function(setBitsTrue_range,suffix)(void* restrict bitstorage, const counter_t ra
     //            (uintmax_t)range_stop,
     //            (uintmax_t)step);
 
-    logEnd8(time_setBitsTrue_range,"\n");
+    logEnd8(bitstorage, time_setBitsTrue_range,"\n");
 }
 
 // Set bits to true with a step in a range. This function returns the last index that was set
@@ -55,7 +55,7 @@ function(setBitsTrue_range_return,suffix)(void* restrict bitstorage, const count
     //            (uintmax_t)range_stop,
     //            (uintmax_t)step);
 
-    logEnd8(time_setBitsTrue_range_return,"\n");
+    logEnd8(bitstorage, time_setBitsTrue_range_return,"\n");
     return index;
 }
 
