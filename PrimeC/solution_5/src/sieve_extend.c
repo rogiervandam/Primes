@@ -45,8 +45,8 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
     const counter_t blocksize_factor    = calcFactorsize_half(global_blocksize_bits);
     const counter_t algorithm           = global_algorithm;
 
-    log5("\nShaking sieve to find all primes up to %ju by marking multiples of all primes up to %ju\n", (uintmax_t)sieve_size, (uintmax_t)calcFactor_max(sieve_size));
-    log5("Using compressed primes up to %ju with sieve size %ju and blocksize %ju\n",(uintmax_t)prime_max, (uintmax_t)sieve_size,(uintmax_t)blocksize_factor);
+    log4("\nShaking sieve to find all primes up to %ju by marking multiples of all primes up to %ju\n", (uintmax_t)sieve_size, (uintmax_t)calcFactor_max(sieve_size));
+    log4("Using compressed primes up to %ju with sieve size %ju and blocksize %ju\n",(uintmax_t)prime_max, (uintmax_t)sieve_size,(uintmax_t)blocksize_factor);
 
     switch( algorithm ) 
     {

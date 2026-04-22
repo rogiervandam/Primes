@@ -19,6 +19,6 @@
  * Memory dump supports both hex and binary payloads.
  */
 
-#define TRACE_FORMAT_VERSION 6
+#define TRACE_FORMAT_VERSION 7
 
 #endif /* SIEVE_TRACE_FORMAT_H */

@@ -41,7 +41,7 @@ usage(char *program_name, int exit_code)
 #endif
 #ifdef COMPILE_TRACE
         "  --trace [level]           Record trace-level output to a .sievetrace file\n"
-        "                            Optional level range: 0-9 (default: 9)\n"
+        "                            Optional level range: 5-9 (default: 9)\n"
         "  --trace-filename <file>   Set trace output filename (use with --trace)\n"
         "                            Defaults to log/<timestamp>_<program>.sievetrace\n"
         "                            Use the visualizer tool to view the trace afterwards\n"

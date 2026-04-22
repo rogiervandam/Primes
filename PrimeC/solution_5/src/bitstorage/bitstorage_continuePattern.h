@@ -19,22 +19,22 @@
 static inline void __attribute__((always_inline, nonnull)) 
 continuePattern(void* restrict bitstorage, const counter_t source_start, const counter_t destination_stop, const counter_t size)
 {
-    logBegin7(time_continuePattern, "ContinuePattern: continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
+    logBegin6(time_continuePattern, "ContinuePattern: continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
 
-    TRACE_STEP(bitstorage,
-               "ContinuePattern: at start, source_start=%ju destination_stop=%ju size=%ju",
-               (uintmax_t)source_start,
-               (uintmax_t)destination_stop,
-               (uintmax_t)size);
+    // TRACE_STEP(bitstorage,
+    //            "ContinuePattern: at start, source_start=%ju destination_stop=%ju size=%ju",
+    //            (uintmax_t)source_start,
+    //            (uintmax_t)destination_stop,
+    //            (uintmax_t)size);
 
     if (size < bitcount_type(bitbucket_t)) {
         continuePattern_smallSize(bitstorage, source_start, destination_stop, size);
-        TRACE_STEP(bitstorage,
-                   "ContinuePattern: handled with small size source_start=%ju destination_stop=%ju size=%ju",
-                   (uintmax_t)source_start,
-                   (uintmax_t)destination_stop,
-                   (uintmax_t)size);
-        logEnd7(time_continuePattern, "\n");
+        // TRACE_STEP(bitstorage,
+        //            "ContinuePattern: handled with small size source_start=%ju destination_stop=%ju size=%ju",
+        //            (uintmax_t)source_start,
+        //            (uintmax_t)destination_stop,
+        //            (uintmax_t)size);
+        logEnd6(time_continuePattern, "\n");
         return;
     }
 
@@ -45,11 +45,11 @@ continuePattern(void* restrict bitstorage, const counter_t source_start, const c
     else if (source_bit < copy_bit) continuePattern_shiftright(bitstorage, source_start, destination_stop, size);
     else                            continuePattern_aligned   (bitstorage, source_start, destination_stop, size);
 
-    TRACE_STEP(bitstorage,
-               "ContinuePattern: source_start=%ju destination_stop=%ju size=%ju",
-               (uintmax_t)source_start,
-               (uintmax_t)destination_stop,
-               (uintmax_t)size);
+    // TRACE_STEP(bitstorage,
+    //            "ContinuePattern: source_start=%ju destination_stop=%ju size=%ju",
+    //            (uintmax_t)source_start,
+    //            (uintmax_t)destination_stop,
+    //            (uintmax_t)size);
 
-    logEnd7(time_continuePattern,"\n");
+    logEnd6(time_continuePattern,"\n");
 }

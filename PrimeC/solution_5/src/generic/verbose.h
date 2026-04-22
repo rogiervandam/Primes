@@ -87,17 +87,25 @@ int waitforkey(void);
 #ifdef COMPILE_TRACE
   #include "../trace/sieve_trace.h"
   #define TRACE_STEP(bitstorage_ptr, fmt, ...) trace_record_step_fmt(bitstorage_ptr, fmt, ##__VA_ARGS__)
+  #define TRACE_STEP_LEVEL(level, bitstorage_ptr, fmt, ...) trace_record_step_fmt_level(bitstorage_ptr, level, fmt, ##__VA_ARGS__)
   #define TRACE_EVENT(bitstorage_ptr, fmt, ...) \
       trace_record_step_fmt(bitstorage_ptr, fmt, ##__VA_ARGS__)
+  #define TRACE_EVENT_LEVEL(level, bitstorage_ptr, fmt, ...) \
+      trace_record_step_fmt_level(bitstorage_ptr, level, fmt, ##__VA_ARGS__)
   #define TRACE_STEP_META(bitstorage_ptr, op, prime, bstart, bstop, fstep, fmt, ...) \
       TRACE_EVENT(bitstorage_ptr, fmt, ##__VA_ARGS__)
     #define TRACE_TEXT(fmt, ...) trace_record_text_fmt(fmt, ##__VA_ARGS__)
+    #define TRACE_TEXT_LEVEL(level, fmt, ...) trace_record_text_fmt_level(level, fmt, ##__VA_ARGS__)
     #ifdef COMPILE_TIMERS
       #define TRACE_TEXT_TIMER(timer, fmt, ...) trace_record_text_labeled_fmt(timer_function_names[(counter_t)(timer)], fmt, ##__VA_ARGS__)
+      #define TRACE_TEXT_TIMER_LEVEL(level, timer, fmt, ...) trace_record_text_labeled_fmt_level(level, timer_function_names[(counter_t)(timer)], fmt, ##__VA_ARGS__)
       #define TRACE_EVENT_TIMER(bitstorage_ptr, timer, fmt, ...) trace_record_step_labeled_fmt(bitstorage_ptr, timer_function_names[(counter_t)(timer)], fmt, ##__VA_ARGS__)
+      #define TRACE_EVENT_TIMER_LEVEL(level, bitstorage_ptr, timer, fmt, ...) trace_record_step_labeled_fmt_level(bitstorage_ptr, level, timer_function_names[(counter_t)(timer)], fmt, ##__VA_ARGS__)
     #else
       #define TRACE_TEXT_TIMER(timer, fmt, ...) TRACE_TEXT(fmt, ##__VA_ARGS__)
+      #define TRACE_TEXT_TIMER_LEVEL(level, timer, fmt, ...) TRACE_TEXT_LEVEL(level, fmt, ##__VA_ARGS__)
       #define TRACE_EVENT_TIMER(bitstorage_ptr, timer, fmt, ...) TRACE_EVENT(bitstorage_ptr, fmt, ##__VA_ARGS__)
+      #define TRACE_EVENT_TIMER_LEVEL(level, bitstorage_ptr, timer, fmt, ...) TRACE_EVENT_LEVEL(level, bitstorage_ptr, fmt, ##__VA_ARGS__)
     #endif
     #define TRACE_ANALYSIS_PUSH(level) primes_trace_set_context(level)
     #define TRACE_ANALYSIS_START(level, ...) do { TRACE_ANALYSIS_PUSH(level); } while (0)
@@ -117,11 +125,16 @@ int waitforkey(void);
   //     TRACE_ANALYSIS_END(); timer_laptime(timer); __VA_OPT__(verbose(level, printf(__VA_ARGS__);))
 #else
   #define TRACE_STEP(bitstorage_ptr, fmt, ...)
+  #define TRACE_STEP_LEVEL(level, bitstorage_ptr, fmt, ...)
   #define TRACE_EVENT(bitstorage_ptr, fmt, ...)
+  #define TRACE_EVENT_LEVEL(level, bitstorage_ptr, fmt, ...)
   #define TRACE_STEP_META(bitstorage_ptr, op, prime, bstart, bstop, fstep, fmt, ...)
   #define TRACE_TEXT(fmt, ...)
+  #define TRACE_TEXT_LEVEL(level, fmt, ...)
   #define TRACE_TEXT_TIMER(timer, fmt, ...)
+  #define TRACE_TEXT_TIMER_LEVEL(level, timer, fmt, ...)
   #define TRACE_EVENT_TIMER(bitstorage_ptr, timer, fmt, ...)
+  #define TRACE_EVENT_TIMER_LEVEL(level, bitstorage_ptr, timer, fmt, ...)
   #define TRACE_ANALYSIS_PUSH(level)
   #define TRACE_ANALYSIS_START(level, ...)
   #define TRACE_ANALYSIS_END()
@@ -188,6 +201,7 @@ static inline void primes_log_event_timer(counter_t level, counter_t runtime_ver
 #define logBegin9(timer, printf_args...) PRIMES_LOG_BEGIN(9, timer, printf_args)
 #define logEnd9(timer, ...) PRIMES_LOG_END(9, timer, ##__VA_ARGS__)
 
+#define log4(...) verbose(4, printf(__VA_ARGS__))
 #define log5(...) PRIMES_LOG_DISPATCH(5, __VA_ARGS__)
 #define log6(...) PRIMES_LOG_DISPATCH(6, __VA_ARGS__)
 #define log7(...) PRIMES_LOG_DISPATCH(7, __VA_ARGS__)

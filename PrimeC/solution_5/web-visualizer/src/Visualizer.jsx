@@ -116,6 +116,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     if (Array.isArray(header.infoLines)) items.push(...header.infoLines);
     if (header.maxNumber != null) items.push(`Max ${header.maxNumber.toLocaleString()}`);
     if (header.storageModel) items.push(`Storage ${header.storageModel}`);
+    if (header.traceLevel != null) items.push(`Trace level ${header.traceLevel}`);
     items.push(`Bits ${header.bitCount.toLocaleString()}`);
     items.push(`Events ${header.stepCount}`);
     items.push(`v${header.version}`);

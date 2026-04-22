@@ -56,6 +56,7 @@ function parseJsonTrace(text) {
     maxNumber: json.max_number ?? json.sieve_size,
     stepCount: rawSteps.length,
     storageModel: json.storage_model || 'half',
+    traceLevel: toNullableNumber(firstDefined(json.trace_level, json.log_level)),
     benchmarkSettings: firstDefined(json.benchmark_settings, json.settings, null),
   };
 
@@ -110,6 +111,7 @@ function parseJsonTrace(text) {
         ? s.operation_path.filter(Boolean)
         : (s.operation ? [s.operation] : []),
       parentId: s.parent_id ?? s.parentId ?? null,
+      level: toNullableNumber(firstDefined(s.level, s.log_level)),
     };
   });
 
@@ -205,6 +207,7 @@ function parseTextTrace(text) {
         depth: Math.max(0, toNumberOr(firstDefined(kv.depth, kv.call_depth), 0)),
         operationPath,
         parentId: toNullableNumber(firstDefined(kv.parent_id, kv.parentId)),
+        level: toNullableNumber(firstDefined(kv.level, kv.log_level)),
       });
       continue;
     }
@@ -222,6 +225,7 @@ function parseTextTrace(text) {
         stop: inferred.stop,
         factorStep: inferred.factorStep,
         changedBits: [],
+        level: toNullableNumber(firstDefined(startEvent.level, startEvent.log_level)),
         depth,
         operationPath: [...opStack, opName],
       }));
@@ -256,6 +260,7 @@ function parseTextTrace(text) {
       patternSlotCount: event.patternSlotCount,
       patternSlotBits: event.patternSlotBits,
       patternDescription: event.patternDescription,
+      level: toNullableNumber(firstDefined(event.level, event.log_level)),
       depth,
       operationPath: [...opStack, event.operation],
     }));
@@ -268,6 +273,7 @@ function parseTextTrace(text) {
     maxNumber: toNumberOr(firstDefined(headerKv.max_number, headerKv.sieve_size), 0),
     stepCount: steps.length,
     storageModel: headerKv.storage_model || 'half',
+    traceLevel: toNullableNumber(firstDefined(headerKv.trace_level, headerKv.log_level)),
     benchmarkSettings: firstDefined(headerKv.benchmark_settings, headerKv.settings, null),
   };
 
@@ -292,6 +298,7 @@ function parseFreeformTextTrace(lines, headerKv = {}) {
     maxNumber: toNumberOr(firstDefined(headerKv.max_number, headerKv.sieve_size), 0),
     stepCount: 0,
     storageModel: headerKv.storage_model || 'half',
+    traceLevel: toNullableNumber(firstDefined(headerKv.trace_level, headerKv.log_level)),
     benchmarkSettings: firstDefined(headerKv.benchmark_settings, headerKv.settings, null),
   };
 
@@ -316,6 +323,7 @@ function parseFreeformTextTrace(lines, headerKv = {}) {
         stop: inferred.stop,
         factorStep: inferred.factorStep,
         changedBits: [],
+        level: toNullableNumber(firstDefined(kv.level, kv.log_level)),
         depth: Math.max(0, toNumberOr(firstDefined(kv.depth, kv.call_depth), 0)),
         operationPath: [operation],
       }));
@@ -335,6 +343,7 @@ function parseFreeformTextTrace(lines, headerKv = {}) {
         stop: inferred.stop,
         factorStep: inferred.factorStep,
         changedBits: [],
+        level: toNullableNumber(firstDefined(startEvent.level, startEvent.log_level)),
         depth,
         operationPath: [...opStack, opName],
       }));
@@ -370,6 +379,7 @@ function parseFreeformTextTrace(lines, headerKv = {}) {
       patternSlotCount: event.patternSlotCount,
       patternSlotBits: event.patternSlotBits,
       patternDescription: event.patternDescription,
+      level: toNullableNumber(firstDefined(event.level, event.log_level)),
       depth,
       operationPath: [...opStack, event.operation],
     }));
@@ -421,6 +431,7 @@ function createParsedStep({
   maskWriteOrderWords,
   maskWriteOrderSlots,
   maskSlotBits,
+  level,
   depth,
   operationPath,
 }) {
@@ -446,6 +457,7 @@ function createParsedStep({
     maskWriteOrderWords: new Uint32Array(maskWriteOrderWords || []),
     maskWriteOrderSlots: new Uint8Array(maskWriteOrderSlots || []),
     maskSlotBits: Array.isArray(maskSlotBits) ? maskSlotBits.map((bits) => new Uint32Array(bits || [])) : [],
+    level: toNullableNumber(level),
     depth: Math.max(0, toNumberOr(depth, 0)),
     operationPath: Array.isArray(operationPath) && operationPath.length > 0
       ? operationPath

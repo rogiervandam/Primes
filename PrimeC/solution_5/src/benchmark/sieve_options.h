@@ -84,7 +84,7 @@ primes_log_text(counter_t level, counter_t runtime_verbose_level, const char* fm
         primes_log_emit_verbose(level, runtime_verbose_level, annotation);
     }
     if (primes_log_should_trace(level)) {
-        TRACE_TEXT("%s", annotation);
+        TRACE_TEXT_LEVEL(level, "%s", annotation);
     }
 }
 
@@ -101,7 +101,7 @@ primes_log_text_timer(counter_t level, counter_t runtime_verbose_level, counter_
         primes_log_emit_verbose(level, runtime_verbose_level, annotation);
     }
     if (primes_log_should_trace(level)) {
-        TRACE_TEXT_TIMER(timer, "%s", annotation);
+        TRACE_TEXT_TIMER_LEVEL(level, timer, "%s", annotation);
     }
 }
 
@@ -118,7 +118,7 @@ primes_log_event(counter_t level, counter_t runtime_verbose_level, void* bitstor
         primes_log_emit_verbose(level, runtime_verbose_level, annotation);
     }
     if (primes_log_should_trace(level)) {
-        TRACE_EVENT(bitstorage_ptr, "%s", annotation);
+        TRACE_EVENT_LEVEL(level, bitstorage_ptr, "%s", annotation);
     }
 }
 
@@ -135,7 +135,7 @@ primes_log_event_timer(counter_t level, counter_t runtime_verbose_level, void* b
         primes_log_emit_verbose(level, runtime_verbose_level, annotation);
     }
     if (primes_log_should_trace(level)) {
-        TRACE_EVENT_TIMER(bitstorage_ptr, timer, "%s", annotation);
+        TRACE_EVENT_TIMER_LEVEL(level, bitstorage_ptr, timer, "%s", annotation);
     }
 }
 

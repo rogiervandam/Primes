@@ -366,6 +366,9 @@ parseCommandLine(int argc, char *argv[])
             /* --trace [optional level]: enable trace-level logging */
             if (arg + 1 < argc && isdigit_local(argv[arg + 1][0])) {
                 parse_int_arg(argv[++arg], &option.trace_level, 9, program_name, "Invalid trace level");
+                if (option.trace_level < 5 || option.trace_level > 9) {
+                    verbose1({ fprintf(stderr, "Invalid trace level %ju (expected 5-9)\n", (uintmax_t)option.trace_level); usage(program_name, 1); });
+                }
             }
             else if (option.trace_level < default_trace_level) {
                 option.trace_level = default_trace_level;

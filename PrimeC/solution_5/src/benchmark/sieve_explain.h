@@ -39,12 +39,13 @@ initSingleRunTrace(benchmark_settings_t benchmark_settings)
         trace_init(option.trace_filename,
                    (uint64_t)benchmark_settings.factor_max,
                    (uint64_t)trace_bit_count,
+                   (int)option.trace_level,
                                      trace_settings_tag,
                                      trace_title,
                                      trace_info);
 
         if (g_trace.enabled) {
-            trace_record_text_fmt("Settings used: %s", trace_settings_tag);
+            trace_record_text_fmt_level((int)option.trace_level, "Settings used: %s", trace_settings_tag);
 
             uint8_t* empty = (uint8_t*)calloc(1, (size_t)((trace_bit_count + 7) / 8));
             if (empty) {

@@ -51,6 +51,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
   const scrollTopRef = useRef(0);
   const [search, setSearch] = useState('');
   const [filterOp, setFilterOp] = useState('');
+  const [filterLevel, setFilterLevel] = useState('');
   const [collapsed, setCollapsed] = useState(new Set());
   const initialCollapseDoneRef = useRef(false);
   const lastClickedRef = useRef(null);
@@ -88,6 +89,14 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       for (const op of (s.operationPath || [])) ops.add(op);
     }
     return Array.from(ops).sort();
+  }, [steps]);
+
+  const traceLevels = useMemo(() => {
+    const levels = new Set();
+    for (const s of steps) {
+      if (Number.isFinite(s.level)) levels.add(Number(s.level));
+    }
+    return Array.from(levels).sort((a, b) => a - b);
   }, [steps]);
 
   // Build hierarchical tree grouped by prime, then nested by depth within each group
@@ -141,21 +150,23 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
 
   // Filter — operates on flat children before depth-tree is built
   const filteredTree = useMemo(() => {
-    if (!search && !filterOp) return tree;
+    if (!search && !filterOp && !filterLevel) return tree;
     const lower = search.toLowerCase();
+    const requestedLevel = filterLevel ? Number(filterLevel) : null;
     return tree.map(g => {
       const fc = g.children.filter(s => {
         const path = s.operationPath || [];
+        if (requestedLevel != null && s.level !== requestedLevel) return false;
         if (filterOp && s.operation !== filterOp && !path.includes(filterOp)) return false;
         if (lower) {
-          const text = `${s.stepId} ${s.annotation} ${s.operation || ''} ${(s.operationPath || []).join(' ')} ${s.prime ?? ''} ${g.label}`.toLowerCase();
+          const text = `${s.stepId} ${s.level ?? ''} ${s.annotation} ${s.operation || ''} ${(s.operationPath || []).join(' ')} ${s.prime ?? ''} ${g.label}`.toLowerCase();
           if (!text.includes(lower)) return false;
         }
         return true;
       });
       return { ...g, children: fc, depthTree: buildDepthTree(fc) };
     }).filter(g => g.children.length > 0);
-  }, [tree, search, filterOp]);
+  }, [tree, search, filterOp, filterLevel]);
 
   useEffect(() => {
     if (initialCollapseDoneRef.current || tree.length === 0) return;
@@ -167,6 +178,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
   useEffect(() => {
     setSearch('');
     setFilterOp('');
+    setFilterLevel('');
     setCollapsed(new Set());
     initialCollapseDoneRef.current = false;
     lastClickedRef.current = null;
@@ -244,6 +256,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
           )}
           {!hasChildren && <span className="step-depth-bullet">·</span>}
           <span className="step-num">{eventId}</span>
+          {Number.isFinite(node.level) && <span className="step-op">L{node.level}</span>}
           {node.operation && <span className="step-op">{node.operation}</span>}
           <span className="step-changes">{changedCount > 0 ? `+${changedCount}` : ''}</span>
           <span className="step-text">{summaryText}</span>
@@ -323,6 +336,12 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
           <select className="step-filter" value={filterOp} onChange={(e) => setFilterOp(e.target.value)}>
             <option value="">All operations</option>
             {operations.map(op => <option key={op} value={op}>{op}</option>)}
+          </select>
+        )}
+        {traceLevels.length > 0 && (
+          <select className="step-filter" value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)}>
+            <option value="">All log levels</option>
+            {traceLevels.map((level) => <option key={level} value={String(level)}>Level {level}</option>)}
           </select>
         )}
       </div>

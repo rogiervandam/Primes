@@ -169,6 +169,7 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
                 trace_record_applymask_step_labeled(bitstorage,
                                                     annotation,
                                                     "ApplyMask",
+                                                    8,
                                                     (uint64_t)bitcount_type(bitbucket_t),
                                                     (uint64_t)range_start_index,
                                                     (uint64_t)range_stop_index,
