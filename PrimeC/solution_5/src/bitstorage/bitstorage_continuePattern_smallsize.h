@@ -24,7 +24,7 @@ continuePattern_smallSize(void* restrict bitstorage, const counter_t source_star
     if (destination_start_word >= destination_stop_word) {
         bitstorage_sized[destination_start_word] |= (pattern << bitindex_calc_type(destination_start, bitbucket_t)) & chopmask_type(destination_stop, bitbucket_t);
 
-        log7(bitstorage, "ContinuePatternSmallSize: handled with small size in one word destination_start=%ju destination_stop=%ju size=%ju", (uintmax_t)destination_start, (uintmax_t)destination_stop, (uintmax_t)size);
+        log9(bitstorage, "ContinuePatternSmallSize: handled with small size in one word destination_start=%ju destination_stop=%ju size=%ju", (uintmax_t)destination_start, (uintmax_t)destination_stop, (uintmax_t)size);
         // TRACE_STEP(bitstorage,
         //            "ContinuePatternSmallSize: handled with small size in one word destination_start=%ju destination_stop=%ju size=%ju",
         //            (uintmax_t)destination_start,
@@ -36,7 +36,7 @@ continuePattern_smallSize(void* restrict bitstorage, const counter_t source_star
     }
 
     bitstorage_sized[destination_start_word++] |= (pattern << bitindex_type(destination_start, bitbucket_t));
-    log7(bitstorage,
+    log9(bitstorage,
         "ContinuePattern_smallsize: setting first word of destination_start=%ju destination_stop=%ju size=%ju",
         (uintmax_t)source_start,
         (uintmax_t)destination_stop,
@@ -47,7 +47,7 @@ continuePattern_smallSize(void* restrict bitstorage, const counter_t source_star
     // destination_start_word++;
     register counter_t loop_range = destination_stop_word - destination_start_word;
     
-    log7(bitstorage, "Destination start word %ju, stop word %ju, loop range %ju\n", (uintmax_t)destination_start_word, (uintmax_t)destination_stop_word, (uintmax_t)loop_range);
+    // log7(bitstorage, "Destination start word %ju, stop word %ju, loop range %ju\n", (uintmax_t)destination_start_word, (uintmax_t)destination_stop_word, (uintmax_t)loop_range);
         // TRACE_STEP(bitstorage, "Destination start word %ju, stop word %ju, loop range %ju\n", (uintmax_t)destination_start_word, (uintmax_t)destination_stop_word, (uintmax_t)loop_range);
 
     #pragma GCC ivdep

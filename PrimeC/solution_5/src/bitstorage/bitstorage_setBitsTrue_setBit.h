@@ -7,6 +7,7 @@ function(setBitTrue,suffix)(void* restrict bitstorage, const register counter_t 
 {
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
     bitstorage_sized[index_type(index,bitbucket_t)] |= markmask_type(index, bitbucket_t);
+    log9(bitstorage, "SetBitTrue: setting bit at index %ju", (uintmax_t)index);
 }
 
 // Set one bit to false
@@ -15,6 +16,7 @@ function(setBitFalse,suffix)(void* restrict bitstorage, const register counter_t
 {
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
     bitstorage_sized[index_type(index,bitbucket_t)] &= ~markmask_type(index, bitbucket_t);
+    log9(bitstorage, "SetBitFalse: clearing bit at index %ju", (uintmax_t)index);
 }
 
 // Set bits to true with a step in a range. 
@@ -27,11 +29,11 @@ function(setBitsTrue_range,suffix)(void* restrict bitstorage, const counter_t ra
     #pragma GCC unroll 32
     for(register counter_t index = range_start; index < range_stop; index += step) function(setBitTrue,suffix)(bitstorage, index);
 
-    TRACE_STEP(bitstorage,
-               "SetBitsTrueRange: range_start=%ju range_stop=%ju step=%ju",
-               (uintmax_t)range_start,
-               (uintmax_t)range_stop,
-               (uintmax_t)step);
+    // TRACE_STEP(bitstorage,
+    //            "SetBitsTrueRange: range_start=%ju range_stop=%ju step=%ju",
+    //            (uintmax_t)range_start,
+    //            (uintmax_t)range_stop,
+    //            (uintmax_t)step);
 
     logEnd8(time_setBitsTrue_range,"\n");
 }
@@ -47,11 +49,11 @@ function(setBitsTrue_range_return,suffix)(void* restrict bitstorage, const count
     #pragma GCC unroll 32
     for(; index < range_stop; index += step) function(setBitTrue,suffix)(bitstorage, index);
 
-    TRACE_STEP(bitstorage,
-               "SetBitsTrueRangeReturn: range_start=%ju range_stop=%ju step=%ju",
-               (uintmax_t)range_start,
-               (uintmax_t)range_stop,
-               (uintmax_t)step);
+    // TRACE_STEP(bitstorage,
+    //            "SetBitsTrueRangeReturn: range_start=%ju range_stop=%ju step=%ju",
+    //            (uintmax_t)range_start,
+    //            (uintmax_t)range_stop,
+    //            (uintmax_t)step);
 
     logEnd8(time_setBitsTrue_range_return,"\n");
     return index;
