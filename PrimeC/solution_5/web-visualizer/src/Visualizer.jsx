@@ -204,11 +204,20 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [animationReplayPaused, setAnimationReplayPaused] = useState(false);
   const [animationWidgetOpen, setAnimationWidgetOpen] = useState(false);
   const [bitAnimInterval, setBitAnimInterval] = useState(20); // ms between sequential bits (0.02s default)
+  const [maxStepDurationEnabled, setMaxStepDurationEnabled] = useState(() => readViewPrefs()?.maxStepDurationEnabled === true);
+  const [maxStepDurationMs, setMaxStepDurationMs] = useState(() => {
+    const saved = Number(readViewPrefs()?.maxStepDurationMs);
+    return Number.isFinite(saved) ? Math.max(2000, Math.min(30000, Math.round(saved))) : 8000;
+  });
+  const [gridOpacity, setGridOpacity] = useState(() => {
+    const saved = Number(readViewPrefs()?.gridOpacity);
+    return Number.isFinite(saved) ? Math.max(0.12, Math.min(1, saved)) : 1;
+  });
   const [detailHeight, setDetailHeight] = useState(280);
   const [detailWidth, setDetailWidth] = useState(0);
   const [showMinimap, setShowMinimap] = useState(true);
   const [minimapAvailable, setMinimapAvailable] = useState(true);
-  const [stepStats, setStepStats] = useState(null); // { totalSet, newlySet, reSet }
+  const [stepStats, setStepStats] = useState(null); // { totalSet, newlySet, reSet, duplicateTargets }
   const [pinnedBitIndices, setPinnedBitIndices] = useState([]); // clicked bits with locked balloons
   const [hoveredBitInfo, setHoveredBitInfo] = useState(null);  // { bitIndex, history[] } — updated on hover
   const [, setHoverPos] = useState(null); // { x, y } viewport coords for hover balloon
@@ -526,8 +535,17 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       layoutSettings,
       eventTitleSettings,
       depthSettings,
+      maxStepDurationEnabled,
+      maxStepDurationMs,
+      gridOpacity,
     });
-  }, [theme, layoutSettings, eventTitleSettings, depthSettings]);
+  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity]);
+
+  const effectiveGroupBits = useMemo(() => (
+    layoutSettings.vectorMode === 'custom'
+      ? Math.max(1, parseInt(layoutSettings.customGroupBits || 1, 10) || 1)
+      : Math.max(1, (layoutSettings.vectorGroup || 1) * 64)
+  ), [layoutSettings.vectorMode, layoutSettings.customGroupBits, layoutSettings.vectorGroup]);
 
   // Init renderer
   useEffect(() => {
@@ -629,6 +647,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.loweredSetBits3D = mode3D;
     r.loweredDepthStrength = Math.max(0, Math.min(1.0, (depthSettings.strength ?? 80) / 100));
     r.loweredDepthAngle = Math.max(0, Math.min(90, depthSettings.angle ?? 38));
+    r.gridOpacity = Math.max(0.12, Math.min(1, gridOpacity));
     r.customSetBit = customColors.setBit;
     r.customClearedBit = customColors.clearedBit;
     r.customUnchangedBit = customColors.unchangedBit;
@@ -705,7 +724,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     r.render();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
     updateMinimapAvailability();
-  }, [theme, layoutSettings, showMinimap, minimapAvailable, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, loweredSetBits, mode3D, depthSettings, updateMinimapAvailability]);
+  }, [theme, layoutSettings, showMinimap, minimapAvailable, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, loweredSetBits, mode3D, depthSettings, gridOpacity, updateMinimapAvailability]);
 
   // Resize handler
   useEffect(() => {
@@ -766,10 +785,15 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     // bs is now at state just before target — compute stats
     const step = steps[target];
     let newlySet = 0, reSet = 0;
+    const repeatedBits = new Set();
     for (let j = 0; j < step.changedBits.length; j++) {
       const idx = step.changedBits[j];
-      if (idx < bs.length && bs[idx]) reSet++;
-      else newlySet++;
+      if (idx < bs.length && bs[idx]) {
+        reSet++;
+        repeatedBits.add(idx);
+      } else {
+        newlySet++;
+      }
     }
 
     // Apply target step
@@ -780,7 +804,13 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
 
     let totalSet = 0;
     for (let i = 0; i < bs.length; i++) { if (bs[i]) totalSet++; }
-    setStepStats({ totalSet, newlySet, reSet });
+    let duplicateTargets = 0;
+    if (step.targetHitCounts && step.targetHitCounts.length > 0) {
+      for (let index = 0; index < step.targetHitCounts.length; index++) {
+        if ((step.targetHitCounts[index] || 0) > 1) duplicateTargets++;
+      }
+    }
+    setStepStats({ totalSet, newlySet, reSet, duplicateTargets });
 
     const changedSet = suppressHighlight ? new Set() : new Set(step.changedBits);
     const targetBits = step.targetBits && step.targetBits.length > 0 ? step.targetBits : step.changedBits;
@@ -814,6 +844,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         ? Int32Array.from(Array(step.maskWriteOrderWords.length).fill(step.stepId ?? target))
         : new Int32Array(0),
       slotBits: step.maskSlotBits,
+    }, {
+      repeatedBits: suppressHighlight ? new Set() : repeatedBits,
     });
 
     // Update heat map
@@ -848,9 +880,13 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         fadeOutBits: previousHighlights,
         delayMs: playing ? 0 : repeatAnim,
         playbackDurationMs: playing ? Math.max(160, playSpeed) : null,
+        maxDurationEnabled: maxStepDurationEnabled,
+        maxDurationMs: maxStepDurationMs,
+        pinnedBitIndices,
+        groupBits: effectiveGroupBits,
       });
     }
-  }, [currentStep, steps, updateMinimapAvailability, playing, stopPlayback, getCanvasTargetSize, repeatAnim, playSpeed, applyViewportFit]);
+  }, [currentStep, steps, updateMinimapAvailability, playing, stopPlayback, getCanvasTargetSize, repeatAnim, playSpeed, applyViewportFit, maxStepDurationEnabled, maxStepDurationMs, pinnedBitIndices, effectiveGroupBits]);
 
   const cancelViewportAnimation = useCallback(() => {
     if (viewportAnimRef.current) {
@@ -1046,11 +1082,16 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const getAnimationTimingPlan = useCallback((bitCount, options = {}) => {
     if (!options.adaptiveDuration) return null;
     const count = Math.max(1, bitCount || 0);
-    const requestedDuration = Number.isFinite(options.durationMs) ? clampMs(options.durationMs, 120, 10000) : null;
+    const requestedDuration = Number.isFinite(options.durationMs) ? clampMs(options.durationMs, 120, 30000) : null;
     const preferredInterval = Math.max(18, currentAnimIntervalRef.current || bitAnimInterval || 20);
     const preferredTotal = count * preferredInterval;
-    const minTotal = 2800;
-    const maxTotal = 10000;
+    const pinnedBitCount = Array.isArray(options.pinnedBitIndices) ? options.pinnedBitIndices.length : 0;
+    const maxDurationEnabled = options.maxDurationEnabled === true;
+    const configuredMax = maxDurationEnabled
+      ? clampMs(options.maxDurationMs ?? 8000, 2000, 30000)
+      : 10000;
+    const maxTotal = configuredMax + (maxDurationEnabled ? pinnedBitCount * 2000 : 0);
+    const minTotal = maxDurationEnabled ? Math.max(900, Math.min(2400, configuredMax * 0.35)) : 2800;
 
     if (requestedDuration != null) {
       const interval = Math.max(5, requestedDuration / count);
@@ -1066,16 +1107,29 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       return { startInterval: preferredInterval, endInterval: preferredInterval, accelerateAfter: 1, totalDuration: preferredTotal };
     }
 
-    const accelerateAfter = 0.68;
+    const accelerateAfter = maxDurationEnabled
+      ? Math.max(0.24, Math.min(0.72, Math.min(3000, maxTotal * 0.45) / Math.max(1, maxTotal)))
+      : 0.68;
     const frontCount = Math.max(1, Math.floor(count * accelerateAfter));
     const tailCount = Math.max(1, count - frontCount);
     let startInterval = preferredInterval;
-    let endInterval = Math.max(5, startInterval * 0.18);
+    let endInterval = Math.max(3, startInterval * 0.18);
+
+    let tailBudget = maxTotal - frontCount * startInterval;
+    if (tailBudget < tailCount * 3.5) {
+      startInterval = Math.max(8, maxTotal / Math.max(1, frontCount + tailCount * 0.35));
+      tailBudget = maxTotal - frontCount * startInterval;
+    }
+    if (tailBudget > 0) {
+      const solvedEnd = ((tailBudget * 2) / tailCount) - startInterval;
+      endInterval = Math.max(2, Math.min(startInterval * 0.4, solvedEnd));
+    }
+
     let estimated = frontCount * startInterval + tailCount * ((startInterval + endInterval) / 2);
     if (estimated > maxTotal) {
       const scale = maxTotal / estimated;
       startInterval = Math.max(12, startInterval * scale);
-      endInterval = Math.max(5, endInterval * scale);
+      endInterval = Math.max(2, endInterval * scale);
       estimated = frontCount * startInterval + tailCount * ((startInterval + endInterval) / 2);
     }
 
@@ -1084,6 +1138,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
       endInterval,
       accelerateAfter,
       totalDuration: Math.max(minTotal, Math.min(maxTotal, estimated)),
+      exponential: true,
     };
   }, [bitAnimInterval]);
 
@@ -1093,13 +1148,42 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     return Math.max(0, currentAnimIntervalRef.current || bitAnimInterval || 20);
   }, [bitAnimInterval, getAnimationTimingPlan]);
 
-  const getCurrentLoopInterval = useCallback((fallback, options = {}, progress = 0) => {
+  const getCurrentLoopInterval = useCallback((fallback, options = {}, progress = 0, focusBit = null) => {
     const plan = options.adaptivePlan || null;
-    if (!plan) return Math.max(0, currentAnimIntervalRef.current || fallback || 20);
-    const clampedProgress = Math.max(0, Math.min(1, progress));
-    if (clampedProgress <= plan.accelerateAfter) return Math.max(0, plan.startInterval || fallback || 20);
-    const local = (clampedProgress - plan.accelerateAfter) / Math.max(0.0001, 1 - plan.accelerateAfter);
-    return Math.max(0, plan.startInterval + (plan.endInterval - plan.startInterval) * local);
+    const baseInterval = (() => {
+      if (!plan) return Math.max(0, currentAnimIntervalRef.current || fallback || 20);
+      const clampedProgress = Math.max(0, Math.min(1, progress));
+      if (clampedProgress <= plan.accelerateAfter) return Math.max(0, plan.startInterval || fallback || 20);
+      const local = (clampedProgress - plan.accelerateAfter) / Math.max(0.0001, 1 - plan.accelerateAfter);
+      if (plan.exponential && plan.startInterval > 0 && plan.endInterval > 0) {
+        const ratio = plan.endInterval / Math.max(0.0001, plan.startInterval);
+        return Math.max(0, plan.startInterval * Math.pow(ratio, local));
+      }
+      return Math.max(0, plan.startInterval + (plan.endInterval - plan.startInterval) * local);
+    })();
+
+    if (!Number.isFinite(focusBit) || !Array.isArray(options.pinnedBitIndices) || options.pinnedBitIndices.length === 0) {
+      return baseInterval;
+    }
+
+    const groupBits = Math.max(1, Number(options.groupBits) || 64);
+    const focusGroup = Math.floor(Number(focusBit) / groupBits);
+    let slowFactor = 1;
+    for (let index = 0; index < options.pinnedBitIndices.length; index++) {
+      const pinnedBit = Number(options.pinnedBitIndices[index]);
+      if (!Number.isFinite(pinnedBit) || pinnedBit < 0) continue;
+      const pinnedGroup = Math.floor(pinnedBit / groupBits);
+      const dist = Math.abs(pinnedGroup - focusGroup);
+      if (dist === 0) {
+        slowFactor = Math.max(slowFactor, 1.7);
+      } else if (dist === 1) {
+        slowFactor = Math.max(slowFactor, 1.35);
+      } else if (dist === 2) {
+        slowFactor = Math.max(slowFactor, 1.18);
+      }
+    }
+
+    return baseInterval * slowFactor;
   }, []);
 
   useEffect(() => {
@@ -1261,14 +1345,21 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     if (!r || !changedSet || (!hasMaskAnimation && changedSet.size === 0) || changedSet.size >= 100000) return;
 
     const animatedBitCount = changedSet.size > 0 ? changedSet.size : Math.max(1, r.targetBits?.size || r.maskWriteOrderWords?.length || 1);
-    const delayMs = Math.max(0, options.delayMs ?? repeatAnim ?? 0);
-    const requestedCycleDuration = Number.isFinite(options.playbackDurationMs) ? Math.max(0, options.playbackDurationMs) : null;
+    const timingBaseOptions = {
+      ...options,
+      maxDurationEnabled: options.maxDurationEnabled ?? maxStepDurationEnabled,
+      maxDurationMs: options.maxDurationMs ?? maxStepDurationMs,
+      pinnedBitIndices: options.pinnedBitIndices ?? pinnedBitIndices,
+      groupBits: options.groupBits ?? effectiveGroupBits,
+    };
+    const delayMs = Math.max(0, timingBaseOptions.delayMs ?? repeatAnim ?? 0);
+    const requestedCycleDuration = Number.isFinite(timingBaseOptions.playbackDurationMs) ? Math.max(0, timingBaseOptions.playbackDurationMs) : null;
     const requestedAnimationDuration = requestedCycleDuration != null
       ? Math.max(120, requestedCycleDuration - delayMs)
       : null;
     const durationOptions = requestedAnimationDuration != null
-      ? { ...options, adaptiveDuration: true, durationMs: requestedAnimationDuration }
-      : options;
+      ? { ...timingBaseOptions, adaptiveDuration: true, durationMs: requestedAnimationDuration }
+      : timingBaseOptions;
     const adaptivePlan = getAnimationTimingPlan(animatedBitCount, durationOptions);
     const timingOptions = adaptivePlan ? { ...durationOptions, adaptivePlan } : durationOptions;
     const effectiveBitInterval = getAnimationBitInterval(animatedBitCount, timingOptions);
@@ -1376,7 +1467,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
             : Math.max(1, bits.length);
           const progressRatio = totalRevealSteps <= 1 ? 1 : Math.min(1, revealCount / (totalRevealSteps - 1));
           idx += direction;
-          seqTimerRef.current = setTimeout(revealNext, getCurrentLoopInterval(effectiveBitInterval, timingOptions, progressRatio));
+          seqTimerRef.current = setTimeout(revealNext, getCurrentLoopInterval(effectiveBitInterval, timingOptions, progressRatio, currentFocusBit));
         };
 
         r.changedBits = new Set();
@@ -1384,7 +1475,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         r.clearBitMotionTrails();
         r.render();
         r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-        seqTimerRef.current = setTimeout(revealNext, getCurrentLoopInterval(effectiveBitInterval, timingOptions, 0));
+        seqTimerRef.current = setTimeout(revealNext, getCurrentLoopInterval(effectiveBitInterval, timingOptions, 0, bits[0]));
       });
 
       r.animationFocusBits = new Set();
@@ -1405,7 +1496,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     await runEffect(animStyle, timingOptions.adaptivePlan ? Math.min(3200, timingOptions.adaptivePlan.totalDuration) : undefined);
     r.animationFocusBits = new Set();
     await waitForDelay(delayMs);
-  }, [animMode, animStyle, maskAnimationEnabled, stopSeqAnim, runEffect, estimateAnimDuration, repeatAnim, getMinimapDetailH, getAnimationBitInterval, getAnimationTimingPlan, getCurrentLoopInterval, runMaskStampAnimation, fadeOutCurrentHighlights, waitForDelay]);
+  }, [animMode, animStyle, maskAnimationEnabled, stopSeqAnim, runEffect, estimateAnimDuration, repeatAnim, getMinimapDetailH, getAnimationBitInterval, getAnimationTimingPlan, getCurrentLoopInterval, runMaskStampAnimation, fadeOutCurrentHighlights, waitForDelay, maxStepDurationEnabled, maxStepDurationMs, pinnedBitIndices, effectiveGroupBits]);
 
   useEffect(() => {
     triggerAnimationRef.current = triggerAnimation;
@@ -1516,12 +1607,18 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
     const r = rendererRef.current;
     if (!r || selectedSteps.size === 0) return;
     const overlay = buildCombinedSelectionOverlay(selectedSteps);
+    const repeatedBits = new Set();
+    for (const [bit, count] of overlay.targetHitCounts.entries()) {
+      if (count > 1) repeatedBits.add(bit);
+    }
     r.currentOperation = 'aggregate-selection';
     r.currentAnnotation = overlay.annotation || '';
     r.setState(r.bitState, overlay.changedBits, overlay.targetBits, overlay.targetHitCounts, {
       focusStart: null,
       focusStop: null,
-    }, overlay.maskMetadata);
+    }, overlay.maskMetadata, {
+      repeatedBits,
+    });
     r.render();
     r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
     updateMinimapAvailability();
@@ -2257,6 +2354,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           targetWords: s.maskWriteOrderWords,
           targetSlots: s.maskWriteOrderSlots,
           slotBits: s.maskSlotBits,
+        }, {
+          repeatedBits: new Set(Array.from(targetHitCounts.entries()).filter(([, count]) => count > 1).map(([bit]) => bit)),
         });
         r.render();
         if (track.requestFrame) track.requestFrame();
@@ -2939,6 +3038,25 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
                   <input type="range" min={1} max={500} step={1} value={stepSpeedValue} onChange={(e) => setStepSpeedValue(e.target.value)} disabled={animMode === 'all'} />
                   <strong>{animMode === 'all' ? 'All at once' : `${stepSpeedValue}%`}</strong>
                 </label>
+                <label className="animation-widget-row animation-widget-row-checkbox">
+                  <span>Limit step duration</span>
+                  <input type="checkbox" checked={maxStepDurationEnabled} onChange={(e) => setMaxStepDurationEnabled(e.target.checked)} />
+                  <strong>{maxStepDurationEnabled ? 'On' : 'Off'}</strong>
+                </label>
+                {maxStepDurationEnabled && (
+                  <label className="animation-widget-row">
+                    <span>Max duration</span>
+                    <input
+                      type="range"
+                      min={2000}
+                      max={30000}
+                      step={500}
+                      value={maxStepDurationMs}
+                      onChange={(e) => setMaxStepDurationMs(clampMs(parseInt(e.target.value || '8000', 10) || 8000, 2000, 30000))}
+                    />
+                    <strong>{(maxStepDurationMs / 1000).toFixed(1)}s</strong>
+                  </label>
+                )}
                 <div className="animation-widget-grid">
                   <div className="animation-widget-choice">
                     <span>Style</span>
@@ -3186,6 +3304,12 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
           onAnimationReplayPausedChange={setAnimationReplayPaused}
           bitAnimInterval={bitAnimInterval}
           onBitAnimIntervalChange={setBitAnimInterval}
+          maxStepDurationEnabled={maxStepDurationEnabled}
+          onMaxStepDurationEnabledChange={setMaxStepDurationEnabled}
+          maxStepDurationMs={maxStepDurationMs}
+          onMaxStepDurationMsChange={setMaxStepDurationMs}
+          gridOpacity={gridOpacity}
+          onGridOpacityChange={setGridOpacity}
           colorPreset={colorPreset}
           onColorPresetChange={setColorPreset}
           customColors={customColors}

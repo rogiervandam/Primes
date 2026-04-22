@@ -555,8 +555,14 @@ trace_record_applymask_step_labeled(void* bitstorage,
         trace_write_uint32_array(g_trace.file, mask_bits, mask_count);
         fputs(" mask2_bits=", g_trace.file);
         trace_write_uint32_array(g_trace.file, mask2_bits, mask2_count);
+        fputs(" pattern_kind=\"pair\" pattern_slot_count=2 pattern_slot0_bits=", g_trace.file);
+        trace_write_uint32_array(g_trace.file, mask_bits, mask_count);
+        fputs(" pattern_slot1_bits=", g_trace.file);
+        trace_write_uint32_array(g_trace.file, mask2_bits, mask2_count);
     } else {
         fputs(" mask_bits=", g_trace.file);
+        trace_write_uint32_array(g_trace.file, mask_bits, mask_count);
+        fputs(" pattern_kind=\"single\" pattern_slot_count=1 pattern_slot0_bits=", g_trace.file);
         trace_write_uint32_array(g_trace.file, mask_bits, mask_count);
     }
     fputs(" mask_target_words=", g_trace.file);
@@ -604,8 +610,14 @@ trace_record_applymask_step_labeled(void* bitstorage,
             trace_write_uint32_array(g_trace.json_file, mask_bits, mask_count);
             fputs(",\"mask2_bits\":", g_trace.json_file);
             trace_write_uint32_array(g_trace.json_file, mask2_bits, mask2_count);
+            fputs(",\"pattern_kind\":\"pair\",\"pattern_slot_count\":2,\"pattern_slot0_bits\":", g_trace.json_file);
+            trace_write_uint32_array(g_trace.json_file, mask_bits, mask_count);
+            fputs(",\"pattern_slot1_bits\":", g_trace.json_file);
+            trace_write_uint32_array(g_trace.json_file, mask2_bits, mask2_count);
         } else {
             fputs(",\"mask_bits\":", g_trace.json_file);
+            trace_write_uint32_array(g_trace.json_file, mask_bits, mask_count);
+            fputs(",\"pattern_kind\":\"single\",\"pattern_slot_count\":1,\"pattern_slot0_bits\":", g_trace.json_file);
             trace_write_uint32_array(g_trace.json_file, mask_bits, mask_count);
         }
         fputs(",\"mask_target_words\":", g_trace.json_file);

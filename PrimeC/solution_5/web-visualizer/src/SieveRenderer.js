@@ -170,6 +170,7 @@ export class SieveRenderer {
     this.changedBits = null;
     this.targetBits = null;
     this.targetHitCounts = null;
+    this.repeatedChangedBits = null;
     this.focusStart = null;
     this.focusStop = null;
     this.maskWordBits = null;
@@ -184,6 +185,7 @@ export class SieveRenderer {
     this.zoom = 1;
     this.panX = 0;
     this.panY = 0;
+    this.gridOpacity = 1;
 
     // Layout config
     this.pixelSize = 2;
@@ -467,6 +469,7 @@ export class SieveRenderer {
     this.changedBits = new Set();
     this.targetBits = new Set();
     this.targetHitCounts = new Map();
+    this.repeatedChangedBits = new Set();
     this.focusStart = null;
     this.focusStop = null;
     this.maskWordBits = null;
@@ -491,11 +494,14 @@ export class SieveRenderer {
     return this.cachelineSize * 8;
   }
 
-  setState(bitState, changedBits, targetBits = null, targetHitCounts = null, focusRange = null, maskMetadata = null) {
+  setState(bitState, changedBits, targetBits = null, targetHitCounts = null, focusRange = null, maskMetadata = null, highlightMetadata = null) {
     this.bitState = bitState;
     this.changedBits = changedBits;
     this.targetBits = targetBits || new Set();
     this.targetHitCounts = targetHitCounts || new Map();
+    this.repeatedChangedBits = highlightMetadata?.repeatedBits instanceof Set
+      ? highlightMetadata.repeatedBits
+      : new Set(highlightMetadata?.repeatedBits || []);
     this.focusStart = focusRange?.focusStart ?? null;
     this.focusStop = focusRange?.focusStop ?? null;
     this.maskWordBits = maskMetadata?.wordBits ?? null;
@@ -1471,12 +1477,14 @@ export class SieveRenderer {
               const inFocusRange = this._isInFocusRange(globalBit);
               const targetHitCount = this.targetHitCounts?.get(globalBit) || 0;
               const isGhostMaskedBit = this.maskGhostBits?.has(globalBit) && this.bitState[globalBit];
+              const isChangedBit = this.changedBits.has(globalBit);
+              const isRepeatedWrite = (targetHitCount > 1) || this.repeatedChangedBits?.has(globalBit);
               if (this.heatMapEnabled && this.lastAccessStep && !isGhostMaskedBit) {
                 color = this._heatColor(globalBit);
               } else if (isGhostMaskedBit) {
                 color = bitColors.cleared;
-              } else if (this.changedBits.has(globalBit)) {
-                color = changedColor;
+              } else if (isChangedBit) {
+                color = isRepeatedWrite ? [245, 158, 11] : changedColor;
               } else if (this.bitState[globalBit]) {
                 color = bitColors.set;
               } else {
@@ -1484,7 +1492,6 @@ export class SieveRenderer {
               }
 
               const isSetBit = !!this.bitState[globalBit];
-              const isChangedBit = this.changedBits.has(globalBit);
               const isSettledBit = isSetBit && !isChangedBit;
               const depthModeEnabled = this.loweredSetBits;
               const depthStrength = Math.max(0, Math.min(1.0, this.loweredDepthStrength ?? 0.8));
@@ -1526,6 +1533,8 @@ export class SieveRenderer {
               const drawX = Math.round(bitX + sinkShiftX + (px - drawSize) * 0.5);
               const drawY = Math.round(bitY + sinkDrop + (px - drawSize) * 0.5);
               const drawCtx = layeredLoweredBits && isDepthBucket ? settledCtx : ctx;
+              const baseAlpha = Math.max(0.12, Math.min(1, this.gridOpacity ?? 1));
+              const bitAlpha = (!isChangedBit && !isGhostMaskedBit && !isRepeatedWrite) ? baseAlpha : 1;
 
               if (layeredLoweredBits && isDepthBucket) {
                 const topX = Math.round(bitX);
@@ -1570,7 +1579,7 @@ export class SieveRenderer {
                     Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16))),
                     Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16)))
                   );
-                  settledCtx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+                  settledCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
                   settledCtx.fillRect(drawX, drawY, drawSize, drawSize);
                   settledCtx.strokeStyle = `rgba(255, 255, 255, ${this.loweredSetBits3D ? '0.16' : '0.12'})`;
                   settledCtx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
@@ -1601,7 +1610,7 @@ export class SieveRenderer {
                 );
                 ctx.restore();
               } else {
-                drawCtx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+                drawCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
                 drawCtx.fillRect(drawX, drawY, drawSize, drawSize);
               }
 

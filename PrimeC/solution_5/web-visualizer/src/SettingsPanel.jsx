@@ -102,6 +102,9 @@ export default function SettingsPanel({
   maskAnimationEnabled, onMaskAnimationEnabledChange,
   animationReplayPaused, onAnimationReplayPausedChange,
   bitAnimInterval, onBitAnimIntervalChange,
+  maxStepDurationEnabled, onMaxStepDurationEnabledChange,
+  maxStepDurationMs, onMaxStepDurationMsChange,
+  gridOpacity, onGridOpacityChange,
   colorPreset, onColorPresetChange,
   customColors, onCustomColorsChange,
   storageModel, onStorageModelChange,
@@ -869,6 +872,20 @@ export default function SettingsPanel({
               <span className="settings-hint">Tune how deep and at what angle bits fall through the sieve.</span>
             </>
           )}
+          <div className="settings-row overlay-inline-controls" style={{ marginTop: 8 }}>
+            <label className="overlay-inline-field overlay-inline-field-range">
+              <span>Grid opacity</span>
+              <input
+                type="range"
+                min={12}
+                max={100}
+                step={1}
+                value={Math.round((gridOpacity ?? 1) * 100)}
+                onChange={(e) => onGridOpacityChange && onGridOpacityChange((Math.max(12, Math.min(100, parseInt(e.target.value || '100', 10) || 100))) / 100)}
+              />
+              <span className="val">{Math.round((gridOpacity ?? 1) * 100)}%</span>
+            </label>
+          </div>
         </div>
 
         <div className="settings-section">
@@ -1229,10 +1246,30 @@ export default function SettingsPanel({
                 Mask stamp animation
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input type="checkbox" checked={maxStepDurationEnabled === true} onChange={(e) => onMaxStepDurationEnabledChange && onMaxStepDurationEnabledChange(e.target.checked)} />
+                Limit step duration
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <input type="checkbox" checked={animationReplayPaused === true} onChange={(e) => onAnimationReplayPausedChange(e.target.checked)} />
                 Pause event replay
               </label>
             </div>
+            {maxStepDurationEnabled === true && (
+              <div className="settings-row" style={{ marginTop: 8 }}>
+                <label className="overlay-inline-field overlay-inline-field-range" style={{ width: '100%' }}>
+                  <span>Max step duration</span>
+                  <input
+                    type="range"
+                    min={2000}
+                    max={30000}
+                    step={500}
+                    value={Math.max(2000, Math.min(30000, parseInt(maxStepDurationMs || 8000, 10) || 8000))}
+                    onChange={(e) => onMaxStepDurationMsChange && onMaxStepDurationMsChange(Math.max(2000, Math.min(30000, parseInt(e.target.value || '8000', 10) || 8000)))}
+                  />
+                  <span className="val">{(Math.max(2000, Math.min(30000, parseInt(maxStepDurationMs || 8000, 10) || 8000)) / 1000).toFixed(1)}s</span>
+                </label>
+              </div>
+            )}
             <span className="settings-hint">Overall speed controls autoplay through the trace. Step animation controls how a selected step reveals its bits. Delay waits only after a full step animation finishes.</span>
           </div>
         )}

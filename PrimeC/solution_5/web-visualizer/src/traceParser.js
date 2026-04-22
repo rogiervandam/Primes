@@ -69,6 +69,7 @@ function parseJsonTrace(text) {
   const steps = rawSteps.map((s, idx) => {
     const inferred = inferMetaFromAnnotation(s.annotation || '');
     const maskMeta = deriveMaskMeta(s, header.bitCount);
+    const patternMeta = derivePatternMeta(s, maskMeta);
     const start = toNullableNumber(
       firstDefined(s.start, s.block_start, s.init, inferred.start)
     );
@@ -95,6 +96,10 @@ function parseJsonTrace(text) {
       targetHitCounts: new Uint16Array(maskMeta.targetHitCounts),
       focusStart: maskMeta.focusStart,
       focusStop: maskMeta.focusStop,
+      patternKind: patternMeta.kind,
+      patternSlotCount: patternMeta.slotCount,
+      patternSlotBits: patternMeta.slotBits.map((bits) => new Uint32Array(bits)),
+      patternDescription: patternMeta.description,
       maskWordBits: maskMeta.wordBits,
       maskWriteOrderWords: new Uint32Array(maskMeta.targetWords),
       maskWriteOrderSlots: new Uint8Array(maskMeta.targetSlots),
@@ -169,6 +174,7 @@ function parseTextTrace(text) {
 
       const changedBits = upper.startsWith('TEXT ') ? [] : parseChangedBits(kv.changed_bits || '');
       const maskMeta = deriveMaskMeta(kv, headerKv.bit_count ? toNumberOr(headerKv.bit_count, 0) : 0);
+      const patternMeta = derivePatternMeta(kv, maskMeta);
       const operation = kv.function || kv.op || kv.operation || inferOperationFromAnnotation(kv.annotation || '');
       const operationPath = Array.isArray(kv.operation_path)
         ? kv.operation_path
@@ -188,6 +194,10 @@ function parseTextTrace(text) {
         targetHitCounts: new Uint16Array(maskMeta.targetHitCounts),
         focusStart: maskMeta.focusStart,
         focusStop: maskMeta.focusStop,
+        patternKind: patternMeta.kind,
+        patternSlotCount: patternMeta.slotCount,
+        patternSlotBits: patternMeta.slotBits.map((bits) => new Uint32Array(bits)),
+        patternDescription: patternMeta.description,
         maskWordBits: maskMeta.wordBits,
         maskWriteOrderWords: new Uint32Array(maskMeta.targetWords),
         maskWriteOrderSlots: new Uint8Array(maskMeta.targetSlots),
@@ -242,6 +252,10 @@ function parseTextTrace(text) {
       targetHitCounts: event.targetHitCounts,
       focusStart: event.focusStart,
       focusStop: event.focusStop,
+      patternKind: event.patternKind,
+      patternSlotCount: event.patternSlotCount,
+      patternSlotBits: event.patternSlotBits,
+      patternDescription: event.patternDescription,
       depth,
       operationPath: [...opStack, event.operation],
     }));
@@ -352,6 +366,10 @@ function parseFreeformTextTrace(lines, headerKv = {}) {
       targetHitCounts: event.targetHitCounts,
       focusStart: event.focusStart,
       focusStop: event.focusStop,
+      patternKind: event.patternKind,
+      patternSlotCount: event.patternSlotCount,
+      patternSlotBits: event.patternSlotBits,
+      patternDescription: event.patternDescription,
       depth,
       operationPath: [...opStack, event.operation],
     }));
@@ -395,6 +413,10 @@ function createParsedStep({
   targetHitCounts,
   focusStart,
   focusStop,
+  patternKind,
+  patternSlotCount,
+  patternSlotBits,
+  patternDescription,
   maskWordBits,
   maskWriteOrderWords,
   maskWriteOrderSlots,
@@ -416,6 +438,10 @@ function createParsedStep({
     targetHitCounts: new Uint16Array(targetHitCounts || []),
     focusStart: toNullableNumber(focusStart),
     focusStop: toNullableNumber(focusStop),
+    patternKind: patternKind || null,
+    patternSlotCount: toNullableNumber(patternSlotCount),
+    patternSlotBits: Array.isArray(patternSlotBits) ? patternSlotBits.map((bits) => new Uint32Array(bits || [])) : [],
+    patternDescription: patternDescription || null,
     maskWordBits: toNullableNumber(maskWordBits),
     maskWriteOrderWords: new Uint32Array(maskWriteOrderWords || []),
     maskWriteOrderSlots: new Uint8Array(maskWriteOrderSlots || []),
@@ -473,6 +499,7 @@ function parseFreeformStepEvent(line, bitCountHint = 0) {
   // Generic fallback: infer aliases (start/stop/step) from sentence.
   const inferred = inferMetaFromAnnotation(text);
   const maskMeta = deriveMaskMeta(text, bitCountHint);
+  const patternMeta = derivePatternMeta(text, maskMeta);
   if (maskMeta.targetBits.length > 0 || maskMeta.focusStart != null || maskMeta.focusStop != null) {
     return {
       operation: inferOperationFromAnnotation(text),
@@ -485,6 +512,10 @@ function parseFreeformStepEvent(line, bitCountHint = 0) {
       targetHitCounts: maskMeta.targetHitCounts,
       focusStart: maskMeta.focusStart,
       focusStop: maskMeta.focusStop,
+      patternKind: patternMeta.kind,
+      patternSlotCount: patternMeta.slotCount,
+      patternSlotBits: patternMeta.slotBits,
+      patternDescription: patternMeta.description,
       maskWordBits: maskMeta.wordBits,
       maskWriteOrderWords: maskMeta.targetWords,
       maskWriteOrderSlots: maskMeta.targetSlots,
@@ -913,6 +944,40 @@ function deriveMaskMeta(source, bitCountHint = 0) {
     targetWords: [],
     targetSlots: [],
     maskSlotBits,
+  };
+}
+
+function derivePatternMeta(source, maskMeta = null) {
+  const sourceObj = typeof source === 'string' ? parseKvLine(source) : (source || {});
+  const explicitSlot0 = parseIntegerList(firstDefined(sourceObj.pattern_slot0_bits, sourceObj.patternSlot0Bits));
+  const explicitSlot1 = parseIntegerList(firstDefined(sourceObj.pattern_slot1_bits, sourceObj.patternSlot1Bits));
+  const explicitSlotCount = toNullableNumber(firstDefined(sourceObj.pattern_slot_count, sourceObj.patternSlotCount));
+  const explicitKind = firstDefined(sourceObj.pattern_kind, sourceObj.patternKind, null);
+
+  const fallbackSlotBits = Array.isArray(maskMeta?.maskSlotBits)
+    ? maskMeta.maskSlotBits.map((bits) => Array.from(bits || []).map((value) => Number(value)).filter((value) => Number.isFinite(value)))
+    : [];
+
+  let slotBits = [];
+  if (explicitSlot0.length > 0 || explicitSlot1.length > 0) {
+    slotBits[0] = explicitSlot0;
+    if (explicitSlot1.length > 0) slotBits[1] = explicitSlot1;
+  } else if (fallbackSlotBits.length > 0) {
+    slotBits = fallbackSlotBits;
+  }
+
+  slotBits = slotBits.filter((bits) => Array.isArray(bits) && bits.length > 0);
+  const slotCount = Math.max(0, Math.floor(explicitSlotCount || slotBits.length || 0));
+  const normalizedCount = slotCount > 0 ? slotCount : slotBits.length;
+
+  const inferredKind = explicitKind || (normalizedCount > 1 ? 'pair' : (normalizedCount > 0 ? 'single' : null));
+  const slotDescriptions = slotBits.map((bits, index) => `mask ${index + 1}: ${bits.join(', ')}`);
+
+  return {
+    kind: inferredKind,
+    slotCount: normalizedCount,
+    slotBits,
+    description: slotDescriptions.length > 0 ? slotDescriptions.join(' | ') : null,
   };
 }
 

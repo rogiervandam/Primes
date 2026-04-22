@@ -228,12 +228,19 @@ export default function DetailPanel({
       label: 'Step size',
       content: step.factorStep != null ? <span className="detail-tag step-tag">{step.factorStep}</span> : <span className="detail-empty">-</span>,
     },
+    {
+      label: 'Pattern',
+      content: step.patternDescription
+        ? <span className="dt-mono">{step.patternDescription}</span>
+        : (step.patternKind ? <span className="detail-tag block-tag">{step.patternKind}</span> : <span className="detail-empty">-</span>),
+    },
   ];
 
   const statFacts = [
     { label: 'Bits changed', value: step.numChanged ?? 0 },
     { label: 'Newly set', value: stepStats?.newlySet ?? '-' },
     { label: 'Already set', value: stepStats?.reSet ?? '-' },
+    { label: 'Tried >1x', value: stepStats?.duplicateTargets ?? '-' },
     { label: 'Total set', value: stepStats?.totalSet ?? '-' },
   ];
 
