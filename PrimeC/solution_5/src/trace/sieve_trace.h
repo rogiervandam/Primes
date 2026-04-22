@@ -367,7 +367,7 @@ trace_init(const char* filename,
  * factor_step:  the step size used in marking, or -1 if N/A
  */
 static void
-trace_record_step_full(void* bitstorage, const char* annotation, int level)
+trace_record_step_full(const void* bitstorage, const char* annotation, int level)
 {
     if (!g_trace.enabled || !g_trace.file) return;
 
@@ -438,7 +438,7 @@ trace_record_step_full(void* bitstorage, const char* annotation, int level)
 }
 
 static void
-trace_record_step_full_labeled(void* bitstorage, const char* annotation, const char* label, int level)
+trace_record_step_full_labeled(const void* bitstorage, const char* annotation, const char* label, int level)
 {
     if (!g_trace.enabled || !g_trace.file) return;
 
@@ -727,7 +727,7 @@ trace_record_step_fmt(void* bitstorage, const char* fmt, ...)
 }
 
 static void
-trace_record_step_fmt_level(void* bitstorage, int level, const char* fmt, ...)
+trace_record_step_fmt_level(const void* bitstorage, int level, const char* fmt, ...)
 {
     if (!g_trace.enabled) return;
 
@@ -741,7 +741,7 @@ trace_record_step_fmt_level(void* bitstorage, int level, const char* fmt, ...)
 }
 
 static void
-trace_record_step_labeled_fmt(void* bitstorage, const char* label, const char* fmt, ...)
+trace_record_step_labeled_fmt(const void* bitstorage, const char* label, const char* fmt, ...)
 {
     if (!g_trace.enabled) return;
 
@@ -755,7 +755,7 @@ trace_record_step_labeled_fmt(void* bitstorage, const char* label, const char* f
 }
 
 static void
-trace_record_step_labeled_fmt_level(void* bitstorage, int level, const char* label, const char* fmt, ...)
+trace_record_step_labeled_fmt_level(const void* bitstorage, int level, const char* label, const char* fmt, ...)
 {
     if (!g_trace.enabled) return;
 

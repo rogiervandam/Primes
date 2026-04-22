@@ -106,7 +106,7 @@ primes_log_text_timer(counter_t level, counter_t runtime_verbose_level, counter_
 }
 
 static inline void
-primes_log_event(counter_t level, counter_t runtime_verbose_level, void* bitstorage_ptr, const char* fmt, ...)
+primes_log_event(counter_t level, counter_t runtime_verbose_level, const void* bitstorage_ptr, const char* fmt, ...)
 {
     char annotation[1024];
     va_list args;
@@ -123,7 +123,7 @@ primes_log_event(counter_t level, counter_t runtime_verbose_level, void* bitstor
 }
 
 static inline void
-primes_log_event_timer(counter_t level, counter_t runtime_verbose_level, void* bitstorage_ptr, counter_t timer, const char* fmt, ...)
+primes_log_event_timer(counter_t level, counter_t runtime_verbose_level, const void* bitstorage_ptr, counter_t timer, const char* fmt, ...)
 {
     char annotation[1024];
     va_list args;
