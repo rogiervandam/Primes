@@ -34,7 +34,7 @@ markExtendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop
         setBitsTrue(bitstorage, start, range_stop, step);
     } 
 
-    // continue the found pattern to the entire sieve
+    // continue the found pattern to the entire sieve. TODO: uint64 not working here, investigate why
     continuePattern_uint32(bitstorage, patternsize_bits, block_stop, patternsize_bits);
 
     logEnds5(bitstorage, time_sieve_block_extend, "Copy bitpattern from %ju - %ju to range %ju - %ju:\n", (uintmax_t)patternsize_bits, (uintmax_t)2*patternsize_bits-1, (uintmax_t)2*patternsize_bits, (uintmax_t)block_stop);
@@ -95,7 +95,7 @@ markExtendSieveBlock_half(void* restrict bitstorage, const counter_t block_start
     } 
 
     // continue the found pattern to the entire block
-    continuePattern_uint32(bitstorage, block_start, block_stop, block.pattern_size);
+    continuePattern_uint64(bitstorage, block_start, block_stop, block.pattern_size);
 
     logEnds5(bitstorage, time_sieve_block_extend, "Copy bitpattern from %ju - %ju to range %ju - %ju:\n", (uintmax_t)block.pattern_size, (uintmax_t)2*block.pattern_size-1, (uintmax_t)2*block.pattern_size, (uintmax_t)block_stop);
     return block.prime_next;

@@ -50,7 +50,7 @@ function(continuePattern_smallSize,suffix)(void* restrict bitstorage, const coun
         log9(bitstorage, "ContinuePatternSmallSize: handled with small size in loop destination_start=%ju destination_stop=%ju size=%ju loop_index=%ju", (uintmax_t)destination_start, (uintmax_t)destination_stop, (uintmax_t)size, (uintmax_t)i);  
     }
 
-    // bitstorage[destination_stop_word] &= chopmask(destination_stop); // not needed with appropriate block_size
+    bitstorage_sized[destination_stop_word] &= chopmask_type(destination_stop, bitbucket_t); // not needed with appropriate block_size
     logEnds7(bitstorage, time_continuePattern_smallSize,"ContinuePatternSmallSize: continued pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_smallSize (%ju copies)",
                (uintmax_t)size,(uintmax_t)destination_stop-(uintmax_t)source_start, (uintmax_t)source_start, (uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
 }

@@ -33,9 +33,9 @@ function(continuePattern_shiftright,suffix)(void* restrict bitstorage, const cou
     copy_word++;
 
     // search for the first word that is aligned at bytelevel
-    counter_t copy_size_bytes = size_bits; // at bytelevel, the size is the same
-    counter_t copy_start_word = index_type(index_next_type(copy_start + (copy_size_bytes << SHIFT_BYTE), bitbucket_t), bitbucket_t); // this was before
-    // counter_t copy_start_word = index_next_type(copy_start + (size_bits * bitcount_type(bitbucket_t)), bitbucket_t); 
+    counter_t copy_size_word = size_bits * bitcount_type(bitbucket_t); // at bytelevel, the size is the same
+    // counter_t copy_start_word = index_type(index_next_type(copy_start + (copy_size_bytes << SHIFT_BYTE), bitbucket_t), bitbucket_t); // this was before
+    counter_t copy_start_word = index_next_type(copy_start + copy_size_word, bitbucket_t); 
 
     if (copy_start_word > destination_stop_word) copy_start_word = destination_stop_word;
 
@@ -58,14 +58,14 @@ function(continuePattern_shiftright,suffix)(void* restrict bitstorage, const cou
     // uint8_t* source_byte           = (uint8_t*)&bitstorage_sized[copy_start_word];
     // uint8_t* copy_byte             = (uint8_t*)&bitstorage_sized[copy_start_word];
     // uint8_t* destination_stop_byte = (uint8_t*)&bitstorage_sized[destination_stop_word+1];
-    // source_byte -= copy_size_bytes;
+    // source_byte -= copy_size_word * sizeof(bitbucket_t); // move back to the source of the copy
 
     // size_t memcpy_size = destination_stop_byte - copy_byte;
     // local_memcpy_uint8(copy_byte, source_byte, memcpy_size);
 
     // TODO: something is wrong with different bitbucket sizes. Works now, but not always
     uint8_t* restrict bitstorage_uint8 = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    local_memcpy_uint8( &bitstorage_uint8[copy_start_word * sizeof(bitbucket_t)], &bitstorage_uint8[copy_start_word * sizeof(bitbucket_t)] - (size_bits), (counter_t)(destination_stop_word + 1 - copy_start_word) * sizeof(bitbucket_t) );
+    local_memcpy_uint8( &bitstorage_uint8[copy_start_word * sizeof(bitbucket_t)], &bitstorage_uint8[copy_start_word * copy_size_word], (counter_t)(destination_stop_word + 1 - copy_start_word) * sizeof(bitbucket_t) );
 
     log9(bitstorage, "ContinuePatternShiftRight: copying pattern with memcpy source_byte=%p copy_byte=%p size=%ju", (void*)source_byte, (void*)copy_byte, (uintmax_t)memcpy_size);
 
