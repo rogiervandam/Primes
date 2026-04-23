@@ -12,6 +12,8 @@
   #endif
 #endif
 
+#define verbose(level, statement) if (option.verbose_level >= level) statement
+
 #define verbose0(statement) statement
 #define verbose1(statement)
 #define verbose2(statement)
@@ -70,19 +72,19 @@
   #define verbose9(statement) if (option.verbose_level >= 10) { waitforkey(); { statement } }
 #endif
 
-#define verbose(level, statement) function(verbose, level)(statement)
+// #define verbose(level, statement) function(verbose, level)(statement)
 
 int waitforkey(void);
 
 // Trace macros: compile-time gated via -DCOMPILE_TRACE
-#define PRIMES_TRACE_IS_INTEGER(x) _Generic((x), \
-  char: 1, signed char: 1, unsigned char: 1, short: 1, unsigned short: 1, \
-  int: 1, unsigned int: 1, long: 1, unsigned long: 1, long long: 1, unsigned long long: 1, \
-  default: 0)
+// #define PRIMES_TRACE_IS_INTEGER(x) _Generic((x), \
+//   char: 1, signed char: 1, unsigned char: 1, short: 1, unsigned short: 1, \
+//   int: 1, unsigned int: 1, long: 1, unsigned long: 1, long long: 1, unsigned long long: 1, \
+//   default: 0)
 
-#define PRIMES_TRACE_IS_CSTRING(x) _Generic((x), \
-  char*: 1, const char*: 1, \
-  default: 0)
+// #define PRIMES_TRACE_IS_CSTRING(x) _Generic((x), \
+//   char*: 1, const char*: 1, \
+//   default: 0)
 
 #ifdef COMPILE_TRACE
   #include "../trace/sieve_trace.h"
@@ -220,7 +222,12 @@ static inline void primes_log_event_timer(counter_t level, const void* bitstorag
           primes_trace_clear_context(); 
 
 // verbose5( trace_record_text_labeled_fmt_level(level, timer_function_names[(counter_t)(timer)], printf_args) ); 
-
+#ifndef COMPILE_TRACE
+  #undef logBegins
+  #define logBegins(level, bitstorage, timer, printf_args...) 
+  #undef logEnds
+  #define logEnds(level, bitstorage, timer, printf_args...) 
+#endif
 
 #define logBegins5(bitstorage, timer, printf_args...) logBegins(5, bitstorage, timer, printf_args)
 #define logBegins6(bitstorage, timer, printf_args...) logBegins(6, bitstorage, timer, printf_args)
