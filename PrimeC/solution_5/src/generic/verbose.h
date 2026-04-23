@@ -147,16 +147,16 @@ int waitforkey(void);
 
 static inline int primes_log_should_explain(counter_t level);
 static inline int primes_log_should_trace(counter_t level);
-static inline void primes_log_emit_verbose(counter_t level, counter_t runtime_verbose_level, const char* annotation);
-static inline void primes_log_text(counter_t level, counter_t runtime_verbose_level, const char* fmt, ...);
-static inline void primes_log_text_timer(counter_t level, counter_t runtime_verbose_level, counter_t timer, const char* fmt, ...);
-static inline void primes_log_event(counter_t level, counter_t runtime_verbose_level, const void* bitstorage_ptr, const char* fmt, ...);
-static inline void primes_log_event_timer(counter_t level, counter_t runtime_verbose_level, const void* bitstorage_ptr, counter_t timer, const char* fmt, ...);
+static inline void primes_log_emit_verbose(counter_t level, const char* annotation);
+static inline void primes_log_text(counter_t level, const char* fmt, ...);
+static inline void primes_log_text_timer(counter_t level, counter_t timer, const char* fmt, ...);
+static inline void primes_log_event(counter_t level, const void* bitstorage_ptr, const char* fmt, ...);
+static inline void primes_log_event_timer(counter_t level, const void* bitstorage_ptr, counter_t timer, const char* fmt, ...);
 
 // #define PRIMES_LOG_BEGIN(level, timer, printf_args...) \
-//     verbose5( primes_log_text_timer(level, option.trace_level, timer, printf_args); timer_lapstart(timer) TRACE_ANALYSIS_PUSH(level) )
+//     verbose5( primes_log_text_timer(level, timer, printf_args); timer_lapstart(timer) TRACE_ANALYSIS_PUSH(level) )
 // #define PRIMES_LOG_END(level, timer, ...) \
-//     verbose5( TRACE_ANALYSIS_END(); timer_laptime(timer); __VA_OPT__(primes_log_text(level, option.trace_level, __VA_ARGS__); ) )
+//     verbose5( TRACE_ANALYSIS_END(); timer_laptime(timer); __VA_OPT__(primes_log_text(level, __VA_ARGS__); ) )
 
 #define PRIMES_LOG_SELECT_SECOND(arg, on_integer, on_other)            _Generic((arg), function_id_t: on_integer, default: on_other)
 #define PRIMES_LOG_SELECT_FIRST(arg, on_integer, on_cstring, on_other) _Generic((arg), function_id_t: on_integer, char*: on_cstring, const char*: on_cstring, default: on_other)
@@ -165,9 +165,9 @@ static inline void primes_log_event_timer(counter_t level, counter_t runtime_ver
 #define PRIMES_VA_COUNT(...)  PRIMES_VA_COUNT_IMPL(__VA_ARGS__, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1)
 
 #define PRIMES_LOG_DISPATCH_1(level, a1)              if (primes_log_should_explain(level)) { a1; }
-#define PRIMES_LOG_DISPATCH_2(level, a1, a2)          PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, primes_log_event)(level, option.trace_level, a1, a2)
-#define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3)      PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer, primes_log_event))(level, option.trace_level, a1, a2, a3)
-#define PRIMES_LOG_DISPATCH_4(level, a1, a2, a3, ...) PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer, primes_log_event))(level, option.trace_level, a1, a2, a3, ##__VA_ARGS__)
+#define PRIMES_LOG_DISPATCH_2(level, a1, a2)          PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, primes_log_event)(level, a1, a2)
+#define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3)      PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer, primes_log_event))(level, a1, a2, a3)
+#define PRIMES_LOG_DISPATCH_4(level, a1, a2, a3, ...) PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer, primes_log_event))(level, a1, a2, a3, ##__VA_ARGS__)
 #define PRIMES_LOG_DISPATCH_5(level, a1, a2, a3, ...) PRIMES_LOG_DISPATCH_4(level, a1, a2, a3, ##__VA_ARGS__)
 #define PRIMES_LOG_DISPATCH_6(level, a1, a2, a3, ...) PRIMES_LOG_DISPATCH_4(level, a1, a2, a3, ##__VA_ARGS__)
 #define PRIMES_LOG_DISPATCH_7(level, a1, a2, a3, ...) PRIMES_LOG_DISPATCH_4(level, a1, a2, a3, ##__VA_ARGS__)
@@ -216,11 +216,11 @@ static inline void primes_log_event_timer(counter_t level, counter_t runtime_ver
 // #define logBegins8(bitstorage, timer, printf_args...) PRIMES_LOG_BEGIN(8, timer, printf_args); PRIMES_LOG_DISPATCH(8, bitstorage, timer, printf_args);
 // #define logBegins9(bitstorage, timer, printf_args...) PRIMES_LOG_BEGIN(9, timer, printf_args); PRIMES_LOG_DISPATCH(9, bitstorage, timer, printf_args);
 
-#define logBegins5(bitstorage, timer, printf_args...) verbose5( primes_log_text_timer(5, option.trace_level, timer, printf_args); timer_lapstart(timer) TRACE_ANALYSIS_PUSH(5) ); PRIMES_LOG_DISPATCH(5, bitstorage, timer, printf_args);
-#define logBegins6(bitstorage, timer, printf_args...) verbose5( primes_log_text_timer(6, option.trace_level, timer, printf_args); timer_lapstart(timer) TRACE_ANALYSIS_PUSH(6) ); PRIMES_LOG_DISPATCH(6, bitstorage, timer, printf_args);
-#define logBegins7(bitstorage, timer, printf_args...) verbose5( primes_log_text_timer(7, option.trace_level, timer, printf_args); timer_lapstart(timer) TRACE_ANALYSIS_PUSH(7) ); PRIMES_LOG_DISPATCH(7, bitstorage, timer, printf_args);
-#define logBegins8(bitstorage, timer, printf_args...) verbose5( primes_log_text_timer(8, option.trace_level, timer, printf_args); timer_lapstart(timer) TRACE_ANALYSIS_PUSH(8) ); PRIMES_LOG_DISPATCH(8, bitstorage, timer, printf_args);
-#define logBegins9(bitstorage, timer, printf_args...) verbose5( primes_log_text_timer(9, option.trace_level, timer, printf_args); timer_lapstart(timer) TRACE_ANALYSIS_PUSH(9) ); PRIMES_LOG_DISPATCH(9, bitstorage, timer, printf_args);
+#define logBegins5(bitstorage, timer, printf_args...) verbose5( primes_log_text_timer(5, timer, printf_args); timer_lapstart(timer) TRACE_ANALYSIS_PUSH(5) ); PRIMES_LOG_DISPATCH(5, bitstorage, timer, printf_args);
+#define logBegins6(bitstorage, timer, printf_args...) verbose5( primes_log_text_timer(6, timer, printf_args); timer_lapstart(timer) TRACE_ANALYSIS_PUSH(6) ); PRIMES_LOG_DISPATCH(6, bitstorage, timer, printf_args);
+#define logBegins7(bitstorage, timer, printf_args...) verbose5( primes_log_text_timer(7, timer, printf_args); timer_lapstart(timer) TRACE_ANALYSIS_PUSH(7) ); PRIMES_LOG_DISPATCH(7, bitstorage, timer, printf_args);
+#define logBegins8(bitstorage, timer, printf_args...) verbose5( primes_log_text_timer(8, timer, printf_args); timer_lapstart(timer) TRACE_ANALYSIS_PUSH(8) ); PRIMES_LOG_DISPATCH(8, bitstorage, timer, printf_args);
+#define logBegins9(bitstorage, timer, printf_args...) verbose5( primes_log_text_timer(9, timer, printf_args); timer_lapstart(timer) TRACE_ANALYSIS_PUSH(9) ); PRIMES_LOG_DISPATCH(9, bitstorage, timer, printf_args);
 
 #define logEnds5(bitstorage, timer, printf_args...) PRIMES_LOG_DISPATCH(5, bitstorage, timer, printf_args); TRACE_ANALYSIS_END(); timer_laptime(timer);
 #define logEnds6(bitstorage, timer, printf_args...) PRIMES_LOG_DISPATCH(6, bitstorage, timer, printf_args); TRACE_ANALYSIS_END(); timer_laptime(timer);

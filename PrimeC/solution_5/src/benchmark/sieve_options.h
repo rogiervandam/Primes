@@ -64,15 +64,14 @@ primes_log_should_trace(counter_t level)
 }
 
 static inline void
-primes_log_emit_verbose(counter_t level, counter_t runtime_verbose_level, const char* annotation)
+primes_log_emit_verbose(counter_t level, const char* annotation)
 {
-    (void)runtime_verbose_level;
     if (option.explain_level < level) return;
     printf("%s\n", annotation);
 }
 
 static inline void
-primes_log_text(counter_t level, counter_t runtime_verbose_level, const char* fmt, ...)
+primes_log_text(counter_t level, const char* fmt, ...)
 {
     char annotation[1024];
     va_list args;
@@ -81,7 +80,7 @@ primes_log_text(counter_t level, counter_t runtime_verbose_level, const char* fm
     va_end(args);
 
     if (primes_log_should_explain(level)) {
-        primes_log_emit_verbose(level, runtime_verbose_level, annotation);
+        primes_log_emit_verbose(level, annotation);
     }
     if (primes_log_should_trace(level)) {
         TRACE_TEXT_LEVEL(level, "%s", annotation);
@@ -89,7 +88,7 @@ primes_log_text(counter_t level, counter_t runtime_verbose_level, const char* fm
 }
 
 static inline void
-primes_log_text_timer(counter_t level, counter_t runtime_verbose_level, counter_t timer, const char* fmt, ...)
+primes_log_text_timer(counter_t level, counter_t timer, const char* fmt, ...)
 {
     char annotation[1024];
     va_list args;
@@ -98,7 +97,7 @@ primes_log_text_timer(counter_t level, counter_t runtime_verbose_level, counter_
     va_end(args);
 
     if (primes_log_should_explain(level)) {
-        primes_log_emit_verbose(level, runtime_verbose_level, annotation);
+        primes_log_emit_verbose(level, annotation);
     }
     if (primes_log_should_trace(level)) {
         TRACE_TEXT_TIMER_LEVEL(level, timer, "%s", annotation);
@@ -106,7 +105,7 @@ primes_log_text_timer(counter_t level, counter_t runtime_verbose_level, counter_
 }
 
 static inline void
-primes_log_event(counter_t level, counter_t runtime_verbose_level, const void* bitstorage_ptr, const char* fmt, ...)
+primes_log_event(counter_t level, const void* bitstorage_ptr, const char* fmt, ...)
 {
     char annotation[1024];
     va_list args;
@@ -115,7 +114,7 @@ primes_log_event(counter_t level, counter_t runtime_verbose_level, const void* b
     va_end(args);
 
     if (primes_log_should_explain(level)) {
-        primes_log_emit_verbose(level, runtime_verbose_level, annotation);
+        primes_log_emit_verbose(level, annotation);
     }
     if (primes_log_should_trace(level)) {
         TRACE_EVENT_LEVEL(level, bitstorage_ptr, "%s", annotation);
@@ -123,7 +122,7 @@ primes_log_event(counter_t level, counter_t runtime_verbose_level, const void* b
 }
 
 static inline void
-primes_log_event_timer(counter_t level, counter_t runtime_verbose_level, const void* bitstorage_ptr, counter_t timer, const char* fmt, ...)
+primes_log_event_timer(counter_t level, const void* bitstorage_ptr, counter_t timer, const char* fmt, ...)
 {
     char annotation[1024];
     va_list args;
@@ -132,7 +131,7 @@ primes_log_event_timer(counter_t level, counter_t runtime_verbose_level, const v
     va_end(args);
 
     if (primes_log_should_explain(level)) {
-        primes_log_emit_verbose(level, runtime_verbose_level, annotation);
+        primes_log_emit_verbose(level, annotation);
     }
     if (primes_log_should_trace(level)) {
         TRACE_EVENT_TIMER_LEVEL(level, bitstorage_ptr, timer, "%s", annotation);

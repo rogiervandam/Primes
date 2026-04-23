@@ -144,7 +144,7 @@ function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t
                  (uintmax_t)((range_stop + 1) * bitcount_type(bitbucket_t) - 1));
 
         if (primes_log_should_explain(8)) {
-            primes_log_emit_verbose(8, option.verbose_level, annotation);
+            primes_log_emit_verbose(8, annotation);
         }
 
         if (primes_log_should_trace(8)) {
