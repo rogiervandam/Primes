@@ -173,7 +173,7 @@ function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t
                 trace_record_applymask_step_labeled(bitstorage,
                                                     annotation,
                                                     "ApplyMaskPair",
-                                                    8,
+                                                    9,
                                                     (uint64_t)bitcount_type(bitbucket_t),
                                                     (uint64_t)range_start,
                                                     (uint64_t)range_stop,

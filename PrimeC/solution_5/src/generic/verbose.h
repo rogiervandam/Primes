@@ -95,7 +95,7 @@ int waitforkey(void);
   #define TRACE_STEP_META(bitstorage_ptr, op, prime, bstart, bstop, fstep, fmt, ...) \
       TRACE_EVENT(bitstorage_ptr, fmt, ##__VA_ARGS__)
     #define TRACE_TEXT(fmt, ...) trace_record_text_fmt(fmt, ##__VA_ARGS__)
-    #define TRACE_TEXT_LEVEL(level, fmt, ...) trace_record_text_fmt_level(level, fmt, ##__VA_ARGS__)
+    #define TRACE_TEXT_LEVEL(level, fmt, ...) (primes_log_should_trace(level) ? trace_record_text_fmt_level(level, fmt, ##__VA_ARGS__) : (void)0)
     #ifdef COMPILE_TIMERS
       #define TRACE_TEXT_TIMER(timer, fmt, ...) trace_record_text_labeled_fmt(timer_function_names[(counter_t)(timer)], fmt, ##__VA_ARGS__)
       #define TRACE_TEXT_TIMER_LEVEL(level, timer, fmt, ...) trace_record_text_labeled_fmt_level(level, timer_function_names[(counter_t)(timer)], fmt, ##__VA_ARGS__)
@@ -144,6 +144,8 @@ int waitforkey(void);
   // #define PRIMES_LOG_BEGIN(level, timer, printf_args...) verbose(level, printf(printf_args);) timer_lapstart(timer)
   // #define PRIMES_LOG_END(level, timer, ...)              timer_laptime(timer); __VA_OPT__(verbose(level, printf(__VA_ARGS__);))
 #endif
+
+// #define primes_log_text(...) TRACE_TEXT_LEVEL(__VA_ARGS__)
 
 static inline int primes_log_should_explain(counter_t level);
 static inline int primes_log_should_trace(counter_t level);

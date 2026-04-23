@@ -46,30 +46,38 @@ static struct options_t {
     char*     trace_filename;
 } option;
 
-static inline int
-primes_log_should_explain(counter_t level)
-{
-    return option.explain_level >= level;
-}
+#define primes_log_should_explain(level) (option.explain_level >= (counter_t)(level))
+// static inline int
+// primes_log_should_explain(counter_t level)
+// {
+//     return option.explain_level >= level;
+// }
 
-static inline int
-primes_log_should_trace(counter_t level)
-{
-    #ifdef COMPILE_TRACE
-    return g_trace.enabled && option.trace_level >= level;
-    #else
-    (void)level;
-    return 0;
-    #endif
-}
+#ifdef COMPILE_TRACE
+  #define primes_log_should_trace(level) (option.trace_level >= (counter_t)(level))
+#else
+  #define primes_log_should_trace(level) (0)
+#endif
+
+// static inline int
+// primes_log_should_trace(counter_t level)
+// {
+//     #ifdef COMPILE_TRACE
+//     return g_trace.enabled && option.trace_level >= level;
+//     #else
+//     (void)level;
+//     return 0;
+//     #endif
+// }
 
 static inline void
 primes_log_emit_verbose(counter_t level, const char* annotation)
 {
-    if (option.explain_level < level) return;
-    printf("%s\n", annotation);
+        if (option.explain_level < level) return;
+        printf("%s\n", annotation);
 }
 
+// #define primes_log_text(...) TRACE_TEXT_LEVEL(__VA_ARGS__)
 static inline void
 primes_log_text(counter_t level, const char* fmt, ...)
 {
@@ -79,9 +87,9 @@ primes_log_text(counter_t level, const char* fmt, ...)
     vsnprintf(annotation, sizeof(annotation), fmt, args);
     va_end(args);
 
-    if (primes_log_should_explain(level)) {
+    // if (primes_log_should_explain(level)) {
         primes_log_emit_verbose(level, annotation);
-    }
+    // }
     if (primes_log_should_trace(level)) {
         TRACE_TEXT_LEVEL(level, "%s", annotation);
     }
@@ -96,9 +104,9 @@ primes_log_text_timer(counter_t level, counter_t timer, const char* fmt, ...)
     vsnprintf(annotation, sizeof(annotation), fmt, args);
     va_end(args);
 
-    if (primes_log_should_explain(level)) {
+    // if (primes_log_should_explain(level)) {
         primes_log_emit_verbose(level, annotation);
-    }
+    // }
     if (primes_log_should_trace(level)) {
         TRACE_TEXT_TIMER_LEVEL(level, timer, "%s", annotation);
     }
@@ -113,9 +121,9 @@ primes_log_event(counter_t level, const void* bitstorage_ptr, const char* fmt, .
     vsnprintf(annotation, sizeof(annotation), fmt, args);
     va_end(args);
 
-    if (primes_log_should_explain(level)) {
+    // if (primes_log_should_explain(level)) {
         primes_log_emit_verbose(level, annotation);
-    }
+    // }
     if (primes_log_should_trace(level)) {
         TRACE_EVENT_LEVEL(level, bitstorage_ptr, "%s", annotation);
     }
@@ -130,9 +138,9 @@ primes_log_event_timer(counter_t level, const void* bitstorage_ptr, counter_t ti
     vsnprintf(annotation, sizeof(annotation), fmt, args);
     va_end(args);
 
-    if (primes_log_should_explain(level)) {
+    // if (primes_log_should_explain(level)) {
         primes_log_emit_verbose(level, annotation);
-    }
+    // }
     if (primes_log_should_trace(level)) {
         TRACE_EVENT_TIMER_LEVEL(level, bitstorage_ptr, timer, "%s", annotation);
     }
