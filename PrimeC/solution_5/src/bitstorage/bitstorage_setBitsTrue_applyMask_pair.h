@@ -1,7 +1,15 @@
-#include <stdio.h>
+#ifndef APPLYMASK_PAIR_GUARD
+    #define APPLYMASK_PAIR_GUARD
+
+    #include <stdio.h>
+    #include "../trace/sieve_trace.h"
+
+    #define INCLUDE_FILE "../../../src/bitstorage/bitstorage_setBitsTrue_applyMask_pair.h"
+    #include "../generic/variants/generate.h"
+
+#elif defined(unrolls) && (defined(include_for_vectors) || defined(include_for_words))
 
 #include "../generic/variants/setsuffix.h"
-#include "../trace/sieve_trace.h"
 
 static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes)))
 function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step, const bitbucket_t mask1, const bitbucket_t mask2) 
@@ -194,5 +202,7 @@ function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t
 
     logEnds8(bitstorage, time_applyMask_pair, "ApplyMaskPair_index%s: finished applying mask in pairs\n", STR(suffix));
 }
+
+#endif
 
 #include "../generic/variants/cleansuffix.h"

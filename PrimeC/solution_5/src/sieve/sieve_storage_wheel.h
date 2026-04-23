@@ -113,7 +113,7 @@
 // sets bitbucket_t (e.g. uint64_t), variantsuffix (e.g. _uint64) and suffix (e.g. _uint64_unroll8) 
 // for the current variant, based on the presets defined in varianttypes.h
 
-#if defined variantsuffix && !defined unrolls
+#if defined variantsuffix && (!defined unrolls || unrolls == 1)
 
     // #if defined variant && !VARIANT_IS_UINT8(variant)
 

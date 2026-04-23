@@ -2,8 +2,8 @@
 // the guard will prevent an infinite loop of includes
 #ifdef BITSTORAGE_ASSEMBLE_VECTOR_GUARD // this section will be read for each preset
     #define KEEP_VARIANT
-    #include "../bitstorage/bitstorage_setBitsTrue_applyMask.h"
-    #include "../bitstorage/bitstorage_setBitsTrue_applyMask_pair.h"
+    // #include "../bitstorage/bitstorage_setBitsTrue_applyMask.h"
+    // #include "../bitstorage/bitstorage_setBitsTrue_applyMask_pair.h"
     // #include "../bitstorage/bitstorage_setBitsTrue_largestep_vector.h" 
     // #include "../bitstorage/bitstorage_setBitsTrue_smallstep_rotate_pair.h" 
     #undef KEEP_VARIANT
@@ -31,7 +31,7 @@
 
     #undef INCLUDE_FILE_FULL
 
-    #include "bitstorage_setBitsTrue_largestep_vector.h"
-    #include "../bitstorage/bitstorage_setBitsTrue_smallstep_rotate_pair.h" 
+    // #include "bitstorage_setBitsTrue_largestep_vector.h"
+    // #include "../bitstorage/bitstorage_setBitsTrue_smallstep_rotate_pair.h" 
 #endif
   

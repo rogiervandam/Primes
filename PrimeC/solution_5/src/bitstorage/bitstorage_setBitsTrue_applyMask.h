@@ -1,7 +1,15 @@
-#include <stdio.h>
+#ifndef APPLYMASK_GUARD
+    #define APPLYMASK_GUARD
 
+    #include <stdio.h>
+    #include "../trace/sieve_trace.h"
+
+    #define INCLUDE_FILE "../../../src/bitstorage/bitstorage_setBitsTrue_applyMask.h"
+    #include "../generic/variants/generate.h"
+
+#elif defined(include_for_vectors) || defined(include_for_words)
+ 
 #include "../generic/variants/setsuffix.h"
-#include "../trace/sieve_trace.h"
 
 // This applyMask variant takes range_start_index and range_stop_index as the word/vector index
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
@@ -190,5 +198,7 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
 
     logEnds8(bitstorage, time_applyMask, "ApplyMask_index%s: finished applying mask\n", STR(suffix));
 }
+
+#endif
 
 #include "../generic/variants/cleansuffix.h"

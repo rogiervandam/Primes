@@ -13,6 +13,8 @@
     // #define unrolls 1
     // // #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
     #undef unrolls
+    
+    #define unrolls 1
         #include "wordsize.h"
         #undef unrolls
 
@@ -29,9 +31,11 @@
 #undef include_for_words
 
 #define include_for_vectors 1
-
     #undef unrolls
+
+    #define unrolls 1
         #include "vectorsize.h"
+        #undef unrolls
 
     #define unrolls 4
         #include "vectorsize.h"

@@ -2,9 +2,9 @@
 // the guard will prevent an infinite loop of includes
 #ifdef BITSTORAGE_ASSEMBLE_WORD_GUARD
     #define KEEP_VARIANT
-    #include "../bitstorage/bitstorage_setBitsTrue_applyMask.h"
-    #include "../bitstorage/bitstorage_setBitsTrue_applyMask_pair.h"
-    #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
+    // #include "../bitstorage/bitstorage_setBitsTrue_applyMask.h"
+    // #include "../bitstorage/bitstorage_setBitsTrue_applyMask_pair.h"
+    // #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
     #undef KEEP_VARIANT
     #include "../generic/variants/cleansuffix.h"
 #endif
@@ -18,7 +18,7 @@
     #undef variant
 
     #define unrolls 1
-        #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
+        // #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
         #include "../generic/variants/wordsize.h"
         #undef unrolls
 
@@ -42,6 +42,6 @@
 
     #undef INCLUDE_FILE_FULL
 
-    #include "../bitstorage/bitstorage_setBitsTrue_largestep_word.h"
+    // #include "../bitstorage/bitstorage_setBitsTrue_largestep_word.h"
 #endif
 

@@ -1,5 +1,13 @@
+#ifndef SETBIT_GUARD
+    #define SETBIT_GUARD
+    #define INCLUDE_FILE "../../../src/bitstorage/bitstorage_setBitsTrue_setBit.h"
+    #include "../generic/variants/generate.h"
+
+    // #include "../generic/verbose.h"
+
+#elif defined(include_for_words) && unrolls == 1
+
 #include "../generic/variants/setsuffix.h"
-#include "../generic/verbose.h"
 
 // Set one bit to true
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
@@ -46,6 +54,8 @@ function(setBitsTrue_range_return,suffix)(void* restrict bitstorage, const count
     logEnds8(bitstorage, time_setBitsTrue_range_return,"SetBitsTrueRangeReturn: range_start=%ju range_stop=%ju step=%ju", (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)step);
     return index;
 }
+
+#endif
 
 #include "../generic/variants/cleansuffix.h"
 
