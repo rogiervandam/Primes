@@ -29,16 +29,7 @@ function(setBitsTrue_range,suffix)(void* restrict bitstorage, const counter_t ra
     #pragma GCC unroll 32
     for(register counter_t index = range_start; index < range_stop; index += step) function(setBitTrue,suffix)(bitstorage, index);
 
-    // log8(bitstorage,
-    //            "SetBitsTrueRange: range_start=%ju range_stop=%ju step=%ju",
-    //            (uintmax_t)range_start,
-    //            (uintmax_t)range_stop,
-    //            (uintmax_t)step);
-
-    logEnds8(bitstorage, time_setBitsTrue_range,"SetBitsTrueRange: range_start=%ju range_stop=%ju step=%ju",
-               (uintmax_t)range_start,
-               (uintmax_t)range_stop,
-               (uintmax_t)step);
+    logEnds8(bitstorage, time_setBitsTrue_range,"SetBitsTrueRange: range_start=%ju range_stop=%ju step=%ju", (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)step);
 }
 
 // Set bits to true with a step in a range. This function returns the last index that was set
@@ -52,16 +43,7 @@ function(setBitsTrue_range_return,suffix)(void* restrict bitstorage, const count
     #pragma GCC unroll 32
     for(; index < range_stop; index += step) function(setBitTrue,suffix)(bitstorage, index);
 
-    // log8(bitstorage,
-    //            "SetBitsTrueRangeReturn: range_start=%ju range_stop=%ju step=%ju",
-    //            (uintmax_t)range_start,
-    //            (uintmax_t)range_stop,
-    //            (uintmax_t)step);
-
-    logEnds8(bitstorage, time_setBitsTrue_range_return,"SetBitsTrueRangeReturn: range_start=%ju range_stop=%ju step=%ju",
-               (uintmax_t)range_start,
-               (uintmax_t)range_stop,
-               (uintmax_t)step);
+    logEnds8(bitstorage, time_setBitsTrue_range_return,"SetBitsTrueRangeReturn: range_start=%ju range_stop=%ju step=%ju", (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)step);
     return index;
 }
 
