@@ -754,19 +754,19 @@ trace_record_step_fmt_level(const void* bitstorage, int level, const char* fmt, 
 //     trace_record_step_full_labeled(bitstorage, annotation, label, 0);
 // }
 
-// static void
-// trace_record_step_labeled_fmt_level(const void* bitstorage, int level, const char* label, const char* fmt, ...)
-// {
-//     if (!g_trace.enabled) return;
+static void
+trace_record_step_labeled_fmt_level(const void* bitstorage, int level, const char* label, const char* fmt, ...)
+{
+    if (!g_trace.enabled) return;
 
-//     char annotation[1024];
-//     va_list args;
-//     va_start(args, fmt);
-//     vsnprintf(annotation, sizeof(annotation), fmt, args);
-//     va_end(args);
+    char annotation[1024];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(annotation, sizeof(annotation), fmt, args);
+    va_end(args);
 
-//     trace_record_step_full_labeled(bitstorage, annotation, label, level);
-// }
+    trace_record_step_full_labeled(bitstorage, annotation, label, level);
+}
 
 // static void
 // trace_record_text_fmt(const char* fmt, ...)
