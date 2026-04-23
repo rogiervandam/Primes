@@ -26,6 +26,10 @@
 #define time_setBitsTrue_range_return (function_id_t) 21
 #define time_setBitsTrue_largestep_bitbucket (function_id_t) 22
 #define time_markFactors_wheelstorage_small_repeat_pair_vector (function_id_t) 23
+#define time_markFactors_wheelstorage_small_repeat_pair 24
+#define time_markFactors_wheelstorage_small_repeat 25
+#define time_markFactors_wheelstorage_repeat 26
+#define time_markFactors_wheelstorage_norepeat 27
 
 static const char* timer_function_names[100] = {
     [time_setBitsTrue] = "setBitsTrue",
@@ -48,10 +52,14 @@ static const char* timer_function_names[100] = {
     [time_sieveStripeBlock] = "sieveStripeBlock",
     [time_stripeSieve] = "stripeSieve",
     [time_sieve_block_extend] = "sieve_block_extend",
-        [time_setBitsTrue_range] = "setBitsTrue_range",
-        [time_setBitsTrue_range_return] = "setBitsTrue_range_return",
-        [time_setBitsTrue_largestep_bitbucket] = "setBitsTrue_largestep_bitbucket",
-        [time_markFactors_wheelstorage_small_repeat_pair_vector] = "markFactors_wheelstorage_small_repeat_pair_vector",
+    [time_setBitsTrue_range] = "setBitsTrue_range",
+    [time_setBitsTrue_range_return] = "setBitsTrue_range_return",
+    [time_setBitsTrue_largestep_bitbucket] = "setBitsTrue_largestep_bitbucket",
+    [time_markFactors_wheelstorage_small_repeat_pair_vector] = "markFactors_wheelstorage_small_repeat_pair_vector",
+    [time_markFactors_wheelstorage_small_repeat_pair] = "markFactors_wheelstorage_small_repeat_pair",
+    [time_markFactors_wheelstorage_small_repeat] = "markFactors_wheelstorage_small_repeat",
+    [time_markFactors_wheelstorage_repeat] = "markFactors_wheelstorage_repeat",
+    [time_markFactors_wheelstorage_norepeat] = "markFactors_wheelstorage_norepeat",
   };
 
 #endif // SIEVE_FUNCTIONS_H

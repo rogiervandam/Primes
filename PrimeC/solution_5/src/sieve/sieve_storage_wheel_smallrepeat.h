@@ -1,7 +1,8 @@
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
 function(markFactors_wheelstorage_small_repeat,suffix)(sieve_t* sieve, const counter_t range_start, const counter_t range_stop, const counter_t step)
 {
-    TRACE_ANALYSIS_START(6, range_start, range_stop);
+    logBegins6(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat, "MarkFactorsWheelStorageSmallRepeat: setting factors step %3ju using markFactors_wheelstorage_small_repeat %s in %ju factor range (%ju-%ju) (%ju occurances)", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step));
+
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
     const counter_t stop_bucket = function(wheel_block_calc,variantsuffix)(range_stop + 1);
@@ -35,5 +36,6 @@ function(markFactors_wheelstorage_small_repeat,suffix)(sieve_t* sieve, const cou
     if (current_mask) {
         function(applyMask_index,suffix)(sieve->bitstorage, current_bucket, stop_bucket, wheel_step, current_mask);
     }
-    TRACE_ANALYSIS_END();
+    
+    logEnds6(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat, "MarkFactorsWheelStorageSmallRepeat: finished setting factors\n");
 }

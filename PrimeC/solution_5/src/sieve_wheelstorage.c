@@ -53,19 +53,19 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
     const counter_t prime_max = calcFactor_max(sieve_size);
     const counter_t factorBlock = calcFactorsize(global_blocksize_bits, global_storage);
 
-    verbose5( printf("\nShaking sieve to find all primes up to %ju with blocks %ju using the wheel with primes up to %ju using blocksize %ju factorsize %ju\n",(uintmax_t)sieve_size,(uintmax_t)factorBlock,(uintmax_t)WHEEL_MAX,(uintmax_t)global_blocksize_bits,(uintmax_t)calcFactorsize(global_blocksize_bits, global_storage)); )
+    log5("Shaking sieve to find all primes up to %ju with blocks %ju using the wheel with primes up to %ju using blocksize %ju factorsize %ju\n",(uintmax_t)sieve_size,(uintmax_t)factorBlock,(uintmax_t)WHEEL_MAX,(uintmax_t)global_blocksize_bits,(uintmax_t)calcFactorsize(global_blocksize_bits, global_storage));
 
     // #pragma GCC unroll 2
     for (counter_t block_start = 0; block_start < sieve_size; block_start += factorBlock) {
         const counter_t block_stop = min(sieve_size, block_start + factorBlock);
 
-        verbose6( printf("Processing block with range %ju - %ju\n",(uintmax_t)block_start, (uintmax_t)block_stop); )
+        log5("Processing block with range %ju - %ju\n",(uintmax_t)block_start, (uintmax_t)block_stop); 
 
         // #pragma GCC unroll 32
         for (counter_t prime = findUnmarked(sieve, WHEEL_MAX+1); prime < prime_max;  prime = findUnmarked(sieve, ++prime)) {
             log5(sieve->bitstorage,
                        "MarkFactors: wheelstorage prime %jd (idx %jd), block [%jd-%jd] step %jd",
-                       (intmax_t)(prime*2+1), (intmax_t)prime, (intmax_t)block_start,
+                       (intmax_t)(prime), (intmax_t)prime, (intmax_t)block_start,
                        (intmax_t)block_stop, (intmax_t)calcFactor_step(prime));
             markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
         }
