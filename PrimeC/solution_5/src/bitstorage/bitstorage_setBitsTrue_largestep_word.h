@@ -1,5 +1,10 @@
 // Large ranges (> WORD_SIZE * step) mean the same mask can be reused
-#ifdef include_for_words
+#ifndef LARGESTEP_WORD_GUARD
+    #define LARGESTEP_WORD_GUARD
+    #define INCLUDE_FILE "../../../src/bitstorage/bitstorage_setBitsTrue_largestep_word.h"
+    #include "../generic/variants/generate.h"
+    
+#elif defined(include_for_words)
 
 #include "../generic/variants/setsuffix.h"
 static inline void __attribute__((always_inline, nonnull,  aligned(cache_line_bytes))) 
@@ -47,9 +52,6 @@ function(setBitsTrue_largestep_norepeat,suffix)(void* restrict bitstorage, const
 
 #endif
 
-#ifndef LARGESTEP_WORD_GUARD
-    #define LARGESTEP_WORD_GUARD
-    #define INCLUDE_FILE "../../../src/bitstorage/bitstorage_setBitsTrue_largestep_word.h"
-    #include "../generic/variants/generate.h"
-#endif
 #include "../generic/variants/cleansuffix.h"
+
+

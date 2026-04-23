@@ -1,5 +1,9 @@
+#ifndef LARGESTEP_VECTOR_GUARD
+    #define LARGESTEP_VECTOR_GUARD
+    #define INCLUDE_FILE "../../../src/bitstorage/bitstorage_setBitsTrue_largestep_vector.h"
+    #include "../generic/variants/generate.h"
 
-#ifdef include_for_vectors
+#elif defined(include_for_vectors)
 
     #include "../generic/variants/setsuffix.h"
     static inline void __attribute__((always_inline, nonnull,  aligned(cache_line_bytes))) 
@@ -73,9 +77,4 @@
 
 #endif
 
-#ifndef LARGESTEP_VECTOR_GUARD
-    #define LARGESTEP_VECTOR_GUARD
-    #define INCLUDE_FILE "../../../src/bitstorage/bitstorage_setBitsTrue_largestep_vector.h"
-    #include "../generic/variants/generate.h"
-#endif
 #include "../generic/variants/cleansuffix.h"

@@ -5,7 +5,7 @@
     #include "../bitstorage/bitstorage_setBitsTrue_applyMask.h"
     #include "../bitstorage/bitstorage_setBitsTrue_applyMask_pair.h"
     // #include "../bitstorage/bitstorage_setBitsTrue_largestep_vector.h" 
-    #include "../bitstorage/bitstorage_setBitsTrue_smallstep_rotate_pair.h" 
+    // #include "../bitstorage/bitstorage_setBitsTrue_smallstep_rotate_pair.h" 
     #undef KEEP_VARIANT
     #include "../generic/variants/cleansuffix.h"
 #endif
@@ -32,5 +32,6 @@
     #undef INCLUDE_FILE_FULL
 
     #include "bitstorage_setBitsTrue_largestep_vector.h"
+    #include "../bitstorage/bitstorage_setBitsTrue_smallstep_rotate_pair.h" 
 #endif
   
