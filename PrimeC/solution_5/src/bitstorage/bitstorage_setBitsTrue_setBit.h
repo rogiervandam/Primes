@@ -5,7 +5,7 @@
 
     // #include "../generic/verbose.h"
 
-#elif defined(include_for_words) && unrolls == 1
+#elif defined(BUILD_WORDS_STAGE) && unrolls == 1
 
 #include "../generic/variants/setsuffix.h"
 

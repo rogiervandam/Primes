@@ -1,10 +1,18 @@
 // This file contains the continuePattern function that is used to extend (copy) a pattern in a bitstorage.
 // The function is optimized for different sizes and offsets of the pattern and uses different algorithms for this.
-#undef bitbucket_t
-#define bitbucket_t uint32_t
-#undef variant_base_type_t
-#define variant_base_type_t bitbucket_t
-#define suffix _uint32
+
+#ifndef CONTINUEPATTERN_GUARD
+    #define CONTINUEPATTERN_GUARD
+
+    #include <stdio.h>
+    #include "../trace/sieve_trace.h"
+
+    #define INCLUDE_FILE "../../../src/bitstorage/bitstorage_continuePattern.h"
+    #include "../generic/variants/generate.h"
+
+#elif defined(BUILD_WORDS_STAGE)
+
+#include "../generic/variants/setsuffix.h"
 
 #include "bitstorage_continuePattern_smallsize.h"
 #include "bitstorage_continuePattern_aligned.h"
@@ -22,23 +30,10 @@ function(continuePattern,suffix)(void* restrict bitstorage, const counter_t sour
 {
     logBegins6(bitstorage, time_continuePattern, "ContinuePattern: continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
 
-    // log6(bitstorage,
-    //            "ContinuePattern: at start, source_start=%ju destination_stop=%ju size=%ju",
-    //            (uintmax_t)source_start,
-    //            (uintmax_t)destination_stop,
-    //            (uintmax_t)size);
-
     if (size < bitcount_type(bitbucket_t)) {
         function(continuePattern_smallSize,suffix)(bitstorage, source_start, destination_stop, size);
-        // log6(bitstorage,
-        //            "ContinuePattern: handled with small size source_start=%ju destination_stop=%ju size=%ju",
-        //            (uintmax_t)source_start,
-        //            (uintmax_t)destination_stop,
-        //            (uintmax_t)size);
-        logEnds6(bitstorage, time_continuePattern, "ContinuePattern: handled with small size source_start=%ju destination_stop=%ju size=%ju",
-                   (uintmax_t)source_start,
-                   (uintmax_t)destination_stop,
-                   (uintmax_t)size);
+
+        logEnds6(bitstorage, time_continuePattern, "ContinuePattern: handled with small size source_start=%ju destination_stop=%ju size=%ju", (uintmax_t)source_start, (uintmax_t)destination_stop, (uintmax_t)size);
         return;
     }
 
@@ -49,14 +44,9 @@ function(continuePattern,suffix)(void* restrict bitstorage, const counter_t sour
     else if (source_bit < copy_bit) function(continuePattern_shiftright,suffix)(bitstorage, source_start, destination_stop, size);
     else                            function(continuePattern_aligned,suffix)   (bitstorage, source_start, destination_stop, size);
 
-    // log6(bitstorage,
-    //            "ContinuePattern: source_start=%ju destination_stop=%ju size=%ju",
-    //            (uintmax_t)source_start,
-    //            (uintmax_t)destination_stop,
-    //            (uintmax_t)size);
-
-    logEnds6(bitstorage, time_continuePattern,"ContinuePattern: source_start=%ju destination_stop=%ju size=%ju",
-               (uintmax_t)source_start,
-               (uintmax_t)destination_stop,
-               (uintmax_t)size);
+    logEnds6(bitstorage, time_continuePattern,"ContinuePattern: source_start=%ju destination_stop=%ju size=%ju", (uintmax_t)source_start, (uintmax_t)destination_stop, (uintmax_t)size);
 }
+
+#endif
+
+#include "../generic/variants/cleansuffix.h"

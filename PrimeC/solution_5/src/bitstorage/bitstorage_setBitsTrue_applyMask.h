@@ -7,7 +7,7 @@
     #define INCLUDE_FILE "../../../src/bitstorage/bitstorage_setBitsTrue_applyMask.h"
     #include "../generic/variants/generate.h"
 
-#elif defined(include_for_vectors) || defined(include_for_words)
+#elif defined(BUILD_VECTORS_STAGE) || defined(BUILD_WORDS_STAGE)
  
 #include "../generic/variants/setsuffix.h"
 

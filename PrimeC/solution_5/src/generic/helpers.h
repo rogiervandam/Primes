@@ -58,4 +58,15 @@ static inline void local_memcpy(void *dest, void *src, size_t n)
     for (int i=0; i<n; i++) cdest[i] = csrc[i]; 
 } 
 
+static inline void local_memcpy_uint8(uint8_t *dest, uint8_t *src, counter_t n) 
+{ 
+    // Copy contents of src[] to dest[] 
+    for (counter_t i=0; i<n; i++) dest[i] = src[i]; 
+}
+
+static inline void local_memcpy_uint64(uint64_t *dest, uint64_t *src, counter_t n) 
+{ 
+    // Copy contents of src[] to dest[] 
+    for (counter_t i=0; i<n; i++) dest[i] = src[i]; 
+} 
 

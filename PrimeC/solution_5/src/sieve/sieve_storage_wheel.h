@@ -1,6 +1,6 @@
 
 
-// #ifndef included_once //---- include this once
+// #ifndef BUILD_ONCE //---- include this once
 #ifndef ASSEMBLE_WHEELSTORAGE_GUARD
     // static unsigned int wheel[WHEEL_SIZE/2];
     #include "../bitstorage/bitstorage_search.h"
@@ -135,7 +135,7 @@
 
 #endif
 
-#if defined include_for_words
+#if defined BUILD_WORDS_STAGE
 
     // TODO: replace the fast wheelmask_compressed with something dymanic
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
@@ -222,7 +222,7 @@
 
 #endif
 
-#if defined include_for_words //---- include only the variant function
+#if defined BUILD_WORDS_STAGE //---- include only the variant function
 
     #if defined unrolls && unrolls > 1
         #include "sieve_storage_wheel_smallrepeat.h"
@@ -230,7 +230,7 @@
 
 #endif
 
-#if defined include_for_words //---- include only the variant function
+#if defined BUILD_WORDS_STAGE //---- include only the variant function
 
     #if defined unrolls && unrolls > 1
         #include "sieve_storage_wheel_smallrepeat_pair.h"
@@ -238,7 +238,7 @@
 
 #endif
 
-#if defined include_for_vectors   
+#if defined BUILD_VECTORS_STAGE   
 
     #if defined unrolls && unrolls > 1
         #include "sieve_storage_wheel_smallrepeat_pair_vector.h"

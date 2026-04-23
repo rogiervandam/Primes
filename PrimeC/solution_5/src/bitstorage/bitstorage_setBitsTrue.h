@@ -2,16 +2,11 @@
 // these will make differt versions of themselves for different types of bitstorage
 
 #include "bitstorage_setBitsTrue_setBit.h"
-
-#include "../bitstorage/bitstorage_setBitsTrue_applyMask.h"
-#include "../bitstorage/bitstorage_setBitsTrue_applyMask_pair.h"
-
-#include "bitstorage_setBitsTrue_assemble_word.h" 
-#include "bitstorage_setBitsTrue_assemble_vector.h" 
-
+#include "bitstorage_setBitsTrue_applyMask.h"
+#include "bitstorage_setBitsTrue_applyMask_pair.h"
+#include "bitstorage_setBitsTrue_smallstep_rotate_pair.h" 
 #include "bitstorage_setBitsTrue_largestep_vector.h"
-#include "../bitstorage/bitstorage_setBitsTrue_smallstep_rotate_pair.h" 
-#include "../bitstorage/bitstorage_setBitsTrue_largestep_word.h"
+#include "bitstorage_setBitsTrue_largestep_word.h"
 
 // Function to dispatch the correct setBitsTrue function based on the step size and occurrences
 static inline void  __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 

@@ -3,7 +3,7 @@
     #define INCLUDE_FILE "../../../src/bitstorage/bitstorage_setBitsTrue_largestep_vector.h"
     #include "../generic/variants/generate.h"
 
-#elif defined(include_for_vectors)
+#elif defined(BUILD_VECTORS_STAGE)
 
     #include "../generic/variants/setsuffix.h"
     static inline void __attribute__((always_inline, nonnull,  aligned(cache_line_bytes))) 
