@@ -2,7 +2,7 @@
 // the guard will prevent an infinite loop of includes
 #ifndef BITSTORAGE_ASSEMBLE_WORD_GUARD
     #define BITSTORAGE_ASSEMBLE_WORD_GUARD
-    #undef INCLUDE_FILE_FULL
+    #undef INCLUDE_FILE
     #define INCLUDE_FILE_FULL "../../bitstorage/bitstorage_setBitsTrue_assemble_word.h"
 
     #undef unrolls

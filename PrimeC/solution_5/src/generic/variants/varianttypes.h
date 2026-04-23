@@ -12,6 +12,9 @@ typedef uint16_t uint16v8_t  __attribute__ ((vector_size(16), aligned(cache_line
 typedef uint16_t uint16v4_t  __attribute__ ((vector_size( 8), aligned(cache_line_bytes)));
 typedef uint16_t uint16v2_t  __attribute__ ((vector_size( 4), aligned(cache_line_bytes)));
 
+// #undef variant_base_type_t
+// #undef variant_elements
+// #undef variant
 
 #if defined preset_uint64v8
   #define variant_base_type_t uint64_t

@@ -49,3 +49,4 @@
 
 #undef included_once
 #undef INCLUDE_FILE_FULL
+#undef INCLUDE_FILE
