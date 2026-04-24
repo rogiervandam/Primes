@@ -128,13 +128,13 @@
 #define PRIMES_VA_COUNT(...)  PRIMES_VA_COUNT_IMPL(__VA_ARGS__, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 1)
 
 #define PRIMES_LOG_DISPATCH_1(level, a1)                PRIMES_LOG_SELECT_FIRST(a1, \
-                                                            trace_record_text_labeled_fmt_level(level, timer_function_names[(counter_t)(a1)], ""), \
-                                                            trace_record_text_fmt_level(level, a1), \
-                                                            trace_record_step_fmt_level(a1, level))
+                                                            trace_record_text_labeled, \
+                                                            trace_record_text, \
+                                                            trace_record_event)(level, a1)
 #define PRIMES_LOG_DISPATCH_2(level, a1, a2)            PRIMES_LOG_SELECT_FIRST(a1, \
-                                                            trace_record_text_labeled_fmt_level(level, timer_function_names[(counter_t)(a1)], a2), \
-                                                            trace_record_text_fmt_level(level, a1, a2), \
-                                                            trace_record_step_fmt_level(a1, level, a2))
+                                                            trace_record_text_labeled, \
+                                                            trace_record_text, \
+                                                            trace_record_event)(level, a1, a2)
 // #define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3, ...)   PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer,primes_log_event))(level, a1, a2, a3, ##__VA_ARGS__)
 
 // #define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3, ...)   PRIMES_LOG_SELECT_FIRST(a1, \
@@ -146,12 +146,12 @@
 //                                                         )(level, a1, a2, a3, ##__VA_ARGS__)
 
 #define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3, ...)   PRIMES_LOG_SELECT_FIRST(a1, \
-                                                            trace_record_text_labeled, \
+                                                            trace_record_text_functionid, \
                                                             trace_record_text, \
                                                             PRIMES_LOG_SELECT_FIRST(a2, \
-                                                                primes_log_event_timer, \
+                                                                trace_record_event_functionid, \
                                                                 trace_record_text, \
-                                                                primes_log_event) \
+                                                                trace_record_event) \
                                                         )(level, a1, a2, a3, ##__VA_ARGS__)
                                                         
 // #define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3, ...)   PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer(level, a1, a2, a3, ##__VA_ARGS__), primes_log_text(level, a1, a2, a3, ##__VA_ARGS__), PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer(level, a1, a2, a3, ##__VA_ARGS__),primes_log_event(level, a1, a2, a3, ##__VA_ARGS__)))
@@ -226,83 +226,97 @@
 #define logEnds8(bitstorage, timer, printf_args...) logEnds(8, bitstorage, timer, printf_args)
 #define logEnds9(bitstorage, timer, printf_args...) logEnds(9, bitstorage, timer, printf_args)
 
-
+#ifdef COMPILE_TRACE
 static inline void
-primes_log_emit_verbose(counter_t level, const char* annotation)
+trace_record_text_functionid(int level, function_id_t function_id, const char* fmt, va_list args)
 {
-        if (option.explain_level < level) return;
-        printf("%s\n", annotation);
-}
-
-// #define primes_log_text(...) TRACE_TEXT_LEVEL(__VA_ARGS__)
-
-static inline void
-primes_log_text(counter_t level, const char* fmt, ...)
-{
-    char annotation[1024];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(annotation, sizeof(annotation), fmt, args);
-    va_end(args);
-
-    // if (primes_log_should_explain(level)) {
-        primes_log_emit_verbose(level, annotation);
-    // }
-    if (primes_log_should_trace(level)) {
-        TRACE_TEXT_LEVEL(level, "%s", annotation);
-    }
+    trace_record_text_labeled(level, timer_function_names[(counter_t)(function_id)], fmt, args);
 }
 
 static inline void
-primes_log_text_timer(counter_t level, counter_t timer, const char* fmt, ...)
+trace_record_event_functionid(int level, void* bitstorage, function_id_t function_id, const char* fmt, va_list args)
 {
-    char annotation[1024];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(annotation, sizeof(annotation), fmt, args);
-    va_end(args);
-
-    // if (primes_log_should_explain(level)) {
-        primes_log_emit_verbose(level, annotation);
-    // }
-    if (primes_log_should_trace(level)) {
-        TRACE_TEXT_TIMER_LEVEL(level, timer, "%s", annotation);
-    }
+    trace_record_event(level, bitstorage, timer_function_names[(counter_t)(function_id)], fmt, args);
 }
 
-static inline void
-primes_log_event(counter_t level, const void* bitstorage_ptr, const char* fmt, ...)
-{
-    char annotation[1024];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(annotation, sizeof(annotation), fmt, args);
-    va_end(args);
+#endif
 
-    // if (primes_log_should_explain(level)) {
-        primes_log_emit_verbose(level, annotation);
-    // }
-    if (primes_log_should_trace(level)) {
-        TRACE_EVENT_LEVEL(level, bitstorage_ptr, "%s", annotation);
-    }
-}
+// static inline void
+// primes_log_emit_verbose(counter_t level, const char* annotation)
+// {
+//         if (option.explain_level < level) return;
+//         printf("%s\n", annotation);
+// }
 
-static inline void
-primes_log_event_timer(counter_t level, const void* bitstorage_ptr, counter_t timer, const char* fmt, ...)
-{
-    char annotation[1024];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(annotation, sizeof(annotation), fmt, args);
-    va_end(args);
+// // #define primes_log_text(...) TRACE_TEXT_LEVEL(__VA_ARGS__)
 
-    // if (primes_log_should_explain(level)) {
-        primes_log_emit_verbose(level, annotation);
-    // }
-    if (primes_log_should_trace(level)) {
-        TRACE_EVENT_TIMER_LEVEL(level, bitstorage_ptr, timer, "%s", annotation);
-    }
-}
+// static inline void
+// primes_log_text(counter_t level, const char* fmt, ...)
+// {
+//     char annotation[1024];
+//     va_list args;
+//     va_start(args, fmt);
+//     vsnprintf(annotation, sizeof(annotation), fmt, args);
+//     va_end(args);
+
+//     // if (primes_log_should_explain(level)) {
+//         primes_log_emit_verbose(level, annotation);
+//     // }
+//     if (primes_log_should_trace(level)) {
+//         TRACE_TEXT_LEVEL(level, "%s", annotation);
+//     }
+// }
+
+// static inline void
+// primes_log_text_timer(counter_t level, counter_t timer, const char* fmt, ...)
+// {
+//     char annotation[1024];
+//     va_list args;
+//     va_start(args, fmt);
+//     vsnprintf(annotation, sizeof(annotation), fmt, args);
+//     va_end(args);
+
+//     // if (primes_log_should_explain(level)) {
+//         primes_log_emit_verbose(level, annotation);
+//     // }
+//     if (primes_log_should_trace(level)) {
+//         TRACE_TEXT_TIMER_LEVEL(level, timer, "%s", annotation);
+//     }
+// }
+
+// static inline void
+// primes_log_event(counter_t level, const void* bitstorage_ptr, const char* fmt, ...)
+// {
+//     char annotation[1024];
+//     va_list args;
+//     va_start(args, fmt);
+//     vsnprintf(annotation, sizeof(annotation), fmt, args);
+//     va_end(args);
+
+//     // if (primes_log_should_explain(level)) {
+//         primes_log_emit_verbose(level, annotation);
+//     // }
+//     if (primes_log_should_trace(level)) {
+//         TRACE_EVENT_LEVEL(level, bitstorage_ptr, "%s", annotation);
+//     }
+// }
+
+// static inline void
+// primes_log_event_timer(counter_t level, const void* bitstorage_ptr, counter_t timer, const char* fmt, ...)
+// {
+//     char annotation[1024];
+//     va_list args;
+//     va_start(args, fmt);
+//     vsnprintf(annotation, sizeof(annotation), fmt, args);
+//     va_end(args);
+
+//     // if (primes_log_should_explain(level)) {
+//         primes_log_emit_verbose(level, annotation);
+//     // }
+//     if (primes_log_should_trace(level)) {
+//         TRACE_EVENT_TIMER_LEVEL(level, bitstorage_ptr, timer, "%s", annotation);
+//     }
+// }
 
 
 #endif

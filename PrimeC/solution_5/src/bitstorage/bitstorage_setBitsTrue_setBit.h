@@ -63,4 +63,3 @@ setBitsTrue_range_return_suffix(void* restrict bitstorage, const counter_t range
 #endif
 
 #include "../generic/variants/cleansuffix.h"
-

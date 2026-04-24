@@ -158,9 +158,7 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
                  (uintmax_t)(range_start_index * bitcount_type(bitbucket_t)),
                  (uintmax_t)((range_stop_index + 1) * bitcount_type(bitbucket_t) - 1));
 
-        if (primes_log_should_explain(8)) {
-            primes_log_emit_verbose(8, annotation);
-        }
+        log8(annotation);
 
         if (primes_log_should_trace(8)) {
             const uint64_t target_capacity = range_stop_index >= range_start_index ? (uint64_t)((range_stop_index - range_start_index) / step) + 1 : 0;
