@@ -128,12 +128,12 @@
 #define PRIMES_VA_COUNT(...)  PRIMES_VA_COUNT_IMPL(__VA_ARGS__, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 1)
 
 #define PRIMES_LOG_DISPATCH_1(level, a1)                PRIMES_LOG_SELECT_FIRST(a1, \
-                                                            trace_record_text_labeled, \
                                                             trace_record_text, \
+                                                            trace_record_text_unlabeled, \
                                                             trace_record_event)(level, a1)
 #define PRIMES_LOG_DISPATCH_2(level, a1, a2)            PRIMES_LOG_SELECT_FIRST(a1, \
-                                                            trace_record_text_labeled, \
                                                             trace_record_text, \
+                                                            trace_record_text_unlabeled, \
                                                             trace_record_event)(level, a1, a2)
 // #define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3, ...)   PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer,primes_log_event))(level, a1, a2, a3, ##__VA_ARGS__)
 
@@ -145,14 +145,14 @@
 //                                                                 primes_log_event) \
 //                                                         )(level, a1, a2, a3, ##__VA_ARGS__)
 
-#define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3, ...)   PRIMES_LOG_SELECT_FIRST(a1, \
+#define PRIMES_LOG_DISPATCH_3(level, a1, a2, ...)       PRIMES_LOG_SELECT_FIRST(a1, \
                                                             trace_record_text_functionid, \
-                                                            trace_record_text, \
+                                                            trace_record_text_unlabeled, \
                                                             PRIMES_LOG_SELECT_FIRST(a2, \
                                                                 trace_record_event_functionid, \
-                                                                trace_record_text, \
+                                                                trace_record_text_unlabeled, \
                                                                 trace_record_event) \
-                                                        )(level, a1, a2, a3, ##__VA_ARGS__)
+                                                        )(level, a1, a2, ##__VA_ARGS__)
                                                         
 // #define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3, ...)   PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer(level, a1, a2, a3, ##__VA_ARGS__), primes_log_text(level, a1, a2, a3, ##__VA_ARGS__), PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer(level, a1, a2, a3, ##__VA_ARGS__),primes_log_event(level, a1, a2, a3, ##__VA_ARGS__)))
 
@@ -228,15 +228,19 @@
 
 #ifdef COMPILE_TRACE
 static inline void
-trace_record_text_functionid(int level, function_id_t function_id, const char* fmt, va_list args)
+trace_record_text_functionid(int level, function_id_t function_id, const char* fmt, ...)
 {
-    trace_record_text_labeled(level, timer_function_names[(counter_t)(function_id)], fmt, args);
+    char annotation[1024];
+    va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
+    trace_record_text_full(level, timer_function_names[function_id], annotation);
 }
 
 static inline void
-trace_record_event_functionid(int level, void* bitstorage, function_id_t function_id, const char* fmt, va_list args)
+trace_record_event_functionid(int level, void* bitstorage, function_id_t function_id, const char* fmt, ...)
 {
-    trace_record_event(level, bitstorage, timer_function_names[(counter_t)(function_id)], fmt, args);
+    char annotation[1024];
+    va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
+    trace_record_event_full(level, bitstorage, timer_function_names[function_id], annotation);
 }
 
 #endif
