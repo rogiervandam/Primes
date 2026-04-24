@@ -62,20 +62,9 @@ trace_set_console_feedback(int enabled)
 static const char* __attribute__((cold))
 trace_generate_default_filename(const char* program_name, uint64_t max_factor)
 {
-    trace_mkdir("log");
-
-    time_t now = time(NULL);
-    struct tm* t = localtime(&now);
     char timestamp[32];
-    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d_%H-%M", t);
-
-    const char* base = program_name;
-    for (const char* p = program_name; *p; p++) {
-        if (*p == '/' || *p == '\\') base = p + 1;
-    }
-
-    snprintf(g_trace_default_path, sizeof(g_trace_default_path),
-             "log/%s_%s_%" PRIu64 ".sievetrace", timestamp, base, max_factor);
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d_%H-%M", localtime(&(time_t){time(NULL)}));
+    snprintf(g_trace_default_path, sizeof(g_trace_default_path),"log/%s_%s_%" PRIu64 ".sievetrace", timestamp, program_name, max_factor);
     return g_trace_default_path;
 }
 
@@ -697,13 +686,35 @@ trace_record_text_full(const char* annotation, const char* label, int level)
     }
 }
 
+static void
+trace_record_text(int level, const char* label, const char* fmt, ...)
+{
+    if (!g_trace.enabled) return;
+
+    char annotation[1024];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(annotation, sizeof(annotation), fmt, args);
+    va_end(args);
+
+    trace_record_text_full(annotation, label, level);
+}
+
 /*
  * Simple step recording (backward-compatible convenience).
  */
 static void
-trace_record_step(void* bitstorage, const char* annotation)
+trace_record_step(int level, void* bitstorage, const char* label, const char* fmt, ...)
 {
-    trace_record_step_full(bitstorage, annotation, 0);
+    if (!g_trace.enabled) return;
+
+    char annotation[1024];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(annotation, sizeof(annotation), fmt, args);
+    va_end(args);
+
+    trace_record_step_full_labeled(bitstorage, annotation, label, level);
 }
 
 /*
