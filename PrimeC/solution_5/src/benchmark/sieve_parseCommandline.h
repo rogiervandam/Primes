@@ -363,15 +363,11 @@ parseCommandLine(int argc, char *argv[])
         }
         #ifdef COMPILE_TRACE
         else if (strcmp_local(argv[arg], "--trace")) {
-            /* --trace [optional level]: enable trace-level logging */
-            if (arg + 1 < argc && isdigit_local(argv[arg + 1][0])) {
-                parse_int_arg(argv[++arg], &option.trace_level, 9, program_name, "Invalid trace level");
-                if (option.trace_level < 5 || option.trace_level > 9) {
-                    verbose1({ fprintf(stderr, "Invalid trace level %ju (expected 5-9)\n", (uintmax_t)option.trace_level); usage(program_name, 1); });
-                }
-            }
-            else if (option.trace_level < default_trace_level) {
-                option.trace_level = default_trace_level;
+            /* --trace <level>: enable trace-level logging; level (5-9) is required */
+            ensure_next_arg(++arg, argc, program_name, "trace level");
+            parse_int_arg(argv[arg], &option.trace_level, 9, program_name, "Invalid trace level");
+            if (option.trace_level < 5 || option.trace_level > 9) {
+                verbose1({ fprintf(stderr, "Invalid trace level %ju (expected 5-9)\n", (uintmax_t)option.trace_level); usage(program_name, 1); });
             }
             if (!option.trace_filename) {
                 /* Mark for auto-generation after all args are parsed (factor_max may not be set yet) */
@@ -381,6 +377,13 @@ parseCommandLine(int argc, char *argv[])
         else if (strcmp_local(argv[arg], "--trace-filename")) {
             ensure_next_arg(++arg, argc, program_name, "trace filename");
             option.trace_filename = argv[arg];
+        }
+        #endif
+        #ifdef COMPILE_TIMERS
+        else if (strcmp_local(argv[arg], "--benchmark-log")) {
+            ensure_next_arg(++arg, argc, program_name, "benchmark log filename");
+            option.timings_filename = argv[arg];
+            verbose4(printf("Benchmark log filename set to %s\n", option.timings_filename);)
         }
         #endif
         else if (strcmp_local(argv[arg], "--notune")) { 

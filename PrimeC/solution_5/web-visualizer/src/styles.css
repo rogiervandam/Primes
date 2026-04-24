@@ -1422,6 +1422,34 @@ html, body, #root {
 .settings-sidebar.collapsed .settings-header-rail h3 {
   font-size: 12px;
 }
+.settings-collapsed-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.settings-tab-row {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+.settings-tab-btn {
+  background: transparent;
+  color: var(--fg-muted);
+  border: 1px solid transparent;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 3px 3px 0 0;
+}
+.settings-tab-btn:hover { color: var(--fg-bright); background: var(--bg-input); }
+.settings-tab-btn.active {
+  color: var(--fg-bright);
+  background: var(--bg-raised);
+  border-bottom-color: var(--accent);
+}
 .settings-panel-content {
   flex: 1;
   overflow-y: auto;

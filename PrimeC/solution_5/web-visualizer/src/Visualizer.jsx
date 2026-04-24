@@ -7,7 +7,7 @@ import SettingsPanel from './SettingsPanel';
 import TimingPanel from './TimingPanel';
 import {
   SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
-  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Thermometer, Settings
+  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Thermometer
 } from './Icons';
 
 const VIEW_PREFS_KEY = 'sieve-visualizer:view-preferences:v1';
@@ -212,7 +212,7 @@ export default function Visualizer({
   const [animStyle, setAnimStyle] = useState('fade'); // 'ripple', 'fade', 'pulse', 'none'
   const [maskAnimationEnabled, setMaskAnimationEnabled] = useState(true);
   const [animationReplayPaused, setAnimationReplayPaused] = useState(false);
-  const [animationWidgetOpen, setAnimationWidgetOpen] = useState(false);
+  const [customTitle, setCustomTitle] = useState('');
   const [bitAnimInterval, setBitAnimInterval] = useState(20); // ms between sequential bits (0.02s default)
   const [maskAnimInterval, setMaskAnimInterval] = useState(() => {
     const stepIntervalDefault = 20;
@@ -253,7 +253,6 @@ export default function Visualizer({
   const [detailInspectorOpen, setDetailInspectorOpen] = useState(false);
   const [detailInspectorMode, setDetailInspectorMode] = useState('bits');
   const [detailInspectorQuery, setDetailInspectorQuery] = useState('');
-  const [animationWidgetPosition, setAnimationWidgetPosition] = useState({ left: 0, top: 0, pointerX: 24 });
   const [, setBalloonLayoutTick] = useState(0);
 
   // 3D camera state
@@ -286,8 +285,6 @@ export default function Visualizer({
   const autoplayStartedRef = useRef(false);
   const initialHighlightHoldRef = useRef(true);
   const initial3DRestoreDoneRef = useRef(true);
-  const animationWidgetRef = useRef(null);
-  const animationWidgetToggleRef = useRef(null);
   const traceInfoPopoverRef = useRef(null);
   const traceInfoToggleRef = useRef(null);
   const balloonLayoutRafRef = useRef(null);
@@ -516,20 +513,6 @@ export default function Visualizer({
     setSettingsCollapsed((collapsed) => !collapsed);
     schedulePostLayoutRefresh(anchor);
   }, [captureViewportAnchor, schedulePostLayoutRefresh]);
-
-  // Close animation settings when clicking outside
-  useEffect(() => {
-    if (!animationWidgetOpen) return;
-    const handleClickOutside = (e) => {
-      const clickedInsidePanel = animationWidgetRef.current && animationWidgetRef.current.contains(e.target);
-      const clickedToggle = animationWidgetToggleRef.current && animationWidgetToggleRef.current.contains(e.target);
-      if (!clickedInsidePanel && !clickedToggle) {
-        setAnimationWidgetOpen(false);
-      }
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [animationWidgetOpen]);
 
   // Close trace info popup when clicking outside
   useEffect(() => {
@@ -2115,13 +2098,6 @@ export default function Visualizer({
         return;
       }
 
-      if (animationWidgetOpen && animationWidgetRef.current?.contains(e.target)) {
-        lastHoveredIdxRef.current = -1;
-        setHoveredBitInfo(null);
-        setHoverPos(null);
-        return;
-      }
-
       const coords = screenToCanvasCoords(e.clientX, e.clientY);
       const idx = r.canvasToBitIndex(coords.x, coords.y);
       el.style.cursor = 'crosshair';
@@ -2846,33 +2822,10 @@ export default function Visualizer({
     return result;
   }, [getBitBalloonGeometry, stepsPanelCollapsed, panelWidth, settingsCollapsed]);
 
-  const updateAnimationWidgetPosition = useCallback(() => {
-    const toggle = animationWidgetToggleRef.current;
-    if (!toggle) return;
-    const rect = toggle.getBoundingClientRect();
-    const panelW = Math.min(360, Math.max(300, window.innerWidth - 56));
-    const margin = 12;
-    const left = Math.max(margin, Math.min(window.innerWidth - panelW - margin, rect.right - panelW));
-    const top = rect.bottom + 10;
-    const pointerX = Math.max(18, Math.min(panelW - 18, rect.left + rect.width / 2 - left));
-    setAnimationWidgetPosition({ left, top, pointerX });
-  }, []);
-
+  const effectiveTitle = customTitle && customTitle.trim() ? customTitle.trim() : traceTitle;
   useEffect(() => {
-    if (!animationWidgetOpen) return;
-    updateAnimationWidgetPosition();
-    const onRelayout = () => updateAnimationWidgetPosition();
-    window.addEventListener('resize', onRelayout);
-    window.addEventListener('scroll', onRelayout, true);
-    return () => {
-      window.removeEventListener('resize', onRelayout);
-      window.removeEventListener('scroll', onRelayout, true);
-    };
-  }, [animationWidgetOpen, updateAnimationWidgetPosition]);
-
-  useEffect(() => {
-    if (typeof document !== 'undefined') document.title = traceTitle;
-  }, [traceTitle]);
+    if (typeof document !== 'undefined') document.title = effectiveTitle;
+  }, [effectiveTitle]);
 
   return (
     <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}`}>
@@ -2887,7 +2840,7 @@ export default function Visualizer({
               title="Trace information"
               onClick={() => setShowTraceInfo((open) => !open)}
             >
-              {traceTitle}
+              {effectiveTitle}
             </button>
           </div>
           <div className="trace-actions">
@@ -2933,15 +2886,6 @@ export default function Visualizer({
           />
           <span className="step-counter">{currentStep} / {steps.length - 1}</span>
           <button
-            ref={animationWidgetToggleRef}
-            className={`btn-icon${animationWidgetOpen ? ' active' : ''}`}
-            onClick={() => setAnimationWidgetOpen((value) => !value)}
-            title="Animation settings"
-            disabled={exporting}
-          >
-            <Settings size={14} />
-          </button>
-          <button
             className={`btn-icon${animationReplayPaused ? ' active' : ''}`}
             onClick={() => setAnimationReplayPaused((value) => !value)}
             title={animationReplayPaused ? 'Resume automatic event animation' : 'Pause automatic event animation'}
@@ -2974,6 +2918,13 @@ export default function Visualizer({
               <button className="btn-icon" onClick={() => doZoom(1.5)} title="Zoom In (+)"><ZoomIn /></button>
               <button className="btn-text" onClick={resetZoom} title="Reset Zoom (0)">{zoom.toFixed(1)}x</button>
               <button className="btn-icon" onClick={() => doZoom(1 / 1.5)} title="Zoom Out (−)"><ZoomOut /></button>
+              <button className={`btn-icon${mode3D ? ' active' : ''}`} onClick={toggle3D} title="Toggle 3D view (3)">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M2 11L8 14L14 11" />
+                  <path d="M2 8L8 11L14 8" />
+                  <path d="M2 5L8 2L14 5L8 8Z" />
+                </svg>
+              </button>
               <button className={`btn-icon${heatMapEnabled ? ' active' : ''}`} onClick={() => setHeatMapEnabled(h => !h)} title="Toggle heat map overlay"><Thermometer /></button>
               <button className={`btn-icon${timingPanelOpen ? ' active' : ''}`} onClick={() => setTimingPanelOpen(o => !o)} title="Function timings">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -2985,13 +2936,6 @@ export default function Visualizer({
               </button>
               <button className={`btn-icon${loweredSetBits ? ' active' : ''}`} onClick={() => setLoweredSetBits((value) => !value)} title="Toggle lowered-set-bits sieve mode">
                 ▽
-              </button>
-              <button className={`btn-icon${mode3D ? ' active' : ''}`} onClick={toggle3D} title="Toggle 3D view (3)">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M2 11L8 14L14 11" />
-                  <path d="M2 8L8 11L14 8" />
-                  <path d="M2 5L8 2L14 5L8 8Z" />
-                </svg>
               </button>
               <button className="btn-icon" onClick={exportPng} title="Export PNG"><Camera /></button>
               {!exporting ? (
@@ -3064,112 +3008,6 @@ export default function Visualizer({
               style={renderCanvasStyle}
             />
             <canvas ref={minimapCanvasRef} className="minimap-overlay-canvas" aria-hidden="true" />
-          </div>
-          <div
-            className={`animation-widget speed-linked${animationWidgetOpen ? ' open' : ''}`}
-            ref={animationWidgetRef}
-            style={animationWidgetOpen ? {
-              left: animationWidgetPosition.left,
-              top: animationWidgetPosition.top,
-              '--gear-pointer-x': `${animationWidgetPosition.pointerX}px`,
-            } : undefined}
-          >
-            {animationWidgetOpen && (
-              <div className="animation-widget-panel">
-                <div className="animation-widget-header">
-                  <span>Animation</span>
-                </div>
-                <div className="animation-widget-actions">
-                  <button
-                    type="button"
-                    className={`preview-btn compact animation-option-btn animation-group-mark-btn${maskAnimationEnabled ? ' active' : ''}`}
-                    onClick={() => setMaskAnimationEnabled((value) => !value)}
-                    title={maskAnimationEnabled ? 'Disable group mark animation' : 'Enable group mark animation'}
-                  >
-                    <span className="preview-btn-swatch" aria-hidden="true">▦↓</span>
-                    <span className="preview-btn-title">Group mark animation</span>
-                    <span className="preview-btn-hint">{maskAnimationEnabled ? 'Stamp groups' : 'Stamp off'}</span>
-                  </button>
-                </div>
-                <label className="animation-widget-row">
-                  <span>Overall speed</span>
-                  <input type="range" min={1} max={100} step={1} value={playbackSpeedValue} onChange={(e) => setPlaybackSpeedValue(e.target.value)} />
-                  <strong>{playSpeedLabel}</strong>
-                </label>
-                <label className="animation-widget-row">
-                  <span>Delay</span>
-                  <input type="range" min={0} max={5000} step={100} value={repeatAnim || 0} onChange={(e) => setRepeatAnim(clampMs(parseInt(e.target.value || '0', 10) || 0, 0, 5000))} />
-                  <strong>{repeatAnim === 0 ? 'Off' : `${(repeatAnim / 1000).toFixed(1)}s`}</strong>
-                </label>
-                <label className="animation-widget-row">
-                  <span>Step animation</span>
-                  <input type="range" min={1} max={500} step={1} value={stepSpeedValue} onChange={(e) => setStepSpeedValue(e.target.value)} disabled={animMode === 'all'} />
-                  <strong>{animMode === 'all' ? 'All at once' : `${stepSpeedValue}%`}</strong>
-                </label>
-                <label className="animation-widget-row">
-                  <span>Mask animation</span>
-                  <input type="range" min={1} max={500} step={1} value={maskSpeedValue} onChange={(e) => setMaskSpeedValue(e.target.value)} disabled={!maskAnimationEnabled} />
-                  <strong>{maskAnimationEnabled ? `${maskSpeedValue}%` : 'Disabled'}</strong>
-                </label>
-                <label className="animation-widget-row animation-widget-row-checkbox">
-                  <span>Limit step duration</span>
-                  <input type="checkbox" checked={maxStepDurationEnabled} onChange={(e) => setMaxStepDurationEnabled(e.target.checked)} />
-                  <strong>{maxStepDurationEnabled ? 'On' : 'Off'}</strong>
-                </label>
-                {maxStepDurationEnabled && (
-                  <label className="animation-widget-row">
-                    <span>Max duration</span>
-                    <input
-                      type="range"
-                      min={2000}
-                      max={30000}
-                      step={500}
-                      value={maxStepDurationMs}
-                      onChange={(e) => setMaxStepDurationMs(clampMs(parseInt(e.target.value || '8000', 10) || 8000, 2000, 30000))}
-                    />
-                    <strong>{(maxStepDurationMs / 1000).toFixed(1)}s</strong>
-                  </label>
-                )}
-                <div className="animation-widget-grid">
-                  <div className="animation-widget-choice">
-                    <span>Style</span>
-                    <div className="animation-option-grid animation-option-grid-styles">
-                      {Object.entries(animStyleInfo).map(([styleKey, info]) => (
-                        <button
-                          key={styleKey}
-                          type="button"
-                          className={`preview-btn compact animation-option-btn btn-anim-style-${styleKey}${animStyle === styleKey ? ' active' : ''}`}
-                          onClick={() => setAnimStyle(styleKey)}
-                          title={info.hint}
-                        >
-                          <span className="preview-btn-swatch" aria-hidden="true">{info.swatch}</span>
-                          <span className="preview-btn-title">{info.shortLabel || info.label}</span>
-                          <span className="preview-btn-hint">{animStyle === styleKey ? 'On' : 'Set'}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="animation-widget-choice">
-                    <span>Mode</span>
-                    <div className="animation-option-grid animation-option-grid-modes">
-                      {Object.entries(animModeInfo).map(([modeKey, info]) => (
-                        <button
-                          key={modeKey}
-                          type="button"
-                          className={`preview-btn compact animation-option-btn btn-anim-mode-${modeKey}${animMode === modeKey ? ' active' : ''}`}
-                          onClick={() => setAnimMode(modeKey)}
-                          title={info.hint}
-                        >
-                          <span className="preview-btn-swatch" aria-hidden="true">{info.swatch}</span>
-                          <span className="preview-btn-title">{info.label}</span>
-                          <span className="preview-btn-hint">{animMode === modeKey ? 'Selected' : 'Activate'}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
           {/* Bit history panels: hover plus one or more click-locked balloons */}
           {(() => {
@@ -3420,7 +3258,11 @@ export default function Visualizer({
           outlineSettings={layoutSettings.outlines}
           onOutlineChange={(outlines) => setLayoutSettings((prev) => ({ ...prev, outlines }))}
           isWindowsPlatform={isWindowsPlatform}
-          showAnimationControls={false}
+          showAnimationControls={true}
+          customTitle={customTitle}
+          onCustomTitleChange={setCustomTitle}
+          mode3D={mode3D}
+          onToggle3D={toggle3D}
         />
       </div>
     </div>

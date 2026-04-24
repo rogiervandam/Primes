@@ -40,11 +40,15 @@ usage(char *program_name, int exit_code)
         "  --timers                  Give the timings for submodules - only when compiled for timers\n"
 #endif
 #ifdef COMPILE_TRACE
-        "  --trace [level]           Record trace-level output to a .sievetrace file\n"
-        "                            Optional level range: 5-9 (default: 9)\n"
+        "  --trace <level>           Record trace-level output to a .sievetrace file\n"
+        "                            Required level range: 5-9\n"
         "  --trace-filename <file>   Set trace output filename (use with --trace)\n"
         "                            Defaults to log/<timestamp>_<program>.sievetrace\n"
         "                            Use the visualizer tool to view the trace afterwards\n"
+#endif
+#ifdef COMPILE_TIMERS
+        "  --benchmark-log <file>    Set the benchmark timing JSON output filename\n"
+        "                            Defaults to <trace-stem>_sievebenchmark.json\n"
 #endif
 #ifdef COMPILE_TUNE
         "  --tune  <level>           find the best settings for the current os and hardware\n"

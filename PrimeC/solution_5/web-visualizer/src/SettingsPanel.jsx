@@ -121,8 +121,13 @@ export default function SettingsPanel({
   outlineSettings, onOutlineChange,
   isWindowsPlatform = false,
   showAnimationControls = true,
+  customTitle = '',
+  onCustomTitleChange,
+  mode3D = false,
+  onToggle3D,
 }) {
   const s = settings || {};
+  const [activeTab, setActiveTab] = React.useState('layout');
   const [groupingMenuOpen, setGroupingMenuOpen] = React.useState(false);
   const [customPresetMenuOpen, setCustomPresetMenuOpen] = React.useState(false);
   const [customGroupDraft, setCustomGroupDraft] = React.useState('');
@@ -739,16 +744,134 @@ export default function SettingsPanel({
     );
   };
 
+  const GearIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.08-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1.08 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001.08 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1.08z" />
+    </svg>
+  );
+
   return (
     <div className={`settings-sidebar${collapsed ? ' collapsed' : ''}${isWindowsPlatform ? ' platform-windows' : ''}`}>
-      <div className="settings-header-rail" title="Layout Settings">
-        <h3>Layout</h3>
+      <div className="settings-header-rail" title="Settings">
+        {collapsed ? (
+          <h3 className="settings-collapsed-label"><GearIcon /> Settings</h3>
+        ) : (
+          <div className="settings-tab-row" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'layout'}
+              className={`settings-tab-btn${activeTab === 'layout' ? ' active' : ''}`}
+              onClick={() => setActiveTab('layout')}
+            >
+              Layout
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'animation'}
+              className={`settings-tab-btn${activeTab === 'animation' ? ' active' : ''}`}
+              onClick={() => setActiveTab('animation')}
+            >
+              Animation
+            </button>
+          </div>
+        )}
         <button className="settings-collapse-btn" onClick={onToggleCollapse} title={collapsed ? 'Expand settings' : 'Collapse settings'}>
           {collapsed ? '◀' : '▶'}
         </button>
       </div>
       {!collapsed && (
         <div className="settings-panel-content">
+        {activeTab === 'layout' && (<>
+        <div className="settings-section">
+          <label>Title &amp; Grid</label>
+          <div className="settings-row">
+            <input
+              type="text"
+              className="settings-title-input"
+              placeholder="Custom visualizer title (optional)"
+              value={customTitle || ''}
+              onChange={(e) => onCustomTitleChange && onCustomTitleChange(e.target.value)}
+              style={{ width: '100%', background: 'var(--bg-raised)', color: 'var(--fg)', border: '1px solid var(--border-light)', borderRadius: 4, padding: '5px 8px', fontSize: 12 }}
+            />
+          </div>
+          <div className="settings-row overlay-inline-controls" style={{ marginTop: 8 }}>
+            <label className="overlay-inline-field overlay-inline-field-range">
+              <span>Grid opacity</span>
+              <input
+                type="range"
+                min={12}
+                max={100}
+                step={1}
+                value={Math.round((gridOpacity ?? 1) * 100)}
+                onChange={(e) => onGridOpacityChange && onGridOpacityChange((Math.max(12, Math.min(100, parseInt(e.target.value || '100', 10) || 100))) / 100)}
+              />
+              <span className="val">{Math.round((gridOpacity ?? 1) * 100)}%</span>
+            </label>
+          </div>
+          <div className="settings-row" style={{ marginTop: 8 }}>
+            <label style={{ display: 'block', fontSize: 11, color: 'var(--fg-dim)', marginBottom: 4, width: '100%' }}>Color preset</label>
+          </div>
+          <div className="settings-row">
+            <select value={colorPreset || ''} onChange={(e) => {
+              const val = e.target.value || null;
+              onColorPresetChange(val);
+              if (val) onCustomColorsChange({ setBit: null, clearedBit: null, unchangedBit: null });
+            }}>
+              <option value="">Theme default</option>
+              {Object.entries(COLOR_PRESETS).map(([k, v]) => (
+                <option key={k} value={k}>{v.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="settings-row color-row" style={{ marginTop: 6 }}>
+            <label className="color-label">
+              Set
+              <input type="color"
+                value={rgbToHex(customColors?.setBit || (colorPreset && COLOR_PRESETS[colorPreset] ? COLOR_PRESETS[colorPreset].setBit : [85, 85, 85]))}
+                onChange={(e) => onCustomColorsChange({ ...customColors, setBit: hexToRgb(e.target.value) })} />
+            </label>
+            <label className="color-label">
+              Cleared
+              <input type="color"
+                value={rgbToHex(customColors?.clearedBit || (colorPreset && COLOR_PRESETS[colorPreset] ? COLOR_PRESETS[colorPreset].clearedBit : [232, 232, 232]))}
+                onChange={(e) => onCustomColorsChange({ ...customColors, clearedBit: hexToRgb(e.target.value) })} />
+            </label>
+            <label className="color-label">
+              Unchanged
+              <input type="color"
+                value={rgbToHex(customColors?.unchangedBit || (colorPreset && COLOR_PRESETS[colorPreset] ? COLOR_PRESETS[colorPreset].unchangedBit : [232, 232, 232]))}
+                onChange={(e) => onCustomColorsChange({ ...customColors, unchangedBit: hexToRgb(e.target.value) })} />
+            </label>
+          </div>
+          {(customColors?.setBit || customColors?.clearedBit || customColors?.unchangedBit) && (
+            <button className="btn-text" style={{ marginTop: 4, fontSize: '0.8rem' }}
+                    onClick={() => onCustomColorsChange({ setBit: null, clearedBit: null, unchangedBit: null })}>
+              Reset custom colors
+            </button>
+          )}
+          {onToggle3D && (
+            <div className="preview-btn-grid preview-btn-grid-2" style={{ marginTop: 8 }}>
+              <PreviewOptionButton
+                compact
+                label="3D mode"
+                hint="Toggle 3D bit-depth view"
+                active={!!mode3D}
+                onClick={() => onToggle3D()}
+                preview={(
+                  <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                    <path d="M6 15L24 20L42 15" stroke="currentColor" fill="none" strokeWidth="1.5" />
+                    <path d="M6 11L24 16L42 11" stroke="currentColor" fill="none" strokeWidth="1.5" />
+                    <path d="M6 7L24 2L42 7L24 12Z" stroke="currentColor" fill="none" strokeWidth="1.5" />
+                  </svg>
+                )}
+              />
+            </div>
+          )}
+        </div>
+
         <div className="settings-section">
           <label>View Overlays</label>
           <div className="preview-btn-grid preview-btn-grid-2">
@@ -872,20 +995,6 @@ export default function SettingsPanel({
               <span className="settings-hint">Tune how deep and at what angle bits fall through the sieve.</span>
             </>
           )}
-          <div className="settings-row overlay-inline-controls" style={{ marginTop: 8 }}>
-            <label className="overlay-inline-field overlay-inline-field-range">
-              <span>Grid opacity</span>
-              <input
-                type="range"
-                min={12}
-                max={100}
-                step={1}
-                value={Math.round((gridOpacity ?? 1) * 100)}
-                onChange={(e) => onGridOpacityChange && onGridOpacityChange((Math.max(12, Math.min(100, parseInt(e.target.value || '100', 10) || 100))) / 100)}
-              />
-              <span className="val">{Math.round((gridOpacity ?? 1) * 100)}%</span>
-            </label>
-          </div>
         </div>
 
         <div className="settings-section">
@@ -1008,7 +1117,7 @@ export default function SettingsPanel({
             />
             <AnnotationButton
               title="Touch order"
-              hint="Show the order above touched vectors. Repeated touches are grouped as (1,6)."
+              hint="Touch order above vectors"
               active={!!s.showVectorTouchOrder}
               onClick={() => set('showVectorTouchOrder', !(s.showVectorTouchOrder === true))}
               preview={(
@@ -1079,12 +1188,14 @@ export default function SettingsPanel({
           </div>
           <span className="settings-hint">Outlines are optional helpers for structure visibility.</span>
         </div>
+        </>)}
 
-        {showAnimationControls && (
+        {activeTab === 'animation' && showAnimationControls && (<>
         <div className="settings-section">
           <label>Animation style</label>
           <div className="preview-btn-grid preview-btn-grid-3">
             <PreviewOptionButton
+              compact
               label="Ripple"
               hint="Contracting ripple ring"
               active={(animStyle || 'ripple') === 'ripple'}
@@ -1098,6 +1209,7 @@ export default function SettingsPanel({
               )}
             />
             <PreviewOptionButton
+              compact
               label="Fade"
               hint="Soft fading highlight"
               active={(animStyle || 'ripple') === 'fade'}
@@ -1112,6 +1224,7 @@ export default function SettingsPanel({
               )}
             />
             <PreviewOptionButton
+              compact
               label="Pulse"
               hint="Expand and contract"
               active={(animStyle || 'ripple') === 'pulse'}
@@ -1126,9 +1239,8 @@ export default function SettingsPanel({
             />
           </div>
         </div>
-        )}
 
-        {showAnimationControls && animStyle !== 'none' && (
+        {animStyle !== 'none' && (
           <div className="settings-section">
             <label>Animation mode</label>
             <div className="preview-btn-grid preview-btn-grid-3">
@@ -1180,8 +1292,7 @@ export default function SettingsPanel({
           </div>
         )}
 
-        {showAnimationControls && (
-          <div className="settings-section">
+        <div className="settings-section">
             <label>Animation timing</label>
             <div className="settings-row animation-timing-row" style={{ alignItems: 'flex-start', gap: 8 }}>
               <div className="timing-control">
@@ -1272,53 +1383,7 @@ export default function SettingsPanel({
             )}
             <span className="settings-hint">Overall speed controls autoplay through the trace. Step animation controls how a selected step reveals its bits. Delay waits only after a full step animation finishes.</span>
           </div>
-        )}
-
-        <div className="settings-section">
-          <label>Color preset</label>
-          <div className="settings-row">
-            <select value={colorPreset || ''} onChange={(e) => {
-              const val = e.target.value || null;
-              onColorPresetChange(val);
-              if (val) onCustomColorsChange({ setBit: null, clearedBit: null, unchangedBit: null });
-            }}>
-              <option value="">Theme default</option>
-              {Object.entries(COLOR_PRESETS).map(([k, v]) => (
-                <option key={k} value={k}>{v.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="settings-section">
-          <label>Custom bit colors</label>
-          <div className="settings-row color-row">
-            <label className="color-label">
-              Set
-              <input type="color"
-                value={rgbToHex(customColors?.setBit || (colorPreset && COLOR_PRESETS[colorPreset] ? COLOR_PRESETS[colorPreset].setBit : [85, 85, 85]))}
-                onChange={(e) => onCustomColorsChange({ ...customColors, setBit: hexToRgb(e.target.value) })} />
-            </label>
-            <label className="color-label">
-              Cleared
-              <input type="color"
-                value={rgbToHex(customColors?.clearedBit || (colorPreset && COLOR_PRESETS[colorPreset] ? COLOR_PRESETS[colorPreset].clearedBit : [232, 232, 232]))}
-                onChange={(e) => onCustomColorsChange({ ...customColors, clearedBit: hexToRgb(e.target.value) })} />
-            </label>
-            <label className="color-label">
-              Unchanged
-              <input type="color"
-                value={rgbToHex(customColors?.unchangedBit || (colorPreset && COLOR_PRESETS[colorPreset] ? COLOR_PRESETS[colorPreset].unchangedBit : [232, 232, 232]))}
-                onChange={(e) => onCustomColorsChange({ ...customColors, unchangedBit: hexToRgb(e.target.value) })} />
-            </label>
-          </div>
-          {(customColors?.setBit || customColors?.clearedBit || customColors?.unchangedBit) && (
-            <button className="btn-text" style={{ marginTop: 4, fontSize: '0.8rem' }}
-                    onClick={() => onCustomColorsChange({ setBit: null, clearedBit: null, unchangedBit: null })}>
-              Reset custom colors
-            </button>
-          )}
-        </div>
+        </>)}
         </div>
       )}
     </div>

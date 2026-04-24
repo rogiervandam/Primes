@@ -31,6 +31,9 @@ TRACE_FILENAME=""
 TRACE_EXPECTING_FILENAME=0
 TRACE_LEVEL_OVERRIDE=""
 TRACE_EXPECTING_LEVEL=0
+TRACE_USER_REQUESTED=0
+BENCHMARK_LOG_FILENAME=""
+BENCHMARK_LOG_EXPECTING_FILENAME=0
 for arg in "$@"; do
     if [ "$TRACE_EXPECTING_LEVEL" -eq 1 ]; then
         if echo "$arg" | grep -qE '^[0-9]+$'; then
@@ -38,12 +41,19 @@ for arg in "$@"; do
             TRACE_EXPECTING_LEVEL=0
             continue
         fi
-        TRACE_EXPECTING_LEVEL=0
+        echo "Error: --trace requires a trace level (5-9) to follow it." >&2
+        exit 1
     fi
 
     if [ "$TRACE_EXPECTING_FILENAME" -eq 1 ]; then
         TRACE_FILENAME="$arg"
         TRACE_EXPECTING_FILENAME=0
+        continue
+    fi
+
+    if [ "$BENCHMARK_LOG_EXPECTING_FILENAME" -eq 1 ]; then
+        BENCHMARK_LOG_FILENAME="$arg"
+        BENCHMARK_LOG_EXPECTING_FILENAME=0
         continue
     fi
 
@@ -85,13 +95,35 @@ for arg in "$@"; do
         STABLE_WSL_HOST="stable-wsl-host"
     elif [ "$arg" = "trace" ] || [ "$arg" = "--trace" ]; then
         TRACE="trace"
+        TRACE_USER_REQUESTED=1
         TRACE_EXPECTING_LEVEL=1
     elif [ "$arg" = "trace-filename" ] || [ "$arg" = "--trace-filename" ]; then
         TRACE_EXPECTING_FILENAME=1
+    elif [ "$arg" = "benchmark-log" ] || [ "$arg" = "--benchmark-log" ]; then
+        BENCHMARK_LOG_EXPECTING_FILENAME=1
     else
         ARGS_TO_KEEP+=("$arg")
     fi
 done
+
+# If --trace appeared last with no following token, error out.
+if [ "$TRACE_EXPECTING_LEVEL" -eq 1 ]; then
+    echo "Error: --trace requires a trace level (5-9) to follow it." >&2
+    exit 1
+fi
+if [ "$TRACE_EXPECTING_FILENAME" -eq 1 ]; then
+    echo "Error: --trace-filename requires a filename to follow it." >&2
+    exit 1
+fi
+if [ "$BENCHMARK_LOG_EXPECTING_FILENAME" -eq 1 ]; then
+    echo "Error: --benchmark-log requires a filename to follow it." >&2
+    exit 1
+fi
+# If user requested --trace but didn't supply a level on the command line, error.
+if [ "$TRACE_USER_REQUESTED" -eq 1 ] && [ -z "$TRACE_LEVEL_OVERRIDE" ]; then
+    echo "Error: --trace requires a trace level (5-9) to follow it." >&2
+    exit 1
+fi
 # Replace arguments with the filtered list
 set -- "${ARGS_TO_KEEP[@]}"
 
@@ -255,16 +287,18 @@ if [ "$VISUALIZE" = "visualize" ] || [ "$TRACE" = "trace" ]; then
     fi
 fi
 
-# Add --trace to run_args when trace or visualize is active
+# Add --trace to run_args when trace or visualize is active.
+# --trace now requires a trace level argument; fall back to the computed default for auto-enabled visualize mode.
 if [ "$TRACE" = "trace" ] || [ "$VISUALIZE" = "visualize" ]; then
-    if [ -n "$TRACE_LEVEL_OVERRIDE" ]; then
-        run_args="$run_args --trace $TRACE_LEVEL_OVERRIDE"
-    else
-        run_args="$run_args --trace"
-    fi
+    run_args="$run_args --trace $trace_level"
     if [ -n "$TRACE_FILENAME" ]; then
         run_args="$run_args --trace-filename $TRACE_FILENAME"
     fi
+fi
+
+# Pass benchmark log filename through to the executable when given.
+if [ -n "$BENCHMARK_LOG_FILENAME" ]; then
+    run_args="$run_args --benchmark-log $BENCHMARK_LOG_FILENAME"
 fi
 
 

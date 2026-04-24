@@ -1,8 +1,12 @@
 static void derive_benchmark_timing_filename(char* out, size_t out_size) {
-    const char* trace_filename = option.timings_filename;
-    if (!trace_filename || !trace_filename[0]) {
-        trace_filename = option.trace_filename;
+    /* If the user explicitly passed --benchmark-log, honor that path verbatim. */
+    if (option.timings_filename && option.timings_filename[0]) {
+        snprintf(out, out_size, "%s", option.timings_filename);
+        return;
     }
+
+    /* Otherwise derive from trace filename (or auto-generate) and append _sievebenchmark.json. */
+    const char* trace_filename = option.trace_filename;
     if (!trace_filename || !trace_filename[0] || strcmp(trace_filename, "__auto__") == 0) {
         trace_filename = trace_generate_default_filename(option.program_name, option.fixed_benchmark_settings.factor_max);
     }
