@@ -20,6 +20,10 @@
     #define COMPILE_TUNE
 #endif
 
+#if COMPILE_VERBOSE_LEVEL > 5 || defined(COMPILE_TRACE)
+    #define COMPILE_TIMERS
+#endif
+
 // How to align the caches
 #define cache_line_bytes 256
 

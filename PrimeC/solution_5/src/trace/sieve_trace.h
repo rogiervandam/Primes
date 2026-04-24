@@ -357,7 +357,7 @@ trace_init(const char* filename,
  */
 
 static void
-trace_record_event_full(int level, const void* bitstorage, const char* label, const char* annotation)
+trace_record_event_full(int level, const void* bitstorage, const char* label, double time, const char* annotation)
 {
     if (!g_trace.enabled || !g_trace.file) return;
 
@@ -372,6 +372,7 @@ trace_record_event_full(int level, const void* bitstorage, const char* label, co
         fputs(" function=", g_trace.file);
         trace_write_json_string(g_trace.file, event_label);
     }
+    if (time >= 0) fprintf(g_trace.file, " time=%.9f", time);
 
     uint32_t changed_count = 0;
     for (uint32_t byte_idx = 0; byte_idx < g_trace.bitstorage_bytes; byte_idx++) {
@@ -406,6 +407,7 @@ trace_record_event_full(int level, const void* bitstorage, const char* label, co
 
         fputs("{\"annotation\":", g_trace.json_file);
         trace_write_json_string(g_trace.json_file, annotation ? annotation : "");
+        if (time >= 0) fprintf(g_trace.json_file, ",\"time\":%.9f", time);
         fprintf(g_trace.json_file, ",\"depth\":%d", g_trace.depth);
         if (level > 0) {
             fprintf(g_trace.json_file, ",\"level\":%d", level);
@@ -634,11 +636,11 @@ trace_record_text_unlabeled(int level, const char* fmt, ...)
 }
 
 static void
-trace_record_event(int level, const void* bitstorage, const char* label, const char* fmt, ...)
+trace_record_event(int level, const void* bitstorage, const char* label, double time, const char* fmt, ...)
 {
     char annotation[1024];
     va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
-    trace_record_event_full(level, bitstorage, label, annotation);
+    trace_record_event_full(level, bitstorage, label, time, annotation);
 }
 
 /*

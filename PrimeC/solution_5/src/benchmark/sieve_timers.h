@@ -2,7 +2,7 @@
 
 // helper functions for timing parts of code in debugging mode
 
-#define timer_count 24
+#define timer_count 100 // TODO: tune this
 struct timespec timer_timers[timer_count];
 counter_t timer_hits[timer_count];
 double timer_time[timer_count];
@@ -18,7 +18,7 @@ time_mark(struct timespec* timer) {
     #endif
 }
 
-static void timer_laptime_function(counter_t timer) {
+static double timer_laptime_function(counter_t timer) {
     struct timespec lapend;
     time_mark(&lapend);
     double elapsed_time = (lapend.tv_sec - timer_timers[timer].tv_sec) * 1e9 + (lapend.tv_nsec - timer_timers[timer].tv_nsec);
@@ -32,6 +32,8 @@ static void timer_laptime_function(counter_t timer) {
         else                          printf("...time: \033[0;32m%.0f" COLOR_RESET "ns", elapsed_time);
         printf(" (%s) ", timer_function_names[timer]);
     })
+
+    return elapsed_time;
 }
 
 static void timer_init() {
@@ -40,10 +42,10 @@ static void timer_init() {
 }
 
 static void print_timing_table(void) {
-    verbose1( printf("%-40s %15s %20s\n", "Functions", "Hits", "Total time (s)"); )
+    verbose1( printf("%-50s %15s %20s\n", "Functions", "Hits", "Total time (s)"); )
     for (counter_t i = 0; i < timer_count; i++) {
         if (timer_hits[i] == 0) continue;
-        verbose1( printf("%-40s %15ju %20.9f\n", timer_function_names[i], (uintmax_t)timer_hits[i], timer_time[i] * 1e-9); )
+        verbose1( printf("%-50s %15ju %20.9f\n", timer_function_names[i], (uintmax_t)timer_hits[i], timer_time[i] * 1e-9); )
     }
 }
 

@@ -52,19 +52,18 @@
 
 #define logBegins(level, bitstorage, timer, printf_args...) \
           primes_trace_set_context(level); \
-          trace_record_event(level, bitstorage, timer_function_names[timer], printf_args); \
+          trace_record_event(level, bitstorage, timer_function_names[timer], 0, printf_args); \
           timer_lapstart(timer);
 
 #define logEnds(level, bitstorage, timer, printf_args...) \
-          timer_laptime(timer); \
-          trace_record_event(level, bitstorage, timer_function_names[timer], printf_args); \
+          trace_record_event(level, bitstorage, timer_function_names[timer], timer_laptime_function(timer), printf_args); \
           primes_trace_clear_context(); 
 
 #ifndef COMPILE_TRACE
   #undef logBegins
-  #define logBegins(level, bitstorage, timer, printf_args...) 
+  #define logBegins(level, bitstorage, timer, printf_args...) timer_lapstart(timer);
   #undef logEnds
-  #define logEnds(level, bitstorage, timer, printf_args...) 
+  #define logEnds(level, bitstorage, timer, printf_args...) timer_laptime(timer);
 #endif
 
 #define logBegins5(bitstorage, timer, printf_args...) logBegins(5, bitstorage, timer, printf_args)
@@ -93,7 +92,7 @@ trace_record_event_functionid(int level, void* bitstorage, function_id_t functio
 {
     char annotation[1024];
     va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
-    trace_record_event_full(level, bitstorage, timer_function_names[function_id], annotation);
+    trace_record_event_full(level, bitstorage, timer_function_names[function_id], (double)0, annotation);
 }
 
 #endif
