@@ -714,67 +714,69 @@ trace_record_text_labeled(int level, const char* label, const char* fmt, ...)
     trace_record_text_full(annotation, label, level);
 }
 
+static void
+trace_record_event(int level, const void* bitstorage, const char* label, const char* fmt, ...)
+{
+    if (!g_trace.enabled) return;
+
+    char annotation[1024];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(annotation, sizeof(annotation), fmt, args);
+    va_end(args);
+
+    trace_record_step_full_labeled(bitstorage, annotation, label, level);
+}
+
 /*
  * Simple step recording (backward-compatible convenience).
  */
-static void
-trace_record_step(int level, void* bitstorage, const char* label, const char* fmt, ...)
-{
-    if (!g_trace.enabled) return;
+// static void
+// trace_record_step(int level, void* bitstorage, const char* label, const char* fmt, ...)
+// {
+//     if (!g_trace.enabled) return;
 
-    char annotation[1024];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(annotation, sizeof(annotation), fmt, args);
-    va_end(args);
+//     char annotation[1024];
+//     va_list args;
+//     va_start(args, fmt);
+//     vsnprintf(annotation, sizeof(annotation), fmt, args);
+//     va_end(args);
 
-    trace_record_step_full_labeled(bitstorage, annotation, label, level);
-}
+//     trace_record_step_full_labeled(bitstorage, annotation, label, level);
+// }
 
-static void
-trace_record_event(int level, void* bitstorage, const char* label, const char* fmt, ...)
-{
-    if (!g_trace.enabled) return;
 
-    char annotation[1024];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(annotation, sizeof(annotation), fmt, args);
-    va_end(args);
-
-    trace_record_step_full_labeled(bitstorage, annotation, label, level);
-}
 
 /*
  * Convenience: record a step with a printf-style annotation (no extra metadata).
  */
-static void
-trace_record_step_fmt(void* bitstorage, const char* fmt, ...)
-{
-    if (!g_trace.enabled) return;
+// static void
+// trace_record_step_fmt(void* bitstorage, const char* fmt, ...)
+// {
+//     if (!g_trace.enabled) return;
 
-    char annotation[1024];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(annotation, sizeof(annotation), fmt, args);
-    va_end(args);
+//     char annotation[1024];
+//     va_list args;
+//     va_start(args, fmt);
+//     vsnprintf(annotation, sizeof(annotation), fmt, args);
+//     va_end(args);
 
-    trace_record_step_full(bitstorage, annotation, 0);
-}
+//     trace_record_step_full(bitstorage, annotation, 0);
+// }
 
-static void
-trace_record_step_fmt_level(const void* bitstorage, int level, const char* fmt, ...)
-{
-    if (!g_trace.enabled) return;
+// static void
+// trace_record_step_fmt_level(const void* bitstorage, int level, const char* fmt, ...)
+// {
+//     if (!g_trace.enabled) return;
 
-    char annotation[1024];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(annotation, sizeof(annotation), fmt, args);
-    va_end(args);
+//     char annotation[1024];
+//     va_list args;
+//     va_start(args, fmt);
+//     vsnprintf(annotation, sizeof(annotation), fmt, args);
+//     va_end(args);
 
-    trace_record_step_full(bitstorage, annotation, level);
-}
+//     trace_record_step_full(bitstorage, annotation, level);
+// }
 
 // static void
 // trace_record_step_labeled_fmt(const void* bitstorage, const char* label, const char* fmt, ...)
@@ -790,19 +792,19 @@ trace_record_step_fmt_level(const void* bitstorage, int level, const char* fmt, 
 //     trace_record_step_full_labeled(bitstorage, annotation, label, 0);
 // }
 
-static void
-trace_record_step_labeled_fmt_level(const void* bitstorage, int level, const char* label, const char* fmt, ...)
-{
-    if (!g_trace.enabled) return;
+// static void
+// trace_record_step_labeled_fmt_level(const void* bitstorage, int level, const char* label, const char* fmt, ...)
+// {
+//     if (!g_trace.enabled) return;
 
-    char annotation[1024];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(annotation, sizeof(annotation), fmt, args);
-    va_end(args);
+//     char annotation[1024];
+//     va_list args;
+//     va_start(args, fmt);
+//     vsnprintf(annotation, sizeof(annotation), fmt, args);
+//     va_end(args);
 
-    trace_record_step_full_labeled(bitstorage, annotation, label, level);
-}
+//     trace_record_step_full_labeled(bitstorage, annotation, label, level);
+// }
 
 // static void
 // trace_record_text_fmt(const char* fmt, ...)
@@ -818,19 +820,19 @@ trace_record_step_labeled_fmt_level(const void* bitstorage, int level, const cha
 //     trace_record_text_full(annotation, NULL, 0);
 // }
 
-static void
-trace_record_text_fmt_level(int level, const char* fmt, ...)
-{
-    if (!g_trace.enabled) return;
+// static void
+// trace_record_text_fmt_level(int level, const char* fmt, ...)
+// {
+//     if (!g_trace.enabled) return;
 
-    char annotation[1024];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(annotation, sizeof(annotation), fmt, args);
-    va_end(args);
+//     char annotation[1024];
+//     va_list args;
+//     va_start(args, fmt);
+//     vsnprintf(annotation, sizeof(annotation), fmt, args);
+//     va_end(args);
 
-    trace_record_text_full(annotation, NULL, level);
-}
+//     trace_record_text_full(annotation, NULL, level);
+// }
 
 // static void
 // trace_record_text_labeled_fmt(const char* label, const char* fmt, ...)

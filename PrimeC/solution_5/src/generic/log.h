@@ -190,7 +190,7 @@
 // trace_record_text_labeled_fmt_level(level, timer_function_names[(counter_t)(timer)], fmt, ##__VA_ARGS__)
 #define logBegins(level, bitstorage, timer, printf_args...) \
           primes_trace_set_context(level); \
-          trace_record_step_labeled_fmt_level(bitstorage, level, timer_function_names[timer], printf_args); \
+          trace_record_event(level, bitstorage, timer_function_names[timer], printf_args); \
           timer_lapstart(timer);
 
 // #define logBegins(level, bitstorage, timer, printf_args...) \
@@ -203,7 +203,7 @@
 // #define logBegins(level, bitstorage, timer, printf_args...) verbose5( primes_log_text_timer(level, timer, printf_args) ); timer_lapstart(timer); TRACE_ANALYSIS_PUSH(level); PRIMES_LOG_DISPATCH(level, bitstorage, timer, printf_args); 
 #define logEnds(level, bitstorage, timer, printf_args...) \
           timer_laptime(timer); \
-          trace_record_step_labeled_fmt_level(bitstorage, level, timer_function_names[timer], printf_args); \
+          trace_record_event(level, bitstorage, timer_function_names[timer], printf_args); \
           primes_trace_clear_context(); 
 
 // verbose5( trace_record_text_labeled_fmt_level(level, timer_function_names[(counter_t)(timer)], printf_args) ); 

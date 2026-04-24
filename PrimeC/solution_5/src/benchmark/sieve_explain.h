@@ -45,11 +45,11 @@ initSingleRunTrace(benchmark_settings_t benchmark_settings)
                                      trace_info);
 
         if (g_trace.enabled) {
-            trace_record_text_fmt_level((int)option.trace_level, "Settings used: %s", trace_settings_tag);
+            trace_record_text((int)option.trace_level, "Settings used: %s", trace_settings_tag);
 
             uint8_t* empty = (uint8_t*)calloc(1, (size_t)((trace_bit_count + 7) / 8));
             if (empty) {
-                trace_record_step(0, empty, "Initial", "Initial state: all bits clear");
+                trace_record_event(0, empty, "Initial", "Initial state: all bits clear");
                 free(empty);
             }
         }
@@ -64,7 +64,7 @@ finalizeSingleRunTrace(sieve_t* sieve)
 {
     #ifdef COMPILE_TRACE
     if (option.trace_filename && g_trace.enabled) {
-        trace_record_step(0, sieve->bitstorage, "Final", "Final state: sieve complete");
+        trace_record_event(0, sieve->bitstorage, "Final", "Final state: sieve complete");
         trace_finalize();
         verbose2( printf("Trace saved to %s\n", option.trace_filename); )
     }
