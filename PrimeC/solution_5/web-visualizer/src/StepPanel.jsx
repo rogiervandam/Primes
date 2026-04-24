@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
+import { formatNs } from './TimingPanel';
 
 /**
  * Convert a flat list of steps (each with a `depth` field, 0-based) into
@@ -259,6 +260,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
           {Number.isFinite(node.level) && <span className="step-op">L{node.level}</span>}
           {node.operation && <span className="step-op">{node.operation}</span>}
           <span className="step-changes">{changedCount > 0 ? `+${changedCount}` : ''}</span>
+          {node.elapsedNs != null && <span className="step-timing" title={`Elapsed: ${formatNs(node.elapsedNs, 2)}`}>{formatNs(node.elapsedNs)}</span>}
           <span className="step-text">{summaryText}</span>
         </div>
         {hasChildren && !isNodeCollapsed && (

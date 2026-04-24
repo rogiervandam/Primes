@@ -2640,3 +2640,217 @@ html, body, #root {
   background: var(--accent-bg);
   border-radius: 4px;
 }
+
+/* ============================================================
+   TIMING PANEL
+   ============================================================ */
+
+.timing-panel {
+  position: absolute;
+  top: 40px;
+  right: 8px;
+  width: 420px;
+  max-width: calc(100vw - 60px);
+  max-height: calc(100vh - 160px);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.timing-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.timing-panel-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg);
+  flex: 1;
+}
+
+.timing-panel-total {
+  font-size: 11px;
+  color: var(--fg-muted);
+  flex-shrink: 0;
+}
+
+.timing-panel-close {
+  flex-shrink: 0;
+}
+
+.timing-panel-empty {
+  padding: 20px 16px;
+  font-size: 12px;
+  color: var(--fg-dim);
+  text-align: center;
+  line-height: 1.5;
+}
+
+.timing-panel-body {
+  overflow-y: auto;
+  flex: 1;
+  padding: 8px 0;
+}
+
+/* ---- Bar chart ---- */
+.timing-chart {
+  padding: 4px 10px 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.timing-chart-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 18px;
+  margin-bottom: 3px;
+  cursor: pointer;
+}
+
+.timing-chart-row:hover .timing-chart-bar {
+  filter: brightness(1.2);
+}
+
+.timing-chart-label {
+  font-size: 10px;
+  color: var(--fg-muted);
+  width: 130px;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.timing-chart-bar-track {
+  flex: 1;
+  height: 10px;
+  background: var(--bg-input);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.timing-chart-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  min-width: 2px;
+  transition: width 0.3s ease;
+}
+
+.timing-chart-value {
+  font-size: 10px;
+  color: var(--fg-muted);
+  width: 56px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.timing-chart-pct {
+  font-size: 10px;
+  color: var(--fg-dim);
+  width: 34px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ---- Table ---- */
+.timing-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.timing-th {
+  padding: 3px 8px;
+  text-align: left;
+  color: var(--fg-dim);
+  font-weight: 500;
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+  user-select: none;
+}
+.timing-th:hover { color: var(--fg); }
+.timing-th-calls,
+.timing-th-total,
+.timing-th-avg,
+.timing-th-pct { text-align: right; }
+
+.timing-sort-indicator { margin-left: 3px; }
+.timing-sort-indicator.inactive { opacity: 0.3; }
+
+.timing-tr {
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.timing-tr:hover { background: var(--bg-raised); }
+.timing-tr.hot { background: color-mix(in srgb, var(--bg-panel) 80%, #e53 20%); }
+.timing-tr.warm { background: color-mix(in srgb, var(--bg-panel) 88%, #e93 12%); }
+.timing-tr.hot:hover,
+.timing-tr.warm:hover { filter: brightness(1.08); }
+
+.timing-td {
+  padding: 3px 8px;
+  color: var(--fg);
+  white-space: nowrap;
+}
+.timing-td-name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.timing-td-calls,
+.timing-td-total,
+.timing-td-avg,
+.timing-td-pct {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+}
+
+.timing-heat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fg-dim);
+  flex-shrink: 0;
+}
+.timing-heat-dot.hot { background: #e53; }
+.timing-heat-dot.warm { background: #e93; }
+
+/* ---- Step panel timing badge ---- */
+.step-timing {
+  color: var(--accent-dim);
+  font-size: 10px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+/* ---- Detail panel timing tag ---- */
+.detail-tag.timing-tag {
+  background: color-mix(in srgb, var(--accent-bg) 60%, transparent);
+  color: var(--accent-dim);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono, monospace);
+}

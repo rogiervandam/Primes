@@ -4,6 +4,7 @@ import { Camera3D } from './Camera3D';
 import StepPanel from './StepPanel';
 import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
+import TimingPanel from './TimingPanel';
 import {
   SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
   ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Thermometer, Settings
@@ -240,6 +241,7 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
   const [cachelineSize, setCachelineSize] = useState(64);
   const [cachePreset, setCachePreset] = useState('fixed');
   const [stepsPanelCollapsed, setStepsPanelCollapsed] = useState(true);
+  const [timingPanelOpen, setTimingPanelOpen] = useState(false);
   const [detailInspectorOpen, setDetailInspectorOpen] = useState(false);
   const [detailInspectorMode, setDetailInspectorMode] = useState('bits');
   const [detailInspectorQuery, setDetailInspectorQuery] = useState('');
@@ -2965,6 +2967,14 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
               <button className="btn-text" onClick={resetZoom} title="Reset Zoom (0)">{zoom.toFixed(1)}x</button>
               <button className="btn-icon" onClick={() => doZoom(1 / 1.5)} title="Zoom Out (−)"><ZoomOut /></button>
               <button className={`btn-icon${heatMapEnabled ? ' active' : ''}`} onClick={() => setHeatMapEnabled(h => !h)} title="Toggle heat map overlay"><Thermometer /></button>
+              <button className={`btn-icon${timingPanelOpen ? ' active' : ''}`} onClick={() => setTimingPanelOpen(o => !o)} title="Function timings">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="8" cy="9" r="5.5" />
+                  <path d="M8 6v3.5l2 1.5" strokeLinecap="round" />
+                  <path d="M6 1.5h4" strokeLinecap="round" />
+                  <path d="M8 1.5v2" strokeLinecap="round" />
+                </svg>
+              </button>
               <button className={`btn-icon${loweredSetBits ? ' active' : ''}`} onClick={() => setLoweredSetBits((value) => !value)} title="Toggle lowered-set-bits sieve mode">
                 ▽
               </button>
@@ -3330,6 +3340,18 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
             </div>
           )}
         </div>
+
+        {timingPanelOpen && (
+          <TimingPanel
+            steps={steps}
+            onClose={() => setTimingPanelOpen(false)}
+            onFocusFn={(fnName) => {
+              // Could filter the events panel — for now just log to console
+              // Future: wire into StepPanel filter
+              void fnName;
+            }}
+          />
+        )}
 
         <SettingsPanel
           settings={layoutSettings}

@@ -122,6 +122,8 @@ function parseJsonTrace(text) {
         : (s.operation ? [s.operation] : []),
       parentId: s.parent_id ?? s.parentId ?? null,
       level: toNullableNumber(firstDefined(s.level, s.log_level)),
+      // Timing: elapsed nanoseconds (from logEnds; logBegins records 0 which we store as null)
+      elapsedNs: (() => { const t = toNullableNumber(s.time); return t != null && t > 0 ? t : null; })(),
     };
   });
 
@@ -227,6 +229,7 @@ function parseTextTrace(text) {
         operationPath,
         parentId: toNullableNumber(firstDefined(kv.parent_id, kv.parentId)),
         level: toNullableNumber(firstDefined(kv.level, kv.log_level)),
+        elapsedNs: (() => { const t = toNullableNumber(kv.time); return t != null && t > 0 ? t : null; })(),
       });
       continue;
     }
@@ -462,6 +465,7 @@ function createParsedStep({
   level,
   depth,
   operationPath,
+  elapsedNs,
 }) {
   return {
     stepId: rawStepId,
@@ -491,6 +495,7 @@ function createParsedStep({
       ? operationPath
       : [operation || 'event'],
     parentId: null,
+    elapsedNs: (elapsedNs != null && Number.isFinite(elapsedNs) && elapsedNs > 0) ? elapsedNs : null,
   };
 }
 

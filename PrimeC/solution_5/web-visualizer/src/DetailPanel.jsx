@@ -1,5 +1,6 @@
 import React, { useMemo, useCallback } from 'react';
 import { BIT_LAYOUTS, BYTE_LAYOUTS, bitToNumber } from './SieveRenderer';
+import { formatNs } from './TimingPanel';
 
 const GRID3X3_MAP = [0, 1, 2, 3, 5, 6, 7, 8];
 
@@ -234,6 +235,10 @@ export default function DetailPanel({
         ? <span className="dt-mono">{step.patternDescription}</span>
         : (step.patternKind ? <span className="detail-tag block-tag">{step.patternKind}</span> : <span className="detail-empty">-</span>),
     },
+    ...(step.elapsedNs != null ? [{
+      label: 'Elapsed',
+      content: <span className="detail-tag timing-tag" title={`${step.elapsedNs.toFixed(0)}ns`}>{formatNs(step.elapsedNs, 2)}</span>,
+    }] : []),
   ];
 
   const statFacts = [
