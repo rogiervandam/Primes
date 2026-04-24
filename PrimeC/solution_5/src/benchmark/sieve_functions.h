@@ -30,6 +30,9 @@
 #define time_markFactors_wheelstorage_small_repeat 25
 #define time_markFactors_wheelstorage_repeat 26
 #define time_markFactors_wheelstorage_norepeat 27
+#define time_markFactor_wheelstorage 28
+#define time_markFactors_wheelstorage_small_repeat_pair_align 29
+#define time_markFactors_wheelstorage_small_repeat_pair_copy 30
 
 static const char* timer_function_names[100] = {
     [time_setBitsTrue] = "setBitsTrue",
@@ -60,6 +63,9 @@ static const char* timer_function_names[100] = {
     [time_markFactors_wheelstorage_small_repeat] = "markFactors_wheelstorage_small_repeat",
     [time_markFactors_wheelstorage_repeat] = "markFactors_wheelstorage_repeat",
     [time_markFactors_wheelstorage_norepeat] = "markFactors_wheelstorage_norepeat",
+    [time_markFactor_wheelstorage] = "markFactor_wheelstorage",
+    [time_markFactors_wheelstorage_small_repeat_pair_align] = "markFactors_wheelstorage_small_repeat_pair_align",
+    [time_markFactors_wheelstorage_small_repeat_pair_copy] = "markFactors_wheelstorage_small_repeat_pair_copy",
   };
 
 #endif // SIEVE_FUNCTIONS_H

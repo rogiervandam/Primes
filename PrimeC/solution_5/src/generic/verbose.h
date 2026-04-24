@@ -84,8 +84,8 @@ int waitforkey(void);
       trace_record_step_fmt(bitstorage_ptr, fmt, ##__VA_ARGS__)
   #define TRACE_EVENT_LEVEL(level, bitstorage_ptr, fmt, ...) \
       trace_record_step_fmt_level(bitstorage_ptr, level, fmt, ##__VA_ARGS__)
-  #define TRACE_STEP_META(bitstorage_ptr, op, prime, bstart, bstop, fstep, fmt, ...) \
-      TRACE_EVENT(bitstorage_ptr, fmt, ##__VA_ARGS__)
+  // #define TRACE_STEP_META(bitstorage_ptr, op, prime, bstart, bstop, fstep, fmt, ...) \
+  //     TRACE_EVENT(bitstorage_ptr, fmt, ##__VA_ARGS__)
     #define TRACE_TEXT(fmt, ...) trace_record_text_fmt(fmt, ##__VA_ARGS__)
     #define TRACE_TEXT_LEVEL(level, fmt, ...) (primes_log_should_trace(level) ? trace_record_text_fmt_level(level, fmt, ##__VA_ARGS__) : (void)0)
     #ifdef COMPILE_TIMERS
@@ -120,7 +120,7 @@ int waitforkey(void);
   #define TRACE_STEP_LEVEL(level, bitstorage_ptr, fmt, ...)
   #define TRACE_EVENT(bitstorage_ptr, fmt, ...)
   #define TRACE_EVENT_LEVEL(level, bitstorage_ptr, fmt, ...)
-  #define TRACE_STEP_META(bitstorage_ptr, op, prime, bstart, bstop, fstep, fmt, ...)
+  // #define TRACE_STEP_META(bitstorage_ptr, op, prime, bstart, bstop, fstep, fmt, ...)
   #define TRACE_TEXT(fmt, ...)
   #define TRACE_TEXT_LEVEL(level, fmt, ...)
   #define TRACE_TEXT_TIMER(timer, fmt, ...)
@@ -157,6 +157,11 @@ static inline void primes_log_event_timer(counter_t level, const void* bitstorag
 
 #define PRIMES_VA_COUNT_IMPL(  _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, N, ...) N
 #define PRIMES_VA_COUNT(...)  PRIMES_VA_COUNT_IMPL(__VA_ARGS__, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1)
+
+// log<x>() can take different forms:
+// log<x>(bitstorage, function, printf_args...)
+// log<x>(function, printf_args...)
+// log<x>(printf_args...)
 
 #define PRIMES_LOG_DISPATCH_1(level, a1)              if (primes_log_should_explain(level)) { a1; }
 #define PRIMES_LOG_DISPATCH_2(level, a1, a2)          PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, primes_log_event)(level, a1, a2)

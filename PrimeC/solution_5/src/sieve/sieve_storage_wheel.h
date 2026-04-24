@@ -99,12 +99,18 @@
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
     markFactor_wheelstorage(sieve_t* sieve, const register counter_t index) 
     {
+        logBegins9(sieve->bitstorage, time_markFactor_wheelstorage, "MarkFactorWheelStorage: marking factor %ju", (uintmax_t)index);
+
         register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
         const counter_t wheel_bit = wheel_bit_calc(index);
-        if (wheel_bit <= 0) return; // if the number is divisible by any of the wheel primes, skip it
+        if (wheel_bit <= 0) {
+            logEnds9(sieve->bitstorage, time_markFactor_wheelstorage, "MarkFactorWheelStorage: finished marking factor %ju - skipped because divisible by wheel prime", (uintmax_t)index);
+            return; // if the number is divisible by any of the wheel primes, skip it
+        }
         
-        verbose8({ printf("Marking index %ju with wheel bit %ju\n", (uintmax_t)index, (uintmax_t)wheel_bit); waitforkey(); });
         bitstorage_sized[ index_type(wheel_bit, bitbucket_t)] |= markmask_type(wheel_bit, bitbucket_t);
+
+        logEnds9(sieve->bitstorage, time_markFactor_wheelstorage, "MarkFactorWheelStorage: finished marking factor %ju", (uintmax_t)index);
     }
 
 #endif

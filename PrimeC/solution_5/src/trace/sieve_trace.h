@@ -689,9 +689,6 @@ trace_record_text_full(const char* annotation, const char* label, int level)
         fputs("{\"type\":\"text\",\"annotation\":", g_trace.json_file);
         trace_write_json_string(g_trace.json_file, annotation ? annotation : "");
         fprintf(g_trace.json_file, ",\"depth\":%d", g_trace.depth);
-        if (level > 0) {
-            fprintf(g_trace.json_file, ",\"level\":%d", level);
-        }
         if (event_label) {
             fputs(",\"function\":", g_trace.json_file);
             trace_write_json_string(g_trace.json_file, event_label);
