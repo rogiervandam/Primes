@@ -121,7 +121,7 @@
 // log<x>(bitstorage, function, printf_args...)
 // log<x>(bitstorage, printf_args...)
 
-#define PRIMES_LOG_SELECT_SECOND(arg, on_integer, on_other)            _Generic((arg), function_id_t: on_integer, default: on_other)
+// #define PRIMES_LOG_SELECT_SECOND(arg, on_integer, on_other)            _Generic((arg), function_id_t: on_integer, default: on_other)
 #define PRIMES_LOG_SELECT_FIRST(arg, on_integer, on_cstring, on_other) _Generic((arg), function_id_t: on_integer, char*: on_cstring, const char*: on_cstring, default: on_other)
 
 #define PRIMES_VA_COUNT_IMPL(  _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, N, ...) N
@@ -135,8 +135,25 @@
                                                             trace_record_text_labeled_fmt_level(level, timer_function_names[(counter_t)(a1)], a2), \
                                                             trace_record_text_fmt_level(level, a1, a2), \
                                                             trace_record_step_fmt_level(a1, level, a2))
-#define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3, ...)   PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer,primes_log_event))(level, a1, a2, a3, ##__VA_ARGS__)
+// #define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3, ...)   PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer, primes_log_text, PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer,primes_log_event))(level, a1, a2, a3, ##__VA_ARGS__)
 
+// #define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3, ...)   PRIMES_LOG_SELECT_FIRST(a1, \
+//                                                             primes_log_text_timer, \
+//                                                             primes_log_text, \
+//                                                             PRIMES_LOG_SELECT_SECOND(a2, \
+//                                                                 primes_log_event_timer, \
+//                                                                 primes_log_event) \
+//                                                         )(level, a1, a2, a3, ##__VA_ARGS__)
+
+#define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3, ...)   PRIMES_LOG_SELECT_FIRST(a1, \
+                                                            trace_record_text_labeled, \
+                                                            trace_record_text, \
+                                                            PRIMES_LOG_SELECT_FIRST(a2, \
+                                                                primes_log_event_timer, \
+                                                                trace_record_text, \
+                                                                primes_log_event) \
+                                                        )(level, a1, a2, a3, ##__VA_ARGS__)
+                                                        
 // #define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3, ...)   PRIMES_LOG_SELECT_FIRST(a1, primes_log_text_timer(level, a1, a2, a3, ##__VA_ARGS__), primes_log_text(level, a1, a2, a3, ##__VA_ARGS__), PRIMES_LOG_SELECT_SECOND(a2, primes_log_event_timer(level, a1, a2, a3, ##__VA_ARGS__),primes_log_event(level, a1, a2, a3, ##__VA_ARGS__)))
 
 // #define PRIMES_LOG_DISPATCH_3(level, a1, a2, a3, ...)   PRIMES_LOG_SELECT_FIRST(a1, \

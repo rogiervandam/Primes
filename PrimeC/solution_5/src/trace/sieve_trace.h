@@ -687,7 +687,21 @@ trace_record_text_full(const char* annotation, const char* label, int level)
 }
 
 static void
-trace_record_text(int level, const char* label, const char* fmt, ...)
+trace_record_text(int level, const char* fmt, ...)
+{
+    if (!g_trace.enabled) return;
+
+    char annotation[1024];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(annotation, sizeof(annotation), fmt, args);
+    va_end(args);
+
+    trace_record_text_full(annotation, NULL, level);
+}
+
+static void
+trace_record_text_labeled(int level, const char* label, const char* fmt, ...)
 {
     if (!g_trace.enabled) return;
 
