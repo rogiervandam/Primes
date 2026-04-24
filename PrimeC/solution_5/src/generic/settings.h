@@ -21,6 +21,7 @@
 #endif
 
 #if COMPILE_VERBOSE_LEVEL > 5 || defined(COMPILE_TRACE)
+    #undef COMPILE_TIMERS
     #define COMPILE_TIMERS
 #endif
 

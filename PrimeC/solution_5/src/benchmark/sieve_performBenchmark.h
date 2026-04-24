@@ -1,3 +1,62 @@
+static void derive_benchmark_timing_filename(char* out, size_t out_size) {
+    const char* trace_filename = option.timings_filename;
+    if (!trace_filename || !trace_filename[0]) {
+        trace_filename = option.trace_filename;
+    }
+    if (!trace_filename || !trace_filename[0] || strcmp(trace_filename, "__auto__") == 0) {
+        trace_filename = trace_generate_default_filename(option.program_name, option.fixed_benchmark_settings.factor_max);
+    }
+
+    size_t length = strlen(trace_filename);
+    size_t stem_length = length;
+    const char* extension = ".sievetrace";
+    const size_t extension_length = strlen(extension);
+    if (length > extension_length && strcmp(trace_filename + length - extension_length, extension) == 0) {
+        stem_length = length - extension_length;
+    }
+
+    snprintf(out, out_size, "%.*s_sievebenchmark.json", (int)stem_length, trace_filename);
+}
+
+#ifdef COMPILE_TIMERS
+// save the timing table to a file for later analysis as a json object
+// include the benchmark results in the json object for easier correlation between timing and benchmark results
+static void save_timing_table_to_file(const char* filename, benchmark_result_t benchmark_result) {
+    FILE* file = fopen(filename, "w");
+    if (file == NULL) {
+        fprintf(stderr, "Error opening file for writing: %s\n", filename);
+        return;
+    }
+
+    fprintf(file, "{\n");
+    fprintf(file, "  \"benchmark\": {\n");
+    fprintf(file, "    \"passes\": %ju,\n", (uintmax_t)benchmark_result.passes);
+    fprintf(file, "    \"elapsed_time\": %.9f,\n", benchmark_result.elapsed_time);
+    fprintf(file, "    \"avg\": %.9f,\n", benchmark_result.avg);
+    fprintf(file, "    \"settings\": \"%s\"\n", getBenchmarkSettingAsString(benchmark_result.settings));
+    fprintf(file, "  },\n");
+    fprintf(file, "  \"timings\": [\n");
+    counter_t written = 0;
+    for (counter_t i = 0; i < timer_count; i++) {
+        if (timer_hits[i] == 0) continue;
+        if (written > 0) fprintf(file, ",\n");
+        fprintf(file, "    {\n");
+        fprintf(file, "      \"function\": \"%s\",\n", timer_function_names[i]);
+        fprintf(file, "      \"hits\": %ju,\n", (uintmax_t)timer_hits[i]);
+        fprintf(file, "      \"total_time_s\": %.9f,\n", timer_time[i] * 1e-9);
+        fprintf(file, "      \"avg_time_per_pass_s\": %.12f,\n", benchmark_result.passes > 0 ? (timer_time[i] * 1e-9) / benchmark_result.passes : 0.0);
+        fprintf(file, "      \"avg_time_per_call_s\": %.12f\n", timer_hits[i] > 0 ? (timer_time[i] * 1e-9) / timer_hits[i] : 0.0);
+        fprintf(file, "    }");
+        written++;
+    }
+    if (written > 0) fprintf(file, "\n");
+    fprintf(file, "  ]\n");
+    fprintf(file, "}\n");
+
+    fclose(file);
+}
+#endif
+
 static int performBenchmarks(struct options_t option, sieve_t* (*sieveFunction)(const counter_t))
 {
     if (isExplainOrTraceMode()) {
@@ -122,6 +181,15 @@ static int performBenchmarks(struct options_t option, sieve_t* (*sieveFunction)(
         
         // output the results in a format that can be parsed by the benchmarking system
         printf("%s%s;%ju;%f;%ju;algorithm=%s,faithful=yes,bits=1",algorithm_name, option.extension, (uintmax_t)benchmark_result.passes, benchmark_result.elapsed_time, (uintmax_t)threads, algorithm_type);
+
+        #ifdef COMPILE_TIMERS
+        {
+            char timings_filename[768];
+            derive_benchmark_timing_filename(timings_filename, sizeof(timings_filename));
+            save_timing_table_to_file(timings_filename, benchmark_result);
+            verbose2( printf("Benchmark timing table saved to %s\n", timings_filename); )
+        }
+        #endif
 
         // add extra information to the output for research purposes
         verbose1({ 

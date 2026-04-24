@@ -62,8 +62,10 @@
 #ifndef COMPILE_TRACE
   #undef logBegins
   #define logBegins(level, bitstorage, timer, printf_args...) timer_lapstart(timer);
+  // #define logBegins(level, bitstorage, timer, printf_args...)
   #undef logEnds
   #define logEnds(level, bitstorage, timer, printf_args...) timer_laptime(timer);
+  // #define logEnds(level, bitstorage, timer, printf_args...) 
 #endif
 
 #define logBegins5(bitstorage, timer, printf_args...) logBegins(5, bitstorage, timer, printf_args)

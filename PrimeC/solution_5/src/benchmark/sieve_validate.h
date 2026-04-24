@@ -100,14 +100,6 @@ showResult(sieve_t* (*sieveFunction)(const counter_t), benchmark_settings_t benc
     counter_t prime_count = countPrimesInSieve(sieve, benchmark_settings.factor_max);
     verbose1( printf("\nFound %ju primes until %ju\n",(uintmax_t)prime_count, (uintmax_t)benchmark_settings.factor_max); )
     sieve_delete(sieve);
-
-    // debug information for developers
-    #ifdef COMPILE_TIMERS
-    if (option.timers) print_timing_table();
-    #endif
-    
-    if (debug_hits) { verbose2( printf("Hits: %ju\n",(uintmax_t)debug_hits); ) }
-
 }
 
 static inline void __attribute__((cold)) 

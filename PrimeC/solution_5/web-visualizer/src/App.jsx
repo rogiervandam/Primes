@@ -5,15 +5,76 @@ import Visualizer from './Visualizer';
 export default function App() {
   const [trace, setTrace] = useState(null);
   const [fileName, setFileName] = useState('');
+  const [benchmarkTimingData, setBenchmarkTimingData] = useState(null);
+  const [benchmarkTimingFileName, setBenchmarkTimingFileName] = useState('');
   const [error, setError] = useState('');
   const [logFiles, setLogFiles] = useState([]);
   const [loadingLog, setLoadingLog] = useState(false);
   const [autoRender, setAutoRender] = useState(false);
   const fileInputRef = useRef(null);
+  const benchmarkInputRef = useRef(null);
   const dropRef = useRef(null);
+
+  const deriveBenchmarkTimingFileName = useCallback((traceName) => {
+    if (!traceName) return '';
+    const suffix = '.sievetrace';
+    if (traceName.endsWith(suffix)) {
+      return `${traceName.slice(0, -suffix.length)}_sievebenchmark.json`;
+    }
+    return `${traceName}_sievebenchmark.json`;
+  }, []);
+
+  const parseBenchmarkTimingFile = useCallback((text) => {
+    const parsed = JSON.parse(text);
+    const benchmark = parsed?.benchmark || {};
+    const timings = Array.isArray(parsed?.timings) ? parsed.timings : [];
+    return {
+      benchmark: {
+        passes: Number(benchmark.passes) || 0,
+        elapsed_time: Number(benchmark.elapsed_time) || 0,
+        avg: Number(benchmark.avg) || 0,
+        settings: benchmark.settings || '',
+      },
+      timings: timings
+        .map((t) => ({
+          function: String(t.function || ''),
+          hits: Number(t.hits) || 0,
+          total_time_s: Number(t.total_time_s) || 0,
+          avg_time_per_pass_s: Number(t.avg_time_per_pass_s) || 0,
+          avg_time_per_call_s: Number(t.avg_time_per_call_s) || 0,
+        }))
+        .filter((t) => t.function),
+    };
+  }, []);
+
+  const tryLoadBenchmarkTimingFromApi = useCallback(async (traceName) => {
+    const benchmarkName = deriveBenchmarkTimingFileName(traceName);
+    if (!benchmarkName) {
+      setBenchmarkTimingData(null);
+      setBenchmarkTimingFileName('');
+      return;
+    }
+    try {
+      const res = await fetch(`/api/logs/${encodeURIComponent(benchmarkName)}`);
+      if (!res.ok) {
+        setBenchmarkTimingData(null);
+        setBenchmarkTimingFileName('');
+        return;
+      }
+      const text = await res.text();
+      const parsed = parseBenchmarkTimingFile(text);
+      setBenchmarkTimingData(parsed);
+      setBenchmarkTimingFileName(benchmarkName);
+    } catch {
+      setBenchmarkTimingData(null);
+      setBenchmarkTimingFileName('');
+    }
+  }, [deriveBenchmarkTimingFileName, parseBenchmarkTimingFile]);
 
   const loadFile = useCallback((file) => {
     setError('');
+    setBenchmarkTimingData(null);
+    setBenchmarkTimingFileName('');
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -38,13 +99,31 @@ export default function App() {
       const parsed = parseTrace(text);
       setTrace(parsed);
       setFileName(name);
+      await tryLoadBenchmarkTimingFromApi(name);
       if (autoRenderFlag) setAutoRender(true);
     } catch (err) {
       setError(err.message);
       setTrace(null);
+      setBenchmarkTimingData(null);
+      setBenchmarkTimingFileName('');
     }
     setLoadingLog(false);
-  }, []);
+  }, [tryLoadBenchmarkTimingFromApi]);
+
+  const importBenchmarkTimingFile = useCallback((file) => {
+    setError('');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const parsed = parseBenchmarkTimingFile(e.target.result);
+        setBenchmarkTimingData(parsed);
+        setBenchmarkTimingFileName(file.name);
+      } catch (err) {
+        setError(`Invalid benchmark timing file: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+  }, [parseBenchmarkTimingFile]);
 
   // Fetch available log files and check URL params on mount
   useEffect(() => {
@@ -64,6 +143,11 @@ export default function App() {
   const handleFileInput = (e) => {
     const file = e.target.files?.[0];
     if (file) loadFile(file);
+  };
+
+  const handleBenchmarkFileInput = (e) => {
+    const file = e.target.files?.[0];
+    if (file) importBenchmarkTimingFile(file);
   };
 
   const handleDrop = useCallback((e) => {
@@ -145,11 +229,29 @@ export default function App() {
   }
 
   return (
-    <Visualizer
-      trace={trace}
-      fileName={fileName}
-      onClose={() => { setTrace(null); setFileName(''); setAutoRender(false); }}
-      autoRender={autoRender}
-    />
+    <>
+      <input
+        ref={benchmarkInputRef}
+        type="file"
+        accept=".json,.txt"
+        onChange={handleBenchmarkFileInput}
+        hidden
+      />
+      <Visualizer
+        trace={trace}
+        fileName={fileName}
+        benchmarkTimingData={benchmarkTimingData}
+        benchmarkTimingFileName={benchmarkTimingFileName}
+        onImportBenchmarkTiming={() => benchmarkInputRef.current?.click()}
+        onClose={() => {
+          setTrace(null);
+          setFileName('');
+          setAutoRender(false);
+          setBenchmarkTimingData(null);
+          setBenchmarkTimingFileName('');
+        }}
+        autoRender={autoRender}
+      />
+    </>
   );
 }

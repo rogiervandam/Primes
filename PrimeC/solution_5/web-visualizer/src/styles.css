@@ -2703,6 +2703,25 @@ html, body, #root {
   padding: 8px 0;
 }
 
+.timing-panel-benchmark-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+
+.timing-benchmark-source {
+  font-size: 10px;
+  color: var(--fg-dim);
+}
+
+.timing-benchmark-run {
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
 /* ---- Bar chart ---- */
 .timing-chart {
   padding: 4px 10px 8px;

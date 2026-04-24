@@ -107,7 +107,15 @@ function mergeDepthSettings(saved) {
   };
 }
 
-export default function Visualizer({ trace, fileName, onClose, autoRender }) {
+export default function Visualizer({
+  trace,
+  fileName,
+  benchmarkTimingData,
+  benchmarkTimingFileName,
+  onImportBenchmarkTiming,
+  onClose,
+  autoRender,
+}) {
   const { header, steps } = trace;
   const traceTitle = useMemo(() => header.title || fileName || 'Sieve Visualizer', [header.title, fileName]);
   const traceMetaItems = useMemo(() => {
@@ -2998,6 +3006,15 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
               </button>
             </>
           )}
+          {onImportBenchmarkTiming && (
+            <button
+              className={`btn-text${benchmarkTimingData ? ' active' : ''}`}
+              onClick={onImportBenchmarkTiming}
+              title={benchmarkTimingData ? `Benchmark timing loaded: ${benchmarkTimingFileName || 'manual file'}` : 'Import benchmark timing JSON'}
+            >
+              BM
+            </button>
+          )}
         </div>
       </header>
 
@@ -3344,6 +3361,8 @@ export default function Visualizer({ trace, fileName, onClose, autoRender }) {
         {timingPanelOpen && (
           <TimingPanel
             steps={steps}
+            benchmarkTimingData={benchmarkTimingData}
+            benchmarkTimingFileName={benchmarkTimingFileName}
             onClose={() => setTimingPanelOpen(false)}
             onFocusFn={(fnName) => {
               // Could filter the events panel — for now just log to console

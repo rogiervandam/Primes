@@ -44,6 +44,7 @@ static struct options_t {
     char*     dockerfile_type;
     char*     extension;
     char*     trace_filename;
+    char*     timings_filename;
 } option;
 
 static struct options_t __attribute__((cold)) 
@@ -80,6 +81,7 @@ setDefaultOptions()
 
     option.dockerfile_type = getenv("DOCKERFILE_TYPE"); 
     option.trace_filename  = NULL;
+    option.timings_filename = NULL;
 
     // changes though compilation options
     #ifdef _OPENMP
