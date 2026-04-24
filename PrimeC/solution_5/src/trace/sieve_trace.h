@@ -293,6 +293,10 @@ trace_init(const char* filename,
         fputc('\n', g_trace.file);
     }
 
+    /* Dedicated storage model line for downstream tooling to locate without parsing
+       the primary TRACE header. Format: "StorageModel: <name>" */
+    fprintf(g_trace.file, "StorageModel: %s\n", storage_model);
+
     const char* json_secondary = getenv("TRACE_JSON_SECONDARY");
     if (json_secondary && strcmp(json_secondary, "0") != 0) {
         char json_path[1024];

@@ -29,9 +29,24 @@ export default function DetailPanel({
   storageModel,
   bitLayout = '4x2',
   byteLayout = '4x2',
+  benchmarkTimingData,
   onInspectChangedBits,
   onInspectMarkedNumbers,
 }) {
+  // Benchmark timing row matching the current step's operation (if any)
+  const benchmarkOpTiming = useMemo(() => {
+    if (!step || !benchmarkTimingData || !Array.isArray(benchmarkTimingData.timings)) return null;
+    const op = step.operation;
+    if (!op) return null;
+    const match = benchmarkTimingData.timings.find((t) => String(t.function || '').trim() === op);
+    if (!match) return null;
+    return {
+      avgPerPassNs: (Number(match.avg_time_per_pass_s) || 0) * 1e9,
+      avgPerCallNs: (Number(match.avg_time_per_call_s) || 0) * 1e9,
+      totalNs: (Number(match.total_time_s) || 0) * 1e9,
+      hits: Number(match.hits) || 0,
+    };
+  }, [step, benchmarkTimingData]);
   // Compact representation of changed bit ranges
   const bitRanges = useMemo(() => {
     if (!step || step.changedBits.length === 0) return '';
@@ -210,43 +225,73 @@ export default function DetailPanel({
     step.numChanged > 0 ? `+${step.numChanged} bits` : null,
   ].filter(Boolean).join(' | ');
 
-  const primaryFacts = [
+  // Compact "Operation" section — identity of the step
+  const operationFacts = [
     {
       label: 'Prime',
-      content: step.prime != null ? <span className="detail-tag prime-tag">{step.prime}</span> : <span className="detail-empty">-</span>,
+      content: step.prime != null ? <span className="detail-tag prime-tag">{step.prime}</span> : <span className="detail-empty">—</span>,
     },
     {
       label: 'Operation',
-      content: step.operation ? <span className="detail-tag op-tag">{step.operation}</span> : <span className="detail-empty">-</span>,
+      content: step.operation ? <span className="detail-tag op-tag">{step.operation}</span> : <span className="detail-empty">—</span>,
     },
+  ];
+
+  // "Range & Pattern" section — geometric facts
+  const rangeFacts = [
     {
       label: 'Range',
       content: step.start != null && step.stop != null
         ? <span className="detail-tag block-tag">[{step.start} – {step.stop}]</span>
-        : <span className="detail-empty">-</span>,
+        : <span className="detail-empty">—</span>,
     },
     {
       label: 'Step size',
-      content: step.factorStep != null ? <span className="detail-tag step-tag">{step.factorStep}</span> : <span className="detail-empty">-</span>,
+      content: step.factorStep != null ? <span className="detail-tag step-tag">{step.factorStep}</span> : <span className="detail-empty">—</span>,
     },
     {
       label: 'Pattern',
       content: step.patternDescription
         ? <span className="dt-mono">{step.patternDescription}</span>
-        : (step.patternKind ? <span className="detail-tag block-tag">{step.patternKind}</span> : <span className="detail-empty">-</span>),
+        : (step.patternKind ? <span className="detail-tag block-tag">{step.patternKind}</span> : <span className="detail-empty">—</span>),
     },
-    ...(step.elapsedNs != null ? [{
-      label: 'Elapsed',
-      content: <span className="detail-tag timing-tag" title={`${step.elapsedNs.toFixed(0)}ns`}>{formatNs(step.elapsedNs, 2)}</span>,
-    }] : []),
   ];
 
-  const statFacts = [
+  // "Bits" section — counts
+  const bitsFacts = [
     { label: 'Bits changed', value: step.numChanged ?? 0 },
-    { label: 'Newly set', value: stepStats?.newlySet ?? '-' },
-    { label: 'Already set', value: stepStats?.reSet ?? '-' },
-    { label: 'Tried >1x', value: stepStats?.duplicateTargets ?? '-' },
-    { label: 'Total set', value: stepStats?.totalSet ?? '-' },
+    { label: 'Newly set', value: stepStats?.newlySet ?? '—' },
+    { label: 'Already set', value: stepStats?.reSet ?? '—' },
+    { label: 'Tried >1x', value: stepStats?.duplicateTargets ?? '—' },
+    { label: 'Total set', value: stepStats?.totalSet ?? '—' },
+  ];
+
+  // "Timings" section — step elapsed + matching benchmark timing where available
+  const timingFacts = [
+    {
+      label: 'Step elapsed',
+      content: step.elapsedNs != null
+        ? <span className="detail-tag timing-tag" title={`${step.elapsedNs.toFixed(0)}ns`}>{formatNs(step.elapsedNs, 2)}</span>
+        : <span className="detail-empty">—</span>,
+    },
+    {
+      label: 'Bench avg/pass',
+      content: benchmarkOpTiming && benchmarkOpTiming.avgPerPassNs > 0
+        ? <span className="detail-tag timing-tag" title={`benchmark: ${benchmarkOpTiming.hits.toLocaleString()} hits total`}>{formatNs(benchmarkOpTiming.avgPerPassNs, 2)}</span>
+        : <span className="detail-empty">—</span>,
+    },
+    {
+      label: 'Bench avg/call',
+      content: benchmarkOpTiming && benchmarkOpTiming.avgPerCallNs > 0
+        ? <span className="detail-tag timing-tag">{formatNs(benchmarkOpTiming.avgPerCallNs, 2)}</span>
+        : <span className="detail-empty">—</span>,
+    },
+    {
+      label: 'Bench total',
+      content: benchmarkOpTiming && benchmarkOpTiming.totalNs > 0
+        ? <span className="detail-tag timing-tag">{formatNs(benchmarkOpTiming.totalNs, 2)}</span>
+        : <span className="detail-empty">—</span>,
+    },
   ];
 
   const maskFacts = [
@@ -343,53 +388,77 @@ export default function DetailPanel({
       </div>
 
       {open && (
-        <div className="detail-panel-body" style={{
+        <div className="detail-panel-body detail-panel-body-compact" style={{
           ...(playing ? { height: `${height || 200}px` } : { maxHeight: `${height || 200}px` }),
           ...(width > 0 ? { minWidth: `${width}px`, overflowX: 'auto' } : {}),
         }}>
-          <div className="detail-layout-4col">
-            {/* Column 1: Prime, Operation, Range, Step size */}
-            <div className="detail-col detail-col-1">
-              <div className="detail-field-grid">
-                {primaryFacts.map((row) => (
-                  <div key={row.label} className="detail-field">
-                    <div className="detail-field-label">{row.label}</div>
-                    <div className="detail-field-value">{row.content}</div>
+          <div className="detail-sections">
+            <section className="detail-section-card">
+              <div className="detail-section-title">Operation</div>
+              <div className="detail-section-rows">
+                {operationFacts.map((row) => (
+                  <div key={row.label} className="detail-row">
+                    <span className="detail-row-label">{row.label}</span>
+                    <span className="detail-row-value">{row.content}</span>
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
 
-            {/* Column 2: Bits changed, newly set, already set, total set */}
-            <div className="detail-col detail-col-2">
-              <div className="detail-field-grid">
-                {statFacts.map((stat) => (
-                  <div key={stat.label} className="detail-field">
-                    <div className="detail-field-label">{stat.label}</div>
-                    <div className="detail-stat-value">{stat.value}</div>
+            <section className="detail-section-card">
+              <div className="detail-section-title">Range &amp; Pattern</div>
+              <div className="detail-section-rows">
+                {rangeFacts.map((row) => (
+                  <div key={row.label} className="detail-row">
+                    <span className="detail-row-label">{row.label}</span>
+                    <span className="detail-row-value">{row.content}</span>
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
 
-            {/* Column 3: Numbers marked, Bit ranges */}
-            <div className="detail-col detail-col-3">
-              <div className="detail-field-grid">
+            <section className="detail-section-card">
+              <div className="detail-section-title">Bits</div>
+              <div className="detail-section-rows">
+                {bitsFacts.map((stat) => (
+                  <div key={stat.label} className="detail-row">
+                    <span className="detail-row-label">{stat.label}</span>
+                    <span className="detail-row-value detail-row-value-num">{stat.value}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="detail-section-card">
+              <div className="detail-section-title">Timings</div>
+              <div className="detail-section-rows">
+                {timingFacts.map((row) => (
+                  <div key={row.label} className="detail-row">
+                    <span className="detail-row-label">{row.label}</span>
+                    <span className="detail-row-value">{row.content}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="detail-section-card detail-section-wide">
+              <div className="detail-section-title">Marked numbers &amp; bit ranges</div>
+              <div className="detail-section-rows">
                 {annotationFacts.map((row) => (
-                  <div key={row.label} className="detail-field">
-                    <div className="detail-field-label">{row.label}</div>
-                    <div className="detail-field-value">{row.content}</div>
+                  <div key={row.label} className="detail-row detail-row-wide">
+                    <span className="detail-row-label">{row.label}</span>
+                    <span className="detail-row-value">{row.content}</span>
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
 
-            {/* Column 4: Mask preview */}
-            <div className="detail-col detail-col-4">
-              <div className="detail-field detail-field-mask-preview">
+            <section className="detail-section-card detail-section-wide">
+              <div className="detail-section-title">Mask preview</div>
+              <div className="detail-section-rows">
                 {maskPreviewContent}
               </div>
-            </div>
+            </section>
           </div>
         </div>
       )}

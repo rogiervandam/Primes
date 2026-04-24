@@ -176,6 +176,9 @@ function parseTextTrace(text) {
   for (let idx = 0; idx < lines.length; idx++) {
     const line = lines[idx];
     if (!line || line.startsWith('TRACE ') || line.startsWith('DUMP ')) continue;
+    // Dedicated storage-model line ("StorageModel: half") is a metadata convenience
+    // already carried inside the TRACE header; skip here to avoid free-form parsing.
+    if (/^StorageModel:\s*\S+\s*$/i.test(line)) continue;
 
     if (/^STEP\s|^EVENT\s|^TEXT\s/i.test(line)) {
       const upper = line.toUpperCase();

@@ -118,61 +118,106 @@ export default function Visualizer({
 }) {
   const { header, steps } = trace;
   const traceTitle = useMemo(() => header.title || fileName || 'Sieve Visualizer', [header.title, fileName]);
-  const traceMetaItems = useMemo(() => {
-    const items = [];
-    if (fileName) items.push(`File: ${fileName}`);
-    if (header.subtitle) items.push(header.subtitle);
-    if (Array.isArray(header.infoLines)) items.push(...header.infoLines);
-    if (header.maxNumber != null) items.push(`Max ${header.maxNumber.toLocaleString()}`);
-    if (header.storageModel) items.push(`Storage ${header.storageModel}`);
-    if (header.traceLevel != null) items.push(`Trace level ${header.traceLevel}`);
-    items.push(`Bits ${header.bitCount.toLocaleString()}`);
-    items.push(`Events ${header.stepCount}`);
-    items.push(`v${header.version}`);
-    return Array.from(new Set(items.filter(Boolean)));
-  }, [header, fileName]);
   const traceInfoSections = useMemo(() => {
-    const parseKeyValue = (value) => {
-      const match = String(value || '').match(/^\s*([^:]+):\s*(.+)\s*$/);
-      if (!match) return null;
-      return { label: match[1].trim(), value: match[2].trim() };
+    // Parse a single info item into a {label, value} pair. Accepts "label: value",
+    // "label=value", or "Label Value" (single-word label followed by value).
+    const parseKeyValue = (raw) => {
+      const text = String(raw || '').trim();
+      if (!text) return null;
+      const colonEq = text.match(/^\s*([^:=]+?)\s*[:=]\s*(.+?)\s*$/);
+      if (colonEq) return { label: colonEq[1].trim(), value: colonEq[2].trim() };
+      // "Storage half", "Max 1000", "v5"
+      const labelSpace = text.match(/^\s*(Storage|Max|Bits|Events|Settings|Trace level|Version)\s+(.+)\s*$/i);
+      if (labelSpace) return { label: labelSpace[1], value: labelSpace[2] };
+      if (/^v\d/i.test(text)) return { label: 'Version', value: text.replace(/^v/i, '') };
+      return null;
     };
 
-    const source = Array.from(new Set(traceMetaItems.filter(Boolean)));
+    // Canonical key for dedup + routing.
+    const canonicalize = (label) => String(label || '').trim().toLowerCase().replace(/\s+/g, '_');
+    // Canonical value for dedup: strip grouping separators on numerics.
+    const canonicalValue = (value) => {
+      const text = String(value || '').trim();
+      if (/^-?\d[\d,._\s]*$/.test(text)) return text.replace(/[,_\s]/g, '');
+      return text.toLowerCase();
+    };
+
+    // Label + section routing for recognized keys. Unknown keys flow to Notes.
+    const runKeys = new Set([
+      'max', 'max_number', 'maxnumber', 'factor_max',
+      'bits', 'bit_count', 'bitcount',
+      'events', 'step_count', 'stepcount',
+      'storage', 'storage_model', 'storagemodel',
+      'trace_level', 'tracelevel',
+      'threads', 'duration', 'elapsed',
+      'version', 'v',
+    ]);
+    const settingsKeys = new Set(['settings', 'benchmark_settings', 'benchmarksettings']);
+    const prettyLabel = (canon, fallback) => ({
+      max: 'Max', max_number: 'Max', maxnumber: 'Max', factor_max: 'Max',
+      bits: 'Bits', bit_count: 'Bits', bitcount: 'Bits',
+      events: 'Events', step_count: 'Events', stepcount: 'Events',
+      storage: 'Storage', storage_model: 'Storage', storagemodel: 'Storage',
+      trace_level: 'Trace level', tracelevel: 'Trace level',
+      threads: 'Threads', duration: 'Duration', elapsed: 'Elapsed',
+      version: 'Version', v: 'Version',
+      settings: 'Settings', benchmark_settings: 'Settings', benchmarksettings: 'Settings',
+    }[canon] || fallback);
+
+    const items = [];
+    if (fileName) items.push({ label: 'File', value: fileName });
+    if (header.subtitle) items.push({ label: 'Subtitle', value: header.subtitle });
+    if (Array.isArray(header.infoLines)) {
+      for (const line of header.infoLines) {
+        const kv = parseKeyValue(line);
+        if (kv) items.push(kv);
+        else items.push({ label: 'Info', value: String(line) });
+      }
+    }
+    if (header.maxNumber != null) items.push({ label: 'Max', value: String(header.maxNumber) });
+    if (header.storageModel) items.push({ label: 'Storage', value: header.storageModel });
+    if (header.traceLevel != null) items.push({ label: 'Trace level', value: String(header.traceLevel) });
+    if (header.bitCount != null) items.push({ label: 'Bits', value: String(header.bitCount) });
+    if (header.stepCount != null) items.push({ label: 'Events', value: String(header.stepCount) });
+    if (header.version != null) items.push({ label: 'Version', value: String(header.version) });
+
+    // Dedupe by canonical (label, value), preserving insertion order.
+    const seen = new Set();
+    const deduped = [];
+    for (const kv of items) {
+      const canonLabel = canonicalize(kv.label);
+      const canonVal = canonicalValue(kv.value);
+      const key = `${canonLabel}=${canonVal}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const label = prettyLabel(canonLabel, kv.label);
+      // Format numerics with commas when display label is friendly.
+      let displayValue = kv.value;
+      if (/^-?\d+$/.test(String(kv.value))) {
+        const n = Number(kv.value);
+        if (Number.isFinite(n) && Math.abs(n) >= 1000) displayValue = n.toLocaleString();
+      }
+      deduped.push({ label, canonLabel, value: displayValue });
+    }
+
     const file = [];
     const run = [];
+    const settings = [];
     const extra = [];
-
-    for (let i = 0; i < source.length; i++) {
-      const item = source[i];
-      const kv = parseKeyValue(item);
-      if (kv) {
-        const key = kv.label.toLowerCase();
-        if (key.includes('file')) {
-          file.push(kv);
-          continue;
-        }
-        if (key.includes('max') || key.includes('bits') || key.includes('events') || key.includes('storage') || key === 'version' || key === 'v') {
-          run.push(kv);
-          continue;
-        }
-        extra.push(kv);
-        continue;
-      }
-      const text = String(item);
-      if (/^v\d/i.test(text)) {
-        run.push({ label: 'Version', value: text.replace(/^v/i, '') });
-      } else {
-        extra.push({ label: 'Info', value: text });
-      }
+    for (const kv of deduped) {
+      if (kv.canonLabel === 'file' || kv.canonLabel === 'subtitle') { file.push(kv); continue; }
+      if (settingsKeys.has(kv.canonLabel)) { settings.push(kv); continue; }
+      if (runKeys.has(kv.canonLabel)) { run.push(kv); continue; }
+      extra.push(kv);
     }
 
     return [
       { title: 'File', rows: file },
       { title: 'Run', rows: run },
+      { title: 'Settings', rows: settings },
       { title: 'Notes', rows: extra },
     ].filter((section) => section.rows.length > 0);
-  }, [traceMetaItems]);
+  }, [header, fileName]);
 
   const canvasRef = useRef(null);
   const settledCanvasRef = useRef(null);
@@ -2849,6 +2894,26 @@ export default function Visualizer({
           </div>
           {showTraceInfo && (
             <div className="trace-info-popover" ref={traceInfoPopoverRef}>
+              <div className="trace-info-section">
+                <div className="trace-info-section-title">Storage model</div>
+                <div className="trace-info-row">
+                  <select
+                    className="trace-info-storage-select"
+                    value={storageModel || 'half'}
+                    onChange={(e) => setStorageModel(e.target.value)}
+                    title={`Detected from log: ${header.storageModel || 'half'}`}
+                  >
+                    {Object.entries(STORAGE_MODELS).map(([k, v]) => (
+                      <option key={k} value={k}>{v.label}</option>
+                    ))}
+                  </select>
+                </div>
+                {header.storageModel && header.storageModel !== storageModel && (
+                  <div className="trace-info-row trace-info-row-hint">
+                    Log reported <code>{header.storageModel}</code> — override active.
+                  </div>
+                )}
+              </div>
               {traceInfoSections.map((section) => (
                 <div key={section.title} className="trace-info-section">
                   <div className="trace-info-section-title">{section.title}</div>
@@ -3138,6 +3203,7 @@ export default function Visualizer({
             storageModel={storageModel}
             bitLayout={layoutSettings.bitLayout}
             byteLayout={layoutSettings.byteLayout}
+            benchmarkTimingData={benchmarkTimingData}
             onInspectChangedBits={() => openDetailInspector('bits')}
             onInspectMarkedNumbers={() => openDetailInspector('numbers')}
           />
