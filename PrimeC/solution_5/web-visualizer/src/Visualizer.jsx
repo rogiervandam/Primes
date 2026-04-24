@@ -250,6 +250,7 @@ export default function Visualizer({
   const [cachePreset, setCachePreset] = useState('fixed');
   const [stepsPanelCollapsed, setStepsPanelCollapsed] = useState(true);
   const [timingPanelOpen, setTimingPanelOpen] = useState(false);
+  const [timingFocusOp, setTimingFocusOp] = useState('');
   const [detailInspectorOpen, setDetailInspectorOpen] = useState(false);
   const [detailInspectorMode, setDetailInspectorMode] = useState('bits');
   const [detailInspectorQuery, setDetailInspectorQuery] = useState('');
@@ -2950,15 +2951,6 @@ export default function Visualizer({
               </button>
             </>
           )}
-          {onImportBenchmarkTiming && (
-            <button
-              className={`btn-text${benchmarkTimingData ? ' active' : ''}`}
-              onClick={onImportBenchmarkTiming}
-              title={benchmarkTimingData ? `Benchmark timing loaded: ${benchmarkTimingFileName || 'manual file'}` : 'Import benchmark timing JSON'}
-            >
-              BM
-            </button>
-          )}
         </div>
       </header>
 
@@ -2982,6 +2974,8 @@ export default function Visualizer({
           onWidthChange={setPanelWidth}
           panelCollapsed={stepsPanelCollapsed}
           onToggleCollapse={toggleStepsPanel}
+          externalOpFilter={timingFocusOp}
+          onExternalOpFilterConsumed={() => setTimingFocusOp('')}
         />
 
         <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
@@ -3194,21 +3188,18 @@ export default function Visualizer({
               </div>
             </div>
           )}
-        </div>
 
-        {timingPanelOpen && (
-          <TimingPanel
-            steps={steps}
-            benchmarkTimingData={benchmarkTimingData}
-            benchmarkTimingFileName={benchmarkTimingFileName}
-            onClose={() => setTimingPanelOpen(false)}
-            onFocusFn={(fnName) => {
-              // Could filter the events panel — for now just log to console
-              // Future: wire into StepPanel filter
-              void fnName;
-            }}
-          />
-        )}
+          {timingPanelOpen && (
+            <TimingPanel
+              steps={steps}
+              benchmarkTimingData={benchmarkTimingData}
+              benchmarkTimingFileName={benchmarkTimingFileName}
+              onClose={() => setTimingPanelOpen(false)}
+              onFocusFn={(fnName) => setTimingFocusOp(fnName || '')}
+              onImportBenchmarkTiming={onImportBenchmarkTiming}
+            />
+          )}
+        </div>
 
         <SettingsPanel
           settings={layoutSettings}

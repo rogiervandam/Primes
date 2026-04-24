@@ -26,17 +26,20 @@ function buildDepthTree(steps) {
   const annotate = (node) => {
     const own = Number(node.numChanged || 0);
     let aggregateChanged = own;
+    let aggregateElapsedNs = Number(node.elapsedNs || 0);
     const aggregateStepIndices = [node.originalIndex];
 
     for (const child of (node.children || [])) {
       annotate(child);
       aggregateChanged += Number(child.aggregateChanged || 0);
+      aggregateElapsedNs += Number(child.aggregateElapsedNs || 0);
       if (Array.isArray(child.aggregateStepIndices)) {
         aggregateStepIndices.push(...child.aggregateStepIndices);
       }
     }
 
     node.aggregateChanged = aggregateChanged;
+    node.aggregateElapsedNs = aggregateElapsedNs;
     node.aggregateStepIndices = aggregateStepIndices;
   };
 
@@ -47,12 +50,23 @@ function buildDepthTree(steps) {
 /**
  * Hierarchical step panel grouped by prime, with collapse/expand.
  */
-export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, onUserScroll }) {
+export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed }) {
   const listRef = useRef(null);
   const scrollTopRef = useRef(0);
   const [search, setSearch] = useState('');
   const [filterOp, setFilterOp] = useState('');
+  // filterLevel encoding: '' (all) | 'exact:N' | 'upto:N'
   const [filterLevel, setFilterLevel] = useState('');
+  const [hideUntimed, setHideUntimed] = useState(false);
+  const [hideUnchanged, setHideUnchanged] = useState(false);
+
+  // Sync externally-driven op filter (e.g. from TimingPanel click)
+  useEffect(() => {
+    if (externalOpFilter && externalOpFilter !== filterOp) {
+      setFilterOp(externalOpFilter);
+      if (onExternalOpFilterConsumed) onExternalOpFilterConsumed();
+    }
+  }, [externalOpFilter, filterOp, onExternalOpFilterConsumed]);
   const [collapsed, setCollapsed] = useState(new Set());
   const initialCollapseDoneRef = useRef(false);
   const lastClickedRef = useRef(null);
@@ -149,16 +163,30 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     }));
   }, [steps]);
 
+  // Parse filterLevel encoding ('' | 'exact:N' | 'upto:N')
+  const levelFilter = useMemo(() => {
+    if (!filterLevel) return null;
+    const [mode, numStr] = String(filterLevel).split(':');
+    const n = Number(numStr);
+    if (!Number.isFinite(n)) return null;
+    return { mode, value: n };
+  }, [filterLevel]);
+
   // Filter — operates on flat children before depth-tree is built
   const filteredTree = useMemo(() => {
-    if (!search && !filterOp && !filterLevel) return tree;
+    if (!search && !filterOp && !levelFilter && !hideUntimed && !hideUnchanged) return tree;
     const lower = search.toLowerCase();
-    const requestedLevel = filterLevel ? Number(filterLevel) : null;
     return tree.map(g => {
       const fc = g.children.filter(s => {
         const path = s.operationPath || [];
-        if (requestedLevel != null && s.level !== requestedLevel) return false;
+        if (levelFilter) {
+          if (!Number.isFinite(s.level)) return false;
+          if (levelFilter.mode === 'exact' && s.level !== levelFilter.value) return false;
+          if (levelFilter.mode === 'upto' && s.level > levelFilter.value) return false;
+        }
         if (filterOp && s.operation !== filterOp && !path.includes(filterOp)) return false;
+        if (hideUntimed && !(Number(s.elapsedNs) > 0)) return false;
+        if (hideUnchanged && !(Number(s.numChanged) > 0)) return false;
         if (lower) {
           const text = `${s.stepId} ${s.level ?? ''} ${s.annotation} ${s.operation || ''} ${(s.operationPath || []).join(' ')} ${s.prime ?? ''} ${g.label}`.toLowerCase();
           if (!text.includes(lower)) return false;
@@ -167,7 +195,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       });
       return { ...g, children: fc, depthTree: buildDepthTree(fc) };
     }).filter(g => g.children.length > 0);
-  }, [tree, search, filterOp, filterLevel]);
+  }, [tree, search, filterOp, levelFilter, hideUntimed, hideUnchanged]);
 
   useEffect(() => {
     if (initialCollapseDoneRef.current || tree.length === 0) return;
@@ -175,11 +203,19 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     initialCollapseDoneRef.current = true;
   }, [tree]);
 
-  // New trace import: clear stale filters/collapsed state so all events are visible.
+  // New trace import: clear stale filters; default level filter to "up to second-lowest level"
+  // so users see the high-level operations first and can drill down.
   useEffect(() => {
     setSearch('');
     setFilterOp('');
-    setFilterLevel('');
+    setHideUntimed(false);
+    setHideUnchanged(false);
+    // Determine second-lowest level from the incoming steps (levels 5..9 in this codebase).
+    const levels = new Set();
+    for (const s of steps) if (Number.isFinite(s.level)) levels.add(Number(s.level));
+    const sorted = Array.from(levels).sort((a, b) => a - b);
+    if (sorted.length >= 2) setFilterLevel(`upto:${sorted[1]}`);
+    else setFilterLevel('');
     setCollapsed(new Set());
     initialCollapseDoneRef.current = false;
     lastClickedRef.current = null;
@@ -213,6 +249,9 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     const changedCount = hasChildren
       ? Number(node.aggregateChanged || node.numChanged || 0)
       : Number(node.numChanged || 0);
+    const displayElapsedNs = hasChildren
+      ? Number(node.aggregateElapsedNs || node.elapsedNs || 0)
+      : Number(node.elapsedNs || 0);
     const collapseKey = `node-${node.originalIndex}`;
     const isNodeCollapsed = collapsed.has(collapseKey);
     const eventId = node.stepId ?? node.originalIndex;
@@ -260,7 +299,11 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
           {Number.isFinite(node.level) && <span className="step-op">L{node.level}</span>}
           {node.operation && <span className="step-op">{node.operation}</span>}
           <span className="step-changes">{changedCount > 0 ? `+${changedCount}` : ''}</span>
-          {node.elapsedNs != null && <span className="step-timing" title={`Elapsed: ${formatNs(node.elapsedNs, 2)}`}>{formatNs(node.elapsedNs)}</span>}
+          {displayElapsedNs > 0 && (
+            <span className="step-timing" title={hasChildren ? `Aggregate: ${formatNs(displayElapsedNs, 2)}` : `Elapsed: ${formatNs(displayElapsedNs, 2)}`}>
+              {formatNs(displayElapsedNs)}
+            </span>
+          )}
           <span className="step-text">{summaryText}</span>
         </div>
         {hasChildren && !isNodeCollapsed && (
@@ -313,9 +356,9 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       {panelCollapsed && (
         <div className="step-panel-floating-title">
           <button className="step-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Expand events panel">
-            ▶
+            ▼
           </button>
-          <span className="panel-label" title="Event">Event</span>
+          <span className="panel-label" title="Events">Events</span>
         </div>
       )}
       {!panelCollapsed && (
@@ -343,9 +386,24 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
         {traceLevels.length > 0 && (
           <select className="step-filter" value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)}>
             <option value="">All log levels</option>
-            {traceLevels.map((level) => <option key={level} value={String(level)}>Level {level}</option>)}
+            <optgroup label="Up to (inclusive)">
+              {traceLevels.map((level) => <option key={`upto-${level}`} value={`upto:${level}`}>Up to L{level}</option>)}
+            </optgroup>
+            <optgroup label="Exactly">
+              {traceLevels.map((level) => <option key={`exact-${level}`} value={`exact:${level}`}>Only L{level}</option>)}
+            </optgroup>
           </select>
         )}
+        <div className="step-filter-toggles">
+          <label className="step-filter-toggle" title="Hide events that have no recorded elapsed time">
+            <input type="checkbox" checked={hideUntimed} onChange={(e) => setHideUntimed(e.target.checked)} />
+            <span>Hide untimed</span>
+          </label>
+          <label className="step-filter-toggle" title="Hide events that don't change any bits">
+            <input type="checkbox" checked={hideUnchanged} onChange={(e) => setHideUnchanged(e.target.checked)} />
+            <span>Hide no-ops</span>
+          </label>
+        </div>
       </div>
       <div className="step-list" ref={listRef} onWheel={onUserScroll}>
         {filteredTree.map((group) => {

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * Format nanoseconds to a compact human-readable string.
@@ -15,13 +15,8 @@ export function formatNs(ns, decimals = 1) {
   return `${(ns / 1_000_000_000).toFixed(2)}s`;
 }
 
-/**
- * Aggregate timing data from parsed trace events.
- * Uses only steps with elapsedNs > 0 (typically logEnds events).
- */
 function aggregateTraceTimings(steps) {
-  const byFunction = new Map(); // function → { totalNs, callCount, minNs, maxNs }
-
+  const byFunction = new Map();
   for (const step of steps) {
     if (step.elapsedNs == null || step.elapsedNs <= 0) continue;
     const key = step.operation || '(unknown)';
@@ -34,46 +29,143 @@ function aggregateTraceTimings(steps) {
     entry.minNs = Math.min(entry.minNs, step.elapsedNs);
     entry.maxNs = Math.max(entry.maxNs, step.elapsedNs);
   }
-
   return byFunction;
 }
 
-/**
- * Normalize benchmark timing json to function map.
- */
 function aggregateBenchmarkTimings(benchmarkTimingData) {
-  const byFunction = new Map(); // function → { hits, totalNs, avgPerPassNs, avgPerCallNs }
+  const byFunction = new Map();
   if (!benchmarkTimingData || !Array.isArray(benchmarkTimingData.timings)) return byFunction;
-
   for (const item of benchmarkTimingData.timings) {
     const name = String(item.function || '').trim();
     if (!name) continue;
-
-    const totalNs = (Number(item.total_time_s) || 0) * 1e9;
-    const avgPerPassNs = (Number(item.avg_time_per_pass_s) || 0) * 1e9;
-    const avgPerCallNs = (Number(item.avg_time_per_call_s) || 0) * 1e9;
-    const hits = Number(item.hits) || 0;
-
     byFunction.set(name, {
-      hits,
-      totalNs,
-      avgPerPassNs,
-      avgPerCallNs,
+      hits: Number(item.hits) || 0,
+      totalNs: (Number(item.total_time_s) || 0) * 1e9,
+      avgPerPassNs: (Number(item.avg_time_per_pass_s) || 0) * 1e9,
+      avgPerCallNs: (Number(item.avg_time_per_call_s) || 0) * 1e9,
     });
   }
-
   return byFunction;
 }
 
 /**
- * TimingPanel — compares trace-event timings with benchmark-average timings.
+ * Build per-second and per-5-second time series for each function, in trace order.
+ * Uses a synthetic wall clock: accumulated elapsedNs. Buckets keyed by floor(elapsed / bucketSize).
  */
-export default function TimingPanel({ steps, benchmarkTimingData, benchmarkTimingFileName, onClose, onFocusFn }) {
-  const [sortBy, setSortBy] = useState('time'); // 'time' | 'calls' | 'avg' | 'name' | 'bench'
+function buildTimeSeries(steps, bucketNs) {
+  const byFunction = new Map();
+  let cursorNs = 0;
+  for (const step of steps) {
+    if (step.elapsedNs == null || step.elapsedNs <= 0) continue;
+    const key = step.operation || '(unknown)';
+    const bucket = Math.floor(cursorNs / bucketNs);
+    if (!byFunction.has(key)) byFunction.set(key, new Map());
+    const series = byFunction.get(key);
+    series.set(bucket, (series.get(bucket) || 0) + step.elapsedNs);
+    cursorNs += step.elapsedNs;
+  }
+  const totalBuckets = Math.max(1, Math.ceil(cursorNs / bucketNs));
+  return { byFunction, totalBuckets, totalNs: cursorNs };
+}
+
+const DEFAULT_WIDTH = 620;
+const DEFAULT_HEIGHT = 520;
+const MIN_WIDTH = 420;
+const MIN_HEIGHT = 280;
+
+export default function TimingPanel({
+  steps,
+  benchmarkTimingData,
+  benchmarkTimingFileName,
+  onClose,
+  onFocusFn,
+  onImportBenchmarkTiming,
+}) {
+  const [sortBy, setSortBy] = useState('time');
   const [sortAsc, setSortAsc] = useState(false);
+  const [viewMode, setViewMode] = useState('trace'); // 'trace' | 'benchmark' | 'timeseries'
+  const [bucketSec, setBucketSec] = useState(1); // 1 or 5 seconds per bucket
+
+  const panelRef = useRef(null);
+  const dragStateRef = useRef(null);
+  const resizeStateRef = useRef(null);
+  const [size, setSize] = useState({ width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT });
+  const [pos, setPos] = useState(null); // null = center on parent
+
+  // Center on first layout
+  useEffect(() => {
+    const parent = panelRef.current?.parentElement;
+    if (!parent || pos) return;
+    const parentRect = parent.getBoundingClientRect();
+    const left = Math.max(8, Math.floor((parentRect.width - size.width) / 2));
+    const top = Math.max(8, Math.floor((parentRect.height - size.height) / 2));
+    setPos({ left, top });
+  }, [pos, size.width, size.height]);
+
+  const clampToParent = useCallback((left, top, width, height) => {
+    const parent = panelRef.current?.parentElement;
+    if (!parent) return { left, top };
+    const pr = parent.getBoundingClientRect();
+    const maxLeft = Math.max(0, pr.width - width);
+    const maxTop = Math.max(0, pr.height - height);
+    return {
+      left: Math.max(0, Math.min(maxLeft, left)),
+      top: Math.max(0, Math.min(maxTop, top)),
+    };
+  }, []);
+
+  const onHeaderMouseDown = (e) => {
+    if (e.target.closest('button') || e.target.closest('select') || e.target.closest('input')) return;
+    const parent = panelRef.current?.parentElement;
+    if (!parent) return;
+    const startLeft = pos?.left ?? 0;
+    const startTop = pos?.top ?? 0;
+    dragStateRef.current = { startX: e.clientX, startY: e.clientY, startLeft, startTop };
+    e.preventDefault();
+  };
+
+  const onResizeMouseDown = (e) => {
+    resizeStateRef.current = { startX: e.clientX, startY: e.clientY, startW: size.width, startH: size.height };
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  useEffect(() => {
+    const onMove = (e) => {
+      if (dragStateRef.current) {
+        const ds = dragStateRef.current;
+        const nextLeft = ds.startLeft + (e.clientX - ds.startX);
+        const nextTop = ds.startTop + (e.clientY - ds.startY);
+        setPos(clampToParent(nextLeft, nextTop, size.width, size.height));
+      } else if (resizeStateRef.current) {
+        const rs = resizeStateRef.current;
+        const parent = panelRef.current?.parentElement;
+        const pr = parent ? parent.getBoundingClientRect() : { width: 4000, height: 4000 };
+        const maxW = Math.max(MIN_WIDTH, pr.width - (pos?.left ?? 0));
+        const maxH = Math.max(MIN_HEIGHT, pr.height - (pos?.top ?? 0));
+        const nextW = Math.max(MIN_WIDTH, Math.min(maxW, rs.startW + (e.clientX - rs.startX)));
+        const nextH = Math.max(MIN_HEIGHT, Math.min(maxH, rs.startH + (e.clientY - rs.startY)));
+        setSize({ width: nextW, height: nextH });
+      }
+    };
+    const onUp = () => {
+      dragStateRef.current = null;
+      resizeStateRef.current = null;
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [clampToParent, pos, size.width, size.height]);
 
   const traceMap = useMemo(() => aggregateTraceTimings(steps), [steps]);
   const benchmarkMap = useMemo(() => aggregateBenchmarkTimings(benchmarkTimingData), [benchmarkTimingData]);
+  const timeSeries = useMemo(
+    () => buildTimeSeries(steps, bucketSec * 1e9),
+    [steps, bucketSec]
+  );
 
   const rows = useMemo(() => {
     const names = new Set([...traceMap.keys(), ...benchmarkMap.keys()]);
@@ -85,41 +177,32 @@ export default function TimingPanel({ steps, benchmarkTimingData, benchmarkTimin
         traceTotalNs: t?.totalNs ?? 0,
         traceCallCount: t?.callCount ?? 0,
         traceAvgNs: t?.callCount > 0 ? t.totalNs / t.callCount : 0,
-        traceMinNs: t?.minNs ?? 0,
-        traceMaxNs: t?.maxNs ?? 0,
         benchHits: b?.hits ?? 0,
         benchTotalNs: b?.totalNs ?? 0,
         benchAvgPerPassNs: b?.avgPerPassNs ?? 0,
         benchAvgPerCallNs: b?.avgPerCallNs ?? 0,
       };
     });
-
+    const sortKey = viewMode === 'benchmark' ? 'bench' : (sortBy === 'bench' ? 'time' : sortBy);
     const comp = {
-      time: (a, b) => (b.traceTotalNs || b.benchTotalNs) - (a.traceTotalNs || a.benchTotalNs),
-      calls: (a, b) => (b.traceCallCount || b.benchHits) - (a.traceCallCount || a.benchHits),
-      avg: (a, b) => (b.traceAvgNs || b.benchAvgPerCallNs) - (a.traceAvgNs || a.benchAvgPerCallNs),
-      bench: (a, b) => b.benchAvgPerPassNs - a.benchAvgPerPassNs,
+      time: (a, b) => b.traceTotalNs - a.traceTotalNs,
+      calls: (a, b) => b.traceCallCount - a.traceCallCount,
+      avg: (a, b) => b.traceAvgNs - a.traceAvgNs,
+      bench: (a, b) => b.benchTotalNs - a.benchTotalNs,
       name: (a, b) => a.name.localeCompare(b.name),
-    }[sortBy] || ((a, b) => (b.traceTotalNs || b.benchTotalNs) - (a.traceTotalNs || a.benchTotalNs));
-
+    }[sortKey] || ((a, b) => b.traceTotalNs - a.traceTotalNs);
     return sortAsc ? [...arr].sort((a, b) => -comp(a, b)) : [...arr].sort(comp);
-  }, [traceMap, benchmarkMap, sortBy, sortAsc]);
+  }, [traceMap, benchmarkMap, sortBy, sortAsc, viewMode]);
 
-  const traceTotalNs = useMemo(() => rows.reduce((sum, row) => sum + row.traceTotalNs, 0), [rows]);
-  const benchTotalNs = useMemo(() => rows.reduce((sum, row) => sum + row.benchTotalNs, 0), [rows]);
-  const displayTotalNs = traceTotalNs > 0 ? traceTotalNs : benchTotalNs;
-
+  const traceTotalNs = useMemo(() => rows.reduce((s, r) => s + r.traceTotalNs, 0), [rows]);
+  const benchTotalNs = useMemo(() => rows.reduce((s, r) => s + r.benchTotalNs, 0), [rows]);
   const hasTrace = traceTotalNs > 0;
   const hasBenchmark = !!benchmarkTimingData && benchmarkMap.size > 0;
   const hasData = rows.length > 0;
 
   const handleSortClick = (col) => {
-    if (sortBy === col) {
-      setSortAsc((a) => !a);
-    } else {
-      setSortBy(col);
-      setSortAsc(false);
-    }
+    if (sortBy === col) setSortAsc((a) => !a);
+    else { setSortBy(col); setSortAsc(false); }
   };
 
   const SortIndicator = ({ col }) => {
@@ -127,19 +210,84 @@ export default function TimingPanel({ steps, benchmarkTimingData, benchmarkTimin
     return <span className="timing-sort-indicator">{sortAsc ? '↑' : '↓'}</span>;
   };
 
+  const panelStyle = {
+    width: size.width,
+    height: size.height,
+    left: pos?.left ?? 0,
+    top: pos?.top ?? 0,
+    visibility: pos ? 'visible' : 'hidden',
+  };
+
   return (
-    <div className="timing-panel">
-      <div className="timing-panel-header">
+    <div className="timing-panel timing-panel-floating" ref={panelRef} style={panelStyle}>
+      <div className="timing-panel-header" onMouseDown={onHeaderMouseDown}>
         <span className="timing-panel-title">Function Timings</span>
-        {hasTrace && <span className="timing-panel-total">Trace total: {formatNs(traceTotalNs)}</span>}
-        {hasBenchmark && <span className="timing-panel-total">Benchmark total: {formatNs(benchTotalNs)}</span>}
+        <div className="timing-view-toggle" role="tablist">
+          <button
+            type="button"
+            className={`timing-view-btn${viewMode === 'trace' ? ' active' : ''}`}
+            onClick={() => setViewMode('trace')}
+            title="Show per-trace event timings"
+          >
+            Trace
+          </button>
+          <button
+            type="button"
+            className={`timing-view-btn${viewMode === 'benchmark' ? ' active' : ''}`}
+            onClick={() => setViewMode('benchmark')}
+            disabled={!hasBenchmark}
+            title={hasBenchmark ? 'Show benchmark timings' : 'No benchmark data imported'}
+          >
+            Benchmark
+          </button>
+          <button
+            type="button"
+            className={`timing-view-btn${viewMode === 'timeseries' ? ' active' : ''}`}
+            onClick={() => setViewMode('timeseries')}
+            title="Show timings over simulated wall-clock time"
+          >
+            Time
+          </button>
+        </div>
         <button className="timing-panel-close btn-icon" onClick={onClose} title="Close timing panel">✕</button>
       </div>
 
-      {hasBenchmark && (
+      <div className="timing-panel-subheader">
+        {hasTrace && <span className="timing-panel-total">Trace: {formatNs(traceTotalNs)}</span>}
+        {hasBenchmark && <span className="timing-panel-total">Benchmark: {formatNs(benchTotalNs)}</span>}
+        {onImportBenchmarkTiming && (
+          <button
+            type="button"
+            className={`timing-import-btn${hasBenchmark ? ' active' : ''}`}
+            onClick={onImportBenchmarkTiming}
+            title={hasBenchmark ? `Replace benchmark timing (${benchmarkTimingFileName || 'manual import'})` : 'Import benchmark timing JSON'}
+          >
+            {hasBenchmark ? 'Replace benchmark…' : 'Import benchmark…'}
+          </button>
+        )}
+        {viewMode === 'timeseries' && (
+          <span className="timing-bucket-toggle">
+            <span className="timing-bucket-label">Bucket</span>
+            <button
+              type="button"
+              className={`timing-bucket-btn${bucketSec === 1 ? ' active' : ''}`}
+              onClick={() => setBucketSec(1)}
+              title="1-second buckets"
+            >1s</button>
+            <button
+              type="button"
+              className={`timing-bucket-btn${bucketSec === 5 ? ' active' : ''}`}
+              onClick={() => setBucketSec(5)}
+              title="5-second buckets"
+            >5s</button>
+          </span>
+        )}
+      </div>
+
+      {hasBenchmark && viewMode === 'benchmark' && (
         <div className="timing-panel-benchmark-meta">
           <span className="timing-benchmark-source" title={benchmarkTimingFileName || 'manual import'}>
-            Benchmark source: {benchmarkTimingFileName || 'manual import'}
+            Source: {benchmarkTimingFileName || 'manual import'}
           </span>
           {benchmarkTimingData?.benchmark && (
             <span className="timing-benchmark-run">
@@ -156,32 +304,8 @@ export default function TimingPanel({ steps, benchmarkTimingData, benchmarkTimin
         </div>
       )}
 
-      {hasData && (
+      {hasData && viewMode !== 'timeseries' && (
         <div className="timing-panel-body">
-          {/* Bar chart: trace total if available, otherwise benchmark total */}
-          <div className="timing-chart">
-            {rows.map((row) => {
-              const rowTotal = row.traceTotalNs > 0 ? row.traceTotalNs : row.benchTotalNs;
-              const pct = displayTotalNs > 0 ? (rowTotal / displayTotalNs) * 100 : 0;
-              return (
-                <div
-                  key={row.name}
-                  className="timing-chart-row"
-                  title={`${row.name}\nTrace total: ${formatNs(row.traceTotalNs)}\nTrace calls: ${row.traceCallCount}\nBenchmark total: ${formatNs(row.benchTotalNs)}\nBenchmark avg/pass: ${formatNs(row.benchAvgPerPassNs)}\nBenchmark avg/call: ${formatNs(row.benchAvgPerCallNs)}`}
-                  onClick={() => onFocusFn && onFocusFn(row.name)}
-                >
-                  <span className="timing-chart-label" title={row.name}>{row.name}</span>
-                  <div className="timing-chart-bar-track">
-                    <div className="timing-chart-bar" style={{ width: `${pct.toFixed(2)}%` }} />
-                  </div>
-                  <span className="timing-chart-value">{formatNs(rowTotal)}</span>
-                  <span className="timing-chart-pct">{pct < 0.1 ? '<0.1' : pct.toFixed(1)}%</span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Table */}
           <table className="timing-table">
             <thead>
               <tr>
@@ -190,18 +314,20 @@ export default function TimingPanel({ steps, benchmarkTimingData, benchmarkTimin
                 <th className="timing-th timing-th-total" onClick={() => handleSortClick('time')}>Trace total <SortIndicator col="time" /></th>
                 <th className="timing-th timing-th-avg" onClick={() => handleSortClick('avg')}>Trace avg/call <SortIndicator col="avg" /></th>
                 <th className="timing-th timing-th-avg" onClick={() => handleSortClick('bench')}>Bench avg/pass <SortIndicator col="bench" /></th>
+                <th className="timing-th timing-th-avg">Bench avg/call</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => {
-                const pct = displayTotalNs > 0 ? ((row.traceTotalNs > 0 ? row.traceTotalNs : row.benchTotalNs) / displayTotalNs) * 100 : 0;
+                const pctBasis = viewMode === 'benchmark' ? benchTotalNs : traceTotalNs;
+                const pctVal = viewMode === 'benchmark' ? row.benchTotalNs : row.traceTotalNs;
+                const pct = pctBasis > 0 ? (pctVal / pctBasis) * 100 : 0;
                 const isHot = pct >= 20;
                 const isWarm = pct >= 5;
                 return (
                   <tr
                     key={row.name}
                     className={`timing-tr${isHot ? ' hot' : isWarm ? ' warm' : ''}`}
-                    title={`Trace min/max: ${formatNs(row.traceMinNs)} / ${formatNs(row.traceMaxNs)}\nBenchmark avg/call: ${formatNs(row.benchAvgPerCallNs)}`}
                     onClick={() => onFocusFn && onFocusFn(row.name)}
                   >
                     <td className="timing-td timing-td-name">
@@ -209,9 +335,10 @@ export default function TimingPanel({ steps, benchmarkTimingData, benchmarkTimin
                       {row.name}
                     </td>
                     <td className="timing-td timing-td-calls">{(row.traceCallCount || row.benchHits).toLocaleString()}</td>
-                    <td className="timing-td timing-td-total">{row.traceTotalNs > 0 ? formatNs(row.traceTotalNs) : '-'}</td>
-                    <td className="timing-td timing-td-avg">{row.traceAvgNs > 0 ? formatNs(row.traceAvgNs) : '-'}</td>
-                    <td className="timing-td timing-td-avg">{row.benchAvgPerPassNs > 0 ? formatNs(row.benchAvgPerPassNs) : '-'}</td>
+                    <td className="timing-td timing-td-total">{row.traceTotalNs > 0 ? formatNs(row.traceTotalNs) : '—'}</td>
+                    <td className="timing-td timing-td-avg">{row.traceAvgNs > 0 ? formatNs(row.traceAvgNs) : '—'}</td>
+                    <td className="timing-td timing-td-avg">{row.benchAvgPerPassNs > 0 ? formatNs(row.benchAvgPerPassNs) : '—'}</td>
+                    <td className="timing-td timing-td-avg">{row.benchAvgPerCallNs > 0 ? formatNs(row.benchAvgPerCallNs) : '—'}</td>
                   </tr>
                 );
               })}
@@ -219,6 +346,42 @@ export default function TimingPanel({ steps, benchmarkTimingData, benchmarkTimin
           </table>
         </div>
       )}
+
+      {hasData && viewMode === 'timeseries' && (
+        <div className="timing-panel-body timing-series-body">
+          <div className="timing-series-help">
+            Per-{bucketSec}s time spent in each function (synthetic wall-clock built from event durations).
+          </div>
+          <div className="timing-series-list">
+            {rows.map((row) => {
+              const series = timeSeries.byFunction.get(row.name);
+              if (!series) return null;
+              const maxNs = Array.from(series.values()).reduce((m, v) => Math.max(m, v), 0);
+              const totalBuckets = timeSeries.totalBuckets;
+              return (
+                <div
+                  key={row.name}
+                  className="timing-series-row"
+                  onClick={() => onFocusFn && onFocusFn(row.name)}
+                  title={`${row.name}: total ${formatNs(row.traceTotalNs)} · max/${bucketSec}s ${formatNs(maxNs)}`}
+                >
+                  <span className="timing-series-label">{row.name}</span>
+                  <div className="timing-series-track">
+                    {Array.from({ length: totalBuckets }).map((_, i) => {
+                      const v = series.get(i) || 0;
+                      const h = maxNs > 0 ? (v / maxNs) * 100 : 0;
+                      return <span key={i} className="timing-series-cell" style={{ height: `${h.toFixed(1)}%` }} title={`bucket ${i}: ${formatNs(v)}`} />;
+                    })}
+                  </div>
+                  <span className="timing-series-value">{formatNs(row.traceTotalNs)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="timing-panel-resize-handle" onMouseDown={onResizeMouseDown} title="Resize" />
     </div>
   );
 }
