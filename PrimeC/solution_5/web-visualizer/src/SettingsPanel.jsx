@@ -852,29 +852,12 @@ export default function SettingsPanel({
               Reset custom colors
             </button>
           )}
-          {onToggle3D && (
-            <div className="preview-btn-grid preview-btn-grid-2" style={{ marginTop: 8 }}>
-              <PreviewOptionButton
-                compact
-                label="3D mode"
-                hint="Toggle 3D bit-depth view"
-                active={!!mode3D}
-                onClick={() => onToggle3D()}
-                preview={(
-                  <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                    <path d="M6 15L24 20L42 15" stroke="currentColor" fill="none" strokeWidth="1.5" />
-                    <path d="M6 11L24 16L42 11" stroke="currentColor" fill="none" strokeWidth="1.5" />
-                    <path d="M6 7L24 2L42 7L24 12Z" stroke="currentColor" fill="none" strokeWidth="1.5" />
-                  </svg>
-                )}
-              />
-            </div>
-          )}
+
         </div>
 
         <div className="settings-section">
           <label>View Overlays</label>
-          <div className="preview-btn-grid preview-btn-grid-2">
+          <div className="preview-btn-grid preview-btn-grid-4">
             <PreviewOptionButton
               compact
               label="Heat map"
@@ -904,6 +887,24 @@ export default function SettingsPanel({
                 )}
               />
             )}
+          {onToggle3D && (
+            <div className="preview-btn-grid" >
+              <PreviewOptionButton
+                compact
+                label="3D mode"
+                hint="Toggle 3D bit-depth view"
+                active={!!mode3D}
+                onClick={() => onToggle3D()}
+                preview={(
+                  <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                    <path d="M6 15L24 20L42 15" stroke="currentColor" fill="none" strokeWidth="1.5" />
+                    <path d="M6 11L24 16L42 11" stroke="currentColor" fill="none" strokeWidth="1.5" />
+                    <path d="M6 7L24 2L42 7L24 12Z" stroke="currentColor" fill="none" strokeWidth="1.5" />
+                  </svg>
+                )}
+              />
+            </div>
+          )}
             <PreviewOptionButton
               compact
               label="Event title"
@@ -995,27 +996,6 @@ export default function SettingsPanel({
           )}
         </div>
 
-        <div className="settings-section">
-          <label>Storage model</label>
-          <select value={storageModel || 'half'} onChange={(e) => onStorageModelChange(e.target.value)}>
-            {Object.entries(STORAGE_MODELS).map(([k, v]) => (
-              <option key={k} value={k}>{v.label} — {v.description}</option>
-            ))}
-          </select>
-        </div>
-        {/* Wheel grouping (only when storage model is wheel) */}
-        {storageModel === 'wheel' && (
-          <div className="settings-section">
-            <label>Wheel grouping</label>
-            <div className="settings-row">
-              <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-                <input type="checkbox" checked={s.wheelGrouping || false}
-                       onChange={(e) => set('wheelGrouping', e.target.checked)} />
-                Group bits by wheel size (8 bits per group)
-              </label>
-            </div>
-          </div>
-        )}
 
         <LayoutOverview />
 

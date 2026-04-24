@@ -289,7 +289,7 @@ html, body, #root {
   top: calc(100% + 6px);
   min-width: 300px;
   max-width: min(600px, 92vw);
-  max-height: 320px;
+  /* max-height: 320px; */
   overflow-y: auto;
   padding: 12px 8px;
   border: 1px solid var(--border-light);
@@ -1487,7 +1487,7 @@ html, body, #root {
 }
 .settings-header-rail {
   min-height: 40px;
-  padding: 8px 10px;
+  padding: 0px 10px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -1535,6 +1535,7 @@ html, body, #root {
   display: flex;
   gap: 4px;
   flex: 1;
+  height: 100%
 }
 .settings-tab-btn {
   background: transparent;
@@ -2848,8 +2849,8 @@ html, body, #root {
   background: transparent;
   color: var(--fg-muted);
   border: none;
-  padding: 3px 8px;
-  font-size: 11px;
+  padding: 6px 10px;
+  /* font-size: 11px; */
   cursor: pointer;
 }
 .timing-view-btn.active {
@@ -2946,7 +2947,7 @@ html, body, #root {
 }
 
 .timing-panel-title {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--fg);
   flex: 1;
@@ -3062,7 +3063,7 @@ html, body, #root {
 .timing-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 11px;
+  /* font-size: 11px; */
 }
 
 .timing-th {
@@ -3070,7 +3071,7 @@ html, body, #root {
   text-align: left;
   color: var(--fg-dim);
   font-weight: 500;
-  font-size: 10px;
+  /* font-size: 10px; */
   cursor: pointer;
   white-space: nowrap;
   border-bottom: 1px solid var(--border);
@@ -3105,7 +3106,7 @@ html, body, #root {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 10px;
+  /* font-size: 10px; */
   max-width: 170px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3116,7 +3117,7 @@ html, body, #root {
 .timing-td-pct {
   text-align: right;
   font-variant-numeric: tabular-nums;
-  font-size: 10px;
+  /* font-size: 10px; */
 }
 
 .timing-heat-dot {
