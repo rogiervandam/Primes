@@ -55,19 +55,6 @@ trace_set_console_feedback(int enabled)
     g_trace_console_feedback_enabled = enabled;
 }
 
-/*
- * Generate a default trace filename under ./log/
- * Format: log/YYYY-MM-DD_HH-MM_<program_name>_<max_factor>.sievetrace
- */
-static const char* __attribute__((cold))
-trace_generate_default_filename(const char* program_name, uint64_t max_factor)
-{
-    char timestamp[32];
-    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d_%H-%M", localtime(&(time_t){time(NULL)}));
-    snprintf(g_trace_default_path, sizeof(g_trace_default_path),"log/%s_%s_%" PRIu64 ".sievetrace", timestamp, program_name, max_factor);
-    return g_trace_default_path;
-}
-
 /* Write a JSON-escaped version of str to file */
 static void
 trace_write_json_string(FILE* f, const char* str)

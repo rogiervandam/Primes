@@ -33,6 +33,11 @@
 #define time_markFactor_wheelstorage 28
 #define time_markFactors_wheelstorage_small_repeat_pair_align 29
 #define time_markFactors_wheelstorage_small_repeat_pair_copy 30
+#define time_makeFactors_classic64bit 31
+#define time_makeFactors_classic8bit 32
+#define time_markFactors_wheel 33
+#define time_checkFactor_wheel 34
+#define time_findUnmarked_wheel 35
 
 static const char* timer_function_names[100] = {
     [time_setBitsTrue] = "setBitsTrue",
@@ -66,6 +71,11 @@ static const char* timer_function_names[100] = {
     [time_markFactor_wheelstorage] = "markFactor_wheelstorage",
     [time_markFactors_wheelstorage_small_repeat_pair_align] = "markFactors_wheelstorage_small_repeat_pair_align",
     [time_markFactors_wheelstorage_small_repeat_pair_copy] = "markFactors_wheelstorage_small_repeat_pair_copy",
+    [time_makeFactors_classic64bit] = "makeFactors_classic64bit",
+    [time_makeFactors_classic8bit] = "makeFactors_classic8bit",
+    [time_markFactors_wheel] = "markFactors_wheel",
+    [time_checkFactor_wheel] = "checkFactor_wheel",
+    [time_findUnmarked_wheel] = "findUnmarked_wheel",
   };
 
 #endif // SIEVE_FUNCTIONS_H

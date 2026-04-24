@@ -29,13 +29,6 @@ int main(int argc, char *argv[])
     // // save settings for future --embed use
     // saveLastSettings(option.fixed_benchmark_settings);
 
-    // debug information for developers
-    #ifdef COMPILE_TIMERS
-    if (option.timers) print_timing_table();
-    #endif
-    
-    if (debug_hits) { verbose2( printf("Hits: %ju\n",(uintmax_t)debug_hits); ) }
-
     // show results for --show command line option and other developer information
     if (option.show_explain_factor_max > 0 && option.tunelevel <= 4) showResult(shakeSieve, option.fixed_benchmark_settings);
 

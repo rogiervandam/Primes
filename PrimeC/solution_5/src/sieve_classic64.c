@@ -48,6 +48,7 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
     counter_t prime = 1;
  
     while (prime < prime_max) {
+        logBegins5(bitstorage, time_makeFactors_classic64bit, "Setting bits with step %d in range %d-%d for prime %d", (int)(prime * 2 + 1), (int)(prime * (prime * 2 + 3)), (int)sieve_bits, (int)(prime * 2 + 1));
         const counter_t step  = prime * 2 + 1;
         const counter_t start = prime * (step + 1);
 
@@ -56,6 +57,7 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
         for(counter_t i=start; i < sieve_bits; i += step) {
             bitstorage[index_type(i, bitbucket_t)] |= markmask_calc_type(i,bitbucket_t);
         }
+        logEnds5(bitstorage, time_makeFactors_classic64bit, "Finished setting bits with step %d in range %d-%d for prime %d", (int)step, (int)start, (int)sieve_bits, (int)(prime * 2 + 1));
 
         // #pragma GCC ivdep
         #pragma GCC unroll 32

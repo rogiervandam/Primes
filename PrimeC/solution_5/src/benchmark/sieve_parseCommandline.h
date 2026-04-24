@@ -189,7 +189,8 @@ static inline const char *getBenchmarkProgramName(void)
 static inline int hasTraceOutput(void)
 {
     #ifdef COMPILE_TRACE
-    return option.trace_filename != NULL;
+    // return option.trace_filename != NULL;
+    return option.trace_level > 0;
     #else
     return 0;
     #endif
@@ -366,13 +367,13 @@ parseCommandLine(int argc, char *argv[])
             /* --trace <level>: enable trace-level logging; level (5-9) is required */
             ensure_next_arg(++arg, argc, program_name, "trace level");
             parse_int_arg(argv[arg], &option.trace_level, 9, program_name, "Invalid trace level");
-            if (option.trace_level < 5 || option.trace_level > 9) {
-                verbose1({ fprintf(stderr, "Invalid trace level %ju (expected 5-9)\n", (uintmax_t)option.trace_level); usage(program_name, 1); });
+            if (option.trace_level < 1 || option.trace_level > 9) {
+                verbose1({ fprintf(stderr, "Invalid trace level %ju (expected 1-9)\n", (uintmax_t)option.trace_level); usage(program_name, 1); });
             }
-            if (!option.trace_filename) {
-                /* Mark for auto-generation after all args are parsed (factor_max may not be set yet) */
-                option.trace_filename = (char*)"__auto__";
-            }
+            // if (!option.trace_filename) {
+            //     /* Mark for auto-generation after all args are parsed (factor_max may not be set yet) */
+            //     option.trace_filename = (char*)"__auto__";
+            // }
         }
         else if (strcmp_local(argv[arg], "--trace-filename")) {
             ensure_next_arg(++arg, argc, program_name, "trace filename");
@@ -397,14 +398,16 @@ parseCommandLine(int argc, char *argv[])
         }
     }
 
-    #ifdef COMPILE_TRACE
-    /* Generate default trace filename now that factor_max is known */
-    if (option.trace_filename && strcmp(option.trace_filename, "__auto__") == 0) {
-        option.trace_filename = (char*)trace_generate_default_filename(
-            program_name, option.fixed_benchmark_settings.factor_max);
+    if (option.trace_level > 0 && strlen(option.trace_filename) == 0) {
+        /* If trace level is set but no filename provided, mark for auto-generation */
+        set_trace_default_filename(program_name, option.fixed_benchmark_settings.factor_max);
         verbose2(printf("Trace output: %s\n", option.trace_filename));
     }
-    #endif
+
+    if (option.timers && strlen(option.timings_filename) == 0) {
+        set_timings_default_filename(program_name, option.fixed_benchmark_settings.factor_max);
+        verbose2(printf("Benchmark log output: %s\n", option.timings_filename));
+    }
 
     // if not tuning, or if explain/trace is doing a single run, load previously saved settings
     if (shouldLoadLastSettings()) {

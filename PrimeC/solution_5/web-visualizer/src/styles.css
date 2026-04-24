@@ -427,7 +427,10 @@ html, body, #root {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.visualizer.platform-mac .toolbar-left { padding-left: 84px; }
+/* Reserve space for macOS traffic-light controls only in Electron.
+   In browser mode there are no window controls, so the filename can left-align. */
+.visualizer.platform-mac.platform-electron .toolbar-left { padding-left: 84px; }
+.visualizer.platform-browser .toolbar-left { padding-left: 0; }
 .step-slider { width: 160px; }
 .step-counter { font-size: 12px; color: var(--fg-muted); min-width: 80px; text-align: center; }
 .speed-slider { width: 80px; }
@@ -709,10 +712,16 @@ html, body, #root {
 }
 .step-focus-banner {
   position: absolute;
-  top: 10px;
-  left: 14px;
+  /* Anchored by bottom-left so the sliders stay in a fixed place across events.
+     When the annotation needs more room, the banner grows upward instead of
+     shifting the sliders down. */
+  bottom: 20px;
+  left: 16px;
+  top: auto;
   z-index: 18;
-  pointer-events: none;
+  /* Must be interactive now — banner is draggable and contains sliders. */
+  pointer-events: auto;
+  cursor: grab;
   padding: 10px 14px;
   border: 1px solid var(--border-light);
   border-left: 4px solid var(--accent);
@@ -723,33 +732,53 @@ html, body, #root {
   line-height: 1.35;
   white-space: normal;
   overflow: hidden;
-  width: fit-content;
-  max-width: min(840px, calc(100% - 160px));
+  width: 420px;
+  max-width: min(520px, calc(100% - 160px));
+  min-height: 150px;
   text-align: left;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  /* The body (lines) can shrink, the sliders at the bottom stay pinned. */
+  justify-content: flex-end;
+  gap: 4px;
 }
-
-.step-focus-banner.position-left {
-  left: 14px;
-  right: auto;
-  transform: none;
+.step-focus-banner:active { cursor: grabbing; }
+.step-focus-banner input { pointer-events: auto; cursor: pointer; user-select: none; }
+.step-focus-line3 {
+  font-size: 11px;
+  color: var(--accent-dim);
+  margin-top: 2px;
+  font-weight: 600;
 }
-
-.step-focus-banner.position-center {
-  left: 50%;
-  right: auto;
-  transform: translateX(-50%);
+.step-focus-lines {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 2px;
+  overflow: hidden;
 }
-
-.step-focus-banner.position-right {
-  left: auto;
-  right: 14px;
-  transform: none;
+.step-focus-sliders {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 0 auto;
 }
-
-.step-focus-banner.shifted-for-collapsed-events {
-  top: 56px;
+.step-focus-slider-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 260px) 56px;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--fg-muted);
 }
+.step-focus-slider-row input[type="range"] { width: 100%; max-width: 260px; }
+.step-focus-slider-label { text-transform: uppercase; letter-spacing: 0.04em; }
+.step-focus-slider-value { font-variant-numeric: tabular-nums; text-align: right; color: var(--fg); }
 
 .step-focus-line1 {
   font-weight: 800;
@@ -1924,6 +1953,16 @@ html, body, #root {
 .bit-history-panel.hover-balloon.locked {
   pointer-events: auto;
   z-index: 260;
+}
+/* Balloon hides (animated) when it would overlap a panel, titlebar, or go off-screen.
+   The transform shift gives a tiny slide-out and still allows hit-testing to miss it. */
+.bit-history-panel.clipped {
+  opacity: 0;
+  transform: translateX(-50%) translateY(calc(-100% - 14px)) scale(0.95);
+  pointer-events: none;
+}
+.bit-history-panel.locked.clipped {
+  transform: scale(0.95);
 }
 .bit-history-header {
   display: flex; justify-content: space-between; align-items: center;

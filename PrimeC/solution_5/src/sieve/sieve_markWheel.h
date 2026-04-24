@@ -91,9 +91,9 @@ checkBitTrue_wheel(const void* restrict bitstorage, register counter_t factor)
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
 markFactors_wheel(sieve_t *sieve, const counter_t start, const counter_t stop, const counter_t step)
 {
-    TRACE_ANALYSIS_START(5, start >> 1, stop >> 1);
+    logBegins5(sieve->bitstorage, time_markFactors_wheel, "Markfing with wheel range %ju - %ju, step %ju", start >> 1, stop >> 1, step >> 1);
     setBitsTrue(sieve->bitstorage, start >> 1, stop >> 1, step >> 1);
-    TRACE_ANALYSIS_END();
+    logEnds5(sieve->bitstorage, time_markFactors_wheel, "Finished marking with wheel range %ju - %ju, step %ju", start >> 1, stop >> 1, step >> 1);
 }
 
 uint8_t checkFactor_wheel(sieve_t* sieve, register counter_t factor) {

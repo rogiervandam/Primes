@@ -64,10 +64,15 @@ function(continuePattern_shiftright,suffix)(void* restrict bitstorage, const cou
     // local_memcpy_uint8(copy_byte, source_byte, memcpy_size);
 
     // TODO: something is wrong with different bitbucket sizes. Works now, but not always
-    uint8_t* restrict bitstorage_uint8 = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    local_memcpy_uint8( &bitstorage_uint8[copy_start_word * sizeof(bitbucket_t)], &bitstorage_uint8[copy_start_word * copy_size_word], (counter_t)(destination_stop_word + 1 - copy_start_word) * sizeof(bitbucket_t) );
 
-    log9(bitstorage, "ContinuePatternShiftRight: copying pattern with memcpy source_byte=%p copy_byte=%p size=%ju", (void*)source_byte, (void*)copy_byte, (uintmax_t)memcpy_size);
+    uint8_t* restrict bitstorage_uint8 = __builtin_assume_aligned(bitstorage, cache_line_bytes);
+    uint8_t* source_byte      = &bitstorage_uint8[copy_start_word * sizeof(bitbucket_t)];
+    uint8_t* destination_byte = (uint8_t*)&bitstorage_uint8[copy_start_word * copy_size_word];
+    counter_t size            = (counter_t)(destination_stop_word + 1 - copy_start_word) * sizeof(bitbucket_t);
+    local_memcpy_uint8( source_byte, destination_byte, size );
+    // local_memcpy_uint8( &bitstorage_uint8[copy_start_word * sizeof(bitbucket_t)], &bitstorage_uint8[copy_start_word * copy_size_word], (counter_t)(destination_stop_word + 1 - copy_start_word) * sizeof(bitbucket_t) );
+
+    log9(bitstorage, "ContinuePatternShiftRight: copying pattern with memcpy source_byte=%p copy_byte=%p size=%ju", (void*)source_byte, (void*)destination_byte, (uintmax_t)size);
 
     logEnds7(bitstorage, time_continuePattern_shiftright, "ContinuePatternShiftRight: finished continuing pattern\n");
 }

@@ -1,27 +1,3 @@
-static void derive_benchmark_timing_filename(char* out, size_t out_size) {
-    /* If the user explicitly passed --benchmark-log, honor that path verbatim. */
-    if (option.timings_filename && option.timings_filename[0]) {
-        snprintf(out, out_size, "%s", option.timings_filename);
-        return;
-    }
-
-    /* Otherwise derive from trace filename (or auto-generate) and append _sievebenchmark.json. */
-    const char* trace_filename = option.trace_filename;
-    if (!trace_filename || !trace_filename[0] || strcmp(trace_filename, "__auto__") == 0) {
-        trace_filename = trace_generate_default_filename(option.program_name, option.fixed_benchmark_settings.factor_max);
-    }
-
-    size_t length = strlen(trace_filename);
-    size_t stem_length = length;
-    const char* extension = ".sievetrace";
-    const size_t extension_length = strlen(extension);
-    if (length > extension_length && strcmp(trace_filename + length - extension_length, extension) == 0) {
-        stem_length = length - extension_length;
-    }
-
-    snprintf(out, out_size, "%.*s_sievebenchmark.json", (int)stem_length, trace_filename);
-}
-
 #ifdef COMPILE_TIMERS
 // save the timing table to a file for later analysis as a json object
 // include the benchmark results in the json object for easier correlation between timing and benchmark results
@@ -77,13 +53,6 @@ static int performBenchmarks(struct options_t option, sieve_t* (*sieveFunction)(
             createStepplan(option.fixed_benchmark_settings);
             return (0);
         }
-    }
-    #endif
-
-    #ifdef COMPILE_TIMERS
-    if (option.timers) {
-        timer_init();
-        verbose2( printf("Timing the different parts of the algorithm\n"); )
     }
     #endif
 
@@ -167,6 +136,14 @@ static int performBenchmarks(struct options_t option, sieve_t* (*sieveFunction)(
                          "Results: " COLOR_BLINK "(wait " COLOR_GREEN "%.1lf" COLOR_RESET " seconds)" COLOR_BLINK_OFF "...", 
                          getBenchmarkSettingAsString(benchmark_settings),(uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, benchmark_settings.sample_duration );
         )
+
+        #ifdef COMPILE_TIMERS
+        if (option.timers) {
+            timer_init();
+            verbose2( printf("Timing the different parts of the algorithm\n"); )
+        }
+        #endif
+
         debug_final_benchmarking = 1; // allow to count something in the final benchmark runs
         benchmark_result_t benchmark_result = benchmark(benchmark_settings, sieveFunction);
         debug_final_benchmarking = 0;
@@ -188,10 +165,11 @@ static int performBenchmarks(struct options_t option, sieve_t* (*sieveFunction)(
 
         #ifdef COMPILE_TIMERS
         {
-            char timings_filename[768];
-            derive_benchmark_timing_filename(timings_filename, sizeof(timings_filename));
-            save_timing_table_to_file(timings_filename, benchmark_result);
-            verbose2( printf("Benchmark timing table saved to %s\n", timings_filename); )
+            // derive_benchmark_timing_filename(timings_filename, sizeof(timings_filename));
+            save_timing_table_to_file(option.timings_filename, benchmark_result);
+            verbose2( printf("Benchmark timing table saved to %s\n", option.timings_filename); )
+
+            if (option.timers) print_timing_table();
         }
         #endif
 
@@ -204,5 +182,9 @@ static int performBenchmarks(struct options_t option, sieve_t* (*sieveFunction)(
 
         if (threads > 4 && threads < 8) threads = 8; // force looking at 4 and 2 by setting threads to 8 which will be halved (4) next loop run
     }
+
+    // debug information for developers
+    if (debug_hits) { verbose2( printf("Hits: %ju\n",(uintmax_t)debug_hits); ) }
+
     return 0;
 }

@@ -925,20 +925,6 @@ export default function SettingsPanel({
           {eventTitleSettings?.visible !== false && (
             <>
               <div className="settings-row overlay-inline-controls">
-                <label className="overlay-inline-field">
-                  <span>Position</span>
-                  <select
-                    value={eventTitleSettings?.position || 'center'}
-                    onChange={(e) => onEventTitleSettingsChange && onEventTitleSettingsChange((prev) => ({
-                      ...(prev || eventTitleSettings || {}),
-                      position: e.target.value,
-                    }))}
-                  >
-                    <option value="left">Left</option>
-                    <option value="center">Center</option>
-                    <option value="right">Right</option>
-                  </select>
-                </label>
                 <label className="overlay-inline-field overlay-inline-field-range">
                   <span>Size</span>
                   <input
@@ -954,8 +940,20 @@ export default function SettingsPanel({
                   />
                   <span className="val">{eventTitleSettings?.scale || 100}%</span>
                 </label>
+                <button
+                  type="button"
+                  className="btn-text"
+                  onClick={() => onEventTitleSettingsChange && onEventTitleSettingsChange((prev) => ({
+                    ...(prev || eventTitleSettings || {}),
+                    dragOffsetX: 0,
+                    dragOffsetY: 0,
+                  }))}
+                  title="Re-center the event title banner"
+                >
+                  Recenter
+                </button>
               </div>
-              <span className="settings-hint">Move the title away from the trace header when the events panel is collapsed.</span>
+              <span className="settings-hint">Drag the banner to reposition. It opens the events panel when clicked without dragging.</span>
             </>
           )}
           {depthModeEnabled && (

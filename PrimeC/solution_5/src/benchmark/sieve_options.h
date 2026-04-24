@@ -1,5 +1,6 @@
 
 #include "../generic/settings.h"
+#include <inttypes.h>
 
 typedef struct  {
     counter_t factor_max;
@@ -47,6 +48,32 @@ static struct options_t {
     char*     timings_filename;
 } option;
 
+/*
+ * Generate a default trace filename under ./log/
+ * Format: log/YYYY-MM-DD_HH-MM_<program_name>_<max_factor>.sievetrace
+ */
+static const char* __attribute__((cold))
+set_trace_default_filename(const char* program_name, uint64_t max_factor)
+{
+    char timestamp[32];
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d_%H-%M", localtime(&(time_t){time(NULL)}));
+    snprintf(option.trace_filename, 256, "log/%s_%s_%ju.sievetrace", timestamp, program_name, (uintmax_t)max_factor);
+    return option.trace_filename;
+}
+
+static const char* __attribute__((cold))
+set_timings_default_filename(const char* program_name, uint64_t max_factor)
+{
+    char timestamp[32];
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d_%H-%M", localtime(&(time_t){time(NULL)}));
+    snprintf(option.timings_filename, 256, "log/%s_%s_%ju.timings.json", timestamp, program_name, (uintmax_t)max_factor);
+    return option.timings_filename;
+}
+
+// empty and NULL terminated string buffers to hold generated filenames if user requested generation by setting --trace or --benchmark-log without a filename
+static char trace_filename[256] = "";
+static char timings_filename[256] = "";
+
 static struct options_t __attribute__((cold)) 
 setDefaultOptions() 
 {
@@ -80,8 +107,8 @@ setDefaultOptions()
     option.fixed_benchmark_settings.sample_duration         = 5;
 
     option.dockerfile_type = getenv("DOCKERFILE_TYPE"); 
-    option.trace_filename  = NULL;
-    option.timings_filename = NULL;
+    option.trace_filename  = trace_filename; 
+    option.timings_filename = timings_filename; 
 
     // changes though compilation options
     #ifdef _OPENMP

@@ -75,6 +75,9 @@ const DEFAULT_EVENT_TITLE_SETTINGS = {
   visible: true,
   position: 'center',
   scale: 100,
+  // User-drag offset in pixels from the default (centered) position. Persisted.
+  dragOffsetX: 0,
+  dragOffsetY: 0,
 };
 
 const DEFAULT_DEPTH_SETTINGS = {
@@ -85,13 +88,16 @@ const DEFAULT_DEPTH_SETTINGS = {
 function mergeEventTitleSettings(saved) {
   if (!saved || typeof saved !== 'object') return DEFAULT_EVENT_TITLE_SETTINGS;
   const scale = Math.max(70, Math.min(160, parseInt(saved.scale || DEFAULT_EVENT_TITLE_SETTINGS.scale, 10) || DEFAULT_EVENT_TITLE_SETTINGS.scale));
-  const position = ['left', 'center', 'right'].includes(saved.position) ? saved.position : DEFAULT_EVENT_TITLE_SETTINGS.position;
+  const dragOffsetX = Number.isFinite(Number(saved.dragOffsetX)) ? Number(saved.dragOffsetX) : 0;
+  const dragOffsetY = Number.isFinite(Number(saved.dragOffsetY)) ? Number(saved.dragOffsetY) : 0;
   return {
     ...DEFAULT_EVENT_TITLE_SETTINGS,
     ...saved,
     visible: saved.visible !== false,
-    position,
+    position: 'center', // user removed the position picker; always re-center as baseline
     scale,
+    dragOffsetX,
+    dragOffsetY,
   };
 }
 
@@ -236,6 +242,14 @@ export default function Visualizer({
     const probe = `${uaDataPlatform} ${navigator.platform || ''} ${navigator.userAgent || ''} ${navigator.appVersion || ''}`;
     return /Win/i.test(probe);
   }, []);
+  // Electron (native app) inserts "Electron" into the UA and exposes process.versions.electron.
+  // In browser mode we don't reserve space for traffic-light window controls.
+  const isElectron = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    if (typeof navigator !== 'undefined' && /Electron/i.test(navigator.userAgent || '')) return true;
+    const proc = (typeof window !== 'undefined' && window.process) || null;
+    return !!(proc && proc.versions && proc.versions.electron);
+  }, []);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -258,6 +272,9 @@ export default function Visualizer({
   const [maskAnimationEnabled, setMaskAnimationEnabled] = useState(true);
   const [animationReplayPaused, setAnimationReplayPaused] = useState(false);
   const [customTitle, setCustomTitle] = useState('');
+  // 0..100 slider progress scrubbing through the current event's internal animation.
+  // Resets whenever the current event changes.
+  const [stepScrubProgress, setStepScrubProgress] = useState(0);
   const [bitAnimInterval, setBitAnimInterval] = useState(20); // ms between sequential bits (0.02s default)
   const [maskAnimInterval, setMaskAnimInterval] = useState(() => {
     const stepIntervalDefault = 20;
@@ -961,6 +978,30 @@ export default function Visualizer({
     r.render();
     r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
   }, [stopPlayback, stopSeqAnim, getMinimapDetailH]);
+
+  // Scrub the animation inside the current event. progress is 0..1; maps to a
+  // bit index inside this step's changedBits. The full changed set still reads
+  // as "set" (that is what the step's bitstate resolves to), but the animation
+  // focus / ripple / pulse / fade is rerun on the specific bit at the scrub point.
+  const seekStepAnimation = useCallback((progress) => {
+    stopPlayback();
+    stopSeqAnim();
+    setAnimationReplayPaused(true);
+    const r = rendererRef.current;
+    const step = stepsRef.current[currentStep];
+    if (!r || !step || !step.changedBits || step.changedBits.length === 0) return;
+    const bits = Array.from(step.changedBits).sort((a, b) => a - b);
+    const clamped = Math.max(0, Math.min(1, progress));
+    const targetIdx = Math.max(0, Math.min(bits.length - 1, Math.round(clamped * (bits.length - 1))));
+    const focusBits = new Set([bits[targetIdx]]);
+    r.changedBits = new Set(bits);
+    r.animationFocusBits = focusBits;
+    r.render();
+    if (animStyle === 'ripple') r.renderRipple(0.18, focusBits, { intensity: 1.1, showBeacon: true });
+    else if (animStyle === 'pulse') r.renderPulse(0.28, focusBits, { intensity: 1.2, showHalo: true });
+    else if (animStyle === 'fade') r.renderFade(0.35);
+    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+  }, [currentStep, animStyle, stopPlayback, stopSeqAnim, getMinimapDetailH]);
 
   const waitForDelay = useCallback((ms) => {
     if (ms <= 0) return Promise.resolve();
@@ -2144,6 +2185,29 @@ export default function Visualizer({
         return;
       }
 
+      // Suppress the hover popup when the cursor is over an overlay (toolbar,
+      // settings/events/details panels, timing panel, minimap, event-title banner,
+      // trace-info popover). The pointermove listener is bound to window so it
+      // fires everywhere; we probe the element under the cursor to gate the popup.
+      const overOverlay = (() => {
+        if (typeof document === 'undefined') return false;
+        const hit = document.elementFromPoint(e.clientX, e.clientY);
+        if (!hit) return false;
+        return !!hit.closest(
+          '.toolbar, .step-panel, .settings-sidebar, .detail-panel, .timing-panel, ' +
+          '.step-focus-banner, .minimap-overlay-canvas, .trace-info-popover, ' +
+          '.bit-history-panel'
+        );
+      })();
+      if (overOverlay) {
+        if (lastHoveredIdxRef.current !== -1) {
+          lastHoveredIdxRef.current = -1;
+          setHoveredBitInfo(null);
+          setHoverPos(null);
+        }
+        return;
+      }
+
       const coords = screenToCanvasCoords(e.clientX, e.clientY);
       const idx = r.canvasToBitIndex(coords.x, coords.y);
       el.style.cursor = 'crosshair';
@@ -2611,6 +2675,7 @@ export default function Visualizer({
       return {
         line1: `Event ${currentStep} | No event selected`,
         line2: '',
+        line3: '',
         title: 'No event selected',
       };
     }
@@ -2623,23 +2688,34 @@ export default function Visualizer({
     if (s.prime != null) line2Parts.push(`Prime ${s.prime}`);
     if (s.factorStep != null) line2Parts.push(`Step size ${s.factorStep}`);
     if (s.start != null && s.stop != null) line2Parts.push(`Range ${s.start}-${s.stop}`);
-    if (s.numChanged != null) line2Parts.push(`+${s.numChanged} bits changed`);
     if (s.annotation) line2Parts.push(s.annotation);
     const line2 = line2Parts.join(' | ');
+
+    // Line 3: the "+N bits" annotation sits right under the heading so it's close to the action.
+    const line3 = s.numChanged > 0 ? `+${s.numChanged} bits changed` : '';
 
     return {
       line1,
       line2,
-      title: `${line1}${line2 ? ` | ${line2}` : ''}`,
+      line3,
+      title: [line1, line2, line3].filter(Boolean).join(' | '),
     };
   }, [currentStep, currentStepData]);
 
   const eventTitleStyle = useMemo(() => {
     const scale = Math.max(0.7, Math.min(1.6, (eventTitleSettings.scale || 100) / 100));
+    const ox = Number.isFinite(eventTitleSettings.dragOffsetX) ? eventTitleSettings.dragOffsetX : 0;
+    const oy = Number.isFinite(eventTitleSettings.dragOffsetY) ? eventTitleSettings.dragOffsetY : 0;
     return {
       fontSize: `${14 * scale}px`,
       padding: `${Math.round(10 * scale)}px ${Math.round(14 * scale)}px`,
-      maxWidth: `min(${Math.round(840 * scale)}px, calc(100% - 160px))`,
+      // Width stays stable across events so the sliders don't jump around.
+      width: `${Math.round(420 * scale)}px`,
+      maxWidth: `min(${Math.round(520 * scale)}px, calc(100% - 160px))`,
+      minHeight: `${Math.round(150 * scale)}px`,
+      // Anchored by bottom-left (see CSS .step-focus-banner: bottom/left fixed).
+      // Drag offset nudges from the anchored origin.
+      transform: `translate(${ox}px, ${oy}px)`,
     };
   }, [eventTitleSettings]);
 
@@ -2798,6 +2874,37 @@ export default function Visualizer({
     const placed = [];
     const result = {};
 
+    // Collect the bounding rects of all overlays the balloon shouldn't cross.
+    // If a balloon's computed box intersects any of these (or goes above the
+    // titlebar), we mark it hidden — the CSS transition on `.bit-history-panel`
+    // animates the hide/show.
+    // We only hide a balloon when it actually can't fit: off-screen, under the
+    // toolbar, or inside a "hard" side/bottom panel. The floating event-title
+    // banner and the minimap are intentionally excluded — they're small and the
+    // candidate-placement loop below generally finds room around them.
+    const overlayRects = (() => {
+      if (typeof document === 'undefined') return [];
+      const selectors = [
+        '.toolbar',
+        '.step-panel:not(.collapsed)',
+        '.settings-sidebar:not(.collapsed)',
+        '.detail-panel.open',
+        '.timing-panel',
+      ];
+      const rects = [];
+      for (const sel of selectors) {
+        const nodes = document.querySelectorAll(sel);
+        for (const n of nodes) {
+          const r = n.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) rects.push(r);
+        }
+      }
+      return rects;
+    })();
+    const toolbarBottom = overlayRects
+      .filter((r) => r.top <= 4) // titlebar-like rows
+      .reduce((m, r) => Math.max(m, r.bottom), 0);
+
     const normalized = items
       .map((item) => {
         const geom = getBitBalloonGeometry(item.bitIndex);
@@ -2849,15 +2956,30 @@ export default function Visualizer({
       const minLeft = stepsPanelCollapsed ? 170 : Math.max(200, panelWidth + 44);
       const maxLeft = window.innerWidth - (settingsCollapsed ? 48 : 360) - 170;
       const clampedLeft = Math.max(minLeft, Math.min(maxLeft, chosen.left));
-      const clampedTop = Math.max(96, chosen.top);
+      // Clamp the balloon top below the titlebar so it never paints over window chrome.
+      const minTopClamp = Math.max(96, toolbarBottom + approxHeight + 8);
+      const clampedTop = Math.max(minTopClamp, chosen.top);
       const box = {
         left: clampedLeft - approxWidth / 2,
         right: clampedLeft + approxWidth / 2,
         top: clampedTop - approxHeight,
         bottom: clampedTop,
       };
+      // Hide only when a substantial portion of the balloon overlaps an overlay
+      // or falls off-screen. A small edge-touch (< 12px) doesn't count as clipped.
+      const overlapThresholdPx = 12;
+      const intersectsOverlay = overlayRects.some((r) => {
+        const ix = Math.min(box.right, r.right) - Math.max(box.left, r.left);
+        const iy = Math.min(box.bottom, r.bottom) - Math.max(box.top, r.top);
+        return ix > overlapThresholdPx && iy > overlapThresholdPx;
+      });
+      const offscreen =
+        box.left < -4 || box.right > window.innerWidth + 4 ||
+        box.top < -4 || box.bottom > window.innerHeight + 4;
+      const visible = !intersectsOverlay && !offscreen;
       placed.push(box);
       result[`${item.kind}-${item.bitIndex}`] = {
+        visible,
         panelStyle: {
           left: clampedLeft,
           top: clampedTop,
@@ -2873,8 +2995,11 @@ export default function Visualizer({
     if (typeof document !== 'undefined') document.title = effectiveTitle;
   }, [effectiveTitle]);
 
+  // Reset the step-scrub slider whenever the user moves to a different event.
+  useEffect(() => { setStepScrubProgress(0); }, [currentStep]);
+
   return (
-    <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}`}>
+    <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}`}>
       {/* Header bar */}
       <header className="toolbar">
         <div className="toolbar-left">
@@ -3046,12 +3171,79 @@ export default function Visualizer({
         <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
           {eventTitleSettings.visible && (
             <div
-              className={`step-focus-banner position-${eventTitleSettings.position}${stepsPanelCollapsed && eventTitleSettings.position === 'left' ? ' shifted-for-collapsed-events' : ''}`}
+              className="step-focus-banner position-center"
               title={currentStepBanner.title}
               style={eventTitleStyle}
+              onMouseDown={(e) => {
+                if (e.target.closest('input') || e.target.closest('button')) return;
+                const startX = e.clientX;
+                const startY = e.clientY;
+                const startOffX = eventTitleSettings.dragOffsetX || 0;
+                const startOffY = eventTitleSettings.dragOffsetY || 0;
+                let dragged = false;
+                const onMove = (ev) => {
+                  const dx = ev.clientX - startX;
+                  const dy = ev.clientY - startY;
+                  if (!dragged && Math.hypot(dx, dy) < 4) return;
+                  dragged = true;
+                  setEventTitleSettings((prev) => ({
+                    ...prev,
+                    dragOffsetX: startOffX + dx,
+                    dragOffsetY: startOffY + dy,
+                  }));
+                };
+                const onUp = () => {
+                  window.removeEventListener('mousemove', onMove);
+                  window.removeEventListener('mouseup', onUp);
+                  if (!dragged) {
+                    // Click without drag: open the Events panel.
+                    if (stepsPanelCollapsed) setStepsPanelCollapsed(false);
+                  }
+                };
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onUp);
+                e.preventDefault();
+              }}
             >
-              <div className="step-focus-line1">{currentStepBanner.line1}</div>
-              {currentStepBanner.line2 && <div className="step-focus-line2">{currentStepBanner.line2}</div>}
+              <div className="step-focus-lines">
+                <div className="step-focus-line1">{currentStepBanner.line1}</div>
+                {currentStepBanner.line2 && <div className="step-focus-line2">{currentStepBanner.line2}</div>}
+                {currentStepBanner.line3 && <div className="step-focus-line3">{currentStepBanner.line3}</div>}
+              </div>
+              <div className="step-focus-sliders">
+                <label className="step-focus-slider-row" title="Scrub through this event's animation">
+                  <span className="step-focus-slider-label">Timeline</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={stepScrubProgress}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value, 10);
+                      setStepScrubProgress(v);
+                      seekStepAnimation(v / 100);
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    disabled={exporting || !currentStepData || !currentStepData.changedBits || currentStepData.changedBits.length === 0}
+                  />
+                  <span className="step-focus-slider-value">{stepScrubProgress}%</span>
+                </label>
+                <label className="step-focus-slider-row" title="Overall playback speed">
+                  <span className="step-focus-slider-label">Speed</span>
+                  <input
+                    type="range"
+                    min={4000}
+                    max={12000}
+                    step={100}
+                    // Higher slider value = faster, so invert against the ms-per-step range.
+                    value={16000 - playSpeed}
+                    onChange={(e) => setPlaySpeed(16000 - parseInt(e.target.value, 10))}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    disabled={exporting}
+                  />
+                  <span className="step-focus-slider-value">{playSpeedLabel}</span>
+                </label>
+              </div>
             </div>
           )}
           <div className={`canvas-container${mode3D ? ' mode-3d' : ''}`} ref={containerRef} style={camera3DContainerStyle}>
@@ -3089,8 +3281,14 @@ export default function Visualizer({
             const u64Idx = Math.floor(bi / 64);
             const bitInU64 = bi % 64;
             const clIdx = Math.floor(bi / (cachelineSize * 8));
+            const pinnedEntry = visibleBalloonStyles[`pinned-${bi}`];
+            const pinnedVisible = pinnedEntry ? pinnedEntry.visible !== false : true;
             return (
-              <div key={`locked-bit-${bi}`} className="bit-history-panel locked hover-balloon" style={visibleBalloonStyles[`pinned-${bi}`]?.panelStyle}>
+              <div
+                key={`locked-bit-${bi}`}
+                className={`bit-history-panel locked hover-balloon${pinnedVisible ? '' : ' clipped'}`}
+                style={pinnedEntry?.panelStyle}
+              >
                 <div className="bit-history-header">
                   <span>📌 Bit {bi} → #{info.number}</span>
                   <button className="bit-history-close" onClick={() => setPinnedBitIndices((prev) => prev.filter((value) => value !== bi))}>✕</button>
@@ -3142,8 +3340,10 @@ export default function Visualizer({
                   const u64Idx = Math.floor(bi / 64);
                   const bitInU64 = bi % 64;
                   const clIdx = Math.floor(bi / (cachelineSize * 8));
+                  const hoverEntry = visibleBalloonStyles[`hover-${bi}`];
+                  const hoverVisible = hoverEntry ? hoverEntry.visible !== false : true;
                   return (
-                    <div className="bit-history-panel hover-balloon" style={visibleBalloonStyles[`hover-${bi}`]?.panelStyle}>
+                    <div className={`bit-history-panel hover-balloon${hoverVisible ? '' : ' clipped'}`} style={hoverEntry?.panelStyle}>
                 <div className="bit-history-header">
                   <span>Bit {bi} → #{info.number}</span>
                 </div>
