@@ -2,14 +2,9 @@
 #define SHIFT_BYTE                  3 // the shift needed to get from BIT to BYTE
 
 // these are used to describe the max size of the bitstorage (uint64_v8) and use for the benchmarking
-#define VECTORWORD_SIZE_BITS        64
-#define VECTOR_SIZE_BYTES           64
+// #define VECTORWORD_SIZE_BITS        64
+// #define VECTOR_SIZE_BYTES           64
 #define VECTOR_SIZE_BITS            512
-typedef struct  {
-    counter_t storage_id;
-    counter_t bitsize;
-    counter_t factorsize;
-} storage_t;
 
 #define builtin_ctz(x)                     __builtin_ctzll((int64_t)(x))
 #define shift_calc(bits)                   ((bits) ? builtin_ctz(bits) : 0)

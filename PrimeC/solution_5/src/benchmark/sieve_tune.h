@@ -1,4 +1,6 @@
 #ifdef COMPILE_TUNE
+#include "sieve_benchmark_types.h"
+
 typedef struct {
     counter_t sieve_bits;
     counter_t prime_max;

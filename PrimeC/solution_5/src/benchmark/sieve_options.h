@@ -1,25 +1,7 @@
 
 #include "../generic/settings.h"
 #include <inttypes.h>
-
-typedef struct  {
-    counter_t factor_max;
-    counter_t stripe_faster;
-    counter_t largestep_faster;
-    counter_t blocksize_bits;
-    counter_t vectorsize;
-    counter_t algorithm;
-    counter_t storage;
-    counter_t threads;
-    double    sample_duration;
-} benchmark_settings_t;
-
-typedef struct  {
-    benchmark_settings_t settings;
-    counter_t passes;
-    double    elapsed_time;
-    double    avg;
-} benchmark_result_t;
+#include "sieve_benchmark_types.h"
 
 static struct options_t {
     benchmark_settings_t fixed_benchmark_settings;

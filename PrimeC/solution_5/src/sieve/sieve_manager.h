@@ -10,6 +10,12 @@ typedef struct sieve_t
     counter_t bits       __attribute__((aligned(cache_line_bytes)));  // Number of bits (if compressed, lower than size)
 } __attribute__((aligned(cache_line_bytes))) sieve_t;  // Align the whole structure
 
+typedef struct  {
+    counter_t storage_id;
+    counter_t bitsize;
+    counter_t factorsize;
+} storage_t;
+
 // create a sieve with a given size including the bitstorage
 static inline sieve_t*  __attribute__((always_inline, malloc, returns_nonnull, assume_aligned(cache_line_bytes), aligned(cache_line_bytes)))
 sieve_create(const counter_t size, const counter_t bits) 
