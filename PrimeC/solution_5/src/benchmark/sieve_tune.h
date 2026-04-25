@@ -258,6 +258,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     counter_t tuning_results_max = tuning_results; // keep this value for verbose messages
     
     double highest_avg = 0;
+    
     for (tuning_parameters.step = 1; tuning_results >= 1; tuning_parameters.step++) {
         double best_avg = 0;
         for (counter_t i=0; i<tuning_results; i++) {
