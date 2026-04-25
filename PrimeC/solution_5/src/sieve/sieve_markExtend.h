@@ -17,7 +17,7 @@ markExtendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop
     log6(bitstorage, "Processed prime %ju with step %ju in range [%ju-%ju]", (uintmax_t)prime*2+1, (uintmax_t)prime * 2 + 1, (uintmax_t)prime * (prime * 2 + 1 + 1), (uintmax_t)2*(prime * 2 + 1));
 
     for (counter_t range_stop = 2*(prime * 2 + 1);range_stop < block_stop;) {
-        prime = searchBitFalse(bitstorage, prime);
+        prime = searchBitFalse_uint8(bitstorage, prime);
         const counter_t step = prime * 2 + 1;
         const counter_t start = prime * (step + 1);
         if unlikely(start > block_stop) break;
@@ -69,7 +69,7 @@ markExtendSieveBlock_half(void* restrict bitstorage, const counter_t block_start
     verbose6( printf("Cleared bitstorage %ju - %ju\n", (uintmax_t)block_start, (uintmax_t)block_stop); )
     
     for (;range_stop < block_stop;) {
-        prime = searchBitFalse(bitstorage, prime);
+        prime = searchBitFalse_uint8(bitstorage, prime);
         block.prime_next = prime; // remember here so when we break or return, we don't have to search again
 
         counter_t start = (prime * prime * 2) + (prime * 2);
