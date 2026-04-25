@@ -32,6 +32,9 @@ export default function DetailPanel({
   benchmarkTimingData,
   onInspectChangedBits,
   onInspectMarkedNumbers,
+  eventTitleVisible,
+  onShowEventTitle,
+  eventAnimSliders,
 }) {
   // Benchmark timing row matching the current step's operation (if any)
   const benchmarkOpTiming = useMemo(() => {
@@ -380,6 +383,13 @@ export default function DetailPanel({
     <div className={`detail-panel ${open ? 'open' : 'collapsed'}`}>
       {open && !playing && <div className="detail-panel-resize" onMouseDown={handleHeightDrag} />}
       <div className="detail-panel-toggle" onClick={onToggle}>
+        {!eventTitleVisible && (
+          <button
+            className="detail-panel-show-banner-btn"
+            onClick={(e) => { e.stopPropagation(); onShowEventTitle && onShowEventTitle(); if (open) onToggle(); }}
+            title="Show event title"
+          >▲</button>
+        )}
         <div className="detail-panel-title">
           <span className="detail-panel-title-main">{panelTitle}</span>
           {step.annotation && <span className="detail-panel-annotation">{step.annotation}</span>}
@@ -392,6 +402,11 @@ export default function DetailPanel({
           ...(playing ? { height: `${height || 200}px` } : { maxHeight: `${height || 200}px` }),
           ...(width > 0 ? { minWidth: `${width}px`, overflowX: 'auto' } : {}),
         }}>
+          {!eventTitleVisible && eventAnimSliders && (
+            <div className="detail-panel-event-sliders">
+              {eventAnimSliders}
+            </div>
+          )}
           <div className="detail-sections">
             <section className="detail-section-card">
               <div className="detail-section-title">Operation</div>

@@ -2091,12 +2091,19 @@ export class SieveRenderer {
         const entry = orderedEntries[i];
         const tint = this._maskTintColor(entry.slotIndex);
         const bounds = entry.bounds;
+        const groupBounds = this._maskEntryGroupBounds(entry);
+        const stampBounds = groupBounds || bounds;
         const alpha = local < 0 ? Math.max(0, 0.28 + local * 1.1) : Math.max(0.22, 0.84 - phase * 0.42);
+        // Expand stamp to cover visible label bands (byte title, vector grouping
+        // title) above the bit group, and match the annotation outline padding
+        // when outlines are enabled.
         const inset = Math.max(2, Math.min(6, px * 0.7));
-        const rx = bounds.x - inset;
-        const ry = bounds.y - inset + yOffset;
-        const rw = bounds.w + inset * 2;
-        const rh = bounds.h + inset * 2;
+        const stampPad = this.outlineEnabled ? Math.max(inset, this._outlinePadding()) : inset;
+        const topExtra = this._labelBands().total;
+        const rx = stampBounds.x - stampPad;
+        const ry = stampBounds.y - stampPad - topExtra + yOffset;
+        const rw = stampBounds.w + stampPad * 2;
+        const rh = stampBounds.h + stampPad * 2 + topExtra;
 
         ctx.fillStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},${alpha * 0.14})`;
         ctx.strokeStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},${alpha})`;

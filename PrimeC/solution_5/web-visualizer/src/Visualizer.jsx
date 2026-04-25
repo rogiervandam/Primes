@@ -3341,6 +3341,124 @@ export default function Visualizer({
     setBitAnimationMode(hasMask ? 'mask' : 'bit');
   }, [currentStep]);
 
+  // Sliders for event timeline and animation speed. Rendered inside the
+  // step-focus-banner when it's visible; moved into the detail panel when the
+  // banner is hidden so the controls remain accessible.
+  const stepAnimSlidersContent = (
+    <>
+      {/* Mode toggle: switch between mask-stamp animation and per-bit
+          sequential reveal. Defaults to 'mask' on entering an event
+          that has mask metadata; toggling to 'bit' walks the bits
+          individually. */}
+      {currentStepData && currentStepData.maskWriteOrderWords && currentStepData.maskWriteOrderWords.length > 0 && (
+        <div className="step-focus-slider-row step-focus-mode-row" title="Choose how the timeline scrubs this event">
+          <span className="step-focus-slider-label">Mode</span>
+          <div className="step-focus-mode-toggle">
+            <button
+              type="button"
+              className={`step-focus-mode-btn${bitAnimationMode === 'mask' ? ' active' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                stopSeqAnim();
+                setBitAnimationMode('mask');
+                bitAnimationModeRef.current = 'mask';
+                seekStepAnimation(stepScrubProgress / 100);
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              title="Animate only the apply-mask group stamps"
+            >Mask</button>
+            <button
+              type="button"
+              className={`step-focus-mode-btn${bitAnimationMode === 'bit' ? ' active' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                stopSeqAnim();
+                setBitAnimationMode('bit');
+                bitAnimationModeRef.current = 'bit';
+                seekStepAnimation(stepScrubProgress / 100);
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              title="Animate only the bits being set one by one"
+            >Bits</button>
+            <button
+              type="button"
+              className={`step-focus-mode-btn${bitAnimationMode === 'combined' ? ' active' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                stopSeqAnim();
+                setBitAnimationMode('combined');
+                bitAnimationModeRef.current = 'combined';
+                seekStepAnimation(stepScrubProgress / 100);
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              title="Animate both the mask stamps and the bits revealing in lockstep"
+            >Both</button>
+          </div>
+          <span className="step-focus-slider-value step-focus-mode-value">{bitAnimationMode}</span>
+        </div>
+      )}
+      <div className="step-focus-slider-row" title="Scrub through this event's animation">
+        <span className="step-focus-slider-label">Timeline</span>
+        <div className="step-focus-slider-controls">
+          <button
+            type="button"
+            className="step-focus-play-btn"
+            onClick={(e) => { e.stopPropagation(); handleStepAnimToggle(); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            title={stepAnimRunning ? 'Pause the timeline animation' : 'Play the timeline animation at the current Speed'}
+            disabled={exporting || !currentStepData || ((!currentStepData.changedBits || currentStepData.changedBits.length === 0) && (bitAnimationMode !== 'mask' || !currentStepData.maskWriteOrderWords || currentStepData.maskWriteOrderWords.length === 0))}
+          >
+            {stepAnimRunning ? <Pause size={14} /> : <Play size={14} />}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={stepScrubProgress}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10);
+              setStepScrubProgress(v);
+              seekStepAnimation(v / 100);
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            disabled={exporting || !currentStepData || ((!currentStepData.changedBits || currentStepData.changedBits.length === 0) && (bitAnimationMode !== 'mask' || !currentStepData.maskWriteOrderWords || currentStepData.maskWriteOrderWords.length === 0))}
+          />
+        </div>
+        <span className="step-focus-slider-value">{stepScrubProgress}%</span>
+      </div>
+      <label className="step-focus-slider-row" title="Speed of the per-bit animation inside the current event (also drives the apply-mask group stamp animation)">
+        <span className="step-focus-slider-label">Speed</span>
+        {/* 0..100 mapped logarithmically to bitAnimInterval 500ms..5ms so
+            the middle of the slider lands around 50 ms/bit instead of the
+            top 10% being the only useful range. The same value also drives
+            the apply-mask group stamp animation so all animations stay
+            synchronized. */}
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={(() => {
+            const iv = Math.max(5, Math.min(500, Number(bitAnimInterval) || 20));
+            const ratio = Math.log(iv / 5) / Math.log(500 / 5);
+            return Math.round((1 - ratio) * 100);
+          })()}
+          onChange={(e) => {
+            const v = Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0));
+            const iv = Math.round(5 * Math.pow(500 / 5, 1 - v / 100));
+            setBitAnimInterval(iv);
+            // Keep the apply-mask stamp animation in lock-step with the
+            // per-bit animation so users perceive a single consistent speed.
+            setMaskAnimInterval(iv);
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          disabled={exporting}
+        />
+        <span className="step-focus-slider-value" title={`${bitAnimInterval}ms/bit`}>{bitAnimInterval}ms</span>
+      </label>
+    </>
+  );
+
   return (
     <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}`}>
       {/* Header bar */}
@@ -3545,122 +3663,19 @@ export default function Visualizer({
                 e.preventDefault();
               }}
             >
+              <button
+                className="step-focus-close-btn"
+                onClick={(e) => { e.stopPropagation(); setEventTitleSettings((prev) => ({ ...prev, visible: false })); }}
+                onMouseDown={(e) => e.stopPropagation()}
+                title="Hide event title — use the ▲ in the details panel to show it again"
+              >▼</button>
               <div className="step-focus-lines">
                 <div className="step-focus-line1">{currentStepBanner.line1}</div>
                 {currentStepBanner.line2 && <div className="step-focus-line2">{currentStepBanner.line2}</div>}
                 {currentStepBanner.line3 && <div className="step-focus-line3">{currentStepBanner.line3}</div>}
               </div>
               <div className="step-focus-sliders">
-                {/* Mode toggle: switch between mask-stamp animation and per-bit
-                    sequential reveal. Defaults to 'mask' on entering an event
-                    that has mask metadata; toggling to 'bit' walks the bits
-                    individually. */}
-                {currentStepData && currentStepData.maskWriteOrderWords && currentStepData.maskWriteOrderWords.length > 0 && (
-                  <div className="step-focus-slider-row step-focus-mode-row" title="Choose how the timeline scrubs this event">
-                    <span className="step-focus-slider-label">Mode</span>
-                    <div className="step-focus-mode-toggle">
-                      <button
-                        type="button"
-                        className={`step-focus-mode-btn${bitAnimationMode === 'mask' ? ' active' : ''}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          stopSeqAnim();
-                          setBitAnimationMode('mask');
-                          bitAnimationModeRef.current = 'mask';
-                          seekStepAnimation(stepScrubProgress / 100);
-                        }}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        title="Animate only the apply-mask group stamps"
-                      >Mask</button>
-                      <button
-                        type="button"
-                        className={`step-focus-mode-btn${bitAnimationMode === 'bit' ? ' active' : ''}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          stopSeqAnim();
-                          setBitAnimationMode('bit');
-                          bitAnimationModeRef.current = 'bit';
-                          seekStepAnimation(stepScrubProgress / 100);
-                        }}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        title="Animate only the bits being set one by one"
-                      >Bits</button>
-                      <button
-                        type="button"
-                        className={`step-focus-mode-btn${bitAnimationMode === 'combined' ? ' active' : ''}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          stopSeqAnim();
-                          setBitAnimationMode('combined');
-                          bitAnimationModeRef.current = 'combined';
-                          seekStepAnimation(stepScrubProgress / 100);
-                        }}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        title="Animate both the mask stamps and the bits revealing in lockstep"
-                      >Both</button>
-                    </div>
-                    <span className="step-focus-slider-value step-focus-mode-value">{bitAnimationMode}</span>
-                  </div>
-                )}
-                <div className="step-focus-slider-row" title="Scrub through this event's animation">
-                  <span className="step-focus-slider-label">Timeline</span>
-                  <div className="step-focus-slider-controls">
-                    <button
-                      type="button"
-                      className="step-focus-play-btn"
-                      onClick={(e) => { e.stopPropagation(); handleStepAnimToggle(); }}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      title={stepAnimRunning ? 'Pause the timeline animation' : 'Play the timeline animation at the current Speed'}
-                      disabled={exporting || !currentStepData || ((!currentStepData.changedBits || currentStepData.changedBits.length === 0) && (bitAnimationMode !== 'mask' || !currentStepData.maskWriteOrderWords || currentStepData.maskWriteOrderWords.length === 0))}
-                    >
-                      {stepAnimRunning ? <Pause size={14} /> : <Play size={14} />}
-                    </button>
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      value={stepScrubProgress}
-                      onChange={(e) => {
-                        const v = parseInt(e.target.value, 10);
-                        setStepScrubProgress(v);
-                        seekStepAnimation(v / 100);
-                      }}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      disabled={exporting || !currentStepData || ((!currentStepData.changedBits || currentStepData.changedBits.length === 0) && (bitAnimationMode !== 'mask' || !currentStepData.maskWriteOrderWords || currentStepData.maskWriteOrderWords.length === 0))}
-                    />
-                  </div>
-                  <span className="step-focus-slider-value">{stepScrubProgress}%</span>
-                </div>
-                <label className="step-focus-slider-row" title="Speed of the per-bit animation inside the current event (also drives the apply-mask group stamp animation)">
-                  <span className="step-focus-slider-label">Speed</span>
-                  {/* 0..100 mapped logarithmically to bitAnimInterval 500ms..5ms so
-                      the middle of the slider lands around 50 ms/bit instead of the
-                      top 10% being the only useful range. The same value also drives
-                      the apply-mask group stamp animation so all animations stay
-                      synchronized. */}
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={(() => {
-                      const iv = Math.max(5, Math.min(500, Number(bitAnimInterval) || 20));
-                      const ratio = Math.log(iv / 5) / Math.log(500 / 5);
-                      return Math.round((1 - ratio) * 100);
-                    })()}
-                    onChange={(e) => {
-                      const v = Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0));
-                      const iv = Math.round(5 * Math.pow(500 / 5, 1 - v / 100));
-                      setBitAnimInterval(iv);
-                      // Keep the apply-mask stamp animation in lock-step with the
-                      // per-bit animation so users perceive a single consistent speed.
-                      setMaskAnimInterval(iv);
-                    }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    disabled={exporting}
-                  />
-                  <span className="step-focus-slider-value" title={`${bitAnimInterval}ms/bit`}>{bitAnimInterval}ms</span>
-                </label>
+                {stepAnimSlidersContent}
               </div>
             </div>
           )}
@@ -3824,6 +3839,9 @@ export default function Visualizer({
             benchmarkTimingData={benchmarkTimingData}
             onInspectChangedBits={() => openDetailInspector('bits')}
             onInspectMarkedNumbers={() => openDetailInspector('numbers')}
+            eventTitleVisible={eventTitleSettings.visible}
+            onShowEventTitle={() => setEventTitleSettings((prev) => ({ ...prev, visible: true }))}
+            eventAnimSliders={stepAnimSlidersContent}
           />
 
           {detailInspectorOpen && (
