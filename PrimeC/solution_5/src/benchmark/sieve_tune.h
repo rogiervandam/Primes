@@ -256,11 +256,11 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     // reduce the tuning results to the best options
     // keep the best of the results and reevaluate them with a longer sample duration
     counter_t tuning_results_max = tuning_results; // keep this value for verbose messages
-    
+
     double highest_avg = 0;
-    
+    benchmark_settings_t highest_avg_settings = tuning_result[0].settings;
+
     for (tuning_parameters.step = 1; tuning_results >= 1; tuning_parameters.step++) {
-        double best_avg = 0;
         for (counter_t i=0; i<tuning_results; i++) {
             benchmark_settings_t tuning_settings = tuning_result[i].settings;
 
@@ -272,9 +272,9 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
             }
             verbose2( { 
                 printf_statusline("Tuning step " COLOR_BOLD_GREEN "%ju" COLOR_RESET " with " COLOR_BOLD_YELLOW "%5ju" COLOR_RESET " options. "
-                                "Benchmarking " COLOR_BOLD_GREEN "%s" COLOR_RESET " (" COLOR_BOLD_GREEN "%ju" COLOR_RESET ")... (best: " COLOR_BOLD_YELLOW "%.0f" COLOR_RESET ")",
+                                "Benchmarking " COLOR_BOLD_GREEN "%s" COLOR_RESET " (" COLOR_BOLD_GREEN "%ju" COLOR_RESET ")... (best: " COLOR_BOLD_YELLOW "%.0f" COLOR_RESET " with " COLOR_BOLD_GREEN "%s" COLOR_RESET ")\n",
                                 (uintmax_t)tuning_parameters.step, (uintmax_t)tuning_results,
-                                getBenchmarkSettingAsString(tuning_settings), (uintmax_t)i, best_avg*5); 
+                                getBenchmarkSettingAsString(tuning_settings), (uintmax_t)i, highest_avg*5, getBenchmarkSettingAsString(highest_avg_settings)); 
             })
             
             // Check if the settings are valid
@@ -291,8 +291,10 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
             tuning_result[i] = benchmark(tuning_settings, benchmarkableFunction);
 
             time_elapsed = benchmarkTime();
-            if (tuning_result[i].avg > best_avg) best_avg = tuning_result[i].avg; // keep track of the best result for verbose messages
-            if (tuning_result[i].avg > highest_avg) highest_avg = tuning_result[i].avg; // keep track of the highest result overall
+            if (tuning_result[i].avg > highest_avg) {
+                highest_avg = tuning_result[i].avg; // keep track of the best result for verbose messages
+                benchmark_settings_t highest_avg_settings_candidate = tuning_result[i].settings;
+            }
             if (time_elapsed > time_target) { break; } // stop when time expired
         }
 
@@ -341,7 +343,14 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     free(tuning_result);
 
     time_elapsed = (time_elapsed - time_start);
-    verbose2( { printf(COLOR_CLEAR_LINE "Tuning done in %.1f seconds. Evaluated %ju options in %ju steps. \nBest result: ", (time_elapsed), (uintmax_t) tuning_results_max, (uintmax_t) tuning_parameters.step ); printTuningResult(best_result);} );
+    verbose2({ 
+        printf(COLOR_CLEAR_LINE "Tuning done in %.2f seconds. Evaluated %ju options in %ju steps. \n", 
+            (time_elapsed), (uintmax_t) tuning_results_max, (uintmax_t) tuning_parameters.step);
+        printf("Highest average: " COLOR_BOLD_YELLOW "%ju" COLOR_RESET " with settings " COLOR_BOLD_GREEN "%s" COLOR_RESET "\n", 
+            (uintmax_t)(highest_avg*5), getBenchmarkSettingAsString(highest_avg_settings));
+        printf("Best with longer time: "); printTuningResult(best_result);
+    });
+
     return best_result;
 }
 
