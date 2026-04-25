@@ -172,10 +172,42 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     return { mode, value: n };
   }, [filterLevel]);
 
+  // Flat lookup from originalIndex → full (unfiltered) tree node, so the
+  // filtered tree can recover aggregate totals for nodes whose descendants
+  // are hidden by the level filter.
+  const nodeByOriginalIndex = useMemo(() => {
+    const map = new Map();
+    const walk = (node) => {
+      if (node.originalIndex != null) map.set(node.originalIndex, node);
+      for (const child of node.children || []) walk(child);
+    };
+    for (const g of tree) for (const n of g.depthTree || []) walk(n);
+    return map;
+  }, [tree]);
+
   // Filter — operates on flat children before depth-tree is built
   const filteredTree = useMemo(() => {
     if (!search && !filterOp && !levelFilter && !hideUntimed && !hideUnchanged) return tree;
     const lower = search.toLowerCase();
+
+    // After rebuilding the depth tree from filtered children, walk it and
+    // patch each node's aggregates from the full unfiltered tree so that
+    // nodes at the level cutoff show totals that include their hidden descendants.
+    const patchAggregates = (node) => {
+      const full = nodeByOriginalIndex.get(node.originalIndex);
+      if (full) {
+        const hiddenCount = (full.aggregateStepIndices?.length ?? 1) - (node.aggregateStepIndices?.length ?? 1);
+        if (hiddenCount > 0) {
+          node.aggregateChanged = full.aggregateChanged;
+          node.aggregateElapsedNs = full.aggregateElapsedNs;
+          node.aggregateStepIndices = full.aggregateStepIndices;
+          node.hasHiddenDescendants = true;
+          node.hiddenDescendantCount = hiddenCount;
+        }
+      }
+      for (const child of node.children || []) patchAggregates(child);
+    };
+
     return tree.map(g => {
       const fc = g.children.filter(s => {
         const path = s.operationPath || [];
@@ -193,9 +225,11 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
         }
         return true;
       });
-      return { ...g, children: fc, depthTree: buildDepthTree(fc) };
+      const depthTree = buildDepthTree(fc);
+      for (const n of depthTree) patchAggregates(n);
+      return { ...g, children: fc, depthTree };
     }).filter(g => g.children.length > 0);
-  }, [tree, search, filterOp, levelFilter, hideUntimed, hideUnchanged]);
+  }, [tree, nodeByOriginalIndex, search, filterOp, levelFilter, hideUntimed, hideUnchanged]);
 
   useEffect(() => {
     if (initialCollapseDoneRef.current || tree.length === 0) return;
@@ -246,10 +280,14 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     const isActive = node.originalIndex === currentStep;
     const isSelected = selectedSteps.has(node.originalIndex);
     const hasChildren = node.children && node.children.length > 0;
-    const changedCount = hasChildren
+    const hasHiddenDescendants = !!node.hasHiddenDescendants;
+    // A node is an "aggregate leaf" when its visible children were fully filtered
+    // out but it has hidden descendants — show it like a collapsed parent.
+    const isAggregateLeaf = hasHiddenDescendants && !hasChildren;
+    const changedCount = (hasChildren || hasHiddenDescendants)
       ? Number(node.aggregateChanged || node.numChanged || 0)
       : Number(node.numChanged || 0);
-    const displayElapsedNs = hasChildren
+    const displayElapsedNs = (hasChildren || hasHiddenDescendants)
       ? Number(node.aggregateElapsedNs || node.elapsedNs || 0)
       : Number(node.elapsedNs || 0);
     const collapseKey = `node-${node.originalIndex}`;
@@ -265,6 +303,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       node.start != null ? `Range: [${node.start} – ${node.stop}]` : null,
       node.factorStep != null ? `Step size: ${node.factorStep}` : null,
       `Bits changed: ${changedCount}`,
+      hasHiddenDescendants ? `(includes ${node.hiddenDescendantCount} hidden event${node.hiddenDescendantCount !== 1 ? 's' : ''})` : null,
       node.annotation,
     ].filter(Boolean).join('\n');
     const summaryText = formatStepSummary(node);
@@ -272,11 +311,11 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     return (
       <div key={node.originalIndex} className={`step-depth-node depth-${Math.min(6, nodeDepth)}`}>
         <div
-          className={`step-item step-child${isActive ? ' active' : ''}${isSelected ? ' selected' : ''}${hasChildren ? ' has-children' : ''}`}
+          className={`step-item step-child${isActive ? ' active' : ''}${isSelected ? ' selected' : ''}${hasChildren ? ' has-children' : ''}${isAggregateLeaf ? ' has-hidden-descendants' : ''}`}
           style={{ paddingLeft: `${8 + nodeDepth * 14}px` }}
           onClick={(e) => {
             if (hasChildren && e.target.classList.contains('step-depth-toggle')) return;
-            if (hasChildren && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+            if ((hasChildren || hasHiddenDescendants) && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
               onStepClick(node.originalIndex);
               onMultiStepSelect(new Set(node.aggregateStepIndices || [node.originalIndex]));
               lastClickedRef.current = node.originalIndex;
@@ -294,13 +333,21 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
               {isNodeCollapsed ? '▶' : '▼'}
             </span>
           )}
-          {!hasChildren && <span className="step-depth-bullet">·</span>}
+          {!hasChildren && !isAggregateLeaf && <span className="step-depth-bullet">·</span>}
+          {isAggregateLeaf && (
+            <span className="step-depth-bullet step-agg-collapsed" title={`${node.hiddenDescendantCount} events hidden by level filter`}>▸</span>
+          )}
           <span className="step-num">{eventId}</span>
           {Number.isFinite(node.level) && <span className="step-op">L{node.level}</span>}
           {node.operation && <span className="step-op">{node.operation}</span>}
           <span className="step-changes">{changedCount > 0 ? `+${changedCount}` : ''}</span>
+          {isAggregateLeaf && node.hiddenDescendantCount > 0 && (
+            <span className="step-agg-badge" title={`Aggregated from ${node.hiddenDescendantCount} hidden event${node.hiddenDescendantCount !== 1 ? 's' : ''}`}>
+              +{node.hiddenDescendantCount}
+            </span>
+          )}
           {displayElapsedNs > 0 && (
-            <span className="step-timing" title={hasChildren ? `Aggregate: ${formatNs(displayElapsedNs, 2)}` : `Elapsed: ${formatNs(displayElapsedNs, 2)}`}>
+            <span className="step-timing" title={(hasChildren || hasHiddenDescendants) ? `Aggregate: ${formatNs(displayElapsedNs, 2)}` : `Elapsed: ${formatNs(displayElapsedNs, 2)}`}>
               {formatNs(displayElapsedNs)}
             </span>
           )}

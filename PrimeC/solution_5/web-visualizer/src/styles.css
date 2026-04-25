@@ -635,6 +635,23 @@ html, body, #root {
   flex-shrink: 0;
   font-size: 12px;
 }
+.step-agg-collapsed {
+  color: var(--accent-dim);
+  font-size: 10px;
+}
+.step-agg-badge {
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-dim);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-light);
+  border-radius: 3px;
+  padding: 0 3px;
+  flex-shrink: 0;
+}
+.step-item.has-hidden-descendants {
+  opacity: 0.88;
+}
 /* Depth accent lines — subtle left-border per nesting level */
 .depth-1 > .step-item { border-left: 2px solid transparent; }
 .depth-2 > .step-item { border-left: 2px solid transparent; }
