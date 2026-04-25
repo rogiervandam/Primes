@@ -1830,7 +1830,9 @@ export default function Visualizer({
 
     let cancelled = false;
     const loop = async () => {
-      await triggerAnimation(merged, { adaptiveDuration: true });
+      const triggerFn = triggerAnimationRef.current;
+      if (!triggerFn) return;
+      await triggerFn(merged, { adaptiveDuration: true });
       if (cancelled || playing || animationReplayPaused || selectedSteps.size === 0) return;
       selectedAnimLoopRef.current = setTimeout(loop, 0);
     };
@@ -1844,7 +1846,9 @@ export default function Visualizer({
         selectedAnimLoopRef.current = null;
       }
     };
-  }, [selectedSteps, steps, playing, animationReplayPaused, triggerAnimation]);
+    // triggerAnimation intentionally omitted; see pausedStepAnimLoop for rationale.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSteps, steps, playing, animationReplayPaused]);
 
   // When paused on a single step, keep replaying that step's animation.
   useEffect(() => {
@@ -1865,7 +1869,11 @@ export default function Visualizer({
       // button); subsequent iterations restart from 0 after the replay delay.
       const useStartIndex = stepResumeStartIndexRef.current || 0;
       stepResumeStartIndexRef.current = 0;
-      await triggerAnimation(changed, { adaptiveDuration: false, startIndex: useStartIndex });
+      // Read triggerAnimation through its ref so this effect doesn't tear down
+      // and restart whenever the speed slider (bitAnimInterval) changes.
+      const triggerFn = triggerAnimationRef.current;
+      if (!triggerFn) return;
+      await triggerFn(changed, { adaptiveDuration: false, startIndex: useStartIndex });
       if (cancelled || playing || animationReplayPaused || selectedSteps.size > 0) return;
       pausedStepAnimLoopRef.current = setTimeout(loop, 0);
     };
@@ -1879,7 +1887,10 @@ export default function Visualizer({
         pausedStepAnimLoopRef.current = null;
       }
     };
-  }, [playing, selectedSteps, steps, currentStep, animationReplayPaused, triggerAnimation]);
+    // triggerAnimation intentionally omitted: it is rebuilt whenever the speed
+    // slider changes, and we don't want to interrupt an in-flight reveal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, selectedSteps, steps, currentStep, animationReplayPaused]);
 
   // Auto-render mode (for CLI video export via puppeteer)
   useEffect(() => {
