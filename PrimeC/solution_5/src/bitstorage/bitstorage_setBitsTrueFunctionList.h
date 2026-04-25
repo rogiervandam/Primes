@@ -1,7 +1,7 @@
 // Structure to hold function information
 // This is a helper function for development and checking benchmarking purposes
-#ifndef BITSTORAGE_SETBITSTRUE_FUNCTIONLIST_H
-#define BITSTORAGE_SETBITSTRUE_FUNCTIONLIST_H
+#ifndef BITSTORAGE_SETBITSTRUE_FUNCTIONLIST_GUARD
+#define BITSTORAGE_SETBITSTRUE_FUNCTIONLIST_GUARD
 
 // Define a function pointer type for setBitsTrue functions
 typedef void (*setBitsTrueFunc)(void* restrict, const counter_t, const counter_t, const counter_t);
@@ -38,4 +38,4 @@ static SetBitsTrueMethod setBitsTrueMethods[] = {
 
 #define methods (sizeof(setBitsTrueMethods) / sizeof(SetBitsTrueMethod))
 
-#endif /* BITSTORAGE_SETBITSTRUE_FUNCTIONLIST_H */
+#endif 

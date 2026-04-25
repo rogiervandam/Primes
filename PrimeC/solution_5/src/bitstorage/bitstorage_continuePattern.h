@@ -6,19 +6,19 @@
 
     #include <stdio.h>
     #include "../trace/sieve_trace.h"
+    #include "../generic/verbose.h"
 
     #define INCLUDE_FILE "../../../src/bitstorage/bitstorage_continuePattern.h"
     #include "../generic/variants/generate.h"
 
-#elif defined(BUILD_WORDS_STAGE)
+#elif defined(BUILD_WORDS_STAGE) 
 
-#include "../generic/variants/setsuffix.h"
+// #include "../generic/variants/setsuffix.h"
 
 #include "bitstorage_continuePattern_smallsize.h"
 #include "bitstorage_continuePattern_aligned.h"
 #include "bitstorage_continuePattern_shiftleft.h"
 #include "bitstorage_continuePattern_shiftright.h"
-#include "../generic/verbose.h"
 
 // continue a pattern that start at <source_start> with a size of <size>.
 // repeat this pattern up to <destination_stop>.
@@ -49,4 +49,4 @@ function(continuePattern,suffix)(void* restrict bitstorage, const counter_t sour
 
 #endif
 
-#include "../generic/variants/cleansuffix.h"
+// #include "../generic/variants/cleansuffix.h"

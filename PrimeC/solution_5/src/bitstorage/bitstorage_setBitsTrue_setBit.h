@@ -2,12 +2,11 @@
     #define SETBIT_GUARD
     #define INCLUDE_FILE "../../../src/bitstorage/bitstorage_setBitsTrue_setBit.h"
     #include "../generic/variants/generate.h"
-
-    // #include "../generic/verbose.h"
+    #include "../generic/verbose.h"
 
 #elif defined(BUILD_WORDS_STAGE) && unrolls == 1
 
-#include "../generic/variants/setsuffix.h"
+// #include "../generic/variants/setsuffix.h"
 
 // convenience macro to build function names and calls with different suffixes for different implementations
 #define setBitFalse_suffix(...) NAME(setBitFalse,suffix)(__VA_ARGS__)
@@ -62,4 +61,4 @@ setBitsTrue_range_return_suffix(void* restrict bitstorage, const counter_t range
 
 #endif
 
-#include "../generic/variants/cleansuffix.h"
+// #include "../generic/variants/cleansuffix.h"
