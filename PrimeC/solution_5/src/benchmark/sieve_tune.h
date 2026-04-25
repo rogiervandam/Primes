@@ -257,6 +257,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     // keep the best of the results and reevaluate them with a longer sample duration
     counter_t tuning_results_max = tuning_results; // keep this value for verbose messages
     
+    double highest_avg = 0;
     for (tuning_parameters.step = 1; tuning_results >= 1; tuning_parameters.step++) {
         double best_avg = 0;
         for (counter_t i=0; i<tuning_results; i++) {
@@ -290,6 +291,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
 
             time_elapsed = benchmarkTime();
             if (tuning_result[i].avg > best_avg) best_avg = tuning_result[i].avg; // keep track of the best result for verbose messages
+            if (tuning_result[i].avg > highest_avg) highest_avg = tuning_result[i].avg; // keep track of the highest result overall
             if (time_elapsed > time_target) { break; } // stop when time expired
         }
 
