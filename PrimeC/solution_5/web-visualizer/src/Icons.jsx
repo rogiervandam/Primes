@@ -25,3 +25,6 @@ export const Search = (p) => <I {...p} d={<><circle cx="11" cy="11" r="8" /><lin
 export const Minus = (p) => <I {...p} d="M5 12h14" />;
 export const Plus = (p) => <I {...p} d={<><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></>} />;
 export const Thermometer = (p) => <I {...p} d={<><path d="M14 14.76V3.5a2.5 2.5 0 00-5 0v11.26a4.5 4.5 0 105 0z" /></>} />;
+export const PlayPause = (p) => (
+  <I {...p} d={<><polygon points="3 4, 3 20, 11 12" fill="currentColor" stroke="currentColor" /><rect x="14" y="4" width="3" height="16" fill="currentColor" stroke="none" /><rect x="19" y="4" width="3" height="16" fill="currentColor" stroke="none" /></>} />
+);

@@ -7,7 +7,7 @@ import SettingsPanel from './SettingsPanel';
 import TimingPanel from './TimingPanel';
 import {
   SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
-  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Thermometer
+  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Thermometer, PlayPause
 } from './Icons';
 
 const VIEW_PREFS_KEY = 'sieve-visualizer:view-preferences:v1';
@@ -273,8 +273,21 @@ export default function Visualizer({
   const [animationReplayPaused, setAnimationReplayPaused] = useState(false);
   const [customTitle, setCustomTitle] = useState('');
   // 0..100 slider progress scrubbing through the current event's internal animation.
-  // Resets whenever the current event changes.
+  // Resets whenever the current event changes. The sequential-reveal animation
+  // writes to this state as it progresses so the banner slider follows along.
   const [stepScrubProgress, setStepScrubProgress] = useState(0);
+  const stepScrubProgressRef = useRef(setStepScrubProgress);
+  stepScrubProgressRef.current = setStepScrubProgress;
+  // Is the per-event sequential reveal currently in progress? The banner
+  // play/pause button reads this to pick its icon.
+  const [stepAnimRunning, setStepAnimRunning] = useState(false);
+  const setStepAnimRunningRef = useRef(setStepAnimRunning);
+  setStepAnimRunningRef.current = setStepAnimRunning;
+  // One-shot resume hint: when the banner Play button kicks the existing
+  // pausedStepAnimLoop, the first iteration uses this index instead of 0 so
+  // resume picks up at the user's slider position. Subsequent loop iterations
+  // restart from the beginning, after the configured replay delay.
+  const stepResumeStartIndexRef = useRef(0);
   const [bitAnimInterval, setBitAnimInterval] = useState(20); // ms between sequential bits (0.02s default)
   const [maskAnimInterval, setMaskAnimInterval] = useState(() => {
     const stepIntervalDefault = 20;
@@ -349,6 +362,10 @@ export default function Visualizer({
   const initialHighlightHoldRef = useRef(true);
   const initial3DRestoreDoneRef = useRef(true);
   const traceInfoPopoverRef = useRef(null);
+  // True while the timeline slider has left bitState in a partially-revealed
+  // (pre-step) state. goToStep checks this and always rebuilds bitState from
+  // scratch so we don't end up with an inconsistent incremental update.
+  const bitStateDirtyRef = useRef(false);
   const traceInfoToggleRef = useRef(null);
   const balloonLayoutRafRef = useRef(null);
 
@@ -827,8 +844,10 @@ export default function Visualizer({
     let bs = bitStateRef.current;
     if (!bs) return;
 
-    // Build state up to step before target (for stats)
-    if (target <= currentStep) {
+    // Build state up to step before target (for stats).
+    // If the scrubber left bitState in a partially-revealed state, do a full
+    // rebuild regardless of direction so the incremental path can't desync.
+    if (target <= currentStep || bitStateDirtyRef.current) {
       bs.fill(0);
       for (let i = 0; i < target; i++) {
         const s = steps[i];
@@ -837,6 +856,7 @@ export default function Visualizer({
           if (idx < bs.length) bs[idx] = 1;
         }
       }
+      bitStateDirtyRef.current = false;
     } else {
       for (let i = currentStep + 1; i < target; i++) {
         const s = steps[i];
@@ -967,6 +987,7 @@ export default function Visualizer({
     // Cancel camera animations
     if (camera3DRef.current) camera3DRef.current.cancelAllAnimations();
     cancelViewportAnimation();
+    if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
   }, [cancelViewportAnimation]);
 
   const freezeAnimationNow = useCallback(() => {
@@ -980,21 +1001,46 @@ export default function Visualizer({
   }, [stopPlayback, stopSeqAnim, getMinimapDetailH]);
 
   // Scrub the animation inside the current event. progress is 0..1; maps to a
-  // bit index inside this step's changedBits. The full changed set still reads
-  // as "set" (that is what the step's bitstate resolves to), but the animation
-  // focus / ripple / pulse / fade is rerun on the specific bit at the scrub point.
+  // bit index inside this step's changedBits. We roll bitState back to the
+  // state just BEFORE the current step, then apply only bits [0..targetIdx],
+  // so the grid shows a true progressive reveal — bits beyond the scrub
+  // position render as unset, not as the step's finished state.
   const seekStepAnimation = useCallback((progress) => {
     stopPlayback();
     stopSeqAnim();
     setAnimationReplayPaused(true);
     const r = rendererRef.current;
-    const step = stepsRef.current[currentStep];
-    if (!r || !step || !step.changedBits || step.changedBits.length === 0) return;
+    const stepIdx = currentStep;
+    const allSteps = stepsRef.current;
+    const step = allSteps[stepIdx];
+    const bs = bitStateRef.current;
+    if (!r || !step || !bs || !step.changedBits || step.changedBits.length === 0) return;
     const bits = Array.from(step.changedBits).sort((a, b) => a - b);
     const clamped = Math.max(0, Math.min(1, progress));
     const targetIdx = Math.max(0, Math.min(bits.length - 1, Math.round(clamped * (bits.length - 1))));
+
+    // Rebuild bitState: state BEFORE the current step, then reveal bits up to target.
+    bs.fill(0);
+    for (let i = 0; i < stepIdx; i++) {
+      const s = allSteps[i];
+      for (let j = 0; j < s.changedBits.length; j++) {
+        const bit = s.changedBits[j];
+        if (bit < bs.length) bs[bit] = 1;
+      }
+    }
+    const revealed = new Set();
+    for (let i = 0; i <= targetIdx; i++) {
+      const bit = bits[i];
+      if (bit < bs.length) bs[bit] = 1;
+      revealed.add(bit);
+    }
+    // If we didn't reveal every bit, bitState is in an intermediate state; mark
+    // dirty so the next goToStep does a full rebuild (not an incremental merge).
+    bitStateDirtyRef.current = targetIdx < bits.length - 1;
+
     const focusBits = new Set([bits[targetIdx]]);
-    r.changedBits = new Set(bits);
+    r.bitState = bs;
+    r.changedBits = revealed;
     r.animationFocusBits = focusBits;
     r.render();
     if (animStyle === 'ripple') r.renderRipple(0.18, focusBits, { intensity: 1.1, showBeacon: true });
@@ -1442,8 +1488,12 @@ export default function Visualizer({
 
   // Main animation trigger — fade old highlights, animate current step, then wait using animation delay.
   const triggerAnimation = useCallback(async (changedSet, options = {}) => {
+    const resuming = !!options.startIndex && options.startIndex > 0;
     if (!options.keepProgress) {
       stopSeqAnim();
+      // Reset the banner scrub slider at the start of a fresh animation.
+      // When resuming from a paused position, keep the slider where it is.
+      if (!resuming && stepScrubProgressRef.current) stepScrubProgressRef.current(0);
     }
     const r = rendererRef.current;
     const hasMaskAnimation = !!(maskAnimationEnabled && r && r.maskWriteOrderWords && r.maskWriteOrderWords.length > 0 && Number.isFinite(r.maskWordBits) && r.maskWordBits > 0);
@@ -1472,7 +1522,7 @@ export default function Visualizer({
     const totalCycleDuration = requestedCycleDuration != null ? Math.max(requestedCycleDuration, est + delayMs) : est + delayMs;
     animBusyUntilRef.current = performance.now() + totalCycleDuration;
 
-    if (!options.keepProgress) {
+    if (!options.keepProgress && !resuming) {
       await fadeOutCurrentHighlights(options);
     }
 
@@ -1497,10 +1547,17 @@ export default function Visualizer({
     if ((animMode === 'sequential' || animMode === 'bounce') && effectiveBitInterval > 0) {
       const bits = Array.from(changedSet).sort((a, b) => a - b);
       const fullChanged = new Set(changedSet);
-      let idx = 0;
+      // Optional start index: lets the banner Play button resume a paused reveal
+      // from the current scrub position instead of restarting at 0.
+      const requestedStart = Math.max(0, Math.min(
+        bits.length - 1,
+        parseInt(options.startIndex || 0, 10) || 0
+      ));
+      let idx = requestedStart;
       let direction = 1;
       let bounced = false;
-      let revealCount = 0;
+      let revealCount = requestedStart;
+      if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(true);
       let previousFocusBit = null;
       const trailSize = animMode === 'bounce' ? Math.min(8, Math.max(3, Math.round(bits.length / 18))) : 0;
 
@@ -1530,6 +1587,8 @@ export default function Visualizer({
               r.animationFocusBits = new Set();
               r.render();
               r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+              if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
+              if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
               resolve();
               return;
             }
@@ -1577,16 +1636,31 @@ export default function Visualizer({
             ? Math.max(1, bits.length * 2 - 1)
             : Math.max(1, bits.length);
           const progressRatio = totalRevealSteps <= 1 ? 1 : Math.min(1, revealCount / (totalRevealSteps - 1));
+          // Let the banner's Timeline slider follow the animation. Sequential
+          // reveal walks 0 → len-1; bounce returns, so we clamp to the forward
+          // projection onto [0..1]. For bounce we use idx position directly.
+          if (stepScrubProgressRef.current) {
+            const uiProgress = animMode === 'bounce'
+              ? Math.min(1, Math.max(0, idx / Math.max(1, bits.length - 1)))
+              : progressRatio;
+            stepScrubProgressRef.current(Math.round(uiProgress * 100));
+          }
           idx += direction;
           seqTimerRef.current = setTimeout(revealNext, getCurrentLoopInterval(effectiveBitInterval, timingOptions, progressRatio, currentFocusBit));
         };
 
-        r.changedBits = new Set();
+        // Seed the pre-revealed bits so resume picks up visually from where the
+        // pause left off instead of briefly flashing back to empty.
+        const seededChangedBits = new Set();
+        if (requestedStart > 0 && animMode !== 'bounce') {
+          for (let i = 0; i < requestedStart; i++) seededChangedBits.add(bits[i]);
+        }
+        r.changedBits = seededChangedBits;
         r.animationFocusBits = new Set();
         r.clearBitMotionTrails();
         r.render();
         r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-        seqTimerRef.current = setTimeout(revealNext, getCurrentLoopInterval(effectiveBitInterval, timingOptions, 0, bits[0]));
+        seqTimerRef.current = setTimeout(revealNext, getCurrentLoopInterval(effectiveBitInterval, timingOptions, 0, bits[Math.min(bits.length - 1, requestedStart)]));
       });
 
       r.animationFocusBits = new Set();
@@ -1598,6 +1672,7 @@ export default function Visualizer({
       r.changedBits = new Set(changedSet);
       r.render();
       r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
       await waitForDelay(delayMs);
       return;
     }
@@ -1606,6 +1681,7 @@ export default function Visualizer({
     r.animationFocusBits = new Set(changedSet);
     await runEffect(animStyle, timingOptions.adaptivePlan ? Math.min(3200, timingOptions.adaptivePlan.totalDuration) : undefined);
     r.animationFocusBits = new Set();
+    if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
     await waitForDelay(delayMs);
   }, [animMode, animStyle, maskAnimationEnabled, stopSeqAnim, runEffect, estimateAnimDuration, repeatAnim, getMinimapDetailH, getAnimationBitInterval, getAnimationTimingPlan, getCurrentLoopInterval, runMaskStampAnimation, fadeOutCurrentHighlights, waitForDelay, maxStepDurationEnabled, maxStepDurationMs, pinnedBitIndices, effectiveGroupBits, maskAnimInterval]);
 
@@ -1785,7 +1861,11 @@ export default function Visualizer({
     let cancelled = false;
 
     const loop = async () => {
-      await triggerAnimation(changed, { adaptiveDuration: false });
+      // First iteration honors the resume start index (set by the banner Play
+      // button); subsequent iterations restart from 0 after the replay delay.
+      const useStartIndex = stepResumeStartIndexRef.current || 0;
+      stepResumeStartIndexRef.current = 0;
+      await triggerAnimation(changed, { adaptiveDuration: false, startIndex: useStartIndex });
       if (cancelled || playing || animationReplayPaused || selectedSteps.size > 0) return;
       pausedStepAnimLoopRef.current = setTimeout(loop, 0);
     };
@@ -1879,6 +1959,33 @@ export default function Visualizer({
     }
     setPlaying((p) => !p);
   }, [playing, currentStep, steps.length, goToStep]);
+
+  // Banner play/pause: toggles the per-event sequential reveal.
+  //  - Pause: halts the timeline AND pauses the trace-level autoplay so the
+  //    top-bar Play/Pause button mirrors the paused state. Sets
+  //    animationReplayPaused so the auto-replay loop stays parked.
+  //  - Play: clears animationReplayPaused (which lets the existing replay
+  //    loop run); the loop's first iteration uses stepResumeStartIndexRef so
+  //    the reveal picks up at the user's slider position. If the slider is
+  //    already at 100%, the play button restarts from the beginning instead.
+  //    The loop itself handles the post-animation delay and auto-restart.
+  const handleStepAnimToggle = useCallback(() => {
+    if (stepAnimRunning) {
+      stopSeqAnim();
+      setPlaying(false);
+      setAnimationReplayPaused(true);
+      return;
+    }
+    const step = stepsRef.current[currentStep];
+    if (!step || !step.changedBits || step.changedBits.length === 0) return;
+    const totalBits = step.changedBits.length;
+    const finished = stepScrubProgress >= 99;
+    const startIndex = finished
+      ? 0
+      : Math.max(0, Math.min(totalBits - 1, Math.round((stepScrubProgress / 100) * (totalBits - 1))));
+    stepResumeStartIndexRef.current = startIndex;
+    setAnimationReplayPaused(false);
+  }, [stepAnimRunning, currentStep, stepScrubProgress, stopSeqAnim]);
 
   // Zoom
   const doZoom = useCallback((factor) => {
@@ -2406,7 +2513,7 @@ export default function Visualizer({
           break;
         case 'Home':       e.preventDefault(); goToStep(0); break;
         case 'End':        e.preventDefault(); goToStep(steps.length - 1); break;
-        case ' ':          e.preventDefault(); handlePlayPause(); break;
+        case ' ':          e.preventDefault(); handleStepAnimToggle(); break;
         case '+': case '=': e.preventDefault(); doZoom(1.5); break;
         case '-':          e.preventDefault(); doZoom(1 / 1.5); break;
         case '0':          e.preventDefault(); resetZoom(); break;
@@ -2423,7 +2530,7 @@ export default function Visualizer({
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [currentStep, goToStep, doZoom, resetZoom, steps.length, handlePlayPause, toggle3D]);
+  }, [currentStep, goToStep, doZoom, resetZoom, steps.length, handleStepAnimToggle, toggle3D]);
 
   // Export PNG
   const exportPng = useCallback(() => {
@@ -2852,6 +2959,15 @@ export default function Visualizer({
     const anchorY = rect.top + (pos.y - planeOffsetY);
     const bitHalf = Math.max(2.5, (r.pixelSize || 2) * (r.zoom || 1) * 0.52);
 
+    // The anchor (the bit itself) must lie inside the grid container; otherwise
+    // the balloon would be adrift from its bit and should fade out.
+    const edgeMargin = 4;
+    const anchorInsideGrid =
+      anchorX >= rect.left + edgeMargin &&
+      anchorX <= rect.right - edgeMargin &&
+      anchorY >= rect.top + edgeMargin &&
+      anchorY <= rect.bottom - edgeMargin;
+
     const sideInsetLeft = stepsPanelCollapsed ? 80 : Math.max(120, panelWidth + 32);
     const sideInsetRight = settingsCollapsed ? 48 : 360;
     const panelApproxHalfW = 170;
@@ -2864,7 +2980,7 @@ export default function Visualizer({
     const maxTop = window.innerHeight - detailPad;
     const clampedTop = Math.max(minTop, Math.min(maxTop, anchorY - 12));
 
-    return { left: clampedLeft, top: clampedTop, anchorX, anchorY, bitHalf };
+    return { left: clampedLeft, top: clampedTop, anchorX, anchorY, bitHalf, anchorInsideGrid };
   }, [stepsPanelCollapsed, panelWidth, settingsCollapsed, detailOpen, detailHeight]);
 
   const getVisibleBalloonStyles = useCallback((items) => {
@@ -2976,7 +3092,11 @@ export default function Visualizer({
       const offscreen =
         box.left < -4 || box.right > window.innerWidth + 4 ||
         box.top < -4 || box.bottom > window.innerHeight + 4;
-      const visible = !intersectsOverlay && !offscreen;
+      // If the anchor bit itself is outside the grid container (panned off or
+      // behind a panel), the balloon is no longer attached to anything visible
+      // and should fade regardless of where the clamp placed it.
+      const anchorOutside = item.anchorInsideGrid === false;
+      const visible = !intersectsOverlay && !offscreen && !anchorOutside;
       placed.push(box);
       result[`${item.kind}-${item.bitIndex}`] = {
         visible,
@@ -3056,8 +3176,13 @@ export default function Visualizer({
         <div className="toolbar-center">
           <button className="btn-icon" onClick={() => goToStep(0)} title="First (Home)" disabled={exporting}><SkipBack /></button>
           <button className="btn-icon" onClick={() => goToStep(currentStep - 1)} title="Previous (←)" disabled={exporting}><StepBack /></button>
-          <button className="btn-icon" onClick={handlePlayPause} title="Play/Pause (Space)" disabled={exporting}>
-            {playing ? <Pause /> : <Play />}
+          <button
+            className="btn-icon"
+            onClick={handleStepAnimToggle}
+            title={stepAnimRunning ? 'Pause animation (Space)' : 'Play animation (Space)'}
+            disabled={exporting || !currentStepData || !currentStepData.changedBits || currentStepData.changedBits.length === 0}
+          >
+            {stepAnimRunning ? <Pause /> : <Play />}
           </button>
           <button className="btn-icon" onClick={() => goToStep(currentStep + 1)} title="Next (→)" disabled={exporting}><StepForward /></button>
           <button className="btn-icon" onClick={() => goToStep(steps.length - 1)} title="Last (End)" disabled={exporting}><SkipForward /></button>
@@ -3076,14 +3201,6 @@ export default function Visualizer({
             disabled={exporting}
           />
           <span className="step-counter">{currentStep} / {steps.length - 1}</span>
-          <button
-            className={`btn-icon${animationReplayPaused ? ' active' : ''}`}
-            onClick={() => setAnimationReplayPaused((value) => !value)}
-            title={animationReplayPaused ? 'Resume automatic event animation' : 'Pause automatic event animation'}
-            disabled={exporting}
-          >
-            {animationReplayPaused ? <Play size={14} /> : <Pause size={14} />}
-          </button>
         </div>
         <div className="toolbar-right">
           {!isWindowsPlatform && (
@@ -3211,37 +3328,59 @@ export default function Visualizer({
                 {currentStepBanner.line3 && <div className="step-focus-line3">{currentStepBanner.line3}</div>}
               </div>
               <div className="step-focus-sliders">
-                <label className="step-focus-slider-row" title="Scrub through this event's animation">
+                <div className="step-focus-slider-row" title="Scrub through this event's animation">
                   <span className="step-focus-slider-label">Timeline</span>
+                  <div className="step-focus-slider-controls">
+                    <button
+                      type="button"
+                      className="step-focus-play-btn"
+                      onClick={(e) => { e.stopPropagation(); handleStepAnimToggle(); }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      title={stepAnimRunning ? 'Pause the timeline animation' : 'Play the timeline animation at the current Speed'}
+                      disabled={exporting || !currentStepData || !currentStepData.changedBits || currentStepData.changedBits.length === 0}
+                    >
+                      {stepAnimRunning ? <Pause size={14} /> : <Play size={14} />}
+                    </button>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={stepScrubProgress}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value, 10);
+                        setStepScrubProgress(v);
+                        seekStepAnimation(v / 100);
+                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      disabled={exporting || !currentStepData || !currentStepData.changedBits || currentStepData.changedBits.length === 0}
+                    />
+                  </div>
+                  <span className="step-focus-slider-value">{stepScrubProgress}%</span>
+                </div>
+                <label className="step-focus-slider-row" title="Speed of the per-bit animation inside the current event">
+                  <span className="step-focus-slider-label">Speed</span>
+                  {/* 0..100 mapped logarithmically to bitAnimInterval 500ms..5ms so
+                      the middle of the slider lands around 50 ms/bit instead of the
+                      top 10% being the only useful range. */}
                   <input
                     type="range"
                     min={0}
                     max={100}
-                    value={stepScrubProgress}
+                    step={1}
+                    value={(() => {
+                      const iv = Math.max(5, Math.min(500, Number(bitAnimInterval) || 20));
+                      const ratio = Math.log(iv / 5) / Math.log(500 / 5);
+                      return Math.round((1 - ratio) * 100);
+                    })()}
                     onChange={(e) => {
-                      const v = parseInt(e.target.value, 10);
-                      setStepScrubProgress(v);
-                      seekStepAnimation(v / 100);
+                      const v = Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0));
+                      const iv = 5 * Math.pow(500 / 5, 1 - v / 100);
+                      setBitAnimInterval(Math.round(iv));
                     }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    disabled={exporting || !currentStepData || !currentStepData.changedBits || currentStepData.changedBits.length === 0}
-                  />
-                  <span className="step-focus-slider-value">{stepScrubProgress}%</span>
-                </label>
-                <label className="step-focus-slider-row" title="Overall playback speed">
-                  <span className="step-focus-slider-label">Speed</span>
-                  <input
-                    type="range"
-                    min={4000}
-                    max={12000}
-                    step={100}
-                    // Higher slider value = faster, so invert against the ms-per-step range.
-                    value={16000 - playSpeed}
-                    onChange={(e) => setPlaySpeed(16000 - parseInt(e.target.value, 10))}
                     onMouseDown={(e) => e.stopPropagation()}
                     disabled={exporting}
                   />
-                  <span className="step-focus-slider-value">{playSpeedLabel}</span>
+                  <span className="step-focus-slider-value" title={`${bitAnimInterval}ms/bit`}>{bitAnimInterval}ms</span>
                 </label>
               </div>
             </div>

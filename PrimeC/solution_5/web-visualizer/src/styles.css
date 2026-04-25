@@ -779,6 +779,33 @@ html, body, #root {
 .step-focus-slider-row input[type="range"] { width: 100%; max-width: 260px; }
 .step-focus-slider-label { text-transform: uppercase; letter-spacing: 0.04em; }
 .step-focus-slider-value { font-variant-numeric: tabular-nums; text-align: right; color: var(--fg); }
+.step-focus-slider-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.step-focus-slider-controls input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  max-width: 230px;
+}
+.step-focus-play-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-raised);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.step-focus-play-btn:hover { background: var(--bg-input); color: var(--fg-bright); }
+.step-focus-play-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .step-focus-line1 {
   font-weight: 800;
