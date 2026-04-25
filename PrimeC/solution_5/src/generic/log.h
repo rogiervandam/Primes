@@ -19,19 +19,19 @@
 #define PRIMES_VA_COUNT(...)  PRIMES_VA_COUNT_IMPL(__VA_ARGS__, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 1)
 
 #define PRIMES_LOG_DISPATCH_1(level, a1)                PRIMES_LOG_SELECT_FIRST(a1, \
-                                                            trace_record_text, \
-                                                            trace_record_text_unlabeled, \
-                                                            trace_record_event)(level, a1)
-#define PRIMES_LOG_DISPATCH_2(level, a1, a2)            PRIMES_LOG_SELECT_FIRST(a1, \
-                                                            trace_record_text, \
-                                                            trace_record_text_unlabeled, \
-                                                            trace_record_event)(level, a1, a2)
-#define PRIMES_LOG_DISPATCH_3(level, a1, a2, ...)       PRIMES_LOG_SELECT_FIRST(a1, \
                                                             trace_record_text_functionid, \
                                                             trace_record_text_unlabeled, \
+                                                            trace_record_event_untimed)(level, a1)
+#define PRIMES_LOG_DISPATCH_2(level, a1, a2)            PRIMES_LOG_SELECT_FIRST(a1, \
+                                                            trace_record_text_functionid, \
+                                                            trace_record_text_unlabeled, \
+                                                            trace_record_event_untimed)(level, a1, a2)
+#define PRIMES_LOG_DISPATCH_3(level, a1, a2, ...)       PRIMES_LOG_SELECT_FIRST(a1, \
+                                                            trace_record_event_functionid, \
+                                                            trace_record_event_untimed, \
                                                             PRIMES_LOG_SELECT_FIRST(a2, \
                                                                 trace_record_event_functionid, \
-                                                                trace_record_text_unlabeled, \
+                                                                trace_record_event_bare, \
                                                                 trace_record_event) \
                                                         )(level, a1, a2, ##__VA_ARGS__)
 #define PRIMES_LOG_DISPATCH_SELECT_IMPL(count) PRIMES_LOG_DISPATCH_##count

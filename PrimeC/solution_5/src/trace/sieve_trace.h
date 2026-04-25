@@ -634,6 +634,22 @@ trace_record_event(int level, const void* bitstorage, const char* label, double 
     trace_record_event_full(level, bitstorage, label, time, annotation);
 }
 
+static void
+trace_record_event_untimed(int level, const void* bitstorage, const char* label, const char* fmt, ...)
+{
+    char annotation[1024];
+    va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
+    trace_record_event_full(level, bitstorage, label, 0.0, annotation);
+}
+
+static void
+trace_record_event_bare(int level, const void* bitstorage, const char* fmt, ...)
+{
+    char annotation[1024];
+    va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
+    trace_record_event_full(level, bitstorage, NULL, 0.0, annotation);
+}
+
 /*
  * Write a standalone memory dump file (no step-by-step changes).
  * Human-readable text dump is written as primary output.
