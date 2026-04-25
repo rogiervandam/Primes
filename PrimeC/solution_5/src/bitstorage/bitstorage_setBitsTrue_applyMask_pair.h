@@ -151,7 +151,7 @@ function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t
 
         log8(annotation);
 
-        if (primes_log_should_trace(8)) {
+        if (primes_log_should_trace(9)) {
             const uint64_t pair_capacity = range_stop > range_start ? (uint64_t)(((range_stop - range_start - 1) / step) + 1) : 0;
             const uint64_t target_capacity = pair_capacity * 2 + 1;
             if (target_capacity > 0) {

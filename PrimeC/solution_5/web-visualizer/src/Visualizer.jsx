@@ -288,6 +288,17 @@ export default function Visualizer({
   // resume picks up at the user's slider position. Subsequent loop iterations
   // restart from the beginning, after the configured replay delay.
   const stepResumeStartIndexRef = useRef(0);
+  // 0..1 resume hint for the mask animation path (mirrors stepResumeStartIndexRef).
+  const stepResumeMaskProgressRef = useRef(0);
+  // Animation mode for the current event:
+  //  - 'mask':     mask stamps only (bits all already painted as set under the stamp)
+  //  - 'bit':      per-bit sequential reveal only (no stamp overlay)
+  //  - 'combined': both — bits reveal progressively under the moving stamps
+  // Auto-defaults to 'mask' on entering a step with mask data, 'bit' otherwise;
+  // the user can toggle within a step via the banner button.
+  const [bitAnimationMode, setBitAnimationMode] = useState('bit');
+  const bitAnimationModeRef = useRef(bitAnimationMode);
+  bitAnimationModeRef.current = bitAnimationMode;
   const [bitAnimInterval, setBitAnimInterval] = useState(20); // ms between sequential bits (0.02s default)
   const [maskAnimInterval, setMaskAnimInterval] = useState(() => {
     const stepIntervalDefault = 20;
@@ -1014,9 +1025,77 @@ export default function Visualizer({
     const allSteps = stepsRef.current;
     const step = allSteps[stepIdx];
     const bs = bitStateRef.current;
-    if (!r || !step || !bs || !step.changedBits || step.changedBits.length === 0) return;
-    const bits = Array.from(step.changedBits).sort((a, b) => a - b);
+    if (!r || !step || !bs) return;
     const clamped = Math.max(0, Math.min(1, progress));
+
+    // Mask + combined seek: render the apply-mask group stamp animation frozen
+    // at progress `clamped`. In combined mode we *also* roll bitState to a
+    // partial reveal so the bits fill in alongside the stamp position.
+    const mode = bitAnimationModeRef.current;
+    const stepHasMask = !!(step.maskWriteOrderWords && step.maskWriteOrderWords.length > 0
+      && Number.isFinite(step.maskWordBits) && step.maskWordBits > 0);
+    const inMaskOrCombined = (mode === 'mask' || mode === 'combined') && stepHasMask;
+    if (inMaskOrCombined) {
+      const t = clamped;
+
+      // Combined mode: progressively reveal bits in bitState up to the
+      // matching fraction of the step's changedBits.
+      if (mode === 'combined' && step.changedBits && step.changedBits.length > 0) {
+        const sorted = Array.from(step.changedBits).sort((a, b) => a - b);
+        bs.fill(0);
+        for (let i = 0; i < stepIdx; i++) {
+          const s = allSteps[i];
+          for (let j = 0; j < s.changedBits.length; j++) {
+            const bit = s.changedBits[j];
+            if (bit < bs.length) bs[bit] = 1;
+          }
+        }
+        const revealCount = Math.floor(t * sorted.length);
+        for (let i = 0; i < revealCount; i++) {
+          const bit = sorted[i];
+          if (bit < bs.length) bs[bit] = 1;
+        }
+        r.bitState = bs;
+        bitStateDirtyRef.current = revealCount < sorted.length;
+      }
+
+      const targetBits = (r.targetBits && r.targetBits.size > 0) ? r.targetBits : new Set(step.changedBits || []);
+      r.changedBits = new Set(targetBits);
+      const slotGroups = r._maskEntriesBySlot ? r._maskEntriesBySlot() : [];
+      const ghostBits = new Set();
+      if (slotGroups.length > 0) {
+        for (let groupIndex = 0; groupIndex < slotGroups.length; groupIndex++) {
+          const entries = slotGroups[groupIndex];
+          if (!entries || entries.length === 0) continue;
+          const segmentCount = Math.max(1, entries.length);
+          const unit = t * segmentCount;
+          const index = Math.min(entries.length - 1, Math.floor(unit));
+          const local = Math.max(0, Math.min(1, unit - index));
+          for (let entryIndex = 0; entryIndex < entries.length; entryIndex++) {
+            const isStamped = entryIndex < index || entryIndex === index || (entryIndex === index + 1 && local > 0.78);
+            if (isStamped) continue;
+            const bitsForEntry = r._maskEntryBits ? r._maskEntryBits(entries[entryIndex]) : [];
+            for (let bi = 0; bi < bitsForEntry.length; bi++) ghostBits.add(bitsForEntry[bi]);
+          }
+        }
+      } else if (r.targetBits?.size) {
+        for (const bit of r.targetBits) ghostBits.add(bit);
+      }
+      r.suppressMaskWriteOverlay = true;
+      r.setMaskGhostBits(ghostBits);
+      r.render();
+      const orderedWrites = r.maskWriteOrderWords?.length || 0;
+      if (orderedWrites > 0) r.renderMaskHover(t);
+      else r.renderMaskStamp(t);
+      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      // Ensure subsequent animations start clean (stamp overlay is a one-shot).
+      r.suppressMaskWriteOverlay = false;
+      if (mode === 'mask') bitStateDirtyRef.current = clamped < 0.999;
+      return;
+    }
+
+    if (!step.changedBits || step.changedBits.length === 0) return;
+    const bits = Array.from(step.changedBits).sort((a, b) => a - b);
     const targetIdx = Math.max(0, Math.min(bits.length - 1, Math.round(clamped * (bits.length - 1))));
 
     // Rebuild bitState: state BEFORE the current step, then reveal bits up to target.
@@ -1438,15 +1517,57 @@ export default function Visualizer({
     );
     const startedAt = performance.now();
     const slotGroups = orderedWrites > 0 ? r._maskEntriesBySlot() : [];
+    // Virtual-time tracker: progress accumulates as dt × (initialInterval/liveInterval),
+    // so mid-flight changes to the speed slider proportionally speed up or slow down
+    // the in-progress mask stamp animation without restarting it.
+    let virtualMs = 0;
+    let prevTickAt = startedAt;
+    const initialMaskInterval = maskInterval;
 
     if (rippleRef.current) {
       cancelAnimationFrame(rippleRef.current);
       rippleRef.current = null;
     }
 
+    // Honor a starting progress (used by the banner Play button when resuming
+    // from a paused mask animation).
+    const requestedStartProgress = Math.max(0, Math.min(1,
+      Number(options.startProgress) || 0
+    ));
+    virtualMs = requestedStartProgress * duration;
+
+    // Combined mode: progressively reveal the step's bits in lockstep with t
+    // by flipping the supplied bitState. The renderer paints bits set in
+    // bitState as "set", so the bits visibly fill in alongside the moving stamp.
+    const combinedBits = options.combinedBits || null;
+    let combinedRevealedUpTo = combinedBits
+      ? Math.floor(requestedStartProgress * combinedBits.sortedBits.length)
+      : 0;
+    if (combinedBits && combinedRevealedUpTo > 0) {
+      for (let i = 0; i < combinedRevealedUpTo; i++) {
+        const bit = combinedBits.sortedBits[i];
+        if (bit < combinedBits.bs.length) combinedBits.bs[bit] = 1;
+      }
+    }
+
     return new Promise((resolve) => {
       const tick = (now) => {
-        const t = Math.min(1, (now - startedAt) / duration);
+        const dt = Math.max(0, now - prevTickAt);
+        prevTickAt = now;
+        const liveInterval = Math.max(5, Number(currentMaskAnimIntervalRef.current) || initialMaskInterval);
+        virtualMs += dt * (initialMaskInterval / liveInterval);
+        const t = Math.min(1, virtualMs / duration);
+        // Surface mask animation progress onto the banner Timeline slider so
+        // it tracks the in-flight stamp animation.
+        if (stepScrubProgressRef.current) stepScrubProgressRef.current(Math.round(t * 100));
+        if (combinedBits) {
+          const targetCount = Math.floor(t * combinedBits.sortedBits.length);
+          while (combinedRevealedUpTo < targetCount) {
+            const bit = combinedBits.sortedBits[combinedRevealedUpTo];
+            if (bit < combinedBits.bs.length) combinedBits.bs[bit] = 1;
+            combinedRevealedUpTo++;
+          }
+        }
         const ghostBits = new Set();
         if (slotGroups.length > 0) {
           for (let groupIndex = 0; groupIndex < slotGroups.length; groupIndex++) {
@@ -1488,7 +1609,8 @@ export default function Visualizer({
 
   // Main animation trigger — fade old highlights, animate current step, then wait using animation delay.
   const triggerAnimation = useCallback(async (changedSet, options = {}) => {
-    const resuming = !!options.startIndex && options.startIndex > 0;
+    const resuming = (!!options.startIndex && options.startIndex > 0) ||
+      (Number.isFinite(options.startProgress) && options.startProgress > 0);
     if (!options.keepProgress) {
       stopSeqAnim();
       // Reset the banner scrub slider at the start of a fresh animation.
@@ -1496,7 +1618,12 @@ export default function Visualizer({
       if (!resuming && stepScrubProgressRef.current) stepScrubProgressRef.current(0);
     }
     const r = rendererRef.current;
-    const hasMaskAnimation = !!(maskAnimationEnabled && r && r.maskWriteOrderWords && r.maskWriteOrderWords.length > 0 && Number.isFinite(r.maskWordBits) && r.maskWordBits > 0);
+    // The mask stamp animation runs in 'mask' and 'combined' modes; pure 'bit'
+    // mode forces the per-bit sequential reveal even when mask metadata exists.
+    const mode = bitAnimationModeRef.current;
+    const maskModeActive = mode === 'mask' || mode === 'combined';
+    const combinedMode = mode === 'combined';
+    const hasMaskAnimation = !!(maskModeActive && maskAnimationEnabled && r && r.maskWriteOrderWords && r.maskWriteOrderWords.length > 0 && Number.isFinite(r.maskWordBits) && r.maskWordBits > 0);
     if (!r || !changedSet || (!hasMaskAnimation && changedSet.size === 0) || changedSet.size >= 100000) return;
 
     const animatedBitCount = changedSet.size > 0 ? changedSet.size : Math.max(1, r.targetBits?.size || r.maskWriteOrderWords?.length || 1);
@@ -1527,19 +1654,80 @@ export default function Visualizer({
     }
 
     if (hasMaskAnimation) {
-      if (!r.changedBits || r.changedBits.size === 0) {
+      // Mask-only modes paint every changed bit as "set" up front (the stamp
+      // overlays them). Combined mode starts with no highlighted bits and
+      // grows the set in lockstep with the stamp animation, so users see the
+      // bits being set one by one underneath the moving stamps.
+      if (combinedMode) {
+        r.changedBits = new Set();
+      } else if (!r.changedBits || r.changedBits.size === 0) {
         r.changedBits = new Set(changedSet.size > 0 ? changedSet : (r.targetBits || []));
       }
       const { durationMs: _ignoredDurationMs, ...maskTimingBaseOptions } = timingOptions;
+      // When resuming, seed virtualMs at the current scrub progress so the
+      // stamp animation picks up where the user paused/scrubbed.
+      const resumeStartProgress = resuming
+        ? Math.max(0, Math.min(0.999, (Number(options.startProgress) ?? (stepScrubProgressRef.current ? 0 : 0)) || 0))
+        : 0;
+      // Combined mode: progressively reveal the step's bits during the stamp
+      // animation. We roll bitState back to the state before the current step,
+      // then let runMaskStampAnimation flip bits as `t` advances.
+      let combinedBitsConfig = null;
+      if (combinedMode) {
+        const stepIdx = currentStep;
+        const bs = bitStateRef.current;
+        const allSteps = stepsRef.current;
+        const step = allSteps[stepIdx];
+        if (bs && step && step.changedBits && step.changedBits.length > 0) {
+          const sorted = Array.from(step.changedBits).sort((a, b) => a - b);
+          // Roll bs back to state-before-step
+          bs.fill(0);
+          for (let i = 0; i < stepIdx; i++) {
+            const s = allSteps[i];
+            for (let j = 0; j < s.changedBits.length; j++) {
+              const bit = s.changedBits[j];
+              if (bit < bs.length) bs[bit] = 1;
+            }
+          }
+          // If resuming partway, seed bits up to the resume fraction so the
+          // grid matches the slider position before the next tick advances.
+          if (resumeStartProgress > 0) {
+            const seedTo = Math.floor(resumeStartProgress * sorted.length);
+            for (let i = 0; i < seedTo; i++) {
+              const bit = sorted[i];
+              if (bit < bs.length) bs[bit] = 1;
+            }
+          }
+          r.bitState = bs;
+          bitStateDirtyRef.current = true;
+          combinedBitsConfig = { sortedBits: sorted, bs };
+        }
+      }
       const maskTimingOptions = {
         ...maskTimingBaseOptions,
         preferredIntervalMs: Math.max(0, currentMaskAnimIntervalRef.current || maskAnimInterval || 20),
+        startProgress: resumeStartProgress,
+        combinedBits: combinedBitsConfig,
       };
       const effectiveMaskBitInterval = Math.max(5, maskTimingOptions.preferredIntervalMs || 20);
       r.setMaskGhostBits(new Set(changedSet.size > 0 ? changedSet : (r.targetBits || [])));
       r.render();
       r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      // Surface state so the banner play/pause button + timeline track this animation.
+      if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(true);
+      if (!resuming && stepScrubProgressRef.current) stepScrubProgressRef.current(0);
       await runMaskStampAnimation(effectiveMaskBitInterval, maskTimingOptions);
+      if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
+      if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
+      // Combined mode: settle bitState to fully include the step's bits at end.
+      if (combinedMode && combinedBitsConfig) {
+        const { sortedBits, bs } = combinedBitsConfig;
+        for (let i = 0; i < sortedBits.length; i++) {
+          const bit = sortedBits[i];
+          if (bit < bs.length) bs[bit] = 1;
+        }
+        bitStateDirtyRef.current = false;
+      }
       await waitForDelay(delayMs);
       return;
     }
@@ -1865,15 +2053,17 @@ export default function Visualizer({
     let cancelled = false;
 
     const loop = async () => {
-      // First iteration honors the resume start index (set by the banner Play
+      // First iteration honors the resume hints (set by the banner Play
       // button); subsequent iterations restart from 0 after the replay delay.
       const useStartIndex = stepResumeStartIndexRef.current || 0;
+      const useStartProgress = stepResumeMaskProgressRef.current || 0;
       stepResumeStartIndexRef.current = 0;
+      stepResumeMaskProgressRef.current = 0;
       // Read triggerAnimation through its ref so this effect doesn't tear down
       // and restart whenever the speed slider (bitAnimInterval) changes.
       const triggerFn = triggerAnimationRef.current;
       if (!triggerFn) return;
-      await triggerFn(changed, { adaptiveDuration: false, startIndex: useStartIndex });
+      await triggerFn(changed, { adaptiveDuration: false, startIndex: useStartIndex, startProgress: useStartProgress });
       if (cancelled || playing || animationReplayPaused || selectedSteps.size > 0) return;
       pausedStepAnimLoopRef.current = setTimeout(loop, 0);
     };
@@ -1988,13 +2178,26 @@ export default function Visualizer({
       return;
     }
     const step = stepsRef.current[currentStep];
-    if (!step || !step.changedBits || step.changedBits.length === 0) return;
+    if (!step) return;
+    const inMaskOrCombined = (bitAnimationModeRef.current === 'mask' || bitAnimationModeRef.current === 'combined')
+      && step.maskWriteOrderWords && step.maskWriteOrderWords.length > 0;
+    if (inMaskOrCombined) {
+      // Resume the mask stamp animation from the current scrub fraction. If the
+      // animation already reached the end, restart from 0.
+      const finished = stepScrubProgress >= 99;
+      stepResumeMaskProgressRef.current = finished ? 0 : stepScrubProgress / 100;
+      stepResumeStartIndexRef.current = 0;
+      setAnimationReplayPaused(false);
+      return;
+    }
+    if (!step.changedBits || step.changedBits.length === 0) return;
     const totalBits = step.changedBits.length;
     const finished = stepScrubProgress >= 99;
     const startIndex = finished
       ? 0
       : Math.max(0, Math.min(totalBits - 1, Math.round((stepScrubProgress / 100) * (totalBits - 1))));
     stepResumeStartIndexRef.current = startIndex;
+    stepResumeMaskProgressRef.current = 0;
     setAnimationReplayPaused(false);
   }, [stepAnimRunning, currentStep, stepScrubProgress, stopSeqAnim]);
 
@@ -3128,6 +3331,15 @@ export default function Visualizer({
 
   // Reset the step-scrub slider whenever the user moves to a different event.
   useEffect(() => { setStepScrubProgress(0); }, [currentStep]);
+  // Auto-pick the animation mode for the current event: prefer 'mask' when the
+  // event has mask write-order metadata, otherwise fall back to 'bit'. The user
+  // can still toggle this within the event.
+  useEffect(() => {
+    const step = stepsRef.current[currentStep];
+    const hasMask = !!(step && step.maskWriteOrderWords && step.maskWriteOrderWords.length > 0
+      && Number.isFinite(step.maskWordBits) && step.maskWordBits > 0);
+    setBitAnimationMode(hasMask ? 'mask' : 'bit');
+  }, [currentStep]);
 
   return (
     <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}`}>
@@ -3339,6 +3551,57 @@ export default function Visualizer({
                 {currentStepBanner.line3 && <div className="step-focus-line3">{currentStepBanner.line3}</div>}
               </div>
               <div className="step-focus-sliders">
+                {/* Mode toggle: switch between mask-stamp animation and per-bit
+                    sequential reveal. Defaults to 'mask' on entering an event
+                    that has mask metadata; toggling to 'bit' walks the bits
+                    individually. */}
+                {currentStepData && currentStepData.maskWriteOrderWords && currentStepData.maskWriteOrderWords.length > 0 && (
+                  <div className="step-focus-slider-row step-focus-mode-row" title="Choose how the timeline scrubs this event">
+                    <span className="step-focus-slider-label">Mode</span>
+                    <div className="step-focus-mode-toggle">
+                      <button
+                        type="button"
+                        className={`step-focus-mode-btn${bitAnimationMode === 'mask' ? ' active' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          stopSeqAnim();
+                          setBitAnimationMode('mask');
+                          bitAnimationModeRef.current = 'mask';
+                          seekStepAnimation(stepScrubProgress / 100);
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        title="Animate only the apply-mask group stamps"
+                      >Mask</button>
+                      <button
+                        type="button"
+                        className={`step-focus-mode-btn${bitAnimationMode === 'bit' ? ' active' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          stopSeqAnim();
+                          setBitAnimationMode('bit');
+                          bitAnimationModeRef.current = 'bit';
+                          seekStepAnimation(stepScrubProgress / 100);
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        title="Animate only the bits being set one by one"
+                      >Bits</button>
+                      <button
+                        type="button"
+                        className={`step-focus-mode-btn${bitAnimationMode === 'combined' ? ' active' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          stopSeqAnim();
+                          setBitAnimationMode('combined');
+                          bitAnimationModeRef.current = 'combined';
+                          seekStepAnimation(stepScrubProgress / 100);
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        title="Animate both the mask stamps and the bits revealing in lockstep"
+                      >Both</button>
+                    </div>
+                    <span className="step-focus-slider-value step-focus-mode-value">{bitAnimationMode}</span>
+                  </div>
+                )}
                 <div className="step-focus-slider-row" title="Scrub through this event's animation">
                   <span className="step-focus-slider-label">Timeline</span>
                   <div className="step-focus-slider-controls">
@@ -3348,7 +3611,7 @@ export default function Visualizer({
                       onClick={(e) => { e.stopPropagation(); handleStepAnimToggle(); }}
                       onMouseDown={(e) => e.stopPropagation()}
                       title={stepAnimRunning ? 'Pause the timeline animation' : 'Play the timeline animation at the current Speed'}
-                      disabled={exporting || !currentStepData || !currentStepData.changedBits || currentStepData.changedBits.length === 0}
+                      disabled={exporting || !currentStepData || ((!currentStepData.changedBits || currentStepData.changedBits.length === 0) && (bitAnimationMode !== 'mask' || !currentStepData.maskWriteOrderWords || currentStepData.maskWriteOrderWords.length === 0))}
                     >
                       {stepAnimRunning ? <Pause size={14} /> : <Play size={14} />}
                     </button>
@@ -3363,16 +3626,18 @@ export default function Visualizer({
                         seekStepAnimation(v / 100);
                       }}
                       onMouseDown={(e) => e.stopPropagation()}
-                      disabled={exporting || !currentStepData || !currentStepData.changedBits || currentStepData.changedBits.length === 0}
+                      disabled={exporting || !currentStepData || ((!currentStepData.changedBits || currentStepData.changedBits.length === 0) && (bitAnimationMode !== 'mask' || !currentStepData.maskWriteOrderWords || currentStepData.maskWriteOrderWords.length === 0))}
                     />
                   </div>
                   <span className="step-focus-slider-value">{stepScrubProgress}%</span>
                 </div>
-                <label className="step-focus-slider-row" title="Speed of the per-bit animation inside the current event">
+                <label className="step-focus-slider-row" title="Speed of the per-bit animation inside the current event (also drives the apply-mask group stamp animation)">
                   <span className="step-focus-slider-label">Speed</span>
                   {/* 0..100 mapped logarithmically to bitAnimInterval 500ms..5ms so
                       the middle of the slider lands around 50 ms/bit instead of the
-                      top 10% being the only useful range. */}
+                      top 10% being the only useful range. The same value also drives
+                      the apply-mask group stamp animation so all animations stay
+                      synchronized. */}
                   <input
                     type="range"
                     min={0}
@@ -3385,8 +3650,11 @@ export default function Visualizer({
                     })()}
                     onChange={(e) => {
                       const v = Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0));
-                      const iv = 5 * Math.pow(500 / 5, 1 - v / 100);
-                      setBitAnimInterval(Math.round(iv));
+                      const iv = Math.round(5 * Math.pow(500 / 5, 1 - v / 100));
+                      setBitAnimInterval(iv);
+                      // Keep the apply-mask stamp animation in lock-step with the
+                      // per-bit animation so users perceive a single consistent speed.
+                      setMaskAnimInterval(iv);
                     }}
                     onMouseDown={(e) => e.stopPropagation()}
                     disabled={exporting}

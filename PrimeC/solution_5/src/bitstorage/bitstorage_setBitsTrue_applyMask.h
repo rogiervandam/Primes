@@ -158,7 +158,7 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
 
         log8(annotation);
 
-        if (primes_log_should_trace(8)) {
+        if (primes_log_should_trace(9)) {
             const uint64_t target_capacity = range_stop_index >= range_start_index ? (uint64_t)((range_stop_index - range_start_index) / step) + 1 : 0;
             if (target_capacity > 0) {
                 mask_target_words = (uint64_t*)malloc(sizeof(uint64_t) * (size_t)target_capacity);

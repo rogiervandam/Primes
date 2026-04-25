@@ -806,6 +806,30 @@ html, body, #root {
 }
 .step-focus-play-btn:hover { background: var(--bg-input); color: var(--fg-bright); }
 .step-focus-play-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.step-focus-mode-row .step-focus-mode-toggle {
+  display: inline-flex;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  width: max-content;
+}
+.step-focus-mode-btn {
+  background: transparent;
+  color: var(--fg-muted);
+  border: none;
+  font-size: 10px;
+  padding: 2px 8px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.step-focus-mode-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+.step-focus-mode-btn:hover:not(.active) { background: var(--bg-input); color: var(--fg); }
+.step-focus-mode-value { text-transform: uppercase; }
 
 .step-focus-line1 {
   font-weight: 800;

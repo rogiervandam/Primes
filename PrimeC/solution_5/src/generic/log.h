@@ -38,7 +38,7 @@
 #define PRIMES_LOG_DISPATCH_SELECT(count) PRIMES_LOG_DISPATCH_SELECT_IMPL(count)
 #if COMPILE_VERBOSE_LEVEL >= 5
   #define PRIMES_LOG_DISPATCH(level, ...) \
-    PRIMES_LOG_DISPATCH_SELECT(PRIMES_VA_COUNT(__VA_ARGS__))(level, __VA_ARGS__)
+    { if (option.trace_level >= level) { PRIMES_LOG_DISPATCH_SELECT(PRIMES_VA_COUNT(__VA_ARGS__))(level, __VA_ARGS__); } }
 #else
   #define PRIMES_LOG_DISPATCH(level, ...)
 #endif
@@ -50,14 +50,19 @@
 #define log8(...) PRIMES_LOG_DISPATCH(8, __VA_ARGS__)
 #define log9(...) PRIMES_LOG_DISPATCH(9, __VA_ARGS__)
 
+// logBegin does 3 things:
+// 1. Record a trace record and start a context
+// 2. Record a explain record
+// 3. Record a timer start
+
 #define logBegins(level, bitstorage, timer, printf_args...) \
-          primes_trace_set_context(level); \
-          trace_record_event(level, bitstorage, timer_function_names[timer], 0, printf_args); \
+          { if (option.trace_level >= level) primes_trace_set_context(level); } \
+          { if (option.trace_level >= level) trace_record_event(level, bitstorage, timer_function_names[timer], 0, printf_args); } \
           timer_lapstart(timer);
 
 #define logEnds(level, bitstorage, timer, printf_args...) \
-          trace_record_event(level, bitstorage, timer_function_names[timer], timer_laptime_function(timer), printf_args); \
-          primes_trace_clear_context(); 
+          { if (option.trace_level >= level) trace_record_event(level, bitstorage, timer_function_names[timer], timer_laptime_function(timer), printf_args); } \
+          { if (option.trace_level >= level) primes_trace_clear_context(); }
 
 #ifndef COMPILE_TRACE
   #undef logBegins
@@ -96,6 +101,16 @@ trace_record_event_functionid(int level, void* bitstorage, function_id_t functio
     va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
     trace_record_event_full(level, bitstorage, timer_function_names[function_id], (double)0, annotation);
 }
+
+// log_event_functionid(int level, void* bitstorage, function_id_t function_id, const char* fmt, ...)
+// {
+//     char annotation[1024];
+//     va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
+//     if 
+//     trace_record_event_full(level, bitstorage, timer_function_names[function_id], (double)0, annotation);
+//     explain
+// }
+
 
 #endif
 
