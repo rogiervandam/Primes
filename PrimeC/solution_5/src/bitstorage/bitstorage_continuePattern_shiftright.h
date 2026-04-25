@@ -34,7 +34,7 @@ function(continuePattern_shiftright,suffix)(void* restrict bitstorage, const cou
 
     // search for the first word that is aligned at bytelevel
     counter_t copy_size_word = size_bits * bitcount_type(bitbucket_t); // at bytelevel, the size is the same
-    // counter_t copy_start_word = index_type(index_next_type(copy_start + (copy_size_bytes << SHIFT_BYTE), bitbucket_t), bitbucket_t); // this was before
+    // counter_t copy_start_word = index_type(index_next_type(copy_start + (copy_size_bytes << 3), bitbucket_t), bitbucket_t); // this was before
     counter_t copy_start_word = index_next_type(copy_start + copy_size_word, bitbucket_t); 
 
     if (copy_start_word > destination_stop_word) copy_start_word = destination_stop_word;

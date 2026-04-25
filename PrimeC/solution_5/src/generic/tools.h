@@ -1,3 +1,5 @@
+#include "variants/vector_types.h"
+
 // used only for debugging
 static inline void __attribute__ ((cold))
 printWord_uint64(uint64_t bitword)

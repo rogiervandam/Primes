@@ -132,7 +132,7 @@ static counter_t addTuningVariations(benchmark_result_t* tuning_result, counter_
         counter_t largestep_faster_steps_diff = tuning_parameters.largestep_faster_steps >> tuning_parameters.step; 
         if (!option.fixed_benchmark_settings.largestep_faster) {
             if (largestep_faster_steps_diff > 1) {
-                if (tuning_settings.largestep_faster < VECTOR_SIZE_BITS - largestep_faster_steps_diff) {
+                if (tuning_settings.largestep_faster < tuning_settings.vectorsize - largestep_faster_steps_diff) {
                     resetBenchmarkResult(&tuning_result[new_tuning_results], tuning_settings);
                     tuning_result[new_tuning_results].settings.largestep_faster += largestep_faster_steps_diff;
                     new_tuning_results++;
@@ -235,7 +235,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
     }
     
     // prepare a table to store the tuning results
-    const size_t max_results = ((prime_max)+1) * ((size_t)(VECTOR_SIZE_BITS/tuning_parameters.largestep_faster_steps)+1) * 32 * 6; // 6 strategies
+    const size_t max_results = ((prime_max)+1) * ((size_t)(start_tuning_settings.vectorsize/tuning_parameters.largestep_faster_steps)+1) * 32 * 6; // 6 strategies
     benchmark_result_t* tuning_result = malloc(max_results * sizeof(benchmark_result_t));
     benchmark_settings_t tuning_settings = initBenchmarkSettings(start_tuning_settings.threads);
 

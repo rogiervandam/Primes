@@ -1,11 +1,4 @@
 // masks and mask helpers
-#define SHIFT_BYTE                  3 // the shift needed to get from BIT to BYTE
-
-// these are used to describe the max size of the bitstorage (uint64_v8) and use for the benchmarking
-// #define VECTORWORD_SIZE_BITS        64
-// #define VECTOR_SIZE_BYTES           64
-#define VECTOR_SIZE_BITS            512
-
 #define builtin_ctz(x)                     __builtin_ctzll((int64_t)(x))
 #define shift_calc(bits)                   ((bits) ? builtin_ctz(bits) : 0)
 #define shift_type(TYPE)                   (shift_calc(sizeof(TYPE)*8))
@@ -62,5 +55,3 @@ enum {
     ALGORITHM_STRIPED = 3,
     ALGORITHM_WHEEL   = 4
 };
-
-#include "variants/varianttypes.h"

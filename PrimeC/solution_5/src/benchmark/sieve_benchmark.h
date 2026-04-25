@@ -21,7 +21,7 @@ static inline benchmark_settings_t checkBenchmarkSettings(benchmark_settings_t b
     counter_t prime_max = calcFactor_max(benchmark_settings.factor_max );
     benchmark_settings.stripe_faster     = min(benchmark_settings.stripe_faster, prime_max);
     benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, 64);
-    benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, VECTOR_SIZE_BITS);
+    benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, benchmark_settings.vectorsize);
     benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, prime_max);
     benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, 2); // allow for conversion from step to prime
     benchmark_settings.blocksize_bits    = min(benchmark_settings.blocksize_bits, calcBitsize(benchmark_settings.factor_max, benchmark_settings.storage)); 
