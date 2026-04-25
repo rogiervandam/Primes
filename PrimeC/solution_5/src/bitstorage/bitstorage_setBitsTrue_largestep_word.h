@@ -6,7 +6,6 @@
     
 #elif defined(BUILD_WORDS_STAGE)
 
-// #include "../generic/variants/setsuffix.h"
 static inline void __attribute__((always_inline, nonnull,  aligned(cache_line_bytes))) 
 function(setBitsTrue_largestep_repeat,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
 { 
@@ -14,7 +13,7 @@ function(setBitsTrue_largestep_repeat,suffix)(void* restrict bitstorage, const c
 
     const counter_t range_stop_index = index_type(range_stop, bitbucket_t);
     const counter_t range_stop_unique = bitbucket_end_type(range_start + bitcount_type(bitbucket_t) * step, bitbucket_t) ; 
-    register counter_t index = function(setBitsTrue_range_return,variantsuffix)(bitstorage, range_start, bitbucket_next_type(range_start, bitbucket_t), step); 
+    register counter_t index = function(setBitsTrue_range_return,variant_suffix)(bitstorage, range_start, bitbucket_next_type(range_start, bitbucket_t), step); 
 
     #pragma GCC ivdep
     #pragma GCC unroll 8
@@ -37,21 +36,19 @@ function(setBitsTrue_largestep_norepeat,suffix)(void* restrict bitstorage, const
     for(register counter_t j=256; j>4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
         for(;i>j;i-=j) {
             for(int k=j; k--; index += step) {
-                function(setBitTrue, variantsuffix)(bitstorage, index);
+                function(setBitTrue, variant_suffix)(bitstorage, index);
             }
         }
     }
 
     for (; index < range_stop; index += step) 
-        function(setBitTrue, variantsuffix)(bitstorage, index);
+        function(setBitTrue, variant_suffix)(bitstorage, index);
 
-    if unlikely(index==range_stop) function(setBitTrue, variantsuffix)(bitstorage, index);
+    if unlikely(index==range_stop) function(setBitTrue, variant_suffix)(bitstorage, index);
 
     logEnds7(bitstorage, time_setBitsTrue_largestep_norepeat,"SetBitsTrueLargestepNoRepeat: finished settings bits using largestep%s\n", STR(suffix));
 }
 
 #endif
-
-// #include "../generic/variants/cleansuffix.h"
 
 

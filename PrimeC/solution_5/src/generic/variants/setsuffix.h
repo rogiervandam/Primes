@@ -5,25 +5,20 @@
 // The bitbucket_t type can be provided by setting "variant" or by providing a "preset"
 // The possibilities are listed in varianttypes.h
 
-// #include <inttypes.h>
-// #include "cleansuffix.h"
 #include "varianttypes.h"
-
-// #undef bitbucket_t
-// #undef suffix
 
 #ifdef variant
     #define bitbucket_t NAME(variant, _t)
-    #define variantsuffix NAME(_,variant)
+    #define variant_suffix NAME(_,variant)
 #elif !defined bitbucket_t
         #define bitbucket_t uint8_t
 #endif
 
-#if defined variantsuffix
+#if defined variant_suffix
     #if defined unrolls && unrolls != 1
-        #define suffix NAME(variantsuffix, NAME(_unroll,unrolls))
+        #define suffix NAME(variant_suffix, NAME(_unroll,unrolls))
     #else
-        #define suffix variantsuffix
+        #define suffix variant_suffix
     #endif
 #else    
     #define suffix

@@ -5,7 +5,6 @@
 
 #elif defined(BUILD_VECTORS_STAGE)
 
-    // #include "../generic/variants/setsuffix.h"
     static inline void __attribute__((always_inline, nonnull,  aligned(cache_line_bytes))) 
     function(setBitsTrue_largestep_vector,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
     {
@@ -76,5 +75,3 @@
     }
 
 #endif
-
-// #include "../generic/variants/cleansuffix.h"

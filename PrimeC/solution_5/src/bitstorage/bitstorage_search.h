@@ -1,22 +1,31 @@
 // Finds the index of the next unset (false) bit in a bitstorage, starting from a given index.
+#ifndef BITSTORAGE_SEARCH_INCLUDE_GUARD
+    #define BITSTORAGE_SEARCH_INCLUDE_GUARD
+    #define INCLUDE_FILE "../../../src/bitstorage/bitstorage_search.h"
+    #include "../generic/variants/generate.h"
 
-#include "../generic/variants/setsuffix.h"
+#elif defined(BUILD_WORDS_STAGE) && (unrolls == 1)
 
-#ifndef variant
-#define bitbucket_t uint8_t
-#endif
+// convenience macro to build function names and calls with different suffixes for different implementations
+#define checkBitTrue_suffix(...)             NAME(checkBitTrue,suffix            )(__VA_ARGS__)
+#define checkBitFalse_suffix(...)            NAME(checkBitFalse,suffix           )(__VA_ARGS__)
+#define countInvalidInStripe_suffix(...)     NAME(countInvalidInStripe,suffix    )(__VA_ARGS__)
+#define countBitsTrue_suffix(...)            NAME(countBitsTrue,suffix           )(__VA_ARGS__)
+#define faultInvalidInStripe_suffix(...)     NAME(faultInvalidInStripe,suffix    )(__VA_ARGS__)
+#define searchBitFalse_suffix(...)           NAME(searchBitFalse,suffix          )(__VA_ARGS__)
+#define searchBitFalse_largestep_suffix(...) NAME(searchBitFalse_largestep,suffix)(__VA_ARGS__)
 
 static inline bitbucket_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
-function(checkBitTrue,suffix)(const void* restrict bitstorage, register counter_t index) 
+checkBitTrue_suffix(const void* restrict bitstorage, register counter_t index) 
 {
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     return (bitstorage_sized[index_type(index, bitbucket_t)] & markmask_type(index, bitbucket_t));
 }
 
 static inline bitbucket_t __attribute__((always_inline, hot, nonnull)) 
-function(checkBitFalse,suffix)(const void* restrict bitstorage, register counter_t index) 
+checkBitFalse_suffix(const void* restrict bitstorage, register counter_t index) 
 {
-    return !checkBitTrue(bitstorage, index);
+    return !checkBitTrue_suffix(bitstorage, index);
 }
 
 static inline counter_t __attribute__((always_inline)) 
@@ -24,7 +33,7 @@ function(countInvalidInStripe,suffix)(const void* restrict bitstorage, const cou
 {
     counter_t count = 0;
     for (counter_t index = range_start; index < range_stop; index += step) {
-        if (checkBitFalse(bitstorage, index)) count++;
+        if (checkBitFalse_suffix(bitstorage, index)) count++;
     }
     return count;
 }
@@ -34,7 +43,7 @@ function(countBitsTrue,suffix)(const void* bitstorage, const counter_t range_sta
 {
     counter_t count = 0;
     for (counter_t index = range_start; index < range_stop; index++) {
-        if (checkBitTrue(bitstorage, index)) count++;
+        if (checkBitTrue_suffix(bitstorage, index)) count++;
     }
     return count;
 }
@@ -44,7 +53,7 @@ function(faultInvalidInStripe,suffix)(const void* restrict bitstorage, const cou
 {
     counter_t count = 0;
     for (counter_t index = range_start; index < range_stop; index += step) {
-        count += checkBitFalse(bitstorage, index) ? 1 : 0;
+        count += checkBitFalse_suffix(bitstorage, index) ? 1 : 0;
         if (count) {
             printf("In range from %ju to %ju, found bit not set at index %ju\n", (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)index);
             exit(0);
@@ -62,7 +71,7 @@ function(searchBitFalse,suffix)(void* restrict bitstorage, register counter_t in
 
     #pragma GCC ivdep
     #pragma GCC unroll 4
-    for (;checkBitTrue(bitstorage, ++index););
+    for (;checkBitTrue_suffix(bitstorage, ++index););
 
     logEnds9(bitstorage, time_searchBitFalse, " next prime %ju (step %ju)\n", (uintmax_t) index, (uintmax_t)index*2+1);
     return index;
@@ -106,19 +115,5 @@ function(searchBitFalse_largestep,suffix)(const void* restrict bitstorage, regis
     // Note: ~current_word inverts the bits so we find first 0 instead of 1
     return index + builtin_ctz(~current_word);
 }
-
-#include "../generic/variants/cleansuffix.h"
-
-// make explicit versions for all types with different suffixes for different bitbucket_t sizes
-#ifndef BITSTORAGE_SEARCH_INCLUDE_GUARD
-    #define BITSTORAGE_SEARCH_INCLUDE_GUARD
-    #define variant uint8
-    #include "bitstorage_search.h"
-    #define variant uint16
-    #include "bitstorage_search.h"
-    #define variant uint32
-    #include "bitstorage_search.h"
-    #define variant uint64
-    #include "bitstorage_search.h"
 #endif
 

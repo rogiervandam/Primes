@@ -6,7 +6,7 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
     register uint8_t* restrict bitstorage_sized_uint8 = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
 
-    const counter_t stop_bucket = function(wheel_block_calc,variantsuffix)(range_stop + 1);
+    const counter_t stop_bucket = function(wheel_block_calc,variant_suffix)(range_stop + 1);
     const counter_t wheel_step = reduce2power(step) * reduce2power(wheelmask_stripe_bits); // step in words, accounting for stripe alignment
     const counter_t range_stop_unique = min(range_start + ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits) * WHEEL_SIZE * (wheel_step + 2), range_stop);
 
@@ -15,7 +15,7 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
     // align to first full bucket
 
     logBegins7(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "MarkFactorsWheelStorageSmallRepeatPair: aligning to first full bucket starting from index %ju", (uintmax_t)range_start);
-    for (; (current_bucket = function(wheel_block_calc,variantsuffix)(range_start)) < 2 && range_start <= range_stop_unique; range_start += step) {
+    for (; (current_bucket = function(wheel_block_calc,variant_suffix)(range_start)) < 2 && range_start <= range_stop_unique; range_start += step) {
         markFactor_wheelstorage(sieve, range_start);
     }
     logEnds7(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "MarkFactorsWheelStorageSmallRepeatPair: finished aligning to first full bucket at index %ju", (uintmax_t)range_start);
@@ -26,7 +26,7 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
     logBegins7(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_copy, "MarkFactorsWheelStorageSmallRepeatPairCopy: marking factors with step %3ju for prime %ju using markFactors_wheelstorage_small_repeat_pair_vector %s in %ju factor range (%ju-%ju) (%ju occurances; %ju repeats)", (uintmax_t)step, (uintmax_t)step/2, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
     for (counter_t index = range_start; index <= range_stop_unique; index += step) {
         const counter_t wheel_bit = wheel_bit_calc(index);
-        const counter_t new_bucket = function(wheel_block_calc,variantsuffix)(index);
+        const counter_t new_bucket = function(wheel_block_calc,variant_suffix)(index);
 
         if (wheel_bit <= 0) continue; // if the number is divisible by any of the wheel primes, skip it
         // const counter_t new_bucket = index_type(wheel_bit, bitbucket_t);

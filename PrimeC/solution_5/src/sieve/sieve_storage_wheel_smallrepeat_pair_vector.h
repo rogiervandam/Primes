@@ -5,7 +5,7 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(sieve_t* siev
 
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
 
-    const counter_t stop_bucket = function(wheel_block_calc,variantsuffix)(range_stop + 1);
+    const counter_t stop_bucket = function(wheel_block_calc,variant_suffix)(range_stop + 1);
     const counter_t wheel_step = reduce2power(step) * reduce2power(wheelmask_stripe_bits); // step in words, accounting for stripe alignment
     // +2 ensures all unique masks are flushed by bucket transitions
     const counter_t range_stop_unique = min(range_start + ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits) * WHEEL_SIZE * (wheel_step + 2), range_stop);
@@ -14,7 +14,7 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(sieve_t* siev
     counter_t current_bucket = 0;
 
     // align to first full bucket
-    for (; (current_bucket = function(wheel_block_calc,variantsuffix)(range_start)) < 1 && range_start <= range_stop_unique; range_start += step) {
+    for (; (current_bucket = function(wheel_block_calc,variant_suffix)(range_start)) < 1 && range_start <= range_stop_unique; range_start += step) {
         markFactor_wheelstorage(sieve, range_start);
     }
 
@@ -23,7 +23,7 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(sieve_t* siev
 
     for (counter_t index = range_start; index <= range_stop_unique; index += step) {
         const counter_t wheel_bit = wheel_bit_calc(index);
-        const counter_t new_bucket = function(wheel_block_calc,variantsuffix)(index);
+        const counter_t new_bucket = function(wheel_block_calc,variant_suffix)(index);
 
         if (wheel_bit <= 0) continue; 
 

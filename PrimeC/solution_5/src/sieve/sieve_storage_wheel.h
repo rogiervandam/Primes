@@ -1,7 +1,10 @@
 
 
 // #ifndef BUILD_ONCE //---- include this once
+
 #ifndef ASSEMBLE_WHEELSTORAGE_GUARD
+    #define ASSEMBLE_WHEELSTORAGE_GUARD
+
     // static unsigned int wheel[WHEEL_SIZE/2];
     #include "../bitstorage/bitstorage_search.h"
     #include "../bitstorage/bitstorage_setBitsTrue.h"
@@ -112,33 +115,39 @@
 
         logEnds9(sieve->bitstorage, time_markFactor_wheelstorage, "MarkFactorWheelStorage: finished marking factor %ju", (uintmax_t)index);
     }
+    #undef bitbucket_t
+
+    #define INCLUDE_FILE "../../../src/sieve/sieve_storage_wheel.h"
+    #include "../generic/variants/generate.h"
 
 #endif
 
-#include "../generic/variants/setsuffix.h" 
-// sets bitbucket_t (e.g. uint64_t), variantsuffix (e.g. _uint64) and suffix (e.g. _uint64_unroll8) 
+// sets bitbucket_t (e.g. uint64_t), variant_suffix (e.g. _uint64) and suffix (e.g. _uint64_unroll8) 
 // for the current variant, based on the presets defined in varianttypes.h
+#if defined(BUILD_WORDS_STAGE) || defined(BUILD_VECTORS_STAGE)
+    // #include "../generic/variants/setsuffix_vector.h"
 
-#if defined variantsuffix && (!defined unrolls || unrolls == 1)
+    #if defined variant_suffix && (!defined unrolls || unrolls == 1)
 
-    // #if defined variant && !VARIANT_IS_UINT8(variant)
+        // #if defined variant && !VARIANT_IS_UINT8(variant)
 
-    // wheel_bucket is guaranteed to give back a bucket, regardless of the index is a multiple of a prime
-    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    function(wheel_block_calc,variantsuffix)(counter_t index) {
+        // wheel_bucket is guaranteed to give back a bucket, regardless of the index is a multiple of a prime
+        static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+        function(wheel_block_calc,variant_suffix)(counter_t index) {
 
-        // compile time short path to avoid the index % WHEEL_SIZE
-        if (wheelmask_stripe_bits <= bitcount_type(bitbucket_t)) {
-            return index_type((index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t);
+            // compile time short path to avoid the index % WHEEL_SIZE
+            if (wheelmask_stripe_bits <= bitcount_type(bitbucket_t)) {
+                return index_type((index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t);
+            }
+
+            const counter_t wheel_index = index % WHEEL_SIZE;
+            // if (wheelmask_bitpoint[wheel_index] < 0) return 0;
+
+            // return index_type((wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index]-1, bitbucket_t);
+            return index_type((wheelmask_stripe_bits * ((index / WHEEL_SIZE)+1)), bitbucket_t);
         }
 
-        const counter_t wheel_index = index % WHEEL_SIZE;
-        // if (wheelmask_bitpoint[wheel_index] < 0) return 0;
-
-        // return index_type((wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index]-1, bitbucket_t);
-        return index_type((wheelmask_stripe_bits * ((index / WHEEL_SIZE)+1)), bitbucket_t);
-    }
-
+    #endif
 #endif
 
 #if defined BUILD_WORDS_STAGE
@@ -151,8 +160,8 @@
 
         register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
-        // const counter_t bucket_stop = function(wheel_block_calc,variantsuffix)(range_stop + 1);
-        const counter_t bucket_stop = function(wheel_block_calc,variantsuffix)(range_stop); // + because: don't stop too soon
+        // const counter_t bucket_stop = function(wheel_block_calc,variant_suffix)(range_stop + 1);
+        const counter_t bucket_stop = function(wheel_block_calc,variant_suffix)(range_stop); // + because: don't stop too soon
 
         const counter_t wheel_step = reduce2power(step) * (max(bitcount_type(bitbucket_t), wheelmask_stripe_bits) / min(bitcount_type(bitbucket_t), wheelmask_stripe_bits)); // step in terms of the number of bitbuckets
         // const counter_t wheel_step = step; // step in terms of the number of bitbuckets
@@ -209,7 +218,7 @@
             //     // counter_t bucket_start = index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index], bitbucket_t);
             //     // bitstorage_sized[ index_type(wheel_bit, bitbucket_t)] |= markmask;//markmask_type(wheel_bit, bitbucket_t);
                 
-            //     counter_t bucket_start = function(wheel_block_calc,variantsuffix)(index);
+            //     counter_t bucket_start = function(wheel_block_calc,variant_suffix)(index);
             //     // bitstorage_sized[ bucket_start] |= markmask;//markmask_type(wheel_bit, bitbucket_t);
 
             //     verbose8({ printf("Marking pos %ju with markmask %ju at bucket start %ju for index %ju\n", (uintmax_t)wheel_bit, (uintmax_t)markmask, (uintmax_t)bucket_start, (uintmax_t)index); })
@@ -254,7 +263,7 @@
 #endif
 
 
-#if defined include_once_last //---- include this once after all variants
+#if defined(include_once_last) //---- include this once after all variants
 
     // TODO: wheelstorage_mask is faster here
     static inline void __attribute__((always_inline, nonnull, hot,  aligned(cache_line_bytes) )) 
@@ -280,6 +289,7 @@
 
     // this is the same as checkFactor_wheel but without the check for the wheel primes
     // this can only be used if index > WHEEL_MAX
+    #define bitbucket_t uint8_t
     static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
     checkFactor_wheelstorage_unsafe(sieve_t* sieve, register counter_t index)
     {
@@ -295,6 +305,7 @@
         // return !wheelmask_compressed[wheel_index] || 
         //     (bitstorage_sized[wheel_block] & wheelmask_compressed[wheel_index]);
     }
+    #undef bitbucket_t
 
     #define CHECK_FACTOR
     static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
@@ -340,10 +351,5 @@
     }
 #endif
 
-#include "../generic/variants/cleansuffix.h"
 
-#ifndef ASSEMBLE_WHEELSTORAGE_GUARD
-    #define ASSEMBLE_WHEELSTORAGE_GUARD
-    #define INCLUDE_FILE "../../../src/sieve/sieve_storage_wheel.h"
-    #include "../generic/variants/generate.h"
-#endif
+

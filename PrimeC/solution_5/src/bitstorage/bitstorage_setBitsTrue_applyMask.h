@@ -9,8 +9,6 @@
 
 #elif defined(BUILD_VECTORS_STAGE) || defined(BUILD_WORDS_STAGE)
  
-// #include "../generic/variants/setsuffix.h"
-
 // This applyMask variant takes range_start_index and range_stop_index as the word/vector index
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
 function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t range_start_index, const counter_t range_stop_index, counter_t step, const bitbucket_t mask) 
@@ -198,5 +196,3 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
 }
 
 #endif
-
-// #include "../generic/variants/cleansuffix.h"

@@ -118,6 +118,27 @@ typedef uint16_t uint16v2_t  __attribute__ ((vector_size( 4), aligned(cache_line
   #define variant uint8v2
 #endif
 
+#if defined preset_uint8
+  #define variant uint8
+  #define variant_bits 8
+#endif
+
+#if defined preset_uint16
+  #define variant uint16
+  #define variant_bits 16
+#endif
+
+#if defined preset_uint32
+  #define variant uint32
+  #define variant_bits 32
+#endif
+
+#if defined preset_uint64
+  #define variant uint64
+  #define variant_bits 64
+#endif
+
+
 #undef BITBUCKET_ELEMENTS
 #undef BITBUCKET_BASE
 #undef BITBUCKET_BYTEINDEX

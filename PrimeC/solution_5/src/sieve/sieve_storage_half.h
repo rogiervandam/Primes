@@ -68,9 +68,8 @@ calcFactorsize_half(counter_t bitsize)
     return (bitsize << 1);
 }
 
-
 // This function decouples the factor from the bitstorage
 static inline uint8_t checkFactor_half(sieve_t *sieve, counter_t factor) {
     if (factor > 2 && factor % 2 == 0) return 1;
-    return checkBitTrue(sieve->bitstorage, factor >> 1);
+    return checkBitTrue_uint8(sieve->bitstorage, factor >> 1);
 }

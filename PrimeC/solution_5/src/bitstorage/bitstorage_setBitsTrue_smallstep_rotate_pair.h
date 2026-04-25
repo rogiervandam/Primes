@@ -5,7 +5,6 @@
     
 #elif defined(BUILD_VECTORS_STAGE) 
 
-// #include "../generic/variants/setsuffix.h"
 static inline void __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 // function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step)
 function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step, variant_base_type_t base_pattern)
@@ -76,8 +75,6 @@ function(setBitsTrue_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
     logEnds7(bitstorage, time_setBitsTrue_smallstep_rotate_pair, "SetBitsTrueSmallstepRotatePair: finished setting bits step %3ju using smallstep%-10s in %ju bit range (%ju-%ju) with %ju bits to set; using %ju copies of %ju bit mask", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)), (uintmax_t)bitcount_type(bitbucket_t));
 }
 #endif
-
-// #include "../generic/variants/cleansuffix.h"
 
 
 

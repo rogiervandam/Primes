@@ -9,8 +9,6 @@
 
 #elif defined(BUILD_VECTORS_STAGE) || defined(BUILD_WORDS_STAGE)
 
-// #include "../generic/variants/setsuffix.h"
-
 static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes)))
 function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step, const bitbucket_t mask1, const bitbucket_t mask2) 
 {
@@ -202,5 +200,3 @@ function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t
 }
 
 #endif
-
-// #include "../generic/variants/cleansuffix.h"

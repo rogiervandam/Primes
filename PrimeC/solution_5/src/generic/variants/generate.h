@@ -2,16 +2,12 @@
 #undef unrolls
 #undef variant
 
-// include
 #define INCLUDE_FILE_FULL INCLUDE_FILE
 
 #include INCLUDE_FILE_FULL
 #define BUILD_ONCE 1
 
 #define BUILD_WORDS_STAGE 1
-    
-    // #define unrolls 1
-    // // #include "../bitstorage/bitstorage_setBitsTrue_setBit.h"
     #undef unrolls
     
     #define unrolls 1
@@ -27,7 +23,6 @@
         #undef unrolls
 
     #undef variant
-
 #undef BUILD_WORDS_STAGE
 
 #define BUILD_VECTORS_STAGE 1
@@ -44,11 +39,10 @@
     #define unrolls 8
         #include "vectorsize.h"
         #undef unrolls
-
 #undef BUILD_VECTORS_STAGE
 
 #define include_once_last 1
-#include INCLUDE_FILE_FULL
+    #include INCLUDE_FILE_FULL
 #undef include_once_last
 
 #undef BUILD_ONCE

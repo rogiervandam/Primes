@@ -1,19 +1,19 @@
-#define variant uint8
+#define preset_uint8
 #include "setsuffix.h"
 #include INCLUDE_FILE_FULL 
 #include "cleansuffix.h"
 
-#define variant uint16
+#define preset_uint16
 #include "setsuffix.h"
 #include INCLUDE_FILE_FULL 
 #include "cleansuffix.h"
 
-#define variant uint32
+#define preset_uint32
 #include "setsuffix.h"
 #include INCLUDE_FILE_FULL 
 #include "cleansuffix.h"
 
-#define variant uint64
+#define preset_uint64
 #include "setsuffix.h"
 #include INCLUDE_FILE_FULL 
 #include "cleansuffix.h"
