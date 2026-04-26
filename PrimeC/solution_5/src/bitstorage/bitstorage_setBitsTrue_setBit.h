@@ -10,8 +10,8 @@
 #define setBitFalse_suffix(...)              NAME(setBitFalse,suffix             )(__VA_ARGS__)
 #define setBitsTrue_range_suffix(...)        NAME(setBitsTrue_range,suffix       )(__VA_ARGS__)
 #define setBitsTrue_range_return_suffix(...) NAME(setBitsTrue_range_return,suffix)(__VA_ARGS__)
-
 #define setBitTrue(...) NAME(setBitTrue,suffix)(__VA_ARGS__) // there will be variants with different suffixes
+
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
 setBitTrue(void* restrict bitstorage, const register counter_t index) 
 {
@@ -39,7 +39,8 @@ setBitsTrue_range_suffix(void* restrict bitstorage, const counter_t range_start,
     #pragma GCC unroll 32
     for(register counter_t index = range_start; index < range_stop; index += step) setBitTrue(bitstorage, index);
 
-    logEnds8(bitstorage, time_setBitsTrue_range,"SetBitsTrueRange: range_start=%ju range_stop=%ju step=%ju", (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)step);
+    // logEnds8(bitstorage, time_setBitsTrue_range,"SetBitsTrueRange: completed range_start=%ju range_stop=%ju step=%ju", (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)step);
+    logEnds8(bitstorage, time_setBitsTrue_range,"SetBitsTrueRange: completed range_start=%ju range_stop=%ju step=%ju", (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)step);
 }
 
 // Set bits to true with a step in a range. This function returns the last index that was set

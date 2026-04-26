@@ -2393,6 +2393,10 @@ export default function Visualizer({
       if (mouseRotateActive) return;
       const r = rendererRef.current;
       if (!r) return;
+      // Don't capture pointer for interactive overlays inside the canvas area.
+      // Without this, setPointerCapture() swallows the pointerup so buttons
+      // in .step-focus-banner and .bit-history-panel never fire click events.
+      if (e.target.closest('.step-focus-banner, .bit-history-panel, .detail-inspector-overlay')) return;
       const rect = el.getBoundingClientRect();
       const rawX = e.clientX - rect.left;
       const rawY = e.clientY - rect.top;

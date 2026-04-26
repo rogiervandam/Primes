@@ -38,7 +38,11 @@
 #define PRIMES_LOG_DISPATCH_SELECT(count) PRIMES_LOG_DISPATCH_SELECT_IMPL(count)
 #if COMPILE_VERBOSE_LEVEL >= 5
   #define PRIMES_LOG_DISPATCH(level, ...) \
-    { if (option.trace_level >= level) { PRIMES_LOG_DISPATCH_SELECT(PRIMES_VA_COUNT(__VA_ARGS__))(level, __VA_ARGS__); } }
+    { if (option.trace_level >= level) { \
+      primes_trace_set_context(level); \
+      { PRIMES_LOG_DISPATCH_SELECT(PRIMES_VA_COUNT(__VA_ARGS__))(level, __VA_ARGS__); } \
+      primes_trace_clear_context(); \
+    } }
 #else
   #define PRIMES_LOG_DISPATCH(level, ...)
 #endif

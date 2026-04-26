@@ -662,33 +662,41 @@ export default function SettingsPanel({
         <div className="lo-level-row lo-level-row-with-spacing">
           <span className="lo-level-tag">Column</span>
           <div className="lo-row-body lo-row-body-stacked">
-            <div className="lo-vec-wrap">
-              <span className="settings-hint">Control how many grouping columns are shown across the layout. Auto fit can be toggled separately.</span>
-            </div>
-            <SpacingControl
-              title="Grouping spacing"
-              keyH="u64SpacingH"
-              keyV="u64SpacingV"
-              max={20}
-              className="spacing-inline-grouping"
-              columnControl={{
-                value: Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1),
-                auto: Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0,
-                decr: () => {
+            <div className="lo-vec-wrap lo-column-count-control">
+              <button
+                type="button"
+                className="btn-icon btn-sm spacing-adjust-btn"
+                onClick={() => {
                   const current = Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
                   const next = Math.max(1, current - 1);
                   lastManualColumnCountRef.current = next;
                   set('horizontalGroups', next);
-                },
-                incr: () => {
+                }}
+                title="Decrease grouping column count"
+              >−</button>
+              <span
+                className="lo-column-count-value"
+                title={Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0 ? 'Auto fit: number of columns adjusts to viewport' : `${Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1)} grouping columns`}
+              >
+                {Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0
+                  ? 'auto'
+                  : Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1)}
+              </span>
+              <button
+                type="button"
+                className="btn-icon btn-sm spacing-adjust-btn"
+                onClick={() => {
                   const current = Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
                   const next = Math.min(64, current + 1);
                   lastManualColumnCountRef.current = next;
                   set('horizontalGroups', next);
-                },
-                decrTitle: 'Decrease grouping column count',
-                incrTitle: 'Increase grouping column count',
-                toggleAuto: () => {
+                }}
+                title="Increase grouping column count"
+              >+</button>
+              <button
+                type="button"
+                className={`spacing-toggle-btn${Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0 ? ' active' : ''}`}
+                onClick={() => {
                   const current = Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0);
                   if (current === 0) {
                     set('horizontalGroups', Math.max(1, lastManualColumnCountRef.current || 1));
@@ -696,11 +704,20 @@ export default function SettingsPanel({
                   }
                   lastManualColumnCountRef.current = current;
                   set('horizontalGroups', 0);
-                },
-                toggleTitle: Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0
+                }}
+                title={Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0
                   ? 'Disable auto fit and use the last manual column count'
-                  : 'Enable automatic column fitting',
-              }}
+                  : 'Enable automatic column fitting'}
+              >
+                {Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0 ? 'Auto fit on' : 'Auto fit off'}
+              </button>
+            </div>
+            <SpacingControl
+              title="Grouping spacing"
+              keyH="u64SpacingH"
+              keyV="u64SpacingV"
+              max={20}
+              className="spacing-inline-grouping"
             />
           </div>
         </div>
