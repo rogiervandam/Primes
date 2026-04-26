@@ -534,8 +534,8 @@ export default function Visualizer({
     }
 
     r.render();
-    if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
     updateMinimapAvailability();
+    if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
   }, [getCanvasTargetSize, showMinimap, getMinimapDetailH, updateMinimapAvailability]);
 
   const clearScheduledLayoutRefresh = useCallback(() => {
@@ -731,7 +731,6 @@ export default function Visualizer({
     r.outlineStyle = 'dashed';
     r.outlineColor = '#3b82f6';
     r.outlineRounded = true;
-    r.minimapEnabled = showMinimap !== false && minimapAvailable;
     r.colorPreset = colorPreset;
     r.storageModel = storageModel;
     r.cachelineSize = cachelineSize;
@@ -816,9 +815,9 @@ export default function Visualizer({
       prev.showVectorTouchOrder = layoutSettings.showVectorTouchOrder;
     }
     r.render();
-    if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
     updateMinimapAvailability();
-  }, [theme, layoutSettings, showMinimap, minimapAvailable, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, loweredSetBits, mode3D, depthSettings, gridOpacity, updateMinimapAvailability]);
+    if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, loweredSetBits, mode3D, depthSettings, gridOpacity, updateMinimapAvailability]);
 
   // Resize handler
   useEffect(() => {
@@ -966,8 +965,8 @@ export default function Visualizer({
       }
     }
     r.render();
-    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
     updateMinimapAvailability();
+    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
     setCurrentStep(target);
 
     // Trigger animation for changed bits
@@ -2431,8 +2430,8 @@ export default function Visualizer({
         r.panX = hit.panX;
         r.panY = hit.panY;
         r.render();
-        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
         updateMinimapAvailability();
+        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
         el.classList.add('dragging');
         return;
       }
@@ -2492,8 +2491,8 @@ export default function Visualizer({
           r.panX = hit.panX;
           r.panY = hit.panY;
           r.render();
-          r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
           updateMinimapAvailability();
+          r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
           scheduleBalloonRelayout();
         }
         return;
@@ -2505,8 +2504,8 @@ export default function Visualizer({
         r.panX = panSX + (e.clientX - startX);
         r.panY = panSY + (e.clientY - startY);
         r.render();
-        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
         updateMinimapAvailability();
+        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
         scheduleBalloonRelayout();
         return;
       }
@@ -2617,8 +2616,8 @@ export default function Visualizer({
       r.panY = my - contentY * nextZoom;
       setZoom(r.zoom);
       r.render();
-      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
       updateMinimapAvailability();
+      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
       scheduleBalloonRelayout();
     };
 

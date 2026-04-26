@@ -661,9 +661,9 @@ export default function SettingsPanel({
           </div>
         </div>
 
-        <div className="lo-level-row lo-level-row-with-spacing">
-          <span className="lo-level-tag">Column</span>
-          <div className="lo-row-body lo-row-body-stacked">
+        <div className="lo-level-row">
+          <span className="lo-level-tag">Columns</span>
+          <div className="lo-row-body">
             <div className="lo-vec-wrap lo-column-count-control">
               <button
                 type="button"
@@ -713,14 +713,14 @@ export default function SettingsPanel({
               >
                 {Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0 ? 'Auto fit on' : 'Auto fit off'}
               </button>
+              <SpacingControl
+                title="Grouping spacing"
+                keyH="u64SpacingH"
+                keyV="u64SpacingV"
+                max={20}
+                className="spacing-inline-grouping"
+              />
             </div>
-            <SpacingControl
-              title="Grouping spacing"
-              keyH="u64SpacingH"
-              keyV="u64SpacingV"
-              max={20}
-              className="spacing-inline-grouping"
-            />
           </div>
         </div>
 
@@ -865,7 +865,7 @@ export default function SettingsPanel({
         </div>
 
         <div className="settings-section">
-          <label>View Overlays</label>
+          <label>Grid view</label>
           <div className="preview-btn-grid preview-btn-grid-4">
             <PreviewOptionButton
               compact
