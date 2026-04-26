@@ -2172,9 +2172,8 @@ export default function Visualizer({
   //    The loop itself handles the post-animation delay and auto-restart.
   const handleStepAnimToggle = useCallback(() => {
     if (stepAnimRunning) {
-      stopSeqAnim();
+      freezeAnimationNow();
       setPlaying(false);
-      setAnimationReplayPaused(true);
       return;
     }
     const step = stepsRef.current[currentStep];
@@ -2199,7 +2198,7 @@ export default function Visualizer({
     stepResumeStartIndexRef.current = startIndex;
     stepResumeMaskProgressRef.current = 0;
     setAnimationReplayPaused(false);
-  }, [stepAnimRunning, currentStep, stepScrubProgress, stopSeqAnim]);
+  }, [stepAnimRunning, currentStep, stepScrubProgress, stopSeqAnim, freezeAnimationNow]);
 
   // Zoom
   const doZoom = useCallback((factor) => {
@@ -3521,6 +3520,7 @@ export default function Visualizer({
         <div className="toolbar-center">
           <button className="btn-icon" onClick={() => goToStep(0)} title="First (Home)" disabled={exporting}><SkipBack /></button>
           <button className="btn-icon" onClick={() => goToStep(currentStep - 1)} title="Previous (←)" disabled={exporting}><StepBack /></button>
+          <button className="btn-icon anim-speed-btn" onClick={() => setBitAnimInterval(i => Math.min(5000, Math.round(i * 1.4)))} title="Slower animation" disabled={exporting}><Minus size={14} /></button>
           <button
             className="btn-icon"
             onClick={handleStepAnimToggle}
@@ -3529,13 +3529,9 @@ export default function Visualizer({
           >
             {stepAnimRunning ? <Pause /> : <Play />}
           </button>
+          <button className="btn-icon anim-speed-btn" onClick={() => setBitAnimInterval(i => Math.max(5, Math.round(i / 1.4)))} title="Faster animation" disabled={exporting}><Plus size={14} /></button>
           <button className="btn-icon" onClick={() => goToStep(currentStep + 1)} title="Next (→)" disabled={exporting}><StepForward /></button>
           <button className="btn-icon" onClick={() => goToStep(steps.length - 1)} title="Last (End)" disabled={exporting}><SkipForward /></button>
-          <span className="speed-group">
-            <button className="btn-icon" onClick={() => setPlaySpeed(s => Math.min(12000, s + 250))} title="Slower" disabled={exporting}><Minus size={14} /></button>
-            <span className="speed-val" title={`Playback speed (${playSpeed}ms per step)`}>{playSpeedLabel}</span>
-            <button className="btn-icon" onClick={() => setPlaySpeed(s => Math.max(4000, s - 250))} title="Faster" disabled={exporting}><Plus size={14} /></button>
-          </span>
           <input
             type="range"
             className="step-slider"

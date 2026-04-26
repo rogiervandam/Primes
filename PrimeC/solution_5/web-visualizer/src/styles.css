@@ -583,13 +583,20 @@ html, body, #root {
   overflow-x: hidden;
 }
 .step-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: calc(220px - var(--node-depth, 0) * 14px) 1fr;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
+  padding: 4px 8px 4px 0;
   cursor: pointer;
   border-bottom: 1px solid var(--bg-raised);
   font-size: 12px;
+  min-width: 0;
+  overflow: hidden;
+}
+.step-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
   overflow: hidden;
 }
@@ -614,7 +621,7 @@ html, body, #root {
 .step-group-prime { font-weight: 600; color: var(--fg); }
 .step-group-info { color: var(--fg-dim); font-size: 11px; margin-left: auto; white-space: nowrap; }
 .step-child { padding-left: 24px; }
-.step-child .step-item { border-bottom: none; padding: 2px 8px; }
+.step-child .step-item { border-bottom: none; padding: 2px 8px 2px 0; }
 
 /* Depth-based hierarchy nodes (within a prime group) */
 .step-depth-node { display: block; }
