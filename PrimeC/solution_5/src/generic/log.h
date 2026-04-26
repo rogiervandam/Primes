@@ -106,7 +106,8 @@ trace_record_event_functionid(int level, void* bitstorage, function_id_t functio
     trace_record_event_full(level, bitstorage, timer_function_names[function_id], (double)0, annotation);
 }
 
-// log_event_functionid(int level, void* bitstorage, function_id_t function_id, const char* fmt, ...)
+// static inline void
+// log_event_byFunction(int level, void* bitstorage, function_id_t function_id, const char* fmt, ...)
 // {
 //     char annotation[1024];
 //     va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
@@ -114,6 +115,8 @@ trace_record_event_functionid(int level, void* bitstorage, function_id_t functio
 //     trace_record_event_full(level, bitstorage, timer_function_names[function_id], (double)0, annotation);
 //     explain
 // }
+
+
 
 
 #endif

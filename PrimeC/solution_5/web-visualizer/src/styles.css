@@ -536,6 +536,9 @@ html, body, #root {
   overflow: hidden;
   position: relative;
 }
+.main-content.mode-3d {
+  overflow: visible;
+}
 
 /* ---- Step Panel ---- */
 .step-panel {

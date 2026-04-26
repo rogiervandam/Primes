@@ -227,6 +227,7 @@ export class SieveRenderer {
     this.byteLabelMode = 'group';
     this.loweredSetBits = false;
     this.loweredSetBits3D = false;
+    this.transparentBackground = false;
     this.loweredDepthStrength = 1;
     this.loweredDepthAngle = 38;
     this.changedBitRiseAt = new Map();
@@ -486,6 +487,7 @@ export class SieveRenderer {
     this.bitMotionTrails = [];
     this.loweredSetBits = false;
     this.loweredSetBits3D = false;
+    this.transparentBackground = false;
     this.changedBitRiseAt = new Map();
     this._frozenClPerVRow = 0;
   }
@@ -1395,13 +1397,17 @@ export class SieveRenderer {
 
     if (layeredLoweredBits) {
       settledCtx.clearRect(0, 0, cw, ch);
-      settledCtx.fillStyle = `rgb(${C.BACKGROUND.join(',')})`;
-      settledCtx.fillRect(0, 0, cw, ch);
+      if (!this.transparentBackground) {
+        settledCtx.fillStyle = `rgb(${C.BACKGROUND.join(',')})`;
+        settledCtx.fillRect(0, 0, cw, ch);
+      }
       ctx.clearRect(0, 0, cw, ch);
     } else {
       ctx.clearRect(0, 0, cw, ch);
-      ctx.fillStyle = `rgb(${C.BACKGROUND.join(',')})`;
-      ctx.fillRect(0, 0, cw, ch);
+      if (!this.transparentBackground) {
+        ctx.fillStyle = `rgb(${C.BACKGROUND.join(',')})`;
+        ctx.fillRect(0, 0, cw, ch);
+      }
       if (settledCtx) settledCtx.clearRect(0, 0, cw, ch);
     }
 

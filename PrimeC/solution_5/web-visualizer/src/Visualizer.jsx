@@ -738,6 +738,7 @@ export default function Visualizer({
     r.heatMapEnabled = heatMapEnabled;
     r.loweredSetBits = loweredSetBits;
     r.loweredSetBits3D = mode3D;
+    r.transparentBackground = mode3D;
     r.loweredDepthStrength = Math.max(0, Math.min(1.0, (depthSettings.strength ?? 80) / 100));
     r.loweredDepthAngle = Math.max(0, Math.min(90, depthSettings.angle ?? 38));
     r.gridOpacity = Math.max(0.12, Math.min(1, gridOpacity));
@@ -3614,7 +3615,7 @@ export default function Visualizer({
       )}
 
       {/* Main content */}
-      <div className="main-content">
+      <div className={`main-content${mode3D ? ' mode-3d' : ''}`}>
         <StepPanel
           steps={steps}
           currentStep={currentStep}
