@@ -1,4 +1,4 @@
-# Implementation in C
+# Implementation in C (new)
 
 ![Algorithm](https://img.shields.io/badge/Algorithm-other-yellowgreen)
 ![Algorithm](https://img.shields.io/badge/Algorithm-base-yellowgreen)
@@ -11,6 +11,7 @@ This is an implementation in C.
 The algorithm was developed in parallel using NodeJS and C.
 
 ## The Extend Algorithm
+
 The extend algorithm marks all the multiples of a prime factor in the range of the product of the prime and all previous primes multiplied by 2. For example, all multiples of 2, 3, and 5 are marked until `2 × (1 × 2 × 3 × 5) = 30`. The range from 15 to 30 forms a recurring pattern. When handling a new prime, such as 7, this pattern can be extended multiple times up to `7 × 15 = 105`. Then, all multiples of 7 in this extended pattern (15–105) are marked. This pattern can then be copied further, e.g., 11 times, and so on. By gradually extending the sieve by repeating the current pattern, significant efficiency gains can be achieved.
 
 For larger primes, the range becomes too large to be efficiently handled by the L1/L2 cache. To address this, the sieve is divided into blocks, allowing multiples to be handled in groups. These blocks can either be processed independently (starting at a prime and using the extend algorithm again) or using a hybrid approach, which is faster. The hybrid approach extends the range until the first product of primes exceeds the sieve, then processes the sieve block by block.
@@ -18,42 +19,46 @@ For larger primes, the range becomes too large to be efficiently handled by the 
 The extend algorithm deviates from the base algorithm by marking multiple values at once using pattern copying. This allows the use of words and vectors to speed up the process. Vectors are filled with step patterns and applied at appropriate locations. These vectors can be rotated to fit the next position, unlocking significant speedup potential. Various techniques have been employed to enable fast bit-level pattern extensions, and all possible optimizations have been applied to maximize performance in C.
 
 ### Inspirations
+
 - **NodeJS/solution_1 - rogiervandam-memcopy**: This implementation in C demonstrates the speed gains achieved by transitioning from NodeJS to C.
 - **PrimeC/solution_3 - fvbakel C-words**: The segmented algorithm shares similar concepts, but the extended algorithm takes it further with sub-byte (bit-level) optimizations, including pairing, patterning, and small vs. large step optimizations.
 - **PrimeRust/solution_1 - Michael Barber**: Inspired the manual loop unroll optimization.
- 
+
 ### Reference Algorithms: Classic and Base
+
 For comparison, the framework includes classic and base implementations:
+
 - **Classic Implementation**: Based on @davepl's implementation, using the same defines as the extend version. It includes an 8-bit version and a 64-bit version. Surprisingly, the 8-bit version is two (icore) to four (apple m1) times faster than the 64-bit version on modern processors.
 - **Base Implementation**: Uses functions that set multiples of primes individually and employs the block approach described by Michael Barber in PrimeRust/solution_1.
 
-
 ### Lessons Learned about Speed optimization in C
+
 - **Data Types**:
-  - 8-bit handling with shift and mask is faster than 32-bit or 64-bit handling.
-  - Using 32-bit integers for counters is faster than 64-bit integers, especially on Apple M1 processors.
+    - 8-bit handling with shift and mask is faster than 32-bit or 64-bit handling.
+    - Using 32-bit integers for counters is faster than 64-bit integers, especially on Apple M1 processors.
 - **Compiler Optimizations**:
-  - Use `#pragma GCC ivdep` to signal the compiler to ignore memory rereads in loops.
-  - Manual unrolling for small sizes provides significant performance gains.
-  - Combining manual unrolling with unroll hints in `applymask` yields large performance improvements.
+    - Use `#pragma GCC ivdep` to signal the compiler to ignore memory rereads in loops.
+    - Manual unrolling for small sizes provides significant performance gains.
+    - Combining manual unrolling with unroll hints in `applymask` yields large performance improvements.
 - **Memory Alignment**:
-  - Align data to cache lines for optimal performance.
-  - Use a single `malloc` for both the sieve and storage to reduce overhead.
+    - Align data to cache lines for optimal performance.
+    - Use a single `malloc` for both the sieve and storage to reduce overhead.
 - **Vectorization**:
-  - Leverage SSE/AVX extensions for vector operations to achieve significant speedups.
-  - Pair vector manipulations to improve performance further.
+    - Leverage SSE/AVX extensions for vector operations to achieve significant speedups.
+    - Pair vector manipulations to improve performance further.
 - **Compiler Flags**:
-  - Small code changes can have a huge impact when using `-Ofast` or `-O3` optimizations.
-  - Link-time optimization (`-flto`) is beneficial.
-  - Use `__attribute__((always_inline))` to force function inlining (using `inline` alone is insufficient).
+    - Small code changes can have a huge impact when using `-Ofast` or `-O3` optimizations.
+    - Link-time optimization (`-flto`) is beneficial.
+    - Use `__attribute__((always_inline))` to force function inlining (using `inline` alone is insufficient).
 - **Loop Optimization**:
-  - Using `while (index < range_stop)` followed by `if (index == range_stop)` is faster than `while (index <= range_stop)`.
+    - Using `while (index < range_stop)` followed by `if (index == range_stop)` is faster than `while (index <= range_stop)`.
 - **Memory Allocators**:
-  - Alpine Docker images are slow due to the standard `malloc`. Integrating `jemalloc` or `mimalloc` improves performance.
+    - Alpine Docker images are slow due to the standard `malloc`. Integrating `jemalloc` or `mimalloc` improves performance.
 - **Math Optimizations**:
-  - Integrated the canonical "doom" fast square root for speed improvements (see `src/sieve/sieve_calc`).
+    - Integrated the canonical "doom" fast square root for speed improvements (see `src/sieve/sieve_calc`).
 
 ### Sources about speed optimization
+
 - https://www.agner.org/optimize/ - excellent manuals on optimization
 - https://stackoverflow.com/questions/21681300/diferences-between-pragmas-simd-and-ivdep-vector-always
 - https://stackoverflow.com/questions/25248766/emulating-shifts-on-32-bytes-with-avx
@@ -66,6 +71,7 @@ For comparison, the framework includes classic and base implementations:
 - https://en.wikipedia.org/wiki/Fast_inverse_square_root
 
 ## Source code organization
+
 During development, a framework was created for benchmarking sieve functions. This framework spans the following directories:
 
 ```none
@@ -82,6 +88,7 @@ On initialization, a small benchmark determines the optimal settings for the har
 ## Build and run instructions
 
 ### Building & running with the sieve command gadget
+
 The ./sieve command is a bash script for building and running the sieve application. It reads command-line arguments, sets the necessary defines, builds the appropriate version of the sieve app in the build directory, and runs it automatically. The script can be used as if it were the final program. Additional build options include:
 
 ```none
@@ -102,6 +109,7 @@ The ./sieve command is a bash script for building and running the sieve applicat
 ./sieve sieve_classic                             - Compile the classic algorithm variant.
 ./sieve sieve_extend                              - Compile the extend algorithm variant (default).
 ```
+
 Alternatively, you can use make for building.
 
 ### Stable benchmarking on Linux, WSL, and macOS
@@ -132,6 +140,7 @@ PRIME_BENCHMARK_CPU=0
 If not set, CPU `0` is used.
 
 ### Command line options
+
 ```none
 Usage: ./sieve [options] [maximum]
 [options] is one or more of the following:
@@ -189,15 +198,14 @@ To run the application using Docker:
 1. Install Docker: <https://docs.docker.com/get-docker/>
 2. Build the image:
 
-    ```bash
-    docker build --pull --rm -f "Dockerfile" -t c:latest "."
-    ```
-
+   ```bash
+   docker build --pull --rm -f "Dockerfile" -t c:latest "."
+   ```
 3. Run with Docker:
 
-    ```bash
-    docker run --rm -it c:latest 
-    ```
+   ```bash
+   docker run --rm -it c:latest 
+   ```
 
 Or do it all in one go for testing single thread versions:
 
@@ -213,11 +221,13 @@ docker run -it --entrypoint /bin/bash primec_solution_5
 ```
 
 Command to create a dockerfile
+
 ```bash
 sed -i 's/\r$//' sieve;./sieve docker alpine_gcc_mimalloc set
 ```
 
 Command to run the formal benchmark for the primeview results:
+
 ```bash
 cd ../..; make DIRECTORY=PrimeC/solution_5; cd PrimeC/solution_5
 ```
@@ -231,8 +241,10 @@ git add --renormalize .
 ```
 
 ## Output
+
 The output at verbosity 1 and up has some extra settings information.
 Before doing the benchmark, the program tunes some settings. Theses settings are in the output.
+
 ```none
 Example:
 s063-l128-b0262144-v256-a1
@@ -245,6 +257,7 @@ s063-----------------------> Use striping for the entire sieve up to this factor
 ```
 
 Below is an example of the output on my machine, running with Docker.
+
 ```none
 rogiervandam_extend;83501;5.000029;1;algorithm=other,faithful=yes,bits=1;s063-l128-b0262144-v256-a1 total 83501
 rogiervandam_base;20651;5.000002;1;algorithm=base,faithful=yes,bits=1;s122-l236-b0262144-v256-a1 total 20651
