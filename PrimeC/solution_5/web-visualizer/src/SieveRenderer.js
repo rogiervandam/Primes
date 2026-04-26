@@ -1605,40 +1605,8 @@ export class SieveRenderer {
               const bitAlpha = (!isChangedBit && !isGhostMaskedBit && !isRepeatedWrite) ? baseAlpha : 1;
 
               if (layeredLoweredBits && isDepthBucket) {
-                const topX = Math.round(bitX);
-                const topY = Math.round(bitY);
-                const topSize = Math.max(1, Math.round(px));
-
-                // Side faces make the lowered layer read as depth instead of a flat duplicate.
-                ctx.save();
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
-                ctx.beginPath();
-                ctx.moveTo(topX + topSize, topY);
-                ctx.lineTo(topX + topSize, topY + topSize);
-                ctx.lineTo(drawX + drawSize, drawY + drawSize);
-                ctx.lineTo(drawX + drawSize, drawY);
-                ctx.closePath();
-                ctx.fill();
-
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.24)';
-                ctx.beginPath();
-                ctx.moveTo(topX, topY + topSize);
-                ctx.lineTo(topX + topSize, topY + topSize);
-                ctx.lineTo(drawX + drawSize, drawY + drawSize);
-                ctx.lineTo(drawX, drawY + drawSize);
-                ctx.closePath();
-                ctx.fill();
-                ctx.restore();
-
+                // Only draw the sunk bit at the lowered position — no side faces or top box.
                 settledCtx.save();
-                settledCtx.strokeStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.38)`;
-                settledCtx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
-                settledCtx.strokeRect(
-                  Math.round(drawX) + 0.5,
-                  Math.round(drawY) + 0.5,
-                  Math.max(1, Math.round(drawSize - 1)),
-                  Math.max(1, Math.round(drawSize - 1))
-                );
                 if (isSetBit) {
                   settledCtx.fillStyle = 'rgba(0, 0, 0, 0.24)';
                   settledCtx.fillRect(
@@ -1659,24 +1627,6 @@ export class SieveRenderer {
                   );
                 }
                 settledCtx.restore();
-
-                ctx.save();
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
-                ctx.fillRect(
-                  Math.round(bitX),
-                  Math.round(bitY),
-                  Math.max(1, Math.round(px)),
-                  Math.max(1, Math.round(px))
-                );
-                ctx.strokeStyle = `rgba(${color[0]},${color[1]},${color[2]},0.28)`;
-                ctx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
-                ctx.strokeRect(
-                  Math.round(bitX) + 0.5,
-                  Math.round(bitY) + 0.5,
-                  Math.max(1, Math.round(px - 1)),
-                  Math.max(1, Math.round(px - 1))
-                );
-                ctx.restore();
               } else {
                 drawCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
                 drawCtx.fillRect(drawX, drawY, drawSize, drawSize);
@@ -1752,7 +1702,7 @@ export class SieveRenderer {
                 const baseFontSize = dualLine
                   ? Math.max(5, Math.min(8, labelPx * 0.2))
                   : Math.max(5, Math.min(9, labelPx * 0.34));
-                const fontSize = baseFontSize * zoomBoost;
+                const fontSize = baseFontSize * zoomBoost * (isLoweredLabel ? 0.8 : 1);
                 const centerX = Math.round(labelX + labelPx / 2);
                 const centerY = Math.round(labelY + labelPx / 2);
                 const textColor = this._labelTextColor(color);
