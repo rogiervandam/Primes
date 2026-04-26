@@ -604,6 +604,13 @@ export default function SettingsPanel({
                   </span>
                   <span>custom</span>
                 </button>
+                <SpacingControl
+                  title="Grouping spacing"
+                  keyH="u64SpacingH"
+                  keyV="u64SpacingV"
+                  max={20}
+                  className="spacing-inline-grouping"
+                />
               </div>
               <p className="layout-description">Current: {activeGroupingLabel}</p>
               {isCustomVectorMode && (
@@ -713,13 +720,6 @@ export default function SettingsPanel({
               >
                 {Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0 ? 'Auto fit on' : 'Auto fit off'}
               </button>
-              <SpacingControl
-                title="Grouping spacing"
-                keyH="u64SpacingH"
-                keyV="u64SpacingV"
-                max={20}
-                className="spacing-inline-grouping"
-              />
             </div>
           </div>
         </div>
