@@ -22,6 +22,10 @@ RENDER=""
 STABLE_MODE=""
 STABLE_SETUP=""
 STABLE_WSL_HOST=""
+CHAIN=""
+CHAIN_EMBED_MODE=""  # "embedded" variant: COMPILE_BENCHMARK_STRIPERS + EMBED_SETTINGS
+CHAIN_TIMING_MODE="" # "timing" variant: COMPILE_TIMERS + EMBED_SETTINGS
+CHAIN_EXPLAIN_MODE="" # "explain" flag: add COMPILE_EXPLAIN to trace binary
 
 SIEVEVARIANTS="sieve_classic8 sieve_classic64 sieve_base sieve_wheel sieve_wheel_8of30 sieve_wheelstorage sieve_extend"
 
@@ -79,6 +83,14 @@ for arg in "$@"; do
         COMPILE_FULL="compilefull"
     elif [ "$arg" = "--embed" ] || [ "$arg" = "embed" ]; then
         EMBED="embed"
+    elif [ "$arg" = "embedded" ]; then
+        CHAIN_EMBED_MODE="embedded"
+    elif [ "$arg" = "timing" ]; then
+        CHAIN_TIMING_MODE="timing"
+    elif [ "$arg" = "explain" ]; then
+        CHAIN_EXPLAIN_MODE="explain"
+    elif [ "$arg" = "chain" ] || [ "$arg" = "--chain" ]; then
+        CHAIN="chain"
     elif [ "$arg" = "visualize" ] || [ "$arg" = "visual" ]; then
         VISUALIZE="visualize"
     elif [ "$arg" = "native" ]; then
@@ -142,6 +154,12 @@ fi
 PROGRAM_SUFFIX=""
 if [ "$VISUALIZE" = "visualize" ] || [ "$TRACE" = "trace" ]; then
     PROGRAM_SUFFIX="_trace"
+fi
+if [ "$CHAIN_TIMING_MODE" = "timing" ]; then
+    DEFINE_FLAGS="-DCOMPILE_TIMERS $DEFINE_FLAGS"
+    PROGRAM_SUFFIX="_timing"
+elif [ "$CHAIN_EMBED_MODE" = "embedded" ]; then
+    PROGRAM_SUFFIX="_embedded"
 fi
 
 # Set default tokens
@@ -260,6 +278,11 @@ fi
 
 if [ "$COMPILE_FULL" = "compilefull" ]; then
     DEFINE_FLAGS="-DCOMPILE_FULL $DEFINE_FLAGS"
+fi
+
+if [ "$CHAIN_EXPLAIN_MODE" = "explain" ]; then
+    DEFINE_FLAGS="-DCOMPILE_EXPLAIN $DEFINE_FLAGS"
+    if [ "$explain_level" -lt 6 ]; then explain_level=6; fi
 fi
 
 # Add default verbose arguments if not explicitly specified
@@ -510,6 +533,101 @@ if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
     fi
 fi
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Chain mode: tune → benchmark → timing → explain → trace → visualize
+# ─────────────────────────────────────────────────────────────────────────────
+if [ "$CHAIN" = "chain" ]; then
+    [ -d ./log ] || mkdir ./log
+    CHAIN_TS=$(date "+%Y-%m-%d_%H-%M")
+    CHAIN_MAX="${highest_number:-1000000}"
+    [ "$CHAIN_MAX" -eq 0 ] && CHAIN_MAX=1000000
+    CHAIN_LOGBASE="log/${CHAIN_TS}_${base}_${CHAIN_MAX}"
+
+    # Forward compiler choice and sieve size to sub-invocations
+    CHAIN_FWD=()
+    [ -n "$COMPILER_OVERRIDE" ] && CHAIN_FWD+=("$COMPILER_OVERRIDE")
+    [ "${CHAIN_MAX:-0}" -gt 0 ]  && CHAIN_FWD+=("$CHAIN_MAX")
+
+    echo -e "\n=== ${CYELLOW}Chain mode${CRESET}: ${CCYAN}${base}${CRESET} up to ${CHAIN_MAX} ==="
+    echo -e "Log base: ${CGREEN}${CHAIN_LOGBASE}${CRESET}\n"
+
+    # ── 1/6: Tune ────────────────────────────────────────────────────────────
+    echo -e "${CYELLOW}[1/6]${CRESET} Compiling tune variant..."
+    $0 "${base}" compile --verbose 2 "${CHAIN_FWD[@]}" || exit $?
+    echo -e "${CYELLOW}[1/6]${CRESET} Running tune (finding best settings)..."
+    ./bin/${base} --tune 5 --nocheck --verbose 2 "${CHAIN_FWD[@]}" || exit $?
+
+    # ── 2/6: Benchmark (embedded settings, 5-second run) ─────────────────────
+    echo -e "\n${CYELLOW}[2/6]${CRESET} Compiling embedded benchmark variant..."
+    $0 "${base}" embedded compile --verbose 2 "${CHAIN_FWD[@]}" || exit $?
+    echo -e "${CYELLOW}[2/6]${CRESET} Running 5-second benchmark..."
+    ./bin/${base}_embedded --verbose 1 "${CHAIN_FWD[@]}" \
+        | tee "${CHAIN_LOGBASE}.bench.txt" || exit $?
+
+    # ── 3/6: Timing (embedded + COMPILE_TIMERS, 5-second run) ────────────────
+    echo -e "\n${CYELLOW}[3/6]${CRESET} Compiling timing variant..."
+    $0 "${base}" timing compile --verbose 2 "${CHAIN_FWD[@]}" || exit $?
+    echo -e "${CYELLOW}[3/6]${CRESET} Running 5-second timing..."
+    ./bin/${base}_timing --notune --nocheck --verbose 2 --timers \
+        --benchmark-log "${CHAIN_LOGBASE}_sievebenchmark.json" \
+        "${CHAIN_FWD[@]}" || exit $?
+    echo -e "Timing log: ${CCYAN}${CHAIN_LOGBASE}_sievebenchmark.json${CRESET}"
+
+    # ── 4/6: Compile trace+explain binary (shared by steps 4 and 5) ──────────
+    echo -e "\n${CYELLOW}[4/6]${CRESET} Compiling trace+explain variant..."
+    $0 "${base}" visualize explain compile --verbose 2 "${CHAIN_FWD[@]}" || exit $?
+    echo -e "${CYELLOW}[4/6]${CRESET} Running explain (output → ${CHAIN_LOGBASE}.explain.txt)..."
+    ./bin/${base}_trace --verbose 7 --explain \
+        "${CHAIN_FWD[@]}" > "${CHAIN_LOGBASE}.explain.txt" 2>&1 || exit $?
+    echo -e "Explain log: ${CCYAN}${CHAIN_LOGBASE}.explain.txt${CRESET}"
+
+    # ── 5/6: Trace (same binary, with trace output) ───────────────────────────
+    echo -e "\n${CYELLOW}[5/6]${CRESET} Running trace..."
+    ./bin/${base}_trace --verbose 2 \
+        --trace 9 --trace-filename "${CHAIN_LOGBASE}.sievetrace" \
+        "${CHAIN_FWD[@]}" || exit $?
+    echo -e "Trace file:  ${CCYAN}${CHAIN_LOGBASE}.sievetrace${CRESET}"
+
+    # ── 6/6: Visualize ────────────────────────────────────────────────────────
+    echo -e "\n${CYELLOW}[6/6]${CRESET} Starting visualizer..."
+    CHAIN_TRACE_ABS="$(cd "$(dirname "${CHAIN_LOGBASE}.sievetrace")" && pwd)/$(basename "${CHAIN_LOGBASE}.sievetrace")"
+    CHAIN_FILE_PARAM=$(basename "${CHAIN_LOGBASE}.sievetrace")
+
+    if [ ! -d web-visualizer/node_modules ]; then
+        echo "Installing web visualizer dependencies..."
+        (cd web-visualizer && npm install 2>&1 | tail -5)
+    fi
+
+    USE_ELECTRON=false
+    if [ "$VISUALIZE_MODE" = "native" ]; then
+        USE_ELECTRON=true
+    elif [ "$VISUALIZE_MODE" = "web" ]; then
+        USE_ELECTRON=false
+    elif command -v npx >/dev/null 2>&1 && (cd web-visualizer && npx electron --version >/dev/null 2>&1); then
+        USE_ELECTRON=true
+    fi
+
+    if [ "$USE_ELECTRON" = true ]; then
+        if [ ! -d web-visualizer/dist ]; then
+            echo "Building web visualizer..."
+            (cd web-visualizer && npx vite build 2>&1 | tail -5)
+        fi
+        echo -e "Starting native app with ${CYELLOW}${CHAIN_FILE_PARAM}${CRESET}..."
+        (cd web-visualizer && npx electron . "${CHAIN_TRACE_ABS}")
+    else
+        CHAIN_URL="http://localhost:5173/?file=${CHAIN_FILE_PARAM}"
+        (cd web-visualizer && npx vite) &
+        VITE_PID=$!
+        sleep 3
+        (wslview "$CHAIN_URL" || xdg-open "$CHAIN_URL" || open "$CHAIN_URL" || sensible-browser "$CHAIN_URL") 2>/dev/null || \
+            echo -e "Open ${CCYAN}${CHAIN_URL}${CRESET} in your browser."
+        echo -e "Visualizer running at ${CCYAN}${CHAIN_URL}${CRESET}"
+        echo "Press Ctrl+C to stop."
+        wait $VITE_PID
+    fi
+    exit 0
+fi
+
 # Set default compiler flags for all compilers
 COMPILER_ASM=""
 COMPILER=""
@@ -596,6 +714,14 @@ fi
 
 # create a bin directory if it does not exist
 [ -d ./bin ] || mkdir ./bin
+
+# Auto-enable embed for timing/embedded/trace/visualize variants when settings are already saved
+if [ "$CHAIN_TIMING_MODE" = "timing" ] || [ "$CHAIN_EMBED_MODE" = "embedded" ] || \
+   [ "$VISUALIZE" = "visualize" ] || [ "$TRACE" = "trace" ]; then
+    if [ -z "$EMBED" ] && [ -f "./dev/build/${base}_settings.txt" ]; then
+        EMBED="embed"
+    fi
+fi
 
 # Handle --embed: use compile-time constants from last saved settings
 if [ "$EMBED" = "embed" ]; then

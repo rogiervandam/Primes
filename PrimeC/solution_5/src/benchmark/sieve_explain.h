@@ -11,6 +11,11 @@ Explain / Trace levels:
 
 */
 
+// Forward declaration: defined in sieve_time.h (included later via sieve_performBenchmark.h)
+#ifdef COMPILE_TIMERS
+static void print_timing_table(void);
+#endif
+
 static inline void
 initSingleRunTrace(benchmark_settings_t benchmark_settings)
 {
