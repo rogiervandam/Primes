@@ -1,5 +1,11 @@
-#ifdef COMPILE_TIMERS
+#ifndef SIEVE_TIMERS_GUARD
+#define SIEVE_TIMERS_GUARD
+#ifndef COMPILE_TIMERS // enable using timer_lapstart in code
+    #define timer_lapstart(timer) 
+    #define timer_laptime(timer) 
+#endif
 
+#ifdef COMPILE_TIMERS
 // helper functions for timing parts of code in debugging mode
 
 #define timer_count 100 // TODO: tune this
@@ -41,18 +47,8 @@ static void timer_init() {
     for (counter_t i = 0; i < timer_count; i++) timer_time[i] = 0;
 }
 
-static void print_timing_table(void) {
-    verbose1( printf("%-50s %15s %20s\n", "Functions", "Hits", "Total time (s)"); )
-    for (counter_t i = 0; i < timer_count; i++) {
-        if (timer_hits[i] == 0) continue;
-        verbose1( printf("%-50s %15ju %20.9f\n", timer_function_names[i], (uintmax_t)timer_hits[i], timer_time[i] * 1e-9); )
-    }
-}
-
 #define timer_lapstart(timer) time_mark(&timer_timers[timer]);
 #define timer_laptime(timer) timer_laptime_function(timer);
 
-#else
-    #define timer_lapstart(timer) 
-    #define timer_laptime(timer) 
-#endif
+#endif // COMPILE_TIMERS
+#endif // SIEVE_TIMERS_GUARD
