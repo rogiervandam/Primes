@@ -1,4 +1,4 @@
-# Sieve Visualizer
+# Sieve Visualizer (new)
 
 A React-based application for visualizing the bitstorage changes in PrimeC solution_5's Sieve of Eratosthenes trace output. Runs as a **web app** in any browser and as a **native desktop app** on Windows and macOS (via Electron), sharing the same visualization codebase.
 
@@ -47,6 +47,7 @@ The visualizer requires **Node.js** (v18+) and **npm**. Install them if you have
 1. Download the installer from https://nodejs.org/ (LTS recommended).
 2. Run the `.msi` installer and follow the prompts — npm is included automatically.
 3. Verify in PowerShell:
+
    ```powershell
    node --version
    npm --version
@@ -154,26 +155,27 @@ Packaged output goes to `release/`.
 
 ### Platform integration
 
-| Platform | Details |
-|----------|---------|
-| **macOS** | Hidden-inset title bar, standard app menu, DMG + ZIP targets |
-| **Windows** | NSIS installer + portable exe, desktop shortcut |
+| Platform    | Details                                                      |
+| ----------- | ------------------------------------------------------------ |
+| **macOS**   | Hidden-inset title bar, standard app menu, DMG + ZIP targets |
+| **Windows** | NSIS installer + portable exe, desktop shortcut              |
 
 The Electron wrapper automatically:
+
 - Opens the most recent `.sievetrace` from `../log/` on launch
 - Provides a **File → Open Trace…** dialog pointing at the log directory
 - Runs a local HTTP server so the React app's `/api/logs` endpoints work unchanged
 
 ## Keyboard Shortcuts
 
-| Key | Action |
-|-----|--------|
-| `←` / `→` | Previous / Next step |
-| `Home` / `End` | First / Last step |
-| `Space` | Play / Pause |
-| `+` / `=` | Zoom in |
-| `-` | Zoom out |
-| `0` | Reset zoom & pan |
+| Key            | Action               |
+| -------------- | -------------------- |
+| `←` / `→`      | Previous / Next step |
+| `Home` / `End` | First / Last step    |
+| `Space`        | Play / Pause         |
+| `+` / `=`      | Zoom in              |
+| `-`            | Zoom out             |
+| `0`            | Reset zoom & pan     |
 
 ## Trace Format (v3)
 
