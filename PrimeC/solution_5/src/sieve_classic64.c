@@ -17,8 +17,8 @@ static char algorithm_type[] = "base";
 // #include "generic/settings.h"
 #include "benchmark/sieve_options.h"
 #include "bitstorage/bitstorage_search.h"
-#include "sieve/sieve_calc.h"
 #include "sieve/sieve_manager.h"
+#include "sieve/sieve_calc.h"
 
 static inline uint8_t checkFactor(sieve_t *sieve, counter_t factor) {
     uint8_t* bitstorage = sieve->bitstorage;

@@ -7,6 +7,7 @@
 #elif defined(BUILD_WORDS_STAGE) && (unrolls == 1)
 
 // convenience macro to build function names and calls with different suffixes for different implementations
+// only works in the same file
 #define setBitFalse_suffix(...)              NAME(setBitFalse,suffix             )(__VA_ARGS__)
 #define setBitsTrue_range_suffix(...)        NAME(setBitsTrue_range,suffix       )(__VA_ARGS__)
 #define setBitsTrue_range_return_suffix(...) NAME(setBitsTrue_range_return,suffix)(__VA_ARGS__)

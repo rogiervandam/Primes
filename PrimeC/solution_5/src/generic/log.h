@@ -29,8 +29,8 @@
                                                             log_text_unlabeled, \
                                                             log_event_untimed)(level, a1, a2)
 #define PRIMES_LOG_DISPATCH_3(level, a1, a2, ...)       PRIMES_LOG_SELECT_FIRST(a1, \
-                                                            log_event_functionid, \
-                                                            log_event_untimed, \
+                                                            log_text_functionid, \
+                                                            log_text_unlabeled, \
                                                             PRIMES_LOG_SELECT_FIRST(a2, \
                                                                 log_event_functionid, \
                                                                 log_event_bare, \
