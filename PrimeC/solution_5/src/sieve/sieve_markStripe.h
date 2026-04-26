@@ -1,6 +1,6 @@
 static inline counter_t __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 markSieveBlock(sieve_t* sieve, const counter_t block_start, const counter_t block_stop, counter_t prime, const counter_t prime_max) {
-    logBegins5(sieve->bitstorage, time_sieveStripeBlock, "MarkFactorsStripe: block stripe for block %ju - %ju with prime %ju",(uintmax_t)block_start/2,(uintmax_t)block_stop/2,(uintmax_t)prime );
+    logStart5(sieve->bitstorage, time_sieveStripeBlock, "MarkFactorsStripe: block stripe for block %ju - %ju with prime %ju",(uintmax_t)block_start/2,(uintmax_t)block_stop/2,(uintmax_t)prime );
 
     const counter_t prime_endloop_shortstepsearch = min(prime_max, 128);
 
@@ -12,7 +12,7 @@ markSieveBlock(sieve_t* sieve, const counter_t block_start, const counter_t bloc
         markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
     }
 
-    logEnds5(sieve->bitstorage, time_sieveStripeBlock, "MarkFactorsStripe: finished block stripe for block %ju - %ju with prime %ju\n", (uintmax_t)block_start/2, (uintmax_t)block_stop/2, (uintmax_t)prime);
+    logStop5(sieve->bitstorage, time_sieveStripeBlock, "MarkFactorsStripe: finished block stripe for block %ju - %ju with prime %ju\n", (uintmax_t)block_start/2, (uintmax_t)block_stop/2, (uintmax_t)prime);
     return prime; 
 }
 

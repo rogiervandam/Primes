@@ -1,7 +1,7 @@
 static inline counter_t __attribute__((always_inline, hot, nonnull)) 
 function(continuePattern_shiftleft_unrolled,suffix)(void* restrict bitstorage, const counter_t aligned_copy_word, const bitshift_t shift, counter_t copy_word, counter_t source_word) 
 {
-    logBegins7(bitstorage,time_continuePattern_shiftleft_unrolled, "ContinuePatternShiftLeftUnrolled: aligned copy word %ju, shift %ju, copy_word %ju, source_word %ju", (uintmax_t)aligned_copy_word, (uintmax_t)shift, (uintmax_t)copy_word, (uintmax_t)source_word);
+    logStart7(bitstorage,time_continuePattern_shiftleft_unrolled, "ContinuePatternShiftLeftUnrolled: aligned copy word %ju, shift %ju, copy_word %ju, source_word %ju", (uintmax_t)aligned_copy_word, (uintmax_t)shift, (uintmax_t)copy_word, (uintmax_t)source_word);
 
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     const counter_t fast_loop_stop_word = safe_diff_type(aligned_copy_word, 2, counter_t); // safe for signed ints
@@ -23,14 +23,14 @@ function(continuePattern_shiftleft_unrolled,suffix)(void* restrict bitstorage, c
         distance += 2;
     }
 
-    logEnds7(bitstorage, time_continuePattern_shiftleft_unrolled, "ContinuePatternShiftLeftUnrolled: finished copying pattern\n");
+    logStop7(bitstorage, time_continuePattern_shiftleft_unrolled, "ContinuePatternShiftLeftUnrolled: finished copying pattern\n");
     return distance;
 }
 
 static inline void __attribute__((always_inline)) 
 function(continuePattern_shiftleft,suffix)(void* restrict bitstorage, const counter_t source_start, const counter_t destination_stop, const counter_t size)
 {
-    logBegins7(bitstorage, time_continuePattern_shiftleft, "ContinuePatternShiftLeft: continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_shiftleft (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
+    logStart7(bitstorage, time_continuePattern_shiftleft, "ContinuePatternShiftLeft: continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_shiftleft (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
 
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
 
@@ -61,7 +61,7 @@ function(continuePattern_shiftleft,suffix)(void* restrict bitstorage, const coun
     }
 
     if (copy_word >= destination_stop_word) {
-        logEnds7(bitstorage, time_continuePattern_shiftleft, "ContinuePatternShiftLeft: finished continuing pattern\n");
+        logStop7(bitstorage, time_continuePattern_shiftleft, "ContinuePatternShiftLeft: finished continuing pattern\n");
         return;
     }
 
@@ -77,5 +77,5 @@ function(continuePattern_shiftleft,suffix)(void* restrict bitstorage, const coun
         log9(bitstorage, "ContinuePatternShiftLeft: copying pattern in loop source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size);
     }
 
-    logEnds7(bitstorage, time_continuePattern_shiftleft, "ContinuePatternShiftLeft: finished continuing pattern\n");
+    logStop7(bitstorage, time_continuePattern_shiftleft, "ContinuePatternShiftLeft: finished continuing pattern\n");
 }

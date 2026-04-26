@@ -5,7 +5,7 @@
 static inline counter_t __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 markExtendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop) 
 {
-    logBegins5(bitstorage, time_sieve_block_extend, "Extend: extend sieve block 0 to range %ju - %ju",(uintmax_t)0,(uintmax_t)block_stop);
+    logStart5(bitstorage, time_sieve_block_extend, "Extend: extend sieve block 0 to range %ju - %ju",(uintmax_t)0,(uintmax_t)block_stop);
 
     ((uint64_t*)bitstorage)[0] = (uint64_t)0ULL; // only the first word has to be cleared; the rest is populated by the extension procedure
 
@@ -37,7 +37,7 @@ markExtendSieveBlock0_half(void* restrict bitstorage, const counter_t block_stop
     // continue the found pattern to the entire sieve. TODO: uint64 not working here, investigate why
     continuePattern_uint32(bitstorage, patternsize_bits, block_stop, patternsize_bits);
 
-    logEnds5(bitstorage, time_sieve_block_extend, "Copy bitpattern from %ju - %ju to range %ju - %ju:\n", (uintmax_t)patternsize_bits, (uintmax_t)2*patternsize_bits-1, (uintmax_t)2*patternsize_bits, (uintmax_t)block_stop);
+    logStop5(bitstorage, time_sieve_block_extend, "Copy bitpattern from %ju - %ju to range %ju - %ju:\n", (uintmax_t)patternsize_bits, (uintmax_t)2*patternsize_bits-1, (uintmax_t)2*patternsize_bits, (uintmax_t)block_stop);
     return prime;
 }
 
@@ -55,7 +55,7 @@ struct block {
 static inline counter_t 
 markExtendSieveBlock_half(void* restrict bitstorage, const counter_t block_start, const counter_t block_stop) 
 {
-    logBegins5(bitstorage, time_sieve_block_extend, "Extend: extend sieve block to range %ju - %ju with markExtendSieveBlock",(uintmax_t)block_start,(uintmax_t)block_stop);
+    logStart5(bitstorage, time_sieve_block_extend, "Extend: extend sieve block to range %ju - %ju with markExtendSieveBlock",(uintmax_t)block_start,(uintmax_t)block_stop);
 
     register counter_t prime         = 0;
     counter_t patternsize_bits       = 1;
@@ -97,7 +97,7 @@ markExtendSieveBlock_half(void* restrict bitstorage, const counter_t block_start
     // continue the found pattern to the entire block
     continuePattern_uint64(bitstorage, block_start, block_stop, block.pattern_size);
 
-    logEnds5(bitstorage, time_sieve_block_extend, "Copy bitpattern from %ju - %ju to range %ju - %ju:\n", (uintmax_t)block.pattern_size, (uintmax_t)2*block.pattern_size-1, (uintmax_t)2*block.pattern_size, (uintmax_t)block_stop);
+    logStop5(bitstorage, time_sieve_block_extend, "Copy bitpattern from %ju - %ju to range %ju - %ju:\n", (uintmax_t)block.pattern_size, (uintmax_t)2*block.pattern_size-1, (uintmax_t)2*block.pattern_size, (uintmax_t)block_stop);
     return block.prime_next;
 }
 

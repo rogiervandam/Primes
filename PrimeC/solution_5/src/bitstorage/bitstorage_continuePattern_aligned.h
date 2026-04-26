@@ -1,7 +1,7 @@
 static inline void  __attribute__((always_inline, hot, nonnull)) 
 function(continuePattern_aligned,suffix)(void* restrict bitstorage, const counter_t source_start, const counter_t destination_stop, const counter_t size)
 {
-    logBegins7(bitstorage, time_continuePattern_aligned, "ContinuePatternAligned: continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_aligned (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
+    logStart7(bitstorage, time_continuePattern_aligned, "ContinuePatternAligned: continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_aligned (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
 
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     const counter_t destination_stop_word = index_type(destination_stop, bitbucket_t);
@@ -22,5 +22,5 @@ function(continuePattern_aligned,suffix)(void* restrict bitstorage, const counte
         log9(bitstorage, "ContinuePatternAligned: copying pattern in loop source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size);
     }
 
-    logEnds7(bitstorage, time_continuePattern_aligned, "ContinuePatternAligned: finished continuing pattern\n");
+    logStop7(bitstorage, time_continuePattern_aligned, "ContinuePatternAligned: finished continuing pattern\n");
 }

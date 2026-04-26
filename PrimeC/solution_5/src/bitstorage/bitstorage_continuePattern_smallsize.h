@@ -1,7 +1,7 @@
 static inline void __attribute__((always_inline, hot, nonnull)) 
 function(continuePattern_smallSize,suffix)(void* restrict bitstorage, const counter_t source_start, const counter_t destination_stop, const counter_t size)
 {
-    logBegins7(bitstorage, time_continuePattern_smallSize, "ContinuePatternSmallSize: continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_smallSize (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
+    logStart7(bitstorage, time_continuePattern_smallSize, "ContinuePatternSmallSize: continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_smallSize (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
 
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
 
@@ -26,7 +26,7 @@ function(continuePattern_smallSize,suffix)(void* restrict bitstorage, const coun
 
         log9(bitstorage, "ContinuePatternSmallSize: handled with small size in one word destination_start=%ju destination_stop=%ju size=%ju", (uintmax_t)destination_start, (uintmax_t)destination_stop, (uintmax_t)size);
 
-        logEnds7(bitstorage, time_continuePattern_smallSize,"ContinuePatternSmallSize: handled with small size in one word destination_start=%ju destination_stop=%ju size=%ju", (uintmax_t)destination_start, (uintmax_t)destination_stop, (uintmax_t)size);
+        logStop7(bitstorage, time_continuePattern_smallSize,"ContinuePatternSmallSize: handled with small size in one word destination_start=%ju destination_stop=%ju size=%ju", (uintmax_t)destination_start, (uintmax_t)destination_stop, (uintmax_t)size);
         return;
     }
 
@@ -51,6 +51,6 @@ function(continuePattern_smallSize,suffix)(void* restrict bitstorage, const coun
     }
 
     bitstorage_sized[destination_stop_word] &= chopmask_type(destination_stop, bitbucket_t); // not needed with appropriate block_size
-    logEnds7(bitstorage, time_continuePattern_smallSize,"ContinuePatternSmallSize: continued pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_smallSize (%ju copies)",
+    logStop7(bitstorage, time_continuePattern_smallSize,"ContinuePatternSmallSize: continued pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_smallSize (%ju copies)",
                (uintmax_t)size,(uintmax_t)destination_stop-(uintmax_t)source_start, (uintmax_t)source_start, (uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
 }

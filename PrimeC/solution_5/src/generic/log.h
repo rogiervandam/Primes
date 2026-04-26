@@ -61,35 +61,35 @@
 // 2. Record a explain record
 // 3. Record a timer start
 
-#define logBegins(level, bitstorage, timer, printf_args...) \
+#define logStart(level, bitstorage, timer, printf_args...) \
           { if (option.trace_level >= level) primes_trace_set_context(level); } \
           log_event(level, bitstorage, timer_function_names[timer], 0, printf_args); \
           timer_lapstart(timer);
 
-#define logEnds(level, bitstorage, timer, printf_args...) \
+#define logStop(level, bitstorage, timer, printf_args...) \
           { if (option.trace_level >= level) log_event(level, bitstorage, timer_function_names[timer], timer_laptime_function(timer), printf_args); } \
           { if (option.trace_level >= level) primes_trace_clear_context(); }
 
 #ifndef COMPILE_TRACE
-  #undef logBegins
-  #define logBegins(level, bitstorage, timer, printf_args...) timer_lapstart(timer);
-  // #define logBegins(level, bitstorage, timer, printf_args...)
-  #undef logEnds
-  #define logEnds(level, bitstorage, timer, printf_args...) timer_laptime(timer);
-  // #define logEnds(level, bitstorage, timer, printf_args...) 
+  #undef logStart
+  #define logStart(level, bitstorage, timer, printf_args...) timer_lapstart(timer);
+  // #define logStart(level, bitstorage, timer, printf_args...)
+  #undef logStop
+  #define logStop(level, bitstorage, timer, printf_args...) timer_laptime(timer);
+  // #define logStop(level, bitstorage, timer, printf_args...) 
 #endif
 
-#define logBegins5(bitstorage, timer, printf_args...) logBegins(5, bitstorage, timer, printf_args)
-#define logBegins6(bitstorage, timer, printf_args...) logBegins(6, bitstorage, timer, printf_args)
-#define logBegins7(bitstorage, timer, printf_args...) logBegins(7, bitstorage, timer, printf_args)
-#define logBegins8(bitstorage, timer, printf_args...) logBegins(8, bitstorage, timer, printf_args)
-#define logBegins9(bitstorage, timer, printf_args...) logBegins(9, bitstorage, timer, printf_args)
+#define logStart5(bitstorage, timer, printf_args...) logStart(5, bitstorage, timer, printf_args)
+#define logStart6(bitstorage, timer, printf_args...) logStart(6, bitstorage, timer, printf_args)
+#define logStart7(bitstorage, timer, printf_args...) logStart(7, bitstorage, timer, printf_args)
+#define logStart8(bitstorage, timer, printf_args...) logStart(8, bitstorage, timer, printf_args)
+#define logStart9(bitstorage, timer, printf_args...) logStart(9, bitstorage, timer, printf_args)
 
-#define logEnds5(bitstorage, timer, printf_args...) logEnds(5, bitstorage, timer, printf_args)
-#define logEnds6(bitstorage, timer, printf_args...) logEnds(6, bitstorage, timer, printf_args)
-#define logEnds7(bitstorage, timer, printf_args...) logEnds(7, bitstorage, timer, printf_args)
-#define logEnds8(bitstorage, timer, printf_args...) logEnds(8, bitstorage, timer, printf_args)
-#define logEnds9(bitstorage, timer, printf_args...) logEnds(9, bitstorage, timer, printf_args)
+#define logStop5(bitstorage, timer, printf_args...) logStop(5, bitstorage, timer, printf_args)
+#define logStop6(bitstorage, timer, printf_args...) logStop(6, bitstorage, timer, printf_args)
+#define logStop7(bitstorage, timer, printf_args...) logStop(7, bitstorage, timer, printf_args)
+#define logStop8(bitstorage, timer, printf_args...) logStop(8, bitstorage, timer, printf_args)
+#define logStop9(bitstorage, timer, printf_args...) logStop(9, bitstorage, timer, printf_args)
 
 #ifdef COMPILE_TRACE
 static inline void

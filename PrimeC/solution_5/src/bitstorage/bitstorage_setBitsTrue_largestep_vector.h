@@ -8,7 +8,7 @@
     static inline void __attribute__((always_inline, nonnull,  aligned(cache_line_bytes))) 
     function(setBitsTrue_largestep_vector,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step) 
     {
-        logBegins7(bitstorage, time_setBitsTrue_largestep_bitbucket, "SetBitsTrueLargestepVector: setting bits step %3ju using largestep_bitbucket%s in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps)", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
+        logStart7(bitstorage, time_setBitsTrue_largestep_bitbucket, "SetBitsTrueLargestepVector: setting bits step %3ju using largestep_bitbucket%s in %ju bit range (%ju-%ju) (%ju occurances; %ju stamps)", (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
 
         const counter_t range_start_next_bitbucket = index_next_type(range_start, bitbucket_t); // find next bitbucket
         const counter_t range_start_new = setBitsTrue_range_return_uint8(bitstorage, range_start, range_start_next_bitbucket, step);
@@ -71,7 +71,7 @@
             function(applyMask_index,suffix)(bitstorage, current_bitbucket, range_stop_index, step, mask_bitbucket);
         }
 
-        logEnds7(bitstorage, time_setBitsTrue_largestep_bitbucket,"SetBitsTrueLargestepBitbucket: finished setting bits using largestep%s\n", STR(suffix));
+        logStop7(bitstorage, time_setBitsTrue_largestep_bitbucket,"SetBitsTrueLargestepBitbucket: finished setting bits using largestep%s\n", STR(suffix));
     }
 
 #endif

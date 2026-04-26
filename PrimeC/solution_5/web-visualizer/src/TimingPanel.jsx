@@ -300,7 +300,7 @@ export default function TimingPanel({
       {!hasData && (
         <div className="timing-panel-empty">
           No timing data available in this trace.<br />
-          <small>Timings are captured by <code>logBegins</code>/<code>logEnds</code> macros.</small>
+          <small>Timings are captured by <code>logStart</code>/<code>logStop</code> macros.</small>
         </div>
       )}
 

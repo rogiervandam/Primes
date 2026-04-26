@@ -122,7 +122,7 @@ function parseJsonTrace(text) {
         : (s.operation ? [s.operation] : []),
       parentId: s.parent_id ?? s.parentId ?? null,
       level: toNullableNumber(firstDefined(s.level, s.log_level)),
-      // Timing: elapsed nanoseconds (from logEnds; logBegins records 0 which we store as null)
+      // Timing: elapsed nanoseconds (from logStop; logStart records 0 which we store as null)
       elapsedNs: (() => { const t = toNullableNumber(s.time); return t != null && t > 0 ? t : null; })(),
     };
   });

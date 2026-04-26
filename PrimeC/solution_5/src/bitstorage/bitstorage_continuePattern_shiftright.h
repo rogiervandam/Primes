@@ -2,7 +2,7 @@
 static inline void  __attribute__((always_inline, hot, nonnull)) 
 function(continuePattern_shiftright,suffix)(void* restrict bitstorage, const counter_t source_start, const counter_t destination_stop, const counter_t size_bits)
 {
-    logBegins7(bitstorage, time_continuePattern_shiftright, "ContinuePatternShiftRight: extend sieve size %ju in %ju bit range (%ju-%ju) using continuePattern_shiftright (%ju copies)", (uintmax_t)size_bits, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size_bits));
+    logStart7(bitstorage, time_continuePattern_shiftright, "ContinuePatternShiftRight: extend sieve size %ju in %ju bit range (%ju-%ju) using continuePattern_shiftright (%ju copies)", (uintmax_t)size_bits, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size_bits));
 
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
 
@@ -20,7 +20,7 @@ function(continuePattern_shiftright,suffix)(void* restrict bitstorage, const cou
                                 & keepmask_type(copy_start, bitbucket_t) & chopmask_type(destination_stop, bitbucket_t);
         log9(bitstorage, "ContinuePatternShiftRight: handled with shift right in one word copy source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size_bits);
 
-        logEnds7(bitstorage, time_continuePattern_shiftright, "ContinuePatternShiftRight: finished continuing pattern\n");
+        logStop7(bitstorage, time_continuePattern_shiftright, "ContinuePatternShiftRight: finished continuing pattern\n");
         return; // rapid exit for one word variant
     }
 
@@ -51,7 +51,7 @@ function(continuePattern_shiftright,suffix)(void* restrict bitstorage, const cou
 
     // end if we reached the destination already
     if (copy_word >= destination_stop_word) {
-        logEnds7(bitstorage, time_continuePattern_shiftright, "ContinuePatternShiftRight: finished continuing pattern\n");
+        logStop7(bitstorage, time_continuePattern_shiftright, "ContinuePatternShiftRight: finished continuing pattern\n");
         return;
     }
 
@@ -74,5 +74,5 @@ function(continuePattern_shiftright,suffix)(void* restrict bitstorage, const cou
 
     log9(bitstorage, "ContinuePatternShiftRight: copying pattern with memcpy source_byte=%p copy_byte=%p size=%ju", (void*)source_byte, (void*)destination_byte, (uintmax_t)size);
 
-    logEnds7(bitstorage, time_continuePattern_shiftright, "ContinuePatternShiftRight: finished continuing pattern\n");
+    logStop7(bitstorage, time_continuePattern_shiftright, "ContinuePatternShiftRight: finished continuing pattern\n");
 }

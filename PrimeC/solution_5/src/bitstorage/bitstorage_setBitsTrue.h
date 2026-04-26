@@ -98,11 +98,11 @@ setBitsTrue(void* restrict bitstorage, const counter_t range_start, const counte
     // const counter_t range = range_stop - range_start, ratio = range / step;
     // if (ratio < 16) setBitsTrue_largestep_norepeat_uint8       (bitstorage, range_start, range_stop, step);
     // else 
-    logBegins6(bitstorage, time_setBitsTrue, "SetBitsTrue: setting bits step %3ju in %ju bit range (%ju-%ju) with %ju bits to set", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step));
+    logStart6(bitstorage, time_setBitsTrue, "SetBitsTrue: setting bits step %3ju in %ju bit range (%ju-%ju) with %ju bits to set", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step));
     switch(global_vectorsize) {
         case 128: setBitsTrue_v128 (bitstorage, range_start, range_stop, step); break;
         case 256: setBitsTrue_v256 (bitstorage, range_start, range_stop, step); break;
         case 512: setBitsTrue_v512 (bitstorage, range_start, range_stop, step); break;
     }
-    logEnds6(bitstorage, time_setBitsTrue, "SetBitsTrue: finished setting bits step %3ju in %ju bit range (%ju-%ju) with %ju bits to set", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step));
+    logStop6(bitstorage, time_setBitsTrue, "SetBitsTrue: finished setting bits step %3ju in %ju bit range (%ju-%ju) with %ju bits to set", (uintmax_t)step, (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step));
 }

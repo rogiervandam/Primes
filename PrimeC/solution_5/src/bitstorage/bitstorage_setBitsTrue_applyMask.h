@@ -13,7 +13,7 @@
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
 function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t range_start_index, const counter_t range_stop_index, counter_t step, const bitbucket_t mask) 
 {
-    logBegins8(bitstorage, time_applyMask, "ApplyMask_index%s: apply %s (%ju bit) mask with step %ju in bitrange (%ju - %ju)", STR(suffix), STR(bitbucket_t), bitcount_type(bitbucket_t),(uintmax_t)step, (uintmax_t)range_start_index * bitcount_type(bitbucket_t), (uintmax_t)(range_stop_index+1) * bitcount_type(bitbucket_t)-1);
+    logStart8(bitstorage, time_applyMask, "ApplyMask_index%s: apply %s (%ju bit) mask with step %ju in bitrange (%ju - %ju)", STR(suffix), STR(bitbucket_t), bitcount_type(bitbucket_t),(uintmax_t)step, (uintmax_t)range_start_index * bitcount_type(bitbucket_t), (uintmax_t)(range_stop_index+1) * bitcount_type(bitbucket_t)-1);
   
     register       bitbucket_t* restrict bitstorage_sized   = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     register       bitbucket_t* restrict index_ptr          = __builtin_assume_aligned(&bitstorage_sized[range_start_index],sizeof(bitbucket_t));
@@ -192,7 +192,7 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
         free(mask_target_slots);
     }
 
-    logEnds8(bitstorage, time_applyMask, "ApplyMask_index%s: finished applying mask\n", STR(suffix));
+    logStop8(bitstorage, time_applyMask, "ApplyMask_index%s: finished applying mask\n", STR(suffix));
 }
 
 #endif
