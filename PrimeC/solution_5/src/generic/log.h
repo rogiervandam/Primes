@@ -1,6 +1,8 @@
 #ifndef LOG_GUARD
 #define LOG_GUARD
 
+// Logging feature
+
 #ifdef COMPILE_TRACE
   #include "../trace/sieve_trace.h"
 #endif

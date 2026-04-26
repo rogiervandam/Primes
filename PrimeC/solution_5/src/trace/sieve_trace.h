@@ -11,12 +11,28 @@
 #include <time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <errno.h>
 #ifdef _WIN32
   #include <direct.h>
   #define trace_mkdir(path) _mkdir(path)
 #else
   #define trace_mkdir(path) mkdir(path, 0755)
 #endif
+
+static int
+trace_ensure_log_directory_for_path(const char* filename)
+{
+        if (!filename || strncmp(filename, "log/", 4) != 0) return 1;
+
+        struct stat st;
+        if (stat("log", &st) == 0) {
+                return S_ISDIR(st.st_mode) ? 1 : 0;
+        }
+
+        if (trace_mkdir("log") == 0) return 1;
+        if (errno == EEXIST) return 1;
+        return 0;
+}
 
 /*
  * Sieve Trace Recording API — JSON format v3
@@ -235,6 +251,13 @@ trace_init(const char* filename,
     g_trace.snapshot = (uint8_t*)calloc(1, g_trace.bitstorage_bytes);
     if (!g_trace.snapshot) {
         fprintf(stderr, "Trace: failed to allocate snapshot buffer (%u bytes)\n", g_trace.bitstorage_bytes);
+        return;
+    }
+
+    if (!trace_ensure_log_directory_for_path(filename)) {
+        fprintf(stderr, "Trace: failed to prepare log directory for output file: %s\n", filename);
+        free(g_trace.snapshot);
+        g_trace.snapshot = NULL;
         return;
     }
 
