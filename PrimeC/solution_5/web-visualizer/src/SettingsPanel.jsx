@@ -806,17 +806,7 @@ export default function SettingsPanel({
         {activeTab === 'layout' && (<>
         <div className="settings-section">
           <label>Title &amp; Grid</label>
-          <div className="settings-row">
-            <input
-              type="text"
-              className="settings-title-input"
-              placeholder="Custom visualizer title (optional)"
-              value={customTitle || ''}
-              onChange={(e) => onCustomTitleChange && onCustomTitleChange(e.target.value)}
-              style={{ width: '100%', background: 'var(--bg-raised)', color: 'var(--fg)', border: '1px solid var(--border-light)', borderRadius: 4, padding: '5px 8px', fontSize: 12 }}
-            />
-          </div>
-          <div className="settings-row overlay-inline-controls" style={{ marginTop: 8 }}>
+          <div className="settings-row overlay-inline-controls">
             <label className="overlay-inline-field overlay-inline-field-range">
               <span>Grid opacity</span>
               <input
