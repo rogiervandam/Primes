@@ -3951,6 +3951,8 @@ export default function Visualizer({
           depthModeEnabled={loweredSetBits}
           depthSettings={depthSettings}
           onDepthSettingsChange={setDepthSettings}
+          loweredSetBits={loweredSetBits}
+          onLoweredSetBitsToggle={() => setLoweredSetBits((v) => !v)}
           eventTitleSettings={eventTitleSettings}
           onEventTitleSettingsChange={setEventTitleSettings}
           outlineSettings={layoutSettings.outlines}

@@ -19,20 +19,20 @@
 #define PRIMES_VA_COUNT(...)  PRIMES_VA_COUNT_IMPL(__VA_ARGS__, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 1)
 
 #define PRIMES_LOG_DISPATCH_1(level, a1)                PRIMES_LOG_SELECT_FIRST(a1, \
-                                                            trace_record_text_functionid, \
-                                                            trace_record_text_unlabeled, \
-                                                            trace_record_event_untimed)(level, a1)
+                                                            log_text_functionid, \
+                                                            log_text_unlabeled, \
+                                                            log_event_untimed)(level, a1)
 #define PRIMES_LOG_DISPATCH_2(level, a1, a2)            PRIMES_LOG_SELECT_FIRST(a1, \
-                                                            trace_record_text_functionid, \
-                                                            trace_record_text_unlabeled, \
-                                                            trace_record_event_untimed)(level, a1, a2)
+                                                            log_text_functionid, \
+                                                            log_text_unlabeled, \
+                                                            log_event_untimed)(level, a1, a2)
 #define PRIMES_LOG_DISPATCH_3(level, a1, a2, ...)       PRIMES_LOG_SELECT_FIRST(a1, \
-                                                            trace_record_event_functionid, \
-                                                            trace_record_event_untimed, \
+                                                            log_event_functionid, \
+                                                            log_event_untimed, \
                                                             PRIMES_LOG_SELECT_FIRST(a2, \
-                                                                trace_record_event_functionid, \
-                                                                trace_record_event_bare, \
-                                                                trace_record_event) \
+                                                                log_event_functionid, \
+                                                                log_event_bare, \
+                                                                log_event) \
                                                         )(level, a1, a2, ##__VA_ARGS__)
 #define PRIMES_LOG_DISPATCH_SELECT_IMPL(count) PRIMES_LOG_DISPATCH_##count
 #define PRIMES_LOG_DISPATCH_SELECT(count) PRIMES_LOG_DISPATCH_SELECT_IMPL(count)
@@ -61,11 +61,11 @@
 
 #define logBegins(level, bitstorage, timer, printf_args...) \
           { if (option.trace_level >= level) primes_trace_set_context(level); } \
-          { if (option.trace_level >= level) trace_record_event(level, bitstorage, timer_function_names[timer], 0, printf_args); } \
+          { if (option.trace_level >= level) log_event(level, bitstorage, timer_function_names[timer], 0, printf_args); } \
           timer_lapstart(timer);
 
 #define logEnds(level, bitstorage, timer, printf_args...) \
-          { if (option.trace_level >= level) trace_record_event(level, bitstorage, timer_function_names[timer], timer_laptime_function(timer), printf_args); } \
+          { if (option.trace_level >= level) log_event(level, bitstorage, timer_function_names[timer], timer_laptime_function(timer), printf_args); } \
           { if (option.trace_level >= level) primes_trace_clear_context(); }
 
 #ifndef COMPILE_TRACE
@@ -91,7 +91,7 @@
 
 #ifdef COMPILE_TRACE
 static inline void
-trace_record_text_functionid(int level, function_id_t function_id, const char* fmt, ...)
+log_text_functionid(int level, function_id_t function_id, const char* fmt, ...)
 {
     char annotation[1024];
     va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
@@ -99,7 +99,7 @@ trace_record_text_functionid(int level, function_id_t function_id, const char* f
 }
 
 static inline void
-trace_record_event_functionid(int level, void* bitstorage, function_id_t function_id, const char* fmt, ...)
+log_event_functionid(int level, void* bitstorage, function_id_t function_id, const char* fmt, ...)
 {
     char annotation[1024];
     va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
@@ -115,6 +115,46 @@ trace_record_event_functionid(int level, void* bitstorage, function_id_t functio
 //     trace_record_event_full(level, bitstorage, timer_function_names[function_id], (double)0, annotation);
 //     explain
 // }
+static void
+log_text(int level, const char* label, const char* fmt, ...)
+{
+    char annotation[1024];
+    va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
+    trace_record_text_full(level, label, annotation);
+}
+
+// passes all to log_text but NULL for label
+static void
+log_text_unlabeled(int level, const char* fmt, ...)
+{
+    char annotation[1024];
+    va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
+    trace_record_text_full(level, NULL, annotation);
+}
+
+static void
+log_event(int level, const void* bitstorage, const char* label, double time, const char* fmt, ...)
+{
+    char annotation[1024];
+    va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
+    trace_record_event_full(level, bitstorage, label, time, annotation);
+}
+
+static void
+log_event_untimed(int level, const void* bitstorage, const char* label, const char* fmt, ...)
+{
+    char annotation[1024];
+    va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
+    trace_record_event_full(level, bitstorage, label, 0.0, annotation);
+}
+
+static void
+log_event_bare(int level, const void* bitstorage, const char* fmt, ...)
+{
+    char annotation[1024];
+    va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
+    trace_record_event_full(level, bitstorage, NULL, 0.0, annotation);
+}
 
 
 

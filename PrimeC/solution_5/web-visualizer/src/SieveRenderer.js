@@ -1741,28 +1741,36 @@ export class SieveRenderer {
                 const zoomBoost = this.zoom > 20
                   ? 1 + Math.min(1, (this.zoom - 20) / 24)
                   : 1;
+
+                // Set bits follow the lowered position; cleared bits remain raised at normal position
+                const isLoweredLabel = isDepthBucket && isSetBit;
+                const labelPx = isLoweredLabel ? drawSize : px;
+                const labelX = isLoweredLabel ? drawX : bitX;
+                const labelY = isLoweredLabel ? drawY : bitY;
+                const labelCtx = (layeredLoweredBits && isLoweredLabel) ? settledCtx : ctx;
+
                 const baseFontSize = dualLine
-                  ? Math.max(5, Math.min(8, px * 0.2))
-                  : Math.max(5, Math.min(9, px * 0.34));
+                  ? Math.max(5, Math.min(8, labelPx * 0.2))
+                  : Math.max(5, Math.min(9, labelPx * 0.34));
                 const fontSize = baseFontSize * zoomBoost;
-                const centerX = Math.round(bitX + px / 2);
-                const centerY = Math.round(bitY + px / 2);
+                const centerX = Math.round(labelX + labelPx / 2);
+                const centerY = Math.round(labelY + labelPx / 2);
                 const textColor = this._labelTextColor(color);
 
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
+                labelCtx.textAlign = 'center';
+                labelCtx.textBaseline = 'middle';
                 if (dualLine) {
-                  ctx.fillStyle = textColor;
-                  ctx.font = `${fontSize}px monospace`;
-                  ctx.fillText(lines[0], centerX, Math.round(bitY + px * 0.32));
-                  ctx.font = `italic ${Math.max(4.5, fontSize - 0.25)}px monospace`;
-                  ctx.fillText(lines[1], centerX, Math.round(bitY + px * 0.7));
+                  labelCtx.fillStyle = textColor;
+                  labelCtx.font = `${fontSize}px monospace`;
+                  labelCtx.fillText(lines[0], centerX, Math.round(labelY + labelPx * 0.32));
+                  labelCtx.font = `italic ${Math.max(4.5, fontSize - 0.25)}px monospace`;
+                  labelCtx.fillText(lines[1], centerX, Math.round(labelY + labelPx * 0.7));
                 } else {
-                  ctx.fillStyle = textColor;
-                  ctx.font = `${showNumberLabels ? 'italic ' : ''}${fontSize}px monospace`;
-                  ctx.fillText(lines[0], centerX, centerY);
+                  labelCtx.fillStyle = textColor;
+                  labelCtx.font = `${showNumberLabels ? 'italic ' : ''}${fontSize}px monospace`;
+                  labelCtx.fillText(lines[0], centerX, centerY);
                 }
-                ctx.textAlign = 'start';
+                labelCtx.textAlign = 'start';
               }
             }
           }
