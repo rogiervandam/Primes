@@ -63,7 +63,7 @@
 
 #define logBegins(level, bitstorage, timer, printf_args...) \
           { if (option.trace_level >= level) primes_trace_set_context(level); } \
-          { if (option.trace_level >= level) log_event(level, bitstorage, timer_function_names[timer], 0, printf_args); } \
+          log_event(level, bitstorage, timer_function_names[timer], 0, printf_args); \
           timer_lapstart(timer);
 
 #define logEnds(level, bitstorage, timer, printf_args...) \
@@ -117,49 +117,68 @@ log_event_functionid(int level, void* bitstorage, function_id_t function_id, con
 //     trace_record_event_full(level, bitstorage, timer_function_names[function_id], (double)0, annotation);
 //     explain
 // }
-static void
+
+#define COLLECT_ARGS(string, maxlength, fmt, args) \
+    char string[maxlength]; va_list args; va_start(args, fmt); vsnprintf(string, sizeof(string), fmt, args); va_end(args);
+
+    static void
 log_text(int level, const char* label, const char* fmt, ...)
 {
-    char annotation[1024];
-    va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
-    trace_record_text_full(level, label, annotation);
+    COLLECT_ARGS(annotation, 1024, fmt, args);
+    if (option.trace_level >= level) trace_record_text_full(level, label, annotation);
+    if (option.explain_level >= level) {
+        if (label) {
+            printf("%s: %s\n", label, annotation);
+        } else {
+            printf("%s\n", annotation);
+        }
+    }
 }
 
 // passes all to log_text but NULL for label
 static void
 log_text_unlabeled(int level, const char* fmt, ...)
 {
-    char annotation[1024];
-    va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
-    trace_record_text_full(level, NULL, annotation);
+    COLLECT_ARGS(annotation, 1024, fmt, args);
+    if (option.trace_level >= level) trace_record_text_full(level, NULL, annotation);
+    if (option.explain_level >= level) printf("%s\n", annotation);
 }
 
 static void
 log_event(int level, const void* bitstorage, const char* label, double time, const char* fmt, ...)
 {
-    char annotation[1024];
-    va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
-    trace_record_event_full(level, bitstorage, label, time, annotation);
+    COLLECT_ARGS(annotation, 1024, fmt, args);
+    if (option.trace_level >= level) trace_record_event_full(level, bitstorage, label, time, annotation);
+    if (option.explain_level >= level) {
+        if (label) {
+            printf("%s: %s\n", label, annotation);
+        } else {
+            printf("%s\n", annotation);
+        }
+    }
 }
 
 static void
 log_event_untimed(int level, const void* bitstorage, const char* label, const char* fmt, ...)
 {
-    char annotation[1024];
-    va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
-    trace_record_event_full(level, bitstorage, label, 0.0, annotation);
+    COLLECT_ARGS(annotation, 1024, fmt, args);
+    if (option.trace_level >= level) trace_record_event_full(level, bitstorage, label, 0.0, annotation);
+    if (option.explain_level >= level) {
+        if (label) {
+            printf("%s: %s\n", label, annotation);
+        } else {
+            printf("%s\n", annotation);
+        }
+    }
 }
 
 static void
 log_event_bare(int level, const void* bitstorage, const char* fmt, ...)
 {
-    char annotation[1024];
-    va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
-    trace_record_event_full(level, bitstorage, NULL, 0.0, annotation);
+    COLLECT_ARGS(annotation, 1024, fmt, args);
+    if (option.trace_level >= level) trace_record_event_full(level, bitstorage, NULL, 0.0, annotation);
+    if (option.explain_level >= level) printf("%s\n", annotation);
 }
-
-
-
 
 #endif
 
