@@ -1,4 +1,4 @@
-# Sieve Visualizer (new)
+# Sieve Visualizer (new2)
 
 A React-based application for visualizing the bitstorage changes in PrimeC solution_5's Sieve of Eratosthenes trace output. Runs as a **web app** in any browser and as a **native desktop app** on Windows and macOS (via Electron), sharing the same visualization codebase.
 
