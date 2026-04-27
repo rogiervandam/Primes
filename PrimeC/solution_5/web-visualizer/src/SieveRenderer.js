@@ -181,6 +181,9 @@ export class SieveRenderer {
     this.maskGhostBits = null;
     this.suppressMaskWriteOverlay = false;
     this.searchHighlight = null;
+    this.primeOverlay = false;
+    this._primeBitFlags = null;
+    this._primeOverlayKey = '';
     this.animationFocusBits = new Set();
     this.bitMotionTrails = [];
     this.zoom = 1;
@@ -1130,6 +1133,39 @@ export class SieveRenderer {
     ];
   }
 
+  /**
+   * Build (or rebuild) the prime bit flags array.
+   * Uses a Sieve of Eratosthenes up to sieveSize, then maps each bit index
+   * to the number it represents (via the current storageModel) and marks it
+   * as prime when applicable.  Results are cached by (sieveSize, bitCount,
+   * storageModel) so repeated calls with the same parameters are instant.
+   */
+  buildPrimeOverlay() {
+    const limit = Math.max(2, this.sieveSize > 0
+      ? this.sieveSize
+      : bitToNumber(Math.max(0, this.bitCount - 1), this.storageModel));
+    const key = `${limit}:${this.bitCount}:${this.storageModel}`;
+    if (this._primeOverlayKey === key && this._primeBitFlags) return;
+    this._primeOverlayKey = key;
+
+    // Sieve of Eratosthenes
+    const sieve = new Uint8Array(limit + 1);
+    if (limit >= 2) sieve[2] = 1;
+    for (let i = 3; i <= limit; i += 2) sieve[i] = 1;
+    for (let p = 3; p * p <= limit; p += 2) {
+      if (!sieve[p]) continue;
+      for (let j = p * p; j <= limit; j += p * 2) sieve[j] = 0;
+    }
+
+    // Build per-bit lookup
+    const flags = new Uint8Array(this.bitCount);
+    for (let i = 0; i < this.bitCount; i++) {
+      const num = bitToNumber(i, this.storageModel);
+      if (num >= 2 && num <= limit && sieve[num]) flags[i] = 1;
+    }
+    this._primeBitFlags = flags;
+  }
+
   resize(width, height) {
     if (!this.canvas) return;
     const dpr = window.devicePixelRatio || 1;
@@ -1727,6 +1763,48 @@ export class SieveRenderer {
                     Math.round(drawX + 1), Math.round(drawY + 1),
                     Math.max(1, Math.round(drawSize - 2)), Math.max(1, Math.round(drawSize - 2))
                   );
+                }
+                ctx.restore();
+              }
+
+              // Prime number overlay: highlight bits whose projected number is prime
+              if (this.primeOverlay && this._primeBitFlags?.[globalBit]) {
+                ctx.save();
+                // Subtle gold tint over the bit cell
+                ctx.fillStyle = 'rgba(251,191,36,0.20)';
+                ctx.fillRect(
+                  Math.round(bitX), Math.round(bitY),
+                  Math.max(1, Math.round(px)), Math.max(1, Math.round(px))
+                );
+                // Small gold dot in the top-right corner — visible even at low zoom
+                const dotR = Math.max(0.8, Math.min(px * 0.22, 4));
+                ctx.fillStyle = 'rgba(251,191,36,0.92)';
+                ctx.beginPath();
+                ctx.arc(
+                  Math.round(bitX + px) - dotR * 0.75,
+                  Math.round(bitY) + dotR * 0.75,
+                  dotR, 0, Math.PI * 2
+                );
+                ctx.fill();
+                // Gold border at moderate zoom
+                if (px >= 4) {
+                  ctx.strokeStyle = 'rgba(251,191,36,0.68)';
+                  ctx.lineWidth = Math.max(0.35, Math.min(1.3, px * 0.075));
+                  ctx.setLineDash([]);
+                  ctx.strokeRect(
+                    Math.round(bitX) - 0.5, Math.round(bitY) - 0.5,
+                    Math.max(2, Math.round(px) + 1), Math.max(2, Math.round(px) + 1)
+                  );
+                }
+                // Small "p" label at high zoom so the meaning is unmistakable
+                if (px >= 16) {
+                  const pSize = Math.max(4, Math.min(px * 0.22, 9));
+                  ctx.font = `bold ${pSize}px monospace`;
+                  ctx.fillStyle = 'rgba(251,191,36,0.90)';
+                  ctx.textAlign = 'left';
+                  ctx.textBaseline = 'top';
+                  ctx.fillText('p', Math.round(bitX + 1), Math.round(bitY + 1));
+                  ctx.textAlign = 'start';
                 }
                 ctx.restore();
               }

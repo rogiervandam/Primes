@@ -474,6 +474,9 @@ html, body, #root {
 }
 .btn-icon:hover { color: var(--fg-bright); border-color: var(--border-light); }
 .btn-icon.active { color: var(--fg-bright); border-color: var(--accent-dim); background: var(--accent-bg); }
+/* Prime overlay button uses a gold accent when active */
+.btn-icon.prime-overlay-btn { color: #fbbf24; border-color: #b45309; background: rgba(251,191,36,0.15); }
+.btn-icon.prime-overlay-btn:hover { color: #fde68a; border-color: #d97706; background: rgba(251,191,36,0.25); }
 .btn-icon svg { vertical-align: middle; }
 .btn-text {
   background: transparent;
@@ -2109,6 +2112,14 @@ html, body, #root {
 .bit-index-table td:first-child { color: var(--fg-muted); white-space: nowrap; padding-right: 10px; }
 .bit-history-body { padding: 6px 14px; overflow-y: auto; flex: 1; }
 .bit-history-empty { color: var(--fg-muted); font-style: italic; }
+/* Prime notice badge shown in bit detail balloons when the represented number is prime */
+.bit-prime-notice {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 14px; font-size: .82rem; font-weight: 600;
+  color: #fde68a; background: rgba(251,191,36,0.12);
+  border-bottom: 1px solid rgba(251,191,36,0.30);
+}
+[data-theme='light'] .bit-prime-notice { color: #92400e; background: rgba(251,191,36,0.18); }
 .bit-history-hint { padding: 4px 14px; font-size: .75rem; color: var(--fg-muted); border-top: 1px solid var(--border); }
 .bit-history-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
 .bit-history-table th {
@@ -2507,6 +2518,17 @@ html, body, #root {
   border-color: var(--accent);
   background: var(--accent-bg);
   color: var(--fg-bright);
+}
+/* Primes overlay button — gold active state */
+.preview-btn.prime-overlay-preview-btn.active {
+  border-color: #d97706;
+  background: rgba(251,191,36,0.12);
+  color: #fbbf24;
+}
+[data-theme='light'] .preview-btn.prime-overlay-preview-btn.active {
+  border-color: #b45309;
+  background: rgba(251,191,36,0.15);
+  color: #92400e;
 }
 
 .preview-btn-swatch svg {

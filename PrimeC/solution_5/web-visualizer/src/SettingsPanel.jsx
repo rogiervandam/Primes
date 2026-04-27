@@ -111,6 +111,7 @@ export default function SettingsPanel({
   cachelineSize, onCachelineSizeChange,
   cachePreset, onCachePresetChange,
   heatMapEnabled, onHeatMapToggle,
+  primeOverlayEnabled, onPrimeOverlayToggle,
   showMinimap, onShowMinimapChange,
   minimapControlVisible = true,
   depthModeEnabled = false,
@@ -401,10 +402,10 @@ export default function SettingsPanel({
     </button>
   );
 
-  const PreviewOptionButton = ({ label, hint, active, onClick, preview, compact = false }) => (
+  const PreviewOptionButton = ({ label, hint, active, onClick, preview, compact = false, extraClass = '' }) => (
     <button
       type="button"
-      className={`preview-btn${active ? ' active' : ''}${compact ? ' compact' : ''}`}
+      className={`preview-btn${active ? ' active' : ''}${compact ? ' compact' : ''}${extraClass ? ' ' + extraClass : ''}`}
       onClick={onClick}
       title={hint}
     >
@@ -878,6 +879,22 @@ export default function SettingsPanel({
                   <rect x="4" y="5" width="10" height="12" fill="#ef4444" stroke="none" />
                   <rect x="18" y="5" width="10" height="12" fill="#f59e0b" stroke="none" />
                   <rect x="32" y="5" width="10" height="12" fill="#3b82f6" stroke="none" />
+                </svg>
+              )}
+            />
+            <PreviewOptionButton
+              compact
+              label="Primes"
+              hint="Highlight all bits whose represented number is prime (gold overlay)"
+              active={!!primeOverlayEnabled}
+              extraClass="prime-overlay-preview-btn"
+              onClick={() => onPrimeOverlayToggle && onPrimeOverlayToggle(!primeOverlayEnabled)}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="4" y="5" width="8" height="10" rx="1" fill="#fbbf24" stroke="none" />
+                  <rect x="16" y="5" width="8" height="10" rx="1" fill="rgba(251,191,36,0.35)" stroke="none" />
+                  <rect x="28" y="5" width="8" height="10" rx="1" fill="#fbbf24" stroke="none" />
+                  <rect x="40" y="5" width="4" height="10" rx="1" fill="rgba(251,191,36,0.35)" stroke="none" />
                 </svg>
               )}
             />
