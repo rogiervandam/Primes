@@ -44,19 +44,64 @@ function buildDepthTree(steps) {
   };
 
   for (const n of root.children) annotate(n);
+
+  // Post-pass: for each node with no timing, look for a next sibling in the
+  // flat steps array at the same level (or one higher) with the same range
+  // and factorStep that carries timing — absorb its timing and annotation.
+  const stepByOrigIndex = new Map();
+  for (const s of steps) stepByOrigIndex.set(s.originalIndex, s);
+
+  const mergeTimingFromNext = (node) => {
+    if (!(Number(node.elapsedNs) > 0) && node.originalIndex != null) {
+      const nodeLevel = node.level;
+      const nodeStart = node.start;
+      const nodeStop = node.stop;
+      const nodeFactorStep = node.factorStep;
+      if (nodeStart != null && nodeStop != null) {
+        // Look at subsequent steps (by originalIndex order) for a matching timing event
+        const sortedIndices = Array.from(stepByOrigIndex.keys()).sort((a, b) => a - b);
+        const pos = sortedIndices.indexOf(node.originalIndex);
+        if (pos !== -1) {
+          for (let i = pos + 1; i < sortedIndices.length; i++) {
+            const candidate = stepByOrigIndex.get(sortedIndices[i]);
+            if (!candidate) continue;
+            // Only look at same or one-higher level
+            if (Number.isFinite(nodeLevel) && Number.isFinite(candidate.level)) {
+              if (candidate.level !== nodeLevel && candidate.level !== nodeLevel - 1) break;
+            }
+            if (candidate.start === nodeStart && candidate.stop === nodeStop &&
+                candidate.factorStep === nodeFactorStep && Number(candidate.elapsedNs) > 0) {
+              node.elapsedNs = candidate.elapsedNs;
+              node.aggregateElapsedNs = (node.aggregateElapsedNs || 0) + Number(candidate.elapsedNs);
+              if (candidate.annotation && !node.annotation) node.annotation = candidate.annotation;
+              break;
+            }
+            // If the levels jump too far or range doesn't match, stop searching
+            if (candidate.start !== nodeStart || candidate.stop !== nodeStop) break;
+          }
+        }
+      }
+    }
+    for (const child of node.children || []) mergeTimingFromNext(child);
+  };
+
+  for (const n of root.children) mergeTimingFromNext(n);
+
   return root.children;
 }
 
 /**
  * Hierarchical step panel grouped by prime, with collapse/expand.
  */
-export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed }) {
+export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0 }) {
   const listRef = useRef(null);
   const scrollTopRef = useRef(0);
   const [search, setSearch] = useState('');
   const [filterOp, setFilterOp] = useState('');
-  // filterLevel encoding: '' (all) | 'exact:N' | 'upto:N'
-  const [filterLevel, setFilterLevel] = useState('');
+  // filterLevel encoding: '' (all) | 'exact:N' | 'upto:N' | 'collapse:N'
+  const [filterLevel, setFilterLevel] = useState(() => {
+    try { return localStorage.getItem('sieve-filter-level') || ''; } catch { return ''; }
+  });
   const [hideUntimed, setHideUntimed] = useState(false);
   const [hideUnchanged, setHideUnchanged] = useState(false);
 
@@ -67,6 +112,11 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       if (onExternalOpFilterConsumed) onExternalOpFilterConsumed();
     }
   }, [externalOpFilter, filterOp, onExternalOpFilterConsumed]);
+
+  // Persist filterLevel to localStorage
+  useEffect(() => {
+    try { localStorage.setItem('sieve-filter-level', filterLevel); } catch {}
+  }, [filterLevel]);
   const [collapsed, setCollapsed] = useState(new Set());
   const initialCollapseDoneRef = useRef(false);
   const lastClickedRef = useRef(null);
@@ -163,7 +213,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     }));
   }, [steps]);
 
-  // Parse filterLevel encoding ('' | 'exact:N' | 'upto:N')
+  // Parse filterLevel encoding ('' | 'exact:N' | 'upto:N' | 'collapse:N')
   const levelFilter = useMemo(() => {
     if (!filterLevel) return null;
     const [mode, numStr] = String(filterLevel).split(':');
@@ -211,7 +261,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     return tree.map(g => {
       const fc = g.children.filter(s => {
         const path = s.operationPath || [];
-        if (levelFilter) {
+        if (levelFilter && levelFilter.mode !== 'collapse') {
           if (!Number.isFinite(s.level)) return false;
           if (levelFilter.mode === 'exact' && s.level !== levelFilter.value) return false;
           if (levelFilter.mode === 'upto' && s.level > levelFilter.value) return false;
@@ -237,6 +287,25 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     initialCollapseDoneRef.current = true;
   }, [tree]);
 
+  // When filterLevel is 'collapse:N', auto-collapse all nodes whose level > N.
+  useEffect(() => {
+    if (!levelFilter || levelFilter.mode !== 'collapse') return;
+    const collapseLevel = levelFilter.value;
+    const keys = new Set();
+    const collectCollapseKeys = (node) => {
+      if (Number.isFinite(node.level) && node.level >= collapseLevel && node.children?.length > 0) {
+        keys.add(`node-${node.originalIndex}`);
+      }
+      for (const child of node.children || []) collectCollapseKeys(child);
+    };
+    for (const g of tree) for (const n of g.depthTree || []) collectCollapseKeys(n);
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      for (const k of keys) next.add(k);
+      return next;
+    });
+  }, [levelFilter, tree]);
+
   // New trace import: clear stale filters; default level filter to "up to second-lowest level"
   // so users see the high-level operations first and can drill down.
   useEffect(() => {
@@ -248,8 +317,13 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     const levels = new Set();
     for (const s of steps) if (Number.isFinite(s.level)) levels.add(Number(s.level));
     const sorted = Array.from(levels).sort((a, b) => a - b);
-    if (sorted.length >= 2) setFilterLevel(`upto:${sorted[1]}`);
-    else setFilterLevel('');
+    // Only apply default filter if user has no saved preference
+    let savedLevel = '';
+    try { savedLevel = localStorage.getItem('sieve-filter-level') || ''; } catch {}
+    if (!savedLevel) {
+      if (sorted.length >= 2) setFilterLevel(`upto:${sorted[1]}`);
+      else setFilterLevel('');
+    }
     setCollapsed(new Set());
     initialCollapseDoneRef.current = false;
     lastClickedRef.current = null;
@@ -262,6 +336,70 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     const active = el.querySelector('.step-item.active');
     if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [currentStep]);
+
+  // Reveal request: when bumped, clear filters that hide the current step,
+  // expand its enclosing group + every ancestor node, then scroll it into
+  // view. Triggered from the event-title widget's locate button.
+  useEffect(() => {
+    if (!revealStepRequest) return;
+    if (currentStep == null || currentStep < 0) return;
+
+    // 1. Drop filters that could be hiding the step.
+    setSearch('');
+    setFilterOp('');
+    setFilterLevel('');
+    setHideUntimed(false);
+    setHideUnchanged(false);
+
+    // 2. Find the enclosing group + the chain of ancestor nodes.
+    const collapseKeysToOpen = new Set();
+    for (const g of tree) {
+      const indicesInGroup = (g.children || []).some((c) => c.originalIndex === currentStep);
+      if (!indicesInGroup) continue;
+      collapseKeysToOpen.add(g.id);
+      // Walk the depthTree to find the path to the node and add every
+      // ancestor that has children (i.e. that could be collapsed).
+      const findPath = (node) => {
+        if (node.originalIndex === currentStep) return [node];
+        for (const child of node.children || []) {
+          const sub = findPath(child);
+          if (sub) return [node, ...sub];
+        }
+        return null;
+      };
+      for (const root of g.depthTree || []) {
+        const path = findPath(root);
+        if (!path) continue;
+        // Add every node along the path EXCEPT the leaf itself (that's the
+        // target — we want it visible, not collapsed).
+        for (let i = 0; i < path.length - 1; i++) {
+          collapseKeysToOpen.add(`node-${path[i].originalIndex}`);
+        }
+        break;
+      }
+      break;
+    }
+
+    // 3. Remove those keys from the collapsed set.
+    setCollapsed((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const k of collapseKeysToOpen) {
+        if (next.has(k)) { next.delete(k); changed = true; }
+      }
+      return changed ? next : prev;
+    });
+
+    // 4. Scroll into view shortly after re-render.
+    const handle = setTimeout(() => {
+      const el = listRef.current;
+      if (!el) return;
+      const active = el.querySelector('.step-item.active');
+      if (active) active.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 60);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealStepRequest]);
 
   const toggleGroup = useCallback((groupId) => {
     setCollapsed(prev => {
@@ -312,7 +450,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       <div key={node.originalIndex} className={`step-depth-node depth-${Math.min(6, nodeDepth)}`}>
         <div
           className={`step-item step-child${isActive ? ' active' : ''}${isSelected ? ' selected' : ''}${hasChildren ? ' has-children' : ''}${isAggregateLeaf ? ' has-hidden-descendants' : ''}`}
-          style={{ paddingLeft: `${8 + nodeDepth * 14}px` }}
+          style={{ '--node-depth': nodeDepth }}
           onClick={(e) => {
             if (hasChildren && e.target.classList.contains('step-depth-toggle')) return;
             if ((hasChildren || hasHiddenDescendants) && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
@@ -325,6 +463,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
           }}
           title={tooltip}
         >
+          <span className="step-left" style={{ paddingLeft: `${8 + nodeDepth * 14}px` }}>
           {hasChildren && (
             <span
               className="step-depth-toggle"
@@ -351,6 +490,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
               {formatNs(displayElapsedNs)}
             </span>
           )}
+          </span>
           <span className="step-text">{summaryText}</span>
         </div>
         {hasChildren && !isNodeCollapsed && (
@@ -435,6 +575,9 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
             <option value="">All log levels</option>
             <optgroup label="Up to (inclusive)">
               {traceLevels.map((level) => <option key={`upto-${level}`} value={`upto:${level}`}>Up to L{level}</option>)}
+            </optgroup>
+            <optgroup label="Collapse at level">
+              {traceLevels.map((level) => <option key={`collapse-${level}`} value={`collapse:${level}`}>Collapse at L{level}</option>)}
             </optgroup>
             <optgroup label="Exactly">
               {traceLevels.map((level) => <option key={`exact-${level}`} value={`exact:${level}`}>Only L{level}</option>)}

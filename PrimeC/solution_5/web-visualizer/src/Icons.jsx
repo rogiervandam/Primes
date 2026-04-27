@@ -28,3 +28,22 @@ export const Thermometer = (p) => <I {...p} d={<><path d="M14 14.76V3.5a2.5 2.5 
 export const PlayPause = (p) => (
   <I {...p} d={<><polygon points="3 4, 3 20, 11 12" fill="currentColor" stroke="currentColor" /><rect x="14" y="4" width="3" height="16" fill="currentColor" stroke="none" /><rect x="19" y="4" width="3" height="16" fill="currentColor" stroke="none" /></>} />
 );
+// Annotation toggle icon for cacheline labels (tag with "123" text)
+export const CLAnnotate = (p) => (
+  <I {...p} d={<>
+    <rect x="2" y="7" width="16" height="10" rx="2" strokeWidth="1.8" />
+    <path d="M18 12l4-3v6l-4-3z" strokeWidth="1.5" />
+    <line x1="6"  y1="10" x2="6"  y2="14" strokeWidth="1.5" />
+    <line x1="9"  y1="10" x2="9"  y2="14" strokeWidth="1.5" />
+    <line x1="12" y1="10" x2="12" y2="14" strokeWidth="1.5" />
+  </>} />
+);
+// Star icon used for the prime number overlay toggle
+export const PrimeStar = (p) => (
+  <I {...p} d={<>
+    <polygon
+      points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+      fill="currentColor" stroke="currentColor" strokeWidth="1.5"
+    />
+  </>} />
+);

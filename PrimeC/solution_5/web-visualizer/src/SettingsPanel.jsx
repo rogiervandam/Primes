@@ -91,12 +91,124 @@ const VECTOR_BASE_OPTIONS = [
 const VECTOR_LANE_OPTIONS = [1, 2, 4, 8];
 
 /**
+ * Reusable legend content rendered in both the Legend tab and the floating panel.
+ */
+function LegendSections({ detailed = true }) {
+  return (
+    <>
+      <div className="legend-section">
+        <div className="legend-section-label">Bit states</div>
+        <div className="legend-rows">
+          <div className="legend-row">
+            <span className="legend-swatch legend-swatch-set" />
+            <span className="legend-row-label">Set (composite)</span>
+            {detailed && <span className="legend-row-desc">Bit was cleared in the sieve — number is marked composite</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-swatch legend-swatch-cleared" />
+            <span className="legend-row-label">Unset (prime candidate)</span>
+            {detailed && <span className="legend-row-desc">Bit has not been cleared — number is still a prime candidate</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-swatch legend-swatch-changed" />
+            <span className="legend-row-label">Just changed</span>
+            {detailed && <span className="legend-row-desc">Bits modified by the current event (highlighted during playback)</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-swatch legend-swatch-target" />
+            <span className="legend-row-label">Target</span>
+            {detailed && <span className="legend-row-desc">Bits targeted by the current sieve step (may overlap with changed)</span>}
+          </div>
+        </div>
+      </div>
+      <div className="legend-section">
+        <div className="legend-section-label">Overlays</div>
+        <div className="legend-rows">
+          <div className="legend-row">
+            <span className="legend-swatch legend-swatch-prime" />
+            <span className="legend-row-label">Primes overlay <span className="legend-tag">gold · p</span></span>
+            {detailed && <span className="legend-row-desc">Bits whose represented number is prime</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-swatch legend-swatch-range" />
+            <span className="legend-row-label">Range overlay <span className="legend-tag">cyan · r</span></span>
+            {detailed && <span className="legend-row-desc">Bits within the selected bit-index range</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-swatch legend-swatch-multiples" />
+            <span className="legend-row-label">Multiples overlay <span className="legend-tag">purple · ×</span></span>
+            {detailed && <span className="legend-row-desc">Bits whose number is a multiple of the selected prime/factor</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-swatch legend-swatch-heat-hot" />
+            <span className="legend-row-label">Heat map — hot</span>
+            {detailed && <span className="legend-row-desc">Cacheline recently or frequently accessed (red = hottest)</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-swatch legend-swatch-heat-cold" />
+            <span className="legend-row-label">Heat map — cold</span>
+            {detailed && <span className="legend-row-desc">Cacheline rarely or long-ago accessed (blue = coldest)</span>}
+          </div>
+        </div>
+      </div>
+      <div className="legend-section">
+        <div className="legend-section-label">Animations</div>
+        <div className="legend-rows">
+          <div className="legend-row">
+            <span className="legend-anim-icon">◎</span>
+            <span className="legend-row-label">Ripple</span>
+            {detailed && <span className="legend-row-desc">Contracting ring that pulses outward from changed bits</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-anim-icon" style={{ opacity: 0.5 }}>◼</span>
+            <span className="legend-row-label">Fade</span>
+            {detailed && <span className="legend-row-desc">Changed bits fade in from bright to settled color</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-anim-icon" style={{ color: 'var(--accent)' }}>✦</span>
+            <span className="legend-row-label">Pulse</span>
+            {detailed && <span className="legend-row-desc">Changed bits emit a glowing halo pulse</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-anim-icon">→</span>
+            <span className="legend-row-label">Sequential reveal</span>
+            {detailed && <span className="legend-row-desc">Bits are uncovered one-by-one in the order they were changed</span>}
+          </div>
+        </div>
+      </div>
+      <div className="legend-section">
+        <div className="legend-section-label">Interactions</div>
+        <div className="legend-rows">
+          <div className="legend-row">
+            <span className="legend-anim-icon">🖱</span>
+            <span className="legend-row-label">Click bit</span>
+            {detailed && <span className="legend-row-desc">Pin a tooltip balloon showing the bit&apos;s number and history</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-anim-icon">⇕</span>
+            <span className="legend-row-label">Scroll / pinch</span>
+            {detailed && <span className="legend-row-desc">Zoom the grid in or out</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-anim-icon">✥</span>
+            <span className="legend-row-label">Drag</span>
+            {detailed && <span className="legend-row-desc">Pan the canvas to navigate around the grid</span>}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/**
  * Settings panel for layout modes, spacing, and rendering options.
  */
 export default function SettingsPanel({
   settings, onChange, collapsed, onToggleCollapse,
   playSpeed, onPlaySpeedChange,
   repeatAnim, onRepeatAnimChange,
+  delayBetweenRepeats, onDelayBetweenRepeatsChange,
+  eventTimeTargets, onEventTimeTargetsChange,
   animMode, onAnimModeChange,
   animStyle, onAnimStyleChange,
   maskAnimationEnabled, onMaskAnimationEnabledChange,
@@ -111,6 +223,14 @@ export default function SettingsPanel({
   cachelineSize, onCachelineSizeChange,
   cachePreset, onCachePresetChange,
   heatMapEnabled, onHeatMapToggle,
+  cachelineAnnotation = 'none', onCachelineAnnotationChange,
+  primeOverlayEnabled, onPrimeOverlayToggle,
+  rangeOverlayEnabled = false, rangeOverlayStart = 0, rangeOverlayEnd = 0,
+  onRangeOverlayToggle, onRangeOverlayStartChange, onRangeOverlayEndChange,
+  multiplesOverlayEnabled = false, multiplesOverlayPrime = 3,
+  onMultiplesOverlayToggle, onMultiplesOverlayPrimeChange,
+  onRangeOverlayReset,
+  onMultiplesOverlayReset,
   showMinimap, onShowMinimapChange,
   minimapControlVisible = true,
   depthModeEnabled = false,
@@ -134,12 +254,42 @@ export default function SettingsPanel({
   const [customPresetMenuOpen, setCustomPresetMenuOpen] = React.useState(false);
   const [customGroupDraft, setCustomGroupDraft] = React.useState('');
   const [openSpacingControl, setOpenSpacingControl] = React.useState(null);
+  const [legendFloating, setLegendFloating] = React.useState(false);
+  const [legendDetailed, setLegendDetailed] = React.useState(true);
+  const [floatPos, setFloatPos] = React.useState(null);
+  const floatDragRef = React.useRef({ dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 });
+  const [rangeStartDraft, setRangeStartDraft] = React.useState(String(rangeOverlayStart));
+  const [rangeEndDraft, setRangeEndDraft] = React.useState(String(rangeOverlayEnd));
+  const [multipesPrimeDraft, setMultiplesPrimeDraft] = React.useState(String(multiplesOverlayPrime));
   const lastManualColumnCountRef = React.useRef(Math.max(1, parseInt(settings?.horizontalGroups || 0, 10) || 1));
 
   React.useEffect(() => {
     const value = Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0);
     if (value > 0) lastManualColumnCountRef.current = value;
   }, [s.horizontalGroups]);
+
+  // Sync draft values when overlay params change from outside (e.g. step defaults)
+  React.useEffect(() => { setRangeStartDraft(String(rangeOverlayStart)); }, [rangeOverlayStart]);
+  React.useEffect(() => { setRangeEndDraft(String(rangeOverlayEnd)); }, [rangeOverlayEnd]);
+  React.useEffect(() => { setMultiplesPrimeDraft(String(multiplesOverlayPrime)); }, [multiplesOverlayPrime]);
+
+  // Drag handler for floating legend panel
+  React.useEffect(() => {
+    if (!legendFloating) return undefined;
+    const onMouseMove = (e) => {
+      if (!floatDragRef.current.dragging) return;
+      const dx = e.clientX - floatDragRef.current.startX;
+      const dy = e.clientY - floatDragRef.current.startY;
+      setFloatPos({ x: floatDragRef.current.originX + dx, y: floatDragRef.current.originY + dy });
+    };
+    const onMouseUp = () => { floatDragRef.current.dragging = false; };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [legendFloating]);
 
   React.useEffect(() => {
     if (!openSpacingControl) return undefined;
@@ -201,14 +351,17 @@ export default function SettingsPanel({
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
   const adjustRepeatAnim = (deltaMs) => onRepeatAnimChange(clamp((repeatAnim || 0) + deltaMs, 0, 5000));
   const adjustBitInterval = (deltaMs) => onBitAnimIntervalChange(clamp((bitAnimInterval || 20) + deltaMs, 5, 5000));
+  // playSpeed is now a percentage (25..400). Map it onto a 1..100 slider with
+  // a log-scale so 100% sits comfortably in the middle and each tick is the
+  // same multiplicative jump.
   const playbackSpeedToMs = (speedValue) => {
     const speed = clamp(parseInt(speedValue || 0, 10) || 1, 1, 100);
     const ratio = (speed - 1) / 99;
-    return Math.round(12000 - ratio * (12000 - 4000));
+    return Math.round(25 * Math.pow(400 / 25, ratio));
   };
-  const msToPlaybackSpeed = (intervalValue) => {
-    const interval = clamp(parseInt(intervalValue || 0, 10) || 4000, 4000, 12000);
-    const ratio = (12000 - interval) / (12000 - 4000);
+  const msToPlaybackSpeed = (pctValue) => {
+    const pct = clamp(parseInt(pctValue || 0, 10) || 100, 25, 400);
+    const ratio = Math.log(pct / 25) / Math.log(400 / 25);
     return Math.round(1 + ratio * 99);
   };
   const stepSpeedToInterval = (speedValue) => {
@@ -221,7 +374,7 @@ export default function SettingsPanel({
     const ratio = (5000 - interval) / (5000 - 5);
     return Math.round(1 + ratio * 99);
   };
-  const playbackSpeedValue = msToPlaybackSpeed(playSpeed || 300);
+  const playbackSpeedValue = msToPlaybackSpeed(playSpeed || 100);
   const stepSpeedValue = intervalToStepSpeed(bitAnimInterval || 20);
   const setVectorGroupSimple = (group) => {
     onChange({
@@ -401,10 +554,10 @@ export default function SettingsPanel({
     </button>
   );
 
-  const PreviewOptionButton = ({ label, hint, active, onClick, preview, compact = false }) => (
+  const PreviewOptionButton = ({ label, hint, active, onClick, preview, compact = false, extraClass = '' }) => (
     <button
       type="button"
-      className={`preview-btn${active ? ' active' : ''}${compact ? ' compact' : ''}`}
+      className={`preview-btn${active ? ' active' : ''}${compact ? ' compact' : ''}${extraClass ? ' ' + extraClass : ''}`}
       onClick={onClick}
       title={hint}
     >
@@ -416,6 +569,19 @@ export default function SettingsPanel({
 
   const outline = outlineSettings || {
     target: 'none',
+  };
+
+  const CL_ANNOT_CYCLE = ['none', 'hits', 'age', 'both'];
+  const CL_ANNOT_HINTS = {
+    none: 'Heatmap annotation off',
+    hits: 'Hit count (\u00d7N) since last event',
+    age:  'Age since last hit (\u0394N)',
+    both: 'Hits until this event + age since last hit',
+  };
+  const cycleCLAnnotation = () => {
+    if (!heatMapEnabled) return;
+    const i = CL_ANNOT_CYCLE.indexOf(cachelineAnnotation);
+    onCachelineAnnotationChange(CL_ANNOT_CYCLE[(i + 1) % CL_ANNOT_CYCLE.length]);
   };
 
   const annotationGroupingLabel = isCustomVectorMode
@@ -604,6 +770,13 @@ export default function SettingsPanel({
                   </span>
                   <span>custom</span>
                 </button>
+                <SpacingControl
+                  title="Grouping spacing"
+                  keyH="u64SpacingH"
+                  keyV="u64SpacingV"
+                  max={20}
+                  className="spacing-inline-grouping"
+                />
               </div>
               <p className="layout-description">Current: {activeGroupingLabel}</p>
               {isCustomVectorMode && (
@@ -713,13 +886,6 @@ export default function SettingsPanel({
               >
                 {Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0 ? 'Auto fit on' : 'Auto fit off'}
               </button>
-              <SpacingControl
-                title="Grouping spacing"
-                keyH="u64SpacingH"
-                keyV="u64SpacingV"
-                max={20}
-                className="spacing-inline-grouping"
-              />
             </div>
           </div>
         </div>
@@ -771,6 +937,7 @@ export default function SettingsPanel({
   );
 
   return (
+    <>
     <div className={`settings-sidebar${collapsed ? ' collapsed' : ''}${isWindowsPlatform ? ' platform-windows' : ''}`}>
       <div className="settings-header-rail" title="Settings">
         {collapsed ? (
@@ -794,6 +961,15 @@ export default function SettingsPanel({
               onClick={() => setActiveTab('animation')}
             >
               Animation
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'legend'}
+              className={`settings-tab-btn${activeTab === 'legend' ? ' active' : ''}`}
+              onClick={() => setActiveTab('legend')}
+            >
+              Legend
             </button>
           </div>
         )}
@@ -870,7 +1046,7 @@ export default function SettingsPanel({
             <PreviewOptionButton
               compact
               label="Heat map"
-              hint="Color bits by recency: hot to cold"
+              hint="Color cachelines by hit count and recency: hot (red) = recently/frequently hit, cold (blue) = rarely/old"
               active={!!heatMapEnabled}
               onClick={() => onHeatMapToggle(!heatMapEnabled)}
               preview={(
@@ -878,6 +1054,54 @@ export default function SettingsPanel({
                   <rect x="4" y="5" width="10" height="12" fill="#ef4444" stroke="none" />
                   <rect x="18" y="5" width="10" height="12" fill="#f59e0b" stroke="none" />
                   <rect x="32" y="5" width="10" height="12" fill="#3b82f6" stroke="none" />
+                </svg>
+              )}
+            />
+            <PreviewOptionButton
+              compact
+              label="Primes"
+              hint="Highlight all bits whose represented number is prime (gold overlay)"
+              active={!!primeOverlayEnabled}
+              extraClass="prime-overlay-preview-btn"
+              onClick={() => onPrimeOverlayToggle && onPrimeOverlayToggle(!primeOverlayEnabled)}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="4" y="5" width="8" height="10" rx="1" fill="#fbbf24" stroke="none" />
+                  <rect x="16" y="5" width="8" height="10" rx="1" fill="rgba(251,191,36,0.35)" stroke="none" />
+                  <rect x="28" y="5" width="8" height="10" rx="1" fill="#fbbf24" stroke="none" />
+                  <rect x="40" y="5" width="4" height="10" rx="1" fill="rgba(251,191,36,0.35)" stroke="none" />
+                </svg>
+              )}
+            />
+            <PreviewOptionButton
+              compact
+              label="Range"
+              hint="Highlight a contiguous range of bit indices (cyan overlay). Defaults to the current event's focus range."
+              active={!!rangeOverlayEnabled}
+              extraClass="range-overlay-preview-btn"
+              onClick={() => onRangeOverlayToggle && onRangeOverlayToggle(!rangeOverlayEnabled)}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="4" y="5" width="8" height="10" rx="1" fill="rgba(34,211,238,0.35)" stroke="none" />
+                  <rect x="14" y="5" width="8" height="10" rx="1" fill="#22d3ee" stroke="none" />
+                  <rect x="24" y="5" width="8" height="10" rx="1" fill="#22d3ee" stroke="none" />
+                  <rect x="34" y="5" width="8" height="10" rx="1" fill="rgba(34,211,238,0.35)" stroke="none" />
+                </svg>
+              )}
+            />
+            <PreviewOptionButton
+              compact
+              label="Multiples"
+              hint="Highlight all bits whose represented number is a multiple of a given prime (purple overlay). Defaults to the current event's prime."
+              active={!!multiplesOverlayEnabled}
+              extraClass="multiples-overlay-preview-btn"
+              onClick={() => onMultiplesOverlayToggle && onMultiplesOverlayToggle(!multiplesOverlayEnabled)}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="4" y="5" width="8" height="10" rx="1" fill="rgba(167,139,250,0.35)" stroke="none" />
+                  <rect x="14" y="5" width="8" height="10" rx="1" fill="rgba(167,139,250,0.35)" stroke="none" />
+                  <rect x="24" y="5" width="8" height="10" rx="1" fill="#a78bfa" stroke="none" />
+                  <rect x="34" y="5" width="8" height="10" rx="1" fill="rgba(167,139,250,0.35)" stroke="none" />
                 </svg>
               )}
             />
@@ -932,6 +1156,88 @@ export default function SettingsPanel({
               )}
             />
           </div>
+          {/* Range overlay controls */}
+          {rangeOverlayEnabled && (
+            <div className="settings-row overlay-inline-controls overlay-input-row">
+              <label className="overlay-inline-field overlay-input-label" title="First bit index in range (inclusive)">
+                <span>Range start (bit)</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  className="overlay-number-input"
+                  value={rangeStartDraft}
+                  onChange={(e) => setRangeStartDraft(e.target.value)}
+                  onBlur={(e) => {
+                    const n = Math.max(0, parseInt(e.target.value || '0', 10) || 0);
+                    setRangeStartDraft(String(n));
+                    onRangeOverlayStartChange && onRangeOverlayStartChange(n);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const n = Math.max(0, parseInt(e.currentTarget.value || '0', 10) || 0);
+                      setRangeStartDraft(String(n));
+                      onRangeOverlayStartChange && onRangeOverlayStartChange(n);
+                    }
+                  }}
+                />
+              </label>
+              <label className="overlay-inline-field overlay-input-label" title="Last bit index in range (inclusive)">
+                <span>Range end (bit)</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  className="overlay-number-input"
+                  value={rangeEndDraft}
+                  onChange={(e) => setRangeEndDraft(e.target.value)}
+                  onBlur={(e) => {
+                    const n = Math.max(0, parseInt(e.target.value || '0', 10) || 0);
+                    setRangeEndDraft(String(n));
+                    onRangeOverlayEndChange && onRangeOverlayEndChange(n);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const n = Math.max(0, parseInt(e.currentTarget.value || '0', 10) || 0);
+                      setRangeEndDraft(String(n));
+                      onRangeOverlayEndChange && onRangeOverlayEndChange(n);
+                    }
+                  }}
+                />
+              </label>
+              <button type="button" className="overlay-reset-btn" onClick={() => onRangeOverlayReset && onRangeOverlayReset()} title="Reset range to current event defaults">⟳</button>
+            </div>
+          )}
+          {/* Multiples overlay controls */}
+          {multiplesOverlayEnabled && (
+            <div className="settings-row overlay-inline-controls overlay-input-row">
+              <label className="overlay-inline-field overlay-input-label" title="Highlight all bits whose number is a multiple of this value">
+                <span>Prime / step factor</span>
+                <input
+                  type="number"
+                  min={2}
+                  step={1}
+                  className="overlay-number-input"
+                  value={multipesPrimeDraft}
+                  onChange={(e) => setMultiplesPrimeDraft(e.target.value)}
+                  onBlur={(e) => {
+                    const n = Math.max(2, parseInt(e.target.value || '2', 10) || 2);
+                    setMultiplesPrimeDraft(String(n));
+                    onMultiplesOverlayPrimeChange && onMultiplesOverlayPrimeChange(n);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const n = Math.max(2, parseInt(e.currentTarget.value || '2', 10) || 2);
+                      setMultiplesPrimeDraft(String(n));
+                      onMultiplesOverlayPrimeChange && onMultiplesOverlayPrimeChange(n);
+                    }
+                  }}
+                />
+              </label>
+              <button type="button" className="overlay-reset-btn" onClick={() => onMultiplesOverlayReset && onMultiplesOverlayReset()} title="Reset to current event's prime">⟳</button>
+              <span className="settings-hint" style={{ alignSelf: 'flex-end', marginBottom: 2 }}>Highlights multiples of this number in purple</span>
+            </div>
+          )}
           {eventTitleSettings?.visible !== false && (
             <>
               <div className="settings-row overlay-inline-controls">
@@ -1080,6 +1386,22 @@ export default function SettingsPanel({
                 </svg>
               )}
             />
+            <AnnotationButton
+              title={cachelineAnnotation === 'none' ? 'CL label' : `Cacheline: ${cachelineAnnotation}`}
+              hint={!heatMapEnabled ? 'Enable heat map to use cacheline annotation' : CL_ANNOT_HINTS[cachelineAnnotation]}
+              active={heatMapEnabled && cachelineAnnotation !== 'none'}
+              onClick={cycleCLAnnotation}
+              preview={(
+                <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
+                  <rect x="1" y="2" width="20" height="13" rx="1" fill="rgba(239,68,68,0.28)" stroke="currentColor" strokeWidth="0.5" />
+                  <rect x="3" y="10" width="16" height="4" rx="1" fill="rgba(239,68,68,0.85)" />
+                  <text x="4" y="13.5" fontSize="4.5" fill="#fff">×4 Δ3</text>
+                  <rect x="23" y="2" width="20" height="13" rx="1" fill="rgba(59,130,246,0.28)" stroke="currentColor" strokeWidth="0.5" />
+                  <rect x="25" y="10" width="16" height="4" rx="1" fill="rgba(59,130,246,0.85)" />
+                  <text x="26" y="13.5" fontSize="4.5" fill="#fff">×1 Δ12</text>
+                </svg>
+              )}
+            />
           </div>
         </div>
 
@@ -1139,6 +1461,42 @@ export default function SettingsPanel({
           <span className="settings-hint">Outlines are optional helpers for structure visibility.</span>
         </div>
         </>)}
+
+        {activeTab === 'legend' && (
+          <div className="legend-tab-content">
+            <div className="legend-tab-header">
+              <span className="legend-tab-title">Visualizer Legend</span>
+              <div className="legend-tab-controls">
+                <button
+                  type="button"
+                  className={`legend-detail-btn${legendDetailed ? ' active' : ''}`}
+                  onClick={() => setLegendDetailed((d) => !d)}
+                  title={legendDetailed ? 'Show compact legend' : 'Show detailed legend'}
+                >
+                  {legendDetailed ? 'Compact' : 'Detailed'}
+                </button>
+                <button
+                  type="button"
+                  className="legend-float-btn"
+                  title="Float legend panel (collapses settings)"
+                  onClick={() => {
+                    if (!floatPos) setFloatPos({ x: window.innerWidth - 380, y: 60 });
+                    setLegendFloating(true);
+                    onToggleCollapse && onToggleCollapse();
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="15 3 21 3 21 9" />
+                    <polyline points="9 21 3 21 3 15" />
+                    <line x1="21" y1="3" x2="14" y2="10" />
+                    <line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <LegendSections detailed={legendDetailed} />
+          </div>
+        )}
 
         {activeTab === 'animation' && showAnimationControls && (<>
         <div className="settings-section">
@@ -1255,16 +1613,16 @@ export default function SettingsPanel({
                   step={1}
                   value={playbackSpeedValue}
                   onChange={(e) => onPlaySpeedChange(playbackSpeedToMs(e.target.value))}
-                  title="Overall playback speed"
+                  title="Speed % applied to every per-event time target. 50% = twice as long, 200% = half as long."
                 />
                 <div className="timing-scale" aria-hidden="true">
                   <span>Slow</span>
-                  <span className="timing-value">{playbackSpeedValue}%</span>
+                  <span className="timing-value">{playSpeed || 100}%</span>
                   <span>Fast</span>
                 </div>
               </div>
               <div className="timing-control">
-                <span className="timing-title">Delay</span>
+                <span className="timing-title">Delay between events</span>
                 <input
                   className="timing-slider"
                   type="range"
@@ -1273,7 +1631,7 @@ export default function SettingsPanel({
                   step={100}
                   value={repeatAnim || 0}
                   onChange={(e) => onRepeatAnimChange(clamp(parseInt(e.target.value || '0', 10) || 0, 0, 5000))}
-                  title="Delay between steps"
+                  title="Pause after one event finishes before the all-events widget advances to the next event."
                 />
                 <div className="timing-scale" aria-hidden="true">
                   <span>Off</span>
@@ -1282,22 +1640,21 @@ export default function SettingsPanel({
                 </div>
               </div>
               <div className="timing-control">
-                <span className="timing-title">Step animation</span>
+                <span className="timing-title">Delay between repeats</span>
                 <input
                   className="timing-slider"
                   type="range"
-                  min={1}
-                  max={100}
-                  step={1}
-                  value={stepSpeedValue}
-                  onChange={(e) => onBitAnimIntervalChange(stepSpeedToInterval(e.target.value))}
-                  title="Selected step animation speed"
-                  disabled={animMode === 'all'}
+                  min={0}
+                  max={5000}
+                  step={100}
+                  value={delayBetweenRepeats || 0}
+                  onChange={(e) => onDelayBetweenRepeatsChange && onDelayBetweenRepeatsChange(clamp(parseInt(e.target.value || '0', 10) || 0, 0, 5000))}
+                  title="Pause between repeats when the single-event widget is in play mode."
                 />
                 <div className="timing-scale" aria-hidden="true">
-                  <span>Slow</span>
-                  <span className="timing-value">{animMode === 'all' ? 'All at once' : `${stepSpeedValue}%`}</span>
-                  <span>Fast</span>
+                  <span>Off</span>
+                  <span className="timing-value">{(delayBetweenRepeats || 0) === 0 ? 'Off' : `${((delayBetweenRepeats || 0) / 1000).toFixed(1)}s`}</span>
+                  <span>Long</span>
                 </div>
               </div>
             </div>
@@ -1331,7 +1688,41 @@ export default function SettingsPanel({
                 </label>
               </div>
             )}
-            <span className="settings-hint">Overall speed controls autoplay through the trace. Step animation controls how a selected step reveals its bits. Delay waits only after a full step animation finishes.</span>
+            {/* Per-event time targets — used when adaptiveDuration is on. The
+                tier picked is based on the change count of the event; the
+                resulting normal duration is divided by Overall speed %. */}
+            {eventTimeTargets && onEventTimeTargetsChange && (
+              <div className="settings-row" style={{ marginTop: 8, flexDirection: 'column', alignItems: 'stretch', gap: 4 }}>
+                <span className="timing-title" style={{ marginBottom: 4 }}>Per-event normal time targets (at 100% speed)</span>
+                {[
+                  { key: 'none', label: '0 changes' },
+                  { key: 'one',  label: '1 change' },
+                  { key: 'two',  label: '2 changes' },
+                  { key: 'few',  label: '3–10 changes' },
+                  { key: 'many', label: '11–100 changes' },
+                  { key: 'lots', label: '> 100 changes' },
+                  { key: 'min',  label: 'Min (clamp ↓)' },
+                  { key: 'max',  label: 'Max (clamp ↑)' },
+                ].map(({ key, label }) => (
+                  <label key={key} className="overlay-inline-field overlay-inline-field-range" style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ minWidth: 130, fontSize: '0.85em' }}>{label}</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={key === 'max' ? 30000 : (key === 'lots' ? 20000 : 10000)}
+                      step={50}
+                      value={Math.max(0, parseInt(eventTimeTargets[key] || 0, 10) || 0)}
+                      onChange={(e) => {
+                        const v = Math.max(0, parseInt(e.target.value || '0', 10) || 0);
+                        onEventTimeTargetsChange({ ...eventTimeTargets, [key]: v });
+                      }}
+                    />
+                    <span className="val" style={{ minWidth: 56, textAlign: 'right' }}>{((eventTimeTargets[key] || 0) / 1000).toFixed(2)}s</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <span className="settings-hint">Overall speed multiplies every per-event time target. Per-event tiers set how long an event takes at 100% speed; values are clamped to Min / Max. Delay between events is used by the all-events play. Delay between repeats is used by the single-event play.</span>
           </div>
 
           {onLoweredSetBitsToggle && (
@@ -1399,5 +1790,60 @@ export default function SettingsPanel({
         </div>
       )}
     </div>
+    {legendFloating && (() => {
+      const posX = floatPos ? floatPos.x : window.innerWidth - 380;
+      const posY = floatPos ? floatPos.y : 60;
+      return (
+        <div
+          className="legend-float-panel"
+          style={{ left: posX, top: posY }}
+        >
+          <div
+            className="legend-float-header"
+            onMouseDown={(e) => {
+              floatDragRef.current.dragging = true;
+              floatDragRef.current.startX = e.clientX;
+              floatDragRef.current.startY = e.clientY;
+              floatDragRef.current.originX = posX;
+              floatDragRef.current.originY = posY;
+              e.preventDefault();
+            }}
+          >
+            <span className="legend-float-title">Visualizer Legend</span>
+            <div className="legend-tab-controls">
+              <button
+                type="button"
+                className={`legend-detail-btn${legendDetailed ? ' active' : ''}`}
+                onClick={() => setLegendDetailed((d) => !d)}
+                title={legendDetailed ? 'Show compact legend' : 'Show detailed legend'}
+              >
+                {legendDetailed ? 'Compact' : 'Detailed'}
+              </button>
+              <button
+                type="button"
+                className="legend-close-float-btn"
+                title="Return to settings panel"
+                onClick={() => {
+                  setLegendFloating(false);
+                  setActiveTab('legend');
+                  onToggleCollapse && onToggleCollapse();
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polyline points="9 3 3 3 3 9" />
+                  <polyline points="15 21 21 21 21 15" />
+                  <line x1="3" y1="3" x2="10" y2="10" />
+                  <line x1="21" y1="21" x2="14" y2="14" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div className="legend-float-body">
+            <LegendSections detailed={legendDetailed} />
+          </div>
+        </div>
+      );
+    })()}
+    </>
   );
 }
