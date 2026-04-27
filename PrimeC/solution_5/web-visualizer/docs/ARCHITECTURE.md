@@ -27,7 +27,18 @@ src/
 │   ├── viewPrefs.js          localStorage I/O + default merging
 │   ├── traceHeader.js        Header parsing → display sections
 │   ├── platform.js           Mac/Windows/Electron detection
-│   └── unitConverters.js     Slider ↔ duration mappings
+│   ├── unitConverters.js     Slider ↔ duration mappings
+│   └── animationTiming.js    Pure timing math (event durations, tier curves)
+├── parser/               Trace-parser building blocks (no React)
+│   ├── parseUtils.js         Aliases, kv-line/range/list parsing, sanitizers
+│   ├── primeInference.js     Infer missing prime numbers from annotations
+│   ├── maskMetadata.js       Build mask write-orders + per-bit metadata
+│   ├── headerParser.js       Title/benchmark/header extraction
+│   └── dumpParser.js         Hex/binary memory-dump → events conversion
+├── renderer/             SieveRenderer building blocks (no React)
+│   ├── constants.js          Themes, palettes, layouts, presets, residues
+│   ├── bitMath.js            bitToNumber / numberToBit (storage models)
+│   └── drawingHelpers.js     hexToRgb, mixRgb, fitted-text drawing helpers
 ├── hooks/                Reusable custom hooks
 │   └── useFloatingPanel.js   Drag/resize behaviour for floating panels
 ├── settings/             SettingsPanel building blocks
@@ -35,11 +46,12 @@ src/
 │   ├── buttons.jsx           LayoutIcon, VectorIcon, AnnotationButton, …
 │   └── LegendSections.jsx    Shared legend content (tab + floating)
 ├── visualizer/           Pieces extracted from Visualizer.jsx
-│   ├── Toolbar.jsx           Top toolbar (transport + actions)
-│   ├── TraceInfoPopover.jsx  Storage model + parsed header sections
-│   ├── ExportProgress.jsx    Slim progress bar during video export
-│   ├── BitHistoryBalloon.jsx Hover/pinned bit-history popover
-│   └── EventTitleBanner.jsx  Floating current-event banner
+│   ├── Toolbar.jsx               Top toolbar (transport + actions)
+│   ├── TraceInfoPopover.jsx      Storage model + parsed header sections
+│   ├── ExportProgress.jsx        Slim progress bar during video export
+│   ├── BitHistoryBalloon.jsx     Hover/pinned bit-history popover
+│   ├── EventTitleBanner.jsx      Floating current-event banner
+│   └── DetailInspectorOverlay.jsx Modal table of bits / numbers / primes
 └── styles/               Per-concern stylesheets
     └── index.css             @imports the numbered section files
 ```
@@ -67,6 +79,8 @@ src/
 
 - **A new utility** → drop it in `src/lib/`. Keep it framework-free.
 - **A new shared hook** → place in `src/hooks/`.
+- **A new trace format / parsing detail** → add a focused module under `src/parser/` and import it from `traceParser.js`.
+- **A new renderer helper** (constants, pure drawing math) → add it under `src/renderer/` and import it from `SieveRenderer.js`.
 - **A new settings section** → add a button to `src/settings/buttons.jsx` and a section in `SettingsPanel.jsx`; constants go in `src/settings/constants.js`.
 - **A new style block** → create `src/styles/NN-name.css` and add an `@import` to `src/styles/index.css`.
 - **A new top-level panel** → put it next to `TimingPanel.jsx` and reuse `useFloatingPanel`.

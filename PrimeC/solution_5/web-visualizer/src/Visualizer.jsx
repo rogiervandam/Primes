@@ -9,6 +9,7 @@ import Toolbar from './visualizer/Toolbar';
 import ExportProgress from './visualizer/ExportProgress';
 import BitHistoryBalloon from './visualizer/BitHistoryBalloon';
 import EventTitleBanner from './visualizer/EventTitleBanner';
+import DetailInspectorOverlay from './visualizer/DetailInspectorOverlay';
 import { Play, Pause } from './Icons';
 import {
   DEFAULT_EVENT_TIME_TARGETS,
@@ -24,6 +25,14 @@ import {
 } from './lib/viewPrefs';
 import { buildTraceInfoSections } from './lib/traceHeader';
 import { detectIsMac, detectIsWindows, detectIsElectron } from './lib/platform';
+import {
+  clampMs as clampMsPure,
+  bitsAtTimeRatio as bitsAtTimeRatioPure,
+  timeRatioAtBitIndex as timeRatioAtBitIndexPure,
+  computeEventNormalDuration as computeEventNormalDurationPure,
+  computeEventDuration as computeEventDurationPure,
+  getFadeOutDuration as getFadeOutDurationPure,
+} from './lib/animationTiming';
 
 export default function Visualizer({
   trace,
@@ -1297,7 +1306,7 @@ export default function Visualizer({
     });
   }, [getMinimapDetailH]);
 
-  const clampMs = useCallback((value, min, max) => Math.max(min, Math.min(max, value)), []);
+  const clampMs = useCallback(clampMsPure, []);
 
   const getAnimationTimingPlan = useCallback((bitCount, options = {}) => {
     if (!options.adaptiveDuration) return null;
@@ -1422,44 +1431,30 @@ export default function Visualizer({
     currentMaskAnimIntervalRef.current = Math.max(0, maskAnimInterval || 20);
   }, [maskAnimInterval]);
 
-  const getFadeOutDuration = useCallback((bitCount, options = {}) => {
-    if (options.skipFadeOut) return 0;
-    return clampMs(Math.round(Math.min(320, Math.max(120, Math.max(1, bitCount) * 4))), 80, 420);
-  }, [clampMs]);
+  const getFadeOutDuration = useCallback((bitCount, options = {}) => (
+    getFadeOutDurationPure(bitCount, options)
+  ), []);
 
   // The "normal" (100% speed) time target for one event, in ms, picked from
   // the configurable tier table by the event's change count and clamped to
   // the configured min/max. Independent of the speed slider.
-  const computeEventNormalDuration = useCallback((bitCount) => {
-    const targets = eventTimeTargetsRef.current || DEFAULT_EVENT_TIME_TARGETS;
-    const n = Math.max(0, Math.floor(Number(bitCount) || 0));
-    let base;
-    if (n === 0) base = targets.none;
-    else if (n === 1) base = targets.one;
-    else if (n === 2) base = targets.two;
-    else if (n <= 10) base = targets.few;
-    else if (n <= 100) base = targets.many;
-    else base = targets.lots;
-    const min = Math.max(0, targets.min || 0);
-    const max = Math.max(min, targets.max || base);
-    return Math.max(min, Math.min(max, Math.round(base)));
-  }, []);
+  const computeEventNormalDuration = useCallback((bitCount) => (
+    computeEventNormalDurationPure(bitCount, eventTimeTargetsRef.current || DEFAULT_EVENT_TIME_TARGETS)
+  ), []);
 
   // Time-based timeline duration: how long the timeline slider takes to walk
   // 0 -> 100 % for an event with `bitCount` changes. The total duration is
   // derived from the per-tier time targets table and divided by the speed %.
   // The mode (progressive vs linear) only affects HOW bits are distributed
   // across that duration (see bitsAtTimeRatio), not the total duration.
-  // Tier sizes for the 'progressive' bits-at-time mapping. Independent of
-  // total duration; they just shape the curve so the first 10 bits use the
-  // first chunk of time, next 100 bits the second chunk, the rest the third.
-  const PROGRESSIVE_TIER_RATIOS = { tier1: 1, tier2: 1, tier3: 1 }; // equal thirds
   const computeEventDuration = useCallback((bitCount, modeOverride = null) => {
     void modeOverride; // mode only changes bit distribution, not total time
-    const normal = computeEventNormalDuration(bitCount);
-    const speedPct = Math.max(1, Math.min(1000, Number(playSpeedPercentRef.current) || 100));
-    return Math.max(80, Math.round(normal * 100 / speedPct));
-  }, [computeEventNormalDuration]);
+    return computeEventDurationPure(
+      bitCount,
+      eventTimeTargetsRef.current || DEFAULT_EVENT_TIME_TARGETS,
+      playSpeedPercentRef.current,
+    );
+  }, []);
 
   // Inverse of computeEventDuration's curve: given a time ratio (0..1) inside
   // an event's animation window, return how many bits should be revealed.
@@ -1467,54 +1462,16 @@ export default function Visualizer({
   // - 'progressive': three equal time-thirds receive (a) the first up-to-10
   //   bits, (b) the next up-to-100 bits, (c) the rest. Empty tiers are
   //   skipped so a 5-bit event still uses the full timeline.
-  const _progressiveTierShares = (c) => {
-    const t1 = Math.min(c, 10);
-    const t2 = c > 10 ? Math.min(c - 10, 100) : 0;
-    const t3 = c > 110 ? c - 110 : 0;
-    const filledTiers = (t1 > 0 ? 1 : 0) + (t2 > 0 ? 1 : 0) + (t3 > 0 ? 1 : 0);
-    const slice = filledTiers > 0 ? 1 / filledTiers : 0;
-    return { t1, t2, t3, slice };
-  };
-  const bitsAtTimeRatio = useCallback((timeRatio, bitCount, modeOverride = null) => {
-    const mode = modeOverride || eventDurationModeRef.current || 'progressive';
-    const c = Math.max(0, Math.floor(Number(bitCount) || 0));
-    if (c === 0) return 0;
-    const t = Math.max(0, Math.min(1, Number(timeRatio) || 0));
-    if (mode === 'linear') return Math.min(c, Math.round(t * c));
-    const { t1, t2, t3, slice } = _progressiveTierShares(c);
-    if (slice <= 0) return c;
-    let cursor = 0;
-    if (t1 > 0) {
-      if (t <= cursor + slice) return Math.round(((t - cursor) / slice) * t1);
-      cursor += slice;
-    }
-    if (t2 > 0) {
-      if (t <= cursor + slice) return t1 + Math.round(((t - cursor) / slice) * t2);
-      cursor += slice;
-    }
-    if (t3 > 0) {
-      return t1 + t2 + Math.round(((t - cursor) / slice) * t3);
-    }
-    return c;
-  }, []);
+  const bitsAtTimeRatio = useCallback((timeRatio, bitCount, modeOverride = null) => (
+    bitsAtTimeRatioPure(timeRatio, bitCount, modeOverride || eventDurationModeRef.current || 'progressive')
+  ), []);
 
   // Inverse of bitsAtTimeRatio: given a bit index N, return the time ratio
   // at which that bit would appear. Used to seed virtualElapsed when the
   // banner Play resumes from a paused scrub position.
-  const timeRatioAtBitIndex = useCallback((bitIdx, bitCount, modeOverride = null) => {
-    const mode = modeOverride || eventDurationModeRef.current || 'progressive';
-    const c = Math.max(0, Math.floor(Number(bitCount) || 0));
-    if (c === 0) return 0;
-    const n = Math.max(0, Math.min(c, Math.floor(Number(bitIdx) || 0)));
-    if (mode === 'linear') return Math.min(1, n / c);
-    const { t1, t2, t3, slice } = _progressiveTierShares(c);
-    if (slice <= 0) return 1;
-    if (n <= t1) return t1 > 0 ? (n / t1) * slice : 0;
-    let r = (t1 > 0 ? slice : 0);
-    if (n <= t1 + t2) return r + (t2 > 0 ? ((n - t1) / t2) * slice : 0);
-    r += (t2 > 0 ? slice : 0);
-    return r + (t3 > 0 ? ((n - t1 - t2) / t3) * slice : 0);
-  }, []);
+  const timeRatioAtBitIndex = useCallback((bitIdx, bitCount, modeOverride = null) => (
+    timeRatioAtBitIndexPure(bitIdx, bitCount, modeOverride || eventDurationModeRef.current || 'progressive')
+  ), []);
 
   // Keep forward refs in sync so functions declared above can call these.
   computeEventDurationRef.current = computeEventDuration;
@@ -4008,50 +3965,15 @@ export default function Visualizer({
           />
 
           {detailInspectorOpen && (
-            <div className="detail-inspector-overlay" role="dialog" aria-modal="true">
-              <div className="detail-inspector-panel">
-                <div className="detail-inspector-header">
-                  <div className="detail-inspector-title">{detailInspectorMode === 'numbers' ? 'Marked Numbers' : 'Changed Bits'}</div>
-                  <button className="btn-icon" onClick={() => setDetailInspectorOpen(false)} title="Close inspector">✕</button>
-                </div>
-                <div className="detail-inspector-controls">
-                  <input
-                    type="text"
-                    value={detailInspectorQuery}
-                    onChange={(e) => setDetailInspectorQuery(e.target.value)}
-                    placeholder="Search bit, number, byte, uint64, group, cacheline"
-                    className="detail-inspector-search"
-                  />
-                  <span className="detail-inspector-count">{filteredDetailInspectorRows.length} / {detailInspectorRows.length}</span>
-                </div>
-                <div className="detail-inspector-table-wrap">
-                  <table className="detail-inspector-table">
-                    <thead>
-                      <tr>
-                        <th>Bit</th>
-                        <th>Number</th>
-                        <th>Byte</th>
-                        <th>uint64</th>
-                        <th>Group</th>
-                        <th>Cacheline</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredDetailInspectorRows.map((row) => (
-                        <tr key={`di-${row.bit}`}>
-                          <td>{row.bit}</td>
-                          <td>{row.number}</td>
-                          <td>{row.byte}</td>
-                          <td>{row.uint64}</td>
-                          <td>{row.group}</td>
-                          <td>{row.cacheline}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+            <DetailInspectorOverlay
+              open={detailInspectorOpen}
+              mode={detailInspectorMode}
+              query={detailInspectorQuery}
+              onQueryChange={setDetailInspectorQuery}
+              onClose={() => setDetailInspectorOpen(false)}
+              rows={detailInspectorRows}
+              filteredRows={filteredDetailInspectorRows}
+            />
           )}
 
           {timingPanelOpen && (

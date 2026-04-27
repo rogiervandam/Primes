@@ -59,6 +59,9 @@ Floating popover showing a bit's identity (number, byte, word, qword, cache line
 ### `EventTitleBanner.jsx`
 Draggable "current event" banner over the canvas with the active step heading, the previous/next two events, and any per-step animation sliders. Drag is implemented inline so the same gesture can act as a click-to-open-events-panel affordance.
 
+### `DetailInspectorOverlay.jsx`
+Modal table that lists every changed bit (or every multiple / every prime) for the current step. Pure presentation: takes `{ open, mode, query, onQueryChange, onClose, rows, filteredRows }` and renders the search-filtered list. The visualizer owns the data; the overlay just paints it.
+
 ## Settings building blocks (`src/settings/`)
 
 ### `LegendSections.jsx`
@@ -126,6 +129,35 @@ Normalises heterogeneous header/info-line data into File / Run / Settings / Note
 ### `unitConverters.js`
 - `playbackSpeedToPercent(speedValue)` / `percentToPlaybackSpeed(pctValue)` — log-scale slider mapping for playback speed.
 - `stepSpeedToInterval(speedValue)` / `intervalToStepSpeed(intervalValue)` — frame interval mapping for step-by-step mode.
+
+### `animationTiming.js`
+Pure timing math used by `Visualizer`'s playback engine (no React, no refs):
+
+- `clampMs(value, min, max)` — clamp helper.
+- `progressiveTierShares(c)` — split a bit count into the 10 / 100 / rest tiers used by progressive reveals.
+- `bitsAtTimeRatio(timeRatio, bitCount, mode)` — how many bits should be visible at a given fraction of the event window.
+- `timeRatioAtBitIndex(bitIdx, bitCount, mode)` — inverse of `bitsAtTimeRatio` (used to seed virtual elapsed time on resume).
+- `computeEventNormalDuration(bitCount, targets)` — base 100 %-speed duration from the configurable tier table.
+- `computeEventDuration(bitCount, targets, speedPercent)` — applies the speed slider to the normal duration.
+- `getFadeOutDuration(bitCount, options)` — residual-highlight fade-out duration.
+
+## Trace-parser building blocks (`src/parser/`)
+
+These are pure modules consumed by `traceParser.js`. They have no React dependencies and can be unit-tested in isolation.
+
+- **`parseUtils.js`** — alias tables (`START_ALIASES`, `STOP_ALIASES`, `EVENT_INDEX_ALIASES`, `FACTOR_STEP_ALIASES`), generic `firstDefined` / `toNumberOr` / `toNullableNumber`, `parseKvLine`, alias lookup helpers (`firstAliasValue`, `firstExactAliasValue`), `parseChangedBits`, `parseIntegerList`, `sanitizeOperationToken`, `dedupeStrings`, `collectTitleInfo`, `normalizeBitCountForStorage`, `isAnalysisEndLine`, plus the `TRACE_FALLBACK_VERSION` constant.
+- **`primeInference.js`** — best-effort prime extraction from text annotations: `parsePrimeFromText`, `firstAliasNumberInText`, `firstFactorStepNumberInText`, `inferPrimeFromFactorStep`, `inferPrimeFromAnnotation`, `inferMissingPrimes`.
+- **`maskMetadata.js`** — derives per-bit mask metadata from change lists: `buildMaskTargets`, `buildOrderedMaskTargets`, `buildMaskWriteOrder`, `inferMetaFromAnnotation`, `inferOperationFromAnnotation`, `deriveMaskMeta`, `derivePatternMeta`.
+- **`headerParser.js`** — `extractTitleMetadata`, `extractBenchmarkMetadata`, `parseBenchmarkOutputLine`, `buildTracePresentation` for normalising the trace header into the display shape consumed by `Visualizer`.
+- **`dumpParser.js`** — `parseDump` converts hex/binary memory dumps to the standard event sequence.
+
+## Renderer building blocks (`src/renderer/`)
+
+Modules consumed by `SieveRenderer.js`. No DOM-mutating side effects beyond the canvas calls passed in by the renderer.
+
+- **`constants.js`** — `THEMES`, `COLOR_PRESETS`, `BIT_LAYOUTS`, `BYTE_LAYOUTS`, `VECTOR_GROUPS`, `CACHELINE_SIZES`, `CACHE_PRESETS`, `GRID3X3_MAP`, `STORAGE_MODELS`, `WHEEL30_RESIDUES`.
+- **`bitMath.js`** — `bitToNumber(bitIdx, model)` / `numberToBit(num, model)` for the supported storage models (`'odd'`, `'all'`, `'wheel30'`).
+- **`drawingHelpers.js`** — pure colour and text helpers reused by the renderer's draw passes: `hexToRgb`, `mixRgb`, `labelTextColor`, `fitLabelFontSize`, `truncateTextToWidth`, `drawFittedLabel`.
 
 ## Rendering & parsing
 

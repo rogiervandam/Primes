@@ -235,7 +235,18 @@ web-visualizer/
 │   │   ├── viewPrefs.js          # localStorage persistence + defaults
 │   │   ├── traceHeader.js        # Trace header → display sections
 │   │   ├── platform.js           # OS / Electron detection
-│   │   └── unitConverters.js     # Slider ↔ duration mapping
+│   │   ├── unitConverters.js     # Slider ↔ duration mapping
+│   │   └── animationTiming.js    # Pure event-timing math
+│   ├── parser/                   # traceParser.js building blocks
+│   │   ├── parseUtils.js         # Aliases + kv/range/list parsing
+│   │   ├── primeInference.js     # Infer primes from annotations
+│   │   ├── maskMetadata.js       # Per-bit mask / write-order metadata
+│   │   ├── headerParser.js       # Title / benchmark / header extraction
+│   │   └── dumpParser.js         # Hex/binary memory-dump → events
+│   ├── renderer/                 # SieveRenderer.js building blocks
+│   │   ├── constants.js          # Themes, palettes, layouts, presets
+│   │   ├── bitMath.js            # bitToNumber / numberToBit
+│   │   └── drawingHelpers.js     # Pure colour & fitted-text helpers
 │   ├── hooks/                    # Reusable React hooks
 │   │   └── useFloatingPanel.js   # Drag/resize floating-panel behaviour
 │   ├── settings/                 # SettingsPanel building blocks
@@ -243,11 +254,12 @@ web-visualizer/
 │   │   ├── buttons.jsx           # Reusable settings buttons & icons
 │   │   └── LegendSections.jsx    # Shared legend content
 │   ├── visualizer/               # Pieces extracted from Visualizer.jsx
-│   │   ├── Toolbar.jsx           # Top toolbar (transport + actions)
-│   │   ├── TraceInfoPopover.jsx  # Trace header info popover
-│   │   ├── ExportProgress.jsx    # Video export progress bar
-│   │   ├── BitHistoryBalloon.jsx # Hover/pinned bit-history popover
-│   │   └── EventTitleBanner.jsx  # Floating current-event banner
+│   │   ├── Toolbar.jsx               # Top toolbar (transport + actions)
+│   │   ├── TraceInfoPopover.jsx      # Trace header info popover
+│   │   ├── ExportProgress.jsx        # Video export progress bar
+│   │   ├── BitHistoryBalloon.jsx     # Hover/pinned bit-history popover
+│   │   ├── EventTitleBanner.jsx      # Floating current-event banner
+│   │   └── DetailInspectorOverlay.jsx # Modal bits / numbers / primes table
 │   └── styles/                   # Per-concern stylesheets
 │       └── index.css             # @imports the section files
 ├── docs/                         # Developer documentation

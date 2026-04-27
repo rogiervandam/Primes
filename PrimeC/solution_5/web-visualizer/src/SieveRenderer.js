@@ -3,158 +3,45 @@
  *
  * Supports configurable layouts, adjustable spacing, light/dark themes,
  * operation-colored highlighting, vector grouping, and vector labels.
+ *
+ * Constants (THEMES / COLOR_PRESETS / layouts / cache presets / storage
+ * models) live in `./renderer/constants` and are re-exported below to keep
+ * existing import sites working.
  */
 
-// Theme palettes with per-operation changed-bit colors
-export const THEMES = {
-  dark: {
-    BIT_ZERO:     [232, 232, 232],
-    BIT_ONE:      [85,  85,  85],
-    BIT_CHANGED:  [46,  204, 113],
-    BACKGROUND:   [26,  26,  26],
-    BYTE_BORDER:  [50,  50,  50],
-    U64_BORDER:   [70,  70,  70],
-    CACHE_BORDER: [100, 100, 100],
-    LABEL_COLOR:  'rgba(200,200,200,0.7)',
-    OPERATION_COLORS: {
-      markFactors:     [72,  201, 176],
-      extend:          [68,  136, 255],  // blue
-      continuePattern: [68,  220, 136],  // green
-      setBitsTrue:     [46,  204, 113],
-      applyMask:       [39,  174, 96],
-    },
-  },
-  light: {
-    BIT_ZERO:     [240, 240, 240],
-    BIT_ONE:      [60,  60,  60],
-    BIT_CHANGED:  [46,  160, 67],
-    BACKGROUND:   [245, 245, 245],
-    BYTE_BORDER:  [200, 200, 200],
-    U64_BORDER:   [170, 170, 170],
-    CACHE_BORDER: [130, 130, 130],
-    LABEL_COLOR:  'rgba(60,60,60,0.7)',
-    OPERATION_COLORS: {
-      markFactors:     [34,  139, 34],
-      extend:          [30,  90,  200],
-      continuePattern: [20,  160, 80],
-      setBitsTrue:     [46,  160, 67],
-      applyMask:       [27,  120, 54],
-    },
-  },
+import {
+  THEMES,
+  COLOR_PRESETS,
+  BIT_LAYOUTS,
+  BYTE_LAYOUTS,
+  VECTOR_GROUPS,
+  CACHELINE_SIZES,
+  CACHE_PRESETS,
+  GRID3X3_MAP,
+  STORAGE_MODELS,
+} from './renderer/constants';
+import { bitToNumber, numberToBit } from './renderer/bitMath';
+import {
+  hexToRgb,
+  mixRgb,
+  labelTextColor,
+  fitLabelFontSize,
+  truncateTextToWidth,
+  drawFittedLabel,
+} from './renderer/drawingHelpers';
+
+export {
+  THEMES,
+  COLOR_PRESETS,
+  BIT_LAYOUTS,
+  BYTE_LAYOUTS,
+  VECTOR_GROUPS,
+  CACHELINE_SIZES,
+  CACHE_PRESETS,
+  STORAGE_MODELS,
+  bitToNumber,
+  numberToBit,
 };
-
-// Color presets for set/cleared/unchanged bits
-export const COLOR_PRESETS = {
-  default: {
-    label: 'Default',
-    setBit:       [76, 175, 80],   // green
-    clearedBit:   [244, 67, 54],   // red
-    unchangedBit: [158, 158, 158], // gray
-  },
-  highContrast: {
-    label: 'High Contrast',
-    setBit:       [0, 255, 0],     // bright green
-    clearedBit:   [255, 0, 0],     // bright red
-    unchangedBit: [0, 0, 0],       // black
-  },
-  pastel: {
-    label: 'Pastel',
-    setBit:       [165, 214, 167], // pastel green
-    clearedBit:   [239, 154, 154], // pastel red
-    unchangedBit: [224, 224, 224], // pastel gray
-  },
-  darkMode: {
-    label: 'Dark Mode',
-    setBit:       [129, 199, 132], // light green
-    clearedBit:   [229, 115, 115], // light red
-    unchangedBit: [66, 66, 66],    // dark gray
-  },
-};
-
-// Bit-in-byte layout modes
-export const BIT_LAYOUTS = {
-  '8x1': { label: '8 bits in a row',  cols: 8, rows: 1, grid3x3: false },
-  '4x2': { label: '4 bits in a row',  cols: 4, rows: 2, grid3x3: false },
-  '1x8': { label: '8 bits in a column', cols: 1, rows: 8, grid3x3: false },
-  '3x3': { label: '3Ã—3 grid (center empty)', cols: 3, rows: 3, grid3x3: true },
-};
-
-// Byte-in-uint64 layout modes
-export const BYTE_LAYOUTS = {
-  '8x1': { label: '8 bytes in a row',  cols: 8, rows: 1, grid3x3: false },
-  '4x2': { label: '4 bytes in a row',  cols: 4, rows: 2, grid3x3: false },
-  '1x8': { label: '8 bytes in a column', cols: 1, rows: 8, grid3x3: false },
-  '3x3': { label: '3Ã—3 grid (center empty)', cols: 3, rows: 3, grid3x3: true },
-};
-
-// Vector grouping options
-export const VECTOR_GROUPS = {
-  1:  { label: 'uint64 (no grouping)', u64sPerGroup: 1 },
-  2:  { label: 'uint64v2 (SSE/128-bit)', u64sPerGroup: 2 },
-  4:  { label: 'uint64v4 (AVX2/256-bit)', u64sPerGroup: 4 },
-  8:  { label: 'uint64v8 (AVX-512/512-bit)', u64sPerGroup: 8 },
-};
-
-// Cacheline size presets
-export const CACHELINE_SIZES = {
-  32:  { label: '32 bytes (256 bits)' },
-  64:  { label: '64 bytes (512 bits)' },
-  128: { label: '128 bytes (1024 bits)' },
-};
-
-// Processor cache presets with L1/L2 sizes and cacheline size
-export const CACHE_PRESETS = {
-  custom:              { label: 'Custom',                         l1: 0,          l2: 0,            cachelineSize: 64 },
-  'intel-alder-lake':  { label: 'Intel Alder Lake (12th Gen)',    l1: 48*1024,    l2: 1280*1024,    cachelineSize: 64 },
-  'intel-raptor-lake': { label: 'Intel Raptor Lake (13/14th Gen)',l1: 48*1024,    l2: 2048*1024,    cachelineSize: 64 },
-  'amd-zen3':          { label: 'AMD Zen 3 (Ryzen 5000)',        l1: 32*1024,    l2: 512*1024,     cachelineSize: 64 },
-  'amd-zen4':          { label: 'AMD Zen 4 (Ryzen 7000)',        l1: 32*1024,    l2: 1024*1024,    cachelineSize: 64 },
-  'amd-zen5':          { label: 'AMD Zen 5 (Ryzen 9000)',        l1: 32*1024,    l2: 1024*1024,    cachelineSize: 64 },
-  'apple-m1':          { label: 'Apple M1',                      l1: 192*1024,   l2: 12*1024*1024, cachelineSize: 128 },
-  'apple-m2':          { label: 'Apple M2',                      l1: 192*1024,   l2: 16*1024*1024, cachelineSize: 128 },
-  'apple-m3':          { label: 'Apple M3',                      l1: 192*1024,   l2: 16*1024*1024, cachelineSize: 128 },
-  'apple-m4':          { label: 'Apple M4',                      l1: 192*1024,   l2: 16*1024*1024, cachelineSize: 128 },
-  'arm-cortex-a78':    { label: 'ARM Cortex-A78',                l1: 64*1024,    l2: 512*1024,     cachelineSize: 64 },
-  'snapdragon-8gen3':  { label: 'Snapdragon 8 Gen 3',            l1: 64*1024,    l2: 2048*1024,    cachelineSize: 64 },
-};
-
-// Map a linear index (0-7) to a position in a 3x3 grid skipping center (4)
-const GRID3X3_MAP = [0, 1, 2, 3, /*skip 4*/ 5, 6, 7, 8];
-
-// Storage model definitions
-export const STORAGE_MODELS = {
-  half:  { label: 'Half (odd only)',   description: 'bit i â†’ 2i+1' },
-  full:  { label: 'Full (all)',        description: 'bit i â†’ i' },
-  wheel: { label: 'Wheel 8-of-30',    description: 'bit i â†’ wheel30 residue' },
-};
-
-const WHEEL30_RESIDUES = [1, 7, 11, 13, 17, 19, 23, 29];
-
-/** Convert a bit index to a number for the given storage model */
-export function bitToNumber(bitIdx, model) {
-  switch (model) {
-    case 'full':  return bitIdx;
-    case 'wheel': return Math.floor(bitIdx / 8) * 30 + WHEEL30_RESIDUES[bitIdx % 8];
-    case 'half':
-    default:      return bitIdx * 2 + 1;
-  }
-}
-
-/** Convert a number to a bit index, or -1 if not representable */
-export function numberToBit(num, model) {
-  switch (model) {
-    case 'full':  return num;
-    case 'wheel': {
-      const group = Math.floor(num / 30);
-      const rem = num % 30;
-      const idx = WHEEL30_RESIDUES.indexOf(rem);
-      return idx >= 0 ? group * 8 + idx : -1;
-    }
-    case 'half':
-    default:
-      return (num < 1 || num % 2 === 0) ? -1 : (num - 1) / 2;
-  }
-}
 
 export class SieveRenderer {
   constructor() {
@@ -349,87 +236,14 @@ export class SieveRenderer {
     return 0;
   }
 
-  _hexToRgb(hex) {
-    if (!hex || typeof hex !== 'string') return [92, 207, 141];
-    const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
-    if (!m) return [92, 207, 141];
-    return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
-  }
-
-  _mixRgb(a, b, t) {
-    return [
-      Math.round(a[0] * (1 - t) + b[0] * t),
-      Math.round(a[1] * (1 - t) + b[1] * t),
-      Math.round(a[2] * (1 - t) + b[2] * t),
-    ];
-  }
-
-  _labelTextColor(fillRgb) {
-    const [r, g, b] = fillRgb;
-    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    return luminance > 150 ? 'rgba(17, 24, 39, 0.95)' : 'rgba(249, 250, 251, 0.96)';
-  }
-
-  _fitLabelFontSize(ctx, text, maxWidth, preferredSize, minSize = 4, style = '') {
-    if (!text || maxWidth <= 0) return 0;
-    let size = preferredSize;
-    while (size > minSize) {
-      ctx.font = `${style}${size}px monospace`;
-      if (ctx.measureText(text).width <= maxWidth) return size;
-      size -= 0.5;
-    }
-    ctx.font = `${style}${minSize}px monospace`;
-    return ctx.measureText(text).width <= maxWidth ? minSize : 0;
-  }
-
-  _truncateTextToWidth(ctx, text, maxWidth, style = '') {
-    if (!text || maxWidth <= 0) return '';
-    ctx.save();
-    ctx.font = style;
-    if (ctx.measureText(text).width <= maxWidth) {
-      ctx.restore();
-      return text;
-    }
-    const ellipsis = '...';
-    if (ctx.measureText(ellipsis).width > maxWidth) {
-      ctx.restore();
-      return '';
-    }
-    let end = text.length;
-    while (end > 0) {
-      const candidate = `${text.slice(0, end)}${ellipsis}`;
-      if (ctx.measureText(candidate).width <= maxWidth) {
-        ctx.restore();
-        return candidate;
-      }
-      end -= 1;
-    }
-    ctx.restore();
-    return ellipsis;
-  }
-
-  _drawFittedLabel(ctx, text, x, y, maxWidth, preferredSize, color, options = {}) {
-    const {
-      minSize = 4,
-      style = '',
-      paddingX = 0,
-      clipHeight = preferredSize + 4,
-    } = options;
-
-    const fitWidth = Math.max(0, maxWidth - paddingX * 2);
-    const size = this._fitLabelFontSize(ctx, text, fitWidth, preferredSize, minSize, style);
-    if (size <= 0) return;
-
-    ctx.save();
-    ctx.font = `${style}${size}px monospace`;
-    ctx.fillStyle = color;
-    ctx.textBaseline = 'top';
-    ctx.beginPath();
-    ctx.rect(x, y, maxWidth, clipHeight);
-    ctx.clip();
-    ctx.fillText(text, x + paddingX, Math.round(y));
-    ctx.restore();
-  }
+  // Pure helpers below delegate to the shared `renderer/drawingHelpers` module.
+  // They remain on the class for call-site convenience (`this._foo(...)`).
+  _hexToRgb(hex)                                                                   { return hexToRgb(hex); }
+  _mixRgb(a, b, t)                                                                 { return mixRgb(a, b, t); }
+  _labelTextColor(fillRgb)                                                         { return labelTextColor(fillRgb); }
+  _fitLabelFontSize(ctx, text, maxWidth, preferredSize, minSize = 4, style = '')   { return fitLabelFontSize(ctx, text, maxWidth, preferredSize, minSize, style); }
+  _truncateTextToWidth(ctx, text, maxWidth, style = '')                            { return truncateTextToWidth(ctx, text, maxWidth, style); }
+  _drawFittedLabel(ctx, text, x, y, maxWidth, preferredSize, color, options = {})  { return drawFittedLabel(ctx, text, x, y, maxWidth, preferredSize, color, options); }
 
   _drawOutlineRect(ctx, x, y, w, h) {
     const cfg = this._outlineConfig();
