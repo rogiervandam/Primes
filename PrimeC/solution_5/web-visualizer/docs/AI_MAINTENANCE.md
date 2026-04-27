@@ -353,6 +353,20 @@ overwrite.
   multiples overlays, target outline, motion trails, cacheline
   outline + heat overlay, labels, minimap, hit-count gradient,
   heat-map age tinting, `mode3D` camera transform.
+- ✅ Extended `BitGridGL` with the four cell-fill overlays
+  (focus / prime / range / multiples) and `webglcontextrestored`
+  recovery. Overlays piggy-back on the existing `R8UI` `stateTex`:
+  flag bits 4–7 carry prime / range / multiples / focus
+  membership; `uploadState(host)` walks `_primeBitFlags`,
+  `[rangeOverlayStart, rangeOverlayEnd]`, `multiplesOverlayPrime`
+  via `bitToNumber()`, and `[focusStart, focusStop]`. Tints are
+  hard-coded in the fragment shader to match the Canvas2D source
+  colours exactly. Context-loss handler nulls GPU resources;
+  restore re-runs `_initProgram()` / `_initQuad()` / texture
+  re-allocation and clears the layout fingerprint so positions
+  repack on the next frame. `mode3D` works automatically because
+  the GL canvas already lives inside `camera3DContainerStyle` in
+  `CanvasStage.jsx`, so the same CSS 3D transform applies.
 
 ---
 
@@ -559,18 +573,23 @@ done":
    fractional), and the `mode3D` camera transform.
 2. **Color parity.** ⚠️ *Partially done.* Shader handles
    set / cleared / changed / ghost-mask / repeated using uniforms
-   from `_bitColors()` and `_opColor()`. Still TODO from
-   `_classifyBit`: prime overlay, range overlay, multiples overlay,
-   target hit-count gradient, heat-map age tinting, lowered-3D
+   from `_bitColors()` and `_opColor()`, **plus** the four
+   cell-fill overlays focus / prime / range / multiples (tints
+   hard-coded in the FS to match Canvas2D). Still TODO from
+   `_classifyBit` and the Canvas2D draw chain: target outline
+   stroke + hit-count gradient (these are line strokes, not
+   fills — currently still drawn by Canvas2D on top of the GL
+   canvas, which is fine), heat-map age tinting, lowered-3D
    shading, custom per-bit colour overrides.
 3. **State texture protocol.** ⚠️ *Partially done.* Today: one
    `R8UI` `stateTex`, one byte per bit, packed bits
-   `set | changed | ghost | repeated`, repacked every render in
-   JS (`uploadState(host)`). Cheap at current bit counts. Still
-   TODO when items 1–2's missing features land: separate textures
-   (or a packed atlas) for `_primeBitFlags`, `targetHitCounts`,
-   `lastAccessStep`, range-overlay membership, plus partial
-   `texSubImage2D` updates per step instead of full repack.
+   `set | changed | ghost | repeated | prime | range | multiples |
+   focus`, repacked every render in JS (`uploadState(host)`).
+   Cheap at current bit counts. Still TODO when items 1–2's
+   missing features land: separate textures (or move to RG8UI)
+   for `targetHitCounts` magnitude (gradient input) and
+   `lastAccessStep` (heat-map age), plus partial `texSubImage2D`
+   updates per step instead of full repack.
 4. **Hit-testing.** `bitIndexToCanvas()` / `canvasToBitIndex()` must
    stay authoritative on the JS side; the GL renderer must use the
    identical layout math.

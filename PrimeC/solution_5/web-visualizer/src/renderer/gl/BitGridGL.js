@@ -31,6 +31,8 @@
  *   subsequent draws. Reload the page to recover.
  */
 
+import { bitToNumber } from '../bitMath';
+
 const VS = `#version 300 es
 precision highp float;
 precision highp usampler2D;
@@ -70,11 +72,15 @@ void main() {
   gl_Position = vec4(clip, 0.0, 1.0);
 }`;
 
-// State-flag bit layout:
+// State-flag bit layout (one byte per bit, R8UI):
 //   bit 0: set
 //   bit 1: changed
 //   bit 2: ghost-masked
 //   bit 3: repeated write
+//   bit 4: prime-overlay member
+//   bit 5: range-overlay member
+//   bit 6: multiples-overlay member
+//   bit 7: focus-range member
 const FS = `#version 300 es
 precision highp float;
 
@@ -88,11 +94,29 @@ uniform float u_baseAlpha;       // applied to non-changed/ghost/repeated bits
 flat in uint v_state;
 out vec4 outColor;
 
+// Source-of-truth overlay tints (matched to Canvas2D _drawBit*Overlay):
+//   focus    : rgba(96,165,250, 0.16)
+//   prime    : rgba(251,191,36, 0.20)
+//   range    : rgba(34,211,238, 0.22)
+//   multiples: rgba(167,139,250, 0.30)
+const vec4 FOCUS_TINT = vec4(96.0/255.0, 165.0/255.0, 250.0/255.0, 0.16);
+const vec4 PRIME_TINT = vec4(251.0/255.0, 191.0/255.0,  36.0/255.0, 0.20);
+const vec4 RANGE_TINT = vec4( 34.0/255.0, 211.0/255.0, 238.0/255.0, 0.22);
+const vec4 MULT_TINT  = vec4(167.0/255.0, 139.0/255.0, 250.0/255.0, 0.30);
+
+vec3 overlay(vec3 base, vec4 tint) {
+  return mix(base, tint.rgb, tint.a);
+}
+
 void main() {
-  bool isSet      = (v_state & 1u) != 0u;
-  bool isChanged  = (v_state & 2u) != 0u;
-  bool isGhost    = (v_state & 4u) != 0u;
-  bool isRepeated = (v_state & 8u) != 0u;
+  bool isSet      = (v_state & 1u)  != 0u;
+  bool isChanged  = (v_state & 2u)  != 0u;
+  bool isGhost    = (v_state & 4u)  != 0u;
+  bool isRepeated = (v_state & 8u)  != 0u;
+  bool isPrime    = (v_state & 16u) != 0u;
+  bool isRange    = (v_state & 32u) != 0u;
+  bool isMult     = (v_state & 64u) != 0u;
+  bool isFocus    = (v_state & 128u)!= 0u;
 
   vec3 color;
   float alpha;
@@ -113,8 +137,17 @@ void main() {
     alpha = u_baseAlpha;
   }
 
-  // Compose against background to keep edges crisp on transparent canvases.
-  outColor = vec4(mix(u_bgColor, color, alpha), 1.0);
+  // Compose against background first to keep edges crisp.
+  vec3 composed = mix(u_bgColor, color, alpha);
+
+  // Then layer the overlay tints. Order matches Canvas2D draw order:
+  // focus → prime → range → multiples (later overlays paint on top).
+  if (isFocus) composed = overlay(composed, FOCUS_TINT);
+  if (isPrime) composed = overlay(composed, PRIME_TINT);
+  if (isRange) composed = overlay(composed, RANGE_TINT);
+  if (isMult)  composed = overlay(composed, MULT_TINT);
+
+  outColor = vec4(composed, 1.0);
 }`;
 
 function compile(gl, type, src) {
@@ -170,9 +203,31 @@ export class BitGridGL {
       return false;
     }
     this.gl = gl;
+    // Context-loss recovery: tear down GPU resources on loss, then
+    // rebuild on restore. The next render() call will repopulate the
+    // textures (state every frame; positions on next layout change —
+    // we invalidate the fingerprint so they repack immediately).
     canvas.addEventListener('webglcontextlost', (e) => {
       e.preventDefault();
       this._lost = true;
+      this.program = null;
+      this.vao = null;
+      this.posTex = null;
+      this.stateTex = null;
+    }, false);
+    canvas.addEventListener('webglcontextrestored', () => {
+      try {
+        this._initProgram();
+        this._initQuad();
+        const bc = this.bitCount;
+        this.bitCount = 0;          // force resizeForBitCount to re-allocate textures
+        this.resizeForBitCount(bc);
+        this._layoutFingerprint = '';
+        this._lost = false;
+      } catch (err) {
+        console.warn('[BitGridGL] context restore failed:', err);
+        this._lost = true;
+      }
     }, false);
     try {
       this._initProgram();
@@ -348,6 +403,41 @@ export class BitGridGL {
         if (count > 1 && bit >= 0 && bit < n) buf[bit] |= 8;
       });
     }
+
+    // Prime overlay (bit 4): only when the toggle is on AND the
+    // pre-baked flag array is ready. `_primeBitFlags` is a Uint8Array
+    // produced by `buildPrimeOverlay()` / `prefetchPrimeOverlay()`.
+    if (host.primeOverlay && host._primeBitFlags) {
+      const pf = host._primeBitFlags;
+      const pn = Math.min(n, pf.length);
+      for (let i = 0; i < pn; i++) if (pf[i]) buf[i] |= 16;
+    }
+
+    // Range overlay (bit 5): contiguous bit-index window.
+    if (host.rangeOverlay) {
+      const lo = Math.max(0, host.rangeOverlayStart | 0);
+      const hi = Math.min(n - 1, host.rangeOverlayEnd | 0);
+      for (let i = lo; i <= hi; i++) buf[i] |= 32;
+    }
+
+    // Multiples overlay (bit 6): mark bits whose number is a multiple
+    // of `multiplesOverlayPrime`. Match Canvas2D's `bitToNumber()` path.
+    if (host.multiplesOverlay && host.multiplesOverlayPrime >= 2) {
+      const k = host.multiplesOverlayPrime | 0;
+      const sm = host.storageModel;
+      for (let i = 0; i < n; i++) {
+        const num = bitToNumber(i, sm);
+        if (num >= 2 && num % k === 0) buf[i] |= 64;
+      }
+    }
+
+    // Focus range (bit 7): inclusive [focusStart, focusStop] window.
+    if (host.focusStart != null && host.focusStop != null) {
+      const lo = Math.max(0, host.focusStart | 0);
+      const hi = Math.min(n - 1, host.focusStop | 0);
+      for (let i = lo; i <= hi; i++) buf[i] |= 128;
+    }
+
     // Pad any unused texture slots to 0.
     for (let i = n; i < buf.length; i++) buf[i] = 0;
 
