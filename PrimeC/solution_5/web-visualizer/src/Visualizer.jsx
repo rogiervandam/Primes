@@ -14,6 +14,7 @@ import BitHistoryBalloons from './visualizer/BitHistoryBalloons';
 import { useTraceExport } from './hooks/useTraceExport';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { use3DCamera } from './hooks/use3DCamera';
+import { usePlaybackClock } from './hooks/usePlaybackClock';
 import {
   DEFAULT_EVENT_TIME_TARGETS,
   DEFAULT_LAYOUT_SETTINGS as DEFAULT_SETTINGS,
@@ -150,17 +151,11 @@ export default function Visualizer({
   const stepResumeStartIndexRef = useRef(0);
   // 0..1 resume hint for the mask animation path (mirrors stepResumeStartIndexRef).
   const stepResumeMaskProgressRef = useRef(0);
-  // Global pause flag. Set by either the top-toolbar pause or the banner pause.
-  // The reveal loop, mask animation, waitForDelay, and the trace-level
-  // scheduleNext all poll this and freeze in place when true. Setting back to
-  // false transparently resumes everything from where it stopped.
-  const globalPausedRef = useRef(false);
-  // Monotonically-increasing counter bumped by seekStepAnimation every time
-  // the user scrubs the timeline. triggerAnimation captures the current value
-  // at entry and aborts (without overwriting the canvas) if the value changed
-  // by the time a new RAF tick fires — i.e. the user scrubbed while the
-  // animation was in flight.
-  const seekGenRef = useRef(0);
+  // Global pause flag, seek generation counter, and animation-busy
+  // deadline. See `src/hooks/usePlaybackClock.js` for the full
+  // semantics of each ref. Lifted into a hook so the playback
+  // contract is documented in one place; behaviour is unchanged.
+  const { globalPausedRef, seekGenRef, animBusyUntilRef } = usePlaybackClock();
   // Event-internal animation duration mode. 'progressive' uses a piecewise
   // tiered budget so a 5-bit event and a 5000-bit event both produce a
   // meaningful timeline; 'linear' scales total duration with the bit count.
@@ -263,7 +258,6 @@ export default function Visualizer({
   const seqTimerRef = useRef(null); // sequential animation timer
   const triggerAnimationRef = useRef(null);
   const playTimeoutRef = useRef(null);
-  const animBusyUntilRef = useRef(0);
   const selectedAnimLoopRef = useRef(null);
   const pausedStepAnimLoopRef = useRef(null);
   const initialFitDoneRef = useRef(false);
