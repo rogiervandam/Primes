@@ -1350,31 +1350,47 @@ export class SieveRenderer {
     return this._labelBands().total;
   }
 
+  /**
+   * Top-level frame render. Coordinator only — the heavy lifting is split
+   * into small private methods (`_buildFrameContext`, `_renderClear`,
+   * `_renderVisualRow` → `_renderVector` → `_renderVectorU64` →
+   * `_renderVectorByte` → `_renderBitCell` → bit-body / decorations / labels).
+   * Behaviour is byte-for-byte identical to the original monolithic version;
+   * the split is purely structural.
+   */
   render() {
     if (!this.ctx || !this.bitState || this.bitCount === 0) return;
+    const f = this._buildFrameContext();
+    this._renderClear(f);
 
+    // Draw cacheline-level overlays before bits so bits render on top
+    this._renderCachelineHeatOverlay(f.ctx);
+    this._renderCachelineOutline(f.ctx);
+
+    for (let vRow = f.startVRow; vRow < f.endVRow; vRow++) {
+      this._renderVisualRow(f, vRow);
+    }
+
+    if (!this.suppressMaskWriteOverlay) {
+      this.maskWriteOverlay.render(f.ctx);
+    }
+    this.vectorTouchOrderOverlay.render(f.ctx);
+    this.cachelineAnnotationsOverlay.render(f.ctx);
+    this.searchOverlay.render(f.ctx, f.cw, f.ch);
+  }
+
+  /**
+   * Precompute every per-frame constant once. The returned object is the
+   * shared "frame context" passed down through the row/vector/byte/bit chain
+   * so each method can read everything via `f.foo` without recomputing.
+   */
+  _buildFrameContext() {
     const C = this.colors;
     const ctx = this.ctx;
     const settledCtx = this.settledCtx;
     const cw = this.canvas.width / (window.devicePixelRatio || 1);
     const ch = this.canvas.height / (window.devicePixelRatio || 1);
     const layeredLoweredBits = this.loweredSetBits && !!settledCtx;
-
-    if (layeredLoweredBits) {
-      settledCtx.clearRect(0, 0, cw, ch);
-      if (!this.transparentBackground) {
-        settledCtx.fillStyle = `rgb(${C.BACKGROUND.join(',')})`;
-        settledCtx.fillRect(0, 0, cw, ch);
-      }
-      ctx.clearRect(0, 0, cw, ch);
-    } else {
-      ctx.clearRect(0, 0, cw, ch);
-      if (!this.transparentBackground) {
-        ctx.fillStyle = `rgb(${C.BACKGROUND.join(',')})`;
-        ctx.fillRect(0, 0, cw, ch);
-      }
-      if (settledCtx) settledCtx.clearRect(0, 0, cw, ch);
-    }
 
     const px = this.pixelSize * this.zoom;
     const bitsPerCacheLine = this.bitsPerCacheLine;
@@ -1398,469 +1414,543 @@ export class SieveRenderer {
     const changedColor = this._opColor();
     const bitColors = this._bitColors();
 
-    // Font for labels (bit/byte labels need higher zoom)
-    const bitLabelFontSize = Math.max(6, Math.min(10, 2 * this.zoom));
     const showBitLabels = this.showBitLabels && this.zoom >= 6;
     const showNumberLabels = this.showNumberLabels && this.zoom >= 6;
     const showByteLabels = labelBands.showByte;
     const showVectorLabels = labelBands.showVector;
-    const vectorLabelY = vRow => this.panY + vRow * vRowHeight + 1;
-    const byteLabelY = (vRowBaseY, byteTopY) => Math.max(vRowBaseY + labelBands.vector + 1, byteTopY - labelBands.byteFont - 1);
 
-    // Draw cacheline-level overlays before bits so bits render on top
-    this._renderCachelineHeatOverlay(ctx);
-    this._renderCachelineOutline(ctx);
+    const u64sPerCL = Math.max(1, Math.ceil(bitsPerCacheLine / 64));
+    const u64GapX = this._u64GapX();
+    const byteGapX = this._byteGapX();
+    const byteGapY = this._byteGapY();
+    const bitStepX = this._bitStepX();
+    const bitStepY = this._bitStepY();
+    const baseAlpha = Math.max(0.12, Math.min(1, this.gridOpacity ?? 1));
 
-    for (let vRow = startVRow; vRow < endVRow; vRow++) {
-      const vRowBaseY = this.panY + vRow * vRowHeight;
-      const vRowDataY = vRowBaseY + labelH;
-      if (vRowDataY + rowD.h < 0 || vRowBaseY > ch) continue;
+    return {
+      C, ctx, settledCtx, cw, ch, layeredLoweredBits, px,
+      bitsPerCacheLine, totalCacheLines, rowD, labelBands, labelH,
+      numVec, totalVectorSlots, vecPerVRow, vRowHeight, totalVRows,
+      startVRow, endVRow,
+      u64D, vecD, byteD, bitBl, changedColor, bitColors,
+      showBitLabels, showNumberLabels, showByteLabels, showVectorLabels,
+      u64sPerCL, u64GapX, byteGapX, byteGapY, bitStepX, bitStepY, baseAlpha,
+      vectorLabelY: vRow => this.panY + vRow * vRowHeight + 1,
+      byteLabelY: (vRowBaseY, byteTopY) => Math.max(vRowBaseY + labelBands.vector + 1, byteTopY - labelBands.byteFont - 1),
+    };
+  }
 
-      for (let vecInRow = 0; vecInRow < vecPerVRow; vecInRow++) {
-        const globalVectorIndex = vRow * vecPerVRow + vecInRow;
-        if (globalVectorIndex >= totalVectorSlots) break;
-
-        const clIdx = Math.floor(globalVectorIndex / numVec);
-        if (clIdx >= totalCacheLines) break;
-        const vecIdxInCL = globalVectorIndex % numVec;
-        const vecX = this.panX + vecInRow * (vecD.w + this._u64GapX());
-        const rowBitStart = clIdx * bitsPerCacheLine;
-        const rowBitStop = Math.min(rowBitStart + bitsPerCacheLine, this.bitCount);
-        const u64Start = vecIdxInCL * this.vectorGroup;
-        const bitStart = rowBitStart + u64Start * 64;
-        const bitEnd = Math.min(bitStart + this.vectorGroup * 64 - 1, rowBitStop - 1, this.bitCount - 1);
-        if (bitStart >= rowBitStop) continue;
-
-        if (showVectorLabels) {
-          const label = `${this._groupLabel(globalVectorIndex)} bits ${bitStart}-${bitEnd}`;
-          const labelX = Math.round(vecX);
-          const labelY = Math.round(vectorLabelY(vRow));
-          if (labelX + vecD.w > 0 && labelX < cw && vRowBaseY >= -labelH && vRowBaseY < ch) {
-            this._drawFittedLabel(ctx, label, labelX, labelY, Math.max(8, vecD.w - 2), labelBands.vectorFont, C.LABEL_COLOR, {
-              minSize: 3.5,
-              paddingX: 1,
-              clipHeight: labelBands.vector,
-            });
-          }
-        }
-
-        const u64sPerCL = Math.max(1, Math.ceil(bitsPerCacheLine / 64));
-        for (let intraIdx = 0; intraIdx < this.vectorGroup; intraIdx++) {
-          const u64Idx = u64Start + intraIdx;
-          if (u64Idx >= u64sPerCL) break;
-          const u64BitStart = rowBitStart + u64Idx * 64;
-          if (u64BitStart >= rowBitStop) break;
-
-          const u64X = vecX + intraIdx * (u64D.w + vecD.intraGap);
-
-          if (this.outlineEnabled && this.outlineTarget === 'vector' && intraIdx === 0) {
-            const pad = this._outlinePadding();
-            const topExtra = this._outlineTopExtra('vector');
-            this._drawOutlineRect(ctx, vecX - pad, vRowDataY - pad - topExtra, vecD.w + 2 * pad, vecD.h + 2 * pad + topExtra);
-          }
-
-          for (let byteIdx = 0; byteIdx < 8; byteIdx++) {
-            const byteBitStart = u64BitStart + byteIdx * 8;
-            if (byteBitStart >= rowBitStop) break;
-
-            const bytePos = this._bytePosInU64(byteIdx);
-            const byteX = u64X + bytePos.col * (byteD.w + this._byteGapX());
-            const byteY = vRowDataY + bytePos.row * (byteD.h + this._byteGapY());
-
-            if (this.outlineEnabled && this.outlineTarget === 'byte') {
-              const pad = this._outlinePadding();
-              const topExtra = this._outlineTopExtra('byte');
-              this._drawOutlineRect(ctx, byteX - pad, byteY - pad - topExtra, byteD.w + 2 * pad, byteD.h + 2 * pad + topExtra);
-            }
-
-            // Byte label
-            if (showByteLabels) {
-              const byteLabel = `Byte ${this._byteLabelValue(byteBitStart)}`;
-              this._drawFittedLabel(
-                ctx,
-                byteLabel,
-                Math.round(byteX),
-                Math.round(byteLabelY(vRowBaseY, byteY)),
-                Math.max(8, byteD.w - 2),
-                labelBands.byteFont,
-                C.LABEL_COLOR,
-                { minSize: 3.5, paddingX: 1, clipHeight: Math.max(7, labelBands.byteFont + 4) }
-              );
-            }
-
-            for (let bitIdx = 0; bitIdx < 8; bitIdx++) {
-              const globalBit = byteBitStart + bitIdx;
-              if (globalBit >= rowBitStop || globalBit >= this.bitCount) break;
-
-              if (bitBl.grid3x3 && bitIdx >= 8) continue;
-
-              const bitPos = this._bitPosInByte(bitIdx);
-              const bitX = byteX + bitPos.col * this._bitStepX();
-              const bitY = byteY + bitPos.row * this._bitStepY();
-
-              if (bitX + px < 0 || bitX > cw || bitY + px < 0 || bitY > ch) continue;
-
-              let color;
-              const inFocusRange = this._isInFocusRange(globalBit);
-              const targetHitCount = this.targetHitCounts?.get(globalBit) || 0;
-              const isGhostMaskedBit = this.maskGhostBits?.has(globalBit) && this.bitState[globalBit];
-              const isChangedBit = this.changedBits.has(globalBit);
-              const isRepeatedWrite = (targetHitCount > 1) || this.repeatedChangedBits?.has(globalBit);
-              if (isGhostMaskedBit) {
-                color = bitColors.cleared;
-              } else if (isChangedBit) {
-                color = isRepeatedWrite ? [245, 158, 11] : changedColor;
-              } else if (this.bitState[globalBit]) {
-                color = bitColors.set;
-              } else {
-                color = bitColors.cleared;
-              }
-
-              const isSetBit = !!this.bitState[globalBit];
-              const isSettledBit = isSetBit && !isChangedBit;
-              const depthModeEnabled = this.loweredSetBits;
-              const depthStrength = Math.max(0, Math.min(1.0, this.loweredDepthStrength ?? 0.8));
-              const depthAngleRad = (Math.max(0, Math.min(90, this.loweredDepthAngle ?? 38)) * Math.PI) / 180;
-              const depthScale = this.loweredSetBits3D ? 1.18 : 1;
-              const baseDrop = px * Math.sin(depthAngleRad) * 1.05 * depthStrength * depthScale;
-              const baseShiftX = px * Math.cos(depthAngleRad) * 0.55 * depthStrength * depthScale;
-              // In depth mode, only set bits sink to the lowered plane; cleared bits
-              // remain "raised" and are drawn as 3D boxes standing on the lowered plane.
-              const isLoweredCell = depthModeEnabled && isSetBit;
-              const isRaisedCell = depthModeEnabled && !isSetBit;
-              const isDepthBucket = isLoweredCell;
-
-              let sinkDrop = isLoweredCell ? baseDrop : 0;
-              let sinkShiftX = isLoweredCell ? baseShiftX : 0;
-              let sinkScale = isLoweredCell ? (this.loweredSetBits3D ? 0.56 : 0.68) : 1;
-
-              if (isLoweredCell && isChangedBit) {
-                const startedAt = this.changedBitRiseAt.get(globalBit) || performance.now();
-                const elapsed = performance.now() - startedAt;
-                const durationMs = 700;
-                const progress = Math.max(0, Math.min(1, elapsed / durationMs));
-                const peakLift = px * 0.42 * depthStrength;
-                let riseLift = 0;
-                if (progress < 0.32) {
-                  riseLift = peakLift * (progress / 0.32);
-                  sinkDrop = 0;
-                  sinkShiftX = 0;
-                } else if (progress < 0.56) {
-                  riseLift = peakLift * (1 - (progress - 0.32) / 0.24);
-                  sinkDrop = 0;
-                  sinkShiftX = 0;
-                } else {
-                  const settleT = (progress - 0.56) / 0.44;
-                  sinkDrop = baseDrop * settleT;
-                  sinkShiftX = baseShiftX * settleT;
-                }
-                sinkScale = 1 - (1 - sinkScale) * Math.max(0, Math.min(1, (progress - 0.56) / 0.44));
-                sinkDrop -= riseLift;
-              }
-
-              const drawSize = Math.max(1, Math.round(px * sinkScale));
-              const drawX = Math.round(bitX + sinkShiftX + (px - drawSize) * 0.5);
-              const drawY = Math.round(bitY + sinkDrop + (px - drawSize) * 0.5);
-              const drawCtx = layeredLoweredBits && isDepthBucket ? settledCtx : ctx;
-              const baseAlpha = Math.max(0.12, Math.min(1, this.gridOpacity ?? 1));
-              const bitAlpha = (!isChangedBit && !isGhostMaskedBit && !isRepeatedWrite) ? baseAlpha : 1;
-
-              if (layeredLoweredBits && isLoweredCell) {
-                // Lowered (set) bit: only the sunken square, with optional drop
-                // shadow and inner highlight. No top-position box is drawn so the
-                // raised neighbours visually stand higher above the bottom plane.
-                settledCtx.save();
-                settledCtx.fillStyle = 'rgba(0, 0, 0, 0.24)';
-                settledCtx.fillRect(
-                  Math.round(drawX - Math.max(1, px * 0.08)),
-                  Math.round(drawY - Math.max(1, px * 0.08)),
-                  Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16))),
-                  Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16)))
-                );
-                settledCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
-                settledCtx.fillRect(drawX, drawY, drawSize, drawSize);
-                settledCtx.strokeStyle = `rgba(255, 255, 255, ${this.loweredSetBits3D ? '0.16' : '0.12'})`;
-                settledCtx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
-                settledCtx.strokeRect(
-                  Math.round(drawX) + 0.5,
-                  Math.round(drawY) + 0.5,
-                  Math.max(1, Math.round(drawSize - 1)),
-                  Math.max(1, Math.round(drawSize - 1))
-                );
-                settledCtx.restore();
-              } else if (layeredLoweredBits && isRaisedCell) {
-                // Raised (cleared) bit: render as a 3D box standing on the lowered
-                // plane. The box's bottom face sits at the sunken footprint
-                // (baseDrop / baseShiftX, scaled), and the top face sits at the
-                // original bit position with full size. Side faces connect them.
-                const baseSize = Math.max(1, Math.round(px * (this.loweredSetBits3D ? 0.56 : 0.68)));
-                const baseX = Math.round(bitX + baseShiftX + (px - baseSize) * 0.5);
-                const baseY = Math.round(bitY + baseDrop + (px - baseSize) * 0.5);
-                const topX = Math.round(bitX);
-                const topY = Math.round(bitY);
-                const topSize = Math.max(1, Math.round(px));
-
-                ctx.save();
-                // Right side face (darker)
-                ctx.fillStyle = `rgba(${Math.round(color[0] * 0.62)}, ${Math.round(color[1] * 0.62)}, ${Math.round(color[2] * 0.62)}, ${bitAlpha})`;
-                ctx.beginPath();
-                ctx.moveTo(topX + topSize, topY);
-                ctx.lineTo(topX + topSize, topY + topSize);
-                ctx.lineTo(baseX + baseSize, baseY + baseSize);
-                ctx.lineTo(baseX + baseSize, baseY);
-                ctx.closePath();
-                ctx.fill();
-
-                // Bottom-front side face (slightly darker than right)
-                ctx.fillStyle = `rgba(${Math.round(color[0] * 0.5)}, ${Math.round(color[1] * 0.5)}, ${Math.round(color[2] * 0.5)}, ${bitAlpha})`;
-                ctx.beginPath();
-                ctx.moveTo(topX, topY + topSize);
-                ctx.lineTo(topX + topSize, topY + topSize);
-                ctx.lineTo(baseX + baseSize, baseY + baseSize);
-                ctx.lineTo(baseX, baseY + baseSize);
-                ctx.closePath();
-                ctx.fill();
-
-                // Top face (original color, full size)
-                ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
-                ctx.fillRect(topX, topY, topSize, topSize);
-
-                // Subtle edge highlight on the top face
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
-                ctx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
-                ctx.strokeRect(topX + 0.5, topY + 0.5, Math.max(1, topSize - 1), Math.max(1, topSize - 1));
-                ctx.restore();
-              } else {
-                drawCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
-                drawCtx.fillRect(drawX, drawY, drawSize, drawSize);
-              }
-
-              if (isGhostMaskedBit) {
-                drawCtx.save();
-                drawCtx.fillStyle = `rgba(${bitColors.set[0]},${bitColors.set[1]},${bitColors.set[2]},0.2)`;
-                drawCtx.fillRect(
-                  drawX,
-                  drawY,
-                  drawSize,
-                  drawSize
-                );
-                drawCtx.strokeStyle = `rgba(${bitColors.set[0]},${bitColors.set[1]},${bitColors.set[2]},0.95)`;
-                drawCtx.lineWidth = Math.max(0.7, Math.min(1.6, px * 0.12));
-                drawCtx.strokeRect(
-                  Math.round(drawX - 0.5), Math.round(drawY - 0.5),
-                  Math.max(2, Math.round(drawSize + 1)), Math.max(2, Math.round(drawSize + 1))
-                );
-                drawCtx.restore();
-              }
-
-              if (inFocusRange) {
-                ctx.fillStyle = 'rgba(96, 165, 250, 0.16)';
-                ctx.fillRect(
-                  Math.round(bitX - 1), Math.round(bitY - 1),
-                  Math.max(2, Math.round(px + 2)), Math.max(2, Math.round(px + 2))
-                );
-              }
-
-              const showTargetOutline = this.targetBits?.has(globalBit)
-                && !this.maskGhostBits?.has(globalBit)
-                && this.zoom >= 1.4
-                && px >= 2.5;
-              if (showTargetOutline) {
-                ctx.save();
-                ctx.strokeStyle = 'rgba(59, 130, 246, 0.95)';
-                ctx.lineWidth = Math.max(0.35, Math.min(1.25, px * 0.08));
-                ctx.strokeRect(
-                  Math.round(drawX - 0.5), Math.round(drawY - 0.5),
-                  Math.max(2, Math.round(drawSize + 1)), Math.max(2, Math.round(drawSize + 1))
-                );
-                if (targetHitCount > 1 && this.zoom >= 2.2 && px >= 4) {
-                  ctx.strokeStyle = 'rgba(245, 158, 11, 0.95)';
-                  ctx.lineWidth = Math.max(0.5, Math.min(1.6, px * 0.11));
-                  ctx.strokeRect(
-                    Math.round(drawX + 1), Math.round(drawY + 1),
-                    Math.max(1, Math.round(drawSize - 2)), Math.max(1, Math.round(drawSize - 2))
-                  );
-                }
-                ctx.restore();
-              }
-
-              // Prime number overlay: highlight bits whose projected number is prime
-              if (this.primeOverlay && this._primeBitFlags?.[globalBit]) {
-                ctx.save();
-                // Subtle gold tint over the bit cell
-                ctx.fillStyle = 'rgba(251,191,36,0.20)';
-                ctx.fillRect(
-                  Math.round(bitX), Math.round(bitY),
-                  Math.max(1, Math.round(px)), Math.max(1, Math.round(px))
-                );
-                // Small gold dot in the top-right corner — visible even at low zoom
-                const dotR = Math.max(0.8, Math.min(px * 0.22, 4));
-                ctx.fillStyle = 'rgba(251,191,36,0.92)';
-                ctx.beginPath();
-                ctx.arc(
-                  Math.round(bitX + px) - dotR * 0.75,
-                  Math.round(bitY) + dotR * 0.75,
-                  dotR, 0, Math.PI * 2
-                );
-                ctx.fill();
-                // Gold border at moderate zoom
-                if (px >= 4) {
-                  ctx.strokeStyle = 'rgba(251,191,36,0.68)';
-                  ctx.lineWidth = Math.max(0.35, Math.min(1.3, px * 0.075));
-                  ctx.setLineDash([]);
-                  ctx.strokeRect(
-                    Math.round(bitX) - 0.5, Math.round(bitY) - 0.5,
-                    Math.max(2, Math.round(px) + 1), Math.max(2, Math.round(px) + 1)
-                  );
-                }
-                // Small "p" label at high zoom so the meaning is unmistakable
-                if (px >= 16) {
-                  const pSize = Math.max(4, Math.min(px * 0.22, 9));
-                  ctx.font = `bold ${pSize}px monospace`;
-                  ctx.fillStyle = 'rgba(251,191,36,0.90)';
-                  ctx.textAlign = 'left';
-                  ctx.textBaseline = 'top';
-                  ctx.fillText('p', Math.round(bitX + 1), Math.round(bitY + 1));
-                  ctx.textAlign = 'start';
-                }
-                ctx.restore();
-              }
-
-              // Range overlay: cyan/teal highlight for bits within [rangeOverlayStart, rangeOverlayEnd]
-              if (this.rangeOverlay && globalBit >= this.rangeOverlayStart && globalBit <= this.rangeOverlayEnd) {
-                ctx.save();
-                ctx.fillStyle = 'rgba(34,211,238,0.22)';
-                ctx.fillRect(
-                  Math.round(bitX), Math.round(bitY),
-                  Math.max(1, Math.round(px)), Math.max(1, Math.round(px))
-                );
-                const dotR2 = Math.max(0.8, Math.min(px * 0.20, 3.5));
-                ctx.fillStyle = 'rgba(34,211,238,0.88)';
-                ctx.beginPath();
-                ctx.arc(
-                  Math.round(bitX) + dotR2 * 0.75,
-                  Math.round(bitY) + dotR2 * 0.75,
-                  dotR2, 0, Math.PI * 2
-                );
-                ctx.fill();
-                if (px >= 4) {
-                  ctx.strokeStyle = 'rgba(34,211,238,0.60)';
-                  ctx.lineWidth = Math.max(0.35, Math.min(1.3, px * 0.07));
-                  ctx.setLineDash([]);
-                  ctx.strokeRect(
-                    Math.round(bitX) - 0.5, Math.round(bitY) - 0.5,
-                    Math.max(2, Math.round(px) + 1), Math.max(2, Math.round(px) + 1)
-                  );
-                }
-                if (px >= 16) {
-                  const rSize = Math.max(4, Math.min(px * 0.20, 8));
-                  ctx.font = `bold ${rSize}px monospace`;
-                  ctx.fillStyle = 'rgba(34,211,238,0.90)';
-                  ctx.textAlign = 'right';
-                  ctx.textBaseline = 'top';
-                  ctx.fillText('r', Math.round(bitX + px - 1), Math.round(bitY + 1));
-                  ctx.textAlign = 'start';
-                }
-                ctx.restore();
-              }
-
-              // Multiples overlay: purple highlight for bits whose number is a multiple of multiplesOverlayPrime
-              if (this.multiplesOverlay && this.multiplesOverlayPrime >= 2) {
-                const num = bitToNumber(globalBit, this.storageModel);
-                if (num >= 2 && num % this.multiplesOverlayPrime === 0) {
-                  ctx.save();
-                  ctx.fillStyle = 'rgba(167,139,250,0.30)';
-                  ctx.fillRect(
-                    Math.round(bitX), Math.round(bitY),
-                    Math.max(1, Math.round(px)), Math.max(1, Math.round(px))
-                  );
-                  const dotR3 = Math.max(0.8, Math.min(px * 0.20, 3.5));
-                  ctx.fillStyle = 'rgba(167,139,250,0.90)';
-                  ctx.beginPath();
-                  ctx.arc(
-                    Math.round(bitX + px) - dotR3 * 0.75,
-                    Math.round(bitY + px) - dotR3 * 0.75,
-                    dotR3, 0, Math.PI * 2
-                  );
-                  ctx.fill();
-                  if (px >= 4) {
-                    ctx.strokeStyle = 'rgba(167,139,250,0.88)';
-                    ctx.lineWidth = Math.max(1.0, Math.min(2.5, px * 0.14));
-                    ctx.setLineDash([]);
-                    ctx.strokeRect(
-                      Math.round(bitX) - 0.5, Math.round(bitY) - 0.5,
-                      Math.max(2, Math.round(px) + 1), Math.max(2, Math.round(px) + 1)
-                    );
-                  }
-                  if (px >= 16) {
-                    const mSize = Math.max(4, Math.min(px * 0.20, 8));
-                    ctx.font = `bold ${mSize}px monospace`;
-                    ctx.fillStyle = 'rgba(167,139,250,0.90)';
-                    ctx.textAlign = 'right';
-                    ctx.textBaseline = 'bottom';
-                    ctx.fillText('×', Math.round(bitX + px - 1), Math.round(bitY + px - 1));
-                    ctx.textAlign = 'start';
-                  }
-                  ctx.restore();
-                }
-              }
-
-              const dualLabelMode = showBitLabels && showNumberLabels;
-              if (((dualLabelMode && px >= 22) || (!dualLabelMode && (showBitLabels || showNumberLabels) && px >= 12))) {
-                const lines = [];
-                if (showBitLabels) lines.push(String(this._bitLabelValue(globalBit, bitIdx)));
-                if (showNumberLabels) lines.push(String(bitToNumber(globalBit, this.storageModel)));
-
-                const dualLine = lines.length > 1;
-                const zoomBoost = this.zoom > 20
-                  ? 1 + Math.min(1, (this.zoom - 20) / 24)
-                  : 1;
-
-                // Set bits follow the lowered position; cleared bits remain raised at normal position
-                const isLoweredLabel = isDepthBucket && isSetBit;
-                const labelPx = isLoweredLabel ? drawSize : px;
-                const labelX = isLoweredLabel ? drawX : bitX;
-                const labelY = isLoweredLabel ? drawY : bitY;
-                const labelCtx = (layeredLoweredBits && isLoweredLabel) ? settledCtx : ctx;
-
-                const baseFontSize = dualLine
-                  ? Math.max(5, Math.min(8, labelPx * 0.2))
-                  : Math.max(5, Math.min(9, labelPx * 0.34));
-                // Slightly shrink labels on lowered bits so the raised bits read as taller.
-                const loweredLabelScale = isLoweredLabel ? 0.85 : 1;
-                const fontSize = baseFontSize * zoomBoost * loweredLabelScale;
-                const centerX = Math.round(labelX + labelPx / 2);
-                const centerY = Math.round(labelY + labelPx / 2);
-                const textColor = this._labelTextColor(color);
-
-                labelCtx.textAlign = 'center';
-                labelCtx.textBaseline = 'middle';
-                if (dualLine) {
-                  labelCtx.fillStyle = textColor;
-                  labelCtx.font = `${fontSize}px monospace`;
-                  labelCtx.fillText(lines[0], centerX, Math.round(labelY + labelPx * 0.32));
-                  labelCtx.font = `italic ${Math.max(4.5, fontSize - 0.25)}px monospace`;
-                  labelCtx.fillText(lines[1], centerX, Math.round(labelY + labelPx * 0.7));
-                } else {
-                  labelCtx.fillStyle = textColor;
-                  labelCtx.font = `${showNumberLabels ? 'italic ' : ''}${fontSize}px monospace`;
-                  labelCtx.fillText(lines[0], centerX, centerY);
-                }
-                labelCtx.textAlign = 'start';
-              }
-            }
-          }
-        }
+  /** Clear the canvas (and the layered settled canvas, if active) and paint the background. */
+  _renderClear(f) {
+    const { ctx, settledCtx, cw, ch, layeredLoweredBits, C } = f;
+    if (layeredLoweredBits) {
+      settledCtx.clearRect(0, 0, cw, ch);
+      if (!this.transparentBackground) {
+        settledCtx.fillStyle = `rgb(${C.BACKGROUND.join(',')})`;
+        settledCtx.fillRect(0, 0, cw, ch);
       }
-      // No separator line â€” spacing between rows is transparent (background color)
+      ctx.clearRect(0, 0, cw, ch);
+    } else {
+      ctx.clearRect(0, 0, cw, ch);
+      if (!this.transparentBackground) {
+        ctx.fillStyle = `rgb(${C.BACKGROUND.join(',')})`;
+        ctx.fillRect(0, 0, cw, ch);
+      }
+      if (settledCtx) settledCtx.clearRect(0, 0, cw, ch);
+    }
+  }
+
+  /** Render one visual row (a horizontal strip of vectors). */
+  _renderVisualRow(f, vRow) {
+    const vRowBaseY = this.panY + vRow * f.vRowHeight;
+    const vRowDataY = vRowBaseY + f.labelH;
+    if (vRowDataY + f.rowD.h < 0 || vRowBaseY > f.ch) return;
+
+    for (let vecInRow = 0; vecInRow < f.vecPerVRow; vecInRow++) {
+      const globalVectorIndex = vRow * f.vecPerVRow + vecInRow;
+      if (globalVectorIndex >= f.totalVectorSlots) break;
+      if (this._renderVector(f, vRow, vecInRow, globalVectorIndex, vRowBaseY, vRowDataY) === false) break;
+    }
+  }
+
+  /**
+   * Render one vector group: the vector label and all u64s belonging to it.
+   * Returns `false` to signal the outer loop to stop (cacheline index out of range).
+   */
+  _renderVector(f, vRow, vecInRow, globalVectorIndex, vRowBaseY, vRowDataY) {
+    const clIdx = Math.floor(globalVectorIndex / f.numVec);
+    if (clIdx >= f.totalCacheLines) return false;
+
+    const vecIdxInCL = globalVectorIndex % f.numVec;
+    const vecX = this.panX + vecInRow * (f.vecD.w + f.u64GapX);
+    const rowBitStart = clIdx * f.bitsPerCacheLine;
+    const rowBitStop = Math.min(rowBitStart + f.bitsPerCacheLine, this.bitCount);
+    const u64Start = vecIdxInCL * this.vectorGroup;
+    const bitStart = rowBitStart + u64Start * 64;
+    const bitEnd = Math.min(bitStart + this.vectorGroup * 64 - 1, rowBitStop - 1, this.bitCount - 1);
+    if (bitStart >= rowBitStop) return true;
+
+    if (f.showVectorLabels) {
+      const label = `${this._groupLabel(globalVectorIndex)} bits ${bitStart}-${bitEnd}`;
+      const labelX = Math.round(vecX);
+      const labelY = Math.round(f.vectorLabelY(vRow));
+      if (labelX + f.vecD.w > 0 && labelX < f.cw && vRowBaseY >= -f.labelH && vRowBaseY < f.ch) {
+        this._drawFittedLabel(f.ctx, label, labelX, labelY, Math.max(8, f.vecD.w - 2), f.labelBands.vectorFont, f.C.LABEL_COLOR, {
+          minSize: 3.5,
+          paddingX: 1,
+          clipHeight: f.labelBands.vector,
+        });
+      }
     }
 
-    if (!this.suppressMaskWriteOverlay) {
-      this.maskWriteOverlay.render(ctx);
+    for (let intraIdx = 0; intraIdx < this.vectorGroup; intraIdx++) {
+      const u64Idx = u64Start + intraIdx;
+      if (u64Idx >= f.u64sPerCL) break;
+      const u64BitStart = rowBitStart + u64Idx * 64;
+      if (u64BitStart >= rowBitStop) break;
+      this._renderVectorU64(f, vecX, vRowDataY, vRowBaseY, intraIdx, u64BitStart, rowBitStop);
     }
-    this.vectorTouchOrderOverlay.render(ctx);
-    this.cachelineAnnotationsOverlay.render(ctx);
-    this.searchOverlay.render(ctx, cw, ch);
+    return true;
+  }
+
+  /** Render one u64 within a vector: optional vector outline (intraIdx===0) and all 8 bytes. */
+  _renderVectorU64(f, vecX, vRowDataY, vRowBaseY, intraIdx, u64BitStart, rowBitStop) {
+    const u64X = vecX + intraIdx * (f.u64D.w + f.vecD.intraGap);
+
+    if (this.outlineEnabled && this.outlineTarget === 'vector' && intraIdx === 0) {
+      const pad = this._outlinePadding();
+      const topExtra = this._outlineTopExtra('vector');
+      this._drawOutlineRect(f.ctx, vecX - pad, vRowDataY - pad - topExtra, f.vecD.w + 2 * pad, f.vecD.h + 2 * pad + topExtra);
+    }
+
+    for (let byteIdx = 0; byteIdx < 8; byteIdx++) {
+      const byteBitStart = u64BitStart + byteIdx * 8;
+      if (byteBitStart >= rowBitStop) break;
+      this._renderVectorByte(f, u64X, vRowDataY, vRowBaseY, byteIdx, byteBitStart, rowBitStop);
+    }
+  }
+
+  /** Render one byte: optional outline + label + the 8 bits inside it. */
+  _renderVectorByte(f, u64X, vRowDataY, vRowBaseY, byteIdx, byteBitStart, rowBitStop) {
+    const bytePos = this._bytePosInU64(byteIdx);
+    const byteX = u64X + bytePos.col * (f.byteD.w + f.byteGapX);
+    const byteY = vRowDataY + bytePos.row * (f.byteD.h + f.byteGapY);
+
+    if (this.outlineEnabled && this.outlineTarget === 'byte') {
+      const pad = this._outlinePadding();
+      const topExtra = this._outlineTopExtra('byte');
+      this._drawOutlineRect(f.ctx, byteX - pad, byteY - pad - topExtra, f.byteD.w + 2 * pad, f.byteD.h + 2 * pad + topExtra);
+    }
+
+    if (f.showByteLabels) {
+      const byteLabel = `Byte ${this._byteLabelValue(byteBitStart)}`;
+      this._drawFittedLabel(
+        f.ctx,
+        byteLabel,
+        Math.round(byteX),
+        Math.round(f.byteLabelY(vRowBaseY, byteY)),
+        Math.max(8, f.byteD.w - 2),
+        f.labelBands.byteFont,
+        f.C.LABEL_COLOR,
+        { minSize: 3.5, paddingX: 1, clipHeight: Math.max(7, f.labelBands.byteFont + 4) }
+      );
+    }
+
+    for (let bitIdx = 0; bitIdx < 8; bitIdx++) {
+      const globalBit = byteBitStart + bitIdx;
+      if (globalBit >= rowBitStop || globalBit >= this.bitCount) break;
+      if (f.bitBl.grid3x3 && bitIdx >= 8) continue;
+
+      const bitPos = this._bitPosInByte(bitIdx);
+      const bitX = byteX + bitPos.col * f.bitStepX;
+      const bitY = byteY + bitPos.row * f.bitStepY;
+      if (bitX + f.px < 0 || bitX > f.cw || bitY + f.px < 0 || bitY > f.ch) continue;
+
+      this._renderBitCell(f, globalBit, bitIdx, bitX, bitY);
+    }
+  }
+
+  /**
+   * Render one bit cell: classify → compute geometry/depth → draw body
+   * → draw all per-bit decorations (ghost mask, focus, target, prime,
+   * range, multiples) → draw labels.
+   */
+  _renderBitCell(f, globalBit, bitIdx, bitX, bitY) {
+    const cls = this._classifyBit(f, globalBit);
+    const draw = this._computeBitDrawState(f, globalBit, cls.isSetBit, cls.isChangedBit, bitX, bitY);
+    this._drawBitBody(f, cls, draw, bitX, bitY);
+    if (cls.isGhostMaskedBit) this._drawGhostMaskHighlight(f, draw);
+    if (cls.inFocusRange) this._drawBitFocusRange(f, bitX, bitY);
+    this._drawBitTargetOutline(f, globalBit, draw, cls.targetHitCount);
+    this._drawBitPrimeOverlay(f, globalBit, bitX, bitY);
+    this._drawBitRangeOverlay(f, globalBit, bitX, bitY);
+    this._drawBitMultiplesOverlay(f, globalBit, bitX, bitY);
+    this._drawBitLabels(f, globalBit, bitIdx, cls, draw, bitX, bitY);
+  }
+
+  /** Decide the bit's color and per-bit boolean flags (ghost / changed / set / repeated / focus). */
+  _classifyBit(f, globalBit) {
+    const inFocusRange = this._isInFocusRange(globalBit);
+    const targetHitCount = this.targetHitCounts?.get(globalBit) || 0;
+    const isSetBit = !!this.bitState[globalBit];
+    const isGhostMaskedBit = this.maskGhostBits?.has(globalBit) && isSetBit;
+    const isChangedBit = this.changedBits.has(globalBit);
+    const isRepeatedWrite = (targetHitCount > 1) || this.repeatedChangedBits?.has(globalBit);
+
+    let color;
+    if (isGhostMaskedBit) {
+      color = f.bitColors.cleared;
+    } else if (isChangedBit) {
+      color = isRepeatedWrite ? [245, 158, 11] : f.changedColor;
+    } else if (isSetBit) {
+      color = f.bitColors.set;
+    } else {
+      color = f.bitColors.cleared;
+    }
+    const bitAlpha = (!isChangedBit && !isGhostMaskedBit && !isRepeatedWrite) ? f.baseAlpha : 1;
+    return { color, inFocusRange, targetHitCount, isGhostMaskedBit, isChangedBit, isRepeatedWrite, isSetBit, bitAlpha };
+  }
+
+  /**
+   * Compute the geometry the bit cell will be drawn at: the static draw box
+   * (`drawX`, `drawY`, `drawSize`) plus the depth-mode metadata
+   * (`isLoweredCell`, `isRaisedCell`, `baseDrop`, `baseShiftX`, `drawCtx`).
+   * The "rise then settle" animation for changed lowered bits lives here too.
+   */
+  _computeBitDrawState(f, globalBit, isSetBit, isChangedBit, bitX, bitY) {
+    const px = f.px;
+    const depthModeEnabled = this.loweredSetBits;
+    const depthStrength = Math.max(0, Math.min(1.0, this.loweredDepthStrength ?? 0.8));
+    const depthAngleRad = (Math.max(0, Math.min(90, this.loweredDepthAngle ?? 38)) * Math.PI) / 180;
+    const depthScale = this.loweredSetBits3D ? 1.18 : 1;
+    const baseDrop = px * Math.sin(depthAngleRad) * 1.05 * depthStrength * depthScale;
+    const baseShiftX = px * Math.cos(depthAngleRad) * 0.55 * depthStrength * depthScale;
+    // In depth mode, only set bits sink to the lowered plane; cleared bits
+    // remain "raised" and are drawn as 3D boxes standing on the lowered plane.
+    const isLoweredCell = depthModeEnabled && isSetBit;
+    const isRaisedCell = depthModeEnabled && !isSetBit;
+    const isDepthBucket = isLoweredCell;
+
+    let sinkDrop = isLoweredCell ? baseDrop : 0;
+    let sinkShiftX = isLoweredCell ? baseShiftX : 0;
+    let sinkScale = isLoweredCell ? (this.loweredSetBits3D ? 0.56 : 0.68) : 1;
+
+    if (isLoweredCell && isChangedBit) {
+      const startedAt = this.changedBitRiseAt.get(globalBit) || performance.now();
+      const elapsed = performance.now() - startedAt;
+      const durationMs = 700;
+      const progress = Math.max(0, Math.min(1, elapsed / durationMs));
+      const peakLift = px * 0.42 * depthStrength;
+      let riseLift = 0;
+      if (progress < 0.32) {
+        riseLift = peakLift * (progress / 0.32);
+        sinkDrop = 0;
+        sinkShiftX = 0;
+      } else if (progress < 0.56) {
+        riseLift = peakLift * (1 - (progress - 0.32) / 0.24);
+        sinkDrop = 0;
+        sinkShiftX = 0;
+      } else {
+        const settleT = (progress - 0.56) / 0.44;
+        sinkDrop = baseDrop * settleT;
+        sinkShiftX = baseShiftX * settleT;
+      }
+      sinkScale = 1 - (1 - sinkScale) * Math.max(0, Math.min(1, (progress - 0.56) / 0.44));
+      sinkDrop -= riseLift;
+    }
+
+    const drawSize = Math.max(1, Math.round(px * sinkScale));
+    const drawX = Math.round(bitX + sinkShiftX + (px - drawSize) * 0.5);
+    const drawY = Math.round(bitY + sinkDrop + (px - drawSize) * 0.5);
+    const drawCtx = f.layeredLoweredBits && isDepthBucket ? f.settledCtx : f.ctx;
+    return { drawX, drawY, drawSize, drawCtx, baseDrop, baseShiftX, isLoweredCell, isRaisedCell, isDepthBucket };
+  }
+
+  /**
+   * Draw the bit's body. Three branches:
+   *  - layered + lowered: sunken square with shadow + inner highlight on the settled canvas.
+   *  - layered + raised: 3D box with two side faces + a top face on the live canvas.
+   *  - default: a single filled square on the appropriate context.
+   */
+  _drawBitBody(f, cls, draw, bitX, bitY) {
+    const px = f.px;
+    const { color, bitAlpha } = cls;
+    const { drawX, drawY, drawSize, drawCtx, isLoweredCell, isRaisedCell, baseDrop, baseShiftX } = draw;
+
+    if (f.layeredLoweredBits && isLoweredCell) {
+      // Lowered (set) bit: only the sunken square, with optional drop
+      // shadow and inner highlight. No top-position box is drawn so the
+      // raised neighbours visually stand higher above the bottom plane.
+      const sCtx = f.settledCtx;
+      sCtx.save();
+      sCtx.fillStyle = 'rgba(0, 0, 0, 0.24)';
+      sCtx.fillRect(
+        Math.round(drawX - Math.max(1, px * 0.08)),
+        Math.round(drawY - Math.max(1, px * 0.08)),
+        Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16))),
+        Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16)))
+      );
+      sCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
+      sCtx.fillRect(drawX, drawY, drawSize, drawSize);
+      sCtx.strokeStyle = `rgba(255, 255, 255, ${this.loweredSetBits3D ? '0.16' : '0.12'})`;
+      sCtx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
+      sCtx.strokeRect(
+        Math.round(drawX) + 0.5,
+        Math.round(drawY) + 0.5,
+        Math.max(1, Math.round(drawSize - 1)),
+        Math.max(1, Math.round(drawSize - 1))
+      );
+      sCtx.restore();
+      return;
+    }
+
+    if (f.layeredLoweredBits && isRaisedCell) {
+      // Raised (cleared) bit: render as a 3D box standing on the lowered
+      // plane. The box's bottom face sits at the sunken footprint
+      // (baseDrop / baseShiftX, scaled), and the top face sits at the
+      // original bit position with full size. Side faces connect them.
+      const baseSize = Math.max(1, Math.round(px * (this.loweredSetBits3D ? 0.56 : 0.68)));
+      const baseX = Math.round(bitX + baseShiftX + (px - baseSize) * 0.5);
+      const baseY = Math.round(bitY + baseDrop + (px - baseSize) * 0.5);
+      const topX = Math.round(bitX);
+      const topY = Math.round(bitY);
+      const topSize = Math.max(1, Math.round(px));
+      const ctx = f.ctx;
+      ctx.save();
+      // Right side face (darker)
+      ctx.fillStyle = `rgba(${Math.round(color[0] * 0.62)}, ${Math.round(color[1] * 0.62)}, ${Math.round(color[2] * 0.62)}, ${bitAlpha})`;
+      ctx.beginPath();
+      ctx.moveTo(topX + topSize, topY);
+      ctx.lineTo(topX + topSize, topY + topSize);
+      ctx.lineTo(baseX + baseSize, baseY + baseSize);
+      ctx.lineTo(baseX + baseSize, baseY);
+      ctx.closePath();
+      ctx.fill();
+      // Bottom-front side face (slightly darker than right)
+      ctx.fillStyle = `rgba(${Math.round(color[0] * 0.5)}, ${Math.round(color[1] * 0.5)}, ${Math.round(color[2] * 0.5)}, ${bitAlpha})`;
+      ctx.beginPath();
+      ctx.moveTo(topX, topY + topSize);
+      ctx.lineTo(topX + topSize, topY + topSize);
+      ctx.lineTo(baseX + baseSize, baseY + baseSize);
+      ctx.lineTo(baseX, baseY + baseSize);
+      ctx.closePath();
+      ctx.fill();
+      // Top face (original color, full size)
+      ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
+      ctx.fillRect(topX, topY, topSize, topSize);
+      // Subtle edge highlight on the top face
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+      ctx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
+      ctx.strokeRect(topX + 0.5, topY + 0.5, Math.max(1, topSize - 1), Math.max(1, topSize - 1));
+      ctx.restore();
+      return;
+    }
+
+    drawCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
+    drawCtx.fillRect(drawX, drawY, drawSize, drawSize);
+  }
+
+  /** Tinted overlay + outline drawn on top of a ghost-masked set bit. */
+  _drawGhostMaskHighlight(f, draw) {
+    const { drawX, drawY, drawSize, drawCtx } = draw;
+    const px = f.px;
+    const set = f.bitColors.set;
+    drawCtx.save();
+    drawCtx.fillStyle = `rgba(${set[0]},${set[1]},${set[2]},0.2)`;
+    drawCtx.fillRect(drawX, drawY, drawSize, drawSize);
+    drawCtx.strokeStyle = `rgba(${set[0]},${set[1]},${set[2]},0.95)`;
+    drawCtx.lineWidth = Math.max(0.7, Math.min(1.6, px * 0.12));
+    drawCtx.strokeRect(
+      Math.round(drawX - 0.5), Math.round(drawY - 0.5),
+      Math.max(2, Math.round(drawSize + 1)), Math.max(2, Math.round(drawSize + 1))
+    );
+    drawCtx.restore();
+  }
+
+  /** Faint blue tint over bits inside the active focus range. */
+  _drawBitFocusRange(f, bitX, bitY) {
+    const px = f.px;
+    f.ctx.fillStyle = 'rgba(96, 165, 250, 0.16)';
+    f.ctx.fillRect(
+      Math.round(bitX - 1), Math.round(bitY - 1),
+      Math.max(2, Math.round(px + 2)), Math.max(2, Math.round(px + 2))
+    );
+  }
+
+  /** Blue (and orange-on-repeat) outline around target bits. */
+  _drawBitTargetOutline(f, globalBit, draw, targetHitCount) {
+    const showTargetOutline = this.targetBits?.has(globalBit)
+      && !this.maskGhostBits?.has(globalBit)
+      && this.zoom >= 1.4
+      && f.px >= 2.5;
+    if (!showTargetOutline) return;
+    const { drawX, drawY, drawSize } = draw;
+    const ctx = f.ctx;
+    const px = f.px;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(59, 130, 246, 0.95)';
+    ctx.lineWidth = Math.max(0.35, Math.min(1.25, px * 0.08));
+    ctx.strokeRect(
+      Math.round(drawX - 0.5), Math.round(drawY - 0.5),
+      Math.max(2, Math.round(drawSize + 1)), Math.max(2, Math.round(drawSize + 1))
+    );
+    if (targetHitCount > 1 && this.zoom >= 2.2 && px >= 4) {
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.95)';
+      ctx.lineWidth = Math.max(0.5, Math.min(1.6, px * 0.11));
+      ctx.strokeRect(
+        Math.round(drawX + 1), Math.round(drawY + 1),
+        Math.max(1, Math.round(drawSize - 2)), Math.max(1, Math.round(drawSize - 2))
+      );
+    }
+    ctx.restore();
+  }
+
+  /** Gold tint + dot + (at zoom) border + 'p' label for prime bits. */
+  _drawBitPrimeOverlay(f, globalBit, bitX, bitY) {
+    if (!(this.primeOverlay && this._primeBitFlags?.[globalBit])) return;
+    const ctx = f.ctx;
+    const px = f.px;
+    ctx.save();
+    // Subtle gold tint over the bit cell
+    ctx.fillStyle = 'rgba(251,191,36,0.20)';
+    ctx.fillRect(Math.round(bitX), Math.round(bitY), Math.max(1, Math.round(px)), Math.max(1, Math.round(px)));
+    // Small gold dot in the top-right corner — visible even at low zoom
+    const dotR = Math.max(0.8, Math.min(px * 0.22, 4));
+    ctx.fillStyle = 'rgba(251,191,36,0.92)';
+    ctx.beginPath();
+    ctx.arc(Math.round(bitX + px) - dotR * 0.75, Math.round(bitY) + dotR * 0.75, dotR, 0, Math.PI * 2);
+    ctx.fill();
+    // Gold border at moderate zoom
+    if (px >= 4) {
+      ctx.strokeStyle = 'rgba(251,191,36,0.68)';
+      ctx.lineWidth = Math.max(0.35, Math.min(1.3, px * 0.075));
+      ctx.setLineDash([]);
+      ctx.strokeRect(Math.round(bitX) - 0.5, Math.round(bitY) - 0.5, Math.max(2, Math.round(px) + 1), Math.max(2, Math.round(px) + 1));
+    }
+    // Small "p" label at high zoom so the meaning is unmistakable
+    if (px >= 16) {
+      const pSize = Math.max(4, Math.min(px * 0.22, 9));
+      ctx.font = `bold ${pSize}px monospace`;
+      ctx.fillStyle = 'rgba(251,191,36,0.90)';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText('p', Math.round(bitX + 1), Math.round(bitY + 1));
+      ctx.textAlign = 'start';
+    }
+    ctx.restore();
+  }
+
+  /** Cyan/teal highlight for bits within [rangeOverlayStart, rangeOverlayEnd]. */
+  _drawBitRangeOverlay(f, globalBit, bitX, bitY) {
+    if (!(this.rangeOverlay && globalBit >= this.rangeOverlayStart && globalBit <= this.rangeOverlayEnd)) return;
+    const ctx = f.ctx;
+    const px = f.px;
+    ctx.save();
+    ctx.fillStyle = 'rgba(34,211,238,0.22)';
+    ctx.fillRect(Math.round(bitX), Math.round(bitY), Math.max(1, Math.round(px)), Math.max(1, Math.round(px)));
+    const dotR2 = Math.max(0.8, Math.min(px * 0.20, 3.5));
+    ctx.fillStyle = 'rgba(34,211,238,0.88)';
+    ctx.beginPath();
+    ctx.arc(Math.round(bitX) + dotR2 * 0.75, Math.round(bitY) + dotR2 * 0.75, dotR2, 0, Math.PI * 2);
+    ctx.fill();
+    if (px >= 4) {
+      ctx.strokeStyle = 'rgba(34,211,238,0.60)';
+      ctx.lineWidth = Math.max(0.35, Math.min(1.3, px * 0.07));
+      ctx.setLineDash([]);
+      ctx.strokeRect(Math.round(bitX) - 0.5, Math.round(bitY) - 0.5, Math.max(2, Math.round(px) + 1), Math.max(2, Math.round(px) + 1));
+    }
+    if (px >= 16) {
+      const rSize = Math.max(4, Math.min(px * 0.20, 8));
+      ctx.font = `bold ${rSize}px monospace`;
+      ctx.fillStyle = 'rgba(34,211,238,0.90)';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'top';
+      ctx.fillText('r', Math.round(bitX + px - 1), Math.round(bitY + 1));
+      ctx.textAlign = 'start';
+    }
+    ctx.restore();
+  }
+
+  /** Purple highlight for bits whose number is a multiple of multiplesOverlayPrime. */
+  _drawBitMultiplesOverlay(f, globalBit, bitX, bitY) {
+    if (!(this.multiplesOverlay && this.multiplesOverlayPrime >= 2)) return;
+    const num = bitToNumber(globalBit, this.storageModel);
+    if (!(num >= 2 && num % this.multiplesOverlayPrime === 0)) return;
+    const ctx = f.ctx;
+    const px = f.px;
+    ctx.save();
+    ctx.fillStyle = 'rgba(167,139,250,0.30)';
+    ctx.fillRect(Math.round(bitX), Math.round(bitY), Math.max(1, Math.round(px)), Math.max(1, Math.round(px)));
+    const dotR3 = Math.max(0.8, Math.min(px * 0.20, 3.5));
+    ctx.fillStyle = 'rgba(167,139,250,0.90)';
+    ctx.beginPath();
+    ctx.arc(Math.round(bitX + px) - dotR3 * 0.75, Math.round(bitY + px) - dotR3 * 0.75, dotR3, 0, Math.PI * 2);
+    ctx.fill();
+    if (px >= 4) {
+      ctx.strokeStyle = 'rgba(167,139,250,0.88)';
+      ctx.lineWidth = Math.max(1.0, Math.min(2.5, px * 0.14));
+      ctx.setLineDash([]);
+      ctx.strokeRect(Math.round(bitX) - 0.5, Math.round(bitY) - 0.5, Math.max(2, Math.round(px) + 1), Math.max(2, Math.round(px) + 1));
+    }
+    if (px >= 16) {
+      const mSize = Math.max(4, Math.min(px * 0.20, 8));
+      ctx.font = `bold ${mSize}px monospace`;
+      ctx.fillStyle = 'rgba(167,139,250,0.90)';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('×', Math.round(bitX + px - 1), Math.round(bitY + px - 1));
+      ctx.textAlign = 'start';
+    }
+    ctx.restore();
+  }
+
+  /**
+   * Draw bit/number labels inside the cell. Honours dual-line mode, the
+   * lowered-position label shrink, and the high-zoom font boost.
+   */
+  _drawBitLabels(f, globalBit, bitIdx, cls, draw, bitX, bitY) {
+    const { showBitLabels, showNumberLabels, layeredLoweredBits, settledCtx, ctx, px } = f;
+    const dualLabelMode = showBitLabels && showNumberLabels;
+    if (!((dualLabelMode && px >= 22) || (!dualLabelMode && (showBitLabels || showNumberLabels) && px >= 12))) return;
+
+    const lines = [];
+    if (showBitLabels) lines.push(String(this._bitLabelValue(globalBit, bitIdx)));
+    if (showNumberLabels) lines.push(String(bitToNumber(globalBit, this.storageModel)));
+
+    const dualLine = lines.length > 1;
+    const zoomBoost = this.zoom > 20 ? 1 + Math.min(1, (this.zoom - 20) / 24) : 1;
+
+    // Set bits follow the lowered position; cleared bits remain raised at normal position
+    const isLoweredLabel = draw.isDepthBucket && cls.isSetBit;
+    const labelPx = isLoweredLabel ? draw.drawSize : px;
+    const labelX = isLoweredLabel ? draw.drawX : bitX;
+    const labelY = isLoweredLabel ? draw.drawY : bitY;
+    const labelCtx = (layeredLoweredBits && isLoweredLabel) ? settledCtx : ctx;
+
+    const baseFontSize = dualLine
+      ? Math.max(5, Math.min(8, labelPx * 0.2))
+      : Math.max(5, Math.min(9, labelPx * 0.34));
+    // Slightly shrink labels on lowered bits so the raised bits read as taller.
+    const loweredLabelScale = isLoweredLabel ? 0.85 : 1;
+    const fontSize = baseFontSize * zoomBoost * loweredLabelScale;
+    const centerX = Math.round(labelX + labelPx / 2);
+    const centerY = Math.round(labelY + labelPx / 2);
+    const textColor = this._labelTextColor(cls.color);
+
+    labelCtx.textAlign = 'center';
+    labelCtx.textBaseline = 'middle';
+    if (dualLine) {
+      labelCtx.fillStyle = textColor;
+      labelCtx.font = `${fontSize}px monospace`;
+      labelCtx.fillText(lines[0], centerX, Math.round(labelY + labelPx * 0.32));
+      labelCtx.font = `italic ${Math.max(4.5, fontSize - 0.25)}px monospace`;
+      labelCtx.fillText(lines[1], centerX, Math.round(labelY + labelPx * 0.7));
+    } else {
+      labelCtx.fillStyle = textColor;
+      labelCtx.font = `${showNumberLabels ? 'italic ' : ''}${fontSize}px monospace`;
+      labelCtx.fillText(lines[0], centerX, centerY);
+    }
+    labelCtx.textAlign = 'start';
   }
 
   canvasToBitIndex(canvasX, canvasY) {

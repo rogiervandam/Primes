@@ -418,8 +418,17 @@ export default function Visualizer({
       const canvasCssHeight = (r.canvas?.height || rect.height * (window.devicePixelRatio || 1)) / (window.devicePixelRatio || 1);
       const planeOffsetX = Math.max(0, (canvasW - rect.width) / 2);
       const planeOffsetY = Math.max(0, (canvasCssHeight - rect.height) / 2);
-      const desiredX = planeOffsetX + Math.max(0, Math.min(rect.width, anchor.clientX - rect.left));
-      const desiredY = planeOffsetY + Math.max(0, Math.min(rect.height, anchor.clientY - rect.top));
+      const localX = Math.max(0, Math.min(rect.width, anchor.clientX - rect.left));
+      const localY = Math.max(0, Math.min(rect.height, anchor.clientY - rect.top));
+      // Use the same screen->canvas inverse as captureViewportAnchor; otherwise
+      // the round-trip is asymmetric in 3D mode and the view drifts whenever
+      // the layout reflows (panel toggles, range overlay, etc.).
+      const cam = camera3DRef.current;
+      const desiredPoint = cam && cam.enabled
+        ? cam.screenToCanvas(localX, localY, canvasW, Math.max(canvasCssHeight, canvasH), planeOffsetX, planeOffsetY)
+        : { x: planeOffsetX + localX, y: planeOffsetY + localY };
+      const desiredX = desiredPoint.x;
+      const desiredY = desiredPoint.y;
       const mappedX = anchor.contentX * Math.max(0.0001, r.zoom || 1) + r.panX;
       const mappedY = anchor.contentY * Math.max(0.0001, r.zoom || 1) + r.panY;
       r.panX += desiredX - mappedX;
@@ -457,6 +466,8 @@ export default function Visualizer({
       refreshCanvasLayout(anchor);
     }, 210);
   }, [clearScheduledLayoutRefresh, refreshCanvasLayout]);
+
+
 
   const applyViewportFit = useCallback((renderer, width, height) => {
     if (!renderer || width <= 0 || height <= 0) return;
@@ -2493,7 +2504,25 @@ export default function Visualizer({
         });
       });
     }
-  }, [schedulePostLayoutRefresh, captureViewportAnchor, refitViewportToContent]);
+  }, [schedulePostLayoutRefresh, captureViewportAnchor, refitViewportToContent, setCamera3DContainerStyle]);
+
+  // Right-click tilt from 2D mode goes through the exact same path as the
+  // explicit 3D-mode toggle button. The canvas needs to be resized to the
+  // oversized 3D plane (which reflows the grid via `_frozenClPerVRow`),
+  // and the only sane recovery from that reflow is a refit-to-content —
+  // anchor preservation is mathematically impossible across the column
+  // count change. Calling `toggle3D()` here keeps the two entry points
+  // perfectly in sync (also flips the React `mode3D` state, which controls
+  // the lowered-bits / transparent-bg styling).
+  const enableTiltAndResize = useCallback(() => {
+    const cam = camera3DRef.current;
+    if (cam && cam.enabled) {
+      // Already tilted, just keep it active (no-op).
+      return cam;
+    }
+    toggle3D();
+    return camera3DRef.current;
+  }, [toggle3D, camera3DRef]);
 
   // Cinematic fly-to on element click (in 3D mode)
   const flyToElement = useCallback((bitIdx) => {
@@ -2626,7 +2655,7 @@ export default function Visualizer({
 
       const cam = camera3DRef.current;
       if (isSecondaryRotateGesture(e, cam)) {
-        ensureTiltCamera();
+        enableTiltAndResize();
         e.preventDefault();
         e.stopPropagation();
         hideHoverBalloon();
@@ -2676,7 +2705,7 @@ export default function Visualizer({
       if (gestureMode === 'none' && cam) {
         const secondaryPressed = ((e.buttons & 2) === 2) || (((e.buttons & 1) === 1) && (e.ctrlKey || e.metaKey));
         if (secondaryPressed) {
-          ensureTiltCamera();
+          enableTiltAndResize();
           gestureMode = 'rotate';
           activePointerId = e.pointerId;
           startX = e.clientX;
@@ -2855,7 +2884,7 @@ export default function Visualizer({
       if (!mode3D && !cam) return;
       const secondary = e.button === 2 || (e.button === 0 && (e.ctrlKey || e.metaKey));
       if (!secondary) return;
-      ensureTiltCamera();
+      enableTiltAndResize();
       e.preventDefault();
       e.stopPropagation();
       hideHoverBalloon();
@@ -2934,7 +2963,7 @@ export default function Visualizer({
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [computeBitInfo, flyToElement, getMinimapDetailH, updateMinimapAvailability, mode3D, ensureTiltCamera, scheduleBalloonRelayout]);
+  }, [computeBitInfo, flyToElement, getMinimapDetailH, updateMinimapAvailability, mode3D, enableTiltAndResize, scheduleBalloonRelayout]);
 
   // Keyboard shortcuts — see src/hooks/useKeyboardShortcuts.js for the full key map.
   useKeyboardShortcuts({

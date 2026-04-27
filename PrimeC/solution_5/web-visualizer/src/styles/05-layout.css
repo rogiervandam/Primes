@@ -11,7 +11,10 @@
   overflow: hidden;
   position: relative;
 }
-.main-content.mode-3d {
-  overflow: visible;
-}
+/* In 3D mode the canvas is intentionally oversized for drag headroom; the
+   tilt is clipped at the .canvas-container level (see 07-canvas.css), so
+   we deliberately keep `overflow: hidden` here. Switching the row to
+   `overflow: visible` lets the right SettingsPanel grow past the viewport
+   (its internal scrollbar disappears) and reflows the whole layout when
+   the panel content height changes. */
 

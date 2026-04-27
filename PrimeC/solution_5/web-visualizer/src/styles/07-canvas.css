@@ -7,9 +7,9 @@
   position: relative;
   min-width: 0;
 }
-.canvas-area.mode-3d {
-  overflow: visible;
-}
+/* See 05-layout.css — the 3D tilt is clipped at .canvas-container, so the
+   parent stack stays `overflow: hidden` to keep the layout stable when
+   side-panel content height changes (e.g. toggling the range overlay). */
 .step-focus-banner {
   position: absolute;
   /* Anchored by bottom-left so the sliders stay in a fixed place across events.
@@ -242,7 +242,10 @@
 .canvas-container.mode-3d {
   /* perspective is set via inline style from Camera3D */
   perspective-origin: 50% 50%;
-  overflow: visible;
+  /* Keep `overflow: hidden` (inherited from .canvas-container) so the
+     intentionally oversized canvas (~3.1x in 3D for drag headroom) clips
+     to the container bounds when tilted. Without this, the rotated
+     bitmap edges bleed under/over the surrounding panels and look messy. */
 }
 .canvas-container .settled-render-canvas,
 .canvas-container .main-render-canvas {
