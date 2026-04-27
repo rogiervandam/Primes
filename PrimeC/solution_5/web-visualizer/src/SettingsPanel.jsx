@@ -1,44 +1,9 @@
 import React from 'react';
-import { BIT_LAYOUTS, BYTE_LAYOUTS, COLOR_PRESETS, STORAGE_MODELS, CACHELINE_SIZES, CACHE_PRESETS } from './SieveRenderer';
-import {
-  playbackSpeedToPercent as playbackSpeedToMs,
-  percentToPlaybackSpeed as msToPlaybackSpeed,
-  stepSpeedToInterval,
-  intervalToStepSpeed,
-} from './lib/unitConverters';
-import { useDraftInput } from './hooks/useDraftInput';
-import {
-  BIT_LAYOUT_TIPS,
-  BYTE_LAYOUT_TIPS,
-  describeLayout,
-  VECTOR_TIPS,
-  GROUPING_PRESETS,
-  GROUPING_FAMILIES,
-  CUSTOM_GROUP_PRESETS,
-  groupingPreviewClassName,
-  VECTOR_BASE_OPTIONS,
-  VECTOR_LANE_OPTIONS,
-} from './settings/constants';
 import LegendSections from './settings/LegendSections';
 import LegendTab from './settings/LegendTab';
+import LayoutTab from './settings/LayoutTab';
 import AnimationTab from './settings/AnimationTab';
-import {
-  LayoutIcon,
-  VectorIcon,
-  SpacingIcon,
-  GearIcon,
-  AnnotationButton,
-  PreviewOptionButton,
-} from './settings/buttons';
-
-function rgbToHex(rgb) {
-  if (!rgb || rgb.length < 3) return '#555555';
-  return '#' + rgb.map(c => Math.max(0, Math.min(255, c)).toString(16).padStart(2, '0')).join('');
-}
-function hexToRgb(hex) {
-  const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
-  return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [0, 0, 0];
-}
+import { GearIcon } from './settings/buttons';
 
 /**
  * Settings panel for layout modes, spacing, and rendering options.

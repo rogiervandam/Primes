@@ -212,8 +212,28 @@ overwrite.
 - ✅ Extracted `AnimationTab` to `src/settings/AnimationTab.jsx`. The
   tab is fully self-contained: takes only props that already existed on
   `SettingsPanel`, recreates the trivial helpers (`clamp`,
-  `playbackSpeedValue`) locally to avoid prop drilling them. **LayoutTab
-  remains the last tab not yet extracted** — see §7.
+  `playbackSpeedValue`) locally to avoid prop drilling them.
+- ✅ Extracted `VectorTouchOrderOverlay` to
+  `src/renderer/overlays/VectorTouchOrderOverlay.js`. Same Pattern D as
+  `SearchOverlay` and `MaskWriteOverlay`. Reads `_maskWordOrderSummary`,
+  `_maskTintColor`, `_maskEntryGroupBounds`, `_labelTextColor`,
+  `_truncateTextToWidth`, `_fitLabelFontSize` through host accessors;
+  needs no state of its own.
+- ✅ Promoted the `seekGen` / `globalPaused` / `animBusyUntil` triplet
+  into `src/hooks/usePlaybackClock.js`. The hook returns the three ref
+  objects (not their `.current` values) so consumer mutation patterns
+  in `Visualizer.jsx` are unchanged — this is a structural rename so
+  the playback contract is documented in one place.
+- ✅ Extracted `LayoutTab` to `src/settings/LayoutTab.jsx`. Pragmatic
+  "fat prop list" extraction (~25 props) instead of the originally
+  planned `useSettingsBundle()` route. The tab now owns its own UI
+  state for the grouping menu, custom-preset menu and spacing
+  popovers, plus the helpers (`set`, `incr`, `decr`,
+  `setVectorProfile`, `commitCustomGrouping`,
+  `selectGroupingPreset`, `renderGroupingFamily`) and the inner
+  `LayoutOverview` / `SpacingControl` components. `SettingsPanel.jsx`
+  shrank from ~1265 to ~234 lines and is now just the tab-row shell
+  plus the floating-legend panel.
 
 ---
 
@@ -224,28 +244,11 @@ single working session. Tackle them in order — earlier ones unblock later
 ones:
 
 1. **Extract `useKeyboardShortcuts` from Visualizer.jsx** — ✅ DONE.
-2. **Split SettingsPanel by tab.** `LegendTab` and `AnimationTab` are
-   done (`src/settings/LegendTab.jsx`, `src/settings/AnimationTab.jsx`).
-   Still TODO: **`LayoutTab`** (lines ~709–1177 in `SettingsPanel.jsx`).
-   This is the hardest one because the JSX closes over many local
-   helpers (`set`, `setVectorProfile`, `renderGroupingFamily`,
-   `LayoutOverview`, `SpacingControl`, `commitCustomGrouping`,
-   `selectGroupingPreset`, `lastManualColumnCountRef`,
-   `activeGroupingKey`, `activeGroupingLabel`, `isCustomVectorMode`,
-   `customGroupDraft`/`setCustomGroupDraft`,
-   `customPresetMenuOpen`/`setCustomPresetMenuOpen`,
-   `groupingMenuOpen`/`setGroupingMenuOpen`,
-   `openSpacingControl`/`setOpenSpacingControl`) and writes back to
-   `onChange(...)` directly. Recommended sequence (unchanged from
-   before):
-   (a) extract pure helpers (`renderGroupingFamily`, `LayoutOverview`,
-   `SpacingControl`) into `src/settings/`;
-   (b) introduce a `useSettingsBundle()` hook in the parent that returns
-   a `{ s, set, incr, decr, ... }` bundle so the new tab takes ~5 props
-   instead of ~25;
-   (c) only then extract the tab JSX.
-   Doing this without (a)+(b) creates an unmaintainable 30+ prop
-   signature.
+2. **Split SettingsPanel by tab.** ✅ DONE for all three tabs
+   (`LegendTab`, `AnimationTab`, `LayoutTab`). The `LayoutTab`
+   extraction skipped the suggested `useSettingsBundle()` step — it
+   takes ~25 props directly. If the prop list becomes hard to evolve,
+   introducing the bundle as a follow-up is a non-breaking refactor.
 3. **Extract the canvas-and-overlays JSX block** — ✅ DONE
    (`src/visualizer/CanvasStage.jsx`).
 4. **Move `_renderSearchHighlight` and `setSearchHighlight` into a tiny
@@ -272,23 +275,31 @@ ones:
 
 ### New backlog (added after the round that finished tasks 4+5)
 
-6. **Finish the SettingsPanel tab split** (Task 2 above). The
-   `useSettingsBundle()` parent-side hook is the unblocking step.
-   AnimationTab is done; LayoutTab is the only remaining tab.
-7. **Use `SearchOverlay` as a template for `MaskWriteOverlay`** —
-   ✅ DONE (`src/renderer/overlays/MaskWriteOverlay.js`). Next overlay
-   candidates, ranked by isolation:
-   - **VectorTouchOrderOverlay** (`SieveRenderer._renderVectorTouchOrder`)
-     — ~80 lines; reads `_maskWordOrderSummary`, `_maskTintColor`,
-     `_maskEntryGroupBounds`, `_labelTextColor`, `_truncateTextToWidth`,
-     `_fitLabelFontSize`. Needs no state of its own. **Recommended next.**
+6. **Finish the SettingsPanel tab split** — ✅ DONE
+   (`src/settings/LayoutTab.jsx`). After-the-fact cleanups still TODO:
+   prune now-unused props on `SettingsPanel` (`bitAnimInterval`,
+   `onBitAnimIntervalChange`, `storageModel`, `onStorageModelChange`,
+   `customTitle`, `onCustomTitleChange`, `depthModeEnabled`) and at
+   their call sites — these were dead even before the split but the
+   split made them obvious. Optional: introduce `useSettingsBundle()` to
+   shrink the LayoutTab prop list from ~25 to ~5.
+7. **Use `SearchOverlay` as a template for other overlays** —
+   ✅ `MaskWriteOverlay` and `VectorTouchOrderOverlay` done. Remaining
+   candidate:
    - **CachelineAnnotationsOverlay** (`_renderCachelineAnnotations`) —
-     larger, reads heat-map + cacheline metrics. Save for last among
-     overlays.
-8. **Promote the `seekGen` / `globalPaused` / `animBusyUntil` triplet**
-   into a small `usePlaybackClock()` hook. Today they live as bare refs
-   inside `Visualizer.jsx` and are mutated from many places; centralising
-   them would make the playback rules testable in isolation.
+     largest of the overlays, reads heat-map and cacheline metrics
+     (`clHitCount`, `clLastHitStep`, `cachelineSize`, `bitCount`,
+     `_drawHeatMapOverlay` and several private accessors). Same
+     Pattern D recipe; the only subtle bit is that it also reads
+     `cachelineAnnotation` and the heat-map color ramp. **Recommended
+     next overlay.**
+8. **Promote the `seekGen` / `globalPaused` / `animBusyUntil` triplet
+   into a `usePlaybackClock()` hook** — ✅ DONE
+   (`src/hooks/usePlaybackClock.js`). The hook is intentionally a thin
+   wrapper that returns the three ref objects, so consumer code keeps
+   mutating `.current` exactly as before. A follow-up that adds a
+   semantic API (e.g. `pause()`, `bumpSeek()`, `claimBusy(ms)`) would be
+   the next step but was out of scope.
 9. **Move `viewPrefs` migration** out of `Visualizer.jsx` into
    `src/storage/viewPrefs.js` (read/write/migrate). Right now the
    migration code is interleaved with the initial `useState` lazy
@@ -301,6 +312,11 @@ ones:
     functions in `src/visualizer/gestures/` that take
     `{ rendererRef, cameraRef, event, state }` and return the new
     `state`. Do not move state ownership.
+11. **Optional: introduce `useSettingsBundle()`** in `SettingsPanel.jsx`
+    to compress the ~25-prop `LayoutTab` interface (and similarly for
+    `AnimationTab`) into a `{ s, set, incr, decr, ... }` bundle plus a
+    handful of orthogonal props. Non-breaking; pure ergonomics. Only
+    worth doing if the prop list grows or if a fourth tab is added.
 
 If you're considering anything bigger than the above (e.g. rewriting
 `SieveRenderer.render()`), stop and ask first. That single 700-line method
