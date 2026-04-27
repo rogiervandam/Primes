@@ -7,7 +7,7 @@ import SettingsPanel from './SettingsPanel';
 import TimingPanel from './TimingPanel';
 import {
   SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
-  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Thermometer, PlayPause, PrimeStar
+  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Thermometer, PlayPause, PrimeStar,
 } from './Icons';
 
 const VIEW_PREFS_KEY = 'sieve-visualizer:view-preferences:v1';
@@ -361,6 +361,8 @@ export default function Visualizer({
   const [storageModel, setStorageModel] = useState(header.storageModel || 'half');
   const [selectedSteps, setSelectedSteps] = useState(new Set());
   const [heatMapEnabled, setHeatMapEnabled] = useState(false);
+  // 'none' | 'hits' | 'age' | 'both'  — annotation shown on each cacheline when heatmap is on
+  const [cachelineAnnotation, setCachelineAnnotation] = useState('none');
   const [primeOverlayEnabled, setPrimeOverlayEnabled] = useState(false);
   const [cachelineSize, setCachelineSize] = useState(64);
   const [cachePreset, setCachePreset] = useState('fixed');
@@ -781,6 +783,7 @@ export default function Visualizer({
     r.storageModel = storageModel;
     r.cachelineSize = cachelineSize;
     r.heatMapEnabled = heatMapEnabled;
+    r.cachelineAnnotation = cachelineAnnotation;
     r.primeOverlay = primeOverlayEnabled;
     if (primeOverlayEnabled) r.buildPrimeOverlay();
     r.loweredSetBits = loweredSetBits;
@@ -868,7 +871,7 @@ export default function Visualizer({
     r.render();
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, primeOverlayEnabled, loweredSetBits, mode3D, depthSettings, gridOpacity, updateMinimapAvailability]);
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, loweredSetBits, mode3D, depthSettings, gridOpacity, updateMinimapAvailability]);
 
   // Resize handler
   useEffect(() => {
@@ -4312,6 +4315,8 @@ export default function Visualizer({
           onCachePresetChange={setCachePreset}
           heatMapEnabled={heatMapEnabled}
           onHeatMapToggle={setHeatMapEnabled}
+          cachelineAnnotation={cachelineAnnotation}
+          onCachelineAnnotationChange={setCachelineAnnotation}
           primeOverlayEnabled={primeOverlayEnabled}
           onPrimeOverlayToggle={setPrimeOverlayEnabled}
           showMinimap={showMinimap}

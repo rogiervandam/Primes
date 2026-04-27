@@ -111,6 +111,7 @@ export default function SettingsPanel({
   cachelineSize, onCachelineSizeChange,
   cachePreset, onCachePresetChange,
   heatMapEnabled, onHeatMapToggle,
+  cachelineAnnotation = 'none', onCachelineAnnotationChange,
   primeOverlayEnabled, onPrimeOverlayToggle,
   showMinimap, onShowMinimapChange,
   minimapControlVisible = true,
@@ -417,6 +418,19 @@ export default function SettingsPanel({
 
   const outline = outlineSettings || {
     target: 'none',
+  };
+
+  const CL_ANNOT_CYCLE = ['none', 'hits', 'age', 'both'];
+  const CL_ANNOT_HINTS = {
+    none: 'Cacheline heatmap annotation off — click to show hit counts',
+    hits: 'Cacheline annotation: hit count (\u00d7N) — click to switch to age',
+    age:  'Cacheline annotation: age since last hit (\u0394N) — click to show both',
+    both: 'Cacheline annotation: hits + age — click to turn off',
+  };
+  const cycleCLAnnotation = () => {
+    if (!heatMapEnabled) return;
+    const i = CL_ANNOT_CYCLE.indexOf(cachelineAnnotation);
+    onCachelineAnnotationChange(CL_ANNOT_CYCLE[(i + 1) % CL_ANNOT_CYCLE.length]);
   };
 
   const annotationGroupingLabel = isCustomVectorMode
@@ -1094,6 +1108,22 @@ export default function SettingsPanel({
                   <rect x="30" y="8" width="10" height="6" rx="1" />
                   <text x="5" y="6" fontSize="6">1</text>
                   <text x="16" y="6" fontSize="6">(2,6)</text>
+                </svg>
+              )}
+            />
+            <AnnotationButton
+              title={cachelineAnnotation === 'none' ? 'CL label' : `CL: ${cachelineAnnotation}`}
+              hint={!heatMapEnabled ? 'Enable heat map to use cacheline annotation' : CL_ANNOT_HINTS[cachelineAnnotation]}
+              active={heatMapEnabled && cachelineAnnotation !== 'none'}
+              onClick={cycleCLAnnotation}
+              preview={(
+                <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
+                  <rect x="1" y="2" width="20" height="13" rx="1" fill="rgba(239,68,68,0.28)" stroke="currentColor" strokeWidth="0.5" />
+                  <rect x="3" y="10" width="16" height="4" rx="1" fill="rgba(239,68,68,0.85)" />
+                  <text x="4" y="13.5" fontSize="4.5" fill="#fff">×4 Δ3</text>
+                  <rect x="23" y="2" width="20" height="13" rx="1" fill="rgba(59,130,246,0.28)" stroke="currentColor" strokeWidth="0.5" />
+                  <rect x="25" y="10" width="16" height="4" rx="1" fill="rgba(59,130,246,0.85)" />
+                  <text x="26" y="13.5" fontSize="4.5" fill="#fff">×1 Δ12</text>
                 </svg>
               )}
             />
