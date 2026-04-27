@@ -459,13 +459,16 @@ export default function Visualizer({
     const { canvasW, canvasH } = getCanvasTargetSize(rect.width, rect.height);
 
     r.resize(canvasW, canvasH);
-    // Tell the renderer the VISIBLE area (container rect) so the
-    // grid wrapping math (`_computeClPerVRow`) targets the user-
-    // visible viewport rather than the oversized 3D plane. Without
-    // this, the grid lays out as a wide flat strip and only a tiny
-    // slice is visible through the container.
-    r.layoutAvailWidth = rect.width;
-    r.layoutAvailHeight = rect.height;
+    // Tell the renderer the layout-available area so the grid
+    // wrapping math (`_computeClPerVRow`) targets a STABLE size,
+    // not the live container rect. Using `window.innerWidth/Height`
+    // means panel toggles don't change the chosen column count and
+    // therefore don't reflow / drift the grid; the user just sees
+    // more or less of the same plane through the resized container.
+    const lvW = (typeof window !== 'undefined' ? window.innerWidth : rect.width) || rect.width;
+    const lvH = (typeof window !== 'undefined' ? window.innerHeight : rect.height) || rect.height;
+    r.layoutAvailWidth = lvW;
+    r.layoutAvailHeight = lvH;
     r.unfreezeLayout();
     r.freezeLayout();
 
@@ -1081,11 +1084,12 @@ export default function Visualizer({
       if (!initialFitDoneRef.current && (r.canvasWidth !== canvasW || r.canvasHeight !== canvasH)) {
         r.resize(canvasW, canvasH);
       }
-      // Same as refreshCanvasLayout: layout columns target the visible
-      // container, not the oversized canvas. Set every render so the
-      // value stays fresh when the container size changes.
-      r.layoutAvailWidth = rect.width;
-      r.layoutAvailHeight = rect.height;
+      // Same as refreshCanvasLayout: layout columns target a stable
+      // window-anchored size so panel toggles don't reflow.
+      const lvW = (typeof window !== 'undefined' ? window.innerWidth : rect.width) || rect.width;
+      const lvH = (typeof window !== 'undefined' ? window.innerHeight : rect.height) || rect.height;
+      r.layoutAvailWidth = lvW;
+      r.layoutAvailHeight = lvH;
       // Zoom to fit on first render
       if (!initialFitDoneRef.current) {
         applyViewportFit(r, rect.width, rect.height);
