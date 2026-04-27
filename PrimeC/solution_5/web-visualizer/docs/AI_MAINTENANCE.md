@@ -234,6 +234,27 @@ overwrite.
   `LayoutOverview` / `SpacingControl` components. `SettingsPanel.jsx`
   shrank from ~1265 to ~234 lines and is now just the tab-row shell
   plus the floating-legend panel.
+- ✅ Centralised viewPrefs read/migrate logic. Added
+  `getInitialViewState()` to `src/lib/viewPrefs.js`; it reads the
+  storage payload once and resolves every persisted UI value (with
+  clamping and legacy-`repeatAnim` migration) into a flat bundle.
+  `Visualizer.jsx` now calls it via a single `useMemo` and feeds each
+  field straight into a `useState` seed — the inline
+  `Number(readViewPrefs()?.foo)` / `Math.max(…)` boilerplate is gone.
+  File path stayed at `src/lib/viewPrefs.js` (the doc's `src/storage/`
+  rename is a separate optional move; touching one file vs. an import
+  fan-out kept the diff small).
+- ✅ Split the pointer/wheel/touch gesture useEffect. Extracted the
+  *bodies* of pan, rotate and wheel into pure helpers in
+  `src/visualizer/gestures/{pan,rotate,wheel}.js`. The dispatcher,
+  state machine (`gestureMode`, `activePointerId`, `startX/startY`,
+  `panSX/panSY`, `didDrag`, `mouseRotateActive`), pointer-event
+  registration, hover handling, click handling and minimap hit-test
+  remain in the original useEffect — per the doc's rule “do not move
+  state ownership”. Each helper takes `{ renderer, event, …host }`
+  and returns either nothing or `{ startX, startY }` (rotate, which is
+  a delta-from-last-event gesture). No pinch helper exists yet because
+  there is no pinch handler in the source today.
 
 ---
 
@@ -262,16 +283,11 @@ ones:
      `vectorTouchOrder` and a few sizing fields. Small.
    - **CachelineAnnotationsOverlay** (`_renderCachelineAnnotations`) —
      larger, reads heat-map + cacheline metrics. Save for last.
-5. **Extract `Camera3D` gesture wiring** — ✅ PARTIAL. Lifecycle moved
-   to `src/hooks/use3DCamera.js`. Still TODO: split the giant pointer
-   useEffect at `Visualizer.jsx` lines ~2587–2975 into 2D pan/zoom and
-   3D rotation handlers. **Risk: high** — they share one pointer state
-   machine and any regression breaks all canvas interaction. Recommended
-   approach if attempted: keep the dispatching shell in place and extract
-   the *body* of each gesture mode (`pan`, `rotate`, `pinch`, `wheel`)
-   into pure functions in `src/visualizer/gestures/` that take
-   `{ rendererRef, cameraRef, event, state }` and return the new
-   `state`. Do not move state ownership.
+5. **Extract `Camera3D` gesture wiring** — ✅ DONE.
+   Lifecycle in `src/hooks/use3DCamera.js`; gesture bodies extracted in
+   item 10 below to `src/visualizer/gestures/{pan,rotate,wheel}.js`.
+   The dispatcher state machine still lives inline in `Visualizer.jsx`
+   on purpose (see the rule in item 10).
 
 ### New backlog (added after the round that finished tasks 4+5)
 
@@ -300,18 +316,31 @@ ones:
    mutating `.current` exactly as before. A follow-up that adds a
    semantic API (e.g. `pause()`, `bumpSeek()`, `claimBusy(ms)`) would be
    the next step but was out of scope.
-9. **Move `viewPrefs` migration** out of `Visualizer.jsx` into
-   `src/storage/viewPrefs.js` (read/write/migrate). Right now the
-   migration code is interleaved with the initial `useState` lazy
-   initialisers, which makes it hard to evolve the schema safely.
-10. **Split the pointer/wheel/touch gesture `useEffect`** in
-    `Visualizer.jsx` (~lines 2587–2975, ~390 lines). High risk because
-    2D pan/zoom and 3D rotation share one pointer state machine. If
-    attempted: keep the dispatching shell in place and extract the *body*
-    of each gesture mode (`pan`, `rotate`, `pinch`, `wheel`) into pure
-    functions in `src/visualizer/gestures/` that take
-    `{ rendererRef, cameraRef, event, state }` and return the new
-    `state`. Do not move state ownership.
+9. **Move `viewPrefs` migration** out of `Visualizer.jsx` — ✅ DONE.
+   Added `getInitialViewState()` to `src/lib/viewPrefs.js`; it reads
+   storage once and resolves every persisted field (with clamping and
+   legacy-`repeatAnim` migration) into a flat bundle. `Visualizer.jsx`
+   captures it once via `useMemo` and feeds the values into trivial
+   `useState` seeds. Adding a new persisted field now means: add a
+   default + clamp helper here, add it to the bundle, add it to the
+   write payload in the persistence effect. Optional follow-up: rename
+   the file to `src/storage/viewPrefs.js` to match the suggested
+   layout in the original backlog item; only one importer would need
+   updating.
+10. **Split the pointer/wheel/touch gesture `useEffect`** — ✅ DONE.
+    Bodies of pan, rotate and wheel extracted to
+    `src/visualizer/gestures/{pan,rotate,wheel}.js`. State machine
+    (`gestureMode`, `activePointerId`, anchor coords, `didDrag`,
+    `mouseRotateActive`), pointer-event wiring, hover handling, click
+    handling and minimap hit-test remain inline in the useEffect by
+    design. `applyRotate()` returns `{ startX, startY }` because rotate
+    is a delta-from-last-event gesture; pan and wheel return nothing.
+    No pinch helper was created because there is no pinch handler in
+    the source today — add `gestures/pinch.js` only if/when one is
+    introduced. Remaining cleanup ideas (low priority): also extract
+    the secondary-button mouse-rotate fallback (`onMouseDown` /
+    `onMouseMove` / `onMouseUp`) which still inlines the same rotate
+    body via `applyRotate`; the duplication is intentional and small.
 11. **Optional: introduce `useSettingsBundle()`** in `SettingsPanel.jsx`
     to compress the ~25-prop `LayoutTab` interface (and similarly for
     `AnimationTab`) into a `{ s, set, incr, decr, ... }` bundle plus a

@@ -150,3 +150,79 @@ export function mergeDepthSettings(saved) {
     angle,
   };
 }
+
+// --- Per-field initialiser helpers --------------------------------------
+// Each helper takes the raw `prefs` object (possibly null) returned by
+// `readViewPrefs()` and produces the validated, clamped, migration-aware
+// initial value for the corresponding piece of UI state. Centralising these
+// here keeps `Visualizer.jsx`'s `useState` lazy initialisers trivial and
+// makes the schema's evolution rules visible in one place.
+
+function clampInt(value, lo, hi) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(lo, Math.min(hi, Math.round(n)));
+}
+
+function initialPlaySpeedPercent(prefs) {
+  return clampInt(prefs?.playSpeedPercent, 25, 400) ?? 100;
+}
+
+function initialTheme(prefs) {
+  return prefs?.theme === 'light' ? 'light' : 'dark';
+}
+
+// `delayBetweenEvents` and `delayBetweenRepeats` both fall back to the legacy
+// single `repeatAnim` setting when the new explicit field is absent.
+function initialDelayMs(prefs, key) {
+  const explicit = clampInt(prefs?.[key], 0, 5000);
+  if (explicit !== null) return explicit;
+  const legacy = clampInt(prefs?.repeatAnim, 0, 5000);
+  if (legacy !== null) return legacy;
+  return 500;
+}
+
+function initialEventDurationMode(prefs) {
+  return prefs?.eventDurationMode === 'linear' ? 'linear' : 'progressive';
+}
+
+function initialMaxStepDurationEnabled(prefs) {
+  return prefs?.maxStepDurationEnabled === true;
+}
+
+function initialMaxStepDurationMs(prefs) {
+  return clampInt(prefs?.maxStepDurationMs, 2000, 30000) ?? 8000;
+}
+
+function initialGridOpacity(prefs) {
+  const n = Number(prefs?.gridOpacity);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(0.12, Math.min(1, n));
+}
+
+/**
+ * Read prefs once and resolve every piece of persisted UI state into a flat
+ * bundle. Use this from a single `useMemo(() => getInitialViewState(), [])`
+ * in the consuming component, then pass each field as the seed of its own
+ * `useState` (no lazy initialiser needed since the work is already done).
+ *
+ * Adding a new persisted field? Add it to the bundle here, add a default,
+ * and add it to the write payload in `Visualizer.jsx`'s persistence effect.
+ */
+export function getInitialViewState() {
+  const prefs = readViewPrefs();
+  return {
+    playSpeedPercent: initialPlaySpeedPercent(prefs),
+    theme: initialTheme(prefs),
+    layoutSettings: mergeLayoutSettings(prefs?.layoutSettings),
+    eventTitleSettings: mergeEventTitleSettings(prefs?.eventTitleSettings),
+    depthSettings: mergeDepthSettings(prefs?.depthSettings),
+    delayBetweenEvents: initialDelayMs(prefs, 'delayBetweenEvents'),
+    delayBetweenRepeats: initialDelayMs(prefs, 'delayBetweenRepeats'),
+    eventTimeTargets: mergeEventTimeTargets(prefs?.eventTimeTargets),
+    eventDurationMode: initialEventDurationMode(prefs),
+    maxStepDurationEnabled: initialMaxStepDurationEnabled(prefs),
+    maxStepDurationMs: initialMaxStepDurationMs(prefs),
+    gridOpacity: initialGridOpacity(prefs),
+  };
+}

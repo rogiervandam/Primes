@@ -15,17 +15,16 @@ import { useTraceExport } from './hooks/useTraceExport';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { use3DCamera } from './hooks/use3DCamera';
 import { usePlaybackClock } from './hooks/usePlaybackClock';
+import { applyPan } from './visualizer/gestures/pan';
+import { applyRotate } from './visualizer/gestures/rotate';
+import { applyWheel } from './visualizer/gestures/wheel';
 import {
   DEFAULT_EVENT_TIME_TARGETS,
   DEFAULT_LAYOUT_SETTINGS as DEFAULT_SETTINGS,
   DEFAULT_EVENT_TITLE_SETTINGS,
   DEFAULT_DEPTH_SETTINGS,
-  readViewPrefs,
   writeViewPrefs,
-  mergeEventTimeTargets,
-  mergeLayoutSettings,
-  mergeEventTitleSettings,
-  mergeDepthSettings,
+  getInitialViewState,
 } from './lib/viewPrefs';
 import { buildTraceInfoSections } from './lib/traceHeader';
 import { detectIsMac, detectIsWindows, detectIsElectron } from './lib/platform';
@@ -65,52 +64,43 @@ export default function Visualizer({
   // In browser mode we don't reserve space for traffic-light window controls.
   const isElectron = useMemo(() => detectIsElectron(), []);
 
+  // All localStorage-backed UI state is resolved (read + clamp + migrate) in
+  // a single pass by `getInitialViewState()` — see `src/lib/viewPrefs.js`.
+  // The bundle is captured once via `useMemo` and then fed straight into
+  // each `useState` seed. Persistence on change still happens in the
+  // `writeViewPrefs(...)` effect further down.
+  const initialPrefs = useMemo(() => getInitialViewState(), []);
+
   const [currentStep, setCurrentStep] = useState(0);
   const [playing, setPlaying] = useState(false);
   // Playback speed as a percentage of the per-event "normal" time target.
   // 50% => animations take twice as long; 200% => half as long. Range 25..400.
-  const [playSpeedPercent, setPlaySpeedPercent] = useState(() => {
-    const saved = Number(readViewPrefs()?.playSpeedPercent);
-    return Number.isFinite(saved) ? Math.max(25, Math.min(400, Math.round(saved))) : 100;
-  });
+  const [playSpeedPercent, setPlaySpeedPercent] = useState(initialPrefs.playSpeedPercent);
   const playSpeedPercentRef = useRef(playSpeedPercent);
   playSpeedPercentRef.current = playSpeedPercent;
   const [zoom, setZoom] = useState(1);
   const [panelWidth, setPanelWidth] = useState(320);
-  const [theme, setTheme] = useState(() => readViewPrefs()?.theme === 'light' ? 'light' : 'dark');
+  const [theme, setTheme] = useState(initialPrefs.theme);
   const [showTraceInfo, setShowTraceInfo] = useState(false);
   const [loweredSetBits, setLoweredSetBits] = useState(false);
   const [settingsCollapsed, setSettingsCollapsed] = useState(true);
-  const [layoutSettings, setLayoutSettings] = useState(() => mergeLayoutSettings(readViewPrefs()?.layoutSettings));
-  const [eventTitleSettings, setEventTitleSettings] = useState(() => mergeEventTitleSettings(readViewPrefs()?.eventTitleSettings));
-  const [depthSettings, setDepthSettings] = useState(() => mergeDepthSettings(readViewPrefs()?.depthSettings));
+  const [layoutSettings, setLayoutSettings] = useState(initialPrefs.layoutSettings);
+  const [eventTitleSettings, setEventTitleSettings] = useState(initialPrefs.eventTitleSettings);
+  const [depthSettings, setDepthSettings] = useState(initialPrefs.depthSettings);
   const [detailOpen, setDetailOpen] = useState(false);
   // Two distinct delays. Both default to 500 ms but are independently adjustable.
   // - delayBetweenEvents: pause after one event finishes before the all-events
   //   widget advances to the next event (only honored while `playing`).
   // - delayBetweenRepeats: pause between repeats when the single-event widget
   //   is in play mode and is auto-replaying the current event.
-  const [delayBetweenEvents, setDelayBetweenEvents] = useState(() => {
-    const prefs = readViewPrefs();
-    const explicit = Number(prefs?.delayBetweenEvents);
-    if (Number.isFinite(explicit)) return Math.max(0, Math.min(5000, Math.round(explicit)));
-    // Migrate from legacy single `repeatAnim` setting if present.
-    const legacy = Number(prefs?.repeatAnim);
-    if (Number.isFinite(legacy)) return Math.max(0, Math.min(5000, Math.round(legacy)));
-    return 500;
-  });
-  const [delayBetweenRepeats, setDelayBetweenRepeats] = useState(() => {
-    const prefs = readViewPrefs();
-    const explicit = Number(prefs?.delayBetweenRepeats);
-    if (Number.isFinite(explicit)) return Math.max(0, Math.min(5000, Math.round(explicit)));
-    const legacy = Number(prefs?.repeatAnim);
-    if (Number.isFinite(legacy)) return Math.max(0, Math.min(5000, Math.round(legacy)));
-    return 500;
-  });
+  // Both fall back to the legacy single `repeatAnim` setting when absent —
+  // see `initialDelayMs` in `lib/viewPrefs.js`.
+  const [delayBetweenEvents, setDelayBetweenEvents] = useState(initialPrefs.delayBetweenEvents);
+  const [delayBetweenRepeats, setDelayBetweenRepeats] = useState(initialPrefs.delayBetweenRepeats);
   const delayBetweenRepeatsRef = useRef(delayBetweenRepeats);
   delayBetweenRepeatsRef.current = delayBetweenRepeats;
   // Per-event time targets (ms) keyed by change-count tier.
-  const [eventTimeTargets, setEventTimeTargets] = useState(() => mergeEventTimeTargets(readViewPrefs()?.eventTimeTargets));
+  const [eventTimeTargets, setEventTimeTargets] = useState(initialPrefs.eventTimeTargets);
   const eventTimeTargetsRef = useRef(eventTimeTargets);
   eventTimeTargetsRef.current = eventTimeTargets;
   const [animMode, setAnimMode] = useState('sequential'); // 'all' or 'sequential'
@@ -159,10 +149,7 @@ export default function Visualizer({
   // Event-internal animation duration mode. 'progressive' uses a piecewise
   // tiered budget so a 5-bit event and a 5000-bit event both produce a
   // meaningful timeline; 'linear' scales total duration with the bit count.
-  const [eventDurationMode, setEventDurationMode] = useState(() => {
-    const saved = readViewPrefs()?.eventDurationMode;
-    return saved === 'linear' ? 'linear' : 'progressive';
-  });
+  const [eventDurationMode, setEventDurationMode] = useState(initialPrefs.eventDurationMode);
   const eventDurationModeRef = useRef(eventDurationMode);
   eventDurationModeRef.current = eventDurationMode;
   // Forward refs so functions defined earlier in the file can use the
@@ -187,15 +174,9 @@ export default function Visualizer({
     const ratio = (maskSpeedValueDefault - 1) / 499;
     return Math.round(5000 - ratio * (5000 - 5));
   });
-  const [maxStepDurationEnabled, setMaxStepDurationEnabled] = useState(() => readViewPrefs()?.maxStepDurationEnabled === true);
-  const [maxStepDurationMs, setMaxStepDurationMs] = useState(() => {
-    const saved = Number(readViewPrefs()?.maxStepDurationMs);
-    return Number.isFinite(saved) ? Math.max(2000, Math.min(30000, Math.round(saved))) : 8000;
-  });
-  const [gridOpacity, setGridOpacity] = useState(() => {
-    const saved = Number(readViewPrefs()?.gridOpacity);
-    return Number.isFinite(saved) ? Math.max(0.12, Math.min(1, saved)) : 1;
-  });
+  const [maxStepDurationEnabled, setMaxStepDurationEnabled] = useState(initialPrefs.maxStepDurationEnabled);
+  const [maxStepDurationMs, setMaxStepDurationMs] = useState(initialPrefs.maxStepDurationMs);
+  const [gridOpacity, setGridOpacity] = useState(initialPrefs.gridOpacity);
   const [detailHeight, setDetailHeight] = useState(280);
   const [detailWidth, setDetailWidth] = useState(0);
   const [showMinimap, setShowMinimap] = useState(true);
@@ -2713,12 +2694,17 @@ export default function Visualizer({
       if (gestureMode === 'rotate' && cam && cam.enabled) {
         hideHoverBalloon();
         didDrag = true;
-        cam.rotate(e.clientX - startX, e.clientY - startY);
-        startX = e.clientX;
-        startY = e.clientY;
-        r.render();
-        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-        scheduleBalloonRelayout();
+        const next = applyRotate({
+          camera: cam,
+          renderer: r,
+          event: e,
+          startX,
+          startY,
+          getMinimapDetailH,
+          scheduleBalloonRelayout,
+        });
+        startX = next.startX;
+        startY = next.startY;
         return;
       }
 
@@ -2742,12 +2728,17 @@ export default function Visualizer({
       if (gestureMode === 'pan') {
         hideHoverBalloon();
         didDrag = true;
-        r.panX = panSX + (e.clientX - startX);
-        r.panY = panSY + (e.clientY - startY);
-        r.render();
-        updateMinimapAvailability();
-        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-        scheduleBalloonRelayout();
+        applyPan({
+          renderer: r,
+          event: e,
+          startX,
+          startY,
+          panStartX: panSX,
+          panStartY: panSY,
+          getMinimapDetailH,
+          updateMinimapAvailability,
+          scheduleBalloonRelayout,
+        });
         return;
       }
 
@@ -2848,31 +2839,16 @@ export default function Visualizer({
       const r = rendererRef.current;
       if (!r) return;
       const coords = screenToCanvasCoords(e.clientX, e.clientY);
-      const mx = coords.x;
-      const my = coords.y;
-      const oldZoom = r.zoom;
-
-      // Normalize delta: trackpad (deltaMode 0) sends pixel values,
-      // mouse wheel (deltaMode 1) sends line units.
-      let delta = e.deltaY;
-      if (e.deltaMode === 1) delta *= 16;       // line → pixels
-      else if (e.deltaMode === 2) delta *= 100;  // page → pixels
-
-      const absDelta = Math.min(Math.abs(delta), 150);
-      const factor = 1 + absDelta * 0.0022;
-      const contentX = (mx - r.panX) / Math.max(0.0001, oldZoom);
-      const contentY = (my - r.panY) / Math.max(0.0001, oldZoom);
-      const nextZoom = delta > 0
-        ? Math.max(0.1, r.zoom / factor)
-        : Math.min(64, r.zoom * factor);
-      r.zoom = nextZoom;
-      r.panX = mx - contentX * nextZoom;
-      r.panY = my - contentY * nextZoom;
-      setZoom(r.zoom);
-      r.render();
-      updateMinimapAvailability();
-      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-      scheduleBalloonRelayout();
+      applyWheel({
+        renderer: r,
+        event: e,
+        cursorX: coords.x,
+        cursorY: coords.y,
+        setZoom,
+        getMinimapDetailH,
+        updateMinimapAvailability,
+        scheduleBalloonRelayout,
+      });
     };
 
     const onMouseDown = (e) => {
@@ -2907,13 +2883,18 @@ export default function Visualizer({
         return;
       }
       didDrag = true;
-      cam.rotate(e.clientX - startX, e.clientY - startY);
-      startX = e.clientX;
-      startY = e.clientY;
-      r.render();
-      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-      updateMinimapAvailability();
-      scheduleBalloonRelayout();
+      const next = applyRotate({
+        camera: cam,
+        renderer: r,
+        event: e,
+        startX,
+        startY,
+        getMinimapDetailH,
+        updateMinimapAvailability,
+        scheduleBalloonRelayout,
+      });
+      startX = next.startX;
+      startY = next.startY;
     };
 
     const onMouseUp = () => {
