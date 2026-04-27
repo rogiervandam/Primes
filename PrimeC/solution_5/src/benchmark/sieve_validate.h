@@ -104,6 +104,11 @@ showResult(sieve_t* (*sieveFunction)(const counter_t), benchmark_settings_t benc
 
 static inline void __attribute__((cold)) 
 handleCheckOption(int check, sieve_t* (*sieveFunction)(const counter_t), benchmark_settings_t benchmark_settings) {
+    if (option.explain_level || option.trace_level) {
+        verbose1( printf("Running in explain/trace mode, skipping check option %d\n", check); )
+        return;
+    }
+    
     #ifdef COMPILE_CHECK_STRIPERS
     if (check >= 4) checkSetBitsTrueMethods(setBitsTrueMethods, 0, benchmark_settings.factor_max);
     if (check >= 5) {

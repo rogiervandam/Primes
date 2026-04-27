@@ -103,14 +103,17 @@ static inline void benchmarkSetBitsTrue(void* restrict bitstorage, const counter
     }
 }
 
-static inline void benchmarkSieveSetBitsTrue()
+static inline int 
+benchmarkSieveSetBitsTrue()
 {
     sieve_t* sieve = shakeSieve(1000000/2);
     benchmarkSetBitsTrue(sieve->bitstorage, 256*1024, min(1000000/2, 512*1024), 2, 500);
     sieve_delete(sieve);
+    return 0;
 }
 
-static void playStepplan(sieve_t* sieve, const counter_t prime_max, setBitsTrueFunc* local_best_stepfunction) 
+static int 
+playStepplan(sieve_t* sieve, const counter_t prime_max, setBitsTrueFunc* local_best_stepfunction) 
 {
     counter_t prime = 1, range_start = 0;
     while (prime < prime_max) {
@@ -119,6 +122,7 @@ static void playStepplan(sieve_t* sieve, const counter_t prime_max, setBitsTrueF
         (*local_best_stepfunction[step])(sieve->bitstorage, start, sieve->bits, step);
         prime = searchBitFalse(sieve->bitstorage, prime);
     }
+    return 0;
 }
 
 static void createStepplan(benchmark_settings_t settings) {
