@@ -203,6 +203,17 @@ overwrite.
   pointer/wheel/touch gesture useEffect (~390 lines) was **not** moved
   because the 2D pan/zoom and 3D rotation paths share one pointer state
   machine; see §7 for the deferred pointer-handler split.
+- ✅ Extracted `MaskWriteOverlay` to `src/renderer/overlays/MaskWriteOverlay.js`.
+  Same shape as `SearchOverlay`: stateless overlay class that pulls all
+  inputs from the host renderer at render time. Mask metadata
+  (`maskWordBits`, `_maskWriteEntries`, `_maskTintColor`) stays on the
+  renderer because it is shared with the vector-touch-order labels and
+  the transition-animation code path.
+- ✅ Extracted `AnimationTab` to `src/settings/AnimationTab.jsx`. The
+  tab is fully self-contained: takes only props that already existed on
+  `SettingsPanel`, recreates the trivial helpers (`clamp`,
+  `playbackSpeedValue`) locally to avoid prop drilling them. **LayoutTab
+  remains the last tab not yet extracted** — see §7.
 
 ---
 
@@ -213,19 +224,28 @@ single working session. Tackle them in order — earlier ones unblock later
 ones:
 
 1. **Extract `useKeyboardShortcuts` from Visualizer.jsx** — ✅ DONE.
-2. **Split SettingsPanel by tab.** `LegendTab` is done (see
-   `src/settings/LegendTab.jsx` for the prop-drilling pattern). Still TODO:
-   `LayoutTab` (lines ~719–1177 in `SettingsPanel.jsx`) and `AnimationTab`
-   (lines ~1214–~1505). Both reference many closure-captured locals
-   (`set()`, `setVectorProfile`, `renderGroupingFamily`, `LayoutOverview`,
-   `SpacingControl`, `bitAnimInterval`, etc.). Recommended sequence:
-   (a) first extract pure helpers (`renderGroupingFamily`,
-   `LayoutOverview`, `SpacingControl`) into their own files in
-   `src/settings/`; (b) introduce a `useSettingsBundle()` hook in the
-   parent that returns related groupings (layout-related, animation-
-   related) so the new tab components take ~5 props each instead of ~25;
-   (c) only then extract the tab JSX itself. Doing this without
-   step (a)+(b) creates an unmaintainable 30+ prop signature.
+2. **Split SettingsPanel by tab.** `LegendTab` and `AnimationTab` are
+   done (`src/settings/LegendTab.jsx`, `src/settings/AnimationTab.jsx`).
+   Still TODO: **`LayoutTab`** (lines ~709–1177 in `SettingsPanel.jsx`).
+   This is the hardest one because the JSX closes over many local
+   helpers (`set`, `setVectorProfile`, `renderGroupingFamily`,
+   `LayoutOverview`, `SpacingControl`, `commitCustomGrouping`,
+   `selectGroupingPreset`, `lastManualColumnCountRef`,
+   `activeGroupingKey`, `activeGroupingLabel`, `isCustomVectorMode`,
+   `customGroupDraft`/`setCustomGroupDraft`,
+   `customPresetMenuOpen`/`setCustomPresetMenuOpen`,
+   `groupingMenuOpen`/`setGroupingMenuOpen`,
+   `openSpacingControl`/`setOpenSpacingControl`) and writes back to
+   `onChange(...)` directly. Recommended sequence (unchanged from
+   before):
+   (a) extract pure helpers (`renderGroupingFamily`, `LayoutOverview`,
+   `SpacingControl`) into `src/settings/`;
+   (b) introduce a `useSettingsBundle()` hook in the parent that returns
+   a `{ s, set, incr, decr, ... }` bundle so the new tab takes ~5 props
+   instead of ~25;
+   (c) only then extract the tab JSX.
+   Doing this without (a)+(b) creates an unmaintainable 30+ prop
+   signature.
 3. **Extract the canvas-and-overlays JSX block** — ✅ DONE
    (`src/visualizer/CanvasStage.jsx`).
 4. **Move `_renderSearchHighlight` and `setSearchHighlight` into a tiny
@@ -254,10 +274,17 @@ ones:
 
 6. **Finish the SettingsPanel tab split** (Task 2 above). The
    `useSettingsBundle()` parent-side hook is the unblocking step.
-7. **Use `SearchOverlay` as a template for `MaskWriteOverlay`** (see
-   list under task 4). This is the most valuable next refactor for
-   `SieveRenderer.js` because the mask-write code path is the second
-   most-touched overlay during animations.
+   AnimationTab is done; LayoutTab is the only remaining tab.
+7. **Use `SearchOverlay` as a template for `MaskWriteOverlay`** —
+   ✅ DONE (`src/renderer/overlays/MaskWriteOverlay.js`). Next overlay
+   candidates, ranked by isolation:
+   - **VectorTouchOrderOverlay** (`SieveRenderer._renderVectorTouchOrder`)
+     — ~80 lines; reads `_maskWordOrderSummary`, `_maskTintColor`,
+     `_maskEntryGroupBounds`, `_labelTextColor`, `_truncateTextToWidth`,
+     `_fitLabelFontSize`. Needs no state of its own. **Recommended next.**
+   - **CachelineAnnotationsOverlay** (`_renderCachelineAnnotations`) —
+     larger, reads heat-map + cacheline metrics. Save for last among
+     overlays.
 8. **Promote the `seekGen` / `globalPaused` / `animBusyUntil` triplet**
    into a small `usePlaybackClock()` hook. Today they live as bare refs
    inside `Visualizer.jsx` and are mutated from many places; centralising
@@ -266,6 +293,14 @@ ones:
    `src/storage/viewPrefs.js` (read/write/migrate). Right now the
    migration code is interleaved with the initial `useState` lazy
    initialisers, which makes it hard to evolve the schema safely.
+10. **Split the pointer/wheel/touch gesture `useEffect`** in
+    `Visualizer.jsx` (~lines 2587–2975, ~390 lines). High risk because
+    2D pan/zoom and 3D rotation share one pointer state machine. If
+    attempted: keep the dispatching shell in place and extract the *body*
+    of each gesture mode (`pan`, `rotate`, `pinch`, `wheel`) into pure
+    functions in `src/visualizer/gestures/` that take
+    `{ rendererRef, cameraRef, event, state }` and return the new
+    `state`. Do not move state ownership.
 
 If you're considering anything bigger than the above (e.g. rewriting
 `SieveRenderer.render()`), stop and ask first. That single 700-line method

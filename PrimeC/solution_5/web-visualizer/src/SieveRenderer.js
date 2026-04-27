@@ -9,6 +9,7 @@
  * existing import sites working.
  */
 import { SearchOverlay } from './renderer/overlays/SearchOverlay';
+import { MaskWriteOverlay } from './renderer/overlays/MaskWriteOverlay';
 
 import {
   THEMES,
@@ -69,6 +70,7 @@ export class SieveRenderer {
     this.maskGhostBits = null;
     this.suppressMaskWriteOverlay = false;
     this.searchOverlay = new SearchOverlay(this);
+    this.maskWriteOverlay = new MaskWriteOverlay(this);
     this.primeOverlay = false;
     this._primeBitFlags = null;
     this._primeOverlayKey = '';
@@ -1030,46 +1032,6 @@ export class SieveRenderer {
         this._drawOutlineRect(ctx, x, y, w, h);
       }
     }
-  }
-
-  _renderMaskWriteOverlay(ctx) {
-    const entries = this._maskWriteEntries();
-    if (entries.length === 0) return;
-
-    const px = this.pixelSize * this.zoom;
-
-    ctx.save();
-    ctx.setLineDash([]);
-
-    for (let index = 0; index < entries.length; index++) {
-      const entry = entries[index];
-      const bounds = entry.bounds;
-      const tint = this._maskTintColor(entry.slotIndex);
-      const inset = this.maskWordBits && this.maskWordBits <= 32
-        ? Math.max(0.8, Math.min(2.2, px * 0.2))
-        : Math.max(1.2, Math.min(4.2, px * 0.42));
-      const radius = Math.max(4, Math.min(10, 4 + px * 0.18));
-      const rx = bounds.x - inset;
-      const ry = bounds.y - inset;
-      const rw = bounds.w + inset * 2;
-      const rh = bounds.h + inset * 2;
-
-      ctx.fillStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},${this.maskWordBits && this.maskWordBits <= 32 ? 0.025 : 0.055})`;
-      ctx.strokeStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},0.76)`;
-      ctx.lineWidth = Math.max(0.9, Math.min(2.2, px * 0.11));
-      ctx.beginPath();
-      ctx.roundRect(rx, ry, rw, rh, radius);
-      ctx.fill();
-      ctx.stroke();
-
-      if (this.maskWordBits && this.maskWordBits <= 32) {
-        ctx.strokeStyle = `rgba(255,255,255,0.42)`;
-        ctx.lineWidth = Math.max(0.45, Math.min(1.1, px * 0.06));
-        ctx.strokeRect(rx + inset * 0.45, ry + inset * 0.45, Math.max(1, rw - inset * 0.9), Math.max(1, rh - inset * 0.9));
-      }
-    }
-
-    ctx.restore();
   }
 
   _renderVectorTouchOrder(ctx) {
@@ -2091,7 +2053,7 @@ export class SieveRenderer {
     }
 
     if (!this.suppressMaskWriteOverlay) {
-      this._renderMaskWriteOverlay(ctx);
+      this.maskWriteOverlay.render(ctx);
     }
     this._renderVectorTouchOrder(ctx);
     this._renderCachelineAnnotations(ctx);
