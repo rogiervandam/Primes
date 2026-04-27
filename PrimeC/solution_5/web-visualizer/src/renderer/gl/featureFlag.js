@@ -1,32 +1,44 @@
 /**
- * Feature flag for the experimental WebGL bit-grid renderer.
+ * Renderer mode selector for the bit-grid renderer.
  *
- * URL params:
- *   ?renderer=gl         Enable main-thread direct-mode WebGL2 (BitGridGL).
- *   ?renderer=gl-worker  Enable worker-mode WebGL2 (BitGridGLWorker)
+ * URL params (override the default):
+ *   ?renderer=canvas2d   Force the legacy Canvas2D bit-fill path.
+ *   ?renderer=gl         Force main-thread direct-mode WebGL2 (BitGridGL).
+ *   ?renderer=gl-worker  Force worker-mode WebGL2 (BitGridGLWorker)
  *                        via OffscreenCanvas.transferControlToOffscreen.
- *                        Falls back to no-op if OffscreenCanvas isn't
- *                        supported by the browser; the Canvas2D layer
- *                        keeps drawing on top either way.
+ *                        Falls back to direct GL if OffscreenCanvas
+ *                        isn't supported.
  *
- * Default is the Canvas2D path. Flags are read once at module load to
- * keep behaviour stable across re-renders within a session.
+ * Default: `gl` (main-thread direct mode). The Canvas2D layer keeps
+ * drawing overlays/labels/outlines/minimap on top; only the per-bit
+ * cell-fill rectangles + background are deferred to the GL canvas.
+ * If the GL context can't be created (no WebGL2 support) the
+ * Visualizer falls back to the Canvas2D bit-fill path automatically
+ * via `BitGridGL.attach()` returning false.
  *
- * See `docs/AI_MAINTENANCE.md` §8 for scope, limitations, and item 6.
+ * Lowered-3D shading has no GL parity; when `loweredSetBits` is on,
+ * the SieveRenderer takes over the bit fill regardless of this flag
+ * (see `SieveRenderer.skipBitFill`).
+ *
+ * Flags are read once at module load to keep behaviour stable across
+ * re-renders within a session.
+ *
+ * See `docs/AI_MAINTENANCE.md` \u00a78 for scope and limitations.
  */
 
 let cachedMode = null;
 
 function readMode() {
-  if (typeof window === 'undefined' || !window.location) return 'canvas2d';
+  if (typeof window === 'undefined' || !window.location) return 'gl';
   try {
     const params = new URLSearchParams(window.location.search);
     const v = params.get('renderer');
+    if (v === 'canvas2d' || v === 'canvas') return 'canvas2d';
     if (v === 'gl') return 'gl';
     if (v === 'gl-worker') return 'gl-worker';
-    return 'canvas2d';
+    return 'gl';
   } catch {
-    return 'canvas2d';
+    return 'gl';
   }
 }
 

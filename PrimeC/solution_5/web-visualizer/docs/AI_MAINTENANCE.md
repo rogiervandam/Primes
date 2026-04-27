@@ -446,6 +446,28 @@ overwrite.
   → 88. See §8 item 6 for the full architecture, async-init
   caveat, and the deliberately-skipped context-loss recovery
   in the worker path.
+- ✅ **WebGL is now the default bit-fill backend.** Promoted
+  out of "experimental sandbox" status (§8 step 2). Default
+  `getRendererMode()` flipped from `'canvas2d'` to `'gl'` in
+  `src/renderer/gl/featureFlag.js`; opt out via
+  `?renderer=canvas2d`. New `SieveRenderer.skipBitFill` field
+  (set per-frame in `Visualizer.jsx` to `glActive && !loweredSetBits`)
+  gates only the per-bit cell-fill rectangles + background fill.
+  Threaded through `_buildFrameContext()`, `_renderClear()`,
+  `_drawBitBody()` (simple branch), `_drawBitFocusRange()`, and
+  the per-bit cell-tint fillRect inside `_drawBitPrimeOverlay`,
+  `_drawBitRangeOverlay`, `_drawBitMultiplesOverlay`. The
+  dots/borders/labels in those overlays still draw on top
+  (GL doesn't paint them). Lowered-3D mode forces
+  `skipBitFill` back to `false` so the Canvas2D depth-shaded
+  path takes over (GL has no parity); the GL wrapper also
+  early-returns from upload+draw in that case so it doesn't
+  burn cycles invisibly. Toggling depth mode at runtime works
+  because the wrapper re-evaluates every frame. Fallback:
+  if WebGL2 is unavailable in the browser,
+  `BitGridGL.attach()` returns `false`, `glRendererRef`
+  stays null, `skipBitFill` stays `false`, and the Canvas2D
+  fillRect path is fully responsible. §8 item 2 marked ✅.
 
 ---
 
@@ -601,43 +623,48 @@ main thread.
   paths read/write live renderer state and would force a serialization
   protocol that costs more than it saves at this app's data sizes.
 
-### Step 2 — WebGL bit grid (SCAFFOLD ONLY, opt-in)
+### Step 2 — WebGL bit grid (DEFAULT path; opt-out via `?renderer=canvas2d`)
 
-A WebGL2 renderer skeleton exists at `src/renderer/gl/BitGridGL.js`.
-**It is feature-flagged and intentionally incomplete.**
+A WebGL2 renderer at `src/renderer/gl/BitGridGL.js` (with worker
+sibling `BitGridGLWorker`) is now the default backend for the
+per-bit cell-fill pass.
 
-- Enabled only when `?renderer=gl` is in the URL. Default remains the
-  Canvas2D path. Without the flag, none of the GL code runs.
-- The renderer now draws **per-bit instanced quads** (not a fullscreen
-  quad). Layout positions come from `SieveRenderer.bitIndexToCanvas`,
-  packed into an `RG32F` `posTex`; per-bit flags (set / changed /
-  ghost / repeated) come from an `R8UI` `stateTex`. Pan is a vertex
-  uniform; the position texture is rebuilt only when a layout
-  fingerprint changes (zoom, pixelSize, layouts, grouping, spacing,
-  storage model, bit count, css size). This gives layout, base
-  colour and state parity for the simple cases (items 1–3 below
-  are now partially complete — see the bullet on "Still NOT in GL"
-  for what each item still excludes).
-- Still missing for full parity: lowered-3D shading and
-  rise-and-settle, target outline + hit-count gradient stroke,
-  motion trails, cacheline outline + heat overlay, labels
-  (bit / byte / vector), minimap, heat-map age tinting. (Focus,
-  prime, range and multiples cell-fills are now in the GL
-  shader; `mode3D` works via the parent `camera3DContainerStyle`
-  CSS transform; DPR is handled by the shader's device-pixel
-  snap.)
-- The GL canvas is mounted *underneath* the existing Canvas2D layer
-  rather than replacing it, so overlays and labels (`SearchOverlay`,
-  `MaskWriteOverlay`, `VectorTouchOrderOverlay`,
-  `CachelineAnnotationsOverlay`, `drawFittedLabel`,
-  `_drawOutlineRect`) keep working unchanged on top.
-- Intended use right now: a regression sandbox for benchmarking and
-  iterating on the shader-based color pipeline. **Not** a production
-  renderer. Do not advertise the flag to users until parity tests
-  exist (see "Open work" below).
-- Context loss is handled by setting an internal `_lost` flag and
-  silently no-op'ing draws; the page must be reloaded to recover.
-  This is acceptable for the sandbox; harden it before promoting.
+- Default at module load: `getRendererMode() === 'gl'`. Override
+  with `?renderer=canvas2d` (legacy fillRect path), `?renderer=gl`
+  (explicit), or `?renderer=gl-worker` (OffscreenCanvas worker).
+- The renderer draws **per-bit instanced quads** — one
+  `drawArraysInstanced` call per frame. Layout positions come
+  from `SieveRenderer.bitIndexToCanvas`, packed into an `RG32F`
+  `posTex`; per-bit flags (set / changed / ghost / repeated /
+  prime / range / multiples / focus) come from an `R8UI`
+  `stateTex`. Pan is a vertex uniform; the position texture is
+  rebuilt only when a layout fingerprint changes (zoom,
+  pixelSize, layouts, grouping, spacing, storage model, bit
+  count, css size). The vertex shader DPR-snaps each quad
+  corner so cell edges align with backing-store texels at any
+  DPR.
+- The Canvas2D layer above paints everything GL doesn't:
+  ghost-mask highlights, target outlines, prime/range/
+  multiples dots + borders + 'p'/'r' labels, cacheline outline
+  + heat overlay, motion trails, vector touch order, mask write
+  overlay, search highlight, bit/byte/vector labels, minimap.
+  `SieveRenderer.skipBitFill` (set per-frame in `Visualizer.jsx`)
+  gates only the cell-fill rectangles + background fill so the
+  GL canvas underneath shows through.
+- Lowered-3D mode (`loweredSetBits`) has no GL parity by
+  design — see item 2 below. When on, the Canvas2D bit-fill
+  takes over and GL skips its uploads/draw.
+- Visual diff harness lives at `parity.html` (Vite dev only;
+  open at `http://localhost:5173/parity.html`). Pins the GL
+  contract algorithm against a Canvas2D reference — see item 5.
+- Context loss is handled in direct mode by tearing down GPU
+  resources on `webglcontextlost` and rebuilding on
+  `webglcontextrestored`. Worker mode does not yet implement
+  this (deliberately — worker context is isolated from the
+  page lifecycle and rarely loses). If WebGL2 is unavailable
+  in the browser, `BitGridGL.attach()` returns `false` and
+  `Visualizer.jsx` falls back transparently to the Canvas2D
+  bit-fill path.
 
 ### Open work before WebGL can replace Canvas2D
 
@@ -654,7 +681,7 @@ done":
    snapping each quad corner to the device-pixel grid
    (`floor(corner * u_dpr + 0.5) / u_dpr`), mirroring the
    `Math.round` calls in the Canvas2D fillRect path.
-2. **Color parity.** ⚠️ *Partially done.* Shader handles
+2. **Color parity.** ✅ *Done at scope.* Shader handles
    set / cleared / changed / ghost-mask / repeated using uniforms
    from `_bitColors()` and `_opColor()`, **plus** the four
    cell-fill overlays focus / prime / range / multiples (tints
@@ -662,17 +689,19 @@ done":
    colours (`customSetBit` / `customClearedBit` / preset swap)
    are picked up automatically because `_bitColors()` is
    resolved every frame at the JS boundary. Target outline
-   stroke + hit-count gradient stay Canvas2D-on-top by design
-   (line strokes — the GL canvas paints the cell fill, the
-   Canvas2D layer above paints the outline). The only
-   *deferred* work is **lowered-3D shading + rise-and-settle**:
-   it would multiply per-bit geometry (shadow + base + top +
-   side faces) and triple the shader's branching, with no
-   payoff while the GL canvas remains a sandbox under
-   Canvas2D. Revisit only if/when GL becomes the primary
-   renderer; until then, the lowered-3D path stays Canvas2D
-   (it falls back gracefully because `loweredSetBits` toggles
-   the depth pass entirely on the Canvas2D side).
+   stroke + hit-count gradient, prime/range/multiples
+   dots+borders+labels, and ghost-mask highlights stay
+   Canvas2D-on-top by design (line strokes and per-bit text
+   that GL doesn't paint). **Lowered-3D shading + rise-and-
+   settle has no GL parity by design** — it would multiply
+   per-bit geometry (shadow + base + top + side faces) and
+   triple the shader's branching for a 3D-only effect. When
+   `loweredSetBits` is on, `SieveRenderer.skipBitFill` is
+   forced to `false` and the Canvas2D bit-fill takes over
+   (GL skips its uploads + draw call entirely; its canvas
+   stays hidden behind the now-opaque main canvas). Toggling
+   depth mode at runtime works because the wrapper in
+   `Visualizer.jsx` re-evaluates `skipBitFill` every frame.
 3. **State texture protocol.** ✅ *Done at current scope.*
    One `R8UI` `stateTex`, one byte per bit, packed bits
    `set | changed | ghost | repeated | prime | range | multiples |

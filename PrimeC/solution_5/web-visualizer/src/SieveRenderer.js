@@ -133,6 +133,10 @@ export class SieveRenderer {
     this.loweredSetBits = false;
     this.loweredSetBits3D = false;
     this.transparentBackground = false;
+    // See `_buildFrameContext`. When true, the per-bit cell-fill
+    // rectangles and the background fill are skipped (the GL renderer
+    // paints them into a sibling canvas mounted underneath).
+    this.skipBitFill = false;
     this.loweredDepthStrength = 1;
     this.loweredDepthAngle = 38;
     this.changedBitRiseAt = new Map();
@@ -328,6 +332,15 @@ export class SieveRenderer {
     this.loweredSetBits = false;
     this.loweredSetBits3D = false;
     this.transparentBackground = false;
+    // When true, the per-bit cell-fill rectangles AND the background
+    // fill are skipped. Used by Visualizer.jsx when the WebGL renderer
+    // is the active bit-grid backend (it paints the fills + background
+    // into a sibling canvas mounted UNDER this one). Overlays, labels,
+    // outlines and ghost-mask highlights still draw on top. Forced to
+    // `false` while `loweredSetBits` is on — GL has no parity for the
+    // depth-shaded path, so Canvas2D takes over the bit fill.
+    // See docs/AI_MAINTENANCE.md §8 item 2.
+    this.skipBitFill = false;
     this.changedBitRiseAt = new Map();
     this._frozenClPerVRow = 0;
   }
@@ -1443,6 +1456,12 @@ export class SieveRenderer {
     const bitStepX = this._bitStepX();
     const bitStepY = this._bitStepY();
     const baseAlpha = Math.max(0.12, Math.min(1, this.gridOpacity ?? 1));
+    // GL takeover: when the WebGL renderer is active and depth mode is
+    // off, GL is painting the cell fills and the background into the
+    // sibling canvas underneath; skip those here so they don't double-
+    // paint and so GL output isn't covered. Lowered-3D forces this
+    // back to false because GL has no parity for that path.
+    const skipBitFill = !!this.skipBitFill && !this.loweredSetBits;
 
     return {
       C, ctx, settledCtx, cw, ch, layeredLoweredBits, px,
@@ -1452,6 +1471,7 @@ export class SieveRenderer {
       u64D, vecD, byteD, bitBl, changedColor, bitColors,
       showBitLabels, showNumberLabels, showByteLabels, showVectorLabels,
       u64sPerCL, u64GapX, byteGapX, byteGapY, bitStepX, bitStepY, baseAlpha,
+      skipBitFill,
       vectorLabelY: vRow => this.panY + vRow * vRowHeight + 1,
       byteLabelY: (vRowBaseY, byteTopY) => Math.max(vRowBaseY + labelBands.vector + 1, byteTopY - labelBands.byteFont - 1),
     };
@@ -1459,7 +1479,7 @@ export class SieveRenderer {
 
   /** Clear the canvas (and the layered settled canvas, if active) and paint the background. */
   _renderClear(f) {
-    const { ctx, settledCtx, cw, ch, layeredLoweredBits, C } = f;
+    const { ctx, settledCtx, cw, ch, layeredLoweredBits, C, skipBitFill } = f;
     if (layeredLoweredBits) {
       settledCtx.clearRect(0, 0, cw, ch);
       if (!this.transparentBackground) {
@@ -1469,7 +1489,10 @@ export class SieveRenderer {
       ctx.clearRect(0, 0, cw, ch);
     } else {
       ctx.clearRect(0, 0, cw, ch);
-      if (!this.transparentBackground) {
+      // GL takeover paints the background into the sibling canvas; skip
+      // the bg fill here so GL shows through. (Always honour the
+      // user-facing `transparentBackground` toggle too.)
+      if (!this.transparentBackground && !skipBitFill) {
         ctx.fillStyle = `rgb(${C.BACKGROUND.join(',')})`;
         ctx.fillRect(0, 0, cw, ch);
       }
@@ -1764,6 +1787,7 @@ export class SieveRenderer {
     }
 
     drawCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
+    if (f.skipBitFill) return;
     drawCtx.fillRect(drawX, drawY, drawSize, drawSize);
   }
 
@@ -1786,6 +1810,7 @@ export class SieveRenderer {
 
   /** Faint blue tint over bits inside the active focus range. */
   _drawBitFocusRange(f, bitX, bitY) {
+    if (f.skipBitFill) return;
     const px = f.px;
     f.ctx.fillStyle = 'rgba(96, 165, 250, 0.16)';
     f.ctx.fillRect(
@@ -1828,9 +1853,11 @@ export class SieveRenderer {
     const ctx = f.ctx;
     const px = f.px;
     ctx.save();
-    // Subtle gold tint over the bit cell
-    ctx.fillStyle = 'rgba(251,191,36,0.20)';
-    ctx.fillRect(Math.round(bitX), Math.round(bitY), Math.max(1, Math.round(px)), Math.max(1, Math.round(px)));
+    // Subtle gold tint over the bit cell (GL paints this when active)
+    if (!f.skipBitFill) {
+      ctx.fillStyle = 'rgba(251,191,36,0.20)';
+      ctx.fillRect(Math.round(bitX), Math.round(bitY), Math.max(1, Math.round(px)), Math.max(1, Math.round(px)));
+    }
     // Small gold dot in the top-right corner — visible even at low zoom
     const dotR = Math.max(0.8, Math.min(px * 0.22, 4));
     ctx.fillStyle = 'rgba(251,191,36,0.92)';
@@ -1863,8 +1890,10 @@ export class SieveRenderer {
     const ctx = f.ctx;
     const px = f.px;
     ctx.save();
-    ctx.fillStyle = 'rgba(34,211,238,0.22)';
-    ctx.fillRect(Math.round(bitX), Math.round(bitY), Math.max(1, Math.round(px)), Math.max(1, Math.round(px)));
+    if (!f.skipBitFill) {
+      ctx.fillStyle = 'rgba(34,211,238,0.22)';
+      ctx.fillRect(Math.round(bitX), Math.round(bitY), Math.max(1, Math.round(px)), Math.max(1, Math.round(px)));
+    }
     const dotR2 = Math.max(0.8, Math.min(px * 0.20, 3.5));
     ctx.fillStyle = 'rgba(34,211,238,0.88)';
     ctx.beginPath();
@@ -1896,8 +1925,10 @@ export class SieveRenderer {
     const ctx = f.ctx;
     const px = f.px;
     ctx.save();
-    ctx.fillStyle = 'rgba(167,139,250,0.30)';
-    ctx.fillRect(Math.round(bitX), Math.round(bitY), Math.max(1, Math.round(px)), Math.max(1, Math.round(px)));
+    if (!f.skipBitFill) {
+      ctx.fillStyle = 'rgba(167,139,250,0.30)';
+      ctx.fillRect(Math.round(bitX), Math.round(bitY), Math.max(1, Math.round(px)), Math.max(1, Math.round(px)));
+    }
     const dotR3 = Math.max(0.8, Math.min(px * 0.20, 3.5));
     ctx.fillStyle = 'rgba(167,139,250,0.90)';
     ctx.beginPath();

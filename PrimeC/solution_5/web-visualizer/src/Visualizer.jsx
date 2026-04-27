@@ -602,10 +602,23 @@ export default function Visualizer({
           glRendererRef.current = gl;
           const origRender = r.render.bind(r);
           r.render = () => {
-            origRender();
             const g = glRendererRef.current;
             const rr = rendererRef.current;
+            // Tell SieveRenderer to skip the cell-fill rectangles +
+            // background fill when GL is the active backend AND
+            // depth-shaded (lowered-3D) mode is OFF. With depth on,
+            // GL has no parity, so Canvas2D takes over the fill and
+            // GL stays a no-op (we still call g.render but the cells
+            // are hidden behind the opaque main canvas).
+            // Re-evaluated every frame to track the user toggling
+            // depth mode at runtime.
+            if (rr) rr.skipBitFill = !!g && !rr.loweredSetBits;
+            origRender();
             if (!g || !rr || !rr.canvas) return;
+            // When lowered-3D is on, Canvas2D paints the fills + bg
+            // and is fully opaque on top of the GL canvas; GL output
+            // would be hidden, so skip its uploads/draw entirely.
+            if (rr.loweredSetBits) return;
             const dpr = window.devicePixelRatio || 1;
             const cssW = rr.canvas.width / dpr;
             const cssH = rr.canvas.height / dpr;
@@ -643,6 +656,11 @@ export default function Visualizer({
               baseAlpha: Math.max(0.12, Math.min(1, rr.gridOpacity ?? 1)),
             });
           };
+        } else {
+          // GL attach failed (no WebGL2 in this browser). Leave
+          // skipBitFill at its default `false` so the Canvas2D path
+          // stays fully responsible.
+          glRendererRef.current = null;
         }
       }
     }
