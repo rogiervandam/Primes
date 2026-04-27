@@ -39,14 +39,13 @@ trace_ensure_log_directory_for_path(const char* filename)
  *
  * Records changes to the bitstorage at each algorithmic step with rich metadata.
  * Uses snapshot-diff: after each operation, XOR with the snapshot reveals changed bits.
- * Output is a JSON file readable by the web/desktop visualizer.
+ * Output is a text file readable by the web/desktop visualizer.
  *
  * Compile with -DCOMPILE_TRACE to enable.
  */
 
 typedef struct {
     FILE*     file;
-    FILE*     json_file;
     uint8_t*  snapshot;          /* Previous bitstorage state            */
     uint64_t  sieve_size;        /* Max number in sieve                  */
     uint64_t  bit_count;         /* Number of bits in bitstorage         */
@@ -57,7 +56,6 @@ typedef struct {
     int         depth;              /* Current analysis level (5-8)         */
     int         prev_depths[16];    /* Stack of previous depth values       */
     int         depth_sp;           /* Stack pointer for context stack      */
-    int         json_enabled;
     int         configured_trace_level;
 } trace_context_t;
 
@@ -242,8 +240,6 @@ trace_init(const char* filename,
     g_trace.bitstorage_bytes = (uint32_t)((bit_count + 7) / 8);
     g_trace.step_count       = 0;
     g_trace.enabled          = 0;
-    g_trace.json_file        = NULL;
-    g_trace.json_enabled     = 0;
     g_trace.depth               = 0;
     g_trace.depth_sp            = 0;
     g_trace.configured_trace_level = trace_level;
@@ -307,50 +303,6 @@ trace_init(const char* filename,
        the primary TRACE header. Format: "StorageModel: <name>" */
     fprintf(g_trace.file, "StorageModel: %s\n", storage_model);
 
-    const char* json_secondary = getenv("TRACE_JSON_SECONDARY");
-    if (json_secondary && strcmp(json_secondary, "0") != 0) {
-        char json_path[1024];
-        snprintf(json_path, sizeof(json_path), "%s.json", filename);
-        g_trace.json_file = fopen(json_path, "w");
-        if (g_trace.json_file) {
-                if (benchmark_settings && *benchmark_settings) {
-                    fprintf(g_trace.json_file,
-                        "{\"version\":%d,\"sieve_size\":%llu,\"bit_count\":%llu,\"max_number\":%llu,\"storage_model\":\"%s\",\"trace_level\":%d,\"benchmark_settings\":\"%s\"",
-                        TRACE_FORMAT_VERSION,
-                        (unsigned long long)sieve_size,
-                        (unsigned long long)bit_count,
-                        (unsigned long long)sieve_size,
-                        storage_model,
-                        trace_level,
-                        benchmark_settings);
-                } else {
-                    fprintf(g_trace.json_file,
-                        "{\"version\":%d,\"sieve_size\":%llu,\"bit_count\":%llu,\"max_number\":%llu,\"storage_model\":\"%s\",\"trace_level\":%d",
-                        TRACE_FORMAT_VERSION,
-                        (unsigned long long)sieve_size,
-                        (unsigned long long)bit_count,
-                        (unsigned long long)sieve_size,
-                        storage_model,
-                        trace_level);
-                }
-            if (trace_title && *trace_title) {
-                fputs(",\"title\":", g_trace.json_file);
-                trace_write_json_string(g_trace.json_file, trace_title);
-            }
-            if (trace_info && *trace_info) {
-                fputs(",\"title_info\":", g_trace.json_file);
-                trace_write_json_string(g_trace.json_file, trace_info);
-            }
-            fputs(",\"events\":[", g_trace.json_file);
-            g_trace.json_enabled = 1;
-            if (g_trace_console_feedback_enabled) {
-                fprintf(stderr, "Trace: JSON companion enabled: %s\n", json_path);
-            }
-        } else {
-            fprintf(stderr, "Trace: failed to open JSON companion file: %s\n", json_path);
-        }
-    }
-
     g_trace.enabled = 1;
 
     if (g_trace_console_feedback_enabled) {
@@ -376,7 +328,7 @@ trace_record_event_full(int level, const void* bitstorage, const char* label, do
     if (!g_trace.enabled || !g_trace.file) return;
 
     const uint8_t* current = (const uint8_t*)bitstorage;
-    const uint32_t step_id = g_trace.step_count++;
+    g_trace.step_count++;
     const char* event_label = trace_optional_label(label);
 
     fputs("EVENT", g_trace.file);
@@ -416,37 +368,6 @@ trace_record_event_full(int level, const void* bitstorage, const char* label, do
     fputc(']', g_trace.file);
     fputc('\n', g_trace.file);
 
-    if (g_trace.json_enabled && g_trace.json_file) {
-        if (step_id > 0) fputc(',', g_trace.json_file);
-
-        fputs("{\"annotation\":", g_trace.json_file);
-        trace_write_json_string(g_trace.json_file, annotation ? annotation : "");
-        if (time >= 0) fprintf(g_trace.json_file, ",\"time\":%.9f", time);
-        fprintf(g_trace.json_file, ",\"depth\":%d", g_trace.depth);
-        if (level > 0) {
-            fprintf(g_trace.json_file, ",\"level\":%d", level);
-        }
-        if (event_label) {
-            fputs(",\"function\":", g_trace.json_file);
-            trace_write_json_string(g_trace.json_file, event_label);
-        }
-        fputs(",\"changed_bits\":[", g_trace.json_file);
-
-        first = 1;
-        for (uint32_t byte_idx = 0; byte_idx < g_trace.bitstorage_bytes; byte_idx++) {
-            uint8_t diff = current[byte_idx] ^ g_trace.snapshot[byte_idx];
-            for (uint32_t bit = 0; diff; bit++, diff >>= 1) {
-                if (diff & 1) {
-                    uint32_t bit_index = byte_idx * 8 + bit;
-                    if (!first) fputc(',', g_trace.json_file);
-                    fprintf(g_trace.json_file, "%u", bit_index);
-                    first = 0;
-                }
-            }
-        }
-        fputs("]}", g_trace.json_file);
-    }
-
     memcpy(g_trace.snapshot, current, g_trace.bitstorage_bytes);
 }
 
@@ -470,7 +391,7 @@ trace_record_applymask_step_labeled(void* bitstorage,
     if (!g_trace.enabled || !g_trace.file) return;
 
     const uint8_t* current = (const uint8_t*)bitstorage;
-    const uint32_t step_id = g_trace.step_count++;
+    g_trace.step_count++;
     const char* event_label = trace_optional_label(label);
     const uint64_t bit_start = word_start * word_bits;
     const uint64_t bit_stop = (word_stop + 1) * word_bits - 1;
@@ -539,64 +460,6 @@ trace_record_applymask_step_labeled(void* bitstorage,
     fputs("]", g_trace.file);
     fputc('\n', g_trace.file);
 
-    if (g_trace.json_enabled && g_trace.json_file) {
-        if (step_id > 0) fputc(',', g_trace.json_file);
-
-        fputs("{\"annotation\":", g_trace.json_file);
-        trace_write_json_string(g_trace.json_file, annotation ? annotation : "");
-        fprintf(g_trace.json_file,
-            ",\"depth\":%d,\"start\":%llu,\"stop\":%llu,\"step\":%llu,\"word_bits\":%llu,\"word_start\":%llu,\"word_stop\":%llu,\"step_words\":%llu",
-                g_trace.depth,
-            (unsigned long long)bit_start,
-            (unsigned long long)bit_stop,
-            (unsigned long long)bit_step,
-                (unsigned long long)word_bits,
-                (unsigned long long)word_start,
-                (unsigned long long)word_stop,
-                (unsigned long long)step_words);
-            if (level > 0) {
-                fprintf(g_trace.json_file, ",\"level\":%d", level);
-            }
-        if (event_label) {
-            fputs(",\"function\":", g_trace.json_file);
-            trace_write_json_string(g_trace.json_file, event_label);
-        }
-        if (mask2_count > 0) {
-            fputs(",\"mask1_bits\":", g_trace.json_file);
-            trace_write_uint32_array(g_trace.json_file, mask_bits, mask_count);
-            fputs(",\"mask2_bits\":", g_trace.json_file);
-            trace_write_uint32_array(g_trace.json_file, mask2_bits, mask2_count);
-            fputs(",\"pattern_kind\":\"pair\",\"pattern_slot_count\":2,\"pattern_slot0_bits\":", g_trace.json_file);
-            trace_write_uint32_array(g_trace.json_file, mask_bits, mask_count);
-            fputs(",\"pattern_slot1_bits\":", g_trace.json_file);
-            trace_write_uint32_array(g_trace.json_file, mask2_bits, mask2_count);
-        } else {
-            fputs(",\"mask_bits\":", g_trace.json_file);
-            trace_write_uint32_array(g_trace.json_file, mask_bits, mask_count);
-            fputs(",\"pattern_kind\":\"single\",\"pattern_slot_count\":1,\"pattern_slot0_bits\":", g_trace.json_file);
-            trace_write_uint32_array(g_trace.json_file, mask_bits, mask_count);
-        }
-        fputs(",\"mask_target_words\":", g_trace.json_file);
-        trace_write_uint64_array(g_trace.json_file, mask_target_words, mask_target_count);
-        fputs(",\"mask_target_slots\":", g_trace.json_file);
-        trace_write_uint32_array(g_trace.json_file, mask_target_slots, mask_target_count);
-        fputs(",\"changed_bits\":[", g_trace.json_file);
-
-        first = 1;
-        for (uint32_t byte_idx = 0; byte_idx < g_trace.bitstorage_bytes; byte_idx++) {
-            uint8_t diff = current[byte_idx] ^ g_trace.snapshot[byte_idx];
-            for (uint32_t bit = 0; diff; bit++, diff >>= 1) {
-                if (diff & 1) {
-                    uint32_t bit_index = byte_idx * 8 + bit;
-                    if (!first) fputc(',', g_trace.json_file);
-                    fprintf(g_trace.json_file, "%u", bit_index);
-                    first = 0;
-                }
-            }
-        }
-        fputs("]}", g_trace.json_file);
-    }
-
     memcpy(g_trace.snapshot, current, g_trace.bitstorage_bytes);
 }
 
@@ -605,7 +468,7 @@ trace_record_text_full(int level, const char* label, const char* annotation)
 {
     if (!g_trace.enabled || !g_trace.file) return;
 
-    const uint32_t step_id = g_trace.step_count++;
+    g_trace.step_count++;
     const char* event_label = trace_optional_label(label);
 
     fputs("TEXT", g_trace.file);
@@ -618,18 +481,6 @@ trace_record_text_full(int level, const char* label, const char* annotation)
     fputs(" annotation=", g_trace.file);
     trace_write_json_string(g_trace.file, annotation ? annotation : "");
     fputc('\n', g_trace.file);
-
-    if (g_trace.json_enabled && g_trace.json_file) {
-        if (step_id > 0) fputc(',', g_trace.json_file);
-        fputs("{\"type\":\"text\",\"annotation\":", g_trace.json_file);
-        trace_write_json_string(g_trace.json_file, annotation ? annotation : "");
-        fprintf(g_trace.json_file, ",\"depth\":%d", g_trace.depth);
-        if (event_label) {
-            fputs(",\"function\":", g_trace.json_file);
-            trace_write_json_string(g_trace.json_file, event_label);
-        }
-        fputs(",\"changed_bits\":[]}", g_trace.json_file);
-    }
 }
 
 // static void
@@ -676,7 +527,6 @@ trace_record_text_full(int level, const char* label, const char* annotation)
 /*
  * Write a standalone memory dump file (no step-by-step changes).
  * Human-readable text dump is written as primary output.
- * JSON dump is optional secondary output when TRACE_JSON_SECONDARY=1.
  */
 static void __attribute__((cold))
 trace_dump_memory_with_format(const char* filename, void* bitstorage,
@@ -716,32 +566,6 @@ trace_dump_memory_with_format(const char* filename, void* bitstorage,
     fputc('\n', f);
     fclose(f);
 
-    const char* json_secondary = getenv("TRACE_JSON_SECONDARY");
-    if (json_secondary && strcmp(json_secondary, "0") != 0) {
-        char json_path[1024];
-        snprintf(json_path, sizeof(json_path), "%s.json", filename);
-        FILE* jf = fopen(json_path, "w");
-        if (jf) {
-            fprintf(jf, "{\"version\":%d,\"type\":\"dump\",\"sieve_size\":%llu,\"bit_count\":%llu,\"max_number\":%llu,\"format\":\"%s\",\"data\":\"",
-                    TRACE_FORMAT_VERSION,
-                    (unsigned long long)sieve_size,
-                    (unsigned long long)bit_count,
-                    (unsigned long long)sieve_size,
-                    binary ? "binary" : "hex");
-            if (binary) {
-                for (uint32_t i = 0; i < bytes; i++) {
-                    for (int b = 0; b < 8; b++) {
-                        fputc((data[i] & (1u << b)) ? '1' : '0', jf);
-                    }
-                }
-            } else {
-                for (uint32_t i = 0; i < bytes; i++) fprintf(jf, "%02x", data[i]);
-            }
-            fputs("\"}\n", jf);
-            fclose(jf);
-        }
-    }
-
     fprintf(stderr, "Trace dump: wrote %u bytes to %s\n", bytes, filename);
 }
 
@@ -762,12 +586,6 @@ trace_finalize(void)
 
     fclose(g_trace.file);
     g_trace.file = NULL;
-
-    if (g_trace.json_enabled && g_trace.json_file) {
-        fputs("]}\n", g_trace.json_file);
-        fclose(g_trace.json_file);
-        g_trace.json_file = NULL;
-    }
 
     if (g_trace.snapshot) {
         free(g_trace.snapshot);

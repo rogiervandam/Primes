@@ -324,8 +324,10 @@ if [ -n "$BENCHMARK_LOG_FILENAME" ]; then
     run_args="$run_args --benchmark-log $BENCHMARK_LOG_FILENAME"
 fi
 
-# If visual/visualize is active and no max was specified, default to 10000
-if [ "$VISUALIZE" = "visualize" ] && [ "$highest_number" -eq 0 ]; then
+# Forward the sieve max: use the explicitly provided number, or default to 10000 for visualize mode
+if [ "$highest_number" -gt 0 ]; then
+    run_args="$run_args --max $highest_number"
+elif [ "$VISUALIZE" = "visualize" ]; then
     run_args="$run_args --max 10000"
 fi
 
