@@ -2,97 +2,119 @@
  * BitGridGL — experimental WebGL2 bit-grid renderer.
  *
  * SCOPE (see docs/AI_MAINTENANCE.md §8):
- *   - Base bit pass only: cleared / set / changed colors.
- *   - Single fullscreen quad whose fragment shader samples a R8UI data
- *     texture of `bitState` (with the changed flag packed into bit 1).
- *   - Uniform grid layout (cols × rows). Vector grouping, cacheline
- *     grouping, custom grouping, lowered-3D, labels, overlays, minimap,
- *     focus/range/multiples/prime overlays and motion trails are NOT
- *     implemented. Use the Canvas2D path for any of those.
- *   - Context loss is handled by setting `_lost` and silently no-op'ing
- *     subsequent draws. Reload the page to recover.
+ *   Implemented (items 1–3 of "Open work"):
+ *     - Layout parity: positions sourced from `SieveRenderer.bitIndexToCanvas`
+ *       (the authoritative layout helper). All `BIT_LAYOUTS` /
+ *       `BYTE_LAYOUTS`, vector grouping, cacheline grouping, custom
+ *       grouping and frozen wrapping reuse that path verbatim. Pan is
+ *       applied as a uniform; the position texture is rebuilt only when
+ *       the layout fingerprint (zoom, pixelSize, layout settings,
+ *       grouping, bitCount) changes.
+ *     - Color parity (base path): set / cleared / changed / repeated /
+ *       ghost-mask. Colors are sent as uniforms; the shader picks the
+ *       branch from packed state flags.
+ *     - State texture protocol: one R8UI texture, one byte per bit,
+ *       packed flags (set, changed, ghost, repeated). Repacked each
+ *       render() call — cheap relative to the JS overhead of partial-
+ *       update bookkeeping at this app's bit counts.
  *
- * INTENDED USE:
- *   - Regression sandbox for benchmarking the shader-based color path.
- *   - Mounted under the Canvas2D layer when `?renderer=gl` is set, so
- *     overlays/labels keep working unchanged on top.
+ *   NOT implemented (Canvas2D handles these on top):
+ *     - Lowered-3D / depth shading / rise-and-settle animation.
+ *     - Focus-range fill, prime / range / multiples overlays, target
+ *       outline, motion trails, cacheline outline & heat overlay,
+ *       labels (bit / byte / vector), minimap.
+ *     - Per-bit hit-count gradient and heat-map age tinting.
+ *     - 3D mode (`mode3D`) — the 2D GL canvas is not transformed by
+ *       Camera3D yet.
+ *
+ *   Context loss is handled by setting `_lost` and silently no-op'ing
+ *   subsequent draws. Reload the page to recover.
  */
 
 const VS = `#version 300 es
 precision highp float;
-layout(location = 0) in vec2 a_pos;
-out vec2 v_uv;
-void main() {
-  v_uv = a_pos * 0.5 + 0.5;
-  gl_Position = vec4(a_pos, 0.0, 1.0);
-}`;
-
-// Grid math is done in the fragment shader: each fragment maps its
-// canvas-space pixel back through (panX, panY, zoom, pixelSize) to a
-// (col, row) → bit index, samples the state texture and paints the
-// matching color. Inter-bit gaps render as background.
-const FS = `#version 300 es
-precision highp float;
 precision highp usampler2D;
 
-uniform vec2 u_canvasSize;          // CSS pixels (pre-DPR)
-uniform vec2 u_pan;                 // pan in CSS pixels
-uniform float u_zoom;
-uniform float u_pixelSize;          // base bit cell size in CSS px
-uniform float u_bitGap;             // gap between bits in CSS px (post-zoom)
-uniform int u_cols;                 // bits per row
-uniform int u_bitCount;
-uniform ivec2 u_texSize;
-uniform usampler2D u_state;         // per-bit state byte
+layout(location = 0) in vec2 a_corner;       // unit quad corners (-0.5..0.5)
 
-uniform vec3 u_bgColor;
+uniform vec2 u_canvasSize;     // CSS pixels (pre-DPR)
+uniform vec2 u_pan;            // CSS pixels
+uniform float u_cellSize;      // base bit cell size in CSS px (already includes zoom)
+uniform sampler2D u_pos;       // RG32F: per-bit (x,y) in CSS px, pan-independent
+uniform usampler2D u_state;    // R8UI:  per-bit packed flag byte
+uniform ivec2 u_texSize;
+uniform int u_bitCount;
+
+flat out uint v_state;
+
+void main() {
+  int bit = gl_InstanceID;
+  if (bit >= u_bitCount) {
+    gl_Position = vec4(2.0, 2.0, 0.0, 1.0); // off-screen
+    return;
+  }
+  int tx = bit % u_texSize.x;
+  int ty = bit / u_texSize.x;
+  vec2 basePos = texelFetch(u_pos, ivec2(tx, ty), 0).rg;
+  v_state = texelFetch(u_state, ivec2(tx, ty), 0).r;
+
+  // bitIndexToCanvas() returns the bit's CENTRE (with px/2 offset already
+  // baked in). a_corner spans (-0.5..0.5), so a quad of size u_cellSize
+  // centred on basePos+pan exactly fills the cell.
+  vec2 centre = basePos + u_pan;
+  vec2 corner = centre + a_corner * u_cellSize;
+
+  // CSS px → clip space, flipping Y.
+  vec2 clip = (corner / u_canvasSize) * 2.0 - 1.0;
+  clip.y = -clip.y;
+  gl_Position = vec4(clip, 0.0, 1.0);
+}`;
+
+// State-flag bit layout:
+//   bit 0: set
+//   bit 1: changed
+//   bit 2: ghost-masked
+//   bit 3: repeated write
+const FS = `#version 300 es
+precision highp float;
+
 uniform vec3 u_setColor;
 uniform vec3 u_clearedColor;
 uniform vec3 u_changedColor;
-uniform float u_baseAlpha;
+uniform vec3 u_repeatedColor;
+uniform vec3 u_bgColor;
+uniform float u_baseAlpha;       // applied to non-changed/ghost/repeated bits
 
-in vec2 v_uv;
+flat in uint v_state;
 out vec4 outColor;
 
 void main() {
-  // v_uv is (0,0) bottom-left → (1,1) top-right; flip Y to canvas convention.
-  vec2 canvasPx = vec2(v_uv.x, 1.0 - v_uv.y) * u_canvasSize;
-  vec2 local = canvasPx - u_pan;
-
-  float cell = max(1.0, u_pixelSize * u_zoom);
-  float gap = max(0.0, u_bitGap);
-  float stride = cell + gap;
-
-  if (local.x < 0.0 || local.y < 0.0) { outColor = vec4(u_bgColor, 1.0); return; }
-
-  float colF = floor(local.x / stride);
-  float rowF = floor(local.y / stride);
-  if (colF < 0.0 || colF >= float(u_cols)) { outColor = vec4(u_bgColor, 1.0); return; }
-
-  // Inside the gap between cells → background.
-  float xInCell = local.x - colF * stride;
-  float yInCell = local.y - rowF * stride;
-  if (xInCell >= cell || yInCell >= cell) { outColor = vec4(u_bgColor, 1.0); return; }
-
-  int col = int(colF);
-  int row = int(rowF);
-  int bit = row * u_cols + col;
-  if (bit < 0 || bit >= u_bitCount) { outColor = vec4(u_bgColor, 1.0); return; }
-
-  int tx = bit % u_texSize.x;
-  int ty = bit / u_texSize.x;
-  uint state = texelFetch(u_state, ivec2(tx, ty), 0).r;
-
-  // bit 0 = set/cleared, bit 1 = changed-this-step
-  bool isSet = (state & 1u) != 0u;
-  bool isChanged = (state & 2u) != 0u;
+  bool isSet      = (v_state & 1u) != 0u;
+  bool isChanged  = (v_state & 2u) != 0u;
+  bool isGhost    = (v_state & 4u) != 0u;
+  bool isRepeated = (v_state & 8u) != 0u;
 
   vec3 color;
-  if (isChanged) color = u_changedColor;
-  else if (isSet) color = u_setColor;
-  else color = u_clearedColor;
+  float alpha;
+  if (isGhost) {
+    color = u_clearedColor;
+    alpha = 1.0;
+  } else if (isRepeated && isChanged) {
+    color = u_repeatedColor;
+    alpha = 1.0;
+  } else if (isChanged) {
+    color = u_changedColor;
+    alpha = 1.0;
+  } else if (isSet) {
+    color = u_setColor;
+    alpha = u_baseAlpha;
+  } else {
+    color = u_clearedColor;
+    alpha = u_baseAlpha;
+  }
 
-  outColor = vec4(mix(u_bgColor, color, u_baseAlpha), 1.0);
+  // Compose against background to keep edges crisp on transparent canvases.
+  outColor = vec4(mix(u_bgColor, color, alpha), 1.0);
 }`;
 
 function compile(gl, type, src) {
@@ -111,7 +133,7 @@ function link(gl, vs, fs) {
   const prog = gl.createProgram();
   gl.attachShader(prog, vs);
   gl.attachShader(prog, fs);
-  gl.bindAttribLocation(prog, 0, 'a_pos');
+  gl.bindAttribLocation(prog, 0, 'a_corner');
   gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
     const log = gl.getProgramInfoLog(prog);
@@ -127,13 +149,16 @@ export class BitGridGL {
     this.gl = null;
     this.program = null;
     this.vao = null;
-    this.tex = null;
+    this.posTex = null;
+    this.stateTex = null;
     this.bitCount = 0;
     this.texW = 0;
     this.texH = 0;
-    this._stateBytes = null;       // Uint8Array sized to texW*texH
+    this._posBuf = null;          // Float32Array (texW*texH*2), pan-independent CSS-px (cell centres)
+    this._stateBuf = null;        // Uint8Array (texW*texH), packed flags
     this._lost = false;
     this._uniforms = {};
+    this._layoutFingerprint = '';
   }
 
   attach(canvas) {
@@ -171,17 +196,16 @@ export class BitGridGL {
     this._uniforms = {
       canvasSize: u('u_canvasSize'),
       pan: u('u_pan'),
-      zoom: u('u_zoom'),
-      pixelSize: u('u_pixelSize'),
-      bitGap: u('u_bitGap'),
-      cols: u('u_cols'),
-      bitCount: u('u_bitCount'),
-      texSize: u('u_texSize'),
+      cellSize: u('u_cellSize'),
+      pos: u('u_pos'),
       state: u('u_state'),
-      bgColor: u('u_bgColor'),
+      texSize: u('u_texSize'),
+      bitCount: u('u_bitCount'),
       setColor: u('u_setColor'),
       clearedColor: u('u_clearedColor'),
       changedColor: u('u_changedColor'),
+      repeatedColor: u('u_repeatedColor'),
+      bgColor: u('u_bgColor'),
       baseAlpha: u('u_baseAlpha'),
     };
   }
@@ -193,8 +217,8 @@ export class BitGridGL {
     const vbo = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-      -1, -1,  1, -1,  -1, 1,
-       1, -1,  1,  1,  -1, 1,
+      -0.5, -0.5,   0.5, -0.5,  -0.5,  0.5,
+       0.5, -0.5,   0.5,  0.5,  -0.5,  0.5,
     ]), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
@@ -202,50 +226,133 @@ export class BitGridGL {
   }
 
   /**
-   * (Re)allocate the state texture for the given bit count. Idempotent.
-   * Picks a roughly-square texture so the largest dimension stays under
-   * the GL implementation's MAX_TEXTURE_SIZE.
+   * (Re)allocate the position + state textures for the given bit count.
+   * Idempotent.
    */
   resizeForBitCount(bitCount) {
     if (this._lost || !this.gl) return;
-    if (this.bitCount === bitCount && this.tex) return;
+    if (this.bitCount === bitCount && this.posTex && this.stateTex) return;
     this.bitCount = bitCount;
     const dim = Math.max(1, Math.ceil(Math.sqrt(bitCount)));
     this.texW = dim;
     this.texH = Math.max(1, Math.ceil(bitCount / dim));
-    this._stateBytes = new Uint8Array(this.texW * this.texH);
+    const slots = this.texW * this.texH;
+    this._posBuf = new Float32Array(slots * 2);
+    this._stateBuf = new Uint8Array(slots);
+    this._layoutFingerprint = '';
 
     const gl = this.gl;
-    if (this.tex) gl.deleteTexture(this.tex);
-    this.tex = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, this.tex);
+    if (this.posTex) gl.deleteTexture(this.posTex);
+    if (this.stateTex) gl.deleteTexture(this.stateTex);
+
+    this.posTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.posTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(
+      gl.TEXTURE_2D, 0, gl.RG32F, this.texW, this.texH, 0,
+      gl.RG, gl.FLOAT, this._posBuf,
+    );
+
+    this.stateTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.stateTex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texImage2D(
       gl.TEXTURE_2D, 0, gl.R8UI, this.texW, this.texH, 0,
-      gl.RED_INTEGER, gl.UNSIGNED_BYTE, this._stateBytes,
+      gl.RED_INTEGER, gl.UNSIGNED_BYTE, this._stateBuf,
     );
   }
 
   /**
-   * Pack `bitState` (Uint8Array of 0/1) and `changedBits` (Set<number>)
-   * into the state texture: bit0 = set, bit1 = changed.
+   * Rebuild the position texture by walking every bit through
+   * `host.bitIndexToCanvas` (the authoritative layout helper). Pan is
+   * subtracted so the texture stays pan-independent and the shader
+   * applies pan as a uniform.
+   *
+   * `fingerprint` is a string the caller computes from the layout
+   * inputs; a no-op early-exits when nothing changed.
    */
-  uploadState(bitState, changedBits) {
-    if (this._lost || !this.gl || !this.tex) return;
-    if (!bitState) return;
-    const buf = this._stateBytes;
-    const n = Math.min(this.bitCount, bitState.length);
-    for (let i = 0; i < n; i++) buf[i] = bitState[i] ? 1 : 0;
-    if (changedBits && typeof changedBits.forEach === 'function') {
-      changedBits.forEach((bit) => {
-        if (bit >= 0 && bit < this.bitCount) buf[bit] |= 2;
-      });
+  uploadPositions(host, fingerprint) {
+    if (this._lost || !this.gl || !this.posTex) return;
+    if (!host || !this._posBuf) return;
+    if (fingerprint && fingerprint === this._layoutFingerprint) return;
+    this._layoutFingerprint = fingerprint || '';
+
+    const buf = this._posBuf;
+    const panX = host.panX || 0;
+    const panY = host.panY || 0;
+    const n = Math.min(this.bitCount, buf.length / 2);
+    for (let i = 0; i < n; i++) {
+      const p = host.bitIndexToCanvas(i);
+      if (p) {
+        buf[i * 2]     = p.x - panX;
+        buf[i * 2 + 1] = p.y - panY;
+      } else {
+        // Off-screen sentinel; vertex shader's bit-count guard handles bounds,
+        // but stale entries in the texture should not produce stray quads.
+        buf[i * 2]     = -1e6;
+        buf[i * 2 + 1] = -1e6;
+      }
     }
     const gl = this.gl;
-    gl.bindTexture(gl.TEXTURE_2D, this.tex);
+    gl.bindTexture(gl.TEXTURE_2D, this.posTex);
+    gl.texSubImage2D(
+      gl.TEXTURE_2D, 0, 0, 0, this.texW, this.texH,
+      gl.RG, gl.FLOAT, buf,
+    );
+  }
+
+  /**
+   * Pack live renderer state into the flag texture. Recomputed each frame —
+   * cheap relative to the JS overhead of partial-update bookkeeping at
+   * this app's typical bit counts.
+   */
+  uploadState(host) {
+    if (this._lost || !this.gl || !this.stateTex || !host) return;
+    const bitState = host.bitState;
+    if (!bitState) return;
+    const buf = this._stateBuf;
+    const n = Math.min(this.bitCount, bitState.length, buf.length);
+
+    // Base pass: set bit (flag 1).
+    for (let i = 0; i < n; i++) buf[i] = bitState[i] ? 1 : 0;
+
+    // Higher-cardinality flags as set membership / map lookups.
+    const changed = host.changedBits;
+    if (changed && typeof changed.forEach === 'function') {
+      changed.forEach((bit) => {
+        if (bit >= 0 && bit < n) buf[bit] |= 2;
+      });
+    }
+    const ghost = host.maskGhostBits;
+    if (ghost && typeof ghost.forEach === 'function') {
+      ghost.forEach((bit) => {
+        if (bit >= 0 && bit < n && (buf[bit] & 1)) buf[bit] |= 4;
+      });
+    }
+    const repeated = host.repeatedChangedBits;
+    if (repeated && typeof repeated.forEach === 'function') {
+      repeated.forEach((bit) => {
+        if (bit >= 0 && bit < n) buf[bit] |= 8;
+      });
+    }
+    // _classifyBit also marks repeated when targetHitCounts > 1.
+    const hits = host.targetHitCounts;
+    if (hits && typeof hits.forEach === 'function') {
+      hits.forEach((count, bit) => {
+        if (count > 1 && bit >= 0 && bit < n) buf[bit] |= 8;
+      });
+    }
+    // Pad any unused texture slots to 0.
+    for (let i = n; i < buf.length; i++) buf[i] = 0;
+
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.stateTex);
     gl.texSubImage2D(
       gl.TEXTURE_2D, 0, 0, 0, this.texW, this.texH,
       gl.RED_INTEGER, gl.UNSIGNED_BYTE, buf,
@@ -268,18 +375,16 @@ export class BitGridGL {
    * @param {object} params
    * @param {number} params.panX
    * @param {number} params.panY
-   * @param {number} params.zoom
-   * @param {number} params.pixelSize    base bit cell size in CSS px
-   * @param {number} params.bitGap       gap between bits in CSS px (post-zoom)
-   * @param {number} params.cols         bits per row
-   * @param {number[]} params.bgColor    [r,g,b] 0..255
-   * @param {number[]} params.setColor   [r,g,b] 0..255
-   * @param {number[]} params.clearedColor [r,g,b] 0..255
-   * @param {number[]} params.changedColor [r,g,b] 0..255
-   * @param {number} params.baseAlpha    0..1
+   * @param {number} params.cellSize    bit cell size in CSS px (after zoom)
+   * @param {number[]} params.bgColor
+   * @param {number[]} params.setColor
+   * @param {number[]} params.clearedColor
+   * @param {number[]} params.changedColor
+   * @param {number[]} params.repeatedColor
+   * @param {number} params.baseAlpha
    */
   render(params) {
-    if (this._lost || !this.gl || !this.program || !this.tex) return;
+    if (this._lost || !this.gl || !this.program || !this.posTex || !this.stateTex) return;
     const gl = this.gl;
     const cssW = parseFloat(this.canvas.style.width) || (this.canvas.width / (window.devicePixelRatio || 1));
     const cssH = parseFloat(this.canvas.style.height) || (this.canvas.height / (window.devicePixelRatio || 1));
@@ -295,35 +400,46 @@ export class BitGridGL {
 
     gl.useProgram(this.program);
     gl.bindVertexArray(this.vao);
+
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.tex);
-    gl.uniform1i(this._uniforms.state, 0);
+    gl.bindTexture(gl.TEXTURE_2D, this.posTex);
+    gl.uniform1i(this._uniforms.pos, 0);
+
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.stateTex);
+    gl.uniform1i(this._uniforms.state, 1);
 
     const u = this._uniforms;
     gl.uniform2f(u.canvasSize, cssW, cssH);
     gl.uniform2f(u.pan, params.panX || 0, params.panY || 0);
-    gl.uniform1f(u.zoom, params.zoom || 1);
-    gl.uniform1f(u.pixelSize, params.pixelSize || 2);
-    gl.uniform1f(u.bitGap, params.bitGap || 0);
-    gl.uniform1i(u.cols, Math.max(1, params.cols | 0));
-    gl.uniform1i(u.bitCount, this.bitCount);
+    gl.uniform1f(u.cellSize, Math.max(1, params.cellSize || 1));
     gl.uniform2i(u.texSize, this.texW, this.texH);
-    gl.uniform3f(u.bgColor, params.bgColor[0] / 255, params.bgColor[1] / 255, params.bgColor[2] / 255);
+    gl.uniform1i(u.bitCount, this.bitCount);
     gl.uniform3f(u.setColor, params.setColor[0] / 255, params.setColor[1] / 255, params.setColor[2] / 255);
     gl.uniform3f(u.clearedColor, params.clearedColor[0] / 255, params.clearedColor[1] / 255, params.clearedColor[2] / 255);
     gl.uniform3f(u.changedColor, params.changedColor[0] / 255, params.changedColor[1] / 255, params.changedColor[2] / 255);
+    const rep = params.repeatedColor || [245, 158, 11];
+    gl.uniform3f(u.repeatedColor, rep[0] / 255, rep[1] / 255, rep[2] / 255);
+    gl.uniform3f(u.bgColor, params.bgColor[0] / 255, params.bgColor[1] / 255, params.bgColor[2] / 255);
     gl.uniform1f(u.baseAlpha, params.baseAlpha == null ? 1 : params.baseAlpha);
 
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.bitCount);
+  }
+
+  /** Force the next `uploadPositions()` call to repack regardless of fingerprint. */
+  invalidateLayout() {
+    this._layoutFingerprint = '';
   }
 
   dispose() {
     const gl = this.gl;
     if (!gl) return;
-    if (this.tex) gl.deleteTexture(this.tex);
+    if (this.posTex) gl.deleteTexture(this.posTex);
+    if (this.stateTex) gl.deleteTexture(this.stateTex);
     if (this.program) gl.deleteProgram(this.program);
     if (this.vao) gl.deleteVertexArray(this.vao);
-    this.tex = null;
+    this.posTex = null;
+    this.stateTex = null;
     this.program = null;
     this.vao = null;
     this.gl = null;

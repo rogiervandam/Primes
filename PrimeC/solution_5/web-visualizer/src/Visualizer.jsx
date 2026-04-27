@@ -604,26 +604,36 @@ export default function Visualizer({
             const cssW = rr.canvas.width / dpr;
             const cssH = rr.canvas.height / dpr;
             g.resize(cssW, cssH);
-            g.uploadState(rr.bitState, rr.changedBits);
+
+            // Layout fingerprint — only repack the position texture when one
+            // of these inputs changes. Pan is excluded (applied as a uniform).
+            const fp = [
+              rr.zoom, rr.pixelSize,
+              rr.bitLayout, rr.byteLayout, rr.vectorGroup,
+              rr.cachelineSize, rr.customGroupingBits, rr.horizontalGroups,
+              rr.bitSpacingH, rr.bitSpacingV,
+              rr.byteSpacingH, rr.byteSpacingV,
+              rr.u64SpacingH, rr.u64SpacingV,
+              rr.storageModel, rr.bitCount,
+              cssW, cssH,
+            ].join('|');
+            g.uploadPositions(rr, fp);
+            g.uploadState(rr);
+
             const px = Math.max(1, rr.pixelSize);
             const zoom = Math.max(0.01, rr.zoom || 1);
-            const cell = px * zoom;
-            const gap = Math.max(0, (rr.bitSpacingH || 0) * zoom);
-            const cols = Math.max(1, Math.floor(cssW / Math.max(1, cell + gap)));
             const C = rr.colors;
             const bitColors = rr._bitColors();
             const changed = rr._opColor();
             g.render({
               panX: rr.panX || 0,
               panY: rr.panY || 0,
-              zoom,
-              pixelSize: px,
-              bitGap: gap,
-              cols,
+              cellSize: px * zoom,
               bgColor: C.BACKGROUND,
               setColor: bitColors.set,
               clearedColor: bitColors.cleared,
               changedColor: changed,
+              repeatedColor: [245, 158, 11],
               baseAlpha: Math.max(0.12, Math.min(1, rr.gridOpacity ?? 1)),
             });
           };

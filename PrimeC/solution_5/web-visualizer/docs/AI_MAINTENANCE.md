@@ -162,6 +162,20 @@ timeline, or a dependency-graph view):
   this or the camera projection drifts.
 - **`viewPrefs` stores user state.** Adding a setting? Add a default in
   `lib/viewPrefs.js` and a `merge*` step so old saved states still load.
+- **Panel-toggle pan compensation is fragile.** Toggling the steps /
+  settings / detail panels resizes the canvas area. To pin the
+  bit-under-the-cursor at the same window position the toggle handler
+  must capture the viewport anchor *before* the state update (the
+  resize `useEffect` re-runs after the state flips, by which time
+  `getBoundingClientRect()` already reflects the new layout — capturing
+  fresh there yields zero net compensation and the grid drifts).
+  Stash the anchor in `pendingResizeAnchorRef` and let the resize
+  effect consume it **exactly once** on its immediate `onResize(true)`
+  call. The follow-up double-rAF and 190 ms post-transition refreshes
+  must run with `onResize(false)` so they don't re-shift `panX` by
+  the same delta. Do not call `schedulePostLayoutRefresh()` from the
+  toggle handlers — that fights the resize effect and the bookkeeping
+  becomes impossible to reason about.
 
 ---
 
@@ -306,6 +320,39 @@ overwrite.
   `sieve visual web --trace 9 10000`. Bundle grew slightly
   (+0.8 kB gzipped) from the added JSDoc and method headers; module
   count stayed at 82.
+- ✅ Fixed panel-collapse pan drift. Toggling Steps / Detail /
+  Settings panels was shifting the bit grid by 2× the panel-width
+  delta because the resize `useEffect` fires three times per toggle
+  (immediate + double-rAF + 190 ms timeout) and was applying the
+  same stashed anchor on every call. Final shape:
+  `pendingResizeAnchorRef` is set just before the panel state
+  changes (`toggleStepsPanel`, `revealCurrentStepInPanel`,
+  `toggleDetailPanel`, `toggleSettingsPanel`); the resize
+  `useEffect` reads it once and `onResize(consume=true)` only on
+  the immediate call — the rAF and 190 ms follow-ups pass
+  `consume=false`. See §5 for the minefield note.
+- ✅ Brought `BitGridGL` (?renderer=gl) to base parity with
+  Canvas2D for layout, color and state (items 1–3 of §8 "Open
+  work"). Architecture: instanced unit-quad VBO drawn with
+  `drawArraysInstanced(TRIANGLES, 0, 6, bitCount)`. Two textures —
+  `posTex` (RG32F, per-bit cell centre in CSS px, pan-independent;
+  populated by walking `host.bitIndexToCanvas(i)` in
+  `uploadPositions`, which only repacks when a layout fingerprint
+  changes); `stateTex` (R8UI, packed flag byte per bit:
+  set / changed / ghost / repeated; repacked every render by
+  `uploadState(host)`). Pan applied as a vertex-shader uniform.
+  Fragment shader picks the colour branch from the packed flags
+  and composites against the bg colour. Visualizer's `r.render`
+  wrapper builds the fingerprint from
+  `zoom|pixelSize|bitLayout|byteLayout|vectorGroup|cachelineSize|
+  customGroupingBits|horizontalGroups|bit/byte/u64Spacing*|storageModel|
+  bitCount|cssW|cssH` and passes `cellSize = pixelSize*zoom`,
+  colours from `_bitColors()` / `_opColor()`, repeated colour
+  `[245,158,11]`. Still NOT in GL (Canvas2D handles): lowered-3D,
+  rise-and-settle animation, focus-range fill, prime / range /
+  multiples overlays, target outline, motion trails, cacheline
+  outline + heat overlay, labels, minimap, hit-count gradient,
+  heat-map age tinting, `mode3D` camera transform.
 
 ---
 
@@ -468,15 +515,21 @@ A WebGL2 renderer skeleton exists at `src/renderer/gl/BitGridGL.js`.
 
 - Enabled only when `?renderer=gl` is in the URL. Default remains the
   Canvas2D path. Without the flag, none of the GL code runs.
-- The scaffold draws **base bit colors only** (cleared / set / changed)
-  using a single fullscreen quad whose fragment shader samples a
-  `R8UI` data texture of `bitState` (with `changedBits` packed into the
-  high bit). It uses the simple uniform-grid layout — `bitLayout`,
-  `byteLayout`, vector grouping, cacheline grouping, custom grouping,
-  frozen wrapping, lowered-3D, labels, outlines, overlays, minimap,
-  motion trails, focus/range/multiples/prime overlays, heatmap
-  annotations and DPR scaling are **not implemented**. Use the
-  Canvas2D path for any of those.
+- The renderer now draws **per-bit instanced quads** (not a fullscreen
+  quad). Layout positions come from `SieveRenderer.bitIndexToCanvas`,
+  packed into an `RG32F` `posTex`; per-bit flags (set / changed /
+  ghost / repeated) come from an `R8UI` `stateTex`. Pan is a vertex
+  uniform; the position texture is rebuilt only when a layout
+  fingerprint changes (zoom, pixelSize, layouts, grouping, spacing,
+  storage model, bit count, css size). This gives layout, base
+  colour and state parity for the simple cases (items 1–3 below
+  are now partially complete — see the bullet on "Still NOT in GL"
+  for what each item still excludes).
+- Still missing for full parity: lowered-3D shading and
+  rise-and-settle, focus-range fill, prime / range / multiples
+  overlays, target outline + hit-count gradient, motion trails,
+  cacheline outline + heat overlay, labels (bit / byte / vector),
+  minimap, heat-map age tinting, `mode3D` camera transform.
 - The GL canvas is mounted *underneath* the existing Canvas2D layer
   rather than replacing it, so overlays and labels (`SearchOverlay`,
   `MaskWriteOverlay`, `VectorTouchOrderOverlay`,
@@ -495,18 +548,29 @@ A WebGL2 renderer skeleton exists at `src/renderer/gl/BitGridGL.js`.
 Tracked here so the next agent doesn't think the GL path is "almost
 done":
 
-1. **Layout parity.** Reproduce `BIT_LAYOUTS`, `BYTE_LAYOUTS`, vector
-   grouping, cacheline grouping, custom grouping, frozen wrapping and
-   DPR in the shader (or in a pre-baked per-bit `xy` texture).
-2. **Color parity.** All of `_classifyBit` — preset/custom/theme/op
-   color, ghost mask, slot, prime, range, multiples, heat-map age,
-   target hit-count gradient, lowered-3D shading.
-3. **State texture protocol.** Decide what is uploaded vs. what is
-   computed in shader. Today's draft uploads only `bitState`; a real
-   implementation needs `changedBits`, `targetHitCounts`,
-   `_primeBitFlags`, `maskGhostBits`, `lastAccessStep`, etc., as
-   separate textures or a packed atlas, with partial `texSubImage2D`
-   updates per step.
+1. **Layout parity.** ⚠️ *Partially done.* All `BIT_LAYOUTS`,
+   `BYTE_LAYOUTS`, vector grouping, cacheline grouping, custom
+   grouping and frozen wrapping flow through automatically because
+   `BitGridGL.uploadPositions(host, fingerprint)` walks
+   `host.bitIndexToCanvas(i)` for every bit. Still TODO: DPR scaling
+   inside the shader (currently the canvas backing store is
+   DPR-sized but bit positions/`cellSize` are CSS-px so there's an
+   implicit 1× sampling — fine on integer DPR, mildly soft on
+   fractional), and the `mode3D` camera transform.
+2. **Color parity.** ⚠️ *Partially done.* Shader handles
+   set / cleared / changed / ghost-mask / repeated using uniforms
+   from `_bitColors()` and `_opColor()`. Still TODO from
+   `_classifyBit`: prime overlay, range overlay, multiples overlay,
+   target hit-count gradient, heat-map age tinting, lowered-3D
+   shading, custom per-bit colour overrides.
+3. **State texture protocol.** ⚠️ *Partially done.* Today: one
+   `R8UI` `stateTex`, one byte per bit, packed bits
+   `set | changed | ghost | repeated`, repacked every render in
+   JS (`uploadState(host)`). Cheap at current bit counts. Still
+   TODO when items 1–2's missing features land: separate textures
+   (or a packed atlas) for `_primeBitFlags`, `targetHitCounts`,
+   `lastAccessStep`, range-overlay membership, plus partial
+   `texSubImage2D` updates per step instead of full repack.
 4. **Hit-testing.** `bitIndexToCanvas()` / `canvasToBitIndex()` must
    stay authoritative on the JS side; the GL renderer must use the
    identical layout math.
