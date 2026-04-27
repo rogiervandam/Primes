@@ -1,5 +1,6 @@
-#ifndef SIEVE_TRACE_H
-#define SIEVE_TRACE_H
+#pragma once
+// #ifndef SIEVE_TRACE_H
+// #define SIEVE_TRACE_H
 
 #include "sieve_trace_format.h"
 #include <stdio.h>
@@ -446,61 +447,7 @@ trace_record_text_full(int level, const char* label, const char* annotation)
     fputc('\n', g_trace.file);
 }
 
-/*
- * Write a standalone memory dump file (no step-by-step changes).
- * Human-readable text dump is written as primary output.
- */
-// static void __attribute__((cold))
-// trace_dump_memory_with_format(const char* filename, void* bitstorage,
-//                               uint64_t sieve_size, uint64_t bit_count,
-//                               const char* format)
-// {
-//     uint32_t bytes = (uint32_t)((bit_count + 7) / 8);
-//     const uint8_t* data = (const uint8_t*)bitstorage;
-
-//     trace_mkdir("log");
-
-//     FILE* f = fopen(filename, "w");
-//     if (!f) {
-//         fprintf(stderr, "Trace dump: failed to open %s\n", filename);
-//         return;
-//     }
-
-//     const int binary = (format && strcmp(format, "binary") == 0);
-//     fprintf(f, "DUMP version=%d format=%s sieve_size=%llu bit_count=%llu max_number=%llu data=",
-//             TRACE_FORMAT_VERSION,
-//             binary ? "binary" : "hex",
-//             (unsigned long long)sieve_size,
-//             (unsigned long long)bit_count,
-//             (unsigned long long)sieve_size);
-
-//     if (binary) {
-//         for (uint32_t i = 0; i < bytes; i++) {
-//             for (int b = 0; b < 8; b++) {
-//                 fputc((data[i] & (1u << b)) ? '1' : '0', f);
-//             }
-//         }
-//     } else {
-//         for (uint32_t i = 0; i < bytes; i++) {
-//             fprintf(f, "%02x", data[i]);
-//         }
-//     }
-//     fputc('\n', f);
-//     fclose(f);
-
-//     fprintf(stderr, "Trace dump: wrote %u bytes to %s\n", bytes, filename);
-// }
-
-// static void __attribute__((cold))
-// trace_dump_memory(const char* filename, void* bitstorage,
-//                   uint64_t sieve_size, uint64_t bit_count)
-// {
-//     trace_dump_memory_with_format(filename, bitstorage, sieve_size, bit_count, "hex");
-// }
-
-/*
- * Finalize the trace: close the JSON array and object, close file.
- */
+// Finalize the trace: close the JSON array and object, close file.
 static void __attribute__((cold))
 trace_finalize(void)
 {
@@ -521,4 +468,4 @@ trace_finalize(void)
     g_trace.enabled = 0;
 }
 
-#endif /* SIEVE_TRACE_H */
+// #endif /* SIEVE_TRACE_H */

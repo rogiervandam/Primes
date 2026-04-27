@@ -98,26 +98,34 @@
 
 #if defined preset_uint8v2
   #define variant_base_type_t uint8_t
-  #define variant_elements __builtin_vectorelements(variant_base_type_t)
+  #define variant_elements 2
   #define variant uint8v2
 #endif
 
 #if defined preset_uint8
+  #define variant_base_type_t uint8_t
+  #define variant_elements 1
   #define variant uint8
   #define variant_bits 8
 #endif
 
 #if defined preset_uint16
+  #define variant_base_type_t uint16_t
+  #define variant_elements 1
   #define variant uint16
   #define variant_bits 16
 #endif
 
 #if defined preset_uint32
+  #define variant_base_type_t uint32_t
+  #define variant_elements 1
   #define variant uint32
   #define variant_bits 32
 #endif
 
 #if defined preset_uint64
+  #define variant_base_type_t uint64_t
+  #define variant_elements 1
   #define variant uint64
   #define variant_bits 64
 #endif

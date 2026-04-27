@@ -2,7 +2,7 @@
 #pragma once
 
 #include "../generic/settings.h"
-#include <inttypes.h>
+// #include <inttypes.h>
 #include "sieve_benchmark_settings.h"
 static struct options_t {
     benchmark_settings_t fixed_benchmark_settings;

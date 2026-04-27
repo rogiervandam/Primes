@@ -114,19 +114,9 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
         uint32_t mask_count = 0;
 
         #if defined(variant_base_type_t) && defined(BITBUCKET_ELEMENTS)
-        mask_count = primes_trace_collect_mask_bits(mask_bits,
-                                                    1024,
-                                                    &mask,
-                                                    sizeof(variant_base_type_t),
-                                                    BITBUCKET_ELEMENTS,
-                                                    bitcount_type(variant_base_type_t));
+        mask_count = primes_trace_collect_mask_bits(mask_bits, 1024, &mask, sizeof(variant_base_type_t), BITBUCKET_ELEMENTS, bitcount_type(variant_base_type_t));
         #else
-        mask_count = primes_trace_collect_mask_bits(mask_bits,
-                                                    1024,
-                                                    &mask,
-                                                    sizeof(bitbucket_t),
-                                                    1,
-                                                    bitcount_type(bitbucket_t));
+        mask_count = primes_trace_collect_mask_bits(mask_bits, 1024, &mask, sizeof(bitbucket_t), 1, bitcount_type(bitbucket_t));
         #endif
 
         primes_trace_format_mask_bits(mask_bits_text,

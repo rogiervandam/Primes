@@ -1,3 +1,5 @@
+#pragma once
+#include <sys/ioctl.h>
 
 // ANSI color codes
 #define COLOR_RED         "\033[31m"

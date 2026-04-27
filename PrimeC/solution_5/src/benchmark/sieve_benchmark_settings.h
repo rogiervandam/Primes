@@ -1,7 +1,7 @@
 #pragma once
 // #ifndef SIEVE_BENCHMARK_GUARD
 // #define SIEVE_BENCHMARK_GUARD
-
+#include <stdio.h> // for snprintf
 typedef struct  {
     counter_t factor_max;
     counter_t stripe_faster;

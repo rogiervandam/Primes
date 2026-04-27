@@ -1,9 +1,9 @@
 
-#include <stdarg.h>
+// #include <stdarg.h>
 #include <stdio.h>
-#include <string.h>
+// #include <string.h>
 #include <sys/ioctl.h>
-#include <unistd.h>
+// #include <unistd.h>
 
 // helper calc functions
 #define pow(base,pow)             (pow*((base>>pow)&1U))
