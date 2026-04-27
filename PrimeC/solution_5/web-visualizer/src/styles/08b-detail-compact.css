@@ -1,0 +1,140 @@
+/* ---- DetailPanel compact sections ---- */
+.detail-panel-body-compact {
+  padding: 6px 10px;
+  font-size: 11.5px;
+}
+.detail-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 6px 8px;
+  align-items: start;
+}
+.detail-section-card {
+  padding: 4px 6px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
+  min-width: 0;
+}
+.detail-section-wide { grid-column: 1 / -1; }
+.detail-section-card .detail-section-title {
+  font-size: 10px;
+  color: var(--fg-dim);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-bottom: 2px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+}
+.detail-section-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.detail-row {
+  display: grid;
+  grid-template-columns: minmax(78px, auto) 1fr;
+  column-gap: 8px;
+  align-items: center;
+  padding: 1px 2px;
+  min-height: 18px;
+}
+.detail-row-wide { grid-template-columns: 100px 1fr; }
+.detail-row-label {
+  color: var(--fg-dim);
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.detail-row-value {
+  color: var(--fg);
+  font-size: 11.5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.detail-row-value-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.trace-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.trace-meta-chip {
+  max-width: 240px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-raised) 86%, transparent);
+  color: var(--fg-dim);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Reserve space for macOS traffic-light controls only in Electron.
+   In browser mode there are no window controls, so the filename can left-align. */
+.visualizer.platform-mac.platform-electron .toolbar-left { padding-left: 84px; }
+.visualizer.platform-browser .toolbar-left { padding-left: 0; }
+.step-slider { width: 160px; }
+.step-counter { font-size: 12px; color: var(--fg-muted); min-width: 80px; text-align: center; }
+.speed-slider { width: 80px; }
+.speed-val { font-size: 11px; color: var(--fg-dim); min-width: 40px; text-align: center; }
+.speed-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 2px;
+}
+.speed-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--fg-dim);
+}
+.speed-input {
+  width: 55px;
+  background: var(--bg-input);
+  color: var(--fg);
+  border: 1px solid var(--border-heavy);
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-size: 11px;
+}
+.btn-icon {
+  background: transparent;
+  border: 1px solid transparent;
+  font-size: 16px;
+  padding: 2px 6px;
+  color: var(--fg-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+}
+.btn-icon:hover { color: var(--fg-bright); border-color: var(--border-light); }
+.btn-icon.active { color: var(--fg-bright); border-color: var(--accent-dim); background: var(--accent-bg); }
+/* Prime overlay button uses a gold accent when active */
+.btn-icon.prime-overlay-btn { color: #fbbf24; border-color: #b45309; background: rgba(251,191,36,0.15); }
+.btn-icon.prime-overlay-btn:hover { color: #fde68a; border-color: #d97706; background: rgba(251,191,36,0.25); }
+.btn-icon svg { vertical-align: middle; }
+.btn-text {
+  background: transparent;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  padding: 2px 8px;
+  color: var(--fg-muted);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+}
+.btn-text:hover { color: var(--fg-bright); border-color: var(--border-heavy); }
+.btn-text.active { color: var(--fg-bright); border-color: var(--accent-dim); background: var(--accent-bg); }
+

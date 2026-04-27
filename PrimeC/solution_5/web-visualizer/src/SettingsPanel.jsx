@@ -1,5 +1,35 @@
 import React from 'react';
 import { BIT_LAYOUTS, BYTE_LAYOUTS, COLOR_PRESETS, STORAGE_MODELS, CACHELINE_SIZES, CACHE_PRESETS } from './SieveRenderer';
+import {
+  playbackSpeedToPercent as playbackSpeedToMs,
+  percentToPlaybackSpeed as msToPlaybackSpeed,
+  stepSpeedToInterval,
+  intervalToStepSpeed,
+} from './lib/unitConverters';
+import { useDraftInput } from './hooks/useDraftInput';
+import {
+  BIT_LAYOUT_TIPS,
+  BYTE_LAYOUT_TIPS,
+  describeLayout,
+  VECTOR_TIPS,
+  GROUPING_PRESETS,
+  GROUPING_FAMILIES,
+  CUSTOM_GROUP_PRESETS,
+  groupingPreviewClassName,
+  VECTOR_BASE_OPTIONS,
+  VECTOR_LANE_OPTIONS,
+} from './settings/constants';
+import LegendSections from './settings/LegendSections';
+import LegendTab from './settings/LegendTab';
+import AnimationTab from './settings/AnimationTab';
+import {
+  LayoutIcon,
+  VectorIcon,
+  SpacingIcon,
+  GearIcon,
+  AnnotationButton,
+  PreviewOptionButton,
+} from './settings/buttons';
 
 function rgbToHex(rgb) {
   if (!rgb || rgb.length < 3) return '#555555';
@@ -8,196 +38,6 @@ function rgbToHex(rgb) {
 function hexToRgb(hex) {
   const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
   return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [0, 0, 0];
-}
-
-/** Tooltip descriptions for layouts */
-const BIT_LAYOUT_TIPS = {
-  '8x1': 'Horizontal row of 8 bits — compact wide layout',
-  '4x2': '4 columns × 2 rows — balanced, default',
-  '1x8': 'Vertical column of 8 bits — tall narrow layout',
-  '3x3': '3×3 grid with center empty — square arrangement',
-  '8c1': '8 bits in a row',
-  '4c2': '4 bits in 2 columns',
-  'grid3x3': '3x3 grid with center empty',
-};
-const BYTE_LAYOUT_TIPS = {
-  '8x1': '8 bytes in a row — full-width uint64 display',
-  '4x2': '4 columns × 2 rows — balanced, default',
-  '1x8': 'Vertical column of 8 bytes — tall display',
-  '3x3': '3×3 grid with center empty — square display',
-  '8c1': '8 bytes in a row',
-  '4c2': '4 bytes in 2 columns',
-  'grid3x3': '3x3 grid with center empty',
-};
-
-function describeLayout(layoutKey, catalog, noun) {
-  const layout = catalog[layoutKey];
-  if (!layout) return `${noun} arrangement unknown.`;
-  if (layout.grid3x3) return `${noun} arranged in a 3×3 grid with the center left empty.`;
-  return `${noun} arranged as ${layout.cols} columns × ${layout.rows} rows.`;
-}
-const VECTOR_TIPS = {
-  1: 'No grouping — each uint64 is standalone',
-  2: 'Group 2 uint64 values together',
-  4: 'Group 4 uint64 values together',
-  8: 'Group 8 uint64 values together',
-  '1': 'Single vector',
-  '2': '2 vectors',
-  '4': '4 vectors',
-};
-
-const GROUPING_PRESETS = {
-  '16bit': { label: '16bit', title: 'Group bits as uint16 blocks', baseBits: 16, lanes: 1 },
-  '16x2': { label: '16x2', title: '2 uint16 values per grouping', baseBits: 16, lanes: 2 },
-  '16x4': { label: '16x4', title: '4 uint16 values per grouping', baseBits: 16, lanes: 4 },
-  '16x8': { label: '16x8', title: '8 uint16 values per grouping', baseBits: 16, lanes: 8 },
-  '32bit': { label: '32bit', title: 'Group bits as uint32 blocks', baseBits: 32, lanes: 1 },
-  '32x2': { label: '32x2', title: '2 uint32 values per grouping', baseBits: 32, lanes: 2 },
-  '32x4': { label: '32x4', title: '4 uint32 values per grouping', baseBits: 32, lanes: 4 },
-  '32x8': { label: '32x8', title: '8 uint32 values per grouping', baseBits: 32, lanes: 8 },
-  '64bit': { label: '64bit', title: 'Single uint64 grouping', baseBits: 64, lanes: 1 },
-  '64x2': { label: '64x2', title: '2 uint64 values per grouping', baseBits: 64, lanes: 2 },
-  '64x4': { label: '64x4', title: '4 uint64 values per grouping', baseBits: 64, lanes: 4 },
-  '64x8': { label: '64x8', title: '8 uint64 values per grouping', baseBits: 64, lanes: 8 },
-};
-
-const GROUPING_FAMILIES = [
-  { familyKey: '16', defaultKey: '16bit', optionKeys: ['16bit', '16x2', '16x4', '16x8'] },
-  { familyKey: '32', defaultKey: '32bit', optionKeys: ['32bit', '32x2', '32x4', '32x8'] },
-  { familyKey: '64', defaultKey: '64bit', optionKeys: ['64bit', '64x2', '64x4', '64x8'] },
-];
-
-const CUSTOM_GROUP_PRESETS = [2, 6, 30, 210];
-
-const groupingPreviewClassName = (presetKey) => {
-  switch (presetKey) {
-    case '16bit': return 'grouping-chip-preview-16';
-    case '32bit': return 'grouping-chip-preview-32';
-    case '64x2': return 'grouping-chip-preview-64x2';
-    case '64x4': return 'grouping-chip-preview-64x4';
-    case '64x8': return 'grouping-chip-preview-64x8';
-    case '64bit': return 'grouping-chip-preview-64';
-    default: return 'grouping-chip-preview-custom';
-  }
-};
-
-const VECTOR_BASE_OPTIONS = [
-  { bits: 1, label: 'bit' },
-  { bits: 8, label: 'byte' },
-  { bits: 16, label: 'uint16' },
-  { bits: 32, label: 'uint32' },
-  { bits: 64, label: 'uint64' },
-];
-const VECTOR_LANE_OPTIONS = [1, 2, 4, 8];
-
-/**
- * Reusable legend content rendered in both the Legend tab and the floating panel.
- */
-function LegendSections({ detailed = true }) {
-  return (
-    <>
-      <div className="legend-section">
-        <div className="legend-section-label">Bit states</div>
-        <div className="legend-rows">
-          <div className="legend-row">
-            <span className="legend-swatch legend-swatch-set" />
-            <span className="legend-row-label">Set (composite)</span>
-            {detailed && <span className="legend-row-desc">Bit was cleared in the sieve — number is marked composite</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-swatch legend-swatch-cleared" />
-            <span className="legend-row-label">Unset (prime candidate)</span>
-            {detailed && <span className="legend-row-desc">Bit has not been cleared — number is still a prime candidate</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-swatch legend-swatch-changed" />
-            <span className="legend-row-label">Just changed</span>
-            {detailed && <span className="legend-row-desc">Bits modified by the current event (highlighted during playback)</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-swatch legend-swatch-target" />
-            <span className="legend-row-label">Target</span>
-            {detailed && <span className="legend-row-desc">Bits targeted by the current sieve step (may overlap with changed)</span>}
-          </div>
-        </div>
-      </div>
-      <div className="legend-section">
-        <div className="legend-section-label">Overlays</div>
-        <div className="legend-rows">
-          <div className="legend-row">
-            <span className="legend-swatch legend-swatch-prime" />
-            <span className="legend-row-label">Primes overlay <span className="legend-tag">gold · p</span></span>
-            {detailed && <span className="legend-row-desc">Bits whose represented number is prime</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-swatch legend-swatch-range" />
-            <span className="legend-row-label">Range overlay <span className="legend-tag">cyan · r</span></span>
-            {detailed && <span className="legend-row-desc">Bits within the selected bit-index range</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-swatch legend-swatch-multiples" />
-            <span className="legend-row-label">Multiples overlay <span className="legend-tag">purple · ×</span></span>
-            {detailed && <span className="legend-row-desc">Bits whose number is a multiple of the selected prime/factor</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-swatch legend-swatch-heat-hot" />
-            <span className="legend-row-label">Heat map — hot</span>
-            {detailed && <span className="legend-row-desc">Cacheline recently or frequently accessed (red = hottest)</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-swatch legend-swatch-heat-cold" />
-            <span className="legend-row-label">Heat map — cold</span>
-            {detailed && <span className="legend-row-desc">Cacheline rarely or long-ago accessed (blue = coldest)</span>}
-          </div>
-        </div>
-      </div>
-      <div className="legend-section">
-        <div className="legend-section-label">Animations</div>
-        <div className="legend-rows">
-          <div className="legend-row">
-            <span className="legend-anim-icon">◎</span>
-            <span className="legend-row-label">Ripple</span>
-            {detailed && <span className="legend-row-desc">Contracting ring that pulses outward from changed bits</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-anim-icon" style={{ opacity: 0.5 }}>◼</span>
-            <span className="legend-row-label">Fade</span>
-            {detailed && <span className="legend-row-desc">Changed bits fade in from bright to settled color</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-anim-icon" style={{ color: 'var(--accent)' }}>✦</span>
-            <span className="legend-row-label">Pulse</span>
-            {detailed && <span className="legend-row-desc">Changed bits emit a glowing halo pulse</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-anim-icon">→</span>
-            <span className="legend-row-label">Sequential reveal</span>
-            {detailed && <span className="legend-row-desc">Bits are uncovered one-by-one in the order they were changed</span>}
-          </div>
-        </div>
-      </div>
-      <div className="legend-section">
-        <div className="legend-section-label">Interactions</div>
-        <div className="legend-rows">
-          <div className="legend-row">
-            <span className="legend-anim-icon">🖱</span>
-            <span className="legend-row-label">Click bit</span>
-            {detailed && <span className="legend-row-desc">Pin a tooltip balloon showing the bit&apos;s number and history</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-anim-icon">⇕</span>
-            <span className="legend-row-label">Scroll / pinch</span>
-            {detailed && <span className="legend-row-desc">Zoom the grid in or out</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-anim-icon">✥</span>
-            <span className="legend-row-label">Drag</span>
-            {detailed && <span className="legend-row-desc">Pan the canvas to navigate around the grid</span>}
-          </div>
-        </div>
-      </div>
-    </>
-  );
 }
 
 /**
@@ -258,20 +98,29 @@ export default function SettingsPanel({
   const [legendDetailed, setLegendDetailed] = React.useState(true);
   const [floatPos, setFloatPos] = React.useState(null);
   const floatDragRef = React.useRef({ dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 });
-  const [rangeStartDraft, setRangeStartDraft] = React.useState(String(rangeOverlayStart));
-  const [rangeEndDraft, setRangeEndDraft] = React.useState(String(rangeOverlayEnd));
-  const [multipesPrimeDraft, setMultiplesPrimeDraft] = React.useState(String(multiplesOverlayPrime));
+  // Editable text drafts for the overlay inputs. The hook keeps the draft in
+  // sync with the externally-controlled value and parses + clamps on commit.
+  const rangeStart = useDraftInput(
+    rangeOverlayStart,
+    (n) => onRangeOverlayStartChange && onRangeOverlayStartChange(n),
+    { clamp: (n) => Math.max(0, n) },
+  );
+  const rangeEnd = useDraftInput(
+    rangeOverlayEnd,
+    (n) => onRangeOverlayEndChange && onRangeOverlayEndChange(n),
+    { clamp: (n) => Math.max(0, n) },
+  );
+  const multiplesPrime = useDraftInput(
+    multiplesOverlayPrime,
+    (n) => onMultiplesOverlayPrimeChange && onMultiplesOverlayPrimeChange(n),
+    { clamp: (n) => Math.max(2, n) },
+  );
   const lastManualColumnCountRef = React.useRef(Math.max(1, parseInt(settings?.horizontalGroups || 0, 10) || 1));
 
   React.useEffect(() => {
     const value = Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0);
     if (value > 0) lastManualColumnCountRef.current = value;
   }, [s.horizontalGroups]);
-
-  // Sync draft values when overlay params change from outside (e.g. step defaults)
-  React.useEffect(() => { setRangeStartDraft(String(rangeOverlayStart)); }, [rangeOverlayStart]);
-  React.useEffect(() => { setRangeEndDraft(String(rangeOverlayEnd)); }, [rangeOverlayEnd]);
-  React.useEffect(() => { setMultiplesPrimeDraft(String(multiplesOverlayPrime)); }, [multiplesOverlayPrime]);
 
   // Drag handler for floating legend panel
   React.useEffect(() => {
@@ -306,13 +155,13 @@ export default function SettingsPanel({
   }, [openSpacingControl]);
 
   const set = (key, val) => {
+    // Note: *Description fields used to be written here as tooltip cache,
+    // but nothing reads them anymore. Tooltips are looked up from the
+    // *_TIPS tables at render time. Keep this writer minimal.
     const updatedSettings = { ...s, [key]: val };
-    if (key === 'bitLayout') updatedSettings.bitLayoutDescription = BIT_LAYOUT_TIPS[val] || '';
-    else if (key === 'byteLayout') updatedSettings.byteLayoutDescription = BYTE_LAYOUT_TIPS[val] || '';
-    else if (key === 'vectorGroup') {
+    if (key === 'vectorGroup') {
       updatedSettings.vectorMode = 'preset';
       updatedSettings.customGroupBits = 0;
-      updatedSettings.vectorGroupDescription = VECTOR_TIPS[val] || '';
       updatedSettings.vectorLabel = val > 1 ? `uint64v${val}` : 'uint64';
       updatedSettings.vectorBaseBits = 64;
       updatedSettings.vectorLanes = val;
@@ -343,37 +192,12 @@ export default function SettingsPanel({
       vectorGroup: vg,
       customGroupBits: 0,
       vectorLabel: profileLabel,
-      vectorGroupDescription: `${profileLabel} (${vg}×uint64 layout group)`
     });
   };
   const incr = (key, max) => set(key, Math.min(max, (s[key] || 0) + 1));
   const decr = (key, min = 0) => set(key, Math.max(min, (s[key] || 0) - 1));
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
   const adjustRepeatAnim = (deltaMs) => onRepeatAnimChange(clamp((repeatAnim || 0) + deltaMs, 0, 5000));
-  const adjustBitInterval = (deltaMs) => onBitAnimIntervalChange(clamp((bitAnimInterval || 20) + deltaMs, 5, 5000));
-  // playSpeed is now a percentage (25..400). Map it onto a 1..100 slider with
-  // a log-scale so 100% sits comfortably in the middle and each tick is the
-  // same multiplicative jump.
-  const playbackSpeedToMs = (speedValue) => {
-    const speed = clamp(parseInt(speedValue || 0, 10) || 1, 1, 100);
-    const ratio = (speed - 1) / 99;
-    return Math.round(25 * Math.pow(400 / 25, ratio));
-  };
-  const msToPlaybackSpeed = (pctValue) => {
-    const pct = clamp(parseInt(pctValue || 0, 10) || 100, 25, 400);
-    const ratio = Math.log(pct / 25) / Math.log(400 / 25);
-    return Math.round(1 + ratio * 99);
-  };
-  const stepSpeedToInterval = (speedValue) => {
-    const speed = clamp(parseInt(speedValue || 0, 10) || 1, 1, 100);
-    const ratio = (speed - 1) / 99;
-    return Math.round(5000 - ratio * (5000 - 5));
-  };
-  const intervalToStepSpeed = (intervalValue) => {
-    const interval = clamp(parseInt(intervalValue || 0, 10) || 20, 5, 5000);
-    const ratio = (5000 - interval) / (5000 - 5);
-    return Math.round(1 + ratio * 99);
-  };
   const playbackSpeedValue = msToPlaybackSpeed(playSpeed || 100);
   const stepSpeedValue = intervalToStepSpeed(bitAnimInterval || 20);
   const setVectorGroupSimple = (group) => {
@@ -383,7 +207,6 @@ export default function SettingsPanel({
       vectorGroup: group,
       customGroupBits: 0,
       vectorLabel: group > 1 ? `uint64v${group}` : 'uint64',
-      vectorGroupDescription: VECTOR_TIPS[group] || '',
     });
   };
   const setCustomVectorGrouping = (bits) => {
@@ -394,10 +217,7 @@ export default function SettingsPanel({
       customGroupBits: nextBits,
       bitLayout: '8x1',
       byteLayout: '8x1',
-      bitLayoutDescription: BIT_LAYOUT_TIPS['8x1'] || '',
-      byteLayoutDescription: BYTE_LAYOUT_TIPS['8x1'] || '',
       vectorLabel: `custom (${nextBits}b)`,
-      vectorGroupDescription: `Custom grouping: ${nextBits} bits`,
     });
   };
   const commitCustomGrouping = React.useCallback((value) => {
@@ -405,7 +225,6 @@ export default function SettingsPanel({
     setCustomGroupDraft(String(parsed));
     setCustomVectorGrouping(parsed);
   }, [setCustomVectorGrouping]);
-  const vectorLabelForGroup = (group) => (group <= 1 ? 'uint64' : `uint64v${group}`);
   const isCustomVectorMode = s.vectorMode === 'custom' && (parseInt(s.customGroupBits || 0, 10) || 0) > 0;
   const activeGroupingKey = (() => {
     if (isCustomVectorMode) return 'custom';
@@ -493,79 +312,6 @@ export default function SettingsPanel({
       </div>
     );
   };
-
-  /** Mini SVG preview of a layout grid */
-  const LayoutIcon = ({ cols, rows, grid3x3, active, onClick, size = 32, tooltip }) => {
-    const gap = 1;
-    const cellW = (size - (cols - 1) * gap) / cols;
-    const cellH = (size - (rows - 1) * gap) / rows;
-    return (
-      <svg width={size} height={size} viewBox={`-3 -3 ${size + 6} ${size + 6}`} onClick={onClick} title={tooltip}
-           style={{ cursor: 'pointer', border: active ? '2px solid var(--accent)' : '2px solid var(--border)', borderRadius: 4, padding: 2, overflow: 'visible', display: 'block', boxSizing: 'content-box', background: 'var(--bg-raised)' }}>
-        {Array.from({ length: rows * cols }, (_, i) => {
-          if (grid3x3 && i === 4) return null; // center cell empty
-          const col = i % cols;
-          const row = Math.floor(i / cols);
-          return <rect key={i} x={col * (cellW + gap)} y={row * (cellH + gap)} width={cellW} height={cellH}
-                       fill={active ? 'var(--accent)' : 'var(--fg-dim)'} rx={1} />;
-        })}
-      </svg>
-    );
-  };
-
-  /** Mini SVG preview for vector grouping */
-  const VectorIcon = ({ count, active, onClick, size = 32, tooltip }) => {
-    const gap = 2;
-    const boxW = (size - (count - 1) * gap) / count;
-    return (
-      <svg width={size} height={size} viewBox={`-3 -3 ${size + 6} ${size + 6}`} onClick={onClick} title={tooltip}
-           style={{ cursor: 'pointer', border: active ? '2px solid var(--accent)' : '2px solid var(--border)', borderRadius: 4, padding: 2, overflow: 'visible', display: 'block', boxSizing: 'content-box', background: 'var(--bg-raised)' }}>
-        {Array.from({ length: count }, (_, i) => (
-          <rect key={i} x={i * (boxW + gap)} y={2} width={boxW} height={size - 4}
-                fill={active ? 'var(--accent)' : 'var(--fg-dim)'} rx={1} />
-        ))}
-      </svg>
-    );
-  };
-
-  const SpacingIcon = ({ title }) => (
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
-      <path d="M12 3 V21" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M3 12 H21" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M9 6 L12 3 L15 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M9 18 L12 21 L15 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M6 9 L3 12 L6 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M18 9 L21 12 L18 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="12" cy="12" r="1.35" fill="currentColor" stroke="none" />
-      <title>{title}</title>
-    </svg>
-  );
-
-  const AnnotationButton = ({ title, hint, active, onClick, preview }) => (
-    <button
-      type="button"
-      className={`anno-btn${active ? ' active' : ''}`}
-      onClick={onClick}
-      title={hint || title}
-    >
-      <span className="anno-btn-preview">{preview}</span>
-      <span className="anno-btn-title">{title}</span>
-      {hint ? <span className="anno-btn-hint">{hint}</span> : null}
-    </button>
-  );
-
-  const PreviewOptionButton = ({ label, hint, active, onClick, preview, compact = false, extraClass = '' }) => (
-    <button
-      type="button"
-      className={`preview-btn${active ? ' active' : ''}${compact ? ' compact' : ''}${extraClass ? ' ' + extraClass : ''}`}
-      onClick={onClick}
-      title={hint}
-    >
-      <span className="preview-btn-swatch">{preview}</span>
-      <span className="preview-btn-title">{label}</span>
-      <span className="preview-btn-hint">{hint}</span>
-    </button>
-  );
 
   const outline = outlineSettings || {
     target: 'none',
@@ -929,13 +675,6 @@ export default function SettingsPanel({
     );
   };
 
-  const GearIcon = () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.08-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1.08 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001.08 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1.08z" />
-    </svg>
-  );
-
   return (
     <>
     <div className={`settings-sidebar${collapsed ? ' collapsed' : ''}${isWindowsPlatform ? ' platform-windows' : ''}`}>
@@ -1166,19 +905,11 @@ export default function SettingsPanel({
                   min={0}
                   step={1}
                   className="overlay-number-input"
-                  value={rangeStartDraft}
-                  onChange={(e) => setRangeStartDraft(e.target.value)}
-                  onBlur={(e) => {
-                    const n = Math.max(0, parseInt(e.target.value || '0', 10) || 0);
-                    setRangeStartDraft(String(n));
-                    onRangeOverlayStartChange && onRangeOverlayStartChange(n);
-                  }}
+                  value={rangeStart.draft}
+                  onChange={(e) => rangeStart.setDraft(e.target.value)}
+                  onBlur={(e) => rangeStart.commit(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const n = Math.max(0, parseInt(e.currentTarget.value || '0', 10) || 0);
-                      setRangeStartDraft(String(n));
-                      onRangeOverlayStartChange && onRangeOverlayStartChange(n);
-                    }
+                    if (e.key === 'Enter') rangeStart.commit(e.currentTarget.value);
                   }}
                 />
               </label>
@@ -1189,19 +920,11 @@ export default function SettingsPanel({
                   min={0}
                   step={1}
                   className="overlay-number-input"
-                  value={rangeEndDraft}
-                  onChange={(e) => setRangeEndDraft(e.target.value)}
-                  onBlur={(e) => {
-                    const n = Math.max(0, parseInt(e.target.value || '0', 10) || 0);
-                    setRangeEndDraft(String(n));
-                    onRangeOverlayEndChange && onRangeOverlayEndChange(n);
-                  }}
+                  value={rangeEnd.draft}
+                  onChange={(e) => rangeEnd.setDraft(e.target.value)}
+                  onBlur={(e) => rangeEnd.commit(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const n = Math.max(0, parseInt(e.currentTarget.value || '0', 10) || 0);
-                      setRangeEndDraft(String(n));
-                      onRangeOverlayEndChange && onRangeOverlayEndChange(n);
-                    }
+                    if (e.key === 'Enter') rangeEnd.commit(e.currentTarget.value);
                   }}
                 />
               </label>
@@ -1218,19 +941,11 @@ export default function SettingsPanel({
                   min={2}
                   step={1}
                   className="overlay-number-input"
-                  value={multipesPrimeDraft}
-                  onChange={(e) => setMultiplesPrimeDraft(e.target.value)}
-                  onBlur={(e) => {
-                    const n = Math.max(2, parseInt(e.target.value || '2', 10) || 2);
-                    setMultiplesPrimeDraft(String(n));
-                    onMultiplesOverlayPrimeChange && onMultiplesOverlayPrimeChange(n);
-                  }}
+                  value={multiplesPrime.draft}
+                  onChange={(e) => multiplesPrime.setDraft(e.target.value)}
+                  onBlur={(e) => multiplesPrime.commit(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const n = Math.max(2, parseInt(e.currentTarget.value || '2', 10) || 2);
-                      setMultiplesPrimeDraft(String(n));
-                      onMultiplesOverlayPrimeChange && onMultiplesOverlayPrimeChange(n);
-                    }
+                    if (e.key === 'Enter') multiplesPrime.commit(e.currentTarget.value);
                   }}
                 />
               </label>
@@ -1463,330 +1178,31 @@ export default function SettingsPanel({
         </>)}
 
         {activeTab === 'legend' && (
-          <div className="legend-tab-content">
-            <div className="legend-tab-header">
-              <span className="legend-tab-title">Visualizer Legend</span>
-              <div className="legend-tab-controls">
-                <button
-                  type="button"
-                  className={`legend-detail-btn${legendDetailed ? ' active' : ''}`}
-                  onClick={() => setLegendDetailed((d) => !d)}
-                  title={legendDetailed ? 'Show compact legend' : 'Show detailed legend'}
-                >
-                  {legendDetailed ? 'Compact' : 'Detailed'}
-                </button>
-                <button
-                  type="button"
-                  className="legend-float-btn"
-                  title="Float legend panel (collapses settings)"
-                  onClick={() => {
-                    if (!floatPos) setFloatPos({ x: window.innerWidth - 380, y: 60 });
-                    setLegendFloating(true);
-                    onToggleCollapse && onToggleCollapse();
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <polyline points="15 3 21 3 21 9" />
-                    <polyline points="9 21 3 21 3 15" />
-                    <line x1="21" y1="3" x2="14" y2="10" />
-                    <line x1="3" y1="21" x2="10" y2="14" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <LegendSections detailed={legendDetailed} />
-          </div>
+          <LegendTab
+            legendDetailed={legendDetailed}
+            setLegendDetailed={setLegendDetailed}
+            floatPos={floatPos}
+            setFloatPos={setFloatPos}
+            setLegendFloating={setLegendFloating}
+            onToggleCollapse={onToggleCollapse}
+          />
         )}
-
-        {activeTab === 'animation' && showAnimationControls && (<>
-        <div className="settings-section">
-          <label>Animation style</label>
-          <div className="preview-btn-grid preview-btn-grid-3">
-            <PreviewOptionButton
-              compact
-              label="Ripple"
-              hint="Contracting ripple ring"
-              active={(animStyle || 'ripple') === 'ripple'}
-              onClick={() => onAnimStyleChange((animStyle || 'ripple') === 'ripple' ? 'none' : 'ripple')}
-              preview={(
-                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                  <circle cx="24" cy="11" r="8" />
-                  <circle cx="24" cy="11" r="4" />
-                  <circle cx="24" cy="11" r="1.5" fill="currentColor" stroke="none" />
-                </svg>
-              )}
-            />
-            <PreviewOptionButton
-              compact
-              label="Fade"
-              hint="Soft fading highlight"
-              active={(animStyle || 'ripple') === 'fade'}
-              onClick={() => onAnimStyleChange((animStyle || 'ripple') === 'fade' ? 'none' : 'fade')}
-              preview={(
-                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                  <rect x="4" y="5" width="8" height="12" opacity="0.3" />
-                  <rect x="16" y="5" width="8" height="12" opacity="0.5" />
-                  <rect x="28" y="5" width="8" height="12" opacity="0.75" />
-                  <rect x="40" y="5" width="4" height="12" opacity="1" />
-                </svg>
-              )}
-            />
-            <PreviewOptionButton
-              compact
-              label="Pulse"
-              hint="Expand and contract"
-              active={(animStyle || 'ripple') === 'pulse'}
-              onClick={() => onAnimStyleChange((animStyle || 'ripple') === 'pulse' ? 'none' : 'pulse')}
-              preview={(
-                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                  <circle cx="12" cy="11" r="3" />
-                  <circle cx="24" cy="11" r="5" />
-                  <circle cx="36" cy="11" r="7" />
-                </svg>
-              )}
-            />
-          </div>
-        </div>
-
-        {animStyle !== 'none' && (
-          <div className="settings-section">
-            <label>Animation mode</label>
-            <div className="preview-btn-grid preview-btn-grid-3">
-              <PreviewOptionButton
-                compact
-                label="All"
-                hint="All bits at once"
-                active={(animMode || 'all') === 'all'}
-                onClick={() => onAnimModeChange('all')}
-                preview={(
-                  <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                    <rect x="6" y="6" width="8" height="8" />
-                    <rect x="20" y="6" width="8" height="8" />
-                    <rect x="34" y="6" width="8" height="8" />
-                  </svg>
-                )}
-              />
-              <PreviewOptionButton
-                compact
-                label="Sequential"
-                hint="Step through bits"
-                active={(animMode || 'all') === 'sequential'}
-                onClick={() => onAnimModeChange('sequential')}
-                preview={(
-                  <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                    <rect x="6" y="6" width="8" height="8" opacity="1" />
-                    <rect x="20" y="6" width="8" height="8" opacity="0.6" />
-                    <rect x="34" y="6" width="8" height="8" opacity="0.3" />
-                    <line x1="14" y1="10" x2="20" y2="10" />
-                    <line x1="28" y1="10" x2="34" y2="10" />
-                  </svg>
-                )}
-              />
-              <PreviewOptionButton
-                compact
-                label="Bounce"
-                hint="Forward and backward"
-                active={(animMode || 'all') === 'bounce'}
-                onClick={() => onAnimModeChange('bounce')}
-                preview={(
-                  <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                    <line x1="6" y1="10" x2="42" y2="10" />
-                    <polygon points="42,10 36,7 36,13" fill="currentColor" stroke="none" />
-                    <polygon points="6,10 12,7 12,13" fill="currentColor" stroke="none" />
-                  </svg>
-                )}
-              />
-            </div>
-          </div>
+        {activeTab === 'animation' && showAnimationControls && (
+          <AnimationTab
+            animStyle={animStyle} onAnimStyleChange={onAnimStyleChange}
+            animMode={animMode} onAnimModeChange={onAnimModeChange}
+            playSpeed={playSpeed} onPlaySpeedChange={onPlaySpeedChange}
+            repeatAnim={repeatAnim} onRepeatAnimChange={onRepeatAnimChange}
+            delayBetweenRepeats={delayBetweenRepeats} onDelayBetweenRepeatsChange={onDelayBetweenRepeatsChange}
+            eventTimeTargets={eventTimeTargets} onEventTimeTargetsChange={onEventTimeTargetsChange}
+            maskAnimationEnabled={maskAnimationEnabled} onMaskAnimationEnabledChange={onMaskAnimationEnabledChange}
+            animationReplayPaused={animationReplayPaused} onAnimationReplayPausedChange={onAnimationReplayPausedChange}
+            maxStepDurationEnabled={maxStepDurationEnabled} onMaxStepDurationEnabledChange={onMaxStepDurationEnabledChange}
+            maxStepDurationMs={maxStepDurationMs} onMaxStepDurationMsChange={onMaxStepDurationMsChange}
+            loweredSetBits={loweredSetBits} onLoweredSetBitsToggle={onLoweredSetBitsToggle}
+            depthSettings={depthSettings} onDepthSettingsChange={onDepthSettingsChange}
+          />
         )}
-
-        <div className="settings-section">
-            <label>Animation timing</label>
-            <div className="settings-row animation-timing-row" style={{ alignItems: 'flex-start', gap: 8 }}>
-              <div className="timing-control">
-                <span className="timing-title">Overall speed</span>
-                <input
-                  className="timing-slider"
-                  type="range"
-                  min={1}
-                  max={100}
-                  step={1}
-                  value={playbackSpeedValue}
-                  onChange={(e) => onPlaySpeedChange(playbackSpeedToMs(e.target.value))}
-                  title="Speed % applied to every per-event time target. 50% = twice as long, 200% = half as long."
-                />
-                <div className="timing-scale" aria-hidden="true">
-                  <span>Slow</span>
-                  <span className="timing-value">{playSpeed || 100}%</span>
-                  <span>Fast</span>
-                </div>
-              </div>
-              <div className="timing-control">
-                <span className="timing-title">Delay between events</span>
-                <input
-                  className="timing-slider"
-                  type="range"
-                  min={0}
-                  max={5000}
-                  step={100}
-                  value={repeatAnim || 0}
-                  onChange={(e) => onRepeatAnimChange(clamp(parseInt(e.target.value || '0', 10) || 0, 0, 5000))}
-                  title="Pause after one event finishes before the all-events widget advances to the next event."
-                />
-                <div className="timing-scale" aria-hidden="true">
-                  <span>Off</span>
-                  <span className="timing-value">{repeatAnim === 0 ? 'Off' : `${(repeatAnim / 1000).toFixed(1)}s`}</span>
-                  <span>Long</span>
-                </div>
-              </div>
-              <div className="timing-control">
-                <span className="timing-title">Delay between repeats</span>
-                <input
-                  className="timing-slider"
-                  type="range"
-                  min={0}
-                  max={5000}
-                  step={100}
-                  value={delayBetweenRepeats || 0}
-                  onChange={(e) => onDelayBetweenRepeatsChange && onDelayBetweenRepeatsChange(clamp(parseInt(e.target.value || '0', 10) || 0, 0, 5000))}
-                  title="Pause between repeats when the single-event widget is in play mode."
-                />
-                <div className="timing-scale" aria-hidden="true">
-                  <span>Off</span>
-                  <span className="timing-value">{(delayBetweenRepeats || 0) === 0 ? 'Off' : `${((delayBetweenRepeats || 0) / 1000).toFixed(1)}s`}</span>
-                  <span>Long</span>
-                </div>
-              </div>
-            </div>
-            <div className="settings-row" style={{ marginTop: 8 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input type="checkbox" checked={maskAnimationEnabled !== false} onChange={(e) => onMaskAnimationEnabledChange(e.target.checked)} />
-                Mask stamp animation
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input type="checkbox" checked={maxStepDurationEnabled === true} onChange={(e) => onMaxStepDurationEnabledChange && onMaxStepDurationEnabledChange(e.target.checked)} />
-                Limit step duration
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input type="checkbox" checked={animationReplayPaused === true} onChange={(e) => onAnimationReplayPausedChange(e.target.checked)} />
-                Pause event replay
-              </label>
-            </div>
-            {maxStepDurationEnabled === true && (
-              <div className="settings-row" style={{ marginTop: 8 }}>
-                <label className="overlay-inline-field overlay-inline-field-range" style={{ width: '100%' }}>
-                  <span>Max step duration</span>
-                  <input
-                    type="range"
-                    min={2000}
-                    max={30000}
-                    step={500}
-                    value={Math.max(2000, Math.min(30000, parseInt(maxStepDurationMs || 8000, 10) || 8000))}
-                    onChange={(e) => onMaxStepDurationMsChange && onMaxStepDurationMsChange(Math.max(2000, Math.min(30000, parseInt(e.target.value || '8000', 10) || 8000)))}
-                  />
-                  <span className="val">{(Math.max(2000, Math.min(30000, parseInt(maxStepDurationMs || 8000, 10) || 8000)) / 1000).toFixed(1)}s</span>
-                </label>
-              </div>
-            )}
-            {/* Per-event time targets — used when adaptiveDuration is on. The
-                tier picked is based on the change count of the event; the
-                resulting normal duration is divided by Overall speed %. */}
-            {eventTimeTargets && onEventTimeTargetsChange && (
-              <div className="settings-row" style={{ marginTop: 8, flexDirection: 'column', alignItems: 'stretch', gap: 4 }}>
-                <span className="timing-title" style={{ marginBottom: 4 }}>Per-event normal time targets (at 100% speed)</span>
-                {[
-                  { key: 'none', label: '0 changes' },
-                  { key: 'one',  label: '1 change' },
-                  { key: 'two',  label: '2 changes' },
-                  { key: 'few',  label: '3–10 changes' },
-                  { key: 'many', label: '11–100 changes' },
-                  { key: 'lots', label: '> 100 changes' },
-                  { key: 'min',  label: 'Min (clamp ↓)' },
-                  { key: 'max',  label: 'Max (clamp ↑)' },
-                ].map(({ key, label }) => (
-                  <label key={key} className="overlay-inline-field overlay-inline-field-range" style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ minWidth: 130, fontSize: '0.85em' }}>{label}</span>
-                    <input
-                      type="range"
-                      min={0}
-                      max={key === 'max' ? 30000 : (key === 'lots' ? 20000 : 10000)}
-                      step={50}
-                      value={Math.max(0, parseInt(eventTimeTargets[key] || 0, 10) || 0)}
-                      onChange={(e) => {
-                        const v = Math.max(0, parseInt(e.target.value || '0', 10) || 0);
-                        onEventTimeTargetsChange({ ...eventTimeTargets, [key]: v });
-                      }}
-                    />
-                    <span className="val" style={{ minWidth: 56, textAlign: 'right' }}>{((eventTimeTargets[key] || 0) / 1000).toFixed(2)}s</span>
-                  </label>
-                ))}
-              </div>
-            )}
-            <span className="settings-hint">Overall speed multiplies every per-event time target. Per-event tiers set how long an event takes at 100% speed; values are clamped to Min / Max. Delay between events is used by the all-events play. Delay between repeats is used by the single-event play.</span>
-          </div>
-
-          {onLoweredSetBitsToggle && (
-            <div className="settings-section">
-              <label>Sieve depth mode</label>
-              <div className="preview-btn-grid preview-btn-grid-3">
-                <PreviewOptionButton
-                  compact
-                  label="Lowered bits"
-                  hint="Set bits sink through the sieve — cleared bits stay at surface level"
-                  active={!!loweredSetBits}
-                  onClick={() => onLoweredSetBitsToggle()}
-                  preview={(
-                    <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true" strokeLinecap="round">
-                      <rect x="4"  y="3" width="7" height="7" opacity="0.35" />
-                      <rect x="14" y="3" width="7" height="7" opacity="0.35" />
-                      <rect x="24" y="3" width="7" height="7" opacity="0.35" />
-                      <rect x="34" y="3" width="7" height="7" opacity="0.35" />
-                      <rect x="4"  y="13" width="5" height="5" opacity="0.9" />
-                      <rect x="24" y="13" width="5" height="5" opacity="0.9" />
-                    </svg>
-                  )}
-                />
-              </div>
-              {loweredSetBits && (
-                <>
-                  <div className="settings-row overlay-inline-controls">
-                    <label className="overlay-inline-field overlay-inline-field-range">
-                      <span>Depth strength</span>
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        step={1}
-                        value={depthSettings?.strength ?? 80}
-                        onChange={(e) => onDepthSettingsChange && onDepthSettingsChange((prev) => ({
-                          ...(prev || depthSettings || {}),
-                          strength: parseInt(e.target.value, 10),
-                        }))}
-                      />
-                      <span className="val">{depthSettings?.strength ?? 80}%</span>
-                    </label>
-                    <label className="overlay-inline-field overlay-inline-field-range">
-                      <span>Depth angle</span>
-                      <input
-                        type="range"
-                        min={0}
-                        max={90}
-                        step={1}
-                        value={depthSettings?.angle ?? 38}
-                        onChange={(e) => onDepthSettingsChange && onDepthSettingsChange((prev) => ({
-                          ...(prev || depthSettings || {}),
-                          angle: parseInt(e.target.value, 10),
-                        }))}
-                      />
-                      <span className="val">{depthSettings?.angle ?? 38}°</span>
-                    </label>
-                  </div>
-                  <span className="settings-hint">Tune how deep and at what angle bits fall through the sieve. Labels on set bits follow the lowered position.</span>
-                </>
-              )}
-            </div>
-          )}
-        </>)}
         </div>
       )}
     </div>

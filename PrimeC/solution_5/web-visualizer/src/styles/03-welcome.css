@@ -1,0 +1,126 @@
+/* ---- Welcome / File Picker ---- */
+.welcome {
+  height: 100%;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 42%),
+    radial-gradient(circle at 80% 80%, color-mix(in srgb, var(--step-fg) 24%, transparent), transparent 46%),
+    var(--bg);
+}
+.welcome-content {
+  width: min(820px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 20px;
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-surface) 90%, #000 10%);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+.welcome h1 {
+  font-size: 24px;
+  margin-bottom: 6px;
+}
+.welcome p {
+  color: var(--fg-muted);
+  margin-bottom: 12px;
+}
+.upload-area {
+  border: 1px dashed var(--border-heavy);
+  border-radius: 10px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--bg-raised) 80%, transparent);
+  margin-bottom: 10px;
+}
+.upload-area .or {
+  opacity: 0.7;
+  margin: 8px 0;
+}
+.upload-area button {
+  border: 1px solid var(--border-heavy);
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--fg-bright);
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.upload-area button:hover {
+  border-color: var(--accent-dim);
+  background: color-mix(in srgb, var(--accent-bg) 70%, var(--bg-input));
+}
+.instructions {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.instructions h3 {
+  margin: 10px 0 6px;
+  font-size: 13px;
+}
+.instructions pre {
+  margin: 0 0 6px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg-bright);
+  overflow: auto;
+}
+.error-msg {
+  margin-top: 8px;
+  color: #ff8a8a;
+}
+/* ---- Log File Picker ---- */
+.log-picker {
+  text-align: left;
+  margin-top: 24px;
+}
+.log-picker h3 {
+  font-size: 14px;
+  color: var(--fg-muted);
+  margin-bottom: 8px;
+}
+.log-file-list {
+  list-style: none;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+.log-file-list li {
+  border-bottom: 1px solid var(--bg-raised);
+}
+.log-file-list li:last-child {
+  border-bottom: none;
+}
+.log-file-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--fg-muted);
+  padding: 8px 12px;
+  font-family: 'Consolas', 'Menlo', monospace;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 0;
+}
+.log-file-btn:hover {
+  background: var(--accent-bg);
+  color: var(--fg-bright);
+}
+.log-file-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.loading-msg {
+  color: var(--fg-dim);
+  margin-top: 12px;
+  font-size: 13px;
+}
+

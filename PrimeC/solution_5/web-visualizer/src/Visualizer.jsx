@@ -1,146 +1,41 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { SieveRenderer, bitToNumber, numberToBit, STORAGE_MODELS, CACHE_PRESETS } from './SieveRenderer';
-import { Camera3D } from './Camera3D';
+import { SieveRenderer, bitToNumber, numberToBit, CACHE_PRESETS } from './SieveRenderer';
 import StepPanel from './StepPanel';
 import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
 import TimingPanel from './TimingPanel';
+import Toolbar from './visualizer/Toolbar';
+import ExportProgress from './visualizer/ExportProgress';
+import CanvasStage from './visualizer/CanvasStage';
+import EventTitleBanner from './visualizer/EventTitleBanner';
+import DetailInspectorOverlay from './visualizer/DetailInspectorOverlay';
+import StepAnimSliders from './visualizer/StepAnimSliders';
+import BitHistoryBalloons from './visualizer/BitHistoryBalloons';
+import { useTraceExport } from './hooks/useTraceExport';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { use3DCamera } from './hooks/use3DCamera';
 import {
-  SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
-  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Thermometer, PlayPause, PrimeStar,
-} from './Icons';
-
-const VIEW_PREFS_KEY = 'sieve-visualizer:view-preferences:v1';
-
-// Default per-event "normal" time targets keyed by change-count tier.
-// These are the times the timeline takes 0 -> 100% at 100% speed.
-// At 50% speed durations double; at 200% speed they halve. Each tier may be
-// adjusted in the Settings panel.
-const DEFAULT_EVENT_TIME_TARGETS = {
-  none: 250,    // 0 changes
-  one: 500,     // 1 change
-  two: 1000,    // 2 changes
-  few: 2000,    // 3-10 changes
-  many: 4000,   // 11-100 changes
-  lots: 8000,   // > 100 changes (also the soft maximum for huge events)
-  min: 200,     // hard floor — the result is clamped at least this large
-  max: 15000,   // hard ceiling — the result is clamped at most this large
-};
-
-function mergeEventTimeTargets(saved) {
-  const out = { ...DEFAULT_EVENT_TIME_TARGETS };
-  if (!saved || typeof saved !== 'object') return out;
-  for (const k of Object.keys(DEFAULT_EVENT_TIME_TARGETS)) {
-    const v = Number(saved[k]);
-    if (Number.isFinite(v) && v >= 0) out[k] = Math.max(0, Math.round(v));
-  }
-  // Sanity: keep min <= max.
-  if (out.min > out.max) {
-    const tmp = out.min; out.min = out.max; out.max = tmp;
-  }
-  return out;
-}
-
-function readViewPrefs() {
-  if (typeof window === 'undefined' || !window.localStorage) return null;
-  try {
-    const raw = window.localStorage.getItem(VIEW_PREFS_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function mergeLayoutSettings(saved) {
-  if (!saved || typeof saved !== 'object') return DEFAULT_SETTINGS;
-  return {
-    ...DEFAULT_SETTINGS,
-    ...saved,
-    outlines: {
-      ...DEFAULT_SETTINGS.outlines,
-      ...(saved.outlines || {}),
-    },
-  };
-}
-
-function writeViewPrefs(prefs) {
-  if (typeof window === 'undefined' || !window.localStorage) return;
-  try {
-    window.localStorage.setItem(VIEW_PREFS_KEY, JSON.stringify(prefs));
-  } catch {
-    // Ignore storage failures.
-  }
-}
-
-const DEFAULT_SETTINGS = {
-  bitLayout: '4x2',
-  byteLayout: '4x2',
-  bitSpacingH: 1,
-  bitSpacingV: 1,
-  byteSpacingH: 2,
-  byteSpacingV: 2,
-  u64SpacingH: 4,
-  u64SpacingV: 4,
-  vectorMode: 'preset',
-  vectorGroup: 1,
-  vectorBaseBits: 64,
-  vectorLanes: 1,
-  vectorLabel: 'uint64',
-  customGroupBits: 0,
-  showBitLabels: true,
-  showNumberLabels: false,
-  showByteLabels: true,
-  showVectorLabels: true,
-  showVectorTouchOrder: false,
-  bitLabelMode: 'global',
-  byteLabelMode: 'group',
-  horizontalGroups: 0,
-  outlines: {
-    target: 'none',
-  },
-};
-
-const DEFAULT_EVENT_TITLE_SETTINGS = {
-  visible: true,
-  position: 'center',
-  scale: 100,
-  // User-drag offset in pixels from the default (centered) position. Persisted.
-  dragOffsetX: 0,
-  dragOffsetY: 0,
-};
-
-const DEFAULT_DEPTH_SETTINGS = {
-  strength: 80,
-  angle: 38,
-};
-
-function mergeEventTitleSettings(saved) {
-  if (!saved || typeof saved !== 'object') return DEFAULT_EVENT_TITLE_SETTINGS;
-  const scale = Math.max(70, Math.min(160, parseInt(saved.scale || DEFAULT_EVENT_TITLE_SETTINGS.scale, 10) || DEFAULT_EVENT_TITLE_SETTINGS.scale));
-  const dragOffsetX = Number.isFinite(Number(saved.dragOffsetX)) ? Number(saved.dragOffsetX) : 0;
-  const dragOffsetY = Number.isFinite(Number(saved.dragOffsetY)) ? Number(saved.dragOffsetY) : 0;
-  return {
-    ...DEFAULT_EVENT_TITLE_SETTINGS,
-    ...saved,
-    visible: saved.visible !== false,
-    position: 'center', // user removed the position picker; always re-center as baseline
-    scale,
-    dragOffsetX,
-    dragOffsetY,
-  };
-}
-
-function mergeDepthSettings(saved) {
-  if (!saved || typeof saved !== 'object') return DEFAULT_DEPTH_SETTINGS;
-  const strength = Math.max(0, Math.min(100, parseInt(saved.strength ?? DEFAULT_DEPTH_SETTINGS.strength, 10) || DEFAULT_DEPTH_SETTINGS.strength));
-  const angle = Math.max(0, Math.min(90, parseInt(saved.angle ?? DEFAULT_DEPTH_SETTINGS.angle, 10) || DEFAULT_DEPTH_SETTINGS.angle));
-  return {
-    ...DEFAULT_DEPTH_SETTINGS,
-    ...saved,
-    strength,
-    angle,
-  };
-}
+  DEFAULT_EVENT_TIME_TARGETS,
+  DEFAULT_LAYOUT_SETTINGS as DEFAULT_SETTINGS,
+  DEFAULT_EVENT_TITLE_SETTINGS,
+  DEFAULT_DEPTH_SETTINGS,
+  readViewPrefs,
+  writeViewPrefs,
+  mergeEventTimeTargets,
+  mergeLayoutSettings,
+  mergeEventTitleSettings,
+  mergeDepthSettings,
+} from './lib/viewPrefs';
+import { buildTraceInfoSections } from './lib/traceHeader';
+import { detectIsMac, detectIsWindows, detectIsElectron } from './lib/platform';
+import {
+  clampMs as clampMsPure,
+  bitsAtTimeRatio as bitsAtTimeRatioPure,
+  timeRatioAtBitIndex as timeRatioAtBitIndexPure,
+  computeEventNormalDuration as computeEventNormalDurationPure,
+  computeEventDuration as computeEventDurationPure,
+  getFadeOutDuration as getFadeOutDurationPure,
+} from './lib/animationTiming';
 
 export default function Visualizer({
   trace,
@@ -153,132 +48,21 @@ export default function Visualizer({
 }) {
   const { header, steps } = trace;
   const traceTitle = useMemo(() => header.title || fileName || 'Sieve Visualizer', [header.title, fileName]);
-  const traceInfoSections = useMemo(() => {
-    // Parse a single info item into a {label, value} pair. Accepts "label: value",
-    // "label=value", or "Label Value" (single-word label followed by value).
-    const parseKeyValue = (raw) => {
-      const text = String(raw || '').trim();
-      if (!text) return null;
-      const colonEq = text.match(/^\s*([^:=]+?)\s*[:=]\s*(.+?)\s*$/);
-      if (colonEq) return { label: colonEq[1].trim(), value: colonEq[2].trim() };
-      // "Storage half", "Max 1000", "v5"
-      const labelSpace = text.match(/^\s*(Storage|Max|Bits|Events|Settings|Trace level|Version)\s+(.+)\s*$/i);
-      if (labelSpace) return { label: labelSpace[1], value: labelSpace[2] };
-      if (/^v\d/i.test(text)) return { label: 'Version', value: text.replace(/^v/i, '') };
-      return null;
-    };
-
-    // Canonical key for dedup + routing.
-    const canonicalize = (label) => String(label || '').trim().toLowerCase().replace(/\s+/g, '_');
-    // Canonical value for dedup: strip grouping separators on numerics.
-    const canonicalValue = (value) => {
-      const text = String(value || '').trim();
-      if (/^-?\d[\d,._\s]*$/.test(text)) return text.replace(/[,_\s]/g, '');
-      return text.toLowerCase();
-    };
-
-    // Label + section routing for recognized keys. Unknown keys flow to Notes.
-    const runKeys = new Set([
-      'max', 'max_number', 'maxnumber', 'factor_max',
-      'bits', 'bit_count', 'bitcount',
-      'events', 'step_count', 'stepcount',
-      'storage', 'storage_model', 'storagemodel',
-      'trace_level', 'tracelevel',
-      'threads', 'duration', 'elapsed',
-      'version', 'v',
-    ]);
-    const settingsKeys = new Set(['settings', 'benchmark_settings', 'benchmarksettings']);
-    const prettyLabel = (canon, fallback) => ({
-      max: 'Max', max_number: 'Max', maxnumber: 'Max', factor_max: 'Max',
-      bits: 'Bits', bit_count: 'Bits', bitcount: 'Bits',
-      events: 'Events', step_count: 'Events', stepcount: 'Events',
-      storage: 'Storage', storage_model: 'Storage', storagemodel: 'Storage',
-      trace_level: 'Trace level', tracelevel: 'Trace level',
-      threads: 'Threads', duration: 'Duration', elapsed: 'Elapsed',
-      version: 'Version', v: 'Version',
-      settings: 'Settings', benchmark_settings: 'Settings', benchmarksettings: 'Settings',
-    }[canon] || fallback);
-
-    const items = [];
-    if (fileName) items.push({ label: 'File', value: fileName });
-    if (header.subtitle) items.push({ label: 'Subtitle', value: header.subtitle });
-    if (Array.isArray(header.infoLines)) {
-      for (const line of header.infoLines) {
-        const kv = parseKeyValue(line);
-        if (kv) items.push(kv);
-        else items.push({ label: 'Info', value: String(line) });
-      }
-    }
-    if (header.maxNumber != null) items.push({ label: 'Max', value: String(header.maxNumber) });
-    if (header.storageModel) items.push({ label: 'Storage', value: header.storageModel });
-    if (header.traceLevel != null) items.push({ label: 'Trace level', value: String(header.traceLevel) });
-    if (header.bitCount != null) items.push({ label: 'Bits', value: String(header.bitCount) });
-    if (header.stepCount != null) items.push({ label: 'Events', value: String(header.stepCount) });
-    if (header.version != null) items.push({ label: 'Version', value: String(header.version) });
-
-    // Dedupe by canonical (label, value), preserving insertion order.
-    const seen = new Set();
-    const deduped = [];
-    for (const kv of items) {
-      const canonLabel = canonicalize(kv.label);
-      const canonVal = canonicalValue(kv.value);
-      const key = `${canonLabel}=${canonVal}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const label = prettyLabel(canonLabel, kv.label);
-      // Format numerics with commas when display label is friendly.
-      let displayValue = kv.value;
-      if (/^-?\d+$/.test(String(kv.value))) {
-        const n = Number(kv.value);
-        if (Number.isFinite(n) && Math.abs(n) >= 1000) displayValue = n.toLocaleString();
-      }
-      deduped.push({ label, canonLabel, value: displayValue });
-    }
-
-    const file = [];
-    const run = [];
-    const settings = [];
-    const extra = [];
-    for (const kv of deduped) {
-      if (kv.canonLabel === 'file' || kv.canonLabel === 'subtitle') { file.push(kv); continue; }
-      if (settingsKeys.has(kv.canonLabel)) { settings.push(kv); continue; }
-      if (runKeys.has(kv.canonLabel)) { run.push(kv); continue; }
-      extra.push(kv);
-    }
-
-    return [
-      { title: 'File', rows: file },
-      { title: 'Run', rows: run },
-      { title: 'Settings', rows: settings },
-      { title: 'Notes', rows: extra },
-    ].filter((section) => section.rows.length > 0);
-  }, [header, fileName]);
+  const traceInfoSections = useMemo(
+    () => buildTraceInfoSections(header, fileName),
+    [header, fileName],
+  );
 
   const canvasRef = useRef(null);
   const settledCanvasRef = useRef(null);
   const minimapCanvasRef = useRef(null);
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
-  const isMacPlatform = useMemo(() => {
-    if (typeof navigator === 'undefined') return false;
-    const uaDataPlatform = navigator.userAgentData?.platform || '';
-    const probe = `${uaDataPlatform} ${navigator.platform || ''} ${navigator.userAgent || ''} ${navigator.appVersion || ''}`;
-    return /(Mac|iPhone|iPad|iPod)/i.test(probe);
-  }, []);
-  const isWindowsPlatform = useMemo(() => {
-    if (typeof navigator === 'undefined') return false;
-    const uaDataPlatform = navigator.userAgentData?.platform || '';
-    const probe = `${uaDataPlatform} ${navigator.platform || ''} ${navigator.userAgent || ''} ${navigator.appVersion || ''}`;
-    return /Win/i.test(probe);
-  }, []);
+  const isMacPlatform = useMemo(() => detectIsMac(), []);
+  const isWindowsPlatform = useMemo(() => detectIsWindows(), []);
   // Electron (native app) inserts "Electron" into the UA and exposes process.versions.electron.
   // In browser mode we don't reserve space for traffic-light window controls.
-  const isElectron = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    if (typeof navigator !== 'undefined' && /Electron/i.test(navigator.userAgent || '')) return true;
-    const proc = (typeof window !== 'undefined' && window.process) || null;
-    return !!(proc && proc.versions && proc.versions.electron);
-  }, []);
+  const isElectron = useMemo(() => detectIsElectron(), []);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -300,8 +84,6 @@ export default function Visualizer({
   const [eventTitleSettings, setEventTitleSettings] = useState(() => mergeEventTitleSettings(readViewPrefs()?.eventTitleSettings));
   const [depthSettings, setDepthSettings] = useState(() => mergeDepthSettings(readViewPrefs()?.depthSettings));
   const [detailOpen, setDetailOpen] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [exportProgress, setExportProgress] = useState(0);
   // Two distinct delays. Both default to 500 ms but are independently adjustable.
   // - delayBetweenEvents: pause after one event finishes before the all-events
   //   widget advances to the next event (only honored while `playing`).
@@ -460,17 +242,23 @@ export default function Visualizer({
 
   // 3D camera state
   const [mode3D, setMode3D] = useState(false);
-  const [camera3DTransform, setCamera3DTransform] = useState('none');
-  const [camera3DContainerStyle, setCamera3DContainerStyle] = useState({});
   const currentAnimIntervalRef = useRef(20);
   const currentMaskAnimIntervalRef = useRef(20);
-  const camera3DRef = useRef(null);
+  const {
+    camera3DRef,
+    camera3DTransform,
+    camera3DContainerStyle,
+    setCamera3DTransform,
+    setCamera3DContainerStyle,
+    createCamera,
+    disposeCamera,
+    ensureTiltCamera,
+  } = use3DCamera({ mode3D });
 
   const bitStateRef = useRef(null);
   const stepsRef = useRef([]);
   const currentStepRef = useRef(0);
   const playTimerRef = useRef(null);
-  const exportCancelRef = useRef(false);
   const rippleRef = useRef(null);
   const seqTimerRef = useRef(null); // sequential animation timer
   const triggerAnimationRef = useRef(null);
@@ -807,28 +595,23 @@ export default function Visualizer({
       bitStateRef.current = new Uint8Array(header.bitCount);
     }
 
-    // Init 3D camera
-    const cam = new Camera3D();
-    camera3DRef.current = cam;
-    cam.setUpdateCallback(() => {
-      setCamera3DTransform(cam.getCanvasTransform());
-      setCamera3DContainerStyle(cam.getContainerStyle());
-    });
-    cam.setPanZoomCallback(({ panX, panY, zoom: z }) => {
-      const rr = rendererRef.current;
-      if (!rr) return;
-      rr.panX = panX;
-      rr.panY = panY;
-      rr.zoom = z;
-      setZoom(z);
-      rr.render();
-      rr.renderMinimap(rr.canvasWidth, rr.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+    // Init 3D camera — see src/hooks/use3DCamera.js for the full lifecycle.
+    createCamera({
+      onPanZoom: ({ panX, panY, zoom: z }) => {
+        const rr = rendererRef.current;
+        if (!rr) return;
+        rr.panX = panX;
+        rr.panY = panY;
+        rr.zoom = z;
+        setZoom(z);
+        rr.render();
+        rr.renderMinimap(rr.canvasWidth, rr.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      },
     });
 
     return () => {
       rendererRef.current = null;
-      if (camera3DRef.current) camera3DRef.current.cancelAllAnimations();
-      camera3DRef.current = null;
+      disposeCamera();
     };
   }, [header.bitCount, header.sieveSize]);
 
@@ -1525,7 +1308,7 @@ export default function Visualizer({
     });
   }, [getMinimapDetailH]);
 
-  const clampMs = useCallback((value, min, max) => Math.max(min, Math.min(max, value)), []);
+  const clampMs = useCallback(clampMsPure, []);
 
   const getAnimationTimingPlan = useCallback((bitCount, options = {}) => {
     if (!options.adaptiveDuration) return null;
@@ -1650,44 +1433,30 @@ export default function Visualizer({
     currentMaskAnimIntervalRef.current = Math.max(0, maskAnimInterval || 20);
   }, [maskAnimInterval]);
 
-  const getFadeOutDuration = useCallback((bitCount, options = {}) => {
-    if (options.skipFadeOut) return 0;
-    return clampMs(Math.round(Math.min(320, Math.max(120, Math.max(1, bitCount) * 4))), 80, 420);
-  }, [clampMs]);
+  const getFadeOutDuration = useCallback((bitCount, options = {}) => (
+    getFadeOutDurationPure(bitCount, options)
+  ), []);
 
   // The "normal" (100% speed) time target for one event, in ms, picked from
   // the configurable tier table by the event's change count and clamped to
   // the configured min/max. Independent of the speed slider.
-  const computeEventNormalDuration = useCallback((bitCount) => {
-    const targets = eventTimeTargetsRef.current || DEFAULT_EVENT_TIME_TARGETS;
-    const n = Math.max(0, Math.floor(Number(bitCount) || 0));
-    let base;
-    if (n === 0) base = targets.none;
-    else if (n === 1) base = targets.one;
-    else if (n === 2) base = targets.two;
-    else if (n <= 10) base = targets.few;
-    else if (n <= 100) base = targets.many;
-    else base = targets.lots;
-    const min = Math.max(0, targets.min || 0);
-    const max = Math.max(min, targets.max || base);
-    return Math.max(min, Math.min(max, Math.round(base)));
-  }, []);
+  const computeEventNormalDuration = useCallback((bitCount) => (
+    computeEventNormalDurationPure(bitCount, eventTimeTargetsRef.current || DEFAULT_EVENT_TIME_TARGETS)
+  ), []);
 
   // Time-based timeline duration: how long the timeline slider takes to walk
   // 0 -> 100 % for an event with `bitCount` changes. The total duration is
   // derived from the per-tier time targets table and divided by the speed %.
   // The mode (progressive vs linear) only affects HOW bits are distributed
   // across that duration (see bitsAtTimeRatio), not the total duration.
-  // Tier sizes for the 'progressive' bits-at-time mapping. Independent of
-  // total duration; they just shape the curve so the first 10 bits use the
-  // first chunk of time, next 100 bits the second chunk, the rest the third.
-  const PROGRESSIVE_TIER_RATIOS = { tier1: 1, tier2: 1, tier3: 1 }; // equal thirds
   const computeEventDuration = useCallback((bitCount, modeOverride = null) => {
     void modeOverride; // mode only changes bit distribution, not total time
-    const normal = computeEventNormalDuration(bitCount);
-    const speedPct = Math.max(1, Math.min(1000, Number(playSpeedPercentRef.current) || 100));
-    return Math.max(80, Math.round(normal * 100 / speedPct));
-  }, [computeEventNormalDuration]);
+    return computeEventDurationPure(
+      bitCount,
+      eventTimeTargetsRef.current || DEFAULT_EVENT_TIME_TARGETS,
+      playSpeedPercentRef.current,
+    );
+  }, []);
 
   // Inverse of computeEventDuration's curve: given a time ratio (0..1) inside
   // an event's animation window, return how many bits should be revealed.
@@ -1695,54 +1464,16 @@ export default function Visualizer({
   // - 'progressive': three equal time-thirds receive (a) the first up-to-10
   //   bits, (b) the next up-to-100 bits, (c) the rest. Empty tiers are
   //   skipped so a 5-bit event still uses the full timeline.
-  const _progressiveTierShares = (c) => {
-    const t1 = Math.min(c, 10);
-    const t2 = c > 10 ? Math.min(c - 10, 100) : 0;
-    const t3 = c > 110 ? c - 110 : 0;
-    const filledTiers = (t1 > 0 ? 1 : 0) + (t2 > 0 ? 1 : 0) + (t3 > 0 ? 1 : 0);
-    const slice = filledTiers > 0 ? 1 / filledTiers : 0;
-    return { t1, t2, t3, slice };
-  };
-  const bitsAtTimeRatio = useCallback((timeRatio, bitCount, modeOverride = null) => {
-    const mode = modeOverride || eventDurationModeRef.current || 'progressive';
-    const c = Math.max(0, Math.floor(Number(bitCount) || 0));
-    if (c === 0) return 0;
-    const t = Math.max(0, Math.min(1, Number(timeRatio) || 0));
-    if (mode === 'linear') return Math.min(c, Math.round(t * c));
-    const { t1, t2, t3, slice } = _progressiveTierShares(c);
-    if (slice <= 0) return c;
-    let cursor = 0;
-    if (t1 > 0) {
-      if (t <= cursor + slice) return Math.round(((t - cursor) / slice) * t1);
-      cursor += slice;
-    }
-    if (t2 > 0) {
-      if (t <= cursor + slice) return t1 + Math.round(((t - cursor) / slice) * t2);
-      cursor += slice;
-    }
-    if (t3 > 0) {
-      return t1 + t2 + Math.round(((t - cursor) / slice) * t3);
-    }
-    return c;
-  }, []);
+  const bitsAtTimeRatio = useCallback((timeRatio, bitCount, modeOverride = null) => (
+    bitsAtTimeRatioPure(timeRatio, bitCount, modeOverride || eventDurationModeRef.current || 'progressive')
+  ), []);
 
   // Inverse of bitsAtTimeRatio: given a bit index N, return the time ratio
   // at which that bit would appear. Used to seed virtualElapsed when the
   // banner Play resumes from a paused scrub position.
-  const timeRatioAtBitIndex = useCallback((bitIdx, bitCount, modeOverride = null) => {
-    const mode = modeOverride || eventDurationModeRef.current || 'progressive';
-    const c = Math.max(0, Math.floor(Number(bitCount) || 0));
-    if (c === 0) return 0;
-    const n = Math.max(0, Math.min(c, Math.floor(Number(bitIdx) || 0)));
-    if (mode === 'linear') return Math.min(1, n / c);
-    const { t1, t2, t3, slice } = _progressiveTierShares(c);
-    if (slice <= 0) return 1;
-    if (n <= t1) return t1 > 0 ? (n / t1) * slice : 0;
-    let r = (t1 > 0 ? slice : 0);
-    if (n <= t1 + t2) return r + (t2 > 0 ? ((n - t1) / t2) * slice : 0);
-    r += (t2 > 0 ? slice : 0);
-    return r + (t3 > 0 ? ((n - t1 - t2) / t3) * slice : 0);
-  }, []);
+  const timeRatioAtBitIndex = useCallback((bitIdx, bitCount, modeOverride = null) => (
+    timeRatioAtBitIndexPure(bitIdx, bitCount, modeOverride || eventDurationModeRef.current || 'progressive')
+  ), []);
 
   // Keep forward refs in sync so functions declared above can call these.
   computeEventDurationRef.current = computeEventDuration;
@@ -2837,21 +2568,7 @@ export default function Visualizer({
     );
   }, []);
 
-  const ensureTiltCamera = useCallback(() => {
-    const cam = camera3DRef.current;
-    if (!cam) return null;
-    if (!cam.enabled) {
-      cam.enable();
-      if (!mode3D) {
-        cam.rotateX = Math.max(10, cam.rotateX || 14);
-        cam.rotateY = cam.rotateY || 0;
-        cam.perspective = 1500;
-        setCamera3DContainerStyle(cam.getContainerStyle());
-        setCamera3DTransform(cam.getCanvasTransform());
-      }
-    }
-    return cam;
-  }, [mode3D]);
+  // ensureTiltCamera() is provided by use3DCamera; see src/hooks/use3DCamera.js.
 
   // Mouse pan & zoom on canvas (with 3D rotation support)
   useEffect(() => {
@@ -3222,7 +2939,6 @@ export default function Visualizer({
     el.addEventListener('wheel', onWheel, { passive: false });
     const onMouseLeave = () => {
       if (gestureMode === 'none') {
-        setHoverInfo('');
         lastHoveredIdxRef.current = -1;
         setHoveredBitInfo(null);
         setHoverPos(null);
@@ -3246,149 +2962,29 @@ export default function Visualizer({
     };
   }, [computeBitInfo, flyToElement, getMinimapDetailH, updateMinimapAvailability, mode3D, ensureTiltCamera, scheduleBalloonRelayout]);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-      const cam = camera3DRef.current;
-      const is3D = cam && cam.enabled;
+  // Keyboard shortcuts — see src/hooks/useKeyboardShortcuts.js for the full key map.
+  useKeyboardShortcuts({
+    currentStep,
+    stepCount: steps.length,
+    goToStep,
+    handlePlayPause,
+    doZoom,
+    resetZoom,
+    setTheme,
+    toggleDetailPanel,
+    toggle3D,
+    camera3DRef,
+  });
 
-      switch (e.key) {
-        case 'ArrowLeft':
-          e.preventDefault();
-          if (is3D && e.shiftKey) { cam.orbit('left'); }
-          else { goToStep(currentStep - 1); }
-          break;
-        case 'ArrowRight':
-          e.preventDefault();
-          if (is3D && e.shiftKey) { cam.orbit('right'); }
-          else { goToStep(currentStep + 1); }
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          if (is3D) { cam.orbit('up'); }
-          break;
-        case 'ArrowDown':
-          e.preventDefault();
-          if (is3D) { cam.orbit('down'); }
-          break;
-        case 'Home':       e.preventDefault(); goToStep(0); break;
-        case 'End':        e.preventDefault(); goToStep(steps.length - 1); break;
-        case ' ':          e.preventDefault(); handlePlayPause(); break;
-        case '+': case '=': e.preventDefault(); doZoom(1.5); break;
-        case '-':          e.preventDefault(); doZoom(1 / 1.5); break;
-        case '0':          e.preventDefault(); resetZoom(); break;
-        case 't': case 'T': e.preventDefault(); setTheme(t => t === 'dark' ? 'light' : 'dark'); break;
-        case 'd': case 'D': e.preventDefault(); toggleDetailPanel(); break;
-        case '3':          e.preventDefault(); toggle3D(); break;
-        case 'r': case 'R':
-          // Reset 3D rotation to flat
-          e.preventDefault();
-          if (is3D) cam.resetFlat();
-          break;
-        default: break;
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [currentStep, goToStep, doZoom, resetZoom, steps.length, handlePlayPause, toggle3D]);
-
-  // Export PNG
-  const exportPng = useCallback(() => {
-    const r = rendererRef.current;
-    if (!r) return;
-    const url = r.toDataURL();
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `sieve_step_${currentStep}.png`;
-    a.click();
-  }, [currentStep]);
-
-  // Export Video (WebM)
-  const exportVideo = useCallback(async () => {
-    const r = rendererRef.current;
-    if (!r || steps.length === 0 || exporting) return;
-    setExporting(true);
-    setExportProgress(0);
-    exportCancelRef.current = false;
-
-    try {
-      const stream = r.canvas.captureStream(0);
-      const track = stream.getVideoTracks()[0];
-      const recorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp9',
-        videoBitsPerSecond: 5000000,
-      });
-      const chunks = [];
-      recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
-      recorder.start();
-
-      const bs = new Uint8Array(header.bitCount);
-      for (let i = 0; i < steps.length; i++) {
-        if (exportCancelRef.current) break;
-        const s = steps[i];
-        for (let j = 0; j < s.changedBits.length; j++) {
-          const idx = s.changedBits[j];
-          if (idx < bs.length) bs[idx] = 1;
-        }
-        const changed = new Set(s.changedBits);
-        const targetBits = s.targetBits && s.targetBits.length > 0 ? s.targetBits : s.changedBits;
-        const targetSet = new Set(targetBits);
-        const targetHitCounts = new Map();
-        if (s.targetHitCounts && s.targetHitCounts.length === targetBits.length) {
-          for (let index = 0; index < targetBits.length; index++) targetHitCounts.set(targetBits[index], s.targetHitCounts[index]);
-        } else {
-          for (let index = 0; index < targetBits.length; index++) targetHitCounts.set(targetBits[index], 1);
-        }
-        r.currentOperation = s.operation;
-        r.setState(bs, changed, targetSet, targetHitCounts, {
-          focusStart: s.focusStart,
-          focusStop: s.focusStop,
-        }, {
-          wordBits: s.maskWordBits,
-          targetWords: s.maskWriteOrderWords,
-          targetSlots: s.maskWriteOrderSlots,
-          slotBits: s.maskSlotBits,
-        }, {
-          repeatedBits: new Set(Array.from(targetHitCounts.entries()).filter(([, count]) => count > 1).map(([bit]) => bit)),
-        });
-        r.render();
-        if (track.requestFrame) track.requestFrame();
-        await new Promise(resolve => setTimeout(resolve, 33));
-        setExportProgress(Math.round(((i + 1) / steps.length) * 100));
-      }
-
-      recorder.stop();
-      await new Promise(resolve => { recorder.onstop = resolve; });
-
-      if (!exportCancelRef.current) {
-        const blob = new Blob(chunks, { type: 'video/webm' });
-        if (autoRender) {
-          // CLI mode: store on window for puppeteer to pick up
-          window.__exportedVideo = blob;
-          window.__renderComplete = true;
-        } else {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'sieve_trace.webm';
-          a.click();
-          URL.revokeObjectURL(url);
-        }
-      }
-    } catch (err) {
-      console.error('Video export failed:', err);
-    }
-
-    setExporting(false);
-    setExportProgress(0);
-    // Restore current step
-    goToStep(currentStep);
-  }, [steps, header.bitCount, currentStep, exporting, goToStep]);
-
-  const cancelExport = useCallback(() => {
-    exportCancelRef.current = true;
-  }, []);
+  // PNG snapshot + WebM video export. See src/hooks/useTraceExport.js.
+  const { exporting, exportProgress, exportPng, exportVideo, cancelExport } = useTraceExport({
+    rendererRef,
+    steps,
+    bitCount: header.bitCount,
+    currentStep,
+    goToStep,
+    autoRender,
+  });
 
   // Search: navigate to a specific bit, byte, uint64, vector, or number
   const handleSearch = useCallback((query) => {
@@ -3919,302 +3515,79 @@ export default function Visualizer({
   // step-focus-banner when it's visible; moved into the detail panel when the
   // banner is hidden so the controls remain accessible.
   const stepAnimSlidersContent = (
-    <>
-      {/* Mode toggle: switch between mask-stamp animation and per-bit
-          sequential reveal. Defaults to 'mask' on entering an event
-          that has mask metadata; toggling to 'bit' walks the bits
-          individually. */}
-      {currentStepData && currentStepData.maskWriteOrderWords && currentStepData.maskWriteOrderWords.length > 0 && (
-        <div className="step-focus-slider-row step-focus-mode-row" title="Choose how the timeline scrubs this event">
-          <span className="step-focus-slider-label">Mode</span>
-          <div className="step-focus-mode-toggle">
-            <button
-              type="button"
-              className={`step-focus-mode-btn${bitAnimationMode === 'mask' ? ' active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                stopSeqAnim();
-                setBitAnimationMode('mask');
-                bitAnimationModeRef.current = 'mask';
-                seekStepAnimation(stepScrubProgress / 100);
-              }}
-              onMouseDown={(e) => e.stopPropagation()}
-              title="Animate only the apply-mask group stamps"
-            >Mask</button>
-            <button
-              type="button"
-              className={`step-focus-mode-btn${bitAnimationMode === 'bit' ? ' active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                stopSeqAnim();
-                setBitAnimationMode('bit');
-                bitAnimationModeRef.current = 'bit';
-                seekStepAnimation(stepScrubProgress / 100);
-              }}
-              onMouseDown={(e) => e.stopPropagation()}
-              title="Animate only the bits being set one by one"
-            >Bits</button>
-            <button
-              type="button"
-              className={`step-focus-mode-btn${bitAnimationMode === 'combined' ? ' active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                stopSeqAnim();
-                setBitAnimationMode('combined');
-                bitAnimationModeRef.current = 'combined';
-                seekStepAnimation(stepScrubProgress / 100);
-              }}
-              onMouseDown={(e) => e.stopPropagation()}
-              title="Animate both the mask stamps and the bits revealing in lockstep"
-            >Both</button>
-          </div>
-          <span className="step-focus-slider-value step-focus-mode-value">{bitAnimationMode}</span>
-        </div>
-      )}
-      <div className="step-focus-slider-row" title="Scrub through this event's animation">
-        <span className="step-focus-slider-label">Timeline</span>
-        <div className="step-focus-slider-controls">
-          <button
-            type="button"
-            className="step-focus-play-btn"
-            onClick={(e) => { e.stopPropagation(); handleStepAnimToggle(); }}
-            onMouseDown={(e) => e.stopPropagation()}
-            title={(stepAnimRunning || singleEventLoopActive) ? 'Pause the timeline animation' : 'Play the timeline animation at the current Speed'}
-            disabled={exporting || !currentStepData || ((!currentStepData.changedBits || currentStepData.changedBits.length === 0) && (bitAnimationMode !== 'mask' || !currentStepData.maskWriteOrderWords || currentStepData.maskWriteOrderWords.length === 0))}
-          >
-            {(stepAnimRunning || singleEventLoopActive) ? <Pause size={14} /> : <Play size={14} />}
-          </button>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={stepScrubProgress}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10);
-              setStepScrubProgress(v);
-              seekStepAnimation(v / 100);
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-            disabled={exporting || !currentStepData || ((!currentStepData.changedBits || currentStepData.changedBits.length === 0) && (bitAnimationMode !== 'mask' || !currentStepData.maskWriteOrderWords || currentStepData.maskWriteOrderWords.length === 0))}
-          />
-        </div>
-        <span className="step-focus-slider-value">{stepScrubProgress}%</span>
-      </div>
-      <div className="step-focus-slider-row step-focus-mode-row" title="How long the timeline takes 0..100% for an event. Progressive: 2s per populated tier (first 10 bits, next 100 bits, the rest) — caps at 6s. Linear: total time scales with the bit count.">
-        <span className="step-focus-slider-label">Target</span>
-        <div className="step-focus-mode-toggle">
-          <button
-            type="button"
-            className={`step-focus-mode-btn${eventDurationMode === 'progressive' ? ' active' : ''}`}
-            onClick={(e) => { e.stopPropagation(); setEventDurationMode('progressive'); }}
-            onMouseDown={(e) => e.stopPropagation()}
-            title="Tiered: 2s for the first 10 bits, 2s for the next 100, 2s for the rest (max ~6s)"
-          >Progressive</button>
-          <button
-            type="button"
-            className={`step-focus-mode-btn${eventDurationMode === 'linear' ? ' active' : ''}`}
-            onClick={(e) => { e.stopPropagation(); setEventDurationMode('linear'); }}
-            onMouseDown={(e) => e.stopPropagation()}
-            title="Linear: total duration scales with the bit count (matches the speed slider exactly)"
-          >Linear</button>
-        </div>
-        <span className="step-focus-slider-value step-focus-mode-value" title="Target time the timeline takes from 0% to 100% for the current event with the active mode and speed">
-          {(() => {
-            const c = currentStepData?.changedBits?.length || 0;
-            const d = computeEventDuration(c);
-            const formatted = d >= 1000 ? `${(d / 1000).toFixed(1)}s` : `${Math.round(d)}ms`;
-            return `${formatted} · ${c} bit${c === 1 ? '' : 's'}`;
-          })()}
-        </span>
-      </div>
-      <label className="step-focus-slider-row" title="Playback speed as a percentage of the per-event normal time target. 50% takes twice as long, 200% takes half as long. Affects bit reveal AND mask stamps in lockstep.">
-        <span className="step-focus-slider-label">Speed</span>
-        {/* Slider is a percentage of the per-event "normal" time target.
-            Range 25%..400%, log-mapped so each tick is the same multiplicative
-            jump and 100% sits comfortably inside the slider. The same value
-            scales the per-bit reveal AND the mask stamp animation. */}
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={1}
-          value={(() => {
-            const pct = Math.max(25, Math.min(400, Number(playSpeedPercent) || 100));
-            const ratio = Math.log(pct / 25) / Math.log(400 / 25);
-            return Math.round(Math.max(0, Math.min(1, ratio)) * 100);
-          })()}
-          onChange={(e) => {
-            const v = Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0));
-            const pct = 25 * Math.pow(400 / 25, v / 100);
-            setPlaySpeedPercent(Math.max(25, Math.min(400, Math.round(pct))));
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-          disabled={exporting}
-        />
-        <span className="step-focus-slider-value" title={`${playSpeedPercent}% of normal speed`}>{playSpeedPercent}%</span>
-      </label>
-    </>
+    <StepAnimSliders
+      currentStepData={currentStepData}
+      bitAnimationMode={bitAnimationMode}
+      setBitAnimationMode={setBitAnimationMode}
+      bitAnimationModeRef={bitAnimationModeRef}
+      stopSeqAnim={stopSeqAnim}
+      seekStepAnimation={seekStepAnimation}
+      stepScrubProgress={stepScrubProgress}
+      setStepScrubProgress={setStepScrubProgress}
+      handleStepAnimToggle={handleStepAnimToggle}
+      stepAnimRunning={stepAnimRunning}
+      singleEventLoopActive={singleEventLoopActive}
+      exporting={exporting}
+      eventDurationMode={eventDurationMode}
+      setEventDurationMode={setEventDurationMode}
+      computeEventDuration={computeEventDuration}
+      playSpeedPercent={playSpeedPercent}
+      setPlaySpeedPercent={setPlaySpeedPercent}
+    />
   );
 
   return (
     <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}`}>
-      {/* Header bar */}
-      <header className="toolbar">
-        <div className="toolbar-left">
-          <div className="trace-title-block">
-            <button
-              ref={traceInfoToggleRef}
-              type="button"
-              className={`trace-title trace-title-button${showTraceInfo ? ' active' : ''}`}
-              title="Trace information"
-              onClick={() => setShowTraceInfo((open) => !open)}
-            >
-              {effectiveTitle}
-            </button>
-          </div>
-          <div className="trace-actions">
-            {onClose && <button className="btn-icon" onClick={onClose} title="Close trace">✕</button>}
-          </div>
-          {showTraceInfo && (
-            <div className="trace-info-popover" ref={traceInfoPopoverRef}>
-              <div className="trace-info-section">
-                <div className="trace-info-section-title">Storage model</div>
-                <div className="trace-info-row">
-                  <select
-                    className="trace-info-storage-select"
-                    value={storageModel || 'half'}
-                    onChange={(e) => setStorageModel(e.target.value)}
-                    title={`Detected from log: ${header.storageModel || 'half'}`}
-                  >
-                    {Object.entries(STORAGE_MODELS).map(([k, v]) => (
-                      <option key={k} value={k}>{v.label}</option>
-                    ))}
-                  </select>
-                </div>
-                {header.storageModel && header.storageModel !== storageModel && (
-                  <div className="trace-info-row trace-info-row-hint">
-                    Log reported <code>{header.storageModel}</code> — override active.
-                  </div>
-                )}
-              </div>
-              {traceInfoSections.map((section) => (
-                <div key={section.title} className="trace-info-section">
-                  <div className="trace-info-section-title">{section.title}</div>
-                  {section.rows.map((row) => (
-                    <div key={`${section.title}-${row.label}-${row.value}`} className="trace-info-row trace-info-row-kv">
-                      <span className="trace-info-key">{row.label}</span>
-                      <span className="trace-info-value">{row.value}</span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="toolbar-center">
-          <button className="btn-icon" onClick={() => goToStep(0)} title="First (Home)" disabled={exporting}><SkipBack /></button>
-          <button className="btn-icon" onClick={() => goToStep(currentStep - 1)} title="Previous (←)" disabled={exporting}><StepBack /></button>
-          <button className="btn-icon anim-speed-btn" onClick={() => setPlaySpeedPercent(v => Math.max(25, Math.round(v / 1.25)))} title="Slower animation" disabled={exporting}><Minus size={14} /></button>
-          <button
-            className="btn-icon"
-            onClick={handlePlayPause}
-            title={playing ? 'Pause playback' : (currentStep >= Math.max(0, steps.length - 1) ? 'Restart trace and play' : 'Play trace from current event')}
-            disabled={exporting || steps.length === 0}
-          >
-            {playing ? <Pause /> : <Play />}
-          </button>
-          <button className="btn-icon anim-speed-btn" onClick={() => setPlaySpeedPercent(v => Math.min(400, Math.round(v * 1.25)))} title="Faster animation" disabled={exporting}><Plus size={14} /></button>
-          <button className="btn-icon" onClick={() => goToStep(currentStep + 1)} title="Next (→)" disabled={exporting}><StepForward /></button>
-          <button className="btn-icon" onClick={() => goToStep(steps.length - 1)} title="Last (End)" disabled={exporting}><SkipForward /></button>
-          <input
-            type="range"
-            className="step-slider"
-            min={0}
-            max={Math.max(0, steps.length - 1)}
-            value={currentStep}
-            onChange={(e) => {
-              const target = parseInt(e.target.value, 10);
-              // While the user is mid-drag we want each new value to immediately
-              // jump to that event AND start animating it (with the per-event
-              // auto-replay loop restarting it on completion). On release we
-              // clear the scrub flag so behaviour reverts to either all-events
-              // playback or a static jump depending on `playing`.
-              goToStep(target);
-            }}
-            onPointerDown={() => { isScrubbingTopRef.current = true; }}
-            onPointerUp={() => { isScrubbingTopRef.current = false; }}
-            onPointerCancel={() => { isScrubbingTopRef.current = false; }}
-            onMouseLeave={(e) => { if (e.buttons === 0) isScrubbingTopRef.current = false; }}
-            disabled={exporting}
-          />
-          <span className="step-counter">{currentStep} / {steps.length - 1}</span>
-        </div>
-        <div className="toolbar-right">
-          {!isWindowsPlatform && (
-            <>
-              <div className={`search-box${searchOpen ? ' expanded' : ''}`}>
-                <button className="btn-icon" onClick={() => setSearchOpen(o => !o)} title="Search (bit/byte/number)"><Search /></button>
-                {searchOpen && (
-                  <div className="search-popover">
-                    <input
-                      type="text"
-                      className="search-input"
-                      placeholder="bit 42 / byte 5 / number 97"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(searchQuery); if (e.key === 'Escape') setSearchOpen(false); }}
-                      autoFocus
-                      title="Search: bit N, byte N, uint64 N, vector N, number N"
-                    />
-                    {searchResult && <div className="search-result">{searchResult}</div>}
-                  </div>
-                )}
-              </div>
-              <button className="btn-icon" onClick={() => doZoom(1.5)} title="Zoom In (+)"><ZoomIn /></button>
-              <button className="btn-text" onClick={resetZoom} title="Reset Zoom (0)">{zoom.toFixed(1)}x</button>
-              <button className="btn-icon" onClick={() => doZoom(1 / 1.5)} title="Zoom Out (−)"><ZoomOut /></button>
-              <button className={`btn-icon${mode3D ? ' active' : ''}`} onClick={toggle3D} title="Toggle 3D view (3)">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M2 11L8 14L14 11" />
-                  <path d="M2 8L8 11L14 8" />
-                  <path d="M2 5L8 2L14 5L8 8Z" />
-                </svg>
-              </button>
-              <button className={`btn-icon${heatMapEnabled ? ' active' : ''}`} onClick={() => setHeatMapEnabled(h => !h)} title="Toggle cacheline heat map overlay — shows hit count and recency per cacheline"><Thermometer /></button>
-              <button className={`btn-icon${primeOverlayEnabled ? ' active prime-overlay-btn' : ''}`} onClick={() => setPrimeOverlayEnabled(v => !v)} title="Toggle prime number overlay — highlights every bit whose represented number is prime"><PrimeStar /></button>
-              <button className={`btn-icon${timingPanelOpen ? ' active' : ''}`} onClick={() => setTimingPanelOpen(o => !o)} title="Function timings">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <circle cx="8" cy="9" r="5.5" />
-                  <path d="M8 6v3.5l2 1.5" strokeLinecap="round" />
-                  <path d="M6 1.5h4" strokeLinecap="round" />
-                  <path d="M8 1.5v2" strokeLinecap="round" />
-                </svg>
-              </button>
-              <button className={`btn-icon${loweredSetBits ? ' active' : ''}`} onClick={() => setLoweredSetBits((value) => !value)} title="Toggle lowered-set-bits sieve mode">
-                ▽
-              </button>
-              <button className="btn-icon" onClick={exportPng} title="Export PNG"><Camera /></button>
-              {!exporting ? (
-                <button className="btn-icon" onClick={exportVideo} title="Export Video (WebM)"><Film /></button>
-              ) : (
-                <button className="btn-export-cancel" onClick={cancelExport} title="Cancel export">
-                  {exportProgress}%
-                </button>
-              )}
-              <button className="btn-icon" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} title="Toggle theme (T)">
-                {theme === 'dark' ? <Sun /> : <Moon />}
-              </button>
-            </>
-          )}
-        </div>
-      </header>
+      <Toolbar
+        isMacPlatform={isMacPlatform}
+        isWindowsPlatform={isWindowsPlatform}
+        isElectron={isElectron}
+        effectiveTitle={effectiveTitle}
+        showTraceInfo={showTraceInfo}
+        setShowTraceInfo={setShowTraceInfo}
+        traceInfoToggleRef={traceInfoToggleRef}
+        traceInfoPopoverRef={traceInfoPopoverRef}
+        storageModel={storageModel}
+        setStorageModel={setStorageModel}
+        header={header}
+        traceInfoSections={traceInfoSections}
+        onClose={onClose}
+        steps={steps}
+        currentStep={currentStep}
+        goToStep={goToStep}
+        playing={playing}
+        handlePlayPause={handlePlayPause}
+        exporting={exporting}
+        setPlaySpeedPercent={setPlaySpeedPercent}
+        isScrubbingTopRef={isScrubbingTopRef}
+        searchOpen={searchOpen}
+        setSearchOpen={setSearchOpen}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        searchResult={searchResult}
+        handleSearch={handleSearch}
+        zoom={zoom}
+        doZoom={doZoom}
+        resetZoom={resetZoom}
+        mode3D={mode3D}
+        toggle3D={toggle3D}
+        heatMapEnabled={heatMapEnabled}
+        setHeatMapEnabled={setHeatMapEnabled}
+        primeOverlayEnabled={primeOverlayEnabled}
+        setPrimeOverlayEnabled={setPrimeOverlayEnabled}
+        timingPanelOpen={timingPanelOpen}
+        setTimingPanelOpen={setTimingPanelOpen}
+        loweredSetBits={loweredSetBits}
+        setLoweredSetBits={setLoweredSetBits}
+        exportPng={exportPng}
+        exportVideo={exportVideo}
+        cancelExport={cancelExport}
+        exportProgress={exportProgress}
+        theme={theme}
+        setTheme={setTheme}
+      />
 
-      {/* Export progress bar */}
-      {exporting && (
-        <div className="export-progress">
-          <div className="export-progress-bar" style={{ width: `${exportProgress}%` }} />
-        </div>
-      )}
+      {exporting && <ExportProgress progress={exportProgress} />}
 
       {/* Main content */}
       <div className={`main-content${mode3D ? ' mode-3d' : ''}`}>
@@ -4234,332 +3607,61 @@ export default function Visualizer({
           revealStepRequest={revealStepRequest}
         />
 
-        <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
-          {eventTitleSettings.visible && (
-            <div
-              className="step-focus-banner position-center"
-              title={currentStepBanner.title}
-              style={eventTitleStyle}
-              onMouseDown={(e) => {
-                if (e.target.closest('input') || e.target.closest('button')) return;
-                const startX = e.clientX;
-                const startY = e.clientY;
-                const startOffX = eventTitleSettings.dragOffsetX || 0;
-                const startOffY = eventTitleSettings.dragOffsetY || 0;
-                let dragged = false;
-                const onMove = (ev) => {
-                  const dx = ev.clientX - startX;
-                  const dy = ev.clientY - startY;
-                  if (!dragged && Math.hypot(dx, dy) < 4) return;
-                  dragged = true;
-                  setEventTitleSettings((prev) => ({
-                    ...prev,
-                    dragOffsetX: startOffX + dx,
-                    dragOffsetY: startOffY + dy,
-                  }));
-                };
-                const onUp = () => {
-                  window.removeEventListener('mousemove', onMove);
-                  window.removeEventListener('mouseup', onUp);
-                  if (!dragged) {
-                    // Click without drag: open the Events panel.
-                    if (stepsPanelCollapsed) setStepsPanelCollapsed(false);
-                  }
-                };
-                window.addEventListener('mousemove', onMove);
-                window.addEventListener('mouseup', onUp);
-                e.preventDefault();
-              }}
-            >
-              <button
-                className="step-focus-close-btn"
-                onClick={(e) => { e.stopPropagation(); setEventTitleSettings((prev) => ({ ...prev, visible: false })); }}
-                onMouseDown={(e) => e.stopPropagation()}
-                title="Hide event title — use the ▲ in the details panel to show it again"
-              >▼</button>
-              <button
-                className="step-focus-locate-btn"
-                onClick={(e) => { e.stopPropagation(); revealCurrentStepInPanel(); }}
-                onMouseDown={(e) => e.stopPropagation()}
-                title="Reveal this event in the events panel (clears filters and expands parents)"
-              >⤢</button>
-              <div className="step-focus-lines">
-                <div className="step-focus-line1">{currentStepBanner.line1}</div>
-                {currentStepBanner.line2 && <div className="step-focus-line2">{currentStepBanner.line2}</div>}
-                {currentStepBanner.line3 && <div className="step-focus-line3">{currentStepBanner.line3}</div>}
-              </div>
-              {(surroundingEvents.prev.length > 0 || surroundingEvents.next.length > 0) && (
-                <div
-                  className="step-focus-context"
-                  onMouseDown={(e) => e.stopPropagation()}
-                  title="Last 2 and next 2 events. Click any row to jump to it."
-                >
-                  {surroundingEvents.prev.map((ev) => (
-                    <div
-                      key={`prev-${ev.idx}`}
-                      className="step-focus-context-row prev"
-                      onClick={(e) => { e.stopPropagation(); goToStep(ev.idx); }}
-                    >
-                      <span className="ctx-id">#{ev.eventId}</span>
-                      <span className="ctx-op">{ev.op}</span>
-                      {ev.meta && <span className="ctx-meta">{ev.meta}</span>}
-                      {ev.bits > 0 && <span className="ctx-bits">+{ev.bits}b</span>}
-                      {ev.elapsedLabel && <span className="ctx-time">{ev.elapsedLabel}</span>}
-                    </div>
-                  ))}
-                  <div className="step-focus-context-row current">
-                    <span className="ctx-id">#{currentStepData?.stepId ?? currentStep}</span>
-                    <span className="ctx-op">▶ current</span>
-                  </div>
-                  {surroundingEvents.next.map((ev) => (
-                    <div
-                      key={`next-${ev.idx}`}
-                      className="step-focus-context-row next"
-                      onClick={(e) => { e.stopPropagation(); goToStep(ev.idx); }}
-                    >
-                      <span className="ctx-id">#{ev.eventId}</span>
-                      <span className="ctx-op">{ev.op}</span>
-                      {ev.meta && <span className="ctx-meta">{ev.meta}</span>}
-                      {ev.bits > 0 && <span className="ctx-bits">+{ev.bits}b</span>}
-                      {ev.elapsedLabel && <span className="ctx-time">{ev.elapsedLabel}</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="step-focus-sliders">
-                {stepAnimSlidersContent}
-              </div>
-            </div>
-          )}
-          <div className={`canvas-container${mode3D ? ' mode-3d' : ''}`} ref={containerRef} style={camera3DContainerStyle}>
-            <canvas
-              ref={settledCanvasRef}
-              className={`settled-render-canvas${loweredSetBits ? ' active' : ''}`}
-              style={renderCanvasStyle}
-              aria-hidden="true"
-            />
-            <canvas
-              ref={canvasRef}
-              className="main-render-canvas"
-              style={renderCanvasStyle}
-            />
-            <canvas ref={minimapCanvasRef} className="minimap-overlay-canvas" aria-hidden="true" />
-          </div>
-          {/* Bit history panels: hover plus one or more click-locked balloons */}
-          {(() => {
-            const hoverBalloonVisible = !!hoveredBitInfo && !pinnedBitIndices.includes(hoveredBitInfo.bitIndex);
-            const visibleBalloonStyles = getVisibleBalloonStyles([
-              ...pinnedBitIndices.map((bitIndex) => ({ kind: 'pinned', bitIndex })),
-              ...(hoverBalloonVisible ? [{ kind: 'hover', bitIndex: hoveredBitInfo.bitIndex }] : []),
-            ]);
-
-            return (
-              <>
-                {pinnedBitIndices.map((bitIdx) => {
-            const info = computeBitInfo(bitIdx);
-            if (!info) return null;
-            const bi = info.bitIndex;
-            const byteIdx = Math.floor(bi / 8);
-            const bitInByte = bi % 8;
-            const u32Idx = Math.floor(bi / 32);
-            const bitInU32 = bi % 32;
-            const u64Idx = Math.floor(bi / 64);
-            const bitInU64 = bi % 64;
-            const clIdx = Math.floor(bi / (cachelineSize * 8));
-            const pinnedEntry = visibleBalloonStyles[`pinned-${bi}`];
-            const pinnedVisible = pinnedEntry ? pinnedEntry.visible !== false : true;
-            return (
-              <div
-                key={`locked-bit-${bi}`}
-                className={`bit-history-panel locked hover-balloon${pinnedVisible ? '' : ' clipped'}`}
-                style={pinnedEntry?.panelStyle}
-              >
-                <div className="bit-history-header">
-                  <span>📌 Bit {bi} → #{info.number}</span>
-                  <button className="bit-history-close" onClick={() => setPinnedBitIndices((prev) => prev.filter((value) => value !== bi))}>✕</button>
-                </div>
-                {info.isPrime && (
-                  <div className="bit-prime-notice">★ {info.number} is prime</div>
-                )}
-                <div className="bit-history-indices">
-                  <table className="bit-index-table">
-                    <tbody>
-                      <tr><td>Bit</td><td>{bi}</td></tr>
-                      <tr><td>Number</td><td>{info.number}</td></tr>
-                      <tr><td>uint8 (byte)</td><td>byte #{byteIdx}, bit {bitInByte}</td></tr>
-                      <tr><td>uint32</td><td>word #{u32Idx}, bit {bitInU32}</td></tr>
-                      <tr><td>uint64</td><td>qword #{u64Idx}, bit {bitInU64}</td></tr>
-                      <tr><td>Cache line</td><td>#{clIdx} ({cachelineSize}B)</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div className="bit-history-body">
-                  {info.history.length === 0 ? (
-                    <p className="bit-history-empty">No events have modified this bit.</p>
-                  ) : (
-                    <table className="bit-history-table">
-                      <thead>
-                        <tr><th>Event</th><th>Operation</th><th>Prime</th></tr>
-                      </thead>
-                      <tbody>
-                        {info.history.map((h) => (
-                          <tr key={`locked-${bi}-${h.stepIndex}`} className={h.stepIndex === currentStep ? 'bh-current' : ''}
-                            onClick={() => { handleStepSelection(h.stepIndex); }}>
-                            <td>{h.stepIndex}</td>
-                            <td>{h.operation || '—'}</td>
-                            <td>{h.prime != null ? h.prime : '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              </div>
-            );
-                })}
-
-                {hoverBalloonVisible && (() => {
-                  const info = hoveredBitInfo;
-                  const bi = info.bitIndex;
-                  const byteIdx = Math.floor(bi / 8);
-                  const bitInByte = bi % 8;
-                  const u32Idx = Math.floor(bi / 32);
-                  const bitInU32 = bi % 32;
-                  const u64Idx = Math.floor(bi / 64);
-                  const bitInU64 = bi % 64;
-                  const clIdx = Math.floor(bi / (cachelineSize * 8));
-                  const hoverEntry = visibleBalloonStyles[`hover-${bi}`];
-                  const hoverVisible = hoverEntry ? hoverEntry.visible !== false : true;
-                  return (
-                    <div className={`bit-history-panel hover-balloon${hoverVisible ? '' : ' clipped'}`} style={hoverEntry?.panelStyle}>
-                <div className="bit-history-header">
-                  <span>Bit {bi} → #{info.number}</span>
-                </div>
-                {info.isPrime && (
-                  <div className="bit-prime-notice">★ {info.number} is prime</div>
-                )}
-                <div className="bit-history-indices">
-                  <table className="bit-index-table">
-                    <tbody>
-                      <tr><td>Bit</td><td>{bi}</td></tr>
-                      <tr><td>Number</td><td>{info.number}</td></tr>
-                      <tr><td>uint8 (byte)</td><td>byte #{byteIdx}, bit {bitInByte}</td></tr>
-                      <tr><td>uint32</td><td>word #{u32Idx}, bit {bitInU32}</td></tr>
-                      <tr><td>uint64</td><td>qword #{u64Idx}, bit {bitInU64}</td></tr>
-                      <tr><td>Cache line</td><td>#{clIdx} ({cachelineSize}B)</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div className="bit-history-body">
-                  {info.history.length === 0 ? (
-                    <p className="bit-history-empty">No events have modified this bit.</p>
-                  ) : (
-                    <table className="bit-history-table">
-                      <thead>
-                        <tr><th>Event</th><th>Operation</th><th>Prime</th></tr>
-                      </thead>
-                      <tbody>
-                        {info.history.map((h) => (
-                          <tr key={`hover-${bi}-${h.stepIndex}`} className={h.stepIndex === currentStep ? 'bh-current' : ''}
-                            onClick={() => { handleStepSelection(h.stepIndex); }}>
-                            <td>{h.stepIndex}</td>
-                            <td>{h.operation || '—'}</td>
-                            <td>{h.prime != null ? h.prime : '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-                <div className="bit-history-hint">Click to lock. Double-click to keep only this balloon.</div>
-              </div>
-                  );
-                })()}
-              </>
-            );
-          })()}
-
-          {/* Detail panel at the bottom of the canvas area */}
-          <DetailPanel
-            step={currentStepData}
-            stepIndex={currentStep}
-            open={detailOpen}
-            onToggle={toggleDetailPanel}
-            height={detailHeight}
-            onHeightChange={updateDetailHeight}
-            width={detailWidth}
-            onWidthChange={setDetailWidth}
-            playing={playing}
-            stepStats={selectedSteps.size > 1 ? null : stepStats}
-            storageModel={storageModel}
-            bitLayout={layoutSettings.bitLayout}
-            byteLayout={layoutSettings.byteLayout}
-            benchmarkTimingData={benchmarkTimingData}
-            onInspectChangedBits={() => openDetailInspector('bits')}
-            onInspectMarkedNumbers={() => openDetailInspector('numbers')}
-            eventTitleVisible={eventTitleSettings.visible}
-            onShowEventTitle={() => setEventTitleSettings((prev) => ({ ...prev, visible: true }))}
-            eventAnimSliders={stepAnimSlidersContent}
-          />
-
-          {detailInspectorOpen && (
-            <div className="detail-inspector-overlay" role="dialog" aria-modal="true">
-              <div className="detail-inspector-panel">
-                <div className="detail-inspector-header">
-                  <div className="detail-inspector-title">{detailInspectorMode === 'numbers' ? 'Marked Numbers' : 'Changed Bits'}</div>
-                  <button className="btn-icon" onClick={() => setDetailInspectorOpen(false)} title="Close inspector">✕</button>
-                </div>
-                <div className="detail-inspector-controls">
-                  <input
-                    type="text"
-                    value={detailInspectorQuery}
-                    onChange={(e) => setDetailInspectorQuery(e.target.value)}
-                    placeholder="Search bit, number, byte, uint64, group, cacheline"
-                    className="detail-inspector-search"
-                  />
-                  <span className="detail-inspector-count">{filteredDetailInspectorRows.length} / {detailInspectorRows.length}</span>
-                </div>
-                <div className="detail-inspector-table-wrap">
-                  <table className="detail-inspector-table">
-                    <thead>
-                      <tr>
-                        <th>Bit</th>
-                        <th>Number</th>
-                        <th>Byte</th>
-                        <th>uint64</th>
-                        <th>Group</th>
-                        <th>Cacheline</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredDetailInspectorRows.map((row) => (
-                        <tr key={`di-${row.bit}`}>
-                          <td>{row.bit}</td>
-                          <td>{row.number}</td>
-                          <td>{row.byte}</td>
-                          <td>{row.uint64}</td>
-                          <td>{row.group}</td>
-                          <td>{row.cacheline}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {timingPanelOpen && (
-            <TimingPanel
-              steps={steps}
-              benchmarkTimingData={benchmarkTimingData}
-              benchmarkTimingFileName={benchmarkTimingFileName}
-              onClose={() => setTimingPanelOpen(false)}
-              onFocusFn={(fnName) => setTimingFocusOp(fnName || '')}
-              onImportBenchmarkTiming={onImportBenchmarkTiming}
-            />
-          )}
-        </div>
+        <CanvasStage
+          mode3D={mode3D}
+          loweredSetBits={loweredSetBits}
+          containerRef={containerRef}
+          canvasRef={canvasRef}
+          settledCanvasRef={settledCanvasRef}
+          minimapCanvasRef={minimapCanvasRef}
+          camera3DContainerStyle={camera3DContainerStyle}
+          renderCanvasStyle={renderCanvasStyle}
+          eventTitleSettings={eventTitleSettings}
+          setEventTitleSettings={setEventTitleSettings}
+          eventTitleStyle={eventTitleStyle}
+          currentStepBanner={currentStepBanner}
+          surroundingEvents={surroundingEvents}
+          currentStepData={currentStepData}
+          currentStep={currentStep}
+          goToStep={goToStep}
+          revealCurrentStepInPanel={revealCurrentStepInPanel}
+          stepsPanelCollapsed={stepsPanelCollapsed}
+          setStepsPanelCollapsed={setStepsPanelCollapsed}
+          stepAnimSlidersContent={stepAnimSlidersContent}
+          pinnedBitIndices={pinnedBitIndices}
+          hoveredBitInfo={hoveredBitInfo}
+          computeBitInfo={computeBitInfo}
+          getVisibleBalloonStyles={getVisibleBalloonStyles}
+          cachelineSize={cachelineSize}
+          setPinnedBitIndices={setPinnedBitIndices}
+          handleStepSelection={handleStepSelection}
+          detailOpen={detailOpen}
+          toggleDetailPanel={toggleDetailPanel}
+          detailHeight={detailHeight}
+          updateDetailHeight={updateDetailHeight}
+          detailWidth={detailWidth}
+          setDetailWidth={setDetailWidth}
+          playing={playing}
+          selectedSteps={selectedSteps}
+          stepStats={stepStats}
+          storageModel={storageModel}
+          layoutSettings={layoutSettings}
+          benchmarkTimingData={benchmarkTimingData}
+          openDetailInspector={openDetailInspector}
+          detailInspectorOpen={detailInspectorOpen}
+          detailInspectorMode={detailInspectorMode}
+          detailInspectorQuery={detailInspectorQuery}
+          setDetailInspectorQuery={setDetailInspectorQuery}
+          setDetailInspectorOpen={setDetailInspectorOpen}
+          detailInspectorRows={detailInspectorRows}
+          filteredDetailInspectorRows={filteredDetailInspectorRows}
+          timingPanelOpen={timingPanelOpen}
+          setTimingPanelOpen={setTimingPanelOpen}
+          benchmarkTimingFileName={benchmarkTimingFileName}
+          setTimingFocusOp={setTimingFocusOp}
+          onImportBenchmarkTiming={onImportBenchmarkTiming}
+          steps={steps}
+        />
 
         <SettingsPanel
           settings={layoutSettings}

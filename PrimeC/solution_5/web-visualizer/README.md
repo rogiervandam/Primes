@@ -223,11 +223,50 @@ web-visualizer/
 ├── src/                          # Shared visualization codebase
 │   ├── main.jsx                  # Entry point
 │   ├── App.jsx                   # File upload / welcome screen
-│   ├── Visualizer.jsx            # Main visualization UI
+│   ├── Visualizer.jsx            # Main visualization UI (canvas + overlays)
+│   ├── SettingsPanel.jsx         # Layout / vector / annotation settings
 │   ├── StepPanel.jsx             # Step list with search/filter/resize
+│   ├── DetailPanel.jsx           # Per-step inspector
+│   ├── TimingPanel.jsx           # Floating phase-timing readout
 │   ├── SieveRenderer.js          # Canvas rendering engine
-│   ├── traceParser.js            # JSON trace file parser
-│   └── styles.css                # All styles
+│   ├── Camera3D.js               # CSS-3D perspective camera
+│   ├── traceParser.js            # Trace file parser (JSON / text / dump)
+│   ├── lib/                      # Pure utility helpers
+│   │   ├── viewPrefs.js          # localStorage persistence + defaults
+│   │   ├── traceHeader.js        # Trace header → display sections
+│   │   ├── platform.js           # OS / Electron detection
+│   │   ├── unitConverters.js     # Slider ↔ duration mapping
+│   │   └── animationTiming.js    # Pure event-timing math
+│   ├── parser/                   # traceParser.js building blocks
+│   │   ├── parseUtils.js         # Aliases + kv/range/list parsing
+│   │   ├── primeInference.js     # Infer primes from annotations
+│   │   ├── maskMetadata.js       # Per-bit mask / write-order metadata
+│   │   ├── headerParser.js       # Title / benchmark / header extraction
+│   │   └── dumpParser.js         # Hex/binary memory-dump → events
+│   ├── renderer/                 # SieveRenderer.js building blocks
+│   │   ├── constants.js          # Themes, palettes, layouts, presets
+│   │   ├── bitMath.js            # bitToNumber / numberToBit
+│   │   └── drawingHelpers.js     # Pure colour & fitted-text helpers
+│   ├── hooks/                    # Reusable React hooks
+│   │   └── useFloatingPanel.js   # Drag/resize floating-panel behaviour
+│   ├── settings/                 # SettingsPanel building blocks
+│   │   ├── constants.js          # Layout/vector/grouping presets
+│   │   ├── buttons.jsx           # Reusable settings buttons & icons
+│   │   └── LegendSections.jsx    # Shared legend content
+│   ├── visualizer/               # Pieces extracted from Visualizer.jsx
+│   │   ├── Toolbar.jsx               # Top toolbar (transport + actions)
+│   │   ├── TraceInfoPopover.jsx      # Trace header info popover
+│   │   ├── ExportProgress.jsx        # Video export progress bar
+│   │   ├── BitHistoryBalloon.jsx     # Hover/pinned bit-history popover
+│   │   ├── EventTitleBanner.jsx      # Floating current-event banner
+│   │   ├── DetailInspectorOverlay.jsx # Modal bits / numbers / primes table
+│   │   ├── StepAnimSliders.jsx       # Mode / Timeline / Target / Speed cluster
+│   │   └── BitHistoryBalloons.jsx    # Pinned + hover balloon cluster
+│   └── styles/                   # Per-concern stylesheets
+│       └── index.css             # @imports the section files
+├── docs/                         # Developer documentation
+│   ├── ARCHITECTURE.md           # Module map and data flow
+│   └── COMPONENTS.md             # Per-component prop interfaces
 ├── electron/                     # Native desktop wrapper
 │   ├── main.mjs                  # Electron main process
 │   └── icons/                    # Platform icons (svg, ico, icns)
