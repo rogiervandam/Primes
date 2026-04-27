@@ -207,6 +207,8 @@ export default function SettingsPanel({
   settings, onChange, collapsed, onToggleCollapse,
   playSpeed, onPlaySpeedChange,
   repeatAnim, onRepeatAnimChange,
+  delayBetweenRepeats, onDelayBetweenRepeatsChange,
+  eventTimeTargets, onEventTimeTargetsChange,
   animMode, onAnimModeChange,
   animStyle, onAnimStyleChange,
   maskAnimationEnabled, onMaskAnimationEnabledChange,
@@ -349,14 +351,17 @@ export default function SettingsPanel({
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
   const adjustRepeatAnim = (deltaMs) => onRepeatAnimChange(clamp((repeatAnim || 0) + deltaMs, 0, 5000));
   const adjustBitInterval = (deltaMs) => onBitAnimIntervalChange(clamp((bitAnimInterval || 20) + deltaMs, 5, 5000));
+  // playSpeed is now a percentage (25..400). Map it onto a 1..100 slider with
+  // a log-scale so 100% sits comfortably in the middle and each tick is the
+  // same multiplicative jump.
   const playbackSpeedToMs = (speedValue) => {
     const speed = clamp(parseInt(speedValue || 0, 10) || 1, 1, 100);
     const ratio = (speed - 1) / 99;
-    return Math.round(12000 - ratio * (12000 - 4000));
+    return Math.round(25 * Math.pow(400 / 25, ratio));
   };
-  const msToPlaybackSpeed = (intervalValue) => {
-    const interval = clamp(parseInt(intervalValue || 0, 10) || 4000, 4000, 12000);
-    const ratio = (12000 - interval) / (12000 - 4000);
+  const msToPlaybackSpeed = (pctValue) => {
+    const pct = clamp(parseInt(pctValue || 0, 10) || 100, 25, 400);
+    const ratio = Math.log(pct / 25) / Math.log(400 / 25);
     return Math.round(1 + ratio * 99);
   };
   const stepSpeedToInterval = (speedValue) => {
@@ -369,7 +374,7 @@ export default function SettingsPanel({
     const ratio = (5000 - interval) / (5000 - 5);
     return Math.round(1 + ratio * 99);
   };
-  const playbackSpeedValue = msToPlaybackSpeed(playSpeed || 300);
+  const playbackSpeedValue = msToPlaybackSpeed(playSpeed || 100);
   const stepSpeedValue = intervalToStepSpeed(bitAnimInterval || 20);
   const setVectorGroupSimple = (group) => {
     onChange({
@@ -1608,16 +1613,16 @@ export default function SettingsPanel({
                   step={1}
                   value={playbackSpeedValue}
                   onChange={(e) => onPlaySpeedChange(playbackSpeedToMs(e.target.value))}
-                  title="Overall playback speed"
+                  title="Speed % applied to every per-event time target. 50% = twice as long, 200% = half as long."
                 />
                 <div className="timing-scale" aria-hidden="true">
                   <span>Slow</span>
-                  <span className="timing-value">{playbackSpeedValue}%</span>
+                  <span className="timing-value">{playSpeed || 100}%</span>
                   <span>Fast</span>
                 </div>
               </div>
               <div className="timing-control">
-                <span className="timing-title">Delay</span>
+                <span className="timing-title">Delay between events</span>
                 <input
                   className="timing-slider"
                   type="range"
@@ -1626,7 +1631,7 @@ export default function SettingsPanel({
                   step={100}
                   value={repeatAnim || 0}
                   onChange={(e) => onRepeatAnimChange(clamp(parseInt(e.target.value || '0', 10) || 0, 0, 5000))}
-                  title="Delay between steps"
+                  title="Pause after one event finishes before the all-events widget advances to the next event."
                 />
                 <div className="timing-scale" aria-hidden="true">
                   <span>Off</span>
@@ -1635,22 +1640,21 @@ export default function SettingsPanel({
                 </div>
               </div>
               <div className="timing-control">
-                <span className="timing-title">Step animation</span>
+                <span className="timing-title">Delay between repeats</span>
                 <input
                   className="timing-slider"
                   type="range"
-                  min={1}
-                  max={100}
-                  step={1}
-                  value={stepSpeedValue}
-                  onChange={(e) => onBitAnimIntervalChange(stepSpeedToInterval(e.target.value))}
-                  title="Selected step animation speed"
-                  disabled={animMode === 'all'}
+                  min={0}
+                  max={5000}
+                  step={100}
+                  value={delayBetweenRepeats || 0}
+                  onChange={(e) => onDelayBetweenRepeatsChange && onDelayBetweenRepeatsChange(clamp(parseInt(e.target.value || '0', 10) || 0, 0, 5000))}
+                  title="Pause between repeats when the single-event widget is in play mode."
                 />
                 <div className="timing-scale" aria-hidden="true">
-                  <span>Slow</span>
-                  <span className="timing-value">{animMode === 'all' ? 'All at once' : `${stepSpeedValue}%`}</span>
-                  <span>Fast</span>
+                  <span>Off</span>
+                  <span className="timing-value">{(delayBetweenRepeats || 0) === 0 ? 'Off' : `${((delayBetweenRepeats || 0) / 1000).toFixed(1)}s`}</span>
+                  <span>Long</span>
                 </div>
               </div>
             </div>
@@ -1684,7 +1688,41 @@ export default function SettingsPanel({
                 </label>
               </div>
             )}
-            <span className="settings-hint">Overall speed controls autoplay through the trace. Step animation controls how a selected step reveals its bits. Delay waits only after a full step animation finishes.</span>
+            {/* Per-event time targets — used when adaptiveDuration is on. The
+                tier picked is based on the change count of the event; the
+                resulting normal duration is divided by Overall speed %. */}
+            {eventTimeTargets && onEventTimeTargetsChange && (
+              <div className="settings-row" style={{ marginTop: 8, flexDirection: 'column', alignItems: 'stretch', gap: 4 }}>
+                <span className="timing-title" style={{ marginBottom: 4 }}>Per-event normal time targets (at 100% speed)</span>
+                {[
+                  { key: 'none', label: '0 changes' },
+                  { key: 'one',  label: '1 change' },
+                  { key: 'two',  label: '2 changes' },
+                  { key: 'few',  label: '3–10 changes' },
+                  { key: 'many', label: '11–100 changes' },
+                  { key: 'lots', label: '> 100 changes' },
+                  { key: 'min',  label: 'Min (clamp ↓)' },
+                  { key: 'max',  label: 'Max (clamp ↑)' },
+                ].map(({ key, label }) => (
+                  <label key={key} className="overlay-inline-field overlay-inline-field-range" style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ minWidth: 130, fontSize: '0.85em' }}>{label}</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={key === 'max' ? 30000 : (key === 'lots' ? 20000 : 10000)}
+                      step={50}
+                      value={Math.max(0, parseInt(eventTimeTargets[key] || 0, 10) || 0)}
+                      onChange={(e) => {
+                        const v = Math.max(0, parseInt(e.target.value || '0', 10) || 0);
+                        onEventTimeTargetsChange({ ...eventTimeTargets, [key]: v });
+                      }}
+                    />
+                    <span className="val" style={{ minWidth: 56, textAlign: 'right' }}>{((eventTimeTargets[key] || 0) / 1000).toFixed(2)}s</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <span className="settings-hint">Overall speed multiplies every per-event time target. Per-event tiers set how long an event takes at 100% speed; values are clamped to Min / Max. Delay between events is used by the all-events play. Delay between repeats is used by the single-event play.</span>
           </div>
 
           {onLoweredSetBitsToggle && (
