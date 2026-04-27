@@ -1995,13 +1995,17 @@ export class SieveRenderer {
               const depthScale = this.loweredSetBits3D ? 1.18 : 1;
               const baseDrop = px * Math.sin(depthAngleRad) * 1.05 * depthStrength * depthScale;
               const baseShiftX = px * Math.cos(depthAngleRad) * 0.55 * depthStrength * depthScale;
-              const isDepthBucket = depthModeEnabled && (isSettledBit || !isSetBit || (isSetBit && isChangedBit));
+              // In depth mode, only set bits sink to the lowered plane; cleared bits
+              // remain "raised" and are drawn as 3D boxes standing on the lowered plane.
+              const isLoweredCell = depthModeEnabled && isSetBit;
+              const isRaisedCell = depthModeEnabled && !isSetBit;
+              const isDepthBucket = isLoweredCell;
 
-              let sinkDrop = isDepthBucket ? baseDrop : 0;
-              let sinkShiftX = isDepthBucket ? baseShiftX : 0;
-              let sinkScale = isDepthBucket ? (this.loweredSetBits3D ? 0.56 : 0.68) : 1;
+              let sinkDrop = isLoweredCell ? baseDrop : 0;
+              let sinkShiftX = isLoweredCell ? baseShiftX : 0;
+              let sinkScale = isLoweredCell ? (this.loweredSetBits3D ? 0.56 : 0.68) : 1;
 
-              if (isDepthBucket && isSetBit && isChangedBit) {
+              if (isLoweredCell && isChangedBit) {
                 const startedAt = this.changedBitRiseAt.get(globalBit) || performance.now();
                 const elapsed = performance.now() - startedAt;
                 const durationMs = 700;
@@ -2032,34 +2036,21 @@ export class SieveRenderer {
               const baseAlpha = Math.max(0.12, Math.min(1, this.gridOpacity ?? 1));
               const bitAlpha = (!isChangedBit && !isGhostMaskedBit && !isRepeatedWrite) ? baseAlpha : 1;
 
-              if (layeredLoweredBits && isDepthBucket) {
-                const topX = Math.round(bitX);
-                const topY = Math.round(bitY);
-                const topSize = Math.max(1, Math.round(px));
-
-                // Side faces make the lowered layer read as depth instead of a flat duplicate.
-                ctx.save();
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
-                ctx.beginPath();
-                ctx.moveTo(topX + topSize, topY);
-                ctx.lineTo(topX + topSize, topY + topSize);
-                ctx.lineTo(drawX + drawSize, drawY + drawSize);
-                ctx.lineTo(drawX + drawSize, drawY);
-                ctx.closePath();
-                ctx.fill();
-
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.24)';
-                ctx.beginPath();
-                ctx.moveTo(topX, topY + topSize);
-                ctx.lineTo(topX + topSize, topY + topSize);
-                ctx.lineTo(drawX + drawSize, drawY + drawSize);
-                ctx.lineTo(drawX, drawY + drawSize);
-                ctx.closePath();
-                ctx.fill();
-                ctx.restore();
-
+              if (layeredLoweredBits && isLoweredCell) {
+                // Lowered (set) bit: only the sunken square, with optional drop
+                // shadow and inner highlight. No top-position box is drawn so the
+                // raised neighbours visually stand higher above the bottom plane.
                 settledCtx.save();
-                settledCtx.strokeStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.38)`;
+                settledCtx.fillStyle = 'rgba(0, 0, 0, 0.24)';
+                settledCtx.fillRect(
+                  Math.round(drawX - Math.max(1, px * 0.08)),
+                  Math.round(drawY - Math.max(1, px * 0.08)),
+                  Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16))),
+                  Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16)))
+                );
+                settledCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
+                settledCtx.fillRect(drawX, drawY, drawSize, drawSize);
+                settledCtx.strokeStyle = `rgba(255, 255, 255, ${this.loweredSetBits3D ? '0.16' : '0.12'})`;
                 settledCtx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
                 settledCtx.strokeRect(
                   Math.round(drawX) + 0.5,
@@ -2067,43 +2058,48 @@ export class SieveRenderer {
                   Math.max(1, Math.round(drawSize - 1)),
                   Math.max(1, Math.round(drawSize - 1))
                 );
-                if (isSetBit) {
-                  settledCtx.fillStyle = 'rgba(0, 0, 0, 0.24)';
-                  settledCtx.fillRect(
-                    Math.round(drawX - Math.max(1, px * 0.08)),
-                    Math.round(drawY - Math.max(1, px * 0.08)),
-                    Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16))),
-                    Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16)))
-                  );
-                  settledCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
-                  settledCtx.fillRect(drawX, drawY, drawSize, drawSize);
-                  settledCtx.strokeStyle = `rgba(255, 255, 255, ${this.loweredSetBits3D ? '0.16' : '0.12'})`;
-                  settledCtx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
-                  settledCtx.strokeRect(
-                    Math.round(drawX) + 0.5,
-                    Math.round(drawY) + 0.5,
-                    Math.max(1, Math.round(drawSize - 1)),
-                    Math.max(1, Math.round(drawSize - 1))
-                  );
-                }
                 settledCtx.restore();
+              } else if (layeredLoweredBits && isRaisedCell) {
+                // Raised (cleared) bit: render as a 3D box standing on the lowered
+                // plane. The box's bottom face sits at the sunken footprint
+                // (baseDrop / baseShiftX, scaled), and the top face sits at the
+                // original bit position with full size. Side faces connect them.
+                const baseSize = Math.max(1, Math.round(px * (this.loweredSetBits3D ? 0.56 : 0.68)));
+                const baseX = Math.round(bitX + baseShiftX + (px - baseSize) * 0.5);
+                const baseY = Math.round(bitY + baseDrop + (px - baseSize) * 0.5);
+                const topX = Math.round(bitX);
+                const topY = Math.round(bitY);
+                const topSize = Math.max(1, Math.round(px));
 
                 ctx.save();
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
-                ctx.fillRect(
-                  Math.round(bitX),
-                  Math.round(bitY),
-                  Math.max(1, Math.round(px)),
-                  Math.max(1, Math.round(px))
-                );
-                ctx.strokeStyle = `rgba(${color[0]},${color[1]},${color[2]},0.28)`;
+                // Right side face (darker)
+                ctx.fillStyle = `rgba(${Math.round(color[0] * 0.62)}, ${Math.round(color[1] * 0.62)}, ${Math.round(color[2] * 0.62)}, ${bitAlpha})`;
+                ctx.beginPath();
+                ctx.moveTo(topX + topSize, topY);
+                ctx.lineTo(topX + topSize, topY + topSize);
+                ctx.lineTo(baseX + baseSize, baseY + baseSize);
+                ctx.lineTo(baseX + baseSize, baseY);
+                ctx.closePath();
+                ctx.fill();
+
+                // Bottom-front side face (slightly darker than right)
+                ctx.fillStyle = `rgba(${Math.round(color[0] * 0.5)}, ${Math.round(color[1] * 0.5)}, ${Math.round(color[2] * 0.5)}, ${bitAlpha})`;
+                ctx.beginPath();
+                ctx.moveTo(topX, topY + topSize);
+                ctx.lineTo(topX + topSize, topY + topSize);
+                ctx.lineTo(baseX + baseSize, baseY + baseSize);
+                ctx.lineTo(baseX, baseY + baseSize);
+                ctx.closePath();
+                ctx.fill();
+
+                // Top face (original color, full size)
+                ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
+                ctx.fillRect(topX, topY, topSize, topSize);
+
+                // Subtle edge highlight on the top face
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
                 ctx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
-                ctx.strokeRect(
-                  Math.round(bitX) + 0.5,
-                  Math.round(bitY) + 0.5,
-                  Math.max(1, Math.round(px - 1)),
-                  Math.max(1, Math.round(px - 1))
-                );
+                ctx.strokeRect(topX + 0.5, topY + 0.5, Math.max(1, topSize - 1), Math.max(1, topSize - 1));
                 ctx.restore();
               } else {
                 drawCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
@@ -2301,7 +2297,9 @@ export class SieveRenderer {
                 const baseFontSize = dualLine
                   ? Math.max(5, Math.min(8, labelPx * 0.2))
                   : Math.max(5, Math.min(9, labelPx * 0.34));
-                const fontSize = baseFontSize * zoomBoost;
+                // Slightly shrink labels on lowered bits so the raised bits read as taller.
+                const loweredLabelScale = isLoweredLabel ? 0.85 : 1;
+                const fontSize = baseFontSize * zoomBoost * loweredLabelScale;
                 const centerX = Math.round(labelX + labelPx / 2);
                 const centerY = Math.round(labelY + labelPx / 2);
                 const textColor = this._labelTextColor(color);
