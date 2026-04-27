@@ -446,6 +446,11 @@ export default function Visualizer({
   const [cachelineSize, setCachelineSize] = useState(64);
   const [cachePreset, setCachePreset] = useState('fixed');
   const [stepsPanelCollapsed, setStepsPanelCollapsed] = useState(true);
+  // Bumped whenever the user explicitly asks to "reveal" the current event in
+  // the events panel (e.g. via the locate button on the event-title widget).
+  // StepPanel watches this counter to clear filters and expand parents so the
+  // active step becomes visible.
+  const [revealStepRequest, setRevealStepRequest] = useState(0);
   const [timingPanelOpen, setTimingPanelOpen] = useState(false);
   const [timingFocusOp, setTimingFocusOp] = useState('');
   const [detailInspectorOpen, setDetailInspectorOpen] = useState(false);
@@ -717,6 +722,25 @@ export default function Visualizer({
     });
     // Schedule refresh without anchor — panX already compensated
     schedulePostLayoutRefresh(null);
+  }, [panelWidth, schedulePostLayoutRefresh]);
+
+  // Open the events panel (if collapsed) and ask it to reveal the current
+  // step: clear filters that hide it, expand its parent group + ancestor
+  // nodes, and scroll it into view. Triggered from the event-title widget.
+  const revealCurrentStepInPanel = useCallback(() => {
+    setStepsPanelCollapsed((wasCollapsed) => {
+      if (wasCollapsed) {
+        const r = rendererRef.current;
+        const collapsedW = 32;
+        const expandedW = panelWidth;
+        const delta = expandedW - collapsedW;
+        if (r) r.panX -= delta / 2;
+        schedulePostLayoutRefresh(null);
+        return false;
+      }
+      return wasCollapsed;
+    });
+    setRevealStepRequest((n) => n + 1);
   }, [panelWidth, schedulePostLayoutRefresh]);
 
   const toggleDetailPanel = useCallback(() => {
@@ -3073,6 +3097,19 @@ export default function Visualizer({
       }
 
       if (!didDrag && gestureMode !== 'minimap' && r) {
+        // Ignore "clicks" that originate from interactive overlays sitting on
+        // top of the canvas (event-title widget, bit-history popups, detail
+        // inspector). Pointerdown on those overlays never reaches the canvas
+        // listener, but pointerup is bound to window and would otherwise
+        // toggle a pinned bit beneath the overlay — creating accidental
+        // popups when the user is interacting with the widget itself.
+        const t = e.target;
+        if (t && typeof t.closest === 'function' && t.closest(
+          '.step-focus-banner, .bit-history-panel, .detail-inspector-overlay, .toolbar, .step-panel, .settings-sidebar, .detail-panel, .timing-panel, .trace-info-popover'
+        )) {
+          clearInteraction();
+          return;
+        }
         const coords = screenToCanvasCoords(e.clientX, e.clientY);
         const idx = r.canvasToBitIndex(coords.x, coords.y);
         if (idx >= 0) {
@@ -3532,6 +3569,42 @@ export default function Visualizer({
       title: [line1, line2, line3].filter(Boolean).join(' | '),
     };
   }, [currentStep, currentStepData]);
+
+  // Compact summary list for the surrounding events (-2, -1, +1, +2) shown in
+  // the event-title widget so the user can see the local context of the
+  // current event without having to open the full events panel.
+  const surroundingEvents = useMemo(() => {
+    const out = { prev: [], next: [] };
+    if (!Array.isArray(steps) || steps.length === 0) return out;
+    const summarize = (idx) => {
+      const s = steps[idx];
+      if (!s) return null;
+      const eventId = s.stepId ?? idx;
+      const op = s.operation || 'Unknown';
+      const bits = Number(s.numChanged) || 0;
+      const parts = [];
+      if (s.prime != null) parts.push(`p${s.prime}`);
+      if (s.factorStep != null) parts.push(`s${s.factorStep}`);
+      if (s.start != null && s.stop != null) parts.push(`${s.start}-${s.stop}`);
+      const meta = parts.join(' ');
+      const elapsedNs = Number(s.elapsedNs) || 0;
+      const elapsedLabel = elapsedNs > 0
+        ? (elapsedNs >= 1e6 ? `${(elapsedNs / 1e6).toFixed(2)}ms`
+          : elapsedNs >= 1e3 ? `${(elapsedNs / 1e3).toFixed(1)}µs`
+          : `${elapsedNs}ns`)
+        : '';
+      return { idx, eventId, op, meta, bits, elapsedLabel };
+    };
+    for (let off = -2; off <= -1; off++) {
+      const e = summarize(currentStep + off);
+      if (e) out.prev.push(e);
+    }
+    for (let off = 1; off <= 2; off++) {
+      const e = summarize(currentStep + off);
+      if (e) out.next.push(e);
+    }
+    return out;
+  }, [steps, currentStep]);
 
   const eventTitleStyle = useMemo(() => {
     const scale = Math.max(0.7, Math.min(1.6, (eventTitleSettings.scale || 100) / 100));
@@ -4158,6 +4231,7 @@ export default function Visualizer({
           onToggleCollapse={toggleStepsPanel}
           externalOpFilter={timingFocusOp}
           onExternalOpFilterConsumed={() => setTimingFocusOp('')}
+          revealStepRequest={revealStepRequest}
         />
 
         <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
@@ -4203,11 +4277,55 @@ export default function Visualizer({
                 onMouseDown={(e) => e.stopPropagation()}
                 title="Hide event title — use the ▲ in the details panel to show it again"
               >▼</button>
+              <button
+                className="step-focus-locate-btn"
+                onClick={(e) => { e.stopPropagation(); revealCurrentStepInPanel(); }}
+                onMouseDown={(e) => e.stopPropagation()}
+                title="Reveal this event in the events panel (clears filters and expands parents)"
+              >⤢</button>
               <div className="step-focus-lines">
                 <div className="step-focus-line1">{currentStepBanner.line1}</div>
                 {currentStepBanner.line2 && <div className="step-focus-line2">{currentStepBanner.line2}</div>}
                 {currentStepBanner.line3 && <div className="step-focus-line3">{currentStepBanner.line3}</div>}
               </div>
+              {(surroundingEvents.prev.length > 0 || surroundingEvents.next.length > 0) && (
+                <div
+                  className="step-focus-context"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  title="Last 2 and next 2 events. Click any row to jump to it."
+                >
+                  {surroundingEvents.prev.map((ev) => (
+                    <div
+                      key={`prev-${ev.idx}`}
+                      className="step-focus-context-row prev"
+                      onClick={(e) => { e.stopPropagation(); goToStep(ev.idx); }}
+                    >
+                      <span className="ctx-id">#{ev.eventId}</span>
+                      <span className="ctx-op">{ev.op}</span>
+                      {ev.meta && <span className="ctx-meta">{ev.meta}</span>}
+                      {ev.bits > 0 && <span className="ctx-bits">+{ev.bits}b</span>}
+                      {ev.elapsedLabel && <span className="ctx-time">{ev.elapsedLabel}</span>}
+                    </div>
+                  ))}
+                  <div className="step-focus-context-row current">
+                    <span className="ctx-id">#{currentStepData?.stepId ?? currentStep}</span>
+                    <span className="ctx-op">▶ current</span>
+                  </div>
+                  {surroundingEvents.next.map((ev) => (
+                    <div
+                      key={`next-${ev.idx}`}
+                      className="step-focus-context-row next"
+                      onClick={(e) => { e.stopPropagation(); goToStep(ev.idx); }}
+                    >
+                      <span className="ctx-id">#{ev.eventId}</span>
+                      <span className="ctx-op">{ev.op}</span>
+                      {ev.meta && <span className="ctx-meta">{ev.meta}</span>}
+                      {ev.bits > 0 && <span className="ctx-bits">+{ev.bits}b</span>}
+                      {ev.elapsedLabel && <span className="ctx-time">{ev.elapsedLabel}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="step-focus-sliders">
                 {stepAnimSlidersContent}
               </div>

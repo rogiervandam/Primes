@@ -93,7 +93,7 @@ function buildDepthTree(steps) {
 /**
  * Hierarchical step panel grouped by prime, with collapse/expand.
  */
-export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed }) {
+export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0 }) {
   const listRef = useRef(null);
   const scrollTopRef = useRef(0);
   const [search, setSearch] = useState('');
@@ -336,6 +336,70 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     const active = el.querySelector('.step-item.active');
     if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [currentStep]);
+
+  // Reveal request: when bumped, clear filters that hide the current step,
+  // expand its enclosing group + every ancestor node, then scroll it into
+  // view. Triggered from the event-title widget's locate button.
+  useEffect(() => {
+    if (!revealStepRequest) return;
+    if (currentStep == null || currentStep < 0) return;
+
+    // 1. Drop filters that could be hiding the step.
+    setSearch('');
+    setFilterOp('');
+    setFilterLevel('');
+    setHideUntimed(false);
+    setHideUnchanged(false);
+
+    // 2. Find the enclosing group + the chain of ancestor nodes.
+    const collapseKeysToOpen = new Set();
+    for (const g of tree) {
+      const indicesInGroup = (g.children || []).some((c) => c.originalIndex === currentStep);
+      if (!indicesInGroup) continue;
+      collapseKeysToOpen.add(g.id);
+      // Walk the depthTree to find the path to the node and add every
+      // ancestor that has children (i.e. that could be collapsed).
+      const findPath = (node) => {
+        if (node.originalIndex === currentStep) return [node];
+        for (const child of node.children || []) {
+          const sub = findPath(child);
+          if (sub) return [node, ...sub];
+        }
+        return null;
+      };
+      for (const root of g.depthTree || []) {
+        const path = findPath(root);
+        if (!path) continue;
+        // Add every node along the path EXCEPT the leaf itself (that's the
+        // target — we want it visible, not collapsed).
+        for (let i = 0; i < path.length - 1; i++) {
+          collapseKeysToOpen.add(`node-${path[i].originalIndex}`);
+        }
+        break;
+      }
+      break;
+    }
+
+    // 3. Remove those keys from the collapsed set.
+    setCollapsed((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const k of collapseKeysToOpen) {
+        if (next.has(k)) { next.delete(k); changed = true; }
+      }
+      return changed ? next : prev;
+    });
+
+    // 4. Scroll into view shortly after re-render.
+    const handle = setTimeout(() => {
+      const el = listRef.current;
+      if (!el) return;
+      const active = el.querySelector('.step-item.active');
+      if (active) active.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 60);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealStepRequest]);
 
   const toggleGroup = useCallback((groupId) => {
     setCollapsed(prev => {
