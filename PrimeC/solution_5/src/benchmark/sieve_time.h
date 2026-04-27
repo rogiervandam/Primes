@@ -1,5 +1,6 @@
-#ifndef SIEVE_TIME_GUARD
-#define SIEVE_TIME_GUARD
+#pragma once
+// #ifndef SIEVE_TIME_GUARD
+// #define SIEVE_TIME_GUARD
 #include "sieve_timers.h"
 
 #ifdef COMPILE_TIMERS
@@ -49,4 +50,4 @@ static void save_timing_table_to_file(const char* filename, benchmark_result_t b
 }
 #endif
 
-#endif
+// #endif

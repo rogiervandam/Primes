@@ -1,4 +1,5 @@
-// Define benchmark timing constants
+// benchmark single sieve passes functions and check the results for correctness
+
 #ifdef COMPILE_BENCHMARK_STRIPERS
 
 #include "../bitstorage/bitstorage_setBitsTrueFunctionList.h"

@@ -1,8 +1,9 @@
 
+#pragma once
+
 #include "../generic/settings.h"
 #include <inttypes.h>
-#include "sieve_benchmark_types.h"
-
+#include "sieve_benchmark_settings.h"
 static struct options_t {
     benchmark_settings_t fixed_benchmark_settings;
     counter_t show_explain_factor_max;
@@ -50,6 +51,73 @@ set_timings_default_filename(const char* program_name, uint64_t max_factor)
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d_%H-%M", localtime(&(time_t){time(NULL)}));
     snprintf(option.timings_filename, 256, "log/%s_%s_%ju.timings.json", timestamp, program_name, (uintmax_t)max_factor);
     return option.timings_filename;
+}
+
+static inline const char *getBenchmarkProgramName(void)
+{
+    static char normalized_program_name[256];
+    const char *program_name = option.program_name ? option.program_name : "sieve";
+    size_t length = strlen(program_name);
+
+    if (length >= sizeof(normalized_program_name)) {
+        length = sizeof(normalized_program_name) - 1;
+    }
+
+    memcpy(normalized_program_name, program_name, length);
+    normalized_program_name[length] = '\0';
+
+    if (length >= 6 && strcmp(normalized_program_name + length - 6, "_trace") == 0) {
+        normalized_program_name[length - 6] = '\0';
+    }
+
+    return normalized_program_name;
+}
+
+static void __attribute__((cold))
+loadLastSettings(void)
+{
+    char settings_path[256];
+    snprintf(settings_path, sizeof(settings_path), "dev/build/%s_settings.txt", getBenchmarkProgramName());
+    FILE* f = fopen(settings_path, "r");
+    if (f) {
+        char buf[64];
+        if (fgets(buf, sizeof(buf), f)) {
+            // strip newline
+            for (char *p = buf; *p; p++) { if (*p == '\n' || *p == '\r') { *p = '\0'; break; } }
+            // parse settings string inline (format: s063-l128-b0262144-v256-a1)
+            for (char *p = buf; *p; ) {
+                if (*p == '-') { p++; continue; }
+                char key = *p++;
+                uintmax_t val = 0;
+                while (*p >= '0' && *p <= '9') { val = val * 10 + (*p - '0'); p++; }
+                switch (key) {
+                    case 's': option.fixed_benchmark_settings.stripe_faster    = val; break;
+                    case 'l': option.fixed_benchmark_settings.largestep_faster = val; break;
+                    case 'b': option.fixed_benchmark_settings.blocksize_bits   = val; break;
+                    case 'v': option.fixed_benchmark_settings.vectorsize       = val; break;
+                    case 'a': option.fixed_benchmark_settings.algorithm        = val; break;
+                    default: break;
+                }
+            }
+            verbose2(printf("Loaded settings from %s: " COLOR_GREEN "%s" COLOR_RESET "\n", settings_path, buf);)
+        }
+        fclose(f);
+    }
+}
+
+static void __attribute__((cold))
+saveLastSettings(benchmark_settings_t settings)
+{
+    char settings_path[256];
+    snprintf(settings_path, sizeof(settings_path), "dev/build/%s_settings.txt", getBenchmarkProgramName());
+    FILE* f = fopen(settings_path, "w");
+    if (f) {
+        char settings_string[50];
+        setBenchmarkSettingAsString(settings_string, settings);
+        fprintf(f, "%s\n", settings_string);
+        fclose(f);
+        verbose3(printf("Saved settings to %s\n", settings_path);)
+    }
 }
 
 // empty and NULL terminated string buffers to hold generated filenames if user requested generation by setting --trace or --benchmark-log without a filename

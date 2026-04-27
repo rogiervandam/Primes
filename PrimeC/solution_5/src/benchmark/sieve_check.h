@@ -1,9 +1,15 @@
+// These functions allow the check of the correctness of the sieve algorithm and show the primes found in the sieve.
+// The factor_max and factors are noted in normal number mode (not halfstorage mode where primes are halved or shifted)
+// This is to enable multiple storage models. The "checkFactor" function must make the translation from the factor to the storage model
+
+#pragma once
+
 static counter_t __attribute__((cold, nonnull)) 
 countPrimesInSieve(sieve_t* sieve, counter_t factor_max) 
 {
     verbose5( printf("Counting primes in sieve up to %ju\n",(uintmax_t)factor_max); )
     counter_t prime_count = 0;
-    for (counter_t factor=2; factor < factor_max; factor++) {
+    for (counter_t factor = 2; factor < factor_max; factor++) {
         if (!checkFactor(sieve, factor)) prime_count++;
     }
     verbose5( printf("Result: %ju primes in sieve up to %ju\n",(uintmax_t)prime_count,(uintmax_t)factor_max); )
@@ -15,7 +21,7 @@ showPrimesinSieve(sieve_t* sieve, counter_t factor_max)
 { 
     verbose1( printf("Result set (<%ju):\n",(uintmax_t)factor_max); )
     counter_t prime_count = 0;
-    for (counter_t factor=2; factor < factor_max; factor++) {
+    for (counter_t factor = 2; factor < factor_max; factor++) {
         if (checkFactor(sieve, factor)) continue; // is this a prime?
         prime_count++;
         verbose1( printf("%4ju ",(uintmax_t)factor); )
@@ -42,6 +48,14 @@ counter_t validPrimes(counter_t factor_max) {
     }
 }
 
+static inline int __attribute__((cold, nonnull)) 
+validateSieve(sieve_t* sieve, const counter_t factor_max)
+{
+    const counter_t prime_count = countPrimesInSieve(sieve, factor_max);
+    return (prime_count == validPrimes(factor_max));
+}
+
+// tool for analysis of errors in the sieve
 static void __attribute__((cold, nonnull)) 
 deepAnalyzeSieve(sieve_t* sieve, counter_t factor_max) 
 {
@@ -78,11 +92,3 @@ deepAnalyzeSieve(sieve_t* sieve, counter_t factor_max)
         }
     }
 }
-
-static inline int __attribute__((cold, nonnull)) 
-validateSieve(sieve_t* sieve, const counter_t factor_max)
-{
-    const counter_t prime_count = countPrimesInSieve(sieve, factor_max);
-    return (prime_count == validPrimes(factor_max));
-}
-

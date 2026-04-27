@@ -1,5 +1,6 @@
-#ifndef SIEVE_TIMERS_GUARD
-#define SIEVE_TIMERS_GUARD
+#pragma once
+// #ifndef SIEVE_TIMERS_GUARD
+// #define SIEVE_TIMERS_GUARD
 #ifndef COMPILE_TIMERS // enable using timer_lapstart in code
     #define timer_lapstart(timer) 
     #define timer_laptime(timer) 
@@ -51,4 +52,4 @@ static void timer_init() {
 #define timer_laptime(timer) timer_laptime_function(timer);
 
 #endif // COMPILE_TIMERS
-#endif // SIEVE_TIMERS_GUARD
+// #endif // SIEVE_TIMERS_GUARD

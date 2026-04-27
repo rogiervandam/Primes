@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sieve_checkFunctions.h"
+#include "sieve_functions_check.h"
 
 static void deepAnalyzeWithBenchmarkSettings(sieve_t* (*sieveFunction)(const counter_t), benchmark_settings_t benchmark_settings) 
 {

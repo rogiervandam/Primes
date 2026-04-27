@@ -1,6 +1,7 @@
 // prepare the benchmark settings using defaults
-#include "sieve_benchmarkFunctions.h"
-#include "sieve_benchmark_types.h"
+#pragma once
+#include "sieve_functions_benchmark.h"
+#include "sieve_benchmark_settings.h"
 
 static inline benchmark_settings_t initBenchmarkSettings(const counter_t threads) 
 {
@@ -63,7 +64,9 @@ static inline void updateBenchmarkResult(benchmark_result_t *result, const count
     result->avg           = result->passes / result->elapsed_time;
 }
 
-static benchmark_result_t benchmark(benchmark_settings_t benchmark_settings, sieve_t* (*benchmarkableFunction)(const counter_t))
+// do a benchmark of the given function with the given settings (including time target), and return the result
+static benchmark_result_t 
+benchmark(benchmark_settings_t benchmark_settings, sieve_t* (*benchmarkableFunction)(const counter_t))
 {
     benchmark_result_t benchmark_result = { .settings = checkBenchmarkSettings(benchmark_settings), .passes = 0, .elapsed_time = 0, .avg = 0 };
 

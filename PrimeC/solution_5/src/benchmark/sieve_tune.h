@@ -1,5 +1,7 @@
+#pragma once
+
 #ifdef COMPILE_TUNE
-#include "sieve_benchmark_types.h"
+#include "sieve_benchmark_settings.h"
 
 typedef struct {
     counter_t sieve_bits;

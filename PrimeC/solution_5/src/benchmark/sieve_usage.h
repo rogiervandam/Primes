@@ -1,3 +1,5 @@
+#pragma once
+
 static void __attribute__((cold)) 
 usage(char *program_name, int exit_code) 
 {

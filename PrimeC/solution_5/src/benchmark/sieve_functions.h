@@ -1,5 +1,7 @@
-#ifndef SIEVE_FUNCTIONS_H
-#define SIEVE_FUNCTIONS_H
+#pragma once
+
+// #ifndef SIEVE_FUNCTIONS_H
+// #define SIEVE_FUNCTIONS_H
 
 #define function_id_t int
 #define time_setBitsTrue (function_id_t) 0
@@ -78,4 +80,4 @@ static const char* timer_function_names[100] = {
     [time_findUnmarked_wheel] = "findUnmarked_wheel",
   };
 
-#endif // SIEVE_FUNCTIONS_H
+// #endif // SIEVE_FUNCTIONS_H

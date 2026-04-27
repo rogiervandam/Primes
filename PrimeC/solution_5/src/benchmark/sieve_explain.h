@@ -1,3 +1,4 @@
+#pragma once
 /*
 Explain / Trace levels:
 

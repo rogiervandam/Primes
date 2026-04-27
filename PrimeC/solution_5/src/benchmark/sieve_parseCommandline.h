@@ -1,3 +1,7 @@
+#pragma once
+#include "sieve_benchmark_settings.h" // for benchmark_settings_t and setBenchmarkSettingAsString
+
+// generic helper functions for parsing command line arguments 
 static inline int __attribute__((cold, const)) 
 isdigit_local(int c) {
     return (c >= '0' && c <= '9');
@@ -104,7 +108,9 @@ parse_double_arg(char *arg_str, double *value,  char *program_name, const char *
     return 1;
 }
 
-// Helper function to handle set parameters
+// Special helper function for the sieve function 
+
+// Handler for the set parameters (see usage for explanation of parameters)
 static inline void __attribute__((cold))
 handle_set_parameter(char param_type, uintmax_t value, struct options_t *optionref) {
     switch(param_type) {
@@ -154,38 +160,6 @@ parse_set_parameter(char *arg, char *program_name, struct options_t *optionref) 
 
 }
 
-static inline char* setBenchmarkSettingAsString(char* settings_string, benchmark_settings_t benchmark_settings) 
-{
-    snprintf(settings_string, 50, "s%03ju-l%03ju-b%07ju-v%3ju-a%1ju", (uintmax_t)benchmark_settings.stripe_faster, (uintmax_t)benchmark_settings.largestep_faster, (uintmax_t)benchmark_settings.blocksize_bits, (uintmax_t)benchmark_settings.vectorsize, (uintmax_t)benchmark_settings.algorithm);
-    return settings_string;
-}
-
-static char      global_settings_string[50] = ""; // settings string to use where it is directly outputted
-static inline char *getBenchmarkSettingAsString(benchmark_settings_t benchmark_settings) 
-{
-    return setBenchmarkSettingAsString(global_settings_string, benchmark_settings);
-}
-
-static inline const char *getBenchmarkProgramName(void)
-{
-    static char normalized_program_name[256];
-    const char *program_name = option.program_name ? option.program_name : "sieve";
-    size_t length = strlen(program_name);
-
-    if (length >= sizeof(normalized_program_name)) {
-        length = sizeof(normalized_program_name) - 1;
-    }
-
-    memcpy(normalized_program_name, program_name, length);
-    normalized_program_name[length] = '\0';
-
-    if (length >= 6 && strcmp(normalized_program_name + length - 6, "_trace") == 0) {
-        normalized_program_name[length - 6] = '\0';
-    }
-
-    return normalized_program_name;
-}
-
 static inline int hasTraceOutput(void)
 {
     #ifdef COMPILE_TRACE
@@ -216,53 +190,6 @@ static inline int shouldLoadLastSettings(void)
     }
 
     return option.tunelevel == 0 || isExplainOrTraceMode();
-}
-
-static void __attribute__((cold))
-loadLastSettings(void)
-{
-    char settings_path[256];
-    snprintf(settings_path, sizeof(settings_path), "dev/build/%s_settings.txt", getBenchmarkProgramName());
-    FILE* f = fopen(settings_path, "r");
-    if (f) {
-        char buf[64];
-        if (fgets(buf, sizeof(buf), f)) {
-            // strip newline
-            for (char *p = buf; *p; p++) { if (*p == '\n' || *p == '\r') { *p = '\0'; break; } }
-            // parse settings string inline (format: s063-l128-b0262144-v256-a1)
-            for (char *p = buf; *p; ) {
-                if (*p == '-') { p++; continue; }
-                char key = *p++;
-                uintmax_t val = 0;
-                while (*p >= '0' && *p <= '9') { val = val * 10 + (*p - '0'); p++; }
-                switch (key) {
-                    case 's': option.fixed_benchmark_settings.stripe_faster    = val; break;
-                    case 'l': option.fixed_benchmark_settings.largestep_faster = val; break;
-                    case 'b': option.fixed_benchmark_settings.blocksize_bits   = val; break;
-                    case 'v': option.fixed_benchmark_settings.vectorsize       = val; break;
-                    case 'a': option.fixed_benchmark_settings.algorithm        = val; break;
-                    default: break;
-                }
-            }
-            verbose2(printf("Loaded settings from %s: " COLOR_GREEN "%s" COLOR_RESET "\n", settings_path, buf);)
-        }
-        fclose(f);
-    }
-}
-
-static void __attribute__((cold))
-saveLastSettings(benchmark_settings_t settings)
-{
-    char settings_path[256];
-    snprintf(settings_path, sizeof(settings_path), "dev/build/%s_settings.txt", getBenchmarkProgramName());
-    FILE* f = fopen(settings_path, "w");
-    if (f) {
-        char settings_string[50];
-        setBenchmarkSettingAsString(settings_string, settings);
-        fprintf(f, "%s\n", settings_string);
-        fclose(f);
-        verbose3(printf("Saved settings to %s\n", settings_path);)
-    }
 }
 
 static void __attribute__((cold)) 

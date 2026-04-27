@@ -1,6 +1,11 @@
+#pragma once
 #include "sieve_time.h"
 
-static int performBenchmarks(struct options_t option, sieve_t* (*sieveFunction)(const counter_t))
+// perform benchmarks with different settings 
+// outputs results in a format that can be parsed by the benchmarking system
+
+static int 
+performBenchmarks(struct options_t option, sieve_t* (*sieveFunction)(const counter_t))
 {
     if (isExplainOrTraceMode()) {
         return runSingleSievePass(option.fixed_benchmark_settings, sieveFunction);
