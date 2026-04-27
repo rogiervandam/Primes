@@ -367,6 +367,15 @@ overwrite.
   repack on the next frame. `mode3D` works automatically because
   the GL canvas already lives inside `camera3DContainerStyle` in
   `CanvasStage.jsx`, so the same CSS 3D transform applies.
+- ✅ Removed dead `_heatColor(bitIdx)` from `SieveRenderer.js`. It
+  was never called anywhere in the codebase — the only consumer
+  of `heatMapEnabled` is `_renderCachelineHeatOverlay`, which
+  paints cacheline-group rectangles via
+  `_cachelineHeatOverlayColor`, not per-bit cells. Discovered
+  while triaging §8 item 2's "heat-map age tinting" TODO; that
+  bullet was a documentation bug carried forward from the
+  original scaffold. Removed the TODO from §8 item 2 and the
+  related `lastAccessStep` entry from §8 item 3.
 
 ---
 
@@ -583,17 +592,21 @@ done":
    `_classifyBit` and the Canvas2D draw chain: target outline
    stroke + hit-count gradient (these are line strokes, not
    fills — currently still drawn by Canvas2D on top of the GL
-   canvas, which is fine), heat-map age tinting, lowered-3D
-   shading, custom per-bit colour overrides.
+   canvas, which is fine), lowered-3D shading, custom per-bit
+   colour overrides. (Per-bit heat-map age tinting is *not* on
+   this list — there is no Canvas2D version to mirror; the heat
+   feature is `_renderCachelineHeatOverlay`, which paints
+   cacheline-group rectangles and stays Canvas2D-on-top.)
 3. **State texture protocol.** ⚠️ *Partially done.* Today: one
    `R8UI` `stateTex`, one byte per bit, packed bits
    `set | changed | ghost | repeated | prime | range | multiples |
    focus`, repacked every render in JS (`uploadState(host)`).
    Cheap at current bit counts. Still TODO when items 1–2's
-   missing features land: separate textures (or move to RG8UI)
-   for `targetHitCounts` magnitude (gradient input) and
-   `lastAccessStep` (heat-map age), plus partial `texSubImage2D`
-   updates per step instead of full repack.
+   missing features land: a separate texture (or move to RG8UI)
+   for `targetHitCounts` magnitude (gradient input), plus partial
+   `texSubImage2D` updates per step instead of full repack.
+   (`lastAccessStep` is *not* on this list — there is no per-bit
+   heat-tint feature in Canvas2D to mirror.)
 4. **Hit-testing.** `bitIndexToCanvas()` / `canvasToBitIndex()` must
    stay authoritative on the JS side; the GL renderer must use the
    identical layout math.

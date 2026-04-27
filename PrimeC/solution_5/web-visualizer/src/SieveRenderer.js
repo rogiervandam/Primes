@@ -1042,27 +1042,6 @@ export class SieveRenderer {
     return { r, g, b, alpha };
   }
 
-  /** Compute heat color for a bit based on recency */
-  _heatColor(bitIdx) {
-    const lastStep = this.lastAccessStep[bitIdx];
-    if (lastStep < 0) return [40, 40, 80]; // never accessed - dark blue-gray
-
-    const age = this.heatMapCurrentStep - lastStep;
-    if (age === 0) return [255, 50, 50];     // hot - red
-    if (age <= 2) {
-      // transition red -> orange
-      const t = age / 2;
-      return [255, Math.round(50 + t * 130), Math.round(50 * (1 - t))];
-    }
-    // transition orange -> blue over ~20 steps
-    const t = Math.min(1, (age - 2) / 20);
-    return [
-      Math.round(255 * (1 - t) + 40 * t),
-      Math.round(180 * (1 - t) + 80 * t),
-      Math.round(0 * (1 - t) + 220 * t),
-    ];
-  }
-
   /**
    * Build (or rebuild) the prime bit flags array.
    * Uses a Sieve of Eratosthenes up to sieveSize, then maps each bit index
