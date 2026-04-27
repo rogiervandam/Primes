@@ -91,6 +91,116 @@ const VECTOR_BASE_OPTIONS = [
 const VECTOR_LANE_OPTIONS = [1, 2, 4, 8];
 
 /**
+ * Reusable legend content rendered in both the Legend tab and the floating panel.
+ */
+function LegendSections({ detailed = true }) {
+  return (
+    <>
+      <div className="legend-section">
+        <div className="legend-section-label">Bit states</div>
+        <div className="legend-rows">
+          <div className="legend-row">
+            <span className="legend-swatch legend-swatch-set" />
+            <span className="legend-row-label">Set (composite)</span>
+            {detailed && <span className="legend-row-desc">Bit was cleared in the sieve — number is marked composite</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-swatch legend-swatch-cleared" />
+            <span className="legend-row-label">Unset (prime candidate)</span>
+            {detailed && <span className="legend-row-desc">Bit has not been cleared — number is still a prime candidate</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-swatch legend-swatch-changed" />
+            <span className="legend-row-label">Just changed</span>
+            {detailed && <span className="legend-row-desc">Bits modified by the current event (highlighted during playback)</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-swatch legend-swatch-target" />
+            <span className="legend-row-label">Target</span>
+            {detailed && <span className="legend-row-desc">Bits targeted by the current sieve step (may overlap with changed)</span>}
+          </div>
+        </div>
+      </div>
+      <div className="legend-section">
+        <div className="legend-section-label">Overlays</div>
+        <div className="legend-rows">
+          <div className="legend-row">
+            <span className="legend-swatch legend-swatch-prime" />
+            <span className="legend-row-label">Primes overlay <span className="legend-tag">gold · p</span></span>
+            {detailed && <span className="legend-row-desc">Bits whose represented number is prime</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-swatch legend-swatch-range" />
+            <span className="legend-row-label">Range overlay <span className="legend-tag">cyan · r</span></span>
+            {detailed && <span className="legend-row-desc">Bits within the selected bit-index range</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-swatch legend-swatch-multiples" />
+            <span className="legend-row-label">Multiples overlay <span className="legend-tag">purple · ×</span></span>
+            {detailed && <span className="legend-row-desc">Bits whose number is a multiple of the selected prime/factor</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-swatch legend-swatch-heat-hot" />
+            <span className="legend-row-label">Heat map — hot</span>
+            {detailed && <span className="legend-row-desc">Cacheline recently or frequently accessed (red = hottest)</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-swatch legend-swatch-heat-cold" />
+            <span className="legend-row-label">Heat map — cold</span>
+            {detailed && <span className="legend-row-desc">Cacheline rarely or long-ago accessed (blue = coldest)</span>}
+          </div>
+        </div>
+      </div>
+      <div className="legend-section">
+        <div className="legend-section-label">Animations</div>
+        <div className="legend-rows">
+          <div className="legend-row">
+            <span className="legend-anim-icon">◎</span>
+            <span className="legend-row-label">Ripple</span>
+            {detailed && <span className="legend-row-desc">Contracting ring that pulses outward from changed bits</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-anim-icon" style={{ opacity: 0.5 }}>◼</span>
+            <span className="legend-row-label">Fade</span>
+            {detailed && <span className="legend-row-desc">Changed bits fade in from bright to settled color</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-anim-icon" style={{ color: 'var(--accent)' }}>✦</span>
+            <span className="legend-row-label">Pulse</span>
+            {detailed && <span className="legend-row-desc">Changed bits emit a glowing halo pulse</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-anim-icon">→</span>
+            <span className="legend-row-label">Sequential reveal</span>
+            {detailed && <span className="legend-row-desc">Bits are uncovered one-by-one in the order they were changed</span>}
+          </div>
+        </div>
+      </div>
+      <div className="legend-section">
+        <div className="legend-section-label">Interactions</div>
+        <div className="legend-rows">
+          <div className="legend-row">
+            <span className="legend-anim-icon">🖱</span>
+            <span className="legend-row-label">Click bit</span>
+            {detailed && <span className="legend-row-desc">Pin a tooltip balloon showing the bit&apos;s number and history</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-anim-icon">⇕</span>
+            <span className="legend-row-label">Scroll / pinch</span>
+            {detailed && <span className="legend-row-desc">Zoom the grid in or out</span>}
+          </div>
+          <div className="legend-row">
+            <span className="legend-anim-icon">✥</span>
+            <span className="legend-row-label">Drag</span>
+            {detailed && <span className="legend-row-desc">Pan the canvas to navigate around the grid</span>}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/**
  * Settings panel for layout modes, spacing, and rendering options.
  */
 export default function SettingsPanel({
@@ -117,6 +227,8 @@ export default function SettingsPanel({
   onRangeOverlayToggle, onRangeOverlayStartChange, onRangeOverlayEndChange,
   multiplesOverlayEnabled = false, multiplesOverlayPrime = 3,
   onMultiplesOverlayToggle, onMultiplesOverlayPrimeChange,
+  onRangeOverlayReset,
+  onMultiplesOverlayReset,
   showMinimap, onShowMinimapChange,
   minimapControlVisible = true,
   depthModeEnabled = false,
@@ -140,7 +252,10 @@ export default function SettingsPanel({
   const [customPresetMenuOpen, setCustomPresetMenuOpen] = React.useState(false);
   const [customGroupDraft, setCustomGroupDraft] = React.useState('');
   const [openSpacingControl, setOpenSpacingControl] = React.useState(null);
-  const [legendOpen, setLegendOpen] = React.useState(false);
+  const [legendFloating, setLegendFloating] = React.useState(false);
+  const [legendDetailed, setLegendDetailed] = React.useState(true);
+  const [floatPos, setFloatPos] = React.useState(null);
+  const floatDragRef = React.useRef({ dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 });
   const [rangeStartDraft, setRangeStartDraft] = React.useState(String(rangeOverlayStart));
   const [rangeEndDraft, setRangeEndDraft] = React.useState(String(rangeOverlayEnd));
   const [multipesPrimeDraft, setMultiplesPrimeDraft] = React.useState(String(multiplesOverlayPrime));
@@ -155,6 +270,24 @@ export default function SettingsPanel({
   React.useEffect(() => { setRangeStartDraft(String(rangeOverlayStart)); }, [rangeOverlayStart]);
   React.useEffect(() => { setRangeEndDraft(String(rangeOverlayEnd)); }, [rangeOverlayEnd]);
   React.useEffect(() => { setMultiplesPrimeDraft(String(multiplesOverlayPrime)); }, [multiplesOverlayPrime]);
+
+  // Drag handler for floating legend panel
+  React.useEffect(() => {
+    if (!legendFloating) return undefined;
+    const onMouseMove = (e) => {
+      if (!floatDragRef.current.dragging) return;
+      const dx = e.clientX - floatDragRef.current.startX;
+      const dy = e.clientY - floatDragRef.current.startY;
+      setFloatPos({ x: floatDragRef.current.originX + dx, y: floatDragRef.current.originY + dy });
+    };
+    const onMouseUp = () => { floatDragRef.current.dragging = false; };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [legendFloating]);
 
   React.useEffect(() => {
     if (!openSpacingControl) return undefined;
@@ -799,6 +932,7 @@ export default function SettingsPanel({
   );
 
   return (
+    <>
     <div className={`settings-sidebar${collapsed ? ' collapsed' : ''}${isWindowsPlatform ? ' platform-windows' : ''}`}>
       <div className="settings-header-rail" title="Settings">
         {collapsed ? (
@@ -822,6 +956,15 @@ export default function SettingsPanel({
               onClick={() => setActiveTab('animation')}
             >
               Animation
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'legend'}
+              className={`settings-tab-btn${activeTab === 'legend' ? ' active' : ''}`}
+              onClick={() => setActiveTab('legend')}
+            >
+              Legend
             </button>
           </div>
         )}
@@ -1007,22 +1150,6 @@ export default function SettingsPanel({
                 </svg>
               )}
             />
-            <PreviewOptionButton
-              compact
-              label="Legend"
-              hint="Show a legend explaining colors, overlays, and animations"
-              active={legendOpen}
-              extraClass="legend-preview-btn"
-              onClick={() => setLegendOpen((o) => !o)}
-              preview={(
-                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                  <rect x="4" y="5" width="6" height="6" rx="1" fill="#22d3ee" stroke="none" />
-                  <rect x="4" y="13" width="6" height="6" rx="1" fill="#fbbf24" stroke="none" />
-                  <line x1="14" y1="8" x2="34" y2="8" stroke="currentColor" strokeWidth="1.5" />
-                  <line x1="14" y1="16" x2="30" y2="16" stroke="currentColor" strokeWidth="1.5" />
-                </svg>
-              )}
-            />
           </div>
           {/* Range overlay controls */}
           {rangeOverlayEnabled && (
@@ -1073,6 +1200,7 @@ export default function SettingsPanel({
                   }}
                 />
               </label>
+              <button type="button" className="overlay-reset-btn" onClick={() => onRangeOverlayReset && onRangeOverlayReset()} title="Reset range to current event defaults">⟳</button>
             </div>
           )}
           {/* Multiples overlay controls */}
@@ -1101,116 +1229,8 @@ export default function SettingsPanel({
                   }}
                 />
               </label>
+              <button type="button" className="overlay-reset-btn" onClick={() => onMultiplesOverlayReset && onMultiplesOverlayReset()} title="Reset to current event's prime">⟳</button>
               <span className="settings-hint" style={{ alignSelf: 'flex-end', marginBottom: 2 }}>Highlights multiples of this number in purple</span>
-            </div>
-          )}
-          {/* Legend popover */}
-          {legendOpen && (
-            <div className="legend-popover">
-              <div className="legend-popover-header">
-                <span className="legend-popover-title">Visualizer Legend</span>
-                <button type="button" className="legend-close-btn" onClick={() => setLegendOpen(false)} title="Close legend">✕</button>
-              </div>
-              <div className="legend-section">
-                <div className="legend-section-label">Bit states</div>
-                <div className="legend-rows">
-                  <div className="legend-row">
-                    <span className="legend-swatch legend-swatch-set" />
-                    <span className="legend-row-label">Set (composite)</span>
-                    <span className="legend-row-desc">Bit was cleared in the sieve — number is marked composite</span>
-                  </div>
-                  <div className="legend-row">
-                    <span className="legend-swatch legend-swatch-cleared" />
-                    <span className="legend-row-label">Unset (prime candidate)</span>
-                    <span className="legend-row-desc">Bit has not been cleared — number is still a prime candidate</span>
-                  </div>
-                  <div className="legend-row">
-                    <span className="legend-swatch legend-swatch-changed" />
-                    <span className="legend-row-label">Just changed</span>
-                    <span className="legend-row-desc">Bits modified by the current event (highlighted during playback)</span>
-                  </div>
-                  <div className="legend-row">
-                    <span className="legend-swatch legend-swatch-target" />
-                    <span className="legend-row-label">Target</span>
-                    <span className="legend-row-desc">Bits targeted by the current sieve step (may overlap with changed)</span>
-                  </div>
-                </div>
-              </div>
-              <div className="legend-section">
-                <div className="legend-section-label">Overlays</div>
-                <div className="legend-rows">
-                  <div className="legend-row">
-                    <span className="legend-swatch legend-swatch-prime" />
-                    <span className="legend-row-label">Primes overlay <span className="legend-tag">gold · p</span></span>
-                    <span className="legend-row-desc">Bits whose represented number is prime</span>
-                  </div>
-                  <div className="legend-row">
-                    <span className="legend-swatch legend-swatch-range" />
-                    <span className="legend-row-label">Range overlay <span className="legend-tag">cyan · r</span></span>
-                    <span className="legend-row-desc">Bits within the selected bit-index range</span>
-                  </div>
-                  <div className="legend-row">
-                    <span className="legend-swatch legend-swatch-multiples" />
-                    <span className="legend-row-label">Multiples overlay <span className="legend-tag">purple · ×</span></span>
-                    <span className="legend-row-desc">Bits whose number is a multiple of the selected prime/factor</span>
-                  </div>
-                  <div className="legend-row">
-                    <span className="legend-swatch legend-swatch-heat-hot" />
-                    <span className="legend-row-label">Heat map — hot</span>
-                    <span className="legend-row-desc">Cacheline recently or frequently accessed (red = hottest)</span>
-                  </div>
-                  <div className="legend-row">
-                    <span className="legend-swatch legend-swatch-heat-cold" />
-                    <span className="legend-row-label">Heat map — cold</span>
-                    <span className="legend-row-desc">Cacheline rarely or long-ago accessed (blue = coldest)</span>
-                  </div>
-                </div>
-              </div>
-              <div className="legend-section">
-                <div className="legend-section-label">Animations</div>
-                <div className="legend-rows">
-                  <div className="legend-row">
-                    <span className="legend-anim-icon">◎</span>
-                    <span className="legend-row-label">Ripple</span>
-                    <span className="legend-row-desc">Contracting ring that pulses outward from changed bits</span>
-                  </div>
-                  <div className="legend-row">
-                    <span className="legend-anim-icon" style={{ opacity: 0.5 }}>◼</span>
-                    <span className="legend-row-label">Fade</span>
-                    <span className="legend-row-desc">Changed bits fade in from bright to settled color</span>
-                  </div>
-                  <div className="legend-row">
-                    <span className="legend-anim-icon" style={{ color: 'var(--accent)' }}>✦</span>
-                    <span className="legend-row-label">Pulse</span>
-                    <span className="legend-row-desc">Changed bits emit a glowing halo pulse</span>
-                  </div>
-                  <div className="legend-row">
-                    <span className="legend-anim-icon">→</span>
-                    <span className="legend-row-label">Sequential reveal</span>
-                    <span className="legend-row-desc">Bits are uncovered one-by-one in the order they were changed</span>
-                  </div>
-                </div>
-              </div>
-              <div className="legend-section">
-                <div className="legend-section-label">Interactions</div>
-                <div className="legend-rows">
-                  <div className="legend-row">
-                    <span className="legend-anim-icon">🖱</span>
-                    <span className="legend-row-label">Click bit</span>
-                    <span className="legend-row-desc">Pin a tooltip balloon showing the bit's number and history</span>
-                  </div>
-                  <div className="legend-row">
-                    <span className="legend-anim-icon">⇕</span>
-                    <span className="legend-row-label">Scroll / pinch</span>
-                    <span className="legend-row-desc">Zoom the grid in or out</span>
-                  </div>
-                  <div className="legend-row">
-                    <span className="legend-anim-icon">✥</span>
-                    <span className="legend-row-label">Drag</span>
-                    <span className="legend-row-desc">Pan the canvas to navigate around the grid</span>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
           {eventTitleSettings?.visible !== false && (
@@ -1436,6 +1456,42 @@ export default function SettingsPanel({
           <span className="settings-hint">Outlines are optional helpers for structure visibility.</span>
         </div>
         </>)}
+
+        {activeTab === 'legend' && (
+          <div className="legend-tab-content">
+            <div className="legend-tab-header">
+              <span className="legend-tab-title">Visualizer Legend</span>
+              <div className="legend-tab-controls">
+                <button
+                  type="button"
+                  className={`legend-detail-btn${legendDetailed ? ' active' : ''}`}
+                  onClick={() => setLegendDetailed((d) => !d)}
+                  title={legendDetailed ? 'Show compact legend' : 'Show detailed legend'}
+                >
+                  {legendDetailed ? 'Compact' : 'Detailed'}
+                </button>
+                <button
+                  type="button"
+                  className="legend-float-btn"
+                  title="Float legend panel (collapses settings)"
+                  onClick={() => {
+                    if (!floatPos) setFloatPos({ x: window.innerWidth - 380, y: 60 });
+                    setLegendFloating(true);
+                    onToggleCollapse && onToggleCollapse();
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polyline points="15 3 21 3 21 9" />
+                    <polyline points="9 21 3 21 3 15" />
+                    <line x1="21" y1="3" x2="14" y2="10" />
+                    <line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <LegendSections detailed={legendDetailed} />
+          </div>
+        )}
 
         {activeTab === 'animation' && showAnimationControls && (<>
         <div className="settings-section">
@@ -1696,5 +1752,60 @@ export default function SettingsPanel({
         </div>
       )}
     </div>
+    {legendFloating && (() => {
+      const posX = floatPos ? floatPos.x : window.innerWidth - 380;
+      const posY = floatPos ? floatPos.y : 60;
+      return (
+        <div
+          className="legend-float-panel"
+          style={{ left: posX, top: posY }}
+        >
+          <div
+            className="legend-float-header"
+            onMouseDown={(e) => {
+              floatDragRef.current.dragging = true;
+              floatDragRef.current.startX = e.clientX;
+              floatDragRef.current.startY = e.clientY;
+              floatDragRef.current.originX = posX;
+              floatDragRef.current.originY = posY;
+              e.preventDefault();
+            }}
+          >
+            <span className="legend-float-title">Visualizer Legend</span>
+            <div className="legend-tab-controls">
+              <button
+                type="button"
+                className={`legend-detail-btn${legendDetailed ? ' active' : ''}`}
+                onClick={() => setLegendDetailed((d) => !d)}
+                title={legendDetailed ? 'Show compact legend' : 'Show detailed legend'}
+              >
+                {legendDetailed ? 'Compact' : 'Detailed'}
+              </button>
+              <button
+                type="button"
+                className="legend-close-float-btn"
+                title="Return to settings panel"
+                onClick={() => {
+                  setLegendFloating(false);
+                  setActiveTab('legend');
+                  onToggleCollapse && onToggleCollapse();
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polyline points="9 3 3 3 3 9" />
+                  <polyline points="15 21 21 21 21 15" />
+                  <line x1="3" y1="3" x2="10" y2="10" />
+                  <line x1="21" y1="21" x2="14" y2="14" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div className="legend-float-body">
+            <LegendSections detailed={legendDetailed} />
+          </div>
+        </div>
+      );
+    })()}
+    </>
   );
 }

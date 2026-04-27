@@ -4358,6 +4358,21 @@ export default function Visualizer({
             setMultiplesOverlayEnabled(enabled);
           }}
           onMultiplesOverlayPrimeChange={setMultiplesOverlayPrime}
+          onRangeOverlayReset={() => {
+            const step = steps[currentStep];
+            if (step) {
+              const start = step.focusStart != null ? step.focusStart : (step.changedBits.length > 0 ? Math.min(...step.changedBits) : 0);
+              const end = step.focusStop != null ? step.focusStop : (step.changedBits.length > 0 ? Math.max(...step.changedBits) : Math.max(0, header.bitCount - 1));
+              setRangeOverlayStart(start);
+              setRangeOverlayEnd(end);
+            }
+          }}
+          onMultiplesOverlayReset={() => {
+            const step = steps[currentStep];
+            if (step && step.prime != null && step.prime >= 2) {
+              setMultiplesOverlayPrime(step.prime);
+            }
+          }}
           showMinimap={showMinimap}
           onShowMinimapChange={setShowMinimap}
           minimapControlVisible={true}

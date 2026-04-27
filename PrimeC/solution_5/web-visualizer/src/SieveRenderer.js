@@ -2244,7 +2244,7 @@ export class SieveRenderer {
                 const num = bitToNumber(globalBit, this.storageModel);
                 if (num >= 2 && num % this.multiplesOverlayPrime === 0) {
                   ctx.save();
-                  ctx.fillStyle = 'rgba(167,139,250,0.22)';
+                  ctx.fillStyle = 'rgba(167,139,250,0.30)';
                   ctx.fillRect(
                     Math.round(bitX), Math.round(bitY),
                     Math.max(1, Math.round(px)), Math.max(1, Math.round(px))
@@ -2259,8 +2259,8 @@ export class SieveRenderer {
                   );
                   ctx.fill();
                   if (px >= 4) {
-                    ctx.strokeStyle = 'rgba(167,139,250,0.55)';
-                    ctx.lineWidth = Math.max(0.35, Math.min(1.3, px * 0.07));
+                    ctx.strokeStyle = 'rgba(167,139,250,0.88)';
+                    ctx.lineWidth = Math.max(1.0, Math.min(2.5, px * 0.14));
                     ctx.setLineDash([]);
                     ctx.strokeRect(
                       Math.round(bitX) - 0.5, Math.round(bitY) - 0.5,
