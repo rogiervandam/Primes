@@ -1,6 +1,7 @@
 import React from 'react';
 import { BIT_LAYOUTS, BYTE_LAYOUTS, COLOR_PRESETS, CACHELINE_SIZES, CACHE_PRESETS } from '../SieveRenderer';
 import { useDraftInput } from '../hooks/useDraftInput';
+import { useSettingsBundle } from './useSettingsBundle';
 import {
   BIT_LAYOUT_TIPS,
   BYTE_LAYOUT_TIPS,
@@ -37,9 +38,12 @@ function hexToRgb(hex) {
  * else comes in as plain props.
  *
  * Per docs/AI_MAINTENANCE.md the original plan called for a
- * `useSettingsBundle()` hook in the parent first. We chose the simpler
- * "fat prop list" extraction instead because it is a pure mechanical
- * move and adding a bundling hook later is a non-breaking refactor.
+ * `useSettingsBundle()` hook in the parent first. The hook now exists
+ * (`./useSettingsBundle`) and is consumed locally to derive `set` /
+ * `setMany` / `incr` / `decr` helpers from the (`settings`, `onChange`)
+ * pair. The signature still takes `settings` + `onChange` separately to
+ * keep the prop contract with `SettingsPanel` unchanged — the bundle
+ * is purely an internal ergonomic.
  */
 export default function LayoutTab({
   settings, onChange,
@@ -67,7 +71,7 @@ export default function LayoutTab({
   mode3D = false,
   onToggle3D,
 }) {
-  const s = settings || {};
+  const { s, set, setMany, incr, decr } = useSettingsBundle(settings, onChange);
   const [groupingMenuOpen, setGroupingMenuOpen] = React.useState(false);
   const [customPresetMenuOpen, setCustomPresetMenuOpen] = React.useState(false);
   const [customGroupDraft, setCustomGroupDraft] = React.useState('');
@@ -109,17 +113,6 @@ export default function LayoutTab({
     };
   }, [openSpacingControl]);
 
-  const set = (key, val) => {
-    const updatedSettings = { ...s, [key]: val };
-    if (key === 'vectorGroup') {
-      updatedSettings.vectorMode = 'preset';
-      updatedSettings.customGroupBits = 0;
-      updatedSettings.vectorLabel = val > 1 ? `uint64v${val}` : 'uint64';
-      updatedSettings.vectorBaseBits = 64;
-      updatedSettings.vectorLanes = val;
-    }
-    onChange(updatedSettings);
-  };
   const buildVectorLabel = (baseBits, lanes) => {
     if (baseBits === 1) return lanes > 1 ? `bitv${lanes}` : 'bit';
     if (baseBits === 8) return lanes > 1 ? `bytev${lanes}` : 'byte';
@@ -134,24 +127,18 @@ export default function LayoutTab({
     return 8;
   };
   const setVectorProfile = (baseBits, lanes) => {
-    const vg = deriveU64Group(baseBits, lanes);
-    const profileLabel = buildVectorLabel(baseBits, lanes);
-    onChange({
-      ...s,
+    setMany({
       vectorMode: 'preset',
       vectorBaseBits: baseBits,
       vectorLanes: lanes,
-      vectorGroup: vg,
+      vectorGroup: deriveU64Group(baseBits, lanes),
       customGroupBits: 0,
-      vectorLabel: profileLabel,
+      vectorLabel: buildVectorLabel(baseBits, lanes),
     });
   };
-  const incr = (key, max) => set(key, Math.min(max, (s[key] || 0) + 1));
-  const decr = (key, min = 0) => set(key, Math.max(min, (s[key] || 0) - 1));
   const setCustomVectorGrouping = (bits) => {
     const nextBits = Math.max(1, parseInt(bits || '0', 10) || 1);
-    onChange({
-      ...s,
+    setMany({
       vectorMode: 'custom',
       customGroupBits: nextBits,
       bitLayout: '8x1',

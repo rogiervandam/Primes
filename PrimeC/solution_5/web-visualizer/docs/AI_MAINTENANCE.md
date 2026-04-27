@@ -255,6 +255,34 @@ overwrite.
   and returns either nothing or `{ startX, startY }` (rotate, which is
   a delta-from-last-event gesture). No pinch helper exists yet because
   there is no pinch handler in the source today.
+- ✅ Pruned dead `SettingsPanel` props. Removed `bitAnimInterval`,
+  `onBitAnimIntervalChange`, `storageModel`, `onStorageModelChange`,
+  `customTitle`, `onCustomTitleChange`, `depthModeEnabled` from the
+  `SettingsPanel` signature and their pass-throughs at the call site
+  in `Visualizer.jsx`. The `bitAnimInterval` and `storageModel` state
+  in `Visualizer.jsx` itself stays — it is still consumed internally
+  (animation timing, `Toolbar` / `TraceInfoPopover`). The `customTitle`
+  state was removed entirely (its only setter was the dead
+  `onCustomTitleChange` prop) and `effectiveTitle` collapsed to
+  `traceTitle`.
+- ✅ Extracted `CachelineAnnotationsOverlay` to
+  `src/renderer/overlays/CachelineAnnotationsOverlay.js`. Same Pattern
+  D shape as the other overlays. Reads heat-map / cacheline metrics
+  (`heatMapEnabled`, `clHitCount`, `clLastHitStep`, `heatMapCurrentStep`,
+  `cachelineSize`, `bitsPerCacheLine`, `cachelineAnnotation`) and the
+  shared layout/label helpers through host accessors. With this the
+  overlay backlog is empty.
+- ✅ Introduced `useSettingsBundle()` in `src/settings/useSettingsBundle.js`.
+  Tiny memoised hook that turns the `(settings, onChange)` pair into a
+  bundle of `{ s, set, setMany, incr, decr }`. `LayoutTab` now
+  destructures the bundle locally instead of redefining `set`, `incr`,
+  `decr` inline, and `setVectorProfile` / `setCustomVectorGrouping`
+  use `setMany` for their multi-key updates. The dead defensive
+  `vectorGroup` branch in the inline `set` (no caller passed that
+  key) was dropped. `LayoutTab` prop signature is unchanged — the
+  hook is purely an internal ergonomic. AnimationTab does not need
+  the bundle (it has no `settings`/`onChange` pair, only orthogonal
+  setter pairs).
 
 ---
 
@@ -292,23 +320,21 @@ ones:
 ### New backlog (added after the round that finished tasks 4+5)
 
 6. **Finish the SettingsPanel tab split** — ✅ DONE
-   (`src/settings/LayoutTab.jsx`). After-the-fact cleanups still TODO:
-   prune now-unused props on `SettingsPanel` (`bitAnimInterval`,
-   `onBitAnimIntervalChange`, `storageModel`, `onStorageModelChange`,
-   `customTitle`, `onCustomTitleChange`, `depthModeEnabled`) and at
-   their call sites — these were dead even before the split but the
-   split made them obvious. Optional: introduce `useSettingsBundle()` to
-   shrink the LayoutTab prop list from ~25 to ~5.
+   (`src/settings/LayoutTab.jsx`). Dead-prop cleanup also ✅ DONE:
+   `bitAnimInterval`, `onBitAnimIntervalChange`, `storageModel`,
+   `onStorageModelChange`, `customTitle`, `onCustomTitleChange`,
+   `depthModeEnabled` removed from the `SettingsPanel` signature and
+   from the call site in `Visualizer.jsx`. The `customTitle` state in
+   `Visualizer.jsx` was removed too (its only setter was the dead
+   prop). `bitAnimInterval` and `storageModel` state stays — used
+   internally and by `Toolbar` / `TraceInfoPopover`.
 7. **Use `SearchOverlay` as a template for other overlays** —
-   ✅ `MaskWriteOverlay` and `VectorTouchOrderOverlay` done. Remaining
-   candidate:
-   - **CachelineAnnotationsOverlay** (`_renderCachelineAnnotations`) —
-     largest of the overlays, reads heat-map and cacheline metrics
-     (`clHitCount`, `clLastHitStep`, `cachelineSize`, `bitCount`,
-     `_drawHeatMapOverlay` and several private accessors). Same
-     Pattern D recipe; the only subtle bit is that it also reads
-     `cachelineAnnotation` and the heat-map color ramp. **Recommended
-     next overlay.**
+   ✅ ALL DONE. `MaskWriteOverlay`, `VectorTouchOrderOverlay` and
+   `CachelineAnnotationsOverlay` are extracted. Overlay backlog is
+   empty. The remaining `_render*` methods on `SieveRenderer` are
+   either part of the main bit/cell draw pipeline (not overlays) or
+   helpers consumed by multiple draw passes (`_renderCachelineHeatOverlay`,
+   `_renderCachelineOutline`); leave those in place.
 8. **Promote the `seekGen` / `globalPaused` / `animBusyUntil` triplet
    into a `usePlaybackClock()` hook** — ✅ DONE
    (`src/hooks/usePlaybackClock.js`). The hook is intentionally a thin
@@ -341,12 +367,22 @@ ones:
     the secondary-button mouse-rotate fallback (`onMouseDown` /
     `onMouseMove` / `onMouseUp`) which still inlines the same rotate
     body via `applyRotate`; the duplication is intentional and small.
-11. **Optional: introduce `useSettingsBundle()`** in `SettingsPanel.jsx`
-    to compress the ~25-prop `LayoutTab` interface (and similarly for
-    `AnimationTab`) into a `{ s, set, incr, decr, ... }` bundle plus a
-    handful of orthogonal props. Non-breaking; pure ergonomics. Only
-    worth doing if the prop list grows or if a fourth tab is added.
+11. **Optional: introduce `useSettingsBundle()`** — ✅ DONE
+    (`src/settings/useSettingsBundle.js`). The hook returns
+    `{ s, set, setMany, incr, decr }` from a `(settings, onChange)`
+    pair. `LayoutTab` consumes it locally; the prop signature stayed
+    the same (the bundle is an internal ergonomic only). Reality
+    check: the `(~25 → ~5)` reduction in the original suggestion was
+    optimistic — most of `LayoutTab`'s props are orthogonal
+    (gridOpacity, colorPreset, customColors, cachelineSize, range /
+    multiples overlays, eventTitleSettings, outlineSettings, mode3D, …)
+    and are *not* part of the `settings` object, so the bundle only
+    consolidates two props into one. The real win is removing the
+    inline `set` / `incr` / `decr` boilerplate from each tab.
+    AnimationTab does not consume the bundle because it has no
+    `settings` / `onChange` pair.
 
-If you're considering anything bigger than the above (e.g. rewriting
-`SieveRenderer.render()`), stop and ask first. That single 700-line method
-is the visual heart of the app and any regression is highly visible.
+No open backlog items remain after this round. If you're considering
+anything bigger than the above (e.g. rewriting `SieveRenderer.render()`),
+stop and ask first. That single 700-line method is the visual heart of
+the app and any regression is highly visible.

@@ -118,7 +118,6 @@ export default function Visualizer({
   // true, the per-event animation re-triggers on every value change and the
   // event auto-loops. Cleared on pointerup.
   const isScrubbingTopRef = useRef(false);
-  const [customTitle, setCustomTitle] = useState('');
   // 0..100 slider progress scrubbing through the current event's internal animation.
   // Resets whenever the current event changes. The sequential-reveal animation
   // writes to this state as it progresses so the banner slider follows along.
@@ -3469,7 +3468,7 @@ export default function Visualizer({
     return result;
   }, [getBitBalloonGeometry, stepsPanelCollapsed, panelWidth, settingsCollapsed]);
 
-  const effectiveTitle = customTitle && customTitle.trim() ? customTitle.trim() : traceTitle;
+  const effectiveTitle = traceTitle;
   useEffect(() => {
     if (typeof document !== 'undefined') document.title = effectiveTitle;
   }, [effectiveTitle]);
@@ -3659,8 +3658,6 @@ export default function Visualizer({
           onMaskAnimationEnabledChange={setMaskAnimationEnabled}
           animationReplayPaused={animationReplayPaused}
           onAnimationReplayPausedChange={setAnimationReplayPaused}
-          bitAnimInterval={bitAnimInterval}
-          onBitAnimIntervalChange={setBitAnimInterval}
           maxStepDurationEnabled={maxStepDurationEnabled}
           onMaxStepDurationEnabledChange={setMaxStepDurationEnabled}
           maxStepDurationMs={maxStepDurationMs}
@@ -3671,8 +3668,6 @@ export default function Visualizer({
           onColorPresetChange={setColorPreset}
           customColors={customColors}
           onCustomColorsChange={setCustomColors}
-          storageModel={storageModel}
-          onStorageModelChange={setStorageModel}
           cachelineSize={cachelineSize}
           onCachelineSizeChange={setCachelineSize}
           cachePreset={cachePreset}
@@ -3730,7 +3725,6 @@ export default function Visualizer({
           showMinimap={showMinimap}
           onShowMinimapChange={setShowMinimap}
           minimapControlVisible={true}
-          depthModeEnabled={loweredSetBits}
           depthSettings={depthSettings}
           onDepthSettingsChange={setDepthSettings}
           loweredSetBits={loweredSetBits}
@@ -3741,8 +3735,6 @@ export default function Visualizer({
           onOutlineChange={(outlines) => setLayoutSettings((prev) => ({ ...prev, outlines }))}
           isWindowsPlatform={isWindowsPlatform}
           showAnimationControls={true}
-          customTitle={customTitle}
-          onCustomTitleChange={setCustomTitle}
           mode3D={mode3D}
           onToggle3D={toggle3D}
         />
