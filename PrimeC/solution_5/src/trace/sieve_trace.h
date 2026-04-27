@@ -25,9 +25,7 @@ trace_ensure_log_directory_for_path(const char* filename)
         if (!filename || strncmp(filename, "log/", 4) != 0) return 1;
 
         struct stat st;
-        if (stat("log", &st) == 0) {
-                return S_ISDIR(st.st_mode) ? 1 : 0;
-        }
+        if (stat("log", &st) == 0) return S_ISDIR(st.st_mode) ? 1 : 0;
 
         if (trace_mkdir("log") == 0) return 1;
         if (errno == EEXIST) return 1;
@@ -89,27 +87,20 @@ trace_write_json_string(FILE* f, const char* str)
     fputc('"', f);
 }
 
-static const char*
-trace_optional_label(const char* label)
-{
-    return (label && *label) ? label : NULL;
-}
+static const char* trace_optional_label(const char* label) { return (label && *label) ? label : NULL; }
 
-static inline int
-primes_trace_needs_mask_analysis(int runtime_verbose_level, int level)
-{
-    return g_trace.enabled && runtime_verbose_level >= level;
-}
+// static inline int
+// primes_trace_needs_mask_analysis(int runtime_verbose_level, int level)
+// {
+//     return g_trace.enabled && runtime_verbose_level >= level;
+// }
 
 static inline void
 primes_trace_append_mask_bit(char** bits_ptr, size_t* bits_remaining, char* bits_start, uintmax_t bit_index)
 {
     if (*bits_remaining <= 1) return;
 
-    const int written = snprintf(*bits_ptr,
-                                 *bits_remaining,
-                                 *bits_ptr == bits_start ? "%ju" : ",%ju",
-                                 bit_index);
+    const int written = snprintf(*bits_ptr, *bits_remaining, *bits_ptr == bits_start ? "%ju" : ",%ju", bit_index);
 
     if (written <= 0 || (size_t)written >= *bits_remaining) {
         (*bits_ptr)[*bits_remaining - 1] = '\0';
@@ -122,12 +113,7 @@ primes_trace_append_mask_bit(char** bits_ptr, size_t* bits_remaining, char* bits
 }
 
 static inline void
-primes_trace_format_mask_bits(char* bits,
-                              size_t bits_size,
-                              const void* mask,
-                              size_t lane_bytes,
-                              uint32_t lane_count,
-                              uint32_t lane_bits)
+primes_trace_format_mask_bits(char* bits, size_t bits_size, const void* mask, size_t lane_bytes, uint32_t lane_count, uint32_t lane_bits)
 {
     char* bits_ptr = bits;
     size_t bits_remaining = bits_size;
@@ -143,21 +129,13 @@ primes_trace_format_mask_bits(char* bits,
         for (uint32_t bit_offset = 0; bit_offset < lane_bits && bits_remaining > 1; bit_offset++) {
             if ((lane_mask & ((uintmax_t)1 << bit_offset)) == 0) continue;
 
-            primes_trace_append_mask_bit(&bits_ptr,
-                                         &bits_remaining,
-                                         bits,
-                                         (uintmax_t)lane_index * lane_bits + bit_offset);
+            primes_trace_append_mask_bit(&bits_ptr, &bits_remaining, bits, (uintmax_t)lane_index * lane_bits + bit_offset);
         }
     }
 }
 
 static inline uint32_t
-primes_trace_collect_mask_bits(uint32_t* out_bits,
-                               uint32_t out_capacity,
-                               const void* mask,
-                               size_t lane_bytes,
-                               uint32_t lane_count,
-                               uint32_t lane_bits)
+primes_trace_collect_mask_bits(uint32_t* out_bits, uint32_t out_capacity, const void* mask, size_t lane_bytes, uint32_t lane_count, uint32_t lane_bits)
 {
     uint32_t out_count = 0;
 
@@ -224,13 +202,7 @@ primes_trace_clear_context(void)
 
 /* Initialize the trace system. Opens the output file and writes JSON header. */
 static void __attribute__((cold))
-trace_init(const char* filename,
-           uint64_t sieve_size,
-           uint64_t bit_count,
-           int trace_level,
-           const char* benchmark_settings,
-           const char* trace_title,
-           const char* trace_info)
+trace_init(const char* filename, uint64_t sieve_size, uint64_t bit_count, int trace_level, const char* benchmark_settings, const char* trace_title, const char* trace_info)
 {
     const char* storage_model = getenv("TRACE_STORAGE_MODEL");
     if (!storage_model || !*storage_model) storage_model = "half";
@@ -268,22 +240,11 @@ trace_init(const char* filename,
     if (benchmark_settings && *benchmark_settings) {
         fprintf(g_trace.file,
             "TRACE version=%d format=text sieve_size=%llu bit_count=%llu max_number=%llu storage_model=%s trace_level=%d benchmark_settings=%s\n",
-                TRACE_FORMAT_VERSION,
-                (unsigned long long)sieve_size,
-                (unsigned long long)bit_count,
-                (unsigned long long)sieve_size,
-                storage_model,
-            trace_level,
-                benchmark_settings);
+                TRACE_FORMAT_VERSION, (unsigned long long)sieve_size, (unsigned long long)bit_count, (unsigned long long)sieve_size, storage_model, trace_level, benchmark_settings);
     } else {
         fprintf(g_trace.file,
             "TRACE version=%d format=text sieve_size=%llu bit_count=%llu max_number=%llu storage_model=%s trace_level=%d\n",
-                TRACE_FORMAT_VERSION,
-                (unsigned long long)sieve_size,
-                (unsigned long long)bit_count,
-                (unsigned long long)sieve_size,
-            storage_model,
-            trace_level);
+                TRACE_FORMAT_VERSION, (unsigned long long)sieve_size, (unsigned long long)bit_count, (unsigned long long)sieve_size, storage_model, trace_level);
     }
 
     if ((trace_title && *trace_title) || (trace_info && *trace_info)) {
@@ -472,8 +433,10 @@ trace_record_text_full(int level, const char* label, const char* annotation)
     const char* event_label = trace_optional_label(label);
 
     fputs("TEXT", g_trace.file);
-    if (g_trace.depth > 0) fprintf(g_trace.file, " depth=%d", g_trace.depth);
-    if (level > 0) fprintf(g_trace.file, " level=%d", level);
+    // if (g_trace.depth > 0) fprintf(g_trace.file, " depth=%d", g_trace.depth);
+    // if (level > 0) fprintf(g_trace.file, " level=%d", level);
+    if (level > 0) fprintf(g_trace.file, " depth=%d level=%d", level, level);
+
     if (event_label) {
         fputs(" function=", g_trace.file);
         trace_write_json_string(g_trace.file, event_label);
@@ -483,98 +446,57 @@ trace_record_text_full(int level, const char* label, const char* annotation)
     fputc('\n', g_trace.file);
 }
 
-// static void
-// trace_record_text(int level, const char* label, const char* fmt, ...)
-// {
-//     char annotation[1024];
-//     va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
-//     trace_record_text_full(level, label, annotation);
-// }
-
-// // passes all to trace_record_text but NULL for label
-// static void
-// trace_record_text_unlabeled(int level, const char* fmt, ...)
-// {
-//     char annotation[1024];
-//     va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
-//     trace_record_text_full(level, NULL, annotation);
-// }
-
-// static void
-// trace_record_event(int level, const void* bitstorage, const char* label, double time, const char* fmt, ...)
-// {
-//     char annotation[1024];
-//     va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
-//     trace_record_event_full(level, bitstorage, label, time, annotation);
-// }
-
-// static void
-// trace_record_event_untimed(int level, const void* bitstorage, const char* label, const char* fmt, ...)
-// {
-//     char annotation[1024];
-//     va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
-//     trace_record_event_full(level, bitstorage, label, 0.0, annotation);
-// }
-
-// static void
-// trace_record_event_bare(int level, const void* bitstorage, const char* fmt, ...)
-// {
-//     char annotation[1024];
-//     va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
-//     trace_record_event_full(level, bitstorage, NULL, 0.0, annotation);
-// }
-
 /*
  * Write a standalone memory dump file (no step-by-step changes).
  * Human-readable text dump is written as primary output.
  */
-static void __attribute__((cold))
-trace_dump_memory_with_format(const char* filename, void* bitstorage,
-                              uint64_t sieve_size, uint64_t bit_count,
-                              const char* format)
-{
-    uint32_t bytes = (uint32_t)((bit_count + 7) / 8);
-    const uint8_t* data = (const uint8_t*)bitstorage;
+// static void __attribute__((cold))
+// trace_dump_memory_with_format(const char* filename, void* bitstorage,
+//                               uint64_t sieve_size, uint64_t bit_count,
+//                               const char* format)
+// {
+//     uint32_t bytes = (uint32_t)((bit_count + 7) / 8);
+//     const uint8_t* data = (const uint8_t*)bitstorage;
 
-    trace_mkdir("log");
+//     trace_mkdir("log");
 
-    FILE* f = fopen(filename, "w");
-    if (!f) {
-        fprintf(stderr, "Trace dump: failed to open %s\n", filename);
-        return;
-    }
+//     FILE* f = fopen(filename, "w");
+//     if (!f) {
+//         fprintf(stderr, "Trace dump: failed to open %s\n", filename);
+//         return;
+//     }
 
-    const int binary = (format && strcmp(format, "binary") == 0);
-    fprintf(f, "DUMP version=%d format=%s sieve_size=%llu bit_count=%llu max_number=%llu data=",
-            TRACE_FORMAT_VERSION,
-            binary ? "binary" : "hex",
-            (unsigned long long)sieve_size,
-            (unsigned long long)bit_count,
-            (unsigned long long)sieve_size);
+//     const int binary = (format && strcmp(format, "binary") == 0);
+//     fprintf(f, "DUMP version=%d format=%s sieve_size=%llu bit_count=%llu max_number=%llu data=",
+//             TRACE_FORMAT_VERSION,
+//             binary ? "binary" : "hex",
+//             (unsigned long long)sieve_size,
+//             (unsigned long long)bit_count,
+//             (unsigned long long)sieve_size);
 
-    if (binary) {
-        for (uint32_t i = 0; i < bytes; i++) {
-            for (int b = 0; b < 8; b++) {
-                fputc((data[i] & (1u << b)) ? '1' : '0', f);
-            }
-        }
-    } else {
-        for (uint32_t i = 0; i < bytes; i++) {
-            fprintf(f, "%02x", data[i]);
-        }
-    }
-    fputc('\n', f);
-    fclose(f);
+//     if (binary) {
+//         for (uint32_t i = 0; i < bytes; i++) {
+//             for (int b = 0; b < 8; b++) {
+//                 fputc((data[i] & (1u << b)) ? '1' : '0', f);
+//             }
+//         }
+//     } else {
+//         for (uint32_t i = 0; i < bytes; i++) {
+//             fprintf(f, "%02x", data[i]);
+//         }
+//     }
+//     fputc('\n', f);
+//     fclose(f);
 
-    fprintf(stderr, "Trace dump: wrote %u bytes to %s\n", bytes, filename);
-}
+//     fprintf(stderr, "Trace dump: wrote %u bytes to %s\n", bytes, filename);
+// }
 
-static void __attribute__((cold))
-trace_dump_memory(const char* filename, void* bitstorage,
-                  uint64_t sieve_size, uint64_t bit_count)
-{
-    trace_dump_memory_with_format(filename, bitstorage, sieve_size, bit_count, "hex");
-}
+// static void __attribute__((cold))
+// trace_dump_memory(const char* filename, void* bitstorage,
+//                   uint64_t sieve_size, uint64_t bit_count)
+// {
+//     trace_dump_memory_with_format(filename, bitstorage, sieve_size, bit_count, "hex");
+// }
 
 /*
  * Finalize the trace: close the JSON array and object, close file.

@@ -268,7 +268,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
             }
             verbose2( { 
                 printf_statusline("Tuning step " COLOR_BOLD_GREEN "%ju" COLOR_RESET " with " COLOR_BOLD_YELLOW "%5ju" COLOR_RESET " options. "
-                                "Benchmarking " COLOR_BOLD_GREEN "%s" COLOR_RESET " (" COLOR_BOLD_GREEN "%ju" COLOR_RESET ")... (best: " COLOR_BOLD_YELLOW "%.0f" COLOR_RESET " with " COLOR_BOLD_GREEN "%s" COLOR_RESET ")\n",
+                                "Benchmarking " COLOR_BOLD_GREEN "%s" COLOR_RESET " (" COLOR_BOLD_GREEN "%ju" COLOR_RESET ")... (best: " COLOR_BOLD_YELLOW "%.0f" COLOR_RESET " with " COLOR_BOLD_GREEN "%s" COLOR_RESET ")",
                                 (uintmax_t)tuning_parameters.step, (uintmax_t)tuning_results,
                                 getBenchmarkSettingAsString(tuning_settings), (uintmax_t)i, highest_avg*5, getBenchmarkSettingAsString(highest_avg_settings)); 
             })
