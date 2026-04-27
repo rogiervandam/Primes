@@ -1,0 +1,18 @@
+/* ---- Responsive ---- */
+@media (max-width: 768px) {
+  .toolbar { display: flex; flex-direction: column; gap: 4px; }
+  .toolbar-left, .toolbar-right { width: 100%; justify-content: center; flex-wrap: wrap; }
+  .step-slider { width: 100px; }
+  .trace-title-block { align-items: center; }
+  .trace-title { max-width: 100%; text-align: center; }
+  .trace-meta-row { justify-content: center; }
+  .step-panel { width: 200px !important; }
+  .step-detail { font-size: 11px; }
+  .settings-sidebar { width: 280px; }
+}
+
+@media (max-width: 480px) {
+  .step-panel { display: none; }
+  .search-box { display: none; }
+}
+

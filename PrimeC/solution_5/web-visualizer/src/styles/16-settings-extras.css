@@ -1,0 +1,22 @@
+/* ---- Settings Hint ---- */
+.settings-hint {
+  display: block;
+  font-size: 10px;
+  color: var(--fg-dim);
+  margin-top: 2px;
+  font-style: italic;
+}
+
+/* ---- Layout description under layout icon buttons ---- */
+.layout-description {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  color: var(--fg-muted);
+  font-style: italic;
+  min-height: 1em;
+}
+
+.layout-description-grouping {
+  margin-bottom: 8px;
+}
+
