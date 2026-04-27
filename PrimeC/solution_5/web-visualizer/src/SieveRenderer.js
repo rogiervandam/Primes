@@ -1120,13 +1120,13 @@ export class SieveRenderer {
       const fs = this._fitLabelFontSize(ctx, text, maxLabelW, preferredFs, 6, '600 ');
       if (fs <= 0) continue;
 
-      ctx.font = `600 ${fs}px monospace`;
+      ctx.font = `400 ${fs}px Helvetica, Arial, sans-serif`;
       const tw  = ctx.measureText(text).width;
       const bw  = Math.min(rw - 4, tw + padBX * 2);
       const bh  = fs + padBY * 2;
       const bx  = rx + (rw - bw) / 2;
-      // Place badge at bottom of the cell, 2px above the border
-      const by  = ry + rh - bh - 3;
+      // Place badge vertically centred inside the cell, shifted 25% toward the bottom
+      const by  = ry + (rh - bh) + rh * 0.12;
 
       const fillAlpha = Math.min(0.97, Math.max(0.82, oc.alpha * 2 + 0.5));
       ctx.fillStyle = `rgba(${oc.r},${oc.g},${oc.b},${fillAlpha})`;

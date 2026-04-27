@@ -422,10 +422,10 @@ export default function SettingsPanel({
 
   const CL_ANNOT_CYCLE = ['none', 'hits', 'age', 'both'];
   const CL_ANNOT_HINTS = {
-    none: 'Cacheline heatmap annotation off — click to show hit counts',
-    hits: 'Cacheline annotation: hit count (\u00d7N) — click to switch to age',
-    age:  'Cacheline annotation: age since last hit (\u0394N) — click to show both',
-    both: 'Cacheline annotation: hits + age — click to turn off',
+    none: 'Heatmap annotation off',
+    hits: 'Hit count (\u00d7N) since last event',
+    age:  'Age since last hit (\u0394N)',
+    both: 'Hits until this event + age since last hit',
   };
   const cycleCLAnnotation = () => {
     if (!heatMapEnabled) return;
@@ -1112,7 +1112,7 @@ export default function SettingsPanel({
               )}
             />
             <AnnotationButton
-              title={cachelineAnnotation === 'none' ? 'CL label' : `CL: ${cachelineAnnotation}`}
+              title={cachelineAnnotation === 'none' ? 'CL label' : `Cacheline: ${cachelineAnnotation}`}
               hint={!heatMapEnabled ? 'Enable heat map to use cacheline annotation' : CL_ANNOT_HINTS[cachelineAnnotation]}
               active={heatMapEnabled && cachelineAnnotation !== 'none'}
               onClick={cycleCLAnnotation}
