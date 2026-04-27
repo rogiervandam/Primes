@@ -223,6 +223,14 @@ export default function Visualizer({
   const [detailInspectorMode, setDetailInspectorMode] = useState('bits');
   const [detailInspectorQuery, setDetailInspectorQuery] = useState('');
   const [, setBalloonLayoutTick] = useState(0);
+  // Pixel offsets that place the canvas's center at the viewport center
+  // regardless of the container's current bounding box. Without this,
+  // the canvas was positioned `left:50%; top:50%` of `.canvas-container`,
+  // so when the settings/steps panels collapse/expand the container
+  // reshapes and the (stable) canvas slides in viewport space — visible
+  // as a content shift on every panel toggle. Updated by a ResizeObserver
+  // on the container so the anchor tracks the panel's CSS transition.
+  const [canvasAnchorPx, setCanvasAnchorPx] = useState(null);
 
   // 3D camera state
   // Defaults to true with rotateX=0/rotateY=0 — visually identical to
@@ -472,31 +480,104 @@ export default function Visualizer({
     r.unfreezeLayout();
     r.freezeLayout();
 
-    if (anchor && anchor.contentX != null && anchor.contentY != null) {
-      const canvasCssHeight = (r.canvas?.height || rect.height * (window.devicePixelRatio || 1)) / (window.devicePixelRatio || 1);
-      const planeOffsetX = Math.max(0, (canvasW - rect.width) / 2);
-      const planeOffsetY = Math.max(0, (canvasCssHeight - rect.height) / 2);
-      const localX = Math.max(0, Math.min(rect.width, anchor.clientX - rect.left));
-      const localY = Math.max(0, Math.min(rect.height, anchor.clientY - rect.top));
-      // Use the same screen->canvas inverse as captureViewportAnchor; otherwise
-      // the round-trip is asymmetric in 3D mode and the view drifts whenever
-      // the layout reflows (panel toggles, range overlay, etc.).
-      const cam = camera3DRef.current;
-      const desiredPoint = cam && cam.enabled
-        ? cam.screenToCanvas(localX, localY, canvasW, Math.max(canvasCssHeight, canvasH), planeOffsetX, planeOffsetY)
-        : { x: planeOffsetX + localX, y: planeOffsetY + localY };
-      const desiredX = desiredPoint.x;
-      const desiredY = desiredPoint.y;
-      const mappedX = anchor.contentX * Math.max(0.0001, r.zoom || 1) + r.panX;
-      const mappedY = anchor.contentY * Math.max(0.0001, r.zoom || 1) + r.panY;
-      r.panX += desiredX - mappedX;
-      r.panY += desiredY - mappedY;
-    }
+    // NOTE: anchor-based panX/panY compensation removed. With the
+    // canvas pinned to the VIEWPORT center (see canvasAnchorPx and
+    // renderCanvasStyle), the canvas no longer moves when the
+    // container reshapes on a panel toggle, so there is nothing to
+    // compensate for. Re-applying the old container-relative anchor
+    // here would actively shift content in the same direction the
+    // panel grew, which is exactly the drift the user reported.
+    // Window-resize is handled the same way: canvasW/H scale around
+    // the canvas's own center (transform-origin 50%/50%), and that
+    // center is the viewport center, so content stays put.
+    void anchor;
 
     r.render();
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
   }, [getCanvasTargetSize, showMinimap, getMinimapDetailH, updateMinimapAvailability]);
+
+  // Keep the canvas pinned to the VIEWPORT center (not the container
+  // center) so panel collapse/expand transitions don't slide the
+  // (stable) canvas content across the screen. We update DOM styles
+  // imperatively (NOT through React state) so the position tracks the
+  // container's CSS transition frame-by-frame -- React state batching
+  // adds a render-cycle lag that was visible as a large displacement
+  // when the events panel collapsed. A rAF self-priming loop runs for
+  // ~420ms after each detected container reshape (or transition start)
+  // to cover the entire CSS transition.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof window === 'undefined') return undefined;
+    let lastL = Number.NaN;
+    let lastT = Number.NaN;
+    let rafId = 0;
+    let rafUntil = 0;
+    const apply = (left, top) => {
+      const leftStr = `${left}px`;
+      const topStr = `${top}px`;
+      const targets = [canvasRef.current, settledCanvasRef.current, glCanvasRef.current];
+      for (const c of targets) {
+        if (!c) continue;
+        if (c.style.left !== leftStr) c.style.left = leftStr;
+        if (c.style.top !== topStr) c.style.top = topStr;
+      }
+      // Pin perspective-origin to the same anchor so the 3D vanishing
+      // point doesn't slide when the container reshapes.
+      el.style.perspectiveOrigin = `${left}px ${top}px`;
+    };
+    const sample = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return false;
+      const left = Math.round((window.innerWidth / 2 - rect.left) * 100) / 100;
+      const top = Math.round((window.innerHeight / 2 - rect.top) * 100) / 100;
+      if (left === lastL && top === lastT) return false;
+      lastL = left;
+      lastT = top;
+      apply(left, top);
+      setCanvasAnchorPx({ left, top });
+      return true;
+    };
+    const tick = () => {
+      sample();
+      if (performance.now() < rafUntil) {
+        rafId = requestAnimationFrame(tick);
+      } else {
+        rafId = 0;
+      }
+    };
+    const kick = (durationMs = 420) => {
+      rafUntil = Math.max(rafUntil, performance.now() + durationMs);
+      if (!rafId) rafId = requestAnimationFrame(tick);
+    };
+    sample();
+    let ro = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => kick());
+      ro.observe(el);
+      if (document.body) ro.observe(document.body);
+    }
+    const onResize = () => kick();
+    const onScroll = () => kick(60);
+    const onTransitionStart = (ev) => {
+      const p = ev.propertyName;
+      if (p === 'width' || p === 'flex-basis' || p === 'transform' || p === 'margin' || p === 'padding') {
+        kick();
+      }
+    };
+    window.addEventListener('resize', onResize);
+    window.addEventListener('scroll', onScroll, true);
+    document.addEventListener('transitionstart', onTransitionStart, true);
+    document.addEventListener('transitionrun', onTransitionStart, true);
+    return () => {
+      if (ro) ro.disconnect();
+      if (rafId) cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onScroll, true);
+      document.removeEventListener('transitionstart', onTransitionStart, true);
+      document.removeEventListener('transitionrun', onTransitionStart, true);
+    };
+  }, []);
 
   const clearScheduledLayoutRefresh = useCallback(() => {
     if (layoutRefreshTimeoutRef.current != null) {
@@ -3427,15 +3508,37 @@ export default function Visualizer({
     // camera is tilted; the canvas placement is identical. This
     // is what eliminates the "2D in a different place than 3D"
     // jump on toggle and the placement drift on panel toggles.
+    //
+    // left/top use pixel offsets from `canvasAnchorPx` (computed so
+    // that the canvas center sits at the VIEWPORT center, not the
+    // container center). When a side panel toggles the container
+    // reshapes; without viewport anchoring the canvas's `50%/50%`
+    // moves with the container and the user sees the content slide.
     {
       position: 'absolute',
-      left: '50%',
-      top: '50%',
+      left: canvasAnchorPx ? `${canvasAnchorPx.left}px` : '50%',
+      top: canvasAnchorPx ? `${canvasAnchorPx.top}px` : '50%',
       transform: `translate(-50%, -50%) ${camera3DTransform}`,
       transformStyle: 'preserve-3d',
       transformOrigin: '50% 50%',
     }
-  ), [camera3DTransform]);
+  ), [camera3DTransform, canvasAnchorPx]);
+
+  // Merge a px-based `perspectiveOrigin` into the container style so the
+  // 3D vanishing point sits at the VIEWPORT center, matching where the
+  // canvas itself is anchored. The Camera3D default is `50% 50%` of the
+  // container, but the container reshapes when side panels toggle, so
+  // its center moves in viewport space \u2014 producing a large projected
+  // offset (especially noticeable with the events panel on the left,
+  // which shifts the container's left edge by hundreds of px). Pinning
+  // perspective-origin to the canvas anchor keeps the projection stable.
+  const mergedCamera3DContainerStyle = useMemo(() => {
+    if (!canvasAnchorPx) return camera3DContainerStyle;
+    return {
+      ...camera3DContainerStyle,
+      perspectiveOrigin: `${canvasAnchorPx.left}px ${canvasAnchorPx.top}px`,
+    };
+  }, [camera3DContainerStyle, canvasAnchorPx]);
 
   // (legacy playSpeed-based label/value/setters removed; speed is now driven
   // by playSpeedPercent and per-event time targets — see SettingsPanel.)
@@ -3816,7 +3919,7 @@ export default function Visualizer({
           settledCanvasRef={settledCanvasRef}
           minimapCanvasRef={minimapCanvasRef}
           glCanvasRef={glEnabled ? glCanvasRef : null}
-          camera3DContainerStyle={camera3DContainerStyle}
+          camera3DContainerStyle={mergedCamera3DContainerStyle}
           renderCanvasStyle={renderCanvasStyle}
           eventTitleSettings={eventTitleSettings}
           setEventTitleSettings={setEventTitleSettings}
