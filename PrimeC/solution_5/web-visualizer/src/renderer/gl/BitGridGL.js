@@ -42,6 +42,7 @@ layout(location = 0) in vec2 a_corner;       // unit quad corners (-0.5..0.5)
 uniform vec2 u_canvasSize;     // CSS pixels (pre-DPR)
 uniform vec2 u_pan;            // CSS pixels
 uniform float u_cellSize;      // base bit cell size in CSS px (already includes zoom)
+uniform float u_dpr;           // device-pixel ratio; used to snap edges to the device grid
 uniform sampler2D u_pos;       // RG32F: per-bit (x,y) in CSS px, pan-independent
 uniform usampler2D u_state;    // R8UI:  per-bit packed flag byte
 uniform ivec2 u_texSize;
@@ -65,6 +66,12 @@ void main() {
   // centred on basePos+pan exactly fills the cell.
   vec2 centre = basePos + u_pan;
   vec2 corner = centre + a_corner * u_cellSize;
+
+  // DPR snap: round each corner to the device-pixel grid so cell edges
+  // align with backing-store texels at any DPR (mirrors the Math.round
+  // calls in the Canvas2D fillRect path). On integer DPR this is a
+  // no-op; on 1.25x/1.5x screens it kills the bilinear softness.
+  corner = floor(corner * u_dpr + 0.5) / u_dpr;
 
   // CSS px → clip space, flipping Y.
   vec2 clip = (corner / u_canvasSize) * 2.0 - 1.0;
@@ -252,6 +259,7 @@ export class BitGridGL {
       canvasSize: u('u_canvasSize'),
       pan: u('u_pan'),
       cellSize: u('u_cellSize'),
+      dpr: u('u_dpr'),
       pos: u('u_pos'),
       state: u('u_state'),
       texSize: u('u_texSize'),
@@ -503,6 +511,7 @@ export class BitGridGL {
     gl.uniform2f(u.canvasSize, cssW, cssH);
     gl.uniform2f(u.pan, params.panX || 0, params.panY || 0);
     gl.uniform1f(u.cellSize, Math.max(1, params.cellSize || 1));
+    gl.uniform1f(u.dpr, Math.max(1, window.devicePixelRatio || 1));
     gl.uniform2i(u.texSize, this.texW, this.texH);
     gl.uniform1i(u.bitCount, this.bitCount);
     gl.uniform3f(u.setColor, params.setColor[0] / 255, params.setColor[1] / 255, params.setColor[2] / 255);

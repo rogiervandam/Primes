@@ -540,10 +540,13 @@ A WebGL2 renderer skeleton exists at `src/renderer/gl/BitGridGL.js`.
   are now partially complete — see the bullet on "Still NOT in GL"
   for what each item still excludes).
 - Still missing for full parity: lowered-3D shading and
-  rise-and-settle, focus-range fill, prime / range / multiples
-  overlays, target outline + hit-count gradient, motion trails,
-  cacheline outline + heat overlay, labels (bit / byte / vector),
-  minimap, heat-map age tinting, `mode3D` camera transform.
+  rise-and-settle, target outline + hit-count gradient stroke,
+  motion trails, cacheline outline + heat overlay, labels
+  (bit / byte / vector), minimap, heat-map age tinting. (Focus,
+  prime, range and multiples cell-fills are now in the GL
+  shader; `mode3D` works via the parent `camera3DContainerStyle`
+  CSS transform; DPR is handled by the shader's device-pixel
+  snap.)
 - The GL canvas is mounted *underneath* the existing Canvas2D layer
   rather than replacing it, so overlays and labels (`SearchOverlay`,
   `MaskWriteOverlay`, `VectorTouchOrderOverlay`,
@@ -562,15 +565,16 @@ A WebGL2 renderer skeleton exists at `src/renderer/gl/BitGridGL.js`.
 Tracked here so the next agent doesn't think the GL path is "almost
 done":
 
-1. **Layout parity.** ⚠️ *Partially done.* All `BIT_LAYOUTS`,
+1. **Layout parity.** ✅ *Done.* All `BIT_LAYOUTS`,
    `BYTE_LAYOUTS`, vector grouping, cacheline grouping, custom
    grouping and frozen wrapping flow through automatically because
    `BitGridGL.uploadPositions(host, fingerprint)` walks
-   `host.bitIndexToCanvas(i)` for every bit. Still TODO: DPR scaling
-   inside the shader (currently the canvas backing store is
-   DPR-sized but bit positions/`cellSize` are CSS-px so there's an
-   implicit 1× sampling — fine on integer DPR, mildly soft on
-   fractional), and the `mode3D` camera transform.
+   `host.bitIndexToCanvas(i)` for every bit. `mode3D` is handled
+   by the parent `camera3DContainerStyle` CSS transform in
+   `CanvasStage.jsx`. DPR is handled by the vertex shader
+   snapping each quad corner to the device-pixel grid
+   (`floor(corner * u_dpr + 0.5) / u_dpr`), mirroring the
+   `Math.round` calls in the Canvas2D fillRect path.
 2. **Color parity.** ⚠️ *Partially done.* Shader handles
    set / cleared / changed / ghost-mask / repeated using uniforms
    from `_bitColors()` and `_opColor()`, **plus** the four
