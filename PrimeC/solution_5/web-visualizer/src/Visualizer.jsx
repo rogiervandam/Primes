@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { SieveRenderer, bitToNumber, numberToBit, CACHE_PRESETS } from './SieveRenderer';
-import { Camera3D } from './Camera3D';
 import StepPanel from './StepPanel';
 import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
@@ -14,6 +13,7 @@ import StepAnimSliders from './visualizer/StepAnimSliders';
 import BitHistoryBalloons from './visualizer/BitHistoryBalloons';
 import { useTraceExport } from './hooks/useTraceExport';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { use3DCamera } from './hooks/use3DCamera';
 import {
   DEFAULT_EVENT_TIME_TARGETS,
   DEFAULT_LAYOUT_SETTINGS as DEFAULT_SETTINGS,
@@ -242,11 +242,18 @@ export default function Visualizer({
 
   // 3D camera state
   const [mode3D, setMode3D] = useState(false);
-  const [camera3DTransform, setCamera3DTransform] = useState('none');
-  const [camera3DContainerStyle, setCamera3DContainerStyle] = useState({});
   const currentAnimIntervalRef = useRef(20);
   const currentMaskAnimIntervalRef = useRef(20);
-  const camera3DRef = useRef(null);
+  const {
+    camera3DRef,
+    camera3DTransform,
+    camera3DContainerStyle,
+    setCamera3DTransform,
+    setCamera3DContainerStyle,
+    createCamera,
+    disposeCamera,
+    ensureTiltCamera,
+  } = use3DCamera({ mode3D });
 
   const bitStateRef = useRef(null);
   const stepsRef = useRef([]);
@@ -588,28 +595,23 @@ export default function Visualizer({
       bitStateRef.current = new Uint8Array(header.bitCount);
     }
 
-    // Init 3D camera
-    const cam = new Camera3D();
-    camera3DRef.current = cam;
-    cam.setUpdateCallback(() => {
-      setCamera3DTransform(cam.getCanvasTransform());
-      setCamera3DContainerStyle(cam.getContainerStyle());
-    });
-    cam.setPanZoomCallback(({ panX, panY, zoom: z }) => {
-      const rr = rendererRef.current;
-      if (!rr) return;
-      rr.panX = panX;
-      rr.panY = panY;
-      rr.zoom = z;
-      setZoom(z);
-      rr.render();
-      rr.renderMinimap(rr.canvasWidth, rr.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+    // Init 3D camera — see src/hooks/use3DCamera.js for the full lifecycle.
+    createCamera({
+      onPanZoom: ({ panX, panY, zoom: z }) => {
+        const rr = rendererRef.current;
+        if (!rr) return;
+        rr.panX = panX;
+        rr.panY = panY;
+        rr.zoom = z;
+        setZoom(z);
+        rr.render();
+        rr.renderMinimap(rr.canvasWidth, rr.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      },
     });
 
     return () => {
       rendererRef.current = null;
-      if (camera3DRef.current) camera3DRef.current.cancelAllAnimations();
-      camera3DRef.current = null;
+      disposeCamera();
     };
   }, [header.bitCount, header.sieveSize]);
 
@@ -2566,21 +2568,7 @@ export default function Visualizer({
     );
   }, []);
 
-  const ensureTiltCamera = useCallback(() => {
-    const cam = camera3DRef.current;
-    if (!cam) return null;
-    if (!cam.enabled) {
-      cam.enable();
-      if (!mode3D) {
-        cam.rotateX = Math.max(10, cam.rotateX || 14);
-        cam.rotateY = cam.rotateY || 0;
-        cam.perspective = 1500;
-        setCamera3DContainerStyle(cam.getContainerStyle());
-        setCamera3DTransform(cam.getCanvasTransform());
-      }
-    }
-    return cam;
-  }, [mode3D]);
+  // ensureTiltCamera() is provided by use3DCamera; see src/hooks/use3DCamera.js.
 
   // Mouse pan & zoom on canvas (with 3D rotation support)
   useEffect(() => {

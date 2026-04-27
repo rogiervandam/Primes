@@ -191,6 +191,18 @@ overwrite.
   remain TODO** — see §7. They were deferred because the layout tab alone
   is ~460 lines of JSX with dozens of closure-captured locals; without test
   coverage, splitting safely needs a `useSettingsBundle()` step first.
+- ✅ Extracted the search-target highlight overlay into
+  `src/renderer/overlays/SearchOverlay.js`. `SieveRenderer.setSearchHighlight()`
+  / `clearSearchHighlight()` are now thin delegators; the renderer's main
+  draw loop calls `this.searchOverlay.render(ctx, cw, ch)` directly. This
+  is the reference shape for future overlays (Pattern D).
+- ✅ Extracted Camera3D **lifecycle and reactive state** to
+  `src/hooks/use3DCamera.js`. The hook owns `camera3DRef`,
+  `camera3DTransform`, `camera3DContainerStyle`, `ensureTiltCamera`, plus
+  `createCamera({ onPanZoom })` and `disposeCamera()` helpers. The
+  pointer/wheel/touch gesture useEffect (~390 lines) was **not** moved
+  because the 2D pan/zoom and 3D rotation paths share one pointer state
+  machine; see §7 for the deferred pointer-handler split.
 
 ---
 
@@ -217,11 +229,43 @@ ones:
 3. **Extract the canvas-and-overlays JSX block** — ✅ DONE
    (`src/visualizer/CanvasStage.jsx`).
 4. **Move `_renderSearchHighlight` and `setSearchHighlight` into a tiny
-   `SearchOverlay` class** under `src/renderer/overlays/`. Smallest
-   independent overlay; good first cut to validate Pattern D for overlays.
-5. **Extract `Camera3D` gesture wiring** into `src/hooks/use3DCamera.js`.
-   The current useEffect that wires it spans ~340 lines; it has a clean
-   border with the rest.
+   `SearchOverlay` class** — ✅ DONE
+   (`src/renderer/overlays/SearchOverlay.js`). Use it as the template
+   when extracting other overlays. Good next overlay candidates, ranked
+   by isolation:
+   - **MaskWriteOverlay** (`SieveRenderer._renderMaskWriteOverlay`) —
+     self-contained, reads `maskWriteOrder*` arrays only. Medium size.
+   - **VectorTouchOrderOverlay** (`_renderVectorTouchOrder`) — reads
+     `vectorTouchOrder` and a few sizing fields. Small.
+   - **CachelineAnnotationsOverlay** (`_renderCachelineAnnotations`) —
+     larger, reads heat-map + cacheline metrics. Save for last.
+5. **Extract `Camera3D` gesture wiring** — ✅ PARTIAL. Lifecycle moved
+   to `src/hooks/use3DCamera.js`. Still TODO: split the giant pointer
+   useEffect at `Visualizer.jsx` lines ~2587–2975 into 2D pan/zoom and
+   3D rotation handlers. **Risk: high** — they share one pointer state
+   machine and any regression breaks all canvas interaction. Recommended
+   approach if attempted: keep the dispatching shell in place and extract
+   the *body* of each gesture mode (`pan`, `rotate`, `pinch`, `wheel`)
+   into pure functions in `src/visualizer/gestures/` that take
+   `{ rendererRef, cameraRef, event, state }` and return the new
+   `state`. Do not move state ownership.
+
+### New backlog (added after the round that finished tasks 4+5)
+
+6. **Finish the SettingsPanel tab split** (Task 2 above). The
+   `useSettingsBundle()` parent-side hook is the unblocking step.
+7. **Use `SearchOverlay` as a template for `MaskWriteOverlay`** (see
+   list under task 4). This is the most valuable next refactor for
+   `SieveRenderer.js` because the mask-write code path is the second
+   most-touched overlay during animations.
+8. **Promote the `seekGen` / `globalPaused` / `animBusyUntil` triplet**
+   into a small `usePlaybackClock()` hook. Today they live as bare refs
+   inside `Visualizer.jsx` and are mutated from many places; centralising
+   them would make the playback rules testable in isolation.
+9. **Move `viewPrefs` migration** out of `Visualizer.jsx` into
+   `src/storage/viewPrefs.js` (read/write/migrate). Right now the
+   migration code is interleaved with the initial `useState` lazy
+   initialisers, which makes it hard to evolve the schema safely.
 
 If you're considering anything bigger than the above (e.g. rewriting
 `SieveRenderer.render()`), stop and ask first. That single 700-line method

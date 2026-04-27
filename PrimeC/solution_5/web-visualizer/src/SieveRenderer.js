@@ -8,6 +8,7 @@
  * models) live in `./renderer/constants` and are re-exported below to keep
  * existing import sites working.
  */
+import { SearchOverlay } from './renderer/overlays/SearchOverlay';
 
 import {
   THEMES,
@@ -67,7 +68,7 @@ export class SieveRenderer {
     this.maskSlotBits = null;
     this.maskGhostBits = null;
     this.suppressMaskWriteOverlay = false;
-    this.searchHighlight = null;
+    this.searchOverlay = new SearchOverlay(this);
     this.primeOverlay = false;
     this._primeBitFlags = null;
     this._primeOverlayKey = '';
@@ -310,7 +311,7 @@ export class SieveRenderer {
     this.maskSlotBits = [];
     this.maskGhostBits = new Set();
     this.suppressMaskWriteOverlay = false;
-    this.searchHighlight = null;
+    this.searchOverlay.clear();
     this.lastAccessStep = new Int32Array(bitCount).fill(-1);
     this.clHitCount = null;   // allocated lazily in rebuildHeatMap
     this.clLastHitStep = null;
@@ -427,15 +428,11 @@ export class SieveRenderer {
   }
 
   setSearchHighlight(type, index, bitIndex = null) {
-    this.searchHighlight = {
-      type,
-      index,
-      bitIndex,
-    };
+    this.searchOverlay.set(type, index, bitIndex);
   }
 
   clearSearchHighlight() {
-    this.searchHighlight = null;
+    this.searchOverlay.clear();
   }
 
   _logicalGroupBits() {
@@ -1152,53 +1149,6 @@ export class SieveRenderer {
       if (showAnnotation) {
         ctx.font = `500 ${detailSize}px monospace`;
         ctx.fillText(annotation, x, y + (labelSize || fontSize) * 0.45);
-      }
-    }
-
-    ctx.restore();
-  }
-
-  _renderSearchHighlight(ctx, canvasW, canvasH) {
-    if (!this.searchHighlight) return;
-
-    const bounds = this.getElementBounds(this.searchHighlight.type, this.searchHighlight.index);
-    if (!bounds) return;
-
-    const pad = Math.max(6, Math.min(16, 8 + this.zoom * 0.45));
-    const x = bounds.x - pad;
-    const y = bounds.y - pad;
-    const w = bounds.w + pad * 2;
-    const h = bounds.h + pad * 2;
-
-    if (x > canvasW || y > canvasH || x + w < 0 || y + h < 0) return;
-
-    ctx.save();
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.96)';
-    ctx.lineWidth = Math.max(1.5, 1.8 + this.zoom * 0.08);
-    ctx.setLineDash([]);
-    ctx.beginPath();
-    ctx.roundRect(x, y, w, h, Math.max(6, Math.min(16, 10 + this.zoom * 0.2)));
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.strokeStyle = 'rgba(250, 204, 21, 0.9)';
-    ctx.lineWidth = Math.max(1, 1.1 + this.zoom * 0.04);
-    ctx.setLineDash([Math.max(3, 5 + this.zoom * 0.08), Math.max(2, 4 + this.zoom * 0.04)]);
-    ctx.stroke();
-
-    if (this.searchHighlight.bitIndex != null) {
-      const anchor = this.bitIndexToCanvas(this.searchHighlight.bitIndex);
-      if (anchor) {
-        const markerRadius = Math.max(4, Math.min(12, this.pixelSize * this.zoom * 1.8));
-        ctx.setLineDash([]);
-        ctx.fillStyle = 'rgba(250, 204, 21, 0.92)';
-        ctx.beginPath();
-        ctx.arc(anchor.x, anchor.y, markerRadius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(17, 24, 39, 0.9)';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
       }
     }
 
@@ -2145,7 +2095,7 @@ export class SieveRenderer {
     }
     this._renderVectorTouchOrder(ctx);
     this._renderCachelineAnnotations(ctx);
-    this._renderSearchHighlight(ctx, cw, ch);
+    this.searchOverlay.render(ctx, cw, ch);
   }
 
   canvasToBitIndex(canvasX, canvasY) {
