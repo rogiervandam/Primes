@@ -39,6 +39,26 @@ Inspector for the currently selected step. Shows changed bits, factor, count of 
 ### `TimingPanel.jsx`
 Floating, draggable, resizable panel showing per-phase timings. Uses `useFloatingPanel` for drag/resize behaviour.
 
+## Visualizer subcomponents (`src/visualizer/`)
+
+### `Toolbar.jsx`
+Top header bar: trace title, info popover trigger, playback transport (skip/step/play/pause/slider/counter), and the right-hand action cluster (search, zoom, 3D, heatmap, primes, timings, depth, PNG/video export, theme). Pure presentation — every interactive callback is supplied by the parent.
+
+### `TraceInfoPopover.jsx`
+Popover anchored beneath the trace title showing the storage-model selector and the parsed `traceInfoSections` (file/run/settings/notes). Used by `Toolbar`.
+
+### `ExportProgress.jsx`
+Slim progress bar shown beneath the toolbar while `MediaRecorder` is exporting a WebM. Just renders `width: ${progress}%`.
+
+### `BitHistoryBalloon.jsx`
+Floating popover showing a bit's identity (number, byte, word, qword, cache line) and modification history. Used in two modes:
+
+- `pinned` → click-locked balloons with close button and 📌 marker
+- hover    → ephemeral balloon following the mouse with a click-to-lock hint
+
+### `EventTitleBanner.jsx`
+Draggable "current event" banner over the canvas with the active step heading, the previous/next two events, and any per-step animation sliders. Drag is implemented inline so the same gesture can act as a click-to-open-events-panel affordance.
+
 ## Settings building blocks (`src/settings/`)
 
 ### `LegendSections.jsx`

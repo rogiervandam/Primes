@@ -1,14 +1,15 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { SieveRenderer, bitToNumber, numberToBit, STORAGE_MODELS, CACHE_PRESETS } from './SieveRenderer';
+import { SieveRenderer, bitToNumber, numberToBit, CACHE_PRESETS } from './SieveRenderer';
 import { Camera3D } from './Camera3D';
 import StepPanel from './StepPanel';
 import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
 import TimingPanel from './TimingPanel';
-import {
-  SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
-  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Thermometer, PlayPause, PrimeStar,
-} from './Icons';
+import Toolbar from './visualizer/Toolbar';
+import ExportProgress from './visualizer/ExportProgress';
+import BitHistoryBalloon from './visualizer/BitHistoryBalloon';
+import EventTitleBanner from './visualizer/EventTitleBanner';
+import { Play, Pause } from './Icons';
 import {
   DEFAULT_EVENT_TIME_TARGETS,
   DEFAULT_LAYOUT_SETTINGS as DEFAULT_SETTINGS,
@@ -3829,163 +3830,56 @@ export default function Visualizer({
 
   return (
     <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}`}>
-      {/* Header bar */}
-      <header className="toolbar">
-        <div className="toolbar-left">
-          <div className="trace-title-block">
-            <button
-              ref={traceInfoToggleRef}
-              type="button"
-              className={`trace-title trace-title-button${showTraceInfo ? ' active' : ''}`}
-              title="Trace information"
-              onClick={() => setShowTraceInfo((open) => !open)}
-            >
-              {effectiveTitle}
-            </button>
-          </div>
-          <div className="trace-actions">
-            {onClose && <button className="btn-icon" onClick={onClose} title="Close trace">✕</button>}
-          </div>
-          {showTraceInfo && (
-            <div className="trace-info-popover" ref={traceInfoPopoverRef}>
-              <div className="trace-info-section">
-                <div className="trace-info-section-title">Storage model</div>
-                <div className="trace-info-row">
-                  <select
-                    className="trace-info-storage-select"
-                    value={storageModel || 'half'}
-                    onChange={(e) => setStorageModel(e.target.value)}
-                    title={`Detected from log: ${header.storageModel || 'half'}`}
-                  >
-                    {Object.entries(STORAGE_MODELS).map(([k, v]) => (
-                      <option key={k} value={k}>{v.label}</option>
-                    ))}
-                  </select>
-                </div>
-                {header.storageModel && header.storageModel !== storageModel && (
-                  <div className="trace-info-row trace-info-row-hint">
-                    Log reported <code>{header.storageModel}</code> — override active.
-                  </div>
-                )}
-              </div>
-              {traceInfoSections.map((section) => (
-                <div key={section.title} className="trace-info-section">
-                  <div className="trace-info-section-title">{section.title}</div>
-                  {section.rows.map((row) => (
-                    <div key={`${section.title}-${row.label}-${row.value}`} className="trace-info-row trace-info-row-kv">
-                      <span className="trace-info-key">{row.label}</span>
-                      <span className="trace-info-value">{row.value}</span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="toolbar-center">
-          <button className="btn-icon" onClick={() => goToStep(0)} title="First (Home)" disabled={exporting}><SkipBack /></button>
-          <button className="btn-icon" onClick={() => goToStep(currentStep - 1)} title="Previous (←)" disabled={exporting}><StepBack /></button>
-          <button className="btn-icon anim-speed-btn" onClick={() => setPlaySpeedPercent(v => Math.max(25, Math.round(v / 1.25)))} title="Slower animation" disabled={exporting}><Minus size={14} /></button>
-          <button
-            className="btn-icon"
-            onClick={handlePlayPause}
-            title={playing ? 'Pause playback' : (currentStep >= Math.max(0, steps.length - 1) ? 'Restart trace and play' : 'Play trace from current event')}
-            disabled={exporting || steps.length === 0}
-          >
-            {playing ? <Pause /> : <Play />}
-          </button>
-          <button className="btn-icon anim-speed-btn" onClick={() => setPlaySpeedPercent(v => Math.min(400, Math.round(v * 1.25)))} title="Faster animation" disabled={exporting}><Plus size={14} /></button>
-          <button className="btn-icon" onClick={() => goToStep(currentStep + 1)} title="Next (→)" disabled={exporting}><StepForward /></button>
-          <button className="btn-icon" onClick={() => goToStep(steps.length - 1)} title="Last (End)" disabled={exporting}><SkipForward /></button>
-          <input
-            type="range"
-            className="step-slider"
-            min={0}
-            max={Math.max(0, steps.length - 1)}
-            value={currentStep}
-            onChange={(e) => {
-              const target = parseInt(e.target.value, 10);
-              // While the user is mid-drag we want each new value to immediately
-              // jump to that event AND start animating it (with the per-event
-              // auto-replay loop restarting it on completion). On release we
-              // clear the scrub flag so behaviour reverts to either all-events
-              // playback or a static jump depending on `playing`.
-              goToStep(target);
-            }}
-            onPointerDown={() => { isScrubbingTopRef.current = true; }}
-            onPointerUp={() => { isScrubbingTopRef.current = false; }}
-            onPointerCancel={() => { isScrubbingTopRef.current = false; }}
-            onMouseLeave={(e) => { if (e.buttons === 0) isScrubbingTopRef.current = false; }}
-            disabled={exporting}
-          />
-          <span className="step-counter">{currentStep} / {steps.length - 1}</span>
-        </div>
-        <div className="toolbar-right">
-          {!isWindowsPlatform && (
-            <>
-              <div className={`search-box${searchOpen ? ' expanded' : ''}`}>
-                <button className="btn-icon" onClick={() => setSearchOpen(o => !o)} title="Search (bit/byte/number)"><Search /></button>
-                {searchOpen && (
-                  <div className="search-popover">
-                    <input
-                      type="text"
-                      className="search-input"
-                      placeholder="bit 42 / byte 5 / number 97"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(searchQuery); if (e.key === 'Escape') setSearchOpen(false); }}
-                      autoFocus
-                      title="Search: bit N, byte N, uint64 N, vector N, number N"
-                    />
-                    {searchResult && <div className="search-result">{searchResult}</div>}
-                  </div>
-                )}
-              </div>
-              <button className="btn-icon" onClick={() => doZoom(1.5)} title="Zoom In (+)"><ZoomIn /></button>
-              <button className="btn-text" onClick={resetZoom} title="Reset Zoom (0)">{zoom.toFixed(1)}x</button>
-              <button className="btn-icon" onClick={() => doZoom(1 / 1.5)} title="Zoom Out (−)"><ZoomOut /></button>
-              <button className={`btn-icon${mode3D ? ' active' : ''}`} onClick={toggle3D} title="Toggle 3D view (3)">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M2 11L8 14L14 11" />
-                  <path d="M2 8L8 11L14 8" />
-                  <path d="M2 5L8 2L14 5L8 8Z" />
-                </svg>
-              </button>
-              <button className={`btn-icon${heatMapEnabled ? ' active' : ''}`} onClick={() => setHeatMapEnabled(h => !h)} title="Toggle cacheline heat map overlay — shows hit count and recency per cacheline"><Thermometer /></button>
-              <button className={`btn-icon${primeOverlayEnabled ? ' active prime-overlay-btn' : ''}`} onClick={() => setPrimeOverlayEnabled(v => !v)} title="Toggle prime number overlay — highlights every bit whose represented number is prime"><PrimeStar /></button>
-              <button className={`btn-icon${timingPanelOpen ? ' active' : ''}`} onClick={() => setTimingPanelOpen(o => !o)} title="Function timings">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <circle cx="8" cy="9" r="5.5" />
-                  <path d="M8 6v3.5l2 1.5" strokeLinecap="round" />
-                  <path d="M6 1.5h4" strokeLinecap="round" />
-                  <path d="M8 1.5v2" strokeLinecap="round" />
-                </svg>
-              </button>
-              <button className={`btn-icon${loweredSetBits ? ' active' : ''}`} onClick={() => setLoweredSetBits((value) => !value)} title="Toggle lowered-set-bits sieve mode">
-                ▽
-              </button>
-              <button className="btn-icon" onClick={exportPng} title="Export PNG"><Camera /></button>
-              {!exporting ? (
-                <button className="btn-icon" onClick={exportVideo} title="Export Video (WebM)"><Film /></button>
-              ) : (
-                <button className="btn-export-cancel" onClick={cancelExport} title="Cancel export">
-                  {exportProgress}%
-                </button>
-              )}
-              <button className="btn-icon" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} title="Toggle theme (T)">
-                {theme === 'dark' ? <Sun /> : <Moon />}
-              </button>
-            </>
-          )}
-        </div>
-      </header>
+      <Toolbar
+        isMacPlatform={isMacPlatform}
+        isWindowsPlatform={isWindowsPlatform}
+        isElectron={isElectron}
+        effectiveTitle={effectiveTitle}
+        showTraceInfo={showTraceInfo}
+        setShowTraceInfo={setShowTraceInfo}
+        traceInfoToggleRef={traceInfoToggleRef}
+        traceInfoPopoverRef={traceInfoPopoverRef}
+        storageModel={storageModel}
+        setStorageModel={setStorageModel}
+        header={header}
+        traceInfoSections={traceInfoSections}
+        onClose={onClose}
+        steps={steps}
+        currentStep={currentStep}
+        goToStep={goToStep}
+        playing={playing}
+        handlePlayPause={handlePlayPause}
+        exporting={exporting}
+        setPlaySpeedPercent={setPlaySpeedPercent}
+        isScrubbingTopRef={isScrubbingTopRef}
+        searchOpen={searchOpen}
+        setSearchOpen={setSearchOpen}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        searchResult={searchResult}
+        handleSearch={handleSearch}
+        zoom={zoom}
+        doZoom={doZoom}
+        resetZoom={resetZoom}
+        mode3D={mode3D}
+        toggle3D={toggle3D}
+        heatMapEnabled={heatMapEnabled}
+        setHeatMapEnabled={setHeatMapEnabled}
+        primeOverlayEnabled={primeOverlayEnabled}
+        setPrimeOverlayEnabled={setPrimeOverlayEnabled}
+        timingPanelOpen={timingPanelOpen}
+        setTimingPanelOpen={setTimingPanelOpen}
+        loweredSetBits={loweredSetBits}
+        setLoweredSetBits={setLoweredSetBits}
+        exportPng={exportPng}
+        exportVideo={exportVideo}
+        cancelExport={cancelExport}
+        exportProgress={exportProgress}
+        theme={theme}
+        setTheme={setTheme}
+      />
 
-      {/* Export progress bar */}
-      {exporting && (
-        <div className="export-progress">
-          <div className="export-progress-bar" style={{ width: `${exportProgress}%` }} />
-        </div>
-      )}
+      {exporting && <ExportProgress progress={exportProgress} />}
 
       {/* Main content */}
       <div className={`main-content${mode3D ? ' mode-3d' : ''}`}>
@@ -4007,100 +3901,20 @@ export default function Visualizer({
 
         <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
           {eventTitleSettings.visible && (
-            <div
-              className="step-focus-banner position-center"
-              title={currentStepBanner.title}
+            <EventTitleBanner
+              settings={eventTitleSettings}
+              setSettings={setEventTitleSettings}
               style={eventTitleStyle}
-              onMouseDown={(e) => {
-                if (e.target.closest('input') || e.target.closest('button')) return;
-                const startX = e.clientX;
-                const startY = e.clientY;
-                const startOffX = eventTitleSettings.dragOffsetX || 0;
-                const startOffY = eventTitleSettings.dragOffsetY || 0;
-                let dragged = false;
-                const onMove = (ev) => {
-                  const dx = ev.clientX - startX;
-                  const dy = ev.clientY - startY;
-                  if (!dragged && Math.hypot(dx, dy) < 4) return;
-                  dragged = true;
-                  setEventTitleSettings((prev) => ({
-                    ...prev,
-                    dragOffsetX: startOffX + dx,
-                    dragOffsetY: startOffY + dy,
-                  }));
-                };
-                const onUp = () => {
-                  window.removeEventListener('mousemove', onMove);
-                  window.removeEventListener('mouseup', onUp);
-                  if (!dragged) {
-                    // Click without drag: open the Events panel.
-                    if (stepsPanelCollapsed) setStepsPanelCollapsed(false);
-                  }
-                };
-                window.addEventListener('mousemove', onMove);
-                window.addEventListener('mouseup', onUp);
-                e.preventDefault();
-              }}
-            >
-              <button
-                className="step-focus-close-btn"
-                onClick={(e) => { e.stopPropagation(); setEventTitleSettings((prev) => ({ ...prev, visible: false })); }}
-                onMouseDown={(e) => e.stopPropagation()}
-                title="Hide event title — use the ▲ in the details panel to show it again"
-              >▼</button>
-              <button
-                className="step-focus-locate-btn"
-                onClick={(e) => { e.stopPropagation(); revealCurrentStepInPanel(); }}
-                onMouseDown={(e) => e.stopPropagation()}
-                title="Reveal this event in the events panel (clears filters and expands parents)"
-              >⤢</button>
-              <div className="step-focus-lines">
-                <div className="step-focus-line1">{currentStepBanner.line1}</div>
-                {currentStepBanner.line2 && <div className="step-focus-line2">{currentStepBanner.line2}</div>}
-                {currentStepBanner.line3 && <div className="step-focus-line3">{currentStepBanner.line3}</div>}
-              </div>
-              {(surroundingEvents.prev.length > 0 || surroundingEvents.next.length > 0) && (
-                <div
-                  className="step-focus-context"
-                  onMouseDown={(e) => e.stopPropagation()}
-                  title="Last 2 and next 2 events. Click any row to jump to it."
-                >
-                  {surroundingEvents.prev.map((ev) => (
-                    <div
-                      key={`prev-${ev.idx}`}
-                      className="step-focus-context-row prev"
-                      onClick={(e) => { e.stopPropagation(); goToStep(ev.idx); }}
-                    >
-                      <span className="ctx-id">#{ev.eventId}</span>
-                      <span className="ctx-op">{ev.op}</span>
-                      {ev.meta && <span className="ctx-meta">{ev.meta}</span>}
-                      {ev.bits > 0 && <span className="ctx-bits">+{ev.bits}b</span>}
-                      {ev.elapsedLabel && <span className="ctx-time">{ev.elapsedLabel}</span>}
-                    </div>
-                  ))}
-                  <div className="step-focus-context-row current">
-                    <span className="ctx-id">#{currentStepData?.stepId ?? currentStep}</span>
-                    <span className="ctx-op">▶ current</span>
-                  </div>
-                  {surroundingEvents.next.map((ev) => (
-                    <div
-                      key={`next-${ev.idx}`}
-                      className="step-focus-context-row next"
-                      onClick={(e) => { e.stopPropagation(); goToStep(ev.idx); }}
-                    >
-                      <span className="ctx-id">#{ev.eventId}</span>
-                      <span className="ctx-op">{ev.op}</span>
-                      {ev.meta && <span className="ctx-meta">{ev.meta}</span>}
-                      {ev.bits > 0 && <span className="ctx-bits">+{ev.bits}b</span>}
-                      {ev.elapsedLabel && <span className="ctx-time">{ev.elapsedLabel}</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="step-focus-sliders">
-                {stepAnimSlidersContent}
-              </div>
-            </div>
+              banner={currentStepBanner}
+              surrounding={surroundingEvents}
+              currentStepData={currentStepData}
+              currentStep={currentStep}
+              goToStep={goToStep}
+              revealCurrentStepInPanel={revealCurrentStepInPanel}
+              stepsPanelCollapsed={stepsPanelCollapsed}
+              setStepsPanelCollapsed={setStepsPanelCollapsed}
+              sliders={stepAnimSlidersContent}
+            />
           )}
           <div className={`canvas-container${mode3D ? ' mode-3d' : ''}`} ref={containerRef} style={camera3DContainerStyle}>
             <canvas
@@ -4127,123 +3941,43 @@ export default function Visualizer({
             return (
               <>
                 {pinnedBitIndices.map((bitIdx) => {
-            const info = computeBitInfo(bitIdx);
-            if (!info) return null;
-            const bi = info.bitIndex;
-            const byteIdx = Math.floor(bi / 8);
-            const bitInByte = bi % 8;
-            const u32Idx = Math.floor(bi / 32);
-            const bitInU32 = bi % 32;
-            const u64Idx = Math.floor(bi / 64);
-            const bitInU64 = bi % 64;
-            const clIdx = Math.floor(bi / (cachelineSize * 8));
-            const pinnedEntry = visibleBalloonStyles[`pinned-${bi}`];
-            const pinnedVisible = pinnedEntry ? pinnedEntry.visible !== false : true;
-            return (
-              <div
-                key={`locked-bit-${bi}`}
-                className={`bit-history-panel locked hover-balloon${pinnedVisible ? '' : ' clipped'}`}
-                style={pinnedEntry?.panelStyle}
-              >
-                <div className="bit-history-header">
-                  <span>📌 Bit {bi} → #{info.number}</span>
-                  <button className="bit-history-close" onClick={() => setPinnedBitIndices((prev) => prev.filter((value) => value !== bi))}>✕</button>
-                </div>
-                {info.isPrime && (
-                  <div className="bit-prime-notice">★ {info.number} is prime</div>
-                )}
-                <div className="bit-history-indices">
-                  <table className="bit-index-table">
-                    <tbody>
-                      <tr><td>Bit</td><td>{bi}</td></tr>
-                      <tr><td>Number</td><td>{info.number}</td></tr>
-                      <tr><td>uint8 (byte)</td><td>byte #{byteIdx}, bit {bitInByte}</td></tr>
-                      <tr><td>uint32</td><td>word #{u32Idx}, bit {bitInU32}</td></tr>
-                      <tr><td>uint64</td><td>qword #{u64Idx}, bit {bitInU64}</td></tr>
-                      <tr><td>Cache line</td><td>#{clIdx} ({cachelineSize}B)</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div className="bit-history-body">
-                  {info.history.length === 0 ? (
-                    <p className="bit-history-empty">No events have modified this bit.</p>
-                  ) : (
-                    <table className="bit-history-table">
-                      <thead>
-                        <tr><th>Event</th><th>Operation</th><th>Prime</th></tr>
-                      </thead>
-                      <tbody>
-                        {info.history.map((h) => (
-                          <tr key={`locked-${bi}-${h.stepIndex}`} className={h.stepIndex === currentStep ? 'bh-current' : ''}
-                            onClick={() => { handleStepSelection(h.stepIndex); }}>
-                            <td>{h.stepIndex}</td>
-                            <td>{h.operation || '—'}</td>
-                            <td>{h.prime != null ? h.prime : '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              </div>
-            );
+                  const info = computeBitInfo(bitIdx);
+                  if (!info) return null;
+                  const bi = info.bitIndex;
+                  const entry = visibleBalloonStyles[`pinned-${bi}`];
+                  const visible = entry ? entry.visible !== false : true;
+                  return (
+                    <BitHistoryBalloon
+                      key={`locked-bit-${bi}`}
+                      info={info}
+                      pinned
+                      style={entry?.panelStyle}
+                      clipped={!visible}
+                      cachelineSize={cachelineSize}
+                      currentStep={currentStep}
+                      onClose={() => setPinnedBitIndices((prev) => prev.filter((value) => value !== bi))}
+                      onHistoryClick={handleStepSelection}
+                      keyPrefix="locked"
+                    />
+                  );
                 })}
 
                 {hoverBalloonVisible && (() => {
                   const info = hoveredBitInfo;
                   const bi = info.bitIndex;
-                  const byteIdx = Math.floor(bi / 8);
-                  const bitInByte = bi % 8;
-                  const u32Idx = Math.floor(bi / 32);
-                  const bitInU32 = bi % 32;
-                  const u64Idx = Math.floor(bi / 64);
-                  const bitInU64 = bi % 64;
-                  const clIdx = Math.floor(bi / (cachelineSize * 8));
-                  const hoverEntry = visibleBalloonStyles[`hover-${bi}`];
-                  const hoverVisible = hoverEntry ? hoverEntry.visible !== false : true;
+                  const entry = visibleBalloonStyles[`hover-${bi}`];
+                  const visible = entry ? entry.visible !== false : true;
                   return (
-                    <div className={`bit-history-panel hover-balloon${hoverVisible ? '' : ' clipped'}`} style={hoverEntry?.panelStyle}>
-                <div className="bit-history-header">
-                  <span>Bit {bi} → #{info.number}</span>
-                </div>
-                {info.isPrime && (
-                  <div className="bit-prime-notice">★ {info.number} is prime</div>
-                )}
-                <div className="bit-history-indices">
-                  <table className="bit-index-table">
-                    <tbody>
-                      <tr><td>Bit</td><td>{bi}</td></tr>
-                      <tr><td>Number</td><td>{info.number}</td></tr>
-                      <tr><td>uint8 (byte)</td><td>byte #{byteIdx}, bit {bitInByte}</td></tr>
-                      <tr><td>uint32</td><td>word #{u32Idx}, bit {bitInU32}</td></tr>
-                      <tr><td>uint64</td><td>qword #{u64Idx}, bit {bitInU64}</td></tr>
-                      <tr><td>Cache line</td><td>#{clIdx} ({cachelineSize}B)</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div className="bit-history-body">
-                  {info.history.length === 0 ? (
-                    <p className="bit-history-empty">No events have modified this bit.</p>
-                  ) : (
-                    <table className="bit-history-table">
-                      <thead>
-                        <tr><th>Event</th><th>Operation</th><th>Prime</th></tr>
-                      </thead>
-                      <tbody>
-                        {info.history.map((h) => (
-                          <tr key={`hover-${bi}-${h.stepIndex}`} className={h.stepIndex === currentStep ? 'bh-current' : ''}
-                            onClick={() => { handleStepSelection(h.stepIndex); }}>
-                            <td>{h.stepIndex}</td>
-                            <td>{h.operation || '—'}</td>
-                            <td>{h.prime != null ? h.prime : '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-                <div className="bit-history-hint">Click to lock. Double-click to keep only this balloon.</div>
-              </div>
+                    <BitHistoryBalloon
+                      info={info}
+                      pinned={false}
+                      style={entry?.panelStyle}
+                      clipped={!visible}
+                      cachelineSize={cachelineSize}
+                      currentStep={currentStep}
+                      onHistoryClick={handleStepSelection}
+                      keyPrefix="hover"
+                    />
                   );
                 })()}
               </>

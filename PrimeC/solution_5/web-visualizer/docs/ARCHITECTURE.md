@@ -34,6 +34,12 @@ src/
 │   ├── constants.js          Layout/vector/grouping presets and tooltips
 │   ├── buttons.jsx           LayoutIcon, VectorIcon, AnnotationButton, …
 │   └── LegendSections.jsx    Shared legend content (tab + floating)
+├── visualizer/           Pieces extracted from Visualizer.jsx
+│   ├── Toolbar.jsx           Top toolbar (transport + actions)
+│   ├── TraceInfoPopover.jsx  Storage model + parsed header sections
+│   ├── ExportProgress.jsx    Slim progress bar during video export
+│   ├── BitHistoryBalloon.jsx Hover/pinned bit-history popover
+│   └── EventTitleBanner.jsx  Floating current-event banner
 └── styles/               Per-concern stylesheets
     └── index.css             @imports the numbered section files
 ```
@@ -64,6 +70,7 @@ src/
 - **A new settings section** → add a button to `src/settings/buttons.jsx` and a section in `SettingsPanel.jsx`; constants go in `src/settings/constants.js`.
 - **A new style block** → create `src/styles/NN-name.css` and add an `@import` to `src/styles/index.css`.
 - **A new top-level panel** → put it next to `TimingPanel.jsx` and reuse `useFloatingPanel`.
+- **A new visualizer-only widget** (toolbar button, overlay, popover) → add it under `src/visualizer/` and pass any state in via props.
 
 ## Build & run
 

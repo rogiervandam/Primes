@@ -242,6 +242,12 @@ web-visualizer/
 │   │   ├── constants.js          # Layout/vector/grouping presets
 │   │   ├── buttons.jsx           # Reusable settings buttons & icons
 │   │   └── LegendSections.jsx    # Shared legend content
+│   ├── visualizer/               # Pieces extracted from Visualizer.jsx
+│   │   ├── Toolbar.jsx           # Top toolbar (transport + actions)
+│   │   ├── TraceInfoPopover.jsx  # Trace header info popover
+│   │   ├── ExportProgress.jsx    # Video export progress bar
+│   │   ├── BitHistoryBalloon.jsx # Hover/pinned bit-history popover
+│   │   └── EventTitleBanner.jsx  # Floating current-event banner
 │   └── styles/                   # Per-concern stylesheets
 │       └── index.css             # @imports the section files
 ├── docs/                         # Developer documentation
