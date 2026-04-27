@@ -179,6 +179,18 @@ overwrite.
   replaced the three SettingsPanel inputs.
 - ✅ Added `src/renderer/VisualizationRenderer.js` as a documentation-as-code
   spec for mode-agnostic renderers.
+- ✅ Extracted `useKeyboardShortcuts` from `Visualizer.jsx` to
+  `src/hooks/useKeyboardShortcuts.js`. The keyboard `useEffect` is now a
+  single hook call near the bottom of the component.
+- ✅ Extracted the canvas-and-overlays JSX block (event-title banner, the
+  three layered canvases, balloons, detail panel, detail-inspector overlay,
+  timing panel) from `Visualizer.jsx` into `src/visualizer/CanvasStage.jsx`.
+  Pure presentation; refs and handlers are passed in as props.
+- ✅ Started SettingsPanel split: extracted `LegendTab` to
+  `src/settings/LegendTab.jsx`. **LayoutTab and AnimationTab extractions
+  remain TODO** — see §7. They were deferred because the layout tab alone
+  is ~460 lines of JSX with dozens of closure-captured locals; without test
+  coverage, splitting safely needs a `useSettingsBundle()` step first.
 
 ---
 
@@ -188,16 +200,22 @@ These are concrete next-step refactors that each fit comfortably in a
 single working session. Tackle them in order — earlier ones unblock later
 ones:
 
-1. **Extract `useKeyboardShortcuts` from Visualizer.jsx** (~100 lines). Pure
-   pattern A. Inputs: `currentStep`, `goToStep`, `doZoom`, `resetZoom`,
-   `steps.length`, `handlePlayPause`, `toggle3D`.
-2. **Split SettingsPanel by tab.** Create `src/settings/LayoutTab.jsx`,
-   `AnimationTab.jsx`, `LegendTab.jsx`. Pattern C, but the prop list is big
-   — count first. Strongly consider creating a small `useSettingsBundle()`
-   hook in the parent that bundles related props before passing them down.
-3. **Extract the canvas-and-overlays JSX block** from `Visualizer.jsx` into
-   `src/visualizer/CanvasStage.jsx`. Refs become props; balloons stay where
-   they are.
+1. **Extract `useKeyboardShortcuts` from Visualizer.jsx** — ✅ DONE.
+2. **Split SettingsPanel by tab.** `LegendTab` is done (see
+   `src/settings/LegendTab.jsx` for the prop-drilling pattern). Still TODO:
+   `LayoutTab` (lines ~719–1177 in `SettingsPanel.jsx`) and `AnimationTab`
+   (lines ~1214–~1505). Both reference many closure-captured locals
+   (`set()`, `setVectorProfile`, `renderGroupingFamily`, `LayoutOverview`,
+   `SpacingControl`, `bitAnimInterval`, etc.). Recommended sequence:
+   (a) first extract pure helpers (`renderGroupingFamily`,
+   `LayoutOverview`, `SpacingControl`) into their own files in
+   `src/settings/`; (b) introduce a `useSettingsBundle()` hook in the
+   parent that returns related groupings (layout-related, animation-
+   related) so the new tab components take ~5 props each instead of ~25;
+   (c) only then extract the tab JSX itself. Doing this without
+   step (a)+(b) creates an unmaintainable 30+ prop signature.
+3. **Extract the canvas-and-overlays JSX block** — ✅ DONE
+   (`src/visualizer/CanvasStage.jsx`).
 4. **Move `_renderSearchHighlight` and `setSearchHighlight` into a tiny
    `SearchOverlay` class** under `src/renderer/overlays/`. Smallest
    independent overlay; good first cut to validate Pattern D for overlays.

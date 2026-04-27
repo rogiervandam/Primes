@@ -7,11 +7,13 @@ import SettingsPanel from './SettingsPanel';
 import TimingPanel from './TimingPanel';
 import Toolbar from './visualizer/Toolbar';
 import ExportProgress from './visualizer/ExportProgress';
+import CanvasStage from './visualizer/CanvasStage';
 import EventTitleBanner from './visualizer/EventTitleBanner';
 import DetailInspectorOverlay from './visualizer/DetailInspectorOverlay';
 import StepAnimSliders from './visualizer/StepAnimSliders';
 import BitHistoryBalloons from './visualizer/BitHistoryBalloons';
 import { useTraceExport } from './hooks/useTraceExport';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import {
   DEFAULT_EVENT_TIME_TARGETS,
   DEFAULT_LAYOUT_SETTINGS as DEFAULT_SETTINGS,
@@ -2972,52 +2974,19 @@ export default function Visualizer({
     };
   }, [computeBitInfo, flyToElement, getMinimapDetailH, updateMinimapAvailability, mode3D, ensureTiltCamera, scheduleBalloonRelayout]);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-      const cam = camera3DRef.current;
-      const is3D = cam && cam.enabled;
-
-      switch (e.key) {
-        case 'ArrowLeft':
-          e.preventDefault();
-          if (is3D && e.shiftKey) { cam.orbit('left'); }
-          else { goToStep(currentStep - 1); }
-          break;
-        case 'ArrowRight':
-          e.preventDefault();
-          if (is3D && e.shiftKey) { cam.orbit('right'); }
-          else { goToStep(currentStep + 1); }
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          if (is3D) { cam.orbit('up'); }
-          break;
-        case 'ArrowDown':
-          e.preventDefault();
-          if (is3D) { cam.orbit('down'); }
-          break;
-        case 'Home':       e.preventDefault(); goToStep(0); break;
-        case 'End':        e.preventDefault(); goToStep(steps.length - 1); break;
-        case ' ':          e.preventDefault(); handlePlayPause(); break;
-        case '+': case '=': e.preventDefault(); doZoom(1.5); break;
-        case '-':          e.preventDefault(); doZoom(1 / 1.5); break;
-        case '0':          e.preventDefault(); resetZoom(); break;
-        case 't': case 'T': e.preventDefault(); setTheme(t => t === 'dark' ? 'light' : 'dark'); break;
-        case 'd': case 'D': e.preventDefault(); toggleDetailPanel(); break;
-        case '3':          e.preventDefault(); toggle3D(); break;
-        case 'r': case 'R':
-          // Reset 3D rotation to flat
-          e.preventDefault();
-          if (is3D) cam.resetFlat();
-          break;
-        default: break;
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [currentStep, goToStep, doZoom, resetZoom, steps.length, handlePlayPause, toggle3D]);
+  // Keyboard shortcuts — see src/hooks/useKeyboardShortcuts.js for the full key map.
+  useKeyboardShortcuts({
+    currentStep,
+    stepCount: steps.length,
+    goToStep,
+    handlePlayPause,
+    doZoom,
+    resetZoom,
+    setTheme,
+    toggleDetailPanel,
+    toggle3D,
+    camera3DRef,
+  });
 
   // PNG snapshot + WebM video export. See src/hooks/useTraceExport.js.
   const { exporting, exportProgress, exportPng, exportVideo, cancelExport } = useTraceExport({
@@ -3650,95 +3619,61 @@ export default function Visualizer({
           revealStepRequest={revealStepRequest}
         />
 
-        <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
-          {eventTitleSettings.visible && (
-            <EventTitleBanner
-              settings={eventTitleSettings}
-              setSettings={setEventTitleSettings}
-              style={eventTitleStyle}
-              banner={currentStepBanner}
-              surrounding={surroundingEvents}
-              currentStepData={currentStepData}
-              currentStep={currentStep}
-              goToStep={goToStep}
-              revealCurrentStepInPanel={revealCurrentStepInPanel}
-              stepsPanelCollapsed={stepsPanelCollapsed}
-              setStepsPanelCollapsed={setStepsPanelCollapsed}
-              sliders={stepAnimSlidersContent}
-            />
-          )}
-          <div className={`canvas-container${mode3D ? ' mode-3d' : ''}`} ref={containerRef} style={camera3DContainerStyle}>
-            <canvas
-              ref={settledCanvasRef}
-              className={`settled-render-canvas${loweredSetBits ? ' active' : ''}`}
-              style={renderCanvasStyle}
-              aria-hidden="true"
-            />
-            <canvas
-              ref={canvasRef}
-              className="main-render-canvas"
-              style={renderCanvasStyle}
-            />
-            <canvas ref={minimapCanvasRef} className="minimap-overlay-canvas" aria-hidden="true" />
-          </div>
-          {/* Bit history panels: hover plus one or more click-locked balloons */}
-          <BitHistoryBalloons
-            pinnedBitIndices={pinnedBitIndices}
-            hoveredBitInfo={hoveredBitInfo}
-            computeBitInfo={computeBitInfo}
-            getVisibleBalloonStyles={getVisibleBalloonStyles}
-            cachelineSize={cachelineSize}
-            currentStep={currentStep}
-            onUnpin={(bi) => setPinnedBitIndices((prev) => prev.filter((value) => value !== bi))}
-            onHistoryClick={handleStepSelection}
-          />
-
-          {/* Detail panel at the bottom of the canvas area */}
-          <DetailPanel
-            step={currentStepData}
-            stepIndex={currentStep}
-            open={detailOpen}
-            onToggle={toggleDetailPanel}
-            height={detailHeight}
-            onHeightChange={updateDetailHeight}
-            width={detailWidth}
-            onWidthChange={setDetailWidth}
-            playing={playing}
-            stepStats={selectedSteps.size > 1 ? null : stepStats}
-            storageModel={storageModel}
-            bitLayout={layoutSettings.bitLayout}
-            byteLayout={layoutSettings.byteLayout}
-            benchmarkTimingData={benchmarkTimingData}
-            onInspectChangedBits={() => openDetailInspector('bits')}
-            onInspectMarkedNumbers={() => openDetailInspector('numbers')}
-            eventTitleVisible={eventTitleSettings.visible}
-            onShowEventTitle={() => setEventTitleSettings((prev) => ({ ...prev, visible: true }))}
-            eventAnimSliders={stepAnimSlidersContent}
-          />
-
-          {detailInspectorOpen && (
-            <DetailInspectorOverlay
-              open={detailInspectorOpen}
-              mode={detailInspectorMode}
-              query={detailInspectorQuery}
-              onQueryChange={setDetailInspectorQuery}
-              onClose={() => setDetailInspectorOpen(false)}
-              rows={detailInspectorRows}
-              filteredRows={filteredDetailInspectorRows}
-            />
-          )}
-
-          {timingPanelOpen && (
-            <TimingPanel
-              steps={steps}
-              benchmarkTimingData={benchmarkTimingData}
-              benchmarkTimingFileName={benchmarkTimingFileName}
-              onClose={() => setTimingPanelOpen(false)}
-              onFocusFn={(fnName) => setTimingFocusOp(fnName || '')}
-              onImportBenchmarkTiming={onImportBenchmarkTiming}
-            />
-          )}
-        </div>
+        <CanvasStage
+          mode3D={mode3D}
+          loweredSetBits={loweredSetBits}
+          containerRef={containerRef}
+          canvasRef={canvasRef}
+          settledCanvasRef={settledCanvasRef}
+          minimapCanvasRef={minimapCanvasRef}
+          camera3DContainerStyle={camera3DContainerStyle}
+          renderCanvasStyle={renderCanvasStyle}
+          eventTitleSettings={eventTitleSettings}
+          setEventTitleSettings={setEventTitleSettings}
+          eventTitleStyle={eventTitleStyle}
+          currentStepBanner={currentStepBanner}
+          surroundingEvents={surroundingEvents}
+          currentStepData={currentStepData}
+          currentStep={currentStep}
+          goToStep={goToStep}
+          revealCurrentStepInPanel={revealCurrentStepInPanel}
+          stepsPanelCollapsed={stepsPanelCollapsed}
+          setStepsPanelCollapsed={setStepsPanelCollapsed}
+          stepAnimSlidersContent={stepAnimSlidersContent}
+          pinnedBitIndices={pinnedBitIndices}
+          hoveredBitInfo={hoveredBitInfo}
+          computeBitInfo={computeBitInfo}
+          getVisibleBalloonStyles={getVisibleBalloonStyles}
+          cachelineSize={cachelineSize}
+          setPinnedBitIndices={setPinnedBitIndices}
+          handleStepSelection={handleStepSelection}
+          detailOpen={detailOpen}
+          toggleDetailPanel={toggleDetailPanel}
+          detailHeight={detailHeight}
+          updateDetailHeight={updateDetailHeight}
+          detailWidth={detailWidth}
+          setDetailWidth={setDetailWidth}
+          playing={playing}
+          selectedSteps={selectedSteps}
+          stepStats={stepStats}
+          storageModel={storageModel}
+          layoutSettings={layoutSettings}
+          benchmarkTimingData={benchmarkTimingData}
+          openDetailInspector={openDetailInspector}
+          detailInspectorOpen={detailInspectorOpen}
+          detailInspectorMode={detailInspectorMode}
+          detailInspectorQuery={detailInspectorQuery}
+          setDetailInspectorQuery={setDetailInspectorQuery}
+          setDetailInspectorOpen={setDetailInspectorOpen}
+          detailInspectorRows={detailInspectorRows}
+          filteredDetailInspectorRows={filteredDetailInspectorRows}
+          timingPanelOpen={timingPanelOpen}
+          setTimingPanelOpen={setTimingPanelOpen}
+          benchmarkTimingFileName={benchmarkTimingFileName}
+          setTimingFocusOp={setTimingFocusOp}
+          onImportBenchmarkTiming={onImportBenchmarkTiming}
+          steps={steps}
+        />
 
         <SettingsPanel
           settings={layoutSettings}
