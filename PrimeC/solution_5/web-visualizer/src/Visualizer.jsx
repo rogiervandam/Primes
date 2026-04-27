@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { SieveRenderer, bitToNumber, numberToBit, CACHE_PRESETS } from './SieveRenderer';
 import { BitGridGL } from './renderer/gl/BitGridGL';
-import { isGLEnabled } from './renderer/gl/featureFlag';
+import { BitGridGLWorker, isWorkerGLSupported } from './renderer/gl/BitGridGLWorker';
+import { isGLEnabled, isGLWorkerEnabled } from './renderer/gl/featureFlag';
 import StepPanel from './StepPanel';
 import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
@@ -586,11 +587,16 @@ export default function Visualizer({
         if (rr && rr.primeOverlay) rr.render();
       });
 
-      // Experimental WebGL bit-grid scaffold (?renderer=gl). Mounted as a
-      // sibling canvas under the Canvas2D layers; mirrors r.render() via a
-      // wrapper. See docs/AI_MAINTENANCE.md §8 for scope and limitations.
+      // Experimental WebGL bit-grid scaffold (?renderer=gl or
+      // ?renderer=gl-worker). Mounted as a sibling canvas under the
+      // Canvas2D layers; mirrors r.render() via a wrapper. See
+      // docs/AI_MAINTENANCE.md §8 for scope and limitations. The
+      // worker variant transfers the canvas to a module worker via
+      // OffscreenCanvas; falls back to direct mode if the browser
+      // doesn't support OffscreenCanvas.
       if (glEnabled && glCanvasRef.current) {
-        const gl = new BitGridGL();
+        const useWorker = isGLWorkerEnabled() && isWorkerGLSupported();
+        const gl = useWorker ? new BitGridGLWorker() : new BitGridGL();
         if (gl.attach(glCanvasRef.current)) {
           gl.resizeForBitCount(header.bitCount);
           glRendererRef.current = gl;

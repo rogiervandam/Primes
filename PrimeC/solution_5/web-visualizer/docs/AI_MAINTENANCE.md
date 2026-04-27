@@ -415,6 +415,37 @@ overwrite.
   for a `bitToNumber()`-vs.-`i` reason explained inline; the
   shader composite path is still exercised via focus / prime /
   range.
+- ✅ Shipped OffscreenCanvas worker dispatch for the GL
+  renderer (§8 item 6). Opt-in via `?renderer=gl-worker`. New
+  files:
+    - `src/renderer/gl/bitGridGLCore.js` — pure-WebGL2
+      substrate (no DOM/`window`); takes either
+      `HTMLCanvasElement` or `OffscreenCanvas`. Owns shaders,
+      textures, draw call.
+    - `src/renderer/gl/hostStatePacker.js` — pure functions
+      `packPositions(host, buf, slots)` /
+      `packState(host, buf, slots)`. Used by both the direct
+      and worker facades; runs only on the main thread (host
+      object is React-side).
+    - `src/renderer/gl/bitGridWorker.js` — module worker that
+      owns a `BitGridGLCore` against the transferred
+      `OffscreenCanvas`.
+    - `src/renderer/gl/BitGridGLWorker.js` — main-thread
+      facade with the same external API as `BitGridGL`. Posts
+      pre-packed `Float32Array`/`Uint8Array` buffers as
+      transferables; one-way (no ack round-trip).
+  Also refactored `BitGridGL.js` to be a thin facade over
+  `bitGridGLCore.js` + `hostStatePacker.js` (no behaviour
+  change — direct mode still works, parity harness still
+  passes). `featureFlag.js` extended with `getRendererMode()`
+  / `isGLWorkerEnabled()`. `Visualizer.jsx` picks the worker
+  facade when both `isGLWorkerEnabled()` AND
+  `isWorkerGLSupported()` are true; falls back to direct or
+  Canvas2D otherwise. Vite emits a separate `bitGridWorker-*.js`
+  chunk (~9 KB); main bundle grew by ~3 KB. Module count: 85
+  → 88. See §8 item 6 for the full architecture, async-init
+  caveat, and the deliberately-skipped context-loss recovery
+  in the worker path.
 
 ---
 
@@ -680,10 +711,57 @@ done":
    `bitToNumber(i, storageModel)` while the harness uses `i`
    directly; range/focus/prime exercise the same shader
    composite path so the omission doesn't reduce coverage.
-6. **Step 3 (future).** Only after 1–5 land: hand the WebGL context
-   to a worker via `OffscreenCanvas.transferControlToOffscreen()` so
-   even uploads/draws stop blocking the main thread. Safari
-   `OffscreenCanvas` support is recent but adequate as of writing.
+6. **Step 3 — OffscreenCanvas worker dispatch.** ✅ *Done.*
+   Opt-in via `?renderer=gl-worker`. The GL canvas is handed to
+   a module worker (`src/renderer/gl/bitGridWorker.js`) via
+   `transferControlToOffscreen()`; the WebGL2 context lives in
+   the worker, the main thread only walks the host (via
+   `hostStatePacker`) and posts pre-packed Float32/Uint8
+   buffers as transferables. Position buffers are gated by the
+   layout fingerprint (same as direct mode); state buffers are
+   posted every frame. Buffers are NOT round-tripped — the main
+   thread allocates fresh per upload. This adds ≤ ~256 KB/frame
+   of GC at 100 k bits, which is well below problem
+   thresholds, and keeps the message protocol strictly
+   one-way.
+
+   Architecture: `bitGridGLCore.js` is the pure-WebGL2
+   substrate (no `window`/`document` references; runs in either
+   thread). `BitGridGL` and `BitGridGLWorker` are sibling
+   facades over it with identical external API
+   (`attach`/`resizeForBitCount`/`uploadPositions`/`uploadState`/`resize`/`render`/`invalidateLayout`/`dispose`).
+   `Visualizer.jsx` picks one at attach time based on
+   `isGLWorkerEnabled()` AND `isWorkerGLSupported()`; if the
+   browser lacks `OffscreenCanvas.transferControlToOffscreen`,
+   the worker facade returns `false` from `attach()` and the
+   Canvas2D layer keeps drawing on top either way (no
+   regression).
+
+   Worker bundle: Vite emits a separate
+   `bitGridWorker-*.js` chunk (~9 KB at the time of writing).
+   Main bundle grew by ~3 KB for the facade + flag plumbing.
+
+   Caveats:
+     - Worker init is async. The facade buffers
+       `setBitCount`/`resize`/`positions`/`state`/`render`
+       messages until the worker posts `ready`, then flushes.
+       First-frame latency is therefore one extra
+       message-loop turn.
+     - Context-loss recovery is NOT yet wired in worker mode.
+       The direct path handles `webglcontextlost`/`restored`;
+       the worker would need to re-init the `BitGridGLCore` and
+       re-allocate textures on its side, then have the main
+       thread re-send `setBitCount` + force a fingerprint
+       repack. Not implemented because the worker context is
+       isolated from the page lifecycle and rarely loses
+       — leave for a "Don't fix unbroken things" reason.
+     - The visual-diff harness (`parity.html`) tests
+       `BitGridGL`, not `BitGridGLWorker`. Both use
+       `BitGridGLCore` and the same `hostStatePacker`, so the
+       harness still pins the rendering algorithm; it just
+       doesn't exercise the worker round-trip. A
+       `?renderer=gl-worker` mode for the harness would need
+       async result collection.
 
 ### Don't
 
