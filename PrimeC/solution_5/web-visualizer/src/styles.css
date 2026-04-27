@@ -2531,6 +2531,193 @@ html, body, #root {
   color: #92400e;
 }
 
+.preview-btn.prime-overlay-preview-btn.active {
+  border-color: #d97706;
+  background: rgba(251,191,36,0.12);
+  color: #fbbf24;
+}
+[data-theme='light'] .preview-btn.prime-overlay-preview-btn.active {
+  border-color: #b45309;
+  background: rgba(251,191,36,0.15);
+  color: #92400e;
+}
+
+/* Range overlay button — cyan active state */
+.preview-btn.range-overlay-preview-btn.active {
+  border-color: #0891b2;
+  background: rgba(34,211,238,0.12);
+  color: #22d3ee;
+}
+[data-theme='light'] .preview-btn.range-overlay-preview-btn.active {
+  border-color: #0e7490;
+  background: rgba(34,211,238,0.15);
+  color: #0e7490;
+}
+
+/* Multiples overlay button — purple active state */
+.preview-btn.multiples-overlay-preview-btn.active {
+  border-color: #7c3aed;
+  background: rgba(167,139,250,0.12);
+  color: #a78bfa;
+}
+[data-theme='light'] .preview-btn.multiples-overlay-preview-btn.active {
+  border-color: #5b21b6;
+  background: rgba(167,139,250,0.15);
+  color: #5b21b6;
+}
+
+/* Legend button */
+.preview-btn.legend-preview-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--fg-bright);
+}
+
+/* Overlay number inputs row */
+.overlay-input-row {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.overlay-input-label {
+  min-width: 100px;
+  flex: 1 1 0;
+}
+.overlay-input-label span {
+  color: var(--fg-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: block;
+  margin-bottom: 3px;
+}
+.overlay-number-input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg);
+  font-size: 12px;
+  padding: 3px 6px;
+  height: 26px;
+  box-sizing: border-box;
+}
+.overlay-number-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Legend popover */
+.legend-popover {
+  margin-top: 8px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px 12px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.legend-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.legend-popover-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fg-bright);
+  letter-spacing: 0.02em;
+}
+.legend-close-btn {
+  background: none;
+  border: none;
+  color: var(--fg-dim);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 2px;
+  line-height: 1;
+}
+.legend-close-btn:hover { color: var(--fg); }
+
+.legend-section {
+  margin-bottom: 10px;
+}
+.legend-section:last-child { margin-bottom: 0; }
+.legend-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-dim);
+  margin-bottom: 5px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--border-light);
+}
+.legend-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.legend-row {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  row-gap: 1px;
+  align-items: start;
+}
+.legend-swatch, .legend-anim-icon {
+  grid-row: 1 / 3;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.legend-anim-icon {
+  font-size: 12px;
+  line-height: 1;
+  width: 16px;
+  text-align: center;
+  background: none;
+}
+.legend-swatch-set        { background: var(--bit-one, #555); }
+.legend-swatch-cleared    { background: var(--bit-zero, #e8e8e8); border: 1px solid var(--border-light); }
+.legend-swatch-changed    { background: var(--bit-changed, #38bdf8); }
+.legend-swatch-target     { background: var(--bit-target, #f97316); }
+.legend-swatch-prime      { background: #fbbf24; }
+.legend-swatch-range      { background: #22d3ee; }
+.legend-swatch-multiples  { background: #a78bfa; }
+.legend-swatch-heat-hot   { background: #ef4444; }
+.legend-swatch-heat-cold  { background: #3b82f6; }
+.legend-row-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.legend-tag {
+  font-size: 9px;
+  font-weight: 600;
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  border-radius: 3px;
+  padding: 1px 4px;
+  color: var(--fg-dim);
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.legend-row-desc {
+  grid-column: 2;
+  font-size: 10px;
+  color: var(--fg-dim);
+  line-height: 1.4;
+}
+
 .preview-btn-swatch svg {
   fill: none;
   stroke: currentColor;

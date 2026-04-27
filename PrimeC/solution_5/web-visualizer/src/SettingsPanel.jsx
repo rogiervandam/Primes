@@ -113,6 +113,10 @@ export default function SettingsPanel({
   heatMapEnabled, onHeatMapToggle,
   cachelineAnnotation = 'none', onCachelineAnnotationChange,
   primeOverlayEnabled, onPrimeOverlayToggle,
+  rangeOverlayEnabled = false, rangeOverlayStart = 0, rangeOverlayEnd = 0,
+  onRangeOverlayToggle, onRangeOverlayStartChange, onRangeOverlayEndChange,
+  multiplesOverlayEnabled = false, multiplesOverlayPrime = 3,
+  onMultiplesOverlayToggle, onMultiplesOverlayPrimeChange,
   showMinimap, onShowMinimapChange,
   minimapControlVisible = true,
   depthModeEnabled = false,
@@ -136,12 +140,21 @@ export default function SettingsPanel({
   const [customPresetMenuOpen, setCustomPresetMenuOpen] = React.useState(false);
   const [customGroupDraft, setCustomGroupDraft] = React.useState('');
   const [openSpacingControl, setOpenSpacingControl] = React.useState(null);
+  const [legendOpen, setLegendOpen] = React.useState(false);
+  const [rangeStartDraft, setRangeStartDraft] = React.useState(String(rangeOverlayStart));
+  const [rangeEndDraft, setRangeEndDraft] = React.useState(String(rangeOverlayEnd));
+  const [multipesPrimeDraft, setMultiplesPrimeDraft] = React.useState(String(multiplesOverlayPrime));
   const lastManualColumnCountRef = React.useRef(Math.max(1, parseInt(settings?.horizontalGroups || 0, 10) || 1));
 
   React.useEffect(() => {
     const value = Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0);
     if (value > 0) lastManualColumnCountRef.current = value;
   }, [s.horizontalGroups]);
+
+  // Sync draft values when overlay params change from outside (e.g. step defaults)
+  React.useEffect(() => { setRangeStartDraft(String(rangeOverlayStart)); }, [rangeOverlayStart]);
+  React.useEffect(() => { setRangeEndDraft(String(rangeOverlayEnd)); }, [rangeOverlayEnd]);
+  React.useEffect(() => { setMultiplesPrimeDraft(String(multiplesOverlayPrime)); }, [multiplesOverlayPrime]);
 
   React.useEffect(() => {
     if (!openSpacingControl) return undefined;
@@ -912,6 +925,38 @@ export default function SettingsPanel({
                 </svg>
               )}
             />
+            <PreviewOptionButton
+              compact
+              label="Range"
+              hint="Highlight a contiguous range of bit indices (cyan overlay). Defaults to the current event's focus range."
+              active={!!rangeOverlayEnabled}
+              extraClass="range-overlay-preview-btn"
+              onClick={() => onRangeOverlayToggle && onRangeOverlayToggle(!rangeOverlayEnabled)}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="4" y="5" width="8" height="10" rx="1" fill="rgba(34,211,238,0.35)" stroke="none" />
+                  <rect x="14" y="5" width="8" height="10" rx="1" fill="#22d3ee" stroke="none" />
+                  <rect x="24" y="5" width="8" height="10" rx="1" fill="#22d3ee" stroke="none" />
+                  <rect x="34" y="5" width="8" height="10" rx="1" fill="rgba(34,211,238,0.35)" stroke="none" />
+                </svg>
+              )}
+            />
+            <PreviewOptionButton
+              compact
+              label="Multiples"
+              hint="Highlight all bits whose represented number is a multiple of a given prime (purple overlay). Defaults to the current event's prime."
+              active={!!multiplesOverlayEnabled}
+              extraClass="multiples-overlay-preview-btn"
+              onClick={() => onMultiplesOverlayToggle && onMultiplesOverlayToggle(!multiplesOverlayEnabled)}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="4" y="5" width="8" height="10" rx="1" fill="rgba(167,139,250,0.35)" stroke="none" />
+                  <rect x="14" y="5" width="8" height="10" rx="1" fill="rgba(167,139,250,0.35)" stroke="none" />
+                  <rect x="24" y="5" width="8" height="10" rx="1" fill="#a78bfa" stroke="none" />
+                  <rect x="34" y="5" width="8" height="10" rx="1" fill="rgba(167,139,250,0.35)" stroke="none" />
+                </svg>
+              )}
+            />
             {minimapControlVisible && (
               <PreviewOptionButton
                 compact
@@ -962,7 +1007,212 @@ export default function SettingsPanel({
                 </svg>
               )}
             />
+            <PreviewOptionButton
+              compact
+              label="Legend"
+              hint="Show a legend explaining colors, overlays, and animations"
+              active={legendOpen}
+              extraClass="legend-preview-btn"
+              onClick={() => setLegendOpen((o) => !o)}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="4" y="5" width="6" height="6" rx="1" fill="#22d3ee" stroke="none" />
+                  <rect x="4" y="13" width="6" height="6" rx="1" fill="#fbbf24" stroke="none" />
+                  <line x1="14" y1="8" x2="34" y2="8" stroke="currentColor" strokeWidth="1.5" />
+                  <line x1="14" y1="16" x2="30" y2="16" stroke="currentColor" strokeWidth="1.5" />
+                </svg>
+              )}
+            />
           </div>
+          {/* Range overlay controls */}
+          {rangeOverlayEnabled && (
+            <div className="settings-row overlay-inline-controls overlay-input-row">
+              <label className="overlay-inline-field overlay-input-label" title="First bit index in range (inclusive)">
+                <span>Range start (bit)</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  className="overlay-number-input"
+                  value={rangeStartDraft}
+                  onChange={(e) => setRangeStartDraft(e.target.value)}
+                  onBlur={(e) => {
+                    const n = Math.max(0, parseInt(e.target.value || '0', 10) || 0);
+                    setRangeStartDraft(String(n));
+                    onRangeOverlayStartChange && onRangeOverlayStartChange(n);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const n = Math.max(0, parseInt(e.currentTarget.value || '0', 10) || 0);
+                      setRangeStartDraft(String(n));
+                      onRangeOverlayStartChange && onRangeOverlayStartChange(n);
+                    }
+                  }}
+                />
+              </label>
+              <label className="overlay-inline-field overlay-input-label" title="Last bit index in range (inclusive)">
+                <span>Range end (bit)</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  className="overlay-number-input"
+                  value={rangeEndDraft}
+                  onChange={(e) => setRangeEndDraft(e.target.value)}
+                  onBlur={(e) => {
+                    const n = Math.max(0, parseInt(e.target.value || '0', 10) || 0);
+                    setRangeEndDraft(String(n));
+                    onRangeOverlayEndChange && onRangeOverlayEndChange(n);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const n = Math.max(0, parseInt(e.currentTarget.value || '0', 10) || 0);
+                      setRangeEndDraft(String(n));
+                      onRangeOverlayEndChange && onRangeOverlayEndChange(n);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+          )}
+          {/* Multiples overlay controls */}
+          {multiplesOverlayEnabled && (
+            <div className="settings-row overlay-inline-controls overlay-input-row">
+              <label className="overlay-inline-field overlay-input-label" title="Highlight all bits whose number is a multiple of this value">
+                <span>Prime / step factor</span>
+                <input
+                  type="number"
+                  min={2}
+                  step={1}
+                  className="overlay-number-input"
+                  value={multipesPrimeDraft}
+                  onChange={(e) => setMultiplesPrimeDraft(e.target.value)}
+                  onBlur={(e) => {
+                    const n = Math.max(2, parseInt(e.target.value || '2', 10) || 2);
+                    setMultiplesPrimeDraft(String(n));
+                    onMultiplesOverlayPrimeChange && onMultiplesOverlayPrimeChange(n);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const n = Math.max(2, parseInt(e.currentTarget.value || '2', 10) || 2);
+                      setMultiplesPrimeDraft(String(n));
+                      onMultiplesOverlayPrimeChange && onMultiplesOverlayPrimeChange(n);
+                    }
+                  }}
+                />
+              </label>
+              <span className="settings-hint" style={{ alignSelf: 'flex-end', marginBottom: 2 }}>Highlights multiples of this number in purple</span>
+            </div>
+          )}
+          {/* Legend popover */}
+          {legendOpen && (
+            <div className="legend-popover">
+              <div className="legend-popover-header">
+                <span className="legend-popover-title">Visualizer Legend</span>
+                <button type="button" className="legend-close-btn" onClick={() => setLegendOpen(false)} title="Close legend">✕</button>
+              </div>
+              <div className="legend-section">
+                <div className="legend-section-label">Bit states</div>
+                <div className="legend-rows">
+                  <div className="legend-row">
+                    <span className="legend-swatch legend-swatch-set" />
+                    <span className="legend-row-label">Set (composite)</span>
+                    <span className="legend-row-desc">Bit was cleared in the sieve — number is marked composite</span>
+                  </div>
+                  <div className="legend-row">
+                    <span className="legend-swatch legend-swatch-cleared" />
+                    <span className="legend-row-label">Unset (prime candidate)</span>
+                    <span className="legend-row-desc">Bit has not been cleared — number is still a prime candidate</span>
+                  </div>
+                  <div className="legend-row">
+                    <span className="legend-swatch legend-swatch-changed" />
+                    <span className="legend-row-label">Just changed</span>
+                    <span className="legend-row-desc">Bits modified by the current event (highlighted during playback)</span>
+                  </div>
+                  <div className="legend-row">
+                    <span className="legend-swatch legend-swatch-target" />
+                    <span className="legend-row-label">Target</span>
+                    <span className="legend-row-desc">Bits targeted by the current sieve step (may overlap with changed)</span>
+                  </div>
+                </div>
+              </div>
+              <div className="legend-section">
+                <div className="legend-section-label">Overlays</div>
+                <div className="legend-rows">
+                  <div className="legend-row">
+                    <span className="legend-swatch legend-swatch-prime" />
+                    <span className="legend-row-label">Primes overlay <span className="legend-tag">gold · p</span></span>
+                    <span className="legend-row-desc">Bits whose represented number is prime</span>
+                  </div>
+                  <div className="legend-row">
+                    <span className="legend-swatch legend-swatch-range" />
+                    <span className="legend-row-label">Range overlay <span className="legend-tag">cyan · r</span></span>
+                    <span className="legend-row-desc">Bits within the selected bit-index range</span>
+                  </div>
+                  <div className="legend-row">
+                    <span className="legend-swatch legend-swatch-multiples" />
+                    <span className="legend-row-label">Multiples overlay <span className="legend-tag">purple · ×</span></span>
+                    <span className="legend-row-desc">Bits whose number is a multiple of the selected prime/factor</span>
+                  </div>
+                  <div className="legend-row">
+                    <span className="legend-swatch legend-swatch-heat-hot" />
+                    <span className="legend-row-label">Heat map — hot</span>
+                    <span className="legend-row-desc">Cacheline recently or frequently accessed (red = hottest)</span>
+                  </div>
+                  <div className="legend-row">
+                    <span className="legend-swatch legend-swatch-heat-cold" />
+                    <span className="legend-row-label">Heat map — cold</span>
+                    <span className="legend-row-desc">Cacheline rarely or long-ago accessed (blue = coldest)</span>
+                  </div>
+                </div>
+              </div>
+              <div className="legend-section">
+                <div className="legend-section-label">Animations</div>
+                <div className="legend-rows">
+                  <div className="legend-row">
+                    <span className="legend-anim-icon">◎</span>
+                    <span className="legend-row-label">Ripple</span>
+                    <span className="legend-row-desc">Contracting ring that pulses outward from changed bits</span>
+                  </div>
+                  <div className="legend-row">
+                    <span className="legend-anim-icon" style={{ opacity: 0.5 }}>◼</span>
+                    <span className="legend-row-label">Fade</span>
+                    <span className="legend-row-desc">Changed bits fade in from bright to settled color</span>
+                  </div>
+                  <div className="legend-row">
+                    <span className="legend-anim-icon" style={{ color: 'var(--accent)' }}>✦</span>
+                    <span className="legend-row-label">Pulse</span>
+                    <span className="legend-row-desc">Changed bits emit a glowing halo pulse</span>
+                  </div>
+                  <div className="legend-row">
+                    <span className="legend-anim-icon">→</span>
+                    <span className="legend-row-label">Sequential reveal</span>
+                    <span className="legend-row-desc">Bits are uncovered one-by-one in the order they were changed</span>
+                  </div>
+                </div>
+              </div>
+              <div className="legend-section">
+                <div className="legend-section-label">Interactions</div>
+                <div className="legend-rows">
+                  <div className="legend-row">
+                    <span className="legend-anim-icon">🖱</span>
+                    <span className="legend-row-label">Click bit</span>
+                    <span className="legend-row-desc">Pin a tooltip balloon showing the bit's number and history</span>
+                  </div>
+                  <div className="legend-row">
+                    <span className="legend-anim-icon">⇕</span>
+                    <span className="legend-row-label">Scroll / pinch</span>
+                    <span className="legend-row-desc">Zoom the grid in or out</span>
+                  </div>
+                  <div className="legend-row">
+                    <span className="legend-anim-icon">✥</span>
+                    <span className="legend-row-label">Drag</span>
+                    <span className="legend-row-desc">Pan the canvas to navigate around the grid</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {eventTitleSettings?.visible !== false && (
             <>
               <div className="settings-row overlay-inline-controls">

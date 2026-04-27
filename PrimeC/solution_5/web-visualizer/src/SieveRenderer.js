@@ -184,6 +184,13 @@ export class SieveRenderer {
     this.primeOverlay = false;
     this._primeBitFlags = null;
     this._primeOverlayKey = '';
+    // Range overlay: highlight bits in [rangeOverlayStart, rangeOverlayEnd] (bit indices)
+    this.rangeOverlay = false;
+    this.rangeOverlayStart = 0;
+    this.rangeOverlayEnd = 0;
+    // Multiples overlay: highlight bits whose number is a multiple of multiplesOverlayPrime
+    this.multiplesOverlay = false;
+    this.multiplesOverlayPrime = 2;
     this.animationFocusBits = new Set();
     this.bitMotionTrails = [];
     this.zoom = 1;
@@ -2192,6 +2199,85 @@ export class SieveRenderer {
                   ctx.textAlign = 'start';
                 }
                 ctx.restore();
+              }
+
+              // Range overlay: cyan/teal highlight for bits within [rangeOverlayStart, rangeOverlayEnd]
+              if (this.rangeOverlay && globalBit >= this.rangeOverlayStart && globalBit <= this.rangeOverlayEnd) {
+                ctx.save();
+                ctx.fillStyle = 'rgba(34,211,238,0.22)';
+                ctx.fillRect(
+                  Math.round(bitX), Math.round(bitY),
+                  Math.max(1, Math.round(px)), Math.max(1, Math.round(px))
+                );
+                const dotR2 = Math.max(0.8, Math.min(px * 0.20, 3.5));
+                ctx.fillStyle = 'rgba(34,211,238,0.88)';
+                ctx.beginPath();
+                ctx.arc(
+                  Math.round(bitX) + dotR2 * 0.75,
+                  Math.round(bitY) + dotR2 * 0.75,
+                  dotR2, 0, Math.PI * 2
+                );
+                ctx.fill();
+                if (px >= 4) {
+                  ctx.strokeStyle = 'rgba(34,211,238,0.60)';
+                  ctx.lineWidth = Math.max(0.35, Math.min(1.3, px * 0.07));
+                  ctx.setLineDash([]);
+                  ctx.strokeRect(
+                    Math.round(bitX) - 0.5, Math.round(bitY) - 0.5,
+                    Math.max(2, Math.round(px) + 1), Math.max(2, Math.round(px) + 1)
+                  );
+                }
+                if (px >= 16) {
+                  const rSize = Math.max(4, Math.min(px * 0.20, 8));
+                  ctx.font = `bold ${rSize}px monospace`;
+                  ctx.fillStyle = 'rgba(34,211,238,0.90)';
+                  ctx.textAlign = 'right';
+                  ctx.textBaseline = 'top';
+                  ctx.fillText('r', Math.round(bitX + px - 1), Math.round(bitY + 1));
+                  ctx.textAlign = 'start';
+                }
+                ctx.restore();
+              }
+
+              // Multiples overlay: purple highlight for bits whose number is a multiple of multiplesOverlayPrime
+              if (this.multiplesOverlay && this.multiplesOverlayPrime >= 2) {
+                const num = bitToNumber(globalBit, this.storageModel);
+                if (num >= 2 && num % this.multiplesOverlayPrime === 0) {
+                  ctx.save();
+                  ctx.fillStyle = 'rgba(167,139,250,0.22)';
+                  ctx.fillRect(
+                    Math.round(bitX), Math.round(bitY),
+                    Math.max(1, Math.round(px)), Math.max(1, Math.round(px))
+                  );
+                  const dotR3 = Math.max(0.8, Math.min(px * 0.20, 3.5));
+                  ctx.fillStyle = 'rgba(167,139,250,0.90)';
+                  ctx.beginPath();
+                  ctx.arc(
+                    Math.round(bitX + px) - dotR3 * 0.75,
+                    Math.round(bitY + px) - dotR3 * 0.75,
+                    dotR3, 0, Math.PI * 2
+                  );
+                  ctx.fill();
+                  if (px >= 4) {
+                    ctx.strokeStyle = 'rgba(167,139,250,0.55)';
+                    ctx.lineWidth = Math.max(0.35, Math.min(1.3, px * 0.07));
+                    ctx.setLineDash([]);
+                    ctx.strokeRect(
+                      Math.round(bitX) - 0.5, Math.round(bitY) - 0.5,
+                      Math.max(2, Math.round(px) + 1), Math.max(2, Math.round(px) + 1)
+                    );
+                  }
+                  if (px >= 16) {
+                    const mSize = Math.max(4, Math.min(px * 0.20, 8));
+                    ctx.font = `bold ${mSize}px monospace`;
+                    ctx.fillStyle = 'rgba(167,139,250,0.90)';
+                    ctx.textAlign = 'right';
+                    ctx.textBaseline = 'bottom';
+                    ctx.fillText('×', Math.round(bitX + px - 1), Math.round(bitY + px - 1));
+                    ctx.textAlign = 'start';
+                  }
+                  ctx.restore();
+                }
               }
 
               const dualLabelMode = showBitLabels && showNumberLabels;

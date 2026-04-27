@@ -364,6 +364,11 @@ export default function Visualizer({
   // 'none' | 'hits' | 'age' | 'both'  — annotation shown on each cacheline when heatmap is on
   const [cachelineAnnotation, setCachelineAnnotation] = useState('none');
   const [primeOverlayEnabled, setPrimeOverlayEnabled] = useState(false);
+  const [rangeOverlayEnabled, setRangeOverlayEnabled] = useState(false);
+  const [rangeOverlayStart, setRangeOverlayStart] = useState(0);
+  const [rangeOverlayEnd, setRangeOverlayEnd] = useState(0);
+  const [multiplesOverlayEnabled, setMultiplesOverlayEnabled] = useState(false);
+  const [multiplesOverlayPrime, setMultiplesOverlayPrime] = useState(3);
   const [cachelineSize, setCachelineSize] = useState(64);
   const [cachePreset, setCachePreset] = useState('fixed');
   const [stepsPanelCollapsed, setStepsPanelCollapsed] = useState(true);
@@ -786,6 +791,11 @@ export default function Visualizer({
     r.cachelineAnnotation = cachelineAnnotation;
     r.primeOverlay = primeOverlayEnabled;
     if (primeOverlayEnabled) r.buildPrimeOverlay();
+    r.rangeOverlay = rangeOverlayEnabled;
+    r.rangeOverlayStart = rangeOverlayStart;
+    r.rangeOverlayEnd = rangeOverlayEnd;
+    r.multiplesOverlay = multiplesOverlayEnabled;
+    r.multiplesOverlayPrime = Math.max(2, multiplesOverlayPrime || 2);
     r.loweredSetBits = loweredSetBits;
     r.loweredSetBits3D = mode3D;
     r.transparentBackground = mode3D;
@@ -871,7 +881,7 @@ export default function Visualizer({
     r.render();
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, loweredSetBits, mode3D, depthSettings, gridOpacity, updateMinimapAvailability]);
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, loweredSetBits, mode3D, depthSettings, gridOpacity, updateMinimapAvailability]);
 
   // Resize handler
   useEffect(() => {
@@ -4319,6 +4329,35 @@ export default function Visualizer({
           onCachelineAnnotationChange={setCachelineAnnotation}
           primeOverlayEnabled={primeOverlayEnabled}
           onPrimeOverlayToggle={setPrimeOverlayEnabled}
+          rangeOverlayEnabled={rangeOverlayEnabled}
+          rangeOverlayStart={rangeOverlayStart}
+          rangeOverlayEnd={rangeOverlayEnd}
+          onRangeOverlayToggle={(enabled) => {
+            if (enabled && !rangeOverlayEnabled) {
+              const step = steps[currentStep];
+              if (step) {
+                const start = step.focusStart != null ? step.focusStart : (step.changedBits.length > 0 ? Math.min(...step.changedBits) : 0);
+                const end = step.focusStop != null ? step.focusStop : (step.changedBits.length > 0 ? Math.max(...step.changedBits) : Math.max(0, header.bitCount - 1));
+                setRangeOverlayStart(start);
+                setRangeOverlayEnd(end);
+              }
+            }
+            setRangeOverlayEnabled(enabled);
+          }}
+          onRangeOverlayStartChange={setRangeOverlayStart}
+          onRangeOverlayEndChange={setRangeOverlayEnd}
+          multiplesOverlayEnabled={multiplesOverlayEnabled}
+          multiplesOverlayPrime={multiplesOverlayPrime}
+          onMultiplesOverlayToggle={(enabled) => {
+            if (enabled && !multiplesOverlayEnabled) {
+              const step = steps[currentStep];
+              if (step && step.prime != null && step.prime >= 2) {
+                setMultiplesOverlayPrime(step.prime);
+              }
+            }
+            setMultiplesOverlayEnabled(enabled);
+          }}
+          onMultiplesOverlayPrimeChange={setMultiplesOverlayPrime}
           showMinimap={showMinimap}
           onShowMinimapChange={setShowMinimap}
           minimapControlVisible={true}
