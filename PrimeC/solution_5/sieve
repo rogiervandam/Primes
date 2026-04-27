@@ -324,6 +324,11 @@ if [ -n "$BENCHMARK_LOG_FILENAME" ]; then
     run_args="$run_args --benchmark-log $BENCHMARK_LOG_FILENAME"
 fi
 
+# If visual/visualize is active and no max was specified, default to 10000
+if [ "$VISUALIZE" = "visualize" ] && [ "$highest_number" -eq 0 ]; then
+    run_args="$run_args --max 10000"
+fi
+
 
 compile_verbose_level="$verbose_level"
 if [ "$compile_verbose_level" -le "$explain_level" ]; then
