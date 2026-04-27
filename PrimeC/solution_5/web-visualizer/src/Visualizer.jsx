@@ -382,6 +382,7 @@ export default function Visualizer({
 
   const bitStateRef = useRef(null);
   const stepsRef = useRef([]);
+  const currentStepRef = useRef(0);
   const playTimerRef = useRef(null);
   const exportCancelRef = useRef(false);
   const rippleRef = useRef(null);
@@ -411,6 +412,7 @@ export default function Visualizer({
   const balloonLayoutRafRef = useRef(null);
 
   stepsRef.current = steps;
+  currentStepRef.current = currentStep;
 
   /** Miller-Rabin primality test — deterministic for all n < 3,215,031,751 */
   const isPrimeNumber = useCallback((n) => {
@@ -859,6 +861,9 @@ export default function Visualizer({
       prev.showByteLabels = layoutSettings.showByteLabels;
       prev.showVectorLabels = layoutSettings.showVectorLabels;
       prev.showVectorTouchOrder = layoutSettings.showVectorTouchOrder;
+    }
+    if (r.heatMapEnabled) {
+      r.rebuildHeatMap(stepsRef.current, currentStepRef.current);
     }
     r.render();
     updateMinimapAvailability();
@@ -3934,7 +3939,7 @@ export default function Visualizer({
                   <path d="M2 5L8 2L14 5L8 8Z" />
                 </svg>
               </button>
-              <button className={`btn-icon${heatMapEnabled ? ' active' : ''}`} onClick={() => setHeatMapEnabled(h => !h)} title="Toggle heat map overlay"><Thermometer /></button>
+              <button className={`btn-icon${heatMapEnabled ? ' active' : ''}`} onClick={() => setHeatMapEnabled(h => !h)} title="Toggle cacheline heat map overlay — shows hit count and recency per cacheline"><Thermometer /></button>
               <button className={`btn-icon${primeOverlayEnabled ? ' active prime-overlay-btn' : ''}`} onClick={() => setPrimeOverlayEnabled(v => !v)} title="Toggle prime number overlay — highlights every bit whose represented number is prime"><PrimeStar /></button>
               <button className={`btn-icon${timingPanelOpen ? ' active' : ''}`} onClick={() => setTimingPanelOpen(o => !o)} title="Function timings">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">

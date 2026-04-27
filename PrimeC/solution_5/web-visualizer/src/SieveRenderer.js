@@ -255,10 +255,13 @@ export class SieveRenderer {
     this.customGroupingBits = 0;
     this.horizontalGroups = 0;
 
-    // Heat map: tracks recency of access per bit
+    // Heat map: tracks recency of access per bit and per cacheline
     this.heatMapEnabled = false;
     this.lastAccessStep = null;   // Int32Array, per-bit last step index (-1 = never)
     this.heatMapCurrentStep = 0;
+    this.clHitCount = null;       // Int32Array, per-physical-cacheline hit count
+    this.clLastHitStep = null;    // Int32Array, per-physical-cacheline last step (-1 = never)
+    this.clMaxHitCount = 0;
 
     // Frozen wrapping: once set, zoom doesn't change layout
     this._frozenClPerVRow = 0;
@@ -486,6 +489,9 @@ export class SieveRenderer {
     this.suppressMaskWriteOverlay = false;
     this.searchHighlight = null;
     this.lastAccessStep = new Int32Array(bitCount).fill(-1);
+    this.clHitCount = null;   // allocated lazily in rebuildHeatMap
+    this.clLastHitStep = null;
+    this.clMaxHitCount = 0;
     this.animationFocusBits = new Set();
     this.bitMotionTrails = [];
     this.loweredSetBits = false;
@@ -915,6 +921,180 @@ export class SieveRenderer {
     }
   }
 
+  /**
+   * Draw the cacheline heat-map overlay.
+   *
+   * Iterates over PHYSICAL cachelines (cachelineSize bytes each).  For every
+   * physical CL the logical groups (vectors) that belong to it are collected
+   * and grouped into contiguous row-segments.  Each segment gets a filled
+   * rectangle with a fully-stroked border, so the result is one properly
+   * shaped outline per physical cacheline regardless of how the layout wraps.
+   */
+  _renderCachelineHeatOverlay(ctx) {
+    if (!this.heatMapEnabled || !this.clHitCount) return;
+
+    const phyBitsPerCL  = this.cachelineSize * 8;
+    const bitsPerCacheLine = this.bitsPerCacheLine;   // logical group bits
+    const numPhyCL      = this.clHitCount.length;
+    const totalLogCL    = Math.ceil(this.bitCount / bitsPerCacheLine);
+
+    const vecD       = this._vectorDims();
+    const rowD       = this._rowDims();
+    const labelH     = this._labelHeight();
+    const numVec     = this._numVectorsPerRow();
+    const vecPerVRow = this._vectorGroupsPerVisualRow();
+    const vRowHeight = labelH + rowD.h + this._u64GapY();
+    const vecStep    = vecD.w + this._u64GapX();
+    const px         = this.pixelSize * this.zoom;
+    const pad        = 1;
+
+    const ch = this.canvas.height / (window.devicePixelRatio || 1);
+    const startVRow = Math.max(0, Math.floor(-this.panY / vRowHeight));
+    const endVRow   = Math.ceil((ch - this.panY) / vRowHeight) + 1;
+
+    // Map logical CLs to physical CL index
+    // Clamp visible physical CL range so we skip off-screen ones
+    const firstVisLogCL = startVRow * vecPerVRow / numVec;
+    const lastVisLogCL  = endVRow   * vecPerVRow / numVec;
+    const firstVisPhy   = Math.max(0,          Math.floor(firstVisLogCL * bitsPerCacheLine / phyBitsPerCL));
+    const lastVisPhy    = Math.min(numPhyCL - 1, Math.ceil(lastVisLogCL  * bitsPerCacheLine / phyBitsPerCL));
+
+    const lw = Math.max(0.8, Math.min(2.4, px * 0.10));
+
+    for (let phyClIdx = firstVisPhy; phyClIdx <= lastVisPhy; phyClIdx++) {
+      const oc = this._cachelineHeatOverlayColor(phyClIdx);
+      if (!oc) continue;
+
+      const bAlpha = Math.max(0.30, Math.min(0.92, oc.alpha * 1.8 + 0.22));
+
+      // Logical CL range owned by this physical CL
+      const phyBitStart = phyClIdx * phyBitsPerCL;
+      const phyBitEnd   = Math.min(this.bitCount, phyBitStart + phyBitsPerCL);
+      const firstLogCL  = Math.floor(phyBitStart / bitsPerCacheLine);
+      const lastLogCL   = Math.min(totalLogCL - 1, Math.floor((phyBitEnd - 1) / bitsPerCacheLine));
+
+      // Group consecutive logical CLs that share the same visual row into segments.
+      // Each segment will be drawn as one rectangle.
+      const segments = [];
+      let segVRow = -1, segVecStart = -1, segVecEnd = -1;
+
+      for (let logCL = firstLogCL; logCL <= lastLogCL; logCL++) {
+        const globalVecIdx = logCL * numVec;
+        const vRow      = Math.floor(globalVecIdx / vecPerVRow);
+        const vecInRow  = globalVecIdx % vecPerVRow;
+        const vecInRowEnd = vecInRow + numVec - 1;   // last vector column of this logical CL
+
+        if (vRow !== segVRow) {
+          // Save completed segment (only if it falls in the visible vRow range)
+          if (segVRow >= 0 && segVRow >= startVRow && segVRow < endVRow) {
+            segments.push({ vRow: segVRow, vecStart: segVecStart, vecEnd: segVecEnd });
+          }
+          segVRow     = vRow;
+          segVecStart = vecInRow;
+        }
+        segVecEnd = vecInRowEnd;
+      }
+      // Flush last segment
+      if (segVRow >= 0 && segVRow >= startVRow && segVRow < endVRow) {
+        segments.push({ vRow: segVRow, vecStart: segVecStart, vecEnd: segVecEnd });
+      }
+
+      if (segments.length === 0) continue;
+
+      ctx.save();
+      ctx.setLineDash([]);
+
+      for (const seg of segments) {
+        const rx = Math.round(this.panX + seg.vecStart * vecStep - pad);
+        const ry = Math.round(this.panY + seg.vRow * vRowHeight + labelH - pad);
+        const rw = Math.max(1, Math.round((seg.vecEnd - seg.vecStart + 1) * vecStep - this._u64GapX() + pad * 2));
+        const rh = Math.max(1, Math.round(rowD.h + pad * 2));
+
+        if (oc.alpha > 0.01) {
+          ctx.fillStyle = `rgba(${oc.r},${oc.g},${oc.b},${oc.alpha})`;
+          ctx.fillRect(rx, ry, rw, rh);
+        }
+
+        ctx.strokeStyle = `rgba(${oc.r},${oc.g},${oc.b},${bAlpha})`;
+        ctx.lineWidth = lw;
+        ctx.strokeRect(rx + 0.5, ry + 0.5, Math.max(1, rw - 1), Math.max(1, rh - 1));
+      }
+
+      ctx.restore();
+    }
+  }
+
+  /**
+   * Draw the dashed cacheline-boundary outline (same visual style as byte/vector
+   * outlines) at PHYSICAL cacheline granularity (cachelineSize bytes).
+   *
+   * Uses the same segment-grouping logic as _renderCachelineHeatOverlay so that
+   * each physical CL gets one outlined rectangle per visual row it occupies.
+   */
+  _renderCachelineOutline(ctx) {
+    if (!this.outlineEnabled || this.outlineTarget !== 'cacheline') return;
+
+    const phyBitsPerCL  = this.cachelineSize * 8;
+    const bitsPerCacheLine = this.bitsPerCacheLine;
+    const numPhyCL      = Math.ceil(this.bitCount / phyBitsPerCL);
+    const totalLogCL    = Math.ceil(this.bitCount / bitsPerCacheLine);
+
+    const vecD       = this._vectorDims();
+    const rowD       = this._rowDims();
+    const labelH     = this._labelHeight();
+    const numVec     = this._numVectorsPerRow();
+    const vecPerVRow = this._vectorGroupsPerVisualRow();
+    const vRowHeight = labelH + rowD.h + this._u64GapY();
+    const vecStep    = vecD.w + this._u64GapX();
+
+    const pad      = this._outlinePadding();
+    const topExtra = this._outlineTopExtra('cacheline');
+    const ch = this.canvas.height / (window.devicePixelRatio || 1);
+    const startVRow = Math.max(0, Math.floor(-this.panY / vRowHeight));
+    const endVRow   = Math.ceil((ch - this.panY) / vRowHeight) + 1;
+
+    const firstVisPhy = Math.max(0,          Math.floor(startVRow * vecPerVRow / numVec * bitsPerCacheLine / phyBitsPerCL));
+    const lastVisPhy  = Math.min(numPhyCL - 1, Math.ceil(endVRow   * vecPerVRow / numVec * bitsPerCacheLine / phyBitsPerCL));
+
+    for (let phyClIdx = firstVisPhy; phyClIdx <= lastVisPhy; phyClIdx++) {
+      const phyBitStart = phyClIdx * phyBitsPerCL;
+      const phyBitEnd   = Math.min(this.bitCount, phyBitStart + phyBitsPerCL);
+      const firstLogCL  = Math.floor(phyBitStart / bitsPerCacheLine);
+      const lastLogCL   = Math.min(totalLogCL - 1, Math.floor((phyBitEnd - 1) / bitsPerCacheLine));
+
+      // Group consecutive logical CLs that share the same visual row
+      const segments = [];
+      let segVRow = -1, segVecStart = -1, segVecEnd = -1;
+
+      for (let logCL = firstLogCL; logCL <= lastLogCL; logCL++) {
+        const globalVecIdx = logCL * numVec;
+        const vRow     = Math.floor(globalVecIdx / vecPerVRow);
+        const vecInRow = globalVecIdx % vecPerVRow;
+        const vecInRowEnd = vecInRow + numVec - 1;
+
+        if (vRow !== segVRow) {
+          if (segVRow >= 0 && segVRow >= startVRow && segVRow < endVRow) {
+            segments.push({ vRow: segVRow, vecStart: segVecStart, vecEnd: segVecEnd });
+          }
+          segVRow     = vRow;
+          segVecStart = vecInRow;
+        }
+        segVecEnd = vecInRowEnd;
+      }
+      if (segVRow >= 0 && segVRow >= startVRow && segVRow < endVRow) {
+        segments.push({ vRow: segVRow, vecStart: segVecStart, vecEnd: segVecEnd });
+      }
+
+      for (const seg of segments) {
+        const x = this.panX + seg.vecStart * vecStep - pad;
+        const y = this.panY + seg.vRow * vRowHeight + labelH - pad - topExtra;
+        const w = (seg.vecEnd - seg.vecStart + 1) * vecStep - this._u64GapX() + pad * 2;
+        const h = rowD.h + pad * 2 + topExtra;
+        this._drawOutlineRect(ctx, x, y, w, h);
+      }
+    }
+  }
+
   _renderMaskWriteOverlay(ctx) {
     const entries = this._maskWriteEntries();
     if (entries.length === 0) return;
@@ -1085,13 +1265,37 @@ export class SieveRenderer {
     ctx.restore();
   }
 
-  /** Update heat map tracking: mark changed bits with current step */
+  /** Ensure per-physical-cacheline arrays are allocated for the current cachelineSize */
+  _ensureCLArrays() {
+    const numPhyCL = Math.max(1, Math.ceil(this.bitCount / (this.cachelineSize * 8)));
+    if (!this.clHitCount || this.clHitCount.length !== numPhyCL) {
+      this.clHitCount = new Int32Array(numPhyCL).fill(0);
+      this.clLastHitStep = new Int32Array(numPhyCL).fill(-1);
+      this.clMaxHitCount = 0;
+    }
+  }
+
+  /** Update heat map tracking: mark changed bits and cachelines with current step */
   updateHeatMap(changedBits, stepIndex) {
     if (!this.lastAccessStep) return;
     this.heatMapCurrentStep = stepIndex;
+    const phyBitsPerCL = this.cachelineSize * 8;
+    this._ensureCLArrays();
+    const touchedCL = new Set();
     for (const bit of changedBits) {
       if (bit < this.lastAccessStep.length) {
         this.lastAccessStep[bit] = stepIndex;
+      }
+      const clIdx = Math.floor(bit / phyBitsPerCL);
+      touchedCL.add(clIdx);
+    }
+    for (const clIdx of touchedCL) {
+      if (clIdx < this.clHitCount.length) {
+        this.clHitCount[clIdx]++;
+        this.clLastHitStep[clIdx] = stepIndex;
+        if (this.clHitCount[clIdx] > this.clMaxHitCount) {
+          this.clMaxHitCount = this.clHitCount[clIdx];
+        }
       }
     }
   }
@@ -1100,16 +1304,86 @@ export class SieveRenderer {
   rebuildHeatMap(steps, targetStep) {
     if (!this.lastAccessStep) return;
     this.lastAccessStep.fill(-1);
+    const phyBitsPerCL = this.cachelineSize * 8;
+    this._ensureCLArrays();
+    this.clHitCount.fill(0);
+    this.clLastHitStep.fill(-1);
+    this.clMaxHitCount = 0;
     for (let i = 0; i <= targetStep && i < steps.length; i++) {
       const s = steps[i];
+      const touchedCL = new Set();
       for (let j = 0; j < s.changedBits.length; j++) {
         const bit = s.changedBits[j];
         if (bit < this.lastAccessStep.length) {
           this.lastAccessStep[bit] = i;
         }
+        const clIdx = Math.floor(bit / phyBitsPerCL);
+        touchedCL.add(clIdx);
+      }
+      for (const clIdx of touchedCL) {
+        if (clIdx < this.clHitCount.length) {
+          this.clHitCount[clIdx]++;
+          this.clLastHitStep[clIdx] = i;
+          if (this.clHitCount[clIdx] > this.clMaxHitCount) {
+            this.clMaxHitCount = this.clHitCount[clIdx];
+          }
+        }
       }
     }
     this.heatMapCurrentStep = targetStep;
+  }
+
+  /**
+   * Compute cacheline overlay color based on hit count and recency.
+   * Returns { r, g, b, alpha } or null.
+   * Color hue = recency (red=recent, blue=old).
+   * Alpha = hit count intensity (log-normalized).
+   */
+  _cachelineHeatOverlayColor(phyClIdx) {
+    if (!this.clHitCount || phyClIdx < 0 || phyClIdx >= this.clHitCount.length) return null;
+    const hitCount = this.clHitCount[phyClIdx];
+    const lastStep = this.clLastHitStep[phyClIdx];
+
+    if (lastStep < 0) {
+      // Never accessed — draw very subtle neutral boundary
+      return { r: 80, g: 90, b: 130, alpha: 0.06 };
+    }
+
+    // Recency: ageT in [0,1], 0=just hit, 1=long ago
+    const age = this.heatMapCurrentStep - lastStep;
+    const coldThreshold = Math.max(15, this.heatMapCurrentStep * 0.12 + 8);
+    const ageT = Math.min(1, age / coldThreshold);
+
+    // Hit count intensity: log-normalized against max
+    const maxForNorm = Math.max(1, this.clMaxHitCount);
+    const countScore = Math.min(1, Math.log(hitCount + 1) / Math.log(maxForNorm + 1));
+
+    // Color hue based on recency (hot=red, warm=orange/yellow, cold=blue)
+    let r, g, b;
+    if (ageT < 0.30) {
+      // Red -> Orange-red
+      const t = ageT / 0.30;
+      r = 255;
+      g = Math.round(40 + t * 130);
+      b = Math.round(15 * (1 - t));
+    } else if (ageT < 0.62) {
+      // Orange -> Yellow-green
+      const t = (ageT - 0.30) / 0.32;
+      r = Math.round(255 * (1 - t) + 60 * t);
+      g = Math.round(170 + t * 40);
+      b = Math.round(0 + t * 50);
+    } else {
+      // Yellow-green -> Cool blue
+      const t = (ageT - 0.62) / 0.38;
+      r = Math.round(60 * (1 - t) + 30 * t);
+      g = Math.round(210 * (1 - t) + 70 * t);
+      b = Math.round(50 + t * 195);
+    }
+
+    // Alpha: minimum visibility for any touched CL, scales with count
+    const alpha = Math.min(0.60, 0.10 + countScore * 0.50);
+
+    return { r, g, b, alpha };
   }
 
   /** Compute heat color for a bit based on recency */
@@ -1478,6 +1752,10 @@ export class SieveRenderer {
     const vectorLabelY = vRow => this.panY + vRow * vRowHeight + 1;
     const byteLabelY = (vRowBaseY, byteTopY) => Math.max(vRowBaseY + labelBands.vector + 1, byteTopY - labelBands.byteFont - 1);
 
+    // Draw cacheline-level overlays before bits so bits render on top
+    this._renderCachelineHeatOverlay(ctx);
+    this._renderCachelineOutline(ctx);
+
     for (let vRow = startVRow; vRow < endVRow; vRow++) {
       const vRowBaseY = this.panY + vRow * vRowHeight;
       const vRowDataY = vRowBaseY + labelH;
@@ -1497,16 +1775,6 @@ export class SieveRenderer {
         const bitStart = rowBitStart + u64Start * 64;
         const bitEnd = Math.min(bitStart + this.vectorGroup * 64 - 1, rowBitStop - 1, this.bitCount - 1);
         if (bitStart >= rowBitStop) continue;
-
-        if (this.outlineEnabled && this.outlineTarget === 'cacheline' && vecIdxInCL === 0) {
-          const remainingVectorsInCL = Math.max(0, numVec - vecIdxInCL);
-          const remainingVectorsInRow = Math.max(0, vecPerVRow - vecInRow);
-          const visibleVectors = Math.min(remainingVectorsInCL, remainingVectorsInRow);
-          const visibleWidth = visibleVectors * vecD.w + Math.max(0, visibleVectors - 1) * this._u64GapX();
-          const pad = this._outlinePadding();
-          const topExtra = this._outlineTopExtra('cacheline');
-          this._drawOutlineRect(ctx, vecX - pad, vRowDataY - pad - topExtra, visibleWidth + 2 * pad, rowD.h + 2 * pad + topExtra);
-        }
 
         if (showVectorLabels) {
           const label = `${this._groupLabel(globalVectorIndex)} bits ${bitStart}-${bitEnd}`;
@@ -1583,9 +1851,7 @@ export class SieveRenderer {
               const isGhostMaskedBit = this.maskGhostBits?.has(globalBit) && this.bitState[globalBit];
               const isChangedBit = this.changedBits.has(globalBit);
               const isRepeatedWrite = (targetHitCount > 1) || this.repeatedChangedBits?.has(globalBit);
-              if (this.heatMapEnabled && this.lastAccessStep && !isGhostMaskedBit) {
-                color = this._heatColor(globalBit);
-              } else if (isGhostMaskedBit) {
+              if (isGhostMaskedBit) {
                 color = bitColors.cleared;
               } else if (isChangedBit) {
                 color = isRepeatedWrite ? [245, 158, 11] : changedColor;

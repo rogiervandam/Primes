@@ -871,7 +871,7 @@ export default function SettingsPanel({
             <PreviewOptionButton
               compact
               label="Heat map"
-              hint="Color bits by recency: hot to cold"
+              hint="Color cachelines by hit count and recency: hot (red) = recently/frequently hit, cold (blue) = rarely/old"
               active={!!heatMapEnabled}
               onClick={() => onHeatMapToggle(!heatMapEnabled)}
               preview={(
