@@ -376,6 +376,45 @@ overwrite.
   bullet was a documentation bug carried forward from the
   original scaffold. Removed the TODO from §8 item 2 and the
   related `lastAccessStep` entry from §8 item 3.
+- ✅ Triaged §8 items 2–4.
+  - Item 2: removed the stale "custom per-bit colour overrides"
+    TODO (no such feature exists — `customColors` is per-class,
+    already covered via `_bitColors()` uniforms). Lowered-3D
+    shading + rise-and-settle stays open but is now explicitly
+    flagged as **deferred until GL is the primary renderer**
+    — the geometry/shader cost (shadow + base + top + side
+    faces per bit) doesn't pay off while the GL canvas is a
+    sandbox under Canvas2D, and the Canvas2D path handles
+    `loweredSetBits` correctly today.
+  - Item 3: marked ✅ *done at current scope*. Removed the
+    `targetHitCounts`-magnitude-texture TODO (its only consumer
+    is the hit-count gradient, which stays Canvas2D-on-top).
+    Partial `texSubImage2D` updates kept as a conditional
+    next-step only if items 1–2 grow features that need a
+    richer per-bit payload — full repack at 10k bits is
+    sub-frame in JS today.
+  - Item 4: marked ✅ *enforced*. `BitGridGL.attach()` now
+    sets `canvas.style.pointerEvents = 'none'` defensively
+    (in addition to the CSS rule in `07-canvas.css`) and
+    documents the hit-testing contract: any future GL-side
+    hit-test must call `host.canvasToBitIndex(x, y)`, never
+    re-derive layout from GL state.
+- ✅ Built minimal visual-diff harness for `BitGridGL` (§8 item
+  5). Files: `parity.html` at the project root + dev-only
+  module `src/dev/parityHarness.js`. Open at
+  `http://localhost:5173/parity.html` while `npm run dev` is
+  running. Pins the GL renderer's contract: given identical
+  positions + state + colours, GL output must match a small
+  Canvas2D reference (uniform-grid `fillRect`-per-bit + same
+  overlay composite) within rounding tolerance. Not bundled
+  into production (Vite only emits `index.html`; module count
+  stayed at 85 after adding it). Deliberately scoped to what
+  GL covers, not the full `SieveRenderer` — testing parity
+  for features GL has never claimed to implement would be
+  noise. The multiples overlay is excluded from the reference
+  for a `bitToNumber()`-vs.-`i` reason explained inline; the
+  shader composite path is still exercised via focus / prime /
+  range.
 
 ---
 
@@ -588,30 +627,59 @@ done":
    set / cleared / changed / ghost-mask / repeated using uniforms
    from `_bitColors()` and `_opColor()`, **plus** the four
    cell-fill overlays focus / prime / range / multiples (tints
-   hard-coded in the FS to match Canvas2D). Still TODO from
-   `_classifyBit` and the Canvas2D draw chain: target outline
-   stroke + hit-count gradient (these are line strokes, not
-   fills — currently still drawn by Canvas2D on top of the GL
-   canvas, which is fine), lowered-3D shading, custom per-bit
-   colour overrides. (Per-bit heat-map age tinting is *not* on
-   this list — there is no Canvas2D version to mirror; the heat
-   feature is `_renderCachelineHeatOverlay`, which paints
-   cacheline-group rectangles and stays Canvas2D-on-top.)
-3. **State texture protocol.** ⚠️ *Partially done.* Today: one
-   `R8UI` `stateTex`, one byte per bit, packed bits
+   hard-coded in the FS to match Canvas2D). Custom theme
+   colours (`customSetBit` / `customClearedBit` / preset swap)
+   are picked up automatically because `_bitColors()` is
+   resolved every frame at the JS boundary. Target outline
+   stroke + hit-count gradient stay Canvas2D-on-top by design
+   (line strokes — the GL canvas paints the cell fill, the
+   Canvas2D layer above paints the outline). The only
+   *deferred* work is **lowered-3D shading + rise-and-settle**:
+   it would multiply per-bit geometry (shadow + base + top +
+   side faces) and triple the shader's branching, with no
+   payoff while the GL canvas remains a sandbox under
+   Canvas2D. Revisit only if/when GL becomes the primary
+   renderer; until then, the lowered-3D path stays Canvas2D
+   (it falls back gracefully because `loweredSetBits` toggles
+   the depth pass entirely on the Canvas2D side).
+3. **State texture protocol.** ✅ *Done at current scope.*
+   One `R8UI` `stateTex`, one byte per bit, packed bits
    `set | changed | ghost | repeated | prime | range | multiples |
    focus`, repacked every render in JS (`uploadState(host)`).
-   Cheap at current bit counts. Still TODO when items 1–2's
-   missing features land: a separate texture (or move to RG8UI)
-   for `targetHitCounts` magnitude (gradient input), plus partial
-   `texSubImage2D` updates per step instead of full repack.
-   (`lastAccessStep` is *not* on this list — there is no per-bit
-   heat-tint feature in Canvas2D to mirror.)
-4. **Hit-testing.** `bitIndexToCanvas()` / `canvasToBitIndex()` must
-   stay authoritative on the JS side; the GL renderer must use the
-   identical layout math.
-5. **Visual diff harness.** Without a parity test (render same trace
-   on Canvas2D and GL, diff pixels) silent divergence is inevitable.
+   Full-repack cost measured negligible at typical bit counts
+   (10k bits in well under a frame). Partial `texSubImage2D`
+   updates and a separate `targetHitCounts` magnitude texture
+   are the natural next steps **only if** lowered-3D / hit-count
+   gradient shading land in items 1–2 — i.e. when there are
+   features that actually consume a richer per-bit payload.
+4. **Hit-testing.** ✅ *Enforced.* `bitIndexToCanvas()` /
+   `canvasToBitIndex()` are the JS-side authoritative layout
+   helpers. The GL canvas is layered *under* the Canvas2D input
+   layer with `pointer-events: none` (set both in `07-canvas.css`
+   and defensively in `BitGridGL.attach()`). Any future GL-side
+   hit-test must call `host.canvasToBitIndex(x, y)` rather than
+   re-deriving layout from GL state — see the JSDoc on
+   `BitGridGL.attach()`.
+5. **Visual diff harness.** ✅ *Done (minimal).* `parity.html`
+   at the project root, served by Vite in dev (not bundled into
+   the production build — confirmed by module count staying at
+   85). Loads `src/dev/parityHarness.js`, builds a synthetic
+   1024-bit grid with deterministic state + flag patterns,
+   renders it twice (Canvas2D `fillRect`-per-bit reference vs.
+   `BitGridGL.render()` driven by a fake host that exposes only
+   `bitIndexToCanvas`, `bitState`, `changedBits`, `maskGhostBits`,
+   `repeatedChangedBits`, `_primeBitFlags`, range / focus
+   bounds), and reads back both canvases via `getImageData` for
+   a per-pixel max-channel-delta diff. Reports maxΔ, meanΔ,
+   strict-mismatch %, and `>8/255` mismatch %. The harness only
+   pins what GL claims to do (base bit pass + four cell-fill
+   overlays), not the full `SieveRenderer` (lowered-3D, labels,
+   minimap, outlines, etc., all stay Canvas2D-on-top by
+   design). The multiples overlay is excluded from the
+   reference because the production host walks
+   `bitToNumber(i, storageModel)` while the harness uses `i`
+   directly; range/focus/prime exercise the same shader
+   composite path so the omission doesn't reduce coverage.
 6. **Step 3 (future).** Only after 1–5 land: hand the WebGL context
    to a worker via `OffscreenCanvas.transferControlToOffscreen()` so
    even uploads/draws stop blocking the main thread. Safari

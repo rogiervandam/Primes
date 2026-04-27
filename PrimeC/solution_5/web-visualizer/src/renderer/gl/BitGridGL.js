@@ -201,9 +201,22 @@ export class BitGridGL {
     this._layoutFingerprint = '';
   }
 
+  /**
+   * Attach to a `<canvas>` and create the WebGL2 context. Returns false
+   * (and sets `_lost`) if WebGL2 is unavailable.
+   *
+   * Hit-testing contract (see docs/AI_MAINTENANCE.md §8 item 4): this
+   * canvas MUST never receive pointer events. The Canvas2D layer
+   * mounted above it owns input. Any future hit-test — including any
+   * GL-side overlay — must call `host.canvasToBitIndex(x, y)`, the
+   * authoritative inverse of `host.bitIndexToCanvas(i)`. We belt-and-
+   * braces this by setting `pointer-events: none` on the element here
+   * in addition to the CSS rule in `07-canvas.css`.
+   */
   attach(canvas) {
     if (!canvas) return false;
     this.canvas = canvas;
+    canvas.style.pointerEvents = 'none';
     const gl = canvas.getContext('webgl2', { antialias: false, premultipliedAlpha: false, alpha: false });
     if (!gl) {
       this._lost = true;

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BitGridGL parity harness</title>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0;
+        background: #0e1116;
+        color: #e6edf3;
+        font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+        padding: 16px;
+      }
+      h1 { font-size: 14px; margin: 0 0 12px 0; font-weight: 600; }
+      .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+      .panel { background: #161b22; padding: 12px; border-radius: 6px; }
+      .panel h2 { margin: 0 0 8px 0; font-size: 12px; color: #8b949e; font-weight: 600; }
+      canvas { background: #0a0d12; image-rendering: pixelated; display: block; }
+      pre { white-space: pre-wrap; margin: 0; font-size: 12px; }
+      label { display: inline-block; margin-right: 12px; }
+      input[type=number] { width: 70px; background: #0a0d12; color: #e6edf3; border: 1px solid #30363d; padding: 2px 6px; border-radius: 3px; font-family: inherit; }
+      button { background: #238636; color: white; border: 0; padding: 6px 14px; border-radius: 4px; font-family: inherit; cursor: pointer; }
+      button:hover { background: #2ea043; }
+      .ok { color: #3fb950; }
+      .warn { color: #d29922; }
+      .err { color: #f85149; }
+    </style>
+  </head>
+  <body>
+    <h1>BitGridGL ↔ Canvas2D parity harness · see docs/AI_MAINTENANCE.md §8 item 5</h1>
+    <div class="panel" style="margin-bottom: 12px;">
+      <label>Bits: <input id="bits" type="number" value="1024" min="16" max="262144" step="16" /></label>
+      <label>Cell px: <input id="cell" type="number" value="12" min="2" max="64" /></label>
+      <label>DPR: <input id="dpr" type="number" value="1" min="1" max="3" step="0.25" /></label>
+      <label><input id="overlays" type="checkbox" checked /> overlays (focus/prime/range/multiples)</label>
+      <button id="run">Run</button>
+    </div>
+    <div class="row">
+      <div class="panel">
+        <h2>Canvas2D reference</h2>
+        <canvas id="ref"></canvas>
+      </div>
+      <div class="panel">
+        <h2>BitGridGL output</h2>
+        <canvas id="gl"></canvas>
+      </div>
+      <div class="panel">
+        <h2>Per-channel abs diff (×8 amplified)</h2>
+        <canvas id="diff"></canvas>
+      </div>
+      <div class="panel" style="min-width: 320px;">
+        <h2>Result</h2>
+        <pre id="out">click Run.</pre>
+      </div>
+    </div>
+    <script type="module" src="/src/dev/parityHarness.js"></script>
+  </body>
+</html>
