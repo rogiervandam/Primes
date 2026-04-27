@@ -42,14 +42,6 @@ static inline void setSettingsFromTuning(benchmark_settings_t* benchmark_setting
     benchmark_settings->algorithm         = tuning_settings->algorithm;
 }
 
-static inline void resetBenchmarkResult(benchmark_result_t* benchmark_result, benchmark_settings_t benchmark_settings) 
-{
-    benchmark_result->settings     = benchmark_settings;
-    benchmark_result->passes       = 0;
-    benchmark_result->elapsed_time = 0;
-    benchmark_result->avg          = 0;
-}
-
 static inline void printTuningResult(benchmark_result_t tuning_result) 
 {
     verbose2({

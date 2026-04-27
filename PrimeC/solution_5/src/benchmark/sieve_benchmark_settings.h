@@ -33,4 +33,12 @@ static inline char *getBenchmarkSettingAsString(benchmark_settings_t benchmark_s
     return setBenchmarkSettingAsString(global_settings_string, benchmark_settings);
 }
 
+static inline void resetBenchmarkResult(benchmark_result_t* benchmark_result, benchmark_settings_t benchmark_settings) 
+{
+    benchmark_result->settings     = benchmark_settings;
+    benchmark_result->passes       = 0;
+    benchmark_result->elapsed_time = 0;
+    benchmark_result->avg          = 0;
+}
+
 // #endif
