@@ -9,138 +9,20 @@ import {
   SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
   ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Thermometer, PlayPause, PrimeStar,
 } from './Icons';
-
-const VIEW_PREFS_KEY = 'sieve-visualizer:view-preferences:v1';
-
-// Default per-event "normal" time targets keyed by change-count tier.
-// These are the times the timeline takes 0 -> 100% at 100% speed.
-// At 50% speed durations double; at 200% speed they halve. Each tier may be
-// adjusted in the Settings panel.
-const DEFAULT_EVENT_TIME_TARGETS = {
-  none: 250,    // 0 changes
-  one: 500,     // 1 change
-  two: 1000,    // 2 changes
-  few: 2000,    // 3-10 changes
-  many: 4000,   // 11-100 changes
-  lots: 8000,   // > 100 changes (also the soft maximum for huge events)
-  min: 200,     // hard floor — the result is clamped at least this large
-  max: 15000,   // hard ceiling — the result is clamped at most this large
-};
-
-function mergeEventTimeTargets(saved) {
-  const out = { ...DEFAULT_EVENT_TIME_TARGETS };
-  if (!saved || typeof saved !== 'object') return out;
-  for (const k of Object.keys(DEFAULT_EVENT_TIME_TARGETS)) {
-    const v = Number(saved[k]);
-    if (Number.isFinite(v) && v >= 0) out[k] = Math.max(0, Math.round(v));
-  }
-  // Sanity: keep min <= max.
-  if (out.min > out.max) {
-    const tmp = out.min; out.min = out.max; out.max = tmp;
-  }
-  return out;
-}
-
-function readViewPrefs() {
-  if (typeof window === 'undefined' || !window.localStorage) return null;
-  try {
-    const raw = window.localStorage.getItem(VIEW_PREFS_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function mergeLayoutSettings(saved) {
-  if (!saved || typeof saved !== 'object') return DEFAULT_SETTINGS;
-  return {
-    ...DEFAULT_SETTINGS,
-    ...saved,
-    outlines: {
-      ...DEFAULT_SETTINGS.outlines,
-      ...(saved.outlines || {}),
-    },
-  };
-}
-
-function writeViewPrefs(prefs) {
-  if (typeof window === 'undefined' || !window.localStorage) return;
-  try {
-    window.localStorage.setItem(VIEW_PREFS_KEY, JSON.stringify(prefs));
-  } catch {
-    // Ignore storage failures.
-  }
-}
-
-const DEFAULT_SETTINGS = {
-  bitLayout: '4x2',
-  byteLayout: '4x2',
-  bitSpacingH: 1,
-  bitSpacingV: 1,
-  byteSpacingH: 2,
-  byteSpacingV: 2,
-  u64SpacingH: 4,
-  u64SpacingV: 4,
-  vectorMode: 'preset',
-  vectorGroup: 1,
-  vectorBaseBits: 64,
-  vectorLanes: 1,
-  vectorLabel: 'uint64',
-  customGroupBits: 0,
-  showBitLabels: true,
-  showNumberLabels: false,
-  showByteLabels: true,
-  showVectorLabels: true,
-  showVectorTouchOrder: false,
-  bitLabelMode: 'global',
-  byteLabelMode: 'group',
-  horizontalGroups: 0,
-  outlines: {
-    target: 'none',
-  },
-};
-
-const DEFAULT_EVENT_TITLE_SETTINGS = {
-  visible: true,
-  position: 'center',
-  scale: 100,
-  // User-drag offset in pixels from the default (centered) position. Persisted.
-  dragOffsetX: 0,
-  dragOffsetY: 0,
-};
-
-const DEFAULT_DEPTH_SETTINGS = {
-  strength: 80,
-  angle: 38,
-};
-
-function mergeEventTitleSettings(saved) {
-  if (!saved || typeof saved !== 'object') return DEFAULT_EVENT_TITLE_SETTINGS;
-  const scale = Math.max(70, Math.min(160, parseInt(saved.scale || DEFAULT_EVENT_TITLE_SETTINGS.scale, 10) || DEFAULT_EVENT_TITLE_SETTINGS.scale));
-  const dragOffsetX = Number.isFinite(Number(saved.dragOffsetX)) ? Number(saved.dragOffsetX) : 0;
-  const dragOffsetY = Number.isFinite(Number(saved.dragOffsetY)) ? Number(saved.dragOffsetY) : 0;
-  return {
-    ...DEFAULT_EVENT_TITLE_SETTINGS,
-    ...saved,
-    visible: saved.visible !== false,
-    position: 'center', // user removed the position picker; always re-center as baseline
-    scale,
-    dragOffsetX,
-    dragOffsetY,
-  };
-}
-
-function mergeDepthSettings(saved) {
-  if (!saved || typeof saved !== 'object') return DEFAULT_DEPTH_SETTINGS;
-  const strength = Math.max(0, Math.min(100, parseInt(saved.strength ?? DEFAULT_DEPTH_SETTINGS.strength, 10) || DEFAULT_DEPTH_SETTINGS.strength));
-  const angle = Math.max(0, Math.min(90, parseInt(saved.angle ?? DEFAULT_DEPTH_SETTINGS.angle, 10) || DEFAULT_DEPTH_SETTINGS.angle));
-  return {
-    ...DEFAULT_DEPTH_SETTINGS,
-    ...saved,
-    strength,
-    angle,
-  };
-}
+import {
+  DEFAULT_EVENT_TIME_TARGETS,
+  DEFAULT_LAYOUT_SETTINGS as DEFAULT_SETTINGS,
+  DEFAULT_EVENT_TITLE_SETTINGS,
+  DEFAULT_DEPTH_SETTINGS,
+  readViewPrefs,
+  writeViewPrefs,
+  mergeEventTimeTargets,
+  mergeLayoutSettings,
+  mergeEventTitleSettings,
+  mergeDepthSettings,
+} from './lib/viewPrefs';
+import { buildTraceInfoSections } from './lib/traceHeader';
+import { detectIsMac, detectIsWindows, detectIsElectron } from './lib/platform';
 
 export default function Visualizer({
   trace,
@@ -153,132 +35,21 @@ export default function Visualizer({
 }) {
   const { header, steps } = trace;
   const traceTitle = useMemo(() => header.title || fileName || 'Sieve Visualizer', [header.title, fileName]);
-  const traceInfoSections = useMemo(() => {
-    // Parse a single info item into a {label, value} pair. Accepts "label: value",
-    // "label=value", or "Label Value" (single-word label followed by value).
-    const parseKeyValue = (raw) => {
-      const text = String(raw || '').trim();
-      if (!text) return null;
-      const colonEq = text.match(/^\s*([^:=]+?)\s*[:=]\s*(.+?)\s*$/);
-      if (colonEq) return { label: colonEq[1].trim(), value: colonEq[2].trim() };
-      // "Storage half", "Max 1000", "v5"
-      const labelSpace = text.match(/^\s*(Storage|Max|Bits|Events|Settings|Trace level|Version)\s+(.+)\s*$/i);
-      if (labelSpace) return { label: labelSpace[1], value: labelSpace[2] };
-      if (/^v\d/i.test(text)) return { label: 'Version', value: text.replace(/^v/i, '') };
-      return null;
-    };
-
-    // Canonical key for dedup + routing.
-    const canonicalize = (label) => String(label || '').trim().toLowerCase().replace(/\s+/g, '_');
-    // Canonical value for dedup: strip grouping separators on numerics.
-    const canonicalValue = (value) => {
-      const text = String(value || '').trim();
-      if (/^-?\d[\d,._\s]*$/.test(text)) return text.replace(/[,_\s]/g, '');
-      return text.toLowerCase();
-    };
-
-    // Label + section routing for recognized keys. Unknown keys flow to Notes.
-    const runKeys = new Set([
-      'max', 'max_number', 'maxnumber', 'factor_max',
-      'bits', 'bit_count', 'bitcount',
-      'events', 'step_count', 'stepcount',
-      'storage', 'storage_model', 'storagemodel',
-      'trace_level', 'tracelevel',
-      'threads', 'duration', 'elapsed',
-      'version', 'v',
-    ]);
-    const settingsKeys = new Set(['settings', 'benchmark_settings', 'benchmarksettings']);
-    const prettyLabel = (canon, fallback) => ({
-      max: 'Max', max_number: 'Max', maxnumber: 'Max', factor_max: 'Max',
-      bits: 'Bits', bit_count: 'Bits', bitcount: 'Bits',
-      events: 'Events', step_count: 'Events', stepcount: 'Events',
-      storage: 'Storage', storage_model: 'Storage', storagemodel: 'Storage',
-      trace_level: 'Trace level', tracelevel: 'Trace level',
-      threads: 'Threads', duration: 'Duration', elapsed: 'Elapsed',
-      version: 'Version', v: 'Version',
-      settings: 'Settings', benchmark_settings: 'Settings', benchmarksettings: 'Settings',
-    }[canon] || fallback);
-
-    const items = [];
-    if (fileName) items.push({ label: 'File', value: fileName });
-    if (header.subtitle) items.push({ label: 'Subtitle', value: header.subtitle });
-    if (Array.isArray(header.infoLines)) {
-      for (const line of header.infoLines) {
-        const kv = parseKeyValue(line);
-        if (kv) items.push(kv);
-        else items.push({ label: 'Info', value: String(line) });
-      }
-    }
-    if (header.maxNumber != null) items.push({ label: 'Max', value: String(header.maxNumber) });
-    if (header.storageModel) items.push({ label: 'Storage', value: header.storageModel });
-    if (header.traceLevel != null) items.push({ label: 'Trace level', value: String(header.traceLevel) });
-    if (header.bitCount != null) items.push({ label: 'Bits', value: String(header.bitCount) });
-    if (header.stepCount != null) items.push({ label: 'Events', value: String(header.stepCount) });
-    if (header.version != null) items.push({ label: 'Version', value: String(header.version) });
-
-    // Dedupe by canonical (label, value), preserving insertion order.
-    const seen = new Set();
-    const deduped = [];
-    for (const kv of items) {
-      const canonLabel = canonicalize(kv.label);
-      const canonVal = canonicalValue(kv.value);
-      const key = `${canonLabel}=${canonVal}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const label = prettyLabel(canonLabel, kv.label);
-      // Format numerics with commas when display label is friendly.
-      let displayValue = kv.value;
-      if (/^-?\d+$/.test(String(kv.value))) {
-        const n = Number(kv.value);
-        if (Number.isFinite(n) && Math.abs(n) >= 1000) displayValue = n.toLocaleString();
-      }
-      deduped.push({ label, canonLabel, value: displayValue });
-    }
-
-    const file = [];
-    const run = [];
-    const settings = [];
-    const extra = [];
-    for (const kv of deduped) {
-      if (kv.canonLabel === 'file' || kv.canonLabel === 'subtitle') { file.push(kv); continue; }
-      if (settingsKeys.has(kv.canonLabel)) { settings.push(kv); continue; }
-      if (runKeys.has(kv.canonLabel)) { run.push(kv); continue; }
-      extra.push(kv);
-    }
-
-    return [
-      { title: 'File', rows: file },
-      { title: 'Run', rows: run },
-      { title: 'Settings', rows: settings },
-      { title: 'Notes', rows: extra },
-    ].filter((section) => section.rows.length > 0);
-  }, [header, fileName]);
+  const traceInfoSections = useMemo(
+    () => buildTraceInfoSections(header, fileName),
+    [header, fileName],
+  );
 
   const canvasRef = useRef(null);
   const settledCanvasRef = useRef(null);
   const minimapCanvasRef = useRef(null);
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
-  const isMacPlatform = useMemo(() => {
-    if (typeof navigator === 'undefined') return false;
-    const uaDataPlatform = navigator.userAgentData?.platform || '';
-    const probe = `${uaDataPlatform} ${navigator.platform || ''} ${navigator.userAgent || ''} ${navigator.appVersion || ''}`;
-    return /(Mac|iPhone|iPad|iPod)/i.test(probe);
-  }, []);
-  const isWindowsPlatform = useMemo(() => {
-    if (typeof navigator === 'undefined') return false;
-    const uaDataPlatform = navigator.userAgentData?.platform || '';
-    const probe = `${uaDataPlatform} ${navigator.platform || ''} ${navigator.userAgent || ''} ${navigator.appVersion || ''}`;
-    return /Win/i.test(probe);
-  }, []);
+  const isMacPlatform = useMemo(() => detectIsMac(), []);
+  const isWindowsPlatform = useMemo(() => detectIsWindows(), []);
   // Electron (native app) inserts "Electron" into the UA and exposes process.versions.electron.
   // In browser mode we don't reserve space for traffic-light window controls.
-  const isElectron = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    if (typeof navigator !== 'undefined' && /Electron/i.test(navigator.userAgent || '')) return true;
-    const proc = (typeof window !== 'undefined' && window.process) || null;
-    return !!(proc && proc.versions && proc.versions.electron);
-  }, []);
+  const isElectron = useMemo(() => detectIsElectron(), []);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [playing, setPlaying] = useState(false);

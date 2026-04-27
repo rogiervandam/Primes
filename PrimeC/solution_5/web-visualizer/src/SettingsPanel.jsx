@@ -1,5 +1,32 @@
 import React from 'react';
 import { BIT_LAYOUTS, BYTE_LAYOUTS, COLOR_PRESETS, STORAGE_MODELS, CACHELINE_SIZES, CACHE_PRESETS } from './SieveRenderer';
+import {
+  playbackSpeedToPercent as playbackSpeedToMs,
+  percentToPlaybackSpeed as msToPlaybackSpeed,
+  stepSpeedToInterval,
+  intervalToStepSpeed,
+} from './lib/unitConverters';
+import {
+  BIT_LAYOUT_TIPS,
+  BYTE_LAYOUT_TIPS,
+  describeLayout,
+  VECTOR_TIPS,
+  GROUPING_PRESETS,
+  GROUPING_FAMILIES,
+  CUSTOM_GROUP_PRESETS,
+  groupingPreviewClassName,
+  VECTOR_BASE_OPTIONS,
+  VECTOR_LANE_OPTIONS,
+} from './settings/constants';
+import LegendSections from './settings/LegendSections';
+import {
+  LayoutIcon,
+  VectorIcon,
+  SpacingIcon,
+  GearIcon,
+  AnnotationButton,
+  PreviewOptionButton,
+} from './settings/buttons';
 
 function rgbToHex(rgb) {
   if (!rgb || rgb.length < 3) return '#555555';
@@ -8,196 +35,6 @@ function rgbToHex(rgb) {
 function hexToRgb(hex) {
   const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
   return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [0, 0, 0];
-}
-
-/** Tooltip descriptions for layouts */
-const BIT_LAYOUT_TIPS = {
-  '8x1': 'Horizontal row of 8 bits — compact wide layout',
-  '4x2': '4 columns × 2 rows — balanced, default',
-  '1x8': 'Vertical column of 8 bits — tall narrow layout',
-  '3x3': '3×3 grid with center empty — square arrangement',
-  '8c1': '8 bits in a row',
-  '4c2': '4 bits in 2 columns',
-  'grid3x3': '3x3 grid with center empty',
-};
-const BYTE_LAYOUT_TIPS = {
-  '8x1': '8 bytes in a row — full-width uint64 display',
-  '4x2': '4 columns × 2 rows — balanced, default',
-  '1x8': 'Vertical column of 8 bytes — tall display',
-  '3x3': '3×3 grid with center empty — square display',
-  '8c1': '8 bytes in a row',
-  '4c2': '4 bytes in 2 columns',
-  'grid3x3': '3x3 grid with center empty',
-};
-
-function describeLayout(layoutKey, catalog, noun) {
-  const layout = catalog[layoutKey];
-  if (!layout) return `${noun} arrangement unknown.`;
-  if (layout.grid3x3) return `${noun} arranged in a 3×3 grid with the center left empty.`;
-  return `${noun} arranged as ${layout.cols} columns × ${layout.rows} rows.`;
-}
-const VECTOR_TIPS = {
-  1: 'No grouping — each uint64 is standalone',
-  2: 'Group 2 uint64 values together',
-  4: 'Group 4 uint64 values together',
-  8: 'Group 8 uint64 values together',
-  '1': 'Single vector',
-  '2': '2 vectors',
-  '4': '4 vectors',
-};
-
-const GROUPING_PRESETS = {
-  '16bit': { label: '16bit', title: 'Group bits as uint16 blocks', baseBits: 16, lanes: 1 },
-  '16x2': { label: '16x2', title: '2 uint16 values per grouping', baseBits: 16, lanes: 2 },
-  '16x4': { label: '16x4', title: '4 uint16 values per grouping', baseBits: 16, lanes: 4 },
-  '16x8': { label: '16x8', title: '8 uint16 values per grouping', baseBits: 16, lanes: 8 },
-  '32bit': { label: '32bit', title: 'Group bits as uint32 blocks', baseBits: 32, lanes: 1 },
-  '32x2': { label: '32x2', title: '2 uint32 values per grouping', baseBits: 32, lanes: 2 },
-  '32x4': { label: '32x4', title: '4 uint32 values per grouping', baseBits: 32, lanes: 4 },
-  '32x8': { label: '32x8', title: '8 uint32 values per grouping', baseBits: 32, lanes: 8 },
-  '64bit': { label: '64bit', title: 'Single uint64 grouping', baseBits: 64, lanes: 1 },
-  '64x2': { label: '64x2', title: '2 uint64 values per grouping', baseBits: 64, lanes: 2 },
-  '64x4': { label: '64x4', title: '4 uint64 values per grouping', baseBits: 64, lanes: 4 },
-  '64x8': { label: '64x8', title: '8 uint64 values per grouping', baseBits: 64, lanes: 8 },
-};
-
-const GROUPING_FAMILIES = [
-  { familyKey: '16', defaultKey: '16bit', optionKeys: ['16bit', '16x2', '16x4', '16x8'] },
-  { familyKey: '32', defaultKey: '32bit', optionKeys: ['32bit', '32x2', '32x4', '32x8'] },
-  { familyKey: '64', defaultKey: '64bit', optionKeys: ['64bit', '64x2', '64x4', '64x8'] },
-];
-
-const CUSTOM_GROUP_PRESETS = [2, 6, 30, 210];
-
-const groupingPreviewClassName = (presetKey) => {
-  switch (presetKey) {
-    case '16bit': return 'grouping-chip-preview-16';
-    case '32bit': return 'grouping-chip-preview-32';
-    case '64x2': return 'grouping-chip-preview-64x2';
-    case '64x4': return 'grouping-chip-preview-64x4';
-    case '64x8': return 'grouping-chip-preview-64x8';
-    case '64bit': return 'grouping-chip-preview-64';
-    default: return 'grouping-chip-preview-custom';
-  }
-};
-
-const VECTOR_BASE_OPTIONS = [
-  { bits: 1, label: 'bit' },
-  { bits: 8, label: 'byte' },
-  { bits: 16, label: 'uint16' },
-  { bits: 32, label: 'uint32' },
-  { bits: 64, label: 'uint64' },
-];
-const VECTOR_LANE_OPTIONS = [1, 2, 4, 8];
-
-/**
- * Reusable legend content rendered in both the Legend tab and the floating panel.
- */
-function LegendSections({ detailed = true }) {
-  return (
-    <>
-      <div className="legend-section">
-        <div className="legend-section-label">Bit states</div>
-        <div className="legend-rows">
-          <div className="legend-row">
-            <span className="legend-swatch legend-swatch-set" />
-            <span className="legend-row-label">Set (composite)</span>
-            {detailed && <span className="legend-row-desc">Bit was cleared in the sieve — number is marked composite</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-swatch legend-swatch-cleared" />
-            <span className="legend-row-label">Unset (prime candidate)</span>
-            {detailed && <span className="legend-row-desc">Bit has not been cleared — number is still a prime candidate</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-swatch legend-swatch-changed" />
-            <span className="legend-row-label">Just changed</span>
-            {detailed && <span className="legend-row-desc">Bits modified by the current event (highlighted during playback)</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-swatch legend-swatch-target" />
-            <span className="legend-row-label">Target</span>
-            {detailed && <span className="legend-row-desc">Bits targeted by the current sieve step (may overlap with changed)</span>}
-          </div>
-        </div>
-      </div>
-      <div className="legend-section">
-        <div className="legend-section-label">Overlays</div>
-        <div className="legend-rows">
-          <div className="legend-row">
-            <span className="legend-swatch legend-swatch-prime" />
-            <span className="legend-row-label">Primes overlay <span className="legend-tag">gold · p</span></span>
-            {detailed && <span className="legend-row-desc">Bits whose represented number is prime</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-swatch legend-swatch-range" />
-            <span className="legend-row-label">Range overlay <span className="legend-tag">cyan · r</span></span>
-            {detailed && <span className="legend-row-desc">Bits within the selected bit-index range</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-swatch legend-swatch-multiples" />
-            <span className="legend-row-label">Multiples overlay <span className="legend-tag">purple · ×</span></span>
-            {detailed && <span className="legend-row-desc">Bits whose number is a multiple of the selected prime/factor</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-swatch legend-swatch-heat-hot" />
-            <span className="legend-row-label">Heat map — hot</span>
-            {detailed && <span className="legend-row-desc">Cacheline recently or frequently accessed (red = hottest)</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-swatch legend-swatch-heat-cold" />
-            <span className="legend-row-label">Heat map — cold</span>
-            {detailed && <span className="legend-row-desc">Cacheline rarely or long-ago accessed (blue = coldest)</span>}
-          </div>
-        </div>
-      </div>
-      <div className="legend-section">
-        <div className="legend-section-label">Animations</div>
-        <div className="legend-rows">
-          <div className="legend-row">
-            <span className="legend-anim-icon">◎</span>
-            <span className="legend-row-label">Ripple</span>
-            {detailed && <span className="legend-row-desc">Contracting ring that pulses outward from changed bits</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-anim-icon" style={{ opacity: 0.5 }}>◼</span>
-            <span className="legend-row-label">Fade</span>
-            {detailed && <span className="legend-row-desc">Changed bits fade in from bright to settled color</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-anim-icon" style={{ color: 'var(--accent)' }}>✦</span>
-            <span className="legend-row-label">Pulse</span>
-            {detailed && <span className="legend-row-desc">Changed bits emit a glowing halo pulse</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-anim-icon">→</span>
-            <span className="legend-row-label">Sequential reveal</span>
-            {detailed && <span className="legend-row-desc">Bits are uncovered one-by-one in the order they were changed</span>}
-          </div>
-        </div>
-      </div>
-      <div className="legend-section">
-        <div className="legend-section-label">Interactions</div>
-        <div className="legend-rows">
-          <div className="legend-row">
-            <span className="legend-anim-icon">🖱</span>
-            <span className="legend-row-label">Click bit</span>
-            {detailed && <span className="legend-row-desc">Pin a tooltip balloon showing the bit&apos;s number and history</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-anim-icon">⇕</span>
-            <span className="legend-row-label">Scroll / pinch</span>
-            {detailed && <span className="legend-row-desc">Zoom the grid in or out</span>}
-          </div>
-          <div className="legend-row">
-            <span className="legend-anim-icon">✥</span>
-            <span className="legend-row-label">Drag</span>
-            {detailed && <span className="legend-row-desc">Pan the canvas to navigate around the grid</span>}
-          </div>
-        </div>
-      </div>
-    </>
-  );
 }
 
 /**
@@ -351,29 +188,6 @@ export default function SettingsPanel({
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
   const adjustRepeatAnim = (deltaMs) => onRepeatAnimChange(clamp((repeatAnim || 0) + deltaMs, 0, 5000));
   const adjustBitInterval = (deltaMs) => onBitAnimIntervalChange(clamp((bitAnimInterval || 20) + deltaMs, 5, 5000));
-  // playSpeed is now a percentage (25..400). Map it onto a 1..100 slider with
-  // a log-scale so 100% sits comfortably in the middle and each tick is the
-  // same multiplicative jump.
-  const playbackSpeedToMs = (speedValue) => {
-    const speed = clamp(parseInt(speedValue || 0, 10) || 1, 1, 100);
-    const ratio = (speed - 1) / 99;
-    return Math.round(25 * Math.pow(400 / 25, ratio));
-  };
-  const msToPlaybackSpeed = (pctValue) => {
-    const pct = clamp(parseInt(pctValue || 0, 10) || 100, 25, 400);
-    const ratio = Math.log(pct / 25) / Math.log(400 / 25);
-    return Math.round(1 + ratio * 99);
-  };
-  const stepSpeedToInterval = (speedValue) => {
-    const speed = clamp(parseInt(speedValue || 0, 10) || 1, 1, 100);
-    const ratio = (speed - 1) / 99;
-    return Math.round(5000 - ratio * (5000 - 5));
-  };
-  const intervalToStepSpeed = (intervalValue) => {
-    const interval = clamp(parseInt(intervalValue || 0, 10) || 20, 5, 5000);
-    const ratio = (5000 - interval) / (5000 - 5);
-    return Math.round(1 + ratio * 99);
-  };
   const playbackSpeedValue = msToPlaybackSpeed(playSpeed || 100);
   const stepSpeedValue = intervalToStepSpeed(bitAnimInterval || 20);
   const setVectorGroupSimple = (group) => {
@@ -493,79 +307,6 @@ export default function SettingsPanel({
       </div>
     );
   };
-
-  /** Mini SVG preview of a layout grid */
-  const LayoutIcon = ({ cols, rows, grid3x3, active, onClick, size = 32, tooltip }) => {
-    const gap = 1;
-    const cellW = (size - (cols - 1) * gap) / cols;
-    const cellH = (size - (rows - 1) * gap) / rows;
-    return (
-      <svg width={size} height={size} viewBox={`-3 -3 ${size + 6} ${size + 6}`} onClick={onClick} title={tooltip}
-           style={{ cursor: 'pointer', border: active ? '2px solid var(--accent)' : '2px solid var(--border)', borderRadius: 4, padding: 2, overflow: 'visible', display: 'block', boxSizing: 'content-box', background: 'var(--bg-raised)' }}>
-        {Array.from({ length: rows * cols }, (_, i) => {
-          if (grid3x3 && i === 4) return null; // center cell empty
-          const col = i % cols;
-          const row = Math.floor(i / cols);
-          return <rect key={i} x={col * (cellW + gap)} y={row * (cellH + gap)} width={cellW} height={cellH}
-                       fill={active ? 'var(--accent)' : 'var(--fg-dim)'} rx={1} />;
-        })}
-      </svg>
-    );
-  };
-
-  /** Mini SVG preview for vector grouping */
-  const VectorIcon = ({ count, active, onClick, size = 32, tooltip }) => {
-    const gap = 2;
-    const boxW = (size - (count - 1) * gap) / count;
-    return (
-      <svg width={size} height={size} viewBox={`-3 -3 ${size + 6} ${size + 6}`} onClick={onClick} title={tooltip}
-           style={{ cursor: 'pointer', border: active ? '2px solid var(--accent)' : '2px solid var(--border)', borderRadius: 4, padding: 2, overflow: 'visible', display: 'block', boxSizing: 'content-box', background: 'var(--bg-raised)' }}>
-        {Array.from({ length: count }, (_, i) => (
-          <rect key={i} x={i * (boxW + gap)} y={2} width={boxW} height={size - 4}
-                fill={active ? 'var(--accent)' : 'var(--fg-dim)'} rx={1} />
-        ))}
-      </svg>
-    );
-  };
-
-  const SpacingIcon = ({ title }) => (
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
-      <path d="M12 3 V21" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M3 12 H21" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M9 6 L12 3 L15 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M9 18 L12 21 L15 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M6 9 L3 12 L6 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M18 9 L21 12 L18 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="12" cy="12" r="1.35" fill="currentColor" stroke="none" />
-      <title>{title}</title>
-    </svg>
-  );
-
-  const AnnotationButton = ({ title, hint, active, onClick, preview }) => (
-    <button
-      type="button"
-      className={`anno-btn${active ? ' active' : ''}`}
-      onClick={onClick}
-      title={hint || title}
-    >
-      <span className="anno-btn-preview">{preview}</span>
-      <span className="anno-btn-title">{title}</span>
-      {hint ? <span className="anno-btn-hint">{hint}</span> : null}
-    </button>
-  );
-
-  const PreviewOptionButton = ({ label, hint, active, onClick, preview, compact = false, extraClass = '' }) => (
-    <button
-      type="button"
-      className={`preview-btn${active ? ' active' : ''}${compact ? ' compact' : ''}${extraClass ? ' ' + extraClass : ''}`}
-      onClick={onClick}
-      title={hint}
-    >
-      <span className="preview-btn-swatch">{preview}</span>
-      <span className="preview-btn-title">{label}</span>
-      <span className="preview-btn-hint">{hint}</span>
-    </button>
-  );
 
   const outline = outlineSettings || {
     target: 'none',
@@ -928,13 +669,6 @@ export default function SettingsPanel({
       </>
     );
   };
-
-  const GearIcon = () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1.08-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1.08 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001.08 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1.08z" />
-    </svg>
-  );
 
   return (
     <>
