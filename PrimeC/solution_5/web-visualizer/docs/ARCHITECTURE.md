@@ -38,9 +38,12 @@ src/
 ├── renderer/             SieveRenderer building blocks (no React)
 │   ├── constants.js          Themes, palettes, layouts, presets, residues
 │   ├── bitMath.js            bitToNumber / numberToBit (storage models)
-│   └── drawingHelpers.js     hexToRgb, mixRgb, fitted-text drawing helpers
+│   ├── drawingHelpers.js     hexToRgb, mixRgb, fitted-text drawing helpers
+│   └── VisualizationRenderer.js  Documentation-as-code contract for any renderer
 ├── hooks/                Reusable custom hooks
-│   └── useFloatingPanel.js   Drag/resize behaviour for floating panels
+│   ├── useFloatingPanel.js   Drag/resize behaviour for floating panels
+│   ├── useTraceExport.js     PNG snapshot + WebM video recording of the trace
+│   └── useDraftInput.js      Editable text draft synced with a controlled value
 ├── settings/             SettingsPanel building blocks
 │   ├── constants.js          Layout/vector/grouping presets and tooltips
 │   ├── buttons.jsx           LayoutIcon, VectorIcon, AnnotationButton, …
@@ -79,6 +82,9 @@ src/
 
 ## Adding a new feature
 
+**See [`AI_MAINTENANCE.md`](AI_MAINTENANCE.md) for the full agent playbook,
+known minefields, and a list of refactors already completed.**
+
 - **A new utility** → drop it in `src/lib/`. Keep it framework-free.
 - **A new shared hook** → place in `src/hooks/`.
 - **A new trace format / parsing detail** → add a focused module under `src/parser/` and import it from `traceParser.js`.
@@ -87,6 +93,7 @@ src/
 - **A new style block** → create `src/styles/NN-name.css` and add an `@import` to `src/styles/index.css`.
 - **A new top-level panel** → put it next to `TimingPanel.jsx` and reuse `useFloatingPanel`.
 - **A new visualizer-only widget** (toolbar button, overlay, popover) → add it under `src/visualizer/` and pass any state in via props.
+- **A new visualization mode** (timeline, graph, combined heatmap) → implement the contract in [`src/renderer/VisualizationRenderer.js`](../src/renderer/VisualizationRenderer.js) under `src/renderers/MyMode.js` and select it at construction in `Visualizer.jsx`.
 
 ## Build & run
 

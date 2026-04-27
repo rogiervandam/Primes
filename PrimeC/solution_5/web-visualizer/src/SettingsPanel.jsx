@@ -6,6 +6,7 @@ import {
   stepSpeedToInterval,
   intervalToStepSpeed,
 } from './lib/unitConverters';
+import { useDraftInput } from './hooks/useDraftInput';
 import {
   BIT_LAYOUT_TIPS,
   BYTE_LAYOUT_TIPS,
@@ -95,20 +96,29 @@ export default function SettingsPanel({
   const [legendDetailed, setLegendDetailed] = React.useState(true);
   const [floatPos, setFloatPos] = React.useState(null);
   const floatDragRef = React.useRef({ dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 });
-  const [rangeStartDraft, setRangeStartDraft] = React.useState(String(rangeOverlayStart));
-  const [rangeEndDraft, setRangeEndDraft] = React.useState(String(rangeOverlayEnd));
-  const [multipesPrimeDraft, setMultiplesPrimeDraft] = React.useState(String(multiplesOverlayPrime));
+  // Editable text drafts for the overlay inputs. The hook keeps the draft in
+  // sync with the externally-controlled value and parses + clamps on commit.
+  const rangeStart = useDraftInput(
+    rangeOverlayStart,
+    (n) => onRangeOverlayStartChange && onRangeOverlayStartChange(n),
+    { clamp: (n) => Math.max(0, n) },
+  );
+  const rangeEnd = useDraftInput(
+    rangeOverlayEnd,
+    (n) => onRangeOverlayEndChange && onRangeOverlayEndChange(n),
+    { clamp: (n) => Math.max(0, n) },
+  );
+  const multiplesPrime = useDraftInput(
+    multiplesOverlayPrime,
+    (n) => onMultiplesOverlayPrimeChange && onMultiplesOverlayPrimeChange(n),
+    { clamp: (n) => Math.max(2, n) },
+  );
   const lastManualColumnCountRef = React.useRef(Math.max(1, parseInt(settings?.horizontalGroups || 0, 10) || 1));
 
   React.useEffect(() => {
     const value = Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0);
     if (value > 0) lastManualColumnCountRef.current = value;
   }, [s.horizontalGroups]);
-
-  // Sync draft values when overlay params change from outside (e.g. step defaults)
-  React.useEffect(() => { setRangeStartDraft(String(rangeOverlayStart)); }, [rangeOverlayStart]);
-  React.useEffect(() => { setRangeEndDraft(String(rangeOverlayEnd)); }, [rangeOverlayEnd]);
-  React.useEffect(() => { setMultiplesPrimeDraft(String(multiplesOverlayPrime)); }, [multiplesOverlayPrime]);
 
   // Drag handler for floating legend panel
   React.useEffect(() => {
@@ -143,13 +153,13 @@ export default function SettingsPanel({
   }, [openSpacingControl]);
 
   const set = (key, val) => {
+    // Note: *Description fields used to be written here as tooltip cache,
+    // but nothing reads them anymore. Tooltips are looked up from the
+    // *_TIPS tables at render time. Keep this writer minimal.
     const updatedSettings = { ...s, [key]: val };
-    if (key === 'bitLayout') updatedSettings.bitLayoutDescription = BIT_LAYOUT_TIPS[val] || '';
-    else if (key === 'byteLayout') updatedSettings.byteLayoutDescription = BYTE_LAYOUT_TIPS[val] || '';
-    else if (key === 'vectorGroup') {
+    if (key === 'vectorGroup') {
       updatedSettings.vectorMode = 'preset';
       updatedSettings.customGroupBits = 0;
-      updatedSettings.vectorGroupDescription = VECTOR_TIPS[val] || '';
       updatedSettings.vectorLabel = val > 1 ? `uint64v${val}` : 'uint64';
       updatedSettings.vectorBaseBits = 64;
       updatedSettings.vectorLanes = val;
@@ -180,14 +190,12 @@ export default function SettingsPanel({
       vectorGroup: vg,
       customGroupBits: 0,
       vectorLabel: profileLabel,
-      vectorGroupDescription: `${profileLabel} (${vg}×uint64 layout group)`
     });
   };
   const incr = (key, max) => set(key, Math.min(max, (s[key] || 0) + 1));
   const decr = (key, min = 0) => set(key, Math.max(min, (s[key] || 0) - 1));
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
   const adjustRepeatAnim = (deltaMs) => onRepeatAnimChange(clamp((repeatAnim || 0) + deltaMs, 0, 5000));
-  const adjustBitInterval = (deltaMs) => onBitAnimIntervalChange(clamp((bitAnimInterval || 20) + deltaMs, 5, 5000));
   const playbackSpeedValue = msToPlaybackSpeed(playSpeed || 100);
   const stepSpeedValue = intervalToStepSpeed(bitAnimInterval || 20);
   const setVectorGroupSimple = (group) => {
@@ -197,7 +205,6 @@ export default function SettingsPanel({
       vectorGroup: group,
       customGroupBits: 0,
       vectorLabel: group > 1 ? `uint64v${group}` : 'uint64',
-      vectorGroupDescription: VECTOR_TIPS[group] || '',
     });
   };
   const setCustomVectorGrouping = (bits) => {
@@ -208,10 +215,7 @@ export default function SettingsPanel({
       customGroupBits: nextBits,
       bitLayout: '8x1',
       byteLayout: '8x1',
-      bitLayoutDescription: BIT_LAYOUT_TIPS['8x1'] || '',
-      byteLayoutDescription: BYTE_LAYOUT_TIPS['8x1'] || '',
       vectorLabel: `custom (${nextBits}b)`,
-      vectorGroupDescription: `Custom grouping: ${nextBits} bits`,
     });
   };
   const commitCustomGrouping = React.useCallback((value) => {
@@ -219,7 +223,6 @@ export default function SettingsPanel({
     setCustomGroupDraft(String(parsed));
     setCustomVectorGrouping(parsed);
   }, [setCustomVectorGrouping]);
-  const vectorLabelForGroup = (group) => (group <= 1 ? 'uint64' : `uint64v${group}`);
   const isCustomVectorMode = s.vectorMode === 'custom' && (parseInt(s.customGroupBits || 0, 10) || 0) > 0;
   const activeGroupingKey = (() => {
     if (isCustomVectorMode) return 'custom';
@@ -900,19 +903,11 @@ export default function SettingsPanel({
                   min={0}
                   step={1}
                   className="overlay-number-input"
-                  value={rangeStartDraft}
-                  onChange={(e) => setRangeStartDraft(e.target.value)}
-                  onBlur={(e) => {
-                    const n = Math.max(0, parseInt(e.target.value || '0', 10) || 0);
-                    setRangeStartDraft(String(n));
-                    onRangeOverlayStartChange && onRangeOverlayStartChange(n);
-                  }}
+                  value={rangeStart.draft}
+                  onChange={(e) => rangeStart.setDraft(e.target.value)}
+                  onBlur={(e) => rangeStart.commit(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const n = Math.max(0, parseInt(e.currentTarget.value || '0', 10) || 0);
-                      setRangeStartDraft(String(n));
-                      onRangeOverlayStartChange && onRangeOverlayStartChange(n);
-                    }
+                    if (e.key === 'Enter') rangeStart.commit(e.currentTarget.value);
                   }}
                 />
               </label>
@@ -923,19 +918,11 @@ export default function SettingsPanel({
                   min={0}
                   step={1}
                   className="overlay-number-input"
-                  value={rangeEndDraft}
-                  onChange={(e) => setRangeEndDraft(e.target.value)}
-                  onBlur={(e) => {
-                    const n = Math.max(0, parseInt(e.target.value || '0', 10) || 0);
-                    setRangeEndDraft(String(n));
-                    onRangeOverlayEndChange && onRangeOverlayEndChange(n);
-                  }}
+                  value={rangeEnd.draft}
+                  onChange={(e) => rangeEnd.setDraft(e.target.value)}
+                  onBlur={(e) => rangeEnd.commit(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const n = Math.max(0, parseInt(e.currentTarget.value || '0', 10) || 0);
-                      setRangeEndDraft(String(n));
-                      onRangeOverlayEndChange && onRangeOverlayEndChange(n);
-                    }
+                    if (e.key === 'Enter') rangeEnd.commit(e.currentTarget.value);
                   }}
                 />
               </label>
@@ -952,19 +939,11 @@ export default function SettingsPanel({
                   min={2}
                   step={1}
                   className="overlay-number-input"
-                  value={multipesPrimeDraft}
-                  onChange={(e) => setMultiplesPrimeDraft(e.target.value)}
-                  onBlur={(e) => {
-                    const n = Math.max(2, parseInt(e.target.value || '2', 10) || 2);
-                    setMultiplesPrimeDraft(String(n));
-                    onMultiplesOverlayPrimeChange && onMultiplesOverlayPrimeChange(n);
-                  }}
+                  value={multiplesPrime.draft}
+                  onChange={(e) => multiplesPrime.setDraft(e.target.value)}
+                  onBlur={(e) => multiplesPrime.commit(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const n = Math.max(2, parseInt(e.currentTarget.value || '2', 10) || 2);
-                      setMultiplesPrimeDraft(String(n));
-                      onMultiplesOverlayPrimeChange && onMultiplesOverlayPrimeChange(n);
-                    }
+                    if (e.key === 'Enter') multiplesPrime.commit(e.currentTarget.value);
                   }}
                 />
               </label>

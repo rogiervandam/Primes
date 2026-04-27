@@ -11,6 +11,7 @@ import EventTitleBanner from './visualizer/EventTitleBanner';
 import DetailInspectorOverlay from './visualizer/DetailInspectorOverlay';
 import StepAnimSliders from './visualizer/StepAnimSliders';
 import BitHistoryBalloons from './visualizer/BitHistoryBalloons';
+import { useTraceExport } from './hooks/useTraceExport';
 import {
   DEFAULT_EVENT_TIME_TARGETS,
   DEFAULT_LAYOUT_SETTINGS as DEFAULT_SETTINGS,
@@ -81,8 +82,6 @@ export default function Visualizer({
   const [eventTitleSettings, setEventTitleSettings] = useState(() => mergeEventTitleSettings(readViewPrefs()?.eventTitleSettings));
   const [depthSettings, setDepthSettings] = useState(() => mergeDepthSettings(readViewPrefs()?.depthSettings));
   const [detailOpen, setDetailOpen] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [exportProgress, setExportProgress] = useState(0);
   // Two distinct delays. Both default to 500 ms but are independently adjustable.
   // - delayBetweenEvents: pause after one event finishes before the all-events
   //   widget advances to the next event (only honored while `playing`).
@@ -251,7 +250,6 @@ export default function Visualizer({
   const stepsRef = useRef([]);
   const currentStepRef = useRef(0);
   const playTimerRef = useRef(null);
-  const exportCancelRef = useRef(false);
   const rippleRef = useRef(null);
   const seqTimerRef = useRef(null); // sequential animation timer
   const triggerAnimationRef = useRef(null);
@@ -2951,7 +2949,6 @@ export default function Visualizer({
     el.addEventListener('wheel', onWheel, { passive: false });
     const onMouseLeave = () => {
       if (gestureMode === 'none') {
-        setHoverInfo('');
         lastHoveredIdxRef.current = -1;
         setHoveredBitInfo(null);
         setHoverPos(null);
@@ -3022,102 +3019,15 @@ export default function Visualizer({
     return () => document.removeEventListener('keydown', onKey);
   }, [currentStep, goToStep, doZoom, resetZoom, steps.length, handlePlayPause, toggle3D]);
 
-  // Export PNG
-  const exportPng = useCallback(() => {
-    const r = rendererRef.current;
-    if (!r) return;
-    const url = r.toDataURL();
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `sieve_step_${currentStep}.png`;
-    a.click();
-  }, [currentStep]);
-
-  // Export Video (WebM)
-  const exportVideo = useCallback(async () => {
-    const r = rendererRef.current;
-    if (!r || steps.length === 0 || exporting) return;
-    setExporting(true);
-    setExportProgress(0);
-    exportCancelRef.current = false;
-
-    try {
-      const stream = r.canvas.captureStream(0);
-      const track = stream.getVideoTracks()[0];
-      const recorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp9',
-        videoBitsPerSecond: 5000000,
-      });
-      const chunks = [];
-      recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
-      recorder.start();
-
-      const bs = new Uint8Array(header.bitCount);
-      for (let i = 0; i < steps.length; i++) {
-        if (exportCancelRef.current) break;
-        const s = steps[i];
-        for (let j = 0; j < s.changedBits.length; j++) {
-          const idx = s.changedBits[j];
-          if (idx < bs.length) bs[idx] = 1;
-        }
-        const changed = new Set(s.changedBits);
-        const targetBits = s.targetBits && s.targetBits.length > 0 ? s.targetBits : s.changedBits;
-        const targetSet = new Set(targetBits);
-        const targetHitCounts = new Map();
-        if (s.targetHitCounts && s.targetHitCounts.length === targetBits.length) {
-          for (let index = 0; index < targetBits.length; index++) targetHitCounts.set(targetBits[index], s.targetHitCounts[index]);
-        } else {
-          for (let index = 0; index < targetBits.length; index++) targetHitCounts.set(targetBits[index], 1);
-        }
-        r.currentOperation = s.operation;
-        r.setState(bs, changed, targetSet, targetHitCounts, {
-          focusStart: s.focusStart,
-          focusStop: s.focusStop,
-        }, {
-          wordBits: s.maskWordBits,
-          targetWords: s.maskWriteOrderWords,
-          targetSlots: s.maskWriteOrderSlots,
-          slotBits: s.maskSlotBits,
-        }, {
-          repeatedBits: new Set(Array.from(targetHitCounts.entries()).filter(([, count]) => count > 1).map(([bit]) => bit)),
-        });
-        r.render();
-        if (track.requestFrame) track.requestFrame();
-        await new Promise(resolve => setTimeout(resolve, 33));
-        setExportProgress(Math.round(((i + 1) / steps.length) * 100));
-      }
-
-      recorder.stop();
-      await new Promise(resolve => { recorder.onstop = resolve; });
-
-      if (!exportCancelRef.current) {
-        const blob = new Blob(chunks, { type: 'video/webm' });
-        if (autoRender) {
-          // CLI mode: store on window for puppeteer to pick up
-          window.__exportedVideo = blob;
-          window.__renderComplete = true;
-        } else {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'sieve_trace.webm';
-          a.click();
-          URL.revokeObjectURL(url);
-        }
-      }
-    } catch (err) {
-      console.error('Video export failed:', err);
-    }
-
-    setExporting(false);
-    setExportProgress(0);
-    // Restore current step
-    goToStep(currentStep);
-  }, [steps, header.bitCount, currentStep, exporting, goToStep]);
-
-  const cancelExport = useCallback(() => {
-    exportCancelRef.current = true;
-  }, []);
+  // PNG snapshot + WebM video export. See src/hooks/useTraceExport.js.
+  const { exporting, exportProgress, exportPng, exportVideo, cancelExport } = useTraceExport({
+    rendererRef,
+    steps,
+    bitCount: header.bitCount,
+    currentStep,
+    goToStep,
+    autoRender,
+  });
 
   // Search: navigate to a specific bit, byte, uint64, vector, or number
   const handleSearch = useCallback((query) => {
