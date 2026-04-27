@@ -31,6 +31,7 @@ function CanvasStage({
   canvasRef,
   settledCanvasRef,
   minimapCanvasRef,
+  glCanvasRef,
   // styling
   camera3DContainerStyle,
   renderCanvasStyle,
@@ -108,6 +109,17 @@ function CanvasStage({
         ref={containerRef}
         style={camera3DContainerStyle}
       >
+        {glCanvasRef && (
+          // Experimental WebGL bit-grid (see docs/AI_MAINTENANCE.md §8).
+          // Mounted underneath the Canvas2D layers so overlays/labels keep
+          // working unchanged on top. Only present when ?renderer=gl.
+          <canvas
+            ref={glCanvasRef}
+            className="gl-render-canvas"
+            style={renderCanvasStyle}
+            aria-hidden="true"
+          />
+        )}
         <canvas
           ref={settledCanvasRef}
           className={`settled-render-canvas${loweredSetBits ? ' active' : ''}`}

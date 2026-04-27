@@ -33,6 +33,7 @@ import {
   truncateTextToWidth,
   drawFittedLabel,
 } from './renderer/drawingHelpers';
+import { requestPrimeOverlay } from './renderer/workers/bitPrePassClient';
 
 export {
   THEMES,
@@ -1068,6 +1069,11 @@ export class SieveRenderer {
    * to the number it represents (via the current storageModel) and marks it
    * as prime when applicable.  Results are cached by (sieveSize, bitCount,
    * storageModel) so repeated calls with the same parameters are instant.
+   *
+   * Synchronous by contract — callers (e.g. the settings effect in
+   * `Visualizer.jsx`) immediately read `_primeBitFlags` on the next line.
+   * For async pre-warming via the worker pre-pass, see
+   * `prefetchPrimeOverlay()`.
    */
   buildPrimeOverlay() {
     const limit = Math.max(2, this.sieveSize > 0
@@ -1093,6 +1099,38 @@ export class SieveRenderer {
       if (num >= 2 && num <= limit && sieve[num]) flags[i] = 1;
     }
     this._primeBitFlags = flags;
+  }
+
+  /**
+   * Fire-and-forget pre-pass: ask the worker to compute the prime flags
+   * for the current `(sieveSize, bitCount, storageModel)` so that a later
+   * synchronous `buildPrimeOverlay()` call is a cache hit.
+   *
+   * Safe to call frequently; it no-ops when the cache is already warm and
+   * silently degrades to a no-op when no Worker is available (the caller
+   * will fall back to the synchronous path).
+   */
+  prefetchPrimeOverlay(onReady = null) {
+    const sieveSize = this.sieveSize;
+    const bitCount = this.bitCount;
+    const storageModel = this.storageModel;
+    if (!bitCount) return;
+    const limit = Math.max(2, sieveSize > 0
+      ? sieveSize
+      : bitToNumber(Math.max(0, bitCount - 1), storageModel));
+    const key = `${limit}:${bitCount}:${storageModel}`;
+    if (this._primeOverlayKey === key && this._primeBitFlags) return;
+    const promise = requestPrimeOverlay({ sieveSize, bitCount, storageModel });
+    if (!promise) return;
+    promise.then((reply) => {
+      if (!reply || reply.key !== key) return; // stale
+      // If the synchronous path beat us to it with the same key, drop the
+      // worker result; otherwise install it as the cached flags.
+      if (this._primeOverlayKey === key && this._primeBitFlags) return;
+      this._primeOverlayKey = key;
+      this._primeBitFlags = reply.flags;
+      if (typeof onReady === 'function') onReady();
+    });
   }
 
   resize(width, height) {

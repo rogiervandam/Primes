@@ -254,6 +254,17 @@
   display: block;
 }
 
+.canvas-container .gl-render-canvas {
+  /* Experimental WebGL bit-grid (?renderer=gl). Sits behind the
+     Canvas2D layers so existing overlays/labels render on top.
+     See docs/AI_MAINTENANCE.md §8. */
+  position: absolute;
+  inset: 0;
+  display: block;
+  z-index: -1;
+  pointer-events: none;
+}
+
 .canvas-container .settled-render-canvas {
   z-index: 0;
   opacity: 0;

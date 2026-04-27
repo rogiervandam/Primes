@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { SieveRenderer, bitToNumber, numberToBit, CACHE_PRESETS } from './SieveRenderer';
+import { BitGridGL } from './renderer/gl/BitGridGL';
+import { isGLEnabled } from './renderer/gl/featureFlag';
 import StepPanel from './StepPanel';
 import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
@@ -58,6 +60,12 @@ export default function Visualizer({
   const minimapCanvasRef = useRef(null);
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
+  // Experimental WebGL bit-grid (see docs/AI_MAINTENANCE.md §8). Only
+  // populated when `?renderer=gl` is set; otherwise these stay null and
+  // the GL canvas is not mounted.
+  const glEnabled = useMemo(() => isGLEnabled(), []);
+  const glCanvasRef = useRef(null);
+  const glRendererRef = useRef(null);
   const isMacPlatform = useMemo(() => detectIsMac(), []);
   const isWindowsPlatform = useMemo(() => detectIsWindows(), []);
   // Electron (native app) inserts "Electron" into the UA and exposes process.versions.electron.
@@ -247,6 +255,12 @@ export default function Visualizer({
   const layoutRefreshTimeoutRef = useRef(null);
   const layoutRefreshRaf1Ref = useRef(null);
   const layoutRefreshRaf2Ref = useRef(null);
+  // Anchor captured by a panel-toggle handler BEFORE the state update,
+  // i.e. while `getBoundingClientRect()` still reflects the old layout.
+  // The resize useEffect consumes it (instead of capturing fresh, which
+  // would always read the post-change rect and produce zero net pan
+  // compensation, causing the canvas to drift on every panel toggle).
+  const pendingResizeAnchorRef = useRef(null);
   const viewportAnimRef = useRef(null);
   const autoplayStartedRef = useRef(false);
   const initialHighlightHoldRef = useRef(true);
@@ -481,52 +495,38 @@ export default function Visualizer({
   }, [header.bitCount]);
 
   const toggleStepsPanel = useCallback(() => {
-    const r = rendererRef.current;
-    setStepsPanelCollapsed((wasCollapsed) => {
-      // When expanding, the canvas shrinks — shift pan right by half the panel width.
-      // When collapsing, the canvas grows — shift pan left by half the panel width.
-      const collapsedW = 32;
-      const expandedW = panelWidth;
-      const delta = expandedW - collapsedW;
-      if (r) {
-        r.panX += wasCollapsed ? -(delta / 2) : (delta / 2);
-      }
-      return !wasCollapsed;
-    });
-    // Schedule refresh without anchor — panX already compensated
-    schedulePostLayoutRefresh(null);
-  }, [panelWidth, schedulePostLayoutRefresh]);
+    // Snapshot the canvas-area centre's window position BEFORE the state
+    // update so the resize useEffect can pin it after CSS reflow. See
+    // pendingResizeAnchorRef for why fresh capture in the effect drifts.
+    pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
+    setStepsPanelCollapsed((wasCollapsed) => !wasCollapsed);
+  }, [captureViewportAnchor]);
 
   // Open the events panel (if collapsed) and ask it to reveal the current
   // step: clear filters that hide it, expand its parent group + ancestor
   // nodes, and scroll it into view. Triggered from the event-title widget.
   const revealCurrentStepInPanel = useCallback(() => {
+    // Same window-pinning contract as toggleStepsPanel: stash the
+    // pre-state-change anchor for the resize useEffect to consume.
     setStepsPanelCollapsed((wasCollapsed) => {
       if (wasCollapsed) {
-        const r = rendererRef.current;
-        const collapsedW = 32;
-        const expandedW = panelWidth;
-        const delta = expandedW - collapsedW;
-        if (r) r.panX -= delta / 2;
-        schedulePostLayoutRefresh(null);
+        pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
         return false;
       }
       return wasCollapsed;
     });
     setRevealStepRequest((n) => n + 1);
-  }, [panelWidth, schedulePostLayoutRefresh]);
+  }, [captureViewportAnchor]);
 
   const toggleDetailPanel = useCallback(() => {
-    const anchor = captureViewportAnchor(0.5, 0.5);
+    pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
     updateDetailOpen((o) => !o);
-    schedulePostLayoutRefresh(anchor);
-  }, [captureViewportAnchor, updateDetailOpen, schedulePostLayoutRefresh]);
+  }, [captureViewportAnchor, updateDetailOpen]);
 
   const toggleSettingsPanel = useCallback(() => {
-    const anchor = captureViewportAnchor(0.5, 0.5);
+    pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
     setSettingsCollapsed((collapsed) => !collapsed);
-    schedulePostLayoutRefresh(anchor);
-  }, [captureViewportAnchor, schedulePostLayoutRefresh]);
+  }, [captureViewportAnchor]);
 
   // Close trace info popup when clicking outside
   useEffect(() => {
@@ -578,6 +578,57 @@ export default function Visualizer({
       if (minimapCanvasRef.current) r.attachMinimapCanvas(minimapCanvasRef.current);
       r.init(header.bitCount, header.sieveSize);
       bitStateRef.current = new Uint8Array(header.bitCount);
+      // Warm the prime-overlay cache off the main thread so toggling the
+      // overlay is instant. Re-render when the worker reply arrives in
+      // case the overlay is already enabled.
+      r.prefetchPrimeOverlay(() => {
+        const rr = rendererRef.current;
+        if (rr && rr.primeOverlay) rr.render();
+      });
+
+      // Experimental WebGL bit-grid scaffold (?renderer=gl). Mounted as a
+      // sibling canvas under the Canvas2D layers; mirrors r.render() via a
+      // wrapper. See docs/AI_MAINTENANCE.md §8 for scope and limitations.
+      if (glEnabled && glCanvasRef.current) {
+        const gl = new BitGridGL();
+        if (gl.attach(glCanvasRef.current)) {
+          gl.resizeForBitCount(header.bitCount);
+          glRendererRef.current = gl;
+          const origRender = r.render.bind(r);
+          r.render = () => {
+            origRender();
+            const g = glRendererRef.current;
+            const rr = rendererRef.current;
+            if (!g || !rr || !rr.canvas) return;
+            const dpr = window.devicePixelRatio || 1;
+            const cssW = rr.canvas.width / dpr;
+            const cssH = rr.canvas.height / dpr;
+            g.resize(cssW, cssH);
+            g.uploadState(rr.bitState, rr.changedBits);
+            const px = Math.max(1, rr.pixelSize);
+            const zoom = Math.max(0.01, rr.zoom || 1);
+            const cell = px * zoom;
+            const gap = Math.max(0, (rr.bitSpacingH || 0) * zoom);
+            const cols = Math.max(1, Math.floor(cssW / Math.max(1, cell + gap)));
+            const C = rr.colors;
+            const bitColors = rr._bitColors();
+            const changed = rr._opColor();
+            g.render({
+              panX: rr.panX || 0,
+              panY: rr.panY || 0,
+              zoom,
+              pixelSize: px,
+              bitGap: gap,
+              cols,
+              bgColor: C.BACKGROUND,
+              setColor: bitColors.set,
+              clearedColor: bitColors.cleared,
+              changedColor: changed,
+              baseAlpha: Math.max(0.12, Math.min(1, rr.gridOpacity ?? 1)),
+            });
+          };
+        }
+      }
     }
 
     // Init 3D camera — see src/hooks/use3DCamera.js for the full lifecycle.
@@ -595,6 +646,10 @@ export default function Visualizer({
     });
 
     return () => {
+      if (glRendererRef.current) {
+        glRendererRef.current.dispose();
+        glRendererRef.current = null;
+      }
       rendererRef.current = null;
       disposeCamera();
     };
@@ -656,6 +711,12 @@ export default function Visualizer({
     r.outlineRounded = true;
     r.colorPreset = colorPreset;
     r.storageModel = storageModel;
+    // Storage model affects bit→number mapping; warm the prime cache for
+    // the new model in the background.
+    r.prefetchPrimeOverlay(() => {
+      const rr = rendererRef.current;
+      if (rr && rr.primeOverlay) rr.render();
+    });
     r.cachelineSize = cachelineSize;
     r.heatMapEnabled = heatMapEnabled;
     r.cachelineAnnotation = cachelineAnnotation;
@@ -755,23 +816,38 @@ export default function Visualizer({
 
   // Resize handler
   useEffect(() => {
-    const onResize = () => {
-      const anchor = captureViewportAnchor(0.5, 0.5);
+    // Each panel toggle re-runs this effect and triggers up to three
+    // refreshes (immediate, double-rAF, post-transition). The stashed
+    // anchor must be applied exactly once — applying it on every
+    // refresh re-shifts panX by the same delta and the grid drifts.
+    const onResize = (consumeAnchor) => {
+      let anchor = null;
+      if (consumeAnchor && pendingResizeAnchorRef.current) {
+        anchor = pendingResizeAnchorRef.current;
+        pendingResizeAnchorRef.current = null;
+      } else if (consumeAnchor) {
+        // No pending toggle anchor → this is a window-resize path;
+        // capture fresh so the centre stays pinned.
+        anchor = captureViewportAnchor(0.5, 0.5);
+      }
       refreshCanvasLayout(anchor);
     };
 
     clearScheduledLayoutRefresh();
-    const transitionRefreshTimer = setTimeout(onResize, 190);
 
-    onResize();
-    // Run an extra post-layout refresh to catch CSS transition-based width changes.
+    onResize(true);
+    // Re-run after layout settles, but WITHOUT re-applying the anchor
+    // (panX has already been compensated above).
     layoutRefreshRaf1Ref.current = requestAnimationFrame(() => {
-      layoutRefreshRaf2Ref.current = requestAnimationFrame(onResize);
+      layoutRefreshRaf2Ref.current = requestAnimationFrame(() => onResize(false));
     });
-    window.addEventListener('resize', onResize);
+    const transitionRefreshTimer = setTimeout(() => onResize(false), 190);
+
+    const winResize = () => onResize(true);
+    window.addEventListener('resize', winResize);
 
     return () => {
-      window.removeEventListener('resize', onResize);
+      window.removeEventListener('resize', winResize);
       clearTimeout(transitionRefreshTimer);
       clearScheduledLayoutRefresh();
     };
@@ -3617,6 +3693,7 @@ export default function Visualizer({
           canvasRef={canvasRef}
           settledCanvasRef={settledCanvasRef}
           minimapCanvasRef={minimapCanvasRef}
+          glCanvasRef={glEnabled ? glCanvasRef : null}
           camera3DContainerStyle={camera3DContainerStyle}
           renderCanvasStyle={renderCanvasStyle}
           eventTitleSettings={eventTitleSettings}

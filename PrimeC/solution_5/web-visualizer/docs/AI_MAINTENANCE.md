@@ -413,3 +413,119 @@ a visible bug means you changed logic, not just shape. If you're
 considering an even bigger change (e.g. moving the bit-render passes onto
 a worker, or replacing the Canvas2D pipeline with WebGL), stop and ask
 first. Those are weeks-of-work projects, not single-session refactors.
+
+---
+
+## 8. Renderer performance roadmap (worker + WebGL)
+
+The two big "ask first" items above were discussed and partially started.
+Read this whole section before extending either.
+
+### Why the current pipeline is slow at scale
+
+`SieveRenderer.render()` issues one `ctx.fillRect()` per visible bit per
+frame (see lines 718, 841, 1750, 1816, 1850, 1883). At large `bitCount`
+that's the bottleneck — not CPU contention with React. Two orthogonal
+levers:
+
+| Lever | What it fixes | What it doesn't fix |
+|---|---|---|
+| **Worker pre-pass** | Main-thread jank from cold computations (prime-flag table, heat-map maintenance, mask diffing) running synchronously inside `setState()` | Per-`fillRect` cost. The draw loop still runs on the main thread. |
+| **WebGL bit grid** | Per-bit draw-call cost. One instanced/fullscreen-quad draw replaces N `fillRect`s. | CPU work *outside* the bit pass (overlays, labels, cacheline outlines). |
+
+Both are useful; they stack. Start with the worker (low risk) and treat
+the GL path as opt-in until parity is reached.
+
+### Step 1 — Worker pre-pass (DONE, see §6 entry below when added)
+
+Scope: only the **cold, pure** computations move. Drawing stays on the
+main thread.
+
+- Worker file: `src/renderer/workers/bitPrePass.worker.js`. Spawned via
+  `new Worker(new URL('./workers/bitPrePass.worker.js', import.meta.url),
+  { type: 'module' })` so Vite can bundle it.
+- Today only `buildPrimeOverlay()` is moved. It is the only pre-pass
+  that is both (a) noticeably expensive at large `sieveSize` and (b)
+  trivially pure (inputs: `sieveSize`, `bitCount`, `storageModel`;
+  output: `Uint8Array` of per-bit prime flags).
+- The renderer keeps a synchronous fallback. If the worker isn't
+  supported (e.g. SSR, certain Electron contexts) or hasn't replied yet,
+  `buildPrimeOverlay()` computes inline exactly as before.
+- The contract is fire-and-forget: the renderer kicks off a worker job
+  whenever `(sieveSize, bitCount, storageModel)` changes; when the
+  worker replies it stores the flags and triggers a re-render via the
+  optional `onReady` callback wired in `Visualizer.jsx`. Stale replies
+  (key mismatch) are dropped.
+- **Do not** move `setState()` itself, mask diffing, heat-map updates,
+  or the per-frame `_buildFrameContext()` chain into the worker. Those
+  paths read/write live renderer state and would force a serialization
+  protocol that costs more than it saves at this app's data sizes.
+
+### Step 2 — WebGL bit grid (SCAFFOLD ONLY, opt-in)
+
+A WebGL2 renderer skeleton exists at `src/renderer/gl/BitGridGL.js`.
+**It is feature-flagged and intentionally incomplete.**
+
+- Enabled only when `?renderer=gl` is in the URL. Default remains the
+  Canvas2D path. Without the flag, none of the GL code runs.
+- The scaffold draws **base bit colors only** (cleared / set / changed)
+  using a single fullscreen quad whose fragment shader samples a
+  `R8UI` data texture of `bitState` (with `changedBits` packed into the
+  high bit). It uses the simple uniform-grid layout — `bitLayout`,
+  `byteLayout`, vector grouping, cacheline grouping, custom grouping,
+  frozen wrapping, lowered-3D, labels, outlines, overlays, minimap,
+  motion trails, focus/range/multiples/prime overlays, heatmap
+  annotations and DPR scaling are **not implemented**. Use the
+  Canvas2D path for any of those.
+- The GL canvas is mounted *underneath* the existing Canvas2D layer
+  rather than replacing it, so overlays and labels (`SearchOverlay`,
+  `MaskWriteOverlay`, `VectorTouchOrderOverlay`,
+  `CachelineAnnotationsOverlay`, `drawFittedLabel`,
+  `_drawOutlineRect`) keep working unchanged on top.
+- Intended use right now: a regression sandbox for benchmarking and
+  iterating on the shader-based color pipeline. **Not** a production
+  renderer. Do not advertise the flag to users until parity tests
+  exist (see "Open work" below).
+- Context loss is handled by setting an internal `_lost` flag and
+  silently no-op'ing draws; the page must be reloaded to recover.
+  This is acceptable for the sandbox; harden it before promoting.
+
+### Open work before WebGL can replace Canvas2D
+
+Tracked here so the next agent doesn't think the GL path is "almost
+done":
+
+1. **Layout parity.** Reproduce `BIT_LAYOUTS`, `BYTE_LAYOUTS`, vector
+   grouping, cacheline grouping, custom grouping, frozen wrapping and
+   DPR in the shader (or in a pre-baked per-bit `xy` texture).
+2. **Color parity.** All of `_classifyBit` — preset/custom/theme/op
+   color, ghost mask, slot, prime, range, multiples, heat-map age,
+   target hit-count gradient, lowered-3D shading.
+3. **State texture protocol.** Decide what is uploaded vs. what is
+   computed in shader. Today's draft uploads only `bitState`; a real
+   implementation needs `changedBits`, `targetHitCounts`,
+   `_primeBitFlags`, `maskGhostBits`, `lastAccessStep`, etc., as
+   separate textures or a packed atlas, with partial `texSubImage2D`
+   updates per step.
+4. **Hit-testing.** `bitIndexToCanvas()` / `canvasToBitIndex()` must
+   stay authoritative on the JS side; the GL renderer must use the
+   identical layout math.
+5. **Visual diff harness.** Without a parity test (render same trace
+   on Canvas2D and GL, diff pixels) silent divergence is inevitable.
+6. **Step 3 (future).** Only after 1–5 land: hand the WebGL context
+   to a worker via `OffscreenCanvas.transferControlToOffscreen()` so
+   even uploads/draws stop blocking the main thread. Safari
+   `OffscreenCanvas` support is recent but adequate as of writing.
+
+### Don't
+
+- Don't expand the GL renderer beyond the base bit pass without an
+  explicit ask. A half-finished GL path that silently misses overlay
+  state is worse than no GL path.
+- Don't move `setState()`, mask diffing or heat-map updates to the
+  worker without a measured perf reason. They touch live renderer
+  state and the round-trip cost dominates at this app's data sizes.
+- Don't remove the Canvas2D path. The maintenance guide's "build is
+  your only safety net" rule applies doubly here — there is no test
+  that the GL output matches.
+
