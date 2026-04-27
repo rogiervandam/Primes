@@ -225,7 +225,15 @@ export default function Visualizer({
   const [, setBalloonLayoutTick] = useState(0);
 
   // 3D camera state
-  const [mode3D, setMode3D] = useState(false);
+  // Defaults to true with rotateX=0/rotateY=0 — visually identical to
+  // "flat 2D" but routes the canvas through the working
+  // 3D-camera-enabled layout path from the very first frame. Without
+  // this, an extra setup pass was needed before the grid showed up
+  // (clicking the 3D button or right-clicking did the trick). The
+  // user can still toggle the camera off via the 3D button — that
+  // disables the camera and removes the (no-op) transform; the
+  // canvas geometry stays unified so panel toggles don't reflow.
+  const [mode3D, setMode3D] = useState(true);
   const currentAnimIntervalRef = useRef(20);
   const currentMaskAnimIntervalRef = useRef(20);
   const {
@@ -262,10 +270,23 @@ export default function Visualizer({
   // would always read the post-change rect and produce zero net pan
   // compensation, causing the canvas to drift on every panel toggle).
   const pendingResizeAnchorRef = useRef(null);
+  // Tracks the previous `mode3D` value for the resize useEffect so it
+  // can recognise a 3D-toggle (vs a panel/window resize). On a 3D
+  // toggle, `toggle3D()` already drives a `schedulePostLayoutRefresh`
+  // + `refitViewportToContent` chain; the resize effect's own
+  // immediate + double-rAF + 190ms refresh cascade would compete with
+  // it and produce two visible canvas-jumps when entering 3D. We
+  // therefore short-circuit the effect on a mode3D delta.
+  const prevMode3DRef = useRef(false);
   const viewportAnimRef = useRef(null);
   const autoplayStartedRef = useRef(false);
   const initialHighlightHoldRef = useRef(true);
-  const initial3DRestoreDoneRef = useRef(true);
+  // false — we DO want the initial-3D-restore effect to run on
+  // first render so the camera is enabled with tilt 0 (matches the
+  // mode3D default above). Previously this defaulted to true to
+  // suppress the effect entirely; now we want it to fire exactly
+  // once during mount.
+  const initial3DRestoreDoneRef = useRef(false);
   const traceInfoPopoverRef = useRef(null);
   // True while the timeline slider has left bitState in a partially-revealed
   // (pre-step) state. goToStep checks this and always rebuilds bitState from
@@ -372,19 +393,31 @@ export default function Visualizer({
   }, []);
 
   const getCanvasTargetSize = useCallback((width, height) => {
+    // Unified geometry: the canvas is ALWAYS the oversized 3D plane,
+    // regardless of whether the camera is currently tilted. 2D mode
+    // is just "3D with rotateX = rotateY = 0". This means panel
+    // toggles never change the canvas size (no grid reflow / drift)
+    // and the 2D and 3D placements are identical.
+    //
+    // We use the largest of (current container, viewport) as the
+    // baseline so collapsing/expanding side panels can't shrink
+    // the canvas — those toggles must be visually free.
     const cam = camera3DRef.current;
-    let canvasW = width;
-    let canvasH = height;
+    const baseW = Math.max(width || 0, (typeof window !== 'undefined' ? window.innerWidth : width) || 0);
+    const baseH = Math.max(height || 0, (typeof window !== 'undefined' ? window.innerHeight : height) || 0);
+    let scaleH = 1;
+    let scaleW = 1;
+    let diagonalOverscan = 1;
     if (cam && cam.enabled) {
       const ax = Math.abs(cam.rotateX) * Math.PI / 180;
       const ay = Math.abs(cam.rotateY) * Math.PI / 180;
-      const scaleH = 1 / Math.max(0.3, Math.cos(ax));
-      const scaleW = 1 / Math.max(0.3, Math.cos(ay));
-      const diagonalOverscan = 1 + Math.hypot(Math.sin(ax), Math.sin(ay)) * 0.55;
-      const dragOverscan = 3.1;
-      canvasW = Math.max(width * 3.2, width * scaleW * diagonalOverscan * dragOverscan);
-      canvasH = Math.max(height * 3.2, height * scaleH * diagonalOverscan * dragOverscan);
+      scaleH = 1 / Math.max(0.3, Math.cos(ax));
+      scaleW = 1 / Math.max(0.3, Math.cos(ay));
+      diagonalOverscan = 1 + Math.hypot(Math.sin(ax), Math.sin(ay)) * 0.55;
     }
+    const dragOverscan = 3.1;
+    const canvasW = Math.max(baseW * 3.2, baseW * scaleW * diagonalOverscan * dragOverscan);
+    const canvasH = Math.max(baseH * 3.2, baseH * scaleH * diagonalOverscan * dragOverscan);
     return { canvasW, canvasH };
   }, []);
 
@@ -426,6 +459,13 @@ export default function Visualizer({
     const { canvasW, canvasH } = getCanvasTargetSize(rect.width, rect.height);
 
     r.resize(canvasW, canvasH);
+    // Tell the renderer the VISIBLE area (container rect) so the
+    // grid wrapping math (`_computeClPerVRow`) targets the user-
+    // visible viewport rather than the oversized 3D plane. Without
+    // this, the grid lays out as a wide flat strip and only a tiny
+    // slice is visible through the container.
+    r.layoutAvailWidth = rect.width;
+    r.layoutAvailHeight = rect.height;
     r.unfreezeLayout();
     r.freezeLayout();
 
@@ -606,19 +646,22 @@ export default function Visualizer({
             const rr = rendererRef.current;
             // Tell SieveRenderer to skip the cell-fill rectangles +
             // background fill when GL is the active backend AND
-            // depth-shaded (lowered-3D) mode is OFF. With depth on,
-            // GL has no parity, so Canvas2D takes over the fill and
-            // GL stays a no-op (we still call g.render but the cells
-            // are hidden behind the opaque main canvas).
-            // Re-evaluated every frame to track the user toggling
-            // depth mode at runtime.
-            if (rr) rr.skipBitFill = !!g && !rr.loweredSetBits;
+            // depth-shaded (lowered-3D) mode is OFF and 3D camera
+            // perspective is OFF. With either of those on, GL has
+            // no parity (lowered-3D has no shader; 3D needs a
+            // transparent bg so the page shows through outside
+            // the bit grid, which the GL context's `alpha:false`
+            // can't do), so Canvas2D takes over the full fill.
+            // Re-evaluated every frame to track runtime toggles.
+            const glOwnsFill = !!g && !rr.loweredSetBits && !rr.transparentBackground;
+            if (rr) rr.skipBitFill = glOwnsFill;
             origRender();
             if (!g || !rr || !rr.canvas) return;
-            // When lowered-3D is on, Canvas2D paints the fills + bg
-            // and is fully opaque on top of the GL canvas; GL output
-            // would be hidden, so skip its uploads/draw entirely.
-            if (rr.loweredSetBits) return;
+            // GL is a no-op whenever Canvas2D is on full duty. We
+            // still leave the GL canvas in the DOM (hidden via CSS,
+            // see .canvas-container.mode-3d .gl-render-canvas) but
+            // skip its uploads + draw to avoid stale-bitmap paints.
+            if (!glOwnsFill) return;
             const dpr = window.devicePixelRatio || 1;
             const cssW = rr.canvas.width / dpr;
             const cssH = rr.canvas.height / dpr;
@@ -869,12 +912,44 @@ export default function Visualizer({
 
     clearScheduledLayoutRefresh();
 
+    // 3D-toggle short-circuit: `toggle3D()` (or the right-click tilt
+    // path that funnels through it) already calls
+    // `schedulePostLayoutRefresh` + a double-rAF
+    // `refitViewportToContent`. Running the full immediate +
+    // double-rAF + 190ms cascade here on top of that produces two
+    // visible canvas-jumps when entering/leaving 3D (the canvas
+    // resizes to its 3.1× oversize, then the refit changes
+    // pan+zoom). Skip the cascade on the toggle frame; the
+    // window-resize listener below stays registered.
+    const mode3DChanged = prevMode3DRef.current !== mode3D;
+    prevMode3DRef.current = mode3D;
+    if (mode3DChanged) {
+      const winResize = () => onResize(true);
+      window.addEventListener('resize', winResize);
+      return () => {
+        window.removeEventListener('resize', winResize);
+        clearScheduledLayoutRefresh();
+      };
+    }
+
     onResize(true);
     // Re-run after layout settles, but WITHOUT re-applying the anchor
     // (panX has already been compensated above).
-    layoutRefreshRaf1Ref.current = requestAnimationFrame(() => {
-      layoutRefreshRaf2Ref.current = requestAnimationFrame(() => onResize(false));
-    });
+    //
+    // In 3D mode the canvas is oversized (~3.1× — see
+    // `getCanvasTargetSize`) and `refreshCanvasLayout` re-derives
+    // the frozen column count from `canvasWidth` on every call. A
+    // 1-px difference between the immediate and the double-rAF
+    // call (mid-CSS-transition) re-flows the grid, which the user
+    // perceives as a canvas drift / tilt-jump on panel toggles. So
+    // skip the mid-transition rAF refresh in 3D and rely on the
+    // post-transition timer alone — it's well after the CSS
+    // transition has settled, so the canvas dims are stable.
+    if (!mode3D) {
+      layoutRefreshRaf1Ref.current = requestAnimationFrame(() => {
+        layoutRefreshRaf2Ref.current = requestAnimationFrame(() => onResize(false));
+      });
+    }
     const transitionRefreshTimer = setTimeout(() => onResize(false), 190);
 
     const winResize = () => onResize(true);
@@ -1006,6 +1081,11 @@ export default function Visualizer({
       if (!initialFitDoneRef.current && (r.canvasWidth !== canvasW || r.canvasHeight !== canvasH)) {
         r.resize(canvasW, canvasH);
       }
+      // Same as refreshCanvasLayout: layout columns target the visible
+      // container, not the oversized canvas. Set every render so the
+      // value stays fresh when the container size changes.
+      r.layoutAvailWidth = rect.width;
+      r.layoutAvailHeight = rect.height;
       // Zoom to fit on first render
       if (!initialFitDoneRef.current) {
         applyViewportFit(r, rect.width, rect.height);
@@ -1318,7 +1398,12 @@ export default function Visualizer({
     const cam = camera3DRef.current;
     if (!cam || initial3DRestoreDoneRef.current || !mode3D) return;
     initial3DRestoreDoneRef.current = true;
-    cam.rotateX = 16;
+    // Tilt 0 — visually flat. The user toggles a real tilt with
+    // the 3D button, right-click drag, or arrow-key orbit. The
+    // point of enabling the camera at startup is to drive the
+    // canvas through its (working) 3D-sized layout path; the
+    // identity transform is just a side effect.
+    cam.rotateX = 0;
     cam.rotateY = 0;
     cam.perspective = 1500;
     cam.enable();
@@ -3333,21 +3418,20 @@ export default function Visualizer({
   }, [eventTitleSettings]);
 
   const renderCanvasStyle = useMemo(() => (
-    mode3D
-      ? {
-          position: 'absolute',
-          left: '50%',
-          top: '50%',
-          transform: `translate(-50%, -50%) ${camera3DTransform}`,
-          transformStyle: 'preserve-3d',
-          transformOrigin: '50% 50%',
-        }
-      : {
-          transform: camera3DTransform,
-          transformStyle: 'preserve-3d',
-          transformOrigin: '50% 50%',
-        }
-  ), [camera3DTransform, mode3D]);
+    // Unified: canvas is ALWAYS the oversized centered plane,
+    // regardless of mode3D. mode3D only controls whether the
+    // camera is tilted; the canvas placement is identical. This
+    // is what eliminates the "2D in a different place than 3D"
+    // jump on toggle and the placement drift on panel toggles.
+    {
+      position: 'absolute',
+      left: '50%',
+      top: '50%',
+      transform: `translate(-50%, -50%) ${camera3DTransform}`,
+      transformStyle: 'preserve-3d',
+      transformOrigin: '50% 50%',
+    }
+  ), [camera3DTransform]);
 
   // (legacy playSpeed-based label/value/setters removed; speed is now driven
   // by playSpeedPercent and per-event time targets — see SettingsPanel.)

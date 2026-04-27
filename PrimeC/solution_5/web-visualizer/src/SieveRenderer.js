@@ -1277,7 +1277,19 @@ export class SieveRenderer {
 
   _computeClPerVRow() {
     if (this.horizontalGroups > 0) return Math.max(1, this.horizontalGroups);
-    if (!this.canvasWidth || this.canvasWidth <= 0) return 1;
+    // Layout column-count must follow the VISIBLE viewport, not the
+    // (potentially oversized) drawing buffer. The canvas is sized to
+    // ~3.2× the viewport so the rotated 3D plane has drag headroom
+    // — but the grid the user sees should fit the visible container.
+    // `layoutAvailWidth`/`layoutAvailHeight` are set by the host every
+    // resize; they fall back to canvasWidth/Height for compatibility.
+    const avail = (this.layoutAvailWidth && this.layoutAvailWidth > 0)
+      ? this.layoutAvailWidth
+      : this.canvasWidth;
+    const availH0 = (this.layoutAvailHeight && this.layoutAvailHeight > 0)
+      ? this.layoutAvailHeight
+      : (this.canvasHeight || (this.canvas ? this.canvas.width / (window.devicePixelRatio || 1) : 0));
+    if (!avail || avail <= 0) return 1;
     const bitsPerCacheLine = this.bitsPerCacheLine;
     const totalCacheLines = Math.max(1, Math.ceil(this.bitCount / bitsPerCacheLine));
     // Compute dimensions at zoom=1 for stable wrapping independent of zoom.
@@ -1289,8 +1301,7 @@ export class SieveRenderer {
     this.zoom = savedZoom;
 
     if (rowW <= 0 || rowH <= 0) return 1;
-    const avail = this.canvasWidth;
-    const availH = Math.max(1, this.canvasHeight || this.canvas.width / (window.devicePixelRatio || 1));
+    const availH = Math.max(1, availH0);
     const clStepX = rowW + this.bitSpacingH + this.byteSpacingH + this.u64SpacingH;
     const vRowH = labelH + rowH + this.bitSpacingV + this.byteSpacingV + this.u64SpacingV;
     const maxByWidth = Math.max(1, Math.floor(avail / clStepX));

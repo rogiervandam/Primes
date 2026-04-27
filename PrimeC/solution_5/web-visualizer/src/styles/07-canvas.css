@@ -250,19 +250,40 @@
 .canvas-container .settled-render-canvas,
 .canvas-container .main-render-canvas {
   position: absolute;
-  inset: 0;
+  /* Canvas is always the oversized 3D plane (centered + clipped
+     by the container's overflow:hidden). 2D and 3D share the
+     same placement; mode3D only enables the tilt. Position +
+     size are set inline by Visualizer.renderCanvasStyle and
+     SieveRenderer.resize respectively — we deliberately avoid
+     `inset: 0` here because right/bottom:0 would compete with
+     the inline left/top:50% + explicit width/height and produce
+     a confused box on browsers that resolve the over-constraint
+     against width.  */
+  top: 0;
+  left: 0;
   display: block;
+  transform-origin: 50% 50%;
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .canvas-container .gl-render-canvas {
-  /* Experimental WebGL bit-grid (?renderer=gl). Sits behind the
-     Canvas2D layers so existing overlays/labels render on top.
-     See docs/AI_MAINTENANCE.md §8. */
+  /* WebGL bit-grid (default backend, opt out via ?renderer=canvas2d).
+     Sits behind the Canvas2D layers so existing overlays/labels
+     render on top. See docs/AI_MAINTENANCE.md §8. */
   position: absolute;
   inset: 0;
   display: block;
   z-index: -1;
   pointer-events: none;
+}
+.canvas-container.mode-3d .gl-render-canvas {
+  /* In 3D mode the bit grid needs a transparent background so the
+     page shows through outside the (rotated) plane; the GL context
+     was created with `alpha: false` for performance, so we hide it
+     entirely and let Canvas2D paint fills + overlays. The GL
+     wrapper in Visualizer.jsx skips uploads/draw to match. */
+  display: none;
 }
 
 .canvas-container .settled-render-canvas {
@@ -282,9 +303,9 @@
 
 .canvas-container.mode-3d .settled-render-canvas,
 .canvas-container.mode-3d .main-render-canvas {
-  transform-origin: 50% 50%;
-  will-change: transform;
-  backface-visibility: hidden;
+  /* Tilt-specific styling lives here in case future work needs
+     to differentiate (e.g. shadow). Base centering/clipping is
+     applied to all canvas elements above. */
 }
 .canvas-container.dragging { cursor: grabbing; }
 .canvas-container canvas {
