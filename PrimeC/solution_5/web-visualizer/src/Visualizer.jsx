@@ -7,10 +7,10 @@ import SettingsPanel from './SettingsPanel';
 import TimingPanel from './TimingPanel';
 import Toolbar from './visualizer/Toolbar';
 import ExportProgress from './visualizer/ExportProgress';
-import BitHistoryBalloon from './visualizer/BitHistoryBalloon';
 import EventTitleBanner from './visualizer/EventTitleBanner';
 import DetailInspectorOverlay from './visualizer/DetailInspectorOverlay';
-import { Play, Pause } from './Icons';
+import StepAnimSliders from './visualizer/StepAnimSliders';
+import BitHistoryBalloons from './visualizer/BitHistoryBalloons';
 import {
   DEFAULT_EVENT_TIME_TARGETS,
   DEFAULT_LAYOUT_SETTINGS as DEFAULT_SETTINGS,
@@ -3648,141 +3648,25 @@ export default function Visualizer({
   // step-focus-banner when it's visible; moved into the detail panel when the
   // banner is hidden so the controls remain accessible.
   const stepAnimSlidersContent = (
-    <>
-      {/* Mode toggle: switch between mask-stamp animation and per-bit
-          sequential reveal. Defaults to 'mask' on entering an event
-          that has mask metadata; toggling to 'bit' walks the bits
-          individually. */}
-      {currentStepData && currentStepData.maskWriteOrderWords && currentStepData.maskWriteOrderWords.length > 0 && (
-        <div className="step-focus-slider-row step-focus-mode-row" title="Choose how the timeline scrubs this event">
-          <span className="step-focus-slider-label">Mode</span>
-          <div className="step-focus-mode-toggle">
-            <button
-              type="button"
-              className={`step-focus-mode-btn${bitAnimationMode === 'mask' ? ' active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                stopSeqAnim();
-                setBitAnimationMode('mask');
-                bitAnimationModeRef.current = 'mask';
-                seekStepAnimation(stepScrubProgress / 100);
-              }}
-              onMouseDown={(e) => e.stopPropagation()}
-              title="Animate only the apply-mask group stamps"
-            >Mask</button>
-            <button
-              type="button"
-              className={`step-focus-mode-btn${bitAnimationMode === 'bit' ? ' active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                stopSeqAnim();
-                setBitAnimationMode('bit');
-                bitAnimationModeRef.current = 'bit';
-                seekStepAnimation(stepScrubProgress / 100);
-              }}
-              onMouseDown={(e) => e.stopPropagation()}
-              title="Animate only the bits being set one by one"
-            >Bits</button>
-            <button
-              type="button"
-              className={`step-focus-mode-btn${bitAnimationMode === 'combined' ? ' active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                stopSeqAnim();
-                setBitAnimationMode('combined');
-                bitAnimationModeRef.current = 'combined';
-                seekStepAnimation(stepScrubProgress / 100);
-              }}
-              onMouseDown={(e) => e.stopPropagation()}
-              title="Animate both the mask stamps and the bits revealing in lockstep"
-            >Both</button>
-          </div>
-          <span className="step-focus-slider-value step-focus-mode-value">{bitAnimationMode}</span>
-        </div>
-      )}
-      <div className="step-focus-slider-row" title="Scrub through this event's animation">
-        <span className="step-focus-slider-label">Timeline</span>
-        <div className="step-focus-slider-controls">
-          <button
-            type="button"
-            className="step-focus-play-btn"
-            onClick={(e) => { e.stopPropagation(); handleStepAnimToggle(); }}
-            onMouseDown={(e) => e.stopPropagation()}
-            title={(stepAnimRunning || singleEventLoopActive) ? 'Pause the timeline animation' : 'Play the timeline animation at the current Speed'}
-            disabled={exporting || !currentStepData || ((!currentStepData.changedBits || currentStepData.changedBits.length === 0) && (bitAnimationMode !== 'mask' || !currentStepData.maskWriteOrderWords || currentStepData.maskWriteOrderWords.length === 0))}
-          >
-            {(stepAnimRunning || singleEventLoopActive) ? <Pause size={14} /> : <Play size={14} />}
-          </button>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={stepScrubProgress}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10);
-              setStepScrubProgress(v);
-              seekStepAnimation(v / 100);
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-            disabled={exporting || !currentStepData || ((!currentStepData.changedBits || currentStepData.changedBits.length === 0) && (bitAnimationMode !== 'mask' || !currentStepData.maskWriteOrderWords || currentStepData.maskWriteOrderWords.length === 0))}
-          />
-        </div>
-        <span className="step-focus-slider-value">{stepScrubProgress}%</span>
-      </div>
-      <div className="step-focus-slider-row step-focus-mode-row" title="How long the timeline takes 0..100% for an event. Progressive: 2s per populated tier (first 10 bits, next 100 bits, the rest) — caps at 6s. Linear: total time scales with the bit count.">
-        <span className="step-focus-slider-label">Target</span>
-        <div className="step-focus-mode-toggle">
-          <button
-            type="button"
-            className={`step-focus-mode-btn${eventDurationMode === 'progressive' ? ' active' : ''}`}
-            onClick={(e) => { e.stopPropagation(); setEventDurationMode('progressive'); }}
-            onMouseDown={(e) => e.stopPropagation()}
-            title="Tiered: 2s for the first 10 bits, 2s for the next 100, 2s for the rest (max ~6s)"
-          >Progressive</button>
-          <button
-            type="button"
-            className={`step-focus-mode-btn${eventDurationMode === 'linear' ? ' active' : ''}`}
-            onClick={(e) => { e.stopPropagation(); setEventDurationMode('linear'); }}
-            onMouseDown={(e) => e.stopPropagation()}
-            title="Linear: total duration scales with the bit count (matches the speed slider exactly)"
-          >Linear</button>
-        </div>
-        <span className="step-focus-slider-value step-focus-mode-value" title="Target time the timeline takes from 0% to 100% for the current event with the active mode and speed">
-          {(() => {
-            const c = currentStepData?.changedBits?.length || 0;
-            const d = computeEventDuration(c);
-            const formatted = d >= 1000 ? `${(d / 1000).toFixed(1)}s` : `${Math.round(d)}ms`;
-            return `${formatted} · ${c} bit${c === 1 ? '' : 's'}`;
-          })()}
-        </span>
-      </div>
-      <label className="step-focus-slider-row" title="Playback speed as a percentage of the per-event normal time target. 50% takes twice as long, 200% takes half as long. Affects bit reveal AND mask stamps in lockstep.">
-        <span className="step-focus-slider-label">Speed</span>
-        {/* Slider is a percentage of the per-event "normal" time target.
-            Range 25%..400%, log-mapped so each tick is the same multiplicative
-            jump and 100% sits comfortably inside the slider. The same value
-            scales the per-bit reveal AND the mask stamp animation. */}
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={1}
-          value={(() => {
-            const pct = Math.max(25, Math.min(400, Number(playSpeedPercent) || 100));
-            const ratio = Math.log(pct / 25) / Math.log(400 / 25);
-            return Math.round(Math.max(0, Math.min(1, ratio)) * 100);
-          })()}
-          onChange={(e) => {
-            const v = Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0));
-            const pct = 25 * Math.pow(400 / 25, v / 100);
-            setPlaySpeedPercent(Math.max(25, Math.min(400, Math.round(pct))));
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-          disabled={exporting}
-        />
-        <span className="step-focus-slider-value" title={`${playSpeedPercent}% of normal speed`}>{playSpeedPercent}%</span>
-      </label>
-    </>
+    <StepAnimSliders
+      currentStepData={currentStepData}
+      bitAnimationMode={bitAnimationMode}
+      setBitAnimationMode={setBitAnimationMode}
+      bitAnimationModeRef={bitAnimationModeRef}
+      stopSeqAnim={stopSeqAnim}
+      seekStepAnimation={seekStepAnimation}
+      stepScrubProgress={stepScrubProgress}
+      setStepScrubProgress={setStepScrubProgress}
+      handleStepAnimToggle={handleStepAnimToggle}
+      stepAnimRunning={stepAnimRunning}
+      singleEventLoopActive={singleEventLoopActive}
+      exporting={exporting}
+      eventDurationMode={eventDurationMode}
+      setEventDurationMode={setEventDurationMode}
+      computeEventDuration={computeEventDuration}
+      playSpeedPercent={playSpeedPercent}
+      setPlaySpeedPercent={setPlaySpeedPercent}
+    />
   );
 
   return (
@@ -3888,58 +3772,16 @@ export default function Visualizer({
             <canvas ref={minimapCanvasRef} className="minimap-overlay-canvas" aria-hidden="true" />
           </div>
           {/* Bit history panels: hover plus one or more click-locked balloons */}
-          {(() => {
-            const hoverBalloonVisible = !!hoveredBitInfo && !pinnedBitIndices.includes(hoveredBitInfo.bitIndex);
-            const visibleBalloonStyles = getVisibleBalloonStyles([
-              ...pinnedBitIndices.map((bitIndex) => ({ kind: 'pinned', bitIndex })),
-              ...(hoverBalloonVisible ? [{ kind: 'hover', bitIndex: hoveredBitInfo.bitIndex }] : []),
-            ]);
-
-            return (
-              <>
-                {pinnedBitIndices.map((bitIdx) => {
-                  const info = computeBitInfo(bitIdx);
-                  if (!info) return null;
-                  const bi = info.bitIndex;
-                  const entry = visibleBalloonStyles[`pinned-${bi}`];
-                  const visible = entry ? entry.visible !== false : true;
-                  return (
-                    <BitHistoryBalloon
-                      key={`locked-bit-${bi}`}
-                      info={info}
-                      pinned
-                      style={entry?.panelStyle}
-                      clipped={!visible}
-                      cachelineSize={cachelineSize}
-                      currentStep={currentStep}
-                      onClose={() => setPinnedBitIndices((prev) => prev.filter((value) => value !== bi))}
-                      onHistoryClick={handleStepSelection}
-                      keyPrefix="locked"
-                    />
-                  );
-                })}
-
-                {hoverBalloonVisible && (() => {
-                  const info = hoveredBitInfo;
-                  const bi = info.bitIndex;
-                  const entry = visibleBalloonStyles[`hover-${bi}`];
-                  const visible = entry ? entry.visible !== false : true;
-                  return (
-                    <BitHistoryBalloon
-                      info={info}
-                      pinned={false}
-                      style={entry?.panelStyle}
-                      clipped={!visible}
-                      cachelineSize={cachelineSize}
-                      currentStep={currentStep}
-                      onHistoryClick={handleStepSelection}
-                      keyPrefix="hover"
-                    />
-                  );
-                })()}
-              </>
-            );
-          })()}
+          <BitHistoryBalloons
+            pinnedBitIndices={pinnedBitIndices}
+            hoveredBitInfo={hoveredBitInfo}
+            computeBitInfo={computeBitInfo}
+            getVisibleBalloonStyles={getVisibleBalloonStyles}
+            cachelineSize={cachelineSize}
+            currentStep={currentStep}
+            onUnpin={(bi) => setPinnedBitIndices((prev) => prev.filter((value) => value !== bi))}
+            onHistoryClick={handleStepSelection}
+          />
 
           {/* Detail panel at the bottom of the canvas area */}
           <DetailPanel

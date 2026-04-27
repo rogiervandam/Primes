@@ -51,7 +51,9 @@ src/
 │   ├── ExportProgress.jsx        Slim progress bar during video export
 │   ├── BitHistoryBalloon.jsx     Hover/pinned bit-history popover
 │   ├── EventTitleBanner.jsx      Floating current-event banner
-│   └── DetailInspectorOverlay.jsx Modal table of bits / numbers / primes
+│   ├── DetailInspectorOverlay.jsx Modal table of bits / numbers / primes
+│   ├── StepAnimSliders.jsx       Mode/Timeline/Target/Speed sliders cluster
+│   └── BitHistoryBalloons.jsx    Pinned + hover bit-history balloon cluster
 └── styles/               Per-concern stylesheets
     └── index.css             @imports the numbered section files
 ```

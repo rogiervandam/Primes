@@ -259,7 +259,9 @@ web-visualizer/
 │   │   ├── ExportProgress.jsx        # Video export progress bar
 │   │   ├── BitHistoryBalloon.jsx     # Hover/pinned bit-history popover
 │   │   ├── EventTitleBanner.jsx      # Floating current-event banner
-│   │   └── DetailInspectorOverlay.jsx # Modal bits / numbers / primes table
+│   │   ├── DetailInspectorOverlay.jsx # Modal bits / numbers / primes table
+│   │   ├── StepAnimSliders.jsx       # Mode / Timeline / Target / Speed cluster
+│   │   └── BitHistoryBalloons.jsx    # Pinned + hover balloon cluster
 │   └── styles/                   # Per-concern stylesheets
 │       └── index.css             # @imports the section files
 ├── docs/                         # Developer documentation

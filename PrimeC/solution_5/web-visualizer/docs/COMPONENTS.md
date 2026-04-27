@@ -62,6 +62,12 @@ Draggable "current event" banner over the canvas with the active step heading, t
 ### `DetailInspectorOverlay.jsx`
 Modal table that lists every changed bit (or every multiple / every prime) for the current step. Pure presentation: takes `{ open, mode, query, onQueryChange, onClose, rows, filteredRows }` and renders the search-filtered list. The visualizer owns the data; the overlay just paints it.
 
+### `StepAnimSliders.jsx`
+The Mode / Timeline / Target / Speed slider cluster shown in both the floating event-title banner and the bottom detail panel. All values and callbacks (current step data, scrub progress, mode toggles, `computeEventDuration`, `playSpeedPercent`, …) are passed in as props; the component renders the rows and bubbles user interactions back.
+
+### `BitHistoryBalloons.jsx`
+Wraps the pinned-balloon list and the hover balloon. Asks the parent (`getVisibleBalloonStyles`) where each balloon should sit, then renders one `BitHistoryBalloon` per pinned bit and an extra one for the hovered bit (when the hovered bit isn't already pinned). Calls `onUnpin(bitIndex)` and `onHistoryClick(stepIndex)` for user actions.
+
 ## Settings building blocks (`src/settings/`)
 
 ### `LegendSections.jsx`
