@@ -53,6 +53,8 @@ export default function Toolbar({
   resetZoom,
   mode3D,
   toggle3D,
+  tiltActive,
+  toggleTilt,
   // overlays / panels
   heatMapEnabled,
   setHeatMapEnabled,
@@ -170,6 +172,15 @@ export default function Toolbar({
                 <path d="M2 5L8 2L14 5L8 8Z" />
               </svg>
             </button>
+            {mode3D && (
+              <button className={`btn-icon${tiltActive ? ' active' : ''}`} onClick={toggleTilt} title={tiltActive ? 'Remove tilt (0°)' : 'Tilt view (30°)'}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M2 13L8 10L14 13" />
+                  <path d="M4 9L8 7L12 9" strokeOpacity="0.6" />
+                  <path d="M6 5.5L8 4.5L10 5.5" strokeOpacity="0.35" />
+                </svg>
+              </button>
+            )}
             <button className={`btn-icon${timingPanelOpen ? ' active' : ''}`} onClick={() => setTimingPanelOpen(o => !o)} title="Function timings">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <circle cx="8" cy="9" r="5.5" />

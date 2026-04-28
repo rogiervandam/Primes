@@ -1497,7 +1497,7 @@ export default function Visualizer({
     // Do NOT reset rotateX/rotateY here. A freshly-created Camera3D already
     // initialises them to 0, so the reset would be a no-op in the normal
     // startup case. In the desync case (enableTiltAndResize() fired before
-    // this effect ran and set rotateX=60), the reset would wrongly wipe that
+    // this effect ran and set rotateX=30), the reset would wrongly wipe that
     // angle, causing the first right-click drag to start from 0° instead of
     // the current tilt.
     cam.perspective = 1500;
@@ -1508,7 +1508,7 @@ export default function Visualizer({
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         refitViewportToContent({ instant: true });
-        cam.animateTo({ rotateX: 60, rotateY: 0, perspective: 1500 }, 520);
+        cam.animateTo({ rotateX: 30, rotateY: 0, perspective: 1500 }, 520);
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2768,6 +2768,19 @@ export default function Visualizer({
     updateMinimapAvailability();
   }, [getMinimapDetailH, updateMinimapAvailability, applyViewportFit]);
 
+  // Tracks whether the tilt button is in the "tilted" state (30°) or flat (0°).
+  // Initialized to true since the startup animation goes to rotateX=30.
+  const [tiltActive, setTiltActive] = useState(true);
+
+  // Tilt toggle: animates between 0° (flat) and 30° (tilted) in 3D mode.
+  const toggleTilt = useCallback(() => {
+    const cam = camera3DRef.current;
+    if (!cam || !cam.enabled) return;
+    const newTiltActive = !tiltActive;
+    setTiltActive(newTiltActive);
+    cam.animateTo({ rotateX: newTiltActive ? 30 : 0, rotateY: cam.rotateY, perspective: 1500 }, 400);
+  }, [tiltActive]);
+
   // 3D mode toggle
   const toggle3D = useCallback(() => {
     const cam = camera3DRef.current;
@@ -3920,6 +3933,8 @@ export default function Visualizer({
         resetZoom={resetZoom}
         mode3D={mode3D}
         toggle3D={toggle3D}
+        tiltActive={tiltActive}
+        toggleTilt={toggleTilt}
         heatMapEnabled={heatMapEnabled}
         setHeatMapEnabled={setHeatMapEnabled}
         primeOverlayEnabled={primeOverlayEnabled}
