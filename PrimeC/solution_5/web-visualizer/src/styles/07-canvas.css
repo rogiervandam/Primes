@@ -1,0 +1,603 @@
+/* ---- Canvas Area ---- */
+.canvas-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  min-width: 0;
+}
+/* See 05-layout.css — the 3D tilt is clipped at .canvas-container, so the
+   parent stack stays `overflow: hidden` to keep the layout stable when
+   side-panel content height changes (e.g. toggling the range overlay). */
+.step-focus-banner {
+  position: absolute;
+  /* Anchored by bottom-left so the sliders stay in a fixed place across events.
+     When the annotation needs more room, the banner grows upward instead of
+     shifting the sliders down. */
+  bottom: 20px;
+  left: 16px;
+  top: auto;
+  z-index: 18;
+  /* Must be interactive now — banner is draggable and contains sliders. */
+  pointer-events: auto;
+  cursor: grab;
+  padding: 10px 14px;
+  border: 1px solid var(--border-light);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-surface) 88%, var(--accent-bg));
+  color: var(--fg-bright);
+  font-size: 14px;
+  line-height: 1.35;
+  white-space: normal;
+  overflow: hidden;
+  width: 420px;
+  max-width: min(520px, calc(100% - 160px));
+  min-height: 150px;
+  text-align: left;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  /* Title lines pinned to the top of the banner. */
+  justify-content: flex-start;
+  gap: 4px;
+}
+.step-focus-banner:active { cursor: grabbing; }
+.step-focus-banner input { pointer-events: auto; cursor: pointer; user-select: none; }
+.step-focus-line3 {
+  font-size: 11px;
+  color: var(--accent-dim);
+  margin-top: 2px;
+  font-weight: 600;
+}
+.step-focus-lines {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 2px;
+  overflow: hidden;
+}
+.step-focus-sliders {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.step-focus-slider-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 260px) 56px;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--fg-muted);
+}
+.step-focus-slider-row input[type="range"] { width: 100%; max-width: 260px; }
+.step-focus-slider-label { text-transform: uppercase; letter-spacing: 0.04em; }
+.step-focus-slider-value { font-variant-numeric: tabular-nums; text-align: right; color: var(--fg); }
+.step-focus-slider-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.step-focus-slider-controls input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  max-width: 230px;
+}
+.step-focus-play-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-raised);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.step-focus-play-btn:hover { background: var(--bg-input); color: var(--fg-bright); }
+.step-focus-close-btn {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--fg-dim);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1;
+  pointer-events: auto;
+  z-index: 1;
+}
+.step-focus-close-btn:hover { background: var(--bg-raised); color: var(--fg); }
+.step-focus-locate-btn {
+  position: absolute;
+  top: 6px;
+  right: 32px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--fg-dim);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: auto;
+  z-index: 1;
+}
+.step-focus-locate-btn:hover { background: var(--bg-raised); color: var(--fg); }
+.step-focus-context {
+  margin: 4px 0 6px;
+  padding: 4px 6px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 0.78em;
+  line-height: 1.25;
+  pointer-events: auto;
+  user-select: none;
+}
+.step-focus-context-row {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 1px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.step-focus-context-row:hover { background: var(--bg-raised); color: var(--fg); }
+.step-focus-context-row.current {
+  cursor: default;
+  color: var(--fg-bright, var(--fg));
+  font-weight: 600;
+  background: var(--bg-raised);
+}
+.step-focus-context-row .ctx-id {
+  min-width: 3.5em;
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+.step-focus-context-row .ctx-op { flex: 0 0 auto; }
+.step-focus-context-row .ctx-meta { color: var(--fg-dim); flex: 0 0 auto; }
+.step-focus-context-row .ctx-bits {
+  margin-left: auto;
+  color: var(--accent, #6cf);
+  font-variant-numeric: tabular-nums;
+}
+.step-focus-context-row .ctx-time {
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+.step-focus-play-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.step-focus-mode-row .step-focus-mode-toggle {
+  display: inline-flex;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  width: max-content;
+}
+.step-focus-mode-btn {
+  background: transparent;
+  color: var(--fg-muted);
+  border: none;
+  font-size: 10px;
+  padding: 2px 8px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.step-focus-mode-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+.step-focus-mode-btn:hover:not(.active) { background: var(--bg-input); color: var(--fg); }
+.step-focus-mode-value { text-transform: uppercase; }
+
+.step-focus-line1 {
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.step-focus-line2 {
+  margin-top: 3px;
+  font-size: 0.89em;
+  color: var(--fg);
+}
+.canvas-container {
+  flex: 1;
+  overflow: hidden;
+  cursor: crosshair;
+  position: relative;
+  transform-style: preserve-3d;
+  touch-action: none;
+  user-select: none;
+}
+.canvas-container.mode-3d {
+  /* perspective is set via inline style from Camera3D */
+  perspective-origin: 50% 50%;
+  /* Keep `overflow: hidden` (inherited from .canvas-container) so the
+     intentionally oversized canvas (~3.1x in 3D for drag headroom) clips
+     to the container bounds when tilted. Without this, the rotated
+     bitmap edges bleed under/over the surrounding panels and look messy. */
+}
+.canvas-container .settled-render-canvas,
+.canvas-container .main-render-canvas {
+  position: absolute;
+  /* Canvas is always the oversized 3D plane (centered + clipped
+     by the container's overflow:hidden). 2D and 3D share the
+     same placement; mode3D only enables the tilt. Position +
+     size are set inline by Visualizer.renderCanvasStyle and
+     SieveRenderer.resize respectively — we deliberately avoid
+     `inset: 0` here because right/bottom:0 would compete with
+     the inline left/top:50% + explicit width/height and produce
+     a confused box on browsers that resolve the over-constraint
+     against width.  */
+  top: 0;
+  left: 0;
+  display: block;
+  transform-origin: 50% 50%;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.canvas-container .gl-render-canvas {
+  /* WebGL bit-grid (default backend, opt out via ?renderer=canvas2d).
+     Sits behind the Canvas2D layers so existing overlays/labels
+     render on top. See docs/AI_MAINTENANCE.md §8. */
+  position: absolute;
+  inset: 0;
+  display: block;
+  z-index: -1;
+  pointer-events: none;
+}
+.canvas-container.mode-3d .gl-render-canvas {
+  /* In 3D mode the bit grid needs a transparent background so the
+     page shows through outside the (rotated) plane; the GL context
+     was created with `alpha: false` for performance, so we hide it
+     entirely and let Canvas2D paint fills + overlays. The GL
+     wrapper in Visualizer.jsx skips uploads/draw to match. */
+  display: none;
+}
+
+.canvas-container .settled-render-canvas {
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+.canvas-container .settled-render-canvas.active {
+  opacity: 1;
+}
+
+.canvas-container .main-render-canvas {
+  z-index: 1;
+}
+
+.canvas-container.mode-3d .settled-render-canvas,
+.canvas-container.mode-3d .main-render-canvas {
+  /* Tilt-specific styling lives here in case future work needs
+     to differentiate (e.g. shadow). Base centering/clipping is
+     applied to all canvas elements above. */
+}
+.canvas-container.dragging { cursor: grabbing; }
+.canvas-container canvas {
+  display: block;
+}
+.minimap-overlay-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 11;
+}
+.animation-widget {
+  position: fixed;
+  top: 0;
+  left: 0;
+  transform: none;
+  z-index: 520;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: auto;
+}
+.animation-widget.speed-linked::before {
+  content: '';
+  position: absolute;
+  top: -14px;
+  left: var(--gear-pointer-x, 24px);
+  width: 2px;
+  height: 12px;
+  transform: translateX(-50%);
+  background: linear-gradient(to bottom, rgba(255,255,255,0.28), rgba(255,255,255,0));
+}
+.animation-widget-toggle {
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+}
+.animation-widget-panel {
+  position: relative;
+  width: min(420px, calc(100vw - 56px));
+  padding: 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-surface) 92%, var(--bg-raised));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
+.animation-widget-panel::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: calc(var(--gear-pointer-x, 24px) - 10px);
+  width: 20px;
+  height: 12px;
+  background: color-mix(in srgb, var(--bg-surface) 92%, var(--bg-raised));
+  border-top: 1px solid var(--border-light);
+  border-left: 1px solid var(--border-light);
+  border-right: 1px solid var(--border-light);
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  clip-path: polygon(50% 0, 0 100%, 100% 100%);
+}
+.animation-widget-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fg-bright);
+}
+.animation-widget-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.animation-widget-actions .preview-btn {
+  width: 92px;
+}
+.animation-chip {
+  font-size: 11px;
+  padding: 5px 8px;
+}
+.animation-widget-row,
+.animation-widget-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+  color: var(--fg-muted);
+  font-size: 11px;
+}
+.animation-widget-row input[type="range"] {
+  width: 100%;
+}
+.animation-widget-row strong {
+  color: var(--fg-bright);
+  font-size: 11px;
+}
+.animation-widget-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.animation-widget-choice .btn-group {
+  width: 100%;
+}
+.animation-cycle-btn {
+  width: 100%;
+}
+.animation-option-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.animation-option-grid-styles {
+  grid-template-columns: repeat(4, minmax(0, 88px));
+  justify-content: start;
+}
+.animation-option-grid-modes {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.animation-option-btn {
+  aspect-ratio: 1 / 1;
+  min-height: 84px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px;
+}
+.animation-option-grid-styles .animation-option-btn {
+  width: 88px;
+  min-height: 88px;
+  max-width: 88px;
+  padding: 7px;
+}
+.animation-option-grid-styles .animation-option-btn .preview-btn-title {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+.animation-option-grid-styles .animation-option-btn .preview-btn-hint {
+  font-size: 10px;
+}
+@media (max-width: 900px) {
+  .animation-option-grid-styles {
+    grid-template-columns: repeat(2, minmax(0, 88px));
+  }
+}
+.animation-option-btn .preview-btn-swatch {
+  font-size: 20px;
+  line-height: 1;
+  min-height: 22px;
+}
+.animation-widget-actions .animation-option-btn {
+  min-height: 92px;
+}
+.animation-group-mark-btn .preview-btn-swatch {
+  font-size: 19px;
+  animation: stamp-preview 1.3s ease-in-out infinite;
+}
+.btn-anim-style-ripple .preview-btn-swatch {
+  animation: anim-swatch-ripple 1.5s ease-out infinite;
+}
+.btn-anim-style-fade .preview-btn-swatch {
+  animation: anim-swatch-fade 1.8s ease-in-out infinite;
+}
+.btn-anim-style-pulse .preview-btn-swatch {
+  animation: anim-swatch-pulse 1.2s ease-in-out infinite;
+}
+.btn-anim-style-none .preview-btn-swatch {
+  opacity: 0.55;
+}
+.btn-anim-mode-sequential .preview-btn-swatch {
+  animation: anim-mode-sequential 1.4s steps(3, end) infinite;
+}
+.btn-anim-mode-bounce .preview-btn-swatch {
+  display: inline-block;
+  animation: anim-mode-bounce 1s ease-in-out infinite alternate;
+}
+.btn-anim-mode-all .preview-btn-swatch {
+  animation: anim-mode-all 0.9s ease-in-out infinite;
+}
+.animation-option-btn .preview-btn-title {
+  font-size: 11px;
+}
+.animation-option-btn .preview-btn-hint {
+  font-size: 10px;
+}
+.animation-cycle-tile {
+  min-height: 84px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px;
+}
+.animation-cycle-tile .preview-btn-swatch {
+  font-size: 20px;
+  line-height: 1;
+  min-height: 22px;
+}
+.animation-cycle-tile .preview-btn-title {
+  font-size: 11px;
+}
+.animation-cycle-tile .preview-btn-hint {
+  font-size: 10px;
+}
+
+/* Animation style/mode button previews */
+.btn-anim-style-ripple::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 3px 3px, rgba(255,100,100,0.8), transparent);
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.btn-anim-style-fade::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: rgba(100,150,255,0.4);
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.btn-anim-style-pulse::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(100,200,100,0.8);
+  background: transparent;
+  margin-right: 4px;
+  vertical-align: middle;
+  animation: pulse-preview 1.5s ease-in-out infinite;
+}
+.btn-anim-style-none::before {
+  content: '—';
+  display: inline-block;
+  width: 8px;
+  margin-right: 4px;
+  text-align: center;
+  opacity: 0.5;
+}
+.btn-anim-mode-all::before {
+  content: '●●●';
+  display: inline-block;
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: rgba(255,200,100,0.8);
+  margin-right: 4px;
+}
+.btn-anim-mode-sequential::before {
+  content: '① ② ③';
+  display: inline-block;
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: rgba(100,200,255,0.8);
+  margin-right: 2px;
+}
+.btn-anim-mode-bounce::before {
+  content: '↔';
+  display: inline-block;
+  font-size: 10px;
+  color: rgba(150,200,100,0.8);
+  margin-right: 4px;
+}
+
+@keyframes pulse-preview {
+  0% { box-shadow: 0 0 0 0 rgba(100,200,100,0.7); }
+  50% { box-shadow: 0 0 0 4px rgba(100,200,100,0); }
+  100% { box-shadow: 0 0 0 0 rgba(100,200,100,0); }
+}
+
+.hover-info {
+  position: absolute;
+  bottom: 44px;
+  left: 8px;
+  right: 8px;
+  background: var(--hover-bg);
+  color: #e0e0e0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+  pointer-events: none;
+}
+

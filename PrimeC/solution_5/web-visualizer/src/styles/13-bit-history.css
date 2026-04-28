@@ -1,0 +1,164 @@
+/* ---- Bit History Panel ---- */
+.bit-history-panel {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: 8px; min-width: 260px; max-width: 380px; max-height: 50vh;
+  display: flex; flex-direction: column; box-shadow: 0 4px 16px rgba(0,0,0,.3);
+  overflow: visible;
+  transition: left 180ms ease, top 180ms ease, transform 180ms ease, opacity 180ms ease;
+  animation: bit-balloon-appear 180ms ease-out;
+}
+.bit-history-panel.locked {
+  z-index: 210;
+  border-color: var(--accent);
+}
+.bit-history-panel.hover-balloon {
+  position: fixed;
+  z-index: 200;
+  transform: translateX(-50%) translateY(calc(-100% - 14px));
+  pointer-events: none;
+  isolation: isolate;
+}
+.bit-history-panel.hover-balloon.locked {
+  pointer-events: auto;
+  z-index: 260;
+}
+/* Balloon hides (animated) when it would overlap a panel, titlebar, or go off-screen.
+   The transform shift gives a tiny slide-out and still allows hit-testing to miss it. */
+.bit-history-panel.clipped {
+  opacity: 0;
+  transform: translateX(-50%) translateY(calc(-100% - 14px)) scale(0.95);
+  pointer-events: none;
+}
+.bit-history-panel.locked.clipped {
+  transform: scale(0.95);
+}
+.bit-history-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 14px; border-bottom: 1px solid var(--border);
+  font-weight: 600; font-size: .9rem;
+}
+.bit-history-close {
+  background: none; border: none; color: var(--fg-muted); cursor: pointer;
+  font-size: 1.1rem; padding: 2px 6px;
+}
+.bit-history-close:hover { color: var(--fg); }
+.bit-history-indices { padding: 6px 14px 0; border-bottom: 1px solid var(--border); }
+.bit-index-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+.bit-index-table td { padding: 2px 4px; }
+.bit-index-table td:first-child { color: var(--fg-muted); white-space: nowrap; padding-right: 10px; }
+.bit-history-body { padding: 6px 14px; overflow-y: auto; flex: 1; }
+.bit-history-empty { color: var(--fg-muted); font-style: italic; }
+/* Prime notice badge shown in bit detail balloons when the represented number is prime */
+.bit-prime-notice {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 14px; font-size: .82rem; font-weight: 600;
+  color: #fde68a; background: rgba(251,191,36,0.12);
+  border-bottom: 1px solid rgba(251,191,36,0.30);
+}
+[data-theme='light'] .bit-prime-notice { color: #92400e; background: rgba(251,191,36,0.18); }
+.bit-history-hint { padding: 4px 14px; font-size: .75rem; color: var(--fg-muted); border-top: 1px solid var(--border); }
+.bit-history-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.bit-history-table th {
+  text-align: left; padding: 3px 6px; color: var(--fg-muted);
+  border-bottom: 1px solid var(--border);
+}
+.bit-history-table td { padding: 3px 6px; cursor: pointer; }
+.bit-history-table tr:hover td { background: var(--bg-raised); }
+.bit-history-table tr.bh-current td { background: var(--accent); color: var(--fg-bright); }
+
+@keyframes bit-balloon-appear {
+  0% { opacity: 0; transform: translateX(-50%) translateY(calc(-100% - 6px)) scale(0.96); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(calc(-100% - 14px)) scale(1); }
+}
+
+.detail-inspect-btn {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border-light);
+  background: color-mix(in srgb, var(--bg-raised) 86%, transparent);
+  color: var(--fg);
+  border-radius: 6px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+.detail-inspect-btn:hover {
+  border-color: var(--accent-dim);
+  background: var(--accent-bg);
+}
+
+.detail-inspector-overlay {
+  position: absolute;
+  inset: 12px;
+  z-index: 45;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  pointer-events: none;
+}
+.detail-inspector-panel {
+  width: min(920px, calc(100% - 24px));
+  max-height: calc(100% - 24px);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-surface) 95%, #000 5%);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.36);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  pointer-events: auto;
+}
+.detail-inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.detail-inspector-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg-bright);
+}
+.detail-inspector-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.detail-inspector-search {
+  flex: 1;
+  min-width: 180px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-input);
+  color: var(--fg);
+}
+.detail-inspector-count {
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+.detail-inspector-table-wrap {
+  overflow: auto;
+  max-height: 60vh;
+}
+.detail-inspector-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.detail-inspector-table th,
+.detail-inspector-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.detail-inspector-table th {
+  position: sticky;
+  top: 0;
+  background: color-mix(in srgb, var(--bg-surface) 96%, #000 4%);
+  color: var(--fg-muted);
+  z-index: 1;
+}
+
