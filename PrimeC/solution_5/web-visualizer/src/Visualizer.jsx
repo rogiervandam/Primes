@@ -241,7 +241,7 @@ export default function Visualizer({
   // user can still toggle the camera off via the 3D button — that
   // disables the camera and removes the (no-op) transform; the
   // canvas geometry stays unified so panel toggles don't reflow.
-  const [mode3D, setMode3D] = useState(true);
+  const [mode3D, setMode3D] = useState(initialPrefs.mode3D);
   const currentAnimIntervalRef = useRef(20);
   const currentMaskAnimIntervalRef = useRef(20);
   const {
@@ -684,8 +684,9 @@ export default function Visualizer({
       delayBetweenEvents,
       delayBetweenRepeats,
       eventTimeTargets,
+      mode3D,
     });
-  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets]);
+  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, mode3D]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -1483,11 +1484,11 @@ export default function Visualizer({
     const cam = camera3DRef.current;
     if (!cam || initial3DRestoreDoneRef.current || !mode3D) return;
     initial3DRestoreDoneRef.current = true;
-    // Tilt 0 — visually flat. The user toggles a real tilt with
-    // the 3D button, right-click drag, or arrow-key orbit. The
-    // point of enabling the camera at startup is to drive the
-    // canvas through its (working) 3D-sized layout path; the
-    // identity transform is just a side effect.
+    // Start at tilt 0 so the camera is in the 3D-sized layout path, then
+    // animate to the same default tilt used by the toggle button. This
+    // means the camera is already at tilt 16 by the time the user
+    // right-clicks, so the first right-click drag starts instantly with
+    // no warm-up animation.
     cam.rotateX = 0;
     cam.rotateY = 0;
     cam.perspective = 1500;
@@ -1498,6 +1499,7 @@ export default function Visualizer({
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         refitViewportToContent({ instant: true });
+        cam.animateTo({ rotateX: 16, rotateY: 0, perspective: 1500 }, 520);
       });
     });
   }, [mode3D, refitViewportToContent, schedulePostLayoutRefresh]);
