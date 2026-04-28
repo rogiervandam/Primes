@@ -233,15 +233,9 @@ export default function Visualizer({
   const [canvasAnchorPx, setCanvasAnchorPx] = useState(null);
 
   // 3D camera state
-  // Defaults to true with rotateX=0/rotateY=0 — visually identical to
-  // "flat 2D" but routes the canvas through the working
-  // 3D-camera-enabled layout path from the very first frame. Without
-  // this, an extra setup pass was needed before the grid showed up
-  // (clicking the 3D button or right-clicking did the trick). The
-  // user can still toggle the camera off via the 3D button — that
-  // disables the camera and removes the (no-op) transform; the
-  // canvas geometry stays unified so panel toggles don't reflow.
-  const [mode3D, setMode3D] = useState(true);
+  // The app always uses 3D mode; the camera is always enabled. The tilt
+  // button controls the rotateX angle (flat 0° vs tilted 30°).
+  const mode3D = true;
   const currentAnimIntervalRef = useRef(20);
   const currentMaskAnimIntervalRef = useRef(20);
   const {
@@ -254,7 +248,7 @@ export default function Visualizer({
     createCamera,
     disposeCamera,
     ensureTiltCamera,
-  } = use3DCamera({ mode3D });
+  } = use3DCamera();
 
   const bitStateRef = useRef(null);
   const stepsRef = useRef([]);
@@ -279,14 +273,6 @@ export default function Visualizer({
   // would always read the post-change rect and produce zero net pan
   // compensation, causing the canvas to drift on every panel toggle).
   const pendingResizeAnchorRef = useRef(null);
-  // Tracks the previous `mode3D` value for the resize useEffect so it
-  // can recognise a 3D-toggle (vs a panel/window resize). On a 3D
-  // toggle, `toggle3D()` already drives a `schedulePostLayoutRefresh`
-  // + `refitViewportToContent` chain; the resize effect's own
-  // immediate + double-rAF + 190ms refresh cascade would compete with
-  // it and produce two visible canvas-jumps when entering 3D. We
-  // therefore short-circuit the effect on a mode3D delta.
-  const prevMode3DRef = useRef(false);
   const viewportAnimRef = useRef(null);
   const autoplayStartedRef = useRef(false);
   const initialHighlightHoldRef = useRef(true);
@@ -980,7 +966,7 @@ export default function Visualizer({
     r.render();
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, loweredSetBits, mode3D, depthSettings, gridOpacity, updateMinimapAvailability]);
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, loweredSetBits, depthSettings, gridOpacity, updateMinimapAvailability]);
 
   // Resize handler
   useEffect(() => {
@@ -1003,44 +989,14 @@ export default function Visualizer({
 
     clearScheduledLayoutRefresh();
 
-    // 3D-toggle short-circuit: `toggle3D()` (or the right-click tilt
-    // path that funnels through it) already calls
-    // `schedulePostLayoutRefresh` + a double-rAF
-    // `refitViewportToContent`. Running the full immediate +
-    // double-rAF + 190ms cascade here on top of that produces two
-    // visible canvas-jumps when entering/leaving 3D (the canvas
-    // resizes to its 3.1× oversize, then the refit changes
-    // pan+zoom). Skip the cascade on the toggle frame; the
-    // window-resize listener below stays registered.
-    const mode3DChanged = prevMode3DRef.current !== mode3D;
-    prevMode3DRef.current = mode3D;
-    if (mode3DChanged) {
-      const winResize = () => onResize(true);
-      window.addEventListener('resize', winResize);
-      return () => {
-        window.removeEventListener('resize', winResize);
-        clearScheduledLayoutRefresh();
-      };
-    }
-
     onResize(true);
-    // Re-run after layout settles, but WITHOUT re-applying the anchor
-    // (panX has already been compensated above).
-    //
-    // In 3D mode the canvas is oversized (~3.1× — see
-    // `getCanvasTargetSize`) and `refreshCanvasLayout` re-derives
-    // the frozen column count from `canvasWidth` on every call. A
-    // 1-px difference between the immediate and the double-rAF
-    // call (mid-CSS-transition) re-flows the grid, which the user
-    // perceives as a canvas drift / tilt-jump on panel toggles. So
-    // skip the mid-transition rAF refresh in 3D and rely on the
-    // post-transition timer alone — it's well after the CSS
-    // transition has settled, so the canvas dims are stable.
-    if (!mode3D) {
-      layoutRefreshRaf1Ref.current = requestAnimationFrame(() => {
-        layoutRefreshRaf2Ref.current = requestAnimationFrame(() => onResize(false));
-      });
-    }
+    // In 3D mode the canvas is oversized (~3.1× — see `getCanvasTargetSize`)
+    // and `refreshCanvasLayout` re-derives the frozen column count from
+    // `canvasWidth` on every call. A 1-px difference between the immediate
+    // and the double-rAF call (mid-CSS-transition) re-flows the grid, which
+    // the user perceives as a canvas drift / tilt-jump on panel toggles. Skip
+    // the mid-transition rAF refresh and rely on the post-transition timer
+    // alone — it's well after the CSS transition has settled.
     const transitionRefreshTimer = setTimeout(() => onResize(false), 190);
 
     const winResize = () => onResize(true);
@@ -1051,7 +1007,7 @@ export default function Visualizer({
       clearTimeout(transitionRefreshTimer);
       clearScheduledLayoutRefresh();
     };
-  }, [panelWidth, showMinimap, detailOpen, detailHeight, mode3D, refreshCanvasLayout, clearScheduledLayoutRefresh, captureViewportAnchor]);
+  }, [panelWidth, showMinimap, detailOpen, detailHeight, refreshCanvasLayout, clearScheduledLayoutRefresh, captureViewportAnchor]);
 
   // Go to step
   const goToStep = useCallback((target, options = {}) => {
@@ -1488,7 +1444,7 @@ export default function Visualizer({
 
   useEffect(() => {
     const cam = camera3DRef.current;
-    if (!cam || !mode3D) return;
+    if (!cam) return;
     // Enable camera and animate to the default tilt. Keyed on `cameraKey` so
     // this re-fires whenever the renderer effect creates a new Camera3D
     // instance (including React StrictMode's double-mount), keeping
@@ -2781,68 +2737,20 @@ export default function Visualizer({
     cam.animateTo({ rotateX: newTiltActive ? 30 : 0, rotateY: cam.rotateY, perspective: 1500 }, 400);
   }, [tiltActive]);
 
-  // 3D mode toggle
-  const toggle3D = useCallback(() => {
-    const cam = camera3DRef.current;
-    if (!cam) return;
-    if (cam.enabled) {
-      // If the camera is already flat (e.g. the startup tilt animation
-      // hasn't played yet), disable immediately — there is nothing to
-      // animate and a delay would just look like a snap.
-      const alreadyFlat = Math.abs(cam.rotateX) < 2 && Math.abs(cam.rotateY) < 2;
-      const doDisable = () => {
-        cam.disable();
-        setMode3D(false);
-        // Refresh canvas at normal size
-        schedulePostLayoutRefresh(captureViewportAnchor(0.5, 0.5));
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            refitViewportToContent({ instant: true });
-          });
-        });
-      };
-      if (alreadyFlat) {
-        doDisable();
-      } else {
-        // Animate tilt back to flat before disabling, then switch to 2D.
-        cam.animateTo({ rotateX: 0, rotateY: 0, perspective: 1200 }, 400).then(doDisable);
-      }
-    } else {
-      cam.enable();
-      setCamera3DContainerStyle(cam.getContainerStyle());
-      // Enter 3D with only a backward bend, not a sideways twist.
-      cam.animateTo({ rotateX: 16, rotateY: 0, perspective: 1500 }, 520);
-      setMode3D(true);
-      // Refresh with enlarged canvas for 3D
-      schedulePostLayoutRefresh(null);
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          refitViewportToContent({ instant: true });
-        });
-      });
-    }
-  }, [schedulePostLayoutRefresh, captureViewportAnchor, refitViewportToContent, setCamera3DContainerStyle]);
-
-  // Right-click tilt from 2D mode goes through the exact same path as the
-  // explicit 3D-mode toggle button. The canvas needs to be resized to the
-  // oversized 3D plane (which reflows the grid via `_frozenClPerVRow`),
-  // and the only sane recovery from that reflow is a refit-to-content —
-  // anchor preservation is mathematically impossible across the column
-  // count change. Calling `toggle3D()` here keeps the two entry points
-  // perfectly in sync (also flips the React `mode3D` state, which controls
-  // the lowered-bits / transparent-bg styling).
+  // 3D mode toggle is removed — the app is always in 3D mode.
+  // enableTiltAndResize handles the StrictMode desync case where cam.enabled
+  // is false despite mode3D being always true.
   const enableTiltAndResize = useCallback(() => {
     const cam = camera3DRef.current;
     if (cam && cam.enabled) {
       // Already in 3D mode — nothing to do.
       return cam;
     }
-    if (cam && !cam.enabled && mode3D) {
-      // StrictMode desync: cam.enabled is false but React mode3D is already
-      // true. Re-enable the camera at its current rotateX (preserving any
-      // angle set by the startup animation) without triggering a new intro
-      // animation or flipping mode3D again. If rotateX is still 0 from the
-      // reset, snap to the default tilt so the first drag starts there.
+    if (cam && !cam.enabled) {
+      // StrictMode desync: cam.enabled is false but mode3D is always true.
+      // Re-enable the camera at its current rotateX (preserving any angle set
+      // by the startup animation). If rotateX is still 0, snap to the default
+      // tilt so the first drag starts there.
       cam.cancelAllAnimations();
       if (Math.abs(cam.rotateX) < 0.5) cam.rotateX = 16;
       cam.perspective = 1500;
@@ -2852,10 +2760,8 @@ export default function Visualizer({
       requestAnimationFrame(() => requestAnimationFrame(() => refitViewportToContent({ instant: true })));
       return cam;
     }
-    // Normal 2D→3D entry via the explicit toggle path.
-    toggle3D();
     return camera3DRef.current;
-  }, [toggle3D, camera3DRef, mode3D, setCamera3DContainerStyle, schedulePostLayoutRefresh, refitViewportToContent]);
+  }, [camera3DRef, setCamera3DContainerStyle, schedulePostLayoutRefresh, refitViewportToContent]);
 
   // Cinematic fly-to on element click (in 3D mode)
   const flyToElement = useCallback((bitIdx) => {
@@ -3219,8 +3125,6 @@ export default function Visualizer({
     };
 
     const onMouseDown = (e) => {
-      const cam = camera3DRef.current;
-      if (!mode3D && !cam) return;
       const secondary = e.button === 2 || (e.button === 0 && (e.ctrlKey || e.metaKey));
       if (!secondary) return;
       enableTiltAndResize();
@@ -3304,7 +3208,7 @@ export default function Visualizer({
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [computeBitInfo, flyToElement, getMinimapDetailH, updateMinimapAvailability, mode3D, enableTiltAndResize, scheduleBalloonRelayout]);
+  }, [computeBitInfo, flyToElement, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout]);
 
   // Keyboard shortcuts — see src/hooks/useKeyboardShortcuts.js for the full key map.
   useKeyboardShortcuts({
@@ -3316,7 +3220,6 @@ export default function Visualizer({
     resetZoom,
     setTheme,
     toggleDetailPanel,
-    toggle3D,
     camera3DRef,
   });
 
@@ -3931,8 +3834,6 @@ export default function Visualizer({
         zoom={zoom}
         doZoom={doZoom}
         resetZoom={resetZoom}
-        mode3D={mode3D}
-        toggle3D={toggle3D}
         tiltActive={tiltActive}
         toggleTilt={toggleTilt}
         heatMapEnabled={heatMapEnabled}
@@ -4136,8 +4037,6 @@ export default function Visualizer({
           onOutlineChange={(outlines) => setLayoutSettings((prev) => ({ ...prev, outlines }))}
           isWindowsPlatform={isWindowsPlatform}
           showAnimationControls={true}
-          mode3D={mode3D}
-          onToggle3D={toggle3D}
           theme={theme}
           onThemeChange={(t) => setTheme(t)}
         />

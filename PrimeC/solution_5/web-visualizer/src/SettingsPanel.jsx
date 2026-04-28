@@ -48,8 +48,6 @@ export default function SettingsPanel({
   outlineSettings, onOutlineChange,
   isWindowsPlatform = false,
   showAnimationControls = true,
-  mode3D = false,
-  onToggle3D,
   theme,
   onThemeChange,
 }) {
@@ -162,7 +160,6 @@ export default function SettingsPanel({
             minimapControlVisible={minimapControlVisible}
             outlineSettings={outlineSettings} onOutlineChange={onOutlineChange}
             isWindowsPlatform={isWindowsPlatform}
-            mode3D={mode3D} onToggle3D={onToggle3D}
             loweredSetBits={loweredSetBits} onLoweredSetBitsToggle={onLoweredSetBitsToggle}
             depthSettings={depthSettings} onDepthSettingsChange={onDepthSettingsChange}
           />
