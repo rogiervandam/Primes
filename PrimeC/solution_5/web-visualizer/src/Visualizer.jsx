@@ -248,6 +248,7 @@ export default function Visualizer({
     camera3DRef,
     camera3DTransform,
     camera3DContainerStyle,
+    cameraKey,
     setCamera3DTransform,
     setCamera3DContainerStyle,
     createCamera,
@@ -289,12 +290,6 @@ export default function Visualizer({
   const viewportAnimRef = useRef(null);
   const autoplayStartedRef = useRef(false);
   const initialHighlightHoldRef = useRef(true);
-  // false — we DO want the initial-3D-restore effect to run on
-  // first render so the camera is enabled with tilt 0 (matches the
-  // mode3D default above). Previously this defaulted to true to
-  // suppress the effect entirely; now we want it to fire exactly
-  // once during mount.
-  const initial3DRestoreDoneRef = useRef(false);
   const traceInfoPopoverRef = useRef(null);
   // True while the timeline slider has left bitState in a partially-revealed
   // (pre-step) state. goToStep checks this and always rebuilds bitState from
@@ -1481,13 +1476,11 @@ export default function Visualizer({
 
   useEffect(() => {
     const cam = camera3DRef.current;
-    if (!cam || initial3DRestoreDoneRef.current || !mode3D) return;
-    initial3DRestoreDoneRef.current = true;
-    // Start at tilt 0 so the camera is in the 3D-sized layout path, then
-    // animate to the same default tilt used by the toggle button. This
-    // means the camera is already at tilt 16 by the time the user
-    // right-clicks, so the first right-click drag starts instantly with
-    // no warm-up animation.
+    if (!cam || !mode3D) return;
+    // Enable camera and animate to the default tilt. Keyed on `cameraKey` so
+    // this re-fires whenever the renderer effect creates a new Camera3D
+    // instance (including React StrictMode's double-mount), keeping
+    // cam.enabled always in sync with the mode3D=true React state.
     cam.rotateX = 0;
     cam.rotateY = 0;
     cam.perspective = 1500;
@@ -1501,7 +1494,8 @@ export default function Visualizer({
         cam.animateTo({ rotateX: 16, rotateY: 0, perspective: 1500 }, 520);
       });
     });
-  }, [mode3D, refitViewportToContent, schedulePostLayoutRefresh]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraKey]);
 
   const navigateToBit = useCallback((bitIdx, targetKind = 'bit') => {
     const r = rendererRef.current;
@@ -2798,12 +2792,28 @@ export default function Visualizer({
   const enableTiltAndResize = useCallback(() => {
     const cam = camera3DRef.current;
     if (cam && cam.enabled) {
-      // Already tilted, just keep it active (no-op).
+      // Already in 3D mode — nothing to do.
       return cam;
     }
+    if (cam && !cam.enabled && mode3D) {
+      // StrictMode desync: cam.enabled is false but React mode3D is already
+      // true. Re-enable the camera at its current rotateX (preserving any
+      // angle set by the startup animation) without triggering a new intro
+      // animation or flipping mode3D again. If rotateX is still 0 from the
+      // reset, snap to the default tilt so the first drag starts there.
+      cam.cancelAllAnimations();
+      if (Math.abs(cam.rotateX) < 0.5) cam.rotateX = 16;
+      cam.perspective = 1500;
+      cam.enable();
+      setCamera3DContainerStyle(cam.getContainerStyle());
+      schedulePostLayoutRefresh(null);
+      requestAnimationFrame(() => requestAnimationFrame(() => refitViewportToContent({ instant: true })));
+      return cam;
+    }
+    // Normal 2D→3D entry via the explicit toggle path.
     toggle3D();
     return camera3DRef.current;
-  }, [toggle3D, camera3DRef]);
+  }, [toggle3D, camera3DRef, mode3D, setCamera3DContainerStyle, schedulePostLayoutRefresh, refitViewportToContent]);
 
   // Cinematic fly-to on element click (in 3D mode)
   const flyToElement = useCallback((bitIdx) => {
@@ -2937,6 +2947,10 @@ export default function Visualizer({
       const cam = camera3DRef.current;
       if (isSecondaryRotateGesture(e, cam)) {
         enableTiltAndResize();
+        // Cancel any in-flight camera animation (e.g. the startup intro tilt)
+        // so the drag starts from whatever angle the camera is at right now.
+        const liveCam = camera3DRef.current;
+        if (liveCam) liveCam.cancelAllAnimations();
         e.preventDefault();
         e.stopPropagation();
         hideHoverBalloon();
@@ -2987,6 +3001,8 @@ export default function Visualizer({
         const secondaryPressed = ((e.buttons & 2) === 2) || (((e.buttons & 1) === 1) && (e.ctrlKey || e.metaKey));
         if (secondaryPressed) {
           enableTiltAndResize();
+          const liveCam2 = camera3DRef.current;
+          if (liveCam2) liveCam2.cancelAllAnimations();
           gestureMode = 'rotate';
           activePointerId = e.pointerId;
           startX = e.clientX;
@@ -3166,6 +3182,8 @@ export default function Visualizer({
       const secondary = e.button === 2 || (e.button === 0 && (e.ctrlKey || e.metaKey));
       if (!secondary) return;
       enableTiltAndResize();
+      const liveCam3 = camera3DRef.current;
+      if (liveCam3) liveCam3.cancelAllAnimations();
       e.preventDefault();
       e.stopPropagation();
       hideHoverBalloon();

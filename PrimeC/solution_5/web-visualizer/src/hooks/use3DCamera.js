@@ -29,6 +29,11 @@ export function use3DCamera({ mode3D }) {
   const camera3DRef = useRef(null);
   const [camera3DTransform, setCamera3DTransform] = useState('none');
   const [camera3DContainerStyle, setCamera3DContainerStyle] = useState({});
+  // Incremented each time createCamera() is called so that React effects
+  // that depend on the camera instance can re-fire after a StrictMode
+  // double-mount (where the renderer effect re-creates the camera but
+  // ref-only consumers would otherwise see the new instance too late).
+  const [cameraKey, setCameraKey] = useState(0);
 
   const createCamera = useCallback(({ onPanZoom }) => {
     const cam = new Camera3D();
@@ -38,6 +43,7 @@ export function use3DCamera({ mode3D }) {
       setCamera3DContainerStyle(cam.getContainerStyle());
     });
     cam.setPanZoomCallback(onPanZoom);
+    setCameraKey(k => k + 1);
     return cam;
   }, []);
 
@@ -66,6 +72,7 @@ export function use3DCamera({ mode3D }) {
     camera3DRef,
     camera3DTransform,
     camera3DContainerStyle,
+    cameraKey,
     setCamera3DTransform,
     setCamera3DContainerStyle,
     createCamera,
