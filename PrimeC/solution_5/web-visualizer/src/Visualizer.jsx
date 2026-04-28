@@ -2768,15 +2768,27 @@ export default function Visualizer({
     const cam = camera3DRef.current;
     if (!cam) return;
     if (cam.enabled) {
-      cam.disable();
-      setMode3D(false);
-      // Refresh canvas at normal size
-      schedulePostLayoutRefresh(captureViewportAnchor(0.5, 0.5));
-      requestAnimationFrame(() => {
+      // If the camera is already flat (e.g. the startup tilt animation
+      // hasn't played yet), disable immediately — there is nothing to
+      // animate and a delay would just look like a snap.
+      const alreadyFlat = Math.abs(cam.rotateX) < 2 && Math.abs(cam.rotateY) < 2;
+      const doDisable = () => {
+        cam.disable();
+        setMode3D(false);
+        // Refresh canvas at normal size
+        schedulePostLayoutRefresh(captureViewportAnchor(0.5, 0.5));
         requestAnimationFrame(() => {
-          refitViewportToContent({ instant: true });
+          requestAnimationFrame(() => {
+            refitViewportToContent({ instant: true });
+          });
         });
-      });
+      };
+      if (alreadyFlat) {
+        doDisable();
+      } else {
+        // Animate tilt back to flat before disabling, then switch to 2D.
+        cam.animateTo({ rotateX: 0, rotateY: 0, perspective: 1200 }, 400).then(doDisable);
+      }
     } else {
       cam.enable();
       setCamera3DContainerStyle(cam.getContainerStyle());
