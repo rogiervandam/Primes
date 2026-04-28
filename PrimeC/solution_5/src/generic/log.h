@@ -223,20 +223,10 @@ log_mask(int level, void* bitstorage, const char* label, uint64_t word_bits, cou
                 mask_target_slots[mask_target_count] = 0;
                 mask_target_count++;
             }
-            trace_record_applymask_step_labeled(level, bitstorage,
-                                                "ApplyMask",
-                                                annotation,
-                                                word_bits,
-                                                (uint64_t)range_start_index,
-                                                (uint64_t)range_stop_index,
-                                                (uint64_t)step,
-                                                mask_bits,
-                                                mask_count,
-                                                NULL,
-                                                0,
-                                                mask_target_words,
-                                                mask_target_slots,
-                                                mask_target_count);
+            trace_record_applymask_step_labeled(level, bitstorage, label, annotation,
+                                                word_bits, (uint64_t)range_start_index, (uint64_t)range_stop_index, (uint64_t)step,
+                                                mask_bits, mask_count, NULL, 0,
+                                                mask_target_words, mask_target_slots, mask_target_count);
         }
     }
 
@@ -301,7 +291,7 @@ log_mask_pair(int level, void* bitstorage, const char* label, uint64_t word_bits
                 mask_target_slots[mask_target_count] = 0;
                 mask_target_count++;
             }
-            trace_record_applymask_step_labeled(level, bitstorage, "ApplyMaskPair", annotation,
+            trace_record_applymask_step_labeled(level, bitstorage, label, annotation,
                                                 word_bits, (counter_t)range_start_index, (counter_t)range_stop_index, (counter_t)step,
                                                 mask1_bits, mask1_count, mask2_bits, mask2_count,
                                                 mask_target_words, mask_target_slots, mask_target_count);
