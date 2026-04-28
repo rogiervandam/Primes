@@ -341,15 +341,16 @@ trace_record_applymask_step_labeled(int level, void* bitstorage,
                                     uint64_t word_start,
                                     uint64_t word_stop,
                                     uint64_t step_words,
-                                    const uint32_t* mask_bits,
-                                    uint32_t mask_count,
-                                    const uint32_t* mask2_bits,
-                                    uint32_t mask2_count,
+                                    const uint32_t* const* slot_bits,
+                                    const uint32_t* slot_counts,
+                                    uint32_t slot_count,
                                     const uint64_t* mask_target_words,
                                     const uint32_t* mask_target_slots,
                                     uint32_t mask_target_count)
 {
     if (!g_trace.enabled || !g_trace.file) return;
+
+    static const char* s_pattern_kind_names[] = {"", "single", "pair", "triple", "quad"};
 
     const uint8_t* current = (const uint8_t*)bitstorage;
     g_trace.step_count++;
@@ -385,20 +386,20 @@ trace_record_applymask_step_labeled(int level, void* bitstorage,
             (unsigned long long)word_start,
             (unsigned long long)word_stop,
             (unsigned long long)step_words);
-    if (mask2_count > 0) {
-        fputs(" mask1_bits=", g_trace.file);
-        trace_write_uint32_array(g_trace.file, mask_bits, mask_count);
-        fputs(" mask2_bits=", g_trace.file);
-        trace_write_uint32_array(g_trace.file, mask2_bits, mask2_count);
-        fputs(" pattern_kind=\"pair\" pattern_slot_count=2 pattern_slot0_bits=", g_trace.file);
-        trace_write_uint32_array(g_trace.file, mask_bits, mask_count);
-        fputs(" pattern_slot1_bits=", g_trace.file);
-        trace_write_uint32_array(g_trace.file, mask2_bits, mask2_count);
-    } else {
+    if (slot_count == 1) {
         fputs(" mask_bits=", g_trace.file);
-        trace_write_uint32_array(g_trace.file, mask_bits, mask_count);
-        fputs(" pattern_kind=\"single\" pattern_slot_count=1 pattern_slot0_bits=", g_trace.file);
-        trace_write_uint32_array(g_trace.file, mask_bits, mask_count);
+        trace_write_uint32_array(g_trace.file, slot_bits[0], slot_counts[0]);
+    } else {
+        for (uint32_t s = 0; s < slot_count; s++) {
+            fprintf(g_trace.file, " mask%u_bits=", s + 1);
+            trace_write_uint32_array(g_trace.file, slot_bits[s], slot_counts[s]);
+        }
+    }
+    const char* pattern_kind = (slot_count >= 1 && slot_count <= 4) ? s_pattern_kind_names[slot_count] : "multi";
+    fprintf(g_trace.file, " pattern_kind=\"%s\" pattern_slot_count=%u", pattern_kind, slot_count);
+    for (uint32_t s = 0; s < slot_count; s++) {
+        fprintf(g_trace.file, " pattern_slot%u_bits=", s);
+        trace_write_uint32_array(g_trace.file, slot_bits[s], slot_counts[s]);
     }
     fputs(" mask_target_words=", g_trace.file);
     trace_write_uint64_array(g_trace.file, mask_target_words, mask_target_count);
