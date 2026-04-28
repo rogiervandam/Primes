@@ -200,11 +200,6 @@ function initialGridOpacity(prefs) {
   return Math.max(0.12, Math.min(1, n));
 }
 
-function initialMode3D(prefs) {
-  // Default to true (3D on). Persist the user's toggle choice.
-  return prefs?.mode3D !== false;
-}
-
 /**
  * Read prefs once and resolve every piece of persisted UI state into a flat
  * bundle. Use this from a single `useMemo(() => getInitialViewState(), [])`
@@ -229,6 +224,5 @@ export function getInitialViewState() {
     maxStepDurationEnabled: initialMaxStepDurationEnabled(prefs),
     maxStepDurationMs: initialMaxStepDurationMs(prefs),
     gridOpacity: initialGridOpacity(prefs),
-    mode3D: initialMode3D(prefs),
   };
 }

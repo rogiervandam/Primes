@@ -241,7 +241,7 @@ export default function Visualizer({
   // user can still toggle the camera off via the 3D button — that
   // disables the camera and removes the (no-op) transform; the
   // canvas geometry stays unified so panel toggles don't reflow.
-  const [mode3D, setMode3D] = useState(initialPrefs.mode3D);
+  const [mode3D, setMode3D] = useState(true);
   const currentAnimIntervalRef = useRef(20);
   const currentMaskAnimIntervalRef = useRef(20);
   const {
@@ -684,9 +684,8 @@ export default function Visualizer({
       delayBetweenEvents,
       delayBetweenRepeats,
       eventTimeTargets,
-      mode3D,
     });
-  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, mode3D]);
+  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
