@@ -7,9 +7,10 @@ import TraceInfoPopover from './TraceInfoPopover';
 
 /**
  * Top toolbar: trace title (with info popover), playback transport, and the
- * right-hand action cluster (search, zoom, 3D, heatmap, primes, timings,
+ * right-hand action cluster (search, zoom, tilt, heatmap, primes, timings,
  * export, theme). All state is owned by the parent — this component is
  * purely a presentation layer that wires events back to callbacks.
+ * The app always runs in 3D mode; the tilt button controls the camera angle.
  *
  * Right-hand cluster is hidden on Windows (mirrors the original behaviour
  * where the actions live in the SettingsPanel header instead).
@@ -51,8 +52,6 @@ export default function Toolbar({
   zoom,
   doZoom,
   resetZoom,
-  mode3D,
-  toggle3D,
   tiltActive,
   toggleTilt,
   // overlays / panels
@@ -165,22 +164,13 @@ export default function Toolbar({
             <button className="btn-icon" onClick={() => doZoom(1.5)} title="Zoom In (+)"><ZoomIn /></button>
             <button className="btn-text" onClick={resetZoom} title="Reset Zoom (0)">{zoom.toFixed(1)}x</button>
             <button className="btn-icon" onClick={() => doZoom(1 / 1.5)} title="Zoom Out (−)"><ZoomOut /></button>
-            <button className={`btn-icon${mode3D ? ' active' : ''}`} onClick={toggle3D} title="Toggle 3D view (3)">
+            <button className={`btn-icon${tiltActive ? ' active' : ''}`} onClick={toggleTilt} title={tiltActive ? 'Remove tilt (0°)' : 'Tilt view (30°)'}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M2 11L8 14L14 11" />
-                <path d="M2 8L8 11L14 8" />
-                <path d="M2 5L8 2L14 5L8 8Z" />
+                <path d="M2 13L8 10L14 13" />
+                <path d="M4 9L8 7L12 9" strokeOpacity="0.6" />
+                <path d="M6 5.5L8 4.5L10 5.5" strokeOpacity="0.35" />
               </svg>
             </button>
-            {mode3D && (
-              <button className={`btn-icon${tiltActive ? ' active' : ''}`} onClick={toggleTilt} title={tiltActive ? 'Remove tilt (0°)' : 'Tilt view (30°)'}>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M2 13L8 10L14 13" />
-                  <path d="M4 9L8 7L12 9" strokeOpacity="0.6" />
-                  <path d="M6 5.5L8 4.5L10 5.5" strokeOpacity="0.35" />
-                </svg>
-              </button>
-            )}
             <button className={`btn-icon${timingPanelOpen ? ' active' : ''}`} onClick={() => setTimingPanelOpen(o => !o)} title="Function timings">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <circle cx="8" cy="9" r="5.5" />

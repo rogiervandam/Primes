@@ -25,7 +25,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { Camera3D } from '../Camera3D';
 
-export function use3DCamera({ mode3D }) {
+export function use3DCamera() {
   const camera3DRef = useRef(null);
   const [camera3DTransform, setCamera3DTransform] = useState('none');
   const [camera3DContainerStyle, setCamera3DContainerStyle] = useState({});
@@ -56,17 +56,15 @@ export function use3DCamera({ mode3D }) {
     const cam = camera3DRef.current;
     if (!cam) return null;
     if (!cam.enabled) {
+      cam.rotateX = Math.max(10, cam.rotateX || 14);
+      cam.rotateY = cam.rotateY || 0;
+      cam.perspective = 1500;
       cam.enable();
-      if (!mode3D) {
-        cam.rotateX = Math.max(10, cam.rotateX || 14);
-        cam.rotateY = cam.rotateY || 0;
-        cam.perspective = 1500;
-        setCamera3DContainerStyle(cam.getContainerStyle());
-        setCamera3DTransform(cam.getCanvasTransform());
-      }
+      setCamera3DContainerStyle(cam.getContainerStyle());
+      setCamera3DTransform(cam.getCanvasTransform());
     }
     return cam;
-  }, [mode3D]);
+  }, []);
 
   return {
     camera3DRef,

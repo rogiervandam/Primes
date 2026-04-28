@@ -54,8 +54,6 @@ export default function LayoutTab({
   onHeatMapToggle,
   outlineSettings, onOutlineChange,
   isWindowsPlatform = false,
-  mode3D = false,
-  onToggle3D,
   loweredSetBits = false, onLoweredSetBitsToggle,
   depthSettings, onDepthSettingsChange,
 }) {
@@ -665,24 +663,6 @@ export default function LayoutTab({
                 </svg>
               )}
             />
-          )}
-          {onToggle3D && (
-            <div className="preview-btn-grid">
-              <PreviewOptionButton
-                compact
-                label="3D mode"
-                hint="Toggle 3D bit-depth view"
-                active={!!mode3D}
-                onClick={() => onToggle3D()}
-                preview={(
-                  <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                    <path d="M6 15L24 20L42 15" stroke="currentColor" fill="none" strokeWidth="1.5" />
-                    <path d="M6 11L24 16L42 11" stroke="currentColor" fill="none" strokeWidth="1.5" />
-                    <path d="M6 7L24 2L42 7L24 12Z" stroke="currentColor" fill="none" strokeWidth="1.5" />
-                  </svg>
-                )}
-              />
-            </div>
           )}
         </div>
         {/* Range overlay controls */}

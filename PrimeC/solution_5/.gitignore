@@ -27,3 +27,7 @@ build/*
 tests/bin/*
 dev/build/*
 dev/dockerfiles/*
+web-visualizer/node_modules
+web-visualizer/dist
+web-visualizer/release
+*.sievetrace
