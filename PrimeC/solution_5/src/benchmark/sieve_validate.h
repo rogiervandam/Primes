@@ -94,6 +94,8 @@ checkSieveAlgorithmAll(sieve_t* (*sieveFunction)(const counter_t), benchmark_set
 static void __attribute__((cold)) 
 showResult(sieve_t* (*sieveFunction)(const counter_t), benchmark_settings_t benchmark_settings)
 {
+    if (!option.show_explain_factor_max) return; // skip this if not requested
+    
     verbose2( printf("Show result set:\n"); )
     sieve_t* sieve = sieveFunction(benchmark_settings.factor_max);
     showPrimesinSieve(sieve, option.show_explain_factor_max);

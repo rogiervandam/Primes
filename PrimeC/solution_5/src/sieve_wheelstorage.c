@@ -4,11 +4,11 @@
 // This file includes all the building blocks for the sieve algorithm "wheelstorage"
 // This enables the compiler to optimize the code better
 
-#include "generic/timepriority.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdint.h>
+// #include "generic/timepriority.h"
+// #include <stdio.h>
+// #include <stdlib.h>
+// #include <time.h>
+// #include <stdint.h>
 
 static char algorithm_name[60] = "rogiervandam_wheelstorage";
 static char algorithm_type[] = "wheel";

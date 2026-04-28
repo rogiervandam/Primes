@@ -3,12 +3,6 @@
 
 // This file includes all the building blocks for the sieve algorithm "classic style"
 
-#include "generic/timepriority.h"
-// #include <stdio.h>
-// #include <stdlib.h>
-// #include <time.h>
-// #include <stdint.h>
-
 static char algorithm_name[] = "rogiervandam_classic8bit";
 static char algorithm_type[] = "base";
 // #define ALGORITHM_CLASSIC 1

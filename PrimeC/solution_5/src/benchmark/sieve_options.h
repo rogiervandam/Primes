@@ -4,7 +4,7 @@
 #include "../generic/settings.h"
 // #include <inttypes.h>
 #include "sieve_benchmark_settings.h"
-static struct options_t {
+typedef struct  {
     benchmark_settings_t fixed_benchmark_settings;
     counter_t show_explain_factor_max;
     counter_t show_tuning_results_max;
@@ -29,7 +29,9 @@ static struct options_t {
     char*     extension;
     char*     trace_filename;
     char*     timings_filename;
-} option;
+} options_t;
+
+options_t option; // global options variable, this is used to store all the options that can be set by the user and accessed throughout the program
 
 /*
  * Generate a default trace filename under ./log/
@@ -124,7 +126,7 @@ saveLastSettings(benchmark_settings_t settings)
 static char trace_filename[256] = "";
 static char timings_filename[256] = "";
 
-static struct options_t __attribute__((cold)) 
+static options_t __attribute__((cold)) 
 setDefaultOptions() 
 {
     option.show_explain_factor_max    = 0;

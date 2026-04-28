@@ -5,7 +5,7 @@
 // outputs results in a format that can be parsed by the benchmarking system
 
 static int 
-performBenchmarks(struct options_t option, sieve_t* (*sieveFunction)(const counter_t))
+performBenchmarks(options_t option, sieve_t* (*sieveFunction)(const counter_t))
 {
     if (option.explain_level || option.trace_level) return runSingleSievePass(option.fixed_benchmark_settings, sieveFunction);
 

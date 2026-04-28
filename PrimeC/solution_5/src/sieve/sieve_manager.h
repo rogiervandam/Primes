@@ -3,6 +3,8 @@
 // The sieve is a data structure that is used to store the prime numbers.
 // - bitstorage is the aligned bitstorage for the sieve
 // - bits is the number of bits in the sieve. It is half the sive of the sieve, because we don't store bits for even numbers
+
+#include <stdlib.h>  // for malloc, free, exit and getenv
 typedef struct sieve_t 
 {
     void*     bitstorage __attribute__((aligned(cache_line_bytes)));  // Align to cache line

@@ -112,7 +112,7 @@ parse_double_arg(char *arg_str, double *value,  char *program_name, const char *
 
 // Handler for the set parameters (see usage for explanation of parameters)
 static inline void __attribute__((cold))
-handle_set_parameter(char param_type, uintmax_t value, struct options_t *optionref) {
+handle_set_parameter(char param_type, uintmax_t value, options_t *optionref) {
     switch(param_type) {
         case 's': optionref->fixed_benchmark_settings.stripe_faster = value; break;
         case 'l': optionref->fixed_benchmark_settings.largestep_faster = value; break;
@@ -127,7 +127,7 @@ handle_set_parameter(char param_type, uintmax_t value, struct options_t *optionr
 }
 
 static inline void __attribute__((cold))
-parse_set_parameter(char *arg, char *program_name, struct options_t *optionref) {
+parse_set_parameter(char *arg, char *program_name, options_t *optionref) {
     char *p = arg;
     while (*p) {
         // Skip any hyphens

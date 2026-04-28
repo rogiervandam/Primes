@@ -2,6 +2,8 @@
 // Higher levels are necessary for --explain.
 // But they cost time, so are only compiled if specified
 
+#include <stdint.h> // for uint64_t and uint32_t
+
 #ifndef COMPILE_VERBOSE_LEVEL
     #define COMPILE_VERBOSE_LEVEL 2  
 #endif
@@ -42,6 +44,7 @@
     #define bitshift_t counter_t 
 #endif
 
+#include "timepriority.h"
 #include "types.h"
 #include "helpers.h"
 #include "terminal.h"
