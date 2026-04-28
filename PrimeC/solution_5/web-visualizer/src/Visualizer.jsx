@@ -1493,8 +1493,13 @@ export default function Visualizer({
     // this re-fires whenever the renderer effect creates a new Camera3D
     // instance (including React StrictMode's double-mount), keeping
     // cam.enabled always in sync with the mode3D=true React state.
-    cam.rotateX = 0;
-    cam.rotateY = 0;
+    //
+    // Do NOT reset rotateX/rotateY here. A freshly-created Camera3D already
+    // initialises them to 0, so the reset would be a no-op in the normal
+    // startup case. In the desync case (enableTiltAndResize() fired before
+    // this effect ran and set rotateX=16), the reset would wrongly wipe that
+    // angle, causing the first right-click drag to start from 0° instead of
+    // the current tilt.
     cam.perspective = 1500;
     cam.enable();
     setCamera3DContainerStyle(cam.getContainerStyle());
