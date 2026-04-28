@@ -337,16 +337,16 @@ static void
 trace_record_applymask_step_labeled(int level, void* bitstorage,
                                     const char* label,
                                     const char* annotation,
-                                    uint64_t word_bits,
-                                    uint64_t word_start,
-                                    uint64_t word_stop,
-                                    uint64_t step_words,
+                                    counter_t word_bits,
+                                    counter_t word_start,
+                                    counter_t word_stop,
+                                    counter_t step_words,
                                     const uint32_t* const* slot_bits,
                                     const uint32_t* slot_counts,
-                                    uint32_t slot_count,
+                                    counter_t slot_count,
                                     const uint64_t* mask_target_words,
                                     const uint32_t* mask_target_slots,
-                                    uint32_t mask_target_count)
+                                    counter_t mask_target_count)
 {
     if (!g_trace.enabled || !g_trace.file) return;
 
@@ -355,9 +355,9 @@ trace_record_applymask_step_labeled(int level, void* bitstorage,
     const uint8_t* current = (const uint8_t*)bitstorage;
     g_trace.step_count++;
     const char* event_label = trace_optional_label(label);
-    const uint64_t bit_start = word_start * word_bits;
-    const uint64_t bit_stop = (word_stop + 1) * word_bits - 1;
-    const uint64_t bit_step = step_words * word_bits;
+    const counter_t bit_start = word_start * word_bits;
+    const counter_t bit_stop = (word_stop + 1) * word_bits - 1;
+    const counter_t bit_step = step_words * word_bits;
 
     fputs("EVENT", g_trace.file);
     if (g_trace.depth > 0) fprintf(g_trace.file, " depth=%d", g_trace.depth);
@@ -367,8 +367,8 @@ trace_record_applymask_step_labeled(int level, void* bitstorage,
         trace_write_json_string(g_trace.file, event_label);
     }
 
-    uint32_t changed_count = 0;
-    for (uint32_t byte_idx = 0; byte_idx < g_trace.bitstorage_bytes; byte_idx++) {
+    counter_t changed_count = 0;
+    for (counter_t byte_idx = 0; byte_idx < g_trace.bitstorage_bytes; byte_idx++) {
         uint8_t diff = current[byte_idx] ^ g_trace.snapshot[byte_idx];
         for (; diff; diff >>= 1) {
             if (diff & 1) changed_count++;
@@ -378,14 +378,14 @@ trace_record_applymask_step_labeled(int level, void* bitstorage,
     fputs(" annotation=", g_trace.file);
     trace_write_json_string(g_trace.file, annotation ? annotation : "");
     fprintf(g_trace.file,
-            " start=%llu stop=%llu step=%llu word_bits=%llu word_start=%llu word_stop=%llu step_words=%llu",
-            (unsigned long long)bit_start,
-            (unsigned long long)bit_stop,
-            (unsigned long long)bit_step,
-            (unsigned long long)word_bits,
-            (unsigned long long)word_start,
-            (unsigned long long)word_stop,
-            (unsigned long long)step_words);
+            " start=%ju stop=%ju step=%ju word_bits=%ju word_start=%ju word_stop=%ju step_words=%ju",
+            (uintmax_t)bit_start,
+            (uintmax_t)bit_stop,
+            (uintmax_t)bit_step,
+            (uintmax_t)word_bits,
+            (uintmax_t)word_start,
+            (uintmax_t)word_stop,
+            (uintmax_t)step_words);
     if (slot_count == 1) {
         fputs(" mask_bits=", g_trace.file);
         trace_write_uint32_array(g_trace.file, slot_bits[0], slot_counts[0]);
@@ -408,13 +408,13 @@ trace_record_applymask_step_labeled(int level, void* bitstorage,
 
     fprintf(g_trace.file, " changed_count=%u changed_bits=[", changed_count);
     int first = 1;
-    for (uint32_t byte_idx = 0; byte_idx < g_trace.bitstorage_bytes; byte_idx++) {
+    for (counter_t byte_idx = 0; byte_idx < g_trace.bitstorage_bytes; byte_idx++) {
         uint8_t diff = current[byte_idx] ^ g_trace.snapshot[byte_idx];
-        for (uint32_t bit = 0; diff; bit++, diff >>= 1) {
+        for (counter_t bit = 0; diff; bit++, diff >>= 1) {
             if (diff & 1) {
-                uint32_t bit_index = byte_idx * 8 + bit;
+                counter_t bit_index = byte_idx * 8 + bit;
                 if (!first) fputc(',', g_trace.file);
-                fprintf(g_trace.file, "%u", bit_index);
+                fprintf(g_trace.file, "%ju", (uintmax_t)bit_index);
                 first = 0;
             }
         }
