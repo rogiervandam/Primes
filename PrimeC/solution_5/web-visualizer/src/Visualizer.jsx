@@ -3914,6 +3914,13 @@ export default function Visualizer({
           externalOpFilter={timingFocusOp}
           onExternalOpFilterConsumed={() => setTimingFocusOp('')}
           revealStepRequest={revealStepRequest}
+          goToStep={goToStep}
+          playing={playing}
+          handlePlayPause={handlePlayPause}
+          exporting={!!exporting}
+          isScrubbingTopRef={isScrubbingTopRef}
+          playSpeedPercent={playSpeedPercent}
+          setPlaySpeedPercent={setPlaySpeedPercent}
         />
         <CanvasStage
           mode3D={mode3D}
