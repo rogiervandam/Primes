@@ -30,6 +30,7 @@ function AnimationTab({
   animationReplayPaused, onAnimationReplayPausedChange,
   maxStepDurationEnabled, onMaxStepDurationEnabledChange,
   maxStepDurationMs, onMaxStepDurationMsChange,
+  eventDurationMode, onEventDurationModeChange,
 }) {
   const playbackSpeedValue = msToPlaybackSpeed(playSpeed || 100);
 
@@ -138,7 +139,29 @@ function AnimationTab({
 
       <div className="settings-section">
         <label>Animation timing</label>
-        <div className="settings-row animation-timing-row" style={{ alignItems: 'flex-start', gap: 8 }}>
+        <div className="settings-row animation-timing-row" style={{ alignItems: 'flex-start', gap: 8 }}>  
+          <div className="timing-control">
+            <span className="timing-title">Event duration target</span>
+            <div className="timing-toggle" style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+              <button
+                type="button"
+                className={`step-focus-mode-btn${(eventDurationMode || 'progressive') === 'progressive' ? ' active' : ''}`}
+                onClick={() => onEventDurationModeChange && onEventDurationModeChange('progressive')}
+                title="Tiered: 2s for the first 10 bits, 2s for the next 100, 2s for the rest (max ~6s)"
+              >Progressive</button>
+              <button
+                type="button"
+                className={`step-focus-mode-btn${eventDurationMode === 'linear' ? ' active' : ''}`}
+                onClick={() => onEventDurationModeChange && onEventDurationModeChange('linear')}
+                title="Linear: total duration scales with the bit count"
+              >Linear</button>
+            </div>
+            <div className="timing-scale" aria-hidden="true">
+              <span style={{ fontSize: '0.8em', opacity: 0.7 }}>{(eventDurationMode || 'progressive') === 'progressive' ? 'Tiered 2s per tier' : 'Scales with bits'}</span>
+            </div>
+          </div>
+        </div>
+        <div className="settings-row animation-timing-row" style={{ alignItems: 'flex-start', gap: 8 }}>          
           <div className="timing-control">
             <span className="timing-title">Overall speed</span>
             <input

@@ -26,11 +26,6 @@ function StepAnimSliders({
   animationReplayPaused,
   playing,
   exporting,
-  eventDurationMode,
-  setEventDurationMode,
-  computeEventDuration,
-  playSpeedPercent,
-  setPlaySpeedPercent,
 }) {
   const hasMaskOrder = !!(
     currentStepData
@@ -117,60 +112,7 @@ function StepAnimSliders({
         <span className="step-focus-slider-value">{stepScrubProgress}%</span>
       </div>
 
-      <div className="step-focus-slider-row step-focus-mode-row" title="How long the timeline takes 0..100% for an event. Progressive: 2s per populated tier (first 10 bits, next 100 bits, the rest) — caps at 6s. Linear: total time scales with the bit count.">
-        <span className="step-focus-slider-label">Target</span>
-        <div className="step-focus-mode-toggle">
-          <button
-            type="button"
-            className={`step-focus-mode-btn${eventDurationMode === 'progressive' ? ' active' : ''}`}
-            onClick={(e) => { e.stopPropagation(); setEventDurationMode('progressive'); }}
-            onMouseDown={(e) => e.stopPropagation()}
-            title="Tiered: 2s for the first 10 bits, 2s for the next 100, 2s for the rest (max ~6s)"
-          >Progressive</button>
-          <button
-            type="button"
-            className={`step-focus-mode-btn${eventDurationMode === 'linear' ? ' active' : ''}`}
-            onClick={(e) => { e.stopPropagation(); setEventDurationMode('linear'); }}
-            onMouseDown={(e) => e.stopPropagation()}
-            title="Linear: total duration scales with the bit count (matches the speed slider exactly)"
-          >Linear</button>
-        </div>
-        <span className="step-focus-slider-value step-focus-mode-value" title="Target time the timeline takes from 0% to 100% for the current event with the active mode and speed">
-          {(() => {
-            const c = currentStepData?.changedBits?.length || 0;
-            const d = computeEventDuration(c);
-            const formatted = d >= 1000 ? `${(d / 1000).toFixed(1)}s` : `${Math.round(d)}ms`;
-            return `${formatted} · ${c} bit${c === 1 ? '' : 's'}`;
-          })()}
-        </span>
-      </div>
 
-      <label className="step-focus-slider-row" title="Playback speed as a percentage of the per-event normal time target. 50% takes twice as long, 200% takes half as long. Affects bit reveal AND mask stamps in lockstep.">
-        <span className="step-focus-slider-label">Speed</span>
-        {/* Slider is a percentage of the per-event "normal" time target.
-            Range 25%..400%, log-mapped so each tick is the same multiplicative
-            jump and 100% sits comfortably inside the slider. The same value
-            scales the per-bit reveal AND the mask stamp animation. */}
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={1}
-          value={(() => {
-            const pct = Math.max(25, Math.min(400, Number(playSpeedPercent) || 100));
-            const ratio = Math.log(pct / 25) / Math.log(400 / 25);
-            return Math.round(Math.max(0, Math.min(1, ratio)) * 100);
-          })()}
-          onChange={(e) => {
-            const v = Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0));
-            const pct = 25 * Math.pow(400 / 25, v / 100);
-            setPlaySpeedPercent(Math.max(25, Math.min(400, Math.round(pct))));
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-          disabled={exporting}
-        />
-        <span className="step-focus-slider-value" title={`${playSpeedPercent}% of normal speed`}>{playSpeedPercent}%</span>
-      </label>
     </>
   );
 }

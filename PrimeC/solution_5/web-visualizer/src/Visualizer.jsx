@@ -1497,7 +1497,7 @@ export default function Visualizer({
     // Do NOT reset rotateX/rotateY here. A freshly-created Camera3D already
     // initialises them to 0, so the reset would be a no-op in the normal
     // startup case. In the desync case (enableTiltAndResize() fired before
-    // this effect ran and set rotateX=16), the reset would wrongly wipe that
+    // this effect ran and set rotateX=60), the reset would wrongly wipe that
     // angle, causing the first right-click drag to start from 0° instead of
     // the current tilt.
     cam.perspective = 1500;
@@ -1508,7 +1508,7 @@ export default function Visualizer({
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         refitViewportToContent({ instant: true });
-        cam.animateTo({ rotateX: 16, rotateY: 0, perspective: 1500 }, 520);
+        cam.animateTo({ rotateX: 60, rotateY: 0, perspective: 1500 }, 520);
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3882,11 +3882,6 @@ export default function Visualizer({
       animationReplayPaused={animationReplayPaused}
       playing={playing}
       exporting={exporting}
-      eventDurationMode={eventDurationMode}
-      setEventDurationMode={setEventDurationMode}
-      computeEventDuration={computeEventDuration}
-      playSpeedPercent={playSpeedPercent}
-      setPlaySpeedPercent={setPlaySpeedPercent}
     />
   );
 
@@ -4051,6 +4046,8 @@ export default function Visualizer({
           onMaxStepDurationEnabledChange={setMaxStepDurationEnabled}
           maxStepDurationMs={maxStepDurationMs}
           onMaxStepDurationMsChange={setMaxStepDurationMs}
+          eventDurationMode={eventDurationMode}
+          onEventDurationModeChange={setEventDurationMode}
           gridOpacity={gridOpacity}
           onGridOpacityChange={setGridOpacity}
           colorPreset={colorPreset}

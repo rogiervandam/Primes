@@ -22,6 +22,7 @@ export default function SettingsPanel({
   animationReplayPaused, onAnimationReplayPausedChange,
   maxStepDurationEnabled, onMaxStepDurationEnabledChange,
   maxStepDurationMs, onMaxStepDurationMsChange,
+  eventDurationMode, onEventDurationModeChange,
   gridOpacity, onGridOpacityChange,
   colorPreset, onColorPresetChange,
   customColors, onCustomColorsChange,
@@ -204,6 +205,7 @@ export default function SettingsPanel({
             animationReplayPaused={animationReplayPaused} onAnimationReplayPausedChange={onAnimationReplayPausedChange}
             maxStepDurationEnabled={maxStepDurationEnabled} onMaxStepDurationEnabledChange={onMaxStepDurationEnabledChange}
             maxStepDurationMs={maxStepDurationMs} onMaxStepDurationMsChange={onMaxStepDurationMsChange}
+            eventDurationMode={eventDurationMode} onEventDurationModeChange={onEventDurationModeChange}
           />
         )}
         </div>
