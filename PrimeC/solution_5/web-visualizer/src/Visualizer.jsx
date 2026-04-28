@@ -3831,6 +3831,8 @@ export default function Visualizer({
       handleStepAnimToggle={handleStepAnimToggle}
       stepAnimRunning={stepAnimRunning}
       singleEventLoopActive={singleEventLoopActive}
+      animationReplayPaused={animationReplayPaused}
+      playing={playing}
       exporting={exporting}
       eventDurationMode={eventDurationMode}
       setEventDurationMode={setEventDurationMode}
@@ -4068,6 +4070,8 @@ export default function Visualizer({
           showAnimationControls={true}
           mode3D={mode3D}
           onToggle3D={toggle3D}
+          theme={theme}
+          onThemeChange={(t) => setTheme(t)}
         />
       </div>
     </div>

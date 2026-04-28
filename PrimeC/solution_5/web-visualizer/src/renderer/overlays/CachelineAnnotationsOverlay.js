@@ -125,8 +125,9 @@ export class CachelineAnnotationsOverlay {
       const bw  = Math.min(rw - 4, tw + padBX * 2);
       const bh  = fs + padBY * 2;
       const bx  = rx + (rw - bw) / 2;
-      // Place badge vertically centred inside the cell, shifted 25% toward the bottom
-      const by  = ry + (rh - bh) + rh * 0.12;
+      // Place badge near the bottom of the cell, with a small inset margin
+      // so it stays within the cacheline outline boundary.
+      const by  = ry + rh - bh - Math.max(2, rh * 0.05);
 
       const fillAlpha = Math.min(0.97, Math.max(0.82, oc.alpha * 2 + 0.5));
       ctx.fillStyle = `rgba(${oc.r},${oc.g},${oc.b},${fillAlpha})`;

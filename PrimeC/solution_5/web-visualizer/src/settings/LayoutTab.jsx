@@ -1,5 +1,5 @@
 import React from 'react';
-import { BIT_LAYOUTS, BYTE_LAYOUTS, COLOR_PRESETS, CACHELINE_SIZES, CACHE_PRESETS } from '../SieveRenderer';
+import { BIT_LAYOUTS, BYTE_LAYOUTS, CACHELINE_SIZES, CACHE_PRESETS } from '../SieveRenderer';
 import { useDraftInput } from '../hooks/useDraftInput';
 import { useSettingsBundle } from './useSettingsBundle';
 import {
@@ -17,15 +17,6 @@ import {
   AnnotationButton,
   PreviewOptionButton,
 } from './buttons';
-
-function rgbToHex(rgb) {
-  if (!rgb || rgb.length < 3) return '#555555';
-  return '#' + rgb.map(c => Math.max(0, Math.min(255, c)).toString(16).padStart(2, '0')).join('');
-}
-function hexToRgb(hex) {
-  const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
-  return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [0, 0, 0];
-}
 
 /**
  * LayoutTab — content for the "Layout" tab of the settings sidebar.
@@ -47,9 +38,6 @@ function hexToRgb(hex) {
  */
 export default function LayoutTab({
   settings, onChange,
-  gridOpacity, onGridOpacityChange,
-  colorPreset, onColorPresetChange,
-  customColors, onCustomColorsChange,
   cachelineSize, onCachelineSizeChange,
   cachePreset, onCachePresetChange,
   heatMapEnabled,
@@ -64,12 +52,12 @@ export default function LayoutTab({
   showMinimap, onShowMinimapChange,
   minimapControlVisible = true,
   onHeatMapToggle,
-  eventTitleSettings,
-  onEventTitleSettingsChange,
   outlineSettings, onOutlineChange,
   isWindowsPlatform = false,
   mode3D = false,
   onToggle3D,
+  loweredSetBits = false, onLoweredSetBitsToggle,
+  depthSettings, onDepthSettingsChange,
 }) {
   const { s, set, setMany, incr, decr } = useSettingsBundle(settings, onChange);
   const [groupingMenuOpen, setGroupingMenuOpen] = React.useState(false);
@@ -599,65 +587,6 @@ export default function LayoutTab({
   return (
     <>
       <div className="settings-section">
-        <label>Title &amp; Grid</label>
-        <div className="settings-row overlay-inline-controls">
-          <label className="overlay-inline-field overlay-inline-field-range">
-            <span>Grid opacity</span>
-            <input
-              type="range"
-              min={12}
-              max={100}
-              step={1}
-              value={Math.round((gridOpacity ?? 1) * 100)}
-              onChange={(e) => onGridOpacityChange && onGridOpacityChange((Math.max(12, Math.min(100, parseInt(e.target.value || '100', 10) || 100))) / 100)}
-            />
-            <span className="val">{Math.round((gridOpacity ?? 1) * 100)}%</span>
-          </label>
-        </div>
-        <div className="settings-row" style={{ marginTop: 8 }}>
-          <label style={{ display: 'block', fontSize: 11, color: 'var(--fg-dim)', marginBottom: 4, width: '100%' }}>Color preset</label>
-        </div>
-        <div className="settings-row">
-          <select value={colorPreset || ''} onChange={(e) => {
-            const val = e.target.value || null;
-            onColorPresetChange(val);
-            if (val) onCustomColorsChange({ setBit: null, clearedBit: null, unchangedBit: null });
-          }}>
-            <option value="">Theme default</option>
-            {Object.entries(COLOR_PRESETS).map(([k, v]) => (
-              <option key={k} value={k}>{v.label}</option>
-            ))}
-          </select>
-        </div>
-        <div className="settings-row color-row" style={{ marginTop: 6 }}>
-          <label className="color-label">
-            Set
-            <input type="color"
-              value={rgbToHex(customColors?.setBit || (colorPreset && COLOR_PRESETS[colorPreset] ? COLOR_PRESETS[colorPreset].setBit : [85, 85, 85]))}
-              onChange={(e) => onCustomColorsChange({ ...customColors, setBit: hexToRgb(e.target.value) })} />
-          </label>
-          <label className="color-label">
-            Cleared
-            <input type="color"
-              value={rgbToHex(customColors?.clearedBit || (colorPreset && COLOR_PRESETS[colorPreset] ? COLOR_PRESETS[colorPreset].clearedBit : [232, 232, 232]))}
-              onChange={(e) => onCustomColorsChange({ ...customColors, clearedBit: hexToRgb(e.target.value) })} />
-          </label>
-          <label className="color-label">
-            Unchanged
-            <input type="color"
-              value={rgbToHex(customColors?.unchangedBit || (colorPreset && COLOR_PRESETS[colorPreset] ? COLOR_PRESETS[colorPreset].unchangedBit : [232, 232, 232]))}
-              onChange={(e) => onCustomColorsChange({ ...customColors, unchangedBit: hexToRgb(e.target.value) })} />
-          </label>
-        </div>
-        {(customColors?.setBit || customColors?.clearedBit || customColors?.unchangedBit) && (
-          <button className="btn-text" style={{ marginTop: 4, fontSize: '0.8rem' }}
-                  onClick={() => onCustomColorsChange({ setBit: null, clearedBit: null, unchangedBit: null })}>
-            Reset custom colors
-          </button>
-        )}
-      </div>
-
-      <div className="settings-section">
         <label>Grid view</label>
         <div className="preview-btn-grid preview-btn-grid-4">
           <PreviewOptionButton
@@ -755,23 +684,6 @@ export default function LayoutTab({
               />
             </div>
           )}
-          <PreviewOptionButton
-            compact
-            label="Event title"
-            hint="Show the current event title above the canvas"
-            active={eventTitleSettings?.visible !== false}
-            onClick={() => onEventTitleSettingsChange && onEventTitleSettingsChange((prev) => ({
-              ...(prev || eventTitleSettings || {}),
-              visible: !((prev || eventTitleSettings || {}).visible !== false),
-            }))}
-            preview={(
-              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                <rect x="4" y="4" width="40" height="14" rx="3" />
-                <path d="M9 9h18" />
-                <path d="M9 13h28" />
-              </svg>
-            )}
-          />
         </div>
         {/* Range overlay controls */}
         {rangeOverlayEnabled && (
@@ -831,41 +743,69 @@ export default function LayoutTab({
             <span className="settings-hint" style={{ alignSelf: 'flex-end', marginBottom: 2 }}>Highlights multiples of this number in purple</span>
           </div>
         )}
-        {eventTitleSettings?.visible !== false && (
-          <>
-            <div className="settings-row overlay-inline-controls">
-              <label className="overlay-inline-field overlay-inline-field-range">
-                <span>Size</span>
-                <input
-                  type="range"
-                  min={70}
-                  max={160}
-                  step={5}
-                  value={eventTitleSettings?.scale || 100}
-                  onChange={(e) => onEventTitleSettingsChange && onEventTitleSettingsChange((prev) => ({
-                    ...(prev || eventTitleSettings || {}),
-                    scale: parseInt(e.target.value, 10),
-                  }))}
-                />
-                <span className="val">{eventTitleSettings?.scale || 100}%</span>
-              </label>
-              <button
-                type="button"
-                className="btn-text"
-                onClick={() => onEventTitleSettingsChange && onEventTitleSettingsChange((prev) => ({
-                  ...(prev || eventTitleSettings || {}),
-                  dragOffsetX: 0,
-                  dragOffsetY: 0,
-                }))}
-                title="Re-center the event title banner"
-              >
-                Recenter
-              </button>
-            </div>
-            <span className="settings-hint">Drag the banner to reposition. It opens the events panel when clicked without dragging.</span>
-          </>
-        )}
       </div>
+
+      {onLoweredSetBitsToggle && (
+        <div className="settings-section">
+          <label>Sieve depth mode</label>
+          <div className="preview-btn-grid preview-btn-grid-3">
+            <PreviewOptionButton
+              compact
+              label="Lowered bits"
+              hint="Set bits sink through the sieve — cleared bits stay at surface level"
+              active={!!loweredSetBits}
+              onClick={() => onLoweredSetBitsToggle()}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true" strokeLinecap="round">
+                  <rect x="4"  y="3" width="7" height="7" opacity="0.35" />
+                  <rect x="14" y="3" width="7" height="7" opacity="0.35" />
+                  <rect x="24" y="3" width="7" height="7" opacity="0.35" />
+                  <rect x="34" y="3" width="7" height="7" opacity="0.35" />
+                  <rect x="4"  y="13" width="5" height="5" opacity="0.9" />
+                  <rect x="24" y="13" width="5" height="5" opacity="0.9" />
+                </svg>
+              )}
+            />
+          </div>
+          {loweredSetBits && (
+            <>
+              <div className="settings-row overlay-inline-controls">
+                <label className="overlay-inline-field overlay-inline-field-range">
+                  <span>Depth strength</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={depthSettings?.strength ?? 80}
+                    onChange={(e) => onDepthSettingsChange && onDepthSettingsChange((prev) => ({
+                      ...(prev || depthSettings || {}),
+                      strength: parseInt(e.target.value, 10),
+                    }))}
+                  />
+                  <span className="val">{depthSettings?.strength ?? 80}%</span>
+                </label>
+                <label className="overlay-inline-field overlay-inline-field-range">
+                  <span>Depth angle</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={90}
+                    step={1}
+                    value={depthSettings?.angle ?? 38}
+                    onChange={(e) => onDepthSettingsChange && onDepthSettingsChange((prev) => ({
+                      ...(prev || depthSettings || {}),
+                      angle: parseInt(e.target.value, 10),
+                    }))}
+                  />
+                  <span className="val">{depthSettings?.angle ?? 38}°</span>
+                </label>
+              </div>
+              <span className="settings-hint">Tune how deep and at what angle bits fall through the sieve. Labels on set bits follow the lowered position.</span>
+            </>
+          )}
+        </div>
+      )}
 
       <LayoutOverview />
 

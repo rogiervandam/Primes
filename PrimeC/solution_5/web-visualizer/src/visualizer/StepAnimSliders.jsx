@@ -23,6 +23,8 @@ function StepAnimSliders({
   handleStepAnimToggle,
   stepAnimRunning,
   singleEventLoopActive,
+  animationReplayPaused,
+  playing,
   exporting,
   eventDurationMode,
   setEventDurationMode,
@@ -93,10 +95,10 @@ function StepAnimSliders({
             className="step-focus-play-btn"
             onClick={(e) => { e.stopPropagation(); handleStepAnimToggle(); }}
             onMouseDown={(e) => e.stopPropagation()}
-            title={(stepAnimRunning || singleEventLoopActive) ? 'Pause the timeline animation' : 'Play the timeline animation at the current Speed'}
+            title={(playing || stepAnimRunning || singleEventLoopActive) && !animationReplayPaused ? 'Pause the timeline animation' : 'Play the timeline animation at the current Speed'}
             disabled={timelineDisabled}
           >
-            {(stepAnimRunning || singleEventLoopActive) ? <Pause size={14} /> : <Play size={14} />}
+            {(playing || stepAnimRunning || singleEventLoopActive) && !animationReplayPaused ? <Pause size={14} /> : <Play size={14} />}
           </button>
           <input
             type="range"

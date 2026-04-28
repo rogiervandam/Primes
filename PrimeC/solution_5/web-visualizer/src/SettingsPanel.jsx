@@ -3,6 +3,8 @@ import LegendSections from './settings/LegendSections';
 import LegendTab from './settings/LegendTab';
 import LayoutTab from './settings/LayoutTab';
 import AnimationTab from './settings/AnimationTab';
+import ColorsTab from './settings/ColorsTab';
+import TitleTab from './settings/TitleTab';
 import { GearIcon } from './settings/buttons';
 
 /**
@@ -47,6 +49,8 @@ export default function SettingsPanel({
   showAnimationControls = true,
   mode3D = false,
   onToggle3D,
+  theme,
+  onThemeChange,
 }) {
   const s = settings || {};
   const [activeTab, setActiveTab] = React.useState('layout');
@@ -93,6 +97,24 @@ export default function SettingsPanel({
             <button
               type="button"
               role="tab"
+              aria-selected={activeTab === 'colors'}
+              className={`settings-tab-btn${activeTab === 'colors' ? ' active' : ''}`}
+              onClick={() => setActiveTab('colors')}
+            >
+              Colors
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'title'}
+              className={`settings-tab-btn${activeTab === 'title' ? ' active' : ''}`}
+              onClick={() => setActiveTab('title')}
+            >
+              Title
+            </button>
+            <button
+              type="button"
+              role="tab"
               aria-selected={activeTab === 'animation'}
               className={`settings-tab-btn${activeTab === 'animation' ? ' active' : ''}`}
               onClick={() => setActiveTab('animation')}
@@ -119,9 +141,6 @@ export default function SettingsPanel({
         {activeTab === 'layout' && (
           <LayoutTab
             settings={settings} onChange={onChange}
-            gridOpacity={gridOpacity} onGridOpacityChange={onGridOpacityChange}
-            colorPreset={colorPreset} onColorPresetChange={onColorPresetChange}
-            customColors={customColors} onCustomColorsChange={onCustomColorsChange}
             cachelineSize={cachelineSize} onCachelineSizeChange={onCachelineSizeChange}
             cachePreset={cachePreset} onCachePresetChange={onCachePresetChange}
             heatMapEnabled={heatMapEnabled} onHeatMapToggle={onHeatMapToggle}
@@ -134,10 +153,26 @@ export default function SettingsPanel({
             onRangeOverlayReset={onRangeOverlayReset} onMultiplesOverlayReset={onMultiplesOverlayReset}
             showMinimap={showMinimap} onShowMinimapChange={onShowMinimapChange}
             minimapControlVisible={minimapControlVisible}
-            eventTitleSettings={eventTitleSettings} onEventTitleSettingsChange={onEventTitleSettingsChange}
             outlineSettings={outlineSettings} onOutlineChange={onOutlineChange}
             isWindowsPlatform={isWindowsPlatform}
             mode3D={mode3D} onToggle3D={onToggle3D}
+            loweredSetBits={loweredSetBits} onLoweredSetBitsToggle={onLoweredSetBitsToggle}
+            depthSettings={depthSettings} onDepthSettingsChange={onDepthSettingsChange}
+          />
+        )}
+
+        {activeTab === 'colors' && (
+          <ColorsTab
+            gridOpacity={gridOpacity} onGridOpacityChange={onGridOpacityChange}
+            colorPreset={colorPreset} onColorPresetChange={onColorPresetChange}
+            customColors={customColors} onCustomColorsChange={onCustomColorsChange}
+            theme={theme} onThemeChange={onThemeChange}
+          />
+        )}
+
+        {activeTab === 'title' && (
+          <TitleTab
+            eventTitleSettings={eventTitleSettings} onEventTitleSettingsChange={onEventTitleSettingsChange}
           />
         )}
 
@@ -163,8 +198,6 @@ export default function SettingsPanel({
             animationReplayPaused={animationReplayPaused} onAnimationReplayPausedChange={onAnimationReplayPausedChange}
             maxStepDurationEnabled={maxStepDurationEnabled} onMaxStepDurationEnabledChange={onMaxStepDurationEnabledChange}
             maxStepDurationMs={maxStepDurationMs} onMaxStepDurationMsChange={onMaxStepDurationMsChange}
-            loweredSetBits={loweredSetBits} onLoweredSetBitsToggle={onLoweredSetBitsToggle}
-            depthSettings={depthSettings} onDepthSettingsChange={onDepthSettingsChange}
           />
         )}
         </div>

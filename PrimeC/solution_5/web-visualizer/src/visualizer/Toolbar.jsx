@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
-  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Thermometer, PrimeStar,
+  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus,
 } from '../Icons';
 import TraceInfoPopover from './TraceInfoPopover';
 
@@ -170,8 +170,6 @@ export default function Toolbar({
                 <path d="M2 5L8 2L14 5L8 8Z" />
               </svg>
             </button>
-            <button className={`btn-icon${heatMapEnabled ? ' active' : ''}`} onClick={() => setHeatMapEnabled(h => !h)} title="Toggle cacheline heat map overlay — shows hit count and recency per cacheline"><Thermometer /></button>
-            <button className={`btn-icon${primeOverlayEnabled ? ' active prime-overlay-btn' : ''}`} onClick={() => setPrimeOverlayEnabled(v => !v)} title="Toggle prime number overlay — highlights every bit whose represented number is prime"><PrimeStar /></button>
             <button className={`btn-icon${timingPanelOpen ? ' active' : ''}`} onClick={() => setTimingPanelOpen(o => !o)} title="Function timings">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <circle cx="8" cy="9" r="5.5" />
@@ -179,9 +177,6 @@ export default function Toolbar({
                 <path d="M6 1.5h4" strokeLinecap="round" />
                 <path d="M8 1.5v2" strokeLinecap="round" />
               </svg>
-            </button>
-            <button className={`btn-icon${loweredSetBits ? ' active' : ''}`} onClick={() => setLoweredSetBits((value) => !value)} title="Toggle lowered-set-bits sieve mode">
-              ▽
             </button>
             <button className="btn-icon" onClick={exportPng} title="Export PNG"><Camera /></button>
             {!exporting ? (

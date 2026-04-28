@@ -889,6 +889,9 @@ export class SieveRenderer {
 
     const pad      = this._outlinePadding();
     const topExtra = this._outlineTopExtra('cacheline');
+    // When annotations are active, extend the outline bottom to include the badge area.
+    const annotActive = this.heatMapEnabled && this.cachelineAnnotation && this.cachelineAnnotation !== 'none';
+    const annotBottomExtra = annotActive ? Math.min(22, Math.max(14, rowD.h * 0.18)) : 0;
     const ch = this.canvas.height / (window.devicePixelRatio || 1);
     const startVRow = Math.max(0, Math.floor(-this.panY / vRowHeight));
     const endVRow   = Math.ceil((ch - this.panY) / vRowHeight) + 1;
@@ -929,7 +932,7 @@ export class SieveRenderer {
         const x = this.panX + seg.vecStart * vecStep - pad;
         const y = this.panY + seg.vRow * vRowHeight + labelH - pad - topExtra;
         const w = (seg.vecEnd - seg.vecStart + 1) * vecStep - this._u64GapX() + pad * 2;
-        const h = rowD.h + pad * 2 + topExtra;
+        const h = rowD.h + pad * 2 + topExtra + annotBottomExtra;
         this._drawOutlineRect(ctx, x, y, w, h);
       }
     }
