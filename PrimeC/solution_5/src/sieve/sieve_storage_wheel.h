@@ -18,14 +18,28 @@
     #define WHEEL_STORAGE_480OF2310   5
     #define WHEEL_STORAGE_5760OF30030 6
 
-    #define WHEEL_MAX 5
-    #define WHEEL_BASIC_SIZE (2 * 3 * 5)
-    #define WHEEL_STRIPES 8
-    #define WHEEL_REPEATS 1
+    #define WHEEL_CACHE_FILE "wheel_cache/wheel_8of30.h"
 
-    #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
-    #define WHEEL_STRIPE_BYTES 1 //(((WHEEL_STRIPES) - 1) / 8 + 1)
-    #define WHEEL_STRIPE_BITS  ((WHEEL_STRIPE_BYTES) * 8)
+    // Wheel size parameters: either loaded from a pre-generated cache file,
+    // or set to the default 8of30 values for runtime computation.
+    #ifdef WHEEL_CACHE_FILE
+        #include WHEEL_CACHE_FILE
+        #define WHEEL_MAX         WC_WHEEL_MAX
+        #define WHEEL_BASIC_SIZE  WC_WHEEL_SIZE
+        #define WHEEL_STRIPES     WC_WHEEL_STRIPES
+        #define WHEEL_REPEATS     1
+        #define WHEEL_SIZE        WC_WHEEL_SIZE
+        #define WHEEL_STRIPE_BYTES WC_WHEEL_STRIPE_BYTES
+        #define WHEEL_STRIPE_BITS  WC_WHEEL_STRIPE_BITS
+    #else
+        #define WHEEL_MAX 5
+        #define WHEEL_BASIC_SIZE (2 * 3 * 5)
+        #define WHEEL_STRIPES 8
+        #define WHEEL_REPEATS 1
+        #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
+        #define WHEEL_STRIPE_BYTES 1 //(((WHEEL_STRIPES) - 1) / 8 + 1)
+        #define WHEEL_STRIPE_BITS  ((WHEEL_STRIPE_BYTES) * 8)
+    #endif
 
     #define wheelmask_stripes      WHEEL_STRIPES
     #define wheelmask_stripe_bytes WHEEL_STRIPE_BYTES
@@ -33,13 +47,25 @@
 
     #include "../sieve/sieve_calc.h"
 
+    #ifdef WHEEL_CACHE_FILE
+    // Use the pre-generated const arrays directly — no runtime allocation or copy needed.
+    #define wheelprimes          _wc_wheelprimes
+    #define wheelmask            _wc_wheelmask
+    #define wheelmask_compressed _wc_wheelmask_compressed
+    #define wheelmask_index      _wc_wheelmask_index
+    #define wheelmask_bitpoint   _wc_wheelmask_bitpoint
+    static counter_t wheelmask_mask[8] = { 1, 2, 4, 8, 16, 32, 64, 128};
+    static inline void build_wheel() {
+        verbose2 (printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju Wheel stripe bits: %ju (cached)\n", WHEEL_SIZE, (uintmax_t)wheelmask_stripes, (uintmax_t)wheelmask_stripe_bytes, (uintmax_t)wheelmask_stripe_bits) );
+    }
+    #else
     static unsigned int wheelprimes[WHEEL_MAX+1]; // can't be more than highest prime in the wheel
     static uint8_t wheelmask[WHEEL_SIZE];
     static wheelmask_t wheelmask_compressed[WHEEL_SIZE];
     static uint8_t wheelmask_index[WHEEL_SIZE];
     static counter_t wheelmask_bitpoint[WHEEL_SIZE];
     static counter_t wheelmask_mask[8] = { 1, 2, 4, 8, 16, 32, 64, 128};
-
+    // Runtime path: compute wheel data from scratch.
     void build_wheel() {
         // find all the primes in the wheel up to WHEEL_MAX and store them
         for (counter_t i = 0; i < WHEEL_MAX; i++) {
@@ -85,6 +111,7 @@
         // }    
 
     }
+    #endif
 
     // static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     // wheel_bit_calc(counter_t index) {

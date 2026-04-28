@@ -4,20 +4,8 @@
 // This file includes all the building blocks for the sieve algorithm "wheelstorage"
 // This enables the compiler to optimize the code better
 
-// #include "generic/timepriority.h"
-// #include <stdio.h>
-// #include <stdlib.h>
-// #include <time.h>
-// #include <stdint.h>
-
 static char algorithm_name[60] = "rogiervandam_wheelstorage";
 static char algorithm_type[] = "wheel";
-
-// #define ALTERNATIVE_CHECK 1 // signals sieve_check to use the alternative check function
-
-// #ifndef WHEEL_STORAGE
-//     #define WHEEL_STORAGE WHEEL_STORAGE_8OF30
-// #endif
 
 #include "benchmark/sieve_options.h"
 #include "sieve/sieve_manager.h"
