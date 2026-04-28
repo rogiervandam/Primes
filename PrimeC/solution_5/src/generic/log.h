@@ -182,15 +182,8 @@ log_event_bare(int level, const void* bitstorage, const char* fmt, ...)
 }
 
 static inline void
-log_mask(int level, void* bitstorage,
-        uint64_t word_bits,
-        counter_t range_start_index,
-        counter_t range_stop_index,
-        counter_t step,
-        const void* mask_ptr,
-        size_t mask_lane_bytes,
-        uint32_t mask_lane_count,
-        uint32_t mask_lane_bits)
+log_mask(int level, void* bitstorage, const char* label, uint64_t word_bits, counter_t range_start_index, counter_t range_stop_index, counter_t step,
+        const void* mask_ptr, size_t mask_lane_bytes, uint32_t mask_lane_count, uint32_t mask_lane_bits)
 {
     if (!(primes_log_should_trace(level) || primes_log_should_explain(level))) return;
 
@@ -209,15 +202,10 @@ log_mask(int level, void* bitstorage,
     snprintf(annotation,
              sizeof(annotation),
              "ApplyMask: word_bits=%ju word_start=%ju word_stop=%ju step_words=%ju mask_bits=%s focus_start=%ju focus_stop=%ju bitrange=%ju-%ju",
-             (uintmax_t)word_bits,
-             (uintmax_t)range_start_index,
-             (uintmax_t)range_stop_index,
-             (uintmax_t)step,
+             (uintmax_t)word_bits, (uintmax_t)range_start_index, (uintmax_t)range_stop_index, (uintmax_t)step,
              mask_bits_text,
-             (uintmax_t)(range_start_index * word_bits),
-             (uintmax_t)((range_stop_index + 1) * word_bits - 1),
-             (uintmax_t)(range_start_index * word_bits),
-             (uintmax_t)((range_stop_index + 1) * word_bits - 1));
+             (uintmax_t)(range_start_index * word_bits), (uintmax_t)((range_stop_index + 1) * word_bits - 1),
+             (uintmax_t)(range_start_index * word_bits), (uintmax_t)((range_stop_index + 1) * word_bits - 1));
 
     log(level, annotation);
 
@@ -235,10 +223,9 @@ log_mask(int level, void* bitstorage,
                 mask_target_slots[mask_target_count] = 0;
                 mask_target_count++;
             }
-            trace_record_applymask_step_labeled(bitstorage,
-                                                annotation,
+            trace_record_applymask_step_labeled(level, bitstorage,
                                                 "ApplyMask",
-                                                level,
+                                                annotation,
                                                 word_bits,
                                                 (uint64_t)range_start_index,
                                                 (uint64_t)range_stop_index,
@@ -258,16 +245,8 @@ log_mask(int level, void* bitstorage,
 }
 
 static inline void
-log_mask_pair(int level, void* bitstorage,
-        uint64_t word_bits,
-        counter_t range_start_index,
-        counter_t range_stop_index,
-        counter_t step,
-        const void* mask1_ptr,
-        const void* mask2_ptr,
-        size_t mask_lane_bytes,
-        uint32_t mask_lane_count,
-        uint32_t mask_lane_bits)
+log_mask_pair(int level, void* bitstorage, const char* label, uint64_t word_bits, counter_t range_start_index, counter_t range_stop_index, counter_t step,
+        const void* mask1_ptr, const void* mask2_ptr, size_t mask_lane_bytes, uint32_t mask_lane_count, uint32_t mask_lane_bits)
 {
     if (!(primes_log_should_trace(level) || primes_log_should_explain(level))) return;
 
@@ -291,16 +270,10 @@ log_mask_pair(int level, void* bitstorage,
     snprintf(annotation,
              sizeof(annotation),
              "ApplyMaskPair: word_bits=%ju word_start=%ju word_stop=%ju step_words=%ju mask1_bits=%s mask2_bits=%s focus_start=%ju focus_stop=%ju bitrange=%ju-%ju",
-             (uintmax_t)word_bits,
-             (uintmax_t)range_start_index,
-             (uintmax_t)range_stop_index,
-             (uintmax_t)step,
-             mask1_bits_text,
-             mask2_bits_text,
-             (uintmax_t)(range_start_index * word_bits),
-             (uintmax_t)((range_stop_index + 1) * word_bits - 1),
-             (uintmax_t)(range_start_index * word_bits),
-             (uintmax_t)((range_stop_index + 1) * word_bits - 1));
+             (uintmax_t)word_bits, (uintmax_t)range_start_index, (uintmax_t)range_stop_index, (uintmax_t)step,
+             mask1_bits_text, mask2_bits_text,
+             (uintmax_t)(range_start_index * word_bits), (uintmax_t)((range_stop_index + 1) * word_bits - 1),
+             (uintmax_t)(range_start_index * word_bits), (uintmax_t)((range_stop_index + 1) * word_bits - 1));
 
     log(level, annotation);
 
@@ -328,21 +301,10 @@ log_mask_pair(int level, void* bitstorage,
                 mask_target_slots[mask_target_count] = 0;
                 mask_target_count++;
             }
-            trace_record_applymask_step_labeled(bitstorage,
-                                                annotation,
-                                                "ApplyMaskPair",
-                                                level,
-                                                word_bits,
-                                                (uint64_t)range_start_index,
-                                                (uint64_t)range_stop_index,
-                                                (uint64_t)step,
-                                                mask1_bits,
-                                                mask1_count,
-                                                mask2_bits,
-                                                mask2_count,
-                                                mask_target_words,
-                                                mask_target_slots,
-                                                mask_target_count);
+            trace_record_applymask_step_labeled(level, bitstorage, "ApplyMaskPair", annotation,
+                                                word_bits, (counter_t)range_start_index, (counter_t)range_stop_index, (counter_t)step,
+                                                mask1_bits, mask1_count, mask2_bits, mask2_count,
+                                                mask_target_words, mask_target_slots, mask_target_count);
         }
     }
 
