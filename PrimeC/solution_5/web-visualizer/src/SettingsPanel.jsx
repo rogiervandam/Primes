@@ -79,11 +79,19 @@ export default function SettingsPanel({
 
   return (
     <>
-    <div className={`settings-sidebar${collapsed ? ' collapsed' : ''}${isWindowsPlatform ? ' platform-windows' : ''}`}>
+    {collapsed ? (
+      <button
+        type="button"
+        className={`settings-toggle-float${isWindowsPlatform ? ' platform-windows' : ''}`}
+        onClick={onToggleCollapse}
+        title="Expand settings"
+      >
+        <span className="settings-collapsed-label"><GearIcon /> Settings</span>
+        ◀
+      </button>
+    ) : (
+    <div className={`settings-sidebar${isWindowsPlatform ? ' platform-windows' : ''}`}>
       <div className="settings-header-rail" title="Settings">
-        {collapsed ? (
-          <h3 className="settings-collapsed-label"><GearIcon /> Settings</h3>
-        ) : (
           <div className="settings-tab-row" role="tablist">
             <button
               type="button"
@@ -131,12 +139,10 @@ export default function SettingsPanel({
               Legend
             </button>
           </div>
-        )}
-        <button className="settings-collapse-btn" onClick={onToggleCollapse} title={collapsed ? 'Expand settings' : 'Collapse settings'}>
-          {collapsed ? '◀' : '▶'}
+        <button className="settings-collapse-btn" onClick={onToggleCollapse} title="Collapse settings">
+          ▶
         </button>
       </div>
-      {!collapsed && (
         <div className="settings-panel-content">
         {activeTab === 'layout' && (
           <LayoutTab
@@ -201,8 +207,8 @@ export default function SettingsPanel({
           />
         )}
         </div>
-      )}
     </div>
+    )}
     {legendFloating && (() => {
       const posX = floatPos ? floatPos.x : window.innerWidth - 380;
       const posY = floatPos ? floatPos.y : 60;

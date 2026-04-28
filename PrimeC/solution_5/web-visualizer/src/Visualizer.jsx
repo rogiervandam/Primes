@@ -1044,7 +1044,7 @@ export default function Visualizer({
       clearTimeout(transitionRefreshTimer);
       clearScheduledLayoutRefresh();
     };
-  }, [panelWidth, showMinimap, stepsPanelCollapsed, settingsCollapsed, detailOpen, detailHeight, mode3D, refreshCanvasLayout, clearScheduledLayoutRefresh, captureViewportAnchor]);
+  }, [panelWidth, showMinimap, detailOpen, detailHeight, mode3D, refreshCanvasLayout, clearScheduledLayoutRefresh, captureViewportAnchor]);
 
   // Go to step
   const goToStep = useCallback((target, options = {}) => {
@@ -3895,7 +3895,10 @@ export default function Visualizer({
 
       {exporting && <ExportProgress progress={exportProgress} />}
 
-      {/* Main content */}
+      {/* Main content — panels float (position:absolute) within this div, which sits
+           below the toolbar. overflow:visible so collapsed toggle buttons are not
+           clipped; canvas-area inside already clips the canvas with its own
+           overflow:hidden. */}
       <div className={`main-content${mode3D ? ' mode-3d' : ''}`}>
         <StepPanel
           steps={steps}
@@ -3912,7 +3915,6 @@ export default function Visualizer({
           onExternalOpFilterConsumed={() => setTimingFocusOp('')}
           revealStepRequest={revealStepRequest}
         />
-
         <CanvasStage
           mode3D={mode3D}
           loweredSetBits={loweredSetBits}
@@ -3969,7 +3971,6 @@ export default function Visualizer({
           onImportBenchmarkTiming={onImportBenchmarkTiming}
           steps={steps}
         />
-
         <SettingsPanel
           settings={layoutSettings}
           onChange={setLayoutSettings}

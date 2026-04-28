@@ -1,12 +1,17 @@
-/* ---- Step Panel ---- */
+/* ---- Step Panel (floats over canvas, positioned within .visualizer) ---- */
 .step-panel {
   display: flex;
   flex-direction: column;
   background: var(--bg-surface);
   border-right: 1px solid var(--border);
-  position: relative;
-  flex-shrink: 0;
-  z-index: 12;
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  /* Below the toolbar (z-index 30) so the toolbar remains accessible over the
+     top portion of the panel. */
+  z-index: 28;
+  box-shadow: 2px 0 16px rgba(0, 0, 0, 0.22);
 }
 .step-panel-header {
   padding: 8px;

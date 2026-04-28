@@ -6,6 +6,7 @@
   overflow: visible;
   z-index: 22;
   border-right: none;
+  box-shadow: none;
 }
 
 .step-panel-header-title-row {
