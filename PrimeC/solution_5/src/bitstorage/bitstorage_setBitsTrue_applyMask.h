@@ -104,83 +104,10 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
         *index_ptr |= mask; 
     }
 
-    if (primes_log_should_trace(8) || primes_log_should_explain(8)) {
-        char annotation[4096] = {0};
-        char mask_bits_text[2048] = {0};
-        uint32_t mask_bits[1024] = {0};
-        uint64_t* mask_target_words = NULL;
-        uint32_t* mask_target_slots = NULL;
-        uint32_t mask_target_count = 0;
-        uint32_t mask_count = 0;
-
-        #if defined(variant_base_type_t) && defined(BITBUCKET_ELEMENTS)
-        mask_count = primes_trace_collect_mask_bits(mask_bits, 1024, &mask, sizeof(variant_base_type_t), BITBUCKET_ELEMENTS, bitcount_type(variant_base_type_t));
-        #else
-        mask_count = primes_trace_collect_mask_bits(mask_bits, 1024, &mask, sizeof(bitbucket_t), 1, bitcount_type(bitbucket_t));
-        #endif
-
-        primes_trace_format_mask_bits(mask_bits_text,
-                                      sizeof(mask_bits_text),
-                                      &mask,
-                                      #if defined(variant_base_type_t) && defined(BITBUCKET_ELEMENTS)
-                                      sizeof(variant_base_type_t),
-                                      BITBUCKET_ELEMENTS,
-                                      bitcount_type(variant_base_type_t)
-                                      #else
-                                      sizeof(bitbucket_t),
-                                      1,
-                                      bitcount_type(bitbucket_t)
-                                      #endif
-                                      );
-
-        snprintf(annotation,
-                 sizeof(annotation),
-                 "ApplyMask: word_bits=%ju word_start=%ju word_stop=%ju step_words=%ju mask_bits=%s focus_start=%ju focus_stop=%ju bitrange=%ju-%ju",
-                 (uintmax_t)bitcount_type(bitbucket_t),
-                 (uintmax_t)range_start_index,
-                 (uintmax_t)range_stop_index,
-                 (uintmax_t)step,
-                 mask_bits_text,
-                 (uintmax_t)(range_start_index * bitcount_type(bitbucket_t)),
-                 (uintmax_t)((range_stop_index + 1) * bitcount_type(bitbucket_t) - 1),
-                 (uintmax_t)(range_start_index * bitcount_type(bitbucket_t)),
-                 (uintmax_t)((range_stop_index + 1) * bitcount_type(bitbucket_t) - 1));
-
-        log8(annotation);
-
-        if (primes_log_should_trace(9)) {
-            const uint64_t target_capacity = range_stop_index >= range_start_index ? (uint64_t)((range_stop_index - range_start_index) / step) + 1 : 0;
-            if (target_capacity > 0) {
-                mask_target_words = (uint64_t*)malloc(sizeof(uint64_t) * (size_t)target_capacity);
-                mask_target_slots = (uint32_t*)malloc(sizeof(uint32_t) * (size_t)target_capacity);
-            }
-            if ((target_capacity == 0) || (mask_target_words && mask_target_slots)) {
-                for (counter_t word_index = range_start_index; word_index <= range_stop_index; word_index += step) {
-                    mask_target_words[mask_target_count] = (uint64_t)word_index;
-                    mask_target_slots[mask_target_count] = 0;
-                    mask_target_count++;
-                }
-                trace_record_applymask_step_labeled(bitstorage,
-                                                    annotation,
-                                                    "ApplyMask",
-                                                    9,
-                                                    (uint64_t)bitcount_type(bitbucket_t),
-                                                    (uint64_t)range_start_index,
-                                                    (uint64_t)range_stop_index,
-                                                    (uint64_t)step,
-                                                    mask_bits,
-                                                    mask_count,
-                                                    NULL,
-                                                    0,
-                                                    mask_target_words,
-                                                    mask_target_slots,
-                                                    mask_target_count);
-            }
-        }
-
-        free(mask_target_words);
-        free(mask_target_slots);
-    }
+    #ifdef COMPILE_TRACE
+    log_mask(9, bitstorage, (uint64_t)bitcount_type(bitbucket_t), range_start_index, range_stop_index, step,
+            &mask, sizeof(variant_base_type_t), BITBUCKET_ELEMENTS, (uint32_t)bitcount_type(variant_base_type_t));
+    #endif
 
     logStop8(bitstorage, time_applyMask, "ApplyMask_index%s: finished applying mask\n", STR(suffix));
 }
