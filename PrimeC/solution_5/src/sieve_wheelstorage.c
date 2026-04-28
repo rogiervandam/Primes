@@ -55,13 +55,13 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
 
     log5("Shaking sieve to find all primes up to %ju with blocks %ju using the wheel with primes up to %ju using blocksize %ju factorsize %ju\n",(uintmax_t)sieve_size,(uintmax_t)factorBlock,(uintmax_t)WHEEL_MAX,(uintmax_t)global_blocksize_bits,(uintmax_t)calcFactorsize(global_blocksize_bits, global_storage));
 
-    // #pragma GCC unroll 2
+    #pragma GCC unroll 2
     for (counter_t block_start = 0; block_start < sieve_size; block_start += factorBlock) {
         const counter_t block_stop = min(sieve_size, block_start + factorBlock);
 
         log5("Processing block with range %ju - %ju\n",(uintmax_t)block_start, (uintmax_t)block_stop); 
 
-        // #pragma GCC unroll 32
+        #pragma GCC unroll 32
         for (counter_t prime = findUnmarked(sieve, WHEEL_MAX+1); prime < prime_max;  prime = findUnmarked(sieve, ++prime)) {
             log5(sieve->bitstorage,
                        "MarkFactors: wheelstorage prime %jd (idx %jd), block [%jd-%jd] step %jd",

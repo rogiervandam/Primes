@@ -69,9 +69,9 @@ function(searchBitFalse,suffix)(void* restrict bitstorage, register counter_t in
 {
     logStart9(bitstorage, time_searchBitFalse, "searchBitFalse from prime %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1);
 
-    #pragma GCC ivdep
-    #pragma GCC unroll 4
-    for (;checkBitTrue_suffix(bitstorage, ++index););
+    // #pragma GCC ivdep
+    // #pragma GCC unroll 4
+    for (;checkBitTrue_suffix(bitstorage, ++index);)
 
     logStop9(bitstorage, time_searchBitFalse, " next prime %ju (step %ju)\n", (uintmax_t) index, (uintmax_t)index*2+1);
     return index;

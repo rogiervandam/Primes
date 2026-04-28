@@ -2,8 +2,6 @@
 #ifndef VERBOSE_GUARD
   #define VERBOSE_GUARD
 
-  #include "../benchmark/sieve_functions.h"
-
   // Verbose level allows some code to only be compiled when targeting a certain verbose level
   #ifdef COMPILE_EXPLAIN
     #if COMPILE_VERBOSE_LEVEL < 7
