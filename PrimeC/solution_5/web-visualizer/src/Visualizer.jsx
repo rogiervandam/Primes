@@ -297,6 +297,11 @@ export default function Visualizer({
   const bitStateDirtyRef = useRef(false);
   const traceInfoToggleRef = useRef(null);
   const balloonLayoutRafRef = useRef(null);
+  // Tracks the window size at the last refreshCanvasLayout call so we can
+  // compensate panX/panY when the window (and therefore the canvas) resizes.
+  // Content screen position = windowW/2 - canvasW/2 + panX; to keep that
+  // constant, panX must change by -Δwindow/2 + Δcanvas/2.
+  const prevWindowSizeForPanRef = useRef(null);
 
   stepsRef.current = steps;
   currentStepRef.current = currentStep;
@@ -461,7 +466,30 @@ export default function Visualizer({
 
     const { canvasW, canvasH } = getCanvasTargetSize(rect.width, rect.height);
 
+    const oldCanvasW = r.canvasWidth || 0;
+    const oldCanvasH = r.canvasHeight || 0;
     r.resize(canvasW, canvasH);
+    // Keep grid content at the same screen position when the window (and
+    // therefore the canvas) resizes. Screen position of content:
+    //   screenX = windowW/2 - canvasW/2 + panX
+    // Solving for constant screenX across resize:
+    //   Δpan = -Δwindow/2 + Δcanvas/2
+    if (oldCanvasW > 0 && typeof window !== 'undefined') {
+      const curW = window.innerWidth;
+      const curH = window.innerHeight;
+      const prev = prevWindowSizeForPanRef.current;
+      if (prev) {
+        const dCanvasW = canvasW - oldCanvasW;
+        const dCanvasH = canvasH - oldCanvasH;
+        const dWindowW = curW - prev.w;
+        const dWindowH = curH - prev.h;
+        r.panX += dCanvasW / 2 - dWindowW / 2;
+        r.panY += dCanvasH / 2 - dWindowH / 2;
+      }
+      prevWindowSizeForPanRef.current = { w: curW, h: curH };
+    } else if (typeof window !== 'undefined') {
+      prevWindowSizeForPanRef.current = { w: window.innerWidth, h: window.innerHeight };
+    }
     // Tell the renderer the layout-available area so the grid
     // wrapping math (`_computeClPerVRow`) targets a STABLE size,
     // not the live container rect. Using `window.innerWidth/Height`
@@ -475,16 +503,16 @@ export default function Visualizer({
     r.unfreezeLayout();
     r.freezeLayout();
 
-    // NOTE: anchor-based panX/panY compensation removed. With the
-    // canvas pinned to the VIEWPORT center (see canvasAnchorPx and
-    // renderCanvasStyle), the canvas no longer moves when the
-    // container reshapes on a panel toggle, so there is nothing to
-    // compensate for. Re-applying the old container-relative anchor
-    // here would actively shift content in the same direction the
+    // NOTE: anchor-based panX/panY compensation removed for panel toggles.
+    // With the canvas pinned to the VIEWPORT center (see canvasAnchorPx and
+    // renderCanvasStyle), the canvas no longer moves when the container
+    // reshapes on a panel toggle (canvasW/H are based on windowW/H, not
+    // containerW/H, so they don't change on panel toggles), so there is
+    // nothing to compensate for. Re-applying the old container-relative
+    // anchor here would actively shift content in the same direction the
     // panel grew, which is exactly the drift the user reported.
-    // Window-resize is handled the same way: canvasW/H scale around
-    // the canvas's own center (transform-origin 50%/50%), and that
-    // center is the viewport center, so content stays put.
+    // Window-resize is handled above: panX/panY are adjusted by
+    // (Δcanvas/2 - Δwindow/2) to keep the grid at the same screen position.
     void anchor;
 
     r.render();
