@@ -3537,7 +3537,7 @@ export default function Visualizer({
       position: 'absolute',
       left: canvasAnchorPx ? `${canvasAnchorPx.left}px` : '50%',
       top: canvasAnchorPx ? `${canvasAnchorPx.top}px` : '50%',
-      transform: `translate(-50%, -50%) ${camera3DTransform}`,
+      transform: `translate(-50%, -50%)${camera3DTransform !== 'none' ? ` ${camera3DTransform}` : ''}`,
       transformStyle: 'preserve-3d',
       transformOrigin: '50% 50%',
     }
