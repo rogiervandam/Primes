@@ -469,6 +469,19 @@ overwrite.
   stays null, `skipBitFill` stays `false`, and the Canvas2D
   fillRect path is fully responsible. §8 item 2 marked ✅.
 
+- ✅ **Locked renderer to `gl-worker` only.** Removed `featureFlag.js`
+  entirely, the `RendererPicker` component from `Toolbar.jsx` (and its
+  CSS block in `04-toolbar.css`), and the `rendererMode` state / ref /
+  setter from `Visualizer.jsx`. The `BitGridGL` direct-mode import was
+  also removed from `Visualizer.jsx`. `Visualizer.jsx` now always
+  constructs `BitGridGLWorker`. If `attach()` returns `false` (browser
+  lacks `OffscreenCanvas.transferControlToOffscreen`), `glRendererRef`
+  stays `null`, `SieveRenderer.skipBitFill` stays `false`, and the
+  Canvas2D cell-fill path handles rendering silently — the app remains
+  fully functional as a fallback. `BitGridGL.js` is still present (used
+  by the `parity.html` dev harness) but is no longer in the production
+  runtime path.
+
 ---
 
 ## 7. What's worth doing next (suggested, not required)
@@ -567,14 +580,102 @@ ones:
     AnimationTab does not consume the bundle because it has no
     `settings` / `onChange` pair.
 
-No open backlog items remain after this round. The `SieveRenderer.render()`
-rewrite (the previously "do not touch without asking" item) was completed
-in the most recent round; see §6 for what changed. The split is purely
-structural — same draw output, same per-frame allocations — so adding
-a visible bug means you changed logic, not just shape. If you're
-considering an even bigger change (e.g. moving the bit-render passes onto
-a worker, or replacing the Canvas2D pipeline with WebGL), stop and ask
-first. Those are weeks-of-work projects, not single-session refactors.
+No open structural refactor items remain from previous rounds.
+
+### WebGL-worker deepening + Canvas2D removal backlog
+
+Now that the renderer is locked to `gl-worker`, the path is clear to
+deepen the GL implementation and eventually retire the Canvas2D
+cell-fill code entirely. Work these in dependency order:
+
+1. **Wire context-loss recovery in worker mode.** The direct `BitGridGL`
+   path handles `webglcontextlost` / `webglcontextrestored` but the
+   worker path does not. With worker being the only production path this
+   is now the highest-priority reliability gap. Shape: on `contextlost`
+   the worker should post an `error` message; the facade should call
+   `this._lost = true` and post `{ type: 'init', canvas: offscreen }`
+   to re-initialise the same `OffscreenCanvas` (if the browser
+   supports it), or tear down and reconstruct the worker + canvas.
+   Check MDN — `OffscreenCanvas` context-loss semantics are
+   browser-specific.
+
+2. **Update the parity harness to exercise `BitGridGLWorker`.** Currently
+   `parity.html` drives `BitGridGL` (direct mode). Add a
+   `?renderer=gl-worker` switch that posts the same inputs to
+   `BitGridGLWorker` and reads back the result via an off-screen
+   `drawImage` after a settled frame. This is the prerequisite for
+   removing `BitGridGL.js` without losing harness coverage.
+
+3. **Remove `BitGridGL.js` (direct mode).** Blocked on item 2 above.
+   Once the parity harness no longer imports it, the file can be
+   deleted. Also remove the `BitGridGL`-specific `webglcontextlost` /
+   `webglcontextrestored` code and the `_core` / direct-attach path in
+   `hostStatePacker`.
+
+4. **Port overlays to GL.** The Canvas2D layer above the GL canvas still
+   paints all non-fill visuals. The following are candidates to move
+   into the GL shader or into new overlay shaders, ranked by isolation
+   and payoff:
+   - **Target outline + focus-range stroke** — one `strokeRect` per
+     focused bit today; could become a second instanced draw pass
+     with a separate `outlineTex` flag.
+   - **Prime / range / multiples dots + `p`/`r` text labels** — text
+     labels must stay Canvas2D; the dot tints are already in the
+     GL shader as fill-colour variants (items 2/3 of the original
+     §8 open work); only the small circular dots above the cells
+     remain Canvas2D.
+   - **Cacheline outline + heat-tint overlay** — block-level; a
+     second full-screen rect pass keyed to cacheline index would
+     replace the current per-cacheline `strokeRect` loop.
+   - **Ghost-mask highlights, motion trails, search highlight** —
+     low priority; these are sparse and fast in Canvas2D.
+   - **Bit / byte / vector labels** — must stay Canvas2D (text
+     rendering; no benefit from porting).
+   - **Minimap** — must stay Canvas2D (separate `<canvas>` element).
+
+5. **Port lowered-3D shading to GL.** When `loweredSetBits` is on,
+   the Canvas2D bit-fill takes over today (`skipBitFill = false`).
+   To move this to GL: the vertex shader needs per-bit raise/lower
+   state (an extra flag byte or a dedicated texture channel) and the
+   fragment shader adds shadow + base + top + side-face branches.
+   The geometry is a trapezoid, not a quad — requires 6 → 10 vertices
+   per instance or a geometry pass. High-effort; defer until items
+   1–3 are done.
+
+6. **Port rise-and-settle animation to GL.** Animation state (`rise`
+   amount, `settle` alpha) is per-bit and changes every frame during
+   playback. This needs a third texture channel (float) or a separate
+   `animTex`, plus a worker-protocol extension
+   (`{ type: 'animState', buf: Float32Array }`). The main thread
+   already computes per-bit animation fractions in `_computeBitDrawState`;
+   those values can be packed and posted alongside `state`. High-effort;
+   defer until items 1–3 are done.
+
+7. **Remove `SieveRenderer.skipBitFill` and the Canvas2D cell-fill code.**
+   Blocked on items 4–6 (all remaining Canvas2D pixel work must be
+   ported before this is safe). The code paths to remove are:
+   `_renderClear()` background fill, `_drawBitBody()` non-lowered
+   branches, `_drawBitFocusRange()` fill rect, and the
+   `fillRect`-per-bit calls in `_drawBitPrimeOverlay`,
+   `_drawBitRangeOverlay`, `_drawBitMultiplesOverlay`. After removal,
+   the `skipBitFill` field on `SieveRenderer` and the gating in
+   `_buildFrameContext()` can be deleted.
+
+8. **Decide the no-OffscreenCanvas fallback.** Currently, if the browser
+   lacks `OffscreenCanvas`, `BitGridGLWorker.attach()` returns `false`
+   and Canvas2D silently handles everything. Once Canvas2D cell-fill is
+   removed (item 7), this silent fallback disappears. Options:
+   (a) keep `BitGridGL.js` as a last-resort direct-mode fallback;
+   (b) show a banner noting the browser is too old and degrade gracefully;
+   (c) raise the minimum browser baseline to OffscreenCanvas (all
+   evergreen browsers since ~2019 support it). Decide before item 7.
+
+9. **Partial `texSubImage2D` updates.** Currently the full state texture
+   is repacked every frame. At bit counts > 100 k this starts to
+   matter. A dirty-region tracker (bitmask of which 64-bit words
+   changed since last upload) could reduce per-frame `texSubImage2D`
+   to only changed rows. Only pursue this after items 1–3 are done
+   and a measured regression is found.
 
 ---
 
@@ -623,15 +724,20 @@ main thread.
   paths read/write live renderer state and would force a serialization
   protocol that costs more than it saves at this app's data sizes.
 
-### Step 2 — WebGL bit grid (DEFAULT path; opt-out via `?renderer=canvas2d`)
+### Step 2 — WebGL bit grid (DEFAULT path; gl-worker only)
 
-A WebGL2 renderer at `src/renderer/gl/BitGridGL.js` (with worker
-sibling `BitGridGLWorker`) is now the default backend for the
-per-bit cell-fill pass.
+A WebGL2 worker renderer at `src/renderer/gl/BitGridGLWorker.js` is now
+the unconditional production backend for the per-bit cell-fill pass.
+`featureFlag.js`, the `RendererPicker` UI button, and the `rendererMode`
+runtime state have all been removed (see §6). `BitGridGL.js` (direct mode)
+still exists for the `parity.html` dev harness but is not part of the
+production load path.
 
-- Default at module load: `getRendererMode() === 'gl'`. Override
-  with `?renderer=canvas2d` (legacy fillRect path), `?renderer=gl`
-  (explicit), or `?renderer=gl-worker` (OffscreenCanvas worker).
+- `Visualizer.jsx` always constructs `new BitGridGLWorker()`. If
+  `attach()` returns `false` (browser lacks
+  `OffscreenCanvas.transferControlToOffscreen`), `glRendererRef` stays
+  `null`, `SieveRenderer.skipBitFill` stays `false`, and Canvas2D
+  silently handles everything — the app stays functional.
 - The renderer draws **per-bit instanced quads** — one
   `drawArraysInstanced` call per frame. Layout positions come
   from `SieveRenderer.bitIndexToCanvas`, packed into an `RG32F`
@@ -652,19 +758,15 @@ per-bit cell-fill pass.
   gates only the cell-fill rectangles + background fill so the
   GL canvas underneath shows through.
 - Lowered-3D mode (`loweredSetBits`) has no GL parity by
-  design — see item 2 below. When on, the Canvas2D bit-fill
+  design — see §7 backlog item 5. When on, the Canvas2D bit-fill
   takes over and GL skips its uploads/draw.
 - Visual diff harness lives at `parity.html` (Vite dev only;
-  open at `http://localhost:5173/parity.html`). Pins the GL
-  contract algorithm against a Canvas2D reference — see item 5.
-- Context loss is handled in direct mode by tearing down GPU
-  resources on `webglcontextlost` and rebuilding on
-  `webglcontextrestored`. Worker mode does not yet implement
-  this (deliberately — worker context is isolated from the
-  page lifecycle and rarely loses). If WebGL2 is unavailable
-  in the browser, `BitGridGL.attach()` returns `false` and
-  `Visualizer.jsx` falls back transparently to the Canvas2D
-  bit-fill path.
+  open at `http://localhost:5173/parity.html`). Drives `BitGridGL`
+  (direct mode) against a Canvas2D reference — see item 5 below.
+  Updating it to exercise `BitGridGLWorker` is §7 backlog item 2.
+- Context loss is handled in direct mode only. The worker path
+  does not yet implement context-loss recovery — see §7 backlog
+  item 1.
 
 ### Open work before WebGL can replace Canvas2D
 
@@ -800,7 +902,13 @@ done":
 - Don't move `setState()`, mask diffing or heat-map updates to the
   worker without a measured perf reason. They touch live renderer
   state and the round-trip cost dominates at this app's data sizes.
-- Don't remove the Canvas2D path. The maintenance guide's "build is
-  your only safety net" rule applies doubly here — there is no test
-  that the GL output matches.
+- Don't remove the Canvas2D *overlay* code (labels, outlines,
+  cacheline, minimap) prematurely. The Canvas2D layer is still the
+  authoritative renderer for everything above the cell-fill plane.
+  The cell-fill path (`skipBitFill` gating) is the only part targeted
+  for removal — and only after the §7 backlog items 4–8 are done.
+- Don't remove the `OffscreenCanvas` feature-detect in
+  `BitGridGLWorker.attach()`. The silent Canvas2D fallback it enables
+  is the only thing keeping the app functional on older browsers while
+  the GL path matures.
 

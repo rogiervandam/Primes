@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { SieveRenderer, bitToNumber, numberToBit, CACHE_PRESETS } from './SieveRenderer';
-import { BitGridGL } from './renderer/gl/BitGridGL';
 import { BitGridGLWorker, isWorkerGLSupported } from './renderer/gl/BitGridGLWorker';
-import { getRendererMode } from './renderer/gl/featureFlag';
 import StepPanel from './StepPanel';
 import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
@@ -62,24 +60,6 @@ export default function Visualizer({
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
   // Experimental WebGL bit-grid (see docs/AI_MAINTENANCE.md §8). Only
-  // populated when `?renderer=gl` is set; otherwise these stay null and
-  // the GL canvas is not mounted.
-  // rendererMode: which rendering backend is active. Persisted to localStorage.
-  // canvas2d = Canvas2D only; gl = WebGL2 direct; gl-worker = WebGL2 OffscreenCanvas worker.
-  const [rendererMode, setRendererModeRaw] = useState(() => {
-    try {
-      const saved = window.localStorage?.getItem('sieve-viz:rendererMode');
-      if (saved === 'canvas2d' || saved === 'gl' || saved === 'gl-worker') return saved;
-    } catch { /* ignore */ }
-    return getRendererMode();
-  });
-  const rendererModeRef = useRef(rendererMode);
-  rendererModeRef.current = rendererMode;
-  const setRendererMode = useCallback((mode) => {
-    try { window.localStorage?.setItem('sieve-viz:rendererMode', mode); } catch { /* ignore */ }
-    setRendererModeRaw(mode);
-  }, []);
-  const glEnabled = rendererMode === 'gl' || rendererMode === 'gl-worker';
   const glCanvasRef = useRef(null);
   const glRendererRef = useRef(null);
   const isMacPlatform = useMemo(() => detectIsMac(), []);
@@ -723,10 +703,7 @@ export default function Visualizer({
         if (rr && rr.primeOverlay) rr.render();
       });
 
-      // WebGL bit-grid scaffold. Always attempt to init so the user can
-      // switch to GL at runtime without a page reload. The worker variant
-      // uses OffscreenCanvas.transferControlToOffscreen (one-shot, so
-      // gl↔gl-worker switching requires a reload).
+      // WebGL bit-grid scaffold (gl-worker via OffscreenCanvas).
       if (glCanvasRef.current) {
         // Attach the GL renderer once — transferControlToOffscreen is a
         // one-shot operation and cannot be repeated on the same canvas.
@@ -735,8 +712,7 @@ export default function Visualizer({
         // the renderer was never successfully created) we create it fresh.
         let gl = glRendererRef.current;
         if (!gl) {
-          const useWorker = (rendererModeRef.current === 'gl-worker') && isWorkerGLSupported();
-          const newGl = useWorker ? new BitGridGLWorker() : new BitGridGL();
+          const newGl = new BitGridGLWorker();
           if (newGl.attach(glCanvasRef.current)) {
             gl = newGl;
             glRendererRef.current = gl;
@@ -750,10 +726,7 @@ export default function Visualizer({
           r.render = () => {
             const g = glRendererRef.current;
             const rr = rendererRef.current;
-            // GL owns the cell-fill when a GL renderer mode is selected.
-            // Re-evaluated every frame so runtime mode switches take effect.
-            const activeMode = rendererModeRef.current;
-            const glOwnsFill = !!g && (activeMode === 'gl' || activeMode === 'gl-worker');
+            const glOwnsFill = !!g;
             if (rr) rr.skipBitFill = glOwnsFill;
             origRender();
             if (!g || !rr || !rr.canvas) return;
@@ -3866,8 +3839,6 @@ export default function Visualizer({
         setPrimeOverlayEnabled={setPrimeOverlayEnabled}
         timingPanelOpen={timingPanelOpen}
         setTimingPanelOpen={setTimingPanelOpen}
-        rendererMode={rendererMode}
-        setRendererMode={setRendererMode}
         exportPng={exportPng}
         exportVideo={exportVideo}
         cancelExport={cancelExport}
@@ -3914,7 +3885,7 @@ export default function Visualizer({
           settledCanvasRef={settledCanvasRef}
           minimapCanvasRef={minimapCanvasRef}
           glCanvasRef={glCanvasRef}
-          glActive={glEnabled}
+          glActive={true}
           camera3DContainerStyle={mergedCamera3DContainerStyle}
           renderCanvasStyle={renderCanvasStyle}
           eventTitleSettings={eventTitleSettings}
