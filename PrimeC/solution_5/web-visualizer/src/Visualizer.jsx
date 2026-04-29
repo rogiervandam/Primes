@@ -196,6 +196,12 @@ export default function Visualizer({
   // for a distraction-free immersive view. Toggled via the eye button or H key.
   const [controlsHidden, setControlsHidden] = useState(initialPrefs.controlsHidden);
   const toggleControlsHidden = useCallback(() => setControlsHidden((h) => !h), []);
+  // When true, the floating "all events" widget (transport + timeline shown
+  // while the events panel is collapsed) is hidden and replaced by a small
+  // "show widget" button in the top toolbar. Set by dragging the widget onto
+  // the top bar; cleared by clicking that button.
+  const [allEventsWidgetHidden, setAllEventsWidgetHidden] = useState(initialPrefs.allEventsWidgetHidden);
+  const showAllEventsWidget = useCallback(() => setAllEventsWidgetHidden(false), []);
   const [storageModel, setStorageModel] = useState(header.storageModel || 'half');
   const [selectedSteps, setSelectedSteps] = useState(new Set());
   const [heatMapEnabled, setHeatMapEnabled] = useState(false);
@@ -676,11 +682,12 @@ export default function Visualizer({
       delayBetweenRepeats,
       eventTimeTargets,
       controlsHidden,
+      allEventsWidgetHidden,
       stepsPanelCollapsed,
       settingsCollapsed,
       detailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, controlsHidden, stepsPanelCollapsed, settingsCollapsed, detailOpen]);
+  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, controlsHidden, allEventsWidgetHidden, stepsPanelCollapsed, settingsCollapsed, detailOpen]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -3906,6 +3913,8 @@ export default function Visualizer({
         setTheme={setTheme}
         controlsHidden={controlsHidden}
         toggleControlsHidden={toggleControlsHidden}
+        allEventsWidgetHidden={allEventsWidgetHidden}
+        showAllEventsWidget={showAllEventsWidget}
         stepsPanelCollapsed={stepsPanelCollapsed}
         toggleStepsPanel={toggleStepsPanel}
         detailOpen={detailOpen}
@@ -3920,7 +3929,10 @@ export default function Visualizer({
            below the toolbar. overflow:visible so collapsed toggle buttons are not
            clipped; canvas-area inside already clips the canvas with its own
            overflow:hidden. */}
-      <div className={`main-content${mode3D ? ' mode-3d' : ''}`}>
+      <div
+        className={`main-content${mode3D ? ' mode-3d' : ''}`}
+        style={{ '--events-panel-width': `${stepsPanelCollapsed ? 0 : panelWidth}px` }}
+      >
         <StepPanel
           steps={steps}
           currentStep={currentStep}
@@ -3932,6 +3944,15 @@ export default function Visualizer({
           onWidthChange={setPanelWidth}
           panelCollapsed={stepsPanelCollapsed}
           onToggleCollapse={toggleStepsPanel}
+          allEventsWidgetHidden={allEventsWidgetHidden}
+          onExpandPanelFromWidget={() => {
+            setAllEventsWidgetHidden(false);
+            setStepsPanelCollapsed(false);
+          }}
+          onDockWidgetToTopBar={() => {
+            setAllEventsWidgetHidden(true);
+            setControlsHidden(false);
+          }}
           externalOpFilter={timingFocusOp}
           onExternalOpFilterConsumed={() => setTimingFocusOp('')}
           revealStepRequest={revealStepRequest}

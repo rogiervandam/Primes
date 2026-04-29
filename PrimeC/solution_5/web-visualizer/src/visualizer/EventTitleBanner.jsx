@@ -9,6 +9,10 @@ import React from 'react';
  * same gesture to also act as a click-to-open-events-panel affordance when
  * the pointer barely moves. The component itself is pure presentation —
  * the state setters belong to the visualizer.
+ *
+ * Drop-zone gestures while dragging:
+ *   - left edge of the window → expand the events panel and hide the widget
+ *   - bottom edge of the window → hide the widget (same as the ▼ button)
  */
 export default function EventTitleBanner({
   settings,
@@ -22,15 +26,44 @@ export default function EventTitleBanner({
   revealCurrentStepInPanel,
   stepsPanelCollapsed,
   setStepsPanelCollapsed,
+  detailOpen,
+  toggleDetailPanel,
   sliders,
 }) {
+  const [dropHint, setDropHint] = React.useState(null); // 'left' | 'bottom' | 'detail' | null
+
+  // Hit-test the detail panel directly so the user can drop the widget on the
+  // collapsed bottom bar without having to reach the very bottom of the
+  // window. We temporarily hide the banner from hit testing while probing so
+  // it doesn't shadow the detail panel underneath.
+  const isOverDetailPanel = React.useCallback((clientX, clientY, bannerEl) => {
+    if (typeof document === 'undefined') return false;
+    const prevPE = bannerEl ? bannerEl.style.pointerEvents : null;
+    if (bannerEl) bannerEl.style.pointerEvents = 'none';
+    const el = document.elementFromPoint(clientX, clientY);
+    if (bannerEl) bannerEl.style.pointerEvents = prevPE || '';
+    return !!(el && el.closest && el.closest('.detail-panel'));
+  }, []);
+
+  const detectDropZone = React.useCallback((clientX, clientY, bannerEl) => {
+    if (typeof window === 'undefined') return null;
+    const LEFT_BAND = 80;
+    const BOTTOM_BAND = 80;
+    if (clientX <= LEFT_BAND) return 'left';
+    if (isOverDetailPanel(clientX, clientY, bannerEl)) return 'detail';
+    if (clientY >= window.innerHeight - BOTTOM_BAND) return 'bottom';
+    return null;
+  }, [isOverDetailPanel]);
+
   const handleMouseDown = (e) => {
     if (e.target.closest('input') || e.target.closest('button')) return;
+    const bannerEl = e.currentTarget;
     const startX = e.clientX;
     const startY = e.clientY;
     const startOffX = settings.dragOffsetX || 0;
     const startOffY = settings.dragOffsetY || 0;
     let dragged = false;
+    let lastZone = null;
     const onMove = (ev) => {
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
@@ -41,13 +74,48 @@ export default function EventTitleBanner({
         dragOffsetX: startOffX + dx,
         dragOffsetY: startOffY + dy,
       }));
+      const zone = detectDropZone(ev.clientX, ev.clientY, bannerEl);
+      if (zone !== lastZone) {
+        lastZone = zone;
+        setDropHint(zone);
+      }
     };
-    const onUp = () => {
+    const onUp = (ev) => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      setDropHint(null);
       if (!dragged) {
         // Click without drag: open the Events panel.
         if (stepsPanelCollapsed) setStepsPanelCollapsed(false);
+        return;
+      }
+      const zone = detectDropZone(ev.clientX, ev.clientY, bannerEl);
+      if (zone === 'left') {
+        // Snap drag offset back so the banner returns to its anchor next time.
+        setSettings((prev) => ({
+          ...prev,
+          dragOffsetX: 0,
+          dragOffsetY: 0,
+          visible: false,
+        }));
+        if (stepsPanelCollapsed) setStepsPanelCollapsed(false);
+      } else if (zone === 'detail') {
+        // Drop into the detail panel: expand it (if collapsed) and hide the
+        // floating widget — the detail panel itself surfaces the event info.
+        setSettings((prev) => ({
+          ...prev,
+          dragOffsetX: 0,
+          dragOffsetY: 0,
+          visible: false,
+        }));
+        if (!detailOpen && toggleDetailPanel) toggleDetailPanel();
+      } else if (zone === 'bottom') {
+        setSettings((prev) => ({
+          ...prev,
+          dragOffsetX: 0,
+          dragOffsetY: 0,
+          visible: false,
+        }));
       }
     };
     window.addEventListener('mousemove', onMove);
@@ -57,7 +125,7 @@ export default function EventTitleBanner({
 
   return (
     <div
-      className="step-focus-banner position-center"
+      className={`step-focus-banner position-center${dropHint ? ` dropping dropping-${dropHint}` : ''}`}
       title={banner.title}
       style={style}
       onMouseDown={handleMouseDown}

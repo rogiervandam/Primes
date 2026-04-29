@@ -102,6 +102,8 @@ function CanvasStage({
           revealCurrentStepInPanel={revealCurrentStepInPanel}
           stepsPanelCollapsed={stepsPanelCollapsed}
           setStepsPanelCollapsed={setStepsPanelCollapsed}
+          detailOpen={detailOpen}
+          toggleDetailPanel={toggleDetailPanel}
           sliders={stepAnimSlidersContent}
         />
       )}

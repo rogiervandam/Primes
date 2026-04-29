@@ -80,6 +80,9 @@ export default function Toolbar({
   // immersive mode
   controlsHidden,
   toggleControlsHidden,
+  // all-events widget docked-in-top-bar reveal button
+  allEventsWidgetHidden,
+  showAllEventsWidget,
 }) {
   const visualizerClass =
     `visualizer${isMacPlatform ? ' platform-mac' : ''}` +
@@ -122,6 +125,17 @@ export default function Toolbar({
         >
           {controlsHidden ? <Eye /> : <EyeOff />}
         </button>
+        {stepsPanelCollapsed && allEventsWidgetHidden && showAllEventsWidget && (
+          <button
+            className="btn-icon toolbar-show-events-widget"
+            onClick={showAllEventsWidget}
+            title="Show all-events widget"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        )}
         <div className="panel-toggle-group">
           <button
             className={`btn-icon panel-toggle-btn${!stepsPanelCollapsed ? ' active' : ''}`}

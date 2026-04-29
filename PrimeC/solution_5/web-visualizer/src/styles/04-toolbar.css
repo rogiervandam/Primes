@@ -214,6 +214,20 @@
   color: var(--accent);
 }
 
+/* Reveal-button for the all-events widget after it has been docked into the
+   top bar. Sits next to the immersive toggle. */
+.toolbar-show-events-widget {
+  margin-left: 2px;
+  color: var(--accent);
+  opacity: 0.85;
+  animation: toolbar-show-events-widget-in 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.toolbar-show-events-widget:hover { opacity: 1; }
+@keyframes toolbar-show-events-widget-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 0.85; transform: none; }
+}
+
 /* When transport controls are hidden collapse to left + right only */
 .toolbar--controls-hidden {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

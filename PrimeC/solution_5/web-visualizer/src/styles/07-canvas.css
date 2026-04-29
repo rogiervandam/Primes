@@ -14,14 +14,17 @@
   position: absolute;
   /* Anchored by bottom-left so the sliders stay in a fixed place across events.
      When the annotation needs more room, the banner grows upward instead of
-     shifting the sliders down. */
+     shifting the sliders down. The left offset includes the events panel
+     width (when expanded) so the widget never slides under it. */
   bottom: 20px;
-  left: 16px;
+  left: calc(16px + var(--events-panel-width, 0px));
   top: auto;
   z-index: 18;
   /* Must be interactive now — banner is draggable and contains sliders. */
   pointer-events: auto;
   cursor: grab;
+  transition: left 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              opacity 180ms ease, transform 180ms ease;
   padding: 10px 14px;
   border: 1px solid var(--border-light);
   border-left: 4px solid var(--accent);
@@ -45,6 +48,16 @@
   gap: 4px;
 }
 .step-focus-banner:active { cursor: grabbing; }
+.step-focus-banner.dropping {
+  outline: 2px dashed var(--accent);
+  outline-offset: 3px;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.36), 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.step-focus-banner.dropping-detail {
+  /* When dropping into the detail panel the banner will be replaced by the
+     panel's content — give a slightly different tint to telegraph that. */
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.36), 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent);
+}
 .step-focus-banner input { pointer-events: auto; cursor: pointer; user-select: none; }
 .step-focus-line3 {
   font-size: 11px;

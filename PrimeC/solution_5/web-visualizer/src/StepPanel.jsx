@@ -94,7 +94,7 @@ function buildDepthTree(steps) {
 /**
  * Hierarchical step panel grouped by prime, with collapse/expand.
  */
-export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0, goToStep, playing, handlePlayPause, exporting, isScrubbingTopRef, playSpeedPercent, setPlaySpeedPercent }) {
+export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, allEventsWidgetHidden = false, onExpandPanelFromWidget, onDockWidgetToTopBar, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0, goToStep, playing, handlePlayPause, exporting, isScrubbingTopRef, playSpeedPercent, setPlaySpeedPercent }) {
   const listRef = useRef(null);
   const scrollTopRef = useRef(0);
   const [search, setSearch] = useState('');
@@ -102,6 +102,20 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
   // Drag state for the collapsed floating panel
   const [floatDrag, setFloatDrag] = useState({ x: 0, y: 0 });
   const floatDragRef = useRef({ x: 0, y: 0 });
+  // Visual hint for the active drop-zone while dragging the widget.
+  // 'left' | 'top' | null
+  const [floatDropHint, setFloatDropHint] = useState(null);
+
+  // Detect which screen-edge drop-zone the pointer is currently over.
+  // Returns 'left' (expand events panel), 'top' (dock to top bar), or null.
+  const detectDropZone = useCallback((clientX, clientY) => {
+    if (typeof window === 'undefined') return null;
+    const TOP_BAND = 60;   // top toolbar drop band height
+    const LEFT_BAND = 80;  // left edge drop band width
+    if (clientY <= TOP_BAND) return 'top';
+    if (clientX <= LEFT_BAND) return 'left';
+    return null;
+  }, []);
 
   const handleFloatDragStart = useCallback((e) => {
     if (e.target.closest('input') || e.target.closest('button')) return;
@@ -109,6 +123,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     const startY = e.clientY;
     const startDrag = { ...floatDragRef.current };
     let dragged = false;
+    let lastZone = null;
     const onMove = (ev) => {
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
@@ -117,15 +132,33 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       const next = { x: startDrag.x + dx, y: startDrag.y + dy };
       floatDragRef.current = next;
       setFloatDrag(next);
+      const zone = detectDropZone(ev.clientX, ev.clientY);
+      if (zone !== lastZone) {
+        lastZone = zone;
+        setFloatDropHint(zone);
+      }
     };
-    const onUp = () => {
+    const onUp = (ev) => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      setFloatDropHint(null);
+      if (!dragged) return;
+      const zone = detectDropZone(ev.clientX, ev.clientY);
+      if (zone === 'left' && onExpandPanelFromWidget) {
+        // Snap drag offset back so the widget is fresh next time it appears.
+        floatDragRef.current = { x: 0, y: 0 };
+        setFloatDrag({ x: 0, y: 0 });
+        onExpandPanelFromWidget();
+      } else if (zone === 'top' && onDockWidgetToTopBar) {
+        floatDragRef.current = { x: 0, y: 0 };
+        setFloatDrag({ x: 0, y: 0 });
+        onDockWidgetToTopBar();
+      }
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     e.preventDefault();
-  }, []);
+  }, [detectDropZone, onExpandPanelFromWidget, onDockWidgetToTopBar]);
   // filterLevel encoding: '' (all) | 'exact:N' | 'upto:N' | 'collapse:N'
   const [filterLevel, setFilterLevel] = useState(() => {
     try { return localStorage.getItem('sieve-filter-level') || ''; } catch { return ''; }
@@ -607,10 +640,10 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
   ) : null;
 
   return (
-    <div className={`step-panel${panelCollapsed ? ' collapsed' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
-      {panelCollapsed && (
+    <div className={`step-panel${panelCollapsed ? ' collapsed' : ''}${floatDropHint === 'left' ? ' drop-hint-left' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
+      {panelCollapsed && !allEventsWidgetHidden && (
         <div
-          className="step-panel-floating-title"
+          className={`step-panel-floating-title${floatDropHint ? ` dropping dropping-${floatDropHint}` : ''}`}
           style={{ transform: `translate(${floatDrag.x}px, ${floatDrag.y}px)`, cursor: 'grab' }}
           onMouseDown={handleFloatDragStart}
         >

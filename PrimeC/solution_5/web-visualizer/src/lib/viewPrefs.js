@@ -138,7 +138,9 @@ export function mergeEventTitleSettings(saved) {
   return {
     ...DEFAULT_EVENT_TITLE_SETTINGS,
     ...saved,
-    visible: saved.visible !== false,
+    // Always show the single-event widget on startup regardless of how it was
+    // last hidden (user can dismiss it again via the ▼ button or by dragging it).
+    visible: true,
     position: 'center', // user removed the position picker; always re-center as baseline
     scale,
     dragOffsetX,
@@ -215,6 +217,10 @@ function initialControlsHidden(prefs) {
   return prefs?.controlsHidden === true;
 }
 
+function initialAllEventsWidgetHidden(prefs) {
+  return prefs?.allEventsWidgetHidden === true;
+}
+
 function initialPanelVisibility(prefs) {
   return {
     stepsPanelCollapsed: prefs?.stepsPanelCollapsed !== false, // default: collapsed
@@ -248,6 +254,7 @@ export function getInitialViewState() {
     maxStepDurationMs: initialMaxStepDurationMs(prefs),
     gridOpacity: initialGridOpacity(prefs),
     controlsHidden: initialControlsHidden(prefs),
+    allEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
     ...initialPanelVisibility(prefs),
   };
 }
