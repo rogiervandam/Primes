@@ -297,8 +297,7 @@
 }
 
 .canvas-container .gl-render-canvas {
-  /* WebGL bit-grid (default backend, opt out via ?renderer=canvas2d).
-     Sits behind the Canvas2D layers so existing overlays/labels
+  /* WebGL bit-grid. Sits behind the Canvas2D layers so overlays/labels
      render on top. See docs/AI_MAINTENANCE.md §8. */
   position: absolute;
   inset: 0;
@@ -306,12 +305,8 @@
   z-index: -1;
   pointer-events: none;
 }
-.canvas-container.mode-3d .gl-render-canvas {
-  /* In 3D mode the bit grid needs a transparent background so the
-     page shows through outside the (rotated) plane; the GL context
-     was created with `alpha: false` for performance, so we hide it
-     entirely and let Canvas2D paint fills + overlays. The GL
-     wrapper in Visualizer.jsx skips uploads/draw to match. */
+/* Hidden when canvas2d renderer is selected. */
+.canvas-container .gl-render-canvas.renderer-inactive {
   display: none;
 }
 

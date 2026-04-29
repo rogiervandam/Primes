@@ -25,13 +25,14 @@ import TimingPanel from '../TimingPanel';
 function CanvasStage({
   // layout flags
   mode3D,
-  loweredSetBits,
   // canvas refs (owned by parent, attached here)
   containerRef,
   canvasRef,
   settledCanvasRef,
   minimapCanvasRef,
   glCanvasRef,
+  // whether GL renderer is active (controls GL canvas visibility)
+  glActive,
   // styling
   camera3DContainerStyle,
   renderCanvasStyle,
@@ -109,20 +110,18 @@ function CanvasStage({
         ref={containerRef}
         style={camera3DContainerStyle}
       >
-        {glCanvasRef && (
-          // Experimental WebGL bit-grid (see docs/AI_MAINTENANCE.md §8).
-          // Mounted underneath the Canvas2D layers so overlays/labels keep
-          // working unchanged on top. Only present when ?renderer=gl.
-          <canvas
-            ref={glCanvasRef}
-            className="gl-render-canvas"
-            style={renderCanvasStyle}
-            aria-hidden="true"
-          />
-        )}
+        {/* WebGL bit-grid canvas. Always in DOM so the renderer can attach on
+            mount and mode switches are instant. Hidden via CSS when canvas2d
+            renderer is active. Overlays/labels render on the Canvas2D layer on top. */}
+        <canvas
+          ref={glCanvasRef}
+          className={`gl-render-canvas${glActive ? '' : ' renderer-inactive'}`}
+          style={renderCanvasStyle}
+          aria-hidden="true"
+        />
         <canvas
           ref={settledCanvasRef}
-          className={`settled-render-canvas${loweredSetBits ? ' active' : ''}`}
+          className="settled-render-canvas"
           style={renderCanvasStyle}
           aria-hidden="true"
         />

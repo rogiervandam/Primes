@@ -61,8 +61,8 @@ export default function Toolbar({
   setPrimeOverlayEnabled,
   timingPanelOpen,
   setTimingPanelOpen,
-  loweredSetBits,
-  setLoweredSetBits,
+  rendererMode,
+  setRendererMode,
   // export
   exportPng,
   exportVideo,
@@ -191,6 +191,7 @@ export default function Toolbar({
                 <path d="M8 1.5v2" strokeLinecap="round" />
               </svg>
             </button>
+            <RendererPicker rendererMode={rendererMode} setRendererMode={setRendererMode} />
             <button className="btn-icon" onClick={exportPng} title="Export PNG"><Camera /></button>
             {!exporting ? (
               <button className="btn-icon" onClick={exportVideo} title="Export Video (WebM)"><Film /></button>
@@ -206,5 +207,60 @@ export default function Toolbar({
         )}
       </div>
     </header>
+  );
+}
+
+/**
+ * Three-way renderer picker: canvas2d / gl / gl-worker.
+ * Switching canvas2d ↔ gl is instant. Switching between gl variants
+ * (gl ↔ gl-worker) reloads the page because OffscreenCanvas.transferControlToOffscreen
+ * is a one-shot operation.
+ */
+function RendererPicker({ rendererMode, setRendererMode }) {
+  const workerSupported = typeof OffscreenCanvas !== 'undefined';
+
+  const labels = {
+    'canvas2d': '2D',
+    'gl': 'GL',
+    'gl-worker': 'GL·W',
+  };
+
+  const titles = {
+    'canvas2d': 'Canvas 2D renderer',
+    'gl': 'WebGL2 renderer (main thread)',
+    'gl-worker': workerSupported
+      ? 'WebGL2 renderer (OffscreenCanvas worker)'
+      : 'WebGL2 worker — OffscreenCanvas not supported in this browser',
+  };
+
+  const modes = ['canvas2d', 'gl', 'gl-worker'];
+
+  function handleClick(mode) {
+    if (mode === rendererMode) return;
+    // Switching between gl variants requires reload (canvas ownership is one-shot).
+    const bothGL = (mode !== 'canvas2d') && (rendererMode !== 'canvas2d');
+    if (bothGL) {
+      try { window.localStorage?.setItem('sieve-viz:rendererMode', mode); } catch { /* ignore */ }
+      window.location.reload();
+    } else {
+      setRendererMode(mode);
+    }
+  }
+
+  return (
+    <div className="renderer-picker" title="Renderer">
+      {modes.map((mode) => (
+        <button
+          key={mode}
+          type="button"
+          className={`renderer-picker-btn${rendererMode === mode ? ' active' : ''}`}
+          onClick={() => handleClick(mode)}
+          disabled={mode === 'gl-worker' && !workerSupported}
+          title={titles[mode]}
+        >
+          {labels[mode]}
+        </button>
+      ))}
+    </div>
   );
 }

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { SieveRenderer, bitToNumber, numberToBit, CACHE_PRESETS } from './SieveRenderer';
 import { BitGridGL } from './renderer/gl/BitGridGL';
 import { BitGridGLWorker, isWorkerGLSupported } from './renderer/gl/BitGridGLWorker';
-import { isGLEnabled, isGLWorkerEnabled } from './renderer/gl/featureFlag';
+import { getRendererMode } from './renderer/gl/featureFlag';
 import StepPanel from './StepPanel';
 import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
@@ -64,7 +64,22 @@ export default function Visualizer({
   // Experimental WebGL bit-grid (see docs/AI_MAINTENANCE.md §8). Only
   // populated when `?renderer=gl` is set; otherwise these stay null and
   // the GL canvas is not mounted.
-  const glEnabled = useMemo(() => isGLEnabled(), []);
+  // rendererMode: which rendering backend is active. Persisted to localStorage.
+  // canvas2d = Canvas2D only; gl = WebGL2 direct; gl-worker = WebGL2 OffscreenCanvas worker.
+  const [rendererMode, setRendererModeRaw] = useState(() => {
+    try {
+      const saved = window.localStorage?.getItem('sieve-viz:rendererMode');
+      if (saved === 'canvas2d' || saved === 'gl' || saved === 'gl-worker') return saved;
+    } catch { /* ignore */ }
+    return getRendererMode();
+  });
+  const rendererModeRef = useRef(rendererMode);
+  rendererModeRef.current = rendererMode;
+  const setRendererMode = useCallback((mode) => {
+    try { window.localStorage?.setItem('sieve-viz:rendererMode', mode); } catch { /* ignore */ }
+    setRendererModeRaw(mode);
+  }, []);
+  const glEnabled = rendererMode === 'gl' || rendererMode === 'gl-worker';
   const glCanvasRef = useRef(null);
   const glRendererRef = useRef(null);
   const isMacPlatform = useMemo(() => detectIsMac(), []);
@@ -91,7 +106,6 @@ export default function Visualizer({
   const [panelWidth, setPanelWidth] = useState(320);
   const [theme, setTheme] = useState(initialPrefs.theme);
   const [showTraceInfo, setShowTraceInfo] = useState(false);
-  const [loweredSetBits, setLoweredSetBits] = useState(false);
   const [settingsCollapsed, setSettingsCollapsed] = useState(true);
   const [layoutSettings, setLayoutSettings] = useState(initialPrefs.layoutSettings);
   const [eventTitleSettings, setEventTitleSettings] = useState(initialPrefs.eventTitleSettings);
@@ -709,40 +723,40 @@ export default function Visualizer({
         if (rr && rr.primeOverlay) rr.render();
       });
 
-      // Experimental WebGL bit-grid scaffold (?renderer=gl or
-      // ?renderer=gl-worker). Mounted as a sibling canvas under the
-      // Canvas2D layers; mirrors r.render() via a wrapper. See
-      // docs/AI_MAINTENANCE.md §8 for scope and limitations. The
-      // worker variant transfers the canvas to a module worker via
-      // OffscreenCanvas; falls back to direct mode if the browser
-      // doesn't support OffscreenCanvas.
-      if (glEnabled && glCanvasRef.current) {
-        const useWorker = isGLWorkerEnabled() && isWorkerGLSupported();
-        const gl = useWorker ? new BitGridGLWorker() : new BitGridGL();
-        if (gl.attach(glCanvasRef.current)) {
+      // WebGL bit-grid scaffold. Always attempt to init so the user can
+      // switch to GL at runtime without a page reload. The worker variant
+      // uses OffscreenCanvas.transferControlToOffscreen (one-shot, so
+      // gl↔gl-worker switching requires a reload).
+      if (glCanvasRef.current) {
+        // Attach the GL renderer once — transferControlToOffscreen is a
+        // one-shot operation and cannot be repeated on the same canvas.
+        // On trace changes (effect re-runs) we reuse the existing renderer
+        // and just update the bit-count budget. On first mount (or when
+        // the renderer was never successfully created) we create it fresh.
+        let gl = glRendererRef.current;
+        if (!gl) {
+          const useWorker = (rendererModeRef.current === 'gl-worker') && isWorkerGLSupported();
+          const newGl = useWorker ? new BitGridGLWorker() : new BitGridGL();
+          if (newGl.attach(glCanvasRef.current)) {
+            gl = newGl;
+            glRendererRef.current = gl;
+          }
+          // If attach failed (no WebGL2, or canvas already transferred)
+          // leave glRendererRef.current as null/unchanged.
+        }
+        if (gl) {
           gl.resizeForBitCount(header.bitCount);
-          glRendererRef.current = gl;
           const origRender = r.render.bind(r);
           r.render = () => {
             const g = glRendererRef.current;
             const rr = rendererRef.current;
-            // Tell SieveRenderer to skip the cell-fill rectangles +
-            // background fill when GL is the active backend AND
-            // depth-shaded (lowered-3D) mode is OFF and 3D camera
-            // perspective is OFF. With either of those on, GL has
-            // no parity (lowered-3D has no shader; 3D needs a
-            // transparent bg so the page shows through outside
-            // the bit grid, which the GL context's `alpha:false`
-            // can't do), so Canvas2D takes over the full fill.
-            // Re-evaluated every frame to track runtime toggles.
-            const glOwnsFill = !!g && !rr.loweredSetBits && !rr.transparentBackground;
+            // GL owns the cell-fill when a GL renderer mode is selected.
+            // Re-evaluated every frame so runtime mode switches take effect.
+            const activeMode = rendererModeRef.current;
+            const glOwnsFill = !!g && (activeMode === 'gl' || activeMode === 'gl-worker');
             if (rr) rr.skipBitFill = glOwnsFill;
             origRender();
             if (!g || !rr || !rr.canvas) return;
-            // GL is a no-op whenever Canvas2D is on full duty. We
-            // still leave the GL canvas in the DOM (hidden via CSS,
-            // see .canvas-container.mode-3d .gl-render-canvas) but
-            // skip its uploads + draw to avoid stale-bitmap paints.
             if (!glOwnsFill) return;
             const dpr = window.devicePixelRatio || 1;
             const cssW = rr.canvas.width / dpr;
@@ -781,11 +795,6 @@ export default function Visualizer({
               baseAlpha: Math.max(0.12, Math.min(1, rr.gridOpacity ?? 1)),
             });
           };
-        } else {
-          // GL attach failed (no WebGL2 in this browser). Leave
-          // skipBitFill at its default `false` so the Canvas2D path
-          // stays fully responsible.
-          glRendererRef.current = null;
         }
       }
     }
@@ -805,14 +814,25 @@ export default function Visualizer({
     });
 
     return () => {
-      if (glRendererRef.current) {
-        glRendererRef.current.dispose();
-        glRendererRef.current = null;
-      }
+      // Do NOT dispose glRendererRef here — transferControlToOffscreen is
+      // one-shot; disposing and re-attaching on the same canvas is impossible.
+      // GL is disposed in the mount-only cleanup effect below.
       rendererRef.current = null;
       disposeCamera();
     };
   }, [header.bitCount, header.sieveSize]);
+
+  // Dispose the GL renderer only when the component fully unmounts.
+  // Kept separate from the init effect so trace changes (which re-run the
+  // init effect) do not destroy the GL canvas ownership.
+  useEffect(() => {
+    return () => {
+      if (glRendererRef.current) {
+        glRendererRef.current.dispose();
+        glRendererRef.current = null;
+      }
+    };
+  }, []);
 
   const prevLayoutRef = useRef({
     bitLayout: DEFAULT_SETTINGS.bitLayout,
@@ -886,8 +906,6 @@ export default function Visualizer({
     r.rangeOverlayEnd = rangeOverlayEnd;
     r.multiplesOverlay = multiplesOverlayEnabled;
     r.multiplesOverlayPrime = Math.max(2, multiplesOverlayPrime || 2);
-    r.loweredSetBits = loweredSetBits;
-    r.loweredSetBits3D = mode3D;
     r.transparentBackground = mode3D;
     r.loweredDepthStrength = Math.max(0, Math.min(1.0, (depthSettings.strength ?? 80) / 100));
     r.loweredDepthAngle = Math.max(0, Math.min(90, depthSettings.angle ?? 38));
@@ -971,7 +989,7 @@ export default function Visualizer({
     r.render();
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, loweredSetBits, depthSettings, gridOpacity, updateMinimapAvailability]);
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, depthSettings, gridOpacity, updateMinimapAvailability]);
 
   // Resize handler
   useEffect(() => {
@@ -3848,8 +3866,8 @@ export default function Visualizer({
         setPrimeOverlayEnabled={setPrimeOverlayEnabled}
         timingPanelOpen={timingPanelOpen}
         setTimingPanelOpen={setTimingPanelOpen}
-        loweredSetBits={loweredSetBits}
-        setLoweredSetBits={setLoweredSetBits}
+        rendererMode={rendererMode}
+        setRendererMode={setRendererMode}
         exportPng={exportPng}
         exportVideo={exportVideo}
         cancelExport={cancelExport}
@@ -3891,12 +3909,12 @@ export default function Visualizer({
         />
         <CanvasStage
           mode3D={mode3D}
-          loweredSetBits={loweredSetBits}
           containerRef={containerRef}
           canvasRef={canvasRef}
           settledCanvasRef={settledCanvasRef}
           minimapCanvasRef={minimapCanvasRef}
-          glCanvasRef={glEnabled ? glCanvasRef : null}
+          glCanvasRef={glCanvasRef}
+          glActive={glEnabled}
           camera3DContainerStyle={mergedCamera3DContainerStyle}
           renderCanvasStyle={renderCanvasStyle}
           eventTitleSettings={eventTitleSettings}
@@ -4037,8 +4055,6 @@ export default function Visualizer({
           minimapControlVisible={true}
           depthSettings={depthSettings}
           onDepthSettingsChange={setDepthSettings}
-          loweredSetBits={loweredSetBits}
-          onLoweredSetBitsToggle={() => setLoweredSetBits((v) => !v)}
           eventTitleSettings={eventTitleSettings}
           onEventTitleSettingsChange={setEventTitleSettings}
           outlineSettings={layoutSettings.outlines}

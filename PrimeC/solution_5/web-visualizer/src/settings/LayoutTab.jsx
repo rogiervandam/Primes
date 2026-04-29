@@ -54,8 +54,6 @@ export default function LayoutTab({
   onHeatMapToggle,
   outlineSettings, onOutlineChange,
   isWindowsPlatform = false,
-  loweredSetBits = false, onLoweredSetBitsToggle,
-  depthSettings, onDepthSettingsChange,
 }) {
   const { s, set, setMany, incr, decr } = useSettingsBundle(settings, onChange);
   const [groupingMenuOpen, setGroupingMenuOpen] = React.useState(false);
@@ -724,68 +722,6 @@ export default function LayoutTab({
           </div>
         )}
       </div>
-
-      {onLoweredSetBitsToggle && (
-        <div className="settings-section">
-          <label>Sieve depth mode</label>
-          <div className="preview-btn-grid preview-btn-grid-3">
-            <PreviewOptionButton
-              compact
-              label="Lowered bits"
-              hint="Set bits sink through the sieve — cleared bits stay at surface level"
-              active={!!loweredSetBits}
-              onClick={() => onLoweredSetBitsToggle()}
-              preview={(
-                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true" strokeLinecap="round">
-                  <rect x="4"  y="3" width="7" height="7" opacity="0.35" />
-                  <rect x="14" y="3" width="7" height="7" opacity="0.35" />
-                  <rect x="24" y="3" width="7" height="7" opacity="0.35" />
-                  <rect x="34" y="3" width="7" height="7" opacity="0.35" />
-                  <rect x="4"  y="13" width="5" height="5" opacity="0.9" />
-                  <rect x="24" y="13" width="5" height="5" opacity="0.9" />
-                </svg>
-              )}
-            />
-          </div>
-          {loweredSetBits && (
-            <>
-              <div className="settings-row overlay-inline-controls">
-                <label className="overlay-inline-field overlay-inline-field-range">
-                  <span>Depth strength</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={depthSettings?.strength ?? 80}
-                    onChange={(e) => onDepthSettingsChange && onDepthSettingsChange((prev) => ({
-                      ...(prev || depthSettings || {}),
-                      strength: parseInt(e.target.value, 10),
-                    }))}
-                  />
-                  <span className="val">{depthSettings?.strength ?? 80}%</span>
-                </label>
-                <label className="overlay-inline-field overlay-inline-field-range">
-                  <span>Depth angle</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={90}
-                    step={1}
-                    value={depthSettings?.angle ?? 38}
-                    onChange={(e) => onDepthSettingsChange && onDepthSettingsChange((prev) => ({
-                      ...(prev || depthSettings || {}),
-                      angle: parseInt(e.target.value, 10),
-                    }))}
-                  />
-                  <span className="val">{depthSettings?.angle ?? 38}°</span>
-                </label>
-              </div>
-              <span className="settings-hint">Tune how deep and at what angle bits fall through the sieve. Labels on set bits follow the lowered position.</span>
-            </>
-          )}
-        </div>
-      )}
 
       <LayoutOverview />
 

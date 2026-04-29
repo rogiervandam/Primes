@@ -41,8 +41,6 @@ export default function SettingsPanel({
   minimapControlVisible = true,
   depthSettings,
   onDepthSettingsChange,
-  loweredSetBits = false,
-  onLoweredSetBitsToggle,
   eventTitleSettings,
   onEventTitleSettingsChange,
   outlineSettings, onOutlineChange,
@@ -160,7 +158,6 @@ export default function SettingsPanel({
             minimapControlVisible={minimapControlVisible}
             outlineSettings={outlineSettings} onOutlineChange={onOutlineChange}
             isWindowsPlatform={isWindowsPlatform}
-            loweredSetBits={loweredSetBits} onLoweredSetBitsToggle={onLoweredSetBitsToggle}
             depthSettings={depthSettings} onDepthSettingsChange={onDepthSettingsChange}
           />
         )}
