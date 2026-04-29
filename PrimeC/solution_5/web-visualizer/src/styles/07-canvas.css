@@ -103,6 +103,112 @@
   min-width: 0;
   max-width: 230px;
 }
+
+/* Custom visual track wrapper for the Timeline slider.
+   The visual track (fill + wipe overlay) lives inside this wrapper;
+   the native <input type="range"> is layered on top for interaction. */
+.step-focus-timeline-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  max-width: 230px;
+  display: flex;
+  align-items: center;
+  height: 20px;
+}
+/* Override the generic slider-controls input rule so the wrapper owns flex. */
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"] {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  max-width: none;
+  min-width: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+  z-index: 2;
+}
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+/* Webkit: transparent track, accent thumb */
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: transparent;
+  border-radius: 2px;
+}
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  margin-top: -4px;
+  position: relative;
+  z-index: 3;
+}
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]:disabled::-webkit-slider-thumb {
+  background: var(--fg-dim);
+}
+/* Firefox: transparent track, accent thumb */
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: transparent;
+  border-radius: 2px;
+}
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+}
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]:disabled::-moz-range-thumb {
+  background: var(--fg-dim);
+}
+/* The static track background (grey rail) */
+.step-focus-timeline-track {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  pointer-events: none;
+}
+/* Accent-coloured fill (grows left → right with stepScrubProgress) */
+.step-focus-timeline-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  pointer-events: none;
+}
+/* Delay-wipe overlay: covers the fill left → right during inter-repeat delay */
+.step-focus-timeline-wipe {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: var(--border);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 1;
+}
 .step-focus-play-btn {
   width: 20px;
   height: 20px;

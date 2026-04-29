@@ -82,6 +82,8 @@ Modal table that lists every changed bit (or every multiple / every prime) for t
 ### `StepAnimSliders.jsx`
 The Mode / Timeline / Target / Speed slider cluster shown in both the floating event-title banner and the bottom detail panel. All values and callbacks (current step data, scrub progress, mode toggles, `computeEventDuration`, `playSpeedPercent`, …) are passed in as props; the component renders the rows and bubbles user interactions back.
 
+**Timeline slider wipe animation** — when `delayPhaseMs` (non-null) is received, the slider's colored fill wipes out left-to-right over the delay duration using an internal RAF loop (`wipePositionRef` / `wipePosition` state). When `animationReplayPaused` is `true` while `delayPhaseMs` is set, the wipe freezes (pause-in-flight). When `delayPhaseMs` returns to `null` (user scrubs or delay completes), the wipe reverses smoothly back to 0 over ~200 ms. The visual track is implemented as custom HTML divs (`.step-focus-timeline-track`, `.step-focus-timeline-fill`, `.step-focus-timeline-wipe`) behind a transparent-track `appearance: none` range input.
+
 ### `BitHistoryBalloons.jsx`
 Wraps the pinned-balloon list and the hover balloon. Asks the parent (`getVisibleBalloonStyles`) where each balloon should sit, then renders one `BitHistoryBalloon` per pinned bit and an extra one for the hovered bit (when the hovered bit isn't already pinned). Calls `onUnpin(bitIndex)` and `onHistoryClick(stepIndex)` for user actions.
 

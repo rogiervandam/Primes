@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Play, Pause } from '../Icons';
 
 /**
@@ -24,9 +24,85 @@ function StepAnimSliders({
   stepAnimRunning,
   singleEventLoopActive,
   animationReplayPaused,
+  delayPhaseMs,
   playing,
   exporting,
 }) {
+  // Wipe overlay: 0..100, animates forward over delayPhaseMs when in delay
+  // phase, reverses smoothly when the delay is cancelled/scrubbed.
+  const wipePositionRef = useRef(0);
+  const [wipePosition, setWipePosition] = useState(0);
+  const wipeAnimRef = useRef(null);
+
+  useEffect(() => {
+    if (wipeAnimRef.current) {
+      cancelAnimationFrame(wipeAnimRef.current);
+      wipeAnimRef.current = null;
+    }
+
+    if (delayPhaseMs && delayPhaseMs > 0) {
+      if (animationReplayPaused) {
+        // Delay is paused-in-flight: freeze the wipe at its current position.
+        return;
+      }
+      // Animate wipe forward from the current position to 100%.
+      const startPos = wipePositionRef.current;
+      const remainingFraction = 1 - (startPos / 100);
+      const remainingMs = delayPhaseMs * remainingFraction;
+      if (remainingMs <= 0) {
+        wipePositionRef.current = 100;
+        setWipePosition(100);
+        return;
+      }
+      const startTime = performance.now();
+      const animate = (now) => {
+        const elapsed = now - startTime;
+        const progress = Math.min(1, elapsed / remainingMs);
+        const pos = startPos + (100 - startPos) * progress;
+        wipePositionRef.current = pos;
+        setWipePosition(pos);
+        if (progress < 1) {
+          wipeAnimRef.current = requestAnimationFrame(animate);
+        } else {
+          wipePositionRef.current = 100;
+          setWipePosition(100);
+          wipeAnimRef.current = null;
+        }
+      };
+      wipeAnimRef.current = requestAnimationFrame(animate);
+    } else {
+      // Not in delay phase: animate wipe back to 0 (fade back in).
+      const startPos = wipePositionRef.current;
+      if (startPos <= 0.5) {
+        if (startPos > 0) { wipePositionRef.current = 0; setWipePosition(0); }
+        return;
+      }
+      const startTime = performance.now();
+      const reverseDuration = Math.min(220, startPos * 2.2);
+      const animate = (now) => {
+        const elapsed = now - startTime;
+        const progress = Math.min(1, elapsed / Math.max(1, reverseDuration));
+        const pos = startPos * (1 - progress);
+        wipePositionRef.current = pos;
+        setWipePosition(pos);
+        if (progress < 1) {
+          wipeAnimRef.current = requestAnimationFrame(animate);
+        } else {
+          wipePositionRef.current = 0;
+          setWipePosition(0);
+          wipeAnimRef.current = null;
+        }
+      };
+      wipeAnimRef.current = requestAnimationFrame(animate);
+    }
+
+    return () => {
+      if (wipeAnimRef.current) {
+        cancelAnimationFrame(wipeAnimRef.current);
+        wipeAnimRef.current = null;
+      }
+    };
+  }, [delayPhaseMs, animationReplayPaused]);
   const hasMaskOrder = !!(
     currentStepData
     && currentStepData.maskWriteOrderWords
@@ -95,19 +171,25 @@ function StepAnimSliders({
           >
             {(playing || stepAnimRunning || singleEventLoopActive) && !animationReplayPaused ? <Pause size={14} /> : <Play size={14} />}
           </button>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={stepScrubProgress}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10);
-              setStepScrubProgress(v);
-              seekStepAnimation(v / 100);
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-            disabled={timelineDisabled}
-          />
+          <div className="step-focus-timeline-wrap">
+            <div className="step-focus-timeline-track" aria-hidden="true">
+              <div className="step-focus-timeline-fill" style={{ width: `${stepScrubProgress}%` }} />
+              <div className="step-focus-timeline-wipe" style={{ width: `${wipePosition}%` }} />
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={stepScrubProgress}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                setStepScrubProgress(v);
+                seekStepAnimation(v / 100);
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              disabled={timelineDisabled}
+            />
+          </div>
         </div>
         <span className="step-focus-slider-value">{stepScrubProgress}%</span>
       </div>

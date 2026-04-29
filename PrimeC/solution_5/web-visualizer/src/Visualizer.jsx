@@ -127,6 +127,13 @@ export default function Visualizer({
   const [stepScrubProgress, setStepScrubProgress] = useState(0);
   const stepScrubProgressRef = useRef(setStepScrubProgress);
   stepScrubProgressRef.current = setStepScrubProgress;
+  // Non-null while waiting for the delay between single-event loop repeats.
+  // Holds the total delay duration (ms) so the wipe animation in
+  // StepAnimSliders knows how long to run. Cleared when the delay ends, is
+  // interrupted by a scrub, or when the loop is paused/stopped.
+  const [delayPhaseMs, setDelayPhaseMs] = useState(null);
+  const setDelayPhaseMsRef = useRef(setDelayPhaseMs);
+  setDelayPhaseMsRef.current = setDelayPhaseMs;
   // Is the per-event sequential reveal currently in progress? The banner
   // play/pause button reads this to pick its icon.
   const [stepAnimRunning, setStepAnimRunning] = useState(false);
@@ -1301,6 +1308,7 @@ export default function Visualizer({
       selectedAnimLoopRef.current = null;
     }
     setAnimationReplayPaused(true);
+    setDelayPhaseMsRef.current(null);
     const r = rendererRef.current;
     const stepIdx = currentStep;
     const allSteps = stepsRef.current;
@@ -2136,7 +2144,9 @@ export default function Visualizer({
         }
         bitStateDirtyRef.current = false;
       }
+      if (delayMs > 0 && singleEventLoopActiveRef.current) setDelayPhaseMsRef.current(delayMs);
       await waitForDelay(delayMs);
+      setDelayPhaseMsRef.current(null);
       if (!isStillLive()) return;
       if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
       return;
@@ -2305,7 +2315,9 @@ export default function Visualizer({
 
       r.animationFocusBits = new Set();
       if (!isStillLive()) return;
+      if (delayMs > 0 && singleEventLoopActiveRef.current) setDelayPhaseMsRef.current(delayMs);
       await waitForDelay(delayMs);
+      setDelayPhaseMsRef.current(null);
       if (!isStillLive()) return;
       if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
       return;
@@ -2316,7 +2328,9 @@ export default function Visualizer({
       r.render();
       r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
       if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
+      if (delayMs > 0 && singleEventLoopActiveRef.current) setDelayPhaseMsRef.current(delayMs);
       await waitForDelay(delayMs);
+      setDelayPhaseMsRef.current(null);
       return;
     }
 
@@ -2326,7 +2340,9 @@ export default function Visualizer({
     if (!isStillLive()) return;
     r.animationFocusBits = new Set();
     if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
+    if (delayMs > 0 && singleEventLoopActiveRef.current) setDelayPhaseMsRef.current(delayMs);
     await waitForDelay(delayMs);
+    setDelayPhaseMsRef.current(null);
   }, [animMode, animStyle, maskAnimationEnabled, stopSeqAnim, runEffect, estimateAnimDuration, getMinimapDetailH, getAnimationBitInterval, getAnimationTimingPlan, getCurrentLoopInterval, runMaskStampAnimation, fadeOutCurrentHighlights, waitForDelay, maxStepDurationEnabled, maxStepDurationMs, pinnedBitIndices, effectiveGroupBits, maskAnimInterval, computeEventDuration]);
 
   useEffect(() => {
@@ -3859,6 +3875,7 @@ export default function Visualizer({
       stepAnimRunning={stepAnimRunning}
       singleEventLoopActive={singleEventLoopActive}
       animationReplayPaused={animationReplayPaused}
+      delayPhaseMs={delayPhaseMs}
       playing={playing}
       exporting={exporting}
     />
