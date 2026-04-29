@@ -28,7 +28,7 @@
 #endif
 
 // How to align the caches
-#define cache_line_bytes 256
+#define cache_line_bytes 128
 
 // type for describing the index of a bit in the sieve and general loops
 #if defined(USE_64BIT_COUNTER)

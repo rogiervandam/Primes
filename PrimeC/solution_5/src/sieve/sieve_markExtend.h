@@ -66,7 +66,7 @@ markExtendSieveBlock_half(void* restrict bitstorage, const counter_t block_start
     // only the first word has to be cleared; the rest is populated by the extension procedure
     ((uint16_t*)bitstorage)[index_type(block_start, uint16_t)  ] = (uint16_t)0ULL; 
     ((uint16_t*)bitstorage)[index_type(block_start, uint16_t)+1] = (uint16_t)0ULL; 
-    verbose6( printf("Cleared bitstorage %ju - %ju\n", (uintmax_t)block_start, (uintmax_t)block_stop); )
+    log6("Cleared bitstorage %ju - %ju\n", (uintmax_t)block_start, (uintmax_t)block_stop)
     
     for (;range_stop < block_stop;) {
         prime = searchBitFalse_uint8(bitstorage, prime);

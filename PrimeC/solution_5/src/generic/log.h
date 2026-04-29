@@ -51,6 +51,9 @@
 #endif
 
 #define log(level, ...) PRIMES_LOG_DISPATCH(level, __VA_ARGS__)
+#define log1(...) verbose(1, printf(__VA_ARGS__))
+#define log2(...) verbose(2, printf(__VA_ARGS__))
+#define log3(...) verbose(3, printf(__VA_ARGS__))
 #define log4(...) verbose(4, printf(__VA_ARGS__))
 #define log5(...) PRIMES_LOG_DISPATCH(5, __VA_ARGS__)
 #define log6(...) PRIMES_LOG_DISPATCH(6, __VA_ARGS__)
@@ -123,7 +126,7 @@ log_event_functionid(int level, void* bitstorage, function_id_t function_id, con
 #define COLLECT_ARGS(string, maxlength, fmt, args) \
     char string[maxlength]; va_list args; va_start(args, fmt); vsnprintf(string, sizeof(string), fmt, args); va_end(args);
 
-    static void
+static void
 log_text(int level, const char* label, const char* fmt, ...)
 {
     COLLECT_ARGS(annotation, 1024, fmt, args);

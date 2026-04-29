@@ -4,12 +4,6 @@
 // This file includes all the building blocks for the sieve algorithm "extend"
 // This enables the compiler to optimize the code better
 
-// #include "generic/timepriority.h"
-// #include <stdio.h>
-// #include <stdlib.h> // for malloc, free, exit and getenv
-// #include <time.h>
-// #include <stdint.h>
-
 static char algorithm_name[] = "rogiervandam_extend";
 static char algorithm_type[] = "other";
 

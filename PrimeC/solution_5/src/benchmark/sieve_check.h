@@ -86,8 +86,7 @@ deepAnalyzeSieve(sieve_t* sieve, counter_t factor_max)
                 if ((prime) % (c) == 0 && (c) != (prime)) c_prime++;
             }
             if (c_prime == 0 && warn_nonprime++ < option.show_nonprimes_on_error) {
-                verbose2( printf("Number " COLOR_RED "%4ju" COLOR_RESET " was marked non-prime, but no factors found. So it is prime\n", 
-                    (uintmax_t)prime); )
+                verbose2( printf("Number " COLOR_RED "%4ju" COLOR_RESET " was marked non-prime, but no factors found. So it is prime\n", (uintmax_t)prime); )
             }
         }
     }

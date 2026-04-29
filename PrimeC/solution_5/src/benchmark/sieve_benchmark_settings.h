@@ -1,6 +1,4 @@
 #pragma once
-// #ifndef SIEVE_BENCHMARK_GUARD
-// #define SIEVE_BENCHMARK_GUARD
 #include <stdio.h> // for snprintf
 typedef struct  {
     counter_t factor_max;
@@ -27,7 +25,7 @@ static inline char* setBenchmarkSettingAsString(char* settings_string, benchmark
     return settings_string;
 }
 
-static char      global_settings_string[50] = ""; // settings string to use where it is directly outputted
+static char global_settings_string[50] = ""; // settings string to use where it is directly outputted
 static inline char *getBenchmarkSettingAsString(benchmark_settings_t benchmark_settings) 
 {
     return setBenchmarkSettingAsString(global_settings_string, benchmark_settings);
@@ -40,5 +38,3 @@ static inline void resetBenchmarkResult(benchmark_result_t* benchmark_result, be
     benchmark_result->elapsed_time = 0;
     benchmark_result->avg          = 0;
 }
-
-// #endif

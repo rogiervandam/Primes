@@ -1,10 +1,11 @@
-// #include <errno.h>
-// #include <sched.h>
-// #include <stdlib.h>
-// #include <stdio.h>
-// #include <string.h>
-// #include <sys/resource.h>
-// #include <unistd.h>
+#include <errno.h>
+#include <sched.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/resource.h>
+#include <unistd.h>
+#include <pthread.h>
 
 static inline int getBenchmarkPinnedCpu(void)
 {
