@@ -221,7 +221,7 @@ export default function LayoutTab({
     );
   };
 
-  const outline = outlineSettings || { target: 'none' };
+  const outline = outlineSettings || { targets: [] };
 
   const CL_ANNOT_CYCLE = ['none', 'hits', 'age', 'both'];
   const CL_ANNOT_HINTS = {
@@ -855,25 +855,13 @@ export default function LayoutTab({
 
       <div className="settings-section">
         <label>Grouping outlines</label>
-        <div className="preview-btn-grid preview-btn-grid-4">
-          <PreviewOptionButton
-            compact
-            label="None"
-            hint="Disable outlines"
-            active={(outline.target || 'none') === 'none'}
-            onClick={() => onOutlineChange({ ...outline, target: 'none' })}
-            preview={(
-              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                <line x1="8" y1="11" x2="40" y2="11" />
-              </svg>
-            )}
-          />
+        <div className="preview-btn-grid preview-btn-grid-3">
           <PreviewOptionButton
             compact
             label="Byte"
             hint="Thick dashed blue byte outlines"
-            active={(outline.target || 'none') === 'byte'}
-            onClick={() => onOutlineChange({ ...outline, target: 'byte' })}
+            active={(outline.targets || []).includes('byte')}
+            onClick={() => { const ts = outline.targets || []; const next = ts.includes('byte') ? ts.filter(t => t !== 'byte') : [...ts, 'byte']; onOutlineChange({ ...outline, targets: next }); }}
             preview={(
               <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
                 <rect x="9" y="5" width="10" height="12" rx="3" strokeDasharray="4 3" stroke="#3b82f6" strokeWidth="2" fill="none" />
@@ -885,8 +873,8 @@ export default function LayoutTab({
             compact
             label="Grouping"
             hint="Thin dashed blue grouping outlines"
-            active={(outline.target || 'none') === 'vector'}
-            onClick={() => onOutlineChange({ ...outline, target: 'vector' })}
+            active={(outline.targets || []).includes('vector')}
+            onClick={() => { const ts = outline.targets || []; const next = ts.includes('vector') ? ts.filter(t => t !== 'vector') : [...ts, 'vector']; onOutlineChange({ ...outline, targets: next }); }}
             preview={(
               <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
                 <rect x="4" y="4" width="40" height="14" rx="4" strokeDasharray="5 3" stroke="#3b82f6" strokeWidth="2" fill="none" />
@@ -897,8 +885,8 @@ export default function LayoutTab({
             compact
             label="Cacheline"
             hint="Thick dashed blue cacheline outlines"
-            active={(outline.target || 'none') === 'cacheline'}
-            onClick={() => onOutlineChange({ ...outline, target: 'cacheline' })}
+            active={(outline.targets || []).includes('cacheline')}
+            onClick={() => { const ts = outline.targets || []; const next = ts.includes('cacheline') ? ts.filter(t => t !== 'cacheline') : [...ts, 'cacheline']; onOutlineChange({ ...outline, targets: next }); }}
             preview={(
               <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
                 <rect x="2" y="3" width="44" height="16" rx="4" strokeDasharray="6 3" stroke="#3b82f6" strokeWidth="2" fill="none" />
@@ -906,7 +894,7 @@ export default function LayoutTab({
             )}
           />
         </div>
-        <span className="settings-hint">Outlines are optional helpers for structure visibility.</span>
+        <span className="settings-hint">Outlines are optional helpers for structure visibility. Multiple can be active at once.</span>
       </div>
     </>
   );

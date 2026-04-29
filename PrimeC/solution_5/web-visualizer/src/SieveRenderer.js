@@ -143,7 +143,7 @@ export class SieveRenderer {
 
     // Optional grouping outlines
     this.outlineEnabled = false;
-    this.outlineTarget = 'byte'; // 'byte' | 'vector' | 'cacheline'
+    this.outlineTargets = new Set(); // Set of: 'byte' | 'vector' | 'cacheline'
     this.outlineStyle = 'thin'; // 'thin' | 'thick' | 'dashed' | 'dotted'
     this.outlineColor = '#5ccf8d';
     this.outlineRounded = false;
@@ -872,7 +872,7 @@ export class SieveRenderer {
    * each physical CL gets one outlined rectangle per visual row it occupies.
    */
   _renderCachelineOutline(ctx) {
-    if (!this.outlineEnabled || this.outlineTarget !== 'cacheline') return;
+    if (!this.outlineEnabled || !this.outlineTargets?.has('cacheline')) return;
 
     const phyBitsPerCL  = this.cachelineSize * 8;
     const bitsPerCacheLine = this.bitsPerCacheLine;
@@ -1571,7 +1571,7 @@ export class SieveRenderer {
   _renderVectorU64(f, vecX, vRowDataY, vRowBaseY, intraIdx, u64BitStart, rowBitStop) {
     const u64X = vecX + intraIdx * (f.u64D.w + f.vecD.intraGap);
 
-    if (this.outlineEnabled && this.outlineTarget === 'vector' && intraIdx === 0) {
+    if (this.outlineEnabled && this.outlineTargets?.has('vector') && intraIdx === 0) {
       const pad = this._outlinePadding();
       const topExtra = this._outlineTopExtra('vector');
       this._drawOutlineRect(f.ctx, vecX - pad, vRowDataY - pad - topExtra, f.vecD.w + 2 * pad, f.vecD.h + 2 * pad + topExtra);
@@ -1590,7 +1590,7 @@ export class SieveRenderer {
     const byteX = u64X + bytePos.col * (f.byteD.w + f.byteGapX);
     const byteY = vRowDataY + bytePos.row * (f.byteD.h + f.byteGapY);
 
-    if (this.outlineEnabled && this.outlineTarget === 'byte') {
+    if (this.outlineEnabled && this.outlineTargets?.has('byte')) {
       const pad = this._outlinePadding();
       const topExtra = this._outlineTopExtra('byte');
       this._drawOutlineRect(f.ctx, byteX - pad, byteY - pad - topExtra, f.byteD.w + 2 * pad, f.byteD.h + 2 * pad + topExtra);

@@ -51,7 +51,7 @@ export const DEFAULT_LAYOUT_SETTINGS = {
   byteLabelMode: 'group',
   horizontalGroups: 0,
   outlines: {
-    target: 'none',
+    targets: [],
   },
 };
 
@@ -110,12 +110,20 @@ export function mergeEventTimeTargets(saved) {
 /** Merge saved layout settings into the defaults (deep-merges the `outlines` group). */
 export function mergeLayoutSettings(saved) {
   if (!saved || typeof saved !== 'object') return DEFAULT_LAYOUT_SETTINGS;
+  const savedOutlines = saved.outlines || {};
+  // Migrate legacy single-target string to targets array.
+  let migratedTargets = savedOutlines.targets;
+  if (!Array.isArray(migratedTargets)) {
+    const legacyTarget = savedOutlines.target;
+    migratedTargets = (legacyTarget && legacyTarget !== 'none') ? [legacyTarget] : [];
+  }
   return {
     ...DEFAULT_LAYOUT_SETTINGS,
     ...saved,
     outlines: {
       ...DEFAULT_LAYOUT_SETTINGS.outlines,
-      ...(saved.outlines || {}),
+      ...savedOutlines,
+      targets: migratedTargets,
     },
   };
 }

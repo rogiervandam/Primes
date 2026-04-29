@@ -855,9 +855,9 @@ export default function Visualizer({
     r.bitLabelMode = layoutSettings.bitLabelMode || 'global';
     r.byteLabelMode = layoutSettings.byteLabelMode || 'group';
     r.horizontalGroups = Math.max(0, parseInt(layoutSettings.horizontalGroups || 0, 10) || 0);
-    const outlineTarget = layoutSettings.outlines?.target || 'none';
-    r.outlineEnabled = outlineTarget !== 'none';
-    r.outlineTarget = outlineTarget;
+    const outlineTargets = new Set(layoutSettings.outlines?.targets || []);
+    r.outlineEnabled = outlineTargets.size > 0;
+    r.outlineTargets = outlineTargets;
     r.outlineStyle = 'dashed';
     r.outlineColor = '#3b82f6';
     r.outlineRounded = true;
