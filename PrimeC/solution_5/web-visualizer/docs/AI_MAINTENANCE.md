@@ -516,6 +516,35 @@ overwrite.
   `Visualizer.jsx` likewise uses `rr.effectiveBackground`. The per-theme
   defaults live in `DEFAULT_CANVAS_COLORS` in `viewPrefs.js`.
 
+- ✅ **Fixed settings panel buttons being ineffective while the single-event
+  timeline is playing.** Root cause: the `useEffect([animMode, animStyle])`
+  in `Visualizer.jsx` was designed to restart the current-event animation
+  whenever the user changes animation style or mode. It did so by calling
+  `stopSeqAnim()` followed by `triggerAnimation()`. But `stopSeqAnim()`
+  cancels the in-flight RAF without resolving the `Promise` that the
+  single-event replay loop (`pausedStepAnimLoopRef`) is `await`-ing inside
+  its `triggerFn(...)` call. That permanently freezes the loop: the
+  `Promise` is pending forever, `singleEventLoopActive` stays `true` (the
+  play button still shows "Pause"), but no further loop iterations ever
+  run. Fix: added `if (singleEventLoopActiveRef.current) return;` at the
+  top of the `[animMode, animStyle]` effect (after the existing
+  `initialHighlightHoldRef` guard). When the loop is active, the effect
+  skips both `stopSeqAnim()` and the manual `triggerAnimation()` call.
+  `triggerAnimation` is a `useCallback` that is recreated whenever
+  `animMode`/`animStyle` change (they are in its dep array); the updated
+  closure is written to `triggerAnimationRef.current` immediately. The
+  running loop reads from that ref at the start of each iteration, so the
+  new style/mode takes effect on the very next loop cycle with no
+  disruption to the current one. All Layout-tab controls were subsequently
+  verified to work while the loop is running: bit/byte arrangement SVG
+  icons (fire React `onClick` via bubbling click events), grouping buttons
+  (16bit/32bit/64bit), spacing popovers, and spacing +/− buttons all
+  update state correctly without stopping the loop. No CSS `pointer-events`
+  blocking or `disabled` attributes are applied to these controls during
+  animation. Note that the SVG `LayoutIcon` elements must be targeted with
+  `svg[title="..."]` selectors (not `img[alt="..."]`), since they are `<svg>`
+  elements with a `title` child rather than `<img>` elements.
+
 ---
 
 ## 7. What's worth doing next (suggested, not required)

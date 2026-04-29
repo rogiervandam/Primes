@@ -2605,8 +2605,13 @@ export default function Visualizer({
   }, [autoRender, steps.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Replay current step when animation mode or style changes so the active animation stops immediately.
+  // Skip when the single-event replay loop is running: the loop holds an `await triggerFn(...)` promise
+  // that resolves only when the animation finishes naturally. Calling stopSeqAnim() from here would
+  // cancel the RAF without resolving that promise, permanently freezing the loop. The loop naturally
+  // picks up the new animMode/animStyle on its next iteration via triggerAnimationRef.current.
   useEffect(() => {
     if (initialHighlightHoldRef.current) return;
+    if (singleEventLoopActiveRef.current) return;
     stopSeqAnim();
     const step = steps[currentStep];
     if (!step || !step.changedBits || step.changedBits.length === 0) return;
