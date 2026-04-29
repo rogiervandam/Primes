@@ -240,17 +240,17 @@ export default function LayoutTab({
     ? `custom (${Math.max(1, parseInt(s.customGroupBits || 1, 10) || 1)} bits)`
     : activeGroupingLabel;
   const bitAnnotationHint = !s.showBitLabels
-    ? `Bit labels are hidden. ${describeLayout(s.bitLayout, BIT_LAYOUTS, 'Bits')}`
+    ? `Bit labels are hidden. `
     : (s.bitLabelMode === 'byte'
-      ? `Shows bit position relative to each byte. ${describeLayout(s.bitLayout, BIT_LAYOUTS, 'Bits')}`
+      ? `Shows bit position relative to each byte.`
       : s.bitLabelMode === 'group'
-        ? `Shows bit position inside each grouping. ${describeLayout(s.bitLayout, BIT_LAYOUTS, 'Bits')}`
-        : `Shows global bit index in the full sieve. ${describeLayout(s.bitLayout, BIT_LAYOUTS, 'Bits')}`);
+        ? `Shows bit position inside each grouping.`
+        : `Shows global bit index in the full sieve.`);
   const byteAnnotationHint = !s.showByteLabels
     ? `Byte labels are hidden. ${describeLayout(s.byteLayout, BYTE_LAYOUTS, 'Bytes')}`
     : ((s.byteLabelMode || 'group') === 'global'
-      ? `Shows byte index across the full sieve. ${describeLayout(s.byteLayout, BYTE_LAYOUTS, 'Bytes')}`
-      : `Shows byte index relative to each grouping. ${describeLayout(s.byteLayout, BYTE_LAYOUTS, 'Bytes')}`);
+      ? `Shows byte index across the full sieve.`
+      : `Shows byte index relative to each grouping.`);
 
   React.useEffect(() => {
     if (isCustomVectorMode) {
@@ -485,62 +485,6 @@ export default function LayoutTab({
           </div>
         </div>
 
-        <div className="lo-level-row">
-          <span className="lo-level-tag">Columns</span>
-          <div className="lo-row-body">
-            <div className="lo-vec-wrap lo-column-count-control">
-              <button
-                type="button"
-                className="btn-icon btn-sm spacing-adjust-btn"
-                onClick={() => {
-                  const current = Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
-                  const next = Math.max(1, current - 1);
-                  lastManualColumnCountRef.current = next;
-                  set('horizontalGroups', next);
-                }}
-                title="Decrease grouping column count"
-              >−</button>
-              <span
-                className="lo-column-count-value"
-                title={Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0 ? 'Auto fit: number of columns adjusts to viewport' : `${Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1)} grouping columns`}
-              >
-                {Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0
-                  ? 'auto'
-                  : Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1)}
-              </span>
-              <button
-                type="button"
-                className="btn-icon btn-sm spacing-adjust-btn"
-                onClick={() => {
-                  const current = Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
-                  const next = Math.min(64, current + 1);
-                  lastManualColumnCountRef.current = next;
-                  set('horizontalGroups', next);
-                }}
-                title="Increase grouping column count"
-              >+</button>
-              <button
-                type="button"
-                className={`spacing-toggle-btn${Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0 ? ' active' : ''}`}
-                onClick={() => {
-                  const current = Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0);
-                  if (current === 0) {
-                    set('horizontalGroups', Math.max(1, lastManualColumnCountRef.current || 1));
-                    return;
-                  }
-                  lastManualColumnCountRef.current = current;
-                  set('horizontalGroups', 0);
-                }}
-                title={Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0
-                  ? 'Disable auto fit and use the last manual column count'
-                  : 'Enable automatic column fitting'}
-              >
-                {Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0 ? 'Auto fit on' : 'Auto fit off'}
-              </button>
-            </div>
-          </div>
-        </div>
-
         <div className="lo-level-row lo-level-row-stacked">
           <span className="lo-level-tag">Cache</span>
           <div className="lo-vec-wrap">
@@ -571,11 +515,100 @@ export default function LayoutTab({
         </div>
       </div>
 
-      {/* Spacing controls — direct edits from this panel */}
-      <div className="settings-section lo-section">
-        <label>Spacing</label>
-        <span className="settings-hint">Use the spacing controls above to tune horizontal and vertical gaps.</span>
+      {(cachePreset || 'fixed') !== 'fixed' && (
+        <>
+          {/* Cache presets (processor model) */}
+          <div className="settings-section">
+            <label>Processor cache preset</label>
+            <select value={(cachePreset || 'custom') === 'fixed' ? 'custom' : (cachePreset || 'custom')} onChange={(e) => {
+              const key = e.target.value;
+              onCachePresetChange(key);
+              if (key !== 'custom') {
+                const p = CACHE_PRESETS[key];
+                if (p) onCachelineSizeChange(p.cachelineSize);
+              }
+            }}>
+              {Object.entries(CACHE_PRESETS).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v.label}{v.l1 ? ` — L1: ${(v.l1/1024).toFixed(0)}KB, L2: ${(v.l2/1024/1024).toFixed(1)}MB` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="settings-section">
+            <label>Custom cacheline bytes</label>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={cachelineSize > 0 ? cachelineSize : ''}
+              placeholder="e.g. 64"
+              onChange={(e) => {
+                const n = Math.max(1, parseInt(e.target.value || '0', 10) || 0);
+                if (n > 0) onCachelineSizeChange(n);
+              }}
+            />
+          </div>
+        </>
+      )}
+
+      <div className="lo-level-row">
+        <span className="lo-level-tag">Columns</span>
+        <div className="lo-row-body">
+          <div className="lo-vec-wrap lo-column-count-control">
+            <button
+              type="button"
+              className="btn-icon btn-sm spacing-adjust-btn"
+              onClick={() => {
+                const current = Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
+                const next = Math.max(1, current - 1);
+                lastManualColumnCountRef.current = next;
+                set('horizontalGroups', next);
+              }}
+              title="Decrease grouping column count"
+            >−</button>
+            <span
+              className="lo-column-count-value"
+              title={Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0 ? 'Auto fit: number of columns adjusts to viewport' : `${Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1)} grouping columns`}
+            >
+              {Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0
+                ? 'auto'
+                : Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1)}
+            </span>
+            <button
+              type="button"
+              className="btn-icon btn-sm spacing-adjust-btn"
+              onClick={() => {
+                const current = Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
+                const next = Math.min(64, current + 1);
+                lastManualColumnCountRef.current = next;
+                set('horizontalGroups', next);
+              }}
+              title="Increase grouping column count"
+            >+</button>
+            <button
+              type="button"
+              className={`spacing-toggle-btn${Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0 ? ' active' : ''}`}
+              onClick={() => {
+                const current = Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0);
+                if (current === 0) {
+                  set('horizontalGroups', Math.max(1, lastManualColumnCountRef.current || 1));
+                  return;
+                }
+                lastManualColumnCountRef.current = current;
+                set('horizontalGroups', 0);
+              }}
+              title={Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0
+                ? 'Disable auto fit and use the last manual column count'
+                : 'Enable automatic column fitting'}
+            >
+              {Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0 ? 'Auto fit on' : 'Auto fit off'}
+            </button>
+          </div>
+        </div>
       </div>
+
+
       </>
     );
   };
@@ -584,11 +617,11 @@ export default function LayoutTab({
     <>
       <div className="settings-section">
         <label>Grid view</label>
-        <div className="preview-btn-grid preview-btn-grid-4">
+        <div className="preview-btn-grid preview-btn-grid-3">
           <PreviewOptionButton
             compact
-            label="Heat map"
-            hint="Color cachelines by hit count and recency: hot (red) = recently/frequently hit, cold (blue) = rarely/old"
+            label="Heatmap"
+            hint="Color cachelines by hit count and recency"
             active={!!heatMapEnabled}
             onClick={() => onHeatMapToggle(!heatMapEnabled)}
             preview={(
@@ -602,7 +635,7 @@ export default function LayoutTab({
           <PreviewOptionButton
             compact
             label="Primes"
-            hint="Highlight all bits whose represented number is prime (gold overlay)"
+            hint="Highlight bits representing primes"
             active={!!primeOverlayEnabled}
             extraClass="prime-overlay-preview-btn"
             onClick={() => onPrimeOverlayToggle && onPrimeOverlayToggle(!primeOverlayEnabled)}
@@ -618,7 +651,7 @@ export default function LayoutTab({
           <PreviewOptionButton
             compact
             label="Range"
-            hint="Highlight a contiguous range of bit indices (cyan overlay). Defaults to the current event's focus range."
+            hint="Highlight a contiguous range of bit indices"
             active={!!rangeOverlayEnabled}
             extraClass="range-overlay-preview-btn"
             onClick={() => onRangeOverlayToggle && onRangeOverlayToggle(!rangeOverlayEnabled)}
@@ -634,7 +667,7 @@ export default function LayoutTab({
           <PreviewOptionButton
             compact
             label="Multiples"
-            hint="Highlight all bits whose represented number is a multiple of a given prime (purple overlay). Defaults to the current event's prime."
+            hint="Highlight bits representing multiples of a given prime"
             active={!!multiplesOverlayEnabled}
             extraClass="multiples-overlay-preview-btn"
             onClick={() => onMultiplesOverlayToggle && onMultiplesOverlayToggle(!multiplesOverlayEnabled)}
@@ -725,42 +758,7 @@ export default function LayoutTab({
 
       <LayoutOverview />
 
-      {(cachePreset || 'fixed') !== 'fixed' && (
-        <>
-          {/* Cache presets (processor model) */}
-          <div className="settings-section">
-            <label>Processor cache preset</label>
-            <select value={(cachePreset || 'custom') === 'fixed' ? 'custom' : (cachePreset || 'custom')} onChange={(e) => {
-              const key = e.target.value;
-              onCachePresetChange(key);
-              if (key !== 'custom') {
-                const p = CACHE_PRESETS[key];
-                if (p) onCachelineSizeChange(p.cachelineSize);
-              }
-            }}>
-              {Object.entries(CACHE_PRESETS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v.label}{v.l1 ? ` — L1: ${(v.l1/1024).toFixed(0)}KB, L2: ${(v.l2/1024/1024).toFixed(1)}MB` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="settings-section">
-            <label>Custom cacheline bytes</label>
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={cachelineSize > 0 ? cachelineSize : ''}
-              placeholder="e.g. 64"
-              onChange={(e) => {
-                const n = Math.max(1, parseInt(e.target.value || '0', 10) || 0);
-                if (n > 0) onCachelineSizeChange(n);
-              }}
-            />
-          </div>
-        </>
-      )}
+
 
       <div className="settings-section">
         <label>Annotations</label>
@@ -835,8 +833,8 @@ export default function LayoutTab({
             )}
           />
           <AnnotationButton
-            title={cachelineAnnotation === 'none' ? 'CL label' : `Cacheline: ${cachelineAnnotation}`}
-            hint={!heatMapEnabled ? 'Enable heat map to use cacheline annotation' : CL_ANNOT_HINTS[cachelineAnnotation]}
+            title={cachelineAnnotation === 'none' ? 'Cacheline hits' : `Cacheline: ${cachelineAnnotation}`}
+            hint={!heatMapEnabled ? 'Shows hits and last access' : CL_ANNOT_HINTS[cachelineAnnotation]}
             active={heatMapEnabled && cachelineAnnotation !== 'none'}
             onClick={cycleCLAnnotation}
             preview={(
