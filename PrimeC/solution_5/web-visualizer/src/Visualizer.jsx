@@ -804,8 +804,14 @@ export default function Visualizer({
         glRendererRef.current.dispose();
         glRendererRef.current = null;
       }
+      if (spacingPanAnimRef.current != null) {
+        cancelAnimationFrame(spacingPanAnimRef.current);
+        spacingPanAnimRef.current = null;
+      }
     };
   }, []);
+
+  const spacingPanAnimRef = useRef(null);
 
   const prevLayoutRef = useRef({
     bitLayout: DEFAULT_SETTINGS.bitLayout,
@@ -832,6 +838,48 @@ export default function Visualizer({
   useEffect(() => {
     const r = rendererRef.current;
     if (!r) return;
+
+    // ── Pre-capture the viewport-centre bit BEFORE applying new settings ──
+    // The renderer still holds the OLD geometry here, so canvasToBitIndex gives
+    // the bit that is actually visible at centre right now.
+    const prev = prevLayoutRef.current;
+    const isCustomVectorModeNext = layoutSettings.vectorMode === 'custom';
+    const nextCustomGroupBitsCheck = isCustomVectorModeNext
+      ? Math.max(1, parseInt(layoutSettings.customGroupBits || 1, 10) || 1) : 0;
+    const isSpacingOnlyChange = (
+      prev.bitSpacingH !== layoutSettings.bitSpacingH ||
+      prev.bitSpacingV !== layoutSettings.bitSpacingV ||
+      prev.byteSpacingH !== layoutSettings.byteSpacingH ||
+      prev.byteSpacingV !== layoutSettings.byteSpacingV ||
+      prev.u64SpacingH !== layoutSettings.u64SpacingH ||
+      prev.u64SpacingV !== layoutSettings.u64SpacingV
+    ) && (
+      prev.bitLayout === layoutSettings.bitLayout &&
+      prev.byteLayout === layoutSettings.byteLayout &&
+      prev.vectorMode === layoutSettings.vectorMode &&
+      prev.vectorGroup === layoutSettings.vectorGroup &&
+      prev.vectorBaseBits === layoutSettings.vectorBaseBits &&
+      prev.vectorLanes === layoutSettings.vectorLanes &&
+      prev.customGroupBits === nextCustomGroupBitsCheck &&
+      prev.cachelineSize === cachelineSize &&
+      prev.horizontalGroups === (Math.max(0, parseInt(layoutSettings.horizontalGroups || 0, 10) || 0))
+    );
+    let preCenterBit = -1;
+    let preDesiredX = null;
+    let preDesiredY = null;
+    if (isSpacingOnlyChange) {
+      const el = containerRef.current;
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        const canvasCssHeight = (r.canvas?.height || rect.height * (window.devicePixelRatio || 1)) / (window.devicePixelRatio || 1);
+        const planeOffsetX = Math.max(0, (r.canvasWidth - rect.width) / 2);
+        const planeOffsetY = Math.max(0, (canvasCssHeight - rect.height) / 2);
+        preDesiredX = planeOffsetX + rect.width / 2;
+        preDesiredY = planeOffsetY + rect.height / 2;
+        preCenterBit = r.canvasToBitIndex(preDesiredX, preDesiredY);
+      }
+    }
+
     r.theme = theme;
     r.bitLayout = layoutSettings.bitLayout;
     r.byteLayout = layoutSettings.byteLayout;
@@ -887,7 +935,6 @@ export default function Visualizer({
     r.customClearedBit = customColors.clearedBit;
     r.customUnchangedBit = customColors.unchangedBit;
     // Preserve centered bit while layout geometry changes.
-    const prev = prevLayoutRef.current;
     const nextCustomGroupBits = isCustomVectorMode ? Math.max(1, parseInt(layoutSettings.customGroupBits || 1, 10) || 1) : 0;
     const structureChanged = (
       prev.bitLayout !== layoutSettings.bitLayout ||
@@ -913,7 +960,7 @@ export default function Visualizer({
     let centerAnchorBit = -1;
     let desiredX = null;
     let desiredY = null;
-    if (structureChanged) {
+    if (structureChanged && !isSpacingOnlyChange) {
       const el = containerRef.current;
       if (el) {
         const rect = el.getBoundingClientRect();
@@ -928,7 +975,16 @@ export default function Visualizer({
 
     if (structureChanged) {
       r.unfreezeLayout();
-      if (centerAnchorBit >= 0 && desiredX != null && desiredY != null) {
+      if (isSpacingOnlyChange && preCenterBit >= 0 && preDesiredX != null) {
+        // The centre bit was captured before new spacings were applied.
+        // Find where it now sits in the new geometry and snap the pan instantly.
+        const nextPos = r.bitIndexToCanvas(preCenterBit);
+        if (nextPos) {
+          r.panX += preDesiredX - nextPos.x;
+          r.panY += preDesiredY - nextPos.y;
+        }
+      } else if (centerAnchorBit >= 0 && desiredX != null && desiredY != null) {
+        // Non-spacing structural change: instant snap (e.g. bit/byte layout mode switch).
         const nextPos = r.bitIndexToCanvas(centerAnchorBit);
         if (nextPos) {
           r.panX += desiredX - nextPos.x;
