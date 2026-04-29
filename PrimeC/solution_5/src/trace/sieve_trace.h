@@ -203,9 +203,8 @@ primes_trace_clear_context(void)
 
 /* Initialize the trace system. Opens the output file and writes JSON header. */
 static void __attribute__((cold))
-trace_init(const char* filename, uint64_t sieve_size, uint64_t bit_count, int trace_level, const char* benchmark_settings, const char* trace_title, const char* trace_info)
+trace_init(const char* filename, uint64_t sieve_size, uint64_t bit_count, int trace_level, const char* storage_model, const char* benchmark_settings, const char* trace_title, const char* trace_info)
 {
-    const char* storage_model = getenv("TRACE_STORAGE_MODEL");
     if (!storage_model || !*storage_model) storage_model = "half";
 
     g_trace.sieve_size       = sieve_size;

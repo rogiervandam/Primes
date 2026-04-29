@@ -34,6 +34,7 @@ initSingleRunTrace(benchmark_settings_t benchmark_settings, const char* algorith
                    (uint64_t)benchmark_settings.factor_max,
                    (uint64_t)trace_bit_count,
                    (int)option.trace_level,
+                                     getStorageModelName((int)benchmark_settings.storage),
                                      trace_settings_tag,
                                      trace_title,
                                      trace_info);
