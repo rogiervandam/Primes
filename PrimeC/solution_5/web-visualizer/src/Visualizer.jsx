@@ -657,6 +657,23 @@ export default function Visualizer({
     setSettingsCollapsed((collapsed) => !collapsed);
   }, [captureViewportAnchor]);
 
+  // State for requesting a specific tab in the settings panel from external code.
+  // { tab: string, counter: number } — counter increments each request so effects fire.
+  const [settingsTabRequest, setSettingsTabRequest] = useState(null);
+
+  // Open animation settings panel to the animation tab (e.g. from gear icon in event widget).
+  const openAnimationSettings = useCallback(() => {
+    pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
+    setSettingsCollapsed(false);
+    setSettingsTabRequest((prev) => ({ tab: 'animation', counter: (prev?.counter ?? 0) + 1 }));
+  }, [captureViewportAnchor]);
+
+  // Callback for changing bitAnimationMode from the settings panel (no seek side-effect needed there).
+  const handleBitAnimationModeChange = useCallback((mode) => {
+    setBitAnimationMode(mode);
+    bitAnimationModeRef.current = mode;
+  }, []);
+
   // Close trace info popup when clicking outside
   useEffect(() => {
     if (!showTraceInfo) return;
@@ -3464,8 +3481,8 @@ export default function Visualizer({
     if (!s) {
       return {
         line1: `Event ${currentStep} | No event selected`,
-        line2: '',
-        line3: '',
+        annotationLines: [],
+        bitsChanged: 0,
         title: 'No event selected',
       };
     }
@@ -3474,21 +3491,25 @@ export default function Visualizer({
     const eventId = s.stepId ?? currentStep;
     const line1 = `Event ${eventId} | ${functionName}`;
 
-    const line2Parts = [];
-    if (s.prime != null) line2Parts.push(`Prime ${s.prime}`);
-    if (s.factorStep != null) line2Parts.push(`Step size ${s.factorStep}`);
-    if (s.start != null && s.stop != null) line2Parts.push(`Range ${s.start}-${s.stop}`);
-    if (s.annotation) line2Parts.push(s.annotation);
-    const line2 = line2Parts.join(' | ');
+    // Build annotation lines: first line is metadata, then each line of s.annotation.
+    const annotationLines = [];
+    const metaParts = [];
+    if (s.prime != null) metaParts.push(`Prime ${s.prime}`);
+    if (s.factorStep != null) metaParts.push(`Step size ${s.factorStep}`);
+    if (s.start != null && s.stop != null) metaParts.push(`Range ${s.start}–${s.stop}`);
+    if (metaParts.length > 0) annotationLines.push(metaParts.join(' | '));
+    if (s.annotation) {
+      const annLines = s.annotation.split('\n').filter(Boolean);
+      annotationLines.push(...annLines);
+    }
 
-    // Line 3: the "+N bits" annotation sits right under the heading so it's close to the action.
-    const line3 = s.numChanged > 0 ? `+${s.numChanged} bits changed` : '';
+    const bitsChanged = Number(s.numChanged) || 0;
 
     return {
       line1,
-      line2,
-      line3,
-      title: [line1, line2, line3].filter(Boolean).join(' | '),
+      annotationLines,
+      bitsChanged,
+      title: [line1, ...annotationLines, bitsChanged > 0 ? `+${bitsChanged} bits changed` : ''].filter(Boolean).join(' | '),
     };
   }, [currentStep, currentStepData]);
 
@@ -3878,6 +3899,7 @@ export default function Visualizer({
       delayPhaseMs={delayPhaseMs}
       playing={playing}
       exporting={exporting}
+      onOpenAnimationSettings={openAnimationSettings}
     />
   );
 
@@ -4137,6 +4159,9 @@ export default function Visualizer({
           showAnimationControls={true}
           theme={theme}
           onThemeChange={(t) => setTheme(t)}
+          activeTabRequest={settingsTabRequest}
+          bitAnimationMode={bitAnimationMode}
+          onBitAnimationModeChange={handleBitAnimationModeChange}
         />
       </div>
     </div>

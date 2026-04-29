@@ -373,10 +373,89 @@
   letter-spacing: 0.01em;
 }
 
-.step-focus-line2 {
-  margin-top: 3px;
+/* Annotation area: stable height = 3 text lines; click to expand/collapse. */
+.step-focus-annotation-area {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  /* Reserve height for MAX_ANNOTATION_LINES=3 lines at font-size×line-height.
+     Using em so it scales with the banner's font-size. */
+  min-height: calc(3 * 1.35em);
+  padding-bottom: 10px; /* space for the chevron */
+  position: relative;
+}
+.step-focus-annotation-area.expandable {
+  cursor: pointer;
+}
+/* Compact lines: single line with ellipsis */
+.step-focus-annotation-line {
   font-size: 0.89em;
   color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.35;
+}
+.step-focus-annotation-line.line2 {
+  margin-top: 3px;
+}
+.step-focus-line3-empty {
+  opacity: 0; /* invisible placeholder — keeps height stable */
+  pointer-events: none;
+}
+/* Chevron expand/collapse indicator */
+.step-focus-annotation-area.expandable::after {
+  content: '▼';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  font-size: 0.65em;
+  color: var(--fg-dim);
+  opacity: 0.55;
+  line-height: 1;
+  pointer-events: none;
+}
+.step-focus-annotation-area.expandable:hover::after { opacity: 1; }
+.step-focus-annotation-area.expanded::after { content: '▲'; }
+/* Expanded: no height cap, lines wrap fully */
+.step-focus-annotation-area.expanded {
+  min-height: unset;
+  padding-bottom: 12px;
+}
+.step-focus-annotation-area.expanded .step-focus-annotation-line {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* Gear button in the timeline row */
+.step-focus-gear-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--fg-dim);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.step-focus-gear-btn:hover { background: var(--bg-raised); color: var(--fg); }
+
+/* Container for value + gear in the timeline slider row (3rd grid column).
+   Value has a fixed min-width so the gear button (rightmost) never shifts. */
+.step-focus-slider-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+}
+.step-focus-slider-actions .step-focus-slider-value {
+  min-width: 28px; /* wide enough for "100%" — gear stays anchored at right */
+  text-align: right;
 }
 .canvas-container {
   flex: 1;

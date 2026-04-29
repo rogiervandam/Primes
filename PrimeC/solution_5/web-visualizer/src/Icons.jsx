@@ -84,3 +84,10 @@ export const PanelRight = (p) => (
     <line x1="15" y1="3" x2="15" y2="21" strokeWidth="1.8" />
   </>} />
 );
+// Hyperlink / chain-link icon — used for "locate in events panel"
+export const LinkIcon = (p) => (
+  <I {...p} d={<>
+    <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+    <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+  </>} />
+);

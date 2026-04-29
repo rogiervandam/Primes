@@ -258,6 +258,29 @@ overwrite.
   File path stayed at `src/lib/viewPrefs.js` (the doc's `src/storage/`
   rename is a separate optional move; touching one file vs. an import
   fan-out kept the diff small).
+- ✅ Removed the "Title" settings tab (`src/settings/TitleTab.jsx` kept but
+  unimported). Removed the tab button and its panel block from
+  `SettingsPanel.jsx`.
+- ✅ Moved the Mode toggle (Mask / Bits / Both) from the single-event widget
+  (`StepAnimSliders.jsx`) into the Animation settings tab
+  (`AnimationTab.jsx`). Added `bitAnimationMode` + `onBitAnimationModeChange`
+  props to both `AnimationTab` and `SettingsPanel`. Added
+  `handleBitAnimationModeChange` callback and `openAnimationSettings`
+  shortcut in `Visualizer.jsx` to let the gear icon open the panel directly.
+- ✅ Stabilised single-event widget annotation area: `currentStepBanner` now
+  returns `annotationLines: string[]` + `bitsChanged: number` instead of
+  `line2`/`line3` strings. `EventTitleBanner` shows exactly
+  `MAX_ANNOTATION_LINES=3` annotation lines (padding with nbsp for stable
+  height), shows bits-changed placeholder when none, and a "show more/less"
+  toggle for events with long annotations.
+- ✅ Replaced the ⤢ locate icon with a SVG `LinkIcon` (chain-link) in
+  `EventTitleBanner`. `LinkIcon` added to `Icons.jsx`.
+- ✅ Added gear icon button (`step-focus-gear-btn`) in the timeline slider
+  row of `StepAnimSliders`. Clicking it calls `onOpenAnimationSettings`,
+  which expands the settings panel and switches to the Animation tab via the
+  `settingsTabRequest` state / `activeTabRequest` prop mechanism.
+  `SettingsPanel` watches this prop (counter-incremented object) to fire a
+  one-shot `setActiveTab` effect.
 - ✅ Split the pointer/wheel/touch gesture useEffect. Extracted the
   *bodies* of pan, rotate and wheel into pure helpers in
   `src/visualizer/gestures/{pan,rotate,wheel}.js`. The dispatcher,

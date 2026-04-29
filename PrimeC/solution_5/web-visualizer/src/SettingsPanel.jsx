@@ -4,7 +4,6 @@ import LegendTab from './settings/LegendTab';
 import LayoutTab from './settings/LayoutTab';
 import AnimationTab from './settings/AnimationTab';
 import ColorsTab from './settings/ColorsTab';
-import TitleTab from './settings/TitleTab';
 import { GearIcon } from './settings/buttons';
 
 /**
@@ -48,9 +47,19 @@ export default function SettingsPanel({
   showAnimationControls = true,
   theme,
   onThemeChange,
+  activeTabRequest,
+  bitAnimationMode,
+  onBitAnimationModeChange,
 }) {
   const s = settings || {};
   const [activeTab, setActiveTab] = React.useState('layout');
+  const prevTabRequestRef = React.useRef(null);
+  React.useEffect(() => {
+    if (activeTabRequest && activeTabRequest !== prevTabRequestRef.current) {
+      prevTabRequestRef.current = activeTabRequest;
+      setActiveTab(activeTabRequest.tab);
+    }
+  }, [activeTabRequest]);
   const [legendFloating, setLegendFloating] = React.useState(false);
   const [legendDetailed, setLegendDetailed] = React.useState(true);
   const [floatPos, setFloatPos] = React.useState(null);
@@ -111,15 +120,6 @@ export default function SettingsPanel({
             <button
               type="button"
               role="tab"
-              aria-selected={activeTab === 'title'}
-              className={`settings-tab-btn${activeTab === 'title' ? ' active' : ''}`}
-              onClick={() => setActiveTab('title')}
-            >
-              Title
-            </button>
-            <button
-              type="button"
-              role="tab"
               aria-selected={activeTab === 'animation'}
               className={`settings-tab-btn${activeTab === 'animation' ? ' active' : ''}`}
               onClick={() => setActiveTab('animation')}
@@ -171,12 +171,6 @@ export default function SettingsPanel({
           />
         )}
 
-        {activeTab === 'title' && (
-          <TitleTab
-            eventTitleSettings={eventTitleSettings} onEventTitleSettingsChange={onEventTitleSettingsChange}
-          />
-        )}
-
         {activeTab === 'legend' && (
           <LegendTab
             legendDetailed={legendDetailed}
@@ -200,6 +194,7 @@ export default function SettingsPanel({
             maxStepDurationEnabled={maxStepDurationEnabled} onMaxStepDurationEnabledChange={onMaxStepDurationEnabledChange}
             maxStepDurationMs={maxStepDurationMs} onMaxStepDurationMsChange={onMaxStepDurationMsChange}
             eventDurationMode={eventDurationMode} onEventDurationModeChange={onEventDurationModeChange}
+            bitAnimationMode={bitAnimationMode} onBitAnimationModeChange={onBitAnimationModeChange}
           />
         )}
         </div>

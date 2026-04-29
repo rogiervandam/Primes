@@ -228,6 +228,7 @@ function AnimationTab({
   maxStepDurationEnabled, onMaxStepDurationEnabledChange,
   maxStepDurationMs, onMaxStepDurationMsChange,
   eventDurationMode, onEventDurationModeChange,
+  bitAnimationMode, onBitAnimationModeChange,
 }) {
   const playbackSpeedValue = msToPlaybackSpeed(playSpeed || 100);
 
@@ -331,6 +332,33 @@ function AnimationTab({
               )}
             />
           </div>
+        </div>
+      )}
+
+      {onBitAnimationModeChange && (
+        <div className="settings-section">
+          <label>Timeline animation mode</label>
+          <div className="step-focus-mode-toggle" style={{ display: 'inline-flex' }}>
+            <button
+              type="button"
+              className={`step-focus-mode-btn${(bitAnimationMode || 'bit') === 'mask' ? ' active' : ''}`}
+              onClick={() => onBitAnimationModeChange('mask')}
+              title="Animate only the apply-mask group stamps"
+            >Mask</button>
+            <button
+              type="button"
+              className={`step-focus-mode-btn${(bitAnimationMode || 'bit') === 'bit' ? ' active' : ''}`}
+              onClick={() => onBitAnimationModeChange('bit')}
+              title="Animate only the bits being set one by one"
+            >Bits</button>
+            <button
+              type="button"
+              className={`step-focus-mode-btn${(bitAnimationMode || 'bit') === 'combined' ? ' active' : ''}`}
+              onClick={() => onBitAnimationModeChange('combined')}
+              title="Animate both the mask stamps and the bits revealing in lockstep"
+            >Both</button>
+          </div>
+          <span className="settings-hint">Applies to events with mask write-order data. Mask = stamp groups; Bits = individual bits; Both = lockstep.</span>
         </div>
       )}
 

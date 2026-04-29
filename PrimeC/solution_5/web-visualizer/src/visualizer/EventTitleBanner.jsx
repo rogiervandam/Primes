@@ -1,4 +1,7 @@
 import React from 'react';
+import { LinkIcon } from '../Icons';
+
+const MAX_ANNOTATION_LINES = 3;
 
 /**
  * Floating, draggable "current event" banner shown over the canvas.
@@ -31,6 +34,7 @@ export default function EventTitleBanner({
   sliders,
 }) {
   const [dropHint, setDropHint] = React.useState(null); // 'left' | 'bottom' | 'detail' | null
+  const [showAllAnnotations, setShowAllAnnotations] = React.useState(false);
 
   // Hit-test the detail panel directly so the user can drop the widget on the
   // collapsed bottom bar without having to reach the very bottom of the
@@ -141,11 +145,38 @@ export default function EventTitleBanner({
         onClick={(e) => { e.stopPropagation(); revealCurrentStepInPanel(); }}
         onMouseDown={(e) => e.stopPropagation()}
         title="Reveal this event in the events panel (clears filters and expands parents)"
-      >⤢</button>
+      ><LinkIcon size={12} /></button>
       <div className="step-focus-lines">
         <div className="step-focus-line1">{banner.line1}</div>
-        {banner.line2 && <div className="step-focus-line2">{banner.line2}</div>}
-        {banner.line3 && <div className="step-focus-line3">{banner.line3}</div>}
+        {(() => {
+          const lines = banner.annotationLines || [];
+          const hasContent = lines.length > 0;
+          // Compact: first MAX_ANNOTATION_LINES lines, padded to stable height.
+          // Expanded: all lines, no ellipsis, no height constraint.
+          const displayLines = showAllAnnotations ? lines : lines.slice(0, MAX_ANNOTATION_LINES);
+          const paddedLines = showAllAnnotations ? displayLines : [...displayLines];
+          if (!showAllAnnotations) {
+            while (paddedLines.length < MAX_ANNOTATION_LINES) paddedLines.push('\u00A0');
+          }
+          return (
+            <div
+              className={`step-focus-annotation-area${hasContent ? ' expandable' : ''}${showAllAnnotations ? ' expanded' : ''}`}
+              onClick={hasContent ? (e) => { e.stopPropagation(); setShowAllAnnotations((v) => !v); } : undefined}
+              onMouseDown={(e) => e.stopPropagation()}
+              title={hasContent ? (showAllAnnotations ? 'Click to collapse annotation' : 'Click to expand annotation') : undefined}
+            >
+              {paddedLines.map((line, i) => (
+                <div key={i} className={`step-focus-annotation-line${i === 0 ? ' line2' : ''}`}>{line}</div>
+              ))}
+            </div>
+          );
+        })()}
+        {(banner.bitsChanged > 0) && (
+          <div className="step-focus-line3">+{banner.bitsChanged} bits changed</div>
+        )}
+        {!(banner.bitsChanged > 0) && (
+          <div className="step-focus-line3 step-focus-line3-empty">{'\u00A0'}</div>
+        )}
       </div>
       {(surrounding.prev.length > 0 || surrounding.next.length > 0) && (
         <div
