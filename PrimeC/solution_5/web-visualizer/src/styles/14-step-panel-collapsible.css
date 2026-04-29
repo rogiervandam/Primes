@@ -6,6 +6,62 @@
   overflow: visible;
   z-index: 22;
   border-right: none;
+  box-shadow: none;
+}
+
+/* ---- Drag-to-collapse: expanded title row ---- */
+.step-panel-header-title-row {
+  cursor: grab;
+  user-select: none;
+  /* Spring snap-back when not actively dragging */
+  transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.step-panel-header-title-row.is-header-dragging {
+  cursor: grabbing;
+  transition: none; /* instant tracking during drag */
+}
+/* Ensure buttons inside the draggable row keep their own cursor */
+.step-panel-header-title-row button {
+  cursor: pointer;
+}
+/* Accent color hint once past the collapse threshold */
+.step-panel-header-title-row.drag-will-collapse h3 {
+  color: var(--accent, #6c8ebf);
+  transition: color 100ms ease;
+}
+/* Animated arrow label that pulses once the threshold is crossed */
+.step-panel-header-title-row.drag-will-collapse::after {
+  content: '◀ collapse';
+  font-size: 10px;
+  color: var(--accent, #6c8ebf);
+  opacity: 0.85;
+  margin-left: 6px;
+  animation: collapse-hint-in 140ms cubic-bezier(0.22, 0.61, 0.36, 1) both,
+             collapse-hint-pulse 600ms 140ms ease-in-out infinite alternate;
+}
+@keyframes collapse-hint-in {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 0.85; transform: translateX(0); }
+}
+@keyframes collapse-hint-pulse {
+  from { opacity: 0.6; transform: translateX(0); }
+  to   { opacity: 1;   transform: translateX(-3px); }
+}
+
+/* ---- Collapse-out animation: panel content sweeps away before width collapses ---- */
+.step-panel.collapsing-out .step-panel-header {
+  animation: step-panel-sweep-out 260ms cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+.step-panel.collapsing-out .step-list {
+  animation: step-panel-sweep-out 260ms 30ms cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+.step-panel.collapsing-out .resize-handle {
+  animation: step-panel-sweep-out 200ms cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+@keyframes step-panel-sweep-out {
+  0%   { opacity: 1;   transform: translateX(0) scale(1);    transform-origin: left center; }
+  35%  { opacity: 0.8; transform: translateX(5px) scale(1);  transform-origin: left center; }
+  100% { opacity: 0;   transform: translateX(-24px) scale(0.88); transform-origin: left center; }
 }
 
 .step-panel-header-title-row {
@@ -42,16 +98,46 @@
   top: 8px;
   left: 8px;
   display: flex;
-  align-items: center;
-  gap: 4px;
+  flex-direction: column;
+  gap: 6px;
   z-index: 40;
-  min-height: 34px;
   padding: 6px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: color-mix(in srgb, var(--bg-surface) 92%, #000 8%);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
   pointer-events: auto;
+  -webkit-user-select: none;
+  user-select: none;
+  /* Smooth re-entry/dismiss animation. The transform is set inline by the
+     drag handler; we only animate the visual outline + opacity. */
+  transition: opacity 180ms ease, box-shadow 180ms ease, border-color 180ms ease, outline-color 180ms ease;
+  animation: step-panel-floating-title-in 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+@keyframes step-panel-floating-title-in {
+  from { opacity: 0; transform: translate(-8px, -8px) scale(0.94); }
+  to   { opacity: 1; }
+}
+.step-panel-floating-title.dropping {
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35), 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.step-panel-floating-title.dropping-left::after,
+.step-panel-floating-title.dropping-top::after {
+  content: attr(data-drop-label);
+}
+/* Subtle highlight on the events panel when the widget is dragged into the
+   left drop band — helps the user understand the resulting target. */
+.step-panel.drop-hint-left {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.step-panel-float-top-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 .step-panel-floating-title .panel-label {
   font-size: 12px;
@@ -69,4 +155,104 @@
 }
 .btn-icon-sm:hover { color: var(--fg-bright); background: var(--bg-raised); }
 
+/* ---- Transport controls (event slider + playback buttons) ---- */
+/* Used both in the collapsed floating panel and expanded panel header */
+.step-panel-transport {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.spt-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.spt-row-timeline {
+  gap: 4px;
+}
+
+.spt-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--fg-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.spt-btn:hover:not(:disabled) {
+  color: var(--fg-bright);
+  background: var(--bg-raised);
+  border-color: var(--border-light);
+}
+.spt-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.spt-btn.spt-play {
+  color: var(--fg);
+  border-color: var(--border-light);
+  background: var(--bg-raised);
+}
+.spt-btn.spt-play:hover:not(:disabled) {
+  background: var(--bg-input);
+  border-color: var(--border);
+  color: var(--fg-bright);
+}
+.spt-btn.spt-speed {
+  opacity: 0.75;
+}
+.spt-btn.spt-speed:hover:not(:disabled) {
+  opacity: 1;
+}
+
+.spt-speed-label {
+  font-size: 10px;
+  color: var(--fg-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 28px;
+  text-align: right;
+}
+
+.spt-slider {
+  flex: 1 1 60px;
+  min-width: 40px;
+  max-width: 140px;
+  height: 3px;
+  cursor: ew-resize;
+  accent-color: var(--accent, #6c8ebf);
+}
+
+.spt-counter {
+  font-size: 10px;
+  color: var(--fg-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.spt-total {
+  color: var(--fg-muted);
+  opacity: 0.7;
+}
+
+.step-panel-floating-title button {
+  cursor: pointer;
+}
+
+/* In the expanded panel header, transport sits between title row and search */
+.step-panel-header .step-panel-transport {
+  padding: 2px 0 4px;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 2px;
+}
+/* Slider wider in the expanded header since there's more room */
+.step-panel-header .spt-slider {
+  max-width: none;
+  flex: 1 1 80px;
+}
 

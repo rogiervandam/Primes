@@ -33,8 +33,23 @@ Key props (selection):
 ### `StepPanel.jsx`
 Left-hand list of trace steps with grouping, search, and a draggable resize handle. Calls back to the visualizer when the user selects a step.
 
+When `panelCollapsed` is true the panel renders a floating "all events" widget (`.step-panel-floating-title`) instead of the full list. The widget contains the playback transport + timeline scrubber. Drop-zone gestures while dragging the widget:
+
+- drop near the left window edge (≤ 80 px) → calls `onExpandPanelFromWidget` (expand the events panel and dismiss the widget)
+- drop near the top of the window (≤ 60 px from top) → calls `onDockWidgetToTopBar` (set `controlsHidden = false` and hide the widget; toolbar then shows a ▼ "Show widget" button)
+
+When `allEventsWidgetHidden` is true the widget is not rendered (the down-arrow toolbar button brings it back).
+
+**Drag-to-collapse (expanded panel):** The `.step-panel-header-title-row` carries a `grab` cursor and a `mousedown` handler (`handleHeaderTitleDragStart`). Dragging rightward past 80 px (raw, pre-rubber-band) triggers a two-phase animated collapse: (1) the title springs back, (2) `.collapsing-out` is applied so the header and list sweep out via `@keyframes step-panel-sweep-out`, then `onToggleCollapse()` is called after 360 ms total. State: `headerDragX` (visual translate), `headerDragWillCollapse` (accent hint), `isCollapsingOut` (animation class).
+
 ### `DetailPanel.jsx`
 Inspector for the currently selected step. Shows changed bits, factor, count of newly cleared bits, and contextual primes.
+
+The panel is organised as a **horizontal grid of compact section cards** (using `detail-sections` / `detail-section-card` CSS classes), designed to expand horizontally without growing vertically. Key layout decisions:
+
+- **Numbers marked & Bit ranges** — each shows at most 5 preview items with a `+N more ↗` hint that makes the inspect-button affordance obvious. Clicking opens the full searchable inspector.
+- **Mask preview** — each bit cell is 8 px (down from 10 px) to keep the mask representation compact and readable without dominating the panel height.
+- Neither the annotation section nor the mask section spans the full width (`detail-section-wide` removed); they flow alongside the other fact cards in the auto-fit grid.
 
 ### `TimingPanel.jsx`
 Floating, draggable, resizable panel showing per-phase timings. Uses `useFloatingPanel` for drag/resize behaviour.
@@ -43,6 +58,8 @@ Floating, draggable, resizable panel showing per-phase timings. Uses `useFloatin
 
 ### `Toolbar.jsx`
 Top header bar: trace title, info popover trigger, playback transport (skip/step/play/pause/slider/counter), and the right-hand action cluster (search, zoom, 3D, heatmap, primes, timings, depth, PNG/video export, theme). Pure presentation — every interactive callback is supplied by the parent.
+
+When the events panel is collapsed and the user has dragged the all-events widget onto the top bar (`allEventsWidgetHidden`), an extra ▼ icon button (`.toolbar-show-events-widget`) appears in the left section to bring the widget back.
 
 ### `TraceInfoPopover.jsx`
 Popover anchored beneath the trace title showing the storage-model selector and the parsed `traceInfoSections` (file/run/settings/notes). Used by `Toolbar`.
@@ -59,11 +76,21 @@ Floating popover showing a bit's identity (number, byte, word, qword, cache line
 ### `EventTitleBanner.jsx`
 Draggable "current event" banner over the canvas with the active step heading, the previous/next two events, and any per-step animation sliders. Drag is implemented inline so the same gesture can act as a click-to-open-events-panel affordance.
 
+Drop-zone gestures while dragging:
+
+- drop near the left window edge → expands the events panel and hides the banner (banner can be re-shown via the ▲ button on the bottom DetailPanel)
+- drop onto the detail panel → expands the detail panel (if collapsed) and hides the banner
+- drop near the bottom edge of the window → hides the banner (same as the ▼ close button)
+
+The banner is forced visible on every fresh session via `mergeEventTitleSettings` so users always see it on startup.
+
 ### `DetailInspectorOverlay.jsx`
 Modal table that lists every changed bit (or every multiple / every prime) for the current step. Pure presentation: takes `{ open, mode, query, onQueryChange, onClose, rows, filteredRows }` and renders the search-filtered list. The visualizer owns the data; the overlay just paints it.
 
 ### `StepAnimSliders.jsx`
 The Mode / Timeline / Target / Speed slider cluster shown in both the floating event-title banner and the bottom detail panel. All values and callbacks (current step data, scrub progress, mode toggles, `computeEventDuration`, `playSpeedPercent`, …) are passed in as props; the component renders the rows and bubbles user interactions back.
+
+**Timeline slider wipe animation** — when `delayPhaseMs` (non-null) is received, the slider's colored fill wipes out left-to-right over the delay duration using an internal RAF loop (`wipePositionRef` / `wipePosition` state). When `animationReplayPaused` is `true` while `delayPhaseMs` is set, the wipe freezes (pause-in-flight). When `delayPhaseMs` returns to `null` (user scrubs or delay completes), the wipe reverses smoothly back to 0 over ~200 ms. The visual track is implemented as custom HTML divs (`.step-focus-timeline-track`, `.step-focus-timeline-fill`, `.step-focus-timeline-wipe`) behind a transparent-track `appearance: none` range input.
 
 ### `BitHistoryBalloons.jsx`
 Wraps the pinned-balloon list and the hover balloon. Asks the parent (`getVisibleBalloonStyles`) where each balloon should sit, then renders one `BitHistoryBalloon` per pinned bit and an extra one for the hovered bit (when the hovered bit isn't already pinned). Calls `onUnpin(bitIndex)` and `onHistoryClick(stepIndex)` for user actions.

@@ -7,21 +7,24 @@
   position: relative;
   min-width: 0;
 }
-.canvas-area.mode-3d {
-  overflow: visible;
-}
+/* See 05-layout.css — the 3D tilt is clipped at .canvas-container, so the
+   parent stack stays `overflow: hidden` to keep the layout stable when
+   side-panel content height changes (e.g. toggling the range overlay). */
 .step-focus-banner {
   position: absolute;
   /* Anchored by bottom-left so the sliders stay in a fixed place across events.
      When the annotation needs more room, the banner grows upward instead of
-     shifting the sliders down. */
+     shifting the sliders down. The left offset includes the events panel
+     width (when expanded) so the widget never slides under it. */
   bottom: 20px;
-  left: 16px;
+  left: calc(16px + var(--events-panel-width, 0px));
   top: auto;
   z-index: 18;
   /* Must be interactive now — banner is draggable and contains sliders. */
   pointer-events: auto;
   cursor: grab;
+  transition: left 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              opacity 180ms ease, transform 180ms ease;
   padding: 10px 14px;
   border: 1px solid var(--border-light);
   border-left: 4px solid var(--accent);
@@ -45,6 +48,16 @@
   gap: 4px;
 }
 .step-focus-banner:active { cursor: grabbing; }
+.step-focus-banner.dropping {
+  outline: 2px dashed var(--accent);
+  outline-offset: 3px;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.36), 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.step-focus-banner.dropping-detail {
+  /* When dropping into the detail panel the banner will be replaced by the
+     panel's content — give a slightly different tint to telegraph that. */
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.36), 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent);
+}
 .step-focus-banner input { pointer-events: auto; cursor: pointer; user-select: none; }
 .step-focus-line3 {
   font-size: 11px;
@@ -89,6 +102,112 @@
   flex: 1;
   min-width: 0;
   max-width: 230px;
+}
+
+/* Custom visual track wrapper for the Timeline slider.
+   The visual track (fill + wipe overlay) lives inside this wrapper;
+   the native <input type="range"> is layered on top for interaction. */
+.step-focus-timeline-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  max-width: 230px;
+  display: flex;
+  align-items: center;
+  height: 20px;
+}
+/* Override the generic slider-controls input rule so the wrapper owns flex. */
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"] {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  max-width: none;
+  min-width: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+  z-index: 2;
+}
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+/* Webkit: transparent track, accent thumb */
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: transparent;
+  border-radius: 2px;
+}
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  margin-top: -4px;
+  position: relative;
+  z-index: 3;
+}
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]:disabled::-webkit-slider-thumb {
+  background: var(--fg-dim);
+}
+/* Firefox: transparent track, accent thumb */
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: transparent;
+  border-radius: 2px;
+}
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+}
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]:disabled::-moz-range-thumb {
+  background: var(--fg-dim);
+}
+/* The static track background (grey rail) */
+.step-focus-timeline-track {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  pointer-events: none;
+}
+/* Accent-coloured fill (grows left → right with stepScrubProgress) */
+.step-focus-timeline-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  pointer-events: none;
+}
+/* Delay-wipe overlay: covers the fill left → right during inter-repeat delay */
+.step-focus-timeline-wipe {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: var(--border);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 1;
 }
 .step-focus-play-btn {
   width: 20px;
@@ -160,6 +279,35 @@
   pointer-events: auto;
   user-select: none;
 }
+.step-focus-context.collapsed {
+  gap: 0;
+  padding-bottom: 4px;
+}
+.step-focus-context-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  color: var(--fg-dim);
+  cursor: pointer;
+  padding: 1px 2px;
+  font-size: inherit;
+  line-height: inherit;
+  border-radius: 3px;
+  width: 100%;
+  text-align: left;
+  pointer-events: auto;
+}
+.step-focus-context-toggle:hover { background: var(--bg-raised); color: var(--fg); }
+.step-focus-context-toggle-arrow { font-size: 0.75em; flex: 0 0 auto; }
+.step-focus-context-toggle-label { flex: 1 1 auto; font-size: 0.9em; letter-spacing: 0.03em; }
+.step-focus-context-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 2px;
+}
 .step-focus-context-row {
   display: flex;
   gap: 6px;
@@ -225,10 +373,89 @@
   letter-spacing: 0.01em;
 }
 
-.step-focus-line2 {
-  margin-top: 3px;
+/* Annotation area: stable height = 3 text lines; click to expand/collapse. */
+.step-focus-annotation-area {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  /* Reserve height for MAX_ANNOTATION_LINES=3 lines at font-size×line-height.
+     Using em so it scales with the banner's font-size. */
+  min-height: calc(3 * 1.35em);
+  padding-bottom: 10px; /* space for the chevron */
+  position: relative;
+}
+.step-focus-annotation-area.expandable {
+  cursor: pointer;
+}
+/* Compact lines: single line with ellipsis */
+.step-focus-annotation-line {
   font-size: 0.89em;
   color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.35;
+}
+.step-focus-annotation-line.line2 {
+  margin-top: 3px;
+}
+.step-focus-line3-empty {
+  opacity: 0; /* invisible placeholder — keeps height stable */
+  pointer-events: none;
+}
+/* Chevron expand/collapse indicator */
+.step-focus-annotation-area.expandable::after {
+  content: '▼';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  font-size: 0.65em;
+  color: var(--fg-dim);
+  opacity: 0.55;
+  line-height: 1;
+  pointer-events: none;
+}
+.step-focus-annotation-area.expandable:hover::after { opacity: 1; }
+.step-focus-annotation-area.expanded::after { content: '▲'; }
+/* Expanded: no height cap, lines wrap fully */
+.step-focus-annotation-area.expanded {
+  min-height: unset;
+  padding-bottom: 12px;
+}
+.step-focus-annotation-area.expanded .step-focus-annotation-line {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* Gear button in the timeline row */
+.step-focus-gear-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--fg-dim);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.step-focus-gear-btn:hover { background: var(--bg-raised); color: var(--fg); }
+
+/* Container for value + gear in the timeline slider row (3rd grid column).
+   Value has a fixed min-width so the gear button (rightmost) never shifts. */
+.step-focus-slider-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+}
+.step-focus-slider-actions .step-focus-slider-value {
+  min-width: 28px; /* wide enough for "100%" — gear stays anchored at right */
+  text-align: right;
 }
 .canvas-container {
   flex: 1;
@@ -238,17 +465,48 @@
   transform-style: preserve-3d;
   touch-action: none;
   user-select: none;
+  background: var(--bg);
 }
 .canvas-container.mode-3d {
   /* perspective is set via inline style from Camera3D */
   perspective-origin: 50% 50%;
-  overflow: visible;
+  /* Keep `overflow: hidden` (inherited from .canvas-container) so the
+     intentionally oversized canvas (~3.1x in 3D for drag headroom) clips
+     to the container bounds when tilted. Without this, the rotated
+     bitmap edges bleed under/over the surrounding panels and look messy. */
 }
 .canvas-container .settled-render-canvas,
 .canvas-container .main-render-canvas {
   position: absolute;
+  /* Canvas is always the oversized 3D plane (centered + clipped
+     by the container's overflow:hidden). 2D and 3D share the
+     same placement; mode3D only enables the tilt. Position +
+     size are set inline by Visualizer.renderCanvasStyle and
+     SieveRenderer.resize respectively — we deliberately avoid
+     `inset: 0` here because right/bottom:0 would compete with
+     the inline left/top:50% + explicit width/height and produce
+     a confused box on browsers that resolve the over-constraint
+     against width.  */
+  top: 0;
+  left: 0;
+  display: block;
+  transform-origin: 50% 50%;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.canvas-container .gl-render-canvas {
+  /* WebGL bit-grid. Sits behind the Canvas2D layers so overlays/labels
+     render on top. See docs/AI_MAINTENANCE.md §8. */
+  position: absolute;
   inset: 0;
   display: block;
+  z-index: -1;
+  pointer-events: none;
+}
+/* Hidden when canvas2d renderer is selected. */
+.canvas-container .gl-render-canvas.renderer-inactive {
+  display: none;
 }
 
 .canvas-container .settled-render-canvas {
@@ -268,9 +526,9 @@
 
 .canvas-container.mode-3d .settled-render-canvas,
 .canvas-container.mode-3d .main-render-canvas {
-  transform-origin: 50% 50%;
-  will-change: transform;
-  backface-visibility: hidden;
+  /* Tilt-specific styling lives here in case future work needs
+     to differentiate (e.g. shadow). Base centering/clipping is
+     applied to all canvas elements above. */
 }
 .canvas-container.dragging { cursor: grabbing; }
 .canvas-container canvas {

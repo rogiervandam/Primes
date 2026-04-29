@@ -4,6 +4,11 @@
   background: var(--bg-surface);
   flex-shrink: 0;
   position: relative;
+  /* Reserve space for the events panel when it is expanded so the bottom bar
+     does not slide underneath it. `--events-panel-width` is set on the
+     `.main-content` wrapper by Visualizer.jsx. */
+  margin-left: var(--events-panel-width, 0px);
+  transition: margin-left 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 .detail-panel-resize {
   height: 4px;

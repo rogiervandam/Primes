@@ -1,15 +1,17 @@
 import React from 'react';
 import {
   SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
-  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Thermometer, PrimeStar,
+  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Eye, EyeOff,
+  PanelLeft, PanelBottom, PanelRight,
 } from '../Icons';
 import TraceInfoPopover from './TraceInfoPopover';
 
 /**
  * Top toolbar: trace title (with info popover), playback transport, and the
- * right-hand action cluster (search, zoom, 3D, heatmap, primes, timings,
+ * right-hand action cluster (search, zoom, tilt, heatmap, primes, timings,
  * export, theme). All state is owned by the parent — this component is
  * purely a presentation layer that wires events back to callbacks.
+ * The app always runs in 3D mode; the tilt button controls the camera angle.
  *
  * Right-hand cluster is hidden on Windows (mirrors the original behaviour
  * where the actions live in the SettingsPanel header instead).
@@ -51,8 +53,8 @@ export default function Toolbar({
   zoom,
   doZoom,
   resetZoom,
-  mode3D,
-  toggle3D,
+  tiltActive,
+  toggleTilt,
   // overlays / panels
   heatMapEnabled,
   setHeatMapEnabled,
@@ -60,8 +62,13 @@ export default function Toolbar({
   setPrimeOverlayEnabled,
   timingPanelOpen,
   setTimingPanelOpen,
-  loweredSetBits,
-  setLoweredSetBits,
+  // panel collapse/expand
+  stepsPanelCollapsed,
+  toggleStepsPanel,
+  detailOpen,
+  toggleDetailPanel,
+  settingsCollapsed,
+  toggleSettingsPanel,
   // export
   exportPng,
   exportVideo,
@@ -70,6 +77,12 @@ export default function Toolbar({
   // theme
   theme,
   setTheme,
+  // immersive mode
+  controlsHidden,
+  toggleControlsHidden,
+  // all-events widget docked-in-top-bar reveal button
+  allEventsWidgetHidden,
+  showAllEventsWidget,
 }) {
   const visualizerClass =
     `visualizer${isMacPlatform ? ' platform-mac' : ''}` +
@@ -80,7 +93,7 @@ export default function Toolbar({
   void visualizerClass;
 
   return (
-    <header className="toolbar">
+    <header className={`toolbar${controlsHidden ? ' toolbar--controls-hidden' : ''}`}>
       <div className="toolbar-left">
         <div className="trace-title-block">
           <button
@@ -105,7 +118,49 @@ export default function Toolbar({
             sections={traceInfoSections}
           />
         )}
+        <button
+          className={`btn-icon toolbar-immersive-toggle${controlsHidden ? ' active' : ''}`}
+          onClick={toggleControlsHidden}
+          title={controlsHidden ? 'Show playback controls (H)' : 'Hide playback controls (H)'}
+        >
+          {controlsHidden ? <Eye /> : <EyeOff />}
+        </button>
+        {stepsPanelCollapsed && allEventsWidgetHidden && showAllEventsWidget && (
+          <button
+            className="btn-icon toolbar-show-events-widget"
+            onClick={showAllEventsWidget}
+            title="Show all-events widget"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        )}
+        <div className="panel-toggle-group">
+          <button
+            className={`btn-icon panel-toggle-btn${!stepsPanelCollapsed ? ' active' : ''}`}
+            onClick={toggleStepsPanel}
+            title={stepsPanelCollapsed ? 'Show Events panel' : 'Hide Events panel'}
+          >
+            <PanelLeft size={15} />
+          </button>
+          <button
+            className={`btn-icon panel-toggle-btn${detailOpen ? ' active' : ''}`}
+            onClick={toggleDetailPanel}
+            title={detailOpen ? 'Hide Detail panel' : 'Show Detail panel'}
+          >
+            <PanelBottom size={15} />
+          </button>
+          <button
+            className={`btn-icon panel-toggle-btn${!settingsCollapsed ? ' active' : ''}`}
+            onClick={toggleSettingsPanel}
+            title={settingsCollapsed ? 'Show Settings panel' : 'Hide Settings panel'}
+          >
+            <PanelRight size={15} />
+          </button>
+        </div>
       </div>
+      {!controlsHidden && (
       <div className="toolbar-center">
         <button className="btn-icon" onClick={() => goToStep(0)} title="First (Home)" disabled={exporting}><SkipBack /></button>
         <button className="btn-icon" onClick={() => goToStep(currentStep - 1)} title="Previous (←)" disabled={exporting}><StepBack /></button>
@@ -139,6 +194,7 @@ export default function Toolbar({
         />
         <span className="step-counter">{currentStep} / {steps.length - 1}</span>
       </div>
+      )}
       <div className="toolbar-right">
         {!isWindowsPlatform && (
           <>
@@ -163,15 +219,13 @@ export default function Toolbar({
             <button className="btn-icon" onClick={() => doZoom(1.5)} title="Zoom In (+)"><ZoomIn /></button>
             <button className="btn-text" onClick={resetZoom} title="Reset Zoom (0)">{zoom.toFixed(1)}x</button>
             <button className="btn-icon" onClick={() => doZoom(1 / 1.5)} title="Zoom Out (−)"><ZoomOut /></button>
-            <button className={`btn-icon${mode3D ? ' active' : ''}`} onClick={toggle3D} title="Toggle 3D view (3)">
+            <button className={`btn-icon${tiltActive ? ' active' : ''}`} onClick={toggleTilt} title={tiltActive ? 'Remove tilt (0°)' : 'Tilt view (30°)'}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M2 11L8 14L14 11" />
-                <path d="M2 8L8 11L14 8" />
-                <path d="M2 5L8 2L14 5L8 8Z" />
+                <path d="M2 13L8 10L14 13" />
+                <path d="M4 9L8 7L12 9" strokeOpacity="0.6" />
+                <path d="M6 5.5L8 4.5L10 5.5" strokeOpacity="0.35" />
               </svg>
             </button>
-            <button className={`btn-icon${heatMapEnabled ? ' active' : ''}`} onClick={() => setHeatMapEnabled(h => !h)} title="Toggle cacheline heat map overlay — shows hit count and recency per cacheline"><Thermometer /></button>
-            <button className={`btn-icon${primeOverlayEnabled ? ' active prime-overlay-btn' : ''}`} onClick={() => setPrimeOverlayEnabled(v => !v)} title="Toggle prime number overlay — highlights every bit whose represented number is prime"><PrimeStar /></button>
             <button className={`btn-icon${timingPanelOpen ? ' active' : ''}`} onClick={() => setTimingPanelOpen(o => !o)} title="Function timings">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <circle cx="8" cy="9" r="5.5" />
@@ -179,9 +233,6 @@ export default function Toolbar({
                 <path d="M6 1.5h4" strokeLinecap="round" />
                 <path d="M8 1.5v2" strokeLinecap="round" />
               </svg>
-            </button>
-            <button className={`btn-icon${loweredSetBits ? ' active' : ''}`} onClick={() => setLoweredSetBits((value) => !value)} title="Toggle lowered-set-bits sieve mode">
-              ▽
             </button>
             <button className="btn-icon" onClick={exportPng} title="Export PNG"><Camera /></button>
             {!exporting ? (

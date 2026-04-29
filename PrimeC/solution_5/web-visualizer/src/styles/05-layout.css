@@ -8,10 +8,12 @@
 .main-content {
   display: flex;
   flex: 1;
-  overflow: hidden;
+  /* position:relative makes this the containing block for the floating panels
+     (StepPanel + SettingsPanel), which sit below the toolbar at top:0 here.
+     overflow:visible so collapsed panel toggle-buttons that protrude from a
+     width:0 panel are not clipped; the canvas itself clips via overflow:hidden
+     on .canvas-area and .canvas-container. */
   position: relative;
-}
-.main-content.mode-3d {
   overflow: visible;
 }
 

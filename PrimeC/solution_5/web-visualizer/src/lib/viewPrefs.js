@@ -51,7 +51,7 @@ export const DEFAULT_LAYOUT_SETTINGS = {
   byteLabelMode: 'group',
   horizontalGroups: 0,
   outlines: {
-    target: 'none',
+    targets: [],
   },
 };
 
@@ -62,11 +62,23 @@ export const DEFAULT_EVENT_TITLE_SETTINGS = {
   // User-drag offset in pixels from the default (centered) position. Persisted.
   dragOffsetX: 0,
   dragOffsetY: 0,
+  // Whether the 5-event context preview is collapsed inside the banner.
+  contextCollapsed: false,
 };
 
 export const DEFAULT_DEPTH_SETTINGS = {
   strength: 80,
   angle: 38,
+};
+
+/**
+ * Default canvas background colors per theme.
+ * Null means "use the renderer's theme default" (THEMES[theme].BACKGROUND).
+ * Only store an override when the user has explicitly chosen a custom color.
+ */
+export const DEFAULT_CANVAS_COLORS = {
+  light: null,
+  dark:  null,
 };
 
 /** Read raw preferences object from localStorage (or null on failure). */
@@ -108,12 +120,20 @@ export function mergeEventTimeTargets(saved) {
 /** Merge saved layout settings into the defaults (deep-merges the `outlines` group). */
 export function mergeLayoutSettings(saved) {
   if (!saved || typeof saved !== 'object') return DEFAULT_LAYOUT_SETTINGS;
+  const savedOutlines = saved.outlines || {};
+  // Migrate legacy single-target string to targets array.
+  let migratedTargets = savedOutlines.targets;
+  if (!Array.isArray(migratedTargets)) {
+    const legacyTarget = savedOutlines.target;
+    migratedTargets = (legacyTarget && legacyTarget !== 'none') ? [legacyTarget] : [];
+  }
   return {
     ...DEFAULT_LAYOUT_SETTINGS,
     ...saved,
     outlines: {
       ...DEFAULT_LAYOUT_SETTINGS.outlines,
-      ...(saved.outlines || {}),
+      ...savedOutlines,
+      targets: migratedTargets,
     },
   };
 }
@@ -128,11 +148,14 @@ export function mergeEventTitleSettings(saved) {
   return {
     ...DEFAULT_EVENT_TITLE_SETTINGS,
     ...saved,
-    visible: saved.visible !== false,
+    // Always show the single-event widget on startup regardless of how it was
+    // last hidden (user can dismiss it again via the ▼ button or by dragging it).
+    visible: true,
     position: 'center', // user removed the position picker; always re-center as baseline
     scale,
     dragOffsetX,
     dragOffsetY,
+    contextCollapsed: saved.contextCollapsed === true,
   };
 }
 
@@ -148,5 +171,112 @@ export function mergeDepthSettings(saved) {
     ...saved,
     strength,
     angle,
+  };
+}
+
+// --- Per-field initialiser helpers --------------------------------------
+// Each helper takes the raw `prefs` object (possibly null) returned by
+// `readViewPrefs()` and produces the validated, clamped, migration-aware
+// initial value for the corresponding piece of UI state. Centralising these
+// here keeps `Visualizer.jsx`'s `useState` lazy initialisers trivial and
+// makes the schema's evolution rules visible in one place.
+
+function clampInt(value, lo, hi) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(lo, Math.min(hi, Math.round(n)));
+}
+
+function initialPlaySpeedPercent(prefs) {
+  return clampInt(prefs?.playSpeedPercent, 25, 400) ?? 100;
+}
+
+function initialTheme(prefs) {
+  return prefs?.theme === 'light' ? 'light' : 'dark';
+}
+
+// `delayBetweenEvents` and `delayBetweenRepeats` both fall back to the legacy
+// single `repeatAnim` setting when the new explicit field is absent.
+function initialDelayMs(prefs, key) {
+  const explicit = clampInt(prefs?.[key], 0, 5000);
+  if (explicit !== null) return explicit;
+  const legacy = clampInt(prefs?.repeatAnim, 0, 5000);
+  if (legacy !== null) return legacy;
+  return 500;
+}
+
+function initialEventDurationMode(prefs) {
+  return prefs?.eventDurationMode === 'linear' ? 'linear' : 'progressive';
+}
+
+function initialMaxStepDurationEnabled(prefs) {
+  return prefs?.maxStepDurationEnabled === true;
+}
+
+function initialMaxStepDurationMs(prefs) {
+  return clampInt(prefs?.maxStepDurationMs, 2000, 30000) ?? 8000;
+}
+
+function initialGridOpacity(prefs) {
+  const n = Number(prefs?.gridOpacity);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(0.12, Math.min(1, n));
+}
+
+function initialControlsHidden(prefs) {
+  return prefs?.controlsHidden === true;
+}
+
+function initialAllEventsWidgetHidden(prefs) {
+  return prefs?.allEventsWidgetHidden === true;
+}
+
+function initialCanvasColors(prefs) {
+  const saved = prefs?.canvasColors;
+  const isValidRgb = (v) => Array.isArray(v) && v.length === 3 && v.every(c => Number.isInteger(c) && c >= 0 && c <= 255);
+  const lightRaw = saved?.light;
+  const darkRaw  = saved?.dark;
+  return {
+    light: isValidRgb(lightRaw) ? lightRaw : null,
+    dark:  isValidRgb(darkRaw)  ? darkRaw  : null,
+  };
+}
+
+function initialPanelVisibility(prefs) {
+  return {
+    stepsPanelCollapsed: prefs?.stepsPanelCollapsed !== false, // default: collapsed
+    settingsCollapsed: prefs?.settingsCollapsed !== false,     // default: collapsed
+    detailOpen: prefs?.detailOpen === true,                    // default: closed
+  };
+}
+
+/**
+ * Read prefs once and resolve every piece of persisted UI state into a flat
+ * bundle. Use this from a single `useMemo(() => getInitialViewState(), [])`
+ * in the consuming component, then pass each field as the seed of its own
+ * `useState` (no lazy initialiser needed since the work is already done).
+ *
+ * Adding a new persisted field? Add it to the bundle here, add a default,
+ * and add it to the write payload in `Visualizer.jsx`'s persistence effect.
+ */
+export function getInitialViewState() {
+  const prefs = readViewPrefs();
+  return {
+    playSpeedPercent: initialPlaySpeedPercent(prefs),
+    theme: initialTheme(prefs),
+    layoutSettings: mergeLayoutSettings(prefs?.layoutSettings),
+    eventTitleSettings: mergeEventTitleSettings(prefs?.eventTitleSettings),
+    depthSettings: mergeDepthSettings(prefs?.depthSettings),
+    delayBetweenEvents: initialDelayMs(prefs, 'delayBetweenEvents'),
+    delayBetweenRepeats: initialDelayMs(prefs, 'delayBetweenRepeats'),
+    eventTimeTargets: mergeEventTimeTargets(prefs?.eventTimeTargets),
+    eventDurationMode: initialEventDurationMode(prefs),
+    maxStepDurationEnabled: initialMaxStepDurationEnabled(prefs),
+    maxStepDurationMs: initialMaxStepDurationMs(prefs),
+    gridOpacity: initialGridOpacity(prefs),
+    canvasColors: initialCanvasColors(prefs),
+    controlsHidden: initialControlsHidden(prefs),
+    allEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
+    ...initialPanelVisibility(prefs),
   };
 }

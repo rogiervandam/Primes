@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
+import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus } from './Icons';
 import { formatNs } from './TimingPanel';
 
 /**
@@ -93,11 +94,121 @@ function buildDepthTree(steps) {
 /**
  * Hierarchical step panel grouped by prime, with collapse/expand.
  */
-export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0 }) {
+export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, allEventsWidgetHidden = false, onExpandPanelFromWidget, onDockWidgetToTopBar, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0, goToStep, playing, handlePlayPause, exporting, isScrubbingTopRef, playSpeedPercent, setPlaySpeedPercent }) {
   const listRef = useRef(null);
   const scrollTopRef = useRef(0);
   const [search, setSearch] = useState('');
   const [filterOp, setFilterOp] = useState('');
+  // Drag state for the collapsed floating panel
+  const [floatDrag, setFloatDrag] = useState({ x: 0, y: 0 });
+  const floatDragRef = useRef({ x: 0, y: 0 });
+  // Visual hint for the active drop-zone while dragging the widget.
+  // 'left' | 'top' | null
+  const [floatDropHint, setFloatDropHint] = useState(null);
+
+  // Drag-to-collapse state for the expanded panel title row
+  const [headerDragX, setHeaderDragX] = useState(0);
+  const [headerDragWillCollapse, setHeaderDragWillCollapse] = useState(false);
+  const [isCollapsingOut, setIsCollapsingOut] = useState(false);
+
+  // Detect which screen-edge drop-zone the pointer is currently over.
+  // Returns 'left' (expand events panel), 'top' (dock to top bar), or null.
+  const detectDropZone = useCallback((clientX, clientY) => {
+    if (typeof window === 'undefined') return null;
+    const TOP_BAND = 60;   // top toolbar drop band height
+    const LEFT_BAND = 80;  // left edge drop band width
+    if (clientY <= TOP_BAND) return 'top';
+    if (clientX <= LEFT_BAND) return 'left';
+    return null;
+  }, []);
+
+  const handleFloatDragStart = useCallback((e) => {
+    if (e.target.closest('input') || e.target.closest('button')) return;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startDrag = { ...floatDragRef.current };
+    let dragged = false;
+    let lastZone = null;
+    const onMove = (ev) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (!dragged && Math.hypot(dx, dy) < 4) return;
+      dragged = true;
+      const next = { x: startDrag.x + dx, y: startDrag.y + dy };
+      floatDragRef.current = next;
+      setFloatDrag(next);
+      const zone = detectDropZone(ev.clientX, ev.clientY);
+      if (zone !== lastZone) {
+        lastZone = zone;
+        setFloatDropHint(zone);
+      }
+    };
+    const onUp = (ev) => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      setFloatDropHint(null);
+      if (!dragged) return;
+      const zone = detectDropZone(ev.clientX, ev.clientY);
+      if (zone === 'left' && onExpandPanelFromWidget) {
+        // Snap drag offset back so the widget is fresh next time it appears.
+        floatDragRef.current = { x: 0, y: 0 };
+        setFloatDrag({ x: 0, y: 0 });
+        onExpandPanelFromWidget();
+      } else if (zone === 'top' && onDockWidgetToTopBar) {
+        floatDragRef.current = { x: 0, y: 0 };
+        setFloatDrag({ x: 0, y: 0 });
+        onDockWidgetToTopBar();
+      }
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    e.preventDefault();
+  }, [detectDropZone, onExpandPanelFromWidget, onDockWidgetToTopBar]);
+
+  // Drag-to-collapse: dragging the expanded title row rightward collapses the panel.
+  const COLLAPSE_DRAG_THRESHOLD = 80;
+  const handleHeaderTitleDragStart = useCallback((e) => {
+    if (e.target.closest('input') || e.target.closest('button') || e.target.closest('select')) return;
+    const startX = e.clientX;
+
+    const onMove = (ev) => {
+      const raw = ev.clientX - startX;
+      if (raw <= 0) {
+        setHeaderDragX(0);
+        setHeaderDragWillCollapse(false);
+        return;
+      }
+      // Rubber-band: full travel up to threshold, then sqrt-damped beyond
+      const visual = raw <= COLLAPSE_DRAG_THRESHOLD
+        ? raw * 0.65
+        : COLLAPSE_DRAG_THRESHOLD * 0.65 + Math.sqrt(raw - COLLAPSE_DRAG_THRESHOLD) * 3;
+      setHeaderDragX(visual);
+      setHeaderDragWillCollapse(raw >= COLLAPSE_DRAG_THRESHOLD);
+    };
+
+    const onUp = (ev) => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      const raw = ev.clientX - startX;
+      setHeaderDragWillCollapse(false);
+      setHeaderDragX(0); // spring back via CSS transition
+      if (raw >= COLLAPSE_DRAG_THRESHOLD) {
+        // Brief pause for the spring-back, then animate the panel out
+        setTimeout(() => {
+          setIsCollapsingOut(true);
+          setTimeout(() => {
+            setIsCollapsingOut(false);
+            onToggleCollapse();
+          }, 280);
+        }, 80);
+      }
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    e.preventDefault();
+  }, [onToggleCollapse]);
+
   // filterLevel encoding: '' (all) | 'exact:N' | 'upto:N' | 'collapse:N'
   const [filterLevel, setFilterLevel] = useState(() => {
     try { return localStorage.getItem('sieve-filter-level') || ''; } catch { return ''; }
@@ -538,25 +649,76 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     return rangeLabel;
   }, []);
 
+  // Compact transport controls used both in collapsed and expanded states
+  const transportControls = goToStep ? (
+    <div className="step-panel-transport" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="spt-row spt-row-nav">
+        <button className="spt-btn" onClick={() => goToStep(0)} title="First event (Home)" disabled={exporting}><SkipBack size={12} /></button>
+        <button className="spt-btn" onClick={() => goToStep(currentStep - 1)} title="Previous event (←)" disabled={exporting}><StepBack size={12} /></button>
+        {setPlaySpeedPercent && (
+          <button className="spt-btn spt-speed" onClick={() => setPlaySpeedPercent(v => Math.max(25, Math.round(v / 1.25)))} title="Slower animation" disabled={exporting}><Minus size={11} /></button>
+        )}
+        <button className="spt-btn spt-play" onClick={handlePlayPause} title={playing ? 'Pause playback' : 'Play all events'} disabled={exporting || !steps.length}>
+          {playing ? <Pause size={12} /> : <Play size={12} />}
+        </button>
+        {setPlaySpeedPercent && (
+          <button className="spt-btn spt-speed" onClick={() => setPlaySpeedPercent(v => Math.min(400, Math.round(v * 1.25)))} title="Faster animation" disabled={exporting}><Plus size={11} /></button>
+        )}
+        <button className="spt-btn" onClick={() => goToStep(currentStep + 1)} title="Next event (→)" disabled={exporting}><StepForward size={12} /></button>
+        <button className="spt-btn" onClick={() => goToStep(steps.length - 1)} title="Last event (End)" disabled={exporting}><SkipForward size={12} /></button>
+        {setPlaySpeedPercent && playSpeedPercent != null && (
+          <span className="spt-speed-label" title={`Playback speed: ${playSpeedPercent}% of normal`}>{playSpeedPercent}%</span>
+        )}
+      </div>
+      <div className="spt-row spt-row-timeline">
+        <input
+          type="range"
+          className="spt-slider"
+          min={0}
+          max={Math.max(0, steps.length - 1)}
+          value={currentStep}
+          onChange={(e) => goToStep(parseInt(e.target.value, 10))}
+          onPointerDown={() => { if (isScrubbingTopRef) isScrubbingTopRef.current = true; }}
+          onPointerUp={() => { if (isScrubbingTopRef) isScrubbingTopRef.current = false; }}
+          onPointerCancel={() => { if (isScrubbingTopRef) isScrubbingTopRef.current = false; }}
+          disabled={exporting}
+          title={`Event ${currentStep} of ${steps.length - 1}`}
+        />
+        <span className="spt-counter">{currentStep}<span className="spt-total">/{steps.length - 1}</span></span>
+      </div>
+    </div>
+  ) : null;
+
   return (
-    <div className={`step-panel${panelCollapsed ? ' collapsed' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
-      {panelCollapsed && (
-        <div className="step-panel-floating-title">
-          <button className="step-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Expand events panel">
-            ▼
-          </button>
-          <span className="panel-label" title="Events">Events</span>
+    <div className={`step-panel${panelCollapsed ? ' collapsed' : ''}${isCollapsingOut ? ' collapsing-out' : ''}${floatDropHint === 'left' ? ' drop-hint-left' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
+      {panelCollapsed && !allEventsWidgetHidden && (
+        <div
+          className={`step-panel-floating-title${floatDropHint ? ` dropping dropping-${floatDropHint}` : ''}`}
+          style={{ transform: `translate(${floatDrag.x}px, ${floatDrag.y}px)`, cursor: 'grab' }}
+          onMouseDown={handleFloatDragStart}
+        >
+          <div className="step-panel-float-top-row">
+            <button className="step-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Expand events panel" onMouseDown={(e) => e.stopPropagation()}>▼</button>
+            <span className="panel-label" title="Events">Events</span>
+          </div>
+          {transportControls}
         </div>
       )}
       {!panelCollapsed && (
         <>
       <div className="step-panel-header">
-        <div className="step-panel-header-title-row">
+        <div
+          className={`step-panel-header-title-row${headerDragWillCollapse ? ' drag-will-collapse' : ''}${headerDragX > 0 ? ' is-header-dragging' : ''}`}
+          style={headerDragX > 0 ? { transform: `translateX(${headerDragX}px)` } : undefined}
+          onMouseDown={handleHeaderTitleDragStart}
+          title="Drag right to collapse"
+        >
           <h3>Events ({totalVisible}/{steps.length})</h3>
           <button className="step-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Collapse events panel">
             ◀
           </button>
         </div>
+        {transportControls}
         <input
           className="step-search"
           type="text"

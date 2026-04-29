@@ -25,12 +25,14 @@ import TimingPanel from '../TimingPanel';
 function CanvasStage({
   // layout flags
   mode3D,
-  loweredSetBits,
   // canvas refs (owned by parent, attached here)
   containerRef,
   canvasRef,
   settledCanvasRef,
   minimapCanvasRef,
+  glCanvasRef,
+  // whether GL renderer is active (controls GL canvas visibility)
+  glActive,
   // styling
   camera3DContainerStyle,
   renderCanvasStyle,
@@ -100,6 +102,8 @@ function CanvasStage({
           revealCurrentStepInPanel={revealCurrentStepInPanel}
           stepsPanelCollapsed={stepsPanelCollapsed}
           setStepsPanelCollapsed={setStepsPanelCollapsed}
+          detailOpen={detailOpen}
+          toggleDetailPanel={toggleDetailPanel}
           sliders={stepAnimSlidersContent}
         />
       )}
@@ -108,9 +112,18 @@ function CanvasStage({
         ref={containerRef}
         style={camera3DContainerStyle}
       >
+        {/* WebGL bit-grid canvas. Always in DOM so the renderer can attach on
+            mount and mode switches are instant. Hidden via CSS when canvas2d
+            renderer is active. Overlays/labels render on the Canvas2D layer on top. */}
+        <canvas
+          ref={glCanvasRef}
+          className={`gl-render-canvas${glActive ? '' : ' renderer-inactive'}`}
+          style={renderCanvasStyle}
+          aria-hidden="true"
+        />
         <canvas
           ref={settledCanvasRef}
-          className={`settled-render-canvas${loweredSetBits ? ' active' : ''}`}
+          className="settled-render-canvas"
           style={renderCanvasStyle}
           aria-hidden="true"
         />

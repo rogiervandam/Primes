@@ -15,7 +15,7 @@
  *   0                reset zoom
  *   T                toggle theme
  *   D                toggle detail panel
- *   3                toggle 3D mode
+ *   H                toggle playback controls (immersive mode)
  *   R                (3D mode) reset rotation to flat
  *
  * Caller passes the actions; this hook contains no state of its own. It
@@ -33,7 +33,7 @@ export function useKeyboardShortcuts({
   resetZoom,
   setTheme,
   toggleDetailPanel,
-  toggle3D,
+  toggleControlsHidden,
   camera3DRef,
 }) {
   useEffect(() => {
@@ -70,7 +70,7 @@ export function useKeyboardShortcuts({
         case '0':          e.preventDefault(); resetZoom(); break;
         case 't': case 'T': e.preventDefault(); setTheme((t) => (t === 'dark' ? 'light' : 'dark')); break;
         case 'd': case 'D': e.preventDefault(); toggleDetailPanel(); break;
-        case '3':          e.preventDefault(); toggle3D(); break;
+        case 'h': case 'H': e.preventDefault(); toggleControlsHidden(); break;
         case 'r': case 'R':
           e.preventDefault();
           if (is3D) cam.resetFlat();
@@ -89,7 +89,7 @@ export function useKeyboardShortcuts({
     resetZoom,
     setTheme,
     toggleDetailPanel,
-    toggle3D,
+    toggleControlsHidden,
     camera3DRef,
   ]);
 }

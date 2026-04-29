@@ -65,11 +65,11 @@ export default function DetailPanel({
       }
     }
     ranges.push(start === end ? `${start}` : `${start}–${end}`);
-    // Limit display
-    if (ranges.length > 20) {
-      return ranges.slice(0, 20).join(', ') + ` … (+${ranges.length - 20} more ranges)`;
+    // Limit display to a few items — click the button to see all
+    if (ranges.length > 5) {
+      return { text: ranges.slice(0, 5).join(', '), more: ranges.length - 5 };
     }
-    return ranges.join(', ');
+    return { text: ranges.join(', '), more: 0 };
   }, [step]);
 
   // Convert changed bits to number representation
@@ -77,10 +77,9 @@ export default function DetailPanel({
     if (!step || step.changedBits.length === 0) return '';
     const bits = Array.from(step.changedBits).sort((a, b) => a - b);
     const model = storageModel || 'half';
-    const nums = bits.slice(0, 20).map(b => bitToNumber(b, model));
-    let text = nums.join(', ');
-    if (bits.length > 20) text += ` … (+${bits.length - 20} more)`;
-    return text;
+    const nums = bits.slice(0, 5).map(b => bitToNumber(b, model));
+    const more = bits.length - 5;
+    return { text: nums.join(', '), more: more > 0 ? more : 0 };
   }, [step, storageModel]);
 
   const maskSummary = useMemo(() => {
@@ -131,8 +130,8 @@ export default function DetailPanel({
     const byteDef = BYTE_LAYOUTS[byteLayout] || BYTE_LAYOUTS['4x2'];
     const totalBits = Math.max(1, maskSummary.wordBits);
     const activeBytes = Math.max(1, Math.ceil(totalBits / 8));
-    const bitSize = 10;
-    const bitGap = 2;
+    const bitSize = 8;
+    const bitGap = 1;
     const byteGap = 4;
     const bytePad = 4;
     const bitCols = bitDef.grid3x3 ? 3 : bitDef.cols;
@@ -317,19 +316,19 @@ export default function DetailPanel({
       label: 'Numbers marked',
       content: step.numChanged > 0 ? (
         <button className="detail-inspect-btn" onClick={() => onInspectMarkedNumbers && onInspectMarkedNumbers()} title="Inspect all marked numbers in a searchable list">
-          <span className="dt-mono">{numberSummary}</span>
+          <span className="dt-mono">{numberSummary.text}</span>
+          {numberSummary.more > 0 && <span className="detail-inspect-hint">+{numberSummary.more} more ↗</span>}
         </button>
       ) : <span className="detail-empty">-</span>,
-      wide: true,
     },
     {
       label: 'Bit ranges',
       content: step.numChanged > 0 ? (
         <button className="detail-inspect-btn" onClick={() => onInspectChangedBits && onInspectChangedBits()} title="Inspect all changed bits in a searchable list">
-          <span className="dt-mono">{bitRanges}</span>
+          <span className="dt-mono">{bitRanges.text}</span>
+          {bitRanges.more > 0 && <span className="detail-inspect-hint">+{bitRanges.more} more ↗</span>}
         </button>
       ) : <span className="detail-empty">-</span>,
-      wide: true,
     },
   ];
 
@@ -456,11 +455,11 @@ export default function DetailPanel({
               </div>
             </section>
 
-            <section className="detail-section-card detail-section-wide">
+            <section className="detail-section-card">
               <div className="detail-section-title">Marked numbers &amp; bit ranges</div>
               <div className="detail-section-rows">
                 {annotationFacts.map((row) => (
-                  <div key={row.label} className="detail-row detail-row-wide">
+                  <div key={row.label} className="detail-row">
                     <span className="detail-row-label">{row.label}</span>
                     <span className="detail-row-value">{row.content}</span>
                   </div>
@@ -468,7 +467,7 @@ export default function DetailPanel({
               </div>
             </section>
 
-            <section className="detail-section-card detail-section-wide">
+            <section className="detail-section-card">
               <div className="detail-section-title">Mask preview</div>
               <div className="detail-section-rows">
                 {maskPreviewContent}

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { SieveRenderer, bitToNumber, numberToBit, CACHE_PRESETS } from './SieveRenderer';
+import { BitGridGLWorker, isWorkerGLSupported } from './renderer/gl/BitGridGLWorker';
 import StepPanel from './StepPanel';
 import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
@@ -14,17 +15,17 @@ import BitHistoryBalloons from './visualizer/BitHistoryBalloons';
 import { useTraceExport } from './hooks/useTraceExport';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { use3DCamera } from './hooks/use3DCamera';
+import { usePlaybackClock } from './hooks/usePlaybackClock';
+import { applyPan } from './visualizer/gestures/pan';
+import { applyRotate } from './visualizer/gestures/rotate';
+import { applyWheel } from './visualizer/gestures/wheel';
 import {
   DEFAULT_EVENT_TIME_TARGETS,
   DEFAULT_LAYOUT_SETTINGS as DEFAULT_SETTINGS,
   DEFAULT_EVENT_TITLE_SETTINGS,
   DEFAULT_DEPTH_SETTINGS,
-  readViewPrefs,
   writeViewPrefs,
-  mergeEventTimeTargets,
-  mergeLayoutSettings,
-  mergeEventTitleSettings,
-  mergeDepthSettings,
+  getInitialViewState,
 } from './lib/viewPrefs';
 import { buildTraceInfoSections } from './lib/traceHeader';
 import { detectIsMac, detectIsWindows, detectIsElectron } from './lib/platform';
@@ -58,58 +59,51 @@ export default function Visualizer({
   const minimapCanvasRef = useRef(null);
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
+  // Experimental WebGL bit-grid (see docs/AI_MAINTENANCE.md §8). Only
+  const glCanvasRef = useRef(null);
+  const glRendererRef = useRef(null);
   const isMacPlatform = useMemo(() => detectIsMac(), []);
   const isWindowsPlatform = useMemo(() => detectIsWindows(), []);
   // Electron (native app) inserts "Electron" into the UA and exposes process.versions.electron.
   // In browser mode we don't reserve space for traffic-light window controls.
   const isElectron = useMemo(() => detectIsElectron(), []);
 
+  // All localStorage-backed UI state is resolved (read + clamp + migrate) in
+  // a single pass by `getInitialViewState()` — see `src/lib/viewPrefs.js`.
+  // The bundle is captured once via `useMemo` and then fed straight into
+  // each `useState` seed. Persistence on change still happens in the
+  // `writeViewPrefs(...)` effect further down.
+  const initialPrefs = useMemo(() => getInitialViewState(), []);
+
   const [currentStep, setCurrentStep] = useState(0);
   const [playing, setPlaying] = useState(false);
   // Playback speed as a percentage of the per-event "normal" time target.
   // 50% => animations take twice as long; 200% => half as long. Range 25..400.
-  const [playSpeedPercent, setPlaySpeedPercent] = useState(() => {
-    const saved = Number(readViewPrefs()?.playSpeedPercent);
-    return Number.isFinite(saved) ? Math.max(25, Math.min(400, Math.round(saved))) : 100;
-  });
+  const [playSpeedPercent, setPlaySpeedPercent] = useState(initialPrefs.playSpeedPercent);
   const playSpeedPercentRef = useRef(playSpeedPercent);
   playSpeedPercentRef.current = playSpeedPercent;
   const [zoom, setZoom] = useState(1);
   const [panelWidth, setPanelWidth] = useState(320);
-  const [theme, setTheme] = useState(() => readViewPrefs()?.theme === 'light' ? 'light' : 'dark');
+  const [theme, setTheme] = useState(initialPrefs.theme);
   const [showTraceInfo, setShowTraceInfo] = useState(false);
-  const [loweredSetBits, setLoweredSetBits] = useState(false);
-  const [settingsCollapsed, setSettingsCollapsed] = useState(true);
-  const [layoutSettings, setLayoutSettings] = useState(() => mergeLayoutSettings(readViewPrefs()?.layoutSettings));
-  const [eventTitleSettings, setEventTitleSettings] = useState(() => mergeEventTitleSettings(readViewPrefs()?.eventTitleSettings));
-  const [depthSettings, setDepthSettings] = useState(() => mergeDepthSettings(readViewPrefs()?.depthSettings));
-  const [detailOpen, setDetailOpen] = useState(false);
+  const [settingsCollapsed, setSettingsCollapsed] = useState(initialPrefs.settingsCollapsed);
+  const [layoutSettings, setLayoutSettings] = useState(initialPrefs.layoutSettings);
+  const [eventTitleSettings, setEventTitleSettings] = useState(initialPrefs.eventTitleSettings);
+  const [depthSettings, setDepthSettings] = useState(initialPrefs.depthSettings);
+  const [detailOpen, setDetailOpen] = useState(initialPrefs.detailOpen);
   // Two distinct delays. Both default to 500 ms but are independently adjustable.
   // - delayBetweenEvents: pause after one event finishes before the all-events
   //   widget advances to the next event (only honored while `playing`).
   // - delayBetweenRepeats: pause between repeats when the single-event widget
   //   is in play mode and is auto-replaying the current event.
-  const [delayBetweenEvents, setDelayBetweenEvents] = useState(() => {
-    const prefs = readViewPrefs();
-    const explicit = Number(prefs?.delayBetweenEvents);
-    if (Number.isFinite(explicit)) return Math.max(0, Math.min(5000, Math.round(explicit)));
-    // Migrate from legacy single `repeatAnim` setting if present.
-    const legacy = Number(prefs?.repeatAnim);
-    if (Number.isFinite(legacy)) return Math.max(0, Math.min(5000, Math.round(legacy)));
-    return 500;
-  });
-  const [delayBetweenRepeats, setDelayBetweenRepeats] = useState(() => {
-    const prefs = readViewPrefs();
-    const explicit = Number(prefs?.delayBetweenRepeats);
-    if (Number.isFinite(explicit)) return Math.max(0, Math.min(5000, Math.round(explicit)));
-    const legacy = Number(prefs?.repeatAnim);
-    if (Number.isFinite(legacy)) return Math.max(0, Math.min(5000, Math.round(legacy)));
-    return 500;
-  });
+  // Both fall back to the legacy single `repeatAnim` setting when absent —
+  // see `initialDelayMs` in `lib/viewPrefs.js`.
+  const [delayBetweenEvents, setDelayBetweenEvents] = useState(initialPrefs.delayBetweenEvents);
+  const [delayBetweenRepeats, setDelayBetweenRepeats] = useState(initialPrefs.delayBetweenRepeats);
   const delayBetweenRepeatsRef = useRef(delayBetweenRepeats);
   delayBetweenRepeatsRef.current = delayBetweenRepeats;
   // Per-event time targets (ms) keyed by change-count tier.
-  const [eventTimeTargets, setEventTimeTargets] = useState(() => mergeEventTimeTargets(readViewPrefs()?.eventTimeTargets));
+  const [eventTimeTargets, setEventTimeTargets] = useState(initialPrefs.eventTimeTargets);
   const eventTimeTargetsRef = useRef(eventTimeTargets);
   eventTimeTargetsRef.current = eventTimeTargets;
   const [animMode, setAnimMode] = useState('sequential'); // 'all' or 'sequential'
@@ -127,13 +121,19 @@ export default function Visualizer({
   // true, the per-event animation re-triggers on every value change and the
   // event auto-loops. Cleared on pointerup.
   const isScrubbingTopRef = useRef(false);
-  const [customTitle, setCustomTitle] = useState('');
   // 0..100 slider progress scrubbing through the current event's internal animation.
   // Resets whenever the current event changes. The sequential-reveal animation
   // writes to this state as it progresses so the banner slider follows along.
   const [stepScrubProgress, setStepScrubProgress] = useState(0);
   const stepScrubProgressRef = useRef(setStepScrubProgress);
   stepScrubProgressRef.current = setStepScrubProgress;
+  // Non-null while waiting for the delay between single-event loop repeats.
+  // Holds the total delay duration (ms) so the wipe animation in
+  // StepAnimSliders knows how long to run. Cleared when the delay ends, is
+  // interrupted by a scrub, or when the loop is paused/stopped.
+  const [delayPhaseMs, setDelayPhaseMs] = useState(null);
+  const setDelayPhaseMsRef = useRef(setDelayPhaseMs);
+  setDelayPhaseMsRef.current = setDelayPhaseMs;
   // Is the per-event sequential reveal currently in progress? The banner
   // play/pause button reads this to pick its icon.
   const [stepAnimRunning, setStepAnimRunning] = useState(false);
@@ -150,24 +150,15 @@ export default function Visualizer({
   const stepResumeStartIndexRef = useRef(0);
   // 0..1 resume hint for the mask animation path (mirrors stepResumeStartIndexRef).
   const stepResumeMaskProgressRef = useRef(0);
-  // Global pause flag. Set by either the top-toolbar pause or the banner pause.
-  // The reveal loop, mask animation, waitForDelay, and the trace-level
-  // scheduleNext all poll this and freeze in place when true. Setting back to
-  // false transparently resumes everything from where it stopped.
-  const globalPausedRef = useRef(false);
-  // Monotonically-increasing counter bumped by seekStepAnimation every time
-  // the user scrubs the timeline. triggerAnimation captures the current value
-  // at entry and aborts (without overwriting the canvas) if the value changed
-  // by the time a new RAF tick fires — i.e. the user scrubbed while the
-  // animation was in flight.
-  const seekGenRef = useRef(0);
+  // Global pause flag, seek generation counter, and animation-busy
+  // deadline. See `src/hooks/usePlaybackClock.js` for the full
+  // semantics of each ref. Lifted into a hook so the playback
+  // contract is documented in one place; behaviour is unchanged.
+  const { globalPausedRef, seekGenRef, animBusyUntilRef } = usePlaybackClock();
   // Event-internal animation duration mode. 'progressive' uses a piecewise
   // tiered budget so a 5-bit event and a 5000-bit event both produce a
   // meaningful timeline; 'linear' scales total duration with the bit count.
-  const [eventDurationMode, setEventDurationMode] = useState(() => {
-    const saved = readViewPrefs()?.eventDurationMode;
-    return saved === 'linear' ? 'linear' : 'progressive';
-  });
+  const [eventDurationMode, setEventDurationMode] = useState(initialPrefs.eventDurationMode);
   const eventDurationModeRef = useRef(eventDurationMode);
   eventDurationModeRef.current = eventDurationMode;
   // Forward refs so functions defined earlier in the file can use the
@@ -192,15 +183,10 @@ export default function Visualizer({
     const ratio = (maskSpeedValueDefault - 1) / 499;
     return Math.round(5000 - ratio * (5000 - 5));
   });
-  const [maxStepDurationEnabled, setMaxStepDurationEnabled] = useState(() => readViewPrefs()?.maxStepDurationEnabled === true);
-  const [maxStepDurationMs, setMaxStepDurationMs] = useState(() => {
-    const saved = Number(readViewPrefs()?.maxStepDurationMs);
-    return Number.isFinite(saved) ? Math.max(2000, Math.min(30000, Math.round(saved))) : 8000;
-  });
-  const [gridOpacity, setGridOpacity] = useState(() => {
-    const saved = Number(readViewPrefs()?.gridOpacity);
-    return Number.isFinite(saved) ? Math.max(0.12, Math.min(1, saved)) : 1;
-  });
+  const [maxStepDurationEnabled, setMaxStepDurationEnabled] = useState(initialPrefs.maxStepDurationEnabled);
+  const [maxStepDurationMs, setMaxStepDurationMs] = useState(initialPrefs.maxStepDurationMs);
+  const [gridOpacity, setGridOpacity] = useState(initialPrefs.gridOpacity);
+  const [canvasColors, setCanvasColors] = useState(initialPrefs.canvasColors);
   const [detailHeight, setDetailHeight] = useState(280);
   const [detailWidth, setDetailWidth] = useState(0);
   const [showMinimap, setShowMinimap] = useState(true);
@@ -214,6 +200,16 @@ export default function Visualizer({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResult, setSearchResult] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  // Whether the toolbar center+right (playback transport + timeline) are hidden
+  // for a distraction-free immersive view. Toggled via the eye button or H key.
+  const [controlsHidden, setControlsHidden] = useState(initialPrefs.controlsHidden);
+  const toggleControlsHidden = useCallback(() => setControlsHidden((h) => !h), []);
+  // When true, the floating "all events" widget (transport + timeline shown
+  // while the events panel is collapsed) is hidden and replaced by a small
+  // "show widget" button in the top toolbar. Set by dragging the widget onto
+  // the top bar; cleared by clicking that button.
+  const [allEventsWidgetHidden, setAllEventsWidgetHidden] = useState(initialPrefs.allEventsWidgetHidden);
+  const showAllEventsWidget = useCallback(() => setAllEventsWidgetHidden(false), []);
   const [storageModel, setStorageModel] = useState(header.storageModel || 'half');
   const [selectedSteps, setSelectedSteps] = useState(new Set());
   const [heatMapEnabled, setHeatMapEnabled] = useState(false);
@@ -227,7 +223,7 @@ export default function Visualizer({
   const [multiplesOverlayPrime, setMultiplesOverlayPrime] = useState(3);
   const [cachelineSize, setCachelineSize] = useState(64);
   const [cachePreset, setCachePreset] = useState('fixed');
-  const [stepsPanelCollapsed, setStepsPanelCollapsed] = useState(true);
+  const [stepsPanelCollapsed, setStepsPanelCollapsed] = useState(initialPrefs.stepsPanelCollapsed);
   // Bumped whenever the user explicitly asks to "reveal" the current event in
   // the events panel (e.g. via the locate button on the event-title widget).
   // StepPanel watches this counter to clear filters and expand parents so the
@@ -239,21 +235,32 @@ export default function Visualizer({
   const [detailInspectorMode, setDetailInspectorMode] = useState('bits');
   const [detailInspectorQuery, setDetailInspectorQuery] = useState('');
   const [, setBalloonLayoutTick] = useState(0);
+  // Pixel offsets that place the canvas's center at the viewport center
+  // regardless of the container's current bounding box. Without this,
+  // the canvas was positioned `left:50%; top:50%` of `.canvas-container`,
+  // so when the settings/steps panels collapse/expand the container
+  // reshapes and the (stable) canvas slides in viewport space — visible
+  // as a content shift on every panel toggle. Updated by a ResizeObserver
+  // on the container so the anchor tracks the panel's CSS transition.
+  const [canvasAnchorPx, setCanvasAnchorPx] = useState(null);
 
   // 3D camera state
-  const [mode3D, setMode3D] = useState(false);
+  // The app always uses 3D mode; the camera is always enabled. The tilt
+  // button controls the rotateX angle (flat 0° vs tilted 30°).
+  const mode3D = true;
   const currentAnimIntervalRef = useRef(20);
   const currentMaskAnimIntervalRef = useRef(20);
   const {
     camera3DRef,
     camera3DTransform,
     camera3DContainerStyle,
+    cameraKey,
     setCamera3DTransform,
     setCamera3DContainerStyle,
     createCamera,
     disposeCamera,
     ensureTiltCamera,
-  } = use3DCamera({ mode3D });
+  } = use3DCamera();
 
   const bitStateRef = useRef(null);
   const stepsRef = useRef([]);
@@ -263,7 +270,6 @@ export default function Visualizer({
   const seqTimerRef = useRef(null); // sequential animation timer
   const triggerAnimationRef = useRef(null);
   const playTimeoutRef = useRef(null);
-  const animBusyUntilRef = useRef(0);
   const selectedAnimLoopRef = useRef(null);
   const pausedStepAnimLoopRef = useRef(null);
   const initialFitDoneRef = useRef(false);
@@ -273,10 +279,15 @@ export default function Visualizer({
   const layoutRefreshTimeoutRef = useRef(null);
   const layoutRefreshRaf1Ref = useRef(null);
   const layoutRefreshRaf2Ref = useRef(null);
+  // Anchor captured by a panel-toggle handler BEFORE the state update,
+  // i.e. while `getBoundingClientRect()` still reflects the old layout.
+  // The resize useEffect consumes it (instead of capturing fresh, which
+  // would always read the post-change rect and produce zero net pan
+  // compensation, causing the canvas to drift on every panel toggle).
+  const pendingResizeAnchorRef = useRef(null);
   const viewportAnimRef = useRef(null);
   const autoplayStartedRef = useRef(false);
   const initialHighlightHoldRef = useRef(true);
-  const initial3DRestoreDoneRef = useRef(true);
   const traceInfoPopoverRef = useRef(null);
   // True while the timeline slider has left bitState in a partially-revealed
   // (pre-step) state. goToStep checks this and always rebuilds bitState from
@@ -383,19 +394,31 @@ export default function Visualizer({
   }, []);
 
   const getCanvasTargetSize = useCallback((width, height) => {
+    // Unified geometry: the canvas is ALWAYS the oversized 3D plane,
+    // regardless of whether the camera is currently tilted. 2D mode
+    // is just "3D with rotateX = rotateY = 0". This means panel
+    // toggles never change the canvas size (no grid reflow / drift)
+    // and the 2D and 3D placements are identical.
+    //
+    // We use the largest of (current container, viewport) as the
+    // baseline so collapsing/expanding side panels can't shrink
+    // the canvas — those toggles must be visually free.
     const cam = camera3DRef.current;
-    let canvasW = width;
-    let canvasH = height;
+    const baseW = Math.max(width || 0, (typeof window !== 'undefined' ? window.innerWidth : width) || 0);
+    const baseH = Math.max(height || 0, (typeof window !== 'undefined' ? window.innerHeight : height) || 0);
+    let scaleH = 1;
+    let scaleW = 1;
+    let diagonalOverscan = 1;
     if (cam && cam.enabled) {
       const ax = Math.abs(cam.rotateX) * Math.PI / 180;
       const ay = Math.abs(cam.rotateY) * Math.PI / 180;
-      const scaleH = 1 / Math.max(0.3, Math.cos(ax));
-      const scaleW = 1 / Math.max(0.3, Math.cos(ay));
-      const diagonalOverscan = 1 + Math.hypot(Math.sin(ax), Math.sin(ay)) * 0.55;
-      const dragOverscan = 3.1;
-      canvasW = Math.max(width * 3.2, width * scaleW * diagonalOverscan * dragOverscan);
-      canvasH = Math.max(height * 3.2, height * scaleH * diagonalOverscan * dragOverscan);
+      scaleH = 1 / Math.max(0.3, Math.cos(ax));
+      scaleW = 1 / Math.max(0.3, Math.cos(ay));
+      diagonalOverscan = 1 + Math.hypot(Math.sin(ax), Math.sin(ay)) * 0.55;
     }
+    const dragOverscan = 3.1;
+    const canvasW = Math.max(baseW * 3.2, baseW * scaleW * diagonalOverscan * dragOverscan);
+    const canvasH = Math.max(baseH * 3.2, baseH * scaleH * diagonalOverscan * dragOverscan);
     return { canvasW, canvasH };
   }, []);
 
@@ -436,26 +459,130 @@ export default function Visualizer({
 
     const { canvasW, canvasH } = getCanvasTargetSize(rect.width, rect.height);
 
+    const oldCanvasW = r.canvasWidth || 0;
+    const oldCanvasH = r.canvasHeight || 0;
     r.resize(canvasW, canvasH);
+    // Keep grid content stable when the window (and therefore the canvas)
+    // resizes. The canvas is centered at the viewport center, so when the
+    // canvas grows by dCanvasW its left edge moves left by dCanvasW/2.
+    // Compensating panX by dCanvasW/2 keeps every canvas-coord the same
+    // distance from the canvas center, which means the 3D perspective
+    // projection is unchanged (no lean/tilt artefact). In 2D the content
+    // drifts by dWindowW/2 — the natural "window-center moved" effect —
+    // which is far less disruptive than the original 1.1×dWindowW drift.
+    if (oldCanvasW > 0) {
+      r.panX += (canvasW - oldCanvasW) / 2;
+      r.panY += (canvasH - oldCanvasH) / 2;
+    }
+    // Tell the renderer the layout-available area so the grid
+    // wrapping math (`_computeClPerVRow`) targets a STABLE size,
+    // not the live container rect. Using `window.innerWidth/Height`
+    // means panel toggles don't change the chosen column count and
+    // therefore don't reflow / drift the grid; the user just sees
+    // more or less of the same plane through the resized container.
+    const lvW = (typeof window !== 'undefined' ? window.innerWidth : rect.width) || rect.width;
+    const lvH = (typeof window !== 'undefined' ? window.innerHeight : rect.height) || rect.height;
+    r.layoutAvailWidth = lvW;
+    r.layoutAvailHeight = lvH;
     r.unfreezeLayout();
     r.freezeLayout();
 
-    if (anchor && anchor.contentX != null && anchor.contentY != null) {
-      const canvasCssHeight = (r.canvas?.height || rect.height * (window.devicePixelRatio || 1)) / (window.devicePixelRatio || 1);
-      const planeOffsetX = Math.max(0, (canvasW - rect.width) / 2);
-      const planeOffsetY = Math.max(0, (canvasCssHeight - rect.height) / 2);
-      const desiredX = planeOffsetX + Math.max(0, Math.min(rect.width, anchor.clientX - rect.left));
-      const desiredY = planeOffsetY + Math.max(0, Math.min(rect.height, anchor.clientY - rect.top));
-      const mappedX = anchor.contentX * Math.max(0.0001, r.zoom || 1) + r.panX;
-      const mappedY = anchor.contentY * Math.max(0.0001, r.zoom || 1) + r.panY;
-      r.panX += desiredX - mappedX;
-      r.panY += desiredY - mappedY;
-    }
+    // NOTE: anchor-based panX/panY compensation removed for panel toggles.
+    // With the canvas pinned to the VIEWPORT center (see canvasAnchorPx and
+    // renderCanvasStyle), the canvas no longer moves when the container
+    // reshapes on a panel toggle (canvasW/H are based on windowW/H, not
+    // containerW/H, so they don't change on panel toggles), so there is
+    // nothing to compensate for. Window-resize is handled above via the
+    // dCanvasW/2 adjustment which preserves canvas-center-relative content
+    // positions and keeps the 3D perspective projection stable.
+    void anchor;
 
     r.render();
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
   }, [getCanvasTargetSize, showMinimap, getMinimapDetailH, updateMinimapAvailability]);
+
+  // Keep the canvas pinned to the VIEWPORT center (not the container
+  // center) so panel collapse/expand transitions don't slide the
+  // (stable) canvas content across the screen. We update DOM styles
+  // imperatively (NOT through React state) so the position tracks the
+  // container's CSS transition frame-by-frame -- React state batching
+  // adds a render-cycle lag that was visible as a large displacement
+  // when the events panel collapsed. A rAF self-priming loop runs for
+  // ~420ms after each detected container reshape (or transition start)
+  // to cover the entire CSS transition.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof window === 'undefined') return undefined;
+    let lastL = Number.NaN;
+    let lastT = Number.NaN;
+    let rafId = 0;
+    let rafUntil = 0;
+    const apply = (left, top) => {
+      const leftStr = `${left}px`;
+      const topStr = `${top}px`;
+      const targets = [canvasRef.current, settledCanvasRef.current, glCanvasRef.current];
+      for (const c of targets) {
+        if (!c) continue;
+        if (c.style.left !== leftStr) c.style.left = leftStr;
+        if (c.style.top !== topStr) c.style.top = topStr;
+      }
+      // Pin perspective-origin to the same anchor so the 3D vanishing
+      // point doesn't slide when the container reshapes.
+      el.style.perspectiveOrigin = `${left}px ${top}px`;
+    };
+    const sample = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return false;
+      const left = Math.round((window.innerWidth / 2 - rect.left) * 100) / 100;
+      const top = Math.round((window.innerHeight / 2 - rect.top) * 100) / 100;
+      if (left === lastL && top === lastT) return false;
+      lastL = left;
+      lastT = top;
+      apply(left, top);
+      setCanvasAnchorPx({ left, top });
+      return true;
+    };
+    const tick = () => {
+      sample();
+      if (performance.now() < rafUntil) {
+        rafId = requestAnimationFrame(tick);
+      } else {
+        rafId = 0;
+      }
+    };
+    const kick = (durationMs = 420) => {
+      rafUntil = Math.max(rafUntil, performance.now() + durationMs);
+      if (!rafId) rafId = requestAnimationFrame(tick);
+    };
+    sample();
+    let ro = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => kick());
+      ro.observe(el);
+      if (document.body) ro.observe(document.body);
+    }
+    const onResize = () => kick();
+    const onScroll = () => kick(60);
+    const onTransitionStart = (ev) => {
+      const p = ev.propertyName;
+      if (p === 'width' || p === 'flex-basis' || p === 'transform' || p === 'margin' || p === 'padding') {
+        kick();
+      }
+    };
+    window.addEventListener('resize', onResize);
+    window.addEventListener('scroll', onScroll, true);
+    document.addEventListener('transitionstart', onTransitionStart, true);
+    document.addEventListener('transitionrun', onTransitionStart, true);
+    return () => {
+      if (ro) ro.disconnect();
+      if (rafId) cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onScroll, true);
+      document.removeEventListener('transitionstart', onTransitionStart, true);
+      document.removeEventListener('transitionrun', onTransitionStart, true);
+    };
+  }, []);
 
   const clearScheduledLayoutRefresh = useCallback(() => {
     if (layoutRefreshTimeoutRef.current != null) {
@@ -484,6 +611,8 @@ export default function Visualizer({
     }, 210);
   }, [clearScheduledLayoutRefresh, refreshCanvasLayout]);
 
+
+
   const applyViewportFit = useCallback((renderer, width, height) => {
     if (!renderer || width <= 0 || height <= 0) return;
     renderer.zoomToFit(width, height, { alignTop: false });
@@ -496,52 +625,55 @@ export default function Visualizer({
   }, [header.bitCount]);
 
   const toggleStepsPanel = useCallback(() => {
-    const r = rendererRef.current;
-    setStepsPanelCollapsed((wasCollapsed) => {
-      // When expanding, the canvas shrinks — shift pan right by half the panel width.
-      // When collapsing, the canvas grows — shift pan left by half the panel width.
-      const collapsedW = 32;
-      const expandedW = panelWidth;
-      const delta = expandedW - collapsedW;
-      if (r) {
-        r.panX += wasCollapsed ? -(delta / 2) : (delta / 2);
-      }
-      return !wasCollapsed;
-    });
-    // Schedule refresh without anchor — panX already compensated
-    schedulePostLayoutRefresh(null);
-  }, [panelWidth, schedulePostLayoutRefresh]);
+    // Snapshot the canvas-area centre's window position BEFORE the state
+    // update so the resize useEffect can pin it after CSS reflow. See
+    // pendingResizeAnchorRef for why fresh capture in the effect drifts.
+    pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
+    setStepsPanelCollapsed((wasCollapsed) => !wasCollapsed);
+  }, [captureViewportAnchor]);
 
   // Open the events panel (if collapsed) and ask it to reveal the current
   // step: clear filters that hide it, expand its parent group + ancestor
   // nodes, and scroll it into view. Triggered from the event-title widget.
   const revealCurrentStepInPanel = useCallback(() => {
+    // Same window-pinning contract as toggleStepsPanel: stash the
+    // pre-state-change anchor for the resize useEffect to consume.
     setStepsPanelCollapsed((wasCollapsed) => {
       if (wasCollapsed) {
-        const r = rendererRef.current;
-        const collapsedW = 32;
-        const expandedW = panelWidth;
-        const delta = expandedW - collapsedW;
-        if (r) r.panX -= delta / 2;
-        schedulePostLayoutRefresh(null);
+        pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
         return false;
       }
       return wasCollapsed;
     });
     setRevealStepRequest((n) => n + 1);
-  }, [panelWidth, schedulePostLayoutRefresh]);
+  }, [captureViewportAnchor]);
 
   const toggleDetailPanel = useCallback(() => {
-    const anchor = captureViewportAnchor(0.5, 0.5);
+    pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
     updateDetailOpen((o) => !o);
-    schedulePostLayoutRefresh(anchor);
-  }, [captureViewportAnchor, updateDetailOpen, schedulePostLayoutRefresh]);
+  }, [captureViewportAnchor, updateDetailOpen]);
 
   const toggleSettingsPanel = useCallback(() => {
-    const anchor = captureViewportAnchor(0.5, 0.5);
+    pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
     setSettingsCollapsed((collapsed) => !collapsed);
-    schedulePostLayoutRefresh(anchor);
-  }, [captureViewportAnchor, schedulePostLayoutRefresh]);
+  }, [captureViewportAnchor]);
+
+  // State for requesting a specific tab in the settings panel from external code.
+  // { tab: string, counter: number } — counter increments each request so effects fire.
+  const [settingsTabRequest, setSettingsTabRequest] = useState(null);
+
+  // Open animation settings panel to the animation tab (e.g. from gear icon in event widget).
+  const openAnimationSettings = useCallback(() => {
+    pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
+    setSettingsCollapsed(false);
+    setSettingsTabRequest((prev) => ({ tab: 'animation', counter: (prev?.counter ?? 0) + 1 }));
+  }, [captureViewportAnchor]);
+
+  // Callback for changing bitAnimationMode from the settings panel (no seek side-effect needed there).
+  const handleBitAnimationModeChange = useCallback((mode) => {
+    setBitAnimationMode(mode);
+    bitAnimationModeRef.current = mode;
+  }, []);
 
   // Close trace info popup when clicking outside
   useEffect(() => {
@@ -569,13 +701,19 @@ export default function Visualizer({
       maxStepDurationEnabled,
       maxStepDurationMs,
       gridOpacity,
+      canvasColors,
       eventDurationMode,
       playSpeedPercent,
       delayBetweenEvents,
       delayBetweenRepeats,
       eventTimeTargets,
+      controlsHidden,
+      allEventsWidgetHidden,
+      stepsPanelCollapsed,
+      settingsCollapsed,
+      detailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets]);
+  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, canvasColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, controlsHidden, allEventsWidgetHidden, stepsPanelCollapsed, settingsCollapsed, detailOpen]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -593,6 +731,80 @@ export default function Visualizer({
       if (minimapCanvasRef.current) r.attachMinimapCanvas(minimapCanvasRef.current);
       r.init(header.bitCount, header.sieveSize);
       bitStateRef.current = new Uint8Array(header.bitCount);
+      // Warm the prime-overlay cache off the main thread so toggling the
+      // overlay is instant. Re-render when the worker reply arrives in
+      // case the overlay is already enabled.
+      r.prefetchPrimeOverlay(() => {
+        const rr = rendererRef.current;
+        if (rr && rr.primeOverlay) rr.render();
+      });
+
+      // WebGL bit-grid scaffold (gl-worker via OffscreenCanvas).
+      if (glCanvasRef.current) {
+        // Attach the GL renderer once — transferControlToOffscreen is a
+        // one-shot operation and cannot be repeated on the same canvas.
+        // On trace changes (effect re-runs) we reuse the existing renderer
+        // and just update the bit-count budget. On first mount (or when
+        // the renderer was never successfully created) we create it fresh.
+        let gl = glRendererRef.current;
+        if (!gl) {
+          const newGl = new BitGridGLWorker();
+          if (newGl.attach(glCanvasRef.current)) {
+            gl = newGl;
+            glRendererRef.current = gl;
+          }
+          // If attach failed (no WebGL2, or canvas already transferred)
+          // leave glRendererRef.current as null/unchanged.
+        }
+        if (gl) {
+          gl.resizeForBitCount(header.bitCount);
+          const origRender = r.render.bind(r);
+          r.render = () => {
+            const g = glRendererRef.current;
+            const rr = rendererRef.current;
+            const glOwnsFill = !!g;
+            if (rr) rr.skipBitFill = glOwnsFill;
+            origRender();
+            if (!g || !rr || !rr.canvas) return;
+            if (!glOwnsFill) return;
+            const dpr = window.devicePixelRatio || 1;
+            const cssW = rr.canvas.width / dpr;
+            const cssH = rr.canvas.height / dpr;
+            g.resize(cssW, cssH);
+
+            // Layout fingerprint — only repack the position texture when one
+            // of these inputs changes. Pan is excluded (applied as a uniform).
+            const fp = [
+              rr.zoom, rr.pixelSize,
+              rr.bitLayout, rr.byteLayout, rr.vectorGroup,
+              rr.cachelineSize, rr.customGroupingBits, rr.horizontalGroups,
+              rr.bitSpacingH, rr.bitSpacingV,
+              rr.byteSpacingH, rr.byteSpacingV,
+              rr.u64SpacingH, rr.u64SpacingV,
+              rr.storageModel, rr.bitCount,
+              cssW, cssH,
+            ].join('|');
+            g.uploadPositions(rr, fp);
+            g.uploadState(rr);
+
+            const px = Math.max(1, rr.pixelSize);
+            const zoom = Math.max(0.01, rr.zoom || 1);
+            const bitColors = rr._bitColors();
+            const changed = rr._opColor();
+            g.render({
+              panX: rr.panX || 0,
+              panY: rr.panY || 0,
+              cellSize: px * zoom,
+              bgColor: rr.effectiveBackground,
+              setColor: bitColors.set,
+              clearedColor: bitColors.cleared,
+              changedColor: changed,
+              repeatedColor: [245, 158, 11],
+              baseAlpha: Math.max(0.12, Math.min(1, rr.gridOpacity ?? 1)),
+            });
+          };
+        }
+      }
     }
 
     // Init 3D camera — see src/hooks/use3DCamera.js for the full lifecycle.
@@ -610,10 +822,31 @@ export default function Visualizer({
     });
 
     return () => {
+      // Do NOT dispose glRendererRef here — transferControlToOffscreen is
+      // one-shot; disposing and re-attaching on the same canvas is impossible.
+      // GL is disposed in the mount-only cleanup effect below.
       rendererRef.current = null;
       disposeCamera();
     };
   }, [header.bitCount, header.sieveSize]);
+
+  // Dispose the GL renderer only when the component fully unmounts.
+  // Kept separate from the init effect so trace changes (which re-run the
+  // init effect) do not destroy the GL canvas ownership.
+  useEffect(() => {
+    return () => {
+      if (glRendererRef.current) {
+        glRendererRef.current.dispose();
+        glRendererRef.current = null;
+      }
+      if (spacingPanAnimRef.current != null) {
+        cancelAnimationFrame(spacingPanAnimRef.current);
+        spacingPanAnimRef.current = null;
+      }
+    };
+  }, []);
+
+  const spacingPanAnimRef = useRef(null);
 
   const prevLayoutRef = useRef({
     bitLayout: DEFAULT_SETTINGS.bitLayout,
@@ -640,6 +873,48 @@ export default function Visualizer({
   useEffect(() => {
     const r = rendererRef.current;
     if (!r) return;
+
+    // ── Pre-capture the viewport-centre bit BEFORE applying new settings ──
+    // The renderer still holds the OLD geometry here, so canvasToBitIndex gives
+    // the bit that is actually visible at centre right now.
+    const prev = prevLayoutRef.current;
+    const isCustomVectorModeNext = layoutSettings.vectorMode === 'custom';
+    const nextCustomGroupBitsCheck = isCustomVectorModeNext
+      ? Math.max(1, parseInt(layoutSettings.customGroupBits || 1, 10) || 1) : 0;
+    const isSpacingOnlyChange = (
+      prev.bitSpacingH !== layoutSettings.bitSpacingH ||
+      prev.bitSpacingV !== layoutSettings.bitSpacingV ||
+      prev.byteSpacingH !== layoutSettings.byteSpacingH ||
+      prev.byteSpacingV !== layoutSettings.byteSpacingV ||
+      prev.u64SpacingH !== layoutSettings.u64SpacingH ||
+      prev.u64SpacingV !== layoutSettings.u64SpacingV
+    ) && (
+      prev.bitLayout === layoutSettings.bitLayout &&
+      prev.byteLayout === layoutSettings.byteLayout &&
+      prev.vectorMode === layoutSettings.vectorMode &&
+      prev.vectorGroup === layoutSettings.vectorGroup &&
+      prev.vectorBaseBits === layoutSettings.vectorBaseBits &&
+      prev.vectorLanes === layoutSettings.vectorLanes &&
+      prev.customGroupBits === nextCustomGroupBitsCheck &&
+      prev.cachelineSize === cachelineSize &&
+      prev.horizontalGroups === (Math.max(0, parseInt(layoutSettings.horizontalGroups || 0, 10) || 0))
+    );
+    let preCenterBit = -1;
+    let preDesiredX = null;
+    let preDesiredY = null;
+    if (isSpacingOnlyChange) {
+      const el = containerRef.current;
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        const canvasCssHeight = (r.canvas?.height || rect.height * (window.devicePixelRatio || 1)) / (window.devicePixelRatio || 1);
+        const planeOffsetX = Math.max(0, (r.canvasWidth - rect.width) / 2);
+        const planeOffsetY = Math.max(0, (canvasCssHeight - rect.height) / 2);
+        preDesiredX = planeOffsetX + rect.width / 2;
+        preDesiredY = planeOffsetY + rect.height / 2;
+        preCenterBit = r.canvasToBitIndex(preDesiredX, preDesiredY);
+      }
+    }
+
     r.theme = theme;
     r.bitLayout = layoutSettings.bitLayout;
     r.byteLayout = layoutSettings.byteLayout;
@@ -663,14 +938,20 @@ export default function Visualizer({
     r.bitLabelMode = layoutSettings.bitLabelMode || 'global';
     r.byteLabelMode = layoutSettings.byteLabelMode || 'group';
     r.horizontalGroups = Math.max(0, parseInt(layoutSettings.horizontalGroups || 0, 10) || 0);
-    const outlineTarget = layoutSettings.outlines?.target || 'none';
-    r.outlineEnabled = outlineTarget !== 'none';
-    r.outlineTarget = outlineTarget;
+    const outlineTargets = new Set(layoutSettings.outlines?.targets || []);
+    r.outlineEnabled = outlineTargets.size > 0;
+    r.outlineTargets = outlineTargets;
     r.outlineStyle = 'dashed';
     r.outlineColor = '#3b82f6';
     r.outlineRounded = true;
     r.colorPreset = colorPreset;
     r.storageModel = storageModel;
+    // Storage model affects bit→number mapping; warm the prime cache for
+    // the new model in the background.
+    r.prefetchPrimeOverlay(() => {
+      const rr = rendererRef.current;
+      if (rr && rr.primeOverlay) rr.render();
+    });
     r.cachelineSize = cachelineSize;
     r.heatMapEnabled = heatMapEnabled;
     r.cachelineAnnotation = cachelineAnnotation;
@@ -681,17 +962,15 @@ export default function Visualizer({
     r.rangeOverlayEnd = rangeOverlayEnd;
     r.multiplesOverlay = multiplesOverlayEnabled;
     r.multiplesOverlayPrime = Math.max(2, multiplesOverlayPrime || 2);
-    r.loweredSetBits = loweredSetBits;
-    r.loweredSetBits3D = mode3D;
     r.transparentBackground = mode3D;
     r.loweredDepthStrength = Math.max(0, Math.min(1.0, (depthSettings.strength ?? 80) / 100));
     r.loweredDepthAngle = Math.max(0, Math.min(90, depthSettings.angle ?? 38));
     r.gridOpacity = Math.max(0.12, Math.min(1, gridOpacity));
+    r.canvasBackground = canvasColors ? (canvasColors[theme] || null) : null;
     r.customSetBit = customColors.setBit;
     r.customClearedBit = customColors.clearedBit;
     r.customUnchangedBit = customColors.unchangedBit;
     // Preserve centered bit while layout geometry changes.
-    const prev = prevLayoutRef.current;
     const nextCustomGroupBits = isCustomVectorMode ? Math.max(1, parseInt(layoutSettings.customGroupBits || 1, 10) || 1) : 0;
     const structureChanged = (
       prev.bitLayout !== layoutSettings.bitLayout ||
@@ -717,7 +996,7 @@ export default function Visualizer({
     let centerAnchorBit = -1;
     let desiredX = null;
     let desiredY = null;
-    if (structureChanged) {
+    if (structureChanged && !isSpacingOnlyChange) {
       const el = containerRef.current;
       if (el) {
         const rect = el.getBoundingClientRect();
@@ -732,7 +1011,16 @@ export default function Visualizer({
 
     if (structureChanged) {
       r.unfreezeLayout();
-      if (centerAnchorBit >= 0 && desiredX != null && desiredY != null) {
+      if (isSpacingOnlyChange && preCenterBit >= 0 && preDesiredX != null) {
+        // The centre bit was captured before new spacings were applied.
+        // Find where it now sits in the new geometry and snap the pan instantly.
+        const nextPos = r.bitIndexToCanvas(preCenterBit);
+        if (nextPos) {
+          r.panX += preDesiredX - nextPos.x;
+          r.panY += preDesiredY - nextPos.y;
+        }
+      } else if (centerAnchorBit >= 0 && desiredX != null && desiredY != null) {
+        // Non-spacing structural change: instant snap (e.g. bit/byte layout mode switch).
         const nextPos = r.bitIndexToCanvas(centerAnchorBit);
         if (nextPos) {
           r.panX += desiredX - nextPos.x;
@@ -766,31 +1054,48 @@ export default function Visualizer({
     r.render();
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, loweredSetBits, mode3D, depthSettings, gridOpacity, updateMinimapAvailability]);
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, canvasColors, storageModel, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, depthSettings, gridOpacity, updateMinimapAvailability]);
 
   // Resize handler
   useEffect(() => {
-    const onResize = () => {
-      const anchor = captureViewportAnchor(0.5, 0.5);
+    // Each panel toggle re-runs this effect and triggers up to three
+    // refreshes (immediate, double-rAF, post-transition). The stashed
+    // anchor must be applied exactly once — applying it on every
+    // refresh re-shifts panX by the same delta and the grid drifts.
+    const onResize = (consumeAnchor) => {
+      let anchor = null;
+      if (consumeAnchor && pendingResizeAnchorRef.current) {
+        anchor = pendingResizeAnchorRef.current;
+        pendingResizeAnchorRef.current = null;
+      } else if (consumeAnchor) {
+        // No pending toggle anchor → this is a window-resize path;
+        // capture fresh so the centre stays pinned.
+        anchor = captureViewportAnchor(0.5, 0.5);
+      }
       refreshCanvasLayout(anchor);
     };
 
     clearScheduledLayoutRefresh();
-    const transitionRefreshTimer = setTimeout(onResize, 190);
 
-    onResize();
-    // Run an extra post-layout refresh to catch CSS transition-based width changes.
-    layoutRefreshRaf1Ref.current = requestAnimationFrame(() => {
-      layoutRefreshRaf2Ref.current = requestAnimationFrame(onResize);
-    });
-    window.addEventListener('resize', onResize);
+    onResize(true);
+    // In 3D mode the canvas is oversized (~3.1× — see `getCanvasTargetSize`)
+    // and `refreshCanvasLayout` re-derives the frozen column count from
+    // `canvasWidth` on every call. A 1-px difference between the immediate
+    // and the double-rAF call (mid-CSS-transition) re-flows the grid, which
+    // the user perceives as a canvas drift / tilt-jump on panel toggles. Skip
+    // the mid-transition rAF refresh and rely on the post-transition timer
+    // alone — it's well after the CSS transition has settled.
+    const transitionRefreshTimer = setTimeout(() => onResize(false), 190);
+
+    const winResize = () => onResize(true);
+    window.addEventListener('resize', winResize);
 
     return () => {
-      window.removeEventListener('resize', onResize);
+      window.removeEventListener('resize', winResize);
       clearTimeout(transitionRefreshTimer);
       clearScheduledLayoutRefresh();
     };
-  }, [panelWidth, showMinimap, stepsPanelCollapsed, settingsCollapsed, detailOpen, detailHeight, mode3D, refreshCanvasLayout, clearScheduledLayoutRefresh, captureViewportAnchor]);
+  }, [panelWidth, showMinimap, detailOpen, detailHeight, refreshCanvasLayout, clearScheduledLayoutRefresh, captureViewportAnchor]);
 
   // Go to step
   const goToStep = useCallback((target, options = {}) => {
@@ -911,6 +1216,12 @@ export default function Visualizer({
       if (!initialFitDoneRef.current && (r.canvasWidth !== canvasW || r.canvasHeight !== canvasH)) {
         r.resize(canvasW, canvasH);
       }
+      // Same as refreshCanvasLayout: layout columns target a stable
+      // window-anchored size so panel toggles don't reflow.
+      const lvW = (typeof window !== 'undefined' ? window.innerWidth : rect.width) || rect.width;
+      const lvH = (typeof window !== 'undefined' ? window.innerHeight : rect.height) || rect.height;
+      r.layoutAvailWidth = lvW;
+      r.layoutAvailHeight = lvH;
       // Zoom to fit on first render
       if (!initialFitDoneRef.current) {
         applyViewportFit(r, rect.width, rect.height);
@@ -1016,6 +1327,7 @@ export default function Visualizer({
       selectedAnimLoopRef.current = null;
     }
     setAnimationReplayPaused(true);
+    setDelayPhaseMsRef.current(null);
     const r = rendererRef.current;
     const stepIdx = currentStep;
     const allSteps = stepsRef.current;
@@ -1221,10 +1533,18 @@ export default function Visualizer({
 
   useEffect(() => {
     const cam = camera3DRef.current;
-    if (!cam || initial3DRestoreDoneRef.current || !mode3D) return;
-    initial3DRestoreDoneRef.current = true;
-    cam.rotateX = 16;
-    cam.rotateY = 0;
+    if (!cam) return;
+    // Enable camera and animate to the default tilt. Keyed on `cameraKey` so
+    // this re-fires whenever the renderer effect creates a new Camera3D
+    // instance (including React StrictMode's double-mount), keeping
+    // cam.enabled always in sync with the mode3D=true React state.
+    //
+    // Do NOT reset rotateX/rotateY here. A freshly-created Camera3D already
+    // initialises them to 0, so the reset would be a no-op in the normal
+    // startup case. In the desync case (enableTiltAndResize() fired before
+    // this effect ran and set rotateX=30), the reset would wrongly wipe that
+    // angle, causing the first right-click drag to start from 0° instead of
+    // the current tilt.
     cam.perspective = 1500;
     cam.enable();
     setCamera3DContainerStyle(cam.getContainerStyle());
@@ -1233,9 +1553,11 @@ export default function Visualizer({
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         refitViewportToContent({ instant: true });
+        cam.animateTo({ rotateX: 30, rotateY: 0, perspective: 1500 }, 520);
       });
     });
-  }, [mode3D, refitViewportToContent, schedulePostLayoutRefresh]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraKey]);
 
   const navigateToBit = useCallback((bitIdx, targetKind = 'bit') => {
     const r = rendererRef.current;
@@ -1841,7 +2163,9 @@ export default function Visualizer({
         }
         bitStateDirtyRef.current = false;
       }
+      if (delayMs > 0 && singleEventLoopActiveRef.current) setDelayPhaseMsRef.current(delayMs);
       await waitForDelay(delayMs);
+      setDelayPhaseMsRef.current(null);
       if (!isStillLive()) return;
       if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
       return;
@@ -2010,7 +2334,9 @@ export default function Visualizer({
 
       r.animationFocusBits = new Set();
       if (!isStillLive()) return;
+      if (delayMs > 0 && singleEventLoopActiveRef.current) setDelayPhaseMsRef.current(delayMs);
       await waitForDelay(delayMs);
+      setDelayPhaseMsRef.current(null);
       if (!isStillLive()) return;
       if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
       return;
@@ -2021,7 +2347,9 @@ export default function Visualizer({
       r.render();
       r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
       if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
+      if (delayMs > 0 && singleEventLoopActiveRef.current) setDelayPhaseMsRef.current(delayMs);
       await waitForDelay(delayMs);
+      setDelayPhaseMsRef.current(null);
       return;
     }
 
@@ -2031,7 +2359,9 @@ export default function Visualizer({
     if (!isStillLive()) return;
     r.animationFocusBits = new Set();
     if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
+    if (delayMs > 0 && singleEventLoopActiveRef.current) setDelayPhaseMsRef.current(delayMs);
     await waitForDelay(delayMs);
+    setDelayPhaseMsRef.current(null);
   }, [animMode, animStyle, maskAnimationEnabled, stopSeqAnim, runEffect, estimateAnimDuration, getMinimapDetailH, getAnimationBitInterval, getAnimationTimingPlan, getCurrentLoopInterval, runMaskStampAnimation, fadeOutCurrentHighlights, waitForDelay, maxStepDurationEnabled, maxStepDurationMs, pinnedBitIndices, effectiveGroupBits, maskAnimInterval, computeEventDuration]);
 
   useEffect(() => {
@@ -2491,35 +2821,44 @@ export default function Visualizer({
     updateMinimapAvailability();
   }, [getMinimapDetailH, updateMinimapAvailability, applyViewportFit]);
 
-  // 3D mode toggle
-  const toggle3D = useCallback(() => {
+  // Tracks whether the tilt button is in the "tilted" state (30°) or flat (0°).
+  // Initialized to true since the startup animation goes to rotateX=30.
+  const [tiltActive, setTiltActive] = useState(true);
+
+  // Tilt toggle: animates between 0° (flat) and 30° (tilted) in 3D mode.
+  const toggleTilt = useCallback(() => {
     const cam = camera3DRef.current;
-    if (!cam) return;
-    if (cam.enabled) {
-      cam.disable();
-      setMode3D(false);
-      // Refresh canvas at normal size
-      schedulePostLayoutRefresh(captureViewportAnchor(0.5, 0.5));
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          refitViewportToContent({ instant: true });
-        });
-      });
-    } else {
+    if (!cam || !cam.enabled) return;
+    const newTiltActive = !tiltActive;
+    setTiltActive(newTiltActive);
+    cam.animateTo({ rotateX: newTiltActive ? 30 : 0, rotateY: cam.rotateY, perspective: 1500 }, 400);
+  }, [tiltActive]);
+
+  // 3D mode toggle is removed — the app is always in 3D mode.
+  // enableTiltAndResize handles the StrictMode desync case where cam.enabled
+  // is false despite mode3D being always true.
+  const enableTiltAndResize = useCallback(() => {
+    const cam = camera3DRef.current;
+    if (cam && cam.enabled) {
+      // Already in 3D mode — nothing to do.
+      return cam;
+    }
+    if (cam && !cam.enabled) {
+      // StrictMode desync: cam.enabled is false but mode3D is always true.
+      // Re-enable the camera at its current rotateX (preserving any angle set
+      // by the startup animation). If rotateX is still 0, snap to the default
+      // tilt so the first drag starts there.
+      cam.cancelAllAnimations();
+      if (Math.abs(cam.rotateX) < 0.5) cam.rotateX = 16;
+      cam.perspective = 1500;
       cam.enable();
       setCamera3DContainerStyle(cam.getContainerStyle());
-      // Enter 3D with only a backward bend, not a sideways twist.
-      cam.animateTo({ rotateX: 16, rotateY: 0, perspective: 1500 }, 520);
-      setMode3D(true);
-      // Refresh with enlarged canvas for 3D
       schedulePostLayoutRefresh(null);
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          refitViewportToContent({ instant: true });
-        });
-      });
+      requestAnimationFrame(() => requestAnimationFrame(() => refitViewportToContent({ instant: true })));
+      return cam;
     }
-  }, [schedulePostLayoutRefresh, captureViewportAnchor, refitViewportToContent]);
+    return camera3DRef.current;
+  }, [camera3DRef, setCamera3DContainerStyle, schedulePostLayoutRefresh, refitViewportToContent]);
 
   // Cinematic fly-to on element click (in 3D mode)
   const flyToElement = useCallback((bitIdx) => {
@@ -2652,7 +2991,11 @@ export default function Visualizer({
 
       const cam = camera3DRef.current;
       if (isSecondaryRotateGesture(e, cam)) {
-        ensureTiltCamera();
+        enableTiltAndResize();
+        // Cancel any in-flight camera animation (e.g. the startup intro tilt)
+        // so the drag starts from whatever angle the camera is at right now.
+        const liveCam = camera3DRef.current;
+        if (liveCam) liveCam.cancelAllAnimations();
         e.preventDefault();
         e.stopPropagation();
         hideHoverBalloon();
@@ -2702,7 +3045,9 @@ export default function Visualizer({
       if (gestureMode === 'none' && cam) {
         const secondaryPressed = ((e.buttons & 2) === 2) || (((e.buttons & 1) === 1) && (e.ctrlKey || e.metaKey));
         if (secondaryPressed) {
-          ensureTiltCamera();
+          enableTiltAndResize();
+          const liveCam2 = camera3DRef.current;
+          if (liveCam2) liveCam2.cancelAllAnimations();
           gestureMode = 'rotate';
           activePointerId = e.pointerId;
           startX = e.clientX;
@@ -2719,12 +3064,17 @@ export default function Visualizer({
       if (gestureMode === 'rotate' && cam && cam.enabled) {
         hideHoverBalloon();
         didDrag = true;
-        cam.rotate(e.clientX - startX, e.clientY - startY);
-        startX = e.clientX;
-        startY = e.clientY;
-        r.render();
-        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-        scheduleBalloonRelayout();
+        const next = applyRotate({
+          camera: cam,
+          renderer: r,
+          event: e,
+          startX,
+          startY,
+          getMinimapDetailH,
+          scheduleBalloonRelayout,
+        });
+        startX = next.startX;
+        startY = next.startY;
         return;
       }
 
@@ -2748,12 +3098,17 @@ export default function Visualizer({
       if (gestureMode === 'pan') {
         hideHoverBalloon();
         didDrag = true;
-        r.panX = panSX + (e.clientX - startX);
-        r.panY = panSY + (e.clientY - startY);
-        r.render();
-        updateMinimapAvailability();
-        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-        scheduleBalloonRelayout();
+        applyPan({
+          renderer: r,
+          event: e,
+          startX,
+          startY,
+          panStartX: panSX,
+          panStartY: panSY,
+          getMinimapDetailH,
+          updateMinimapAvailability,
+          scheduleBalloonRelayout,
+        });
         return;
       }
 
@@ -2854,39 +3209,24 @@ export default function Visualizer({
       const r = rendererRef.current;
       if (!r) return;
       const coords = screenToCanvasCoords(e.clientX, e.clientY);
-      const mx = coords.x;
-      const my = coords.y;
-      const oldZoom = r.zoom;
-
-      // Normalize delta: trackpad (deltaMode 0) sends pixel values,
-      // mouse wheel (deltaMode 1) sends line units.
-      let delta = e.deltaY;
-      if (e.deltaMode === 1) delta *= 16;       // line → pixels
-      else if (e.deltaMode === 2) delta *= 100;  // page → pixels
-
-      const absDelta = Math.min(Math.abs(delta), 150);
-      const factor = 1 + absDelta * 0.0022;
-      const contentX = (mx - r.panX) / Math.max(0.0001, oldZoom);
-      const contentY = (my - r.panY) / Math.max(0.0001, oldZoom);
-      const nextZoom = delta > 0
-        ? Math.max(0.1, r.zoom / factor)
-        : Math.min(64, r.zoom * factor);
-      r.zoom = nextZoom;
-      r.panX = mx - contentX * nextZoom;
-      r.panY = my - contentY * nextZoom;
-      setZoom(r.zoom);
-      r.render();
-      updateMinimapAvailability();
-      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-      scheduleBalloonRelayout();
+      applyWheel({
+        renderer: r,
+        event: e,
+        cursorX: coords.x,
+        cursorY: coords.y,
+        setZoom,
+        getMinimapDetailH,
+        updateMinimapAvailability,
+        scheduleBalloonRelayout,
+      });
     };
 
     const onMouseDown = (e) => {
-      const cam = camera3DRef.current;
-      if (!mode3D && !cam) return;
       const secondary = e.button === 2 || (e.button === 0 && (e.ctrlKey || e.metaKey));
       if (!secondary) return;
-      ensureTiltCamera();
+      enableTiltAndResize();
+      const liveCam3 = camera3DRef.current;
+      if (liveCam3) liveCam3.cancelAllAnimations();
       e.preventDefault();
       e.stopPropagation();
       hideHoverBalloon();
@@ -2913,13 +3253,18 @@ export default function Visualizer({
         return;
       }
       didDrag = true;
-      cam.rotate(e.clientX - startX, e.clientY - startY);
-      startX = e.clientX;
-      startY = e.clientY;
-      r.render();
-      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-      updateMinimapAvailability();
-      scheduleBalloonRelayout();
+      const next = applyRotate({
+        camera: cam,
+        renderer: r,
+        event: e,
+        startX,
+        startY,
+        getMinimapDetailH,
+        updateMinimapAvailability,
+        scheduleBalloonRelayout,
+      });
+      startX = next.startX;
+      startY = next.startY;
     };
 
     const onMouseUp = () => {
@@ -2960,7 +3305,7 @@ export default function Visualizer({
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [computeBitInfo, flyToElement, getMinimapDetailH, updateMinimapAvailability, mode3D, ensureTiltCamera, scheduleBalloonRelayout]);
+  }, [computeBitInfo, flyToElement, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout]);
 
   // Keyboard shortcuts — see src/hooks/useKeyboardShortcuts.js for the full key map.
   useKeyboardShortcuts({
@@ -2972,7 +3317,7 @@ export default function Visualizer({
     resetZoom,
     setTheme,
     toggleDetailPanel,
-    toggle3D,
+    toggleControlsHidden,
     camera3DRef,
   });
 
@@ -3138,8 +3483,8 @@ export default function Visualizer({
     if (!s) {
       return {
         line1: `Event ${currentStep} | No event selected`,
-        line2: '',
-        line3: '',
+        annotationLines: [],
+        bitsChanged: 0,
         title: 'No event selected',
       };
     }
@@ -3148,21 +3493,25 @@ export default function Visualizer({
     const eventId = s.stepId ?? currentStep;
     const line1 = `Event ${eventId} | ${functionName}`;
 
-    const line2Parts = [];
-    if (s.prime != null) line2Parts.push(`Prime ${s.prime}`);
-    if (s.factorStep != null) line2Parts.push(`Step size ${s.factorStep}`);
-    if (s.start != null && s.stop != null) line2Parts.push(`Range ${s.start}-${s.stop}`);
-    if (s.annotation) line2Parts.push(s.annotation);
-    const line2 = line2Parts.join(' | ');
+    // Build annotation lines: first line is metadata, then each line of s.annotation.
+    const annotationLines = [];
+    const metaParts = [];
+    if (s.prime != null) metaParts.push(`Prime ${s.prime}`);
+    if (s.factorStep != null) metaParts.push(`Step size ${s.factorStep}`);
+    if (s.start != null && s.stop != null) metaParts.push(`Range ${s.start}–${s.stop}`);
+    if (metaParts.length > 0) annotationLines.push(metaParts.join(' | '));
+    if (s.annotation) {
+      const annLines = s.annotation.split('\n').filter(Boolean);
+      annotationLines.push(...annLines);
+    }
 
-    // Line 3: the "+N bits" annotation sits right under the heading so it's close to the action.
-    const line3 = s.numChanged > 0 ? `+${s.numChanged} bits changed` : '';
+    const bitsChanged = Number(s.numChanged) || 0;
 
     return {
       line1,
-      line2,
-      line3,
-      title: [line1, line2, line3].filter(Boolean).join(' | '),
+      annotationLines,
+      bitsChanged,
+      title: [line1, ...annotationLines, bitsChanged > 0 ? `+${bitsChanged} bits changed` : ''].filter(Boolean).join(' | '),
     };
   }, [currentStep, currentStepData]);
 
@@ -3220,21 +3569,48 @@ export default function Visualizer({
   }, [eventTitleSettings]);
 
   const renderCanvasStyle = useMemo(() => (
-    mode3D
-      ? {
-          position: 'absolute',
-          left: '50%',
-          top: '50%',
-          transform: `translate(-50%, -50%) ${camera3DTransform}`,
-          transformStyle: 'preserve-3d',
-          transformOrigin: '50% 50%',
-        }
-      : {
-          transform: camera3DTransform,
-          transformStyle: 'preserve-3d',
-          transformOrigin: '50% 50%',
-        }
-  ), [camera3DTransform, mode3D]);
+    // Unified: canvas is ALWAYS the oversized centered plane,
+    // regardless of mode3D. mode3D only controls whether the
+    // camera is tilted; the canvas placement is identical. This
+    // is what eliminates the "2D in a different place than 3D"
+    // jump on toggle and the placement drift on panel toggles.
+    //
+    // left/top use pixel offsets from `canvasAnchorPx` (computed so
+    // that the canvas center sits at the VIEWPORT center, not the
+    // container center). When a side panel toggles the container
+    // reshapes; without viewport anchoring the canvas's `50%/50%`
+    // moves with the container and the user sees the content slide.
+    {
+      position: 'absolute',
+      left: canvasAnchorPx ? `${canvasAnchorPx.left}px` : '50%',
+      top: canvasAnchorPx ? `${canvasAnchorPx.top}px` : '50%',
+      transform: `translate(-50%, -50%)${camera3DTransform !== 'none' ? ` ${camera3DTransform}` : ''}`,
+      transformStyle: 'preserve-3d',
+      transformOrigin: '50% 50%',
+    }
+  ), [camera3DTransform, canvasAnchorPx]);
+
+  // Merge a px-based `perspectiveOrigin` into the container style so the
+  // 3D vanishing point sits at the VIEWPORT center, matching where the
+  // canvas itself is anchored. The Camera3D default is `50% 50%` of the
+  // container, but the container reshapes when side panels toggle, so
+  // its center moves in viewport space \u2014 producing a large projected
+  // offset (especially noticeable with the events panel on the left,
+  // which shifts the container's left edge by hundreds of px). Pinning
+  // perspective-origin to the canvas anchor keeps the projection stable.
+  const mergedCamera3DContainerStyle = useMemo(() => {
+    // Derive the effective canvas background: user override (if any) or theme default.
+    // Themes.dark.BACKGROUND = [26,26,26], Themes.light.BACKGROUND = [245,245,245].
+    const THEME_BG = { dark: [26, 26, 26], light: [245, 245, 245] };
+    const customBg = canvasColors && canvasColors[theme];
+    const bg = customBg || THEME_BG[theme] || THEME_BG.dark;
+    const bgCss = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
+    const base = !canvasAnchorPx ? camera3DContainerStyle : {
+      ...camera3DContainerStyle,
+      perspectiveOrigin: `${canvasAnchorPx.left}px ${canvasAnchorPx.top}px`,
+    };
+    return { ...base, background: bgCss };
+  }, [camera3DContainerStyle, canvasAnchorPx, canvasColors, theme]);
 
   // (legacy playSpeed-based label/value/setters removed; speed is now driven
   // by playSpeedPercent and per-event time targets — see SettingsPanel.)
@@ -3494,7 +3870,7 @@ export default function Visualizer({
     return result;
   }, [getBitBalloonGeometry, stepsPanelCollapsed, panelWidth, settingsCollapsed]);
 
-  const effectiveTitle = customTitle && customTitle.trim() ? customTitle.trim() : traceTitle;
+  const effectiveTitle = traceTitle;
   useEffect(() => {
     if (typeof document !== 'undefined') document.title = effectiveTitle;
   }, [effectiveTitle]);
@@ -3527,12 +3903,11 @@ export default function Visualizer({
       handleStepAnimToggle={handleStepAnimToggle}
       stepAnimRunning={stepAnimRunning}
       singleEventLoopActive={singleEventLoopActive}
+      animationReplayPaused={animationReplayPaused}
+      delayPhaseMs={delayPhaseMs}
+      playing={playing}
       exporting={exporting}
-      eventDurationMode={eventDurationMode}
-      setEventDurationMode={setEventDurationMode}
-      computeEventDuration={computeEventDuration}
-      playSpeedPercent={playSpeedPercent}
-      setPlaySpeedPercent={setPlaySpeedPercent}
+      onOpenAnimationSettings={openAnimationSettings}
     />
   );
 
@@ -3569,28 +3944,42 @@ export default function Visualizer({
         zoom={zoom}
         doZoom={doZoom}
         resetZoom={resetZoom}
-        mode3D={mode3D}
-        toggle3D={toggle3D}
+        tiltActive={tiltActive}
+        toggleTilt={toggleTilt}
         heatMapEnabled={heatMapEnabled}
         setHeatMapEnabled={setHeatMapEnabled}
         primeOverlayEnabled={primeOverlayEnabled}
         setPrimeOverlayEnabled={setPrimeOverlayEnabled}
         timingPanelOpen={timingPanelOpen}
         setTimingPanelOpen={setTimingPanelOpen}
-        loweredSetBits={loweredSetBits}
-        setLoweredSetBits={setLoweredSetBits}
         exportPng={exportPng}
         exportVideo={exportVideo}
         cancelExport={cancelExport}
         exportProgress={exportProgress}
         theme={theme}
         setTheme={setTheme}
+        controlsHidden={controlsHidden}
+        toggleControlsHidden={toggleControlsHidden}
+        allEventsWidgetHidden={allEventsWidgetHidden}
+        showAllEventsWidget={showAllEventsWidget}
+        stepsPanelCollapsed={stepsPanelCollapsed}
+        toggleStepsPanel={toggleStepsPanel}
+        detailOpen={detailOpen}
+        toggleDetailPanel={toggleDetailPanel}
+        settingsCollapsed={settingsCollapsed}
+        toggleSettingsPanel={toggleSettingsPanel}
       />
 
       {exporting && <ExportProgress progress={exportProgress} />}
 
-      {/* Main content */}
-      <div className={`main-content${mode3D ? ' mode-3d' : ''}`}>
+      {/* Main content — panels float (position:absolute) within this div, which sits
+           below the toolbar. overflow:visible so collapsed toggle buttons are not
+           clipped; canvas-area inside already clips the canvas with its own
+           overflow:hidden. */}
+      <div
+        className={`main-content${mode3D ? ' mode-3d' : ''}`}
+        style={{ '--events-panel-width': `${stepsPanelCollapsed ? 0 : panelWidth}px` }}
+      >
         <StepPanel
           steps={steps}
           currentStep={currentStep}
@@ -3602,19 +3991,35 @@ export default function Visualizer({
           onWidthChange={setPanelWidth}
           panelCollapsed={stepsPanelCollapsed}
           onToggleCollapse={toggleStepsPanel}
+          allEventsWidgetHidden={allEventsWidgetHidden}
+          onExpandPanelFromWidget={() => {
+            setAllEventsWidgetHidden(false);
+            setStepsPanelCollapsed(false);
+          }}
+          onDockWidgetToTopBar={() => {
+            setAllEventsWidgetHidden(true);
+            setControlsHidden(false);
+          }}
           externalOpFilter={timingFocusOp}
           onExternalOpFilterConsumed={() => setTimingFocusOp('')}
           revealStepRequest={revealStepRequest}
+          goToStep={goToStep}
+          playing={playing}
+          handlePlayPause={handlePlayPause}
+          exporting={!!exporting}
+          isScrubbingTopRef={isScrubbingTopRef}
+          playSpeedPercent={playSpeedPercent}
+          setPlaySpeedPercent={setPlaySpeedPercent}
         />
-
         <CanvasStage
           mode3D={mode3D}
-          loweredSetBits={loweredSetBits}
           containerRef={containerRef}
           canvasRef={canvasRef}
           settledCanvasRef={settledCanvasRef}
           minimapCanvasRef={minimapCanvasRef}
-          camera3DContainerStyle={camera3DContainerStyle}
+          glCanvasRef={glCanvasRef}
+          glActive={true}
+          camera3DContainerStyle={mergedCamera3DContainerStyle}
           renderCanvasStyle={renderCanvasStyle}
           eventTitleSettings={eventTitleSettings}
           setEventTitleSettings={setEventTitleSettings}
@@ -3662,7 +4067,6 @@ export default function Visualizer({
           onImportBenchmarkTiming={onImportBenchmarkTiming}
           steps={steps}
         />
-
         <SettingsPanel
           settings={layoutSettings}
           onChange={setLayoutSettings}
@@ -3684,20 +4088,18 @@ export default function Visualizer({
           onMaskAnimationEnabledChange={setMaskAnimationEnabled}
           animationReplayPaused={animationReplayPaused}
           onAnimationReplayPausedChange={setAnimationReplayPaused}
-          bitAnimInterval={bitAnimInterval}
-          onBitAnimIntervalChange={setBitAnimInterval}
           maxStepDurationEnabled={maxStepDurationEnabled}
           onMaxStepDurationEnabledChange={setMaxStepDurationEnabled}
           maxStepDurationMs={maxStepDurationMs}
           onMaxStepDurationMsChange={setMaxStepDurationMs}
+          eventDurationMode={eventDurationMode}
+          onEventDurationModeChange={setEventDurationMode}
           gridOpacity={gridOpacity}
           onGridOpacityChange={setGridOpacity}
           colorPreset={colorPreset}
           onColorPresetChange={setColorPreset}
           customColors={customColors}
           onCustomColorsChange={setCustomColors}
-          storageModel={storageModel}
-          onStorageModelChange={setStorageModel}
           cachelineSize={cachelineSize}
           onCachelineSizeChange={setCachelineSize}
           cachePreset={cachePreset}
@@ -3755,21 +4157,21 @@ export default function Visualizer({
           showMinimap={showMinimap}
           onShowMinimapChange={setShowMinimap}
           minimapControlVisible={true}
-          depthModeEnabled={loweredSetBits}
           depthSettings={depthSettings}
           onDepthSettingsChange={setDepthSettings}
-          loweredSetBits={loweredSetBits}
-          onLoweredSetBitsToggle={() => setLoweredSetBits((v) => !v)}
           eventTitleSettings={eventTitleSettings}
           onEventTitleSettingsChange={setEventTitleSettings}
           outlineSettings={layoutSettings.outlines}
           onOutlineChange={(outlines) => setLayoutSettings((prev) => ({ ...prev, outlines }))}
           isWindowsPlatform={isWindowsPlatform}
           showAnimationControls={true}
-          customTitle={customTitle}
-          onCustomTitleChange={setCustomTitle}
-          mode3D={mode3D}
-          onToggle3D={toggle3D}
+          theme={theme}
+          onThemeChange={(t) => setTheme(t)}
+          canvasColors={canvasColors}
+          onCanvasColorsChange={setCanvasColors}
+          activeTabRequest={settingsTabRequest}
+          bitAnimationMode={bitAnimationMode}
+          onBitAnimationModeChange={handleBitAnimationModeChange}
         />
       </div>
     </div>

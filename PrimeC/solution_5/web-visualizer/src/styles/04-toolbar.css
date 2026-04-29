@@ -199,3 +199,61 @@
   min-height: 14px;
 }
 
+/* ---- Immersive mode: hide playback controls ---- */
+/* Toggle button — always visible in toolbar-left */
+.toolbar-immersive-toggle {
+  margin-left: 2px;
+  opacity: 0.45;
+  transition: opacity 0.15s ease-out;
+}
+.toolbar-immersive-toggle:hover {
+  opacity: 1;
+}
+.toolbar-immersive-toggle.active {
+  opacity: 0.85;
+  color: var(--accent);
+}
+
+/* Reveal-button for the all-events widget after it has been docked into the
+   top bar. Sits next to the immersive toggle. */
+.toolbar-show-events-widget {
+  margin-left: 2px;
+  color: var(--accent);
+  opacity: 0.85;
+  animation: toolbar-show-events-widget-in 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.toolbar-show-events-widget:hover { opacity: 1; }
+@keyframes toolbar-show-events-widget-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 0.85; transform: none; }
+}
+
+/* When transport controls are hidden collapse to left + right only */
+.toolbar--controls-hidden {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+/* ---- Panel toggle group — VS Code-style panel buttons ---- */
+.panel-toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  margin-left: 6px;
+  padding: 2px 3px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-raised) 60%, transparent);
+  border: 1px solid var(--border);
+}
+.panel-toggle-btn {
+  opacity: 0.45;
+  transition: opacity 0.15s ease-out, color 0.15s ease-out, background 0.15s ease-out;
+  border-radius: 4px !important;
+}
+.panel-toggle-btn:hover {
+  opacity: 1;
+}
+.panel-toggle-btn.active {
+  opacity: 1;
+  color: var(--accent);
+  background: var(--accent-bg) !important;
+}

@@ -162,6 +162,20 @@ timeline, or a dependency-graph view):
   this or the camera projection drifts.
 - **`viewPrefs` stores user state.** Adding a setting? Add a default in
   `lib/viewPrefs.js` and a `merge*` step so old saved states still load.
+- **Panel-toggle pan compensation is fragile.** Toggling the steps /
+  settings / detail panels resizes the canvas area. To pin the
+  bit-under-the-cursor at the same window position the toggle handler
+  must capture the viewport anchor *before* the state update (the
+  resize `useEffect` re-runs after the state flips, by which time
+  `getBoundingClientRect()` already reflects the new layout — capturing
+  fresh there yields zero net compensation and the grid drifts).
+  Stash the anchor in `pendingResizeAnchorRef` and let the resize
+  effect consume it **exactly once** on its immediate `onResize(true)`
+  call. The follow-up double-rAF and 190 ms post-transition refreshes
+  must run with `onResize(false)` so they don't re-shift `panX` by
+  the same delta. Do not call `schedulePostLayoutRefresh()` from the
+  toggle handlers — that fights the resize effect and the bookkeeping
+  becomes impossible to reason about.
 
 ---
 
@@ -212,8 +226,295 @@ overwrite.
 - ✅ Extracted `AnimationTab` to `src/settings/AnimationTab.jsx`. The
   tab is fully self-contained: takes only props that already existed on
   `SettingsPanel`, recreates the trivial helpers (`clamp`,
-  `playbackSpeedValue`) locally to avoid prop drilling them. **LayoutTab
-  remains the last tab not yet extracted** — see §7.
+  `playbackSpeedValue`) locally to avoid prop drilling them.
+- ✅ Extracted `VectorTouchOrderOverlay` to
+  `src/renderer/overlays/VectorTouchOrderOverlay.js`. Same Pattern D as
+  `SearchOverlay` and `MaskWriteOverlay`. Reads `_maskWordOrderSummary`,
+  `_maskTintColor`, `_maskEntryGroupBounds`, `_labelTextColor`,
+  `_truncateTextToWidth`, `_fitLabelFontSize` through host accessors;
+  needs no state of its own.
+- ✅ Promoted the `seekGen` / `globalPaused` / `animBusyUntil` triplet
+  into `src/hooks/usePlaybackClock.js`. The hook returns the three ref
+  objects (not their `.current` values) so consumer mutation patterns
+  in `Visualizer.jsx` are unchanged — this is a structural rename so
+  the playback contract is documented in one place.
+- ✅ Extracted `LayoutTab` to `src/settings/LayoutTab.jsx`. Pragmatic
+  "fat prop list" extraction (~25 props) instead of the originally
+  planned `useSettingsBundle()` route. The tab now owns its own UI
+  state for the grouping menu, custom-preset menu and spacing
+  popovers, plus the helpers (`set`, `incr`, `decr`,
+  `setVectorProfile`, `commitCustomGrouping`,
+  `selectGroupingPreset`, `renderGroupingFamily`) and the inner
+  `LayoutOverview` / `SpacingControl` components. `SettingsPanel.jsx`
+  shrank from ~1265 to ~234 lines and is now just the tab-row shell
+  plus the floating-legend panel.
+- ✅ Centralised viewPrefs read/migrate logic. Added
+  `getInitialViewState()` to `src/lib/viewPrefs.js`; it reads the
+  storage payload once and resolves every persisted UI value (with
+  clamping and legacy-`repeatAnim` migration) into a flat bundle.
+  `Visualizer.jsx` now calls it via a single `useMemo` and feeds each
+  field straight into a `useState` seed — the inline
+  `Number(readViewPrefs()?.foo)` / `Math.max(…)` boilerplate is gone.
+  File path stayed at `src/lib/viewPrefs.js` (the doc's `src/storage/`
+  rename is a separate optional move; touching one file vs. an import
+  fan-out kept the diff small).
+- ✅ Removed the "Title" settings tab (`src/settings/TitleTab.jsx` kept but
+  unimported). Removed the tab button and its panel block from
+  `SettingsPanel.jsx`.
+- ✅ Moved the Mode toggle (Mask / Bits / Both) from the single-event widget
+  (`StepAnimSliders.jsx`) into the Animation settings tab
+  (`AnimationTab.jsx`). Added `bitAnimationMode` + `onBitAnimationModeChange`
+  props to both `AnimationTab` and `SettingsPanel`. Added
+  `handleBitAnimationModeChange` callback and `openAnimationSettings`
+  shortcut in `Visualizer.jsx` to let the gear icon open the panel directly.
+- ✅ Stabilised single-event widget annotation area: `currentStepBanner` now
+  returns `annotationLines: string[]` + `bitsChanged: number` instead of
+  `line2`/`line3` strings. `EventTitleBanner` shows exactly
+  `MAX_ANNOTATION_LINES=3` annotation lines (padding with nbsp for stable
+  height), shows bits-changed placeholder when none, and a "show more/less"
+  toggle for events with long annotations.
+- ✅ Replaced the ⤢ locate icon with a SVG `LinkIcon` (chain-link) in
+  `EventTitleBanner`. `LinkIcon` added to `Icons.jsx`.
+- ✅ Added gear icon button (`step-focus-gear-btn`) in the timeline slider
+  row of `StepAnimSliders`. Clicking it calls `onOpenAnimationSettings`,
+  which expands the settings panel and switches to the Animation tab via the
+  `settingsTabRequest` state / `activeTabRequest` prop mechanism.
+  `SettingsPanel` watches this prop (counter-incremented object) to fire a
+  one-shot `setActiveTab` effect.
+- ✅ Split the pointer/wheel/touch gesture useEffect. Extracted the
+  *bodies* of pan, rotate and wheel into pure helpers in
+  `src/visualizer/gestures/{pan,rotate,wheel}.js`. The dispatcher,
+  state machine (`gestureMode`, `activePointerId`, `startX/startY`,
+  `panSX/panSY`, `didDrag`, `mouseRotateActive`), pointer-event
+  registration, hover handling, click handling and minimap hit-test
+  remain in the original useEffect — per the doc's rule “do not move
+  state ownership”. Each helper takes `{ renderer, event, …host }`
+  and returns either nothing or `{ startX, startY }` (rotate, which is
+  a delta-from-last-event gesture). No pinch helper exists yet because
+  there is no pinch handler in the source today.
+- ✅ Pruned dead `SettingsPanel` props. Removed `bitAnimInterval`,
+  `onBitAnimIntervalChange`, `storageModel`, `onStorageModelChange`,
+  `customTitle`, `onCustomTitleChange`, `depthModeEnabled` from the
+  `SettingsPanel` signature and their pass-throughs at the call site
+  in `Visualizer.jsx`. The `bitAnimInterval` and `storageModel` state
+  in `Visualizer.jsx` itself stays — it is still consumed internally
+  (animation timing, `Toolbar` / `TraceInfoPopover`). The `customTitle`
+  state was removed entirely (its only setter was the dead
+  `onCustomTitleChange` prop) and `effectiveTitle` collapsed to
+  `traceTitle`.
+- ✅ Extracted `CachelineAnnotationsOverlay` to
+  `src/renderer/overlays/CachelineAnnotationsOverlay.js`. Same Pattern
+  D shape as the other overlays. Reads heat-map / cacheline metrics
+  (`heatMapEnabled`, `clHitCount`, `clLastHitStep`, `heatMapCurrentStep`,
+  `cachelineSize`, `bitsPerCacheLine`, `cachelineAnnotation`) and the
+  shared layout/label helpers through host accessors. With this the
+  overlay backlog is empty.
+- ✅ Introduced `useSettingsBundle()` in `src/settings/useSettingsBundle.js`.
+  Tiny memoised hook that turns the `(settings, onChange)` pair into a
+  bundle of `{ s, set, setMany, incr, decr }`. `LayoutTab` now
+  destructures the bundle locally instead of redefining `set`, `incr`,
+  `decr` inline, and `setVectorProfile` / `setCustomVectorGrouping`
+  use `setMany` for their multi-key updates. The dead defensive
+  `vectorGroup` branch in the inline `set` (no caller passed that
+  key) was dropped. `LayoutTab` prop signature is unchanged — the
+  hook is purely an internal ergonomic. AnimationTab does not need
+  the bundle (it has no `settings`/`onChange` pair, only orthogonal
+  setter pairs).
+- ✅ Rewrote `SieveRenderer.render()`. The original 512-line monolith
+  is now a 26-line coordinator delegating to 17 small private methods
+  on the same class. The split mirrors the natural data hierarchy:
+  `_buildFrameContext()` precomputes every per-frame constant once
+  into a shared `f` object; `_renderClear(f)` paints the background;
+  the row/vector/u64/byte chain is
+  `_renderVisualRow` → `_renderVector` → `_renderVectorU64` →
+  `_renderVectorByte` → `_renderBitCell`; per-bit work fans out into
+  `_classifyBit` (color + flags), `_computeBitDrawState` (depth /
+  rise-and-settle animation geometry), `_drawBitBody` (lowered /
+  raised / normal branches), `_drawGhostMaskHighlight`,
+  `_drawBitFocusRange`, `_drawBitTargetOutline`,
+  `_drawBitPrimeOverlay`, `_drawBitRangeOverlay`,
+  `_drawBitMultiplesOverlay`, `_drawBitLabels`. Behaviour is
+  byte-for-byte identical (no logic changes; only structural moves
+  and the elimination of two never-read locals — `bitLabelFontSize`
+  and `isSettledBit`). The largest helper is `_drawBitBody` at ~78
+  lines (the three depth-mode branches); most are 10–40 lines.
+  Verification was build-only — no visual regression test exists, so
+  any future change here should still be eyeballed with
+  `sieve visual web --trace 9 10000`. Bundle grew slightly
+  (+0.8 kB gzipped) from the added JSDoc and method headers; module
+  count stayed at 82.
+- ✅ Fixed panel-collapse pan drift. Toggling Steps / Detail /
+  Settings panels was shifting the bit grid by 2× the panel-width
+  delta because the resize `useEffect` fires three times per toggle
+  (immediate + double-rAF + 190 ms timeout) and was applying the
+  same stashed anchor on every call. Final shape:
+  `pendingResizeAnchorRef` is set just before the panel state
+  changes (`toggleStepsPanel`, `revealCurrentStepInPanel`,
+  `toggleDetailPanel`, `toggleSettingsPanel`); the resize
+  `useEffect` reads it once and `onResize(consume=true)` only on
+  the immediate call — the rAF and 190 ms follow-ups pass
+  `consume=false`. See §5 for the minefield note.
+- ✅ Brought `BitGridGL` (?renderer=gl) to base parity with
+  Canvas2D for layout, color and state (items 1–3 of §8 "Open
+  work"). Architecture: instanced unit-quad VBO drawn with
+  `drawArraysInstanced(TRIANGLES, 0, 6, bitCount)`. Two textures —
+  `posTex` (RG32F, per-bit cell centre in CSS px, pan-independent;
+  populated by walking `host.bitIndexToCanvas(i)` in
+  `uploadPositions`, which only repacks when a layout fingerprint
+  changes); `stateTex` (R8UI, packed flag byte per bit:
+  set / changed / ghost / repeated; repacked every render by
+  `uploadState(host)`). Pan applied as a vertex-shader uniform.
+  Fragment shader picks the colour branch from the packed flags
+  and composites against the bg colour. Visualizer's `r.render`
+  wrapper builds the fingerprint from
+  `zoom|pixelSize|bitLayout|byteLayout|vectorGroup|cachelineSize|
+  customGroupingBits|horizontalGroups|bit/byte/u64Spacing*|storageModel|
+  bitCount|cssW|cssH` and passes `cellSize = pixelSize*zoom`,
+  colours from `_bitColors()` / `_opColor()`, repeated colour
+  `[245,158,11]`. Still NOT in GL (Canvas2D handles): lowered-3D,
+  rise-and-settle animation, focus-range fill, prime / range /
+  multiples overlays, target outline, motion trails, cacheline
+  outline + heat overlay, labels, minimap, hit-count gradient,
+  heat-map age tinting, `mode3D` camera transform.
+- ✅ Extended `BitGridGL` with the four cell-fill overlays
+  (focus / prime / range / multiples) and `webglcontextrestored`
+  recovery. Overlays piggy-back on the existing `R8UI` `stateTex`:
+  flag bits 4–7 carry prime / range / multiples / focus
+  membership; `uploadState(host)` walks `_primeBitFlags`,
+  `[rangeOverlayStart, rangeOverlayEnd]`, `multiplesOverlayPrime`
+  via `bitToNumber()`, and `[focusStart, focusStop]`. Tints are
+  hard-coded in the fragment shader to match the Canvas2D source
+  colours exactly. Context-loss handler nulls GPU resources;
+  restore re-runs `_initProgram()` / `_initQuad()` / texture
+  re-allocation and clears the layout fingerprint so positions
+  repack on the next frame. `mode3D` works automatically because
+  the GL canvas already lives inside `camera3DContainerStyle` in
+  `CanvasStage.jsx`, so the same CSS 3D transform applies.
+- ✅ Removed dead `_heatColor(bitIdx)` from `SieveRenderer.js`. It
+  was never called anywhere in the codebase — the only consumer
+  of `heatMapEnabled` is `_renderCachelineHeatOverlay`, which
+  paints cacheline-group rectangles via
+  `_cachelineHeatOverlayColor`, not per-bit cells. Discovered
+  while triaging §8 item 2's "heat-map age tinting" TODO; that
+  bullet was a documentation bug carried forward from the
+  original scaffold. Removed the TODO from §8 item 2 and the
+  related `lastAccessStep` entry from §8 item 3.
+- ✅ Triaged §8 items 2–4.
+  - Item 2: removed the stale "custom per-bit colour overrides"
+    TODO (no such feature exists — `customColors` is per-class,
+    already covered via `_bitColors()` uniforms). Lowered-3D
+    shading + rise-and-settle stays open but is now explicitly
+    flagged as **deferred until GL is the primary renderer**
+    — the geometry/shader cost (shadow + base + top + side
+    faces per bit) doesn't pay off while the GL canvas is a
+    sandbox under Canvas2D, and the Canvas2D path handles
+    `loweredSetBits` correctly today.
+  - Item 3: marked ✅ *done at current scope*. Removed the
+    `targetHitCounts`-magnitude-texture TODO (its only consumer
+    is the hit-count gradient, which stays Canvas2D-on-top).
+    Partial `texSubImage2D` updates kept as a conditional
+    next-step only if items 1–2 grow features that need a
+    richer per-bit payload — full repack at 10k bits is
+    sub-frame in JS today.
+  - Item 4: marked ✅ *enforced*. `BitGridGL.attach()` now
+    sets `canvas.style.pointerEvents = 'none'` defensively
+    (in addition to the CSS rule in `07-canvas.css`) and
+    documents the hit-testing contract: any future GL-side
+    hit-test must call `host.canvasToBitIndex(x, y)`, never
+    re-derive layout from GL state.
+- ✅ Built minimal visual-diff harness for `BitGridGL` (§8 item
+  5). Files: `parity.html` at the project root + dev-only
+  module `src/dev/parityHarness.js`. Open at
+  `http://localhost:5173/parity.html` while `npm run dev` is
+  running. Pins the GL renderer's contract: given identical
+  positions + state + colours, GL output must match a small
+  Canvas2D reference (uniform-grid `fillRect`-per-bit + same
+  overlay composite) within rounding tolerance. Not bundled
+  into production (Vite only emits `index.html`; module count
+  stayed at 85 after adding it). Deliberately scoped to what
+  GL covers, not the full `SieveRenderer` — testing parity
+  for features GL has never claimed to implement would be
+  noise. The multiples overlay is excluded from the reference
+  for a `bitToNumber()`-vs.-`i` reason explained inline; the
+  shader composite path is still exercised via focus / prime /
+  range.
+- ✅ Shipped OffscreenCanvas worker dispatch for the GL
+  renderer (§8 item 6). Opt-in via `?renderer=gl-worker`. New
+  files:
+    - `src/renderer/gl/bitGridGLCore.js` — pure-WebGL2
+      substrate (no DOM/`window`); takes either
+      `HTMLCanvasElement` or `OffscreenCanvas`. Owns shaders,
+      textures, draw call.
+    - `src/renderer/gl/hostStatePacker.js` — pure functions
+      `packPositions(host, buf, slots)` /
+      `packState(host, buf, slots)`. Used by both the direct
+      and worker facades; runs only on the main thread (host
+      object is React-side).
+    - `src/renderer/gl/bitGridWorker.js` — module worker that
+      owns a `BitGridGLCore` against the transferred
+      `OffscreenCanvas`.
+    - `src/renderer/gl/BitGridGLWorker.js` — main-thread
+      facade with the same external API as `BitGridGL`. Posts
+      pre-packed `Float32Array`/`Uint8Array` buffers as
+      transferables; one-way (no ack round-trip).
+  Also refactored `BitGridGL.js` to be a thin facade over
+  `bitGridGLCore.js` + `hostStatePacker.js` (no behaviour
+  change — direct mode still works, parity harness still
+  passes). `featureFlag.js` extended with `getRendererMode()`
+  / `isGLWorkerEnabled()`. `Visualizer.jsx` picks the worker
+  facade when both `isGLWorkerEnabled()` AND
+  `isWorkerGLSupported()` are true; falls back to direct or
+  Canvas2D otherwise. Vite emits a separate `bitGridWorker-*.js`
+  chunk (~9 KB); main bundle grew by ~3 KB. Module count: 85
+  → 88. See §8 item 6 for the full architecture, async-init
+  caveat, and the deliberately-skipped context-loss recovery
+  in the worker path.
+- ✅ **WebGL is now the default bit-fill backend.** Promoted
+  out of "experimental sandbox" status (§8 step 2). Default
+  `getRendererMode()` flipped from `'canvas2d'` to `'gl'` in
+  `src/renderer/gl/featureFlag.js`; opt out via
+  `?renderer=canvas2d`. New `SieveRenderer.skipBitFill` field
+  (set per-frame in `Visualizer.jsx` to `glActive && !loweredSetBits`)
+  gates only the per-bit cell-fill rectangles + background fill.
+  Threaded through `_buildFrameContext()`, `_renderClear()`,
+  `_drawBitBody()` (simple branch), `_drawBitFocusRange()`, and
+  the per-bit cell-tint fillRect inside `_drawBitPrimeOverlay`,
+  `_drawBitRangeOverlay`, `_drawBitMultiplesOverlay`. The
+  dots/borders/labels in those overlays still draw on top
+  (GL doesn't paint them). Lowered-3D mode forces
+  `skipBitFill` back to `false` so the Canvas2D depth-shaded
+  path takes over (GL has no parity); the GL wrapper also
+  early-returns from upload+draw in that case so it doesn't
+  burn cycles invisibly. Toggling depth mode at runtime works
+  because the wrapper re-evaluates every frame. Fallback:
+  if WebGL2 is unavailable in the browser,
+  `BitGridGL.attach()` returns `false`, `glRendererRef`
+  stays null, `skipBitFill` stays `false`, and the Canvas2D
+  fillRect path is fully responsible. §8 item 2 marked ✅.
+
+- ✅ **Locked renderer to `gl-worker` only.** Removed `featureFlag.js`
+  entirely, the `RendererPicker` component from `Toolbar.jsx` (and its
+  CSS block in `04-toolbar.css`), and the `rendererMode` state / ref /
+  setter from `Visualizer.jsx`. The `BitGridGL` direct-mode import was
+  also removed from `Visualizer.jsx`. `Visualizer.jsx` now always
+  constructs `BitGridGLWorker`. If `attach()` returns `false` (browser
+  lacks `OffscreenCanvas.transferControlToOffscreen`), `glRendererRef`
+  stays `null`, `SieveRenderer.skipBitFill` stays `false`, and the
+  Canvas2D cell-fill path handles rendering silently — the app remains
+  fully functional as a fallback. `BitGridGL.js` is still present (used
+  by the `parity.html` dev harness) but is no longer in the production
+  runtime path.
+- ✅ **Added per-theme canvas background color customisation.** Users can
+  now pick a custom canvas background color for day (light) and night
+  (dark) mode independently via the Settings → Colors tab. Defaults are
+  white `[255,255,255]` for light and dark-grey `[40,40,40]` for dark.
+  Persisted in `viewPrefs` under `canvasColors: { light, dark }`.
+  Architecture: `SieveRenderer` gained a `canvasBackground` property
+  (`null` = use theme default) and an `effectiveBackground` getter that
+  resolves it; `_renderClear()` now reads `this.effectiveBackground`
+  instead of `C.BACKGROUND` directly; the GL render call in
+  `Visualizer.jsx` likewise uses `rr.effectiveBackground`. The per-theme
+  defaults live in `DEFAULT_CANVAS_COLORS` in `viewPrefs.js`.
 
 ---
 
@@ -224,28 +525,11 @@ single working session. Tackle them in order — earlier ones unblock later
 ones:
 
 1. **Extract `useKeyboardShortcuts` from Visualizer.jsx** — ✅ DONE.
-2. **Split SettingsPanel by tab.** `LegendTab` and `AnimationTab` are
-   done (`src/settings/LegendTab.jsx`, `src/settings/AnimationTab.jsx`).
-   Still TODO: **`LayoutTab`** (lines ~709–1177 in `SettingsPanel.jsx`).
-   This is the hardest one because the JSX closes over many local
-   helpers (`set`, `setVectorProfile`, `renderGroupingFamily`,
-   `LayoutOverview`, `SpacingControl`, `commitCustomGrouping`,
-   `selectGroupingPreset`, `lastManualColumnCountRef`,
-   `activeGroupingKey`, `activeGroupingLabel`, `isCustomVectorMode`,
-   `customGroupDraft`/`setCustomGroupDraft`,
-   `customPresetMenuOpen`/`setCustomPresetMenuOpen`,
-   `groupingMenuOpen`/`setGroupingMenuOpen`,
-   `openSpacingControl`/`setOpenSpacingControl`) and writes back to
-   `onChange(...)` directly. Recommended sequence (unchanged from
-   before):
-   (a) extract pure helpers (`renderGroupingFamily`, `LayoutOverview`,
-   `SpacingControl`) into `src/settings/`;
-   (b) introduce a `useSettingsBundle()` hook in the parent that returns
-   a `{ s, set, incr, decr, ... }` bundle so the new tab takes ~5 props
-   instead of ~25;
-   (c) only then extract the tab JSX.
-   Doing this without (a)+(b) creates an unmaintainable 30+ prop
-   signature.
+2. **Split SettingsPanel by tab.** ✅ DONE for all three tabs
+   (`LegendTab`, `AnimationTab`, `LayoutTab`). The `LayoutTab`
+   extraction skipped the suggested `useSettingsBundle()` step — it
+   takes ~25 props directly. If the prop list becomes hard to evolve,
+   introducing the bundle as a follow-up is a non-breaking refactor.
 3. **Extract the canvas-and-overlays JSX block** — ✅ DONE
    (`src/visualizer/CanvasStage.jsx`).
 4. **Move `_renderSearchHighlight` and `setSearchHighlight` into a tiny
@@ -259,49 +543,406 @@ ones:
      `vectorTouchOrder` and a few sizing fields. Small.
    - **CachelineAnnotationsOverlay** (`_renderCachelineAnnotations`) —
      larger, reads heat-map + cacheline metrics. Save for last.
-5. **Extract `Camera3D` gesture wiring** — ✅ PARTIAL. Lifecycle moved
-   to `src/hooks/use3DCamera.js`. Still TODO: split the giant pointer
-   useEffect at `Visualizer.jsx` lines ~2587–2975 into 2D pan/zoom and
-   3D rotation handlers. **Risk: high** — they share one pointer state
-   machine and any regression breaks all canvas interaction. Recommended
-   approach if attempted: keep the dispatching shell in place and extract
-   the *body* of each gesture mode (`pan`, `rotate`, `pinch`, `wheel`)
-   into pure functions in `src/visualizer/gestures/` that take
-   `{ rendererRef, cameraRef, event, state }` and return the new
-   `state`. Do not move state ownership.
+5. **Extract `Camera3D` gesture wiring** — ✅ DONE.
+   Lifecycle in `src/hooks/use3DCamera.js`; gesture bodies extracted in
+   item 10 below to `src/visualizer/gestures/{pan,rotate,wheel}.js`.
+   The dispatcher state machine still lives inline in `Visualizer.jsx`
+   on purpose (see the rule in item 10).
 
 ### New backlog (added after the round that finished tasks 4+5)
 
-6. **Finish the SettingsPanel tab split** (Task 2 above). The
-   `useSettingsBundle()` parent-side hook is the unblocking step.
-   AnimationTab is done; LayoutTab is the only remaining tab.
-7. **Use `SearchOverlay` as a template for `MaskWriteOverlay`** —
-   ✅ DONE (`src/renderer/overlays/MaskWriteOverlay.js`). Next overlay
-   candidates, ranked by isolation:
-   - **VectorTouchOrderOverlay** (`SieveRenderer._renderVectorTouchOrder`)
-     — ~80 lines; reads `_maskWordOrderSummary`, `_maskTintColor`,
-     `_maskEntryGroupBounds`, `_labelTextColor`, `_truncateTextToWidth`,
-     `_fitLabelFontSize`. Needs no state of its own. **Recommended next.**
-   - **CachelineAnnotationsOverlay** (`_renderCachelineAnnotations`) —
-     larger, reads heat-map + cacheline metrics. Save for last among
-     overlays.
-8. **Promote the `seekGen` / `globalPaused` / `animBusyUntil` triplet**
-   into a small `usePlaybackClock()` hook. Today they live as bare refs
-   inside `Visualizer.jsx` and are mutated from many places; centralising
-   them would make the playback rules testable in isolation.
-9. **Move `viewPrefs` migration** out of `Visualizer.jsx` into
-   `src/storage/viewPrefs.js` (read/write/migrate). Right now the
-   migration code is interleaved with the initial `useState` lazy
-   initialisers, which makes it hard to evolve the schema safely.
-10. **Split the pointer/wheel/touch gesture `useEffect`** in
-    `Visualizer.jsx` (~lines 2587–2975, ~390 lines). High risk because
-    2D pan/zoom and 3D rotation share one pointer state machine. If
-    attempted: keep the dispatching shell in place and extract the *body*
-    of each gesture mode (`pan`, `rotate`, `pinch`, `wheel`) into pure
-    functions in `src/visualizer/gestures/` that take
-    `{ rendererRef, cameraRef, event, state }` and return the new
-    `state`. Do not move state ownership.
+6. **Finish the SettingsPanel tab split** — ✅ DONE
+   (`src/settings/LayoutTab.jsx`). Dead-prop cleanup also ✅ DONE:
+   `bitAnimInterval`, `onBitAnimIntervalChange`, `storageModel`,
+   `onStorageModelChange`, `customTitle`, `onCustomTitleChange`,
+   `depthModeEnabled` removed from the `SettingsPanel` signature and
+   from the call site in `Visualizer.jsx`. The `customTitle` state in
+   `Visualizer.jsx` was removed too (its only setter was the dead
+   prop). `bitAnimInterval` and `storageModel` state stays — used
+   internally and by `Toolbar` / `TraceInfoPopover`.
+7. **Use `SearchOverlay` as a template for other overlays** —
+   ✅ ALL DONE. `MaskWriteOverlay`, `VectorTouchOrderOverlay` and
+   `CachelineAnnotationsOverlay` are extracted. Overlay backlog is
+   empty. The remaining `_render*` methods on `SieveRenderer` are
+   either part of the main bit/cell draw pipeline (not overlays) or
+   helpers consumed by multiple draw passes (`_renderCachelineHeatOverlay`,
+   `_renderCachelineOutline`); leave those in place.
+8. **Promote the `seekGen` / `globalPaused` / `animBusyUntil` triplet
+   into a `usePlaybackClock()` hook** — ✅ DONE
+   (`src/hooks/usePlaybackClock.js`). The hook is intentionally a thin
+   wrapper that returns the three ref objects, so consumer code keeps
+   mutating `.current` exactly as before. A follow-up that adds a
+   semantic API (e.g. `pause()`, `bumpSeek()`, `claimBusy(ms)`) would be
+   the next step but was out of scope.
+9. **Move `viewPrefs` migration** out of `Visualizer.jsx` — ✅ DONE.
+   Added `getInitialViewState()` to `src/lib/viewPrefs.js`; it reads
+   storage once and resolves every persisted field (with clamping and
+   legacy-`repeatAnim` migration) into a flat bundle. `Visualizer.jsx`
+   captures it once via `useMemo` and feeds the values into trivial
+   `useState` seeds. Adding a new persisted field now means: add a
+   default + clamp helper here, add it to the bundle, add it to the
+   write payload in the persistence effect. Optional follow-up: rename
+   the file to `src/storage/viewPrefs.js` to match the suggested
+   layout in the original backlog item; only one importer would need
+   updating.
+10. **Split the pointer/wheel/touch gesture `useEffect`** — ✅ DONE.
+    Bodies of pan, rotate and wheel extracted to
+    `src/visualizer/gestures/{pan,rotate,wheel}.js`. State machine
+    (`gestureMode`, `activePointerId`, anchor coords, `didDrag`,
+    `mouseRotateActive`), pointer-event wiring, hover handling, click
+    handling and minimap hit-test remain inline in the useEffect by
+    design. `applyRotate()` returns `{ startX, startY }` because rotate
+    is a delta-from-last-event gesture; pan and wheel return nothing.
+    No pinch helper was created because there is no pinch handler in
+    the source today — add `gestures/pinch.js` only if/when one is
+    introduced. Remaining cleanup ideas (low priority): also extract
+    the secondary-button mouse-rotate fallback (`onMouseDown` /
+    `onMouseMove` / `onMouseUp`) which still inlines the same rotate
+    body via `applyRotate`; the duplication is intentional and small.
+11. **Optional: introduce `useSettingsBundle()`** — ✅ DONE
+    (`src/settings/useSettingsBundle.js`). The hook returns
+    `{ s, set, setMany, incr, decr }` from a `(settings, onChange)`
+    pair. `LayoutTab` consumes it locally; the prop signature stayed
+    the same (the bundle is an internal ergonomic only). Reality
+    check: the `(~25 → ~5)` reduction in the original suggestion was
+    optimistic — most of `LayoutTab`'s props are orthogonal
+    (gridOpacity, colorPreset, customColors, cachelineSize, range /
+    multiples overlays, eventTitleSettings, outlineSettings, mode3D, …)
+    and are *not* part of the `settings` object, so the bundle only
+    consolidates two props into one. The real win is removing the
+    inline `set` / `incr` / `decr` boilerplate from each tab.
+    AnimationTab does not consume the bundle because it has no
+    `settings` / `onChange` pair.
 
-If you're considering anything bigger than the above (e.g. rewriting
-`SieveRenderer.render()`), stop and ask first. That single 700-line method
-is the visual heart of the app and any regression is highly visible.
+No open structural refactor items remain from previous rounds.
+
+### WebGL-worker deepening + Canvas2D removal backlog
+
+Now that the renderer is locked to `gl-worker`, the path is clear to
+deepen the GL implementation and eventually retire the Canvas2D
+cell-fill code entirely. Work these in dependency order:
+
+1. **Wire context-loss recovery in worker mode.** The direct `BitGridGL`
+   path handles `webglcontextlost` / `webglcontextrestored` but the
+   worker path does not. With worker being the only production path this
+   is now the highest-priority reliability gap. Shape: on `contextlost`
+   the worker should post an `error` message; the facade should call
+   `this._lost = true` and post `{ type: 'init', canvas: offscreen }`
+   to re-initialise the same `OffscreenCanvas` (if the browser
+   supports it), or tear down and reconstruct the worker + canvas.
+   Check MDN — `OffscreenCanvas` context-loss semantics are
+   browser-specific.
+
+2. **Update the parity harness to exercise `BitGridGLWorker`.** Currently
+   `parity.html` drives `BitGridGL` (direct mode). Add a
+   `?renderer=gl-worker` switch that posts the same inputs to
+   `BitGridGLWorker` and reads back the result via an off-screen
+   `drawImage` after a settled frame. This is the prerequisite for
+   removing `BitGridGL.js` without losing harness coverage.
+
+3. **Remove `BitGridGL.js` (direct mode).** Blocked on item 2 above.
+   Once the parity harness no longer imports it, the file can be
+   deleted. Also remove the `BitGridGL`-specific `webglcontextlost` /
+   `webglcontextrestored` code and the `_core` / direct-attach path in
+   `hostStatePacker`.
+
+4. **Port overlays to GL.** The Canvas2D layer above the GL canvas still
+   paints all non-fill visuals. The following are candidates to move
+   into the GL shader or into new overlay shaders, ranked by isolation
+   and payoff:
+   - **Target outline + focus-range stroke** — one `strokeRect` per
+     focused bit today; could become a second instanced draw pass
+     with a separate `outlineTex` flag.
+   - **Prime / range / multiples dots + `p`/`r` text labels** — text
+     labels must stay Canvas2D; the dot tints are already in the
+     GL shader as fill-colour variants (items 2/3 of the original
+     §8 open work); only the small circular dots above the cells
+     remain Canvas2D.
+   - **Cacheline outline + heat-tint overlay** — block-level; a
+     second full-screen rect pass keyed to cacheline index would
+     replace the current per-cacheline `strokeRect` loop.
+   - **Ghost-mask highlights, motion trails, search highlight** —
+     low priority; these are sparse and fast in Canvas2D.
+   - **Bit / byte / vector labels** — must stay Canvas2D (text
+     rendering; no benefit from porting).
+   - **Minimap** — must stay Canvas2D (separate `<canvas>` element).
+
+5. **Port lowered-3D shading to GL.** When `loweredSetBits` is on,
+   the Canvas2D bit-fill takes over today (`skipBitFill = false`).
+   To move this to GL: the vertex shader needs per-bit raise/lower
+   state (an extra flag byte or a dedicated texture channel) and the
+   fragment shader adds shadow + base + top + side-face branches.
+   The geometry is a trapezoid, not a quad — requires 6 → 10 vertices
+   per instance or a geometry pass. High-effort; defer until items
+   1–3 are done.
+
+6. **Port rise-and-settle animation to GL.** Animation state (`rise`
+   amount, `settle` alpha) is per-bit and changes every frame during
+   playback. This needs a third texture channel (float) or a separate
+   `animTex`, plus a worker-protocol extension
+   (`{ type: 'animState', buf: Float32Array }`). The main thread
+   already computes per-bit animation fractions in `_computeBitDrawState`;
+   those values can be packed and posted alongside `state`. High-effort;
+   defer until items 1–3 are done.
+
+7. **Remove `SieveRenderer.skipBitFill` and the Canvas2D cell-fill code.**
+   Blocked on items 4–6 (all remaining Canvas2D pixel work must be
+   ported before this is safe). The code paths to remove are:
+   `_renderClear()` background fill, `_drawBitBody()` non-lowered
+   branches, `_drawBitFocusRange()` fill rect, and the
+   `fillRect`-per-bit calls in `_drawBitPrimeOverlay`,
+   `_drawBitRangeOverlay`, `_drawBitMultiplesOverlay`. After removal,
+   the `skipBitFill` field on `SieveRenderer` and the gating in
+   `_buildFrameContext()` can be deleted.
+
+8. **Decide the no-OffscreenCanvas fallback.** Currently, if the browser
+   lacks `OffscreenCanvas`, `BitGridGLWorker.attach()` returns `false`
+   and Canvas2D silently handles everything. Once Canvas2D cell-fill is
+   removed (item 7), this silent fallback disappears. Options:
+   (a) keep `BitGridGL.js` as a last-resort direct-mode fallback;
+   (b) show a banner noting the browser is too old and degrade gracefully;
+   (c) raise the minimum browser baseline to OffscreenCanvas (all
+   evergreen browsers since ~2019 support it). Decide before item 7.
+
+9. **Partial `texSubImage2D` updates.** Currently the full state texture
+   is repacked every frame. At bit counts > 100 k this starts to
+   matter. A dirty-region tracker (bitmask of which 64-bit words
+   changed since last upload) could reduce per-frame `texSubImage2D`
+   to only changed rows. Only pursue this after items 1–3 are done
+   and a measured regression is found.
+
+---
+
+## 8. Renderer performance roadmap (worker + WebGL)
+
+The two big "ask first" items above were discussed and partially started.
+Read this whole section before extending either.
+
+### Why the current pipeline is slow at scale
+
+`SieveRenderer.render()` issues one `ctx.fillRect()` per visible bit per
+frame (see lines 718, 841, 1750, 1816, 1850, 1883). At large `bitCount`
+that's the bottleneck — not CPU contention with React. Two orthogonal
+levers:
+
+| Lever | What it fixes | What it doesn't fix |
+|---|---|---|
+| **Worker pre-pass** | Main-thread jank from cold computations (prime-flag table, heat-map maintenance, mask diffing) running synchronously inside `setState()` | Per-`fillRect` cost. The draw loop still runs on the main thread. |
+| **WebGL bit grid** | Per-bit draw-call cost. One instanced/fullscreen-quad draw replaces N `fillRect`s. | CPU work *outside* the bit pass (overlays, labels, cacheline outlines). |
+
+Both are useful; they stack. Start with the worker (low risk) and treat
+the GL path as opt-in until parity is reached.
+
+### Step 1 — Worker pre-pass (DONE, see §6 entry below when added)
+
+Scope: only the **cold, pure** computations move. Drawing stays on the
+main thread.
+
+- Worker file: `src/renderer/workers/bitPrePass.worker.js`. Spawned via
+  `new Worker(new URL('./workers/bitPrePass.worker.js', import.meta.url),
+  { type: 'module' })` so Vite can bundle it.
+- Today only `buildPrimeOverlay()` is moved. It is the only pre-pass
+  that is both (a) noticeably expensive at large `sieveSize` and (b)
+  trivially pure (inputs: `sieveSize`, `bitCount`, `storageModel`;
+  output: `Uint8Array` of per-bit prime flags).
+- The renderer keeps a synchronous fallback. If the worker isn't
+  supported (e.g. SSR, certain Electron contexts) or hasn't replied yet,
+  `buildPrimeOverlay()` computes inline exactly as before.
+- The contract is fire-and-forget: the renderer kicks off a worker job
+  whenever `(sieveSize, bitCount, storageModel)` changes; when the
+  worker replies it stores the flags and triggers a re-render via the
+  optional `onReady` callback wired in `Visualizer.jsx`. Stale replies
+  (key mismatch) are dropped.
+- **Do not** move `setState()` itself, mask diffing, heat-map updates,
+  or the per-frame `_buildFrameContext()` chain into the worker. Those
+  paths read/write live renderer state and would force a serialization
+  protocol that costs more than it saves at this app's data sizes.
+
+### Step 2 — WebGL bit grid (DEFAULT path; gl-worker only)
+
+A WebGL2 worker renderer at `src/renderer/gl/BitGridGLWorker.js` is now
+the unconditional production backend for the per-bit cell-fill pass.
+`featureFlag.js`, the `RendererPicker` UI button, and the `rendererMode`
+runtime state have all been removed (see §6). `BitGridGL.js` (direct mode)
+still exists for the `parity.html` dev harness but is not part of the
+production load path.
+
+- `Visualizer.jsx` always constructs `new BitGridGLWorker()`. If
+  `attach()` returns `false` (browser lacks
+  `OffscreenCanvas.transferControlToOffscreen`), `glRendererRef` stays
+  `null`, `SieveRenderer.skipBitFill` stays `false`, and Canvas2D
+  silently handles everything — the app stays functional.
+- The renderer draws **per-bit instanced quads** — one
+  `drawArraysInstanced` call per frame. Layout positions come
+  from `SieveRenderer.bitIndexToCanvas`, packed into an `RG32F`
+  `posTex`; per-bit flags (set / changed / ghost / repeated /
+  prime / range / multiples / focus) come from an `R8UI`
+  `stateTex`. Pan is a vertex uniform; the position texture is
+  rebuilt only when a layout fingerprint changes (zoom,
+  pixelSize, layouts, grouping, spacing, storage model, bit
+  count, css size). The vertex shader DPR-snaps each quad
+  corner so cell edges align with backing-store texels at any
+  DPR.
+- The Canvas2D layer above paints everything GL doesn't:
+  ghost-mask highlights, target outlines, prime/range/
+  multiples dots + borders + 'p'/'r' labels, cacheline outline
+  + heat overlay, motion trails, vector touch order, mask write
+  overlay, search highlight, bit/byte/vector labels, minimap.
+  `SieveRenderer.skipBitFill` (set per-frame in `Visualizer.jsx`)
+  gates only the cell-fill rectangles + background fill so the
+  GL canvas underneath shows through.
+- Lowered-3D mode (`loweredSetBits`) has no GL parity by
+  design — see §7 backlog item 5. When on, the Canvas2D bit-fill
+  takes over and GL skips its uploads/draw.
+- Visual diff harness lives at `parity.html` (Vite dev only;
+  open at `http://localhost:5173/parity.html`). Drives `BitGridGL`
+  (direct mode) against a Canvas2D reference — see item 5 below.
+  Updating it to exercise `BitGridGLWorker` is §7 backlog item 2.
+- Context loss is handled in direct mode only. The worker path
+  does not yet implement context-loss recovery — see §7 backlog
+  item 1.
+
+### Open work before WebGL can replace Canvas2D
+
+Tracked here so the next agent doesn't think the GL path is "almost
+done":
+
+1. **Layout parity.** ✅ *Done.* All `BIT_LAYOUTS`,
+   `BYTE_LAYOUTS`, vector grouping, cacheline grouping, custom
+   grouping and frozen wrapping flow through automatically because
+   `BitGridGL.uploadPositions(host, fingerprint)` walks
+   `host.bitIndexToCanvas(i)` for every bit. `mode3D` is handled
+   by the parent `camera3DContainerStyle` CSS transform in
+   `CanvasStage.jsx`. DPR is handled by the vertex shader
+   snapping each quad corner to the device-pixel grid
+   (`floor(corner * u_dpr + 0.5) / u_dpr`), mirroring the
+   `Math.round` calls in the Canvas2D fillRect path.
+2. **Color parity.** ✅ *Done at scope.* Shader handles
+   set / cleared / changed / ghost-mask / repeated using uniforms
+   from `_bitColors()` and `_opColor()`, **plus** the four
+   cell-fill overlays focus / prime / range / multiples (tints
+   hard-coded in the FS to match Canvas2D). Custom theme
+   colours (`customSetBit` / `customClearedBit` / preset swap)
+   are picked up automatically because `_bitColors()` is
+   resolved every frame at the JS boundary. Target outline
+   stroke + hit-count gradient, prime/range/multiples
+   dots+borders+labels, and ghost-mask highlights stay
+   Canvas2D-on-top by design (line strokes and per-bit text
+   that GL doesn't paint). **Lowered-3D shading + rise-and-
+   settle has no GL parity by design** — it would multiply
+   per-bit geometry (shadow + base + top + side faces) and
+   triple the shader's branching for a 3D-only effect. When
+   `loweredSetBits` is on, `SieveRenderer.skipBitFill` is
+   forced to `false` and the Canvas2D bit-fill takes over
+   (GL skips its uploads + draw call entirely; its canvas
+   stays hidden behind the now-opaque main canvas). Toggling
+   depth mode at runtime works because the wrapper in
+   `Visualizer.jsx` re-evaluates `skipBitFill` every frame.
+3. **State texture protocol.** ✅ *Done at current scope.*
+   One `R8UI` `stateTex`, one byte per bit, packed bits
+   `set | changed | ghost | repeated | prime | range | multiples |
+   focus`, repacked every render in JS (`uploadState(host)`).
+   Full-repack cost measured negligible at typical bit counts
+   (10k bits in well under a frame). Partial `texSubImage2D`
+   updates and a separate `targetHitCounts` magnitude texture
+   are the natural next steps **only if** lowered-3D / hit-count
+   gradient shading land in items 1–2 — i.e. when there are
+   features that actually consume a richer per-bit payload.
+4. **Hit-testing.** ✅ *Enforced.* `bitIndexToCanvas()` /
+   `canvasToBitIndex()` are the JS-side authoritative layout
+   helpers. The GL canvas is layered *under* the Canvas2D input
+   layer with `pointer-events: none` (set both in `07-canvas.css`
+   and defensively in `BitGridGL.attach()`). Any future GL-side
+   hit-test must call `host.canvasToBitIndex(x, y)` rather than
+   re-deriving layout from GL state — see the JSDoc on
+   `BitGridGL.attach()`.
+5. **Visual diff harness.** ✅ *Done (minimal).* `parity.html`
+   at the project root, served by Vite in dev (not bundled into
+   the production build — confirmed by module count staying at
+   85). Loads `src/dev/parityHarness.js`, builds a synthetic
+   1024-bit grid with deterministic state + flag patterns,
+   renders it twice (Canvas2D `fillRect`-per-bit reference vs.
+   `BitGridGL.render()` driven by a fake host that exposes only
+   `bitIndexToCanvas`, `bitState`, `changedBits`, `maskGhostBits`,
+   `repeatedChangedBits`, `_primeBitFlags`, range / focus
+   bounds), and reads back both canvases via `getImageData` for
+   a per-pixel max-channel-delta diff. Reports maxΔ, meanΔ,
+   strict-mismatch %, and `>8/255` mismatch %. The harness only
+   pins what GL claims to do (base bit pass + four cell-fill
+   overlays), not the full `SieveRenderer` (lowered-3D, labels,
+   minimap, outlines, etc., all stay Canvas2D-on-top by
+   design). The multiples overlay is excluded from the
+   reference because the production host walks
+   `bitToNumber(i, storageModel)` while the harness uses `i`
+   directly; range/focus/prime exercise the same shader
+   composite path so the omission doesn't reduce coverage.
+6. **Step 3 — OffscreenCanvas worker dispatch.** ✅ *Done.*
+   Opt-in via `?renderer=gl-worker`. The GL canvas is handed to
+   a module worker (`src/renderer/gl/bitGridWorker.js`) via
+   `transferControlToOffscreen()`; the WebGL2 context lives in
+   the worker, the main thread only walks the host (via
+   `hostStatePacker`) and posts pre-packed Float32/Uint8
+   buffers as transferables. Position buffers are gated by the
+   layout fingerprint (same as direct mode); state buffers are
+   posted every frame. Buffers are NOT round-tripped — the main
+   thread allocates fresh per upload. This adds ≤ ~256 KB/frame
+   of GC at 100 k bits, which is well below problem
+   thresholds, and keeps the message protocol strictly
+   one-way.
+
+   Architecture: `bitGridGLCore.js` is the pure-WebGL2
+   substrate (no `window`/`document` references; runs in either
+   thread). `BitGridGL` and `BitGridGLWorker` are sibling
+   facades over it with identical external API
+   (`attach`/`resizeForBitCount`/`uploadPositions`/`uploadState`/`resize`/`render`/`invalidateLayout`/`dispose`).
+   `Visualizer.jsx` picks one at attach time based on
+   `isGLWorkerEnabled()` AND `isWorkerGLSupported()`; if the
+   browser lacks `OffscreenCanvas.transferControlToOffscreen`,
+   the worker facade returns `false` from `attach()` and the
+   Canvas2D layer keeps drawing on top either way (no
+   regression).
+
+   Worker bundle: Vite emits a separate
+   `bitGridWorker-*.js` chunk (~9 KB at the time of writing).
+   Main bundle grew by ~3 KB for the facade + flag plumbing.
+
+   Caveats:
+     - Worker init is async. The facade buffers
+       `setBitCount`/`resize`/`positions`/`state`/`render`
+       messages until the worker posts `ready`, then flushes.
+       First-frame latency is therefore one extra
+       message-loop turn.
+     - Context-loss recovery is NOT yet wired in worker mode.
+       The direct path handles `webglcontextlost`/`restored`;
+       the worker would need to re-init the `BitGridGLCore` and
+       re-allocate textures on its side, then have the main
+       thread re-send `setBitCount` + force a fingerprint
+       repack. Not implemented because the worker context is
+       isolated from the page lifecycle and rarely loses
+       — leave for a "Don't fix unbroken things" reason.
+     - The visual-diff harness (`parity.html`) tests
+       `BitGridGL`, not `BitGridGLWorker`. Both use
+       `BitGridGLCore` and the same `hostStatePacker`, so the
+       harness still pins the rendering algorithm; it just
+       doesn't exercise the worker round-trip. A
+       `?renderer=gl-worker` mode for the harness would need
+       async result collection.
+
+### Don't
+
+- Don't expand the GL renderer beyond the base bit pass without an
+  explicit ask. A half-finished GL path that silently misses overlay
+  state is worse than no GL path.
+- Don't move `setState()`, mask diffing or heat-map updates to the
+  worker without a measured perf reason. They touch live renderer
+  state and the round-trip cost dominates at this app's data sizes.
+- Don't remove the Canvas2D *overlay* code (labels, outlines,
+  cacheline, minimap) prematurely. The Canvas2D layer is still the
+  authoritative renderer for everything above the cell-fill plane.
+  The cell-fill path (`skipBitFill` gating) is the only part targeted
+  for removal — and only after the §7 backlog items 4–8 are done.
+- Don't remove the `OffscreenCanvas` feature-detect in
+  `BitGridGLWorker.attach()`. The silent Canvas2D fallback it enables
+  is the only thing keeping the app functional on older browsers while
+  the GL path matures.
+

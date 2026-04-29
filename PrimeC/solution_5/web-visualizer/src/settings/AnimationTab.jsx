@@ -4,6 +4,203 @@ import {
   percentToPlaybackSpeed as msToPlaybackSpeed,
 } from '../lib/unitConverters';
 import { PreviewOptionButton } from './buttons';
+import { DEFAULT_EVENT_TIME_TARGETS } from '../lib/viewPrefs';
+
+// ─── Per-event timing curve editor ──────────────────────────────────────────
+
+/** Keys/labels/representative change counts for the 6 editable tiers. */
+const TIER_KEYS   = ['none', 'one',  'two',    'few',    'many',    'lots'];
+const TIER_LABELS = ['0',    '1',    '2',      '3–10',   '11–100',  '>100'];
+
+/** SVG viewport dimensions and padding. */
+const VW = 272, VH = 126;
+const PL = 28, PR = 6, PT = 6, PB = 24;
+const DW = VW - PL - PR;   // data area width
+const DH = VH - PT - PB;   // data area height
+
+/**
+ * Square-root-compressed y scale so short durations (< 1 s) remain
+ * readable alongside long ones (up to 16 s).
+ *   top    → Y_MAX ms
+ *   bottom → 0 ms
+ */
+const Y_MAX = 16000;
+const yForMs  = (ms) => PT + DH * (1 - Math.sqrt(Math.max(0, ms) / Y_MAX));
+const msForSvgY = (sy) => {
+  const norm = 1 - Math.max(0, Math.min(DH, sy - PT)) / DH;
+  return Math.round(Y_MAX * norm * norm);
+};
+
+/** Evenly-spaced x coordinate for tier index i (0 … 5). */
+const xForIdx = (i) => PL + (i / (TIER_KEYS.length - 1)) * DW;
+
+/** Horizontal reference lines drawn behind the curve. */
+const Y_REFS       = [500, 1000, 2000, 4000, 8000];
+const Y_REF_LABELS = ['0.5s', '1s', '2s', '4s', '8s'];
+
+function fmtMs(ms) {
+  if (ms >= 1000) return `${(ms / 1000).toFixed(ms >= 10000 ? 0 : 1)}s`;
+  return `${ms}ms`;
+}
+
+/**
+ * Interactive SVG curve editor for the six per-event time-target tiers.
+ * Each control point is draggable vertically; min/max clamp handles are
+ * shown as dashed horizontal lines.
+ */
+function TimingCurveEditor({ eventTimeTargets, onEventTimeTargetsChange }) {
+  const svgRef  = React.useRef(null);
+  const [dragging, setDragging] = React.useState(null); // tier key | null
+  const [tooltip, setTooltip]   = React.useState(null); // { key, ms } | null
+
+  const getMs = (key) => Math.max(0, Number(eventTimeTargets[key]) || 0);
+
+  /** Convert a DOM clientY to SVG y-coordinate. */
+  const toSvgY = React.useCallback((clientY) => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const r = svg.getBoundingClientRect();
+    return (clientY - r.top) * (VH / r.height);
+  }, []);
+
+  const commitDrag = React.useCallback((clientY) => {
+    if (!dragging) return;
+    const sy = toSvgY(clientY);
+    if (sy === null) return;
+    const ms = Math.max(0, Math.min(Y_MAX, msForSvgY(sy)));
+    onEventTimeTargetsChange({ ...eventTimeTargets, [dragging]: ms });
+    setTooltip({ key: dragging, ms });
+  }, [dragging, eventTimeTargets, onEventTimeTargetsChange, toSvgY]);
+
+  const onMouseMove  = React.useCallback((e) => commitDrag(e.clientY), [commitDrag]);
+  const onTouchMove  = React.useCallback((e) => {
+    if (e.touches.length) { e.preventDefault(); commitDrag(e.touches[0].clientY); }
+  }, [commitDrag]);
+  const stopDrag = React.useCallback(() => setDragging(null), []);
+
+  const points = TIER_KEYS.map((key, i) => {
+    const ms = getMs(key);
+    return { key, i, x: xForIdx(i), ms, y: yForMs(ms), label: TIER_LABELS[i] };
+  });
+
+  /* Closed filled area beneath the curve */
+  const fillD = [
+    `M${points[0].x},${PT + DH}`,
+    ...points.map(p => `L${p.x},${p.y}`),
+    `L${points[points.length - 1].x},${PT + DH}`,
+    'Z',
+  ].join(' ');
+
+  /* Open polyline for the stroke */
+  const polyPts = points.map(p => `${p.x},${p.y}`).join(' ');
+
+  const minY  = yForMs(getMs('min'));
+  const maxY  = yForMs(getMs('max'));
+
+  return (
+    <svg
+      ref={svgRef}
+      viewBox={`0 0 ${VW} ${VH}`}
+      width={VW}
+      height={VH}
+      className="timing-curve-svg"
+      style={{ touchAction: 'none', userSelect: 'none', cursor: dragging ? 'ns-resize' : 'default' }}
+      onMouseMove={onMouseMove}
+      onMouseUp={stopDrag}
+      onMouseLeave={stopDrag}
+      onTouchMove={onTouchMove}
+      onTouchEnd={stopDrag}
+      onTouchCancel={stopDrag}
+      aria-label="Per-event duration curve — drag points to adjust timing"
+    >
+      {/* ── Y-axis reference lines ── */}
+      {Y_REFS.map((ms, j) => {
+        const y = yForMs(ms);
+        return (
+          <g key={ms}>
+            <line x1={PL} y1={y} x2={VW - PR} y2={y}
+              stroke="var(--border)" strokeWidth="0.5" />
+            <text x={PL - 3} y={y + 3} textAnchor="end"
+              fontSize="6.5" fill="var(--fg-dim)">{Y_REF_LABELS[j]}</text>
+          </g>
+        );
+      })}
+
+      {/* ── Vertical tier guide lines ── */}
+      {points.map(p => (
+        <line key={p.key} x1={p.x} y1={PT} x2={p.x} y2={PT + DH}
+          stroke="var(--border)" strokeWidth="0.5" strokeDasharray="2,4" />
+      ))}
+
+      {/* ── Clamp boundary lines ── */}
+      <line x1={PL} y1={minY} x2={VW - PR} y2={minY}
+        stroke="var(--fg-dim)" strokeWidth="1" strokeDasharray="3,3" opacity="0.65" />
+      <text x={VW - PR - 1} y={minY - 2} textAnchor="end"
+        fontSize="6" fill="var(--fg-dim)" opacity="0.8">min</text>
+
+      <line x1={PL} y1={maxY} x2={VW - PR} y2={maxY}
+        stroke="var(--accent-dim)" strokeWidth="1" strokeDasharray="3,3" opacity="0.65" />
+      <text x={VW - PR - 1} y={maxY - 2} textAnchor="end"
+        fontSize="6" fill="var(--accent-dim)" opacity="0.8">max</text>
+
+      {/* ── Filled area ── */}
+      <path d={fillD} fill="var(--accent)" opacity="0.10" />
+
+      {/* ── Curve stroke ── */}
+      <polyline points={polyPts} fill="none"
+        stroke="var(--accent)" strokeWidth="1.5" strokeLinejoin="round" />
+
+      {/* ── Control points ── */}
+      {points.map(p => {
+        const active = dragging === p.key;
+        const showTip = active || (tooltip?.key === p.key && !dragging);
+        const tipMs = active ? (tooltip?.ms ?? p.ms) : p.ms;
+        /* Place the tooltip above the dot; flip below if too close to top edge */
+        const tipY = p.y < PT + 14 ? p.y + 16 : p.y - 9;
+
+        return (
+          <g key={p.key}>
+            {/* Invisible wider hit-target for easier grabbing */}
+            <rect
+              x={p.x - 10} y={PT}
+              width={20} height={DH}
+              fill="transparent"
+              style={{ cursor: 'ns-resize' }}
+              onMouseDown={(e) => { e.preventDefault(); setDragging(p.key); setTooltip({ key: p.key, ms: p.ms }); }}
+              onMouseEnter={() => setTooltip({ key: p.key, ms: p.ms })}
+              onMouseLeave={() => { if (!dragging) setTooltip(null); }}
+              onTouchStart={(e) => { e.preventDefault(); setDragging(p.key); setTooltip({ key: p.key, ms: p.ms }); }}
+            />
+            {/* Dot */}
+            <circle cx={p.x} cy={p.y}
+              r={active ? 6 : 4.5}
+              fill="var(--accent)"
+              stroke="var(--bg-surface)" strokeWidth="1.5"
+              style={{ pointerEvents: 'none' }}
+            />
+            {/* Tooltip value */}
+            {showTip && (
+              <text x={p.x} y={tipY}
+                textAnchor="middle" fontSize="8" fontWeight="600"
+                fill="var(--fg-bright)"
+                style={{ pointerEvents: 'none' }}>
+                {fmtMs(tipMs)}
+              </text>
+            )}
+          </g>
+        );
+      })}
+
+      {/* ── X-axis tier labels ── */}
+      {points.map(p => (
+        <text key={p.key} x={p.x} y={VH - 10}
+          textAnchor="middle" fontSize="7" fill="var(--fg-muted)">{p.label}</text>
+      ))}
+      <text x={PL + DW / 2} y={VH - 1}
+        textAnchor="middle" fontSize="6" fill="var(--fg-dim)">number of changes</text>
+    </svg>
+  );
+}
 
 /**
  * AnimationTab — content for the "Animation" tab of the settings sidebar.
@@ -30,8 +227,8 @@ function AnimationTab({
   animationReplayPaused, onAnimationReplayPausedChange,
   maxStepDurationEnabled, onMaxStepDurationEnabledChange,
   maxStepDurationMs, onMaxStepDurationMsChange,
-  loweredSetBits, onLoweredSetBitsToggle,
-  depthSettings, onDepthSettingsChange,
+  eventDurationMode, onEventDurationModeChange,
+  bitAnimationMode, onBitAnimationModeChange,
 }) {
   const playbackSpeedValue = msToPlaybackSpeed(playSpeed || 100);
 
@@ -138,9 +335,58 @@ function AnimationTab({
         </div>
       )}
 
+      {onBitAnimationModeChange && (
+        <div className="settings-section">
+          <label>Timeline animation mode</label>
+          <div className="step-focus-mode-toggle" style={{ display: 'inline-flex' }}>
+            <button
+              type="button"
+              className={`step-focus-mode-btn${(bitAnimationMode || 'bit') === 'mask' ? ' active' : ''}`}
+              onClick={() => onBitAnimationModeChange('mask')}
+              title="Animate only the apply-mask group stamps"
+            >Mask</button>
+            <button
+              type="button"
+              className={`step-focus-mode-btn${(bitAnimationMode || 'bit') === 'bit' ? ' active' : ''}`}
+              onClick={() => onBitAnimationModeChange('bit')}
+              title="Animate only the bits being set one by one"
+            >Bits</button>
+            <button
+              type="button"
+              className={`step-focus-mode-btn${(bitAnimationMode || 'bit') === 'combined' ? ' active' : ''}`}
+              onClick={() => onBitAnimationModeChange('combined')}
+              title="Animate both the mask stamps and the bits revealing in lockstep"
+            >Both</button>
+          </div>
+          <span className="settings-hint">Applies to events with mask write-order data. Mask = stamp groups; Bits = individual bits; Both = lockstep.</span>
+        </div>
+      )}
+
       <div className="settings-section">
         <label>Animation timing</label>
-        <div className="settings-row animation-timing-row" style={{ alignItems: 'flex-start', gap: 8 }}>
+        <div className="settings-row animation-timing-row" style={{ alignItems: 'flex-start', gap: 8 }}>  
+          <div className="timing-control">
+            <span className="timing-title">Event duration target</span>
+            <div className="timing-toggle" style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+              <button
+                type="button"
+                className={`step-focus-mode-btn${(eventDurationMode || 'progressive') === 'progressive' ? ' active' : ''}`}
+                onClick={() => onEventDurationModeChange && onEventDurationModeChange('progressive')}
+                title="Tiered: 2s for the first 10 bits, 2s for the next 100, 2s for the rest (max ~6s)"
+              >Progressive</button>
+              <button
+                type="button"
+                className={`step-focus-mode-btn${eventDurationMode === 'linear' ? ' active' : ''}`}
+                onClick={() => onEventDurationModeChange && onEventDurationModeChange('linear')}
+                title="Linear: total duration scales with the bit count"
+              >Linear</button>
+            </div>
+            <div className="timing-scale" aria-hidden="true">
+              <span style={{ fontSize: '0.8em', opacity: 0.7 }}>{(eventDurationMode || 'progressive') === 'progressive' ? 'Tiered 2s per tier' : 'Scales with bits'}</span>
+            </div>
+          </div>
+        </div>
+        <div className="settings-row animation-timing-row" style={{ alignItems: 'flex-start', gap: 8 }}>          
           <div className="timing-control">
             <span className="timing-title">Overall speed</span>
             <input
@@ -226,104 +472,72 @@ function AnimationTab({
             </label>
           </div>
         )}
-        {/* Per-event time targets — used when adaptiveDuration is on. The
-            tier picked is based on the change count of the event; the
-            resulting normal duration is divided by Overall speed %. */}
+        {/* Per-event time targets — drag control points on the curve to
+            adjust how long each event takes based on its change count.
+            The curve uses a sqrt-compressed y axis so short durations
+            remain visible alongside long ones. Min / max are hard clamps. */}
         {eventTimeTargets && onEventTimeTargetsChange && (
-          <div className="settings-row" style={{ marginTop: 8, flexDirection: 'column', alignItems: 'stretch', gap: 4 }}>
-            <span className="timing-title" style={{ marginBottom: 4 }}>Per-event normal time targets (at 100% speed)</span>
-            {[
-              { key: 'none', label: '0 changes' },
-              { key: 'one',  label: '1 change' },
-              { key: 'two',  label: '2 changes' },
-              { key: 'few',  label: '3–10 changes' },
-              { key: 'many', label: '11–100 changes' },
-              { key: 'lots', label: '> 100 changes' },
-              { key: 'min',  label: 'Min (clamp ↓)' },
-              { key: 'max',  label: 'Max (clamp ↑)' },
-            ].map(({ key, label }) => (
-              <label key={key} className="overlay-inline-field overlay-inline-field-range" style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ minWidth: 130, fontSize: '0.85em' }}>{label}</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={key === 'max' ? 30000 : (key === 'lots' ? 20000 : 10000)}
-                  step={50}
-                  value={Math.max(0, parseInt(eventTimeTargets[key] || 0, 10) || 0)}
-                  onChange={(e) => {
-                    const v = Math.max(0, parseInt(e.target.value || '0', 10) || 0);
-                    onEventTimeTargetsChange({ ...eventTimeTargets, [key]: v });
-                  }}
-                />
-                <span className="val" style={{ minWidth: 56, textAlign: 'right' }}>{((eventTimeTargets[key] || 0) / 1000).toFixed(2)}s</span>
+          <div className="settings-row timing-curve-section" style={{ marginTop: 8, flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+              <span className="timing-title">Per-event normal time targets</span>
+              <button
+                type="button"
+                className="timing-curve-reset-btn"
+                onClick={() => onEventTimeTargetsChange({ ...DEFAULT_EVENT_TIME_TARGETS })}
+                title="Reset all tiers and clamps to their default values"
+              >Reset defaults</button>
+            </div>
+            <span className="settings-hint" style={{ marginTop: 0 }}>
+              Drag the dots up/down — X = number of changes, Y = target duration (at 100% speed).
+            </span>
+
+            {/* Interactive SVG curve */}
+            <TimingCurveEditor
+              eventTimeTargets={eventTimeTargets}
+              onEventTimeTargetsChange={onEventTimeTargetsChange}
+            />
+
+            {/* Min / Max clamp sliders */}
+            <div className="timing-clamp-row">
+              <label className="timing-clamp-field">
+                <span className="timing-clamp-label">Min clamp ↓</span>
+                <div className="timing-clamp-input-row">
+                  <input
+                    type="range"
+                    min={0}
+                    max={5000}
+                    step={50}
+                    value={Math.max(0, Number(eventTimeTargets.min) || 0)}
+                    onChange={(e) => {
+                      const v = Math.max(0, parseInt(e.target.value || '0', 10) || 0);
+                      onEventTimeTargetsChange({ ...eventTimeTargets, min: v });
+                    }}
+                  />
+                  <span className="val">{fmtMs(Math.max(0, Number(eventTimeTargets.min) || 0))}</span>
+                </div>
               </label>
-            ))}
+              <label className="timing-clamp-field">
+                <span className="timing-clamp-label">Max clamp ↑</span>
+                <div className="timing-clamp-input-row">
+                  <input
+                    type="range"
+                    min={1000}
+                    max={30000}
+                    step={500}
+                    value={Math.max(1000, Number(eventTimeTargets.max) || 15000)}
+                    onChange={(e) => {
+                      const v = Math.max(0, parseInt(e.target.value || '0', 10) || 0);
+                      onEventTimeTargetsChange({ ...eventTimeTargets, max: v });
+                    }}
+                  />
+                  <span className="val">{fmtMs(Math.max(0, Number(eventTimeTargets.max) || 15000))}</span>
+                </div>
+              </label>
+            </div>
           </div>
         )}
         <span className="settings-hint">Overall speed multiplies every per-event time target. Per-event tiers set how long an event takes at 100% speed; values are clamped to Min / Max. Delay between events is used by the all-events play. Delay between repeats is used by the single-event play.</span>
       </div>
-
-      {onLoweredSetBitsToggle && (
-        <div className="settings-section">
-          <label>Sieve depth mode</label>
-          <div className="preview-btn-grid preview-btn-grid-3">
-            <PreviewOptionButton
-              compact
-              label="Lowered bits"
-              hint="Set bits sink through the sieve — cleared bits stay at surface level"
-              active={!!loweredSetBits}
-              onClick={() => onLoweredSetBitsToggle()}
-              preview={(
-                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true" strokeLinecap="round">
-                  <rect x="4"  y="3" width="7" height="7" opacity="0.35" />
-                  <rect x="14" y="3" width="7" height="7" opacity="0.35" />
-                  <rect x="24" y="3" width="7" height="7" opacity="0.35" />
-                  <rect x="34" y="3" width="7" height="7" opacity="0.35" />
-                  <rect x="4"  y="13" width="5" height="5" opacity="0.9" />
-                  <rect x="24" y="13" width="5" height="5" opacity="0.9" />
-                </svg>
-              )}
-            />
-          </div>
-          {loweredSetBits && (
-            <>
-              <div className="settings-row overlay-inline-controls">
-                <label className="overlay-inline-field overlay-inline-field-range">
-                  <span>Depth strength</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={depthSettings?.strength ?? 80}
-                    onChange={(e) => onDepthSettingsChange && onDepthSettingsChange((prev) => ({
-                      ...(prev || depthSettings || {}),
-                      strength: parseInt(e.target.value, 10),
-                    }))}
-                  />
-                  <span className="val">{depthSettings?.strength ?? 80}%</span>
-                </label>
-                <label className="overlay-inline-field overlay-inline-field-range">
-                  <span>Depth angle</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={90}
-                    step={1}
-                    value={depthSettings?.angle ?? 38}
-                    onChange={(e) => onDepthSettingsChange && onDepthSettingsChange((prev) => ({
-                      ...(prev || depthSettings || {}),
-                      angle: parseInt(e.target.value, 10),
-                    }))}
-                  />
-                  <span className="val">{depthSettings?.angle ?? 38}°</span>
-                </label>
-              </div>
-              <span className="settings-hint">Tune how deep and at what angle bits fall through the sieve. Labels on set bits follow the lowered position.</span>
-            </>
-          )}
-        </div>
-      )}
     </>
   );
 }
