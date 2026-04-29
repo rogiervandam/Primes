@@ -137,6 +137,9 @@ export class SieveRenderer {
     // rectangles and the background fill are skipped (the GL renderer
     // paints them into a sibling canvas mounted underneath).
     this.skipBitFill = false;
+    // Optional override for the canvas background color. When set (as an
+    // [r,g,b] array), it replaces the theme's default BACKGROUND color.
+    this.canvasBackground = null;
     this.loweredDepthStrength = 1;
     this.loweredDepthAngle = 38;
     this.changedBitRiseAt = new Map();
@@ -176,6 +179,11 @@ export class SieveRenderer {
   }
 
   get colors() { return THEMES[this.theme] || THEMES.dark; }
+
+  /** Returns the canvas background color — user override if set, else theme default. */
+  get effectiveBackground() {
+    return this.canvasBackground || this.colors.BACKGROUND;
+  }
 
   // Get effective bit colors (preset > custom > theme default)
   _bitColors() {
@@ -1493,11 +1501,12 @@ export class SieveRenderer {
 
   /** Clear the canvas (and the layered settled canvas, if active) and paint the background. */
   _renderClear(f) {
-    const { ctx, settledCtx, cw, ch, layeredLoweredBits, C, skipBitFill } = f;
+    const { ctx, settledCtx, cw, ch, layeredLoweredBits, skipBitFill } = f;
+    const bg = this.effectiveBackground;
     if (layeredLoweredBits) {
       settledCtx.clearRect(0, 0, cw, ch);
       if (!this.transparentBackground) {
-        settledCtx.fillStyle = `rgb(${C.BACKGROUND.join(',')})`;
+        settledCtx.fillStyle = `rgb(${bg.join(',')})`;
         settledCtx.fillRect(0, 0, cw, ch);
       }
       ctx.clearRect(0, 0, cw, ch);
@@ -1507,7 +1516,7 @@ export class SieveRenderer {
       // the bg fill here so GL shows through. (Always honour the
       // user-facing `transparentBackground` toggle too.)
       if (!this.transparentBackground && !skipBitFill) {
-        ctx.fillStyle = `rgb(${C.BACKGROUND.join(',')})`;
+        ctx.fillStyle = `rgb(${bg.join(',')})`;
         ctx.fillRect(0, 0, cw, ch);
       }
       if (settledCtx) settledCtx.clearRect(0, 0, cw, ch);

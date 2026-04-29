@@ -21,7 +21,16 @@ export default function ColorsTab({
   colorPreset, onColorPresetChange,
   customColors, onCustomColorsChange,
   theme, onThemeChange,
+  canvasColors, onCanvasColorsChange,
 }) {
+  // Fallback display values match THEMES[theme].BACKGROUND exactly.
+  const THEME_BG_LIGHT = [245, 245, 245]; // #f5f5f5
+  const THEME_BG_DARK  = [26,  26,  26];  // #1a1a1a
+  const effectiveLightBg = (canvasColors && canvasColors.light) || THEME_BG_LIGHT;
+  const effectiveDarkBg  = (canvasColors && canvasColors.dark)  || THEME_BG_DARK;
+  const hasCustomLight = !!(canvasColors && canvasColors.light);
+  const hasCustomDark  = !!(canvasColors && canvasColors.dark);
+  const hasAnyCustom   = hasCustomLight || hasCustomDark;
   return (
     <>
       <div className="settings-section">
@@ -43,6 +52,43 @@ export default function ColorsTab({
           >
             ☽ Dark
           </button>
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <label>Canvas background</label>
+        <div className="settings-row color-row" style={{ marginTop: 4 }}>
+          <label className="color-label" title="Canvas background color for light (day) mode">
+            ☀ Day
+            <input
+              type="color"
+              value={rgbToHex(effectiveLightBg)}
+              onChange={(e) => onCanvasColorsChange && onCanvasColorsChange({
+                ...(canvasColors || {}),
+                light: hexToRgb(e.target.value),
+              })}
+            />
+          </label>
+          <label className="color-label" title="Canvas background color for dark (night) mode">
+            ☽ Night
+            <input
+              type="color"
+              value={rgbToHex(effectiveDarkBg)}
+              onChange={(e) => onCanvasColorsChange && onCanvasColorsChange({
+                ...(canvasColors || {}),
+                dark: hexToRgb(e.target.value),
+              })}
+            />
+          </label>
+          {hasAnyCustom && (
+            <button
+              className="btn-text"
+              style={{ fontSize: '0.8rem' }}
+              onClick={() => onCanvasColorsChange && onCanvasColorsChange({ light: null, dark: null })}
+            >
+              Reset
+            </button>
+          )}
         </div>
       </div>
 

@@ -71,6 +71,16 @@ export const DEFAULT_DEPTH_SETTINGS = {
   angle: 38,
 };
 
+/**
+ * Default canvas background colors per theme.
+ * Null means "use the renderer's theme default" (THEMES[theme].BACKGROUND).
+ * Only store an override when the user has explicitly chosen a custom color.
+ */
+export const DEFAULT_CANVAS_COLORS = {
+  light: null,
+  dark:  null,
+};
+
 /** Read raw preferences object from localStorage (or null on failure). */
 export function readViewPrefs() {
   if (typeof window === 'undefined' || !window.localStorage) return null;
@@ -221,6 +231,17 @@ function initialAllEventsWidgetHidden(prefs) {
   return prefs?.allEventsWidgetHidden === true;
 }
 
+function initialCanvasColors(prefs) {
+  const saved = prefs?.canvasColors;
+  const isValidRgb = (v) => Array.isArray(v) && v.length === 3 && v.every(c => Number.isInteger(c) && c >= 0 && c <= 255);
+  const lightRaw = saved?.light;
+  const darkRaw  = saved?.dark;
+  return {
+    light: isValidRgb(lightRaw) ? lightRaw : null,
+    dark:  isValidRgb(darkRaw)  ? darkRaw  : null,
+  };
+}
+
 function initialPanelVisibility(prefs) {
   return {
     stepsPanelCollapsed: prefs?.stepsPanelCollapsed !== false, // default: collapsed
@@ -253,6 +274,7 @@ export function getInitialViewState() {
     maxStepDurationEnabled: initialMaxStepDurationEnabled(prefs),
     maxStepDurationMs: initialMaxStepDurationMs(prefs),
     gridOpacity: initialGridOpacity(prefs),
+    canvasColors: initialCanvasColors(prefs),
     controlsHidden: initialControlsHidden(prefs),
     allEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
     ...initialPanelVisibility(prefs),

@@ -186,6 +186,7 @@ export default function Visualizer({
   const [maxStepDurationEnabled, setMaxStepDurationEnabled] = useState(initialPrefs.maxStepDurationEnabled);
   const [maxStepDurationMs, setMaxStepDurationMs] = useState(initialPrefs.maxStepDurationMs);
   const [gridOpacity, setGridOpacity] = useState(initialPrefs.gridOpacity);
+  const [canvasColors, setCanvasColors] = useState(initialPrefs.canvasColors);
   const [detailHeight, setDetailHeight] = useState(280);
   const [detailWidth, setDetailWidth] = useState(0);
   const [showMinimap, setShowMinimap] = useState(true);
@@ -700,6 +701,7 @@ export default function Visualizer({
       maxStepDurationEnabled,
       maxStepDurationMs,
       gridOpacity,
+      canvasColors,
       eventDurationMode,
       playSpeedPercent,
       delayBetweenEvents,
@@ -711,7 +713,7 @@ export default function Visualizer({
       settingsCollapsed,
       detailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, controlsHidden, allEventsWidgetHidden, stepsPanelCollapsed, settingsCollapsed, detailOpen]);
+  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, canvasColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, controlsHidden, allEventsWidgetHidden, stepsPanelCollapsed, settingsCollapsed, detailOpen]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -787,14 +789,13 @@ export default function Visualizer({
 
             const px = Math.max(1, rr.pixelSize);
             const zoom = Math.max(0.01, rr.zoom || 1);
-            const C = rr.colors;
             const bitColors = rr._bitColors();
             const changed = rr._opColor();
             g.render({
               panX: rr.panX || 0,
               panY: rr.panY || 0,
               cellSize: px * zoom,
-              bgColor: C.BACKGROUND,
+              bgColor: rr.effectiveBackground,
               setColor: bitColors.set,
               clearedColor: bitColors.cleared,
               changedColor: changed,
@@ -965,6 +966,7 @@ export default function Visualizer({
     r.loweredDepthStrength = Math.max(0, Math.min(1.0, (depthSettings.strength ?? 80) / 100));
     r.loweredDepthAngle = Math.max(0, Math.min(90, depthSettings.angle ?? 38));
     r.gridOpacity = Math.max(0.12, Math.min(1, gridOpacity));
+    r.canvasBackground = canvasColors ? (canvasColors[theme] || null) : null;
     r.customSetBit = customColors.setBit;
     r.customClearedBit = customColors.clearedBit;
     r.customUnchangedBit = customColors.unchangedBit;
@@ -1052,7 +1054,7 @@ export default function Visualizer({
     r.render();
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, storageModel, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, depthSettings, gridOpacity, updateMinimapAvailability]);
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, canvasColors, storageModel, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, depthSettings, gridOpacity, updateMinimapAvailability]);
 
   // Resize handler
   useEffect(() => {
@@ -3597,12 +3599,18 @@ export default function Visualizer({
   // which shifts the container's left edge by hundreds of px). Pinning
   // perspective-origin to the canvas anchor keeps the projection stable.
   const mergedCamera3DContainerStyle = useMemo(() => {
-    if (!canvasAnchorPx) return camera3DContainerStyle;
-    return {
+    // Derive the effective canvas background: user override (if any) or theme default.
+    // Themes.dark.BACKGROUND = [26,26,26], Themes.light.BACKGROUND = [245,245,245].
+    const THEME_BG = { dark: [26, 26, 26], light: [245, 245, 245] };
+    const customBg = canvasColors && canvasColors[theme];
+    const bg = customBg || THEME_BG[theme] || THEME_BG.dark;
+    const bgCss = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
+    const base = !canvasAnchorPx ? camera3DContainerStyle : {
       ...camera3DContainerStyle,
       perspectiveOrigin: `${canvasAnchorPx.left}px ${canvasAnchorPx.top}px`,
     };
-  }, [camera3DContainerStyle, canvasAnchorPx]);
+    return { ...base, background: bgCss };
+  }, [camera3DContainerStyle, canvasAnchorPx, canvasColors, theme]);
 
   // (legacy playSpeed-based label/value/setters removed; speed is now driven
   // by playSpeedPercent and per-event time targets — see SettingsPanel.)
@@ -4159,6 +4167,8 @@ export default function Visualizer({
           showAnimationControls={true}
           theme={theme}
           onThemeChange={(t) => setTheme(t)}
+          canvasColors={canvasColors}
+          onCanvasColorsChange={setCanvasColors}
           activeTabRequest={settingsTabRequest}
           bitAnimationMode={bitAnimationMode}
           onBitAnimationModeChange={handleBitAnimationModeChange}

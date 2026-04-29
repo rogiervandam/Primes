@@ -504,6 +504,17 @@ overwrite.
   fully functional as a fallback. `BitGridGL.js` is still present (used
   by the `parity.html` dev harness) but is no longer in the production
   runtime path.
+- ✅ **Added per-theme canvas background color customisation.** Users can
+  now pick a custom canvas background color for day (light) and night
+  (dark) mode independently via the Settings → Colors tab. Defaults are
+  white `[255,255,255]` for light and dark-grey `[40,40,40]` for dark.
+  Persisted in `viewPrefs` under `canvasColors: { light, dark }`.
+  Architecture: `SieveRenderer` gained a `canvasBackground` property
+  (`null` = use theme default) and an `effectiveBackground` getter that
+  resolves it; `_renderClear()` now reads `this.effectiveBackground`
+  instead of `C.BACKGROUND` directly; the GL render call in
+  `Visualizer.jsx` likewise uses `rr.effectiveBackground`. The per-theme
+  defaults live in `DEFAULT_CANVAS_COLORS` in `viewPrefs.js`.
 
 ---
 

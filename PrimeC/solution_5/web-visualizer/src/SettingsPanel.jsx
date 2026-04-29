@@ -47,6 +47,8 @@ export default function SettingsPanel({
   showAnimationControls = true,
   theme,
   onThemeChange,
+  canvasColors,
+  onCanvasColorsChange,
   activeTabRequest,
   bitAnimationMode,
   onBitAnimationModeChange,
@@ -168,6 +170,7 @@ export default function SettingsPanel({
             colorPreset={colorPreset} onColorPresetChange={onColorPresetChange}
             customColors={customColors} onCustomColorsChange={onCustomColorsChange}
             theme={theme} onThemeChange={onThemeChange}
+            canvasColors={canvasColors} onCanvasColorsChange={onCanvasColorsChange}
           />
         )}
 
