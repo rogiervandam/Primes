@@ -43,6 +43,12 @@ When `allEventsWidgetHidden` is true the widget is not rendered (the down-arrow 
 ### `DetailPanel.jsx`
 Inspector for the currently selected step. Shows changed bits, factor, count of newly cleared bits, and contextual primes.
 
+The panel is organised as a **horizontal grid of compact section cards** (using `detail-sections` / `detail-section-card` CSS classes), designed to expand horizontally without growing vertically. Key layout decisions:
+
+- **Numbers marked & Bit ranges** — each shows at most 5 preview items with a `+N more ↗` hint that makes the inspect-button affordance obvious. Clicking opens the full searchable inspector.
+- **Mask preview** — each bit cell is 8 px (down from 10 px) to keep the mask representation compact and readable without dominating the panel height.
+- Neither the annotation section nor the mask section spans the full width (`detail-section-wide` removed); they flow alongside the other fact cards in the auto-fit grid.
+
 ### `TimingPanel.jsx`
 Floating, draggable, resizable panel showing per-phase timings. Uses `useFloatingPanel` for drag/resize behaviour.
 
