@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
-  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus,
+  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Eye, EyeOff,
 } from '../Icons';
 import TraceInfoPopover from './TraceInfoPopover';
 
@@ -71,6 +71,9 @@ export default function Toolbar({
   // theme
   theme,
   setTheme,
+  // immersive mode
+  controlsHidden,
+  toggleControlsHidden,
 }) {
   const visualizerClass =
     `visualizer${isMacPlatform ? ' platform-mac' : ''}` +
@@ -81,7 +84,7 @@ export default function Toolbar({
   void visualizerClass;
 
   return (
-    <header className="toolbar">
+    <header className={`toolbar${controlsHidden ? ' toolbar--controls-hidden' : ''}`}>
       <div className="toolbar-left">
         <div className="trace-title-block">
           <button
@@ -106,7 +109,15 @@ export default function Toolbar({
             sections={traceInfoSections}
           />
         )}
+        <button
+          className={`btn-icon toolbar-immersive-toggle${controlsHidden ? ' active' : ''}`}
+          onClick={toggleControlsHidden}
+          title={controlsHidden ? 'Show playback controls (H)' : 'Hide playback controls (H)'}
+        >
+          {controlsHidden ? <Eye /> : <EyeOff />}
+        </button>
       </div>
+      {!controlsHidden && (
       <div className="toolbar-center">
         <button className="btn-icon" onClick={() => goToStep(0)} title="First (Home)" disabled={exporting}><SkipBack /></button>
         <button className="btn-icon" onClick={() => goToStep(currentStep - 1)} title="Previous (←)" disabled={exporting}><StepBack /></button>
@@ -140,6 +151,7 @@ export default function Toolbar({
         />
         <span className="step-counter">{currentStep} / {steps.length - 1}</span>
       </div>
+      )}
       <div className="toolbar-right">
         {!isWindowsPlatform && (
           <>

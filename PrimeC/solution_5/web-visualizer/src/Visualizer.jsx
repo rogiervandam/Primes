@@ -198,6 +198,10 @@ export default function Visualizer({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResult, setSearchResult] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  // Whether the toolbar center+right (playback transport + timeline) are hidden
+  // for a distraction-free immersive view. Toggled via the eye button or H key.
+  const [controlsHidden, setControlsHidden] = useState(initialPrefs.controlsHidden);
+  const toggleControlsHidden = useCallback(() => setControlsHidden((h) => !h), []);
   const [storageModel, setStorageModel] = useState(header.storageModel || 'half');
   const [selectedSteps, setSelectedSteps] = useState(new Set());
   const [heatMapEnabled, setHeatMapEnabled] = useState(false);
@@ -677,8 +681,9 @@ export default function Visualizer({
       delayBetweenEvents,
       delayBetweenRepeats,
       eventTimeTargets,
+      controlsHidden,
     });
-  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets]);
+  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, controlsHidden]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -3220,6 +3225,7 @@ export default function Visualizer({
     resetZoom,
     setTheme,
     toggleDetailPanel,
+    toggleControlsHidden,
     camera3DRef,
   });
 
@@ -3850,6 +3856,8 @@ export default function Visualizer({
         exportProgress={exportProgress}
         theme={theme}
         setTheme={setTheme}
+        controlsHidden={controlsHidden}
+        toggleControlsHidden={toggleControlsHidden}
       />
 
       {exporting && <ExportProgress progress={exportProgress} />}

@@ -199,3 +199,22 @@
   min-height: 14px;
 }
 
+/* ---- Immersive mode: hide playback controls ---- */
+/* Toggle button — always visible in toolbar-left */
+.toolbar-immersive-toggle {
+  margin-left: 2px;
+  opacity: 0.45;
+  transition: opacity 0.15s ease-out;
+}
+.toolbar-immersive-toggle:hover {
+  opacity: 1;
+}
+.toolbar-immersive-toggle.active {
+  opacity: 0.85;
+  color: var(--accent);
+}
+
+/* When transport controls are hidden collapse to left + right only */
+.toolbar--controls-hidden {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
