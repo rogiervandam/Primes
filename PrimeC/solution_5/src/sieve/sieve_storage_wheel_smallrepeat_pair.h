@@ -15,7 +15,11 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
     // align to first full bucket
 
     logStart7(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "MarkFactorsWheelStorageSmallRepeatPair: aligning to first full bucket starting from index %ju", (uintmax_t)range_start);
-    for (; (current_bucket = function(wheel_block_calc,variant_suffix)(range_start)) < 2 && range_start <= range_stop_unique; range_start += step) {
+
+    // TODO: calc range_start_aligned = (range_start + wheel_step * WHEEL_SIZE - 1) / (wheel_step * WHEEL_SIZE) * (wheel_step * WHEEL_SIZE); 
+    // but this is more expensive than just iterating until we reach the first full bucket, because the step is large and we will likely already be close to 
+    // a full bucket after a few iterations
+    for (; range_start <= range_stop_unique && (current_bucket = function(wheel_block_calc,variant_suffix)(range_start)) < 2 ; range_start += step) {
         markFactor_wheelstorage(sieve, range_start);
     }
     logStop7(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "MarkFactorsWheelStorageSmallRepeatPair: finished aligning to first full bucket at index %ju", (uintmax_t)range_start);
