@@ -34,7 +34,7 @@ static inline int getBenchmarkPinnedCpu(void)
 #endif
 }
 
-static inline void requestBenchmarkStability(void)
+static inline void requestBenchmarkStability(int threads)
 {
     static int warned_setpriority = 0;
     static int warned_affinity = 0;
@@ -42,7 +42,7 @@ static inline void requestBenchmarkStability(void)
     pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
 
 #elif defined(__linux__)
-    if (option.fixed_benchmark_settings.threads == 1) {
+    if (threads == 1) {
         const int target_cpu = getBenchmarkPinnedCpu();
         cpu_set_t cpuset;
         CPU_ZERO(&cpuset);

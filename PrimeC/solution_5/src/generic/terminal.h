@@ -1,5 +1,9 @@
 #pragma once
-#include <sys/ioctl.h>
+#include <sys/ioctl.h> // ioctl, winsize
+#include <unistd.h>    // isatty, STDOUT_FILENO
+#include <stdio.h>     // printf, vsnprintf, fflush
+#include <stdarg.h>    // va_list, va_start, va_end
+#include <string.h>    // memcpy
 
 // ANSI color codes
 #define COLOR_RED         "\033[31m"

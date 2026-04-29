@@ -83,7 +83,7 @@ benchmark(benchmark_settings_t benchmark_settings, sieve_t* (*benchmarkableFunct
         omp_set_num_threads(benchmark_result.settings.threads);
         #pragma omp parallel reduction(+:passes) reduction(+:time_elapsed)
         {
-            requestBenchmarkStability();
+            requestBenchmarkStability(option.fixed_benchmark_settings.threads);
             double thread_elapsed = 0;
             const double time_start = benchmarkTime(), time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
             while (thread_elapsed <= time_target) {
@@ -95,7 +95,7 @@ benchmark(benchmark_settings_t benchmark_settings, sieve_t* (*benchmarkableFunct
             time_elapsed = thread_elapsed - time_start;
         }
     #else
-        requestBenchmarkStability();
+        requestBenchmarkStability(option.fixed_benchmark_settings.threads);
         const double time_start = benchmarkTime(), time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
         while (time_elapsed <= time_target) {
             sieve_t* sieve = benchmarkableFunction(sieve_size);
