@@ -4,20 +4,8 @@
 // This file includes all the building blocks for the sieve algorithm "wheelstorage"
 // This enables the compiler to optimize the code better
 
-// #include "generic/timepriority.h"
-// #include <stdio.h>
-// #include <stdlib.h>
-// #include <time.h>
-// #include <stdint.h>
-
 static char algorithm_name[60] = "rogiervandam_wheelstorage";
 static char algorithm_type[] = "wheel";
-
-// #define ALTERNATIVE_CHECK 1 // signals sieve_check to use the alternative check function
-
-// #ifndef WHEEL_STORAGE
-//     #define WHEEL_STORAGE WHEEL_STORAGE_8OF30
-// #endif
 
 #include "benchmark/sieve_options.h"
 #include "sieve/sieve_manager.h"
@@ -55,13 +43,13 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
 
     log5("Shaking sieve to find all primes up to %ju with blocks %ju using the wheel with primes up to %ju using blocksize %ju factorsize %ju\n",(uintmax_t)sieve_size,(uintmax_t)factorBlock,(uintmax_t)WHEEL_MAX,(uintmax_t)global_blocksize_bits,(uintmax_t)calcFactorsize(global_blocksize_bits, global_storage));
 
-    // #pragma GCC unroll 2
+    #pragma GCC unroll 2
     for (counter_t block_start = 0; block_start < sieve_size; block_start += factorBlock) {
         const counter_t block_stop = min(sieve_size, block_start + factorBlock);
 
         log5("Processing block with range %ju - %ju\n",(uintmax_t)block_start, (uintmax_t)block_stop); 
 
-        // #pragma GCC unroll 32
+        #pragma GCC unroll 32
         for (counter_t prime = findUnmarked(sieve, WHEEL_MAX+1); prime < prime_max;  prime = findUnmarked(sieve, ++prime)) {
             log5(sieve->bitstorage,
                        "MarkFactors: wheelstorage prime %jd (idx %jd), block [%jd-%jd] step %jd",

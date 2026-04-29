@@ -4,6 +4,7 @@
 // Logging feature
 
 #ifdef COMPILE_TRACE
+  #include "../benchmark/sieve_functions.h" // for function_id_t and timer_function_names
   #include "../trace/sieve_trace.h"
 #endif
 
@@ -182,167 +183,93 @@ log_event_bare(int level, const void* bitstorage, const char* fmt, ...)
 }
 
 static inline void
-log_mask(int level, void* bitstorage,
-        uint64_t word_bits,
-        counter_t range_start_index,
-        counter_t range_stop_index,
-        counter_t step,
-        const void* mask_ptr,
-        size_t mask_lane_bytes,
-        uint32_t mask_lane_count,
-        uint32_t mask_lane_bits)
+log_mask(int level, void* bitstorage, const char* label, uint64_t word_bits,
+        counter_t range_start_index, counter_t range_stop_index, counter_t step,
+        const void* const* mask_ptrs, uint32_t mask_slot_count,
+        size_t mask_lane_bytes, uint32_t mask_lane_count, uint32_t mask_lane_bits)
 {
     if (!(primes_log_should_trace(level) || primes_log_should_explain(level))) return;
+    if (mask_slot_count == 0 || mask_slot_count > 4) return;
+
+    static const char* s_opnames[] = {"", "ApplyMask", "ApplyMaskPair", "ApplyMaskTriple", "ApplyMaskQuad"};
 
     char annotation[4096] = {0};
-    char mask_bits_text[2048] = {0};
-    uint32_t mask_bits[1024] = {0};
+    uint32_t all_mask_bits[4][1024];
+    uint32_t all_mask_counts[4] = {0};
+    char mask_bits_texts[4][1024];
     uint64_t* mask_target_words = NULL;
     uint32_t* mask_target_slots = NULL;
     uint32_t mask_target_count = 0;
-    uint32_t mask_count = 0;
 
-    mask_count = primes_trace_collect_mask_bits(mask_bits, 1024, mask_ptr, mask_lane_bytes, mask_lane_count, mask_lane_bits);
+    memset(all_mask_bits, 0, sizeof(all_mask_bits));
+    memset(mask_bits_texts, 0, sizeof(mask_bits_texts));
 
-    primes_trace_format_mask_bits(mask_bits_text, sizeof(mask_bits_text), mask_ptr, mask_lane_bytes, mask_lane_count, mask_lane_bits);
+    for (uint32_t s = 0; s < mask_slot_count; s++) {
+        all_mask_counts[s] = primes_trace_collect_mask_bits(all_mask_bits[s], 1024, mask_ptrs[s],
+                                                            mask_lane_bytes, mask_lane_count, mask_lane_bits);
+        primes_trace_format_mask_bits(mask_bits_texts[s], sizeof(mask_bits_texts[s]), mask_ptrs[s],
+                                      mask_lane_bytes, mask_lane_count, mask_lane_bits);
+    }
 
-    snprintf(annotation,
-             sizeof(annotation),
-             "ApplyMask: word_bits=%ju word_start=%ju word_stop=%ju step_words=%ju mask_bits=%s focus_start=%ju focus_stop=%ju bitrange=%ju-%ju",
-             (uintmax_t)word_bits,
-             (uintmax_t)range_start_index,
-             (uintmax_t)range_stop_index,
-             (uintmax_t)step,
-             mask_bits_text,
-             (uintmax_t)(range_start_index * word_bits),
-             (uintmax_t)((range_stop_index + 1) * word_bits - 1),
-             (uintmax_t)(range_start_index * word_bits),
-             (uintmax_t)((range_stop_index + 1) * word_bits - 1));
-
-    log(level, annotation);
-
-    if (primes_log_should_trace(level)) {
-        const uint64_t target_capacity = range_stop_index >= range_start_index
-            ? (uint64_t)((range_stop_index - range_start_index) / step) + 1
-            : 0;
-        if (target_capacity > 0) {
-            mask_target_words = (uint64_t*)malloc(sizeof(uint64_t) * (size_t)target_capacity);
-            mask_target_slots = (uint32_t*)malloc(sizeof(uint32_t) * (size_t)target_capacity);
-        }
-        if ((target_capacity == 0) || (mask_target_words && mask_target_slots)) {
-            for (counter_t word_index = range_start_index; word_index <= range_stop_index; word_index += step) {
-                mask_target_words[mask_target_count] = (uint64_t)word_index;
-                mask_target_slots[mask_target_count] = 0;
-                mask_target_count++;
-            }
-            trace_record_applymask_step_labeled(bitstorage,
-                                                annotation,
-                                                "ApplyMask",
-                                                level,
-                                                word_bits,
-                                                (uint64_t)range_start_index,
-                                                (uint64_t)range_stop_index,
-                                                (uint64_t)step,
-                                                mask_bits,
-                                                mask_count,
-                                                NULL,
-                                                0,
-                                                mask_target_words,
-                                                mask_target_slots,
-                                                mask_target_count);
+    /* Build mask-bits portion of the annotation */
+    char mask_part[2048] = {0};
+    if (mask_slot_count == 1) {
+        snprintf(mask_part, sizeof(mask_part), "mask_bits=%s", mask_bits_texts[0]);
+    } else {
+        char* p = mask_part;
+        size_t rem = sizeof(mask_part);
+        for (uint32_t s = 0; s < mask_slot_count && rem > 1; s++) {
+            int n = snprintf(p, rem, "%smask%u_bits=%s", s > 0 ? " " : "", s + 1, mask_bits_texts[s]);
+            if (n > 0) { p += (size_t)n; rem -= (size_t)n; }
         }
     }
 
-    free(mask_target_words);
-    free(mask_target_slots);
-}
-
-static inline void
-log_mask_pair(int level, void* bitstorage,
-        uint64_t word_bits,
-        counter_t range_start_index,
-        counter_t range_stop_index,
-        counter_t step,
-        const void* mask1_ptr,
-        const void* mask2_ptr,
-        size_t mask_lane_bytes,
-        uint32_t mask_lane_count,
-        uint32_t mask_lane_bits)
-{
-    if (!(primes_log_should_trace(level) || primes_log_should_explain(level))) return;
-
-    char annotation[4096] = {0};
-    char mask1_bits_text[2048] = {0};
-    char mask2_bits_text[2048] = {0};
-    uint32_t mask1_bits[1024] = {0};
-    uint32_t mask2_bits[1024] = {0};
-    uint64_t* mask_target_words = NULL;
-    uint32_t* mask_target_slots = NULL;
-    uint32_t mask_target_count = 0;
-    uint32_t mask1_count = 0;
-    uint32_t mask2_count = 0;
-
-    mask1_count = primes_trace_collect_mask_bits(mask1_bits, 1024, mask1_ptr, mask_lane_bytes, mask_lane_count, mask_lane_bits);
-    mask2_count = primes_trace_collect_mask_bits(mask2_bits, 1024, mask2_ptr, mask_lane_bytes, mask_lane_count, mask_lane_bits);
-
-    primes_trace_format_mask_bits(mask1_bits_text, sizeof(mask1_bits_text), mask1_ptr, mask_lane_bytes, mask_lane_count, mask_lane_bits);
-    primes_trace_format_mask_bits(mask2_bits_text, sizeof(mask2_bits_text), mask2_ptr, mask_lane_bytes, mask_lane_count, mask_lane_bits);
-
-    snprintf(annotation,
-             sizeof(annotation),
-             "ApplyMaskPair: word_bits=%ju word_start=%ju word_stop=%ju step_words=%ju mask1_bits=%s mask2_bits=%s focus_start=%ju focus_stop=%ju bitrange=%ju-%ju",
-             (uintmax_t)word_bits,
-             (uintmax_t)range_start_index,
-             (uintmax_t)range_stop_index,
-             (uintmax_t)step,
-             mask1_bits_text,
-             mask2_bits_text,
-             (uintmax_t)(range_start_index * word_bits),
-             (uintmax_t)((range_stop_index + 1) * word_bits - 1),
-             (uintmax_t)(range_start_index * word_bits),
-             (uintmax_t)((range_stop_index + 1) * word_bits - 1));
+    snprintf(annotation, sizeof(annotation),
+             "%s: word_bits=%ju word_start=%ju word_stop=%ju step_words=%ju %s focus_start=%ju focus_stop=%ju bitrange=%ju-%ju",
+             s_opnames[mask_slot_count],
+             (uintmax_t)word_bits, (uintmax_t)range_start_index, (uintmax_t)range_stop_index, (uintmax_t)step,
+             mask_part,
+             (uintmax_t)(range_start_index * word_bits), (uintmax_t)((range_stop_index + 1) * word_bits - 1),
+             (uintmax_t)(range_start_index * word_bits), (uintmax_t)((range_stop_index + 1) * word_bits - 1));
 
     log(level, annotation);
 
     if (primes_log_should_trace(level)) {
-        const uint64_t pair_capacity = range_stop_index > range_start_index
-            ? (uint64_t)(((range_stop_index - range_start_index - 1) / step) + 1)
+        /* Upper-bound capacity: all step-aligned positions × slots */
+        const uint64_t total_steps = range_stop_index >= range_start_index
+            ? (uint64_t)((range_stop_index - range_start_index) / step) + 1
             : 0;
-        const uint64_t target_capacity = pair_capacity * 2 + 1;
+        const uint64_t target_capacity = total_steps * mask_slot_count;
         if (target_capacity > 0) {
             mask_target_words = (uint64_t*)malloc(sizeof(uint64_t) * (size_t)target_capacity);
             mask_target_slots = (uint32_t*)malloc(sizeof(uint32_t) * (size_t)target_capacity);
         }
         if ((target_capacity == 0) || (mask_target_words && mask_target_slots)) {
-            for (counter_t word_index = range_start_index; word_index < range_stop_index; word_index += step) {
-                mask_target_words[mask_target_count] = (uint64_t)word_index;
-                mask_target_slots[mask_target_count] = 0;
-                mask_target_count++;
-
-                mask_target_words[mask_target_count] = (uint64_t)(word_index + 1);
-                mask_target_slots[mask_target_count] = 1;
+            counter_t word_index;
+            /* Full groups: all mask_slot_count consecutive words fit within range */
+            for (word_index = range_start_index;
+                 word_index + (counter_t)(mask_slot_count - 1) <= range_stop_index;
+                 word_index += step) {
+                for (uint32_t s = 0; s < mask_slot_count; s++) {
+                    mask_target_words[mask_target_count] = (uint64_t)(word_index + (counter_t)s);
+                    mask_target_slots[mask_target_count] = s;
+                    mask_target_count++;
+                }
+            }
+            /* Partial remainder: slots that still fit within range_stop_index */
+            for (uint32_t s = 0; s < mask_slot_count - 1; s++) {
+                if (word_index + (counter_t)s > range_stop_index) break;
+                mask_target_words[mask_target_count] = (uint64_t)(word_index + (counter_t)s);
+                mask_target_slots[mask_target_count] = s;
                 mask_target_count++;
             }
-            if (range_start_index <= range_stop_index && ((range_stop_index - range_start_index) % step) == 0) {
-                mask_target_words[mask_target_count] = (uint64_t)range_stop_index;
-                mask_target_slots[mask_target_count] = 0;
-                mask_target_count++;
-            }
-            trace_record_applymask_step_labeled(bitstorage,
-                                                annotation,
-                                                "ApplyMaskPair",
-                                                level,
-                                                word_bits,
-                                                (uint64_t)range_start_index,
-                                                (uint64_t)range_stop_index,
-                                                (uint64_t)step,
-                                                mask1_bits,
-                                                mask1_count,
-                                                mask2_bits,
-                                                mask2_count,
-                                                mask_target_words,
-                                                mask_target_slots,
-                                                mask_target_count);
+            const uint32_t* slot_bits_ptrs[4] = {
+                all_mask_bits[0], all_mask_bits[1], all_mask_bits[2], all_mask_bits[3]
+            };
+            trace_record_applymask_step_labeled(level, bitstorage, label, annotation,
+                                                word_bits, (uint64_t)range_start_index, (uint64_t)range_stop_index, (uint64_t)step,
+                                                slot_bits_ptrs, all_mask_counts, mask_slot_count,
+                                                mask_target_words, mask_target_slots, mask_target_count);
         }
     }
 

@@ -61,3 +61,19 @@ calcFactorsize(counter_t bitsize, int storage_id)
 {
     return (bitsize * storage_table[storage_id].factorsize) / storage_table[storage_id].bitsize + ((bitsize * storage_table[storage_id].factorsize) % storage_table[storage_id].bitsize != 0);
 }
+
+static inline const char*
+getStorageModelName(int storage_id)
+{
+    switch (storage_id) {
+        case STORAGE_FULL:             return "full";
+        case STORAGE_HALF:             return "half";
+        case STORAGE_WHEEL2OF6:        return "wheel2of6";
+        case STORAGE_WHEEL8OF30:       return "wheel8of30";
+        case STORAGE_WHEEL48OF210:     return "wheel48of210";
+        case STORAGE_WHEEL480OF2310:   return "wheel480of2310";
+        case STORAGE_WHEEL5760OF30030: return "wheel5760of30030";
+        case STORAGE_WHEELTESTING:     return "wheeltesting";
+        default:                       return "unknown";
+    }
+}

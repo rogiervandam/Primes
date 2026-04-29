@@ -2,19 +2,10 @@
 // Find all primes up to <max int> using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)
 
 // This file includes all the building blocks for the sieve algorithm "classic style"
-
-#include "generic/timepriority.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdint.h>
-
 static char algorithm_name[] = "rogiervandam_classic64bit";
 static char algorithm_type[] = "base";
-// #define ALGORITHM_CLASSIC 1
 
 // include helper functions
-// #include "generic/settings.h"
 #include "benchmark/sieve_options.h"
 #include "bitstorage/bitstorage_search.h"
 #include "sieve/sieve_manager.h"
@@ -30,11 +21,10 @@ static inline counter_t findUnmarked(sieve_t *sieve, counter_t start) {
     return start * 2 + 1;
 }
 
-// This is the main module that directs all the work
-// sieve_size in a real number that is the maximum in the sieve (not in bits)
-
 #define bitbucket_t uint64_t
 
+// This is the main module that directs all the work
+// sieve_size in a real number that is the maximum in the sieve (not in bits)
 static sieve_t* shakeSieve(const counter_t sieve_size)
 {
     const counter_t sieve_bits = sieve_size>>1;

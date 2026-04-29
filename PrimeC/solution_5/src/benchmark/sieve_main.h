@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
     // command line --check can be used to check the algorithm for all sieve/blocksize combinations
     if (option.check) handleCheckOption(option.check, shakeSieve, option.fixed_benchmark_settings);
 
-    int valid = performBenchmarks(option, shakeSieve);
+    int valid = performBenchmarks(option, shakeSieve, algorithm_name, algorithm_type);
 
     // show results for --show command line option and other developer information
     showResult(shakeSieve, option.fixed_benchmark_settings);

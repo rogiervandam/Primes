@@ -18,14 +18,28 @@
     #define WHEEL_STORAGE_480OF2310   5
     #define WHEEL_STORAGE_5760OF30030 6
 
-    #define WHEEL_MAX 5
-    #define WHEEL_BASIC_SIZE (2 * 3 * 5)
-    #define WHEEL_STRIPES 8
-    #define WHEEL_REPEATS 1
+    // #define WHEEL_CACHE_FILE "wheel_cache/wheel_8of30.h"
 
-    #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
-    #define WHEEL_STRIPE_BYTES 1 //(((WHEEL_STRIPES) - 1) / 8 + 1)
-    #define WHEEL_STRIPE_BITS  ((WHEEL_STRIPE_BYTES) * 8)
+    // Wheel size parameters: either loaded from a pre-generated cache file,
+    // or set to the default 8of30 values for runtime computation.
+    #ifdef WHEEL_CACHE_FILE
+        #include WHEEL_CACHE_FILE
+        #define WHEEL_MAX         WC_WHEEL_MAX
+        #define WHEEL_BASIC_SIZE  WC_WHEEL_SIZE
+        #define WHEEL_STRIPES     WC_WHEEL_STRIPES
+        #define WHEEL_REPEATS     1
+        #define WHEEL_SIZE        WC_WHEEL_SIZE
+        #define WHEEL_STRIPE_BYTES WC_WHEEL_STRIPE_BYTES
+        #define WHEEL_STRIPE_BITS  WC_WHEEL_STRIPE_BITS
+    #else
+        #define WHEEL_MAX 5
+        #define WHEEL_BASIC_SIZE (2 * 3 * 5)
+        #define WHEEL_STRIPES 8
+        #define WHEEL_REPEATS 1
+        #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
+        #define WHEEL_STRIPE_BYTES 1 //(((WHEEL_STRIPES) - 1) / 8 + 1)
+        #define WHEEL_STRIPE_BITS  ((WHEEL_STRIPE_BYTES) * 8)
+    #endif
 
     #define wheelmask_stripes      WHEEL_STRIPES
     #define wheelmask_stripe_bytes WHEEL_STRIPE_BYTES
@@ -33,13 +47,26 @@
 
     #include "../sieve/sieve_calc.h"
 
+    #ifdef WHEEL_CACHE_FILE
+    // Use the pre-generated const arrays directly — no runtime allocation or copy needed.
+    #define wheelprimes          _wc_wheelprimes
+    #define wheelmask            _wc_wheelmask
+    #define wheelmask_compressed _wc_wheelmask_compressed
+    #define wheelmask_index      _wc_wheelmask_index
+    #define wheelmask_bitpoint   _wc_wheelmask_bitpoint
+    static counter_t wheelmask_mask[8] = { 1, 2, 4, 8, 16, 32, 64, 128};
+    static inline void build_wheel() {
+        verbose2 (printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju Wheel stripe bits: %ju (cached)\n", WHEEL_SIZE, (uintmax_t)wheelmask_stripes, (uintmax_t)wheelmask_stripe_bytes, (uintmax_t)wheelmask_stripe_bits) );
+    }
+    #else
     static unsigned int wheelprimes[WHEEL_MAX+1]; // can't be more than highest prime in the wheel
     static uint8_t wheelmask[WHEEL_SIZE];
     static wheelmask_t wheelmask_compressed[WHEEL_SIZE];
     static uint8_t wheelmask_index[WHEEL_SIZE];
     static counter_t wheelmask_bitpoint[WHEEL_SIZE];
+    static counter_t wheelstripe[WHEEL_STRIPES];
     static counter_t wheelmask_mask[8] = { 1, 2, 4, 8, 16, 32, 64, 128};
-
+    // Runtime path: compute wheel data from scratch.
     void build_wheel() {
         // find all the primes in the wheel up to WHEEL_MAX and store them
         for (counter_t i = 0; i < WHEEL_MAX; i++) {
@@ -74,6 +101,7 @@
                 wheelmask_compressed[i] |= markmask_type(stripe_count, wheelmask_t);
                 wheelmask_index[i] = index_type(stripe_count, wheelmask_t);
                 wheelmask_bitpoint[i] = stripe_count + 1;
+                wheelstripe[stripe_count] = i;
                 stripe_count++;
             }
         }
@@ -85,17 +113,40 @@
         // }    
 
     }
+    #endif
 
     // static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     // wheel_bit_calc(counter_t index) {
     //     return wheelmask_stripe_bits * (index / WHEEL_SIZE) + wheelmask_index[index % WHEEL_SIZE] * bitcount_type(wheelmask_t) + shift_calc(wheelmask_compressed[index % WHEEL_SIZE]);
     // }
 
+    // wheel_bit_calc returns the bit index  for a given number index, or -1 if the number is divisible by any of the wheel primes
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     wheel_bit_calc(counter_t index) {
         const counter_t wheel_index = index % WHEEL_SIZE;
         if (wheelmask_bitpoint[wheel_index] < 0) return -1; 
         return (wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index] -1 ;
+    }
+
+    // wheel_bit_estimate returns the bit index for a given number index, and if itis divisible by any of the wheel primes, return the nearest that isn't
+    // used for trace and logging
+    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+    wheel_bit_estimate(counter_t index) {
+        counter_t wheel_index = index % WHEEL_SIZE;
+        counter_t factor_start = wheelmask_stripe_bits * (index / WHEEL_SIZE);
+        for(; wheelmask_bitpoint[wheel_index] < 0 && wheel_index < WHEEL_SIZE; wheel_index++);
+        if (wheel_index <= WHEEL_SIZE) return (factor_start + wheelmask_bitpoint[wheel_index] -1 );
+        factor_start += WHEEL_SIZE; // reached the end of the wheel, so we need to wrap around to the next repetition of the wheel
+        for(; wheelmask_bitpoint[wheel_index] < 0; wheel_index++);
+        return (factor_start + wheelmask_bitpoint[wheel_index] -1 );
+    }
+
+    // returns the factor (real number) at a given bit index in the bitstorage
+    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
+    getFactor(counter_t index) {
+        const counter_t wheel_index = index % wheelmask_stripe_bits;
+        const counter_t factor = (index / wheelmask_stripe_bits) * WHEEL_SIZE + wheelstripe[wheel_index];
+        return factor;
     }
 
     #define bitbucket_t uint64_t
@@ -314,7 +365,7 @@
             return wheelprimes[factor];
         }
         return checkFactor_wheelstorage_unsafe(sieve, factor);
-    }
+    }    
 
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     findUnmarked_wheelstorage(sieve_t *sieve, counter_t factor) 

@@ -81,21 +81,16 @@ export function buildMaskWriteOrder(wordStart, wordStop, stepWords, maskSlotBits
     return { targetWords, targetSlots };
   }
 
-  const hasPrimaryMask = (maskSlotBits[0] || []).length > 0;
-  const hasSecondaryMask = (maskSlotBits[1] || []).length > 0;
+  const slotCount = maskSlotBits.length;
+  const activeSlots = maskSlotBits.map((bits) => (bits || []).length > 0);
 
   for (let wordIndex = wordStart; wordIndex <= wordStop; wordIndex += stepWords) {
-    if (hasPrimaryMask) {
-      targetWords.push(wordIndex);
-      targetSlots.push(0);
-    }
-
-    if (hasSecondaryMask) {
-      const secondaryWord = wordIndex + 1;
-      if (secondaryWord <= wordStop) {
-        targetWords.push(secondaryWord);
-        targetSlots.push(1);
-      }
+    for (let s = 0; s < slotCount; s++) {
+      if (!activeSlots[s]) continue;
+      const targetWord = wordIndex + s;
+      if (targetWord > wordStop) break;
+      targetWords.push(targetWord);
+      targetSlots.push(s);
     }
   }
 
@@ -175,11 +170,15 @@ export function deriveMaskMeta(source, bitCountHint = 0) {
   const maskBits = parseIntegerList(firstDefined(sourceObj.mask_bits, sourceObj.maskBits));
   const mask1Bits = parseIntegerList(firstDefined(sourceObj.mask1_bits, sourceObj.mask1Bits));
   const mask2Bits = parseIntegerList(firstDefined(sourceObj.mask2_bits, sourceObj.mask2Bits));
+  const mask3Bits = parseIntegerList(firstDefined(sourceObj.mask3_bits, sourceObj.mask3Bits));
+  const mask4Bits = parseIntegerList(firstDefined(sourceObj.mask4_bits, sourceObj.mask4Bits));
 
   const maskSlotBits = [];
-  if (mask1Bits.length > 0 || mask2Bits.length > 0) {
+  if (mask1Bits.length > 0 || mask2Bits.length > 0 || mask3Bits.length > 0 || mask4Bits.length > 0) {
     maskSlotBits[0] = mask1Bits;
     maskSlotBits[1] = mask2Bits;
+    if (mask3Bits.length > 0) maskSlotBits[2] = mask3Bits;
+    if (mask4Bits.length > 0) maskSlotBits[3] = mask4Bits;
   } else if (maskBits.length > 0) {
     maskSlotBits[0] = maskBits;
   }
@@ -218,8 +217,10 @@ export function deriveMaskMeta(source, bitCountHint = 0) {
   if (wordBits != null && wordStart != null && wordStop != null && stepWords != null) {
     const maskDescriptors = [];
     if (maskBits.length > 0) maskDescriptors.push({ wordOffset: 0, bits: maskBits });
-    if (mask1Bits.length > 0) maskDescriptors.push({ wordOffset: 0, bits: mask1Bits });
-    if (mask2Bits.length > 0) maskDescriptors.push({ wordOffset: 1, bits: mask2Bits });
+    for (let s = 0; s < maskSlotBits.length; s++) {
+      const slotBits = maskSlotBits[s] || [];
+      if (slotBits.length > 0) maskDescriptors.push({ wordOffset: s, bits: slotBits });
+    }
     if (maskDescriptors.length > 0) {
       const built = buildMaskTargets(wordStart, wordStop, stepWords, wordBits, maskDescriptors, bitCountHint);
       const writeOrder = buildMaskWriteOrder(wordStart, wordStop, stepWords, maskSlotBits);

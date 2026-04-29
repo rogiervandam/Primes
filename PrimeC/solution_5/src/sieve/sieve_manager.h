@@ -24,8 +24,8 @@ sieve_create(const counter_t size, const counter_t bits)
 {
     // allocate memory for the sieve and include all the memory voor the bitstorage, so we have only one malloc
     // make sure there is enought room to align the bitstorage on the cache line
-    const size_t bitstorage_bytesize = (64 + bits) >> 3; // shift >> 1 for not storing even and shift >>3 for bit to bytesize
-    const size_t alloc_size = sizeof(struct sieve_t) + bitstorage_bytesize + 10 * cache_line_bytes; // add 2 * cache_line_bytes to make sure we can align the bitstorage
+    const size_t bitstorage_bytesize = (64 + bits) >> 3; // shift >>3 for bit to bytesize
+    const size_t alloc_size = sizeof(struct sieve_t) + bitstorage_bytesize + 1 * cache_line_bytes; // add 2 * cache_line_bytes to make sure we can align the bitstorage
     sieve_t* sieve = malloc(alloc_size);
     if (!sieve) { verbose1( perror("Allocation of sieve failed"); exit(EXIT_FAILURE); ) }
 
@@ -36,7 +36,8 @@ sieve_create(const counter_t size, const counter_t bits)
     sieve->bits       = bits;
     sieve->size       = size;
 
-    verbose7 ( printf("Allocated sieve with size %ju bits (%zu bytes) at address %p (bitstorage aligned to %p)\n", (uintmax_t)bits, bitstorage_bytesize, (void*)sieve, (void*)sieve->bitstorage); )
+    log5("Allocation: Allocated sieve of %ju bytes, bitstorage with %ju bits (aligned range 0-%ju bits (%ju bytes), %ju buts for alignment)\n", 
+        (uintmax_t)alloc_size, (uintmax_t)bits, (uintmax_t)(alloc_size - sizeof(struct sieve_t))*8, (uintmax_t)bitstorage_bytesize, (uintmax_t)(aligned_address - raw_address)*8);
 
     return sieve;
 }

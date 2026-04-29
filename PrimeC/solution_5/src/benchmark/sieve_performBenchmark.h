@@ -5,9 +5,9 @@
 // outputs results in a format that can be parsed by the benchmarking system
 
 static int 
-performBenchmarks(options_t option, sieve_t* (*sieveFunction)(const counter_t))
+performBenchmarks(options_t option, sieve_t* (*sieveFunction)(const counter_t), const char* algorithm_name, const char* algorithm_type)
 {
-    if (option.explain_level || option.trace_level) return runSingleSievePass(option.fixed_benchmark_settings, sieveFunction);
+    if (option.explain_level || option.trace_level) return runSingleSievePass(option.fixed_benchmark_settings, sieveFunction, algorithm_name, algorithm_type);
 
     #ifdef COMPILE_BENCHMARK_STRIPERS
     if (option.tunelevel == 5) return benchmarkSieveSetBitsTrue();
