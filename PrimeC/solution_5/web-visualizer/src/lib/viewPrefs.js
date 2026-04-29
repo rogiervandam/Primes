@@ -215,6 +215,14 @@ function initialControlsHidden(prefs) {
   return prefs?.controlsHidden === true;
 }
 
+function initialPanelVisibility(prefs) {
+  return {
+    stepsPanelCollapsed: prefs?.stepsPanelCollapsed !== false, // default: collapsed
+    settingsCollapsed: prefs?.settingsCollapsed !== false,     // default: collapsed
+    detailOpen: prefs?.detailOpen === true,                    // default: closed
+  };
+}
+
 /**
  * Read prefs once and resolve every piece of persisted UI state into a flat
  * bundle. Use this from a single `useMemo(() => getInitialViewState(), [])`
@@ -240,5 +248,6 @@ export function getInitialViewState() {
     maxStepDurationMs: initialMaxStepDurationMs(prefs),
     gridOpacity: initialGridOpacity(prefs),
     controlsHidden: initialControlsHidden(prefs),
+    ...initialPanelVisibility(prefs),
   };
 }

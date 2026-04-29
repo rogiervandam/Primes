@@ -62,3 +62,25 @@ export const EyeOff = (p) => (
     <line x1="1" y1="1" x2="23" y2="23" />
   </>} />
 );
+// Panel layout icons — used for the toolbar panel-toggle group
+// Left sidebar panel (Steps / Events)
+export const PanelLeft = (p) => (
+  <I {...p} d={<>
+    <rect x="3" y="3" width="18" height="18" rx="2" strokeWidth="1.8" />
+    <line x1="9" y1="3" x2="9" y2="21" strokeWidth="1.8" />
+  </>} />
+);
+// Bottom panel (Detail / bit-analysis)
+export const PanelBottom = (p) => (
+  <I {...p} d={<>
+    <rect x="3" y="3" width="18" height="18" rx="2" strokeWidth="1.8" />
+    <line x1="3" y1="15" x2="21" y2="15" strokeWidth="1.8" />
+  </>} />
+);
+// Right sidebar panel (Settings)
+export const PanelRight = (p) => (
+  <I {...p} d={<>
+    <rect x="3" y="3" width="18" height="18" rx="2" strokeWidth="1.8" />
+    <line x1="15" y1="3" x2="15" y2="21" strokeWidth="1.8" />
+  </>} />
+);

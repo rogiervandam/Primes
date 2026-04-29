@@ -86,11 +86,11 @@ export default function Visualizer({
   const [panelWidth, setPanelWidth] = useState(320);
   const [theme, setTheme] = useState(initialPrefs.theme);
   const [showTraceInfo, setShowTraceInfo] = useState(false);
-  const [settingsCollapsed, setSettingsCollapsed] = useState(true);
+  const [settingsCollapsed, setSettingsCollapsed] = useState(initialPrefs.settingsCollapsed);
   const [layoutSettings, setLayoutSettings] = useState(initialPrefs.layoutSettings);
   const [eventTitleSettings, setEventTitleSettings] = useState(initialPrefs.eventTitleSettings);
   const [depthSettings, setDepthSettings] = useState(initialPrefs.depthSettings);
-  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(initialPrefs.detailOpen);
   // Two distinct delays. Both default to 500 ms but are independently adjustable.
   // - delayBetweenEvents: pause after one event finishes before the all-events
   //   widget advances to the next event (only honored while `playing`).
@@ -209,7 +209,7 @@ export default function Visualizer({
   const [multiplesOverlayPrime, setMultiplesOverlayPrime] = useState(3);
   const [cachelineSize, setCachelineSize] = useState(64);
   const [cachePreset, setCachePreset] = useState('fixed');
-  const [stepsPanelCollapsed, setStepsPanelCollapsed] = useState(true);
+  const [stepsPanelCollapsed, setStepsPanelCollapsed] = useState(initialPrefs.stepsPanelCollapsed);
   // Bumped whenever the user explicitly asks to "reveal" the current event in
   // the events panel (e.g. via the locate button on the event-title widget).
   // StepPanel watches this counter to clear filters and expand parents so the
@@ -676,8 +676,11 @@ export default function Visualizer({
       delayBetweenRepeats,
       eventTimeTargets,
       controlsHidden,
+      stepsPanelCollapsed,
+      settingsCollapsed,
+      detailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, controlsHidden]);
+  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, controlsHidden, stepsPanelCollapsed, settingsCollapsed, detailOpen]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -3903,6 +3906,12 @@ export default function Visualizer({
         setTheme={setTheme}
         controlsHidden={controlsHidden}
         toggleControlsHidden={toggleControlsHidden}
+        stepsPanelCollapsed={stepsPanelCollapsed}
+        toggleStepsPanel={toggleStepsPanel}
+        detailOpen={detailOpen}
+        toggleDetailPanel={toggleDetailPanel}
+        settingsCollapsed={settingsCollapsed}
+        toggleSettingsPanel={toggleSettingsPanel}
       />
 
       {exporting && <ExportProgress progress={exportProgress} />}

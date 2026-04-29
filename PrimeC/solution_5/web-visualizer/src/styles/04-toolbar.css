@@ -218,3 +218,28 @@
 .toolbar--controls-hidden {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
+
+/* ---- Panel toggle group — VS Code-style panel buttons ---- */
+.panel-toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  margin-left: 6px;
+  padding: 2px 3px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-raised) 60%, transparent);
+  border: 1px solid var(--border);
+}
+.panel-toggle-btn {
+  opacity: 0.45;
+  transition: opacity 0.15s ease-out, color 0.15s ease-out, background 0.15s ease-out;
+  border-radius: 4px !important;
+}
+.panel-toggle-btn:hover {
+  opacity: 1;
+}
+.panel-toggle-btn.active {
+  opacity: 1;
+  color: var(--accent);
+  background: var(--accent-bg) !important;
+}

@@ -2,6 +2,7 @@ import React from 'react';
 import {
   SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
   ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Eye, EyeOff,
+  PanelLeft, PanelBottom, PanelRight,
 } from '../Icons';
 import TraceInfoPopover from './TraceInfoPopover';
 
@@ -61,6 +62,13 @@ export default function Toolbar({
   setPrimeOverlayEnabled,
   timingPanelOpen,
   setTimingPanelOpen,
+  // panel collapse/expand
+  stepsPanelCollapsed,
+  toggleStepsPanel,
+  detailOpen,
+  toggleDetailPanel,
+  settingsCollapsed,
+  toggleSettingsPanel,
   // export
   exportPng,
   exportVideo,
@@ -114,6 +122,29 @@ export default function Toolbar({
         >
           {controlsHidden ? <Eye /> : <EyeOff />}
         </button>
+        <div className="panel-toggle-group">
+          <button
+            className={`btn-icon panel-toggle-btn${!stepsPanelCollapsed ? ' active' : ''}`}
+            onClick={toggleStepsPanel}
+            title={stepsPanelCollapsed ? 'Show Events panel' : 'Hide Events panel'}
+          >
+            <PanelLeft size={15} />
+          </button>
+          <button
+            className={`btn-icon panel-toggle-btn${detailOpen ? ' active' : ''}`}
+            onClick={toggleDetailPanel}
+            title={detailOpen ? 'Hide Detail panel' : 'Show Detail panel'}
+          >
+            <PanelBottom size={15} />
+          </button>
+          <button
+            className={`btn-icon panel-toggle-btn${!settingsCollapsed ? ' active' : ''}`}
+            onClick={toggleSettingsPanel}
+            title={settingsCollapsed ? 'Show Settings panel' : 'Hide Settings panel'}
+          >
+            <PanelRight size={15} />
+          </button>
+        </div>
       </div>
       {!controlsHidden && (
       <div className="toolbar-center">
