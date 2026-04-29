@@ -1888,7 +1888,7 @@ export class SieveRenderer {
     ctx.arc(Math.round(bitX + px) - dotR * 0.75, Math.round(bitY) + dotR * 0.75, dotR, 0, Math.PI * 2);
     ctx.fill();
     // Gold border at moderate zoom
-    if (px >= 4) {
+    if (px >= 4 && !f.skipBitFill) {
       ctx.strokeStyle = 'rgba(251,191,36,0.68)';
       ctx.lineWidth = Math.max(0.35, Math.min(1.3, px * 0.075));
       ctx.setLineDash([]);
@@ -1922,7 +1922,7 @@ export class SieveRenderer {
     ctx.beginPath();
     ctx.arc(Math.round(bitX) + dotR2 * 0.75, Math.round(bitY) + dotR2 * 0.75, dotR2, 0, Math.PI * 2);
     ctx.fill();
-    if (px >= 4) {
+    if (px >= 4 && !f.skipBitFill) {
       ctx.strokeStyle = 'rgba(34,211,238,0.60)';
       ctx.lineWidth = Math.max(0.35, Math.min(1.3, px * 0.07));
       ctx.setLineDash([]);
@@ -1957,7 +1957,7 @@ export class SieveRenderer {
     ctx.beginPath();
     ctx.arc(Math.round(bitX + px) - dotR3 * 0.75, Math.round(bitY + px) - dotR3 * 0.75, dotR3, 0, Math.PI * 2);
     ctx.fill();
-    if (px >= 4) {
+    if (px >= 4 && !f.skipBitFill) {
       ctx.strokeStyle = 'rgba(167,139,250,0.88)';
       ctx.lineWidth = Math.max(1.0, Math.min(2.5, px * 0.14));
       ctx.setLineDash([]);

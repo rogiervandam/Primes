@@ -1,21 +1,21 @@
 /**
- * BitGridGL parity harness — see docs/AI_MAINTENANCE.md §8 item 5.
+ * BitGridGLWorker parity harness — see docs/AI_MAINTENANCE.md §8 item 5.
  *
  * Pins the GL renderer's contract: given identical positions + state +
- * colours, BitGridGL output must match a small Canvas2D reference that
- * does the same uniform-grid `fillRect`-per-bit + overlay composite.
+ * colours, BitGridGLWorker output must match a small Canvas2D reference that
+ * does the same uniform-grid `fillRect`-per-bit + overlay composite +
+ * border strips.
  *
  * This harness deliberately does NOT drive the full `SieveRenderer` —
- * GL only covers the base bit pass + four cell-fill overlays, and most
- * of `SieveRenderer.render()` is features that intentionally stay
- * Canvas2D-on-top (labels, outlines, lowered-3D, minimap, …). Testing
- * those would be a parity test against features GL has never claimed
- * to implement. The reference here mirrors only what GL actually does.
+ * GL only covers the base bit pass + four cell-fill overlays + borders, and
+ * most of `SieveRenderer.render()` is features that intentionally stay
+ * Canvas2D-on-top (dots, labels, lowered-3D, minimap, …). Testing those
+ * would be a parity test against features GL has never claimed to implement.
+ * The reference here mirrors only what GL actually does.
  *
  * Invoked from `parity.html`. Dev-only; not bundled into the app.
  */
 
-import { BitGridGL } from '../renderer/gl/BitGridGL.js';
 import { BitGridGLWorker, isWorkerGLSupported } from '../renderer/gl/BitGridGLWorker.js';
 
 // Match the Canvas2D source-of-truth tints from
@@ -39,7 +39,6 @@ const els = {
   cell:    document.getElementById('cell'),
   dpr:     document.getElementById('dpr'),
   overlays:document.getElementById('overlays'),
-  mode:    document.getElementById('mode'),
   run:     document.getElementById('run'),
   ref:     document.getElementById('ref'),
   gl:      document.getElementById('gl'),
@@ -169,7 +168,59 @@ function renderRef(scene, ctx, dpr, withOverlays) {
     ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
     ctx.fillRect(x, y, w, h);
   }
+
+  // Border pass — mirrors the GL shader's UV-based border rendering.
+  // Priority matches shader: prime first, range second, multiples third
+  // (last writer wins). Only drawn when cellSize >= 4, same as GL.
+  // Multiples are disabled here (scene.multiplesPrime === -1 via
+  // refWithoutMultiples) to match the GL host's multiplesOverlay=false.
+  if (withOverlays && scene.cellSize >= 4) {
+    for (let i = 0; i < scene.bitState.length; i++) {
+      const cx = scene.positions[i * 2];
+      const cy = scene.positions[i * 2 + 1];
+      const x = Math.round(cx - scene.cellSize / 2);
+      const y = Math.round(cy - scene.cellSize / 2);
+      const w = Math.round(cx + scene.cellSize / 2) - x;
+      const h = Math.round(cy + scene.cellSize / 2) - y;
+
+      const isPrime = !!scene.primeFlags[i];
+      const isRange = i >= scene.rangeStart && i <= scene.rangeStop;
+      const isMult  = scene.multiplesPrime >= 2 && i >= 2 && i % scene.multiplesPrime === 0;
+
+      if (isPrime) {
+        const bw = Math.max(0.35, Math.min(1.3, scene.cellSize * 0.075));
+        _fillBorderStrips(ctx, x, y, w, h, bw, `rgba(251,191,36,0.68)`);
+      }
+      if (isRange) {
+        const bw = Math.max(0.35, Math.min(1.3, scene.cellSize * 0.07));
+        _fillBorderStrips(ctx, x, y, w, h, bw, `rgba(34,211,238,0.60)`);
+      }
+      if (isMult) {
+        const bw = Math.max(1.0, Math.min(2.5, scene.cellSize * 0.14));
+        _fillBorderStrips(ctx, x, y, w, h, bw, `rgba(167,139,250,0.88)`);
+      }
+    }
+  }
   ctx.restore();
+}
+
+/**
+ * Draw a hollow border inside `(x, y, w, h)` as four fillRect strips.
+ * Corners are covered by the top/bottom strips; left/right strips fill
+ * only the middle rows to avoid double-compositing corners — this
+ * exactly mirrors the GL shader's `min(min(uv.x,1-uv.x),min(uv.y,1-uv.y))`
+ * edge detection where each fragment is coloured at most once.
+ */
+function _fillBorderStrips(ctx, x, y, w, h, bw, color) {
+  ctx.fillStyle = color;
+  // Top
+  ctx.fillRect(x, y, w, bw);
+  // Bottom
+  ctx.fillRect(x, y + h - bw, w, bw);
+  // Left (middle — no corners)
+  ctx.fillRect(x, y + bw, bw, h - 2 * bw);
+  // Right (middle — no corners)
+  ctx.fillRect(x + w - bw, y + bw, bw, h - 2 * bw);
 }
 
 /** Build the fake host object consumed by uploadPositions / uploadState. */
@@ -199,66 +250,16 @@ function buildFakeHost(scene, withOverlays) {
   return host;
 }
 
-/** Drive BitGridGL (direct mode) with a fake host. */
-function runGL(scene, glCanvas, dpr, withOverlays) {
-  // Set the backing-store size BEFORE attach so the WebGL2 context picks
-  // it up. We bypass `gl.resize()` because that uses
-  // `window.devicePixelRatio`, but the harness wants an explicit DPR.
-  glCanvas.width  = Math.round(scene.cssW * dpr);
-  glCanvas.height = Math.round(scene.cssH * dpr);
-  glCanvas.style.width  = `${scene.cssW}px`;
-  glCanvas.style.height = `${scene.cssH}px`;
-
-  const gl = new BitGridGL();
-  if (!gl.attach(glCanvas)) {
-    return { ok: false, error: 'WebGL2 unavailable' };
-  }
-  gl.resizeForBitCount(scene.bitState.length);
-
-  // Fake host. Properties consumed by uploadPositions / uploadState:
-  const host = buildFakeHost(scene, withOverlays);
-
-  // We need uploadState's multiples loop to mark the SAME bits the
-  // reference marked. The reference uses `i` directly; the production
-  // path uses `bitToNumber(i, storageModel)`. To keep the harness
-  // honest, override the multiples flag set in JS by using a custom
-  // _primeBitFlags-style mask injected via the rangeOverlay path —
-  // but that conflates with range. Cleaner: just patch storageModel
-  // so bitToNumber(i, sm) === i. The `'half'` model maps bit i → 2i+1
-  // for i>0; we'd need an identity. None exists in production code.
-  //
-  // Simpler: patch `multiplesOverlay = false` in GL and apply the
-  // SAME synthetic multiples mask via a temporary range overlay…
-  // also conflates. Cleanest: skip multiples in this parity test and
-  // assert only focus/prime/range overlays. The shader codepath for
-  // multiples is identical in shape to range, so this still pins the
-  // composite math.
-  host.multiplesOverlay = false;
-
-  gl.uploadPositions(host, 'harness');
-  gl.uploadState(host);
-
-  gl.render({
-    panX: 0, panY: 0,
-    cellSize: scene.cellSize,
-    bgColor: BG,
-    setColor: SET,
-    clearedColor: CLEARED,
-    changedColor: CHANGED,
-    repeatedColor: REPEATED,
-    baseAlpha: 1,
-  });
-
-  return { ok: true, gl };
-}
-
-/** Same multiples-overlay disable for the reference, to keep it apples-to-apples. */
+/** Disable multiples in the reference scene so it matches the GL host's
+ *  multiplesOverlay=false — bitToNumber(i, sm) ≠ i so a fair comparison
+ *  would require a matching storageModel identity, which doesn't exist.
+ *  Focus / prime / range still exercise the same shader composite path.
+ */
 function refWithoutMultiples(scene) {
   return { ...scene, multiplesPrime: -1 };
 }
 
-/**
- * Drive BitGridGLWorker and capture a frame as an ImageBitmap.
+/** Drive BitGridGLWorker and capture a frame as an ImageBitmap.
  *
  * Uses a detached HTMLCanvasElement (not in the DOM) so `els.gl` can
  * stay a plain 2D canvas for display. After the worker renders, the
@@ -370,11 +371,10 @@ async function run() {
   const cellSize = Math.max(2, Math.min(64, Number(els.cell.value) | 0));
   const dpr = Math.max(1, Math.min(3, Number(els.dpr.value) || 1));
   const withOverlays = els.overlays.checked;
-  const rendererMode = els.mode ? els.mode.value : 'direct';
 
   const scene = buildScene(bitCount, cellSize);
 
-  // Sync reference + diff canvas sizes; the GL panel is sized per-path below.
+  // Sync reference + diff canvas sizes; the GL panel is sized inside runGLWorker.
   for (const c of [els.ref, els.diff]) {
     c.width = Math.round(scene.cssW * dpr);
     c.height = Math.round(scene.cssH * dpr);
@@ -386,28 +386,13 @@ async function run() {
   // with the GL host (storageModel-mapped multiples don't equal `i % k`).
   renderRef(refWithoutMultiples(scene), els.ref.getContext('2d'), dpr, withOverlays);
 
-  // Label the GL panel with the active backend.
-  if (els.glLabel) {
-    els.glLabel.textContent =
-      rendererMode === 'worker' ? 'BitGridGLWorker output' : 'BitGridGL output';
-  }
-
+  els.out.textContent = 'running worker…';
   let glRes;
-  if (rendererMode === 'worker') {
-    els.out.textContent = 'running worker…';
-    try {
-      glRes = await runGLWorker(scene, els.gl, dpr, withOverlays);
-    } catch (err) {
-      els.out.innerHTML = `<span class="err">Worker error: ${err.message}</span>`;
-      return;
-    }
-  } else {
-    // Direct mode: size els.gl backing-store first (BitGridGL bypasses resize()).
-    els.gl.width = Math.round(scene.cssW * dpr);
-    els.gl.height = Math.round(scene.cssH * dpr);
-    els.gl.style.width  = `${scene.cssW}px`;
-    els.gl.style.height = `${scene.cssH}px`;
-    glRes = runGL(scene, els.gl, dpr, withOverlays);
+  try {
+    glRes = await runGLWorker(scene, els.gl, dpr, withOverlays);
+  } catch (err) {
+    els.out.innerHTML = `<span class="err">Worker error: ${err.message}</span>`;
+    return;
   }
 
   if (!glRes.ok) {
@@ -427,11 +412,8 @@ async function run() {
     r.bigMismatches < r.n * 0.001 ? '<span class="warn">⚠ minor edge artefacts</span>' :
                             '<span class="err">✗ divergence</span>';
 
-  const backend = rendererMode === 'worker'
-    ? 'BitGridGLWorker (worker path)'
-    : 'BitGridGL (direct mode)';
   els.out.innerHTML = [
-    `renderer       : ${backend}`,
+    `renderer       : BitGridGLWorker (worker path)`,
     `bits           : ${bitCount}`,
     `grid           : ${scene.cols} × ${scene.rows} (cell ${cellSize}px, dpr ${dpr})`,
     `pixels         : ${r.n.toLocaleString()}`,
@@ -444,11 +426,10 @@ async function run() {
     ``,
     `note: multiples overlay omitted (host uses bitToNumber(i, sm),`,
     `      reference uses i; tested via range/focus/prime which exercise`,
-    `      the same shader composite path).`,
+    `      the same shader composite path + border rendering).`,
   ].join('\n');
 
   if (glRes.glWorker) glRes.glWorker.dispose();
-  if (glRes.gl) glRes.gl.dispose();
 }
 
 const doRun = () => run().catch(err => { els.out.innerHTML = `<span class="err">${err.message}</span>`; });

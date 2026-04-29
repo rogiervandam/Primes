@@ -43,9 +43,11 @@ uniform ivec2 u_texSize;
 uniform int u_bitCount;
 
 flat out uint v_state;
+out vec2 v_uv;                 // [0,1]×[0,1] within the cell; used by FS for border detection
 
 void main() {
   int bit = gl_InstanceID;
+  v_uv = a_corner + 0.5;
   if (bit >= u_bitCount) {
     gl_Position = vec4(2.0, 2.0, 0.0, 1.0); // off-screen
     return;
@@ -74,8 +76,10 @@ uniform vec3 u_changedColor;
 uniform vec3 u_repeatedColor;
 uniform vec3 u_bgColor;
 uniform float u_baseAlpha;
+uniform float u_cellSize;      // CSS px cell size; used for border-width fractions
 
 flat in uint v_state;
+in vec2 v_uv;                  // [0,1]×[0,1] within cell (from VS)
 out vec4 outColor;
 
 const vec4 FOCUS_TINT = vec4(96.0/255.0, 165.0/255.0, 250.0/255.0, 0.16);
@@ -116,6 +120,37 @@ void main() {
   if (isPrime) composed = overlay(composed, PRIME_TINT);
   if (isRange) composed = overlay(composed, RANGE_TINT);
   if (isMult)  composed = overlay(composed, MULT_TINT);
+
+  // Border rendering -- mirrors Canvas2D strokeRect logic in
+  // _drawBitPrimeOverlay / _drawBitRangeOverlay / _drawBitMultiplesOverlay.
+  // Only drawn when cellSize >= 4 px (matching the "if (px >= 4)" guards).
+  // Priority: prime first, range second, multiples third (last writer wins,
+  // matching the draw order in SieveRenderer). Each overlay strokeRect is
+  // now handled here so SieveRenderer skips it when skipBitFill is true.
+  if (u_cellSize >= 4.0) {
+    // Distance to nearest cell edge in [0, 0.5]; 0 = on edge, 0.5 = centre.
+    float edge = min(min(v_uv.x, 1.0 - v_uv.x), min(v_uv.y, 1.0 - v_uv.y));
+
+    if (isPrime) {
+      // lineWidth: clamp(px*0.075, 0.35, 1.3)  alpha: 0.68
+      float bwFrac = clamp(u_cellSize * 0.075, 0.35, 1.3) / u_cellSize;
+      if (edge < bwFrac)
+        composed = mix(composed, vec3(251.0/255.0, 191.0/255.0, 36.0/255.0), 0.68);
+    }
+    if (isRange) {
+      // lineWidth: clamp(px*0.07, 0.35, 1.3)  alpha: 0.60
+      float bwFrac = clamp(u_cellSize * 0.07, 0.35, 1.3) / u_cellSize;
+      if (edge < bwFrac)
+        composed = mix(composed, vec3(34.0/255.0, 211.0/255.0, 238.0/255.0), 0.60);
+    }
+    if (isMult) {
+      // lineWidth: clamp(px*0.14, 1.0, 2.5)  alpha: 0.88
+      float bwFrac = clamp(u_cellSize * 0.14, 1.0, 2.5) / u_cellSize;
+      if (edge < bwFrac)
+        composed = mix(composed, vec3(167.0/255.0, 139.0/255.0, 250.0/255.0), 0.88);
+    }
+  }
+
   outColor = vec4(composed, 1.0);
 }`;
 

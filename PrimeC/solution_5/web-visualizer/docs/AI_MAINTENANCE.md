@@ -664,6 +664,24 @@ ones:
 
 No open structural refactor items remain from previous rounds.
 
+- ✅ **Removed `BitGridGL.js` (direct mode) and ported overlay borders to GL**
+  (WebGL backlog items 3 and 4 below).
+  - `BitGridGL.js` deleted; the parity harness `parity.html` Renderer
+    dropdown removed; `parityHarness.js` updated to worker-only path.
+  - `bitGridGLCore.js` vertex shader now outputs `v_uv = a_corner + 0.5`
+    ([0,1]×[0,1] cell UV). Fragment shader declares `uniform float u_cellSize`
+    and `in vec2 v_uv`; computes `edge = min(min(uv.x,1-uv.x), min(uv.y,1-uv.y))`
+    and composites prime / range / multiples border colours at the same
+    `clamp(px*k, min, max) / px` fractions as Canvas2D, only when `u_cellSize >= 4`.
+    No new texture or state-byte bits required (reuses existing bits 4/5/6).
+  - `SieveRenderer._drawBitPrimeOverlay`, `_drawBitRangeOverlay`,
+    `_drawBitMultiplesOverlay`: `strokeRect` blocks now guarded with
+    `&& !f.skipBitFill` so they're skipped when GL is active.
+  - `parityHarness.js` Canvas2D reference `renderRef()` extended with a
+    border-strip pass that mirrors the GL shader logic (four `fillRect`
+    edge strips per overlay member per bit), so parity comparison
+    remains valid.
+
 ### WebGL-worker deepening + Canvas2D removal backlog
 
 Now that the renderer is locked to `gl-worker`, the path is clear to
@@ -688,45 +706,50 @@ cell-fill code entirely. Work these in dependency order:
    (backwards-compatible; production callers omit it).
 
 2. **Update the parity harness to exercise `BitGridGLWorker`.** ✅ DONE.
-   `parity.html` now has a Renderer dropdown (direct / worker). The harness
-   `run()` function is now `async`. Worker mode: a detached `HTMLCanvasElement`
-   (not in the DOM) is passed to `BitGridGLWorker.attach()`; after
-   `render()`, `BitGridGLWorker.capture()` sends a `{ type: 'capture', id }`
-   round-trip to the worker, which calls `gl.flush()` +
-   `OffscreenCanvas.transferToImageBitmap()` and posts back the
-   `ImageBitmap` as a transferable. The bitmap is drawn onto `els.gl`
-   (a plain 2D canvas) for display and pixel comparison.
-   `BitGridGLWorker.js` gained a `capture(callback)` method and the
-   `_captureCallbacks` / `_captureSeq` bookkeeping to resolve the Promise.
-   The fake-host construction was extracted into a shared `buildFakeHost()`
-   helper so direct and worker paths use identical inputs.
+   `parity.html` formerly had a Renderer dropdown (direct / worker).
+   Dropdown removed in item 3 below; harness is now worker-only.
+   See item 3 for full history.
 
-3. **Remove `BitGridGL.js` (direct mode).** Blocked on item 2 above.
-   Once the parity harness no longer imports it, the file can be
-   deleted. Also remove the `BitGridGL`-specific `webglcontextlost` /
-   `webglcontextrestored` code and the `_core` / direct-attach path in
-   `hostStatePacker`.
+3. **Remove `BitGridGL.js` (direct mode).** ✅ DONE.
+   `BitGridGL.js` deleted. Renderer dropdown removed from `parity.html`.
+   `parityHarness.js` updated: `BitGridGL` import and `runGL()` function
+   removed; `run()` is now unconditionally the worker path. The Canvas2D
+   reference in `renderRef()` was extended to draw border strips matching
+   the new GL shader border pass (item 4), so parity comparison stays
+   valid. `refWithoutMultiples()` retained (still needed to match the
+   `multiplesOverlay=false` GL host). `hostStatePacker.js` had no
+   `BitGridGL`-specific code to remove.
 
-4. **Port overlays to GL.** The Canvas2D layer above the GL canvas still
-   paints all non-fill visuals. The following are candidates to move
-   into the GL shader or into new overlay shaders, ranked by isolation
-   and payoff:
-   - **Target outline + focus-range stroke** — one `strokeRect` per
-     focused bit today; could become a second instanced draw pass
-     with a separate `outlineTex` flag.
-   - **Prime / range / multiples dots + `p`/`r` text labels** — text
-     labels must stay Canvas2D; the dot tints are already in the
-     GL shader as fill-colour variants (items 2/3 of the original
-     §8 open work); only the small circular dots above the cells
-     remain Canvas2D.
-   - **Cacheline outline + heat-tint overlay** — block-level; a
-     second full-screen rect pass keyed to cacheline index would
-     replace the current per-cacheline `strokeRect` loop.
+4. **Port overlay borders to GL.** ✅ DONE (border stroke pass).
+   The `strokeRect` borders for prime / range / multiples overlays are
+   now rendered inside the GL fragment shader using UV coordinates:
+   - `bitGridGLCore.js` VS: outputs `v_uv = a_corner + 0.5` ([0,1] cell
+     UV) alongside the existing `v_state`.
+   - `bitGridGLCore.js` FS: reads `v_uv` + `u_cellSize` (already a
+     uniform in VS, now also declared in FS). Computes
+     `edge = min(min(uv.x, 1-uv.x), min(uv.y, 1-uv.y))` and composites
+     prime / range / multiples border colours at the same
+     `clamp(px*k, min, max) / px` fractions and alphas as the Canvas2D
+     paths, but only when `u_cellSize >= 4.0` (matches `if (px >= 4)`
+     guards). No new texture or state-byte bits required.
+   - `SieveRenderer.js`: the `strokeRect` blocks inside
+     `_drawBitPrimeOverlay`, `_drawBitRangeOverlay`, and
+     `_drawBitMultiplesOverlay` are now guarded with `&& !f.skipBitFill`
+     so Canvas2D skips them when the GL worker is active.
+   - **Still Canvas2D:** dot indicators (arc/circle), text labels
+     (`p` / `r` / `×`), target-bit outline (`_drawBitTargetOutline` —
+     needs an extra state bit or separate texture; deferred), ghost-mask
+     highlight, motion trails, search highlight, cacheline outline.
+   Remaining overlay candidates (in dependency order):
+   - **Target outline + focus-range stroke** — needs an extra flag (all
+     8 state bits are used); approach: expand stateTex to R16UI or add
+     a second 1-bit-per-bit `outlineTex`.
+   - **Prime / range / multiples dots** — small Canvas2D `arc()` per
+     overlay member; low cost, can port if labels are needed anyway.
+   - **Cacheline outline + heat-tint overlay** — block-level rects;
+     a second full-screen pass keyed to cacheline index.
    - **Ghost-mask highlights, motion trails, search highlight** —
-     low priority; these are sparse and fast in Canvas2D.
-   - **Bit / byte / vector labels** — must stay Canvas2D (text
-     rendering; no benefit from porting).
-   - **Minimap** — must stay Canvas2D (separate `<canvas>` element).
+     low priority; sparse, fast in Canvas2D.
 
 5. **Port lowered-3D shading to GL.** When `loweredSetBits` is on,
    the Canvas2D bit-fill takes over today (`skipBitFill = false`).
@@ -755,12 +778,15 @@ cell-fill code entirely. Work these in dependency order:
    `_drawBitRangeOverlay`, `_drawBitMultiplesOverlay`. After removal,
    the `skipBitFill` field on `SieveRenderer` and the gating in
    `_buildFrameContext()` can be deleted.
+   Note: the `strokeRect` calls in those three methods are now gated
+   with `!f.skipBitFill` (moved to GL shader in §7 item 4).
 
 8. **Decide the no-OffscreenCanvas fallback.** Currently, if the browser
    lacks `OffscreenCanvas`, `BitGridGLWorker.attach()` returns `false`
    and Canvas2D silently handles everything. Once Canvas2D cell-fill is
    removed (item 7), this silent fallback disappears. Options:
-   (a) keep `BitGridGL.js` as a last-resort direct-mode fallback;
+   (a) ~~keep `BitGridGL.js` as a last-resort direct-mode fallback~~ —
+   `BitGridGL.js` was deleted in §7 item 3; not recommended.
    (b) show a banner noting the browser is too old and degrade gracefully;
    (c) raise the minimum browser baseline to OffscreenCanvas (all
    evergreen browsers since ~2019 support it). Decide before item 7.
@@ -931,7 +957,8 @@ cell-fill code entirely. Work these in dependency order:
    lacks `OffscreenCanvas`, `BitGridGLWorker.attach()` returns `false`
    and Canvas2D silently handles everything. Once Canvas2D cell-fill is
    removed (item 7), this silent fallback disappears. Options:
-   (a) keep `BitGridGL.js` as a last-resort direct-mode fallback;
+   (a) ~~keep `BitGridGL.js` as a last-resort direct-mode fallback~~ —
+   `BitGridGL.js` was deleted in §7 item 3; not recommended.
    (b) show a banner noting the browser is too old and degrade gracefully;
    (c) raise the minimum browser baseline to OffscreenCanvas (all
    evergreen browsers since ~2019 support it). Decide before item 7.
