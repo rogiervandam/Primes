@@ -363,8 +363,197 @@ export default function LayoutTab({
 
     return (
       <>
+        <div className="settings-section">
+        <label>Annotations</label>
+        <div className="anno-btn-grid">
+          <AnnotationButton
+            title="Number"
+            hint="Represented numbers in squares"
+            active={!!s.showNumberLabels}
+            onClick={() => set('showNumberLabels', !s.showNumberLabels)}
+            preview={(
+              <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
+                <rect x="1" y="1" width="10" height="8" rx="1" />
+                <rect x="15" y="1" width="12" height="8" rx="1" />
+                <text x="2" y="16" fontSize="7">1 3 5</text>
+              </svg>
+            )}
+          />
+          <AnnotationButton
+            title="Bits"
+            hint={bitAnnotationHint}
+            active={!!s.showBitLabels}
+            onClick={cycleBitAnnotation}
+            preview={(
+              <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
+                <rect x="1" y="1" width="6" height="6" rx="1" />
+                <rect x="9" y="1" width="6" height="6" rx="1" />
+                <rect x="17" y="1" width="6" height="6" rx="1" />
+                <text x="2" y="16" fontSize="7">0 1 2</text>
+              </svg>
+            )}
+          />
+          <AnnotationButton
+            title="Bytes"
+            hint={byteAnnotationHint}
+            active={!!s.showByteLabels}
+            onClick={cycleByteAnnotation}
+            preview={(
+              <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
+                <rect x="1" y="1" width="18" height="8" rx="1" />
+                <rect x="23" y="1" width="18" height="8" rx="1" />
+                <text x="2" y="16" fontSize="7">b0    b1</text>
+              </svg>
+            )}
+          />
+          <AnnotationButton
+            title="Grouping"
+            hint={`Grouping and uint64 labels (${annotationGroupingLabel})`}
+            active={s.showVectorLabels !== false}
+            onClick={() => set('showVectorLabels', s.showVectorLabels === false)}
+            preview={(
+              <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
+                <rect x="1" y="4" width="42" height="8" rx="2" />
+                <line x1="15" y1="4" x2="15" y2="12" />
+                <line x1="29" y1="4" x2="29" y2="12" />
+                <text x="2" y="17" fontSize="7">v0  v1  v2</text>
+              </svg>
+            )}
+          />
+          <AnnotationButton
+            title="Touch order"
+            hint="Touch order above vectors"
+            active={!!s.showVectorTouchOrder}
+            onClick={() => set('showVectorTouchOrder', !(s.showVectorTouchOrder === true))}
+            preview={(
+              <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
+                <rect x="2" y="8" width="10" height="6" rx="1" />
+                <rect x="16" y="8" width="10" height="6" rx="1" />
+                <rect x="30" y="8" width="10" height="6" rx="1" />
+                <text x="5" y="6" fontSize="6">1</text>
+                <text x="16" y="6" fontSize="6">(2,6)</text>
+              </svg>
+            )}
+          />
+          <AnnotationButton
+            title={cachelineAnnotation === 'none' ? 'Cacheline hits' : `Cacheline: ${cachelineAnnotation}`}
+            hint={!heatMapEnabled ? 'Shows hits and last access' : CL_ANNOT_HINTS[cachelineAnnotation]}
+            active={heatMapEnabled && cachelineAnnotation !== 'none'}
+            onClick={cycleCLAnnotation}
+            preview={(
+              <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
+                <rect x="1" y="2" width="20" height="13" rx="1" fill="rgba(239,68,68,0.28)" stroke="currentColor" strokeWidth="0.5" />
+                <rect x="3" y="10" width="16" height="4" rx="1" fill="rgba(239,68,68,0.85)" />
+                <text x="4" y="13.5" fontSize="4.5" fill="#fff">×4 Δ3</text>
+                <rect x="23" y="2" width="20" height="13" rx="1" fill="rgba(59,130,246,0.28)" stroke="currentColor" strokeWidth="0.5" />
+                <rect x="25" y="10" width="16" height="4" rx="1" fill="rgba(59,130,246,0.85)" />
+                <text x="26" y="13.5" fontSize="4.5" fill="#fff">×1 Δ12</text>
+              </svg>
+            )}
+          />
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <label>Grouping outlines</label>
+        <div className="preview-btn-grid preview-btn-grid-3">
+          <PreviewOptionButton
+            compact
+            label="Byte"
+            hint="Thick dashed blue byte outlines"
+            active={(outline.targets || []).includes('byte')}
+            onClick={() => { const ts = outline.targets || []; const next = ts.includes('byte') ? ts.filter(t => t !== 'byte') : [...ts, 'byte']; onOutlineChange({ ...outline, targets: next }); }}
+            preview={(
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="9" y="5" width="10" height="12" rx="3" strokeDasharray="4 3" stroke="#3b82f6" strokeWidth="2" fill="none" />
+                <rect x="29" y="5" width="10" height="12" rx="3" strokeDasharray="4 3" stroke="#3b82f6" strokeWidth="2" fill="none" />
+              </svg>
+            )}
+          />
+          <PreviewOptionButton
+            compact
+            label="Grouping"
+            hint="Thin dashed blue grouping outlines"
+            active={(outline.targets || []).includes('vector')}
+            onClick={() => { const ts = outline.targets || []; const next = ts.includes('vector') ? ts.filter(t => t !== 'vector') : [...ts, 'vector']; onOutlineChange({ ...outline, targets: next }); }}
+            preview={(
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="4" y="4" width="40" height="14" rx="4" strokeDasharray="5 3" stroke="#3b82f6" strokeWidth="2" fill="none" />
+              </svg>
+            )}
+          />
+          <PreviewOptionButton
+            compact
+            label="Cacheline"
+            hint="Thick dashed blue cacheline outlines"
+            active={(outline.targets || []).includes('cacheline')}
+            onClick={() => { const ts = outline.targets || []; const next = ts.includes('cacheline') ? ts.filter(t => t !== 'cacheline') : [...ts, 'cacheline']; onOutlineChange({ ...outline, targets: next }); }}
+            preview={(
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="2" y="3" width="44" height="16" rx="4" strokeDasharray="6 3" stroke="#3b82f6" strokeWidth="2" fill="none" />
+              </svg>
+            )}
+          />
+        </div>
+        <span className="settings-hint">Outlines are optional helpers for structure visibility. Multiple can be active at once.</span>
+      </div>
       <div className="settings-section lo-section">
         <label>Arrangements and grouping</label>
+        <div className="lo-level-row">
+          <span className="lo-level-tag">Columns</span>
+          <div className="lo-row-body">
+            <div className="lo-vec-wrap lo-column-count-control">
+              <button
+                type="button"
+                className={`spacing-toggle-btn${Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0 ? ' active' : ''}`}
+                onClick={() => {
+                  const current = Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0);
+                  if (current === 0) {
+                    set('horizontalGroups', Math.max(1, lastManualColumnCountRef.current || 1));
+                    return;
+                  }
+                  lastManualColumnCountRef.current = current;
+                  set('horizontalGroups', 0);
+                }}
+                title={Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0
+                  ? 'Disable auto fit and use the last manual column count'
+                  : 'Enable automatic column fitting'}
+              >
+                {Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0 ? 'Auto fit on' : 'Auto fit off'}
+              </button>
+              <button
+                type="button"
+                className="btn-icon btn-sm spacing-adjust-btn"
+                onClick={() => {
+                  const current = Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
+                  const next = Math.max(1, current - 1);
+                  lastManualColumnCountRef.current = next;
+                  set('horizontalGroups', next);
+                }}
+                title="Decrease grouping column count"
+              >−</button>
+              <span
+                className="lo-column-count-value"
+                title={Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0 ? 'Auto fit: number of columns adjusts to viewport' : `${Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1)} grouping columns`}
+              >
+                {Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0
+                  ? 'auto'
+                  : Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1)}
+              </span>
+              <button
+                type="button"
+                className="btn-icon btn-sm spacing-adjust-btn"
+                onClick={() => {
+                  const current = Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
+                  const next = Math.min(64, current + 1);
+                  lastManualColumnCountRef.current = next;
+                  set('horizontalGroups', next);
+                }}
+                title="Increase grouping column count"
+              >+</button>
+            </div>
+          </div>
+        </div>
 
         {/* Bit layout row */}
         <div className="lo-level-row lo-level-row-with-spacing">
@@ -551,64 +740,6 @@ export default function LayoutTab({
           </div>
         </>
       )}
-
-      <div className="lo-level-row">
-        <span className="lo-level-tag">Columns</span>
-        <div className="lo-row-body">
-          <div className="lo-vec-wrap lo-column-count-control">
-            <button
-              type="button"
-              className="btn-icon btn-sm spacing-adjust-btn"
-              onClick={() => {
-                const current = Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
-                const next = Math.max(1, current - 1);
-                lastManualColumnCountRef.current = next;
-                set('horizontalGroups', next);
-              }}
-              title="Decrease grouping column count"
-            >−</button>
-            <span
-              className="lo-column-count-value"
-              title={Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0 ? 'Auto fit: number of columns adjusts to viewport' : `${Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1)} grouping columns`}
-            >
-              {Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0
-                ? 'auto'
-                : Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1)}
-            </span>
-            <button
-              type="button"
-              className="btn-icon btn-sm spacing-adjust-btn"
-              onClick={() => {
-                const current = Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
-                const next = Math.min(64, current + 1);
-                lastManualColumnCountRef.current = next;
-                set('horizontalGroups', next);
-              }}
-              title="Increase grouping column count"
-            >+</button>
-            <button
-              type="button"
-              className={`spacing-toggle-btn${Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0 ? ' active' : ''}`}
-              onClick={() => {
-                const current = Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0);
-                if (current === 0) {
-                  set('horizontalGroups', Math.max(1, lastManualColumnCountRef.current || 1));
-                  return;
-                }
-                lastManualColumnCountRef.current = current;
-                set('horizontalGroups', 0);
-              }}
-              title={Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0
-                ? 'Disable auto fit and use the last manual column count'
-                : 'Enable automatic column fitting'}
-            >
-              {Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0 ? 'Auto fit on' : 'Auto fit off'}
-            </button>
-          </div>
-        </div>
-      </div>
-
-
       </>
     );
   };
@@ -757,143 +888,6 @@ export default function LayoutTab({
       </div>
 
       <LayoutOverview />
-
-
-
-      <div className="settings-section">
-        <label>Annotations</label>
-        <div className="anno-btn-grid">
-          <AnnotationButton
-            title="Number"
-            hint="Represented numbers in squares"
-            active={!!s.showNumberLabels}
-            onClick={() => set('showNumberLabels', !s.showNumberLabels)}
-            preview={(
-              <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
-                <rect x="1" y="1" width="10" height="8" rx="1" />
-                <rect x="15" y="1" width="12" height="8" rx="1" />
-                <text x="2" y="16" fontSize="7">1 3 5</text>
-              </svg>
-            )}
-          />
-          <AnnotationButton
-            title="Bits"
-            hint={bitAnnotationHint}
-            active={!!s.showBitLabels}
-            onClick={cycleBitAnnotation}
-            preview={(
-              <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
-                <rect x="1" y="1" width="6" height="6" rx="1" />
-                <rect x="9" y="1" width="6" height="6" rx="1" />
-                <rect x="17" y="1" width="6" height="6" rx="1" />
-                <text x="2" y="16" fontSize="7">0 1 2</text>
-              </svg>
-            )}
-          />
-          <AnnotationButton
-            title="Bytes"
-            hint={byteAnnotationHint}
-            active={!!s.showByteLabels}
-            onClick={cycleByteAnnotation}
-            preview={(
-              <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
-                <rect x="1" y="1" width="18" height="8" rx="1" />
-                <rect x="23" y="1" width="18" height="8" rx="1" />
-                <text x="2" y="16" fontSize="7">b0    b1</text>
-              </svg>
-            )}
-          />
-          <AnnotationButton
-            title="Grouping"
-            hint={`Grouping and uint64 labels (${annotationGroupingLabel})`}
-            active={s.showVectorLabels !== false}
-            onClick={() => set('showVectorLabels', s.showVectorLabels === false)}
-            preview={(
-              <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
-                <rect x="1" y="4" width="42" height="8" rx="2" />
-                <line x1="15" y1="4" x2="15" y2="12" />
-                <line x1="29" y1="4" x2="29" y2="12" />
-                <text x="2" y="17" fontSize="7">v0  v1  v2</text>
-              </svg>
-            )}
-          />
-          <AnnotationButton
-            title="Touch order"
-            hint="Touch order above vectors"
-            active={!!s.showVectorTouchOrder}
-            onClick={() => set('showVectorTouchOrder', !(s.showVectorTouchOrder === true))}
-            preview={(
-              <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
-                <rect x="2" y="8" width="10" height="6" rx="1" />
-                <rect x="16" y="8" width="10" height="6" rx="1" />
-                <rect x="30" y="8" width="10" height="6" rx="1" />
-                <text x="5" y="6" fontSize="6">1</text>
-                <text x="16" y="6" fontSize="6">(2,6)</text>
-              </svg>
-            )}
-          />
-          <AnnotationButton
-            title={cachelineAnnotation === 'none' ? 'Cacheline hits' : `Cacheline: ${cachelineAnnotation}`}
-            hint={!heatMapEnabled ? 'Shows hits and last access' : CL_ANNOT_HINTS[cachelineAnnotation]}
-            active={heatMapEnabled && cachelineAnnotation !== 'none'}
-            onClick={cycleCLAnnotation}
-            preview={(
-              <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
-                <rect x="1" y="2" width="20" height="13" rx="1" fill="rgba(239,68,68,0.28)" stroke="currentColor" strokeWidth="0.5" />
-                <rect x="3" y="10" width="16" height="4" rx="1" fill="rgba(239,68,68,0.85)" />
-                <text x="4" y="13.5" fontSize="4.5" fill="#fff">×4 Δ3</text>
-                <rect x="23" y="2" width="20" height="13" rx="1" fill="rgba(59,130,246,0.28)" stroke="currentColor" strokeWidth="0.5" />
-                <rect x="25" y="10" width="16" height="4" rx="1" fill="rgba(59,130,246,0.85)" />
-                <text x="26" y="13.5" fontSize="4.5" fill="#fff">×1 Δ12</text>
-              </svg>
-            )}
-          />
-        </div>
-      </div>
-
-      <div className="settings-section">
-        <label>Grouping outlines</label>
-        <div className="preview-btn-grid preview-btn-grid-3">
-          <PreviewOptionButton
-            compact
-            label="Byte"
-            hint="Thick dashed blue byte outlines"
-            active={(outline.targets || []).includes('byte')}
-            onClick={() => { const ts = outline.targets || []; const next = ts.includes('byte') ? ts.filter(t => t !== 'byte') : [...ts, 'byte']; onOutlineChange({ ...outline, targets: next }); }}
-            preview={(
-              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                <rect x="9" y="5" width="10" height="12" rx="3" strokeDasharray="4 3" stroke="#3b82f6" strokeWidth="2" fill="none" />
-                <rect x="29" y="5" width="10" height="12" rx="3" strokeDasharray="4 3" stroke="#3b82f6" strokeWidth="2" fill="none" />
-              </svg>
-            )}
-          />
-          <PreviewOptionButton
-            compact
-            label="Grouping"
-            hint="Thin dashed blue grouping outlines"
-            active={(outline.targets || []).includes('vector')}
-            onClick={() => { const ts = outline.targets || []; const next = ts.includes('vector') ? ts.filter(t => t !== 'vector') : [...ts, 'vector']; onOutlineChange({ ...outline, targets: next }); }}
-            preview={(
-              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                <rect x="4" y="4" width="40" height="14" rx="4" strokeDasharray="5 3" stroke="#3b82f6" strokeWidth="2" fill="none" />
-              </svg>
-            )}
-          />
-          <PreviewOptionButton
-            compact
-            label="Cacheline"
-            hint="Thick dashed blue cacheline outlines"
-            active={(outline.targets || []).includes('cacheline')}
-            onClick={() => { const ts = outline.targets || []; const next = ts.includes('cacheline') ? ts.filter(t => t !== 'cacheline') : [...ts, 'cacheline']; onOutlineChange({ ...outline, targets: next }); }}
-            preview={(
-              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                <rect x="2" y="3" width="44" height="16" rx="4" strokeDasharray="6 3" stroke="#3b82f6" strokeWidth="2" fill="none" />
-              </svg>
-            )}
-          />
-        </div>
-        <span className="settings-hint">Outlines are optional helpers for structure visibility. Multiple can be active at once.</span>
-      </div>
-    </>
+   </>
   );
 }
