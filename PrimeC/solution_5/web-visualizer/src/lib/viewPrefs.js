@@ -62,6 +62,8 @@ export const DEFAULT_EVENT_TITLE_SETTINGS = {
   // User-drag offset in pixels from the default (centered) position. Persisted.
   dragOffsetX: 0,
   dragOffsetY: 0,
+  // Whether the 5-event context preview is collapsed inside the banner.
+  contextCollapsed: false,
 };
 
 export const DEFAULT_DEPTH_SETTINGS = {
@@ -133,6 +135,7 @@ export function mergeEventTitleSettings(saved) {
     scale,
     dragOffsetX,
     dragOffsetY,
+    contextCollapsed: saved.contextCollapsed === true,
   };
 }
 

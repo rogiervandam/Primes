@@ -81,40 +81,58 @@ export default function EventTitleBanner({
       </div>
       {(surrounding.prev.length > 0 || surrounding.next.length > 0) && (
         <div
-          className="step-focus-context"
+          className={`step-focus-context${settings.contextCollapsed ? ' collapsed' : ''}`}
           onMouseDown={(e) => e.stopPropagation()}
-          title="Last 2 and next 2 events. Click any row to jump to it."
         >
-          {surrounding.prev.map((ev) => (
+          <button
+            className="step-focus-context-toggle"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSettings((prev) => ({ ...prev, contextCollapsed: !prev.contextCollapsed }));
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            title={settings.contextCollapsed ? 'Show nearby events' : 'Hide nearby events'}
+          >
+            <span className="step-focus-context-toggle-arrow">{settings.contextCollapsed ? '▶' : '▼'}</span>
+            <span className="step-focus-context-toggle-label">Nearby events</span>
+          </button>
+          {!settings.contextCollapsed && (
             <div
-              key={`prev-${ev.idx}`}
-              className="step-focus-context-row prev"
-              onClick={(e) => { e.stopPropagation(); goToStep(ev.idx); }}
+              className="step-focus-context-rows"
+              title="Last 2 and next 2 events. Click any row to jump to it."
             >
-              <span className="ctx-id">#{ev.eventId}</span>
-              <span className="ctx-op">{ev.op}</span>
-              {ev.meta && <span className="ctx-meta">{ev.meta}</span>}
-              {ev.bits > 0 && <span className="ctx-bits">+{ev.bits}b</span>}
-              {ev.elapsedLabel && <span className="ctx-time">{ev.elapsedLabel}</span>}
+              {surrounding.prev.map((ev) => (
+                <div
+                  key={`prev-${ev.idx}`}
+                  className="step-focus-context-row prev"
+                  onClick={(e) => { e.stopPropagation(); goToStep(ev.idx); }}
+                >
+                  <span className="ctx-id">#{ev.eventId}</span>
+                  <span className="ctx-op">{ev.op}</span>
+                  {ev.meta && <span className="ctx-meta">{ev.meta}</span>}
+                  {ev.bits > 0 && <span className="ctx-bits">+{ev.bits}b</span>}
+                  {ev.elapsedLabel && <span className="ctx-time">{ev.elapsedLabel}</span>}
+                </div>
+              ))}
+              <div className="step-focus-context-row current">
+                <span className="ctx-id">#{currentStepData?.stepId ?? currentStep}</span>
+                <span className="ctx-op">▶ current</span>
+              </div>
+              {surrounding.next.map((ev) => (
+                <div
+                  key={`next-${ev.idx}`}
+                  className="step-focus-context-row next"
+                  onClick={(e) => { e.stopPropagation(); goToStep(ev.idx); }}
+                >
+                  <span className="ctx-id">#{ev.eventId}</span>
+                  <span className="ctx-op">{ev.op}</span>
+                  {ev.meta && <span className="ctx-meta">{ev.meta}</span>}
+                  {ev.bits > 0 && <span className="ctx-bits">+{ev.bits}b</span>}
+                  {ev.elapsedLabel && <span className="ctx-time">{ev.elapsedLabel}</span>}
+                </div>
+              ))}
             </div>
-          ))}
-          <div className="step-focus-context-row current">
-            <span className="ctx-id">#{currentStepData?.stepId ?? currentStep}</span>
-            <span className="ctx-op">▶ current</span>
-          </div>
-          {surrounding.next.map((ev) => (
-            <div
-              key={`next-${ev.idx}`}
-              className="step-focus-context-row next"
-              onClick={(e) => { e.stopPropagation(); goToStep(ev.idx); }}
-            >
-              <span className="ctx-id">#{ev.eventId}</span>
-              <span className="ctx-op">{ev.op}</span>
-              {ev.meta && <span className="ctx-meta">{ev.meta}</span>}
-              {ev.bits > 0 && <span className="ctx-bits">+{ev.bits}b</span>}
-              {ev.elapsedLabel && <span className="ctx-time">{ev.elapsedLabel}</span>}
-            </div>
-          ))}
+          )}
         </div>
       )}
       <div className="step-focus-sliders">
