@@ -9,6 +9,61 @@
   box-shadow: none;
 }
 
+/* ---- Drag-to-collapse: expanded title row ---- */
+.step-panel-header-title-row {
+  cursor: grab;
+  user-select: none;
+  /* Spring snap-back when not actively dragging */
+  transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.step-panel-header-title-row.is-header-dragging {
+  cursor: grabbing;
+  transition: none; /* instant tracking during drag */
+}
+/* Ensure buttons inside the draggable row keep their own cursor */
+.step-panel-header-title-row button {
+  cursor: pointer;
+}
+/* Accent color hint once past the collapse threshold */
+.step-panel-header-title-row.drag-will-collapse h3 {
+  color: var(--accent, #6c8ebf);
+  transition: color 100ms ease;
+}
+/* Animated arrow label that pulses once the threshold is crossed */
+.step-panel-header-title-row.drag-will-collapse::after {
+  content: '◀ collapse';
+  font-size: 10px;
+  color: var(--accent, #6c8ebf);
+  opacity: 0.85;
+  margin-left: 6px;
+  animation: collapse-hint-in 140ms cubic-bezier(0.22, 0.61, 0.36, 1) both,
+             collapse-hint-pulse 600ms 140ms ease-in-out infinite alternate;
+}
+@keyframes collapse-hint-in {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 0.85; transform: translateX(0); }
+}
+@keyframes collapse-hint-pulse {
+  from { opacity: 0.6; transform: translateX(0); }
+  to   { opacity: 1;   transform: translateX(-3px); }
+}
+
+/* ---- Collapse-out animation: panel content sweeps away before width collapses ---- */
+.step-panel.collapsing-out .step-panel-header {
+  animation: step-panel-sweep-out 260ms cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+.step-panel.collapsing-out .step-list {
+  animation: step-panel-sweep-out 260ms 30ms cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+.step-panel.collapsing-out .resize-handle {
+  animation: step-panel-sweep-out 200ms cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+@keyframes step-panel-sweep-out {
+  0%   { opacity: 1;   transform: translateX(0) scale(1);    transform-origin: left center; }
+  35%  { opacity: 0.8; transform: translateX(5px) scale(1);  transform-origin: left center; }
+  100% { opacity: 0;   transform: translateX(-24px) scale(0.88); transform-origin: left center; }
+}
+
 .step-panel-header-title-row {
   display: flex;
   align-items: center;

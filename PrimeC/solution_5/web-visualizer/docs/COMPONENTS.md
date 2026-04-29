@@ -40,6 +40,8 @@ When `panelCollapsed` is true the panel renders a floating "all events" widget (
 
 When `allEventsWidgetHidden` is true the widget is not rendered (the down-arrow toolbar button brings it back).
 
+**Drag-to-collapse (expanded panel):** The `.step-panel-header-title-row` carries a `grab` cursor and a `mousedown` handler (`handleHeaderTitleDragStart`). Dragging rightward past 80 px (raw, pre-rubber-band) triggers a two-phase animated collapse: (1) the title springs back, (2) `.collapsing-out` is applied so the header and list sweep out via `@keyframes step-panel-sweep-out`, then `onToggleCollapse()` is called after 360 ms total. State: `headerDragX` (visual translate), `headerDragWillCollapse` (accent hint), `isCollapsingOut` (animation class).
+
 ### `DetailPanel.jsx`
 Inspector for the currently selected step. Shows changed bits, factor, count of newly cleared bits, and contextual primes.
 

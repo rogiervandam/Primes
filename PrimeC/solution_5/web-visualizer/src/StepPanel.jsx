@@ -106,6 +106,11 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
   // 'left' | 'top' | null
   const [floatDropHint, setFloatDropHint] = useState(null);
 
+  // Drag-to-collapse state for the expanded panel title row
+  const [headerDragX, setHeaderDragX] = useState(0);
+  const [headerDragWillCollapse, setHeaderDragWillCollapse] = useState(false);
+  const [isCollapsingOut, setIsCollapsingOut] = useState(false);
+
   // Detect which screen-edge drop-zone the pointer is currently over.
   // Returns 'left' (expand events panel), 'top' (dock to top bar), or null.
   const detectDropZone = useCallback((clientX, clientY) => {
@@ -159,6 +164,51 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     window.addEventListener('mouseup', onUp);
     e.preventDefault();
   }, [detectDropZone, onExpandPanelFromWidget, onDockWidgetToTopBar]);
+
+  // Drag-to-collapse: dragging the expanded title row rightward collapses the panel.
+  const COLLAPSE_DRAG_THRESHOLD = 80;
+  const handleHeaderTitleDragStart = useCallback((e) => {
+    if (e.target.closest('input') || e.target.closest('button') || e.target.closest('select')) return;
+    const startX = e.clientX;
+
+    const onMove = (ev) => {
+      const raw = ev.clientX - startX;
+      if (raw <= 0) {
+        setHeaderDragX(0);
+        setHeaderDragWillCollapse(false);
+        return;
+      }
+      // Rubber-band: full travel up to threshold, then sqrt-damped beyond
+      const visual = raw <= COLLAPSE_DRAG_THRESHOLD
+        ? raw * 0.65
+        : COLLAPSE_DRAG_THRESHOLD * 0.65 + Math.sqrt(raw - COLLAPSE_DRAG_THRESHOLD) * 3;
+      setHeaderDragX(visual);
+      setHeaderDragWillCollapse(raw >= COLLAPSE_DRAG_THRESHOLD);
+    };
+
+    const onUp = (ev) => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      const raw = ev.clientX - startX;
+      setHeaderDragWillCollapse(false);
+      setHeaderDragX(0); // spring back via CSS transition
+      if (raw >= COLLAPSE_DRAG_THRESHOLD) {
+        // Brief pause for the spring-back, then animate the panel out
+        setTimeout(() => {
+          setIsCollapsingOut(true);
+          setTimeout(() => {
+            setIsCollapsingOut(false);
+            onToggleCollapse();
+          }, 280);
+        }, 80);
+      }
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    e.preventDefault();
+  }, [onToggleCollapse]);
+
   // filterLevel encoding: '' (all) | 'exact:N' | 'upto:N' | 'collapse:N'
   const [filterLevel, setFilterLevel] = useState(() => {
     try { return localStorage.getItem('sieve-filter-level') || ''; } catch { return ''; }
@@ -640,7 +690,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
   ) : null;
 
   return (
-    <div className={`step-panel${panelCollapsed ? ' collapsed' : ''}${floatDropHint === 'left' ? ' drop-hint-left' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
+    <div className={`step-panel${panelCollapsed ? ' collapsed' : ''}${isCollapsingOut ? ' collapsing-out' : ''}${floatDropHint === 'left' ? ' drop-hint-left' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
       {panelCollapsed && !allEventsWidgetHidden && (
         <div
           className={`step-panel-floating-title${floatDropHint ? ` dropping dropping-${floatDropHint}` : ''}`}
@@ -657,7 +707,12 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       {!panelCollapsed && (
         <>
       <div className="step-panel-header">
-        <div className="step-panel-header-title-row">
+        <div
+          className={`step-panel-header-title-row${headerDragWillCollapse ? ' drag-will-collapse' : ''}${headerDragX > 0 ? ' is-header-dragging' : ''}`}
+          style={headerDragX > 0 ? { transform: `translateX(${headerDragX}px)` } : undefined}
+          onMouseDown={handleHeaderTitleDragStart}
+          title="Drag right to collapse"
+        >
           <h3>Events ({totalVisible}/{steps.length})</h3>
           <button className="step-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Collapse events panel">
             ◀
