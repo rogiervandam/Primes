@@ -49,6 +49,9 @@ export class BitGridGLWorker {
     // initialised synchronously after `attach()` but the WebGL context
     // creation inside the worker is async from our perspective.
     this._pending = [];
+    // Pending capture callbacks keyed by sequence id.
+    this._captureCallbacks = new Map();
+    this._captureSeq = 0;
   }
 
   attach(canvas) {
@@ -95,6 +98,28 @@ export class BitGridGLWorker {
         // Don't tear down — the worker may still be partially functional
         // (e.g. a single bad render call) and the Canvas2D layer is
         // visible above us anyway.
+      } else if (msg.type === 'contextlost') {
+        // The GPU context inside the worker was lost. Mark ourselves
+        // lost so all _post() calls become no-ops during the blackout.
+        // Clear the layout fingerprint so positions are re-uploaded on
+        // the first frame after restore.
+        this._lost = true;
+        this._layoutFingerprint = '';
+        console.warn('[BitGridGLWorker] WebGL context lost — awaiting restore');
+      } else if (msg.type === 'contextrestored') {
+        // Worker re-initialised the core and re-allocated textures at
+        // the previous bit count. Resume posting; the normal per-frame
+        // upload loop (uploadPositions + uploadState + render) will
+        // repopulate the GPU data without any extra intervention.
+        this._lost = false;
+        this._layoutFingerprint = ''; // force position repack on next frame
+        console.info('[BitGridGLWorker] WebGL context restored — resuming');
+      } else if (msg.type === 'captured') {
+        const cb = this._captureCallbacks.get(msg.id);
+        if (cb) {
+          cb(msg.bitmap || null, msg.error || null);
+          this._captureCallbacks.delete(msg.id);
+        }
       }
     };
     this._worker.onerror = (err) => {
@@ -142,9 +167,18 @@ export class BitGridGLWorker {
     this._post({ type: 'state', buf }, [buf.buffer]);
   }
 
-  resize(cssWidth, cssHeight) {
+  /**
+   * @param {number} cssWidth
+   * @param {number} cssHeight
+   * @param {number} [dprOverride]  Explicit DPR. When omitted,
+   *   `window.devicePixelRatio` is used (the normal production path).
+   *   The override is exposed for test harnesses that need a controlled DPR.
+   */
+  resize(cssWidth, cssHeight, dprOverride) {
     if (this._lost) return;
-    const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+    const dpr = dprOverride != null
+      ? dprOverride
+      : ((typeof window !== 'undefined' && window.devicePixelRatio) || 1);
     this._cssW = cssWidth;
     this._cssH = cssHeight;
     this._dpr = dpr;
@@ -168,6 +202,25 @@ export class BitGridGLWorker {
 
   invalidateLayout() {
     this._layoutFingerprint = '';
+  }
+
+  /**
+   * Request a one-shot pixel snapshot from the worker. The worker calls
+   * `OffscreenCanvas.transferToImageBitmap()` after flushing pending GL
+   * commands and posts back the bitmap as a transferable.
+   *
+   * Designed for the parity harness only — not called in production.
+   *
+   * @param {(bitmap: ImageBitmap|null, error: string|null) => void} callback
+   */
+  capture(callback) {
+    if (this._lost || !this._worker) {
+      callback(null, 'worker lost or unavailable');
+      return;
+    }
+    const id = ++this._captureSeq;
+    this._captureCallbacks.set(id, callback);
+    this._post({ type: 'capture', id });
   }
 
   dispose() {

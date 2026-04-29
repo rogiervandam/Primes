@@ -517,7 +517,25 @@ overwrite.
   `Visualizer.jsx` likewise uses `rr.effectiveBackground`. The per-theme
   defaults live in `DEFAULT_CANVAS_COLORS` in `viewPrefs.js`.
 
-- ✅ **Fixed settings panel buttons being ineffective while the single-event
+- ✅ **Wired context-loss recovery in `gl-worker` mode.** `bitGridWorker.js`
+  now saves `savedCanvas` + `currentBitCount`, wires `webglcontextlost` /
+  `webglcontextrestored` on the `OffscreenCanvas`, and re-inits `BitGridGLCore`
+  (including `setBitCount`) on restore before posting `{ type: 'contextrestored' }`.
+  `BitGridGLWorker.js` handles `contextlost` (sets `_lost`, clears fingerprint)
+  and `contextrestored` (clears `_lost`, clears fingerprint — the normal
+  frame loop re-uploads data without extra Visualizer-side intervention).
+  Added `capture(callback)` method + `{ type: 'capture' }` / `{ type: 'captured' }`
+  round-trip protocol (used by the parity harness; not called in production).
+  `resize()` gained an optional `dprOverride` param (backwards-compatible).
+- ✅ **Extended parity harness to cover `BitGridGLWorker`.** `parity.html`
+  gained a Renderer dropdown (direct / worker). Worker mode uses a detached
+  `HTMLCanvasElement` for `attach()`, calls `glWorker.capture()` for a
+  round-trip `OffscreenCanvas.transferToImageBitmap()` snapshot, draws the
+  `ImageBitmap` onto the display canvas (2D context) for inspection + pixel
+  comparison, then calls `bitmap.close()`. Fake-host construction extracted
+  into a shared `buildFakeHost()` helper. `run()` is now `async`.
+  `BitGridGL.js` can now be removed (item 3 below) without losing harness
+  coverage once this is verified in CI or by a reviewer.
   timeline is playing.** Root cause: the `useEffect([animMode, animStyle])`
   in `Visualizer.jsx` was designed to restart the current-event animation
   whenever the user changes animation style or mode. It did so by calling
@@ -652,23 +670,36 @@ Now that the renderer is locked to `gl-worker`, the path is clear to
 deepen the GL implementation and eventually retire the Canvas2D
 cell-fill code entirely. Work these in dependency order:
 
-1. **Wire context-loss recovery in worker mode.** The direct `BitGridGL`
-   path handles `webglcontextlost` / `webglcontextrestored` but the
-   worker path does not. With worker being the only production path this
-   is now the highest-priority reliability gap. Shape: on `contextlost`
-   the worker should post an `error` message; the facade should call
-   `this._lost = true` and post `{ type: 'init', canvas: offscreen }`
-   to re-initialise the same `OffscreenCanvas` (if the browser
-   supports it), or tear down and reconstruct the worker + canvas.
-   Check MDN — `OffscreenCanvas` context-loss semantics are
-   browser-specific.
+1. **Wire context-loss recovery in worker mode.** ✅ DONE. `bitGridWorker.js`
+   saves `savedCanvas` and `currentBitCount` across context loss. On
+   `webglcontextlost` (fires on the `OffscreenCanvas`): `e.preventDefault()`
+   lets the browser restore, `core.markLost()` nulls GPU resources, and
+   `{ type: 'contextlost' }` is posted to the main thread.
+   On `webglcontextrestored`: a new `BitGridGLCore` is init'd against the
+   same `OffscreenCanvas`; `core.setBitCount(currentBitCount)` re-allocates
+   textures; `{ type: 'contextrestored' }` is posted.
+   `BitGridGLWorker.js` handles both messages: `contextlost` sets
+   `_lost = true` + clears `_layoutFingerprint` (so no messages pass during
+   the blackout); `contextrestored` sets `_lost = false` + clears the
+   fingerprint so the normal per-frame upload loop (`uploadPositions` +
+   `uploadState` + `render`) repopulates GPU state on the very next frame
+   without any extra intervention from `Visualizer.jsx`.
+   `BitGridGLWorker.resize()` gained an optional third `dprOverride` param
+   (backwards-compatible; production callers omit it).
 
-2. **Update the parity harness to exercise `BitGridGLWorker`.** Currently
-   `parity.html` drives `BitGridGL` (direct mode). Add a
-   `?renderer=gl-worker` switch that posts the same inputs to
-   `BitGridGLWorker` and reads back the result via an off-screen
-   `drawImage` after a settled frame. This is the prerequisite for
-   removing `BitGridGL.js` without losing harness coverage.
+2. **Update the parity harness to exercise `BitGridGLWorker`.** ✅ DONE.
+   `parity.html` now has a Renderer dropdown (direct / worker). The harness
+   `run()` function is now `async`. Worker mode: a detached `HTMLCanvasElement`
+   (not in the DOM) is passed to `BitGridGLWorker.attach()`; after
+   `render()`, `BitGridGLWorker.capture()` sends a `{ type: 'capture', id }`
+   round-trip to the worker, which calls `gl.flush()` +
+   `OffscreenCanvas.transferToImageBitmap()` and posts back the
+   `ImageBitmap` as a transferable. The bitmap is drawn onto `els.gl`
+   (a plain 2D canvas) for display and pixel comparison.
+   `BitGridGLWorker.js` gained a `capture(callback)` method and the
+   `_captureCallbacks` / `_captureSeq` bookkeeping to resolve the Promise.
+   The fake-host construction was extracted into a shared `buildFakeHost()`
+   helper so direct and worker paths use identical inputs.
 
 3. **Remove `BitGridGL.js` (direct mode).** Blocked on item 2 above.
    Once the parity harness no longer imports it, the file can be

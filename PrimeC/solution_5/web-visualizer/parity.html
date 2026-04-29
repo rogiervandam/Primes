@@ -29,12 +29,18 @@
     </style>
   </head>
   <body>
-    <h1>BitGridGL ↔ Canvas2D parity harness · see docs/AI_MAINTENANCE.md §8 item 5</h1>
+    <h1>BitGridGL ↔ Canvas2D parity harness · see docs/AI_MAINTENANCE.md §8</h1>
     <div class="panel" style="margin-bottom: 12px;">
       <label>Bits: <input id="bits" type="number" value="1024" min="16" max="262144" step="16" /></label>
       <label>Cell px: <input id="cell" type="number" value="12" min="2" max="64" /></label>
       <label>DPR: <input id="dpr" type="number" value="1" min="1" max="3" step="0.25" /></label>
       <label><input id="overlays" type="checkbox" checked /> overlays (focus/prime/range/multiples)</label>
+      <label style="margin-left:16px;">Renderer:
+        <select id="mode">
+          <option value="direct">BitGridGL (direct)</option>
+          <option value="worker">BitGridGLWorker (worker)</option>
+        </select>
+      </label>
       <button id="run">Run</button>
     </div>
     <div class="row">
@@ -43,7 +49,7 @@
         <canvas id="ref"></canvas>
       </div>
       <div class="panel">
-        <h2>BitGridGL output</h2>
+        <h2 id="gl-label">BitGridGL output</h2>
         <canvas id="gl"></canvas>
       </div>
       <div class="panel">

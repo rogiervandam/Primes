@@ -16,6 +16,7 @@
  */
 
 import { BitGridGL } from '../renderer/gl/BitGridGL.js';
+import { BitGridGLWorker, isWorkerGLSupported } from '../renderer/gl/BitGridGLWorker.js';
 
 // Match the Canvas2D source-of-truth tints from
 // `_drawBitFocusRange` / `_drawBitPrimeOverlay` /
@@ -38,11 +39,13 @@ const els = {
   cell:    document.getElementById('cell'),
   dpr:     document.getElementById('dpr'),
   overlays:document.getElementById('overlays'),
+  mode:    document.getElementById('mode'),
   run:     document.getElementById('run'),
   ref:     document.getElementById('ref'),
   gl:      document.getElementById('gl'),
   diff:    document.getElementById('diff'),
   out:     document.getElementById('out'),
+  glLabel: document.getElementById('gl-label'),
 };
 
 /**
@@ -169,7 +172,34 @@ function renderRef(scene, ctx, dpr, withOverlays) {
   ctx.restore();
 }
 
-/** Drive BitGridGL with a fake host that exposes only what `uploadPositions` and `uploadState` read. */
+/** Build the fake host object consumed by uploadPositions / uploadState. */
+function buildFakeHost(scene, withOverlays) {
+  const host = {
+    panX: 0, panY: 0,
+    bitIndexToCanvas(i) {
+      return { x: scene.positions[i * 2], y: scene.positions[i * 2 + 1] };
+    },
+    bitState: scene.bitState,
+    changedBits: scene.changedBits,
+    maskGhostBits: scene.ghostBits,
+    repeatedChangedBits: scene.repeatedBits,
+    targetHitCounts: null,
+    primeOverlay: withOverlays,
+    _primeBitFlags: scene.primeFlags,
+    rangeOverlay: withOverlays,
+    rangeOverlayStart: scene.rangeStart,
+    rangeOverlayEnd: scene.rangeStop,
+    // Multiples overlay disabled — see note in runGL().
+    multiplesOverlay: false,
+    multiplesOverlayPrime: scene.multiplesPrime,
+    storageModel: 'half',
+    focusStart: withOverlays ? scene.focusStart : null,
+    focusStop:  withOverlays ? scene.focusStop  : null,
+  };
+  return host;
+}
+
+/** Drive BitGridGL (direct mode) with a fake host. */
 function runGL(scene, glCanvas, dpr, withOverlays) {
   // Set the backing-store size BEFORE attach so the WebGL2 context picks
   // it up. We bypass `gl.resize()` because that uses
@@ -186,27 +216,7 @@ function runGL(scene, glCanvas, dpr, withOverlays) {
   gl.resizeForBitCount(scene.bitState.length);
 
   // Fake host. Properties consumed by uploadPositions / uploadState:
-  const host = {
-    panX: 0, panY: 0,
-    bitIndexToCanvas(i) {
-      return { x: scene.positions[i * 2], y: scene.positions[i * 2 + 1] };
-    },
-    bitState: scene.bitState,
-    changedBits: scene.changedBits,
-    maskGhostBits: scene.ghostBits,
-    repeatedChangedBits: scene.repeatedBits,
-    targetHitCounts: null,
-    primeOverlay: withOverlays,
-    _primeBitFlags: scene.primeFlags,
-    rangeOverlay: withOverlays,
-    rangeOverlayStart: scene.rangeStart,
-    rangeOverlayEnd: scene.rangeStop,
-    multiplesOverlay: withOverlays,
-    multiplesOverlayPrime: scene.multiplesPrime,
-    storageModel: 'half',          // bitToNumber returns a different value than i, so:
-    focusStart: withOverlays ? scene.focusStart : null,
-    focusStop:  withOverlays ? scene.focusStop  : null,
-  };
+  const host = buildFakeHost(scene, withOverlays);
 
   // We need uploadState's multiples loop to mark the SAME bits the
   // reference marked. The reference uses `i` directly; the production
@@ -247,6 +257,76 @@ function refWithoutMultiples(scene) {
   return { ...scene, multiplesPrime: -1 };
 }
 
+/**
+ * Drive BitGridGLWorker and capture a frame as an ImageBitmap.
+ *
+ * Uses a detached HTMLCanvasElement (not in the DOM) so `els.gl` can
+ * stay a plain 2D canvas for display. After the worker renders, the
+ * bitmap is drawn onto `displayCanvas` and returned for pixel comparison.
+ *
+ * @param {Scene} scene
+ * @param {HTMLCanvasElement} displayCanvas  Where to draw the result for visual inspection.
+ * @param {number} dpr
+ * @param {boolean} withOverlays
+ * @returns {Promise<{ok:boolean, error?:string, glWorker?:BitGridGLWorker}>}
+ */
+async function runGLWorker(scene, displayCanvas, dpr, withOverlays) {
+  if (!isWorkerGLSupported()) {
+    return { ok: false, error: 'OffscreenCanvas / worker not supported in this browser' };
+  }
+
+  // The worker gets a hidden HTMLCanvasElement it will control via
+  // transferControlToOffscreen. We do NOT use displayCanvas for this
+  // so displayCanvas can keep its 2D context for drawing the result.
+  const workerCanvas = document.createElement('canvas');
+  // Initial size; the worker will resize via core.resize() on the OffscreenCanvas.
+  workerCanvas.width  = Math.round(scene.cssW * dpr);
+  workerCanvas.height = Math.round(scene.cssH * dpr);
+
+  const glWorker = new BitGridGLWorker();
+  if (!glWorker.attach(workerCanvas)) {
+    return { ok: false, error: 'BitGridGLWorker.attach() failed' };
+  }
+
+  glWorker.resizeForBitCount(scene.bitState.length);
+  // Pass explicit dpr so the backing-store sizing matches the reference.
+  glWorker.resize(scene.cssW, scene.cssH, dpr);
+
+  const host = buildFakeHost(scene, withOverlays);
+  glWorker.uploadPositions(host, 'harness');
+  glWorker.uploadState(host);
+  glWorker.render({
+    panX: 0, panY: 0,
+    cellSize: scene.cellSize,
+    bgColor: BG,
+    setColor: SET,
+    clearedColor: CLEARED,
+    changedColor: CHANGED,
+    repeatedColor: REPEATED,
+    baseAlpha: 1,
+  });
+
+  // Round-trip to worker: waits for all preceding messages to be processed,
+  // then captures the rendered frame as a transferable ImageBitmap.
+  const bitmap = await new Promise((resolve, reject) => {
+    glWorker.capture((bm, err) => {
+      if (err) reject(new Error('capture failed: ' + err));
+      else resolve(bm);
+    });
+  });
+
+  // Draw bitmap into displayCanvas (2D context) for visual inspection and
+  // pixel comparison. displayCanvas was never transferred so getContext('2d') works.
+  displayCanvas.width  = bitmap.width;
+  displayCanvas.height = bitmap.height;
+  displayCanvas.style.width  = `${scene.cssW}px`;
+  displayCanvas.style.height = `${scene.cssH}px`;
+  displayCanvas.getContext('2d').drawImage(bitmap, 0, 0);
+  bitmap.close();
+
+  return { ok: true, glWorker };
+}
+
 function readPixels(canvas) {
   const ctx = canvas.getContext('2d');
   if (ctx) {
@@ -285,16 +365,17 @@ function diff(refPx, glPx, diffCanvas) {
   return { n, mismatches, bigMismatches, maxDelta, meanDelta: sumDelta / n };
 }
 
-function run() {
+async function run() {
   const bitCount = Math.max(16, Math.min(262144, Number(els.bits.value) | 0));
   const cellSize = Math.max(2, Math.min(64, Number(els.cell.value) | 0));
   const dpr = Math.max(1, Math.min(3, Number(els.dpr.value) || 1));
   const withOverlays = els.overlays.checked;
+  const rendererMode = els.mode ? els.mode.value : 'direct';
 
   const scene = buildScene(bitCount, cellSize);
 
-  // Sync canvas backing-store sizes.
-  for (const c of [els.ref, els.gl, els.diff]) {
+  // Sync reference + diff canvas sizes; the GL panel is sized per-path below.
+  for (const c of [els.ref, els.diff]) {
     c.width = Math.round(scene.cssW * dpr);
     c.height = Math.round(scene.cssH * dpr);
     c.style.width  = `${scene.cssW}px`;
@@ -305,7 +386,30 @@ function run() {
   // with the GL host (storageModel-mapped multiples don't equal `i % k`).
   renderRef(refWithoutMultiples(scene), els.ref.getContext('2d'), dpr, withOverlays);
 
-  const glRes = runGL(scene, els.gl, dpr, withOverlays);
+  // Label the GL panel with the active backend.
+  if (els.glLabel) {
+    els.glLabel.textContent =
+      rendererMode === 'worker' ? 'BitGridGLWorker output' : 'BitGridGL output';
+  }
+
+  let glRes;
+  if (rendererMode === 'worker') {
+    els.out.textContent = 'running worker…';
+    try {
+      glRes = await runGLWorker(scene, els.gl, dpr, withOverlays);
+    } catch (err) {
+      els.out.innerHTML = `<span class="err">Worker error: ${err.message}</span>`;
+      return;
+    }
+  } else {
+    // Direct mode: size els.gl backing-store first (BitGridGL bypasses resize()).
+    els.gl.width = Math.round(scene.cssW * dpr);
+    els.gl.height = Math.round(scene.cssH * dpr);
+    els.gl.style.width  = `${scene.cssW}px`;
+    els.gl.style.height = `${scene.cssH}px`;
+    glRes = runGL(scene, els.gl, dpr, withOverlays);
+  }
+
   if (!glRes.ok) {
     els.out.innerHTML = `<span class="err">GL init failed: ${glRes.error}</span>`;
     return;
@@ -323,7 +427,11 @@ function run() {
     r.bigMismatches < r.n * 0.001 ? '<span class="warn">⚠ minor edge artefacts</span>' :
                             '<span class="err">✗ divergence</span>';
 
+  const backend = rendererMode === 'worker'
+    ? 'BitGridGLWorker (worker path)'
+    : 'BitGridGL (direct mode)';
   els.out.innerHTML = [
+    `renderer       : ${backend}`,
     `bits           : ${bitCount}`,
     `grid           : ${scene.cols} × ${scene.rows} (cell ${cellSize}px, dpr ${dpr})`,
     `pixels         : ${r.n.toLocaleString()}`,
@@ -339,8 +447,10 @@ function run() {
     `      the same shader composite path).`,
   ].join('\n');
 
-  glRes.gl.dispose();
+  if (glRes.glWorker) glRes.glWorker.dispose();
+  if (glRes.gl) glRes.gl.dispose();
 }
 
-els.run.addEventListener('click', run);
-run();
+const doRun = () => run().catch(err => { els.out.innerHTML = `<span class="err">${err.message}</span>`; });
+els.run.addEventListener('click', doRun);
+doRun();
