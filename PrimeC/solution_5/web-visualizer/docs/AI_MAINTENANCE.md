@@ -9,12 +9,13 @@ that historically attract most of the changes:
 
 | File | Lines | Role |
 |---|---|---|
-| `src/Visualizer.jsx` | ~3 800 | Stateful orchestrator: trace, playback, viewport, hover, exports |
-| `src/SieveRenderer.js` | ~2 900 | 2D canvas renderer (sieve grid, overlays, animations) |
-| `src/SettingsPanel.jsx` | ~1 500 | Right-hand sidebar with three tabs |
+| `src/Visualizer.jsx` | ~4 200 | Stateful orchestrator: trace, playback, viewport, hover, exports |
+| `src/SieveRenderer.js` | ~2 800 | 2D canvas renderer (sieve grid, overlays, animations) |
+| `src/settings/LayoutTab.jsx` | ~900 | Layout tab (extracted from former SettingsPanel monolith) |
 
-Even after the refactors documented below, these files remain **the** hot
-spots. Touch them only with awareness of the contracts described here.
+`SettingsPanel.jsx` itself is now ~260 lines — just the tab-row shell.
+The former hotspot is replaced by `LayoutTab.jsx` and `AnimationTab.jsx`
+(~545 lines) as the next-largest settings files.
 
 ---
 
@@ -698,6 +699,177 @@ cell-fill code entirely. Work these in dependency order:
 
 5. **Port lowered-3D shading to GL.** When `loweredSetBits` is on,
    the Canvas2D bit-fill takes over today (`skipBitFill = false`).
+   To move this to GL: the vertex shader needs per-bit raise/lower
+   state (an extra flag byte or a dedicated texture channel) and the
+   fragment shader adds shadow + base + top + side-face branches.
+   The geometry is a trapezoid, not a quad — requires 6 → 10 vertices
+   per instance or a geometry pass. High-effort; defer until items
+   1–3 are done.
+
+6. **Port rise-and-settle animation to GL.** Animation state (`rise`
+   amount, `settle` alpha) is per-bit and changes every frame during
+   playback. This needs a third texture channel (float) or a separate
+   `animTex`, plus a worker-protocol extension
+   (`{ type: 'animState', buf: Float32Array }`). The main thread
+   already computes per-bit animation fractions in `_computeBitDrawState`;
+   those values can be packed and posted alongside `state`. High-effort;
+   defer until items 1–3 are done.
+
+7. **Remove `SieveRenderer.skipBitFill` and the Canvas2D cell-fill code.**
+   Blocked on items 4–6 (all remaining Canvas2D pixel work must be
+   ported before this is safe). The code paths to remove are:
+   `_renderClear()` background fill, `_drawBitBody()` non-lowered
+   branches, `_drawBitFocusRange()` fill rect, and the
+   `fillRect`-per-bit calls in `_drawBitPrimeOverlay`,
+   `_drawBitRangeOverlay`, `_drawBitMultiplesOverlay`. After removal,
+   the `skipBitFill` field on `SieveRenderer` and the gating in
+   `_buildFrameContext()` can be deleted.
+
+8. **Decide the no-OffscreenCanvas fallback.** Currently, if the browser
+   lacks `OffscreenCanvas`, `BitGridGLWorker.attach()` returns `false`
+   and Canvas2D silently handles everything. Once Canvas2D cell-fill is
+   removed (item 7), this silent fallback disappears. Options:
+   (a) keep `BitGridGL.js` as a last-resort direct-mode fallback;
+   (b) show a banner noting the browser is too old and degrade gracefully;
+   (c) raise the minimum browser baseline to OffscreenCanvas (all
+   evergreen browsers since ~2019 support it). Decide before item 7.
+
+9. **Partial `texSubImage2D` updates.** Currently the full state texture
+   is repacked every frame. At bit counts > 100 k this starts to
+   matter. A dirty-region tracker (bitmask of which 64-bit words
+   changed since last upload) could reduce per-frame `texSubImage2D`
+   to only changed rows. Only pursue this after items 1–3 are done
+   and a measured regression is found.
+
+### Code quality & maintainability backlog
+
+10. **Add a `useSettingsBundle()` consumer in `AnimationTab`.** Currently
+    `AnimationTab` takes ~15 orthogonal setter pairs directly. It does
+    not share a `(settings, onChange)` pair with `LayoutTab`, so the
+    bundle's core value (replacing `set`/`incr`/`decr` boilerplate) is
+    limited — but grouping the playback-timing props (`playSpeed`,
+    `repeatAnim`, `delayBetweenRepeats`, `eventTimeTargets`, …) into a
+    single `timingSettings` / `onTimingSettingsChange` pair would reduce
+    the prop surface of `SettingsPanel` and `Visualizer` significantly.
+    Extract only when the caller count grows (currently two callers).
+
+11. **Extract `Visualizer.jsx` playback loop into a hook.** The
+    all-events scheduler (`playAllRef`, `playAllLoop`, the `useEffect`
+    that starts/stops it) plus the single-event replay loop
+    (`pausedStepAnimLoopRef`, `singleEventLoopActiveRef`) share a
+    well-defined interface: they consume `seekGenRef`, `globalPausedRef`,
+    `animBusyUntilRef`, `goToStep`, and `triggerAnimation`. Extracting
+    them into a `usePlaybackLoop(clock, goToStep, triggerAnimation)`
+    hook would make the scheduler testable and shrink `Visualizer.jsx`
+    by ~200 lines. Currently blocked on the fact that the loop closures
+    capture many local `useCallback`s — the extraction requires those
+    callbacks to be stabilised via refs first (same pattern as
+    `triggerAnimationRef`).
+
+12. **Stabilise `Visualizer.jsx` callback refs.** Several `useCallback`s
+    are listed as deps of heavy `useEffect`s, causing those effects to
+    re-run more often than necessary (e.g. every play-speed change
+    re-registers the keyboard handler). Convert each to a `useRef` +
+    `useEffect` pattern: store the latest closure in a ref, and wrap
+    the stable ref-reader in the event listener. The `triggerAnimationRef`
+    already demonstrates this pattern — extend it to `goToStepRef` and
+    the export callbacks.
+
+13. **Split `SieveRenderer._drawBitBody` further.** At ~78 lines the
+    three depth-mode branches (`normal` / `lowered` / `raised`) are the
+    largest remaining private method after the render-refactor. Each
+    branch could become `_drawBitBodyNormal`, `_drawBitBodyLowered`,
+    `_drawBitBodyRaised` — selected by a dispatch at the top of
+    `_drawBitBody`. No behaviour change; purely a readability win.
+    Prerequisite for porting lowered-3D to GL (WebGL backlog item 5).
+
+14. **Introduce lightweight integration tests.** The only safety net is
+    `npm run build`. Suggested minimal additions:
+    - A Vitest unit test for `traceParser.js` covering each input
+      format (JSON v2, JSON v3, `STEP` text, dump) against a fixture.
+    - A Vitest unit test for `animationTiming.js` verifying tier
+      boundaries (no DOM needed).
+    - A Playwright smoke test that loads the sample trace, plays for
+      3 seconds, and asserts no console errors and a non-blank canvas.
+    Start with the parser tests — they are pure and have zero setup cost.
+
+15. **Audit `Visualizer.jsx` `useState` seed values.** Since
+    `getInitialViewState()` was introduced, a handful of `useState`
+    calls still inline their own `readViewPrefs()` calls (added before
+    the centralisation). Grep for `readViewPrefs()` inside `Visualizer`
+    and migrate any survivors to the `initState` bundle. Keeps the
+    "storage is read exactly once" invariant clean.
+
+16. **Extract the minimap render + hit-test into a `MinimapRenderer`
+    class.** The minimap is currently drawn inline in `SieveRenderer`
+    across three methods (`_renderMinimap`, `_renderMinimapViewport`,
+    and the hit-test inside `canvasToBitIndex`). A small `MinimapRenderer`
+    class following Pattern D would isolate it from the main draw pipeline
+    and make the hit-test logic independently legible. Low priority while
+    the minimap is feature-stable.
+
+17. **Review `ColorsTab` import of `COLOR_PRESETS` from `SieveRenderer`.**
+    `ColorsTab.jsx` currently imports `COLOR_PRESETS` directly from
+    `../SieveRenderer` — this couples a settings UI component to the
+    renderer module. Moving `COLOR_PRESETS` into `src/renderer/constants.js`
+    (where the other renderer constants live) and re-exporting from
+    `SieveRenderer` for backwards compatibility would clean the dependency
+    direction. Verify no circular import is introduced.
+
+18. **Add `propTypes` or TypeScript types to the top-level component
+    boundaries.** `Visualizer.jsx`, `SettingsPanel.jsx`, and `StepPanel.jsx`
+    have large prop surfaces with no runtime or compile-time checking.
+    Even minimal `PropTypes` validation catches accidental prop renames
+    immediately. Full TypeScript migration is out of scope but adding
+    `// @ts-check` + JSDoc `@param` types to the key hooks is a low-cost
+    middle ground.
+
+### Performance backlog
+
+19. **Profile `goToStep` at large trace sizes.** `goToStep` currently
+    replays every event from the start on scrub-back (the incremental
+    forward path is fast; backward is O(n)). For traces with > 1 000
+    events this becomes noticeable. Mitigations in order of complexity:
+    (a) cache periodic snapshots of `bitState` at every 100th event;
+    (b) use a persistent data structure (e.g. a copy-on-write bit array);
+    (c) limit backward-scrub to the incremental path + prohibit it
+    (UX trade-off). Measure before committing to any approach.
+
+20. **Throttle settings-panel re-renders during rapid slider input.**
+    The spacing sliders and event-timing sliders in `LayoutTab` and
+    `AnimationTab` fire on every `input` event. Each fires a state update
+    in `Visualizer.jsx`, which re-renders the entire toolbar. Wrapping
+    the slider `onChange` in a `useTransition` or debouncing at
+    50 ms would keep the canvas frame rate stable during slider drags.
+
+21. **Lazy-load `traceParser.js` and the renderer on first trace open.**
+    Currently both modules are in the main bundle. `traceParser.js`
+    (~690 lines) and `SieveRenderer.js` (~2 800 lines) are not needed
+    until the user actually opens a file. A dynamic `import()` inside
+    `App.jsx`'s file-open handler would move them to a split chunk,
+    reducing initial load time for the welcome screen.
+
+### Stability / reliability backlog
+
+22. **Guard the `captureStream` path against hidden canvas.** §5 notes
+    that video export breaks when the canvas is `display: none`. Add a
+    pre-export assertion in `useTraceExport.js` that the canvas element
+    is visible (`offsetParent !== null`) and surface a user-visible error
+    if it is not, rather than producing a silent empty recording.
+
+23. **Worker error surfacing.** `bitPrePassClient.js` drops worker errors
+    silently (falls back to synchronous compute). `BitGridGLWorker.js`
+    has no error handler on the worker `MessageChannel`. Add `onerror`
+    handlers that post to a central `console.error` + (optionally) a
+    React error-boundary notification so failures surface during
+    development.
+
+24. **Consolidate `pendingResizeAnchorRef` logic.** The panel-collapse
+    pan-compensation path (§5 minefield) is fragile and spread across
+    five toggle handlers. A single `setPanelState(newState, anchorBit)`
+    helper that stashes the anchor and flips the panel state atomically
+    would be less error-prone. Extract only after the current shape has
+    proven stable across multiple panel-combination toggles.
    To move this to GL: the vertex shader needs per-bit raise/lower
    state (an extra flag byte or a dedicated texture channel) and the
    fragment shader adds shadow + base + top + side-face branches.

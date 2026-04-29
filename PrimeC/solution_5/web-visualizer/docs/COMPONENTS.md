@@ -11,24 +11,28 @@ Welcome screen and file picker. Loads either an uploaded file or a bundled sampl
 Owns playback state, view preferences, and the canvas. Composes the toolbar, side panels, hover balloons, and overlays. Most of the application logic lives here; helpers have been extracted to `lib/`, `hooks/`, and `settings/`.
 
 ### `SettingsPanel.jsx`
-Right-hand collapsible sidebar with tabs:
+Right-hand collapsible sidebar with tabs (~262 lines — now just a tab-row shell that delegates to focused sub-components):
 
-| Tab | Purpose |
-| --- | --- |
-| Layout | Bit/byte layout grid presets |
-| Vector | Vector grouping (uint16/32/64 × lanes) |
-| Spacing | Gap and grouping spacing |
-| Annotations | Cacheline heatmap + outline modes |
-| Animations | Ripple / fade / pulse / sequential reveal |
-| Legend | Embedded `<LegendSections detailed />` |
+| Tab | Component | Purpose |
+| --- | --- | --- |
+| Layout | `LayoutTab.jsx` | Bit/byte layout grid presets, vector grouping, spacing, overlays, cacheline, minimap, depth |
+| Colors | `ColorsTab.jsx` | Theme toggle, canvas background colour pickers, grid opacity, colour preset, custom bit colours |
+| Animation | `AnimationTab.jsx` | Ripple / fade / pulse / sequential reveal, bit-animation mode, playback speed, timing targets |
+| Legend | `LegendTab.jsx` | Embedded `<LegendSections>` with float/dock affordances |
+
+Active tab is driven by `activeTabRequest` (a counter-incremented object from `Visualizer`) so external code (e.g. the Animation gear-icon button) can switch tabs programmatically. Floating legend panel (draggable) is managed inline in `SettingsPanel` and shown/hidden via `legendFloating` state.
 
 Key props (selection):
 
-- `viewPrefs`, `setViewPrefs`
-- `outlineSettings`, `setOutlineSettings`
-- `cachelineAnnot`, `setCachelineAnnot`
-- `collapsed`, `onToggleCollapsed`
+- `settings`, `onChange` — forwarded to `LayoutTab`
+- `outlineSettings`, `onOutlineChange`
+- `cachelineAnnotation`, `onCachelineAnnotationChange`
+- `collapsed`, `onToggleCollapse`
 - `isWindowsPlatform`
+- `theme`, `onThemeChange`
+- `canvasColors`, `onCanvasColorsChange`
+- `bitAnimationMode`, `onBitAnimationModeChange`
+- `activeTabRequest` — `{ tab: string }` object; incrementing ref triggers one-shot tab switch
 
 ### `StepPanel.jsx`
 Left-hand list of trace steps with grouping, search, and a draggable resize handle. Calls back to the visualizer when the user selects a step.
@@ -100,6 +104,29 @@ Wraps the pinned-balloon list and the hover balloon. Asks the parent (`getVisibl
 ### `LegendSections.jsx`
 Default export: `LegendSections({ detailed = true })`. Pure JSX with the four legend groups (Bit states, Overlays, Animations, Interactions). Used both inside the Legend tab and inside the floating "?" balloon.
 
+### `LegendTab.jsx`
+Content for the Legend tab. Holds the float/dock toggle and passes `legendDetailed` + `floatPos` state back to `SettingsPanel` via setter callbacks. No own data dependencies.
+
+### `ColorsTab.jsx`
+Content for the Colors tab (~156 lines). Owns two local `rgb↔hex` converters (`rgbToHex`, `hexToRgb`); everything else comes in as props:
+
+- `gridOpacity`, `onGridOpacityChange`
+- `colorPreset`, `onColorPresetChange`
+- `customColors`, `onCustomColorsChange` — per-class `{ setBit, clearedBit, unchangedBit }` overrides
+- `theme`, `onThemeChange`
+- `canvasColors`, `onCanvasColorsChange` — `{ light: [r,g,b]|null, dark: [r,g,b]|null }`
+
+Displays Theme buttons (☀ / ☽), day/night canvas-background colour pickers with Reset, grid opacity slider, colour preset dropdown, and custom per-class colour pickers.
+
+### `AnimationTab.jsx`
+Content for the Animation tab (~545 lines). Fully self-contained: recreates `clamp` / `playbackSpeedValue` locally. Accepts only props that already existed on `SettingsPanel`. Includes the Bit-animation mode toggle (`animMode`: Mask / Bits / Both).
+
+### `LayoutTab.jsx`
+Content for the Layout tab (~893 lines). "Fat prop list" extraction (~25 props). Owns its own UI state for the grouping menu, custom-preset menu, and spacing popovers, plus inner `LayoutOverview` and `SpacingControl` components. Internally uses `useSettingsBundle()` for the `(settings, onChange)` sub-set of props.
+
+### `useSettingsBundle.js`
+Tiny memoised hook that turns a `(settings, onChange)` pair into `{ s, set, setMany, incr, decr }`. Used by `LayoutTab` internally; not a public API. `set(key, value)` is a single-key delta; `setMany(partial)` merges multiple keys in one call; `incr`/`decr` are convenience wrappers.
+
 ### `buttons.jsx`
 Named exports — all are pure presentational components:
 
@@ -141,13 +168,29 @@ Behaviour:
 - Drag is suppressed when the click originates from a `<button>`, `<input>`, `<select>`, or `<textarea>`.
 - Both move and resize are clamped to the parent rectangle.
 
+### `useKeyboardShortcuts(handlers)`
+Encapsulates the `keydown` global listener for single-key shortcuts (play/pause, step, seek, zoom, theme toggle, etc.). `handlers` is an object of named callbacks supplied by `Visualizer`. The effect registers/cleans up the listener and debounces repeated keys where appropriate.
+
+### `usePlaybackClock()`
+Returns the three mutable ref objects `{ seekGenRef, globalPausedRef, animBusyUntilRef }` that coordinate animation loops. Callers mutate `.current` directly — the hook is a structural wrapper that documents ownership. See §5 of `AI_MAINTENANCE.md` for the minefield notes on each ref.
+
+### `use3DCamera({ onPanZoom })`
+Owns Camera3D lifecycle: `camera3DRef`, `camera3DTransform`, `camera3DContainerStyle`, `ensureTiltCamera`, `createCamera({ onPanZoom })`, `disposeCamera()`. Returns those values for consumption in `Visualizer`. The pointer/wheel/touch gesture dispatcher remains in `Visualizer.jsx`; the gesture bodies are in `src/visualizer/gestures/`.
+
+### `useTraceExport({ canvasRef, rendererRef, trace, … })`
+Encapsulates PNG snapshot (`exportPng`) and WebM video recording (`exportVideo`). Documents the public renderer surface it touches (the 7-argument `setState`, `render`, `canvas`, `currentOperation`). Returns `{ exportPng, exportVideo, exportProgress, isExporting }`.
+
+### `useDraftInput(value, onCommit)`
+Manages the "draft text + commit on blur/Enter" pattern for controlled inputs. Returns `[draft, setDraft, inputProps]`. Used in `SettingsPanel` for range start/end and multiples-prime fields.
+
 ## Utilities (`src/lib/`)
 
 ### `viewPrefs.js`
 - `VIEW_PREFS_KEY = 'sieve-visualizer:view-preferences:v1'`
-- `DEFAULT_EVENT_TIME_TARGETS`, `DEFAULT_LAYOUT_SETTINGS`, `DEFAULT_EVENT_TITLE_SETTINGS`, `DEFAULT_DEPTH_SETTINGS`
+- `DEFAULT_EVENT_TIME_TARGETS`, `DEFAULT_LAYOUT_SETTINGS`, `DEFAULT_EVENT_TITLE_SETTINGS`, `DEFAULT_DEPTH_SETTINGS`, `DEFAULT_CANVAS_COLORS`
 - `readViewPrefs()` / `writeViewPrefs(prefs)`
 - `mergeEventTimeTargets(saved)`, `mergeLayoutSettings(saved)`, `mergeEventTitleSettings(saved)`, `mergeDepthSettings(saved)`
+- `getInitialViewState()` — reads storage once and resolves every persisted UI field (with clamping and legacy-`repeatAnim` migration) into a flat bundle. Called via `useMemo` in `Visualizer.jsx` to seed all `useState` calls.
 
 Each `merge*` helper reconciles persisted partials against the current defaults, so older snapshots remain valid after schema additions.
 
@@ -191,6 +234,53 @@ Modules consumed by `SieveRenderer.js`. No DOM-mutating side effects beyond the 
 - **`constants.js`** — `THEMES`, `COLOR_PRESETS`, `BIT_LAYOUTS`, `BYTE_LAYOUTS`, `VECTOR_GROUPS`, `CACHELINE_SIZES`, `CACHE_PRESETS`, `GRID3X3_MAP`, `STORAGE_MODELS`, `WHEEL30_RESIDUES`.
 - **`bitMath.js`** — `bitToNumber(bitIdx, model)` / `numberToBit(num, model)` for the supported storage models (`'odd'`, `'all'`, `'wheel30'`).
 - **`drawingHelpers.js`** — pure colour and text helpers reused by the renderer's draw passes: `hexToRgb`, `mixRgb`, `labelTextColor`, `fitLabelFontSize`, `truncateTextToWidth`, `drawFittedLabel`.
+- **`VisualizationRenderer.js`** — documentation-as-code contract (abstract base) for any renderer mode. Defines the `setState(…)` / `render()` / `canvas` surface. See §4 of `AI_MAINTENANCE.md`.
+
+### Overlays (`src/renderer/overlays/`)
+
+Each overlay is a pure class with a `render(ctx, cw, ch)` method that reads the state it needs through host-accessor references. No own state. `SieveRenderer` holds one instance of each and calls them from the main draw coordinator.
+
+| File | What it draws |
+| --- | --- |
+| `SearchOverlay.js` | Highlighted search-target bit outline |
+| `MaskWriteOverlay.js` | Mask write-order labels and cell tints |
+| `VectorTouchOrderOverlay.js` | Vector touch-order summary labels |
+| `CachelineAnnotationsOverlay.js` | Cacheline heat-map tints + outline strokes |
+
+### WebGL backend (`src/renderer/gl/`)
+
+The unconditional production bit-fill backend. `Visualizer.jsx` always constructs `BitGridGLWorker`; if attach fails, `SieveRenderer.skipBitFill` stays `false` and Canvas2D handles everything.
+
+| File | Role |
+| --- | --- |
+| `bitGridGLCore.js` | Pure WebGL2 substrate — shaders, `posTex` (RG32F), `stateTex` (R8UI), instanced draw; accepts `HTMLCanvasElement` or `OffscreenCanvas` |
+| `hostStatePacker.js` | Pure functions `packPositions(host, buf, slots)` / `packState(host, buf, slots)`; used by both direct and worker facades |
+| `bitGridWorker.js` | Module worker — owns a `BitGridGLCore` against a transferred `OffscreenCanvas` |
+| `BitGridGLWorker.js` | Main-thread facade matching `BitGridGL`'s API; posts pre-packed `Float32Array`/`Uint8Array` buffers as transferables (one-way, no ack) |
+| `BitGridGL.js` | Direct-mode facade over `bitGridGLCore` + `hostStatePacker`; **dev-only** (used by `parity.html` harness, not in the production runtime) |
+
+**State texture protocol:** one `R8UI` byte per bit, packed flags `set | changed | ghost | repeated | prime | range | multiples | focus`. Full repack every frame; partial `texSubImage2D` updates are a future optimisation (see backlog).
+
+**Context loss:** handled in direct mode only. Worker path does not yet implement `webglcontextlost` / `webglcontextrestored` recovery — see backlog.
+
+### Workers (`src/renderer/workers/`)
+
+| File | Role |
+| --- | --- |
+| `bitPrePass.worker.js` | Spawned once; computes `buildPrimeOverlay(sieveSize, bitCount, storageModel)` and posts back a `Uint8Array` of per-bit prime flags |
+| `bitPrePassClient.js` | Main-thread client; fire-and-forget with stale-reply guard; renderer keeps synchronous fallback if worker is unavailable |
+
+### Gesture helpers (`src/visualizer/gestures/`)
+
+Pure functions extracted from the pointer/wheel/touch `useEffect` in `Visualizer.jsx`. Each takes `{ renderer, event, …host }` and returns nothing (or `{ startX, startY }` for the delta-gesture rotate path). The dispatcher state machine, pointer-event registration, hover handling, click handling, and minimap hit-test remain inline in the useEffect.
+
+| File | Gesture |
+| --- | --- |
+| `pan.js` | 2D pan (single pointer drag) |
+| `rotate.js` | 3D mouse-rotate (secondary button / alt-drag) — returns `{ startX, startY }` |
+| `wheel.js` | Wheel / pinch-zoom |
+
+**Note:** No `pinch.js` exists — add one only when a pinch handler is introduced.
 
 ## Rendering & parsing
 

@@ -14,17 +14,17 @@ This document describes how the web visualizer is organised, the responsibilitie
 src/
 ├── main.jsx              Entry: mounts <App/> and loads styles/index.css
 ├── App.jsx               File picker / welcome screen → loads <Visualizer/>
-├── Visualizer.jsx        Top-level UI: toolbar, canvas, panels, playback
-├── SettingsPanel.jsx     Right-hand sidebar with layout/vector/animation tabs
+├── Visualizer.jsx        Top-level UI: toolbar, canvas, panels, playback (~4 200 lines)
+├── SettingsPanel.jsx     Right-hand sidebar tab-row shell (~260 lines; delegates to settings/)
 ├── StepPanel.jsx         Left-hand list of trace steps (search/filter)
 ├── DetailPanel.jsx       Per-step inspector (changed bits, primes, factors)
 ├── TimingPanel.jsx       Floating, draggable phase-timing readout
-├── SieveRenderer.js      Canvas 2D rendering engine
+├── SieveRenderer.js      Canvas 2D rendering engine (~2 800 lines)
 ├── Camera3D.js           CSS-3D perspective camera (3D mode)
 ├── traceParser.js        Multi-format trace loader (JSON v2/v3, text, dump)
 ├── Icons.jsx             Shared SVG icon components
 ├── lib/                  Pure helpers (no React)
-│   ├── viewPrefs.js          localStorage I/O + default merging
+│   ├── viewPrefs.js          localStorage I/O + default merging + getInitialViewState()
 │   ├── traceHeader.js        Header parsing → display sections
 │   ├── platform.js           Mac/Windows/Electron detection
 │   ├── unitConverters.js     Slider ↔ duration mappings
@@ -36,27 +36,56 @@ src/
 │   ├── headerParser.js       Title/benchmark/header extraction
 │   └── dumpParser.js         Hex/binary memory-dump → events conversion
 ├── renderer/             SieveRenderer building blocks (no React)
-│   ├── constants.js          Themes, palettes, layouts, presets, residues
-│   ├── bitMath.js            bitToNumber / numberToBit (storage models)
-│   ├── drawingHelpers.js     hexToRgb, mixRgb, fitted-text drawing helpers
-│   └── VisualizationRenderer.js  Documentation-as-code contract for any renderer
+│   ├── constants.js              Themes, palettes, layouts, presets, residues
+│   ├── bitMath.js                bitToNumber / numberToBit (storage models)
+│   ├── drawingHelpers.js         hexToRgb, mixRgb, fitted-text drawing helpers
+│   ├── VisualizationRenderer.js  Documentation-as-code contract for any renderer
+│   ├── overlays/             Stateless overlay classes (Pattern D)
+│   │   ├── SearchOverlay.js              Search-target bit highlight
+│   │   ├── MaskWriteOverlay.js           Mask write-order labels + tints
+│   │   ├── VectorTouchOrderOverlay.js    Vector touch-order summary labels
+│   │   └── CachelineAnnotationsOverlay.js Cacheline heat-map tints + outlines
+│   ├── gl/                   WebGL2 bit-fill backend (worker mode, default)
+│   │   ├── bitGridGLCore.js          Pure WebGL2 substrate (HTMLCanvas or OffscreenCanvas)
+│   │   ├── hostStatePacker.js        packPositions / packState pure helpers
+│   │   ├── bitGridWorker.js          Module worker owning a BitGridGLCore
+│   │   ├── BitGridGLWorker.js        Main-thread facade (production path)
+│   │   └── BitGridGL.js              Direct-mode facade (dev/parity harness only)
+│   └── workers/              JS worker helpers
+│       ├── bitPrePass.worker.js      Prime-flag pre-computation off main thread
+│       └── bitPrePassClient.js       Main-thread fire-and-forget client
 ├── hooks/                Reusable custom hooks
-│   ├── useFloatingPanel.js   Drag/resize behaviour for floating panels
-│   ├── useTraceExport.js     PNG snapshot + WebM video recording of the trace
-│   └── useDraftInput.js      Editable text draft synced with a controlled value
+│   ├── useFloatingPanel.js       Drag/resize behaviour for floating panels
+│   ├── useTraceExport.js         PNG snapshot + WebM video recording
+│   ├── useDraftInput.js          Editable text draft synced with a controlled value
+│   ├── useKeyboardShortcuts.js   Global keydown listener for single-key shortcuts
+│   ├── usePlaybackClock.js       seekGenRef / globalPausedRef / animBusyUntilRef triplet
+│   └── use3DCamera.js            Camera3D lifecycle + reactive state
 ├── settings/             SettingsPanel building blocks
-│   ├── constants.js          Layout/vector/grouping presets and tooltips
-│   ├── buttons.jsx           LayoutIcon, VectorIcon, AnnotationButton, …
-│   └── LegendSections.jsx    Shared legend content (tab + floating)
+│   ├── constants.js              Layout/vector/grouping presets and tooltips
+│   ├── buttons.jsx               LayoutIcon, VectorIcon, AnnotationButton, …
+│   ├── LegendSections.jsx        Shared legend content (tab + floating balloon)
+│   ├── LegendTab.jsx             Legend tab content with float/dock affordances
+│   ├── ColorsTab.jsx             Colors tab: theme, canvas bg, opacity, presets
+│   ├── AnimationTab.jsx          Animation tab: style, mode, speed, timing targets
+│   ├── LayoutTab.jsx             Layout tab: bit/byte grid, vectors, spacing, overlays
+│   └── useSettingsBundle.js      Hook: (settings,onChange) → {s,set,setMany,incr,decr}
 ├── visualizer/           Pieces extracted from Visualizer.jsx
 │   ├── Toolbar.jsx               Top toolbar (transport + actions)
 │   ├── TraceInfoPopover.jsx      Storage model + parsed header sections
 │   ├── ExportProgress.jsx        Slim progress bar during video export
+│   ├── CanvasStage.jsx           Canvas area + overlays + balloons + panels
 │   ├── BitHistoryBalloon.jsx     Hover/pinned bit-history popover
-│   ├── EventTitleBanner.jsx      Floating current-event banner
+│   ├── BitHistoryBalloons.jsx    Pinned + hover bit-history balloon cluster
+│   ├── EventTitleBanner.jsx      Floating current-event banner (draggable)
 │   ├── DetailInspectorOverlay.jsx Modal table of bits / numbers / primes
 │   ├── StepAnimSliders.jsx       Mode/Timeline/Target/Speed sliders cluster
-│   └── BitHistoryBalloons.jsx    Pinned + hover bit-history balloon cluster
+│   └── gestures/             Pure gesture-body helpers
+│       ├── pan.js                2D pan handler
+│       ├── rotate.js             3D mouse-rotate handler (returns {startX,startY})
+│       └── wheel.js              Wheel / zoom handler
+├── dev/                  Dev-only modules (not bundled in production)
+│   └── parityHarness.js          GL vs Canvas2D visual-diff harness (parity.html)
 └── styles/               Per-concern stylesheets
     └── index.css             @imports the numbered section files
 ```
@@ -76,9 +105,12 @@ src/
 | --- | --- | --- |
 | Loaded trace | `Visualizer` | Set once after parse, immutable thereafter |
 | Playback position / speed | `Visualizer` | Drives the renderer per frame |
-| View preferences | `Visualizer` + `lib/viewPrefs` | Persisted to `localStorage` |
+| View preferences | `Visualizer` + `lib/viewPrefs` | Persisted to `localStorage`; seeded via `getInitialViewState()` |
 | Floating-panel position/size | `useFloatingPanel` hook | Per-panel local state |
 | Canvas pixel data | `SieveRenderer` | Owned outside React for performance |
+| Bit-fill GPU data | `BitGridGLWorker` (worker thread) | Packed `Float32Array`/`Uint8Array` position + state textures; rebuilt from `SieveRenderer` layout accessors |
+| Playback clock refs | `usePlaybackClock` hook | `seekGenRef`, `globalPausedRef`, `animBusyUntilRef` — mutated directly by consumers |
+| 3D camera transform | `use3DCamera` hook | CSS-3D matrix applied to `CanvasStage` container |
 
 ## Adding a new feature
 
