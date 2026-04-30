@@ -177,6 +177,20 @@ timeline, or a dependency-graph view):
   the same delta. Do not call `schedulePostLayoutRefresh()` from the
   toggle handlers — that fights the resize effect and the bookkeeping
   becomes impossible to reason about.
+- **Inline React components inside `LayoutTab` break button interactions
+  during animation.** `LayoutTab` re-renders on every animation frame
+  (because `Visualizer.jsx`'s `setStepScrubProgress` propagates down
+  the component tree without memoization). Any `const Foo = () => {...}`
+  defined inside `LayoutTab`'s function body is a *new* function
+  reference each render. Rendering `<Foo />` JSX causes React to see a
+  new component type → unmount old subtree → mount fresh subtree,
+  destroying DOM elements mid-click. The fix is to call such functions
+  directly (`{Foo()}`) rather than through JSX, or to define them at
+  module level. `LayoutOverview` was changed to a direct call in §6;
+  `SpacingControl` (still inside `LayoutOverview`) follows the same
+  pattern on each `LayoutOverview()` invocation and is tolerated because
+  its popover state lives in `LayoutTab`. Do not introduce new
+  `<InlineComponent />` patterns inside `LayoutTab`.
 
 ---
 
@@ -652,6 +666,42 @@ overwrite.
   `.toolbar-show-events-widget` CSS. `toggleStepsPanel` now calls
   `setAllEventsWidgetHidden(false)` on every toggle so collapsing the
   panel reliably shows the widget (undoes any prior dock gesture).
+- ✅ **Fixed Annotation and Grouping-outline buttons not responding during
+  single-event animation playback.** Root cause: `LayoutOverview` was
+  defined as a React component *inside* `LayoutTab`'s function body.
+  On every `LayoutTab` re-render (which happens on every animation frame
+  because `setStepScrubProgress` propagates up the component tree from
+  `Visualizer.jsx` → `SettingsPanel` → `LayoutTab`), `LayoutOverview`
+  was a new function reference. React identified it as a new component
+  type and **unmounted the old `LayoutOverview` subtree and mounted a
+  fresh one** — destroying the DOM elements for the Annotations and
+  Grouping-outline buttons between mousedown and mouseup, so clicks
+  never registered. The Grid view section (rendered outside
+  `LayoutOverview` in `LayoutTab`'s main return) used stable
+  module-level `PreviewOptionButton` references and was unaffected.
+  Fix: changed `<LayoutOverview />` (JSX component invocation, which
+  triggers React's component-lifecycle machinery) to `{LayoutOverview()}`
+  (direct function call) in `LayoutTab`'s main return. React now
+  integrates the returned JSX as part of `LayoutTab`'s own render
+  output; the module-level `AnnotationButton` and `PreviewOptionButton`
+  elements it returns have stable type references and are reconciled
+  in-place — no unmount/remount during animation.
+  **Minefield note:** `SpacingControl` is still defined inside
+  `LayoutOverview`; when `LayoutOverview()` is invoked on each render,
+  `SpacingControl` is a new function. Any `<SpacingControl />` usage in
+  the Arrangements section will still unmount/remount per render.
+  This is accepted because: (a) the spacing popover state lives in
+  `LayoutTab`, not in `SpacingControl`, so it survives the remount;
+  (b) the user did not report spacing controls as broken. If spacing
+  controls ever become a problem, promote `SpacingControl` to a
+  module-level component and pass `openSpacingControl`,
+  `setOpenSpacingControl`, `s`, `incr`, `decr` as props — five props
+  that cover all its needs.
+  **General rule for LayoutTab:** Never define a React component
+  (`const Foo = () => {...}`) inside `LayoutTab`'s function body and
+  then render it as `<Foo />`. Use direct function calls (`{Foo()}`),
+  module-level components, or proper child components with props. The
+  problem recurs silently otherwise because no ESLint rule flags it.
 
 ---
 

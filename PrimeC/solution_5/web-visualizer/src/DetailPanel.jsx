@@ -424,32 +424,17 @@ export default function DetailPanel({
             <section className="detail-section-card">
               <div className="detail-section-title">Bits</div>
               <div className="detail-section-rows">
-                <div className="detail-row">
-                  <span className="detail-row-label">{bitsFacts[0].label}</span>
-                  <span className="detail-row-value detail-row-value-num">{bitsFacts[0].value}</span>
-                </div>
                 {annotationFacts.map((row) => (
                   <div key={row.label} className="detail-row detail-row-sub">
                     <span className="detail-row-label">{row.label}</span>
                     <span className="detail-row-value">{row.content}</span>
                   </div>
                 ))}
-                {bitsFacts.slice(1).map((stat) => (
+
+                {bitsFacts.map((stat) => (
                   <div key={stat.label} className="detail-row">
                     <span className="detail-row-label">{stat.label}</span>
                     <span className="detail-row-value detail-row-value-num">{stat.value}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="detail-section-card">
-              <div className="detail-section-title">Timings</div>
-              <div className="detail-section-rows">
-                {timingFacts.map((row) => (
-                  <div key={row.label} className="detail-row">
-                    <span className="detail-row-label">{row.label}</span>
-                    <span className="detail-row-value">{row.content}</span>
                   </div>
                 ))}
               </div>
@@ -465,6 +450,19 @@ export default function DetailPanel({
                 {maskPreviewContent}
               </div>
             </section>
+
+            <section className="detail-section-card">
+              <div className="detail-section-title">Timings</div>
+              <div className="detail-section-rows">
+                {timingFacts.map((row) => (
+                  <div key={row.label} className="detail-row">
+                    <span className="detail-row-label">{row.label}</span>
+                    <span className="detail-row-value">{row.content}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
           </div>
         </div>
       )}

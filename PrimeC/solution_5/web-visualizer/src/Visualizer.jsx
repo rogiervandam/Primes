@@ -2864,7 +2864,7 @@ export default function Visualizer({
     if (!cam || !cam.enabled) return;
     const newTiltActive = !tiltActive;
     setTiltActive(newTiltActive);
-    cam.animateTo({ rotateX: newTiltActive ? 30 : 0, rotateY: cam.rotateY, perspective: 1500 }, 400);
+    cam.animateTo({ rotateX: newTiltActive ? 30 : 0, rotateY: 0, perspective: 1500 }, 400);
   }, [tiltActive]);
 
   // 3D mode toggle is removed — the app is always in 3D mode.

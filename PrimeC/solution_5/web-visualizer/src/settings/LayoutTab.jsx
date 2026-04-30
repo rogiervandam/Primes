@@ -887,7 +887,7 @@ export default function LayoutTab({
         )}
       </div>
 
-      <LayoutOverview />
+      {LayoutOverview()}
    </>
   );
 }

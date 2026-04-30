@@ -83,6 +83,7 @@
   display: flex;
   align-items: baseline;
   gap: 6px;
+  border: none;
 }
 .detail-inspect-btn:hover {
   border-color: var(--accent-dim);
