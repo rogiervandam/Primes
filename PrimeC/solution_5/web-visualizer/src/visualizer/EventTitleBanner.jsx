@@ -116,10 +116,13 @@ export default function EventTitleBanner({
       const zone = detectDropZone(ev.clientX, ev.clientY, bannerEl);
       if (zone === 'joinWidget' && onJoinWidgets) {
         // The banner was dropped onto the all-events floater: join them.
+        // Pass the banner's current screen rect so the joined widget can
+        // anchor its bottom-left corner to the same position.
+        const bannerRect = bannerEl ? bannerEl.getBoundingClientRect() : null;
         // Reset drag offset so the banner re-appears at its default position
         // when the widgets are later split.
         setSettings((prev) => ({ ...prev, dragOffsetX: 0, dragOffsetY: 0 }));
-        onJoinWidgets();
+        onJoinWidgets(bannerRect);
         return;
       }
       if (zone === 'left') {

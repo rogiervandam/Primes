@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useLayoutEffect } from 'react';
 import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus } from '../Icons';
 import { LinkIcon } from '../Icons';
 
@@ -42,17 +42,42 @@ export default function JoinedEventsWidget({
   onSplitWidgets,
   // Hide the entire joined widget (split + hide both sub-widgets)
   onHideWidget,
+  // DOMRect of the EventTitleBanner at the moment the widgets were joined.
+  // Used to anchor the joined widget's bottom-left to the same screen position.
+  initialBannerRect,
 }) {
   const [isSplitting, setIsSplitting] = useState(false);
   const [showAllAnnotations, setShowAllAnnotations] = useState(false);
-  // Track drag offset locally; synced to settings on split so each widget
-  // re-appears at a sensible position.
-  // Always start centered (offset 0,0). The banner's stored dragOffsetX/Y is
-  // in a different coordinate space (absolute, anchored bottom-left) and
-  // cannot be reused for a fixed+centered widget.
-  const floatDragRef = useRef({ x: 0, y: 0 });
-  const [floatDrag, setFloatDrag] = useState({ x: 0, y: 0 });
+
+  // Compute the initial horizontal offset so the joined widget's left edge
+  // aligns with the EventTitleBanner's left edge at the time of joining.
+  // The y-offset is corrected after mount (useLayoutEffect) to pin the
+  // bottom-left, since widget height is unknown before first render.
+  const WIDGET_WIDTH = 520; // matches CSS min-width / max-width
+  const TOP_OFFSET = 56;    // matches .joined-events-widget { top: 56px }
+  const computeInitialDragX = () => {
+    if (!initialBannerRect || typeof window === 'undefined') return 0;
+    return initialBannerRect.left - (window.innerWidth / 2 - WIDGET_WIDTH / 2);
+  };
+
+  const floatDragRef = useRef({ x: computeInitialDragX(), y: 0 });
+  const [floatDrag, setFloatDrag] = useState({ x: computeInitialDragX(), y: 0 });
   const widgetRef = useRef(null);
+
+  // After first render, adjust y so the joined widget's bottom-left corner
+  // sits at the same screen position as the banner's bottom-left corner.
+  useLayoutEffect(() => {
+    if (!initialBannerRect || !widgetRef.current) return;
+    const widgetHeight = widgetRef.current.offsetHeight;
+    const targetTop = initialBannerRect.bottom - widgetHeight;
+    const y = targetTop - TOP_OFFSET;
+    // Clamp so the widget doesn't go above the toolbar.
+    const clampedY = Math.max(4 - TOP_OFFSET, y);
+    const next = { x: floatDragRef.current.x, y: clampedY };
+    floatDragRef.current = next;
+    setFloatDrag(next);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount — initialBannerRect is stable for this instance
 
   const handleDragStart = useCallback((e) => {
     if (e.target.closest('input') || e.target.closest('button')) return;

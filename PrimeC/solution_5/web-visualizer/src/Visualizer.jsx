@@ -212,7 +212,13 @@ export default function Visualizer({
       ? true
       : false
   );
-  const joinWidgets = useCallback(() => setWidgetsJoined(true), []);
+  // Stores the EventTitleBanner's DOMRect at the moment of joining, so the
+  // JoinedEventsWidget can anchor its bottom-left corner to the same position.
+  const [joinBannerRect, setJoinBannerRect] = useState(null);
+  const joinWidgets = useCallback((bannerRect) => {
+    setJoinBannerRect(bannerRect || null);
+    setWidgetsJoined(true);
+  }, []);
   const splitWidgets = useCallback(() => {
     setWidgetsJoined(false);
     // Reset the banner's drag offset so it reappears at its default anchor
@@ -688,16 +694,25 @@ export default function Visualizer({
     setSettingsCollapsed((collapsed) => !collapsed);
   }, [captureViewportAnchor]);
 
+  // Tracks the active tab in SettingsPanel so the gear icon can toggle it.
+  const [settingsActiveTab, setSettingsActiveTab] = useState('layout');
+
   // State for requesting a specific tab in the settings panel from external code.
   // { tab: string, counter: number } — counter increments each request so effects fire.
   const [settingsTabRequest, setSettingsTabRequest] = useState(null);
 
   // Open animation settings panel to the animation tab (e.g. from gear icon in event widget).
+  // Toggles the panel closed if it is already open on the animation tab.
   const openAnimationSettings = useCallback(() => {
     pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
+    if (!settingsCollapsed && settingsActiveTab === 'animation') {
+      // Panel is open and already showing animation — close it.
+      setSettingsCollapsed(true);
+      return;
+    }
     setSettingsCollapsed(false);
     setSettingsTabRequest((prev) => ({ tab: 'animation', counter: (prev?.counter ?? 0) + 1 }));
-  }, [captureViewportAnchor]);
+  }, [captureViewportAnchor, settingsCollapsed, settingsActiveTab]);
 
   // Callback for changing bitAnimationMode from the settings panel (no seek side-effect needed there).
   const handleBitAnimationModeChange = useCallback((mode) => {
@@ -4066,6 +4081,7 @@ export default function Visualizer({
             toggleDetailPanel={toggleDetailPanel}
             sliders={stepAnimSlidersContent}
             onSplitWidgets={splitWidgets}
+            initialBannerRect={joinBannerRect}
             onHideWidget={() => {
               setWidgetsJoined(false);
               setAllEventsWidgetHidden(true);
@@ -4078,6 +4094,7 @@ export default function Visualizer({
           onChange={setLayoutSettings}
           collapsed={settingsCollapsed}
           onToggleCollapse={toggleSettingsPanel}
+          onActiveTabChange={setSettingsActiveTab}
           playSpeed={playSpeedPercent}
           onPlaySpeedChange={setPlaySpeedPercent}
           repeatAnim={delayBetweenEvents}

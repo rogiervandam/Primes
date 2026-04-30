@@ -45,6 +45,7 @@ export default function SettingsPanel({
   canvasColors,
   onCanvasColorsChange,
   activeTabRequest,
+  onActiveTabChange,
   bitAnimationMode,
   onBitAnimationModeChange,
   detailOpen = false,
@@ -53,12 +54,19 @@ export default function SettingsPanel({
   const s = settings || {};
   const [activeTab, setActiveTab] = React.useState('layout');
   const prevTabRequestRef = React.useRef(null);
+
+  // Wrapper so external observers (e.g. gear-icon toggle) know the current tab.
+  const changeActiveTab = React.useCallback((tab) => {
+    setActiveTab(tab);
+    onActiveTabChange?.(tab);
+  }, [onActiveTabChange]);
+
   React.useEffect(() => {
     if (activeTabRequest && activeTabRequest !== prevTabRequestRef.current) {
       prevTabRequestRef.current = activeTabRequest;
-      setActiveTab(activeTabRequest.tab);
+      changeActiveTab(activeTabRequest.tab);
     }
-  }, [activeTabRequest]);
+  }, [activeTabRequest, changeActiveTab]);
   const [legendFloating, setLegendFloating] = React.useState(false);
   const [legendDetailed, setLegendDetailed] = React.useState(true);
   const [floatPos, setFloatPos] = React.useState(null);
@@ -78,17 +86,17 @@ export default function SettingsPanel({
       onToggleCollapse && onToggleCollapse(); // expands the sidebar
     }
     switch (key) {
-      case 'primeOverlay':    setActiveTab('layout');    onPrimeOverlayToggle?.(); break;
-      case 'rangeOverlay':    setActiveTab('layout');    onRangeOverlayToggle?.(); break;
-      case 'multiplesOverlay':setActiveTab('layout');    onMultiplesOverlayToggle?.(); break;
-      case 'heatMap':         setActiveTab('layout');    onHeatMapToggle?.(); break;
-      case 'animRipple':      setActiveTab('animation'); onAnimStyleChange?.('ripple'); break;
-      case 'animFade':        setActiveTab('animation'); onAnimStyleChange?.('fade'); break;
-      case 'animPulse':       setActiveTab('animation'); onAnimStyleChange?.('pulse'); break;
-      case 'animSequential':  setActiveTab('animation'); onAnimStyleChange?.('sequential'); break;
+      case 'primeOverlay':    changeActiveTab('layout');    onPrimeOverlayToggle?.(); break;
+      case 'rangeOverlay':    changeActiveTab('layout');    onRangeOverlayToggle?.(); break;
+      case 'multiplesOverlay':changeActiveTab('layout');    onMultiplesOverlayToggle?.(); break;
+      case 'heatMap':         changeActiveTab('layout');    onHeatMapToggle?.(); break;
+      case 'animRipple':      changeActiveTab('animation'); onAnimStyleChange?.('ripple'); break;
+      case 'animFade':        changeActiveTab('animation'); onAnimStyleChange?.('fade'); break;
+      case 'animPulse':       changeActiveTab('animation'); onAnimStyleChange?.('pulse'); break;
+      case 'animSequential':  changeActiveTab('animation'); onAnimStyleChange?.('sequential'); break;
       default: break;
     }
-  }, [legendFloating, onToggleCollapse, setActiveTab,
+  }, [legendFloating, onToggleCollapse, changeActiveTab,
       onPrimeOverlayToggle, onRangeOverlayToggle, onMultiplesOverlayToggle,
       onHeatMapToggle, onAnimStyleChange]);
 
@@ -121,7 +129,7 @@ export default function SettingsPanel({
               role="tab"
               aria-selected={activeTab === 'layout'}
               className={`settings-tab-btn${activeTab === 'layout' ? ' active' : ''}`}
-              onClick={() => setActiveTab('layout')}
+              onClick={() => changeActiveTab('layout')}
             >
               Layout
             </button>
@@ -130,7 +138,7 @@ export default function SettingsPanel({
               role="tab"
               aria-selected={activeTab === 'colors'}
               className={`settings-tab-btn${activeTab === 'colors' ? ' active' : ''}`}
-              onClick={() => setActiveTab('colors')}
+              onClick={() => changeActiveTab('colors')}
             >
               Colors
             </button>
@@ -139,7 +147,7 @@ export default function SettingsPanel({
               role="tab"
               aria-selected={activeTab === 'animation'}
               className={`settings-tab-btn${activeTab === 'animation' ? ' active' : ''}`}
-              onClick={() => setActiveTab('animation')}
+              onClick={() => changeActiveTab('animation')}
             >
               Animation
             </button>
@@ -148,7 +156,7 @@ export default function SettingsPanel({
               role="tab"
               aria-selected={activeTab === 'legend'}
               className={`settings-tab-btn${activeTab === 'legend' ? ' active' : ''}`}
-              onClick={() => setActiveTab('legend')}
+              onClick={() => changeActiveTab('legend')}
             >
               Legend
             </button>

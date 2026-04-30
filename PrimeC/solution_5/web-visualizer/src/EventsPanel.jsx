@@ -171,7 +171,11 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
       if (zone === 'joinWidget' && onJoinWidgets) {
         floatDragRef.current = { x: 0, y: 0 };
         setFloatDrag({ x: 0, y: 0 });
-        onJoinWidgets();
+        // Pass the EventTitleBanner's screen rect so the joined widget can
+        // anchor its bottom-left corner to the same position.
+        const bannerEl = document.querySelector('.step-focus-banner');
+        const bannerRect = bannerEl ? bannerEl.getBoundingClientRect() : null;
+        onJoinWidgets(bannerRect);
       } else if (zone === 'left' && onExpandPanelFromWidget) {
         // Snap drag offset back so the widget is fresh next time it appears.
         floatDragRef.current = { x: 0, y: 0 };

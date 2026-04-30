@@ -1,0 +1,1 @@
+Always read the docs about maintenace and architecture and update them after a task. 
