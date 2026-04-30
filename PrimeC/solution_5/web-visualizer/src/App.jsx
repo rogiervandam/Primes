@@ -1,6 +1,12 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { parseTrace } from './traceParser';
-import Visualizer from './Visualizer';
+import React, { useState, useRef, useCallback, useEffect, Suspense } from 'react';
+
+// Lazy-load the Visualizer (+ SieveRenderer and all renderer deps) so the
+// welcome screen ships without them.  The chunk starts downloading as soon as
+// the user opens a file (see preloadVisualizer below).
+const Visualizer = React.lazy(() => import('./Visualizer'));
+
+/** Fire-and-forget: start fetching the Visualizer chunk early. */
+function preloadVisualizer() { import('./Visualizer'); }
 
 export default function App() {
   const [trace, setTrace] = useState(null);
@@ -71,10 +77,12 @@ export default function App() {
     }
   }, [deriveBenchmarkTimingFileName, parseBenchmarkTimingFile]);
 
-  const loadFile = useCallback((file) => {
+  const loadFile = useCallback(async (file) => {
     setError('');
     setBenchmarkTimingData(null);
     setBenchmarkTimingFileName('');
+    preloadVisualizer();
+    const { parseTrace } = await import('./traceParser');
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -92,8 +100,12 @@ export default function App() {
   const loadFromApi = useCallback(async (name, autoRenderFlag = false) => {
     setError('');
     setLoadingLog(true);
+    preloadVisualizer();
     try {
-      const res = await fetch(`/api/logs/${encodeURIComponent(name)}`);
+      const [{ parseTrace }, res] = await Promise.all([
+        import('./traceParser'),
+        fetch(`/api/logs/${encodeURIComponent(name)}`),
+      ]);
       if (!res.ok) throw new Error(`Failed to load ${name}: ${res.statusText}`);
       const text = await res.text();
       const parsed = parseTrace(text);
@@ -229,7 +241,7 @@ export default function App() {
   }
 
   return (
-    <>
+    <Suspense fallback={<div className="loading-msg">Loading visualizer…</div>}>
       <input
         ref={benchmarkInputRef}
         type="file"
@@ -252,6 +264,6 @@ export default function App() {
         }}
         autoRender={autoRender}
       />
-    </>
+    </Suspense>
   );
 }

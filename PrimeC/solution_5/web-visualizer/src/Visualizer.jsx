@@ -1315,6 +1315,11 @@ export default function Visualizer({
     }
   }, [currentStep, steps, updateMinimapAvailability, playing, stopPlayback, getCanvasTargetSize, delayBetweenEvents, applyViewportFit, pinnedBitIndices, effectiveGroupBits]);
 
+  // Stable ref so long-lived closures (play scheduler, keyboard handler)
+  // can call the latest goToStep without listing it in their dep arrays.
+  const goToStepRef = useRef(null);
+  goToStepRef.current = goToStep;
+
   const cancelViewportAnimation = useCallback(() => {
     if (viewportAnimRef.current) {
       cancelAnimationFrame(viewportAnimRef.current);
@@ -2708,7 +2713,7 @@ export default function Visualizer({
           setPlaying(false);
           return prev;
         }
-        setTimeout(() => goToStep(next, { keepPlaying: true }), 0);
+        setTimeout(() => goToStepRef.current(next, { keepPlaying: true }), 0);
         return next;
       });
       playTimeoutRef.current = setTimeout(scheduleNext, 16);
@@ -2723,7 +2728,7 @@ export default function Visualizer({
         playTimeoutRef.current = null;
       }
     };
-  }, [playing, steps.length, goToStep]);
+  }, [playing, steps.length]); // goToStep read via stable goToStepRef
 
   // Top-toolbar Play/Pause. Drives trace-wide playback (event-by-event with
   // no inter-event wait) and supports pause-in-flight + precise resume:
