@@ -126,6 +126,13 @@ export class BitGridGLWorker {
       console.error('[BitGridGLWorker] worker crashed:', err && err.message);
       this._lost = true;
     };
+    this._worker.onmessageerror = (err) => {
+      // Fires when a message from the worker cannot be deserialized (rare
+      // structured-clone failures, e.g. transferring a neutered buffer).
+      // Log so it surfaces during development; treat as non-fatal because the
+      // Canvas2D layer continues rendering regardless.
+      console.error('[BitGridGLWorker] message deserialization error:', err);
+    };
     this._post({ type: 'init', canvas: offscreen }, [offscreen]);
     return true;
   }

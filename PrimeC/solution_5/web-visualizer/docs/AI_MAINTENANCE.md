@@ -1185,29 +1185,44 @@ text that extends beyond the square is clipped by `overflow: hidden`.
     standalone private method with a clear JSDoc summary. No logic
     changes — purely structural. The prerequisite note about GL lowered-3D
     porting is moot since that work is already done (see §7 item 5).
-14. **Introduce lightweight integration tests.** The only safety net is
-    `npm run build`. Suggested minimal additions:
-
-    - A Vitest unit test for `traceParser.js` covering each input
-      format (JSON v2, JSON v3, `STEP` text, dump) against a fixture.
-    - A Vitest unit test for `animationTiming.js` verifying tier
-      boundaries (no DOM needed).
-    - A Playwright smoke test that loads the sample trace, plays for
-      3 seconds, and asserts no console errors and a non-blank canvas.
-
-    Start with the parser tests — they are pure and have zero setup cost.
+14. **Introduce lightweight integration tests.** ✅ DONE. Vitest
+    installed (`npm run test` / `npm run test:watch`). Two test files
+    created with zero DOM dependencies:
+    - `src/lib/__tests__/animationTiming.test.js` — 34 tests covering
+      `clampMs`, `progressiveTierShares`, `bitsAtTimeRatio`,
+      `timeRatioAtBitIndex`, `computeEventNormalDuration`,
+      `computeEventDuration`, and `getFadeOutDuration` (including
+      tier-boundary round-trip assertions).
+    - `src/parser/__tests__/traceParser.test.js` — 16 tests covering
+      JSON v3, JSON v2, text-format parsing (shape, bitCount,
+      storageModel, changedBits), and the error-case paths (empty
+      input, bad JSON, version < 2).
+    All 50 tests pass clean. `vitest.config.js` at the project root;
+    configuration is minimal (`environment: 'node'`, no jsdom needed).
+    Remaining test gap: a Playwright smoke test loading the sample
+    trace, playing 3 seconds, and asserting no console errors — deferred
+    to a future session (requires Playwright setup + headless browser).
 15. **Audit `Visualizer.jsx` `useState` seed values.** ✅ DONE.
     Grepped for `readViewPrefs()` inside `Visualizer.jsx` — zero
     occurrences found. All `useState` seeds already flow from
     `getInitialViewState()` via the single `useMemo(initState)` call.
     The "storage is read exactly once" invariant is fully clean.
 16. **Extract the minimap render + hit-test into a `MinimapRenderer`
-    class.** The minimap is currently drawn inline in `SieveRenderer`
-    across three methods (`_renderMinimap`, `_renderMinimapViewport`,
-    and the hit-test inside `canvasToBitIndex`). A small `MinimapRenderer`
-    class following Pattern D would isolate it from the main draw pipeline
-    and make the hit-test logic independently legible. Low priority while
-    the minimap is feature-stable.
+    class.** ✅ DONE. New file `src/renderer/MinimapRenderer.js`
+    following Pattern D. The class takes the host renderer in its
+    constructor and exposes `attach(canvas)`, `render(cW, cH, detailH)`,
+    `hitTest(x, y, cW, cH)`, and `isContentFullyVisible(vW, vH)`.
+    `SieveRenderer` now delegates all four public methods to
+    `this.minimapRenderer`; the dead `minimapCanvas`/`minimapCtx` fields
+    and the 100-line inline drawing block are removed from
+    `SieveRenderer`. Dead variable block (`bitsPerCacheLine`, `totalCL`,
+    `clPerVRow`, `totalVRows`) removed from the rendering path.
+    `Visualizer.jsx` changed `r._minimapRect = null` →
+    `r.minimapRenderer._rect = null`; `hitTest` now guards against
+    disabled minimap via `this.host.minimapEnabled` so the explicit
+    null-clear is only needed for timing (not correctness). Module count
+    89 → 89 (new file; no net import change since SieveRenderer already
+    bundled).
 17. **Review `ColorsTab` import of `COLOR_PRESETS` from `SieveRenderer`.**
     ✅ DONE. `COLOR_PRESETS` was already in `src/renderer/constants.js`
     and re-exported via `SieveRenderer.js`. Changed `ColorsTab.jsx` to
@@ -1246,17 +1261,20 @@ text that extends beyond the square is clipped by `overflow: hidden`.
 
 ### Stability / reliability backlog
 
-22. **Guard the `captureStream` path against hidden canvas.** §5 notes
-    that video export breaks when the canvas is `display: none`. Add a
-    pre-export assertion in `useTraceExport.js` that the canvas element
-    is visible (`offsetParent !== null`) and surface a user-visible error
-    if it is not, rather than producing a silent empty recording.
-23. **Worker error surfacing.** `bitPrePassClient.js` drops worker errors
-    silently (falls back to synchronous compute). `BitGridGLWorker.js`
-    has no error handler on the worker `MessageChannel`. Add `onerror`
-    handlers that post to a central `console.error` + (optionally) a
-    React error-boundary notification so failures surface during
-    development.
+22. **Guard the `captureStream` path against hidden canvas.** ✅ DONE.
+    `useTraceExport.js` checks `canvas.offsetParent === null` before
+    calling `captureStream`; if the canvas is not visible, it calls
+    `setExportError(msg)` with a user-readable message and returns early,
+    rather than producing a silent empty recording.
+23. **Worker error surfacing.** ✅ DONE. `BitGridGLWorker.js` already had
+    an `onerror` handler (console.error + `_lost = true`). Added
+    `onmessageerror` to both `BitGridGLWorker.js` and
+    `bitPrePassClient.js` to catch deserialization failures (rare
+    structured-clone errors). For `bitPrePassClient`, `onmessageerror`
+    also clears the pending-callback map so callers don't hang.
+    A React error-boundary notification remains optional — the Canvas2D
+    layer keeps rendering through any GL-worker failure, so a silent
+    console error is appropriate at this stage.
 24. **Consolidate `pendingResizeAnchorRef` logic.** The panel-collapse
     pan-compensation path (§5 minefield) is fragile and spread across
     five toggle handlers. A single `setPanelState(newState, anchorBit)`

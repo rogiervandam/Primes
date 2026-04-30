@@ -393,7 +393,7 @@ export default function Visualizer({
     const available = showMinimap !== false && !fullyVisible;
     r.minimapEnabled = available;
     setMinimapAvailable(available);
-    if (!available) r._minimapRect = null;
+    if (!available) r.minimapRenderer._rect = null;
   }, [showMinimap]);
 
   const stopPlayback = useCallback(() => {
@@ -3056,7 +3056,7 @@ export default function Visualizer({
       // Check minimap hit first.  The minimap is drawn on a position:fixed
       // canvas covering the full viewport, so _minimapRect.mx/my are in
       // viewport (clientX/Y) coordinates — not container-relative coords.
-      const hit = r.minimapHitTest(e.clientX, e.clientY, canvasW, canvasH);
+      const hit = r.minimapHitTest(e.clientX, e.clientY);
       if (hit) {
         hideHoverBalloon();
         gestureMode = 'minimap';
@@ -3128,7 +3128,7 @@ export default function Visualizer({
         hideHoverBalloon();
         const rect = el.getBoundingClientRect();
         // Minimap is on a position:fixed overlay — use viewport coords.
-        const hit = r.minimapHitTest(e.clientX, e.clientY, rect.width, rect.height);
+        const hit = r.minimapHitTest(e.clientX, e.clientY);
         if (hit) {
           r.panX = hit.panX;
           r.panY = hit.panY;

@@ -39,6 +39,7 @@ src/
 │   ├── constants.js              Themes, palettes, layouts, presets, residues
 │   ├── bitMath.js                bitToNumber / numberToBit (storage models)
 │   ├── drawingHelpers.js         hexToRgb, mixRgb, fitted-text drawing helpers
+│   ├── MinimapRenderer.js        Minimap overlay drawing + hit-testing (Pattern D)
 │   ├── VisualizationRenderer.js  Documentation-as-code contract for any renderer
 │   ├── overlays/             Stateless overlay classes (Pattern D)
 │   │   ├── SearchOverlay.js              Search-target bit highlight
@@ -134,6 +135,7 @@ known minefields, and a list of refactors already completed.**
 npm install
 npm run dev      # Vite dev server on http://localhost:5173
 npm run build    # Production bundle in dist/
+npm run test     # Vitest unit tests (50 tests; no DOM required)
 npm run electron # Native wrapper (after build)
 ```
 

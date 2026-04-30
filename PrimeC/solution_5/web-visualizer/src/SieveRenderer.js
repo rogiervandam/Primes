@@ -12,6 +12,7 @@ import { SearchOverlay } from './renderer/overlays/SearchOverlay';
 import { MaskWriteOverlay } from './renderer/overlays/MaskWriteOverlay';
 import { VectorTouchOrderOverlay } from './renderer/overlays/VectorTouchOrderOverlay';
 import { CachelineAnnotationsOverlay } from './renderer/overlays/CachelineAnnotationsOverlay';
+import { MinimapRenderer } from './renderer/MinimapRenderer';
 
 import {
   THEMES,
@@ -54,8 +55,6 @@ export class SieveRenderer {
     this.ctx = null;
     this.settledCanvas = null;
     this.settledCtx = null;
-    this.minimapCanvas = null;
-    this.minimapCtx = null;
     this.bitCount = 0;
     this.sieveSize = 0;
     this.bitState = null;
@@ -76,6 +75,7 @@ export class SieveRenderer {
     this.maskWriteOverlay = new MaskWriteOverlay(this);
     this.vectorTouchOrderOverlay = new VectorTouchOrderOverlay(this);
     this.cachelineAnnotationsOverlay = new CachelineAnnotationsOverlay(this);
+    this.minimapRenderer = new MinimapRenderer(this);
     this.primeOverlay = false;
     this._primeBitFlags = null;
     this._primeOverlayKey = '';
@@ -321,8 +321,7 @@ export class SieveRenderer {
   }
 
   attachMinimapCanvas(canvas) {
-    this.minimapCanvas = canvas;
-    this.minimapCtx = canvas ? canvas.getContext('2d') : null;
+    this.minimapRenderer.attach(canvas);
   }
 
   init(bitCount, sieveSize) {
@@ -2608,116 +2607,17 @@ export class SieveRenderer {
 
   /** True when the current viewport already contains the full content bounds. */
   isContentFullyVisible(viewportW, viewportH) {
-    if (this.bitCount === 0) return true;
-    const dims = this.contentDimensions();
-    const viewX = -this.panX;
-    const viewY = -this.panY;
-    const eps = 0.5;
-    return (
-      viewX <= eps &&
-      viewY <= eps &&
-      viewX + viewportW >= dims.width - eps &&
-      viewY + viewportH >= dims.height - eps
-    );
+    return this.minimapRenderer.isContentFullyVisible(viewportW, viewportH);
   }
 
   /** Render minimap overlay in bottom-right corner, offset above detailH */
   renderMinimap(canvasW, canvasH, detailH = 0) {
-    let ctx = this.ctx;
-    // viewportW/H = the user-visible canvas-container area, used for the
-    // "is content fully visible?" check. Prefer the stored property (set by
-    // Visualizer.jsx on every resize) over the oversized canvas dimensions.
-    let viewportW = this.viewportW || canvasW;
-    let viewportH = this.viewportH || canvasH;
-    if (this.minimapCanvas && this.minimapCtx) {
-      const dpr = window.devicePixelRatio || 1;
-      // The minimap canvas is position:fixed and fills the full viewport, so
-      // use window dimensions as the drawing surface.
-      const overlayW = (typeof window !== 'undefined' ? window.innerWidth : null)
-        || this.minimapCanvas.clientWidth || canvasW;
-      const overlayH = (typeof window !== 'undefined' ? window.innerHeight : null)
-        || this.minimapCanvas.clientHeight || canvasH;
-      // Drawing canvas covers the full viewport; viewport visibility check
-      // still uses the actual container visible area.
-      canvasW = overlayW;
-      canvasH = overlayH;
-      if (this.minimapCanvas.width !== Math.round(overlayW * dpr) || this.minimapCanvas.height !== Math.round(overlayH * dpr)) {
-        this.minimapCanvas.width = Math.round(overlayW * dpr);
-        this.minimapCanvas.height = Math.round(overlayH * dpr);
-        this.minimapCanvas.style.width = `${overlayW}px`;
-        this.minimapCanvas.style.height = `${overlayH}px`;
-      }
-      ctx = this.minimapCtx;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, canvasW, canvasH);
-    }
+    this.minimapRenderer.render(canvasW, canvasH, detailH);
+  }
 
-    if (!this.minimapEnabled) {
-      this._minimapRect = null;
-      return;
-    }
-    if (this.bitCount === 0) return;
-    if (this.isContentFullyVisible(viewportW, viewportH)) {
-      this._minimapRect = null;
-      return;
-    }
-    const dims = this.contentDimensions();
-    const pad = 4;
-
-    const scale = Math.min(
-      (130) / dims.width,
-      (130) / dims.height
-    );
-    const mapW = dims.width * scale + 2 * pad;
-    const mapH = dims.height * scale + 2 * pad;
-    const edgePad = 10;
-    // Keep the minimap clear of the right-side settings panel.
-    const rightInset = this.minimapRightInset || 0;
-    const mx = Math.max(edgePad, canvasW - mapW - edgePad - rightInset);
-    const panelClearance = Math.max(0, detailH) + edgePad;
-    const my = Math.max(edgePad, canvasH - mapH - panelClearance);
-
-    // Store minimap geometry for hit testing
-    this._minimapRect = { mx, my, mapW, mapH, scale, pad, dims };
-
-    // Background
-    ctx.fillStyle = 'rgba(0,0,0,0.65)';
-    ctx.fillRect(mx, my, mapW, mapH);
-    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(mx, my, mapW, mapH);
-
-    // Content outline only (no per-bit colors)
-    const bitsPerCacheLine = this.bitsPerCacheLine;
-    const totalCL = Math.ceil(this.bitCount / bitsPerCacheLine);
-    const clPerVRow = this._cacheLinesPerVisualRow();
-    const totalVRows = Math.ceil(totalCL / clPerVRow);
-    const contentW = mapW - 2 * pad;
-    const contentH = mapH - 2 * pad;
-
-    // Draw a simple filled rectangle for the content area
-    ctx.fillStyle = 'rgba(180,180,180,0.15)';
-    ctx.fillRect(mx + pad, my + pad, contentW, contentH);
-
-    // Draw outline of the content boundary
-    ctx.strokeStyle = 'rgba(200,200,200,0.4)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(mx + pad, my + pad, contentW, contentH);
-
-    // Viewport rectangle
-    const vpX = mx + pad + (-this.panX) * scale;
-    const vpY = my + pad + (-this.panY) * scale;
-    const vpW = viewportW * scale;
-    const vpH = viewportH * scale;
-
-    ctx.strokeStyle = 'rgba(255,68,68,0.8)';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(
-      Math.max(mx + pad, Math.min(vpX, mx + mapW - pad)),
-      Math.max(my + pad, Math.min(vpY, my + mapH - pad)),
-      Math.min(vpW, mapW - 2 * pad),
-      Math.min(vpH, mapH - 2 * pad)
-    );
+  /** Test if (x,y) in viewport coords is inside the minimap; returns {panX, panY} to center there */
+  minimapHitTest(x, y) {
+    return this.minimapRenderer.hitTest(x, y);
   }
 
   /**
@@ -2810,20 +2710,5 @@ export class SieveRenderer {
     const clIdx = Math.floor(bitIdx / this.bitsPerCacheLine);
     return { bitIdx, byteIdx, u64Idx, vectorIdx, clIdx };
   }
-
-  /** Test if (x,y) in canvas coords is inside the minimap; returns {panX, panY} to center there */
-  minimapHitTest(x, y, canvasW, canvasH) {
-    const r = this._minimapRect;
-    if (!r) return null;
-    const { mx, my, mapW, mapH, scale, pad } = r;
-    if (x < mx || x > mx + mapW || y < my || y > my + mapH) return null;
-    // Map click position to content coordinates
-    const contentX = (x - mx - pad) / scale;
-    const contentY = (y - my - pad) / scale;
-    // Center the viewport on that content point
-    return {
-      panX: -(contentX - canvasW / 2),
-      panY: -(contentY - canvasH / 2),
-    };
-  }
 }
+

@@ -34,6 +34,12 @@ function ensureWorker() {
       pending.clear();
       sharedWorker = null;
     };
+    sharedWorker.onmessageerror = (err) => {
+      // Deserialization failure from the worker (rare). Log and clear
+      // the corresponding pending callback so the caller doesn't hang.
+      console.error('[bitPrePassClient] message deserialization error:', err);
+      pending.clear();
+    };
   } catch {
     sharedWorker = null;
   }

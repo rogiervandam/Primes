@@ -253,6 +253,7 @@ Modules consumed by `SieveRenderer.js`. No DOM-mutating side effects beyond the 
 - **`constants.js`** — `THEMES`, `COLOR_PRESETS`, `BIT_LAYOUTS`, `BYTE_LAYOUTS`, `VECTOR_GROUPS`, `CACHELINE_SIZES`, `CACHE_PRESETS`, `GRID3X3_MAP`, `STORAGE_MODELS`, `WHEEL30_RESIDUES`.
 - **`bitMath.js`** — `bitToNumber(bitIdx, model)` / `numberToBit(num, model)` for the supported storage models (`'odd'`, `'all'`, `'wheel30'`).
 - **`drawingHelpers.js`** — pure colour and text helpers reused by the renderer's draw passes: `hexToRgb`, `mixRgb`, `labelTextColor`, `fitLabelFontSize`, `truncateTextToWidth`, `drawFittedLabel`.
+- **`MinimapRenderer.js`** — Pattern D class that draws the minimap overlay and provides `hitTest`. `SieveRenderer` delegates `attachMinimapCanvas`, `renderMinimap`, `minimapHitTest`, and `isContentFullyVisible` to it. Stores `_rect` internally for hit-testing; no external access to this field is needed since `hitTest` guards on `host.minimapEnabled`.
 - **`VisualizationRenderer.js`** — documentation-as-code contract (abstract base) for any renderer mode. Defines the `setState(…)` / `render()` / `canvas` surface. See §4 of `AI_MAINTENANCE.md`.
 
 ### Overlays (`src/renderer/overlays/`)
@@ -280,7 +281,7 @@ The unconditional production bit-fill backend. `Visualizer.jsx` always construct
 
 **State texture protocol:** one `R8UI` byte per bit, packed flags `set | changed | ghost | repeated | prime | range | multiples | focus`. Full repack every frame; partial `texSubImage2D` updates are a future optimisation (see backlog).
 
-**Context loss:** handled in direct mode only. Worker path does not yet implement `webglcontextlost` / `webglcontextrestored` recovery — see backlog.
+**Context loss:** handled in both direct mode and the worker path. `bitGridWorker.js` wires `webglcontextlost` / `webglcontextrestored` on the `OffscreenCanvas`; `BitGridGLWorker.js` handles the `contextlost` / `contextrestored` messages it receives by clearing `_lost` and the layout fingerprint so the normal per-frame upload loop re-populates GPU state on the next frame.
 
 ### Workers (`src/renderer/workers/`)
 
