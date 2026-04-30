@@ -10,7 +10,7 @@
 @import './03-welcome.css';
 @import './04-toolbar.css';
 @import './05-layout.css';
-@import './06-step-panel.css';
+@import './06-events-panel.css';
 @import './07-canvas.css';
 @import './08-detail-panel.css';
 @import './08b-detail-compact.css';
@@ -19,7 +19,7 @@
 @import './11-scrollbar.css';
 @import './12-responsive-base.css';
 @import './13-bit-history.css';
-@import './14-step-panel-collapsible.css';
+@import './14-events-panel-collapsible.css';
 @import './15-layout-overview.css';
 @import './16-settings-extras.css';
 @import './17-misc.css';

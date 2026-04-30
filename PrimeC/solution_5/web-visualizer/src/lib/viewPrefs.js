@@ -267,8 +267,15 @@ function initialCanvasColors(prefs) {
 }
 
 function initialPanelVisibility(prefs) {
+  // Migrate legacy key: stepsPanelCollapsed → eventsPanelCollapsed.
+  // Read new key first; fall back to old key for users with saved prefs.
+  const legacyCollapsed = prefs?.stepsPanelCollapsed;
+  const eventsPanelCollapsed =
+    prefs?.eventsPanelCollapsed !== undefined
+      ? prefs.eventsPanelCollapsed !== false
+      : legacyCollapsed !== false; // default: collapsed
   return {
-    stepsPanelCollapsed: prefs?.stepsPanelCollapsed !== false, // default: collapsed
+    eventsPanelCollapsed,
     settingsCollapsed: prefs?.settingsCollapsed !== false,     // default: collapsed
     detailOpen: prefs?.detailOpen === true,                    // default: closed
   };

@@ -6,13 +6,13 @@
   .trace-title-block { align-items: center; }
   .trace-title { max-width: 100%; text-align: center; }
   .trace-meta-row { justify-content: center; }
-  .step-panel { width: 200px !important; }
+  .events-panel { width: 200px !important; }
   .step-detail { font-size: 11px; }
   .settings-sidebar { width: 280px; }
 }
 
 @media (max-width: 480px) {
-  .step-panel { display: none; }
+  .events-panel { display: none; }
   .search-box { display: none; }
 }
 

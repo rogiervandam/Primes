@@ -283,6 +283,15 @@
 .block-tag  { background: var(--block-bg); color: var(--block-fg); }
 .step-tag   { background: var(--step-bg);  color: var(--step-fg); }
 
+/* ---- Detail panel timing tag ---- */
+.detail-tag.timing-tag {
+  background: color-mix(in srgb, var(--accent-bg) 60%, transparent);
+  color: var(--accent-dim);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono, monospace);
+}
+
+
 @media (max-width: 880px) {
   .detail-layout {
     grid-template-columns: 1fr;

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { SieveRenderer, bitToNumber, numberToBit, CACHE_PRESETS } from './SieveRenderer';
 import { BitGridGLWorker, isWorkerGLSupported } from './renderer/gl/BitGridGLWorker';
-import StepPanel from './StepPanel';
+import EventsPanel from './EventsPanel';
 import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
 import TimingPanel from './TimingPanel';
@@ -210,7 +210,7 @@ export default function Visualizer({
   const [widgetsJoined, setWidgetsJoined] = useState(
     // If the panel was already open when saved, the joined widget can't show;
     // reset to false so neither widget is invisible on startup.
-    (initialPrefs.widgetsJoined === true && initialPrefs.stepsPanelCollapsed === true)
+    (initialPrefs.widgetsJoined === true && initialPrefs.eventsPanelCollapsed === true)
       ? true
       : false
   );
@@ -234,13 +234,13 @@ export default function Visualizer({
   const [multiplesOverlayPrime, setMultiplesOverlayPrime] = useState(3);
   const [cachelineSize, setCachelineSize] = useState(64);
   const [cachePreset, setCachePreset] = useState('fixed');
-  const [stepsPanelCollapsed, setStepsPanelCollapsed] = useState(initialPrefs.stepsPanelCollapsed);
+  const [eventsPanelCollapsed, setEventsPanelCollapsed] = useState(initialPrefs.eventsPanelCollapsed);
   // Topbar transport controls are hidden automatically whenever the floating
   // all-events widget is visible (events panel collapsed + widget not docked).
-  const controlsHidden = stepsPanelCollapsed && !allEventsWidgetHidden;
+  const controlsHidden = eventsPanelCollapsed && !allEventsWidgetHidden;
   // Bumped whenever the user explicitly asks to "reveal" the current event in
   // the events panel (e.g. via the locate button on the event-title widget).
-  // StepPanel watches this counter to clear filters and expand parents so the
+  // EventsPanel watches this counter to clear filters and expand parents so the
   // active step becomes visible.
   const [revealStepRequest, setRevealStepRequest] = useState(0);
   const [timingPanelOpen, setTimingPanelOpen] = useState(false);
@@ -645,12 +645,12 @@ export default function Visualizer({
     renderer.panY += planeOffsetY;
   }, [header.bitCount]);
 
-  const toggleStepsPanel = useCallback(() => {
+  const toggleEventsPanel = useCallback(() => {
     // Snapshot the canvas-area centre's window position BEFORE the state
     // update so the resize useEffect can pin it after CSS reflow. See
     // pendingResizeAnchorRef for why fresh capture in the effect drifts.
     pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
-    setStepsPanelCollapsed((wasCollapsed) => {
+    setEventsPanelCollapsed((wasCollapsed) => {
       // When the panel is being OPENED (was collapsed), split the widgets so
       // the single-event banner shows independently — the all-events transport
       // is now in the panel itself.
@@ -666,9 +666,9 @@ export default function Visualizer({
   // step: clear filters that hide it, expand its parent group + ancestor
   // nodes, and scroll it into view. Triggered from the event-title widget.
   const revealCurrentStepInPanel = useCallback(() => {
-    // Same window-pinning contract as toggleStepsPanel: stash the
+    // Same window-pinning contract as toggleEventsPanel: stash the
     // pre-state-change anchor for the resize useEffect to consume.
-    setStepsPanelCollapsed((wasCollapsed) => {
+    setEventsPanelCollapsed((wasCollapsed) => {
       if (wasCollapsed) {
         pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
         // Opening the panel: split the joined widget so the banner is independent.
@@ -741,11 +741,11 @@ export default function Visualizer({
       eventTimeTargets,
       allEventsWidgetHidden,
       widgetsJoined,
-      stepsPanelCollapsed,
+      eventsPanelCollapsed,
       settingsCollapsed,
       detailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, depthSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, widgetsJoined, stepsPanelCollapsed, settingsCollapsed, detailOpen]);
+  }, [theme, layoutSettings, eventTitleSettings, depthSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, widgetsJoined, eventsPanelCollapsed, settingsCollapsed, detailOpen]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -3166,7 +3166,7 @@ export default function Visualizer({
         const hit = document.elementFromPoint(e.clientX, e.clientY);
         if (!hit) return false;
         return !!hit.closest(
-          '.toolbar, .step-panel, .settings-sidebar, .detail-panel, .timing-panel, ' +
+          '.toolbar, .events-panel, .settings-sidebar, .detail-panel, .timing-panel, ' +
           '.step-focus-banner, .minimap-overlay-canvas, .trace-info-popover, ' +
           '.bit-history-panel'
         );
@@ -3222,7 +3222,7 @@ export default function Visualizer({
         // popups when the user is interacting with the widget itself.
         const t = e.target;
         if (t && typeof t.closest === 'function' && t.closest(
-          '.step-focus-banner, .bit-history-panel, .detail-inspector-overlay, .toolbar, .step-panel, .settings-sidebar, .detail-panel, .timing-panel, .trace-info-popover'
+          '.step-focus-banner, .bit-history-panel, .detail-inspector-overlay, .toolbar, .events-panel, .settings-sidebar, .detail-panel, .timing-panel, .trace-info-popover'
         )) {
           clearInteraction();
           return;
@@ -3772,7 +3772,7 @@ export default function Visualizer({
       anchorY >= rect.top + edgeMargin &&
       anchorY <= rect.bottom - edgeMargin;
 
-    const sideInsetLeft = stepsPanelCollapsed ? 80 : Math.max(120, panelWidth + 32);
+    const sideInsetLeft = eventsPanelCollapsed ? 80 : Math.max(120, panelWidth + 32);
     const sideInsetRight = settingsCollapsed ? 48 : (isMacPlatform ? 388 : 328);
     const panelApproxHalfW = 170;
     const minLeft = sideInsetLeft + panelApproxHalfW;
@@ -3785,7 +3785,7 @@ export default function Visualizer({
     const clampedTop = Math.max(minTop, Math.min(maxTop, anchorY - 12));
 
     return { left: clampedLeft, top: clampedTop, anchorX, anchorY, bitHalf, anchorInsideGrid };
-  }, [stepsPanelCollapsed, panelWidth, settingsCollapsed, detailOpen, detailHeight]);
+  }, [eventsPanelCollapsed, panelWidth, settingsCollapsed, detailOpen, detailHeight]);
 
   const getVisibleBalloonStyles = useCallback((items) => {
     const approxWidth = 320;
@@ -3806,7 +3806,7 @@ export default function Visualizer({
       if (typeof document === 'undefined') return [];
       const selectors = [
         '.toolbar',
-        '.step-panel:not(.collapsed)',
+        '.events-panel:not(.collapsed)',
         '.settings-sidebar:not(.collapsed)',
         '.detail-panel.open',
         '.timing-panel',
@@ -3873,7 +3873,7 @@ export default function Visualizer({
         };
       }
 
-      const minLeft = stepsPanelCollapsed ? 170 : Math.max(200, panelWidth + 44);
+      const minLeft = eventsPanelCollapsed ? 170 : Math.max(200, panelWidth + 44);
       const maxLeft = window.innerWidth - (settingsCollapsed ? 48 : 360) - 170;
       const clampedLeft = Math.max(minLeft, Math.min(maxLeft, chosen.left));
       // Clamp the balloon top below the titlebar so it never paints over window chrome.
@@ -3912,7 +3912,7 @@ export default function Visualizer({
     }
 
     return result;
-  }, [getBitBalloonGeometry, stepsPanelCollapsed, panelWidth, settingsCollapsed]);
+  }, [getBitBalloonGeometry, eventsPanelCollapsed, panelWidth, settingsCollapsed]);
 
   const effectiveTitle = traceTitle;
   useEffect(() => {
@@ -4005,8 +4005,8 @@ export default function Visualizer({
         controlsHidden={controlsHidden}
         allEventsWidgetHidden={allEventsWidgetHidden}
         showAllEventsWidget={showAllEventsWidget}
-        stepsPanelCollapsed={stepsPanelCollapsed}
-        toggleStepsPanel={toggleStepsPanel}
+        eventsPanelCollapsed={eventsPanelCollapsed}
+        toggleEventsPanel={toggleEventsPanel}
         detailOpen={detailOpen}
         toggleDetailPanel={toggleDetailPanel}
         settingsCollapsed={settingsCollapsed}
@@ -4021,9 +4021,9 @@ export default function Visualizer({
            overflow:hidden. */}
       <div
         className={`main-content${mode3D ? ' mode-3d' : ''}`}
-        style={{ '--events-panel-width': `${stepsPanelCollapsed ? 0 : panelWidth}px` }}
+        style={{ '--events-panel-width': `${eventsPanelCollapsed ? 0 : panelWidth}px` }}
       >
-        <StepPanel
+        <EventsPanel
           steps={steps}
           currentStep={currentStep}
           selectedSteps={selectedSteps}
@@ -4032,12 +4032,12 @@ export default function Visualizer({
           onUserScroll={stopPlayback}
           width={panelWidth}
           onWidthChange={setPanelWidth}
-          panelCollapsed={stepsPanelCollapsed}
-          onToggleCollapse={toggleStepsPanel}
+          panelCollapsed={eventsPanelCollapsed}
+          onToggleCollapse={toggleEventsPanel}
           allEventsWidgetHidden={allEventsWidgetHidden || widgetsJoined}
           onExpandPanelFromWidget={() => {
             setAllEventsWidgetHidden(false);
-            setStepsPanelCollapsed(false);
+            setEventsPanelCollapsed(false);
           }}
           onDockWidgetToTopBar={() => {
             setAllEventsWidgetHidden(true);
@@ -4082,8 +4082,8 @@ export default function Visualizer({
           currentStep={currentStep}
           goToStep={goToStep}
           revealCurrentStepInPanel={revealCurrentStepInPanel}
-          stepsPanelCollapsed={stepsPanelCollapsed}
-          setStepsPanelCollapsed={setStepsPanelCollapsed}
+          eventsPanelCollapsed={eventsPanelCollapsed}
+          setEventsPanelCollapsed={setEventsPanelCollapsed}
           stepAnimSlidersContent={stepAnimSlidersContent}
           widgetsJoined={widgetsJoined}
           onJoinWidgets={joinWidgets}
@@ -4122,7 +4122,7 @@ export default function Visualizer({
           onImportBenchmarkTiming={onImportBenchmarkTiming}
           steps={steps}
         />
-        {widgetsJoined && stepsPanelCollapsed && !allEventsWidgetHidden && eventTitleSettings.visible && (
+        {widgetsJoined && eventsPanelCollapsed && !allEventsWidgetHidden && eventTitleSettings.visible && (
           <JoinedEventsWidget
             currentStep={currentStep}
             steps={steps}
@@ -4139,8 +4139,8 @@ export default function Visualizer({
             surrounding={surroundingEvents}
             currentStepData={currentStepData}
             revealCurrentStepInPanel={revealCurrentStepInPanel}
-            stepsPanelCollapsed={stepsPanelCollapsed}
-            setStepsPanelCollapsed={setStepsPanelCollapsed}
+            eventsPanelCollapsed={eventsPanelCollapsed}
+            setEventsPanelCollapsed={setEventsPanelCollapsed}
             detailOpen={detailOpen}
             toggleDetailPanel={toggleDetailPanel}
             sliders={stepAnimSlidersContent}

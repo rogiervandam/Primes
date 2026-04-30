@@ -28,7 +28,7 @@
 }
 
 /* Merge-target highlight — applied to other widgets when dragging near them */
-.step-panel-floating-title.merge-target,
+.events-panel-floating-title.merge-target,
 .step-focus-banner.merge-target {
   box-shadow: 0 0 0 3px var(--accent), 0 4px 24px rgba(0,0,0,0.4);
   transition: box-shadow 120ms ease;

@@ -6,7 +6,7 @@ const MAX_ANNOTATION_LINES = 3;
 
 /**
  * JoinedEventsWidget — a merged version of the floating "all events" transport
- * widget (from StepPanel) and the single-event EventTitleBanner.
+ * widget (from EventsPanel) and the single-event EventTitleBanner.
  *
  * Shown when `widgetsJoined` is true and the events panel is collapsed.
  * The widget is draggable and contains a split button to separate the two
@@ -33,8 +33,8 @@ export default function JoinedEventsWidget({
   surrounding,
   currentStepData,
   revealCurrentStepInPanel,
-  stepsPanelCollapsed,
-  setStepsPanelCollapsed,
+  eventsPanelCollapsed,
+  setEventsPanelCollapsed,
   detailOpen,
   toggleDetailPanel,
   sliders,
@@ -94,8 +94,8 @@ export default function JoinedEventsWidget({
     e.stopPropagation();
     // Split first so the banner reappears independently when the panel opens.
     onSplitWidgets();
-    setStepsPanelCollapsed(false);
-  }, [setStepsPanelCollapsed, onSplitWidgets]);
+    setEventsPanelCollapsed(false);
+  }, [setEventsPanelCollapsed, onSplitWidgets]);
 
   return (
     <div
@@ -140,7 +140,7 @@ export default function JoinedEventsWidget({
       </div>
 
       {/* ── Transport controls ──────────────────────────────────────── */}
-      <div className="step-panel-transport joined-transport" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="events-panel-transport joined-transport" onMouseDown={(e) => e.stopPropagation()}>
         <div className="spt-row spt-row-nav">
           <button className="spt-btn" onClick={() => goToStep(0)} title="First event" disabled={exporting}><SkipBack size={12} /></button>
           <button className="spt-btn" onClick={() => goToStep(currentStep - 1)} title="Previous event" disabled={exporting}><StepBack size={12} /></button>

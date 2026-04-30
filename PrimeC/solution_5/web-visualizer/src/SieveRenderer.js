@@ -1753,92 +1753,103 @@ export class SieveRenderer {
    *  - layered + raised: 3D box with two side faces + a top face on the live canvas.
    *  - default: a single filled square on the appropriate context.
    */
+  /** Dispatch to the appropriate depth-mode branch. */
   _drawBitBody(f, cls, draw, bitX, bitY) {
+    if (f.layeredLoweredBits && draw.isLoweredCell) {
+      this._drawBitBodyLowered(f, cls, draw);
+      return;
+    }
+    if (f.layeredLoweredBits && draw.isRaisedCell) {
+      this._drawBitBodyRaised(f, cls, draw, bitX, bitY);
+      return;
+    }
+    this._drawBitBodyNormal(f, cls, draw);
+  }
+
+  /**
+   * Lowered (set) bit: sunken square with drop shadow and inner highlight.
+   * When GL is active (f.skipBitFill) the whole branch is skipped — GL
+   * handles fill and highlight via animTex / u_loweredActive.
+   */
+  _drawBitBodyLowered(f, cls, draw) {
+    if (f.skipBitFill) return;
     const px = f.px;
     const { color, bitAlpha } = cls;
-    const { drawX, drawY, drawSize, drawCtx, isLoweredCell, isRaisedCell, baseDrop, baseShiftX } = draw;
+    const { drawX, drawY, drawSize } = draw;
+    const sCtx = f.settledCtx;
+    sCtx.save();
+    sCtx.fillStyle = 'rgba(0, 0, 0, 0.24)';
+    sCtx.fillRect(
+      Math.round(drawX - Math.max(1, px * 0.08)),
+      Math.round(drawY - Math.max(1, px * 0.08)),
+      Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16))),
+      Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16)))
+    );
+    sCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
+    sCtx.fillRect(drawX, drawY, drawSize, drawSize);
+    sCtx.strokeStyle = `rgba(255, 255, 255, ${this.loweredSetBits3D ? '0.16' : '0.12'})`;
+    sCtx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
+    sCtx.strokeRect(
+      Math.round(drawX) + 0.5,
+      Math.round(drawY) + 0.5,
+      Math.max(1, Math.round(drawSize - 1)),
+      Math.max(1, Math.round(drawSize - 1))
+    );
+    sCtx.restore();
+  }
 
-    if (f.layeredLoweredBits && isLoweredCell) {
-      // Lowered (set) bit: only the sunken square, with optional drop
-      // shadow and inner highlight. No top-position box is drawn so the
-      // raised neighbours visually stand higher above the bottom plane.
-      // When GL is active (f.skipBitFill), GL draws the fill via animTex;
-      // Canvas2D skips the shadow+fill but the stroke highlight is also
-      // handled by the GL FS (u_loweredActive inner highlight), so we skip
-      // the entire branch when skipBitFill is set.
-      if (!f.skipBitFill) {
-        const sCtx = f.settledCtx;
-        sCtx.save();
-        sCtx.fillStyle = 'rgba(0, 0, 0, 0.24)';
-        sCtx.fillRect(
-          Math.round(drawX - Math.max(1, px * 0.08)),
-          Math.round(drawY - Math.max(1, px * 0.08)),
-          Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16))),
-          Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16)))
-        );
-        sCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
-        sCtx.fillRect(drawX, drawY, drawSize, drawSize);
-        sCtx.strokeStyle = `rgba(255, 255, 255, ${this.loweredSetBits3D ? '0.16' : '0.12'})`;
-        sCtx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
-        sCtx.strokeRect(
-          Math.round(drawX) + 0.5,
-          Math.round(drawY) + 0.5,
-          Math.max(1, Math.round(drawSize - 1)),
-          Math.max(1, Math.round(drawSize - 1))
-        );
-        sCtx.restore();
-      }
-      return;
+  /**
+   * Raised (cleared) bit: 3D box standing on the lowered plane.
+   * Side-face polygons are always Canvas2D (they extend outside the cell
+   * boundary). Top-face fill + stroke highlight are skipped when GL is
+   * active (f.skipBitFill) — GL draws those via animTex + FS.
+   */
+  _drawBitBodyRaised(f, cls, draw, bitX, bitY) {
+    const px = f.px;
+    const { color, bitAlpha } = cls;
+    const { baseDrop, baseShiftX } = draw;
+    const baseSize = Math.max(1, Math.round(px * (this.loweredSetBits3D ? 0.56 : 0.68)));
+    const baseX = Math.round(bitX + baseShiftX + (px - baseSize) * 0.5);
+    const baseY = Math.round(bitY + baseDrop + (px - baseSize) * 0.5);
+    const topX = Math.round(bitX);
+    const topY = Math.round(bitY);
+    const topSize = Math.max(1, Math.round(px));
+    const ctx = f.ctx;
+    ctx.save();
+    // Right side face (darker)
+    ctx.fillStyle = `rgba(${Math.round(color[0] * 0.62)}, ${Math.round(color[1] * 0.62)}, ${Math.round(color[2] * 0.62)}, ${bitAlpha})`;
+    ctx.beginPath();
+    ctx.moveTo(topX + topSize, topY);
+    ctx.lineTo(topX + topSize, topY + topSize);
+    ctx.lineTo(baseX + baseSize, baseY + baseSize);
+    ctx.lineTo(baseX + baseSize, baseY);
+    ctx.closePath();
+    ctx.fill();
+    // Bottom-front side face (slightly darker than right)
+    ctx.fillStyle = `rgba(${Math.round(color[0] * 0.5)}, ${Math.round(color[1] * 0.5)}, ${Math.round(color[2] * 0.5)}, ${bitAlpha})`;
+    ctx.beginPath();
+    ctx.moveTo(topX, topY + topSize);
+    ctx.lineTo(topX + topSize, topY + topSize);
+    ctx.lineTo(baseX + baseSize, baseY + baseSize);
+    ctx.lineTo(baseX, baseY + baseSize);
+    ctx.closePath();
+    ctx.fill();
+    if (!f.skipBitFill) {
+      // Top face fill and edge highlight: GL draws these when active.
+      ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
+      ctx.fillRect(topX, topY, topSize, topSize);
+      // Subtle edge highlight on the top face
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+      ctx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
+      ctx.strokeRect(topX + 0.5, topY + 0.5, Math.max(1, topSize - 1), Math.max(1, topSize - 1));
     }
+    ctx.restore();
+  }
 
-    if (f.layeredLoweredBits && isRaisedCell) {
-      // Raised (cleared) bit: render as a 3D box standing on the lowered
-      // plane. The box's bottom face sits at the sunken footprint
-      // (baseDrop / baseShiftX, scaled), and the top face sits at the
-      // original bit position with full size. Side faces connect them.
-      // When GL is active (f.skipBitFill), GL draws the top face fill via
-      // the animTex (delta=0, scale=1) and the FS inner highlight; Canvas2D
-      // draws only the side-face polygons (these extend outside the cell
-      // boundary so GL cannot render them with the instanced-quad approach).
-      const baseSize = Math.max(1, Math.round(px * (this.loweredSetBits3D ? 0.56 : 0.68)));
-      const baseX = Math.round(bitX + baseShiftX + (px - baseSize) * 0.5);
-      const baseY = Math.round(bitY + baseDrop + (px - baseSize) * 0.5);
-      const topX = Math.round(bitX);
-      const topY = Math.round(bitY);
-      const topSize = Math.max(1, Math.round(px));
-      const ctx = f.ctx;
-      ctx.save();
-      // Right side face (darker)
-      ctx.fillStyle = `rgba(${Math.round(color[0] * 0.62)}, ${Math.round(color[1] * 0.62)}, ${Math.round(color[2] * 0.62)}, ${bitAlpha})`;
-      ctx.beginPath();
-      ctx.moveTo(topX + topSize, topY);
-      ctx.lineTo(topX + topSize, topY + topSize);
-      ctx.lineTo(baseX + baseSize, baseY + baseSize);
-      ctx.lineTo(baseX + baseSize, baseY);
-      ctx.closePath();
-      ctx.fill();
-      // Bottom-front side face (slightly darker than right)
-      ctx.fillStyle = `rgba(${Math.round(color[0] * 0.5)}, ${Math.round(color[1] * 0.5)}, ${Math.round(color[2] * 0.5)}, ${bitAlpha})`;
-      ctx.beginPath();
-      ctx.moveTo(topX, topY + topSize);
-      ctx.lineTo(topX + topSize, topY + topSize);
-      ctx.lineTo(baseX + baseSize, baseY + baseSize);
-      ctx.lineTo(baseX, baseY + baseSize);
-      ctx.closePath();
-      ctx.fill();
-      if (!f.skipBitFill) {
-        // Top face fill and edge highlight: GL draws these when active.
-        ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
-        ctx.fillRect(topX, topY, topSize, topSize);
-        // Subtle edge highlight on the top face
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
-        ctx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
-        ctx.strokeRect(topX + 0.5, topY + 0.5, Math.max(1, topSize - 1), Math.max(1, topSize - 1));
-      }
-      ctx.restore();
-      return;
-    }
-
+  /** Normal flat bit fill (no depth mode). GL handles the fill when active. */
+  _drawBitBodyNormal(f, cls, draw) {
+    const { color, bitAlpha } = cls;
+    const { drawX, drawY, drawSize, drawCtx } = draw;
     drawCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
     if (f.skipBitFill) return;
     drawCtx.fillRect(drawX, drawY, drawSize, drawSize);

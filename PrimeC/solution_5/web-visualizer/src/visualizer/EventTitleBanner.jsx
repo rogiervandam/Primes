@@ -27,8 +27,8 @@ export default function EventTitleBanner({
   currentStep,
   goToStep,
   revealCurrentStepInPanel,
-  stepsPanelCollapsed,
-  setStepsPanelCollapsed,
+  eventsPanelCollapsed,
+  setEventsPanelCollapsed,
   detailOpen,
   toggleDetailPanel,
   sliders,
@@ -59,8 +59,8 @@ export default function EventTitleBanner({
     if (isOverDetailPanel(clientX, clientY, bannerEl)) return 'detail';
     if (clientY >= window.innerHeight - BOTTOM_BAND) return 'bottom';
     // Check proximity to the floating all-events widget (join affordance).
-    if (onJoinWidgets && stepsPanelCollapsed) {
-      const floater = document.querySelector('.step-panel-floating-title');
+    if (onJoinWidgets && eventsPanelCollapsed) {
+      const floater = document.querySelector('.events-panel-floating-title');
       if (floater) {
         const r = floater.getBoundingClientRect();
         const HIT_PAD = 40;
@@ -71,7 +71,7 @@ export default function EventTitleBanner({
       }
     }
     return null;
-  }, [isOverDetailPanel, onJoinWidgets, stepsPanelCollapsed]);
+  }, [isOverDetailPanel, onJoinWidgets, eventsPanelCollapsed]);
 
   const handleMouseDown = (e) => {
     if (e.target.closest('input') || e.target.closest('button')) return;
@@ -97,7 +97,7 @@ export default function EventTitleBanner({
         lastZone = zone;
         setDropHint(zone);
         // Visual merge hint on the all-events floater when dragging near it.
-        const floater = document.querySelector('.step-panel-floating-title');
+        const floater = document.querySelector('.events-panel-floating-title');
         if (floater) floater.classList.toggle('merge-target', zone === 'joinWidget');
       }
     };
@@ -106,11 +106,11 @@ export default function EventTitleBanner({
       window.removeEventListener('mouseup', onUp);
       setDropHint(null);
       // Remove merge-target hint from the floater.
-      const floater = document.querySelector('.step-panel-floating-title');
+      const floater = document.querySelector('.events-panel-floating-title');
       if (floater) floater.classList.remove('merge-target');
       if (!dragged) {
         // Click without drag: open the Events panel.
-        if (stepsPanelCollapsed) setStepsPanelCollapsed(false);
+        if (eventsPanelCollapsed) setEventsPanelCollapsed(false);
         return;
       }
       const zone = detectDropZone(ev.clientX, ev.clientY, bannerEl);
@@ -130,7 +130,7 @@ export default function EventTitleBanner({
           dragOffsetY: 0,
           visible: false,
         }));
-        if (stepsPanelCollapsed) setStepsPanelCollapsed(false);
+        if (eventsPanelCollapsed) setEventsPanelCollapsed(false);
       } else if (zone === 'detail') {
         // Drop into the detail panel: expand it (if collapsed) and hide the
         // floating widget — the detail panel itself surfaces the event info.

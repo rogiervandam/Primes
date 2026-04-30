@@ -206,7 +206,7 @@ Track refactors here so the next agent doesn't redo them. Append; don't
 overwrite.
 
 - ✅ Added `<` / `>` detail-level buttons to the Events panel
-  (`StepPanel.jsx`). The buttons flank the existing log-level `<select>` in
+  (`EventsPanel.jsx`). The buttons flank the existing log-level `<select>` in
   a `.step-level-filter-row` flex container. `<` steps down through
   `upto:N` levels (less detail); `>` steps up to the next level or `''`
   (more detail / all). `handleLevelDecrease` and `handleLevelIncrease`
@@ -712,7 +712,7 @@ in the worker path.
   `EventTitleBanner` into one draggable panel when the user drags one onto
   the other. `widgetsJoined` boolean state in `Visualizer.jsx` persisted via
   `viewPrefs`. Join detection uses `document.querySelector` proximity (40 px
-  hit-pad) in both `StepPanel`'s and `EventTitleBanner`'s `detectDropZone`
+  hit-pad) in both `EventsPanel`'s and `EventTitleBanner`'s `detectDropZone`
   helpers, returning `'joinWidget'`. A `merge-target` CSS class is toggled on
   the target widget during drag. The joined widget has a ⊡ split button that
   plays a `@keyframes joined-widget-split` (scale+fade-out, 320 ms) then
@@ -729,10 +729,32 @@ in the worker path.
   to Chrome/Edge. The hint was incorrect: `getImageData` is never called on
   these canvases in the production rendering path (only in the dev-only
   `parityHarness.js`). Both calls now use plain `canvas.getContext('2d')`.
-
----
-
-## 7. What's worth doing next (suggested, not required)
+- ✅ **Renamed StepPanel → EventsPanel throughout the codebase.**
+  `StepPanel.jsx` → `EventsPanel.jsx`; CSS files `06-step-panel.css` →
+  `06-events-panel.css` and `14-step-panel-collapsible.css` →
+  `14-events-panel-collapsible.css`. All CSS class names updated:
+  `.step-panel` → `.events-panel`, `.step-panel-*` → `.events-panel-*`,
+  `.step-item` → `.event-item`, `.step-list` → `.event-list`,
+  `.step-group*` → `.event-group*`, `.step-search` → `.event-search`,
+  `.step-filter` → `.event-filter`, `.step-depth-*` → `.event-depth-*`,
+  `.step-agg-*` → `.event-agg-*`, `.step-num/op/changes/prime/text` →
+  `.event-num/op/changes/prime/text`, `.step-level-*` → `.event-level-*`.
+  React state / callbacks renamed: `stepsPanelCollapsed` →
+  `eventsPanelCollapsed`, `setStepsPanelCollapsed` →
+  `setEventsPanelCollapsed`, `toggleStepsPanel` → `toggleEventsPanel` in
+  `Visualizer.jsx`, `CanvasStage.jsx`, `Toolbar.jsx`,
+  `EventTitleBanner.jsx`, `JoinedEventsWidget.jsx`.
+  `viewPrefs.js` `initialPanelVisibility()` migrates the legacy
+  `stepsPanelCollapsed` key to `eventsPanelCollapsed` for users with saved
+  prefs (reads new key first; falls back to old key; default: collapsed).
+  All docs updated (ARCHITECTURE.md, COMPONENTS.md, BACKLOG.md).
+- ✅ **Split `SieveRenderer._drawBitBody` into three focused methods.**
+  `_drawBitBody` is now a 10-line dispatcher that calls
+  `_drawBitBodyLowered` (sunken set-bit with drop shadow + inner
+  highlight), `_drawBitBodyRaised` (3D-box raised bit with side-face
+  polygons and optional GL-deferred top face), or `_drawBitBodyNormal`
+  (flat bit fill). Each method has a JSDoc summary explaining the GL
+  interaction. No logic changes — purely structural. Addresses §7 item 13.
 
 These are concrete next-step refactors that each fit comfortably in a
 single working session. Tackle them in order — earlier ones unblock later
@@ -1093,7 +1115,7 @@ text that extends beyond the square is clipped by `overflow: hidden`.
   `onToggle()` immediately after `onShowEventTitle`, so the panel ends
   in a closed state; fixed `dragOffsetY = -(22 + 30 − 20) = −32` places
   the banner 30 px above the closed header (22 px matches the `detailPad`
-  convention). **Visualizer.jsx** (StepPanel ▲ button): detail state
+  convention). **Visualizer.jsx** (EventsPanel ▲ button): detail state
   doesn't change; offset computed dynamically as
   `−(totalPanelH + 10)` where `totalPanelH = detailOpen ? detailHeight + 22 : 22`.
 
@@ -1155,13 +1177,12 @@ text that extends beyond the square is clipped by `overflow: hidden`.
     the stable ref-reader in the event listener. The `triggerAnimationRef`
     already demonstrates this pattern — extend it to `goToStepRef` and
     the export callbacks.
-13. **Split `SieveRenderer._drawBitBody` further.** At ~78 lines the
-    three depth-mode branches (`normal` / `lowered` / `raised`) are the
-    largest remaining private method after the render-refactor. Each
-    branch could become `_drawBitBodyNormal`, `_drawBitBodyLowered`,
-    `_drawBitBodyRaised` — selected by a dispatch at the top of
-    `_drawBitBody`. No behaviour change; purely a readability win.
-    Prerequisite for porting lowered-3D to GL (WebGL backlog item 5).
+13. **Split `SieveRenderer._drawBitBody` further.** ✅ DONE. `_drawBitBody`
+    is now a 10-line dispatcher calling `_drawBitBodyLowered`,
+    `_drawBitBodyRaised`, or `_drawBitBodyNormal`. Each branch is a
+    standalone private method with a clear JSDoc summary. No logic
+    changes — purely structural. The prerequisite note about GL lowered-3D
+    porting is moot since that work is already done (see §7 item 5).
 14. **Introduce lightweight integration tests.** The only safety net is
     `npm run build`. Suggested minimal additions:
 
@@ -1191,7 +1212,7 @@ text that extends beyond the square is clipped by `overflow: hidden`.
     import from `'../renderer/constants'` directly. No circular import
     introduced; build passes clean at 88 modules.
 18. **Add `propTypes` or TypeScript types to the top-level component
-    boundaries.** `Visualizer.jsx`, `SettingsPanel.jsx`, and `StepPanel.jsx`
+    boundaries.** `Visualizer.jsx`, `SettingsPanel.jsx`, and `EventsPanel.jsx`
     have large prop surfaces with no runtime or compile-time checking.
     Even minimal `PropTypes` validation catches accidental prop renames
     immediately. Full TypeScript migration is out of scope but adding

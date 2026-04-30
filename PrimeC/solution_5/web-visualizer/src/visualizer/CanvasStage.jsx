@@ -45,8 +45,8 @@ function CanvasStage({
   currentStep,
   goToStep,
   revealCurrentStepInPanel,
-  stepsPanelCollapsed,
-  setStepsPanelCollapsed,
+  eventsPanelCollapsed,
+  setEventsPanelCollapsed,
   stepAnimSlidersContent,
   // join/split state for the joined widget feature
   widgetsJoined,
@@ -103,8 +103,8 @@ function CanvasStage({
           currentStep={currentStep}
           goToStep={goToStep}
           revealCurrentStepInPanel={revealCurrentStepInPanel}
-          stepsPanelCollapsed={stepsPanelCollapsed}
-          setStepsPanelCollapsed={setStepsPanelCollapsed}
+          eventsPanelCollapsed={eventsPanelCollapsed}
+          setEventsPanelCollapsed={setEventsPanelCollapsed}
           detailOpen={detailOpen}
           toggleDetailPanel={toggleDetailPanel}
           sliders={stepAnimSlidersContent}

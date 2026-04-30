@@ -34,17 +34,17 @@ Key props (selection):
 - `bitAnimationMode`, `onBitAnimationModeChange`
 - `activeTabRequest` — `{ tab: string }` object; incrementing ref triggers one-shot tab switch
 
-### `StepPanel.jsx`
-Left-hand list of trace steps with grouping, search, and a draggable resize handle. Calls back to the visualizer when the user selects a step.
+### `EventsPanel.jsx`
+Left-hand list of trace events with grouping, search, and a draggable resize handle. Calls back to the visualizer when the user selects an event.
 
-When `panelCollapsed` is true the panel renders a floating "all events" widget (`.step-panel-floating-title`) instead of the full list. The widget contains the playback transport + timeline scrubber. Drop-zone gestures while dragging the widget:
+When `panelCollapsed` is true the panel renders a floating "all events" widget (`.events-panel-floating-title`) instead of the full list. The widget contains the playback transport + timeline scrubber. Drop-zone gestures while dragging the widget:
 
 - drop near the left window edge (≤ 80 px) → calls `onExpandPanelFromWidget` (expand the events panel and dismiss the widget)
 - drop near the top of the window (≤ 60 px from top) → calls `onDockWidgetToTopBar` (hides the widget via `setAllEventsWidgetHidden(true)`; topbar transport controls re-appear automatically since `controlsHidden` is derived)
 
-When `allEventsWidgetHidden` is true the widget is not rendered. The next `toggleStepsPanel` call resets `allEventsWidgetHidden` to `false` so the widget reliably reappears when the user collapses the panel again.
+When `allEventsWidgetHidden` is true the widget is not rendered. The next `toggleEventsPanel` call resets `allEventsWidgetHidden` to `false` so the widget reliably reappears when the user collapses the panel again.
 
-**Drag-to-collapse (expanded panel):** The `.step-panel-header-title-row` carries a `grab` cursor and a `mousedown` handler (`handleHeaderTitleDragStart`). Dragging rightward past 80 px (raw, pre-rubber-band) triggers a two-phase animated collapse: (1) the title springs back, (2) `.collapsing-out` is applied so the header and list sweep out via `@keyframes step-panel-sweep-out`, then `onToggleCollapse()` is called after 360 ms total. State: `headerDragX` (visual translate), `headerDragWillCollapse` (accent hint), `isCollapsingOut` (animation class).
+**Drag-to-collapse (expanded panel):** The `.events-panel-header-title-row` carries a `grab` cursor and a `mousedown` handler (`handleHeaderTitleDragStart`). Dragging rightward past 80 px (raw, pre-rubber-band) triggers a two-phase animated collapse: (1) the title springs back, (2) `.collapsing-out` is applied so the header and list sweep out via `@keyframes events-panel-sweep-out`, then `onToggleCollapse()` is called after 360 ms total. State: `headerDragX` (visual translate), `headerDragWillCollapse` (accent hint), `isCollapsingOut` (animation class).
 
 ### `DetailPanel.jsx`
 Inspector for the currently selected step. Shows changed bits, factor, count of newly cleared bits, and contextual primes.
@@ -64,7 +64,7 @@ Floating, draggable, resizable panel showing per-phase timings. Uses `useFloatin
 ### `Toolbar.jsx`
 Top header bar: trace title, info popover trigger, playback transport (skip/step/play/pause/slider/counter), and the right-hand action cluster (search, zoom, 3D, heatmap, primes, timings, depth, PNG/video export, theme). Pure presentation — every interactive callback is supplied by the parent.
 
-The topbar transport (`toolbar-center`) is hidden when `controlsHidden` is `true`. `controlsHidden` is a **derived value** in `Visualizer.jsx` (`stepsPanelCollapsed && !allEventsWidgetHidden`): it becomes `true` automatically whenever the floating all-events widget is visible, and `false` whenever the events panel is expanded or the widget is docked to the top bar. There is no manual toggle button — the events panel collapse/expand is the only affordance.
+The topbar transport (`toolbar-center`) is hidden when `controlsHidden` is `true`. `controlsHidden` is a **derived value** in `Visualizer.jsx` (`eventsPanelCollapsed && !allEventsWidgetHidden`): it becomes `true` automatically whenever the floating all-events widget is visible, and `false` whenever the events panel is expanded or the widget is docked to the top bar. There is no manual toggle button — the events panel collapse/expand is the only affordance.
 
 ### `TraceInfoPopover.jsx`
 Popover anchored beneath the trace title showing the storage-model selector and the parsed `traceInfoSections` (file/run/settings/notes). Used by `Toolbar`.
@@ -86,7 +86,7 @@ Drop-zone gestures while dragging:
 - drop near the left window edge → expands the events panel and hides the banner (banner can be re-shown via the ▲ button on the bottom DetailPanel)
 - drop onto the detail panel → expands the detail panel (if collapsed) and hides the banner
 - drop near the bottom edge of the window → hides the banner (same as the ▼ close button)
-- drop onto the all-events floater (`.step-panel-floating-title`) → triggers widget join (calls `onJoinWidgets`)
+- drop onto the all-events floater (`.events-panel-floating-title`) → triggers widget join (calls `onJoinWidgets`)
 
 The banner is forced visible on every fresh session via `mergeEventTitleSettings` so users always see it on startup.
 
@@ -99,7 +99,7 @@ Combined floating widget shown when `widgetsJoined = true` and the events panel 
 
 **Appear animation:** `@keyframes joined-widget-appear` (scale 0.88→1 + opacity 0→1, 280 ms) on mount.
 
-**Auto-split on panel open:** `Visualizer.jsx` calls `setWidgetsJoined(false)` inside `toggleStepsPanel` and `revealCurrentStepInPanel` whenever the events panel is being expanded.
+**Auto-split on panel open:** `Visualizer.jsx` calls `setWidgetsJoined(false)` inside `toggleEventsPanel` and `revealCurrentStepInPanel` whenever the events panel is being expanded.
 
 **Draggable:** drag from the header row updates position; on mouseup the offset is persisted to `eventTitleSettings.dragOffsetX/Y` so the banner re-appears at the correct position after splitting.
 
@@ -323,7 +323,7 @@ CSS is split per concern. `index.css` is the barrel imported by `main.jsx` and `
 | 03-welcome.css | File picker / welcome screen |
 | 04-toolbar.css | Top toolbar, search, trace info popover |
 | 05-layout.css | App-level main layout |
-| 06-step-panel.css | Left-hand step list |
+| 06-events-panel.css | Left-hand events list |
 | 07-canvas.css | Canvas area, hover balloons, animations |
 | 08-detail-panel.css | Right-hand detail panel |
 | 08b-detail-compact.css | DetailPanel compact section variants |
@@ -332,7 +332,7 @@ CSS is split per concern. `index.css` is the barrel imported by `main.jsx` and `
 | 11-scrollbar.css | Custom scrollbars |
 | 12-responsive-base.css | Breakpoints (base) |
 | 13-bit-history.css | Bit history popover |
-| 14-step-panel-collapsible.css | Collapsible step panel state |
+| 14-events-panel-collapsible.css | Collapsible events panel state |
 | 15-layout-overview.css | Unified layout overview UI |
 | 16-settings-extras.css | Settings hints / layout descriptions |
 | 17-misc.css | Heat-map button, bar chart, table, badges |

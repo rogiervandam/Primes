@@ -63,8 +63,8 @@ export default function Toolbar({
   timingPanelOpen,
   setTimingPanelOpen,
   // panel collapse/expand
-  stepsPanelCollapsed,
-  toggleStepsPanel,
+  eventsPanelCollapsed,
+  toggleEventsPanel,
   detailOpen,
   toggleDetailPanel,
   settingsCollapsed,
@@ -119,7 +119,7 @@ export default function Toolbar({
         )}
         <div className="panel-toggle-group">
 
-          {stepsPanelCollapsed && allEventsWidgetHidden && (
+          {eventsPanelCollapsed && allEventsWidgetHidden && (
             <button
               className="btn-icon panel-toggle-btn panel-toggle-btn--popout"
               onClick={showAllEventsWidget}
@@ -134,9 +134,9 @@ export default function Toolbar({
           )}
 
           <button
-            className={`btn-icon panel-toggle-btn${!stepsPanelCollapsed ? ' active' : ''}`}
-            onClick={toggleStepsPanel}
-            title={stepsPanelCollapsed ? 'Show Events panel' : 'Hide Events panel'}
+            className={`btn-icon panel-toggle-btn${!eventsPanelCollapsed ? ' active' : ''}`}
+            onClick={toggleEventsPanel}
+            title={eventsPanelCollapsed ? 'Show Events panel' : 'Hide Events panel'}
           >
             <PanelLeft size={15} />
           </button>

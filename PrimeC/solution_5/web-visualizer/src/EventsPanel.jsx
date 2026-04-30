@@ -94,7 +94,7 @@ function buildDepthTree(steps) {
 /**
  * Hierarchical step panel grouped by prime, with collapse/expand.
  */
-export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, allEventsWidgetHidden = false, onExpandPanelFromWidget, onDockWidgetToTopBar, onJoinWidgets, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0, goToStep, playing, handlePlayPause, exporting, isScrubbingTopRef, playSpeedPercent, setPlaySpeedPercent, eventTitleVisible = true, onShowEventTitle }) {
+export default function EventsPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, allEventsWidgetHidden = false, onExpandPanelFromWidget, onDockWidgetToTopBar, onJoinWidgets, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0, goToStep, playing, handlePlayPause, exporting, isScrubbingTopRef, playSpeedPercent, setPlaySpeedPercent, eventTitleVisible = true, onShowEventTitle }) {
   const listRef = useRef(null);
   const scrollTopRef = useRef(0);
   const [search, setSearch] = useState('');
@@ -494,7 +494,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
-    const active = el.querySelector('.step-item.active');
+    const active = el.querySelector('.event-item.active');
     if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [currentStep]);
 
@@ -555,7 +555,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     const handle = setTimeout(() => {
       const el = listRef.current;
       if (!el) return;
-      const active = el.querySelector('.step-item.active');
+      const active = el.querySelector('.event-item.active');
       if (active) active.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }, 60);
     return () => clearTimeout(handle);
@@ -608,12 +608,12 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     const summaryText = formatStepSummary(node);
 
     return (
-      <div key={node.originalIndex} className={`step-depth-node depth-${Math.min(6, nodeDepth)}`}>
+      <div key={node.originalIndex} className={`event-depth-node depth-${Math.min(6, nodeDepth)}`}>
         <div
-          className={`step-item step-child${isActive ? ' active' : ''}${isSelected ? ' selected' : ''}${hasChildren ? ' has-children' : ''}${isAggregateLeaf ? ' has-hidden-descendants' : ''}`}
+          className={`event-item event-child${isActive ? ' active' : ''}${isSelected ? ' selected' : ''}${hasChildren ? ' has-children' : ''}${isAggregateLeaf ? ' has-hidden-descendants' : ''}`}
           style={{ '--node-depth': nodeDepth }}
           onClick={(e) => {
-            if (hasChildren && e.target.classList.contains('step-depth-toggle')) return;
+            if (hasChildren && e.target.classList.contains('event-depth-toggle')) return;
             if ((hasChildren || hasHiddenDescendants) && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
               onStepClick(node.originalIndex);
               onMultiStepSelect(new Set(node.aggregateStepIndices || [node.originalIndex]));
@@ -624,25 +624,25 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
           }}
           title={tooltip}
         >
-          <span className="step-left" style={{ paddingLeft: `${8 + nodeDepth * 14}px` }}>
+          <span className="event-left" style={{ paddingLeft: `${8 + nodeDepth * 14}px` }}>
           {hasChildren && (
             <span
-              className="step-depth-toggle"
+              className="event-depth-toggle"
               onClick={(e) => { e.stopPropagation(); toggleGroup(collapseKey); }}
             >
               {isNodeCollapsed ? '▶' : '▼'}
             </span>
           )}
-          {!hasChildren && !isAggregateLeaf && <span className="step-depth-bullet">·</span>}
+          {!hasChildren && !isAggregateLeaf && <span className="event-depth-bullet">·</span>}
           {isAggregateLeaf && (
-            <span className="step-depth-bullet step-agg-collapsed" title={`${node.hiddenDescendantCount} events hidden by level filter`}>▸</span>
+            <span className="event-depth-bullet event-agg-collapsed" title={`${node.hiddenDescendantCount} events hidden by level filter`}>▸</span>
           )}
-          <span className="step-num">{eventId}</span>
-          {Number.isFinite(node.level) && <span className="step-op">L{node.level}</span>}
-          {node.operation && <span className="step-op">{node.operation}</span>}
-          <span className="step-changes">{changedCount > 0 ? `+${changedCount}` : ''}</span>
+          <span className="event-num">{eventId}</span>
+          {Number.isFinite(node.level) && <span className="event-op">L{node.level}</span>}
+          {node.operation && <span className="event-op">{node.operation}</span>}
+          <span className="event-changes">{changedCount > 0 ? `+${changedCount}` : ''}</span>
           {isAggregateLeaf && node.hiddenDescendantCount > 0 && (
-            <span className="step-agg-badge" title={`Aggregated from ${node.hiddenDescendantCount} hidden event${node.hiddenDescendantCount !== 1 ? 's' : ''}`}>
+            <span className="event-agg-badge" title={`Aggregated from ${node.hiddenDescendantCount} hidden event${node.hiddenDescendantCount !== 1 ? 's' : ''}`}>
               +{node.hiddenDescendantCount}
             </span>
           )}
@@ -652,10 +652,10 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
             </span>
           )}
           </span>
-          <span className="step-text">{summaryText}</span>
+          <span className="event-text">{summaryText}</span>
         </div>
         {hasChildren && !isNodeCollapsed && (
-          <div className="step-depth-children">
+          <div className="event-depth-children">
             {node.children.map(child => renderStepNode(child, nodeDepth + 1))}
           </div>
         )}
@@ -701,7 +701,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
 
   // Compact transport controls used both in collapsed and expanded states
   const transportControls = goToStep ? (
-    <div className="step-panel-transport" onMouseDown={(e) => e.stopPropagation()}>
+    <div className="events-panel-transport" onMouseDown={(e) => e.stopPropagation()}>
       <div className="spt-row spt-row-nav">
         <button className="spt-btn" onClick={() => goToStep(0)} title="First event (Home)" disabled={exporting}><SkipBack size={12} /></button>
         <button className="spt-btn" onClick={() => goToStep(currentStep - 1)} title="Previous event (←)" disabled={exporting}><StepBack size={12} /></button>
@@ -740,19 +740,19 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
   ) : null;
 
   return (
-    <div className={`step-panel${panelCollapsed ? ' collapsed' : ''}${isCollapsingOut ? ' collapsing-out' : ''}${floatDropHint === 'left' ? ' drop-hint-left' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
+    <div className={`events-panel${panelCollapsed ? ' collapsed' : ''}${isCollapsingOut ? ' collapsing-out' : ''}${floatDropHint === 'left' ? ' drop-hint-left' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
       {panelCollapsed && !allEventsWidgetHidden && (
         <div
-          className={`step-panel-floating-title${floatDropHint ? ` dropping dropping-${floatDropHint}` : ''}`}
+          className={`events-panel-floating-title${floatDropHint ? ` dropping dropping-${floatDropHint}` : ''}`}
           style={{ transform: `translate(${floatDrag.x}px, ${floatDrag.y}px)`, cursor: 'grab' }}
           onMouseDown={handleFloatDragStart}
         >
-          <div className="step-panel-float-top-row">
-            <button className="step-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Expand events panel" onMouseDown={(e) => e.stopPropagation()}>▼</button>
+          <div className="events-panel-float-top-row">
+            <button className="events-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Expand events panel" onMouseDown={(e) => e.stopPropagation()}>▼</button>
             <span className="panel-label" title="Events">Events</span>
             {!eventTitleVisible && onShowEventTitle && (
               <button
-                className="step-panel-show-event-title-btn"
+                className="events-panel-show-event-title-btn"
                 onClick={(e) => { e.stopPropagation(); onShowEventTitle(); }}
                 onMouseDown={(e) => e.stopPropagation()}
                 title="Show single-event widget"
@@ -764,9 +764,9 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       )}
       {!panelCollapsed && (
         <>
-      <div className="step-panel-header">
+      <div className="events-panel-header">
         <div
-          className={`step-panel-header-title-row${headerDragWillCollapse ? ' drag-will-collapse' : ''}${headerDragX > 0 ? ' is-header-dragging' : ''}`}
+          className={`events-panel-header-title-row${headerDragWillCollapse ? ' drag-will-collapse' : ''}${headerDragX > 0 ? ' is-header-dragging' : ''}`}
           style={headerDragX > 0 ? { transform: `translateX(${headerDragX}px)` } : undefined}
           onMouseDown={handleHeaderTitleDragStart}
           title="Drag right to collapse"
@@ -774,39 +774,39 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
           <h3>Events ({totalVisible}/{steps.length})</h3>
           {!eventTitleVisible && onShowEventTitle && (
             <button
-              className="step-panel-show-event-title-btn"
+              className="events-panel-show-event-title-btn"
               onClick={(e) => { e.stopPropagation(); onShowEventTitle(); }}
               onMouseDown={(e) => e.stopPropagation()}
               title="Show single-event widget"
             ><Eye size={12} /></button>
           )}
-          <button className="step-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Collapse events panel">
+          <button className="events-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Collapse events panel">
             ◀
           </button>
         </div>
         {transportControls}
         <input
-          className="step-search"
+          className="event-search"
           type="text"
           placeholder="Search events…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         {operations.length > 0 && (
-          <select className="step-filter" value={filterOp} onChange={(e) => setFilterOp(e.target.value)}>
+          <select className="event-filter" value={filterOp} onChange={(e) => setFilterOp(e.target.value)}>
             <option value="">All operations</option>
             {operations.map(op => <option key={op} value={op}>{op}</option>)}
           </select>
         )}
         {traceLevels.length > 0 && (
-          <div className="step-level-filter-row">
+          <div className="event-level-filter-row">
             <button
-              className="step-level-btn"
+              className="event-level-btn"
               onClick={handleLevelDecrease}
               title="Less detail"
               disabled={!!filterLevel && traceLevels.indexOf(Number(filterLevel.split(':')[1])) === 0}
             >&lt;</button>
-            <select className="step-filter step-level-select" value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)}>
+            <select className="event-filter event-level-select" value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)}>
               <option value="">All log levels</option>
               <optgroup label="Up to (inclusive)">
                 {traceLevels.map((level) => <option key={`upto-${level}`} value={`upto:${level}`}>Up to L{level}</option>)}
@@ -819,53 +819,53 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
               </optgroup>
             </select>
             <button
-              className="step-level-btn"
+              className="event-level-btn"
               onClick={handleLevelIncrease}
               title="More detail"
               disabled={!filterLevel}
             >&gt;</button>
           </div>
         )}
-        <div className="step-filter-toggles">
-          <label className="step-filter-toggle" title="Hide events that have no recorded elapsed time">
+        <div className="event-filter-toggles">
+          <label className="event-filter-toggle" title="Hide events that have no recorded elapsed time">
             <input type="checkbox" checked={hideUntimed} onChange={(e) => setHideUntimed(e.target.checked)} />
             <span>Hide untimed</span>
           </label>
-          <label className="step-filter-toggle" title="Hide events that don't change any bits">
+          <label className="event-filter-toggle" title="Hide events that don't change any bits">
             <input type="checkbox" checked={hideUnchanged} onChange={(e) => setHideUnchanged(e.target.checked)} />
             <span>Hide no-ops</span>
           </label>
         </div>
       </div>
-      <div className="step-list" ref={listRef} onWheel={onUserScroll}>
+      <div className="event-list" ref={listRef} onWheel={onUserScroll}>
         {filteredTree.map((group) => {
           const isCollapsed = collapsed.has(group.id);
           const containsActive = group.children.some(s => s.originalIndex === currentStep || selectedSteps.has(s.originalIndex));
 
           return (
-            <div key={group.id} className="step-group">
+            <div key={group.id} className="event-group">
               <div
-                className={`step-group-header${containsActive ? ' active-group' : ''}`}
+                className={`event-group-header${containsActive ? ' active-group' : ''}`}
                 onClick={() => handleGroupClick(group)}
               >
                 <span
-                  className="step-group-toggle"
+                  className="event-group-toggle"
                   onClick={(e) => { e.stopPropagation(); toggleGroup(group.id); }}
                 >
                   {isCollapsed ? '▶' : '▼'}
                 </span>
-                <span className="step-group-prime">{group.label}</span>
+                <span className="event-group-prime">{group.label}</span>
                 {group.operation && group.operation !== 'Initialization' && (
-                  <span className="step-op">{group.operation}</span>
+                  <span className="event-op">{group.operation}</span>
                 )}
-                <span className="step-group-info">
+                <span className="event-group-info">
                   {group.children.length > 1 ? `${group.children.length} events` : '1 event'}
                   {group.totalChanged > 0 ? ` · +${group.totalChanged}` : ''}
                 </span>
               </div>
 
               {!isCollapsed && (
-                <div className="step-group-children">
+                <div className="event-group-children">
                   {group.depthTree.map(node => renderStepNode(node, 0))}
                 </div>
               )}

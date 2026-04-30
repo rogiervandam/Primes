@@ -16,7 +16,7 @@ src/
 ├── App.jsx               File picker / welcome screen → loads <Visualizer/>
 ├── Visualizer.jsx        Top-level UI: toolbar, canvas, panels, playback (~4 200 lines)
 ├── SettingsPanel.jsx     Right-hand sidebar tab-row shell (~260 lines; delegates to settings/)
-├── StepPanel.jsx         Left-hand list of trace steps (search/filter)
+├── EventsPanel.jsx       Left-hand list of trace events (search/filter)
 ├── DetailPanel.jsx       Per-step inspector (changed bits, primes, factors)
 ├── TimingPanel.jsx       Floating, draggable phase-timing readout
 ├── SieveRenderer.js      Canvas 2D rendering engine (~2 800 lines)
@@ -98,7 +98,7 @@ src/
 3. **Visualize** — `Visualizer.jsx` keeps the parsed trace in state along with playback position and view preferences.
 4. **Persist** — `lib/viewPrefs.js` reads/writes user preferences (theme, layout, panel sizes) to `localStorage` under the key `sieve-visualizer:view-preferences:v1`.
 5. **Render** — On every animation frame the visualizer updates `SieveRenderer` (and `Camera3D` in 3D mode) which paints to a `<canvas>`.
-6. **Inspect** — Side panels (`StepPanel`, `DetailPanel`, `SettingsPanel`, `TimingPanel`) read derived data via props and call back into the visualizer to mutate state.
+6. **Inspect** — Side panels (`EventsPanel`, `DetailPanel`, `SettingsPanel`, `TimingPanel`) read derived data via props and call back into the visualizer to mutate state.
 
 ## State ownership
 

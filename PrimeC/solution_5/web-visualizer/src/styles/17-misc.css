@@ -352,36 +352,7 @@
 .timing-heat-dot.hot { background: #e53; }
 .timing-heat-dot.warm { background: #e93; }
 
-/* ---- Step panel timing badge ---- */
-.step-timing {
-  color: var(--fg-dim);
-  font-size: 10px;
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  opacity: 1;
-}
-.step-filter-toggles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-  margin-top: 4px;
-}
-.step-filter-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: var(--fg-muted);
-  cursor: pointer;
-}
-.step-filter-toggle input { margin: 0; }
-.step-filter-toggle:hover { color: var(--fg); }
 
-/* ---- Detail panel timing tag ---- */
-.detail-tag.timing-tag {
-  background: color-mix(in srgb, var(--accent-bg) 60%, transparent);
-  color: var(--accent-dim);
-  font-variant-numeric: tabular-nums;
-  font-family: var(--font-mono, monospace);
-}
+.event-filter-toggle input { margin: 0; }
+.event-filter-toggle:hover { color: var(--fg); }
+
