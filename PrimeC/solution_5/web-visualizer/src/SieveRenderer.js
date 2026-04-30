@@ -309,12 +309,15 @@ export class SieveRenderer {
 
   attach(canvas) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d', { willReadFrequently: true });
+    // Do NOT pass { willReadFrequently: true } — that hint disables GPU-accelerated
+    // canvas on Safari. getImageData is never called in the production render path
+    // (only in the dev-only parityHarness.js), so the hint is incorrect and harmful.
+    this.ctx = canvas.getContext('2d');
   }
 
   attachSettledCanvas(canvas) {
     this.settledCanvas = canvas;
-    this.settledCtx = canvas ? canvas.getContext('2d', { willReadFrequently: true }) : null;
+    this.settledCtx = canvas ? canvas.getContext('2d') : null;
   }
 
   attachMinimapCanvas(canvas) {

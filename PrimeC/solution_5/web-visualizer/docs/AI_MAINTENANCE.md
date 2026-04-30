@@ -716,6 +716,16 @@ overwrite.
   call `setWidgetsJoined(false)` when the panel opens; `JoinedEventsWidget`'s
   expand-panel button also splits first. CSS in `src/styles/18-joined-widget.css`.
 
+- ✅ **Removed `willReadFrequently: true` from Canvas2D context acquisition.**
+  `SieveRenderer.attach()` and `attachSettledCanvas()` previously passed
+  `{ willReadFrequently: true }` to `canvas.getContext('2d', ...)`.
+  This hint tells the browser that `getImageData` will be called frequently,
+  causing Safari to disable GPU acceleration for the canvas and switch to a
+  software renderer — making rendering very slow on macOS Safari compared
+  to Chrome/Edge. The hint was incorrect: `getImageData` is never called on
+  these canvases in the production rendering path (only in the dev-only
+  `parityHarness.js`). Both calls now use plain `canvas.getContext('2d')`.
+
 ---
 
 ## 7. What's worth doing next (suggested, not required)
