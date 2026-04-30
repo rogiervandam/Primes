@@ -4,8 +4,6 @@ import LegendTab from './settings/LegendTab';
 import LayoutTab from './settings/LayoutTab';
 import AnimationTab from './settings/AnimationTab';
 import ColorsTab from './settings/ColorsTab';
-import { GearIcon } from './settings/buttons';
-
 /**
  * Settings panel for layout modes, spacing, and rendering options.
  */
@@ -114,17 +112,7 @@ export default function SettingsPanel({
 
   return (
     <>
-    {collapsed ? (
-      <button
-        type="button"
-        className={`settings-toggle-float${isWindowsPlatform ? ' platform-windows' : ''}`}
-        onClick={onToggleCollapse}
-        title="Expand settings"
-      >
-        <span className="settings-collapsed-label"><GearIcon /> Settings</span>
-        ◀
-      </button>
-    ) : (
+    {!collapsed && (
     <div className={`settings-sidebar${isWindowsPlatform ? ' platform-windows' : ''}`} style={detailOpen ? { bottom: `${detailHeight}px` } : undefined}>
       <div className="settings-header-rail" title="Settings">
           <div className="settings-tab-row" role="tablist">

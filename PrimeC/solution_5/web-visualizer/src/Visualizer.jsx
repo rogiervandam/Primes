@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { SieveRenderer, bitToNumber, numberToBit, CACHE_PRESETS } from './SieveRenderer';
+import { SieveRenderer, bitToNumber, CACHE_PRESETS } from './SieveRenderer';
 import { BitGridGLWorker, isWorkerGLSupported } from './renderer/gl/BitGridGLWorker';
 import EventsPanel from './EventsPanel';
 import DetailPanel from './DetailPanel';
@@ -17,6 +17,7 @@ import { useTraceExport } from './hooks/useTraceExport';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { use3DCamera } from './hooks/use3DCamera';
 import { usePlaybackClock } from './hooks/usePlaybackClock';
+import { useSearchState } from './hooks/useSearchState';
 import { applyPan } from './visualizer/gestures/pan';
 import { applyRotate } from './visualizer/gestures/rotate';
 import { applyWheel } from './visualizer/gestures/wheel';
@@ -195,9 +196,7 @@ export default function Visualizer({
   const [, setHoverPos] = useState(null); // { x, y } viewport coords for hover balloon
   const [colorPreset, setColorPreset] = useState(initialPrefs.colorPreset);
   const [customColors, setCustomColors] = useState(initialPrefs.customColors);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResult, setSearchResult] = useState(null);
-  const [searchOpen, setSearchOpen] = useState(false);
+  // Search state is managed by useSearchState (placed after navigateToBit is defined below).
   // When true, the floating "all events" widget (transport + timeline shown
   // while the events panel is collapsed) is hidden (e.g. after the user
   // dragged it onto the top bar). Reset each time the events panel is
@@ -881,10 +880,9 @@ export default function Visualizer({
 
   // Keep r.minimapRightInset in sync with the settings panel state so the
   // minimap (now a position:fixed overlay) stays clear of the expanded panel.
-  // The settings-toggle float button (collapsed state) is at the top-right and
-  // doesn't conflict with the bottom-right minimap, so we only offset when the
-  // full panel is visible.  CSS: platform-mac=388px, default=328px (responsive
-  // 280px at ≤768px is ignored here — minimap hides itself when zoomed out).
+  // Only offset when the full panel is visible (toolbar gear icon toggles it).
+  // CSS: platform-mac=388px, default=328px (responsive 280px at ≤768px is
+  // ignored here — minimap hides itself when zoomed out).
   // Also repaint the minimap immediately so the position updates without
   // waiting for the next user interaction or animation tick.
   useEffect(() => {
@@ -1652,6 +1650,15 @@ export default function Visualizer({
 
     return animateViewportTo(targetView, 520).then(() => true);
   }, [animateViewportTo]);
+
+  // Search state + handler — extracted to src/hooks/useSearchState.js (Pattern A).
+  // Placed here so navigateToBit is in scope for the hook's dep arrays.
+  const {
+    searchQuery, setSearchQuery,
+    searchResult,
+    searchOpen, setSearchOpen,
+    handleSearch,
+  } = useSearchState({ rendererRef, navigateToBit, storageModel, getMinimapDetailH });
 
   // Run a single ripple/fade/pulse effect on current changedBits
   const runEffect = useCallback((style, durationOverride = null) => {
@@ -3379,104 +3386,9 @@ export default function Visualizer({
     autoRender,
   });
 
-  // Search: navigate to a specific bit, byte, uint64, vector, or number
-  const handleSearch = useCallback((query) => {
-    const r = rendererRef.current;
-    if (!r || !query.trim()) {
-      setSearchResult(null);
-      r?.clearSearchHighlight();
-      r?.render();
-      if (r) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-      return;
-    }
-
-    const q = query.trim().toLowerCase();
-    let bitIdx = -1;
-    let targetKind = 'bit';
-    let highlightIndex = -1;
-
-    // Parse: "bit N", "byte N", "uint32 N", "uint64 N", "vector N", "number N", or just a plain number
-    const m = q.match(/^(bit|byte|uint32|uint64|vector|number|num|#)?\s*(\d+)$/);
-    if (!m) {
-      r.clearSearchHighlight();
-      r.render();
-      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-      setSearchResult('Invalid query');
-      return;
-    }
-
-    const type = m[1] || '';
-    const val = parseInt(m[2], 10);
-
-    switch (type) {
-      case 'bit':
-        targetKind = 'bit';
-        bitIdx = val;
-        highlightIndex = val;
-        break;
-      case 'byte':
-        targetKind = 'byte';
-        bitIdx = val * 8;
-        highlightIndex = val;
-        break;
-      case 'uint32':
-        targetKind = 'uint32';
-        bitIdx = val * 32;
-        highlightIndex = val;
-        break;
-      case 'uint64':
-        targetKind = 'uint64';
-        bitIdx = val * 64;
-        highlightIndex = val;
-        break;
-      case 'vector':
-        targetKind = 'vector';
-        bitIdx = val * 64 * r.vectorGroup;
-        highlightIndex = val;
-        break;
-      case 'number': case 'num': case '#':
-        targetKind = 'bit';
-        bitIdx = numberToBit(val, storageModel);
-        if (bitIdx < 0) {
-          r.clearSearchHighlight();
-          r.render();
-          r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-          setSearchResult('Not representable in this storage model');
-          return;
-        }
-        highlightIndex = bitIdx;
-        break;
-      default:
-        // Plain number — treat as bit index
-        targetKind = 'bit';
-        bitIdx = val;
-        highlightIndex = val;
-    }
-
-    if (bitIdx < 0 || bitIdx >= r.bitCount) {
-      r.clearSearchHighlight();
-      r.render();
-      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-      setSearchResult(`Out of range (0–${r.bitCount - 1})`);
-      return;
-    }
-
-    const num = bitToNumber(bitIdx, storageModel);
-    r.setSearchHighlight(targetKind, highlightIndex, bitIdx);
-    navigateToBit(bitIdx, targetKind);
-    r.render();
-    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-    setSearchResult(`Bit ${bitIdx} -> Number ${num}`);
-  }, [navigateToBit, storageModel, getMinimapDetailH]);
-
-  useEffect(() => {
-    const r = rendererRef.current;
-    if (!r || searchOpen) return;
-    r.clearSearchHighlight();
-    r.render();
-    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-    setSearchResult(null);
-  }, [searchOpen, getMinimapDetailH]);
+  // Search: navigate to a specific bit, byte, uint64, vector, or number.
+  // State and handler live in useSearchState (src/hooks/useSearchState.js),
+  // wired above after navigateToBit.
 
   const currentStepData = useMemo(() => {
     if (selectedSteps.size <= 1) return steps[currentStep] || null;

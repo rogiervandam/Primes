@@ -4,6 +4,7 @@ import {
   ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus,
   PanelLeft, PanelBottom, PanelRight,
 } from '../Icons';
+import { GearIcon } from '../settings/buttons';
 import TraceInfoPopover from './TraceInfoPopover';
 
 /**
@@ -244,6 +245,13 @@ export default function Toolbar({
             </button>
           </>
         )}
+        <button
+          className={`btn-icon panel-toggle-btn${!settingsCollapsed ? ' active' : ''}`}
+          onClick={toggleSettingsPanel}
+          title={settingsCollapsed ? 'Show Settings panel' : 'Hide Settings panel'}
+        >
+          <GearIcon />
+        </button>
       </div>
     </header>
   );
