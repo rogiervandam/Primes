@@ -917,6 +917,18 @@ cell-fill code entirely. Work these in dependency order:
      when heatmap is off; annotation button `active` prop no longer
      requires `heatMapEnabled`; hints updated to not mention heatmap.
 
+- ✅ **Equal-height section cards in the detail panel.** All four
+  `.detail-section-card` elements in the compact detail panel now
+  stretch to the same height within each grid row.
+  Change is CSS-only (`08b-detail-compact.css`):
+  - `.detail-sections`: `align-items: start` → `align-items: stretch`
+    so grid places each card at the row's full height.
+  - `.detail-section-card`: added `display: flex; flex-direction: column`
+    so the card itself is a flex container and can expand downward.
+  - `.detail-section-rows`: added `flex: 1` so the row list grows to
+    fill the card's available height, distributing unused space evenly
+    across rows.
+
 7. **Remove `SieveRenderer.skipBitFill` and the Canvas2D cell-fill code.**
    Blocked on items 4–6 (all remaining Canvas2D pixel work must be
    ported before this is safe). The code paths to remove are:

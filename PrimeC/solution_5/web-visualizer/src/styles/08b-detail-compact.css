@@ -7,7 +7,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 6px 8px;
-  align-items: start;
+  align-items: stretch;
 }
 .detail-section-card {
   padding: 4px 6px;
@@ -15,6 +15,8 @@
   border-radius: 6px;
   background: color-mix(in srgb, var(--bg-raised) 70%, transparent);
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 .detail-section-wide { grid-column: 1 / -1; }
 .detail-section-card .detail-section-title {
@@ -31,6 +33,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
 }
 .detail-row {
   display: grid;
