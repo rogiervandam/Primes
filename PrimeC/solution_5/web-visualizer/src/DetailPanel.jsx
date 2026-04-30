@@ -239,7 +239,7 @@ export default function DetailPanel({
     },
   ];
 
-  // "Range & Pattern" section — geometric facts
+  // "Range" section — geometric facts (Pattern moved to mask preview)
   const rangeFacts = [
     {
       label: 'Range',
@@ -251,13 +251,15 @@ export default function DetailPanel({
       label: 'Step size',
       content: step.factorStep != null ? <span className="detail-tag step-tag">{step.factorStep}</span> : <span className="detail-empty">—</span>,
     },
-    {
-      label: 'Pattern',
-      content: step.patternDescription
-        ? <span className="dt-mono">{step.patternDescription}</span>
-        : (step.patternKind ? <span className="detail-tag block-tag">{step.patternKind}</span> : <span className="detail-empty">—</span>),
-    },
   ];
+
+  // Pattern fact — shown in the mask preview section
+  const patternFact = {
+    label: 'Mask pattern',
+    content: step.patternDescription
+      ? <span className="dt-mono">{step.patternDescription}</span>
+      : (step.patternKind ? <span className="detail-tag block-tag">{step.patternKind}</span> : <span className="detail-empty">—</span>),
+  };
 
   // "Bits" section — counts
   const bitsFacts = [
@@ -408,21 +410,9 @@ export default function DetailPanel({
           )}
           <div className="detail-sections">
             <section className="detail-section-card">
-              <div className="detail-section-title">Operation</div>
+              <div className="detail-section-title">Operation &amp; Range</div>
               <div className="detail-section-rows">
-                {operationFacts.map((row) => (
-                  <div key={row.label} className="detail-row">
-                    <span className="detail-row-label">{row.label}</span>
-                    <span className="detail-row-value">{row.content}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="detail-section-card">
-              <div className="detail-section-title">Range &amp; Pattern</div>
-              <div className="detail-section-rows">
-                {rangeFacts.map((row) => (
+                {[...operationFacts, ...rangeFacts].map((row) => (
                   <div key={row.label} className="detail-row">
                     <span className="detail-row-label">{row.label}</span>
                     <span className="detail-row-value">{row.content}</span>
@@ -434,7 +424,17 @@ export default function DetailPanel({
             <section className="detail-section-card">
               <div className="detail-section-title">Bits</div>
               <div className="detail-section-rows">
-                {bitsFacts.map((stat) => (
+                <div className="detail-row">
+                  <span className="detail-row-label">{bitsFacts[0].label}</span>
+                  <span className="detail-row-value detail-row-value-num">{bitsFacts[0].value}</span>
+                </div>
+                {annotationFacts.map((row) => (
+                  <div key={row.label} className="detail-row detail-row-sub">
+                    <span className="detail-row-label">{row.label}</span>
+                    <span className="detail-row-value">{row.content}</span>
+                  </div>
+                ))}
+                {bitsFacts.slice(1).map((stat) => (
                   <div key={stat.label} className="detail-row">
                     <span className="detail-row-label">{stat.label}</span>
                     <span className="detail-row-value detail-row-value-num">{stat.value}</span>
@@ -456,20 +456,12 @@ export default function DetailPanel({
             </section>
 
             <section className="detail-section-card">
-              <div className="detail-section-title">Marked numbers &amp; bit ranges</div>
-              <div className="detail-section-rows">
-                {annotationFacts.map((row) => (
-                  <div key={row.label} className="detail-row">
-                    <span className="detail-row-label">{row.label}</span>
-                    <span className="detail-row-value">{row.content}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="detail-section-card">
               <div className="detail-section-title">Mask preview</div>
               <div className="detail-section-rows">
+                <div className="detail-row">
+                  <span className="detail-row-label">{patternFact.label}</span>
+                  <span className="detail-row-value">{patternFact.content}</span>
+                </div>
                 {maskPreviewContent}
               </div>
             </section>
