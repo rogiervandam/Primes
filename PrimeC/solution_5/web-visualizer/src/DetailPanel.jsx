@@ -452,22 +452,26 @@ export default function DetailPanel({
             </section>
 
             <section className="detail-section-card" style={{ gridColumn: 'span 2' }}>
-              <div className="detail-section-title">Mask pattern & preview</div>
-              <div className="detail-section-rows">
-              {maskPreviewContent}
+              <div className="detail-section-title">Mask pattern &amp; preview</div>
+              <div className="mask-section-body">
+                <div className="mask-section-preview">
+                  {maskPreviewContent}
+                </div>
+                <div className="mask-section-meta">
+                  <div className="detail-row">
+                    <span className="detail-row-label">Mask type</span>
+                    <span className="detail-row-value">
+                      {maskType
+                        ? <span className="detail-tag block-tag">{maskType}</span>
+                        : <span className="detail-empty">—</span>}
+                    </span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-row-label">{patternFact.label}</span>
+                    <span className="detail-row-value">{patternFact.content}</span>
+                  </div>
+                </div>
               </div>
-                <div className="detail-row">
-                  <span className="detail-row-label">Mask type</span>
-                  <span className="detail-row-value">
-                    {maskType
-                      ? <span className="detail-tag block-tag">{maskType}</span>
-                      : <span className="detail-empty">—</span>}
-                  </span>
-                </div>
-                <div className="detail-row">
-                  <span className="detail-row-label">{patternFact.label}</span>
-                  <span className="detail-row-value">{patternFact.content}</span>
-                </div>
             </section>
 
             <section className="detail-section-card">

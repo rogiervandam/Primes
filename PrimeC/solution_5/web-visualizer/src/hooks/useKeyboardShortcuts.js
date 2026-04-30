@@ -16,6 +16,7 @@
  *   T                toggle theme
  *   D                toggle detail panel
  *   R                (3D mode) reset rotation to flat
+ *   ?                open / close keyboard shortcuts help overlay
  *
  * Caller passes the actions; this hook contains no state of its own.
  * The listener is registered once (empty dep array) and reads all
@@ -34,6 +35,7 @@ export function useKeyboardShortcuts({
   setTheme,
   toggleDetailPanel,
   camera3DRef,
+  toggleShortcutsOverlay,
 }) {
   // Always-current snapshot of every value the listener needs.
   // Updated on every render; the listener reads from here so it
@@ -49,6 +51,7 @@ export function useKeyboardShortcuts({
     setTheme,
     toggleDetailPanel,
     camera3DRef,
+    toggleShortcutsOverlay,
   };
 
   useEffect(() => {
@@ -65,6 +68,7 @@ export function useKeyboardShortcuts({
         setTheme: st,
         toggleDetailPanel: tdp,
         camera3DRef: cam3DRef,
+        toggleShortcutsOverlay: tso,
       } = handlersRef.current;
       const cam = cam3DRef?.current;
       const is3D = cam && cam.enabled;
@@ -99,6 +103,10 @@ export function useKeyboardShortcuts({
         case 'r': case 'R':
           e.preventDefault();
           if (is3D) cam.resetFlat();
+          break;
+        case '?':
+          e.preventDefault();
+          if (tso) tso();
           break;
         default: break;
       }

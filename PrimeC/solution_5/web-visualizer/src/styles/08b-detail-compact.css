@@ -118,6 +118,27 @@
   padding: 2px 4px;
   font-size: 11px;
 }
+
+/* Mask section: preview on the left, type+pattern on the right */
+.mask-section-body {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
+}
+.mask-section-preview {
+  flex: 0 0 auto;
+}
+.mask-section-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 2px;
+}
 .btn-icon {
   background: transparent;
   border: 1px solid transparent;

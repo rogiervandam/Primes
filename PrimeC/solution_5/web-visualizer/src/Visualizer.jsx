@@ -13,6 +13,7 @@ import JoinedEventsWidget from './visualizer/JoinedEventsWidget';
 import DetailInspectorOverlay from './visualizer/DetailInspectorOverlay';
 import StepAnimSliders from './visualizer/StepAnimSliders';
 import BitHistoryBalloons from './visualizer/BitHistoryBalloons';
+import KeyboardShortcutsOverlay from './visualizer/KeyboardShortcutsOverlay';
 import { useTraceExport } from './hooks/useTraceExport';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { use3DCamera } from './hooks/use3DCamera';
@@ -103,6 +104,7 @@ export default function Visualizer({
   const [panelWidth, setPanelWidth] = useState(320);
   const [theme, setTheme] = useState(initialPrefs.theme);
   const [showTraceInfo, setShowTraceInfo] = useState(false);
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [settingsCollapsed, setSettingsCollapsed] = useState(initialPrefs.settingsCollapsed);
   const [layoutSettings, setLayoutSettings] = useState(initialPrefs.layoutSettings);
   const [eventTitleSettings, setEventTitleSettings] = useState(initialPrefs.eventTitleSettings);
@@ -246,6 +248,7 @@ export default function Visualizer({
   // 'none' | 'hits' | 'age' | 'both'  — annotation shown on each cacheline when heatmap is on
   const [cachelineAnnotation, setCachelineAnnotation] = useState('none');
   const [primeOverlayEnabled, setPrimeOverlayEnabled] = useState(false);
+  const [perfOverlayEnabled, setPerfOverlayEnabled] = useState(false);
   const [rangeOverlayEnabled, setRangeOverlayEnabled] = useState(false);
   const [rangeOverlayStart, setRangeOverlayStart] = useState(0);
   const [rangeOverlayEnd, setRangeOverlayEnd] = useState(0);
@@ -1062,6 +1065,7 @@ export default function Visualizer({
     r.cachelineAnnotation = cachelineAnnotation;
     r.primeOverlay = primeOverlayEnabled;
     if (primeOverlayEnabled) r.buildPrimeOverlay();
+    r.perfOverlayEnabled = perfOverlayEnabled;
     r.rangeOverlay = rangeOverlayEnabled;
     r.rangeOverlayStart = rangeOverlayStart;
     r.rangeOverlayEnd = rangeOverlayEnd;
@@ -1159,7 +1163,7 @@ export default function Visualizer({
     r.render();
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, canvasColors, storageModel, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, depthSettings, gridOpacity, updateMinimapAvailability]);
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, canvasColors, storageModel, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, perfOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, depthSettings, gridOpacity, updateMinimapAvailability]);
 
   // Resize handler
   useEffect(() => {
@@ -3416,6 +3420,7 @@ export default function Visualizer({
     setTheme,
     toggleDetailPanel,
     camera3DRef,
+    toggleShortcutsOverlay: useCallback(() => setShowShortcutsHelp((v) => !v), []),
   });
 
   // PNG snapshot + WebM video export. See src/hooks/useTraceExport.js.
@@ -3952,6 +3957,8 @@ export default function Visualizer({
         setHeatMapEnabled={setHeatMapEnabled}
         primeOverlayEnabled={primeOverlayEnabled}
         setPrimeOverlayEnabled={setPrimeOverlayEnabled}
+        perfOverlayEnabled={perfOverlayEnabled}
+        setPerfOverlayEnabled={setPerfOverlayEnabled}
         timingPanelOpen={timingPanelOpen}
         setTimingPanelOpen={setTimingPanelOpen}
         exportPng={exportPng}
@@ -4234,6 +4241,10 @@ export default function Visualizer({
         ref={minimapCanvasRef}
         className="minimap-overlay-canvas"
         aria-hidden="true"
+      />
+      <KeyboardShortcutsOverlay
+        open={showShortcutsHelp}
+        onClose={() => setShowShortcutsHelp(false)}
       />
     </div>
   );

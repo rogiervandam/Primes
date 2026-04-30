@@ -63,6 +63,9 @@ export default function Toolbar({
   setPrimeOverlayEnabled,
   timingPanelOpen,
   setTimingPanelOpen,
+  // performance overlay
+  perfOverlayEnabled,
+  setPerfOverlayEnabled,
   // panel collapse/expand
   eventsPanelCollapsed,
   toggleEventsPanel,
@@ -232,6 +235,21 @@ export default function Toolbar({
                 <path d="M8 1.5v2" strokeLinecap="round" />
               </svg>
             </button>
+            {setPerfOverlayEnabled && (
+              <button
+                className={`btn-icon${perfOverlayEnabled ? ' active' : ''}`}
+                onClick={() => setPerfOverlayEnabled((v) => !v)}
+                title={perfOverlayEnabled ? 'Hide performance overlay' : 'Show performance overlay (FPS)'}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <rect x="1.5" y="5" width="13" height="8" rx="1.5" />
+                  <path d="M5 5V3.5" strokeLinecap="round" />
+                  <path d="M8 5V2.5" strokeLinecap="round" />
+                  <path d="M11 5V4" strokeLinecap="round" />
+                  <path d="M4 10l2-3 2 2 2-4 2 3" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
             <button className="btn-icon" onClick={exportPng} title="Export PNG"><Camera /></button>
             {!exporting ? (
               <button className="btn-icon" onClick={exportVideo} title="Export Video (WebM)"><Film /></button>

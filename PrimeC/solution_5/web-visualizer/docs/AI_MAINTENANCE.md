@@ -1811,3 +1811,50 @@ done":
   `BitGridGLWorker.attach()`. The silent Canvas2D fallback it enables
   is the only thing keeping the app functional on older browsers while
   the GL path matures.
+
+---
+
+### Session: Polish & discoverability (colour presets, detail panel, keyboard help, perf overlay)
+
+- ✅ **Added four engaging color presets.** `src/renderer/constants.js`
+  `COLOR_PRESETS` gained four new entries: `neon` (cyan `[0,255,200]` /
+  pink `[255,30,120]` / near-black `[50,50,80]`), `ocean` (teal / amber
+  / slate), `sunset` (gold / magenta / plum), `ice` (pale-blue / coral /
+  sky). All four appear immediately in the Colors-tab preset grid via the
+  existing `PreviewOptionButton` loop over `COLOR_PRESETS`.
+
+- ✅ **Mask section side-by-side layout in the detail panel.**
+  `DetailPanel.jsx`'s "Mask pattern & preview" `<section>` was
+  restructured: the mask preview cell (`mask-section-preview`, flex
+  shrink-to-fit) is on the left and the "Mask type" + "Mask pattern"
+  meta rows (`mask-section-meta`, flex fill) are stacked on the right,
+  replacing the previous vertical stacking that buried the meta below
+  the preview. CSS (`.mask-section-body`, `.mask-section-preview`,
+  `.mask-section-meta`) added to `src/styles/08b-detail-compact.css`.
+
+- ✅ **Keyboard shortcuts help overlay** (`?` key to open).
+  New file `src/visualizer/KeyboardShortcutsOverlay.jsx` renders a
+  fixed-backdrop modal (`role="dialog" aria-modal="true"`) listing all
+  keyboard shortcuts in four groups: Playback, Navigation, View, Help.
+  Closes on Escape key (via `useEffect`) or backdrop / close-button
+  click. CSS (`src/styles/19-keyboard-shortcuts.css`) provides a
+  backdrop with backdrop-filter blur, a pop-in spring animation
+  (`kbd-shortcuts-pop-in`), and a `.kbd-key` chip style (3D
+  `border-bottom` effect). `useKeyboardShortcuts` wired with
+  `toggleShortcutsOverlay` and a `case '?':` handler. State
+  `showShortcutsHelp` / `setShowShortcutsHelp` in `Visualizer.jsx`;
+  `<KeyboardShortcutsOverlay>` rendered before the closing visualizer
+  div.
+
+- ✅ **Performance overlay (FPS counter + frame histogram).**
+  `SieveRenderer.js` gained `perfOverlayEnabled` (boolean), a 60-entry
+  `Float32Array` ring buffer (`_perfFrameTimes`), and a
+  `_renderPerfOverlay(ctx, cw, ch)` method that draws in the top-right
+  canvas corner: current FPS (colour-coded green ≥50 / amber ≥30 / red
+  <30), average frame time in ms, and a 60-bar histogram with a 60 fps
+  guide line. Frame timing is recorded at the start of every `render()`
+  call. A toggle button (bar-chart SVG icon) was added to `Toolbar.jsx`
+  in the `!isWindowsPlatform` toolbar-right cluster after the timing
+  button. `perfOverlayEnabled` / `setPerfOverlayEnabled` state in
+  `Visualizer.jsx`; synced to `r.perfOverlayEnabled` in the renderer
+  properties `useEffect` (with `perfOverlayEnabled` in the dep array).

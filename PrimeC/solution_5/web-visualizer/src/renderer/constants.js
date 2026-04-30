@@ -69,6 +69,30 @@ export const COLOR_PRESETS = {
     clearedBit:   [229, 115, 115], // light red
     unchangedBit: [66, 66, 66],    // dark gray
   },
+  neon: {
+    label: 'Neon',
+    setBit:       [0, 255, 200],   // neon cyan-green
+    clearedBit:   [255, 30, 120],  // neon pink-red
+    unchangedBit: [50, 50, 80],    // dark indigo
+  },
+  ocean: {
+    label: 'Ocean',
+    setBit:       [0, 200, 220],   // teal
+    clearedBit:   [255, 160, 50],  // amber
+    unchangedBit: [60, 80, 110],   // deep slate blue
+  },
+  sunset: {
+    label: 'Sunset',
+    setBit:       [255, 180, 0],   // golden yellow
+    clearedBit:   [180, 40, 120],  // deep rose
+    unchangedBit: [90, 55, 80],    // muted plum
+  },
+  ice: {
+    label: 'Ice',
+    setBit:       [180, 230, 255], // pale ice blue
+    clearedBit:   [255, 120, 80],  // coral
+    unchangedBit: [120, 160, 200], // steel blue
+  },
 };
 
 // Bit-in-byte layout modes
