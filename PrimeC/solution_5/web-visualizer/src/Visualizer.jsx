@@ -4179,6 +4179,8 @@ export default function Visualizer({
           activeTabRequest={settingsTabRequest}
           bitAnimationMode={bitAnimationMode}
           onBitAnimationModeChange={handleBitAnimationModeChange}
+          detailOpen={detailOpen}
+          detailHeight={detailHeight}
         />
       </div>
     </div>

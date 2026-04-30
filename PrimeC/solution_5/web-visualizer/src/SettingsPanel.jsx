@@ -52,6 +52,8 @@ export default function SettingsPanel({
   activeTabRequest,
   bitAnimationMode,
   onBitAnimationModeChange,
+  detailOpen = false,
+  detailHeight = 280,
 }) {
   const s = settings || {};
   const [activeTab, setActiveTab] = React.useState('layout');
@@ -98,7 +100,7 @@ export default function SettingsPanel({
         ◀
       </button>
     ) : (
-    <div className={`settings-sidebar${isWindowsPlatform ? ' platform-windows' : ''}`}>
+    <div className={`settings-sidebar${isWindowsPlatform ? ' platform-windows' : ''}`} style={detailOpen ? { bottom: `${detailHeight}px` } : undefined}>
       <div className="settings-header-rail" title="Settings">
           <div className="settings-tab-row" role="tablist">
             <button
