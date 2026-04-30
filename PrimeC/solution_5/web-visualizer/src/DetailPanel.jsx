@@ -440,15 +440,15 @@ export default function DetailPanel({
               </div>
             </section>
 
-            <section className="detail-section-card">
-              <div className="detail-section-title">Mask preview</div>
+            <section className="detail-section-card" style={{ gridColumn: 'span 2' }}>
+              <div className="detail-section-title">Mask pattern & preview</div>
               <div className="detail-section-rows">
-                <div className="detail-row">
+              {maskPreviewContent}
+              </div>
+                <div>
                   <span className="detail-row-label">{patternFact.label}</span>
                   <span className="detail-row-value">{patternFact.content}</span>
                 </div>
-                {maskPreviewContent}
-              </div>
             </section>
 
             <section className="detail-section-card">
