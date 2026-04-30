@@ -1070,7 +1070,7 @@ export default function Visualizer({
       prev.showVectorLabels = layoutSettings.showVectorLabels;
       prev.showVectorTouchOrder = layoutSettings.showVectorTouchOrder;
     }
-    if (r.heatMapEnabled) {
+    if (r.heatMapEnabled || (r.cachelineAnnotation && r.cachelineAnnotation !== 'none')) {
       r.rebuildHeatMap(stepsRef.current, currentStepRef.current);
     }
     r.render();
@@ -1226,8 +1226,8 @@ export default function Visualizer({
       repeatedBits: suppressHighlight ? new Set() : repeatedBits,
     });
 
-    // Update heat map
-    if (r.heatMapEnabled) {
+    // Update heat map (also when cacheline annotations are enabled, to provide hit-count data)
+    if (r.heatMapEnabled || (r.cachelineAnnotation && r.cachelineAnnotation !== 'none')) {
       r.rebuildHeatMap(steps, target);
     }
 

@@ -910,8 +910,8 @@ export class SieveRenderer {
 
     const pad      = this._outlinePadding();
     const topExtra = this._outlineTopExtra('cacheline');
-    // When annotations are active, extend the outline bottom to include the badge area.
-    const annotActive = this.heatMapEnabled && this.cachelineAnnotation && this.cachelineAnnotation !== 'none';
+    // When annotations are active (regardless of heatmap state), extend the outline bottom to include the badge area.
+    const annotActive = this.cachelineAnnotation && this.cachelineAnnotation !== 'none';
     const annotBottomExtra = annotActive ? Math.min(22, Math.max(14, rowD.h * 0.18)) : 0;
     const ch = this.canvas.height / (window.devicePixelRatio || 1);
     const startVRow = Math.max(0, Math.floor(-this.panY / vRowHeight));

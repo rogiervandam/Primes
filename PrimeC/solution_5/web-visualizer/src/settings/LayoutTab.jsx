@@ -225,13 +225,12 @@ export default function LayoutTab({
 
   const CL_ANNOT_CYCLE = ['none', 'hits', 'age', 'both'];
   const CL_ANNOT_HINTS = {
-    none: 'Heatmap annotation off',
-    hits: 'Hit count (\u00d7N) since last event',
-    age:  'Age since last hit (\u0394N)',
-    both: 'Hits until this event + age since last hit',
+    none: 'Annotation off — click to enable',
+    hits: 'Hit count (\u00d7N) per cache line',
+    age:  'Steps since last hit (\u0394N) per cache line',
+    both: 'Hit count + steps since last hit per cache line',
   };
   const cycleCLAnnotation = () => {
-    if (!heatMapEnabled) return;
     const i = CL_ANNOT_CYCLE.indexOf(cachelineAnnotation);
     onCachelineAnnotationChange(CL_ANNOT_CYCLE[(i + 1) % CL_ANNOT_CYCLE.length]);
   };
@@ -437,8 +436,8 @@ export default function LayoutTab({
           />
           <AnnotationButton
             title={cachelineAnnotation === 'none' ? 'Cacheline hits' : `Cacheline: ${cachelineAnnotation}`}
-            hint={!heatMapEnabled ? 'Shows hits and last access' : CL_ANNOT_HINTS[cachelineAnnotation]}
-            active={heatMapEnabled && cachelineAnnotation !== 'none'}
+            hint={CL_ANNOT_HINTS[cachelineAnnotation]}
+            active={cachelineAnnotation !== 'none'}
             onClick={cycleCLAnnotation}
             preview={(
               <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">

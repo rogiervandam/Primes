@@ -894,6 +894,29 @@ cell-fill code entirely. Work these in dependency order:
      (`e.clientX / e.clientY`) to match the fixed-position `_minimapRect`
      coordinates stored by `renderMinimap`.
 
+- ✅ **Cacheline annotations shown without heatmap.** Previously the
+  `"×N Δstep"` badges only rendered when `heatMapEnabled` was true.
+  Four changes were made:
+  1. `Visualizer.jsx` — both `rebuildHeatMap` call sites now run
+     whenever `heatMapEnabled || (cachelineAnnotation && cachelineAnnotation !== 'none')`.
+     This ensures `clHitCount` / `clLastHitStep` are populated even
+     when the colour heat overlay is off.
+  2. `CachelineAnnotationsOverlay.js` — guard changed from
+     `!heatMapEnabled || !clHitCount` to just `!clHitCount`. When
+     heatmap is off the badge uses a neutral slate-500 colour
+     (`{ r:100, g:116, b:139 }`) instead of the heat gradient.
+     Badge text is now `"cache ×N"` / `"cache ΔN"` / `"cache ×N ΔN"`
+     (prefix added per user request). Badge is now placed centred in
+     the `annotBottomExtra` extension zone *below* the bit cells
+     (mirroring the same 14–22 px extension logic used by
+     `_renderCachelineOutline`), so it never overlaps the bits.
+  3. `SieveRenderer._renderCachelineOutline` — `annotActive` no longer
+     gates on `heatMapEnabled`; the outline extension is applied
+     whenever `cachelineAnnotation !== 'none'`.
+  4. `LayoutTab.jsx` — `cycleCLAnnotation` no longer returns early
+     when heatmap is off; annotation button `active` prop no longer
+     requires `heatMapEnabled`; hints updated to not mention heatmap.
+
 7. **Remove `SieveRenderer.skipBitFill` and the Canvas2D cell-fill code.**
    Blocked on items 4–6 (all remaining Canvas2D pixel work must be
    ported before this is safe). The code paths to remove are:

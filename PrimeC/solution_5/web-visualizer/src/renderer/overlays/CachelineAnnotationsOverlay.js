@@ -1,6 +1,11 @@
 /**
- * CachelineAnnotationsOverlay — draws the per-cacheline "×N Δstep" badges
- * shown when the heat map is enabled and `cachelineAnnotation !== 'none'`.
+ * CachelineAnnotationsOverlay — draws per-cacheline "cache ×N Δstep" badges.
+ *
+ * Shown whenever `cachelineAnnotation !== 'none'` and hit-count data is
+ * available — does NOT require `heatMapEnabled`. When the heat overlay is
+ * off the badge uses a neutral slate colour instead of the heat gradient.
+ * `Visualizer.jsx` ensures `rebuildHeatMap` is called whenever
+ * `cachelineAnnotation !== 'none'` so `clHitCount` is always populated.
  *
  * Same Pattern D shape as the other overlays in this folder
  * (`SearchOverlay`, `MaskWriteOverlay`, `VectorTouchOrderOverlay`):
@@ -24,6 +29,10 @@
  *
  * See docs/AI_MAINTENANCE.md §7 for the overlay backlog status.
  */
+
+/** Neutral badge colour used when the heat overlay is disabled. */
+const NEUTRAL_BADGE = { r: 100, g: 116, b: 139 }; // slate-500
+
 export class CachelineAnnotationsOverlay {
   constructor(host) {
     this.host = host;
@@ -31,7 +40,9 @@ export class CachelineAnnotationsOverlay {
 
   render(ctx) {
     const host = this.host;
-    if (!host.heatMapEnabled || !host.clHitCount) return;
+    // clHitCount is populated by rebuildHeatMap (called unconditionally
+    // when cachelineAnnotation !== 'none' by Visualizer.jsx).
+    if (!host.clHitCount) return;
     const mode = host.cachelineAnnotation;
     if (!mode || mode === 'none') return;
 
@@ -63,18 +74,28 @@ export class CachelineAnnotationsOverlay {
     ctx.textBaseline = 'middle';
 
     for (let phyClIdx = firstVisPhy; phyClIdx <= lastVisPhy; phyClIdx++) {
-      const oc = host._cachelineHeatOverlayColor(phyClIdx);
-      if (!oc) continue;
-
       const hitCount = host.clHitCount[phyClIdx];
+      if (!hitCount || hitCount <= 0) continue;
+
+      // Badge fill colour: use heat gradient when heatmap is on, neutral slate otherwise.
+      let bc; // { r, g, b, alpha }
+      if (host.heatMapEnabled) {
+        const oc = host._cachelineHeatOverlayColor(phyClIdx);
+        if (!oc) continue;
+        bc = { r: oc.r, g: oc.g, b: oc.b, alpha: Math.min(0.97, Math.max(0.82, oc.alpha * 2 + 0.5)) };
+      } else {
+        bc = { ...NEUTRAL_BADGE, alpha: 0.82 };
+      }
+
       const lastStep = host.clLastHitStep[phyClIdx];
       const showHits = mode === 'hits' || mode === 'both';
       const showAge  = mode === 'age'  || mode === 'both';
-      const hitsStr  = showHits ? `\u00d7${hitCount}` : '';
-      const ageStr   = showAge
+      const hitPart  = showHits ? `\u00d7${hitCount}` : '';
+      const agePart  = showAge
         ? (lastStep >= 0 ? `\u0394${host.heatMapCurrentStep - lastStep}` : '\u0394\u2014')
         : '';
-      const text = hitsStr && ageStr ? `${hitsStr} ${ageStr}` : (hitsStr || ageStr);
+      const mainText = hitPart && agePart ? `${hitPart} ${agePart}` : (hitPart || agePart);
+      const text = mainText ? `cache ${mainText}` : '';
       if (!text) continue;
 
       const phyBitStart = phyClIdx * phyBitsPerCL;
@@ -113,10 +134,13 @@ export class CachelineAnnotationsOverlay {
 
       if (rw < 18 || rh < 10) continue;
 
-      const padBX = 5, padBY = 3;
+      const padBX = 5, padBY = 2;
       const maxLabelW = rw - padBX * 2 - 2;
-      // Prefer up to 45% of the row height, cap at 14px
-      const preferredFs = Math.min(rh * 0.45, 14);
+      // Extension zone below the bit cells (mirrors annotBottomExtra in _renderCachelineOutline).
+      // Badge is placed centred in this zone so it never overlaps the bit cells.
+      const annotExt = Math.min(22, Math.max(14, rowD.h * 0.18));
+      const maxBh = annotExt - 2; // 1px top + 1px bottom margin within the zone
+      const preferredFs = Math.min(maxBh - padBY * 2, 10);
       const fs = host._fitLabelFontSize(ctx, text, maxLabelW, preferredFs, 6, '600 ');
       if (fs <= 0) continue;
 
@@ -125,19 +149,17 @@ export class CachelineAnnotationsOverlay {
       const bw  = Math.min(rw - 4, tw + padBX * 2);
       const bh  = fs + padBY * 2;
       const bx  = rx + (rw - bw) / 2;
-      // Place badge near the bottom of the cell, with a small inset margin
-      // so it stays within the cacheline outline boundary.
-      const by  = ry + rh - bh - Math.max(2, rh * 0.05);
+      // Place badge centred in the extension zone directly below the bit cells.
+      const by  = ry + rh + Math.max(0, (annotExt - bh) / 2);
 
-      const fillAlpha = Math.min(0.97, Math.max(0.82, oc.alpha * 2 + 0.5));
-      ctx.fillStyle = `rgba(${oc.r},${oc.g},${oc.b},${fillAlpha})`;
+      ctx.fillStyle = `rgba(${bc.r},${bc.g},${bc.b},${bc.alpha})`;
       ctx.beginPath();
       ctx.roundRect(bx, by, bw, bh, Math.min(5, bh * 0.4));
       ctx.fill();
       ctx.strokeStyle = 'rgba(15,23,42,0.45)';
       ctx.lineWidth = 1;
       ctx.stroke();
-      ctx.fillStyle = host._labelTextColor([oc.r, oc.g, oc.b]);
+      ctx.fillStyle = host._labelTextColor([bc.r, bc.g, bc.b]);
       ctx.fillText(text, bx + bw / 2, by + bh / 2);
     }
 
