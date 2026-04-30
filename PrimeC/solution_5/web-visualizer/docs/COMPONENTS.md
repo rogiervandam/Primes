@@ -187,7 +187,7 @@ Manages the "draft text + commit on blur/Enter" pattern for controlled inputs. R
 
 ### `viewPrefs.js`
 - `VIEW_PREFS_KEY = 'sieve-visualizer:view-preferences:v1'`
-- `DEFAULT_EVENT_TIME_TARGETS`, `DEFAULT_LAYOUT_SETTINGS`, `DEFAULT_EVENT_TITLE_SETTINGS`, `DEFAULT_DEPTH_SETTINGS`, `DEFAULT_CANVAS_COLORS`
+- `DEFAULT_EVENT_TIME_TARGETS`, `DEFAULT_LAYOUT_SETTINGS`, `DEFAULT_EVENT_TITLE_SETTINGS`, `DEFAULT_DEPTH_SETTINGS`, `DEFAULT_CANVAS_COLORS`, `DEFAULT_COLOR_PREFS`
 - `readViewPrefs()` / `writeViewPrefs(prefs)`
 - `mergeEventTimeTargets(saved)`, `mergeLayoutSettings(saved)`, `mergeEventTitleSettings(saved)`, `mergeDepthSettings(saved)`
 - `getInitialViewState()` — reads storage once and resolves every persisted UI field (with clamping and legacy-`repeatAnim` migration) into a flat bundle. Called via `useMemo` in `Visualizer.jsx` to seed all `useState` calls.

@@ -195,8 +195,8 @@ export default function Visualizer({
   const [pinnedBitIndices, setPinnedBitIndices] = useState([]); // clicked bits with locked balloons
   const [hoveredBitInfo, setHoveredBitInfo] = useState(null);  // { bitIndex, history[] } — updated on hover
   const [, setHoverPos] = useState(null); // { x, y } viewport coords for hover balloon
-  const [colorPreset, setColorPreset] = useState(null); // null = theme default
-  const [customColors, setCustomColors] = useState({ setBit: null, clearedBit: null, unchangedBit: null });
+  const [colorPreset, setColorPreset] = useState(initialPrefs.colorPreset);
+  const [customColors, setCustomColors] = useState(initialPrefs.customColors);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResult, setSearchResult] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -709,6 +709,8 @@ export default function Visualizer({
       maxStepDurationMs,
       gridOpacity,
       canvasColors,
+      colorPreset,
+      customColors,
       eventDurationMode,
       playSpeedPercent,
       delayBetweenEvents,
@@ -720,7 +722,7 @@ export default function Visualizer({
       settingsCollapsed,
       detailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, canvasColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, controlsHidden, allEventsWidgetHidden, stepsPanelCollapsed, settingsCollapsed, detailOpen]);
+  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, controlsHidden, allEventsWidgetHidden, stepsPanelCollapsed, settingsCollapsed, detailOpen]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'

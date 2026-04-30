@@ -1,11 +1,11 @@
 Minor
 
 - let me turn on the annotations for cachelines also when heatmap is not on. Include "cache" in the text annotation, before the x of delta sign. Move the annotations more to the bottom of the cacheline outline, so that they are more clearly associated with the cacheline and don't overlap with other annotations or visual elements in the grid, providing a clearer and more informative visual representation of the cacheline annotations when analyzing the changes being made to the bit storage in relation to the sieve algorithm.
-- save changed color to local storage. When the user changes the color settings in the settings panel, save those changes to local storage, so that the next time the user opens the visualizer, their preferred color settings will be automatically applied, providing a more personalized and consistent user experience when analyzing the changes being made to the bit storage in relation to the sieve algorithm.
+- ✅ save changed color to local storage. When the user changes the color settings in the settings panel, save those changes to local storage, so that the next time the user opens the visualizer, their preferred color settings will be automatically applied, providing a more personalized and consistent user experience when analyzing the changes being made to the bit storage in relation to the sieve algorithm. DONE: `colorPreset` and `customColors` are now persisted via `viewPrefs` (`DEFAULT_COLOR_PREFS`, `initialColorPreset`, `initialCustomColors` in `viewPrefs.js`; seeded from `initialPrefs` in `Visualizer.jsx` and included in `writeViewPrefs`).
 - in the details panel, all the section should have the same vertical size. 
 - let me click in the legend and when i click on an item that has an associated button in the settings, act as if it was clicked, so that i can easily access and adjust the settings related to a specific item in the legend by simply clicking on that item, providing a more intuitive and seamless user experience when analyzing the changes being made to the bit storage in relation to the sieve algorithm.
 - in the settings panel, all buttons should be square, so that they have a consistent shape and appearance, providing a more cohesive and visually appealing user interface for analyzing the changes being made to the bit storage in relation to the sieve algorithm.
-- 
+- Minimap is sometimes ca 10-20px over the left settings panel
 
 Major
 

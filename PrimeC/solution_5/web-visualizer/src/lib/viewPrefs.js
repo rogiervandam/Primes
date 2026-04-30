@@ -81,6 +81,17 @@ export const DEFAULT_CANVAS_COLORS = {
   dark:  null,
 };
 
+/**
+ * Default color-preset / custom-bit-color preferences.
+ * `colorPreset` is a key into COLOR_PRESETS (e.g. 'default', 'pastel') or
+ * null to use the theme default.
+ * Each `customColors` entry is an [r,g,b] array override or null.
+ */
+export const DEFAULT_COLOR_PREFS = {
+  colorPreset: null,
+  customColors: { setBit: null, clearedBit: null, unchangedBit: null },
+};
+
 /** Read raw preferences object from localStorage (or null on failure). */
 export function readViewPrefs() {
   if (typeof window === 'undefined' || !window.localStorage) return null;
@@ -231,6 +242,27 @@ function initialAllEventsWidgetHidden(prefs) {
   return prefs?.allEventsWidgetHidden === true;
 }
 
+// Valid preset keys (mirrors COLOR_PRESETS in src/renderer/constants.js).
+// Listed here to avoid a cross-module import from a lib/ utility.
+const VALID_COLOR_PRESET_KEYS = new Set(['default', 'highContrast', 'pastel', 'darkMode']);
+
+function initialColorPreset(prefs) {
+  const v = prefs?.colorPreset;
+  return (typeof v === 'string' && VALID_COLOR_PRESET_KEYS.has(v)) ? v : null;
+}
+
+function initialCustomColors(prefs) {
+  const isValidRgb = (v) =>
+    Array.isArray(v) && v.length === 3 &&
+    v.every((c) => Number.isInteger(c) && c >= 0 && c <= 255);
+  const saved = prefs?.customColors;
+  return {
+    setBit:       isValidRgb(saved?.setBit)       ? saved.setBit       : null,
+    clearedBit:   isValidRgb(saved?.clearedBit)   ? saved.clearedBit   : null,
+    unchangedBit: isValidRgb(saved?.unchangedBit) ? saved.unchangedBit : null,
+  };
+}
+
 function initialCanvasColors(prefs) {
   const saved = prefs?.canvasColors;
   const isValidRgb = (v) => Array.isArray(v) && v.length === 3 && v.every(c => Number.isInteger(c) && c >= 0 && c <= 255);
@@ -275,6 +307,8 @@ export function getInitialViewState() {
     maxStepDurationMs: initialMaxStepDurationMs(prefs),
     gridOpacity: initialGridOpacity(prefs),
     canvasColors: initialCanvasColors(prefs),
+    colorPreset: initialColorPreset(prefs),
+    customColors: initialCustomColors(prefs),
     controlsHidden: initialControlsHidden(prefs),
     allEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
     ...initialPanelVisibility(prefs),

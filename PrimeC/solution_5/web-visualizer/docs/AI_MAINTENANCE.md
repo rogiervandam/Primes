@@ -198,6 +198,10 @@ overwrite.
   call.
 - ✅ Extracted PNG + WebM export to `src/hooks/useTraceExport.js`. The hook
   documents the public renderer surface it touches.
+- ✅ Persisted `colorPreset` and `customColors` to `viewPrefs` localStorage.
+  Added `DEFAULT_COLOR_PREFS`, `initialColorPreset`, and `initialCustomColors`
+  to `src/lib/viewPrefs.js`; both fields now appear in `getInitialViewState()`
+  and in the `writeViewPrefs` effect + dependency array in `Visualizer.jsx`.
 - ✅ Extracted draft-input boilerplate to `src/hooks/useDraftInput.js` and
   replaced the three SettingsPanel inputs.
 - ✅ Added `src/renderer/VisualizationRenderer.js` as a documentation-as-code
