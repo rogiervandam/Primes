@@ -1466,17 +1466,57 @@ text that extends beyond the square is clipped by `overflow: hidden`.
     `SettingsPanel.jsx` (~55 props). Documentation-only — no `prop-types`
     package added. `// @ts-check` is the natural follow-up if type errors
     want to surface at edit time.
+- ✅ **Added periodic `bitState` snapshots for fast backward scrub** (item 19
+  option a). `bitStateSnapshotsRef` (`useRef(null)`, a JS array of
+  `Uint8Array` snapshots) and `SNAPSHOT_INTERVAL = 100` added in
+  `Visualizer.jsx` near `bitStateDirtyRef`. A `useEffect([steps,
+  header.bitCount])` rebuilds the snapshot array whenever the loaded trace
+  changes: it walks every step in order, applies `changedBits` XOR deltas
+  into a running `Uint8Array`, and saves a `.slice()` copy every 100 steps
+  into the array. `goToStep`'s backward-scrub path (previously
+  `bs.fill(0)` + replay from step 0) now finds the nearest snapshot
+  ≤ target via `Math.floor((target - 1) / SNAPSHOT_INTERVAL)`, copies it
+  into `bitStateRef.current` with `Uint8Array.prototype.set()`, then only
+  replays from `snapshotStep + 1` to `target - 1`. Scrubbing to the start
+  of a 1 000-event trace replays at most 99 events instead of 999
+  (O(n/100) instead of O(n)). The `bitStateDirtyRef` path gets the same
+  optimisation. Memory cost: one `Uint8Array` per snapshot; at the default
+  100 k bits each snapshot is ~12 kB (1 bit/cell packed), so 10 snapshots
+  per 1 000-step trace is ~120 kB — well within budget.
+- ✅ **Expanded test suite to 260 tests across 8 files** (item 14 follow-up).
+  Three new test files added, all zero DOM / zero React:
+  - `src/lib/__tests__/unitConverters.test.js` — 37 tests covering all four
+    exported converters (`playbackSpeedToPercent`, `percentToPlaybackSpeed`,
+    `stepSpeedToInterval`, `intervalToStepSpeed`): endpoints, midpoints,
+    round-trips, null/undefined graceful fallbacks. Key quirks: `percentTo
+    PlaybackSpeed(100)` returns **51** (not 50) because `Math.round(50.5)=51`
+    in JS; `stepSpeedToInterval(50)` ≈ **2528 ms** (not 2502.5) because the
+    ratio formula `(speed-1)/99` at speed=50 is 0.4949…, giving
+    `round(5000 - 0.4949*4995) = 2528`.
+  - `src/renderer/__tests__/drawingHelpers.test.js` — 27 tests covering
+    `hexToRgb`, `mixRgb`, `labelTextColor`, `fitLabelFontSize`, and
+    `truncateTextToWidth`. Context-dependent functions tested with a minimal
+    mock canvas-2D object implementing `font`, `save()`, `restore()`, and
+    `measureText()` returning `{ width: text.length * parsedFontSize * 0.6 }`.
+  - `src/parser/__tests__/headerParser.test.js` — 18 tests covering
+    `parseBenchmarkOutputLine` (valid/invalid shapes, tag parsing),
+    `extractBenchmarkMetadata` (last-line search, TRACE/EVENT line skipping),
+    and `extractTitleMetadata` (title/subtitle/info extraction — note:
+    `parseKvLine` stops at whitespace, so multi-word values must be quoted
+    as `title="My Sieve"`; `info` items are deduplicated via `|` separator).
+  `npm run test`: 260/260 pass; 8 files. `npm run build` clean (92 modules,
+  Visualizer chunk 311 kB / 88 kB gzip).
 
 ### Performance backlog
 
-19. **Profile `goToStep` at large trace sizes.** `goToStep` currently
-    replays every event from the start on scrub-back (the incremental
-    forward path is fast; backward is O(n)). For traces with > 1 000
-    events this becomes noticeable. Mitigations in order of complexity:
-    (a) cache periodic snapshots of `bitState` at every 100th event;
-    (b) use a persistent data structure (e.g. a copy-on-write bit array);
-    (c) limit backward-scrub to the incremental path + prohibit it
-    (UX trade-off). Measure before committing to any approach.
+19. **Profile `goToStep` at large trace sizes.** ✅ PARTIALLY DONE (option a
+    implemented — periodic `bitState` snapshots every 100 steps; see §6 entry
+    above). Backward scrub is now O(n/100) instead of O(n). Remaining:
+    measure actual scrub latency at >1 000-event traces to confirm the
+    improvement is perceptible; consider capping the snapshot count if memory
+    cost grows at very large bit-counts (100 k bits → ~12 kB/snapshot;
+    10 snapshots/1000 steps → ~120 kB — currently fine). Options (b) COW
+    data structure and (c) prohibit backward scrub are deferred.
 20. **Throttle settings-panel re-renders during rapid slider input.** ✅ DONE.
     `AnimationTab.jsx` wraps all range-slider `onChange` handlers in
     `startTransition` (`useTransition` imported at line 1). `ColorsTab.jsx`

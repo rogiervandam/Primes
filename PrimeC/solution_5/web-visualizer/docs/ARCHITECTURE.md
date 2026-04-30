@@ -136,7 +136,7 @@ known minefields, and a list of refactors already completed.**
 npm install
 npm run dev      # Vite dev server on http://localhost:5173
 npm run build    # Production bundle in dist/
-npm run test     # Vitest unit tests (178 tests across 5 files; no DOM required)
+npm run test     # Vitest unit tests (260 tests across 8 files; no DOM required)
 npm run electron # Native wrapper (after build)
 ```
 

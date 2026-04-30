@@ -328,6 +328,12 @@ export default function Visualizer({
   // (pre-step) state. goToStep checks this and always rebuilds bitState from
   // scratch so we don't end up with an inconsistent incremental update.
   const bitStateDirtyRef = useRef(false);
+  // Periodic snapshots of bitState built at trace load time (every
+  // CHECKPOINT_INTERVAL events). Used by goToStep to skip replaying
+  // thousands of events on backward scrubs — O(n) → O(n/CHECKPOINT_INTERVAL).
+  // Each entry: { step: number, bitState: Uint8Array } where `step` is the
+  // index of the first event NOT yet applied (i.e. state after events 0..step-1).
+  const bitStateCheckpointsRef = useRef([]);
   const traceInfoToggleRef = useRef(null);
   const balloonLayoutRafRef = useRef(null);
 
@@ -1196,6 +1202,42 @@ export default function Visualizer({
     };
   }, [panelWidth, showMinimap, detailOpen, detailHeight, refreshCanvasLayout, clearScheduledLayoutRefresh, captureViewportAnchor]);
 
+  // Precompute periodic bitState checkpoints whenever the trace changes.
+  // Spacing: at most 50 checkpoints, minimum interval 100 events.
+  // Memory guard: skip if total snapshot bytes would exceed 8 MB so large
+  // traces (high bitCount) don't balloon the heap.
+  useEffect(() => {
+    const { bitCount } = header;
+    const MAX_CHECKPOINTS = 50;
+    const MIN_INTERVAL   = 100;
+    const MAX_BYTES      = 8 * 1024 * 1024;
+    if (!steps.length || !bitCount) {
+      bitStateCheckpointsRef.current = [];
+      return;
+    }
+    const interval = Math.max(MIN_INTERVAL, Math.ceil(steps.length / MAX_CHECKPOINTS));
+    const estimatedCheckpoints = Math.floor(steps.length / interval);
+    if (estimatedCheckpoints * bitCount > MAX_BYTES) {
+      bitStateCheckpointsRef.current = [];
+      return;
+    }
+    const checkpoints = [];
+    const bs = new Uint8Array(bitCount);
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i];
+      for (let j = 0; j < s.changedBits.length; j++) {
+        const idx = s.changedBits[j];
+        if (idx < bs.length) bs[idx] = 1;
+      }
+      if ((i + 1) % interval === 0) {
+        // Checkpoint stores state AFTER events 0..i.
+        // `step` is the first event index NOT yet included.
+        checkpoints.push({ step: i + 1, bitState: bs.slice() });
+      }
+    }
+    bitStateCheckpointsRef.current = checkpoints;
+  }, [steps, header]);
+
   // Go to step
   const goToStep = useCallback((target, options = {}) => {
     const r = rendererRef.current;
@@ -1218,8 +1260,18 @@ export default function Visualizer({
     // If the scrubber left bitState in a partially-revealed state, do a full
     // rebuild regardless of direction so the incremental path can't desync.
     if (target <= currentStep || bitStateDirtyRef.current) {
-      bs.fill(0);
-      for (let i = 0; i < target; i++) {
+      // Use the nearest precomputed checkpoint to skip bulk replay.
+      const checkpoints = bitStateCheckpointsRef.current;
+      let replayFrom = 0;
+      for (let k = checkpoints.length - 1; k >= 0; k--) {
+        if (checkpoints[k].step <= target) {
+          bs.set(checkpoints[k].bitState);
+          replayFrom = checkpoints[k].step;
+          break;
+        }
+      }
+      if (replayFrom === 0) bs.fill(0);
+      for (let i = replayFrom; i < target; i++) {
         const s = steps[i];
         for (let j = 0; j < s.changedBits.length; j++) {
           const idx = s.changedBits[j];
