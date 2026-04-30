@@ -179,6 +179,7 @@
   display: block;
   flex-shrink: 0;
   isolation: isolate;
+  transform: rotate(90deg);
 }
 .btn-sm {
   font-size: 14px;
@@ -438,14 +439,17 @@
 .btn-option:hover { background: var(--bg-input); color: var(--fg); }
 .btn-option.active { background: var(--accent); color: #fff; }
 .color-row {
-  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 1em;
 }
 .color-label {
   display: flex; align-items: center; gap: 4px;
   font-size: 11px; color: var(--fg-dim);
+  min-width: 10em;
 }
 .color-label input[type="color"] {
-  width: 28px; height: 22px; border: 1px solid var(--border-light);
+  width: 42px; height: 22px; border: 1px solid var(--border-light);
   border-radius: 3px; padding: 0; cursor: pointer; background: none;
+  position: absolute;
+  margin-left: 10ex;
 }
 

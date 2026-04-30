@@ -36,7 +36,7 @@ export default function ColorsTab({
     <>
       <div className="settings-section">
         <label>Theme</label>
-        <div className="preview-btn-grid preview-btn-grid-2">
+        <div className="preview-btn-grid preview-btn-grid-3">
           <PreviewOptionButton
             compact
             label="Light"
@@ -69,61 +69,6 @@ export default function ColorsTab({
               </svg>
             )}
           />
-        </div>
-      </div>
-
-      <div className="settings-section">
-        <label>Canvas background</label>
-        <div className="settings-row color-row" style={{ marginTop: 4 }}>
-          <label className="color-label" title="Canvas background color for light (day) mode">
-            ☀ Day
-            <input
-              type="color"
-              value={rgbToHex(effectiveLightBg)}
-              onChange={(e) => onCanvasColorsChange && onCanvasColorsChange({
-                ...(canvasColors || {}),
-                light: hexToRgb(e.target.value),
-              })}
-            />
-          </label>
-          <label className="color-label" title="Canvas background color for dark (night) mode">
-            ☽ Night
-            <input
-              type="color"
-              value={rgbToHex(effectiveDarkBg)}
-              onChange={(e) => onCanvasColorsChange && onCanvasColorsChange({
-                ...(canvasColors || {}),
-                dark: hexToRgb(e.target.value),
-              })}
-            />
-          </label>
-          {hasAnyCustom && (
-            <button
-              className="btn-text"
-              style={{ fontSize: '0.8rem' }}
-              onClick={() => onCanvasColorsChange && onCanvasColorsChange({ light: null, dark: null })}
-            >
-              Reset
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="settings-section">
-        <label>Grid opacity</label>
-        <div className="settings-row overlay-inline-controls">
-          <label className="overlay-inline-field overlay-inline-field-range">
-            <span>Opacity</span>
-            <input
-              type="range"
-              min={12}
-              max={100}
-              step={1}
-              value={Math.round((gridOpacity ?? 1) * 100)}
-              onChange={(e) => onGridOpacityChange && onGridOpacityChange((Math.max(12, Math.min(100, parseInt(e.target.value || '100', 10) || 100))) / 100)}
-            />
-            <span className="val">{Math.round((gridOpacity ?? 1) * 100)}%</span>
-          </label>
         </div>
       </div>
 
@@ -180,7 +125,12 @@ export default function ColorsTab({
             );
           })}
         </div>
-        <div className="settings-row color-row" style={{ marginTop: 6 }}>
+
+      </div>
+      <div className="settings-section">
+        <label>Adjustments</label>
+
+        <div className="settings-row color-row" >
           <label className="color-label">
             Set
             <input type="color"
@@ -206,7 +156,56 @@ export default function ColorsTab({
             Reset custom colors
           </button>
         )}
+
+        <div className="settings-row color-row" >
+          <label className="color-label" title="Canvas background color for light (day) mode">
+            Day
+            <input
+              type="color"
+              value={rgbToHex(effectiveLightBg)}
+              onChange={(e) => onCanvasColorsChange && onCanvasColorsChange({
+                ...(canvasColors || {}),
+                light: hexToRgb(e.target.value),
+              })}
+            />
+          </label>
+          <label className="color-label" title="Canvas background color for dark (night) mode">
+            Night
+            <input
+              type="color"
+              value={rgbToHex(effectiveDarkBg)}
+              onChange={(e) => onCanvasColorsChange && onCanvasColorsChange({
+                ...(canvasColors || {}),
+                dark: hexToRgb(e.target.value),
+              })}
+            />
+          </label>
+          {hasAnyCustom && (
+            <button
+              className="btn-text"
+              style={{ fontSize: '0.8rem' }}
+              onClick={() => onCanvasColorsChange && onCanvasColorsChange({ light: null, dark: null })}
+            >
+              Reset
+            </button>
+          )}
+        </div>
+        <div className="settings-row overlay-inline-controls" style={{ padding: '1em 0 0 0' }}>
+          <label className="overlay-inline-field overlay-inline-field-range">
+            <span>Grid opacity</span>
+            <input
+              type="range"
+              min={12}
+              max={100}
+              step={1}
+              value={Math.round((gridOpacity ?? 1) * 100)}
+              onChange={(e) => onGridOpacityChange && onGridOpacityChange((Math.max(12, Math.min(100, parseInt(e.target.value || '100', 10) || 100))) / 100)}
+            />
+            <span className="val">{Math.round((gridOpacity ?? 1) * 100)}%</span>
+          </label>
+        </div>
       </div>
+
     </>
   );
 }

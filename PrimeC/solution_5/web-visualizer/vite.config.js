@@ -8,6 +8,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   clearScreen: false,
+  css: {
+    devSourcemap: true
+  },
   plugins: [
     react(),
     logApiPlugin(path.resolve(__dirname, '../log')),

@@ -371,7 +371,7 @@ export default function LayoutTab({
             active={!!s.showNumberLabels}
             onClick={() => set('showNumberLabels', !s.showNumberLabels)}
             preview={(
-              <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
+              <svg viewBox="0 0 44 18" width="44" height="22" aria-hidden="true">
                 <rect x="1" y="1" width="10" height="8" rx="1" />
                 <rect x="15" y="1" width="12" height="8" rx="1" />
                 <text x="2" y="16" fontSize="7">1 3 5</text>
@@ -384,7 +384,7 @@ export default function LayoutTab({
             active={!!s.showBitLabels}
             onClick={cycleBitAnnotation}
             preview={(
-              <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
+              <svg viewBox="0 0 44 18" width="44" height="22" aria-hidden="true">
                 <rect x="1" y="1" width="6" height="6" rx="1" />
                 <rect x="9" y="1" width="6" height="6" rx="1" />
                 <rect x="17" y="1" width="6" height="6" rx="1" />
@@ -399,9 +399,10 @@ export default function LayoutTab({
             onClick={cycleByteAnnotation}
             preview={(
               <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
-                <rect x="1" y="1" width="18" height="8" rx="1" />
-                <rect x="23" y="1" width="18" height="8" rx="1" />
-                <text x="2" y="16" fontSize="7">b0    b1</text>
+                <text x="2" y="0" fontSize="10">b0</text>
+                <text x="26" y="0" fontSize="10">b1</text>
+                <rect x="1" y="3" width="18" height="20" rx="1" />
+                <rect x="25" y="3" width="18" height="20" rx="1" />
               </svg>
             )}
           />
@@ -411,7 +412,7 @@ export default function LayoutTab({
             active={s.showVectorLabels !== false}
             onClick={() => set('showVectorLabels', s.showVectorLabels === false)}
             preview={(
-              <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
+              <svg viewBox="0 0 44 18" width="44" height="22" aria-hidden="true">
                 <rect x="1" y="4" width="42" height="8" rx="2" />
                 <line x1="15" y1="4" x2="15" y2="12" />
                 <line x1="29" y1="4" x2="29" y2="12" />
@@ -425,7 +426,7 @@ export default function LayoutTab({
             active={!!s.showVectorTouchOrder}
             onClick={() => set('showVectorTouchOrder', !(s.showVectorTouchOrder === true))}
             preview={(
-              <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
+              <svg viewBox="0 0 44 18" width="44" height="22" aria-hidden="true">
                 <rect x="2" y="8" width="10" height="6" rx="1" />
                 <rect x="16" y="8" width="10" height="6" rx="1" />
                 <rect x="30" y="8" width="10" height="6" rx="1" />
@@ -440,7 +441,7 @@ export default function LayoutTab({
             active={cachelineAnnotation !== 'none'}
             onClick={cycleCLAnnotation}
             preview={(
-              <svg viewBox="0 0 44 18" width="44" height="18" aria-hidden="true">
+              <svg viewBox="0 0 44 18" width="44" height="22" aria-hidden="true">
                 <rect x="1" y="2" width="20" height="13" rx="1" fill="rgba(239,68,68,0.28)" stroke="currentColor" strokeWidth="0.5" />
                 <rect x="3" y="10" width="16" height="4" rx="1" fill="rgba(239,68,68,0.85)" />
                 <text x="4" y="13.5" fontSize="4.5" fill="#fff">×4 Δ3</text>
@@ -797,7 +798,7 @@ export default function LayoutTab({
           <PreviewOptionButton
             compact
             label="Multiples"
-            hint="Highlight bits representing multiples of a given prime"
+            hint="Highlight multiples of a given prime"
             active={!!multiplesOverlayEnabled}
             extraClass="multiples-overlay-preview-btn"
             onClick={() => onMultiplesOverlayToggle && onMultiplesOverlayToggle(!multiplesOverlayEnabled)}

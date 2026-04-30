@@ -390,7 +390,7 @@ function AnimationTab({
         <div className="settings-row animation-timing-row" style={{ alignItems: 'flex-start', gap: 8 }}>  
           <div className="timing-control">
             <span className="timing-title">Event duration target</span>
-            <div className="preview-btn-grid preview-btn-grid-2" style={{ marginTop: 4 }}>
+            <div className="preview-btn-grid preview-btn-grid-3" style={{ marginTop: 4 }}>
               <PreviewOptionButton
                 compact
                 label="Progressive"
@@ -423,9 +423,9 @@ function AnimationTab({
             </div>
           </div>
         </div>
-        <div className="settings-row animation-timing-row" style={{ alignItems: 'flex-start', gap: 8 }}>          
+        <div className="settings-row animation-timing-row" style={{ alignItems: 'flex-start', gap: 8, marginTop: '1.5em' }}>          
           <div className="timing-control">
-            <span className="timing-title">Overall speed</span>
+            <span className="timing-title" style={{ minHeight: '2.5em'}}>Overall speed</span>
             <input
               className="timing-slider"
               type="range"
@@ -443,7 +443,7 @@ function AnimationTab({
             </div>
           </div>
           <div className="timing-control">
-            <span className="timing-title">Delay between events</span>
+            <span className="timing-title" style={{ minHeight: '2.5em'}}>Delay between events</span>
             <input
               className="timing-slider"
               type="range"
@@ -461,7 +461,7 @@ function AnimationTab({
             </div>
           </div>
           <div className="timing-control">
-            <span className="timing-title">Delay between repeats</span>
+            <span className="timing-title" style={{ minHeight: '2.5em'}}>Delay between repeats</span>
             <input
               className="timing-slider"
               type="range"

@@ -114,7 +114,7 @@
 
 .anno-btn-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
 }
 
@@ -128,6 +128,9 @@
   border-radius: 6px;
   padding: 6px;
   color: var(--fg-muted);
+  min-height: 90px;
+  max-width: 120px;
+  max-height: 100px;
 }
 
 .anno-btn:hover {
@@ -145,12 +148,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
-  min-height: 18px;
+  min-height: 22px;
 }
 
 .anno-btn-preview svg {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1;
@@ -166,12 +169,13 @@
 
 .anno-btn-title {
   font-size: 11px;
-  font-weight: 400;
+  font-weight: 700;
 }
 
 .anno-btn-hint {
   font-size: 10px;
   color: var(--fg-dim);
+  text-align: left;
 }
 
 .preview-btn-grid {
@@ -208,7 +212,9 @@
 }
 
 .preview-btn.compact {
-  min-height: 64px;
+  min-height: 90px;
+  max-height: 100px;
+  max-width: 120px;
 }
 
 .preview-btn:hover {
@@ -555,6 +561,7 @@
 .preview-btn-hint {
   font-size: 10px;
   color: var(--fg-dim);
+  text-align: left;
 }
 
 .animation-timing-row {
