@@ -31,3 +31,13 @@
   text-align: center;
 }
 
+/* Shown when WebGL2 + OffscreenCanvas is unavailable (old browser). */
+.gl-unavailable-banner {
+  padding: 8px 14px;
+  background: var(--warning-bg, #78350f);
+  color: var(--warning-fg, #fde68a);
+  font-size: 12px;
+  flex-shrink: 0;
+  text-align: center;
+}
+

@@ -142,10 +142,6 @@ export class SieveRenderer {
     this.loweredSetBits = false;
     this.loweredSetBits3D = false;
     this.transparentBackground = false;
-    // See `_buildFrameContext`. When true, the per-bit cell-fill
-    // rectangles and the background fill are skipped (the GL renderer
-    // paints them into a sibling canvas mounted underneath).
-    this.skipBitFill = false;
     // Optional override for the canvas background color. When set (as an
     // [r,g,b] array), it replaces the theme's default BACKGROUND color.
     this.canvasBackground = null;
@@ -351,15 +347,6 @@ export class SieveRenderer {
     this.loweredSetBits = false;
     this.loweredSetBits3D = false;
     this.transparentBackground = false;
-    // When true, the per-bit cell-fill rectangles AND the background
-    // fill are skipped. Used by Visualizer.jsx when the WebGL renderer
-    // is the active bit-grid backend (it paints the fills + background
-    // into a sibling canvas mounted UNDER this one). Overlays, labels,
-    // outlines and ghost-mask highlights still draw on top. Forced to
-    // `false` while `loweredSetBits` is on — GL has no parity for the
-    // depth-shaded path, so Canvas2D takes over the bit fill.
-    // See docs/AI_MAINTENANCE.md §8 item 2.
-    this.skipBitFill = false;
     this.changedBitRiseAt = new Map();
     this._frozenClPerVRow = 0;
   }
@@ -1493,12 +1480,6 @@ export class SieveRenderer {
     const bitStepX = this._bitStepX();
     const bitStepY = this._bitStepY();
     const baseAlpha = Math.max(0.12, Math.min(1, this.gridOpacity ?? 1));
-    // GL takeover: when the WebGL renderer is active, GL is painting the
-    // cell fills and the background into the sibling canvas underneath;
-    // skip those here so they don't double-paint and so GL output isn't
-    // covered. GL now handles lowered-3D fills too (via animTex offsets)
-    // so the loweredSetBits guard is no longer needed here.
-    const skipBitFill = !!this.skipBitFill;
 
     return {
       C, ctx, settledCtx, cw, ch, layeredLoweredBits, px,
@@ -1508,34 +1489,19 @@ export class SieveRenderer {
       u64D, vecD, byteD, bitBl, changedColor, bitColors,
       showBitLabels, showNumberLabels, showByteLabels, showVectorLabels,
       u64sPerCL, u64GapX, byteGapX, byteGapY, bitStepX, bitStepY, baseAlpha,
-      skipBitFill,
       vectorLabelY: vRow => this.panY + vRow * vRowHeight + 1,
       byteLabelY: (vRowBaseY, byteTopY) => Math.max(vRowBaseY + labelBands.vector + 1, byteTopY - labelBands.byteFont - 1),
     };
   }
 
-  /** Clear the canvas (and the layered settled canvas, if active) and paint the background. */
+  /** Clear the canvas (and the layered settled canvas, if active). GL paints the background. */
   _renderClear(f) {
-    const { ctx, settledCtx, cw, ch, layeredLoweredBits, skipBitFill } = f;
-    const bg = this.effectiveBackground;
+    const { ctx, settledCtx, cw, ch, layeredLoweredBits } = f;
     if (layeredLoweredBits) {
       settledCtx.clearRect(0, 0, cw, ch);
-      // When GL is active it paints the background via clearColor; skip
-      // the settled canvas background fill so the GL canvas shows through.
-      if (!this.transparentBackground && !skipBitFill) {
-        settledCtx.fillStyle = `rgb(${bg.join(',')})`;
-        settledCtx.fillRect(0, 0, cw, ch);
-      }
       ctx.clearRect(0, 0, cw, ch);
     } else {
       ctx.clearRect(0, 0, cw, ch);
-      // GL takeover paints the background into the sibling canvas; skip
-      // the bg fill here so GL shows through. (Always honour the
-      // user-facing `transparentBackground` toggle too.)
-      if (!this.transparentBackground && !skipBitFill) {
-        ctx.fillStyle = `rgb(${bg.join(',')})`;
-        ctx.fillRect(0, 0, cw, ch);
-      }
       if (settledCtx) settledCtx.clearRect(0, 0, cw, ch);
     }
   }
@@ -1766,42 +1732,20 @@ export class SieveRenderer {
   }
 
   /**
-   * Lowered (set) bit: sunken square with drop shadow and inner highlight.
-   * When GL is active (f.skipBitFill) the whole branch is skipped — GL
-   * handles fill and highlight via animTex / u_loweredActive.
+   * Lowered (set) bit: GL handles fill and highlight via animTex / u_loweredActive.
+   * Canvas2D no-op — this branch is only reached when loweredSetBits is on,
+   * which is currently dormant in the UI.
    */
   _drawBitBodyLowered(f, cls, draw) {
-    if (f.skipBitFill) return;
-    const px = f.px;
-    const { color, bitAlpha } = cls;
-    const { drawX, drawY, drawSize } = draw;
-    const sCtx = f.settledCtx;
-    sCtx.save();
-    sCtx.fillStyle = 'rgba(0, 0, 0, 0.24)';
-    sCtx.fillRect(
-      Math.round(drawX - Math.max(1, px * 0.08)),
-      Math.round(drawY - Math.max(1, px * 0.08)),
-      Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16))),
-      Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16)))
-    );
-    sCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
-    sCtx.fillRect(drawX, drawY, drawSize, drawSize);
-    sCtx.strokeStyle = `rgba(255, 255, 255, ${this.loweredSetBits3D ? '0.16' : '0.12'})`;
-    sCtx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
-    sCtx.strokeRect(
-      Math.round(drawX) + 0.5,
-      Math.round(drawY) + 0.5,
-      Math.max(1, Math.round(drawSize - 1)),
-      Math.max(1, Math.round(drawSize - 1))
-    );
-    sCtx.restore();
+    // GL draws the lowered cell fill, shadow, and inner highlight via the
+    // animTex (xDelta/yDelta/sizeScale) + u_loweredActive shader uniform.
   }
 
   /**
    * Raised (cleared) bit: 3D box standing on the lowered plane.
-   * Side-face polygons are always Canvas2D (they extend outside the cell
-   * boundary). Top-face fill + stroke highlight are skipped when GL is
-   * active (f.skipBitFill) — GL draws those via animTex + FS.
+   * Side-face polygons are Canvas2D (they extend outside the cell boundary
+   * and cannot be rendered as instanced quads). Top-face fill + stroke
+   * highlight are handled by GL via animTex and are omitted here.
    */
   _drawBitBodyRaised(f, cls, draw, bitX, bitY) {
     const px = f.px;
@@ -1833,25 +1777,12 @@ export class SieveRenderer {
     ctx.lineTo(baseX, baseY + baseSize);
     ctx.closePath();
     ctx.fill();
-    if (!f.skipBitFill) {
-      // Top face fill and edge highlight: GL draws these when active.
-      ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
-      ctx.fillRect(topX, topY, topSize, topSize);
-      // Subtle edge highlight on the top face
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
-      ctx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
-      ctx.strokeRect(topX + 0.5, topY + 0.5, Math.max(1, topSize - 1), Math.max(1, topSize - 1));
-    }
     ctx.restore();
   }
 
-  /** Normal flat bit fill (no depth mode). GL handles the fill when active. */
+  /** Normal flat bit fill — handled entirely by GL instanced quads. Canvas2D no-op. */
   _drawBitBodyNormal(f, cls, draw) {
-    const { color, bitAlpha } = cls;
-    const { drawX, drawY, drawSize, drawCtx } = draw;
-    drawCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
-    if (f.skipBitFill) return;
-    drawCtx.fillRect(drawX, drawY, drawSize, drawSize);
+    // GL fills the cell via the instanced quad shader (stateTex color lookup).
   }
 
   /** Tinted overlay + outline drawn on top of a ghost-masked set bit. */
@@ -1871,15 +1802,9 @@ export class SieveRenderer {
     drawCtx.restore();
   }
 
-  /** Faint blue tint over bits inside the active focus range. */
+  /** Focus-range tint — handled by GL via bit 7 in stateTex. Canvas2D no-op. */
   _drawBitFocusRange(f, bitX, bitY) {
-    if (f.skipBitFill) return;
-    const px = f.px;
-    f.ctx.fillStyle = 'rgba(96, 165, 250, 0.16)';
-    f.ctx.fillRect(
-      Math.round(bitX - 1), Math.round(bitY - 1),
-      Math.max(2, Math.round(px + 2)), Math.max(2, Math.round(px + 2))
-    );
+    // GL applies the focus-range tint via the fragment shader (state bit 7).
   }
 
   /** Blue (and orange-on-repeat) outline around target bits. */
@@ -1910,30 +1835,18 @@ export class SieveRenderer {
     ctx.restore();
   }
 
-  /** Gold tint + dot + (at zoom) border + 'p' label for prime bits. */
+  /** Gold tint + dot + (at zoom) 'p' label for prime bits. Tint and border handled by GL. */
   _drawBitPrimeOverlay(f, globalBit, bitX, bitY) {
     if (!(this.primeOverlay && this._primeBitFlags?.[globalBit])) return;
     const ctx = f.ctx;
     const px = f.px;
     ctx.save();
-    // Subtle gold tint over the bit cell (GL paints this when active)
-    if (!f.skipBitFill) {
-      ctx.fillStyle = 'rgba(251,191,36,0.20)';
-      ctx.fillRect(Math.round(bitX), Math.round(bitY), Math.max(1, Math.round(px)), Math.max(1, Math.round(px)));
-    }
     // Small gold dot in the top-right corner — visible even at low zoom
     const dotR = Math.max(0.8, Math.min(px * 0.22, 4));
     ctx.fillStyle = 'rgba(251,191,36,0.92)';
     ctx.beginPath();
     ctx.arc(Math.round(bitX + px) - dotR * 0.75, Math.round(bitY) + dotR * 0.75, dotR, 0, Math.PI * 2);
     ctx.fill();
-    // Gold border at moderate zoom
-    if (px >= 4 && !f.skipBitFill) {
-      ctx.strokeStyle = 'rgba(251,191,36,0.68)';
-      ctx.lineWidth = Math.max(0.35, Math.min(1.3, px * 0.075));
-      ctx.setLineDash([]);
-      ctx.strokeRect(Math.round(bitX) - 0.5, Math.round(bitY) - 0.5, Math.max(2, Math.round(px) + 1), Math.max(2, Math.round(px) + 1));
-    }
     // Small "p" label at high zoom so the meaning is unmistakable
     if (px >= 16) {
       const pSize = Math.max(4, Math.min(px * 0.22, 9));
@@ -1947,27 +1860,17 @@ export class SieveRenderer {
     ctx.restore();
   }
 
-  /** Cyan/teal highlight for bits within [rangeOverlayStart, rangeOverlayEnd]. */
+  /** Cyan/teal dot + (at zoom) 'r' label for bits within [rangeOverlayStart, rangeOverlayEnd]. Tint and border handled by GL. */
   _drawBitRangeOverlay(f, globalBit, bitX, bitY) {
     if (!(this.rangeOverlay && globalBit >= this.rangeOverlayStart && globalBit <= this.rangeOverlayEnd)) return;
     const ctx = f.ctx;
     const px = f.px;
     ctx.save();
-    if (!f.skipBitFill) {
-      ctx.fillStyle = 'rgba(34,211,238,0.22)';
-      ctx.fillRect(Math.round(bitX), Math.round(bitY), Math.max(1, Math.round(px)), Math.max(1, Math.round(px)));
-    }
     const dotR2 = Math.max(0.8, Math.min(px * 0.20, 3.5));
     ctx.fillStyle = 'rgba(34,211,238,0.88)';
     ctx.beginPath();
     ctx.arc(Math.round(bitX) + dotR2 * 0.75, Math.round(bitY) + dotR2 * 0.75, dotR2, 0, Math.PI * 2);
     ctx.fill();
-    if (px >= 4 && !f.skipBitFill) {
-      ctx.strokeStyle = 'rgba(34,211,238,0.60)';
-      ctx.lineWidth = Math.max(0.35, Math.min(1.3, px * 0.07));
-      ctx.setLineDash([]);
-      ctx.strokeRect(Math.round(bitX) - 0.5, Math.round(bitY) - 0.5, Math.max(2, Math.round(px) + 1), Math.max(2, Math.round(px) + 1));
-    }
     if (px >= 16) {
       const rSize = Math.max(4, Math.min(px * 0.20, 8));
       ctx.font = `bold ${rSize}px monospace`;
@@ -1980,7 +1883,7 @@ export class SieveRenderer {
     ctx.restore();
   }
 
-  /** Purple highlight for bits whose number is a multiple of multiplesOverlayPrime. */
+  /** Purple dot + (at zoom) '×' label for multiples. Tint and border handled by GL. */
   _drawBitMultiplesOverlay(f, globalBit, bitX, bitY) {
     if (!(this.multiplesOverlay && this.multiplesOverlayPrime >= 2)) return;
     const num = bitToNumber(globalBit, this.storageModel);
@@ -1988,21 +1891,11 @@ export class SieveRenderer {
     const ctx = f.ctx;
     const px = f.px;
     ctx.save();
-    if (!f.skipBitFill) {
-      ctx.fillStyle = 'rgba(167,139,250,0.30)';
-      ctx.fillRect(Math.round(bitX), Math.round(bitY), Math.max(1, Math.round(px)), Math.max(1, Math.round(px)));
-    }
     const dotR3 = Math.max(0.8, Math.min(px * 0.20, 3.5));
     ctx.fillStyle = 'rgba(167,139,250,0.90)';
     ctx.beginPath();
     ctx.arc(Math.round(bitX + px) - dotR3 * 0.75, Math.round(bitY + px) - dotR3 * 0.75, dotR3, 0, Math.PI * 2);
     ctx.fill();
-    if (px >= 4 && !f.skipBitFill) {
-      ctx.strokeStyle = 'rgba(167,139,250,0.88)';
-      ctx.lineWidth = Math.max(1.0, Math.min(2.5, px * 0.14));
-      ctx.setLineDash([]);
-      ctx.strokeRect(Math.round(bitX) - 0.5, Math.round(bitY) - 0.5, Math.max(2, Math.round(px) + 1), Math.max(2, Math.round(px) + 1));
-    }
     if (px >= 16) {
       const mSize = Math.max(4, Math.min(px * 0.20, 8));
       ctx.font = `bold ${mSize}px monospace`;

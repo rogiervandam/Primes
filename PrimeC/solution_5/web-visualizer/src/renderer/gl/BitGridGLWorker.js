@@ -251,6 +251,7 @@ export class BitGridGLWorker {
     this._worker = null;
     this.canvas = null;
     this._ready = false;
+    this._lost = true;   // prevent buffer allocation in uploadPositions/uploadState/uploadAnim after disposal
     this._pending.length = 0;
   }
 }

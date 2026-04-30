@@ -61,9 +61,11 @@ export default function Visualizer({
   const minimapCanvasRef = useRef(null);
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
-  // Experimental WebGL bit-grid (see docs/AI_MAINTENANCE.md §8). Only
+  // WebGL bit-grid worker (see docs/AI_MAINTENANCE.md §8).
   const glCanvasRef = useRef(null);
   const glRendererRef = useRef(null);
+  // Set to true when OffscreenCanvas is unavailable and GL could not attach.
+  const [glUnavailable, setGlUnavailable] = useState(false);
   const isMacPlatform = useMemo(() => detectIsMac(), []);
   const isWindowsPlatform = useMemo(() => detectIsWindows(), []);
   // Electron (native app) inserts "Electron" into the UA and exposes process.versions.electron.
@@ -797,9 +799,12 @@ export default function Visualizer({
           if (newGl.attach(glCanvasRef.current)) {
             gl = newGl;
             glRendererRef.current = gl;
+          } else {
+            // OffscreenCanvas not available — GL worker could not start.
+            // The app remains usable (Canvas2D handles everything) but
+            // bit cells won't be filled. Show a browser-update notice.
+            setGlUnavailable(true);
           }
-          // If attach failed (no WebGL2, or canvas already transferred)
-          // leave glRendererRef.current as null/unchanged.
         }
         if (gl) {
           gl.resizeForBitCount(header.bitCount);
@@ -807,11 +812,8 @@ export default function Visualizer({
           r.render = () => {
             const g = glRendererRef.current;
             const rr = rendererRef.current;
-            const glOwnsFill = !!g;
-            if (rr) rr.skipBitFill = glOwnsFill;
             origRender();
             if (!g || !rr || !rr.canvas) return;
-            if (!glOwnsFill) return;
             const dpr = window.devicePixelRatio || 1;
             const cssW = rr.canvas.width / dpr;
             const cssH = rr.canvas.height / dpr;
@@ -870,22 +872,32 @@ export default function Visualizer({
 
     return () => {
       // Do NOT dispose glRendererRef here — transferControlToOffscreen is
-      // one-shot; disposing and re-attaching on the same canvas is impossible.
-      // GL is disposed in the mount-only cleanup effect below.
+      // one-shot and the worker must survive both StrictMode remounts and
+      // trace reloads.  See the comment on the mount-only useEffect below.
       rendererRef.current = null;
       disposeCamera();
     };
   }, [header.bitCount, header.sieveSize]);
 
-  // Dispose the GL renderer only when the component fully unmounts.
-  // Kept separate from the init effect so trace changes (which re-run the
-  // init effect) do not destroy the GL canvas ownership.
+  // GL worker is intentionally kept alive as long as the component lives.
+  // `OffscreenCanvas.transferControlToOffscreen()` is a one-shot, irreversible
+  // operation on the HTMLCanvasElement — there is no way to attach a second
+  // worker to the same canvas element.  Calling `dispose()` in a cleanup
+  // effect is therefore harmful in two situations:
+  //   1. React StrictMode (development): fires cleanup+setup twice on every
+  //      mount.  If we dispose here the worker is killed before the second
+  //      setup run, and that run can neither call transferControlToOffscreen()
+  //      again nor reuse the dead worker — so GL rendering silently breaks.
+  //   2. Trace reload: the init effect re-runs with new header props and must
+  //      reuse the existing live worker rather than re-attaching.
+  //
+  // In normal use the Visualizer is mounted once for the entire session.
+  // When the page is closed the browser terminates all workers automatically.
+  // If the component ever truly unmounts (rare, e.g. Suspense boundary),
+  // the worker becomes unreachable and is GC-eligible; the small leak is
+  // acceptable given that scenario never occurs in practice.
   useEffect(() => {
     return () => {
-      if (glRendererRef.current) {
-        glRendererRef.current.dispose();
-        glRendererRef.current = null;
-      }
       if (spacingPanAnimRef.current != null) {
         cancelAnimationFrame(spacingPanAnimRef.current);
         spacingPanAnimRef.current = null;
@@ -3948,6 +3960,11 @@ export default function Visualizer({
       {exportError && (
         <div className="export-error-banner" role="alert">
           {exportError}
+        </div>
+      )}
+      {glUnavailable && (
+        <div className="gl-unavailable-banner" role="alert">
+          WebGL2 with OffscreenCanvas is required for rendering. Please use a modern browser (Chrome 69+, Firefox 105+, Edge 79+, or Safari 16.4+).
         </div>
       )}
 

@@ -99,7 +99,7 @@ src/
 2. **Parse** — `traceParser.js` produces a normalized `{ header, events, primes, … }` shape regardless of input format.
 3. **Visualize** — `Visualizer.jsx` keeps the parsed trace in state along with playback position and view preferences.
 4. **Persist** — `lib/viewPrefs.js` reads/writes user preferences (theme, layout, panel sizes) to `localStorage` under the key `sieve-visualizer:view-preferences:v1`.
-5. **Render** — On every animation frame the visualizer updates `SieveRenderer` (and `Camera3D` in 3D mode) which paints to a `<canvas>`.
+5. **Render** — On every animation frame the visualizer calls `BitGridGLWorker.render()` first (GL worker paints all bit fills to a transferred `OffscreenCanvas`), then calls `SieveRenderer.render()` which paints overlays, labels, and UI chrome on top via Canvas 2D. SieveRenderer no longer fills cells itself.
 6. **Inspect** — Side panels (`EventsPanel`, `DetailPanel`, `SettingsPanel`, `TimingPanel`) read derived data via props and call back into the visualizer to mutate state.
 
 ## State ownership
@@ -110,8 +110,8 @@ src/
 | Playback position / speed | `Visualizer` | Drives the renderer per frame |
 | View preferences | `Visualizer` + `lib/viewPrefs` | Persisted to `localStorage`; seeded via `getInitialViewState()` |
 | Floating-panel position/size | `useFloatingPanel` hook | Per-panel local state |
-| Canvas pixel data | `SieveRenderer` | Owned outside React for performance |
-| Bit-fill GPU data | `BitGridGLWorker` (worker thread) | Packed `Float32Array`/`Uint8Array` position + state textures; rebuilt from `SieveRenderer` layout accessors |
+| Canvas pixel data | `SieveRenderer` | Owned outside React for performance; draws overlays / labels / side-faces only — all cell fills handled by GL |
+| Bit-fill GPU data | `BitGridGLWorker` (worker thread) | Packed `Float32Array`/`Uint8Array` position + state + anim textures; rebuilt from `SieveRenderer` layout accessors every frame |
 | Playback clock refs | `usePlaybackClock` hook | `seekGenRef`, `globalPausedRef`, `animBusyUntilRef` — mutated directly by consumers |
 | 3D camera transform | `use3DCamera` hook | CSS-3D matrix applied to `CanvasStage` container |
 

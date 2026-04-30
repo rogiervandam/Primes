@@ -18,9 +18,10 @@
 
 import { BitGridGLWorker, isWorkerGLSupported } from '../renderer/gl/BitGridGLWorker.js';
 
-// Match the Canvas2D source-of-truth tints from
-// `_drawBitFocusRange` / `_drawBitPrimeOverlay` /
-// `_drawBitRangeOverlay` / `_drawBitMultiplesOverlay`.
+// Tint values matching the GL fragment shader hard-coded colours in
+// `bitGridGLCore.js` (focus / prime / range / multiples overlays).
+// The Canvas2D reference in `renderRef()` uses these same values so the
+// pixel comparison remains valid.
 const TINTS = {
   focus: { r:  96, g: 165, b: 250, a: 0.16 },
   prime: { r: 251, g: 191, b:  36, a: 0.20 },

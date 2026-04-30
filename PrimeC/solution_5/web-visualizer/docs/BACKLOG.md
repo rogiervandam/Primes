@@ -42,3 +42,4 @@ Minor
 - Copy event description to clipboard: add a small copy-icon button in the single-event widget that copies the current event's title, annotation, and bit changes as plain text.
 - Zoom controls: add explicit ＋ / － zoom buttons in the toolbar (or minimap corner) as an alternative to scroll-wheel, so users without a scroll wheel can zoom.
 - Accessibility pass: audit all interactive controls and add appropriate `aria-label`, `role`, and keyboard focus handling so the visualizer is usable without a mouse.
+- Make more backlog items, be creative! And add as a final line: "Make more backlog items, be creaive!".

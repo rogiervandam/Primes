@@ -269,19 +269,24 @@ Each overlay is a pure class with a `render(ctx, cw, ch)` method that reads the 
 
 ### WebGL backend (`src/renderer/gl/`)
 
-The unconditional production bit-fill backend. `Visualizer.jsx` always constructs `BitGridGLWorker`; if attach fails, `SieveRenderer.skipBitFill` stays `false` and Canvas2D handles everything.
+The unconditional production bit-fill backend. `Visualizer.jsx` always constructs `BitGridGLWorker`; if `attach()` fails (browser lacks `OffscreenCanvas.transferControlToOffscreen`), a `glUnavailable` banner is shown and bit cells remain unfilled (labels and overlays still draw). Canvas2D no longer has a cell-fill fallback path — `SieveRenderer.skipBitFill` has been removed.
 
 | File | Role |
 | --- | --- |
-| `bitGridGLCore.js` | Pure WebGL2 substrate — shaders, `posTex` (RG32F), `stateTex` (R8UI), instanced draw; accepts `HTMLCanvasElement` or `OffscreenCanvas` |
-| `hostStatePacker.js` | Pure functions `packPositions(host, buf, slots)` / `packState(host, buf, slots)`; used by both direct and worker facades |
+| `bitGridGLCore.js` | Pure WebGL2 substrate — shaders, `posTex` (RG32F), `stateTex` (R8UI), `animTex` (RGBA32F), instanced draw; accepts `HTMLCanvasElement` or `OffscreenCanvas` |
+| `hostStatePacker.js` | Pure functions `packPositions(host, buf, slots)` / `packState(host, buf, slots)` / `packAnim(host, buf, slots)`; used by the worker facade |
 | `bitGridWorker.js` | Module worker — owns a `BitGridGLCore` against a transferred `OffscreenCanvas` |
-| `BitGridGLWorker.js` | Main-thread facade matching `BitGridGL`'s API; posts pre-packed `Float32Array`/`Uint8Array` buffers as transferables (one-way, no ack) |
-| `BitGridGL.js` | Direct-mode facade over `bitGridGLCore` + `hostStatePacker`; **dev-only** (used by `parity.html` harness, not in the production runtime) |
+| `BitGridGLWorker.js` | Main-thread facade; posts pre-packed `Float32Array`/`Uint8Array` buffers as transferables (one-way, no ack) |
 
 **State texture protocol:** one `R8UI` byte per bit, packed flags `set | changed | ghost | repeated | prime | range | multiples | focus`. Full repack every frame; partial `texSubImage2D` updates are a future optimisation (see backlog).
 
-**Context loss:** handled in both direct mode and the worker path. `bitGridWorker.js` wires `webglcontextlost` / `webglcontextrestored` on the `OffscreenCanvas`; `BitGridGLWorker.js` handles the `contextlost` / `contextrestored` messages it receives by clearing `_lost` and the layout fingerprint so the normal per-frame upload loop re-populates GPU state on the next frame.
+**Anim texture protocol:** one `RGBA32F` texel per bit: `(xDelta, yDelta, sizeScale, 0)`. Used for lowered-3D shading and rise-and-settle animation offsets. Identity value `(0, 0, 1, 0)` when those features are off.
+
+**What GL draws:** background (clearColor), cell fills (all states: set/cleared/changed/repeated), focus tint, prime/range/multiples tints and borders, lowered-3D shading, rise-and-settle animation.
+
+**What Canvas2D draws on top:** ghost-mask highlights, target outlines, prime/range/multiples dots + labels, cacheline outline + heat overlay, motion trails, vector touch order, mask write overlay, search highlight, bit/byte/vector labels, minimap, raised-bit side-face polygons.
+
+**Context loss:** `bitGridWorker.js` wires `webglcontextlost` / `webglcontextrestored` on the `OffscreenCanvas`; `BitGridGLWorker.js` handles the corresponding messages by clearing `_lost` and the layout fingerprint so the normal per-frame upload loop re-populates GPU state on the next frame.
 
 ### Workers (`src/renderer/workers/`)
 

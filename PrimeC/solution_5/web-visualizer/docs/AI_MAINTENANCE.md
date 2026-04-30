@@ -199,6 +199,17 @@ timeline, or a dependency-graph view):
   pattern on each `LayoutOverview()` invocation and is tolerated because
   its popover state lives in `LayoutTab`. Do not introduce new
   `<InlineComponent />` patterns inside `LayoutTab`.
+- **Do NOT call `glRendererRef.current.dispose()` from any cleanup effect.**
+  `OffscreenCanvas.transferControlToOffscreen()` is a one-shot, irreversible
+  operation on an `HTMLCanvasElement`. Calling `dispose()` in a React cleanup
+  effect terminates the worker permanently. In `React.StrictMode` (always on
+  in `npm run dev`) every effect runs cleanup+setup twice; if dispose is in
+  the cleanup, the second setup run finds the canvas already transferred but
+  the worker dead — all `_post()` calls silently become no-ops and GL
+  rendering disappears (bit fills, focus tints, overlay tints and borders all
+  invisible). The GL worker must live for the full lifetime of the `Visualizer`
+  component. Let the browser terminate it on page unload. `dispose()` is kept
+  for test harnesses and the parity harness; just don't call it from effects.
 
 ---
 
@@ -834,6 +845,50 @@ in the worker path.
   with empty deps fires once after first paint, reads `widgetRef.current
   .offsetHeight`, and sets `floatDrag.y = bannerRect.bottom − TOP_OFFSET −
   widgetHeight`, clamped to not exceed the toolbar.
+- ✅ **Removed `SieveRenderer.skipBitFill` and all Canvas2D cell-fill code**
+  (WebGL-worker deepening backlog items 7 and 8 / stability backlog items 27
+  and 28). Since items 4–6 (overlay borders, lowered-3D, rise-and-settle) were
+  all ported to GL in earlier sessions, the Canvas2D fill paths became dead
+  code that only ran on old browsers.
+  `skipBitFill` property removed from constructor, `init()`, and
+  `_buildFrameContext()`. Removed Canvas2D paths:
+  `_renderClear()` background fill blocks (Canvas2D now only calls
+  `clearRect`); `_drawBitBodyNormal()` body (empty — GL handles fills);
+  `_drawBitBodyLowered()` body (empty — GL animTex handles lowered fills;
+  feature dormant); `_drawBitBodyRaised()` top-face `fillRect` + `strokeRect`
+  (GL animTex covers top face; side-face polygons stay Canvas2D since GL
+  instanced quads cannot extend outside cell boundaries); `_drawBitFocusRange()`
+  body (empty — GL state bit 7 handles focus tint); tint `fillRect` and border
+  `strokeRect` blocks in `_drawBitPrimeOverlay`, `_drawBitRangeOverlay`,
+  `_drawBitMultiplesOverlay` (GL shader handles tints and borders; dots and
+  labels remain Canvas2D). `Visualizer.jsx` render wrapper simplified: removed
+  `glOwnsFill`, `rr.skipBitFill = glOwnsFill`, and `if (!glOwnsFill) return`
+  lines. Added `glUnavailable` React state: set to `true` when
+  `BitGridGLWorker.attach()` returns `false`, triggering a persistent amber
+  `.gl-unavailable-banner` (CSS in `09-export-progress.css`) that lists the
+  minimum browser requirements (Chrome 69+, Firefox 105+, Edge 79+, Safari
+  16.4+). Parity harness comment updated to note the GL shader is now the
+  source of truth for tint values. `npm run build` clean; `npm run test`
+  50/50 pass. Visualizer chunk: 307 kB / 86.95 kB gzip (−0.5 kB gzip from
+  removing dead fill code).
+- ✅ **Fixed React StrictMode GL worker lifecycle bug** (discovered immediately
+  after items 7/8/27/28). In development builds, `React.StrictMode` deliberately
+  mounts every component twice (setup → cleanup → setup) to surface lifecycle
+  bugs. The mount-only `useEffect([], [])` cleanup in `Visualizer.jsx` was
+  calling `glRendererRef.current.dispose()`, which terminated the worker and
+  set `_lost = true`. The second setup run reused the same `glCanvasRef` (canvas
+  element not re-created) and found `glRendererRef.current` pointing at the dead
+  worker. Because `_lost = true`, all `_post()` calls became no-ops; `attach()`
+  was never called again (the `if (!gl)` branch was skipped). Result: bit fills,
+  focus tints, overlay tints and borders were all invisible — only Canvas2D dots
+  and labels rendered. Fix: removed the `dispose()` call from the `useEffect([])`
+  cleanup entirely. `OffscreenCanvas.transferControlToOffscreen()` is a one-shot
+  irreversible operation; the GL worker must survive for the full component
+  lifetime. In production there is no StrictMode double-mount; on page unload
+  the browser terminates all workers automatically. In `BitGridGLWorker.dispose()`
+  the `_lost = true` flag is retained (it was added as part of the items 7/8
+  session) so that `dispose()` remains safe to call from test harnesses and
+  the parity harness — callers just don't call it from a cleanup effect anymore.
 
 These are concrete next-step refactors that each fit comfortably in a
 single working session. Tackle them in order — earlier ones unblock later
@@ -1199,25 +1254,38 @@ text that extends beyond the square is clipped by `overflow: hidden`.
   `−(totalPanelH + 10)` where `totalPanelH = detailOpen ? detailHeight + 22 : 22`.
 
 7. **Remove `SieveRenderer.skipBitFill` and the Canvas2D cell-fill code.**
-   Blocked on items 4–6 (all remaining Canvas2D pixel work must be
-   ported before this is safe). The code paths to remove are:
-   `_renderClear()` background fill, `_drawBitBody()` non-lowered
-   branches, `_drawBitFocusRange()` fill rect, and the
-   `fillRect`-per-bit calls in `_drawBitPrimeOverlay`,
-   `_drawBitRangeOverlay`, `_drawBitMultiplesOverlay`. After removal,
-   the `skipBitFill` field on `SieveRenderer` and the gating in
-   `_buildFrameContext()` can be deleted.
-   Note: the `strokeRect` calls in those three methods are now gated
-   with `!f.skipBitFill` (moved to GL shader in §7 item 4).
-8. **Decide the no-OffscreenCanvas fallback.** Currently, if the browser
-   lacks `OffscreenCanvas`, `BitGridGLWorker.attach()` returns `false`
-   and Canvas2D silently handles everything. Once Canvas2D cell-fill is
-   removed (item 7), this silent fallback disappears. Options:
-   (a) ~~keep `BitGridGL.js` as a last-resort direct-mode fallback~~ —
-   `BitGridGL.js` was deleted in §7 item 3; not recommended.
-   (b) show a banner noting the browser is too old and degrade gracefully;
-   (c) raise the minimum browser baseline to OffscreenCanvas (all
-   evergreen browsers since ~2019 support it). Decide before item 7.
+   ✅ DONE. The `skipBitFill` property has been removed from `SieveRenderer`
+   (constructor, `init()`, and `_buildFrameContext()` return). The Canvas2D
+   cell-fill code that was gated by it is also removed:
+   - `_renderClear()` no longer paints the background fill (GL clearColor
+     handles it; Canvas2D only calls `clearRect` to maintain transparency).
+   - `_drawBitBodyNormal()` body is empty (GL instanced quads handle fills).
+   - `_drawBitBodyLowered()` body is empty (GL animTex + u_loweredActive
+     handles lowered fills; the branch is dormant since `loweredSetBits`
+     is always false).
+   - `_drawBitBodyRaised()` keeps the Canvas2D side-face polygons (GL cannot
+     render quads that extend outside the cell boundary), but the top-face
+     `fillRect` + `strokeRect` block is removed (GL animTex covers it).
+   - `_drawBitFocusRange()` body is empty (GL state bit 7 handles the tint).
+   - `_drawBitPrimeOverlay`, `_drawBitRangeOverlay`, `_drawBitMultiplesOverlay`:
+     the `if (!f.skipBitFill) { tint fillRect }` and
+     `if (px >= 4 && !f.skipBitFill) { strokeRect }` blocks are removed
+     (GL fragment shader handles tints and borders). Dots and labels remain
+     Canvas2D.
+   `Visualizer.jsx` render wrapper simplified: the `const glOwnsFill`,
+   `rr.skipBitFill = glOwnsFill`, and `if (!glOwnsFill) return` lines
+   removed. The wrapper now unconditionally calls `origRender()` then
+   dispatches to GL if `g` is truthy.
+8. **Decide the no-OffscreenCanvas fallback.** ✅ DONE (option b + c hybrid).
+   Decision: require OffscreenCanvas (all evergreen browsers since ~2019).
+   When `BitGridGLWorker.attach()` returns `false`, a `glUnavailable` React
+   state is set to `true` and a persistent `.gl-unavailable-banner` warning
+   is shown below the toolbar (amber/warning colour) listing the minimum
+   browser requirements (Chrome 69+, Firefox 105+, Edge 79+, Safari 16.4+).
+   Bit cells remain unfilled (degraded but not broken — labels, overlays,
+   and panels still work). CSS for the banner lives in `09-export-progress.css`.
+   Note: `BitGridGL.js` (direct-mode fallback) was deleted in item 3; there
+   is no silent Canvas2D fallback for cells anymore.
 9. **Partial `texSubImage2D` updates.** Currently the full state texture
    is repacked every frame. At bit counts > 100 k this starts to
    matter. A dirty-region tracker (bitmask of which 64-bit words
@@ -1377,23 +1445,9 @@ text that extends beyond the square is clipped by `overflow: hidden`.
 26. **Port rise-and-settle animation to GL.** ✅ DONE — see item 6 in the
     WebGL-worker deepening backlog above.
 27. **Remove `SieveRenderer.skipBitFill` and the Canvas2D cell-fill code.**
-    Blocked on items 4–6 (all remaining Canvas2D pixel work must be
-    ported before this is safe). The code paths to remove are:
-    `_renderClear()` background fill, `_drawBitBody()` non-lowered
-    branches, `_drawBitFocusRange()` fill rect, and the
-    `fillRect`-per-bit calls in `_drawBitPrimeOverlay`,
-    `_drawBitRangeOverlay`, `_drawBitMultiplesOverlay`. After removal,
-    the `skipBitFill` field on `SieveRenderer` and the gating in
-    `_buildFrameContext()` can be deleted.
-28. **Decide the no-OffscreenCanvas fallback.** Currently, if the browser
-    lacks `OffscreenCanvas`, `BitGridGLWorker.attach()` returns `false`
-    and Canvas2D silently handles everything. Once Canvas2D cell-fill is
-    removed (item 7), this silent fallback disappears. Options:
-    (a) ~~keep `BitGridGL.js` as a last-resort direct-mode fallback~~ —
-    `BitGridGL.js` was deleted in §7 item 3; not recommended.
-    (b) show a banner noting the browser is too old and degrade gracefully;
-    (c) raise the minimum browser baseline to OffscreenCanvas (all
-    evergreen browsers since ~2019 support it). Decide before item 7.
+    ✅ DONE — see item 7 in the WebGL-worker deepening backlog above.
+28. **Decide the no-OffscreenCanvas fallback.** ✅ DONE — see item 8 in
+    the WebGL-worker deepening backlog above.
 29. **Partial `texSubImage2D` updates.** Currently the full state texture
     is repacked every frame. At bit counts > 100 k this starts to
     matter. A dirty-region tracker (bitmask of which 64-bit words
