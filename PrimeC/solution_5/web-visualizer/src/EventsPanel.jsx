@@ -92,7 +92,36 @@ function buildDepthTree(steps) {
 }
 
 /**
- * Hierarchical step panel grouped by prime, with collapse/expand.
+ * Left-hand events panel: hierarchical step list with search, grouping, and
+ * an optional floating transport widget when the panel is collapsed.
+ *
+ * @param {object}   props
+ * @param {Array}    props.steps                     - Parsed trace steps
+ * @param {number}   props.currentStep               - Active step index
+ * @param {Set}      props.selectedSteps             - Set of multi-selected step indices
+ * @param {function} props.onStepClick               - Called with a step index on single-click
+ * @param {function} props.onMultiStepSelect         - Called with new Set on multi-select
+ * @param {number}   props.width                     - Panel pixel width
+ * @param {function} props.onWidthChange             - Called when user drags the resize handle
+ * @param {boolean}  props.panelCollapsed            - Whether the panel is collapsed to a floating widget
+ * @param {function} props.onToggleCollapse          - Toggle collapsed state
+ * @param {boolean}  [props.allEventsWidgetHidden]   - True when widget is docked to the top bar
+ * @param {function} props.onExpandPanelFromWidget   - Widget drop-left: expands the panel
+ * @param {function} props.onDockWidgetToTopBar      - Widget drop-top: docks the widget to the toolbar
+ * @param {function} props.onJoinWidgets             - Widget drop-on-banner: join the two floating widgets
+ * @param {function} [props.onUserScroll]            - Called when the user scrolls the event list
+ * @param {string}   [props.externalOpFilter]        - Op-filter string set externally (e.g. from search)
+ * @param {function} props.onExternalOpFilterConsumed - Called after the external filter has been applied
+ * @param {number}   [props.revealStepRequest]       - Counter; increments to scroll the current step into view
+ * @param {function} props.goToStep                  - Navigate to a given step index
+ * @param {boolean}  props.playing                   - Whether all-events playback is active
+ * @param {function} props.handlePlayPause           - Toggle all-events play/pause
+ * @param {boolean}  props.exporting                 - Disable controls while exporting
+ * @param {React.MutableRefObject} props.isScrubbingTopRef - True while the top-bar scrubber is being dragged
+ * @param {number}   props.playSpeedPercent          - Playback speed 25–400
+ * @param {function} props.setPlaySpeedPercent       - Update playback speed
+ * @param {boolean}  [props.eventTitleVisible]       - Whether the floating event banner is currently shown
+ * @param {function} props.onShowEventTitle          - Show / restore the event title banner
  */
 export default function EventsPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, allEventsWidgetHidden = false, onExpandPanelFromWidget, onDockWidgetToTopBar, onJoinWidgets, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0, goToStep, playing, handlePlayPause, exporting, isScrubbingTopRef, playSpeedPercent, setPlaySpeedPercent, eventTitleVisible = true, onShowEventTitle }) {
   const listRef = useRef(null);

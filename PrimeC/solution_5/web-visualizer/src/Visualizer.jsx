@@ -17,6 +17,7 @@ import { useTraceExport } from './hooks/useTraceExport';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { use3DCamera } from './hooks/use3DCamera';
 import { usePlaybackClock } from './hooks/usePlaybackClock';
+import { usePlaybackLoop } from './hooks/usePlaybackLoop';
 import { useSearchState } from './hooks/useSearchState';
 import { applyPan } from './visualizer/gestures/pan';
 import { applyRotate } from './visualizer/gestures/rotate';
@@ -40,6 +41,18 @@ import {
   getFadeOutDuration as getFadeOutDurationPure,
 } from './lib/animationTiming';
 
+/**
+ * Top-level visualizer component. Owns all playback, rendering, and UI state.
+ *
+ * @param {object}  props
+ * @param {object}  props.trace                      - Parsed trace object from traceParser.js
+ * @param {string}  [props.fileName]                 - Display name for the loaded file
+ * @param {object}  [props.benchmarkTimingData]       - Optional benchmark CSV data for TimingPanel
+ * @param {string}  [props.benchmarkTimingFileName]   - Display name for the benchmark file
+ * @param {function}[props.onImportBenchmarkTiming]  - Callback to load a benchmark timing file
+ * @param {function}[props.onClose]                  - Callback to close the visualizer (return to picker)
+ * @param {boolean} [props.autoRender]               - When true, auto-exports video (puppeteer/CLI mode)
+ */
 export default function Visualizer({
   trace,
   fileName,
@@ -287,8 +300,10 @@ export default function Visualizer({
   const currentStepRef = useRef(0);
   const playTimerRef = useRef(null);
   const rippleRef = useRef(null);
+  const runEffectCancelRef = useRef(null); // cancel callback for an in-flight runEffect
   const seqTimerRef = useRef(null); // sequential animation timer
   const triggerAnimationRef = useRef(null);
+  const stopSeqAnimRef = useRef(null);
   const playTimeoutRef = useRef(null);
   const selectedAnimLoopRef = useRef(null);
   const pausedStepAnimLoopRef = useRef(null);
@@ -1362,12 +1377,22 @@ export default function Visualizer({
       cancelAnimationFrame(seqTimerRef.current);
       seqTimerRef.current = null;
     }
-    if (rippleRef.current) { cancelAnimationFrame(rippleRef.current); rippleRef.current = null; }
+    // Cancel runEffect's in-flight animation and resolve its Promise cleanly so
+    // the loop's `await triggerFn()` is never left permanently suspended.
+    // Call BEFORE the generic rippleRef cancel — the cancel fn handles rippleRef.
+    if (runEffectCancelRef.current) {
+      runEffectCancelRef.current();
+    } else if (rippleRef.current) {
+      // Mask stamp or other RAF user — no associated resolve callback.
+      cancelAnimationFrame(rippleRef.current);
+      rippleRef.current = null;
+    }
     // Cancel camera animations
     if (camera3DRef.current) camera3DRef.current.cancelAllAnimations();
     cancelViewportAnimation();
     if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
   }, [cancelViewportAnimation]);
+  stopSeqAnimRef.current = stopSeqAnim;
 
   const freezeAnimationNow = useCallback(() => {
     stopPlayback();
@@ -1403,6 +1428,9 @@ export default function Visualizer({
       clearTimeout(selectedAnimLoopRef.current);
       selectedAnimLoopRef.current = null;
     }
+    // Clear the single-event loop so the Play button shows the correct state
+    // (Play, not Pause) after the user manually repositions the animation.
+    setSingleEventLoopActive(false);
     setAnimationReplayPaused(true);
     setDelayPhaseMsRef.current(null);
     const r = rendererRef.current;
@@ -1479,6 +1507,31 @@ export default function Visualizer({
       return;
     }
 
+    // 'all' mode: all bits are revealed in one go; the scrub position maps to
+    // the visual effect overlay progress (ripple/fade/pulse), not bit-reveal.
+    const isAllMode = (animMode !== 'sequential' && animMode !== 'bounce');
+    if (!inMaskOrCombined && isAllMode) {
+      bs.fill(0);
+      for (let i = 0; i <= stepIdx; i++) {
+        const s = allSteps[i];
+        for (let j = 0; j < s.changedBits.length; j++) {
+          const b = s.changedBits[j];
+          if (b < bs.length) bs[b] = 1;
+        }
+      }
+      bitStateDirtyRef.current = false;
+      r.bitState = bs;
+      const changedFull = new Set(step.changedBits);
+      r.changedBits = changedFull;
+      r.animationFocusBits = changedFull;
+      r.render();
+      if (animStyle === 'ripple') r.renderRipple(clamped);
+      else if (animStyle === 'fade') r.renderFade(clamped);
+      else if (animStyle === 'pulse') r.renderPulse(clamped);
+      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      return;
+    }
+
     if (!step.changedBits || step.changedBits.length === 0) return;
     const bits = Array.from(step.changedBits).sort((a, b) => a - b);
     // Map the time-based scrub fraction to a bit count using the same curve
@@ -1517,7 +1570,7 @@ export default function Visualizer({
     else if (animStyle === 'pulse') r.renderPulse(0.28, focusBits, { intensity: 1.2, showHalo: true });
     else if (animStyle === 'fade') r.renderFade(0.35);
     r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [currentStep, animStyle, stopPlayback, stopSeqAnim, getMinimapDetailH]);
+  }, [currentStep, animMode, animStyle, stopPlayback, stopSeqAnim, getMinimapDetailH]);
 
   // Pausable delay. Uses RAF so the global pause flag freezes the timer in
   // place. The promise resolves once `ms` of un-paused wall-clock time have
@@ -1688,18 +1741,38 @@ export default function Visualizer({
   } = useSearchState({ rendererRef, navigateToBit, storageModel, getMinimapDetailH });
 
   // Run a single ripple/fade/pulse effect on current changedBits
-  const runEffect = useCallback((style, durationOverride = null) => {
+  // onProgress: optional (p: 0..1) => void callback for timeline tracking
+  const runEffect = useCallback((style, durationOverride = null, onProgress = null) => {
     const r = rendererRef.current;
     if (!r || !r.changedBits || r.changedBits.size === 0) return Promise.resolve();
-    if (rippleRef.current) cancelAnimationFrame(rippleRef.current);
+    // Cancel any in-flight runEffect (e.g. rapid mode-change calls).
+    if (runEffectCancelRef.current) runEffectCancelRef.current();
     if (style === 'none') return Promise.resolve();
 
     const duration = Math.max(280, durationOverride || 600);
     const start = performance.now();
+    // Snapshot seek generation so we can abort when the user scrubs or changes
+    // animation mode mid-flight without waiting for the full duration.
+    const capturedSeekGen = seekGenRef.current;
     return new Promise((resolve) => {
+      // Expose a cancel callback so stopSeqAnim() can resolve this Promise
+      // without leaving triggerAnimation() suspended at `await runEffect(…)`.
+      runEffectCancelRef.current = () => {
+        runEffectCancelRef.current = null;
+        if (rippleRef.current) { cancelAnimationFrame(rippleRef.current); rippleRef.current = null; }
+        resolve();
+      };
       const animate = (now) => {
+        // Abort: seekGenRef bumped externally (mode change or timeline scrub).
+        if (seekGenRef.current !== capturedSeekGen) {
+          runEffectCancelRef.current = null;
+          rippleRef.current = null;
+          resolve();
+          return;
+        }
         const elapsed = now - start;
         const progress = Math.min(1, elapsed / duration);
+        if (onProgress) onProgress(progress);
         r.render();
         if (style === 'ripple') r.renderRipple(progress);
         else if (style === 'fade') r.renderFade(progress);
@@ -1708,6 +1781,7 @@ export default function Visualizer({
         if (progress < 1) {
           rippleRef.current = requestAnimationFrame(animate);
         } else {
+          runEffectCancelRef.current = null;
           rippleRef.current = null;
           resolve();
         }
@@ -2097,7 +2171,7 @@ export default function Visualizer({
     const resuming = (!!options.startIndex && options.startIndex > 0) ||
       (Number.isFinite(options.startProgress) && options.startProgress > 0);
     if (!options.keepProgress) {
-      stopSeqAnim();
+      stopSeqAnimRef.current?.();
       // Reset the banner scrub slider at the start of a fresh animation.
       // When resuming from a paused position, keep the slider where it is.
       if (!resuming && stepScrubProgressRef.current) stepScrubProgressRef.current(0);
@@ -2432,14 +2506,21 @@ export default function Visualizer({
 
     r.changedBits = new Set(changedSet);
     r.animationFocusBits = new Set(changedSet);
-    await runEffect(animStyle, timingOptions.adaptivePlan ? Math.min(3200, timingOptions.adaptivePlan.totalDuration) : undefined);
+    if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(true);
+    if (!options.keepProgress && !resuming && stepScrubProgressRef.current) stepScrubProgressRef.current(0);
+    await runEffect(
+      animStyle,
+      timingOptions.adaptivePlan ? Math.min(3200, timingOptions.adaptivePlan.totalDuration) : undefined,
+      (p) => { if (stepScrubProgressRef.current) stepScrubProgressRef.current(Math.round(p * 100)); },
+    );
     if (!isStillLive()) return;
     r.animationFocusBits = new Set();
     if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
     if (delayMs > 0) setDelayPhaseMsRef.current(delayMs);
     await waitForDelay(delayMs);
     setDelayPhaseMsRef.current(null);
-  }, [animMode, animStyle, stopSeqAnim, runEffect, estimateAnimDuration, getMinimapDetailH, getAnimationBitInterval, getAnimationTimingPlan, getCurrentLoopInterval, runMaskStampAnimation, fadeOutCurrentHighlights, waitForDelay, pinnedBitIndices, effectiveGroupBits, maskAnimInterval, computeEventDuration]);
+    if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
+  }, [animMode, animStyle, runEffect, estimateAnimDuration, getMinimapDetailH, getAnimationBitInterval, getAnimationTimingPlan, getCurrentLoopInterval, runMaskStampAnimation, fadeOutCurrentHighlights, waitForDelay, pinnedBitIndices, effectiveGroupBits, maskAnimInterval, computeEventDuration]);
 
   useEffect(() => {
     triggerAnimationRef.current = triggerAnimation;
@@ -2542,6 +2623,10 @@ export default function Visualizer({
 
   const handleMultiStepSelect = useCallback((nextSelection) => {
     stopPlayback();
+    // Clear any leftover pause state so the aggregate animation loop starts immediately
+    // rather than being held off by a previous Pause or single-event pause-in-flight.
+    globalPausedRef.current = false;
+    setAnimationReplayPaused(false);
     setSelectedSteps(nextSelection);
   }, [stopPlayback]);
 
@@ -2565,113 +2650,31 @@ export default function Visualizer({
     r.render();
     r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
     updateMinimapAvailability();
-    if (overlay.changedBits.size > 0) triggerAnimation(overlay.changedBits, { adaptiveDuration: true });
-  }, [selectedSteps, buildCombinedSelectionOverlay, triggerAnimation, getMinimapDetailH, updateMinimapAvailability]);
+    // Trigger the initial animation via the stable ref, NOT as a direct dependency.
+    // Using triggerAnimation directly in deps causes this effect to re-fire whenever
+    // animMode/animStyle change, which calls stopSeqAnim() inside the new triggerAnimation
+    // and permanently hangs the selected-steps loop's `await triggerFn(...)` Promise
+    // (cancelAnimationFrame prevents the RAF tick from resolving it). The loop picks up
+    // new animMode/animStyle naturally on its next iteration via triggerAnimationRef.current.
+    if (overlay.changedBits.size > 0) triggerAnimationRef.current?.(overlay.changedBits, { adaptiveDuration: true });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSteps, buildCombinedSelectionOverlay, getMinimapDetailH, updateMinimapAvailability]);
 
-  // Repeat selected-step animation until selection changes.
-  useEffect(() => {
-    if (selectedAnimLoopRef.current) {
-      clearTimeout(selectedAnimLoopRef.current);
-      selectedAnimLoopRef.current = null;
-    }
-    if (playing || animationReplayPaused || selectedSteps.size === 0) return;
-
-    const merged = new Set();
-    for (const idx of selectedSteps) {
-      const s = steps[idx];
-      if (!s) continue;
-      for (let j = 0; j < s.changedBits.length; j++) merged.add(s.changedBits[j]);
-    }
-    if (merged.size === 0) return;
-
-    let cancelled = false;
-    const loop = async () => {
-      const triggerFn = triggerAnimationRef.current;
-      if (!triggerFn) return;
-      // Capture seek generation before animating. If seekStepAnimation fires
-      // mid-animation the gen is bumped; detecting the change here prevents
-      // the loop from rescheduling and overwriting the scrubbed canvas.
-      const loopSeekGen = seekGenRef.current;
-      await triggerFn(merged, { adaptiveDuration: true });
-      if (cancelled || playing || animationReplayPaused || selectedSteps.size === 0) return;
-      if (seekGenRef.current !== loopSeekGen) return;
-      selectedAnimLoopRef.current = setTimeout(loop, 0);
-    };
-
-    selectedAnimLoopRef.current = setTimeout(loop, 0);
-
-    return () => {
-      cancelled = true;
-      if (selectedAnimLoopRef.current) {
-        clearTimeout(selectedAnimLoopRef.current);
-        selectedAnimLoopRef.current = null;
-      }
-    };
-    // triggerAnimation intentionally omitted; see pausedStepAnimLoop for rationale.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSteps, steps, playing, animationReplayPaused]);
-
-  // When paused on a single step, keep replaying that step's animation.
-  useEffect(() => {
-    if (pausedStepAnimLoopRef.current) {
-      clearTimeout(pausedStepAnimLoopRef.current);
-      pausedStepAnimLoopRef.current = null;
-    }
-
-    // The single-event widget's auto-replay only runs when the user explicitly
-    // pressed Play on it (singleEventLoopActive=true), OR while the user is
-    // mid-drag on the top-bar scrubber (isScrubbingTopRef.current). All-events
-    // playback (`playing`) has its own scheduler so we stay out of its way.
-    if (playing || animationReplayPaused || selectedSteps.size > 0 || initialHighlightHoldRef.current) return;
-    if (!singleEventLoopActive && !isScrubbingTopRef.current) return;
-    const step = steps[currentStep];
-    if (!step || !step.changedBits || step.changedBits.length === 0) return;
-
-    const changed = new Set(step.changedBits);
-    let cancelled = false;
-
-    const loop = async () => {
-      // First iteration honors the resume hints (set by the banner Play
-      // button); subsequent iterations restart from 0 after the replay delay.
-      const useStartIndex = stepResumeStartIndexRef.current || 0;
-      const useStartProgress = stepResumeMaskProgressRef.current || 0;
-      stepResumeStartIndexRef.current = 0;
-      stepResumeMaskProgressRef.current = 0;
-      // Read triggerAnimation through its ref so this effect doesn't tear down
-      // and restart whenever the speed slider (bitAnimInterval) changes.
-      const triggerFn = triggerAnimationRef.current;
-      if (!triggerFn) return;
-      // Capture seek generation before animating. If seekStepAnimation fires
-      // mid-animation the gen is bumped; detecting the change here prevents
-      // the loop from rescheduling and overwriting the scrubbed canvas.
-      const loopSeekGen = seekGenRef.current;
-      await triggerFn(changed, {
-        adaptiveDuration: true,
-        // Between repeats inside the single-event widget: use the configured
-        // delayBetweenRepeats. Mid-drag scrub: 0 (each drag tick re-triggers).
-        delayMs: isScrubbingTopRef.current ? 0 : (delayBetweenRepeatsRef.current || 0),
-        startIndex: useStartIndex,
-        startProgress: useStartProgress,
-      });
-      if (cancelled || playing || animationReplayPaused || selectedSteps.size > 0) return;
-      if (!singleEventLoopActiveRef.current && !isScrubbingTopRef.current) return;
-      if (seekGenRef.current !== loopSeekGen) return;
-      pausedStepAnimLoopRef.current = setTimeout(loop, 0);
-    };
-
-    pausedStepAnimLoopRef.current = setTimeout(loop, 0);
-
-    return () => {
-      cancelled = true;
-      if (pausedStepAnimLoopRef.current) {
-        clearTimeout(pausedStepAnimLoopRef.current);
-        pausedStepAnimLoopRef.current = null;
-      }
-    };
-    // triggerAnimation intentionally omitted: it is rebuilt whenever the speed
-    // slider changes, and we don't want to interrupt an in-flight reveal.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, selectedSteps, steps, currentStep, animationReplayPaused, singleEventLoopActive]);
+  // Three playback-loop effects delegated to usePlaybackLoop (Pattern A hook extraction).
+  // The hook borrows all refs from this component so stopPlayback / seekStepAnimation
+  // can keep clearing them directly without going through the hook.
+  usePlaybackLoop({
+    seekGenRef, globalPausedRef, animBusyUntilRef,
+    triggerAnimationRef, goToStepRef,
+    rendererRef,
+    selectedAnimLoopRef, pausedStepAnimLoopRef,
+    playTimeoutRef, playTimerRef,
+    singleEventLoopActiveRef, isScrubbingTopRef, initialHighlightHoldRef,
+    delayBetweenRepeatsRef, stepResumeStartIndexRef, stepResumeMaskProgressRef,
+    setStepAnimRunningRef, stepAnimRunningRefForScheduler,
+    playing, steps, currentStep, selectedSteps, animationReplayPaused, singleEventLoopActive,
+    setPlaying, setCurrentStep,
+  });
 
   // Auto-render mode (for CLI video export via puppeteer)
   useEffect(() => {
@@ -2682,14 +2685,26 @@ export default function Visualizer({
   }, [autoRender, steps.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Replay current step when animation mode or style changes so the active animation stops immediately.
-  // Skip when the single-event replay loop is running: the loop holds an `await triggerFn(...)` promise
-  // that resolves only when the animation finishes naturally. Calling stopSeqAnim() from here would
-  // cancel the RAF without resolving that promise, permanently freezing the loop. The loop naturally
-  // picks up the new animMode/animStyle on its next iteration via triggerAnimationRef.current.
+  // Skip when the single-event replay loop OR the aggregate selected-steps loop is running: both hold
+  // an `await triggerFn(...)` promise that resolves only when the animation finishes naturally.
+  // Calling stopSeqAnim() here would cancel the RAF without resolving that promise, permanently
+  // freezing the loop. Both loops naturally pick up the new animMode/animStyle on their next
+  // iteration via triggerAnimationRef.current.
   useEffect(() => {
     if (initialHighlightHoldRef.current) return;
-    if (singleEventLoopActiveRef.current) return;
-    stopSeqAnim();
+    if (singleEventLoopActiveRef.current || selectedAnimLoopRef.current) {
+      // A replay loop is running. Don't call stopSeqAnim() — that would
+      // cancelAnimationFrame the running RAF, leaving the loop's awaited
+      // triggerFn() Promise permanently unresolved (frozen loop). Instead,
+      // bump seekGenRef so isStillLive() fails on the very next RAF tick,
+      // resolving the Promise cleanly. The loop then restarts on its next
+      // iteration and picks up the new animMode/animStyle from
+      // triggerAnimationRef.current.
+      seekGenRef.current += 1;
+      if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
+      return;
+    }
+    stopSeqAnimRef.current?.();
     const step = steps[currentStep];
     if (!step || !step.changedBits || step.changedBits.length === 0) return;
     const currentChanged = new Set(step.changedBits);
@@ -2700,69 +2715,6 @@ export default function Visualizer({
     if (!seqTimerRef.current) return;
     currentAnimIntervalRef.current = Math.max(0, bitAnimInterval || 20);
   }, [bitAnimInterval]);
-
-  // Play/pause
-  useEffect(() => {
-    if (!playing) {
-      clearInterval(playTimerRef.current);
-      if (playTimeoutRef.current) {
-        clearTimeout(playTimeoutRef.current);
-        playTimeoutRef.current = null;
-      }
-      return;
-    }
-
-    if (selectedAnimLoopRef.current) {
-      clearTimeout(selectedAnimLoopRef.current);
-      selectedAnimLoopRef.current = null;
-    }
-
-    const scheduleNext = () => {
-      if (!playing || !rendererRef.current) return;
-
-      // While globally paused, freeze the trace-level scheduler too so the
-      // toolbar Pause halts the cross-event walk in addition to the
-      // in-flight animation.
-      if (globalPausedRef.current) {
-        playTimeoutRef.current = setTimeout(scheduleNext, 32);
-        return;
-      }
-
-      if (performance.now() < animBusyUntilRef.current) {
-        playTimeoutRef.current = setTimeout(scheduleNext, 16);
-        return;
-      }
-
-      // If a per-event animation is still running (e.g. resumed from a
-      // pause-in-flight whose wall-clock budget already expired), wait for it
-      // to finish before advancing to the next event.
-      if (setStepAnimRunningRef.current && stepAnimRunningRefForScheduler.current) {
-        playTimeoutRef.current = setTimeout(scheduleNext, 32);
-        return;
-      }
-
-      setCurrentStep((prev) => {
-        const next = prev + 1;
-        if (next >= steps.length) {
-          setPlaying(false);
-          return prev;
-        }
-        setTimeout(() => goToStepRef.current(next, { keepPlaying: true }), 0);
-        return next;
-      });
-      playTimeoutRef.current = setTimeout(scheduleNext, 16);
-    };
-
-    playTimeoutRef.current = setTimeout(scheduleNext, 0);
-
-    return () => {
-      clearInterval(playTimerRef.current);
-      if (playTimeoutRef.current) {
-        clearTimeout(playTimeoutRef.current);
-        playTimeoutRef.current = null;
-      }
-    };
-  }, [playing, steps.length]); // goToStep read via stable goToStepRef
 
   // Top-toolbar Play/Pause. Drives trace-wide playback (event-by-event with
   // no inter-event wait) and supports pause-in-flight + precise resume:

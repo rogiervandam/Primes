@@ -5,7 +5,79 @@ import LayoutTab from './settings/LayoutTab';
 import AnimationTab from './settings/AnimationTab';
 import ColorsTab from './settings/ColorsTab';
 /**
- * Settings panel for layout modes, spacing, and rendering options.
+ * Right-hand collapsible settings panel. Pure tab-row shell that delegates
+ * content to LayoutTab, AnimationTab, ColorsTab, and LegendTab.
+ *
+ * @param {object}   props
+ * @param {object}   props.settings                   - Layout settings object (forwarded to LayoutTab)
+ * @param {function} props.onChange                   - Layout settings change callback
+ * @param {boolean}  props.collapsed                  - Whether the sidebar is collapsed
+ * @param {function} props.onToggleCollapse           - Toggle sidebar visibility
+ * @param {number}   props.playSpeed                  - Playback speed (ms per step) forwarded to AnimationTab
+ * @param {function} props.onPlaySpeedChange
+ * @param {boolean}  props.repeatAnim                 - (legacy) repeat animation flag
+ * @param {function} props.onRepeatAnimChange
+ * @param {number}   props.delayBetweenRepeats        - Delay between single-event repeats (ms)
+ * @param {function} props.onDelayBetweenRepeatsChange
+ * @param {object}   props.eventTimeTargets           - Per-tier event duration targets
+ * @param {function} props.onEventTimeTargetsChange
+ * @param {string}   props.animMode                   - Bit animation mode: 'mask'|'bits'|'combined'
+ * @param {function} props.onAnimModeChange
+ * @param {string}   props.animStyle                  - Animation style: 'ripple'|'fade'|'pulse'|'sequential'
+ * @param {function} props.onAnimStyleChange
+ * @param {boolean}  props.animationReplayPaused      - Whether single-event replay is paused
+ * @param {function} props.onAnimationReplayPausedChange
+ * @param {string}   props.eventDurationMode          - 'progressive'|'linear'
+ * @param {function} props.onEventDurationModeChange
+ * @param {number}   props.gridOpacity                - Grid-line opacity 0–1
+ * @param {function} props.onGridOpacityChange
+ * @param {string}   props.colorPreset               - Active colour-preset key
+ * @param {function} props.onColorPresetChange
+ * @param {object}   props.customColors               - Per-class custom RGB overrides
+ * @param {function} props.onCustomColorsChange
+ * @param {number}   props.cachelineSize              - Cacheline size in bits
+ * @param {function} props.onCachelineSizeChange
+ * @param {string}   props.cachePreset               - Cacheline layout preset key
+ * @param {function} props.onCachePresetChange
+ * @param {boolean}  props.heatMapEnabled             - Whether the cacheline heat-map overlay is active
+ * @param {function} props.onHeatMapToggle
+ * @param {string}   [props.cachelineAnnotation]      - Annotation mode: 'none'|'counts'|'delta'|'both'
+ * @param {function} props.onCachelineAnnotationChange
+ * @param {boolean}  props.primeOverlayEnabled        - Whether the prime overlay is active
+ * @param {function} props.onPrimeOverlayToggle
+ * @param {boolean}  [props.rangeOverlayEnabled]
+ * @param {number}   [props.rangeOverlayStart]
+ * @param {number}   [props.rangeOverlayEnd]
+ * @param {function} props.onRangeOverlayToggle
+ * @param {function} props.onRangeOverlayStartChange
+ * @param {function} props.onRangeOverlayEndChange
+ * @param {boolean}  [props.multiplesOverlayEnabled]
+ * @param {number}   [props.multiplesOverlayPrime]
+ * @param {function} props.onMultiplesOverlayToggle
+ * @param {function} props.onMultiplesOverlayPrimeChange
+ * @param {function} props.onRangeOverlayReset
+ * @param {function} props.onMultiplesOverlayReset
+ * @param {boolean}  props.showMinimap               - Whether the minimap is enabled
+ * @param {function} props.onShowMinimapChange
+ * @param {boolean}  [props.minimapControlVisible]
+ * @param {object}   props.depthSettings              - Depth/3D rendering settings
+ * @param {function} props.onDepthSettingsChange
+ * @param {object}   props.eventTitleSettings         - Floating event-title banner settings
+ * @param {function} props.onEventTitleSettingsChange
+ * @param {object}   props.outlineSettings            - Group-outline settings
+ * @param {function} props.onOutlineChange
+ * @param {boolean}  [props.isWindowsPlatform]        - Adjusts scrollbar styling
+ * @param {boolean}  [props.showAnimationControls]
+ * @param {string}   props.theme                     - 'light'|'dark'
+ * @param {function} props.onThemeChange
+ * @param {object}   props.canvasColors               - Per-theme canvas background overrides
+ * @param {function} props.onCanvasColorsChange
+ * @param {{ tab: string }}  [props.activeTabRequest] - Counter-incremented to switch to a tab externally
+ * @param {function} [props.onActiveTabChange]        - Called whenever the active tab changes
+ * @param {string}   props.bitAnimationMode           - 'mask'|'bits'|'combined'
+ * @param {function} props.onBitAnimationModeChange
+ * @param {boolean}  [props.detailOpen]               - Whether the detail panel is expanded
+ * @param {number}   [props.detailHeight]             - Detail panel height in px
  */
 export default function SettingsPanel({
   settings, onChange, collapsed, onToggleCollapse,

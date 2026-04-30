@@ -14,11 +14,11 @@ The web visualizer is a long-lived React/Vite app with **three** large files tha
 
 | File                         | Lines  | Role                                                             |
 | ---------------------------- | ------ | ---------------------------------------------------------------- |
-| `src/Visualizer.jsx`         | ~4 190 | Stateful orchestrator: trace, playback, viewport, hover, exports |
+| `src/Visualizer.jsx`         | ~4 080 | Stateful orchestrator: trace, playback, viewport, hover, exports |
 | `src/SieveRenderer.js`       | ~2 800 | 2D canvas renderer (sieve grid, overlays, animations)            |
 | `src/settings/LayoutTab.jsx` | ~900   | Layout tab (extracted from former SettingsPanel monolith)        |
 
-`SettingsPanel.jsx` itself is now ~260 lines — just the tab-row shell.
+`SettingsPanel.jsx` itself is now ~330 lines (including new JSDoc).
 The former hotspot is replaced by `LayoutTab.jsx` and `AnimationTab.jsx`
 (~545 lines) as the next-largest settings files.
 
@@ -889,6 +889,32 @@ in the worker path.
   the `_lost = true` flag is retained (it was added as part of the items 7/8
   session) so that `dispose()` remains safe to call from test harnesses and
   the parity harness — callers just don't call it from a cleanup effect anymore.
+- ✅ **Stabilised `stopSeqAnim` as `stopSeqAnimRef`** (item 12 remaining).
+  Added `const stopSeqAnimRef = useRef(null);` alongside `triggerAnimationRef` in
+  `Visualizer.jsx`. Assigned `stopSeqAnimRef.current = stopSeqAnim` immediately
+  after the `stopSeqAnim` useCallback definition. Updated `triggerAnimation`'s body
+  to call `stopSeqAnimRef.current?.()` instead of `stopSeqAnim()` directly, and
+  removed `stopSeqAnim` from `triggerAnimation`'s dep array — making
+  `triggerAnimation` slightly more stable. The `[animMode, animStyle]` effect also
+  updated to use `stopSeqAnimRef.current?.()`. No behaviour change; follows the
+  established `goToStepRef` / `triggerAnimationRef` pattern.
+- ✅ **Extracted three playback-loop effects into `usePlaybackLoop`** (item 11).
+  New file `src/hooks/usePlaybackLoop.js` following Pattern A. The hook encapsulates:
+  (1) the selected-steps animation loop (`selectedAnimLoopRef`, formerly `useEffect
+  ([selectedSteps, steps, playing, animationReplayPaused])`); (2) the single-event
+  replay loop (`pausedStepAnimLoopRef`, formerly `useEffect([playing, selectedSteps,
+  steps, currentStep, animationReplayPaused, singleEventLoopActive])`); (3) the
+  all-events play/pause scheduler (`playTimeoutRef`, formerly `useEffect([playing,
+  steps.length])`). The hook borrows all refs from `Visualizer.jsx` as parameters
+  (not ownership) so `stopPlayback` and `seekStepAnimation` can keep clearing them
+  directly. Visualizer.jsx reduced from **4 225 → 4 076 lines** (−149). Module
+  count: 92 → 93. `npm run build` clean; `npm run test` 50/50 pass.
+- ✅ **Added JSDoc `@param` type documentation to the three key component boundaries**
+  (item 18). `Visualizer.jsx`, `EventsPanel.jsx`, and `SettingsPanel.jsx` now have
+  JSDoc blocks listing every prop with its type and description. These are
+  documentation-only (no `PropTypes` package or `// @ts-check` added); their value
+  is to catch accidental prop renames during review and to keep the prop surface
+  discoverable without reading the full call site in Visualizer.jsx.
 
 These are concrete next-step refactors that each fit comfortably in a
 single working session. Tackle them in order — earlier ones unblock later
@@ -1304,33 +1330,29 @@ text that extends beyond the square is clipped by `overflow: hidden`.
     single `timingSettings` / `onTimingSettingsChange` pair would reduce
     the prop surface of `SettingsPanel` and `Visualizer` significantly.
     Extract only when the caller count grows (currently two callers).
-11. **Extract `Visualizer.jsx` playback loop into a hook.** The
-    all-events scheduler (`playAllRef`, `playAllLoop`, the `useEffect`
-    that starts/stops it) plus the single-event replay loop
-    (`pausedStepAnimLoopRef`, `singleEventLoopActiveRef`) share a
-    well-defined interface: they consume `seekGenRef`, `globalPausedRef`,
-    `animBusyUntilRef`, `goToStep`, and `triggerAnimation`. Extracting
-    them into a `usePlaybackLoop(clock, goToStep, triggerAnimation)`
-    hook would make the scheduler testable and shrink `Visualizer.jsx`
-    by ~200 lines. **Partially unblocked by item 12** (`goToStep` is now
-    ref-stable via `goToStepRef`). Remaining blocker: `triggerAnimation`
-    and `stopSeqAnim` closures captured by the single-event loop also
-    need to be ref-stabilised before the extraction is safe — the loop
-    already reads `triggerAnimation` through `triggerAnimationRef.current`
-    but `stopSeqAnim` is still a direct closure capture in several effects.
-12. **Stabilise `Visualizer.jsx` callback refs.** ✅ PARTIALLY DONE.
+11. **Extract `Visualizer.jsx` playback loop into a hook.** ✅ DONE.
+    New file `src/hooks/usePlaybackLoop.js` (Pattern A). Encapsulates the
+    three animation-loop effects: selected-steps loop, single-event replay
+    loop, and the all-events play/pause scheduler. The hook borrows all
+    refs from `Visualizer.jsx` as parameters (not ownership) so
+    `stopPlayback` and `seekStepAnimation` can keep clearing them
+    directly. `Visualizer.jsx` shrunk from 4 225 → **4 076 lines** (−149).
+    Module count: 92 → 93. `npm run build` clean; 50/50 tests pass.
+12. **Stabilise `Visualizer.jsx` callback refs.** ✅ DONE.
     `goToStepRef` added to `Visualizer.jsx` (always-current ref,
     same pattern as `triggerAnimationRef`). The play/pause scheduler
     `useEffect` now calls `goToStepRef.current(...)` and its dep array
     shrunk from `[playing, steps.length, goToStep]` to `[playing, steps.length]`.
     `useKeyboardShortcuts` refactored to store all inputs in a `handlersRef`
     and register the `keydown` listener once (empty dep array) — see §6.
-    **Remaining:** export callbacks (`exportPng`, `exportVideo`) are still
-    direct `useCallback` values passed as props; they are not in any heavy
-    `useEffect` dep array, so stabilising them is lower priority. Item 11
-    (extract playback loop) is partially unblocked: `goToStep` is now
-    ref-stable; the remaining blocker is the `triggerAnimation` and
-    `stopSeqAnim` closures that the single-event loop captures.
+    `stopSeqAnimRef` added (same pattern): assigned inline after the
+    `stopSeqAnim` useCallback; `triggerAnimation` body now calls
+    `stopSeqAnimRef.current?.()` and `stopSeqAnim` removed from
+    `triggerAnimation`'s dep array. The `[animMode, animStyle]` effect
+    also uses `stopSeqAnimRef.current?.()`. Remaining lower-priority:
+    export callbacks (`exportPng`, `exportVideo`) are direct `useCallback`
+    values passed as props; they are not in any heavy `useEffect` dep
+    array and need no further stabilisation.
 13. **Split `SieveRenderer._drawBitBody` further.** ✅ DONE. `_drawBitBody`
     is now a 10-line dispatcher calling `_drawBitBodyLowered`,
     `_drawBitBodyRaised`, or `_drawBitBodyNormal`. Each branch is a
@@ -1381,12 +1403,11 @@ text that extends beyond the square is clipped by `overflow: hidden`.
     import from `'../renderer/constants'` directly. No circular import
     introduced; build passes clean at 88 modules.
 18. **Add `propTypes` or TypeScript types to the top-level component
-    boundaries.** `Visualizer.jsx`, `SettingsPanel.jsx`, and `EventsPanel.jsx`
-    have large prop surfaces with no runtime or compile-time checking.
-    Even minimal `PropTypes` validation catches accidental prop renames
-    immediately. Full TypeScript migration is out of scope but adding
-    `// @ts-check` + JSDoc `@param` types to the key hooks is a low-cost
-    middle ground.
+    boundaries.** ✅ DONE. JSDoc `@param` type blocks added to
+    `Visualizer.jsx` (7 props), `EventsPanel.jsx` (~25 props), and
+    `SettingsPanel.jsx` (~55 props). Documentation-only — no `prop-types`
+    package added. `// @ts-check` is the natural follow-up if type errors
+    want to surface at edit time.
 
 ### Performance backlog
 
