@@ -7,7 +7,7 @@
   gap: 6px;
   margin-bottom: 5px;
   justify-content: flex-start;
-  margin: 1.5em 0;
+  margin: 0.5em 0;
 }
 .lo-level-row-stacked {
   align-items: flex-start;
@@ -494,34 +494,6 @@
   column-gap: 8px;
   row-gap: 1px;
   align-items: start;
-}
-/* Actionable legend rows — rows that toggle a setting when clicked */
-.legend-row--actionable {
-  cursor: pointer;
-  border-radius: 4px;
-  padding: 2px 4px;
-  margin: -2px -4px;
-  outline: none;
-  transition: background 0.1s;
-}
-.legend-row--actionable:hover {
-  background: var(--bg-hover, rgba(255,255,255,0.08));
-}
-.legend-row--actionable:focus-visible {
-  box-shadow: 0 0 0 2px var(--accent);
-}
-/* Small "→ settings" hint badge that appears on hover */
-.legend-row--actionable .legend-row-label::after {
-  content: '⚙';
-  font-size: 9px;
-  opacity: 0;
-  margin-left: 4px;
-  color: var(--fg-dim);
-  transition: opacity 0.12s;
-  pointer-events: none;
-}
-.legend-row--actionable:hover .legend-row-label::after {
-  opacity: 0.55;
 }
 .legend-swatch, .legend-anim-icon {
   grid-row: 1 / 3;

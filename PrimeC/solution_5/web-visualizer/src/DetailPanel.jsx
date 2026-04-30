@@ -82,6 +82,17 @@ export default function DetailPanel({
     return { text: nums.join(', '), more: more > 0 ? more : 0 };
   }, [step, storageModel]);
 
+  const maskType = useMemo(() => {
+    if (!step) return null;
+    const wordBits = step.maskWordBits;
+    if (!Number.isFinite(wordBits) || wordBits <= 0) return null;
+    const slotCount = step.patternSlotCount;
+    if (Number.isFinite(slotCount) && slotCount > 0) {
+      return `uint${wordBits}v${slotCount}`;
+    }
+    return `uint${wordBits}`;
+  }, [step]);
+
   const maskSummary = useMemo(() => {
     if (!step || !Number.isFinite(step.maskWordBits) || step.maskWordBits <= 0) return null;
 
@@ -445,7 +456,15 @@ export default function DetailPanel({
               <div className="detail-section-rows">
               {maskPreviewContent}
               </div>
-                <div>
+                <div className="detail-row">
+                  <span className="detail-row-label">Mask type</span>
+                  <span className="detail-row-value">
+                    {maskType
+                      ? <span className="detail-tag block-tag">{maskType}</span>
+                      : <span className="detail-empty">—</span>}
+                  </span>
+                </div>
+                <div className="detail-row">
                   <span className="detail-row-label">{patternFact.label}</span>
                   <span className="detail-row-value">{patternFact.content}</span>
                 </div>
