@@ -223,7 +223,6 @@ function AnimationTab({
   repeatAnim, onRepeatAnimChange,
   delayBetweenRepeats, onDelayBetweenRepeatsChange,
   eventTimeTargets, onEventTimeTargetsChange,
-  maskAnimationEnabled, onMaskAnimationEnabledChange,
   eventDurationMode, onEventDurationModeChange,
   bitAnimationMode, onBitAnimationModeChange,
 }) {
@@ -481,22 +480,6 @@ function AnimationTab({
               <span>Long</span>
             </div>
           </div>
-        </div>
-        <div className="preview-btn-grid preview-btn-grid-2" style={{ marginTop: 8 }}>
-          <PreviewOptionButton
-            compact
-            label="Mask stamp anim."
-            hint="Animate mask stamp reveals"
-            active={maskAnimationEnabled !== false}
-            onClick={() => onMaskAnimationEnabledChange(!(maskAnimationEnabled !== false))}
-            preview={(
-              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                <rect x="3" y="5" width="12" height="12" rx="1" opacity="0.25" />
-                <rect x="18" y="5" width="12" height="12" rx="1" opacity="0.6" />
-                <rect x="33" y="5" width="12" height="12" rx="1" opacity="1" />
-              </svg>
-            )}
-          />
         </div>
         {/* Per-event time targets — drag control points on the curve to
             adjust how long each event takes based on its change count.

@@ -109,7 +109,6 @@ export default function Visualizer({
   eventTimeTargetsRef.current = eventTimeTargets;
   const [animMode, setAnimMode] = useState('sequential'); // 'all' or 'sequential'
   const [animStyle, setAnimStyle] = useState('fade'); // 'ripple', 'fade', 'pulse', 'none'
-  const [maskAnimationEnabled, setMaskAnimationEnabled] = useState(true);
   const [animationReplayPaused, setAnimationReplayPaused] = useState(false);
   // True only when the user explicitly pressed Play on the single-event widget.
   // The per-event auto-replay loop only runs while this is true. Cleared on
@@ -2070,7 +2069,7 @@ export default function Visualizer({
     const mode = bitAnimationModeRef.current;
     const maskModeActive = mode === 'mask' || mode === 'combined';
     const combinedMode = mode === 'combined';
-    const hasMaskAnimation = !!(maskModeActive && maskAnimationEnabled && r && r.maskWriteOrderWords && r.maskWriteOrderWords.length > 0 && Number.isFinite(r.maskWordBits) && r.maskWordBits > 0);
+    const hasMaskAnimation = !!(maskModeActive && r && r.maskWriteOrderWords && r.maskWriteOrderWords.length > 0 && Number.isFinite(r.maskWordBits) && r.maskWordBits > 0);
     if (!r || !changedSet || (!hasMaskAnimation && changedSet.size === 0) || changedSet.size >= 100000) return;
 
     const animatedBitCount = changedSet.size > 0 ? changedSet.size : Math.max(1, r.targetBits?.size || r.maskWriteOrderWords?.length || 1);
@@ -2401,7 +2400,7 @@ export default function Visualizer({
     if (delayMs > 0) setDelayPhaseMsRef.current(delayMs);
     await waitForDelay(delayMs);
     setDelayPhaseMsRef.current(null);
-  }, [animMode, animStyle, maskAnimationEnabled, stopSeqAnim, runEffect, estimateAnimDuration, getMinimapDetailH, getAnimationBitInterval, getAnimationTimingPlan, getCurrentLoopInterval, runMaskStampAnimation, fadeOutCurrentHighlights, waitForDelay, pinnedBitIndices, effectiveGroupBits, maskAnimInterval, computeEventDuration]);
+  }, [animMode, animStyle, stopSeqAnim, runEffect, estimateAnimDuration, getMinimapDetailH, getAnimationBitInterval, getAnimationTimingPlan, getCurrentLoopInterval, runMaskStampAnimation, fadeOutCurrentHighlights, waitForDelay, pinnedBitIndices, effectiveGroupBits, maskAnimInterval, computeEventDuration]);
 
   useEffect(() => {
     triggerAnimationRef.current = triggerAnimation;
@@ -4174,8 +4173,6 @@ export default function Visualizer({
           onAnimModeChange={setAnimMode}
           animStyle={animStyle}
           onAnimStyleChange={setAnimStyle}
-          maskAnimationEnabled={maskAnimationEnabled}
-          onMaskAnimationEnabledChange={setMaskAnimationEnabled}
           animationReplayPaused={animationReplayPaused}
           onAnimationReplayPausedChange={setAnimationReplayPaused}
           eventDurationMode={eventDurationMode}
