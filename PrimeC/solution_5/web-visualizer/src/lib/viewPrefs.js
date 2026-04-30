@@ -220,14 +220,6 @@ function initialEventDurationMode(prefs) {
   return prefs?.eventDurationMode === 'linear' ? 'linear' : 'progressive';
 }
 
-function initialMaxStepDurationEnabled(prefs) {
-  return prefs?.maxStepDurationEnabled === true;
-}
-
-function initialMaxStepDurationMs(prefs) {
-  return clampInt(prefs?.maxStepDurationMs, 2000, 30000) ?? 8000;
-}
-
 function initialGridOpacity(prefs) {
   const n = Number(prefs?.gridOpacity);
   if (!Number.isFinite(n)) return 1;
@@ -303,8 +295,6 @@ export function getInitialViewState() {
     delayBetweenRepeats: initialDelayMs(prefs, 'delayBetweenRepeats'),
     eventTimeTargets: mergeEventTimeTargets(prefs?.eventTimeTargets),
     eventDurationMode: initialEventDurationMode(prefs),
-    maxStepDurationEnabled: initialMaxStepDurationEnabled(prefs),
-    maxStepDurationMs: initialMaxStepDurationMs(prefs),
     gridOpacity: initialGridOpacity(prefs),
     canvasColors: initialCanvasColors(prefs),
     colorPreset: initialColorPreset(prefs),

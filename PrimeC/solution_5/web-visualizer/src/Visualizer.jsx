@@ -184,8 +184,6 @@ export default function Visualizer({
     const ratio = (maskSpeedValueDefault - 1) / 499;
     return Math.round(5000 - ratio * (5000 - 5));
   });
-  const [maxStepDurationEnabled, setMaxStepDurationEnabled] = useState(initialPrefs.maxStepDurationEnabled);
-  const [maxStepDurationMs, setMaxStepDurationMs] = useState(initialPrefs.maxStepDurationMs);
   const [gridOpacity, setGridOpacity] = useState(initialPrefs.gridOpacity);
   const [canvasColors, setCanvasColors] = useState(initialPrefs.canvasColors);
   const [detailHeight, setDetailHeight] = useState(280);
@@ -732,8 +730,6 @@ export default function Visualizer({
       layoutSettings,
       eventTitleSettings,
       depthSettings,
-      maxStepDurationEnabled,
-      maxStepDurationMs,
       gridOpacity,
       canvasColors,
       colorPreset,
@@ -749,7 +745,7 @@ export default function Visualizer({
       settingsCollapsed,
       detailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, widgetsJoined, stepsPanelCollapsed, settingsCollapsed, detailOpen]);
+  }, [theme, layoutSettings, eventTitleSettings, depthSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, widgetsJoined, stepsPanelCollapsed, settingsCollapsed, detailOpen]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -1314,13 +1310,11 @@ export default function Visualizer({
         // No more forced playbackDurationMs — computeEventDuration drives the
         // per-event wall-clock duration from the per-tier time targets and
         // the speed % slider.
-        maxDurationEnabled: maxStepDurationEnabled,
-        maxDurationMs: maxStepDurationMs,
         pinnedBitIndices,
         groupBits: effectiveGroupBits,
       });
     }
-  }, [currentStep, steps, updateMinimapAvailability, playing, stopPlayback, getCanvasTargetSize, delayBetweenEvents, applyViewportFit, maxStepDurationEnabled, maxStepDurationMs, pinnedBitIndices, effectiveGroupBits]);
+  }, [currentStep, steps, updateMinimapAvailability, playing, stopPlayback, getCanvasTargetSize, delayBetweenEvents, applyViewportFit, pinnedBitIndices, effectiveGroupBits]);
 
   const cancelViewportAnimation = useCallback(() => {
     if (viewportAnimRef.current) {
@@ -1697,13 +1691,8 @@ export default function Visualizer({
         : (currentAnimIntervalRef.current || bitAnimInterval || 20)
     );
     const preferredTotal = count * preferredInterval;
-    const pinnedBitCount = Array.isArray(options.pinnedBitIndices) ? options.pinnedBitIndices.length : 0;
-    const maxDurationEnabled = options.maxDurationEnabled === true;
-    const configuredMax = maxDurationEnabled
-      ? clampMs(options.maxDurationMs ?? 8000, 2000, 30000)
-      : 10000;
-    const maxTotal = configuredMax + (maxDurationEnabled ? pinnedBitCount * 2000 : 0);
-    const minTotal = maxDurationEnabled ? Math.max(900, Math.min(2400, configuredMax * 0.35)) : 2800;
+    const maxTotal = 10000;
+    const minTotal = 2800;
 
     if (requestedDuration != null) {
       const interval = Math.max(5, requestedDuration / count);
@@ -1719,9 +1708,7 @@ export default function Visualizer({
       return { startInterval: preferredInterval, endInterval: preferredInterval, accelerateAfter: 1, totalDuration: preferredTotal };
     }
 
-    const accelerateAfter = maxDurationEnabled
-      ? Math.max(0.24, Math.min(0.72, Math.min(3000, maxTotal * 0.45) / Math.max(1, maxTotal)))
-      : 0.68;
+    const accelerateAfter = 0.68;
     const frontCount = Math.max(1, Math.floor(count * accelerateAfter));
     const tailCount = Math.max(1, count - frontCount);
     let startInterval = preferredInterval;
@@ -2089,8 +2076,6 @@ export default function Visualizer({
     const animatedBitCount = changedSet.size > 0 ? changedSet.size : Math.max(1, r.targetBits?.size || r.maskWriteOrderWords?.length || 1);
     const timingBaseOptions = {
       ...options,
-      maxDurationEnabled: options.maxDurationEnabled ?? maxStepDurationEnabled,
-      maxDurationMs: options.maxDurationMs ?? maxStepDurationMs,
       pinnedBitIndices: options.pinnedBitIndices ?? pinnedBitIndices,
       groupBits: options.groupBits ?? effectiveGroupBits,
     };
@@ -2416,7 +2401,7 @@ export default function Visualizer({
     if (delayMs > 0) setDelayPhaseMsRef.current(delayMs);
     await waitForDelay(delayMs);
     setDelayPhaseMsRef.current(null);
-  }, [animMode, animStyle, maskAnimationEnabled, stopSeqAnim, runEffect, estimateAnimDuration, getMinimapDetailH, getAnimationBitInterval, getAnimationTimingPlan, getCurrentLoopInterval, runMaskStampAnimation, fadeOutCurrentHighlights, waitForDelay, maxStepDurationEnabled, maxStepDurationMs, pinnedBitIndices, effectiveGroupBits, maskAnimInterval, computeEventDuration]);
+  }, [animMode, animStyle, maskAnimationEnabled, stopSeqAnim, runEffect, estimateAnimDuration, getMinimapDetailH, getAnimationBitInterval, getAnimationTimingPlan, getCurrentLoopInterval, runMaskStampAnimation, fadeOutCurrentHighlights, waitForDelay, pinnedBitIndices, effectiveGroupBits, maskAnimInterval, computeEventDuration]);
 
   useEffect(() => {
     triggerAnimationRef.current = triggerAnimation;
@@ -4183,10 +4168,6 @@ export default function Visualizer({
           onMaskAnimationEnabledChange={setMaskAnimationEnabled}
           animationReplayPaused={animationReplayPaused}
           onAnimationReplayPausedChange={setAnimationReplayPaused}
-          maxStepDurationEnabled={maxStepDurationEnabled}
-          onMaxStepDurationEnabledChange={setMaxStepDurationEnabled}
-          maxStepDurationMs={maxStepDurationMs}
-          onMaxStepDurationMsChange={setMaxStepDurationMs}
           eventDurationMode={eventDurationMode}
           onEventDurationModeChange={setEventDurationMode}
           gridOpacity={gridOpacity}

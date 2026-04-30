@@ -19,8 +19,6 @@ export default function SettingsPanel({
   animStyle, onAnimStyleChange,
   maskAnimationEnabled, onMaskAnimationEnabledChange,
   animationReplayPaused, onAnimationReplayPausedChange,
-  maxStepDurationEnabled, onMaxStepDurationEnabledChange,
-  maxStepDurationMs, onMaxStepDurationMsChange,
   eventDurationMode, onEventDurationModeChange,
   gridOpacity, onGridOpacityChange,
   colorPreset, onColorPresetChange,
@@ -225,8 +223,6 @@ export default function SettingsPanel({
             eventTimeTargets={eventTimeTargets} onEventTimeTargetsChange={onEventTimeTargetsChange}
             maskAnimationEnabled={maskAnimationEnabled} onMaskAnimationEnabledChange={onMaskAnimationEnabledChange}
             animationReplayPaused={animationReplayPaused} onAnimationReplayPausedChange={onAnimationReplayPausedChange}
-            maxStepDurationEnabled={maxStepDurationEnabled} onMaxStepDurationEnabledChange={onMaxStepDurationEnabledChange}
-            maxStepDurationMs={maxStepDurationMs} onMaxStepDurationMsChange={onMaxStepDurationMsChange}
             eventDurationMode={eventDurationMode} onEventDurationModeChange={onEventDurationModeChange}
             bitAnimationMode={bitAnimationMode} onBitAnimationModeChange={onBitAnimationModeChange}
           />

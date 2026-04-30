@@ -224,8 +224,6 @@ function AnimationTab({
   delayBetweenRepeats, onDelayBetweenRepeatsChange,
   eventTimeTargets, onEventTimeTargetsChange,
   maskAnimationEnabled, onMaskAnimationEnabledChange,
-  maxStepDurationEnabled, onMaxStepDurationEnabledChange,
-  maxStepDurationMs, onMaxStepDurationMsChange,
   eventDurationMode, onEventDurationModeChange,
   bitAnimationMode, onBitAnimationModeChange,
 }) {
@@ -495,28 +493,6 @@ function AnimationTab({
             )}
           />
         </div>
-        <div className="settings-row" style={{ marginTop: 8 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input type="checkbox" checked={maxStepDurationEnabled === true} onChange={(e) => onMaxStepDurationEnabledChange && onMaxStepDurationEnabledChange(e.target.checked)} />
-            Limit step duration
-          </label>
-        </div>
-        {maxStepDurationEnabled === true && (
-          <div className="settings-row" style={{ marginTop: 8 }}>
-            <label className="overlay-inline-field overlay-inline-field-range" style={{ width: '100%' }}>
-              <span>Max step duration</span>
-              <input
-                type="range"
-                min={2000}
-                max={30000}
-                step={500}
-                value={Math.max(2000, Math.min(30000, parseInt(maxStepDurationMs || 8000, 10) || 8000))}
-                onChange={(e) => onMaxStepDurationMsChange && onMaxStepDurationMsChange(Math.max(2000, Math.min(30000, parseInt(e.target.value || '8000', 10) || 8000)))}
-              />
-              <span className="val">{(Math.max(2000, Math.min(30000, parseInt(maxStepDurationMs || 8000, 10) || 8000)) / 1000).toFixed(1)}s</span>
-            </label>
-          </div>
-        )}
         {/* Per-event time targets — drag control points on the curve to
             adjust how long each event takes based on its change count.
             The curve uses a sqrt-compressed y axis so short durations
