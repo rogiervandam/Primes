@@ -128,9 +128,9 @@
   border-radius: 6px;
   padding: 6px;
   color: var(--fg-muted);
-  min-height: 90px;
-  max-width: 120px;
-  max-height: 100px;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
 }
 
 .anno-btn:hover {
@@ -212,6 +212,9 @@
 }
 
 .preview-btn.compact {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
   min-height: 90px;
   max-height: 100px;
   max-width: 120px;

@@ -929,6 +929,20 @@ cell-fill code entirely. Work these in dependency order:
     fill the card's available height, distributing unused space evenly
     across rows.
 
+- ✅ **Settings panel tile buttons are now square.** All `AnnotationButton`
+  (`.anno-btn`) and compact `PreviewOptionButton` (`.preview-btn.compact`)
+  tiles in the settings panel now render as perfect squares. Change is
+  CSS-only in `src/styles/15-layout-overview.css`:
+  - `.anno-btn`: removed `min-height: 90px; max-height: 100px; max-width: 120px`;
+    added `width: 100%; aspect-ratio: 1 / 1; overflow: hidden;`.
+  - `.preview-btn.compact`: replaced the same three constraints with
+    `width: 100%; aspect-ratio: 1 / 1; overflow: hidden;`.
+  Each button now fills its grid column width and its height is
+  derived from the aspect ratio — giving a perfectly square tile in
+  all three-column (annotation, outline, animation, overlay, color
+  preset, theme) and two-column (mask stamp animation) grids. Hint
+  text that extends beyond the square is clipped by `overflow: hidden`.
+
 7. **Remove `SieveRenderer.skipBitFill` and the Canvas2D cell-fill code.**
    Blocked on items 4–6 (all remaining Canvas2D pixel work must be
    ported before this is safe). The code paths to remove are:
