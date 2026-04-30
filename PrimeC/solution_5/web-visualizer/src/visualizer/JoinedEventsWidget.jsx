@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useLayoutEffect } from 'react';
 import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus } from '../Icons';
-import { LinkIcon } from '../Icons';
+import { LinkIcon, CopyIcon } from '../Icons';
 
 const MAX_ANNOTATION_LINES = 3;
 
@@ -48,6 +48,18 @@ export default function JoinedEventsWidget({
 }) {
   const [isSplitting, setIsSplitting] = useState(false);
   const [showAllAnnotations, setShowAllAnnotations] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copyTimeoutRef = useRef(null);
+
+  const handleCopy = useCallback((e) => {
+    e.stopPropagation();
+    const text = banner?.title || '';
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopied(true);
+      clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopied(false), 1500);
+    }).catch(() => {/* ignore */});
+  }, [banner?.title]);
 
   // Compute the initial horizontal offset so the joined widget's left edge
   // aligns with the EventTitleBanner's left edge at the time of joining.
@@ -156,6 +168,12 @@ export default function JoinedEventsWidget({
           onMouseDown={(e) => e.stopPropagation()}
           title="Reveal current event in the events panel"
         ><LinkIcon size={12} /></button>
+        <button
+          className="joined-widget-btn joined-widget-copy-btn"
+          onClick={handleCopy}
+          onMouseDown={(e) => e.stopPropagation()}
+          title="Copy event description to clipboard"
+        >{copied ? '✓' : <CopyIcon size={12} />}</button>
         <button
           className="joined-widget-btn joined-widget-close-btn"
           onClick={(e) => { e.stopPropagation(); if (onHideWidget) onHideWidget(); }}

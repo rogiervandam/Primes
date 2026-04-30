@@ -915,6 +915,29 @@ in the worker path.
   documentation-only (no `PropTypes` package or `// @ts-check` added); their value
   is to catch accidental prop renames during review and to keep the prop surface
   discoverable without reading the full call site in Visualizer.jsx.
+- ✅ **Hover suppression on floating widgets.** `EventTitleBanner` and
+  `JoinedEventsWidget` now block bit-history balloon creation when the cursor
+  is over them. Root cause: the `overOverlay` early-return in `Visualizer.jsx`'s
+  `pointermove` handler already suppressed hover balloons for `.step-focus-banner`
+  but was missing `.events-panel-floating-title` and `.joined-events-widget` from
+  its `closest()` selector. Both class names added; no other changes required.
+- ✅ **Collapsed event-group counts (`×N` badge).** `EventsPanel.jsx`'s group
+  header now renders a compact `.event-group-count-badge` pill (`×N`) next to
+  the group label when the group is collapsed and has more than one child. The
+  existing `.event-group-info` span (right-aligned) is suppressed while collapsed
+  since the badge already conveys the count, avoiding redundancy. CSS for
+  `.event-group-count-badge` added to `06-events-panel.css`.
+- ✅ **Copy event description to clipboard.** `CopyIcon` (clipboard-copy SVG)
+  added to `src/Icons.jsx`. A `step-focus-copy-btn` button was added to
+  `EventTitleBanner.jsx` at `top:6px; right:32px` (left of the locate-btn).
+  Clicking calls `navigator.clipboard.writeText(banner.title)` and briefly shows
+  `✓` for 1.5 s via local `copied` state + `copyTimeoutRef`. Identical copy
+  button added to `JoinedEventsWidget.jsx`'s header row (class
+  `joined-widget-btn joined-widget-copy-btn`). CSS for `.step-focus-copy-btn`
+  in `07-canvas.css`; the joined variant inherits the shared `.joined-widget-btn`
+  rule already in `18-joined-widget.css`. `npm run build` clean; 50/50 tests pass.
+  Module count: 92 → 92 (no new modules; both components and CopyIcon live in
+  existing files).
 
 These are concrete next-step refactors that each fit comfortably in a
 single working session. Tackle them in order — earlier ones unblock later

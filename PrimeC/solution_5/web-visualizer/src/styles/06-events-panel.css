@@ -82,6 +82,20 @@
 .event-group.active-group > .event-group-header { background: var(--bg-input); border-left: 3px solid var(--accent); }
 .event-group-toggle { font-size: 10px; color: var(--fg-dim); width: 12px; flex-shrink: 0; }
 .event-group-prime { font-weight: 600; color: var(--fg); }
+.event-group-count-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 5px;
+  height: 15px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--fg-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 .event-group-info { color: var(--fg-dim); font-size: 11px; margin-left: auto; white-space: nowrap; }
 .event-child { padding-left: 24px; }
 .event-child .event-item { border-bottom: none; padding: 2px 8px 2px 0; }

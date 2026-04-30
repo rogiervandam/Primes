@@ -287,6 +287,27 @@
   z-index: 1;
 }
 .step-focus-locate-btn:hover { background: var(--bg-raised); color: var(--fg); }
+.step-focus-copy-btn {
+  position: absolute;
+  top: 6px;
+  right: 32px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--fg-dim);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  pointer-events: auto;
+  z-index: 1;
+}
+.step-focus-copy-btn:hover { background: var(--bg-raised); color: var(--fg); }
 .step-focus-context {
   margin: 4px 0 6px;
   padding: 4px 6px;

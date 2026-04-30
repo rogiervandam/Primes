@@ -1,5 +1,5 @@
 import React from 'react';
-import { LinkIcon } from '../Icons';
+import { LinkIcon, CopyIcon } from '../Icons';
 
 const MAX_ANNOTATION_LINES = 3;
 
@@ -37,6 +37,18 @@ export default function EventTitleBanner({
   const bannerRef = React.useRef(null);
   const [dropHint, setDropHint] = React.useState(null); // 'left' | 'bottom' | 'detail' | null
   const [showAllAnnotations, setShowAllAnnotations] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+  const copyTimeoutRef = React.useRef(null);
+
+  const handleCopy = React.useCallback((e) => {
+    e.stopPropagation();
+    const text = banner.title || '';
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopied(true);
+      clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopied(false), 1500);
+    }).catch(() => {/* ignore */});
+  }, [banner.title]);
 
   // Hit-test the detail panel directly so the user can drop the widget on the
   // collapsed bottom bar without having to reach the very bottom of the
@@ -177,6 +189,12 @@ export default function EventTitleBanner({
         onMouseDown={(e) => e.stopPropagation()}
         title="Reveal this event in the events panel (clears filters and expands parents)"
       ><LinkIcon size={12} /></button>
+      <button
+        className="step-focus-copy-btn"
+        onClick={handleCopy}
+        onMouseDown={(e) => e.stopPropagation()}
+        title="Copy event description to clipboard"
+      >{copied ? '✓' : <CopyIcon size={12} />}</button>
       {/* The drag handle covers the title + annotation + bits-changed area.
           The context rows and sliders below are interactive and not draggable. */}
       <div className="step-focus-drag-handle" onMouseDown={handleMouseDown}>

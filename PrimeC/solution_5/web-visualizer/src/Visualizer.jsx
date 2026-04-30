@@ -3157,7 +3157,8 @@ export default function Visualizer({
         if (!hit) return false;
         return !!hit.closest(
           '.toolbar, .events-panel, .settings-sidebar, .detail-panel, .timing-panel, ' +
-          '.step-focus-banner, .minimap-overlay-canvas, .trace-info-popover, ' +
+          '.step-focus-banner, .events-panel-floating-title, .joined-events-widget, ' +
+          '.minimap-overlay-canvas, .trace-info-popover, ' +
           '.bit-history-panel'
         );
       })();

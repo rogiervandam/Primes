@@ -888,11 +888,14 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
                   {isCollapsed ? '▶' : '▼'}
                 </span>
                 <span className="event-group-prime">{group.label}</span>
+                {isCollapsed && group.children.length > 1 && (
+                  <span className="event-group-count-badge" title={`${group.children.length} events hidden`}>×{group.children.length}</span>
+                )}
                 {group.operation && group.operation !== 'Initialization' && (
                   <span className="event-op">{group.operation}</span>
                 )}
                 <span className="event-group-info">
-                  {group.children.length > 1 ? `${group.children.length} events` : '1 event'}
+                  {!isCollapsed && (group.children.length > 1 ? `${group.children.length} events` : '1 event')}
                   {group.totalChanged > 0 ? ` · +${group.totalChanged}` : ''}
                 </span>
               </div>
