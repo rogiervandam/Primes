@@ -238,6 +238,10 @@ function initialAllEventsWidgetHidden(prefs) {
   return prefs?.allEventsWidgetHidden === true;
 }
 
+function initialWidgetsJoined(prefs) {
+  return prefs?.widgetsJoined === true;
+}
+
 // Valid preset keys (mirrors COLOR_PRESETS in src/renderer/constants.js).
 // Listed here to avoid a cross-module import from a lib/ utility.
 const VALID_COLOR_PRESET_KEYS = new Set(['default', 'highContrast', 'pastel', 'darkMode']);
@@ -306,6 +310,7 @@ export function getInitialViewState() {
     colorPreset: initialColorPreset(prefs),
     customColors: initialCustomColors(prefs),
     allEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
+    widgetsJoined: initialWidgetsJoined(prefs),
     ...initialPanelVisibility(prefs),
   };
 }

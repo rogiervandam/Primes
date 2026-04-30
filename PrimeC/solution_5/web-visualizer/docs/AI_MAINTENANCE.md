@@ -702,6 +702,19 @@ overwrite.
   then render it as `<Foo />`. Use direct function calls (`{Foo()}`),
   module-level components, or proper child components with props. The
   problem recurs silently otherwise because no ESLint rule flags it.
+- ✅ Added widget join/split feature. New `src/visualizer/JoinedEventsWidget.jsx`
+  merges the floating all-events transport widget and the single-event
+  `EventTitleBanner` into one draggable panel when the user drags one onto
+  the other. `widgetsJoined` boolean state in `Visualizer.jsx` persisted via
+  `viewPrefs`. Join detection uses `document.querySelector` proximity (40 px
+  hit-pad) in both `StepPanel`'s and `EventTitleBanner`'s `detectDropZone`
+  helpers, returning `'joinWidget'`. A `merge-target` CSS class is toggled on
+  the target widget during drag. The joined widget has a ⊡ split button that
+  plays a `@keyframes joined-widget-split` (scale+fade-out, 320 ms) then
+  resets `widgetsJoined`. Appear animation: `@keyframes joined-widget-appear`
+  (scale 0.88→1 + fade). `toggleStepsPanel` and `revealCurrentStepInPanel`
+  call `setWidgetsJoined(false)` when the panel opens; `JoinedEventsWidget`'s
+  expand-panel button also splits first. CSS in `src/styles/18-joined-widget.css`.
 
 ---
 

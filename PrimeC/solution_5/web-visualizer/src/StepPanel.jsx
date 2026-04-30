@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
-import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus } from './Icons';
+import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus, Eye } from './Icons';
 import { formatNs } from './TimingPanel';
 
 /**
@@ -94,7 +94,7 @@ function buildDepthTree(steps) {
 /**
  * Hierarchical step panel grouped by prime, with collapse/expand.
  */
-export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, allEventsWidgetHidden = false, onExpandPanelFromWidget, onDockWidgetToTopBar, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0, goToStep, playing, handlePlayPause, exporting, isScrubbingTopRef, playSpeedPercent, setPlaySpeedPercent }) {
+export default function StepPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, allEventsWidgetHidden = false, onExpandPanelFromWidget, onDockWidgetToTopBar, onJoinWidgets, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0, goToStep, playing, handlePlayPause, exporting, isScrubbingTopRef, playSpeedPercent, setPlaySpeedPercent, eventTitleVisible = true, onShowEventTitle }) {
   const listRef = useRef(null);
   const scrollTopRef = useRef(0);
   const [search, setSearch] = useState('');
@@ -112,15 +112,28 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
   const [isCollapsingOut, setIsCollapsingOut] = useState(false);
 
   // Detect which screen-edge drop-zone the pointer is currently over.
-  // Returns 'left' (expand events panel), 'top' (dock to top bar), or null.
+  // Returns 'left' (expand events panel), 'top' (dock to top bar),
+  // 'joinWidget' (merge with EventTitleBanner), or null.
   const detectDropZone = useCallback((clientX, clientY) => {
     if (typeof window === 'undefined') return null;
     const TOP_BAND = 60;   // top toolbar drop band height
     const LEFT_BAND = 80;  // left edge drop band width
     if (clientY <= TOP_BAND) return 'top';
     if (clientX <= LEFT_BAND) return 'left';
+    // Check proximity to the floating single-event banner (join affordance).
+    if (onJoinWidgets) {
+      const banner = document.querySelector('.step-focus-banner');
+      if (banner) {
+        const r = banner.getBoundingClientRect();
+        const HIT_PAD = 40;
+        if (clientX >= r.left - HIT_PAD && clientX <= r.right + HIT_PAD &&
+            clientY >= r.top - HIT_PAD && clientY <= r.bottom + HIT_PAD) {
+          return 'joinWidget';
+        }
+      }
+    }
     return null;
-  }, []);
+  }, [onJoinWidgets]);
 
   const handleFloatDragStart = useCallback((e) => {
     if (e.target.closest('input') || e.target.closest('button')) return;
@@ -141,15 +154,25 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
       if (zone !== lastZone) {
         lastZone = zone;
         setFloatDropHint(zone);
+        // Visual merge hint on the single-event banner when dragging near it.
+        const banner = document.querySelector('.step-focus-banner');
+        if (banner) banner.classList.toggle('merge-target', zone === 'joinWidget');
       }
     };
     const onUp = (ev) => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
       setFloatDropHint(null);
+      // Remove merge-target hint from the banner.
+      const banner = document.querySelector('.step-focus-banner');
+      if (banner) banner.classList.remove('merge-target');
       if (!dragged) return;
       const zone = detectDropZone(ev.clientX, ev.clientY);
-      if (zone === 'left' && onExpandPanelFromWidget) {
+      if (zone === 'joinWidget' && onJoinWidgets) {
+        floatDragRef.current = { x: 0, y: 0 };
+        setFloatDrag({ x: 0, y: 0 });
+        onJoinWidgets();
+      } else if (zone === 'left' && onExpandPanelFromWidget) {
         // Snap drag offset back so the widget is fresh next time it appears.
         floatDragRef.current = { x: 0, y: 0 };
         setFloatDrag({ x: 0, y: 0 });
@@ -163,7 +186,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     e.preventDefault();
-  }, [detectDropZone, onExpandPanelFromWidget, onDockWidgetToTopBar]);
+  }, [detectDropZone, onExpandPanelFromWidget, onDockWidgetToTopBar, onJoinWidgets]);
 
   // Drag-to-collapse: dragging the expanded title row rightward collapses the panel.
   const COLLAPSE_DRAG_THRESHOLD = 80;
@@ -727,6 +750,14 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
           <div className="step-panel-float-top-row">
             <button className="step-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Expand events panel" onMouseDown={(e) => e.stopPropagation()}>▼</button>
             <span className="panel-label" title="Events">Events</span>
+            {!eventTitleVisible && onShowEventTitle && (
+              <button
+                className="step-panel-show-event-title-btn"
+                onClick={(e) => { e.stopPropagation(); onShowEventTitle(); }}
+                onMouseDown={(e) => e.stopPropagation()}
+                title="Show single-event widget"
+              ><Eye size={11} /></button>
+            )}
           </div>
           {transportControls}
         </div>
@@ -741,6 +772,14 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
           title="Drag right to collapse"
         >
           <h3>Events ({totalVisible}/{steps.length})</h3>
+          {!eventTitleVisible && onShowEventTitle && (
+            <button
+              className="step-panel-show-event-title-btn"
+              onClick={(e) => { e.stopPropagation(); onShowEventTitle(); }}
+              onMouseDown={(e) => e.stopPropagation()}
+              title="Show single-event widget"
+            ><Eye size={12} /></button>
+          )}
           <button className="step-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Collapse events panel">
             ◀
           </button>

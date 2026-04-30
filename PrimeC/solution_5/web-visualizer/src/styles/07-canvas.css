@@ -58,6 +58,11 @@
      panel's content — give a slightly different tint to telegraph that. */
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.36), 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent);
 }
+.step-focus-banner.dropping-joinWidget {
+  /* When dropping onto the all-events floater to join them. */
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.36), 0 0 0 4px color-mix(in srgb, var(--accent) 50%, transparent);
+  outline: 2px solid var(--accent);
+}
 .step-focus-banner input { pointer-events: auto; cursor: pointer; user-select: none; }
 .step-focus-line3 {
   font-size: 11px;
@@ -398,6 +403,7 @@
 }
 .step-focus-annotation-line.line2 {
   margin-top: 3px;
+  max-width: 40em;
 }
 .step-focus-line3-empty {
   opacity: 0; /* invisible placeholder — keeps height stable */

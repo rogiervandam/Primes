@@ -9,6 +9,7 @@ import Toolbar from './visualizer/Toolbar';
 import ExportProgress from './visualizer/ExportProgress';
 import CanvasStage from './visualizer/CanvasStage';
 import EventTitleBanner from './visualizer/EventTitleBanner';
+import JoinedEventsWidget from './visualizer/JoinedEventsWidget';
 import DetailInspectorOverlay from './visualizer/DetailInspectorOverlay';
 import StepAnimSliders from './visualizer/StepAnimSliders';
 import BitHistoryBalloons from './visualizer/BitHistoryBalloons';
@@ -206,6 +207,22 @@ export default function Visualizer({
   // collapsed so the widget reliably reappears on the next toggle.
   const [allEventsWidgetHidden, setAllEventsWidgetHidden] = useState(initialPrefs.allEventsWidgetHidden);
   const showAllEventsWidget = useCallback(() => setAllEventsWidgetHidden(false), []);
+  // When true the floating all-events widget and the single-event banner are
+  // merged into a single JoinedEventsWidget. Persisted to localStorage.
+  const [widgetsJoined, setWidgetsJoined] = useState(
+    // If the panel was already open when saved, the joined widget can't show;
+    // reset to false so neither widget is invisible on startup.
+    (initialPrefs.widgetsJoined === true && initialPrefs.stepsPanelCollapsed === true)
+      ? true
+      : false
+  );
+  const joinWidgets = useCallback(() => setWidgetsJoined(true), []);
+  const splitWidgets = useCallback(() => {
+    setWidgetsJoined(false);
+    // Reset the banner's drag offset so it reappears at its default anchor
+    // (bottom-left of canvas) rather than wherever it was last dragged to.
+    setEventTitleSettings((prev) => ({ ...prev, dragOffsetX: 0, dragOffsetY: 0 }));
+  }, []);
   const [storageModel, setStorageModel] = useState(header.storageModel || 'half');
   const [selectedSteps, setSelectedSteps] = useState(new Set());
   const [heatMapEnabled, setHeatMapEnabled] = useState(false);
@@ -635,7 +652,13 @@ export default function Visualizer({
     // update so the resize useEffect can pin it after CSS reflow. See
     // pendingResizeAnchorRef for why fresh capture in the effect drifts.
     pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
-    setStepsPanelCollapsed((wasCollapsed) => !wasCollapsed);
+    setStepsPanelCollapsed((wasCollapsed) => {
+      // When the panel is being OPENED (was collapsed), split the widgets so
+      // the single-event banner shows independently — the all-events transport
+      // is now in the panel itself.
+      if (wasCollapsed) setWidgetsJoined(false);
+      return !wasCollapsed;
+    });
     // Always reset widget-hidden so the floating widget reliably reappears
     // when the panel is collapsed (undoes any previous dock-to-top-bar gesture).
     setAllEventsWidgetHidden(false);
@@ -650,6 +673,8 @@ export default function Visualizer({
     setStepsPanelCollapsed((wasCollapsed) => {
       if (wasCollapsed) {
         pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
+        // Opening the panel: split the joined widget so the banner is independent.
+        setWidgetsJoined(false);
         return false;
       }
       return wasCollapsed;
@@ -719,11 +744,12 @@ export default function Visualizer({
       delayBetweenRepeats,
       eventTimeTargets,
       allEventsWidgetHidden,
+      widgetsJoined,
       stepsPanelCollapsed,
       settingsCollapsed,
       detailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, stepsPanelCollapsed, settingsCollapsed, detailOpen]);
+  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, widgetsJoined, stepsPanelCollapsed, settingsCollapsed, detailOpen]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -4023,7 +4049,7 @@ export default function Visualizer({
           onWidthChange={setPanelWidth}
           panelCollapsed={stepsPanelCollapsed}
           onToggleCollapse={toggleStepsPanel}
-          allEventsWidgetHidden={allEventsWidgetHidden}
+          allEventsWidgetHidden={allEventsWidgetHidden || widgetsJoined}
           onExpandPanelFromWidget={() => {
             setAllEventsWidgetHidden(false);
             setStepsPanelCollapsed(false);
@@ -4031,6 +4057,7 @@ export default function Visualizer({
           onDockWidgetToTopBar={() => {
             setAllEventsWidgetHidden(true);
           }}
+          onJoinWidgets={joinWidgets}
           externalOpFilter={timingFocusOp}
           onExternalOpFilterConsumed={() => setTimingFocusOp('')}
           revealStepRequest={revealStepRequest}
@@ -4041,6 +4068,11 @@ export default function Visualizer({
           isScrubbingTopRef={isScrubbingTopRef}
           playSpeedPercent={playSpeedPercent}
           setPlaySpeedPercent={setPlaySpeedPercent}
+          eventTitleVisible={eventTitleSettings.visible && !widgetsJoined}
+          onShowEventTitle={() => {
+            setEventTitleSettings((prev) => ({ ...prev, visible: true, dragOffsetX: 0, dragOffsetY: 0 }));
+            splitWidgets();
+          }}
         />
         <CanvasStage
           mode3D={mode3D}
@@ -4063,6 +4095,9 @@ export default function Visualizer({
           stepsPanelCollapsed={stepsPanelCollapsed}
           setStepsPanelCollapsed={setStepsPanelCollapsed}
           stepAnimSlidersContent={stepAnimSlidersContent}
+          widgetsJoined={widgetsJoined}
+          onJoinWidgets={joinWidgets}
+          onSplitWidgets={splitWidgets}
           pinnedBitIndices={pinnedBitIndices}
           hoveredBitInfo={hoveredBitInfo}
           computeBitInfo={computeBitInfo}
@@ -4097,6 +4132,36 @@ export default function Visualizer({
           onImportBenchmarkTiming={onImportBenchmarkTiming}
           steps={steps}
         />
+        {widgetsJoined && stepsPanelCollapsed && !allEventsWidgetHidden && eventTitleSettings.visible && (
+          <JoinedEventsWidget
+            currentStep={currentStep}
+            steps={steps}
+            goToStep={goToStep}
+            playing={playing}
+            handlePlayPause={handlePlayPause}
+            exporting={!!exporting}
+            isScrubbingTopRef={isScrubbingTopRef}
+            playSpeedPercent={playSpeedPercent}
+            setPlaySpeedPercent={setPlaySpeedPercent}
+            settings={eventTitleSettings}
+            setSettings={setEventTitleSettings}
+            banner={currentStepBanner}
+            surrounding={surroundingEvents}
+            currentStepData={currentStepData}
+            revealCurrentStepInPanel={revealCurrentStepInPanel}
+            stepsPanelCollapsed={stepsPanelCollapsed}
+            setStepsPanelCollapsed={setStepsPanelCollapsed}
+            detailOpen={detailOpen}
+            toggleDetailPanel={toggleDetailPanel}
+            sliders={stepAnimSlidersContent}
+            onSplitWidgets={splitWidgets}
+            onHideWidget={() => {
+              setWidgetsJoined(false);
+              setAllEventsWidgetHidden(true);
+              setEventTitleSettings((prev) => ({ ...prev, visible: false }));
+            }}
+          />
+        )}
         <SettingsPanel
           settings={layoutSettings}
           onChange={setLayoutSettings}

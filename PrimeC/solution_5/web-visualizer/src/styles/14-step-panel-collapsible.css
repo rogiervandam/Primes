@@ -92,6 +92,27 @@
   color: var(--fg-bright);
   background: var(--bg-input);
 }
+
+.step-panel-show-event-title-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  flex: 0 0 auto;
+  opacity: 0.75;
+}
+.step-panel-show-event-title-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+  background: var(--accent-bg);
+  opacity: 1;
+}
+
 /* Floating title when step panel is collapsed */
 .step-panel-floating-title {
   position: absolute;
@@ -122,6 +143,11 @@
   outline: 2px dashed var(--accent);
   outline-offset: 2px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35), 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.step-panel-floating-title.dropping-joinWidget {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35), 0 0 0 4px color-mix(in srgb, var(--accent) 50%, transparent);
 }
 .step-panel-floating-title.dropping-left::after,
 .step-panel-floating-title.dropping-top::after {

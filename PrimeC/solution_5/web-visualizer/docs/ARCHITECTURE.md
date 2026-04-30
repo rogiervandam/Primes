@@ -78,6 +78,7 @@ src/
 │   ├── BitHistoryBalloon.jsx     Hover/pinned bit-history popover
 │   ├── BitHistoryBalloons.jsx    Pinned + hover bit-history balloon cluster
 │   ├── EventTitleBanner.jsx      Floating current-event banner (draggable)
+│   ├── JoinedEventsWidget.jsx    Combined transport+event banner widget (join/split mode)
 │   ├── DetailInspectorOverlay.jsx Modal table of bits / numbers / primes
 │   ├── StepAnimSliders.jsx       Mode/Timeline/Target/Speed sliders cluster
 │   └── gestures/             Pure gesture-body helpers

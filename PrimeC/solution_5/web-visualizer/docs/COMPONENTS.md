@@ -86,8 +86,24 @@ Drop-zone gestures while dragging:
 - drop near the left window edge → expands the events panel and hides the banner (banner can be re-shown via the ▲ button on the bottom DetailPanel)
 - drop onto the detail panel → expands the detail panel (if collapsed) and hides the banner
 - drop near the bottom edge of the window → hides the banner (same as the ▼ close button)
+- drop onto the all-events floater (`.step-panel-floating-title`) → triggers widget join (calls `onJoinWidgets`)
 
 The banner is forced visible on every fresh session via `mergeEventTitleSettings` so users always see it on startup.
+
+### `JoinedEventsWidget.jsx`
+Combined floating widget shown when `widgetsJoined = true` and the events panel is collapsed. Merges the all-events transport controls (play/pause, step navigation, timeline slider, speed) with the single-event content from `EventTitleBanner` (annotation heading, bits changed, nearby events, per-step sliders) into one draggable panel.
+
+**Join trigger:** dragging either the all-events floater or the `EventTitleBanner` onto the other widget (within 40 px hit-padding) calls `joinWidgets()` in `Visualizer.jsx` which sets `widgetsJoined = true`. A `.merge-target` CSS ring highlights the target during drag.
+
+**Split:** the ⊡ split button (`.joined-widget-split-btn`) sets `is-splitting` CSS class, plays a 320 ms `@keyframes joined-widget-split` (scale+fade-out) animation, then calls `onSplitWidgets`. The expand-panel (▼) button also splits first, then opens the events panel.
+
+**Appear animation:** `@keyframes joined-widget-appear` (scale 0.88→1 + opacity 0→1, 280 ms) on mount.
+
+**Auto-split on panel open:** `Visualizer.jsx` calls `setWidgetsJoined(false)` inside `toggleStepsPanel` and `revealCurrentStepInPanel` whenever the events panel is being expanded.
+
+**Draggable:** drag from the header row updates position; on mouseup the offset is persisted to `eventTitleSettings.dragOffsetX/Y` so the banner re-appears at the correct position after splitting.
+
+**CSS:** `src/styles/18-joined-widget.css` (imported via `index.css`).
 
 ### `DetailInspectorOverlay.jsx`
 Modal table that lists every changed bit (or every multiple / every prime) for the current step. Pure presentation: takes `{ open, mode, query, onQueryChange, onClose, rows, filteredRows }` and renders the search-filtered list. The visualizer owns the data; the overlay just paints it.

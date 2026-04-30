@@ -32,6 +32,7 @@ export default function EventTitleBanner({
   detailOpen,
   toggleDetailPanel,
   sliders,
+  onJoinWidgets,
 }) {
   const [dropHint, setDropHint] = React.useState(null); // 'left' | 'bottom' | 'detail' | null
   const [showAllAnnotations, setShowAllAnnotations] = React.useState(false);
@@ -56,8 +57,20 @@ export default function EventTitleBanner({
     if (clientX <= LEFT_BAND) return 'left';
     if (isOverDetailPanel(clientX, clientY, bannerEl)) return 'detail';
     if (clientY >= window.innerHeight - BOTTOM_BAND) return 'bottom';
+    // Check proximity to the floating all-events widget (join affordance).
+    if (onJoinWidgets && stepsPanelCollapsed) {
+      const floater = document.querySelector('.step-panel-floating-title');
+      if (floater) {
+        const r = floater.getBoundingClientRect();
+        const HIT_PAD = 40;
+        if (clientX >= r.left - HIT_PAD && clientX <= r.right + HIT_PAD &&
+            clientY >= r.top - HIT_PAD && clientY <= r.bottom + HIT_PAD) {
+          return 'joinWidget';
+        }
+      }
+    }
     return null;
-  }, [isOverDetailPanel]);
+  }, [isOverDetailPanel, onJoinWidgets, stepsPanelCollapsed]);
 
   const handleMouseDown = (e) => {
     if (e.target.closest('input') || e.target.closest('button')) return;
@@ -82,18 +95,32 @@ export default function EventTitleBanner({
       if (zone !== lastZone) {
         lastZone = zone;
         setDropHint(zone);
+        // Visual merge hint on the all-events floater when dragging near it.
+        const floater = document.querySelector('.step-panel-floating-title');
+        if (floater) floater.classList.toggle('merge-target', zone === 'joinWidget');
       }
     };
     const onUp = (ev) => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
       setDropHint(null);
+      // Remove merge-target hint from the floater.
+      const floater = document.querySelector('.step-panel-floating-title');
+      if (floater) floater.classList.remove('merge-target');
       if (!dragged) {
         // Click without drag: open the Events panel.
         if (stepsPanelCollapsed) setStepsPanelCollapsed(false);
         return;
       }
       const zone = detectDropZone(ev.clientX, ev.clientY, bannerEl);
+      if (zone === 'joinWidget' && onJoinWidgets) {
+        // The banner was dropped onto the all-events floater: join them.
+        // Reset drag offset so the banner re-appears at its default position
+        // when the widgets are later split.
+        setSettings((prev) => ({ ...prev, dragOffsetX: 0, dragOffsetY: 0 }));
+        onJoinWidgets();
+        return;
+      }
       if (zone === 'left') {
         // Snap drag offset back so the banner returns to its anchor next time.
         setSettings((prev) => ({

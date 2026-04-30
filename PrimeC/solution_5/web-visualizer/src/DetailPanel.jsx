@@ -395,7 +395,7 @@ export default function DetailPanel({
     <div className={`detail-panel ${open ? 'open' : 'collapsed'}`}>
       {open && !playing && <div className="detail-panel-resize" onMouseDown={handleHeightDrag} />}
       <div className="detail-panel-toggle" onClick={onToggle}>
-        {!eventTitleVisible && (
+        {(!eventTitleVisible || true) && (
           <button
             className="detail-panel-show-banner-btn"
             onClick={(e) => { e.stopPropagation(); onShowEventTitle && onShowEventTitle(); if (open) onToggle(); }}

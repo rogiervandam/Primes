@@ -48,6 +48,10 @@ function CanvasStage({
   stepsPanelCollapsed,
   setStepsPanelCollapsed,
   stepAnimSlidersContent,
+  // join/split state for the joined widget feature
+  widgetsJoined,
+  onJoinWidgets,
+  onSplitWidgets,
   // bit-history balloons
   pinnedBitIndices,
   hoveredBitInfo,
@@ -88,7 +92,7 @@ function CanvasStage({
 }) {
   return (
     <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
-      {eventTitleSettings.visible && (
+      {eventTitleSettings.visible && !widgetsJoined && (
         <EventTitleBanner
           settings={eventTitleSettings}
           setSettings={setEventTitleSettings}
@@ -104,6 +108,7 @@ function CanvasStage({
           detailOpen={detailOpen}
           toggleDetailPanel={toggleDetailPanel}
           sliders={stepAnimSlidersContent}
+          onJoinWidgets={onJoinWidgets}
         />
       )}
       <div
@@ -161,10 +166,11 @@ function CanvasStage({
         benchmarkTimingData={benchmarkTimingData}
         onInspectChangedBits={() => openDetailInspector('bits')}
         onInspectMarkedNumbers={() => openDetailInspector('numbers')}
-        eventTitleVisible={eventTitleSettings.visible}
-        onShowEventTitle={() =>
-          setEventTitleSettings((prev) => ({ ...prev, visible: true }))
-        }
+        eventTitleVisible={eventTitleSettings.visible && !widgetsJoined}
+        onShowEventTitle={() => {
+          setEventTitleSettings((prev) => ({ ...prev, visible: true, dragOffsetX: 0, dragOffsetY: 0 }));
+          if (widgetsJoined) onSplitWidgets?.();
+        }}
         eventAnimSliders={stepAnimSlidersContent}
       />
 
