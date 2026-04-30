@@ -6,7 +6,9 @@
 
 Prompt for refactor:
 
-Read @file:docs/AI_MAINTENANCE.md, @file:docs/ARCHTECTURE.md and @file:COMPONENTS.md. Look at the AI_MAINTENANCE.md and select tasks from the backlog that fit together in one session. Perform these tasks and update the documents with what has been done and remaining work to do.
+Read @file:docs/AI_MAINTENANCE.md, @file:docs/ARCHTECTURE.md and @file:COMPONENTS.md. Look at the AI_MAINTENANCE.md and select tasks from the backlog that fit together in one session. Perform these tasks and update the documents with what has been done and add to the backlog remaining work to do. Give a summary of what was done and what should be tested.
+
+
 
 The web visualizer is a long-lived React/Vite app with **three** large files that historically attract most of the changes:
 

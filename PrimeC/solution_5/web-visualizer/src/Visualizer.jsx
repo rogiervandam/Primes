@@ -3366,7 +3366,7 @@ export default function Visualizer({
   });
 
   // PNG snapshot + WebM video export. See src/hooks/useTraceExport.js.
-  const { exporting, exportProgress, exportPng, exportVideo, cancelExport } = useTraceExport({
+  const { exporting, exportProgress, exportError, exportPng, exportVideo, cancelExport } = useTraceExport({
     rendererRef,
     steps,
     bitCount: header.bitCount,
@@ -4014,6 +4014,11 @@ export default function Visualizer({
       />
 
       {exporting && <ExportProgress progress={exportProgress} />}
+      {exportError && (
+        <div className="export-error-banner" role="alert">
+          {exportError}
+        </div>
+      )}
 
       {/* Main content — panels float (position:absolute) within this div, which sits
            below the toolbar. overflow:visible so collapsed toggle buttons are not

@@ -26,9 +26,11 @@ function ensureWorker() {
       pending.delete(id);
       cb(event.data);
     };
-    sharedWorker.onerror = () => {
-      // On hard worker failure (e.g. compile error), drop everything to
-      // the synchronous fallback for the rest of the session.
+    sharedWorker.onerror = (err) => {
+      // On hard worker failure (e.g. compile error), surface to console so
+      // it's visible during development, then fall back to synchronous
+      // compute for the rest of the session.
+      console.error('[bitPrePassClient] worker error — falling back to synchronous:', err && err.message);
       pending.clear();
       sharedWorker = null;
     };

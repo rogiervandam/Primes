@@ -94,7 +94,7 @@ export class BitGridGLWorker {
         }
         this._pending.length = 0;
       } else if (msg.type === 'error') {
-        console.warn('[BitGridGLWorker] worker error:', msg.message);
+        console.error('[BitGridGLWorker] worker error:', msg.message);
         // Don't tear down — the worker may still be partially functional
         // (e.g. a single bad render call) and the Canvas2D layer is
         // visible above us anyway.
@@ -123,7 +123,7 @@ export class BitGridGLWorker {
       }
     };
     this._worker.onerror = (err) => {
-      console.warn('[BitGridGLWorker] worker crashed:', err && err.message);
+      console.error('[BitGridGLWorker] worker crashed:', err && err.message);
       this._lost = true;
     };
     this._post({ type: 'init', canvas: offscreen }, [offscreen]);

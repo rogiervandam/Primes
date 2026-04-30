@@ -21,3 +21,13 @@
 }
 .btn-export-cancel:hover { opacity: 0.8; }
 
+/* Shown when video export is blocked by a hidden canvas. */
+.export-error-banner {
+  padding: 6px 14px;
+  background: var(--error-bg, #7f1d1d);
+  color: var(--error-fg, #fecaca);
+  font-size: 12px;
+  flex-shrink: 0;
+  text-align: center;
+}
+

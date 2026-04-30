@@ -27,6 +27,7 @@ export function useTraceExport({
 }) {
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
+  const [exportError, setExportError] = useState('');
   const exportCancelRef = useRef(false);
 
   const exportPng = useCallback(() => {
@@ -42,12 +43,25 @@ export function useTraceExport({
   const exportVideo = useCallback(async () => {
     const r = rendererRef.current;
     if (!r || steps.length === 0 || exporting) return;
+
+    // Guard: captureStream produces a silent empty video when the canvas is
+    // not visible (display:none or detached — see §5 minefield note).
+    const canvas = r.canvas;
+    if (!canvas || canvas.offsetParent === null) {
+      const msg = 'Video export cancelled: the canvas is not visible. ' +
+        'Close any modal overlays and try again.';
+      console.error('[useTraceExport]', msg);
+      setExportError(msg);
+      return;
+    }
+
     setExporting(true);
     setExportProgress(0);
+    setExportError('');
     exportCancelRef.current = false;
 
     try {
-      const stream = r.canvas.captureStream(0);
+      const stream = canvas.captureStream(0);
       const track = stream.getVideoTracks()[0];
       const recorder = new MediaRecorder(stream, {
         mimeType: 'video/webm;codecs=vp9',
@@ -134,5 +148,5 @@ export function useTraceExport({
     exportCancelRef.current = true;
   }, []);
 
-  return { exporting, exportProgress, exportPng, exportVideo, cancelExport };
+  return { exporting, exportProgress, exportError, exportPng, exportVideo, cancelExport };
 }

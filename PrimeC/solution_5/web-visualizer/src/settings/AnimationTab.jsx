@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useTransition } from 'react';
 import {
   playbackSpeedToPercent as playbackSpeedToMs,
   percentToPlaybackSpeed as msToPlaybackSpeed,
@@ -228,6 +228,11 @@ function AnimationTab({
   bitAnimationMode, onBitAnimationModeChange,
 }) {
   const playbackSpeedValue = msToPlaybackSpeed(playSpeed || 100);
+  // Wrap slider onChange callbacks in startTransition so React deprioritises
+  // these updates relative to rAF-driven canvas rendering. The settings
+  // sliders fire on every pointermove; without this, rapid dragging forces
+  // synchronous Visualizer re-renders that compete with animation frames.
+  const [, startTransition] = useTransition();
 
   return (
     <>
@@ -431,7 +436,7 @@ function AnimationTab({
               max={100}
               step={1}
               value={playbackSpeedValue}
-              onChange={(e) => onPlaySpeedChange(playbackSpeedToMs(e.target.value))}
+              onChange={(e) => startTransition(() => onPlaySpeedChange(playbackSpeedToMs(e.target.value)))}
               title="Speed % applied to every per-event time target. 50% = twice as long, 200% = half as long."
             />
             <div className="timing-scale" aria-hidden="true">
@@ -449,7 +454,7 @@ function AnimationTab({
               max={5000}
               step={100}
               value={repeatAnim || 0}
-              onChange={(e) => onRepeatAnimChange(clamp(parseInt(e.target.value || '0', 10) || 0, 0, 5000))}
+              onChange={(e) => startTransition(() => onRepeatAnimChange(clamp(parseInt(e.target.value || '0', 10) || 0, 0, 5000)))}
               title="Pause after one event finishes before the all-events widget advances to the next event."
             />
             <div className="timing-scale" aria-hidden="true">
@@ -467,7 +472,7 @@ function AnimationTab({
               max={5000}
               step={100}
               value={delayBetweenRepeats || 0}
-              onChange={(e) => onDelayBetweenRepeatsChange && onDelayBetweenRepeatsChange(clamp(parseInt(e.target.value || '0', 10) || 0, 0, 5000))}
+              onChange={(e) => startTransition(() => onDelayBetweenRepeatsChange && onDelayBetweenRepeatsChange(clamp(parseInt(e.target.value || '0', 10) || 0, 0, 5000)))}
               title="Pause between repeats when the single-event widget is in play mode."
             />
             <div className="timing-scale" aria-hidden="true">
@@ -531,7 +536,7 @@ function AnimationTab({
                     value={Math.max(0, Number(eventTimeTargets.min) || 0)}
                     onChange={(e) => {
                       const v = Math.max(0, parseInt(e.target.value || '0', 10) || 0);
-                      onEventTimeTargetsChange({ ...eventTimeTargets, min: v });
+                      startTransition(() => onEventTimeTargetsChange({ ...eventTimeTargets, min: v }));
                     }}
                   />
                   <span className="val">{fmtMs(Math.max(0, Number(eventTimeTargets.min) || 0))}</span>
@@ -548,7 +553,7 @@ function AnimationTab({
                     value={Math.max(1000, Number(eventTimeTargets.max) || 15000)}
                     onChange={(e) => {
                       const v = Math.max(0, parseInt(e.target.value || '0', 10) || 0);
-                      onEventTimeTargetsChange({ ...eventTimeTargets, max: v });
+                      startTransition(() => onEventTimeTargetsChange({ ...eventTimeTargets, max: v }));
                     }}
                   />
                   <span className="val">{fmtMs(Math.max(0, Number(eventTimeTargets.max) || 15000))}</span>
