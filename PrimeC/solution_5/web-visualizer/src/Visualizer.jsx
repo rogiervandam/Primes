@@ -4055,7 +4055,12 @@ export default function Visualizer({
           setPlaySpeedPercent={setPlaySpeedPercent}
           eventTitleVisible={eventTitleSettings.visible && !widgetsJoined}
           onShowEventTitle={() => {
-            setEventTitleSettings((prev) => ({ ...prev, visible: true, dragOffsetX: 0, dragOffsetY: 0 }));
+            // Place the banner above the current detail panel state with 30px padding.
+            // CSS anchor is bottom:20px; detail header = 22px (from detailPad convention).
+            const DETAIL_HEADER_H = 22;
+            const totalPanelH = detailOpen ? detailHeight + DETAIL_HEADER_H : DETAIL_HEADER_H;
+            const dragOffsetY = -(totalPanelH + 30 - 20);
+            setEventTitleSettings((prev) => ({ ...prev, visible: true, dragOffsetX: 0, dragOffsetY }));
             splitWidgets();
           }}
         />

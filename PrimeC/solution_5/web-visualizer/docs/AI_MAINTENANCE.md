@@ -1073,6 +1073,29 @@ text that extends beyond the square is clipped by `overflow: hidden`.
   import introduced; `SieveRenderer`'s re-export kept intact for any
   remaining direct-renderer consumers. Build passes clean at 88 modules.
   (Backlog item 17.)
+- ✅ **Scoped the event-widget drag handle to the title area.**
+  The `onMouseDown={handleMouseDown}` on the outer banner `div` was
+  replaced with a dedicated `.step-focus-drag-handle` wrapper around
+  the `.step-focus-lines` block (title line, annotation, bits-changed
+  count). Added `bannerRef` (`React.useRef`) to the outer div so
+  `handleMouseDown`'s `isOverDetailPanel` hit-test still disables pointer
+  events on the whole banner (not just the drag handle). CSS:
+  `cursor: grab` / `:active { grabbing }` moved from
+  `.step-focus-banner` to `.step-focus-drag-handle`. The annotation
+  area keeps its `onMouseDown stopPropagation` so clicking to
+  expand/collapse the annotation does not trigger a drag or the
+  click-without-drag → open-panel side-effect. Context rows and sliders
+  remain non-draggable (their `onMouseDown stopPropagation` is unchanged).
+- ✅ **Fixed event-widget initial placement when shown from detail panel.**
+  Both `onShowEventTitle` callbacks now compute a `dragOffsetY` instead
+  of always using `0`. The CSS anchor is `bottom: 20px` in `07-canvas.css`.
+  **CanvasStage.jsx** (detail panel ▲ button): `DetailPanel` calls
+  `onToggle()` immediately after `onShowEventTitle`, so the panel ends
+  in a closed state; fixed `dragOffsetY = -(22 + 30 − 20) = −32` places
+  the banner 30 px above the closed header (22 px matches the `detailPad`
+  convention). **Visualizer.jsx** (StepPanel ▲ button): detail state
+  doesn't change; offset computed dynamically as
+  `−(totalPanelH + 10)` where `totalPanelH = detailOpen ? detailHeight + 22 : 22`.
 
 7. **Remove `SieveRenderer.skipBitFill` and the Canvas2D cell-fill code.**
    Blocked on items 4–6 (all remaining Canvas2D pixel work must be

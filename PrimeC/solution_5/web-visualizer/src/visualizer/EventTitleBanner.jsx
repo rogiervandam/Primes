@@ -34,6 +34,7 @@ export default function EventTitleBanner({
   sliders,
   onJoinWidgets,
 }) {
+  const bannerRef = React.useRef(null);
   const [dropHint, setDropHint] = React.useState(null); // 'left' | 'bottom' | 'detail' | null
   const [showAllAnnotations, setShowAllAnnotations] = React.useState(false);
 
@@ -74,7 +75,7 @@ export default function EventTitleBanner({
 
   const handleMouseDown = (e) => {
     if (e.target.closest('input') || e.target.closest('button')) return;
-    const bannerEl = e.currentTarget;
+    const bannerEl = bannerRef.current;
     const startX = e.clientX;
     const startY = e.clientY;
     const startOffX = settings.dragOffsetX || 0;
@@ -156,10 +157,10 @@ export default function EventTitleBanner({
 
   return (
     <div
+      ref={bannerRef}
       className={`step-focus-banner position-center${dropHint ? ` dropping dropping-${dropHint}` : ''}`}
       title={banner.title}
       style={style}
-      onMouseDown={handleMouseDown}
     >
       <button
         className="step-focus-close-btn"
@@ -173,6 +174,9 @@ export default function EventTitleBanner({
         onMouseDown={(e) => e.stopPropagation()}
         title="Reveal this event in the events panel (clears filters and expands parents)"
       ><LinkIcon size={12} /></button>
+      {/* The drag handle covers the title + annotation + bits-changed area.
+          The context rows and sliders below are interactive and not draggable. */}
+      <div className="step-focus-drag-handle" onMouseDown={handleMouseDown}>
       <div className="step-focus-lines">
         <div className="step-focus-line1">{banner.line1}</div>
         {(() => {
@@ -186,8 +190,6 @@ export default function EventTitleBanner({
           return (
             <div
               className={`step-focus-annotation-area${hasContent ? ' expandable' : ''}${showAllAnnotations ? ' expanded' : ''}`}
-              onClick={hasContent ? (e) => { e.stopPropagation(); setShowAllAnnotations((v) => !v); } : undefined}
-              onMouseDown={(e) => e.stopPropagation()}
               title={hasContent ? (showAllAnnotations ? 'Click to collapse annotation' : 'Click to expand annotation') : undefined}
             >
               <div className='step-focus-annotation-line2'>{banner.annotationLines}</div>
@@ -201,6 +203,7 @@ export default function EventTitleBanner({
           <div className="step-focus-line3 step-focus-line3-empty">{'\u00A0'}</div>
         )}
       </div>
+      </div>{/* end .step-focus-drag-handle */}
       {(surrounding.prev.length > 0 || surrounding.next.length > 0) && (
         <div
           className={`step-focus-context${settings.contextCollapsed ? ' collapsed' : ''}`}
