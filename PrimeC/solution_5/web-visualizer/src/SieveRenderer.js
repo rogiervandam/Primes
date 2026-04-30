@@ -694,7 +694,11 @@ export class SieveRenderer {
       ? Math.max(0.8, Math.min(2.1, px * 0.18))
       : Math.max(1.2, Math.min(3.6, px * 0.34));
 
-    if (groupBounds) {
+    const groupingBits = this._logicalGroupBits();
+    const maskSizeBits = Number.isFinite(this.maskWordBits) && this.maskWordBits > 0
+      ? this.maskWordBits
+      : entry.count;
+    if (groupBounds && groupingBits <= maskSizeBits) {
       ctx.save();
       ctx.strokeStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},${0.92 * alpha})`;
       ctx.lineWidth = Math.max(1.2, px * 0.14);
@@ -2358,7 +2362,11 @@ export class SieveRenderer {
         const tint = this._maskTintColor(entry.slotIndex);
         const bounds = entry.bounds;
         const groupBounds = this._maskEntryGroupBounds(entry);
-        const stampBounds = groupBounds || bounds;
+        const groupingBits = this._logicalGroupBits();
+        const maskSizeBits = Number.isFinite(this.maskWordBits) && this.maskWordBits > 0
+          ? this.maskWordBits
+          : entry.count;
+        const stampBounds = (groupBounds && groupingBits <= maskSizeBits) ? groupBounds : bounds;
         const alpha = local < 0 ? Math.max(0, 0.28 + local * 1.1) : Math.max(0.22, 0.84 - phase * 0.42);
         // Expand stamp to cover visible label bands (byte title, vector grouping
         // title) above the bit group, and match the annotation outline padding
