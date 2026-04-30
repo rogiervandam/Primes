@@ -2190,7 +2190,7 @@ export default function Visualizer({
         }
         bitStateDirtyRef.current = false;
       }
-      if (delayMs > 0 && singleEventLoopActiveRef.current) setDelayPhaseMsRef.current(delayMs);
+      if (delayMs > 0) setDelayPhaseMsRef.current(delayMs);
       await waitForDelay(delayMs);
       setDelayPhaseMsRef.current(null);
       if (!isStillLive()) return;
@@ -2361,7 +2361,7 @@ export default function Visualizer({
 
       r.animationFocusBits = new Set();
       if (!isStillLive()) return;
-      if (delayMs > 0 && singleEventLoopActiveRef.current) setDelayPhaseMsRef.current(delayMs);
+      if (delayMs > 0) setDelayPhaseMsRef.current(delayMs);
       await waitForDelay(delayMs);
       setDelayPhaseMsRef.current(null);
       if (!isStillLive()) return;
@@ -2374,7 +2374,7 @@ export default function Visualizer({
       r.render();
       r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
       if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
-      if (delayMs > 0 && singleEventLoopActiveRef.current) setDelayPhaseMsRef.current(delayMs);
+      if (delayMs > 0) setDelayPhaseMsRef.current(delayMs);
       await waitForDelay(delayMs);
       setDelayPhaseMsRef.current(null);
       return;
@@ -2386,7 +2386,7 @@ export default function Visualizer({
     if (!isStillLive()) return;
     r.animationFocusBits = new Set();
     if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
-    if (delayMs > 0 && singleEventLoopActiveRef.current) setDelayPhaseMsRef.current(delayMs);
+    if (delayMs > 0) setDelayPhaseMsRef.current(delayMs);
     await waitForDelay(delayMs);
     setDelayPhaseMsRef.current(null);
   }, [animMode, animStyle, maskAnimationEnabled, stopSeqAnim, runEffect, estimateAnimDuration, getMinimapDetailH, getAnimationBitInterval, getAnimationTimingPlan, getCurrentLoopInterval, runMaskStampAnimation, fadeOutCurrentHighlights, waitForDelay, maxStepDurationEnabled, maxStepDurationMs, pinnedBitIndices, effectiveGroupBits, maskAnimInterval, computeEventDuration]);

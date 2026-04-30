@@ -628,6 +628,17 @@ overwrite.
   the minimap to overlap the panel by ~18 px. Both `r.minimapRightInset`
   (in the `[settingsCollapsed, isMacPlatform]` effect) and `sideInsetRight`
   (balloon clamping helper) now use `isMacPlatform ? 388 : 328`.
+- ✅ **Timeline wipe during inter-event delay** (all-events playback parity).
+  The `StepAnimSliders` wipe animation already fired during single-event
+  repeat delays. Removed the `&& singleEventLoopActiveRef.current` guard
+  from all 4 `setDelayPhaseMsRef.current(delayMs)` call sites inside
+  `triggerAnimation` (after mask stamp, after sequential/bounce, after
+  `animStyle === 'none'`, and after the ripple/fade/pulse effect). The
+  wipe now triggers whenever `delayMs > 0`, covering both the
+  `delayBetweenRepeats` (single-event loop) and `delayBetweenEvents`
+  (all-events playback) paths. Pause-in-flight works correctly for both
+  because `waitForDelay` checks `globalPausedRef.current`, which is
+  set/cleared in sync with `animationReplayPaused`.
 
 ---
 
