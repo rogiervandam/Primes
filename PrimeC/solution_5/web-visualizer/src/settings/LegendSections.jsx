@@ -9,8 +9,33 @@ import React from 'react';
  * @param {object} props
  * @param {boolean} [props.detailed=true] - When true, include the per-row
  *   description text. When false, render a compact label-only variant.
+ * @param {function} [props.onAction] - Optional. Called with an action key
+ *   string when the user clicks a legend row that has an associated settings
+ *   control. Known keys: 'primeOverlay', 'rangeOverlay', 'multiplesOverlay',
+ *   'heatMap', 'animRipple', 'animFade', 'animPulse', 'animSequential'.
+ *   When omitted the legend is purely informational (no click targets).
  */
-export default function LegendSections({ detailed = true }) {
+export default function LegendSections({ detailed = true, onAction }) {
+  /**
+   * Render a legend row that triggers a settings action when clicked.
+   * Falls back to a plain div when `onAction` is not provided.
+   */
+  const ActionRow = ({ actionKey, title, children }) => {
+    if (!onAction) return <div className="legend-row">{children}</div>;
+    return (
+      <div
+        className="legend-row legend-row--actionable"
+        role="button"
+        tabIndex={0}
+        title={title}
+        onClick={() => onAction(actionKey)}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onAction(actionKey)}
+      >
+        {children}
+      </div>
+    );
+  };
+
   return (
     <>
       <div className="legend-section">
@@ -41,56 +66,56 @@ export default function LegendSections({ detailed = true }) {
       <div className="legend-section">
         <div className="legend-section-label">Overlays</div>
         <div className="legend-rows">
-          <div className="legend-row">
+          <ActionRow actionKey="primeOverlay" title="Click to toggle the primes overlay (Layout tab)">
             <span className="legend-swatch legend-swatch-prime" />
             <span className="legend-row-label">Primes overlay <span className="legend-tag">gold · p</span></span>
             {detailed && <span className="legend-row-desc">Bits whose represented number is prime</span>}
-          </div>
-          <div className="legend-row">
+          </ActionRow>
+          <ActionRow actionKey="rangeOverlay" title="Click to toggle the range overlay (Layout tab)">
             <span className="legend-swatch legend-swatch-range" />
             <span className="legend-row-label">Range overlay <span className="legend-tag">cyan · r</span></span>
             {detailed && <span className="legend-row-desc">Bits within the selected bit-index range</span>}
-          </div>
-          <div className="legend-row">
+          </ActionRow>
+          <ActionRow actionKey="multiplesOverlay" title="Click to toggle the multiples overlay (Layout tab)">
             <span className="legend-swatch legend-swatch-multiples" />
             <span className="legend-row-label">Multiples overlay <span className="legend-tag">purple · ×</span></span>
             {detailed && <span className="legend-row-desc">Bits whose number is a multiple of the selected prime/factor</span>}
-          </div>
-          <div className="legend-row">
+          </ActionRow>
+          <ActionRow actionKey="heatMap" title="Click to toggle the cache-line heat map (Layout tab)">
             <span className="legend-swatch legend-swatch-heat-hot" />
             <span className="legend-row-label">Heat map — hot</span>
             {detailed && <span className="legend-row-desc">Cacheline recently or frequently accessed (red = hottest)</span>}
-          </div>
-          <div className="legend-row">
+          </ActionRow>
+          <ActionRow actionKey="heatMap" title="Click to toggle the cache-line heat map (Layout tab)">
             <span className="legend-swatch legend-swatch-heat-cold" />
             <span className="legend-row-label">Heat map — cold</span>
             {detailed && <span className="legend-row-desc">Cacheline rarely or long-ago accessed (blue = coldest)</span>}
-          </div>
+          </ActionRow>
         </div>
       </div>
       <div className="legend-section">
         <div className="legend-section-label">Animations</div>
         <div className="legend-rows">
-          <div className="legend-row">
+          <ActionRow actionKey="animRipple" title="Click to switch to Ripple animation style (Animation tab)">
             <span className="legend-anim-icon">◎</span>
             <span className="legend-row-label">Ripple</span>
             {detailed && <span className="legend-row-desc">Contracting ring that pulses outward from changed bits</span>}
-          </div>
-          <div className="legend-row">
+          </ActionRow>
+          <ActionRow actionKey="animFade" title="Click to switch to Fade animation style (Animation tab)">
             <span className="legend-anim-icon" style={{ opacity: 0.5 }}>◼</span>
             <span className="legend-row-label">Fade</span>
             {detailed && <span className="legend-row-desc">Changed bits fade in from bright to settled color</span>}
-          </div>
-          <div className="legend-row">
+          </ActionRow>
+          <ActionRow actionKey="animPulse" title="Click to switch to Pulse animation style (Animation tab)">
             <span className="legend-anim-icon" style={{ color: 'var(--accent)' }}>✦</span>
             <span className="legend-row-label">Pulse</span>
             {detailed && <span className="legend-row-desc">Changed bits emit a glowing halo pulse</span>}
-          </div>
-          <div className="legend-row">
+          </ActionRow>
+          <ActionRow actionKey="animSequential" title="Click to switch to Sequential reveal animation (Animation tab)">
             <span className="legend-anim-icon">→</span>
             <span className="legend-row-label">Sequential reveal</span>
             {detailed && <span className="legend-row-desc">Bits are uncovered one-by-one in the order they were changed</span>}
-          </div>
+          </ActionRow>
         </div>
       </div>
       <div className="legend-section">

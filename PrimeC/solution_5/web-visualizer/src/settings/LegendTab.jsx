@@ -18,6 +18,7 @@ function LegendTab({
   setFloatPos,
   setLegendFloating,
   onToggleCollapse,
+  onAction,
 }) {
   return (
     <div className="legend-tab-content">
@@ -51,7 +52,7 @@ function LegendTab({
           </button>
         </div>
       </div>
-      <LegendSections detailed={legendDetailed} />
+      <LegendSections detailed={legendDetailed} onAction={onAction} />
     </div>
   );
 }

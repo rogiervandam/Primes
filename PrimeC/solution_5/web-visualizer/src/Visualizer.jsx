@@ -861,12 +861,17 @@ export default function Visualizer({
   // minimap (now a position:fixed overlay) stays clear of the expanded panel.
   // The settings-toggle float button (collapsed state) is at the top-right and
   // doesn't conflict with the bottom-right minimap, so we only offset when the
-  // full panel is visible.  360 px matches `sideInsetRight` used elsewhere.
+  // full panel is visible.  CSS: platform-mac=388px, default=328px (responsive
+  // 280px at ≤768px is ignored here — minimap hides itself when zoomed out).
+  // Also repaint the minimap immediately so the position updates without
+  // waiting for the next user interaction or animation tick.
   useEffect(() => {
     const r = rendererRef.current;
     if (!r) return;
-    r.minimapRightInset = settingsCollapsed ? 0 : 360;
-  }, [settingsCollapsed]);
+    r.minimapRightInset = settingsCollapsed ? 0 : (isMacPlatform ? 388 : 328);
+    updateMinimapAvailability();
+    if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas?.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+  }, [settingsCollapsed, isMacPlatform, showMinimap, getMinimapDetailH, updateMinimapAvailability]);
 
   const spacingPanAnimRef = useRef(null);
 
@@ -3757,7 +3762,7 @@ export default function Visualizer({
       anchorY <= rect.bottom - edgeMargin;
 
     const sideInsetLeft = stepsPanelCollapsed ? 80 : Math.max(120, panelWidth + 32);
-    const sideInsetRight = settingsCollapsed ? 48 : 360;
+    const sideInsetRight = settingsCollapsed ? 48 : (isMacPlatform ? 388 : 328);
     const panelApproxHalfW = 170;
     const minLeft = sideInsetLeft + panelApproxHalfW;
     const maxLeft = window.innerWidth - sideInsetRight - panelApproxHalfW;

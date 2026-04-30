@@ -69,6 +69,34 @@ export default function SettingsPanel({
   const [floatPos, setFloatPos] = React.useState(null);
   const floatDragRef = React.useRef({ dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 });
 
+  /**
+   * Handler passed to LegendSections.onAction.
+   * Clicking an actionable legend row executes the associated settings toggle
+   * and, when the sidebar is visible, switches to the relevant tab.
+   * When called from the floating legend the sidebar may be collapsed; in that
+   * case we dock the floating panel and re-open the sidebar on the right tab.
+   */
+  const legendActions = React.useCallback((key) => {
+    // If the legend is floating, dock it and re-open the settings sidebar.
+    if (legendFloating) {
+      setLegendFloating(false);
+      onToggleCollapse && onToggleCollapse(); // expands the sidebar
+    }
+    switch (key) {
+      case 'primeOverlay':    setActiveTab('layout');    onPrimeOverlayToggle?.(); break;
+      case 'rangeOverlay':    setActiveTab('layout');    onRangeOverlayToggle?.(); break;
+      case 'multiplesOverlay':setActiveTab('layout');    onMultiplesOverlayToggle?.(); break;
+      case 'heatMap':         setActiveTab('layout');    onHeatMapToggle?.(); break;
+      case 'animRipple':      setActiveTab('animation'); onAnimStyleChange?.('ripple'); break;
+      case 'animFade':        setActiveTab('animation'); onAnimStyleChange?.('fade'); break;
+      case 'animPulse':       setActiveTab('animation'); onAnimStyleChange?.('pulse'); break;
+      case 'animSequential':  setActiveTab('animation'); onAnimStyleChange?.('sequential'); break;
+      default: break;
+    }
+  }, [legendFloating, onToggleCollapse, setActiveTab,
+      onPrimeOverlayToggle, onRangeOverlayToggle, onMultiplesOverlayToggle,
+      onHeatMapToggle, onAnimStyleChange]);
+
   // Drag handler for floating legend panel
   React.useEffect(() => {
     if (!legendFloating) return undefined;
@@ -184,6 +212,7 @@ export default function SettingsPanel({
             setFloatPos={setFloatPos}
             setLegendFloating={setLegendFloating}
             onToggleCollapse={onToggleCollapse}
+            onAction={legendActions}
           />
         )}
         {activeTab === 'animation' && showAnimationControls && (
@@ -254,7 +283,7 @@ export default function SettingsPanel({
             </div>
           </div>
           <div className="legend-float-body">
-            <LegendSections detailed={legendDetailed} />
+            <LegendSections detailed={legendDetailed} onAction={legendActions} />
           </div>
         </div>
       );

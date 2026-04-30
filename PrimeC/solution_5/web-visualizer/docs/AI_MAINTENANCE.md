@@ -608,6 +608,26 @@ overwrite.
   feature is dormant; `depthModeEnabled` was removed from UI). All changes
   have zero visible effect today but provide full GL capability for when
   the feature is re-enabled. `npm run build` passes clean.
+- ✅ **Clickable legend items** (`onAction` prop on `LegendSections`).
+  Overlay and animation-style rows in the legend are now interactive.
+  Clicking a row executes the associated settings toggle and switches the
+  settings sidebar to the relevant tab (Layout for overlays, Animation for
+  animation styles). If the legend is floating when clicked, it docks
+  itself and re-opens the sidebar on the correct tab. Implementation:
+  `LegendSections` accepts `onAction(key)` where keys are `'primeOverlay'`,
+  `'rangeOverlay'`, `'multiplesOverlay'`, `'heatMap'`, `'animRipple'`,
+  `'animFade'`, `'animPulse'`, `'animSequential'`. Each actionable row is
+  wrapped in a `role="button"` div with `.legend-row--actionable` class
+  (cursor: pointer + hover highlight + ⚙ badge). `SettingsPanel` builds
+  `legendActions` with `useCallback` and passes it to both `LegendTab`
+  and the floating `LegendSections`. `LegendTab` threads it through as
+  `onAction`. No new files; pure prop addition.
+- ✅ **Fixed minimap overlap on macOS** (`minimapRightInset` bug). The
+  hardcoded `360 px` right-inset was smaller than the Mac settings panel
+  (`388 px per .platform-mac .settings-sidebar { width: 388px }`), causing
+  the minimap to overlap the panel by ~18 px. Both `r.minimapRightInset`
+  (in the `[settingsCollapsed, isMacPlatform]` effect) and `sideInsetRight`
+  (balloon clamping helper) now use `isMacPlatform ? 388 : 328`.
 
 ---
 

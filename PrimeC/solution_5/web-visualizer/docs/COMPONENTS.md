@@ -102,10 +102,12 @@ Wraps the pinned-balloon list and the hover balloon. Asks the parent (`getVisibl
 ## Settings building blocks (`src/settings/`)
 
 ### `LegendSections.jsx`
-Default export: `LegendSections({ detailed = true })`. Pure JSX with the four legend groups (Bit states, Overlays, Animations, Interactions). Used both inside the Legend tab and inside the floating "?" balloon.
+Default export: `LegendSections({ detailed = true, onAction })`. Pure JSX with the four legend groups (Bit states, Overlays, Animations, Interactions). Used both inside the Legend tab and inside the floating legend panel.
+
+When `onAction` is provided, overlay and animation rows become interactive (`role="button"`, `.legend-row--actionable`). Known action keys: `'primeOverlay'`, `'rangeOverlay'`, `'multiplesOverlay'`, `'heatMap'` (all navigate to Layout tab), `'animRipple'`, `'animFade'`, `'animPulse'`, `'animSequential'` (navigate to Animation tab). `SettingsPanel` supplies a `legendActions` callback that executes the toggle and switches the active tab.
 
 ### `LegendTab.jsx`
-Content for the Legend tab. Holds the float/dock toggle and passes `legendDetailed` + `floatPos` state back to `SettingsPanel` via setter callbacks. No own data dependencies.
+Content for the Legend tab. Holds the float/dock toggle and passes `legendDetailed` + `floatPos` state back to `SettingsPanel` via setter callbacks. Accepts `onAction` and forwards it to `<LegendSections>`. No own data dependencies.
 
 ### `ColorsTab.jsx`
 Content for the Colors tab (~156 lines). Owns two local `rgb↔hex` converters (`rgbToHex`, `hexToRgb`); everything else comes in as props:
