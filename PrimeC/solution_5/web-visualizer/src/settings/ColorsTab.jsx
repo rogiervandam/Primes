@@ -1,5 +1,6 @@
 import React from 'react';
 import { COLOR_PRESETS } from '../SieveRenderer';
+import { PreviewOptionButton } from './buttons';
 
 function rgbToHex(rgb) {
   if (!rgb || rgb.length < 3) return '#555555';
@@ -35,23 +36,39 @@ export default function ColorsTab({
     <>
       <div className="settings-section">
         <label>Theme</label>
-        <div className="settings-row" style={{ gap: 8 }}>
-          <button
-            type="button"
-            className={`btn-option${theme === 'light' ? ' active' : ''}`}
+        <div className="preview-btn-grid preview-btn-grid-2">
+          <PreviewOptionButton
+            compact
+            label="Light"
+            hint="Light theme"
+            active={theme === 'light'}
             onClick={() => onThemeChange && onThemeChange('light')}
-            title="Switch to light theme"
-          >
-            ☀ Light
-          </button>
-          <button
-            type="button"
-            className={`btn-option${theme === 'dark' ? ' active' : ''}`}
+            preview={(
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <circle cx="24" cy="11" r="5" fill="currentColor" stroke="none" />
+                <line x1="24" y1="2" x2="24" y2="4" strokeWidth="2" />
+                <line x1="24" y1="18" x2="24" y2="20" strokeWidth="2" />
+                <line x1="15" y1="11" x2="17" y2="11" strokeWidth="2" />
+                <line x1="31" y1="11" x2="33" y2="11" strokeWidth="2" />
+                <line x1="18" y1="5" x2="19.5" y2="6.5" strokeWidth="2" />
+                <line x1="28.5" y1="15.5" x2="30" y2="17" strokeWidth="2" />
+                <line x1="30" y1="5" x2="28.5" y2="6.5" strokeWidth="2" />
+                <line x1="19.5" y1="15.5" x2="18" y2="17" strokeWidth="2" />
+              </svg>
+            )}
+          />
+          <PreviewOptionButton
+            compact
+            label="Dark"
+            hint="Dark theme"
+            active={theme === 'dark'}
             onClick={() => onThemeChange && onThemeChange('dark')}
-            title="Switch to dark theme"
-          >
-            ☽ Dark
-          </button>
+            preview={(
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <path d="M22 5 a9 9 0 1 0 0 12 a6.5 6.5 0 1 1 0-12z" fill="currentColor" stroke="none" />
+              </svg>
+            )}
+          />
         </div>
       </div>
 
@@ -112,17 +129,56 @@ export default function ColorsTab({
 
       <div className="settings-section">
         <label>Color preset</label>
-        <div className="settings-row">
-          <select value={colorPreset || ''} onChange={(e) => {
-            const val = e.target.value || null;
-            onColorPresetChange(val);
-            if (val) onCustomColorsChange({ setBit: null, clearedBit: null, unchangedBit: null });
-          }}>
-            <option value="">Theme default</option>
-            {Object.entries(COLOR_PRESETS).map(([k, v]) => (
-              <option key={k} value={k}>{v.label}</option>
-            ))}
-          </select>
+        <div className="preview-btn-grid preview-btn-grid-3">
+          <PreviewOptionButton
+            compact
+            label="Theme"
+            hint="Use theme default colors"
+            active={!colorPreset}
+            onClick={() => {
+              onColorPresetChange(null);
+              onCustomColorsChange({ setBit: null, clearedBit: null, unchangedBit: null });
+            }}
+            preview={(
+              <svg viewBox="0 0 40 20" width="40" height="20" aria-hidden="true">
+                {[0,1,2,0,0,2,1,0].map((type, i) => (
+                  <rect key={i} x={(i % 4) * 10 + 1} y={Math.floor(i / 4) * 10 + 1} width={8} height={8} rx={1}
+                    style={{ fill: type === 0 ? 'var(--accent)' : type === 1 ? '#ef4444' : 'var(--fg-dim)', stroke: 'none' }}
+                  />
+                ))}
+              </svg>
+            )}
+          />
+          {Object.entries(COLOR_PRESETS).map(([k, v]) => {
+            const PATTERN = [0, 1, 2, 0, 0, 2, 1, 0];
+            const cols = [
+              'rgb(' + v.setBit.join(',') + ')',
+              'rgb(' + v.clearedBit.join(',') + ')',
+              'rgb(' + v.unchangedBit.join(',') + ')',
+            ];
+            return (
+              <PreviewOptionButton
+                key={k}
+                compact
+                label={v.label}
+                hint={v.label}
+                active={colorPreset === k}
+                onClick={() => {
+                  onColorPresetChange(k);
+                  onCustomColorsChange({ setBit: null, clearedBit: null, unchangedBit: null });
+                }}
+                preview={(
+                  <svg viewBox="0 0 40 20" width="40" height="20" aria-hidden="true">
+                    {PATTERN.map((ci, i) => (
+                      <rect key={i} x={(i % 4) * 10 + 1} y={Math.floor(i / 4) * 10 + 1} width={8} height={8} rx={1}
+                        style={{ fill: cols[ci], stroke: 'none' }}
+                      />
+                    ))}
+                  </svg>
+                )}
+              />
+            );
+          })}
         </div>
         <div className="settings-row color-row" style={{ marginTop: 6 }}>
           <label className="color-label">

@@ -224,7 +224,6 @@ function AnimationTab({
   delayBetweenRepeats, onDelayBetweenRepeatsChange,
   eventTimeTargets, onEventTimeTargetsChange,
   maskAnimationEnabled, onMaskAnimationEnabledChange,
-  animationReplayPaused, onAnimationReplayPausedChange,
   maxStepDurationEnabled, onMaxStepDurationEnabledChange,
   maxStepDurationMs, onMaxStepDurationMsChange,
   eventDurationMode, onEventDurationModeChange,
@@ -338,25 +337,49 @@ function AnimationTab({
       {onBitAnimationModeChange && (
         <div className="settings-section">
           <label>Timeline animation mode</label>
-          <div className="step-focus-mode-toggle" style={{ display: 'inline-flex' }}>
-            <button
-              type="button"
-              className={`step-focus-mode-btn${(bitAnimationMode || 'bit') === 'mask' ? ' active' : ''}`}
+          <div className="preview-btn-grid preview-btn-grid-3">
+            <PreviewOptionButton
+              compact
+              label="Mask"
+              hint="Stamp groups"
+              active={(bitAnimationMode || 'bit') === 'mask'}
               onClick={() => onBitAnimationModeChange('mask')}
-              title="Animate only the apply-mask group stamps"
-            >Mask</button>
-            <button
-              type="button"
-              className={`step-focus-mode-btn${(bitAnimationMode || 'bit') === 'bit' ? ' active' : ''}`}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="4" y="5" width="12" height="12" rx="1" />
+                  <rect x="19" y="5" width="12" height="12" rx="1" />
+                  <rect x="34" y="5" width="12" height="12" rx="1" />
+                </svg>
+              )}
+            />
+            <PreviewOptionButton
+              compact
+              label="Bits"
+              hint="Individual bits"
+              active={(bitAnimationMode || 'bit') === 'bit'}
               onClick={() => onBitAnimationModeChange('bit')}
-              title="Animate only the bits being set one by one"
-            >Bits</button>
-            <button
-              type="button"
-              className={`step-focus-mode-btn${(bitAnimationMode || 'bit') === 'combined' ? ' active' : ''}`}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <circle cx="8" cy="11" r="5" fill="currentColor" stroke="none" opacity="1" />
+                  <circle cx="24" cy="11" r="5" fill="currentColor" stroke="none" opacity="0.5" />
+                  <circle cx="40" cy="11" r="5" fill="currentColor" stroke="none" opacity="0.2" />
+                </svg>
+              )}
+            />
+            <PreviewOptionButton
+              compact
+              label="Both"
+              hint="Lockstep"
+              active={(bitAnimationMode || 'bit') === 'combined'}
               onClick={() => onBitAnimationModeChange('combined')}
-              title="Animate both the mask stamps and the bits revealing in lockstep"
-            >Both</button>
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="3" y="5" width="13" height="12" rx="1" opacity="0.9" />
+                  <circle cx="29" cy="11" r="4" fill="currentColor" stroke="none" opacity="1" />
+                  <circle cx="41" cy="11" r="4" fill="currentColor" stroke="none" opacity="0.35" />
+                </svg>
+              )}
+            />
           </div>
           <span className="settings-hint">Applies to events with mask write-order data. Mask = stamp groups; Bits = individual bits; Both = lockstep.</span>
         </div>
@@ -367,22 +390,36 @@ function AnimationTab({
         <div className="settings-row animation-timing-row" style={{ alignItems: 'flex-start', gap: 8 }}>  
           <div className="timing-control">
             <span className="timing-title">Event duration target</span>
-            <div className="timing-toggle" style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-              <button
-                type="button"
-                className={`step-focus-mode-btn${(eventDurationMode || 'progressive') === 'progressive' ? ' active' : ''}`}
+            <div className="preview-btn-grid preview-btn-grid-2" style={{ marginTop: 4 }}>
+              <PreviewOptionButton
+                compact
+                label="Progressive"
+                hint="Tiered 2s per tier"
+                active={(eventDurationMode || 'progressive') === 'progressive'}
                 onClick={() => onEventDurationModeChange && onEventDurationModeChange('progressive')}
-                title="Tiered: 2s for the first 10 bits, 2s for the next 100, 2s for the rest (max ~6s)"
-              >Progressive</button>
-              <button
-                type="button"
-                className={`step-focus-mode-btn${eventDurationMode === 'linear' ? ' active' : ''}`}
+                preview={(
+                  <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                    <rect x="4" y="15" width="8" height="3" />
+                    <rect x="14" y="11" width="8" height="7" />
+                    <rect x="24" y="7" width="8" height="11" />
+                    <rect x="34" y="3" width="8" height="15" />
+                  </svg>
+                )}
+              />
+              <PreviewOptionButton
+                compact
+                label="Linear"
+                hint="Scales with bits"
+                active={eventDurationMode === 'linear'}
                 onClick={() => onEventDurationModeChange && onEventDurationModeChange('linear')}
-                title="Linear: total duration scales with the bit count"
-              >Linear</button>
-            </div>
-            <div className="timing-scale" aria-hidden="true">
-              <span style={{ fontSize: '0.8em', opacity: 0.7 }}>{(eventDurationMode || 'progressive') === 'progressive' ? 'Tiered 2s per tier' : 'Scales with bits'}</span>
+                preview={(
+                  <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                    <line x1="6" y1="18" x2="42" y2="4" />
+                    <circle cx="6" cy="18" r="2.5" fill="currentColor" stroke="none" />
+                    <circle cx="42" cy="4" r="2.5" fill="currentColor" stroke="none" />
+                  </svg>
+                )}
+              />
             </div>
           </div>
         </div>
@@ -442,18 +479,26 @@ function AnimationTab({
             </div>
           </div>
         </div>
+        <div className="preview-btn-grid preview-btn-grid-2" style={{ marginTop: 8 }}>
+          <PreviewOptionButton
+            compact
+            label="Mask stamp anim."
+            hint="Animate mask stamp reveals"
+            active={maskAnimationEnabled !== false}
+            onClick={() => onMaskAnimationEnabledChange(!(maskAnimationEnabled !== false))}
+            preview={(
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="3" y="5" width="12" height="12" rx="1" opacity="0.25" />
+                <rect x="18" y="5" width="12" height="12" rx="1" opacity="0.6" />
+                <rect x="33" y="5" width="12" height="12" rx="1" opacity="1" />
+              </svg>
+            )}
+          />
+        </div>
         <div className="settings-row" style={{ marginTop: 8 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input type="checkbox" checked={maskAnimationEnabled !== false} onChange={(e) => onMaskAnimationEnabledChange(e.target.checked)} />
-            Mask stamp animation
-          </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input type="checkbox" checked={maxStepDurationEnabled === true} onChange={(e) => onMaxStepDurationEnabledChange && onMaxStepDurationEnabledChange(e.target.checked)} />
             Limit step duration
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input type="checkbox" checked={animationReplayPaused === true} onChange={(e) => onAnimationReplayPausedChange(e.target.checked)} />
-            Pause event replay
           </label>
         </div>
         {maxStepDurationEnabled === true && (

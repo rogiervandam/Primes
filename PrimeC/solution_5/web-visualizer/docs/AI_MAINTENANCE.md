@@ -831,6 +831,28 @@ cell-fill code entirely. Work these in dependency order:
    is similarly guarded with `!skipBitFill` so the GL clearColor shows
    through the settled canvas.
 
+- ✅ **Converted settings controls to `PreviewOptionButton` style.**
+  - **Animation tab**: The "Timeline animation mode" (Mask/Bits/Both)
+    `step-focus-mode-btn` group → `PreviewOptionButton` in a 3-column
+    `preview-btn-grid-3`. The "Event duration target" (Progressive/Linear)
+    `step-focus-mode-btn` group → `PreviewOptionButton` in a 2-column
+    `preview-btn-grid-2` inside the timing-control. The "Mask stamp
+    animation" checkbox → standalone `PreviewOptionButton` toggle in a
+    `preview-btn-grid-2`. The "Pause event replay" checkbox removed
+    (same control exists in the single-event widget). Unused
+    `animationReplayPaused` / `onAnimationReplayPausedChange` props
+    dropped from the `AnimationTab` signature.
+  - **Colors tab**: The "Theme" light/dark `btn-option` buttons →
+    `PreviewOptionButton` in a 2-column `preview-btn-grid-2` with SVG
+    sun/moon icons. The "Color preset" `<select>` → `PreviewOptionButton`
+    grid (3 columns: "Theme", "Default", "High Contrast", "Pastel",
+    "Dark Mode") where each button's swatch is a 4×2 mini grid rendered
+    with the preset's actual `setBit` / `clearedBit` / `unchangedBit`
+    RGB values. The `PreviewOptionButton` import was added to
+    `ColorsTab.jsx`. The CSS rule `.preview-btn-swatch svg { fill: none }`
+    is overridden per-rect via inline `style={{ fill: color, stroke: 'none' }}`
+    so the hard-coded preset colors show through correctly.
+
 7. **Remove `SieveRenderer.skipBitFill` and the Canvas2D cell-fill code.**
    Blocked on items 4–6 (all remaining Canvas2D pixel work must be
    ported before this is safe). The code paths to remove are:
