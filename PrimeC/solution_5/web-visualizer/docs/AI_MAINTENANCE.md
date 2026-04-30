@@ -4,14 +4,17 @@
 > work, breaking subtle invariants, or producing massive regressions in the
 > visualizer codebase.
 
-The web visualizer is a long-lived React/Vite app with **three** large files
-that historically attract most of the changes:
+Prompt for refactor:
 
-| File | Lines | Role |
-|---|---|---|
-| `src/Visualizer.jsx` | ~4 200 | Stateful orchestrator: trace, playback, viewport, hover, exports |
-| `src/SieveRenderer.js` | ~2 800 | 2D canvas renderer (sieve grid, overlays, animations) |
-| `src/settings/LayoutTab.jsx` | ~900 | Layout tab (extracted from former SettingsPanel monolith) |
+Read @file:docs/AI_MAINTENANCE.md, @file:docs/ARCHTECTURE.md and @file:COMPONENTS.md. Look at the AI_MAINTENANCE.md and select tasks from the backlog that fit together in one session. Perform these tasks and update the documents with what has been done and remaining work to do.
+
+The web visualizer is a long-lived React/Vite app with **three** large files that historically attract most of the changes:
+
+| File                         | Lines  | Role                                                             |
+| ---------------------------- | ------ | ---------------------------------------------------------------- |
+| `src/Visualizer.jsx`         | ~4 200 | Stateful orchestrator: trace, playback, viewport, hover, exports |
+| `src/SieveRenderer.js`       | ~2 800 | 2D canvas renderer (sieve grid, overlays, animations)            |
+| `src/settings/LayoutTab.jsx` | ~900   | Layout tab (extracted from former SettingsPanel monolith)        |
 
 `SettingsPanel.jsx` itself is now ~260 lines — just the tab-row shell.
 The former hotspot is replaced by `LayoutTab.jsx` and `AnimationTab.jsx`
@@ -25,23 +28,23 @@ The former hotspot is replaced by `LayoutTab.jsx` and `AnimationTab.jsx`
    suite — the build (Vite + React) is your only automated safety net.
    Stages of work that pass the build are commit-worthy; stages that don't
    are broken.
-2. **Don't reorder hooks across the lazy-closure boundary.** `useEffect`
+1. **Don't reorder hooks across the lazy-closure boundary.** `useEffect`
    bodies routinely reference functions declared further down in
    `Visualizer.jsx` (e.g. `exportVideo`, `triggerAnimation`). This works
    because the effect callback is captured lazily and only invoked after the
    render pass completes. Keep that property when extracting code.
-3. **Never break the renderer's `setState` shape.** Both
+1. **Never break the renderer's `setState` shape.** Both
    `useTraceExport.js` and `Visualizer.jsx::triggerAnimation` call it with
    the same 7-argument signature. If you must extend it, take an options
    object and keep positional arguments backwards-compatible.
-4. **Persistence keys are forever.** Anything written to `viewPrefs`
+1. **Persistence keys are forever.** Anything written to `viewPrefs`
    (localStorage `sieve-visualizer:view-preferences:v1`) is on real users'
    machines. Add new keys; don't rename or repurpose existing ones. Use the
    `merge*` helpers in `src/lib/viewPrefs.js` to reconcile partials.
-5. **Don't add features without removing equivalent dead code first.** When
+1. **Don't add features without removing equivalent dead code first.** When
    in doubt, grep the entire `src/` tree (and the `dist/` artefact too —
    minified code can confirm whether something is reachable in production).
-6. **Don't write documentation files unless asked or strictly necessary.**
+1. **Don't write documentation files unless asked or strictly necessary.**
    Update existing docs (`ARCHITECTURE.md`, `COMPONENTS.md`, this file)
    instead of creating new ones.
 
@@ -49,16 +52,16 @@ The former hotspot is replaced by `LayoutTab.jsx` and `AnimationTab.jsx`
 
 ## 2. Where to put new code
 
-| You are adding… | Put it in… |
-|---|---|
-| A pure helper (math, string, format) | `src/lib/` |
-| A reusable React hook | `src/hooks/` |
-| A pure trace-format parser | `src/parser/` and import from `traceParser.js` |
-| A renderer drawing helper / palette | `src/renderer/` |
-| A new visualization mode | `src/renderers/MyMode.js` (see §4) |
-| A new settings sub-control | `src/settings/` (presentational) |
-| A toolbar/overlay piece | `src/visualizer/` |
-| A style block | `src/styles/NN-name.css` + add to `index.css` |
+| You are adding…                      | Put it in…                                     |
+| ------------------------------------ | ---------------------------------------------- |
+| A pure helper (math, string, format) | `src/lib/`                                     |
+| A reusable React hook                | `src/hooks/`                                   |
+| A pure trace-format parser           | `src/parser/` and import from `traceParser.js` |
+| A renderer drawing helper / palette  | `src/renderer/`                                |
+| A new visualization mode             | `src/renderers/MyMode.js` (see §4)             |
+| A new settings sub-control           | `src/settings/` (presentational)               |
+| A toolbar/overlay piece              | `src/visualizer/`                              |
+| A style block                        | `src/styles/NN-name.css` + add to `index.css`  |
 
 When the appropriate folder doesn't exist yet, create it and add a
 single-line README so the next agent doesn't recreate it elsewhere.
@@ -71,36 +74,40 @@ These are tested, low-risk extraction patterns that have already been used
 successfully. Reuse them.
 
 ### Pattern A — extract a `useCallback`-heavy block into a hook
+
 Already done for: `useTraceExport` (PNG + video).
 
 1. Find a block of `useState` + `useRef` + `useCallback` that only depends
    on a handful of inputs.
-2. Move it to `src/hooks/useFoo.js` with explicit `{ inputs }` and a return
+1. Move it to `src/hooks/useFoo.js` with explicit `{ inputs }` and a return
    object.
-3. Replace inline state declarations with the hook call.
-4. **Place the hook call AFTER any function it depends on (e.g. `goToStep`)
+1. Replace inline state declarations with the hook call.
+1. **Place the hook call AFTER any function it depends on (e.g. `goToStep`)
    but BEFORE the first JSX usage.** Lazy closure handles the rest.
-5. `npm run build`.
+1. `npm run build`.
 
 ### Pattern B — extract repeated controlled-input boilerplate
+
 Already done with: `useDraftInput` (range start/end, multiples prime).
 
 The "draft text + commit on blur/Enter" pattern occurs frequently. Use
 `src/hooks/useDraftInput.js`. Don't reinvent it.
 
 ### Pattern C — split a long render body into siblings
+
 Pending for: `SettingsPanel.jsx` (currently three large tab branches),
 `Visualizer.jsx` JSX body (canvas + overlays + balloons).
 
 1. Identify a self-contained chunk of JSX that uses a small subset of the
    parent's state.
-2. Move it to `src/visualizer/MyChunk.jsx` (or `src/settings/MyTab.jsx`).
-3. Pass only the props it actually consumes — count them first; if the
+1. Move it to `src/visualizer/MyChunk.jsx` (or `src/settings/MyTab.jsx`).
+1. Pass only the props it actually consumes — count them first; if the
    number exceeds ~12, the chunk isn't really "self-contained" yet.
-4. **Don't introduce React Context just to dodge prop counts.** Plain props
+1. **Don't introduce React Context just to dodge prop counts.** Plain props
    are the convention here and keep the data flow legible.
 
 ### Pattern D — extract a method off `SieveRenderer` into a helper module
+
 Already done for: `bitMath`, `drawingHelpers`, `constants`.
 
 Renderer methods that don't read more than a few `this.*` fields are
@@ -128,7 +135,6 @@ timeline, or a dependency-graph view):
                        || SieveRenderer;
    rendererRef.current = new RendererClass();
    ```
-
 4. Reuse the helpers under `src/renderer/`. They are intentionally
    framework-free.
 5. Settings that don't apply to your mode (e.g. cacheline annotations on a
@@ -427,28 +433,28 @@ overwrite.
   original scaffold. Removed the TODO from §8 item 2 and the
   related `lastAccessStep` entry from §8 item 3.
 - ✅ Triaged §8 items 2–4.
-  - Item 2: removed the stale "custom per-bit colour overrides"
-    TODO (no such feature exists — `customColors` is per-class,
-    already covered via `_bitColors()` uniforms). Lowered-3D
-    shading + rise-and-settle stays open but is now explicitly
-    flagged as **deferred until GL is the primary renderer**
-    — the geometry/shader cost (shadow + base + top + side
-    faces per bit) doesn't pay off while the GL canvas is a
-    sandbox under Canvas2D, and the Canvas2D path handles
-    `loweredSetBits` correctly today.
-  - Item 3: marked ✅ *done at current scope*. Removed the
-    `targetHitCounts`-magnitude-texture TODO (its only consumer
-    is the hit-count gradient, which stays Canvas2D-on-top).
-    Partial `texSubImage2D` updates kept as a conditional
-    next-step only if items 1–2 grow features that need a
-    richer per-bit payload — full repack at 10k bits is
-    sub-frame in JS today.
-  - Item 4: marked ✅ *enforced*. `BitGridGL.attach()` now
-    sets `canvas.style.pointerEvents = 'none'` defensively
-    (in addition to the CSS rule in `07-canvas.css`) and
-    documents the hit-testing contract: any future GL-side
-    hit-test must call `host.canvasToBitIndex(x, y)`, never
-    re-derive layout from GL state.
+    - Item 2: removed the stale "custom per-bit colour overrides"
+      TODO (no such feature exists — `customColors` is per-class,
+      already covered via `_bitColors()` uniforms). Lowered-3D
+      shading + rise-and-settle stays open but is now explicitly
+      flagged as **deferred until GL is the primary renderer**
+      — the geometry/shader cost (shadow + base + top + side
+      faces per bit) doesn't pay off while the GL canvas is a
+      sandbox under Canvas2D, and the Canvas2D path handles
+      `loweredSetBits` correctly today.
+    - Item 3: marked ✅ *done at current scope*. Removed the
+      `targetHitCounts`-magnitude-texture TODO (its only consumer
+      is the hit-count gradient, which stays Canvas2D-on-top).
+      Partial `texSubImage2D` updates kept as a conditional
+      next-step only if items 1–2 grow features that need a
+      richer per-bit payload — full repack at 10k bits is
+      sub-frame in JS today.
+    - Item 4: marked ✅ *enforced*. `BitGridGL.attach()` now
+      sets `canvas.style.pointerEvents = 'none'` defensively
+      (in addition to the CSS rule in `07-canvas.css`) and
+      documents the hit-testing contract: any future GL-side
+      hit-test must call `host.canvasToBitIndex(x, y)`, never
+      re-derive layout from GL state.
 - ✅ Built minimal visual-diff harness for `BitGridGL` (§8 item
   5). Files: `parity.html` at the project root + dev-only
   module `src/dev/parityHarness.js`. Open at
@@ -484,18 +490,20 @@ overwrite.
       facade with the same external API as `BitGridGL`. Posts
       pre-packed `Float32Array`/`Uint8Array` buffers as
       transferables; one-way (no ack round-trip).
+
   Also refactored `BitGridGL.js` to be a thin facade over
-  `bitGridGLCore.js` + `hostStatePacker.js` (no behaviour
-  change — direct mode still works, parity harness still
-  passes). `featureFlag.js` extended with `getRendererMode()`
-  / `isGLWorkerEnabled()`. `Visualizer.jsx` picks the worker
-  facade when both `isGLWorkerEnabled()` AND
-  `isWorkerGLSupported()` are true; falls back to direct or
-  Canvas2D otherwise. Vite emits a separate `bitGridWorker-*.js`
-  chunk (~9 KB); main bundle grew by ~3 KB. Module count: 85
-  → 88. See §8 item 6 for the full architecture, async-init
-  caveat, and the deliberately-skipped context-loss recovery
-  in the worker path.
+`bitGridGLCore.js` + `hostStatePacker.js` (no behaviour
+change — direct mode still works, parity harness still
+passes). `featureFlag.js` extended with `getRendererMode()`
+/ `isGLWorkerEnabled()`. `Visualizer.jsx` picks the worker
+facade when both `isGLWorkerEnabled()` AND
+`isWorkerGLSupported()` are true; falls back to direct or
+Canvas2D otherwise. Vite emits a separate `bitGridWorker-*.js`
+chunk (~9 KB); main bundle grew by ~3 KB. Module count: 85
+→ 88. See §8 item 6 for the full architecture, async-init
+caveat, and the deliberately-skipped context-loss recovery
+in the worker path.
+
 - ✅ **WebGL is now the default bit-fill backend.** Promoted
   out of "experimental sandbox" status (§8 step 2). Default
   `getRendererMode()` flipped from `'canvas2d'` to `'gl'` in
@@ -518,7 +526,6 @@ overwrite.
   `BitGridGL.attach()` returns `false`, `glRendererRef`
   stays null, `skipBitFill` stays `false`, and the Canvas2D
   fillRect path is fully responsible. §8 item 2 marked ✅.
-
 - ✅ **Locked renderer to `gl-worker` only.** Removed `featureFlag.js`
   entirely, the `RendererPicker` component from `Toolbar.jsx` (and its
   CSS block in `04-toolbar.css`), and the `rendererMode` state / ref /
@@ -542,7 +549,6 @@ overwrite.
   instead of `C.BACKGROUND` directly; the GL render call in
   `Visualizer.jsx` likewise uses `rr.effectiveBackground`. The per-theme
   defaults live in `DEFAULT_CANVAS_COLORS` in `viewPrefs.js`.
-
 - ✅ **Wired context-loss recovery in `gl-worker` mode.** `bitGridWorker.js`
   now saves `savedCanvas` + `currentBitCount`, wires `webglcontextlost` /
   `webglcontextrestored` on the `OffscreenCanvas`, and re-inits `BitGridGLCore`
@@ -589,7 +595,6 @@ overwrite.
   animation. Note that the SVG `LayoutIcon` elements must be targeted with
   `svg[title="..."]` selectors (not `img[alt="..."]`), since they are `<svg>`
   elements with a `title` child rather than `<img>` elements.
-
 - ✅ **Ported lowered-3D shading and rise-and-settle animation to GL**
   (WebGL-worker deepening backlog items 5 and 6). A third texture
   (`animTex`, RGBA32F, same dimensions as `posTex`/`stateTex`) was added
@@ -715,7 +720,6 @@ overwrite.
   (scale 0.88→1 + fade). `toggleStepsPanel` and `revealCurrentStepInPanel`
   call `setWidgetsJoined(false)` when the panel opens; `JoinedEventsWidget`'s
   expand-panel button also splits first. CSS in `src/styles/18-joined-widget.css`.
-
 - ✅ **Removed `willReadFrequently: true` from Canvas2D context acquisition.**
   `SieveRenderer.attach()` and `attachSettledCanvas()` previously passed
   `{ willReadFrequently: true }` to `canvas.getContext('2d', ...)`.
@@ -747,6 +751,7 @@ ones:
    (`src/renderer/overlays/SearchOverlay.js`). Use it as the template
    when extracting other overlays. Good next overlay candidates, ranked
    by isolation:
+
    - **MaskWriteOverlay** (`SieveRenderer._renderMaskWriteOverlay`) —
      self-contained, reads `maskWriteOrder*` arrays only. Medium size.
    - **VectorTouchOrderOverlay** (`_renderVectorTouchOrder`) — reads
@@ -828,21 +833,21 @@ No open structural refactor items remain from previous rounds.
 
 - ✅ **Removed `BitGridGL.js` (direct mode) and ported overlay borders to GL**
   (WebGL backlog items 3 and 4 below).
-  - `BitGridGL.js` deleted; the parity harness `parity.html` Renderer
-    dropdown removed; `parityHarness.js` updated to worker-only path.
-  - `bitGridGLCore.js` vertex shader now outputs `v_uv = a_corner + 0.5`
-    ([0,1]×[0,1] cell UV). Fragment shader declares `uniform float u_cellSize`
-    and `in vec2 v_uv`; computes `edge = min(min(uv.x,1-uv.x), min(uv.y,1-uv.y))`
-    and composites prime / range / multiples border colours at the same
-    `clamp(px*k, min, max) / px` fractions as Canvas2D, only when `u_cellSize >= 4`.
-    No new texture or state-byte bits required (reuses existing bits 4/5/6).
-  - `SieveRenderer._drawBitPrimeOverlay`, `_drawBitRangeOverlay`,
-    `_drawBitMultiplesOverlay`: `strokeRect` blocks now guarded with
-    `&& !f.skipBitFill` so they're skipped when GL is active.
-  - `parityHarness.js` Canvas2D reference `renderRef()` extended with a
-    border-strip pass that mirrors the GL shader logic (four `fillRect`
-    edge strips per overlay member per bit), so parity comparison
-    remains valid.
+    - `BitGridGL.js` deleted; the parity harness `parity.html` Renderer
+      dropdown removed; `parityHarness.js` updated to worker-only path.
+    - `bitGridGLCore.js` vertex shader now outputs `v_uv = a_corner + 0.5`
+      ([0,1]×[0,1] cell UV). Fragment shader declares `uniform float u_cellSize`
+      and `in vec2 v_uv`; computes `edge = min(min(uv.x,1-uv.x), min(uv.y,1-uv.y))`
+      and composites prime / range / multiples border colours at the same
+      `clamp(px*k, min, max) / px` fractions as Canvas2D, only when `u_cellSize >= 4`.
+      No new texture or state-byte bits required (reuses existing bits 4/5/6).
+    - `SieveRenderer._drawBitPrimeOverlay`, `_drawBitRangeOverlay`,
+      `_drawBitMultiplesOverlay`: `strokeRect` blocks now guarded with
+      `&& !f.skipBitFill` so they're skipped when GL is active.
+    - `parityHarness.js` Canvas2D reference `renderRef()` extended with a
+      border-strip pass that mirrors the GL shader logic (four `fillRect`
+      edge strips per overlay member per bit), so parity comparison
+      remains valid.
 
 ### WebGL-worker deepening + Canvas2D removal backlog
 
@@ -866,13 +871,11 @@ cell-fill code entirely. Work these in dependency order:
    without any extra intervention from `Visualizer.jsx`.
    `BitGridGLWorker.resize()` gained an optional third `dprOverride` param
    (backwards-compatible; production callers omit it).
-
-2. **Update the parity harness to exercise `BitGridGLWorker`.** ✅ DONE.
+1. **Update the parity harness to exercise `BitGridGLWorker`.** ✅ DONE.
    `parity.html` formerly had a Renderer dropdown (direct / worker).
    Dropdown removed in item 3 below; harness is now worker-only.
    See item 3 for full history.
-
-3. **Remove `BitGridGL.js` (direct mode).** ✅ DONE.
+1. **Remove `BitGridGL.js` (direct mode).** ✅ DONE.
    `BitGridGL.js` deleted. Renderer dropdown removed from `parity.html`.
    `parityHarness.js` updated: `BitGridGL` import and `runGL()` function
    removed; `run()` is now unconditionally the worker path. The Canvas2D
@@ -881,10 +884,10 @@ cell-fill code entirely. Work these in dependency order:
    valid. `refWithoutMultiples()` retained (still needed to match the
    `multiplesOverlay=false` GL host). `hostStatePacker.js` had no
    `BitGridGL`-specific code to remove.
-
-4. **Port overlay borders to GL.** ✅ DONE (border stroke pass).
+1. **Port overlay borders to GL.** ✅ DONE (border stroke pass).
    The `strokeRect` borders for prime / range / multiples overlays are
    now rendered inside the GL fragment shader using UV coordinates:
+
    - `bitGridGLCore.js` VS: outputs `v_uv = a_corner + 0.5` ([0,1] cell
      UV) alongside the existing `v_state`.
    - `bitGridGLCore.js` FS: reads `v_uv` + `u_cellSize` (already a
@@ -902,7 +905,9 @@ cell-fill code entirely. Work these in dependency order:
      (`p` / `r` / `×`), target-bit outline (`_drawBitTargetOutline` —
      needs an extra state bit or separate texture; deferred), ghost-mask
      highlight, motion trails, search highlight, cacheline outline.
+
    Remaining overlay candidates (in dependency order):
+
    - **Target outline + focus-range stroke** — needs an extra flag (all
      8 state bits are used); approach: expand stateTex to R16UI or add
      a second 1-bit-per-bit `outlineTex`.
@@ -912,8 +917,7 @@ cell-fill code entirely. Work these in dependency order:
      a second full-screen pass keyed to cacheline index.
    - **Ghost-mask highlights, motion trails, search highlight** —
      low priority; sparse, fast in Canvas2D.
-
-5. **Port lowered-3D shading to GL.** ✅ DONE (animTex + u_loweredActive).
+1. **Port lowered-3D shading to GL.** ✅ DONE (animTex + u_loweredActive).
    A third texture (`animTex`, RGBA32F) was added to `bitGridGLCore.js`.
    Each texel stores `(xDelta, yDelta, sizeScale, 0)` per bit. The vertex
    shader reads `animTex` at texture unit 2 and applies: cell centre =
@@ -928,15 +932,16 @@ cell-fill code entirely. Work these in dependency order:
    calls `core.uploadAnimBuffer(buf)`. `Visualizer.jsx` calls
    `g.uploadAnim(rr)` each frame and passes `loweredActive` to `g.render()`.
    `SieveRenderer._drawBitBody` lowered-cell branch now wraps shadow + fill
+
    + stroke in `if (!f.skipBitFill) { ... }` so Canvas2D skips them when GL
+
    is active. `_buildFrameContext`: removed the `!this.loweredSetBits` guard
    from `skipBitFill` (GL now handles lowered fills).
    NOTE: `loweredSetBits` is currently always `false` in the codebase
    (feature dormant; `depthModeEnabled` removed from UI). All changes have
    zero visible effect today but provide full GL capability when the feature
    is re-enabled.
-
-6. **Port rise-and-settle animation to GL.** ✅ DONE (via animTex, same
+1. **Port rise-and-settle animation to GL.** ✅ DONE (via animTex, same
    as item 5). The same `animTex` carries the per-frame animation deltas.
    `packAnim()` replicates the rise-and-settle math from
    `_computeBitDrawState`: for bits that recently changed
@@ -953,29 +958,29 @@ cell-fill code entirely. Work these in dependency order:
    through the settled canvas.
 
 - ✅ **Converted settings controls to `PreviewOptionButton` style.**
-  - **Animation tab**: The "Timeline animation mode" (Mask/Bits/Both)
-    `step-focus-mode-btn` group → `PreviewOptionButton` in a 3-column
-    `preview-btn-grid-3`. The "Event duration target" (Progressive/Linear)
-    `step-focus-mode-btn` group → `PreviewOptionButton` in a 2-column
-    `preview-btn-grid-2` inside the timing-control. The "Mask stamp
-    animation" checkbox → standalone `PreviewOptionButton` toggle in a
-    `preview-btn-grid-2`. The "Pause event replay" checkbox removed
-    (same control exists in the single-event widget). Unused
-    `animationReplayPaused` / `onAnimationReplayPausedChange` props
-    dropped from the `AnimationTab` signature.
-  - **Colors tab**: The "Theme" light/dark `btn-option` buttons →
-    `PreviewOptionButton` in a 2-column `preview-btn-grid-2` with SVG
-    sun/moon icons. The "Color preset" `<select>` → `PreviewOptionButton`
-    grid (3 columns: "Theme", "Default", "High Contrast", "Pastel",
-    "Dark Mode") where each button's swatch is a 4×2 mini grid rendered
-    with the preset's actual `setBit` / `clearedBit` / `unchangedBit`
-    RGB values. The `PreviewOptionButton` import was added to
-    `ColorsTab.jsx`. The CSS rule `.preview-btn-swatch svg { fill: none }`
-    is overridden per-rect via inline `style={{ fill: color, stroke: 'none' }}`
-    so the hard-coded preset colors show through correctly.
-
+    - **Animation tab**: The "Timeline animation mode" (Mask/Bits/Both)
+      `step-focus-mode-btn` group → `PreviewOptionButton` in a 3-column
+      `preview-btn-grid-3`. The "Event duration target" (Progressive/Linear)
+      `step-focus-mode-btn` group → `PreviewOptionButton` in a 2-column
+      `preview-btn-grid-2` inside the timing-control. The "Mask stamp
+      animation" checkbox → standalone `PreviewOptionButton` toggle in a
+      `preview-btn-grid-2`. The "Pause event replay" checkbox removed
+      (same control exists in the single-event widget). Unused
+      `animationReplayPaused` / `onAnimationReplayPausedChange` props
+      dropped from the `AnimationTab` signature.
+    - **Colors tab**: The "Theme" light/dark `btn-option` buttons →
+      `PreviewOptionButton` in a 2-column `preview-btn-grid-2` with SVG
+      sun/moon icons. The "Color preset" `<select>` → `PreviewOptionButton`
+      grid (3 columns: "Theme", "Default", "High Contrast", "Pastel",
+      "Dark Mode") where each button's swatch is a 4×2 mini grid rendered
+      with the preset's actual `setBit` / `clearedBit` / `unchangedBit`
+      RGB values. The `PreviewOptionButton` import was added to
+      `ColorsTab.jsx`. The CSS rule `.preview-btn-swatch svg { fill: none }`
+      is overridden per-rect via inline `style={{ fill: color, stroke: 'none' }}`
+      so the hard-coded preset colors show through correctly.
 - ✅ **Minimap always visible when enabled, regardless of panel state.**
   Two root causes were fixed simultaneously.
+
   1. **Z-index / stacking**: The minimap canvas (`z-index: 11`) was
      painted behind the floating panels (settings sidebar, step panel —
      `z-index: 28`), so opening either panel hid the minimap. Fixed by
@@ -993,7 +998,7 @@ cell-fill code entirely. Work these in dependency order:
      sidebar (z-index: 28), step panel (z-index: 28), and the detail
      panel (z-index: auto). The `minimapCanvasRef` prop was removed from
      `CanvasStage` since the canvas element is no longer rendered there.
-  2. **Wrong visibility check**: `updateMinimapAvailability` and
+  1. **Wrong visibility check**: `updateMinimapAvailability` and
      `renderMinimap` both used the oversized (3× drag-headroom) canvas
      dimensions for `isContentFullyVisible`, causing the minimap to be
      marked "not available" when the content was smaller than the
@@ -1002,23 +1007,23 @@ cell-fill code entirely. Work these in dependency order:
      `r.viewportW / r.viewportH` (set in `refreshCanvasLayout` on every
      resize) and using those in both checks. `renderMinimap` now reads
      `window.innerWidth/Height` for the fixed-canvas drawing surface.
-  3. **Settings-panel inset**: `r.minimapRightInset` (set to 360 when
+  1. **Settings-panel inset**: `r.minimapRightInset` (set to 360 when
      the settings sidebar is expanded, 0 when collapsed) offsets the
      minimap left so it never overlaps panel controls. A `useEffect`
      in `Visualizer.jsx` keeps it in sync with `settingsCollapsed`.
-  4. **Hit-test coordinates**: Minimap click/drag detection changed
+  1. **Hit-test coordinates**: Minimap click/drag detection changed
      from container-relative (`rawX/rawY`) to viewport-relative
      (`e.clientX / e.clientY`) to match the fixed-position `_minimapRect`
      coordinates stored by `renderMinimap`.
-
 - ✅ **Cacheline annotations shown without heatmap.** Previously the
   `"×N Δstep"` badges only rendered when `heatMapEnabled` was true.
   Four changes were made:
+
   1. `Visualizer.jsx` — both `rebuildHeatMap` call sites now run
      whenever `heatMapEnabled || (cachelineAnnotation && cachelineAnnotation !== 'none')`.
      This ensures `clHitCount` / `clLastHitStep` are populated even
      when the colour heat overlay is off.
-  2. `CachelineAnnotationsOverlay.js` — guard changed from
+  1. `CachelineAnnotationsOverlay.js` — guard changed from
      `!heatMapEnabled || !clHitCount` to just `!clHitCount`. When
      heatmap is off the badge uses a neutral slate-500 colour
      (`{ r:100, g:116, b:139 }`) instead of the heat gradient.
@@ -1027,38 +1032,47 @@ cell-fill code entirely. Work these in dependency order:
      the `annotBottomExtra` extension zone *below* the bit cells
      (mirroring the same 14–22 px extension logic used by
      `_renderCachelineOutline`), so it never overlaps the bits.
-  3. `SieveRenderer._renderCachelineOutline` — `annotActive` no longer
+  1. `SieveRenderer._renderCachelineOutline` — `annotActive` no longer
      gates on `heatMapEnabled`; the outline extension is applied
      whenever `cachelineAnnotation !== 'none'`.
-  4. `LayoutTab.jsx` — `cycleCLAnnotation` no longer returns early
+  1. `LayoutTab.jsx` — `cycleCLAnnotation` no longer returns early
      when heatmap is off; annotation button `active` prop no longer
      requires `heatMapEnabled`; hints updated to not mention heatmap.
-
 - ✅ **Equal-height section cards in the detail panel.** All four
   `.detail-section-card` elements in the compact detail panel now
   stretch to the same height within each grid row.
   Change is CSS-only (`08b-detail-compact.css`):
-  - `.detail-sections`: `align-items: start` → `align-items: stretch`
-    so grid places each card at the row's full height.
-  - `.detail-section-card`: added `display: flex; flex-direction: column`
-    so the card itself is a flex container and can expand downward.
-  - `.detail-section-rows`: added `flex: 1` so the row list grows to
-    fill the card's available height, distributing unused space evenly
-    across rows.
-
+    - `.detail-sections`: `align-items: start` → `align-items: stretch`
+      so grid places each card at the row's full height.
+    - `.detail-section-card`: added `display: flex; flex-direction: column`
+      so the card itself is a flex container and can expand downward.
+    - `.detail-section-rows`: added `flex: 1` so the row list grows to
+      fill the card's available height, distributing unused space evenly
+      across rows.
 - ✅ **Settings panel tile buttons are now square.** All `AnnotationButton`
   (`.anno-btn`) and compact `PreviewOptionButton` (`.preview-btn.compact`)
   tiles in the settings panel now render as perfect squares. Change is
   CSS-only in `src/styles/15-layout-overview.css`:
-  - `.anno-btn`: removed `min-height: 90px; max-height: 100px; max-width: 120px`;
-    added `width: 100%; aspect-ratio: 1 / 1; overflow: hidden;`.
-  - `.preview-btn.compact`: replaced the same three constraints with
-    `width: 100%; aspect-ratio: 1 / 1; overflow: hidden;`.
+    - `.anno-btn`: removed `min-height: 90px; max-height: 100px; max-width: 120px`;
+      added `width: 100%; aspect-ratio: 1 / 1; overflow: hidden;`.
+    - `.preview-btn.compact`: replaced the same three constraints with
+      `width: 100%; aspect-ratio: 1 / 1; overflow: hidden;`.
+
   Each button now fills its grid column width and its height is
-  derived from the aspect ratio — giving a perfectly square tile in
-  all three-column (annotation, outline, animation, overlay, color
-  preset, theme) and two-column (mask stamp animation) grids. Hint
-  text that extends beyond the square is clipped by `overflow: hidden`.
+derived from the aspect ratio — giving a perfectly square tile in
+all three-column (annotation, outline, animation, overlay, color
+preset, theme) and two-column (mask stamp animation) grids. Hint
+text that extends beyond the square is clipped by `overflow: hidden`.
+
+- ✅ **Fixed `ColorsTab` dependency direction for `COLOR_PRESETS`.**
+  `ColorsTab.jsx` was importing `COLOR_PRESETS` from `'../SieveRenderer'`
+  — coupling a settings UI component to the renderer module. `COLOR_PRESETS`
+  was already defined in `src/renderer/constants.js` and re-exported via
+  `SieveRenderer.js` for backwards compatibility. Changed the import in
+  `ColorsTab.jsx` to `'../renderer/constants'` directly. No circular
+  import introduced; `SieveRenderer`'s re-export kept intact for any
+  remaining direct-renderer consumers. Build passes clean at 88 modules.
+  (Backlog item 17.)
 
 7. **Remove `SieveRenderer.skipBitFill` and the Canvas2D cell-fill code.**
    Blocked on items 4–6 (all remaining Canvas2D pixel work must be
@@ -1071,7 +1085,6 @@ cell-fill code entirely. Work these in dependency order:
    `_buildFrameContext()` can be deleted.
    Note: the `strokeRect` calls in those three methods are now gated
    with `!f.skipBitFill` (moved to GL shader in §7 item 4).
-
 8. **Decide the no-OffscreenCanvas fallback.** Currently, if the browser
    lacks `OffscreenCanvas`, `BitGridGLWorker.attach()` returns `false`
    and Canvas2D silently handles everything. Once Canvas2D cell-fill is
@@ -1081,7 +1094,6 @@ cell-fill code entirely. Work these in dependency order:
    (b) show a banner noting the browser is too old and degrade gracefully;
    (c) raise the minimum browser baseline to OffscreenCanvas (all
    evergreen browsers since ~2019 support it). Decide before item 7.
-
 9. **Partial `texSubImage2D` updates.** Currently the full state texture
    is repacked every frame. At bit counts > 100 k this starts to
    matter. A dirty-region tracker (bitmask of which 64-bit words
@@ -1100,7 +1112,6 @@ cell-fill code entirely. Work these in dependency order:
     single `timingSettings` / `onTimingSettingsChange` pair would reduce
     the prop surface of `SettingsPanel` and `Visualizer` significantly.
     Extract only when the caller count grows (currently two callers).
-
 11. **Extract `Visualizer.jsx` playback loop into a hook.** The
     all-events scheduler (`playAllRef`, `playAllLoop`, the `useEffect`
     that starts/stops it) plus the single-event replay loop
@@ -1113,7 +1124,6 @@ cell-fill code entirely. Work these in dependency order:
     capture many local `useCallback`s — the extraction requires those
     callbacks to be stabilised via refs first (same pattern as
     `triggerAnimationRef`).
-
 12. **Stabilise `Visualizer.jsx` callback refs.** Several `useCallback`s
     are listed as deps of heavy `useEffect`s, causing those effects to
     re-run more often than necessary (e.g. every play-speed change
@@ -1122,7 +1132,6 @@ cell-fill code entirely. Work these in dependency order:
     the stable ref-reader in the event listener. The `triggerAnimationRef`
     already demonstrates this pattern — extend it to `goToStepRef` and
     the export callbacks.
-
 13. **Split `SieveRenderer._drawBitBody` further.** At ~78 lines the
     three depth-mode branches (`normal` / `lowered` / `raised`) are the
     largest remaining private method after the render-refactor. Each
@@ -1130,24 +1139,22 @@ cell-fill code entirely. Work these in dependency order:
     `_drawBitBodyRaised` — selected by a dispatch at the top of
     `_drawBitBody`. No behaviour change; purely a readability win.
     Prerequisite for porting lowered-3D to GL (WebGL backlog item 5).
-
 14. **Introduce lightweight integration tests.** The only safety net is
     `npm run build`. Suggested minimal additions:
+
     - A Vitest unit test for `traceParser.js` covering each input
       format (JSON v2, JSON v3, `STEP` text, dump) against a fixture.
     - A Vitest unit test for `animationTiming.js` verifying tier
       boundaries (no DOM needed).
     - A Playwright smoke test that loads the sample trace, plays for
       3 seconds, and asserts no console errors and a non-blank canvas.
+
     Start with the parser tests — they are pure and have zero setup cost.
-
-15. **Audit `Visualizer.jsx` `useState` seed values.** Since
-    `getInitialViewState()` was introduced, a handful of `useState`
-    calls still inline their own `readViewPrefs()` calls (added before
-    the centralisation). Grep for `readViewPrefs()` inside `Visualizer`
-    and migrate any survivors to the `initState` bundle. Keeps the
-    "storage is read exactly once" invariant clean.
-
+15. **Audit `Visualizer.jsx` `useState` seed values.** ✅ DONE.
+    Grepped for `readViewPrefs()` inside `Visualizer.jsx` — zero
+    occurrences found. All `useState` seeds already flow from
+    `getInitialViewState()` via the single `useMemo(initState)` call.
+    The "storage is read exactly once" invariant is fully clean.
 16. **Extract the minimap render + hit-test into a `MinimapRenderer`
     class.** The minimap is currently drawn inline in `SieveRenderer`
     across three methods (`_renderMinimap`, `_renderMinimapViewport`,
@@ -1155,15 +1162,11 @@ cell-fill code entirely. Work these in dependency order:
     class following Pattern D would isolate it from the main draw pipeline
     and make the hit-test logic independently legible. Low priority while
     the minimap is feature-stable.
-
 17. **Review `ColorsTab` import of `COLOR_PRESETS` from `SieveRenderer`.**
-    `ColorsTab.jsx` currently imports `COLOR_PRESETS` directly from
-    `../SieveRenderer` — this couples a settings UI component to the
-    renderer module. Moving `COLOR_PRESETS` into `src/renderer/constants.js`
-    (where the other renderer constants live) and re-exporting from
-    `SieveRenderer` for backwards compatibility would clean the dependency
-    direction. Verify no circular import is introduced.
-
+    ✅ DONE. `COLOR_PRESETS` was already in `src/renderer/constants.js`
+    and re-exported via `SieveRenderer.js`. Changed `ColorsTab.jsx` to
+    import from `'../renderer/constants'` directly. No circular import
+    introduced; build passes clean at 88 modules.
 18. **Add `propTypes` or TypeScript types to the top-level component
     boundaries.** `Visualizer.jsx`, `SettingsPanel.jsx`, and `StepPanel.jsx`
     have large prop surfaces with no runtime or compile-time checking.
@@ -1182,14 +1185,12 @@ cell-fill code entirely. Work these in dependency order:
     (b) use a persistent data structure (e.g. a copy-on-write bit array);
     (c) limit backward-scrub to the incremental path + prohibit it
     (UX trade-off). Measure before committing to any approach.
-
 20. **Throttle settings-panel re-renders during rapid slider input.**
     The spacing sliders and event-timing sliders in `LayoutTab` and
     `AnimationTab` fire on every `input` event. Each fires a state update
     in `Visualizer.jsx`, which re-renders the entire toolbar. Wrapping
     the slider `onChange` in a `useTransition` or debouncing at
     50 ms would keep the canvas frame rate stable during slider drags.
-
 21. **Lazy-load `traceParser.js` and the renderer on first trace open.**
     Currently both modules are in the main bundle. `traceParser.js`
     (~690 lines) and `SieveRenderer.js` (~2 800 lines) are not needed
@@ -1204,53 +1205,46 @@ cell-fill code entirely. Work these in dependency order:
     pre-export assertion in `useTraceExport.js` that the canvas element
     is visible (`offsetParent !== null`) and surface a user-visible error
     if it is not, rather than producing a silent empty recording.
-
 23. **Worker error surfacing.** `bitPrePassClient.js` drops worker errors
     silently (falls back to synchronous compute). `BitGridGLWorker.js`
     has no error handler on the worker `MessageChannel`. Add `onerror`
     handlers that post to a central `console.error` + (optionally) a
     React error-boundary notification so failures surface during
     development.
-
 24. **Consolidate `pendingResizeAnchorRef` logic.** The panel-collapse
     pan-compensation path (§5 minefield) is fragile and spread across
     five toggle handlers. A single `setPanelState(newState, anchorBit)`
     helper that stashes the anchor and flips the panel state atomically
     would be less error-prone. Extract only after the current shape has
     proven stable across multiple panel-combination toggles.
-
-5. **Port lowered-3D shading to GL.** ✅ DONE — see item 5 in the
-   WebGL-worker deepening backlog above.
-
-6. **Port rise-and-settle animation to GL.** ✅ DONE — see item 6 in the
-   WebGL-worker deepening backlog above.
-
-7. **Remove `SieveRenderer.skipBitFill` and the Canvas2D cell-fill code.**
-   Blocked on items 4–6 (all remaining Canvas2D pixel work must be
-   ported before this is safe). The code paths to remove are:
-   `_renderClear()` background fill, `_drawBitBody()` non-lowered
-   branches, `_drawBitFocusRange()` fill rect, and the
-   `fillRect`-per-bit calls in `_drawBitPrimeOverlay`,
-   `_drawBitRangeOverlay`, `_drawBitMultiplesOverlay`. After removal,
-   the `skipBitFill` field on `SieveRenderer` and the gating in
-   `_buildFrameContext()` can be deleted.
-
-8. **Decide the no-OffscreenCanvas fallback.** Currently, if the browser
-   lacks `OffscreenCanvas`, `BitGridGLWorker.attach()` returns `false`
-   and Canvas2D silently handles everything. Once Canvas2D cell-fill is
-   removed (item 7), this silent fallback disappears. Options:
-   (a) ~~keep `BitGridGL.js` as a last-resort direct-mode fallback~~ —
-   `BitGridGL.js` was deleted in §7 item 3; not recommended.
-   (b) show a banner noting the browser is too old and degrade gracefully;
-   (c) raise the minimum browser baseline to OffscreenCanvas (all
-   evergreen browsers since ~2019 support it). Decide before item 7.
-
-9. **Partial `texSubImage2D` updates.** Currently the full state texture
-   is repacked every frame. At bit counts > 100 k this starts to
-   matter. A dirty-region tracker (bitmask of which 64-bit words
-   changed since last upload) could reduce per-frame `texSubImage2D`
-   to only changed rows. Only pursue this after items 1–3 are done
-   and a measured regression is found.
+25. **Port lowered-3D shading to GL.** ✅ DONE — see item 5 in the
+    WebGL-worker deepening backlog above.
+26. **Port rise-and-settle animation to GL.** ✅ DONE — see item 6 in the
+    WebGL-worker deepening backlog above.
+27. **Remove `SieveRenderer.skipBitFill` and the Canvas2D cell-fill code.**
+    Blocked on items 4–6 (all remaining Canvas2D pixel work must be
+    ported before this is safe). The code paths to remove are:
+    `_renderClear()` background fill, `_drawBitBody()` non-lowered
+    branches, `_drawBitFocusRange()` fill rect, and the
+    `fillRect`-per-bit calls in `_drawBitPrimeOverlay`,
+    `_drawBitRangeOverlay`, `_drawBitMultiplesOverlay`. After removal,
+    the `skipBitFill` field on `SieveRenderer` and the gating in
+    `_buildFrameContext()` can be deleted.
+28. **Decide the no-OffscreenCanvas fallback.** Currently, if the browser
+    lacks `OffscreenCanvas`, `BitGridGLWorker.attach()` returns `false`
+    and Canvas2D silently handles everything. Once Canvas2D cell-fill is
+    removed (item 7), this silent fallback disappears. Options:
+    (a) ~~keep `BitGridGL.js` as a last-resort direct-mode fallback~~ —
+    `BitGridGL.js` was deleted in §7 item 3; not recommended.
+    (b) show a banner noting the browser is too old and degrade gracefully;
+    (c) raise the minimum browser baseline to OffscreenCanvas (all
+    evergreen browsers since ~2019 support it). Decide before item 7.
+29. **Partial `texSubImage2D` updates.** Currently the full state texture
+    is repacked every frame. At bit counts > 100 k this starts to
+    matter. A dirty-region tracker (bitmask of which 64-bit words
+    changed since last upload) could reduce per-frame `texSubImage2D`
+    to only changed rows. Only pursue this after items 1–3 are done
+    and a measured regression is found.
 
 ---
 
@@ -1266,10 +1260,10 @@ frame (see lines 718, 841, 1750, 1816, 1850, 1883). At large `bitCount`
 that's the bottleneck — not CPU contention with React. Two orthogonal
 levers:
 
-| Lever | What it fixes | What it doesn't fix |
-|---|---|---|
-| **Worker pre-pass** | Main-thread jank from cold computations (prime-flag table, heat-map maintenance, mask diffing) running synchronously inside `setState()` | Per-`fillRect` cost. The draw loop still runs on the main thread. |
-| **WebGL bit grid** | Per-bit draw-call cost. One instanced/fullscreen-quad draw replaces N `fillRect`s. | CPU work *outside* the bit pass (overlays, labels, cacheline outlines). |
+| Lever               | What it fixes                                                                                        | What it doesn't fix                                                     |
+| ------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **Worker pre-pass** | Main-thread jank from cold computations (prime-flag table, heat-map maintenance, mask diffing) running synchronously inside `setState()` | Per-`fillRect` cost. The draw loop still runs on the main thread.       |
+| **WebGL bit grid**  | Per-bit draw-call cost. One instanced/fullscreen-quad draw replaces N `fillRect`s.                   | CPU work *outside* the bit pass (overlays, labels, cacheline outlines). |
 
 Both are useful; they stack. Start with the worker (low risk) and treat
 the GL path as opt-in until parity is reached.
@@ -1327,11 +1321,13 @@ production load path.
 - The Canvas2D layer above paints everything GL doesn't:
   ghost-mask highlights, target outlines, prime/range/
   multiples dots + borders + 'p'/'r' labels, cacheline outline
-  + heat overlay, motion trails, vector touch order, mask write
+    - heat overlay, motion trails, vector touch order, mask write
+
   overlay, search highlight, bit/byte/vector labels, minimap.
-  `SieveRenderer.skipBitFill` (set per-frame in `Visualizer.jsx`)
-  gates only the cell-fill rectangles + background fill so the
-  GL canvas underneath shows through.
+`SieveRenderer.skipBitFill` (set per-frame in `Visualizer.jsx`)
+gates only the cell-fill rectangles + background fill so the
+GL canvas underneath shows through.
+
 - Lowered-3D mode (`loweredSetBits`) has no GL parity by
   design — see §7 backlog item 5. When on, the Canvas2D bit-fill
   takes over and GL skips its uploads/draw.
@@ -1358,7 +1354,7 @@ done":
    snapping each quad corner to the device-pixel grid
    (`floor(corner * u_dpr + 0.5) / u_dpr`), mirroring the
    `Math.round` calls in the Canvas2D fillRect path.
-2. **Color parity.** ✅ *Done at scope.* Shader handles
+1. **Color parity.** ✅ *Done at scope.* Shader handles
    set / cleared / changed / ghost-mask / repeated using uniforms
    from `_bitColors()` and `_opColor()`, **plus** the four
    cell-fill overlays focus / prime / range / multiples (tints
@@ -1379,7 +1375,7 @@ done":
    stays hidden behind the now-opaque main canvas). Toggling
    depth mode at runtime works because the wrapper in
    `Visualizer.jsx` re-evaluates `skipBitFill` every frame.
-3. **State texture protocol.** ✅ *Done at current scope.*
+1. **State texture protocol.** ✅ *Done at current scope.*
    One `R8UI` `stateTex`, one byte per bit, packed bits
    `set | changed | ghost | repeated | prime | range | multiples |
    focus`, repacked every render in JS (`uploadState(host)`).
@@ -1389,7 +1385,7 @@ done":
    are the natural next steps **only if** lowered-3D / hit-count
    gradient shading land in items 1–2 — i.e. when there are
    features that actually consume a richer per-bit payload.
-4. **Hit-testing.** ✅ *Enforced.* `bitIndexToCanvas()` /
+1. **Hit-testing.** ✅ *Enforced.* `bitIndexToCanvas()` /
    `canvasToBitIndex()` are the JS-side authoritative layout
    helpers. The GL canvas is layered *under* the Canvas2D input
    layer with `pointer-events: none` (set both in `07-canvas.css`
@@ -1397,7 +1393,7 @@ done":
    hit-test must call `host.canvasToBitIndex(x, y)` rather than
    re-deriving layout from GL state — see the JSDoc on
    `BitGridGL.attach()`.
-5. **Visual diff harness.** ✅ *Done (minimal).* `parity.html`
+1. **Visual diff harness.** ✅ *Done (minimal).* `parity.html`
    at the project root, served by Vite in dev (not bundled into
    the production build — confirmed by module count staying at
    85). Loads `src/dev/parityHarness.js`, builds a synthetic
@@ -1417,7 +1413,7 @@ done":
    `bitToNumber(i, storageModel)` while the harness uses `i`
    directly; range/focus/prime exercise the same shader
    composite path so the omission doesn't reduce coverage.
-6. **Step 3 — OffscreenCanvas worker dispatch.** ✅ *Done.*
+1. **Step 3 — OffscreenCanvas worker dispatch.** ✅ *Done.*
    Opt-in via `?renderer=gl-worker`. The GL canvas is handed to
    a module worker (`src/renderer/gl/bitGridWorker.js`) via
    `transferControlToOffscreen()`; the WebGL2 context lives in
@@ -1448,26 +1444,27 @@ done":
    Main bundle grew by ~3 KB for the facade + flag plumbing.
 
    Caveats:
-     - Worker init is async. The facade buffers
-       `setBitCount`/`resize`/`positions`/`state`/`render`
-       messages until the worker posts `ready`, then flushes.
-       First-frame latency is therefore one extra
-       message-loop turn.
-     - Context-loss recovery is NOT yet wired in worker mode.
-       The direct path handles `webglcontextlost`/`restored`;
-       the worker would need to re-init the `BitGridGLCore` and
-       re-allocate textures on its side, then have the main
-       thread re-send `setBitCount` + force a fingerprint
-       repack. Not implemented because the worker context is
-       isolated from the page lifecycle and rarely loses
-       — leave for a "Don't fix unbroken things" reason.
-     - The visual-diff harness (`parity.html`) tests
-       `BitGridGL`, not `BitGridGLWorker`. Both use
-       `BitGridGLCore` and the same `hostStatePacker`, so the
-       harness still pins the rendering algorithm; it just
-       doesn't exercise the worker round-trip. A
-       `?renderer=gl-worker` mode for the harness would need
-       async result collection.
+
+   - Worker init is async. The facade buffers
+     `setBitCount`/`resize`/`positions`/`state`/`render`
+     messages until the worker posts `ready`, then flushes.
+     First-frame latency is therefore one extra
+     message-loop turn.
+   - Context-loss recovery is NOT yet wired in worker mode.
+     The direct path handles `webglcontextlost`/`restored`;
+     the worker would need to re-init the `BitGridGLCore` and
+     re-allocate textures on its side, then have the main
+     thread re-send `setBitCount` + force a fingerprint
+     repack. Not implemented because the worker context is
+     isolated from the page lifecycle and rarely loses
+     — leave for a "Don't fix unbroken things" reason.
+   - The visual-diff harness (`parity.html`) tests
+     `BitGridGL`, not `BitGridGLWorker`. Both use
+     `BitGridGLCore` and the same `hostStatePacker`, so the
+     harness still pins the rendering algorithm; it just
+     doesn't exercise the worker round-trip. A
+     `?renderer=gl-worker` mode for the harness would need
+     async result collection.
 
 ### Don't
 
@@ -1486,4 +1483,3 @@ done":
   `BitGridGLWorker.attach()`. The silent Canvas2D fallback it enables
   is the only thing keeping the app functional on older browsers while
   the GL path matures.
-

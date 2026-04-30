@@ -1,5 +1,5 @@
 import React from 'react';
-import { COLOR_PRESETS } from '../SieveRenderer';
+import { COLOR_PRESETS } from '../renderer/constants';
 import { PreviewOptionButton } from './buttons';
 
 function rgbToHex(rgb) {
