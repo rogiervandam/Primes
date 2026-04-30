@@ -27,6 +27,7 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
     bitbucket_t current_mask = (bitbucket_t)0U, pending_mask = (bitbucket_t)0U;
     counter_t pending_bucket = 0;
 
+    // TODO: make a larger wheel and check if we stay within the wheel so we have to take lesser % and /
     logStart7(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_copy, "MarkFactorsWheelStorageSmallRepeatPairCopy: marking factors with step %3ju for prime %ju using markFactors_wheelstorage_small_repeat_pair_vector %s in %ju factor range (%ju-%ju) (%ju occurances; %ju repeats)", (uintmax_t)step, (uintmax_t)step/2, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
     for (counter_t index = range_start; index <= range_stop_unique; index += step) {
         const counter_t wheel_bit = wheel_bit_calc(index);
