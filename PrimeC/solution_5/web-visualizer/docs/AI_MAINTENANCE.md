@@ -14,9 +14,9 @@ The web visualizer is a long-lived React/Vite app with **three** large files tha
 
 | File                         | Lines  | Role                                                             |
 | ---------------------------- | ------ | ---------------------------------------------------------------- |
-| `src/Visualizer.jsx`         | ~4 080 | Stateful orchestrator: trace, playback, viewport, hover, exports |
-| `src/SieveRenderer.js`       | ~2 800 | 2D canvas renderer (sieve grid, overlays, animations)            |
-| `src/settings/LayoutTab.jsx` | ~900   | Layout tab (extracted from former SettingsPanel monolith)        |
+| `src/Visualizer.jsx`         | ~4 190 | Stateful orchestrator: trace, playback, viewport, hover, exports |
+| `src/SieveRenderer.js`       | ~2 610 | 2D canvas renderer (sieve grid, overlays, animations)            |
+| `src/settings/LayoutTab.jsx` | ~960   | Layout tab (extracted from former SettingsPanel monolith)        |
 
 `SettingsPanel.jsx` itself is now ~330 lines (including new JSDoc).
 The former hotspot is replaced by `LayoutTab.jsx` and `AnimationTab.jsx`
@@ -704,17 +704,11 @@ in the worker path.
   output; the module-level `AnnotationButton` and `PreviewOptionButton`
   elements it returns have stable type references and are reconciled
   in-place — no unmount/remount during animation.
-  **Minefield note:** `SpacingControl` is still defined inside
-  `LayoutOverview`; when `LayoutOverview()` is invoked on each render,
-  `SpacingControl` is a new function. Any `<SpacingControl />` usage in
-  the Arrangements section will still unmount/remount per render.
-  This is accepted because: (a) the spacing popover state lives in
-  `LayoutTab`, not in `SpacingControl`, so it survives the remount;
-  (b) the user did not report spacing controls as broken. If spacing
-  controls ever become a problem, promote `SpacingControl` to a
-  module-level component and pass `openSpacingControl`,
-  `setOpenSpacingControl`, `s`, `incr`, `decr` as props — five props
-  that cover all its needs.
+  ~~**Minefield note:** `SpacingControl` is still defined inside
+  `LayoutOverview`~~ — **✅ FIXED (Session 2025).** `SpacingControl` has
+  been promoted to module level above `LayoutTab` and now receives the five
+  previously-closured values (`openSpacingControl`, `setOpenSpacingControl`,
+  `s`, `incr`, `decr`) as explicit props. No more per-render unmount/remount.
   **General rule for LayoutTab:** Never define a React component
   (`const Foo = () => {...}`) inside `LayoutTab`'s function body and
   then render it as `<Foo />`. Use direct function calls (`{Foo()}`),
@@ -938,6 +932,47 @@ in the worker path.
   rule already in `18-joined-widget.css`. `npm run build` clean; 50/50 tests pass.
   Module count: 92 → 92 (no new modules; both components and CopyIcon live in
   existing files).
+- ✅ **Promoted `SpacingControl` to module level in `LayoutTab.jsx`.**
+  `SpacingControl` was defined inside `LayoutOverview` (itself a function inside
+  `LayoutTab`). Since `LayoutOverview` is called as a direct function
+  (`{LayoutOverview()}`), React never sees a stale `LayoutOverview` type, but
+  _it did_ see a new `SpacingControl` type on every render — causing unmount +
+  remount between mousedown and mouseup, silently breaking click interactions
+  during animation. Fix: moved `SpacingControl` to module scope (above
+  `LayoutTab`). Added the five previously-closured values as explicit props:
+  `openSpacingControl`, `setOpenSpacingControl`, `s`, `incr`, `decr`. Updated
+  all three `<SpacingControl />` usages inside `LayoutOverview` to pass them.
+  Minefield note in §5 updated accordingly. `npm run build` clean.
+- ✅ **Introduced `captureResizeAnchor` helper (item 24).**
+  The repeated `pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5)`
+  pattern occurred in five toggle handlers (`toggleEventsPanel`,
+  `revealCurrentStepInPanel`, `toggleDetailPanel`, `toggleSettingsPanel`,
+  `openAnimationSettings`). Extracted to a single named `captureResizeAnchor`
+  `useCallback` (dep: `captureViewportAnchor`). All five handlers now call
+  `captureResizeAnchor()` instead, and their own dep arrays updated accordingly.
+  The semantic meaning of the pattern is now in one place with a JSDoc comment.
+  No behaviour change. `npm run build` clean.
+- ✅ **Expanded test suite to 178 tests across 5 files.**
+  Three new test files added (zero DOM / zero React dependencies):
+  - `src/renderer/__tests__/bitMath.test.js` — 37 tests covering `bitToNumber`
+    and `numberToBit` for all three storage models (`half`, `full`, `wheel`),
+    including round-trip assertions. Discovered documented edge: `Number(null)
+    === 0` so `toNumberOr(null, x)` returns `0`, not `x`.
+  - `src/lib/__tests__/viewPrefs.test.js` — 31 tests covering all four
+    `merge*` helpers (`mergeEventTimeTargets`, `mergeLayoutSettings`,
+    `mergeEventTitleSettings`, `mergeDepthSettings`): null/undefined
+    fallbacks, clamping, legacy migration (`outlines.target →
+    outlines.targets`), type coercion, forced defaults (`visible: true`,
+    `position: "center"`). `readViewPrefs` / `writeViewPrefs` /
+    `getInitialViewState` are deliberately **not** tested here (depend on
+    `window.localStorage`).
+  - `src/parser/__tests__/parseUtils.test.js` — 60 tests covering all
+    exported pure helpers: `firstDefined`, `toNumberOr`, `toNullableNumber`,
+    `parseKvLine` (including escape sequences), `firstExactAliasValue`,
+    `firstAliasValue`, `parseChangedBits`, `parseIntegerList`,
+    `sanitizeOperationToken`, `dedupeStrings`, `collectTitleInfo`,
+    `normalizeBitCountForStorage`, `isAnalysisEndLine`. Module count: 92 (no
+    new production modules; test files are not bundled). `npm run test` 178/178.
 
 These are concrete next-step refactors that each fit comfortably in a
 single working session. Tackle them in order — earlier ones unblock later
@@ -1478,12 +1513,12 @@ text that extends beyond the square is clipped by `overflow: hidden`.
     A React error-boundary notification remains optional — the Canvas2D
     layer keeps rendering through any GL-worker failure, so a silent
     console error is appropriate at this stage.
-24. **Consolidate `pendingResizeAnchorRef` logic.** The panel-collapse
-    pan-compensation path (§5 minefield) is fragile and spread across
-    five toggle handlers. A single `setPanelState(newState, anchorBit)`
-    helper that stashes the anchor and flips the panel state atomically
-    would be less error-prone. Extract only after the current shape has
-    proven stable across multiple panel-combination toggles.
+24. **Consolidate `pendingResizeAnchorRef` logic.** ✅ DONE — `captureResizeAnchor`
+    helper extracted; all five toggle handlers call it. See §6 history.
+    _Follow-up (optional):_ consider a `setPanelState(newState, anchorBit)`
+    helper that stashes the anchor and flips the panel state atomically once
+    the current shape has proven stable across multiple panel-combination
+    toggles.
 25. **Port lowered-3D shading to GL.** ✅ DONE — see item 5 in the
     WebGL-worker deepening backlog above.
 26. **Port rise-and-settle animation to GL.** ✅ DONE — see item 6 in the

@@ -666,11 +666,21 @@ export default function Visualizer({
     renderer.panY += planeOffsetY;
   }, [header.bitCount]);
 
+  /**
+   * Stash a viewport anchor for the panel-toggle resize useEffect.
+   * Must be called BEFORE the state update that triggers the layout change
+   * (see §5 minefield: pendingResizeAnchorRef). Each panel toggle handler
+   * calls this once immediately before its setState call.
+   */
+  const captureResizeAnchor = useCallback(() => {
+    pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
+  }, [captureViewportAnchor]);
+
   const toggleEventsPanel = useCallback(() => {
     // Snapshot the canvas-area centre's window position BEFORE the state
     // update so the resize useEffect can pin it after CSS reflow. See
     // pendingResizeAnchorRef for why fresh capture in the effect drifts.
-    pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
+    captureResizeAnchor();
     setEventsPanelCollapsed((wasCollapsed) => {
       // When the panel is being OPENED (was collapsed), split the widgets so
       // the single-event banner shows independently — the all-events transport
@@ -681,7 +691,7 @@ export default function Visualizer({
     // Always reset widget-hidden so the floating widget reliably reappears
     // when the panel is collapsed (undoes any previous dock-to-top-bar gesture).
     setAllEventsWidgetHidden(false);
-  }, [captureViewportAnchor]);
+  }, [captureResizeAnchor]);
 
   // Open the events panel (if collapsed) and ask it to reveal the current
   // step: clear filters that hide it, expand its parent group + ancestor
@@ -691,7 +701,7 @@ export default function Visualizer({
     // pre-state-change anchor for the resize useEffect to consume.
     setEventsPanelCollapsed((wasCollapsed) => {
       if (wasCollapsed) {
-        pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
+        captureResizeAnchor();
         // Opening the panel: split the joined widget so the banner is independent.
         setWidgetsJoined(false);
         return false;
@@ -699,17 +709,17 @@ export default function Visualizer({
       return wasCollapsed;
     });
     setRevealStepRequest((n) => n + 1);
-  }, [captureViewportAnchor]);
+  }, [captureResizeAnchor]);
 
   const toggleDetailPanel = useCallback(() => {
-    pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
+    captureResizeAnchor();
     updateDetailOpen((o) => !o);
-  }, [captureViewportAnchor, updateDetailOpen]);
+  }, [captureResizeAnchor, updateDetailOpen]);
 
   const toggleSettingsPanel = useCallback(() => {
-    pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
+    captureResizeAnchor();
     setSettingsCollapsed((collapsed) => !collapsed);
-  }, [captureViewportAnchor]);
+  }, [captureResizeAnchor]);
 
   // Tracks the active tab in SettingsPanel so the gear icon can toggle it.
   const [settingsActiveTab, setSettingsActiveTab] = useState('layout');
@@ -721,7 +731,7 @@ export default function Visualizer({
   // Open animation settings panel to the animation tab (e.g. from gear icon in event widget).
   // Toggles the panel closed if it is already open on the animation tab.
   const openAnimationSettings = useCallback(() => {
-    pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
+    captureResizeAnchor();
     if (!settingsCollapsed && settingsActiveTab === 'animation') {
       // Panel is open and already showing animation — close it.
       setSettingsCollapsed(true);
@@ -729,7 +739,7 @@ export default function Visualizer({
     }
     setSettingsCollapsed(false);
     setSettingsTabRequest((prev) => ({ tab: 'animation', counter: (prev?.counter ?? 0) + 1 }));
-  }, [captureViewportAnchor, settingsCollapsed, settingsActiveTab]);
+  }, [captureResizeAnchor, settingsCollapsed, settingsActiveTab]);
 
   // Callback for changing bitAnimationMode from the settings panel (no seek side-effect needed there).
   const handleBitAnimationModeChange = useCallback((mode) => {

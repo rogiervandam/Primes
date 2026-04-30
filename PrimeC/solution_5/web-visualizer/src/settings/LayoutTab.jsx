@@ -19,10 +19,85 @@ import {
 } from './buttons';
 
 /**
+ * Module-level spacing-control widget.
+ * Promoted from inside LayoutOverview to prevent React unmount/remount on
+ * each animation frame (inline components are new references every render).
+ * Needs the five LayoutTab state/bundle props passed explicitly.
+ */
+function SpacingControl({ title, keyH, keyV, max, className = '', columnControl = null,
+  openSpacingControl, setOpenSpacingControl, s, incr, decr }) {
+  const controlId = `${keyH}:${keyV}`;
+  const open = openSpacingControl === controlId;
+  return (
+    <div className={`spacing-inline-control spacing-inline-floating ${className}${open ? ' open' : ''}`.trim()}>
+      <button
+        type="button"
+        className={`spacing-inline-trigger${open ? ' active' : ''}`}
+        onClick={() => setOpenSpacingControl(open ? null : controlId)}
+        title={title}
+        aria-expanded={open ? 'true' : 'false'}
+      >
+        <span className="spacing-inline-trigger-icon"><SpacingIcon title={title} /></span>
+      </button>
+      {open && (
+        <div className="spacing-inline-popover">
+          <div className="spacing-inline-title">{title}</div>
+          <div className="spacing-inline-row">
+            <span className="spacing-inline-axis">H</span>
+            <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => decr(keyH)} title={`Decrease ${title.toLowerCase()} horizontal spacing`}>−</button>
+            <div className="spacing-inline-preview spacing-inline-preview-h" aria-hidden="true">
+              <span className="spacing-inline-box" />
+              <span className="spacing-inline-gap">{s[keyH] ?? 0}</span>
+              <span className="spacing-inline-box" />
+            </div>
+            <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => incr(keyH, max)} title={`Increase ${title.toLowerCase()} horizontal spacing`}>+</button>
+          </div>
+          <div className="spacing-inline-row">
+            <span className="spacing-inline-axis">V</span>
+            <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => decr(keyV)} title={`Decrease ${title.toLowerCase()} vertical spacing`}>−</button>
+            <div className="spacing-inline-preview spacing-inline-preview-v" aria-hidden="true">
+              <span className="spacing-inline-box" />
+              <span className="spacing-inline-gap">{s[keyV] ?? 0}</span>
+              <span className="spacing-inline-box" />
+            </div>
+            <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => incr(keyV, max)} title={`Increase ${title.toLowerCase()} vertical spacing`}>+</button>
+          </div>
+          {columnControl ? (
+            <div className="spacing-inline-row spacing-inline-row-extended">
+              <span className="spacing-inline-axis">C</span>
+              <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={columnControl.decr} title={columnControl.decrTitle}>−</button>
+              <div className="spacing-inline-preview spacing-inline-preview-h" aria-hidden="true">
+                <span className="spacing-inline-box" />
+                <span className="spacing-inline-gap">{columnControl.value}</span>
+                <span className="spacing-inline-box" />
+              </div>
+              <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={columnControl.incr} title={columnControl.incrTitle}>+</button>
+            </div>
+          ) : null}
+          {columnControl ? (
+            <div className="spacing-inline-row spacing-inline-row-toggle">
+              <span className="spacing-inline-axis">A</span>
+              <button
+                type="button"
+                className={`spacing-toggle-btn${columnControl.auto ? ' active' : ''}`}
+                onClick={columnControl.toggleAuto}
+                title={columnControl.toggleTitle}
+              >
+                {columnControl.auto ? 'Auto fit on' : 'Auto fit off'}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * LayoutTab — content for the "Layout" tab of the settings sidebar.
  *
- * This is the heaviest of the three tabs (~700 lines including helpers
- * and the inner `LayoutOverview` / `SpacingControl` components). It owns
+ * This is the heaviest of the three tabs (~750 lines including helpers
+ * and the inner `LayoutOverview` component). It owns
  * its own UI state for the grouping menu, custom-preset menu and
  * spacing popovers because none of that state is observed outside this
  * tab. All sieve settings flow in via `settings`/`onChange`; everything
@@ -292,74 +367,6 @@ export default function LayoutTab({
    * No large preview block so panel height remains stable while changing options.
    */
   const LayoutOverview = () => {
-    const SpacingControl = ({ title, keyH, keyV, max, className = '', columnControl = null }) => {
-      const controlId = `${keyH}:${keyV}`;
-      const open = openSpacingControl === controlId;
-      return (
-        <div className={`spacing-inline-control spacing-inline-floating ${className}${open ? ' open' : ''}`.trim()}>
-          <button
-            type="button"
-            className={`spacing-inline-trigger${open ? ' active' : ''}`}
-            onClick={() => setOpenSpacingControl(open ? null : controlId)}
-            title={title}
-            aria-expanded={open ? 'true' : 'false'}
-          >
-            <span className="spacing-inline-trigger-icon"><SpacingIcon title={title} /></span>
-          </button>
-          {open && (
-            <div className="spacing-inline-popover">
-              <div className="spacing-inline-title">{title}</div>
-              <div className="spacing-inline-row">
-                <span className="spacing-inline-axis">H</span>
-                <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => decr(keyH)} title={`Decrease ${title.toLowerCase()} horizontal spacing`}>−</button>
-                <div className="spacing-inline-preview spacing-inline-preview-h" aria-hidden="true">
-                  <span className="spacing-inline-box" />
-                  <span className="spacing-inline-gap">{s[keyH] ?? 0}</span>
-                  <span className="spacing-inline-box" />
-                </div>
-                <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => incr(keyH, max)} title={`Increase ${title.toLowerCase()} horizontal spacing`}>+</button>
-              </div>
-              <div className="spacing-inline-row">
-                <span className="spacing-inline-axis">V</span>
-                <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => decr(keyV)} title={`Decrease ${title.toLowerCase()} vertical spacing`}>−</button>
-                <div className="spacing-inline-preview spacing-inline-preview-v" aria-hidden="true">
-                  <span className="spacing-inline-box" />
-                  <span className="spacing-inline-gap">{s[keyV] ?? 0}</span>
-                  <span className="spacing-inline-box" />
-                </div>
-                <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={() => incr(keyV, max)} title={`Increase ${title.toLowerCase()} vertical spacing`}>+</button>
-              </div>
-              {columnControl ? (
-                <div className="spacing-inline-row spacing-inline-row-extended">
-                  <span className="spacing-inline-axis">C</span>
-                  <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={columnControl.decr} title={columnControl.decrTitle}>−</button>
-                  <div className="spacing-inline-preview spacing-inline-preview-h" aria-hidden="true">
-                    <span className="spacing-inline-box" />
-                    <span className="spacing-inline-gap">{columnControl.value}</span>
-                    <span className="spacing-inline-box" />
-                  </div>
-                  <button type="button" className="btn-icon btn-sm spacing-adjust-btn" onClick={columnControl.incr} title={columnControl.incrTitle}>+</button>
-                </div>
-              ) : null}
-              {columnControl ? (
-                <div className="spacing-inline-row spacing-inline-row-toggle">
-                  <span className="spacing-inline-axis">A</span>
-                  <button
-                    type="button"
-                    className={`spacing-toggle-btn${columnControl.auto ? ' active' : ''}`}
-                    onClick={columnControl.toggleAuto}
-                    title={columnControl.toggleTitle}
-                  >
-                    {columnControl.auto ? 'Auto fit on' : 'Auto fit off'}
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          )}
-        </div>
-      );
-    };
-
     return (
       <>
         <div className="settings-section">
@@ -566,7 +573,9 @@ export default function LayoutTab({
                             onClick={() => set('bitLayout', k)} tooltip={BIT_LAYOUT_TIPS[k]} size={40} />
               ))}
             </div>
-            <SpacingControl title="Bit spacing" keyH="bitSpacingH" keyV="bitSpacingV" max={10} />
+            <SpacingControl title="Bit spacing" keyH="bitSpacingH" keyV="bitSpacingV" max={10}
+              openSpacingControl={openSpacingControl} setOpenSpacingControl={setOpenSpacingControl}
+              s={s} incr={incr} decr={decr} />
           </div>
         </div>
         <p className="layout-description layout-description-grouping">{BIT_LAYOUT_TIPS[s.bitLayout] || 'Pick how bits are arranged inside a byte.'}</p>
@@ -582,7 +591,9 @@ export default function LayoutTab({
                             onClick={() => set('byteLayout', k)} tooltip={BYTE_LAYOUT_TIPS[k]} size={40} />
               ))}
             </div>
-            <SpacingControl title="Byte spacing" keyH="byteSpacingH" keyV="byteSpacingV" max={20} />
+            <SpacingControl title="Byte spacing" keyH="byteSpacingH" keyV="byteSpacingV" max={20}
+              openSpacingControl={openSpacingControl} setOpenSpacingControl={setOpenSpacingControl}
+              s={s} incr={incr} decr={decr} />
           </div>
         </div>
         <p className="layout-description layout-description-grouping">{BYTE_LAYOUT_TIPS[s.byteLayout] || 'Pick how bytes are arranged inside a uint64.'}</p>
@@ -616,6 +627,8 @@ export default function LayoutTab({
                   keyV="u64SpacingV"
                   max={20}
                   className="spacing-inline-grouping"
+                  openSpacingControl={openSpacingControl} setOpenSpacingControl={setOpenSpacingControl}
+                  s={s} incr={incr} decr={decr}
                 />
               </div>
               <p className="layout-description">Current: {activeGroupingLabel}</p>
