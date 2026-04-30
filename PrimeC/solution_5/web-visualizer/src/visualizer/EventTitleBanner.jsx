@@ -178,12 +178,10 @@ export default function EventTitleBanner({
         {(() => {
           const lines = banner.annotationLines || [];
           const hasContent = lines.length > 0;
-          // Compact: first MAX_ANNOTATION_LINES lines, padded to stable height.
-          // Expanded: all lines, no ellipsis, no height constraint.
           const displayLines = showAllAnnotations ? lines : lines.slice(0, MAX_ANNOTATION_LINES);
           const paddedLines = showAllAnnotations ? displayLines : [...displayLines];
           if (!showAllAnnotations) {
-            while (paddedLines.length < MAX_ANNOTATION_LINES) paddedLines.push('\u00A0');
+            // while (paddedLines.length < MAX_ANNOTATION_LINES) paddedLines.push('\u00A0');
           }
           return (
             <div
@@ -192,9 +190,7 @@ export default function EventTitleBanner({
               onMouseDown={(e) => e.stopPropagation()}
               title={hasContent ? (showAllAnnotations ? 'Click to collapse annotation' : 'Click to expand annotation') : undefined}
             >
-              {paddedLines.map((line, i) => (
-                <div key={i} className={`step-focus-annotation-line${i === 0 ? ' line2' : ''}`}>{line}</div>
-              ))}
+              <div className='step-focus-annotation-line2'>{banner.annotationLines}</div>
             </div>
           );
         })()}

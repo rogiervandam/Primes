@@ -10,8 +10,8 @@
   /* translateX(-50%) centering is applied via the inline style transform
      so drag-offset and centering can coexist without one overriding the other. */
   z-index: 120;
-  min-width: 300px;
-  max-width: min(520px, 90vw);
+  min-width: 520px;
+  max-width: 520px;
   border-radius: 8px;
   background: color-mix(in srgb, var(--bg-surface) 88%, var(--accent-bg));
   border: 1px solid var(--border-light);
@@ -134,12 +134,13 @@
 .joined-events-widget .joined-transport {
   padding: 4px 8px 2px;
   cursor: default;
+  margin: 10px 0;
 }
 
 /* ── Divider ─────────────────────────────────────────────────────────────── */
 .joined-widget-divider {
   height: 1px;
-  margin: 0 8px;
+  margin: 10px 8px;
   background: var(--border);
 }
 

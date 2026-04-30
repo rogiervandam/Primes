@@ -25,7 +25,7 @@
   cursor: grab;
   transition: left 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
               opacity 180ms ease, transform 180ms ease;
-  padding: 10px 14px;
+  padding: 10px 14px 10px 30px;
   border: 1px solid var(--border-light);
   border-left: 4px solid var(--accent);
   border-radius: 8px;
@@ -231,29 +231,39 @@
 .step-focus-play-btn:hover { background: var(--bg-input); color: var(--fg-bright); }
 .step-focus-close-btn {
   position: absolute;
-  top: 6px;
-  right: 8px;
+  top: 12px;
+  left: 5px;
   width: 20px;
   height: 20px;
-  padding: 0;
+  /* padding: 0; */
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: transparent;
-  color: var(--fg-dim);
+  /* color: var(--fg-dim); */
   border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 10px;
+  /* border-radius: 3px; */
+  /* cursor: pointer; */
+  /* font-size: 10px; */
   line-height: 1;
   pointer-events: auto;
   z-index: 1;
+
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  /* flex: 0 0 auto; */
+  display: none; /* until we figure out who sets the padding on the step-focus-banner */
 }
 .step-focus-close-btn:hover { background: var(--bg-raised); color: var(--fg); }
 .step-focus-locate-btn {
   position: absolute;
   top: 6px;
-  right: 32px;
+  right: 8px;
   width: 20px;
   height: 20px;
   padding: 0;
@@ -376,6 +386,7 @@
 .step-focus-line1 {
   font-weight: 800;
   letter-spacing: 0.01em;
+  /* margin-left: 20px; */
 }
 
 /* Annotation area: stable height = 3 text lines; click to expand/collapse. */
@@ -386,7 +397,7 @@
   /* Reserve height for MAX_ANNOTATION_LINES=3 lines at font-size×line-height.
      Using em so it scales with the banner's font-size. */
   min-height: calc(3 * 1.35em);
-  padding-bottom: 10px; /* space for the chevron */
+  /* padding-bottom: 10px; space for the chevron */
   position: relative;
 }
 .step-focus-annotation-area.expandable {
@@ -396,14 +407,17 @@
 .step-focus-annotation-line {
   font-size: 0.89em;
   color: var(--fg);
-  white-space: nowrap;
+  /* white-space: nowrap; */
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.35;
 }
 .step-focus-annotation-line.line2 {
   margin-top: 3px;
-  max-width: 40em;
+  max-width: 35em;
+  min-width: 35em;
+  max-height: 3em;
+  min-height: 3em;
 }
 .step-focus-line3-empty {
   opacity: 0; /* invisible placeholder — keeps height stable */
@@ -420,6 +434,7 @@
   opacity: 0.55;
   line-height: 1;
   pointer-events: none;
+  top:0;
 }
 .step-focus-annotation-area.expandable:hover::after { opacity: 1; }
 .step-focus-annotation-area.expanded::after { content: '▲'; }
