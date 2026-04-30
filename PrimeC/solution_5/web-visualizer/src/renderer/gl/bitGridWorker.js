@@ -10,6 +10,7 @@
  *   { type: 'resize',      cssW, cssH, dpr }
  *   { type: 'positions',   buf: Float32Array }         // buf transferred (one-way)
  *   { type: 'state',       buf: Uint8Array }           // buf transferred (one-way)
+ *   { type: 'anim',        buf: Float32Array }         // buf transferred (one-way)
  *   { type: 'render',      params: { ... } }
  *   { type: 'dispose' }
  *
@@ -116,6 +117,11 @@ self.onmessage = (e) => {
     case 'state': {
       if (!core) return;
       safe(() => core.uploadStateBuffer(msg.buf));
+      break;
+    }
+    case 'anim': {
+      if (!core) return;
+      safe(() => core.uploadAnimBuffer(msg.buf));
       break;
     }
     case 'render': {

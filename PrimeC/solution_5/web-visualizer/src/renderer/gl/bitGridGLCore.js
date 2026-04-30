@@ -39,11 +39,12 @@ uniform float u_cellSize;      // base bit cell size in CSS px (already includes
 uniform float u_dpr;           // device-pixel ratio; used to snap edges to the device grid
 uniform sampler2D u_pos;       // RG32F: per-bit (x,y) in CSS px, pan-independent
 uniform usampler2D u_state;    // R8UI:  per-bit packed flag byte
+uniform sampler2D u_anim;      // RGBA32F: per-bit (xDelta, yDelta, sizeScale, _unused)
 uniform ivec2 u_texSize;
 uniform int u_bitCount;
 
 flat out uint v_state;
-out vec2 v_uv;                 // [0,1]×[0,1] within the cell; used by FS for border detection
+out vec2 v_uv;                 // [0,1]x[0,1] within the cell; used by FS for border detection
 
 void main() {
   int bit = gl_InstanceID;
@@ -56,9 +57,11 @@ void main() {
   int ty = bit / u_texSize.x;
   vec2 basePos = texelFetch(u_pos, ivec2(tx, ty), 0).rg;
   v_state = texelFetch(u_state, ivec2(tx, ty), 0).r;
+  vec4 animData = texelFetch(u_anim, ivec2(tx, ty), 0);
+  float animScale = max(0.01, animData.z);  // sizeScale (default 1.0 when not lowered)
 
-  vec2 centre = basePos + u_pan;
-  vec2 corner = centre + a_corner * u_cellSize;
+  vec2 centre = basePos + u_pan + animData.xy;  // apply per-bit position delta
+  vec2 corner = centre + a_corner * u_cellSize * animScale;  // apply per-bit size scale
   // DPR snap to device-pixel grid; no-op on integer DPR.
   corner = floor(corner * u_dpr + 0.5) / u_dpr;
 
@@ -77,9 +80,10 @@ uniform vec3 u_repeatedColor;
 uniform vec3 u_bgColor;
 uniform float u_baseAlpha;
 uniform float u_cellSize;      // CSS px cell size; used for border-width fractions
+uniform float u_loweredActive; // 1.0 when loweredSetBits mode is on, else 0.0
 
 flat in uint v_state;
-in vec2 v_uv;                  // [0,1]×[0,1] within cell (from VS)
+in vec2 v_uv;                  // [0,1]x[0,1] within cell (from VS)
 out vec4 outColor;
 
 const vec4 FOCUS_TINT = vec4(96.0/255.0, 165.0/255.0, 250.0/255.0, 0.16);
@@ -149,6 +153,15 @@ void main() {
       if (edge < bwFrac)
         composed = mix(composed, vec3(167.0/255.0, 139.0/255.0, 250.0/255.0), 0.88);
     }
+
+    // Lowered-3D inner highlight -- mirrors Canvas2D strokeRect in _drawBitBody.
+    // Lowered set bits: rgba(255,255,255,0.12); raised cleared bits: rgba(255,255,255,0.14).
+    // Applied when loweredSetBits mode is active and cellSize is large enough to see it.
+    if (u_loweredActive > 0.5) {
+      float hlFrac = clamp(u_cellSize * 0.055, 0.3, 0.8) / u_cellSize;
+      if (edge < hlFrac)
+        composed = mix(composed, vec3(1.0, 1.0, 1.0), isSet ? 0.12 : 0.14);
+    }
   }
 
   outColor = vec4(composed, 1.0);
@@ -188,6 +201,7 @@ export class BitGridGLCore {
     this.vao = null;
     this.posTex = null;
     this.stateTex = null;
+    this.animTex = null;
     this.bitCount = 0;
     this.texW = 0;
     this.texH = 0;
@@ -242,6 +256,7 @@ export class BitGridGLCore {
       dpr: u('u_dpr'),
       pos: u('u_pos'),
       state: u('u_state'),
+      anim: u('u_anim'),
       texSize: u('u_texSize'),
       bitCount: u('u_bitCount'),
       setColor: u('u_setColor'),
@@ -250,6 +265,7 @@ export class BitGridGLCore {
       repeatedColor: u('u_repeatedColor'),
       bgColor: u('u_bgColor'),
       baseAlpha: u('u_baseAlpha'),
+      loweredActive: u('u_loweredActive'),
     };
   }
 
@@ -292,6 +308,7 @@ export class BitGridGLCore {
     const gl = this.gl;
     if (this.posTex) gl.deleteTexture(this.posTex);
     if (this.stateTex) gl.deleteTexture(this.stateTex);
+    if (this.animTex) gl.deleteTexture(this.animTex);
 
     this.posTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, this.posTex);
@@ -313,6 +330,22 @@ export class BitGridGLCore {
     gl.texImage2D(
       gl.TEXTURE_2D, 0, gl.R8UI, this.texW, this.texH, 0,
       gl.RED_INTEGER, gl.UNSIGNED_BYTE, new Uint8Array(this.texW * this.texH),
+    );
+
+    // Animation texture: RGBA32F — (xDelta, yDelta, sizeScale, unused).
+    // Default is (0, 0, 1, 0): no offset, full size (normal / non-lowered mode).
+    const slots = this.texW * this.texH;
+    const animDefault = new Float32Array(slots * 4);
+    for (let i = 0; i < slots; i++) animDefault[i * 4 + 2] = 1.0;
+    this.animTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.animTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(
+      gl.TEXTURE_2D, 0, gl.RGBA32F, this.texW, this.texH, 0,
+      gl.RGBA, gl.FLOAT, animDefault,
     );
   }
 
@@ -341,6 +374,21 @@ export class BitGridGLCore {
     gl.texSubImage2D(
       gl.TEXTURE_2D, 0, 0, 0, this.texW, this.texH,
       gl.RED_INTEGER, gl.UNSIGNED_BYTE, buf,
+    );
+  }
+
+  /**
+   * Upload a pre-packed Float32Array of animation data (RGBA32F).
+   * Each entry is (xDelta, yDelta, sizeScale, unused). Caller is
+   * responsible for sizing `buf` to `texW*texH*4`.
+   */
+  uploadAnimBuffer(buf) {
+    if (this._lost || !this.gl || !this.animTex) return;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.animTex);
+    gl.texSubImage2D(
+      gl.TEXTURE_2D, 0, 0, 0, this.texW, this.texH,
+      gl.RGBA, gl.FLOAT, buf,
     );
   }
 
@@ -384,6 +432,10 @@ export class BitGridGLCore {
     gl.bindTexture(gl.TEXTURE_2D, this.stateTex);
     gl.uniform1i(this._uniforms.state, 1);
 
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, this.animTex);
+    gl.uniform1i(this._uniforms.anim, 2);
+
     const u = this._uniforms;
     gl.uniform2f(u.canvasSize, cssW, cssH);
     gl.uniform2f(u.pan, params.panX || 0, params.panY || 0);
@@ -398,6 +450,7 @@ export class BitGridGLCore {
     gl.uniform3f(u.repeatedColor, rep[0] / 255, rep[1] / 255, rep[2] / 255);
     gl.uniform3f(u.bgColor, bg[0] / 255, bg[1] / 255, bg[2] / 255);
     gl.uniform1f(u.baseAlpha, params.baseAlpha == null ? 1 : params.baseAlpha);
+    gl.uniform1f(u.loweredActive, params.loweredActive ? 1.0 : 0.0);
 
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.bitCount);
   }
@@ -412,6 +465,7 @@ export class BitGridGLCore {
     this.vao = null;
     this.posTex = null;
     this.stateTex = null;
+    this.animTex = null;
   }
 
   dispose() {
@@ -419,10 +473,12 @@ export class BitGridGLCore {
     if (!gl) return;
     if (this.posTex) gl.deleteTexture(this.posTex);
     if (this.stateTex) gl.deleteTexture(this.stateTex);
+    if (this.animTex) gl.deleteTexture(this.animTex);
     if (this.program) gl.deleteProgram(this.program);
     if (this.vao) gl.deleteVertexArray(this.vao);
     this.posTex = null;
     this.stateTex = null;
+    this.animTex = null;
     this.program = null;
     this.vao = null;
     this.gl = null;

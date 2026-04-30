@@ -564,6 +564,39 @@ overwrite.
   `svg[title="..."]` selectors (not `img[alt="..."]`), since they are `<svg>`
   elements with a `title` child rather than `<img>` elements.
 
+- ✅ **Ported lowered-3D shading and rise-and-settle animation to GL**
+  (WebGL-worker deepening backlog items 5 and 6). A third texture
+  (`animTex`, RGBA32F, same dimensions as `posTex`/`stateTex`) was added
+  to `bitGridGLCore.js`. Each texel stores `(xDelta, yDelta, sizeScale, 0)`
+  per bit. The vertex shader (texture unit 2) reads the texel and applies:
+  `centre = basePos + u_pan + animData.xy`; `corner = centre + a_corner *
+  u_cellSize * max(0.01, animData.z)`. The fragment shader adds `uniform
+  float u_loweredActive`; when 1.0 a white inner-highlight stripe is
+  composited at the cell edge to match the Canvas2D `strokeRect`.
+  `packAnim(host, buf, slots)` in `hostStatePacker.js` fills the buffer;
+  when `loweredSetBits` is off every entry is `(0, 0, 1, 0)` (identity,
+  no visual change). When on, per-bit geometry is computed matching
+  `_computeBitDrawState`: set bits get `sinkDrop` / `sinkShiftX` /
+  `defaultSinkScale`; recently changed bits pass through the rise
+  (0→0.32), peak (0.32→0.56), settle (0.56→1.0) 700 ms phases;
+  cleared (raised) bits get `(0, 0, 1, 0)` (GL top face at original
+  position; Canvas2D draws side-face polygons on top as before).
+  `BitGridGLWorker.uploadAnim(host)` packs and transfers the buffer via
+  the new `{ type: 'anim' }` worker protocol message.
+  `Visualizer.jsx` calls `g.uploadAnim(rr)` each frame and passes
+  `loweredActive: rr.loweredSetBits ? 1.0 : 0.0` to `g.render()`.
+  `SieveRenderer._drawBitBody` lowered-cell branch wraps shadow+fill+
+  stroke in `if (!f.skipBitFill)` (GL handles these). Raised-cell branch
+  keeps Canvas2D side-face polygons always; top-face fill+stroke now
+  guarded with `if (!f.skipBitFill)`. `_buildFrameContext` `skipBitFill`
+  formula no longer has the `!this.loweredSetBits` guard (GL handles all
+  lowered fills now). `_renderClear` settledCtx background fill guarded
+  with `!skipBitFill` so GL clearColor shows through the settled canvas.
+  NOTE: `loweredSetBits` is always `false` in the current codebase (the
+  feature is dormant; `depthModeEnabled` was removed from UI). All changes
+  have zero visible effect today but provide full GL capability for when
+  the feature is re-enabled. `npm run build` passes clean.
+
 ---
 
 ## 7. What's worth doing next (suggested, not required)
@@ -751,23 +784,44 @@ cell-fill code entirely. Work these in dependency order:
    - **Ghost-mask highlights, motion trails, search highlight** —
      low priority; sparse, fast in Canvas2D.
 
-5. **Port lowered-3D shading to GL.** When `loweredSetBits` is on,
-   the Canvas2D bit-fill takes over today (`skipBitFill = false`).
-   To move this to GL: the vertex shader needs per-bit raise/lower
-   state (an extra flag byte or a dedicated texture channel) and the
-   fragment shader adds shadow + base + top + side-face branches.
-   The geometry is a trapezoid, not a quad — requires 6 → 10 vertices
-   per instance or a geometry pass. High-effort; defer until items
-   1–3 are done.
+5. **Port lowered-3D shading to GL.** ✅ DONE (animTex + u_loweredActive).
+   A third texture (`animTex`, RGBA32F) was added to `bitGridGLCore.js`.
+   Each texel stores `(xDelta, yDelta, sizeScale, 0)` per bit. The vertex
+   shader reads `animTex` at texture unit 2 and applies: cell centre =
+   `basePos + u_pan + animData.xy`; corner = `centre + a_corner *
+   u_cellSize * animData.z`. The fragment shader adds `uniform float
+   u_loweredActive`; when 1.0 an inner white highlight stripe is composited
+   at the cell edge (matching the Canvas2D `strokeRect` highlight).
+   `packAnim(host, buf, slots)` in `hostStatePacker.js` packs the per-bit
+   geometry into a `Float32Array`; when `loweredSetBits` is off every entry
+   is `(0, 0, 1, 0)` (no-op). `BitGridGLWorker.uploadAnim(host)` packs and
+   transfers the buffer; `bitGridWorker.js` receives `{ type: 'anim' }` and
+   calls `core.uploadAnimBuffer(buf)`. `Visualizer.jsx` calls
+   `g.uploadAnim(rr)` each frame and passes `loweredActive` to `g.render()`.
+   `SieveRenderer._drawBitBody` lowered-cell branch now wraps shadow + fill
+   + stroke in `if (!f.skipBitFill) { ... }` so Canvas2D skips them when GL
+   is active. `_buildFrameContext`: removed the `!this.loweredSetBits` guard
+   from `skipBitFill` (GL now handles lowered fills).
+   NOTE: `loweredSetBits` is currently always `false` in the codebase
+   (feature dormant; `depthModeEnabled` removed from UI). All changes have
+   zero visible effect today but provide full GL capability when the feature
+   is re-enabled.
 
-6. **Port rise-and-settle animation to GL.** Animation state (`rise`
-   amount, `settle` alpha) is per-bit and changes every frame during
-   playback. This needs a third texture channel (float) or a separate
-   `animTex`, plus a worker-protocol extension
-   (`{ type: 'animState', buf: Float32Array }`). The main thread
-   already computes per-bit animation fractions in `_computeBitDrawState`;
-   those values can be packed and posted alongside `state`. High-effort;
-   defer until items 1–3 are done.
+6. **Port rise-and-settle animation to GL.** ✅ DONE (via animTex, same
+   as item 5). The same `animTex` carries the per-frame animation deltas.
+   `packAnim()` replicates the rise-and-settle math from
+   `_computeBitDrawState`: for bits that recently changed
+   (`host.changedBitRiseAt`), it interpolates through three phases over
+   700 ms (0→0.32 rising, 0.32→0.56 peak settle, 0.56→1.0 sinking) and
+   sets `xDelta`, `yDelta`, and `sizeScale` accordingly. Non-animating
+   set bits receive final-sink values; cleared (raised) bits receive
+   `(0, 0, 1, 0)`. `SieveRenderer._drawBitBody` raised-cell branch keeps
+   the Canvas2D side-face polygons always (they extend outside the cell
+   boundary so GL instanced quads cannot render them), but now wraps the
+   top-face `fillRect` and edge `strokeRect` in `if (!f.skipBitFill) {}`
+   so GL handles those faces. `_renderClear` settledCtx background fill
+   is similarly guarded with `!skipBitFill` so the GL clearColor shows
+   through the settled canvas.
 
 7. **Remove `SieveRenderer.skipBitFill` and the Canvas2D cell-fill code.**
    Blocked on items 4–6 (all remaining Canvas2D pixel work must be
@@ -927,21 +981,12 @@ cell-fill code entirely. Work these in dependency order:
     helper that stashes the anchor and flips the panel state atomically
     would be less error-prone. Extract only after the current shape has
     proven stable across multiple panel-combination toggles.
-   To move this to GL: the vertex shader needs per-bit raise/lower
-   state (an extra flag byte or a dedicated texture channel) and the
-   fragment shader adds shadow + base + top + side-face branches.
-   The geometry is a trapezoid, not a quad — requires 6 → 10 vertices
-   per instance or a geometry pass. High-effort; defer until items
-   1–3 are done.
 
-6. **Port rise-and-settle animation to GL.** Animation state (`rise`
-   amount, `settle` alpha) is per-bit and changes every frame during
-   playback. This needs a third texture channel (float) or a separate
-   `animTex`, plus a worker-protocol extension
-   (`{ type: 'animState', buf: Float32Array }`). The main thread
-   already computes per-bit animation fractions in `_computeBitDrawState`;
-   those values can be packed and posted alongside `state`. High-effort;
-   defer until items 1–3 are done.
+5. **Port lowered-3D shading to GL.** ✅ DONE — see item 5 in the
+   WebGL-worker deepening backlog above.
+
+6. **Port rise-and-settle animation to GL.** ✅ DONE — see item 6 in the
+   WebGL-worker deepening backlog above.
 
 7. **Remove `SieveRenderer.skipBitFill` and the Canvas2D cell-fill code.**
    Blocked on items 4–6 (all remaining Canvas2D pixel work must be

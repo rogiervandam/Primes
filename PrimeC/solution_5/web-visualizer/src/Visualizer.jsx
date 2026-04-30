@@ -786,6 +786,7 @@ export default function Visualizer({
             ].join('|');
             g.uploadPositions(rr, fp);
             g.uploadState(rr);
+            g.uploadAnim(rr);
 
             const px = Math.max(1, rr.pixelSize);
             const zoom = Math.max(0.01, rr.zoom || 1);
@@ -801,6 +802,7 @@ export default function Visualizer({
               changedColor: changed,
               repeatedColor: [245, 158, 11],
               baseAlpha: Math.max(0.12, Math.min(1, rr.gridOpacity ?? 1)),
+              loweredActive: rr.loweredSetBits ? 1.0 : 0.0,
             });
           };
         }

@@ -1478,12 +1478,12 @@ export class SieveRenderer {
     const bitStepX = this._bitStepX();
     const bitStepY = this._bitStepY();
     const baseAlpha = Math.max(0.12, Math.min(1, this.gridOpacity ?? 1));
-    // GL takeover: when the WebGL renderer is active and depth mode is
-    // off, GL is painting the cell fills and the background into the
-    // sibling canvas underneath; skip those here so they don't double-
-    // paint and so GL output isn't covered. Lowered-3D forces this
-    // back to false because GL has no parity for that path.
-    const skipBitFill = !!this.skipBitFill && !this.loweredSetBits;
+    // GL takeover: when the WebGL renderer is active, GL is painting the
+    // cell fills and the background into the sibling canvas underneath;
+    // skip those here so they don't double-paint and so GL output isn't
+    // covered. GL now handles lowered-3D fills too (via animTex offsets)
+    // so the loweredSetBits guard is no longer needed here.
+    const skipBitFill = !!this.skipBitFill;
 
     return {
       C, ctx, settledCtx, cw, ch, layeredLoweredBits, px,
@@ -1505,7 +1505,9 @@ export class SieveRenderer {
     const bg = this.effectiveBackground;
     if (layeredLoweredBits) {
       settledCtx.clearRect(0, 0, cw, ch);
-      if (!this.transparentBackground) {
+      // When GL is active it paints the background via clearColor; skip
+      // the settled canvas background fill so the GL canvas shows through.
+      if (!this.transparentBackground && !skipBitFill) {
         settledCtx.fillStyle = `rgb(${bg.join(',')})`;
         settledCtx.fillRect(0, 0, cw, ch);
       }
@@ -1744,26 +1746,32 @@ export class SieveRenderer {
       // Lowered (set) bit: only the sunken square, with optional drop
       // shadow and inner highlight. No top-position box is drawn so the
       // raised neighbours visually stand higher above the bottom plane.
-      const sCtx = f.settledCtx;
-      sCtx.save();
-      sCtx.fillStyle = 'rgba(0, 0, 0, 0.24)';
-      sCtx.fillRect(
-        Math.round(drawX - Math.max(1, px * 0.08)),
-        Math.round(drawY - Math.max(1, px * 0.08)),
-        Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16))),
-        Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16)))
-      );
-      sCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
-      sCtx.fillRect(drawX, drawY, drawSize, drawSize);
-      sCtx.strokeStyle = `rgba(255, 255, 255, ${this.loweredSetBits3D ? '0.16' : '0.12'})`;
-      sCtx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
-      sCtx.strokeRect(
-        Math.round(drawX) + 0.5,
-        Math.round(drawY) + 0.5,
-        Math.max(1, Math.round(drawSize - 1)),
-        Math.max(1, Math.round(drawSize - 1))
-      );
-      sCtx.restore();
+      // When GL is active (f.skipBitFill), GL draws the fill via animTex;
+      // Canvas2D skips the shadow+fill but the stroke highlight is also
+      // handled by the GL FS (u_loweredActive inner highlight), so we skip
+      // the entire branch when skipBitFill is set.
+      if (!f.skipBitFill) {
+        const sCtx = f.settledCtx;
+        sCtx.save();
+        sCtx.fillStyle = 'rgba(0, 0, 0, 0.24)';
+        sCtx.fillRect(
+          Math.round(drawX - Math.max(1, px * 0.08)),
+          Math.round(drawY - Math.max(1, px * 0.08)),
+          Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16))),
+          Math.max(1, Math.round(drawSize + Math.max(2, px * 0.16)))
+        );
+        sCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
+        sCtx.fillRect(drawX, drawY, drawSize, drawSize);
+        sCtx.strokeStyle = `rgba(255, 255, 255, ${this.loweredSetBits3D ? '0.16' : '0.12'})`;
+        sCtx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
+        sCtx.strokeRect(
+          Math.round(drawX) + 0.5,
+          Math.round(drawY) + 0.5,
+          Math.max(1, Math.round(drawSize - 1)),
+          Math.max(1, Math.round(drawSize - 1))
+        );
+        sCtx.restore();
+      }
       return;
     }
 
@@ -1772,6 +1780,10 @@ export class SieveRenderer {
       // plane. The box's bottom face sits at the sunken footprint
       // (baseDrop / baseShiftX, scaled), and the top face sits at the
       // original bit position with full size. Side faces connect them.
+      // When GL is active (f.skipBitFill), GL draws the top face fill via
+      // the animTex (delta=0, scale=1) and the FS inner highlight; Canvas2D
+      // draws only the side-face polygons (these extend outside the cell
+      // boundary so GL cannot render them with the instanced-quad approach).
       const baseSize = Math.max(1, Math.round(px * (this.loweredSetBits3D ? 0.56 : 0.68)));
       const baseX = Math.round(bitX + baseShiftX + (px - baseSize) * 0.5);
       const baseY = Math.round(bitY + baseDrop + (px - baseSize) * 0.5);
@@ -1798,13 +1810,15 @@ export class SieveRenderer {
       ctx.lineTo(baseX, baseY + baseSize);
       ctx.closePath();
       ctx.fill();
-      // Top face (original color, full size)
-      ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
-      ctx.fillRect(topX, topY, topSize, topSize);
-      // Subtle edge highlight on the top face
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
-      ctx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
-      ctx.strokeRect(topX + 0.5, topY + 0.5, Math.max(1, topSize - 1), Math.max(1, topSize - 1));
+      if (!f.skipBitFill) {
+        // Top face fill and edge highlight: GL draws these when active.
+        ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
+        ctx.fillRect(topX, topY, topSize, topSize);
+        // Subtle edge highlight on the top face
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+        ctx.lineWidth = Math.max(0.3, Math.min(0.8, px * 0.055));
+        ctx.strokeRect(topX + 0.5, topY + 0.5, Math.max(1, topSize - 1), Math.max(1, topSize - 1));
+      }
       ctx.restore();
       return;
     }

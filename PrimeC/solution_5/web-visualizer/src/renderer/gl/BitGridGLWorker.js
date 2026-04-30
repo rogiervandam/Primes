@@ -23,7 +23,7 @@
  */
 
 import { BitGridGLCore } from './bitGridGLCore.js';
-import { packPositions, packState } from './hostStatePacker.js';
+import { packPositions, packState, packAnim } from './hostStatePacker.js';
 
 export function isWorkerGLSupported() {
   if (typeof window === 'undefined' || typeof Worker === 'undefined') return false;
@@ -165,6 +165,19 @@ export class BitGridGLWorker {
     const buf = new Uint8Array(this._slots);
     packState(host, buf, this._slots);
     this._post({ type: 'state', buf }, [buf.buffer]);
+  }
+
+  /**
+   * Pack per-bit animation state (lowered-3D position deltas + size scale)
+   * and transfer to the worker. Called every frame when loweredSetBits may
+   * be active; a no-op data payload (all sizeScale=1) is sent when the mode
+   * is off so the animTex stays consistent.
+   */
+  uploadAnim(host) {
+    if (this._lost || !host || this._slots === 0) return;
+    const buf = new Float32Array(this._slots * 4);
+    packAnim(host, buf, this._slots);
+    this._post({ type: 'anim', buf }, [buf.buffer]);
   }
 
   /**
