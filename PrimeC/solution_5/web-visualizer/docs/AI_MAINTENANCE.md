@@ -185,6 +185,14 @@ timeline, or a dependency-graph view):
 Track refactors here so the next agent doesn't redo them. Append; don't
 overwrite.
 
+- ✅ Added `<` / `>` detail-level buttons to the Events panel
+  (`StepPanel.jsx`). The buttons flank the existing log-level `<select>` in
+  a `.step-level-filter-row` flex container. `<` steps down through
+  `upto:N` levels (less detail); `>` steps up to the next level or `''`
+  (more detail / all). `handleLevelDecrease` and `handleLevelIncrease`
+  callbacks are added via `useCallback`; CSS lives in `06-step-panel.css`
+  under `.step-level-btn`. The select's class gains `step-level-select` so
+  it fills the available flex space.
 - ✅ Removed dead `vectorLabelForGroup`, `adjustBitInterval`, three
   `*Description` writes nobody reads, and the runtime-broken `setHoverInfo`
   call.

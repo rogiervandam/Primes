@@ -213,6 +213,7 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
   const [filterLevel, setFilterLevel] = useState(() => {
     try { return localStorage.getItem('sieve-filter-level') || ''; } catch { return ''; }
   });
+
   const [hideUntimed, setHideUntimed] = useState(false);
   const [hideUnchanged, setHideUnchanged] = useState(false);
 
@@ -274,6 +275,32 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
     }
     return Array.from(levels).sort((a, b) => a - b);
   }, [steps]);
+
+  // Navigate detail levels with < / > arrows.
+  // Positions: upto:traceLevels[0] (least) … upto:traceLevels[n-1] … '' (all, most).
+  const handleLevelDecrease = useCallback(() => {
+    if (traceLevels.length === 0) return;
+    if (!filterLevel) {
+      // At "all" → step down to the highest explicit level
+      setFilterLevel(`upto:${traceLevels[traceLevels.length - 1]}`);
+      return;
+    }
+    const n = Number(filterLevel.split(':')[1]);
+    const idx = traceLevels.indexOf(n);
+    if (idx <= 0) return; // already at minimum
+    setFilterLevel(`upto:${traceLevels[idx - 1]}`);
+  }, [filterLevel, traceLevels]);
+
+  const handleLevelIncrease = useCallback(() => {
+    if (traceLevels.length === 0 || !filterLevel) return; // already at "all"
+    const n = Number(filterLevel.split(':')[1]);
+    const idx = traceLevels.indexOf(n);
+    if (idx === -1 || idx >= traceLevels.length - 1) {
+      setFilterLevel(''); // go to "all"
+    } else {
+      setFilterLevel(`upto:${traceLevels[idx + 1]}`);
+    }
+  }, [filterLevel, traceLevels]);
 
   // Build hierarchical tree grouped by prime, then nested by depth within each group
   const tree = useMemo(() => {
@@ -733,18 +760,32 @@ export default function StepPanel({ steps, currentStep, selectedSteps, onStepCli
           </select>
         )}
         {traceLevels.length > 0 && (
-          <select className="step-filter" value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)}>
-            <option value="">All log levels</option>
-            <optgroup label="Up to (inclusive)">
-              {traceLevels.map((level) => <option key={`upto-${level}`} value={`upto:${level}`}>Up to L{level}</option>)}
-            </optgroup>
-            <optgroup label="Collapse at level">
-              {traceLevels.map((level) => <option key={`collapse-${level}`} value={`collapse:${level}`}>Collapse at L{level}</option>)}
-            </optgroup>
-            <optgroup label="Exactly">
-              {traceLevels.map((level) => <option key={`exact-${level}`} value={`exact:${level}`}>Only L{level}</option>)}
-            </optgroup>
-          </select>
+          <div className="step-level-filter-row">
+            <button
+              className="step-level-btn"
+              onClick={handleLevelDecrease}
+              title="Less detail"
+              disabled={!!filterLevel && traceLevels.indexOf(Number(filterLevel.split(':')[1])) === 0}
+            >&lt;</button>
+            <select className="step-filter step-level-select" value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)}>
+              <option value="">All log levels</option>
+              <optgroup label="Up to (inclusive)">
+                {traceLevels.map((level) => <option key={`upto-${level}`} value={`upto:${level}`}>Up to L{level}</option>)}
+              </optgroup>
+              <optgroup label="Collapse at level">
+                {traceLevels.map((level) => <option key={`collapse-${level}`} value={`collapse:${level}`}>Collapse at L{level}</option>)}
+              </optgroup>
+              <optgroup label="Exactly">
+                {traceLevels.map((level) => <option key={`exact-${level}`} value={`exact:${level}`}>Only L{level}</option>)}
+              </optgroup>
+            </select>
+            <button
+              className="step-level-btn"
+              onClick={handleLevelIncrease}
+              title="More detail"
+              disabled={!filterLevel}
+            >&gt;</button>
+          </div>
         )}
         <div className="step-filter-toggles">
           <label className="step-filter-toggle" title="Hide events that have no recorded elapsed time">
