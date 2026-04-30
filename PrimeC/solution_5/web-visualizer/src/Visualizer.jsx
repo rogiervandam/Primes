@@ -200,14 +200,10 @@ export default function Visualizer({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResult, setSearchResult] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
-  // Whether the toolbar center+right (playback transport + timeline) are hidden
-  // for a distraction-free immersive view. Toggled via the eye button or H key.
-  const [controlsHidden, setControlsHidden] = useState(initialPrefs.controlsHidden);
-  const toggleControlsHidden = useCallback(() => setControlsHidden((h) => !h), []);
   // When true, the floating "all events" widget (transport + timeline shown
-  // while the events panel is collapsed) is hidden and replaced by a small
-  // "show widget" button in the top toolbar. Set by dragging the widget onto
-  // the top bar; cleared by clicking that button.
+  // while the events panel is collapsed) is hidden (e.g. after the user
+  // dragged it onto the top bar). Reset each time the events panel is
+  // collapsed so the widget reliably reappears on the next toggle.
   const [allEventsWidgetHidden, setAllEventsWidgetHidden] = useState(initialPrefs.allEventsWidgetHidden);
   const showAllEventsWidget = useCallback(() => setAllEventsWidgetHidden(false), []);
   const [storageModel, setStorageModel] = useState(header.storageModel || 'half');
@@ -224,6 +220,9 @@ export default function Visualizer({
   const [cachelineSize, setCachelineSize] = useState(64);
   const [cachePreset, setCachePreset] = useState('fixed');
   const [stepsPanelCollapsed, setStepsPanelCollapsed] = useState(initialPrefs.stepsPanelCollapsed);
+  // Topbar transport controls are hidden automatically whenever the floating
+  // all-events widget is visible (events panel collapsed + widget not docked).
+  const controlsHidden = stepsPanelCollapsed && !allEventsWidgetHidden;
   // Bumped whenever the user explicitly asks to "reveal" the current event in
   // the events panel (e.g. via the locate button on the event-title widget).
   // StepPanel watches this counter to clear filters and expand parents so the
@@ -637,6 +636,9 @@ export default function Visualizer({
     // pendingResizeAnchorRef for why fresh capture in the effect drifts.
     pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
     setStepsPanelCollapsed((wasCollapsed) => !wasCollapsed);
+    // Always reset widget-hidden so the floating widget reliably reappears
+    // when the panel is collapsed (undoes any previous dock-to-top-bar gesture).
+    setAllEventsWidgetHidden(false);
   }, [captureViewportAnchor]);
 
   // Open the events panel (if collapsed) and ask it to reveal the current
@@ -716,13 +718,12 @@ export default function Visualizer({
       delayBetweenEvents,
       delayBetweenRepeats,
       eventTimeTargets,
-      controlsHidden,
       allEventsWidgetHidden,
       stepsPanelCollapsed,
       settingsCollapsed,
       detailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, controlsHidden, allEventsWidgetHidden, stepsPanelCollapsed, settingsCollapsed, detailOpen]);
+  }, [theme, layoutSettings, eventTitleSettings, depthSettings, maxStepDurationEnabled, maxStepDurationMs, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, stepsPanelCollapsed, settingsCollapsed, detailOpen]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -3350,7 +3351,6 @@ export default function Visualizer({
     resetZoom,
     setTheme,
     toggleDetailPanel,
-    toggleControlsHidden,
     camera3DRef,
   });
 
@@ -3992,7 +3992,6 @@ export default function Visualizer({
         theme={theme}
         setTheme={setTheme}
         controlsHidden={controlsHidden}
-        toggleControlsHidden={toggleControlsHidden}
         allEventsWidgetHidden={allEventsWidgetHidden}
         showAllEventsWidget={showAllEventsWidget}
         stepsPanelCollapsed={stepsPanelCollapsed}
@@ -4031,7 +4030,6 @@ export default function Visualizer({
           }}
           onDockWidgetToTopBar={() => {
             setAllEventsWidgetHidden(true);
-            setControlsHidden(false);
           }}
           externalOpFilter={timingFocusOp}
           onExternalOpFilterConsumed={() => setTimingFocusOp('')}

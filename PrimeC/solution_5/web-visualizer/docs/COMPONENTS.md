@@ -40,9 +40,9 @@ Left-hand list of trace steps with grouping, search, and a draggable resize hand
 When `panelCollapsed` is true the panel renders a floating "all events" widget (`.step-panel-floating-title`) instead of the full list. The widget contains the playback transport + timeline scrubber. Drop-zone gestures while dragging the widget:
 
 - drop near the left window edge (≤ 80 px) → calls `onExpandPanelFromWidget` (expand the events panel and dismiss the widget)
-- drop near the top of the window (≤ 60 px from top) → calls `onDockWidgetToTopBar` (set `controlsHidden = false` and hide the widget; toolbar then shows a ▼ "Show widget" button)
+- drop near the top of the window (≤ 60 px from top) → calls `onDockWidgetToTopBar` (hides the widget via `setAllEventsWidgetHidden(true)`; topbar transport controls re-appear automatically since `controlsHidden` is derived)
 
-When `allEventsWidgetHidden` is true the widget is not rendered (the down-arrow toolbar button brings it back).
+When `allEventsWidgetHidden` is true the widget is not rendered. The next `toggleStepsPanel` call resets `allEventsWidgetHidden` to `false` so the widget reliably reappears when the user collapses the panel again.
 
 **Drag-to-collapse (expanded panel):** The `.step-panel-header-title-row` carries a `grab` cursor and a `mousedown` handler (`handleHeaderTitleDragStart`). Dragging rightward past 80 px (raw, pre-rubber-band) triggers a two-phase animated collapse: (1) the title springs back, (2) `.collapsing-out` is applied so the header and list sweep out via `@keyframes step-panel-sweep-out`, then `onToggleCollapse()` is called after 360 ms total. State: `headerDragX` (visual translate), `headerDragWillCollapse` (accent hint), `isCollapsingOut` (animation class).
 
@@ -63,7 +63,7 @@ Floating, draggable, resizable panel showing per-phase timings. Uses `useFloatin
 ### `Toolbar.jsx`
 Top header bar: trace title, info popover trigger, playback transport (skip/step/play/pause/slider/counter), and the right-hand action cluster (search, zoom, 3D, heatmap, primes, timings, depth, PNG/video export, theme). Pure presentation — every interactive callback is supplied by the parent.
 
-When the events panel is collapsed and the user has dragged the all-events widget onto the top bar (`allEventsWidgetHidden`), an extra ▼ icon button (`.toolbar-show-events-widget`) appears in the left section to bring the widget back.
+The topbar transport (`toolbar-center`) is hidden when `controlsHidden` is `true`. `controlsHidden` is a **derived value** in `Visualizer.jsx` (`stepsPanelCollapsed && !allEventsWidgetHidden`): it becomes `true` automatically whenever the floating all-events widget is visible, and `false` whenever the events panel is expanded or the widget is docked to the top bar. There is no manual toggle button — the events panel collapse/expand is the only affordance.
 
 ### `TraceInfoPopover.jsx`
 Popover anchored beneath the trace title showing the storage-model selector and the parsed `traceInfoSections` (file/run/settings/notes). Used by `Toolbar`.

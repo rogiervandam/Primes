@@ -199,36 +199,8 @@
   min-height: 14px;
 }
 
-/* ---- Immersive mode: hide playback controls ---- */
-/* Toggle button — always visible in toolbar-left */
-.toolbar-immersive-toggle {
-  margin-left: 2px;
-  opacity: 0.45;
-  transition: opacity 0.15s ease-out;
-}
-.toolbar-immersive-toggle:hover {
-  opacity: 1;
-}
-.toolbar-immersive-toggle.active {
-  opacity: 0.85;
-  color: var(--accent);
-}
-
-/* Reveal-button for the all-events widget after it has been docked into the
-   top bar. Sits next to the immersive toggle. */
-.toolbar-show-events-widget {
-  margin-left: 2px;
-  color: var(--accent);
-  opacity: 0.85;
-  animation: toolbar-show-events-widget-in 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-.toolbar-show-events-widget:hover { opacity: 1; }
-@keyframes toolbar-show-events-widget-in {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 0.85; transform: none; }
-}
-
-/* When transport controls are hidden collapse to left + right only */
+/* When transport controls are hidden (auto, while the floating all-events
+   widget is visible) collapse to left + right columns only */
 .toolbar--controls-hidden {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
@@ -256,4 +228,20 @@
   opacity: 1;
   color: var(--accent);
   background: var(--accent-bg) !important;
+}
+
+/* Pop-out button — appears in the panel-toggle-group when the all-events
+   widget has been docked away (widget hidden, events panel collapsed).
+   Uses accent colour and a brief slide-in animation to draw attention. */
+.panel-toggle-btn--popout {
+  color: var(--accent);
+  opacity: 0.85 !important;
+  animation: panel-toggle-popout-in 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.panel-toggle-btn--popout:hover {
+  opacity: 1 !important;
+}
+@keyframes panel-toggle-popout-in {
+  from { opacity: 0; transform: scale(0.7); }
+  to   { opacity: 0.85; transform: none; }
 }

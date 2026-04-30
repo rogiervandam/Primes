@@ -639,6 +639,19 @@ overwrite.
   (all-events playback) paths. Pause-in-flight works correctly for both
   because `waitForDelay` checks `globalPausedRef.current`, which is
   set/cleared in sync with `animationReplayPaused`.
+- ✅ **Auto-hide topbar transport when all-events widget is visible.**
+  `controlsHidden` is now a derived value (`stepsPanelCollapsed &&
+  !allEventsWidgetHidden`) instead of a persisted user-toggled state.
+  The topbar transport (play/pause + scrubber) hides automatically when
+  the floating all-events widget is showing, and re-appears when the
+  events panel is expanded or the widget is docked. Removed: the
+  eye/eye-off `toolbar-immersive-toggle` button, the ▼
+  `toolbar-show-events-widget` re-show button, the `toggleControlsHidden`
+  callback, the H keyboard shortcut, `initialControlsHidden` from
+  `viewPrefs.js`, and the dead `.toolbar-immersive-toggle` /
+  `.toolbar-show-events-widget` CSS. `toggleStepsPanel` now calls
+  `setAllEventsWidgetHidden(false)` on every toggle so collapsing the
+  panel reliably shows the widget (undoes any prior dock gesture).
 
 ---
 

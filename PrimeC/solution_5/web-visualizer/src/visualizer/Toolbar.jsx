@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
-  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus, Eye, EyeOff,
+  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus,
   PanelLeft, PanelBottom, PanelRight,
 } from '../Icons';
 import TraceInfoPopover from './TraceInfoPopover';
@@ -77,10 +77,9 @@ export default function Toolbar({
   // theme
   theme,
   setTheme,
-  // immersive mode
+  // immersive mode (auto-computed from widget visibility — no manual toggle)
   controlsHidden,
-  toggleControlsHidden,
-  // all-events widget docked-in-top-bar reveal button
+  // floating all-events widget: show pop-out button when widget was docked away
   allEventsWidgetHidden,
   showAllEventsWidget,
 }) {
@@ -118,25 +117,22 @@ export default function Toolbar({
             sections={traceInfoSections}
           />
         )}
-        <button
-          className={`btn-icon toolbar-immersive-toggle${controlsHidden ? ' active' : ''}`}
-          onClick={toggleControlsHidden}
-          title={controlsHidden ? 'Show playback controls (H)' : 'Hide playback controls (H)'}
-        >
-          {controlsHidden ? <Eye /> : <EyeOff />}
-        </button>
-        {stepsPanelCollapsed && allEventsWidgetHidden && showAllEventsWidget && (
-          <button
-            className="btn-icon toolbar-show-events-widget"
-            onClick={showAllEventsWidget}
-            title="Show all-events widget"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-        )}
         <div className="panel-toggle-group">
+
+          {stepsPanelCollapsed && allEventsWidgetHidden && (
+            <button
+              className="btn-icon panel-toggle-btn panel-toggle-btn--popout"
+              onClick={showAllEventsWidget}
+              title="Show events widget"
+            >
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="1.5" y="4.5" width="8" height="8" rx="1.2" />
+                <path d="M7 1.5h6.5v6.5" />
+                <path d="M13.5 1.5L8.5 6.5" />
+              </svg>
+            </button>
+          )}
+
           <button
             className={`btn-icon panel-toggle-btn${!stepsPanelCollapsed ? ' active' : ''}`}
             onClick={toggleStepsPanel}
@@ -144,6 +140,7 @@ export default function Toolbar({
           >
             <PanelLeft size={15} />
           </button>
+
           <button
             className={`btn-icon panel-toggle-btn${detailOpen ? ' active' : ''}`}
             onClick={toggleDetailPanel}

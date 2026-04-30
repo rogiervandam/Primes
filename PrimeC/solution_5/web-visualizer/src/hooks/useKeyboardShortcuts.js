@@ -33,7 +33,6 @@ export function useKeyboardShortcuts({
   resetZoom,
   setTheme,
   toggleDetailPanel,
-  toggleControlsHidden,
   camera3DRef,
 }) {
   useEffect(() => {
@@ -70,7 +69,6 @@ export function useKeyboardShortcuts({
         case '0':          e.preventDefault(); resetZoom(); break;
         case 't': case 'T': e.preventDefault(); setTheme((t) => (t === 'dark' ? 'light' : 'dark')); break;
         case 'd': case 'D': e.preventDefault(); toggleDetailPanel(); break;
-        case 'h': case 'H': e.preventDefault(); toggleControlsHidden(); break;
         case 'r': case 'R':
           e.preventDefault();
           if (is3D) cam.resetFlat();
@@ -89,7 +87,6 @@ export function useKeyboardShortcuts({
     resetZoom,
     setTheme,
     toggleDetailPanel,
-    toggleControlsHidden,
     camera3DRef,
   ]);
 }

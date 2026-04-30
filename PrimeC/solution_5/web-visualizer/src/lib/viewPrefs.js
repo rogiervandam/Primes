@@ -234,10 +234,6 @@ function initialGridOpacity(prefs) {
   return Math.max(0.12, Math.min(1, n));
 }
 
-function initialControlsHidden(prefs) {
-  return prefs?.controlsHidden === true;
-}
-
 function initialAllEventsWidgetHidden(prefs) {
   return prefs?.allEventsWidgetHidden === true;
 }
@@ -309,7 +305,6 @@ export function getInitialViewState() {
     canvasColors: initialCanvasColors(prefs),
     colorPreset: initialColorPreset(prefs),
     customColors: initialCustomColors(prefs),
-    controlsHidden: initialControlsHidden(prefs),
     allEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
     ...initialPanelVisibility(prefs),
   };
