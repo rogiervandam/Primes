@@ -93,6 +93,15 @@ export class SieveRenderer {
     this.panY = 0;
     this.gridOpacity = 1;
 
+    // Viewport dimensions (canvas-container visible area, not oversized canvas).
+    // Set by Visualizer.jsx on every container resize so renderMinimap and
+    // updateMinimapAvailability always use the correct visible size.
+    this.viewportW = 0;
+    this.viewportH = 0;
+    // Right-side inset (px) for the minimap so it doesn't hide behind the
+    // settings sidebar when it is expanded.  Updated by Visualizer.jsx.
+    this.minimapRightInset = 0;
+
     // Layout config
     this.pixelSize = 2;
     this.bitLayout = '4x2';
@@ -2601,14 +2610,21 @@ export class SieveRenderer {
   /** Render minimap overlay in bottom-right corner, offset above detailH */
   renderMinimap(canvasW, canvasH, detailH = 0) {
     let ctx = this.ctx;
-    let viewportW = canvasW;
-    let viewportH = canvasH;
+    // viewportW/H = the user-visible canvas-container area, used for the
+    // "is content fully visible?" check. Prefer the stored property (set by
+    // Visualizer.jsx on every resize) over the oversized canvas dimensions.
+    let viewportW = this.viewportW || canvasW;
+    let viewportH = this.viewportH || canvasH;
     if (this.minimapCanvas && this.minimapCtx) {
       const dpr = window.devicePixelRatio || 1;
-      const overlayW = this.minimapCanvas.clientWidth || canvasW;
-      const overlayH = this.minimapCanvas.clientHeight || canvasH;
-      viewportW = this.canvas?.clientWidth || overlayW || canvasW;
-      viewportH = this.canvas?.clientHeight || overlayH || canvasH;
+      // The minimap canvas is position:fixed and fills the full viewport, so
+      // use window dimensions as the drawing surface.
+      const overlayW = (typeof window !== 'undefined' ? window.innerWidth : null)
+        || this.minimapCanvas.clientWidth || canvasW;
+      const overlayH = (typeof window !== 'undefined' ? window.innerHeight : null)
+        || this.minimapCanvas.clientHeight || canvasH;
+      // Drawing canvas covers the full viewport; viewport visibility check
+      // still uses the actual container visible area.
       canvasW = overlayW;
       canvasH = overlayH;
       if (this.minimapCanvas.width !== Math.round(overlayW * dpr) || this.minimapCanvas.height !== Math.round(overlayH * dpr)) {
@@ -2641,7 +2657,9 @@ export class SieveRenderer {
     const mapW = dims.width * scale + 2 * pad;
     const mapH = dims.height * scale + 2 * pad;
     const edgePad = 10;
-    const mx = Math.max(edgePad, canvasW - mapW - edgePad);
+    // Keep the minimap clear of the right-side settings panel.
+    const rightInset = this.minimapRightInset || 0;
+    const mx = Math.max(edgePad, canvasW - mapW - edgePad - rightInset);
     const panelClearance = Math.max(0, detailH) + edgePad;
     const my = Math.max(edgePad, canvasH - mapH - panelClearance);
 

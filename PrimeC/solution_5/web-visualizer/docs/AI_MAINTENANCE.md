@@ -853,6 +853,43 @@ cell-fill code entirely. Work these in dependency order:
     is overridden per-rect via inline `style={{ fill: color, stroke: 'none' }}`
     so the hard-coded preset colors show through correctly.
 
+- ✅ **Minimap always visible when enabled, regardless of panel state.**
+  Two root causes were fixed simultaneously.
+  1. **Z-index / stacking**: The minimap canvas (`z-index: 11`) was
+     painted behind the floating panels (settings sidebar, step panel —
+     `z-index: 28`), so opening either panel hid the minimap. Fixed by
+     changing `.minimap-overlay-canvas` to `position: fixed; z-index: 35;
+     width: 100vw; height: 100vh` in `07-canvas.css`. The canvas is now
+     a viewport-level overlay above all panels; `pointer-events: none`
+     is preserved so it never intercepts clicks.
+     The minimap `<canvas>` element was also moved out of `CanvasStage`'s
+     `.canvas-container` (which has `transform-style: preserve-3d` and
+     therefore creates its own stacking context, trapping the minimap's
+     z-index inside it) and is now rendered directly in `Visualizer.jsx`
+     as a sibling of `.main-content`. At that DOM level no ancestor
+     creates a stacking context, so `z-index: 35` is evaluated in the
+     root stacking context and correctly paints above the settings
+     sidebar (z-index: 28), step panel (z-index: 28), and the detail
+     panel (z-index: auto). The `minimapCanvasRef` prop was removed from
+     `CanvasStage` since the canvas element is no longer rendered there.
+  2. **Wrong visibility check**: `updateMinimapAvailability` and
+     `renderMinimap` both used the oversized (3× drag-headroom) canvas
+     dimensions for `isContentFullyVisible`, causing the minimap to be
+     marked "not available" when the content was smaller than the
+     oversized canvas but larger than the real viewport. Fixed by
+     storing the actual container-visible dimensions on the renderer as
+     `r.viewportW / r.viewportH` (set in `refreshCanvasLayout` on every
+     resize) and using those in both checks. `renderMinimap` now reads
+     `window.innerWidth/Height` for the fixed-canvas drawing surface.
+  3. **Settings-panel inset**: `r.minimapRightInset` (set to 360 when
+     the settings sidebar is expanded, 0 when collapsed) offsets the
+     minimap left so it never overlaps panel controls. A `useEffect`
+     in `Visualizer.jsx` keeps it in sync with `settingsCollapsed`.
+  4. **Hit-test coordinates**: Minimap click/drag detection changed
+     from container-relative (`rawX/rawY`) to viewport-relative
+     (`e.clientX / e.clientY`) to match the fixed-position `_minimapRect`
+     coordinates stored by `renderMinimap`.
+
 7. **Remove `SieveRenderer.skipBitFill` and the Canvas2D cell-fill code.**
    Blocked on items 4–6 (all remaining Canvas2D pixel work must be
    ported before this is safe). The code paths to remove are:

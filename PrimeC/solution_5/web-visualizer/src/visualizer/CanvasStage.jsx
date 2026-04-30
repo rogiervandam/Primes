@@ -29,7 +29,6 @@ function CanvasStage({
   containerRef,
   canvasRef,
   settledCanvasRef,
-  minimapCanvasRef,
   glCanvasRef,
   // whether GL renderer is active (controls GL canvas visibility)
   glActive,
@@ -131,11 +130,6 @@ function CanvasStage({
           ref={canvasRef}
           className="main-render-canvas"
           style={renderCanvasStyle}
-        />
-        <canvas
-          ref={minimapCanvasRef}
-          className="minimap-overlay-canvas"
-          aria-hidden="true"
         />
       </div>
 

@@ -370,10 +370,11 @@ export default function Visualizer({
   const updateMinimapAvailability = useCallback(() => {
     const r = rendererRef.current;
     if (!r) return;
-    const canvas = r.canvas;
-    const dpr = window.devicePixelRatio || 1;
-    const viewportW = canvas?.clientWidth || r.canvasWidth || 0;
-    const viewportH = canvas ? (canvas.height / dpr) : 0;
+    // Use the stored container-visible dimensions (set on every resize) rather
+    // than the oversized canvas dimensions so the fully-visible check reflects
+    // what the user actually sees, not the 3× drag-headroom canvas.
+    const viewportW = r.viewportW || (containerRef.current?.clientWidth ?? 0);
+    const viewportH = r.viewportH || (containerRef.current?.clientHeight ?? 0);
     const fullyVisible = viewportW > 0 && viewportH > 0 ? r.isContentFullyVisible(viewportW, viewportH) : false;
     const available = showMinimap !== false && !fullyVisible;
     r.minimapEnabled = available;
@@ -486,6 +487,12 @@ export default function Visualizer({
     r.layoutAvailHeight = lvH;
     r.unfreezeLayout();
     r.freezeLayout();
+
+    // Store the actual visible container dimensions on the renderer so that
+    // renderMinimap and updateMinimapAvailability use the real viewport size
+    // rather than the oversized (3×) drag-headroom canvas dimensions.
+    r.viewportW = rect.width;
+    r.viewportH = rect.height;
 
     // NOTE: anchor-based panX/panY compensation removed for panel toggles.
     // With the canvas pinned to the VIEWPORT center (see canvasAnchorPx and
@@ -847,6 +854,17 @@ export default function Visualizer({
       }
     };
   }, []);
+
+  // Keep r.minimapRightInset in sync with the settings panel state so the
+  // minimap (now a position:fixed overlay) stays clear of the expanded panel.
+  // The settings-toggle float button (collapsed state) is at the top-right and
+  // doesn't conflict with the bottom-right minimap, so we only offset when the
+  // full panel is visible.  360 px matches `sideInsetRight` used elsewhere.
+  useEffect(() => {
+    const r = rendererRef.current;
+    if (!r) return;
+    r.minimapRightInset = settingsCollapsed ? 0 : 360;
+  }, [settingsCollapsed]);
 
   const spacingPanAnimRef = useRef(null);
 
@@ -3016,8 +3034,10 @@ export default function Visualizer({
         return;
       }
 
-      // Check minimap hit first (use raw screen coords for minimap)
-      const hit = r.minimapHitTest(rawX, rawY, canvasW, canvasH);
+      // Check minimap hit first.  The minimap is drawn on a position:fixed
+      // canvas covering the full viewport, so _minimapRect.mx/my are in
+      // viewport (clientX/Y) coordinates — not container-relative coords.
+      const hit = r.minimapHitTest(e.clientX, e.clientY, canvasW, canvasH);
       if (hit) {
         hideHoverBalloon();
         gestureMode = 'minimap';
@@ -3088,9 +3108,8 @@ export default function Visualizer({
       if (gestureMode === 'minimap') {
         hideHoverBalloon();
         const rect = el.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const hit = r.minimapHitTest(x, y, rect.width, rect.height);
+        // Minimap is on a position:fixed overlay — use viewport coords.
+        const hit = r.minimapHitTest(e.clientX, e.clientY, rect.width, rect.height);
         if (hit) {
           r.panX = hit.panX;
           r.panY = hit.panY;
@@ -4023,7 +4042,6 @@ export default function Visualizer({
           containerRef={containerRef}
           canvasRef={canvasRef}
           settledCanvasRef={settledCanvasRef}
-          minimapCanvasRef={minimapCanvasRef}
           glCanvasRef={glCanvasRef}
           glActive={true}
           camera3DContainerStyle={mergedCamera3DContainerStyle}
@@ -4183,6 +4201,16 @@ export default function Visualizer({
           detailHeight={detailHeight}
         />
       </div>
+      {/* Minimap overlay — rendered OUTSIDE .main-content so it is never
+          trapped inside the canvas-container stacking context
+          (transform-style:preserve-3d). position:fixed + z-index:35 then
+          places it above all floating panels (z-index:28) and the detail
+          panel (document order) in the root stacking context. */}
+      <canvas
+        ref={minimapCanvasRef}
+        className="minimap-overlay-canvas"
+        aria-hidden="true"
+      />
     </div>
   );
 }
