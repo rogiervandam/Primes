@@ -127,7 +127,7 @@ function StepAnimSliders({
             title={(playing || stepAnimRunning || singleEventLoopActive) && !animationReplayPaused ? 'Pause the timeline animation' : 'Play the timeline animation at the current Speed'}
             disabled={timelineDisabled}
           >
-            {(playing || stepAnimRunning || singleEventLoopActive) && !animationReplayPaused ? <Pause size={14} /> : <Play size={14} />}
+            {(playing || stepAnimRunning || singleEventLoopActive) && !animationReplayPaused ? <Pause size={16} /> : <Play size={16} />}
           </button>
           <div className="step-focus-timeline-wrap">
             <div className="step-focus-timeline-track" aria-hidden="true">
@@ -159,7 +159,7 @@ function StepAnimSliders({
               onMouseDown={(e) => e.stopPropagation()}
               title="Open animation settings"
             >
-              <Settings size={13} />
+              <Settings size={16} />
             </button>
           )}
         </div>

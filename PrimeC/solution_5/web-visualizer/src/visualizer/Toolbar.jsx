@@ -33,6 +33,11 @@ export default function Toolbar({
   setStorageModel,
   header,
   traceInfoSections,
+  rawSource,
+  lineToStep,
+  onJumpToStep,
+  rawScrollToLine,
+  onClearRawScrollToLine,
   // close
   onClose,
   // playback transport
@@ -120,6 +125,11 @@ export default function Toolbar({
             setStorageModel={setStorageModel}
             header={header}
             sections={traceInfoSections}
+            rawSource={rawSource}
+            lineToStep={lineToStep}
+            onJumpToStep={onJumpToStep}
+            rawScrollToLine={rawScrollToLine}
+            onClearRawScrollToLine={onClearRawScrollToLine}
           />
         )}
         <div className="panel-toggle-group">

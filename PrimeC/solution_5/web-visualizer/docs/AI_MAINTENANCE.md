@@ -208,7 +208,15 @@ Left to do:
 
 Done: settings tabs are split; preview-style option buttons are used broadly;
 legend overlay/animation rows are clickable; color presets include more engaging
-schemes; canvas background colors are persisted per theme.
+schemes; canvas background colors are persisted per theme. Log level filter
+options renamed to "level N (LN)" format (e.g. "Up to level 5 (L5)") for
+clarity; events panel indentation whitespace reduced (base 6px, 10px per level);
+`.event-child` extra 24px padding removed so first-level items are nearly flush.
+Timeline slider row `min-height` and wrapper height increased to 28px to better
+match the topbar's visual weight. "View raw log" dialog is now draggable,
+resizable, and line-numbered; lines matching events have clickable line-numbers
+that navigate to that step in the events panel (`lineToStep` map in Visualizer,
+`onJumpToStep` callback threaded through Toolbar into TraceInfoPopover).
 
 Left to do:
 

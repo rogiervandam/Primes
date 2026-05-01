@@ -11,6 +11,7 @@ function preloadVisualizer() { import('./Visualizer'); }
 export default function App() {
   const [trace, setTrace] = useState(null);
   const [fileName, setFileName] = useState('');
+  const [rawSource, setRawSource] = useState(null);
   const [benchmarkTimingData, setBenchmarkTimingData] = useState(null);
   const [benchmarkTimingFileName, setBenchmarkTimingFileName] = useState('');
   const [error, setError] = useState('');
@@ -89,6 +90,7 @@ export default function App() {
         const parsed = parseTrace(e.target.result);
         setTrace(parsed);
         setFileName(file.name);
+        setRawSource(e.target.result);
       } catch (err) {
         setError(err.message);
         setTrace(null);
@@ -111,6 +113,7 @@ export default function App() {
       const parsed = parseTrace(text);
       setTrace(parsed);
       setFileName(name);
+      setRawSource(text);
       await tryLoadBenchmarkTimingFromApi(name);
       if (autoRenderFlag) setAutoRender(true);
     } catch (err) {
@@ -252,12 +255,14 @@ export default function App() {
       <Visualizer
         trace={trace}
         fileName={fileName}
+        rawSource={rawSource}
         benchmarkTimingData={benchmarkTimingData}
         benchmarkTimingFileName={benchmarkTimingFileName}
         onImportBenchmarkTiming={() => benchmarkInputRef.current?.click()}
         onClose={() => {
           setTrace(null);
           setFileName('');
+          setRawSource(null);
           setAutoRender(false);
           setBenchmarkTimingData(null);
           setBenchmarkTimingFileName('');
