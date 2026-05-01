@@ -1,4 +1,25 @@
 /* ---- Bit History Panel ---- */
+.bit-history-connectors {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 190;
+  pointer-events: none;
+  overflow: visible;
+}
+.bit-history-connector-shape {
+  fill: var(--accent);
+  fill-opacity: .18;
+  stroke: var(--accent);
+  stroke-opacity: .22;
+  stroke-width: 1;
+  filter: drop-shadow(0 6px 14px rgba(0,0,0,.28));
+}
+[data-theme='light'] .bit-history-connector-shape {
+  fill-opacity: .14;
+  stroke-opacity: .28;
+}
 .bit-history-panel {
   background: var(--bg-surface); border: 1px solid var(--border);
   border-radius: 8px; min-width: 260px; max-width: 380px; max-height: 50vh;
@@ -21,6 +42,9 @@
 .bit-history-panel.hover-balloon.locked {
   pointer-events: auto;
   z-index: 260;
+}
+.bit-history-panel.live-layout {
+  transition: opacity 90ms ease, transform 90ms ease;
 }
 /* Balloon hides (animated) when it would overlap a panel, titlebar, or go off-screen.
    The transform shift gives a tiny slide-out and still allows hit-testing to miss it. */
@@ -179,4 +203,3 @@
   color: var(--fg-muted);
   z-index: 1;
 }
-

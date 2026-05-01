@@ -44,6 +44,67 @@ import {
   getFadeOutDuration as getFadeOutDurationPure,
 } from './lib/animationTiming';
 
+function getProjectedCanvasMapper(canvasEl) {
+  if (!canvasEl || typeof canvasEl.getBoxQuads !== 'function') return null;
+  const quad = canvasEl.getBoxQuads()[0];
+  if (!quad) return null;
+  const width = canvasEl.offsetWidth || parseFloat(canvasEl.style.width || '') || 0;
+  const height = canvasEl.offsetHeight || parseFloat(canvasEl.style.height || '') || 0;
+  if (width <= 0 || height <= 0) return null;
+
+  const p00 = quad.p1;
+  const p10 = quad.p2;
+  const p11 = quad.p3;
+  const p01 = quad.p4;
+  const dx1 = p10.x - p11.x;
+  const dy1 = p10.y - p11.y;
+  const dx2 = p01.x - p11.x;
+  const dy2 = p01.y - p11.y;
+  const dx3 = p00.x - p10.x + p11.x - p01.x;
+  const dy3 = p00.y - p10.y + p11.y - p01.y;
+  const denom = dx1 * dy2 - dx2 * dy1;
+  if (Math.abs(denom) < 1e-6) return null;
+
+  const g = (dx3 * dy2 - dx2 * dy3) / denom;
+  const h = (dx1 * dy3 - dx3 * dy1) / denom;
+  const a = p10.x - p00.x + g * p10.x;
+  const b = p01.x - p00.x + h * p01.x;
+  const c = p00.x;
+  const d = p10.y - p00.y + g * p10.y;
+  const e = p01.y - p00.y + h * p01.y;
+  const f = p00.y;
+
+  const toViewport = (canvasX, canvasY) => {
+    const u = canvasX / width;
+    const v = canvasY / height;
+    const z = g * u + h * v + 1;
+    if (Math.abs(z) < 1e-6) return null;
+    return {
+      x: (a * u + b * v + c) / z,
+      y: (d * u + e * v + f) / z,
+    };
+  };
+
+  const toCanvas = (clientX, clientY) => {
+    const a1 = clientX * g - a;
+    const b1 = clientX * h - b;
+    const c1 = c - clientX;
+    const a2 = clientY * g - d;
+    const b2 = clientY * h - e;
+    const c2 = f - clientY;
+    const det = a1 * b2 - a2 * b1;
+    if (Math.abs(det) < 1e-6) return null;
+    const u = (c1 * b2 - c2 * b1) / det;
+    const v = (a1 * c2 - a2 * c1) / det;
+    return {
+      x: u * width,
+      y: v * height,
+    };
+  };
+
+  return { toViewport, toCanvas };
+}
+
 /**
  * Top-level visualizer component. Owns all playback, rendering, and UI state.
  *
@@ -212,7 +273,6 @@ export default function Visualizer({
   const [stepStats, setStepStats] = useState(null); // { totalSet, newlySet, reSet, duplicateTargets }
   const [pinnedBitIndices, setPinnedBitIndices] = useState([]); // clicked bits with locked balloons
   const [hoveredBitInfo, setHoveredBitInfo] = useState(null);  // { bitIndex, history[] } — updated on hover
-  const [, setHoverPos] = useState(null); // { x, y } viewport coords for hover balloon
   const [colorPreset, setColorPreset] = useState(initialPrefs.colorPreset);
   const [customColors, setCustomColors] = useState(initialPrefs.customColors);
   // Search state is managed by useSearchState (placed after navigateToBit is defined below).
@@ -262,6 +322,7 @@ export default function Visualizer({
   const [detailInspectorMode, setDetailInspectorMode] = useState('bits');
   const [detailInspectorQuery, setDetailInspectorQuery] = useState('');
   const [, setBalloonLayoutTick] = useState(0);
+  const [balloonLiveLayout, setBalloonLiveLayout] = useState(false);
   // Pixel offsets that place the canvas's center at the viewport center
   // regardless of the container's current bounding box. Without this,
   // the canvas was positioned `left:50%; top:50%` of `.canvas-container`,
@@ -330,6 +391,7 @@ export default function Visualizer({
   const bitStateCheckpointsRef = useRef([]);
   const traceInfoToggleRef = useRef(null);
   const balloonLayoutRafRef = useRef(null);
+  const balloonLiveLayoutTimerRef = useRef(null);
 
   stepsRef.current = steps;
   currentStepRef.current = currentStep;
@@ -365,7 +427,15 @@ export default function Visualizer({
     return { bitIndex: idx, number: num, isPrime: isPrimeNumber(num), history };
   }, [isPrimeNumber]);
 
-  const scheduleBalloonRelayout = useCallback(() => {
+  const scheduleBalloonRelayout = useCallback((immediate = false) => {
+    if (immediate) {
+      if (balloonLayoutRafRef.current != null) {
+        cancelAnimationFrame(balloonLayoutRafRef.current);
+        balloonLayoutRafRef.current = null;
+      }
+      setBalloonLayoutTick((value) => value + 1);
+      return;
+    }
     if (balloonLayoutRafRef.current != null) return;
     balloonLayoutRafRef.current = requestAnimationFrame(() => {
       balloonLayoutRafRef.current = null;
@@ -377,6 +447,10 @@ export default function Visualizer({
     if (balloonLayoutRafRef.current != null) {
       cancelAnimationFrame(balloonLayoutRafRef.current);
       balloonLayoutRafRef.current = null;
+    }
+    if (balloonLiveLayoutTimerRef.current != null) {
+      clearTimeout(balloonLiveLayoutTimerRef.current);
+      balloonLiveLayoutTimerRef.current = null;
     }
   }, []);
 
@@ -458,20 +532,38 @@ export default function Visualizer({
     return { canvasW, canvasH };
   }, []);
 
-  const captureViewportAnchor = useCallback((xRatio = 0.5, yRatio = 0.5) => {
+  const getCanvasPlaneMetrics = useCallback(() => {
     const r = rendererRef.current;
     const el = containerRef.current;
     if (!r || !el) return null;
     const rect = el.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return null;
+    const canvasEl = r.canvas || canvasRef.current;
+    const planeW = r.canvasWidth || canvasEl?.offsetWidth || rect.width;
+    const planeH = r.canvasHeight || canvasEl?.offsetHeight || rect.height;
+    const mapper = getProjectedCanvasMapper(canvasEl);
+    const cssLeft = canvasEl ? parseFloat(canvasEl.style.left || '') : Number.NaN;
+    const cssTop = canvasEl ? parseFloat(canvasEl.style.top || '') : Number.NaN;
+    const anchorLeft = Number.isFinite(cssLeft) ? cssLeft : (canvasAnchorPx?.left ?? rect.width / 2);
+    const anchorTop = Number.isFinite(cssTop) ? cssTop : (canvasAnchorPx?.top ?? rect.height / 2);
+    return {
+      rect,
+      planeW,
+      planeH,
+      planeOffsetX: planeW / 2 - anchorLeft,
+      planeOffsetY: planeH / 2 - anchorTop,
+      canvasToViewport: mapper?.toViewport || null,
+      viewportToCanvas: mapper?.toCanvas || null,
+    };
+  }, [canvasAnchorPx]);
+
+  const captureViewportAnchor = useCallback((xRatio = 0.5, yRatio = 0.5) => {
+    const r = rendererRef.current;
+    const metrics = getCanvasPlaneMetrics();
+    if (!r || !metrics) return null;
+    const { rect, planeW, planeH, planeOffsetX, planeOffsetY } = metrics;
     const clientX = rect.left + rect.width * xRatio;
     const clientY = rect.top + rect.height * yRatio;
-    const canvasCssHeight = (r.canvas?.height || rect.height * (window.devicePixelRatio || 1)) / (window.devicePixelRatio || 1);
-    const { canvasW, canvasH } = getCanvasTargetSize(rect.width, rect.height);
-    const planeW = canvasW;
-    const planeH = Math.max(canvasCssHeight, canvasH);
-    const planeOffsetX = Math.max(0, (planeW - rect.width) / 2);
-    const planeOffsetY = Math.max(0, (planeH - rect.height) / 2);
     const localX = clientX - rect.left;
     const localY = clientY - rect.top;
     const cam = camera3DRef.current;
@@ -484,7 +576,7 @@ export default function Visualizer({
       contentX: (canvasPoint.x - r.panX) / Math.max(0.0001, r.zoom || 1),
       contentY: (canvasPoint.y - r.panY) / Math.max(0.0001, r.zoom || 1),
     };
-  }, [getCanvasTargetSize]);
+  }, [getCanvasPlaneMetrics]);
 
   const refreshCanvasLayout = useCallback((anchor = null) => {
     const r = rendererRef.current;
@@ -2934,9 +3026,9 @@ export default function Visualizer({
     const pos = r.bitIndexToCanvas(bitIdx);
     if (!pos) return;
 
-    const rect = el.getBoundingClientRect();
-    const planeW = r.canvasWidth || rect.width;
-    const planeH = (r.canvas?.height || rect.height * (window.devicePixelRatio || 1)) / (window.devicePixelRatio || 1);
+    const metrics = getCanvasPlaneMetrics();
+    if (!metrics) return;
+    const { rect, planeW, planeH, planeOffsetX, planeOffsetY } = metrics;
     const elem = r.identifyElement(bitIdx);
     if (!elem) return;
 
@@ -2964,12 +3056,17 @@ export default function Visualizer({
 
     cam.flyTo(
       target,
-      { containerW: planeW, containerH: planeH, centerX: planeW / 2, centerY: planeH / 2 },
+      {
+        containerW: planeW,
+        containerH: planeH,
+        centerX: planeOffsetX + rect.width / 2,
+        centerY: planeOffsetY + rect.height / 2,
+      },
       { panX: r.panX, panY: r.panY, zoom: r.zoom },
       targetZoom,
       1200
     );
-  }, []);
+  }, [getCanvasPlaneMetrics]);
 
   // ensureTiltCamera() is provided by use3DCamera; see src/hooks/use3DCamera.js.
 
@@ -2983,26 +3080,23 @@ export default function Visualizer({
     let startX = 0, startY = 0, panSX = 0, panSY = 0;
     let didDrag = false;
     let mouseRotateActive = false;
+    let pointerDownCanvasCoords = null;
 
-    const getPlaneMetrics = () => {
-      const rect = el.getBoundingClientRect();
-      const r = rendererRef.current;
-      const planeW = r?.canvasWidth || rect.width;
-      const planeH = (r?.canvas?.height || rect.height * (window.devicePixelRatio || 1)) / (window.devicePixelRatio || 1);
-      const planeOffsetX = Math.max(0, (planeW - rect.width) / 2);
-      const planeOffsetY = Math.max(0, (planeH - rect.height) / 2);
-      return { rect, planeW, planeH, planeOffsetX, planeOffsetY };
-    };
-
-    const screenToCanvasCoords = (clientX, clientY) => {
-      const { rect, planeW, planeH, planeOffsetX, planeOffsetY } = getPlaneMetrics();
-      const x = clientX - rect.left;
-      const y = clientY - rect.top;
+    const eventToCanvasCoords = (event, fallbackClientX = event.clientX, fallbackClientY = event.clientY) => {
+      const metrics = getCanvasPlaneMetrics();
+      if (!metrics) return { x: 0, y: 0 };
+      if (metrics.viewportToCanvas) {
+        const point = metrics.viewportToCanvas(fallbackClientX, fallbackClientY);
+        if (point) return point;
+      }
+      const { rect, planeW, planeH, planeOffsetX, planeOffsetY } = metrics;
+      const x = fallbackClientX - rect.left;
+      const y = fallbackClientY - rect.top;
       const cam = camera3DRef.current;
       if (cam && cam.enabled) {
         return cam.screenToCanvas(x, y, planeW, planeH, planeOffsetX, planeOffsetY);
       }
-      return { x, y };
+      return { x: x + planeOffsetX, y: y + planeOffsetY };
     };
 
     const onContextMenu = (e) => {
@@ -3029,13 +3123,13 @@ export default function Visualizer({
     const hideHoverBalloon = () => {
       lastHoveredIdxRef.current = -1;
       setHoveredBitInfo(null);
-      setHoverPos(null);
     };
 
     const clearInteraction = () => {
       gestureMode = 'none';
       activePointerId = null;
       mouseRotateActive = false;
+      pointerDownCanvasCoords = null;
       el.classList.remove('dragging');
     };
 
@@ -3096,6 +3190,7 @@ export default function Visualizer({
       gestureMode = 'pan';
       activePointerId = e.pointerId;
       didDrag = false;
+      pointerDownCanvasCoords = eventToCanvasCoords(e);
       startX = e.clientX; startY = e.clientY;
       if (r) { panSX = r.panX; panSY = r.panY; }
       if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
@@ -3196,12 +3291,11 @@ export default function Visualizer({
         if (lastHoveredIdxRef.current !== -1) {
           lastHoveredIdxRef.current = -1;
           setHoveredBitInfo(null);
-          setHoverPos(null);
         }
         return;
       }
 
-      const coords = screenToCanvasCoords(e.clientX, e.clientY);
+      const coords = eventToCanvasCoords(e);
       const idx = r.canvasToBitIndex(coords.x, coords.y);
       el.style.cursor = 'crosshair';
       if (idx !== lastHoveredIdxRef.current) {
@@ -3212,9 +3306,6 @@ export default function Visualizer({
           setHoveredBitInfo(null);
         }
       }
-      // Always update hover position so balloon follows cursor
-      if (idx >= 0) setHoverPos({ x: e.clientX, y: e.clientY });
-      else setHoverPos(null);
     };
 
     const onPointerEnd = (e) => {
@@ -3248,7 +3339,7 @@ export default function Visualizer({
           clearInteraction();
           return;
         }
-        const coords = screenToCanvasCoords(e.clientX, e.clientY);
+        const coords = pointerDownCanvasCoords || eventToCanvasCoords(e);
         const idx = r.canvasToBitIndex(coords.x, coords.y);
         if (idx >= 0) {
           const cam = camera3DRef.current;
@@ -3274,7 +3365,7 @@ export default function Visualizer({
       e.preventDefault();
       const r = rendererRef.current;
       if (!r) return;
-      const coords = screenToCanvasCoords(e.clientX, e.clientY);
+      const coords = eventToCanvasCoords(e);
       applyWheel({
         renderer: r,
         event: e,
@@ -3285,6 +3376,14 @@ export default function Visualizer({
         updateMinimapAvailability,
         scheduleBalloonRelayout,
       });
+      setBalloonLiveLayout(true);
+      if (balloonLiveLayoutTimerRef.current != null) clearTimeout(balloonLiveLayoutTimerRef.current);
+      scheduleBalloonRelayout(true);
+      balloonLiveLayoutTimerRef.current = setTimeout(() => {
+        balloonLiveLayoutTimerRef.current = null;
+        setBalloonLiveLayout(false);
+        scheduleBalloonRelayout(true);
+      }, 140);
     };
 
     const onMouseDown = (e) => {
@@ -3352,7 +3451,6 @@ export default function Visualizer({
       if (gestureMode === 'none') {
         lastHoveredIdxRef.current = -1;
         setHoveredBitInfo(null);
-        setHoverPos(null);
       }
       el.style.cursor = 'crosshair';
     };
@@ -3371,7 +3469,7 @@ export default function Visualizer({
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [computeBitInfo, flyToElement, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout]);
+  }, [computeBitInfo, flyToElement, getCanvasPlaneMetrics, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout]);
 
   // Keyboard shortcuts — see src/hooks/useKeyboardShortcuts.js for the full key map.
   useKeyboardShortcuts({
@@ -3675,19 +3773,21 @@ export default function Visualizer({
     const el = containerRef.current;
     if (!r || !el) return null;
 
-    const rect = el.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return null;
+    const metrics = getCanvasPlaneMetrics();
+    if (!metrics) return null;
+    const { rect, planeW, planeH, planeOffsetX, planeOffsetY, canvasToViewport } = metrics;
 
     const pos = r.bitIndexToCanvas(bitIndex);
     if (!pos) return null;
-    const dpr = window.devicePixelRatio || 1;
-    const canvasCssHeight = (r.canvas?.height || rect.height * dpr) / dpr;
-    const planeW = r.canvasWidth || rect.width;
-    const planeH = canvasCssHeight;
-    const planeOffsetX = Math.max(0, (planeW - rect.width) / 2);
-    const planeOffsetY = Math.max(0, (planeH - rect.height) / 2);
-    const anchorX = rect.left + (pos.x - planeOffsetX);
-    const anchorY = rect.top + (pos.y - planeOffsetY);
+    const cam = camera3DRef.current;
+    const projected = canvasToViewport
+      ? canvasToViewport(pos.x, pos.y)
+      : cam && cam.enabled
+      ? cam.canvasToScreen(pos.x, pos.y, planeW, planeH, planeOffsetX, planeOffsetY)
+      : { x: pos.x - planeOffsetX, y: pos.y - planeOffsetY };
+    if (!projected) return null;
+    const anchorX = canvasToViewport ? projected.x : rect.left + projected.x;
+    const anchorY = canvasToViewport ? projected.y : rect.top + projected.y;
     const bitHalf = Math.max(2.5, (r.pixelSize || 2) * (r.zoom || 1) * 0.52);
 
     // The anchor (the bit itself) must lie inside the grid container; otherwise
@@ -3709,15 +3809,16 @@ export default function Visualizer({
     const detailPad = detailOpen ? detailHeight + 22 : 56;
     const minTop = 96;
     const maxTop = window.innerHeight - detailPad;
-    const clampedTop = Math.max(minTop, Math.min(maxTop, anchorY - 12));
+    const clampedTop = Math.max(minTop, Math.min(maxTop, anchorY - 72));
 
     return { left: clampedLeft, top: clampedTop, anchorX, anchorY, bitHalf, anchorInsideGrid };
-  }, [eventsPanelCollapsed, panelWidth, settingsCollapsed, detailOpen, detailHeight]);
+  }, [getCanvasPlaneMetrics, eventsPanelCollapsed, panelWidth, settingsCollapsed, detailOpen, detailHeight]);
 
   const getVisibleBalloonStyles = useCallback((items) => {
     const approxWidth = 320;
     const approxHeight = 238;
     const margin = 18;
+    const visualGap = 14;
     const placed = [];
     const result = {};
 
@@ -3776,8 +3877,8 @@ export default function Visualizer({
         const box = {
           left: candidate.left - approxWidth / 2,
           right: candidate.left + approxWidth / 2,
-          top: candidate.top - approxHeight,
-          bottom: candidate.top,
+          top: candidate.top - approxHeight - visualGap,
+          bottom: candidate.top - visualGap,
         };
         const overlaps = placed.some((other) => (
           box.left < other.right + margin &&
@@ -3809,8 +3910,8 @@ export default function Visualizer({
       const box = {
         left: clampedLeft - approxWidth / 2,
         right: clampedLeft + approxWidth / 2,
-        top: clampedTop - approxHeight,
-        bottom: clampedTop,
+        top: clampedTop - approxHeight - visualGap,
+        bottom: clampedTop - visualGap,
       };
       // Hide only when a substantial portion of the balloon overlaps an overlay
       // or falls off-screen. A small edge-touch (< 12px) doesn't count as clipped.
@@ -3834,6 +3935,12 @@ export default function Visualizer({
         panelStyle: {
           left: clampedLeft,
           top: clampedTop,
+        },
+        connector: {
+          anchorX: item.anchorX,
+          anchorY: item.anchorY,
+          bitHalf: item.bitHalf,
+          box,
         },
       };
     }
@@ -4018,6 +4125,7 @@ export default function Visualizer({
           hoveredBitInfo={hoveredBitInfo}
           computeBitInfo={computeBitInfo}
           getVisibleBalloonStyles={getVisibleBalloonStyles}
+          balloonLiveLayout={balloonLiveLayout}
           cachelineSize={cachelineSize}
           setPinnedBitIndices={setPinnedBitIndices}
           handleStepSelection={handleStepSelection}

@@ -126,7 +126,7 @@ export class Camera3D {
         zoom: currentView.zoom,
       },
       to: {
-        rotateX: clamp(Math.max(14, this.rotateX || 20), -this.maxTilt, this.maxTilt),
+        rotateX: clamp(this.rotateX, -this.maxTilt, this.maxTilt),
         rotateY: clamp(this.rotateY, -this.maxTilt, this.maxTilt),
         panX: nextView.panX,
         panY: nextView.panY,
@@ -201,7 +201,7 @@ export class Camera3D {
     const rdy = sy;
     const rdz = -eyeZ;
 
-    const ax = -this.rotateX * Math.PI / 180;
+    const ax = this.rotateX * Math.PI / 180;
     const ay = this.rotateY * Math.PI / 180;
 
     const cosA = Math.cos(ax);
@@ -237,6 +237,43 @@ export class Camera3D {
     const localY = cosNA * ry1 - sinNA * rz1;
 
     return { x: localX + cx, y: localY + cy };
+  }
+
+  canvasToScreen(canvasX, canvasY, containerW, containerH, offsetX = 0, offsetY = 0) {
+    const localCanvasX = canvasX ?? 0;
+    const localCanvasY = canvasY ?? 0;
+
+    if (!this.enabled || (Math.abs(this.rotateX) < 0.01 && Math.abs(this.rotateY) < 0.01)) {
+      return { x: localCanvasX - offsetX, y: localCanvasY - offsetY };
+    }
+
+    const cx = containerW / 2;
+    const cy = containerH / 2;
+    const lx = localCanvasX - cx;
+    const ly = localCanvasY - cy;
+    const eyeZ = this.perspective;
+
+    const ax = this.rotateX * Math.PI / 180;
+    const ay = this.rotateY * Math.PI / 180;
+
+    const cosA = Math.cos(ax);
+    const sinA = Math.sin(ax);
+    const cosB = Math.cos(ay);
+    const sinB = Math.sin(ay);
+
+    const rx1 = lx;
+    const ry1 = cosA * ly;
+    const rz1 = sinA * ly;
+
+    const ix = cosB * rx1 + sinB * rz1;
+    const iy = ry1;
+    const iz = -sinB * rx1 + cosB * rz1;
+    const scale = eyeZ / Math.max(1e-6, eyeZ - iz);
+
+    return {
+      x: cx + ix * scale - offsetX,
+      y: cy + iy * scale - offsetY,
+    };
   }
 
   cancelAllAnimations() {

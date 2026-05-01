@@ -81,7 +81,7 @@ src/
 │   ├── DebugToolsPanel.jsx       Toolbar-toggled FPS/render timing window
 │   ├── CanvasStage.jsx           Canvas area + overlays + balloons + panels
 │   ├── BitHistoryBalloon.jsx     Hover/pinned bit-history popover
-│   ├── BitHistoryBalloons.jsx    Pinned + hover bit-history balloon cluster
+│   ├── BitHistoryBalloons.jsx    Pinned + hover bit-history cluster + SVG connectors
 │   ├── EventTitleBanner.jsx      Floating current-event banner (draggable)
 │   ├── JoinedEventsWidget.jsx    Combined transport+event banner widget (join/split mode)
 │   ├── DetailInspectorOverlay.jsx Modal table of bits / numbers / primes

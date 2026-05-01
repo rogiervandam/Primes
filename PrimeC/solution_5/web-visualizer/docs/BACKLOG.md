@@ -18,13 +18,17 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 - FPS/render timing moved out of the tilted 3D canvas plane into a small
   toolbar-toggled debug tools window. The toolkit button defaults off, and the
   renderer now exposes samples instead of drawing the chart itself.
+- Bit-history balloons now draw a soft curved connector between the visible bit
+  edge and the nearest measured balloon edge. The obsolete hover mouse-position
+  state was removed because balloons are anchored from renderer bit geometry.
 
 ## Open
 
-- Improve the bit balloons: draw a clear soft curved connector between the bit
-  and the balloon, then remove stale connector or placement code.
 - Polish the mask animation's final stamp: shorten the final settle, reduce the
   up/down motion to a few pixels, and spend more time on the travel.
+- Check bit-history balloon connector/clamping polish with events panel
+  open/closed, settings open/closed, joined widget visible, minimap visible,
+  light/dark themes, and high zoom.
 - When pushing the joined widget into the detail panel, also bring all-events
   controls and the all-events timeline into the detail panel.
 - When pushing the all event widget in the detaiil panel, also bring all-events controls and the all-events timeline into the detail panel.
@@ -37,7 +41,10 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
   sizes, bit count, current render cadence, and context-loss recovery state.
 - Make the debug tools window draggable or pinnable only if it starts competing
   with settings/detail/sidebar workflows.
-
+- Make the timeline sliders and buttons in the side panels a little bit bigger so that they are the same as the timeline slader and controls in the top bar.
+- make an option to show the original logfile as plain text. Should be accessed though the top file details.
+- rename the loglevel options to e.g. "level 5 (L5)"
+- in the events panel, the collapsing takes too much space. 
 
 
 ## New Ideas

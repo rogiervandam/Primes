@@ -190,17 +190,19 @@ Left to do:
 
 ### 7. Improve Bit-History Balloons
 
-Done: pinned and hover balloons are extracted under `src/visualizer/` and hover
-suppression is in place over floating widgets.
+Done: pinned and hover balloons are extracted under `src/visualizer/`; hover
+suppression is in place over floating widgets; visible balloons now draw a soft
+curved SVG connector from the bit edge to the nearest measured balloon edge;
+stale mouse-position hover state was removed after balloon placement became
+bit-anchored; bit hit-testing reads the live canvas anchor to stay accurate near
+viewport edges.
 
 Left to do:
 
-- Add a clear visual connector from a balloon to its bit: a soft curved filled
-  shape between the nearest bit edge and the nearest balloon corner.
-- Remove stale connector or balloon-placement code after the new connector is
-  working.
 - Check balloon clamping with events panel open/closed, settings open/closed,
   joined widget visible, and minimap visible.
+- Manually tune connector width/opacity if real traces show it competing with
+  dense overlays, especially in light theme and at high zoom.
 
 ### 8. Improve Settings And Color Discoverability
 

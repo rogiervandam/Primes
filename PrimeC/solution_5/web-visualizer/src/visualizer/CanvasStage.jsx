@@ -57,6 +57,7 @@ function CanvasStage({
   hoveredBitInfo,
   computeBitInfo,
   getVisibleBalloonStyles,
+  balloonLiveLayout,
   cachelineSize,
   setPinnedBitIndices,
   handleStepSelection,
@@ -144,6 +145,7 @@ function CanvasStage({
         hoveredBitInfo={hoveredBitInfo}
         computeBitInfo={computeBitInfo}
         getVisibleBalloonStyles={getVisibleBalloonStyles}
+        liveLayout={balloonLiveLayout}
         cachelineSize={cachelineSize}
         currentStep={currentStep}
         onUnpin={(bi) => setPinnedBitIndices((prev) => prev.filter((value) => value !== bi))}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 
 /**
  * Floating popover anchored next to a sieve bit. Shows the bit's identity
@@ -21,9 +21,10 @@ import React from 'react';
  * @param {function} props.onHistoryClick   Called with `(stepIndex)` when a history row is clicked.
  * @param {string}   props.keyPrefix        Used to namespace `<tr key>` attributes for history rows.
  */
-export default function BitHistoryBalloon({
+const BitHistoryBalloon = forwardRef(function BitHistoryBalloon({
   info,
   pinned,
+  liveLayout,
   style,
   clipped,
   cachelineSize,
@@ -31,7 +32,7 @@ export default function BitHistoryBalloon({
   onClose,
   onHistoryClick,
   keyPrefix,
-}) {
+}, ref) {
   if (!info) return null;
   const bi = info.bitIndex;
   const byteIdx = Math.floor(bi / 8);
@@ -42,10 +43,10 @@ export default function BitHistoryBalloon({
   const bitInU64 = bi % 64;
   const clIdx = Math.floor(bi / (cachelineSize * 8));
   const className =
-    `bit-history-panel${pinned ? ' locked' : ''} hover-balloon${clipped ? ' clipped' : ''}`;
+    `bit-history-panel${pinned ? ' locked' : ''} hover-balloon${liveLayout ? ' live-layout' : ''}${clipped ? ' clipped' : ''}`;
 
   return (
-    <div className={className} style={style}>
+    <div ref={ref} className={className} style={style}>
       <div className="bit-history-header">
         <span>{pinned ? '📌 ' : ''}Bit {bi} → #{info.number}</span>
         {pinned && onClose && (
@@ -96,4 +97,6 @@ export default function BitHistoryBalloon({
       )}
     </div>
   );
-}
+});
+
+export default BitHistoryBalloon;
