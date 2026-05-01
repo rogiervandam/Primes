@@ -41,6 +41,8 @@ TRACE_EXPECTING_TITLE=0
 CHAIN_EXPECTING_TITLE=0
 BENCHMARK_LOG_FILENAME=""
 BENCHMARK_LOG_EXPECTING_FILENAME=0
+USER_SET_OVERRIDE=""
+SET_EXPECTING_VALUE=0
 for arg in "$@"; do
     if [ "$TRACE_EXPECTING_LEVEL" -eq 1 ]; then
         if echo "$arg" | grep -qE '^[0-9]+$'; then
@@ -73,6 +75,13 @@ for arg in "$@"; do
     if [ "$BENCHMARK_LOG_EXPECTING_FILENAME" -eq 1 ]; then
         BENCHMARK_LOG_FILENAME="$arg"
         BENCHMARK_LOG_EXPECTING_FILENAME=0
+        continue
+    fi
+
+    if [ "$SET_EXPECTING_VALUE" -eq 1 ]; then
+        USER_SET_OVERRIDE="$arg"
+        SET_EXPECTING_VALUE=0
+        ARGS_TO_KEEP+=("$arg")
         continue
     fi
 
@@ -133,6 +142,9 @@ for arg in "$@"; do
         BENCHMARK_LOG_EXPECTING_FILENAME=1
     elif [ "$arg" = "chain" ] || [ "$arg" = "--chain" ]; then
         CHAIN_EXPECTING_TITLE=1
+    elif [ "$arg" = "--set" ]; then
+        SET_EXPECTING_VALUE=1
+        ARGS_TO_KEEP+=("$arg")
     else
         ARGS_TO_KEEP+=("$arg")
     fi
@@ -579,6 +591,11 @@ if [ "$CHAIN" = "chain" ]; then
     CHAIN_FWD=()
     [ -n "$COMPILER_OVERRIDE" ] && CHAIN_FWD+=("$COMPILER_OVERRIDE")
     [ "${CHAIN_MAX:-0}" -gt 0 ]  && CHAIN_FWD+=("$CHAIN_MAX")
+    if [ -n "$USER_SET_OVERRIDE" ]; then
+        [ -d ./dev/build ] || mkdir -p ./dev/build
+        echo -n "$USER_SET_OVERRIDE" > "./dev/build/${base}_settings.txt"
+        CHAIN_FWD+=("--set" "$USER_SET_OVERRIDE")
+    fi
 
     echo -e "\n=== ${CYELLOW}Chain mode${CRESET}: ${CCYAN}${base}${CRESET} up to ${CHAIN_MAX} ==="
     echo -e "Log base: ${CGREEN}${CHAIN_LOGBASE}${CRESET}\n"
@@ -586,8 +603,12 @@ if [ "$CHAIN" = "chain" ]; then
     # ── 1/6: Tune ────────────────────────────────────────────────────────────
     echo -e "${CYELLOW}[1/6]${CRESET} Compiling tune variant..."
     $0 "${base}" compile --verbose 2 "${CHAIN_FWD[@]}" || exit $?
-    echo -e "${CYELLOW}[1/6]${CRESET} Running tune (finding best settings)..."
-    ./bin/${base} --tune 5 --nocheck --verbose 2 "${CHAIN_FWD[@]}" || exit $?
+    if [ -n "$USER_SET_OVERRIDE" ]; then
+        echo -e "${CYELLOW}[1/6]${CRESET} Skipping tune run (using explicit --set ${USER_SET_OVERRIDE})."
+    else
+        echo -e "${CYELLOW}[1/6]${CRESET} Running tune (finding best settings)..."
+        ./bin/${base} --tune 5 --nocheck --verbose 2 "${CHAIN_FWD[@]}" || exit $?
+    fi
 
     # ── 2/6: Benchmark (embedded settings, 5-second run) ─────────────────────
     echo -e "\n${CYELLOW}[2/6]${CRESET} Compiling embedded benchmark variant..."
