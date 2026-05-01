@@ -26,7 +26,7 @@ CHAIN=""
 CHAIN_EMBED_MODE=""  # "embedded" variant: COMPILE_BENCHMARK_STRIPERS + EMBED_SETTINGS
 CHAIN_TIMING_MODE="" # "timing" variant: COMPILE_TIMERS + EMBED_SETTINGS
 CHAIN_EXPLAIN_MODE="" # "explain" flag: add COMPILE_EXPLAIN to trace binary
-
+CHAIN_TITLE=""
 SIEVEVARIANTS="sieve_classic8 sieve_classic64 sieve_base sieve_wheel sieve_wheel_8of30 sieve_wheelstorage sieve_extend"
 
 # Process arguments to check for compiler override
@@ -38,8 +38,11 @@ TRACE_EXPECTING_LEVEL=0
 TRACE_USER_REQUESTED=0
 TRACE_TITLE=""
 TRACE_EXPECTING_TITLE=0
+CHAIN_EXPECTING_TITLE=0
 BENCHMARK_LOG_FILENAME=""
 BENCHMARK_LOG_EXPECTING_FILENAME=0
+USER_SET_OVERRIDE=""
+SET_EXPECTING_VALUE=0
 for arg in "$@"; do
     if [ "$TRACE_EXPECTING_LEVEL" -eq 1 ]; then
         if echo "$arg" | grep -qE '^[0-9]+$'; then
@@ -63,9 +66,22 @@ for arg in "$@"; do
         continue
     fi
 
+    if [ "$CHAIN_EXPECTING_TITLE" -eq 1 ]; then
+        CHAIN_TITLE="$arg"
+        CHAIN_EXPECTING_TITLE=0
+        continue
+    fi
+
     if [ "$BENCHMARK_LOG_EXPECTING_FILENAME" -eq 1 ]; then
         BENCHMARK_LOG_FILENAME="$arg"
         BENCHMARK_LOG_EXPECTING_FILENAME=0
+        continue
+    fi
+
+    if [ "$SET_EXPECTING_VALUE" -eq 1 ]; then
+        USER_SET_OVERRIDE="$arg"
+        SET_EXPECTING_VALUE=0
+        ARGS_TO_KEEP+=("$arg")
         continue
     fi
 
@@ -97,8 +113,6 @@ for arg in "$@"; do
         CHAIN_TIMING_MODE="timing"
     elif [ "$arg" = "explain" ]; then
         CHAIN_EXPLAIN_MODE="explain"
-    elif [ "$arg" = "chain" ] || [ "$arg" = "--chain" ]; then
-        CHAIN="chain"
     elif [ "$arg" = "visualize" ] || [ "$arg" = "visual" ]; then
         VISUALIZE="visualize"
     elif [ "$arg" = "native" ]; then
@@ -117,12 +131,20 @@ for arg in "$@"; do
         TRACE="trace"
         TRACE_USER_REQUESTED=1
         TRACE_EXPECTING_LEVEL=1
+    elif [ "$arg" = "chain" ] || [ "$arg" = "--chain" ]; then
+        CHAIN_EXPECTING_TITLE=1
+        CHAIN="chain"
     elif [ "$arg" = "trace-filename" ] || [ "$arg" = "--trace-filename" ]; then
         TRACE_EXPECTING_FILENAME=1
     elif [ "$arg" = "trace-title" ] || [ "$arg" = "--trace-title" ]; then
         TRACE_EXPECTING_TITLE=1
     elif [ "$arg" = "benchmark-log" ] || [ "$arg" = "--benchmark-log" ]; then
         BENCHMARK_LOG_EXPECTING_FILENAME=1
+    elif [ "$arg" = "chain" ] || [ "$arg" = "--chain" ]; then
+        CHAIN_EXPECTING_TITLE=1
+    elif [ "$arg" = "--set" ]; then
+        SET_EXPECTING_VALUE=1
+        ARGS_TO_KEEP+=("$arg")
     else
         ARGS_TO_KEEP+=("$arg")
     fi
@@ -135,6 +157,10 @@ if [ "$TRACE_EXPECTING_LEVEL" -eq 1 ]; then
 fi
 if [ "$TRACE_EXPECTING_FILENAME" -eq 1 ]; then
     echo "Error: --trace-filename requires a filename to follow it." >&2
+    exit 1
+fi
+if [ "$CHAIN_EXPECTING_TITLE" -eq 1 ]; then
+    echo "Error: --chain requires a title to follow it." >&2
     exit 1
 fi
 if [ "$BENCHMARK_LOG_EXPECTING_FILENAME" -eq 1 ]; then
@@ -559,11 +585,17 @@ if [ "$CHAIN" = "chain" ]; then
     CHAIN_MAX="${highest_number:-1000000}"
     [ "$CHAIN_MAX" -eq 0 ] && CHAIN_MAX=1000000
     CHAIN_LOGBASE="log/${CHAIN_TS}_${base}_${CHAIN_MAX}"
+    [ "$CHAIN_TITLE" ] && CHAIN_LOGBASE="log/${CHAIN_TS}_${CHAIN_TITLE}" ||
 
     # Forward compiler choice and sieve size to sub-invocations
     CHAIN_FWD=()
     [ -n "$COMPILER_OVERRIDE" ] && CHAIN_FWD+=("$COMPILER_OVERRIDE")
     [ "${CHAIN_MAX:-0}" -gt 0 ]  && CHAIN_FWD+=("$CHAIN_MAX")
+    if [ -n "$USER_SET_OVERRIDE" ]; then
+        [ -d ./dev/build ] || mkdir -p ./dev/build
+        echo -n "$USER_SET_OVERRIDE" > "./dev/build/${base}_settings.txt"
+        CHAIN_FWD+=("--set" "$USER_SET_OVERRIDE")
+    fi
 
     echo -e "\n=== ${CYELLOW}Chain mode${CRESET}: ${CCYAN}${base}${CRESET} up to ${CHAIN_MAX} ==="
     echo -e "Log base: ${CGREEN}${CHAIN_LOGBASE}${CRESET}\n"
@@ -571,8 +603,12 @@ if [ "$CHAIN" = "chain" ]; then
     # ── 1/6: Tune ────────────────────────────────────────────────────────────
     echo -e "${CYELLOW}[1/6]${CRESET} Compiling tune variant..."
     $0 "${base}" compile --verbose 2 "${CHAIN_FWD[@]}" || exit $?
-    echo -e "${CYELLOW}[1/6]${CRESET} Running tune (finding best settings)..."
-    ./bin/${base} --tune 5 --nocheck --verbose 2 "${CHAIN_FWD[@]}" || exit $?
+    if [ -n "$USER_SET_OVERRIDE" ]; then
+        echo -e "${CYELLOW}[1/6]${CRESET} Skipping tune run (using explicit --set ${USER_SET_OVERRIDE})."
+    else
+        echo -e "${CYELLOW}[1/6]${CRESET} Running tune (finding best settings)..."
+        ./bin/${base} --tune 5 --nocheck --verbose 2 "${CHAIN_FWD[@]}" || exit $?
+    fi
 
     # ── 2/6: Benchmark (embedded settings, 5-second run) ─────────────────────
     echo -e "\n${CYELLOW}[2/6]${CRESET} Compiling embedded benchmark variant..."
@@ -600,6 +636,7 @@ if [ "$CHAIN" = "chain" ]; then
 
     # ── 5/6: Trace (same binary, with trace output) ───────────────────────────
     echo -e "\n${CYELLOW}[5/6]${CRESET} Running trace..."
+    [ "${CHAIN_TITLE}" ] && CHAIN_FWD+=("--trace-title" "${CHAIN_TITLE}")
     ./bin/${base}_trace --verbose 2 \
         --trace 9 --trace-filename "${CHAIN_LOGBASE}.sievetrace" \
         "${CHAIN_FWD[@]}" || exit $?

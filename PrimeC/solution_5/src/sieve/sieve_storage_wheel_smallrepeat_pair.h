@@ -97,7 +97,8 @@ function(markFactors_wheelstorage_small_repeat_pair_v2,suffix)(sieve_t* sieve, c
     counter_t pending_bucket = 0;
    
     counter_t new_bucket = function(wheel_block_calc,variant_suffix)(range_start);
-    counter_t wheel_index = range_start % WHEEL_SIZE;
+    counter_t wheel_index = range_start % WHEEL_SIZE; // the position in the wheel, which determines which bits to mark for each index. 
+    counter_t wheel_base = wheelmask_stripe_bits * (range_start / WHEEL_SIZE); // the position where the wheel had a last reset
     counter_t next_bucket_index = wheel_bit_estimate(bitbucket_end_type(range_start, bitbucket_t)); // the index of the next bucket change
     
     // TODO: make a larger wheel and check if we stay within the wheel so we have to take lesser % and /
@@ -111,6 +112,7 @@ function(markFactors_wheelstorage_small_repeat_pair_v2,suffix)(sieve_t* sieve, c
             if (index > next_bucket_index) {
                 new_bucket = function(wheel_block_calc,variant_suffix)(index);
                 next_bucket_index = wheel_bit_estimate(bitbucket_end_type(range_start, bitbucket_t)); // the index of the next bucket change
+                wheel_base = wheelmask_stripe_bits * (index / WHEEL_SIZE);
 
                 // if (wheel_bit <= 0) continue; // if the number is divisible by any of the wheel primes, skip it
                 // // const counter_t new_bucket = index_type(wheel_bit, bitbucket_t);
@@ -133,7 +135,7 @@ function(markFactors_wheelstorage_small_repeat_pair_v2,suffix)(sieve_t* sieve, c
                 }
             }
 
-            const counter_t wheel_bit = (wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index] -1 ;
+            const counter_t wheel_bit = wheel_base + wheelmask_bitpoint[wheel_index] -1 ;
             current_mask |= markmask_type(wheel_bit, bitbucket_t);
         }
 
