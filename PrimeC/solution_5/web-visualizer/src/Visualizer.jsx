@@ -251,6 +251,10 @@ export default function Visualizer({
   const [stepScrubProgress, setStepScrubProgress] = useState(0);
   const stepScrubProgressRef = useRef(setStepScrubProgress);
   stepScrubProgressRef.current = setStepScrubProgress;
+  // Stable numeric ref so the animMode/animStyle change effect can read the
+  // current progress without adding stepScrubProgress to its dep array.
+  const stepScrubProgressValueRef = useRef(0);
+  stepScrubProgressValueRef.current = stepScrubProgress;
   // Non-null while waiting for the delay between single-event loop repeats.
   // Holds the total delay duration (ms) so the wipe animation in
   // StepAnimSliders knows how long to run. Cleared when the delay ends, is
@@ -2878,16 +2882,32 @@ export default function Visualizer({
   // Calling stopSeqAnim() here would cancel the RAF without resolving that promise, permanently
   // freezing the loop. Both loops naturally pick up the new animMode/animStyle on their next
   // iteration via triggerAnimationRef.current.
+  //
+  // Progress continuity: when a style/mode change fires, capture the current scrub progress so
+  // the new animation starts from the same position rather than rewinding to 0.
   useEffect(() => {
     if (initialHighlightHoldRef.current) return;
+
+    // Snapshot progress before doing anything so the refs we read below are
+    // consistent whether we take the loop path or the direct-trigger path.
+    const rawProgress = stepScrubProgressValueRef.current; // 0-100
+    const startFraction = (rawProgress > 2 && rawProgress < 98) ? rawProgress / 100 : 0;
+
     if (singleEventLoopActiveRef.current || selectedAnimLoopRef.current) {
-      // A replay loop is running. Don't call stopSeqAnim() — that would
-      // cancelAnimationFrame the running RAF, leaving the loop's awaited
-      // triggerFn() Promise permanently unresolved (frozen loop). Instead,
-      // bump seekGenRef so isStillLive() fails on the very next RAF tick,
+      // A replay loop is running. Seed the resume refs so the loop's very
+      // next iteration (triggered by the seekGen bump below) picks up at
+      // the same progress position instead of restarting from 0.
+      if (startFraction > 0) {
+        const step_data = stepsRef.current[currentStepRef.current];
+        if (step_data && step_data.changedBits && step_data.changedBits.length > 0) {
+          stepResumeStartIndexRef.current = Math.round(startFraction * (step_data.changedBits.length - 1));
+        }
+        stepResumeMaskProgressRef.current = startFraction;
+      }
+      // Bump seekGenRef so isStillLive() fails on the very next RAF tick,
       // resolving the Promise cleanly. The loop then restarts on its next
       // iteration and picks up the new animMode/animStyle from
-      // triggerAnimationRef.current.
+      // triggerAnimationRef.current using the resume hints above.
       seekGenRef.current += 1;
       if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
       return;
@@ -2896,7 +2916,12 @@ export default function Visualizer({
     const step = steps[currentStep];
     if (!step || !step.changedBits || step.changedBits.length === 0) return;
     const currentChanged = new Set(step.changedBits);
-    triggerAnimation(currentChanged, { adaptiveDuration: !playing });
+    const triggerOpts = { adaptiveDuration: !playing };
+    if (startFraction > 0) {
+      triggerOpts.startProgress = startFraction;
+      triggerOpts.startIndex = Math.round(startFraction * (step.changedBits.length - 1));
+    }
+    triggerAnimation(currentChanged, triggerOpts);
   }, [animMode, animStyle]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {

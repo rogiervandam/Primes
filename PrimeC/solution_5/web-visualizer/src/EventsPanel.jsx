@@ -333,29 +333,36 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
   }, [steps]);
 
   // Navigate detail levels with < / > arrows.
-  // Positions: upto:traceLevels[0] (least) … upto:traceLevels[n-1] … '' (all, most).
+  // < and > cycle within the current group (upto: / collapse: / exact:).
+  // From "all" (empty), < steps to the highest upto level.
+  // From the max upto level, > goes to "all".
+  // collapse: and exact: clamp at their extremes.
   const handleLevelDecrease = useCallback(() => {
     if (traceLevels.length === 0) return;
     if (!filterLevel) {
-      // At "all" → step down to the highest explicit level
+      // At "all" → step down to the highest upto level
       setFilterLevel(`upto:${traceLevels[traceLevels.length - 1]}`);
       return;
     }
-    const n = Number(filterLevel.split(':')[1]);
+    const [prefix, numStr] = filterLevel.split(':');
+    const n = Number(numStr);
     const idx = traceLevels.indexOf(n);
-    if (idx <= 0) return; // already at minimum
-    setFilterLevel(`upto:${traceLevels[idx - 1]}`);
+    if (idx <= 0) return; // already at minimum of this group
+    setFilterLevel(`${prefix}:${traceLevels[idx - 1]}`);
   }, [filterLevel, traceLevels]);
 
   const handleLevelIncrease = useCallback(() => {
     if (traceLevels.length === 0 || !filterLevel) return; // already at "all"
-    const n = Number(filterLevel.split(':')[1]);
+    const [prefix, numStr] = filterLevel.split(':');
+    const n = Number(numStr);
     const idx = traceLevels.indexOf(n);
-    if (idx === -1 || idx >= traceLevels.length - 1) {
-      setFilterLevel(''); // go to "all"
-    } else {
-      setFilterLevel(`upto:${traceLevels[idx + 1]}`);
+    if (idx === -1) return;
+    if (prefix === 'upto' && idx >= traceLevels.length - 1) {
+      setFilterLevel(''); // upto at max → go to "all"
+      return;
     }
+    if (idx >= traceLevels.length - 1) return; // collapse/exact at max → stay
+    setFilterLevel(`${prefix}:${traceLevels[idx + 1]}`);
   }, [filterLevel, traceLevels]);
 
   // Build hierarchical tree grouped by prime, then nested by depth within each group
@@ -870,7 +877,7 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
               className="event-level-btn"
               onClick={handleLevelIncrease}
               title="More detail"
-              disabled={!filterLevel}
+              disabled={!filterLevel || (filterLevel.split(':')[0] !== 'upto' && traceLevels.indexOf(Number(filterLevel.split(':')[1])) >= traceLevels.length - 1)}
             >&gt;</button>
           </div>
         )}

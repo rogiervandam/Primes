@@ -31,14 +31,13 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 - Collapse level behavior fixed: switching to a higher collapse level (e.g. "collapse at L9" after "collapse at L5") now expands nodes at levels below the new threshold, so levels L5–L8 become visible as expected.
 - Event annotations are now shown inline in the events panel list (italicized, after the range summary) so they are readable without hovering for the tooltip. Applies to all events that carry an annotation, including aggregate/collapsed ones.
 - Storage model auto-detected from the trace log on every new trace load; the `storageModel` state resets to `header.storageModel` when the trace changes, so the user no longer needs to set it manually after loading a trace.
+- "View raw log" button moved to the first item in the trace-info popover (above Storage model), so it is always immediately visible without scrolling.
+- Event panel < and > level buttons now cycle within the active dropdown group: clicking < or > while "Up to" is selected steps through all "Up to" levels (ending at "All" when increasing past the max); while "Collapse at" or "Only level" is selected the buttons cycle only within that group. The > button is correctly disabled at the upper bound of collapse/exact groups.
+- When changing animation type (style or mode) mid-animation, the new animation starts from the same progress position instead of restarting from 0. Works for both in-flight direct animations and the single-event / selected-steps replay loops.
+- Removed unimported historical file `src/settings/TitleTab.jsx`.
 
 ## Open
 
-- Polish the mask animation's final stamp: shorten the final settle, reduce the
-  up/down motion to a few pixels, and spend more time on the travel.
-- Check bit-history balloon connector/clamping polish with events panel
-  open/closed, settings open/closed, joined widget visible, minimap visible,
-  light/dark themes, and high zoom.
 - When pushing the joined widget into the detail panel, also bring all-events
   controls and the all-events timeline into the detail panel.
 - Make visualizer items related to overlays or animations clickable shortcuts.
@@ -51,10 +50,11 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 - Make the debug tools window draggable or pinnable only if it starts competing
   with settings/detail/sidebar workflows.
 - The balloons and connectors must not cover or be under any panel. Don't show them in that case.
-- When changing the animation type, the current animation should be terminated and the new animation type must start from the same progress position.
-- in the event panel, when clicking on the < and > buttons near the "up to level". or "collapse to level" dropdown, have me cyle all the options, of the chosen section (e.g. if i was in up to i can browse all up to levels, if i was in collapso to i can select all the collapse levels)
-- have the raw dialog button the first item from the top in trace-info-popover
-- 
+- Polish the mask animation's final stamp: shorten the final settle, reduce the
+  up/down motion to a few pixels, and spend more time on the travel.
+- Check bit-history balloon connector/clamping polish with events panel
+  open/closed, settings open/closed, joined widget visible, minimap visible,
+  light/dark themes, and high zoom.
 
 ## New Ideas
 

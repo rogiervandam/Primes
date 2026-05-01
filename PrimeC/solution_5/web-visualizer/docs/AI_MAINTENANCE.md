@@ -159,7 +159,14 @@ Left to do:
 
 Done: playback loops are centralized in `usePlaybackLoop`; callback refs prevent
 listener/effect churn; timeline wipe works during inter-event delay; changing
-animation settings during single-event loop no longer freezes playback.
+animation settings during single-event loop no longer freezes playback; when the
+user changes `animStyle` or `animMode`, the new animation starts from the same
+scrub-progress position — both the direct-trigger path (no replay loop running)
+and the loop-based paths (single-event and selected-steps loops) now pass
+`startProgress`/`startIndex` resume hints so the animation picks up at the same
+point instead of restarting from 0. A stable `stepScrubProgressValueRef` was
+added in `Visualizer.jsx` alongside the existing setter ref to allow reading the
+current numeric progress inside stable-dep effects.
 
 Left to do:
 
@@ -229,15 +236,13 @@ clarity; events panel indentation whitespace reduced (base 6px, 10px per level);
 Timeline slider row `min-height` and wrapper height increased to 28px to better
 match the topbar's visual weight. "View raw log" dialog is now draggable,
 resizable, and line-numbered; lines matching events have clickable line-numbers
-that navigate to that step in the events panel (`lineToStep` map in Visualizer,
-`onJumpToStep` callback threaded through Toolbar into TraceInfoPopover). Raw log
-dialog now opens near the top of the window (y=60px) rather than centered, so
-it doesn't obscure the canvas. Detail panel labels/chips expand on hover to
-reveal full text: `.detail-panel-title-main` wraps, `.trace-meta-chip` expands,
-`.detail-row-label` allows wrapping. Grid opacity slider responds immediately
-during animation (`startTransition` removed). Event annotations are shown inline
-in the events panel list (italic suffix after range summary) for all events
-carrying an annotation, including aggregate collapsed ones.
+that navigate to that step in the events panel. Raw log dialog opens near the
+top of the window (y=60px). Detail panel labels/chips expand on hover. Grid
+opacity slider responds immediately during animation. Event annotations shown
+inline in the events panel list. The "View raw log" button is now the first item
+in the trace-info popover (above Storage model). Event panel < and > level
+buttons now cycle within the active group (up-to/collapse/exact) rather than
+only cycling through up-to levels.
 
 Left to do:
 
@@ -340,10 +345,8 @@ Left to do:
   the matching "Left to do" item.
 - Keep `ARCHITECTURE.md`, `COMPONENTS.md`, and this file consistent. If they
   disagree, inspect source before trusting any doc.
-- Remove unimported or historical files when their value is gone. Example:
-  `src/settings/TitleTab.jsx` is currently unimported historical code.
-
-## Completed Work Worth Remembering
+  - Remove unimported or historical files when their value is gone. Done:
+    `src/settings/TitleTab.jsx` was deleted.
 
 The old guide contained a long session-by-session log. These are the durable
 facts that still matter:

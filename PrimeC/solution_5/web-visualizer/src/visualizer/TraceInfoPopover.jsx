@@ -121,6 +121,17 @@ export default function TraceInfoPopover({
   return (
     <>
       <div className="trace-info-popover" ref={popoverRef}>
+        {rawSource && (
+          <div className="trace-info-section trace-info-raw-section">
+            <button
+              type="button"
+              className="trace-info-raw-btn"
+              onClick={() => setRawOpen(true)}
+            >
+              View raw log
+            </button>
+          </div>
+        )}
         <div className="trace-info-section">
           <div className="trace-info-section-title">Storage model</div>
           <div className="trace-info-row">
@@ -152,17 +163,6 @@ export default function TraceInfoPopover({
             ))}
           </div>
         ))}
-        {rawSource && (
-          <div className="trace-info-section trace-info-raw-section">
-            <button
-              type="button"
-              className="trace-info-raw-btn"
-              onClick={() => setRawOpen(true)}
-            >
-              View raw log
-            </button>
-          </div>
-        )}
       </div>
 
       {rawOpen && (
