@@ -15,6 +15,9 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
   hides the floating single-event banner, and leaves the all-events timeline in
   the events panel while the single-event timeline appears in detail.
 - The detail-panel timeline's percent value and gear icon stay right-aligned.
+- FPS/render timing moved out of the tilted 3D canvas plane into a small
+  toolbar-toggled debug tools window. The toolkit button defaults off, and the
+  renderer now exposes samples instead of drawing the chart itself.
 
 ## Open
 
@@ -30,7 +33,10 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
   color.
 - Keep reducing `Visualizer.jsx` and `SieveRenderer.js`; prefer one focused
   hook/component/helper extraction per session.
-- FPS should not be in the 3d plane, but in the upper right corner in a small window where we can put other debug tools as well. The top bar icon should be a toolkit icon and should toggle that window on or off (default to off).
+- Add more useful tools to the debug window: GL worker status, texture upload
+  sizes, bit count, current render cadence, and context-loss recovery state.
+- Make the debug tools window draggable or pinnable only if it starts competing
+  with settings/detail/sidebar workflows.
 
 
 

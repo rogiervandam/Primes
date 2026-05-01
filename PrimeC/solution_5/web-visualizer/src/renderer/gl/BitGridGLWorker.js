@@ -3,19 +3,13 @@
  * dispatching the actual WebGL2 work to a module worker via
  * `OffscreenCanvas.transferControlToOffscreen()`.
  *
- * See docs/AI_MAINTENANCE.md §8 item 6.
- *
- * Why a separate facade rather than swapping a backend inside
- * BitGridGL: the worker path has fundamentally different lifecycle
- * (async init, message round-trip for context loss, no synchronous
- * `getContext` failure) and `Visualizer.jsx` already gates the
- * direct-mode wiring on `gl.attach()` returning `true`. Keeping them
- * separate avoids forcing the existing Canvas2D fallback path to
- * become async.
+ * The worker path has a distinct lifecycle: async init, message round-trip
+ * for context loss, and no synchronous `getContext` failure. `Visualizer.jsx`
+ * gates wiring on `attach()` returning `true`.
  *
  * Capability fallback: if `OffscreenCanvas.transferControlToOffscreen`
- * is unavailable, `attach()` returns false so callers can skip wiring.
- * The Canvas2D layer keeps drawing — the GL canvas just stays blank.
+ * is unavailable, `attach()` returns false so callers can show the
+ * `glUnavailable` warning instead of pretending cell fills are available.
  *
  * Buffer ownership: positions and state buffers are allocated fresh on
  * each upload and transferred one-way to the worker (no ack). See the

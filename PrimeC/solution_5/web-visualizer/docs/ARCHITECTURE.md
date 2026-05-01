@@ -14,12 +14,12 @@ This document describes how the web visualizer is organised, the responsibilitie
 src/
 ├── main.jsx              Entry: mounts <App/> and loads styles/index.css
 ├── App.jsx               File picker / welcome screen → lazy-loads <Visualizer/>
-├── Visualizer.jsx        Top-level UI: toolbar, canvas, panels, playback (~4 195 lines)
+├── Visualizer.jsx        Top-level UI: toolbar, canvas, panels, playback (~4 200 lines)
 ├── SettingsPanel.jsx     Right-hand sidebar tab-row shell (~260 lines; delegates to settings/)
 ├── EventsPanel.jsx       Left-hand list of trace events (search/filter)
 ├── DetailPanel.jsx       Per-step inspector (changed bits, primes, factors)
 ├── TimingPanel.jsx       Floating, draggable phase-timing readout
-├── SieveRenderer.js      Canvas 2D rendering engine (~2 800 lines)
+├── SieveRenderer.js      Canvas 2D overlay/layout engine (~2 655 lines)
 ├── Camera3D.js           CSS-3D perspective camera (3D mode)
 ├── traceParser.js        Multi-format trace loader (JSON v2/v3, text, dump)
 │                         (async chunk — dynamically imported on first file open)
@@ -78,6 +78,7 @@ src/
 │   ├── Toolbar.jsx               Top toolbar (transport + actions)
 │   ├── TraceInfoPopover.jsx      Storage model + parsed header sections
 │   ├── ExportProgress.jsx        Slim progress bar during video export
+│   ├── DebugToolsPanel.jsx       Toolbar-toggled FPS/render timing window
 │   ├── CanvasStage.jsx           Canvas area + overlays + balloons + panels
 │   ├── BitHistoryBalloon.jsx     Hover/pinned bit-history popover
 │   ├── BitHistoryBalloons.jsx    Pinned + hover bit-history balloon cluster
@@ -101,7 +102,7 @@ src/
 2. **Parse** — `traceParser.js` produces a normalized `{ header, events, primes, … }` shape regardless of input format.
 3. **Visualize** — `Visualizer.jsx` keeps the parsed trace in state along with playback position and view preferences.
 4. **Persist** — `lib/viewPrefs.js` reads/writes user preferences (theme, layout, panel sizes) to `localStorage` under the key `sieve-visualizer:view-preferences:v1`.
-5. **Render** — On every animation frame the visualizer calls `BitGridGLWorker.render()` first (GL worker paints all bit fills to a transferred `OffscreenCanvas`), then calls `SieveRenderer.render()` which paints overlays, labels, and UI chrome on top via Canvas 2D. SieveRenderer no longer fills cells itself.
+5. **Render** — On every animation frame the visualizer calls `BitGridGLWorker.render()` first (GL worker paints all bit fills to a transferred `OffscreenCanvas`), then calls `SieveRenderer.render()` which paints overlays, labels, and side-face polygons on top via Canvas 2D. SieveRenderer no longer fills cells itself. The debug tools window reads renderer timing snapshots and renders as React UI outside the canvas/3D plane.
 6. **Inspect** — Side panels (`EventsPanel`, `DetailPanel`, `SettingsPanel`, `TimingPanel`) read derived data via props and call back into the visualizer to mutate state.
 
 ## State ownership
@@ -114,6 +115,7 @@ src/
 | Floating-panel position/size | `useFloatingPanel` hook | Per-panel local state |
 | Canvas pixel data | `SieveRenderer` | Owned outside React for performance; draws overlays / labels / side-faces only — all cell fills handled by GL |
 | Bit-fill GPU data | `BitGridGLWorker` (worker thread) | Packed `Float32Array`/`Uint8Array` position + state + anim textures; rebuilt from `SieveRenderer` layout accessors every frame |
+| Render timing samples | `SieveRenderer` + `DebugToolsPanel` | Renderer records active render cadence; React displays FPS/avg/last frame metrics outside the 3D plane |
 | Playback clock refs | `usePlaybackClock` hook | `seekGenRef`, `globalPausedRef`, `animBusyUntilRef` — mutated directly by consumers |
 | Panel/widget transitions | `usePanelChoreography` hook | Toggle/reveal/join/split/open/hide callbacks; raw state is still owned by `Visualizer` |
 | 3D camera transform | `use3DCamera` hook | CSS-3D matrix applied to `CanvasStage` container |

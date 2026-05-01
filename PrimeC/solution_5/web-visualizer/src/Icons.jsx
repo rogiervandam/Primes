@@ -98,3 +98,14 @@ export const CopyIcon = (p) => (
     <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" strokeWidth="1.8" />
   </>} />
 );
+
+// Toolkit icon — used to open the floating debug tools window.
+export const Toolkit = (p) => (
+  <I {...p} d={<>
+    <rect x="3" y="7" width="18" height="13" rx="2" strokeWidth="1.8" />
+    <path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2" strokeWidth="1.8" />
+    <path d="M3 12h18" strokeWidth="1.8" />
+    <path d="M8 12v2" strokeWidth="1.8" />
+    <path d="M16 12v2" strokeWidth="1.8" />
+  </>} />
+);

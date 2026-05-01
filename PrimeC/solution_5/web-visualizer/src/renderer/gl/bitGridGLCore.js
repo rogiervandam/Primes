@@ -2,19 +2,13 @@
  * BitGridGLCore — the pure-WebGL2 part of the bit-grid renderer.
  *
  * Has NO references to `window`, `document`, `HTMLCanvasElement` or any
- * other DOM-only API. Accepts either an `HTMLCanvasElement` (main
- * thread) or an `OffscreenCanvas` (worker thread). All DPR / sizing /
+ * other DOM-only API. Accepts either an `HTMLCanvasElement` or an
+ * `OffscreenCanvas`. All DPR / sizing /
  * pan / colour decisions are passed in as plain values.
  *
- * This is the substrate shared by:
- *   - `BitGridGL`        — main-thread direct-mode facade (?renderer=gl)
- *   - `bitGridWorker.js` — worker that owns an OffscreenCanvas
- *                          (?renderer=gl-worker, see §8 item 6)
- *
- * The shaders, state-flag layout and overlay tints are the
- * source-of-truth — both backends MUST share them via this module so
- * the visual-diff harness (parity.html) keeps testing one rendering
- * algorithm, not two.
+ * This is the substrate used by `bitGridWorker.js`, the production worker
+ * that owns the transferred OffscreenCanvas. The shaders, state-flag layout
+ * and overlay tints are the source of truth for the GL parity harness.
  */
 
 // State-flag bit layout (one byte per bit, R8UI):
@@ -129,8 +123,8 @@ void main() {
   // _drawBitPrimeOverlay / _drawBitRangeOverlay / _drawBitMultiplesOverlay.
   // Only drawn when cellSize >= 4 px (matching the "if (px >= 4)" guards).
   // Priority: prime first, range second, multiples third (last writer wins,
-  // matching the draw order in SieveRenderer). Each overlay strokeRect is
-  // now handled here so SieveRenderer skips it when skipBitFill is true.
+  // matching the draw order in SieveRenderer). Canvas2D only draws the
+  // small overlay dots/labels on top.
   if (u_cellSize >= 4.0) {
     // Distance to nearest cell edge in [0, 0.5]; 0 = on edge, 0.5 = centre.
     float edge = min(min(v_uv.x, 1.0 - v_uv.x), min(v_uv.y, 1.0 - v_uv.y));

@@ -2,7 +2,7 @@ import React from 'react';
 import {
   SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
   ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus,
-  PanelLeft, PanelBottom, PanelRight,
+  PanelLeft, PanelBottom, PanelRight, Toolkit,
 } from '../Icons';
 import { GearIcon } from '../settings/buttons';
 import TraceInfoPopover from './TraceInfoPopover';
@@ -14,8 +14,9 @@ import TraceInfoPopover from './TraceInfoPopover';
  * purely a presentation layer that wires events back to callbacks.
  * The app always runs in 3D mode; the tilt button controls the camera angle.
  *
- * Right-hand cluster is hidden on Windows (mirrors the original behaviour
- * where the actions live in the SettingsPanel header instead).
+ * Most right-hand actions are hidden on Windows (mirrors the original
+ * behaviour where they live in the SettingsPanel header instead); the debug
+ * tools and settings buttons stay in the top bar.
  */
 export default function Toolbar({
   // platform
@@ -63,9 +64,9 @@ export default function Toolbar({
   setPrimeOverlayEnabled,
   timingPanelOpen,
   setTimingPanelOpen,
-  // performance overlay
-  perfOverlayEnabled,
-  setPerfOverlayEnabled,
+  // debug tools
+  debugToolsOpen,
+  setDebugToolsOpen,
   // panel collapse/expand
   eventsPanelCollapsed,
   toggleEventsPanel,
@@ -235,21 +236,6 @@ export default function Toolbar({
                 <path d="M8 1.5v2" strokeLinecap="round" />
               </svg>
             </button>
-            {setPerfOverlayEnabled && (
-              <button
-                className={`btn-icon${perfOverlayEnabled ? ' active' : ''}`}
-                onClick={() => setPerfOverlayEnabled((v) => !v)}
-                title={perfOverlayEnabled ? 'Hide performance overlay' : 'Show performance overlay (FPS)'}
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <rect x="1.5" y="5" width="13" height="8" rx="1.5" />
-                  <path d="M5 5V3.5" strokeLinecap="round" />
-                  <path d="M8 5V2.5" strokeLinecap="round" />
-                  <path d="M11 5V4" strokeLinecap="round" />
-                  <path d="M4 10l2-3 2 2 2-4 2 3" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            )}
             <button className="btn-icon" onClick={exportPng} title="Export PNG"><Camera /></button>
             {!exporting ? (
               <button className="btn-icon" onClick={exportVideo} title="Export Video (WebM)"><Film /></button>
@@ -262,6 +248,15 @@ export default function Toolbar({
               {theme === 'dark' ? <Sun /> : <Moon />}
             </button>
           </>
+        )}
+        {setDebugToolsOpen && (
+          <button
+            className={`btn-icon${debugToolsOpen ? ' active' : ''}`}
+            onClick={() => setDebugToolsOpen((v) => !v)}
+            title={debugToolsOpen ? 'Hide debug tools' : 'Show debug tools'}
+          >
+            <Toolkit />
+          </button>
         )}
         <button
           className={`btn-icon panel-toggle-btn${!settingsCollapsed ? ' active' : ''}`}

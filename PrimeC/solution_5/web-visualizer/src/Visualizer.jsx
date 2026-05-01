@@ -14,6 +14,7 @@ import DetailInspectorOverlay from './visualizer/DetailInspectorOverlay';
 import StepAnimSliders from './visualizer/StepAnimSliders';
 import BitHistoryBalloons from './visualizer/BitHistoryBalloons';
 import KeyboardShortcutsOverlay from './visualizer/KeyboardShortcutsOverlay';
+import DebugToolsPanel from './visualizer/DebugToolsPanel';
 import { useTraceExport } from './hooks/useTraceExport';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { use3DCamera } from './hooks/use3DCamera';
@@ -238,7 +239,7 @@ export default function Visualizer({
   // 'none' | 'hits' | 'age' | 'both'  — annotation shown on each cacheline when heatmap is on
   const [cachelineAnnotation, setCachelineAnnotation] = useState('none');
   const [primeOverlayEnabled, setPrimeOverlayEnabled] = useState(false);
-  const [perfOverlayEnabled, setPerfOverlayEnabled] = useState(false);
+  const [debugToolsOpen, setDebugToolsOpen] = useState(false);
   const [rangeOverlayEnabled, setRangeOverlayEnabled] = useState(false);
   const [rangeOverlayStart, setRangeOverlayStart] = useState(0);
   const [rangeOverlayEnd, setRangeOverlayEnd] = useState(0);
@@ -1029,7 +1030,6 @@ export default function Visualizer({
     r.cachelineAnnotation = cachelineAnnotation;
     r.primeOverlay = primeOverlayEnabled;
     if (primeOverlayEnabled) r.buildPrimeOverlay();
-    r.perfOverlayEnabled = perfOverlayEnabled;
     r.rangeOverlay = rangeOverlayEnabled;
     r.rangeOverlayStart = rangeOverlayStart;
     r.rangeOverlayEnd = rangeOverlayEnd;
@@ -1127,7 +1127,7 @@ export default function Visualizer({
     r.render();
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, canvasColors, storageModel, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, perfOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, depthSettings, gridOpacity, updateMinimapAvailability]);
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, canvasColors, storageModel, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, depthSettings, gridOpacity, updateMinimapAvailability]);
 
   // Resize handler
   useEffect(() => {
@@ -3921,8 +3921,8 @@ export default function Visualizer({
         setHeatMapEnabled={setHeatMapEnabled}
         primeOverlayEnabled={primeOverlayEnabled}
         setPrimeOverlayEnabled={setPrimeOverlayEnabled}
-        perfOverlayEnabled={perfOverlayEnabled}
-        setPerfOverlayEnabled={setPerfOverlayEnabled}
+        debugToolsOpen={debugToolsOpen}
+        setDebugToolsOpen={setDebugToolsOpen}
         timingPanelOpen={timingPanelOpen}
         setTimingPanelOpen={setTimingPanelOpen}
         exportPng={exportPng}
@@ -4176,6 +4176,12 @@ export default function Visualizer({
           detailOpen={detailOpen}
           detailHeight={detailHeight}
         />
+        {debugToolsOpen && (
+          <DebugToolsPanel
+            rendererRef={rendererRef}
+            rightOffset={settingsCollapsed ? 8 : (isMacPlatform ? 388 : 328)}
+          />
+        )}
       </div>
       {/* Minimap overlay — rendered OUTSIDE .main-content so it is never
           trapped inside the canvas-container stacking context

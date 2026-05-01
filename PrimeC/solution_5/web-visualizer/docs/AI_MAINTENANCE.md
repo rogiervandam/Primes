@@ -32,8 +32,8 @@ Approximate source size at this guide revision:
 
 | File                               | Size        | Why it matters                                                                                       |
 | ---------------------------------- | ----------: | ---------------------------------------------------------------------------------------------------- |
-| `src/Visualizer.jsx`               | ~4195 lines | Runtime owner for trace state, playback, panels, gestures, export, and renderer wiring.              |
-| `src/SieveRenderer.js`             | ~2715 lines | Canvas2D overlay renderer and layout authority. GL owns cell fills, but this class still owns labels, outlines, hit-testing, minimap, and many overlays. |
+| `src/Visualizer.jsx`               | ~4200 lines | Runtime owner for trace state, playback, panels, gestures, export, and renderer wiring.              |
+| `src/SieveRenderer.js`             | ~2655 lines | Canvas2D overlay renderer and layout authority. GL owns cell fills, but this class still owns labels, outlines, hit-testing, minimap, frame-timing samples, and many overlays. |
 | `src/EventsPanel.jsx`              | ~918 lines  | Event list, grouping/search, floating all-events widget, drag/drop collapse behavior.                |
 | `src/settings/LayoutTab.jsx`       | ~906 lines  | Largest settings tab. Avoid inline React components in its function body.                            |
 | `src/settings/AnimationTab.jsx`    | ~554 lines  | Animation controls and timing target UI.                                                             |
@@ -110,7 +110,10 @@ Left to do:
 
 Done: `render()` is now a coordinator; bit math, drawing helpers, minimap, and
 major overlays are extracted. GL owns bit cell fills; Canvas2D draws overlays,
-labels, outlines, minimap, and side-face polygons.
+labels, outlines, minimap, and side-face polygons. The old Canvas2D performance
+overlay draw pass moved to `DebugToolsPanel`; `SieveRenderer` now only exposes
+frame-timing snapshots for that UI. Touched GL comments that mentioned direct
+mode or deleted `skipBitFill` were cleaned up.
 
 Left to do:
 
@@ -119,15 +122,14 @@ Left to do:
   and prime/range/multiples dot/label passes.
 - Keep `SieveRenderer` as the source of layout truth unless a full renderer-mode
   contract is implemented.
-- Remove stale comments that mention deleted `skipBitFill` or direct GL mode
-  when encountered near touched code.
 
 ### 3. Keep WebGL Worker Rendering Reliable
 
 Done: production uses `BitGridGLWorker`; direct `BitGridGL.js` was removed; GL
 draws background, bit cell fills, focus/prime/range/multiples tints and borders,
 lowered-cell geometry, and rise-and-settle animation offsets. Worker context-loss
-recovery and a worker parity harness exist.
+recovery and a worker parity harness exist. The FPS/debug UI is a React window
+outside the 3D/canvas plane, toggled by a toolkit icon and defaulting to hidden.
 
 Left to do:
 
@@ -289,7 +291,8 @@ Left to do:
 - Measure whether snapshot memory needs a cap at very large bit counts.
 - Profile whether full GL state repacks are visible in frame time before adding
   dirty-region texture uploads.
-- Keep the performance overlay accurate if render scheduling changes.
+- Keep the debug-tools performance metrics accurate if render scheduling
+  changes.
 
 ### 14. Keep Documentation Current And Short
 
@@ -330,8 +333,8 @@ facts that still matter:
   because it hurt Safari performance and production does not call `getImageData`
   on those canvases.
 - Color presets, canvas background customization, clickable legend rows,
-  keyboard help, performance overlay, copy-event buttons, collapsed group count
-  badges, and joined widgets are implemented.
+  keyboard help, debug-tools performance window, copy-event buttons, collapsed
+  group count badges, and joined widgets are implemented.
 - The current test suite is meaningful. Do not describe build as the only safety
   net anymore.
 
@@ -352,7 +355,8 @@ Use this as overflow for work that does not fit cleanly under one goal yet.
 - Decide whether target outlines, ghost highlights, motion trails, cacheline
   heat/outline, and overlay dots/labels should remain Canvas2D forever or move
   to GL in measured steps.
-- Clean stale GL comments that still mention direct mode or `skipBitFill`.
+- Expand the debug tools window with GL-worker status, bit count, upload sizes,
+  or context-loss state if those diagnostics become useful.
 - Automate parity harness checks if browser CI becomes available.
 
 ### UX Layout

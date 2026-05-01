@@ -1,0 +1,117 @@
+.debug-tools-panel {
+  position: absolute;
+  top: 8px;
+  right: var(--debug-tools-right, 8px);
+  width: 276px;
+  max-width: calc(100% - var(--debug-tools-right, 8px) - 8px);
+  padding: 8px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-surface) 94%, #000 6%);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  color: var(--fg);
+  z-index: 96;
+  pointer-events: auto;
+  font-size: 11px;
+}
+
+.debug-tools-header,
+.debug-tools-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.debug-tools-header {
+  color: var(--fg-bright);
+  font-weight: 700;
+}
+
+.debug-tools-header span:last-child,
+.debug-tools-footer {
+  color: var(--fg-dim);
+  font-weight: 500;
+}
+
+.debug-tools-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.debug-tools-metric {
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--bg-raised) 78%, transparent);
+}
+
+.debug-tools-metric strong,
+.debug-tools-metric span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.debug-tools-metric strong {
+  color: var(--fg-bright);
+  font-size: 15px;
+  line-height: 1.15;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.debug-tools-metric span {
+  margin-top: 2px;
+  color: var(--fg-dim);
+  font-size: 10px;
+}
+
+.debug-tools-chart {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 42px;
+  margin-top: 8px;
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.debug-tools-budget-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  border-top: 1px dashed color-mix(in srgb, var(--fg-muted) 55%, transparent);
+  pointer-events: none;
+}
+
+.debug-tools-bar {
+  flex: 1 1 0;
+  min-width: 2px;
+  border-radius: 1px 1px 0 0;
+  opacity: 0.92;
+}
+
+.debug-tools-bar.ok {
+  background: #22c55e;
+}
+
+.debug-tools-bar.warn {
+  background: #f59e0b;
+}
+
+.debug-tools-bar.high {
+  background: #ef4444;
+}
+
+.debug-tools-footer {
+  margin-top: 6px;
+  font-size: 10px;
+}

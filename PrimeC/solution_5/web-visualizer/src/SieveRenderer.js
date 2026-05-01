@@ -182,9 +182,8 @@ export class SieveRenderer {
     // Frozen wrapping: once set, zoom doesn't change layout
     this._frozenClPerVRow = 0;
 
-    // Performance overlay: optional FPS counter + frame-time bar chart.
-    // Enabled via `perfOverlayEnabled`; updated every render call.
-    this.perfOverlayEnabled = false;
+    // Render-performance samples. The debug-tools window reads these through
+    // getPerformanceSnapshot(); SieveRenderer does not draw UI chrome for them.
     this._perfFrameTimes = new Float32Array(60); // ring buffer of frame durations (ms)
     this._perfFrameIdx = 0;
     this._perfLastTs = 0;
@@ -466,6 +465,46 @@ export class SieveRenderer {
 
   clearSearchHighlight() {
     this.searchOverlay.clear();
+  }
+
+  _recordFrameTiming(now = performance.now()) {
+    if (this._perfLastTs > 0) {
+      const frameMs = now - this._perfLastTs;
+      // Ignore idle gaps; the debug panel reports active render cadence.
+      if (Number.isFinite(frameMs) && frameMs >= 0 && frameMs <= 1000) {
+        this._perfFrameTimes[this._perfFrameIdx % this._perfFrameTimes.length] = frameMs;
+        this._perfFrameIdx++;
+      }
+    }
+    this._perfLastTs = now;
+  }
+
+  getPerformanceSnapshot() {
+    const size = this._perfFrameTimes.length;
+    const count = Math.min(this._perfFrameIdx, size);
+    const frameTimes = [];
+    let sumMs = 0;
+    let maxMs = 0;
+
+    for (let i = 0; i < count; i++) {
+      const bufIdx = (this._perfFrameIdx - count + i + size * 100) % size;
+      const frameMs = this._perfFrameTimes[bufIdx] || 0;
+      frameTimes.push(frameMs);
+      sumMs += frameMs;
+      if (frameMs > maxMs) maxMs = frameMs;
+    }
+
+    const avgMs = count > 0 ? sumMs / count : 0;
+    const latestMs = count > 0 ? frameTimes[frameTimes.length - 1] : 0;
+    return {
+      fps: avgMs > 0 ? Math.round(1000 / avgMs) : 0,
+      avgMs,
+      latestMs,
+      maxMs,
+      sampleCount: count,
+      budgetMs: 16.67,
+      frameTimes,
+    };
   }
 
   _logicalGroupBits() {
@@ -1422,13 +1461,7 @@ export class SieveRenderer {
   render() {
     if (!this.ctx || !this.bitState || this.bitCount === 0) return;
 
-    // Record frame timing for the perf overlay.
-    const now = performance.now();
-    if (this._perfLastTs > 0) {
-      this._perfFrameTimes[this._perfFrameIdx % 60] = now - this._perfLastTs;
-      this._perfFrameIdx++;
-    }
-    this._perfLastTs = now;
+    this._recordFrameTiming();
 
     const f = this._buildFrameContext();
     this._renderClear(f);
@@ -1447,98 +1480,6 @@ export class SieveRenderer {
     this.vectorTouchOrderOverlay.render(f.ctx);
     this.cachelineAnnotationsOverlay.render(f.ctx);
     this.searchOverlay.render(f.ctx, f.cw, f.ch);
-
-    if (this.perfOverlayEnabled) {
-      this._renderPerfOverlay(f.ctx, f.cw, f.ch);
-    }
-  }
-
-  /**
-   * Draw a compact FPS counter + frame-time bar chart in the top-right corner.
-   * Uses Canvas2D only; no React overhead.
-   */
-  _renderPerfOverlay(ctx, cw, ch) {
-    const frames = this._perfFrameTimes;
-    const count = Math.min(this._perfFrameIdx, 60);
-    if (count < 1) return;
-
-    const BAR_W = 3;
-    const BAR_GAP = 1;
-    const CHART_W = 60 * (BAR_W + BAR_GAP);
-    const CHART_H = 30;
-    const PAD = 6;
-    const LINE_H = 13;
-    const TOTAL_W = CHART_W + PAD * 2;
-    const TOTAL_H = CHART_H + LINE_H + PAD * 3;
-    // The canvas is oversized (3× for 3D pan headroom). Position the overlay
-    // relative to the visible viewport window, not the full canvas edge.
-    const vw = this.viewportW > 0 ? this.viewportW : cw;
-    const vh = this.viewportH > 0 ? this.viewportH : ch;
-    const viewLeft = (cw - vw) / 2;
-    const viewTop  = (ch - vh) / 2;
-    const x0 = viewLeft + vw - TOTAL_W - 8;
-    const y0 = viewTop + 8;
-
-    // Background
-    ctx.save();
-    ctx.globalAlpha = 0.82;
-    ctx.fillStyle = '#101014';
-    ctx.beginPath();
-    ctx.roundRect(x0, y0, TOTAL_W, TOTAL_H, 5);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-
-    // Compute FPS (frames in last second)
-    let fpsCount = 0;
-    let sum = 0;
-    let maxMs = 1;
-    for (let i = 0; i < count; i++) {
-      const ms = frames[i];
-      sum += ms;
-      if (ms > maxMs) maxMs = ms;
-    }
-    const avgMs = sum / count;
-    // FPS = 1000 / average frame time
-    const fps = avgMs > 0 ? Math.round(1000 / avgMs) : 0;
-    const fpsColor = fps >= 55 ? '#4ade80' : fps >= 30 ? '#fbbf24' : '#f87171';
-
-    // FPS label
-    ctx.font = `bold 11px ui-monospace, monospace`;
-    ctx.fillStyle = fpsColor;
-    ctx.textBaseline = 'top';
-    ctx.fillText(`${fps} fps`, x0 + PAD, y0 + PAD);
-
-    ctx.font = `9px ui-monospace, monospace`;
-    ctx.fillStyle = '#9ca3af';
-    ctx.fillText(`${avgMs.toFixed(1)} ms avg`, x0 + PAD + 56, y0 + PAD + 1);
-
-    // Bar chart
-    const chartX = x0 + PAD;
-    const chartY = y0 + PAD + LINE_H + PAD;
-    const targetMs = 16.67; // 60 fps budget
-
-    for (let i = 0; i < 60; i++) {
-      const bufIdx = (this._perfFrameIdx - 60 + i + 60 * 100) % 60;
-      const ms = frames[bufIdx] || 0;
-      const barH = Math.min(CHART_H, Math.round((ms / Math.max(maxMs, targetMs * 1.5)) * CHART_H));
-      const bx = chartX + i * (BAR_W + BAR_GAP);
-      const by = chartY + (CHART_H - barH);
-      ctx.fillStyle = ms > targetMs * 1.5 ? '#f87171' : ms > targetMs ? '#fbbf24' : '#4ade80';
-      ctx.fillRect(bx, by, BAR_W, barH);
-    }
-
-    // 60 fps guide line
-    const guideY = chartY + CHART_H - Math.round((targetMs / Math.max(maxMs, targetMs * 1.5)) * CHART_H);
-    ctx.strokeStyle = 'rgba(156,163,175,0.4)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([2, 2]);
-    ctx.beginPath();
-    ctx.moveTo(chartX, guideY);
-    ctx.lineTo(chartX + CHART_W, guideY);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.restore();
   }
 
   /**
@@ -2712,4 +2653,3 @@ export class SieveRenderer {
     return { bitIdx, byteIdx, u64Idx, vectorIdx, clIdx };
   }
 }
-

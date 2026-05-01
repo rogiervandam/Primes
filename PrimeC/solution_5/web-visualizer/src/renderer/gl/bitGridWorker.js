@@ -1,8 +1,6 @@
 /**
  * bitGridWorker — module worker that owns the WebGL2 context for the
- * worker-mode BitGridGL renderer (?renderer=gl-worker).
- *
- * See docs/AI_MAINTENANCE.md §8 item 6.
+ * production BitGridGL renderer.
  *
  * Message protocol (main → worker):
  *   { type: 'init',        canvas: OffscreenCanvas }   // canvas transferred

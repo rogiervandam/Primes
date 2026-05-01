@@ -62,7 +62,7 @@ Floating, draggable, resizable panel showing per-phase timings. Uses `useFloatin
 ## Visualizer subcomponents (`src/visualizer/`)
 
 ### `Toolbar.jsx`
-Top header bar: trace title, info popover trigger, playback transport (skip/step/play/pause/slider/counter), and the right-hand action cluster (search, zoom, 3D, heatmap, primes, timings, depth, PNG/video export, theme). Pure presentation — every interactive callback is supplied by the parent.
+Top header bar: trace title, info popover trigger, playback transport (skip/step/play/pause/slider/counter), and the right-hand action cluster (search, zoom, 3D, heatmap, primes, timings, debug tools, depth, PNG/video export, theme). Pure presentation — every interactive callback is supplied by the parent.
 
 The topbar transport (`toolbar-center`) is hidden when `controlsHidden` is `true`. `controlsHidden` is a **derived value** in `Visualizer.jsx` (`eventsPanelCollapsed && !allEventsWidgetHidden`): it becomes `true` automatically whenever the floating all-events widget is visible, and `false` whenever the events panel is expanded or the widget is docked to the top bar. There is no manual toggle button — the events panel collapse/expand is the only affordance.
 
@@ -71,6 +71,12 @@ Popover anchored beneath the trace title showing the storage-model selector and 
 
 ### `ExportProgress.jsx`
 Slim progress bar shown beneath the toolbar while `MediaRecorder` is exporting a WebM. Just renders `width: ${progress}%`.
+
+### `DebugToolsPanel.jsx`
+Small upper-right debug window toggled by the toolbar toolkit icon. It reads
+`rendererRef.current.getPerformanceSnapshot()` every 250 ms and shows FPS,
+average frame time, latest frame time, and the 60-sample frame chart as React UI
+outside the canvas/3D plane. It is default-off and currently not persisted.
 
 ### `BitHistoryBalloon.jsx`
 Floating popover showing a bit's identity (number, byte, word, qword, cache line) and modification history. Used in two modes:
@@ -318,7 +324,7 @@ Pure functions extracted from the pointer/wheel/touch `useEffect` in `Visualizer
 ## Rendering & parsing
 
 ### `SieveRenderer.js`
-Class encapsulating canvas 2D rendering: layout calculation, bit cell drawing, overlays (primes/range/multiples/heatmap), and animation effects. Owned by `Visualizer` outside the React tree to avoid re-render cost during playback.
+Class encapsulating Canvas2D overlay rendering: layout calculation, overlays (primes/range/multiples/heatmap), labels, hit-testing, minimap delegation, side-face polygons, animation effects, and render-timing samples. Owned by `Visualizer` outside the React tree to avoid re-render cost during playback. Cell fills are handled by `BitGridGLWorker`, and debug metrics are exposed through `getPerformanceSnapshot()`.
 
 ### `Camera3D.js`
 CSS-3D perspective camera used when 3D mode is enabled. Translates pointer events into rotation/translation transforms applied to the canvas container.
@@ -350,3 +356,6 @@ CSS is split per concern. `index.css` is the barrel imported by `main.jsx` and `
 | 15-layout-overview.css | Unified layout overview UI |
 | 16-settings-extras.css | Settings hints / layout descriptions |
 | 17-misc.css | Heat-map button, bar chart, table, badges |
+| 18-joined-widget.css | Joined all-events/single-event widget |
+| 19-keyboard-shortcuts.css | Keyboard shortcuts overlay |
+| 20-debug-tools.css | Floating debug tools window |
