@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { SieveRenderer, bitToNumber, CACHE_PRESETS } from './SieveRenderer';
+import { SieveRenderer, bitToNumber, describeWheelBit, wheelSignature, CACHE_PRESETS } from './SieveRenderer';
 import { BitGridGLWorker, isWorkerGLSupported } from './renderer/gl/BitGridGLWorker';
 import EventsPanel from './EventsPanel';
 import DetailPanel from './DetailPanel';
@@ -128,6 +128,7 @@ export default function Visualizer({
   autoRender,
 }) {
   const { header, steps } = trace;
+  const wheelDefinition = header.wheel || null;
   const traceTitle = useMemo(() => header.title || fileName || 'Sieve Visualizer', [header.title, fileName]);
   const traceInfoSections = useMemo(
     () => buildTraceInfoSections(header, fileName),
@@ -476,9 +477,9 @@ export default function Visualizer({
         }
       }
     }
-    const num = bitToNumber(idx, sm);
-    return { bitIndex: idx, number: num, isPrime: isPrimeNumber(num), history };
-  }, [isPrimeNumber]);
+    const num = bitToNumber(idx, sm, r?.wheelDefinition || wheelDefinition);
+    return { bitIndex: idx, number: num == null ? 'unmapped' : num, isPrime: num != null && isPrimeNumber(num), history };
+  }, [isPrimeNumber, wheelDefinition]);
 
   const scheduleBalloonRelayout = useCallback((immediate = false) => {
     if (immediate) {
@@ -922,6 +923,8 @@ export default function Visualizer({
       r.attach(canvasRef.current);
       if (settledCanvasRef.current) r.attachSettledCanvas(settledCanvasRef.current);
       if (minimapCanvasRef.current) r.attachMinimapCanvas(minimapCanvasRef.current);
+      r.storageModel = header.storageModel || 'half';
+      r.wheelDefinition = wheelDefinition;
       r.init(header.bitCount, header.sieveSize);
       bitStateRef.current = new Uint8Array(header.bitCount);
       // Warm the prime-overlay cache off the main thread so toggling the
@@ -975,6 +978,7 @@ export default function Visualizer({
               rr.byteSpacingH, rr.byteSpacingV,
               rr.u64SpacingH, rr.u64SpacingV,
               rr.storageModel, rr.bitCount,
+              wheelSignature(rr.wheelDefinition),
               cssW, cssH,
             ].join('|');
             g.uploadPositions(rr, fp);
@@ -1023,7 +1027,7 @@ export default function Visualizer({
       rendererRef.current = null;
       disposeCamera();
     };
-  }, [header.bitCount, header.sieveSize]);
+  }, [header.bitCount, header.sieveSize, header.storageModel, wheelDefinition]);
 
   // GL worker is intentionally kept alive as long as the component lives.
   // `OffscreenCanvas.transferControlToOffscreen()` is a one-shot, irreversible
@@ -1166,6 +1170,7 @@ export default function Visualizer({
     r.outlineRounded = true;
     r.colorPreset = colorPreset;
     r.storageModel = storageModel;
+    r.wheelDefinition = wheelDefinition;
     // Storage model affects bit→number mapping; warm the prime cache for
     // the new model in the background.
     r.prefetchPrimeOverlay(() => {
@@ -1274,7 +1279,7 @@ export default function Visualizer({
     r.render();
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, canvasColors, storageModel, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, depthSettings, gridOpacity, updateMinimapAvailability]);
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, canvasColors, storageModel, wheelDefinition, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, depthSettings, gridOpacity, updateMinimapAvailability]);
 
   // Resize handler
   useEffect(() => {
@@ -1930,7 +1935,7 @@ export default function Visualizer({
     searchResult,
     searchOpen, setSearchOpen,
     handleSearch,
-  } = useSearchState({ rendererRef, navigateToBit, storageModel, getMinimapDetailH });
+  } = useSearchState({ rendererRef, navigateToBit, storageModel, wheelDefinition, getMinimapDetailH });
 
   // Run a single ripple/fade/pulse effect on current changedBits
   // onProgress: optional (p: 0..1) => void callback for timeline tracking
@@ -3829,26 +3834,30 @@ export default function Visualizer({
       ? Math.max(1, parseInt(layoutSettings.customGroupBits || 1, 10) || 1)
       : Math.max(1, (layoutSettings.vectorGroup || 1) * 64);
     return bits.map((bit) => {
-      const number = bitToNumber(bit, storageModel || 'half');
+      const wheelBit = (storageModel || 'half') === 'wheel' ? describeWheelBit(bit, wheelDefinition) : null;
+      const mappedNumber = wheelBit ? wheelBit.number : bitToNumber(bit, storageModel || 'half', wheelDefinition);
       const byte = Math.floor(bit / 8);
       const uint64 = Math.floor(bit / 64);
       const group = Math.floor(bit / groupBits);
       return {
         bit,
-        number,
+        number: mappedNumber == null ? 'unmapped' : mappedNumber,
+        wheelPeriod: wheelBit?.period ?? null,
+        relativeBit: wheelBit?.relativeBit ?? null,
+        relativeNumber: wheelBit?.relativeNumber ?? null,
         byte,
         uint64,
         group,
         cacheline: Math.floor(bit / Math.max(8, cachelineSize * 8)),
       };
     });
-  }, [currentStepData, layoutSettings.vectorMode, layoutSettings.customGroupBits, layoutSettings.vectorGroup, storageModel, cachelineSize]);
+  }, [currentStepData, layoutSettings.vectorMode, layoutSettings.customGroupBits, layoutSettings.vectorGroup, storageModel, wheelDefinition, cachelineSize]);
 
   const filteredDetailInspectorRows = useMemo(() => {
     const q = detailInspectorQuery.trim().toLowerCase();
     if (!q) return detailInspectorRows;
     return detailInspectorRows.filter((row) => {
-      const haystack = `${row.bit} ${row.number} ${row.byte} ${row.uint64} ${row.group} ${row.cacheline}`.toLowerCase();
+      const haystack = `${row.bit} ${row.number} ${row.wheelPeriod ?? ''} ${row.relativeBit ?? ''} ${row.relativeNumber ?? ''} ${row.byte} ${row.uint64} ${row.group} ${row.cacheline}`.toLowerCase();
       return haystack.includes(q);
     });
   }, [detailInspectorRows, detailInspectorQuery]);
@@ -4235,6 +4244,7 @@ export default function Visualizer({
           selectedSteps={selectedSteps}
           stepStats={stepStats}
           storageModel={storageModel}
+          wheelDefinition={wheelDefinition}
           layoutSettings={layoutSettings}
           benchmarkTimingData={benchmarkTimingData}
           openDetailInspector={openDetailInspector}

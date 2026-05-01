@@ -27,6 +27,10 @@ initSingleRunTrace(benchmark_settings_t benchmark_settings, const char* algorith
         trace_init(option.trace_filename, (uint64_t)benchmark_settings.factor_max, (uint64_t)trace_bit_count, (int)option.trace_level,
                      getStorageModelName((int)benchmark_settings.storage), trace_settings_tag, trace_title, trace_info);
 
+        #if defined(WHEEL_SIZE) && defined(WHEEL_STRIPE_BITS)
+        if (g_trace.enabled) trace_write_current_wheel_definition();
+        #endif
+
         if (g_trace.enabled) {
             log_text((int)option.trace_level, "Initial" , "Settings used: %s", trace_settings_tag);
 

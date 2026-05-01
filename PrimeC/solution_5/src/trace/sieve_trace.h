@@ -180,6 +180,32 @@ trace_write_uint64_array(FILE* f, const uint64_t* values, uint32_t count)
     fputc(']', f);
 }
 
+static void
+trace_write_wheel_definition(uint64_t wheel_size,
+                             uint64_t bits_per_wheel,
+                             uint64_t base_size,
+                             uint64_t repeats,
+                             uint64_t wheel_max,
+                             const uint64_t* map_numbers,
+                             const uint64_t* map_bits,
+                             uint32_t map_count)
+{
+    if (!g_trace.enabled || !g_trace.file || !map_numbers || !map_bits || map_count == 0) return;
+
+    fprintf(g_trace.file,
+            "WHEEL wheel_size=%llu bits_per_wheel=%llu base_size=%llu repeats=%llu wheel_max=%llu map_count=%u map_numbers=",
+            (unsigned long long)wheel_size,
+            (unsigned long long)bits_per_wheel,
+            (unsigned long long)base_size,
+            (unsigned long long)repeats,
+            (unsigned long long)wheel_max,
+            map_count);
+    trace_write_uint64_array(g_trace.file, map_numbers, map_count);
+    fputs(" map_bits=", g_trace.file);
+    trace_write_uint64_array(g_trace.file, map_bits, map_count);
+    fputc('\n', g_trace.file);
+}
+
 /* Set the current analysis context depth (called from TRACE_ANALYSIS_START macro) */
 static void
 primes_trace_set_context(int level)

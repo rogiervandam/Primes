@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { bitToNumber, numberToBit } from '../bitMath';
+import { bitToNumber, describeWheelBit, numberToBit } from '../bitMath';
+
+const CUSTOM_WHEEL = {
+  wheelSize: 12,
+  bitsPerWheel: 5,
+  baseSize: 12,
+  repeats: 1,
+  wheelMax: 3,
+  mapNumbers: [1, 5, 7],
+  mapBits: [0, 2, 4],
+};
 
 // WHEEL30_RESIDUES = [1, 7, 11, 13, 17, 19, 23, 29]
 // Each wheel group covers 30 consecutive numbers; 8 residues per group.
@@ -74,6 +84,42 @@ describe('numberToBit', () => {
       for (let i = 0; i < 80; i++) {
         expect(numberToBit(bitToNumber(i, 'wheel'), 'wheel')).toBe(i);
       }
+    });
+
+    it('uses trace-provided wheel mappings across repeated periods', () => {
+      expect(bitToNumber(0, 'wheel', CUSTOM_WHEEL)).toBe(1);
+      expect(bitToNumber(2, 'wheel', CUSTOM_WHEEL)).toBe(5);
+      expect(bitToNumber(4, 'wheel', CUSTOM_WHEEL)).toBe(7);
+      expect(bitToNumber(5, 'wheel', CUSTOM_WHEEL)).toBe(13);
+      expect(bitToNumber(7, 'wheel', CUSTOM_WHEEL)).toBe(17);
+      expect(numberToBit(17, 'wheel', CUSTOM_WHEEL)).toBe(7);
+    });
+
+    it('returns null or -1 for omitted wheel numbers and padding bits', () => {
+      expect(bitToNumber(1, 'wheel', CUSTOM_WHEEL)).toBeNull();
+      expect(numberToBit(3, 'wheel', CUSTOM_WHEEL)).toBe(-1);
+    });
+
+    it('describes wheel bit pairs for annotations and inspectors', () => {
+      expect(describeWheelBit(7, CUSTOM_WHEEL)).toMatchObject({
+        mapped: true,
+        period: 1,
+        relativeBit: 2,
+        relativeNumber: 5,
+        number: 17,
+      });
+      expect(describeWheelBit(6, CUSTOM_WHEEL)).toMatchObject({
+        mapped: false,
+        period: 1,
+        relativeBit: 1,
+        relativeNumber: null,
+        number: null,
+      });
+    });
+
+    it('treats wheel-prefixed storage names as wheel models', () => {
+      expect(bitToNumber(7, 'wheeltesting', CUSTOM_WHEEL)).toBe(17);
+      expect(numberToBit(17, 'wheel8of30', CUSTOM_WHEEL)).toBe(7);
     });
   });
 

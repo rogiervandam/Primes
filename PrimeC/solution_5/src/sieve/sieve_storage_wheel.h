@@ -149,6 +149,46 @@
         return factor;
     }
 
+    #ifdef COMPILE_TRACE
+    static inline void __attribute__((cold))
+    trace_write_current_wheel_definition(void)
+    {
+        uint32_t map_count = 0;
+        for (counter_t number_offset = 0; number_offset < WHEEL_SIZE; number_offset++) {
+            if (wheelmask_bitpoint[number_offset] > 0) map_count++;
+        }
+        if (map_count == 0) return;
+
+        uint64_t* map_numbers = (uint64_t*)malloc((size_t)map_count * sizeof(uint64_t));
+        uint64_t* map_bits = (uint64_t*)malloc((size_t)map_count * sizeof(uint64_t));
+        if (!map_numbers || !map_bits) {
+            free(map_numbers);
+            free(map_bits);
+            return;
+        }
+
+        uint32_t out_index = 0;
+        for (counter_t number_offset = 0; number_offset < WHEEL_SIZE; number_offset++) {
+            if (wheelmask_bitpoint[number_offset] <= 0) continue;
+            map_numbers[out_index] = (uint64_t)number_offset;
+            map_bits[out_index] = (uint64_t)(wheelmask_bitpoint[number_offset] - 1);
+            out_index++;
+        }
+
+        trace_write_wheel_definition((uint64_t)WHEEL_SIZE,
+                                     (uint64_t)WHEEL_STRIPE_BITS,
+                                     (uint64_t)WHEEL_BASIC_SIZE,
+                                     (uint64_t)WHEEL_REPEATS,
+                                     (uint64_t)WHEEL_MAX,
+                                     map_numbers,
+                                     map_bits,
+                                     map_count);
+
+        free(map_numbers);
+        free(map_bits);
+    }
+    #endif
+
     // #define bitbucket_t uint64_t
     // static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
     // markFactor_wheelstorage(sieve_t* sieve, const register counter_t index) 

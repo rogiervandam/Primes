@@ -50,7 +50,7 @@ function ensureWorker() {
  * Returns a Promise that resolves with `{ flags, key }` from the worker,
  * or `null` if no worker is available (caller should compute inline).
  */
-export function requestPrimeOverlay({ sieveSize, bitCount, storageModel }) {
+export function requestPrimeOverlay({ sieveSize, bitCount, storageModel, wheelDefinition }) {
   const worker = ensureWorker();
   if (!worker) return null;
   const id = nextId++;
@@ -62,6 +62,7 @@ export function requestPrimeOverlay({ sieveSize, bitCount, storageModel }) {
       sieveSize,
       bitCount,
       storageModel,
+      wheelDefinition,
     });
   });
 }

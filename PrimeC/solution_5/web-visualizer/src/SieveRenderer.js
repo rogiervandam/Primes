@@ -25,7 +25,7 @@ import {
   GRID3X3_MAP,
   STORAGE_MODELS,
 } from './renderer/constants';
-import { bitToNumber, numberToBit } from './renderer/bitMath';
+import { bitToNumber, numberToBit, describeWheelBit, wheelSignature } from './renderer/bitMath';
 import {
   hexToRgb,
   mixRgb,
@@ -47,6 +47,8 @@ export {
   STORAGE_MODELS,
   bitToNumber,
   numberToBit,
+  describeWheelBit,
+  wheelSignature,
 };
 
 export class SieveRenderer {
@@ -57,6 +59,8 @@ export class SieveRenderer {
     this.settledCtx = null;
     this.bitCount = 0;
     this.sieveSize = 0;
+    this.storageModel = 'half';
+    this.wheelDefinition = null;
     this.bitState = null;
     this.changedBits = null;
     this.targetBits = null;
@@ -1129,8 +1133,8 @@ export class SieveRenderer {
   buildPrimeOverlay() {
     const limit = Math.max(2, this.sieveSize > 0
       ? this.sieveSize
-      : bitToNumber(Math.max(0, this.bitCount - 1), this.storageModel));
-    const key = `${limit}:${this.bitCount}:${this.storageModel}`;
+      : (bitToNumber(Math.max(0, this.bitCount - 1), this.storageModel, this.wheelDefinition) || 0));
+    const key = `${limit}:${this.bitCount}:${this.storageModel}:${wheelSignature(this.wheelDefinition)}`;
     if (this._primeOverlayKey === key && this._primeBitFlags) return;
     this._primeOverlayKey = key;
 
@@ -1146,7 +1150,7 @@ export class SieveRenderer {
     // Build per-bit lookup
     const flags = new Uint8Array(this.bitCount);
     for (let i = 0; i < this.bitCount; i++) {
-      const num = bitToNumber(i, this.storageModel);
+      const num = bitToNumber(i, this.storageModel, this.wheelDefinition);
       if (num >= 2 && num <= limit && sieve[num]) flags[i] = 1;
     }
     this._primeBitFlags = flags;
@@ -1165,13 +1169,14 @@ export class SieveRenderer {
     const sieveSize = this.sieveSize;
     const bitCount = this.bitCount;
     const storageModel = this.storageModel;
+    const wheelDefinition = this.wheelDefinition;
     if (!bitCount) return;
     const limit = Math.max(2, sieveSize > 0
       ? sieveSize
-      : bitToNumber(Math.max(0, bitCount - 1), storageModel));
-    const key = `${limit}:${bitCount}:${storageModel}`;
+      : (bitToNumber(Math.max(0, bitCount - 1), storageModel, wheelDefinition) || 0));
+    const key = `${limit}:${bitCount}:${storageModel}:${wheelSignature(wheelDefinition)}`;
     if (this._primeOverlayKey === key && this._primeBitFlags) return;
-    const promise = requestPrimeOverlay({ sieveSize, bitCount, storageModel });
+    const promise = requestPrimeOverlay({ sieveSize, bitCount, storageModel, wheelDefinition });
     if (!promise) return;
     promise.then((reply) => {
       if (!reply || reply.key !== key) return; // stale
@@ -1935,7 +1940,7 @@ export class SieveRenderer {
   /** Purple dot + (at zoom) '×' label for multiples. Tint and border handled by GL. */
   _drawBitMultiplesOverlay(f, globalBit, bitX, bitY) {
     if (!(this.multiplesOverlay && this.multiplesOverlayPrime >= 2)) return;
-    const num = bitToNumber(globalBit, this.storageModel);
+    const num = bitToNumber(globalBit, this.storageModel, this.wheelDefinition);
     if (!(num >= 2 && num % this.multiplesOverlayPrime === 0)) return;
     const ctx = f.ctx;
     const px = f.px;
@@ -1968,7 +1973,10 @@ export class SieveRenderer {
 
     const lines = [];
     if (showBitLabels) lines.push(String(this._bitLabelValue(globalBit, bitIdx)));
-    if (showNumberLabels) lines.push(String(bitToNumber(globalBit, this.storageModel)));
+    if (showNumberLabels) {
+      const number = bitToNumber(globalBit, this.storageModel, this.wheelDefinition);
+      lines.push(number == null ? 'unmapped' : String(number));
+    }
 
     const dualLine = lines.length > 1;
     const zoomBoost = this.zoom > 20 ? 1 + Math.min(1, (this.zoom - 20) / 24) : 1;
@@ -2134,7 +2142,8 @@ export class SieveRenderer {
 
   getBitInfo(bitIdx) {
     if (bitIdx < 0 || bitIdx >= this.bitCount) return '';
-    const number = bitToNumber(bitIdx, this.storageModel);
+    const number = bitToNumber(bitIdx, this.storageModel, this.wheelDefinition);
+    const numberLabel = number == null ? 'unmapped' : number;
     const byteIdx = Math.floor(bitIdx / 8);
     const u64Idx = Math.floor(bitIdx / 64);
     const cacheLineIdx = Math.floor(bitIdx / this.bitsPerCacheLine);
@@ -2146,7 +2155,7 @@ export class SieveRenderer {
     const changed = this.changedBits.has(bitIdx) ? ' [CHANGED]' : '';
     const focused = this.targetBits?.has(bitIdx) ? ' [FOCUS]' : '';
     const hitCount = this.targetHitCounts?.get(bitIdx) || 0;
-    return `Bit ${bitIdx} -> Number ${number} | byte ${byteInVector} in ${groupLabel}, ${byteIdx} from start | uint64 ${u64InVector} in ${groupLabel}, ${u64Idx} from start | Cache line ${cacheLineIdx} | target hits ${hitCount} | ${state}${changed}${focused}`;
+    return `Bit ${bitIdx} -> Number ${numberLabel} | byte ${byteInVector} in ${groupLabel}, ${byteIdx} from start | uint64 ${u64InVector} in ${groupLabel}, ${u64Idx} from start | Cache line ${cacheLineIdx} | target hits ${hitCount} | ${state}${changed}${focused}`;
   }
 
   toDataURL() {

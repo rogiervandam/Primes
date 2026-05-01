@@ -376,6 +376,105 @@ facts that still matter:
 - The current test suite is meaningful. Do not describe build as the only safety
   net anymore.
 
+### 15. Planned `Visualizer.jsx` Component Split (Phased)
+
+Goal: reduce `src/Visualizer.jsx` size/risk by moving JSX composition and
+feature-local state into focused container components while preserving current
+playback, renderer, and persistence contracts.
+
+Current boundary cues (at this revision):
+
+- `Toolbar`, `CanvasStage`, `EventsPanel`, `SettingsPanel`, and
+  `DebugToolsPanel` are already imported children, but `Visualizer.jsx` still
+  owns a very large amount of orchestration state and wiring props.
+- `Visualizer.jsx` is ~4400 lines and remains a hotspot for regressions when
+  adding UI behavior.
+
+Implementation rules for this split:
+
+- Prefer extracting containers/components first; extract hooks only when the
+  extracted logic is mostly state/effects and has little JSX.
+- Keep renderer and playback authority in `Visualizer.jsx` until extraction is
+  proven behavior-safe. Do not move core `goToStep`, seek, or replay contracts
+  in the first pass.
+- Keep persisted preference writes centralized through existing `viewPrefs`
+  paths. Do not duplicate localStorage writes in new components.
+- Each phase must land with no behavior change and with build/test passing.
+
+Phase 1 (low-risk JSX extraction):
+
+- Create `src/visualizer/VisualizerAlerts.jsx` for:
+  - export progress/error banners
+  - GL-unavailable banner
+- Create `src/visualizer/VisualizerOverlays.jsx` for:
+  - minimap overlay canvas
+  - keyboard-shortcuts overlay
+- Keep refs/state in `Visualizer.jsx`; pass only minimal props.
+- Exit criteria: no visual or behavioral changes; only composition simplified.
+
+Phase 2 (panel composition extraction):
+
+- Create `src/visualizer/VisualizerPanels.jsx` to render and wire:
+  - `EventsPanel`
+  - `SettingsPanel`
+  - optional `DebugToolsPanel`
+- Move inline reset lambdas used only by settings panel into this new component
+  if they are not reused elsewhere.
+- Keep the underlying source-of-truth state in `Visualizer.jsx` initially; use
+  a grouped prop object to avoid hundreds of flat props.
+- Exit criteria: panel toggles, panel resize, and all settings interactions
+  remain identical.
+
+Phase 3 (canvas-area composition extraction):
+
+- Create `src/visualizer/VisualizerCanvasArea.jsx` for:
+  - `CanvasStage`
+  - joined-widget rendering and wiring (`JoinedEventsWidget`)
+  - `stepAnimSlidersContent` ownership
+- Extract banner/surrounding-event formatting helpers into
+  `src/visualizer/eventTitleModel.js` (pure helpers only).
+- Exit criteria: canvas gestures, joined/split widget flows, detail panel
+  interactions, and event title behavior are unchanged.
+
+Phase 4 (state-domain extraction by feature):
+
+- Introduce focused hooks only where coupling is already local:
+  - `useDetailInspectorState`
+  - `useBitBalloonLayout`
+  - `useOverlayTogglesState`
+- Keep hook APIs explicit and small; avoid a single mega-hook replacing
+  `Visualizer.jsx`.
+- Exit criteria: easier-to-read `Visualizer.jsx` top-level with clear sectioned
+  state domains and reduced ref churn.
+
+Phase 5 (optional final shell):
+
+- Create `src/visualizer/VisualizerShell.jsx` as a top-level layout component
+  that assembles `Toolbar`, `VisualizerAlerts`, `VisualizerPanels`,
+  `VisualizerCanvasArea`, and `VisualizerOverlays`.
+- Keep `Visualizer.jsx` as runtime owner that computes props for the shell.
+
+Recommended rollout order and guardrails:
+
+- Land one phase per PR to keep reviewable diffs.
+- After each phase run:
+  - `npm run test`
+  - `npm run build`
+  - manual smoke check: load trace, play/pause, scrub, jump to step, toggle
+    events/settings/detail panels, drag/join/split widget, open raw log,
+    inspect minimap and shortcuts overlay.
+- If a phase causes prop explosion, pause and replace with one domain object
+  prop plus typed key comments at the receiving component.
+
+Definition of done for the overall split:
+
+- `src/Visualizer.jsx` reduced below ~2500 lines without feature loss.
+- New components each have one clear responsibility and no duplicate
+  persistence logic.
+- Existing playback and renderer contracts remain intact.
+- Maintenance docs (`AI_MAINTENANCE.md`, `COMPONENTS.md`) reflect the final
+  ownership map.
+
 ## Topic Backlog
 
 Use this as overflow for work that does not fit cleanly under one goal yet.

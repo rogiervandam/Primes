@@ -43,13 +43,9 @@ export function firstFactorStepNumberInText(text, fallback) {
   return fallback;
 }
 
-/** Map a factor step to its prime under the current convention (identity). */
+// Temporarily disable inferring primes from steps and fallback to the last mentioned prime
 export function inferPrimeFromFactorStep(factorStep, _storageModel) {
-  const fs = toNullableNumber(factorStep);
-  if (fs == null) return null;
-
-  // Keep inferred prime aligned with the user's current convention.
-  return fs;
+  return null; // Disable inference
 }
 
 /**
@@ -91,12 +87,12 @@ export function inferMissingPrimes(steps, storageModel) {
       continue;
     }
 
-    const prime = inferPrimeFromFactorStep(step.factorStep, mode);
-    if (prime != null) {
-      step.prime = prime;
-      lastPrime = prime;
-      continue;
-    }
+    // const prime = inferPrimeFromFactorStep(step.factorStep, mode);
+    // if (prime != null) {
+    //   step.prime = prime;
+    //   lastPrime = prime;
+    //   continue;
+    // }
 
     if (lastPrime != null) {
       step.prime = lastPrime;

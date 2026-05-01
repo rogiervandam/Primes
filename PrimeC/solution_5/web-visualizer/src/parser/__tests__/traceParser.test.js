@@ -45,6 +45,13 @@ const TEXT_TRACE_WITH_BITS = [
   'EVENT function="Mark" changed_count=3 changed_bits=[1,3,5]',
 ].join('\n');
 
+/** Text trace with a custom repeated wheel definition. */
+const TEXT_TRACE_WITH_WHEEL = [
+  'TRACE version=7 format=text sieve_size=240 bit_count=64 storage_model=wheeltesting',
+  'WHEEL wheel_size=240 bits_per_wheel=64 base_size=30 repeats=8 wheel_max=5 map_count=4 map_numbers=[1,7,31,37] map_bits=[0,1,8,9]',
+  'EVENT function="Mark" changed_count=2 changed_bits=[0,8]',
+].join('\n');
+
 // ---------------------------------------------------------------------------
 // Type validation helpers
 // ---------------------------------------------------------------------------
@@ -142,6 +149,22 @@ describe('parseTrace — text format', () => {
   it('sets storageModel from the TRACE header', () => {
     const trace = parseTrace(TEXT_TRACE_MINIMAL);
     expect(trace.header.storageModel).toBe('half');
+  });
+
+  it('parses wheel metadata and normalises wheel storage names', () => {
+    const trace = parseTrace(TEXT_TRACE_WITH_WHEEL);
+    expect(trace.header.storageModel).toBe('wheel');
+    expect(trace.header.rawStorageModel).toBe('wheeltesting');
+    expect(trace.header.wheel).toMatchObject({
+      wheelSize: 240,
+      bitsPerWheel: 64,
+      baseSize: 30,
+      repeats: 8,
+      wheelMax: 5,
+      mapCount: 4,
+      mapNumbers: [1, 7, 31, 37],
+      mapBits: [0, 1, 8, 9],
+    });
   });
 });
 

@@ -72,6 +72,7 @@ function CanvasStage({
   selectedSteps,
   stepStats,
   storageModel,
+  wheelDefinition,
   layoutSettings,
   benchmarkTimingData,
   openDetailInspector,
@@ -166,6 +167,7 @@ function CanvasStage({
         playing={playing}
         stepStats={selectedSteps.size > 1 ? null : stepStats}
         storageModel={storageModel}
+        wheelDefinition={wheelDefinition}
         bitLayout={layoutSettings.bitLayout}
         byteLayout={layoutSettings.byteLayout}
         benchmarkTimingData={benchmarkTimingData}
