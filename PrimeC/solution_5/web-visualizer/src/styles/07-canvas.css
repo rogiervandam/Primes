@@ -140,12 +140,52 @@
   flex: none;
   max-width: none;
   min-width: 0;
-  accent-color: var(--accent);
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
   cursor: pointer;
+  z-index: 2;
 }
 .step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+}
+/* Webkit: transparent track, accent thumb */
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: transparent;
+  border-radius: 2px;
+}
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  margin-top: -7px;
+  position: relative;
+  z-index: 3;
+}
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]:disabled::-webkit-slider-thumb {
+  background: var(--fg-dim);
+}
+/* Firefox: transparent track, accent thumb */
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: transparent;
+  border-radius: 2px;
+}
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+}
+.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]:disabled::-moz-range-thumb {
+  background: var(--fg-dim);
 }
 /* The static track background (grey rail) */
 .step-focus-timeline-track {
@@ -154,7 +194,7 @@
   right: 6px;
   top: 50%;
   transform: translateY(-50%);
-  height: 4px;
+  height: 9px;
   background: var(--border);
   border-radius: 2px;
   overflow: hidden;

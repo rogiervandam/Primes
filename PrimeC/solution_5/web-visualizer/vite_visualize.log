@@ -1,21 +1,21 @@
 
-  VITE v5.4.21  ready in 147 ms
+  VITE v5.4.21  ready in 174 ms
 
   ➜  Local:   http://localhost:5173/
   ➜  Network: http://10.0.24.12:5173/
   ➜  Network: http://10.0.107.215:5173/
-3:08:44 PM [vite] hmr update /src/visualizer/TraceInfoPopover.jsx
-3:08:44 PM [vite] hmr update /src/styles/index.css
-3:08:44 PM [vite] hmr update /src/settings/ColorsTab.jsx
-3:08:44 PM [vite] hmr update /src/Visualizer.jsx
-3:08:44 PM [vite] hmr update /src/styles/index.css
-3:08:44 PM [vite] hmr update /src/styles/index.css
-3:08:44 PM [vite] hmr update /src/EventsPanel.jsx
-3:15:36 PM [vite] hmr update /src/visualizer/TraceInfoPopover.jsx
-3:15:41 PM [vite] hmr update /src/visualizer/TraceInfoPopover.jsx
-3:16:02 PM [vite] hmr update /src/EventsPanel.jsx
-3:16:17 PM [vite] hmr update /src/Visualizer.jsx
-3:16:39 PM [vite] hmr update /src/Visualizer.jsx
-3:48:21 PM [vite] hmr update /src/visualizer/TraceInfoPopover.jsx
-3:48:21 PM [vite] hmr update /src/EventsPanel.jsx
-3:48:21 PM [vite] hmr update /src/Visualizer.jsx
+4:31:35 PM [vite] hmr update /src/styles/index.css
+4:31:38 PM [vite] hmr update /src/styles/index.css
+4:31:55 PM [vite] hmr update /src/styles/index.css
+4:31:59 PM [vite] hmr update /src/styles/index.css
+4:32:22 PM [vite] hmr update /src/styles/index.css
+4:32:26 PM [vite] hmr update /src/styles/index.css
+4:32:37 PM [vite] hmr update /src/styles/index.css
+4:32:51 PM [vite] hmr update /src/styles/index.css
+4:32:59 PM [vite] hmr update /src/styles/index.css
+4:33:03 PM [vite] hmr update /src/styles/index.css
+4:33:05 PM [vite] hmr update /src/styles/index.css
+4:33:32 PM [vite] hmr update /src/styles/index.css
+4:33:36 PM [vite] hmr update /src/styles/index.css
+4:33:41 PM [vite] hmr update /src/styles/index.css
+4:35:15 PM [vite] hmr update /src/styles/index.css

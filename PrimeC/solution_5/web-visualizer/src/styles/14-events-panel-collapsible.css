@@ -281,5 +281,7 @@
 .events-panel-header .spt-slider {
   max-width: none;
   flex: 1 1 80px;
+  zoom:1.1;
+  height: 14px;;
 }
 
