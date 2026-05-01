@@ -401,29 +401,38 @@ Implementation rules for this split:
   paths. Do not duplicate localStorage writes in new components.
 - Each phase must land with no behavior change and with build/test passing.
 
-Phase 1 (low-risk JSX extraction):
+Phase 1 (low-risk JSX extraction): **DONE**
 
-- Create `src/visualizer/VisualizerAlerts.jsx` for:
-  - export progress/error banners
+- `src/visualizer/VisualizerAlerts.jsx` created (~28 lines):
+  - export progress bar (`<ExportProgress>`)
+  - export-error banner
   - GL-unavailable banner
-- Create `src/visualizer/VisualizerOverlays.jsx` for:
+- `src/visualizer/VisualizerOverlays.jsx` created (~36 lines):
   - minimap overlay canvas
-  - keyboard-shortcuts overlay
-- Keep refs/state in `Visualizer.jsx`; pass only minimal props.
-- Exit criteria: no visual or behavioral changes; only composition simplified.
+  - keyboard-shortcuts overlay (`<KeyboardShortcutsOverlay>`)
+- `Visualizer.jsx` imports for `ExportProgress` and `KeyboardShortcutsOverlay`
+  replaced with imports for the new components. State/refs remain in
+  `Visualizer.jsx`; no behavior change.
 
-Phase 2 (panel composition extraction):
+Phase 2 (panel composition extraction): **DONE**
 
-- Create `src/visualizer/VisualizerPanels.jsx` to render and wire:
+- `src/visualizer/VisualizerPanels.jsx` created (~118 lines):
   - `EventsPanel`
   - `SettingsPanel`
   - optional `DebugToolsPanel`
-- Move inline reset lambdas used only by settings panel into this new component
-  if they are not reused elsewhere.
-- Keep the underlying source-of-truth state in `Visualizer.jsx` initially; use
-  a grouped prop object to avoid hundreds of flat props.
-- Exit criteria: panel toggles, panel resize, and all settings interactions
-  remain identical.
+  - The four inline overlay-reset lambdas (`onRangeOverlayToggle`,
+    `onRangeOverlayReset`, `onMultiplesOverlayToggle`,
+    `onMultiplesOverlayReset`) that previously lived inline in
+    `Visualizer.jsx`'s JSX are now named handler functions in this component.
+  - Props are grouped as `eventsProps` and `settingsProps` objects constructed
+    just before `return` in `Visualizer.jsx`. `settingsProps` includes
+    internal-only keys (`steps`, `currentStep`, `header`, raw setters) that
+    `VisualizerPanels` destructures out before spreading the rest to
+    `SettingsPanel`.
+- `Visualizer.jsx` imports for `EventsPanel`, `SettingsPanel`, and
+  `DebugToolsPanel` removed; replaced by single `VisualizerPanels` import.
+- `Visualizer.jsx` reduced from ~4418 to ~4386 lines (gross extraction is
+  larger; the `eventsProps`/`settingsProps` objects add back ~110 lines).
 
 Phase 3 (canvas-area composition extraction):
 

@@ -35,6 +35,17 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 - Event panel < and > level buttons now cycle within the active dropdown group: clicking < or > while "Up to" is selected steps through all "Up to" levels (ending at "All" when increasing past the max); while "Collapse at" or "Only level" is selected the buttons cycle only within that group. The > button is correctly disabled at the upper bound of collapse/exact groups.
 - When changing animation type (style or mode) mid-animation, the new animation starts from the same progress position instead of restarting from 0. Works for both in-flight direct animations and the single-event / selected-steps replay loops.
 - Removed unimported historical file `src/settings/TitleTab.jsx`.
+- Phase 1 of planned `Visualizer.jsx` split: created `VisualizerAlerts.jsx`
+  (export progress/error banners + GL-unavailable banner) and
+  `VisualizerOverlays.jsx` (minimap canvas + keyboard-shortcuts overlay),
+  replacing the corresponding inline JSX and imports in `Visualizer.jsx`.
+- Phase 2 of planned `Visualizer.jsx` split: created `VisualizerPanels.jsx`
+  to compose `EventsPanel`, `SettingsPanel`, and `DebugToolsPanel`; moved
+  four inline overlay-reset lambdas (`onRangeOverlayToggle`,
+  `onRangeOverlayReset`, `onMultiplesOverlayToggle`,
+  `onMultiplesOverlayReset`) into named handlers in the new component;
+  introduced grouped `eventsProps` / `settingsProps` prop objects in
+  `Visualizer.jsx` for a compact call site.
 
 ## Open
 
@@ -44,7 +55,10 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
   Clicking a bit-state legend/color item should let the user choose that state's
   color.
 - Keep reducing `Visualizer.jsx` and `SieveRenderer.js`; prefer one focused
-  hook/component/helper extraction per session.
+  hook/component/helper extraction per session. **Phase 1 and Phase 2 of the
+  planned Visualizer.jsx split (section 15 of AI_MAINTENANCE.md) are now done.**
+  Next: Phase 3 — create `VisualizerCanvasArea.jsx` for `CanvasStage` +
+  `JoinedEventsWidget` + `stepAnimSlidersContent`.
 - Add more useful tools to the debug window: GL worker status, texture upload
   sizes, bit count, current render cadence, and context-loss recovery state.
 - Make the debug tools window draggable or pinnable only if it starts competing

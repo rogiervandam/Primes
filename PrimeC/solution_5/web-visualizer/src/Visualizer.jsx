@@ -1,20 +1,18 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { SieveRenderer, bitToNumber, describeWheelBit, wheelSignature, CACHE_PRESETS } from './SieveRenderer';
 import { BitGridGLWorker, isWorkerGLSupported } from './renderer/gl/BitGridGLWorker';
-import EventsPanel from './EventsPanel';
 import DetailPanel from './DetailPanel';
-import SettingsPanel from './SettingsPanel';
 import TimingPanel from './TimingPanel';
 import Toolbar from './visualizer/Toolbar';
-import ExportProgress from './visualizer/ExportProgress';
 import CanvasStage from './visualizer/CanvasStage';
 import EventTitleBanner from './visualizer/EventTitleBanner';
 import JoinedEventsWidget from './visualizer/JoinedEventsWidget';
 import DetailInspectorOverlay from './visualizer/DetailInspectorOverlay';
 import StepAnimSliders from './visualizer/StepAnimSliders';
 import BitHistoryBalloons from './visualizer/BitHistoryBalloons';
-import KeyboardShortcutsOverlay from './visualizer/KeyboardShortcutsOverlay';
-import DebugToolsPanel from './visualizer/DebugToolsPanel';
+import VisualizerAlerts from './visualizer/VisualizerAlerts';
+import VisualizerOverlays from './visualizer/VisualizerOverlays';
+import VisualizerPanels from './visualizer/VisualizerPanels';
 import { useTraceExport } from './hooks/useTraceExport';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { use3DCamera } from './hooks/use3DCamera';
@@ -4089,6 +4087,115 @@ export default function Visualizer({
     />
   );
 
+  // Grouped prop objects for VisualizerPanels (Phase 2 extraction).
+  // Internal-only values (steps, currentStep, header, raw setters) are
+  // mixed into settingsProps so VisualizerPanels can build the overlay-reset
+  // handlers locally without them reaching SettingsPanel.
+  const eventsProps = {
+    steps,
+    currentStep,
+    selectedSteps,
+    onStepClick: handleStepSelection,
+    onMultiStepSelect: handleMultiStepSelect,
+    onUserScroll: stopPlayback,
+    width: panelWidth,
+    onWidthChange: setPanelWidth,
+    panelCollapsed: eventsPanelCollapsed,
+    onToggleCollapse: toggleEventsPanel,
+    allEventsWidgetHidden: allEventsWidgetHidden || widgetsJoined,
+    onExpandPanelFromWidget: expandEventsPanelFromWidget,
+    onDockWidgetToTopBar: dockEventsWidgetToTopBar,
+    onJoinWidgets: joinWidgets,
+    externalOpFilter: timingFocusOp,
+    onExternalOpFilterConsumed: () => setTimingFocusOp(''),
+    revealStepRequest,
+    goToStep,
+    playing,
+    handlePlayPause,
+    exporting: !!exporting,
+    isScrubbingTopRef,
+    playSpeedPercent,
+    setPlaySpeedPercent,
+    eventTitleVisible: eventTitleSettings.visible && !widgetsJoined,
+    onShowEventTitle: showEventTitleAboveCurrentDetail,
+  };
+
+  const settingsProps = {
+    // Direct SettingsPanel props:
+    settings: layoutSettings,
+    onChange: setLayoutSettings,
+    collapsed: settingsCollapsed,
+    onToggleCollapse: toggleSettingsPanel,
+    onActiveTabChange: setSettingsActiveTab,
+    playSpeed: playSpeedPercent,
+    onPlaySpeedChange: setPlaySpeedPercent,
+    repeatAnim: delayBetweenEvents,
+    onRepeatAnimChange: setDelayBetweenEvents,
+    delayBetweenRepeats,
+    onDelayBetweenRepeatsChange: setDelayBetweenRepeats,
+    eventTimeTargets,
+    onEventTimeTargetsChange: setEventTimeTargets,
+    animMode,
+    onAnimModeChange: setAnimMode,
+    animStyle,
+    onAnimStyleChange: setAnimStyle,
+    animationReplayPaused,
+    onAnimationReplayPausedChange: setAnimationReplayPaused,
+    eventDurationMode,
+    onEventDurationModeChange: setEventDurationMode,
+    gridOpacity,
+    onGridOpacityChange: setGridOpacity,
+    colorPreset,
+    onColorPresetChange: setColorPreset,
+    customColors,
+    onCustomColorsChange: setCustomColors,
+    cachelineSize,
+    onCachelineSizeChange: setCachelineSize,
+    cachePreset,
+    onCachePresetChange: setCachePreset,
+    heatMapEnabled,
+    onHeatMapToggle: setHeatMapEnabled,
+    cachelineAnnotation,
+    onCachelineAnnotationChange: setCachelineAnnotation,
+    primeOverlayEnabled,
+    onPrimeOverlayToggle: setPrimeOverlayEnabled,
+    rangeOverlayEnabled,
+    rangeOverlayStart,
+    rangeOverlayEnd,
+    onRangeOverlayStartChange: setRangeOverlayStart,
+    onRangeOverlayEndChange: setRangeOverlayEnd,
+    multiplesOverlayEnabled,
+    multiplesOverlayPrime,
+    onMultiplesOverlayPrimeChange: setMultiplesOverlayPrime,
+    showMinimap,
+    onShowMinimapChange: setShowMinimap,
+    depthSettings,
+    onDepthSettingsChange: setDepthSettings,
+    eventTitleSettings,
+    onEventTitleSettingsChange: setEventTitleSettings,
+    outlineSettings: layoutSettings.outlines,
+    isWindowsPlatform,
+    theme,
+    onThemeChange: setTheme,
+    canvasColors,
+    onCanvasColorsChange: setCanvasColors,
+    activeTabRequest: settingsTabRequest,
+    bitAnimationMode,
+    onBitAnimationModeChange: handleBitAnimationModeChange,
+    detailOpen,
+    detailHeight,
+    // Internal-only values consumed by VisualizerPanels to build
+    // overlay-reset handlers (not forwarded to SettingsPanel):
+    steps,
+    currentStep,
+    header,
+    setRangeOverlayEnabled,
+    setRangeOverlayStart,
+    setRangeOverlayEnd,
+    setMultiplesOverlayEnabled,
+    setMultiplesOverlayPrime,
+  };
+
   return (
     <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}`}>
       <Toolbar
@@ -4154,17 +4261,12 @@ export default function Visualizer({
         toggleSettingsPanel={toggleSettingsPanel}
       />
 
-      {exporting && <ExportProgress progress={exportProgress} />}
-      {exportError && (
-        <div className="export-error-banner" role="alert">
-          {exportError}
-        </div>
-      )}
-      {glUnavailable && (
-        <div className="gl-unavailable-banner" role="alert">
-          WebGL2 with OffscreenCanvas is required for rendering. Please use a modern browser (Chrome 69+, Firefox 105+, Edge 79+, or Safari 16.4+).
-        </div>
-      )}
+      <VisualizerAlerts
+        exporting={exporting}
+        exportProgress={exportProgress}
+        exportError={exportError}
+        glUnavailable={glUnavailable}
+      />
 
       {/* Main content — panels float (position:absolute) within this div, which sits
            below the toolbar. overflow:visible so collapsed toggle buttons are not
@@ -4174,33 +4276,12 @@ export default function Visualizer({
         className={`main-content${mode3D ? ' mode-3d' : ''}`}
         style={{ '--events-panel-width': `${eventsPanelCollapsed ? 0 : panelWidth}px` }}
       >
-        <EventsPanel
-          steps={steps}
-          currentStep={currentStep}
-          selectedSteps={selectedSteps}
-          onStepClick={handleStepSelection}
-          onMultiStepSelect={handleMultiStepSelect}
-          onUserScroll={stopPlayback}
-          width={panelWidth}
-          onWidthChange={setPanelWidth}
-          panelCollapsed={eventsPanelCollapsed}
-          onToggleCollapse={toggleEventsPanel}
-          allEventsWidgetHidden={allEventsWidgetHidden || widgetsJoined}
-          onExpandPanelFromWidget={expandEventsPanelFromWidget}
-          onDockWidgetToTopBar={dockEventsWidgetToTopBar}
-          onJoinWidgets={joinWidgets}
-          externalOpFilter={timingFocusOp}
-          onExternalOpFilterConsumed={() => setTimingFocusOp('')}
-          revealStepRequest={revealStepRequest}
-          goToStep={goToStep}
-          playing={playing}
-          handlePlayPause={handlePlayPause}
-          exporting={!!exporting}
-          isScrubbingTopRef={isScrubbingTopRef}
-          playSpeedPercent={playSpeedPercent}
-          setPlaySpeedPercent={setPlaySpeedPercent}
-          eventTitleVisible={eventTitleSettings.visible && !widgetsJoined}
-          onShowEventTitle={showEventTitleAboveCurrentDetail}
+        <VisualizerPanels
+          eventsProps={eventsProps}
+          settingsProps={settingsProps}
+          debugToolsOpen={debugToolsOpen}
+          rendererRef={rendererRef}
+          isMacPlatform={isMacPlatform}
         />
         <CanvasStage
           mode3D={mode3D}
@@ -4289,129 +4370,16 @@ export default function Visualizer({
             onHideWidget={hideJoinedWidget}
           />
         )}
-        <SettingsPanel
-          settings={layoutSettings}
-          onChange={setLayoutSettings}
-          collapsed={settingsCollapsed}
-          onToggleCollapse={toggleSettingsPanel}
-          onActiveTabChange={setSettingsActiveTab}
-          playSpeed={playSpeedPercent}
-          onPlaySpeedChange={setPlaySpeedPercent}
-          repeatAnim={delayBetweenEvents}
-          onRepeatAnimChange={setDelayBetweenEvents}
-          delayBetweenRepeats={delayBetweenRepeats}
-          onDelayBetweenRepeatsChange={setDelayBetweenRepeats}
-          eventTimeTargets={eventTimeTargets}
-          onEventTimeTargetsChange={setEventTimeTargets}
-          animMode={animMode}
-          onAnimModeChange={setAnimMode}
-          animStyle={animStyle}
-          onAnimStyleChange={setAnimStyle}
-          animationReplayPaused={animationReplayPaused}
-          onAnimationReplayPausedChange={setAnimationReplayPaused}
-          eventDurationMode={eventDurationMode}
-          onEventDurationModeChange={setEventDurationMode}
-          gridOpacity={gridOpacity}
-          onGridOpacityChange={setGridOpacity}
-          colorPreset={colorPreset}
-          onColorPresetChange={setColorPreset}
-          customColors={customColors}
-          onCustomColorsChange={setCustomColors}
-          cachelineSize={cachelineSize}
-          onCachelineSizeChange={setCachelineSize}
-          cachePreset={cachePreset}
-          onCachePresetChange={setCachePreset}
-          heatMapEnabled={heatMapEnabled}
-          onHeatMapToggle={setHeatMapEnabled}
-          cachelineAnnotation={cachelineAnnotation}
-          onCachelineAnnotationChange={setCachelineAnnotation}
-          primeOverlayEnabled={primeOverlayEnabled}
-          onPrimeOverlayToggle={setPrimeOverlayEnabled}
-          rangeOverlayEnabled={rangeOverlayEnabled}
-          rangeOverlayStart={rangeOverlayStart}
-          rangeOverlayEnd={rangeOverlayEnd}
-          onRangeOverlayToggle={(enabled) => {
-            if (enabled && !rangeOverlayEnabled) {
-              const step = steps[currentStep];
-              if (step) {
-                const start = step.focusStart != null ? step.focusStart : (step.changedBits.length > 0 ? Math.min(...step.changedBits) : 0);
-                const end = step.focusStop != null ? step.focusStop : (step.changedBits.length > 0 ? Math.max(...step.changedBits) : Math.max(0, header.bitCount - 1));
-                setRangeOverlayStart(start);
-                setRangeOverlayEnd(end);
-              }
-            }
-            setRangeOverlayEnabled(enabled);
-          }}
-          onRangeOverlayStartChange={setRangeOverlayStart}
-          onRangeOverlayEndChange={setRangeOverlayEnd}
-          multiplesOverlayEnabled={multiplesOverlayEnabled}
-          multiplesOverlayPrime={multiplesOverlayPrime}
-          onMultiplesOverlayToggle={(enabled) => {
-            if (enabled && !multiplesOverlayEnabled) {
-              const step = steps[currentStep];
-              if (step && step.prime != null && step.prime >= 2) {
-                setMultiplesOverlayPrime(step.prime);
-              }
-            }
-            setMultiplesOverlayEnabled(enabled);
-          }}
-          onMultiplesOverlayPrimeChange={setMultiplesOverlayPrime}
-          onRangeOverlayReset={() => {
-            const step = steps[currentStep];
-            if (step) {
-              const start = step.focusStart != null ? step.focusStart : (step.changedBits.length > 0 ? Math.min(...step.changedBits) : 0);
-              const end = step.focusStop != null ? step.focusStop : (step.changedBits.length > 0 ? Math.max(...step.changedBits) : Math.max(0, header.bitCount - 1));
-              setRangeOverlayStart(start);
-              setRangeOverlayEnd(end);
-            }
-          }}
-          onMultiplesOverlayReset={() => {
-            const step = steps[currentStep];
-            if (step && step.prime != null && step.prime >= 2) {
-              setMultiplesOverlayPrime(step.prime);
-            }
-          }}
-          showMinimap={showMinimap}
-          onShowMinimapChange={setShowMinimap}
-          minimapControlVisible={true}
-          depthSettings={depthSettings}
-          onDepthSettingsChange={setDepthSettings}
-          eventTitleSettings={eventTitleSettings}
-          onEventTitleSettingsChange={setEventTitleSettings}
-          outlineSettings={layoutSettings.outlines}
-          onOutlineChange={(outlines) => setLayoutSettings((prev) => ({ ...prev, outlines }))}
-          isWindowsPlatform={isWindowsPlatform}
-          showAnimationControls={true}
-          theme={theme}
-          onThemeChange={(t) => setTheme(t)}
-          canvasColors={canvasColors}
-          onCanvasColorsChange={setCanvasColors}
-          activeTabRequest={settingsTabRequest}
-          bitAnimationMode={bitAnimationMode}
-          onBitAnimationModeChange={handleBitAnimationModeChange}
-          detailOpen={detailOpen}
-          detailHeight={detailHeight}
-        />
-        {debugToolsOpen && (
-          <DebugToolsPanel
-            rendererRef={rendererRef}
-            rightOffset={settingsCollapsed ? 8 : (isMacPlatform ? 388 : 328)}
-          />
-        )}
       </div>
       {/* Minimap overlay — rendered OUTSIDE .main-content so it is never
           trapped inside the canvas-container stacking context
           (transform-style:preserve-3d). position:fixed + z-index:35 then
           places it above all floating panels (z-index:28) and the detail
           panel (document order) in the root stacking context. */}
-      <canvas
-        ref={minimapCanvasRef}
-        className="minimap-overlay-canvas"
-        aria-hidden="true"
-      />
-      <KeyboardShortcutsOverlay
-        open={showShortcutsHelp}
-        onClose={() => setShowShortcutsHelp(false)}
+      <VisualizerOverlays
+        minimapCanvasRef={minimapCanvasRef}
+        showShortcutsHelp={showShortcutsHelp}
+        onCloseShortcuts={() => setShowShortcutsHelp(false)}
       />
     </div>
   );

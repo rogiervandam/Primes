@@ -77,8 +77,8 @@ src/
 ├── visualizer/           Pieces extracted from Visualizer.jsx
 │   ├── Toolbar.jsx               Top toolbar (transport + actions)
 │   ├── TraceInfoPopover.jsx      Storage model + parsed header sections
-│   ├── ExportProgress.jsx        Slim progress bar during video export
-│   ├── DebugToolsPanel.jsx       Toolbar-toggled FPS/render timing window
+│   ├── ExportProgress.jsx        Slim progress bar during video export (used by VisualizerAlerts)
+│   ├── DebugToolsPanel.jsx       Toolbar-toggled FPS/render timing window (used by VisualizerPanels)
 │   ├── CanvasStage.jsx           Canvas area + overlays + balloons + panels
 │   ├── BitHistoryBalloon.jsx     Hover/pinned bit-history popover
 │   ├── BitHistoryBalloons.jsx    Pinned + hover bit-history cluster + SVG connectors
@@ -86,6 +86,9 @@ src/
 │   ├── JoinedEventsWidget.jsx    Combined transport+event banner widget (join/split mode)
 │   ├── DetailInspectorOverlay.jsx Modal table of bits / numbers / primes
 │   ├── StepAnimSliders.jsx       Mode/Timeline/Target/Speed sliders cluster
+│   ├── VisualizerAlerts.jsx      Export progress/error + GL-unavailable banners (Phase 1)
+│   ├── VisualizerOverlays.jsx    Fixed-position overlays: minimap canvas + shortcuts modal (Phase 1)
+│   ├── VisualizerPanels.jsx      EventsPanel + SettingsPanel + DebugToolsPanel composition (Phase 2)
 │   └── gestures/             Pure gesture-body helpers
 │       ├── pan.js                2D pan handler
 │       ├── rotate.js             3D mouse-rotate handler (returns {startX,startY})

@@ -72,13 +72,56 @@ Popover anchored beneath the trace title showing the storage-model selector and 
 When `rawSource` is supplied, a "View raw log" button appears. Clicking it opens a draggable, resizable dialog with a line-numbered monospace view of the original file. The dialog can be dragged by its header bar and resized via the bottom-right handle. Lines whose content matches a step's `annotation` (text-format traces) are highlighted; clicking such a line number closes the viewer, calls `onJumpToStep(stepIndex)`, and opens the events panel scrolled to that step. A "Copy all" button copies the source to clipboard. The dialog closes with Escape or the ✕ button. Props threaded: `Visualizer` (computes `lineToStep` map + `onJumpToStep` callback) → `Toolbar` → `TraceInfoPopover`.
 
 ### `ExportProgress.jsx`
-Slim progress bar shown beneath the toolbar while `MediaRecorder` is exporting a WebM. Just renders `width: ${progress}%`.
+Slim progress bar shown beneath the toolbar while `MediaRecorder` is exporting a WebM. Just renders `width: ${progress}%`. Consumed by `VisualizerAlerts`.
+
+### `VisualizerAlerts.jsx`
+Phase 1 extraction from `Visualizer.jsx`. Renders the three alert/status
+elements positioned directly below the toolbar:
+- slim export-progress bar (`<ExportProgress>`, shown while `exporting` is truthy)
+- export-error banner (`.export-error-banner`, shown when `exportError` is set)
+- GL-unavailable banner (`.gl-unavailable-banner`, shown when `glUnavailable` is true)
+
+Props: `exporting`, `exportProgress`, `exportError`, `glUnavailable`. State
+remains in `Visualizer.jsx`.
+
+### `VisualizerOverlays.jsx`
+Phase 1 extraction from `Visualizer.jsx`. Renders fixed-position overlays that
+must live **outside** `.main-content` to avoid being trapped in the
+`transform-style:preserve-3d` stacking context:
+- minimap overlay canvas (`<canvas className="minimap-overlay-canvas">`)
+- keyboard-shortcuts modal (`<KeyboardShortcutsOverlay>`)
+
+Props: `minimapCanvasRef`, `showShortcutsHelp`, `onCloseShortcuts`. Refs and
+state remain in `Visualizer.jsx`.
+
+### `VisualizerPanels.jsx`
+Phase 2 extraction from `Visualizer.jsx`. Renders the three side-panel children
+of `.main-content` as a React Fragment (all are `position:absolute` so document
+order does not affect visual layout):
+- `EventsPanel` — receives `eventsProps` spread directly
+- `SettingsPanel` — receives `panelSettingsProps` (spread from `settingsProps`
+  minus internal-only keys) plus four local overlay-reset handlers
+- `DebugToolsPanel` — conditional on `debugToolsOpen`
+
+Props:
+- `eventsProps` — grouped object forwarded verbatim to `EventsPanel`
+- `settingsProps` — grouped object; internal-only keys (`steps`, `currentStep`,
+  `header`, `setRangeOverlayEnabled`, `setRangeOverlayStart`,
+  `setRangeOverlayEnd`, `setMultiplesOverlayEnabled`,
+  `setMultiplesOverlayPrime`) are destructured and used by local handlers; the
+  rest is spread to `SettingsPanel`
+- `debugToolsOpen`, `rendererRef`, `isMacPlatform` — for `DebugToolsPanel`
+
+Inline lambdas moved here from `Visualizer.jsx`: `handleRangeOverlayToggle`,
+`handleRangeOverlayReset`, `handleMultiplesOverlayToggle`,
+`handleMultiplesOverlayReset`, `handleOutlineChange`.
 
 ### `DebugToolsPanel.jsx`
 Small upper-right debug window toggled by the toolbar toolkit icon. It reads
 `rendererRef.current.getPerformanceSnapshot()` every 250 ms and shows FPS,
 average frame time, latest frame time, and the 60-sample frame chart as React UI
 outside the canvas/3D plane. It is default-off and currently not persisted.
+Now rendered by `VisualizerPanels` instead of directly by `Visualizer.jsx`.
 
 ### `BitHistoryBalloon.jsx`
 Floating popover showing a bit's identity (number, byte, word, qword, cache line) and modification history. Used in two modes:
