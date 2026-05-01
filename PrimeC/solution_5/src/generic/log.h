@@ -51,6 +51,9 @@
 #endif
 
 #define log(level, ...) PRIMES_LOG_DISPATCH(level, __VA_ARGS__)
+#define log1(...) verbose(1, printf(__VA_ARGS__))
+#define log2(...) verbose(2, printf(__VA_ARGS__))
+#define log3(...) verbose(3, printf(__VA_ARGS__))
 #define log4(...) verbose(4, printf(__VA_ARGS__))
 #define log5(...) PRIMES_LOG_DISPATCH(5, __VA_ARGS__)
 #define log6(...) PRIMES_LOG_DISPATCH(6, __VA_ARGS__)
@@ -69,8 +72,8 @@
           timer_lapstart(timer);
 
 #define logStop(level, bitstorage, timer, printf_args...) \
-          { if (option.trace_level >= level) log_event(level, bitstorage, timer_function_names[timer], timer_laptime_function(timer), printf_args); } \
-          { if (option.trace_level >= level) primes_trace_clear_context(); }
+          { if (option.trace_level >= level) log_event(((level)+1), bitstorage, timer_function_names[timer], timer_laptime_function(timer), printf_args);  \
+            if (option.trace_level >= level) primes_trace_clear_context(); }
 
 #ifndef COMPILE_TRACE
   #undef logStart
@@ -123,7 +126,7 @@ log_event_functionid(int level, void* bitstorage, function_id_t function_id, con
 #define COLLECT_ARGS(string, maxlength, fmt, args) \
     char string[maxlength]; va_list args; va_start(args, fmt); vsnprintf(string, sizeof(string), fmt, args); va_end(args);
 
-    static void
+static void
 log_text(int level, const char* label, const char* fmt, ...)
 {
     COLLECT_ARGS(annotation, 1024, fmt, args);
@@ -226,7 +229,7 @@ log_mask(int level, void* bitstorage, const char* label, uint64_t word_bits,
 
     snprintf(annotation, sizeof(annotation),
              "%s: word_bits=%ju word_start=%ju word_stop=%ju step_words=%ju %s focus_start=%ju focus_stop=%ju bitrange=%ju-%ju",
-             s_opnames[mask_slot_count],
+             label,//s_opnames[mask_slot_count],
              (uintmax_t)word_bits, (uintmax_t)range_start_index, (uintmax_t)range_stop_index, (uintmax_t)step,
              mask_part,
              (uintmax_t)(range_start_index * word_bits), (uintmax_t)((range_stop_index + 1) * word_bits - 1),

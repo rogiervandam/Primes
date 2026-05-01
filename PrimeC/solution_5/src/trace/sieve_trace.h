@@ -187,7 +187,7 @@ primes_trace_set_context(int level)
     if (g_trace.depth_sp < 16) {
         g_trace.prev_depths[g_trace.depth_sp++] = g_trace.depth;
     }
-    g_trace.depth = level;
+    g_trace.depth = level-4; // TODO: check if this works
 }
 
 /* Clear the analysis context (called from TRACE_ANALYSIS_END macro) */
@@ -293,7 +293,7 @@ trace_record_event_full(int level, const void* bitstorage, const char* label, do
     const char* event_label = trace_optional_label(label);
 
     fputs("EVENT", g_trace.file);
-    if (g_trace.depth > 0) fprintf(g_trace.file, " depth=%d", g_trace.depth);
+    if (g_trace.depth > 0) fprintf(g_trace.file, " depth=%d", level-4);
     if (level > 0) fprintf(g_trace.file, " level=%d", level);
     if (event_label) {
         fputs(" function=", g_trace.file);
@@ -359,7 +359,7 @@ trace_record_applymask_step_labeled(int level, void* bitstorage,
     const counter_t bit_step = step_words * word_bits;
 
     fputs("EVENT", g_trace.file);
-    if (g_trace.depth > 0) fprintf(g_trace.file, " depth=%d", g_trace.depth);
+    if (g_trace.depth > 0) fprintf(g_trace.file, " depth=%d", level-4);
     if (level > 0) fprintf(g_trace.file, " level=%d", level);
     if (event_label) {
         fputs(" function=", g_trace.file);
@@ -435,7 +435,8 @@ trace_record_text_full(int level, const char* label, const char* annotation)
     fputs("TEXT", g_trace.file);
     // if (g_trace.depth > 0) fprintf(g_trace.file, " depth=%d", g_trace.depth);
     // if (level > 0) fprintf(g_trace.file, " level=%d", level);
-    if (level > 0) fprintf(g_trace.file, " depth=%d level=%d", level, level);
+    // if (level > 0) fprintf(g_trace.file, " depth=%d level=%d", level, level);
+    if (level > 0) fprintf(g_trace.file, " depth=%d level=%d", level-4, level);
 
     if (event_label) {
         fputs(" function=", g_trace.file);

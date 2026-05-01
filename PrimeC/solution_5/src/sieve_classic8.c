@@ -5,7 +5,6 @@
 
 static char algorithm_name[] = "rogiervandam_classic8bit";
 static char algorithm_type[] = "base";
-// #define ALGORITHM_CLASSIC 1
 
 // include helper functions
 #include "benchmark/sieve_options.h"
