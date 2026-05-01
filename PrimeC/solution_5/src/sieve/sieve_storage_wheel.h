@@ -9,8 +9,11 @@
     #include "../bitstorage/bitstorage_search.h"
     #include "../bitstorage/bitstorage_setBitsTrue.h"
 
-    #define wheelvariant _uint8
-    #define wheelmask_t uint8_t
+    #define wheelvariant uint64
+    #define wheelvariant_suffix NAME(_,wheelvariant)
+    #define wheelmask_t NAME(wheelvariant, _t)
+    #define unroll_suffix NAME(_unroll,4)
+    #define wheelvariant_unroll_suffix NAME(wheelvariant_suffix, unroll_suffix)
 
     #define WHEEL_STORAGE_2OF6        2
     #define WHEEL_STORAGE_8OF30       3
@@ -37,7 +40,7 @@
         #define WHEEL_STRIPES 8
         #define WHEEL_REPEATS 1
         #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
-        #define WHEEL_STRIPE_BYTES (((WHEEL_STRIPES * WHEEL_REPEATS) - 1) / 8 + 1)
+        #define WHEEL_STRIPE_BYTES (bitcount_type(wheelmask_t)/8)   //(((WHEEL_STRIPES * WHEEL_REPEATS) - 1) / 8 + 1)
         #define WHEEL_STRIPE_BITS  ((WHEEL_STRIPE_BYTES) * 8) // this can be more than stripe count and is used for alignment
     // #endif
 
@@ -309,18 +312,18 @@
             // function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), bucket_stop, wheel_step, markmask);
 
             // 84k
-            const counter_t wheel_index = index % WHEEL_SIZE;
-            const bitbucket_t markmask = wheelmask_compressed[ wheel_index ];
-            if (markmask) {
-                counter_t bucket_start = (wheelmask_stripe_bits <= bitcount_type(bitbucket_t)) 
-                        ? index_type(( index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t)
-                        : index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index] - 1, bitbucket_t);
+            // const counter_t wheel_index = index % WHEEL_SIZE;
+            // const bitbucket_t markmask = wheelmask_compressed[ wheel_index ];
+            // if (markmask) {
+            //     counter_t bucket_start = (wheelmask_stripe_bits <= bitcount_type(bitbucket_t)) 
+            //             ? index_type(( index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t)
+            //             : index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index] - 1, bitbucket_t);
                 
-                log7("Marking: Marking index %ju in factorrange (%ju-%ju) with step %ju with markmask %ju at bucket start %ju bucket stop %ju with wheelstep %ju prime %ju\n", 
-                    (uintmax_t)index, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)step, (uintmax_t)markmask, (uintmax_t)bucket_start, (uintmax_t)bucket_stop, (uintmax_t)wheel_step, (uintmax_t)step/2);
-                // applyMask_index_uint8_unroll8(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
-                function(applyMask_index, suffix)(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
-            }
+            //     log7("Marking: Marking index %ju in factorrange (%ju-%ju) with step %ju with markmask %ju at bucket start %ju bucket stop %ju with wheelstep %ju prime %ju\n", 
+            //         (uintmax_t)index, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)step, (uintmax_t)markmask, (uintmax_t)bucket_start, (uintmax_t)bucket_stop, (uintmax_t)wheel_step, (uintmax_t)step/2);
+            //     // applyMask_index_uint8_unroll8(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
+            //     function(applyMask_index, suffix)(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
+            // }
 
             // const counter_t wheel_bit = wheel_bit_calc(index);
             // const counter_t wheel_index = index % WHEEL_SIZE;
@@ -344,25 +347,25 @@
             // function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), bucket_stop, wheel_step, markmask);
             // // function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), index_type(wheel_bit, bitbucket_t), wheel_step, markmask);
 
-            // const counter_t wheel_index = index % WHEEL_SIZE;
-            // const counter_t wheel_bit = wheel_bit_calc(index);
-            // if (wheel_bit >= 0) { // if the number is divisible by any of the wheel primes, skip it
-            //     const bitbucket_t markmask = markmask_type(wheel_bit, bitbucket_t);
-            //     // const bitbucket_t markmask = wheelmask_compressed[ wheel_index ];
-            //     if (markmask) {
-            //         // counter_t bucket_start = (wheelmask_stripe_bits <= bitcount_type(bitbucket_t)) 
-            //         //         ? index_type(( index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t)
-            //         //         : index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index] - 1, bitbucket_t);
+            const counter_t wheel_index = index % WHEEL_SIZE;
+            const counter_t wheel_bit = wheel_bit_calc(index);
+            if (wheel_bit >= 0) { // if the number is divisible by any of the wheel primes, skip it
+                const bitbucket_t markmask = markmask_type(wheel_bit, bitbucket_t);
+                // const bitbucket_t markmask = wheelmask_compressed[ wheel_index ];
+                if (markmask) {
+                    // counter_t bucket_start = (wheelmask_stripe_bits <= bitcount_type(bitbucket_t)) 
+                    //         ? index_type(( index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t)
+                    //         : index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index] - 1, bitbucket_t);
 
-            //         // counter_t bucket_start = index_type((wheelmask_stripe_bits * (index / WHEEL_SIZE) ), bitbucket_t);
-            //         counter_t bucket_start = index_type(wheel_bit, bitbucket_t);
+                    // counter_t bucket_start = index_type((wheelmask_stripe_bits * (index / WHEEL_SIZE) ), bitbucket_t);
+                    counter_t bucket_start = index_type(wheel_bit, bitbucket_t);
                     
-            //         log7("Marking: Marking index %ju in factorrange (%ju-%ju) with step %ju with markmask %ju at bucket start %ju bucket stop %ju with wheelstep %ju prime %ju\n", 
-            //             (uintmax_t)index, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)step, (uintmax_t)markmask, (uintmax_t)bucket_start, (uintmax_t)bucket_stop, (uintmax_t)wheel_step, (uintmax_t)step/2);
-            //         // applyMask_index_uint8_unroll8(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
-            //         function(applyMask_index, suffix)(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
-            //     }
-            // }
+                    log7("Marking: Marking index %ju in factorrange (%ju-%ju) with step %ju with markmask %ju at bucket start %ju bucket stop %ju with wheelstep %ju prime %ju\n", 
+                        (uintmax_t)index, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)step, (uintmax_t)markmask, (uintmax_t)bucket_start, (uintmax_t)bucket_stop, (uintmax_t)wheel_step, (uintmax_t)step/2);
+                    // applyMask_index_uint8_unroll8(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
+                    function(applyMask_index, suffix)(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
+                }
+            }
         } 
         logStop6(sieve->bitstorage, time_markFactors_wheelstorage_repeat, "MarkingEnd: finished setting factors\n");
     }
@@ -470,14 +473,14 @@
         // markFactors_wheelstorage_norepeat(sieve, start, stop, step); return;
         // markFactors_wheelstorage_repeat_uint16_unroll8(sieve, start, stop, step); return;
         
-        if (prime < global_stripeprime_faster ) {
-            // markFactors_wheelstorage_small_repeat_pair_vector_uint64v4_unroll4(sieve, start, stop, step);
-            markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
-            // markFactors_wheelstorage_small_repeat_uint64_unroll8(sieve, start, stop, step);
-        }
-        else 
-        markFactors_wheelstorage_repeat_uint8_unroll8(sieve, start, stop, step);
-        // markFactors_wheelstorage_repeat_uint8(sieve, start, stop, step);
+        // if (prime < global_stripeprime_faster ) {
+        //     // markFactors_wheelstorage_small_repeat_pair_vector_uint64v4_unroll4(sieve, start, stop, step);
+        //     markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
+        //     // markFactors_wheelstorage_small_repeat_uint64_unroll8(sieve, start, stop, step);
+        // }
+        // else 
+        // markFactors_wheelstorage_repeat_uint8_unroll8(sieve, start, stop, step);
+        function(markFactors_wheelstorage_repeat, wheelvariant_unroll_suffix)(sieve, start, stop, step);
         // markFactors_wheelstorage_norepeat(sieve, start, stop, step);
         // TRACE_ANALYSIS_END();
     }
