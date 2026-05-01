@@ -622,11 +622,33 @@ if [ "$CHAIN" = "chain" ]; then
         echo -e "Starting native app with ${CYELLOW}${CHAIN_FILE_PARAM}${CRESET}..."
         (cd web-visualizer && npx electron . "${CHAIN_TRACE_ABS}")
     else
-        CHAIN_URL="http://localhost:5173/?file=${CHAIN_FILE_PARAM}"
-        (cd web-visualizer && npx vite) &
+        # Start Vite dev server in background and capture output to find port
+        VITE_LOG="web-visualizer/vite.log"
+        (cd web-visualizer && npx vite > "../$VITE_LOG" 2>&1) &
         VITE_PID=$!
-        sleep 3
-        (wslview "$CHAIN_URL" || xdg-open "$CHAIN_URL" || open "$CHAIN_URL" || sensible-browser "$CHAIN_URL") 2>/dev/null || \
+        
+        # Wait for Vite to start and output the port
+        echo -n "Waiting for Vite to start..."
+        MAX_WAIT=10
+        DETECTED_PORT=""
+        for i in $(seq 1 $MAX_WAIT); do
+            sleep 1
+            echo -n "."
+            DETECTED_PORT=$(grep -oE 'http://localhost:[0-9]+' "$VITE_LOG" | head -1 | cut -d':' -f3)
+            if [ -n "$DETECTED_PORT" ]; then
+                break
+            fi
+        done
+        echo ""
+
+        if [ -z "$DETECTED_PORT" ]; then
+            DETECTED_PORT="5173"
+            echo -e "Vite port not detected, falling back to ${CYELLOW}$DETECTED_PORT${CRESET}"
+        fi
+
+        CHAIN_URL="http://localhost:${DETECTED_PORT}/?file=${CHAIN_FILE_PARAM}"
+        sleep 1
+        (wslview "$CHAIN_URL" || xdg-open "$CHAIN_URL" || open "$CHAIN_URL" || sensible-browser "$URL") 2>/dev/null || \
             echo -e "Open ${CCYAN}${CHAIN_URL}${CRESET} in your browser."
         echo -e "Visualizer running at ${CCYAN}${CHAIN_URL}${CRESET}"
         echo "Press Ctrl+C to stop."
@@ -961,12 +983,32 @@ if [ "$VISUALIZE" = "visualize" ]; then
             echo -e "Starting native app..."
             (cd web-visualizer && npx electron . "$TRACE_PATH")
         else
-            URL="http://localhost:5173/?file=${FILE_PARAM}"
-
-            # Start Vite dev server in background
-            (cd web-visualizer && npx vite) &
+            # Start Vite dev server in background and capture output to find port
+            VITE_LOG="web-visualizer/vite_visualize.log"
+            (cd web-visualizer && npx vite > "../$VITE_LOG" 2>&1) &
             VITE_PID=$!
-            sleep 3
+            
+            # Wait for Vite to start and output the port
+            echo -n "Waiting for Vite to start..."
+            MAX_WAIT=10
+            DETECTED_PORT=""
+            for i in $(seq 1 $MAX_WAIT); do
+                sleep 1
+                echo -n "."
+                DETECTED_PORT=$(grep -oE 'http://localhost:[0-9]+' "$VITE_LOG" | head -1 | cut -d':' -f3)
+                if [ -n "$DETECTED_PORT" ]; then
+                    break
+                fi
+            done
+            echo ""
+
+            if [ -z "$DETECTED_PORT" ]; then
+                DETECTED_PORT="5173"
+                echo -e "Vite port not detected, falling back to ${CYELLOW}$DETECTED_PORT${CRESET}"
+            fi
+
+            URL="http://localhost:${DETECTED_PORT}/?file=${FILE_PARAM}"
+            sleep 1
 
             # Try to open browser
             (wslview "$URL" || xdg-open "$URL" || open "$URL" || sensible-browser "$URL") 2>/dev/null || \
