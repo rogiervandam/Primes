@@ -21,6 +21,10 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 - Bit-history balloons now draw a soft curved connector between the visible bit
   edge and the nearest measured balloon edge. The obsolete hover mouse-position
   state was removed because balloons are anchored from renderer bit geometry.
+- Log level filter options renamed to "level N (LN)" format for clarity (e.g. "Up to level 5 (L5)").
+- Events panel indentation whitespace reduced: base padding decreased from 8px to 6px, per-level step from 14px to 10px; `.event-child` extra padding removed (was 24px).
+- Timeline slider row `min-height` set to 28px and wrapper height increased to 28px to better match topbar btn-icon row height.
+- "View raw log" button added to the trace info popover (click the trace title). Opens a draggable, resizable dialog with line-numbered monospace view of the original file. Linked line numbers (matching events in the trace) are highlighted in accent color; clicking one closes the viewer, navigates to that step, and opens the events panel. A "Copy all" button copies the raw source to clipboard.
 
 ## Open
 
@@ -31,7 +35,6 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
   light/dark themes, and high zoom.
 - When pushing the joined widget into the detail panel, also bring all-events
   controls and the all-events timeline into the detail panel.
-- When pushing the all event widget in the detaiil panel, also bring all-events controls and the all-events timeline into the detail panel.
 - Make visualizer items related to overlays or animations clickable shortcuts.
   Clicking a bit-state legend/color item should let the user choose that state's
   color.
@@ -41,11 +44,18 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
   sizes, bit count, current render cadence, and context-loss recovery state.
 - Make the debug tools window draggable or pinnable only if it starts competing
   with settings/detail/sidebar workflows.
-- Make the timeline sliders and buttons in the side panels a little bit bigger so that they are the same as the timeline slader and controls in the top bar.
-- make an option to show the original logfile as plain text. Should be accessed though the top file details.
-- rename the loglevel options to e.g. "level 5 (L5)"
-- in the events panel, the collapsing takes too much space. 
-
+- Put the raw log viewer in the top of the window, not at the bottom. 
+- The balloons and connectors must not cover or be under any panel. Don't show them in that case.
+- In the details panel, when hovering over labels immediately expand them so i can read them fully if cut off
+- can't use the grid opacity slider when animating
+- when i select e.g. "collapse at L9" while i have open e.g. "collapse at L5" (so a lower number), i expect all the other levels 1-8 to be open
+- On aggregate events, i still want to read the original annotation too
+- automatically get the storage model from the log
+- 
+- 
+- 
+- 
+- 
 
 ## New Ideas
 

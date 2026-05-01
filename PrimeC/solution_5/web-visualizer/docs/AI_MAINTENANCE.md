@@ -131,6 +131,19 @@ lowered-cell geometry, and rise-and-settle animation offsets. Worker context-los
 recovery and a worker parity harness exist. The FPS/debug UI is a React window
 outside the 3D/canvas plane, toggled by a toolkit icon and defaulting to hidden.
 
+**State texture format (important):** The per-bit state byte is stored in an
+`RGBA8` texture (`gl.RGBA8`, sampler type `sampler2D`) — **not** an integer
+texture. The state byte lives in the `.r` channel (normalized 0-1); the VS
+decodes it with `uint(round(r * 255.0))`. Integer textures (`R8UI`/`usampler2D`)
+cause `GL_INVALID_OPERATION` (error 1282) from `texSubImage2D` in OffscreenCanvas
+WebGL2, even though the parameters are spec-valid. Using `RGBA8` avoids this
+entirely. State is expanded from a 1-byte-per-slot `Uint8Array` to 4-bytes-per-slot
+(`RGBA`) in `uploadStateBuffer()` before upload.
+
+**Tint alpha values:** PRIME=0.38 (gold 251,191,36), RANGE=0.42 (cyan 34,211,238),
+MULT=0.40 (purple 167,139,250), FOCUS=0.16 (blue 96,165,250). All eight state bits
+are currently used (set/changed/ghost/repeated/prime/range/multiples/focus).
+
 Left to do:
 
 - Run `parity.html` after shader, packing, or state-texture changes.
@@ -139,7 +152,8 @@ Left to do:
 - Consider partial `texSubImage2D` updates only after profiling shows full state
   repacks are a real bottleneck at large bit counts.
 - If adding new per-bit GL state, plan the texture protocol first. The current
-  `R8UI` state byte is fully allocated.
+  state byte is fully allocated (8/8 bits used). Extending will require a second
+  state texture or a wider format such as RGBA8 with multiple channels.
 
 ### 4. Preserve Playback And Animation Correctness
 
@@ -208,7 +222,15 @@ Left to do:
 
 Done: settings tabs are split; preview-style option buttons are used broadly;
 legend overlay/animation rows are clickable; color presets include more engaging
-schemes; canvas background colors are persisted per theme.
+schemes; canvas background colors are persisted per theme. Log level filter
+options renamed to "level N (LN)" format (e.g. "Up to level 5 (L5)") for
+clarity; events panel indentation whitespace reduced (base 6px, 10px per level);
+`.event-child` extra 24px padding removed so first-level items are nearly flush.
+Timeline slider row `min-height` and wrapper height increased to 28px to better
+match the topbar's visual weight. "View raw log" dialog is now draggable,
+resizable, and line-numbered; lines matching events have clickable line-numbers
+that navigate to that step in the events panel (`lineToStep` map in Visualizer,
+`onJumpToStep` callback threaded through Toolbar into TraceInfoPopover).
 
 Left to do:
 

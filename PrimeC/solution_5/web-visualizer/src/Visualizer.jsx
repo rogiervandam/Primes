@@ -120,6 +120,7 @@ function getProjectedCanvasMapper(canvasEl) {
 export default function Visualizer({
   trace,
   fileName,
+  rawSource,
   benchmarkTimingData,
   benchmarkTimingFileName,
   onImportBenchmarkTiming,
@@ -132,6 +133,48 @@ export default function Visualizer({
     () => buildTraceInfoSections(header, fileName),
     [header, fileName],
   );
+
+  // Map raw-source line indices to step indices.
+  // Handles both plain-text traces (annotation IS the raw line) and KV-format
+  // traces (annotation="..." is embedded inside a longer EVENT/TEXT line).
+  const lineToStep = useMemo(() => {
+    if (!rawSource || !steps.length) return {};
+    const rawLines = rawSource.split(/\r?\n/);
+    const map = {};
+    const usedLines = new Set();
+    for (let s = 0; s < steps.length; s++) {
+      const ann = (steps[s].annotation || '').trim();
+      if (!ann) continue;
+      for (let l = 0; l < rawLines.length; l++) {
+        if (usedLines.has(l)) continue;
+        const raw = rawLines[l];
+        // Plain-text match: the whole line IS the annotation
+        if (raw.trim() === ann) {
+          map[l] = s;
+          usedLines.add(l);
+          break;
+        }
+        // KV-format match: extract annotation="..." value from the line
+        const kvMatch = raw.match(/\bannotation="([^"]*)"/);
+        if (kvMatch && kvMatch[1].trim() === ann) {
+          map[l] = s;
+          usedLines.add(l);
+          break;
+        }
+      }
+    }
+    return map;
+  }, [rawSource, steps]);
+
+  // Inverted map: step index → raw-source line index (first matching line).
+  const stepToLine = useMemo(() => {
+    const m = {};
+    for (const [lineStr, stepIdx] of Object.entries(lineToStep)) {
+      const lineNum = Number(lineStr);
+      if (!(stepIdx in m)) m[stepIdx] = lineNum;
+    }
+    return m;
+  }, [lineToStep]);
 
   const canvasRef = useRef(null);
   const settledCanvasRef = useRef(null);
@@ -819,7 +862,9 @@ export default function Visualizer({
     const handleClickOutside = (e) => {
       const clickedInside = traceInfoPopoverRef.current && traceInfoPopoverRef.current.contains(e.target);
       const clickedTitle = traceInfoToggleRef.current && traceInfoToggleRef.current.contains(e.target);
-      if (!clickedInside && !clickedTitle) setShowTraceInfo(false);
+      // Clicks within the detail panel may legitimately open the raw log — don't close.
+      const clickedDetailPanel = e.target && typeof e.target.closest === 'function' && e.target.closest('.detail-panel');
+      if (!clickedInside && !clickedTitle && !clickedDetailPanel) setShowTraceInfo(false);
     };
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
@@ -1481,6 +1526,21 @@ export default function Visualizer({
   // can call the latest goToStep without listing it in their dep arrays.
   const goToStepRef = useRef(null);
   goToStepRef.current = goToStep;
+
+  // Called from the raw log viewer: close the popover, navigate, open events panel.
+  const onJumpToStep = useCallback((stepIndex) => {
+    setShowTraceInfo(false);
+    goToStep(stepIndex);
+    revealCurrentStepInPanel();
+  }, [goToStep, revealCurrentStepInPanel, setShowTraceInfo]);
+
+  // Used by the Detail Panel "Source" link: open trace-info popover + raw log at a specific line.
+  const [rawScrollToLine, setRawScrollToLine] = useState(null);
+  const onClearRawScrollToLine = useCallback(() => setRawScrollToLine(null), []);
+  const onOpenRawLog = useCallback((lineIdx) => {
+    setShowTraceInfo(true);
+    setRawScrollToLine(lineIdx);
+  }, [setShowTraceInfo]);
 
   const cancelViewportAnimation = useCallback(() => {
     if (viewportAnimRef.current) {
@@ -4004,6 +4064,11 @@ export default function Visualizer({
         setStorageModel={setStorageModel}
         header={header}
         traceInfoSections={traceInfoSections}
+        rawSource={rawSource}
+        lineToStep={lineToStep}
+        onJumpToStep={onJumpToStep}
+        rawScrollToLine={rawScrollToLine}
+        onClearRawScrollToLine={onClearRawScrollToLine}
         onClose={onClose}
         steps={steps}
         currentStep={currentStep}
@@ -4156,6 +4221,8 @@ export default function Visualizer({
           onImportBenchmarkTiming={onImportBenchmarkTiming}
           steps={steps}
           onShowEventTitle={showEventTitleAboveClosedDetail}
+          onOpenRawLog={onOpenRawLog}
+          currentStepSourceLine={stepToLine[currentStep]}
         />
         {widgetsJoined && eventsPanelCollapsed && !allEventsWidgetHidden && eventTitleSettings.visible && (
           <JoinedEventsWidget

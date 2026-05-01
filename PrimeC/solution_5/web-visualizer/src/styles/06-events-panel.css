@@ -47,7 +47,7 @@
 }
 .event-item {
   display: grid;
-  grid-template-columns: calc(340px - var(--node-depth, 0) * 14px) 1fr;
+  grid-template-columns: calc(340px - var(--node-depth, 0) * 10px) 1fr;
   align-items: center;
   padding: 4px 8px 4px 0;
   cursor: pointer;
@@ -97,12 +97,12 @@
   flex-shrink: 0;
 }
 .event-group-info { color: var(--fg-dim); font-size: 11px; margin-left: auto; white-space: nowrap; }
-.event-child { padding-left: 24px; }
+.event-child { padding-left: 0; }
 .event-child .event-item { border-bottom: none; padding: 2px 8px 2px 0; }
 
 /* Depth-based hierarchy nodes (within a prime group) */
 .event-depth-node { display: block; }
-.event-depth-children { border-left: 1px solid var(--border-light); margin-left: 14px; }
+.event-depth-children { border-left: 1px solid var(--border-light); margin-left: 10px; }
 .event-depth-toggle {
   display: inline-flex;
   align-items: center;

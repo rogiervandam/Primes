@@ -164,6 +164,154 @@
   font-size: 12px;
 }
 
+/* "View raw log" button inside trace-info popover */
+.trace-info-raw-section { padding-top: 4px; }
+.trace-info-raw-btn {
+  width: 100%;
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+}
+.trace-info-raw-btn:hover { background: var(--bg-input); color: var(--fg); }
+
+/* ---- Raw log viewer overlay ---- */
+.raw-log-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.62);
+}
+.raw-log-dialog {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  min-width: 420px;
+  min-height: 240px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  user-select: none;
+}
+.raw-log-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  cursor: move;
+}
+.raw-log-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.raw-log-copy-btn {
+  background: var(--bg-input);
+  color: var(--fg-muted);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.raw-log-copy-btn:hover { color: var(--fg); background: var(--bg-raised); }
+.raw-log-close-btn {
+  background: transparent;
+  color: var(--fg-dim);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 14px;
+  cursor: pointer;
+  line-height: 1;
+}
+.raw-log-close-btn:hover { background: var(--bg-raised); color: var(--fg); border-color: var(--border-light); }
+.raw-log-content {
+  flex: 1;
+  overflow: auto;
+  font-size: 11px;
+  line-height: 1.5;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  color: var(--fg);
+  user-select: text;
+}
+.raw-log-line {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+}
+.raw-log-line:hover { background: var(--bg-raised); }
+.raw-log-linenum {
+  text-align: right;
+  padding: 0 8px;
+  color: var(--fg-dim);
+  user-select: none;
+  border-right: 1px solid var(--border-light);
+  cursor: default;
+  white-space: nowrap;
+}
+.raw-log-linenum--linked {
+  /* Explicit button reset — avoid all:unset which can suppress clicks */
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--border-light);
+  margin: 0;
+  outline: none;
+  /* Layout */
+  display: block;
+  width: 100%;
+  text-align: right;
+  padding: 0 8px;
+  white-space: nowrap;
+  box-sizing: border-box;
+  /* Typography */
+  font-size: 11px;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  line-height: inherit;
+  /* Link style */
+  color: var(--accent);
+  cursor: pointer;
+  pointer-events: auto;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  user-select: none;
+}
+.raw-log-linenum--linked:hover { background: var(--accent-bg); }
+.raw-log-line-text {
+  white-space: pre;
+  padding: 0 8px 0 10px;
+  color: var(--fg);
+  overflow: visible;
+}
+.raw-log-line--linked .raw-log-line-text { color: var(--fg-bright); }
+.raw-log-resize-handle {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  opacity: 0.45;
+  background:
+    linear-gradient(135deg,
+      transparent 45%, var(--fg-dim) 45%, var(--fg-dim) 55%, transparent 55%,
+      transparent 68%, var(--fg-dim) 68%, var(--fg-dim) 78%, transparent 78%,
+      transparent 91%, var(--fg-dim) 91%, var(--fg-dim) 100%, transparent 100%
+    );
+}
+.raw-log-resize-handle:hover { opacity: 0.9; }
+
 /* ---- Search Box ---- */
 .search-box {
   display: flex; align-items: center; gap: 4px; position: relative; min-width: 34px; justify-content: flex-end; flex: 0 0 auto;

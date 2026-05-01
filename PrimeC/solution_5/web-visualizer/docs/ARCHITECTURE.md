@@ -114,7 +114,7 @@ src/
 | View preferences | `Visualizer` + `lib/viewPrefs` | Persisted to `localStorage`; seeded via `getInitialViewState()` |
 | Floating-panel position/size | `useFloatingPanel` hook | Per-panel local state |
 | Canvas pixel data | `SieveRenderer` | Owned outside React for performance; draws overlays / labels / side-faces only — all cell fills handled by GL |
-| Bit-fill GPU data | `BitGridGLWorker` (worker thread) | Packed `Float32Array`/`Uint8Array` position + state + anim textures; rebuilt from `SieveRenderer` layout accessors every frame |
+| Bit-fill GPU data | `BitGridGLWorker` (worker thread) | Packed `Float32Array`/`Uint8Array` position + state + anim textures; rebuilt from `SieveRenderer` layout accessors every frame. State texture is `RGBA8` (state byte in `.r` channel, normalized). |
 | Render timing samples | `SieveRenderer` + `DebugToolsPanel` | Renderer records active render cadence; React displays FPS/avg/last frame metrics outside the 3D plane |
 | Playback clock refs | `usePlaybackClock` hook | `seekGenRef`, `globalPausedRef`, `animBusyUntilRef` — mutated directly by consumers |
 | Panel/widget transitions | `usePanelChoreography` hook | Toggle/reveal/join/split/open/hide callbacks; raw state is still owned by `Visualizer` |

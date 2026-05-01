@@ -35,6 +35,8 @@ export default function DetailPanel({
   eventTitleVisible,
   onShowEventTitle,
   eventAnimSliders,
+  onOpenRawLog,
+  sourceLineNumber,
 }) {
   // Benchmark timing row matching the current step's operation (if any)
   const benchmarkOpTiming = useMemo(() => {
@@ -261,6 +263,21 @@ export default function DetailPanel({
     {
       label: 'Step size',
       content: step.factorStep != null ? <span className="detail-tag step-tag">{step.factorStep}</span> : <span className="detail-empty">—</span>,
+    },
+    {
+      label: 'Source',
+      content: sourceLineNumber != null
+        ? (
+          <button
+            type="button"
+            className="detail-source-link"
+            onClick={() => onOpenRawLog?.(sourceLineNumber)}
+            title="Open raw log at this line"
+          >
+            line {sourceLineNumber + 1}
+          </button>
+        )
+        : <span className="detail-empty">—</span>,
     },
   ];
 

@@ -657,7 +657,7 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
           }}
           title={tooltip}
         >
-          <span className="event-left" style={{ paddingLeft: `${8 + nodeDepth * 14}px` }}>
+          <span className="event-left" style={{ paddingLeft: '6px' }}>
           {hasChildren && (
             <span
               className="event-depth-toggle"
@@ -842,13 +842,13 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
             <select className="event-filter event-level-select" value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)}>
               <option value="">All log levels</option>
               <optgroup label="Up to (inclusive)">
-                {traceLevels.map((level) => <option key={`upto-${level}`} value={`upto:${level}`}>Up to L{level}</option>)}
+                {traceLevels.map((level) => <option key={`upto-${level}`} value={`upto:${level}`}>Up to level {level} (L{level})</option>)}
               </optgroup>
               <optgroup label="Collapse at level">
-                {traceLevels.map((level) => <option key={`collapse-${level}`} value={`collapse:${level}`}>Collapse at L{level}</option>)}
+                {traceLevels.map((level) => <option key={`collapse-${level}`} value={`collapse:${level}`}>Collapse at level {level} (L{level})</option>)}
               </optgroup>
               <optgroup label="Exactly">
-                {traceLevels.map((level) => <option key={`exact-${level}`} value={`exact:${level}`}>Only L{level}</option>)}
+                {traceLevels.map((level) => <option key={`exact-${level}`} value={`exact:${level}`}>Only level {level} (L{level})</option>)}
               </optgroup>
             </select>
             <button

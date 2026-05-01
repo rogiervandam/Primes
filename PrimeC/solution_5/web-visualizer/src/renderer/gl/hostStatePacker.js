@@ -88,7 +88,7 @@ export function packState(host, buf, slots) {
   if (host.primeOverlay && host._primeBitFlags) {
     const pf = host._primeBitFlags;
     const pn = Math.min(bitCount, pf.length);
-    for (let i = 0; i < pn; i++) if (pf[i]) buf[i] |= 16;
+    for (let i = 0; i < pn; i++) if (pf[i]) { buf[i] |= 16; }
   }
 
   if (host.rangeOverlay) {

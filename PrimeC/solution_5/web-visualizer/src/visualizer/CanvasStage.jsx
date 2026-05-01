@@ -91,6 +91,8 @@ function CanvasStage({
   onImportBenchmarkTiming,
   steps,
   onShowEventTitle,
+  onOpenRawLog,
+  currentStepSourceLine,
 }) {
   return (
     <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
@@ -172,6 +174,8 @@ function CanvasStage({
         eventTitleVisible={eventTitleSettings.visible && !widgetsJoined}
         onShowEventTitle={onShowEventTitle}
         eventAnimSliders={stepAnimSlidersContent}
+        onOpenRawLog={onOpenRawLog}
+        sourceLineNumber={currentStepSourceLine}
       />
 
       {detailInspectorOpen && (

@@ -97,8 +97,9 @@
   grid-template-columns: 56px minmax(0, 260px) 56px;
   align-items: center;
   gap: 6px;
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--fg-muted);
+  min-height: 28px;
 }
 .step-focus-slider-row input[type="range"] { width: 100%; max-width: 260px; }
 .step-focus-slider-label { text-transform: uppercase; letter-spacing: 0.04em; }
@@ -125,7 +126,7 @@
   max-width: 230px;
   display: flex;
   align-items: center;
-  height: 20px;
+  height: 28px;
 }
 /* Override the generic slider-controls input rule so the wrapper owns flex. */
 .step-focus-slider-controls .step-focus-timeline-wrap input[type="range"] {
@@ -139,52 +140,12 @@
   flex: none;
   max-width: none;
   min-width: 0;
-  appearance: none;
-  -webkit-appearance: none;
-  background: transparent;
+  accent-color: var(--accent);
   cursor: pointer;
-  z-index: 2;
 }
 .step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]:disabled {
   cursor: not-allowed;
   opacity: 0.5;
-}
-/* Webkit: transparent track, accent thumb */
-.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]::-webkit-slider-runnable-track {
-  height: 4px;
-  background: transparent;
-  border-radius: 2px;
-}
-.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--accent);
-  cursor: pointer;
-  margin-top: -4px;
-  position: relative;
-  z-index: 3;
-}
-.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]:disabled::-webkit-slider-thumb {
-  background: var(--fg-dim);
-}
-/* Firefox: transparent track, accent thumb */
-.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]::-moz-range-track {
-  height: 4px;
-  background: transparent;
-  border-radius: 2px;
-}
-.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: none;
-  cursor: pointer;
-}
-.step-focus-slider-controls .step-focus-timeline-wrap input[type="range"]:disabled::-moz-range-thumb {
-  background: var(--fg-dim);
 }
 /* The static track background (grey rail) */
 .step-focus-timeline-track {
@@ -221,9 +182,7 @@
   z-index: 1;
 }
 .step-focus-play-btn {
-  width: 20px;
-  height: 20px;
-  padding: 0;
+  padding: 3px 6px;
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
@@ -231,8 +190,9 @@
   background: var(--bg-raised);
   color: var(--fg);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 4px;
   cursor: pointer;
+  font-size: 14px;
 }
 .step-focus-play-btn:hover { background: var(--bg-input); color: var(--fg-bright); }
 .step-focus-close-btn {
@@ -478,18 +438,17 @@
 
 /* Gear button in the timeline row */
 .step-focus-gear-btn {
-  width: 20px;
-  height: 20px;
-  padding: 0;
+  padding: 3px 6px;
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   color: var(--fg-dim);
-  border: none;
-  border-radius: 3px;
+  border: 1px solid transparent;
+  border-radius: 4px;
   cursor: pointer;
+  font-size: 14px;
 }
 .step-focus-gear-btn:hover { background: var(--bg-raised); color: var(--fg); }
 

@@ -69,6 +69,8 @@ The topbar transport (`toolbar-center`) is hidden when `controlsHidden` is `true
 ### `TraceInfoPopover.jsx`
 Popover anchored beneath the trace title showing the storage-model selector and the parsed `traceInfoSections` (file/run/settings/notes). Used by `Toolbar`.
 
+When `rawSource` is supplied, a "View raw log" button appears. Clicking it opens a draggable, resizable dialog with a line-numbered monospace view of the original file. The dialog can be dragged by its header bar and resized via the bottom-right handle. Lines whose content matches a step's `annotation` (text-format traces) are highlighted; clicking such a line number closes the viewer, calls `onJumpToStep(stepIndex)`, and opens the events panel scrolled to that step. A "Copy all" button copies the source to clipboard. The dialog closes with Escape or the ✕ button. Props threaded: `Visualizer` (computes `lineToStep` map + `onJumpToStep` callback) → `Toolbar` → `TraceInfoPopover`.
+
 ### `ExportProgress.jsx`
 Slim progress bar shown beneath the toolbar while `MediaRecorder` is exporting a WebM. Just renders `width: ${progress}%`.
 
