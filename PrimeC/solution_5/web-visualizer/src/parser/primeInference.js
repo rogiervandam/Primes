@@ -98,7 +98,7 @@ export function inferMissingPrimes(steps, storageModel) {
       continue;
     }
 
-    if (lastPrime != null && step.operation === 'setBit') {
+    if (lastPrime != null) {
       step.prime = lastPrime;
     }
   }
