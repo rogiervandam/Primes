@@ -36,6 +36,8 @@ TRACE_EXPECTING_FILENAME=0
 TRACE_LEVEL_OVERRIDE=""
 TRACE_EXPECTING_LEVEL=0
 TRACE_USER_REQUESTED=0
+TRACE_TITLE=""
+TRACE_EXPECTING_TITLE=0
 BENCHMARK_LOG_FILENAME=""
 BENCHMARK_LOG_EXPECTING_FILENAME=0
 for arg in "$@"; do
@@ -52,6 +54,12 @@ for arg in "$@"; do
     if [ "$TRACE_EXPECTING_FILENAME" -eq 1 ]; then
         TRACE_FILENAME="$arg"
         TRACE_EXPECTING_FILENAME=0
+        continue
+    fi
+
+    if [ "$TRACE_EXPECTING_TITLE" -eq 1 ]; then
+        TRACE_TITLE="$arg"
+        TRACE_EXPECTING_TITLE=0
         continue
     fi
 
@@ -111,6 +119,8 @@ for arg in "$@"; do
         TRACE_EXPECTING_LEVEL=1
     elif [ "$arg" = "trace-filename" ] || [ "$arg" = "--trace-filename" ]; then
         TRACE_EXPECTING_FILENAME=1
+    elif [ "$arg" = "trace-title" ] || [ "$arg" = "--trace-title" ]; then
+        TRACE_EXPECTING_TITLE=1
     elif [ "$arg" = "benchmark-log" ] || [ "$arg" = "--benchmark-log" ]; then
         BENCHMARK_LOG_EXPECTING_FILENAME=1
     else
