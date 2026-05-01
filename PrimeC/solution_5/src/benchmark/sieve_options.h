@@ -28,6 +28,7 @@ typedef struct  {
     char*     dockerfile_type;
     char*     extension;
     char*     trace_filename;
+    char*     trace_title;
     char*     timings_filename;
 } options_t;
 
@@ -125,6 +126,7 @@ saveLastSettings(benchmark_settings_t settings)
 // empty and NULL terminated string buffers to hold generated filenames if user requested generation by setting --trace or --benchmark-log without a filename
 static char trace_filename[256] = "";
 static char timings_filename[256] = "";
+static char trace_title[256] = "";
 
 static options_t __attribute__((cold)) 
 setDefaultOptions() 
@@ -161,6 +163,7 @@ setDefaultOptions()
     option.dockerfile_type = getenv("DOCKERFILE_TYPE"); 
     option.trace_filename  = trace_filename; 
     option.timings_filename = timings_filename; 
+    option.trace_title = trace_title;
 
     // changes though compilation options
     #ifdef _OPENMP

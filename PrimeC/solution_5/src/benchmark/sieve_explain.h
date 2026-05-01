@@ -17,6 +17,9 @@ initSingleRunTrace(benchmark_settings_t benchmark_settings, const char* algorith
         snprintf(trace_settings_tag, sizeof(trace_settings_tag), "%s;t=%ju;d=%.3f;storage=%ju;factor_max=%ju", getBenchmarkSettingAsString(benchmark_settings), 
                 (uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration, (uintmax_t)benchmark_settings.storage, (uintmax_t)benchmark_settings.factor_max);
         snprintf(trace_title, sizeof(trace_title), "%s - %s algorithm", option.program_name ? option.program_name : "sieve", algorithm_name);
+        if (option.trace_title && strlen(option.trace_title) > 0) {
+            snprintf(trace_title, sizeof(trace_title), "%s", option.trace_title);
+        }
         snprintf(trace_info, sizeof(trace_info), "settings=%s | max=%ju | storage=%ju | threads=%ju | duration=%.3f",getBenchmarkSettingAsString(benchmark_settings),
                 (uintmax_t)benchmark_settings.factor_max, (uintmax_t)benchmark_settings.storage, (uintmax_t)benchmark_settings.threads, benchmark_settings.sample_duration);
 

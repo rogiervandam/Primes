@@ -306,6 +306,11 @@ parseCommandLine(int argc, char *argv[])
             ensure_next_arg(++arg, argc, program_name, "trace filename");
             option.trace_filename = argv[arg];
         }
+        else if (strcmp_local(argv[arg], "--trace-title")) {
+            ensure_next_arg(++arg, argc, program_name, "trace title");
+            option.trace_title = argv[arg];
+            verbose4(printf("Trace title set to '%s'\n", option.trace_title));
+        }
         #endif
         #ifdef COMPILE_TIMERS
         else if (strcmp_local(argv[arg], "--benchmark-log")) {

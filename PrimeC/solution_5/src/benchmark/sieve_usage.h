@@ -47,6 +47,7 @@ usage(char *program_name, int exit_code)
         "  --trace-filename <file>   Set trace output filename (use with --trace)\n"
         "                            Defaults to log/<timestamp>_<program>.sievetrace\n"
         "                            Use the visualizer tool to view the trace afterwards\n"
+        "  --trace-title <title>     Set a custom title for the trace log (use with --trace)\n"
 #endif
 #ifdef COMPILE_TIMERS
         "  --benchmark-log <file>    Set the benchmark timing JSON output filename\n"
