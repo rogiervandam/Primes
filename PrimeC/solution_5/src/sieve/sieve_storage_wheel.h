@@ -153,18 +153,18 @@
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
     markFactor_wheelstorage(sieve_t* sieve, const register counter_t index) 
     {
-        logStart9(sieve->bitstorage, time_markFactor_wheelstorage, "MarkFactorWheelStorage: marking factor %ju", (uintmax_t)index);
+        logStart9(sieve->bitstorage, time_markFactor_wheelstorage, "marking factor %ju", (uintmax_t)index);
 
         register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
         const counter_t wheel_bit = wheel_bit_calc(index);
         if (wheel_bit <= 0) {
-            logStop9(sieve->bitstorage, time_markFactor_wheelstorage, "MarkFactorWheelStorage: finished marking factor %ju - skipped because divisible by wheel prime", (uintmax_t)index);
+            logStop9(sieve->bitstorage, time_markFactor_wheelstorage, "finished marking factor %ju - skipped because divisible by wheel prime", (uintmax_t)index);
             return; // if the number is divisible by any of the wheel primes, skip it
         }
         
         bitstorage_sized[ index_type(wheel_bit, bitbucket_t)] |= markmask_type(wheel_bit, bitbucket_t);
 
-        logStop9(sieve->bitstorage, time_markFactor_wheelstorage, "MarkFactorWheelStorage: finished marking factor %ju", (uintmax_t)index);
+        logStop9(sieve->bitstorage, time_markFactor_wheelstorage, "finished marking factor %ju", (uintmax_t)index);
     }
     #undef bitbucket_t
 
@@ -207,7 +207,7 @@
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
     function(markFactors_wheelstorage_repeat,suffix)(sieve_t* sieve, const counter_t range_start, counter_t range_stop, const counter_t step)
     {
-        logStart6(sieve->bitstorage, time_markFactors_wheelstorage_repeat, "MarkFactorsWheelStorageRepeat: factors [%jd-%jd] step %jd", (intmax_t)range_start, (intmax_t)range_stop, (intmax_t)step);
+        logStart6(sieve->bitstorage, time_markFactors_wheelstorage_repeat, "factors [%jd-%jd] step %jd", (intmax_t)range_start, (intmax_t)range_stop, (intmax_t)step);
 
         register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
@@ -284,7 +284,7 @@
             // function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), bucket_stop, wheel_step, markmask);
             // // function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), index_type(wheel_bit, bitbucket_t), wheel_step, markmask);
         } 
-        logStop6(sieve->bitstorage, time_markFactors_wheelstorage_repeat, "MarkFactorsWheelStorageRepeat: finished setting factors\n");
+        logStop6(sieve->bitstorage, time_markFactors_wheelstorage_repeat, "finished setting factors\n");
     }
 
 #endif

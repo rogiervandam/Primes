@@ -22,13 +22,13 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
     for (; range_start <= range_stop_unique && (current_bucket = function(wheel_block_calc,variant_suffix)(range_start)) < 2 ; range_start += step) {
         markFactor_wheelstorage(sieve, range_start);
     }
-    logStop7(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "MarkFactorsWheelStorageSmallRepeatPair: finished aligning to first full bucket at index %ju", (uintmax_t)range_start);
+    logStop7(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "finished aligning to first full bucket at index %ju", (uintmax_t)range_start);
 
     bitbucket_t current_mask = (bitbucket_t)0U, pending_mask = (bitbucket_t)0U;
     counter_t pending_bucket = 0;
 
     // TODO: make a larger wheel and check if we stay within the wheel so we have to take lesser % and /
-    logStart7(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_copy, "MarkFactorsWheelStorageSmallRepeatPairCopy: marking factors with step %3ju for prime %ju using markFactors_wheelstorage_small_repeat_pair_vector %s in %ju factor range (%ju-%ju) (%ju occurances; %ju repeats)", (uintmax_t)step, (uintmax_t)step/2, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
+    logStart7(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_copy, "marking factors with step %3ju for prime %ju using markFactors_wheelstorage_small_repeat_pair_vector %s in %ju factor range (%ju-%ju) (%ju occurances; %ju repeats)", (uintmax_t)step, (uintmax_t)step/2, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
     for (counter_t index = range_start; index <= range_stop_unique; index += step) {
         const counter_t wheel_bit = wheel_bit_calc(index);
         const counter_t new_bucket = function(wheel_block_calc,variant_suffix)(index);
@@ -62,7 +62,7 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
     if (current_mask) {
         function(applyMask_index,suffix)(sieve->bitstorage, current_bucket, stop_bucket, wheel_step, current_mask);
     }
-    logStop7(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_copy, "MarkFactorsWheelStorageSmallRepeatPairCopy: finished marking factors with step %3ju for prime %ju using markFactors_wheelstorage_small_repeat_pair_vector %s in %ju factor range (%ju-%ju) (%ju occurances; %ju repeats)", (uintmax_t)step, (uintmax_t)step/2, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
+    logStop7(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_copy, "finished marking factors with step %3ju for prime %ju using markFactors_wheelstorage_small_repeat_pair_vector %s in %ju factor range (%ju-%ju) (%ju occurances; %ju repeats)", (uintmax_t)step, (uintmax_t)step/2, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
 
-    logStop6(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair, "MarkFactorsWheelStorageSmallRepeatPair: finished setting factors\n");
+    logStop6(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair, "finished setting factors\n");
 }

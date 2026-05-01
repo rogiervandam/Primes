@@ -12,7 +12,7 @@
 static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes)))
 function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step, const bitbucket_t mask1, const bitbucket_t mask2) 
 {
-    logStart8(bitstorage, time_applyMask_pair, "ApplyMaskPair_index%s: apply %s (%ju bit) mask in pairs with step %ju in bitrange (%ju - %ju)", STR(suffix), STR(bitbucket_t), bitcount_type(bitbucket_t), (uintmax_t)step, (uintmax_t)range_start * bitcount_type(bitbucket_t), (uintmax_t)(range_stop + 1) * bitcount_type(bitbucket_t) - 1);
+    logStart8(bitstorage, time_applyMask_pair, "ApplyMaskPair_index%s apply %s (%ju bit) mask in pairs with step %ju in bitrange (%ju - %ju)", STR(suffix), STR(bitbucket_t), bitcount_type(bitbucket_t), (uintmax_t)step, (uintmax_t)range_start * bitcount_type(bitbucket_t), (uintmax_t)(range_stop + 1) * bitcount_type(bitbucket_t) - 1);
 
     register const counter_t step_max = step * unrolls, step_2 = step * 2, step_3 = step_2 + step;
     register const bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
@@ -73,7 +73,7 @@ function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t
              (const void* const[]){&mask1, &mask2}, 2, sizeof(variant_base_type_t), BITBUCKET_ELEMENTS, (uint32_t)bitcount_type(variant_base_type_t));
     #endif
 
-    logStop8(bitstorage, time_applyMask_pair, "ApplyMaskPair_index%s: finished applying mask in pairs\n", STR(suffix));
+    logStop8(bitstorage, time_applyMask_pair, "ApplyMaskPair_index%s finished applying mask in pairs\n", STR(suffix));
 }
 
 #endif

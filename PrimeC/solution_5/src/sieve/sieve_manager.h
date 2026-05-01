@@ -36,7 +36,7 @@ sieve_create(const counter_t size, const counter_t bits)
     sieve->bits       = bits;
     sieve->size       = size;
 
-    log5("Allocation: Allocated sieve of %ju bytes, bitstorage with %ju bits (aligned range 0-%ju bits (%ju bytes), %ju bits alignment)\n", 
+    log5("Initial: Allocated sieve of %ju bytes, bitstorage with %ju bits (aligned range 0-%ju bits (%ju bytes), %ju bits alignment)\n", 
         (uintmax_t)alloc_size, (uintmax_t)bits, (uintmax_t)(alloc_size - sizeof(struct sieve_t))*8, (uintmax_t)bitstorage_bytesize, (uintmax_t)(aligned_address - raw_address)*8);
 
     return sieve;

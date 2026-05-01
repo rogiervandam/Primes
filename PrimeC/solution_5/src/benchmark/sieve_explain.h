@@ -25,7 +25,7 @@ initSingleRunTrace(benchmark_settings_t benchmark_settings, const char* algorith
                      getStorageModelName((int)benchmark_settings.storage), trace_settings_tag, trace_title, trace_info);
 
         if (g_trace.enabled) {
-            log_text((int)option.trace_level, "Settings used: %s", trace_settings_tag);
+            log_text((int)option.trace_level, "Initial" , "Settings used: %s", trace_settings_tag);
 
             uint8_t* empty = (uint8_t*)calloc(1, (size_t)((trace_bit_count + 7) / 8));
             if (empty) {
