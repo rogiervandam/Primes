@@ -33,11 +33,8 @@ export default function JoinedEventsWidget({
   surrounding,
   currentStepData,
   revealCurrentStepInPanel,
-  eventsPanelCollapsed,
-  setEventsPanelCollapsed,
-  detailOpen,
-  toggleDetailPanel,
   sliders,
+  onPushToEventsPanel,
   // Split callback
   onSplitWidgets,
   // Hide the entire joined widget (split + hide both sub-widgets)
@@ -47,6 +44,7 @@ export default function JoinedEventsWidget({
   initialBannerRect,
 }) {
   const [isSplitting, setIsSplitting] = useState(false);
+  const [dropHint, setDropHint] = useState(null);
   const [showAllAnnotations, setShowAllAnnotations] = useState(false);
   const [copied, setCopied] = useState(false);
   const copyTimeoutRef = useRef(null);
@@ -76,6 +74,11 @@ export default function JoinedEventsWidget({
   const [floatDrag, setFloatDrag] = useState({ x: computeInitialDragX(), y: 0 });
   const widgetRef = useRef(null);
 
+  const detectDropZone = useCallback((clientX) => {
+    if (typeof window === 'undefined') return null;
+    return clientX <= 80 ? 'left' : null;
+  }, []);
+
   // After first render, adjust y so the joined widget's bottom-left corner
   // sits at the same screen position as the banner's bottom-left corner.
   useLayoutEffect(() => {
@@ -96,17 +99,31 @@ export default function JoinedEventsWidget({
     const startX = e.clientX;
     const startY = e.clientY;
     const startDrag = { ...floatDragRef.current };
+    let dragged = false;
+    let lastZone = null;
 
     const onMove = (ev) => {
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
+      if (!dragged && Math.hypot(dx, dy) < 4) return;
+      dragged = true;
       const next = { x: startDrag.x + dx, y: startDrag.y + dy };
       floatDragRef.current = next;
       setFloatDrag({ ...next });
+      const zone = detectDropZone(ev.clientX);
+      if (zone !== lastZone) {
+        lastZone = zone;
+        setDropHint(zone);
+      }
     };
-    const onUp = () => {
+    const onUp = (ev) => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      setDropHint(null);
+      if (dragged && detectDropZone(ev.clientX) === 'left' && onPushToEventsPanel) {
+        onPushToEventsPanel();
+        return;
+      }
       // Persist position so EventTitleBanner reappears here after split.
       setSettings((prev) => ({
         ...prev,
@@ -117,7 +134,7 @@ export default function JoinedEventsWidget({
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     e.preventDefault();
-  }, [setSettings]);
+  }, [detectDropZone, onPushToEventsPanel, setSettings]);
 
   const handleSplit = useCallback((e) => {
     e.stopPropagation();
@@ -129,15 +146,17 @@ export default function JoinedEventsWidget({
 
   const handleExpandPanel = useCallback((e) => {
     e.stopPropagation();
-    // Split first so the banner reappears independently when the panel opens.
+    if (onPushToEventsPanel) {
+      onPushToEventsPanel();
+      return;
+    }
     onSplitWidgets();
-    setEventsPanelCollapsed(false);
-  }, [setEventsPanelCollapsed, onSplitWidgets]);
+  }, [onPushToEventsPanel, onSplitWidgets]);
 
   return (
     <div
       ref={widgetRef}
-      className={`joined-events-widget${isSplitting ? ' is-splitting' : ''}`}
+      className={`joined-events-widget${isSplitting ? ' is-splitting' : ''}${dropHint ? ` dropping dropping-${dropHint}` : ''}`}
       style={{ transform: `translateX(calc(-50% + ${floatDrag.x}px)) translateY(${floatDrag.y}px)` }}
       onMouseDown={handleDragStart}
     >
@@ -147,7 +166,7 @@ export default function JoinedEventsWidget({
           className="joined-widget-btn joined-widget-expand-btn"
           onClick={handleExpandPanel}
           onMouseDown={(e) => e.stopPropagation()}
-          title="Expand events panel"
+          title="Open events and details panels"
         >▼</button>
         <span className="joined-widget-label">Events</span>
         <button

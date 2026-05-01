@@ -30,29 +30,29 @@ For broader maps, also read:
 
 Approximate source size at this guide revision:
 
-| File | Size | Why it matters |
-| --- | ---: | --- |
-| `src/Visualizer.jsx` | ~4250 lines | Runtime owner for trace state, playback, panels, gestures, export, and renderer wiring. |
-| `src/SieveRenderer.js` | ~2715 lines | Canvas2D overlay renderer and layout authority. GL owns cell fills, but this class still owns labels, outlines, hit-testing, minimap, and many overlays. |
-| `src/EventsPanel.jsx` | ~918 lines | Event list, grouping/search, floating all-events widget, drag/drop collapse behavior. |
-| `src/settings/LayoutTab.jsx` | ~906 lines | Largest settings tab. Avoid inline React components in its function body. |
-| `src/settings/AnimationTab.jsx` | ~554 lines | Animation controls and timing target UI. |
-| `src/DetailPanel.jsx` | ~495 lines | Compact detail cards, mask preview, event timeline placement. |
-| `src/renderer/gl/bitGridGLCore.js` | ~487 lines | WebGL2 shader/backend source of truth for bit cell fills. |
+| File                               | Size        | Why it matters                                                                                       |
+| ---------------------------------- | ----------: | ---------------------------------------------------------------------------------------------------- |
+| `src/Visualizer.jsx`               | ~4195 lines | Runtime owner for trace state, playback, panels, gestures, export, and renderer wiring.              |
+| `src/SieveRenderer.js`             | ~2715 lines | Canvas2D overlay renderer and layout authority. GL owns cell fills, but this class still owns labels, outlines, hit-testing, minimap, and many overlays. |
+| `src/EventsPanel.jsx`              | ~918 lines  | Event list, grouping/search, floating all-events widget, drag/drop collapse behavior.                |
+| `src/settings/LayoutTab.jsx`       | ~906 lines  | Largest settings tab. Avoid inline React components in its function body.                            |
+| `src/settings/AnimationTab.jsx`    | ~554 lines  | Animation controls and timing target UI.                                                             |
+| `src/DetailPanel.jsx`              | ~495 lines  | Compact detail cards, mask preview, event timeline placement.                                        |
+| `src/renderer/gl/bitGridGLCore.js` | ~487 lines  | WebGL2 shader/backend source of truth for bit cell fills.                                            |
 
 ## Where Code Belongs
 
-| Adding or changing | Put it in |
-| --- | --- |
-| Pure math, formatting, storage helpers | `src/lib/` |
-| Reusable React state/effect logic | `src/hooks/` |
-| Trace-format parsing | `src/parser/`, then import through `src/traceParser.js` |
-| Renderer constants, drawing helpers, renderer-only pure helpers | `src/renderer/` |
-| Canvas overlay classes | `src/renderer/overlays/` |
-| WebGL bit-fill backend | `src/renderer/gl/` |
-| Settings tab content or controls | `src/settings/` |
-| Toolbar, canvas-stage widgets, floating visualizer UI | `src/visualizer/` |
-| Styles | `src/styles/NN-name.css`, then import in `src/styles/index.css` |
+| Adding or changing                                              | Put it in                                                       |
+| --------------------------------------------------------------- | --------------------------------------------------------------- |
+| Pure math, formatting, storage helpers                          | `src/lib/`                                                      |
+| Reusable React state/effect logic                               | `src/hooks/`                                                    |
+| Trace-format parsing                                            | `src/parser/`, then import through `src/traceParser.js`         |
+| Renderer constants, drawing helpers, renderer-only pure helpers | `src/renderer/`                                                 |
+| Canvas overlay classes                                          | `src/renderer/overlays/`                                        |
+| WebGL bit-fill backend                                          | `src/renderer/gl/`                                              |
+| Settings tab content or controls                                | `src/settings/`                                                 |
+| Toolbar, canvas-stage widgets, floating visualizer UI           | `src/visualizer/`                                               |
+| Styles                                                          | `src/styles/NN-name.css`, then import in `src/styles/index.css` |
 
 ## Golden Contracts
 
@@ -94,14 +94,14 @@ Done: export logic moved to `useTraceExport`; keyboard shortcuts moved to
 `useKeyboardShortcuts`; playback clock moved to `usePlaybackClock`; playback
 loops moved to `usePlaybackLoop`; search moved to `useSearchState`; 3D camera
 lifecycle moved to `use3DCamera`; canvas JSX moved to `CanvasStage`; gesture
-bodies moved to `src/visualizer/gestures/`.
+bodies moved to `src/visualizer/gestures/`; panel/widget transition callbacks
+moved to `usePanelChoreography`.
 
 Left to do:
 
-- Extract panel/window choreography from `Visualizer.jsx`: event panel, detail
-  panel, settings panel, resize anchors, minimap insets, and widget visibility.
-- Extract event-title/joined-widget state transitions into a focused hook once
-  the product behavior settles.
+- Continue reducing panel/window choreography by moving raw panel state into
+  `usePanelChoreography` once the current callback extraction has settled.
+- Extract minimap inset calculations if future layout work grows that section.
 - Extract bit-history balloon state and geometry if future balloon work grows.
 - Keep extractions behavior-preserving and verify with playback, scrubbing,
   panel toggles, and widget drag/drop.
@@ -159,19 +159,16 @@ Left to do:
 
 Done: all-events and single-event widgets can be joined/split; widget drag
 handles are scoped; topbar transport hides automatically when the floating
-all-events widget is visible; joined widget anchoring was fixed.
+all-events widget is visible; joined widget anchoring was fixed; dragging or
+expanding the joined widget to the left/events side now opens both the events
+panel and detail panel, with the single-event timeline shown in detail and the
+all-events timeline kept in the events panel; detail-panel timeline actions
+keep the percent and gear aligned on the right.
 
 Left to do:
 
 - When pushing the joined widget into the detail panel, include all-events
   controls and the all-events timeline in the detail panel.
-- When pushing the joined widget to the left/events side, open both the detail
-  panel and the events panel.
-- In that left-side flow, keep the single-event timeline in the detail panel,
-  but do not duplicate the all-events timeline because it is already in the
-  events panel.
-- In the detail panel, align the percent progress and gear icon on the right
-  side of the single-event timeline, matching the floating widget.
 - Re-test drag/drop targets after every layout or z-index change.
 
 ### 6. Keep The Detail Panel Compact And Informative
@@ -320,7 +317,7 @@ facts that still matter:
   `MinimapRenderer`.
 - Visualizer hooks already extracted: `useTraceExport`, `useDraftInput`,
   `useKeyboardShortcuts`, `usePlaybackClock`, `use3DCamera`,
-  `usePlaybackLoop`, and `useSearchState`.
+  `usePlaybackLoop`, `useSearchState`, and `usePanelChoreography`.
 - Events terminology replaced the old StepPanel naming. `viewPrefs` migrates
   the legacy `stepsPanelCollapsed` key.
 - GL worker mode is the production bit-fill path. Canvas2D cell-fill code and

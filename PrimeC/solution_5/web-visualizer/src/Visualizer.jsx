@@ -20,6 +20,7 @@ import { use3DCamera } from './hooks/use3DCamera';
 import { usePlaybackClock } from './hooks/usePlaybackClock';
 import { usePlaybackLoop } from './hooks/usePlaybackLoop';
 import { useSearchState } from './hooks/useSearchState';
+import { usePanelChoreography } from './hooks/usePanelChoreography';
 import { applyPan } from './visualizer/gestures/pan';
 import { applyRotate } from './visualizer/gestures/rotate';
 import { applyWheel } from './visualizer/gestures/wheel';
@@ -219,7 +220,6 @@ export default function Visualizer({
   // dragged it onto the top bar). Reset each time the events panel is
   // collapsed so the widget reliably reappears on the next toggle.
   const [allEventsWidgetHidden, setAllEventsWidgetHidden] = useState(initialPrefs.allEventsWidgetHidden);
-  const showAllEventsWidget = useCallback(() => setAllEventsWidgetHidden(false), []);
   // When true the floating all-events widget and the single-event banner are
   // merged into a single JoinedEventsWidget. Persisted to localStorage.
   const [widgetsJoined, setWidgetsJoined] = useState(
@@ -232,16 +232,6 @@ export default function Visualizer({
   // Stores the EventTitleBanner's DOMRect at the moment of joining, so the
   // JoinedEventsWidget can anchor its bottom-left corner to the same position.
   const [joinBannerRect, setJoinBannerRect] = useState(null);
-  const joinWidgets = useCallback((bannerRect) => {
-    setJoinBannerRect(bannerRect || null);
-    setWidgetsJoined(true);
-  }, []);
-  const splitWidgets = useCallback(() => {
-    setWidgetsJoined(false);
-    // Reset the banner's drag offset so it reappears at its default anchor
-    // (bottom-left of canvas) rather than wherever it was last dragged to.
-    setEventTitleSettings((prev) => ({ ...prev, dragOffsetX: 0, dragOffsetY: 0 }));
-  }, []);
   const [storageModel, setStorageModel] = useState(header.storageModel || 'half');
   const [selectedSteps, setSelectedSteps] = useState(new Set());
   const [heatMapEnabled, setHeatMapEnabled] = useState(false);
@@ -685,51 +675,6 @@ export default function Visualizer({
     pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
   }, [captureViewportAnchor]);
 
-  const toggleEventsPanel = useCallback(() => {
-    // Snapshot the canvas-area centre's window position BEFORE the state
-    // update so the resize useEffect can pin it after CSS reflow. See
-    // pendingResizeAnchorRef for why fresh capture in the effect drifts.
-    captureResizeAnchor();
-    setEventsPanelCollapsed((wasCollapsed) => {
-      // When the panel is being OPENED (was collapsed), split the widgets so
-      // the single-event banner shows independently — the all-events transport
-      // is now in the panel itself.
-      if (wasCollapsed) setWidgetsJoined(false);
-      return !wasCollapsed;
-    });
-    // Always reset widget-hidden so the floating widget reliably reappears
-    // when the panel is collapsed (undoes any previous dock-to-top-bar gesture).
-    setAllEventsWidgetHidden(false);
-  }, [captureResizeAnchor]);
-
-  // Open the events panel (if collapsed) and ask it to reveal the current
-  // step: clear filters that hide it, expand its parent group + ancestor
-  // nodes, and scroll it into view. Triggered from the event-title widget.
-  const revealCurrentStepInPanel = useCallback(() => {
-    // Same window-pinning contract as toggleEventsPanel: stash the
-    // pre-state-change anchor for the resize useEffect to consume.
-    setEventsPanelCollapsed((wasCollapsed) => {
-      if (wasCollapsed) {
-        captureResizeAnchor();
-        // Opening the panel: split the joined widget so the banner is independent.
-        setWidgetsJoined(false);
-        return false;
-      }
-      return wasCollapsed;
-    });
-    setRevealStepRequest((n) => n + 1);
-  }, [captureResizeAnchor]);
-
-  const toggleDetailPanel = useCallback(() => {
-    captureResizeAnchor();
-    updateDetailOpen((o) => !o);
-  }, [captureResizeAnchor, updateDetailOpen]);
-
-  const toggleSettingsPanel = useCallback(() => {
-    captureResizeAnchor();
-    setSettingsCollapsed((collapsed) => !collapsed);
-  }, [captureResizeAnchor]);
-
   // Tracks the active tab in SettingsPanel so the gear icon can toggle it.
   const [settingsActiveTab, setSettingsActiveTab] = useState('layout');
 
@@ -737,18 +682,37 @@ export default function Visualizer({
   // { tab: string, counter: number } — counter increments each request so effects fire.
   const [settingsTabRequest, setSettingsTabRequest] = useState(null);
 
-  // Open animation settings panel to the animation tab (e.g. from gear icon in event widget).
-  // Toggles the panel closed if it is already open on the animation tab.
-  const openAnimationSettings = useCallback(() => {
-    captureResizeAnchor();
-    if (!settingsCollapsed && settingsActiveTab === 'animation') {
-      // Panel is open and already showing animation — close it.
-      setSettingsCollapsed(true);
-      return;
-    }
-    setSettingsCollapsed(false);
-    setSettingsTabRequest((prev) => ({ tab: 'animation', counter: (prev?.counter ?? 0) + 1 }));
-  }, [captureResizeAnchor, settingsCollapsed, settingsActiveTab]);
+  const {
+    dockEventsWidgetToTopBar,
+    expandEventsPanelFromWidget,
+    hideJoinedWidget,
+    joinWidgets,
+    openAnimationSettings,
+    pushJoinedWidgetToEventsPanel,
+    revealCurrentStepInPanel,
+    showAllEventsWidget,
+    showEventTitleAboveClosedDetail,
+    showEventTitleAboveCurrentDetail,
+    splitWidgets,
+    toggleDetailPanel,
+    toggleEventsPanel,
+    toggleSettingsPanel,
+  } = usePanelChoreography({
+    captureResizeAnchor,
+    detailHeight,
+    detailOpen,
+    settingsActiveTab,
+    settingsCollapsed,
+    setAllEventsWidgetHidden,
+    setEventTitleSettings,
+    setEventsPanelCollapsed,
+    setJoinBannerRect,
+    setRevealStepRequest,
+    setSettingsCollapsed,
+    setSettingsTabRequest,
+    setWidgetsJoined,
+    updateDetailOpen,
+  });
 
   // Callback for changing bitAnimationMode from the settings panel (no seek side-effect needed there).
   const handleBitAnimationModeChange = useCallback((mode) => {
@@ -4010,13 +3974,8 @@ export default function Visualizer({
           panelCollapsed={eventsPanelCollapsed}
           onToggleCollapse={toggleEventsPanel}
           allEventsWidgetHidden={allEventsWidgetHidden || widgetsJoined}
-          onExpandPanelFromWidget={() => {
-            setAllEventsWidgetHidden(false);
-            setEventsPanelCollapsed(false);
-          }}
-          onDockWidgetToTopBar={() => {
-            setAllEventsWidgetHidden(true);
-          }}
+          onExpandPanelFromWidget={expandEventsPanelFromWidget}
+          onDockWidgetToTopBar={dockEventsWidgetToTopBar}
           onJoinWidgets={joinWidgets}
           externalOpFilter={timingFocusOp}
           onExternalOpFilterConsumed={() => setTimingFocusOp('')}
@@ -4029,15 +3988,7 @@ export default function Visualizer({
           playSpeedPercent={playSpeedPercent}
           setPlaySpeedPercent={setPlaySpeedPercent}
           eventTitleVisible={eventTitleSettings.visible && !widgetsJoined}
-          onShowEventTitle={() => {
-            // Place the banner above the current detail panel state with 30px padding.
-            // CSS anchor is bottom:20px; detail header = 22px (from detailPad convention).
-            const DETAIL_HEADER_H = 22;
-            const totalPanelH = detailOpen ? detailHeight + DETAIL_HEADER_H : DETAIL_HEADER_H;
-            const dragOffsetY = -(totalPanelH + 30 - 20);
-            setEventTitleSettings((prev) => ({ ...prev, visible: true, dragOffsetX: 0, dragOffsetY }));
-            splitWidgets();
-          }}
+          onShowEventTitle={showEventTitleAboveCurrentDetail}
         />
         <CanvasStage
           mode3D={mode3D}
@@ -4096,6 +4047,7 @@ export default function Visualizer({
           setTimingFocusOp={setTimingFocusOp}
           onImportBenchmarkTiming={onImportBenchmarkTiming}
           steps={steps}
+          onShowEventTitle={showEventTitleAboveClosedDetail}
         />
         {widgetsJoined && eventsPanelCollapsed && !allEventsWidgetHidden && eventTitleSettings.visible && (
           <JoinedEventsWidget
@@ -4114,18 +4066,11 @@ export default function Visualizer({
             surrounding={surroundingEvents}
             currentStepData={currentStepData}
             revealCurrentStepInPanel={revealCurrentStepInPanel}
-            eventsPanelCollapsed={eventsPanelCollapsed}
-            setEventsPanelCollapsed={setEventsPanelCollapsed}
-            detailOpen={detailOpen}
-            toggleDetailPanel={toggleDetailPanel}
             sliders={stepAnimSlidersContent}
             onSplitWidgets={splitWidgets}
+            onPushToEventsPanel={pushJoinedWidgetToEventsPanel}
             initialBannerRect={joinBannerRect}
-            onHideWidget={() => {
-              setWidgetsJoined(false);
-              setAllEventsWidgetHidden(true);
-              setEventTitleSettings((prev) => ({ ...prev, visible: false }));
-            }}
+            onHideWidget={hideJoinedWidget}
           />
         )}
         <SettingsPanel

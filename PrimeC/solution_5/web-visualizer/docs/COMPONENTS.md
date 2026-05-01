@@ -8,7 +8,7 @@ A quick reference for the React components and modules under `src/`. Prop signat
 Welcome screen and file picker. Loads either an uploaded file or a bundled sample, then renders `<Visualizer trace=... />`.
 
 ### `Visualizer.jsx`
-Owns playback state, view preferences, and the canvas. Composes the toolbar, side panels, hover balloons, and overlays. Most of the application logic lives here; helpers have been extracted to `lib/`, `hooks/`, and `settings/`.
+Owns playback state, view preferences, and the canvas. Composes the toolbar, side panels, hover balloons, and overlays. Most of the application logic lives here; helpers have been extracted to `lib/`, `hooks/`, and `settings/`. Panel and joined-widget transition callbacks now live in `usePanelChoreography`.
 
 ### `SettingsPanel.jsx`
 Right-hand collapsible sidebar with tabs (~262 lines — now just a tab-row shell that delegates to focused sub-components):
@@ -93,15 +93,15 @@ The banner is forced visible on every fresh session via `mergeEventTitleSettings
 ### `JoinedEventsWidget.jsx`
 Combined floating widget shown when `widgetsJoined = true` and the events panel is collapsed. Merges the all-events transport controls (play/pause, step navigation, timeline slider, speed) with the single-event content from `EventTitleBanner` (annotation heading, bits changed, nearby events, per-step sliders) into one draggable panel.
 
-**Join trigger:** dragging either the all-events floater or the `EventTitleBanner` onto the other widget (within 40 px hit-padding) calls `joinWidgets()` in `Visualizer.jsx` which sets `widgetsJoined = true`. A `.merge-target` CSS ring highlights the target during drag.
+**Join trigger:** dragging either the all-events floater or the `EventTitleBanner` onto the other widget (within 40 px hit-padding) calls the `joinWidgets()` callback from `usePanelChoreography`, setting `widgetsJoined = true`. A `.merge-target` CSS ring highlights the target during drag.
 
-**Split:** the ⊡ split button (`.joined-widget-split-btn`) sets `is-splitting` CSS class, plays a 320 ms `@keyframes joined-widget-split` (scale+fade-out) animation, then calls `onSplitWidgets`. The expand-panel (▼) button also splits first, then opens the events panel.
+**Split:** the ⊡ split button (`.joined-widget-split-btn`) sets `is-splitting` CSS class, plays a 320 ms `@keyframes joined-widget-split` (scale+fade-out) animation, then calls `onSplitWidgets`. The expand-panel (▼) button now routes through `usePanelChoreography`: it splits the joined widget, opens the events panel, opens the detail panel, and hides the floating single-event banner so the single-event timeline appears in detail.
 
 **Appear animation:** `@keyframes joined-widget-appear` (scale 0.88→1 + opacity 0→1, 280 ms) on mount.
 
 **Auto-split on panel open:** `Visualizer.jsx` calls `setWidgetsJoined(false)` inside `toggleEventsPanel` and `revealCurrentStepInPanel` whenever the events panel is being expanded.
 
-**Draggable:** drag from the header row updates position; on mouseup the offset is persisted to `eventTitleSettings.dragOffsetX/Y` so the banner re-appears at the correct position after splitting.
+**Draggable:** drag from the header row updates position; on mouseup the offset is persisted to `eventTitleSettings.dragOffsetX/Y` so the banner re-appears at the correct position after splitting. Dropping the joined widget into the left screen-edge band performs the same events+detail panel expansion as the expand button. CSS uses `.joined-events-widget.dropping-left` for the drop hint.
 
 **CSS:** `src/styles/18-joined-widget.css` (imported via `index.css`).
 
@@ -192,6 +192,14 @@ Encapsulates the `keydown` global listener for single-key shortcuts (play/pause,
 
 ### `usePlaybackClock()`
 Returns the three mutable ref objects `{ seekGenRef, globalPausedRef, animBusyUntilRef }` that coordinate animation loops. Callers mutate `.current` directly — the hook is a structural wrapper that documents ownership. See §5 of `AI_MAINTENANCE.md` for the minefield notes on each ref.
+
+### `usePanelChoreography({ ... })`
+Centralizes panel and joined-widget transition callbacks for `Visualizer.jsx`.
+It currently borrows state setters from the parent rather than owning raw state:
+events/detail/settings panel toggles, resize-anchor capture, reveal-current-event
+requests, widget join/split, dock/show/hide of the all-events widget,
+animation-settings tab open/toggle, and the joined-widget push-to-events-panel
+flow all live here.
 
 ### `use3DCamera({ onPanZoom })`
 Owns Camera3D lifecycle: `camera3DRef`, `camera3DTransform`, `camera3DContainerStyle`, `ensureTiltCamera`, `createCamera({ onPanZoom })`, `disposeCamera()`. Returns those values for consumption in `Visualizer`. The pointer/wheel/touch gesture dispatcher remains in `Visualizer.jsx`; the gesture bodies are in `src/visualizer/gestures/`.

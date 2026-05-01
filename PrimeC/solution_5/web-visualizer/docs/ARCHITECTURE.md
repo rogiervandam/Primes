@@ -14,7 +14,7 @@ This document describes how the web visualizer is organised, the responsibilitie
 src/
 ├── main.jsx              Entry: mounts <App/> and loads styles/index.css
 ├── App.jsx               File picker / welcome screen → lazy-loads <Visualizer/>
-├── Visualizer.jsx        Top-level UI: toolbar, canvas, panels, playback (~4 280 lines)
+├── Visualizer.jsx        Top-level UI: toolbar, canvas, panels, playback (~4 195 lines)
 ├── SettingsPanel.jsx     Right-hand sidebar tab-row shell (~260 lines; delegates to settings/)
 ├── EventsPanel.jsx       Left-hand list of trace events (search/filter)
 ├── DetailPanel.jsx       Per-step inspector (changed bits, primes, factors)
@@ -48,11 +48,10 @@ src/
 │   │   ├── VectorTouchOrderOverlay.js    Vector touch-order summary labels
 │   │   └── CachelineAnnotationsOverlay.js Cacheline heat-map tints + outlines
 │   ├── gl/                   WebGL2 bit-fill backend (worker mode, default)
-│   │   ├── bitGridGLCore.js          Pure WebGL2 substrate (HTMLCanvas or OffscreenCanvas)
+│   │   ├── bitGridGLCore.js          Pure WebGL2 substrate (OffscreenCanvas worker path)
 │   │   ├── hostStatePacker.js        packPositions / packState pure helpers
 │   │   ├── bitGridWorker.js          Module worker owning a BitGridGLCore
-│   │   ├── BitGridGLWorker.js        Main-thread facade (production path)
-│   │   └── BitGridGL.js              Direct-mode facade (dev/parity harness only)
+│   │   └── BitGridGLWorker.js        Main-thread facade (production path)
 │   └── workers/              JS worker helpers
 │       ├── bitPrePass.worker.js      Prime-flag pre-computation off main thread
 │       └── bitPrePassClient.js       Main-thread fire-and-forget client
@@ -62,6 +61,9 @@ src/
 │   ├── useDraftInput.js          Editable text draft synced with a controlled value
 │   ├── useKeyboardShortcuts.js   Global keydown listener for single-key shortcuts
 │   ├── usePlaybackClock.js       seekGenRef / globalPausedRef / animBusyUntilRef triplet
+│   ├── usePlaybackLoop.js        Selected/single/all-events playback schedulers
+│   ├── useSearchState.js         Search box state + navigate-to-bit handler
+│   ├── usePanelChoreography.js   Panel/widget transitions + resize-anchor rules
 │   └── use3DCamera.js            Camera3D lifecycle + reactive state
 ├── settings/             SettingsPanel building blocks
 │   ├── constants.js              Layout/vector/grouping presets and tooltips
@@ -113,6 +115,7 @@ src/
 | Canvas pixel data | `SieveRenderer` | Owned outside React for performance; draws overlays / labels / side-faces only — all cell fills handled by GL |
 | Bit-fill GPU data | `BitGridGLWorker` (worker thread) | Packed `Float32Array`/`Uint8Array` position + state + anim textures; rebuilt from `SieveRenderer` layout accessors every frame |
 | Playback clock refs | `usePlaybackClock` hook | `seekGenRef`, `globalPausedRef`, `animBusyUntilRef` — mutated directly by consumers |
+| Panel/widget transitions | `usePanelChoreography` hook | Toggle/reveal/join/split/open/hide callbacks; raw state is still owned by `Visualizer` |
 | 3D camera transform | `use3DCamera` hook | CSS-3D matrix applied to `CanvasStage` container |
 
 ## Adding a new feature

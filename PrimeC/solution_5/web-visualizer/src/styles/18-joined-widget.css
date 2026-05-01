@@ -27,6 +27,17 @@
   cursor: grabbing;
 }
 
+.joined-events-widget.dropping {
+  outline: 2px dashed var(--accent);
+  outline-offset: 3px;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.2),
+    0 0 0 4px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
+.joined-events-widget.dropping-left {
+  border-left-color: var(--accent);
+}
+
 /* Merge-target highlight — applied to other widgets when dragging near them */
 .events-panel-floating-title.merge-target,
 .step-focus-banner.merge-target {

@@ -89,6 +89,7 @@ function CanvasStage({
   setTimingFocusOp,
   onImportBenchmarkTiming,
   steps,
+  onShowEventTitle,
 }) {
   return (
     <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
@@ -167,16 +168,7 @@ function CanvasStage({
         onInspectChangedBits={() => openDetailInspector('bits')}
         onInspectMarkedNumbers={() => openDetailInspector('numbers')}
         eventTitleVisible={eventTitleSettings.visible && !widgetsJoined}
-        onShowEventTitle={() => {
-          // The detail panel button also calls onToggle() after this, so
-          // the panel will always be closed when the banner appears.
-          // Place the banner 30px above the closed detail-panel header (~22px).
-          // CSS anchor is bottom:20px, so dragOffsetY = -(22+30-20) = -32.
-          const DETAIL_HEADER_H = 22; // matches detailPad convention
-          const dragOffsetY = -(DETAIL_HEADER_H + 30 - 20); // = -32
-          setEventTitleSettings((prev) => ({ ...prev, visible: true, dragOffsetX: 0, dragOffsetY }));
-          if (widgetsJoined) onSplitWidgets?.();
-        }}
+        onShowEventTitle={onShowEventTitle}
         eventAnimSliders={stepAnimSlidersContent}
       />
 

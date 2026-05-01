@@ -86,7 +86,11 @@
   gap: 4px;
 }
 .detail-panel-event-sliders .step-focus-slider-row {
-  grid-template-columns: 56px minmax(0, 1fr) 56px;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+}
+.detail-panel-event-sliders .step-focus-slider-actions {
+  min-width: 56px;
+  justify-self: end;
 }
 .detail-panel-body {
   padding: 8px 12px;
@@ -353,4 +357,3 @@
   45% { transform: translateY(4px) scale(1.04); }
   70% { transform: translateY(0) scale(1); }
 }
-
