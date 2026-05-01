@@ -34,3 +34,4 @@ tests/bin/*
 dev/build/*
 dev/dockerfiles/*
 REQUIREMENTS*
+web-visualizer/*.log
