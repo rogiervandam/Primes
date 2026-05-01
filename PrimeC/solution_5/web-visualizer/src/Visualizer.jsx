@@ -349,6 +349,7 @@ export default function Visualizer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [header]); // Intentionally keyed on header identity, not storageModel
   const [selectedSteps, setSelectedSteps] = useState(new Set());
+  const selectedStepsRef = useRef(selectedSteps);
   const [heatMapEnabled, setHeatMapEnabled] = useState(false);
   // 'none' | 'hits' | 'age' | 'both'  — annotation shown on each cacheline when heatmap is on
   const [cachelineAnnotation, setCachelineAnnotation] = useState('none');
@@ -449,6 +450,7 @@ export default function Visualizer({
 
   stepsRef.current = steps;
   currentStepRef.current = currentStep;
+  selectedStepsRef.current = selectedSteps;
 
   /** Miller-Rabin primality test — deterministic for all n < 3,215,031,751 */
   const isPrimeNumber = useCallback((n) => {
@@ -1371,6 +1373,11 @@ export default function Visualizer({
     if (!options.keepPlaying && !options.keepLoop && singleEventLoopActiveRef.current) {
       setSingleEventLoopActive(false);
     }
+    // When scrubbing the timeline with an aggregate selection active, let the
+    // selected-steps animation loop (Effect 1) keep running uninterrupted.
+    // Skip the r.setState / triggerAnimation calls below so they don't
+    // override r.changedBits with individual-step bits or cancel the loop.
+    const aggregateScrub = isScrubbingTopRef.current && selectedStepsRef.current.size > 0;
     if (!suppressHighlight) initialHighlightHoldRef.current = false;
 
     let bs = bitStateRef.current;
@@ -1457,23 +1464,25 @@ export default function Visualizer({
 
     const previousHighlights = new Set(r.changedBits || []);
 
-    // Set operation for color-coded highlighting
-    r.currentOperation = step.operation;
-    r.currentAnnotation = step.annotation || '';
-    r.setState(bs, changedSet, targetSet, targetHitCounts, {
-      focusStart: suppressHighlight ? null : step.focusStart,
-      focusStop: suppressHighlight ? null : step.focusStop,
-    }, suppressHighlight ? null : {
-      wordBits: step.maskWordBits,
-      targetWords: step.maskWriteOrderWords,
-      targetSlots: step.maskWriteOrderSlots,
-      targetEventIds: step.maskWriteOrderWords?.length > 0
-        ? Int32Array.from(Array(step.maskWriteOrderWords.length).fill(step.stepId ?? target))
-        : new Int32Array(0),
-      slotBits: step.maskSlotBits,
-    }, {
-      repeatedBits: suppressHighlight ? new Set() : repeatedBits,
-    });
+    if (!aggregateScrub) {
+      // Set operation for color-coded highlighting
+      r.currentOperation = step.operation;
+      r.currentAnnotation = step.annotation || '';
+      r.setState(bs, changedSet, targetSet, targetHitCounts, {
+        focusStart: suppressHighlight ? null : step.focusStart,
+        focusStop: suppressHighlight ? null : step.focusStop,
+      }, suppressHighlight ? null : {
+        wordBits: step.maskWordBits,
+        targetWords: step.maskWriteOrderWords,
+        targetSlots: step.maskWriteOrderSlots,
+        targetEventIds: step.maskWriteOrderWords?.length > 0
+          ? Int32Array.from(Array(step.maskWriteOrderWords.length).fill(step.stepId ?? target))
+          : new Int32Array(0),
+        slotBits: step.maskSlotBits,
+      }, {
+        repeatedBits: suppressHighlight ? new Set() : repeatedBits,
+      });
+    }
 
     // Update heat map (also when cacheline annotations are enabled, to provide hit-count data)
     if (r.heatMapEnabled || (r.cachelineAnnotation && r.cachelineAnnotation !== 'none')) {
@@ -1516,7 +1525,9 @@ export default function Visualizer({
       || isScrubbingTopRef.current
       || options.keepPlaying === true
       || options.forceAnimate === true;
-    if (!suppressHighlight && hasPlayContext && triggerAnimationRef.current) {
+    // For aggregate scrubbing, the selected-steps animation loop (Effect 1)
+    // keeps running without interference — don't call triggerAnimation here.
+    if (!aggregateScrub && !suppressHighlight && hasPlayContext && triggerAnimationRef.current) {
       // Pick the right delay context:
       //  - All-events autoplay (playing): wait `delayBetweenEvents` after this
       //    event before the scheduler advances to the next event.
@@ -1726,6 +1737,55 @@ export default function Visualizer({
       else if (animStyle === 'fade') r.renderFade(clamped);
       else if (animStyle === 'pulse') r.renderPulse(clamped);
       r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      return;
+    }
+
+    // Aggregate seek: progressively reveal merged bits from all selected steps.
+    const selSteps = selectedStepsRef.current;
+    if (selSteps.size > 1) {
+      const mergedSet = new Set();
+      let minIdx = Infinity;
+      for (const idx of selSteps) {
+        if (idx < minIdx) minIdx = idx;
+        const s = allSteps[idx];
+        if (s && s.changedBits) {
+          for (let j = 0; j < s.changedBits.length; j++) mergedSet.add(s.changedBits[j]);
+        }
+      }
+      const bits = Array.from(mergedSet).sort((a, b) => a - b);
+      if (bits.length > 0) {
+        const revealCount = bitsAtTimeRatioRef.current
+          ? bitsAtTimeRatioRef.current(clamped, bits.length)
+          : Math.round(clamped * bits.length);
+        const targetIdx = Math.max(0, Math.min(bits.length - 1, revealCount - 1));
+
+        // Rebuild bitState to just before the earliest selected step, then
+        // add the revealed aggregate bits so the grid reflects partial reveal.
+        bs.fill(0);
+        for (let i = 0; i < minIdx; i++) {
+          const s = allSteps[i];
+          for (let j = 0; j < s.changedBits.length; j++) {
+            const bit = s.changedBits[j];
+            if (bit < bs.length) bs[bit] = 1;
+          }
+        }
+        const revealed = new Set();
+        for (let i = 0; i <= targetIdx; i++) {
+          const bit = bits[i];
+          if (bit < bs.length) bs[bit] = 1;
+          revealed.add(bit);
+        }
+        bitStateDirtyRef.current = targetIdx < bits.length - 1;
+        const focusBits = new Set([bits[targetIdx]]);
+        r.bitState = bs;
+        r.changedBits = revealed;
+        r.animationFocusBits = focusBits;
+        r.render();
+        if (animStyle === 'ripple') r.renderRipple(0.18, focusBits, { intensity: 1.1, showBeacon: true });
+        else if (animStyle === 'pulse') r.renderPulse(0.28, focusBits, { intensity: 1.2, showHalo: true });
+        else if (animStyle === 'fade') r.renderFade(0.35);
+        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      }
       return;
     }
 
