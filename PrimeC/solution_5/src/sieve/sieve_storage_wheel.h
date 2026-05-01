@@ -22,28 +22,28 @@
 
     // Wheel size parameters: either loaded from a pre-generated cache file,
     // or set to the default 8of30 values for runtime computation.
-    #ifdef WHEEL_CACHE_FILE
-        #include WHEEL_CACHE_FILE
-        #define WHEEL_MAX         WC_WHEEL_MAX
-        #define WHEEL_BASIC_SIZE  WC_WHEEL_SIZE
-        #define WHEEL_STRIPES     WC_WHEEL_STRIPES
-        #define WHEEL_REPEATS     1
-        #define WHEEL_SIZE        WC_WHEEL_SIZE
-        #define WHEEL_STRIPE_BYTES WC_WHEEL_STRIPE_BYTES
-        #define WHEEL_STRIPE_BITS  WC_WHEEL_STRIPE_BITS
-    #else
+    // #ifdef WHEEL_CACHE_FILE
+    //     #include WHEEL_CACHE_FILE
+    //     #define WHEEL_MAX         WC_WHEEL_MAX
+    //     #define WHEEL_BASIC_SIZE  WC_WHEEL_SIZE
+    //     #define WHEEL_STRIPES     WC_WHEEL_STRIPES
+    //     #define WHEEL_REPEATS     1
+    //     #define WHEEL_SIZE        WC_WHEEL_SIZE
+    //     #define WHEEL_STRIPE_BYTES WC_WHEEL_STRIPE_BYTES
+    //     #define WHEEL_STRIPE_BITS  WC_WHEEL_STRIPE_BITS
+    // #else
         #define WHEEL_MAX 5
         #define WHEEL_BASIC_SIZE (2 * 3 * 5)
         #define WHEEL_STRIPES 8
-        #define WHEEL_REPEATS 1
+        #define WHEEL_REPEATS 8
         #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
-        #define WHEEL_STRIPE_BYTES 1 //(((WHEEL_STRIPES) - 1) / 8 + 1)
-        #define WHEEL_STRIPE_BITS  ((WHEEL_STRIPE_BYTES) * 8)
-    #endif
+        #define WHEEL_STRIPE_BYTES (((WHEEL_STRIPES * WHEEL_REPEATS) - 1) / 8 + 1)
+        #define WHEEL_STRIPE_BITS  ((WHEEL_STRIPE_BYTES) * 8) // this can be more than stripe count and is used for alignment
+    // #endif
 
     #define wheelmask_stripes      WHEEL_STRIPES
     #define wheelmask_stripe_bytes WHEEL_STRIPE_BYTES
-    #define wheelmask_stripe_bits  WHEEL_STRIPE_BITS
+    #define wheelmask_stripe_bits  WHEEL_STRIPE_BITS 
 
     #include "../sieve/sieve_calc.h"
 
@@ -153,18 +153,18 @@
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
     markFactor_wheelstorage(sieve_t* sieve, const register counter_t index) 
     {
-        logStart9(sieve->bitstorage, time_markFactor_wheelstorage, "marking factor %ju", (uintmax_t)index);
+        logStart9(sieve->bitstorage, time_markFactor_wheelstorage, "MarkFactorWheelStorage: marking factor %ju", (uintmax_t)index);
 
         register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
         const counter_t wheel_bit = wheel_bit_calc(index);
         if (wheel_bit <= 0) {
-            logStop9(sieve->bitstorage, time_markFactor_wheelstorage, "finished marking factor %ju - skipped because divisible by wheel prime", (uintmax_t)index);
+            logStop9(sieve->bitstorage, time_markFactor_wheelstorage, "MarkFactorWheelStorage: finished marking factor %ju - skipped because divisible by wheel prime", (uintmax_t)index);
             return; // if the number is divisible by any of the wheel primes, skip it
         }
         
         bitstorage_sized[ index_type(wheel_bit, bitbucket_t)] |= markmask_type(wheel_bit, bitbucket_t);
 
-        logStop9(sieve->bitstorage, time_markFactor_wheelstorage, "finished marking factor %ju", (uintmax_t)index);
+        logStop9(sieve->bitstorage, time_markFactor_wheelstorage, "MarkFactorWheelStorage: finished marking factor %ju", (uintmax_t)index);
     }
     #undef bitbucket_t
 
@@ -207,7 +207,7 @@
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
     function(markFactors_wheelstorage_repeat,suffix)(sieve_t* sieve, const counter_t range_start, counter_t range_stop, const counter_t step)
     {
-        logStart6(sieve->bitstorage, time_markFactors_wheelstorage_repeat, "factors [%jd-%jd] step %jd", (intmax_t)range_start, (intmax_t)range_stop, (intmax_t)step);
+        logStart6(sieve->bitstorage, time_markFactors_wheelstorage_repeat, "MarkFactorsWheelStorageRepeat: factors [%jd-%jd] step %jd", (intmax_t)range_start, (intmax_t)range_stop, (intmax_t)step);
 
         register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
@@ -284,7 +284,7 @@
             // function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), bucket_stop, wheel_step, markmask);
             // // function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), index_type(wheel_bit, bitbucket_t), wheel_step, markmask);
         } 
-        logStop6(sieve->bitstorage, time_markFactors_wheelstorage_repeat, "finished setting factors\n");
+        logStop6(sieve->bitstorage, time_markFactors_wheelstorage_repeat, "MarkFactorsWheelStorageRepeat: finished setting factors\n");
     }
 
 #endif
@@ -379,6 +379,7 @@
     static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     markFactors_wheelstorage(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
     {
+        // TRACE_ANALYSIS_START(5, start, stop);
         const counter_t prime = step / 2;
 
         // log5(sieve->bitstorage,
@@ -397,5 +398,6 @@
         else 
         markFactors_wheelstorage_repeat_uint8_unroll8(sieve, start, stop, step);
         // markFactors_wheelstorage_norepeat(sieve, start, stop, step);
+        // TRACE_ANALYSIS_END();
     }
 #endif
