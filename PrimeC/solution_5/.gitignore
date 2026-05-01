@@ -23,6 +23,7 @@ log/
 web-visualizer/node_modules
 web-visualizer/dist
 web-visualizer/release
+web-visualizer/*.log
 src/generic/sieve_embed.h
 callgrind*
 profile*
