@@ -23,6 +23,7 @@ import {
   sanitizeOperationToken,
   dedupeStrings,
   collectTitleInfo,
+  normalizeStorageModelName,
   normalizeBitCountForStorage,
   isAnalysisEndLine,
 } from './parser/parseUtils';
@@ -68,6 +69,49 @@ export function parseTrace(buffer) {
   return parseTextTrace(trimmed);
 }
 
+function parseWheelDefinition(raw) {
+  if (!raw) return null;
+  const kv = typeof raw === 'string' ? parseKvLine(raw) : raw;
+  const mapNumbersRaw = firstDefined(kv.map_numbers, kv.mapNumbers, kv.numbers, kv.residues);
+  const mapBitsRaw = firstDefined(kv.map_bits, kv.mapBits, kv.bits);
+  const mapNumbers = parseIntegerList(mapNumbersRaw);
+  const mapBits = parseIntegerList(mapBitsRaw);
+  const pairCount = Math.min(mapNumbers.length, mapBits.length);
+  if (pairCount <= 0) return null;
+
+  const wheelSize = toNumberOr(firstDefined(kv.wheel_size, kv.wheelSize, kv.size, kv.period), 0);
+  const bitsPerWheel = toNumberOr(firstDefined(kv.bits_per_wheel, kv.bitsPerWheel, kv.stripe_bits, kv.stripeBits), 0);
+  if (wheelSize <= 0 || bitsPerWheel <= 0) return null;
+
+  const cleanNumbers = [];
+  const cleanBits = [];
+  for (let i = 0; i < pairCount; i++) {
+    const number = mapNumbers[i];
+    const bit = mapBits[i];
+    if (!Number.isFinite(number) || !Number.isFinite(bit) || number < 0 || bit < 0) continue;
+    cleanNumbers.push(number);
+    cleanBits.push(bit);
+  }
+  if (cleanNumbers.length === 0) return null;
+
+  return {
+    wheelSize,
+    bitsPerWheel,
+    baseSize: toNumberOr(firstDefined(kv.base_size, kv.baseSize), wheelSize),
+    repeats: toNumberOr(firstDefined(kv.repeats, kv.repeat_count, kv.repeatCount), 1),
+    wheelMax: toNullableNumber(firstDefined(kv.wheel_max, kv.wheelMax)),
+    mapNumbers: cleanNumbers,
+    mapBits: cleanBits,
+    mapCount: cleanNumbers.length,
+  };
+}
+
+function parseWheelDefinitionFromLines(lines) {
+  const wheelLine = lines.find((line) => /^WHEEL\s/i.test(line));
+  if (!wheelLine) return null;
+  return parseWheelDefinition(wheelLine.replace(/^WHEEL\s+/i, ''));
+}
+
 function parseJsonTrace(text) {
   let json;
   try {
@@ -89,7 +133,9 @@ function parseJsonTrace(text) {
 
   const rawSteps = json.events || json.steps || [];
 
-  const jsonStorageModel = String(json.storage_model || 'half');
+  const jsonRawStorageModel = String(json.storage_model || 'half');
+  const jsonStorageModel = normalizeStorageModelName(jsonRawStorageModel);
+  const jsonWheel = parseWheelDefinition(json.wheel);
   const jsonMaxNumber = toNumberOr(firstDefined(json.max_number, json.sieve_size), 0);
   const jsonSieveSize = toNumberOr(json.sieve_size, 0);
   const jsonBitCount = normalizeBitCountForStorage(
@@ -106,6 +152,8 @@ function parseJsonTrace(text) {
     maxNumber: jsonMaxNumber,
     stepCount: rawSteps.length,
     storageModel: jsonStorageModel,
+    rawStorageModel: jsonRawStorageModel,
+    wheel: jsonWheel,
     traceLevel: toNullableNumber(firstDefined(json.trace_level, json.log_level)),
     benchmarkSettings: firstDefined(json.benchmark_settings, json.settings, null),
   };
@@ -177,7 +225,9 @@ function parseTextTrace(text) {
 
   const headerLine = lines.find((l) => l.startsWith('TRACE '));
   const headerKv = headerLine ? parseKvLine(headerLine.slice('TRACE '.length)) : {};
-  const parsedStorageModel = String(headerKv.storage_model || 'half');
+  const rawStorageModel = String(headerKv.storage_model || 'half');
+  const parsedStorageModel = normalizeStorageModelName(rawStorageModel);
+  const parsedWheel = parseWheelDefinitionFromLines(lines);
   const parsedSieveSize = toNumberOr(headerKv.sieve_size, 0);
   const parsedMaxNumber = toNumberOr(firstDefined(headerKv.max_number, headerKv.sieve_size), 0);
   const parsedBitCount = normalizeBitCountForStorage(
@@ -216,6 +266,7 @@ function parseTextTrace(text) {
   for (let idx = 0; idx < lines.length; idx++) {
     const line = lines[idx];
     if (!line || line.startsWith('TRACE ') || line.startsWith('DUMP ')) continue;
+    if (/^WHEEL\s/i.test(line)) continue;
     // Dedicated storage-model line ("StorageModel: half") is a metadata convenience
     // already carried inside the TRACE header; skip here to avoid free-form parsing.
     if (/^StorageModel:\s*\S+\s*$/i.test(line)) continue;
@@ -338,6 +389,8 @@ function parseTextTrace(text) {
     maxNumber: parsedMaxNumber,
     stepCount: steps.length,
     storageModel: parsedStorageModel,
+    rawStorageModel,
+    wheel: parsedWheel,
     traceLevel: toNullableNumber(firstDefined(headerKv.trace_level, headerKv.log_level)),
     benchmarkSettings: firstDefined(headerKv.benchmark_settings, headerKv.settings, null),
   };
@@ -356,7 +409,9 @@ function parseTextTrace(text) {
 function parseFreeformTextTrace(lines, headerKv = {}) {
   const titleMeta = extractTitleMetadata(lines, headerKv);
   const benchmarkMeta = extractBenchmarkMetadata(lines);
-  const parsedStorageModel = String(headerKv.storage_model || 'half');
+  const rawStorageModel = String(headerKv.storage_model || 'half');
+  const parsedStorageModel = normalizeStorageModelName(rawStorageModel);
+  const parsedWheel = parseWheelDefinitionFromLines(lines);
   const parsedSieveSize = toNumberOr(headerKv.sieve_size, 0);
   const parsedMaxNumber = toNumberOr(firstDefined(headerKv.max_number, headerKv.sieve_size), 0);
   const parsedBitCount = normalizeBitCountForStorage(
@@ -372,6 +427,8 @@ function parseFreeformTextTrace(lines, headerKv = {}) {
     maxNumber: parsedMaxNumber,
     stepCount: 0,
     storageModel: parsedStorageModel,
+    rawStorageModel,
+    wheel: parsedWheel,
     traceLevel: toNullableNumber(firstDefined(headerKv.trace_level, headerKv.log_level)),
     benchmarkSettings: firstDefined(headerKv.benchmark_settings, headerKv.settings, null),
   };
@@ -383,6 +440,7 @@ function parseFreeformTextTrace(lines, headerKv = {}) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (!line || line.startsWith('TRACE ') || line.startsWith('DUMP ')) continue;
+    if (/^WHEEL\s/i.test(line)) continue;
 
     if (/^TEXT\s/i.test(line)) {
       const kv = parseKvLine(line.slice('TEXT '.length));

@@ -18,12 +18,12 @@
  * handful of job types, split per-job files and use `case` dispatch.
  */
 
-import { bitToNumber } from '../bitMath';
+import { bitToNumber, wheelSignature } from '../bitMath';
 
-function buildPrimeOverlay({ sieveSize, bitCount, storageModel }) {
+function buildPrimeOverlay({ sieveSize, bitCount, storageModel, wheelDefinition }) {
   const limit = Math.max(2, sieveSize > 0
     ? sieveSize
-    : bitToNumber(Math.max(0, bitCount - 1), storageModel));
+    : (bitToNumber(Math.max(0, bitCount - 1), storageModel, wheelDefinition) || 0));
 
   // Sieve of Eratosthenes (odd-only optimisation; even numbers stay 0
   // except for 2 itself, which is hard-coded below).
@@ -37,7 +37,7 @@ function buildPrimeOverlay({ sieveSize, bitCount, storageModel }) {
 
   const flags = new Uint8Array(bitCount);
   for (let i = 0; i < bitCount; i++) {
-    const num = bitToNumber(i, storageModel);
+    const num = bitToNumber(i, storageModel, wheelDefinition);
     if (num >= 2 && num <= limit && sieve[num]) flags[i] = 1;
   }
   return flags;
@@ -50,7 +50,7 @@ self.onmessage = (event) => {
 
   if (type === 'buildPrimeOverlay') {
     const flags = buildPrimeOverlay(msg);
-    const key = `${Math.max(2, msg.sieveSize > 0 ? msg.sieveSize : bitToNumber(Math.max(0, msg.bitCount - 1), msg.storageModel))}:${msg.bitCount}:${msg.storageModel}`;
+    const key = `${Math.max(2, msg.sieveSize > 0 ? msg.sieveSize : (bitToNumber(Math.max(0, msg.bitCount - 1), msg.storageModel, msg.wheelDefinition) || 0))}:${msg.bitCount}:${msg.storageModel}:${wheelSignature(msg.wheelDefinition)}`;
     // Transfer the underlying buffer so we don't pay a copy on the way back.
     self.postMessage({ id, type, flags, key }, [flags.buffer]);
     return;

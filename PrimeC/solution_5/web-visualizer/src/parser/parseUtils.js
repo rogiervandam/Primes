@@ -159,6 +159,14 @@ export function collectTitleInfo(raw) {
   return text.split(/\s*\|\s*|\s*;\s*/).map((value) => value.trim()).filter(Boolean);
 }
 
+/** Convert trace storage model names to renderer-supported keys. */
+export function normalizeStorageModelName(storageModel) {
+  const mode = String(storageModel || 'half').trim().toLowerCase();
+  if (!mode || mode === 'default') return 'half';
+  if (mode.startsWith('wheel')) return 'wheel';
+  return mode;
+}
+
 /**
  * Adjust the reported bit count to match the storage model. For half
  * storage we use ceil(maxNumber/2) when the recorded count is missing.

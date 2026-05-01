@@ -100,8 +100,9 @@ export function packState(host, buf, slots) {
   if (host.multiplesOverlay && host.multiplesOverlayPrime >= 2) {
     const k = host.multiplesOverlayPrime | 0;
     const sm = host.storageModel;
+    const wheel = host.wheelDefinition;
     for (let i = 0; i < bitCount; i++) {
-      const num = bitToNumber(i, sm);
+      const num = bitToNumber(i, sm, wheel);
       if (num >= 2 && num % k === 0) buf[i] |= 64;
     }
   }

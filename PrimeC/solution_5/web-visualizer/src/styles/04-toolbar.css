@@ -164,6 +164,45 @@
   font-size: 12px;
 }
 
+.trace-info-wheel {
+  margin-top: 8px;
+}
+.trace-info-wheel-toggle {
+  width: 100%;
+  margin-top: 6px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-raised);
+  color: var(--fg);
+  font-size: 12px;
+  cursor: pointer;
+}
+.trace-info-wheel-table-wrap {
+  margin-top: 6px;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.trace-info-wheel-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.trace-info-wheel-table th,
+.trace-info-wheel-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+}
+.trace-info-wheel-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-surface);
+  color: var(--fg-muted);
+}
+
 /* "View raw log" button inside trace-info popover */
 .trace-info-raw-section { padding-top: 4px; }
 .trace-info-raw-btn {

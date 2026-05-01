@@ -27,6 +27,7 @@ export default function DetailPanel({
   playing,
   stepStats,
   storageModel,
+  wheelDefinition,
   bitLayout = '4x2',
   byteLayout = '4x2',
   benchmarkTimingData,
@@ -79,10 +80,13 @@ export default function DetailPanel({
     if (!step || step.changedBits.length === 0) return '';
     const bits = Array.from(step.changedBits).sort((a, b) => a - b);
     const model = storageModel || 'half';
-    const nums = bits.slice(0, 5).map(b => bitToNumber(b, model));
+    const nums = bits.slice(0, 5).map((bit) => {
+      const number = bitToNumber(bit, model, wheelDefinition);
+      return number == null ? 'unmapped' : number;
+    });
     const more = bits.length - 5;
     return { text: nums.join(', '), more: more > 0 ? more : 0 };
-  }, [step, storageModel]);
+  }, [step, storageModel, wheelDefinition]);
 
   const maskType = useMemo(() => {
     if (!step) return null;

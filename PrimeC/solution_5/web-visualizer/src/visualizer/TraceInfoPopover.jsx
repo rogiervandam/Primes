@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { STORAGE_MODELS } from '../SieveRenderer';
 
 /**
@@ -22,6 +22,7 @@ export default function TraceInfoPopover({
   lineToStep, onJumpToStep, rawScrollToLine, onClearRawScrollToLine,
 }) {
   const [rawOpen, setRawOpen] = useState(false);
+  const [wheelOpen, setWheelOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   // Always keep explicit absolute position — avoids flex↔absolute jump on first drag.
   // Default to near the top of the viewport (below the toolbar) rather than centered.
@@ -53,6 +54,21 @@ export default function TraceInfoPopover({
   }, [rawOpen, onClearRawScrollToLine]);
 
   const rawLines = rawSource ? rawSource.split(/\r?\n/) : [];
+  const wheelRows = useMemo(() => {
+    const wheel = header?.wheel;
+    if (!wheel || !Array.isArray(wheel.mapNumbers) || !Array.isArray(wheel.mapBits)) return [];
+    const count = Math.min(wheel.mapNumbers.length, wheel.mapBits.length);
+    return Array.from({ length: count }, (_, index) => {
+      const relativeNumber = wheel.mapNumbers[index];
+      const relativeBit = wheel.mapBits[index];
+      return {
+        relativeNumber,
+        relativeBit,
+        nextNumber: relativeNumber + wheel.wheelSize,
+        nextBit: relativeBit + wheel.bitsPerWheel,
+      };
+    });
+  }, [header?.wheel]);
 
   const handleCopy = useCallback(() => {
     if (!rawSource) return;
@@ -149,6 +165,58 @@ export default function TraceInfoPopover({
           {header.storageModel && header.storageModel !== storageModel && (
             <div className="trace-info-row trace-info-row-hint">
               Log reported <code>{header.storageModel}</code> — override active.
+            </div>
+          )}
+          {header.rawStorageModel && header.rawStorageModel !== header.storageModel && (
+            <div className="trace-info-row trace-info-row-hint">
+              Trace storage <code>{header.rawStorageModel}</code>
+            </div>
+          )}
+          {header.wheel && (
+            <div className="trace-info-wheel">
+              <div className="trace-info-row trace-info-row-kv">
+                <span className="trace-info-key">Wheel</span>
+                <span className="trace-info-value">
+                  {header.wheel.mapCount || wheelRows.length} bits / {header.wheel.wheelSize} numbers
+                </span>
+              </div>
+              <div className="trace-info-row trace-info-row-kv">
+                <span className="trace-info-key">Period</span>
+                <span className="trace-info-value">
+                  {header.wheel.bitsPerWheel} bits, base {header.wheel.baseSize}, repeats {header.wheel.repeats}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="trace-info-wheel-toggle"
+                onClick={() => setWheelOpen((value) => !value)}
+              >
+                {wheelOpen ? 'Hide wheel map' : 'Inspect wheel map'}
+              </button>
+              {wheelOpen && (
+                <div className="trace-info-wheel-table-wrap">
+                  <table className="trace-info-wheel-table">
+                    <thead>
+                      <tr>
+                        <th>Rel Bit</th>
+                        <th>Rel Number</th>
+                        <th>Next Bit</th>
+                        <th>Next Number</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {wheelRows.map((row) => (
+                        <tr key={`wheel-${row.relativeBit}-${row.relativeNumber}`}>
+                          <td>{row.relativeBit}</td>
+                          <td>{row.relativeNumber}</td>
+                          <td>{row.nextBit}</td>
+                          <td>{row.nextNumber}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>

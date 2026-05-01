@@ -8,11 +8,12 @@ import { bitToNumber, numberToBit } from '../SieveRenderer';
  * @param {React.MutableRefObject} opts.rendererRef  - ref to the live SieveRenderer
  * @param {function} opts.navigateToBit              - animated viewport fly-to
  * @param {string}   opts.storageModel               - current storage model key
+ * @param {object}   opts.wheelDefinition            - optional wheel mapping metadata
  * @param {function} opts.getMinimapDetailH          - returns the current detail-panel height for minimap
  *
  * @returns {{ searchQuery, setSearchQuery, searchResult, searchOpen, setSearchOpen, handleSearch }}
  */
-export function useSearchState({ rendererRef, navigateToBit, storageModel, getMinimapDetailH }) {
+export function useSearchState({ rendererRef, navigateToBit, storageModel, wheelDefinition, getMinimapDetailH }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResult, setSearchResult] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -73,7 +74,7 @@ export function useSearchState({ rendererRef, navigateToBit, storageModel, getMi
         break;
       case 'number': case 'num': case '#':
         targetKind = 'bit';
-        bitIdx = numberToBit(val, storageModel);
+        bitIdx = numberToBit(val, storageModel, wheelDefinition);
         if (bitIdx < 0) {
           r.clearSearchHighlight();
           r.render();
@@ -98,13 +99,13 @@ export function useSearchState({ rendererRef, navigateToBit, storageModel, getMi
       return;
     }
 
-    const num = bitToNumber(bitIdx, storageModel);
+    const num = bitToNumber(bitIdx, storageModel, wheelDefinition);
     r.setSearchHighlight(targetKind, highlightIndex, bitIdx);
     navigateToBit(bitIdx, targetKind);
     r.render();
     r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-    setSearchResult(`Bit ${bitIdx} -> Number ${num}`);
-  }, [rendererRef, navigateToBit, storageModel, getMinimapDetailH]);
+    setSearchResult(`Bit ${bitIdx} -> Number ${num == null ? 'unmapped' : num}`);
+  }, [rendererRef, navigateToBit, storageModel, wheelDefinition, getMinimapDetailH]);
 
   // Clear search highlight when the search box is closed
   useEffect(() => {
