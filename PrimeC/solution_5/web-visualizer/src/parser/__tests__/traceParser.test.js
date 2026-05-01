@@ -184,4 +184,8 @@ describe('parseTrace — error cases', () => {
   it('throws on malformed JSON', () => {
     expect(() => parseTrace('{bad json')).toThrow();
   });
+
+  it('throws when the dev server app shell is returned instead of a trace', () => {
+    expect(() => parseTrace('<!DOCTYPE html><html><body><div id="root"></div></body></html>')).toThrow(/HTML instead of a trace log/i);
+  });
 });

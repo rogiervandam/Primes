@@ -61,6 +61,9 @@ export function parseTrace(buffer) {
 
   const trimmed = text.trim();
   if (!trimmed) throw new Error('Invalid trace file: empty input');
+  if (/^<!doctype\s+html\b|^<html\b/i.test(trimmed)) {
+    throw new Error('Invalid trace file: received the visualizer HTML instead of a trace log. Check that the dev server log API is enabled.');
+  }
 
   if (trimmed[0] === '{' || trimmed[0] === '[') {
     return parseJsonTrace(trimmed);

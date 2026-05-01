@@ -34,5 +34,4 @@ tests/bin/*
 dev/build/*
 dev/dockerfiles/*
 REQUIREMENTS*
-web-visualizer/vite_visualize.log
-web-visualizer/vite.log
+web-visualizer/*.log

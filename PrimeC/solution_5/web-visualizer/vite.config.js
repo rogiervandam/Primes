@@ -13,7 +13,7 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    // logApiPlugin(path.resolve(__dirname, '../log')),
+    logApiPlugin(path.resolve(__dirname, '../log')),
   ],
   server: {
     host: '0.0.0.0',
