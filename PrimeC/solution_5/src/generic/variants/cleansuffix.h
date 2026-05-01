@@ -6,6 +6,8 @@
 #undef variant_base_type_t
 #undef variant_bits
 #undef variant_suffix
+#undef variant_base
+#undef variant_base_suffix
 
 #undef preset_uint64v8
 #undef preset_uint64v4

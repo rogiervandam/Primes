@@ -20,7 +20,7 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
     // but this is more expensive than just iterating until we reach the first full bucket, because the step is large and we will likely already be close to 
     // a full bucket after a few iterations
     for (; range_start <= range_stop_unique && (current_bucket = function(wheel_block_calc,variant_suffix)(range_start)) < 2 ; range_start += step) {
-        markFactor_wheelstorage(sieve, range_start);
+        function(markFactor_wheelstorage,suffix)(sieve, range_start);
     }
     logStop7(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "finished aligning to first full bucket at index %ju", (uintmax_t)range_start);
 

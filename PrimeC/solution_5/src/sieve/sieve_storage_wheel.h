@@ -149,24 +149,24 @@
         return factor;
     }
 
-    #define bitbucket_t uint64_t
-    static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-    markFactor_wheelstorage(sieve_t* sieve, const register counter_t index) 
-    {
-        logStart9(sieve->bitstorage, time_markFactor_wheelstorage, "MarkFactorWheelStorage: marking factor %ju", (uintmax_t)index);
+    // #define bitbucket_t uint64_t
+    // static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
+    // markFactor_wheelstorage(sieve_t* sieve, const register counter_t index) 
+    // {
+    //     logStart9(sieve->bitstorage, time_markFactor_wheelstorage, "MarkFactorWheelStorage: marking factor %ju", (uintmax_t)index);
 
-        register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
-        const counter_t wheel_bit = wheel_bit_calc(index);
-        if (wheel_bit <= 0) {
-            logStop9(sieve->bitstorage, time_markFactor_wheelstorage, "MarkFactorWheelStorage: finished marking factor %ju - skipped because divisible by wheel prime", (uintmax_t)index);
-            return; // if the number is divisible by any of the wheel primes, skip it
-        }
+    //     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
+    //     const counter_t wheel_bit = wheel_bit_calc(index);
+    //     if (wheel_bit <= 0) {
+    //         logStop9(sieve->bitstorage, time_markFactor_wheelstorage, "MarkFactorWheelStorage: finished marking factor %ju - skipped because divisible by wheel prime", (uintmax_t)index);
+    //         return; // if the number is divisible by any of the wheel primes, skip it
+    //     }
         
-        bitstorage_sized[ index_type(wheel_bit, bitbucket_t)] |= markmask_type(wheel_bit, bitbucket_t);
+    //     bitstorage_sized[ index_type(wheel_bit, bitbucket_t)] |= markmask_type(wheel_bit, bitbucket_t);
 
-        logStop9(sieve->bitstorage, time_markFactor_wheelstorage, "MarkFactorWheelStorage: finished marking factor %ju", (uintmax_t)index);
-    }
-    #undef bitbucket_t
+    //     logStop9(sieve->bitstorage, time_markFactor_wheelstorage, "MarkFactorWheelStorage: finished marking factor %ju", (uintmax_t)index);
+    // }
+    // #undef bitbucket_t
 
     #define INCLUDE_FILE "../../../src/sieve/sieve_storage_wheel.h"
     #include "../generic/variants/generate.h"
@@ -203,7 +203,25 @@
 
 #if defined BUILD_WORDS_STAGE
 
-    // TODO: replace the fast wheelmask_compressed with something dymanic
+    // mark a single factor in the sieve, by calculating its corresponding bit index in the bitstorage and setting that bit to true
+    static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
+    function(markFactor_wheelstorage,suffix)(sieve_t* sieve, const register counter_t index) 
+    {
+        logStart9(sieve->bitstorage, time_markFactor_wheelstorage, "marking factor %ju", (uintmax_t)index);
+
+        register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
+        const counter_t wheel_bit = wheel_bit_calc(index);
+        if (wheel_bit <= 0) {
+            logStop9(sieve->bitstorage, time_markFactor_wheelstorage, "finished marking factor %ju - skipped because divisible by wheel prime", (uintmax_t)index);
+            return; // if the number is divisible by any of the wheel primes, skip it
+        }
+        
+        bitstorage_sized[ index_type(wheel_bit, bitbucket_t)] |= markmask_type(wheel_bit, bitbucket_t);
+
+        logStop9(sieve->bitstorage, time_markFactor_wheelstorage, "finished marking factor %ju", (uintmax_t)index);
+    }
+
+    // TODO: replace the fast wheelmask_compressed with something dynamic
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
     function(markFactors_wheelstorage_repeat,suffix)(sieve_t* sieve, const counter_t range_start, counter_t range_stop, const counter_t step)
     {
@@ -326,15 +344,15 @@
         for(register counter_t j=256; j>4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
             for(;i>j;i-=j) {
                 for(int k=j; k--; index += step) {
-                    markFactor_wheelstorage(sieve, index);
+                    markFactor_wheelstorage_uint8(sieve, index);
                 }
             }
         }
 
         for (; index < range_stop; index += step) 
-            markFactor_wheelstorage(sieve, index);
+            markFactor_wheelstorage_uint8(sieve, index);
 
-        if unlikely(index==range_stop) markFactor_wheelstorage(sieve, index);
+        if unlikely(index==range_stop) markFactor_wheelstorage_uint8(sieve, index);
         logStop6(sieve->bitstorage, time_markFactors_wheelstorage_norepeat, "MarkFactorsWheelStorageNoRepeat: finished setting factors\n");
     }
 
