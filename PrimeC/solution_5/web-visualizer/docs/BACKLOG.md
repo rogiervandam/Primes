@@ -48,6 +48,11 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 - The balloons and connectors must not cover or be under any panel. Don't show them in that case.
 - In the details panel, when hovering over labels immediately expand them so i can read them fully if cut off
 - can't use the grid opacity slider when animating
+- when i select e.g. "collapse at L9" while i have open e.g. "collapse at L5" (so a lower number), i expect all the other levels 1-8 to be open
+- On aggregate events, i still want to read the original annotation too
+- automatically get the storage model from the log
+- 
+- 
 - 
 - 
 - 

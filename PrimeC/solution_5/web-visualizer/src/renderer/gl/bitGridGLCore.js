@@ -23,7 +23,6 @@
 
 const VS = `#version 300 es
 precision highp float;
-precision highp usampler2D;
 
 layout(location = 0) in vec2 a_corner;       // unit quad corners (-0.5..0.5)
 
@@ -32,7 +31,7 @@ uniform vec2 u_pan;            // CSS pixels
 uniform float u_cellSize;      // base bit cell size in CSS px (already includes zoom)
 uniform float u_dpr;           // device-pixel ratio; used to snap edges to the device grid
 uniform sampler2D u_pos;       // RG32F: per-bit (x,y) in CSS px, pan-independent
-uniform usampler2D u_state;    // R8UI:  per-bit packed flag byte
+uniform sampler2D u_state;     // RGBA8: per-bit packed flag byte in .r (normalized 0-1)
 uniform sampler2D u_anim;      // RGBA32F: per-bit (xDelta, yDelta, sizeScale, _unused)
 uniform ivec2 u_texSize;
 uniform int u_bitCount;
@@ -50,7 +49,8 @@ void main() {
   int tx = bit % u_texSize.x;
   int ty = bit / u_texSize.x;
   vec2 basePos = texelFetch(u_pos, ivec2(tx, ty), 0).rg;
-  v_state = texelFetch(u_state, ivec2(tx, ty), 0).r;
+  // State byte stored as normalized R in RGBA8 texture; decode to uint.
+  v_state = uint(round(texelFetch(u_state, ivec2(tx, ty), 0).r * 255.0));
   vec4 animData = texelFetch(u_anim, ivec2(tx, ty), 0);
   float animScale = max(0.01, animData.z);  // sizeScale (default 1.0 when not lowered)
 
@@ -81,9 +81,9 @@ in vec2 v_uv;                  // [0,1]x[0,1] within cell (from VS)
 out vec4 outColor;
 
 const vec4 FOCUS_TINT = vec4(96.0/255.0, 165.0/255.0, 250.0/255.0, 0.16);
-const vec4 PRIME_TINT = vec4(251.0/255.0, 191.0/255.0,  36.0/255.0, 0.20);
-const vec4 RANGE_TINT = vec4( 34.0/255.0, 211.0/255.0, 238.0/255.0, 0.22);
-const vec4 MULT_TINT  = vec4(167.0/255.0, 139.0/255.0, 250.0/255.0, 0.30);
+const vec4 PRIME_TINT = vec4(251.0/255.0, 191.0/255.0,  36.0/255.0, 0.38);
+const vec4 RANGE_TINT = vec4( 34.0/255.0, 211.0/255.0, 238.0/255.0, 0.42);
+const vec4 MULT_TINT  = vec4(167.0/255.0, 139.0/255.0, 250.0/255.0, 0.40);
 
 vec3 overlay(vec3 base, vec4 tint) {
   return mix(base, tint.rgb, tint.a);
@@ -321,9 +321,11 @@ export class BitGridGLCore {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    // RGBA8 (normalized): state byte stored in .r channel. Using RGBA8 avoids
+    // the INVALID_OPERATION issues with R8UI integer textures in OffscreenCanvas.
     gl.texImage2D(
-      gl.TEXTURE_2D, 0, gl.R8UI, this.texW, this.texH, 0,
-      gl.RED_INTEGER, gl.UNSIGNED_BYTE, new Uint8Array(this.texW * this.texH),
+      gl.TEXTURE_2D, 0, gl.RGBA8, this.texW, this.texH, 0,
+      gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(this.texW * this.texH * 4),
     );
 
     // Animation texture: RGBA32F — (xDelta, yDelta, sizeScale, unused).
@@ -364,10 +366,15 @@ export class BitGridGLCore {
   uploadStateBuffer(buf) {
     if (this._lost || !this.gl || !this.stateTex) return;
     const gl = this.gl;
+    // Expand the 1-byte-per-slot state buffer into RGBA8 (state in R, zeros in GBA).
+    const slots = this.texW * this.texH;
+    const rgba = new Uint8Array(slots * 4);
+    for (let i = 0; i < buf.length && i < slots; i++) rgba[i * 4] = buf[i];
     gl.bindTexture(gl.TEXTURE_2D, this.stateTex);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
     gl.texSubImage2D(
       gl.TEXTURE_2D, 0, 0, 0, this.texW, this.texH,
-      gl.RED_INTEGER, gl.UNSIGNED_BYTE, buf,
+      gl.RGBA, gl.UNSIGNED_BYTE, rgba,
     );
   }
 
