@@ -128,7 +128,7 @@
         return (wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index] -1 ;
     }
 
-    // wheel_bit_estimate returns the bit index for a given number index, and if itis divisible by any of the wheel primes, return the nearest that isn't
+    // wheel_bit_estimate returns the bit index for a given number index, and if it is divisible by any of the wheel primes, return the nearest that isn't
     // used for trace and logging
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     wheel_bit_estimate(counter_t index) {
@@ -225,7 +225,7 @@
     static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
     function(markFactors_wheelstorage_repeat,suffix)(sieve_t* sieve, const counter_t range_start, counter_t range_stop, const counter_t step)
     {
-        logStart6(sieve->bitstorage, time_markFactors_wheelstorage_repeat, "MarkFactorsWheelStorageRepeat: factors [%jd-%jd] step %jd", (intmax_t)range_start, (intmax_t)range_stop, (intmax_t)step);
+        logStart6(sieve->bitstorage, time_markFactors_wheelstorage_repeat, "factors [%jd-%jd] step %jd prime %jd", (intmax_t)range_start, (intmax_t)range_stop, (intmax_t)step, (intmax_t)step/2);
 
         register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
 
@@ -275,7 +275,8 @@
                         ? index_type(( index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t)
                         : index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index] - 1, bitbucket_t);
                 
-                log7("Marking index %ju in factorrange (%ju-%ju) with step %ju with markmask %ju at bucket start %ju bucket stop %ju with wheelstep %ju\n", (uintmax_t)index, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)step, (uintmax_t)markmask, (uintmax_t)bucket_start, (uintmax_t)bucket_stop, (uintmax_t)wheel_step);
+                log7("Marking: Marking index %ju in factorrange (%ju-%ju) with step %ju with markmask %ju at bucket start %ju bucket stop %ju with wheelstep %ju prime %ju\n", 
+                    (uintmax_t)index, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)step, (uintmax_t)markmask, (uintmax_t)bucket_start, (uintmax_t)bucket_stop, (uintmax_t)wheel_step, (uintmax_t)step/2);
                 // applyMask_index_uint8_unroll8(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
                 function(applyMask_index, suffix)(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
             }
@@ -302,7 +303,7 @@
             // function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), bucket_stop, wheel_step, markmask);
             // // function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), index_type(wheel_bit, bitbucket_t), wheel_step, markmask);
         } 
-        logStop6(sieve->bitstorage, time_markFactors_wheelstorage_repeat, "MarkFactorsWheelStorageRepeat: finished setting factors\n");
+        logStop6(sieve->bitstorage, time_markFactors_wheelstorage_repeat, "MarkingEnd: finished setting factors\n");
     }
 
 #endif

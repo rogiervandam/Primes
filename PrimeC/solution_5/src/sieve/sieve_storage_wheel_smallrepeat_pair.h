@@ -98,7 +98,8 @@ function(markFactors_wheelstorage_small_repeat_pair_v2,suffix)(sieve_t* sieve, c
    
     counter_t new_bucket = function(wheel_block_calc,variant_suffix)(range_start);
     counter_t wheel_index = range_start % WHEEL_SIZE;
-
+    counter_t next_bucket_index = wheel_bit_estimate(bitbucket_end_type(range_start, bitbucket_t)); // the index of the next bucket change
+    
     // TODO: make a larger wheel and check if we stay within the wheel so we have to take lesser % and /
     logStart7(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_copy, "marking factors with step %3ju for prime %ju using markFactors_wheelstorage_small_repeat_pair_vector %s in %ju factor range (%ju-%ju) (%ju occurances; %ju repeats)", (uintmax_t)step, (uintmax_t)step/2, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
     for (counter_t index = range_start; index <= range_stop_unique; index += step) {
@@ -107,37 +108,45 @@ function(markFactors_wheelstorage_small_repeat_pair_v2,suffix)(sieve_t* sieve, c
 
         if (wheelmask_bitpoint[wheel_index] > 0) 
         {
-            new_bucket = function(wheel_block_calc,variant_suffix)(index);
+            if (index > next_bucket_index) {
+                new_bucket = function(wheel_block_calc,variant_suffix)(index);
+                next_bucket_index = wheel_bit_estimate(bitbucket_end_type(range_start, bitbucket_t)); // the index of the next bucket change
 
-            // if (wheel_bit <= 0) continue; // if the number is divisible by any of the wheel primes, skip it
-            // // const counter_t new_bucket = index_type(wheel_bit, bitbucket_t);
+                // if (wheel_bit <= 0) continue; // if the number is divisible by any of the wheel primes, skip it
+                // // const counter_t new_bucket = index_type(wheel_bit, bitbucket_t);
 
-            if (new_bucket != current_bucket) {
-                if (pending_mask) {
-                    if (current_mask && ((pending_bucket + 1) == current_bucket )) { 
-                        function(applyMask_index_pair,suffix)(sieve->bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask, current_mask);
-                        current_mask = (bitbucket_t)0U; // will be copied to pending_mask
+                if (new_bucket != current_bucket) {
+                    if (pending_mask) {
+                        if (current_mask && ((pending_bucket + 1) == current_bucket )) { 
+                            function(applyMask_index_pair,suffix)(sieve->bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask, current_mask);
+                            current_mask = (bitbucket_t)0U; // will be copied to pending_mask
+                        }
+                        else {
+                            function(applyMask_index,suffix)(sieve->bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask);
+                        }
                     }
-                    else {
-                        function(applyMask_index,suffix)(sieve->bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask);
-                    }
+
+                    pending_bucket = current_bucket;
+                    pending_mask = current_mask;
+                    current_bucket = new_bucket;
+                    current_mask = (bitbucket_t)0U;
                 }
-
-                pending_bucket = current_bucket;
-                pending_mask = current_mask;
-                current_bucket = new_bucket;
-                current_mask = (bitbucket_t)0U;
             }
 
             const counter_t wheel_bit = (wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index] -1 ;
             current_mask |= markmask_type(wheel_bit, bitbucket_t);
         }
 
+        wheel_index += step;
+        if (wheel_index >= WHEEL_SIZE) {
+            wheel_index %= WHEEL_SIZE;
+        }
+        // else {
         // if (wheel_index + step < WHEEL_SIZE) {
-        //     wheel_index += step;
+            // } )
         // }
         // else {
-            wheel_index = (index + step) % WHEEL_SIZE;
+        //     wheel_index = (index + step) % WHEEL_SIZE;
         // }
     }
 
