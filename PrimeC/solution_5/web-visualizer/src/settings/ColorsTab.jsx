@@ -1,4 +1,4 @@
-import React, { useTransition } from 'react';
+import React from 'react';
 import { COLOR_PRESETS } from '../renderer/constants';
 import { PreviewOptionButton } from './buttons';
 
@@ -33,7 +33,8 @@ export default function ColorsTab({
   const hasCustomDark  = !!(canvasColors && canvasColors.dark);
   const hasAnyCustom   = hasCustomLight || hasCustomDark;
   // Wrap slider onChange in startTransition to deprioritise re-renders vs rAF.
-  const [, startTransition] = useTransition();
+  // NOTE: startTransition intentionally removed from gridOpacity — that slider
+  // must respond immediately even during animation (transition deferred it away).
   return (
     <>
       <div className="settings-section">
@@ -201,7 +202,7 @@ export default function ColorsTab({
               max={100}
               step={1}
               value={Math.round((gridOpacity ?? 1) * 100)}
-              onChange={(e) => startTransition(() => onGridOpacityChange && onGridOpacityChange((Math.max(12, Math.min(100, parseInt(e.target.value || '100', 10) || 100))) / 100))}
+              onChange={(e) => onGridOpacityChange && onGridOpacityChange((Math.max(12, Math.min(100, parseInt(e.target.value || '100', 10) || 100))) / 100)}
             />
             <span className="val">{Math.round((gridOpacity ?? 1) * 100)}%</span>
           </label>

@@ -481,21 +481,31 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
     initialCollapseDoneRef.current = true;
   }, [tree]);
 
-  // When filterLevel is 'collapse:N', auto-collapse all nodes whose level > N.
+  // When filterLevel is 'collapse:N', auto-collapse all nodes at level >= N and
+  // auto-expand any nodes at level < N that were previously collapsed by a lower
+  // collapse filter (e.g. switching from collapse:5 → collapse:9 should re-open
+  // levels 5–8 that were collapsed before).
   useEffect(() => {
     if (!levelFilter || levelFilter.mode !== 'collapse') return;
     const collapseLevel = levelFilter.value;
-    const keys = new Set();
-    const collectCollapseKeys = (node) => {
-      if (Number.isFinite(node.level) && node.level >= collapseLevel && node.children?.length > 0) {
-        keys.add(`node-${node.originalIndex}`);
+    const toCollapse = new Set();
+    const toExpand = new Set();
+    const collectKeys = (node) => {
+      if (Number.isFinite(node.level) && node.children?.length > 0) {
+        if (node.level >= collapseLevel) {
+          toCollapse.add(`node-${node.originalIndex}`);
+        } else {
+          // This node is below the threshold — ensure it is expanded.
+          toExpand.add(`node-${node.originalIndex}`);
+        }
       }
-      for (const child of node.children || []) collectCollapseKeys(child);
+      for (const child of node.children || []) collectKeys(child);
     };
-    for (const g of tree) for (const n of g.depthTree || []) collectCollapseKeys(n);
+    for (const g of tree) for (const n of g.depthTree || []) collectKeys(n);
     setCollapsed(prev => {
       const next = new Set(prev);
-      for (const k of keys) next.add(k);
+      for (const k of toExpand) next.delete(k);
+      for (const k of toCollapse) next.add(k);
       return next;
     });
   }, [levelFilter, tree]);
@@ -685,7 +695,12 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
             </span>
           )}
           </span>
-          <span className="event-text">{summaryText}</span>
+          <span className="event-text">
+            {summaryText}
+            {node.annotation && (
+              <span className="event-annotation" title={node.annotation}>{node.annotation}</span>
+            )}
+          </span>
         </div>
         {hasChildren && !isNodeCollapsed && (
           <div className="event-depth-children">

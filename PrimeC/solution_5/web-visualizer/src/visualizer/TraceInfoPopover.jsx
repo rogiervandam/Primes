@@ -24,9 +24,10 @@ export default function TraceInfoPopover({
   const [rawOpen, setRawOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   // Always keep explicit absolute position — avoids flex↔absolute jump on first drag.
+  // Default to near the top of the viewport (below the toolbar) rather than centered.
   const [dlgPos, setDlgPos] = useState(() => ({
     x: Math.max(0, Math.round((window.innerWidth - 900) / 2)),
-    y: Math.max(0, Math.round((window.innerHeight - 580) / 2)),
+    y: 60,
   }));
   const [dlgSize, setDlgSize] = useState({ w: 900, h: 580 });
   const dlgRef = useRef(null);

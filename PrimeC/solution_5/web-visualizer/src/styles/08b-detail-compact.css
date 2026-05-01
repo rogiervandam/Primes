@@ -59,6 +59,9 @@
   font-weight: 600;
   white-space: nowrap;
 }
+.detail-row:hover .detail-row-label {
+  white-space: normal;
+}
 .detail-row-value {
   color: var(--fg);
   font-size: 11.5px;
@@ -85,6 +88,13 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.trace-meta-chip:hover {
+  max-width: none;
+  overflow: visible;
+  white-space: normal;
+  z-index: 1;
+  position: relative;
 }
 /* Reserve space for macOS traffic-light controls only in Electron.
    In browser mode there are no window controls, so the filename can left-align. */

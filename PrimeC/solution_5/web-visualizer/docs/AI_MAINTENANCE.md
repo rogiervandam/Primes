@@ -230,7 +230,14 @@ Timeline slider row `min-height` and wrapper height increased to 28px to better
 match the topbar's visual weight. "View raw log" dialog is now draggable,
 resizable, and line-numbered; lines matching events have clickable line-numbers
 that navigate to that step in the events panel (`lineToStep` map in Visualizer,
-`onJumpToStep` callback threaded through Toolbar into TraceInfoPopover).
+`onJumpToStep` callback threaded through Toolbar into TraceInfoPopover). Raw log
+dialog now opens near the top of the window (y=60px) rather than centered, so
+it doesn't obscure the canvas. Detail panel labels/chips expand on hover to
+reveal full text: `.detail-panel-title-main` wraps, `.trace-meta-chip` expands,
+`.detail-row-label` allows wrapping. Grid opacity slider responds immediately
+during animation (`startTransition` removed). Event annotations are shown inline
+in the events panel list (italic suffix after range summary) for all events
+carrying an annotation, including aggregate collapsed ones.
 
 Left to do:
 
@@ -279,7 +286,10 @@ Left to do:
 
 Done: parser modules are split into `src/parser/`; trace loading is lazy; tests
 cover JSON v2/v3, text parsing, header parsing, parse utilities, and trace error
-paths.
+paths. Storage model is now auto-applied from `header.storageModel` on every
+trace load via a `useEffect` in `Visualizer.jsx` keyed on `header` identity.
+The user can still manually override it via the popover select; the override
+persists until the next trace is loaded.
 
 Left to do:
 
@@ -307,7 +317,8 @@ Left to do:
 
 Done: initial bundle is lazy-loaded; prime pre-pass uses a worker; backward scrub
 uses periodic `bitState` snapshots; rapid range slider updates use
-`startTransition`.
+`startTransition`. Grid opacity slider `startTransition` wrapper removed — the
+slider must be responsive during animation, not deferred.
 
 Left to do:
 

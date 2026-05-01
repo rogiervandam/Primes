@@ -25,6 +25,12 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 - Events panel indentation whitespace reduced: base padding decreased from 8px to 6px, per-level step from 14px to 10px; `.event-child` extra padding removed (was 24px).
 - Timeline slider row `min-height` set to 28px and wrapper height increased to 28px to better match topbar btn-icon row height.
 - "View raw log" button added to the trace info popover (click the trace title). Opens a draggable, resizable dialog with line-numbered monospace view of the original file. Linked line numbers (matching events in the trace) are highlighted in accent color; clicking one closes the viewer, navigates to that step, and opens the events panel. A "Copy all" button copies the raw source to clipboard.
+- Raw log dialog now opens near the top of the window (y=60px below the toolbar) instead of centered, so it doesn't obscure the canvas.
+- Detail panel labels and trace meta chips expand fully on hover instead of being truncated: `.detail-panel-title-main` wraps, `.trace-meta-chip` expands, `.detail-row-label` allows wrapping on hover.
+- Grid opacity slider in Colors tab now responds immediately during animation (`startTransition` wrapper removed so the update is synchronous).
+- Collapse level behavior fixed: switching to a higher collapse level (e.g. "collapse at L9" after "collapse at L5") now expands nodes at levels below the new threshold, so levels L5–L8 become visible as expected.
+- Event annotations are now shown inline in the events panel list (italicized, after the range summary) so they are readable without hovering for the tooltip. Applies to all events that carry an annotation, including aggregate/collapsed ones.
+- Storage model auto-detected from the trace log on every new trace load; the `storageModel` state resets to `header.storageModel` when the trace changes, so the user no longer needs to set it manually after loading a trace.
 
 ## Open
 
@@ -44,17 +50,10 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
   sizes, bit count, current render cadence, and context-loss recovery state.
 - Make the debug tools window draggable or pinnable only if it starts competing
   with settings/detail/sidebar workflows.
-- Put the raw log viewer in the top of the window, not at the bottom. 
 - The balloons and connectors must not cover or be under any panel. Don't show them in that case.
-- In the details panel, when hovering over labels immediately expand them so i can read them fully if cut off
-- can't use the grid opacity slider when animating
-- when i select e.g. "collapse at L9" while i have open e.g. "collapse at L5" (so a lower number), i expect all the other levels 1-8 to be open
-- On aggregate events, i still want to read the original annotation too
-- automatically get the storage model from the log
-- 
-- 
-- 
-- 
+- When changing the animation type, the current animation should be terminated and the new animation type must start from the same progress position.
+- in the event panel, when clicking on the < and > buttons near the "up to level". or "collapse to level" dropdown, have me cyle all the options, of the chosen section (e.g. if i was in up to i can browse all up to levels, if i was in collapso to i can select all the collapse levels)
+- have the raw dialog button the first item from the top in trace-info-popover
 - 
 
 ## New Ideas

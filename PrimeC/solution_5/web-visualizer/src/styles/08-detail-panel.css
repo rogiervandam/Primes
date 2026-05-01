@@ -51,6 +51,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.detail-panel-toggle:hover .detail-panel-title-main {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
 .detail-panel-annotation {
   font-size: 11px;
   color: var(--fg-muted);

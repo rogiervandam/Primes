@@ -189,6 +189,15 @@
   min-width: 0;
   flex: 1;
 }
+.event-annotation {
+  margin-left: 5px;
+  color: var(--fg-dim);
+  font-size: 10.5px;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* Resize handle */
 .resize-handle {

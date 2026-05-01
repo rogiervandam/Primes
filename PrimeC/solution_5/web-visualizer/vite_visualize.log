@@ -1,9 +1,13 @@
-Port 5173 is in use, trying another one...
-Port 5174 is in use, trying another one...
-Port 5175 is in use, trying another one...
 
-  VITE v5.4.21  ready in 162 ms
+  VITE v5.4.21  ready in 147 ms
 
-  ➜  Local:   http://localhost:5176/
-  ➜  Network: http://10.0.24.12:5176/
-  ➜  Network: http://10.0.107.215:5176/
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: http://10.0.24.12:5173/
+  ➜  Network: http://10.0.107.215:5173/
+3:08:44 PM [vite] hmr update /src/visualizer/TraceInfoPopover.jsx
+3:08:44 PM [vite] hmr update /src/styles/index.css
+3:08:44 PM [vite] hmr update /src/settings/ColorsTab.jsx
+3:08:44 PM [vite] hmr update /src/Visualizer.jsx
+3:08:44 PM [vite] hmr update /src/styles/index.css
+3:08:44 PM [vite] hmr update /src/styles/index.css
+3:08:44 PM [vite] hmr update /src/EventsPanel.jsx

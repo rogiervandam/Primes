@@ -337,6 +337,12 @@ export default function Visualizer({
   // JoinedEventsWidget can anchor its bottom-left corner to the same position.
   const [joinBannerRect, setJoinBannerRect] = useState(null);
   const [storageModel, setStorageModel] = useState(header.storageModel || 'half');
+  // When a new trace is loaded (header reference changes), auto-apply the
+  // storage model detected from the log so the user doesn't have to set it manually.
+  useEffect(() => {
+    setStorageModel(header.storageModel || 'half');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [header]); // Intentionally keyed on header identity, not storageModel
   const [selectedSteps, setSelectedSteps] = useState(new Set());
   const [heatMapEnabled, setHeatMapEnabled] = useState(false);
   // 'none' | 'hits' | 'age' | 'both'  — annotation shown on each cacheline when heatmap is on
