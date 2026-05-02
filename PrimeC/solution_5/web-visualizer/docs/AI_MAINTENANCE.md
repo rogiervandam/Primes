@@ -25,6 +25,9 @@ For broader maps, also read:
    repurpose existing keys.
 7. Update existing docs when behavior changes. Avoid creating new docs unless
    explicitly requested.
+8. For container trace ingestion, keep `bin/docker-import.mjs` generic to any
+  Dockerized producer. Prefer explicit `--container-log-dir` first, then labels,
+  env vars, working-directory `log`, and common paths.
 
 ## Current Hotspots
 
@@ -82,6 +85,12 @@ Approximate source size at this guide revision:
 - Do not call `glRendererRef.current.dispose()` from a React cleanup effect.
   `OffscreenCanvas.transferControlToOffscreen()` is one-shot; StrictMode cleanup
   would kill the worker while the canvas cannot be transferred again.
+- The log API is shared by the Vite plugin and Electron via `log-api-utils.mjs`.
+  Keep route behavior aligned across both servers: list, read, raw upload,
+  pending-upload poll, and ack.
+- Uploaded traces are written into the local log directory and queued for a UI
+  prompt. `App.jsx` owns the prompt and must ack every user decision so repeated
+  polling does not reopen the same prompt.
 
 ## Important Maintenance Goals
 

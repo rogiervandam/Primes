@@ -52,6 +52,16 @@ const TEXT_TRACE_WITH_WHEEL = [
   'EVENT function="Mark" changed_count=2 changed_bits=[0,8]',
 ].join('\n');
 
+/** Rust trace-mode fixture: one file per variant, with explicit target bits and zero-change attempts. */
+const TEXT_TRACE_RUST_VARIANT = [
+  'TRACE version=7 format=text sieve_size=50 bit_count=25 max_number=50 storage_model=half trace_level=9 benchmark_settings=variant=bit-rotate',
+  'TITLE title="prime-sieve-rust - bit-rotate trace" info="variant=bit-rotate | max=50 | trace_level=9"',
+  'StorageModel: half',
+  'EVENT depth=5 level=5 function="SetBitsRange" prime=3 start=4 stop=24 factor_step=3 target_bits=[] annotation="SetBitsRange: variant bit-rotate prime 3 setting bits with step 3 in range 4-24" changed_count=0 changed_bits=[]',
+  'EVENT depth=9 level=9 function="SetBitTrue" prime=3 start=4 stop=4 factor_step=3 target_bits=[4] annotation="SetBitTrue: variant bit-rotate prime 3 setting bit at index 4 number 9 with step 3" changed_count=1 changed_bits=[4]',
+  'EVENT depth=9 level=9 function="SetBitTrue" prime=5 start=22 stop=22 factor_step=5 target_bits=[22] annotation="SetBitTrue: variant bit-rotate prime 5 setting bit at index 22 number 45 with step 5" changed_count=0 changed_bits=[]',
+].join('\n');
+
 // ---------------------------------------------------------------------------
 // Type validation helpers
 // ---------------------------------------------------------------------------
@@ -165,6 +175,29 @@ describe('parseTrace — text format', () => {
       mapNumbers: [1, 7, 31, 37],
       mapBits: [0, 1, 8, 9],
     });
+  });
+
+  it('parses Rust variant trace metadata, target bits, and zero-change attempts', () => {
+    const trace = parseTrace(TEXT_TRACE_RUST_VARIANT);
+    expect(trace.header.traceLevel).toBe(9);
+    expect(trace.header.storageModel).toBe('half');
+    expect(trace.header.benchmarkSettings).toBe('variant=bit-rotate');
+
+    const firstBit = trace.steps[1];
+    expect(firstBit.operation).toBe('SetBitTrue');
+    expect(firstBit.prime).toBe(3);
+    expect(firstBit.start).toBe(4);
+    expect(firstBit.stop).toBe(4);
+    expect(firstBit.factorStep).toBe(3);
+    expect(Array.from(firstBit.targetBits)).toEqual([4]);
+    expect(Array.from(firstBit.changedBits)).toEqual([4]);
+
+    const repeatedAttempt = trace.steps[2];
+    expect(repeatedAttempt.prime).toBe(5);
+    expect(repeatedAttempt.factorStep).toBe(5);
+    expect(Array.from(repeatedAttempt.targetBits)).toEqual([22]);
+    expect(Array.from(repeatedAttempt.changedBits)).toEqual([]);
+    expect(repeatedAttempt.numChanged).toBe(0);
   });
 });
 

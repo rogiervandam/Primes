@@ -26,6 +26,8 @@ RUN cargo test && cargo build --release
 FROM debian:buster-slim AS runtime
 
 WORKDIR /app
+ENV SIEVE_TRACE_DIR=/app/log
+RUN mkdir -p /app/log
 
 # app and configuration
 COPY --from=build /app/target/release/prime-sieve-rust prime-sieve-rust
