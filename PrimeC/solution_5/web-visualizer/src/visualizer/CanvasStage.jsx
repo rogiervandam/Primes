@@ -30,6 +30,9 @@ function CanvasStage({
   canvasRef,
   settledCanvasRef,
   glCanvasRef,
+  // wrapper div ref — receives the 3D CSS transform so canvas elements stay
+  // flat (no per-canvas GPU layers in Safari → no black flicker)
+  wrapperCanvasRef,
   // whether GL renderer is active (controls GL canvas visibility)
   glActive,
   // styling
@@ -121,26 +124,31 @@ function CanvasStage({
         ref={containerRef}
         style={camera3DContainerStyle}
       >
-        {/* WebGL bit-grid canvas. Always in DOM so the renderer can attach on
-            mount and mode switches are instant. Hidden via CSS when canvas2d
-            renderer is active. Overlays/labels render on the Canvas2D layer on top. */}
-        <canvas
-          ref={glCanvasRef}
-          className={`gl-render-canvas${glActive ? '' : ' renderer-inactive'}`}
-          style={renderCanvasStyle}
-          aria-hidden="true"
-        />
-        <canvas
-          ref={settledCanvasRef}
-          className="settled-render-canvas"
-          style={renderCanvasStyle}
-          aria-hidden="true"
-        />
-        <canvas
-          ref={canvasRef}
-          className="main-render-canvas"
-          style={renderCanvasStyle}
-        />
+        {/* Wrapper div receives the 3D CSS transform (translate + rotateX/Y).
+            Keeping the transform on a div instead of the canvas elements
+            prevents Safari from creating one GPU compositing layer per canvas,
+            which caused black flicker during drawing (GPU texture upload
+            momentarily exposing a black/cleared layer). All three canvases
+            are flat children of this wrapper and share its GPU layer. */}
+        <div ref={wrapperCanvasRef} className="canvas-transform-wrapper" style={renderCanvasStyle}>
+          {/* WebGL bit-grid canvas. Always in DOM so the renderer can attach on
+              mount and mode switches are instant. Hidden via CSS when canvas2d
+              renderer is active. Overlays/labels render on the Canvas2D layer on top. */}
+          <canvas
+            ref={glCanvasRef}
+            className={`gl-render-canvas${glActive ? '' : ' renderer-inactive'}`}
+            aria-hidden="true"
+          />
+          <canvas
+            ref={settledCanvasRef}
+            className="settled-render-canvas"
+            aria-hidden="true"
+          />
+          <canvas
+            ref={canvasRef}
+            className="main-render-canvas"
+          />
+        </div>
       </div>
 
       <BitHistoryBalloons

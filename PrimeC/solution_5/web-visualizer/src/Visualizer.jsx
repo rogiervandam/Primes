@@ -185,6 +185,10 @@ export default function Visualizer({
   // WebGL bit-grid worker (see docs/AI_MAINTENANCE.md §8).
   const glCanvasRef = useRef(null);
   const glRendererRef = useRef(null);
+  // Wrapper div that receives the 3D CSS transform (translate + rotateX/Y)
+  // so the canvas elements inside remain flat — this prevents Safari from
+  // creating per-canvas GPU compositing layers that cause black flicker.
+  const wrapperCanvasRef = useRef(null);
   // Set to true when OffscreenCanvas is unavailable and GL could not attach.
   const [glUnavailable, setGlUnavailable] = useState(false);
   const isMacPlatform = useMemo(() => detectIsMac(), []);
@@ -650,6 +654,16 @@ export default function Visualizer({
     const oldCanvasW = r.canvasWidth || 0;
     const oldCanvasH = r.canvasHeight || 0;
     r.resize(canvasW, canvasH);
+    // Sync wrapper div dimensions so translate(-50%,-50%) in renderCanvasStyle
+    // computes the correct pixel shift (50% of the wrapper's own size).
+    // Must happen imperatively here (before the next paint) rather than
+    // waiting for a React re-render, so that the centering is correct on the
+    // very first frame after a resize.
+    const wrapperEl = wrapperCanvasRef.current;
+    if (wrapperEl) {
+      wrapperEl.style.width = `${canvasW}px`;
+      wrapperEl.style.height = `${canvasH}px`;
+    }
     // Keep grid content stable when the window (and therefore the canvas)
     // resizes. The canvas is centered at the viewport center, so when the
     // canvas grows by dCanvasW its left edge moves left by dCanvasW/2.
@@ -715,11 +729,13 @@ export default function Visualizer({
     const apply = (left, top) => {
       const leftStr = `${left}px`;
       const topStr = `${top}px`;
-      const targets = [canvasRef.current, settledCanvasRef.current, glCanvasRef.current];
-      for (const c of targets) {
-        if (!c) continue;
-        if (c.style.left !== leftStr) c.style.left = leftStr;
-        if (c.style.top !== topStr) c.style.top = topStr;
+      // Update only the wrapper div — the 3D transform lives on the
+      // wrapper, not on individual canvas elements (prevents per-canvas
+      // Safari GPU compositing layers that cause black flicker).
+      const wrapperEl = wrapperCanvasRef.current;
+      if (wrapperEl) {
+        if (wrapperEl.style.left !== leftStr) wrapperEl.style.left = leftStr;
+        if (wrapperEl.style.top !== topStr) wrapperEl.style.top = topStr;
       }
       // Pin perspective-origin to the same anchor so the 3D vanishing
       // point doesn't slide when the container reshapes.
@@ -3926,6 +3942,14 @@ export default function Visualizer({
     // is what eliminates the "2D in a different place than 3D"
     // jump on toggle and the placement drift on panel toggles.
     //
+    // Applied to .canvas-transform-wrapper (not to canvas elements directly)
+    // so that the 3D CSS transform lives on a div, not on the drawing canvases.
+    // Safari creates one GPU compositing layer per element that has a 3D
+    // transform; when a canvas in that layer draws, Safari briefly exposes a
+    // black backing store during the GPU texture upload → visible black flash.
+    // With a single wrapper div the three canvases share one GPU layer and
+    // draw updates are atomic with respect to the compositor.
+    //
     // left/top use pixel offsets from `canvasAnchorPx` (computed so
     // that the canvas center sits at the VIEWPORT center, not the
     // container center). When a side panel toggles the container
@@ -3936,7 +3960,11 @@ export default function Visualizer({
       left: canvasAnchorPx ? `${canvasAnchorPx.left}px` : '50%',
       top: canvasAnchorPx ? `${canvasAnchorPx.top}px` : '50%',
       transform: `translate(-50%, -50%)${camera3DTransform !== 'none' ? ` ${camera3DTransform}` : ''}`,
-      transformStyle: 'preserve-3d',
+      // transformStyle:'preserve-3d' is deliberately omitted from the wrapper
+      // div. The wrapper has no 3D-positioned children, so preserve-3d on it
+      // would create a nested 3D compositing context that is unnecessary.
+      // The container's preserve-3d (set by .canvas-container.mode-3d CSS)
+      // is sufficient for the wrapper's CSS rotateX/Y tilt to render correctly.
       transformOrigin: '50% 50%',
     }
   ), [camera3DTransform, canvasAnchorPx]);
@@ -4397,6 +4425,7 @@ export default function Visualizer({
           canvasRef={canvasRef}
           settledCanvasRef={settledCanvasRef}
           glCanvasRef={glCanvasRef}
+          wrapperCanvasRef={wrapperCanvasRef}
           glActive={true}
           camera3DContainerStyle={mergedCamera3DContainerStyle}
           renderCanvasStyle={renderCanvasStyle}

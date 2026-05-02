@@ -217,6 +217,15 @@ export class BitGridGLCore {
       antialias: false,
       premultipliedAlpha: false,
       alpha: false,
+      // preserveDrawingBuffer: true prevents Safari's compositor from clearing
+      // the drawing buffer to opaque black after each composite operation.
+      // Without this, there is a race window (after the post-composite clear
+      // but before the next frame's gl.clear(bgColor)) where Safari reads the
+      // buffer and sees (0,0,0,1) — the source of the black flicker visible
+      // during animation and while dragging in Safari. The performance cost
+      // (no buffer-swap optimisation, one extra copy per frame) is acceptable
+      // since this canvas only draws instanced bit-grid quads.
+      preserveDrawingBuffer: true,
     });
     if (!gl) {
       this._lost = true;

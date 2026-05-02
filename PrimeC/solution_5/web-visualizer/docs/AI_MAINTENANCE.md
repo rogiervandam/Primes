@@ -381,6 +381,57 @@ facts that still matter:
 - `willReadFrequently: true` was removed from production Canvas2D contexts
   because it hurt Safari performance and production does not call `getImageData`
   on those canvases.
+- `backface-visibility: hidden` and `will-change: transform` were both removed
+  from `.settled-render-canvas` / `.main-render-canvas`. Root cause of Safari
+  black-flash flicker: `will-change: transform` pre-allocates a GPU backing
+  store per canvas; when canvas drawing APIs upload new pixels Safari briefly
+  shows the old/empty store as black. CSS `rotateX/Y` tilt works without the
+  hint — Safari auto-composites 3D-transformed elements. `backface-visibility:
+  hidden` had the same layer-promotion side-effect and was also removed.
+- `transformStyle: 'preserve-3d'` was removed from the inline
+  `renderCanvasStyle` in `Visualizer.jsx`. Canvas elements have no 3D children
+  so this created an extra 3D compositing context per canvas in Safari that
+  amplified the flicker. The container's CSS `transform-style: preserve-3d`
+  (from `.canvas-container.mode-3d`) is sufficient for tilt rendering.
+- `transform-style: preserve-3d` was moved from the base `.canvas-container`
+  rule to `.canvas-container.mode-3d` only (note: `mode3D = true` always in
+  current code, so this is future-proofing only).
+- **Safari black canvas flicker fix (final):** The three canvas elements are
+  now wrapped in a `<div className="canvas-transform-wrapper">` inside
+  `.canvas-container`. The 3D CSS transform (`translate(-50%,-50%) rotateX/Y`)
+  that was previously applied directly to each canvas element is now applied
+  only to this wrapper div. The canvas elements inside are flat (no CSS
+  transform). This eliminates the root cause: Safari creates one GPU compositing
+  layer per element that has a 3D CSS transform, and when a canvas in that layer
+  draws, Safari briefly shows a black backing store during the GPU texture
+  upload. With a single wrapper div, the three canvases share one GPU layer and
+  draw updates are atomic with respect to the compositor. Key implementation
+  details:
+  - `wrapperCanvasRef` (a new `useRef`) is defined in `Visualizer.jsx` and
+    passed to `CanvasStage` as a prop.
+  - `renderCanvasStyle` (unchanged) is applied to the wrapper div, not to the
+    canvas elements.
+  - `apply()` inside the position-tracking `useEffect` now updates
+    `wrapperCanvasRef.current.style.left/top` instead of the three individual
+    canvas elements.
+  - `refreshCanvasLayout()` imperatively sets the wrapper's `style.width/height`
+    to `canvasW × canvasH` after `r.resize()` so that `translate(-50%,-50%)`
+    computes the correct pixel shift.
+  - The GL canvas continues to use `inset: 0` in CSS — it now fills the
+    wrapper (which has the correct canvasW × canvasH dimensions), fixing a
+    pre-existing sizing discrepancy.
+  - `getCanvasPlaneMetrics()` reads `canvasEl.style.left` (NaN after the change)
+    and falls back to `canvasAnchorPx?.left` — the correct value. No breakage.
+  - `getProjectedCanvasMapper(canvasEl)` uses `canvasEl.getBoxQuads()`, which
+    returns projected coordinates including ancestor transforms, so the 3D
+    hit-testing is still correct even though the transform is on the wrapper.
+- `EventTitleBanner` drag now uses direct DOM mutation (`bannerRef.current.style
+  .transform`) during the gesture instead of calling `setSettings` on every
+  `mousemove`. This avoids the React re-render cascade (setSettings → parent
+  useMemo → style prop) that caused the CSS `transition: transform 180ms` to
+  restart continuously in Safari, making the widget shake. State is persisted
+  once on `mouseup`. CSS class `.is-dragging` suppresses all transitions while
+  a drag is in progress.
 - Color presets, canvas background customization, clickable legend rows,
   keyboard help, debug-tools performance window, copy-event buttons, collapsed
   group count badges, and joined widgets are implemented.

@@ -48,6 +48,10 @@
   gap: 4px;
 }
 .step-focus-banner:active { cursor: default; }
+/* Suppress all transitions while the banner is mid-drag. Without this,
+   Safari re-runs the transform transition on every mousemove update,
+   causing the widget to shake visibly at >10 Hz. */
+.step-focus-banner.is-dragging { transition: none; }
 /* Drag handle — the title/annotation area at the top of the banner. */
 .step-focus-drag-handle {
   cursor: grab;
@@ -509,7 +513,9 @@
   overflow: hidden;
   cursor: crosshair;
   position: relative;
-  transform-style: preserve-3d;
+  /* preserve-3d is applied only when mode-3d is active (see below) so that
+     Safari does not create a 3D compositing context in 2D mode, which can
+     cause black flicker during canvas drawing. */
   touch-action: none;
   user-select: none;
   background: var(--bg);
@@ -517,38 +523,75 @@
 .canvas-container.mode-3d {
   /* perspective is set via inline style from Camera3D */
   perspective-origin: 50% 50%;
+  /* transform-style: preserve-3d is intentionally NOT set here.
+     preserve-3d on the container forces Safari to use its 3D compositing
+     path for all descendants. On the 3D path, when a canvas element is
+     drawn to, Safari re-composites the GPU layer and can briefly expose
+     a black backing store during the GPU texture upload — the visible
+     black flicker. Without preserve-3d, Safari uses its 2D compositor
+     for the wrapper div's GPU layer, which handles texture uploads without
+     the black-frame timing issue. The visual result is identical because
+     only the wrapper has a CSS 3D transform (rotateX/Y); `perspective` on
+     the container still applies the perspective projection correctly
+     without needing preserve-3d. */
   /* Keep `overflow: hidden` (inherited from .canvas-container) so the
      intentionally oversized canvas (~3.1x in 3D for drag headroom) clips
      to the container bounds when tilted. Without this, the rotated
      bitmap edges bleed under/over the surrounding panels and look messy. */
 }
+
+/* Wrapper div that receives the 3D CSS transform (translate-50%,-50% + rotateX/Y).
+   Keeping the transform on this div — not directly on the canvas elements — prevents
+   Safari from allocating a separate GPU compositing layer per canvas. When canvas
+   drawing APIs upload new pixel data to a per-canvas GPU layer, Safari briefly
+   exposes a black backing store, causing the visible black flicker. With a single
+   wrapper layer the three canvases share one GPU texture and draw updates are atomic. */
+.canvas-container .canvas-transform-wrapper {
+  position: absolute;
+  /* width/height are set imperatively by refreshCanvasLayout() so that
+     translate(-50%,-50%) in renderCanvasStyle computes the correct pixel
+     offset. overflow:visible so the oversized canvases are not clipped by
+     the wrapper itself (clipping happens at .canvas-container). */
+  overflow: visible;
+  /* No transform here — set inline via renderCanvasStyle. */
+  /* No will-change/backface-visibility — those force per-element GPU layers. */
+}
 .canvas-container .settled-render-canvas,
 .canvas-container .main-render-canvas {
   position: absolute;
-  /* Canvas is always the oversized 3D plane (centered + clipped
-     by the container's overflow:hidden). 2D and 3D share the
-     same placement; mode3D only enables the tilt. Position +
-     size are set inline by Visualizer.renderCanvasStyle and
-     SieveRenderer.resize respectively — we deliberately avoid
-     `inset: 0` here because right/bottom:0 would compete with
-     the inline left/top:50% + explicit width/height and produce
-     a confused box on browsers that resolve the over-constraint
-     against width.  */
+  /* Canvas is always the oversized 3D plane. Position (top/left) and size
+     (width/height) are set imperatively by SieveRenderer.resize(). The CSS
+     top:0/left:0 here are the pre-resize baseline; they are overridden by
+     the inline style once resize() runs. No CSS transform — the 3D transform
+     lives on .canvas-transform-wrapper to avoid per-canvas GPU layers. */
   top: 0;
   left: 0;
   display: block;
+  /* transform-origin is not needed since canvas elements have no CSS transform,
+     but kept for possible future use. */
   transform-origin: 50% 50%;
-  will-change: transform;
-  backface-visibility: hidden;
+  /* will-change: transform is intentionally omitted (would create a GPU layer).
+     backface-visibility: hidden is also omitted for the same reason. */
 }
 
 .canvas-container .gl-render-canvas {
   /* WebGL bit-grid. Sits behind the Canvas2D layers so overlays/labels
-     render on top. See docs/AI_MAINTENANCE.md §8. */
+     render on top. See docs/AI_MAINTENANCE.md §8.
+     inset:0 fills the canvas-transform-wrapper (which has the correct
+     canvasW × canvasH dimensions set imperatively by refreshCanvasLayout).
+
+     z-index: 0 (not -1): negative z-index inside a stacking context can
+     cause Safari to promote the element to its own sub-compositing-layer.
+     For the OffscreenCanvas-backed GL canvas, that sub-layer gets its
+     texture updated asynchronously from the worker; during the update
+     window Safari briefly shows a black backing store. With z-index: 0
+     the GL canvas stays in the wrapper's compositing layer (shared with
+     the Canvas2D canvases). DOM order then determines stacking:
+     gl-render-canvas is first in the DOM → painted behind settled and main. */
   position: absolute;
   inset: 0;
   display: block;
-  z-index: -1;
+  z-index: 0;
   pointer-events: none;
 }
 /* Hidden when canvas2d renderer is selected. */
@@ -557,7 +600,7 @@
 }
 
 .canvas-container .settled-render-canvas {
-  z-index: 0;
+  z-index: 1;
   opacity: 0;
   pointer-events: none;
   transition: opacity 160ms ease;
@@ -568,14 +611,7 @@
 }
 
 .canvas-container .main-render-canvas {
-  z-index: 1;
-}
-
-.canvas-container.mode-3d .settled-render-canvas,
-.canvas-container.mode-3d .main-render-canvas {
-  /* Tilt-specific styling lives here in case future work needs
-     to differentiate (e.g. shadow). Base centering/clipping is
-     applied to all canvas elements above. */
+  z-index: 2;
 }
 .canvas-container.dragging { cursor: grabbing; }
 .canvas-container canvas {
