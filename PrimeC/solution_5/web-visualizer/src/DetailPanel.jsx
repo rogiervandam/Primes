@@ -38,6 +38,7 @@ export default function DetailPanel({
   eventAnimSliders,
   onOpenRawLog,
   sourceLineNumber,
+  allEventsTransport,
 }) {
   // Benchmark timing row matching the current step's operation (if any)
   const benchmarkOpTiming = useMemo(() => {
@@ -435,6 +436,11 @@ export default function DetailPanel({
           ...(playing ? { height: `${height || 200}px` } : { maxHeight: `${height || 200}px` }),
           ...(width > 0 ? { minWidth: `${width}px`, overflowX: 'auto' } : {}),
         }}>
+        {allEventsTransport && (
+            <div className="detail-panel-all-events-transport">
+              {allEventsTransport}
+            </div>
+          )}
           {!eventTitleVisible && eventAnimSliders && (
             <div className="detail-panel-event-sliders">
               {eventAnimSliders}

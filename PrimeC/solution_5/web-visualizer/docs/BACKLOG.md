@@ -36,11 +36,12 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 - Event panel < and > level buttons now cycle within the active dropdown group: clicking < or > while "Up to" is selected steps through all "Up to" levels (ending at "All" when increasing past the max); while "Collapse at" or "Only level" is selected the buttons cycle only within that group. The > button is correctly disabled at the upper bound of collapse/exact groups.
 - When changing animation type (style or mode) mid-animation, the new animation starts from the same progress position instead of restarting from 0. Works for both in-flight direct animations and the single-event / selected-steps replay loops.
 - Removed unimported historical file `src/settings/TitleTab.jsx`.
+- Mask-stamp animation polished: travel phase now takes 58% of each stamp slot (was 45%), settle shortened to 15% (was 30%), final vertical lift capped at 4 px (was up to 18 px). Both orderedEntries and legacy-groups paths in `SieveRenderer.renderMaskStamp()` updated.
+- Dragging the joined widget onto the detail panel now shows all-events transport and timeline inside the detail panel body. `allEventsInDetailPanel` state is persisted. A ✕ dismiss button removes the transport from the panel. `pushJoinedWidgetToDetailPanel` in `usePanelChoreography`; `JoinedEventsWidget` has a 'detail' drop zone via elementFromPoint hit-test.
+- Balloon clamping: `.joined-events-widget` added to the overlay-rect query set in `getVisibleBalloonStyles` so balloons hide when they would overlap the floating widget.
 
 ## Open
 
-- When pushing the joined widget into the detail panel, also bring all-events
-  controls and the all-events timeline into the detail panel.
 - Make visualizer items related to overlays or animations clickable shortcuts.
   Clicking a bit-state legend/color item should let the user choose that state's
   color.
@@ -50,12 +51,20 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
   sizes, bit count, current render cadence, and context-loss recovery state.
 - Make the debug tools window draggable or pinnable only if it starts competing
   with settings/detail/sidebar workflows.
-- The balloons and connectors must not cover or be under any panel. Don't show them in that case.
-- Polish the mask animation's final stamp: shorten the final settle, reduce the
-  up/down motion to a few pixels, and spend more time on the travel.
+- Polish the all-events transport in the detail panel: verify it doesn't push
+  detail sections below the fold at small heights; add a visual separator from
+  the step-anim sliders when both are visible simultaneously.
 - Check bit-history balloon connector/clamping polish with events panel
   open/closed, settings open/closed, joined widget visible, minimap visible,
   light/dark themes, and high zoom.
+- Manually tune balloon connector width/opacity if it competes with dense
+  overlays, especially in light theme.
+- Rewrite the logging system so that it is easier to read f. Each line has:
+    - an optional text of some arbitrary amount of characters
+    - optional a json string (starting with  "{ traceline: <x>" where <x> is the line number. The properties of the json object are optional, like  depth: <>, level: <>. step: <>, etc... }. \
+      When parsing, try to infer the missing properties from the text. Use the text as an annotation.
+
+
 
 ## New Ideas
 

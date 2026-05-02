@@ -2323,12 +2323,12 @@ export class SieveRenderer {
 
         const phase = Math.max(0, Math.min(1, local));
         let yOffset;
-        if (phase < 0.45) {
-          yOffset = -lift * (1 - phase / 0.45);
-        } else if (phase < 0.75) {
-          yOffset = Math.sin(((phase - 0.45) / 0.3) * Math.PI) * 2;
+        if (phase < 0.58) {
+          yOffset = -lift * (1 - phase / 0.58);
+        } else if (phase < 0.73) {
+          yOffset = Math.sin(((phase - 0.58) / 0.15) * Math.PI) * 1.5;
         } else {
-          yOffset = -lift * ((phase - 0.75) / 0.25);
+          yOffset = -4 * ((phase - 0.73) / 0.27);
         }
 
         const entry = orderedEntries[i];
@@ -2387,12 +2387,12 @@ export class SieveRenderer {
 
       const phase = Math.max(0, Math.min(1, local));
       let yOffset;
-      if (phase < 0.45) {
-        yOffset = -lift * (1 - phase / 0.45);
-      } else if (phase < 0.75) {
-        yOffset = Math.sin(((phase - 0.45) / 0.3) * Math.PI) * 2;
+      if (phase < 0.58) {
+        yOffset = -lift * (1 - phase / 0.58);
+      } else if (phase < 0.73) {
+        yOffset = Math.sin(((phase - 0.58) / 0.15) * Math.PI) * 1.5;
       } else {
-        yOffset = -lift * ((phase - 0.75) / 0.25);
+        yOffset = -4 * ((phase - 0.73) / 0.27);
       }
 
       const gid = groups[i];

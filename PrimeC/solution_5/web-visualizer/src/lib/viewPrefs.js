@@ -310,6 +310,7 @@ export function getInitialViewState() {
     customColors: initialCustomColors(prefs),
     allEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
     widgetsJoined: initialWidgetsJoined(prefs),
+    allEventsInDetailPanel: prefs?.allEventsInDetailPanel === true,
     ...initialPanelVisibility(prefs),
   };
 }

@@ -97,6 +97,7 @@ function CanvasStage({
   onShowEventTitle,
   onOpenRawLog,
   currentStepSourceLine,
+  allEventsTransport,
 }) {
   return (
     <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
@@ -186,6 +187,7 @@ function CanvasStage({
         eventAnimSliders={stepAnimSlidersContent}
         onOpenRawLog={onOpenRawLog}
         sourceLineNumber={currentStepSourceLine}
+        allEventsTransport={allEventsTransport}
       />
 
       {detailInspectorOpen && (

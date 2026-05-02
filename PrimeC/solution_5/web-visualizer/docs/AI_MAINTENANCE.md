@@ -186,13 +186,30 @@ current numeric progress inside stable-dep effects.
 
 Left to do:
 
-- Fix mask-stamp animation polish: the final stamp currently moves too far up
-  and down. Make travel take longer, make the final settle shorter, and reduce
-  the final vertical motion to only a few pixels.
 - Any new animation must abort on `seekGenRef`, pause on `globalPausedRef`, and
   set `animBusyUntilRef` when it blocks all-events playback.
 - Test all animation modes with play, pause, scrub, event step, all-events
   playback, and single-event repeat.
+
+  Mask-stamp animation polished: travel phase extended to 58% of stamp slot
+  duration (was 45%), settle shortened to 15% (was 30%), final vertical lift
+  capped at 4 px (was up to 18 px via the full `lift` value). Both
+  `orderedEntries` and legacy-groups paths in `SieveRenderer.renderMaskStamp()`
+  were updated.
+
+  GL/Canvas2D resize alignment fixed: the former CSS-lock approach (pinning
+  `gl-render-canvas` to its old CSS size before growing the wrapper) caused a
+  persistent scale/offset mismatch during continuous window resize — each
+  resize event re-applied the original locked size before any rAF could fire,
+  so GL was CSS-scaled differently from Canvas2D for every frame of the drag.
+  The fix removes the CSS lock and rAF entirely. `gl-render-canvas` now uses
+  only `inset: 0` (fills the wrapper, which is always `canvasW × canvasH`) so
+  its CSS size tracks Canvas2D instantly. On the worker path there is a
+  brief one-frame CSS-scale artifact while the async worker processes the
+  resize message, but this is imperceptible compared to the previous
+  persistent per-frame mismatch. On Safari (direct mode) `bitGridGLCore.resize()`
+  sets the correct explicit `style.width` synchronously, so there is no
+  artifact at all on that path.
 
 ### 5. Improve Widget And Panel Workflows
 
@@ -202,12 +219,14 @@ all-events widget is visible; joined widget anchoring was fixed; dragging or
 expanding the joined widget to the left/events side now opens both the events
 panel and detail panel, with the single-event timeline shown in detail and the
 all-events timeline kept in the events panel; detail-panel timeline actions
-keep the percent and gear aligned on the right.
+keep the percent and gear aligned on the right. Dragging the joined widget onto
+the detail panel now shows all-events transport and timeline inside the detail
+panel body: `allEventsInDetailPanel` state (persisted), `AllEventsTransport`
+component in `src/visualizer/`, `pushJoinedWidgetToDetailPanel` in
+`usePanelChoreography`, and a 'detail' drop zone in `JoinedEventsWidget`.
 
 Left to do:
 
-- When pushing the joined widget into the detail panel, include all-events
-  controls and the all-events timeline in the detail panel.
 - Re-test drag/drop targets after every layout or z-index change.
 
 ### 6. Keep The Detail Panel Compact And Informative
@@ -232,7 +251,9 @@ suppression is in place over floating widgets; visible balloons now draw a soft
 curved SVG connector from the bit edge to the nearest measured balloon edge;
 stale mouse-position hover state was removed after balloon placement became
 bit-anchored; bit hit-testing reads the live canvas anchor to stay accurate near
-viewport edges.
+videport edges. The joined-events widget is now included in the overlay-rect
+query set used by `getVisibleBalloonStyles`, so balloons correctly hide when
+they would overlap the widget.
 
 Left to do:
 

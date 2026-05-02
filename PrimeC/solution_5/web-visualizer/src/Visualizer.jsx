@@ -12,6 +12,7 @@ import EventTitleBanner from './visualizer/EventTitleBanner';
 import JoinedEventsWidget from './visualizer/JoinedEventsWidget';
 import DetailInspectorOverlay from './visualizer/DetailInspectorOverlay';
 import StepAnimSliders from './visualizer/StepAnimSliders';
+import AllEventsTransport from './visualizer/AllEventsTransport';
 import BitHistoryBalloons from './visualizer/BitHistoryBalloons';
 import KeyboardShortcutsOverlay from './visualizer/KeyboardShortcutsOverlay';
 import DebugToolsPanel from './visualizer/DebugToolsPanel';
@@ -337,6 +338,9 @@ export default function Visualizer({
   // dragged it onto the top bar). Reset each time the events panel is
   // collapsed so the widget reliably reappears on the next toggle.
   const [allEventsWidgetHidden, setAllEventsWidgetHidden] = useState(initialPrefs.allEventsWidgetHidden);
+  // When true the all-events transport (timeline + nav) is shown inside the
+  // detail panel (user dropped the joined widget onto the detail panel).
+  const [allEventsInDetailPanel, setAllEventsInDetailPanel] = useState(initialPrefs.allEventsInDetailPanel);
   // When true the floating all-events widget and the single-event banner are
   // merged into a single JoinedEventsWidget. Persisted to localStorage.
   const [widgetsJoined, setWidgetsJoined] = useState(
@@ -659,6 +663,22 @@ export default function Visualizer({
     // Must happen imperatively here (before the next paint) rather than
     // waiting for a React re-render, so that the centering is correct on the
     // very first frame after a resize.
+    //
+    // NOTE: We intentionally do NOT pin the GL canvas to its old CSS size
+    // here. The prior "CSS lock" approach set glEl.style.width = prevCssW to
+    // prevent the browser from CSS-scaling the old drawing buffer to fill the
+    // new wrapper area. However, during continuous window resize (multiple
+    // events firing before any rAF runs), the lock kept re-applying the
+    // original (small) size while Canvas2D grew to the new size every frame.
+    // This persistent CSS size mismatch caused the GL grid to appear at a
+    // different scale and position than Canvas2D labels/overlays. Instead,
+    // the GL canvas uses `inset: 0` (fills the wrapper) so its CSS size
+    // always matches Canvas2D. On Safari (direct mode), bitGridGLCore.resize()
+    // sets the correct explicit style.width synchronously inside r.render().
+    // On the worker path there is a brief one-frame CSS-scale artifact when
+    // the wrapper grows before the worker processes the resize message, but
+    // that transient is imperceptible compared to the persistent mismatch.
+
     const wrapperEl = wrapperCanvasRef.current;
     if (wrapperEl) {
       wrapperEl.style.width = `${canvasW}px`;
@@ -857,6 +877,7 @@ export default function Visualizer({
     hideJoinedWidget,
     joinWidgets,
     openAnimationSettings,
+    pushJoinedWidgetToDetailPanel,
     pushJoinedWidgetToEventsPanel,
     revealCurrentStepInPanel,
     showAllEventsWidget,
@@ -872,6 +893,7 @@ export default function Visualizer({
     detailOpen,
     settingsActiveTab,
     settingsCollapsed,
+    setAllEventsInDetailPanel,
     setAllEventsWidgetHidden,
     setEventTitleSettings,
     setEventsPanelCollapsed,
@@ -936,11 +958,12 @@ export default function Visualizer({
       eventTimeTargets,
       allEventsWidgetHidden,
       widgetsJoined,
+      allEventsInDetailPanel,
       eventsPanelCollapsed,
       settingsCollapsed,
       detailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, depthSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, widgetsJoined, eventsPanelCollapsed, settingsCollapsed, detailOpen]);
+  }, [theme, layoutSettings, eventTitleSettings, depthSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, widgetsJoined, allEventsInDetailPanel, eventsPanelCollapsed, settingsCollapsed, detailOpen]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -4152,6 +4175,7 @@ export default function Visualizer({
         '.settings-sidebar:not(.collapsed)',
         '.detail-panel.open',
         '.timing-panel',
+        '.joined-events-widget',
       ];
       const rects = [];
       for (const sel of selectors) {
@@ -4305,6 +4329,21 @@ export default function Visualizer({
       onOpenAnimationSettings={openAnimationSettings}
     />
   );
+
+  const allEventsTransportContent = allEventsInDetailPanel ? (
+    <AllEventsTransport
+      currentStep={currentStep}
+      steps={steps}
+      playing={playing}
+      handlePlayPause={handlePlayPause}
+      goToStep={goToStep}
+      exporting={!!exporting}
+      isScrubbingTopRef={isScrubbingTopRef}
+      playSpeedPercent={playSpeedPercent}
+      setPlaySpeedPercent={setPlaySpeedPercent}
+      onDismiss={() => setAllEventsInDetailPanel(false)}
+    />
+  ) : null;
 
   return (
     <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}`}>
@@ -4482,6 +4521,7 @@ export default function Visualizer({
           onShowEventTitle={showEventTitleAboveClosedDetail}
           onOpenRawLog={onOpenRawLog}
           currentStepSourceLine={stepToLine[currentStep]}
+          allEventsTransport={allEventsTransportContent}
         />
         {widgetsJoined && eventsPanelCollapsed && !allEventsWidgetHidden && eventTitleSettings.visible && (
           <JoinedEventsWidget
@@ -4503,6 +4543,7 @@ export default function Visualizer({
             sliders={stepAnimSlidersContent}
             onSplitWidgets={splitWidgets}
             onPushToEventsPanel={pushJoinedWidgetToEventsPanel}
+            onPushToDetailPanel={pushJoinedWidgetToDetailPanel}
             initialBannerRect={joinBannerRect}
             onHideWidget={hideJoinedWidget}
           />
