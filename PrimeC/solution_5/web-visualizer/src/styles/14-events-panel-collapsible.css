@@ -197,6 +197,10 @@
   min-width: 0;
 }
 
+.spt-row.spt-row-nav {
+  zoom: 1.2;
+}
+
 .spt-row-timeline {
   gap: 4px;
   margin:15px 0 10px;
@@ -281,7 +285,7 @@
 .events-panel-header .spt-slider {
   max-width: none;
   flex: 1 1 80px;
-  zoom:1.1;
+  zoom: 1.2;
   height: 14px;;
 }
 

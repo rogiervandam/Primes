@@ -670,7 +670,7 @@ if [ "$CHAIN" = "chain" ]; then
         (cd web-visualizer && npx electron . "${CHAIN_TRACE_ABS}")
     else
         # Start Vite dev server in background and capture output to find port
-        VITE_LOG="web-visualizer/vite.log"
+        VITE_LOG="log/vite.log"
         (cd web-visualizer && npx vite > "../$VITE_LOG" 2>&1) &
         VITE_PID=$!
         

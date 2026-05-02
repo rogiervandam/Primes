@@ -11,6 +11,9 @@ export default defineConfig({
   css: {
     devSourcemap: true
   },
+  build: { // TODO: remove this when not needed anymore, it makes the build much slower
+    sourcemap: true,
+  },
   plugins: [
     react(),
     logApiPlugin(path.resolve(__dirname, '../log')),
