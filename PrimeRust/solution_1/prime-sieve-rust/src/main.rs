@@ -5,17 +5,13 @@ use primes::{
 };
 
 use std::{
-    env,
-    error::Error,
-    path::PathBuf,
-    process, thread,
+    thread,
     time::{Duration, Instant},
 };
 use structopt::StructOpt;
 
 use crate::{unrolled::FlagStorageUnrolledHybrid, unrolled_extreme::FlagStorageExtremeHybrid};
 
-mod trace;
 mod unrolled;
 mod unrolled_extreme;
 
@@ -765,18 +761,6 @@ struct CommandLineOptions {
     /// Run variant that uses byte-level storage
     #[structopt(long)]
     bytes: bool,
-
-    /// Write a detailed trace log at the given level (1-9) and exit after one pass per variant
-    #[structopt(long)]
-    trace: Option<usize>,
-
-    /// Directory for generated trace files. Defaults to SIEVE_TRACE_DIR or ./log.
-    #[structopt(long = "trace-dir", parse(from_os_str))]
-    trace_dir: Option<PathBuf>,
-
-    /// Explicit trace file name or template. Use {variant}, {limit}, and {timestamp} for multiple variants.
-    #[structopt(long = "trace-file", parse(from_os_str))]
-    trace_file: Option<PathBuf>,
 }
 
 /// Get list of threads to use for different runs. Physical cores are not reliably
@@ -802,14 +786,6 @@ fn main() {
     let limit = opt.limit;
     let repetitions = opt.repetitions;
     let run_duration = Duration::from_secs(opt.seconds);
-
-    if let Some(trace_level) = opt.trace {
-        if let Err(err) = run_trace_mode(&opt, trace_level) {
-            eprintln!("Trace failed: {}", err);
-            process::exit(1);
-        }
-        return;
-    }
 
     let thread_options = match opt.threads {
         Some(t) => vec![t],
@@ -954,96 +930,6 @@ fn main() {
             );
         }
     }
-}
-
-fn has_variant_selection(opt: &CommandLineOptions) -> bool {
-    [
-        opt.bits,
-        opt.bits_rotate,
-        opt.bits_striped,
-        opt.bits_striped_blocks,
-        opt.bits_striped_hybrid,
-        opt.bits_unrolled,
-        opt.bits_extreme,
-        opt.bytes,
-    ]
-    .iter()
-    .any(|selected| *selected)
-}
-
-fn selected_trace_variants(opt: &CommandLineOptions) -> Vec<&'static str> {
-    if !has_variant_selection(opt) {
-        return vec!["bit-rotate", "bit-unrolled-hybrid", "bit-extreme-hybrid"];
-    }
-
-    let mut variants = Vec::new();
-    if opt.bytes {
-        variants.push("byte");
-    }
-    if opt.bits {
-        variants.push("bit");
-    }
-    if opt.bits_rotate {
-        variants.push("bit-rotate");
-    }
-    if opt.bits_striped {
-        variants.push("bit-striped");
-    }
-    if opt.bits_striped_blocks {
-        variants.push("bit-striped-blocks16k");
-        variants.push("bit-striped-blocks4k");
-    }
-    if opt.bits_striped_hybrid {
-        variants.push("bit-striped-hybrid-blocks16k");
-        variants.push("bit-striped-hybrid-blocks4k");
-    }
-    if opt.bits_unrolled {
-        variants.push("bit-unrolled-hybrid");
-    }
-    if opt.bits_extreme {
-        variants.push("bit-extreme-hybrid");
-    }
-    variants
-}
-
-fn run_trace_mode(opt: &CommandLineOptions, trace_level: usize) -> Result<(), Box<dyn Error>> {
-    if !(1..=9).contains(&trace_level) {
-        return Err("--trace level must be between 1 and 9".into());
-    }
-
-    let variants = selected_trace_variants(opt);
-    if variants.len() > 1 {
-        if let Some(path) = &opt.trace_file {
-            let template = path.to_string_lossy();
-            if !template.contains("{variant}") {
-                return Err(
-                    "--trace-file must contain {variant} when tracing multiple variants".into(),
-                );
-            }
-        }
-    }
-
-    let trace_dir = opt
-        .trace_dir
-        .clone()
-        .or_else(|| env::var_os("SIEVE_TRACE_DIR").map(PathBuf::from))
-        .unwrap_or_else(|| PathBuf::from("log"));
-
-    for variant in variants {
-        let path = match &opt.trace_file {
-            Some(template) => trace::render_trace_file_template(template, variant, opt.limit),
-            None => trace::default_trace_path(&trace_dir, variant, opt.limit),
-        };
-        let summary = trace::run_variant_trace(opt.limit, trace_level, variant, &path)?;
-        eprintln!(
-            "Trace: wrote {} events for {} to {}",
-            summary.event_count,
-            variant,
-            path.display(),
-        );
-    }
-
-    Ok(())
 }
 
 fn print_header(threads: usize, limit: usize, run_duration: Duration) {

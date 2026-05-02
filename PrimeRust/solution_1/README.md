@@ -209,35 +209,6 @@ Alternately, in the directory containing this README file,
     - for help with command line parameters: `target/release/prime-sieve-rust --help`
     - this allows you to specify sieve size, threads, etc.
 
-## Trace logs
-
-This solution can write visualizer-compatible `.sievetrace` logs with `--trace <level>`.
-Trace mode is a deterministic single-pass run and writes one file per selected
-variant instead of one combined file. With no variant flags, the default traced
-variants match the default benchmark variants: `bit-rotate`, `bit-unrolled-hybrid`,
-and `bit-extreme-hybrid`.
-
-Examples:
-
-```bash
-cargo run --release -- --trace 9 --limit 100
-cargo run --release -- --trace 9 --limit 100 --bytes --bits
-cargo run --release -- --trace 9 --limit 100 --trace-dir ./log
-```
-
-Generated filenames follow the pattern
-`<timestamp>_rust_<variant>_trace_<limit>.sievetrace`. If `--trace-file` is used
-with multiple variants, include `{variant}` in the template.
-
-Inside Docker, traces are left in the container at `/app/log` through the
-`SIEVE_TRACE_DIR` environment variable. Use the visualizer-side Docker importer
-from `PrimeC/solution_5/web-visualizer` to copy and upload traces from any
-container:
-
-```bash
-npm run docker:import -- --container <container-name-or-id> --container-log-dir /app/log
-```
-
 It'll take a little while to compile the first time. Because Rust. It's doing a fair bit of work :)
 
 To play with the code, the simplest approach is to use *Visual Studio Code* and install the `rust-analyzer` plugin.
