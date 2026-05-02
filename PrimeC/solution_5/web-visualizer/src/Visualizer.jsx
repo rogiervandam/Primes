@@ -700,6 +700,8 @@ export default function Visualizer({
         // Size unchanged: set immediately (no CSS-scale risk).
         glEl.style.width = `${canvasW}px`;
         glEl.style.height = `${canvasH}px`;
+        // Also clear any residual transform from a previous resize (defensive).
+        if (glEl.style.transform) glEl.style.transform = '';
       } else {
         // Size IS changing: lock GL canvas CSS to the OLD size (overriding
         // the CSS `inset: 0` rule, which would otherwise auto-expand the GL
@@ -710,6 +712,25 @@ export default function Visualizer({
         const lockH = oldCanvasH > 0 ? oldCanvasH : canvasH;
         glEl.style.width = `${lockW}px`;
         glEl.style.height = `${lockH}px`;
+        // The wrapper is resized immediately to the new dimensions. Because
+        // the GL canvas is position:absolute at (0,0) inside the wrapper, the
+        // wrapper growing/shrinking shifts the GL canvas in screen space by
+        // ±deltaW/2 (half the width change). Meanwhile Canvas2D re-renders
+        // with an updated panX (= old panX + deltaW/2), which shifts the
+        // rendered content by +deltaW/2 in the SAME direction. The combined
+        // effect means we need to shift the locked GL frame by a full deltaW
+        // (= canvasW - oldCanvasW) to make the old GL cells appear at the same
+        // screen positions as the new Canvas2D annotations.
+        //   GL visual left  = wrapperLeft + deltaW
+        //                   = (center − newW/2) + (newW − oldW)
+        //                   = center + newW/2 − oldW
+        //   C2D content at W = (center − newW/2) + (newW/2 + panX_new)
+        //                    = center + panX_new  (same world → same screen ✓)
+        const glDx = canvasW - lockW;
+        const glDy = canvasH - lockH;
+        if (glDx !== 0 || glDy !== 0) {
+          glEl.style.transform = `translate(${glDx}px, ${glDy}px)`;
+        }
       }
     }
     // Keep grid content stable when the window (and therefore the canvas)
@@ -780,6 +801,7 @@ export default function Visualizer({
           if (targetEl) {
             targetEl.style.width = `${targetW}px`;
             targetEl.style.height = `${targetH}px`;
+            targetEl.style.transform = '';
           }
         });
       };

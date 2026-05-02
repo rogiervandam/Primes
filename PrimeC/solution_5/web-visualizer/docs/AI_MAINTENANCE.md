@@ -236,6 +236,23 @@ Left to do:
   worker completed resize+render on large horizontal window growth. A short
   timeout fallback (80ms) keeps UI responsive if an ack is delayed.
 
+  GL/Canvas2D resize alignment fixed (round 5, wrapper-shift position drift):
+  When the wrapper (`canvas-transform-wrapper`) grows horizontally it moves
+  its left edge leftward by `deltaW/2`. The GL canvas (`position:absolute;
+  left:0`) moves with it. Canvas2D simultaneously re-renders with
+  `panX += deltaW/2`. The combined screen offset between old GL cells and new
+  Canvas2D annotations is a full `deltaW` (= `newW − oldW`). Fix: while GL
+  CSS is locked to the old size, apply `transform:translate(deltaW, 0)` to
+  the GL canvas so world-position W appears at the same screen X in both:
+    GL screen X  = (center − newW/2 + deltaW) + (oldW/2 + panX_old)
+                 = center + panX_old + deltaW/2
+    C2D screen X = (center − newW/2) + (newW/2 + panX_old + deltaW/2)
+                 = center + panX_old + deltaW/2  ✓
+  The transform is cleared atomically with the CSS unlock in the same rAF
+  callback. The `!glSizeChanging` path also defensively clears residual
+  transforms. Note: using `deltaW/2` (half the delta) only partially
+  compensates and still produces visible drift — the full `deltaW` is needed.
+
 ### 5. Improve Widget And Panel Workflows
 
 Done: all-events and single-event widgets can be joined/split; widget drag
