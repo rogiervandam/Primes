@@ -658,32 +658,41 @@ export default function Visualizer({
     const oldCanvasW = r.canvasWidth || 0;
     const oldCanvasH = r.canvasHeight || 0;
     r.resize(canvasW, canvasH);
-    // Sync wrapper div dimensions so translate(-50%,-50%) in renderCanvasStyle
-    // computes the correct pixel shift (50% of the wrapper's own size).
+    // Sync wrapper div and GL canvas dimensions so translate(-50%,-50%) in
+    // renderCanvasStyle computes the correct pixel shift (50% of the wrapper's
+    // own size) and the GL canvas CSS display always matches Canvas2D.
     // Must happen imperatively here (before the next paint) rather than
     // waiting for a React re-render, so that the centering is correct on the
     // very first frame after a resize.
     //
-    // NOTE: We intentionally do NOT pin the GL canvas to its old CSS size
-    // here. The prior "CSS lock" approach set glEl.style.width = prevCssW to
-    // prevent the browser from CSS-scaling the old drawing buffer to fill the
-    // new wrapper area. However, during continuous window resize (multiple
-    // events firing before any rAF runs), the lock kept re-applying the
-    // original (small) size while Canvas2D grew to the new size every frame.
-    // This persistent CSS size mismatch caused the GL grid to appear at a
-    // different scale and position than Canvas2D labels/overlays. Instead,
-    // the GL canvas uses `inset: 0` (fills the wrapper) so its CSS size
-    // always matches Canvas2D. On Safari (direct mode), bitGridGLCore.resize()
-    // sets the correct explicit style.width synchronously inside r.render().
-    // On the worker path there is a brief one-frame CSS-scale artifact when
-    // the wrapper grows before the worker processes the resize message, but
-    // that transient is imperceptible compared to the persistent mismatch.
+    // GL canvas sizing: the wrapper is updated to the new size immediately
+    // (for correct centering via translate(-50%,-50%)). The GL canvas CSS is
+    // locked to the OLD size until the worker has drawn at the new size. This
+    // prevents the browser from CSS-scaling the old drawing buffer to the new
+    // CSS dimensions, which caused the grid and annotations to move in opposite
+    // directions during window resize (and zoom appearing to affect only
+    // annotations). A requestAnimationFrame deferred step below updates the GL
+    // canvas CSS to the new size after the worker messages have been processed.
+    //
+    // On Safari (direct mode), resize is synchronous so the deferred update is
+    // harmless (just re-sets the same value one frame later).
 
     const wrapperEl = wrapperCanvasRef.current;
     if (wrapperEl) {
       wrapperEl.style.width = `${canvasW}px`;
       wrapperEl.style.height = `${canvasH}px`;
     }
+    const glEl = glCanvasRef.current;
+    const glSizeChanging = glEl && (canvasW !== oldCanvasW || canvasH !== oldCanvasH);
+    if (glEl && !glSizeChanging) {
+      // Size unchanged: set immediately (no CSS-scale risk).
+      glEl.style.width = `${canvasW}px`;
+      glEl.style.height = `${canvasH}px`;
+    }
+    // When size IS changing, do NOT update glEl.style.width/height yet.
+    // The GL canvas keeps its current CSS size (matching its existing drawing
+    // buffer) to avoid the CSS-scale artifact. A rAF deferred step after
+    // r.render() will update GL canvas CSS once the worker has likely drawn.
     // Keep grid content stable when the window (and therefore the canvas)
     // resizes. The canvas is centered at the viewport center, so when the
     // canvas grows by dCanvasW its left edge moves left by dCanvasW/2.
@@ -726,6 +735,24 @@ export default function Visualizer({
     void anchor;
 
     r.render();
+    // After r.render() the patched render has posted resize+positions+render
+    // messages to the GL worker. Defer the GL canvas CSS update to the next
+    // animation frame so the worker has time to process those messages and
+    // update its drawing buffer before the browser composites. This prevents
+    // the CSS-scale artifact where the browser stretches the old drawing
+    // buffer to fill the new CSS dimensions, causing the grid and annotations
+    // to appear at different scales (moving in opposite directions).
+    if (glSizeChanging) {
+      const targetW = canvasW;
+      const targetH = canvasH;
+      const targetEl = glEl;
+      requestAnimationFrame(() => {
+        if (targetEl) {
+          targetEl.style.width = `${targetW}px`;
+          targetEl.style.height = `${targetH}px`;
+        }
+      });
+    }
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
   }, [getCanvasTargetSize, showMinimap, getMinimapDetailH, updateMinimapAvailability]);

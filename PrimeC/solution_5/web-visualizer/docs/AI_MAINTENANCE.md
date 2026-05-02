@@ -197,19 +197,21 @@ Left to do:
   `orderedEntries` and legacy-groups paths in `SieveRenderer.renderMaskStamp()`
   were updated.
 
-  GL/Canvas2D resize alignment fixed: the former CSS-lock approach (pinning
-  `gl-render-canvas` to its old CSS size before growing the wrapper) caused a
-  persistent scale/offset mismatch during continuous window resize — each
-  resize event re-applied the original locked size before any rAF could fire,
-  so GL was CSS-scaled differently from Canvas2D for every frame of the drag.
-  The fix removes the CSS lock and rAF entirely. `gl-render-canvas` now uses
-  only `inset: 0` (fills the wrapper, which is always `canvasW × canvasH`) so
-  its CSS size tracks Canvas2D instantly. On the worker path there is a
-  brief one-frame CSS-scale artifact while the async worker processes the
-  resize message, but this is imperceptible compared to the previous
-  persistent per-frame mismatch. On Safari (direct mode) `bitGridGLCore.resize()`
-  sets the correct explicit `style.width` synchronously, so there is no
-  artifact at all on that path.
+  GL/Canvas2D resize alignment fixed (round 3): `refreshCanvasLayout` now
+  defers the GL canvas CSS `style.width/height` update using
+  `requestAnimationFrame` when the canvas size is changing. The wrapper div
+  CSS is still updated immediately (for correct `translate(-50%,-50%)`
+  centering). The GL canvas CSS stays locked to its OLD size (matching the
+  existing drawing buffer) until the rAF fires. This prevents the browser
+  from CSS-scaling the old OffscreenCanvas drawing buffer to fill the new
+  CSS dimensions — the root cause of the grid and annotations moving in
+  opposite directions during window resize. The rAF fires before the next
+  browser paint, by which point the worker has processed the resize+render
+  messages and updated its drawing buffer to the new size. In the one
+  intermediate frame (if resize events and rAF firing are in different
+  rendering cycles), the GL canvas clips at the old size (showing a
+  slightly narrower grid) rather than distorting cell scales. Safari (direct
+  synchronous mode) is unaffected; the deferred CSS update is harmless.
 
 ### 5. Improve Widget And Panel Workflows
 
