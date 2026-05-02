@@ -321,6 +321,10 @@ export default function Visualizer({
   const [stepStats, setStepStats] = useState(null); // { totalSet, newlySet, reSet, duplicateTargets }
   const [pinnedBitIndices, setPinnedBitIndices] = useState([]); // clicked bits with locked balloons
   const [hoveredBitInfo, setHoveredBitInfo] = useState(null);  // { bitIndex, history[] } — updated on hover
+  const balloonMode = layoutSettings.balloonMode || 'click-hover';
+  const balloonsEnabled = balloonMode !== 'off';
+  const balloonClickEnabled = balloonMode === 'bit-clock' || balloonMode === 'click-hover';
+  const balloonHoverEnabled = balloonMode === 'click-hover';
   const [colorPreset, setColorPreset] = useState(initialPrefs.colorPreset);
   const [customColors, setCustomColors] = useState(initialPrefs.customColors);
   // Search state is managed by useSearchState (placed after navigateToBit is defined below).
@@ -868,6 +872,17 @@ export default function Visualizer({
     setBitAnimationMode(mode);
     bitAnimationModeRef.current = mode;
   }, []);
+
+  // Keep rendered balloons consistent with the current interaction mode.
+  useEffect(() => {
+    if (!balloonsEnabled) {
+      setPinnedBitIndices([]);
+    }
+    if (!balloonHoverEnabled) {
+      setHoveredBitInfo(null);
+      lastHoveredIdxRef.current = -1;
+    }
+  }, [balloonsEnabled, balloonHoverEnabled]);
 
   // Close trace info popup when clicking outside
   useEffect(() => {
@@ -3531,6 +3546,14 @@ export default function Visualizer({
       // settings/events/details panels, timing panel, minimap, event-title banner,
       // trace-info popover). The pointermove listener is bound to window so it
       // fires everywhere; we probe the element under the cursor to gate the popup.
+      if (!balloonsEnabled || !balloonHoverEnabled) {
+        if (lastHoveredIdxRef.current !== -1) {
+          lastHoveredIdxRef.current = -1;
+          setHoveredBitInfo(null);
+        }
+        return;
+      }
+
       const overOverlay = (() => {
         if (typeof document === 'undefined') return false;
         const hit = document.elementFromPoint(e.clientX, e.clientY);
@@ -3591,6 +3614,10 @@ export default function Visualizer({
         if (t && typeof t.closest === 'function' && t.closest(
           '.step-focus-banner, .bit-history-panel, .detail-inspector-overlay, .toolbar, .events-panel, .settings-sidebar, .detail-panel, .timing-panel, .trace-info-popover'
         )) {
+          clearInteraction();
+          return;
+        }
+        if (!balloonsEnabled || !balloonClickEnabled) {
           clearInteraction();
           return;
         }
@@ -3724,7 +3751,7 @@ export default function Visualizer({
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [computeBitInfo, flyToElement, getCanvasPlaneMetrics, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout]);
+  }, [computeBitInfo, flyToElement, getCanvasPlaneMetrics, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout, balloonsEnabled, balloonClickEnabled, balloonHoverEnabled]);
 
   // Keyboard shortcuts — see src/hooks/useKeyboardShortcuts.js for the full key map.
   useKeyboardShortcuts({

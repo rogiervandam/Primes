@@ -47,6 +47,8 @@ export const DEFAULT_LAYOUT_SETTINGS = {
   showByteLabels: true,
   showVectorLabels: true,
   showVectorTouchOrder: false,
+  // 'off' | 'bit-clock' (click-only) | 'click-hover'
+  balloonMode: 'click-hover',
   bitLabelMode: 'global',
   byteLabelMode: 'group',
   horizontalGroups: 0,

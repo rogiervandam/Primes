@@ -8,12 +8,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   clearScreen: false,
-  css: {
-    devSourcemap: true
-  },
-  build: { // TODO: remove this when not needed anymore, it makes the build much slower
-    sourcemap: true,
-  },
+  // css: {
+  //   devSourcemap: true
+  // },
+  // build: { // TODO: remove this when not needed anymore, it makes the build much slower
+  //   sourcemap: true,
+  // },
   plugins: [
     react(),
     logApiPlugin(path.resolve(__dirname, '../log')),

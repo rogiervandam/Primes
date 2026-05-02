@@ -5,6 +5,7 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 ## Done
 
+- Added a Grid view "Balloon" mode control in Layout settings with three options: `Off`, `On bit clock` (click-only), and `Click + hover`. Balloon hover/click behavior now follows this setting and persists via view preferences.
 - Details panel mask metadata now sits to the right of the mask preview inside
   "Mask pattern & preview".
 - Added more engaging color schemes.
