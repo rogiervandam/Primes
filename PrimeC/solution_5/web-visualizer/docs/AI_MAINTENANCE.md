@@ -141,6 +141,11 @@ draws background, bit cell fills, focus/prime/range/multiples tints and borders,
 lowered-cell geometry, and rise-and-settle animation offsets. Worker context-loss
 recovery and a worker parity harness exist. The FPS/debug UI is a React window
 outside the 3D/canvas plane, toggled by a toolkit icon and defaulting to hidden.
+Safari black-canvas flicker fixed: `BitGridGLWorker` detects Safari at `attach()`
+time and runs `BitGridGLCore` synchronously on the main thread instead of via
+OffscreenCanvas worker, eliminating the async GPU compositor race that caused the
+flicker. Non-Safari browsers that also lack OffscreenCanvas fall into the same
+direct path automatically.
 
 **State texture format (important):** The per-bit state byte is stored in an
 `RGBA8` texture (`gl.RGBA8`, sampler type `sampler2D`) — **not** an integer
@@ -396,35 +401,60 @@ facts that still matter:
 - `transform-style: preserve-3d` was moved from the base `.canvas-container`
   rule to `.canvas-container.mode-3d` only (note: `mode3D = true` always in
   current code, so this is future-proofing only).
-- **Safari black canvas flicker fix (final):** The three canvas elements are
-  now wrapped in a `<div className="canvas-transform-wrapper">` inside
+- **Safari black canvas flicker — root cause and definitive fix:** Safari
+  (WebKit) treats an `OffscreenCanvas` controlled by a Web Worker as its own
+  GPU compositing layer managed by the Metal compositor. During animation and
+  drag, Safari's compositor reads the GL canvas asynchronously and can do so
+  between the worker's `gl.clear(bgColor)` and the instanced-quad draw call,
+  briefly exposing the opaque clear color as a black flash. `preserveDrawingBuffer:
+  true` does not prevent this because the race is at the GPU compositor level,
+  not within a single frame's buffer lifetime. CSS approaches (`will-change`,
+  `backface-visibility`, `transform-style`, wrapper divs) did not eliminate
+  the race either — they only changed how Safari grouped layers.
+
+  **Definitive fix (`BitGridGLWorker.js`):** On Safari, `attach()` detects the
+  browser via `isSafari()` (UA regex that excludes Chrome, Android, CrIOS, FxIOS)
+  and skips `transferControlToOffscreen()` and the Web Worker entirely. Instead
+  it creates a `BitGridGLCore` instance directly on the main thread and calls its
+  public API synchronously. With GL and Canvas2D on the same compositing tick, the
+  compositor reads all three canvases atomically and the black flash disappears.
+  Key implementation details:
+  - `isSafari()` helper at module top; `BitGridGLWorker` adds `_direct = false`
+    and `_core = null` constructor fields.
+  - `attach()`: if Safari (or `!isWorkerGLSupported()`), creates `new BitGridGLCore()`,
+    calls `core.init(canvas)`, sets `_core`, `_direct = true`, `_ready = true`,
+    and returns early — no OffscreenCanvas transfer, no worker spawned.
+  - `resize()`, `render()`, `resizeForBitCount()`, `uploadPositions()`,
+    `uploadState()`, `uploadAnim()`: all check `if (this._direct)` first and
+    call the equivalent `_core.*` method directly, then `return`.
+  - `capture()`: in direct mode, calls `this._core.gl.flush()` then
+    `canvas.transferToImageBitmap()` if available; otherwise returns an error.
+  - `dispose()`: in direct mode, calls `this._core.dispose()` and nulls all
+    fields; the worker branch is skipped.
+  - Non-Safari browsers without OffscreenCanvas also fall into the direct path
+    (the `|| !isWorkerGLSupported()` condition), so they also benefit.
+- **Safari canvas wrapper div (structural, retained):** The three canvas elements
+  are wrapped in a `<div className="canvas-transform-wrapper">` inside
   `.canvas-container`. The 3D CSS transform (`translate(-50%,-50%) rotateX/Y`)
-  that was previously applied directly to each canvas element is now applied
-  only to this wrapper div. The canvas elements inside are flat (no CSS
-  transform). This eliminates the root cause: Safari creates one GPU compositing
-  layer per element that has a 3D CSS transform, and when a canvas in that layer
-  draws, Safari briefly shows a black backing store during the GPU texture
-  upload. With a single wrapper div, the three canvases share one GPU layer and
-  draw updates are atomic with respect to the compositor. Key implementation
-  details:
+  is applied only to this wrapper div; the canvas elements inside are flat. This
+  avoids Safari creating one GPU compositing layer per transformed canvas element.
+  Key details:
   - `wrapperCanvasRef` (a new `useRef`) is defined in `Visualizer.jsx` and
     passed to `CanvasStage` as a prop.
-  - `renderCanvasStyle` (unchanged) is applied to the wrapper div, not to the
-    canvas elements.
-  - `apply()` inside the position-tracking `useEffect` now updates
+  - `renderCanvasStyle` is applied to the wrapper div, not to the canvas elements.
+  - `apply()` inside the position-tracking `useEffect` updates
     `wrapperCanvasRef.current.style.left/top` instead of the three individual
     canvas elements.
-  - `refreshCanvasLayout()` imperatively sets the wrapper's `style.width/height`
-    to `canvasW × canvasH` after `r.resize()` so that `translate(-50%,-50%)`
+  - `refreshCanvasLayout()` sets the wrapper's `style.width/height` to
+    `canvasW × canvasH` after `r.resize()` so that `translate(-50%,-50%)`
     computes the correct pixel shift.
-  - The GL canvas continues to use `inset: 0` in CSS — it now fills the
-    wrapper (which has the correct canvasW × canvasH dimensions), fixing a
+  - The GL canvas uses `inset: 0` in CSS — it fills the wrapper, fixing a
     pre-existing sizing discrepancy.
   - `getCanvasPlaneMetrics()` reads `canvasEl.style.left` (NaN after the change)
     and falls back to `canvasAnchorPx?.left` — the correct value. No breakage.
   - `getProjectedCanvasMapper(canvasEl)` uses `canvasEl.getBoxQuads()`, which
-    returns projected coordinates including ancestor transforms, so the 3D
-    hit-testing is still correct even though the transform is on the wrapper.
+    returns projected coordinates including ancestor transforms, so 3D hit-testing
+    remains correct.
 - `EventTitleBanner` drag now uses direct DOM mutation (`bannerRef.current.style
   .transform`) during the gesture instead of calling `setSettings` on every
   `mousemove`. This avoids the React re-render cascade (setSettings → parent
