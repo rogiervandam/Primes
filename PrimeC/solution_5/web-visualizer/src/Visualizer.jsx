@@ -459,6 +459,9 @@ export default function Visualizer({
   const traceInfoToggleRef = useRef(null);
   const balloonLayoutRafRef = useRef(null);
   const balloonLiveLayoutTimerRef = useRef(null);
+  const glCssUnlockTokenRef = useRef(0);
+  const glCssUnlockRafRef = useRef(null);
+  const glCssUnlockTimeoutRef = useRef(null);
 
   stepsRef.current = steps;
   currentStepRef.current = currentStep;
@@ -519,6 +522,14 @@ export default function Visualizer({
     if (balloonLiveLayoutTimerRef.current != null) {
       clearTimeout(balloonLiveLayoutTimerRef.current);
       balloonLiveLayoutTimerRef.current = null;
+    }
+    if (glCssUnlockRafRef.current != null) {
+      cancelAnimationFrame(glCssUnlockRafRef.current);
+      glCssUnlockRafRef.current = null;
+    }
+    if (glCssUnlockTimeoutRef.current != null) {
+      clearTimeout(glCssUnlockTimeoutRef.current);
+      glCssUnlockTimeoutRef.current = null;
     }
   }, []);
 
@@ -684,15 +695,23 @@ export default function Visualizer({
     }
     const glEl = glCanvasRef.current;
     const glSizeChanging = glEl && (canvasW !== oldCanvasW || canvasH !== oldCanvasH);
-    if (glEl && !glSizeChanging) {
-      // Size unchanged: set immediately (no CSS-scale risk).
-      glEl.style.width = `${canvasW}px`;
-      glEl.style.height = `${canvasH}px`;
+    if (glEl) {
+      if (!glSizeChanging) {
+        // Size unchanged: set immediately (no CSS-scale risk).
+        glEl.style.width = `${canvasW}px`;
+        glEl.style.height = `${canvasH}px`;
+      } else {
+        // Size IS changing: lock GL canvas CSS to the OLD size (overriding
+        // the CSS `inset: 0` rule, which would otherwise auto-expand the GL
+        // canvas to fill the newly-resized wrapper). This prevents the browser
+        // from CSS-scaling the old drawing buffer to the new wrapper dimensions.
+        // A rAF deferred step after r.render() updates to the new size.
+        const lockW = oldCanvasW > 0 ? oldCanvasW : canvasW;
+        const lockH = oldCanvasH > 0 ? oldCanvasH : canvasH;
+        glEl.style.width = `${lockW}px`;
+        glEl.style.height = `${lockH}px`;
+      }
     }
-    // When size IS changing, do NOT update glEl.style.width/height yet.
-    // The GL canvas keeps its current CSS size (matching its existing drawing
-    // buffer) to avoid the CSS-scale artifact. A rAF deferred step after
-    // r.render() will update GL canvas CSS once the worker has likely drawn.
     // Keep grid content stable when the window (and therefore the canvas)
     // resizes. The canvas is centered at the viewport center, so when the
     // canvas grows by dCanvasW its left edge moves left by dCanvasW/2.
@@ -734,24 +753,58 @@ export default function Visualizer({
     // positions and keeps the 3D perspective projection stable.
     void anchor;
 
-    r.render();
+    const glRenderSeq = r.render();
     // After r.render() the patched render has posted resize+positions+render
-    // messages to the GL worker. Defer the GL canvas CSS update to the next
-    // animation frame so the worker has time to process those messages and
-    // update its drawing buffer before the browser composites. This prevents
-    // the CSS-scale artifact where the browser stretches the old drawing
-    // buffer to fill the new CSS dimensions, causing the grid and annotations
-    // to appear at different scales (moving in opposite directions).
+    // messages to the GL worker. For width-growth resizes, wait for an
+    // explicit worker render-ack before unlocking GL canvas CSS to the new
+    // dimensions so the browser never stretches an old drawing buffer.
+    // Keep a short timeout fallback to avoid stalls if the worker is busy.
     if (glSizeChanging) {
       const targetW = canvasW;
       const targetH = canvasH;
       const targetEl = glEl;
-      requestAnimationFrame(() => {
-        if (targetEl) {
-          targetEl.style.width = `${targetW}px`;
-          targetEl.style.height = `${targetH}px`;
-        }
-      });
+      const token = ++glCssUnlockTokenRef.current;
+      if (glCssUnlockRafRef.current != null) {
+        cancelAnimationFrame(glCssUnlockRafRef.current);
+        glCssUnlockRafRef.current = null;
+      }
+      if (glCssUnlockTimeoutRef.current != null) {
+        clearTimeout(glCssUnlockTimeoutRef.current);
+        glCssUnlockTimeoutRef.current = null;
+      }
+      const applyUnlockedSize = () => {
+        if (token !== glCssUnlockTokenRef.current) return;
+        glCssUnlockRafRef.current = requestAnimationFrame(() => {
+          glCssUnlockRafRef.current = null;
+          if (token !== glCssUnlockTokenRef.current) return;
+          if (targetEl) {
+            targetEl.style.width = `${targetW}px`;
+            targetEl.style.height = `${targetH}px`;
+          }
+        });
+      };
+      const grewHorizontally = oldCanvasW > 0 && canvasW > oldCanvasW;
+      const g = glRendererRef.current;
+      const canWaitForAck = grewHorizontally
+        && g
+        && typeof g.waitForRender === 'function'
+        && glRenderSeq > 0;
+      if (canWaitForAck) {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          if (glCssUnlockTimeoutRef.current != null) {
+            clearTimeout(glCssUnlockTimeoutRef.current);
+            glCssUnlockTimeoutRef.current = null;
+          }
+          applyUnlockedSize();
+        };
+        g.waitForRender(glRenderSeq, finish);
+        glCssUnlockTimeoutRef.current = setTimeout(finish, 80);
+      } else {
+        applyUnlockedSize();
+      }
     }
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
@@ -1072,7 +1125,7 @@ export default function Visualizer({
             const zoom = Math.max(0.01, rr.zoom || 1);
             const bitColors = rr._bitColors();
             const changed = rr._opColor();
-            g.render({
+            return g.render({
               panX: rr.panX || 0,
               panY: rr.panY || 0,
               cellSize: px * zoom,

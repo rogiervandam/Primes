@@ -69,6 +69,9 @@ export class BitGridGLWorker {
     // Pending capture callbacks keyed by sequence id.
     this._captureCallbacks = new Map();
     this._captureSeq = 0;
+    this._renderSeq = 0;
+    this._renderedSeq = 0;
+    this._renderWaiters = new Map();
     // Direct (main-thread) mode — used on Safari to avoid OffscreenCanvas
     // compositing flicker. When true, _core is a BitGridGLCore instance
     // running synchronously; _worker is null.
@@ -153,6 +156,8 @@ export class BitGridGLWorker {
           cb(msg.bitmap || null, msg.error || null);
           this._captureCallbacks.delete(msg.id);
         }
+      } else if (msg.type === 'rendered') {
+        this._resolveRendered(msg.seq | 0);
       }
     };
     this._worker.onerror = (err) => {
@@ -168,6 +173,38 @@ export class BitGridGLWorker {
     };
     this._post({ type: 'init', canvas: offscreen }, [offscreen]);
     return true;
+  }
+
+  _resolveRendered(seq) {
+    if (!seq) return;
+    if (seq > this._renderedSeq) this._renderedSeq = seq;
+    if (this._renderWaiters.size === 0) return;
+    for (const [waitSeq, callbacks] of this._renderWaiters.entries()) {
+      if (waitSeq > this._renderedSeq) continue;
+      for (const cb of callbacks) {
+        try {
+          cb();
+        } catch {
+          // Keep render ack failures isolated from the rendering pipeline.
+        }
+      }
+      this._renderWaiters.delete(waitSeq);
+    }
+  }
+
+  waitForRender(seq, callback) {
+    if (typeof callback !== 'function') return;
+    const targetSeq = seq | 0;
+    if (!targetSeq || targetSeq <= this._renderedSeq || this._direct) {
+      callback();
+      return;
+    }
+    let callbacks = this._renderWaiters.get(targetSeq);
+    if (!callbacks) {
+      callbacks = new Set();
+      this._renderWaiters.set(targetSeq, callbacks);
+    }
+    callbacks.add(callback);
   }
 
   _post(msg, transfer) {
@@ -259,7 +296,8 @@ export class BitGridGLWorker {
   }
 
   render(params) {
-    if (this._lost) return;
+    if (this._lost) return 0;
+    const seq = ++this._renderSeq;
     if (this._direct) {
       this._core.render({
         ...params,
@@ -267,12 +305,14 @@ export class BitGridGLWorker {
         cssH: this._cssH || 0,
         dpr: this._dpr || 1,
       });
-      return;
+      this._resolveRendered(seq);
+      return seq;
     }
     // The worker has no `window`; pass cssW/cssH/dpr explicitly so its
     // BitGridGLCore can configure the viewport without DOM access.
     this._post({
       type: 'render',
+      seq,
       params: {
         ...params,
         cssW: this._cssW || 0,
@@ -280,6 +320,7 @@ export class BitGridGLWorker {
         dpr: this._dpr || 1,
       },
     });
+    return seq;
   }
 
   invalidateLayout() {

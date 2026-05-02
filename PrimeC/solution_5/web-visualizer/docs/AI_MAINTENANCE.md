@@ -212,6 +212,29 @@ Left to do:
   rendering cycles), the GL canvas clips at the old size (showing a
   slightly narrower grid) rather than distorting cell scales. Safari (direct
   synchronous mode) is unaffected; the deferred CSS update is harmless.
+  GL/Canvas2D resize alignment fixed (round 3, corrected): `refreshCanvasLayout`
+  now defers the GL canvas CSS `style.width/height` update via
+  `requestAnimationFrame` when the canvas size changes. The wrapper CSS is
+  updated immediately (for centering). When size IS changing, the GL canvas
+  CSS is **explicitly locked to the OLD size** (`lockW = oldCanvasW`) to
+  override the CSS `inset: 0` rule (which would auto-expand the GL canvas to
+  the new wrapper size, triggering the same CSS-scale artifact). The lock
+  prevents the browser from stretching the old OffscreenCanvas drawing buffer
+  to fill the new CSS dimensions — the root cause of grid/annotations moving
+  in opposite directions and zoom appearing to affect only annotations. The
+  rAF fires before the next browser paint; by then the worker has processed
+  the resize+render messages and updated the drawing buffer, so the GL CSS
+  update to the new size is clean. Safari (direct mode) is unaffected.
+
+  GL/Canvas2D resize alignment fixed (round 4, horizontal-growth race):
+  `BitGridGLWorker` and `bitGridWorker` now exchange an explicit
+  `rendered` acknowledgement (sequence-numbered). `Visualizer.refreshCanvasLayout`
+  still locks GL canvas CSS to the old size during a size change, but when the
+  canvas width grows it now waits for the matching worker render ack before
+  unlocking GL CSS `style.width/height` to the new dimensions. This removes the
+  remaining race where a single-frame rAF unlock could still land before the
+  worker completed resize+render on large horizontal window growth. A short
+  timeout fallback (80ms) keeps UI responsive if an ack is delayed.
 
 ### 5. Improve Widget And Panel Workflows
 
