@@ -28,6 +28,8 @@ For broader maps, also read:
 8. For container trace ingestion, keep `bin/docker-import.mjs` generic to any
   Dockerized producer. Prefer explicit `--container-log-dir` first, then labels,
   env vars, working-directory `log`, and common paths.
+9. This repository hosts many language solutions. Keep commits path-scoped to the
+  task area and avoid carrying unrelated changes from sibling solutions.
 
 ## Current Hotspots
 
