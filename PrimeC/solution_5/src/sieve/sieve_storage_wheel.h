@@ -38,14 +38,15 @@
         #define WHEEL_MAX 5
         #define WHEEL_BASIC_SIZE (2 * 3 * 5)
         #define WHEEL_STRIPES 8
-        #define WHEEL_REPEATS 1
+        #define WHEEL_REPEATS 3
         #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
-        #define WHEEL_STRIPE_BYTES (bitcount_type(wheelmask_t)/8)   //(((WHEEL_STRIPES * WHEEL_REPEATS) - 1) / 8 + 1)
-        #define WHEEL_STRIPE_BITS  ((WHEEL_STRIPE_BYTES) * 8) // this can be more than stripe count and is used for alignment
+        // #define WHEEL_STRIPE_BYTES (((WHEEL_STRIPES * WHEEL_REPEATS) - 1) / 8 + 1)
+        // #define WHEEL_STRIPE_BYTES ((WHEEL_STRIPES * WHEEL_REPEATS) / bitcount_type(wheelmask_t) * bitcount_type(wheelmask_t)) // align to the bitbucket size for easier calculations, this can be more than stripe count
+        #define WHEEL_STRIPE_BITS  (((WHEEL_STRIPES * WHEEL_REPEATS - 1) / bitcount_type(wheelmask_t) + 1) * bitcount_type(wheelmask_t))
     // #endif
 
     #define wheelmask_stripes      WHEEL_STRIPES
-    #define wheelmask_stripe_bytes WHEEL_STRIPE_BYTES
+    // #define wheelmask_stripe_bytes WHEEL_STRIPE_BYTES
     #define wheelmask_stripe_bits  WHEEL_STRIPE_BITS 
 
     #include "../sieve/sieve_calc.h"
@@ -108,7 +109,7 @@
                 stripe_count++;
             }
         }
-        verbose2 (printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju Wheel stripe bits: %ju\n", WHEEL_SIZE, (uintmax_t)wheelmask_stripes, (uintmax_t)wheelmask_stripe_bytes, (uintmax_t)wheelmask_stripe_bits) );
+        verbose2 (printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju Wheel stripe bits: %ju\n", WHEEL_SIZE, (uintmax_t)wheelmask_stripes, (uintmax_t)wheelmask_stripe_bits/8, (uintmax_t)wheelmask_stripe_bits) );
 
         // print the wheel for debugging
         // for (counter_t i = 0; i < WHEEL_SIZE; i++) {
@@ -281,8 +282,10 @@
         log9("Caculated wheel step: %ju (reduced from %ju) for prime %ju with bitbucket size %ju and wheel stripe bits %ju and reduce2power %ju\n", (uintmax_t)wheel_step, (uintmax_t)step, (uintmax_t)step/2, (uintmax_t)bitcount_type(bitbucket_t), (uintmax_t)wheelmask_stripe_bits, (uintmax_t)reduce2power(step));
         // Every WHEEL_BASIC_SIZE * wheel_step, the pattern of which bits to mark as true in the wheel repeats at byte level 
         // Because when the wheel is completely done, we are wheelmask_stripe_bytes further in the bitstorage
-        const counter_t range_stop_unique = min(range_start + WHEEL_BASIC_SIZE * (wheel_step + 2), range_stop); 
+        const counter_t range_stop_unique = min(range_start + WHEEL_SIZE * (wheel_step + 2), range_stop); 
         // const counter_t range_stop_unique = range_stop;
+
+        counter_t wheel_bit;
 
         for (register counter_t index = range_start; index <= range_stop_unique; index += step) { 
 
@@ -348,7 +351,10 @@
             // // function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), index_type(wheel_bit, bitbucket_t), wheel_step, markmask);
 
             const counter_t wheel_index = index % WHEEL_SIZE;
-            const counter_t wheel_bit = wheel_bit_calc(index);
+            if (wheelmask_bitpoint[wheel_index] < 0) wheel_bit = -1; 
+            else wheel_bit = (wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index] -1 ;
+
+            // const counter_t wheel_bit = wheel_bit_calc(index);
             if (wheel_bit >= 0) { // if the number is divisible by any of the wheel primes, skip it
                 const bitbucket_t markmask = markmask_type(wheel_bit, bitbucket_t);
                 // const bitbucket_t markmask = wheelmask_compressed[ wheel_index ];
