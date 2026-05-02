@@ -40,12 +40,10 @@
         #define WHEEL_STRIPES 8
         #define WHEEL_REPEATS 3
         #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
-        // #define WHEEL_STRIPE_BYTES (((WHEEL_STRIPES * WHEEL_REPEATS) - 1) / 8 + 1)
-        // #define WHEEL_STRIPE_BYTES ((WHEEL_STRIPES * WHEEL_REPEATS) / bitcount_type(wheelmask_t) * bitcount_type(wheelmask_t)) // align to the bitbucket size for easier calculations, this can be more than stripe count
         #define WHEEL_STRIPE_BITS  (((WHEEL_STRIPES * WHEEL_REPEATS - 1) / bitcount_type(wheelmask_t) + 1) * bitcount_type(wheelmask_t))
     // #endif
 
-    #define wheelmask_stripes      WHEEL_STRIPES
+    // #define wheelmask_stripes      WHEEL_STRIPES
     // #define wheelmask_stripe_bytes WHEEL_STRIPE_BYTES
     #define wheelmask_stripe_bits  WHEEL_STRIPE_BITS 
 
@@ -109,7 +107,7 @@
                 stripe_count++;
             }
         }
-        verbose2 (printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju Wheel stripe bits: %ju\n", WHEEL_SIZE, (uintmax_t)wheelmask_stripes, (uintmax_t)wheelmask_stripe_bits/8, (uintmax_t)wheelmask_stripe_bits) );
+        verbose2 (printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju Wheel stripe bits: %ju\n", WHEEL_SIZE, (uintmax_t)wheelmask_stripe_bits, (uintmax_t)wheelmask_stripe_bits/8, (uintmax_t)wheelmask_stripe_bits) );
 
         // print the wheel for debugging
         // for (counter_t i = 0; i < WHEEL_SIZE; i++) {
