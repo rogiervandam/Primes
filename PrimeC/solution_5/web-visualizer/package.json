@@ -9,6 +9,7 @@
     "build": "vite build",
     "test": "vitest run",
     "test:watch": "vitest",
+    "docker:import": "node bin/docker-import.mjs",
     "preview": "vite preview",
     "clean:reinstall": "node -e \"const fs=require('fs'); fs.rmSync('node_modules',{recursive:true,force:true}); fs.rmSync('package-lock.json',{force:true});\" && npm install --include=optional",
     "clean:rebuild": "npm run clean:reinstall && npm run build",

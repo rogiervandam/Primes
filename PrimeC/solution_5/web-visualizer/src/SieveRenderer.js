@@ -57,6 +57,12 @@ export class SieveRenderer {
     this.ctx = null;
     this.settledCanvas = null;
     this.settledCtx = null;
+    this.glCompositeSourceCanvas = null;
+    this.compositeGLInto2D = false;
+    this.glCompositeOffsetX = 0;
+    this.glCompositeOffsetY = 0;
+    this.debugAllCellOutlines = false;
+    this.debugAllCellOutlineColor = 'rgba(255,255,255,0.82)';
     this.bitCount = 0;
     this.sieveSize = 0;
     this.storageModel = 'half';
@@ -167,6 +173,7 @@ export class SieveRenderer {
     // Canvas width for wrapping (set by resize)
     this.canvasWidth = 0;
     this.canvasHeight = 0;
+    this.canvasDpr = 1;
 
     // Cacheline size in bytes (default 64)
     this.cachelineSize = 64;
@@ -324,6 +331,22 @@ export class SieveRenderer {
   attachSettledCanvas(canvas) {
     this.settledCanvas = canvas;
     this.settledCtx = canvas ? canvas.getContext('2d') : null;
+  }
+
+  setGlCompositeSourceCanvas(canvas) {
+    this.glCompositeSourceCanvas = canvas || null;
+  }
+
+  setCompositeGLInto2D(enabled) {
+    this.compositeGLInto2D = !!enabled;
+  }
+
+  setGlCompositeOffsetX(offsetX) {
+    this.glCompositeOffsetX = Number.isFinite(offsetX) ? offsetX : 0;
+  }
+
+  setGlCompositeOffsetY(offsetY) {
+    this.glCompositeOffsetY = Number.isFinite(offsetY) ? offsetY : 0;
   }
 
   attachMinimapCanvas(canvas) {
@@ -848,7 +871,7 @@ export class SieveRenderer {
     const px         = this.pixelSize * this.zoom;
     const pad        = 1;
 
-    const ch = this.canvas.height / (window.devicePixelRatio || 1);
+    const ch = this.canvasHeight || (this.canvas.height / Math.max(0.1, this.canvasDpr || 1));
     const startVRow = Math.max(0, Math.floor(-this.panY / vRowHeight));
     const endVRow   = Math.ceil((ch - this.panY) / vRowHeight) + 1;
 
@@ -952,7 +975,7 @@ export class SieveRenderer {
     // When annotations are active (regardless of heatmap state), extend the outline bottom to include the badge area.
     const annotActive = this.cachelineAnnotation && this.cachelineAnnotation !== 'none';
     const annotBottomExtra = annotActive ? Math.min(22, Math.max(14, rowD.h * 0.18)) : 0;
-    const ch = this.canvas.height / (window.devicePixelRatio || 1);
+    const ch = this.canvasHeight || (this.canvas.height / Math.max(0.1, this.canvasDpr || 1));
     const startVRow = Math.max(0, Math.floor(-this.panY / vRowHeight));
     const endVRow   = Math.ceil((ch - this.panY) / vRowHeight) + 1;
 
@@ -1189,9 +1212,9 @@ export class SieveRenderer {
     });
   }
 
-  resize(width, height) {
+  resize(width, height, dprOverride = null) {
     if (!this.canvas) return;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.max(0.1, dprOverride != null ? dprOverride : (window.devicePixelRatio || 1));
     this.canvas.width = width * dpr;
     this.canvas.height = height * dpr;
     this.canvas.style.width = width + 'px';
@@ -1206,6 +1229,7 @@ export class SieveRenderer {
     }
     this.canvasWidth = width;
     this.canvasHeight = height;
+    this.canvasDpr = dpr;
     // Recompute frozen layout on resize
     if (this._frozenClPerVRow > 0) {
       this._frozenClPerVRow = this._computeClPerVRow();
@@ -1352,7 +1376,7 @@ export class SieveRenderer {
       : this.canvasWidth;
     const availH0 = (this.layoutAvailHeight && this.layoutAvailHeight > 0)
       ? this.layoutAvailHeight
-      : (this.canvasHeight || (this.canvas ? this.canvas.width / (window.devicePixelRatio || 1) : 0));
+      : (this.canvasHeight || (this.canvas ? this.canvas.width / Math.max(0.1, this.canvasDpr || 1) : 0));
     if (!avail || avail <= 0) return 1;
     const bitsPerCacheLine = this.bitsPerCacheLine;
     const totalCacheLines = Math.max(1, Math.ceil(this.bitCount / bitsPerCacheLine));
@@ -1496,8 +1520,9 @@ export class SieveRenderer {
     const C = this.colors;
     const ctx = this.ctx;
     const settledCtx = this.settledCtx;
-    const cw = this.canvas.width / (window.devicePixelRatio || 1);
-    const ch = this.canvas.height / (window.devicePixelRatio || 1);
+    const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
+    const cw = this.canvasWidth || (this.canvas.width / canvasDpr);
+    const ch = this.canvasHeight || (this.canvas.height / canvasDpr);
     const layeredLoweredBits = this.loweredSetBits && !!settledCtx;
 
     const px = this.pixelSize * this.zoom;
@@ -1548,7 +1573,7 @@ export class SieveRenderer {
     };
   }
 
-  /** Clear the canvas (and the layered settled canvas, if active). GL paints the background. */
+  /** Clear the canvas and optionally composite the GL source into the main 2D layer. */
   _renderClear(f) {
     const { ctx, settledCtx, cw, ch, layeredLoweredBits } = f;
     if (layeredLoweredBits) {
@@ -1557,6 +1582,26 @@ export class SieveRenderer {
     } else {
       ctx.clearRect(0, 0, cw, ch);
       if (settledCtx) settledCtx.clearRect(0, 0, cw, ch);
+    }
+    if (this.compositeGLInto2D && this.glCompositeSourceCanvas) {
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      const destW = this.canvasWidth || cw;
+      const destH = this.canvasHeight || ch;
+      const offsetX = Number.isFinite(this.glCompositeOffsetX) ? this.glCompositeOffsetX : 0;
+      const offsetY = Number.isFinite(this.glCompositeOffsetY) ? this.glCompositeOffsetY : 0;
+      ctx.drawImage(
+        this.glCompositeSourceCanvas,
+        0,
+        0,
+        this.glCompositeSourceCanvas.width,
+        this.glCompositeSourceCanvas.height,
+        offsetX,
+        offsetY,
+        destW,
+        destH,
+      );
+      ctx.restore();
     }
   }
 
@@ -1679,6 +1724,7 @@ export class SieveRenderer {
     const cls = this._classifyBit(f, globalBit);
     const draw = this._computeBitDrawState(f, globalBit, cls.isSetBit, cls.isChangedBit, bitX, bitY);
     this._drawBitBody(f, cls, draw, bitX, bitY);
+    this._drawDebugCellOutline(f, draw, bitX, bitY);
     if (cls.isGhostMaskedBit) this._drawGhostMaskHighlight(f, draw);
     if (cls.inFocusRange) this._drawBitFocusRange(f, bitX, bitY);
     this._drawBitTargetOutline(f, globalBit, draw, cls.targetHitCount);
@@ -1686,6 +1732,19 @@ export class SieveRenderer {
     this._drawBitRangeOverlay(f, globalBit, bitX, bitY);
     this._drawBitMultiplesOverlay(f, globalBit, bitX, bitY);
     this._drawBitLabels(f, globalBit, bitIdx, cls, draw, bitX, bitY);
+  }
+
+  _drawDebugCellOutline(f, draw, bitX, bitY) {
+    if (!this.debugAllCellOutlines) return;
+    const ctx = f.ctx;
+    const x = Number.isFinite(draw?.drawX) ? draw.drawX : bitX;
+    const y = Number.isFinite(draw?.drawY) ? draw.drawY : bitY;
+    const size = Math.max(1, Number.isFinite(draw?.drawSize) ? draw.drawSize : f.px);
+    ctx.save();
+    ctx.lineWidth = Math.max(0.75, Math.min(1.25, 0.85 + (this.zoom || 1) * 0.015));
+    ctx.strokeStyle = this.debugAllCellOutlineColor || 'rgba(255,255,255,0.82)';
+    ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, size - 1), Math.max(0, size - 1));
+    ctx.restore();
   }
 
   /** Decide the bit's color and per-bit boolean flags (ghost / changed / set / repeated / focus). */
@@ -2174,8 +2233,9 @@ export class SieveRenderer {
     if (progress <= 0 || progress > 1) return;
 
     const ctx = this.ctx;
-    const cw = this.canvas.width / (window.devicePixelRatio || 1);
-    const ch = this.canvas.height / (window.devicePixelRatio || 1);
+    const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
+    const cw = this.canvasWidth || (this.canvas.width / canvasDpr);
+    const ch = this.canvasHeight || (this.canvas.height / canvasDpr);
     const px = this.pixelSize * this.zoom;
     const intensity = Math.max(0.4, Math.min(1.2, options.intensity || 1));
 
@@ -2323,12 +2383,12 @@ export class SieveRenderer {
 
         const phase = Math.max(0, Math.min(1, local));
         let yOffset;
-        if (phase < 0.45) {
-          yOffset = -lift * (1 - phase / 0.45);
-        } else if (phase < 0.75) {
-          yOffset = Math.sin(((phase - 0.45) / 0.3) * Math.PI) * 2;
+        if (phase < 0.58) {
+          yOffset = -lift * (1 - phase / 0.58);
+        } else if (phase < 0.73) {
+          yOffset = Math.sin(((phase - 0.58) / 0.15) * Math.PI) * 1.5;
         } else {
-          yOffset = -lift * ((phase - 0.75) / 0.25);
+          yOffset = -4 * ((phase - 0.73) / 0.27);
         }
 
         const entry = orderedEntries[i];
@@ -2387,12 +2447,12 @@ export class SieveRenderer {
 
       const phase = Math.max(0, Math.min(1, local));
       let yOffset;
-      if (phase < 0.45) {
-        yOffset = -lift * (1 - phase / 0.45);
-      } else if (phase < 0.75) {
-        yOffset = Math.sin(((phase - 0.45) / 0.3) * Math.PI) * 2;
+      if (phase < 0.58) {
+        yOffset = -lift * (1 - phase / 0.58);
+      } else if (phase < 0.73) {
+        yOffset = Math.sin(((phase - 0.58) / 0.15) * Math.PI) * 1.5;
       } else {
-        yOffset = -lift * ((phase - 0.75) / 0.25);
+        yOffset = -4 * ((phase - 0.73) / 0.27);
       }
 
       const gid = groups[i];

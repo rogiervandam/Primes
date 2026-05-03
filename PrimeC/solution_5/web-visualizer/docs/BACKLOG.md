@@ -5,6 +5,25 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 ## Done
 
+- Retuned GL auto Y-offset for 2608x1175 with stronger X-biased lift and stronger Y/high-balanced damping; added edge calibration probes (`28/4` and `4/28`).
+- Retuned GL auto Y-offset again from the 2579x1175 @100% report with stronger near-limit lift and expanded calibration cases (`24/0`, `0/24`, `16/8`, `8/16`) to better isolate axis and mixed-tilt error.
+- Updated GL auto Y formula again from the latest 2579x1175 report to recover broad under-correction: stronger X/Y-dominant lift plus a low-tilt balanced boost that fades before high balanced tilt.
+- Added `-1`/`+1` nudge buttons to both GL X and GL Y manual calibration controls for fine-grained alignment commits.
+- Retuned GL auto Y-offset again for the 10k-12k near-limit band: increased X-dominant compensation while damping high Y-dominant and balanced high-tilt cases that were over-correcting.
+- Fixed calibration-mode GL X offset controls so slider/button changes refresh immediately, and added browser zoom telemetry (devicePixelRatio + visualViewport.scale) to debug/calibration reports.
+- Retuned automatic GL Y compensation again for mid-width near-limit scenes by distinguishing X-dominant and Y-dominant tilt, reducing under-correction from the 2707x1307 calibration sweep.
+- Made the debug tools panel scrollable and split the longest areas into collapsible sections so calibration controls remain reachable on smaller viewports.
+- Added a debug-panel calibration mode with a 10-case rotation sweep, viewport target help, manual GL X/Y alignment controls, all-cell overlay outlines, viewpoint recording, and clipboard calibration reports.
+- Validated GL auto-offset convergence on the 3127x1197 four-scene sweep; manual residual trims now stayed near zero (+14/-4/+7/-17).
+- Added a separate mid-width GL auto-offset correction lane (about 9.6k-12.1k CSS width) to handle under-correction without disturbing ultra-wide tuning.
+- Added width-aware GL auto-offset residual correction for ultra-wide direct-mode scenes, with high-tilt suppression to preserve earlier calibrated cases.
+- Added a small deficit-scaled residual trim to GL auto-offset so high-deficit flat and tilted cases converge closer without destabilizing near-1 DPR behavior.
+- Retuned GL auto-offset again for wide tilted direct-mode breakpoints by damping tilt response as DPR deficit grows, reducing large overshoot cases.
+- Retuned direct-mode automatic GL Y compensation for small DPR deficits (`~0.95-0.99`) under tilt, while keeping true DPR=1 cases at zero auto offset.
+- Fixed a Visualizer startup crash caused by referencing `getMinimapDetailH` before initialization; the minimap helper is now declared before snapshot callbacks that depend on it.
+- Reduced startup console noise from optional benchmark companion files by checking `/api/logs` before requesting `*_sievebenchmark.json`, avoiding repeated 404 fetches when no benchmark file exists.
+- Added an explicit favicon asset/link (`public/favicon.svg` + `index.html` head link) so dev sessions no longer request a missing `/favicon.ico` by default.
+- Added a Grid view "Balloon" mode control in Layout settings with three options: `Off`, `On bit clock` (click-only), and `Click + hover`. Balloon hover/click behavior now follows this setting and persists via view preferences.
 - Details panel mask metadata now sits to the right of the mask preview inside
   "Mask pattern & preview".
 - Added more engaging color schemes.
@@ -35,49 +54,59 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 - Event panel < and > level buttons now cycle within the active dropdown group: clicking < or > while "Up to" is selected steps through all "Up to" levels (ending at "All" when increasing past the max); while "Collapse at" or "Only level" is selected the buttons cycle only within that group. The > button is correctly disabled at the upper bound of collapse/exact groups.
 - When changing animation type (style or mode) mid-animation, the new animation starts from the same progress position instead of restarting from 0. Works for both in-flight direct animations and the single-event / selected-steps replay loops.
 - Removed unimported historical file `src/settings/TitleTab.jsx`.
-- Phase 1 of planned `Visualizer.jsx` split: created `VisualizerAlerts.jsx`
-  (export progress/error banners + GL-unavailable banner) and
-  `VisualizerOverlays.jsx` (minimap canvas + keyboard-shortcuts overlay),
-  replacing the corresponding inline JSX and imports in `Visualizer.jsx`.
-- Phase 2 of planned `Visualizer.jsx` split: created `VisualizerPanels.jsx`
-  to compose `EventsPanel`, `SettingsPanel`, and `DebugToolsPanel`; moved
-  four inline overlay-reset lambdas (`onRangeOverlayToggle`,
-  `onRangeOverlayReset`, `onMultiplesOverlayToggle`,
-  `onMultiplesOverlayReset`) into named handlers in the new component;
-  introduced grouped `eventsProps` / `settingsProps` prop objects in
-  `Visualizer.jsx` for a compact call site.
+- Mask-stamp animation polished: travel phase now takes 58% of each stamp slot (was 45%), settle shortened to 15% (was 30%), final vertical lift capped at 4 px (was up to 18 px). Both orderedEntries and legacy-groups paths in `SieveRenderer.renderMaskStamp()` updated.
+- Dragging the joined widget onto the detail panel now shows all-events transport and timeline inside the detail panel body. `allEventsInDetailPanel` state is persisted. A ✕ dismiss button removes the transport from the panel. `pushJoinedWidgetToDetailPanel` in `usePanelChoreography`; `JoinedEventsWidget` has a 'detail' drop zone via elementFromPoint hit-test.
+- Balloon clamping: `.joined-events-widget` added to the overlay-rect query set in `getVisibleBalloonStyles` so balloons hide when they would overlap the floating widget.
 
 ## Open
 
-- When pushing the joined widget into the detail panel, also bring all-events
-  controls and the all-events timeline into the detail panel.
-- Make visualizer items related to overlays or animations clickable shortcuts.
-  Clicking a bit-state legend/color item should let the user choose that state's
-  color.
-- Keep reducing `Visualizer.jsx` and `SieveRenderer.js`; prefer one focused
-  hook/component/helper extraction per session. **Phase 1 and Phase 2 of the
-  planned Visualizer.jsx split (section 15 of AI_MAINTENANCE.md) are now done.**
-  Next: Phase 3 — create `VisualizerCanvasArea.jsx` for `CanvasStage` +
-  `JoinedEventsWidget` + `stepAnimSlidersContent`.
-- Add more useful tools to the debug window: GL worker status, texture upload
-  sizes, bit count, current render cadence, and context-loss recovery state.
-- Make the debug tools window draggable or pinnable only if it starts competing
-  with settings/detail/sidebar workflows.
-- The balloons and connectors must not cover or be under any panel. Don't show them in that case.
-- Polish the mask animation's final stamp: shorten the final settle, reduce the
-  up/down motion to a few pixels, and spend more time on the travel.
-- Check bit-history balloon connector/clamping polish with events panel
+1 Make visualizer items related to overlays or animations clickable shortcuts.
+Clicking a bit-state legend/color item should let the user choose that state's
+color.
+
+2 Keep reducing `Visualizer.jsx` and `SieveRenderer.js`; prefer one focused
+hook/component/helper extraction per session.
+
+3 Add more useful tools to the debug window: GL worker status, texture upload
+sizes, bit count, current render cadence, and context-loss recovery state.
+
+4 Make the debug tools window draggable or pinnable only if it starts competing
+with settings/detail/sidebar workflows. 
+
+5 Polish the all-events transport in the detail panel: verify it doesn't push
+  detail sections below the fold at small heights; add a visual separator from
+  the step-anim sliders when both are visible simultaneously.
+
+6 Check bit-history balloon connector/clamping polish with events panel
   open/closed, settings open/closed, joined widget visible, minimap visible,
   light/dark themes, and high zoom.
+7
+ Manually tune balloon connector width/opacity if it competes with dense
+  overlays, especially in light theme.
+
+8 Rewrite the logging system so that it is easier to read f. Each line has:
+    - an optional text of some arbitrary amount of characters
+    - optional a json string (starting with  "{ traceline: <x>" where <x> is the line number. The properties of the json object are optional, like  depth: <>, level: <>. step: <>, etc... }. \
+      When parsing, try to infer the missing properties from the text. Use the text as an annotation.
+9 the balloon placement should be improved: (1) balloons should not overlap (2) when a bit under the all event panel, don't show the connector over the events panel (3) the connector should look better: more pointy at the bit side and much wider at the text box side (4) when i drag to the left, sometimes the connector gets "twisted"
+
+10 Make the "operation" labels in the all events panel more readable: (1) immediately give it the full size while hovering over it (the expanded text must not push away the other text, but the expanded text may float over the bitcount, timing, etc) and (2) give me an easy way to switch between this column in full width or reduced width
+
+11 when the single event widget is docker to the detail panel, don't show the %progress and gear icon on the far right, but just to the right on the timeline slider, as it looked on the single event widget.
+
+12 Make a toggle to turn automatic animation start when selecting a sigle event on or off
+
+13 In settings -> layout panel -> Autofit. when turning auto fit off, start at the count that was set by auto fit.
+
+14 Change the nearby events: (1) Don't have "current" as the name, but the the Title with the same font, style and size as on the widget itself. Keep the play button in front of it; (2) make it possible to have the nearby events instead of the title.
+
+15 when clicking in the details panel to go to the source, don't open the file/title details but just show the log, so that when i close the raw log, i don't have to close the file/title details. 
+ 
 
 ## New Ideas
 
-- Add a "presentation palette" preset optimized for projectors and screen
-  recordings.
-- Add a tiny recent-colors strip beside custom bit-state color pickers.
-- Add a one-click "focus current cache line" action from cacheline badges.
-- Add a compact "jump to next event changing this bit" action in bit-history
-  balloons.
+- Make
+  a button on the top bar to cycle through popular layout arrangements of bit, byte and grouping, with different annotations and outlines.  It should have a list too that pops out with the previews that can be cycles through
 
 Make more backlog items, be creative!
 Find two delightful improvements

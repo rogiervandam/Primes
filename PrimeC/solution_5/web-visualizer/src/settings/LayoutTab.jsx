@@ -152,6 +152,7 @@ export default function LayoutTab({
     { clamp: (n) => Math.max(2, n) },
   );
   const lastManualColumnCountRef = React.useRef(Math.max(1, parseInt(settings?.horizontalGroups || 0, 10) || 1));
+  const balloonMode = s.balloonMode || 'click-hover';
 
   React.useEffect(() => {
     const value = Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0);
@@ -839,6 +840,37 @@ export default function LayoutTab({
               )}
             />
           )}
+          <PreviewOptionButton
+            compact
+            label={balloonMode === 'off' ? 'Balloon: off' : balloonMode === 'bit-clock' ? 'Balloon: click' : 'Balloon: hover'}
+            hint={balloonMode === 'off' ? 'Balloons off — click to enable on bit click' : balloonMode === 'bit-clock' ? 'Balloons on bit click — click for click+hover' : 'Balloons on click+hover — click to disable'}
+            active={balloonMode !== 'off'}
+            onClick={() => set('balloonMode', balloonMode === 'off' ? 'bit-clock' : balloonMode === 'bit-clock' ? 'click-hover' : 'off')}
+            preview={balloonMode === 'off' ? (
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="8" y="4" width="28" height="14" rx="3" fill="var(--bg-input)" stroke="var(--border-light)" strokeWidth="1.5" />
+                <line x1="10" y1="6" x2="34" y2="18" stroke="var(--fg-muted)" strokeWidth="2" strokeLinecap="round" />
+                <line x1="34" y1="6" x2="10" y2="18" stroke="var(--fg-muted)" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            ) : balloonMode === 'bit-clock' ? (
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="7" y="2" width="24" height="13" rx="2" fill="var(--bg-raised)" stroke="var(--border-light)" strokeWidth="1.5" />
+                <polygon points="13,15 19,15 16,19" fill="var(--border-light)" />
+                <rect x="11" y="5" width="12" height="2" rx="1" fill="var(--fg-muted)" />
+                <rect x="11" y="9" width="8" height="2" rx="1" fill="var(--fg-dim)" />
+                <circle cx="38" cy="16" r="4" fill="none" stroke="var(--fg-muted)" strokeWidth="1.5" />
+                <line x1="36" y1="18" x2="42" y2="22" stroke="var(--fg-muted)" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="4" y="2" width="24" height="13" rx="2" fill="var(--bg-raised)" stroke="var(--accent)" strokeWidth="1.5" />
+                <polygon points="10,15 16,15 13,19" fill="var(--accent)" />
+                <rect x="8" y="5" width="12" height="2" rx="1" fill="var(--fg-muted)" />
+                <rect x="8" y="9" width="8" height="2" rx="1" fill="var(--fg-dim)" />
+                <circle cx="38" cy="11" r="5" fill="var(--accent-bg)" stroke="var(--accent)" strokeWidth="1.5" />
+              </svg>
+            )}
+          />
         </div>
         {/* Range overlay controls */}
         {rangeOverlayEnabled && (

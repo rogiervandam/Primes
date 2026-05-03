@@ -35,6 +35,8 @@ export default function JoinedEventsWidget({
   revealCurrentStepInPanel,
   sliders,
   onPushToEventsPanel,
+  // Push to detail panel (all-events transport shown in detail panel)
+  onPushToDetailPanel,
   // Split callback
   onSplitWidgets,
   // Hide the entire joined widget (split + hide both sub-widgets)
@@ -74,12 +76,21 @@ export default function JoinedEventsWidget({
   const [floatDrag, setFloatDrag] = useState({ x: computeInitialDragX(), y: 0 });
   const widgetRef = useRef(null);
 
-  const detectDropZone = useCallback((clientX) => {
-    if (typeof window === 'undefined') return null;
-    return clientX <= 80 ? 'left' : null;
+  const isOverDetailPanel = useCallback((clientX, clientY, widgetEl) => {
+    if (typeof document === 'undefined') return false;
+    const prevPE = widgetEl ? widgetEl.style.pointerEvents : null;
+    if (widgetEl) widgetEl.style.pointerEvents = 'none';
+    const el = document.elementFromPoint(clientX, clientY);
+    if (widgetEl) widgetEl.style.pointerEvents = prevPE || '';
+    return !!(el && el.closest && el.closest('.detail-panel'));
   }, []);
 
-  // After first render, adjust y so the joined widget's bottom-left corner
+  const detectDropZone = useCallback((clientX, clientY, widgetEl) => {
+    if (typeof window === 'undefined') return null;
+    if (clientX <= 80) return 'left';
+    if (onPushToDetailPanel && isOverDetailPanel(clientX, clientY, widgetEl)) return 'detail';
+    return null;
+  }, [isOverDetailPanel, onPushToDetailPanel]);
   // sits at the same screen position as the banner's bottom-left corner.
   useLayoutEffect(() => {
     if (!initialBannerRect || !widgetRef.current) return;
@@ -110,7 +121,7 @@ export default function JoinedEventsWidget({
       const next = { x: startDrag.x + dx, y: startDrag.y + dy };
       floatDragRef.current = next;
       setFloatDrag({ ...next });
-      const zone = detectDropZone(ev.clientX);
+      const zone = detectDropZone(ev.clientX, ev.clientY, widgetRef.current);
       if (zone !== lastZone) {
         lastZone = zone;
         setDropHint(zone);
@@ -120,8 +131,13 @@ export default function JoinedEventsWidget({
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
       setDropHint(null);
-      if (dragged && detectDropZone(ev.clientX) === 'left' && onPushToEventsPanel) {
+      const zone = detectDropZone(ev.clientX, ev.clientY, widgetRef.current);
+      if (dragged && zone === 'left' && onPushToEventsPanel) {
         onPushToEventsPanel();
+        return;
+      }
+      if (dragged && zone === 'detail' && onPushToDetailPanel) {
+        onPushToDetailPanel();
         return;
       }
       // Persist position so EventTitleBanner reappears here after split.
@@ -134,7 +150,7 @@ export default function JoinedEventsWidget({
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     e.preventDefault();
-  }, [detectDropZone, onPushToEventsPanel, setSettings]);
+  }, [detectDropZone, onPushToDetailPanel, onPushToEventsPanel, setSettings]);
 
   const handleSplit = useCallback((e) => {
     e.stopPropagation();

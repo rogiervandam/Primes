@@ -7,10 +7,11 @@
 import { app, BrowserWindow, dialog, Menu, shell, nativeImage } from 'electron';
 import { createServer } from 'http';
 import {
-  readFileSync, readdirSync, existsSync, statSync, createReadStream,
+  readFileSync, existsSync, statSync,
 } from 'fs';
 import { join, dirname, basename, resolve, extname } from 'path';
 import { fileURLToPath } from 'url';
+import { handleLogApiRequest, sendJson } from '../log-api-utils.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const distDir = resolve(__dirname, '..', 'dist');
@@ -35,42 +36,16 @@ const mimeTypes = {
 let logDir = defaultLogDir;
 
 function createLocalServer() {
-  const server = createServer((req, res) => {
+  const server = createServer(async (req, res) => {
     const url = (req.url || '/').split('?')[0];
 
     // ---------- Log API ----------
-    if (url === '/api/logs') {
-      try {
-        const files = readdirSync(logDir)
-          .filter(f => f.endsWith('.sievetrace'))
-          .map(f => ({ name: f, mtime: statSync(join(logDir, f)).mtimeMs }))
-          .sort((a, b) => b.mtime - a.mtime)
-          .map(f => f.name);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(files));
-      } catch {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end('[]');
-      }
-      return;
-    }
-
-    const prefix = '/api/logs/';
-    if (url.startsWith(prefix)) {
-      const fileName = decodeURIComponent(url.slice(prefix.length));
-      if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
-        res.writeHead(400);
-        res.end('Invalid file name');
+    try {
+      if (await handleLogApiRequest(req, res, logDir, { source: 'electron' })) {
         return;
       }
-      const filePath = join(logDir, fileName);
-      if (!existsSync(filePath)) {
-        res.writeHead(404);
-        res.end('File not found');
-        return;
-      }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      createReadStream(filePath).pipe(res);
+    } catch (error) {
+      sendJson(res, error.statusCode || 500, { ok: false, error: error.message || 'Log API failed' });
       return;
     }
 

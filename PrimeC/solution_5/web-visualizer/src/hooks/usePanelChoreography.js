@@ -13,6 +13,7 @@ export function usePanelChoreography({
   detailOpen,
   settingsActiveTab,
   settingsCollapsed,
+  setAllEventsInDetailPanel,
   setAllEventsWidgetHidden,
   setEventTitleSettings,
   setEventsPanelCollapsed,
@@ -130,6 +131,27 @@ export function usePanelChoreography({
     updateDetailOpen,
   ]);
 
+  const pushJoinedWidgetToDetailPanel = useCallback(() => {
+    captureResizeAnchor();
+    setWidgetsJoined(false);
+    setAllEventsWidgetHidden(true);
+    updateDetailOpen(true);
+    if (setAllEventsInDetailPanel) setAllEventsInDetailPanel(true);
+    setEventTitleSettings((prev) => ({
+      ...prev,
+      visible: false,
+      dragOffsetX: 0,
+      dragOffsetY: 0,
+    }));
+  }, [
+    captureResizeAnchor,
+    setAllEventsInDetailPanel,
+    setAllEventsWidgetHidden,
+    setEventTitleSettings,
+    setWidgetsJoined,
+    updateDetailOpen,
+  ]);
+
   const hideJoinedWidget = useCallback(() => {
     setWidgetsJoined(false);
     setAllEventsWidgetHidden(true);
@@ -142,6 +164,7 @@ export function usePanelChoreography({
     hideJoinedWidget,
     joinWidgets,
     openAnimationSettings,
+    pushJoinedWidgetToDetailPanel,
     pushJoinedWidgetToEventsPanel,
     revealCurrentStepInPanel,
     showAllEventsWidget,

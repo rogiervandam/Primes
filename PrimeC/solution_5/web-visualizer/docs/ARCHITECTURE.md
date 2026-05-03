@@ -23,6 +23,9 @@ src/
 ├── Camera3D.js           CSS-3D perspective camera (3D mode)
 ├── traceParser.js        Multi-format trace loader (JSON v2/v3, text, dump)
 │                         (async chunk — dynamically imported on first file open)
+├── log-api-utils.mjs     Node-side log API helpers (list/read/upload/pending uploads)
+├── bin/
+│   └── docker-import.mjs Generic Docker .sievetrace importer/uploader
 ├── Icons.jsx             Shared SVG icon components
 ├── lib/                  Pure helpers (no React)
 │   ├── viewPrefs.js          localStorage I/O + default merging + getInitialViewState()
@@ -84,6 +87,7 @@ src/
 │   ├── BitHistoryBalloons.jsx    Pinned + hover bit-history cluster + SVG connectors
 │   ├── EventTitleBanner.jsx      Floating current-event banner (draggable)
 │   ├── JoinedEventsWidget.jsx    Combined transport+event banner widget (join/split mode)
+│   ├── AllEventsTransport.jsx    Compact all-events nav+timeline for use in the detail panel
 │   ├── DetailInspectorOverlay.jsx Modal table of bits / numbers / primes
 │   ├── StepAnimSliders.jsx       Mode/Timeline/Target/Speed sliders cluster
 │   ├── VisualizerAlerts.jsx      Export progress/error + GL-unavailable banners (Phase 1)
@@ -107,6 +111,27 @@ src/
 4. **Persist** — `lib/viewPrefs.js` reads/writes user preferences (theme, layout, panel sizes) to `localStorage` under the key `sieve-visualizer:view-preferences:v1`.
 5. **Render** — On every animation frame the visualizer calls `BitGridGLWorker.render()` first (GL worker paints all bit fills to a transferred `OffscreenCanvas`), then calls `SieveRenderer.render()` which paints overlays, labels, and side-face polygons on top via Canvas 2D. SieveRenderer no longer fills cells itself. The debug tools window reads renderer timing snapshots and renders as React UI outside the canvas/3D plane.
 6. **Inspect** — Side panels (`EventsPanel`, `DetailPanel`, `SettingsPanel`, `TimingPanel`) read derived data via props and call back into the visualizer to mutate state.
+
+## Log ingestion
+
+The dev/preview server and Electron local server expose the same log API through
+`log-api-utils.mjs`:
+
+- `GET /api/logs` lists local `.sievetrace` files from the configured log directory.
+- `GET /api/logs/:name` serves a trace or companion timing file.
+- `POST /api/logs/upload?name=<file.sievetrace>` saves a raw uploaded trace body.
+- `GET /api/logs/pending-upload` returns the oldest upload waiting for a UI decision.
+- `POST /api/logs/pending-upload/:id/ack` clears that pending prompt.
+
+`App.jsx` polls the pending-upload endpoint. When an external tool uploads a
+trace, the app asks whether to open it now or keep the current trace; accepting
+reuses the existing `loadFromApi(name)` path.
+
+`bin/docker-import.mjs` is a visualizer-owned generic importer for Dockerized
+producers. It inspects arbitrary containers, discovers likely log directories
+from explicit CLI paths, labels, env vars, working directory, and common paths,
+copies matching `.sievetrace` files with `docker exec/find` or `docker cp`, and
+uploads them to the log API.
 
 ## State ownership
 
@@ -146,6 +171,7 @@ npm run dev      # Vite dev server on http://localhost:5173
 npm run build    # Production bundle in dist/
 npm run test     # Vitest unit tests (260 tests across 8 files; no DOM required)
 npm run electron # Native wrapper (after build)
+npm run docker:import -- --container NAME --container-log-dir /app/log
 ```
 
 **Bundle chunks** (production build):

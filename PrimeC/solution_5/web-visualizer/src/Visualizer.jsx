@@ -9,6 +9,7 @@ import EventTitleBanner from './visualizer/EventTitleBanner';
 import JoinedEventsWidget from './visualizer/JoinedEventsWidget';
 import DetailInspectorOverlay from './visualizer/DetailInspectorOverlay';
 import StepAnimSliders from './visualizer/StepAnimSliders';
+import AllEventsTransport from './visualizer/AllEventsTransport';
 import BitHistoryBalloons from './visualizer/BitHistoryBalloons';
 import VisualizerAlerts from './visualizer/VisualizerAlerts';
 import VisualizerOverlays from './visualizer/VisualizerOverlays';
@@ -103,6 +104,161 @@ function getProjectedCanvasMapper(canvasEl) {
   return { toViewport, toCanvas };
 }
 
+function parseAppliedRotateAngles(transformStr) {
+  if (!transformStr || transformStr === 'none') return { rotateX: 0, rotateY: 0 };
+  const xMatch = /rotateX\((-?\d+(?:\.\d+)?)deg\)/.exec(transformStr);
+  const yMatch = /rotateY\((-?\d+(?:\.\d+)?)deg\)/.exec(transformStr);
+  return {
+    rotateX: xMatch ? Number(xMatch[1]) : 0,
+    rotateY: yMatch ? Number(yMatch[1]) : 0,
+  };
+}
+
+function computeSafeTiltDegrees(canvasHeight, perspective = 1500) {
+  const h = Math.max(1, Number(canvasHeight) || 1);
+  const p = Math.max(300, Number(perspective) || 1500);
+  // Keep the near-edge perspective amplification bounded. z = sin(ax) * h/2.
+  // Using z <= 0.55p caps top-edge scale to about 2.22x.
+  const ratio = Math.min(0.999, Math.max(0.01, (p * 0.55) / (h * 0.5)));
+  const deg = Math.asin(ratio) * 180 / Math.PI;
+  return Math.max(8, Math.min(65, deg));
+}
+
+function computeAutoGlYOffset(cssHeight, effectiveDpr, rotateXDeg = 0, rotateYDeg = 0, cssWidth = 0) {
+  const h = Math.max(1, Number(cssHeight) || 1);
+  const w = Math.max(1, Number(cssWidth) || 1);
+  const dpr = Math.max(0.1, Number(effectiveDpr) || 1);
+  const rawDeficit = Math.max(0, 1 - dpr);
+  // At true DPR=1 (or effectively equal after rounding), keep auto offset off.
+  if (rawDeficit < 0.01) return 0;
+  const ax = Math.abs(Number(rotateXDeg) || 0) * Math.PI / 180;
+  const ay = Math.abs(Number(rotateYDeg) || 0) * Math.PI / 180;
+  const xTiltStrength = Math.abs(Math.sin(ax));
+  const yTiltStrength = Math.abs(Math.sin(ay));
+  const tiltStrength = Math.min(1, Math.hypot(xTiltStrength, yTiltStrength));
+  const xDominantTilt = Math.max(0, xTiltStrength - 0.7 * yTiltStrength);
+  const yDominantTilt = Math.max(0, yTiltStrength - 0.8 * xTiltStrength);
+  const balancedTilt = Math.max(0, tiltStrength - 1.15 * Math.abs(xTiltStrength - yTiltStrength));
+  const highTilt = Math.max(0, tiltStrength - 0.45);
+  const lowTiltGate = Math.max(0, Math.min(1, (0.46 - tiltStrength) / 0.16));
+  // Keep the existing high-deficit behavior (subtracting the 0.08 dead-zone),
+  // but add a tilt-weighted bridge for small deficits (e.g. dpr 0.95-0.99)
+  // where Chromium still shows visible Y drift in direct mode.
+  const deficitBase = Math.max(0, rawDeficit - 0.08);
+  const deficitBridge = Math.max(0, 0.08 - rawDeficit) * tiltStrength * 0.9;
+  const dprDeficit = deficitBase + deficitBridge;
+  if (dprDeficit <= 0) return 0;
+  // Calibrated from user measurements:
+  // - 2D/high-width cases need a stronger base than the previous model
+  // - modest tilt needs only a small bump
+  // - medium tilt ramps quickly (Chromium compositor projection path)
+  // A cap avoids over-correction for extreme rotations.
+  const factorRaw = (
+    0.66
+    + 0.18 * tiltStrength
+    // Recent calibration data shows that Y drift is materially larger when the
+    // tilt is driven mostly by rotateX than when the same magnitude comes from
+    // a balanced X/Y pair. Keep mixed-tilt behavior close to the prior model,
+    // but raise X-dominant and Y-dominant cases independently.
+    + 2.05 * xDominantTilt
+    + 0.18 * yDominantTilt
+    + 2.95 * tiltStrength * tiltStrength
+    // New samples show high-deficit tilted cases can over-correct; damp tilt
+    // response as raw DPR deficit grows so wide direct-mode scenes stay stable.
+    - 1.6 * rawDeficit * tiltStrength
+    // High mixed-tilt and high Y-dominant scenes in the mid-wide near-limit
+    // band can still over-correct. Damp these corners without reducing
+    // X-dominant high-tilt compensation too aggressively.
+    - 10.5 * balancedTilt * highTilt
+    - 1.35 * yDominantTilt * highTilt
+    + 1.2 * xDominantTilt * highTilt
+    // Broad mid-width near-limit under-correction persists in low/medium tilt
+    // scenes. Lift these while keeping Y-dominant cases tempered.
+    + 0.2 * lowTiltGate * (0.35 + 1.5 * xDominantTilt - 1.4 * yDominantTilt)
+  );
+  const factor = Math.min(1.32, Math.max(0.35, factorRaw));
+  const basePx = h * dprDeficit * factor;
+  // When DPR deficit is small but tilt is non-zero, Chromium can still exhibit
+  // a noticeable residual Y shift. Add a bounded uplift in this corner only.
+  const highDprTiltUplift = Math.max(0, (0.14 - rawDeficit) / 0.14);
+  const upliftPx = h * tiltStrength * highDprTiltUplift * 0.15;
+  // Residual trim from recent calibration pairs:
+  // - high-deficit + no tilt tends to under-correct slightly
+  // - high-deficit + tilt tends to over-correct slightly
+  // Keep this term small and deficit-scaled so near-1 DPR behavior stays stable.
+  const residualTrimPx = h * rawDeficit * (0.01 - 0.06 * tiltStrength);
+
+  // Ultra-wide near-limit scenes can still need extra Y compensation even when
+  // narrower canvases are already calibrated. Gate this term by width and
+  // suppress at high tilt so previously matched wide-tilt cases stay stable.
+  const widthGate = Math.max(0, Math.min(1, (w - 12500) / 1000));
+  const mediumTilt = Math.max(0, Math.min(1, 1 - Math.abs(tiltStrength - 0.16) / 0.15));
+  const mediumTiltDamp = 1 - Math.min(0.5, Math.max(0, (tiltStrength - 0.16) / 0.14));
+  const highTiltGate = Math.max(0, Math.min(1, (0.32 - tiltStrength) / 0.12));
+  const wideResidualFactor = Math.max(
+    0,
+    0.085
+      + 0.06 * tiltStrength
+      + 0.06 * mediumTilt
+      - 0.9 * tiltStrength * tiltStrength,
+  );
+  const wideResidualPx = h
+    * rawDeficit
+    * wideResidualFactor
+    * widthGate
+    * mediumTiltDamp
+    * highTiltGate;
+
+  // Mid-wide scenes (~10k-12k CSS width) showed a separate under-correction
+  // pattern after ultra-wide tuning. Use a dedicated gate so this band can be
+  // corrected without pushing already-calibrated ultra-wide cases.
+  const midWidthRampIn = Math.max(0, Math.min(1, (w - 9600) / 1300));
+  const midWidthRampOut = Math.max(0, Math.min(1, (12150 - w) / 900));
+  const midWidthGate = midWidthRampIn * midWidthRampOut;
+  const midWidthTiltFactor = Math.max(
+    0.04,
+    0.29
+      - 0.26 * tiltStrength
+      + 0.2 * xDominantTilt
+      - 0.1 * yDominantTilt
+      - 0.12 * balancedTilt * highTilt,
+  );
+  const midWidthMediumTiltDamp = 1 - 0.35 * mediumTilt;
+  const midWidthResidualPx = h
+    * rawDeficit
+    * midWidthGate
+    * midWidthTiltFactor
+    * midWidthMediumTiltDamp;
+
+  // X-dominant tilt still shows a residual under-correction in the 10k-12k CSS
+  // width band at effective DPRs around 0.75. Keep the term zero for balanced
+  // mixed tilts so previously converged diagonal cases stay close.
+  const midWidthAxisResidualPx = h
+    * rawDeficit
+    * midWidthGate
+    * (0.42 * xDominantTilt - 0.02 * yDominantTilt - 0.15 * balancedTilt * highTilt);
+
+  // Latest sweep indicates a broad under-correction in low/medium balanced
+  // tilts (e.g. 12/12) while high balanced tilt (20/20) is already close.
+  // Add lift only below the high-tilt shoulder so case 10 stays stable.
+  const midWidthBalancedLowTiltBoostPx = h
+    * rawDeficit
+    * midWidthGate
+    * balancedTilt
+    * lowTiltGate
+    * 0.56;
+
+  return Math.round(
+    basePx
+      + upliftPx
+      + residualTrimPx
+      + wideResidualPx
+      + midWidthResidualPx
+      + midWidthAxisResidualPx
+      + midWidthBalancedLowTiltBoostPx,
+  );
+}
+
 /**
  * Top-level visualizer component. Owns all playback, rendering, and UI state.
  *
@@ -183,8 +339,14 @@ export default function Visualizer({
   // WebGL bit-grid worker (see docs/AI_MAINTENANCE.md §8).
   const glCanvasRef = useRef(null);
   const glRendererRef = useRef(null);
+  // Wrapper div that receives the 3D CSS transform (translate + rotateX/Y)
+  // so the canvas elements inside remain flat — this prevents Safari from
+  // creating per-canvas GPU compositing layers that cause black flicker.
+  const wrapperCanvasRef = useRef(null);
   // Set to true when OffscreenCanvas is unavailable and GL could not attach.
   const [glUnavailable, setGlUnavailable] = useState(false);
+  // Debug info for the GL mode and GPU capacity (shown in overlay)
+  const [glDebugInfo, setGlDebugInfo] = useState(null);
   const isMacPlatform = useMemo(() => detectIsMac(), []);
   const isWindowsPlatform = useMemo(() => detectIsWindows(), []);
   // Electron (native app) inserts "Electron" into the UA and exposes process.versions.electron.
@@ -319,6 +481,10 @@ export default function Visualizer({
   const [stepStats, setStepStats] = useState(null); // { totalSet, newlySet, reSet, duplicateTargets }
   const [pinnedBitIndices, setPinnedBitIndices] = useState([]); // clicked bits with locked balloons
   const [hoveredBitInfo, setHoveredBitInfo] = useState(null);  // { bitIndex, history[] } — updated on hover
+  const balloonMode = layoutSettings.balloonMode || 'click-hover';
+  const balloonsEnabled = balloonMode !== 'off';
+  const balloonClickEnabled = balloonMode === 'bit-clock' || balloonMode === 'click-hover';
+  const balloonHoverEnabled = balloonMode === 'click-hover';
   const [colorPreset, setColorPreset] = useState(initialPrefs.colorPreset);
   const [customColors, setCustomColors] = useState(initialPrefs.customColors);
   // Search state is managed by useSearchState (placed after navigateToBit is defined below).
@@ -327,6 +493,9 @@ export default function Visualizer({
   // dragged it onto the top bar). Reset each time the events panel is
   // collapsed so the widget reliably reappears on the next toggle.
   const [allEventsWidgetHidden, setAllEventsWidgetHidden] = useState(initialPrefs.allEventsWidgetHidden);
+  // When true the all-events transport (timeline + nav) is shown inside the
+  // detail panel (user dropped the joined widget onto the detail panel).
+  const [allEventsInDetailPanel, setAllEventsInDetailPanel] = useState(initialPrefs.allEventsInDetailPanel);
   // When true the floating all-events widget and the single-event banner are
   // merged into a single JoinedEventsWidget. Persisted to localStorage.
   const [widgetsJoined, setWidgetsJoined] = useState(
@@ -347,11 +516,18 @@ export default function Visualizer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [header]); // Intentionally keyed on header identity, not storageModel
   const [selectedSteps, setSelectedSteps] = useState(new Set());
+  const selectedStepsRef = useRef(selectedSteps);
   const [heatMapEnabled, setHeatMapEnabled] = useState(false);
   // 'none' | 'hits' | 'age' | 'both'  — annotation shown on each cacheline when heatmap is on
   const [cachelineAnnotation, setCachelineAnnotation] = useState('none');
   const [primeOverlayEnabled, setPrimeOverlayEnabled] = useState(false);
   const [debugToolsOpen, setDebugToolsOpen] = useState(false);
+  const [debugLayerMode, setDebugLayerMode] = useState('normal'); // normal | gl-only | overlays-only
+  const [debugGlOffsetX, setDebugGlOffsetX] = useState(0); // manual trim
+  const [debugGlOffsetY, setDebugGlOffsetY] = useState(0); // manual trim
+  const [debugGlAutoOffsetY, setDebugGlAutoOffsetY] = useState(0);
+  const [debugCalibrationMode, setDebugCalibrationMode] = useState(false);
+  const [compositeDirectGl, setCompositeDirectGl] = useState(false);
   const [rangeOverlayEnabled, setRangeOverlayEnabled] = useState(false);
   const [rangeOverlayStart, setRangeOverlayStart] = useState(0);
   const [rangeOverlayEnd, setRangeOverlayEnd] = useState(0);
@@ -444,9 +620,86 @@ export default function Visualizer({
   const traceInfoToggleRef = useRef(null);
   const balloonLayoutRafRef = useRef(null);
   const balloonLiveLayoutTimerRef = useRef(null);
+  const glCssUnlockTokenRef = useRef(0);
+  const glCssUnlockRafRef = useRef(null);
+  const glCssUnlockTimeoutRef = useRef(null);
+  const glCssLockStateRef = useRef(null);
+  const debugGlOffsetXRef = useRef(0);
+  const debugGlOffsetYRef = useRef(0);
+  const debugGlAutoOffsetYRef = useRef(0);
+  const glDebugLastUpdateRef = useRef(0);
 
   stepsRef.current = steps;
   currentStepRef.current = currentStep;
+  selectedStepsRef.current = selectedSteps;
+  debugGlOffsetXRef.current = debugGlOffsetX;
+  debugGlOffsetYRef.current = debugGlOffsetY;
+  debugGlAutoOffsetYRef.current = debugGlAutoOffsetY;
+
+  const updateGlDebugInfo = useCallback((force = false) => {
+    const gl = glRendererRef.current;
+    if (!gl || typeof gl.getDebugInfo !== 'function') return;
+    const now = Date.now();
+    if (!force && now - glDebugLastUpdateRef.current < 120) return;
+    glDebugLastUpdateRef.current = now;
+    setGlDebugInfo(gl.getDebugInfo());
+  }, []);
+
+  // Keep refs in sync for use in callbacks
+  const getMinimapDetailH = useCallback(() => {
+    const panelEl = document.querySelector('.detail-panel');
+    if (panelEl) {
+      const rect = panelEl.getBoundingClientRect();
+      if (rect.height > 0) return Math.round(rect.height);
+    }
+    return detailOpenRef.current ? detailHeightRef.current : 36;
+  }, []);
+
+  const applyDebugSnapshot = useCallback((snapshot) => {
+    const rr = rendererRef.current;
+    if (!rr) return { ok: false, message: 'Renderer not ready' };
+
+    if (typeof snapshot?.panX === 'number') rr.panX = snapshot.panX;
+    if (typeof snapshot?.panY === 'number') rr.panY = snapshot.panY;
+    if (typeof snapshot?.zoom === 'number' && Number.isFinite(snapshot.zoom) && snapshot.zoom > 0) {
+      rr.zoom = snapshot.zoom;
+      setZoom(snapshot.zoom);
+    }
+
+    if (snapshot?.layerMode === 'normal' || snapshot?.layerMode === 'gl-only' || snapshot?.layerMode === 'overlays-only') {
+      setDebugLayerMode(snapshot.layerMode);
+    }
+
+    if (typeof snapshot?.manualOffsetY === 'number' && Number.isFinite(snapshot.manualOffsetY)) {
+      setDebugGlOffsetY(snapshot.manualOffsetY);
+    }
+    if (typeof snapshot?.manualOffsetX === 'number' && Number.isFinite(snapshot.manualOffsetX)) {
+      setDebugGlOffsetX(snapshot.manualOffsetX);
+    }
+
+    const cam = camera3DRef.current;
+    if (cam && cam.enabled) {
+      let changed = false;
+      if (typeof snapshot?.rotateX === 'number' && Number.isFinite(snapshot.rotateX)) {
+        const lim = Number.isFinite(cam.maxTilt) ? Math.abs(cam.maxTilt) : 89;
+        cam.rotateX = Math.max(-lim, Math.min(lim, snapshot.rotateX));
+        changed = true;
+      }
+      if (typeof snapshot?.rotateY === 'number' && Number.isFinite(snapshot.rotateY)) {
+        const lim = Number.isFinite(cam.maxTilt) ? Math.abs(cam.maxTilt) : 89;
+        cam.rotateY = Math.max(-lim, Math.min(lim, snapshot.rotateY));
+        changed = true;
+      }
+      if (changed) {
+        setCamera3DTransform(cam.getCanvasTransform());
+        setCamera3DContainerStyle(cam.getContainerStyle());
+      }
+    }
+
+    rr.render();
+    rr.renderMinimap(rr.canvasWidth, rr.canvasHeight, getMinimapDetailH());
+    return { ok: true, message: 'Snapshot applied' };
+  }, [setCamera3DTransform, setCamera3DContainerStyle, getMinimapDetailH]);
 
   /** Miller-Rabin primality test — deterministic for all n < 3,215,031,751 */
   const isPrimeNumber = useCallback((n) => {
@@ -504,16 +757,14 @@ export default function Visualizer({
       clearTimeout(balloonLiveLayoutTimerRef.current);
       balloonLiveLayoutTimerRef.current = null;
     }
-  }, []);
-
-  // Keep refs in sync for use in callbacks
-  const getMinimapDetailH = useCallback(() => {
-    const panelEl = document.querySelector('.detail-panel');
-    if (panelEl) {
-      const rect = panelEl.getBoundingClientRect();
-      if (rect.height > 0) return Math.round(rect.height);
+    if (glCssUnlockRafRef.current != null) {
+      cancelAnimationFrame(glCssUnlockRafRef.current);
+      glCssUnlockRafRef.current = null;
     }
-    return detailOpenRef.current ? detailHeightRef.current : 36;
+    if (glCssUnlockTimeoutRef.current != null) {
+      clearTimeout(glCssUnlockTimeoutRef.current);
+      glCssUnlockTimeoutRef.current = null;
+    }
   }, []);
 
   // Wrap setDetailOpen/setDetailHeight to keep refs updated
@@ -566,23 +817,34 @@ export default function Visualizer({
     // baseline so collapsing/expanding side panels can't shrink
     // the canvas — those toggles must be visually free.
     const cam = camera3DRef.current;
+    // Use the actually-applied wrapper transform angles as the first source
+    // of truth so canvas sizing math matches what is rendered on screen.
+    // This avoids geometry desync if camera refs and rendered transform ever
+    // diverge during rapid resize/animation transitions.
+    const appliedAngles = parseAppliedRotateAngles(camera3DTransform);
     const baseW = Math.max(width || 0, (typeof window !== 'undefined' ? window.innerWidth : width) || 0);
     const baseH = Math.max(height || 0, (typeof window !== 'undefined' ? window.innerHeight : height) || 0);
     let scaleH = 1;
     let scaleW = 1;
     let diagonalOverscan = 1;
     if (cam && cam.enabled) {
-      const ax = Math.abs(cam.rotateX) * Math.PI / 180;
-      const ay = Math.abs(cam.rotateY) * Math.PI / 180;
+      const rotateX = Number.isFinite(appliedAngles.rotateX) ? appliedAngles.rotateX : (cam.rotateX || 0);
+      const rotateY = Number.isFinite(appliedAngles.rotateY) ? appliedAngles.rotateY : (cam.rotateY || 0);
+      const ax = Math.abs(rotateX) * Math.PI / 180;
+      const ay = Math.abs(rotateY) * Math.PI / 180;
       scaleH = 1 / Math.max(0.3, Math.cos(ax));
       scaleW = 1 / Math.max(0.3, Math.cos(ay));
       diagonalOverscan = 1 + Math.hypot(Math.sin(ax), Math.sin(ay)) * 0.55;
     }
     const dragOverscan = 3.1;
-    const canvasW = Math.max(baseW * 3.2, baseW * scaleW * diagonalOverscan * dragOverscan);
-    const canvasH = Math.max(baseH * 3.2, baseH * scaleH * diagonalOverscan * dragOverscan);
+    const canvasWRaw = Math.max(baseW * 3.2, baseW * scaleW * diagonalOverscan * dragOverscan);
+    const canvasHRaw = Math.max(baseH * 3.2, baseH * scaleH * diagonalOverscan * dragOverscan);
+    // Keep CSS and backing geometry on integer CSS pixels to avoid
+    // fractional-size drift between GL and Canvas2D at large canvas sizes.
+    const canvasW = Math.max(1, Math.round(canvasWRaw));
+    const canvasH = Math.max(1, Math.round(canvasHRaw));
     return { canvasW, canvasH };
-  }, []);
+  }, [camera3DTransform]);
 
   const getCanvasPlaneMetrics = useCallback(() => {
     const r = rendererRef.current;
@@ -639,9 +901,152 @@ export default function Visualizer({
 
     const { canvasW, canvasH } = getCanvasTargetSize(rect.width, rect.height);
 
+    // Perspective safety: as canvas plane height grows, large rotateX values
+    // can produce extreme perspective amplification near the top edge. Cap
+    // tilt dynamically so rendered geometry remains stable at high zoom.
+    const cam = camera3DRef.current;
+    if (cam && cam.enabled) {
+      const safeTilt = computeSafeTiltDegrees(canvasH, cam.perspective || 1500);
+      cam.maxTilt = safeTilt;
+      let clamped = false;
+      if (Math.abs(cam.rotateX) > safeTilt) {
+        cam.rotateX = Math.sign(cam.rotateX || 1) * safeTilt;
+        clamped = true;
+      }
+      if (Math.abs(cam.rotateY) > safeTilt) {
+        cam.rotateY = Math.sign(cam.rotateY || 1) * safeTilt;
+        clamped = true;
+      }
+      if (clamped) {
+        setCamera3DTransform(cam.getCanvasTransform());
+        setCamera3DContainerStyle(cam.getContainerStyle());
+      }
+    }
+
     const oldCanvasW = r.canvasWidth || 0;
     const oldCanvasH = r.canvasHeight || 0;
-    r.resize(canvasW, canvasH);
+    const glRenderer = glRendererRef.current;
+    const glDirectMode = !!(glRenderer && typeof glRenderer.isDirectMode === 'function' && glRenderer.isDirectMode());
+    let overlayDpr = null;
+    if (glRenderer) {
+      glRenderer.resize(canvasW, canvasH);
+      if (glDirectMode && typeof glRenderer.getEffectiveDpr === 'function') {
+        overlayDpr = glRenderer.getEffectiveDpr();
+      }
+    }
+    r.resize(canvasW, canvasH, overlayDpr);
+    // Sync wrapper div and GL canvas dimensions so translate(-50%,-50%) in
+    // renderCanvasStyle computes the correct pixel shift (50% of the wrapper's
+    // own size) and the GL canvas CSS display always matches Canvas2D.
+    // Must happen imperatively here (before the next paint) rather than
+    // waiting for a React re-render, so that the centering is correct on the
+    // very first frame after a resize.
+    //
+    // GL canvas sizing: the wrapper is updated to the new size immediately
+    // (for correct centering via translate(-50%,-50%)). The GL canvas CSS is
+    // locked to the OLD size until the worker has drawn at the new size. This
+    // prevents the browser from CSS-scaling the old drawing buffer to the new
+    // CSS dimensions, which caused the grid and annotations to move in opposite
+    // directions during window resize (and zoom appearing to affect only
+    // annotations). A requestAnimationFrame deferred step below updates the GL
+    // canvas CSS to the new size after the worker messages have been processed.
+    //
+    // On Safari (direct mode), resize is synchronous so the deferred update is
+    // harmless (just re-sets the same value one frame later).
+
+    const wrapperEl = wrapperCanvasRef.current;
+    if (wrapperEl) {
+      wrapperEl.style.width = `${canvasW}px`;
+      wrapperEl.style.height = `${canvasH}px`;
+    }
+    const glEl = glCanvasRef.current;
+    const glSizeChanging = glEl && (canvasW !== oldCanvasW || canvasH !== oldCanvasH);
+    const appliedAngles = parseAppliedRotateAngles(camera3DTransform);
+    let autoGlOffsetY = 0;
+    if (glDirectMode && glRenderer && typeof glRenderer.getEffectiveDpr === 'function') {
+      autoGlOffsetY = computeAutoGlYOffset(
+        canvasH,
+        glRenderer.getEffectiveDpr(),
+        appliedAngles.rotateX,
+        appliedAngles.rotateY,
+        canvasW,
+      );
+    }
+    debugGlAutoOffsetYRef.current = autoGlOffsetY;
+    setDebugGlAutoOffsetY((prev) => (prev === autoGlOffsetY ? prev : autoGlOffsetY));
+    const totalGlOffsetX = debugGlOffsetXRef.current || 0;
+    const totalGlOffsetY = autoGlOffsetY + (debugGlOffsetYRef.current || 0);
+    if (glEl) {
+      // Always keep GL anchored from top-left with explicit size. Chromium can
+      // behave inconsistently when right/bottom constraints remain active while
+      // width/height are also assigned dynamically.
+      glEl.style.left = `${totalGlOffsetX}px`;
+      glEl.style.top = `${totalGlOffsetY}px`;
+      glEl.style.right = 'auto';
+      glEl.style.bottom = 'auto';
+      if (glDirectMode) {
+        // Direct mode renders synchronously on the main thread, so we do not
+        // need the worker catch-up CSS lock. Applying it in Chromium can
+        // itself introduce drift during horizontal window growth.
+        glCssLockStateRef.current = null;
+        glEl.style.width = `${canvasW}px`;
+        glEl.style.height = `${canvasH}px`;
+        if (glEl.style.transform) glEl.style.transform = '';
+      } else {
+        const activeGlCssLock = glCssLockStateRef.current;
+        if (!glSizeChanging) {
+          if (activeGlCssLock
+            && activeGlCssLock.targetW === canvasW
+            && activeGlCssLock.targetH === canvasH) {
+            glEl.style.width = `${activeGlCssLock.lockW}px`;
+            glEl.style.height = `${activeGlCssLock.lockH}px`;
+            glEl.style.transform = activeGlCssLock.transform;
+          } else {
+            // Size unchanged: set immediately (no CSS-scale risk).
+            glEl.style.width = `${canvasW}px`;
+            glEl.style.height = `${canvasH}px`;
+            // Also clear any residual transform from a previous resize (defensive).
+            if (glEl.style.transform) glEl.style.transform = '';
+          }
+        } else {
+          // Size IS changing: lock GL canvas CSS to the OLD size (overriding
+          // the CSS `inset: 0` rule, which would otherwise auto-expand the GL
+          // canvas to fill the newly-resized wrapper). This prevents the browser
+          // from CSS-scaling the old drawing buffer to the new wrapper dimensions.
+          // A rAF deferred step after r.render() updates to the new size.
+          const lockW = oldCanvasW > 0 ? oldCanvasW : canvasW;
+          const lockH = oldCanvasH > 0 ? oldCanvasH : canvasH;
+          glEl.style.width = `${lockW}px`;
+          glEl.style.height = `${lockH}px`;
+          // The wrapper is resized immediately to the new dimensions. Because
+          // the GL canvas is position:absolute at (0,0) inside the wrapper, the
+          // wrapper growing/shrinking shifts the GL canvas in screen space by
+          // ±deltaW/2 (half the width change). Meanwhile Canvas2D re-renders
+          // with an updated panX (= old panX + deltaW/2), which shifts the
+          // rendered content by +deltaW/2 in the SAME direction. The combined
+          // effect means we need to shift the locked GL frame by a full deltaW
+          // (= canvasW - oldCanvasW) to make the old GL cells appear at the same
+          // screen positions as the new Canvas2D annotations.
+          //   GL visual left  = wrapperLeft + deltaW
+          //                   = (center − newW/2) + (newW − oldW)
+          //                   = center + newW/2 − oldW
+          //   C2D content at W = (center − newW/2) + (newW/2 + panX_new)
+          //                    = center + panX_new  (same world → same screen ✓)
+          const glDx = canvasW - lockW;
+          const glDy = canvasH - lockH;
+          if (glDx !== 0 || glDy !== 0) {
+            glEl.style.transform = `translate(${glDx}px, ${glDy}px)`;
+          }
+          glCssLockStateRef.current = {
+            targetW: canvasW,
+            targetH: canvasH,
+            lockW,
+            lockH,
+            transform: glEl.style.transform || '',
+          };
+        }
+      }
+    }
     // Keep grid content stable when the window (and therefore the canvas)
     // resizes. The canvas is centered at the viewport center, so when the
     // canvas grows by dCanvasW its left edge moves left by dCanvasW/2.
@@ -683,10 +1088,92 @@ export default function Visualizer({
     // positions and keeps the 3D perspective projection stable.
     void anchor;
 
-    r.render();
+    const glRenderSeq = r.render();
+    // After r.render() the patched render has posted resize+positions+render
+    // messages to the GL worker. For width-growth resizes, wait for an
+    // explicit worker render-ack before unlocking GL canvas CSS to the new
+    // dimensions so the browser never stretches an old drawing buffer.
+    // Keep a short timeout fallback to avoid stalls if the worker is busy.
+    if (glSizeChanging && !glDirectMode) {
+      const targetW = canvasW;
+      const targetH = canvasH;
+      const targetEl = glEl;
+      const g = glRendererRef.current;
+      const targetDpr = g && typeof g.getEffectiveDpr === 'function'
+        ? g.getEffectiveDpr()
+        : ((window.devicePixelRatio || 1));
+      const targetPxW = Math.max(1, Math.floor(targetW * targetDpr));
+      const targetPxH = Math.max(1, Math.floor(targetH * targetDpr));
+      const token = ++glCssUnlockTokenRef.current;
+      if (glCssUnlockRafRef.current != null) {
+        cancelAnimationFrame(glCssUnlockRafRef.current);
+        glCssUnlockRafRef.current = null;
+      }
+      if (glCssUnlockTimeoutRef.current != null) {
+        clearTimeout(glCssUnlockTimeoutRef.current);
+        glCssUnlockTimeoutRef.current = null;
+      }
+      const applyUnlockedSize = () => {
+        if (token !== glCssUnlockTokenRef.current) return;
+        glCssUnlockRafRef.current = requestAnimationFrame(() => {
+          glCssUnlockRafRef.current = null;
+          if (token !== glCssUnlockTokenRef.current) return;
+          if (targetEl) {
+            glCssLockStateRef.current = null;
+            targetEl.style.width = `${targetW}px`;
+            targetEl.style.height = `${targetH}px`;
+            targetEl.style.transform = '';
+          }
+        });
+      };
+      const waitForGlBackingStore = () => {
+        if (token !== glCssUnlockTokenRef.current) return;
+        if (!targetEl) {
+          applyUnlockedSize();
+          return;
+        }
+        if (targetEl.width === targetPxW && targetEl.height === targetPxH) {
+          applyUnlockedSize();
+          return;
+        }
+        glCssUnlockRafRef.current = requestAnimationFrame(() => {
+          waitForGlBackingStore();
+        });
+      };
+      const grewHorizontally = oldCanvasW > 0 && canvasW > oldCanvasW;
+      if (grewHorizontally) {
+        glCssUnlockTimeoutRef.current = setTimeout(() => {
+          glCssUnlockTimeoutRef.current = null;
+          applyUnlockedSize();
+        }, 80);
+        waitForGlBackingStore();
+      } else {
+        applyUnlockedSize();
+      }
+    }
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
-  }, [getCanvasTargetSize, showMinimap, getMinimapDetailH, updateMinimapAvailability]);
+  }, [getCanvasTargetSize, showMinimap, getMinimapDetailH, updateMinimapAvailability, setCamera3DTransform, setCamera3DContainerStyle, debugGlOffsetX, debugGlOffsetY]);
+
+  // Keep manual debug offsets responsive even when no resize/layout event is
+  // in flight. This updates both direct GL canvas placement and the Canvas2D
+  // composited fallback path immediately when X/Y sliders or nudges change.
+  useEffect(() => {
+    const glEl = glCanvasRef.current;
+    const rr = rendererRef.current;
+    const totalGlOffsetY = (debugGlAutoOffsetY || 0) + (debugGlOffsetY || 0);
+    if (glEl) {
+      glEl.style.left = `${debugGlOffsetX || 0}px`;
+      glEl.style.top = `${totalGlOffsetY}px`;
+      glEl.style.right = 'auto';
+      glEl.style.bottom = 'auto';
+    }
+    if (rr) {
+      rr.setGlCompositeOffsetX?.(debugGlOffsetX || 0);
+      rr.setGlCompositeOffsetY?.(totalGlOffsetY);
+      rr.render();
+    }
+  }, [debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY]);
 
   // Keep the canvas pinned to the VIEWPORT center (not the container
   // center) so panel collapse/expand transitions don't slide the
@@ -707,11 +1194,13 @@ export default function Visualizer({
     const apply = (left, top) => {
       const leftStr = `${left}px`;
       const topStr = `${top}px`;
-      const targets = [canvasRef.current, settledCanvasRef.current, glCanvasRef.current];
-      for (const c of targets) {
-        if (!c) continue;
-        if (c.style.left !== leftStr) c.style.left = leftStr;
-        if (c.style.top !== topStr) c.style.top = topStr;
+      // Update only the wrapper div — the 3D transform lives on the
+      // wrapper, not on individual canvas elements (prevents per-canvas
+      // Safari GPU compositing layers that cause black flicker).
+      const wrapperEl = wrapperCanvasRef.current;
+      if (wrapperEl) {
+        if (wrapperEl.style.left !== leftStr) wrapperEl.style.left = leftStr;
+        if (wrapperEl.style.top !== topStr) wrapperEl.style.top = topStr;
       }
       // Pin perspective-origin to the same anchor so the 3D vanishing
       // point doesn't slide when the container reshapes.
@@ -833,6 +1322,7 @@ export default function Visualizer({
     hideJoinedWidget,
     joinWidgets,
     openAnimationSettings,
+    pushJoinedWidgetToDetailPanel,
     pushJoinedWidgetToEventsPanel,
     revealCurrentStepInPanel,
     showAllEventsWidget,
@@ -848,6 +1338,7 @@ export default function Visualizer({
     detailOpen,
     settingsActiveTab,
     settingsCollapsed,
+    setAllEventsInDetailPanel,
     setAllEventsWidgetHidden,
     setEventTitleSettings,
     setEventsPanelCollapsed,
@@ -864,6 +1355,17 @@ export default function Visualizer({
     setBitAnimationMode(mode);
     bitAnimationModeRef.current = mode;
   }, []);
+
+  // Keep rendered balloons consistent with the current interaction mode.
+  useEffect(() => {
+    if (!balloonsEnabled) {
+      setPinnedBitIndices([]);
+    }
+    if (!balloonHoverEnabled) {
+      setHoveredBitInfo(null);
+      lastHoveredIdxRef.current = -1;
+    }
+  }, [balloonsEnabled, balloonHoverEnabled]);
 
   // Close trace info popup when clicking outside
   useEffect(() => {
@@ -901,11 +1403,12 @@ export default function Visualizer({
       eventTimeTargets,
       allEventsWidgetHidden,
       widgetsJoined,
+      allEventsInDetailPanel,
       eventsPanelCollapsed,
       settingsCollapsed,
       detailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, depthSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, widgetsJoined, eventsPanelCollapsed, settingsCollapsed, detailOpen]);
+  }, [theme, layoutSettings, eventTitleSettings, depthSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, widgetsJoined, allEventsInDetailPanel, eventsPanelCollapsed, settingsCollapsed, detailOpen]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -920,6 +1423,7 @@ export default function Visualizer({
     if (canvasRef.current) {
       r.attach(canvasRef.current);
       if (settledCanvasRef.current) r.attachSettledCanvas(settledCanvasRef.current);
+      if (glCanvasRef.current) r.setGlCompositeSourceCanvas?.(glCanvasRef.current);
       if (minimapCanvasRef.current) r.attachMinimapCanvas(minimapCanvasRef.current);
       r.storageModel = header.storageModel || 'half';
       r.wheelDefinition = wheelDefinition;
@@ -946,6 +1450,7 @@ export default function Visualizer({
           if (newGl.attach(glCanvasRef.current)) {
             gl = newGl;
             glRendererRef.current = gl;
+            updateGlDebugInfo(true);
           } else {
             // OffscreenCanvas not available — GL worker could not start.
             // The app remains usable (Canvas2D handles everything) but
@@ -959,12 +1464,18 @@ export default function Visualizer({
           r.render = () => {
             const g = glRendererRef.current;
             const rr = rendererRef.current;
-            origRender();
             if (!g || !rr || !rr.canvas) return;
-            const dpr = window.devicePixelRatio || 1;
-            const cssW = rr.canvas.width / dpr;
-            const cssH = rr.canvas.height / dpr;
+            const cssW = rr.canvasWidth || 0;
+            const cssH = rr.canvasHeight || 0;
             g.resize(cssW, cssH);
+            const directMode = typeof g.isDirectMode === 'function' && g.isDirectMode();
+            const compositeGl = directMode
+              && typeof g.getEffectiveDpr === 'function'
+              && g.getEffectiveDpr() < 0.995;
+            rr.setCompositeGLInto2D?.(compositeGl);
+            rr.setGlCompositeOffsetX?.(debugGlOffsetXRef.current || 0);
+            rr.setGlCompositeOffsetY?.((debugGlAutoOffsetYRef.current || 0) + (debugGlOffsetYRef.current || 0));
+            setCompositeDirectGl((prev) => (prev === compositeGl ? prev : compositeGl));
 
             // Layout fingerprint — only repack the position texture when one
             // of these inputs changes. Pan is excluded (applied as a uniform).
@@ -972,6 +1483,8 @@ export default function Visualizer({
               rr.zoom, rr.pixelSize,
               rr.bitLayout, rr.byteLayout, rr.vectorGroup,
               rr.cachelineSize, rr.customGroupingBits, rr.horizontalGroups,
+              rr._frozenClPerVRow,
+              rr.layoutAvailWidth, rr.layoutAvailHeight,
               rr.bitSpacingH, rr.bitSpacingV,
               rr.byteSpacingH, rr.byteSpacingV,
               rr.u64SpacingH, rr.u64SpacingV,
@@ -979,7 +1492,10 @@ export default function Visualizer({
               wheelSignature(rr.wheelDefinition),
               cssW, cssH,
             ].join('|');
-            g.uploadPositions(rr, fp);
+            // Direct mode renders synchronously and is used on high-risk large
+            // canvases. Repack positions every frame there to eliminate any
+            // stale-fingerprint edge cases at resize/tilt breakpoints.
+            g.uploadPositions(rr, directMode ? '' : fp);
             g.uploadState(rr);
             g.uploadAnim(rr);
 
@@ -987,7 +1503,7 @@ export default function Visualizer({
             const zoom = Math.max(0.01, rr.zoom || 1);
             const bitColors = rr._bitColors();
             const changed = rr._opColor();
-            g.render({
+            const renderSeq = g.render({
               panX: rr.panX || 0,
               panY: rr.panY || 0,
               cellSize: px * zoom,
@@ -999,6 +1515,14 @@ export default function Visualizer({
               baseAlpha: Math.max(0.12, Math.min(1, rr.gridOpacity ?? 1)),
               loweredActive: rr.loweredSetBits ? 1.0 : 0.0,
             });
+            if (compositeGl) {
+              origRender();
+            } else {
+              rr.setCompositeGLInto2D?.(false);
+              origRender();
+            }
+            updateGlDebugInfo(false);
+            return renderSeq;
           };
         }
       }
@@ -1067,6 +1591,14 @@ export default function Visualizer({
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas?.height / (window.devicePixelRatio || 1), getMinimapDetailH());
   }, [settingsCollapsed, isMacPlatform, showMinimap, getMinimapDetailH, updateMinimapAvailability]);
+
+  // Keep GL diagnostics live while resizing/moving the window.
+  useEffect(() => {
+    const onResize = () => updateGlDebugInfo(true);
+    window.addEventListener('resize', onResize);
+    updateGlDebugInfo(true);
+    return () => window.removeEventListener('resize', onResize);
+  }, [updateGlDebugInfo]);
 
   const spacingPanAnimRef = useRef(null);
 
@@ -1166,6 +1698,8 @@ export default function Visualizer({
     r.outlineStyle = 'dashed';
     r.outlineColor = '#3b82f6';
     r.outlineRounded = true;
+    r.debugAllCellOutlines = debugCalibrationMode;
+    r.debugAllCellOutlineColor = theme === 'light' ? 'rgba(15, 23, 42, 0.78)' : 'rgba(255,255,255,0.82)';
     r.colorPreset = colorPreset;
     r.storageModel = storageModel;
     r.wheelDefinition = wheelDefinition;
@@ -1277,7 +1811,7 @@ export default function Visualizer({
     r.render();
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, canvasColors, storageModel, wheelDefinition, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, depthSettings, gridOpacity, updateMinimapAvailability]);
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, canvasColors, storageModel, wheelDefinition, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, depthSettings, gridOpacity, updateMinimapAvailability, debugCalibrationMode]);
 
   // Resize handler
   useEffect(() => {
@@ -1369,6 +1903,11 @@ export default function Visualizer({
     if (!options.keepPlaying && !options.keepLoop && singleEventLoopActiveRef.current) {
       setSingleEventLoopActive(false);
     }
+    // When scrubbing the timeline with an aggregate selection active, let the
+    // selected-steps animation loop (Effect 1) keep running uninterrupted.
+    // Skip the r.setState / triggerAnimation calls below so they don't
+    // override r.changedBits with individual-step bits or cancel the loop.
+    const aggregateScrub = isScrubbingTopRef.current && selectedStepsRef.current.size > 0;
     if (!suppressHighlight) initialHighlightHoldRef.current = false;
 
     let bs = bitStateRef.current;
@@ -1455,23 +1994,25 @@ export default function Visualizer({
 
     const previousHighlights = new Set(r.changedBits || []);
 
-    // Set operation for color-coded highlighting
-    r.currentOperation = step.operation;
-    r.currentAnnotation = step.annotation || '';
-    r.setState(bs, changedSet, targetSet, targetHitCounts, {
-      focusStart: suppressHighlight ? null : step.focusStart,
-      focusStop: suppressHighlight ? null : step.focusStop,
-    }, suppressHighlight ? null : {
-      wordBits: step.maskWordBits,
-      targetWords: step.maskWriteOrderWords,
-      targetSlots: step.maskWriteOrderSlots,
-      targetEventIds: step.maskWriteOrderWords?.length > 0
-        ? Int32Array.from(Array(step.maskWriteOrderWords.length).fill(step.stepId ?? target))
-        : new Int32Array(0),
-      slotBits: step.maskSlotBits,
-    }, {
-      repeatedBits: suppressHighlight ? new Set() : repeatedBits,
-    });
+    if (!aggregateScrub) {
+      // Set operation for color-coded highlighting
+      r.currentOperation = step.operation;
+      r.currentAnnotation = step.annotation || '';
+      r.setState(bs, changedSet, targetSet, targetHitCounts, {
+        focusStart: suppressHighlight ? null : step.focusStart,
+        focusStop: suppressHighlight ? null : step.focusStop,
+      }, suppressHighlight ? null : {
+        wordBits: step.maskWordBits,
+        targetWords: step.maskWriteOrderWords,
+        targetSlots: step.maskWriteOrderSlots,
+        targetEventIds: step.maskWriteOrderWords?.length > 0
+          ? Int32Array.from(Array(step.maskWriteOrderWords.length).fill(step.stepId ?? target))
+          : new Int32Array(0),
+        slotBits: step.maskSlotBits,
+      }, {
+        repeatedBits: suppressHighlight ? new Set() : repeatedBits,
+      });
+    }
 
     // Update heat map (also when cacheline annotations are enabled, to provide hit-count data)
     if (r.heatMapEnabled || (r.cachelineAnnotation && r.cachelineAnnotation !== 'none')) {
@@ -1483,7 +2024,16 @@ export default function Visualizer({
       const rect = el.getBoundingClientRect();
       const { canvasW, canvasH } = getCanvasTargetSize(rect.width, rect.height);
       if (!initialFitDoneRef.current && (r.canvasWidth !== canvasW || r.canvasHeight !== canvasH)) {
-        r.resize(canvasW, canvasH);
+        const g = glRendererRef.current;
+        const directMode = !!(g && typeof g.isDirectMode === 'function' && g.isDirectMode());
+        let overlayDpr = null;
+        if (g) {
+          g.resize(canvasW, canvasH);
+          if (directMode && typeof g.getEffectiveDpr === 'function') {
+            overlayDpr = g.getEffectiveDpr();
+          }
+        }
+        r.resize(canvasW, canvasH, overlayDpr);
       }
       // Same as refreshCanvasLayout: layout columns target a stable
       // window-anchored size so panel toggles don't reflow.
@@ -1501,7 +2051,7 @@ export default function Visualizer({
     }
     r.render();
     updateMinimapAvailability();
-    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+    r.renderMinimap(r.canvasWidth, r.canvasHeight, getMinimapDetailH());
     setCurrentStep(target);
 
     // Trigger animation for changed bits
@@ -1514,7 +2064,9 @@ export default function Visualizer({
       || isScrubbingTopRef.current
       || options.keepPlaying === true
       || options.forceAnimate === true;
-    if (!suppressHighlight && hasPlayContext && triggerAnimationRef.current) {
+    // For aggregate scrubbing, the selected-steps animation loop (Effect 1)
+    // keeps running without interference — don't call triggerAnimation here.
+    if (!aggregateScrub && !suppressHighlight && hasPlayContext && triggerAnimationRef.current) {
       // Pick the right delay context:
       //  - All-events autoplay (playing): wait `delayBetweenEvents` after this
       //    event before the scheduler advances to the next event.
@@ -1636,6 +2188,145 @@ export default function Visualizer({
     if (!r || !step || !bs) return;
     const clamped = Math.max(0, Math.min(1, progress));
 
+    // ── Aggregate seek ─────────────────────────────────────────────────────
+    // When multiple steps are selected the renderer was already set up with
+    // the merged mask/bit state by the selectedSteps effect.  Handle all
+    // animation modes (mask, combined, sequential, all) using the renderer's
+    // current state rather than a single step's data.
+    const selSteps = selectedStepsRef.current;
+    if (selSteps.size > 1) {
+      const mode = bitAnimationModeRef.current;
+      const aggHasMask = !!(r.maskWriteOrderWords && r.maskWriteOrderWords.length > 0
+        && Number.isFinite(r.maskWordBits) && r.maskWordBits > 0);
+      const inMaskOrCombinedAgg = (mode === 'mask' || mode === 'combined') && aggHasMask;
+
+      if (inMaskOrCombinedAgg) {
+        const t = clamped;
+        // Combined mode: reveal merged bits progressively alongside the stamp.
+        if (mode === 'combined') {
+          const mergedBits = new Set();
+          let minIdx = Infinity;
+          for (const idx of selSteps) {
+            if (idx < minIdx) minIdx = idx;
+            const s = allSteps[idx];
+            if (s && s.changedBits) for (let j = 0; j < s.changedBits.length; j++) mergedBits.add(s.changedBits[j]);
+          }
+          const sorted = Array.from(mergedBits).sort((a, b) => a - b);
+          bs.fill(0);
+          for (let i = 0; i < minIdx; i++) {
+            const s = allSteps[i];
+            for (let j = 0; j < s.changedBits.length; j++) {
+              const bit = s.changedBits[j];
+              if (bit < bs.length) bs[bit] = 1;
+            }
+          }
+          const revealCount = Math.floor(t * sorted.length);
+          for (let i = 0; i < revealCount; i++) {
+            const bit = sorted[i];
+            if (bit < bs.length) bs[bit] = 1;
+          }
+          r.bitState = bs;
+          bitStateDirtyRef.current = revealCount < sorted.length;
+        }
+        const targetBits = (r.targetBits && r.targetBits.size > 0) ? r.targetBits : new Set(r.changedBits || []);
+        r.changedBits = new Set(targetBits);
+        const slotGroups = r._maskEntriesBySlot ? r._maskEntriesBySlot() : [];
+        const ghostBits = new Set();
+        if (slotGroups.length > 0) {
+          for (let groupIndex = 0; groupIndex < slotGroups.length; groupIndex++) {
+            const entries = slotGroups[groupIndex];
+            if (!entries || entries.length === 0) continue;
+            const segmentCount = Math.max(1, entries.length);
+            const unit = t * segmentCount;
+            const index = Math.min(entries.length - 1, Math.floor(unit));
+            const local = Math.max(0, Math.min(1, unit - index));
+            for (let entryIndex = 0; entryIndex < entries.length; entryIndex++) {
+              const isStamped = entryIndex < index || entryIndex === index || (entryIndex === index + 1 && local > 0.78);
+              if (isStamped) continue;
+              const bitsForEntry = r._maskEntryBits ? r._maskEntryBits(entries[entryIndex]) : [];
+              for (let bi = 0; bi < bitsForEntry.length; bi++) ghostBits.add(bitsForEntry[bi]);
+            }
+          }
+        } else if (r.targetBits?.size) {
+          for (const bit of r.targetBits) ghostBits.add(bit);
+        }
+        r.suppressMaskWriteOverlay = true;
+        r.setMaskGhostBits(ghostBits);
+        r.render();
+        const orderedWrites = r.maskWriteOrderWords?.length || 0;
+        if (orderedWrites > 0) r.renderMaskHover(t);
+        else r.renderMaskStamp(t);
+        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        r.suppressMaskWriteOverlay = false;
+        if (mode === 'mask') bitStateDirtyRef.current = clamped < 0.999;
+        return;
+      }
+
+      // Aggregate sequential/all-mode seek.
+      const mergedSet = new Set();
+      let minStepIdx = Infinity;
+      for (const idx of selSteps) {
+        if (idx < minStepIdx) minStepIdx = idx;
+        const s = allSteps[idx];
+        if (s && s.changedBits) {
+          for (let j = 0; j < s.changedBits.length; j++) mergedSet.add(s.changedBits[j]);
+        }
+      }
+      const aggBits = Array.from(mergedSet).sort((a, b) => a - b);
+      if (aggBits.length > 0) {
+        const isAllMode = (animMode !== 'sequential' && animMode !== 'bounce');
+        bs.fill(0);
+        for (let i = 0; i < minStepIdx; i++) {
+          const s = allSteps[i];
+          for (let j = 0; j < s.changedBits.length; j++) {
+            const bit = s.changedBits[j];
+            if (bit < bs.length) bs[bit] = 1;
+          }
+        }
+        if (isAllMode) {
+          // All-mode: all bits revealed; scrub maps to visual overlay.
+          for (let i = 0; i < aggBits.length; i++) {
+            const bit = aggBits[i];
+            if (bit < bs.length) bs[bit] = 1;
+          }
+          bitStateDirtyRef.current = false;
+          const changedFull = new Set(aggBits);
+          r.bitState = bs;
+          r.changedBits = changedFull;
+          r.animationFocusBits = changedFull;
+          r.render();
+          if (animStyle === 'ripple') r.renderRipple(clamped);
+          else if (animStyle === 'fade') r.renderFade(clamped);
+          else if (animStyle === 'pulse') r.renderPulse(clamped);
+          r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        } else {
+          // Sequential: progressively reveal bits.
+          const revealCount = bitsAtTimeRatioRef.current
+            ? bitsAtTimeRatioRef.current(clamped, aggBits.length)
+            : Math.round(clamped * aggBits.length);
+          const targetIdx = Math.max(0, Math.min(aggBits.length - 1, revealCount - 1));
+          const revealed = new Set();
+          for (let i = 0; i <= targetIdx; i++) {
+            const bit = aggBits[i];
+            if (bit < bs.length) bs[bit] = 1;
+            revealed.add(bit);
+          }
+          bitStateDirtyRef.current = targetIdx < aggBits.length - 1;
+          const focusBits = new Set([aggBits[targetIdx]]);
+          r.bitState = bs;
+          r.changedBits = revealed;
+          r.animationFocusBits = focusBits;
+          r.render();
+          if (animStyle === 'ripple') r.renderRipple(0.18, focusBits, { intensity: 1.1, showBeacon: true });
+          else if (animStyle === 'pulse') r.renderPulse(0.28, focusBits, { intensity: 1.2, showHalo: true });
+          else if (animStyle === 'fade') r.renderFade(0.35);
+          r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        }
+      }
+      return;
+    }
+
+    // ── Single-step seek ───────────────────────────────────────────────────
     // Mask + combined seek: render the apply-mask group stamp animation frozen
     // at progress `clamped`. In combined mode we *also* roll bitState to a
     // partial reveal so the bits fill in alongside the stamp position.
@@ -1878,7 +2569,8 @@ export default function Visualizer({
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         refitViewportToContent({ instant: true });
-        cam.animateTo({ rotateX: 30, rotateY: 0, perspective: 1500 }, 520);
+        const targetTilt = Math.min(30, cam.maxTilt || 30);
+        cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 520);
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2378,7 +3070,9 @@ export default function Visualizer({
     const maskModeActive = mode === 'mask' || mode === 'combined';
     const combinedMode = mode === 'combined';
     const hasMaskAnimation = !!(maskModeActive && r && r.maskWriteOrderWords && r.maskWriteOrderWords.length > 0 && Number.isFinite(r.maskWordBits) && r.maskWordBits > 0);
-    if (!r || !changedSet || (!hasMaskAnimation && changedSet.size === 0) || changedSet.size >= 100000) return;
+    // For mask/combined mode the animation iterates maskWriteOrderWords (not changedSet),
+    // so large aggregates must not be blocked by the bit-count guard.
+    if (!r || !changedSet || (!hasMaskAnimation && changedSet.size === 0) || (!hasMaskAnimation && changedSet.size >= 100000)) return;
 
     const animatedBitCount = changedSet.size > 0 ? changedSet.size : Math.max(1, r.targetBits?.size || r.maskWriteOrderWords?.length || 1);
     const timingBaseOptions = {
@@ -3018,8 +3712,15 @@ export default function Visualizer({
     }
     const step = stepsRef.current[currentStep];
     if (!step) return;
+    // For aggregates, check the renderer's current mask state (set by the
+    // selectedSteps effect) rather than the individual step's mask data.
+    const r = rendererRef.current;
+    const isAggregate = selectedStepsRef.current.size > 1;
+    const hasMaskData = isAggregate
+      ? !!(r && r.maskWriteOrderWords && r.maskWriteOrderWords.length > 0)
+      : !!(step.maskWriteOrderWords && step.maskWriteOrderWords.length > 0);
     const inMaskOrCombined = (bitAnimationModeRef.current === 'mask' || bitAnimationModeRef.current === 'combined')
-      && step.maskWriteOrderWords && step.maskWriteOrderWords.length > 0;
+      && hasMaskData;
     if (inMaskOrCombined) {
       // Resume the mask stamp animation from the current scrub fraction. If the
       // animation already reached the end, restart from 0.
@@ -3081,7 +3782,8 @@ export default function Visualizer({
     if (!cam || !cam.enabled) return;
     const newTiltActive = !tiltActive;
     setTiltActive(newTiltActive);
-    cam.animateTo({ rotateX: newTiltActive ? 30 : 0, rotateY: 0, perspective: 1500 }, 400);
+    const targetTilt = newTiltActive ? Math.min(30, cam.maxTilt || 30) : 0;
+    cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 400);
   }, [tiltActive]);
 
   // 3D mode toggle is removed — the app is always in 3D mode.
@@ -3099,7 +3801,7 @@ export default function Visualizer({
       // by the startup animation). If rotateX is still 0, snap to the default
       // tilt so the first drag starts there.
       cam.cancelAllAnimations();
-      if (Math.abs(cam.rotateX) < 0.5) cam.rotateX = 16;
+      if (Math.abs(cam.rotateX) < 0.5) cam.rotateX = Math.min(16, cam.maxTilt || 16);
       cam.perspective = 1500;
       cam.enable();
       setCamera3DContainerStyle(cam.getContainerStyle());
@@ -3370,6 +4072,14 @@ export default function Visualizer({
       // settings/events/details panels, timing panel, minimap, event-title banner,
       // trace-info popover). The pointermove listener is bound to window so it
       // fires everywhere; we probe the element under the cursor to gate the popup.
+      if (!balloonsEnabled || !balloonHoverEnabled) {
+        if (lastHoveredIdxRef.current !== -1) {
+          lastHoveredIdxRef.current = -1;
+          setHoveredBitInfo(null);
+        }
+        return;
+      }
+
       const overOverlay = (() => {
         if (typeof document === 'undefined') return false;
         const hit = document.elementFromPoint(e.clientX, e.clientY);
@@ -3377,7 +4087,7 @@ export default function Visualizer({
         return !!hit.closest(
           '.toolbar, .events-panel, .settings-sidebar, .detail-panel, .timing-panel, ' +
           '.step-focus-banner, .events-panel-floating-title, .joined-events-widget, ' +
-          '.minimap-overlay-canvas, .trace-info-popover, ' +
+          '.minimap-overlay-canvas, .trace-info-popover, .debug-tools-panel, ' +
           '.bit-history-panel'
         );
       })();
@@ -3428,8 +4138,12 @@ export default function Visualizer({
         // popups when the user is interacting with the widget itself.
         const t = e.target;
         if (t && typeof t.closest === 'function' && t.closest(
-          '.step-focus-banner, .bit-history-panel, .detail-inspector-overlay, .toolbar, .events-panel, .settings-sidebar, .detail-panel, .timing-panel, .trace-info-popover'
+          '.step-focus-banner, .bit-history-panel, .detail-inspector-overlay, .toolbar, .events-panel, .settings-sidebar, .detail-panel, .timing-panel, .trace-info-popover, .debug-tools-panel'
         )) {
+          clearInteraction();
+          return;
+        }
+        if (!balloonsEnabled || !balloonClickEnabled) {
           clearInteraction();
           return;
         }
@@ -3563,7 +4277,7 @@ export default function Visualizer({
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [computeBitInfo, flyToElement, getCanvasPlaneMetrics, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout]);
+  }, [computeBitInfo, flyToElement, getCanvasPlaneMetrics, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout, balloonsEnabled, balloonClickEnabled, balloonHoverEnabled]);
 
   // Keyboard shortcuts — see src/hooks/useKeyboardShortcuts.js for the full key map.
   useKeyboardShortcuts({
@@ -3575,6 +4289,7 @@ export default function Visualizer({
     resetZoom,
     setTheme,
     toggleDetailPanel,
+    toggleDebugToolsPanel: useCallback(() => setDebugToolsOpen((v) => !v), []),
     camera3DRef,
     toggleShortcutsOverlay: useCallback(() => setShowShortcutsHelp((v) => !v), []),
   });
@@ -3738,6 +4453,14 @@ export default function Visualizer({
     // is what eliminates the "2D in a different place than 3D"
     // jump on toggle and the placement drift on panel toggles.
     //
+    // Applied to .canvas-transform-wrapper (not to canvas elements directly)
+    // so that the 3D CSS transform lives on a div, not on the drawing canvases.
+    // Safari creates one GPU compositing layer per element that has a 3D
+    // transform; when a canvas in that layer draws, Safari briefly exposes a
+    // black backing store during the GPU texture upload → visible black flash.
+    // With a single wrapper div the three canvases share one GPU layer and
+    // draw updates are atomic with respect to the compositor.
+    //
     // left/top use pixel offsets from `canvasAnchorPx` (computed so
     // that the canvas center sits at the VIEWPORT center, not the
     // container center). When a side panel toggles the container
@@ -3748,7 +4471,11 @@ export default function Visualizer({
       left: canvasAnchorPx ? `${canvasAnchorPx.left}px` : '50%',
       top: canvasAnchorPx ? `${canvasAnchorPx.top}px` : '50%',
       transform: `translate(-50%, -50%)${camera3DTransform !== 'none' ? ` ${camera3DTransform}` : ''}`,
-      transformStyle: 'preserve-3d',
+      // transformStyle:'preserve-3d' is deliberately omitted from the wrapper
+      // div. The wrapper has no 3D-positioned children, so preserve-3d on it
+      // would create a nested 3D compositing context that is unnecessary.
+      // The container's preserve-3d (set by .canvas-container.mode-3d CSS)
+      // is sufficient for the wrapper's CSS rotateX/Y tilt to render correctly.
       transformOrigin: '50% 50%',
     }
   ), [camera3DTransform, canvasAnchorPx]);
@@ -3936,6 +4663,7 @@ export default function Visualizer({
         '.settings-sidebar:not(.collapsed)',
         '.detail-panel.open',
         '.timing-panel',
+        '.joined-events-widget',
       ];
       const rects = [];
       for (const sel of selectors) {
@@ -4056,12 +4784,15 @@ export default function Visualizer({
   // Auto-pick the animation mode for the current event: prefer 'mask' when the
   // event has mask write-order metadata, otherwise fall back to 'bit'. The user
   // can still toggle this within the event.
+  // Skip when an aggregate (multi-step) selection is active — the merged mask
+  // state is already set up in the renderer and we must not clobber the mode.
   useEffect(() => {
+    if (selectedSteps.size > 1) return;
     const step = stepsRef.current[currentStep];
     const hasMask = !!(step && step.maskWriteOrderWords && step.maskWriteOrderWords.length > 0
       && Number.isFinite(step.maskWordBits) && step.maskWordBits > 0);
     setBitAnimationMode(hasMask ? 'mask' : 'bit');
-  }, [currentStep]);
+  }, [currentStep, selectedSteps]);
 
   // Sliders for event timeline and animation speed. Rendered inside the
   // step-focus-banner when it's visible; moved into the detail panel when the
@@ -4087,114 +4818,20 @@ export default function Visualizer({
     />
   );
 
-  // Grouped prop objects for VisualizerPanels (Phase 2 extraction).
-  // Internal-only values (steps, currentStep, header, raw setters) are
-  // mixed into settingsProps so VisualizerPanels can build the overlay-reset
-  // handlers locally without them reaching SettingsPanel.
-  const eventsProps = {
-    steps,
-    currentStep,
-    selectedSteps,
-    onStepClick: handleStepSelection,
-    onMultiStepSelect: handleMultiStepSelect,
-    onUserScroll: stopPlayback,
-    width: panelWidth,
-    onWidthChange: setPanelWidth,
-    panelCollapsed: eventsPanelCollapsed,
-    onToggleCollapse: toggleEventsPanel,
-    allEventsWidgetHidden: allEventsWidgetHidden || widgetsJoined,
-    onExpandPanelFromWidget: expandEventsPanelFromWidget,
-    onDockWidgetToTopBar: dockEventsWidgetToTopBar,
-    onJoinWidgets: joinWidgets,
-    externalOpFilter: timingFocusOp,
-    onExternalOpFilterConsumed: () => setTimingFocusOp(''),
-    revealStepRequest,
-    goToStep,
-    playing,
-    handlePlayPause,
-    exporting: !!exporting,
-    isScrubbingTopRef,
-    playSpeedPercent,
-    setPlaySpeedPercent,
-    eventTitleVisible: eventTitleSettings.visible && !widgetsJoined,
-    onShowEventTitle: showEventTitleAboveCurrentDetail,
-  };
-
-  const settingsProps = {
-    // Direct SettingsPanel props:
-    settings: layoutSettings,
-    onChange: setLayoutSettings,
-    collapsed: settingsCollapsed,
-    onToggleCollapse: toggleSettingsPanel,
-    onActiveTabChange: setSettingsActiveTab,
-    playSpeed: playSpeedPercent,
-    onPlaySpeedChange: setPlaySpeedPercent,
-    repeatAnim: delayBetweenEvents,
-    onRepeatAnimChange: setDelayBetweenEvents,
-    delayBetweenRepeats,
-    onDelayBetweenRepeatsChange: setDelayBetweenRepeats,
-    eventTimeTargets,
-    onEventTimeTargetsChange: setEventTimeTargets,
-    animMode,
-    onAnimModeChange: setAnimMode,
-    animStyle,
-    onAnimStyleChange: setAnimStyle,
-    animationReplayPaused,
-    onAnimationReplayPausedChange: setAnimationReplayPaused,
-    eventDurationMode,
-    onEventDurationModeChange: setEventDurationMode,
-    gridOpacity,
-    onGridOpacityChange: setGridOpacity,
-    colorPreset,
-    onColorPresetChange: setColorPreset,
-    customColors,
-    onCustomColorsChange: setCustomColors,
-    cachelineSize,
-    onCachelineSizeChange: setCachelineSize,
-    cachePreset,
-    onCachePresetChange: setCachePreset,
-    heatMapEnabled,
-    onHeatMapToggle: setHeatMapEnabled,
-    cachelineAnnotation,
-    onCachelineAnnotationChange: setCachelineAnnotation,
-    primeOverlayEnabled,
-    onPrimeOverlayToggle: setPrimeOverlayEnabled,
-    rangeOverlayEnabled,
-    rangeOverlayStart,
-    rangeOverlayEnd,
-    onRangeOverlayStartChange: setRangeOverlayStart,
-    onRangeOverlayEndChange: setRangeOverlayEnd,
-    multiplesOverlayEnabled,
-    multiplesOverlayPrime,
-    onMultiplesOverlayPrimeChange: setMultiplesOverlayPrime,
-    showMinimap,
-    onShowMinimapChange: setShowMinimap,
-    depthSettings,
-    onDepthSettingsChange: setDepthSettings,
-    eventTitleSettings,
-    onEventTitleSettingsChange: setEventTitleSettings,
-    outlineSettings: layoutSettings.outlines,
-    isWindowsPlatform,
-    theme,
-    onThemeChange: setTheme,
-    canvasColors,
-    onCanvasColorsChange: setCanvasColors,
-    activeTabRequest: settingsTabRequest,
-    bitAnimationMode,
-    onBitAnimationModeChange: handleBitAnimationModeChange,
-    detailOpen,
-    detailHeight,
-    // Internal-only values consumed by VisualizerPanels to build
-    // overlay-reset handlers (not forwarded to SettingsPanel):
-    steps,
-    currentStep,
-    header,
-    setRangeOverlayEnabled,
-    setRangeOverlayStart,
-    setRangeOverlayEnd,
-    setMultiplesOverlayEnabled,
-    setMultiplesOverlayPrime,
-  };
+  const allEventsTransportContent = allEventsInDetailPanel ? (
+    <AllEventsTransport
+      currentStep={currentStep}
+      steps={steps}
+      playing={playing}
+      handlePlayPause={handlePlayPause}
+      goToStep={goToStep}
+      exporting={!!exporting}
+      isScrubbingTopRef={isScrubbingTopRef}
+      playSpeedPercent={playSpeedPercent}
+      setPlaySpeedPercent={setPlaySpeedPercent}
+      onDismiss={() => setAllEventsInDetailPanel(false)}
+    />
+  ) : null;
 
   return (
     <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}`}>
@@ -4289,7 +4926,10 @@ export default function Visualizer({
           canvasRef={canvasRef}
           settledCanvasRef={settledCanvasRef}
           glCanvasRef={glCanvasRef}
+          wrapperCanvasRef={wrapperCanvasRef}
           glActive={true}
+          hideGlCanvas={compositeDirectGl && debugLayerMode === 'normal'}
+          debugLayerMode={debugLayerMode}
           camera3DContainerStyle={mergedCamera3DContainerStyle}
           renderCanvasStyle={renderCanvasStyle}
           eventTitleSettings={eventTitleSettings}
@@ -4345,6 +4985,7 @@ export default function Visualizer({
           onShowEventTitle={showEventTitleAboveClosedDetail}
           onOpenRawLog={onOpenRawLog}
           currentStepSourceLine={stepToLine[currentStep]}
+          allEventsTransport={allEventsTransportContent}
         />
         {widgetsJoined && eventsPanelCollapsed && !allEventsWidgetHidden && eventTitleSettings.visible && (
           <JoinedEventsWidget
@@ -4366,8 +5007,135 @@ export default function Visualizer({
             sliders={stepAnimSlidersContent}
             onSplitWidgets={splitWidgets}
             onPushToEventsPanel={pushJoinedWidgetToEventsPanel}
+            onPushToDetailPanel={pushJoinedWidgetToDetailPanel}
             initialBannerRect={joinBannerRect}
             onHideWidget={hideJoinedWidget}
+          />
+        )}
+        <SettingsPanel
+          settings={layoutSettings}
+          onChange={setLayoutSettings}
+          collapsed={settingsCollapsed}
+          onToggleCollapse={toggleSettingsPanel}
+          onActiveTabChange={setSettingsActiveTab}
+          playSpeed={playSpeedPercent}
+          onPlaySpeedChange={setPlaySpeedPercent}
+          repeatAnim={delayBetweenEvents}
+          onRepeatAnimChange={setDelayBetweenEvents}
+          delayBetweenRepeats={delayBetweenRepeats}
+          onDelayBetweenRepeatsChange={setDelayBetweenRepeats}
+          eventTimeTargets={eventTimeTargets}
+          onEventTimeTargetsChange={setEventTimeTargets}
+          animMode={animMode}
+          onAnimModeChange={setAnimMode}
+          animStyle={animStyle}
+          onAnimStyleChange={setAnimStyle}
+          animationReplayPaused={animationReplayPaused}
+          onAnimationReplayPausedChange={setAnimationReplayPaused}
+          eventDurationMode={eventDurationMode}
+          onEventDurationModeChange={setEventDurationMode}
+          gridOpacity={gridOpacity}
+          onGridOpacityChange={setGridOpacity}
+          colorPreset={colorPreset}
+          onColorPresetChange={setColorPreset}
+          customColors={customColors}
+          onCustomColorsChange={setCustomColors}
+          cachelineSize={cachelineSize}
+          onCachelineSizeChange={setCachelineSize}
+          cachePreset={cachePreset}
+          onCachePresetChange={setCachePreset}
+          heatMapEnabled={heatMapEnabled}
+          onHeatMapToggle={setHeatMapEnabled}
+          cachelineAnnotation={cachelineAnnotation}
+          onCachelineAnnotationChange={setCachelineAnnotation}
+          primeOverlayEnabled={primeOverlayEnabled}
+          onPrimeOverlayToggle={setPrimeOverlayEnabled}
+          rangeOverlayEnabled={rangeOverlayEnabled}
+          rangeOverlayStart={rangeOverlayStart}
+          rangeOverlayEnd={rangeOverlayEnd}
+          onRangeOverlayToggle={(enabled) => {
+            if (enabled && !rangeOverlayEnabled) {
+              const step = steps[currentStep];
+              if (step) {
+                const start = step.focusStart != null ? step.focusStart : (step.changedBits.length > 0 ? Math.min(...step.changedBits) : 0);
+                const end = step.focusStop != null ? step.focusStop : (step.changedBits.length > 0 ? Math.max(...step.changedBits) : Math.max(0, header.bitCount - 1));
+                setRangeOverlayStart(start);
+                setRangeOverlayEnd(end);
+              }
+            }
+            setRangeOverlayEnabled(enabled);
+          }}
+          onRangeOverlayStartChange={setRangeOverlayStart}
+          onRangeOverlayEndChange={setRangeOverlayEnd}
+          multiplesOverlayEnabled={multiplesOverlayEnabled}
+          multiplesOverlayPrime={multiplesOverlayPrime}
+          onMultiplesOverlayToggle={(enabled) => {
+            if (enabled && !multiplesOverlayEnabled) {
+              const step = steps[currentStep];
+              if (step && step.prime != null && step.prime >= 2) {
+                setMultiplesOverlayPrime(step.prime);
+              }
+            }
+            setMultiplesOverlayEnabled(enabled);
+          }}
+          onMultiplesOverlayPrimeChange={setMultiplesOverlayPrime}
+          onRangeOverlayReset={() => {
+            const step = steps[currentStep];
+            if (step) {
+              const start = step.focusStart != null ? step.focusStart : (step.changedBits.length > 0 ? Math.min(...step.changedBits) : 0);
+              const end = step.focusStop != null ? step.focusStop : (step.changedBits.length > 0 ? Math.max(...step.changedBits) : Math.max(0, header.bitCount - 1));
+              setRangeOverlayStart(start);
+              setRangeOverlayEnd(end);
+            }
+          }}
+          onMultiplesOverlayReset={() => {
+            const step = steps[currentStep];
+            if (step && step.prime != null && step.prime >= 2) {
+              setMultiplesOverlayPrime(step.prime);
+            }
+          }}
+          showMinimap={showMinimap}
+          onShowMinimapChange={setShowMinimap}
+          minimapControlVisible={true}
+          depthSettings={depthSettings}
+          onDepthSettingsChange={setDepthSettings}
+          eventTitleSettings={eventTitleSettings}
+          onEventTitleSettingsChange={setEventTitleSettings}
+          outlineSettings={layoutSettings.outlines}
+          onOutlineChange={(outlines) => setLayoutSettings((prev) => ({ ...prev, outlines }))}
+          isWindowsPlatform={isWindowsPlatform}
+          showAnimationControls={true}
+          theme={theme}
+          onThemeChange={(t) => setTheme(t)}
+          canvasColors={canvasColors}
+          onCanvasColorsChange={setCanvasColors}
+          activeTabRequest={settingsTabRequest}
+          bitAnimationMode={bitAnimationMode}
+          onBitAnimationModeChange={handleBitAnimationModeChange}
+          detailOpen={detailOpen}
+          detailHeight={detailHeight}
+        />
+        {debugToolsOpen && (
+          <DebugToolsPanel
+            rendererRef={rendererRef}
+            glCanvasRef={glCanvasRef}
+            glRendererRef={glRendererRef}
+            camera3DRef={camera3DRef}
+            camera3DTransform={camera3DTransform}
+            zoomLevel={zoom}
+            glDebugInfo={glDebugInfo}
+            theme={theme}
+            debugLayerMode={debugLayerMode}
+            setDebugLayerMode={setDebugLayerMode}
+            debugGlOffsetX={debugGlOffsetX}
+            setDebugGlOffsetX={setDebugGlOffsetX}
+            debugGlOffsetY={debugGlOffsetY}
+            setDebugGlOffsetY={setDebugGlOffsetY}
+            debugGlAutoOffsetY={debugGlAutoOffsetY}
+            debugCalibrationMode={debugCalibrationMode}
+            setDebugCalibrationMode={setDebugCalibrationMode}
+            onApplyDebugSnapshot={applyDebugSnapshot}
+            rightOffset={settingsCollapsed ? 8 : (isMacPlatform ? 388 : 328)}
           />
         )}
       </div>

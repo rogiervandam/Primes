@@ -18,9 +18,19 @@ export default function App() {
   const [logFiles, setLogFiles] = useState([]);
   const [loadingLog, setLoadingLog] = useState(false);
   const [autoRender, setAutoRender] = useState(false);
+  const [pendingUpload, setPendingUpload] = useState(null);
   const fileInputRef = useRef(null);
   const benchmarkInputRef = useRef(null);
   const dropRef = useRef(null);
+
+  const refreshLogFiles = useCallback(async () => {
+    try {
+      const res = await fetch('/api/logs');
+      setLogFiles(res.ok ? await res.json() : []);
+    } catch {
+      setLogFiles([]);
+    }
+  }, []);
 
   const deriveBenchmarkTimingFileName = useCallback((traceName) => {
     if (!traceName) return '';
@@ -62,6 +72,21 @@ export default function App() {
       return;
     }
     try {
+      // Companion benchmark files are optional; avoid noisy 404 requests by
+      // checking the available log list before trying to fetch the file.
+      const listRes = await fetch('/api/logs');
+      if (!listRes.ok) {
+        setBenchmarkTimingData(null);
+        setBenchmarkTimingFileName('');
+        return;
+      }
+      const available = await listRes.json();
+      if (!Array.isArray(available) || !available.includes(benchmarkName)) {
+        setBenchmarkTimingData(null);
+        setBenchmarkTimingFileName('');
+        return;
+      }
+
       const res = await fetch(`/api/logs/${encodeURIComponent(benchmarkName)}`);
       if (!res.ok) {
         setBenchmarkTimingData(null);
@@ -142,10 +167,7 @@ export default function App() {
 
   // Fetch available log files and check URL params on mount
   useEffect(() => {
-    fetch('/api/logs')
-      .then(r => r.ok ? r.json() : [])
-      .then(setLogFiles)
-      .catch(() => setLogFiles([]));
+    refreshLogFiles();
 
     const params = new URLSearchParams(window.location.search);
     const fileParam = params.get('file');
@@ -153,7 +175,55 @@ export default function App() {
     if (fileParam) {
       loadFromApi(fileParam, autoParam === 'true');
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadFromApi, refreshLogFiles]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const checkPendingUpload = async () => {
+      if (cancelled || pendingUpload) return;
+      try {
+        const res = await fetch('/api/logs/pending-upload');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data.upload) setPendingUpload(data.upload);
+      } catch {
+        // The static nginx build has no log API; silently keep the app usable.
+      }
+    };
+
+    checkPendingUpload();
+    const timer = window.setInterval(checkPendingUpload, 2500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [pendingUpload]);
+
+  const acknowledgePendingUpload = useCallback(async (upload) => {
+    if (!upload?.id) return;
+    try {
+      await fetch(`/api/logs/pending-upload/${encodeURIComponent(upload.id)}/ack`, { method: 'POST' });
+    } catch {
+      // If the ack fails, the next poll will offer the trace again.
+    }
+  }, []);
+
+  const openPendingUpload = useCallback(async () => {
+    const upload = pendingUpload;
+    if (!upload) return;
+    setPendingUpload(null);
+    await acknowledgePendingUpload(upload);
+    await refreshLogFiles();
+    await loadFromApi(upload.name);
+  }, [acknowledgePendingUpload, loadFromApi, pendingUpload, refreshLogFiles]);
+
+  const keepCurrentTrace = useCallback(async () => {
+    const upload = pendingUpload;
+    if (!upload) return;
+    setPendingUpload(null);
+    await acknowledgePendingUpload(upload);
+    await refreshLogFiles();
+  }, [acknowledgePendingUpload, pendingUpload, refreshLogFiles]);
 
   const handleFileInput = (e) => {
     const file = e.target.files?.[0];
@@ -183,6 +253,19 @@ export default function App() {
     e.preventDefault();
     dropRef.current?.classList.remove('drag-over');
   };
+
+  const pendingUploadPrompt = pendingUpload && (
+    <div className="upload-prompt-backdrop" role="presentation">
+      <div className="upload-prompt" role="dialog" aria-modal="true" aria-labelledby="upload-prompt-title">
+        <div id="upload-prompt-title" className="upload-prompt-title">Open uploaded trace?</div>
+        <div className="upload-prompt-file">{pendingUpload.name}</div>
+        <div className="upload-prompt-actions">
+          <button type="button" className="upload-prompt-secondary" onClick={keepCurrentTrace}>Keep current</button>
+          <button type="button" className="upload-prompt-primary" onClick={openPendingUpload}>Open</button>
+        </div>
+      </div>
+    </div>
+  );
 
   if (!trace) {
     return (
@@ -239,6 +322,7 @@ export default function App() {
             <p>Compiles with trace, runs, and opens this visualizer automatically.</p>
           </div>
         </div>
+        {pendingUploadPrompt}
       </div>
     );
   }
@@ -269,6 +353,7 @@ export default function App() {
         }}
         autoRender={autoRender}
       />
+      {pendingUploadPrompt}
     </Suspense>
   );
 }

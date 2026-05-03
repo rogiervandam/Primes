@@ -263,7 +263,7 @@ export default function Toolbar({
           <button
             className={`btn-icon${debugToolsOpen ? ' active' : ''}`}
             onClick={() => setDebugToolsOpen((v) => !v)}
-            title={debugToolsOpen ? 'Hide debug tools' : 'Show debug tools'}
+            title={debugToolsOpen ? 'Hide debug tools (`)' : 'Show debug tools (`)'}
           >
             <Toolkit />
           </button>
