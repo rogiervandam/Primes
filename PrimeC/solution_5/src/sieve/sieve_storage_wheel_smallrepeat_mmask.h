@@ -1,4 +1,4 @@
-#define max_masks 8
+#define max_masks 3
 
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
 function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, counter_t range_start, const counter_t range_stop, const counter_t step)
@@ -22,7 +22,9 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
 
     bitbucket_t masks[max_masks] = {(bitbucket_t)0U};
     counter_t run_start_bucket = 0;
+    counter_t run_end = ~(counter_t)0;  // sentinel: no active run
     counter_t run_count = 0;
+    bitbucket_t* run_mask = masks;
     counter_t wheel_index = range_start % WHEEL_SIZE;
     counter_t wheel_bit_base = wheelmask_stripe_bits * (range_start / WHEEL_SIZE);
     counter_t new_bucket = index_type(wheel_bit_base, bitbucket_t);
@@ -31,17 +33,19 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
         const counter_t bitpoint = wheelmask_bitpoint[wheel_index];
 
         if (bitpoint > 0) {
-            if (new_bucket != (run_start_bucket + run_count - 1)) {
-                if ((new_bucket == (run_start_bucket + run_count)) && (run_count < max_masks)) {
-                    masks[run_count++] = (bitbucket_t)0U;
+            if (new_bucket != run_end) {
+                if (new_bucket == run_end + 1 && run_count < max_masks) {
+                    run_mask = &masks[run_count++];
+                    *run_mask = (bitbucket_t)0U;
+                    run_end = new_bucket;
                 } else {
                     if (run_count > 0) function(applyMask_index_mmask,suffix)(sieve->bitstorage, run_start_bucket, stop_bucket, wheel_step, masks, run_count);
-                    run_start_bucket = new_bucket;
-                    masks[0] = (bitbucket_t)0U;
+                    run_start_bucket = run_end = new_bucket;
+                    *(run_mask = masks) = (bitbucket_t)0U;
                     run_count = 1;
                 }
             }
-            masks[run_count - 1] |= markmask_type(wheel_bit_base + bitpoint - 1, bitbucket_t);
+            *run_mask |= markmask_type(wheel_bit_base + bitpoint - 1, bitbucket_t);
         }
 
         wheel_index += step;
