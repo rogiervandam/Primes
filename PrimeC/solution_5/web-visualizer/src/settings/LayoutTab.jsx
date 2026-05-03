@@ -463,28 +463,6 @@ export default function LayoutTab({
       </div>
 
       <div className="settings-section">
-        <label>Experimental</label>
-        <div className="preview-btn-grid preview-btn-grid-3">
-          <PreviewOptionButton
-            compact
-            label="WebGL text"
-            hint="Render per-cell labels and dots via a WebGL glyph atlas instead of Canvas 2D"
-            active={!!s.webglText}
-            onClick={() => set('webglText', !s.webglText)}
-            preview={(
-              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                <rect x="2" y="5" width="8" height="8" rx="1" />
-                <rect x="13" y="5" width="8" height="8" rx="1" />
-                <rect x="24" y="5" width="8" height="8" rx="1" />
-                <text x="3" y="14" fontSize="5">GL</text>
-              </svg>
-            )}
-          />
-        </div>
-        <span className="settings-hint">WebGL text: per-cell numbers and overlay indicators rendered via a bitmap glyph atlas. Toggle to compare with Canvas 2D rendering.</span>
-      </div>
-
-      <div className="settings-section">
         <label>Grouping outlines</label>
         <div className="preview-btn-grid preview-btn-grid-3">
           <PreviewOptionButton

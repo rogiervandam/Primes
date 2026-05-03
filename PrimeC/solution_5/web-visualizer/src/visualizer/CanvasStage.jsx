@@ -28,7 +28,6 @@ function CanvasStage({
   // canvas refs (owned by parent, attached here)
   containerRef,
   canvasRef,
-  settledCanvasRef,
   glCanvasRef,
   glyphCanvasRef,
   // wrapper div ref — receives the 3D CSS transform so canvas elements stay
@@ -37,8 +36,6 @@ function CanvasStage({
   // whether GL renderer is active (controls GL canvas visibility)
   glActive,
   hideGlCanvas = false,
-  // debug layer isolation mode: normal | gl-only | overlays-only
-  debugLayerMode = 'normal',
   // styling
   camera3DContainerStyle,
   renderCanvasStyle,
@@ -141,24 +138,19 @@ function CanvasStage({
               renderer is active. Overlays/labels render on the Canvas2D layer on top. */}
           <canvas
             ref={glCanvasRef}
-            className={`gl-render-canvas${glActive ? '' : ' renderer-inactive'}${debugLayerMode === 'overlays-only' || hideGlCanvas ? ' debug-hidden' : ''}`}
-            aria-hidden="true"
-          />
-          <canvas
-            ref={settledCanvasRef}
-            className={`settled-render-canvas${debugLayerMode === 'gl-only' ? ' debug-hidden' : ''}`}
+            className={`gl-render-canvas${glActive ? '' : ' renderer-inactive'}${hideGlCanvas ? ' debug-hidden' : ''}`}
             aria-hidden="true"
           />
           <canvas
             ref={canvasRef}
-            className={`main-render-canvas${debugLayerMode === 'gl-only' ? ' debug-hidden' : ''}`}
+            className="main-render-canvas"
+            aria-hidden="true"
           />
           {/* WebGL glyph-text canvas — transparent, sits above main canvas so
-              GL-rendered text and dots composite on top of all other layers.
-              Only used when the webglText feature toggle is active. */}
+              GL-rendered text and dots composite on top of all other layers. */}
           <canvas
             ref={glyphCanvasRef}
-            className={`glyph-render-canvas${debugLayerMode === 'overlays-only' ? ' debug-hidden' : ''}`}
+            className="glyph-render-canvas"
             aria-hidden="true"
           />
         </div>

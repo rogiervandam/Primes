@@ -402,6 +402,7 @@ export class SieveRenderer {
    */
   attachGlyphRenderer(glyphRenderer) {
     this._glyphCtx = glyphRenderer || null;
+    if (this._glyphCtx) this.webglText = true;
   }
 
   init(bitCount, sieveSize) {
@@ -1000,34 +1001,19 @@ export class SieveRenderer {
 
       if (segments.length === 0) continue;
 
-      ctx.save();
-      ctx.setLineDash([]);
-
+      const g = this._glyphCtx;
       for (const seg of segments) {
         const rx = Math.round(this.panX + seg.vecStart * vecStep - pad);
         const ry = Math.round(this.panY + seg.vRow * vRowHeight + labelH - pad);
         const rw = Math.max(1, Math.round((seg.vecEnd - seg.vecStart + 1) * vecStep - this._u64GapX() + pad * 2));
         const rh = Math.max(1, Math.round(rowD.h + pad * 2));
 
-        if (this.webglText && this._glyphCtx) {
-          const g = this._glyphCtx;
-          if (oc.alpha > 0.01) {
-            g.drawFilledRect(rx, ry, rw, rh, oc.r / 255, oc.g / 255, oc.b / 255, oc.alpha);
-          }
-          g.drawOutlineRect(rx + 0.5, ry + 0.5, Math.max(1, rw - 1), Math.max(1, rh - 1),
-            oc.r / 255, oc.g / 255, oc.b / 255, bAlpha, lw);
-        } else {
-          if (oc.alpha > 0.01) {
-            ctx.fillStyle = `rgba(${oc.r},${oc.g},${oc.b},${oc.alpha})`;
-            ctx.fillRect(rx, ry, rw, rh);
-          }
-          ctx.strokeStyle = `rgba(${oc.r},${oc.g},${oc.b},${bAlpha})`;
-          ctx.lineWidth = lw;
-          ctx.strokeRect(rx + 0.5, ry + 0.5, Math.max(1, rw - 1), Math.max(1, rh - 1));
+        if (oc.alpha > 0.01) {
+          g.drawFilledRect(rx, ry, rw, rh, oc.r / 255, oc.g / 255, oc.b / 255, oc.alpha);
         }
+        g.drawOutlineRect(rx + 0.5, ry + 0.5, Math.max(1, rw - 1), Math.max(1, rh - 1),
+          oc.r / 255, oc.g / 255, oc.b / 255, bAlpha, lw);
       }
-
-      ctx.restore();
     }
   }
 
@@ -1100,12 +1086,10 @@ export class SieveRenderer {
         const y = this.panY + seg.vRow * vRowHeight + labelH - pad - topExtra;
         const w = (seg.vecEnd - seg.vecStart + 1) * vecStep - this._u64GapX() + pad * 2;
         const h = rowD.h + pad * 2 + topExtra + annotBottomExtra;
-        if (this.webglText && this._glyphCtx) {
+        if (this._glyphCtx) {
           const [or, og, ob, oa] = this._outlineColorGL();
           const cfg = this._outlineConfig();
           this._glyphCtx.drawOutlineRect(x, y, w, h, or, og, ob, oa, cfg.lineWidth);
-        } else {
-          this._drawOutlineRect(ctx, x, y, w, h);
         }
       }
     }
@@ -1591,7 +1575,7 @@ export class SieveRenderer {
 
     // Begin the WebGL glyph-text frame (clears the glyph canvas every frame
     // so toggling the feature off instantly removes stale text).
-    const glCtx = (this.webglText && this._glyphCtx) ? this._glyphCtx : null;
+    const glCtx = this._glyphCtx || null;
     if (glCtx) {
       const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
       const cw = this.canvasWidth  || (this.canvas.width  / canvasDpr);
@@ -1635,7 +1619,7 @@ export class SieveRenderer {
     const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
     const cw = this.canvasWidth || (this.canvas.width / canvasDpr);
     const ch = this.canvasHeight || (this.canvas.height / canvasDpr);
-    const layeredLoweredBits = this.loweredSetBits && !!settledCtx;
+    const layeredLoweredBits = false;
 
     const px = this.pixelSize * this.zoom;
     const bitsPerCacheLine = this.bitsPerCacheLine;
@@ -1685,37 +1669,8 @@ export class SieveRenderer {
     };
   }
 
-  /** Clear the canvas and optionally composite the GL source into the main 2D layer. */
-  _renderClear(f) {
-    const { ctx, settledCtx, cw, ch, layeredLoweredBits } = f;
-    if (layeredLoweredBits) {
-      settledCtx.clearRect(0, 0, cw, ch);
-      ctx.clearRect(0, 0, cw, ch);
-    } else {
-      ctx.clearRect(0, 0, cw, ch);
-      if (settledCtx) settledCtx.clearRect(0, 0, cw, ch);
-    }
-    if (this.compositeGLInto2D && this.glCompositeSourceCanvas) {
-      ctx.save();
-      ctx.imageSmoothingEnabled = false;
-      const destW = this.canvasWidth || cw;
-      const destH = this.canvasHeight || ch;
-      const offsetX = Number.isFinite(this.glCompositeOffsetX) ? this.glCompositeOffsetX : 0;
-      const offsetY = Number.isFinite(this.glCompositeOffsetY) ? this.glCompositeOffsetY : 0;
-      ctx.drawImage(
-        this.glCompositeSourceCanvas,
-        0,
-        0,
-        this.glCompositeSourceCanvas.width,
-        this.glCompositeSourceCanvas.height,
-        offsetX,
-        offsetY,
-        destW,
-        destH,
-      );
-      ctx.restore();
-    }
-  }
+  /** Canvas 2D layers are no longer used for rendering; GL handles all drawing. */
+  _renderClear(_f) {}
 
   /** Render one visual row (a horizontal strip of vectors). */
   _renderVisualRow(f, vRow) {
@@ -1752,15 +1707,9 @@ export class SieveRenderer {
       const labelX = Math.round(vecX);
       const labelY = Math.round(f.vectorLabelY(vRow));
       if (labelX + f.vecD.w > 0 && labelX < f.cw && vRowBaseY >= -f.labelH && vRowBaseY < f.ch) {
-        if (this.webglText && this._glyphCtx) {
+        if (this._glyphCtx) {
           const [lr, lg, lb, la] = this._parseCssColorGL(f.C.LABEL_COLOR);
           this._glyphCtx.drawFittedText(label, labelX + 1, labelY, f.labelBands.vectorFont, Math.max(8, f.vecD.w - 4), lr, lg, lb, la, 'left', 'top', 3.5);
-        } else {
-          this._drawFittedLabel(f.ctx, label, labelX, labelY, Math.max(8, f.vecD.w - 2), f.labelBands.vectorFont, f.C.LABEL_COLOR, {
-            minSize: 3.5,
-            paddingX: 1,
-            clipHeight: f.labelBands.vector,
-          });
         }
       }
     }
@@ -1779,16 +1728,12 @@ export class SieveRenderer {
   _renderVectorU64(f, vecX, vRowDataY, vRowBaseY, intraIdx, u64BitStart, rowBitStop) {
     const u64X = vecX + intraIdx * (f.u64D.w + f.vecD.intraGap);
 
-    if (this.outlineEnabled && this.outlineTargets?.has('vector') && intraIdx === 0) {
+    if (this.outlineEnabled && this.outlineTargets?.has('vector') && intraIdx === 0 && this._glyphCtx) {
       const pad = this._outlinePadding();
       const topExtra = this._outlineTopExtra('vector');
-      if (this.webglText && this._glyphCtx) {
-        const [or, og, ob, oa] = this._outlineColorGL();
-        const cfg = this._outlineConfig();
-        this._glyphCtx.drawOutlineRect(vecX - pad, vRowDataY - pad - topExtra, f.vecD.w + 2 * pad, f.vecD.h + 2 * pad + topExtra, or, og, ob, oa, cfg.lineWidth);
-      } else {
-        this._drawOutlineRect(f.ctx, vecX - pad, vRowDataY - pad - topExtra, f.vecD.w + 2 * pad, f.vecD.h + 2 * pad + topExtra);
-      }
+      const [or, og, ob, oa] = this._outlineColorGL();
+      const cfg = this._outlineConfig();
+      this._glyphCtx.drawOutlineRect(vecX - pad, vRowDataY - pad - topExtra, f.vecD.w + 2 * pad, f.vecD.h + 2 * pad + topExtra, or, og, ob, oa, cfg.lineWidth);
     }
 
     for (let byteIdx = 0; byteIdx < 8; byteIdx++) {
@@ -1804,35 +1749,18 @@ export class SieveRenderer {
     const byteX = u64X + bytePos.col * (f.byteD.w + f.byteGapX);
     const byteY = vRowDataY + bytePos.row * (f.byteD.h + f.byteGapY);
 
-    if (this.outlineEnabled && this.outlineTargets?.has('byte')) {
+    if (this.outlineEnabled && this.outlineTargets?.has('byte') && this._glyphCtx) {
       const pad = this._outlinePadding();
       const topExtra = this._outlineTopExtra('byte');
-      if (this.webglText && this._glyphCtx) {
-        const [or, og, ob, oa] = this._outlineColorGL();
-        const cfg = this._outlineConfig();
-        this._glyphCtx.drawOutlineRect(byteX - pad, byteY - pad - topExtra, f.byteD.w + 2 * pad, f.byteD.h + 2 * pad + topExtra, or, og, ob, oa, cfg.lineWidth);
-      } else {
-        this._drawOutlineRect(f.ctx, byteX - pad, byteY - pad - topExtra, f.byteD.w + 2 * pad, f.byteD.h + 2 * pad + topExtra);
-      }
+      const [or, og, ob, oa] = this._outlineColorGL();
+      const cfg = this._outlineConfig();
+      this._glyphCtx.drawOutlineRect(byteX - pad, byteY - pad - topExtra, f.byteD.w + 2 * pad, f.byteD.h + 2 * pad + topExtra, or, og, ob, oa, cfg.lineWidth);
     }
 
-    if (f.showByteLabels) {
+    if (f.showByteLabels && this._glyphCtx) {
       const byteLabel = `Byte ${this._byteLabelValue(byteBitStart)}`;
-      if (this.webglText && this._glyphCtx) {
-        const [lr, lg, lb, la] = this._parseCssColorGL(f.C.LABEL_COLOR);
-        this._glyphCtx.drawFittedText(byteLabel, Math.round(byteX) + 1, Math.round(f.byteLabelY(vRowBaseY, byteY)), f.labelBands.byteFont, Math.max(8, f.byteD.w - 4), lr, lg, lb, la, 'left', 'top', 3.5);
-      } else {
-        this._drawFittedLabel(
-          f.ctx,
-          byteLabel,
-          Math.round(byteX),
-          Math.round(f.byteLabelY(vRowBaseY, byteY)),
-          Math.max(8, f.byteD.w - 2),
-          f.labelBands.byteFont,
-          f.C.LABEL_COLOR,
-          { minSize: 3.5, paddingX: 1, clipHeight: Math.max(7, f.labelBands.byteFont + 4) }
-        );
-      }
+      const [lr, lg, lb, la] = this._parseCssColorGL(f.C.LABEL_COLOR);
+      this._glyphCtx.drawFittedText(byteLabel, Math.round(byteX) + 1, Math.round(f.byteLabelY(vRowBaseY, byteY)), f.labelBands.byteFont, Math.max(8, f.byteD.w - 4), lr, lg, lb, la, 'left', 'top', 3.5);
     }
 
     for (let bitIdx = 0; bitIdx < 8; bitIdx++) {
@@ -1874,17 +1802,9 @@ export class SieveRenderer {
     const y = Number.isFinite(draw?.drawY) ? draw.drawY : bitY;
     const size = Math.max(1, Number.isFinite(draw?.drawSize) ? draw.drawSize : f.px);
     const lw = Math.max(0.75, Math.min(1.25, 0.85 + (this.zoom || 1) * 0.015));
-    if (this.webglText && this._glyphCtx) {
-      const [cr, cg, cb, ca] = this._parseCssColorGL(this.debugAllCellOutlineColor || 'rgba(255,255,255,0.82)');
-      this._glyphCtx.drawOutlineRect(x + 0.5, y + 0.5, Math.max(0, size - 1), Math.max(0, size - 1), cr, cg, cb, ca, lw);
-      return;
-    }
-    const ctx = f.ctx;
-    ctx.save();
-    ctx.lineWidth = lw;
-    ctx.strokeStyle = this.debugAllCellOutlineColor || 'rgba(255,255,255,0.82)';
-    ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, size - 1), Math.max(0, size - 1));
-    ctx.restore();
+    if (!this._glyphCtx) return;
+    const [cr, cg, cb, ca] = this._parseCssColorGL(this.debugAllCellOutlineColor || 'rgba(255,255,255,0.82)');
+    this._glyphCtx.drawOutlineRect(x + 0.5, y + 0.5, Math.max(0, size - 1), Math.max(0, size - 1), cr, cg, cb, ca, lw);
   }
 
   /** Decide the bit's color and per-bit boolean flags (ghost / changed / set / repeated / focus). */
@@ -2043,27 +1963,15 @@ export class SieveRenderer {
     const { drawX, drawY, drawSize, drawCtx } = draw;
     const px = f.px;
     const set = f.bitColors.set;
-    if (this.webglText && this._glyphCtx) {
-      const g = this._glyphCtx;
-      const lw = Math.max(0.7, Math.min(1.6, px * 0.12));
-      g.drawFilledRect(drawX, drawY, drawSize, drawSize, set[0] / 255, set[1] / 255, set[2] / 255, 0.2);
-      g.drawOutlineRect(
-        Math.round(drawX - 0.5), Math.round(drawY - 0.5),
-        Math.max(2, Math.round(drawSize + 1)), Math.max(2, Math.round(drawSize + 1)),
-        set[0] / 255, set[1] / 255, set[2] / 255, 0.95, lw
-      );
-      return;
-    }
-    drawCtx.save();
-    drawCtx.fillStyle = `rgba(${set[0]},${set[1]},${set[2]},0.2)`;
-    drawCtx.fillRect(drawX, drawY, drawSize, drawSize);
-    drawCtx.strokeStyle = `rgba(${set[0]},${set[1]},${set[2]},0.95)`;
-    drawCtx.lineWidth = Math.max(0.7, Math.min(1.6, px * 0.12));
-    drawCtx.strokeRect(
+    if (!this._glyphCtx) return;
+    const g = this._glyphCtx;
+    const lw = Math.max(0.7, Math.min(1.6, px * 0.12));
+    g.drawFilledRect(drawX, drawY, drawSize, drawSize, set[0] / 255, set[1] / 255, set[2] / 255, 0.2);
+    g.drawOutlineRect(
       Math.round(drawX - 0.5), Math.round(drawY - 0.5),
-      Math.max(2, Math.round(drawSize + 1)), Math.max(2, Math.round(drawSize + 1))
+      Math.max(2, Math.round(drawSize + 1)), Math.max(2, Math.round(drawSize + 1)),
+      set[0] / 255, set[1] / 255, set[2] / 255, 0.95, lw
     );
-    drawCtx.restore();
   }
 
   /** Focus-range tint — handled by GL via bit 7 in stateTex. Canvas2D no-op. */
@@ -2081,40 +1989,21 @@ export class SieveRenderer {
     const { drawX, drawY, drawSize } = draw;
     const px = f.px;
     const lw1 = Math.max(0.35, Math.min(1.25, px * 0.08));
-    if (this.webglText && this._glyphCtx) {
-      const g = this._glyphCtx;
-      g.drawOutlineRect(
-        Math.round(drawX - 0.5), Math.round(drawY - 0.5),
-        Math.max(2, Math.round(drawSize + 1)), Math.max(2, Math.round(drawSize + 1)),
-        59 / 255, 130 / 255, 246 / 255, 0.95, lw1
-      );
-      if (targetHitCount > 1 && this.zoom >= 2.2 && px >= 4) {
-        const lw2 = Math.max(0.5, Math.min(1.6, px * 0.11));
-        g.drawOutlineRect(
-          Math.round(drawX + 1), Math.round(drawY + 1),
-          Math.max(1, Math.round(drawSize - 2)), Math.max(1, Math.round(drawSize - 2)),
-          245 / 255, 158 / 255, 11 / 255, 0.95, lw2
-        );
-      }
-      return;
-    }
-    const ctx = f.ctx;
-    ctx.save();
-    ctx.strokeStyle = 'rgba(59, 130, 246, 0.95)';
-    ctx.lineWidth = lw1;
-    ctx.strokeRect(
+    if (!this._glyphCtx) return;
+    const g = this._glyphCtx;
+    g.drawOutlineRect(
       Math.round(drawX - 0.5), Math.round(drawY - 0.5),
-      Math.max(2, Math.round(drawSize + 1)), Math.max(2, Math.round(drawSize + 1))
+      Math.max(2, Math.round(drawSize + 1)), Math.max(2, Math.round(drawSize + 1)),
+      59 / 255, 130 / 255, 246 / 255, 0.95, lw1
     );
     if (targetHitCount > 1 && this.zoom >= 2.2 && px >= 4) {
-      ctx.strokeStyle = 'rgba(245, 158, 11, 0.95)';
-      ctx.lineWidth = Math.max(0.5, Math.min(1.6, px * 0.11));
-      ctx.strokeRect(
+      const lw2 = Math.max(0.5, Math.min(1.6, px * 0.11));
+      g.drawOutlineRect(
         Math.round(drawX + 1), Math.round(drawY + 1),
-        Math.max(1, Math.round(drawSize - 2)), Math.max(1, Math.round(drawSize - 2))
+        Math.max(1, Math.round(drawSize - 2)), Math.max(1, Math.round(drawSize - 2)),
+        245 / 255, 158 / 255, 11 / 255, 0.95, lw2
       );
     }
-    ctx.restore();
   }
 
   /** Gold tint + dot + (at zoom) 'p' label for prime bits. Tint and border handled by GL. */
@@ -2123,38 +2012,17 @@ export class SieveRenderer {
     const px = f.px;
     const dotR = Math.max(0.8, Math.min(px * 0.22, 4));
 
-    if (this.webglText && this._glyphCtx) {
-      // GL path: dot at top-right, optional 'p' label at top-left.
-      const g = this._glyphCtx;
-      const dcx = Math.round(bitX + px) - dotR * 0.75;
-      const dcy = Math.round(bitY) + dotR * 0.75;
-      g.drawDot(dcx, dcy, dotR, 251 / 255, 191 / 255, 36 / 255, 0.92);
-      if (px >= 16) {
-        const pSize = Math.max(4, Math.min(px * 0.22, 9));
-        g.drawText('p', Math.round(bitX + 1), Math.round(bitY + 1), pSize,
-          251 / 255, 191 / 255, 36 / 255, 0.90, 'left', 'top');
-      }
-      return;
-    }
-
-    const ctx = f.ctx;
-    ctx.save();
-    // Small gold dot in the top-right corner — visible even at low zoom
-    ctx.fillStyle = 'rgba(251,191,36,0.92)';
-    ctx.beginPath();
-    ctx.arc(Math.round(bitX + px) - dotR * 0.75, Math.round(bitY) + dotR * 0.75, dotR, 0, Math.PI * 2);
-    ctx.fill();
-    // Small "p" label at high zoom so the meaning is unmistakable
+    if (!this._glyphCtx) return;
+    // GL path: dot at top-right, optional 'p' label at top-left.
+    const g = this._glyphCtx;
+    const dcx = Math.round(bitX + px) - dotR * 0.75;
+    const dcy = Math.round(bitY) + dotR * 0.75;
+    g.drawDot(dcx, dcy, dotR, 251 / 255, 191 / 255, 36 / 255, 0.92);
     if (px >= 16) {
       const pSize = Math.max(4, Math.min(px * 0.22, 9));
-      ctx.font = `bold ${pSize}px monospace`;
-      ctx.fillStyle = 'rgba(251,191,36,0.90)';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillText('p', Math.round(bitX + 1), Math.round(bitY + 1));
-      ctx.textAlign = 'start';
+      g.drawText('p', Math.round(bitX + 1), Math.round(bitY + 1), pSize,
+        251 / 255, 191 / 255, 36 / 255, 0.90, 'left', 'top');
     }
-    ctx.restore();
   }
 
   /** Cyan/teal dot + (at zoom) 'r' label for bits within [rangeOverlayStart, rangeOverlayEnd]. Tint and border handled by GL. */
@@ -2163,35 +2031,16 @@ export class SieveRenderer {
     const px = f.px;
     const dotR2 = Math.max(0.8, Math.min(px * 0.20, 3.5));
 
-    if (this.webglText && this._glyphCtx) {
-      // GL path: dot at top-left, optional 'r' label at top-right.
-      const g = this._glyphCtx;
-      g.drawDot(Math.round(bitX) + dotR2 * 0.75, Math.round(bitY) + dotR2 * 0.75, dotR2,
-        34 / 255, 211 / 255, 238 / 255, 0.88);
-      if (px >= 16) {
-        const rSize = Math.max(4, Math.min(px * 0.20, 8));
-        g.drawText('r', Math.round(bitX + px - 1), Math.round(bitY + 1), rSize,
-          34 / 255, 211 / 255, 238 / 255, 0.90, 'right', 'top');
-      }
-      return;
-    }
-
-    const ctx = f.ctx;
-    ctx.save();
-    ctx.fillStyle = 'rgba(34,211,238,0.88)';
-    ctx.beginPath();
-    ctx.arc(Math.round(bitX) + dotR2 * 0.75, Math.round(bitY) + dotR2 * 0.75, dotR2, 0, Math.PI * 2);
-    ctx.fill();
+    if (!this._glyphCtx) return;
+    // GL path: dot at top-left, optional 'r' label at top-right.
+    const g = this._glyphCtx;
+    g.drawDot(Math.round(bitX) + dotR2 * 0.75, Math.round(bitY) + dotR2 * 0.75, dotR2,
+      34 / 255, 211 / 255, 238 / 255, 0.88);
     if (px >= 16) {
       const rSize = Math.max(4, Math.min(px * 0.20, 8));
-      ctx.font = `bold ${rSize}px monospace`;
-      ctx.fillStyle = 'rgba(34,211,238,0.90)';
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'top';
-      ctx.fillText('r', Math.round(bitX + px - 1), Math.round(bitY + 1));
-      ctx.textAlign = 'start';
+      g.drawText('r', Math.round(bitX + px - 1), Math.round(bitY + 1), rSize,
+        34 / 255, 211 / 255, 238 / 255, 0.90, 'right', 'top');
     }
-    ctx.restore();
   }
 
   /** Purple dot + (at zoom) '×' label for multiples. Tint and border handled by GL. */
@@ -2202,35 +2051,16 @@ export class SieveRenderer {
     const px = f.px;
     const dotR3 = Math.max(0.8, Math.min(px * 0.20, 3.5));
 
-    if (this.webglText && this._glyphCtx) {
-      // GL path: dot at bottom-right, optional '×' label at bottom-right.
-      const g = this._glyphCtx;
-      g.drawDot(Math.round(bitX + px) - dotR3 * 0.75, Math.round(bitY + px) - dotR3 * 0.75, dotR3,
-        167 / 255, 139 / 255, 250 / 255, 0.90);
-      if (px >= 16) {
-        const mSize = Math.max(4, Math.min(px * 0.20, 8));
-        g.drawText('\u00d7', Math.round(bitX + px - 1), Math.round(bitY + px - 1), mSize,
-          167 / 255, 139 / 255, 250 / 255, 0.90, 'right', 'bottom');
-      }
-      return;
-    }
-
-    const ctx = f.ctx;
-    ctx.save();
-    ctx.fillStyle = 'rgba(167,139,250,0.90)';
-    ctx.beginPath();
-    ctx.arc(Math.round(bitX + px) - dotR3 * 0.75, Math.round(bitY + px) - dotR3 * 0.75, dotR3, 0, Math.PI * 2);
-    ctx.fill();
+    if (!this._glyphCtx) return;
+    // GL path: dot at bottom-right, optional '×' label at bottom-right.
+    const g = this._glyphCtx;
+    g.drawDot(Math.round(bitX + px) - dotR3 * 0.75, Math.round(bitY + px) - dotR3 * 0.75, dotR3,
+      167 / 255, 139 / 255, 250 / 255, 0.90);
     if (px >= 16) {
       const mSize = Math.max(4, Math.min(px * 0.20, 8));
-      ctx.font = `bold ${mSize}px monospace`;
-      ctx.fillStyle = 'rgba(167,139,250,0.90)';
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText('×', Math.round(bitX + px - 1), Math.round(bitY + px - 1));
-      ctx.textAlign = 'start';
+      g.drawText('\u00d7', Math.round(bitX + px - 1), Math.round(bitY + px - 1), mSize,
+        167 / 255, 139 / 255, 250 / 255, 0.90, 'right', 'bottom');
     }
-    ctx.restore();
   }
 
   /**
@@ -2238,7 +2068,7 @@ export class SieveRenderer {
    * lowered-position label shrink, and the high-zoom font boost.
    */
   _drawBitLabels(f, globalBit, bitIdx, cls, draw, bitX, bitY) {
-    const { showBitLabels, showNumberLabels, layeredLoweredBits, settledCtx, ctx, px } = f;
+    const { showBitLabels, showNumberLabels, px } = f;
     const dualLabelMode = showBitLabels && showNumberLabels;
     if (!((dualLabelMode && px >= 22) || (!dualLabelMode && (showBitLabels || showNumberLabels) && px >= 12))) return;
 
@@ -2252,53 +2082,32 @@ export class SieveRenderer {
     const dualLine = lines.length > 1;
     const zoomBoost = this.zoom > 20 ? 1 + Math.min(1, (this.zoom - 20) / 24) : 1;
 
-    // Set bits follow the lowered position; cleared bits remain raised at normal position
     const isLoweredLabel = draw.isDepthBucket && cls.isSetBit;
     const labelPx = isLoweredLabel ? draw.drawSize : px;
     const labelX = isLoweredLabel ? draw.drawX : bitX;
     const labelY = isLoweredLabel ? draw.drawY : bitY;
-    const labelCtx = (layeredLoweredBits && isLoweredLabel) ? settledCtx : ctx;
 
     const baseFontSize = dualLine
       ? Math.max(5, Math.min(8, labelPx * 0.2))
       : Math.max(5, Math.min(9, labelPx * 0.34));
-    // Slightly shrink labels on lowered bits so the raised bits read as taller.
     const loweredLabelScale = isLoweredLabel ? 0.85 : 1;
     const fontSize = baseFontSize * zoomBoost * loweredLabelScale;
     const centerX = Math.round(labelX + labelPx / 2);
     const centerY = Math.round(labelY + labelPx / 2);
 
-    if (this.webglText && this._glyphCtx) {
-      // GL glyph path — skip the Canvas 2D context entirely.
-      const g = this._glyphCtx;
-      const [tr, tg, tb, ta] = this._labelTextColorGL(cls.color);
-      if (dualLine) {
-        g.drawText(lines[0], centerX, Math.round(labelY + labelPx * 0.32), fontSize,
-          tr, tg, tb, ta, 'center', 'middle');
-        g.drawText(lines[1], centerX, Math.round(labelY + labelPx * 0.7),
-          Math.max(4.5, fontSize - 0.25), tr, tg, tb, ta, 'center', 'middle');
-      } else {
-        g.drawText(lines[0], centerX, centerY, fontSize,
-          tr, tg, tb, ta, 'center', 'middle');
-      }
-      return;
-    }
-
-    const textColor = this._labelTextColor(cls.color);
-    labelCtx.textAlign = 'center';
-    labelCtx.textBaseline = 'middle';
+    if (!this._glyphCtx) return;
+    // GL glyph path — skip the Canvas 2D context entirely.
+    const g = this._glyphCtx;
+    const [tr, tg, tb, ta] = this._labelTextColorGL(cls.color);
     if (dualLine) {
-      labelCtx.fillStyle = textColor;
-      labelCtx.font = `${fontSize}px monospace`;
-      labelCtx.fillText(lines[0], centerX, Math.round(labelY + labelPx * 0.32));
-      labelCtx.font = `italic ${Math.max(4.5, fontSize - 0.25)}px monospace`;
-      labelCtx.fillText(lines[1], centerX, Math.round(labelY + labelPx * 0.7));
+      g.drawText(lines[0], centerX, Math.round(labelY + labelPx * 0.32), fontSize,
+        tr, tg, tb, ta, 'center', 'middle');
+      g.drawText(lines[1], centerX, Math.round(labelY + labelPx * 0.7),
+        Math.max(4.5, fontSize - 0.25), tr, tg, tb, ta, 'center', 'middle');
     } else {
-      labelCtx.fillStyle = textColor;
-      labelCtx.font = `${showNumberLabels ? 'italic ' : ''}${fontSize}px monospace`;
-      labelCtx.fillText(lines[0], centerX, centerY);
+      g.drawText(lines[0], centerX, centerY, fontSize,
+        tr, tg, tb, ta, 'center', 'middle');
     }
-    labelCtx.textAlign = 'start';
   }
 
 

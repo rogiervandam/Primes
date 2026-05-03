@@ -342,14 +342,13 @@ export default function Visualizer({
   }, [lineToStep]);
 
   const canvasRef = useRef(null);
-  const settledCanvasRef = useRef(null);
   const minimapCanvasRef = useRef(null);  const containerRef = useRef(null);
   const rendererRef = useRef(null);
   // WebGL bit-grid worker (see docs/AI_MAINTENANCE.md §8).
   const glCanvasRef = useRef(null);
   const glRendererRef = useRef(null);
   // WebGL glyph-text canvas: transparent overlay for GL-rendered per-cell
-  // labels and dots when layoutSettings.webglText is enabled.
+  // labels and dots.
   const glyphCanvasRef = useRef(null);
   const glyphRendererRef = useRef(null);
   // Wrapper div that receives the 3D CSS transform (translate + rotateX/Y)
@@ -540,7 +539,7 @@ export default function Visualizer({
   const [cachelineAnnotation, setCachelineAnnotation] = useState('none');
   const [primeOverlayEnabled, setPrimeOverlayEnabled] = useState(false);
   const [debugToolsOpen, setDebugToolsOpen] = useState(false);
-  const [debugLayerMode, setDebugLayerMode] = useState('normal'); // normal | gl-only | overlays-only
+  const [debugLayerMode, setDebugLayerMode] = useState('normal'); // retained for DebugToolsPanel only
   const [debugGlOffsetX, setDebugGlOffsetX] = useState(0); // manual trim
   const [debugGlOffsetY, setDebugGlOffsetY] = useState(0); // manual trim
   const [debugGlAutoOffsetY, setDebugGlAutoOffsetY] = useState(0);
@@ -682,10 +681,6 @@ export default function Visualizer({
     if (typeof snapshot?.zoom === 'number' && Number.isFinite(snapshot.zoom) && snapshot.zoom > 0) {
       rr.zoom = snapshot.zoom;
       setZoom(snapshot.zoom);
-    }
-
-    if (snapshot?.layerMode === 'normal' || snapshot?.layerMode === 'gl-only' || snapshot?.layerMode === 'overlays-only') {
-      setDebugLayerMode(snapshot.layerMode);
     }
 
     if (typeof snapshot?.manualOffsetY === 'number' && Number.isFinite(snapshot.manualOffsetY)) {
@@ -1441,7 +1436,6 @@ export default function Visualizer({
     rendererRef.current = r;
     if (canvasRef.current) {
       r.attach(canvasRef.current);
-      if (settledCanvasRef.current) r.attachSettledCanvas(settledCanvasRef.current);
       if (glCanvasRef.current) r.setGlCompositeSourceCanvas?.(glCanvasRef.current);
       if (minimapCanvasRef.current) r.attachMinimapCanvas(minimapCanvasRef.current);
 
@@ -1734,7 +1728,7 @@ export default function Visualizer({
     r.showByteLabels = layoutSettings.showByteLabels;
     r.showVectorLabels = layoutSettings.showVectorLabels !== false;
     r.showVectorTouchOrder = layoutSettings.showVectorTouchOrder === true;
-    r.webglText = layoutSettings.webglText === true;
+    r.webglText = true;
     r.bitLabelMode = layoutSettings.bitLabelMode || 'global';
     r.byteLabelMode = layoutSettings.byteLabelMode || 'group';
     r.horizontalGroups = Math.max(0, parseInt(layoutSettings.horizontalGroups || 0, 10) || 0);
@@ -5001,13 +4995,11 @@ export default function Visualizer({
           mode3D={mode3D}
           containerRef={containerRef}
           canvasRef={canvasRef}
-          settledCanvasRef={settledCanvasRef}
           glCanvasRef={glCanvasRef}
           glyphCanvasRef={glyphCanvasRef}
           wrapperCanvasRef={wrapperCanvasRef}
           glActive={true}
-          hideGlCanvas={compositeDirectGl && debugLayerMode === 'normal'}
-          debugLayerMode={debugLayerMode}
+          hideGlCanvas={compositeDirectGl}
           camera3DContainerStyle={mergedCamera3DContainerStyle}
           renderCanvasStyle={renderCanvasStyle}
           eventTitleSettings={eventTitleSettings}
