@@ -35,6 +35,9 @@ function CanvasStage({
   wrapperCanvasRef,
   // whether GL renderer is active (controls GL canvas visibility)
   glActive,
+  hideGlCanvas = false,
+  // debug layer isolation mode: normal | gl-only | overlays-only
+  debugLayerMode = 'normal',
   // styling
   camera3DContainerStyle,
   renderCanvasStyle,
@@ -137,17 +140,17 @@ function CanvasStage({
               renderer is active. Overlays/labels render on the Canvas2D layer on top. */}
           <canvas
             ref={glCanvasRef}
-            className={`gl-render-canvas${glActive ? '' : ' renderer-inactive'}`}
+            className={`gl-render-canvas${glActive ? '' : ' renderer-inactive'}${debugLayerMode === 'overlays-only' || hideGlCanvas ? ' debug-hidden' : ''}`}
             aria-hidden="true"
           />
           <canvas
             ref={settledCanvasRef}
-            className="settled-render-canvas"
+            className={`settled-render-canvas${debugLayerMode === 'gl-only' ? ' debug-hidden' : ''}`}
             aria-hidden="true"
           />
           <canvas
             ref={canvasRef}
-            className="main-render-canvas"
+            className={`main-render-canvas${debugLayerMode === 'gl-only' ? ' debug-hidden' : ''}`}
           />
         </div>
       </div>

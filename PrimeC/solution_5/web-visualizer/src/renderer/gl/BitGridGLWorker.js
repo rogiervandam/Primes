@@ -53,6 +53,47 @@ function isSafari() {
   return /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
 }
 
+function isChromiumFamily() {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  // Chrome / Edge / Chromium / Opera on desktop and iOS Chromium variants.
+  const chromiumLike = /(Chrome|Chromium|Edg|OPR|CriOS|EdgiOS)/i.test(ua);
+  return chromiumLike && !isSafari();
+}
+
+function getDirectModeCompositorSafeDimension() {
+  // Chromium can visually drift the GL layer when very large canvases are
+  // projected in 3D. Keeping direct-mode backing dimensions at or below ~8K
+  // avoids the compositor tiling path that exhibits this offset.
+  return isChromiumFamily() ? 8192 : Infinity;
+}
+
+/**
+ * Some browsers silently clamp HTMLCanvasElement backing dimensions below
+ * WebGL's reported MAX_* caps. Probe the real width limit by assignment.
+ */
+function detectCanvasBackingLimit(canvas, upperBound) {
+  const cap = Math.max(1, Math.floor(Math.min(upperBound || Infinity, 32768)));
+  let lo = 1;
+  let hi = cap;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi + 1) / 2);
+    let ok = false;
+    try {
+      canvas.width = mid;
+      ok = canvas.width === mid;
+    } catch {
+      ok = false;
+    }
+    if (ok) lo = mid;
+    else hi = mid - 1;
+  }
+  // Reset probe canvas to a tiny default so we don't retain large allocations.
+  canvas.width = 1;
+  canvas.height = 1;
+  return lo;
+}
+
 function getMaxGLCanvasDimension() {
   if (cachedMaxCanvasDimension != null) return cachedMaxCanvasDimension;
   if (typeof document === 'undefined') {
@@ -70,7 +111,9 @@ function getMaxGLCanvasDimension() {
     const maxViewportDim = Math.min(viewportDims[0] || Infinity, viewportDims[1] || Infinity);
     const maxRenderbufferSize = gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) || Infinity;
     const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) || Infinity;
-    cachedMaxCanvasDimension = Math.min(maxViewportDim, maxRenderbufferSize, maxTextureSize);
+    const maxByGLCaps = Math.min(maxViewportDim, maxRenderbufferSize, maxTextureSize);
+    const maxByCanvasBacking = detectCanvasBackingLimit(canvas, maxByGLCaps);
+    cachedMaxCanvasDimension = Math.min(maxByGLCaps, maxByCanvasBacking || Infinity);
   } catch {
     cachedMaxCanvasDimension = Number.POSITIVE_INFINITY;
   }
@@ -356,7 +399,8 @@ export class BitGridGLWorker {
       ? dprOverride
       : ((typeof window !== 'undefined' && window.devicePixelRatio) || 1);
     let dpr = Math.max(0.1, requestedDpr || 1);
-    const maxDim = this._maxCanvasDimension;
+    const compositorSafeDim = this._direct ? getDirectModeCompositorSafeDimension() : Infinity;
+    const maxDim = Math.min(this._maxCanvasDimension, compositorSafeDim);
     if (Number.isFinite(maxDim) && cssWidth > 0 && cssHeight > 0) {
       const maxDpr = Math.min(maxDim / cssWidth, maxDim / cssHeight);
       dpr = Math.max(0.1, Math.min(dpr, maxDpr));
@@ -455,6 +499,8 @@ export class BitGridGLWorker {
    */
   getDebugInfo() {
     const maxDim = this._maxCanvasDimension;
+    const directSafeDim = this._direct ? getDirectModeCompositorSafeDimension() : Infinity;
+    const effectiveMaxDim = Math.min(maxDim, directSafeDim);
     const metrics = getDisplayRiskMetrics(maxDim);
     
     return {
@@ -464,7 +510,10 @@ export class BitGridGLWorker {
       lost: this._lost,
       isSafari: isSafari(),
       isWorkerSupported: isWorkerGLSupported(),
+      isChromiumFamily: isChromiumFamily(),
       maxGLDimension: Number.isFinite(maxDim) ? maxDim : 'Infinity',
+      directCompositorSafeDimension: Number.isFinite(directSafeDim) ? directSafeDim : 'Infinity',
+      effectiveMaxBackingDimension: Number.isFinite(effectiveMaxDim) ? effectiveMaxDim : 'Infinity',
       devicePixelRatio: metrics.dpr,
       viewportWidth: metrics.viewportW,
       viewportHeight: metrics.viewportH,

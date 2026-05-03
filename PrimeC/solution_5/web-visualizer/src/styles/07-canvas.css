@@ -616,6 +616,10 @@
 .canvas-container .main-render-canvas {
   z-index: 2;
 }
+.canvas-container canvas.debug-hidden {
+  opacity: 0 !important;
+  pointer-events: none;
+}
 .canvas-container.dragging { cursor: grabbing; }
 .canvas-container canvas {
   display: block;

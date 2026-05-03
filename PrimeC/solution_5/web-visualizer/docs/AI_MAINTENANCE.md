@@ -427,6 +427,226 @@ Left to do:
   layout availability changes. Debug export now also reports these fields for
   breakpoint capture verification.
 
+  GL/Canvas2D breakpoint hardening (round 22, direct-mode force-repack):
+  at extreme canvas sizes in direct mode, reports still showed exact origin math
+  (`bit0` parity and zero rect deltas) while users observed visual disconnect.
+  To rule out any residual position-texture cache edge case, the patched GL render
+  path in `Visualizer.jsx` now forces `uploadPositions()` every frame when
+  `isDirectMode()` is true (fingerprint bypass). Worker mode keeps fingerprint-based
+  incremental uploads. This is a targeted safety path for the near-gpu-limit direct
+  scenario.
+
+  GL/Canvas2D breakpoint triage tooling (round 23, layer isolation mode):
+  when debug metrics all agree (matching rects, bit0 parity, same transforms) but
+  users still see a disconnect, the next question is whether it is a coordinate
+  mismatch or a multi-layer 3D compositing artifact. Added debug layer isolation
+  control wired through `Visualizer.jsx` -> `CanvasStage.jsx` -> `DebugToolsPanel.jsx`:
+  `normal` / `gl-only` / `overlays-only`. Can be cycled via button in Debug Tools
+  or `V` keyboard shortcut while the panel is open. The selected mode is included
+  in copied debug reports (`Layer Mode:`) so breakpoint captures remain comparable.
+
+  Debug visibility upgrade (round 24, full report shown in-panel):
+  users needed the exact full diagnostic block visible without copying to clipboard.
+  `DebugToolsPanel.jsx` now renders `FULL DEBUG REPORT (LIVE)` as a scrollable
+  monospace `<pre>` that mirrors `buildDebugReport()` output exactly (same fields
+  as clipboard export: mode, risk, viewport/canvas/backing, camera/applied angles,
+  layer mode, renderer state, layout freeze fields, GL worker state, rect deltas,
+  transforms, and bit0 parity lines).
+
+  GL alignment hardening (round 25, real backing-size cap probe):
+  breakpoint reports showed exact pan/origin math and zero rect deltas, while GL-only
+  still drifted at large widths. A likely root cause is that browser canvas backing
+  limits can be lower than reported WebGL caps (`MAX_TEXTURE_SIZE` etc.), causing
+  implicit backing-size clamp and projection mismatch at large CSS widths.
+  `BitGridGLWorker.getMaxGLCanvasDimension()` now combines GL caps with a real
+  HTMLCanvas backing-size probe (`canvas.width` assignment binary search) and uses
+  the minimum. This keeps resize DPR clamping and near-limit decisions aligned with
+  the actual drawable backing-store limit on the running browser/GPU.
+
+  GL alignment hardening (round 26, Chromium direct-mode compositor cap):
+  user breakpoints still showed exact math parity (`bit0` parity, zero GL/Main
+  rect deltas, matching camera/applied transforms) while GL-only visuals drifted
+  in Chromium at very wide canvas sizes; Safari remained correct. This points to
+  a browser compositor path issue rather than coordinate math. `BitGridGLWorker`
+  now applies an additional direct-mode safe backing cap on Chromium-family
+  browsers (`8192` px max dimension) by lowering effective DPR when needed.
+  This keeps very large direct-mode GL canvases out of the compositor tiling
+  regime that can offset projected WebGL layers. Debug output now reports both
+  `directCompositorSafeDimension` and `effectiveMaxBackingDimension` so future
+  breakpoint captures can confirm when the cap is engaged.
+
+  GL alignment hardening (round 27, normalized position texture coordinates):
+  the compositor cap engaged correctly in both good and bad Chromium breakpoints,
+  but the wide case still drifted while Safari remained correct. That ruled out
+  the backing-size cap as the sole cause and shifted suspicion to browser-specific
+  handling of large canvas-space position values in the GL position texture path.
+  `hostStatePacker.packPositions()` now stores pan-independent positions normalized
+  by canvas CSS width/height, and the vertex shader reconstructs CSS-space by
+  multiplying by `u_canvasSize`. This keeps texture payload values near 0..1
+  instead of large absolute canvas coordinates and removes another large-number
+  numeric path from Chromium direct-mode rendering.
+
+  GL alignment hardening (round 28, shared direct-mode DPR across sibling canvases):
+  later breakpoint captures showed the bad cases lining up with a much smaller
+  GL effective DPR (`_dpr ~= 0.58`) while Canvas2D overlays still rendered at the
+  full window DPR. The CPU-side coordinate math remained correct, and both canvas
+  elements reported identical projected rects, which points to Chromium applying
+  different bitmap-to-CSS scaling paths to sibling canvases inside the same 3D
+  transform. Fix: when GL is in direct mode, `Visualizer.refreshCanvasLayout()` now
+  asks `BitGridGLWorker` for its effective DPR first and passes that same DPR into
+  `SieveRenderer.resize()`. The overlay canvases and GL canvas therefore share the
+  same backing-to-CSS ratio under the wrapper transform instead of only sharing the
+  same CSS box size. `Visualizer` also now treats `canvasWidth/canvasHeight` as the
+  source of truth for GL CSS size, rather than re-deriving CSS dimensions by dividing
+  the overlay canvas backing size by `window.devicePixelRatio`.
+
+  GL alignment hardening (round 29, Canvas2D actual-DPR accounting):
+  after introducing override DPR for the Canvas2D layers, some renderer internals
+  still derived logical canvas size from `window.devicePixelRatio`. That became
+  wrong whenever direct-mode GL forced an effective DPR below the window DPR.
+  `SieveRenderer` now tracks `canvasDpr` explicitly and uses it for logical
+  width/height calculations (`_buildFrameContext`, `_computeClPerVRow` fallback)
+  so internal clipping and clear passes reflect the canvas' real backing ratio.
+
+  GL alignment hardening (round 30, composite direct-mode GL through Canvas2D):
+  even with shared DPR and corrected Canvas2D accounting, Chromium still showed
+  misalignment once the live WebGL canvas was heavily upscaled in direct mode,
+  while Safari remained correct. The remaining differentiator was the WebGL canvas
+  element itself. In risky direct-mode cases (`effectiveDpr < 1`), `Visualizer`
+  now renders GL first, then `SieveRenderer` composites that GL canvas into the
+  main 2D canvas via `drawImage(...)` before drawing overlays. In normal mode the
+  live GL element is hidden while this composited path is active, so Chromium no
+  longer has to project the WebGL canvas element directly under the large CSS/3D
+  transform. Debug isolation modes still keep the live GL canvas available.
+
+  GL alignment hardening (round 31, logical-size source-of-truth consistency):
+  post-round-30 reports showed X alignment fixed but a remaining Y-only offset.
+  Root signal: when DPR is clamped, backing sizes are rounded per-axis, so
+  re-deriving logical size from `canvas.width / dpr` can produce axis-specific
+  fractional drift. `SieveRenderer` now consistently treats `canvasWidth` /
+  `canvasHeight` as the logical-size source of truth (with backing/dpr only as
+  fallback), including frame context sizing, cacheline overlay visible-range math,
+  ripple culling bounds, and GL-composite destination dimensions. Debug output now
+  reports renderer logical canvas size and renderer DPR explicitly so dumps no
+  longer imply `window.devicePixelRatio` is always the active 2D canvas DPR.
+
+  GL alignment tooling (round 32, manual Y calibration control):
+  user validation showed X alignment corrected with a remaining Y-only offset at
+  wide direct-mode breakpoints. Added a temporary debug calibration control in
+  `DebugToolsPanel`: `GL Y Offset (debug calibration)` slider/buttons
+  (`-400..+400 px`, step 1, quick +/-10 and reset). The value is applied to both
+  paths: (1) live GL canvas positioning (`glCanvas.style.top`) and (2) the
+  direct-mode GL->Canvas2D compositing destination Y in `SieveRenderer`.
+  The offset is included in copied/live debug reports (`GL Y Offset (debug):`)
+  so measured compensation-vs-viewport can be captured and fitted into an
+  automatic correction curve if needed.
+
+  GL alignment hardening (round 33, auto Y compensation + manual trim):
+  user-provided calibration points showed a repeatable trend: Y offset increases
+  as effective DPR drops below ~0.9 and rises further with tilt/perspective.
+  `Visualizer` now computes an automatic Y compensation in direct mode:
+  `offset ≈ cssHeight * max(0, 1 - effectiveDpr - 0.08) * (0.48 + 0.80*tiltStrength)`
+  where `tiltStrength = hypot(sin(|rx|), sin(|ry|))` from applied camera angles.
+  This auto value is applied to both live GL canvas positioning and GL->2D
+  compositing. The debug slider remains as a manual trim on top. Debug reports
+  now include auto/manual/total Y offsets so model tuning can be done from
+  captured breakpoints without guessing.
+
+  GL alignment hardening (round 34, auto model retune from residuals):
+  new calibration samples still needed manual trims (`+60`, `+110`, `+280`) at
+  different DPR/tilt points. Auto compensation was underestimating medium tilt
+  and some 2D-wide cases. Updated model:
+  `offset ≈ cssHeight * max(0, 1 - effectiveDpr - 0.08) * factor`
+  with `factor = min(1.32, 0.56 + 0.24*t + 3.95*t^2)` and
+  `t = hypot(sin(|rx|), sin(|ry|))`.
+  This keeps low-tilt behavior near previous values while increasing medium-tilt
+  response and capping extremes to avoid runaway over-correction.
+
+  GL alignment hardening (round 35, low-tilt residual trim):
+  follow-up samples showed modest over-correction in low-tilt / near-2D cases
+  (manual residuals around `-17` to `-28` px), while medium-tilt response was
+  acceptable. Coefficients were adjusted to slightly lower the base factor and
+  preserve tilt growth:
+  `factor = min(1.32, 0.54 + 0.24*t + 4.05*t^2)`.
+  Net effect: less correction at `t≈0`, nearly unchanged correction at
+  medium tilt, and capped high-tilt behavior retained.
+
+  GL alignment hardening (round 36, high-DPR tilt uplift):
+  additional sample at `dpr≈0.84`, `tilt≈14.4°` still required significant
+  positive manual trim, indicating under-correction in the small-deficit /
+  non-zero-tilt corner. Added a bounded uplift term on top of the base model:
+  `uplift = cssHeight * tiltStrength * max(0, (0.14 - dprDeficit)/0.14) * 0.27`
+  and `offset = base + uplift`.
+  This selectively increases compensation when DPR deficit is modest but tilt is
+  present, while leaving low-DPR cases mostly unchanged.
+
+  Debug calibration workflow (round 37, paste/apply snapshot):
+  to speed iterative re-checks, `DebugToolsPanel` now supports importing old
+  debug dumps. A new `IMPORT SNAPSHOT (PASTE)` textarea + `Apply Pasted Snapshot`
+  button parses key fields from pasted text (`Zoom`, `panX`, `panY`, applied
+  rotate X/Y, `Layer Mode`, and manual GL Y offset) and applies them through
+  `Visualizer` via `applyDebugSnapshot`. This lets users jump back to the same
+  captured pose quickly, then report new manual residuals after model retunes.
+  Manual input remains explicitly present in the report as
+  `GL Y Offset (manual)` and `GL Y Offset (total)`.
+
+  GL alignment hardening (round 38, small-deficit tilt bridge):
+  new telemetry showed a failure case where effective DPR was only slightly
+  below 1 (`~0.97`) but tilted direct mode still needed a large positive Y
+  compensation, while true DPR=1 cases remained near zero. The auto model in
+  `computeAutoGlYOffset` now treats these separately: it keeps a hard guard for
+  near-exact DPR=1 (`rawDeficit < 0.01 => 0 offset`), preserves the prior
+  high-deficit behavior (`max(0, rawDeficit - 0.08)`), and adds a
+  tilt-weighted bridge term for the 0.95-0.99 DPR range where Chromium still
+  drifts under projection. The high-DPR uplift now keys off `rawDeficit`
+  directly with a lower coefficient to avoid over-correction.
+
+  GL alignment hardening (round 39, high-deficit tilt damping):
+  subsequent wide-screen samples (`dpr~0.59`, `tilt~18 deg`) showed that round
+  38 could over-correct heavily in tilted high-deficit direct mode (auto near
+  +1425 while manual residual was about -302). `computeAutoGlYOffset` now adds
+  a damping term tied to `rawDeficit * tiltStrength` in the factor curve,
+  clamped with a floor, so tilt amplification tapers as DPR deficit grows.
+  At the same time, the high-DPR uplift coefficient was nudged up slightly so
+  small-deficit tilted cases (e.g. `dpr~0.97`) still receive meaningful auto
+  compensation. Net intent: reduce overshoot in extreme wide+tilt breakpoints
+  without regressing near-1 DPR tilt fixes.
+
+  GL alignment hardening (round 40, residual trim term):
+  follow-up telemetry after round 39 was close but still showed opposite-sign
+  residuals in two high-deficit cases: about `-15` px in a tilted wide case and
+  about `+12` px in a flat case. Added a small residual term
+  `h * rawDeficit * (0.01 - 0.06 * tiltStrength)` on top of base+uplift. This
+  slightly increases compensation for flat high-deficit scenes and slightly
+  reduces compensation for tilted high-deficit scenes, while staying near-zero
+  for near-1 DPR cases due to `rawDeficit` scaling.
+
+  GL alignment hardening (round 41, width-aware residual gate):
+  new telemetry from very wide direct-mode scenes (`cssWidth ~13.2k-15.5k`) at
+  `dpr ~0.53-0.62` showed under-correction returning (+95 to +172 manual) while
+  previously calibrated narrower cases stayed accurate. `computeAutoGlYOffset`
+  now accepts `cssWidth` and adds a width-gated residual term that ramps in for
+  ultra-wide canvases (`widthGate` starting near 12.5k CSS px), uses a
+  medium-tilt emphasis, and suppresses at high tilt (`highTiltGate`) to avoid
+  regressing prior high-tilt matches. This targets the new ultra-wide misses
+  without re-opening already-stable ranges.
+
+  GL alignment hardening (round 42, mid-width residual lane):
+  further data at narrower widths (`cssWidth ~10.0k-11.7k`, `dpr ~0.70-0.82`)
+  still required positive manual offsets (+52 to +120), indicating this band
+  behaves differently from both previously fixed ultra-wide scenes and earlier
+  near-1 DPR cases. Added a dedicated mid-width residual term in
+  `computeAutoGlYOffset` with a separate gate (ramp-in near 9.6k, ramp-out near
+  12.15k), tilt-dependent factor, and medium-tilt dampening. This lets us lift
+  compensation in the mid-width band without over-driving the ultra-wide lane.
+
+  GL alignment validation (round 43, convergence check):
+  rerunning the four 3127x1197 calibration scenes after round 42 reduced manual
+  trims from large positives to near-zero residuals (`+14`, `-4`, `+7`, `-17`).
+  This indicates the current model shape now spans the practical direct-mode
+  width/tilt ranges tested so far (mid-width and ultra-wide) without requiring
+  ongoing manual correction for baseline use.
+
 ### 5. Improve Widget And Panel Workflows
 
 Done: all-events and single-event widgets can be joined/split; widget drag

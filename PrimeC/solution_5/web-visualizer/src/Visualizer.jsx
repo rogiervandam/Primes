@@ -126,6 +126,86 @@ function computeSafeTiltDegrees(canvasHeight, perspective = 1500) {
   return Math.max(8, Math.min(65, deg));
 }
 
+function computeAutoGlYOffset(cssHeight, effectiveDpr, rotateXDeg = 0, rotateYDeg = 0, cssWidth = 0) {
+  const h = Math.max(1, Number(cssHeight) || 1);
+  const w = Math.max(1, Number(cssWidth) || 1);
+  const dpr = Math.max(0.1, Number(effectiveDpr) || 1);
+  const rawDeficit = Math.max(0, 1 - dpr);
+  // At true DPR=1 (or effectively equal after rounding), keep auto offset off.
+  if (rawDeficit < 0.01) return 0;
+  const ax = Math.abs(Number(rotateXDeg) || 0) * Math.PI / 180;
+  const ay = Math.abs(Number(rotateYDeg) || 0) * Math.PI / 180;
+  const tiltStrength = Math.min(1, Math.hypot(Math.sin(ax), Math.sin(ay)));
+  // Keep the existing high-deficit behavior (subtracting the 0.08 dead-zone),
+  // but add a tilt-weighted bridge for small deficits (e.g. dpr 0.95-0.99)
+  // where Chromium still shows visible Y drift in direct mode.
+  const deficitBase = Math.max(0, rawDeficit - 0.08);
+  const deficitBridge = Math.max(0, 0.08 - rawDeficit) * tiltStrength * 0.9;
+  const dprDeficit = deficitBase + deficitBridge;
+  if (dprDeficit <= 0) return 0;
+  // Calibrated from user measurements:
+  // - 2D/high-width cases need a stronger base than the previous model
+  // - modest tilt needs only a small bump
+  // - medium tilt ramps quickly (Chromium compositor projection path)
+  // A cap avoids over-correction for extreme rotations.
+  const factorRaw = (
+    0.54
+    + 0.24 * tiltStrength
+    + 4.05 * tiltStrength * tiltStrength
+    // New samples show high-deficit tilted cases can over-correct; damp tilt
+    // response as raw DPR deficit grows so wide direct-mode scenes stay stable.
+    - 1.6 * rawDeficit * tiltStrength
+  );
+  const factor = Math.min(1.32, Math.max(0.35, factorRaw));
+  const basePx = h * dprDeficit * factor;
+  // When DPR deficit is small but tilt is non-zero, Chromium can still exhibit
+  // a noticeable residual Y shift. Add a bounded uplift in this corner only.
+  const highDprTiltUplift = Math.max(0, (0.14 - rawDeficit) / 0.14);
+  const upliftPx = h * tiltStrength * highDprTiltUplift * 0.15;
+  // Residual trim from recent calibration pairs:
+  // - high-deficit + no tilt tends to under-correct slightly
+  // - high-deficit + tilt tends to over-correct slightly
+  // Keep this term small and deficit-scaled so near-1 DPR behavior stays stable.
+  const residualTrimPx = h * rawDeficit * (0.01 - 0.06 * tiltStrength);
+
+  // Ultra-wide near-limit scenes can still need extra Y compensation even when
+  // narrower canvases are already calibrated. Gate this term by width and
+  // suppress at high tilt so previously matched wide-tilt cases stay stable.
+  const widthGate = Math.max(0, Math.min(1, (w - 12500) / 1000));
+  const mediumTilt = Math.max(0, Math.min(1, 1 - Math.abs(tiltStrength - 0.16) / 0.15));
+  const mediumTiltDamp = 1 - Math.min(0.5, Math.max(0, (tiltStrength - 0.16) / 0.14));
+  const highTiltGate = Math.max(0, Math.min(1, (0.32 - tiltStrength) / 0.12));
+  const wideResidualFactor = Math.max(
+    0,
+    0.085
+      + 0.06 * tiltStrength
+      + 0.06 * mediumTilt
+      - 0.9 * tiltStrength * tiltStrength,
+  );
+  const wideResidualPx = h
+    * rawDeficit
+    * wideResidualFactor
+    * widthGate
+    * mediumTiltDamp
+    * highTiltGate;
+
+  // Mid-wide scenes (~10k-12k CSS width) showed a separate under-correction
+  // pattern after ultra-wide tuning. Use a dedicated gate so this band can be
+  // corrected without pushing already-calibrated ultra-wide cases.
+  const midWidthRampIn = Math.max(0, Math.min(1, (w - 9600) / 1300));
+  const midWidthRampOut = Math.max(0, Math.min(1, (12150 - w) / 900));
+  const midWidthGate = midWidthRampIn * midWidthRampOut;
+  const midWidthTiltFactor = Math.max(0.05, 0.25 - 0.42 * tiltStrength);
+  const midWidthMediumTiltDamp = 1 - 0.35 * mediumTilt;
+  const midWidthResidualPx = h
+    * rawDeficit
+    * midWidthGate
+    * midWidthTiltFactor
+    * midWidthMediumTiltDamp;
+
+  return Math.round(basePx + upliftPx + residualTrimPx + wideResidualPx + midWidthResidualPx);
+}
+
 /**
  * Top-level visualizer component. Owns all playback, rendering, and UI state.
  *
@@ -389,6 +469,10 @@ export default function Visualizer({
   const [cachelineAnnotation, setCachelineAnnotation] = useState('none');
   const [primeOverlayEnabled, setPrimeOverlayEnabled] = useState(false);
   const [debugToolsOpen, setDebugToolsOpen] = useState(false);
+  const [debugLayerMode, setDebugLayerMode] = useState('normal'); // normal | gl-only | overlays-only
+  const [debugGlOffsetY, setDebugGlOffsetY] = useState(0); // manual trim
+  const [debugGlAutoOffsetY, setDebugGlAutoOffsetY] = useState(0);
+  const [compositeDirectGl, setCompositeDirectGl] = useState(false);
   const [rangeOverlayEnabled, setRangeOverlayEnabled] = useState(false);
   const [rangeOverlayStart, setRangeOverlayStart] = useState(0);
   const [rangeOverlayEnd, setRangeOverlayEnd] = useState(0);
@@ -485,11 +569,15 @@ export default function Visualizer({
   const glCssUnlockRafRef = useRef(null);
   const glCssUnlockTimeoutRef = useRef(null);
   const glCssLockStateRef = useRef(null);
+  const debugGlOffsetYRef = useRef(0);
+  const debugGlAutoOffsetYRef = useRef(0);
   const glDebugLastUpdateRef = useRef(0);
 
   stepsRef.current = steps;
   currentStepRef.current = currentStep;
   selectedStepsRef.current = selectedSteps;
+  debugGlOffsetYRef.current = debugGlOffsetY;
+  debugGlAutoOffsetYRef.current = debugGlAutoOffsetY;
 
   const updateGlDebugInfo = useCallback((force = false) => {
     const gl = glRendererRef.current;
@@ -499,6 +587,59 @@ export default function Visualizer({
     glDebugLastUpdateRef.current = now;
     setGlDebugInfo(gl.getDebugInfo());
   }, []);
+
+  // Keep refs in sync for use in callbacks
+  const getMinimapDetailH = useCallback(() => {
+    const panelEl = document.querySelector('.detail-panel');
+    if (panelEl) {
+      const rect = panelEl.getBoundingClientRect();
+      if (rect.height > 0) return Math.round(rect.height);
+    }
+    return detailOpenRef.current ? detailHeightRef.current : 36;
+  }, []);
+
+  const applyDebugSnapshot = useCallback((snapshot) => {
+    const rr = rendererRef.current;
+    if (!rr) return { ok: false, message: 'Renderer not ready' };
+
+    if (typeof snapshot?.panX === 'number') rr.panX = snapshot.panX;
+    if (typeof snapshot?.panY === 'number') rr.panY = snapshot.panY;
+    if (typeof snapshot?.zoom === 'number' && Number.isFinite(snapshot.zoom) && snapshot.zoom > 0) {
+      rr.zoom = snapshot.zoom;
+      setZoom(snapshot.zoom);
+    }
+
+    if (snapshot?.layerMode === 'normal' || snapshot?.layerMode === 'gl-only' || snapshot?.layerMode === 'overlays-only') {
+      setDebugLayerMode(snapshot.layerMode);
+    }
+
+    if (typeof snapshot?.manualOffsetY === 'number' && Number.isFinite(snapshot.manualOffsetY)) {
+      setDebugGlOffsetY(snapshot.manualOffsetY);
+    }
+
+    const cam = camera3DRef.current;
+    if (cam && cam.enabled) {
+      let changed = false;
+      if (typeof snapshot?.rotateX === 'number' && Number.isFinite(snapshot.rotateX)) {
+        const lim = Number.isFinite(cam.maxTilt) ? Math.abs(cam.maxTilt) : 89;
+        cam.rotateX = Math.max(-lim, Math.min(lim, snapshot.rotateX));
+        changed = true;
+      }
+      if (typeof snapshot?.rotateY === 'number' && Number.isFinite(snapshot.rotateY)) {
+        const lim = Number.isFinite(cam.maxTilt) ? Math.abs(cam.maxTilt) : 89;
+        cam.rotateY = Math.max(-lim, Math.min(lim, snapshot.rotateY));
+        changed = true;
+      }
+      if (changed) {
+        setCamera3DTransform(cam.getCanvasTransform());
+        setCamera3DContainerStyle(cam.getContainerStyle());
+      }
+    }
+
+    rr.render();
+    rr.renderMinimap(rr.canvasWidth, rr.canvasHeight, getMinimapDetailH());
+    return { ok: true, message: 'Snapshot applied' };
+  }, [setCamera3DTransform, setCamera3DContainerStyle, getMinimapDetailH]);
 
   /** Miller-Rabin primality test — deterministic for all n < 3,215,031,751 */
   const isPrimeNumber = useCallback((n) => {
@@ -564,16 +705,6 @@ export default function Visualizer({
       clearTimeout(glCssUnlockTimeoutRef.current);
       glCssUnlockTimeoutRef.current = null;
     }
-  }, []);
-
-  // Keep refs in sync for use in callbacks
-  const getMinimapDetailH = useCallback(() => {
-    const panelEl = document.querySelector('.detail-panel');
-    if (panelEl) {
-      const rect = panelEl.getBoundingClientRect();
-      if (rect.height > 0) return Math.round(rect.height);
-    }
-    return detailOpenRef.current ? detailHeightRef.current : 36;
   }, []);
 
   // Wrap setDetailOpen/setDetailHeight to keep refs updated
@@ -734,7 +865,16 @@ export default function Visualizer({
 
     const oldCanvasW = r.canvasWidth || 0;
     const oldCanvasH = r.canvasHeight || 0;
-    r.resize(canvasW, canvasH);
+    const glRenderer = glRendererRef.current;
+    const glDirectMode = !!(glRenderer && typeof glRenderer.isDirectMode === 'function' && glRenderer.isDirectMode());
+    let overlayDpr = null;
+    if (glRenderer) {
+      glRenderer.resize(canvasW, canvasH);
+      if (glDirectMode && typeof glRenderer.getEffectiveDpr === 'function') {
+        overlayDpr = glRenderer.getEffectiveDpr();
+      }
+    }
+    r.resize(canvasW, canvasH, overlayDpr);
     // Sync wrapper div and GL canvas dimensions so translate(-50%,-50%) in
     // renderCanvasStyle computes the correct pixel shift (50% of the wrapper's
     // own size) and the GL canvas CSS display always matches Canvas2D.
@@ -760,15 +900,27 @@ export default function Visualizer({
       wrapperEl.style.height = `${canvasH}px`;
     }
     const glEl = glCanvasRef.current;
-    const glRenderer = glRendererRef.current;
-    const glDirectMode = !!(glRenderer && typeof glRenderer.isDirectMode === 'function' && glRenderer.isDirectMode());
     const glSizeChanging = glEl && (canvasW !== oldCanvasW || canvasH !== oldCanvasH);
+    const appliedAngles = parseAppliedRotateAngles(camera3DTransform);
+    let autoGlOffsetY = 0;
+    if (glDirectMode && glRenderer && typeof glRenderer.getEffectiveDpr === 'function') {
+      autoGlOffsetY = computeAutoGlYOffset(
+        canvasH,
+        glRenderer.getEffectiveDpr(),
+        appliedAngles.rotateX,
+        appliedAngles.rotateY,
+        canvasW,
+      );
+    }
+    debugGlAutoOffsetYRef.current = autoGlOffsetY;
+    setDebugGlAutoOffsetY((prev) => (prev === autoGlOffsetY ? prev : autoGlOffsetY));
+    const totalGlOffsetY = autoGlOffsetY + (debugGlOffsetYRef.current || 0);
     if (glEl) {
       // Always keep GL anchored from top-left with explicit size. Chromium can
       // behave inconsistently when right/bottom constraints remain active while
       // width/height are also assigned dynamically.
       glEl.style.left = '0px';
-      glEl.style.top = '0px';
+      glEl.style.top = `${totalGlOffsetY}px`;
       glEl.style.right = 'auto';
       glEl.style.bottom = 'auto';
       if (glDirectMode) {
@@ -940,7 +1092,7 @@ export default function Visualizer({
     }
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
-  }, [getCanvasTargetSize, showMinimap, getMinimapDetailH, updateMinimapAvailability, setCamera3DTransform, setCamera3DContainerStyle]);
+  }, [getCanvasTargetSize, showMinimap, getMinimapDetailH, updateMinimapAvailability, setCamera3DTransform, setCamera3DContainerStyle, debugGlOffsetY]);
 
   // Keep the canvas pinned to the VIEWPORT center (not the container
   // center) so panel collapse/expand transitions don't slide the
@@ -1190,6 +1342,7 @@ export default function Visualizer({
     if (canvasRef.current) {
       r.attach(canvasRef.current);
       if (settledCanvasRef.current) r.attachSettledCanvas(settledCanvasRef.current);
+      if (glCanvasRef.current) r.setGlCompositeSourceCanvas?.(glCanvasRef.current);
       if (minimapCanvasRef.current) r.attachMinimapCanvas(minimapCanvasRef.current);
       r.storageModel = header.storageModel || 'half';
       r.wheelDefinition = wheelDefinition;
@@ -1230,12 +1383,17 @@ export default function Visualizer({
           r.render = () => {
             const g = glRendererRef.current;
             const rr = rendererRef.current;
-            origRender();
             if (!g || !rr || !rr.canvas) return;
-            const dpr = window.devicePixelRatio || 1;
-            const cssW = rr.canvas.width / dpr;
-            const cssH = rr.canvas.height / dpr;
+            const cssW = rr.canvasWidth || 0;
+            const cssH = rr.canvasHeight || 0;
             g.resize(cssW, cssH);
+            const directMode = typeof g.isDirectMode === 'function' && g.isDirectMode();
+            const compositeGl = directMode
+              && typeof g.getEffectiveDpr === 'function'
+              && g.getEffectiveDpr() < 0.995;
+            rr.setCompositeGLInto2D?.(compositeGl);
+            rr.setGlCompositeOffsetY?.((debugGlAutoOffsetYRef.current || 0) + (debugGlOffsetYRef.current || 0));
+            setCompositeDirectGl((prev) => (prev === compositeGl ? prev : compositeGl));
 
             // Layout fingerprint — only repack the position texture when one
             // of these inputs changes. Pan is excluded (applied as a uniform).
@@ -1252,7 +1410,10 @@ export default function Visualizer({
               wheelSignature(rr.wheelDefinition),
               cssW, cssH,
             ].join('|');
-            g.uploadPositions(rr, fp);
+            // Direct mode renders synchronously and is used on high-risk large
+            // canvases. Repack positions every frame there to eliminate any
+            // stale-fingerprint edge cases at resize/tilt breakpoints.
+            g.uploadPositions(rr, directMode ? '' : fp);
             g.uploadState(rr);
             g.uploadAnim(rr);
 
@@ -1272,6 +1433,12 @@ export default function Visualizer({
               baseAlpha: Math.max(0.12, Math.min(1, rr.gridOpacity ?? 1)),
               loweredActive: rr.loweredSetBits ? 1.0 : 0.0,
             });
+            if (compositeGl) {
+              origRender();
+            } else {
+              rr.setCompositeGLInto2D?.(false);
+              origRender();
+            }
             updateGlDebugInfo(false);
             return renderSeq;
           };
@@ -1773,7 +1940,16 @@ export default function Visualizer({
       const rect = el.getBoundingClientRect();
       const { canvasW, canvasH } = getCanvasTargetSize(rect.width, rect.height);
       if (!initialFitDoneRef.current && (r.canvasWidth !== canvasW || r.canvasHeight !== canvasH)) {
-        r.resize(canvasW, canvasH);
+        const g = glRendererRef.current;
+        const directMode = !!(g && typeof g.isDirectMode === 'function' && g.isDirectMode());
+        let overlayDpr = null;
+        if (g) {
+          g.resize(canvasW, canvasH);
+          if (directMode && typeof g.getEffectiveDpr === 'function') {
+            overlayDpr = g.getEffectiveDpr();
+          }
+        }
+        r.resize(canvasW, canvasH, overlayDpr);
       }
       // Same as refreshCanvasLayout: layout columns target a stable
       // window-anchored size so panel toggles don't reflow.
@@ -1791,7 +1967,7 @@ export default function Visualizer({
     }
     r.render();
     updateMinimapAvailability();
-    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+    r.renderMinimap(r.canvasWidth, r.canvasHeight, getMinimapDetailH());
     setCurrentStep(target);
 
     // Trigger animation for changed bits
@@ -4694,6 +4870,8 @@ export default function Visualizer({
           glCanvasRef={glCanvasRef}
           wrapperCanvasRef={wrapperCanvasRef}
           glActive={true}
+          hideGlCanvas={compositeDirectGl && debugLayerMode === 'normal'}
+          debugLayerMode={debugLayerMode}
           camera3DContainerStyle={mergedCamera3DContainerStyle}
           renderCanvasStyle={renderCanvasStyle}
           eventTitleSettings={eventTitleSettings}
@@ -4889,6 +5067,12 @@ export default function Visualizer({
             zoomLevel={zoom}
             glDebugInfo={glDebugInfo}
             theme={theme}
+            debugLayerMode={debugLayerMode}
+            setDebugLayerMode={setDebugLayerMode}
+            debugGlOffsetY={debugGlOffsetY}
+            setDebugGlOffsetY={setDebugGlOffsetY}
+            debugGlAutoOffsetY={debugGlAutoOffsetY}
+            onApplyDebugSnapshot={applyDebugSnapshot}
             rightOffset={settingsCollapsed ? 8 : (isMacPlatform ? 388 : 328)}
           />
         )}

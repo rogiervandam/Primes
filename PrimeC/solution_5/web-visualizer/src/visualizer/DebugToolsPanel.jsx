@@ -34,6 +34,37 @@ function parseAppliedRotateAngles(transformStr) {
   };
 }
 
+function parseDebugSnapshotText(text) {
+  if (!text || typeof text !== 'string') return null;
+  const pickNumber = (label) => {
+    const rx = new RegExp(`${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:\\s*(-?\\d+(?:\\.\\d+)?)`, 'i');
+    const m = rx.exec(text);
+    return m ? Number(m[1]) : null;
+  };
+  const pickLayer = () => {
+    const m = /Layer Mode\s*:\s*(normal|gl-only|overlays-only)/i.exec(text);
+    return m ? m[1].toLowerCase() : null;
+  };
+  const zoom = pickNumber('Zoom');
+  const panX = pickNumber('panX');
+  const panY = pickNumber('panY');
+  const rotateX = pickNumber('Rotate X \(applied\)');
+  const rotateY = pickNumber('Rotate Y \(applied\)');
+  const manualOffset = pickNumber('GL Y Offset \(manual\)') ?? pickNumber('GL Y Offset \(debug\)');
+  const layerMode = pickLayer();
+  const hasAny = [zoom, panX, panY, rotateX, rotateY, manualOffset].some((v) => Number.isFinite(v)) || !!layerMode;
+  if (!hasAny) return null;
+  return {
+    zoom: Number.isFinite(zoom) ? zoom : undefined,
+    panX: Number.isFinite(panX) ? panX : undefined,
+    panY: Number.isFinite(panY) ? panY : undefined,
+    rotateX: Number.isFinite(rotateX) ? rotateX : undefined,
+    rotateY: Number.isFinite(rotateY) ? rotateY : undefined,
+    manualOffsetY: Number.isFinite(manualOffset) ? manualOffset : undefined,
+    layerMode: layerMode || undefined,
+  };
+}
+
 export default function DebugToolsPanel({
   rendererRef,
   glCanvasRef = null,
@@ -43,11 +74,19 @@ export default function DebugToolsPanel({
   zoomLevel = 1,
   glDebugInfo = null,
   theme = 'dark',
+  debugLayerMode = 'normal',
+  setDebugLayerMode = null,
+  debugGlOffsetY = 0,
+  setDebugGlOffsetY = null,
+  debugGlAutoOffsetY = 0,
+  onApplyDebugSnapshot = null,
   rightOffset = 8,
 }) {
   const [snapshot, setSnapshot] = useState(() => readSnapshot(rendererRef));
   const [canvasCoords, setCanvasCoords] = useState(null);
   const [copyStatus, setCopyStatus] = useState('');
+  const [importText, setImportText] = useState('');
+  const [importStatus, setImportStatus] = useState('');
 
   // 'c' key copies to clipboard when the panel is visible
   const handleCopyDebugRef = useRef(null);
@@ -181,8 +220,13 @@ export default function DebugToolsPanel({
     const rrLayoutAvailH = rr?.layoutAvailHeight ?? '?';
     const rrCanvasW = rr?.canvas?.width != null ? rr.canvas.width : '?';
     const rrCanvasH = rr?.canvas?.height != null ? rr.canvas.height : '?';
-    const rrCssW = rr?.canvas?.width != null ? (rr.canvas.width / dpr).toFixed(2) : '?';
-    const rrCssH = rr?.canvas?.height != null ? (rr.canvas.height / dpr).toFixed(2) : '?';
+    const rrCssW = rr?.canvasWidth != null
+      ? Number(rr.canvasWidth).toFixed(2)
+      : (rr?.canvas?.width != null ? (rr.canvas.width / dpr).toFixed(2) : '?');
+    const rrCssH = rr?.canvasHeight != null
+      ? Number(rr.canvasHeight).toFixed(2)
+      : (rr?.canvas?.height != null ? (rr.canvas.height / dpr).toFixed(2) : '?');
+    const rrDpr = rr?.canvasDpr ?? dpr;
     const grCssW = gr?._cssW ?? '?';
     const grCssH = gr?._cssH ?? '?';
     const grDpr = gr?._dpr ?? '?';
@@ -209,12 +253,18 @@ export default function DebugToolsPanel({
       `Canvas: ${glDebugInfo?.currentCssW ?? '?'} x ${glDebugInfo?.currentCssH ?? '?'} CSS`,
       `Backing: ${glDebugInfo?.currentBackingW ?? '?'} x ${glDebugInfo?.currentBackingH ?? '?'}`,
       `Max GL Dim: ${glDebugInfo?.maxGLDimension ?? '?'}`,
+      `Effective Max Backing Dim: ${glDebugInfo?.effectiveMaxBackingDimension ?? '?'}`,
+      `Direct Compositor Safe Dim: ${glDebugInfo?.directCompositorSafeDimension ?? '?'}`,
       `DPR: ${Number.isFinite(glDebugInfo?.devicePixelRatio) ? glDebugInfo.devicePixelRatio.toFixed(2) : '?'}`,
       `Zoom: ${Number.isFinite(zoomLevel) ? zoomLevel.toFixed(3) : '?'}`,
       `Rotate X (camera): ${cameraState.rotateX.toFixed(2)} deg`,
       `Rotate Y (camera): ${cameraState.rotateY.toFixed(2)} deg`,
       `Rotate X (applied): ${cameraState.appliedRotateX.toFixed(2)} deg`,
       `Rotate Y (applied): ${cameraState.appliedRotateY.toFixed(2)} deg`,
+      `Layer Mode: ${debugLayerMode}`,
+      `GL Y Offset (auto): ${Number.isFinite(debugGlAutoOffsetY) ? debugGlAutoOffsetY.toFixed(2) : debugGlAutoOffsetY}`,
+      `GL Y Offset (manual): ${Number.isFinite(debugGlOffsetY) ? debugGlOffsetY.toFixed(2) : debugGlOffsetY}`,
+      `GL Y Offset (total): ${Number.isFinite((debugGlAutoOffsetY || 0) + (debugGlOffsetY || 0)) ? ((debugGlAutoOffsetY || 0) + (debugGlOffsetY || 0)).toFixed(2) : '?'}`,
       'RENDERER STATE',
       `panX: ${typeof rrPanX === 'number' ? rrPanX.toFixed(2) : rrPanX}`,
       `panY: ${typeof rrPanY === 'number' ? rrPanY.toFixed(2) : rrPanY}`,
@@ -224,7 +274,8 @@ export default function DebugToolsPanel({
       `frozenClPerVRow: ${rrFrozenCl}`,
       `layoutAvail (W x H): ${rrLayoutAvailW} x ${rrLayoutAvailH}`,
       `canvas.width: ${rrCanvasW}  canvas.height: ${rrCanvasH}`,
-      `canvas CSS (width/dpr): ${rrCssW} x ${rrCssH}`,
+      `canvas CSS (logical): ${rrCssW} x ${rrCssH}`,
+      `canvas DPR (renderer): ${typeof rrDpr === 'number' ? rrDpr.toFixed(2) : rrDpr}`,
       'GL WORKER STATE',
       `GL _cssW: ${grCssW}  _cssH: ${grCssH}  _dpr: ${typeof grDpr === 'number' ? grDpr.toFixed(2) : grDpr}`,
       'CANVAS COORDS',
@@ -242,7 +293,7 @@ export default function DebugToolsPanel({
       `bit0 GL result (tex + pan): (${b0GlX}, ${b0GlY})`,
     ];
     return lines.join('\n');
-  }, [rendererRef, glRendererRef, cameraState.rotateX, cameraState.rotateY, cameraState.appliedRotateX, cameraState.appliedRotateY, canvasCoords, glDebugInfo, zoomLevel]);
+  }, [rendererRef, glRendererRef, cameraState.rotateX, cameraState.rotateY, cameraState.appliedRotateX, cameraState.appliedRotateY, canvasCoords, glDebugInfo, zoomLevel, debugLayerMode, debugGlOffsetY, debugGlAutoOffsetY]);
 
   const handleCopyDebug = useCallback(async () => {
     try {
@@ -267,12 +318,42 @@ export default function DebugToolsPanel({
     window.setTimeout(() => setCopyStatus(''), 1200);
   }, [buildDebugReport]);
 
+  const liveDebugReport = useMemo(() => buildDebugReport(), [buildDebugReport]);
+
+  const applyImportedSnapshot = useCallback(() => {
+    const parsed = parseDebugSnapshotText(importText);
+    if (!parsed) {
+      setImportStatus('No recognizable snapshot values found');
+      return;
+    }
+    if (typeof onApplyDebugSnapshot !== 'function') {
+      setImportStatus('Apply callback is unavailable');
+      return;
+    }
+    const result = onApplyDebugSnapshot(parsed);
+    if (result && result.ok === false) {
+      setImportStatus(result.message || 'Failed to apply snapshot');
+      return;
+    }
+    setImportStatus(result?.message || 'Snapshot applied');
+  }, [importText, onApplyDebugSnapshot]);
+
+  const cycleLayerMode = useCallback(() => {
+    if (!setDebugLayerMode) return;
+    setDebugLayerMode((prev) => {
+      if (prev === 'normal') return 'gl-only';
+      if (prev === 'gl-only') return 'overlays-only';
+      return 'normal';
+    });
+  }, [setDebugLayerMode]);
+
   // Store handleCopyDebug in ref so the keyboard effect can access it
   useEffect(() => {
     handleCopyDebugRef.current = handleCopyDebug;
   }, [handleCopyDebug]);
 
   // 'c' keyboard shortcut — copy when panel is visible
+  // 'v' keyboard shortcut — cycle layer isolation mode
   useEffect(() => {
     const onKey = (e) => {
       const tag = e.target?.tagName;
@@ -280,11 +361,16 @@ export default function DebugToolsPanel({
       if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey) {
         e.stopPropagation();
         handleCopyDebugRef.current?.();
+        return;
+      }
+      if ((e.key === 'v' || e.key === 'V') && !e.ctrlKey && !e.metaKey) {
+        e.stopPropagation();
+        cycleLayerMode();
       }
     };
     document.addEventListener('keydown', onKey, { capture: true });
     return () => document.removeEventListener('keydown', onKey, { capture: true });
-  }, []);
+  }, [cycleLayerMode]);
 
   return (
     <aside
@@ -356,6 +442,8 @@ export default function DebugToolsPanel({
             <div>Canvas: {glDebugInfo.currentCssW} × {glDebugInfo.currentCssH} CSS</div>
             <div>Backing: {glDebugInfo.currentBackingW} × {glDebugInfo.currentBackingH}</div>
             <div>Max GL Dim: {glDebugInfo.maxGLDimension}</div>
+            <div>Effective Max: {glDebugInfo.effectiveMaxBackingDimension}</div>
+            <div>Compositor Safe: {glDebugInfo.directCompositorSafeDimension}</div>
             <div>DPR: {glDebugInfo.devicePixelRatio.toFixed(2)}</div>
             <div>Zoom: {Number.isFinite(zoomLevel) ? zoomLevel.toFixed(3) : 'n/a'}</div>
             <div>Rotate X/Y (camera): {cameraState.rotateX.toFixed(2)}° / {cameraState.rotateY.toFixed(2)}°</div>
@@ -381,6 +469,142 @@ export default function DebugToolsPanel({
       )}
 
       <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: `1px solid ${palette.border}` }}>
+        <div style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '6px', color: palette.sectionCoords }}>
+          FULL DEBUG REPORT (LIVE)
+        </div>
+        <pre
+          style={{
+            margin: 0,
+            padding: '8px',
+            maxHeight: '220px',
+            overflow: 'auto',
+            whiteSpace: 'pre',
+            fontSize: '9px',
+            lineHeight: '1.35',
+            border: `1px solid ${palette.border}`,
+            borderRadius: '4px',
+            background: theme === 'light' ? '#f7fafc' : 'rgba(0,0,0,0.25)',
+            color: palette.panelFg,
+          }}
+        >
+          {liveDebugReport}
+        </pre>
+      </div>
+
+      <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: `1px solid ${palette.border}` }}>
+        <div style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '6px', color: palette.sectionCoords }}>
+          IMPORT SNAPSHOT (PASTE)
+        </div>
+        <textarea
+          value={importText}
+          onChange={(e) => setImportText(e.target.value)}
+          placeholder="Paste old debug info here"
+          style={{
+            width: '100%',
+            minHeight: '92px',
+            resize: 'vertical',
+            boxSizing: 'border-box',
+            marginBottom: '6px',
+            borderRadius: '4px',
+            border: `1px solid ${palette.buttonBorder}`,
+            background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)',
+            color: palette.panelFg,
+            fontSize: '10px',
+            lineHeight: '1.35',
+            padding: '6px',
+          }}
+        />
+        <button
+          type="button"
+          onClick={applyImportedSnapshot}
+          style={{
+            width: '100%',
+            padding: '6px 8px',
+            borderRadius: '4px',
+            border: `1px solid ${palette.buttonBorder}`,
+            background: palette.buttonBg,
+            color: palette.buttonFg,
+            fontSize: '11px',
+            cursor: 'pointer',
+            marginBottom: '6px',
+          }}
+          title="Apply pasted pan/zoom/rotation/layer/manual offset"
+        >
+          Apply Pasted Snapshot
+        </button>
+        {importStatus && (
+          <div style={{ marginBottom: '6px', fontSize: '10px', color: palette.sectionCoords }}>
+            {importStatus}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={cycleLayerMode}
+          style={{
+            width: '100%',
+            padding: '6px 8px',
+            borderRadius: '4px',
+            border: `1px solid ${palette.buttonBorder}`,
+            background: palette.buttonBg,
+            color: palette.buttonFg,
+            fontSize: '11px',
+            cursor: 'pointer',
+            marginBottom: '6px',
+          }}
+          title="Cycle layer mode (V): normal -> GL only -> overlays only"
+        >
+          Layer Mode: {debugLayerMode} (press V)
+        </button>
+        <div style={{
+          marginBottom: '8px',
+          padding: '6px',
+          border: `1px solid ${palette.buttonBorder}`,
+          borderRadius: '4px',
+          background: theme === 'light' ? '#f4f7fa' : 'rgba(255,255,255,0.03)',
+        }}>
+          <div style={{ fontSize: '10px', marginBottom: '6px', color: palette.sectionCoords }}>
+            GL Y Offset (manual trim)
+          </div>
+          <div style={{ marginBottom: '6px', fontSize: '10px', color: palette.subtle }}>
+            Auto: {Number.isFinite(debugGlAutoOffsetY) ? debugGlAutoOffsetY.toFixed(0) : '0'} px | Total: {Number.isFinite((debugGlAutoOffsetY || 0) + (debugGlOffsetY || 0)) ? ((debugGlAutoOffsetY || 0) + (debugGlOffsetY || 0)).toFixed(0) : '0'} px
+          </div>
+          <input
+            type="range"
+            min={-400}
+            max={400}
+            step={1}
+            value={Number.isFinite(debugGlOffsetY) ? debugGlOffsetY : 0}
+            onChange={(e) => setDebugGlOffsetY?.(Number(e.target.value))}
+            style={{ width: '100%', marginBottom: '6px' }}
+          />
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => setDebugGlOffsetY?.((prev) => (Number(prev) || 0) - 10)}
+              style={{ flex: 1, padding: '4px 6px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}
+            >
+              -10
+            </button>
+            <button
+              type="button"
+              onClick={() => setDebugGlOffsetY?.(0)}
+              style={{ flex: 1, padding: '4px 6px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}
+            >
+              0
+            </button>
+            <button
+              type="button"
+              onClick={() => setDebugGlOffsetY?.((prev) => (Number(prev) || 0) + 10)}
+              style={{ flex: 1, padding: '4px 6px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}
+            >
+              +10
+            </button>
+          </div>
+          <div style={{ marginTop: '6px', fontSize: '10px', color: palette.subtle }}>
+            Manual: {Number.isFinite(debugGlOffsetY) ? debugGlOffsetY.toFixed(0) : '0'} px
+          </div>
+        </div>
         <button
           type="button"
           onClick={handleCopyDebug}

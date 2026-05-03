@@ -5,6 +5,15 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 ## Done
 
+- Validated GL auto-offset convergence on the 3127x1197 four-scene sweep; manual residual trims now stayed near zero (+14/-4/+7/-17).
+- Added a separate mid-width GL auto-offset correction lane (about 9.6k-12.1k CSS width) to handle under-correction without disturbing ultra-wide tuning.
+- Added width-aware GL auto-offset residual correction for ultra-wide direct-mode scenes, with high-tilt suppression to preserve earlier calibrated cases.
+- Added a small deficit-scaled residual trim to GL auto-offset so high-deficit flat and tilted cases converge closer without destabilizing near-1 DPR behavior.
+- Retuned GL auto-offset again for wide tilted direct-mode breakpoints by damping tilt response as DPR deficit grows, reducing large overshoot cases.
+- Retuned direct-mode automatic GL Y compensation for small DPR deficits (`~0.95-0.99`) under tilt, while keeping true DPR=1 cases at zero auto offset.
+- Fixed a Visualizer startup crash caused by referencing `getMinimapDetailH` before initialization; the minimap helper is now declared before snapshot callbacks that depend on it.
+- Reduced startup console noise from optional benchmark companion files by checking `/api/logs` before requesting `*_sievebenchmark.json`, avoiding repeated 404 fetches when no benchmark file exists.
+- Added an explicit favicon asset/link (`public/favicon.svg` + `index.html` head link) so dev sessions no longer request a missing `/favicon.ico` by default.
 - Added a Grid view "Balloon" mode control in Layout settings with three options: `Off`, `On bit clock` (click-only), and `Click + hover`. Balloon hover/click behavior now follows this setting and persists via view preferences.
 - Details panel mask metadata now sits to the right of the mask preview inside
   "Mask pattern & preview".
@@ -69,15 +78,13 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 - Make a toggle to turn automatic animation start when selecting a sigle event on or off
 - In settings -> layout panel -> Autofit. when turning auto fit off, start at the count that was set by auto fit.
 - Change the nearby events: (1) Don't have "current" as the name, but the the Title with the same font, style and size as on the widget itself. Keep the play button in front of it; (2) make it possible to have the nearby events instead of the title.
+- when clicking in the details panel to go to the source, don't open the file/title details but just show the log, so that when i close the raw log, i don't have to close the file/title details. 
+
 
 ## New Ideas
 
-- Add a "presentation palette" preset optimized for projectors and screen
-  recordings.
-- Add a tiny recent-colors strip beside custom bit-state color pickers.
-- Add a one-click "focus current cache line" action from cacheline badges.
-- Add a compact "jump to next event changing this bit" action in bit-history
-  balloons.
+- Make
+  a button on the top bar to cycle through popular layout arrangements of bit, byte and grouping, with different annotations and outlines.  It should have a list too that pops out with the previews that can be cycles through
 
 Make more backlog items, be creative!
 Find two delightful improvements

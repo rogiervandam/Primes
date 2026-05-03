@@ -72,6 +72,21 @@ export default function App() {
       return;
     }
     try {
+      // Companion benchmark files are optional; avoid noisy 404 requests by
+      // checking the available log list before trying to fetch the file.
+      const listRes = await fetch('/api/logs');
+      if (!listRes.ok) {
+        setBenchmarkTimingData(null);
+        setBenchmarkTimingFileName('');
+        return;
+      }
+      const available = await listRes.json();
+      if (!Array.isArray(available) || !available.includes(benchmarkName)) {
+        setBenchmarkTimingData(null);
+        setBenchmarkTimingFileName('');
+        return;
+      }
+
       const res = await fetch(`/api/logs/${encodeURIComponent(benchmarkName)}`);
       if (!res.ok) {
         setBenchmarkTimingData(null);

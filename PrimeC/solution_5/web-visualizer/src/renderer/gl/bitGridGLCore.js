@@ -30,7 +30,7 @@ uniform vec2 u_canvasSize;     // CSS pixels (pre-DPR)
 uniform vec2 u_pan;            // CSS pixels
 uniform float u_cellSize;      // base bit cell size in CSS px (already includes zoom)
 uniform float u_dpr;           // device-pixel ratio; used to snap edges to the device grid
-uniform sampler2D u_pos;       // RG32F: per-bit (x,y) in CSS px, pan-independent
+uniform sampler2D u_pos;       // RG32F: per-bit (x,y) normalized by canvas CSS size, pan-independent
 uniform sampler2D u_state;     // RGBA8: per-bit packed flag byte in .r (normalized 0-1)
 uniform sampler2D u_anim;      // RGBA32F: per-bit (xDelta, yDelta, sizeScale, _unused)
 uniform ivec2 u_texSize;
@@ -48,7 +48,7 @@ void main() {
   }
   int tx = bit % u_texSize.x;
   int ty = bit / u_texSize.x;
-  vec2 basePos = texelFetch(u_pos, ivec2(tx, ty), 0).rg;
+  vec2 basePos = texelFetch(u_pos, ivec2(tx, ty), 0).rg * u_canvasSize;
   // State byte stored as normalized R in RGBA8 texture; decode to uint.
   v_state = uint(round(texelFetch(u_state, ivec2(tx, ty), 0).r * 255.0));
   vec4 animData = texelFetch(u_anim, ivec2(tx, ty), 0);
