@@ -30,7 +30,7 @@ uniform vec2 u_canvasSize;     // CSS pixels (pre-DPR)
 uniform vec2 u_pan;            // CSS pixels
 uniform float u_cellSize;      // base bit cell size in CSS px (already includes zoom)
 uniform float u_dpr;           // device-pixel ratio; used to snap edges to the device grid
-uniform sampler2D u_pos;       // RG32F: per-bit (x,y) in CSS px, pan-independent
+uniform sampler2D u_pos;       // RG32F: per-bit (x,y) normalized by canvas CSS size, pan-independent
 uniform sampler2D u_state;     // RGBA8: per-bit packed flag byte in .r (normalized 0-1)
 uniform sampler2D u_anim;      // RGBA32F: per-bit (xDelta, yDelta, sizeScale, _unused)
 uniform ivec2 u_texSize;
@@ -48,7 +48,7 @@ void main() {
   }
   int tx = bit % u_texSize.x;
   int ty = bit / u_texSize.x;
-  vec2 basePos = texelFetch(u_pos, ivec2(tx, ty), 0).rg;
+  vec2 basePos = texelFetch(u_pos, ivec2(tx, ty), 0).rg * u_canvasSize;
   // State byte stored as normalized R in RGBA8 texture; decode to uint.
   v_state = uint(round(texelFetch(u_state, ivec2(tx, ty), 0).r * 255.0));
   vec4 animData = texelFetch(u_anim, ivec2(tx, ty), 0);
@@ -56,8 +56,12 @@ void main() {
 
   vec2 centre = basePos + u_pan + animData.xy;  // apply per-bit position delta
   vec2 corner = centre + a_corner * u_cellSize * animScale;  // apply per-bit size scale
-  // DPR snap to device-pixel grid; no-op on integer DPR.
-  corner = floor(corner * u_dpr + 0.5) / u_dpr;
+  // DPR snap to device-pixel grid. At DPR=1 this introduces quantization
+  // drift versus Canvas2D subpixel geometry over long rows, so only apply
+  // snapping when DPR is meaningfully above 1.
+  if (u_dpr > 1.01) {
+    corner = floor(corner * u_dpr + 0.5) / u_dpr;
+  }
 
   vec2 clip = (corner / u_canvasSize) * 2.0 - 1.0;
   clip.y = -clip.y;
@@ -217,6 +221,15 @@ export class BitGridGLCore {
       antialias: false,
       premultipliedAlpha: false,
       alpha: false,
+      // preserveDrawingBuffer: true prevents Safari's compositor from clearing
+      // the drawing buffer to opaque black after each composite operation.
+      // Without this, there is a race window (after the post-composite clear
+      // but before the next frame's gl.clear(bgColor)) where Safari reads the
+      // buffer and sees (0,0,0,1) — the source of the black flicker visible
+      // during animation and while dragging in Safari. The performance cost
+      // (no buffer-swap optimisation, one extra copy per frame) is acceptable
+      // since this canvas only draws instanced bit-grid quads.
+      preserveDrawingBuffer: true,
     });
     if (!gl) {
       this._lost = true;

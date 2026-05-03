@@ -94,16 +94,22 @@ export default function EventTitleBanner({
     const startOffY = settings.dragOffsetY || 0;
     let dragged = false;
     let lastZone = null;
+    let finalDx = 0;
+    let finalDy = 0;
+    // Suppress CSS transition during drag so Safari doesn't re-animate each
+    // incremental transform update (which causes visible shaking).
+    if (bannerEl) bannerEl.classList.add('is-dragging');
     const onMove = (ev) => {
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
       if (!dragged && Math.hypot(dx, dy) < 4) return;
       dragged = true;
-      setSettings((prev) => ({
-        ...prev,
-        dragOffsetX: startOffX + dx,
-        dragOffsetY: startOffY + dy,
-      }));
+      finalDx = dx;
+      finalDy = dy;
+      // Direct DOM mutation — bypasses the React re-render cascade through
+      // setSettings → parent useMemo → style prop so the CSS transition never
+      // fires during the drag. State is persisted once on mouseup instead.
+      if (bannerEl) bannerEl.style.transform = `translate(${startOffX + dx}px, ${startOffY + dy}px)`;
       const zone = detectDropZone(ev.clientX, ev.clientY, bannerEl);
       if (zone !== lastZone) {
         lastZone = zone;
@@ -116,6 +122,7 @@ export default function EventTitleBanner({
     const onUp = (ev) => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      if (bannerEl) bannerEl.classList.remove('is-dragging');
       setDropHint(null);
       // Remove merge-target hint from the floater.
       const floater = document.querySelector('.events-panel-floating-title');
@@ -162,6 +169,13 @@ export default function EventTitleBanner({
           dragOffsetX: 0,
           dragOffsetY: 0,
           visible: false,
+        }));
+      } else {
+        // No drop zone — persist the final drag position to React state.
+        setSettings((prev) => ({
+          ...prev,
+          dragOffsetX: startOffX + finalDx,
+          dragOffsetY: startOffY + finalDy,
         }));
       }
     };

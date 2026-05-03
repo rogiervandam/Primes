@@ -47,6 +47,8 @@ export const DEFAULT_LAYOUT_SETTINGS = {
   showByteLabels: true,
   showVectorLabels: true,
   showVectorTouchOrder: false,
+  // 'off' | 'bit-clock' (click-only) | 'click-hover'
+  balloonMode: 'click-hover',
   bitLabelMode: 'global',
   byteLabelMode: 'group',
   horizontalGroups: 0,
@@ -308,6 +310,7 @@ export function getInitialViewState() {
     customColors: initialCustomColors(prefs),
     allEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
     widgetsJoined: initialWidgetsJoined(prefs),
+    allEventsInDetailPanel: prefs?.allEventsInDetailPanel === true,
     ...initialPanelVisibility(prefs),
   };
 }

@@ -26,22 +26,24 @@ export function packPositions(host, buf, slots) {
   const bitCount = Math.min(host.bitCount || 0, slots);
   const panX = host.panX || 0;
   const panY = host.panY || 0;
+  const canvasW = Math.max(1, host.canvasWidth || host.canvas?.width || 1);
+  const canvasH = Math.max(1, host.canvasHeight || host.canvas?.height || 1);
   for (let i = 0; i < bitCount; i++) {
     const p = host.bitIndexToCanvas(i);
     if (p) {
-      buf[i * 2]     = p.x - panX;
-      buf[i * 2 + 1] = p.y - panY;
+      buf[i * 2]     = (p.x - panX) / canvasW;
+      buf[i * 2 + 1] = (p.y - panY) / canvasH;
     } else {
       // Off-screen sentinel — vertex shader's bit-count guard handles
       // bounds, but stale entries should not produce stray quads.
-      buf[i * 2]     = -1e6;
-      buf[i * 2 + 1] = -1e6;
+      buf[i * 2]     = -1;
+      buf[i * 2 + 1] = -1;
     }
   }
   // Pad unused slots so a shrunken bitCount doesn't paint stale quads.
   for (let i = bitCount; i < slots; i++) {
-    buf[i * 2]     = -1e6;
-    buf[i * 2 + 1] = -1e6;
+    buf[i * 2]     = -1;
+    buf[i * 2 + 1] = -1;
   }
 }
 

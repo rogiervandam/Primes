@@ -22,8 +22,14 @@
  *     machine. See docs/AI_MAINTENANCE.md §7 for the deferred work to
  *     split it further.
  */
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera3D } from '../Camera3D';
+
+function sameContainerStyle(a, b) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return a.perspective === b.perspective && a.perspectiveOrigin === b.perspectiveOrigin;
+}
 
 export function use3DCamera() {
   const camera3DRef = useRef(null);
@@ -64,6 +70,29 @@ export function use3DCamera() {
       setCamera3DTransform(cam.getCanvasTransform());
     }
     return cam;
+  }, []);
+
+  useEffect(() => {
+    let rafId = 0;
+
+    const reconcile = () => {
+      const cam = camera3DRef.current;
+      if (cam) {
+        const nextTransform = cam.getCanvasTransform();
+        setCamera3DTransform((prev) => (prev === nextTransform ? prev : nextTransform));
+
+        const nextContainerStyle = cam.getContainerStyle();
+        setCamera3DContainerStyle((prev) => (
+          sameContainerStyle(prev, nextContainerStyle) ? prev : nextContainerStyle
+        ));
+      }
+      rafId = requestAnimationFrame(reconcile);
+    };
+
+    rafId = requestAnimationFrame(reconcile);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   return {

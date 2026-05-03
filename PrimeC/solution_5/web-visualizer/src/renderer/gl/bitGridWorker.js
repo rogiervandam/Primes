@@ -124,7 +124,10 @@ self.onmessage = (e) => {
     }
     case 'render': {
       if (!core) return;
-      safe(() => core.render(msg.params));
+      safe(() => {
+        core.render(msg.params);
+        self.postMessage({ type: 'rendered', seq: msg.seq | 0 });
+      });
       break;
     }
     case 'capture': {
