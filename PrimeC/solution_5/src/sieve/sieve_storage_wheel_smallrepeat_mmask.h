@@ -1,4 +1,4 @@
-#define max_masks 8
+#define max_masks 4
 
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
 function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, counter_t range_start, const counter_t range_stop, const counter_t step)
@@ -23,7 +23,6 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
     bitbucket_t masks[max_masks] = {(bitbucket_t)0U};
     counter_t run_start_bucket = 0;
     counter_t run_count = 0;
-    bitbucket_t current_mask = (bitbucket_t)0U;
 
     #define FLUSH_MASK_RUN() function(applyMask_index_mmask,suffix)(sieve->bitstorage, run_start_bucket, stop_bucket, wheel_step, masks, run_count);
     // #define FLUSH_MASK_RUN() \
@@ -40,21 +39,23 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
     //         run_count = 0; \
     //     } while (0)
 
-    #define PUSH_BUCKET_MASK(bucket, mask_value) \
+    #define ENSURE_ACTIVE_BUCKET(bucket) \
         do { \
-            if ((mask_value) == (bitbucket_t)0U) break; \
             if (run_count == 0) { \
                 run_start_bucket = (bucket); \
-                masks[0] = (mask_value); \
+                masks[0] = (bitbucket_t)0U; \
                 run_count = 1; \
             } \
+            else if ((bucket) == (run_start_bucket + run_count - 1)) { \
+                break; \
+            } \
             else if (((bucket) == (run_start_bucket + run_count)) && (run_count < max_masks)) { \
-                masks[run_count++] = (mask_value); \
+                masks[run_count++] = (bitbucket_t)0U; \
             } \
             else { \
                 FLUSH_MASK_RUN(); \
                 run_start_bucket = (bucket); \
-                masks[0] = (mask_value); \
+                masks[0] = (bitbucket_t)0U; \
                 run_count = 1; \
             } \
         } while (0)
@@ -69,11 +70,10 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
 
         if (bitpoint > 0) {
             if (new_bucket != current_bucket) {
-                PUSH_BUCKET_MASK(current_bucket, current_mask);
                 current_bucket = new_bucket;
-                current_mask = (bitbucket_t)0U;
             }
-            current_mask |= markmask_type(wheel_bit_base + bitpoint - 1, bitbucket_t);
+            ENSURE_ACTIVE_BUCKET(current_bucket);
+            masks[run_count - 1] |= markmask_type(wheel_bit_base + bitpoint - 1, bitbucket_t);
         }
 
         wheel_index += step;
@@ -85,10 +85,9 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
         }
     }
 
-    PUSH_BUCKET_MASK(current_bucket, current_mask);
     FLUSH_MASK_RUN();
 
-    #undef PUSH_BUCKET_MASK
+    #undef ENSURE_ACTIVE_BUCKET
     #undef FLUSH_MASK_RUN
     #undef max_masks
 
