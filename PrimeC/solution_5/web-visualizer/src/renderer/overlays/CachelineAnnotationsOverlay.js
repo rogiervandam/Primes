@@ -38,7 +38,7 @@ export class CachelineAnnotationsOverlay {
     this.host = host;
   }
 
-  render(ctx) {
+  render(ctx, glCtx = null) {
     const host = this.host;
     // clHitCount is populated by rebuildHeatMap (called unconditionally
     // when cachelineAnnotation !== 'none' by Visualizer.jsx).
@@ -152,15 +152,22 @@ export class CachelineAnnotationsOverlay {
       // Place badge centred in the extension zone directly below the bit cells.
       const by  = ry + rh + Math.max(0, (annotExt - bh) / 2);
 
-      ctx.fillStyle = `rgba(${bc.r},${bc.g},${bc.b},${bc.alpha})`;
-      ctx.beginPath();
-      ctx.roundRect(bx, by, bw, bh, Math.min(5, bh * 0.4));
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(15,23,42,0.45)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.fillStyle = host._labelTextColor([bc.r, bc.g, bc.b]);
-      ctx.fillText(text, bx + bw / 2, by + bh / 2);
+      if (glCtx) {
+        const [lr, lg, lb, la] = host._labelTextColorGL([bc.r, bc.g, bc.b]);
+        glCtx.drawFilledRect(bx, by, bw, bh, bc.r / 255, bc.g / 255, bc.b / 255, bc.alpha);
+        glCtx.drawOutlineRect(bx, by, bw, bh, 15 / 255, 23 / 255, 42 / 255, 0.45, 1);
+        glCtx.drawText(text, bx + bw / 2, by + bh / 2, fs, lr, lg, lb, la, 'center', 'middle');
+      } else {
+        ctx.fillStyle = `rgba(${bc.r},${bc.g},${bc.b},${bc.alpha})`;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, bw, bh, Math.min(5, bh * 0.4));
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(15,23,42,0.45)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = host._labelTextColor([bc.r, bc.g, bc.b]);
+        ctx.fillText(text, bx + bw / 2, by + bh / 2);
+      }
     }
 
     ctx.restore();

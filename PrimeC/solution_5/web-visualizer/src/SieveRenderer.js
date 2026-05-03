@@ -983,14 +983,22 @@ export class SieveRenderer {
         const rw = Math.max(1, Math.round((seg.vecEnd - seg.vecStart + 1) * vecStep - this._u64GapX() + pad * 2));
         const rh = Math.max(1, Math.round(rowD.h + pad * 2));
 
-        if (oc.alpha > 0.01) {
-          ctx.fillStyle = `rgba(${oc.r},${oc.g},${oc.b},${oc.alpha})`;
-          ctx.fillRect(rx, ry, rw, rh);
+        if (this.webglText && this._glyphCtx) {
+          const g = this._glyphCtx;
+          if (oc.alpha > 0.01) {
+            g.drawFilledRect(rx, ry, rw, rh, oc.r / 255, oc.g / 255, oc.b / 255, oc.alpha);
+          }
+          g.drawOutlineRect(rx + 0.5, ry + 0.5, Math.max(1, rw - 1), Math.max(1, rh - 1),
+            oc.r / 255, oc.g / 255, oc.b / 255, bAlpha, lw);
+        } else {
+          if (oc.alpha > 0.01) {
+            ctx.fillStyle = `rgba(${oc.r},${oc.g},${oc.b},${oc.alpha})`;
+            ctx.fillRect(rx, ry, rw, rh);
+          }
+          ctx.strokeStyle = `rgba(${oc.r},${oc.g},${oc.b},${bAlpha})`;
+          ctx.lineWidth = lw;
+          ctx.strokeRect(rx + 0.5, ry + 0.5, Math.max(1, rw - 1), Math.max(1, rh - 1));
         }
-
-        ctx.strokeStyle = `rgba(${oc.r},${oc.g},${oc.b},${bAlpha})`;
-        ctx.lineWidth = lw;
-        ctx.strokeRect(rx + 0.5, ry + 0.5, Math.max(1, rw - 1), Math.max(1, rh - 1));
       }
 
       ctx.restore();
@@ -1555,11 +1563,12 @@ export class SieveRenderer {
 
     // Begin the WebGL glyph-text frame (clears the glyph canvas every frame
     // so toggling the feature off instantly removes stale text).
-    if (this._glyphCtx) {
+    const glCtx = (this.webglText && this._glyphCtx) ? this._glyphCtx : null;
+    if (glCtx) {
       const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
       const cw = this.canvasWidth  || (this.canvas.width  / canvasDpr);
       const ch = this.canvasHeight || (this.canvas.height / canvasDpr);
-      this._glyphCtx.beginFrame(cw, ch, canvasDpr);
+      glCtx.beginFrame(cw, ch, canvasDpr);
     }
 
     this._renderClear(f);
@@ -1573,15 +1582,15 @@ export class SieveRenderer {
     }
 
     if (!this.suppressMaskWriteOverlay) {
-      this.maskWriteOverlay.render(f.ctx);
+      this.maskWriteOverlay.render(f.ctx, glCtx);
     }
-    this.vectorTouchOrderOverlay.render(f.ctx);
-    this.cachelineAnnotationsOverlay.render(f.ctx);
-    this.searchOverlay.render(f.ctx, f.cw, f.ch);
+    this.vectorTouchOrderOverlay.render(f.ctx, glCtx);
+    this.cachelineAnnotationsOverlay.render(f.ctx, glCtx);
+    this.searchOverlay.render(f.ctx, f.cw, f.ch, glCtx);
 
     // Flush the WebGL glyph-text batch (no-op when count === 0).
-    if (this._glyphCtx) {
-      this._glyphCtx.endFrame();
+    if (glCtx) {
+      glCtx.endFrame();
     }
   }
 
@@ -1832,12 +1841,18 @@ export class SieveRenderer {
 
   _drawDebugCellOutline(f, draw, bitX, bitY) {
     if (!this.debugAllCellOutlines) return;
-    const ctx = f.ctx;
     const x = Number.isFinite(draw?.drawX) ? draw.drawX : bitX;
     const y = Number.isFinite(draw?.drawY) ? draw.drawY : bitY;
     const size = Math.max(1, Number.isFinite(draw?.drawSize) ? draw.drawSize : f.px);
+    const lw = Math.max(0.75, Math.min(1.25, 0.85 + (this.zoom || 1) * 0.015));
+    if (this.webglText && this._glyphCtx) {
+      const [cr, cg, cb, ca] = this._parseCssColorGL(this.debugAllCellOutlineColor || 'rgba(255,255,255,0.82)');
+      this._glyphCtx.drawOutlineRect(x + 0.5, y + 0.5, Math.max(0, size - 1), Math.max(0, size - 1), cr, cg, cb, ca, lw);
+      return;
+    }
+    const ctx = f.ctx;
     ctx.save();
-    ctx.lineWidth = Math.max(0.75, Math.min(1.25, 0.85 + (this.zoom || 1) * 0.015));
+    ctx.lineWidth = lw;
     ctx.strokeStyle = this.debugAllCellOutlineColor || 'rgba(255,255,255,0.82)';
     ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, size - 1), Math.max(0, size - 1));
     ctx.restore();
@@ -1999,6 +2014,17 @@ export class SieveRenderer {
     const { drawX, drawY, drawSize, drawCtx } = draw;
     const px = f.px;
     const set = f.bitColors.set;
+    if (this.webglText && this._glyphCtx) {
+      const g = this._glyphCtx;
+      const lw = Math.max(0.7, Math.min(1.6, px * 0.12));
+      g.drawFilledRect(drawX, drawY, drawSize, drawSize, set[0] / 255, set[1] / 255, set[2] / 255, 0.2);
+      g.drawOutlineRect(
+        Math.round(drawX - 0.5), Math.round(drawY - 0.5),
+        Math.max(2, Math.round(drawSize + 1)), Math.max(2, Math.round(drawSize + 1)),
+        set[0] / 255, set[1] / 255, set[2] / 255, 0.95, lw
+      );
+      return;
+    }
     drawCtx.save();
     drawCtx.fillStyle = `rgba(${set[0]},${set[1]},${set[2]},0.2)`;
     drawCtx.fillRect(drawX, drawY, drawSize, drawSize);
@@ -2024,11 +2050,29 @@ export class SieveRenderer {
       && f.px >= 2.5;
     if (!showTargetOutline) return;
     const { drawX, drawY, drawSize } = draw;
-    const ctx = f.ctx;
     const px = f.px;
+    const lw1 = Math.max(0.35, Math.min(1.25, px * 0.08));
+    if (this.webglText && this._glyphCtx) {
+      const g = this._glyphCtx;
+      g.drawOutlineRect(
+        Math.round(drawX - 0.5), Math.round(drawY - 0.5),
+        Math.max(2, Math.round(drawSize + 1)), Math.max(2, Math.round(drawSize + 1)),
+        59 / 255, 130 / 255, 246 / 255, 0.95, lw1
+      );
+      if (targetHitCount > 1 && this.zoom >= 2.2 && px >= 4) {
+        const lw2 = Math.max(0.5, Math.min(1.6, px * 0.11));
+        g.drawOutlineRect(
+          Math.round(drawX + 1), Math.round(drawY + 1),
+          Math.max(1, Math.round(drawSize - 2)), Math.max(1, Math.round(drawSize - 2)),
+          245 / 255, 158 / 255, 11 / 255, 0.95, lw2
+        );
+      }
+      return;
+    }
+    const ctx = f.ctx;
     ctx.save();
     ctx.strokeStyle = 'rgba(59, 130, 246, 0.95)';
-    ctx.lineWidth = Math.max(0.35, Math.min(1.25, px * 0.08));
+    ctx.lineWidth = lw1;
     ctx.strokeRect(
       Math.round(drawX - 0.5), Math.round(drawY - 0.5),
       Math.max(2, Math.round(drawSize + 1)), Math.max(2, Math.round(drawSize + 1))

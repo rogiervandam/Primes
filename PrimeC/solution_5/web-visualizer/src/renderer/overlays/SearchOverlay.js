@@ -33,7 +33,7 @@ export class SearchOverlay {
     this.target = null;
   }
 
-  render(ctx, canvasW, canvasH) {
+  render(ctx, canvasW, canvasH, glCtx = null) {
     const t = this.target;
     if (!t) return;
     const host = this.host;
@@ -48,10 +48,31 @@ export class SearchOverlay {
     const h = bounds.h + pad * 2;
     if (x > canvasW || y > canvasH || x + w < 0 || y + h < 0) return;
 
+    const lineWidth = Math.max(1.5, 1.8 + zoom * 0.08);
+
+    if (glCtx) {
+      // Fill
+      glCtx.drawFilledRect(x, y, w, h, 56 / 255, 189 / 255, 248 / 255, 0.12);
+      // Outer blue border
+      glCtx.drawOutlineRect(x, y, w, h, 56 / 255, 189 / 255, 248 / 255, 0.96, lineWidth);
+      // Inner yellow border (approximates the dashed overlay)
+      glCtx.drawOutlineRect(x + lineWidth, y + lineWidth, w - lineWidth * 2, h - lineWidth * 2,
+        250 / 255, 204 / 255, 21 / 255, 0.9, Math.max(1, lineWidth * 0.65));
+      // Circle marker on the target bit
+      if (t.bitIndex != null) {
+        const anchor = host.bitIndexToCanvas(t.bitIndex);
+        if (anchor) {
+          const markerRadius = Math.max(4, Math.min(12, host.pixelSize * zoom * 1.8));
+          glCtx.drawDot(anchor.x, anchor.y, markerRadius, 250 / 255, 204 / 255, 21 / 255, 0.92);
+        }
+      }
+      return;
+    }
+
     ctx.save();
     ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
     ctx.strokeStyle = 'rgba(56, 189, 248, 0.96)';
-    ctx.lineWidth = Math.max(1.5, 1.8 + zoom * 0.08);
+    ctx.lineWidth = lineWidth;
     ctx.setLineDash([]);
     ctx.beginPath();
     ctx.roundRect(x, y, w, h, Math.max(6, Math.min(16, 10 + zoom * 0.2)));

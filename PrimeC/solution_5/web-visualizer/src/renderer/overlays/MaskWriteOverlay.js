@@ -25,7 +25,7 @@ export class MaskWriteOverlay {
     this.host = host;
   }
 
-  render(ctx) {
+  render(ctx, glCtx = null) {
     const host = this.host;
     const entries = host._maskWriteEntries();
     if (entries.length === 0) return;
@@ -34,8 +34,8 @@ export class MaskWriteOverlay {
     const wordBits = host.maskWordBits;
     const tightLayout = wordBits && wordBits <= 32;
 
-    ctx.save();
-    ctx.setLineDash([]);
+    if (!glCtx) ctx.save();
+    if (!glCtx) ctx.setLineDash([]);
 
     for (let index = 0; index < entries.length; index++) {
       const entry = entries[index];
@@ -44,28 +44,38 @@ export class MaskWriteOverlay {
       const inset = tightLayout
         ? Math.max(0.8, Math.min(2.2, px * 0.2))
         : Math.max(1.2, Math.min(4.2, px * 0.42));
-      const radius = Math.max(4, Math.min(10, 4 + px * 0.18));
       const rx = bounds.x - inset;
       const ry = bounds.y - inset;
       const rw = bounds.w + inset * 2;
       const rh = bounds.h + inset * 2;
+      const tr = tint[0] / 255, tg = tint[1] / 255, tb = tint[2] / 255;
+      const lineWidth = Math.max(0.9, Math.min(2.2, px * 0.11));
 
-      ctx.fillStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},${tightLayout ? 0.025 : 0.055})`;
-      ctx.strokeStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},0.76)`;
-      ctx.lineWidth = Math.max(0.9, Math.min(2.2, px * 0.11));
-      ctx.beginPath();
-      ctx.roundRect(rx, ry, rw, rh, radius);
-      ctx.fill();
-      ctx.stroke();
-
-      if (tightLayout) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.42)';
-        ctx.lineWidth = Math.max(0.45, Math.min(1.1, px * 0.06));
-        ctx.strokeRect(rx + inset * 0.45, ry + inset * 0.45, Math.max(1, rw - inset * 0.9), Math.max(1, rh - inset * 0.9));
+      if (glCtx) {
+        glCtx.drawFilledRect(rx, ry, rw, rh, tr, tg, tb, tightLayout ? 0.025 : 0.055);
+        glCtx.drawOutlineRect(rx, ry, rw, rh, tr, tg, tb, 0.76, lineWidth);
+        if (tightLayout) {
+          const ii = inset * 0.45;
+          glCtx.drawOutlineRect(rx + ii, ry + ii, Math.max(1, rw - ii * 2), Math.max(1, rh - ii * 2),
+            1, 1, 1, 0.42, Math.max(0.45, Math.min(1.1, px * 0.06)));
+        }
+      } else {
+        ctx.fillStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},${tightLayout ? 0.025 : 0.055})`;
+        ctx.strokeStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},0.76)`;
+        ctx.lineWidth = lineWidth;
+        ctx.beginPath();
+        ctx.roundRect(rx, ry, rw, rh, Math.max(4, Math.min(10, 4 + px * 0.18)));
+        ctx.fill();
+        ctx.stroke();
+        if (tightLayout) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.42)';
+          ctx.lineWidth = Math.max(0.45, Math.min(1.1, px * 0.06));
+          ctx.strokeRect(rx + inset * 0.45, ry + inset * 0.45, Math.max(1, rw - inset * 0.9), Math.max(1, rh - inset * 0.9));
+        }
       }
     }
 
-    ctx.restore();
+    if (!glCtx) ctx.restore();
   }
 }
 

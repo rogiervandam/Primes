@@ -460,6 +460,24 @@ export class GlyphTextGLCore {
   }
 
   /**
+   * Draw a solid-filled rectangle.
+   */
+  drawFilledRect(x, y, w, h, r, g, b, a) {
+    if (this._lost || !this._atlas || w <= 0 || h <= 0) return;
+    this._addInstance(x, y, w, h, 0, 0, 1, 1, r, g, b, a, 2.0);
+  }
+
+  /**
+   * Measure the pixel width of `text` rendered at `fontSize` CSS pixels using
+   * the glyph atlas. Returns 0 if the atlas is not yet ready.
+   */
+  measureText(text, fontSize) {
+    if (!this._atlas || !text) return 0;
+    const scale = fontSize / this._atlas.fontSize;
+    return this._atlas.measureWidth(text, scale);
+  }
+
+  /**
    * Add a text string to the batch, shrinking the font size until the text
    * fits within `maxWidth`, truncating with '…' as a last resort.
    * Mirrors the Canvas 2D `drawFittedLabel` helper.
