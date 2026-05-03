@@ -1,3 +1,5 @@
+#define max_masks 2
+
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
 function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, counter_t range_start, const counter_t range_stop, const counter_t step)
 {
@@ -18,7 +20,6 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
         function(markFactor_wheelstorage,variant_base_suffix)(sieve, range_start);
     }
 
-    #define max_masks 4
     bitbucket_t masks[max_masks] = {(bitbucket_t)0U};
     counter_t run_start_bucket = 0;
     counter_t run_count = 0;
