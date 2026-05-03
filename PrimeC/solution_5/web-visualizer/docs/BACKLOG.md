@@ -60,35 +60,48 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 ## Open
 
-- Make visualizer items related to overlays or animations clickable shortcuts.
-  Clicking a bit-state legend/color item should let the user choose that state's
-  color.
-- Keep reducing `Visualizer.jsx` and `SieveRenderer.js`; prefer one focused
-  hook/component/helper extraction per session.
-- Add more useful tools to the debug window: GL worker status, texture upload
-  sizes, bit count, current render cadence, and context-loss recovery state.
-- Make the debug tools window draggable or pinnable only if it starts competing
-  with settings/detail/sidebar workflows.
-- Polish the all-events transport in the detail panel: verify it doesn't push
+1 Make visualizer items related to overlays or animations clickable shortcuts.
+Clicking a bit-state legend/color item should let the user choose that state's
+color.
+
+2 Keep reducing `Visualizer.jsx` and `SieveRenderer.js`; prefer one focused
+hook/component/helper extraction per session.
+
+3 Add more useful tools to the debug window: GL worker status, texture upload
+sizes, bit count, current render cadence, and context-loss recovery state.
+
+4 Make the debug tools window draggable or pinnable only if it starts competing
+with settings/detail/sidebar workflows. 
+
+5 Polish the all-events transport in the detail panel: verify it doesn't push
   detail sections below the fold at small heights; add a visual separator from
   the step-anim sliders when both are visible simultaneously.
-- Check bit-history balloon connector/clamping polish with events panel
+
+6 Check bit-history balloon connector/clamping polish with events panel
   open/closed, settings open/closed, joined widget visible, minimap visible,
   light/dark themes, and high zoom.
-- Manually tune balloon connector width/opacity if it competes with dense
+7
+ Manually tune balloon connector width/opacity if it competes with dense
   overlays, especially in light theme.
-- Rewrite the logging system so that it is easier to read f. Each line has:
+
+8 Rewrite the logging system so that it is easier to read f. Each line has:
     - an optional text of some arbitrary amount of characters
     - optional a json string (starting with  "{ traceline: <x>" where <x> is the line number. The properties of the json object are optional, like  depth: <>, level: <>. step: <>, etc... }. \
       When parsing, try to infer the missing properties from the text. Use the text as an annotation.
-- the balloon placement should be improved: (1) balloons should not overlap (2) when a bit under the all event panel, don't show the connector over the events panel (3) the connector should look better: more pointy at the bit side and much wider at the text box side (4) when i drag to the left, sometimes the connector gets "twisted"
-- Make the "operation" labels in the all events panel more readable: (1) immediately give it the full size while hovering over it (the expanded text must not push away the other text, but the expanded text may float over the bitcount, timing, etc) and (2) give me an easy way to switch between this column in full width or reduced width
-- when the single event widget is docker to the detail panel, don't show the %progress and gear icon on the far right, but just to the right on the timeline slider, as it looked on the single event widget.
-- Make a toggle to turn automatic animation start when selecting a sigle event on or off
-- In settings -> layout panel -> Autofit. when turning auto fit off, start at the count that was set by auto fit.
-- Change the nearby events: (1) Don't have "current" as the name, but the the Title with the same font, style and size as on the widget itself. Keep the play button in front of it; (2) make it possible to have the nearby events instead of the title.
-- when clicking in the details panel to go to the source, don't open the file/title details but just show the log, so that when i close the raw log, i don't have to close the file/title details. 
+9 the balloon placement should be improved: (1) balloons should not overlap (2) when a bit under the all event panel, don't show the connector over the events panel (3) the connector should look better: more pointy at the bit side and much wider at the text box side (4) when i drag to the left, sometimes the connector gets "twisted"
 
+10 Make the "operation" labels in the all events panel more readable: (1) immediately give it the full size while hovering over it (the expanded text must not push away the other text, but the expanded text may float over the bitcount, timing, etc) and (2) give me an easy way to switch between this column in full width or reduced width
+
+11 when the single event widget is docker to the detail panel, don't show the %progress and gear icon on the far right, but just to the right on the timeline slider, as it looked on the single event widget.
+
+12 Make a toggle to turn automatic animation start when selecting a sigle event on or off
+
+13 In settings -> layout panel -> Autofit. when turning auto fit off, start at the count that was set by auto fit.
+
+14 Change the nearby events: (1) Don't have "current" as the name, but the the Title with the same font, style and size as on the widget itself. Keep the play button in front of it; (2) make it possible to have the nearby events instead of the title.
+
+15 when clicking in the details panel to go to the source, don't open the file/title details but just show the log, so that when i close the raw log, i don't have to close the file/title details. 
+ 
 
 ## New Ideas
 
