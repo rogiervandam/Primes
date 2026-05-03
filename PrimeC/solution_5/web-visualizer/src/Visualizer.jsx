@@ -318,6 +318,13 @@ export default function Visualizer({
           usedLines.add(l);
           break;
         }
+        // New-style log format: text prefix before inline { traceline: ... } JSON
+        const newStyleMatch = raw.match(/^(.+?)\s*\{[^}]*"?traceline"?\s*:/);
+        if (newStyleMatch && newStyleMatch[1].trim() === ann) {
+          map[l] = s;
+          usedLines.add(l);
+          break;
+        }
       }
     }
     return map;
@@ -2105,9 +2112,8 @@ export default function Visualizer({
   const [rawScrollToLine, setRawScrollToLine] = useState(null);
   const onClearRawScrollToLine = useCallback(() => setRawScrollToLine(null), []);
   const onOpenRawLog = useCallback((lineIdx) => {
-    setShowTraceInfo(true);
     setRawScrollToLine(lineIdx);
-  }, [setShowTraceInfo]);
+  }, []);
 
   const cancelViewportAnimation = useCallback(() => {
     if (viewportAnimRef.current) {

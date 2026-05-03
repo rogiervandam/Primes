@@ -96,16 +96,10 @@ describe('extractBenchmarkMetadata', () => {
 // ─── extractTitleMetadata ─────────────────────────────────────────────────
 
 describe('extractTitleMetadata', () => {
-  it('extracts title from TITLE kv line (quoted multi-word)', () => {
-    const lines = ['TITLE title="My Sieve"'];
+  it('extracts title from JSON TITLE line', () => {
+    const lines = ['TITLE { "title": "My Sieve" }'];
     const result = extractTitleMetadata(lines);
     expect(result.title).toBe('My Sieve');
-  });
-
-  it('extracts title from TITLE kv line (single word, no quotes needed)', () => {
-    const lines = ['TITLE title=MySieve'];
-    const result = extractTitleMetadata(lines);
-    expect(result.title).toBe('MySieve');
   });
 
   it('falls back to headerKv.title when no TITLE line', () => {
@@ -113,20 +107,27 @@ describe('extractTitleMetadata', () => {
     expect(result.title).toBe('Header Title');
   });
 
-  it('extracts subtitle from TITLE line (quoted multi-word)', () => {
-    const lines = ['TITLE subtitle="Fast Variant"'];
+  it('extracts subtitle from JSON TITLE line', () => {
+    const lines = ['TITLE { "subtitle": "Fast Variant" }'];
     const result = extractTitleMetadata(lines);
     expect(result.subtitle).toBe('Fast Variant');
   });
 
-  it('deduplicates info items (quoted value)', () => {
+  it('extracts title and info from JSON TITLE line', () => {
+    const lines = ['TITLE { "title": "JSON Title", "info": "JSON Info" }'];
+    const result = extractTitleMetadata(lines);
+    expect(result.title).toBe('JSON Title');
+    expect(result.info).toEqual(expect.arrayContaining(['JSON Info']));
+  });
+
+  it('ignores legacy non-JSON TITLE lines', () => {
     const lines = [
-      'TITLE info="Note A"',
-      'TITLE info="Note A"',
+      'TITLE title="Old Style"',
+      'TITLE info="Legacy Info"',
     ];
     const result = extractTitleMetadata(lines);
-    const noteCount = result.info.filter((s) => s === 'Note A').length;
-    expect(noteCount).toBe(1);
+    expect(result.title).toBeNull();
+    expect(result.info).toEqual([]);
   });
 
   it('returns null title/subtitle when nothing is provided', () => {

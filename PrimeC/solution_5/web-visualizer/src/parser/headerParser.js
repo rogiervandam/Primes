@@ -7,7 +7,6 @@
  */
 
 import {
-  parseKvLine,
   firstDefined,
   collectTitleInfo,
   dedupeStrings,
@@ -15,8 +14,12 @@ import {
 
 /** Collect TITLE and headerKv-derived title/subtitle/info into one object. */
 export function extractTitleMetadata(lines, headerKv = {}) {
-  const titleLines = lines.filter((line) => /^TITLE\s/i.test(line));
-  const kvs = titleLines.map((line) => parseKvLine(line.replace(/^TITLE\s+/i, '')));
+  // A title line is any line whose JSON object has title/subtitle but no traceline.
+  const kvs = lines.map((line) => {
+    const braceIdx = line.indexOf('{');
+    if (braceIdx === -1) return null;
+    try { return JSON.parse(line.slice(braceIdx)); } catch { return null; }
+  }).filter((kv) => kv && (kv.title != null || kv.subtitle != null || kv.info != null) && kv.traceline == null);
   const title = firstDefined(
     ...kvs.map((kv) => firstDefined(kv.title, kv.label, null)),
     headerKv.title,

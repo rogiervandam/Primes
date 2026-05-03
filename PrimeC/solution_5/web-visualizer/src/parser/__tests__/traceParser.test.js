@@ -5,9 +5,9 @@ import { parseTrace } from '../../traceParser.js';
 // Minimal fixtures
 // ---------------------------------------------------------------------------
 
-/** Smallest valid JSON v3 trace: one event, no bits changed. */
-const JSON_V3_MINIMAL = JSON.stringify({
-  version: 3,
+/** Smallest valid JSON v7 trace: one event, no bits changed. */
+const JSON_V7_MINIMAL = JSON.stringify({
+  version: 7,
   sieve_size: 100,
   bit_count: 50,
   storage_model: 'half',
@@ -19,47 +19,47 @@ const JSON_V3_MINIMAL = JSON.stringify({
   ],
 });
 
-/** Tiny JSON v2 trace (legacy field names). */
-const JSON_V2_MINIMAL = JSON.stringify({
-  version: 2,
-  sieve_size: 50,
-  bit_count: 50,
-  storage_model: 'default',
-  steps: [
-    {
-      operation: 'init',
-      changed_bits: [],
-    },
-  ],
-});
-
-/** Minimal text-format trace (version 7 header + one EVENT line). */
+/** Minimal text-format trace (JSON TRACE header + one inline-JSON step line). */
 const TEXT_TRACE_MINIMAL = [
-  'TRACE version=7 format=text sieve_size=100 bit_count=100 storage_model=half',
-  'EVENT function="Init" changed_count=0 changed_bits=[]',
+  'TRACE { "version": 7, "format": "text", "sieve_size": 100, "bit_count": 100, "storage_model": "half" }',
+  'Init step { "traceline": 1, "function": "Init", "changed_bits": [] }',
+].join('\n');
+
+/** Minimal text-format trace with no TRACE prefix on the header line. */
+const TEXT_TRACE_MINIMAL_NO_PREFIX = [
+  '{ "version": 7, "format": "text", "sieve_size": 100, "bit_count": 100, "storage_model": "half" }',
+  'Init step { "traceline": 1, "function": "Init", "changed_bits": [] }',
 ].join('\n');
 
 /** Text trace with a few changed bits. */
 const TEXT_TRACE_WITH_BITS = [
-  'TRACE version=7 format=text sieve_size=30 bit_count=15 storage_model=half',
-  'EVENT function="Mark" changed_count=3 changed_bits=[1,3,5]',
+  'TRACE { "version": 7, "format": "text", "sieve_size": 30, "bit_count": 15, "storage_model": "half" }',
+  'Mark step { "traceline": 1, "function": "Mark", "changed_bits": [1,3,5] }',
 ].join('\n');
 
 /** Text trace with a custom repeated wheel definition. */
 const TEXT_TRACE_WITH_WHEEL = [
-  'TRACE version=7 format=text sieve_size=240 bit_count=64 storage_model=wheeltesting',
-  'WHEEL wheel_size=240 bits_per_wheel=64 base_size=30 repeats=8 wheel_max=5 map_count=4 map_numbers=[1,7,31,37] map_bits=[0,1,8,9]',
-  'EVENT function="Mark" changed_count=2 changed_bits=[0,8]',
+  'TRACE { "version": 7, "format": "text", "sieve_size": 240, "bit_count": 64, "storage_model": "wheeltesting" }',
+  'WHEEL { "wheel_size": 240, "bits_per_wheel": 64, "base_size": 30, "repeats": 8, "wheel_max": 5, "map_count": 4, "map_numbers": [1,7,31,37], "map_bits": [0,1,8,9] }',
+  'Mark wheel bits { "traceline": 1, "function": "Mark", "changed_bits": [0,8] }',
+].join('\n');
+
+/** Text trace with JSON-style TRACE/TITLE/WHEEL headers. */
+const TEXT_TRACE_WITH_JSON_HEADERS = [
+  'TRACE { "version": 7, "format": "text", "sieve_size": 240, "bit_count": 64, "storage_model": "wheeltesting", "trace_level": 9 }',
+  'TITLE { "title": "JSON Header Trace", "info": "wheel json header" }',
+  'WHEEL { "wheel_size": 240, "bits_per_wheel": 64, "base_size": 30, "repeats": 8, "wheel_max": 5, "map_count": 4, "map_numbers": [1,7,31,37], "map_bits": [0,1,8,9] }',
+  'Mark step { "traceline": 1, "function": "Mark", "changed_bits": [0,8] }',
 ].join('\n');
 
 /** Rust trace-mode fixture: one file per variant, with explicit target bits and zero-change attempts. */
 const TEXT_TRACE_RUST_VARIANT = [
-  'TRACE version=7 format=text sieve_size=50 bit_count=25 max_number=50 storage_model=half trace_level=9 benchmark_settings=variant=bit-rotate',
-  'TITLE title="prime-sieve-rust - bit-rotate trace" info="variant=bit-rotate | max=50 | trace_level=9"',
+  'TRACE { "version": 7, "format": "text", "sieve_size": 50, "bit_count": 25, "max_number": 50, "storage_model": "half", "trace_level": 9, "benchmark_settings": "variant=bit-rotate" }',
+  'TITLE { "title": "prime-sieve-rust - bit-rotate trace", "info": "variant=bit-rotate | max=50 | trace_level=9" }',
   'StorageModel: half',
-  'EVENT depth=5 level=5 function="SetBitsRange" prime=3 start=4 stop=24 factor_step=3 target_bits=[] annotation="SetBitsRange: variant bit-rotate prime 3 setting bits with step 3 in range 4-24" changed_count=0 changed_bits=[]',
-  'EVENT depth=9 level=9 function="SetBitTrue" prime=3 start=4 stop=4 factor_step=3 target_bits=[4] annotation="SetBitTrue: variant bit-rotate prime 3 setting bit at index 4 number 9 with step 3" changed_count=1 changed_bits=[4]',
-  'EVENT depth=9 level=9 function="SetBitTrue" prime=5 start=22 stop=22 factor_step=5 target_bits=[22] annotation="SetBitTrue: variant bit-rotate prime 5 setting bit at index 22 number 45 with step 5" changed_count=0 changed_bits=[]',
+  'SetBitsRange: variant bit-rotate prime 3 setting bits with step 3 in range 4-24 { "traceline": 1, "depth": 5, "level": 5, "function": "SetBitsRange", "prime": 3, "start": 4, "stop": 24, "factor_step": 3, "target_bits": [], "changed_bits": [] }',
+  'SetBitTrue: variant bit-rotate prime 3 setting bit at index 4 number 9 with step 3 { "traceline": 2, "depth": 9, "level": 9, "function": "SetBitTrue", "prime": 3, "start": 4, "stop": 4, "factor_step": 3, "target_bits": [4], "changed_bits": [4] }',
+  'SetBitTrue: variant bit-rotate prime 5 setting bit at index 22 number 45 with step 5 { "traceline": 3, "depth": 9, "level": 9, "function": "SetBitTrue", "prime": 5, "start": 22, "stop": 22, "factor_step": 5, "target_bits": [22], "changed_bits": [] }',
 ].join('\n');
 
 // ---------------------------------------------------------------------------
@@ -85,46 +85,37 @@ function assertTraceShape(trace) {
 // JSON traces
 // ---------------------------------------------------------------------------
 
-describe('parseTrace — JSON v3', () => {
-  it('parses a minimal v3 trace without throwing', () => {
-    expect(() => parseTrace(JSON_V3_MINIMAL)).not.toThrow();
+describe('parseTrace — JSON v7', () => {
+  it('parses a minimal v7 trace without throwing', () => {
+    expect(() => parseTrace(JSON_V7_MINIMAL)).not.toThrow();
   });
 
   it('returns the normalised trace shape', () => {
-    assertTraceShape(parseTrace(JSON_V3_MINIMAL));
+    assertTraceShape(parseTrace(JSON_V7_MINIMAL));
   });
 
   it('accepts an ArrayBuffer input', () => {
-    const buf = new TextEncoder().encode(JSON_V3_MINIMAL).buffer;
+    const buf = new TextEncoder().encode(JSON_V7_MINIMAL).buffer;
     expect(() => parseTrace(buf)).not.toThrow();
     assertTraceShape(parseTrace(buf));
   });
 
   it('returns the correct bitCount', () => {
-    const trace = parseTrace(JSON_V3_MINIMAL);
+    const trace = parseTrace(JSON_V7_MINIMAL);
     // storage_model=half: bitCount = sieve_size / 2 = 50
     expect(trace.header.bitCount).toBe(50);
   });
 
   it('steps array has at least one entry', () => {
-    const trace = parseTrace(JSON_V3_MINIMAL);
+    const trace = parseTrace(JSON_V7_MINIMAL);
     expect(trace.steps.length).toBeGreaterThanOrEqual(1);
   });
 });
 
-describe('parseTrace — JSON v2', () => {
-  it('parses a minimal v2 trace without throwing', () => {
-    expect(() => parseTrace(JSON_V2_MINIMAL)).not.toThrow();
-  });
-
-  it('returns the normalised trace shape', () => {
-    assertTraceShape(parseTrace(JSON_V2_MINIMAL));
-  });
-});
 
 describe('parseTrace — JSON version validation', () => {
-  it('throws for version < 2', () => {
-    const bad = JSON.stringify({ version: 1, events: [] });
+  it('throws for version < 7', () => {
+    const bad = JSON.stringify({ version: 6, events: [] });
     expect(() => parseTrace(bad)).toThrow(/version/i);
   });
 
@@ -141,6 +132,13 @@ describe('parseTrace — JSON version validation', () => {
 describe('parseTrace — text format', () => {
   it('parses a minimal text trace without throwing', () => {
     expect(() => parseTrace(TEXT_TRACE_MINIMAL)).not.toThrow();
+  });
+
+  it('parses a minimal text trace whose first line has no TRACE prefix', () => {
+    expect(() => parseTrace(TEXT_TRACE_MINIMAL_NO_PREFIX)).not.toThrow();
+    const trace = parseTrace(TEXT_TRACE_MINIMAL_NO_PREFIX);
+    expect(trace.header.storageModel).toBe('half');
+    expect(trace.steps).toHaveLength(1);
   });
 
   it('returns the normalised trace shape', () => {
@@ -165,6 +163,24 @@ describe('parseTrace — text format', () => {
     const trace = parseTrace(TEXT_TRACE_WITH_WHEEL);
     expect(trace.header.storageModel).toBe('wheel');
     expect(trace.header.rawStorageModel).toBe('wheeltesting');
+    expect(trace.header.wheel).toMatchObject({
+      wheelSize: 240,
+      bitsPerWheel: 64,
+      baseSize: 30,
+      repeats: 8,
+      wheelMax: 5,
+      mapCount: 4,
+      mapNumbers: [1, 7, 31, 37],
+      mapBits: [0, 1, 8, 9],
+    });
+  });
+
+  it('parses JSON TRACE/TITLE/WHEEL headers', () => {
+    const trace = parseTrace(TEXT_TRACE_WITH_JSON_HEADERS);
+    expect(trace.header.storageModel).toBe('wheel');
+    expect(trace.header.rawStorageModel).toBe('wheeltesting');
+    expect(trace.header.traceLevel).toBe(9);
+    expect(trace.header.title).toBe('JSON Header Trace');
     expect(trace.header.wheel).toMatchObject({
       wheelSize: 240,
       bitsPerWheel: 64,
@@ -220,5 +236,13 @@ describe('parseTrace — error cases', () => {
 
   it('throws when the dev server app shell is returned instead of a trace', () => {
     expect(() => parseTrace('<!DOCTYPE html><html><body><div id="root"></div></body></html>')).toThrow(/HTML instead of a trace log/i);
+  });
+
+  it('throws for legacy text key-value traces', () => {
+    const oldText = [
+      'TRACE version=7 format=text sieve_size=100 bit_count=100 storage_model=half',
+      'EVENT function="Init" changed_count=0 changed_bits=[]',
+    ].join('\n');
+    expect(() => parseTrace(oldText)).toThrow(/TRACE header must be JSON format/i);
   });
 });

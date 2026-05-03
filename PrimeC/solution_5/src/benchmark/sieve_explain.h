@@ -10,6 +10,10 @@ initSingleRunTrace(benchmark_settings_t benchmark_settings, const char* algorith
 {
     #ifdef COMPILE_TRACE
     if (option.trace_filename) {
+        const char* trace_storage_model =
+            (algorithm_type && strcmp(algorithm_type, "wheel") == 0)
+                ? getStorageModelName((int)benchmark_settings.storage)
+                : "half";
         counter_t trace_bit_count = calcBitsize(benchmark_settings.factor_max, benchmark_settings.storage);
         char trace_settings_tag[128];
         char trace_title[192];
@@ -25,7 +29,7 @@ initSingleRunTrace(benchmark_settings_t benchmark_settings, const char* algorith
 
         trace_set_console_feedback(primes_log_should_explain(2));
         trace_init(option.trace_filename, (uint64_t)benchmark_settings.factor_max, (uint64_t)trace_bit_count, (int)option.trace_level,
-                     getStorageModelName((int)benchmark_settings.storage), trace_settings_tag, trace_title, trace_info);
+                 trace_storage_model, trace_settings_tag, trace_title, trace_info);
 
         #if defined(WHEEL_SIZE) && defined(WHEEL_STRIPE_BITS)
         if (g_trace.enabled) trace_write_current_wheel_definition();

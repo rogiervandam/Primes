@@ -57,6 +57,8 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 - Mask-stamp animation polished: travel phase now takes 58% of each stamp slot (was 45%), settle shortened to 15% (was 30%), final vertical lift capped at 4 px (was up to 18 px). Both orderedEntries and legacy-groups paths in `SieveRenderer.renderMaskStamp()` updated.
 - Dragging the joined widget onto the detail panel now shows all-events transport and timeline inside the detail panel body. `allEventsInDetailPanel` state is persisted. A ✕ dismiss button removes the transport from the panel. `pushJoinedWidgetToDetailPanel` in `usePanelChoreography`; `JoinedEventsWidget` has a 'detail' drop zone via elementFromPoint hit-test.
 - Balloon clamping: `.joined-events-widget` added to the overlay-rect query set in `getVisibleBalloonStyles` so balloons hide when they would overlap the floating widget.
+- New-style inline JSON trace format supported in the parser. Each log line can now be: `<optional text> { traceline: <n>, depth: <n>, level: <n>, step: <n>, prime: <n>, start: <n>, stop: <n>, operation: "...", ... }`. The text prefix becomes the annotation; JSON fields map directly to step properties; missing fields are inferred from the annotation text. Both quoted and unquoted JSON keys are accepted. `lineToStep` linking in the raw-log viewer handles the new format.
+- Clicking "go to source" in the detail panel now opens the raw log directly without also opening the trace-info popover. Closing the raw log no longer requires a second click to close the popover. `TraceInfoPopover` is now always mounted; `visible` prop controls whether the popover chrome is shown; the raw log dialog renders independently.
 
 ## Open
 
@@ -80,14 +82,10 @@ with settings/detail/sidebar workflows.
 6 Check bit-history balloon connector/clamping polish with events panel
   open/closed, settings open/closed, joined widget visible, minimap visible,
   light/dark themes, and high zoom.
-7
- Manually tune balloon connector width/opacity if it competes with dense
+
+7  Manually tune balloon connector width/opacity if it competes with dense
   overlays, especially in light theme.
 
-8 Rewrite the logging system so that it is easier to read f. Each line has:
-    - an optional text of some arbitrary amount of characters
-    - optional a json string (starting with  "{ traceline: <x>" where <x> is the line number. The properties of the json object are optional, like  depth: <>, level: <>. step: <>, etc... }. \
-      When parsing, try to infer the missing properties from the text. Use the text as an annotation.
 9 the balloon placement should be improved: (1) balloons should not overlap (2) when a bit under the all event panel, don't show the connector over the events panel (3) the connector should look better: more pointy at the bit side and much wider at the text box side (4) when i drag to the left, sometimes the connector gets "twisted"
 
 10 Make the "operation" labels in the all events panel more readable: (1) immediately give it the full size while hovering over it (the expanded text must not push away the other text, but the expanded text may float over the bitcount, timing, etc) and (2) give me an easy way to switch between this column in full width or reduced width
@@ -99,8 +97,6 @@ with settings/detail/sidebar workflows.
 13 In settings -> layout panel -> Autofit. when turning auto fit off, start at the count that was set by auto fit.
 
 14 Change the nearby events: (1) Don't have "current" as the name, but the the Title with the same font, style and size as on the widget itself. Keep the play button in front of it; (2) make it possible to have the nearby events instead of the title.
-
-15 when clicking in the details panel to go to the source, don't open the file/title details but just show the log, so that when i close the raw log, i don't have to close the file/title details. 
  
 
 ## New Ideas

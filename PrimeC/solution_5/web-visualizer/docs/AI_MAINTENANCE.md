@@ -801,7 +801,14 @@ opacity slider responds immediately during animation. Event annotations shown
 inline in the events panel list. The "View raw log" button is now the first item
 in the trace-info popover (above Storage model). Event panel < and > level
 buttons now cycle within the active group (up-to/collapse/exact) rather than
-only cycling through up-to levels.
+only cycling through up-to levels. New-style inline JSON log format supported:
+lines of the form `<text> { traceline: <n>, depth: <n>, level: <n>, ... }` are
+parsed in `parseFreeformTextTrace` and `parseTextTrace`; the text prefix becomes
+the annotation; JSON fields map to step properties; `lineToStep` in
+`Visualizer.jsx` recognises this format for raw-log source linking.
+`TraceInfoPopover` is now always mounted; the `visible` prop hides the popover
+chrome while letting the raw-log dialog render independently so "go to source"
+in the detail panel opens only the log without opening the trace-info popover.
 
 Left to do:
 

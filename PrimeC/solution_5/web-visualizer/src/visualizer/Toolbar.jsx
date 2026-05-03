@@ -118,20 +118,19 @@ export default function Toolbar({
         <div className="trace-actions">
           {onClose && <button className="btn-icon" onClick={onClose} title="Close trace">✕</button>}
         </div>
-        {showTraceInfo && (
-          <TraceInfoPopover
-            popoverRef={traceInfoPopoverRef}
-            storageModel={storageModel}
-            setStorageModel={setStorageModel}
-            header={header}
-            sections={traceInfoSections}
-            rawSource={rawSource}
-            lineToStep={lineToStep}
-            onJumpToStep={onJumpToStep}
-            rawScrollToLine={rawScrollToLine}
-            onClearRawScrollToLine={onClearRawScrollToLine}
-          />
-        )}
+        <TraceInfoPopover
+          popoverRef={traceInfoPopoverRef}
+          visible={showTraceInfo}
+          storageModel={storageModel}
+          setStorageModel={setStorageModel}
+          header={header}
+          sections={traceInfoSections}
+          rawSource={rawSource}
+          lineToStep={lineToStep}
+          onJumpToStep={onJumpToStep}
+          rawScrollToLine={rawScrollToLine}
+          onClearRawScrollToLine={onClearRawScrollToLine}
+        />
         <div className="panel-toggle-group">
 
           {eventsPanelCollapsed && allEventsWidgetHidden && (

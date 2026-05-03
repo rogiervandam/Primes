@@ -18,7 +18,7 @@ import { STORAGE_MODELS } from '../SieveRenderer';
  * @param {function}  props.onClearRawScrollToLine  Called after scroll target is consumed.
  */
 export default function TraceInfoPopover({
-  popoverRef, storageModel, setStorageModel, header, sections, rawSource,
+  popoverRef, visible = true, storageModel, setStorageModel, header, sections, rawSource,
   lineToStep, onJumpToStep, rawScrollToLine, onClearRawScrollToLine,
 }) {
   const [rawOpen, setRawOpen] = useState(false);
@@ -136,7 +136,7 @@ export default function TraceInfoPopover({
 
   return (
     <>
-      <div className="trace-info-popover" ref={popoverRef}>
+      {visible && <div className="trace-info-popover" ref={popoverRef}>
         {rawSource && (
           <div className="trace-info-section trace-info-raw-section">
             <button
@@ -231,7 +231,7 @@ export default function TraceInfoPopover({
             ))}
           </div>
         ))}
-      </div>
+      </div>}
 
       {rawOpen && (
         <div
