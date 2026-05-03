@@ -53,6 +53,8 @@
  * @param {Set<number>} opts.selectedSteps
  * @param {boolean}     opts.animationReplayPaused
  * @param {boolean}     opts.singleEventLoopActive
+ * @param {React.MutableRefObject} [opts.autoAnimateOnSelectRef] - When false, skip the auto-repeat loop
+ * @param {boolean}     [opts.autoAnimateOnSelect] - State mirror for dep array
  *
  * State setters (stable across renders):
  * @param {function} opts.setPlaying
@@ -76,8 +78,11 @@ export function usePlaybackLoop({
   setStepAnimRunningRef, stepAnimRunningRefForScheduler,
   // State values (for effect dependency arrays only)
   playing, steps, currentStep, selectedSteps, animationReplayPaused, singleEventLoopActive,
+  autoAnimateOnSelect = true,
   // State setters
   setPlaying, setCurrentStep,
+  // Optional preference refs
+  autoAnimateOnSelectRef,
 }) {
   // ── Effect 1: Repeat selected-step animation until selection changes ─────
   useEffect(() => {
@@ -86,6 +91,8 @@ export function usePlaybackLoop({
       selectedAnimLoopRef.current = null;
     }
     if (playing || animationReplayPaused || selectedSteps.size === 0) return;
+    // When auto-animate-on-select is disabled, do not start the replay loop.
+    if (autoAnimateOnSelectRef && autoAnimateOnSelectRef.current === false) return;
 
     const merged = new Set();
     for (const idx of selectedSteps) {
@@ -118,8 +125,9 @@ export function usePlaybackLoop({
       }
     };
     // triggerAnimation intentionally omitted; see pausedStepAnimLoop for rationale.
+    // autoAnimateOnSelect is included so the loop tears down immediately when the toggle is switched off.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSteps, steps, playing, animationReplayPaused]);
+  }, [selectedSteps, steps, playing, animationReplayPaused, autoAnimateOnSelect]);
 
   // ── Effect 2: When paused on a single step, keep replaying that step's animation ──
   useEffect(() => {

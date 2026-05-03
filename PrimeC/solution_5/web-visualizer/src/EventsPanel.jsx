@@ -128,6 +128,18 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
   const scrollTopRef = useRef(0);
   const [search, setSearch] = useState('');
   const [filterOp, setFilterOp] = useState('');
+  // Whether the operation column is in wide mode (shows full text, no truncation).
+  // Persisted to localStorage so it survives reloads.
+  const [opColWide, setOpColWide] = useState(() => {
+    try { return localStorage.getItem('sieve-ep-op-wide') === '1'; } catch { return false; }
+  });
+  const toggleOpColWide = useCallback(() => {
+    setOpColWide(prev => {
+      const next = !prev;
+      try { localStorage.setItem('sieve-ep-op-wide', next ? '1' : '0'); } catch {}
+      return next;
+    });
+  }, []);
   // Drag state for the collapsed floating panel
   const [floatDrag, setFloatDrag] = useState({ x: 0, y: 0 });
   const floatDragRef = useRef({ x: 0, y: 0 });
@@ -689,7 +701,11 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
           )}
           <span className="event-num">{eventId}</span>
           {Number.isFinite(node.level) && <span className="event-op">L{node.level}</span>}
-          {node.operation && <span className="event-op">{node.operation}</span>}
+          {node.operation && (
+            <span className="event-op-wrap">
+              <span className="event-op" title={node.operation}>{node.operation}</span>
+            </span>
+          )}
           <span className="event-changes">{changedCount > 0 ? `+${changedCount}` : ''}</span>
           {isAggregateLeaf && node.hiddenDescendantCount > 0 && (
             <span className="event-agg-badge" title={`Aggregated from ${node.hiddenDescendantCount} hidden event${node.hiddenDescendantCount !== 1 ? 's' : ''}`}>
@@ -795,7 +811,7 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
   ) : null;
 
   return (
-    <div className={`events-panel${panelCollapsed ? ' collapsed' : ''}${isCollapsingOut ? ' collapsing-out' : ''}${floatDropHint === 'left' ? ' drop-hint-left' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
+      <div className={`events-panel${panelCollapsed ? ' collapsed' : ''}${isCollapsingOut ? ' collapsing-out' : ''}${floatDropHint === 'left' ? ' drop-hint-left' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
       {panelCollapsed && !allEventsWidgetHidden && (
         <div
           className={`events-panel-floating-title${floatDropHint ? ` dropping dropping-${floatDropHint}` : ''}`}
@@ -848,10 +864,17 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
           onChange={(e) => setSearch(e.target.value)}
         />
         {operations.length > 0 && (
-          <select className="event-filter" value={filterOp} onChange={(e) => setFilterOp(e.target.value)}>
-            <option value="">All operations</option>
-            {operations.map(op => <option key={op} value={op}>{op}</option>)}
-          </select>
+          <div className="event-op-filter-row">
+            <select className="event-filter event-filter-op" value={filterOp} onChange={(e) => setFilterOp(e.target.value)}>
+              <option value="">All operations</option>
+              {operations.map(op => <option key={op} value={op}>{op}</option>)}
+            </select>
+            <button
+              className={`event-op-wide-btn${opColWide ? ' active' : ''}`}
+              onClick={toggleOpColWide}
+              title={opColWide ? 'Narrow operation column' : 'Wide operation column'}
+            >{opColWide ? '←→' : '→←'}</button>
+          </div>
         )}
         {traceLevels.length > 0 && (
           <div className="event-level-filter-row">

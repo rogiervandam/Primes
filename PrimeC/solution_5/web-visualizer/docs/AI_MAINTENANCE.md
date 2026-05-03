@@ -68,7 +68,8 @@ Approximate source size at this guide revision:
   `useTraceExport.js` and playback code depend on it.
 - `viewPrefs` writes to `localStorage` key
   `sieve-visualizer:view-preferences:v1`. Use defaults and `merge*` helpers in
-  `src/lib/viewPrefs.js` for every persisted field.
+  `src/lib/viewPrefs.js` for every persisted field. Existing keys: `autoAnimateOnSelect` (bool, default true) controls whether clicking an event auto-starts the animation loop; persisted via `getInitialViewState` / `writeViewPrefs`.
+- `autoAnimateOnSelectRef` is passed to `usePlaybackLoop`; Effect 1 (selected-step auto-replay loop) checks it before starting and includes `autoAnimateOnSelect` in its dep array so it tears down immediately when the toggle is switched off.
 - `bitStateRef` and `bitStateDirtyRef` must stay in sync. Any scrub-back or jump
   that invalidates cumulative bit state must mark dirty or restore from a
   snapshot.

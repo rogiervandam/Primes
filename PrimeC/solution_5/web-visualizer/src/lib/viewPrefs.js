@@ -311,6 +311,9 @@ export function getInitialViewState() {
     allEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
     widgetsJoined: initialWidgetsJoined(prefs),
     allEventsInDetailPanel: prefs?.allEventsInDetailPanel === true,
+    // When false, selecting an event will NOT automatically start the
+    // per-event animation loop. Default true to preserve prior behavior.
+    autoAnimateOnSelect: prefs?.autoAnimateOnSelect !== false,
     ...initialPanelVisibility(prefs),
   };
 }

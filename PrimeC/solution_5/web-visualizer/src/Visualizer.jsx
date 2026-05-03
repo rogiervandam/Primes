@@ -411,6 +411,11 @@ export default function Visualizer({
   const [singleEventLoopActive, setSingleEventLoopActive] = useState(false);
   const singleEventLoopActiveRef = useRef(false);
   singleEventLoopActiveRef.current = singleEventLoopActive;
+  // When false, selecting an event in the events panel will NOT auto-start
+  // the per-event animation replay loop. Default true preserves prior behavior.
+  const [autoAnimateOnSelect, setAutoAnimateOnSelect] = useState(initialPrefs.autoAnimateOnSelect);
+  const autoAnimateOnSelectRef = useRef(autoAnimateOnSelect);
+  autoAnimateOnSelectRef.current = autoAnimateOnSelect;
   // True while the user is mid-drag on the top-bar all-events scrubber. While
   // true, the per-event animation re-triggers on every value change and the
   // event auto-loops. Cleared on pointerup.
@@ -1413,11 +1418,12 @@ export default function Visualizer({
       allEventsWidgetHidden,
       widgetsJoined,
       allEventsInDetailPanel,
+      autoAnimateOnSelect,
       eventsPanelCollapsed,
       settingsCollapsed,
       detailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, depthSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, widgetsJoined, allEventsInDetailPanel, eventsPanelCollapsed, settingsCollapsed, detailOpen]);
+  }, [theme, layoutSettings, eventTitleSettings, depthSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, widgetsJoined, allEventsInDetailPanel, autoAnimateOnSelect, eventsPanelCollapsed, settingsCollapsed, detailOpen]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -3570,6 +3576,7 @@ export default function Visualizer({
     delayBetweenRepeatsRef, stepResumeStartIndexRef, stepResumeMaskProgressRef,
     setStepAnimRunningRef, stepAnimRunningRefForScheduler,
     playing, steps, currentStep, selectedSteps, animationReplayPaused, singleEventLoopActive,
+    autoAnimateOnSelect, autoAnimateOnSelectRef,
     setPlaying, setCurrentStep,
   });
 
@@ -5146,6 +5153,8 @@ export default function Visualizer({
           activeTabRequest={settingsTabRequest}
           bitAnimationMode={bitAnimationMode}
           onBitAnimationModeChange={handleBitAnimationModeChange}
+          autoAnimateOnSelect={autoAnimateOnSelect}
+          onAutoAnimateOnSelectChange={setAutoAnimateOnSelect}
           detailOpen={detailOpen}
           detailHeight={detailHeight}
         />

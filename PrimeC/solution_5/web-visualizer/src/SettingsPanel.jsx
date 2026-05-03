@@ -76,6 +76,8 @@ import ColorsTab from './settings/ColorsTab';
  * @param {function} [props.onActiveTabChange]        - Called whenever the active tab changes
  * @param {string}   props.bitAnimationMode           - 'mask'|'bits'|'combined'
  * @param {function} props.onBitAnimationModeChange
+ * @param {boolean}  [props.autoAnimateOnSelect]      - Whether to auto-start animation loop on event select
+ * @param {function} [props.onAutoAnimateOnSelectChange]
  * @param {boolean}  [props.detailOpen]               - Whether the detail panel is expanded
  * @param {number}   [props.detailHeight]             - Detail panel height in px
  */
@@ -120,6 +122,8 @@ export default function SettingsPanel({
   onActiveTabChange,
   bitAnimationMode,
   onBitAnimationModeChange,
+  autoAnimateOnSelect,
+  onAutoAnimateOnSelectChange,
   detailOpen = false,
   detailHeight = 280,
 }) {
@@ -291,6 +295,7 @@ export default function SettingsPanel({
             animationReplayPaused={animationReplayPaused} onAnimationReplayPausedChange={onAnimationReplayPausedChange}
             eventDurationMode={eventDurationMode} onEventDurationModeChange={onEventDurationModeChange}
             bitAnimationMode={bitAnimationMode} onBitAnimationModeChange={onBitAnimationModeChange}
+            autoAnimateOnSelect={autoAnimateOnSelect} onAutoAnimateOnSelectChange={onAutoAnimateOnSelectChange}
           />
         )}
         </div>

@@ -46,6 +46,8 @@ When `allEventsWidgetHidden` is true the widget is not rendered. The next `toggl
 
 **Drag-to-collapse (expanded panel):** The `.events-panel-header-title-row` carries a `grab` cursor and a `mousedown` handler (`handleHeaderTitleDragStart`). Dragging rightward past 80 px (raw, pre-rubber-band) triggers a two-phase animated collapse: (1) the title springs back, (2) `.collapsing-out` is applied so the header and list sweep out via `@keyframes events-panel-sweep-out`, then `onToggleCollapse()` is called after 360 ms total. State: `headerDragX` (visual translate), `headerDragWillCollapse` (accent hint), `isCollapsingOut` (animation class).
 
+**Operation column:** Each event row wraps its `.event-op` span inside an `.event-op-wrap`. On hover the inner span becomes `position: absolute` so it expands to show full text floating over adjacent chips (bitcount, timing) without reflowing the flex row. A `→←` / `←→` toggle button next to the operation filter selects between narrow (max 100 px) and wide (full text) mode; the choice is persisted in `localStorage` under key `sieve-ep-op-wide`. The `.op-wide` class is applied to the panel root when wide mode is active.
+
 ### `DetailPanel.jsx`
 Inspector for the currently selected step. Shows changed bits, factor, count of newly cleared bits, and contextual primes.
 
@@ -146,7 +148,7 @@ Content for the Colors tab (~156 lines). Owns two local `rgb↔hex` converters (
 Displays Theme buttons (☀ / ☽), day/night canvas-background colour pickers with Reset, grid opacity slider, colour preset dropdown, and custom per-class colour pickers.
 
 ### `AnimationTab.jsx`
-Content for the Animation tab (~545 lines). Fully self-contained: recreates `clamp` / `playbackSpeedValue` locally. Accepts only props that already existed on `SettingsPanel`. Includes the Bit-animation mode toggle (`animMode`: Mask / Bits / Both).
+Content for the Animation tab (~570 lines). Fully self-contained: recreates `clamp` / `playbackSpeedValue` locally. Accepts only props that already existed on `SettingsPanel`. Includes the Bit-animation mode toggle (`animMode`: Mask / Bits / Both). Also exposes `autoAnimateOnSelect` / `onAutoAnimateOnSelectChange` for the "Auto-animate on event select" checkbox in the "Selection behaviour" section.
 
 ### `LayoutTab.jsx`
 Content for the Layout tab (~960 lines). "Fat prop list" extraction (~25 props). Owns its own UI state for the grouping menu, custom-preset menu, and spacing popovers. Inner `LayoutOverview` is called as a direct function (`{LayoutOverview()}`); `SpacingControl` is a **module-level** component (promoted from inside `LayoutOverview` to fix per-render unmount/remount) receiving `openSpacingControl`, `setOpenSpacingControl`, `s`, `incr`, `decr` as props. Internally uses `useSettingsBundle()` for the `(settings, onChange)` sub-set of props. The Grid view block also exposes a Balloon mode segmented control: `Off`, `On bit clock` (click-only), or `Click + hover`.

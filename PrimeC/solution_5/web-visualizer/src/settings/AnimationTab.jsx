@@ -225,6 +225,7 @@ function AnimationTab({
   eventTimeTargets, onEventTimeTargetsChange,
   eventDurationMode, onEventDurationModeChange,
   bitAnimationMode, onBitAnimationModeChange,
+  autoAnimateOnSelect, onAutoAnimateOnSelectChange,
 }) {
   const playbackSpeedValue = msToPlaybackSpeed(playSpeed || 100);
   // Wrap slider onChange callbacks in startTransition so React deprioritises
@@ -547,6 +548,21 @@ function AnimationTab({
         )}
         <span className="settings-hint">Overall speed multiplies every per-event time target. Per-event tiers set how long an event takes at 100% speed; values are clamped to Min / Max. Delay between events is used by the all-events play. Delay between repeats is used by the single-event play.</span>
       </div>
+
+      {onAutoAnimateOnSelectChange != null && (
+        <div className="settings-section">
+          <label>Selection behaviour</label>
+          <label className="settings-toggle-row" title="When enabled, selecting an event in the events panel automatically starts the per-event animation loop. Disable to navigate freely without triggering animations.">
+            <input
+              type="checkbox"
+              checked={autoAnimateOnSelect !== false}
+              onChange={(e) => onAutoAnimateOnSelectChange(e.target.checked)}
+            />
+            <span>Auto-animate on event select</span>
+          </label>
+          <span className="settings-hint">When on, clicking an event in the list immediately plays its animation. Turn off to browse events without triggering the animation loop.</span>
+        </div>
+      )}
     </>
   );
 }

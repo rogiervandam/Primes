@@ -59,6 +59,8 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 - Balloon clamping: `.joined-events-widget` added to the overlay-rect query set in `getVisibleBalloonStyles` so balloons hide when they would overlap the floating widget.
 - New-style inline JSON trace format supported in the parser. Each log line can now be: `<optional text> { traceline: <n>, depth: <n>, level: <n>, step: <n>, prime: <n>, start: <n>, stop: <n>, operation: "...", ... }`. The text prefix becomes the annotation; JSON fields map directly to step properties; missing fields are inferred from the annotation text. Both quoted and unquoted JSON keys are accepted. `lineToStep` linking in the raw-log viewer handles the new format.
 - Clicking "go to source" in the detail panel now opens the raw log directly without also opening the trace-info popover. Closing the raw log no longer requires a second click to close the popover. `TraceInfoPopover` is now always mounted; `visible` prop controls whether the popover chrome is shown; the raw log dialog renders independently.
+- Operation labels in the events panel now hover-expand to show their full text floating over adjacent chips (bitcount, timing) without pushing them. Wrapped in `.event-op-wrap` so the flex layout space is preserved. A `→←` / `←→` toggle button next to the operation filter switches the column between compact (100 px max) and wide (full text always visible) mode; the choice is persisted to `localStorage`.
+- Auto-animate on event select toggle added to Settings → Animation → "Selection behaviour". When off, clicking an event in the list navigates to it silently without starting the per-event animation replay loop. The preference is persisted via `viewPrefs` (`autoAnimateOnSelect`, default `true`).
 
 ## Open
 
@@ -68,9 +70,6 @@ color.
 
 2 Keep reducing `Visualizer.jsx` and `SieveRenderer.js`; prefer one focused
 hook/component/helper extraction per session.
-
-3 Add more useful tools to the debug window: GL worker status, texture upload
-sizes, bit count, current render cadence, and context-loss recovery state.
 
 4 Make the debug tools window draggable or pinnable only if it starts competing
 with settings/detail/sidebar workflows. 
@@ -83,16 +82,12 @@ with settings/detail/sidebar workflows.
   open/closed, settings open/closed, joined widget visible, minimap visible,
   light/dark themes, and high zoom.
 
-7  Manually tune balloon connector width/opacity if it competes with dense
+7 Manually tune balloon connector width/opacity if it competes with dense
   overlays, especially in light theme.
 
 9 the balloon placement should be improved: (1) balloons should not overlap (2) when a bit under the all event panel, don't show the connector over the events panel (3) the connector should look better: more pointy at the bit side and much wider at the text box side (4) when i drag to the left, sometimes the connector gets "twisted"
 
-10 Make the "operation" labels in the all events panel more readable: (1) immediately give it the full size while hovering over it (the expanded text must not push away the other text, but the expanded text may float over the bitcount, timing, etc) and (2) give me an easy way to switch between this column in full width or reduced width
-
 11 when the single event widget is docker to the detail panel, don't show the %progress and gear icon on the far right, but just to the right on the timeline slider, as it looked on the single event widget.
-
-12 Make a toggle to turn automatic animation start when selecting a sigle event on or off
 
 13 In settings -> layout panel -> Autofit. when turning auto fit off, start at the count that was set by auto fit.
 

@@ -40,6 +40,31 @@
   padding: 4px 6px;
   font-size: 12px;
 }
+
+/* Row that holds the operation filter select + the wide/narrow toggle button */
+.event-op-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.event-op-filter-row .event-filter-op {
+  flex: 1;
+  width: auto;
+}
+.event-op-wide-btn {
+  flex-shrink: 0;
+  background: var(--bg-raised);
+  color: var(--fg-dim);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  padding: 3px 7px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1;
+}
+.event-op-wide-btn:hover { background: var(--bg-input); color: var(--fg); }
+.event-op-wide-btn.active { background: var(--accent-bg); border-color: var(--accent-dim); color: var(--fg); }
 .event-list {
   flex: 1;
   overflow-y: auto;
@@ -167,6 +192,54 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100px;
+  /* Allow this span to be repositioned absolutely inside .event-op-wrap */
+  display: block;
+}
+
+/* Wrapper keeps the flex-layout space reserved while the inner span can
+   float out absolutely when hovered. */
+.event-op-wrap {
+  position: relative;
+  max-width: 100px;
+  flex-shrink: 0;
+  /* Do NOT set overflow:hidden here — child absolute positioning relies on it. */
+  z-index: 1;
+}
+
+/* On hover: lift the label over sibling chips (bitcount, timing) without
+   pushing them. The wrapper retains its reserved space in the flex row. */
+.event-op-wrap:hover .event-op {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  z-index: 200;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.22);
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: default;
+}
+
+/* Wide mode: operation labels always show at full width (no truncation). */
+.events-panel.op-wide .event-op-wrap {
+  max-width: none;
+}
+.events-panel.op-wide .event-op {
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  position: static;
+  transform: none;
+  background: var(--op-bg);
+  border: none;
+  box-shadow: none;
+  padding: 1px 5px;
+  border-radius: 3px;
 }
 .event-changes {
   color: var(--accent-dim);
