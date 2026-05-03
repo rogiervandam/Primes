@@ -1,4 +1,4 @@
-#define max_masks 4
+#define max_masks 8
 
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
 function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, counter_t range_start, const counter_t range_stop, const counter_t step)
@@ -9,7 +9,7 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
 
     const counter_t stop_bucket = function(wheel_block_calc,variant_suffix)(range_stop + 1);
     const counter_t wheel_step = reduce2power(step) * reduce2power(wheelmask_stripe_bits); // step in words, accounting for stripe alignment
-    // +2 ensures all unique masks are flushed by bucket transitions
+    // +max_masks ensures all unique masks are flushed by bucket transitions
     const counter_t range_stop_unique = min(range_start + ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits) * WHEEL_SIZE * (wheel_step + 2), range_stop);
 
     // go to first aligned block 
@@ -23,44 +23,6 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
     bitbucket_t masks[max_masks] = {(bitbucket_t)0U};
     counter_t run_start_bucket = 0;
     counter_t run_count = 0;
-
-    #define FLUSH_MASK_RUN() function(applyMask_index_mmask,suffix)(sieve->bitstorage, run_start_bucket, stop_bucket, wheel_step, masks, run_count);
-    // #define FLUSH_MASK_RUN() \
-    //     do { \
-    //         if (run_count == 1) { \
-    //             function(applyMask_index,suffix)(sieve->bitstorage, run_start_bucket, stop_bucket, wheel_step, masks[0]); \
-    //         } \
-    //         else if (run_count == 2) { \
-    //             function(applyMask_index_pair,suffix)(sieve->bitstorage, run_start_bucket, stop_bucket, wheel_step, masks[0], masks[1]); \
-    //         } \
-    //         else if (run_count > 2) { \
-    //             function(applyMask_index_mmask,suffix)(sieve->bitstorage, run_start_bucket, stop_bucket, wheel_step, masks, run_count); \
-    //         } \
-    //         run_count = 0; \
-    //     } while (0)
-
-    #define ENSURE_ACTIVE_BUCKET(bucket) \
-        do { \
-            if (run_count == 0) { \
-                run_start_bucket = (bucket); \
-                masks[0] = (bitbucket_t)0U; \
-                run_count = 1; \
-            } \
-            else if ((bucket) == (run_start_bucket + run_count - 1)) { \
-                break; \
-            } \
-            else if (((bucket) == (run_start_bucket + run_count)) && (run_count < max_masks)) { \
-                masks[run_count++] = (bitbucket_t)0U; \
-            } \
-            else { \
-                FLUSH_MASK_RUN(); \
-                run_start_bucket = (bucket); \
-                masks[0] = (bitbucket_t)0U; \
-                run_count = 1; \
-            } \
-        } while (0)
-
-    // Incremental tracking: avoids per-iteration % and / by WHEEL_SIZE
     counter_t wheel_index = range_start % WHEEL_SIZE;
     counter_t wheel_bit_base = wheelmask_stripe_bits * (range_start / WHEEL_SIZE);
     counter_t new_bucket = index_type(wheel_bit_base, bitbucket_t);
@@ -69,10 +31,16 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
         const counter_t bitpoint = wheelmask_bitpoint[wheel_index];
 
         if (bitpoint > 0) {
-            if (new_bucket != current_bucket) {
-                current_bucket = new_bucket;
+            if (new_bucket != (run_start_bucket + run_count - 1)) {
+                if ((new_bucket == (run_start_bucket + run_count)) && (run_count < max_masks)) {
+                    masks[run_count++] = (bitbucket_t)0U;
+                } else {
+                    if (run_count > 0) function(applyMask_index_mmask,suffix)(sieve->bitstorage, run_start_bucket, stop_bucket, wheel_step, masks, run_count);
+                    run_start_bucket = new_bucket;
+                    masks[0] = (bitbucket_t)0U;
+                    run_count = 1;
+                }
             }
-            ENSURE_ACTIVE_BUCKET(current_bucket);
             masks[run_count - 1] |= markmask_type(wheel_bit_base + bitpoint - 1, bitbucket_t);
         }
 
@@ -85,9 +53,8 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
         }
     }
 
-    FLUSH_MASK_RUN();
+    function(applyMask_index_mmask,suffix)(sieve->bitstorage, run_start_bucket, stop_bucket, wheel_step, masks, run_count);
 
-    #undef ENSURE_ACTIVE_BUCKET
     #undef FLUSH_MASK_RUN
     #undef max_masks
 
