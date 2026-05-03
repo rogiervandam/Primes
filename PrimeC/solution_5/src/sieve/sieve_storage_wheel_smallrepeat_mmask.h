@@ -25,19 +25,20 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
     counter_t run_count = 0;
     bitbucket_t current_mask = (bitbucket_t)0U;
 
-    #define FLUSH_MASK_RUN() \
-        do { \
-            if (run_count == 1) { \
-                function(applyMask_index,suffix)(sieve->bitstorage, run_start_bucket, stop_bucket, wheel_step, masks[0]); \
-            } \
-            else if (run_count == 2) { \
-                function(applyMask_index_pair,suffix)(sieve->bitstorage, run_start_bucket, stop_bucket, wheel_step, masks[0], masks[1]); \
-            } \
-            else if (run_count > 2) { \
-                function(applyMask_index_mmask,suffix)(sieve->bitstorage, run_start_bucket, stop_bucket, wheel_step, masks, run_count); \
-            } \
-            run_count = 0; \
-        } while (0)
+    #define FLUSH_MASK_RUN() function(applyMask_index_mmask,suffix)(sieve->bitstorage, run_start_bucket, stop_bucket, wheel_step, masks, run_count);
+    // #define FLUSH_MASK_RUN() \
+    //     do { \
+    //         if (run_count == 1) { \
+    //             function(applyMask_index,suffix)(sieve->bitstorage, run_start_bucket, stop_bucket, wheel_step, masks[0]); \
+    //         } \
+    //         else if (run_count == 2) { \
+    //             function(applyMask_index_pair,suffix)(sieve->bitstorage, run_start_bucket, stop_bucket, wheel_step, masks[0], masks[1]); \
+    //         } \
+    //         else if (run_count > 2) { \
+    //             function(applyMask_index_mmask,suffix)(sieve->bitstorage, run_start_bucket, stop_bucket, wheel_step, masks, run_count); \
+    //         } \
+    //         run_count = 0; \
+    //     } while (0)
 
     #define PUSH_BUCKET_MASK(bucket, mask_value) \
         do { \
