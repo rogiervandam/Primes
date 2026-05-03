@@ -4,6 +4,7 @@
 #include "bitstorage_setBitsTrue_setBit.h"
 #include "bitstorage_setBitsTrue_applyMask.h"
 #include "bitstorage_setBitsTrue_applyMask_pair.h"
+#include "bitstorage_setBitsTrue_applyMask_mmask.h"
 #include "bitstorage_setBitsTrue_smallstep_rotate_pair.h" 
 #include "bitstorage_setBitsTrue_largestep_vector.h"
 #include "bitstorage_setBitsTrue_largestep_word.h"

@@ -40,6 +40,8 @@
 #define time_markFactors_wheel 33
 #define time_checkFactor_wheel 34
 #define time_findUnmarked_wheel 35
+#define time_applyMask_mmask 36
+#define time_markFactors_wheelstorage_small_repeat_mmask 37
 
 static const char* timer_function_names[100] = {
     [time_setBitsTrue] = "setBitsTrue",
@@ -78,6 +80,8 @@ static const char* timer_function_names[100] = {
     [time_markFactors_wheel] = "markFactors_wheel",
     [time_checkFactor_wheel] = "checkFactor_wheel",
     [time_findUnmarked_wheel] = "findUnmarked_wheel",
+    [time_applyMask_mmask] = "applyMask_mmask",
+    [time_markFactors_wheelstorage_small_repeat_mmask] = "markFactors_wheelstorage_small_repeat_mmask",
   };
 
 // #endif // SIEVE_FUNCTIONS_H
