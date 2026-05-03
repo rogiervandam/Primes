@@ -23,10 +23,10 @@ export class VectorTouchOrderOverlay {
     if (entries.length === 0) return;
 
     const px = host.pixelSize * host.zoom;
-    const fontSize = Math.max(10, Math.min(17, 8 + px * 0.24));
-    const detailFont = Math.max(7, Math.min(11, 5.2 + px * 0.06));
-    const padX = Math.max(4, Math.min(10, px * 0.42));
-    const padY = Math.max(2, Math.min(6, px * 0.18));
+    const fontSize = Math.max(11, Math.min(20, 9 + px * 0.26));
+    const detailFont = Math.max(8, Math.min(13, 6 + px * 0.08));
+    const padX = Math.max(5, Math.min(11, px * 0.46));
+    const padY = Math.max(2, Math.min(6, px * 0.2));
     const usedRects = [];
 
     // Canvas 2D context is always used for measurement (font metrics).
@@ -50,8 +50,8 @@ export class VectorTouchOrderOverlay {
       const annotation = host._truncateTextToWidth(ctx, eventLabel, Math.max(0, maxBoxW - padX * 2), `500 ${detailFont}px monospace`);
       const detailWidth = annotation ? ctx.measureText(annotation).width : 0;
       const boxW = Math.min(maxBoxW, Math.max(textWidth, detailWidth) + padX * 2);
-      const labelSize = host._fitLabelFontSize(ctx, label, Math.max(0, boxW - padX * 2), fontSize, 6, '600 ');
-      const detailSize = annotation ? host._fitLabelFontSize(ctx, annotation, Math.max(0, boxW - padX * 2), detailFont, 5, '500 ') : 0;
+      const labelSize = host._fitLabelFontSize(ctx, label, Math.max(0, boxW - padX * 2), fontSize, 7, '600 ');
+      const detailSize = annotation ? host._fitLabelFontSize(ctx, annotation, Math.max(0, boxW - padX * 2), detailFont, 6, '500 ') : 0;
       const showAnnotation = annotation && detailSize > 0;
       const boxH = (labelSize || fontSize) + padY * 2 + (showAnnotation ? detailSize + 3 : 0);
       const slot = entry.slot;
@@ -74,16 +74,16 @@ export class VectorTouchOrderOverlay {
 
       if (glCtx) {
         // Fill and border (connector line skipped in GL mode).
-        glCtx.drawFilledRect(bx, by, boxW, boxH, tr, tg, tb, 0.94);
-        glCtx.drawOutlineRect(bx, by, boxW, boxH, 15 / 255, 23 / 255, 42 / 255, 0.38, 1);
+        glCtx.drawFilledRect(bx, by, boxW, boxH, tr, tg, tb, 0.96);
+        glCtx.drawOutlineRect(bx, by, boxW, boxH, 15 / 255, 23 / 255, 42 / 255, 0.52, 1.1);
         const [lr, lg, lb, la] = host._labelTextColorGL(tint);
         if (labelSize > 0) {
           const labelY = showAnnotation ? by + padY + labelSize * 0.5 : by + boxH / 2;
-          glCtx.drawText(label, x, labelY, labelSize, lr, lg, lb, la, 'center', 'middle');
+          glCtx.drawText(label, Math.round(x), Math.round(labelY), labelSize, lr, lg, lb, Math.min(1, la + 0.1), 'center', 'middle');
         }
         if (showAnnotation) {
           const annY = by + padY + (labelSize || fontSize) + 3 + detailSize * 0.5;
-          glCtx.drawText(annotation, x, annY, detailSize, lr, lg, lb, la, 'center', 'middle');
+          glCtx.drawText(annotation, Math.round(x), Math.round(annY), detailSize, lr, lg, lb, Math.min(1, la + 0.08), 'center', 'middle');
         }
       } else {
         ctx.strokeStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},0.52)`;

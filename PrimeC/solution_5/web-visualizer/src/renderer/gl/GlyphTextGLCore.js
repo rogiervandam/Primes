@@ -304,13 +304,15 @@ export class GlyphTextGLCore {
   // ---------------------------------------------------------------------------
 
   /**
-   * Begin a new frame: set viewport, clear to transparent, reset the batch.
+   * Begin a new frame: set viewport, optionally clear, reset the batch.
    * Must be called once at the start of each render cycle.
    * @param {number} cssW
    * @param {number} cssH
    * @param {number} dpr
+   * @param {boolean} [clear=true] When false, preserve existing canvas content
+   * so additional overlays can be composited in a follow-up pass.
    */
-  beginFrame(cssW, cssH, dpr) {
+  beginFrame(cssW, cssH, dpr, clear = true) {
     if (this._lost || !this.gl) return;
     this._cssW  = cssW;
     this._cssH  = cssH;
@@ -334,8 +336,19 @@ export class GlyphTextGLCore {
 
     const gl = this.gl;
     gl.viewport(0, 0, pw, ph);
-    gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    if (clear) {
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+  }
+
+  /**
+   * Start an append-only pass in the current frame without touching viewport,
+   * backing-store size, or existing pixels. Useful for post-render overlays.
+   */
+  beginOverlayPass() {
+    if (this._lost || !this.gl) return;
+    this._count = 0;
   }
 
   // ---------------------------------------------------------------------------

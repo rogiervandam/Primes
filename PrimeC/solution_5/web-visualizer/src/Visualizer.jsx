@@ -4230,6 +4230,11 @@ export default function Visualizer({
         updateMinimapAvailability,
         scheduleBalloonRelayout,
       });
+      const pausedProgress = Math.max(0, Math.min(100, Number(stepScrubProgressValueRef.current) || 0));
+      if (globalPausedRef.current && pausedProgress > 0 && pausedProgress < 100) {
+        // Keep paused in-flight animation overlays visible after zoom changes.
+        seekStepAnimation(pausedProgress / 100);
+      }
       setBalloonLiveLayout(true);
       if (balloonLiveLayoutTimerRef.current != null) clearTimeout(balloonLiveLayoutTimerRef.current);
       scheduleBalloonRelayout(true);
@@ -4323,7 +4328,7 @@ export default function Visualizer({
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [computeBitInfo, flyToElement, getCanvasPlaneMetrics, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout, balloonsEnabled, balloonClickEnabled, balloonHoverEnabled]);
+  }, [computeBitInfo, flyToElement, getCanvasPlaneMetrics, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout, balloonsEnabled, balloonClickEnabled, balloonHoverEnabled, seekStepAnimation]);
 
   // Keyboard shortcuts — see src/hooks/useKeyboardShortcuts.js for the full key map.
   useKeyboardShortcuts({

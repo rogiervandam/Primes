@@ -134,17 +134,17 @@ export class CachelineAnnotationsOverlay {
 
       if (rw < 18 || rh < 10) continue;
 
-      const padBX = 5, padBY = 2;
+      const padBX = 6, padBY = 2;
       const maxLabelW = rw - padBX * 2 - 2;
       // Extension zone below the bit cells (mirrors annotBottomExtra in _renderCachelineOutline).
       // Badge is placed centred in this zone so it never overlaps the bit cells.
-      const annotExt = Math.min(22, Math.max(14, rowD.h * 0.18));
+      const annotExt = Math.min(28, Math.max(16, rowD.h * 0.24));
       const maxBh = annotExt - 2; // 1px top + 1px bottom margin within the zone
-      const preferredFs = Math.min(maxBh - padBY * 2, 10);
-      const fs = host._fitLabelFontSize(ctx, text, maxLabelW, preferredFs, 6, '600 ');
+      const preferredFs = Math.min(maxBh - padBY * 2, 12);
+      const fs = host._fitLabelFontSize(ctx, text, maxLabelW, preferredFs, 7, '600 ');
       if (fs <= 0) continue;
 
-      ctx.font = `400 ${fs}px Helvetica, Arial, sans-serif`;
+      ctx.font = `500 ${fs}px Helvetica, Arial, sans-serif`;
       const tw  = ctx.measureText(text).width;
       const bw  = Math.min(rw - 4, tw + padBX * 2);
       const bh  = fs + padBY * 2;
@@ -154,9 +154,9 @@ export class CachelineAnnotationsOverlay {
 
       if (glCtx) {
         const [lr, lg, lb, la] = host._labelTextColorGL([bc.r, bc.g, bc.b]);
-        glCtx.drawFilledRect(bx, by, bw, bh, bc.r / 255, bc.g / 255, bc.b / 255, bc.alpha);
-        glCtx.drawOutlineRect(bx, by, bw, bh, 15 / 255, 23 / 255, 42 / 255, 0.45, 1);
-        glCtx.drawText(text, bx + bw / 2, by + bh / 2, fs, lr, lg, lb, la, 'center', 'middle');
+        glCtx.drawFilledRect(bx, by, bw, bh, bc.r / 255, bc.g / 255, bc.b / 255, Math.min(0.98, bc.alpha + 0.06));
+        glCtx.drawOutlineRect(bx, by, bw, bh, 15 / 255, 23 / 255, 42 / 255, 0.58, 1.1);
+        glCtx.drawText(text, Math.round(bx + bw / 2), Math.round(by + bh / 2), fs, lr, lg, lb, Math.min(1, la + 0.08), 'center', 'middle');
       } else {
         ctx.fillStyle = `rgba(${bc.r},${bc.g},${bc.b},${bc.alpha})`;
         ctx.beginPath();
