@@ -135,7 +135,14 @@ function computeAutoGlYOffset(cssHeight, effectiveDpr, rotateXDeg = 0, rotateYDe
   if (rawDeficit < 0.01) return 0;
   const ax = Math.abs(Number(rotateXDeg) || 0) * Math.PI / 180;
   const ay = Math.abs(Number(rotateYDeg) || 0) * Math.PI / 180;
-  const tiltStrength = Math.min(1, Math.hypot(Math.sin(ax), Math.sin(ay)));
+  const xTiltStrength = Math.abs(Math.sin(ax));
+  const yTiltStrength = Math.abs(Math.sin(ay));
+  const tiltStrength = Math.min(1, Math.hypot(xTiltStrength, yTiltStrength));
+  const xDominantTilt = Math.max(0, xTiltStrength - 0.7 * yTiltStrength);
+  const yDominantTilt = Math.max(0, yTiltStrength - 0.8 * xTiltStrength);
+  const balancedTilt = Math.max(0, tiltStrength - 1.15 * Math.abs(xTiltStrength - yTiltStrength));
+  const highTilt = Math.max(0, tiltStrength - 0.45);
+  const lowTiltGate = Math.max(0, Math.min(1, (0.46 - tiltStrength) / 0.16));
   // Keep the existing high-deficit behavior (subtracting the 0.08 dead-zone),
   // but add a tilt-weighted bridge for small deficits (e.g. dpr 0.95-0.99)
   // where Chromium still shows visible Y drift in direct mode.
@@ -149,12 +156,27 @@ function computeAutoGlYOffset(cssHeight, effectiveDpr, rotateXDeg = 0, rotateYDe
   // - medium tilt ramps quickly (Chromium compositor projection path)
   // A cap avoids over-correction for extreme rotations.
   const factorRaw = (
-    0.54
-    + 0.24 * tiltStrength
-    + 4.05 * tiltStrength * tiltStrength
+    0.66
+    + 0.18 * tiltStrength
+    // Recent calibration data shows that Y drift is materially larger when the
+    // tilt is driven mostly by rotateX than when the same magnitude comes from
+    // a balanced X/Y pair. Keep mixed-tilt behavior close to the prior model,
+    // but raise X-dominant and Y-dominant cases independently.
+    + 2.05 * xDominantTilt
+    + 0.18 * yDominantTilt
+    + 2.95 * tiltStrength * tiltStrength
     // New samples show high-deficit tilted cases can over-correct; damp tilt
     // response as raw DPR deficit grows so wide direct-mode scenes stay stable.
     - 1.6 * rawDeficit * tiltStrength
+    // High mixed-tilt and high Y-dominant scenes in the mid-wide near-limit
+    // band can still over-correct. Damp these corners without reducing
+    // X-dominant high-tilt compensation too aggressively.
+    - 10.5 * balancedTilt * highTilt
+    - 1.35 * yDominantTilt * highTilt
+    + 1.2 * xDominantTilt * highTilt
+    // Broad mid-width near-limit under-correction persists in low/medium tilt
+    // scenes. Lift these while keeping Y-dominant cases tempered.
+    + 0.2 * lowTiltGate * (0.35 + 1.5 * xDominantTilt - 1.4 * yDominantTilt)
   );
   const factor = Math.min(1.32, Math.max(0.35, factorRaw));
   const basePx = h * dprDeficit * factor;
@@ -195,7 +217,14 @@ function computeAutoGlYOffset(cssHeight, effectiveDpr, rotateXDeg = 0, rotateYDe
   const midWidthRampIn = Math.max(0, Math.min(1, (w - 9600) / 1300));
   const midWidthRampOut = Math.max(0, Math.min(1, (12150 - w) / 900));
   const midWidthGate = midWidthRampIn * midWidthRampOut;
-  const midWidthTiltFactor = Math.max(0.05, 0.25 - 0.42 * tiltStrength);
+  const midWidthTiltFactor = Math.max(
+    0.04,
+    0.29
+      - 0.26 * tiltStrength
+      + 0.2 * xDominantTilt
+      - 0.1 * yDominantTilt
+      - 0.12 * balancedTilt * highTilt,
+  );
   const midWidthMediumTiltDamp = 1 - 0.35 * mediumTilt;
   const midWidthResidualPx = h
     * rawDeficit
@@ -203,7 +232,33 @@ function computeAutoGlYOffset(cssHeight, effectiveDpr, rotateXDeg = 0, rotateYDe
     * midWidthTiltFactor
     * midWidthMediumTiltDamp;
 
-  return Math.round(basePx + upliftPx + residualTrimPx + wideResidualPx + midWidthResidualPx);
+  // X-dominant tilt still shows a residual under-correction in the 10k-12k CSS
+  // width band at effective DPRs around 0.75. Keep the term zero for balanced
+  // mixed tilts so previously converged diagonal cases stay close.
+  const midWidthAxisResidualPx = h
+    * rawDeficit
+    * midWidthGate
+    * (0.42 * xDominantTilt - 0.02 * yDominantTilt - 0.15 * balancedTilt * highTilt);
+
+  // Latest sweep indicates a broad under-correction in low/medium balanced
+  // tilts (e.g. 12/12) while high balanced tilt (20/20) is already close.
+  // Add lift only below the high-tilt shoulder so case 10 stays stable.
+  const midWidthBalancedLowTiltBoostPx = h
+    * rawDeficit
+    * midWidthGate
+    * balancedTilt
+    * lowTiltGate
+    * 0.56;
+
+  return Math.round(
+    basePx
+      + upliftPx
+      + residualTrimPx
+      + wideResidualPx
+      + midWidthResidualPx
+      + midWidthAxisResidualPx
+      + midWidthBalancedLowTiltBoostPx,
+  );
 }
 
 /**
@@ -470,8 +525,10 @@ export default function Visualizer({
   const [primeOverlayEnabled, setPrimeOverlayEnabled] = useState(false);
   const [debugToolsOpen, setDebugToolsOpen] = useState(false);
   const [debugLayerMode, setDebugLayerMode] = useState('normal'); // normal | gl-only | overlays-only
+  const [debugGlOffsetX, setDebugGlOffsetX] = useState(0); // manual trim
   const [debugGlOffsetY, setDebugGlOffsetY] = useState(0); // manual trim
   const [debugGlAutoOffsetY, setDebugGlAutoOffsetY] = useState(0);
+  const [debugCalibrationMode, setDebugCalibrationMode] = useState(false);
   const [compositeDirectGl, setCompositeDirectGl] = useState(false);
   const [rangeOverlayEnabled, setRangeOverlayEnabled] = useState(false);
   const [rangeOverlayStart, setRangeOverlayStart] = useState(0);
@@ -569,6 +626,7 @@ export default function Visualizer({
   const glCssUnlockRafRef = useRef(null);
   const glCssUnlockTimeoutRef = useRef(null);
   const glCssLockStateRef = useRef(null);
+  const debugGlOffsetXRef = useRef(0);
   const debugGlOffsetYRef = useRef(0);
   const debugGlAutoOffsetYRef = useRef(0);
   const glDebugLastUpdateRef = useRef(0);
@@ -576,6 +634,7 @@ export default function Visualizer({
   stepsRef.current = steps;
   currentStepRef.current = currentStep;
   selectedStepsRef.current = selectedSteps;
+  debugGlOffsetXRef.current = debugGlOffsetX;
   debugGlOffsetYRef.current = debugGlOffsetY;
   debugGlAutoOffsetYRef.current = debugGlAutoOffsetY;
 
@@ -615,6 +674,9 @@ export default function Visualizer({
 
     if (typeof snapshot?.manualOffsetY === 'number' && Number.isFinite(snapshot.manualOffsetY)) {
       setDebugGlOffsetY(snapshot.manualOffsetY);
+    }
+    if (typeof snapshot?.manualOffsetX === 'number' && Number.isFinite(snapshot.manualOffsetX)) {
+      setDebugGlOffsetX(snapshot.manualOffsetX);
     }
 
     const cam = camera3DRef.current;
@@ -914,12 +976,13 @@ export default function Visualizer({
     }
     debugGlAutoOffsetYRef.current = autoGlOffsetY;
     setDebugGlAutoOffsetY((prev) => (prev === autoGlOffsetY ? prev : autoGlOffsetY));
+    const totalGlOffsetX = debugGlOffsetXRef.current || 0;
     const totalGlOffsetY = autoGlOffsetY + (debugGlOffsetYRef.current || 0);
     if (glEl) {
       // Always keep GL anchored from top-left with explicit size. Chromium can
       // behave inconsistently when right/bottom constraints remain active while
       // width/height are also assigned dynamically.
-      glEl.style.left = '0px';
+      glEl.style.left = `${totalGlOffsetX}px`;
       glEl.style.top = `${totalGlOffsetY}px`;
       glEl.style.right = 'auto';
       glEl.style.bottom = 'auto';
@@ -1092,7 +1155,27 @@ export default function Visualizer({
     }
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
-  }, [getCanvasTargetSize, showMinimap, getMinimapDetailH, updateMinimapAvailability, setCamera3DTransform, setCamera3DContainerStyle, debugGlOffsetY]);
+  }, [getCanvasTargetSize, showMinimap, getMinimapDetailH, updateMinimapAvailability, setCamera3DTransform, setCamera3DContainerStyle, debugGlOffsetX, debugGlOffsetY]);
+
+  // Keep manual debug offsets responsive even when no resize/layout event is
+  // in flight. This updates both direct GL canvas placement and the Canvas2D
+  // composited fallback path immediately when X/Y sliders or nudges change.
+  useEffect(() => {
+    const glEl = glCanvasRef.current;
+    const rr = rendererRef.current;
+    const totalGlOffsetY = (debugGlAutoOffsetY || 0) + (debugGlOffsetY || 0);
+    if (glEl) {
+      glEl.style.left = `${debugGlOffsetX || 0}px`;
+      glEl.style.top = `${totalGlOffsetY}px`;
+      glEl.style.right = 'auto';
+      glEl.style.bottom = 'auto';
+    }
+    if (rr) {
+      rr.setGlCompositeOffsetX?.(debugGlOffsetX || 0);
+      rr.setGlCompositeOffsetY?.(totalGlOffsetY);
+      rr.render();
+    }
+  }, [debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY]);
 
   // Keep the canvas pinned to the VIEWPORT center (not the container
   // center) so panel collapse/expand transitions don't slide the
@@ -1392,6 +1475,7 @@ export default function Visualizer({
               && typeof g.getEffectiveDpr === 'function'
               && g.getEffectiveDpr() < 0.995;
             rr.setCompositeGLInto2D?.(compositeGl);
+            rr.setGlCompositeOffsetX?.(debugGlOffsetXRef.current || 0);
             rr.setGlCompositeOffsetY?.((debugGlAutoOffsetYRef.current || 0) + (debugGlOffsetYRef.current || 0));
             setCompositeDirectGl((prev) => (prev === compositeGl ? prev : compositeGl));
 
@@ -1616,6 +1700,8 @@ export default function Visualizer({
     r.outlineStyle = 'dashed';
     r.outlineColor = '#3b82f6';
     r.outlineRounded = true;
+    r.debugAllCellOutlines = debugCalibrationMode;
+    r.debugAllCellOutlineColor = theme === 'light' ? 'rgba(15, 23, 42, 0.78)' : 'rgba(255,255,255,0.82)';
     r.colorPreset = colorPreset;
     r.storageModel = storageModel;
     r.wheelDefinition = wheelDefinition;
@@ -1727,7 +1813,7 @@ export default function Visualizer({
     r.render();
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, canvasColors, storageModel, wheelDefinition, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, depthSettings, gridOpacity, updateMinimapAvailability]);
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, canvasColors, storageModel, wheelDefinition, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, depthSettings, gridOpacity, updateMinimapAvailability, debugCalibrationMode]);
 
   // Resize handler
   useEffect(() => {
@@ -5069,9 +5155,13 @@ export default function Visualizer({
             theme={theme}
             debugLayerMode={debugLayerMode}
             setDebugLayerMode={setDebugLayerMode}
+            debugGlOffsetX={debugGlOffsetX}
+            setDebugGlOffsetX={setDebugGlOffsetX}
             debugGlOffsetY={debugGlOffsetY}
             setDebugGlOffsetY={setDebugGlOffsetY}
             debugGlAutoOffsetY={debugGlAutoOffsetY}
+            debugCalibrationMode={debugCalibrationMode}
+            setDebugCalibrationMode={setDebugCalibrationMode}
             onApplyDebugSnapshot={applyDebugSnapshot}
             rightOffset={settingsCollapsed ? 8 : (isMacPlatform ? 388 : 328)}
           />

@@ -59,7 +59,10 @@ export class SieveRenderer {
     this.settledCtx = null;
     this.glCompositeSourceCanvas = null;
     this.compositeGLInto2D = false;
+    this.glCompositeOffsetX = 0;
     this.glCompositeOffsetY = 0;
+    this.debugAllCellOutlines = false;
+    this.debugAllCellOutlineColor = 'rgba(255,255,255,0.82)';
     this.bitCount = 0;
     this.sieveSize = 0;
     this.storageModel = 'half';
@@ -336,6 +339,10 @@ export class SieveRenderer {
 
   setCompositeGLInto2D(enabled) {
     this.compositeGLInto2D = !!enabled;
+  }
+
+  setGlCompositeOffsetX(offsetX) {
+    this.glCompositeOffsetX = Number.isFinite(offsetX) ? offsetX : 0;
   }
 
   setGlCompositeOffsetY(offsetY) {
@@ -1581,6 +1588,7 @@ export class SieveRenderer {
       ctx.imageSmoothingEnabled = false;
       const destW = this.canvasWidth || cw;
       const destH = this.canvasHeight || ch;
+      const offsetX = Number.isFinite(this.glCompositeOffsetX) ? this.glCompositeOffsetX : 0;
       const offsetY = Number.isFinite(this.glCompositeOffsetY) ? this.glCompositeOffsetY : 0;
       ctx.drawImage(
         this.glCompositeSourceCanvas,
@@ -1588,7 +1596,7 @@ export class SieveRenderer {
         0,
         this.glCompositeSourceCanvas.width,
         this.glCompositeSourceCanvas.height,
-        0,
+        offsetX,
         offsetY,
         destW,
         destH,
@@ -1716,6 +1724,7 @@ export class SieveRenderer {
     const cls = this._classifyBit(f, globalBit);
     const draw = this._computeBitDrawState(f, globalBit, cls.isSetBit, cls.isChangedBit, bitX, bitY);
     this._drawBitBody(f, cls, draw, bitX, bitY);
+    this._drawDebugCellOutline(f, draw, bitX, bitY);
     if (cls.isGhostMaskedBit) this._drawGhostMaskHighlight(f, draw);
     if (cls.inFocusRange) this._drawBitFocusRange(f, bitX, bitY);
     this._drawBitTargetOutline(f, globalBit, draw, cls.targetHitCount);
@@ -1723,6 +1732,19 @@ export class SieveRenderer {
     this._drawBitRangeOverlay(f, globalBit, bitX, bitY);
     this._drawBitMultiplesOverlay(f, globalBit, bitX, bitY);
     this._drawBitLabels(f, globalBit, bitIdx, cls, draw, bitX, bitY);
+  }
+
+  _drawDebugCellOutline(f, draw, bitX, bitY) {
+    if (!this.debugAllCellOutlines) return;
+    const ctx = f.ctx;
+    const x = Number.isFinite(draw?.drawX) ? draw.drawX : bitX;
+    const y = Number.isFinite(draw?.drawY) ? draw.drawY : bitY;
+    const size = Math.max(1, Number.isFinite(draw?.drawSize) ? draw.drawSize : f.px);
+    ctx.save();
+    ctx.lineWidth = Math.max(0.75, Math.min(1.25, 0.85 + (this.zoom || 1) * 0.015));
+    ctx.strokeStyle = this.debugAllCellOutlineColor || 'rgba(255,255,255,0.82)';
+    ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, size - 1), Math.max(0, size - 1));
+    ctx.restore();
   }
 
   /** Decide the bit's color and per-bit boolean flags (ghost / changed / set / repeated / focus). */

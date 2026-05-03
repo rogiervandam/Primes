@@ -647,6 +647,92 @@ Left to do:
   width/tilt ranges tested so far (mid-width and ultra-wide) without requiring
   ongoing manual correction for baseline use.
 
+  GL alignment tooling (round 44, interactive calibration mode):
+  the debug tools panel now includes a full calibration workflow that can be
+  launched in-place. When active, `Visualizer.jsx` enables manual GL X/Y trim
+  controls, `SieveRenderer` outlines every visible cell in the Canvas2D overlay,
+  and `DebugToolsPanel.jsx` drives a 10-case rotation sweep with viewport target
+  assistance. The panel can try `window.resizeTo(...)` toward a target viewport,
+  fall back to manual border-drag guidance when the browser blocks resize, let
+  the user commit per-case calibration points, record extra viewpoints, and copy
+  a structured calibration report to the clipboard. Exiting calibration mode
+  restores the user's prior zoom/pan/rotation/layer snapshot.
+
+  Debug tools usability (round 45, collapsible sections + viewport scrolling):
+  the expanded calibration workflow made the debug window too tall to navigate
+  on some viewports. `DebugToolsPanel.jsx` now groups the largest areas into
+  collapsible sections (`GL MODE`, `CANVAS COORDS`, `FULL DEBUG REPORT`,
+  `IMPORT SNAPSHOT`, and `ALIGNMENT CONTROLS`), with the long report/import
+  blocks closed by default. `20-debug-tools.css` also caps the panel height to
+  the viewport and enables internal scrolling so the lower controls remain
+  reachable even when every section is expanded.
+
+  GL alignment retune (round 46, mid-width axis-aware tilt compensation):
+  the 2707x1307 calibration sweep exposed that the prior auto-offset model still
+  under-corrected direct-mode scenes in the ~10k-12k CSS width band when tilt
+  was driven mostly by `rotateX` or by a single-axis `rotateY`. `computeAutoGlYOffset`
+  in `Visualizer.jsx` now keeps separate `xTiltStrength` / `yTiltStrength`
+  signals, derives dominant-axis terms, and feeds them into both the main base
+  factor and the mid-width residual lane. Mixed X/Y tilts remain close to the
+  previous behavior, while X-dominant and Y-dominant near-limit cases receive
+  extra compensation without reopening the ultra-wide path.
+
+  Calibration UX fix (round 47, manual X-offset responsiveness + zoom telemetry):
+  manual GL X alignment controls in the debug calibration panel now apply
+  immediately. `Visualizer.jsx` updates direct GL canvas positioning and
+  composited GL offsets in a dedicated effect whenever X/Y debug trims change,
+  then triggers a render so slider/button nudges are visible without waiting for
+  a resize/layout event. The debug report and clipboard calibration report now
+  include explicit browser zoom telemetry (`window.devicePixelRatio` and
+  `visualViewport.scale` when available) so calibration datasets preserve both
+  in-app zoom and browser zoom context.
+
+  GL alignment retune (round 48, high-tilt shape correction for 10k-12k width):
+  the 2579x1175 sweep (browser zoom 100%, effective renderer DPR ~0.76 in
+  near-limit direct mode) showed two opposite errors at once: X-dominant cases
+  (notably high `rotateX`) still under-corrected, while high `rotateY` and
+  balanced high mixed-tilt cases over-corrected. `computeAutoGlYOffset` now adds
+  `balancedTilt`/`highTilt` terms and retunes coefficients so the model gives
+  stronger X-dominant lift but applies explicit damping to high Y-dominant and
+  high balanced-mix corners. The same damping is applied in the mid-width
+  residual lanes to reduce over-shoot without undoing medium-tilt convergence.
+
+  Calibration UX update (round 49, fine-grained nudge buttons):
+  both manual GL offset controls in `DebugToolsPanel.jsx` now include `-1` and
+  `+1` nudge buttons in addition to the existing `-10`, `0`, and `+10` actions.
+  This makes per-case alignment commits easier when coarse 10px steps are too
+  large, especially near convergence where residuals are single-digit pixels.
+
+  GL alignment retune (round 50, broad under-correction recovery at 2579x1175):
+  the latest 2579x1175 sweep at browser zoom 100% still showed consistently
+  positive manual Y trims across nearly every recorded case (roughly +115 to
+  +255), while the high balanced `20/20` case stayed close. `computeAutoGlYOffset`
+  now increases both X- and Y-dominant lift, reduces the previous Y-high-tilt
+  damping, and adds a balanced low-tilt boost gated to fade out before the
+  high-tilt shoulder. This is targeted at the 10k-12k near-limit band with
+  effective renderer DPR around 0.76, so medium/balanced tilts gain lift while
+  the already-close high balanced case remains protected.
+
+  GL alignment retune (round 51, stronger near-limit lift + extra case grid):
+  the follow-up 2579x1175 report still showed broad positive residual trims at
+  browser zoom 100% (most cases requiring +150 to +257 manual Y), with only the
+  high balanced `20/20` case close/slightly over. The model was retuned again to
+  increase baseline/mid-tilt lift in the 10k-12k width band, strengthen both
+  X- and Y-dominant residual lanes, and keep explicit high balanced-tilt damping
+  so `20/20` does not run away. The calibration suite in `DebugToolsPanel.jsx`
+  was expanded with focused intermediate cases (`24/0`, `0/24`, `16/8`, `8/16`)
+  to isolate axis bias and mixed-tilt curvature during the next sweep.
+
+  GL alignment retune (round 52, axis-shaped damping at 2608x1175):
+  the 2608x1175 sweep surfaced a split pattern: large under-correction in
+  X-heavy/medium-mixed cases (e.g. `18/0`, `12/12`, `16/8`, `45/0`) and
+  over-correction in Y-heavy/high-mixed cases (`6/24`, `0/32`, `20/20`).
+  `computeAutoGlYOffset` was retuned to increase X-dominant lift while adding
+  stronger Y-dominant/high-balanced damping, plus a smaller low-tilt Y lane to
+  avoid over-pushing Y-heavy medium tilts. Calibration cases were expanded again
+  with edge probes (`28/4`, `4/28`) to directly compare X-biased vs Y-biased
+  mixed tilts at similar total tilt magnitude.
+
 ### 5. Improve Widget And Panel Workflows
 
 Done: all-events and single-event widgets can be joined/split; widget drag
