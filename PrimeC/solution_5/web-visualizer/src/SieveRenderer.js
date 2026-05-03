@@ -301,6 +301,29 @@ export class SieveRenderer {
       ? [17 / 255, 24 / 255, 39 / 255, 0.95]
       : [249 / 255, 250 / 255, 251 / 255, 0.96];
   }
+
+  /**
+   * Parse a CSS colour string ('rgba(r,g,b,a)' or '#rrggbb') into the
+   * [r,g,b,a] float array expected by GlyphTextGLCore draw methods.
+   */
+  _parseCssColorGL(cssColor) {
+    if (!cssColor) return [1, 1, 1, 1];
+    if (cssColor[0] === '#') {
+      const rgb = this._hexToRgb(cssColor);
+      if (!rgb) return [1, 1, 1, 1];
+      return [rgb[0] / 255, rgb[1] / 255, rgb[2] / 255, 1.0];
+    }
+    const m = cssColor.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/);
+    if (m) return [+m[1] / 255, +m[2] / 255, +m[3] / 255, m[4] != null ? +m[4] : 1.0];
+    return [1, 1, 1, 1];
+  }
+
+  /** Return the outline colour as [r,g,b,a] float array for GL. */
+  _outlineColorGL() {
+    const rgb = this._hexToRgb(this.outlineColor || '#3b82f6');
+    if (!rgb) return [0.23, 0.51, 0.96, 1.0];
+    return [rgb[0] / 255, rgb[1] / 255, rgb[2] / 255, 1.0];
+  }
   _fitLabelFontSize(ctx, text, maxWidth, preferredSize, minSize = 4, style = '')   { return fitLabelFontSize(ctx, text, maxWidth, preferredSize, minSize, style); }
   _truncateTextToWidth(ctx, text, maxWidth, style = '')                            { return truncateTextToWidth(ctx, text, maxWidth, style); }
   _drawFittedLabel(ctx, text, x, y, maxWidth, preferredSize, color, options = {})  { return drawFittedLabel(ctx, text, x, y, maxWidth, preferredSize, color, options); }
@@ -1043,7 +1066,13 @@ export class SieveRenderer {
         const y = this.panY + seg.vRow * vRowHeight + labelH - pad - topExtra;
         const w = (seg.vecEnd - seg.vecStart + 1) * vecStep - this._u64GapX() + pad * 2;
         const h = rowD.h + pad * 2 + topExtra + annotBottomExtra;
-        this._drawOutlineRect(ctx, x, y, w, h);
+        if (this.webglText && this._glyphCtx) {
+          const [or, og, ob, oa] = this._outlineColorGL();
+          const cfg = this._outlineConfig();
+          this._glyphCtx.drawOutlineRect(x, y, w, h, or, og, ob, oa, cfg.lineWidth);
+        } else {
+          this._drawOutlineRect(ctx, x, y, w, h);
+        }
       }
     }
   }
@@ -1685,11 +1714,16 @@ export class SieveRenderer {
       const labelX = Math.round(vecX);
       const labelY = Math.round(f.vectorLabelY(vRow));
       if (labelX + f.vecD.w > 0 && labelX < f.cw && vRowBaseY >= -f.labelH && vRowBaseY < f.ch) {
-        this._drawFittedLabel(f.ctx, label, labelX, labelY, Math.max(8, f.vecD.w - 2), f.labelBands.vectorFont, f.C.LABEL_COLOR, {
-          minSize: 3.5,
-          paddingX: 1,
-          clipHeight: f.labelBands.vector,
-        });
+        if (this.webglText && this._glyphCtx) {
+          const [lr, lg, lb, la] = this._parseCssColorGL(f.C.LABEL_COLOR);
+          this._glyphCtx.drawFittedText(label, labelX + 1, labelY, f.labelBands.vectorFont, Math.max(8, f.vecD.w - 4), lr, lg, lb, la, 'left', 'top', 3.5);
+        } else {
+          this._drawFittedLabel(f.ctx, label, labelX, labelY, Math.max(8, f.vecD.w - 2), f.labelBands.vectorFont, f.C.LABEL_COLOR, {
+            minSize: 3.5,
+            paddingX: 1,
+            clipHeight: f.labelBands.vector,
+          });
+        }
       }
     }
 
@@ -1710,7 +1744,13 @@ export class SieveRenderer {
     if (this.outlineEnabled && this.outlineTargets?.has('vector') && intraIdx === 0) {
       const pad = this._outlinePadding();
       const topExtra = this._outlineTopExtra('vector');
-      this._drawOutlineRect(f.ctx, vecX - pad, vRowDataY - pad - topExtra, f.vecD.w + 2 * pad, f.vecD.h + 2 * pad + topExtra);
+      if (this.webglText && this._glyphCtx) {
+        const [or, og, ob, oa] = this._outlineColorGL();
+        const cfg = this._outlineConfig();
+        this._glyphCtx.drawOutlineRect(vecX - pad, vRowDataY - pad - topExtra, f.vecD.w + 2 * pad, f.vecD.h + 2 * pad + topExtra, or, og, ob, oa, cfg.lineWidth);
+      } else {
+        this._drawOutlineRect(f.ctx, vecX - pad, vRowDataY - pad - topExtra, f.vecD.w + 2 * pad, f.vecD.h + 2 * pad + topExtra);
+      }
     }
 
     for (let byteIdx = 0; byteIdx < 8; byteIdx++) {
@@ -1729,21 +1769,32 @@ export class SieveRenderer {
     if (this.outlineEnabled && this.outlineTargets?.has('byte')) {
       const pad = this._outlinePadding();
       const topExtra = this._outlineTopExtra('byte');
-      this._drawOutlineRect(f.ctx, byteX - pad, byteY - pad - topExtra, f.byteD.w + 2 * pad, f.byteD.h + 2 * pad + topExtra);
+      if (this.webglText && this._glyphCtx) {
+        const [or, og, ob, oa] = this._outlineColorGL();
+        const cfg = this._outlineConfig();
+        this._glyphCtx.drawOutlineRect(byteX - pad, byteY - pad - topExtra, f.byteD.w + 2 * pad, f.byteD.h + 2 * pad + topExtra, or, og, ob, oa, cfg.lineWidth);
+      } else {
+        this._drawOutlineRect(f.ctx, byteX - pad, byteY - pad - topExtra, f.byteD.w + 2 * pad, f.byteD.h + 2 * pad + topExtra);
+      }
     }
 
     if (f.showByteLabels) {
       const byteLabel = `Byte ${this._byteLabelValue(byteBitStart)}`;
-      this._drawFittedLabel(
-        f.ctx,
-        byteLabel,
-        Math.round(byteX),
-        Math.round(f.byteLabelY(vRowBaseY, byteY)),
-        Math.max(8, f.byteD.w - 2),
-        f.labelBands.byteFont,
-        f.C.LABEL_COLOR,
-        { minSize: 3.5, paddingX: 1, clipHeight: Math.max(7, f.labelBands.byteFont + 4) }
-      );
+      if (this.webglText && this._glyphCtx) {
+        const [lr, lg, lb, la] = this._parseCssColorGL(f.C.LABEL_COLOR);
+        this._glyphCtx.drawFittedText(byteLabel, Math.round(byteX) + 1, Math.round(f.byteLabelY(vRowBaseY, byteY)), f.labelBands.byteFont, Math.max(8, f.byteD.w - 4), lr, lg, lb, la, 'left', 'top', 3.5);
+      } else {
+        this._drawFittedLabel(
+          f.ctx,
+          byteLabel,
+          Math.round(byteX),
+          Math.round(f.byteLabelY(vRowBaseY, byteY)),
+          Math.max(8, f.byteD.w - 2),
+          f.labelBands.byteFont,
+          f.C.LABEL_COLOR,
+          { minSize: 3.5, paddingX: 1, clipHeight: Math.max(7, f.labelBands.byteFont + 4) }
+        );
+      }
     }
 
     for (let bitIdx = 0; bitIdx < 8; bitIdx++) {

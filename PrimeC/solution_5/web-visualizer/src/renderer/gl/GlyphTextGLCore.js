@@ -92,12 +92,16 @@ void main() {
   // the straight alpha.  We need to scale both by the shape mask so the
   // output is also premultiplied: (r*a*mask, g*a*mask, b*a*mask, a*mask).
   float mask;
-  if (v_mode > 0.5) {
-    // Smooth-edged circle SDF: distance from quad centre in [0,1] range.
+  if (v_mode > 1.5) {
+    // mode == 2: solid filled rectangle — mask is always 1.  Used for
+    // outline edge quads (drawOutlineRect draws four of these per rect).
+    mask = 1.0;
+  } else if (v_mode > 0.5) {
+    // mode == 1: smooth-edged circle SDF.
     float d = distance(v_cellUV, vec2(0.5, 0.5)) * 2.0;
     mask = 1.0 - smoothstep(0.85, 1.0, d);
   } else {
-    // Glyph: mask = coverage from the atlas alpha channel.
+    // mode == 0: glyph — mask from atlas alpha channel.
     mask = texture(u_atlas, v_atlasUV).a;
   }
   // Output premultiplied RGBA so the browser compositor blends correctly.
@@ -426,6 +430,83 @@ export class GlyphTextGLCore {
       this._addInstance(cx, top, qw, cellH, glyph.u0, glyph.v0, glyph.u1, glyph.v1, r, g, b, a, 0.0);
       cx += glyph.advW * scale;
     }
+  }
+
+  /**
+   * Draw an outlined (hollow) rectangle by emitting four solid edge quads.
+   * Uses mode=2 (solid fill) — no texture lookup, no SDF.
+   *
+   * @param {number} x          - Left edge in CSS pixels.
+   * @param {number} y          - Top edge in CSS pixels.
+   * @param {number} w          - Width in CSS pixels.
+   * @param {number} h          - Height in CSS pixels.
+   * @param {number} r          - Red   [0..1].
+   * @param {number} g          - Green [0..1].
+   * @param {number} b          - Blue  [0..1].
+   * @param {number} a          - Alpha [0..1].
+   * @param {number} lineWidth  - Stroke width in CSS pixels.
+   */
+  drawOutlineRect(x, y, w, h, r, g, b, a, lineWidth) {
+    if (this._lost || !this._atlas) return;
+    const lw = Math.max(0.5, lineWidth);
+    // Top edge
+    this._addInstance(x,         y,             w,  lw, 0, 0, 1, 1, r, g, b, a, 2.0);
+    // Bottom edge
+    this._addInstance(x,         y + h - lw,    w,  lw, 0, 0, 1, 1, r, g, b, a, 2.0);
+    // Left edge (between top and bottom)
+    this._addInstance(x,         y + lw, lw, h - lw * 2, 0, 0, 1, 1, r, g, b, a, 2.0);
+    // Right edge
+    this._addInstance(x + w - lw, y + lw, lw, h - lw * 2, 0, 0, 1, 1, r, g, b, a, 2.0);
+  }
+
+  /**
+   * Add a text string to the batch, shrinking the font size until the text
+   * fits within `maxWidth`, truncating with '…' as a last resort.
+   * Mirrors the Canvas 2D `drawFittedLabel` helper.
+   *
+   * @param {string} text
+   * @param {number} x
+   * @param {number} y
+   * @param {number} maxFontSize    - Preferred (maximum) font size in CSS px.
+   * @param {number} maxWidth       - Maximum allowed text width in CSS px.
+   * @param {number} r
+   * @param {number} g
+   * @param {number} b
+   * @param {number} a
+   * @param {string} [align='left']
+   * @param {string} [baseline='top']
+   * @param {number} [minFontSize=4]
+   */
+  drawFittedText(text, x, y, maxFontSize, maxWidth, r, g, b, a, align = 'left', baseline = 'top', minFontSize = 4) {
+    if (this._lost || !this._atlas || !text || maxWidth <= 2) return;
+    const atlas = this._atlas;
+
+    // Find the largest fontSize where the text fits.
+    let fontSize = maxFontSize;
+    while (fontSize > minFontSize) {
+      const scale = fontSize / atlas.fontSize;
+      if (atlas.measureWidth(text, scale) <= maxWidth) break;
+      fontSize -= 0.5;
+    }
+
+    let finalText = text;
+    // If text still exceeds maxWidth at minFontSize, truncate with ellipsis.
+    if (atlas.measureWidth(text, fontSize / atlas.fontSize) > maxWidth) {
+      const scale = fontSize / atlas.fontSize;
+      const ellipsis = '...'; // three ASCII dots — always in the atlas
+      if (atlas.measureWidth(ellipsis, scale) > maxWidth) return; // can't fit anything
+      let truncated = text;
+      while (truncated.length > 0) {
+        truncated = truncated.slice(0, -1);
+        if (atlas.measureWidth(truncated + ellipsis, scale) <= maxWidth) {
+          finalText = truncated + ellipsis;
+          break;
+        }
+      }
+      if (truncated.length === 0) return;
+    }
+
+    this.drawText(finalText, x, y, fontSize, r, g, b, a, align, baseline);
   }
 
   // ---------------------------------------------------------------------------
