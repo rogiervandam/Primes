@@ -800,7 +800,7 @@ export class SieveRenderer {
     return groupSegments[0].bounds;
   }
 
-  _drawMaskImprint(ctx, entry, x, y, options = {}) {
+  _drawMaskImprint(ctx, entry, x, y, options = {}, glCtx = null) {
     if (!entry) return;
     const px = this.pixelSize * this.zoom;
     const tint = this._maskTintColor(entry.slotIndex);
@@ -819,6 +819,63 @@ export class SieveRenderer {
     const maskSizeBits = Number.isFinite(this.maskWordBits) && this.maskWordBits > 0
       ? this.maskWordBits
       : entry.count;
+
+    const tr = tint[0] / 255, tg = tint[1] / 255, tb = tint[2] / 255;
+
+    if (glCtx) {
+      // GL path — approximate roundRect with plain rects (close enough at animation speed)
+      if (groupBounds && groupingBits <= maskSizeBits) {
+        glCtx.drawOutlineRect(
+          groupBounds.x + dx - wordInset * 1.2,
+          groupBounds.y + dy - wordInset * 1.2,
+          groupBounds.w + wordInset * 2.4,
+          groupBounds.h + wordInset * 2.4,
+          tr, tg, tb, 0.92 * alpha,
+          Math.max(1.2, px * 0.14),
+        );
+      }
+
+      glCtx.drawFilledRect(
+        bounds.x + dx - wordInset,
+        bounds.y + dy - wordInset,
+        bounds.w + wordInset * 2,
+        bounds.h + wordInset * 2,
+        tr, tg, tb, 0.16 * alpha,
+      );
+      glCtx.drawOutlineRect(
+        bounds.x + dx - wordInset,
+        bounds.y + dy - wordInset,
+        bounds.w + wordInset * 2,
+        bounds.h + wordInset * 2,
+        tr, tg, tb, alpha,
+        Math.max(1.2, px * 0.13),
+      );
+
+      const bits = this._maskEntryBits(entry);
+      for (let index = 0; index < bits.length; index++) {
+        const pos = this.bitIndexToCanvas(bits[index]);
+        if (!pos) continue;
+        const bx = pos.x - px / 2 + dx;
+        const by = pos.y - px / 2 + dy;
+        glCtx.drawFilledRect(bx, by, px, px, tr, tg, tb, 0.48 * alpha);
+        glCtx.drawOutlineRect(bx, by, px, px, 1, 1, 1, 0.92 * alpha, Math.max(0.95, px * 0.11));
+      }
+
+      // connector line: not supported in GL — skip
+
+      if (liftBlend > 0) {
+        glCtx.drawFilledRect(
+          bounds.x + dx - wordInset * 1.2,
+          bounds.y + dy - wordInset * 1.2,
+          bounds.w + wordInset * 2.4,
+          bounds.h + wordInset * 2.4,
+          1, 1, 1, 0.08 * alpha * liftBlend,
+        );
+      }
+      return;
+    }
+
+    // Canvas 2D path
     if (groupBounds && groupingBits <= maskSizeBits) {
       ctx.save();
       ctx.strokeStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},${0.92 * alpha})`;
@@ -2423,6 +2480,25 @@ export class SieveRenderer {
   }
 
   /**
+   * Start a standalone GL animation frame (used by animation methods called
+   * outside the main render() loop).  Returns the GlyphTextGLCore instance
+   * when webglText is enabled and the renderer is ready, otherwise null.
+   */
+  _beginGLAnim() {
+    if (!this.webglText || !this._glyphCtx) return null;
+    const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
+    const cw = this.canvasWidth || (this.canvas.width / canvasDpr);
+    const ch = this.canvasHeight || (this.canvas.height / canvasDpr);
+    this._glyphCtx.beginFrame(cw, ch, canvasDpr);
+    return this._glyphCtx;
+  }
+
+  /** Flush a standalone GL animation frame started with _beginGLAnim(). */
+  _endGLAnim(glCtx) {
+    if (glCtx) glCtx.endFrame();
+  }
+
+  /**
    * Render a contracting ripple overlay on changed bits.
    * A large circle contracts to each changed bit while fading.
    * @param {number} progress 0..1 animation progress
@@ -2432,7 +2508,6 @@ export class SieveRenderer {
     if (!this.ctx || !sourceBits || sourceBits.size === 0) return;
     if (progress <= 0 || progress > 1) return;
 
-    const ctx = this.ctx;
     const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
     const cw = this.canvasWidth || (this.canvas.width / canvasDpr);
     const ch = this.canvasHeight || (this.canvas.height / canvasDpr);
@@ -2449,49 +2524,65 @@ export class SieveRenderer {
     const ringAlpha = Math.max(0, 0.5 * Math.pow(1 - progress, 0.72));
     const haloAlpha = Math.max(0, 0.1 * intensity * Math.pow(1 - progress, 1.18));
     const coreAlpha = Math.max(0, 0.6 * Math.pow(1 - progress, 0.56));
+    const cr = color[0] / 255, cg = color[1] / 255, cb = color[2] / 255;
 
-    ctx.save();
+    const glCtx = this._beginGLAnim();
+    const ctx = this.ctx;
+    if (!glCtx) ctx.save();
 
     for (const globalBit of sourceBits) {
       const pos = this.bitIndexToCanvas(globalBit);
       if (!pos) continue;
-      const cx = pos.x;
-      const cy = pos.y;
+      const bitCx = pos.x;
+      const bitCy = pos.y;
 
       // Skip off-screen bits
-      if (cx + maxRadius < 0 || cx - maxRadius > cw || cy + maxRadius < 0 || cy - maxRadius > ch) continue;
+      if (bitCx + maxRadius < 0 || bitCx - maxRadius > cw || bitCy + maxRadius < 0 || bitCy - maxRadius > ch) continue;
 
-      if (haloAlpha > 0.01) {
-        ctx.beginPath();
-        ctx.arc(cx, cy, outerRadius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${haloAlpha})`;
-        ctx.fill();
-      }
-
-      if (ringAlpha > 0.01) {
-        ctx.beginPath();
-        ctx.arc(cx, cy, innerRadius, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(${color[0]},${color[1]},${color[2]},${ringAlpha})`;
-        ctx.lineWidth = ringWidth;
-        ctx.stroke();
-      }
-
-      if (coreAlpha > 0.01) {
-        ctx.beginPath();
-        ctx.arc(cx, cy, coreRadius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${coreAlpha})`;
-        ctx.fill();
-      }
-
-      if (options.showBeacon) {
-        const beacon = Math.max(px * 0.9, 4.5 * intensity);
-        ctx.strokeStyle = `rgba(255,255,255,${Math.max(0.16, ringAlpha * 0.68)})`;
-        ctx.lineWidth = Math.max(0.75, px * 0.1);
-        ctx.strokeRect(cx - beacon / 2, cy - beacon / 2, beacon, beacon);
+      if (glCtx) {
+        if (haloAlpha > 0.01) glCtx.drawDot(bitCx, bitCy, outerRadius, cr, cg, cb, haloAlpha);
+        if (ringAlpha > 0.01) {
+          // Approximate ring as outer filled dot minus inner — draw two dots and rely on premult blending.
+          glCtx.drawDot(bitCx, bitCy, innerRadius + ringWidth, cr, cg, cb, ringAlpha * 0.55);
+          glCtx.drawDot(bitCx, bitCy, innerRadius, cr, cg, cb, ringAlpha);
+        }
+        if (coreAlpha > 0.01) glCtx.drawDot(bitCx, bitCy, coreRadius, cr, cg, cb, coreAlpha);
+        if (options.showBeacon) {
+          const beacon = Math.max(px * 0.9, 4.5 * intensity);
+          glCtx.drawOutlineRect(bitCx - beacon / 2, bitCy - beacon / 2, beacon, beacon,
+            1, 1, 1, Math.max(0.16, ringAlpha * 0.68), Math.max(0.75, px * 0.1));
+        }
+      } else {
+        if (haloAlpha > 0.01) {
+          ctx.beginPath();
+          ctx.arc(bitCx, bitCy, outerRadius, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${haloAlpha})`;
+          ctx.fill();
+        }
+        if (ringAlpha > 0.01) {
+          ctx.beginPath();
+          ctx.arc(bitCx, bitCy, innerRadius, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(${color[0]},${color[1]},${color[2]},${ringAlpha})`;
+          ctx.lineWidth = ringWidth;
+          ctx.stroke();
+        }
+        if (coreAlpha > 0.01) {
+          ctx.beginPath();
+          ctx.arc(bitCx, bitCy, coreRadius, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${coreAlpha})`;
+          ctx.fill();
+        }
+        if (options.showBeacon) {
+          const beacon = Math.max(px * 0.9, 4.5 * intensity);
+          ctx.strokeStyle = `rgba(255,255,255,${Math.max(0.16, ringAlpha * 0.68)})`;
+          ctx.lineWidth = Math.max(0.75, px * 0.1);
+          ctx.strokeRect(bitCx - beacon / 2, bitCy - beacon / 2, beacon, beacon);
+        }
       }
     }
 
-    ctx.restore();
+    if (!glCtx) ctx.restore();
+    this._endGLAnim(glCtx);
   }
 
   /** Fade animation: changed bits fade from transparent to full color */
@@ -2499,24 +2590,32 @@ export class SieveRenderer {
     if (!this.ctx || !this.changedBits || this.changedBits.size === 0) return;
     if (progress <= 0 || progress > 1) return;
 
-    const ctx = this.ctx;
     const px = this.pixelSize * this.zoom;
     const color = this._opColor();
     const alpha = 1 - progress; // fades out over time
+    const cr = color[0] / 255, cg = color[1] / 255, cb = color[2] / 255;
 
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+    const glCtx = this._beginGLAnim();
 
-    for (const globalBit of this.changedBits) {
-      const pos = this.bitIndexToCanvas(globalBit);
-      if (!pos) continue;
-      const bx = pos.x - px / 2;
-      const by = pos.y - px / 2;
-
-      ctx.fillRect(bx - 1, by - 1, px + 2, px + 2);
+    if (!glCtx) {
+      const ctx = this.ctx;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`;
+      for (const globalBit of this.changedBits) {
+        const pos = this.bitIndexToCanvas(globalBit);
+        if (!pos) continue;
+        ctx.fillRect(pos.x - px / 2 - 1, pos.y - px / 2 - 1, px + 2, px + 2);
+      }
+      ctx.restore();
+    } else {
+      for (const globalBit of this.changedBits) {
+        const pos = this.bitIndexToCanvas(globalBit);
+        if (!pos) continue;
+        glCtx.drawFilledRect(pos.x - px / 2 - 1, pos.y - px / 2 - 1, px + 2, px + 2, cr, cg, cb, alpha);
+      }
+      this._endGLAnim(glCtx);
     }
-    ctx.restore();
   }
 
   /** Pulse animation: changed bits scale up then back down */
@@ -2525,7 +2624,6 @@ export class SieveRenderer {
     if (!this.ctx || !sourceBits || sourceBits.size === 0) return;
     if (progress <= 0 || progress > 1) return;
 
-    const ctx = this.ctx;
     const px = this.pixelSize * this.zoom;
     const color = this._opColor();
     const intensity = Math.max(0.8, Math.min(1.8, options.intensity || 1));
@@ -2535,26 +2633,42 @@ export class SieveRenderer {
     const scale = progress < peak
       ? 1 + 1.15 * intensity * (progress / peak)
       : 1 + 1.15 * intensity * (1 - (progress - peak) / (1 - peak));
-    const alpha = progress < 0.75 ? 0.92 : 0.92 * (1 - (progress - 0.75) / 0.25);
+    const alpha = Math.max(0, progress < 0.75 ? 0.92 : 0.92 * (1 - (progress - 0.75) / 0.25));
+    const cr = color[0] / 255, cg = color[1] / 255, cb = color[2] / 255;
 
-    ctx.save();
-    ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${Math.max(0, alpha)})`;
+    const glCtx = this._beginGLAnim();
+    const ctx = this.ctx;
+    if (!glCtx) {
+      ctx.save();
+      ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha})`;
+    }
 
     for (const globalBit of sourceBits) {
       const pos = this.bitIndexToCanvas(globalBit);
       if (!pos) continue;
-      const cx = pos.x;
-      const cy = pos.y;
-
+      const bitCx = pos.x;
+      const bitCy = pos.y;
       const s = px * scale;
-      ctx.fillRect(cx - s / 2, cy - s / 2, s, s);
-      if (options.showHalo) {
-        ctx.strokeStyle = `rgba(255,255,255,${Math.max(0.2, alpha * 0.72)})`;
-        ctx.lineWidth = Math.max(1.1, px * 0.15);
-        ctx.strokeRect(cx - s * 0.68, cy - s * 0.68, s * 1.36, s * 1.36);
+
+      if (glCtx) {
+        glCtx.drawFilledRect(bitCx - s / 2, bitCy - s / 2, s, s, cr, cg, cb, alpha);
+        if (options.showHalo) {
+          const hs = s * 1.36;
+          glCtx.drawOutlineRect(bitCx - hs / 2, bitCy - hs / 2, hs, hs,
+            1, 1, 1, Math.max(0.2, alpha * 0.72), Math.max(1.1, px * 0.15));
+        }
+      } else {
+        ctx.fillRect(bitCx - s / 2, bitCy - s / 2, s, s);
+        if (options.showHalo) {
+          ctx.strokeStyle = `rgba(255,255,255,${Math.max(0.2, alpha * 0.72)})`;
+          ctx.lineWidth = Math.max(1.1, px * 0.15);
+          ctx.strokeRect(bitCx - s * 0.68, bitCy - s * 0.68, s * 1.36, s * 1.36);
+        }
       }
     }
-    ctx.restore();
+
+    if (!glCtx) ctx.restore();
+    this._endGLAnim(glCtx);
   }
 
   /**
@@ -2569,12 +2683,14 @@ export class SieveRenderer {
     const color = this._opColor();
     const px = this.pixelSize * this.zoom;
     const lift = Math.max(7, Math.min(18, px * 3.1));
+    const cr = color[0] / 255, cg = color[1] / 255, cb = color[2] / 255;
 
     const orderedEntries = this._maskWriteEntries();
     const stampProgress = t * (orderedEntries.length > 0 ? orderedEntries.length : 0);
 
-    ctx.save();
-    ctx.setLineDash([]);
+    const glCtx = this._beginGLAnim();
+    if (!glCtx) ctx.save();
+    if (!glCtx) ctx.setLineDash([]);
 
     if (orderedEntries.length > 0) {
       for (let i = 0; i < orderedEntries.length; i++) {
@@ -2601,9 +2717,6 @@ export class SieveRenderer {
           : entry.count;
         const stampBounds = (groupBounds && groupingBits <= maskSizeBits) ? groupBounds : bounds;
         const alpha = local < 0 ? Math.max(0, 0.28 + local * 1.1) : Math.max(0.22, 0.84 - phase * 0.42);
-        // Expand stamp to cover visible label bands (byte title, vector grouping
-        // title) above the bit group, and match the annotation outline padding
-        // when outlines are enabled.
         const inset = Math.max(2, Math.min(6, px * 0.7));
         const stampPad = this.outlineEnabled ? Math.max(inset, this._outlinePadding()) : inset;
         const topExtra = this._labelBands().total;
@@ -2611,17 +2724,24 @@ export class SieveRenderer {
         const ry = stampBounds.y - stampPad - topExtra + yOffset;
         const rw = stampBounds.w + stampPad * 2;
         const rh = stampBounds.h + stampPad * 2 + topExtra;
+        const ttr = tint[0] / 255, ttg = tint[1] / 255, ttb = tint[2] / 255;
 
-        ctx.fillStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},${alpha * 0.14})`;
-        ctx.strokeStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},${alpha})`;
-        ctx.lineWidth = Math.max(0.8, Math.min(2.2, px * 0.11));
-        ctx.beginPath();
-        ctx.roundRect(rx, ry, rw, rh, Math.max(4, Math.min(10, 4 + px * 0.16)));
-        ctx.fill();
-        ctx.stroke();
+        if (glCtx) {
+          glCtx.drawFilledRect(rx, ry, rw, rh, ttr, ttg, ttb, alpha * 0.14);
+          glCtx.drawOutlineRect(rx, ry, rw, rh, ttr, ttg, ttb, alpha, Math.max(0.8, Math.min(2.2, px * 0.11)));
+        } else {
+          ctx.fillStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},${alpha * 0.14})`;
+          ctx.strokeStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},${alpha})`;
+          ctx.lineWidth = Math.max(0.8, Math.min(2.2, px * 0.11));
+          ctx.beginPath();
+          ctx.roundRect(rx, ry, rw, rh, Math.max(4, Math.min(10, 4 + px * 0.16)));
+          ctx.fill();
+          ctx.stroke();
+        }
       }
 
-      ctx.restore();
+      if (!glCtx) ctx.restore();
+      this._endGLAnim(glCtx);
       return;
     }
 
@@ -2635,7 +2755,8 @@ export class SieveRenderer {
     }
     const groups = Array.from(groupMap.keys()).sort((a, b) => a - b);
     if (groups.length === 0) {
-      ctx.restore();
+      if (!glCtx) ctx.restore();
+      this._endGLAnim(glCtx);
       return;
     }
 
@@ -2669,30 +2790,47 @@ export class SieveRenderer {
       const rw = bounds.w + inset * 2;
       const rh = bounds.h + inset * 2;
 
-      ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha * 0.14})`;
-      ctx.strokeStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha})`;
-      ctx.lineWidth = Math.max(0.8, Math.min(2.2, px * 0.11));
-      ctx.beginPath();
-      ctx.roundRect(rx, ry, rw, rh, Math.max(4, Math.min(10, 4 + px * 0.16)));
-      ctx.fill();
-      ctx.stroke();
+      if (glCtx) {
+        glCtx.drawFilledRect(rx, ry, rw, rh, cr, cg, cb, alpha * 0.14);
+        glCtx.drawOutlineRect(rx, ry, rw, rh, cr, cg, cb, alpha, Math.max(0.8, Math.min(2.2, px * 0.11)));
 
-      const hitBits = groupMap.get(gid) || [];
-      const markSize = Math.max(1.5, Math.min(5, px * 0.42));
-      ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${Math.max(0.26, alpha * 0.78)})`;
-      ctx.strokeStyle = `rgba(255,255,255,${Math.max(0.2, alpha * 0.42)})`;
-      ctx.lineWidth = Math.max(0.45, Math.min(1.1, px * 0.07));
-      for (let j = 0; j < hitBits.length; j++) {
-        const pos = this.bitIndexToCanvas(hitBits[j]);
-        if (!pos) continue;
-        const bx = pos.x - markSize / 2;
-        const by = pos.y - markSize / 2 + yOffset;
-        ctx.fillRect(bx, by, markSize, markSize);
-        ctx.strokeRect(bx, by, markSize, markSize);
+        const hitBits = groupMap.get(gid) || [];
+        const markSize = Math.max(1.5, Math.min(5, px * 0.42));
+        for (let j = 0; j < hitBits.length; j++) {
+          const pos = this.bitIndexToCanvas(hitBits[j]);
+          if (!pos) continue;
+          const bx = pos.x - markSize / 2;
+          const by = pos.y - markSize / 2 + yOffset;
+          glCtx.drawFilledRect(bx, by, markSize, markSize, cr, cg, cb, Math.max(0.26, alpha * 0.78));
+          glCtx.drawOutlineRect(bx, by, markSize, markSize, 1, 1, 1, Math.max(0.2, alpha * 0.42), Math.max(0.45, Math.min(1.1, px * 0.07)));
+        }
+      } else {
+        ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha * 0.14})`;
+        ctx.strokeStyle = `rgba(${color[0]},${color[1]},${color[2]},${alpha})`;
+        ctx.lineWidth = Math.max(0.8, Math.min(2.2, px * 0.11));
+        ctx.beginPath();
+        ctx.roundRect(rx, ry, rw, rh, Math.max(4, Math.min(10, 4 + px * 0.16)));
+        ctx.fill();
+        ctx.stroke();
+
+        const hitBits = groupMap.get(gid) || [];
+        const markSize = Math.max(1.5, Math.min(5, px * 0.42));
+        ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${Math.max(0.26, alpha * 0.78)})`;
+        ctx.strokeStyle = `rgba(255,255,255,${Math.max(0.2, alpha * 0.42)})`;
+        ctx.lineWidth = Math.max(0.45, Math.min(1.1, px * 0.07));
+        for (let j = 0; j < hitBits.length; j++) {
+          const pos = this.bitIndexToCanvas(hitBits[j]);
+          if (!pos) continue;
+          const bx = pos.x - markSize / 2;
+          const by = pos.y - markSize / 2 + yOffset;
+          ctx.fillRect(bx, by, markSize, markSize);
+          ctx.strokeRect(bx, by, markSize, markSize);
+        }
       }
     }
 
-    ctx.restore();
+    if (!glCtx) ctx.restore();
+    this._endGLAnim(glCtx);
   }
 
   renderMaskHover(progress) {
@@ -2705,7 +2843,8 @@ export class SieveRenderer {
     const t = Math.max(0, Math.min(1, progress));
     const travelLift = Math.max(16, Math.min(52, px * 5.8));
 
-    ctx.save();
+    const glCtx = this._beginGLAnim();
+    if (!glCtx) ctx.save();
 
     for (let groupIndex = 0; groupIndex < slotGroups.length; groupIndex++) {
       const entries = slotGroups[groupIndex];
@@ -2720,7 +2859,7 @@ export class SieveRenderer {
       for (let previous = 0; previous < index; previous++) {
         this._drawMaskImprint(ctx, entries[previous], entries[previous].bounds.cx, entries[previous].bounds.cy, {
           alpha: 0.52,
-        });
+        }, glCtx);
       }
 
       const rise = local < 0.35 ? local / 0.35 : local > 0.68 ? (1 - local) / 0.32 : 1;
@@ -2729,7 +2868,7 @@ export class SieveRenderer {
       const currentY = from.bounds.cy + (to.bounds.cy - from.bounds.cy) * smooth - travelLift * rise;
       const stampingAlpha = local < 0.18 ? 1 : local > 0.82 ? 1 : 0.92;
 
-      if (index < entries.length - 1 && from !== to) {
+      if (!glCtx && index < entries.length - 1 && from !== to) {
         ctx.strokeStyle = `rgba(${fromTint[0]},${fromTint[1]},${fromTint[2]},0.88)`;
         ctx.lineWidth = Math.max(1.6, px * 0.13);
         ctx.setLineDash([]);
@@ -2753,16 +2892,17 @@ export class SieveRenderer {
         alpha: stampingAlpha,
         liftBlend: rise,
         showConnector: rise > 0.05,
-      });
+      }, glCtx);
 
       if (local > 0.78 && index < entries.length - 1) {
         this._drawMaskImprint(ctx, to, to.bounds.cx, to.bounds.cy, {
           alpha: (local - 0.78) / 0.22,
-        });
+        }, glCtx);
       }
     }
 
-    ctx.restore();
+    if (!glCtx) ctx.restore();
+    this._endGLAnim(glCtx);
   }
 
   /** Content dimensions at current zoom */
