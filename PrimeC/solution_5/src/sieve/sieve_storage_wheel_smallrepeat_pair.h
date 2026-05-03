@@ -140,16 +140,7 @@ function(markFactors_wheelstorage_small_repeat_pair_v2,suffix)(sieve_t* sieve, c
         }
 
         wheel_index += step;
-        if (wheel_index >= WHEEL_SIZE) {
-            wheel_index %= WHEEL_SIZE;
-        }
-        // else {
-        // if (wheel_index + step < WHEEL_SIZE) {
-            // } )
-        // }
-        // else {
-        //     wheel_index = (index + step) % WHEEL_SIZE;
-        // }
+        if (wheel_index >= WHEEL_SIZE) wheel_index %= WHEEL_SIZE;
     }
 
     if (pending_mask) {

@@ -1,4 +1,18 @@
-#define max_masks 4
+#ifndef max_masks
+    #define max_masks 2
+#endif
+
+#if (max_masks >= 1) && (max_masks <= 8)
+    #define APPLYMASK_DISPATCH_N(n, bitstorage, range_start_index, range_stop_index, step, masks) \
+        function(applyMask_index##n##_mmask,suffix)(bitstorage, range_start_index, range_stop_index, step, masks)
+    #define APPLYMASK_DISPATCH(bitstorage, range_start_index, range_stop_index, step, masks, n) \
+        APPLYMASK_DISPATCH_N(n, bitstorage, range_start_index, range_stop_index, step, masks)
+    #define APPLYMASK_CALL(bitstorage, range_start_index, range_stop_index, step, masks) \
+        APPLYMASK_DISPATCH(bitstorage, range_start_index, range_stop_index, step, masks, max_masks)
+#else
+    #define APPLYMASK_CALL(bitstorage, range_start_index, range_stop_index, step, masks) \
+        function(applyMask_index_mmask,suffix)(bitstorage, range_start_index, range_stop_index, step, masks, max_masks)
+#endif
 
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
 function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, counter_t range_start, const counter_t range_stop, const counter_t step)
@@ -32,7 +46,7 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
 
         if (bitpoint > 0) {
             while (new_bucket >= target_bucket) {
-                function(applyMask_index_mmask,suffix)(sieve->bitstorage, start_bucket, stop_bucket, wheel_step, masks, max_masks);
+                APPLYMASK_CALL(sieve->bitstorage, start_bucket, stop_bucket, wheel_step, masks);
                 for (counter_t i = 0; i < max_masks; i++) masks[i] = (bitbucket_t)0U;
                 start_bucket = target_bucket;
                 target_bucket += max_masks;
@@ -51,7 +65,7 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
     }
 
     const counter_t masks_remaining = min(stop_bucket - min(stop_bucket, start_bucket), max_masks);
-    if (masks_remaining ) function(applyMask_index_mmask,suffix)(sieve->bitstorage, start_bucket, stop_bucket, wheel_step, masks, masks_remaining);
+    if (masks_remaining) APPLYMASK_CALL(sieve->bitstorage, start_bucket, stop_bucket, wheel_step, masks);
 
     logStop6(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_mmask, "MarkFactorsWheelStorageSmallRepeatMmask: finished setting factors\n");
 }
