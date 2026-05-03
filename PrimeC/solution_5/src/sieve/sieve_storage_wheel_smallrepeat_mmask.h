@@ -1,4 +1,4 @@
-#define max_masks 3
+#define max_masks 8
 
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
 function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, counter_t range_start, const counter_t range_stop, const counter_t step)
@@ -58,20 +58,30 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
             } \
         } while (0)
 
-    // load all the masks for the next max_masks buckets, so we can apply them immediately when we hit the corresponding bucket, without having to calculate the mask on the fly
+    // Incremental tracking: avoids per-iteration % and / by WHEEL_SIZE
+    counter_t wheel_index = range_start % WHEEL_SIZE;
+    counter_t wheel_bit_base = wheelmask_stripe_bits * (range_start / WHEEL_SIZE);
+    counter_t new_bucket = index_type(wheel_bit_base, bitbucket_t);
+
     for (counter_t index = range_start; index <= range_stop_unique; index += step) {
-        const counter_t wheel_bit = wheel_bit_calc(index);
-        const counter_t new_bucket = function(wheel_block_calc,variant_suffix)(index);
+        const counter_t bitpoint = wheelmask_bitpoint[wheel_index];
 
-        if (wheel_bit <= 0) continue;
-
-        if (new_bucket != current_bucket) {
-            PUSH_BUCKET_MASK(current_bucket, current_mask);
-            current_bucket = new_bucket;
-            current_mask = (bitbucket_t)0U;
+        if (bitpoint > 0) {
+            if (new_bucket != current_bucket) {
+                PUSH_BUCKET_MASK(current_bucket, current_mask);
+                current_bucket = new_bucket;
+                current_mask = (bitbucket_t)0U;
+            }
+            current_mask |= markmask_type(wheel_bit_base + bitpoint - 1, bitbucket_t);
         }
 
-        current_mask |= markmask_type(wheel_bit, bitbucket_t);
+        wheel_index += step;
+        if (wheel_index >= WHEEL_SIZE) {
+            const counter_t advance = wheel_index / WHEEL_SIZE;
+            wheel_index -= advance * WHEEL_SIZE;
+            wheel_bit_base += wheelmask_stripe_bits * advance;
+            new_bucket = index_type(wheel_bit_base, bitbucket_t);
+        }
     }
 
     PUSH_BUCKET_MASK(current_bucket, current_mask);
