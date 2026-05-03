@@ -1,4 +1,4 @@
-#define max_masks 2
+#define max_masks 3
 
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
 function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, counter_t range_start, const counter_t range_stop, const counter_t step)
@@ -30,7 +30,10 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
             if (run_count == 1) { \
                 function(applyMask_index,suffix)(sieve->bitstorage, run_start_bucket, stop_bucket, wheel_step, masks[0]); \
             } \
-            else if (run_count > 1) { \
+            else if (run_count == 2) { \
+                function(applyMask_index_pair,suffix)(sieve->bitstorage, run_start_bucket, stop_bucket, wheel_step, masks[0], masks[1]); \
+            } \
+            else if (run_count > 2) { \
                 function(applyMask_index_mmask,suffix)(sieve->bitstorage, run_start_bucket, stop_bucket, wheel_step, masks, run_count); \
             } \
             run_count = 0; \
