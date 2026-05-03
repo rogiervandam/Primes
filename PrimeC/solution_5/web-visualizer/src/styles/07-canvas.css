@@ -616,6 +616,17 @@
 .canvas-container .main-render-canvas {
   z-index: 2;
 }
+/* WebGL glyph-text canvas: transparent background, floats above main canvas.
+   Sized and positioned identically to the main canvas by GlyphTextGLCore.resize().
+   pointer-events:none so it never intercepts interaction. */
+.canvas-container .glyph-render-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  z-index: 3;
+  pointer-events: none;
+}
 .canvas-container canvas.debug-hidden {
   opacity: 0 !important;
   pointer-events: none;

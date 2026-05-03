@@ -55,6 +55,10 @@ export const DEFAULT_LAYOUT_SETTINGS = {
   outlines: {
     targets: [],
   },
+  // Experimental: render per-cell text and dots via WebGL glyph atlas
+  // instead of Canvas 2D. Enables side-by-side comparison with the default
+  // Canvas 2D text path.
+  webglText: false,
 };
 
 export const DEFAULT_EVENT_TITLE_SETTINGS = {

@@ -30,6 +30,7 @@ function CanvasStage({
   canvasRef,
   settledCanvasRef,
   glCanvasRef,
+  glyphCanvasRef,
   // wrapper div ref — receives the 3D CSS transform so canvas elements stay
   // flat (no per-canvas GPU layers in Safari → no black flicker)
   wrapperCanvasRef,
@@ -151,6 +152,14 @@ function CanvasStage({
           <canvas
             ref={canvasRef}
             className={`main-render-canvas${debugLayerMode === 'gl-only' ? ' debug-hidden' : ''}`}
+          />
+          {/* WebGL glyph-text canvas — transparent, sits above main canvas so
+              GL-rendered text and dots composite on top of all other layers.
+              Only used when the webglText feature toggle is active. */}
+          <canvas
+            ref={glyphCanvasRef}
+            className={`glyph-render-canvas${debugLayerMode === 'overlays-only' ? ' debug-hidden' : ''}`}
+            aria-hidden="true"
           />
         </div>
       </div>

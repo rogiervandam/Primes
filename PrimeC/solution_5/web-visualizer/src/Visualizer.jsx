@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { SieveRenderer, bitToNumber, describeWheelBit, wheelSignature, CACHE_PRESETS } from './SieveRenderer';
 import { BitGridGLWorker, isWorkerGLSupported } from './renderer/gl/BitGridGLWorker';
+import { GlyphTextGLCore } from './renderer/gl/GlyphTextGLCore';
 import EventsPanel from './EventsPanel';
 import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
@@ -342,12 +343,15 @@ export default function Visualizer({
 
   const canvasRef = useRef(null);
   const settledCanvasRef = useRef(null);
-  const minimapCanvasRef = useRef(null);
-  const containerRef = useRef(null);
+  const minimapCanvasRef = useRef(null);  const containerRef = useRef(null);
   const rendererRef = useRef(null);
   // WebGL bit-grid worker (see docs/AI_MAINTENANCE.md §8).
   const glCanvasRef = useRef(null);
   const glRendererRef = useRef(null);
+  // WebGL glyph-text canvas: transparent overlay for GL-rendered per-cell
+  // labels and dots when layoutSettings.webglText is enabled.
+  const glyphCanvasRef = useRef(null);
+  const glyphRendererRef = useRef(null);
   // Wrapper div that receives the 3D CSS transform (translate + rotateX/Y)
   // so the canvas elements inside remain flat — this prevents Safari from
   // creating per-canvas GPU compositing layers that cause black flicker.
@@ -1440,6 +1444,32 @@ export default function Visualizer({
       if (settledCanvasRef.current) r.attachSettledCanvas(settledCanvasRef.current);
       if (glCanvasRef.current) r.setGlCompositeSourceCanvas?.(glCanvasRef.current);
       if (minimapCanvasRef.current) r.attachMinimapCanvas(minimapCanvasRef.current);
+
+      // WebGL glyph-text renderer. Initialised once per session; reused
+      // across trace reloads. Safe to create on every effect run because
+      // GlyphTextGLCore.init() guards against duplicate initialisation.
+      if (glyphCanvasRef.current) {
+        let glr = glyphRendererRef.current;
+        if (!glr) {
+          const newGlr = new GlyphTextGLCore();
+          try {
+            if (newGlr.init(glyphCanvasRef.current)) {
+              glr = newGlr;
+              glyphRendererRef.current = glr;
+            } else {
+              console.warn('[GlyphText] WebGL2 context unavailable — glyph text disabled.');
+            }
+          } catch (err) {
+            console.error('[GlyphText] init failed:', err);
+          }
+        }
+        if (glr) {
+          r.attachGlyphRenderer(glr);
+        }
+      } else {
+        console.warn('[GlyphText] glyphCanvasRef is null at init time — glyph text disabled.');
+      }
+
       r.storageModel = header.storageModel || 'half';
       r.wheelDefinition = wheelDefinition;
       r.init(header.bitCount, header.sieveSize);
@@ -1704,6 +1734,7 @@ export default function Visualizer({
     r.showByteLabels = layoutSettings.showByteLabels;
     r.showVectorLabels = layoutSettings.showVectorLabels !== false;
     r.showVectorTouchOrder = layoutSettings.showVectorTouchOrder === true;
+    r.webglText = layoutSettings.webglText === true;
     r.bitLabelMode = layoutSettings.bitLabelMode || 'global';
     r.byteLabelMode = layoutSettings.byteLabelMode || 'group';
     r.horizontalGroups = Math.max(0, parseInt(layoutSettings.horizontalGroups || 0, 10) || 0);
@@ -4967,6 +4998,7 @@ export default function Visualizer({
           canvasRef={canvasRef}
           settledCanvasRef={settledCanvasRef}
           glCanvasRef={glCanvasRef}
+          glyphCanvasRef={glyphCanvasRef}
           wrapperCanvasRef={wrapperCanvasRef}
           glActive={true}
           hideGlCanvas={compositeDirectGl && debugLayerMode === 'normal'}

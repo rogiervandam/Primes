@@ -198,6 +198,13 @@ export class SieveRenderer {
     this._perfFrameTimes = new Float32Array(60); // ring buffer of frame durations (ms)
     this._perfFrameIdx = 0;
     this._perfLastTs = 0;
+
+    // WebGL glyph-text feature toggle. When true, per-cell text and dots
+    // are rendered via `_glyphCtx` (a GlyphTextGLCore) instead of Canvas 2D.
+    // Set by Visualizer.jsx from layoutSettings.webglText.
+    this.webglText = false;
+    /** @type {import('./renderer/gl/GlyphTextGLCore').GlyphTextGLCore|null} */
+    this._glyphCtx = null;
   }
 
   get colors() { return THEMES[this.theme] || THEMES.dark; }
@@ -283,6 +290,17 @@ export class SieveRenderer {
   _hexToRgb(hex)                                                                   { return hexToRgb(hex); }
   _mixRgb(a, b, t)                                                                 { return mixRgb(a, b, t); }
   _labelTextColor(fillRgb)                                                         { return labelTextColor(fillRgb); }
+  /**
+   * Same as `_labelTextColor` but returns a normalised [r, g, b, a] array
+   * suitable for passing to `GlyphTextGLCore.drawText`.
+   */
+  _labelTextColorGL(fillRgb) {
+    const [r, g, b] = fillRgb;
+    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return lum > 150
+      ? [17 / 255, 24 / 255, 39 / 255, 0.95]
+      : [249 / 255, 250 / 255, 251 / 255, 0.96];
+  }
   _fitLabelFontSize(ctx, text, maxWidth, preferredSize, minSize = 4, style = '')   { return fitLabelFontSize(ctx, text, maxWidth, preferredSize, minSize, style); }
   _truncateTextToWidth(ctx, text, maxWidth, style = '')                            { return truncateTextToWidth(ctx, text, maxWidth, style); }
   _drawFittedLabel(ctx, text, x, y, maxWidth, preferredSize, color, options = {})  { return drawFittedLabel(ctx, text, x, y, maxWidth, preferredSize, color, options); }
@@ -351,6 +369,15 @@ export class SieveRenderer {
 
   attachMinimapCanvas(canvas) {
     this.minimapRenderer.attach(canvas);
+  }
+
+  /**
+   * Attach the WebGL glyph-text canvas. Called once from Visualizer.jsx when
+   * the GlyphTextGLCore has been initialised on the glyph canvas element.
+   * @param {import('./renderer/gl/GlyphTextGLCore').GlyphTextGLCore} glyphRenderer
+   */
+  attachGlyphRenderer(glyphRenderer) {
+    this._glyphCtx = glyphRenderer || null;
   }
 
   init(bitCount, sieveSize) {
@@ -1227,6 +1254,9 @@ export class SieveRenderer {
       this.settledCanvas.style.height = height + 'px';
       this.settledCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
+    if (this._glyphCtx) {
+      this._glyphCtx.resize(width, height, dpr);
+    }
     this.canvasWidth = width;
     this.canvasHeight = height;
     this.canvasDpr = dpr;
@@ -1493,6 +1523,16 @@ export class SieveRenderer {
     this._recordFrameTiming();
 
     const f = this._buildFrameContext();
+
+    // Begin the WebGL glyph-text frame (clears the glyph canvas every frame
+    // so toggling the feature off instantly removes stale text).
+    if (this._glyphCtx) {
+      const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
+      const cw = this.canvasWidth  || (this.canvas.width  / canvasDpr);
+      const ch = this.canvasHeight || (this.canvas.height / canvasDpr);
+      this._glyphCtx.beginFrame(cw, ch, canvasDpr);
+    }
+
     this._renderClear(f);
 
     // Draw cacheline-level overlays before bits so bits render on top
@@ -1509,6 +1549,11 @@ export class SieveRenderer {
     this.vectorTouchOrderOverlay.render(f.ctx);
     this.cachelineAnnotationsOverlay.render(f.ctx);
     this.searchOverlay.render(f.ctx, f.cw, f.ch);
+
+    // Flush the WebGL glyph-text batch (no-op when count === 0).
+    if (this._glyphCtx) {
+      this._glyphCtx.endFrame();
+    }
   }
 
   /**
@@ -1951,11 +1996,26 @@ export class SieveRenderer {
   /** Gold tint + dot + (at zoom) 'p' label for prime bits. Tint and border handled by GL. */
   _drawBitPrimeOverlay(f, globalBit, bitX, bitY) {
     if (!(this.primeOverlay && this._primeBitFlags?.[globalBit])) return;
-    const ctx = f.ctx;
     const px = f.px;
+    const dotR = Math.max(0.8, Math.min(px * 0.22, 4));
+
+    if (this.webglText && this._glyphCtx) {
+      // GL path: dot at top-right, optional 'p' label at top-left.
+      const g = this._glyphCtx;
+      const dcx = Math.round(bitX + px) - dotR * 0.75;
+      const dcy = Math.round(bitY) + dotR * 0.75;
+      g.drawDot(dcx, dcy, dotR, 251 / 255, 191 / 255, 36 / 255, 0.92);
+      if (px >= 16) {
+        const pSize = Math.max(4, Math.min(px * 0.22, 9));
+        g.drawText('p', Math.round(bitX + 1), Math.round(bitY + 1), pSize,
+          251 / 255, 191 / 255, 36 / 255, 0.90, 'left', 'top');
+      }
+      return;
+    }
+
+    const ctx = f.ctx;
     ctx.save();
     // Small gold dot in the top-right corner — visible even at low zoom
-    const dotR = Math.max(0.8, Math.min(px * 0.22, 4));
     ctx.fillStyle = 'rgba(251,191,36,0.92)';
     ctx.beginPath();
     ctx.arc(Math.round(bitX + px) - dotR * 0.75, Math.round(bitY) + dotR * 0.75, dotR, 0, Math.PI * 2);
@@ -1976,10 +2036,24 @@ export class SieveRenderer {
   /** Cyan/teal dot + (at zoom) 'r' label for bits within [rangeOverlayStart, rangeOverlayEnd]. Tint and border handled by GL. */
   _drawBitRangeOverlay(f, globalBit, bitX, bitY) {
     if (!(this.rangeOverlay && globalBit >= this.rangeOverlayStart && globalBit <= this.rangeOverlayEnd)) return;
-    const ctx = f.ctx;
     const px = f.px;
-    ctx.save();
     const dotR2 = Math.max(0.8, Math.min(px * 0.20, 3.5));
+
+    if (this.webglText && this._glyphCtx) {
+      // GL path: dot at top-left, optional 'r' label at top-right.
+      const g = this._glyphCtx;
+      g.drawDot(Math.round(bitX) + dotR2 * 0.75, Math.round(bitY) + dotR2 * 0.75, dotR2,
+        34 / 255, 211 / 255, 238 / 255, 0.88);
+      if (px >= 16) {
+        const rSize = Math.max(4, Math.min(px * 0.20, 8));
+        g.drawText('r', Math.round(bitX + px - 1), Math.round(bitY + 1), rSize,
+          34 / 255, 211 / 255, 238 / 255, 0.90, 'right', 'top');
+      }
+      return;
+    }
+
+    const ctx = f.ctx;
+    ctx.save();
     ctx.fillStyle = 'rgba(34,211,238,0.88)';
     ctx.beginPath();
     ctx.arc(Math.round(bitX) + dotR2 * 0.75, Math.round(bitY) + dotR2 * 0.75, dotR2, 0, Math.PI * 2);
@@ -2001,10 +2075,24 @@ export class SieveRenderer {
     if (!(this.multiplesOverlay && this.multiplesOverlayPrime >= 2)) return;
     const num = bitToNumber(globalBit, this.storageModel, this.wheelDefinition);
     if (!(num >= 2 && num % this.multiplesOverlayPrime === 0)) return;
-    const ctx = f.ctx;
     const px = f.px;
-    ctx.save();
     const dotR3 = Math.max(0.8, Math.min(px * 0.20, 3.5));
+
+    if (this.webglText && this._glyphCtx) {
+      // GL path: dot at bottom-right, optional '×' label at bottom-right.
+      const g = this._glyphCtx;
+      g.drawDot(Math.round(bitX + px) - dotR3 * 0.75, Math.round(bitY + px) - dotR3 * 0.75, dotR3,
+        167 / 255, 139 / 255, 250 / 255, 0.90);
+      if (px >= 16) {
+        const mSize = Math.max(4, Math.min(px * 0.20, 8));
+        g.drawText('\u00d7', Math.round(bitX + px - 1), Math.round(bitY + px - 1), mSize,
+          167 / 255, 139 / 255, 250 / 255, 0.90, 'right', 'bottom');
+      }
+      return;
+    }
+
+    const ctx = f.ctx;
+    ctx.save();
     ctx.fillStyle = 'rgba(167,139,250,0.90)';
     ctx.beginPath();
     ctx.arc(Math.round(bitX + px) - dotR3 * 0.75, Math.round(bitY + px) - dotR3 * 0.75, dotR3, 0, Math.PI * 2);
@@ -2055,8 +2143,24 @@ export class SieveRenderer {
     const fontSize = baseFontSize * zoomBoost * loweredLabelScale;
     const centerX = Math.round(labelX + labelPx / 2);
     const centerY = Math.round(labelY + labelPx / 2);
-    const textColor = this._labelTextColor(cls.color);
 
+    if (this.webglText && this._glyphCtx) {
+      // GL glyph path — skip the Canvas 2D context entirely.
+      const g = this._glyphCtx;
+      const [tr, tg, tb, ta] = this._labelTextColorGL(cls.color);
+      if (dualLine) {
+        g.drawText(lines[0], centerX, Math.round(labelY + labelPx * 0.32), fontSize,
+          tr, tg, tb, ta, 'center', 'middle');
+        g.drawText(lines[1], centerX, Math.round(labelY + labelPx * 0.7),
+          Math.max(4.5, fontSize - 0.25), tr, tg, tb, ta, 'center', 'middle');
+      } else {
+        g.drawText(lines[0], centerX, centerY, fontSize,
+          tr, tg, tb, ta, 'center', 'middle');
+      }
+      return;
+    }
+
+    const textColor = this._labelTextColor(cls.color);
     labelCtx.textAlign = 'center';
     labelCtx.textBaseline = 'middle';
     if (dualLine) {
@@ -2072,6 +2176,7 @@ export class SieveRenderer {
     }
     labelCtx.textAlign = 'start';
   }
+
 
   canvasToBitIndex(canvasX, canvasY) {
     const bitsPerCacheLine = this.bitsPerCacheLine;
