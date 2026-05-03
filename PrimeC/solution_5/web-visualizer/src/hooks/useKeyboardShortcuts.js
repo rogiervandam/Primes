@@ -16,6 +16,7 @@
  *   T                toggle theme
  *   D                toggle detail panel
  *   R                (3D mode) reset rotation to flat
+ *   `                toggle debug tools panel
  *   ?                open / close keyboard shortcuts help overlay
  *
  * Caller passes the actions; this hook contains no state of its own.
@@ -34,6 +35,7 @@ export function useKeyboardShortcuts({
   resetZoom,
   setTheme,
   toggleDetailPanel,
+  toggleDebugToolsPanel,
   camera3DRef,
   toggleShortcutsOverlay,
 }) {
@@ -50,6 +52,7 @@ export function useKeyboardShortcuts({
     resetZoom,
     setTheme,
     toggleDetailPanel,
+    toggleDebugToolsPanel,
     camera3DRef,
     toggleShortcutsOverlay,
   };
@@ -67,6 +70,7 @@ export function useKeyboardShortcuts({
         resetZoom: rz,
         setTheme: st,
         toggleDetailPanel: tdp,
+        toggleDebugToolsPanel: tdtp,
         camera3DRef: cam3DRef,
         toggleShortcutsOverlay: tso,
       } = handlersRef.current;
@@ -103,6 +107,10 @@ export function useKeyboardShortcuts({
         case 'r': case 'R':
           e.preventDefault();
           if (is3D) cam.resetFlat();
+          break;
+        case '`':
+          e.preventDefault();
+          if (tdtp) tdtp();
           break;
         case '?':
           e.preventDefault();

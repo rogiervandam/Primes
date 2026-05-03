@@ -63,8 +63,12 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
     - an optional text of some arbitrary amount of characters
     - optional a json string (starting with  "{ traceline: <x>" where <x> is the line number. The properties of the json object are optional, like  depth: <>, level: <>. step: <>, etc... }. \
       When parsing, try to infer the missing properties from the text. Use the text as an annotation.
-
-
+- the balloon placement should be improved: (1) balloons should not overlap (2) when a bit under the all event panel, don't show the connector over the events panel (3) the connector should look better: more pointy at the bit side and much wider at the text box side (4) when i drag to the left, sometimes the connector gets "twisted"
+- Make the "operation" labels in the all events panel more readable: (1) immediately give it the full size while hovering over it (the expanded text must not push away the other text, but the expanded text may float over the bitcount, timing, etc) and (2) give me an easy way to switch between this column in full width or reduced width
+- when the single event widget is docker to the detail panel, don't show the %progress and gear icon on the far right, but just to the right on the timeline slider, as it looked on the single event widget.
+- Make a toggle to turn automatic animation start when selecting a sigle event on or off
+- In settings -> layout panel -> Autofit. when turning auto fit off, start at the count that was set by auto fit.
+- Change the nearby events: (1) Don't have "current" as the name, but the the Title with the same font, style and size as on the widget itself. Keep the play button in front of it; (2) make it possible to have the nearby events instead of the title.
 
 ## New Ideas
 

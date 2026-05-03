@@ -56,8 +56,12 @@ void main() {
 
   vec2 centre = basePos + u_pan + animData.xy;  // apply per-bit position delta
   vec2 corner = centre + a_corner * u_cellSize * animScale;  // apply per-bit size scale
-  // DPR snap to device-pixel grid; no-op on integer DPR.
-  corner = floor(corner * u_dpr + 0.5) / u_dpr;
+  // DPR snap to device-pixel grid. At DPR=1 this introduces quantization
+  // drift versus Canvas2D subpixel geometry over long rows, so only apply
+  // snapping when DPR is meaningfully above 1.
+  if (u_dpr > 1.01) {
+    corner = floor(corner * u_dpr + 0.5) / u_dpr;
+  }
 
   vec2 clip = (corner / u_canvasSize) * 2.0 - 1.0;
   clip.y = -clip.y;

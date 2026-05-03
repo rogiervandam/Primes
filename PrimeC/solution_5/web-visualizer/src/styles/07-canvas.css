@@ -580,10 +580,7 @@
      top/left anchor the GL canvas at the same origin as the Canvas2D layers.
      width/height are set imperatively by refreshCanvasLayout() to the same
      canvasW × canvasH as Canvas2D — this explicit sizing guarantees the GL
-     canvas CSS display always matches Canvas2D regardless of wrapper state.
-     inset:0 provides a reasonable initial size (fills the wrapper) before
-     the first refreshCanvasLayout() call; once explicit style.width/height
-     are set they take precedence over the right/bottom constraints.
+  canvas CSS display always matches Canvas2D regardless of wrapper state.
 
      z-index: 0 (not -1): negative z-index inside a stacking context can
      cause Safari to promote the element to its own sub-compositing-layer.
@@ -594,7 +591,8 @@
      the Canvas2D canvases). DOM order then determines stacking:
      gl-render-canvas is first in the DOM → painted behind settled and main. */
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
   display: block;
   z-index: 0;
   pointer-events: none;

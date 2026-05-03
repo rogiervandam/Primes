@@ -106,6 +106,26 @@ function getProjectedCanvasMapper(canvasEl) {
   return { toViewport, toCanvas };
 }
 
+function parseAppliedRotateAngles(transformStr) {
+  if (!transformStr || transformStr === 'none') return { rotateX: 0, rotateY: 0 };
+  const xMatch = /rotateX\((-?\d+(?:\.\d+)?)deg\)/.exec(transformStr);
+  const yMatch = /rotateY\((-?\d+(?:\.\d+)?)deg\)/.exec(transformStr);
+  return {
+    rotateX: xMatch ? Number(xMatch[1]) : 0,
+    rotateY: yMatch ? Number(yMatch[1]) : 0,
+  };
+}
+
+function computeSafeTiltDegrees(canvasHeight, perspective = 1500) {
+  const h = Math.max(1, Number(canvasHeight) || 1);
+  const p = Math.max(300, Number(perspective) || 1500);
+  // Keep the near-edge perspective amplification bounded. z = sin(ax) * h/2.
+  // Using z <= 0.55p caps top-edge scale to about 2.22x.
+  const ratio = Math.min(0.999, Math.max(0.01, (p * 0.55) / (h * 0.5)));
+  const deg = Math.asin(ratio) * 180 / Math.PI;
+  return Math.max(8, Math.min(65, deg));
+}
+
 /**
  * Top-level visualizer component. Owns all playback, rendering, and UI state.
  *
@@ -192,6 +212,8 @@ export default function Visualizer({
   const wrapperCanvasRef = useRef(null);
   // Set to true when OffscreenCanvas is unavailable and GL could not attach.
   const [glUnavailable, setGlUnavailable] = useState(false);
+  // Debug info for the GL mode and GPU capacity (shown in overlay)
+  const [glDebugInfo, setGlDebugInfo] = useState(null);
   const isMacPlatform = useMemo(() => detectIsMac(), []);
   const isWindowsPlatform = useMemo(() => detectIsWindows(), []);
   // Electron (native app) inserts "Electron" into the UA and exposes process.versions.electron.
@@ -462,10 +484,21 @@ export default function Visualizer({
   const glCssUnlockTokenRef = useRef(0);
   const glCssUnlockRafRef = useRef(null);
   const glCssUnlockTimeoutRef = useRef(null);
+  const glCssLockStateRef = useRef(null);
+  const glDebugLastUpdateRef = useRef(0);
 
   stepsRef.current = steps;
   currentStepRef.current = currentStep;
   selectedStepsRef.current = selectedSteps;
+
+  const updateGlDebugInfo = useCallback((force = false) => {
+    const gl = glRendererRef.current;
+    if (!gl || typeof gl.getDebugInfo !== 'function') return;
+    const now = Date.now();
+    if (!force && now - glDebugLastUpdateRef.current < 120) return;
+    glDebugLastUpdateRef.current = now;
+    setGlDebugInfo(gl.getDebugInfo());
+  }, []);
 
   /** Miller-Rabin primality test — deterministic for all n < 3,215,031,751 */
   const isPrimeNumber = useCallback((n) => {
@@ -593,23 +626,34 @@ export default function Visualizer({
     // baseline so collapsing/expanding side panels can't shrink
     // the canvas — those toggles must be visually free.
     const cam = camera3DRef.current;
+    // Use the actually-applied wrapper transform angles as the first source
+    // of truth so canvas sizing math matches what is rendered on screen.
+    // This avoids geometry desync if camera refs and rendered transform ever
+    // diverge during rapid resize/animation transitions.
+    const appliedAngles = parseAppliedRotateAngles(camera3DTransform);
     const baseW = Math.max(width || 0, (typeof window !== 'undefined' ? window.innerWidth : width) || 0);
     const baseH = Math.max(height || 0, (typeof window !== 'undefined' ? window.innerHeight : height) || 0);
     let scaleH = 1;
     let scaleW = 1;
     let diagonalOverscan = 1;
     if (cam && cam.enabled) {
-      const ax = Math.abs(cam.rotateX) * Math.PI / 180;
-      const ay = Math.abs(cam.rotateY) * Math.PI / 180;
+      const rotateX = Number.isFinite(appliedAngles.rotateX) ? appliedAngles.rotateX : (cam.rotateX || 0);
+      const rotateY = Number.isFinite(appliedAngles.rotateY) ? appliedAngles.rotateY : (cam.rotateY || 0);
+      const ax = Math.abs(rotateX) * Math.PI / 180;
+      const ay = Math.abs(rotateY) * Math.PI / 180;
       scaleH = 1 / Math.max(0.3, Math.cos(ax));
       scaleW = 1 / Math.max(0.3, Math.cos(ay));
       diagonalOverscan = 1 + Math.hypot(Math.sin(ax), Math.sin(ay)) * 0.55;
     }
     const dragOverscan = 3.1;
-    const canvasW = Math.max(baseW * 3.2, baseW * scaleW * diagonalOverscan * dragOverscan);
-    const canvasH = Math.max(baseH * 3.2, baseH * scaleH * diagonalOverscan * dragOverscan);
+    const canvasWRaw = Math.max(baseW * 3.2, baseW * scaleW * diagonalOverscan * dragOverscan);
+    const canvasHRaw = Math.max(baseH * 3.2, baseH * scaleH * diagonalOverscan * dragOverscan);
+    // Keep CSS and backing geometry on integer CSS pixels to avoid
+    // fractional-size drift between GL and Canvas2D at large canvas sizes.
+    const canvasW = Math.max(1, Math.round(canvasWRaw));
+    const canvasH = Math.max(1, Math.round(canvasHRaw));
     return { canvasW, canvasH };
-  }, []);
+  }, [camera3DTransform]);
 
   const getCanvasPlaneMetrics = useCallback(() => {
     const r = rendererRef.current;
@@ -666,6 +710,28 @@ export default function Visualizer({
 
     const { canvasW, canvasH } = getCanvasTargetSize(rect.width, rect.height);
 
+    // Perspective safety: as canvas plane height grows, large rotateX values
+    // can produce extreme perspective amplification near the top edge. Cap
+    // tilt dynamically so rendered geometry remains stable at high zoom.
+    const cam = camera3DRef.current;
+    if (cam && cam.enabled) {
+      const safeTilt = computeSafeTiltDegrees(canvasH, cam.perspective || 1500);
+      cam.maxTilt = safeTilt;
+      let clamped = false;
+      if (Math.abs(cam.rotateX) > safeTilt) {
+        cam.rotateX = Math.sign(cam.rotateX || 1) * safeTilt;
+        clamped = true;
+      }
+      if (Math.abs(cam.rotateY) > safeTilt) {
+        cam.rotateY = Math.sign(cam.rotateY || 1) * safeTilt;
+        clamped = true;
+      }
+      if (clamped) {
+        setCamera3DTransform(cam.getCanvasTransform());
+        setCamera3DContainerStyle(cam.getContainerStyle());
+      }
+    }
+
     const oldCanvasW = r.canvasWidth || 0;
     const oldCanvasH = r.canvasHeight || 0;
     r.resize(canvasW, canvasH);
@@ -694,42 +760,77 @@ export default function Visualizer({
       wrapperEl.style.height = `${canvasH}px`;
     }
     const glEl = glCanvasRef.current;
+    const glRenderer = glRendererRef.current;
+    const glDirectMode = !!(glRenderer && typeof glRenderer.isDirectMode === 'function' && glRenderer.isDirectMode());
     const glSizeChanging = glEl && (canvasW !== oldCanvasW || canvasH !== oldCanvasH);
     if (glEl) {
-      if (!glSizeChanging) {
-        // Size unchanged: set immediately (no CSS-scale risk).
+      // Always keep GL anchored from top-left with explicit size. Chromium can
+      // behave inconsistently when right/bottom constraints remain active while
+      // width/height are also assigned dynamically.
+      glEl.style.left = '0px';
+      glEl.style.top = '0px';
+      glEl.style.right = 'auto';
+      glEl.style.bottom = 'auto';
+      if (glDirectMode) {
+        // Direct mode renders synchronously on the main thread, so we do not
+        // need the worker catch-up CSS lock. Applying it in Chromium can
+        // itself introduce drift during horizontal window growth.
+        glCssLockStateRef.current = null;
         glEl.style.width = `${canvasW}px`;
         glEl.style.height = `${canvasH}px`;
-        // Also clear any residual transform from a previous resize (defensive).
         if (glEl.style.transform) glEl.style.transform = '';
       } else {
-        // Size IS changing: lock GL canvas CSS to the OLD size (overriding
-        // the CSS `inset: 0` rule, which would otherwise auto-expand the GL
-        // canvas to fill the newly-resized wrapper). This prevents the browser
-        // from CSS-scaling the old drawing buffer to the new wrapper dimensions.
-        // A rAF deferred step after r.render() updates to the new size.
-        const lockW = oldCanvasW > 0 ? oldCanvasW : canvasW;
-        const lockH = oldCanvasH > 0 ? oldCanvasH : canvasH;
-        glEl.style.width = `${lockW}px`;
-        glEl.style.height = `${lockH}px`;
-        // The wrapper is resized immediately to the new dimensions. Because
-        // the GL canvas is position:absolute at (0,0) inside the wrapper, the
-        // wrapper growing/shrinking shifts the GL canvas in screen space by
-        // ±deltaW/2 (half the width change). Meanwhile Canvas2D re-renders
-        // with an updated panX (= old panX + deltaW/2), which shifts the
-        // rendered content by +deltaW/2 in the SAME direction. The combined
-        // effect means we need to shift the locked GL frame by a full deltaW
-        // (= canvasW - oldCanvasW) to make the old GL cells appear at the same
-        // screen positions as the new Canvas2D annotations.
-        //   GL visual left  = wrapperLeft + deltaW
-        //                   = (center − newW/2) + (newW − oldW)
-        //                   = center + newW/2 − oldW
-        //   C2D content at W = (center − newW/2) + (newW/2 + panX_new)
-        //                    = center + panX_new  (same world → same screen ✓)
-        const glDx = canvasW - lockW;
-        const glDy = canvasH - lockH;
-        if (glDx !== 0 || glDy !== 0) {
-          glEl.style.transform = `translate(${glDx}px, ${glDy}px)`;
+        const activeGlCssLock = glCssLockStateRef.current;
+        if (!glSizeChanging) {
+          if (activeGlCssLock
+            && activeGlCssLock.targetW === canvasW
+            && activeGlCssLock.targetH === canvasH) {
+            glEl.style.width = `${activeGlCssLock.lockW}px`;
+            glEl.style.height = `${activeGlCssLock.lockH}px`;
+            glEl.style.transform = activeGlCssLock.transform;
+          } else {
+            // Size unchanged: set immediately (no CSS-scale risk).
+            glEl.style.width = `${canvasW}px`;
+            glEl.style.height = `${canvasH}px`;
+            // Also clear any residual transform from a previous resize (defensive).
+            if (glEl.style.transform) glEl.style.transform = '';
+          }
+        } else {
+          // Size IS changing: lock GL canvas CSS to the OLD size (overriding
+          // the CSS `inset: 0` rule, which would otherwise auto-expand the GL
+          // canvas to fill the newly-resized wrapper). This prevents the browser
+          // from CSS-scaling the old drawing buffer to the new wrapper dimensions.
+          // A rAF deferred step after r.render() updates to the new size.
+          const lockW = oldCanvasW > 0 ? oldCanvasW : canvasW;
+          const lockH = oldCanvasH > 0 ? oldCanvasH : canvasH;
+          glEl.style.width = `${lockW}px`;
+          glEl.style.height = `${lockH}px`;
+          // The wrapper is resized immediately to the new dimensions. Because
+          // the GL canvas is position:absolute at (0,0) inside the wrapper, the
+          // wrapper growing/shrinking shifts the GL canvas in screen space by
+          // ±deltaW/2 (half the width change). Meanwhile Canvas2D re-renders
+          // with an updated panX (= old panX + deltaW/2), which shifts the
+          // rendered content by +deltaW/2 in the SAME direction. The combined
+          // effect means we need to shift the locked GL frame by a full deltaW
+          // (= canvasW - oldCanvasW) to make the old GL cells appear at the same
+          // screen positions as the new Canvas2D annotations.
+          //   GL visual left  = wrapperLeft + deltaW
+          //                   = (center − newW/2) + (newW − oldW)
+          //                   = center + newW/2 − oldW
+          //   C2D content at W = (center − newW/2) + (newW/2 + panX_new)
+          //                    = center + panX_new  (same world → same screen ✓)
+          const glDx = canvasW - lockW;
+          const glDy = canvasH - lockH;
+          if (glDx !== 0 || glDy !== 0) {
+            glEl.style.transform = `translate(${glDx}px, ${glDy}px)`;
+          }
+          glCssLockStateRef.current = {
+            targetW: canvasW,
+            targetH: canvasH,
+            lockW,
+            lockH,
+            transform: glEl.style.transform || '',
+          };
         }
       }
     }
@@ -780,10 +881,16 @@ export default function Visualizer({
     // explicit worker render-ack before unlocking GL canvas CSS to the new
     // dimensions so the browser never stretches an old drawing buffer.
     // Keep a short timeout fallback to avoid stalls if the worker is busy.
-    if (glSizeChanging) {
+    if (glSizeChanging && !glDirectMode) {
       const targetW = canvasW;
       const targetH = canvasH;
       const targetEl = glEl;
+      const g = glRendererRef.current;
+      const targetDpr = g && typeof g.getEffectiveDpr === 'function'
+        ? g.getEffectiveDpr()
+        : ((window.devicePixelRatio || 1));
+      const targetPxW = Math.max(1, Math.floor(targetW * targetDpr));
+      const targetPxH = Math.max(1, Math.floor(targetH * targetDpr));
       const token = ++glCssUnlockTokenRef.current;
       if (glCssUnlockRafRef.current != null) {
         cancelAnimationFrame(glCssUnlockRafRef.current);
@@ -799,38 +906,41 @@ export default function Visualizer({
           glCssUnlockRafRef.current = null;
           if (token !== glCssUnlockTokenRef.current) return;
           if (targetEl) {
+            glCssLockStateRef.current = null;
             targetEl.style.width = `${targetW}px`;
             targetEl.style.height = `${targetH}px`;
             targetEl.style.transform = '';
           }
         });
       };
-      const grewHorizontally = oldCanvasW > 0 && canvasW > oldCanvasW;
-      const g = glRendererRef.current;
-      const canWaitForAck = grewHorizontally
-        && g
-        && typeof g.waitForRender === 'function'
-        && glRenderSeq > 0;
-      if (canWaitForAck) {
-        let done = false;
-        const finish = () => {
-          if (done) return;
-          done = true;
-          if (glCssUnlockTimeoutRef.current != null) {
-            clearTimeout(glCssUnlockTimeoutRef.current);
-            glCssUnlockTimeoutRef.current = null;
-          }
+      const waitForGlBackingStore = () => {
+        if (token !== glCssUnlockTokenRef.current) return;
+        if (!targetEl) {
           applyUnlockedSize();
-        };
-        g.waitForRender(glRenderSeq, finish);
-        glCssUnlockTimeoutRef.current = setTimeout(finish, 80);
+          return;
+        }
+        if (targetEl.width === targetPxW && targetEl.height === targetPxH) {
+          applyUnlockedSize();
+          return;
+        }
+        glCssUnlockRafRef.current = requestAnimationFrame(() => {
+          waitForGlBackingStore();
+        });
+      };
+      const grewHorizontally = oldCanvasW > 0 && canvasW > oldCanvasW;
+      if (grewHorizontally) {
+        glCssUnlockTimeoutRef.current = setTimeout(() => {
+          glCssUnlockTimeoutRef.current = null;
+          applyUnlockedSize();
+        }, 80);
+        waitForGlBackingStore();
       } else {
         applyUnlockedSize();
       }
     }
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
-  }, [getCanvasTargetSize, showMinimap, getMinimapDetailH, updateMinimapAvailability]);
+  }, [getCanvasTargetSize, showMinimap, getMinimapDetailH, updateMinimapAvailability, setCamera3DTransform, setCamera3DContainerStyle]);
 
   // Keep the canvas pinned to the VIEWPORT center (not the container
   // center) so panel collapse/expand transitions don't slide the
@@ -1106,6 +1216,7 @@ export default function Visualizer({
           if (newGl.attach(glCanvasRef.current)) {
             gl = newGl;
             glRendererRef.current = gl;
+            updateGlDebugInfo(true);
           } else {
             // OffscreenCanvas not available — GL worker could not start.
             // The app remains usable (Canvas2D handles everything) but
@@ -1132,6 +1243,8 @@ export default function Visualizer({
               rr.zoom, rr.pixelSize,
               rr.bitLayout, rr.byteLayout, rr.vectorGroup,
               rr.cachelineSize, rr.customGroupingBits, rr.horizontalGroups,
+              rr._frozenClPerVRow,
+              rr.layoutAvailWidth, rr.layoutAvailHeight,
               rr.bitSpacingH, rr.bitSpacingV,
               rr.byteSpacingH, rr.byteSpacingV,
               rr.u64SpacingH, rr.u64SpacingV,
@@ -1147,7 +1260,7 @@ export default function Visualizer({
             const zoom = Math.max(0.01, rr.zoom || 1);
             const bitColors = rr._bitColors();
             const changed = rr._opColor();
-            return g.render({
+            const renderSeq = g.render({
               panX: rr.panX || 0,
               panY: rr.panY || 0,
               cellSize: px * zoom,
@@ -1159,6 +1272,8 @@ export default function Visualizer({
               baseAlpha: Math.max(0.12, Math.min(1, rr.gridOpacity ?? 1)),
               loweredActive: rr.loweredSetBits ? 1.0 : 0.0,
             });
+            updateGlDebugInfo(false);
+            return renderSeq;
           };
         }
       }
@@ -1227,6 +1342,14 @@ export default function Visualizer({
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas?.height / (window.devicePixelRatio || 1), getMinimapDetailH());
   }, [settingsCollapsed, isMacPlatform, showMinimap, getMinimapDetailH, updateMinimapAvailability]);
+
+  // Keep GL diagnostics live while resizing/moving the window.
+  useEffect(() => {
+    const onResize = () => updateGlDebugInfo(true);
+    window.addEventListener('resize', onResize);
+    updateGlDebugInfo(true);
+    return () => window.removeEventListener('resize', onResize);
+  }, [updateGlDebugInfo]);
 
   const spacingPanAnimRef = useRef(null);
 
@@ -2186,7 +2309,8 @@ export default function Visualizer({
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         refitViewportToContent({ instant: true });
-        cam.animateTo({ rotateX: 30, rotateY: 0, perspective: 1500 }, 520);
+        const targetTilt = Math.min(30, cam.maxTilt || 30);
+        cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 520);
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3398,7 +3522,8 @@ export default function Visualizer({
     if (!cam || !cam.enabled) return;
     const newTiltActive = !tiltActive;
     setTiltActive(newTiltActive);
-    cam.animateTo({ rotateX: newTiltActive ? 30 : 0, rotateY: 0, perspective: 1500 }, 400);
+    const targetTilt = newTiltActive ? Math.min(30, cam.maxTilt || 30) : 0;
+    cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 400);
   }, [tiltActive]);
 
   // 3D mode toggle is removed — the app is always in 3D mode.
@@ -3416,7 +3541,7 @@ export default function Visualizer({
       // by the startup animation). If rotateX is still 0, snap to the default
       // tilt so the first drag starts there.
       cam.cancelAllAnimations();
-      if (Math.abs(cam.rotateX) < 0.5) cam.rotateX = 16;
+      if (Math.abs(cam.rotateX) < 0.5) cam.rotateX = Math.min(16, cam.maxTilt || 16);
       cam.perspective = 1500;
       cam.enable();
       setCamera3DContainerStyle(cam.getContainerStyle());
@@ -3702,7 +3827,7 @@ export default function Visualizer({
         return !!hit.closest(
           '.toolbar, .events-panel, .settings-sidebar, .detail-panel, .timing-panel, ' +
           '.step-focus-banner, .events-panel-floating-title, .joined-events-widget, ' +
-          '.minimap-overlay-canvas, .trace-info-popover, ' +
+          '.minimap-overlay-canvas, .trace-info-popover, .debug-tools-panel, ' +
           '.bit-history-panel'
         );
       })();
@@ -3753,7 +3878,7 @@ export default function Visualizer({
         // popups when the user is interacting with the widget itself.
         const t = e.target;
         if (t && typeof t.closest === 'function' && t.closest(
-          '.step-focus-banner, .bit-history-panel, .detail-inspector-overlay, .toolbar, .events-panel, .settings-sidebar, .detail-panel, .timing-panel, .trace-info-popover'
+          '.step-focus-banner, .bit-history-panel, .detail-inspector-overlay, .toolbar, .events-panel, .settings-sidebar, .detail-panel, .timing-panel, .trace-info-popover, .debug-tools-panel'
         )) {
           clearInteraction();
           return;
@@ -3904,6 +4029,7 @@ export default function Visualizer({
     resetZoom,
     setTheme,
     toggleDetailPanel,
+    toggleDebugToolsPanel: useCallback(() => setDebugToolsOpen((v) => !v), []),
     camera3DRef,
     toggleShortcutsOverlay: useCallback(() => setShowShortcutsHelp((v) => !v), []),
   });
@@ -4756,6 +4882,13 @@ export default function Visualizer({
         {debugToolsOpen && (
           <DebugToolsPanel
             rendererRef={rendererRef}
+            glCanvasRef={glCanvasRef}
+            glRendererRef={glRendererRef}
+            camera3DRef={camera3DRef}
+            camera3DTransform={camera3DTransform}
+            zoomLevel={zoom}
+            glDebugInfo={glDebugInfo}
+            theme={theme}
             rightOffset={settingsCollapsed ? 8 : (isMacPlatform ? 388 : 328)}
           />
         )}

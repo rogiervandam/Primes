@@ -253,6 +253,180 @@ Left to do:
   transforms. Note: using `deltaW/2` (half the delta) only partially
   compensates and still produces visible drift — the full `deltaW` is needed.
 
+  GL/Canvas2D resize alignment fixed (round 6, backing-store catch-up gate):
+  The most reliable main-thread signal turned out not to be the worker ack but
+  the transferred GL canvas backing-store size itself. During large horizontal
+  growth, `Visualizer.refreshCanvasLayout` now keeps the GL canvas CSS locked
+  until the transferred canvas `width/height` catch up to the main Canvas2D
+  canvas backing-store size, then unlocks CSS width/height and clears the
+  temporary `translate(...)` compensation on the next rAF. Repeated
+  `refreshCanvasLayout` passes during the same resize now preserve that active
+  lock instead of treating the repeated target size as a normal no-op layout
+  pass and clearing the transform early. The 80ms timeout fallback remains so
+  the UI cannot stall indefinitely if the GL layer stops reporting the new
+  size.
+
+  GL/Canvas2D resize alignment fixed (round 7, GPU backing-size cap):
+  On high-DPI wide displays, the oversized GL plane can hit the GPU canvas
+  dimension limit before the user reaches full-screen width. Example: on a 5K
+  display at `devicePixelRatio=2`, the current `canvasW ~= viewportW * 3.2`
+  policy crosses `16384` backing pixels at just over `2560` CSS px width. That
+  causes the GL canvas to fall behind while Canvas2D overlays still render at
+  the requested size, presenting as horizontal drift. `BitGridGLWorker` now
+  queries the WebGL limits (`MAX_VIEWPORT_DIMS`, `MAX_RENDERBUFFER_SIZE`,
+  `MAX_TEXTURE_SIZE`) and clamps the GL effective DPR during resize so the GL
+  backing store never exceeds the hardware limit. Visual alignment is preserved;
+  the only tradeoff is that GL bit fills become slightly lower resolution at
+  extremely large window sizes instead of desynchronizing from the overlays.
+
+  GL/Canvas2D resize alignment fixed (round 8, start in direct mode near the
+  limit): some displays are risky before the window is even resized because the
+  available screen width plus the 3.2x oversized-plane policy already places the
+  worker GL path at or near the GPU backing-size ceiling. `BitGridGLWorker`
+  now checks the current display geometry at `attach()` time and skips the
+  OffscreenCanvas worker path entirely when the estimated full-screen oversized
+  plane would land within ~2% of the hardware limit. In that case it starts in
+  synchronous main-thread `BitGridGLCore` mode from the outset, avoiding the
+  worker/compositor path on exactly the class of 5K/high-DPI setups where the
+  resize drift was still reproducible.
+
+  GL diagnostic overlay (round 9): when direct-mode fallback is not working,
+  the root cause is not obvious. Added `getDebugInfo()` method to
+  `BitGridGLWorker` that exposes GL mode, max canvas dimension, device pixel
+  ratio, viewport + screen dimensions, estimated canvas width, estimated
+  backing size, risk threshold, and explicit mode reason
+  (`safari`/`worker-unsupported`/`near-gpu-limit`/`worker-path`). A fixed
+  debug overlay in the top-right corner (green text on black, monospace font)
+  displays this information in real-time so maintenance can see exactly what
+  decision the risk check made on the user's actual hardware. The overlay now
+  updates continuously during render and also on `window.resize`, so dragging
+  or resizing the browser updates values live instead of showing stale startup
+  snapshots. This diagnostic layer helps answer: "Why is direct mode engaged?"
+  and "Is the near-limit check changing with viewport size as expected?"
+
+  GL/Canvas2D resize alignment fixed (round 10, direct-mode lock bypass):
+  the worker resize synchronization lock (old-size CSS lock + temporary
+  translate + backing-store catch-up wait) is only needed when rendering is
+  asynchronous via OffscreenCanvas worker. After near-limit fallback started
+  forcing Chromium into direct mode, this worker-only lock could still run
+  during direct resizes and introduce drift. `BitGridGLWorker` now exposes
+  `isDirectMode()`, and `Visualizer.refreshCanvasLayout` bypasses the lock/wait
+  path entirely when direct mode is active, applying GL canvas CSS size
+  updates immediately and clearing any residual transform. Worker mode retains
+  the full lock/catch-up path.
+
+  GL/Canvas2D resize alignment fixed (round 11, deterministic GL anchoring):
+  Chromium could still show overlay drift in direct mode at very large canvas
+  sizes because the GL canvas had `position:absolute; inset:0` while
+  `refreshCanvasLayout()` also set explicit `style.width/height`. During rapid
+  horizontal resize this mixed constraint model could produce inconsistent
+  anchoring behavior versus the Canvas2D layers. Fix: GL canvas now uses a
+  deterministic top-left anchor (`top:0; left:0`) in CSS, and layout refresh
+  explicitly sets `left/top` plus `right/bottom:auto` before applying dynamic
+  sizes/transforms. This removes right/bottom constraint interference and keeps
+  GL and Canvas2D overlays pinned to the same origin during large resizes.
+
+  GL/Canvas2D resize alignment fixed (round 12, integer canvas geometry):
+  target canvas dimensions were previously allowed to stay fractional CSS
+  values (from overscan multipliers like 3.2 and diagonal factors), which can
+  force subpixel raster scaling at very large dimensions and high zoom. In
+  direct mode this can surface as overlay drift after crossing certain window
+  widths even when mode selection and anchoring are correct. `getCanvasTargetSize`
+  now rounds target width/height to integer CSS pixels before resize/layout
+  updates so GL and Canvas2D share the same integer geometry end-to-end.
+
+  GL/Canvas2D alignment debugging (round 13, permanent debug widget):
+  Misalignment persists at specific viewport/zoom combinations despite rounds 1–12
+  fixes. To isolate the coordinate divergence, moved temporary GL mode overlay into
+  a permanent DebugToolsPanel widget alongside FPS metrics. `DebugToolsPanel.jsx`
+  now accepts `glDebugInfo`, `glCanvasRef`, and `glRendererRef` props and displays:
+  (1) GL mode/reason/risk status; (2) viewport/canvas/backing geometry; (3) GL
+  canvas bounding rect via ResizeObserver. This allows per-frame capture of exact
+  canvas origins and sizes to identify where GL and Canvas2D diverge. Widget is
+  toggled with the debug tools button in the toolbar, appears as a secondary panel
+  next to the FPS widget, and updates on canvas resize/layout changes. Removed the
+  temporary fixed-position overlay from `Visualizer.jsx` render tree.
+
+  GL/Canvas2D alignment debugging (round 14, export-ready diagnostics):
+  Added camera state diagnostics and a direct clipboard export path so resize bugs
+  can be pasted into issues/chats without manual transcription errors.
+  `DebugToolsPanel.jsx` now also reads `zoomLevel` plus 3D camera `rotateX/rotateY`
+  values (via `camera3DRef`) and renders them in the GL section. A `Copy Debug To
+  Clipboard` button now exports a structured report including mode/risk/canvas
+  geometry, zoom, rotation, and GL rect coordinates. This makes breakpoint-specific
+  failures (like large negative GL rect offsets during direct mode near GPU limits)
+  reproducible and easier to compare across browsers.
+
+  GL/Canvas2D alignment debugging (round 15, rect delta + transform introspection):
+  Added explicit GL-versus-main-canvas diagnostics to distinguish real layer drift
+  from transform-inflated bounding boxes. Debug panel now captures both `glCanvas`
+  and `mainCanvas` `getBoundingClientRect()` values, reports deltas
+  (`dx/dy/dw/dh`), and includes transform metadata (`glCanvas.style.transform`,
+  computed GL transform, and wrapper computed transform). These values are included
+  in the clipboard report so breakpoint failures can be triaged as either
+  coordinate divergence (non-zero deltas) or shared-transform distortion
+  (large but matching rects).
+
+  GL/Canvas2D alignment hardening (round 16, applied-transform sizing source):
+  Some high-zoom/high-resize breakpoints showed matching GL/Main rects (delta=0)
+  while camera diagnostics disagreed with wrapper transform, indicating geometry
+  sizing could be driven by a different angle source than the rendered transform.
+  `getCanvasTargetSize` now derives overscan scaling from the applied wrapper
+  transform string (`camera3DTransform`) instead of relying only on mutable
+  camera ref fields. This keeps resize geometry calculations aligned with what is
+  actually rendered. Debug panel now reports both camera angles and applied angles
+  so desync can be detected immediately in clipboard exports.
+
+  GL/Canvas2D alignment hardening (round 17, camera/apply lockstep + light-mode debug UX):
+  Additional reports still showed camera angles diverging from applied wrapper tilt
+  (`camera.rotateX` not matching rendered transform), while GL/Main rects remained
+  aligned. Added a defensive reconciliation loop in `use3DCamera` that samples the
+  live `Camera3D` instance each animation frame and updates React transform/style
+  state only when values actually differ. This guarantees wrapper transform state
+  cannot remain stale if an update callback is missed during heavy interaction.
+  Also made `DebugToolsPanel` theme-aware: light mode now uses high-contrast text,
+  borders, and section colors so diagnostics stay readable across themes.
+
+  GL/Canvas2D stability + debug UX (round 18, perspective-safe tilt and no click-through):
+  With camera/applied transforms in sync, remaining failures correlated with very
+  large projected wrapper bounds at high zoom+tilt. Added a dynamic tilt safety cap
+  tied to canvas height and camera perspective (`computeSafeTiltDegrees` in
+  `Visualizer.jsx`), applied during layout refresh. This bounds perspective
+  amplification so top-edge projection cannot explode as viewport/overscan changes.
+  Startup tilt and tilt-toggle now target `min(30°, cam.maxTilt)`, and StrictMode
+  re-enable paths respect the same cap. Also fixed debug panel interaction capture:
+  `.debug-tools-panel` clicks are now excluded from canvas pointer-up bit toggles
+  and the panel stops pointer/click propagation so `Copy Debug To Clipboard` no
+  longer toggles bits behind the panel.
+
+  Debug tools stability fix (round 19, TDZ crash on panel open/click):
+  adding the new keyboard-copy hook introduced a temporal-dead-zone bug in
+  `DebugToolsPanel.jsx`: a `useEffect` dependency referenced `handleCopyDebug`
+  before that callback was initialized, throwing `ReferenceError: Cannot access
+  'handleCopyDebug' before initialization` and blanking the full React tree when
+  the panel mounted/interacted. Fix: define `handleCopyDebug` before any effects
+  that reference it (directly or via dependency arrays), then bind the key handler
+  ref from a later effect. Result: opening/clicking debug panel no longer crashes.
+
+  GL/Canvas2D wide-viewport alignment fix (round 20, DPR=1 snap quantization):
+  a remaining "looks fine at ~2.3k wide, off at ~3.2k wide" case in direct GL
+  mode was traced to vertex shader corner snapping at `u_dpr=1`. The previous
+  `corner = floor(corner * u_dpr + 0.5) / u_dpr` path quantized every cell corner
+  to integer CSS pixels, while Canvas2D overlays use subpixel coordinates; across
+  long rows this created cumulative visual drift. Fix in `bitGridGLCore.js`:
+  apply DPR snapping only when `u_dpr > 1.01`. At DPR=1 we now preserve subpixel
+  geometry to match Canvas2D positioning.
+
+  GL/Canvas2D breakpoint hardening (round 21, layout-fingerprint completeness):
+  remaining reports showed exact origin math and equal GL/main rects, yet visible
+  mismatch could still appear at wider viewports. To eliminate stale position-texture
+  reuse when wrap/layout state changes, the GL position fingerprint in
+  `Visualizer.jsx` now also includes renderer layout-freeze inputs:
+  `_frozenClPerVRow`, `layoutAvailWidth`, and `layoutAvailHeight`. This forces
+  `uploadPositions()` whenever the frozen cacheline-per-row decision or visible
+  layout availability changes. Debug export now also reports these fields for
+  breakpoint capture verification.
+
 ### 5. Improve Widget And Panel Workflows
 
 Done: all-events and single-event widgets can be joined/split; widget drag

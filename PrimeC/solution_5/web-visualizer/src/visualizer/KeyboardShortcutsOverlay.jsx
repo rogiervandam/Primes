@@ -31,6 +31,7 @@ const SHORTCUTS = [
       { keys: ['0'], description: 'Reset zoom' },
       { keys: ['T'], description: 'Toggle light / dark theme' },
       { keys: ['D'], description: 'Toggle Detail panel' },
+      { keys: ['`'], description: 'Toggle Debug Tools panel' },
       { keys: ['R'], description: '(3D) Reset camera to flat' },
     ],
   },

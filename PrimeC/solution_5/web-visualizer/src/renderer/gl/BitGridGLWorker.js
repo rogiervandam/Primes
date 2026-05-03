@@ -19,6 +19,8 @@
 import { BitGridGLCore } from './bitGridGLCore.js';
 import { packPositions, packState, packAnim } from './hostStatePacker.js';
 
+let cachedMaxCanvasDimension = null;
+
 export function isWorkerGLSupported() {
   if (typeof window === 'undefined' || typeof Worker === 'undefined') return false;
   if (typeof OffscreenCanvas === 'undefined') return false;
@@ -51,6 +53,63 @@ function isSafari() {
   return /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
 }
 
+function getMaxGLCanvasDimension() {
+  if (cachedMaxCanvasDimension != null) return cachedMaxCanvasDimension;
+  if (typeof document === 'undefined') {
+    cachedMaxCanvasDimension = Number.POSITIVE_INFINITY;
+    return cachedMaxCanvasDimension;
+  }
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl2');
+    if (!gl) {
+      cachedMaxCanvasDimension = Number.POSITIVE_INFINITY;
+      return cachedMaxCanvasDimension;
+    }
+    const viewportDims = gl.getParameter(gl.MAX_VIEWPORT_DIMS) || [Infinity, Infinity];
+    const maxViewportDim = Math.min(viewportDims[0] || Infinity, viewportDims[1] || Infinity);
+    const maxRenderbufferSize = gl.getParameter(gl.MAX_RENDERBUFFER_SIZE) || Infinity;
+    const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) || Infinity;
+    cachedMaxCanvasDimension = Math.min(maxViewportDim, maxRenderbufferSize, maxTextureSize);
+  } catch {
+    cachedMaxCanvasDimension = Number.POSITIVE_INFINITY;
+  }
+  return cachedMaxCanvasDimension;
+}
+
+function getDisplayRiskMetrics(maxCanvasDimension) {
+  const dpr = Math.max(1, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+  const viewportW = (typeof window !== 'undefined' && window.innerWidth) || 0;
+  const viewportH = (typeof window !== 'undefined' && window.innerHeight) || 0;
+  const screenW = (typeof window !== 'undefined' && window.screen?.width) || 0;
+  const screenH = (typeof window !== 'undefined' && window.screen?.height) || 0;
+  const baseW = Math.max(viewportW, screenW);
+  const baseH = Math.max(viewportH, screenH);
+  const estimatedCanvasW = baseW * 3.2;
+  const estimatedCanvasH = baseH * 3.2;
+  const estimatedBackingMax = Math.max(estimatedCanvasW * dpr, estimatedCanvasH * dpr);
+  const riskThreshold = Number.isFinite(maxCanvasDimension) ? maxCanvasDimension * 0.98 : Infinity;
+  const isRisky = Number.isFinite(maxCanvasDimension)
+    ? estimatedBackingMax >= riskThreshold
+    : false;
+  return {
+    dpr,
+    viewportW,
+    viewportH,
+    screenW,
+    screenH,
+    estimatedCanvasW,
+    estimatedCanvasH,
+    estimatedBackingMax,
+    riskThreshold,
+    isRisky,
+  };
+}
+
+function shouldPreferDirectMode(maxCanvasDimension) {
+  return getDisplayRiskMetrics(maxCanvasDimension).isRisky;
+}
+
 export class BitGridGLWorker {
   constructor() {
     this.canvas = null;
@@ -72,18 +131,29 @@ export class BitGridGLWorker {
     this._renderSeq = 0;
     this._renderedSeq = 0;
     this._renderWaiters = new Map();
+    this._maxCanvasDimension = getMaxGLCanvasDimension();
     // Direct (main-thread) mode — used on Safari to avoid OffscreenCanvas
     // compositing flicker. When true, _core is a BitGridGLCore instance
     // running synchronously; _worker is null.
     this._direct = false;
+    this._directReason = 'unknown';
     this._core = null;
   }
 
   attach(canvas) {
     if (!canvas) return false;
-    // On Safari, fall back to main-thread WebGL to avoid the OffscreenCanvas
-    // GPU compositing black-flicker bug (see isSafari() comment above).
-    if (isSafari() || !isWorkerGLSupported()) {
+    const safari = isSafari();
+    const workerSupported = isWorkerGLSupported();
+    const nearGLLimit = shouldPreferDirectMode(this._maxCanvasDimension);
+    const preferDirectMode = safari || !workerSupported || nearGLLimit;
+    if (safari) this._directReason = 'safari';
+    else if (!workerSupported) this._directReason = 'worker-unsupported';
+    else if (nearGLLimit) this._directReason = 'near-gpu-limit';
+    else this._directReason = 'worker-path';
+    // On Safari, or on displays where the oversized GL plane would sit at the
+    // GPU backing-size limit, fall back to main-thread WebGL so we avoid both
+    // OffscreenCanvas compositor lag and near-limit worker backing-store races.
+    if (preferDirectMode) {
       this.canvas = canvas;
       canvas.style.pointerEvents = 'none';
       const core = new BitGridGLCore();
@@ -282,9 +352,15 @@ export class BitGridGLWorker {
    */
   resize(cssWidth, cssHeight, dprOverride) {
     if (this._lost) return;
-    const dpr = dprOverride != null
+    const requestedDpr = dprOverride != null
       ? dprOverride
       : ((typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+    let dpr = Math.max(0.1, requestedDpr || 1);
+    const maxDim = this._maxCanvasDimension;
+    if (Number.isFinite(maxDim) && cssWidth > 0 && cssHeight > 0) {
+      const maxDpr = Math.min(maxDim / cssWidth, maxDim / cssHeight);
+      dpr = Math.max(0.1, Math.min(dpr, maxDpr));
+    }
     this._cssW = cssWidth;
     this._cssH = cssHeight;
     this._dpr = dpr;
@@ -293,6 +369,14 @@ export class BitGridGLWorker {
       return;
     }
     this._post({ type: 'resize', cssW: cssWidth, cssH: cssHeight, dpr });
+  }
+
+  getEffectiveDpr() {
+    return this._dpr || 1;
+  }
+
+  isDirectMode() {
+    return this._direct === true;
   }
 
   render(params) {
@@ -363,6 +447,40 @@ export class BitGridGLWorker {
     const id = ++this._captureSeq;
     this._captureCallbacks.set(id, callback);
     this._post({ type: 'capture', id });
+  }
+
+  /**
+   * Returns diagnostic information for debugging GL mode and capacity issues.
+   * Used by the debug overlay to understand why direct mode is/isn't engaged.
+   */
+  getDebugInfo() {
+    const maxDim = this._maxCanvasDimension;
+    const metrics = getDisplayRiskMetrics(maxDim);
+    
+    return {
+      mode: this._direct ? 'direct' : 'worker',
+      modeReason: this._directReason,
+      ready: this._ready,
+      lost: this._lost,
+      isSafari: isSafari(),
+      isWorkerSupported: isWorkerGLSupported(),
+      maxGLDimension: Number.isFinite(maxDim) ? maxDim : 'Infinity',
+      devicePixelRatio: metrics.dpr,
+      viewportWidth: metrics.viewportW,
+      viewportHeight: metrics.viewportH,
+      screenWidth: metrics.screenW,
+      screenHeight: metrics.screenH,
+      estimatedCanvasW: Math.round(metrics.estimatedCanvasW),
+      estimatedCanvasH: Math.round(metrics.estimatedCanvasH),
+      estimatedBackingMax: Math.round(metrics.estimatedBackingMax),
+      riskThreshold: Number.isFinite(metrics.riskThreshold) ? Math.round(metrics.riskThreshold) : 'Infinity',
+      isAtRisk: metrics.isRisky,
+      effectiveDpr: this._dpr || 1,
+      currentCssW: this._cssW || 0,
+      currentCssH: this._cssH || 0,
+      currentBackingW: Math.round((this._cssW || 0) * (this._dpr || 1)),
+      currentBackingH: Math.round((this._cssH || 0) * (this._dpr || 1)),
+    };
   }
 
   dispose() {
