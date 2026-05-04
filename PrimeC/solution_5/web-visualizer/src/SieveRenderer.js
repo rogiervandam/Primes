@@ -1510,6 +1510,44 @@ export class SieveRenderer {
     const bitStepY = this._bitStepY();
     const baseAlpha = Math.max(0.12, Math.min(1, this.gridOpacity ?? 1));
 
+    // Pre-compute the small set of fill-style strings used for bit bodies so
+    // _drawBitBodyNormal never allocates a string per cell.
+    const cc = bitColors.cleared;
+    const sc = bitColors.set;
+    const ch2 = changedColor;
+    const repeatedColor = [245, 158, 11];
+    const colorStyles = {
+      clearedDim:  `rgba(${cc[0]},${cc[1]},${cc[2]},${baseAlpha})`,
+      clearedFull: `rgba(${cc[0]},${cc[1]},${cc[2]},1)`,
+      setDim:      `rgba(${sc[0]},${sc[1]},${sc[2]},${baseAlpha})`,
+      setFull:     `rgba(${sc[0]},${sc[1]},${sc[2]},1)`,
+      changedFull: `rgba(${ch2[0]},${ch2[1]},${ch2[2]},1)`,
+      repeatedFull: 'rgba(245,158,11,1)',
+    };
+    // For the two most common cases (normal cleared / set bit), pre-resolve
+    // the correct style string so the hot path does zero branching on alpha.
+    const alphaIsFull = baseAlpha >= 1;
+    const fastClearedStyle = alphaIsFull ? colorStyles.clearedFull : colorStyles.clearedDim;
+    const fastSetStyle     = alphaIsFull ? colorStyles.setFull     : colorStyles.setDim;
+
+    // Feature flags checked once per frame to avoid per-cell existence tests.
+    const hasMaskGhostBits = !!this.maskGhostBits?.size;
+    const hasRepeatedBits  = !!(this.targetHitCounts?.size || this.repeatedChangedBits?.size);
+
+    // True when any per-cell overlay might actually draw something.
+    // When false, _renderBitCell can skip all overlay method calls.
+    const needsOverlays = !!(
+      this.debugAllCellOutlines
+      || hasMaskGhostBits
+      || this.focusRangeStart != null
+      || this.targetBits?.size
+      || this.primeOverlay
+      || this.rangeOverlay
+      || this.multiplesOverlay
+      || showBitLabels
+      || showNumberLabels
+    );
+
     return {
       C, ctx, cw, ch, px,
       bitsPerCacheLine, totalCacheLines, rowD, labelBands, labelH,
@@ -1518,6 +1556,9 @@ export class SieveRenderer {
       u64D, vecD, byteD, bitBl, changedColor, bitColors,
       showBitLabels, showNumberLabels, showByteLabels, showVectorLabels,
       u64sPerCL, u64GapX, byteGapX, byteGapY, bitStepX, bitStepY, baseAlpha,
+      repeatedColor, colorStyles, needsOverlays,
+      fastClearedStyle, fastSetStyle, hasMaskGhostBits, hasRepeatedBits,
+      _lastFillStyle: null,
       vectorLabelY: vRow => this.panY + vRow * vRowHeight + 1,
       byteLabelY: (vRowBaseY, byteTopY) => Math.max(vRowBaseY + labelBands.vector + 1, byteTopY - labelBands.byteFont - 1),
     };
@@ -1644,10 +1685,47 @@ export class SieveRenderer {
    * → draw all per-bit decorations (ghost mask, focus, target, prime,
    * range, multiples) → draw labels.
    */
+  /**
+   * Render one bit cell.
+   *
+   * Hot path is fully inlined: no method calls, no object allocations for the
+   * common case (plain cleared / set bit, no overlays).  Overlay drawing
+   * falls back to the regular _classifyBit / method-call path only when
+   * f.needsOverlays is true (primeOverlay, rangeOverlay, labels, etc.).
+   */
   _renderBitCell(f, globalBit, bitIdx, bitX, bitY) {
+    const isSetBit = !!this.bitState[globalBit];
+    const isChangedBit = this.changedBits.has(globalBit);
+    let style;
+    if (isChangedBit) {
+      if (f.hasMaskGhostBits && this.maskGhostBits.has(globalBit) && isSetBit) {
+        // Ghost-masked: always drawn at full alpha as a cleared cell.
+        style = f.colorStyles.clearedFull;
+      } else if (f.hasRepeatedBits && ((this.targetHitCounts?.get(globalBit) > 1) || this.repeatedChangedBits?.has(globalBit))) {
+        style = f.colorStyles.repeatedFull;
+      } else {
+        style = f.colorStyles.changedFull;
+      }
+    } else if (isSetBit) {
+      style = f.fastSetStyle;
+    } else {
+      style = f.fastClearedStyle;
+    }
+
+    const drawX = Math.round(bitX);
+    const drawY = Math.round(bitY);
+    const drawSize = Math.max(1, Math.round(f.px));
+    const ctx = f.ctx;
+    if (style !== f._lastFillStyle) {
+      ctx.fillStyle = style;
+      f._lastFillStyle = style;
+    }
+    ctx.fillRect(drawX, drawY, drawSize, drawSize);
+
+    // Overlay path — only entered when at least one overlay feature is active.
+    if (!f.needsOverlays) return;
     const cls = this._classifyBit(f, globalBit);
-    const draw = this._computeBitDrawState(f, globalBit, cls.isSetBit, cls.isChangedBit, bitX, bitY);
-    this._drawBitBody(f, cls, draw, bitX, bitY);
+    const draw = { drawX, drawY, drawSize, drawCtx: ctx };
     this._drawDebugCellOutline(f, draw, bitX, bitY);
     if (cls.isGhostMaskedBit) this._drawGhostMaskHighlight(f, draw);
     if (cls.inFocusRange) this._drawBitFocusRange(f, bitX, bitY);
@@ -1684,7 +1762,7 @@ export class SieveRenderer {
     if (isGhostMaskedBit) {
       color = f.bitColors.cleared;
     } else if (isChangedBit) {
-      color = isRepeatedWrite ? [245, 158, 11] : f.changedColor;
+      color = isRepeatedWrite ? f.repeatedColor : f.changedColor;
     } else if (isSetBit) {
       color = f.bitColors.set;
     } else {
@@ -1711,11 +1789,28 @@ export class SieveRenderer {
     this._drawBitBodyNormal(f, cls, draw);
   }
 
-  /** Normal flat bit fill via Canvas2D fillRect. */
+  /** Normal flat bit fill via Canvas2D fillRect. Uses pre-computed style strings
+   * and guards the fillStyle assignment so the browser doesn't reparse on every cell. */
   _drawBitBodyNormal(f, cls, draw) {
     const { color, bitAlpha } = cls;
     const { drawX, drawY, drawSize, drawCtx } = draw;
-    drawCtx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${bitAlpha})`;
+    const cs = f.colorStyles;
+    const bc = f.bitColors;
+    const isDim = bitAlpha < 1;
+    let style;
+    if (color === bc.cleared) {
+      style = isDim ? cs.clearedDim : cs.clearedFull;
+    } else if (color === bc.set) {
+      style = isDim ? cs.setDim : cs.setFull;
+    } else if (color === f.changedColor) {
+      style = cs.changedFull;
+    } else {
+      style = cs.repeatedFull;
+    }
+    if (style !== f._lastFillStyle) {
+      drawCtx.fillStyle = style;
+      f._lastFillStyle = style;
+    }
     drawCtx.fillRect(drawX, drawY, drawSize, drawSize);
   }
 
