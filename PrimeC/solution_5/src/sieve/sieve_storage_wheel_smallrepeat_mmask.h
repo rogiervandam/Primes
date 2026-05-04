@@ -42,16 +42,17 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
 
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
 
-    const counter_t stop_bucket = function(wheel_bucket_estimate,variant_suffix)(range_stop);
+    // const counter_t stop_bucket = function(wheel_bucket_estimate,variant_suffix)(range_stop);
+    const counter_t stop_bucket = function(wheel_bucket_calc,variant_suffix)(range_stop);
     const counter_t wheel_step = reduce2power(step) * reduce2power(wheelmask_stripe_bits); // step in words, accounting for stripe alignment
     // +max_masks ensures all unique masks are flushed by bucket transitions
     const counter_t range_last_unique = min(range_start + ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits) * WHEEL_SIZE * (wheel_step + 1), range_stop);
 
     // go to first aligned block 
-    // counter_t current_bucket = function(wheel_block_calc,variant_suffix)(range_start);
+    // counter_t current_bucket = function(wheel_bucket_calc,variant_suffix)(range_start);
 
     // // align to first full bucket
-    // for (; ((function(wheel_block_calc,variant_suffix)(range_start)) < current_bucket + 1) && range_start <= range_last_unique; range_start += step) {
+    // for (; ((function(wheel_bucket_calc,variant_suffix)(range_start)) < current_bucket + 1) && range_start <= range_last_unique; range_start += step) {
     //     function(markFactor_wheelstorage,variant_base_suffix)(sieve, range_start);
     // }
 
@@ -61,7 +62,8 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
     counter_t current_bucket = index_type(wheel_base_bitindex, bitbucket_t);
     counter_t start_bucket = current_bucket;
     counter_t target_bucket = start_bucket + max_masks;
-    const counter_t last_unique_bucket = function(wheel_bucket_estimate,variant_suffix)(range_last_unique);
+    // const counter_t last_unique_bucket = function(wheel_bucket_estimate,variant_suffix)(range_last_unique);
+    const counter_t last_unique_bucket = function(wheel_bucket_calc,variant_suffix)(range_last_unique);
 
     for (; current_bucket <= last_unique_bucket;) {
 
