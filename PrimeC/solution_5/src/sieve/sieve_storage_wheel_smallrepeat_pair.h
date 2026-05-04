@@ -135,7 +135,7 @@ function(markFactors_wheelstorage_small_repeat_pair_v2,suffix)(sieve_t* sieve, c
                 }
             }
 
-            const counter_t wheel_bit = wheel_base + wheelmask_bitpoint[wheel_index] -1 ;
+            const counter_t wheel_bit = wheel_base + wheelmask_bitpoint[wheel_index];
             current_mask |= markmask_type(wheel_bit, bitbucket_t);
         }
 

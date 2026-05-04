@@ -26,25 +26,13 @@
 
     #include "../sieve/sieve_calc.h"
 
-    // #ifdef WHEEL_CACHE_FILE
-    // Use the pre-generated const arrays directly — no runtime allocation or copy needed.
-    // #define wheelprimes          _wc_wheelprimes
-    // #define wheelmask            _wc_wheelmask
-    // #define wheelmask_compressed _wc_wheelmask_compressed
-    // #define wheelmask_index      _wc_wheelmask_index
-    // #define wheelmask_bitpoint   _wc_wheelmask_bitpoint
-    // static counter_t wheelmask_mask[8] = { 1, 2, 4, 8, 16, 32, 64, 128};
-    // static inline void build_wheel() {
-    //     verbose2 (printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju Wheel stripe bits: %ju (cached)\n", WHEEL_SIZE, (uintmax_t)wheelmask_stripes, (uintmax_t)wheelmask_stripe_bytes, (uintmax_t)wheelmask_stripe_bits) );
-    // }
-    // #else
-    static uint8_t wheelprimes[WHEEL_MAX+1]; // which primes are in the wheel
-    // static uint8_t wheelmask[WHEEL_SIZE];    
+    static uint8_t     wheelprimes[WHEEL_MAX+1]; // which primes are in the wheel
     static wheelmask_t wheelmask_compressed[WHEEL_SIZE]; // the mask to apply to the bitbucket for this index
-    static uint8_t   wheelmask_index[WHEEL_SIZE]; // the number of wheelmask_t to forward to apply the mask, e.g. 
-    static counter_t wheelmask_bitpoint[WHEEL_SIZE]; // the number of shifts needed to get the bitmask for this index to the right position in the bitbucket. Might be greater than the number of bits in wheelmask_t, in which case we need to forward to the next bitbucket(s) as well
-    static counter_t wheelstripe[WHEEL_STRIPES]; // contains the mapping from bit to number: the nth bit corresponds to the wheelstripe[n] number in the wheel
-    static counter_t wheelmask_mask[8] = { 1, 2, 4, 8, 16, 32, 64, 128};
+    static uint8_t     wheelmask_index[WHEEL_SIZE]; // the number of wheelmask_t to forward to apply the mask, e.g. 
+    static counter_t   wheelmask_bitpoint[WHEEL_SIZE]; // the number of shifts needed to get the bitmask for this index to the right position in the bitbucket. Might be greater than the number of bits in wheelmask_t, in which case we need to forward to the next bitbucket(s) as well
+    static counter_t   wheelstripe       [WHEEL_STRIPES]; // contains the mapping from bit to number: the nth bit corresponds to the wheelstripe[n] number in the wheel
+    static counter_t   wheelmask_mask    [8] = { 1, 2, 4, 8, 16, 32, 64, 128};
+
     // Runtime path: compute wheel data from scratch.
     void build_wheel() {
         // find all the primes in the wheel up to WHEEL_MAX and store them
@@ -59,17 +47,15 @@
         // this is used in checkBitTrue_wheel to quickly check if a number is divisible by any of the wheel primes
         counter_t stripe_count = 0;
         for (counter_t i = 0; i < WHEEL_SIZE; i++) {
-            // wheelmask_compressed[i] = 0;
-            wheelmask_index[i]      = index_type(stripe_count, uint8_t); // this is always set, for easier estimation of the bucket index 
+            wheelmask_index[i] = index_type(stripe_count, uint8_t); // this is always set, for easier estimation of the bucket index 
             for (counter_t f = 2; f <= WHEEL_MAX; f++) { // for each factor, try if it divides the number corresponding to this index in the wheel
                 if (((i + WHEEL_SIZE) % f) == 0) {
-                    wheelmask_bitpoint[i]   = -1;
+                    wheelmask_bitpoint[i] = -1;
                 }
             }
-            // if (!(wheelmask[index_type(i, uint8_t)] & markmask_type(i, uint8_t))) { // when no factors found
             if (wheelmask_bitpoint[i] != -1) { // when no factors found
                 wheelmask_compressed[i] |= markmask_type(stripe_count, wheelmask_t);
-                wheelmask_bitpoint  [i]  = stripe_count + 1;
+                wheelmask_bitpoint[i] = stripe_count;
                 wheelstripe[stripe_count] = i;
                 stripe_count++;
             }
@@ -77,14 +63,13 @@
 
         verbose2 (printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju Wheel stripe bits: %ju\n", WHEEL_SIZE, (uintmax_t)wheelmask_stripe_bits, (uintmax_t)wheelmask_stripe_bits/8, (uintmax_t)wheelmask_stripe_bits) );
     }
-    // #endif
 
     // wheel_bit_calc returns the bit index  for a given number index, or -1 if the number is divisible by any of the wheel primes
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     wheel_bit_calc(counter_t index) {
         const counter_t wheel_index = index % WHEEL_SIZE;
         if (wheelmask_bitpoint[wheel_index] < 0) return -1; 
-        return (wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index] -1 ;
+        return (wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index];
     }
 
     // wheel_bit_estimate returns the bit index for a given number index, and if it is divisible by any of the wheel primes, return the nearest that isn't
@@ -94,10 +79,10 @@
         counter_t wheel_index = index % WHEEL_SIZE;
         counter_t factor_start = wheelmask_stripe_bits * (index / WHEEL_SIZE);
         for(; wheelmask_bitpoint[wheel_index] < 0 && wheel_index < WHEEL_SIZE; wheel_index++);
-        if (wheel_index <= WHEEL_SIZE) return (factor_start + wheelmask_bitpoint[wheel_index] -1 );
+        if (wheel_index <= WHEEL_SIZE) return (factor_start + wheelmask_bitpoint[wheel_index]);
         factor_start += WHEEL_SIZE; // reached the end of the wheel, so we need to wrap around to the next repetition of the wheel
         for(; wheelmask_bitpoint[wheel_index] < 0; wheel_index++);
-        return (factor_start + wheelmask_bitpoint[wheel_index] -1 );
+        return (factor_start + wheelmask_bitpoint[wheel_index] );
     }
 
     // returns the factor (real number) at a given bit index in the bitstorage
@@ -130,18 +115,12 @@
         for (counter_t number_offset = 0; number_offset < WHEEL_SIZE; number_offset++) {
             if (wheelmask_bitpoint[number_offset] < 0) continue;
             map_numbers[out_index] = (uint64_t)number_offset;
-            map_bits[out_index] = (uint64_t)(wheelmask_bitpoint[number_offset] - 1);
+            map_bits[out_index] = (uint64_t)(wheelmask_bitpoint[number_offset] );
             out_index++;
         }
 
-        trace_write_wheel_definition((uint64_t)WHEEL_SIZE,
-                                     (uint64_t)WHEEL_STRIPE_BITS,
-                                     (uint64_t)WHEEL_BASIC_SIZE,
-                                     (uint64_t)WHEEL_REPEATS,
-                                     (uint64_t)WHEEL_MAX,
-                                     map_numbers,
-                                     map_bits,
-                                     map_count);
+        trace_write_wheel_definition((uint64_t)WHEEL_SIZE, (uint64_t)WHEEL_STRIPE_BITS, (uint64_t)WHEEL_BASIC_SIZE,(uint64_t)WHEEL_REPEATS,(uint64_t)WHEEL_MAX,
+                                    map_numbers,map_bits,map_count);
 
         free(map_numbers);
         free(map_bits);
@@ -168,22 +147,8 @@
             }
 
             const counter_t wheel_index = index % WHEEL_SIZE;
-            return index_type((wheelmask_stripe_bits * ((index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index] -1), bitbucket_t);
+            return index_type((wheelmask_stripe_bits * ((index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index] ), bitbucket_t);
         }
-
-        // wheel_bucket_estimate returns the bucket index for a given number index, and if it is divisible by any of the wheel primes
-        // static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-        // function(wheel_bucket_estimate,variant_suffix)(counter_t index) {
-        //     counter_t wheel_index = index % WHEEL_SIZE;
-        //     counter_t factor_start = wheelmask_stripe_bits * (index / WHEEL_SIZE);
-        //     for(; wheelmask_bitpoint[wheel_index] < 0 && wheel_index < WHEEL_SIZE; wheel_index++);
-        //     if (wheel_index <= WHEEL_SIZE) return index_type(factor_start + wheelmask_bitpoint[wheel_index] -1, bitbucket_t);
-
-        //     factor_start += WHEEL_SIZE; // reached the end of the wheel, so we need to wrap around to the next repetition of the wheel
-        //     for(; wheelmask_bitpoint[wheel_index] < 0; wheel_index++);
-        //     return index_type(factor_start + wheelmask_bitpoint[wheel_index] -1, bitbucket_t);
-        // }
-
 
     #endif
 #endif
@@ -270,7 +235,7 @@
             // if (markmask) {
             //     counter_t bucket_start = (wheelmask_stripe_bits <= bitcount_type(bitbucket_t)) 
             //             ? index_type(( index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t)
-            //             : index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index] - 1, bitbucket_t);
+            //             : index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index] , bitbucket_t);
                 
             //     log7("Marking: Marking index %ju in factorrange (%ju-%ju) with step %ju with markmask %ju at bucket start %ju bucket stop %ju with wheelstep %ju prime %ju\n", 
             //         (uintmax_t)index, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)step, (uintmax_t)markmask, (uintmax_t)bucket_start, (uintmax_t)bucket_stop, (uintmax_t)wheel_step, (uintmax_t)step/2);
@@ -282,14 +247,14 @@
             // const counter_t wheel_index = index % WHEEL_SIZE;
             // const bitbucket_t markmask = wheelmask_compressed[ wheel_index ];
             if (wheelmask_bitpoint[wheel_stripe_index] >= 0) {
-                const counter_t wheel_bit = wheelmask_bitpoint[wheel_stripe_index] - 1;
+                const counter_t wheel_bit = wheelmask_bitpoint[wheel_stripe_index] ;
                 const bitbucket_t markmask = markmask_type(wheel_bit, bitbucket_t);
                 // counter_t bucket_start = index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index], bitbucket_t);
                 // bitstorage_sized[ index_type(wheel_bit, bitbucket_t)] |= markmask;//markmask_type(wheel_bit, bitbucket_t);
 
                 // counter_t bucket_start = (wheelmask_stripe_bits <= bitcount_type(bitbucket_t)) 
                 //         ? index_type(( index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t)
-                //         : index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index] - 1, bitbucket_t);
+                //         : index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index] , bitbucket_t);
                 counter_t bucket_start = current_bucket;
 
                 // counter_t bucket_start = function(wheel_bucket_calc,variant_suffix)(index);
@@ -313,7 +278,7 @@
             // if (markmask) {
             //     counter_t bucket_start = (wheelmask_stripe_bits <= bitcount_type(bitbucket_t)) 
             //             ? index_type(( index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t)
-            //             : index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index] - 1, bitbucket_t);
+            //             : index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index] , bitbucket_t);
                 
             //     verbose8({ printf("Marking index %ju in factorrange (%ju-%ju) with step %ju with markmask %ju at bucket start %ju bucket stop %ju with wheelstep %ju\n", (uintmax_t)index, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)step, (uintmax_t)markmask, (uintmax_t)bucket_start, (uintmax_t)bucket_stop, (uintmax_t)wheel_step); waitforkey(); })
             //     // applyMask_index_uint8_unroll8(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
@@ -328,7 +293,7 @@
             // // function(applyMask_index, suffix)(sieve->bitstorage, index_type(wheel_bit, bitbucket_t), index_type(wheel_bit, bitbucket_t), wheel_step, markmask);
 
             // if (wheelmask_bitpoint[wheel_index] >= 0) {
-            //     wheel_bit = wheel_start_bucket + wheelmask_bitpoint[wheel_index] - 1 ;
+            //     wheel_bit = wheel_start_bucket + wheelmask_bitpoint[wheel_index]  ;
             //     const bitbucket_t markmask = markmask_type(wheel_bit, bitbucket_t);
             //     counter_t bucket_start = index_type(wheel_bit, bitbucket_t);
                 
