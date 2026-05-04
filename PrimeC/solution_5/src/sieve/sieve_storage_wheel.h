@@ -253,10 +253,10 @@
                 // counter_t bucket_start = index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index], bitbucket_t);
                 // bitstorage_sized[ index_type(wheel_bit, bitbucket_t)] |= markmask;//markmask_type(wheel_bit, bitbucket_t);
 
-                // counter_t bucket_start = (wheelmask_stripe_bits <= bitcount_type(bitbucket_t)) 
-                //         ? index_type(( index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t)
-                //         : index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index], bitbucket_t);
-                counter_t bucket_start = index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheel_bit, bitbucket_t);
+                counter_t bucket_start = (wheelmask_stripe_bits <= bitcount_type(bitbucket_t)) 
+                        ? index_type(( index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t)
+                        : index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheelmask_bitpoint[wheel_index], bitbucket_t);
+                // counter_t bucket_start = index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheel_bit, bitbucket_t);
                 // counter_t bucket_start = current_bucket;
 
                 // counter_t bucket_start = function(wheel_bucket_calc,variant_suffix)(index);
