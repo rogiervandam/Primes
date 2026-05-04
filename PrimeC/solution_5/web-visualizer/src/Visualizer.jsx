@@ -264,26 +264,32 @@ function computeAutoGlYOffset(cssHeight, effectiveDpr, rotateXDeg = 0, rotateYDe
 /**
  * Top-level visualizer component. Owns all playback, rendering, and UI state.
  *
- * @param {object}  props
- * @param {object}  props.trace                      - Parsed trace object from traceParser.js
- * @param {string}  [props.fileName]                 - Display name for the loaded file
- * @param {object}  [props.benchmarkTimingData]       - Optional benchmark CSV data for TimingPanel
- * @param {string}  [props.benchmarkTimingFileName]   - Display name for the benchmark file
- * @param {function}[props.onImportBenchmarkTiming]  - Callback to load a benchmark timing file
- * @param {function}[props.onClose]                  - Callback to close the visualizer (return to picker)
- * @param {boolean} [props.autoRender]               - When true, auto-exports video (puppeteer/CLI mode)
+ * @param {object}   props
+ * @param {object}   props.header               - Parsed trace header (arrives early from streaming worker)
+ * @param {Array}    props.steps                - Parsed trace steps (grows as the worker streams them)
+ * @param {boolean}  props.loadComplete         - True once all steps have been parsed
+ * @param {number}   props.loadProgress         - Count of steps parsed so far
+ * @param {object}   [props.sourceRef]          - { type:'file', file } | { type:'api', name } for raw-log re-fetch
+ * @param {string}   [props.fileName]           - Display name for the loaded file
+ * @param {object}   [props.benchmarkTimingData]       - Optional benchmark CSV data for TimingPanel
+ * @param {string}   [props.benchmarkTimingFileName]   - Display name for the benchmark file
+ * @param {function} [props.onImportBenchmarkTiming]  - Callback to load a benchmark timing file
+ * @param {function} [props.onClose]            - Callback to close the visualizer (return to picker)
+ * @param {boolean}  [props.autoRender]         - When true, auto-exports video (puppeteer/CLI mode)
  */
 export default function Visualizer({
-  trace,
+  header,
+  steps,
+  loadComplete,
+  loadProgress,
+  sourceRef,
   fileName,
-  rawSource,
   benchmarkTimingData,
   benchmarkTimingFileName,
   onImportBenchmarkTiming,
   onClose,
   autoRender,
 }) {
-  const { header, steps } = trace;
   const wheelDefinition = header.wheel || null;
   const traceTitle = useMemo(() => header.title || fileName || 'Sieve Visualizer', [header.title, fileName]);
   const traceInfoSections = useMemo(
@@ -291,12 +297,45 @@ export default function Visualizer({
     [header, fileName],
   );
 
+  // Raw source is loaded on demand (for the raw-log viewer and lineToStep mapping).
+  // We keep it in a ref so the fetch is cached but doesn't trigger re-renders.
+  const rawSourceCacheRef = useRef(null);
+  // lineToStep / stepToLine are computed from rawSource once it's fetched and
+  // stored in state so the raw-log viewer can re-render with the mapping.
+  const [rawSourceForLog, setRawSourceForLog] = useState(null);
+
+  // Callback used by TraceInfoPopover to request the raw source.
+  const fetchRawSource = useCallback(async () => {
+    if (rawSourceCacheRef.current) return rawSourceCacheRef.current;
+    if (!sourceRef) return null;
+    try {
+      let text = null;
+      if (sourceRef.type === 'api') {
+        const res = await fetch(`/api/logs/${encodeURIComponent(sourceRef.name)}`);
+        if (res.ok) text = await res.text();
+      } else if (sourceRef.type === 'file') {
+        text = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = () => reject(new Error('Failed to read file'));
+          reader.readAsText(sourceRef.file);
+        });
+      }
+      if (text) {
+        rawSourceCacheRef.current = text;
+        setRawSourceForLog(text);
+      }
+      return text;
+    } catch {
+      return null;
+    }
+  }, [sourceRef]);
+
   // Map raw-source line indices to step indices.
-  // Handles both plain-text traces (annotation IS the raw line) and KV-format
-  // traces (annotation="..." is embedded inside a longer EVENT/TEXT line).
+  // Computed lazily after rawSourceForLog is fetched.
   const lineToStep = useMemo(() => {
-    if (!rawSource || !steps.length) return {};
-    const rawLines = rawSource.split(/\r?\n/);
+    if (!rawSourceForLog || !steps.length) return {};
+    const rawLines = rawSourceForLog.split(/\r?\n/);
     const map = {};
     const usedLines = new Set();
     for (let s = 0; s < steps.length; s++) {
@@ -328,7 +367,7 @@ export default function Visualizer({
       }
     }
     return map;
-  }, [rawSource, steps]);
+  }, [rawSourceForLog, steps]);
 
   // Inverted map: step index → raw-source line index (first matching line).
   const stepToLine = useMemo(() => {
@@ -382,10 +421,9 @@ export default function Visualizer({
   const [theme, setTheme] = useState(initialPrefs.theme);
   const [showTraceInfo, setShowTraceInfo] = useState(false);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
-  const [settingsCollapsed, setSettingsCollapsed] = useState(initialPrefs.settingsCollapsed);
+  // settingsCollapsed, detailOpen, eventsPanelCollapsed declared below (near introPhase)
   const [layoutSettings, setLayoutSettings] = useState(initialPrefs.layoutSettings);
   const [eventTitleSettings, setEventTitleSettings] = useState(initialPrefs.eventTitleSettings);
-  const [detailOpen, setDetailOpen] = useState(initialPrefs.detailOpen);
   // Two distinct delays. Both default to 500 ms but are independently adjustable.
   // - delayBetweenEvents: pause after one event finishes before the all-events
   //   widget advances to the next event (only honored while `playing`).
@@ -548,7 +586,25 @@ export default function Visualizer({
   const [multiplesOverlayPrime, setMultiplesOverlayPrime] = useState(3);
   const [cachelineSize, setCachelineSize] = useState(64);
   const [cachePreset, setCachePreset] = useState('fixed');
-  const [eventsPanelCollapsed, setEventsPanelCollapsed] = useState(initialPrefs.eventsPanelCollapsed);
+  const [eventsPanelCollapsed, setEventsPanelCollapsed] = useState(true); // forced closed on mount; restored after intro
+  const [settingsCollapsed, setSettingsCollapsed] = useState(true);       // forced closed on mount; restored after intro
+  const [detailOpen, setDetailOpen] = useState(false);                    // forced closed on mount; restored after intro
+
+  // Panel states that were saved in prefs and will be restored after the
+  // intro animation finishes (Phase F). Captured once on mount.
+  const deferredPanelStateRef = useRef({
+    eventsPanelCollapsed: initialPrefs.eventsPanelCollapsed,
+    settingsCollapsed: initialPrefs.settingsCollapsed,
+    detailOpen: initialPrefs.detailOpen,
+    applied: false,
+  });
+
+  // Intro animation phase:
+  //   'hidden'  — canvas mounted but invisible (opacity:0, scale 0.01)
+  //   'scaling' — CSS transition scales canvas to full size
+  //   'tilting' — camera animates from flat to saved tilt angle
+  //   'visible' — animation complete, panels may open
+  const [introPhase, setIntroPhase] = useState('hidden');
   // Topbar transport controls are hidden automatically whenever the floating
   // all-events widget is visible (events panel collapsed + widget not docked).
   const controlsHidden = eventsPanelCollapsed && !allEventsWidgetHidden;
@@ -1512,7 +1568,13 @@ export default function Visualizer({
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  // Don't persist panel states that were forced closed during loading; only
+  // save what the user intentionally chose after the intro animation finishes.
+  const introCompleteRef = useRef(false);
+  introCompleteRef.current = introPhase === 'visible';
+
   useEffect(() => {
+    if (!introCompleteRef.current) return;
     writeViewPrefs({
       theme,
       layoutSettings,
@@ -1535,6 +1597,18 @@ export default function Visualizer({
       detailOpen,
     });
   }, [theme, layoutSettings, eventTitleSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, widgetsJoined, allEventsInDetailPanel, autoAnimateOnSelect, eventsPanelCollapsed, settingsCollapsed, detailOpen]);
+
+  // Phase F: once the intro animation finishes, restore panels that were open in the last session.
+  useEffect(() => {
+    if (introPhase !== 'visible') return;
+    const deferred = deferredPanelStateRef.current;
+    if (deferred.applied) return;
+    deferred.applied = true;
+    // Open panels that were saved as open — the existing toggle animations fire naturally.
+    if (!deferred.eventsPanelCollapsed) setEventsPanelCollapsed(false);
+    if (!deferred.settingsCollapsed) setSettingsCollapsed(false);
+    if (deferred.detailOpen) setDetailOpen(true);
+  }, [introPhase]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -1766,6 +1840,29 @@ export default function Visualizer({
       disposeCamera();
     };
   }, [header.bitCount, header.sieveSize, header.storageModel, wheelDefinition]);
+
+  // Phase E: after the renderer initialises and produces its first frame,
+  // kick off the intro scale animation.
+  useEffect(() => {
+    let fired = false;
+    const tryTrigger = () => {
+      if (fired) return;
+      const r = rendererRef.current;
+      if (!r) return;
+      fired = true;
+      // Reset intro phase each time a new trace header arrives.
+      setIntroPhase('hidden');
+      // Give React one frame to apply the hidden class before animating.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIntroPhase('scaling');
+        });
+      });
+    };
+    // Fire once the renderer is ready (after next paint).
+    const raf = requestAnimationFrame(tryTrigger);
+    return () => cancelAnimationFrame(raf);
+  }, [header.bitCount]); // Re-run whenever a new trace loads
 
   // GL worker is intentionally kept alive as long as the component lives.
   // `OffscreenCanvas.transferControlToOffscreen()` is a one-shot, irreversible
@@ -2091,7 +2188,9 @@ export default function Visualizer({
   // Spacing: at most 50 checkpoints, minimum interval 100 events.
   // Memory guard: skip if total snapshot bytes would exceed 8 MB so large
   // traces (high bitCount) don't balloon the heap.
+  // Guard: only run after streaming is complete so we snapshot a stable array.
   useEffect(() => {
+    if (!loadComplete) return;
     const { bitCount } = header;
     const MAX_CHECKPOINTS = 50;
     const MIN_INTERVAL   = 100;
@@ -2121,7 +2220,7 @@ export default function Visualizer({
       }
     }
     bitStateCheckpointsRef.current = checkpoints;
-  }, [steps, header]);
+  }, [steps, header, loadComplete]);
 
   // Go to step
   const goToStep = useCallback((target, options = {}) => {
@@ -4748,10 +4847,16 @@ export default function Visualizer({
       // occurred when multiple canvases shared the same rotated wrapper layer.
       // preserve-3d is needed so the canvas's own rotation is interpreted in
       // the parent's 3D context rather than being flattened to 2D.
-      transform: 'translate(-50%, -50%)',
+      transform: introPhase === 'hidden'
+        ? 'translate(-50%, -50%) scale(0.02)'
+        : 'translate(-50%, -50%)',
+      transition: introPhase === 'scaling'
+        ? 'transform 550ms cubic-bezier(0.22, 1, 0.36, 1), opacity 350ms ease-out'
+        : undefined,
+      opacity: introPhase === 'hidden' ? 0 : 1,
       transformStyle: 'preserve-3d',
     }
-  ), [canvasAnchorPx]);
+  ), [canvasAnchorPx, introPhase]);
 
   // Merge a px-based `perspectiveOrigin` into the container style so the
   // 3D vanishing point sits at the VIEWPORT center, matching where the
@@ -5121,7 +5226,8 @@ export default function Visualizer({
         setStorageModel={setStorageModel}
         header={header}
         traceInfoSections={traceInfoSections}
-        rawSource={rawSource}
+        rawSource={rawSourceForLog}
+        onFetchRawSource={fetchRawSource}
         lineToStep={lineToStep}
         onJumpToStep={onJumpToStep}
         rawScrollToLine={rawScrollToLine}
@@ -5170,6 +5276,27 @@ export default function Visualizer({
         settingsCollapsed={settingsCollapsed}
         toggleSettingsPanel={toggleSettingsPanel}
       />
+
+      {/* Loading progress bar — thin stripe below toolbar while streaming */}
+      {!loadComplete && (
+        <div
+          className="loading-progress-bar"
+          role="progressbar"
+          aria-label="Loading trace"
+          aria-valuenow={loadProgress}
+          aria-valuemax={header.stepCount || undefined}
+        >
+          <div
+            className="loading-progress-bar-fill"
+            style={{
+              width: header.stepCount > 0
+                ? `${Math.min(100, (loadProgress / header.stepCount) * 100)}%`
+                : '100%',
+              animation: header.stepCount > 0 ? 'none' : undefined,
+            }}
+          />
+        </div>
+      )}
 
       {exporting && <ExportProgress progress={exportProgress} />}
       {exportError && (
@@ -5283,6 +5410,8 @@ export default function Visualizer({
           onOpenRawLog={onOpenRawLog}
           currentStepSourceLine={stepToLine[currentStep]}
           allEventsTransport={allEventsTransportContent}
+          introPhase={introPhase}
+          onIntroTransitionEnd={() => setIntroPhase('visible')}
         />
         {widgetsJoined && eventsPanelCollapsed && !allEventsWidgetHidden && eventTitleSettings.visible && (
           <JoinedEventsWidget

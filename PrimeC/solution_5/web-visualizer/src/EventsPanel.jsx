@@ -126,8 +126,11 @@ function buildDepthTree(steps) {
 export default function EventsPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, allEventsWidgetHidden = false, onExpandPanelFromWidget, onDockWidgetToTopBar, onJoinWidgets, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0, goToStep, playing, handlePlayPause, exporting, isScrubbingTopRef, playSpeedPercent, setPlaySpeedPercent, eventTitleVisible = true, onShowEventTitle }) {
   const listRef = useRef(null);
   const scrollTopRef = useRef(0);
+  const sentinelRef = useRef(null);
   const [search, setSearch] = useState('');
   const [filterOp, setFilterOp] = useState('');
+  // Lazy rendering: only show this many groups at first; extend on scroll.
+  const [visibleGroupCount, setVisibleGroupCount] = useState(20);
   // Whether the operation column is in wide mode (shows full text, no truncation).
   // Persisted to localStorage so it survives reloads.
   const [opColWide, setOpColWide] = useState(() => {
@@ -499,6 +502,38 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
     setCollapsed(new Set(tree.map((g) => g.id)));
     initialCollapseDoneRef.current = true;
   }, [tree]);
+
+  // Reset visible count when the filtered list changes (e.g. search query changes).
+  useEffect(() => {
+    setVisibleGroupCount(20);
+  }, [search, filterOp, levelFilter, hideUntimed, hideUnchanged]);
+
+  // Lazy loading: extend visibleGroupCount when the sentinel scrolls into view.
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleGroupCount((n) => Math.min(n + 20, filteredTree.length));
+        }
+      },
+      { root: listRef.current, rootMargin: '0px 0px 200px 0px', threshold: 0 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [filteredTree.length]);
+
+  // Auto-extend when the current step falls outside the visible window.
+  useEffect(() => {
+    if (currentStep == null) return;
+    const groupIndex = filteredTree.findIndex((g) =>
+      g.children.some((s) => s.originalIndex === currentStep)
+    );
+    if (groupIndex >= visibleGroupCount) {
+      setVisibleGroupCount((n) => Math.max(n, groupIndex + 5));
+    }
+  }, [currentStep, filteredTree, visibleGroupCount]);
 
   // When filterLevel is 'collapse:N', auto-collapse all nodes at level >= N and
   // auto-expand any nodes at level < N that were previously collapsed by a lower
@@ -916,7 +951,7 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
         </div>
       </div>
       <div className="event-list" ref={listRef} onWheel={onUserScroll}>
-        {filteredTree.map((group) => {
+        {filteredTree.slice(0, visibleGroupCount).map((group) => {
           const isCollapsed = collapsed.has(group.id);
           const containsActive = group.children.some(s => s.originalIndex === currentStep || selectedSteps.has(s.originalIndex));
 
@@ -953,6 +988,13 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
             </div>
           );
         })}
+        {/* Sentinel triggers lazy-loading of the next batch */}
+        <div ref={sentinelRef} className="event-list-sentinel" />
+        {visibleGroupCount < filteredTree.length && (
+          <div className="event-list-loading-more">
+            {filteredTree.length - visibleGroupCount} more groups…
+          </div>
+        )}
       </div>
 
       <div className="resize-handle" onMouseDown={handleMouseDown} />

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect, Suspense } from 'react';
+import { useTraceParser } from './workers/useTraceParser';
 
 // Lazy-load the Visualizer (+ SieveRenderer and all renderer deps) so the
 // welcome screen ships without them.  The chunk starts downloading as soon as
@@ -9,9 +10,21 @@ const Visualizer = React.lazy(() => import('./Visualizer'));
 function preloadVisualizer() { import('./Visualizer'); }
 
 export default function App() {
-  const [trace, setTrace] = useState(null);
+  // Streaming parse state (replaces the old atomic `trace` + `rawSource`).
+  const {
+    header,
+    steps,
+    progress: loadProgress,
+    isComplete: loadComplete,
+    parseError: parserError,
+    startParse,
+    abort: abortParse,
+  } = useTraceParser();
+
   const [fileName, setFileName] = useState('');
-  const [rawSource, setRawSource] = useState(null);
+  // Describes how to re-fetch the source for the raw-log viewer.
+  // { type: 'file', file: File } | { type: 'api', name: string } | null
+  const [sourceRef, setSourceRef] = useState(null);
   const [benchmarkTimingData, setBenchmarkTimingData] = useState(null);
   const [benchmarkTimingFileName, setBenchmarkTimingFileName] = useState('');
   const [error, setError] = useState('');
@@ -108,47 +121,36 @@ export default function App() {
     setBenchmarkTimingData(null);
     setBenchmarkTimingFileName('');
     preloadVisualizer();
-    const { parseTrace } = await import('./traceParser');
+    setSourceRef({ type: 'file', file });
+    setFileName(file.name);
     const reader = new FileReader();
     reader.onload = (e) => {
-      try {
-        const parsed = parseTrace(e.target.result);
-        setTrace(parsed);
-        setFileName(file.name);
-        setRawSource(e.target.result);
-      } catch (err) {
-        setError(err.message);
-        setTrace(null);
-      }
+      startParse(e.target.result);
     };
+    reader.onerror = () => setError('Failed to read file');
     reader.readAsText(file);
-  }, []);
+  }, [startParse]);
 
   const loadFromApi = useCallback(async (name, autoRenderFlag = false) => {
     setError('');
     setLoadingLog(true);
     preloadVisualizer();
     try {
-      const [{ parseTrace }, res] = await Promise.all([
-        import('./traceParser'),
-        fetch(`/api/logs/${encodeURIComponent(name)}`),
-      ]);
+      const res = await fetch(`/api/logs/${encodeURIComponent(name)}`);
       if (!res.ok) throw new Error(`Failed to load ${name}: ${res.statusText}`);
       const text = await res.text();
-      const parsed = parseTrace(text);
-      setTrace(parsed);
+      setSourceRef({ type: 'api', name });
       setFileName(name);
-      setRawSource(text);
+      startParse(text);
       await tryLoadBenchmarkTimingFromApi(name);
       if (autoRenderFlag) setAutoRender(true);
     } catch (err) {
       setError(err.message);
-      setTrace(null);
       setBenchmarkTimingData(null);
       setBenchmarkTimingFileName('');
     }
     setLoadingLog(false);
-  }, [tryLoadBenchmarkTimingFromApi]);
+  }, [startParse, tryLoadBenchmarkTimingFromApi]);
 
   const importBenchmarkTimingFile = useCallback((file) => {
     setError('');
@@ -267,7 +269,7 @@ export default function App() {
     </div>
   );
 
-  if (!trace) {
+  if (!header) {
     return (
       <div
         className="welcome"
@@ -312,7 +314,7 @@ export default function App() {
             </div>
           )}
           {loadingLog && <div className="loading-msg">Loading trace file…</div>}
-          {error && <div className="error-msg">{error}</div>}
+          {(error || parserError) && <div className="error-msg">{error || parserError}</div>}
           <div className="instructions">
             <h3>How to generate a trace</h3>
             <pre>./sieve trace extend 100</pre>
@@ -337,16 +339,19 @@ export default function App() {
         hidden
       />
       <Visualizer
-        trace={trace}
+        header={header}
+        steps={steps}
+        loadComplete={loadComplete}
+        loadProgress={loadProgress}
+        sourceRef={sourceRef}
         fileName={fileName}
-        rawSource={rawSource}
         benchmarkTimingData={benchmarkTimingData}
         benchmarkTimingFileName={benchmarkTimingFileName}
         onImportBenchmarkTiming={() => benchmarkInputRef.current?.click()}
         onClose={() => {
-          setTrace(null);
+          abortParse();
+          setSourceRef(null);
           setFileName('');
-          setRawSource(null);
           setAutoRender(false);
           setBenchmarkTimingData(null);
           setBenchmarkTimingFileName('');

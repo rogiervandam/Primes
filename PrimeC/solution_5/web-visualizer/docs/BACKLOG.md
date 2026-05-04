@@ -64,36 +64,35 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 ## Open
 
-1 Make visualizer items related to overlays or animations clickable shortcuts.
-Clicking a bit-state legend/color item should let the user choose that state's
-color.
+1 Make visualizer items related to overlays or animations clickable shortcuts. Clicking a bit-state legend/color item should let the user choose that state's color.
 
-2 Keep reducing `Visualizer.jsx` and `SieveRenderer.js`; prefer one focused
-hook/component/helper extraction per session.
-
-4 Make the debug tools window draggable or pinnable only if it starts competing
-with settings/detail/sidebar workflows. 
-
-5 Polish the all-events transport in the detail panel: verify it doesn't push
+2 Polish the all-events transport in the detail panel: verify it doesn't push
   detail sections below the fold at small heights; add a visual separator from
   the step-anim sliders when both are visible simultaneously.
 
-6 Check bit-history balloon connector/clamping polish with events panel
+3 Check bit-history balloon connector/clamping polish with events panel
   open/closed, settings open/closed, joined widget visible, minimap visible,
   light/dark themes, and high zoom.
 
-7 Manually tune balloon connector width/opacity if it competes with dense
-  overlays, especially in light theme.
+4 the balloon placement should be improved: (1) balloons should not overlap (2) when a bit under the all event panel, don't show the connector over the events panel (3) the connector should look better: more pointy at the bit side and much wider at the text box side (4) when i drag to the left, sometimes the connector gets "twisted"
 
-9 the balloon placement should be improved: (1) balloons should not overlap (2) when a bit under the all event panel, don't show the connector over the events panel (3) the connector should look better: more pointy at the bit side and much wider at the text box side (4) when i drag to the left, sometimes the connector gets "twisted"
+5 when the single event widget is docked to the detail panel, don't show the %progress and gear icon on the far right, but just to the right on the timeline slider, as it looked on the single event widget.
 
-11 when the single event widget is docker to the detail panel, don't show the %progress and gear icon on the far right, but just to the right on the timeline slider, as it looked on the single event widget.
+6 In settings -> layout panel -> Autofit. When turning auto fit off, start at the count that was set by auto fit.
 
-13 In settings -> layout panel -> Autofit. when turning auto fit off, start at the count that was set by auto fit.
+7 Change the nearby events: (1) Don't have "current" as the name, but the the Title with the same font, style and size as on the widget itself. Keep the play button in front of it; (2) make it possible to have the nearby events instead of the title.
 
-14 Change the nearby events: (1) Don't have "current" as the name, but the the Title with the same font, style and size as on the widget itself. Keep the play button in front of it; (2) make it possible to have the nearby events instead of the title.
+8 When search is clicked, change it into the input box. The input box should be in the top bar in the place the search button was. When the input box is open, the search button should be a "close" button. When the user clicks the close button, it should close the input box and show the search button again.
 
-15 When search is clicked, change it into the input box. The input box should be in the top bar in the place the search button was. When the input box is open, the search button should be a "close" button. When the user clicks the close button, it should close the input box and show the search button again.
+16 optimize loading and startup and prepare for large files. 
+(1) after opening a log, don't show (or hide) the panels
+(2) start a async streaming load of the log, defer it to the background. When the sieve size is establised (usually in the first few log lines), then broadcast that event. You can forget about the logline after it has been processed. If the users want to view the raw log, just reload it from the start, or if clicked on a source line from the detail panel, load the log and scroll to that line: the log should be lazy loading as well.
+(3) upon getting the event, start a async render of the canvas. Animate it from infinitely small to the full size (streight, 2d) and then do the transform from 2d to 3d tilted. This way the user can see something is happening immediately, and the animation will be delightful.
+(4) regularly broadcast the amount of log files streamed. When the first 100 lines are loaded, start an async populating the DOM in the events panel. When it is filled to the window height, If the user had the event panel and/or settings opened in the last session, wait for the animation to finish and then open these panels (these should always open with a animation).
+(5) do a lazy loading of the events panel: only populate the dom for the first 100 and then visible events, and then populate more as the user scrolls. This way we can handle very large logs without freezing the browser. Consider lazy loading the hierarchy of events too.
+
+20 Keep reducing `Visualizer.jsx` and `SieveRenderer.js`; prefer one focused
+hook/component/helper extraction per session.
 
 
 

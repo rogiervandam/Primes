@@ -100,6 +100,9 @@ function CanvasStage({
   onOpenRawLog,
   currentStepSourceLine,
   allEventsTransport,
+  // Intro animation phase: 'hidden' | 'scaling' | 'tilting' | 'visible'
+  introPhase = 'visible',
+  onIntroTransitionEnd,
 }) {
   return (
     <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
@@ -135,8 +138,9 @@ function CanvasStage({
             sharing a rotated layer. */}
         <div
           ref={wrapperCanvasRef}
-          className="canvas-transform-wrapper"
+          className={`canvas-transform-wrapper canvas-intro-${introPhase}`}
           style={renderCanvasStyle}
+          onTransitionEnd={introPhase === 'scaling' ? onIntroTransitionEnd : undefined}
         >
           {/* WebGL bit-grid canvas. The 3D rotation (rotateX/Y) is applied
               here directly so it is the only element with a 3D transform,

@@ -11,19 +11,23 @@ import { STORAGE_MODELS } from '../SieveRenderer';
  * @param {function}  props.setStorageModel Setter for the storage model select.
  * @param {object}    props.header         Parsed trace header (for hint text).
  * @param {Array}     props.sections       Output of `buildTraceInfoSections`.
- * @param {string|null} props.rawSource    Original file text, shown via "View raw log".
+ * @param {function}   props.onFetchRawSource  Async callback that resolves to the raw source text.
  * @param {object}    props.lineToStep     Map of raw-source line index → step index.
  * @param {function}  props.onJumpToStep   Called with stepIndex when a linked line number is clicked.
  * @param {number|null} props.rawScrollToLine  When set, open the raw log and scroll to this line index.
  * @param {function}  props.onClearRawScrollToLine  Called after scroll target is consumed.
  */
 export default function TraceInfoPopover({
-  popoverRef, visible = true, storageModel, setStorageModel, header, sections, rawSource,
+  popoverRef, visible = true, storageModel, setStorageModel, header, sections, onFetchRawSource,
   lineToStep, onJumpToStep, rawScrollToLine, onClearRawScrollToLine,
 }) {
   const [rawOpen, setRawOpen] = useState(false);
   const [wheelOpen, setWheelOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Lazily-fetched raw source: fetched on first open, cached thereafter.
+  const [rawLines, setRawLines] = useState(null);   // string[] | null
+  const [rawFetching, setRawFetching] = useState(false);
+  const rawCacheRef = useRef(null);
   // Always keep explicit absolute position — avoids flex↔absolute jump on first drag.
   // Default to near the top of the viewport (below the toolbar) rather than centered.
   const [dlgPos, setDlgPos] = useState(() => ({
@@ -34,14 +38,31 @@ export default function TraceInfoPopover({
   const dlgRef = useRef(null);
   const contentRef = useRef(null);
 
+  // Fetch raw source and open dialog.
+  const openRawLog = useCallback(async () => {
+    setRawOpen(true);
+    if (rawCacheRef.current) return; // already fetched
+    if (!onFetchRawSource) return;
+    setRawFetching(true);
+    try {
+      const text = await onFetchRawSource();
+      rawCacheRef.current = text;
+      setRawLines(text.split(/\r?\n/));
+    } catch (err) {
+      console.error('[TraceInfoPopover] Failed to fetch raw source:', err);
+    } finally {
+      setRawFetching(false);
+    }
+  }, [onFetchRawSource]);
+
   // Open and scroll to a specific line when requested from outside (e.g. Detail Panel).
   useEffect(() => {
     if (rawScrollToLine == null) return;
-    setRawOpen(true);
-  }, [rawScrollToLine]);
+    openRawLog();
+  }, [rawScrollToLine, openRawLog]);
 
   useEffect(() => {
-    if (!rawOpen || rawScrollToLine == null) return;
+    if (!rawOpen || rawScrollToLine == null || !rawLines) return;
     const lineIdx = rawScrollToLine;
     const raf = requestAnimationFrame(() => {
       const el = contentRef.current?.querySelector(`[data-lineindex="${lineIdx}"]`);
@@ -49,11 +70,11 @@ export default function TraceInfoPopover({
       onClearRawScrollToLine?.();
     });
     return () => cancelAnimationFrame(raf);
-  // rawScrollToLine deliberately omitted — we only want to re-scroll when rawOpen flips true
+  // rawScrollToLine deliberately omitted — we only want to re-scroll when rawOpen/rawLines flip
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawOpen, onClearRawScrollToLine]);
+  }, [rawOpen, rawLines, onClearRawScrollToLine]);
 
-  const rawLines = rawSource ? rawSource.split(/\r?\n/) : [];
+
   const wheelRows = useMemo(() => {
     const wheel = header?.wheel;
     if (!wheel || !Array.isArray(wheel.mapNumbers) || !Array.isArray(wheel.mapBits)) return [];
@@ -70,13 +91,21 @@ export default function TraceInfoPopover({
     });
   }, [header?.wheel]);
 
-  const handleCopy = useCallback(() => {
-    if (!rawSource) return;
-    navigator.clipboard.writeText(rawSource).then(() => {
+  const handleCopy = useCallback(async () => {
+    if (!onFetchRawSource) return;
+    try {
+      const text = rawCacheRef.current ?? await onFetchRawSource();
+      if (!rawCacheRef.current) {
+        rawCacheRef.current = text;
+        setRawLines(text.split(/\r?\n/));
+      }
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
-    }).catch(() => {});
-  }, [rawSource]);
+    } catch (err) {
+      console.error('[TraceInfoPopover] Copy failed:', err);
+    }
+  }, [onFetchRawSource]);
 
   const handleLineClick = useCallback((stepIdx) => {
     setRawOpen(false);
@@ -137,12 +166,12 @@ export default function TraceInfoPopover({
   return (
     <>
       {visible && <div className="trace-info-popover" ref={popoverRef}>
-        {rawSource && (
+        {onFetchRawSource && (
           <div className="trace-info-section trace-info-raw-section">
             <button
               type="button"
               className="trace-info-raw-btn"
-              onClick={() => setRawOpen(true)}
+              onClick={openRawLog}
             >
               View raw log
             </button>
@@ -267,7 +296,10 @@ export default function TraceInfoPopover({
               </button>
             </div>
             <div className="raw-log-content" ref={contentRef}>
-              {rawLines.map((line, i) => {
+              {rawFetching && (
+                <div className="raw-log-loading">Loading…</div>
+              )}
+              {!rawFetching && rawLines && rawLines.map((line, i) => {
                 const stepIdx = lineToStep?.[i];
                 const hasStep = stepIdx !== undefined;
                 return (
@@ -292,6 +324,9 @@ export default function TraceInfoPopover({
                   </div>
                 );
               })}
+              {!rawFetching && !rawLines && !onFetchRawSource && (
+                <div className="raw-log-loading">Raw source not available.</div>
+              )}
             </div>
             <div className="raw-log-resize-handle" onMouseDown={startResize} />
           </div>

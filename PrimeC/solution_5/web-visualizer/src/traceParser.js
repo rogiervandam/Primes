@@ -451,3 +451,80 @@ function extractNewStyleStepData(annotation, meta, inferredDepth) {
 // Pure utilities (number/string normalisation and list parsing) live in
 // `./parser/parseUtils` so this file stays focused on trace dialect parsing.
 
+// ---------------------------------------------------------------------------
+// Streaming / worker helpers — used by traceParserWorker.js
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse just the trace header from pre-split, trimmed, non-empty lines.
+ * Used by the streaming worker so it can broadcast the header immediately,
+ * before all step lines have been processed.
+ *
+ * Returns `{ header }` (stepCount is set to 0; the caller fills it in later).
+ * Throws if the header line is missing or malformed.
+ */
+export function extractTextTraceHeader(lines) {
+  const headerLine = lines.find((l) => {
+    const kv = parseLineJson(l);
+    return kv && kv.version != null && kv.sieve_size != null;
+  });
+  const headerKv = headerLine ? parseLineJson(headerLine) : null;
+  if (!headerKv) {
+    throw new Error('Invalid trace file: TRACE header must be JSON format.');
+  }
+
+  const rawStorageModel = String(headerKv.storage_model || 'half');
+  const parsedStorageModel = normalizeStorageModelName(rawStorageModel);
+  const parsedWheel = parseWheelDefinitionFromLines(lines);
+  const parsedSieveSize = toNumberOr(headerKv.sieve_size, 0);
+  const parsedMaxNumber = toNumberOr(firstDefined(headerKv.max_number, headerKv.sieve_size), 0);
+  const parsedBitCount = normalizeBitCountForStorage(
+    parsedStorageModel,
+    toNumberOr(headerKv.bit_count, 0),
+    parsedMaxNumber,
+    parsedSieveSize,
+  );
+  const titleMeta = extractTitleMetadata(lines, headerKv);
+  const benchmarkMeta = extractBenchmarkMetadata(lines);
+
+  const header = {
+    version: toNumberOr(headerKv.version, 7),
+    sieveSize: parsedSieveSize,
+    bitCount: parsedBitCount,
+    maxNumber: parsedMaxNumber,
+    stepCount: 0, // finalized after all steps are parsed
+    storageModel: parsedStorageModel,
+    rawStorageModel,
+    wheel: parsedWheel,
+    traceLevel: toNullableNumber(firstDefined(headerKv.trace_level, headerKv.log_level)),
+    benchmarkSettings: firstDefined(headerKv.benchmark_settings, headerKv.settings, null),
+  };
+
+  Object.assign(header, buildTracePresentation(header, {
+    title: titleMeta.title,
+    subtitle: titleMeta.subtitle,
+    info: titleMeta.info,
+    benchmark: benchmarkMeta,
+  }));
+
+  return { header };
+}
+
+/**
+ * Parse a single text-trace line into a step object.
+ * Returns `null` if the line is not a valid step record.
+ * `stepIndex` is the 0-based index of this step in the output array.
+ * Used by the streaming worker to process lines one at a time.
+ */
+export function parseTextTraceLine(line, stepIndex) {
+  if (!line || line.startsWith('DUMP ')) return null;
+  const newStyleLine = parseInlineJsonMeta(line);
+  if (!newStyleLine) return null;
+  const d = extractNewStyleStepData(newStyleLine.annotation, newStyleLine.meta, 0);
+  return createParsedStep({
+    rawStepId: stepIndex,
+    ...d,
+    operationPath: [d.operation],
+  });
+}
+

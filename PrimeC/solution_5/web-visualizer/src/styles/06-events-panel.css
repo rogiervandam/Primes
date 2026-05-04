@@ -70,6 +70,16 @@
   overflow-y: auto;
   overflow-x: hidden;
 }
+.event-list-sentinel {
+  height: 1px;
+  pointer-events: none;
+}
+.event-list-loading-more {
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--fg-dim);
+  text-align: center;
+}
 .event-item {
   display: grid;
   grid-template-columns: calc(340px - var(--node-depth, 0) * 10px) 1fr;

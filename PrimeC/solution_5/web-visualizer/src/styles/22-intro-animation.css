@@ -1,0 +1,67 @@
+/* ============================================================
+ * Intro animation for the canvas on initial load.
+ *
+ * The .canvas-transform-wrapper receives one of these classes:
+ *   .canvas-intro-hidden   — invisible, scaled down to 0.02
+ *   .canvas-intro-scaling  — CSS transition scales to full size (via inline style)
+ *   .canvas-intro-visible  — final steady state
+ *   .canvas-intro-tilting  — camera tilt animation in progress
+ *
+ * The scale and opacity are applied via renderCanvasStyle inline style so
+ * they compose correctly with the centering translate.  These CSS rules
+ * only handle the pointer-events guard and keep the specificity cost low.
+ * ============================================================ */
+
+/* Block pointer events while the canvas is not yet visible */
+.canvas-transform-wrapper.canvas-intro-hidden {
+  pointer-events: none;
+}
+
+/* Restore pointer events once visible */
+.canvas-transform-wrapper.canvas-intro-scaling,
+.canvas-transform-wrapper.canvas-intro-tilting,
+.canvas-transform-wrapper.canvas-intro-visible {
+  pointer-events: auto;
+}
+
+/* ============================================================
+ * Loading progress bar — thin stripe at the top of the main
+ * content area, below the toolbar.  Shown while streaming a
+ * large trace file; removed once loadComplete === true.
+ * ============================================================ */
+
+.loading-progress-bar {
+  position: relative;
+  width: 100%;
+  height: 3px;
+  z-index: 200; /* above canvas, below modal dialogs */
+  overflow: hidden;
+  background: transparent;
+  /* Pull the bar up to sit flush under the toolbar (no gap) */
+  margin-top: -3px;
+  flex-shrink: 0;
+}
+
+.loading-progress-bar-fill {
+  height: 100%;
+  background: var(--accent, #60a5fa);
+  border-radius: 0 2px 2px 0;
+  transition: width 200ms linear;
+}
+
+/* Indeterminate shimmer when total step count is unknown */
+@keyframes progress-shimmer {
+  0%   { transform: translateX(-100%); width: 60%; }
+  100% { transform: translateX(200%);  width: 60%; }
+}
+
+.loading-progress-bar-fill[style*="animation: none"] {
+  /* deterministic: no override needed */
+}
+
+/* When stepCount is 0 (unknown), animate a shimmer instead */
+.loading-progress-bar:not([aria-valuemax]) .loading-progress-bar-fill,
+.loading-progress-bar[aria-valuemax="0"] .loading-progress-bar-fill {
+  width: 60% !important;
+  animation: progress-shimmer 1.4s ease-in-out infinite;
+}
