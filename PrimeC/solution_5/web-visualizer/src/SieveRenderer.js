@@ -95,6 +95,11 @@ export class SieveRenderer {
     this.panX = 0;
     this.panY = 0;
     this.gridOpacity = 1;
+    // Dirty flag: true whenever bitState / changedBits / overlays change and
+    // the GL texture needs re-uploading.  Cleared by the patched render in
+    // Visualizer.jsx after calling g.uploadState().  Starts true so the first
+    // render always uploads.
+    this._stateDirty = true;
 
     // Viewport dimensions (canvas-container visible area, not oversized canvas).
     // Set by Visualizer.jsx on every container resize so renderMinimap and
@@ -415,6 +420,7 @@ export class SieveRenderer {
   }
 
   setState(bitState, changedBits, targetBits = null, targetHitCounts = null, focusRange = null, maskMetadata = null, highlightMetadata = null) {
+    this._stateDirty = true;
     this.bitState = bitState;
     this.changedBits = changedBits;
     this.targetBits = targetBits || new Set();
@@ -436,6 +442,7 @@ export class SieveRenderer {
 
   setMaskGhostBits(bits) {
     this.maskGhostBits = bits instanceof Set ? bits : new Set(bits || []);
+    this._stateDirty = true;
   }
 
   clearBitMotionTrails() {
@@ -1201,6 +1208,7 @@ export class SieveRenderer {
     const key = `${limit}:${this.bitCount}:${this.storageModel}:${wheelSignature(this.wheelDefinition)}`;
     if (this._primeOverlayKey === key && this._primeBitFlags) return;
     this._primeOverlayKey = key;
+    this._stateDirty = true;
 
     // Sieve of Eratosthenes
     const sieve = new Uint8Array(limit + 1);

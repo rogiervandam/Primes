@@ -648,6 +648,8 @@ export default function Visualizer({
   const debugGlOffsetYRef = useRef(0);
   const debugGlAutoOffsetYRef = useRef(0);
   const glDebugLastUpdateRef = useRef(0);
+  // rAF id for the pending coalesced render (pan/zoom path).
+  const pendingRenderRafRef = useRef(null);
 
   stepsRef.current = steps;
   currentStepRef.current = currentStep;
@@ -1669,8 +1671,20 @@ export default function Visualizer({
             const cssH = rr.canvasHeight || 0;
             g.resize(cssW, cssH);
 
-            g.uploadState(rr);
-            g.uploadAnim(rr);
+            // Only re-upload the state texture when the bit data has actually
+            // changed (setState(), overlay toggles, etc.). Pan/zoom/resize only
+            // change layout uniforms — skipping the O(bitCount) pack+transfer
+            // on those hot paths cuts per-frame CPU work dramatically for large
+            // grids (e.g. 1M bits → skip 1 MB pack + worker message per frame).
+            if (rr._stateDirty !== false) {
+              g.uploadState(rr);
+              rr._stateDirty = false;
+            }
+            // uploadAnim is omitted: packAnim always writes the no-op default
+            // (0, 0, 1, 0) and the animTex is already initialised to that in
+            // setBitCount(). Re-uploading 4×bitCount floats every frame was
+            // pure waste. If real per-bit animation ever uses the anim texture,
+            // add a dedicated _animDirty flag and re-introduce the upload.
 
             const px = Math.max(1, rr.pixelSize);
             const zoom = Math.max(0.01, rr.zoom || 1);
@@ -1704,6 +1718,22 @@ export default function Visualizer({
             updateGlDebugInfo(false);
             return renderSeq;
           };
+
+          // scheduleRender() coalesces rapid back-to-back renders (pan/zoom
+          // gesture events) into a single rAF-aligned frame.  If called while
+          // a frame is already pending it cancels the previous request so only
+          // the latest state is drawn — this is the "abort current, start new"
+          // behaviour for interactions.
+          r.scheduleRender = () => {
+            if (pendingRenderRafRef.current != null) {
+              cancelAnimationFrame(pendingRenderRafRef.current);
+            }
+            pendingRenderRafRef.current = requestAnimationFrame(() => {
+              pendingRenderRafRef.current = null;
+              const rr = rendererRef.current;
+              if (rr) rr.render();
+            });
+          };
         }
         // If GL is unavailable, fall back to separate glyph canvas.
         if (!gl) {
@@ -1721,7 +1751,9 @@ export default function Visualizer({
         rr.panY = panY;
         rr.zoom = z;
         setZoom(z);
-        rr.render();
+        // scheduleRender coalesces rapid gesture events to one rAF frame,
+        // cancelling any in-flight pending render before scheduling the new one.
+        (rr.scheduleRender ?? rr.render).call(rr);
         rr.renderMinimap(rr.canvasWidth, rr.canvasHeight || 0, getMinimapDetailH());
       },
     });
@@ -1811,6 +1843,9 @@ export default function Visualizer({
   useEffect(() => {
     const r = rendererRef.current;
     if (!r) return;
+    // Settings that affect the packed GL state texture (overlay flags, focus
+    // range, etc.) are set below — mark dirty so the next render re-uploads.
+    r._stateDirty = true;
 
     // ── Pre-capture the viewport-centre bit BEFORE applying new settings ──
     // The renderer still holds the OLD geometry here, so canvasToBitIndex gives
