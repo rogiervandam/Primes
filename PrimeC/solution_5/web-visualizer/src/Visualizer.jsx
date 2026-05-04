@@ -23,7 +23,6 @@ import { usePlaybackLoop } from './hooks/usePlaybackLoop';
 import { useSearchState } from './hooks/useSearchState';
 import { usePanelChoreography } from './hooks/usePanelChoreography';
 import { applyPan } from './visualizer/gestures/pan';
-import { applyRotate } from './visualizer/gestures/rotate';
 import { applyWheel } from './visualizer/gestures/wheel';
 import {
   DEFAULT_EVENT_TIME_TARGETS,
@@ -104,25 +103,6 @@ function getProjectedCanvasMapper(canvasEl) {
   return { toViewport, toCanvas };
 }
 
-function parseAppliedRotateAngles(transformStr) {
-  if (!transformStr || transformStr === 'none') return { rotateX: 0, rotateY: 0 };
-  const xMatch = /rotateX\((-?\d+(?:\.\d+)?)deg\)/.exec(transformStr);
-  const yMatch = /rotateY\((-?\d+(?:\.\d+)?)deg\)/.exec(transformStr);
-  return {
-    rotateX: xMatch ? Number(xMatch[1]) : 0,
-    rotateY: yMatch ? Number(yMatch[1]) : 0,
-  };
-}
-
-function computeSafeTiltDegrees(canvasHeight, perspective = 1500) {
-  const h = Math.max(1, Number(canvasHeight) || 1);
-  const p = Math.max(300, Number(perspective) || 1500);
-  // Keep the near-edge perspective amplification bounded. z = sin(ax) * h/2.
-  // Using z <= 0.55p caps top-edge scale to about 2.22x.
-  const ratio = Math.min(0.999, Math.max(0.01, (p * 0.55) / (h * 0.5)));
-  const deg = Math.asin(ratio) * 180 / Math.PI;
-  return Math.max(8, Math.min(65, deg));
-}
 
 /**
  * Top-level visualizer component. Owns all playback, rendering, and UI state.
@@ -422,22 +402,12 @@ export default function Visualizer({
   // on the container so the anchor tracks the panel's CSS transition.
   const [canvasAnchorPx, setCanvasAnchorPx] = useState(null);
 
-  // 3D camera state
-  // The app always uses 3D mode; the camera is always enabled. The tilt
-  // button controls the rotateX angle (flat 0° vs tilted 30°).
-  const mode3D = true;
   const currentAnimIntervalRef = useRef(20);
   const currentMaskAnimIntervalRef = useRef(20);
   const {
     camera3DRef,
-    camera3DTransform,
-    camera3DContainerStyle,
-    cameraKey,
-    setCamera3DTransform,
-    setCamera3DContainerStyle,
     createCamera,
     disposeCamera,
-    ensureTiltCamera,
   } = use3DCamera();
 
   const bitStateRef = useRef(null);
@@ -513,29 +483,10 @@ export default function Visualizer({
     if (typeof snapshot?.manualOffsetY === 'number') { /* GL offset no longer used */ }
     if (typeof snapshot?.manualOffsetX === 'number') { /* GL offset no longer used */ }
 
-    const cam = camera3DRef.current;
-    if (cam && cam.enabled) {
-      let changed = false;
-      if (typeof snapshot?.rotateX === 'number' && Number.isFinite(snapshot.rotateX)) {
-        const lim = Number.isFinite(cam.maxTilt) ? Math.abs(cam.maxTilt) : 89;
-        cam.rotateX = Math.max(-lim, Math.min(lim, snapshot.rotateX));
-        changed = true;
-      }
-      if (typeof snapshot?.rotateY === 'number' && Number.isFinite(snapshot.rotateY)) {
-        const lim = Number.isFinite(cam.maxTilt) ? Math.abs(cam.maxTilt) : 89;
-        cam.rotateY = Math.max(-lim, Math.min(lim, snapshot.rotateY));
-        changed = true;
-      }
-      if (changed) {
-        setCamera3DTransform(cam.getCanvasTransform());
-        setCamera3DContainerStyle(cam.getContainerStyle());
-      }
-    }
-
     rr.render();
     rr.renderMinimap(rr.canvasWidth, rr.canvasHeight, getMinimapDetailH());
     return { ok: true, message: 'Snapshot applied' };
-  }, [setCamera3DTransform, setCamera3DContainerStyle, getMinimapDetailH]);
+  }, [getMinimapDetailH]);
 
   /** Miller-Rabin primality test — deterministic for all n < 3,215,031,751 */
   const isPrimeNumber = useCallback((n) => {
@@ -635,44 +586,22 @@ export default function Visualizer({
   }, []);
 
   const getCanvasTargetSize = useCallback((width, height) => {
-    // Unified geometry: the canvas is ALWAYS the oversized 3D plane,
-    // regardless of whether the camera is currently tilted. 2D mode
-    // is just "3D with rotateX = rotateY = 0". This means panel
-    // toggles never change the canvas size (no grid reflow / drift)
-    // and the 2D and 3D placements are identical.
-    //
-    // We use the largest of (current container, viewport) as the
-    // baseline so collapsing/expanding side panels can't shrink
+    // Oversized canvas so pan can move content in any direction without
+    // hitting the edge. We use the largest of (current container, viewport)
+    // as the baseline so collapsing/expanding side panels can't shrink
     // the canvas — those toggles must be visually free.
-    const cam = camera3DRef.current;
-    // Use the actually-applied wrapper transform angles as the first source
-    // of truth so canvas sizing math matches what is rendered on screen.
-    // This avoids geometry desync if camera refs and rendered transform ever
-    // diverge during rapid resize/animation transitions.
-    const appliedAngles = parseAppliedRotateAngles(camera3DTransform);
     const baseW = Math.max(width || 0, (typeof window !== 'undefined' ? window.innerWidth : width) || 0);
     const baseH = Math.max(height || 0, (typeof window !== 'undefined' ? window.innerHeight : height) || 0);
-    let scaleH = 1;
-    let scaleW = 1;
-    let diagonalOverscan = 1;
-    if (cam && cam.enabled) {
-      const rotateX = Number.isFinite(appliedAngles.rotateX) ? appliedAngles.rotateX : (cam.rotateX || 0);
-      const rotateY = Number.isFinite(appliedAngles.rotateY) ? appliedAngles.rotateY : (cam.rotateY || 0);
-      const ax = Math.abs(rotateX) * Math.PI / 180;
-      const ay = Math.abs(rotateY) * Math.PI / 180;
-      scaleH = 1 / Math.max(0.3, Math.cos(ax));
-      scaleW = 1 / Math.max(0.3, Math.cos(ay));
-      diagonalOverscan = 1 + Math.hypot(Math.sin(ax), Math.sin(ay)) * 0.55;
-    }
     const dragOverscan = 3.1;
-    const canvasWRaw = Math.max(baseW * 3.2, baseW * scaleW * diagonalOverscan * dragOverscan);
-    const canvasHRaw = Math.max(baseH * 3.2, baseH * scaleH * diagonalOverscan * dragOverscan);
+    const canvasWRaw = baseW * 3.2;
+    const canvasHRaw = baseH * 3.2;
+    void dragOverscan;
     // Keep CSS and backing geometry on integer CSS pixels to avoid
-    // fractional-size drift between GL and Canvas2D at large canvas sizes.
+    // fractional-size drift at large canvas sizes.
     const canvasW = Math.max(1, Math.round(canvasWRaw));
     const canvasH = Math.max(1, Math.round(canvasHRaw));
     return { canvasW, canvasH };
-  }, [camera3DTransform]);
+  }, []);
 
   const getCanvasPlaneMetrics = useCallback(() => {
     const r = rendererRef.current;
@@ -729,28 +658,6 @@ export default function Visualizer({
 
     const { canvasW, canvasH } = getCanvasTargetSize(rect.width, rect.height);
 
-    // Perspective safety: as canvas plane height grows, large rotateX values
-    // can produce extreme perspective amplification near the top edge. Cap
-    // tilt dynamically so rendered geometry remains stable at high zoom.
-    const cam = camera3DRef.current;
-    if (cam && cam.enabled) {
-      const safeTilt = computeSafeTiltDegrees(canvasH, cam.perspective || 1500);
-      cam.maxTilt = safeTilt;
-      let clamped = false;
-      if (Math.abs(cam.rotateX) > safeTilt) {
-        cam.rotateX = Math.sign(cam.rotateX || 1) * safeTilt;
-        clamped = true;
-      }
-      if (Math.abs(cam.rotateY) > safeTilt) {
-        cam.rotateY = Math.sign(cam.rotateY || 1) * safeTilt;
-        clamped = true;
-      }
-      if (clamped) {
-        setCamera3DTransform(cam.getCanvasTransform());
-        setCamera3DContainerStyle(cam.getContainerStyle());
-      }
-    }
-
     const oldCanvasW = r.canvasWidth || 0;
     const oldCanvasH = r.canvasHeight || 0;
     r.resize(canvasW, canvasH);
@@ -789,7 +696,7 @@ export default function Visualizer({
     r.render();
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
-  }, [getCanvasTargetSize, showMinimap, getMinimapDetailH, updateMinimapAvailability, setCamera3DTransform, setCamera3DContainerStyle]);
+  }, [getCanvasTargetSize, showMinimap, getMinimapDetailH, updateMinimapAvailability]);
 
   // Keep the canvas pinned to the VIEWPORT center (not the container
   // center) so panel collapse/expand transitions don't slide the
@@ -1214,7 +1121,7 @@ export default function Visualizer({
     r.rangeOverlayEnd = rangeOverlayEnd;
     r.multiplesOverlay = multiplesOverlayEnabled;
     r.multiplesOverlayPrime = Math.max(2, multiplesOverlayPrime || 2);
-    r.transparentBackground = mode3D;
+    r.transparentBackground = false;
     r.gridOpacity = Math.max(0.12, Math.min(1, gridOpacity));
     r.canvasBackground = canvasColors ? (canvasColors[theme] || null) : null;
     r.customSetBit = customColors.setBit;
@@ -2029,35 +1936,6 @@ export default function Visualizer({
 
     return animateViewportTo(targetView, options.duration ?? 720).then(() => true);
   }, [animateViewportTo, getMinimapDetailH, applyViewportFit]);
-
-  useEffect(() => {
-    const cam = camera3DRef.current;
-    if (!cam) return;
-    // Enable camera and animate to the default tilt. Keyed on `cameraKey` so
-    // this re-fires whenever the renderer effect creates a new Camera3D
-    // instance (including React StrictMode's double-mount), keeping
-    // cam.enabled always in sync with the mode3D=true React state.
-    //
-    // Do NOT reset rotateX/rotateY here. A freshly-created Camera3D already
-    // initialises them to 0, so the reset would be a no-op in the normal
-    // startup case. In the desync case (enableTiltAndResize() fired before
-    // this effect ran and set rotateX=30), the reset would wrongly wipe that
-    // angle, causing the first right-click drag to start from 0° instead of
-    // the current tilt.
-    cam.perspective = 1500;
-    cam.enable();
-    setCamera3DContainerStyle(cam.getContainerStyle());
-    setCamera3DTransform(cam.getCanvasTransform());
-    schedulePostLayoutRefresh(null);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        refitViewportToContent({ instant: true });
-        const targetTilt = Math.min(30, cam.maxTilt || 30);
-        cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 520);
-      });
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cameraKey]);
 
   const navigateToBit = useCallback((bitIdx, targetKind = 'bit') => {
     const r = rendererRef.current;
@@ -3256,47 +3134,7 @@ export default function Visualizer({
     updateMinimapAvailability();
   }, [getMinimapDetailH, updateMinimapAvailability, applyViewportFit]);
 
-  // Tracks whether the tilt button is in the "tilted" state (30°) or flat (0°).
-  // Initialized to true since the startup animation goes to rotateX=30.
-  const [tiltActive, setTiltActive] = useState(true);
-
-  // Tilt toggle: animates between 0° (flat) and 30° (tilted) in 3D mode.
-  const toggleTilt = useCallback(() => {
-    const cam = camera3DRef.current;
-    if (!cam || !cam.enabled) return;
-    const newTiltActive = !tiltActive;
-    setTiltActive(newTiltActive);
-    const targetTilt = newTiltActive ? Math.min(30, cam.maxTilt || 30) : 0;
-    cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 400);
-  }, [tiltActive]);
-
-  // 3D mode toggle is removed — the app is always in 3D mode.
-  // enableTiltAndResize handles the StrictMode desync case where cam.enabled
-  // is false despite mode3D being always true.
-  const enableTiltAndResize = useCallback(() => {
-    const cam = camera3DRef.current;
-    if (cam && cam.enabled) {
-      // Already in 3D mode — nothing to do.
-      return cam;
-    }
-    if (cam && !cam.enabled) {
-      // StrictMode desync: cam.enabled is false but mode3D is always true.
-      // Re-enable the camera at its current rotateX (preserving any angle set
-      // by the startup animation). If rotateX is still 0, snap to the default
-      // tilt so the first drag starts there.
-      cam.cancelAllAnimations();
-      if (Math.abs(cam.rotateX) < 0.5) cam.rotateX = Math.min(16, cam.maxTilt || 16);
-      cam.perspective = 1500;
-      cam.enable();
-      setCamera3DContainerStyle(cam.getContainerStyle());
-      schedulePostLayoutRefresh(null);
-      requestAnimationFrame(() => requestAnimationFrame(() => refitViewportToContent({ instant: true })));
-      return cam;
-    }
-    return camera3DRef.current;
-  }, [camera3DRef, setCamera3DContainerStyle, schedulePostLayoutRefresh, refitViewportToContent]);
-
-  // Cinematic fly-to on element click (in 3D mode)
+  // Cinematic fly-to on element click
   const flyToElement = useCallback((bitIdx) => {
     const cam = camera3DRef.current;
     const r = rendererRef.current;
@@ -3348,9 +3186,7 @@ export default function Visualizer({
     );
   }, [getCanvasPlaneMetrics]);
 
-  // ensureTiltCamera() is provided by use3DCamera; see src/hooks/use3DCamera.js.
-
-  // Mouse pan & zoom on canvas (with 3D rotation support)
+  // Mouse pan & zoom on canvas
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -3359,7 +3195,6 @@ export default function Visualizer({
     let activePointerId = null;
     let startX = 0, startY = 0, panSX = 0, panSY = 0;
     let didDrag = false;
-    let mouseRotateActive = false;
     let pointerDownCanvasCoords = null;
 
     const eventToCanvasCoords = (event, fallbackClientX = event.clientX, fallbackClientY = event.clientY) => {
@@ -3372,28 +3207,7 @@ export default function Visualizer({
       const { rect, planeW, planeH, planeOffsetX, planeOffsetY } = metrics;
       const x = fallbackClientX - rect.left;
       const y = fallbackClientY - rect.top;
-      const cam = camera3DRef.current;
-      if (cam && cam.enabled) {
-        return cam.screenToCanvas(x, y, planeW, planeH, planeOffsetX, planeOffsetY);
-      }
       return { x: x + planeOffsetX, y: y + planeOffsetY };
-    };
-
-    const onContextMenu = (e) => {
-      // Right-click / ctrl-click is reserved for tilt gestures on the canvas.
-      if (e.button === 2 || e.ctrlKey || e.metaKey) e.preventDefault();
-    };
-
-    const onAuxClick = (e) => {
-      const cam = camera3DRef.current;
-      if (cam && cam.enabled && (e.button === 1 || e.button === 2)) e.preventDefault();
-    };
-
-    const isSecondaryRotateGesture = (event, cam) => {
-      if (!cam) return false;
-      if (event.button === 1 || event.button === 2 || event.which === 3) return true;
-      if (event.button === 0 && (event.ctrlKey || event.metaKey)) return true;
-      return (event.buttons & 2) === 2;
     };
 
     const isPointWithinRect = (clientX, clientY, rect) => (
@@ -3408,13 +3222,11 @@ export default function Visualizer({
     const clearInteraction = () => {
       gestureMode = 'none';
       activePointerId = null;
-      mouseRotateActive = false;
       pointerDownCanvasCoords = null;
       el.classList.remove('dragging');
     };
 
     const onPointerDown = (e) => {
-      if (mouseRotateActive) return;
       const r = rendererRef.current;
       if (!r) return;
       // Don't capture pointer for interactive overlays inside the canvas area.
@@ -3422,30 +3234,6 @@ export default function Visualizer({
       // in .step-focus-banner and .bit-history-panel never fire click events.
       if (e.target.closest('.step-focus-banner, .bit-history-panel, .detail-inspector-overlay')) return;
       const rect = el.getBoundingClientRect();
-      const rawX = e.clientX - rect.left;
-      const rawY = e.clientY - rect.top;
-      const canvasW = rect.width;
-      const canvasH = rect.height;
-
-      const cam = camera3DRef.current;
-      if (isSecondaryRotateGesture(e, cam)) {
-        enableTiltAndResize();
-        // Cancel any in-flight camera animation (e.g. the startup intro tilt)
-        // so the drag starts from whatever angle the camera is at right now.
-        const liveCam = camera3DRef.current;
-        if (liveCam) liveCam.cancelAllAnimations();
-        e.preventDefault();
-        e.stopPropagation();
-        hideHoverBalloon();
-        gestureMode = 'rotate';
-        activePointerId = e.pointerId;
-        startX = e.clientX;
-        startY = e.clientY;
-        didDrag = false;
-        if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
-        el.classList.add('dragging');
-        return;
-      }
 
       // Check minimap hit first.  The minimap is drawn on a position:fixed
       // canvas covering the full viewport, so _minimapRect.mx/my are in
@@ -3478,51 +3266,13 @@ export default function Visualizer({
     };
 
     const onPointerMove = (e) => {
-      if (mouseRotateActive) return;
       const r = rendererRef.current;
       if (!r) return;
-      const cam = camera3DRef.current;
-
-      if (gestureMode === 'none' && cam) {
-        const secondaryPressed = ((e.buttons & 2) === 2) || (((e.buttons & 1) === 1) && (e.ctrlKey || e.metaKey));
-        if (secondaryPressed) {
-          enableTiltAndResize();
-          const liveCam2 = camera3DRef.current;
-          if (liveCam2) liveCam2.cancelAllAnimations();
-          gestureMode = 'rotate';
-          activePointerId = e.pointerId;
-          startX = e.clientX;
-          startY = e.clientY;
-          didDrag = false;
-          if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
-          el.classList.add('dragging');
-          return;
-        }
-      }
 
       if (activePointerId != null && e.pointerId !== activePointerId) return;
 
-      if (gestureMode === 'rotate' && cam && cam.enabled) {
-        hideHoverBalloon();
-        didDrag = true;
-        const next = applyRotate({
-          camera: cam,
-          renderer: r,
-          event: e,
-          startX,
-          startY,
-          getMinimapDetailH,
-          scheduleBalloonRelayout,
-        });
-        startX = next.startX;
-        startY = next.startY;
-        return;
-      }
-
       if (gestureMode === 'minimap') {
         hideHoverBalloon();
-        const rect = el.getBoundingClientRect();
-        // Minimap is on a position:fixed overlay — use viewport coords.
         const hit = r.minimapHitTest(e.clientX, e.clientY);
         if (hit) {
           r.panX = hit.panX;
@@ -3597,16 +3347,10 @@ export default function Visualizer({
     };
 
     const onPointerEnd = (e) => {
-      if (mouseRotateActive) return;
       if (activePointerId != null && e.pointerId !== activePointerId) return;
       const rect = el.getBoundingClientRect();
       const releasedOverCanvas = isPointWithinRect(e.clientX, e.clientY, rect);
       const r = rendererRef.current;
-
-      if (gestureMode === 'rotate') {
-        clearInteraction();
-        return;
-      }
 
       if (gestureMode === 'none' && !releasedOverCanvas) {
         clearInteraction();
@@ -3634,10 +3378,6 @@ export default function Visualizer({
         const coords = pointerDownCanvasCoords || eventToCanvasCoords(e);
         const idx = r.canvasToBitIndex(coords.x, coords.y);
         if (idx >= 0) {
-          const cam = camera3DRef.current;
-          if (cam && cam.enabled) {
-            flyToElement(idx);
-          }
           if ((e.detail || 0) >= 2) {
             setPinnedBitIndices([idx]);
           } else {
@@ -3678,66 +3418,10 @@ export default function Visualizer({
       }, 140);
     };
 
-    const onMouseDown = (e) => {
-      const secondary = e.button === 2 || (e.button === 0 && (e.ctrlKey || e.metaKey));
-      if (!secondary) return;
-      enableTiltAndResize();
-      const liveCam3 = camera3DRef.current;
-      if (liveCam3) liveCam3.cancelAllAnimations();
-      e.preventDefault();
-      e.stopPropagation();
-      hideHoverBalloon();
-      mouseRotateActive = true;
-      gestureMode = 'rotate';
-      activePointerId = null;
-      startX = e.clientX;
-      startY = e.clientY;
-      didDrag = false;
-      el.classList.add('dragging');
-    };
-
-    const onMouseMove = (e) => {
-      if (!mouseRotateActive) return;
-      const cam = camera3DRef.current;
-      const r = rendererRef.current;
-      if (!cam || !cam.enabled || !r) {
-        clearInteraction();
-        return;
-      }
-      const stillSecondary = (e.buttons & 2) === 2 || ((e.buttons & 1) === 1 && (e.ctrlKey || e.metaKey));
-      if (!stillSecondary) {
-        clearInteraction();
-        return;
-      }
-      didDrag = true;
-      const next = applyRotate({
-        camera: cam,
-        renderer: r,
-        event: e,
-        startX,
-        startY,
-        getMinimapDetailH,
-        updateMinimapAvailability,
-        scheduleBalloonRelayout,
-      });
-      startX = next.startX;
-      startY = next.startY;
-    };
-
-    const onMouseUp = () => {
-      if (!mouseRotateActive) return;
-      clearInteraction();
-    };
-
     el.addEventListener('pointerdown', onPointerDown);
-    el.addEventListener('contextmenu', onContextMenu);
-    el.addEventListener('auxclick', onAuxClick);
-    el.addEventListener('mousedown', onMouseDown);
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerEnd);
     window.addEventListener('pointercancel', onPointerEnd);
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
     el.addEventListener('wheel', onWheel, { passive: false });
     const onMouseLeave = () => {
       if (gestureMode === 'none') {
@@ -3750,18 +3434,13 @@ export default function Visualizer({
 
     return () => {
       el.removeEventListener('pointerdown', onPointerDown);
-      el.removeEventListener('contextmenu', onContextMenu);
-      el.removeEventListener('auxclick', onAuxClick);
-      el.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerEnd);
       window.removeEventListener('pointercancel', onPointerEnd);
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [computeBitInfo, flyToElement, getCanvasPlaneMetrics, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout, balloonsEnabled, balloonClickEnabled, balloonHoverEnabled]);
+  }, [computeBitInfo, getCanvasPlaneMetrics, getMinimapDetailH, updateMinimapAvailability, scheduleBalloonRelayout, balloonsEnabled, balloonClickEnabled, balloonHoverEnabled]);
 
   // Keyboard shortcuts — see src/hooks/useKeyboardShortcuts.js for the full key map.
   useKeyboardShortcuts({
@@ -3930,61 +3609,24 @@ export default function Visualizer({
     };
   }, [eventTitleSettings]);
 
-  const renderCanvasStyle = useMemo(() => (
-    // Unified: canvas is ALWAYS the oversized centered plane,
-    // regardless of mode3D. mode3D only controls whether the
-    // camera is tilted; the canvas placement is identical. This
-    // is what eliminates the "2D in a different place than 3D"
-    // jump on toggle and the placement drift on panel toggles.
-    //
-    // Applied to .canvas-transform-wrapper (not to canvas elements directly)
-    // so that the 3D CSS transform lives on a div, not on the drawing canvases.
-    // Safari creates one GPU compositing layer per element that has a 3D
-    // transform; when a canvas in that layer draws, Safari briefly exposes a
-    // black backing store during the GPU texture upload → visible black flash.
-    // With a single wrapper div the three canvases share one GPU layer and
-    // draw updates are atomic with respect to the compositor.
-    //
-    // left/top use pixel offsets from `canvasAnchorPx` (computed so
-    // that the canvas center sits at the VIEWPORT center, not the
-    // container center). When a side panel toggles the container
-    // reshapes; without viewport anchoring the canvas's `50%/50%`
-    // moves with the container and the user sees the content slide.
-    {
-      position: 'absolute',
-      left: canvasAnchorPx ? `${canvasAnchorPx.left}px` : '50%',
-      top: canvasAnchorPx ? `${canvasAnchorPx.top}px` : '50%',
-      transform: `translate(-50%, -50%)${camera3DTransform !== 'none' ? ` ${camera3DTransform}` : ''}`,
-      // transformStyle:'preserve-3d' is deliberately omitted from the wrapper
-      // div. The wrapper has no 3D-positioned children, so preserve-3d on it
-      // would create a nested 3D compositing context that is unnecessary.
-      // The container's preserve-3d (set by .canvas-container.mode-3d CSS)
-      // is sufficient for the wrapper's CSS rotateX/Y tilt to render correctly.
-      transformOrigin: '50% 50%',
-    }
-  ), [camera3DTransform, canvasAnchorPx]);
+  const renderCanvasStyle = useMemo(() => ({
+    // Canvas is the oversized centered plane. left/top use pixel offsets from
+    // canvasAnchorPx so the canvas center sits at the VIEWPORT center rather
+    // than the container center. This prevents content from sliding when side
+    // panels collapse/expand and the container reshapes.
+    position: 'absolute',
+    left: canvasAnchorPx ? `${canvasAnchorPx.left}px` : '50%',
+    top: canvasAnchorPx ? `${canvasAnchorPx.top}px` : '50%',
+    transform: 'translate(-50%, -50%)',
+    transformOrigin: '50% 50%',
+  }), [canvasAnchorPx]);
 
-  // Merge a px-based `perspectiveOrigin` into the container style so the
-  // 3D vanishing point sits at the VIEWPORT center, matching where the
-  // canvas itself is anchored. The Camera3D default is `50% 50%` of the
-  // container, but the container reshapes when side panels toggle, so
-  // its center moves in viewport space \u2014 producing a large projected
-  // offset (especially noticeable with the events panel on the left,
-  // which shifts the container's left edge by hundreds of px). Pinning
-  // perspective-origin to the canvas anchor keeps the projection stable.
-  const mergedCamera3DContainerStyle = useMemo(() => {
-    // Derive the effective canvas background: user override (if any) or theme default.
-    // Themes.dark.BACKGROUND = [26,26,26], Themes.light.BACKGROUND = [245,245,245].
+  const canvasContainerStyle = useMemo(() => {
     const THEME_BG = { dark: [26, 26, 26], light: [245, 245, 245] };
     const customBg = canvasColors && canvasColors[theme];
     const bg = customBg || THEME_BG[theme] || THEME_BG.dark;
-    const bgCss = `rgb(${bg[0]},${bg[1]},${bg[2]})`;
-    const base = !canvasAnchorPx ? camera3DContainerStyle : {
-      ...camera3DContainerStyle,
-      perspectiveOrigin: `${canvasAnchorPx.left}px ${canvasAnchorPx.top}px`,
-    };
-    return { ...base, background: bgCss };
-  }, [camera3DContainerStyle, canvasAnchorPx, canvasColors, theme]);
+    return { background: `rgb(${bg[0]},${bg[1]},${bg[2]})` };
+  }, [canvasColors, theme]);
 
   // (legacy playSpeed-based label/value/setters removed; speed is now driven
   // by playSpeedPercent and per-event time targets — see SettingsPanel.)
@@ -4355,8 +3997,6 @@ export default function Visualizer({
         zoom={zoom}
         doZoom={doZoom}
         resetZoom={resetZoom}
-        tiltActive={tiltActive}
-        toggleTilt={toggleTilt}
         heatMapEnabled={heatMapEnabled}
         setHeatMapEnabled={setHeatMapEnabled}
         primeOverlayEnabled={primeOverlayEnabled}
@@ -4394,7 +4034,7 @@ export default function Visualizer({
            clipped; canvas-area inside already clips the canvas with its own
            overflow:hidden. */}
       <div
-        className={`main-content${mode3D ? ' mode-3d' : ''}`}
+        className="main-content"
         style={{ '--events-panel-width': `${eventsPanelCollapsed ? 0 : panelWidth}px` }}
       >
         <EventsPanel
@@ -4426,11 +4066,10 @@ export default function Visualizer({
           onShowEventTitle={showEventTitleAboveCurrentDetail}
         />
         <CanvasStage
-          mode3D={mode3D}
           containerRef={containerRef}
           canvasRef={canvasRef}
           wrapperCanvasRef={wrapperCanvasRef}
-          camera3DContainerStyle={mergedCamera3DContainerStyle}
+          containerStyle={canvasContainerStyle}
           renderCanvasStyle={renderCanvasStyle}
           eventTitleSettings={eventTitleSettings}
           setEventTitleSettings={setEventTitleSettings}

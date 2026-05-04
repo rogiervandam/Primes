@@ -23,16 +23,14 @@ import TimingPanel from '../TimingPanel';
  * not require touching this file.
  */
 function CanvasStage({
-  // layout flags
-  mode3D,
   // canvas refs (owned by parent, attached here)
   containerRef,
   canvasRef,
-  // wrapper div ref — receives the 3D CSS transform so canvas elements stay
-  // flat (no per-canvas GPU layers in Safari → no black flicker)
+  // wrapper div ref — receives the CSS translate transform so canvas elements
+  // stay centered on the viewport even as side panels resize the container
   wrapperCanvasRef,
   // styling
-  camera3DContainerStyle,
+  containerStyle,
   renderCanvasStyle,
   // event title banner
   eventTitleSettings,
@@ -96,7 +94,7 @@ function CanvasStage({
   allEventsTransport,
 }) {
   return (
-    <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
+    <div className="canvas-area">
       {eventTitleSettings.visible && !widgetsJoined && (
         <EventTitleBanner
           settings={eventTitleSettings}
@@ -117,16 +115,13 @@ function CanvasStage({
         />
       )}
       <div
-        className={`canvas-container${mode3D ? ' mode-3d' : ''}`}
+        className="canvas-container"
         ref={containerRef}
-        style={camera3DContainerStyle}
+        style={containerStyle}
       >
-        {/* Wrapper div receives the 3D CSS transform (translate + rotateX/Y).
-            Keeping the transform on a div instead of the canvas elements
-            prevents Safari from creating one GPU compositing layer per canvas,
-            which caused black flicker during drawing (GPU texture upload
-            momentarily exposing a black/cleared layer). All three canvases
-            are flat children of this wrapper and share its GPU layer. */}
+        {/* Wrapper div receives the CSS translate centering transform.
+            Keeping it on a div instead of the canvas elements avoids Safari
+            creating one GPU compositing layer per canvas. */}
         <div ref={wrapperCanvasRef} className="canvas-transform-wrapper" style={renderCanvasStyle}>
           <canvas
             ref={canvasRef}
