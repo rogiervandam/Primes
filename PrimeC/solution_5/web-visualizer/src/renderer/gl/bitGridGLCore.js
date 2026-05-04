@@ -305,6 +305,9 @@ export class BitGridGLCore {
     if (this.posTex) gl.deleteTexture(this.posTex);
     if (this.stateTex) gl.deleteTexture(this.stateTex);
     if (this.animTex) gl.deleteTexture(this.animTex);
+    // Invalidate the state-expansion buffer so uploadStateBuffer reallocates
+    // it at the new slot count.
+    this._stateRgbaBuffer = null;
 
     this.posTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, this.posTex);
@@ -369,9 +372,16 @@ export class BitGridGLCore {
     if (this._lost || !this.gl || !this.stateTex) return;
     const gl = this.gl;
     // Expand the 1-byte-per-slot state buffer into RGBA8 (state in R, zeros in GBA).
+    // Using RGBA8 rather than R8UI avoids INVALID_OPERATION on OffscreenCanvas.
+    // Reuse a cached buffer to avoid a 4× allocation on every state upload.
     const slots = this.texW * this.texH;
-    const rgba = new Uint8Array(slots * 4);
-    for (let i = 0; i < buf.length && i < slots; i++) rgba[i * 4] = buf[i];
+    if (!this._stateRgbaBuffer || this._stateRgbaBuffer.length !== slots * 4) {
+      this._stateRgbaBuffer = new Uint8Array(slots * 4);
+      // G, B, A channels are always zero; they only need initialising once.
+    }
+    const rgba = this._stateRgbaBuffer;
+    const n = Math.min(buf.length, slots);
+    for (let i = 0; i < n; i++) rgba[i * 4] = buf[i];
     gl.bindTexture(gl.TEXTURE_2D, this.stateTex);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
     gl.texSubImage2D(

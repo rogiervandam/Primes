@@ -2086,6 +2086,165 @@ export class SieveRenderer {
     return { x, y };
   }
 
+  /**
+   * Batch-optimised version of `bitIndexToCanvas` for all bits at once.
+   * Hoists every invariant layout calculation out of the loop, builds two
+   * 8-element lookup arrays for byte/bit positions, then runs a tight loop
+   * with only integer arithmetic and array lookups per bit — no method
+   * calls, no object allocations, no `this` property lookups inside the
+   * hot path.
+   *
+   * Used by `packPositions` in `hostStatePacker.js` as a fast-path.
+   * `panX`/`panY` cancel out (bitIndexToCanvas adds them; packPositions
+   * subtracts them) so they are omitted here.
+   *
+   * @param {Float32Array} buf   Pre-allocated buffer, `slots * 2` long.
+   * @param {number}       slots Texture slot count (`texW * texH`).
+   */
+  packPositionsDirect(buf, slots) {
+    const bitCount = Math.min(this.bitCount || 0, slots);
+    const canvasW  = Math.max(1, this.canvasWidth  || 1);
+    const canvasH  = Math.max(1, this.canvasHeight || 1);
+
+    // ── Invariant layout values (computed once) ─────────────────────────
+    const bitsPerCacheLine = this.bitsPerCacheLine;
+    const u64sPerCL  = Math.max(1, Math.ceil(bitsPerCacheLine / 64));
+    const vectorGroup = this.vectorGroup;
+
+    const zoom       = this.zoom;
+    const pixelSize  = this.pixelSize;
+    const px         = pixelSize * zoom;
+    const pxHalf     = px / 2;
+
+    const bitSpacingH  = this.bitSpacingH;
+    const bitSpacingV  = this.bitSpacingV;
+    const byteSpacingH = this.byteSpacingH;
+    const byteSpacingV = this.byteSpacingV;
+    const u64SpacingH  = this.u64SpacingH;
+    const u64SpacingV  = this.u64SpacingV;
+
+    const bitStepX  = (pixelSize + bitSpacingH) * zoom;
+    const bitStepY  = (pixelSize + bitSpacingV) * zoom;
+    const byteGapX  = (bitSpacingH + byteSpacingH) * zoom;
+    const byteGapY  = (bitSpacingV + byteSpacingV) * zoom;
+    const u64GapX   = (bitSpacingH + byteSpacingH + u64SpacingH) * zoom;
+    const u64GapY   = (bitSpacingV + byteSpacingV + u64SpacingV) * zoom;
+
+    // byteDims
+    const bitBl    = BIT_LAYOUTS[this.bitLayout];
+    const bitCols  = bitBl.grid3x3 ? 3 : bitBl.cols;
+    const bitRows  = bitBl.grid3x3 ? 3 : bitBl.rows;
+    const byteDimW = bitCols * px + (bitCols - 1) * bitSpacingH * zoom;
+    const byteDimH = bitRows * px + (bitRows - 1) * bitSpacingV * zoom;
+
+    // Build byte-in-u64 lookup tables (8 entries max)
+    const byteBl      = BYTE_LAYOUTS[this.byteLayout];
+    const activeBytes = Math.max(1, Math.min(8, Math.ceil(this._logicalGroupBits() / 8)));
+    const byteColLookup = new Int32Array(activeBytes);
+    const byteRowLookup = new Int32Array(activeBytes);
+    let minBCol = Infinity, maxBCol = -Infinity;
+    let minBRow = Infinity, maxBRow = -Infinity;
+    for (let b = 0; b < activeBytes; b++) {
+      let col, row;
+      if (byteBl.grid3x3) {
+        const cell = GRID3X3_MAP[b];
+        col = cell % 3;
+        row = Math.floor(cell / 3);
+      } else {
+        col = b % byteBl.cols;
+        row = Math.floor(b / byteBl.cols);
+      }
+      byteColLookup[b] = col;
+      byteRowLookup[b] = row;
+      if (col < minBCol) minBCol = col;
+      if (col > maxBCol) maxBCol = col;
+      if (row < minBRow) minBRow = row;
+      if (row > maxBRow) maxBRow = row;
+    }
+
+    // u64Dims (derived from byte layout extents)
+    const u64Cols  = Number.isFinite(minBCol) ? (maxBCol - minBCol + 1) : (byteBl.grid3x3 ? 3 : byteBl.cols);
+    const u64Rows  = Number.isFinite(minBRow) ? (maxBRow - minBRow + 1) : (byteBl.grid3x3 ? 3 : byteBl.rows);
+    const u64DimW  = u64Cols * byteDimW + (u64Cols - 1) * byteGapX;
+    const u64DimH  = u64Rows * byteDimH + (u64Rows - 1) * byteGapY;
+
+    // vectorDims / steps
+    const vecDimW  = vectorGroup * u64DimW + (vectorGroup - 1) * u64GapX;
+    const vecStep  = vecDimW + u64GapX;   // vecD.w + u64GapX
+    const u64Step  = u64DimW + u64GapX;   // u64D.w + vecD.intraGap
+
+    // byteSteps
+    const byteStepX = byteDimW + byteGapX;
+    const byteStepY = byteDimH + byteGapY;
+
+    // numVectorsPerRow and vecPerRow
+    const numVec   = Math.max(1, Math.ceil(u64sPerCL / vectorGroup));
+    const vecPerRow = this._vectorGroupsPerVisualRow();
+
+    // label height and row height
+    const labelH    = this._labelHeight();
+    const vRowHeight = labelH + u64DimH + u64GapY;
+
+    // Build bit-in-byte lookup tables (always 8 entries)
+    const bitColLookup = new Int32Array(8);
+    const bitRowLookup = new Int32Array(8);
+    for (let b = 0; b < 8; b++) {
+      if (bitBl.grid3x3) {
+        const cell = GRID3X3_MAP[b];
+        bitColLookup[b] = cell % 3;
+        bitRowLookup[b] = Math.floor(cell / 3);
+      } else {
+        bitColLookup[b] = b % bitBl.cols;
+        bitRowLookup[b] = Math.floor(b / bitBl.cols);
+      }
+    }
+
+    // ── Hot loop: integer arithmetic + array lookups only ────────────────
+    for (let i = 0; i < bitCount; i++) {
+      const clIdx    = Math.floor(i / bitsPerCacheLine);
+      const bitInRow = i % bitsPerCacheLine;
+      const u64Idx   = Math.floor(bitInRow / 64);
+
+      if (u64Idx >= u64sPerCL) {
+        buf[i * 2]     = -1;
+        buf[i * 2 + 1] = -1;
+        continue;
+      }
+
+      const bitInU64  = bitInRow % 64;
+      const byteIdx   = Math.floor(bitInU64 / 8);
+      const bitInByte = bitInU64 % 8;
+
+      const vecIdx            = Math.floor(u64Idx / vectorGroup);
+      const globalVectorIndex = clIdx * numVec + vecIdx;
+      const vRow              = Math.floor(globalVectorIndex / vecPerRow);
+      const vecInRow          = globalVectorIndex % vecPerRow;
+      const intraIdx          = u64Idx % vectorGroup;
+
+      // panX/panY cancel with packPositions subtraction, so omitted.
+      const x = vecInRow * vecStep
+              + intraIdx * u64Step
+              + byteColLookup[byteIdx]   * byteStepX
+              + bitColLookup[bitInByte]  * bitStepX
+              + pxHalf;
+
+      const y = vRow * vRowHeight
+              + labelH
+              + byteRowLookup[byteIdx]   * byteStepY
+              + bitRowLookup[bitInByte]  * bitStepY
+              + pxHalf;
+
+      buf[i * 2]     = x / canvasW;
+      buf[i * 2 + 1] = y / canvasH;
+    }
+
+    // Pad unused slots with the off-screen sentinel.
+    for (let i = bitCount; i < slots; i++) {
+      buf[i * 2]     = -1;
+      buf[i * 2 + 1] = -1;
+    }
+  }
+
   getBitInfo(bitIdx) {
     if (bitIdx < 0 || bitIdx >= this.bitCount) return '';
     const number = bitToNumber(bitIdx, this.storageModel, this.wheelDefinition);
@@ -2409,8 +2568,8 @@ export class SieveRenderer {
     this._endGLAnim(glCtx);
   }
 
-  renderMaskHover(progress) {
-    const slotGroups = this._maskEntriesBySlot();
+  renderMaskHover(progress, precomputedSlotGroups = null) {
+    const slotGroups = precomputedSlotGroups || this._maskEntriesBySlot();
     if (slotGroups.length === 0) return;
 
     const px = this.pixelSize * this.zoom;

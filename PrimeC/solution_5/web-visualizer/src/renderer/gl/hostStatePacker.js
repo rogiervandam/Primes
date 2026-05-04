@@ -23,6 +23,14 @@ import { bitToNumber } from '../bitMath';
  * `slots * 2` long.
  */
 export function packPositions(host, buf, slots) {
+  // Fast path: SieveRenderer exposes a batch-optimised packer that hoists
+  // all invariant layout calculations out of the per-bit loop and avoids
+  // per-bit object allocations and method calls entirely.
+  if (typeof host.packPositionsDirect === 'function') {
+    host.packPositionsDirect(buf, slots);
+    return;
+  }
+
   const bitCount = Math.min(host.bitCount || 0, slots);
   const panX = host.panX || 0;
   const panY = host.panY || 0;

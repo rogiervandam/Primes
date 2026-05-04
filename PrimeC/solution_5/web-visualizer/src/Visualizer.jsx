@@ -966,7 +966,7 @@ export default function Visualizer({
     const cam = camera3DRef.current;
     if (cam && cam.enabled) {
       const safeTilt = computeSafeTiltDegrees(canvasH, cam.perspective || 1500);
-      cam.maxTilt = safeTilt;
+      cam.maxTilt = safeTilt * 10; // alow some user experimentation
       let clamped = false;
       if (Math.abs(cam.rotateX) > safeTilt) {
         cam.rotateX = Math.sign(cam.rotateX || 1) * safeTilt;
@@ -3171,6 +3171,17 @@ export default function Visualizer({
     let prevTickAt = startedAt;
     const initialMaskInterval = maskInterval;
 
+    // Pre-compute bits for each mask entry so _maskEntryBits isn't called every frame.
+    const entryBitsCache = new Map();
+    if (slotGroups.length > 0) {
+      for (let gi = 0; gi < slotGroups.length; gi++) {
+        const entries = slotGroups[gi];
+        for (let ei = 0; ei < entries.length; ei++) {
+          entryBitsCache.set(entries[ei], r._maskEntryBits(entries[ei]));
+        }
+      }
+    }
+
     if (rippleRef.current) {
       cancelAnimationFrame(rippleRef.current);
       rippleRef.current = null;
@@ -3236,7 +3247,7 @@ export default function Visualizer({
             for (let entryIndex = 0; entryIndex < entries.length; entryIndex++) {
               const isStamped = entryIndex < index || entryIndex === index || (entryIndex === index + 1 && local > 0.78);
               if (isStamped) continue;
-              const bitsForEntry = r._maskEntryBits(entries[entryIndex]);
+              const bitsForEntry = entryBitsCache.get(entries[entryIndex]) || [];
               for (let bitIndex = 0; bitIndex < bitsForEntry.length; bitIndex++) ghostBits.add(bitsForEntry[bitIndex]);
             }
           }
@@ -3245,9 +3256,11 @@ export default function Visualizer({
         }
         r.setMaskGhostBits(ghostBits);
         r.render();
-        if (orderedWrites > 0) r.renderMaskHover(t);
+        if (orderedWrites > 0) r.renderMaskHover(t, slotGroups);
         else r.renderMaskStamp(t);
-        r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
+        // Skip minimap on mid-animation frames — the viewport doesn't change
+        // during animation so it would render the same content every frame.
+        // Render it once at completion below.
         if (t < 1) {
           rippleRef.current = requestAnimationFrame(tick);
           return;
@@ -3557,10 +3570,23 @@ export default function Visualizer({
           if (revealedCount !== lastRevealedCount || isBounce) {
             renderFrame(revealedCount, focusBit, t);
             lastRevealedCount = revealedCount;
-          } else if (stepScrubProgressRef.current) {
+          } else {
             // Update the slider even on frames where no new bit appeared so
             // the timeline keeps moving smoothly inside long inter-bit gaps.
-            stepScrubProgressRef.current(Math.round(t * 100));
+            if (stepScrubProgressRef.current) stepScrubProgressRef.current(Math.round(t * 100));
+            // Re-render active motion trails every frame so their time-based
+            // fade animates at full 60 fps even when no new bit was revealed.
+            if (!isBounce && r.bitMotionTrails && r.bitMotionTrails.length > 0) {
+              r.render();
+              r.renderBitMotionTrails();
+              if (animStyle === 'ripple' && r.animationFocusBits && r.animationFocusBits.size > 0) {
+                r.renderRipple(0.18, r.animationFocusBits, { intensity: 1.05, showBeacon: true });
+              } else if (animStyle === 'pulse' && r.animationFocusBits && r.animationFocusBits.size > 0) {
+                r.renderPulse(0.28, r.animationFocusBits, { intensity: 1.15, showHalo: true });
+              } else if (animStyle === 'fade' && r.changedBits && r.changedBits.size > 0) {
+                r.renderFade(0.35);
+              }
+            }
           }
 
           if (t >= 1) {

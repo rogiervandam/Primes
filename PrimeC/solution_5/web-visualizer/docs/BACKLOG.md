@@ -92,7 +92,10 @@ with settings/detail/sidebar workflows.
 13 In settings -> layout panel -> Autofit. when turning auto fit off, start at the count that was set by auto fit.
 
 14 Change the nearby events: (1) Don't have "current" as the name, but the the Title with the same font, style and size as on the widget itself. Keep the play button in front of it; (2) make it possible to have the nearby events instead of the title.
- 
+
+15 When search is clicked, change it into the input box. The input box should be in the top bar in the place the search button was. When the input box is open, the search button should be a "close" button. When the user clicks the close button, it should close the input box and show the search button again.
+
+
 
 ## New Ideas
 
