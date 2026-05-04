@@ -105,6 +105,14 @@
   color: var(--fg-muted);
   min-height: 28px;
 }
+/* Docked to detail panel: no far-right actions column; controls are wider */
+.step-focus-slider-row.step-focus-slider-row--docked {
+  grid-template-columns: 56px minmax(0, 1fr);
+}
+.step-focus-slider-row.step-focus-slider-row--docked .step-focus-slider-value {
+  flex-shrink: 0;
+  text-align: left;
+}
 .step-focus-slider-row input[type="range"] { width: 100%; max-width: 260px; }
 .step-focus-slider-label { text-transform: uppercase; letter-spacing: 0.04em; }
 .step-focus-slider-value { font-variant-numeric: tabular-nums; text-align: right; color: var(--fg); }

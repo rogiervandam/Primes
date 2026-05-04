@@ -545,6 +545,9 @@ export default function Visualizer({
   // dragged it onto the top bar). Reset each time the events panel is
   // collapsed so the widget reliably reappears on the next toggle.
   const [allEventsWidgetHidden, setAllEventsWidgetHidden] = useState(initialPrefs.allEventsWidgetHidden);
+  // Hidden until the user first hits play or selects an event — avoids
+  // showing an empty/irrelevant widget during the opening animation.
+  const [singleEventWidgetRevealed, setSingleEventWidgetRevealed] = useState(false);
   // When true the all-events transport (timeline + nav) is shown inside the
   // detail panel (user dropped the joined widget onto the detail panel).
   const [allEventsInDetailPanel, setAllEventsInDetailPanel] = useState(initialPrefs.allEventsInDetailPanel);
@@ -605,6 +608,10 @@ export default function Visualizer({
   //   'tilting' — camera animates from flat to saved tilt angle
   //   'visible' — animation complete, panels may open
   const [introPhase, setIntroPhase] = useState('hidden');
+  // Playback controls in the top toolbar appear shortly after loading finishes.
+  // Until then, the toolbar only shows a disabled timeline scrubber as a
+  // loading progress indicator.
+  const [topbarPlaybackReady, setTopbarPlaybackReady] = useState(false);
   // Topbar transport controls are hidden automatically whenever the floating
   // all-events widget is visible (events panel collapsed + widget not docked).
   const controlsHidden = eventsPanelCollapsed && !allEventsWidgetHidden;
@@ -628,6 +635,15 @@ export default function Visualizer({
   // as a content shift on every panel toggle. Updated by a ResizeObserver
   // on the container so the anchor tracks the panel's CSS transition.
   const [canvasAnchorPx, setCanvasAnchorPx] = useState(null);
+
+  useEffect(() => {
+    if (!loadComplete) {
+      setTopbarPlaybackReady(false);
+      return;
+    }
+    const timer = setTimeout(() => setTopbarPlaybackReady(true), 500);
+    return () => clearTimeout(timer);
+  }, [loadComplete]);
 
   // 3D camera state
   // The app always uses 3D mode; the camera is always enabled. The tilt
@@ -2376,6 +2392,13 @@ export default function Visualizer({
       // Zoom to fit on first render
       if (!initialFitDoneRef.current) {
         applyViewportFit(r, rect.width, rect.height);
+        // Shift view so the first rendered cacheline row is centered.
+        // Using cacheline bounds is more stable than bit 0 for mixed layouts.
+        const firstRow = r.getElementBounds('cacheline', 0);
+        if (firstRow) {
+          const targetY = (r.canvasHeight || rect.height) / 2;
+          r.panY += targetY - firstRow.cy;
+        }
         setZoom(r.zoom);
         r.freezeLayout();
         initialFitDoneRef.current = true;
@@ -3778,20 +3801,23 @@ export default function Visualizer({
     if (steps.length > 0) {
       autoplayStartedRef.current = false;
       initialHighlightHoldRef.current = true;
+      setSingleEventWidgetRevealed(false);
       const raf = requestAnimationFrame(() => goToStep(0, { suppressHighlight: true }));
       return () => cancelAnimationFrame(raf);
     }
   }, [steps]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    if (introPhase !== 'visible') return;
     if (autoRender || steps.length <= 1 || autoplayStartedRef.current) return;
     const timer = setTimeout(() => {
       autoplayStartedRef.current = true;
       initialHighlightHoldRef.current = false;
+      setSingleEventWidgetRevealed(true);
       setPlaying(true);
-    }, 260);
+    }, 2000);
     return () => clearTimeout(timer);
-  }, [autoRender, steps.length]);
+  }, [introPhase, autoRender, steps.length]);
 
   const buildCombinedSelectionOverlay = useCallback((selection) => {
     const indices = Array.from(selection)
@@ -3865,6 +3891,7 @@ export default function Visualizer({
 
   const handleStepSelection = useCallback((stepIndex) => {
     stopPlayback();
+    setSingleEventWidgetRevealed(true);
     goToStep(stepIndex);
   }, [stopPlayback, goToStep]);
 
@@ -3994,6 +4021,8 @@ export default function Visualizer({
   //  - Playing: set pause flag (in-flight loops freeze in place) and stop the
   //    scheduler. Refs are NOT torn down so resume can pick up.
   const handlePlayPause = useCallback(() => {
+    // Reveal the single-event widget on first play interaction.
+    setSingleEventWidgetRevealed(true);
     // Resume from a pause-in-flight (could be paused via toolbar or banner).
     if (globalPausedRef.current) {
       globalPausedRef.current = false;
@@ -4851,7 +4880,7 @@ export default function Visualizer({
         ? 'translate(-50%, -50%) scale(0.02)'
         : 'translate(-50%, -50%)',
       transition: introPhase === 'scaling'
-        ? 'transform 550ms cubic-bezier(0.22, 1, 0.36, 1), opacity 350ms ease-out'
+        ? 'transform 2800ms cubic-bezier(0.22, 1, 0.36, 1), opacity 2000ms ease-out'
         : undefined,
       opacity: introPhase === 'hidden' ? 0 : 1,
       transformStyle: 'preserve-3d',
@@ -5193,6 +5222,7 @@ export default function Visualizer({
       playing={playing}
       exporting={exporting}
       onOpenAnimationSettings={openAnimationSettings}
+      docked={allEventsInDetailPanel}
     />
   );
 
@@ -5241,6 +5271,10 @@ export default function Visualizer({
         exporting={exporting}
         setPlaySpeedPercent={setPlaySpeedPercent}
         isScrubbingTopRef={isScrubbingTopRef}
+        loadComplete={loadComplete}
+        loadProgress={loadProgress}
+        loadTargetCount={header.stepCount || 0}
+        topbarPlaybackReady={topbarPlaybackReady}
         searchOpen={searchOpen}
         setSearchOpen={setSearchOpen}
         searchQuery={searchQuery}
@@ -5412,8 +5446,9 @@ export default function Visualizer({
           allEventsTransport={allEventsTransportContent}
           introPhase={introPhase}
           onIntroTransitionEnd={() => setIntroPhase('visible')}
+          singleEventWidgetRevealed={singleEventWidgetRevealed}
         />
-        {widgetsJoined && eventsPanelCollapsed && !allEventsWidgetHidden && eventTitleSettings.visible && (
+        {widgetsJoined && eventsPanelCollapsed && !allEventsWidgetHidden && eventTitleSettings.visible && singleEventWidgetRevealed && (
           <JoinedEventsWidget
             currentStep={currentStep}
             steps={steps}

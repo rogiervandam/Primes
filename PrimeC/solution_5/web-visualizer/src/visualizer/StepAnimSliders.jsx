@@ -27,6 +27,8 @@ function StepAnimSliders({
   playing,
   exporting,
   onOpenAnimationSettings,
+  // When true, renders progress% and gear inline next to the slider (docked to detail panel)
+  docked = false,
 }) {
   // Wipe overlay: 0..100, animates forward over delayPhaseMs when in delay
   // phase, reverses smoothly when the delay is cancelled/scrubbed.
@@ -116,7 +118,7 @@ function StepAnimSliders({
 
   return (
     <>
-      <div className="step-focus-slider-row" title="Scrub through this event's animation">
+      <div className={`step-focus-slider-row${docked ? ' step-focus-slider-row--docked' : ''}`} title="Scrub through this event's animation">
         <span className="step-focus-slider-label">Timeline</span>
         <div className="step-focus-slider-controls">
           <button
@@ -125,7 +127,6 @@ function StepAnimSliders({
             onClick={(e) => { e.stopPropagation(); handleStepAnimToggle(); }}
             onMouseDown={(e) => e.stopPropagation()}
             title={(playing || stepAnimRunning || singleEventLoopActive) && !animationReplayPaused ? 'Pause the timeline animation' : 'Play the timeline animation at the current Speed'}
-            disabled={timelineDisabled}
           >
             {(playing || stepAnimRunning || singleEventLoopActive) && !animationReplayPaused ? <Pause size={16} /> : <Play size={16} />}
           </button>
@@ -148,21 +149,39 @@ function StepAnimSliders({
               disabled={timelineDisabled}
             />
           </div>
-        </div>
-        <div className="step-focus-slider-actions">
-          <span className="step-focus-slider-value">{stepScrubProgress}%</span>
-          {onOpenAnimationSettings && (
-            <button
-              type="button"
-              className="step-focus-gear-btn"
-              onClick={(e) => { e.stopPropagation(); onOpenAnimationSettings(); }}
-              onMouseDown={(e) => e.stopPropagation()}
-              title="Open animation settings"
-            >
-              <Settings size={16} />
-            </button>
+          {docked && (
+            <>
+              <span className="step-focus-slider-value">{stepScrubProgress}%</span>
+              {onOpenAnimationSettings && (
+                <button
+                  type="button"
+                  className="step-focus-gear-btn"
+                  onClick={(e) => { e.stopPropagation(); onOpenAnimationSettings(); }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  title="Open animation settings"
+                >
+                  <Settings size={16} />
+                </button>
+              )}
+            </>
           )}
         </div>
+        {!docked && (
+          <div className="step-focus-slider-actions">
+            <span className="step-focus-slider-value">{stepScrubProgress}%</span>
+            {onOpenAnimationSettings && (
+              <button
+                type="button"
+                className="step-focus-gear-btn"
+                onClick={(e) => { e.stopPropagation(); onOpenAnimationSettings(); }}
+                onMouseDown={(e) => e.stopPropagation()}
+                title="Open animation settings"
+              >
+                <Settings size={16} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
 

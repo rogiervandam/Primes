@@ -78,7 +78,7 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 5 when the single event widget is docked to the detail panel, don't show the %progress and gear icon on the far right, but just to the right on the timeline slider, as it looked on the single event widget.
 
-6 In settings -> layout panel -> Autofit. When turning auto fit off, start at the count that was set by auto fit.
+6 In settings -> layout panel -> Autofit. When turning auto fit off, start at the count that was set by auto fit. And allow for more than 64 columns. 
 
 7 Change the nearby events: (1) Don't have "current" as the name, but the the Title with the same font, style and size as on the widget itself. Keep the play button in front of it; (2) make it possible to have the nearby events instead of the title.
 
@@ -90,6 +90,14 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 (3) upon getting the event, start a async render of the canvas. Animate it from infinitely small to the full size (streight, 2d) and then do the transform from 2d to 3d tilted. This way the user can see something is happening immediately, and the animation will be delightful.
 (4) regularly broadcast the amount of log files streamed. When the first 100 lines are loaded, start an async populating the DOM in the events panel. When it is filled to the window height, If the user had the event panel and/or settings opened in the last session, wait for the animation to finish and then open these panels (these should always open with a animation).
 (5) do a lazy loading of the events panel: only populate the dom for the first 100 and then visible events, and then populate more as the user scrolls. This way we can handle very large logs without freezing the browser. Consider lazy loading the hierarchy of events too.
+- The opening animation should be slower, around 3 seconds before full in view. Also focus on the top of the grid and have the first line at the center of the display.
+- Don't auto play and activate the play button 2 seconds afther the 2d/3d transform.
+- I see dark mode and then ligt mode - probably because the settings are applied. Have some delay before the first display update to let most things load
+- Delay the showing of the single event widget until the user hits play for the first time or selects an event in the all events panel.
+- never deactivate the single event timeline and play/pause button: the user must be able to hit pause there at any time to stop the animation, and hit play to start it again. If the event has no duration, just take the delay between events or repeats and progress% that.
+- don't start playing automatically anymore
+- the grid if centered in the center at startup. But if it doesn't fit on screen, instead focus on the top and have the first line at 1/3 of the display height. 
+- In settings -> layout panel -> Autofit. When turning auto fit off, start at the count that was set by auto fit. And allow for more than 64 columns. 
 
 20 Keep reducing `Visualizer.jsx` and `SieveRenderer.js`; prefer one focused
 hook/component/helper extraction per session.

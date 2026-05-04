@@ -103,10 +103,12 @@ function CanvasStage({
   // Intro animation phase: 'hidden' | 'scaling' | 'tilting' | 'visible'
   introPhase = 'visible',
   onIntroTransitionEnd,
+  // Gating flag: single-event widget hidden until first play or event selection
+  singleEventWidgetRevealed = true,
 }) {
   return (
     <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
-      {eventTitleSettings.visible && !widgetsJoined && (
+      {eventTitleSettings.visible && !widgetsJoined && singleEventWidgetRevealed && (
         <EventTitleBanner
           settings={eventTitleSettings}
           setSettings={setEventTitleSettings}
