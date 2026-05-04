@@ -113,6 +113,7 @@ function SpacingControl({ title, keyH, keyV, max, className = '', columnControl 
  */
 export default function LayoutTab({
   settings, onChange,
+  autoFitColumns = 0,
   cachelineSize, onCachelineSizeChange,
   cachePreset, onCachePresetChange,
   heatMapEnabled,
@@ -517,7 +518,10 @@ export default function LayoutTab({
                 onClick={() => {
                   const current = Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0);
                   if (current === 0) {
-                    set('horizontalGroups', Math.max(1, lastManualColumnCountRef.current || 1));
+                    const fromAutoFit = Math.max(0, parseInt(autoFitColumns || 0, 10) || 0);
+                    const next = Math.max(1, fromAutoFit || lastManualColumnCountRef.current || 1);
+                    lastManualColumnCountRef.current = next;
+                    set('horizontalGroups', next);
                     return;
                   }
                   lastManualColumnCountRef.current = current;
@@ -553,7 +557,7 @@ export default function LayoutTab({
                 className="btn-icon btn-sm spacing-adjust-btn"
                 onClick={() => {
                   const current = Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
-                  const next = Math.min(64, current + 1);
+                  const next = current + 1;
                   lastManualColumnCountRef.current = next;
                   set('horizontalGroups', next);
                 }}

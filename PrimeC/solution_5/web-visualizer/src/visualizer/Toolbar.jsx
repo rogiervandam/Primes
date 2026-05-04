@@ -65,6 +65,7 @@ export default function Toolbar({
   doZoom,
   resetZoom,
   tiltActive,
+  tiltButtonEnabled = true,
   toggleTilt,
   // overlays / panels
   heatMapEnabled,
@@ -259,7 +260,12 @@ export default function Toolbar({
             <button className="btn-icon" onClick={() => doZoom(1.5)} title="Zoom In (+)"><ZoomIn /></button>
             <button className="btn-text" onClick={resetZoom} title="Reset Zoom (0)">{zoom.toFixed(1)}x</button>
             <button className="btn-icon" onClick={() => doZoom(1 / 1.5)} title="Zoom Out (−)"><ZoomOut /></button>
-            <button className={`btn-icon${tiltActive ? ' active' : ''}`} onClick={toggleTilt} title={tiltActive ? 'Remove tilt (0°)' : 'Tilt view (30°)'}>
+            <button
+              className={`btn-icon${tiltActive ? ' active' : ''}`}
+              onClick={toggleTilt}
+              title={tiltButtonEnabled ? (tiltActive ? 'Remove tilt (0°)' : 'Tilt view (30°)') : 'Tilt control unlocks after intro transform'}
+              disabled={!tiltButtonEnabled}
+            >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M2 13L8 10L14 13" />
                 <path d="M4 9L8 7L12 9" strokeOpacity="0.6" />

@@ -81,6 +81,7 @@ import ColorsTab from './settings/ColorsTab';
  */
 export default function SettingsPanel({
   settings, onChange, collapsed, onToggleCollapse,
+  autoFitColumns = 0,
   playSpeed, onPlaySpeedChange,
   repeatAnim, onRepeatAnimChange,
   delayBetweenRepeats, onDelayBetweenRepeatsChange,
@@ -241,6 +242,7 @@ export default function SettingsPanel({
         {activeTab === 'layout' && (
           <LayoutTab
             settings={settings} onChange={onChange}
+            autoFitColumns={autoFitColumns}
             cachelineSize={cachelineSize} onCachelineSizeChange={onCachelineSizeChange}
             cachePreset={cachePreset} onCachePresetChange={onCachePresetChange}
             heatMapEnabled={heatMapEnabled} onHeatMapToggle={onHeatMapToggle}

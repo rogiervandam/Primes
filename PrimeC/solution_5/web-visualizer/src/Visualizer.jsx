@@ -423,6 +423,7 @@ export default function Visualizer({
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   // settingsCollapsed, detailOpen, eventsPanelCollapsed declared below (near introPhase)
   const [layoutSettings, setLayoutSettings] = useState(initialPrefs.layoutSettings);
+  const [autoFitColumnCount, setAutoFitColumnCount] = useState(0);
   const [eventTitleSettings, setEventTitleSettings] = useState(initialPrefs.eventTitleSettings);
   // Two distinct delays. Both default to 500 ms but are independently adjustable.
   // - delayBetweenEvents: pause after one event finishes before the all-events
@@ -608,6 +609,7 @@ export default function Visualizer({
   //   'tilting' — camera animates from flat to saved tilt angle
   //   'visible' — animation complete, panels may open
   const [introPhase, setIntroPhase] = useState('hidden');
+  const introTiltStartedRef = useRef(false);
   // Playback controls in the top toolbar appear shortly after loading finishes.
   // Until then, the toolbar only shows a disabled timeline scrubber as a
   // loading progress indicator.
@@ -696,7 +698,6 @@ export default function Visualizer({
   // compensation, causing the canvas to drift on every panel toggle).
   const pendingResizeAnchorRef = useRef(null);
   const viewportAnimRef = useRef(null);
-  const autoplayStartedRef = useRef(false);
   const initialHighlightHoldRef = useRef(true);
   const traceInfoPopoverRef = useRef(null);
   // True while the timeline slider has left bitState in a partially-revealed
@@ -1220,6 +1221,10 @@ export default function Visualizer({
     r.layoutAvailHeight = lvH;
     r.unfreezeLayout();
     r.freezeLayout();
+    if (r.horizontalGroups === 0 && typeof r._cacheLinesPerVisualRow === 'function') {
+      const nextAutoCols = Math.max(1, r._cacheLinesPerVisualRow());
+      setAutoFitColumnCount((prev) => (prev === nextAutoCols ? prev : nextAutoCols));
+    }
 
     // Store the actual visible container dimensions on the renderer so that
     // renderMinimap and updateMinimapAvailability use the real viewport size
@@ -1866,6 +1871,7 @@ export default function Visualizer({
       const r = rendererRef.current;
       if (!r) return;
       fired = true;
+      introTiltStartedRef.current = false;
       // Reset intro phase each time a new trace header arrives.
       setIntroPhase('hidden');
       // Give React one frame to apply the hidden class before animating.
@@ -2392,15 +2398,25 @@ export default function Visualizer({
       // Zoom to fit on first render
       if (!initialFitDoneRef.current) {
         applyViewportFit(r, rect.width, rect.height);
-        // Shift view so the first rendered cacheline row is centered.
-        // Using cacheline bounds is more stable than bit 0 for mixed layouts.
-        const firstRow = r.getElementBounds('cacheline', 0);
-        if (firstRow) {
-          const targetY = (r.canvasHeight || rect.height) / 2;
-          r.panY += targetY - firstRow.cy;
+        // If fit-to-screen cannot keep the full grid visible (e.g. min zoom
+        // clamp), bias startup framing toward the top so row 1 appears at
+        // roughly one-third of the visible viewport height.
+        const fitsViewport = r.isContentFullyVisible(rect.width, rect.height);
+        if (!fitsViewport) {
+          const firstRow = r.getElementBounds('cacheline', 0);
+          if (firstRow) {
+            const canvasH = r.canvasHeight || rect.height;
+            const planeOffsetY = Math.max(0, (canvasH - rect.height) / 2);
+            const targetY = planeOffsetY + rect.height / 3;
+            r.panY += targetY - firstRow.cy;
+          }
         }
         setZoom(r.zoom);
         r.freezeLayout();
+        if (r.horizontalGroups === 0 && typeof r._cacheLinesPerVisualRow === 'function') {
+          const nextAutoCols = Math.max(1, r._cacheLinesPerVisualRow());
+          setAutoFitColumnCount((prev) => (prev === nextAutoCols ? prev : nextAutoCols));
+        }
         initialFitDoneRef.current = true;
       }
     }
@@ -2923,9 +2939,6 @@ export default function Visualizer({
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         refitViewportToContent({ instant: true });
-        const targetTilt = Math.min(30, cam.maxTilt || 30);
-        cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 520)
-          .then(() => schedulePostLayoutRefresh(null));
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3799,25 +3812,12 @@ export default function Visualizer({
   // Initial render — delay one frame so the container has its final dimensions
   useEffect(() => {
     if (steps.length > 0) {
-      autoplayStartedRef.current = false;
       initialHighlightHoldRef.current = true;
       setSingleEventWidgetRevealed(false);
       const raf = requestAnimationFrame(() => goToStep(0, { suppressHighlight: true }));
       return () => cancelAnimationFrame(raf);
     }
   }, [steps]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (introPhase !== 'visible') return;
-    if (autoRender || steps.length <= 1 || autoplayStartedRef.current) return;
-    const timer = setTimeout(() => {
-      autoplayStartedRef.current = true;
-      initialHighlightHoldRef.current = false;
-      setSingleEventWidgetRevealed(true);
-      setPlaying(true);
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, [introPhase, autoRender, steps.length]);
 
   const buildCombinedSelectionOverlay = useCallback((selection) => {
     const indices = Array.from(selection)
@@ -4160,9 +4160,41 @@ export default function Visualizer({
     updateMinimapAvailability();
   }, [getMinimapDetailH, updateMinimapAvailability, applyViewportFit]);
 
+  const handleIntroTransitionEnd = useCallback(() => {
+    if (introTiltStartedRef.current) return;
+    introTiltStartedRef.current = true;
+    setIntroPhase('tilting');
+
+    const cam = camera3DRef.current;
+    if (!cam || !cam.enabled) {
+      setIntroPhase('visible');
+      return;
+    }
+
+    const targetTilt = Math.min(30, cam.maxTilt || 30);
+    cam.cancelAllAnimations();
+    cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 400)
+      .then(() => {
+        setIntroPhase('visible');
+        schedulePostLayoutRefresh(null);
+      })
+      .catch(() => {
+        setIntroPhase('visible');
+      });
+  }, [schedulePostLayoutRefresh]);
+
   // Tracks whether the tilt button is in the "tilted" state (30°) or flat (0°).
-  // Initialized to true since the startup animation goes to rotateX=30.
-  const [tiltActive, setTiltActive] = useState(true);
+  // Starts inactive until the intro reaches the 2D→3D transition completion.
+  const [tiltActive, setTiltActive] = useState(false);
+  const tiltButtonEnabled = introPhase === 'tilting' || introPhase === 'visible';
+
+  useEffect(() => {
+    if (introPhase === 'tilting' || introPhase === 'visible') {
+      setTiltActive(true);
+    } else {
+      setTiltActive(false);
+    }
+  }, [introPhase]);
 
   // Tilt toggle: animates between 0° (flat) and 30° (tilted) in 3D mode.
   const toggleTilt = useCallback(() => {
@@ -5285,6 +5317,7 @@ export default function Visualizer({
         doZoom={doZoom}
         resetZoom={resetZoom}
         tiltActive={tiltActive}
+        tiltButtonEnabled={tiltButtonEnabled}
         toggleTilt={toggleTilt}
         heatMapEnabled={heatMapEnabled}
         setHeatMapEnabled={setHeatMapEnabled}
@@ -5445,7 +5478,7 @@ export default function Visualizer({
           currentStepSourceLine={stepToLine[currentStep]}
           allEventsTransport={allEventsTransportContent}
           introPhase={introPhase}
-          onIntroTransitionEnd={() => setIntroPhase('visible')}
+          onIntroTransitionEnd={handleIntroTransitionEnd}
           singleEventWidgetRevealed={singleEventWidgetRevealed}
         />
         {widgetsJoined && eventsPanelCollapsed && !allEventsWidgetHidden && eventTitleSettings.visible && singleEventWidgetRevealed && (
@@ -5476,6 +5509,7 @@ export default function Visualizer({
         <SettingsPanel
           settings={layoutSettings}
           onChange={setLayoutSettings}
+          autoFitColumns={autoFitColumnCount}
           collapsed={settingsCollapsed}
           onToggleCollapse={toggleSettingsPanel}
           onActiveTabChange={setSettingsActiveTab}
