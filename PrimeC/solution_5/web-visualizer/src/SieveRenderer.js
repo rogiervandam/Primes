@@ -53,12 +53,6 @@ export {
 
 export class SieveRenderer {
   constructor() {
-    this.canvas = null;
-    this.ctx = null;
-    this.glCompositeSourceCanvas = null;
-    this.compositeGLInto2D = false;
-    this.glCompositeOffsetX = 0;
-    this.glCompositeOffsetY = 0;
     this.debugAllCellOutlines = false;
     this.debugAllCellOutlineColor = 'rgba(255,255,255,0.82)';
     this.bitCount = 0;
@@ -199,16 +193,24 @@ export class SieveRenderer {
     /** @type {import('./renderer/gl/GlyphTextGLCore').GlyphTextGLCore|null} */
     this._glyphCtx = null;
     this._glyphFramePrimed = false;
+    // Tiny offscreen canvas used only for text measurement (measureText).
+    // Never added to the DOM; resizing it is unnecessary since measureText
+    // results are independent of canvas dimensions.
+    const mc = document.createElement('canvas');
+    mc.width = 2; mc.height = 2;
+    this._measureCtx = mc.getContext('2d');
   }
 
+  /** Returns the glyph canvas element (used for export/metadata). */
+  get canvas() { return this._glyphCtx?.canvas ?? null; }
+
+  /** Returns the canvas background color — user override if set, else theme default. */
   get colors() { return THEMES[this.theme] || THEMES.dark; }
 
   /** Returns the canvas background color — user override if set, else theme default. */
   get effectiveBackground() {
     return this.canvasBackground || this.colors.BACKGROUND;
   }
-
-  // Get effective bit colors (preset > custom > theme default)
   _bitColors() {
     const C = this.colors;
     const preset = this.colorPreset && COLOR_PRESETS[this.colorPreset];
@@ -355,29 +357,12 @@ export class SieveRenderer {
     ctx.restore();
   }
 
-  attach(canvas) {
-    this.canvas = canvas;
-    // Do NOT pass { willReadFrequently: true } — that hint disables GPU-accelerated
-    // canvas on Safari. getImageData is never called in the production render path
-    // (only in the dev-only parityHarness.js), so the hint is incorrect and harmful.
-    this.ctx = canvas.getContext('2d');
-  }
+  attach(_canvas) { /* no-op: GL handles all rendering */ }
 
-  setGlCompositeSourceCanvas(canvas) {
-    this.glCompositeSourceCanvas = canvas || null;
-  }
-
-  setCompositeGLInto2D(enabled) {
-    this.compositeGLInto2D = !!enabled;
-  }
-
-  setGlCompositeOffsetX(offsetX) {
-    this.glCompositeOffsetX = Number.isFinite(offsetX) ? offsetX : 0;
-  }
-
-  setGlCompositeOffsetY(offsetY) {
-    this.glCompositeOffsetY = Number.isFinite(offsetY) ? offsetY : 0;
-  }
+  setGlCompositeSourceCanvas(_canvas) {}
+  setCompositeGLInto2D(_enabled) {}
+  setGlCompositeOffsetX(_offsetX) {}
+  setGlCompositeOffsetY(_offsetY) {}
 
   attachMinimapCanvas(canvas) {
     this.minimapRenderer.attach(canvas);
@@ -910,7 +895,7 @@ export class SieveRenderer {
    * rectangle with a fully-stroked border, so the result is one properly
    * shaped outline per physical cacheline regardless of how the layout wraps.
    */
-  _renderCachelineHeatOverlay(ctx) {
+  _renderCachelineHeatOverlay() {
     if (!this.heatMapEnabled || !this.clHitCount) return;
 
     const phyBitsPerCL  = this.cachelineSize * 8;
@@ -928,7 +913,7 @@ export class SieveRenderer {
     const px         = this.pixelSize * this.zoom;
     const pad        = 1;
 
-    const ch = this.canvasHeight || (this.canvas.height / Math.max(0.1, this.canvasDpr || 1));
+    const ch = this.canvasHeight || 0;
     const startVRow = Math.max(0, Math.floor(-this.panY / vRowHeight));
     const endVRow   = Math.ceil((ch - this.panY) / vRowHeight) + 1;
 
@@ -1004,7 +989,7 @@ export class SieveRenderer {
    * Uses the same segment-grouping logic as _renderCachelineHeatOverlay so that
    * each physical CL gets one outlined rectangle per visual row it occupies.
    */
-  _renderCachelineOutline(ctx) {
+  _renderCachelineOutline() {
     if (!this.outlineEnabled || !this.outlineTargets?.has('cacheline')) return;
 
     const phyBitsPerCL  = this.cachelineSize * 8;
@@ -1025,7 +1010,7 @@ export class SieveRenderer {
     // When annotations are active (regardless of heatmap state), extend the outline bottom to include the badge area.
     const annotActive = this.cachelineAnnotation && this.cachelineAnnotation !== 'none';
     const annotBottomExtra = annotActive ? Math.min(22, Math.max(14, rowD.h * 0.18)) : 0;
-    const ch = this.canvasHeight || (this.canvas.height / Math.max(0.1, this.canvasDpr || 1));
+    const ch = this.canvasHeight || 0;
     const startVRow = Math.max(0, Math.floor(-this.panY / vRowHeight));
     const endVRow   = Math.ceil((ch - this.panY) / vRowHeight) + 1;
 
@@ -1267,13 +1252,7 @@ export class SieveRenderer {
   }
 
   resize(width, height, dprOverride = null) {
-    if (!this.canvas) return;
     const dpr = Math.max(0.1, dprOverride != null ? dprOverride : (window.devicePixelRatio || 1));
-    this.canvas.width = width * dpr;
-    this.canvas.height = height * dpr;
-    this.canvas.style.width = width + 'px';
-    this.canvas.style.height = height + 'px';
-    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (this._glyphCtx) {
       this._glyphCtx.resize(width, height, dpr);
     }
@@ -1426,7 +1405,7 @@ export class SieveRenderer {
       : this.canvasWidth;
     const availH0 = (this.layoutAvailHeight && this.layoutAvailHeight > 0)
       ? this.layoutAvailHeight
-      : (this.canvasHeight || (this.canvas ? this.canvas.width / Math.max(0.1, this.canvasDpr || 1) : 0));
+      : (this.canvasHeight || 0);
     if (!avail || avail <= 0) return 1;
     const bitsPerCacheLine = this.bitsPerCacheLine;
     const totalCacheLines = Math.max(1, Math.ceil(this.bitCount / bitsPerCacheLine));
@@ -1538,7 +1517,7 @@ export class SieveRenderer {
    * the split is purely structural.
    */
   render() {
-    if (!this.ctx || !this.bitState || this.bitCount === 0) return;
+    if (!this.bitState || this.bitCount === 0) return;
 
     this._glyphFramePrimed = false;
 
@@ -1551,27 +1530,27 @@ export class SieveRenderer {
     const glCtx = this._glyphCtx || null;
     if (glCtx) {
       const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
-      const cw = this.canvasWidth  || (this.canvas.width  / canvasDpr);
-      const ch = this.canvasHeight || (this.canvas.height / canvasDpr);
+      const cw = this.canvasWidth  || 0;
+      const ch = this.canvasHeight || 0;
       glCtx.beginFrame(cw, ch, canvasDpr);
     }
 
     this._renderClear(f);
 
     // Draw cacheline-level overlays before bits so bits render on top
-    this._renderCachelineHeatOverlay(f.ctx);
-    this._renderCachelineOutline(f.ctx);
+    this._renderCachelineHeatOverlay();
+    this._renderCachelineOutline();
 
     for (let vRow = f.startVRow; vRow < f.endVRow; vRow++) {
       this._renderVisualRow(f, vRow);
     }
 
     if (!this.suppressMaskWriteOverlay) {
-      this.maskWriteOverlay.render(f.ctx, glCtx);
+      this.maskWriteOverlay.render(glCtx);
     }
     this.vectorTouchOrderOverlay.render(f.ctx, glCtx);
     this.cachelineAnnotationsOverlay.render(f.ctx, glCtx);
-    this.searchOverlay.render(f.ctx, f.cw, f.ch, glCtx);
+    this.searchOverlay.render(f.cw, f.ch, glCtx);
 
     // Flush the WebGL glyph-text batch (no-op when count === 0).
     if (glCtx) {
@@ -1587,10 +1566,10 @@ export class SieveRenderer {
    */
   _buildFrameContext() {
     const C = this.colors;
-    const ctx = this.ctx;
+    const ctx = this._measureCtx;
     const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
-    const cw = this.canvasWidth || (this.canvas.width / canvasDpr);
-    const ch = this.canvasHeight || (this.canvas.height / canvasDpr);
+    const cw = this.canvasWidth || 0;
+    const ch = this.canvasHeight || 0;
 
     const px = this.pixelSize * this.zoom;
     const bitsPerCacheLine = this.bitsPerCacheLine;
@@ -2115,8 +2094,7 @@ export class SieveRenderer {
   }
 
   toDataURL() {
-    if (!this.canvas) return '';
-    return this.canvas.toDataURL('image/png');
+    return this._glyphCtx?.canvas?.toDataURL('image/png') ?? '';
   }
 
   /** Start a standalone GL animation frame for animation methods called outside render(). */
@@ -2127,8 +2105,8 @@ export class SieveRenderer {
       return this._glyphCtx;
     }
     const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
-    const cw = this.canvasWidth || (this.canvas.width / canvasDpr);
-    const ch = this.canvasHeight || (this.canvas.height / canvasDpr);
+    const cw = this.canvasWidth || 0;
+    const ch = this.canvasHeight || 0;
     // Animation methods run after render(); keep previously drawn text/labels.
     this._glyphCtx.beginFrame(cw, ch, canvasDpr, false);
     return this._glyphCtx;
@@ -2151,8 +2129,8 @@ export class SieveRenderer {
     if (progress <= 0 || progress > 1) return;
 
     const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
-    const cw = this.canvasWidth || (this.canvas.width / canvasDpr);
-    const ch = this.canvasHeight || (this.canvas.height / canvasDpr);
+    const cw = this.canvasWidth || 0;
+    const ch = this.canvasHeight || 0;
     const px = this.pixelSize * this.zoom;
     const intensity = Math.max(0.4, Math.min(1.2, options.intensity || 1));
 

@@ -27,7 +27,6 @@ function CanvasStage({
   mode3D,
   // canvas refs (owned by parent, attached here)
   containerRef,
-  canvasRef,
   glCanvasRef,
   glyphCanvasRef,
   // wrapper div ref — receives the 3D CSS transform so canvas elements stay
@@ -130,24 +129,18 @@ function CanvasStage({
             Keeping the transform on a div instead of the canvas elements
             prevents Safari from creating one GPU compositing layer per canvas,
             which caused black flicker during drawing (GPU texture upload
-            momentarily exposing a black/cleared layer). All three canvases
-            are flat children of this wrapper and share its GPU layer. */}
+            momentarily exposing a black/cleared layer). Both canvases are
+            flat children of this wrapper and share its GPU layer. */}
         <div ref={wrapperCanvasRef} className="canvas-transform-wrapper" style={renderCanvasStyle}>
           {/* WebGL bit-grid canvas. Always in DOM so the renderer can attach on
-              mount and mode switches are instant. Hidden via CSS when canvas2d
-              renderer is active. Overlays/labels render on the Canvas2D layer on top. */}
+              mount. Sized and positioned by refreshCanvasLayout(). */}
           <canvas
             ref={glCanvasRef}
             className={`gl-render-canvas${glActive ? '' : ' renderer-inactive'}${hideGlCanvas ? ' debug-hidden' : ''}`}
             aria-hidden="true"
           />
-          <canvas
-            ref={canvasRef}
-            className="main-render-canvas"
-            aria-hidden="true"
-          />
-          {/* WebGL glyph-text canvas — transparent, sits above main canvas so
-              GL-rendered text and dots composite on top of all other layers. */}
+          {/* WebGL glyph-text canvas — transparent, sits above the bit-grid so
+              GL-rendered text and dots composite on top. */}
           <canvas
             ref={glyphCanvasRef}
             className="glyph-render-canvas"

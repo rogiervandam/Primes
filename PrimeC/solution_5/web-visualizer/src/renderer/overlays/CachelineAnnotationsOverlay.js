@@ -60,7 +60,7 @@ export class CachelineAnnotationsOverlay {
     const vecStep    = vecD.w + host._u64GapX();
     const pad        = 1;
 
-    const ch = host.canvas.height / (window.devicePixelRatio || 1);
+    const ch = host.canvasHeight || 0;
     const startVRow = Math.max(0, Math.floor(-host.panY / vRowHeight));
     const endVRow   = Math.ceil((ch - host.panY) / vRowHeight) + 1;
 
@@ -157,16 +157,6 @@ export class CachelineAnnotationsOverlay {
         glCtx.drawFilledRect(bx, by, bw, bh, bc.r / 255, bc.g / 255, bc.b / 255, Math.min(0.98, bc.alpha + 0.06));
         glCtx.drawOutlineRect(bx, by, bw, bh, 15 / 255, 23 / 255, 42 / 255, 0.58, 1.1);
         glCtx.drawText(text, Math.round(bx + bw / 2), Math.round(by + bh / 2), fs, lr, lg, lb, Math.min(1, la + 0.08), 'center', 'middle');
-      } else {
-        ctx.fillStyle = `rgba(${bc.r},${bc.g},${bc.b},${bc.alpha})`;
-        ctx.beginPath();
-        ctx.roundRect(bx, by, bw, bh, Math.min(5, bh * 0.4));
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(15,23,42,0.45)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        ctx.fillStyle = host._labelTextColor([bc.r, bc.g, bc.b]);
-        ctx.fillText(text, bx + bw / 2, by + bh / 2);
       }
     }
 

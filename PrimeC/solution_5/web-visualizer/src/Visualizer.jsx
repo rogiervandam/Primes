@@ -340,7 +340,6 @@ export default function Visualizer({
     return m;
   }, [lineToStep]);
 
-  const canvasRef = useRef(null);
   const minimapCanvasRef = useRef(null);  const containerRef = useRef(null);
   const rendererRef = useRef(null);
   // WebGL bit-grid worker (see docs/AI_MAINTENANCE.md §8).
@@ -542,7 +541,6 @@ export default function Visualizer({
   const [debugGlOffsetY, setDebugGlOffsetY] = useState(0); // manual trim
   const [debugGlAutoOffsetY, setDebugGlAutoOffsetY] = useState(0);
   const [debugCalibrationMode, setDebugCalibrationMode] = useState(false);
-  const [compositeDirectGl, setCompositeDirectGl] = useState(false);
   const [rangeOverlayEnabled, setRangeOverlayEnabled] = useState(false);
   const [rangeOverlayStart, setRangeOverlayStart] = useState(0);
   const [rangeOverlayEnd, setRangeOverlayEnd] = useState(0);
@@ -863,7 +861,7 @@ export default function Visualizer({
     if (!r || !el) return null;
     const rect = el.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return null;
-    const canvasEl = r.canvas || canvasRef.current;
+    const canvasEl = r.canvas || glCanvasRef.current;
     const planeW = r.canvasWidth || canvasEl?.offsetWidth || rect.width;
     const planeH = r.canvasHeight || canvasEl?.offsetHeight || rect.height;
     const mapper = getProjectedCanvasMapper(canvasEl);
@@ -1180,8 +1178,6 @@ export default function Visualizer({
       glEl.style.bottom = 'auto';
     }
     if (rr) {
-      rr.setGlCompositeOffsetX?.(debugGlOffsetX || 0);
-      rr.setGlCompositeOffsetY?.(totalGlOffsetY);
       rr.render();
     }
   }, [debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY]);
@@ -1431,10 +1427,7 @@ export default function Visualizer({
   useEffect(() => {
     const r = new SieveRenderer();
     rendererRef.current = r;
-    if (canvasRef.current) {
-      r.attach(canvasRef.current);
-      if (glCanvasRef.current) r.setGlCompositeSourceCanvas?.(glCanvasRef.current);
-      if (minimapCanvasRef.current) r.attachMinimapCanvas(minimapCanvasRef.current);
+    if (minimapCanvasRef.current) r.attachMinimapCanvas(minimapCanvasRef.current);
 
       // WebGL glyph-text renderer. Initialised once per session; reused
       // across trace reloads. Safe to create on every effect run because
@@ -1489,8 +1482,7 @@ export default function Visualizer({
             updateGlDebugInfo(true);
           } else {
             // OffscreenCanvas not available — GL worker could not start.
-            // The app remains usable (Canvas2D handles everything) but
-            // bit cells won't be filled. Show a browser-update notice.
+            // Bit cells won't be filled. Show a browser-update notice.
             setGlUnavailable(true);
           }
         }
@@ -1500,18 +1492,11 @@ export default function Visualizer({
           r.render = () => {
             const g = glRendererRef.current;
             const rr = rendererRef.current;
-            if (!g || !rr || !rr.canvas) return;
+            if (!g || !rr) return;
             const cssW = rr.canvasWidth || 0;
             const cssH = rr.canvasHeight || 0;
             g.resize(cssW, cssH);
             const directMode = typeof g.isDirectMode === 'function' && g.isDirectMode();
-            const compositeGl = directMode
-              && typeof g.getEffectiveDpr === 'function'
-              && g.getEffectiveDpr() < 0.995;
-            rr.setCompositeGLInto2D?.(compositeGl);
-            rr.setGlCompositeOffsetX?.(debugGlOffsetXRef.current || 0);
-            rr.setGlCompositeOffsetY?.((debugGlAutoOffsetYRef.current || 0) + (debugGlOffsetYRef.current || 0));
-            setCompositeDirectGl((prev) => (prev === compositeGl ? prev : compositeGl));
 
             // Layout fingerprint — only repack the position texture when one
             // of these inputs changes. Pan is excluded (applied as a uniform).
@@ -1550,18 +1535,12 @@ export default function Visualizer({
               repeatedColor: [245, 158, 11],
               baseAlpha: Math.max(0.12, Math.min(1, rr.gridOpacity ?? 1)),
             });
-            if (compositeGl) {
-              origRender();
-            } else {
-              rr.setCompositeGLInto2D?.(false);
-              origRender();
-            }
+            origRender();
             updateGlDebugInfo(false);
             return renderSeq;
           };
         }
       }
-    }
 
     // Init 3D camera — see src/hooks/use3DCamera.js for the full lifecycle.
     createCamera({
@@ -1573,7 +1552,7 @@ export default function Visualizer({
         rr.zoom = z;
         setZoom(z);
         rr.render();
-        rr.renderMinimap(rr.canvasWidth, rr.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        rr.renderMinimap(rr.canvasWidth, rr.canvasHeight || 0, getMinimapDetailH());
       },
     });
 
@@ -4988,12 +4967,11 @@ export default function Visualizer({
         <CanvasStage
           mode3D={mode3D}
           containerRef={containerRef}
-          canvasRef={canvasRef}
           glCanvasRef={glCanvasRef}
           glyphCanvasRef={glyphCanvasRef}
           wrapperCanvasRef={wrapperCanvasRef}
           glActive={true}
-          hideGlCanvas={compositeDirectGl}
+          hideGlCanvas={false}
           camera3DContainerStyle={mergedCamera3DContainerStyle}
           renderCanvasStyle={renderCanvasStyle}
           eventTitleSettings={eventTitleSettings}

@@ -556,8 +556,7 @@
   /* No transform here — set inline via renderCanvasStyle. */
   /* No will-change/backface-visibility — those force per-element GPU layers. */
 }
-.canvas-container .settled-render-canvas,
-.canvas-container .main-render-canvas {
+.canvas-container .settled-render-canvas {
   position: absolute;
   /* Canvas is always the oversized 3D plane. Position (top/left) and size
      (width/height) are set imperatively by SieveRenderer.resize(). The CSS
@@ -575,9 +574,9 @@
 }
 
 .canvas-container .gl-render-canvas {
-  /* WebGL bit-grid. Sits behind the Canvas2D layers so overlays/labels
-     render on top. See docs/AI_MAINTENANCE.md §8.
-     top/left anchor the GL canvas at the same origin as the Canvas2D layers.
+  /* WebGL bit-grid. GL handles all cell rendering; overlays are composited
+     by the glyph canvas (z-index 3) on top.
+     top/left anchor the GL canvas at the same origin as the glyph canvas.
      width/height are set imperatively by refreshCanvasLayout() to the same
      canvasW × canvasH as Canvas2D — this explicit sizing guarantees the GL
   canvas CSS display always matches Canvas2D regardless of wrapper state.
@@ -588,8 +587,8 @@
      texture updated asynchronously from the worker; during the update
      window Safari briefly shows a black backing store. With z-index: 0
      the GL canvas stays in the wrapper's compositing layer (shared with
-     the Canvas2D canvases). DOM order then determines stacking:
-     gl-render-canvas is first in the DOM → painted behind settled and main. */
+     the glyph canvas). DOM order then determines stacking:
+     gl-render-canvas is first in the DOM → painted behind glyph canvas. */
   position: absolute;
   top: 0;
   left: 0;
@@ -613,9 +612,6 @@
   opacity: 1;
 }
 
-.canvas-container .main-render-canvas {
-  z-index: 2;
-}
 /* WebGL glyph-text canvas: transparent background, floats above main canvas.
    Sized and positioned identically to the main canvas by GlyphTextGLCore.resize().
    pointer-events:none so it never intercepts interaction. */

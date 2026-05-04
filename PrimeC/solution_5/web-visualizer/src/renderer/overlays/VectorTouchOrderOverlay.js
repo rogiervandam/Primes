@@ -85,33 +85,6 @@ export class VectorTouchOrderOverlay {
           const annY = by + padY + (labelSize || fontSize) + 3 + detailSize * 0.5;
           glCtx.drawText(annotation, Math.round(x), Math.round(annY), detailSize, lr, lg, lb, Math.min(1, la + 0.08), 'center', 'middle');
         }
-      } else {
-        ctx.strokeStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},0.52)`;
-        ctx.lineWidth = Math.max(0.7, Math.min(1.4, px * 0.08));
-        ctx.beginPath();
-        ctx.moveTo(x, y + boxH / 2 - 1);
-        ctx.lineTo(entry.bounds.cx, entry.bounds.y - Math.max(4, px * 0.35));
-        ctx.stroke();
-
-        ctx.fillStyle = `rgba(${tint[0]},${tint[1]},${tint[2]},0.94)`;
-        ctx.beginPath();
-        ctx.roundRect(bx, by, boxW, boxH, Math.max(5, Math.min(12, boxH * 0.35)));
-        ctx.fill();
-
-        ctx.strokeStyle = 'rgba(15, 23, 42, 0.38)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        ctx.fillStyle = host._labelTextColor(tint);
-        if (labelSize > 0) {
-          ctx.font = `600 ${labelSize}px monospace`;
-          const labelY = showAnnotation ? y - detailSize * 0.5 : y + 0.5;
-          ctx.fillText(label, x, labelY);
-        }
-        if (showAnnotation) {
-          ctx.font = `500 ${detailSize}px monospace`;
-          ctx.fillText(annotation, x, y + (labelSize || fontSize) * 0.45);
-        }
       }
     }
 

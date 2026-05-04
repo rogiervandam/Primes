@@ -17,7 +17,7 @@
  * ──────────────────────────────────────────────────────────────────────────
  *
  *   const r = new MyRenderer();
- *   r.attach(canvas);                  // main draw target
+ *   r.attach(canvas);                  // no-op (GL handles all rendering)
  *   r.attachMinimapCanvas?.(c3);       // optional minimap canvas
  *   r.init(bitCount, sieveSize);
  *   r.resize(width, height);           // call on window resize / zoom changes
@@ -38,7 +38,7 @@
  *  Public properties expected by Visualizer / hooks
  * ──────────────────────────────────────────────────────────────────────────
  *
- *   canvas         HTMLCanvasElement              the main draw surface
+ *   canvas         HTMLCanvasElement              glyph canvas (for export/metadata)
  *   canvasWidth    number                          logical width (CSS px)
  *   bitCount       number
  *   sieveSize      number
@@ -68,8 +68,8 @@
  */
 export class VisualizationRenderer {
   // ── lifecycle ──────────────────────────────────────────────────────────
-  /** @param {HTMLCanvasElement} canvas */
-  attach(/* canvas */)            { throw new Error('attach() not implemented'); }
+  /** No-op: GL handles all rendering. Kept for interface compatibility. */
+  attach(/* canvas */)            { /* no-op */ }
   attachMinimapCanvas(/* canvas */) { /* optional */ }
 
   /**

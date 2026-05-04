@@ -33,7 +33,7 @@ export class SearchOverlay {
     this.target = null;
   }
 
-  render(ctx, canvasW, canvasH, glCtx = null) {
+  render(canvasW, canvasH, glCtx) {
     const t = this.target;
     if (!t) return;
     const host = this.host;
@@ -68,38 +68,6 @@ export class SearchOverlay {
       }
       return;
     }
-
-    ctx.save();
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.96)';
-    ctx.lineWidth = lineWidth;
-    ctx.setLineDash([]);
-    ctx.beginPath();
-    ctx.roundRect(x, y, w, h, Math.max(6, Math.min(16, 10 + zoom * 0.2)));
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.strokeStyle = 'rgba(250, 204, 21, 0.9)';
-    ctx.lineWidth = Math.max(1, 1.1 + zoom * 0.04);
-    ctx.setLineDash([Math.max(3, 5 + zoom * 0.08), Math.max(2, 4 + zoom * 0.04)]);
-    ctx.stroke();
-
-    if (t.bitIndex != null) {
-      const anchor = host.bitIndexToCanvas(t.bitIndex);
-      if (anchor) {
-        const markerRadius = Math.max(4, Math.min(12, host.pixelSize * zoom * 1.8));
-        ctx.setLineDash([]);
-        ctx.fillStyle = 'rgba(250, 204, 21, 0.92)';
-        ctx.beginPath();
-        ctx.arc(anchor.x, anchor.y, markerRadius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(17, 24, 39, 0.9)';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-      }
-    }
-
-    ctx.restore();
   }
 }
 
