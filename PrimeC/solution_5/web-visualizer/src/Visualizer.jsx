@@ -826,19 +826,22 @@ export default function Visualizer({
     // baseline so collapsing/expanding side panels can't shrink
     // the canvas — those toggles must be visually free.
     const cam = camera3DRef.current;
-    // Use the actually-applied wrapper transform angles as the first source
-    // of truth so canvas sizing math matches what is rendered on screen.
-    // This avoids geometry desync if camera refs and rendered transform ever
-    // diverge during rapid resize/animation transitions.
-    const appliedAngles = parseAppliedRotateAngles(camera3DTransform);
+    // Read angles directly from the camera ref rather than from the
+    // camera3DTransform React state. camera3DTransform changes on every tilt
+    // animation frame, which would make this callback unstable → cause
+    // refreshCanvasLayout to be re-created → the resize useEffect re-fires
+    // every pointer-move during a tilt gesture (calling the heavy
+    // refreshCanvasLayout 60fps). camera3DRef is a stable ref so this
+    // callback stays memoised for the lifetime of the camera instance.
+    // canvas layout is explicitly re-triggered at gesture end (schedulePostLayoutRefresh).
     const baseW = Math.max(width || 0, (typeof window !== 'undefined' ? window.innerWidth : width) || 0);
     const baseH = Math.max(height || 0, (typeof window !== 'undefined' ? window.innerHeight : height) || 0);
     let scaleH = 1;
     let scaleW = 1;
     let diagonalOverscan = 1;
     if (cam && cam.enabled) {
-      const rotateX = Number.isFinite(appliedAngles.rotateX) ? appliedAngles.rotateX : (cam.rotateX || 0);
-      const rotateY = Number.isFinite(appliedAngles.rotateY) ? appliedAngles.rotateY : (cam.rotateY || 0);
+      const rotateX = cam.rotateX || 0;
+      const rotateY = cam.rotateY || 0;
       const ax = Math.abs(rotateX) * Math.PI / 180;
       const ay = Math.abs(rotateY) * Math.PI / 180;
       scaleH = 1 / Math.max(0.3, Math.cos(ax));
@@ -853,7 +856,7 @@ export default function Visualizer({
     const canvasW = Math.max(1, Math.round(canvasWRaw));
     const canvasH = Math.max(1, Math.round(canvasHRaw));
     return { canvasW, canvasH };
-  }, [camera3DTransform]);
+  }, []);
 
   const getCanvasPlaneMetrics = useCallback(() => {
     const r = rendererRef.current;
@@ -865,10 +868,16 @@ export default function Visualizer({
     const planeW = r.canvasWidth || canvasEl?.offsetWidth || rect.width;
     const planeH = r.canvasHeight || canvasEl?.offsetHeight || rect.height;
     const mapper = getProjectedCanvasMapper(canvasEl);
-    const cssLeft = canvasEl ? parseFloat(canvasEl.style.left || '') : Number.NaN;
-    const cssTop = canvasEl ? parseFloat(canvasEl.style.top || '') : Number.NaN;
+    // Only read style.left/top from the glyph canvas (r.canvas). In worker
+    // mode r.canvas is null and the GL canvas fallback has style.left='0px'
+    // (set imperatively by refreshCanvasLayout) — reading it gives anchor=0
+    // instead of canvasAnchorPx, which makes zoom pivot at the canvas-plane
+    // origin (upper-left) instead of the viewport centre.
+    const glyphEl = r.canvas;
+    const cssLeft = glyphEl ? parseFloat(glyphEl.style.left || '') : Number.NaN;
+    const cssTop  = glyphEl ? parseFloat(glyphEl.style.top  || '') : Number.NaN;
     const anchorLeft = Number.isFinite(cssLeft) ? cssLeft : (canvasAnchorPx?.left ?? rect.width / 2);
-    const anchorTop = Number.isFinite(cssTop) ? cssTop : (canvasAnchorPx?.top ?? rect.height / 2);
+    const anchorTop  = Number.isFinite(cssTop)  ? cssTop  : (canvasAnchorPx?.top  ?? rect.height / 2);
     return {
       rect,
       planeW,
@@ -970,7 +979,11 @@ export default function Visualizer({
     }
     const glEl = glCanvasRef.current;
     const glSizeChanging = glEl && (canvasW !== oldCanvasW || canvasH !== oldCanvasH);
-    const appliedAngles = parseAppliedRotateAngles(camera3DTransform);
+    // Read angles directly from the camera ref — avoids a stale closure on
+    // camera3DTransform (which is not in this callback's dep array).
+    const appliedAngles = cam && cam.enabled
+      ? { rotateX: cam.rotateX || 0, rotateY: cam.rotateY || 0 }
+      : { rotateX: 0, rotateY: 0 };
     let autoGlOffsetY = 0;
     if (glDirectMode && glRenderer && typeof glRenderer.getEffectiveDpr === 'function') {
       autoGlOffsetY = computeAutoGlYOffset(
@@ -1255,6 +1268,20 @@ export default function Visualizer({
     window.addEventListener('resize', onResize);
     window.addEventListener('scroll', onScroll, true);
     document.addEventListener('transitionstart', onTransitionStart, true);
+    // Watch for device-pixel-ratio changes (user moves window between
+    // displays with different DPRs, or zooms the browser page). Chrome/Edge
+    // don't always fire a 'resize' event in that case, but the media-query
+    // change fires reliably. Each handler recreates the watcher at the new
+    // DPR so the query stays fresh without leaking listeners.
+    let _dprMq = null;
+    const _watchDpr = () => {
+      if (typeof window === 'undefined') return;
+      const _mq = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+      const _onDpr = () => { sample(); kick(); _dprMq = null; _watchDpr(); };
+      _mq.addEventListener('change', _onDpr);
+      _dprMq = { mq: _mq, cb: _onDpr };
+    };
+    _watchDpr();
     document.addEventListener('transitionrun', onTransitionStart, true);
     return () => {
       if (ro) ro.disconnect();
@@ -1263,6 +1290,7 @@ export default function Visualizer({
       window.removeEventListener('scroll', onScroll, true);
       document.removeEventListener('transitionstart', onTransitionStart, true);
       document.removeEventListener('transitionrun', onTransitionStart, true);
+      if (_dprMq) _dprMq.mq.removeEventListener('change', _dprMq.cb);
     };
   }, []);
 
@@ -1299,9 +1327,15 @@ export default function Visualizer({
     if (!renderer || width <= 0 || height <= 0) return;
     renderer.zoomToFit(width, height, { alignTop: false });
     const dpr = window.devicePixelRatio || 1;
-    const canvasCssHeight = (renderer.canvas?.height || height * dpr) / dpr;
-    const planeOffsetX = Math.max(0, (renderer.canvasWidth - width) / 2);
-    const planeOffsetY = Math.max(0, (canvasCssHeight - height) / 2);
+    // Use renderer.canvasHeight (set by resize()) for the canvas CSS height.
+    // renderer.canvas is null in Chrome/Edge worker mode (glyph runs in worker),
+    // so renderer.canvas?.height would fall back to height*dpr (viewport size)
+    // and collapse planeOffsetY to 0, placing content at the top of the canvas
+    // instead of the vertical center.
+    const canvasCssH = renderer.canvasHeight || (renderer.canvas?.height || height * dpr) / dpr;
+    const canvasCssW = renderer.canvasWidth  || (renderer.canvas?.width  || width  * dpr) / dpr;
+    const planeOffsetX = Math.max(0, (canvasCssW - width)  / 2);
+    const planeOffsetY = Math.max(0, (canvasCssH - height) / 2);
     renderer.panX += planeOffsetX;
     renderer.panY += planeOffsetY;
   }, [header.bitCount]);
@@ -1475,6 +1509,43 @@ export default function Visualizer({
         // the renderer was never successfully created) we create it fresh.
         let gl = glRendererRef.current;
         if (!gl) {
+          // Pre-size the GL canvas to the full target CSS + backing dimensions
+          // BEFORE transferControlToOffscreen().
+          //
+          // Chrome/Edge set the compositor layer bounds from the canvas's CSS
+          // dimensions at the time the OffscreenCanvas transfer takes place.
+          // The default canvas is 300×150 CSS (300×150 or 600×300 physical at
+          // DPR=2). refreshCanvasLayout then sets CSS to ~3.2× viewport
+          // (5530×3574 CSS = 11060×7148 physical at DPR=2 on a 1728×1117
+          // screen). Because the compositor layer was created at the initial
+          // size, Chrome cannot show content that renders outside those initial
+          // bounds — the canvas appears entirely blank. Moving the window to a
+          // different display forces Chrome to rebuild all compositor layers
+          // at the current CSS size, which is why that unblocks it.
+          //
+          // Fix: set CSS + backing to the same ~3.2× target that
+          // refreshCanvasLayout would compute (no camera tilt at startup, so
+          // the formula collapses to baseW × 3.2). This guarantees the
+          // compositor layer is large enough for the first rendered frame.
+          if (typeof window !== 'undefined' && glCanvasRef.current) {
+            const _dpr = window.devicePixelRatio || 1;
+            const _baseW = Math.max(window.innerWidth  || 800, window.screen?.width  || 0);
+            const _baseH = Math.max(window.innerHeight || 600, window.screen?.height || 0);
+            // Match getCanvasTargetSize's formula at zero tilt (scaleW=1, diagonalOverscan=1).
+            // dragOverscan=3.1, overscanFloor=3.2 → max(3.2, 3.1) = 3.2 always wins.
+            const _canvasW = Math.max(1, Math.round(_baseW * 3.2));
+            const _canvasH = Math.max(1, Math.round(_baseH * 3.2));
+            glCanvasRef.current.style.width  = `${_canvasW}px`;
+            glCanvasRef.current.style.height = `${_canvasH}px`;
+            glCanvasRef.current.width  = Math.round(_canvasW * _dpr);
+            glCanvasRef.current.height = Math.round(_canvasH * _dpr);
+            // Force a synchronous CSS layout so Chrome's compositor reads the
+            // correct element bounds when creating the OffscreenCanvas placeholder
+            // layer. Without this, the layout is still pending (300×150 stale) and
+            // the compositor clips the layer too small — rendering outside those
+            // bounds is invisible until a window-move rebuilds the layer.
+            void glCanvasRef.current.getBoundingClientRect();
+          }
           const newGl = new BitGridGLWorker();
           if (newGl.attach(glCanvasRef.current)) {
             gl = newGl;
@@ -1895,10 +1966,25 @@ export default function Visualizer({
     const winResize = () => onResize(true);
     window.addEventListener('resize', winResize);
 
+    // Also refresh when devicePixelRatio changes (window moved between
+    // displays with different DPRs, or browser zoom changed). Chrome/Edge
+    // don't always fire 'resize' in this case, but the OffscreenCanvas DPR
+    // must be updated so the worker re-renders at the correct resolution.
+    let _dprMqResize = null;
+    const _watchDprResize = () => {
+      if (typeof window === 'undefined') return;
+      const _mq = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+      const _onDpr = () => { onResize(true); _dprMqResize = null; _watchDprResize(); };
+      _mq.addEventListener('change', _onDpr);
+      _dprMqResize = { mq: _mq, cb: _onDpr };
+    };
+    _watchDprResize();
+
     return () => {
       window.removeEventListener('resize', winResize);
       clearTimeout(transitionRefreshTimer);
       clearScheduledLayoutRefresh();
+      if (_dprMqResize) _dprMqResize.mq.removeEventListener('change', _dprMqResize.cb);
     };
   }, [panelWidth, showMinimap, detailOpen, detailHeight, refreshCanvasLayout, clearScheduledLayoutRefresh, captureViewportAnchor]);
 
@@ -2617,7 +2703,8 @@ export default function Visualizer({
       requestAnimationFrame(() => {
         refitViewportToContent({ instant: true });
         const targetTilt = Math.min(30, cam.maxTilt || 30);
-        cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 520);
+        cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 520)
+          .then(() => schedulePostLayoutRefresh(null));
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -4169,6 +4256,11 @@ export default function Visualizer({
 
       if (gestureMode === 'rotate') {
         clearInteraction();
+        // Resize the canvas to match the final tilt angle. During the gesture
+        // refreshCanvasLayout is no longer called every frame (getCanvasTargetSize
+        // now reads from the camera ref directly, decoupling it from the
+        // camera3DTransform state that changes each pointer-move).
+        schedulePostLayoutRefresh(null);
         return;
       }
 
@@ -4296,6 +4388,7 @@ export default function Visualizer({
     const onMouseUp = () => {
       if (!mouseRotateActive) return;
       clearInteraction();
+      schedulePostLayoutRefresh(null);
     };
 
     el.addEventListener('pointerdown', onPointerDown);
@@ -4330,7 +4423,7 @@ export default function Visualizer({
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [computeBitInfo, flyToElement, getCanvasPlaneMetrics, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout, balloonsEnabled, balloonClickEnabled, balloonHoverEnabled, seekStepAnimation]);
+  }, [computeBitInfo, flyToElement, getCanvasPlaneMetrics, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout, schedulePostLayoutRefresh, balloonsEnabled, balloonClickEnabled, balloonHoverEnabled, seekStepAnimation]);
 
   // Keyboard shortcuts — see src/hooks/useKeyboardShortcuts.js for the full key map.
   useKeyboardShortcuts({
