@@ -483,8 +483,8 @@
         
         if (prime < global_stripeprime_faster ) {
             // markFactors_wheelstorage_small_repeat_pair_vector_uint64v4_unroll8(sieve, start, stop, step);
-            markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
-            // markFactors_wheelstorage_small_repeat_mmask_uint64_unroll8(sieve, start, stop, step);
+            // markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
+            markFactors_wheelstorage_small_repeat_mmask_uint64_unroll8(sieve, start, stop, step);
             // markFactors_wheelstorage_small_repeat_uint64_unroll8(sieve, start, stop, step);
         }
         else 

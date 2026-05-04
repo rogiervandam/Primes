@@ -2,7 +2,28 @@
     #define max_masks 2
 #endif
 
-#if (max_masks >= 1) && (max_masks <= 8)
+// MMASK_PASS_ARGS: when defined, pass masks as individual arguments for n=1 and n=2
+// so the compiler can keep them in registers rather than loading from a pointer.
+// For n>2 the pointer variant is used regardless.
+#ifdef MMASK_PASS_ARGS
+    #if max_masks == 1
+        #define APPLYMASK_CALL(bitstorage, range_start_index, range_stop_index, step, masks) \
+            function(applyMask_index1_mmask_args,suffix)(bitstorage, range_start_index, range_stop_index, step, (masks)[0])
+    #elif max_masks == 2
+        #define APPLYMASK_CALL(bitstorage, range_start_index, range_stop_index, step, masks) \
+            function(applyMask_index2_mmask_args,suffix)(bitstorage, range_start_index, range_stop_index, step, (masks)[0], (masks)[1])
+    #elif (max_masks >= 3) && (max_masks <= 8)
+        #define APPLYMASK_DISPATCH_N(n, bitstorage, range_start_index, range_stop_index, step, masks) \
+            function(applyMask_index##n##_mmask,suffix)(bitstorage, range_start_index, range_stop_index, step, masks)
+        #define APPLYMASK_DISPATCH(bitstorage, range_start_index, range_stop_index, step, masks, n) \
+            APPLYMASK_DISPATCH_N(n, bitstorage, range_start_index, range_stop_index, step, masks)
+        #define APPLYMASK_CALL(bitstorage, range_start_index, range_stop_index, step, masks) \
+            APPLYMASK_DISPATCH(bitstorage, range_start_index, range_stop_index, step, masks, max_masks)
+    #else
+        #define APPLYMASK_CALL(bitstorage, range_start_index, range_stop_index, step, masks) \
+            function(applyMask_index_mmask,suffix)(bitstorage, range_start_index, range_stop_index, step, masks, max_masks)
+    #endif
+#elif (max_masks >= 1) && (max_masks <= 8)
     #define APPLYMASK_DISPATCH_N(n, bitstorage, range_start_index, range_stop_index, step, masks) \
         function(applyMask_index##n##_mmask,suffix)(bitstorage, range_start_index, range_stop_index, step, masks)
     #define APPLYMASK_DISPATCH(bitstorage, range_start_index, range_stop_index, step, masks, n) \
@@ -45,11 +66,17 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
         const counter_t bitpoint = wheelmask_bitpoint[wheel_index];
 
         if (bitpoint > 0) {
-            while (new_bucket >= target_bucket) {
+            if (new_bucket >= target_bucket) {
                 APPLYMASK_CALL(sieve->bitstorage, start_bucket, stop_bucket, wheel_step, masks);
                 for (counter_t i = 0; i < max_masks; i++) masks[i] = (bitbucket_t)0U;
-                start_bucket = target_bucket;
-                target_bucket += max_masks;
+                start_bucket = new_bucket;
+                target_bucket = start_bucket + max_masks;
+                // while (new_bucket >= target_bucket) {
+                //     start_bucket = target_bucket;
+                //     target_bucket += max_masks;
+                // }
+                // start_bucket = target_bucket;
+                // target_bucket += max_masks;
             }
 
             masks[new_bucket - start_bucket] |= markmask_type(wheel_bit_base + bitpoint - 1, bitbucket_t);
