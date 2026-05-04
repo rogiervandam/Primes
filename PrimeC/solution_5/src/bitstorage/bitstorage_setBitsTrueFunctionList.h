@@ -36,6 +36,9 @@ static SetBitsTrueMethod setBitsTrueMethods[] = {
     { "setBitsTrue_largestep_norepeat_uint8        ", setBitsTrue_largestep_norepeat_uint8        , 0, INT32_MAX, 1},
     { "setBitsTrue_smallstep_repeat_base           ", setBitsTrue_smallstep_repeat_base           , 0, 15, 1},
     { "setBitsTrue_smallstep_norepeat              ", setBitsTrue_smallstep_norepeat              , 0, 15, 1},
+    { "setBitsTrue_largestep_repeat_mmask_uint64  ", setBitsTrue_largestep_repeat_mmask_uint64  , 0, INT32_MAX, 1},
+    { "setBitsTrue_largestep_repeat_mmask_uint32  ", setBitsTrue_largestep_repeat_mmask_uint32  , 0, INT32_MAX, 1},
+    { "setBitsTrue_largestep_repeat_mmask_uint8   ", setBitsTrue_largestep_repeat_mmask_uint8   , 0, INT32_MAX, 1},
     { }
 };
 
