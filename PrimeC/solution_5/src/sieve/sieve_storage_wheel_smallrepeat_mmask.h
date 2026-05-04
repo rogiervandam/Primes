@@ -70,7 +70,7 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
     // for (counter_t index = range_start; index <= range_last_unique; index += step) {
         const counter_t bitpoint = wheelmask_bitpoint[wheel_stripe_index];
 
-        if (bitpoint > 0) {
+        if (bitpoint >= 0) {
             if (current_bucket >= target_bucket) {
                 APPLYMASK_CALL(sieve->bitstorage, start_bucket, stop_bucket, wheel_step, masks);
                 for (counter_t i = 0; i < max_masks; i++) masks[i] = (bitbucket_t)0U;

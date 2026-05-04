@@ -107,7 +107,7 @@ function(markFactors_wheelstorage_small_repeat_pair_v2,suffix)(sieve_t* sieve, c
 
         // wheel_index = (index) % WHEEL_SIZE;
 
-        if (wheelmask_bitpoint[wheel_index] > 0) 
+        if (wheelmask_bitpoint[wheel_index] >= 0) 
         {
             if (index > next_bucket_index) {
                 new_bucket = function(wheel_bucket_calc,variant_suffix)(index);
