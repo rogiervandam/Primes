@@ -193,6 +193,7 @@ export default function DebugToolsPanel({
   debugCalibrationMode = false,
   setDebugCalibrationMode = null,
   onApplyDebugSnapshot = null,
+  onForceGlRedraw = null,
   rightOffset = 8,
 }) {
   const [snapshot, setSnapshot] = useState(() => readSnapshot(rendererRef));
@@ -200,6 +201,7 @@ export default function DebugToolsPanel({
   const [copyStatus, setCopyStatus] = useState('');
   const [importText, setImportText] = useState('');
   const [importStatus, setImportStatus] = useState('');
+  const [forceRedrawStatus, setForceRedrawStatus] = useState('');
   const [calibrationCaseIndex, setCalibrationCaseIndex] = useState(0);
   const [calibrationTargetViewport, setCalibrationTargetViewport] = useState({ width: 0, height: 0 });
   const [calibrationViewportStatus, setCalibrationViewportStatus] = useState('');
@@ -733,6 +735,34 @@ export default function DebugToolsPanel({
             <div>Rotate X/Y (camera): {cameraState.rotateX.toFixed(2)}° / {cameraState.rotateY.toFixed(2)}°</div>
             <div>Rotate X/Y (applied): {cameraState.appliedRotateX.toFixed(2)}° / {cameraState.appliedRotateY.toFixed(2)}°</div>
           </div>
+          {onForceGlRedraw && (
+            <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  onForceGlRedraw();
+                  setForceRedrawStatus('Redraw triggered');
+                  window.setTimeout(() => setForceRedrawStatus(''), 1500);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '5px 8px',
+                  borderRadius: '4px',
+                  border: `1px solid ${palette.buttonBorder}`,
+                  background: palette.buttonBg,
+                  color: palette.buttonFg,
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                }}
+                title="Cancel any pending CSS-lock unlock, clear the lock, and force a full GL + Canvas2D redraw. Use this when the WebGL layer appears frozen or blank after a resize in Chrome/Edge."
+              >
+                Force GL Redraw
+              </button>
+              {forceRedrawStatus && (
+                <div style={{ fontSize: '10px', color: palette.good }}>{forceRedrawStatus}</div>
+              )}
+            </div>
+          )}
         </CollapsibleSection>
       )}
 

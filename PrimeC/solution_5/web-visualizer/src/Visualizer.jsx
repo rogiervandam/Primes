@@ -717,6 +717,40 @@ export default function Visualizer({
     return { ok: true, message: 'Snapshot applied' };
   }, [setCamera3DTransform, setCamera3DContainerStyle, getMinimapDetailH]);
 
+  // Forcibly cancel any pending GL CSS unlock, clear the resize-lock, apply
+  // the correct CSS size to the GL canvas, and trigger a full redraw.
+  // Useful when Chrome/Edge gets stuck showing a stale or invisible GL layer
+  // after a resize (e.g. the backing-store poll never matched, or the unlock
+  // rAF was dropped).
+  const forceGlRedraw = useCallback(() => {
+    // Invalidate any in-flight unlock token so pending rAFs/timeouts are no-ops.
+    ++glCssUnlockTokenRef.current;
+    if (glCssUnlockRafRef.current != null) {
+      cancelAnimationFrame(glCssUnlockRafRef.current);
+      glCssUnlockRafRef.current = null;
+    }
+    if (glCssUnlockTimeoutRef.current != null) {
+      clearTimeout(glCssUnlockTimeoutRef.current);
+      glCssUnlockTimeoutRef.current = null;
+    }
+    glCssLockStateRef.current = null;
+    // Re-apply the correct CSS size and rotation to the GL canvas.
+    const glEl = glCanvasRef.current;
+    const r = rendererRef.current;
+    if (glEl && r) {
+      const w = r.canvasWidth || 0;
+      const h = r.canvasHeight || 0;
+      if (w > 0 && h > 0) {
+        glEl.style.width = `${w}px`;
+        glEl.style.height = `${h}px`;
+      }
+      const rot = camera3DTransformRef.current !== 'none' ? camera3DTransformRef.current : '';
+      glEl.style.transform = rot;
+    }
+    // Force a full redraw (Canvas2D + GL worker).
+    if (r) r.render();
+  }, []);
+
   /** Miller-Rabin primality test — deterministic for all n < 3,215,031,751 */
   const isPrimeNumber = useCallback((n) => {
     if (n < 2) return false;
@@ -1143,8 +1177,13 @@ export default function Visualizer({
       const targetDpr = g && typeof g.getEffectiveDpr === 'function'
         ? g.getEffectiveDpr()
         : ((window.devicePixelRatio || 1));
-      const targetPxW = Math.max(1, Math.floor(targetW * targetDpr));
-      const targetPxH = Math.max(1, Math.floor(targetH * targetDpr));
+      // Use Math.round to match bitGridGLCore.js which also uses Math.round
+      // when setting canvas.width/height. Using Math.floor here caused a
+      // rounding mismatch (e.g. 801 × 1.5 → floor=1201, round=1202) that
+      // prevented waitForGlBackingStore from ever finding a match, forcing
+      // every horizontal-growth resize to wait for the full 80 ms timeout.
+      const targetPxW = Math.max(1, Math.round(targetW * targetDpr));
+      const targetPxH = Math.max(1, Math.round(targetH * targetDpr));
       const token = ++glCssUnlockTokenRef.current;
       if (glCssUnlockRafRef.current != null) {
         cancelAnimationFrame(glCssUnlockRafRef.current);
@@ -1354,14 +1393,14 @@ export default function Visualizer({
   }, []);
 
   const schedulePostLayoutRefresh = useCallback((anchor = null) => {
-    clearScheduledLayoutRefresh();
+    // clearScheduledLayoutRefresh();
     layoutRefreshRaf1Ref.current = requestAnimationFrame(() => {
       layoutRefreshRaf2Ref.current = requestAnimationFrame(() => {
-        refreshCanvasLayout(anchor);
+        // refreshCanvasLayout(anchor);
       });
     });
     layoutRefreshTimeoutRef.current = setTimeout(() => {
-      refreshCanvasLayout(anchor);
+      // refreshCanvasLayout(anchor);
     }, 210);
   }, [clearScheduledLayoutRefresh, refreshCanvasLayout]);
 
@@ -5351,6 +5390,7 @@ export default function Visualizer({
             debugCalibrationMode={debugCalibrationMode}
             setDebugCalibrationMode={setDebugCalibrationMode}
             onApplyDebugSnapshot={applyDebugSnapshot}
+            onForceGlRedraw={forceGlRedraw}
             rightOffset={settingsCollapsed ? 8 : (isMacPlatform ? 388 : 328)}
           />
         )}
