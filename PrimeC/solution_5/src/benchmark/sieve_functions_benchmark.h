@@ -2,7 +2,10 @@
 
 #ifdef COMPILE_BENCHMARK_STRIPERS
 
+#include "../sieve/sieve_markBase.h" 
 #include "../bitstorage/bitstorage_setBitsTrueFunctionList.h"
+
+#define compute_start(prime, block_start) calcFactor_start_half(prime, block_start)
 
 #define nonvector 1
 #define BENCHMARK_DURATION 0.002  // seconds per test
@@ -73,7 +76,7 @@ static inline void benchmarkSetBitsTrue(void* restrict bitstorage, const counter
                 stripe_passes[step][m] = passes;
             }
         }
-        prime = searchBitFalse(bitstorage, prime);
+        prime = searchBitFalse_uint8(bitstorage, prime);
     }
 
     // Print the results. First row has the method numbers
@@ -82,7 +85,7 @@ static inline void benchmarkSetBitsTrue(void* restrict bitstorage, const counter
     // Loop through all steps and print the results
     for(int step=1; step<prime_max*2+1; step+=2) {
         counter_t prime = (step-1) >> 1;
-        if (checkBitFalse(bitstorage, prime) ) {
+        if (checkBitFalse_uint8(bitstorage, prime) ) {
             // Find the maximum and second largest value among methods 4-18
             counter_t max_value = 0 ,second_max_value = 0;
             for(int method=0; method<methods; method++) {
@@ -98,7 +101,7 @@ static inline void benchmarkSetBitsTrue(void* restrict bitstorage, const counter
             // Print all method values, highlighting the max and second largest among methods 4-18
             printf( COLOR_BLUE "Step %4ju " COLOR_RESET, (uintmax_t)step);
             printStripePasses(stripe_passes[step], max_value);
-            printf("\n");
+            printf(" Ratio: %.2f\n", (block_stop - compute_start(prime, block_start)) / (double)step);
         }
     }
 }
@@ -120,16 +123,16 @@ playStepplan(sieve_t* sieve, const counter_t prime_max, setBitsTrueFunc* local_b
         register const counter_t step  = prime * 2 + 1;
         register counter_t start = compute_start(prime, range_start);
         (*local_best_stepfunction[step])(sieve->bitstorage, start, sieve->bits, step);
-        prime = searchBitFalse(sieve->bitstorage, prime);
+        prime = searchBitFalse_uint8(sieve->bitstorage, prime);
     }
     return 0;
 }
 
-static void createStepplan(benchmark_settings_t settings) {
+static int createStepplan(benchmark_settings_t settings) {
     counter_t range_start = 0, range_stop = settings.factor_max/2;
-    counter_t prime = 1, prime_max = prime_stop(range_stop), step_max = prime_max * 2 + 1;
+    counter_t prime = 1, prime_max = calcFactor_max_half(range_stop), step_max = prime_max * 2 + 1;
 
-    sieve_t* sieve = sieve_create(range_stop*2);
+    sieve_t* sieve = sieve_create(range_stop*2, range_stop);
     void* bitstorage = sieve->bitstorage;
 
     int stepplan[step_max];
@@ -178,7 +181,7 @@ static void createStepplan(benchmark_settings_t settings) {
         printStripePasses(stripe_passes[step], max_value);
         printf("Selecting method %2ju %s \n", (uintmax_t) stepplan[step], setBitsTrueMethods[stepplan[step]].name);
 
-        prime = searchBitFalse(bitstorage, prime);
+        prime = searchBitFalse_uint8(bitstorage, prime);
     }
     sieve_delete(sieve);
 
@@ -197,5 +200,6 @@ static void createStepplan(benchmark_settings_t settings) {
     }
     printf("Final stepplan: %ju passes in 5 seconds\n", (uintmax_t)passes);
 
+    return 0;
 }
 #endif

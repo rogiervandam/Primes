@@ -240,6 +240,20 @@
             return index_type((wheelmask_stripe_bits * ((index / WHEEL_SIZE)+1)), bitbucket_t);
         }
 
+        // wheel_bucket_estimate returns the bucket index for a given number index, and if it is divisible by any of the wheel primes
+        static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+        function(wheel_bucket_estimate,variant_suffix)(counter_t index) {
+            counter_t wheel_index = index % WHEEL_SIZE;
+            counter_t factor_start = wheelmask_stripe_bits * (index / WHEEL_SIZE);
+            for(; wheelmask_bitpoint[wheel_index] < 0 && wheel_index < WHEEL_SIZE; wheel_index++);
+            if (wheel_index <= WHEEL_SIZE) return index_type(factor_start + wheelmask_bitpoint[wheel_index] -1, bitbucket_t);
+
+            factor_start += WHEEL_SIZE; // reached the end of the wheel, so we need to wrap around to the next repetition of the wheel
+            for(; wheelmask_bitpoint[wheel_index] < 0; wheel_index++);
+            return index_type(factor_start + wheelmask_bitpoint[wheel_index] -1, bitbucket_t);
+        }
+
+
     #endif
 #endif
 

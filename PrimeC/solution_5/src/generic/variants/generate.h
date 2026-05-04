@@ -22,6 +22,10 @@
         #include "wordsize.h"
         #undef unrolls
 
+    #define unrolls 16
+        #include "wordsize.h"
+        #undef unrolls
+
     #undef variant
 #undef BUILD_WORDS_STAGE
 

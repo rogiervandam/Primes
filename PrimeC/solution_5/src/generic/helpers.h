@@ -48,6 +48,17 @@ int32_t:  "i32", \
 int64_t:  "i64", \
 default:  "unknown" )
 
+static inline double benchmarkTime() 
+{
+    struct timespec time;
+    #ifdef __APPLE__
+        clock_gettime(CLOCK_MONOTONIC_RAW, &time);
+    #else
+        clock_gettime(CLOCK_MONOTONIC, &time);
+    #endif
+    return (time.tv_sec + time.tv_nsec * 1e-9);
+}
+
 static inline void local_memcpy(void *dest, void *src, size_t n) 
 { 
     // Typecast src and dest addresses to (char *) 

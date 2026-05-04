@@ -42,52 +42,49 @@ function(markFactors_wheelstorage_small_repeat_mmask,suffix)(sieve_t* sieve, cou
 
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
 
-    const counter_t stop_bucket = function(wheel_block_calc,variant_suffix)(range_stop + 1);
+    const counter_t stop_bucket = function(wheel_bucket_estimate,variant_suffix)(range_stop);
     const counter_t wheel_step = reduce2power(step) * reduce2power(wheelmask_stripe_bits); // step in words, accounting for stripe alignment
     // +max_masks ensures all unique masks are flushed by bucket transitions
-    const counter_t range_stop_unique = min(range_start + ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits) * WHEEL_SIZE * (wheel_step + 1), range_stop);
+    const counter_t range_last_unique = min(range_start + ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits) * WHEEL_SIZE * (wheel_step + 1), range_stop);
 
     // go to first aligned block 
-    counter_t current_bucket = function(wheel_block_calc,variant_suffix)(range_start);
+    // counter_t current_bucket = function(wheel_block_calc,variant_suffix)(range_start);
 
-    // align to first full bucket
-    for (; ((function(wheel_block_calc,variant_suffix)(range_start)) < current_bucket + 1) && range_start <= range_stop_unique; range_start += step) {
-        function(markFactor_wheelstorage,variant_base_suffix)(sieve, range_start);
-    }
+    // // align to first full bucket
+    // for (; ((function(wheel_block_calc,variant_suffix)(range_start)) < current_bucket + 1) && range_start <= range_last_unique; range_start += step) {
+    //     function(markFactor_wheelstorage,variant_base_suffix)(sieve, range_start);
+    // }
 
     bitbucket_t masks[max_masks] = {(bitbucket_t)0U};
-    counter_t wheel_index = range_start % WHEEL_SIZE;
-    counter_t wheel_bit_base = wheelmask_stripe_bits * (range_start / WHEEL_SIZE);
-    counter_t new_bucket = index_type(wheel_bit_base, bitbucket_t);
-    counter_t start_bucket = new_bucket;
+    counter_t wheel_stripe_index = range_start % WHEEL_SIZE; // the index of the current bit in the wheel
+    counter_t wheel_base_bitindex = wheelmask_stripe_bits * (range_start / WHEEL_SIZE); //
+    counter_t current_bucket = index_type(wheel_base_bitindex, bitbucket_t);
+    counter_t start_bucket = current_bucket;
     counter_t target_bucket = start_bucket + max_masks;
+    const counter_t last_unique_bucket = function(wheel_bucket_estimate,variant_suffix)(range_last_unique);
 
-    for (counter_t index = range_start; index <= range_stop_unique; index += step) {
-        const counter_t bitpoint = wheelmask_bitpoint[wheel_index];
+    for (; current_bucket <= last_unique_bucket;) {
+
+    // for (counter_t index = range_start; index <= range_last_unique; index += step) {
+        const counter_t bitpoint = wheelmask_bitpoint[wheel_stripe_index];
 
         if (bitpoint > 0) {
-            if (new_bucket >= target_bucket) {
+            if (current_bucket >= target_bucket) {
                 APPLYMASK_CALL(sieve->bitstorage, start_bucket, stop_bucket, wheel_step, masks);
                 for (counter_t i = 0; i < max_masks; i++) masks[i] = (bitbucket_t)0U;
-                start_bucket = new_bucket;
+                start_bucket = current_bucket;
                 target_bucket = start_bucket + max_masks;
-                // while (new_bucket >= target_bucket) {
-                //     start_bucket = target_bucket;
-                //     target_bucket += max_masks;
-                // }
-                // start_bucket = target_bucket;
-                // target_bucket += max_masks;
             }
 
-            masks[new_bucket - start_bucket] |= markmask_type(wheel_bit_base + bitpoint - 1, bitbucket_t);
+            masks[current_bucket - start_bucket] |= markmask_type(wheel_base_bitindex + bitpoint - 1, bitbucket_t);
         }
 
-        wheel_index += step;
-        if (wheel_index >= WHEEL_SIZE) {
-            const counter_t advance = wheel_index / WHEEL_SIZE;
-            wheel_index -= advance * WHEEL_SIZE;
-            wheel_bit_base += wheelmask_stripe_bits * advance;
-            new_bucket = index_type(wheel_bit_base, bitbucket_t);
+        wheel_stripe_index += step;
+        if (wheel_stripe_index >= WHEEL_SIZE) {
+            const counter_t advance = wheel_stripe_index / WHEEL_SIZE;
+            wheel_stripe_index -= advance * WHEEL_SIZE;
+            wheel_base_bitindex += wheelmask_stripe_bits * advance;
+            current_bucket = index_type(wheel_base_bitindex, bitbucket_t);
         }
     }
 

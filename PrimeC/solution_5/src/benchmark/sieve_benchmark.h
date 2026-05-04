@@ -47,17 +47,6 @@ static inline void prepareBenchmarkGlobals(benchmark_settings_t benchmark_settin
     verbose5({ printf("Using settings " COLOR_GREEN "%s" COLOR_RESET "\n", getBenchmarkSettingAsString(benchmark_settings)); })
 }
 
-static inline double benchmarkTime() 
-{
-    struct timespec time;
-    #ifdef __APPLE__
-        clock_gettime(CLOCK_MONOTONIC_RAW, &time);
-    #else
-        clock_gettime(CLOCK_MONOTONIC, &time);
-    #endif
-    return (time.tv_sec + time.tv_nsec * 1e-9);
-}
-
 static inline void updateBenchmarkResult(benchmark_result_t *result, const counter_t passes, const double time_elapsed) {
     result->passes       += passes;
     result->elapsed_time += time_elapsed / result->settings.threads;
