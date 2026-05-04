@@ -1,22 +1,20 @@
 /**
  * BitGridGLWorker parity harness — see docs/AI_MAINTENANCE.md §8 item 5.
  *
- * Pins the GL renderer's contract: given identical positions + state +
- * colours, BitGridGLWorker output must match a small Canvas2D reference that
- * does the same uniform-grid `fillRect`-per-bit + overlay composite +
- * border strips.
+ * Pins the GL renderer's contract: given identical layout params + state +
+ * colours, BitGridGLWorker output must match a Canvas2D reference that draws
+ * each bit at the position returned by SieveRenderer.bitIndexToCanvas().
  *
- * This harness deliberately does NOT drive the full `SieveRenderer` —
- * GL only covers the base bit pass + four cell-fill overlays + borders, and
- * most of `SieveRenderer.render()` is features that intentionally stay
- * Canvas2D-on-top (dots, labels, lowered-3D, minimap, …). Testing those
- * would be a parity test against features GL has never claimed to implement.
- * The reference here mirrors only what GL actually does.
+ * The GL renderer computes positions from layout uniforms (no position
+ * texture); the Canvas2D reference uses the same SieveRenderer instance.
+ * A pixel match between the two validates the GLSL position arithmetic.
  *
  * Invoked from `parity.html`. Dev-only; not bundled into the app.
  */
 
+import { SieveRenderer } from '../SieveRenderer.js';
 import { BitGridGLWorker, isWorkerGLSupported } from '../renderer/gl/BitGridGLWorker.js';
+import { packState } from '../renderer/gl/hostStatePacker.js';
 
 // Tint values matching the GL fragment shader hard-coded colours in
 // `bitGridGLCore.js` (focus / prime / range / multiples overlays).
@@ -49,33 +47,28 @@ const els = {
 };
 
 /**
- * Build the synthetic state. Deterministic so reruns are diffable.
- *
- * Layout: square-ish grid, columns = ceil(sqrt(bitCount)), each cell is
- * `cell` CSS px, with 1-px gap. We bake the centre coordinate the same
- * way `bitIndexToCanvas` does (top-left + px/2).
+ * Build the synthetic state using a real SieveRenderer so the GL shader's
+ * position arithmetic (layout uniforms + GLSL integer math) can be compared
+ * against the JS-side `bitIndexToCanvas` reference. Deterministic.
  */
 function buildScene(bitCount, cellSize) {
-  const cols = Math.ceil(Math.sqrt(bitCount));
-  const rows = Math.ceil(bitCount / cols);
-  const gap = 1;
-  const stride = cellSize + gap;
-  const cssW = cols * stride;
-  const cssH = rows * stride;
-
-  // Per-bit (col, row) → centre in CSS px.
-  const positions = new Float32Array(bitCount * 2);
-  for (let i = 0; i < bitCount; i++) {
-    const c = i % cols;
-    const r = (i / cols) | 0;
-    positions[i * 2]     = c * stride + cellSize / 2;
-    positions[i * 2 + 1] = r * stride + cellSize / 2;
-  }
+  const rr = new SieveRenderer();
+  rr.pixelSize  = cellSize;
+  rr.zoom       = 1;
+  rr.bitSpacingH  = 1;  rr.bitSpacingV  = 1;
+  rr.byteSpacingH = 2;  rr.byteSpacingV = 2;
+  rr.u64SpacingH  = 4;  rr.u64SpacingV  = 4;
+  rr.bitLayout  = '4x2';
+  rr.byteLayout = '4x2';
+  rr.vectorGroup = 1;
+  rr.panX = 0;  rr.panY = 0;
+  rr.cachelineSize = 64;       // 64 bytes = 512 bits per cacheline
+  rr.horizontalGroups = 8;    // 8 vector groups per row — deterministic
+  rr.init(bitCount, bitCount * 2);
 
   // State + flag classes. Pattern is arbitrary but deterministic.
-  const bitState = new Uint8Array(bitCount);
   const changedBits = new Set();
-  const ghostBits = new Set();
+  const ghostBits   = new Set();
   const repeatedBits = new Set();
   const primeFlags = new Uint8Array(bitCount);
   const focusStart = Math.floor(bitCount * 0.10);
@@ -84,18 +77,40 @@ function buildScene(bitCount, cellSize) {
   const rangeStop  = Math.floor(bitCount * 0.65);
 
   for (let i = 0; i < bitCount; i++) {
-    if (i % 3 === 0) bitState[i] = 1;                // ~1/3 set
+    if (i % 3 === 0) rr.bitState[i] = 1;           // ~1/3 set
     if (i % 17 === 5) changedBits.add(i);
-    if (i % 31 === 0 && bitState[i]) ghostBits.add(i);
+    if (i % 31 === 0 && rr.bitState[i]) ghostBits.add(i);
     if (i % 23 === 11) repeatedBits.add(i);
-    if (isPrimeSmall(i + 2)) primeFlags[i] = 1;       // small primes for visual sanity
+    if (isPrimeSmall(i + 2)) primeFlags[i] = 1;    // small primes for visual sanity
   }
+  rr.changedBits       = changedBits;
+  rr.maskGhostBits     = ghostBits;
+  rr.repeatedChangedBits = repeatedBits;
+  rr._primeBitFlags    = primeFlags;
+  rr.focusStart        = focusStart;
+  rr.focusStop         = focusStop;
+  rr.rangeOverlayStart = rangeStart;
+  rr.rangeOverlayEnd   = rangeStop;
+
+  // Derive canvas size from the bounding box of all bit positions.
+  const layout = rr.glLayoutParams();
+  let maxX = 0, maxY = 0;
+  for (let i = 0; i < bitCount; i++) {
+    const p = rr.bitIndexToCanvas(i);
+    if (p) {
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+  }
+  const cssW = Math.ceil(maxX + layout.pxHalf + 4);
+  const cssH = Math.ceil(maxY + layout.pxHalf + 4);
 
   return {
-    cols, rows, cellSize, gap, cssW, cssH,
-    positions, bitState, changedBits, ghostBits, repeatedBits,
+    rr, cellSize, cssW, cssH,
+    bitState: rr.bitState,
+    changedBits, ghostBits, repeatedBits,
     primeFlags, focusStart, focusStop, rangeStart, rangeStop,
-    multiplesPrime: 7,                                // mark every 7th multiple
+    multiplesPrime: 7,
   };
 }
 
@@ -159,8 +174,10 @@ function renderRef(scene, ctx, dpr, withOverlays) {
   ctx.fillStyle = `rgb(${BG[0]},${BG[1]},${BG[2]})`;
   ctx.fillRect(0, 0, scene.cssW, scene.cssH);
   for (let i = 0; i < scene.bitState.length; i++) {
-    const cx = scene.positions[i * 2];
-    const cy = scene.positions[i * 2 + 1];
+    const pos = scene.rr.bitIndexToCanvas(i);
+    if (!pos) continue;
+    const cx = pos.x;
+    const cy = pos.y;
     const x = Math.round(cx - scene.cellSize / 2);
     const y = Math.round(cy - scene.cellSize / 2);
     const w = Math.round(cx + scene.cellSize / 2) - x;
@@ -177,8 +194,10 @@ function renderRef(scene, ctx, dpr, withOverlays) {
   // refWithoutMultiples) to match the GL host's multiplesOverlay=false.
   if (withOverlays && scene.cellSize >= 4) {
     for (let i = 0; i < scene.bitState.length; i++) {
-      const cx = scene.positions[i * 2];
-      const cy = scene.positions[i * 2 + 1];
+      const pos = scene.rr.bitIndexToCanvas(i);
+      if (!pos) continue;
+      const cx = pos.x;
+      const cy = pos.y;
       const x = Math.round(cx - scene.cellSize / 2);
       const y = Math.round(cy - scene.cellSize / 2);
       const w = Math.round(cx + scene.cellSize / 2) - x;
@@ -224,31 +243,15 @@ function _fillBorderStrips(ctx, x, y, w, h, bw, color) {
   ctx.fillRect(x + w - bw, y + bw, bw, h - 2 * bw);
 }
 
-/** Build the fake host object consumed by uploadPositions / uploadState. */
-function buildFakeHost(scene, withOverlays) {
-  const host = {
-    panX: 0, panY: 0,
-    bitIndexToCanvas(i) {
-      return { x: scene.positions[i * 2], y: scene.positions[i * 2 + 1] };
-    },
-    bitState: scene.bitState,
-    changedBits: scene.changedBits,
-    maskGhostBits: scene.ghostBits,
-    repeatedChangedBits: scene.repeatedBits,
-    targetHitCounts: null,
-    primeOverlay: withOverlays,
-    _primeBitFlags: scene.primeFlags,
-    rangeOverlay: withOverlays,
-    rangeOverlayStart: scene.rangeStart,
-    rangeOverlayEnd: scene.rangeStop,
-    // Multiples overlay disabled — see note in runGL().
-    multiplesOverlay: false,
-    multiplesOverlayPrime: scene.multiplesPrime,
-    storageModel: 'half',
-    focusStart: withOverlays ? scene.focusStart : null,
-    focusStop:  withOverlays ? scene.focusStop  : null,
-  };
-  return host;
+/** Build the host object consumed by packState / GL render. */
+function buildHost(scene, withOverlays) {
+  const rr = scene.rr;
+  rr.primeOverlay = withOverlays;
+  rr.rangeOverlay = withOverlays;
+  rr.multiplesOverlay = false;  // see note in runGL()
+  rr.focusStart = withOverlays ? scene.focusStart : null;
+  rr.focusStop  = withOverlays ? scene.focusStop  : null;
+  return rr;
 }
 
 /** Disable multiples in the reference scene so it matches the GL host's
@@ -294,8 +297,7 @@ async function runGLWorker(scene, displayCanvas, dpr, withOverlays) {
   // Pass explicit dpr so the backing-store sizing matches the reference.
   glWorker.resize(scene.cssW, scene.cssH, dpr);
 
-  const host = buildFakeHost(scene, withOverlays);
-  glWorker.uploadPositions(host, 'harness');
+  const host = buildHost(scene, withOverlays);
   glWorker.uploadState(host);
   glWorker.render({
     panX: 0, panY: 0,
@@ -306,6 +308,7 @@ async function runGLWorker(scene, displayCanvas, dpr, withOverlays) {
     changedColor: CHANGED,
     repeatedColor: REPEATED,
     baseAlpha: 1,
+    ...scene.rr.glLayoutParams(),
   });
 
   // Round-trip to worker: waits for all preceding messages to be processed,
@@ -416,7 +419,7 @@ async function run() {
   els.out.innerHTML = [
     `renderer       : BitGridGLWorker (worker path)`,
     `bits           : ${bitCount}`,
-    `grid           : ${scene.cols} × ${scene.rows} (cell ${cellSize}px, dpr ${dpr})`,
+    `layout         : SieveRenderer 4×2 64B cacheline 8vec/row (cell ${cellSize}px, dpr ${dpr})`,
     `pixels         : ${r.n.toLocaleString()}`,
     `max Δ (channel): ${r.maxDelta} / 255`,
     `mean Δ         : ${r.meanDelta.toFixed(3)} / 255`,

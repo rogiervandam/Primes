@@ -1,10 +1,9 @@
 /**
  * hostStatePacker — turn a `SieveRenderer`-shaped host object into the
- * two pre-packed typed arrays consumed by `BitGridGLCore`.
+ * pre-packed typed arrays consumed by `BitGridGLCore`.
  *
  * Lives outside `BitGridGLCore` because the host object is React-side
- * (typed arrays + `Set` instances + a `bitIndexToCanvas` method that
- * closes over `SieveRenderer` state). Only the main thread can read it
+ * (typed arrays + `Set` instances). Only the main thread can read it
  * — the worker variant calls these packers on the main thread, then
  * transfers the resulting buffers via `postMessage`.
  *
@@ -13,47 +12,6 @@
  */
 
 import { bitToNumber } from '../bitMath';
-
-/**
- * Walk every bit through `host.bitIndexToCanvas` and write the
- * pan-independent (x, y) cell-centre into `buf`. Returns the
- * fingerprint that should be cached so the next call can early-exit.
- *
- * `slots` is the texture slot count (`texW * texH`); `buf` must be
- * `slots * 2` long.
- */
-export function packPositions(host, buf, slots) {
-  // Fast path: SieveRenderer exposes a batch-optimised packer that hoists
-  // all invariant layout calculations out of the per-bit loop and avoids
-  // per-bit object allocations and method calls entirely.
-  if (typeof host.packPositionsDirect === 'function') {
-    host.packPositionsDirect(buf, slots);
-    return;
-  }
-
-  const bitCount = Math.min(host.bitCount || 0, slots);
-  const panX = host.panX || 0;
-  const panY = host.panY || 0;
-  const canvasW = Math.max(1, host.canvasWidth || host.canvas?.width || 1);
-  const canvasH = Math.max(1, host.canvasHeight || host.canvas?.height || 1);
-  for (let i = 0; i < bitCount; i++) {
-    const p = host.bitIndexToCanvas(i);
-    if (p) {
-      buf[i * 2]     = (p.x - panX) / canvasW;
-      buf[i * 2 + 1] = (p.y - panY) / canvasH;
-    } else {
-      // Off-screen sentinel — vertex shader's bit-count guard handles
-      // bounds, but stale entries should not produce stray quads.
-      buf[i * 2]     = -1;
-      buf[i * 2 + 1] = -1;
-    }
-  }
-  // Pad unused slots so a shrunken bitCount doesn't paint stale quads.
-  for (let i = bitCount; i < slots; i++) {
-    buf[i * 2]     = -1;
-    buf[i * 2 + 1] = -1;
-  }
-}
 
 /**
  * Pack the host's classifier flags into one byte per bit. Layout matches

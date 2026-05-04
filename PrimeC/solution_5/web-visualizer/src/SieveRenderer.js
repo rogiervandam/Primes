@@ -2087,26 +2087,27 @@ export class SieveRenderer {
   }
 
   /**
-   * Batch-optimised version of `bitIndexToCanvas` for all bits at once.
-   * Hoists every invariant layout calculation out of the loop, builds two
-   * 8-element lookup arrays for byte/bit positions, then runs a tight loop
-   * with only integer arithmetic and array lookups per bit — no method
-   * calls, no object allocations, no `this` property lookups inside the
-   * hot path.
+   * Return the layout parameters consumed by the WebGL vertex shader to
+   * compute per-bit (x, y) positions directly on the GPU from
+   * `gl_InstanceID`. All values are pan-independent CSS-px scalars or
+   * small lookup arrays; no position texture is needed.
    *
-   * Used by `packPositions` in `hostStatePacker.js` as a fast-path.
-   * `panX`/`panY` cancel out (bitIndexToCanvas adds them; packPositions
-   * subtracts them) so they are omitted here.
+   * The returned object is spread into the `renderParams` passed to
+   * `BitGridGLWorker.render()` / `BitGridGLCore.render()`.
    *
-   * @param {Float32Array} buf   Pre-allocated buffer, `slots * 2` long.
-   * @param {number}       slots Texture slot count (`texW * texH`).
+   * @returns {{
+   *   bitsPerCL: number, u64sPerCL: number, vectorGroup: number,
+   *   numVecsPerCL: number, vecPerRow: number,
+   *   vecStep: number, u64Step: number,
+   *   byteStepX: number, byteStepY: number,
+   *   bitStepX: number, bitStepY: number,
+   *   labelH: number, vRowHeight: number, pxHalf: number,
+   *   bytePos: Float32Array,  // 16 floats: (col,row) × 8 bytes
+   *   bitPos:  Float32Array,  // 16 floats: (col,row) × 8 bit positions
+   * }}
    */
-  packPositionsDirect(buf, slots) {
-    const bitCount = Math.min(this.bitCount || 0, slots);
-    const canvasW  = Math.max(1, this.canvasWidth  || 1);
-    const canvasH  = Math.max(1, this.canvasHeight || 1);
-
-    // ── Invariant layout values (computed once) ─────────────────────────
+  glLayoutParams() {
+    // ── Invariant layout values ──────────────────────────────────────────
     const bitsPerCacheLine = this.bitsPerCacheLine;
     const u64sPerCL  = Math.max(1, Math.ceil(bitsPerCacheLine / 64));
     const vectorGroup = this.vectorGroup;
@@ -2114,7 +2115,6 @@ export class SieveRenderer {
     const zoom       = this.zoom;
     const pixelSize  = this.pixelSize;
     const px         = pixelSize * zoom;
-    const pxHalf     = px / 2;
 
     const bitSpacingH  = this.bitSpacingH;
     const bitSpacingV  = this.bitSpacingV;
@@ -2140,8 +2140,8 @@ export class SieveRenderer {
     // Build byte-in-u64 lookup tables (8 entries max)
     const byteBl      = BYTE_LAYOUTS[this.byteLayout];
     const activeBytes = Math.max(1, Math.min(8, Math.ceil(this._logicalGroupBits() / 8)));
-    const byteColLookup = new Int32Array(activeBytes);
-    const byteRowLookup = new Int32Array(activeBytes);
+    const byteColLookup = new Int32Array(8);
+    const byteRowLookup = new Int32Array(8);
     let minBCol = Infinity, maxBCol = -Infinity;
     let minBRow = Infinity, maxBRow = -Infinity;
     for (let b = 0; b < activeBytes; b++) {
@@ -2170,19 +2170,19 @@ export class SieveRenderer {
 
     // vectorDims / steps
     const vecDimW  = vectorGroup * u64DimW + (vectorGroup - 1) * u64GapX;
-    const vecStep  = vecDimW + u64GapX;   // vecD.w + u64GapX
-    const u64Step  = u64DimW + u64GapX;   // u64D.w + vecD.intraGap
+    const vecStep  = vecDimW + u64GapX;
+    const u64Step  = u64DimW + u64GapX;
 
     // byteSteps
     const byteStepX = byteDimW + byteGapX;
     const byteStepY = byteDimH + byteGapY;
 
-    // numVectorsPerRow and vecPerRow
-    const numVec   = Math.max(1, Math.ceil(u64sPerCL / vectorGroup));
-    const vecPerRow = this._vectorGroupsPerVisualRow();
+    // numVectorsPerCL and vecPerRow
+    const numVecsPerCL = Math.max(1, Math.ceil(u64sPerCL / vectorGroup));
+    const vecPerRow    = this._vectorGroupsPerVisualRow();
 
     // label height and row height
-    const labelH    = this._labelHeight();
+    const labelH     = this._labelHeight();
     const vRowHeight = labelH + u64DimH + u64GapY;
 
     // Build bit-in-byte lookup tables (always 8 entries)
@@ -2199,50 +2199,69 @@ export class SieveRenderer {
       }
     }
 
-    // ── Hot loop: integer arithmetic + array lookups only ────────────────
-    for (let i = 0; i < bitCount; i++) {
-      const clIdx    = Math.floor(i / bitsPerCacheLine);
-      const bitInRow = i % bitsPerCacheLine;
-      const u64Idx   = Math.floor(bitInRow / 64);
-
-      if (u64Idx >= u64sPerCL) {
-        buf[i * 2]     = -1;
-        buf[i * 2 + 1] = -1;
-        continue;
-      }
-
-      const bitInU64  = bitInRow % 64;
-      const byteIdx   = Math.floor(bitInU64 / 8);
-      const bitInByte = bitInU64 % 8;
-
-      const vecIdx            = Math.floor(u64Idx / vectorGroup);
-      const globalVectorIndex = clIdx * numVec + vecIdx;
-      const vRow              = Math.floor(globalVectorIndex / vecPerRow);
-      const vecInRow          = globalVectorIndex % vecPerRow;
-      const intraIdx          = u64Idx % vectorGroup;
-
-      // panX/panY cancel with packPositions subtraction, so omitted.
-      const x = vecInRow * vecStep
-              + intraIdx * u64Step
-              + byteColLookup[byteIdx]   * byteStepX
-              + bitColLookup[bitInByte]  * bitStepX
-              + pxHalf;
-
-      const y = vRow * vRowHeight
-              + labelH
-              + byteRowLookup[byteIdx]   * byteStepY
-              + bitRowLookup[bitInByte]  * bitStepY
-              + pxHalf;
-
-      buf[i * 2]     = x / canvasW;
-      buf[i * 2 + 1] = y / canvasH;
+    // Pack lookup tables as flat Float32Array(16) for gl.uniform2fv().
+    const bytePos = new Float32Array(16);
+    const bitPos  = new Float32Array(16);
+    for (let i = 0; i < 8; i++) {
+      bytePos[i * 2]     = byteColLookup[i];
+      bytePos[i * 2 + 1] = byteRowLookup[i];
+      bitPos[i * 2]      = bitColLookup[i];
+      bitPos[i * 2 + 1]  = bitRowLookup[i];
     }
 
-    // Pad unused slots with the off-screen sentinel.
-    for (let i = bitCount; i < slots; i++) {
-      buf[i * 2]     = -1;
-      buf[i * 2 + 1] = -1;
+    // ── Viewport culling: compute the visible bit range ─────────────────
+    // Only render bits that belong to visual rows currently on screen.
+    // This reduces the GL instance count dramatically when zoomed in or
+    // when a large grid is only partially scrolled into view.
+    // Falls back to the full bit range when canvas height is not yet set
+    // (e.g. during parity testing or first-frame setup).
+    const totalCacheLines = Math.max(1, Math.ceil(this.bitCount / bitsPerCacheLine));
+    const totalVectorSlots = totalCacheLines * numVecsPerCL;
+    const totalVRows = Math.ceil(totalVectorSlots / vecPerRow);
+    const ch = this.canvasHeight || 0;
+    let firstBit = 0;
+    let endBit = this.bitCount;
+    if (ch > 0 && vRowHeight > 0) {
+      const startVRow = Math.max(0, Math.floor(-this.panY / vRowHeight));
+      const endVRow   = Math.min(totalVRows, Math.ceil((ch - this.panY) / vRowHeight) + 1);
+      // Map vRow range → cacheline range → bit range.
+      // firstCL = first cacheline of startVRow; lastCL = first cacheline past endVRow.
+      const firstCL = Math.floor(startVRow * vecPerRow / numVecsPerCL);
+      const lastCL  = Math.min(Math.ceil(endVRow * vecPerRow / numVecsPerCL), totalCacheLines);
+      firstBit = Math.max(0, firstCL * bitsPerCacheLine);
+      endBit   = Math.min(lastCL * bitsPerCacheLine, this.bitCount);
     }
+
+    // ── Downsampling: skip every N-th bit when zoomed out far enough ─────
+    // When cellSize < 1 px each bit occupies sub-pixel area; bits overlap
+    // on screen. Rendering every N-th bit gives the same visual result
+    // while cutting GPU vertex-shader work by N×.
+    const cellSize = px; // already = pixelSize * zoom
+    const bitStride = Math.max(1, Math.min(16, Math.floor(1 / Math.max(0.0625, cellSize))));
+    // instanceCount must cover the full [firstBit, endBit) range at the chosen stride.
+    const instanceCount = Math.max(0, Math.ceil((endBit - firstBit) / bitStride));
+
+    return {
+      bitsPerCL:    bitsPerCacheLine,
+      u64sPerCL,
+      vectorGroup,
+      numVecsPerCL,
+      vecPerRow,
+      vecStep,
+      u64Step,
+      byteStepX,
+      byteStepY,
+      bitStepX,
+      bitStepY,
+      labelH,
+      vRowHeight,
+      pxHalf: px / 2,
+      bytePos,
+      bitPos,
+      firstBit,
+      instanceCount,
+      bitStride,
+    };
   }
 
   getBitInfo(bitIdx) {

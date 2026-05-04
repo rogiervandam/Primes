@@ -6,7 +6,6 @@
  *   { type: 'init',        canvas: OffscreenCanvas }   // canvas transferred
  *   { type: 'setBitCount', bitCount: number }
  *   { type: 'resize',      cssW, cssH, dpr }
- *   { type: 'positions',   buf: Float32Array }         // buf transferred (one-way)
  *   { type: 'state',       buf: Uint8Array }           // buf transferred (one-way)
  *   { type: 'anim',        buf: Float32Array }         // buf transferred (one-way)
  *   { type: 'render',      params: { ... }, glyphCmds?: { paramBuf, textBuf, count, cssW, cssH, dpr } }
@@ -89,7 +88,7 @@ self.onmessage = (e) => {
               return;
             }
             // Re-allocate textures at the last known bit count so the
-            // next uploadPositions / uploadState / render round-trip works
+            // next uploadState / render round-trip works
             // without needing a resizeForBitCount call from the main thread.
             if (currentBitCount > 0) core.setBitCount(currentBitCount);
             // Re-init glyph renderer on the restored context.
@@ -149,11 +148,6 @@ self.onmessage = (e) => {
         core.resize(lastCssW, lastCssH, lastDpr);
         if (glyphCore) glyphCore.resize(lastCssW, lastCssH, lastDpr);
       });
-      break;
-    }
-    case 'positions': {
-      if (!core) return;
-      safe(() => core.uploadPositionBuffer(msg.buf));
       break;
     }
     case 'state': {

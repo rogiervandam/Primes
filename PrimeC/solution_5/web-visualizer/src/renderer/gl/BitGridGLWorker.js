@@ -17,7 +17,7 @@
  */
 
 import { BitGridGLCore } from './bitGridGLCore.js';
-import { packPositions, packState, packAnim } from './hostStatePacker.js';
+import { packState, packAnim } from './hostStatePacker.js';
 
 let cachedMaxCanvasDimension = null;
 
@@ -163,7 +163,6 @@ export class BitGridGLWorker {
     this._bitCount = 0;
     this._texW = 0;
     this._texH = 0;
-    this._layoutFingerprint = '';
     // Buffered messages while waiting for `ready`. The worker is
     // initialised synchronously after `attach()` but the WebGL context
     // creation inside the worker is async from our perspective.
@@ -265,15 +264,13 @@ export class BitGridGLWorker {
         // Clear the layout fingerprint so positions are re-uploaded on
         // the first frame after restore.
         this._lost = true;
-        this._layoutFingerprint = '';
         console.warn('[BitGridGLWorker] WebGL context lost — awaiting restore');
       } else if (msg.type === 'contextrestored') {
         // Worker re-initialised the core and re-allocated textures at
         // the previous bit count. Resume posting; the normal per-frame
-        // upload loop (uploadPositions + uploadState + render) will
-        // repopulate the GPU data without any extra intervention.
+        // upload loop (uploadState + render) will repopulate the GPU
+        // data without any extra intervention.
         this._lost = false;
-        this._layoutFingerprint = ''; // force position repack on next frame
         console.info('[BitGridGLWorker] WebGL context restored — resuming');
       } else if (msg.type === 'captured') {
         const cb = this._captureCallbacks.get(msg.id);
@@ -349,25 +346,11 @@ export class BitGridGLWorker {
     this._texW = texW;
     this._texH = texH;
     this._slots = texW * texH;
-    this._layoutFingerprint = '';
     if (this._direct) {
       this._core.setBitCount(bitCount);
       return;
     }
     this._post({ type: 'setBitCount', bitCount });
-  }
-
-  uploadPositions(host, fingerprint) {
-    if (this._lost || !host || this._slots === 0) return;
-    if (fingerprint && fingerprint === this._layoutFingerprint) return;
-    this._layoutFingerprint = fingerprint || '';
-    const buf = new Float32Array(this._slots * 2);
-    packPositions(host, buf, this._slots);
-    if (this._direct) {
-      this._core.uploadPositionBuffer(buf);
-      return;
-    }
-    this._post({ type: 'positions', buf }, [buf.buffer]);
   }
 
   uploadState(host) {
@@ -509,10 +492,6 @@ export class BitGridGLWorker {
     this._post(msg, transfers);
   }
 
-  invalidateLayout() {
-    this._layoutFingerprint = '';
-  }
-
   /**
    * Request a one-shot pixel snapshot from the worker. The worker calls
    * `OffscreenCanvas.transferToImageBitmap()` after flushing pending GL
@@ -602,7 +581,7 @@ export class BitGridGLWorker {
     this._worker = null;
     this.canvas = null;
     this._ready = false;
-    this._lost = true;   // prevent buffer allocation in uploadPositions/uploadState/uploadAnim after disposal
+    this._lost = true;   // prevent buffer allocation in uploadState/uploadAnim after disposal
     this._pending.length = 0;
   }
 }

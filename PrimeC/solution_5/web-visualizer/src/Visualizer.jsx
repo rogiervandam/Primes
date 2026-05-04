@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { SieveRenderer, bitToNumber, describeWheelBit, wheelSignature, CACHE_PRESETS } from './SieveRenderer';
+import { SieveRenderer, bitToNumber, describeWheelBit, CACHE_PRESETS } from './SieveRenderer';
 import { BitGridGLWorker, isWorkerGLSupported } from './renderer/gl/BitGridGLWorker';
 import { GlyphTextGLCore } from './renderer/gl/GlyphTextGLCore';
 import EventsPanel from './EventsPanel';
@@ -1668,27 +1668,7 @@ export default function Visualizer({
             const cssW = rr.canvasWidth || 0;
             const cssH = rr.canvasHeight || 0;
             g.resize(cssW, cssH);
-            const directMode = typeof g.isDirectMode === 'function' && g.isDirectMode();
 
-            // Layout fingerprint — only repack the position texture when one
-            // of these inputs changes. Pan is excluded (applied as a uniform).
-            const fp = [
-              rr.zoom, rr.pixelSize,
-              rr.bitLayout, rr.byteLayout, rr.vectorGroup,
-              rr.cachelineSize, rr.customGroupingBits, rr.horizontalGroups,
-              rr._frozenClPerVRow,
-              rr.layoutAvailWidth, rr.layoutAvailHeight,
-              rr.bitSpacingH, rr.bitSpacingV,
-              rr.byteSpacingH, rr.byteSpacingV,
-              rr.u64SpacingH, rr.u64SpacingV,
-              rr.storageModel, rr.bitCount,
-              wheelSignature(rr.wheelDefinition),
-              cssW, cssH,
-            ].join('|');
-            // Direct mode renders synchronously and is used on high-risk large
-            // canvases. Repack positions every frame there to eliminate any
-            // stale-fingerprint edge cases at resize/tilt breakpoints.
-            g.uploadPositions(rr, directMode ? '' : fp);
             g.uploadState(rr);
             g.uploadAnim(rr);
 
@@ -1706,6 +1686,7 @@ export default function Visualizer({
               changedColor: changed,
               repeatedColor: [245, 158, 11],
               baseAlpha: Math.max(0.12, Math.min(1, rr.gridOpacity ?? 1)),
+              ...rr.glLayoutParams(),
             };
             let renderSeq;
             if (rr._glyphBuf) {
