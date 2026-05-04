@@ -146,12 +146,15 @@ function CanvasStage({
             className={`gl-render-canvas${glActive ? '' : ' renderer-inactive'}${hideGlCanvas ? ' debug-hidden' : ''}`}
             aria-hidden="true"
           />
-          {/* WebGL glyph-text canvas — kept in DOM so the renderer can attach,
-              but hidden: the single-canvas approach renders everything through
-              the GL canvas, so no separate glyph overlay is composited. */}
+          {/* WebGL glyph-text canvas — transparent overlay for per-cell labels
+              and dots. Gets the same rotation as the GL canvas (applied
+              imperatively by refreshCanvasLayout / the camera3DTransform effect)
+              so both canvases stay aligned. Each has its own GPU compositing
+              layer, which avoids the shared-layer black-flicker seen in Safari
+              when the rotation lived on the wrapper div. */}
           <canvas
             ref={glyphCanvasRef}
-            className="glyph-render-canvas debug-hidden"
+            className="glyph-render-canvas"
             aria-hidden="true"
           />
         </div>

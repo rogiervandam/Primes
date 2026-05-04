@@ -1005,6 +1005,11 @@ export default function Visualizer({
     setDebugGlAutoOffsetY((prev) => (prev === autoGlOffsetY ? prev : autoGlOffsetY));
     const totalGlOffsetX = debugGlOffsetXRef.current || 0;
     const totalGlOffsetY = autoGlOffsetY + (debugGlOffsetYRef.current || 0);
+    // Rotation string shared by both the GL canvas and the glyph overlay canvas.
+    // Defined outside if(glEl) so the glyph canvas update below can use it.
+    const rotStr = camera3DTransformRef.current !== 'none' ? camera3DTransformRef.current : '';
+    const makeGlTransform = (translateStr) => [rotStr, translateStr].filter(Boolean).join(' ');
+
     if (glEl) {
       // Always keep GL anchored from top-left with explicit size. Chromium can
       // behave inconsistently when right/bottom constraints remain active while
@@ -1013,13 +1018,6 @@ export default function Visualizer({
       glEl.style.top = `${totalGlOffsetY}px`;
       glEl.style.right = 'auto';
       glEl.style.bottom = 'auto';
-      // Helper: compose the persistent 3D rotation (always on the canvas now
-      // that the transform wrapper only does positioning) with an optional
-      // 2D translate used by the resize-lock mechanism. The rotation string
-      // comes from camera3DTransformRef so it is always current even inside
-      // this stale-closure useCallback.
-      const rotStr = camera3DTransformRef.current !== 'none' ? camera3DTransformRef.current : '';
-      const makeGlTransform = (translateStr) => [rotStr, translateStr].filter(Boolean).join(' ');
 
       if (glDirectMode) {
         // Direct mode renders synchronously on the main thread, so we do not
@@ -1083,6 +1081,12 @@ export default function Visualizer({
           };
         }
       }
+    }
+    // Apply the same rotation to the glyph overlay canvas. It fills the wrapper
+    // via CSS (inset: 0) so only the rotation is needed — no position offset.
+    const glyphOverlayEl = glyphCanvasRef.current;
+    if (glyphOverlayEl) {
+      glyphOverlayEl.style.transform = rotStr;
     }
     // Keep grid content stable when the window (and therefore the canvas)
     // resizes. The canvas is centered at the viewport center, so when the
@@ -1162,6 +1166,9 @@ export default function Visualizer({
             // Restore just the rotation — no resize-lock translate remains.
             const rot = camera3DTransformRef.current !== 'none' ? camera3DTransformRef.current : '';
             targetEl.style.transform = rot;
+            // Keep glyph overlay in sync.
+            const glyphUnlockEl = glyphCanvasRef.current;
+            if (glyphUnlockEl) glyphUnlockEl.style.transform = rot;
           }
         });
       };
@@ -1219,14 +1226,17 @@ export default function Visualizer({
   // The resize-lock translate (if any) is preserved by reading the current
   // transform and extracting the rotation part from camera3DTransformRef.
   useEffect(() => {
-    const glEl = glCanvasRef.current;
-    if (!glEl) return;
-    // Reuse the same makeGlTransform logic as refreshCanvasLayout: pull the
-    // stored translate from the lock state (if active) and compose with the
-    // new rotation.
     const rotStr = camera3DTransform !== 'none' ? camera3DTransform : '';
     const lockTranslate = glCssLockStateRef.current?.translateTransform || '';
-    glEl.style.transform = [rotStr, lockTranslate].filter(Boolean).join(' ');
+    const glEl = glCanvasRef.current;
+    if (glEl) {
+      glEl.style.transform = [rotStr, lockTranslate].filter(Boolean).join(' ');
+    }
+    // Keep glyph overlay in sync — same rotation, no translate offset.
+    const glyphEl = glyphCanvasRef.current;
+    if (glyphEl) {
+      glyphEl.style.transform = rotStr;
+    }
   }, [camera3DTransform]);
 
   // Keep the canvas pinned to the VIEWPORT center (not the container
