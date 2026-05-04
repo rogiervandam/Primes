@@ -60,8 +60,6 @@ import ColorsTab from './settings/ColorsTab';
  * @param {boolean}  props.showMinimap               - Whether the minimap is enabled
  * @param {function} props.onShowMinimapChange
  * @param {boolean}  [props.minimapControlVisible]
- * @param {object}   props.depthSettings              - Depth/3D rendering settings
- * @param {function} props.onDepthSettingsChange
  * @param {object}   props.eventTitleSettings         - Floating event-title banner settings
  * @param {function} props.onEventTitleSettingsChange
  * @param {object}   props.outlineSettings            - Group-outline settings
@@ -107,8 +105,6 @@ export default function SettingsPanel({
   onMultiplesOverlayReset,
   showMinimap, onShowMinimapChange,
   minimapControlVisible = true,
-  depthSettings,
-  onDepthSettingsChange,
   eventTitleSettings,
   onEventTitleSettingsChange,
   outlineSettings, onOutlineChange,
@@ -259,7 +255,6 @@ export default function SettingsPanel({
             minimapControlVisible={minimapControlVisible}
             outlineSettings={outlineSettings} onOutlineChange={onOutlineChange}
             isWindowsPlatform={isWindowsPlatform}
-            depthSettings={depthSettings} onDepthSettingsChange={onDepthSettingsChange}
           />
         )}
 

@@ -18,7 +18,6 @@
  *
  *   const r = new MyRenderer();
  *   r.attach(canvas);                  // main draw target
- *   r.attachSettledCanvas?.(c2);       // optional secondary canvas (depth)
  *   r.attachMinimapCanvas?.(c3);       // optional minimap canvas
  *   r.init(bitCount, sieveSize);
  *   r.resize(width, height);           // call on window resize / zoom changes
@@ -48,8 +47,6 @@
  *   vectorGroup    number                          used by search / overlays
  *   currentOperation  string|null                  hint for color picking
  *
- * Optional flags consumed by the export hook + animation orchestrator:
- *   loweredSetBits, loweredSetBits3D, depthStrength, depthAngle, ...
  *
  * ──────────────────────────────────────────────────────────────────────────
  *  Adding a new visualization mode
@@ -73,7 +70,6 @@ export class VisualizationRenderer {
   // ── lifecycle ──────────────────────────────────────────────────────────
   /** @param {HTMLCanvasElement} canvas */
   attach(/* canvas */)            { throw new Error('attach() not implemented'); }
-  attachSettledCanvas(/* canvas */) { /* optional */ }
   attachMinimapCanvas(/* canvas */) { /* optional */ }
 
   /**

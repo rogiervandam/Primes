@@ -31,7 +31,6 @@ import {
   DEFAULT_EVENT_TIME_TARGETS,
   DEFAULT_LAYOUT_SETTINGS as DEFAULT_SETTINGS,
   DEFAULT_EVENT_TITLE_SETTINGS,
-  DEFAULT_DEPTH_SETTINGS,
   writeViewPrefs,
   getInitialViewState,
 } from './lib/viewPrefs';
@@ -387,7 +386,6 @@ export default function Visualizer({
   const [settingsCollapsed, setSettingsCollapsed] = useState(initialPrefs.settingsCollapsed);
   const [layoutSettings, setLayoutSettings] = useState(initialPrefs.layoutSettings);
   const [eventTitleSettings, setEventTitleSettings] = useState(initialPrefs.eventTitleSettings);
-  const [depthSettings, setDepthSettings] = useState(initialPrefs.depthSettings);
   const [detailOpen, setDetailOpen] = useState(initialPrefs.detailOpen);
   // Two distinct delays. Both default to 500 ms but are independently adjustable.
   // - delayBetweenEvents: pause after one event finishes before the all-events
@@ -1404,7 +1402,6 @@ export default function Visualizer({
       theme,
       layoutSettings,
       eventTitleSettings,
-      depthSettings,
       gridOpacity,
       canvasColors,
       colorPreset,
@@ -1422,7 +1419,7 @@ export default function Visualizer({
       settingsCollapsed,
       detailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, depthSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, widgetsJoined, allEventsInDetailPanel, autoAnimateOnSelect, eventsPanelCollapsed, settingsCollapsed, detailOpen]);
+  }, [theme, layoutSettings, eventTitleSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, widgetsJoined, allEventsInDetailPanel, autoAnimateOnSelect, eventsPanelCollapsed, settingsCollapsed, detailOpen]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -1552,7 +1549,6 @@ export default function Visualizer({
               changedColor: changed,
               repeatedColor: [245, 158, 11],
               baseAlpha: Math.max(0.12, Math.min(1, rr.gridOpacity ?? 1)),
-              loweredActive: rr.loweredSetBits ? 1.0 : 0.0,
             });
             if (compositeGl) {
               origRender();
@@ -1760,8 +1756,6 @@ export default function Visualizer({
     r.multiplesOverlay = multiplesOverlayEnabled;
     r.multiplesOverlayPrime = Math.max(2, multiplesOverlayPrime || 2);
     r.transparentBackground = mode3D;
-    r.loweredDepthStrength = Math.max(0, Math.min(1.0, (depthSettings.strength ?? 80) / 100));
-    r.loweredDepthAngle = Math.max(0, Math.min(90, depthSettings.angle ?? 38));
     r.gridOpacity = Math.max(0.12, Math.min(1, gridOpacity));
     r.canvasBackground = canvasColors ? (canvasColors[theme] || null) : null;
     r.customSetBit = customColors.setBit;
@@ -1851,7 +1845,7 @@ export default function Visualizer({
     r.render();
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, canvasColors, storageModel, wheelDefinition, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, depthSettings, gridOpacity, updateMinimapAvailability, debugCalibrationMode]);
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, canvasColors, storageModel, wheelDefinition, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, gridOpacity, updateMinimapAvailability, debugCalibrationMode]);
 
   // Resize handler
   useEffect(() => {
@@ -5167,8 +5161,6 @@ export default function Visualizer({
           showMinimap={showMinimap}
           onShowMinimapChange={setShowMinimap}
           minimapControlVisible={true}
-          depthSettings={depthSettings}
-          onDepthSettingsChange={setDepthSettings}
           eventTitleSettings={eventTitleSettings}
           onEventTitleSettingsChange={setEventTitleSettings}
           outlineSettings={layoutSettings.outlines}

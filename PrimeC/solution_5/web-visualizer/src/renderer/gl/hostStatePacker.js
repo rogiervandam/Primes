@@ -119,105 +119,22 @@ export function packState(host, buf, slots) {
 }
 
 /**
- * Pack per-bit animation state for the lowered-3D / rise-and-settle modes
- * into a Float32Array consumed by `BitGridGLCore.uploadAnimBuffer`.
+ * Pack per-bit animation state into a Float32Array consumed by
+ * `BitGridGLCore.uploadAnimBuffer`.
  *
  * Each entry is 4 floats (RGBA32F texel):
  *   [i*4+0] xDelta    — CSS px shift applied to the cell centre (horizontal)
  *   [i*4+1] yDelta    — CSS px shift applied to the cell centre (vertical)
- *   [i*4+2] sizeScale — multiplier on u_cellSize (1.0 = full size, <1 = sunk)
+ *   [i*4+2] sizeScale — multiplier on u_cellSize (1.0 = full size)
  *   [i*4+3] (unused, always 0)
  *
- * When `host.loweredSetBits` is false every entry is (0, 0, 1, 0) — a no-op
- * that lets the GL shader render normally without any position/size change.
- *
- * When loweredSetBits is true:
- *   - Set bits (lowered) receive the sinkDrop/sinkShiftX/sinkScale from
- *     `_computeBitDrawState`, including the rise-and-settle animation for
- *     bits that recently changed (driven by `host.changedBitRiseAt`).
- *   - Cleared bits (raised 3D box top face) receive (0, 0, 1) so GL draws
- *     the top face at the original full-size position; Canvas2D still
- *     draws the side-face polygons on top.
+ * Every entry is (0, 0, 1, 0) — a no-op that lets the GL shader render
+ * normally without any position/size change.
  *
  * `buf` must be `slots * 4` floats long.
  */
 export function packAnim(host, buf, slots) {
-  const bitCount = Math.min(host.bitCount || 0, slots);
-
-  if (!host.loweredSetBits) {
-    // Normal mode: no per-bit animation; fill with identity (0, 0, 1, 0).
-    for (let i = 0; i < slots; i++) {
-      buf[i * 4]     = 0;
-      buf[i * 4 + 1] = 0;
-      buf[i * 4 + 2] = 1.0;
-      buf[i * 4 + 3] = 0;
-    }
-    return;
-  }
-
-  // Lowered-3D mode: replicate the geometry math from _computeBitDrawState.
-  const px = (host.pixelSize || 1) * (host.zoom || 1);
-  const depthStrength  = Math.max(0, Math.min(1.0, host.loweredDepthStrength ?? 0.8));
-  const depthAngleRad  = (Math.max(0, Math.min(90, host.loweredDepthAngle ?? 38)) * Math.PI) / 180;
-  const depthScale     = host.loweredSetBits3D ? 1.18 : 1;
-  const baseDrop       = px * Math.sin(depthAngleRad) * 1.05 * depthStrength * depthScale;
-  const baseShiftX     = px * Math.cos(depthAngleRad) * 0.55 * depthStrength * depthScale;
-  const defaultSink    = host.loweredSetBits3D ? 0.56 : 0.68;
-
-  const bitState        = host.bitState;
-  const changedBits     = host.changedBits;
-  const changedBitRiseAt = host.changedBitRiseAt;
-  const now = performance.now();
-
-  for (let i = 0; i < bitCount; i++) {
-    const isSetBit = bitState ? !!bitState[i] : false;
-
-    if (!isSetBit) {
-      // Raised (cleared) bit: top face at original position, side faces drawn by Canvas2D.
-      buf[i * 4]     = 0;
-      buf[i * 4 + 1] = 0;
-      buf[i * 4 + 2] = 1.0;
-      buf[i * 4 + 3] = 0;
-      continue;
-    }
-
-    // Lowered (set) bit: compute sinkDrop / sinkShiftX / sinkScale,
-    // including the rise-and-settle animation for recently changed bits.
-    let sinkDrop   = baseDrop;
-    let sinkShiftX = baseShiftX;
-    let sk         = defaultSink;
-
-    const isChangedBit = changedBits && changedBits.has(i);
-    if (isChangedBit && changedBitRiseAt) {
-      const startedAt = changedBitRiseAt.get(i) || now;
-      const elapsed   = now - startedAt;
-      const progress  = Math.max(0, Math.min(1, elapsed / 700));
-      const peakLift  = px * 0.42 * depthStrength;
-      let riseLift = 0;
-      if (progress < 0.32) {
-        riseLift   = peakLift * (progress / 0.32);
-        sinkDrop   = 0;
-        sinkShiftX = 0;
-      } else if (progress < 0.56) {
-        riseLift   = peakLift * (1 - (progress - 0.32) / 0.24);
-        sinkDrop   = 0;
-        sinkShiftX = 0;
-      } else {
-        const settleT = (progress - 0.56) / 0.44;
-        sinkDrop   = baseDrop   * settleT;
-        sinkShiftX = baseShiftX * settleT;
-      }
-      sk        = 1 - (1 - defaultSink) * Math.max(0, Math.min(1, (progress - 0.56) / 0.44));
-      sinkDrop -= riseLift;
-    }
-
-    buf[i * 4]     = sinkShiftX;
-    buf[i * 4 + 1] = sinkDrop;
-    buf[i * 4 + 2] = sk;
-    buf[i * 4 + 3] = 0;
-  }
-
-  for (let i = bitCount; i < slots; i++) {
+  for (let i = 0; i < slots; i++) {
     buf[i * 4]     = 0;
     buf[i * 4 + 1] = 0;
     buf[i * 4 + 2] = 1.0;

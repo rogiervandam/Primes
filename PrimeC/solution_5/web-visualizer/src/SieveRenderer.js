@@ -55,8 +55,6 @@ export class SieveRenderer {
   constructor() {
     this.canvas = null;
     this.ctx = null;
-    this.settledCanvas = null;
-    this.settledCtx = null;
     this.glCompositeSourceCanvas = null;
     this.compositeGLInto2D = false;
     this.glCompositeOffsetX = 0;
@@ -149,15 +147,10 @@ export class SieveRenderer {
     this.showVectorTouchOrder = false;
     this.bitLabelMode = 'global';
     this.byteLabelMode = 'group';
-    this.loweredSetBits = false;
-    this.loweredSetBits3D = false;
     this.transparentBackground = false;
     // Optional override for the canvas background color. When set (as an
     // [r,g,b] array), it replaces the theme's default BACKGROUND color.
     this.canvasBackground = null;
-    this.loweredDepthStrength = 1;
-    this.loweredDepthAngle = 38;
-    this.changedBitRiseAt = new Map();
 
     // Optional grouping outlines
     this.outlineEnabled = false;
@@ -370,11 +363,6 @@ export class SieveRenderer {
     this.ctx = canvas.getContext('2d');
   }
 
-  attachSettledCanvas(canvas) {
-    this.settledCanvas = canvas;
-    this.settledCtx = canvas ? canvas.getContext('2d') : null;
-  }
-
   setGlCompositeSourceCanvas(canvas) {
     this.glCompositeSourceCanvas = canvas || null;
   }
@@ -429,10 +417,7 @@ export class SieveRenderer {
     this.clMaxHitCount = 0;
     this.animationFocusBits = new Set();
     this.bitMotionTrails = [];
-    this.loweredSetBits = false;
-    this.loweredSetBits3D = false;
     this.transparentBackground = false;
-    this.changedBitRiseAt = new Map();
     this._frozenClPerVRow = 0;
   }
 
@@ -460,11 +445,6 @@ export class SieveRenderer {
     this.maskGhostBits = new Set();
     this.suppressMaskWriteOverlay = false;
     this.bitMotionTrails = [];
-    this.changedBitRiseAt = new Map();
-    const now = performance.now();
-    if (changedBits && changedBits.size > 0) {
-      for (const bit of changedBits) this.changedBitRiseAt.set(bit, now);
-    }
   }
 
   setMaskGhostBits(bits) {
@@ -1294,13 +1274,6 @@ export class SieveRenderer {
     this.canvas.style.width = width + 'px';
     this.canvas.style.height = height + 'px';
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (this.settledCanvas && this.settledCtx) {
-      this.settledCanvas.width = width * dpr;
-      this.settledCanvas.height = height * dpr;
-      this.settledCanvas.style.width = width + 'px';
-      this.settledCanvas.style.height = height + 'px';
-      this.settledCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
     if (this._glyphCtx) {
       this._glyphCtx.resize(width, height, dpr);
     }
@@ -1615,11 +1588,9 @@ export class SieveRenderer {
   _buildFrameContext() {
     const C = this.colors;
     const ctx = this.ctx;
-    const settledCtx = this.settledCtx;
     const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
     const cw = this.canvasWidth || (this.canvas.width / canvasDpr);
     const ch = this.canvasHeight || (this.canvas.height / canvasDpr);
-    const layeredLoweredBits = false;
 
     const px = this.pixelSize * this.zoom;
     const bitsPerCacheLine = this.bitsPerCacheLine;
@@ -1657,7 +1628,7 @@ export class SieveRenderer {
     const baseAlpha = Math.max(0.12, Math.min(1, this.gridOpacity ?? 1));
 
     return {
-      C, ctx, settledCtx, cw, ch, layeredLoweredBits, px,
+      C, ctx, cw, ch, px,
       bitsPerCacheLine, totalCacheLines, rowD, labelBands, labelH,
       numVec, totalVectorSlots, vecPerVRow, vRowHeight, totalVRows,
       startVRow, endVRow,
@@ -1831,126 +1802,20 @@ export class SieveRenderer {
   }
 
   /**
-   * Compute the geometry the bit cell will be drawn at: the static draw box
-   * (`drawX`, `drawY`, `drawSize`) plus the depth-mode metadata
-   * (`isLoweredCell`, `isRaisedCell`, `baseDrop`, `baseShiftX`, `drawCtx`).
-   * The "rise then settle" animation for changed lowered bits lives here too.
+   * Compute the geometry the bit cell will be drawn at: the draw box
+   * (`drawX`, `drawY`, `drawSize`).
    */
   _computeBitDrawState(f, globalBit, isSetBit, isChangedBit, bitX, bitY) {
     const px = f.px;
-    const depthModeEnabled = this.loweredSetBits;
-    const depthStrength = Math.max(0, Math.min(1.0, this.loweredDepthStrength ?? 0.8));
-    const depthAngleRad = (Math.max(0, Math.min(90, this.loweredDepthAngle ?? 38)) * Math.PI) / 180;
-    const depthScale = this.loweredSetBits3D ? 1.18 : 1;
-    const baseDrop = px * Math.sin(depthAngleRad) * 1.05 * depthStrength * depthScale;
-    const baseShiftX = px * Math.cos(depthAngleRad) * 0.55 * depthStrength * depthScale;
-    // In depth mode, only set bits sink to the lowered plane; cleared bits
-    // remain "raised" and are drawn as 3D boxes standing on the lowered plane.
-    const isLoweredCell = depthModeEnabled && isSetBit;
-    const isRaisedCell = depthModeEnabled && !isSetBit;
-    const isDepthBucket = isLoweredCell;
-
-    let sinkDrop = isLoweredCell ? baseDrop : 0;
-    let sinkShiftX = isLoweredCell ? baseShiftX : 0;
-    let sinkScale = isLoweredCell ? (this.loweredSetBits3D ? 0.56 : 0.68) : 1;
-
-    if (isLoweredCell && isChangedBit) {
-      const startedAt = this.changedBitRiseAt.get(globalBit) || performance.now();
-      const elapsed = performance.now() - startedAt;
-      const durationMs = 700;
-      const progress = Math.max(0, Math.min(1, elapsed / durationMs));
-      const peakLift = px * 0.42 * depthStrength;
-      let riseLift = 0;
-      if (progress < 0.32) {
-        riseLift = peakLift * (progress / 0.32);
-        sinkDrop = 0;
-        sinkShiftX = 0;
-      } else if (progress < 0.56) {
-        riseLift = peakLift * (1 - (progress - 0.32) / 0.24);
-        sinkDrop = 0;
-        sinkShiftX = 0;
-      } else {
-        const settleT = (progress - 0.56) / 0.44;
-        sinkDrop = baseDrop * settleT;
-        sinkShiftX = baseShiftX * settleT;
-      }
-      sinkScale = 1 - (1 - sinkScale) * Math.max(0, Math.min(1, (progress - 0.56) / 0.44));
-      sinkDrop -= riseLift;
-    }
-
-    const drawSize = Math.max(1, Math.round(px * sinkScale));
-    const drawX = Math.round(bitX + sinkShiftX + (px - drawSize) * 0.5);
-    const drawY = Math.round(bitY + sinkDrop + (px - drawSize) * 0.5);
-    const drawCtx = f.layeredLoweredBits && isDepthBucket ? f.settledCtx : f.ctx;
-    return { drawX, drawY, drawSize, drawCtx, baseDrop, baseShiftX, isLoweredCell, isRaisedCell, isDepthBucket };
+    const drawSize = Math.max(1, Math.round(px));
+    const drawX = Math.round(bitX);
+    const drawY = Math.round(bitY);
+    return { drawX, drawY, drawSize };
   }
 
-  /**
-   * Draw the bit's body. Three branches:
-   *  - layered + lowered: sunken square with shadow + inner highlight on the settled canvas.
-   *  - layered + raised: 3D box with two side faces + a top face on the live canvas.
-   *  - default: a single filled square on the appropriate context.
-   */
-  /** Dispatch to the appropriate depth-mode branch. */
+  /** Dispatch to the bit-body drawing method. */
   _drawBitBody(f, cls, draw, bitX, bitY) {
-    if (f.layeredLoweredBits && draw.isLoweredCell) {
-      this._drawBitBodyLowered(f, cls, draw);
-      return;
-    }
-    if (f.layeredLoweredBits && draw.isRaisedCell) {
-      this._drawBitBodyRaised(f, cls, draw, bitX, bitY);
-      return;
-    }
     this._drawBitBodyNormal(f, cls, draw);
-  }
-
-  /**
-   * Lowered (set) bit: GL handles fill and highlight via animTex / u_loweredActive.
-   * Canvas2D no-op — this branch is only reached when loweredSetBits is on,
-   * which is currently dormant in the UI.
-   */
-  _drawBitBodyLowered(f, cls, draw) {
-    // GL draws the lowered cell fill, shadow, and inner highlight via the
-    // animTex (xDelta/yDelta/sizeScale) + u_loweredActive shader uniform.
-  }
-
-  /**
-   * Raised (cleared) bit: 3D box standing on the lowered plane.
-   * Side-face polygons are Canvas2D (they extend outside the cell boundary
-   * and cannot be rendered as instanced quads). Top-face fill + stroke
-   * highlight are handled by GL via animTex and are omitted here.
-   */
-  _drawBitBodyRaised(f, cls, draw, bitX, bitY) {
-    const px = f.px;
-    const { color, bitAlpha } = cls;
-    const { baseDrop, baseShiftX } = draw;
-    const baseSize = Math.max(1, Math.round(px * (this.loweredSetBits3D ? 0.56 : 0.68)));
-    const baseX = Math.round(bitX + baseShiftX + (px - baseSize) * 0.5);
-    const baseY = Math.round(bitY + baseDrop + (px - baseSize) * 0.5);
-    const topX = Math.round(bitX);
-    const topY = Math.round(bitY);
-    const topSize = Math.max(1, Math.round(px));
-    const ctx = f.ctx;
-    ctx.save();
-    // Right side face (darker)
-    ctx.fillStyle = `rgba(${Math.round(color[0] * 0.62)}, ${Math.round(color[1] * 0.62)}, ${Math.round(color[2] * 0.62)}, ${bitAlpha})`;
-    ctx.beginPath();
-    ctx.moveTo(topX + topSize, topY);
-    ctx.lineTo(topX + topSize, topY + topSize);
-    ctx.lineTo(baseX + baseSize, baseY + baseSize);
-    ctx.lineTo(baseX + baseSize, baseY);
-    ctx.closePath();
-    ctx.fill();
-    // Bottom-front side face (slightly darker than right)
-    ctx.fillStyle = `rgba(${Math.round(color[0] * 0.5)}, ${Math.round(color[1] * 0.5)}, ${Math.round(color[2] * 0.5)}, ${bitAlpha})`;
-    ctx.beginPath();
-    ctx.moveTo(topX, topY + topSize);
-    ctx.lineTo(topX + topSize, topY + topSize);
-    ctx.lineTo(baseX + baseSize, baseY + baseSize);
-    ctx.lineTo(baseX, baseY + baseSize);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
   }
 
   /** Normal flat bit fill — handled entirely by GL instanced quads. Canvas2D no-op. */
@@ -1960,7 +1825,7 @@ export class SieveRenderer {
 
   /** Tinted overlay + outline drawn on top of a ghost-masked set bit. */
   _drawGhostMaskHighlight(f, draw) {
-    const { drawX, drawY, drawSize, drawCtx } = draw;
+    const { drawX, drawY, drawSize } = draw;
     const px = f.px;
     const set = f.bitColors.set;
     if (!this._glyphCtx) return;
@@ -2082,27 +1947,21 @@ export class SieveRenderer {
     const dualLine = lines.length > 1;
     const zoomBoost = this.zoom > 20 ? 1 + Math.min(1, (this.zoom - 20) / 24) : 1;
 
-    const isLoweredLabel = draw.isDepthBucket && cls.isSetBit;
-    const labelPx = isLoweredLabel ? draw.drawSize : px;
-    const labelX = isLoweredLabel ? draw.drawX : bitX;
-    const labelY = isLoweredLabel ? draw.drawY : bitY;
-
     const baseFontSize = dualLine
-      ? Math.max(5, Math.min(8, labelPx * 0.2))
-      : Math.max(5, Math.min(9, labelPx * 0.34));
-    const loweredLabelScale = isLoweredLabel ? 0.85 : 1;
-    const fontSize = baseFontSize * zoomBoost * loweredLabelScale;
-    const centerX = Math.round(labelX + labelPx / 2);
-    const centerY = Math.round(labelY + labelPx / 2);
+      ? Math.max(5, Math.min(8, px * 0.2))
+      : Math.max(5, Math.min(9, px * 0.34));
+    const fontSize = baseFontSize * zoomBoost;
+    const centerX = Math.round(bitX + px / 2);
+    const centerY = Math.round(bitY + px / 2);
 
     if (!this._glyphCtx) return;
     // GL glyph path — skip the Canvas 2D context entirely.
     const g = this._glyphCtx;
     const [tr, tg, tb, ta] = this._labelTextColorGL(cls.color);
     if (dualLine) {
-      g.drawText(lines[0], centerX, Math.round(labelY + labelPx * 0.32), fontSize,
+      g.drawText(lines[0], centerX, Math.round(bitY + px * 0.32), fontSize,
         tr, tg, tb, ta, 'center', 'middle');
-      g.drawText(lines[1], centerX, Math.round(labelY + labelPx * 0.7),
+      g.drawText(lines[1], centerX, Math.round(bitY + px * 0.7),
         Math.max(4.5, fontSize - 0.25), tr, tg, tb, ta, 'center', 'middle');
     } else {
       g.drawText(lines[0], centerX, centerY, fontSize,

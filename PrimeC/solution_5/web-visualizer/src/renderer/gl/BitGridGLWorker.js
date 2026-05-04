@@ -370,10 +370,9 @@ export class BitGridGLWorker {
   }
 
   /**
-   * Pack per-bit animation state (lowered-3D position deltas + size scale)
-   * and transfer to the worker. Called every frame when loweredSetBits may
-   * be active; a no-op data payload (all sizeScale=1) is sent when the mode
-   * is off so the animTex stays consistent.
+   * Pack per-bit animation state (position deltas + size scale) and transfer
+   * to the worker. A no-op data payload (all sizeScale=1) is sent every frame
+   * so the animTex stays consistent.
    */
   uploadAnim(host) {
     if (this._lost || !host || this._slots === 0) return;

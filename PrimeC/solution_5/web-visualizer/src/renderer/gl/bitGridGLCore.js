@@ -78,7 +78,6 @@ uniform vec3 u_repeatedColor;
 uniform vec3 u_bgColor;
 uniform float u_baseAlpha;
 uniform float u_cellSize;      // CSS px cell size; used for border-width fractions
-uniform float u_loweredActive; // 1.0 when loweredSetBits mode is on, else 0.0
 
 flat in uint v_state;
 in vec2 v_uv;                  // [0,1]x[0,1] within cell (from VS)
@@ -150,15 +149,6 @@ void main() {
       float bwFrac = clamp(u_cellSize * 0.14, 1.0, 2.5) / u_cellSize;
       if (edge < bwFrac)
         composed = mix(composed, vec3(167.0/255.0, 139.0/255.0, 250.0/255.0), 0.88);
-    }
-
-    // Lowered-3D inner highlight -- mirrors Canvas2D strokeRect in _drawBitBody.
-    // Lowered set bits: rgba(255,255,255,0.12); raised cleared bits: rgba(255,255,255,0.14).
-    // Applied when loweredSetBits mode is active and cellSize is large enough to see it.
-    if (u_loweredActive > 0.5) {
-      float hlFrac = clamp(u_cellSize * 0.055, 0.3, 0.8) / u_cellSize;
-      if (edge < hlFrac)
-        composed = mix(composed, vec3(1.0, 1.0, 1.0), isSet ? 0.12 : 0.14);
     }
   }
 
@@ -272,7 +262,6 @@ export class BitGridGLCore {
       repeatedColor: u('u_repeatedColor'),
       bgColor: u('u_bgColor'),
       baseAlpha: u('u_baseAlpha'),
-      loweredActive: u('u_loweredActive'),
     };
   }
 
@@ -464,7 +453,6 @@ export class BitGridGLCore {
     gl.uniform3f(u.repeatedColor, rep[0] / 255, rep[1] / 255, rep[2] / 255);
     gl.uniform3f(u.bgColor, bg[0] / 255, bg[1] / 255, bg[2] / 255);
     gl.uniform1f(u.baseAlpha, params.baseAlpha == null ? 1 : params.baseAlpha);
-    gl.uniform1f(u.loweredActive, params.loweredActive ? 1.0 : 0.0);
 
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.bitCount);
   }
