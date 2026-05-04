@@ -29,8 +29,10 @@ function CanvasStage({
   containerRef,
   glCanvasRef,
   glyphCanvasRef,
-  // wrapper div ref — receives the 3D CSS transform so canvas elements stay
-  // flat (no per-canvas GPU layers in Safari → no black flicker)
+  // wrapper div ref — receives positioning (translate -50%/-50%) only.
+  // The 3D CSS rotation is applied directly to the GL canvas imperatively
+  // by refreshCanvasLayout (via camera3DTransformRef) so only one GPU
+  // compositing layer is created, avoiding Safari black-flicker.
   wrapperCanvasRef,
   // whether GL renderer is active (controls GL canvas visibility)
   glActive,
@@ -125,25 +127,31 @@ function CanvasStage({
         ref={containerRef}
         style={camera3DContainerStyle}
       >
-        {/* Wrapper div receives the 3D CSS transform (translate + rotateX/Y).
-            Keeping the transform on a div instead of the canvas elements
-            prevents Safari from creating one GPU compositing layer per canvas,
-            which caused black flicker during drawing (GPU texture upload
-            momentarily exposing a black/cleared layer). Both canvases are
-            flat children of this wrapper and share its GPU layer. */}
-        <div ref={wrapperCanvasRef} className="canvas-transform-wrapper" style={renderCanvasStyle}>
-          {/* WebGL bit-grid canvas. Always in DOM so the renderer can attach on
-              mount. Sized and positioned by refreshCanvasLayout(). */}
+        {/* Wrapper div handles only positioning (translate -50%/-50%) and
+            preserve-3d so the GL canvas's own rotateX/Y is interpreted in
+            the parent 3D context rather than being flattened.
+            The 3D rotation lives on the single GL canvas element — one GPU
+            compositing layer, no Safari black-flicker from multiple canvases
+            sharing a rotated layer. */}
+        <div
+          ref={wrapperCanvasRef}
+          className="canvas-transform-wrapper"
+          style={renderCanvasStyle}
+        >
+          {/* WebGL bit-grid canvas. The 3D rotation (rotateX/Y) is applied
+              here directly so it is the only element with a 3D transform,
+              keeping the GPU layer count at one. */}
           <canvas
             ref={glCanvasRef}
             className={`gl-render-canvas${glActive ? '' : ' renderer-inactive'}${hideGlCanvas ? ' debug-hidden' : ''}`}
             aria-hidden="true"
           />
-          {/* WebGL glyph-text canvas — transparent, sits above the bit-grid so
-              GL-rendered text and dots composite on top. */}
+          {/* WebGL glyph-text canvas — kept in DOM so the renderer can attach,
+              but hidden: the single-canvas approach renders everything through
+              the GL canvas, so no separate glyph overlay is composited. */}
           <canvas
             ref={glyphCanvasRef}
-            className="glyph-render-canvas"
+            className="glyph-render-canvas debug-hidden"
             aria-hidden="true"
           />
         </div>

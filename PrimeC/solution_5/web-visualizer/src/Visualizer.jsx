@@ -591,6 +591,13 @@ export default function Visualizer({
     ensureTiltCamera,
   } = use3DCamera();
 
+  // Mirrors camera3DTransform state so imperative style writes inside
+  // refreshCanvasLayout (which is a stale-closure useCallback) can always
+  // read the current rotation value without adding camera3DTransform to its
+  // dependency array (which would cause unnecessary re-renders).
+  const camera3DTransformRef = useRef(camera3DTransform);
+  camera3DTransformRef.current = camera3DTransform;
+
   const bitStateRef = useRef(null);
   const stepsRef = useRef([]);
   const currentStepRef = useRef(0);
@@ -1006,6 +1013,14 @@ export default function Visualizer({
       glEl.style.top = `${totalGlOffsetY}px`;
       glEl.style.right = 'auto';
       glEl.style.bottom = 'auto';
+      // Helper: compose the persistent 3D rotation (always on the canvas now
+      // that the transform wrapper only does positioning) with an optional
+      // 2D translate used by the resize-lock mechanism. The rotation string
+      // comes from camera3DTransformRef so it is always current even inside
+      // this stale-closure useCallback.
+      const rotStr = camera3DTransformRef.current !== 'none' ? camera3DTransformRef.current : '';
+      const makeGlTransform = (translateStr) => [rotStr, translateStr].filter(Boolean).join(' ');
+
       if (glDirectMode) {
         // Direct mode renders synchronously on the main thread, so we do not
         // need the worker catch-up CSS lock. Applying it in Chromium can
@@ -1013,7 +1028,7 @@ export default function Visualizer({
         glCssLockStateRef.current = null;
         glEl.style.width = `${canvasW}px`;
         glEl.style.height = `${canvasH}px`;
-        if (glEl.style.transform) glEl.style.transform = '';
+        glEl.style.transform = makeGlTransform('');
       } else {
         const activeGlCssLock = glCssLockStateRef.current;
         if (!glSizeChanging) {
@@ -1022,13 +1037,12 @@ export default function Visualizer({
             && activeGlCssLock.targetH === canvasH) {
             glEl.style.width = `${activeGlCssLock.lockW}px`;
             glEl.style.height = `${activeGlCssLock.lockH}px`;
-            glEl.style.transform = activeGlCssLock.transform;
+            glEl.style.transform = makeGlTransform(activeGlCssLock.translateTransform);
           } else {
             // Size unchanged: set immediately (no CSS-scale risk).
             glEl.style.width = `${canvasW}px`;
             glEl.style.height = `${canvasH}px`;
-            // Also clear any residual transform from a previous resize (defensive).
-            if (glEl.style.transform) glEl.style.transform = '';
+            glEl.style.transform = makeGlTransform('');
           }
         } else {
           // Size IS changing: lock GL canvas CSS to the OLD size (overriding
@@ -1056,15 +1070,16 @@ export default function Visualizer({
           //                    = center + panX_new  (same world → same screen ✓)
           const glDx = canvasW - lockW;
           const glDy = canvasH - lockH;
-          if (glDx !== 0 || glDy !== 0) {
-            glEl.style.transform = `translate(${glDx}px, ${glDy}px)`;
-          }
+          // Store only the translate part so it can be re-composed with the
+          // (possibly changing) rotation when the lock is later restored.
+          const lockTranslate = (glDx !== 0 || glDy !== 0) ? `translate(${glDx}px, ${glDy}px)` : '';
+          glEl.style.transform = makeGlTransform(lockTranslate);
           glCssLockStateRef.current = {
             targetW: canvasW,
             targetH: canvasH,
             lockW,
             lockH,
-            transform: glEl.style.transform || '',
+            translateTransform: lockTranslate,
           };
         }
       }
@@ -1144,7 +1159,9 @@ export default function Visualizer({
             glCssLockStateRef.current = null;
             targetEl.style.width = `${targetW}px`;
             targetEl.style.height = `${targetH}px`;
-            targetEl.style.transform = '';
+            // Restore just the rotation — no resize-lock translate remains.
+            const rot = camera3DTransformRef.current !== 'none' ? camera3DTransformRef.current : '';
+            targetEl.style.transform = rot;
           }
         });
       };
@@ -1194,6 +1211,23 @@ export default function Visualizer({
       rr.render();
     }
   }, [debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY]);
+
+  // Keep the GL canvas rotation up-to-date whenever the camera changes.
+  // Previously the rotation lived in renderCanvasStyle (React state on the
+  // wrapper div), so React re-renders kept it current. Now it is applied
+  // imperatively to the canvas element, so we need an explicit effect.
+  // The resize-lock translate (if any) is preserved by reading the current
+  // transform and extracting the rotation part from camera3DTransformRef.
+  useEffect(() => {
+    const glEl = glCanvasRef.current;
+    if (!glEl) return;
+    // Reuse the same makeGlTransform logic as refreshCanvasLayout: pull the
+    // stored translate from the lock state (if active) and compose with the
+    // new rotation.
+    const rotStr = camera3DTransform !== 'none' ? camera3DTransform : '';
+    const lockTranslate = glCssLockStateRef.current?.translateTransform || '';
+    glEl.style.transform = [rotStr, lockTranslate].filter(Boolean).join(' ');
+  }, [camera3DTransform]);
 
   // Keep the canvas pinned to the VIEWPORT center (not the container
   // center) so panel collapse/expand transitions don't slide the
@@ -3918,8 +3952,9 @@ export default function Visualizer({
     const newTiltActive = !tiltActive;
     setTiltActive(newTiltActive);
     const targetTilt = newTiltActive ? Math.min(30, cam.maxTilt || 30) : 0;
-    cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 400);
-  }, [tiltActive]);
+    cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 400)
+      .then(() => schedulePostLayoutRefresh(null));
+  }, [tiltActive, schedulePostLayoutRefresh]);
 
   // 3D mode toggle is removed — the app is always in 3D mode.
   // enableTiltAndResize handles the StrictMode desync case where cam.enabled
@@ -4616,15 +4651,16 @@ export default function Visualizer({
       position: 'absolute',
       left: canvasAnchorPx ? `${canvasAnchorPx.left}px` : '50%',
       top: canvasAnchorPx ? `${canvasAnchorPx.top}px` : '50%',
-      transform: `translate(-50%, -50%)${camera3DTransform !== 'none' ? ` ${camera3DTransform}` : ''}`,
-      // transformStyle:'preserve-3d' is deliberately omitted from the wrapper
-      // div. The wrapper has no 3D-positioned children, so preserve-3d on it
-      // would create a nested 3D compositing context that is unnecessary.
-      // The container's preserve-3d (set by .canvas-container.mode-3d CSS)
-      // is sufficient for the wrapper's CSS rotateX/Y tilt to render correctly.
-      transformOrigin: '50% 50%',
+      // Only the centering translate lives here. The 3D rotation (rotateX/Y)
+      // is applied directly to the single GL canvas element so that only one
+      // GPU compositing layer is created — avoids Safari black-flicker that
+      // occurred when multiple canvases shared the same rotated wrapper layer.
+      // preserve-3d is needed so the canvas's own rotation is interpreted in
+      // the parent's 3D context rather than being flattened to 2D.
+      transform: 'translate(-50%, -50%)',
+      transformStyle: 'preserve-3d',
     }
-  ), [camera3DTransform, canvasAnchorPx]);
+  ), [canvasAnchorPx]);
 
   // Merge a px-based `perspectiveOrigin` into the container style so the
   // 3D vanishing point sits at the VIEWPORT center, matching where the
