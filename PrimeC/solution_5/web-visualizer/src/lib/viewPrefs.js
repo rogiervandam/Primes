@@ -68,11 +68,6 @@ export const DEFAULT_EVENT_TITLE_SETTINGS = {
   contextCollapsed: false,
 };
 
-export const DEFAULT_DEPTH_SETTINGS = {
-  strength: 80,
-  angle: 38,
-};
-
 /**
  * Default canvas background colors per theme.
  * Null means "use the renderer's theme default" (THEMES[theme].BACKGROUND).
@@ -169,21 +164,6 @@ export function mergeEventTitleSettings(saved) {
     dragOffsetX,
     dragOffsetY,
     contextCollapsed: saved.contextCollapsed === true,
-  };
-}
-
-/** Merge saved depth settings into the defaults, clamping strength/angle. */
-export function mergeDepthSettings(saved) {
-  if (!saved || typeof saved !== 'object') return DEFAULT_DEPTH_SETTINGS;
-  const strength = Math.max(0, Math.min(100,
-    parseInt(saved.strength ?? DEFAULT_DEPTH_SETTINGS.strength, 10) || DEFAULT_DEPTH_SETTINGS.strength));
-  const angle = Math.max(0, Math.min(90,
-    parseInt(saved.angle ?? DEFAULT_DEPTH_SETTINGS.angle, 10) || DEFAULT_DEPTH_SETTINGS.angle));
-  return {
-    ...DEFAULT_DEPTH_SETTINGS,
-    ...saved,
-    strength,
-    angle,
   };
 }
 
@@ -299,7 +279,6 @@ export function getInitialViewState() {
     theme: initialTheme(prefs),
     layoutSettings: mergeLayoutSettings(prefs?.layoutSettings),
     eventTitleSettings: mergeEventTitleSettings(prefs?.eventTitleSettings),
-    depthSettings: mergeDepthSettings(prefs?.depthSettings),
     delayBetweenEvents: initialDelayMs(prefs, 'delayBetweenEvents'),
     delayBetweenRepeats: initialDelayMs(prefs, 'delayBetweenRepeats'),
     eventTimeTargets: mergeEventTimeTargets(prefs?.eventTimeTargets),

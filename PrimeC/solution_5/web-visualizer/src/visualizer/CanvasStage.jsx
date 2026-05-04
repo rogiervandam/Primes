@@ -28,16 +28,9 @@ function CanvasStage({
   // canvas refs (owned by parent, attached here)
   containerRef,
   canvasRef,
-  settledCanvasRef,
-  glCanvasRef,
   // wrapper div ref — receives the 3D CSS transform so canvas elements stay
   // flat (no per-canvas GPU layers in Safari → no black flicker)
   wrapperCanvasRef,
-  // whether GL renderer is active (controls GL canvas visibility)
-  glActive,
-  hideGlCanvas = false,
-  // debug layer isolation mode: normal | gl-only | overlays-only
-  debugLayerMode = 'normal',
   // styling
   camera3DContainerStyle,
   renderCanvasStyle,
@@ -135,22 +128,9 @@ function CanvasStage({
             momentarily exposing a black/cleared layer). All three canvases
             are flat children of this wrapper and share its GPU layer. */}
         <div ref={wrapperCanvasRef} className="canvas-transform-wrapper" style={renderCanvasStyle}>
-          {/* WebGL bit-grid canvas. Always in DOM so the renderer can attach on
-              mount and mode switches are instant. Hidden via CSS when canvas2d
-              renderer is active. Overlays/labels render on the Canvas2D layer on top. */}
-          <canvas
-            ref={glCanvasRef}
-            className={`gl-render-canvas${glActive ? '' : ' renderer-inactive'}${debugLayerMode === 'overlays-only' || hideGlCanvas ? ' debug-hidden' : ''}`}
-            aria-hidden="true"
-          />
-          <canvas
-            ref={settledCanvasRef}
-            className={`settled-render-canvas${debugLayerMode === 'gl-only' ? ' debug-hidden' : ''}`}
-            aria-hidden="true"
-          />
           <canvas
             ref={canvasRef}
-            className={`main-render-canvas${debugLayerMode === 'gl-only' ? ' debug-hidden' : ''}`}
+            className="main-render-canvas"
           />
         </div>
       </div>

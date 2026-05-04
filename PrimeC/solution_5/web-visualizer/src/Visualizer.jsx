@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { SieveRenderer, bitToNumber, describeWheelBit, wheelSignature, CACHE_PRESETS } from './SieveRenderer';
-import { BitGridGLWorker, isWorkerGLSupported } from './renderer/gl/BitGridGLWorker';
 import EventsPanel from './EventsPanel';
 import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
@@ -30,7 +29,6 @@ import {
   DEFAULT_EVENT_TIME_TARGETS,
   DEFAULT_LAYOUT_SETTINGS as DEFAULT_SETTINGS,
   DEFAULT_EVENT_TITLE_SETTINGS,
-  DEFAULT_DEPTH_SETTINGS,
   writeViewPrefs,
   getInitialViewState,
 } from './lib/viewPrefs';
@@ -126,141 +124,6 @@ function computeSafeTiltDegrees(canvasHeight, perspective = 1500) {
   return Math.max(8, Math.min(65, deg));
 }
 
-function computeAutoGlYOffset(cssHeight, effectiveDpr, rotateXDeg = 0, rotateYDeg = 0, cssWidth = 0) {
-  const h = Math.max(1, Number(cssHeight) || 1);
-  const w = Math.max(1, Number(cssWidth) || 1);
-  const dpr = Math.max(0.1, Number(effectiveDpr) || 1);
-  const rawDeficit = Math.max(0, 1 - dpr);
-  // At true DPR=1 (or effectively equal after rounding), keep auto offset off.
-  if (rawDeficit < 0.01) return 0;
-  const ax = Math.abs(Number(rotateXDeg) || 0) * Math.PI / 180;
-  const ay = Math.abs(Number(rotateYDeg) || 0) * Math.PI / 180;
-  const xTiltStrength = Math.abs(Math.sin(ax));
-  const yTiltStrength = Math.abs(Math.sin(ay));
-  const tiltStrength = Math.min(1, Math.hypot(xTiltStrength, yTiltStrength));
-  const xDominantTilt = Math.max(0, xTiltStrength - 0.7 * yTiltStrength);
-  const yDominantTilt = Math.max(0, yTiltStrength - 0.8 * xTiltStrength);
-  const balancedTilt = Math.max(0, tiltStrength - 1.15 * Math.abs(xTiltStrength - yTiltStrength));
-  const highTilt = Math.max(0, tiltStrength - 0.45);
-  const lowTiltGate = Math.max(0, Math.min(1, (0.46 - tiltStrength) / 0.16));
-  // Keep the existing high-deficit behavior (subtracting the 0.08 dead-zone),
-  // but add a tilt-weighted bridge for small deficits (e.g. dpr 0.95-0.99)
-  // where Chromium still shows visible Y drift in direct mode.
-  const deficitBase = Math.max(0, rawDeficit - 0.08);
-  const deficitBridge = Math.max(0, 0.08 - rawDeficit) * tiltStrength * 0.9;
-  const dprDeficit = deficitBase + deficitBridge;
-  if (dprDeficit <= 0) return 0;
-  // Calibrated from user measurements:
-  // - 2D/high-width cases need a stronger base than the previous model
-  // - modest tilt needs only a small bump
-  // - medium tilt ramps quickly (Chromium compositor projection path)
-  // A cap avoids over-correction for extreme rotations.
-  const factorRaw = (
-    0.66
-    + 0.18 * tiltStrength
-    // Recent calibration data shows that Y drift is materially larger when the
-    // tilt is driven mostly by rotateX than when the same magnitude comes from
-    // a balanced X/Y pair. Keep mixed-tilt behavior close to the prior model,
-    // but raise X-dominant and Y-dominant cases independently.
-    + 2.05 * xDominantTilt
-    + 0.18 * yDominantTilt
-    + 2.95 * tiltStrength * tiltStrength
-    // New samples show high-deficit tilted cases can over-correct; damp tilt
-    // response as raw DPR deficit grows so wide direct-mode scenes stay stable.
-    - 1.6 * rawDeficit * tiltStrength
-    // High mixed-tilt and high Y-dominant scenes in the mid-wide near-limit
-    // band can still over-correct. Damp these corners without reducing
-    // X-dominant high-tilt compensation too aggressively.
-    - 10.5 * balancedTilt * highTilt
-    - 1.35 * yDominantTilt * highTilt
-    + 1.2 * xDominantTilt * highTilt
-    // Broad mid-width near-limit under-correction persists in low/medium tilt
-    // scenes. Lift these while keeping Y-dominant cases tempered.
-    + 0.2 * lowTiltGate * (0.35 + 1.5 * xDominantTilt - 1.4 * yDominantTilt)
-  );
-  const factor = Math.min(1.32, Math.max(0.35, factorRaw));
-  const basePx = h * dprDeficit * factor;
-  // When DPR deficit is small but tilt is non-zero, Chromium can still exhibit
-  // a noticeable residual Y shift. Add a bounded uplift in this corner only.
-  const highDprTiltUplift = Math.max(0, (0.14 - rawDeficit) / 0.14);
-  const upliftPx = h * tiltStrength * highDprTiltUplift * 0.15;
-  // Residual trim from recent calibration pairs:
-  // - high-deficit + no tilt tends to under-correct slightly
-  // - high-deficit + tilt tends to over-correct slightly
-  // Keep this term small and deficit-scaled so near-1 DPR behavior stays stable.
-  const residualTrimPx = h * rawDeficit * (0.01 - 0.06 * tiltStrength);
-
-  // Ultra-wide near-limit scenes can still need extra Y compensation even when
-  // narrower canvases are already calibrated. Gate this term by width and
-  // suppress at high tilt so previously matched wide-tilt cases stay stable.
-  const widthGate = Math.max(0, Math.min(1, (w - 12500) / 1000));
-  const mediumTilt = Math.max(0, Math.min(1, 1 - Math.abs(tiltStrength - 0.16) / 0.15));
-  const mediumTiltDamp = 1 - Math.min(0.5, Math.max(0, (tiltStrength - 0.16) / 0.14));
-  const highTiltGate = Math.max(0, Math.min(1, (0.32 - tiltStrength) / 0.12));
-  const wideResidualFactor = Math.max(
-    0,
-    0.085
-      + 0.06 * tiltStrength
-      + 0.06 * mediumTilt
-      - 0.9 * tiltStrength * tiltStrength,
-  );
-  const wideResidualPx = h
-    * rawDeficit
-    * wideResidualFactor
-    * widthGate
-    * mediumTiltDamp
-    * highTiltGate;
-
-  // Mid-wide scenes (~10k-12k CSS width) showed a separate under-correction
-  // pattern after ultra-wide tuning. Use a dedicated gate so this band can be
-  // corrected without pushing already-calibrated ultra-wide cases.
-  const midWidthRampIn = Math.max(0, Math.min(1, (w - 9600) / 1300));
-  const midWidthRampOut = Math.max(0, Math.min(1, (12150 - w) / 900));
-  const midWidthGate = midWidthRampIn * midWidthRampOut;
-  const midWidthTiltFactor = Math.max(
-    0.04,
-    0.29
-      - 0.26 * tiltStrength
-      + 0.2 * xDominantTilt
-      - 0.1 * yDominantTilt
-      - 0.12 * balancedTilt * highTilt,
-  );
-  const midWidthMediumTiltDamp = 1 - 0.35 * mediumTilt;
-  const midWidthResidualPx = h
-    * rawDeficit
-    * midWidthGate
-    * midWidthTiltFactor
-    * midWidthMediumTiltDamp;
-
-  // X-dominant tilt still shows a residual under-correction in the 10k-12k CSS
-  // width band at effective DPRs around 0.75. Keep the term zero for balanced
-  // mixed tilts so previously converged diagonal cases stay close.
-  const midWidthAxisResidualPx = h
-    * rawDeficit
-    * midWidthGate
-    * (0.42 * xDominantTilt - 0.02 * yDominantTilt - 0.15 * balancedTilt * highTilt);
-
-  // Latest sweep indicates a broad under-correction in low/medium balanced
-  // tilts (e.g. 12/12) while high balanced tilt (20/20) is already close.
-  // Add lift only below the high-tilt shoulder so case 10 stays stable.
-  const midWidthBalancedLowTiltBoostPx = h
-    * rawDeficit
-    * midWidthGate
-    * balancedTilt
-    * lowTiltGate
-    * 0.56;
-
-  return Math.round(
-    basePx
-      + upliftPx
-      + residualTrimPx
-      + wideResidualPx
-      + midWidthResidualPx
-      + midWidthAxisResidualPx
-      + midWidthBalancedLowTiltBoostPx,
-  );
-}
-
 /**
  * Top-level visualizer component. Owns all playback, rendering, and UI state.
  *
@@ -341,21 +204,13 @@ export default function Visualizer({
   }, [lineToStep]);
 
   const canvasRef = useRef(null);
-  const settledCanvasRef = useRef(null);
   const minimapCanvasRef = useRef(null);
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
-  // WebGL bit-grid worker (see docs/AI_MAINTENANCE.md §8).
-  const glCanvasRef = useRef(null);
-  const glRendererRef = useRef(null);
   // Wrapper div that receives the 3D CSS transform (translate + rotateX/Y)
   // so the canvas elements inside remain flat — this prevents Safari from
   // creating per-canvas GPU compositing layers that cause black flicker.
   const wrapperCanvasRef = useRef(null);
-  // Set to true when OffscreenCanvas is unavailable and GL could not attach.
-  const [glUnavailable, setGlUnavailable] = useState(false);
-  // Debug info for the GL mode and GPU capacity (shown in overlay)
-  const [glDebugInfo, setGlDebugInfo] = useState(null);
   const isMacPlatform = useMemo(() => detectIsMac(), []);
   const isWindowsPlatform = useMemo(() => detectIsWindows(), []);
   // Electron (native app) inserts "Electron" into the UA and exposes process.versions.electron.
@@ -384,7 +239,6 @@ export default function Visualizer({
   const [settingsCollapsed, setSettingsCollapsed] = useState(initialPrefs.settingsCollapsed);
   const [layoutSettings, setLayoutSettings] = useState(initialPrefs.layoutSettings);
   const [eventTitleSettings, setEventTitleSettings] = useState(initialPrefs.eventTitleSettings);
-  const [depthSettings, setDepthSettings] = useState(initialPrefs.depthSettings);
   const [detailOpen, setDetailOpen] = useState(initialPrefs.detailOpen);
   // Two distinct delays. Both default to 500 ms but are independently adjustable.
   // - delayBetweenEvents: pause after one event finishes before the all-events
@@ -536,12 +390,6 @@ export default function Visualizer({
   const [cachelineAnnotation, setCachelineAnnotation] = useState('none');
   const [primeOverlayEnabled, setPrimeOverlayEnabled] = useState(false);
   const [debugToolsOpen, setDebugToolsOpen] = useState(false);
-  const [debugLayerMode, setDebugLayerMode] = useState('normal'); // normal | gl-only | overlays-only
-  const [debugGlOffsetX, setDebugGlOffsetX] = useState(0); // manual trim
-  const [debugGlOffsetY, setDebugGlOffsetY] = useState(0); // manual trim
-  const [debugGlAutoOffsetY, setDebugGlAutoOffsetY] = useState(0);
-  const [debugCalibrationMode, setDebugCalibrationMode] = useState(false);
-  const [compositeDirectGl, setCompositeDirectGl] = useState(false);
   const [rangeOverlayEnabled, setRangeOverlayEnabled] = useState(false);
   const [rangeOverlayStart, setRangeOverlayStart] = useState(0);
   const [rangeOverlayEnd, setRangeOverlayEnd] = useState(0);
@@ -634,30 +482,10 @@ export default function Visualizer({
   const traceInfoToggleRef = useRef(null);
   const balloonLayoutRafRef = useRef(null);
   const balloonLiveLayoutTimerRef = useRef(null);
-  const glCssUnlockTokenRef = useRef(0);
-  const glCssUnlockRafRef = useRef(null);
-  const glCssUnlockTimeoutRef = useRef(null);
-  const glCssLockStateRef = useRef(null);
-  const debugGlOffsetXRef = useRef(0);
-  const debugGlOffsetYRef = useRef(0);
-  const debugGlAutoOffsetYRef = useRef(0);
-  const glDebugLastUpdateRef = useRef(0);
 
   stepsRef.current = steps;
   currentStepRef.current = currentStep;
   selectedStepsRef.current = selectedSteps;
-  debugGlOffsetXRef.current = debugGlOffsetX;
-  debugGlOffsetYRef.current = debugGlOffsetY;
-  debugGlAutoOffsetYRef.current = debugGlAutoOffsetY;
-
-  const updateGlDebugInfo = useCallback((force = false) => {
-    const gl = glRendererRef.current;
-    if (!gl || typeof gl.getDebugInfo !== 'function') return;
-    const now = Date.now();
-    if (!force && now - glDebugLastUpdateRef.current < 120) return;
-    glDebugLastUpdateRef.current = now;
-    setGlDebugInfo(gl.getDebugInfo());
-  }, []);
 
   // Keep refs in sync for use in callbacks
   const getMinimapDetailH = useCallback(() => {
@@ -680,16 +508,10 @@ export default function Visualizer({
       setZoom(snapshot.zoom);
     }
 
-    if (snapshot?.layerMode === 'normal' || snapshot?.layerMode === 'gl-only' || snapshot?.layerMode === 'overlays-only') {
-      setDebugLayerMode(snapshot.layerMode);
-    }
+    if (snapshot?.layerMode != null) { /* layer mode no longer used */ }
 
-    if (typeof snapshot?.manualOffsetY === 'number' && Number.isFinite(snapshot.manualOffsetY)) {
-      setDebugGlOffsetY(snapshot.manualOffsetY);
-    }
-    if (typeof snapshot?.manualOffsetX === 'number' && Number.isFinite(snapshot.manualOffsetX)) {
-      setDebugGlOffsetX(snapshot.manualOffsetX);
-    }
+    if (typeof snapshot?.manualOffsetY === 'number') { /* GL offset no longer used */ }
+    if (typeof snapshot?.manualOffsetX === 'number') { /* GL offset no longer used */ }
 
     const cam = camera3DRef.current;
     if (cam && cam.enabled) {
@@ -770,14 +592,6 @@ export default function Visualizer({
     if (balloonLiveLayoutTimerRef.current != null) {
       clearTimeout(balloonLiveLayoutTimerRef.current);
       balloonLiveLayoutTimerRef.current = null;
-    }
-    if (glCssUnlockRafRef.current != null) {
-      cancelAnimationFrame(glCssUnlockRafRef.current);
-      glCssUnlockRafRef.current = null;
-    }
-    if (glCssUnlockTimeoutRef.current != null) {
-      clearTimeout(glCssUnlockTimeoutRef.current);
-      glCssUnlockTimeoutRef.current = null;
     }
   }, []);
 
@@ -939,146 +753,25 @@ export default function Visualizer({
 
     const oldCanvasW = r.canvasWidth || 0;
     const oldCanvasH = r.canvasHeight || 0;
-    const glRenderer = glRendererRef.current;
-    const glDirectMode = !!(glRenderer && typeof glRenderer.isDirectMode === 'function' && glRenderer.isDirectMode());
-    let overlayDpr = null;
-    if (glRenderer) {
-      glRenderer.resize(canvasW, canvasH);
-      if (glDirectMode && typeof glRenderer.getEffectiveDpr === 'function') {
-        overlayDpr = glRenderer.getEffectiveDpr();
-      }
-    }
-    r.resize(canvasW, canvasH, overlayDpr);
-    // Sync wrapper div and GL canvas dimensions so translate(-50%,-50%) in
-    // renderCanvasStyle computes the correct pixel shift (50% of the wrapper's
-    // own size) and the GL canvas CSS display always matches Canvas2D.
-    // Must happen imperatively here (before the next paint) rather than
-    // waiting for a React re-render, so that the centering is correct on the
-    // very first frame after a resize.
-    //
-    // GL canvas sizing: the wrapper is updated to the new size immediately
-    // (for correct centering via translate(-50%,-50%)). The GL canvas CSS is
-    // locked to the OLD size until the worker has drawn at the new size. This
-    // prevents the browser from CSS-scaling the old drawing buffer to the new
-    // CSS dimensions, which caused the grid and annotations to move in opposite
-    // directions during window resize (and zoom appearing to affect only
-    // annotations). A requestAnimationFrame deferred step below updates the GL
-    // canvas CSS to the new size after the worker messages have been processed.
-    //
-    // On Safari (direct mode), resize is synchronous so the deferred update is
-    // harmless (just re-sets the same value one frame later).
+    r.resize(canvasW, canvasH);
 
     const wrapperEl = wrapperCanvasRef.current;
     if (wrapperEl) {
       wrapperEl.style.width = `${canvasW}px`;
       wrapperEl.style.height = `${canvasH}px`;
     }
-    const glEl = glCanvasRef.current;
-    const glSizeChanging = glEl && (canvasW !== oldCanvasW || canvasH !== oldCanvasH);
-    const appliedAngles = parseAppliedRotateAngles(camera3DTransform);
-    let autoGlOffsetY = 0;
-    if (glDirectMode && glRenderer && typeof glRenderer.getEffectiveDpr === 'function') {
-      autoGlOffsetY = computeAutoGlYOffset(
-        canvasH,
-        glRenderer.getEffectiveDpr(),
-        appliedAngles.rotateX,
-        appliedAngles.rotateY,
-        canvasW,
-      );
-    }
-    debugGlAutoOffsetYRef.current = autoGlOffsetY;
-    setDebugGlAutoOffsetY((prev) => (prev === autoGlOffsetY ? prev : autoGlOffsetY));
-    const totalGlOffsetX = debugGlOffsetXRef.current || 0;
-    const totalGlOffsetY = autoGlOffsetY + (debugGlOffsetYRef.current || 0);
-    if (glEl) {
-      // Always keep GL anchored from top-left with explicit size. Chromium can
-      // behave inconsistently when right/bottom constraints remain active while
-      // width/height are also assigned dynamically.
-      glEl.style.left = `${totalGlOffsetX}px`;
-      glEl.style.top = `${totalGlOffsetY}px`;
-      glEl.style.right = 'auto';
-      glEl.style.bottom = 'auto';
-      if (glDirectMode) {
-        // Direct mode renders synchronously on the main thread, so we do not
-        // need the worker catch-up CSS lock. Applying it in Chromium can
-        // itself introduce drift during horizontal window growth.
-        glCssLockStateRef.current = null;
-        glEl.style.width = `${canvasW}px`;
-        glEl.style.height = `${canvasH}px`;
-        if (glEl.style.transform) glEl.style.transform = '';
-      } else {
-        const activeGlCssLock = glCssLockStateRef.current;
-        if (!glSizeChanging) {
-          if (activeGlCssLock
-            && activeGlCssLock.targetW === canvasW
-            && activeGlCssLock.targetH === canvasH) {
-            glEl.style.width = `${activeGlCssLock.lockW}px`;
-            glEl.style.height = `${activeGlCssLock.lockH}px`;
-            glEl.style.transform = activeGlCssLock.transform;
-          } else {
-            // Size unchanged: set immediately (no CSS-scale risk).
-            glEl.style.width = `${canvasW}px`;
-            glEl.style.height = `${canvasH}px`;
-            // Also clear any residual transform from a previous resize (defensive).
-            if (glEl.style.transform) glEl.style.transform = '';
-          }
-        } else {
-          // Size IS changing: lock GL canvas CSS to the OLD size (overriding
-          // the CSS `inset: 0` rule, which would otherwise auto-expand the GL
-          // canvas to fill the newly-resized wrapper). This prevents the browser
-          // from CSS-scaling the old drawing buffer to the new wrapper dimensions.
-          // A rAF deferred step after r.render() updates to the new size.
-          const lockW = oldCanvasW > 0 ? oldCanvasW : canvasW;
-          const lockH = oldCanvasH > 0 ? oldCanvasH : canvasH;
-          glEl.style.width = `${lockW}px`;
-          glEl.style.height = `${lockH}px`;
-          // The wrapper is resized immediately to the new dimensions. Because
-          // the GL canvas is position:absolute at (0,0) inside the wrapper, the
-          // wrapper growing/shrinking shifts the GL canvas in screen space by
-          // ±deltaW/2 (half the width change). Meanwhile Canvas2D re-renders
-          // with an updated panX (= old panX + deltaW/2), which shifts the
-          // rendered content by +deltaW/2 in the SAME direction. The combined
-          // effect means we need to shift the locked GL frame by a full deltaW
-          // (= canvasW - oldCanvasW) to make the old GL cells appear at the same
-          // screen positions as the new Canvas2D annotations.
-          //   GL visual left  = wrapperLeft + deltaW
-          //                   = (center − newW/2) + (newW − oldW)
-          //                   = center + newW/2 − oldW
-          //   C2D content at W = (center − newW/2) + (newW/2 + panX_new)
-          //                    = center + panX_new  (same world → same screen ✓)
-          const glDx = canvasW - lockW;
-          const glDy = canvasH - lockH;
-          if (glDx !== 0 || glDy !== 0) {
-            glEl.style.transform = `translate(${glDx}px, ${glDy}px)`;
-          }
-          glCssLockStateRef.current = {
-            targetW: canvasW,
-            targetH: canvasH,
-            lockW,
-            lockH,
-            transform: glEl.style.transform || '',
-          };
-        }
-      }
-    }
+
     // Keep grid content stable when the window (and therefore the canvas)
     // resizes. The canvas is centered at the viewport center, so when the
     // canvas grows by dCanvasW its left edge moves left by dCanvasW/2.
-    // Compensating panX by dCanvasW/2 keeps every canvas-coord the same
-    // distance from the canvas center, which means the 3D perspective
-    // projection is unchanged (no lean/tilt artefact). In 2D the content
-    // drifts by dWindowW/2 — the natural "window-center moved" effect —
-    // which is far less disruptive than the original 1.1×dWindowW drift.
     if (oldCanvasW > 0) {
       r.panX += (canvasW - oldCanvasW) / 2;
       r.panY += (canvasH - oldCanvasH) / 2;
     }
+
     // Tell the renderer the layout-available area so the grid
     // wrapping math (`_computeClPerVRow`) targets a STABLE size,
-    // not the live container rect. Using `window.innerWidth/Height`
-    // means panel toggles don't change the chosen column count and
-    // therefore don't reflow / drift the grid; the user just sees
-    // more or less of the same plane through the resized container.
+    // not the live container rect.
     const lvW = (typeof window !== 'undefined' ? window.innerWidth : rect.width) || rect.width;
     const lvH = (typeof window !== 'undefined' ? window.innerHeight : rect.height) || rect.height;
     r.layoutAvailWidth = lvW;
@@ -1087,107 +780,16 @@ export default function Visualizer({
     r.freezeLayout();
 
     // Store the actual visible container dimensions on the renderer so that
-    // renderMinimap and updateMinimapAvailability use the real viewport size
-    // rather than the oversized (3×) drag-headroom canvas dimensions.
+    // renderMinimap and updateMinimapAvailability use the real viewport size.
     r.viewportW = rect.width;
     r.viewportH = rect.height;
 
-    // NOTE: anchor-based panX/panY compensation removed for panel toggles.
-    // With the canvas pinned to the VIEWPORT center (see canvasAnchorPx and
-    // renderCanvasStyle), the canvas no longer moves when the container
-    // reshapes on a panel toggle (canvasW/H are based on windowW/H, not
-    // containerW/H, so they don't change on panel toggles), so there is
-    // nothing to compensate for. Window-resize is handled above via the
-    // dCanvasW/2 adjustment which preserves canvas-center-relative content
-    // positions and keeps the 3D perspective projection stable.
     void anchor;
 
-    const glRenderSeq = r.render();
-    // After r.render() the patched render has posted resize+positions+render
-    // messages to the GL worker. For width-growth resizes, wait for an
-    // explicit worker render-ack before unlocking GL canvas CSS to the new
-    // dimensions so the browser never stretches an old drawing buffer.
-    // Keep a short timeout fallback to avoid stalls if the worker is busy.
-    if (glSizeChanging && !glDirectMode) {
-      const targetW = canvasW;
-      const targetH = canvasH;
-      const targetEl = glEl;
-      const g = glRendererRef.current;
-      const targetDpr = g && typeof g.getEffectiveDpr === 'function'
-        ? g.getEffectiveDpr()
-        : ((window.devicePixelRatio || 1));
-      const targetPxW = Math.max(1, Math.floor(targetW * targetDpr));
-      const targetPxH = Math.max(1, Math.floor(targetH * targetDpr));
-      const token = ++glCssUnlockTokenRef.current;
-      if (glCssUnlockRafRef.current != null) {
-        cancelAnimationFrame(glCssUnlockRafRef.current);
-        glCssUnlockRafRef.current = null;
-      }
-      if (glCssUnlockTimeoutRef.current != null) {
-        clearTimeout(glCssUnlockTimeoutRef.current);
-        glCssUnlockTimeoutRef.current = null;
-      }
-      const applyUnlockedSize = () => {
-        if (token !== glCssUnlockTokenRef.current) return;
-        glCssUnlockRafRef.current = requestAnimationFrame(() => {
-          glCssUnlockRafRef.current = null;
-          if (token !== glCssUnlockTokenRef.current) return;
-          if (targetEl) {
-            glCssLockStateRef.current = null;
-            targetEl.style.width = `${targetW}px`;
-            targetEl.style.height = `${targetH}px`;
-            targetEl.style.transform = '';
-          }
-        });
-      };
-      const waitForGlBackingStore = () => {
-        if (token !== glCssUnlockTokenRef.current) return;
-        if (!targetEl) {
-          applyUnlockedSize();
-          return;
-        }
-        if (targetEl.width === targetPxW && targetEl.height === targetPxH) {
-          applyUnlockedSize();
-          return;
-        }
-        glCssUnlockRafRef.current = requestAnimationFrame(() => {
-          waitForGlBackingStore();
-        });
-      };
-      const grewHorizontally = oldCanvasW > 0 && canvasW > oldCanvasW;
-      if (grewHorizontally) {
-        glCssUnlockTimeoutRef.current = setTimeout(() => {
-          glCssUnlockTimeoutRef.current = null;
-          applyUnlockedSize();
-        }, 80);
-        waitForGlBackingStore();
-      } else {
-        applyUnlockedSize();
-      }
-    }
+    r.render();
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
-  }, [getCanvasTargetSize, showMinimap, getMinimapDetailH, updateMinimapAvailability, setCamera3DTransform, setCamera3DContainerStyle, debugGlOffsetX, debugGlOffsetY]);
-
-  // Keep manual debug offsets responsive even when no resize/layout event is
-  // in flight. This updates both direct GL canvas placement and the Canvas2D
-  // composited fallback path immediately when X/Y sliders or nudges change.
-  useEffect(() => {
-    const glEl = glCanvasRef.current;
-    const rr = rendererRef.current;
-    const totalGlOffsetY = (debugGlAutoOffsetY || 0) + (debugGlOffsetY || 0);
-    if (glEl) {
-      glEl.style.left = `${debugGlOffsetX || 0}px`;
-      glEl.style.top = `${totalGlOffsetY}px`;
-      glEl.style.right = 'auto';
-      glEl.style.bottom = 'auto';
-    }
-    if (rr) {
-      rr.setGlCompositeOffsetX?.(debugGlOffsetX || 0);
-      rr.setGlCompositeOffsetY?.(totalGlOffsetY);
-      rr.render();
-    }
-  }, [debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY]);
+  }, [getCanvasTargetSize, showMinimap, getMinimapDetailH, updateMinimapAvailability, setCamera3DTransform, setCamera3DContainerStyle]);
 
   // Keep the canvas pinned to the VIEWPORT center (not the container
   // center) so panel collapse/expand transitions don't slide the
@@ -1405,7 +1007,6 @@ export default function Visualizer({
       theme,
       layoutSettings,
       eventTitleSettings,
-      depthSettings,
       gridOpacity,
       canvasColors,
       colorPreset,
@@ -1423,7 +1024,7 @@ export default function Visualizer({
       settingsCollapsed,
       detailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, depthSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, widgetsJoined, allEventsInDetailPanel, autoAnimateOnSelect, eventsPanelCollapsed, settingsCollapsed, detailOpen]);
+  }, [theme, layoutSettings, eventTitleSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, widgetsJoined, allEventsInDetailPanel, autoAnimateOnSelect, eventsPanelCollapsed, settingsCollapsed, detailOpen]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -1437,8 +1038,6 @@ export default function Visualizer({
     rendererRef.current = r;
     if (canvasRef.current) {
       r.attach(canvasRef.current);
-      if (settledCanvasRef.current) r.attachSettledCanvas(settledCanvasRef.current);
-      if (glCanvasRef.current) r.setGlCompositeSourceCanvas?.(glCanvasRef.current);
       if (minimapCanvasRef.current) r.attachMinimapCanvas(minimapCanvasRef.current);
       r.storageModel = header.storageModel || 'half';
       r.wheelDefinition = wheelDefinition;
@@ -1451,96 +1050,6 @@ export default function Visualizer({
         const rr = rendererRef.current;
         if (rr && rr.primeOverlay) rr.render();
       });
-
-      // WebGL bit-grid scaffold (gl-worker via OffscreenCanvas).
-      if (glCanvasRef.current) {
-        // Attach the GL renderer once — transferControlToOffscreen is a
-        // one-shot operation and cannot be repeated on the same canvas.
-        // On trace changes (effect re-runs) we reuse the existing renderer
-        // and just update the bit-count budget. On first mount (or when
-        // the renderer was never successfully created) we create it fresh.
-        let gl = glRendererRef.current;
-        if (!gl) {
-          const newGl = new BitGridGLWorker();
-          if (newGl.attach(glCanvasRef.current)) {
-            gl = newGl;
-            glRendererRef.current = gl;
-            updateGlDebugInfo(true);
-          } else {
-            // OffscreenCanvas not available — GL worker could not start.
-            // The app remains usable (Canvas2D handles everything) but
-            // bit cells won't be filled. Show a browser-update notice.
-            setGlUnavailable(true);
-          }
-        }
-        if (gl) {
-          gl.resizeForBitCount(header.bitCount);
-          const origRender = r.render.bind(r);
-          r.render = () => {
-            const g = glRendererRef.current;
-            const rr = rendererRef.current;
-            if (!g || !rr || !rr.canvas) return;
-            const cssW = rr.canvasWidth || 0;
-            const cssH = rr.canvasHeight || 0;
-            g.resize(cssW, cssH);
-            const directMode = typeof g.isDirectMode === 'function' && g.isDirectMode();
-            const compositeGl = directMode
-              && typeof g.getEffectiveDpr === 'function'
-              && g.getEffectiveDpr() < 0.995;
-            rr.setCompositeGLInto2D?.(compositeGl);
-            rr.setGlCompositeOffsetX?.(debugGlOffsetXRef.current || 0);
-            rr.setGlCompositeOffsetY?.((debugGlAutoOffsetYRef.current || 0) + (debugGlOffsetYRef.current || 0));
-            setCompositeDirectGl((prev) => (prev === compositeGl ? prev : compositeGl));
-
-            // Layout fingerprint — only repack the position texture when one
-            // of these inputs changes. Pan is excluded (applied as a uniform).
-            const fp = [
-              rr.zoom, rr.pixelSize,
-              rr.bitLayout, rr.byteLayout, rr.vectorGroup,
-              rr.cachelineSize, rr.customGroupingBits, rr.horizontalGroups,
-              rr._frozenClPerVRow,
-              rr.layoutAvailWidth, rr.layoutAvailHeight,
-              rr.bitSpacingH, rr.bitSpacingV,
-              rr.byteSpacingH, rr.byteSpacingV,
-              rr.u64SpacingH, rr.u64SpacingV,
-              rr.storageModel, rr.bitCount,
-              wheelSignature(rr.wheelDefinition),
-              cssW, cssH,
-            ].join('|');
-            // Direct mode renders synchronously and is used on high-risk large
-            // canvases. Repack positions every frame there to eliminate any
-            // stale-fingerprint edge cases at resize/tilt breakpoints.
-            g.uploadPositions(rr, directMode ? '' : fp);
-            g.uploadState(rr);
-            g.uploadAnim(rr);
-
-            const px = Math.max(1, rr.pixelSize);
-            const zoom = Math.max(0.01, rr.zoom || 1);
-            const bitColors = rr._bitColors();
-            const changed = rr._opColor();
-            const renderSeq = g.render({
-              panX: rr.panX || 0,
-              panY: rr.panY || 0,
-              cellSize: px * zoom,
-              bgColor: rr.effectiveBackground,
-              setColor: bitColors.set,
-              clearedColor: bitColors.cleared,
-              changedColor: changed,
-              repeatedColor: [245, 158, 11],
-              baseAlpha: Math.max(0.12, Math.min(1, rr.gridOpacity ?? 1)),
-              loweredActive: rr.loweredSetBits ? 1.0 : 0.0,
-            });
-            if (compositeGl) {
-              origRender();
-            } else {
-              rr.setCompositeGLInto2D?.(false);
-              origRender();
-            }
-            updateGlDebugInfo(false);
-            return renderSeq;
-          };
-        }
-      }
     }
 
     // Init 3D camera — see src/hooks/use3DCamera.js for the full lifecycle.
@@ -1558,31 +1067,11 @@ export default function Visualizer({
     });
 
     return () => {
-      // Do NOT dispose glRendererRef here — transferControlToOffscreen is
-      // one-shot and the worker must survive both StrictMode remounts and
-      // trace reloads.  See the comment on the mount-only useEffect below.
       rendererRef.current = null;
       disposeCamera();
     };
   }, [header.bitCount, header.sieveSize, header.storageModel, wheelDefinition]);
 
-  // GL worker is intentionally kept alive as long as the component lives.
-  // `OffscreenCanvas.transferControlToOffscreen()` is a one-shot, irreversible
-  // operation on the HTMLCanvasElement — there is no way to attach a second
-  // worker to the same canvas element.  Calling `dispose()` in a cleanup
-  // effect is therefore harmful in two situations:
-  //   1. React StrictMode (development): fires cleanup+setup twice on every
-  //      mount.  If we dispose here the worker is killed before the second
-  //      setup run, and that run can neither call transferControlToOffscreen()
-  //      again nor reuse the dead worker — so GL rendering silently breaks.
-  //   2. Trace reload: the init effect re-runs with new header props and must
-  //      reuse the existing live worker rather than re-attaching.
-  //
-  // In normal use the Visualizer is mounted once for the entire session.
-  // When the page is closed the browser terminates all workers automatically.
-  // If the component ever truly unmounts (rare, e.g. Suspense boundary),
-  // the worker becomes unreachable and is GC-eligible; the small leak is
-  // acceptable given that scenario never occurs in practice.
   useEffect(() => {
     return () => {
       if (spacingPanAnimRef.current != null) {
@@ -1606,14 +1095,6 @@ export default function Visualizer({
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas?.height / (window.devicePixelRatio || 1), getMinimapDetailH());
   }, [settingsCollapsed, isMacPlatform, showMinimap, getMinimapDetailH, updateMinimapAvailability]);
-
-  // Keep GL diagnostics live while resizing/moving the window.
-  useEffect(() => {
-    const onResize = () => updateGlDebugInfo(true);
-    window.addEventListener('resize', onResize);
-    updateGlDebugInfo(true);
-    return () => window.removeEventListener('resize', onResize);
-  }, [updateGlDebugInfo]);
 
   const spacingPanAnimRef = useRef(null);
 
@@ -1713,7 +1194,6 @@ export default function Visualizer({
     r.outlineStyle = 'dashed';
     r.outlineColor = '#3b82f6';
     r.outlineRounded = true;
-    r.debugAllCellOutlines = debugCalibrationMode;
     r.debugAllCellOutlineColor = theme === 'light' ? 'rgba(15, 23, 42, 0.78)' : 'rgba(255,255,255,0.82)';
     r.colorPreset = colorPreset;
     r.storageModel = storageModel;
@@ -1735,8 +1215,6 @@ export default function Visualizer({
     r.multiplesOverlay = multiplesOverlayEnabled;
     r.multiplesOverlayPrime = Math.max(2, multiplesOverlayPrime || 2);
     r.transparentBackground = mode3D;
-    r.loweredDepthStrength = Math.max(0, Math.min(1.0, (depthSettings.strength ?? 80) / 100));
-    r.loweredDepthAngle = Math.max(0, Math.min(90, depthSettings.angle ?? 38));
     r.gridOpacity = Math.max(0.12, Math.min(1, gridOpacity));
     r.canvasBackground = canvasColors ? (canvasColors[theme] || null) : null;
     r.customSetBit = customColors.setBit;
@@ -1826,7 +1304,7 @@ export default function Visualizer({
     r.render();
     updateMinimapAvailability();
     if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, canvasColors, storageModel, wheelDefinition, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, depthSettings, gridOpacity, updateMinimapAvailability, debugCalibrationMode]);
+  }, [theme, layoutSettings, showMinimap, colorPreset, customColors, canvasColors, storageModel, wheelDefinition, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, gridOpacity, updateMinimapAvailability]);
 
   // Resize handler
   useEffect(() => {
@@ -2039,16 +1517,7 @@ export default function Visualizer({
       const rect = el.getBoundingClientRect();
       const { canvasW, canvasH } = getCanvasTargetSize(rect.width, rect.height);
       if (!initialFitDoneRef.current && (r.canvasWidth !== canvasW || r.canvasHeight !== canvasH)) {
-        const g = glRendererRef.current;
-        const directMode = !!(g && typeof g.isDirectMode === 'function' && g.isDirectMode());
-        let overlayDpr = null;
-        if (g) {
-          g.resize(canvasW, canvasH);
-          if (directMode && typeof g.getEffectiveDpr === 'function') {
-            overlayDpr = g.getEffectiveDpr();
-          }
-        }
-        r.resize(canvasW, canvasH, overlayDpr);
+        r.resize(canvasW, canvasH);
       }
       // Same as refreshCanvasLayout: layout columns target a stable
       // window-anchored size so panel toggles don't reflow.
@@ -4919,11 +4388,6 @@ export default function Visualizer({
           {exportError}
         </div>
       )}
-      {glUnavailable && (
-        <div className="gl-unavailable-banner" role="alert">
-          WebGL2 with OffscreenCanvas is required for rendering. Please use a modern browser (Chrome 69+, Firefox 105+, Edge 79+, or Safari 16.4+).
-        </div>
-      )}
 
       {/* Main content — panels float (position:absolute) within this div, which sits
            below the toolbar. overflow:visible so collapsed toggle buttons are not
@@ -4965,12 +4429,7 @@ export default function Visualizer({
           mode3D={mode3D}
           containerRef={containerRef}
           canvasRef={canvasRef}
-          settledCanvasRef={settledCanvasRef}
-          glCanvasRef={glCanvasRef}
           wrapperCanvasRef={wrapperCanvasRef}
-          glActive={true}
-          hideGlCanvas={compositeDirectGl && debugLayerMode === 'normal'}
-          debugLayerMode={debugLayerMode}
           camera3DContainerStyle={mergedCamera3DContainerStyle}
           renderCanvasStyle={renderCanvasStyle}
           eventTitleSettings={eventTitleSettings}
@@ -5138,8 +4597,6 @@ export default function Visualizer({
           showMinimap={showMinimap}
           onShowMinimapChange={setShowMinimap}
           minimapControlVisible={true}
-          depthSettings={depthSettings}
-          onDepthSettingsChange={setDepthSettings}
           eventTitleSettings={eventTitleSettings}
           onEventTitleSettingsChange={setEventTitleSettings}
           outlineSettings={layoutSettings.outlines}
@@ -5161,23 +4618,7 @@ export default function Visualizer({
         {debugToolsOpen && (
           <DebugToolsPanel
             rendererRef={rendererRef}
-            glCanvasRef={glCanvasRef}
-            glRendererRef={glRendererRef}
-            camera3DRef={camera3DRef}
-            camera3DTransform={camera3DTransform}
-            zoomLevel={zoom}
-            glDebugInfo={glDebugInfo}
             theme={theme}
-            debugLayerMode={debugLayerMode}
-            setDebugLayerMode={setDebugLayerMode}
-            debugGlOffsetX={debugGlOffsetX}
-            setDebugGlOffsetX={setDebugGlOffsetX}
-            debugGlOffsetY={debugGlOffsetY}
-            setDebugGlOffsetY={setDebugGlOffsetY}
-            debugGlAutoOffsetY={debugGlAutoOffsetY}
-            debugCalibrationMode={debugCalibrationMode}
-            setDebugCalibrationMode={setDebugCalibrationMode}
-            onApplyDebugSnapshot={applyDebugSnapshot}
             rightOffset={settingsCollapsed ? 8 : (isMacPlatform ? 388 : 328)}
           />
         )}
