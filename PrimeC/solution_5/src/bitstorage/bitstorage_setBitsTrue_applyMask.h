@@ -15,9 +15,9 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
 {
     logStart8(bitstorage, time_applyMask, "ApplyMask_index%s apply %s (%ju bit) mask with step %ju in bitrange (%ju - %ju)", STR(suffix), STR(bitbucket_t), bitcount_type(bitbucket_t),(uintmax_t)step, (uintmax_t)range_start_index * bitcount_type(bitbucket_t), (uintmax_t)(range_stop_index+1) * bitcount_type(bitbucket_t)-1);
   
-    register       bitbucket_t* restrict bitstorage_sized   = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    register       bitbucket_t* restrict index_ptr          = __builtin_assume_aligned(&bitstorage_sized[range_start_index],sizeof(bitbucket_t));
-    register const bitbucket_t* restrict range_stop_index_ptr     = __builtin_assume_aligned(&bitstorage_sized[range_stop_index],sizeof(bitbucket_t));
+    register       bitbucket_t* restrict bitstorage_sized     = __builtin_assume_aligned(bitstorage, cache_line_bytes);
+    register       bitbucket_t* restrict index_ptr            = __builtin_assume_aligned(&bitstorage_sized[range_start_index],sizeof(bitbucket_t));
+    register const bitbucket_t* restrict range_stop_index_ptr = __builtin_assume_aligned(&bitstorage_sized[range_stop_index ],sizeof(bitbucket_t));
  
     #if defined(__GNUC__) && !defined(__clang__) // optimized for GCC
         register const counter_t step_max                   = step * unrolls;
