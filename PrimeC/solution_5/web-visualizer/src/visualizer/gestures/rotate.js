@@ -26,7 +26,7 @@ export function applyRotate({
   renderer.render();
   renderer.renderMinimap(
     renderer.canvasWidth,
-    renderer.canvas.height / (window.devicePixelRatio || 1),
+    renderer.canvasHeight || 0,
     getMinimapDetailH(),
   );
   if (updateMinimapAvailability) updateMinimapAvailability();

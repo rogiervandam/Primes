@@ -32,9 +32,10 @@ import {
   labelTextColor,
   fitLabelFontSize,
   truncateTextToWidth,
-  drawFittedLabel,
+  glMeasureAdapter,
 } from './renderer/drawingHelpers';
 import { requestPrimeOverlay } from './renderer/workers/bitPrePassClient';
+import { GlyphCommandBuffer } from './renderer/gl/GlyphCommandBuffer';
 
 export {
   THEMES,
@@ -192,17 +193,23 @@ export class SieveRenderer {
     this.webglText = false;
     /** @type {import('./renderer/gl/GlyphTextGLCore').GlyphTextGLCore|null} */
     this._glyphCtx = null;
+    /** @type {GlyphCommandBuffer|null} Used in worker-mode instead of _glyphCtx. */
+    this._glyphBuf = null;
+    /** @type {import('./renderer/gl/BitGridGLWorker').BitGridGLWorker|null} */
+    this._glWorker = null;
     this._glyphFramePrimed = false;
-    // Tiny offscreen canvas used only for text measurement (measureText).
-    // Never added to the DOM; resizing it is unnecessary since measureText
-    // results are independent of canvas dimensions.
-    const mc = document.createElement('canvas');
-    mc.width = 2; mc.height = 2;
-    this._measureCtx = mc.getContext('2d');
+    /** Encoded glyph commands for the current frame; consumed by Visualizer.jsx. */
+    this._pendingGlyphCmds = null;
+    // Measurement adapter: set in attachGlyphRenderer() once the GL atlas is ready.
+    // Delegates measureText() to the glyph atlas advance widths.
+    this._measureCtx = null;
   }
 
   /** Returns the glyph canvas element (used for export/metadata). */
   get canvas() { return this._glyphCtx?.canvas ?? null; }
+
+  /** Active glyph draw target: buffer (worker mode) or direct context (Safari/direct mode). */
+  get _glyph() { return this._glyphBuf || this._glyphCtx || null; }
 
   /** Returns the canvas background color — user override if set, else theme default. */
   get colors() { return THEMES[this.theme] || THEMES.dark; }
@@ -322,40 +329,6 @@ export class SieveRenderer {
   }
   _fitLabelFontSize(ctx, text, maxWidth, preferredSize, minSize = 4, style = '')   { return fitLabelFontSize(ctx, text, maxWidth, preferredSize, minSize, style); }
   _truncateTextToWidth(ctx, text, maxWidth, style = '')                            { return truncateTextToWidth(ctx, text, maxWidth, style); }
-  _drawFittedLabel(ctx, text, x, y, maxWidth, preferredSize, color, options = {})  { return drawFittedLabel(ctx, text, x, y, maxWidth, preferredSize, color, options); }
-
-  _drawOutlineRect(ctx, x, y, w, h) {
-    const cfg = this._outlineConfig();
-    const lineWidth = cfg.lineWidth;
-    const dash = cfg.dash;
-    const radius = cfg.radius;
-    const strokeRgb = this._hexToRgb(this.outlineColor || '#5ccf8d');
-    const inflate = 0;
-
-    x -= inflate;
-    y -= inflate;
-    w += inflate * 2;
-    h += inflate * 2;
-
-    ctx.save();
-    ctx.strokeStyle = `rgb(${strokeRgb[0]},${strokeRgb[1]},${strokeRgb[2]})`;
-    ctx.lineWidth = lineWidth;
-    ctx.setLineDash(dash);
-    if (radius > 0) {
-      const rr = Math.min(radius, w / 2, h / 2);
-      ctx.beginPath();
-      ctx.moveTo(x + rr, y);
-      ctx.arcTo(x + w, y, x + w, y + h, rr);
-      ctx.arcTo(x + w, y + h, x, y + h, rr);
-      ctx.arcTo(x, y + h, x, y, rr);
-      ctx.arcTo(x, y, x + w, y, rr);
-      ctx.closePath();
-      ctx.stroke();
-    } else {
-      ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
-    }
-    ctx.restore();
-  }
 
   attach(_canvas) { /* no-op: GL handles all rendering */ }
 
@@ -375,7 +348,36 @@ export class SieveRenderer {
    */
   attachGlyphRenderer(glyphRenderer) {
     this._glyphCtx = glyphRenderer || null;
-    if (this._glyphCtx) this.webglText = true;
+    this._glyphBuf = null;
+    this._glWorker = null;
+    if (this._glyphCtx) {
+      this.webglText = true;
+      this._measureCtx = glMeasureAdapter(this._glyphCtx);
+    }
+  }
+
+  /**
+   * Attach the bit-grid GL worker as the glyph renderer (worker mode).
+   * Uses atlas data from the worker's ready message to build a GlyphCommandBuffer
+   * for encoding draw commands on the main thread.
+   * @param {import('./renderer/gl/BitGridGLWorker').BitGridGLWorker} worker
+   */
+  attachGLWorker(worker) {
+    this._glWorker = worker || null;
+    this._glyphCtx = null;
+    if (this._glWorker) {
+      const atlasData = this._glWorker.getAtlasData();
+      if (atlasData?.advances) {
+        this._glyphBuf = new GlyphCommandBuffer(atlasData);
+        this.webglText = true;
+        this._measureCtx = glMeasureAdapter(this._glyphBuf);
+      } else {
+        // Atlas data not yet available (worker not ready). Will be retried
+        // by Visualizer.jsx once the worker fires its ready event.
+        this._glyphBuf = null;
+        this._measureCtx = null;
+      }
+    }
   }
 
   init(bitCount, sieveSize) {
@@ -966,7 +968,7 @@ export class SieveRenderer {
 
       if (segments.length === 0) continue;
 
-      const g = this._glyphCtx;
+      const g = this._glyph;
       for (const seg of segments) {
         const rx = Math.round(this.panX + seg.vecStart * vecStep - pad);
         const ry = Math.round(this.panY + seg.vRow * vRowHeight + labelH - pad);
@@ -1051,10 +1053,10 @@ export class SieveRenderer {
         const y = this.panY + seg.vRow * vRowHeight + labelH - pad - topExtra;
         const w = (seg.vecEnd - seg.vecStart + 1) * vecStep - this._u64GapX() + pad * 2;
         const h = rowD.h + pad * 2 + topExtra + annotBottomExtra;
-        if (this._glyphCtx) {
+        if (this._glyph) {
           const [or, og, ob, oa] = this._outlineColorGL();
           const cfg = this._outlineConfig();
-          this._glyphCtx.drawOutlineRect(x, y, w, h, or, og, ob, oa, cfg.lineWidth);
+          this._glyph.drawOutlineRect(x, y, w, h, or, og, ob, oa, cfg.lineWidth);
         }
       }
     }
@@ -1256,6 +1258,7 @@ export class SieveRenderer {
     if (this._glyphCtx) {
       this._glyphCtx.resize(width, height, dpr);
     }
+    // Worker-mode glyph resize is handled by the worker's resize message.
     this.canvasWidth = width;
     this.canvasHeight = height;
     this.canvasDpr = dpr;
@@ -1517,7 +1520,7 @@ export class SieveRenderer {
    * the split is purely structural.
    */
   render() {
-    if (!this.bitState || this.bitCount === 0) return;
+    if (!this._measureCtx || !this.bitState || this.bitCount === 0) return;
 
     this._glyphFramePrimed = false;
 
@@ -1525,9 +1528,10 @@ export class SieveRenderer {
 
     const f = this._buildFrameContext();
 
-    // Begin the WebGL glyph-text frame (clears the glyph canvas every frame
-    // so toggling the feature off instantly removes stale text).
-    const glCtx = this._glyphCtx || null;
+    // Begin the WebGL glyph-text frame. In worker mode (_glyphBuf) this just
+    // resets the command buffer. In direct mode (_glyphCtx) it clears the
+    // separate glyph canvas every frame so stale text is removed.
+    const glCtx = this._glyphBuf || this._glyphCtx || null;
     if (glCtx) {
       const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
       const cw = this.canvasWidth  || 0;
@@ -1552,9 +1556,15 @@ export class SieveRenderer {
     this.cachelineAnnotationsOverlay.render(f.ctx, glCtx);
     this.searchOverlay.render(f.cw, f.ch, glCtx);
 
-    // Flush the WebGL glyph-text batch (no-op when count === 0).
+    // Flush the WebGL glyph-text batch.
+    // Worker mode: store commands for Visualizer.jsx to pass to g.render().
+    // Direct mode: endFrame() uploads to GL immediately.
     if (glCtx) {
-      glCtx.endFrame();
+      if (this._glyphBuf) {
+        this._pendingGlyphCmds = glCtx.endFrame();
+      } else {
+        glCtx.endFrame();
+      }
       this._glyphFramePrimed = true;
     }
   }
@@ -1657,9 +1667,9 @@ export class SieveRenderer {
       const labelX = Math.round(vecX);
       const labelY = Math.round(f.vectorLabelY(vRow));
       if (labelX + f.vecD.w > 0 && labelX < f.cw && vRowBaseY >= -f.labelH && vRowBaseY < f.ch) {
-        if (this._glyphCtx) {
+        if (this._glyph) {
           const [lr, lg, lb, la] = this._parseCssColorGL(f.C.LABEL_COLOR);
-          this._glyphCtx.drawFittedText(label, labelX + 1, labelY, f.labelBands.vectorFont, Math.max(8, f.vecD.w - 4), lr, lg, lb, la, 'left', 'top', 3.5);
+          this._glyph.drawFittedText(label, labelX + 1, labelY, f.labelBands.vectorFont, Math.max(8, f.vecD.w - 4), lr, lg, lb, la, 'left', 'top', 3.5);
         }
       }
     }
@@ -1678,12 +1688,12 @@ export class SieveRenderer {
   _renderVectorU64(f, vecX, vRowDataY, vRowBaseY, intraIdx, u64BitStart, rowBitStop) {
     const u64X = vecX + intraIdx * (f.u64D.w + f.vecD.intraGap);
 
-    if (this.outlineEnabled && this.outlineTargets?.has('vector') && intraIdx === 0 && this._glyphCtx) {
+    if (this.outlineEnabled && this.outlineTargets?.has('vector') && intraIdx === 0 && this._glyph) {
       const pad = this._outlinePadding();
       const topExtra = this._outlineTopExtra('vector');
       const [or, og, ob, oa] = this._outlineColorGL();
       const cfg = this._outlineConfig();
-      this._glyphCtx.drawOutlineRect(vecX - pad, vRowDataY - pad - topExtra, f.vecD.w + 2 * pad, f.vecD.h + 2 * pad + topExtra, or, og, ob, oa, cfg.lineWidth);
+      this._glyph.drawOutlineRect(vecX - pad, vRowDataY - pad - topExtra, f.vecD.w + 2 * pad, f.vecD.h + 2 * pad + topExtra, or, og, ob, oa, cfg.lineWidth);
     }
 
     for (let byteIdx = 0; byteIdx < 8; byteIdx++) {
@@ -1699,18 +1709,18 @@ export class SieveRenderer {
     const byteX = u64X + bytePos.col * (f.byteD.w + f.byteGapX);
     const byteY = vRowDataY + bytePos.row * (f.byteD.h + f.byteGapY);
 
-    if (this.outlineEnabled && this.outlineTargets?.has('byte') && this._glyphCtx) {
+    if (this.outlineEnabled && this.outlineTargets?.has('byte') && this._glyph) {
       const pad = this._outlinePadding();
       const topExtra = this._outlineTopExtra('byte');
       const [or, og, ob, oa] = this._outlineColorGL();
       const cfg = this._outlineConfig();
-      this._glyphCtx.drawOutlineRect(byteX - pad, byteY - pad - topExtra, f.byteD.w + 2 * pad, f.byteD.h + 2 * pad + topExtra, or, og, ob, oa, cfg.lineWidth);
+      this._glyph.drawOutlineRect(byteX - pad, byteY - pad - topExtra, f.byteD.w + 2 * pad, f.byteD.h + 2 * pad + topExtra, or, og, ob, oa, cfg.lineWidth);
     }
 
-    if (f.showByteLabels && this._glyphCtx) {
+    if (f.showByteLabels && this._glyph) {
       const byteLabel = `Byte ${this._byteLabelValue(byteBitStart)}`;
       const [lr, lg, lb, la] = this._parseCssColorGL(f.C.LABEL_COLOR);
-      this._glyphCtx.drawFittedText(byteLabel, Math.round(byteX) + 1, Math.round(f.byteLabelY(vRowBaseY, byteY)), f.labelBands.byteFont, Math.max(8, f.byteD.w - 4), lr, lg, lb, la, 'left', 'top', 3.5);
+      this._glyph.drawFittedText(byteLabel, Math.round(byteX) + 1, Math.round(f.byteLabelY(vRowBaseY, byteY)), f.labelBands.byteFont, Math.max(8, f.byteD.w - 4), lr, lg, lb, la, 'left', 'top', 3.5);
     }
 
     for (let bitIdx = 0; bitIdx < 8; bitIdx++) {
@@ -1752,9 +1762,10 @@ export class SieveRenderer {
     const y = Number.isFinite(draw?.drawY) ? draw.drawY : bitY;
     const size = Math.max(1, Number.isFinite(draw?.drawSize) ? draw.drawSize : f.px);
     const lw = Math.max(0.75, Math.min(1.25, 0.85 + (this.zoom || 1) * 0.015));
-    if (!this._glyphCtx) return;
+    const _gc = this._glyph;
+    if (!_gc) return;
     const [cr, cg, cb, ca] = this._parseCssColorGL(this.debugAllCellOutlineColor || 'rgba(255,255,255,0.82)');
-    this._glyphCtx.drawOutlineRect(x + 0.5, y + 0.5, Math.max(0, size - 1), Math.max(0, size - 1), cr, cg, cb, ca, lw);
+    _gc.drawOutlineRect(x + 0.5, y + 0.5, Math.max(0, size - 1), Math.max(0, size - 1), cr, cg, cb, ca, lw);
   }
 
   /** Decide the bit's color and per-bit boolean flags (ghost / changed / set / repeated / focus). */
@@ -1807,8 +1818,8 @@ export class SieveRenderer {
     const { drawX, drawY, drawSize } = draw;
     const px = f.px;
     const set = f.bitColors.set;
-    if (!this._glyphCtx) return;
-    const g = this._glyphCtx;
+    if (!this._glyph) return;
+    const g = this._glyph;
     const lw = Math.max(0.7, Math.min(1.6, px * 0.12));
     g.drawFilledRect(drawX, drawY, drawSize, drawSize, set[0] / 255, set[1] / 255, set[2] / 255, 0.2);
     g.drawOutlineRect(
@@ -1833,8 +1844,8 @@ export class SieveRenderer {
     const { drawX, drawY, drawSize } = draw;
     const px = f.px;
     const lw1 = Math.max(0.35, Math.min(1.25, px * 0.08));
-    if (!this._glyphCtx) return;
-    const g = this._glyphCtx;
+    if (!this._glyph) return;
+    const g = this._glyph;
     g.drawOutlineRect(
       Math.round(drawX - 0.5), Math.round(drawY - 0.5),
       Math.max(2, Math.round(drawSize + 1)), Math.max(2, Math.round(drawSize + 1)),
@@ -1856,9 +1867,9 @@ export class SieveRenderer {
     const px = f.px;
     const dotR = Math.max(0.8, Math.min(px * 0.22, 4));
 
-    if (!this._glyphCtx) return;
+    if (!this._glyph) return;
     // GL path: dot at top-right, optional 'p' label at top-left.
-    const g = this._glyphCtx;
+    const g = this._glyph;
     const dcx = Math.round(bitX + px) - dotR * 0.75;
     const dcy = Math.round(bitY) + dotR * 0.75;
     g.drawDot(dcx, dcy, dotR, 251 / 255, 191 / 255, 36 / 255, 0.92);
@@ -1875,9 +1886,9 @@ export class SieveRenderer {
     const px = f.px;
     const dotR2 = Math.max(0.8, Math.min(px * 0.20, 3.5));
 
-    if (!this._glyphCtx) return;
+    if (!this._glyph) return;
     // GL path: dot at top-left, optional 'r' label at top-right.
-    const g = this._glyphCtx;
+    const g = this._glyph;
     g.drawDot(Math.round(bitX) + dotR2 * 0.75, Math.round(bitY) + dotR2 * 0.75, dotR2,
       34 / 255, 211 / 255, 238 / 255, 0.88);
     if (px >= 16) {
@@ -1933,9 +1944,9 @@ export class SieveRenderer {
     const centerX = Math.round(bitX + px / 2);
     const centerY = Math.round(bitY + px / 2);
 
-    if (!this._glyphCtx) return;
+    if (!this._glyph) return;
     // GL glyph path — skip the Canvas 2D context entirely.
-    const g = this._glyphCtx;
+    const g = this._glyph;
     const [tr, tg, tb, ta] = this._labelTextColorGL(cls.color);
     if (dualLine) {
       g.drawText(lines[0], centerX, Math.round(bitY + px * 0.32), fontSize,
@@ -2099,6 +2110,16 @@ export class SieveRenderer {
 
   /** Start a standalone GL animation frame for animation methods called outside render(). */
   _beginGLAnim() {
+    // Worker mode: begin a new command-buffer frame (appended to GL canvas
+    // on the worker side without clearing — bit-grid pixels stay visible).
+    if (this._glyphBuf && this._glWorker) {
+      const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
+      const cw = this.canvasWidth || 0;
+      const ch = this.canvasHeight || 0;
+      this._glyphBuf.beginFrame(cw, ch, canvasDpr);
+      return this._glyphBuf;
+    }
+    // Direct mode: begin a non-clearing pass on the glyph canvas.
     if (!this._glyphCtx) return null;
     if (this._glyphFramePrimed && typeof this._glyphCtx.beginOverlayPass === 'function') {
       this._glyphCtx.beginOverlayPass();
@@ -2114,7 +2135,14 @@ export class SieveRenderer {
 
   /** Flush a standalone GL animation frame started with _beginGLAnim(). */
   _endGLAnim(glCtx) {
-    if (glCtx) glCtx.endFrame();
+    if (!glCtx) return;
+    if (this._glyphBuf && glCtx === this._glyphBuf) {
+      // Worker mode: send commands without re-rendering the bit-grid.
+      const glyphCmds = this._glyphBuf.endFrame();
+      if (glyphCmds.count > 0) this._glWorker.renderGlyph(glyphCmds);
+    } else {
+      glCtx.endFrame();
+    }
     this._glyphFramePrimed = false;
   }
 

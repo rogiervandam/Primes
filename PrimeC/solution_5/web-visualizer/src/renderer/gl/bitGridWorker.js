@@ -9,11 +9,12 @@
  *   { type: 'positions',   buf: Float32Array }         // buf transferred (one-way)
  *   { type: 'state',       buf: Uint8Array }           // buf transferred (one-way)
  *   { type: 'anim',        buf: Float32Array }         // buf transferred (one-way)
- *   { type: 'render',      params: { ... } }
+ *   { type: 'render',      params: { ... }, glyphCmds?: { paramBuf, textBuf, count, cssW, cssH, dpr } }
+ *   { type: 'renderGlyph', glyphCmds: { paramBuf, textBuf, count, cssW, cssH, dpr } }
  *   { type: 'dispose' }
  *
  * Worker → main:
- *   { type: 'ready' }
+ *   { type: 'ready', atlasAdvances?: Float32Array, atlasCharSize?: number }
  *   { type: 'error',            message: string }
  *   { type: 'contextlost' }
  *   { type: 'contextrestored' }
@@ -33,11 +34,18 @@
  */
 
 import { BitGridGLCore } from './bitGridGLCore.js';
+import { GlyphTextGLCore } from './GlyphTextGLCore.js';
 
 let core = null;
 // Persistent across context loss/restore so we can re-initialise.
 let savedCanvas = null;
 let currentBitCount = 0;
+
+// Glyph renderer sharing the same GL context as the bit-grid core.
+let glyphCore = null;
+let lastCssW = 0;
+let lastCssH = 0;
+let lastDpr  = 1;
 
 function safe(fn) {
   try { fn(); }
@@ -67,6 +75,7 @@ self.onmessage = (e) => {
           // Prevent the default so the browser may restore the context.
           e.preventDefault();
           if (core) { core.markLost(); core = null; }
+          glyphCore = null;
           self.postMessage({ type: 'contextlost' });
         }, false);
 
@@ -75,6 +84,7 @@ self.onmessage = (e) => {
             core = new BitGridGLCore();
             if (!core.init(savedCanvas)) {
               core = null;
+              glyphCore = null;
               self.postMessage({ type: 'error', message: 'webgl2 restore failed: unavailable' });
               return;
             }
@@ -82,9 +92,18 @@ self.onmessage = (e) => {
             // next uploadPositions / uploadState / render round-trip works
             // without needing a resizeForBitCount call from the main thread.
             if (currentBitCount > 0) core.setBitCount(currentBitCount);
+            // Re-init glyph renderer on the restored context.
+            try {
+              glyphCore = new GlyphTextGLCore();
+              glyphCore.initWithContext(core.gl, savedCanvas);
+              if (lastCssW > 0) glyphCore.resize(lastCssW, lastCssH, lastDpr);
+            } catch {
+              glyphCore = null;
+            }
             self.postMessage({ type: 'contextrestored' });
           } catch (err) {
             core = null;
+            glyphCore = null;
             self.postMessage({
               type: 'error',
               message: 'webgl2 restore failed: ' + String(err && err.message || err),
@@ -92,7 +111,26 @@ self.onmessage = (e) => {
           }
         }, false);
 
-        self.postMessage({ type: 'ready' });
+        // Init glyph renderer sharing the bit-grid GL context.
+        let atlasAdvances = null;
+        let atlasCharSize = 0;
+        try {
+          glyphCore = new GlyphTextGLCore();
+          glyphCore.initWithContext(core.gl, savedCanvas);
+          if (glyphCore._atlas) {
+            atlasAdvances = glyphCore._atlas.getAdvancesArray();
+            atlasCharSize = glyphCore._atlas.fontSize;
+          }
+        } catch (err) {
+          glyphCore = null;
+          self.postMessage({ type: 'error', message: 'glyph init failed: ' + String(err && err.message || err) });
+        }
+
+        if (atlasAdvances) {
+          self.postMessage({ type: 'ready', atlasAdvances, atlasCharSize }, [atlasAdvances.buffer]);
+        } else {
+          self.postMessage({ type: 'ready' });
+        }
       });
       break;
     }
@@ -103,8 +141,14 @@ self.onmessage = (e) => {
       break;
     }
     case 'resize': {
+      lastCssW = msg.cssW || 0;
+      lastCssH = msg.cssH || 0;
+      lastDpr  = msg.dpr  || 1;
       if (!core) return;
-      safe(() => core.resize(msg.cssW, msg.cssH, msg.dpr || 1));
+      safe(() => {
+        core.resize(lastCssW, lastCssH, lastDpr);
+        if (glyphCore) glyphCore.resize(lastCssW, lastCssH, lastDpr);
+      });
       break;
     }
     case 'positions': {
@@ -126,8 +170,16 @@ self.onmessage = (e) => {
       if (!core) return;
       safe(() => {
         core.render(msg.params);
+        if (msg.glyphCmds && glyphCore) {
+          _replayGlyphCmds(glyphCore, msg.glyphCmds);
+        }
         self.postMessage({ type: 'rendered', seq: msg.seq | 0 });
       });
+      break;
+    }
+    case 'renderGlyph': {
+      if (!glyphCore || !msg.glyphCmds) return;
+      safe(() => _replayGlyphCmds(glyphCore, msg.glyphCmds));
       break;
     }
     case 'capture': {
@@ -159,6 +211,7 @@ self.onmessage = (e) => {
     case 'dispose': {
       if (core) core.dispose();
       core = null;
+      glyphCore = null;
       savedCanvas = null;
       currentBitCount = 0;
       break;
@@ -169,3 +222,75 @@ self.onmessage = (e) => {
       break;
   }
 };
+
+// ---------------------------------------------------------------------------
+// Glyph command replay
+// ---------------------------------------------------------------------------
+
+// Command type codes — must match GlyphCommandBuffer.js constants.
+const CMD_TEXT  = 0;
+const CMD_DOT   = 1;
+const CMD_FRECT = 2;
+const CMD_ORECT = 3;
+const FLOATS_PER = 16;
+
+const ALIGNS    = ['left', 'left', 'center', 'right'];
+const BASELINES = ['top',  'middle', 'bottom', 'alphabetic'];
+
+/**
+ * Replay a serialised GlyphCommandBuffer payload via the live GlyphTextGLCore.
+ * The canvas is NOT cleared (clear=false) so bit-grid fills remain visible.
+ */
+function _replayGlyphCmds(gc, cmds) {
+  const { paramBuf, textBuf, count, cssW, cssH, dpr } = cmds;
+  if (!count || !paramBuf) return;
+  gc.beginFrame(cssW || 0, cssH || 0, dpr || 1, false);
+  const decoder = new TextDecoder();
+  for (let i = 0; i < count; i++) {
+    const base = i * FLOATS_PER;
+    const type = paramBuf[base + 0];
+    switch (type) {
+      case CMD_TEXT: {
+        const x         = paramBuf[base + 1];
+        const y         = paramBuf[base + 2];
+        const fontSize  = paramBuf[base + 3];
+        const r         = paramBuf[base + 4];
+        const g         = paramBuf[base + 5];
+        const b         = paramBuf[base + 6];
+        const a         = paramBuf[base + 7];
+        const align     = ALIGNS[paramBuf[base + 8] | 0]    || 'left';
+        const baseline  = BASELINES[paramBuf[base + 9] | 0] || 'alphabetic';
+        const textOffset = paramBuf[base + 10] | 0;
+        const textLen    = paramBuf[base + 11] | 0;
+        const text = textLen > 0 ? decoder.decode(textBuf.subarray(textOffset, textOffset + textLen)) : '';
+        if (text) gc.drawText(text, x, y, fontSize, r, g, b, a, align, baseline);
+        break;
+      }
+      case CMD_DOT: {
+        gc.drawDot(
+          paramBuf[base + 1], paramBuf[base + 2], paramBuf[base + 3],
+          paramBuf[base + 4], paramBuf[base + 5], paramBuf[base + 6], paramBuf[base + 7],
+        );
+        break;
+      }
+      case CMD_FRECT: {
+        gc.drawFilledRect(
+          paramBuf[base + 1], paramBuf[base + 2], paramBuf[base + 3], paramBuf[base + 4],
+          paramBuf[base + 5], paramBuf[base + 6], paramBuf[base + 7], paramBuf[base + 8],
+        );
+        break;
+      }
+      case CMD_ORECT: {
+        gc.drawOutlineRect(
+          paramBuf[base + 1], paramBuf[base + 2], paramBuf[base + 3], paramBuf[base + 4],
+          paramBuf[base + 5], paramBuf[base + 6], paramBuf[base + 7], paramBuf[base + 8],
+          paramBuf[base + 9],
+        );
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  gc.endFrame();
+}

@@ -355,12 +355,8 @@ export default function DebugToolsPanel({
     const rrLayoutAvailH = rr?.layoutAvailHeight ?? '?';
     const rrCanvasW = rr?.canvas?.width != null ? rr.canvas.width : '?';
     const rrCanvasH = rr?.canvas?.height != null ? rr.canvas.height : '?';
-    const rrCssW = rr?.canvasWidth != null
-      ? Number(rr.canvasWidth).toFixed(2)
-      : (rr?.canvas?.width != null ? (rr.canvas.width / dpr).toFixed(2) : '?');
-    const rrCssH = rr?.canvasHeight != null
-      ? Number(rr.canvasHeight).toFixed(2)
-      : (rr?.canvas?.height != null ? (rr.canvas.height / dpr).toFixed(2) : '?');
+    const rrCssW = rr?.canvasWidth != null ? Number(rr.canvasWidth).toFixed(2) : '?';
+    const rrCssH = rr?.canvasHeight != null ? Number(rr.canvasHeight).toFixed(2) : '?';
     const rrDpr = rr?.canvasDpr ?? dpr;
     const grCssW = gr?._cssW ?? '?';
     const grCssH = gr?._cssH ?? '?';

@@ -24,7 +24,7 @@ export function useSearchState({ rendererRef, navigateToBit, storageModel, wheel
       setSearchResult(null);
       r?.clearSearchHighlight();
       r?.render();
-      if (r) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      if (r) r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
       return;
     }
 
@@ -38,7 +38,7 @@ export function useSearchState({ rendererRef, navigateToBit, storageModel, wheel
     if (!m) {
       r.clearSearchHighlight();
       r.render();
-      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
       setSearchResult('Invalid query');
       return;
     }
@@ -78,7 +78,7 @@ export function useSearchState({ rendererRef, navigateToBit, storageModel, wheel
         if (bitIdx < 0) {
           r.clearSearchHighlight();
           r.render();
-          r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+          r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
           setSearchResult('Not representable in this storage model');
           return;
         }
@@ -94,7 +94,7 @@ export function useSearchState({ rendererRef, navigateToBit, storageModel, wheel
     if (bitIdx < 0 || bitIdx >= r.bitCount) {
       r.clearSearchHighlight();
       r.render();
-      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
       setSearchResult(`Out of range (0–${r.bitCount - 1})`);
       return;
     }
@@ -103,7 +103,7 @@ export function useSearchState({ rendererRef, navigateToBit, storageModel, wheel
     r.setSearchHighlight(targetKind, highlightIndex, bitIdx);
     navigateToBit(bitIdx, targetKind);
     r.render();
-    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+    r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
     setSearchResult(`Bit ${bitIdx} -> Number ${num == null ? 'unmapped' : num}`);
   }, [rendererRef, navigateToBit, storageModel, wheelDefinition, getMinimapDetailH]);
 
@@ -113,7 +113,7 @@ export function useSearchState({ rendererRef, navigateToBit, storageModel, wheel
     if (!r || searchOpen) return;
     r.clearSearchHighlight();
     r.render();
-    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+    r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
     setSearchResult(null);
   }, [rendererRef, searchOpen, getMinimapDetailH]);
 

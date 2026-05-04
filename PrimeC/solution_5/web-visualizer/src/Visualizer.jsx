@@ -1432,6 +1432,8 @@ export default function Visualizer({
       // WebGL glyph-text renderer. Initialised once per session; reused
       // across trace reloads. Safe to create on every effect run because
       // GlyphTextGLCore.init() guards against duplicate initialisation.
+      // Attachment (attachGlyphRenderer vs attachGLWorker) is deferred to
+      // after the GL worker is set up so we know which rendering path is used.
       if (glyphCanvasRef.current) {
         let glr = glyphRendererRef.current;
         if (!glr) {
@@ -1447,9 +1449,7 @@ export default function Visualizer({
             console.error('[GlyphText] init failed:', err);
           }
         }
-        if (glr) {
-          r.attachGlyphRenderer(glr);
-        }
+        // Attachment happens below after GL worker init (direct vs worker mode).
       } else {
         console.warn('[GlyphText] glyphCanvasRef is null at init time — glyph text disabled.');
       }
@@ -1488,6 +1488,24 @@ export default function Visualizer({
         }
         if (gl) {
           gl.resizeForBitCount(header.bitCount);
+
+          // Wire glyph rendering once the worker is ready (atlas data available).
+          // In direct mode (Safari/fallback) this fires synchronously.
+          // In worker mode this fires after the worker posts its ready message.
+          gl.whenReady(() => {
+            const rr = rendererRef.current;
+            if (!rr) return;
+            if (gl.isDirectMode()) {
+              const glrForDirect = glyphRendererRef.current;
+              if (glrForDirect) rr.attachGlyphRenderer(glrForDirect);
+            } else {
+              rr.attachGLWorker(gl);
+              // Render immediately so the first frame shows text (if a trace
+              // is already loaded).
+              if (rr.bitState && rr.bitCount > 0) rr.render();
+            }
+          });
+
           const origRender = r.render.bind(r);
           r.render = () => {
             const g = glRendererRef.current;
@@ -1524,7 +1542,7 @@ export default function Visualizer({
             const zoom = Math.max(0.01, rr.zoom || 1);
             const bitColors = rr._bitColors();
             const changed = rr._opColor();
-            const renderSeq = g.render({
+            const renderParams = {
               panX: rr.panX || 0,
               panY: rr.panY || 0,
               cellSize: px * zoom,
@@ -1534,11 +1552,28 @@ export default function Visualizer({
               changedColor: changed,
               repeatedColor: [245, 158, 11],
               baseAlpha: Math.max(0.12, Math.min(1, rr.gridOpacity ?? 1)),
-            });
-            origRender();
+            };
+            let renderSeq;
+            if (rr._glyphBuf) {
+              // Worker glyph mode: collect glyph commands first, then
+              // dispatch them together with the bit-grid render.
+              origRender();
+              const glyphCmds = rr._pendingGlyphCmds;
+              rr._pendingGlyphCmds = null;
+              renderSeq = g.render(renderParams, glyphCmds);
+            } else {
+              // Direct mode: bit-grid renders first, then glyph on top.
+              renderSeq = g.render(renderParams);
+              origRender();
+            }
             updateGlDebugInfo(false);
             return renderSeq;
           };
+        }
+        // If GL is unavailable, fall back to separate glyph canvas.
+        if (!gl) {
+          const glrFallback = glyphRendererRef.current;
+          if (glrFallback) r.attachGlyphRenderer(glrFallback);
         }
       }
 
@@ -1823,7 +1858,7 @@ export default function Visualizer({
     }
     r.render();
     updateMinimapAvailability();
-    if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+    if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
   }, [theme, layoutSettings, showMinimap, colorPreset, customColors, canvasColors, storageModel, wheelDefinition, cachelineSize, heatMapEnabled, cachelineAnnotation, primeOverlayEnabled, rangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, multiplesOverlayEnabled, multiplesOverlayPrime, gridOpacity, updateMinimapAvailability, debugCalibrationMode]);
 
   // Resize handler
@@ -2160,7 +2195,7 @@ export default function Visualizer({
     const r = rendererRef.current;
     if (!r) return;
     r.render();
-    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+    r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
   }, [stopPlayback, stopSeqAnim, getMinimapDetailH]);
 
   // Scrub the animation inside the current event. progress is 0..1; maps to a
@@ -2268,7 +2303,7 @@ export default function Visualizer({
         const orderedWrites = r.maskWriteOrderWords?.length || 0;
         if (orderedWrites > 0) r.renderMaskHover(t);
         else r.renderMaskStamp(t);
-        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
         r.suppressMaskWriteOverlay = false;
         if (mode === 'mask') bitStateDirtyRef.current = clamped < 0.999;
         return;
@@ -2310,7 +2345,7 @@ export default function Visualizer({
           if (animStyle === 'ripple') r.renderRipple(clamped);
           else if (animStyle === 'fade') r.renderFade(clamped);
           else if (animStyle === 'pulse') r.renderPulse(clamped);
-          r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+          r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
         } else {
           // Sequential: progressively reveal bits.
           const revealCount = bitsAtTimeRatioRef.current
@@ -2332,7 +2367,7 @@ export default function Visualizer({
           if (animStyle === 'ripple') r.renderRipple(0.18, focusBits, { intensity: 1.1, showBeacon: true });
           else if (animStyle === 'pulse') r.renderPulse(0.28, focusBits, { intensity: 1.2, showHalo: true });
           else if (animStyle === 'fade') r.renderFade(0.35);
-          r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+          r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
         }
       }
       return;
@@ -2398,7 +2433,7 @@ export default function Visualizer({
       const orderedWrites = r.maskWriteOrderWords?.length || 0;
       if (orderedWrites > 0) r.renderMaskHover(t);
       else r.renderMaskStamp(t);
-      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
       // Ensure subsequent animations start clean (stamp overlay is a one-shot).
       r.suppressMaskWriteOverlay = false;
       if (mode === 'mask') bitStateDirtyRef.current = clamped < 0.999;
@@ -2426,7 +2461,7 @@ export default function Visualizer({
       if (animStyle === 'ripple') r.renderRipple(clamped);
       else if (animStyle === 'fade') r.renderFade(clamped);
       else if (animStyle === 'pulse') r.renderPulse(clamped);
-      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
       return;
     }
 
@@ -2467,7 +2502,7 @@ export default function Visualizer({
     if (animStyle === 'ripple') r.renderRipple(0.18, focusBits, { intensity: 1.1, showBeacon: true });
     else if (animStyle === 'pulse') r.renderPulse(0.28, focusBits, { intensity: 1.2, showHalo: true });
     else if (animStyle === 'fade') r.renderFade(0.35);
-    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+    r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
   }, [currentStep, animMode, animStyle, stopPlayback, stopSeqAnim, getMinimapDetailH]);
 
   // Pausable delay. Uses RAF so the global pause flag freezes the timer in
@@ -2516,7 +2551,7 @@ export default function Visualizer({
         r.zoom = startZoom + (targetView.zoom - startZoom) * eased;
         setZoom(r.zoom);
         r.render();
-        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
 
         if (t < 1) {
           viewportAnimRef.current = requestAnimationFrame(tick);
@@ -2552,7 +2587,7 @@ export default function Visualizer({
       r.zoom = targetView.zoom;
       setZoom(r.zoom);
       r.render();
-      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
       return Promise.resolve(true);
     }
 
@@ -2676,7 +2711,7 @@ export default function Visualizer({
         if (style === 'ripple') r.renderRipple(progress);
         else if (style === 'fade') r.renderFade(progress);
         else if (style === 'pulse') r.renderPulse(progress);
-        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
         if (progress < 1) {
           rippleRef.current = requestAnimationFrame(animate);
         } else {
@@ -2899,7 +2934,7 @@ export default function Visualizer({
         r.changedBits = fadingBits;
         r.render();
         r.renderFade(progress);
-        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
         if (progress < 1) {
           rippleRef.current = requestAnimationFrame(tick);
           return;
@@ -2908,7 +2943,7 @@ export default function Visualizer({
         rippleRef.current = null;
         r.changedBits = new Set();
         r.render();
-        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
         resolve();
       };
 
@@ -3042,7 +3077,7 @@ export default function Visualizer({
         r.render();
         if (orderedWrites > 0) r.renderMaskHover(t);
         else r.renderMaskStamp(t);
-        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
         if (t < 1) {
           rippleRef.current = requestAnimationFrame(tick);
           return;
@@ -3050,7 +3085,7 @@ export default function Visualizer({
         r.setMaskGhostBits(new Set());
         r.suppressMaskWriteOverlay = previousSuppressMaskOverlay;
         r.render();
-        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
         rippleRef.current = null;
         resolve();
       };
@@ -3196,7 +3231,7 @@ export default function Visualizer({
       const effectiveMaskBitInterval = Math.max(5, maskTimingOptions.preferredIntervalMs || 20);
       r.setMaskGhostBits(new Set(changedSet.size > 0 ? changedSet : (r.targetBits || [])));
       r.render();
-      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
       // Surface state so the banner play/pause button + timeline track this animation.
       if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(true);
       if (!resuming && stepScrubProgressRef.current) stepScrubProgressRef.current(0);
@@ -3301,7 +3336,7 @@ export default function Visualizer({
           if (isBounce && partial.size > 0) {
             r.renderFade(0.25);
           }
-          r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+          r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
           previousFocusBit = focusBit;
           if (stepScrubProgressRef.current) {
             stepScrubProgressRef.current(Math.round(Math.max(0, Math.min(1, t)) * 100));
@@ -3362,7 +3397,7 @@ export default function Visualizer({
             r.changedBits = fullChanged;
             r.animationFocusBits = new Set();
             r.render();
-            r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+            r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
             if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
             resolve();
             return;
@@ -3380,7 +3415,7 @@ export default function Visualizer({
         r.animationFocusBits = new Set();
         r.clearBitMotionTrails();
         r.render();
-        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
         seqTimerRef.current = requestAnimationFrame(tick);
       });
 
@@ -3397,7 +3432,7 @@ export default function Visualizer({
     if (animStyle === 'none') {
       r.changedBits = new Set(changedSet);
       r.render();
-      r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+      r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
       if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
       if (delayMs > 0) setDelayPhaseMsRef.current(delayMs);
       await waitForDelay(delayMs);
@@ -3549,7 +3584,7 @@ export default function Visualizer({
       repeatedBits,
     });
     r.render();
-    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+    r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
     updateMinimapAvailability();
     // Trigger the initial animation via the stable ref, NOT as a direct dependency.
     // Using triggerAnimation directly in deps causes this effect to re-fire whenever
@@ -3763,7 +3798,7 @@ export default function Visualizer({
     r.zoom = Math.max(0.1, Math.min(64, r.zoom * factor));
     setZoom(r.zoom);
     r.render();
-    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+    r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
     updateMinimapAvailability();
   }, [getMinimapDetailH, updateMinimapAvailability]);
 
@@ -3781,7 +3816,7 @@ export default function Visualizer({
     }
     setZoom(r.zoom);
     r.render();
-    r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+    r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
     updateMinimapAvailability();
   }, [getMinimapDetailH, updateMinimapAvailability, applyViewportFit]);
 
@@ -3990,7 +4025,7 @@ export default function Visualizer({
         r.panY = hit.panY;
         r.render();
         updateMinimapAvailability();
-        r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+        r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
         el.classList.add('dragging');
         return;
       }
@@ -4058,7 +4093,7 @@ export default function Visualizer({
           r.panY = hit.panY;
           r.render();
           updateMinimapAvailability();
-          r.renderMinimap(r.canvasWidth, r.canvas.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+          r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
           scheduleBalloonRelayout();
         }
         return;

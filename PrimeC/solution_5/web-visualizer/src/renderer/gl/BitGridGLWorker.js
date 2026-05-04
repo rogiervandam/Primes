@@ -168,6 +168,8 @@ export class BitGridGLWorker {
     // initialised synchronously after `attach()` but the WebGL context
     // creation inside the worker is async from our perspective.
     this._pending = [];
+    // Callbacks invoked once when the worker (or direct core) is ready.
+    this._onReadyCallbacks = [];
     // Pending capture callbacks keyed by sequence id.
     this._captureCallbacks = new Map();
     this._captureSeq = 0;
@@ -181,6 +183,9 @@ export class BitGridGLWorker {
     this._direct = false;
     this._directReason = 'unknown';
     this._core = null;
+    // Atlas data received from the worker's ready message (worker mode only).
+    this._atlasAdvances = null;
+    this._atlasCharSize = 0;
   }
 
   attach(canvas) {
@@ -207,6 +212,9 @@ export class BitGridGLWorker {
       this._core = core;
       this._direct = true;
       this._ready = true;
+      // Fire ready callbacks synchronously (no async worker involved).
+      for (const cb of this._onReadyCallbacks) cb();
+      this._onReadyCallbacks = [];
       return true;
     }
     this.canvas = canvas;
@@ -236,7 +244,11 @@ export class BitGridGLWorker {
       const msg = e.data;
       if (!msg) return;
       if (msg.type === 'ready') {
+        this._atlasAdvances = msg.atlasAdvances || null;
+        this._atlasCharSize = msg.atlasCharSize || 0;
         this._ready = true;
+        for (const cb of this._onReadyCallbacks) cb();
+        this._onReadyCallbacks = [];
         // Flush any queued messages.
         for (const { msg: m, transfer } of this._pending) {
           this._worker.postMessage(m, transfer || []);
@@ -422,7 +434,32 @@ export class BitGridGLWorker {
     return this._direct === true;
   }
 
-  render(params) {
+  /**
+   * Returns atlas advance widths and char size received from the worker,
+   * or null if the worker hasn't reported them (e.g. direct mode).
+   * @returns {{ advances: Float32Array, charSize: number } | null}
+   */
+  getAtlasData() {
+    if (!this._atlasAdvances || !this._atlasCharSize) return null;
+    return { advances: this._atlasAdvances, charSize: this._atlasCharSize };
+  }
+
+  /**
+   * Invoke `callback` once the worker (or direct core) is ready.
+   * If already ready, invokes synchronously; otherwise queues for the
+   * next `ready` message from the worker.
+   * @param {() => void} callback
+   */
+  whenReady(callback) {
+    if (typeof callback !== 'function') return;
+    if (this._ready) {
+      callback();
+    } else {
+      this._onReadyCallbacks.push(callback);
+    }
+  }
+
+  render(params, glyphCmds) {
     if (this._lost) return 0;
     const seq = ++this._renderSeq;
     if (this._direct) {
@@ -437,7 +474,7 @@ export class BitGridGLWorker {
     }
     // The worker has no `window`; pass cssW/cssH/dpr explicitly so its
     // BitGridGLCore can configure the viewport without DOM access.
-    this._post({
+    const msg = {
       type: 'render',
       seq,
       params: {
@@ -446,8 +483,30 @@ export class BitGridGLWorker {
         cssH: this._cssH || 0,
         dpr: this._dpr || 1,
       },
-    });
+    };
+    const transfers = [];
+    if (glyphCmds && glyphCmds.count > 0) {
+      msg.glyphCmds = glyphCmds;
+      if (glyphCmds.paramBuf?.buffer) transfers.push(glyphCmds.paramBuf.buffer);
+      if (glyphCmds.textBuf?.buffer)  transfers.push(glyphCmds.textBuf.buffer);
+    }
+    this._post(msg, transfers);
     return seq;
+  }
+
+  /**
+   * Replay glyph-only draw commands on top of the existing frame.
+   * Used by animation methods (ripple, trails, etc.) that run after render().
+   * @param {{ paramBuf: Float32Array, textBuf: Uint8Array, count: number,
+   *           cssW: number, cssH: number, dpr: number }} glyphCmds
+   */
+  renderGlyph(glyphCmds) {
+    if (this._lost || this._direct || !glyphCmds || glyphCmds.count === 0) return;
+    const msg = { type: 'renderGlyph', glyphCmds };
+    const transfers = [];
+    if (glyphCmds.paramBuf?.buffer) transfers.push(glyphCmds.paramBuf.buffer);
+    if (glyphCmds.textBuf?.buffer)  transfers.push(glyphCmds.textBuf.buffer);
+    this._post(msg, transfers);
   }
 
   invalidateLayout() {

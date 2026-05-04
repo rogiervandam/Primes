@@ -80,28 +80,26 @@ export function truncateTextToWidth(ctx, text, maxWidth, style = '') {
 }
 
 /**
- * Draw `text` at `(x, y)` constrained to `maxWidth × clipHeight`, choosing
- * the largest size between `preferredSize` and `minSize` that still fits.
+ * Create a duck-typed canvas-2D context adapter that delegates text
+ * measurement to a `GlyphTextGLCore` instance. Returned object is
+ * compatible with the `ctx` parameter accepted by `fitLabelFontSize` and
+ * `truncateTextToWidth`, so those helpers work without modification.
+ *
+ * @param {import('./gl/GlyphTextGLCore').GlyphTextGLCore} glyphCtx
  */
-export function drawFittedLabel(ctx, text, x, y, maxWidth, preferredSize, color, options = {}) {
-  const {
-    minSize = 4,
-    style = '',
-    paddingX = 0,
-    clipHeight = preferredSize + 4,
-  } = options;
-
-  const fitWidth = Math.max(0, maxWidth - paddingX * 2);
-  const size = fitLabelFontSize(ctx, text, fitWidth, preferredSize, minSize, style);
-  if (size <= 0) return;
-
-  ctx.save();
-  ctx.font = `${style}${size}px monospace`;
-  ctx.fillStyle = color;
-  ctx.textBaseline = 'top';
-  ctx.beginPath();
-  ctx.rect(x, y, maxWidth, clipHeight);
-  ctx.clip();
-  ctx.fillText(text, x + paddingX, Math.round(y));
-  ctx.restore();
+export function glMeasureAdapter(glyphCtx) {
+  let _size = 12;
+  return {
+    get font() { return `${_size}px monospace`; },
+    set font(cssStr) {
+      // Parse the size from e.g. '600 12px monospace' or '8.5px monospace'
+      const m = String(cssStr).match(/(\d+(?:\.\d+)?)px/);
+      if (m) _size = parseFloat(m[1]);
+    },
+    measureText(text) { return { width: glyphCtx.measureText(text, _size) }; },
+    save() {},
+    restore() {},
+    set textAlign(_v) {},
+    set textBaseline(_v) {},
+  };
 }

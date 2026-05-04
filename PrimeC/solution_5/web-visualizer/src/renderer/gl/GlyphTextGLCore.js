@@ -190,6 +190,23 @@ export class GlyphTextGLCore {
       return false;
     }
     this.gl = gl;
+    return this._initWithGL();
+  }
+
+  /**
+   * Initialise using an already-created WebGL2 context and canvas.
+   * Used when sharing the bit-grid GL context inside the worker.
+   * @param {WebGL2RenderingContext} gl
+   * @param {OffscreenCanvas|HTMLCanvasElement} canvas
+   */
+  initWithContext(gl, canvas) {
+    this.canvas = canvas;
+    this.gl = gl;
+    return this._initWithGL();
+  }
+
+  /** @private Shared init body called after gl and canvas are set. */
+  _initWithGL() {
     try {
       this._initProgram();
       this._initBuffers();
@@ -295,8 +312,10 @@ export class GlyphTextGLCore {
       this.canvas.width  = pw;
       this.canvas.height = ph;
     }
-    this.canvas.style.width  = `${cssW}px`;
-    this.canvas.style.height = `${cssH}px`;
+    if (this.canvas.style) {
+      this.canvas.style.width  = `${cssW}px`;
+      this.canvas.style.height = `${cssH}px`;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -329,7 +348,7 @@ export class GlyphTextGLCore {
       this.canvas.width  = pw;
       this.canvas.height = ph;
     }
-    if (!this.canvas.style.width) {
+    if (this.canvas.style && !this.canvas.style.width) {
       this.canvas.style.width  = `${cssW}px`;
       this.canvas.style.height = `${cssH}px`;
     }

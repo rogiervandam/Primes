@@ -24,6 +24,15 @@ export const ATLAS_CHARS =
   '@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`' +
   'abcdefghijklmnopqrstuvwxyz{|}~\u00d7'; // × at end
 
+/** Create a 2D-capable canvas that works on both main thread and workers. */
+function makeCanvas(w, h) {
+  if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  return c;
+}
+
 export class GlyphAtlas {
   /**
    * @param {object} [opts]
@@ -59,9 +68,7 @@ export class GlyphAtlas {
     const rows = Math.ceil(chars.length / cols);
 
     // -- Measure font metrics -------------------------------------------------
-    const mc = document.createElement('canvas');
-    mc.width = 512;
-    mc.height = 64;
+    const mc = makeCanvas(512, 64);
     const mctx = mc.getContext('2d');
     mctx.font = `${fontSize}px ${fontFamily}`;
 
@@ -88,9 +95,7 @@ export class GlyphAtlas {
     this._atlasH = atlasH;
 
     // -- Render glyphs --------------------------------------------------------
-    const canvas = document.createElement('canvas');
-    canvas.width  = atlasW;
-    canvas.height = atlasH;
+    const canvas = makeCanvas(atlasW, atlasH);
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, atlasW, atlasH);
     ctx.fillStyle    = 'white';
@@ -165,6 +170,20 @@ export class GlyphAtlas {
   get atlasHeight(){ return this._atlasH; }
   /** Font size used to render the atlas (px). */
   get fontSize()   { return this._fontSize; }
+
+  /**
+   * Returns a Float32Array of advance widths, one per character in ATLAS_CHARS
+   * order. Suitable for transfer to a worker. Returns null if not yet built.
+   */
+  getAdvancesArray() {
+    const chars = ATLAS_CHARS;
+    const out = new Float32Array(chars.length);
+    for (let i = 0; i < chars.length; i++) {
+      const g = this._charMap.get(chars[i]);
+      out[i] = g ? g.advW : this._cellW * 0.6;
+    }
+    return out;
+  }
 
   /**
    * Sum of advance widths for `text` at a given scale factor.
