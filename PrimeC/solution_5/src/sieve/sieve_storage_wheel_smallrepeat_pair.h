@@ -6,24 +6,22 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
     register uint8_t* restrict bitstorage_sized_uint8 = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
 
-    const counter_t stop_bucket = function(wheel_bucket_calc,variant_suffix)(range_stop + 1);
+    const counter_t stop_bucket = function(wheel_bucket_calc,variant_suffix)(range_stop);
     const counter_t wheel_step = reduce2power(step) * reduce2power(wheelmask_stripe_bits); // step in words, accounting for stripe alignment
-    const counter_t range_stop_unique = min(range_start + ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits) * WHEEL_SIZE * (wheel_step + 2), range_stop);
 
     counter_t current_bucket = 0;
-
     // align to first full bucket
-
     logStart8(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "aligning to first full bucket starting from index %ju", (uintmax_t)range_start);
 
     // TODO: calc range_start_aligned = (range_start + wheel_step * WHEEL_SIZE - 1) / (wheel_step * WHEEL_SIZE) * (wheel_step * WHEEL_SIZE); 
     // but this is more expensive than just iterating until we reach the first full bucket, because the step is large and we will likely already be close to 
     // a full bucket after a few iterations
-    for (; range_start <= range_stop_unique && (current_bucket = function(wheel_bucket_calc,variant_suffix)(range_start)) < 2 ; range_start += step) {
+    for (; range_start <= range_stop && (current_bucket = function(wheel_bucket_calc,variant_suffix)(range_start)) < 2 ; range_start += step) {
         function(markFactor_wheelstorage,suffix)(sieve, range_start);
     }
     logStop8(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "finished aligning to first full bucket at index %ju", (uintmax_t)range_start);
 
+    const counter_t range_stop_unique = min(range_start + ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits) * WHEEL_SIZE * (wheel_step), range_stop);
     bitbucket_t current_mask = (bitbucket_t)0U, pending_mask = (bitbucket_t)0U;
     counter_t pending_bucket = 0;
 
@@ -33,7 +31,7 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
         const counter_t wheel_bit = wheel_bit_calc(index);
         const counter_t new_bucket = function(wheel_bucket_calc,variant_suffix)(index);
 
-        if (wheel_bit <= 0) continue; // if the number is divisible by any of the wheel primes, skip it
+        if (wheel_bit < 0) continue; // if the number is divisible by any of the wheel primes, skip it
         // const counter_t new_bucket = index_type(wheel_bit, bitbucket_t);
 
         if (new_bucket != current_bucket) {

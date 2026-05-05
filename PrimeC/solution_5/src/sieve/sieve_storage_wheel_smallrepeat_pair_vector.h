@@ -5,7 +5,7 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(sieve_t* siev
 
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
 
-    const counter_t stop_bucket = function(wheel_bucket_calc,variant_suffix)(range_stop + 1);
+    const counter_t stop_bucket = function(wheel_bucket_calc,variant_suffix)(range_stop);
     const counter_t wheel_step = reduce2power(step) * reduce2power(wheelmask_stripe_bits); // step in words, accounting for stripe alignment
     // +2 ensures all unique masks are flushed by bucket transitions
     const counter_t range_stop_unique = min(range_start + ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits) * WHEEL_SIZE * (wheel_step + 2), range_stop);
@@ -28,16 +28,14 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(sieve_t* siev
         if (wheel_bit <= 0) continue; 
 
         if (new_bucket != current_bucket) {
-            // if (pending_bucket) {
-                if (((pending_bucket + 1) == current_bucket)) { 
-                    function(applyMask_index_pair,suffix)(sieve->bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask, current_mask);
-                    current_mask = BITBUCKET0; // will be copied to pending_mask
-                    current_bucket = 0; 
-                }
-                else {
-                    function(applyMask_index,suffix)(sieve->bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask);
-                }
-            // }
+            if (((pending_bucket + 1) == current_bucket)) { 
+                function(applyMask_index_pair,suffix)(sieve->bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask, current_mask);
+                current_mask = BITBUCKET0; // will be copied to pending_mask
+                current_bucket = 0; 
+            }
+            else {
+                function(applyMask_index,suffix)(sieve->bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask);
+            }
 
             pending_bucket = current_bucket;
             pending_mask = current_mask;

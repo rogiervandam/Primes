@@ -82,7 +82,7 @@ deepAnalyzeSieve(sieve_t* sieve, counter_t factor_max)
         }
         else {
             counter_t c_prime = 0;
-            for(counter_t c=1; c<=sieve->bits && c*c <= prime; c++) {
+            for(counter_t c=1; c<=factor_max && c*c <= prime; c++) {
                 if ((prime) % (c) == 0 && (c) != (prime)) c_prime++;
             }
             if (c_prime == 0 && warn_nonprime++ < option.show_nonprimes_on_error) {

@@ -134,7 +134,7 @@ setDefaultOptions()
     option.show_explain_factor_max    = 0;
     option.show_tuning_results_max    = 50;
     option.show_primes_on_error       = 100;
-    option.show_nonprimes_on_error    = 10;
+    option.show_nonprimes_on_error    = 100;
     option.verbose_level              = 0; // to what max level must output generation be (pre)compiled, must be >= explain_level and trace_level to get output
     option.explain                    = 0; //deprecated, use --explain-level instead
     option.explain_level              = 0; // to what level must explain output be generated
