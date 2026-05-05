@@ -1,5 +1,5 @@
 #ifdef COMPILE_CHECK_STRIPERS
-#include "../bitstorage/bitstorage_setBitsTrueFunctionList.h"
+#include "../generic/functions.h"
 
 static uint8_t checkSetBitsTrueMethod_stripe(const SetBitsTrueMethod* method, const counter_t range_start, const counter_t range_stop, const counter_t step)
 {

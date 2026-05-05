@@ -8,9 +8,9 @@
 #include "varianttypes.h"
 
 #ifdef variant
-    #define bitbucket_t NAME(variant, _t)
-    #define variant_suffix NAME(_,variant)
-    #define variant_base_suffix NAME(_,variant_base)
+    #define bitbucket_t NAME(variant, _t) // the type used for the bitbuckets, e.g. uint64_t
+    #define variant_suffix NAME(_,variant) // the name of the variant with an underscore, e.g. _uint64
+    #define variant_base_suffix NAME(_,variant_base)// the name of the variant base type with an underscore, e.g. _uint64 for variant uint64v4
 #elif !defined bitbucket_t
         #define bitbucket_t uint8_t
 #endif

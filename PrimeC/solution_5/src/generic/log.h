@@ -4,7 +4,7 @@
 // Logging feature
 
 #ifdef COMPILE_TRACE
-  #include "../benchmark/sieve_functions.h" // for function_id_t and timer_function_names
+  #include "functions.h" // for function_id_t and timer_function_names
   #include "../trace/sieve_trace.h"
 #endif
 
