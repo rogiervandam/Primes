@@ -84,7 +84,7 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 8 When search is clicked, change it into the input box. The input box should be in the top bar in the place the search button was. When the input box is open, the search button should be a "close" button. When the user clicks the close button, it should close the input box and show the search button again.
 
-16 optimize loading and startup and prepare for large files. 
+9 (Done) optimize loading and startup and prepare for large files. 
 (1) after opening a log, don't show (or hide) the panels
 (2) start a async streaming load of the log, defer it to the background. When the sieve size is establised (usually in the first few log lines), then broadcast that event. You can forget about the logline after it has been processed. If the users want to view the raw log, just reload it from the start, or if clicked on a source line from the detail panel, load the log and scroll to that line: the log should be lazy loading as well.
 (3) upon getting the event, start a async render of the canvas. Animate it from infinitely small to the full size (streight, 2d) and then do the transform from 2d to 3d tilted. This way the user can see something is happening immediately, and the animation will be delightful.
@@ -99,8 +99,9 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 - the grid if centered in the center at startup. But if it doesn't fit on screen, instead focus on the top and have the first line at 1/3 of the display height. 
 - In settings -> layout panel -> Autofit. When turning auto fit off, start at the count that was set by auto fit. And allow for more than 64 columns. 
 
-20 Keep reducing `Visualizer.jsx` and `SieveRenderer.js`; prefer one focused
-hook/component/helper extraction per session.
+10 
+
+
 
 
 

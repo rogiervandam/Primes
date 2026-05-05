@@ -422,11 +422,7 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
       current.totalChanged += s.numChanged;
     }
 
-    // Within each group, build a depth tree from the flat children list
-    return groups.map(g => ({
-      ...g,
-      depthTree: buildDepthTree(g.children),
-    }));
+    return groups;
   }, [steps]);
 
   // Parse filterLevel encoding ('' | 'exact:N' | 'upto:N' | 'collapse:N')
@@ -438,41 +434,10 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
     return { mode, value: n };
   }, [filterLevel]);
 
-  // Flat lookup from originalIndex → full (unfiltered) tree node, so the
-  // filtered tree can recover aggregate totals for nodes whose descendants
-  // are hidden by the level filter.
-  const nodeByOriginalIndex = useMemo(() => {
-    const map = new Map();
-    const walk = (node) => {
-      if (node.originalIndex != null) map.set(node.originalIndex, node);
-      for (const child of node.children || []) walk(child);
-    };
-    for (const g of tree) for (const n of g.depthTree || []) walk(n);
-    return map;
-  }, [tree]);
-
-  // Filter — operates on flat children before depth-tree is built
+  // Filter — operates on flat children; depth trees are built lazily in visibleRenderedGroups.
   const filteredTree = useMemo(() => {
     if (!search && !filterOp && !levelFilter && !hideUntimed && !hideUnchanged) return tree;
     const lower = search.toLowerCase();
-
-    // After rebuilding the depth tree from filtered children, walk it and
-    // patch each node's aggregates from the full unfiltered tree so that
-    // nodes at the level cutoff show totals that include their hidden descendants.
-    const patchAggregates = (node) => {
-      const full = nodeByOriginalIndex.get(node.originalIndex);
-      if (full) {
-        const hiddenCount = (full.aggregateStepIndices?.length ?? 1) - (node.aggregateStepIndices?.length ?? 1);
-        if (hiddenCount > 0) {
-          node.aggregateChanged = full.aggregateChanged;
-          node.aggregateElapsedNs = full.aggregateElapsedNs;
-          node.aggregateStepIndices = full.aggregateStepIndices;
-          node.hasHiddenDescendants = true;
-          node.hiddenDescendantCount = hiddenCount;
-        }
-      }
-      for (const child of node.children || []) patchAggregates(child);
-    };
 
     return tree.map(g => {
       const fc = g.children.filter(s => {
@@ -491,11 +456,49 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
         }
         return true;
       });
-      const depthTree = buildDepthTree(fc);
-      for (const n of depthTree) patchAggregates(n);
-      return { ...g, children: fc, depthTree };
+      // Keep original (unfiltered) children so visibleRenderedGroups can compute full aggregates.
+      return { ...g, originalChildren: g.children, children: fc };
     }).filter(g => g.children.length > 0);
-  }, [tree, nodeByOriginalIndex, search, filterOp, levelFilter, hideUntimed, hideUnchanged]);
+  }, [tree, search, filterOp, levelFilter, hideUntimed, hideUnchanged]);
+
+  // Build depth trees lazily — only for the groups currently visible in the list.
+  // When filters are active each group's originalChildren hold the full unfiltered
+  // children so aggregate totals for level-cut nodes can still be patched correctly.
+  const visibleRenderedGroups = useMemo(() => {
+    return filteredTree.slice(0, visibleGroupCount).map(g => {
+      if (!g.originalChildren) {
+        // No active filter: g.children is already the full set, plain depth tree.
+        return { ...g, depthTree: buildDepthTree(g.children) };
+      }
+      // Filter active: build full depth tree first to get correct aggregate values,
+      // then build the filtered depth tree and patch each node.
+      const fullDepthTree = buildDepthTree(g.originalChildren);
+      const localNodeMap = new Map();
+      const walkFull = (node) => {
+        if (node.originalIndex != null) localNodeMap.set(node.originalIndex, node);
+        for (const child of node.children || []) walkFull(child);
+      };
+      for (const n of fullDepthTree) walkFull(n);
+
+      const depthTree = buildDepthTree(g.children);
+      const patch = (node) => {
+        const full = localNodeMap.get(node.originalIndex);
+        if (full) {
+          const hiddenCount = (full.aggregateStepIndices?.length ?? 1) - (node.aggregateStepIndices?.length ?? 1);
+          if (hiddenCount > 0) {
+            node.aggregateChanged = full.aggregateChanged;
+            node.aggregateElapsedNs = full.aggregateElapsedNs;
+            node.aggregateStepIndices = full.aggregateStepIndices;
+            node.hasHiddenDescendants = true;
+            node.hiddenDescendantCount = hiddenCount;
+          }
+        }
+        for (const child of node.children || []) patch(child);
+      };
+      for (const n of depthTree) patch(n);
+      return { ...g, depthTree };
+    });
+  }, [filteredTree, visibleGroupCount]);
 
   useEffect(() => {
     if (initialCollapseDoneRef.current || tree.length === 0) return;
@@ -555,7 +558,7 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
       }
       for (const child of node.children || []) collectKeys(child);
     };
-    for (const g of tree) for (const n of g.depthTree || []) collectKeys(n);
+    for (const g of tree) for (const n of buildDepthTree(g.children)) collectKeys(n);
     setCollapsed(prev => {
       const next = new Set(prev);
       for (const k of toExpand) next.delete(k);
@@ -625,7 +628,7 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
         }
         return null;
       };
-      for (const root of g.depthTree || []) {
+      for (const root of buildDepthTree(g.children)) {
         const path = findPath(root);
         if (!path) continue;
         // Add every node along the path EXCEPT the leaf itself (that's the
@@ -951,7 +954,7 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
         </div>
       </div>
       <div className="event-list" ref={listRef} onWheel={onUserScroll}>
-        {filteredTree.slice(0, visibleGroupCount).map((group) => {
+        {visibleRenderedGroups.map((group) => {
           const isCollapsed = collapsed.has(group.id);
           const containsActive = group.children.some(s => s.originalIndex === currentStep || selectedSteps.has(s.originalIndex));
 
