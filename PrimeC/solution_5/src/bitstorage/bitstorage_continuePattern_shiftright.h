@@ -18,9 +18,9 @@ function(continuePattern_shiftright,suffix)(void* restrict bitstorage, const cou
         bitstorage_sized[copy_word] |= ((bitstorage_sized[source_word] << shift)  // or the start in to not lose data
                                 | (bitstorage_sized[copy_word] >> shift_flipped))
                                 & keepmask_type(copy_start, bitbucket_t) & chopmask_type(destination_stop, bitbucket_t);
-        log9(bitstorage, "ContinuePatternShiftRight: handled with shift right in one word copy source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size_bits);
+        log9(bitstorage, time_continuePattern_shiftright, "handled with shift right in one %s copy source_word=%ju copy_word=%ju size=%ju", STR(variant_base), (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size_bits);
 
-        logStop7(bitstorage, time_continuePattern_shiftright, "ContinuePatternShiftRight: finished continuing pattern\n");
+        logStop7(bitstorage, time_continuePattern_shiftright, "finished continuing pattern\n");
         return; // rapid exit for one word variant
     }
 
@@ -28,7 +28,7 @@ function(continuePattern_shiftright,suffix)(void* restrict bitstorage, const cou
     bitstorage_sized[copy_word] |= ((bitstorage_sized[source_word] << shift)  // or the start in to not lose data
                                 | (bitstorage_sized[copy_word] >> shift_flipped))
                                 & keepmask_type(copy_start, bitbucket_t);
-    log8(bitstorage, "ContinuePatternShiftRight: handled first word with shift copy source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size_bits);
+    log8(bitstorage, time_continuePattern_shiftright, "handled first word with shift copy source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size_bits);
 
     copy_word++;
 
@@ -40,18 +40,18 @@ function(continuePattern_shiftright,suffix)(void* restrict bitstorage, const cou
     if (copy_start_word > destination_stop_word) copy_start_word = destination_stop_word;
 
     // copy with shift - needed when not aligned at bytelevel
-    log8(bitstorage, "\n...speed copy until word %ju..", (uintmax_t)copy_start_word );
+    log8(bitstorage, time_continuePattern_shiftright, "...speed copy until word %ju..", (uintmax_t)copy_start_word );
 
     // copy the pattern until we reach bytelevel alignment
     // #pragma GCC ivdep // This pragma caused problems in the past with <64 bit 
     for (; copy_word <= copy_start_word; copy_word++, source_word++ ) {
         bitstorage_sized[copy_word] = (bitstorage_sized[source_word] >> shift_flipped) | (bitstorage_sized[source_word+1] << shift);
-        log9(bitstorage, "ContinuePatternShiftRight: copying pattern in loop source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size_bits);
+        log9(bitstorage, time_continuePattern_shiftright, "copying pattern in loop source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size_bits);
     }
 
     // end if we reached the destination already
     if (copy_word >= destination_stop_word) {
-        logStop7(bitstorage, time_continuePattern_shiftright, "ContinuePatternShiftRight: finished continuing pattern\n");
+        logStop7(bitstorage, time_continuePattern_shiftright, "finished continuing pattern\n");
         return;
     }
 
@@ -72,7 +72,7 @@ function(continuePattern_shiftright,suffix)(void* restrict bitstorage, const cou
     local_memcpy_uint8( source_byte, destination_byte, size );
     // local_memcpy_uint8( &bitstorage_uint8[copy_start_word * sizeof(bitbucket_t)], &bitstorage_uint8[copy_start_word * copy_size_word], (counter_t)(destination_stop_word + 1 - copy_start_word) * sizeof(bitbucket_t) );
 
-    log9(bitstorage, "ContinuePatternShiftRight: copying pattern with memcpy source_byte=%p copy_byte=%p size=%ju", (void*)source_byte, (void*)destination_byte, (uintmax_t)size);
+    log9(bitstorage, time_continuePattern_shiftright, "copying pattern with memcpy source_byte=%p copy_byte=%p size=%ju", (void*)source_byte, (void*)destination_byte, (uintmax_t)size);
 
-    logStop7(bitstorage, time_continuePattern_shiftright, "ContinuePatternShiftRight: finished continuing pattern\n");
+    logStop7(bitstorage, time_continuePattern_shiftright, "finished continuing pattern");
 }

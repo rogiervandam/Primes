@@ -27,23 +27,25 @@
     static inline void __attribute__((always_inline, nonnull)) 
     function(continuePattern,suffix)(void* restrict bitstorage, const counter_t source_start, const counter_t destination_stop, const counter_t size)
     {
-        logStart6(bitstorage, time_continuePattern, "continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern (%ju copies)\n", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
+        logStart6(bitstorage, time_continuePattern, "continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern (%ju copies) for range (%ju-%ju)", 
+            (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, 
+            (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size), (uintmax_t)source_start, (uintmax_t)destination_stop );
 
         if (size < bitcount_type(bitbucket_t)) {
             function(continuePattern_smallSize,suffix)(bitstorage, source_start, destination_stop, size);
-
-            logStop6(bitstorage, time_continuePattern, "handled with small size source_start=%ju destination_stop=%ju size=%ju", (uintmax_t)source_start, (uintmax_t)destination_stop, (uintmax_t)size);
+            logStop6(bitstorage, time_continuePattern, "handled with smallsize%s source_start %ju destination_stop %ju size %ju for range (%ju-%ju)", 
+                STR(suffix), (uintmax_t)source_start, (uintmax_t)destination_stop, (uintmax_t)size, (uintmax_t)source_start, (uintmax_t)destination_stop);
             return;
         }
 
         const bitshift_t copy_bit   = bitindex_calc_type(source_start + size, bitbucket_t);
         const bitshift_t source_bit = bitindex_calc_type(source_start, bitbucket_t);
 
-        if      (source_bit > copy_bit) function(continuePattern_shiftleft,suffix) (bitstorage, source_start, destination_stop, size);
+        if      (source_bit > copy_bit) function(continuePattern_shiftleft ,suffix)(bitstorage, source_start, destination_stop, size);
         else if (source_bit < copy_bit) function(continuePattern_shiftright,suffix)(bitstorage, source_start, destination_stop, size);
-        else                            function(continuePattern_aligned,suffix)   (bitstorage, source_start, destination_stop, size);
+        else                            function(continuePattern_aligned   ,suffix)(bitstorage, source_start, destination_stop, size);
 
-        logStop6(bitstorage, time_continuePattern,"source_start=%ju destination_stop=%ju size=%ju", (uintmax_t)source_start, (uintmax_t)destination_stop, (uintmax_t)size);
+        logStop6(bitstorage, time_continuePattern,"finished continue pattern with source_start %ju destination_stop %ju size %ju", (uintmax_t)source_start, (uintmax_t)destination_stop, (uintmax_t)size);
     }
 
 #endif

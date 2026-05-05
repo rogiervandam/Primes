@@ -1,7 +1,7 @@
 static inline counter_t __attribute__((always_inline, hot, nonnull)) 
 function(continuePattern_shiftleft_unrolled,suffix)(void* restrict bitstorage, const counter_t aligned_copy_word, const bitshift_t shift, counter_t copy_word, counter_t source_word) 
 {
-    logStart7(bitstorage,time_continuePattern_shiftleft_unrolled, "ContinuePatternShiftLeftUnrolled: aligned copy word %ju, shift %ju, copy_word %ju, source_word %ju", (uintmax_t)aligned_copy_word, (uintmax_t)shift, (uintmax_t)copy_word, (uintmax_t)source_word);
+    logStart7(bitstorage,time_continuePattern_shiftleft_unrolled, "aligned copy word %ju, shift %ju, copy_word %ju, source_word %ju", (uintmax_t)aligned_copy_word, (uintmax_t)shift, (uintmax_t)copy_word, (uintmax_t)source_word);
 
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     const counter_t fast_loop_stop_word = safe_diff_type(aligned_copy_word, 2, counter_t); // safe for signed ints
@@ -12,11 +12,11 @@ function(continuePattern_shiftleft_unrolled,suffix)(void* restrict bitstorage, c
         register const bitbucket_t source0 = bitstorage_sized[source_word  ];
         register const bitbucket_t source1 = bitstorage_sized[source_word+1];
         bitstorage_sized[copy_word  ] = (source0 >> shift) | (source1 << shift_flipped);
-        log9(bitstorage, "ContinuePatternShiftLeftUnrolled: copying pattern in unrolled loop source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)(2*sizeof(bitbucket_t)*8));
+        log9(bitstorage, time_continuePattern_shiftleft_unrolled, "copying pattern in unrolled loop source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)(2*sizeof(bitbucket_t)*8));
 
         register const bitbucket_t source2 = bitstorage_sized[source_word+2];
         bitstorage_sized[copy_word+1] = (source1 >> shift) | (source2 << shift_flipped);
-        log9(bitstorage, "ContinuePatternShiftLeftUnrolled: copying pattern in unrolled loop source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)(copy_word+1), (uintmax_t)(2*sizeof(bitbucket_t)*8));
+        log9(bitstorage, time_continuePattern_shiftleft_unrolled, "copying pattern in unrolled loop source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)(copy_word+1), (uintmax_t)(2*sizeof(bitbucket_t)*8));
 
         copy_word += 2;
         source_word += 2;
@@ -30,7 +30,8 @@ function(continuePattern_shiftleft_unrolled,suffix)(void* restrict bitstorage, c
 static inline void __attribute__((always_inline)) 
 function(continuePattern_shiftleft,suffix)(void* restrict bitstorage, const counter_t source_start, const counter_t destination_stop, const counter_t size)
 {
-    logStart7(bitstorage, time_continuePattern_shiftleft, "ContinuePatternShiftLeft: continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_shiftleft (%ju copies)", (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
+    logStart7(bitstorage, time_continuePattern_shiftleft, "ContinuePatternShiftLeft: continue pattern size %ju in %ju bit range (%ju-%ju) using continuePattern_shiftleft (%ju copies)", 
+        (uintmax_t)size, (uintmax_t)destination_stop-(uintmax_t)source_start,(uintmax_t)source_start,(uintmax_t)destination_stop, (uintmax_t)(((uintmax_t)destination_stop-(uintmax_t)source_start)/(uintmax_t)size));
 
     bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
 
@@ -44,7 +45,7 @@ function(continuePattern_shiftleft,suffix)(void* restrict bitstorage, const coun
     bitstorage_sized[copy_word] |= ((bitstorage_sized[source_word] >> shift)
                                 | (bitstorage_sized[source_word+1] << shift_flipped))
                                 & ~chopmask_type(copy_start, bitbucket_t); // because this is the first word, dont copy the extra bits in front of the source
-    log9(bitstorage, "ContinuePatternShiftLeft: handled first word with shift copy source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size);
+    log9(bitstorage, time_continuePattern_shiftleft,"handled first word with shift copy of %s source_word %ju copy_word %ju size %ju", STR(variant_base), (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size);
 
     copy_word++;
     source_word++;
@@ -57,11 +58,11 @@ function(continuePattern_shiftleft,suffix)(void* restrict bitstorage, const coun
 
     for (;copy_word <= aligned_copy_word; copy_word++,source_word++) {
         bitstorage_sized[copy_word] = (bitstorage_sized[source_word] >> shift) | (bitstorage_sized[source_word+1] << shift_flipped);
-        log9(bitstorage, "ContinuePatternShiftLeft: copying pattern in loop source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size);
+        log9(bitstorage, time_continuePattern_shiftleft, "copying pattern in loop of %s source_word %ju copy_word %ju size %ju", STR(variant_base), (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size);
     }
 
     if (copy_word >= destination_stop_word) {
-        logStop7(bitstorage, time_continuePattern_shiftleft, "ContinuePatternShiftLeft: finished continuing pattern\n");
+        logStop7(bitstorage, time_continuePattern_shiftleft, "finished continuing pattern\n");
         return;
     }
 

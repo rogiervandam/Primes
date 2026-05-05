@@ -10,17 +10,17 @@ function(continuePattern_aligned,suffix)(void* restrict bitstorage, const counte
     register counter_t copy_word = index_type(copy_start, bitbucket_t);
    
     bitstorage_sized[copy_word] = bitstorage_sized[source_word] & ~chopmask_type(copy_start, bitbucket_t);
-    log9(bitstorage, "handled first word with copy source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size);
+    log9(bitstorage, time_continuePattern_aligned, "handled first %s with copy source_word %ju copy_word %ju size %ju", STR(variant_base), (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size);
     
     for (; copy_word + size <= destination_stop_word; copy_word += size) {
         local_memcpy(&bitstorage_sized[copy_word], &bitstorage_sized[source_word], (uintmax_t)size * sizeof(bitbucket_t) );
-        log9(bitstorage, "copying pattern in loop with memcpy source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size);
+        log9(bitstorage, time_continuePattern_aligned, "copying pattern in loop with memcpy source_word %ju copy_word %ju size %ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size);
     }
 
     for (; copy_word < destination_stop_word; ) {
         bitstorage_sized[copy_word++] = bitstorage_sized[source_word++];
-        log9(bitstorage, "copying pattern in loop source_word=%ju copy_word=%ju size=%ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size);
+        log9(bitstorage, time_continuePattern_aligned, "copying pattern in loop source_word=%ju copy_word %ju size %ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size);
     }
 
-    logStop7(bitstorage, time_continuePattern_aligned, "ContinuePatternAligned: finished continuing pattern\n");
+    logStop7(bitstorage, time_continuePattern_aligned, "finished continuing pattern\n");
 }
