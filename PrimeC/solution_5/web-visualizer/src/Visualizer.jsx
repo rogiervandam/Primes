@@ -38,6 +38,20 @@ import { useBalloonLayout } from './hooks/useBalloonLayout';
 import { useBitState } from './hooks/useBitState';
 import { useBitInfo } from './hooks/useBitInfo';
 import { useSelectionOverlay } from './hooks/useSelectionOverlay';
+import { useStepSelectionHandlers } from './hooks/useStepSelectionHandlers';
+import { usePlaybackControls } from './hooks/usePlaybackControls';
+import { useZoomControls } from './hooks/useZoomControls';
+import { useTiltControls } from './hooks/useTiltControls';
+import { useDetailInspectorActions } from './hooks/useDetailInspectorActions';
+import { useDetailPanelStateSync } from './hooks/useDetailPanelStateSync';
+import { useRawLogActions } from './hooks/useRawLogActions';
+import { useViewportFit } from './hooks/useViewportFit';
+import { useLayoutRefreshScheduler } from './hooks/useLayoutRefreshScheduler';
+import { useMinimapDetailHeight } from './hooks/useMinimapDetailHeight';
+import { useMinimapAvailability } from './hooks/useMinimapAvailability';
+import { useCaptureResizeAnchor } from './hooks/useCaptureResizeAnchor';
+import { useStopPlayback } from './hooks/useStopPlayback';
+import { useViewportAnimationCancel } from './hooks/useViewportAnimationCancel';
 import { useViewportAnchoring } from './hooks/useViewportAnchoring';
 import { useWindowResize } from './hooks/useWindowResize';
 import CanvasLoadingOverlay from './visualizer/CanvasLoadingOverlay';
@@ -312,15 +326,7 @@ export default function Visualizer({
   stepsRef.current = steps;
   currentStepRef.current = currentStep;
 
-  // Keep refs in sync for use in callbacks
-  const getMinimapDetailH = useCallback(() => {
-    const panelEl = document.querySelector('.detail-panel');
-    if (panelEl) {
-      const rect = panelEl.getBoundingClientRect();
-      if (rect.height > 0) return Math.round(rect.height);
-    }
-    return detailOpenRef.current ? detailHeightRef.current : 36;
-  }, []);
+  const { getMinimapDetailH } = useMinimapDetailHeight({ detailOpenRef, detailHeightRef });
 
   const applyDebugSnapshot = useCallback((snapshot) => {
     const rr = rendererRef.current;
@@ -400,44 +406,21 @@ export default function Visualizer({
 
   const { computeBitInfo } = useBitInfo({ rendererRef, stepsRef, wheelDefinition });
 
-  // Wrap setDetailOpen/setDetailHeight to keep refs updated
-  const updateDetailOpen = useCallback((val) => {
-    const next = typeof val === 'function' ? val(detailOpenRef.current) : val;
-    detailOpenRef.current = next;
-    setDetailOpen(next);
-  }, []);
+  const { updateDetailOpen, updateDetailHeight } = useDetailPanelStateSync({
+    detailOpenRef,
+    setDetailOpen,
+    detailHeightRef,
+    setDetailHeight,
+  });
 
-  const updateDetailHeight = useCallback((val) => {
-    detailHeightRef.current = val;
-    setDetailHeight(val);
-  }, []);
+  const { updateMinimapAvailability } = useMinimapAvailability({
+    rendererRef,
+    containerRef,
+    showMinimap,
+    setMinimapAvailable,
+  });
 
-  const updateMinimapAvailability = useCallback(() => {
-    const r = rendererRef.current;
-    if (!r) return;
-    // Use the stored container-visible dimensions (set on every resize) rather
-    // than the oversized canvas dimensions so the fully-visible check reflects
-    // what the user actually sees, not the 3× drag-headroom canvas.
-    const viewportW = r.viewportW || (containerRef.current?.clientWidth ?? 0);
-    const viewportH = r.viewportH || (containerRef.current?.clientHeight ?? 0);
-    const fullyVisible = viewportW > 0 && viewportH > 0 ? r.isContentFullyVisible(viewportW, viewportH) : false;
-    const available = showMinimap !== false && !fullyVisible;
-    r.minimapEnabled = available;
-    setMinimapAvailable(available);
-    if (!available) r.minimapRenderer._rect = null;
-  }, [showMinimap]);
-
-  const stopPlayback = useCallback(() => {
-    setPlaying(false);
-    if (playTimeoutRef.current) {
-      clearTimeout(playTimeoutRef.current);
-      playTimeoutRef.current = null;
-    }
-    if (playTimerRef.current) {
-      clearInterval(playTimerRef.current);
-      playTimerRef.current = null;
-    }
-  }, []);
+  const { stopPlayback } = useStopPlayback({ setPlaying, playTimeoutRef, playTimerRef });
 
   const getCanvasTargetSize = useCallback((width, height) => {
     // Unified geometry: the canvas is ALWAYS the oversized 3D plane,
@@ -964,51 +947,13 @@ export default function Visualizer({
     };
   }, []);
 
-  const clearScheduledLayoutRefresh = useCallback(() => {
-    if (layoutRefreshTimeoutRef.current != null) {
-      clearTimeout(layoutRefreshTimeoutRef.current);
-      layoutRefreshTimeoutRef.current = null;
-    }
-    if (layoutRefreshRaf1Ref.current != null) {
-      cancelAnimationFrame(layoutRefreshRaf1Ref.current);
-      layoutRefreshRaf1Ref.current = null;
-    }
-    if (layoutRefreshRaf2Ref.current != null) {
-      cancelAnimationFrame(layoutRefreshRaf2Ref.current);
-      layoutRefreshRaf2Ref.current = null;
-    }
-  }, []);
+  const { clearScheduledLayoutRefresh, schedulePostLayoutRefresh } = useLayoutRefreshScheduler({
+    layoutRefreshTimeoutRef,
+    layoutRefreshRaf1Ref,
+    layoutRefreshRaf2Ref,
+  });
 
-  const schedulePostLayoutRefresh = useCallback((anchor = null) => {
-    // clearScheduledLayoutRefresh();
-    layoutRefreshRaf1Ref.current = requestAnimationFrame(() => {
-      layoutRefreshRaf2Ref.current = requestAnimationFrame(() => {
-        // refreshCanvasLayout(anchor);
-      });
-    });
-    layoutRefreshTimeoutRef.current = setTimeout(() => {
-      // refreshCanvasLayout(anchor);
-    }, 210);
-  }, [clearScheduledLayoutRefresh, refreshCanvasLayout]);
-
-
-
-  const applyViewportFit = useCallback((renderer, width, height) => {
-    if (!renderer || width <= 0 || height <= 0) return;
-    renderer.zoomToFit(width, height, { alignTop: false });
-    const dpr = window.devicePixelRatio || 1;
-    // Use renderer.canvasHeight (set by resize()) for the canvas CSS height.
-    // renderer.canvas is null in Chrome/Edge worker mode (glyph runs in worker),
-    // so renderer.canvas?.height would fall back to height*dpr (viewport size)
-    // and collapse planeOffsetY to 0, placing content at the top of the canvas
-    // instead of the vertical center.
-    const canvasCssH = renderer.canvasHeight || (renderer.canvas?.height || height * dpr) / dpr;
-    const canvasCssW = renderer.canvasWidth  || (renderer.canvas?.width  || width  * dpr) / dpr;
-    const planeOffsetX = Math.max(0, (canvasCssW - width)  / 2);
-    const planeOffsetY = Math.max(0, (canvasCssH - height) / 2);
-    renderer.panX += planeOffsetX;
-    renderer.panY += planeOffsetY;
-  }, [header.bitCount]);
+  const { applyViewportFit } = useViewportFit();
 
   /**
    * Stash a viewport anchor for the panel-toggle resize useEffect.
@@ -1016,9 +961,10 @@ export default function Visualizer({
    * (see §5 minefield: pendingResizeAnchorRef). Each panel toggle handler
    * calls this once immediately before its setState call.
    */
-  const captureResizeAnchor = useCallback(() => {
-    pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
-  }, [captureViewportAnchor]);
+  const { captureResizeAnchor } = useCaptureResizeAnchor({
+    pendingResizeAnchorRef,
+    captureViewportAnchor,
+  });
 
   const {
     dockEventsWidgetToDetailPanel,
@@ -1990,45 +1936,19 @@ export default function Visualizer({
   const goToStepRef = useRef(null);
   goToStepRef.current = goToStep;
 
-  // Called from the raw log viewer: close the popover, navigate, open events panel.
-  const onJumpToStep = useCallback((stepIndex) => {
-    setShowTraceInfo(false);
-    goToStep(stepIndex);
-    revealCurrentStepInPanel();
-  }, [goToStep, revealCurrentStepInPanel, setShowTraceInfo]);
-
   // Used by the Detail Panel "Source" link: open trace-info popover + raw log at a specific line.
   const [rawScrollToLine, setRawScrollToLine] = useState(null);
-  const onClearRawScrollToLine = useCallback(() => setRawScrollToLine(null), []);
-  const onOpenRawLog = useCallback(async (lineIdx) => {
-    if (lineIdx != null) {
-      setRawScrollToLine(lineIdx);
-      return;
-    }
-    // Line not yet known — fetch the raw source and scan for the current step's annotation.
-    const text = await fetchRawSource();
-    if (!text) { setRawScrollToLine(0); return; }
-    const target = (steps[currentStep]?.annotation || '').trim();
-    if (!target) { setRawScrollToLine(0); return; }
-    const rawLines = text.split(/\r?\n/);
-    let found = null;
-    for (let l = 0; l < rawLines.length; l++) {
-      const raw = rawLines[l];
-      if (raw.trim() === target) { found = l; break; }
-      const kvM = raw.match(/\bannotation="([^"]*)"/);
-      if (kvM && kvM[1].trim() === target) { found = l; break; }
-      const nsM = raw.match(/^(.+?)\s*\{[^}]*"?traceline"?\s*:/);
-      if (nsM && nsM[1].trim() === target) { found = l; break; }
-    }
-    setRawScrollToLine(found ?? 0);
-  }, [fetchRawSource, steps, currentStep]);
+  const { onJumpToStep, onClearRawScrollToLine, onOpenRawLog } = useRawLogActions({
+    setShowTraceInfo,
+    goToStep,
+    revealCurrentStepInPanel,
+    setRawScrollToLine,
+    fetchRawSource,
+    steps,
+    currentStep,
+  });
 
-  const cancelViewportAnimation = useCallback(() => {
-    if (viewportAnimRef.current) {
-      cancelAnimationFrame(viewportAnimRef.current);
-      viewportAnimRef.current = null;
-    }
-  }, []);
+  const { cancelViewportAnimation } = useViewportAnimationCancel({ viewportAnimRef });
 
   // Stop any running sequential animation
   const stopSeqAnim = useCallback(() => {
@@ -3367,20 +3287,14 @@ export default function Visualizer({
 
   const { buildCombinedSelectionOverlay } = useSelectionOverlay({ steps });
 
-  const handleStepSelection = useCallback((stepIndex) => {
-    stopPlayback();
-    setSingleEventWidgetRevealed(true);
-    goToStep(stepIndex);
-  }, [stopPlayback, goToStep]);
-
-  const handleMultiStepSelect = useCallback((nextSelection) => {
-    stopPlayback();
-    // Clear any leftover pause state so the aggregate animation loop starts immediately
-    // rather than being held off by a previous Pause or single-event pause-in-flight.
-    globalPausedRef.current = false;
-    setAnimationReplayPaused(false);
-    setSelectedSteps(nextSelection);
-  }, [stopPlayback]);
+  const { handleStepSelection, handleMultiStepSelect } = useStepSelectionHandlers({
+    stopPlayback,
+    setSingleEventWidgetRevealed,
+    goToStep,
+    globalPausedRef,
+    setAnimationReplayPaused,
+    setSelectedSteps,
+  });
 
   // Multi-step selection: merge changedBits from selected steps
   useEffect(() => {
@@ -3498,48 +3412,26 @@ export default function Visualizer({
   //    it stopped (mask virtualMs, sequential reveal idx, or waitForDelay).
   //  - Playing: set pause flag (in-flight loops freeze in place) and stop the
   //    scheduler. Refs are NOT torn down so resume can pick up.
-  const handlePlayPause = useCallback(() => {
-    // Reveal the single-event widget on first play interaction.
-    setSingleEventWidgetRevealed(true);
-    // Resume from a pause-in-flight (could be paused via toolbar or banner).
-    if (globalPausedRef.current) {
-      globalPausedRef.current = false;
-      setAnimationReplayPaused(false);
-      // The user resumed via the all-events button: choose all-events context.
-      setSingleEventLoopActive(false);
-      // If we were mid-trace, also resume the trace-level scheduler.
-      if (currentStep < Math.max(0, steps.length - 1) || stepAnimRunning) {
-        setPlaying(true);
-      }
-      return;
-    }
-    if (playing) {
-      // Pause-in-flight: do NOT call stopSeqAnim or stopPlayback. We want
-      // the active reveal/mask animation to freeze on its current frame so
-      // a follow-up Play resumes from the same position.
-      globalPausedRef.current = true;
-      // Keep the per-event replay loop parked while paused so it doesn't
-      // start auto-looping the current event behind the scenes.
-      setAnimationReplayPaused(true);
-      setSingleEventLoopActive(false);
-      setPlaying(false);
-      return;
-    }
-    // Off + at-end: rewind and play.
-    if (currentStep >= Math.max(0, steps.length - 1)) {
-      globalPausedRef.current = false;
-      setAnimationReplayPaused(false);
-      setSingleEventLoopActive(false);
-      goToStep(0, { keepPlaying: true });
-      setPlaying(true);
-      return;
-    }
-    // Off, not paused: start trace playback from the current event.
-    globalPausedRef.current = false;
-    setAnimationReplayPaused(false);
-    setSingleEventLoopActive(false);
-    setPlaying(true);
-  }, [playing, currentStep, steps.length, stepAnimRunning, goToStep]);
+  const { handlePlayPause, handleStepAnimToggle } = usePlaybackControls({
+    setSingleEventWidgetRevealed,
+    globalPausedRef,
+    setAnimationReplayPaused,
+    setSingleEventLoopActive,
+    currentStep,
+    stepsLength: steps.length,
+    stepAnimRunning,
+    setPlaying,
+    playing,
+    goToStep,
+    singleEventLoopActiveRef,
+    stepsRef,
+    rendererRef,
+    selectedStepsRef,
+    bitAnimationModeRef,
+    stepScrubProgress,
+    stepResumeMaskProgressRef,
+    stepResumeStartIndexRef,
+  });
 
   // Banner play/pause: toggles the per-event sequential reveal.
   //  - Pause: halts the timeline AND pauses the trace-level autoplay so the
@@ -3550,116 +3442,14 @@ export default function Visualizer({
   //    the reveal picks up at the user's slider position. If the slider is
   //    already at 100%, the play button restarts from the beginning instead.
   //    The loop itself handles the post-animation delay and auto-restart.
-  const handleStepAnimToggle = useCallback(() => {
-    // Pause-in-flight: freeze the running per-event animation in place. The
-    // mask tick and sequential-reveal loop both poll globalPausedRef and
-    // halt without tearing down their state, so a follow-up Play resumes
-    // from the exact frame/bit/virtualMs.
-    if ((stepAnimRunning || singleEventLoopActiveRef.current) && !globalPausedRef.current) {
-      globalPausedRef.current = true;
-      setAnimationReplayPaused(true);
-      // The single-event button shows Pause while the loop is active OR
-      // while globally paused — either way the user expects clicking it to
-      // resume the SAME event. We park the loop here; a follow-up Play
-      // re-arms singleEventLoopActive.
-      setSingleEventLoopActive(false);
-      setPlaying(false);
-      return;
-    }
-    // Resume from a pause-in-flight (set by either toolbar or banner pause).
-    // The user pressed Play on the single-event widget, so resume in
-    // single-event context — keep the all-events scheduler off and arm the
-    // per-event replay loop.
-    if (globalPausedRef.current) {
-      globalPausedRef.current = false;
-      setAnimationReplayPaused(false);
-      setSingleEventLoopActive(true);
-      return;
-    }
-    const step = stepsRef.current[currentStep];
-    if (!step) return;
-    // For aggregates, check the renderer's current mask state (set by the
-    // selectedSteps effect) rather than the individual step's mask data.
-    const r = rendererRef.current;
-    const isAggregate = selectedStepsRef.current.size > 1;
-    const hasMaskData = isAggregate
-      ? !!(r && r.maskWriteOrderWords && r.maskWriteOrderWords.length > 0)
-      : !!(step.maskWriteOrderWords && step.maskWriteOrderWords.length > 0);
-    const inMaskOrCombined = (bitAnimationModeRef.current === 'mask' || bitAnimationModeRef.current === 'combined')
-      && hasMaskData;
-    if (inMaskOrCombined) {
-      // Resume the mask stamp animation from the current scrub fraction. If the
-      // animation already reached the end, restart from 0.
-      const finished = stepScrubProgress >= 99;
-      stepResumeMaskProgressRef.current = finished ? 0 : stepScrubProgress / 100;
-      stepResumeStartIndexRef.current = 0;
-      setAnimationReplayPaused(false);
-      setSingleEventLoopActive(true);
-      return;
-    }
-    if (!step.changedBits || step.changedBits.length === 0) return;
-    const totalBits = step.changedBits.length;
-    const finished = stepScrubProgress >= 99;
-    const startIndex = finished
-      ? 0
-      : Math.max(0, Math.min(totalBits - 1, Math.round((stepScrubProgress / 100) * (totalBits - 1))));
-    stepResumeStartIndexRef.current = startIndex;
-    stepResumeMaskProgressRef.current = 0;
-    setAnimationReplayPaused(false);
-    setSingleEventLoopActive(true);
-  }, [stepAnimRunning, currentStep, stepScrubProgress, stopSeqAnim, freezeAnimationNow]);
-
-  // Zoom
-  const doZoom = useCallback((factor) => {
-    const r = rendererRef.current;
-    if (!r) return;
-    r.zoom = Math.max(0.1, Math.min(64, r.zoom * factor));
-    setZoom(r.zoom);
-    r.render();
-    r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-    updateMinimapAvailability();
-  }, [getMinimapDetailH, updateMinimapAvailability]);
-
-  const resetZoom = useCallback(() => {
-    const r = rendererRef.current;
-    if (!r) return;
-    const el = containerRef.current;
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      r.unfreezeLayout();
-      applyViewportFit(r, rect.width, rect.height);
-      r.freezeLayout();
-    } else {
-      r.zoom = 1; r.panX = 0; r.panY = 0;
-    }
-    setZoom(r.zoom);
-    r.render();
-    r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-    updateMinimapAvailability();
-  }, [getMinimapDetailH, updateMinimapAvailability, applyViewportFit]);
-
-  const handleIntroTransitionEnd = useCallback(() => {
-    if (introTiltStartedRef.current) return;
-    introTiltStartedRef.current = true;
-    setIntroPhase('tilting');
-
-    const cam = camera3DRef.current;
-    if (!cam || !cam.enabled) {
-      setIntroPhase('visible');
-      return;
-    }
-
-    const targetTilt = Math.min(30, cam.maxTilt || 30);
-    cam.cancelAllAnimations();
-    cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 900)
-      .then(() => {
-        setIntroPhase('visible');
-        schedulePostLayoutRefresh(null);
-      })
-      .catch(() => {
-        setIntroPhase('visible');
-      });
-  }, [schedulePostLayoutRefresh]);
+  const { doZoom, resetZoom } = useZoomControls({
+    rendererRef,
+    containerRef,
+    setZoom,
+    getMinimapDetailH,
+    updateMinimapAvailability,
+    applyViewportFit,
+  });
 
   // Tracks whether the tilt button is in the "tilted" state (30°) or flat (0°).
   // Starts inactive until the intro reaches the 2D→3D transition completion.
@@ -3675,41 +3465,16 @@ export default function Visualizer({
   }, [introPhase]);
 
   // Tilt toggle: animates between 0° (flat) and 30° (tilted) in 3D mode.
-  const toggleTilt = useCallback(() => {
-    const cam = camera3DRef.current;
-    if (!cam || !cam.enabled) return;
-    const newTiltActive = !tiltActive;
-    setTiltActive(newTiltActive);
-    const targetTilt = newTiltActive ? Math.min(30, cam.maxTilt || 30) : 0;
-    cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 900)
-      .then(() => schedulePostLayoutRefresh(null));
-  }, [tiltActive, schedulePostLayoutRefresh]);
-
-  // 3D mode toggle is removed — the app is always in 3D mode.
-  // enableTiltAndResize handles the StrictMode desync case where cam.enabled
-  // is false despite mode3D being always true.
-  const enableTiltAndResize = useCallback(() => {
-    const cam = camera3DRef.current;
-    if (cam && cam.enabled) {
-      // Already in 3D mode — nothing to do.
-      return cam;
-    }
-    if (cam && !cam.enabled) {
-      // StrictMode desync: cam.enabled is false but mode3D is always true.
-      // Re-enable the camera at its current rotateX (preserving any angle set
-      // by the startup animation). If rotateX is still 0, snap to the default
-      // tilt so the first drag starts there.
-      cam.cancelAllAnimations();
-      if (Math.abs(cam.rotateX) < 0.5) cam.rotateX = Math.min(16, cam.maxTilt || 16);
-      cam.perspective = 1500;
-      cam.enable();
-      setCamera3DContainerStyle(cam.getContainerStyle());
-      schedulePostLayoutRefresh(null);
-      requestAnimationFrame(() => requestAnimationFrame(() => refitViewportToContent({ instant: true })));
-      return cam;
-    }
-    return camera3DRef.current;
-  }, [camera3DRef, setCamera3DContainerStyle, schedulePostLayoutRefresh, refitViewportToContent]);
+  const { handleIntroTransitionEnd, toggleTilt, enableTiltAndResize } = useTiltControls({
+    introTiltStartedRef,
+    setIntroPhase,
+    camera3DRef,
+    schedulePostLayoutRefresh,
+    tiltActive,
+    setTiltActive,
+    setCamera3DContainerStyle,
+    refitViewportToContent,
+  });
 
   // Cinematic fly-to on element click (in 3D mode)
   const flyToElement = useCallback((bitIdx) => {
@@ -4454,11 +4219,11 @@ export default function Visualizer({
     });
   }, [detailInspectorRows, detailInspectorQuery]);
 
-  const openDetailInspector = useCallback((mode = 'bits') => {
-    setDetailInspectorMode(mode === 'numbers' ? 'numbers' : 'bits');
-    setDetailInspectorQuery('');
-    setDetailInspectorOpen(true);
-  }, []);
+  const { openDetailInspector } = useDetailInspectorActions({
+    setDetailInspectorMode,
+    setDetailInspectorQuery,
+    setDetailInspectorOpen,
+  });
 
   const getBitBalloonGeometry = useCallback((bitIndex) => {
     const r = rendererRef.current;
