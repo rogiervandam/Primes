@@ -55,6 +55,8 @@ import { useViewportAnimationCancel } from './hooks/useViewportAnimationCancel';
 import { useAnimationTimingRuntime } from './hooks/useAnimationTimingRuntime';
 import { useBalloonGeometry } from './hooks/useBalloonGeometry';
 import { useRunEffect } from './hooks/useRunEffect';
+import { usePausableDelay } from './hooks/usePausableDelay';
+import { useMaskStampAnimation } from './hooks/useMaskStampAnimation';
 import { useViewportAnchoring } from './hooks/useViewportAnchoring';
 import { useWindowResize } from './hooks/useWindowResize';
 import CanvasLoadingOverlay from './visualizer/CanvasLoadingOverlay';
@@ -2288,30 +2290,7 @@ export default function Visualizer({
     r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
   }, [currentStep, animMode, animStyle, stopPlayback, stopSeqAnim, getMinimapDetailH]);
 
-  // Pausable delay. Uses RAF so the global pause flag freezes the timer in
-  // place. The promise resolves once `ms` of un-paused wall-clock time have
-  // elapsed, so resuming after a pause continues counting down the remainder.
-  const waitForDelay = useCallback((ms) => {
-    if (ms <= 0) return Promise.resolve();
-    return new Promise((resolve) => {
-      let remaining = ms;
-      let prev = performance.now();
-      const tick = (now) => {
-        const dt = now - prev;
-        prev = now;
-        if (!globalPausedRef.current) remaining -= dt;
-        if (remaining <= 0) {
-          seqTimerRef.current = null;
-          resolve();
-          return;
-        }
-        seqTimerRef.current = requestAnimationFrame(tick);
-      };
-      // We reuse seqTimerRef to hold either a setTimeout id or a RAF id;
-      // stopSeqAnim cancels both.
-      seqTimerRef.current = requestAnimationFrame(tick);
-    });
-  }, []);
+  const { waitForDelay } = usePausableDelay({ globalPausedRef, seqTimerRef });
 
   const animateViewportTo = useCallback((targetView, duration = 650) => {
     const r = rendererRef.current;
@@ -2492,161 +2471,17 @@ export default function Visualizer({
     getMinimapDetailH,
   });
 
-  const runMaskStampAnimation = useCallback((bitIntervalMs = null, options = {}) => {
-    const r = rendererRef.current;
-    const maskWriteCount = r?.maskWriteOrderWords?.length || 0;
-    const animationBits = r?.changedBits?.size ? r.changedBits : (r?.targetBits?.size ? r.targetBits : null);
-    if (!r || (maskWriteCount === 0 && (!animationBits || animationBits.size === 0))) return Promise.resolve();
-    const previousShowMaskOverlay = r.showMaskWriteOverlay !== false;
-    r.showMaskWriteOverlay = false;
-
-    const bits = animationBits ? Array.from(animationBits) : [];
-    const groupBits = r.customGroupingBits > 0 ? r.customGroupingBits : Math.max(1, r.vectorGroup * 64);
-    const groupCount = new Set(bits.map((b) => Math.floor(b / groupBits))).size;
-    const orderedWrites = (() => {
-      if (!r?.maskWriteOrderSlots || r.maskWriteOrderSlots.length === 0) return maskWriteCount;
-      const perSlot = new Map();
-      for (let index = 0; index < r.maskWriteOrderSlots.length; index++) {
-        const slot = Number(r.maskWriteOrderSlots[index] ?? 0);
-        perSlot.set(slot, (perSlot.get(slot) || 0) + 1);
-      }
-      let maxWrites = 0;
-      for (const value of perSlot.values()) maxWrites = Math.max(maxWrites, value);
-      return Math.max(maskWriteCount > 0 ? 1 : 0, maxWrites);
-    })();
-    const plan = options.adaptivePlan || getAnimationTimingPlan(Math.max(orderedWrites, groupCount, 1), options);
-    const maskInterval = Math.max(5, Number(bitIntervalMs ?? currentMaskAnimIntervalRef.current ?? 20) || 20);
-    // Prefer an explicit per-event duration (driven by computeEventDuration +
-    // speed %). Falls back to the legacy interval-based math only when no
-    // explicit duration was supplied. Either way the stamp animation now uses
-    // the same time budget as the per-bit reveal so they stay in lockstep.
-    const explicitDurationMs = Number.isFinite(options.durationMs)
-      ? Math.max(120, options.durationMs)
-      : null;
-    const durationFromInterval = orderedWrites > 0
-      ? Math.round(orderedWrites * maskInterval * 2.35)
-      : Math.round(420 + groupCount * maskInterval * 1.2);
-    const duration = explicitDurationMs != null
-      ? clampMs(explicitDurationMs, 120, 120000)
-      : clampMs(
-        Math.max(durationFromInterval, plan ? plan.totalDuration * 0.55 : 0),
-        420,
-        60000,
-      );
-    const startedAt = performance.now();
-    const slotGroups = orderedWrites > 0 ? r._maskEntriesBySlot() : [];
-    // Virtual-time tracker: progress accumulates as dt × (initialInterval/liveInterval),
-    // so mid-flight changes to the speed slider proportionally speed up or slow down
-    // the in-progress mask stamp animation without restarting it.
-    let virtualMs = 0;
-    let prevTickAt = startedAt;
-    const initialMaskInterval = maskInterval;
-
-    // Pre-compute bits for each mask entry so _maskEntryBits isn't called every frame.
-    const entryBitsCache = new Map();
-    if (slotGroups.length > 0) {
-      for (let gi = 0; gi < slotGroups.length; gi++) {
-        const entries = slotGroups[gi];
-        for (let ei = 0; ei < entries.length; ei++) {
-          entryBitsCache.set(entries[ei], r._maskEntryBits(entries[ei]));
-        }
-      }
-    }
-
-    if (rippleRef.current) {
-      cancelAnimationFrame(rippleRef.current);
-      rippleRef.current = null;
-    }
-
-    // Honor a starting progress (used by the banner Play button when resuming
-    // from a paused mask animation).
-    const requestedStartProgress = Math.max(0, Math.min(1,
-      Number(options.startProgress) || 0
-    ));
-    virtualMs = requestedStartProgress * duration;
-
-    // Combined mode: progressively reveal the step's bits in lockstep with t
-    // by flipping the supplied bitState. The renderer paints bits set in
-    // bitState as "set", so the bits visibly fill in alongside the moving stamp.
-    const combinedBits = options.combinedBits || null;
-    let combinedRevealedUpTo = combinedBits
-      ? Math.floor(requestedStartProgress * combinedBits.sortedBits.length)
-      : 0;
-    if (combinedBits && combinedRevealedUpTo > 0) {
-      for (let i = 0; i < combinedRevealedUpTo; i++) {
-        const bit = combinedBits.sortedBits[i];
-        if (bit < combinedBits.bs.length) combinedBits.bs[bit] = 1;
-      }
-    }
-
-    return new Promise((resolve) => {
-      const startSeekGen = seekGenRef.current;
-      const tick = (now) => {
-        // Abort: user scrubbed — stop without touching the canvas.
-        if (seekGenRef.current !== startSeekGen) { rippleRef.current = null; resolve(); return; }
-        const dt = Math.max(0, now - prevTickAt);
-        prevTickAt = now;
-        // Pause-in-flight: keep the RAF loop running but stop accumulating
-        // virtual time. The user perceives a perfectly frozen frame; clearing
-        // globalPausedRef resumes from the exact same virtualMs.
-        if (globalPausedRef.current) {
-          rippleRef.current = requestAnimationFrame(tick);
-          return;
-        }
-        const liveInterval = Math.max(5, Number(currentMaskAnimIntervalRef.current) || initialMaskInterval);
-        virtualMs += dt * (initialMaskInterval / liveInterval);
-        const t = Math.min(1, virtualMs / duration);
-        // Surface mask animation progress onto the banner Timeline slider so
-        // it tracks the in-flight stamp animation.
-        if (stepScrubProgressRef.current) stepScrubProgressRef.current(Math.round(t * 100));
-        if (combinedBits) {
-          const targetCount = Math.floor(t * combinedBits.sortedBits.length);
-          while (combinedRevealedUpTo < targetCount) {
-            const bit = combinedBits.sortedBits[combinedRevealedUpTo];
-            if (bit < combinedBits.bs.length) combinedBits.bs[bit] = 1;
-            combinedRevealedUpTo++;
-          }
-        }
-        const ghostBits = new Set();
-        if (slotGroups.length > 0) {
-          for (let groupIndex = 0; groupIndex < slotGroups.length; groupIndex++) {
-            const entries = slotGroups[groupIndex];
-            const segmentCount = Math.max(1, entries.length);
-            const unit = t * segmentCount;
-            const index = Math.min(entries.length - 1, Math.floor(unit));
-            const local = Math.max(0, Math.min(1, unit - index));
-            for (let entryIndex = 0; entryIndex < entries.length; entryIndex++) {
-              const isStamped = entryIndex < index || entryIndex === index || (entryIndex === index + 1 && local > 0.78);
-              if (isStamped) continue;
-              const bitsForEntry = entryBitsCache.get(entries[entryIndex]) || [];
-              for (let bitIndex = 0; bitIndex < bitsForEntry.length; bitIndex++) ghostBits.add(bitsForEntry[bitIndex]);
-            }
-          }
-        } else if (r.targetBits?.size) {
-          for (const bit of r.targetBits) ghostBits.add(bit);
-        }
-        r.setMaskGhostBits(ghostBits);
-        r.render();
-        if (orderedWrites > 0) r.renderMaskHover(t, slotGroups);
-        else r.renderMaskStamp(t);
-        // Skip minimap on mid-animation frames — the viewport doesn't change
-        // during animation so it would render the same content every frame.
-        // Render it once at completion below.
-        if (t < 1) {
-          rippleRef.current = requestAnimationFrame(tick);
-          return;
-        }
-        r.setMaskGhostBits(new Set());
-        r.showMaskWriteOverlay = previousShowMaskOverlay;
-        r.render();
-        r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-        rippleRef.current = null;
-        resolve();
-      };
-
-      rippleRef.current = requestAnimationFrame(tick);
-    });
-  }, [getAnimationTimingPlan, getMinimapDetailH, clampMs]);
+  const { runMaskStampAnimation } = useMaskStampAnimation({
+    rendererRef,
+    rippleRef,
+    seekGenRef,
+    globalPausedRef,
+    currentMaskAnimIntervalRef,
+    stepScrubProgressRef,
+    getAnimationTimingPlan,
+    getMinimapDetailH,
+    clampMs,
+  });
 
   // Main animation trigger — fade old highlights, animate current step, then wait using animation delay.
   const triggerAnimation = useCallback(async (changedSet, options = {}) => {
