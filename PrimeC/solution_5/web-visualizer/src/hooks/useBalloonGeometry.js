@@ -108,66 +108,95 @@ export function useBalloonGeometry({
       .sort((a, b) => (a.anchorY - b.anchorY) || (a.anchorX - b.anchorX));
 
     const minLeft = eventsPanelCollapsed ? 170 : Math.max(200, panelWidth + 44);
-    const maxLeft = window.innerWidth - (settingsCollapsed ? 170 : (isMacPlatform ? 410 : 356));
-    const minTop = Math.max(88, toolbarBottom + 12);
-    const maxTop = window.innerHeight - (detailOpen ? detailHeight + 28 : 72);
+    const maxLeft = window.innerWidth - (settingsCollapsed ? 48 : 360) - 170;
+    const minTopClamp = Math.max(96, toolbarBottom + approxHeight + 8);
 
-    const intersectsRect = (a, b) => !(
-      a.right <= b.left ||
-      a.left >= b.right ||
-      a.bottom <= b.top ||
-      a.top >= b.bottom
-    );
+    for (const item of normalized) {
+      const evPanelRight = eventsPanelCollapsed ? 32 : panelWidth;
+      if (item.anchorX < evPanelRight) {
+        result[`${item.kind}-${item.bitIndex}`] = { visible: false };
+        continue;
+      }
 
-    for (let i = 0; i < normalized.length; i++) {
-      const item = normalized[i];
       const candidates = [
-        { left: item.left - approxWidth / 2, top: item.top - approxHeight - visualGap },
-        { left: item.left - approxWidth / 2, top: item.top + visualGap },
-        { left: item.left + visualGap, top: item.top - approxHeight / 2 },
-        { left: item.left - approxWidth - visualGap, top: item.top - approxHeight / 2 },
+        { left: item.left, top: item.top },
+        { left: item.left - 180, top: item.top - 10 },
+        { left: item.left + 180, top: item.top - 10 },
+        { left: item.left, top: item.top - 44 },
+        { left: item.left - 220, top: item.top - 52 },
+        { left: item.left + 220, top: item.top - 52 },
       ];
 
       let chosen = null;
-      for (let c = 0; c < candidates.length; c++) {
-        const cand = candidates[c];
-        const left = Math.max(minLeft, Math.min(maxLeft - approxWidth, cand.left));
-        const top = Math.max(minTop, Math.min(maxTop - approxHeight, cand.top));
-        const rect = { left, top, right: left + approxWidth, bottom: top + approxHeight };
-
-        if (rect.left < margin || rect.top < minTop || rect.right > window.innerWidth - margin || rect.bottom > window.innerHeight - margin) {
-          continue;
+      let chosenBox = null;
+      for (const candidate of candidates) {
+        const cl = Math.max(minLeft, Math.min(maxLeft, candidate.left));
+        const ct = Math.max(minTopClamp, candidate.top);
+        const box = {
+          left: cl - approxWidth / 2,
+          right: cl + approxWidth / 2,
+          top: ct - approxHeight - visualGap,
+          bottom: ct - visualGap,
+        };
+        const overlaps = placed.some((other) => (
+          box.left < other.right + margin &&
+          box.right > other.left - margin &&
+          box.top < other.bottom + margin &&
+          box.bottom > other.top - margin
+        ));
+        if (!overlaps) {
+          chosen = { left: cl, top: ct };
+          chosenBox = box;
+          break;
         }
-        if (overlayRects.some((or) => intersectsRect(rect, or))) {
-          continue;
-        }
-        if (placed.some((pr) => intersectsRect(rect, pr))) {
-          continue;
-        }
-        chosen = rect;
-        break;
       }
 
-      if (chosen && item.anchorInsideGrid) {
-        placed.push(chosen);
-        result[item.bitIndex] = {
-          left: Math.round(chosen.left),
-          top: Math.round(chosen.top),
-          visible: true,
+      if (!chosen) {
+        const direction = placed.length % 2 === 0 ? 1 : -1;
+        const cl = Math.max(minLeft, Math.min(maxLeft, item.left + direction * (120 + placed.length * 18)));
+        const ct = Math.max(minTopClamp, item.top - 68 - placed.length * 10);
+        chosen = { left: cl, top: ct };
+        chosenBox = {
+          left: cl - approxWidth / 2,
+          right: cl + approxWidth / 2,
+          top: ct - approxHeight - visualGap,
+          bottom: ct - visualGap,
+        };
+      }
+
+      const clampedLeft = chosen.left;
+      const clampedTop = chosen.top;
+      const box = chosenBox || {
+        left: clampedLeft - approxWidth / 2,
+        right: clampedLeft + approxWidth / 2,
+        top: clampedTop - approxHeight - visualGap,
+        bottom: clampedTop - visualGap,
+      };
+      const overlapThresholdPx = 12;
+      const intersectsOverlay = overlayRects.some((r) => {
+        const ix = Math.min(box.right, r.right) - Math.max(box.left, r.left);
+        const iy = Math.min(box.bottom, r.bottom) - Math.max(box.top, r.top);
+        return ix > overlapThresholdPx && iy > overlapThresholdPx;
+      });
+      const offscreen =
+        box.left < -4 || box.right > window.innerWidth + 4 ||
+        box.top < -4 || box.bottom > window.innerHeight + 4;
+      const anchorOutside = item.anchorInsideGrid === false;
+      const visible = !intersectsOverlay && !offscreen && !anchorOutside;
+      placed.push(box);
+      result[`${item.kind}-${item.bitIndex}`] = {
+        visible,
+        panelStyle: {
+          left: clampedLeft,
+          top: clampedTop,
+        },
+        connector: {
           anchorX: item.anchorX,
           anchorY: item.anchorY,
           bitHalf: item.bitHalf,
-        };
-      } else {
-        result[item.bitIndex] = {
-          left: Math.round(item.left - approxWidth / 2),
-          top: Math.round(item.top - approxHeight - visualGap),
-          visible: false,
-          anchorX: item.anchorX,
-          anchorY: item.anchorY,
-          bitHalf: item.bitHalf,
-        };
-      }
+          box,
+        },
+      };
     }
 
     return result;

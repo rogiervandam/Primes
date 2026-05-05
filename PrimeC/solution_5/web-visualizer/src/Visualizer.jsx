@@ -52,6 +52,9 @@ import { useMinimapAvailability } from './hooks/useMinimapAvailability';
 import { useCaptureResizeAnchor } from './hooks/useCaptureResizeAnchor';
 import { useStopPlayback } from './hooks/useStopPlayback';
 import { useViewportAnimationCancel } from './hooks/useViewportAnimationCancel';
+import { useAnimationTimingRuntime } from './hooks/useAnimationTimingRuntime';
+import { useBalloonGeometry } from './hooks/useBalloonGeometry';
+import { useRunEffect } from './hooks/useRunEffect';
 import { useViewportAnchoring } from './hooks/useViewportAnchoring';
 import { useWindowResize } from './hooks/useWindowResize';
 import CanvasLoadingOverlay from './visualizer/CanvasLoadingOverlay';
@@ -60,7 +63,6 @@ import { applyPan } from './visualizer/gestures/pan';
 import { applyRotate } from './visualizer/gestures/rotate';
 import { applyWheel } from './visualizer/gestures/wheel';
 import {
-  DEFAULT_EVENT_TIME_TARGETS,
   DEFAULT_LAYOUT_SETTINGS as DEFAULT_SETTINGS,
   DEFAULT_EVENT_TITLE_SETTINGS,
   writeViewPrefs,
@@ -68,14 +70,6 @@ import {
 } from './lib/viewPrefs';
 import { buildTraceInfoSections } from './lib/traceHeader';
 import { detectIsMac, detectIsWindows, detectIsElectron } from './lib/platform';
-import {
-  clampMs as clampMsPure,
-  bitsAtTimeRatio as bitsAtTimeRatioPure,
-  timeRatioAtBitIndex as timeRatioAtBitIndexPure,
-  computeEventNormalDuration as computeEventNormalDurationPure,
-  computeEventDuration as computeEventDurationPure,
-  getFadeOutDuration as getFadeOutDurationPure,
-} from './lib/animationTiming';
 import {
   getProjectedCanvasMapper,
   parseAppliedRotateAngles,
@@ -2461,282 +2455,42 @@ export default function Visualizer({
     handleSearch,
   } = useSearchState({ rendererRef, navigateToBit, storageModel, wheelDefinition, getMinimapDetailH });
 
-  // Run a single ripple/fade/pulse effect on current changedBits
-  // onProgress: optional (p: 0..1) => void callback for timeline tracking
-  const runEffect = useCallback((style, durationOverride = null, onProgress = null) => {
-    const r = rendererRef.current;
-    if (!r || !r.changedBits || r.changedBits.size === 0) return Promise.resolve();
-    // Cancel any in-flight runEffect (e.g. rapid mode-change calls).
-    if (runEffectCancelRef.current) runEffectCancelRef.current();
-    if (style === 'none') return Promise.resolve();
-
-    const duration = Math.max(280, durationOverride || 600);
-    const start = performance.now();
-    // Snapshot seek generation so we can abort when the user scrubs or changes
-    // animation mode mid-flight without waiting for the full duration.
-    const capturedSeekGen = seekGenRef.current;
-    return new Promise((resolve) => {
-      // Expose a cancel callback so stopSeqAnim() can resolve this Promise
-      // without leaving triggerAnimation() suspended at `await runEffect(…)`.
-      runEffectCancelRef.current = () => {
-        runEffectCancelRef.current = null;
-        if (rippleRef.current) { cancelAnimationFrame(rippleRef.current); rippleRef.current = null; }
-        resolve();
-      };
-      const animate = (now) => {
-        // Abort: seekGenRef bumped externally (mode change or timeline scrub).
-        if (seekGenRef.current !== capturedSeekGen) {
-          runEffectCancelRef.current = null;
-          rippleRef.current = null;
-          resolve();
-          return;
-        }
-        const elapsed = now - start;
-        const progress = Math.min(1, elapsed / duration);
-        if (onProgress) onProgress(progress);
-        r.render();
-        if (style === 'ripple') r.renderRipple(progress);
-        else if (style === 'fade') r.renderFade(progress);
-        else if (style === 'pulse') r.renderPulse(progress);
-        r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-        if (progress < 1) {
-          rippleRef.current = requestAnimationFrame(animate);
-        } else {
-          runEffectCancelRef.current = null;
-          rippleRef.current = null;
-          resolve();
-        }
-      };
-      rippleRef.current = requestAnimationFrame(animate);
-    });
-  }, [getMinimapDetailH]);
-
-  const clampMs = useCallback(clampMsPure, []);
-
-  const getAnimationTimingPlan = useCallback((bitCount, options = {}) => {
-    if (!options.adaptiveDuration) return null;
-    const count = Math.max(1, bitCount || 0);
-    const requestedDuration = Number.isFinite(options.durationMs) ? clampMs(options.durationMs, 120, 30000) : null;
-    const preferredInterval = Math.max(
-      18,
-      Number.isFinite(options.preferredIntervalMs)
-        ? options.preferredIntervalMs
-        : (currentAnimIntervalRef.current || bitAnimInterval || 20)
-    );
-    const preferredTotal = count * preferredInterval;
-    const maxTotal = 10000;
-    const minTotal = 2800;
-
-    if (requestedDuration != null) {
-      const interval = Math.max(5, requestedDuration / count);
-      return { startInterval: interval, endInterval: interval, accelerateAfter: 1, totalDuration: requestedDuration };
-    }
-
-    if (preferredTotal <= minTotal) {
-      const interval = minTotal / count;
-      return { startInterval: interval, endInterval: interval, accelerateAfter: 1, totalDuration: minTotal };
-    }
-
-    if (preferredTotal <= maxTotal) {
-      return { startInterval: preferredInterval, endInterval: preferredInterval, accelerateAfter: 1, totalDuration: preferredTotal };
-    }
-
-    const accelerateAfter = 0.68;
-    const frontCount = Math.max(1, Math.floor(count * accelerateAfter));
-    const tailCount = Math.max(1, count - frontCount);
-    let startInterval = preferredInterval;
-    let endInterval = Math.max(3, startInterval * 0.18);
-
-    let tailBudget = maxTotal - frontCount * startInterval;
-    if (tailBudget < tailCount * 3.5) {
-      startInterval = Math.max(8, maxTotal / Math.max(1, frontCount + tailCount * 0.35));
-      tailBudget = maxTotal - frontCount * startInterval;
-    }
-    if (tailBudget > 0) {
-      const solvedEnd = ((tailBudget * 2) / tailCount) - startInterval;
-      endInterval = Math.max(2, Math.min(startInterval * 0.4, solvedEnd));
-    }
-
-    let estimated = frontCount * startInterval + tailCount * ((startInterval + endInterval) / 2);
-    if (estimated > maxTotal) {
-      const scale = maxTotal / estimated;
-      startInterval = Math.max(12, startInterval * scale);
-      endInterval = Math.max(2, endInterval * scale);
-      estimated = frontCount * startInterval + tailCount * ((startInterval + endInterval) / 2);
-    }
-
-    return {
-      startInterval,
-      endInterval,
-      accelerateAfter,
-      totalDuration: Math.max(minTotal, Math.min(maxTotal, estimated)),
-      exponential: true,
-    };
-  }, [bitAnimInterval]);
-
-  const getAnimationBitInterval = useCallback((bitCount, options = {}) => {
-    const plan = options.adaptivePlan || getAnimationTimingPlan(bitCount, options);
-    if (plan) return Math.max(0, plan.startInterval || 0);
-    if (Number.isFinite(options.preferredIntervalMs)) {
-      return Math.max(0, options.preferredIntervalMs);
-    }
-    return Math.max(0, currentAnimIntervalRef.current || bitAnimInterval || 20);
-  }, [bitAnimInterval, getAnimationTimingPlan]);
-
-  const getCurrentLoopInterval = useCallback((fallback, options = {}, progress = 0, focusBit = null) => {
-    const plan = options.adaptivePlan || null;
-    const baseInterval = (() => {
-      if (!plan) return Math.max(0, currentAnimIntervalRef.current || fallback || 20);
-      const clampedProgress = Math.max(0, Math.min(1, progress));
-      if (clampedProgress <= plan.accelerateAfter) return Math.max(0, plan.startInterval || fallback || 20);
-      const local = (clampedProgress - plan.accelerateAfter) / Math.max(0.0001, 1 - plan.accelerateAfter);
-      if (plan.exponential && plan.startInterval > 0 && plan.endInterval > 0) {
-        const ratio = plan.endInterval / Math.max(0.0001, plan.startInterval);
-        return Math.max(0, plan.startInterval * Math.pow(ratio, local));
-      }
-      return Math.max(0, plan.startInterval + (plan.endInterval - plan.startInterval) * local);
-    })();
-
-    if (!Number.isFinite(focusBit) || !Array.isArray(options.pinnedBitIndices) || options.pinnedBitIndices.length === 0) {
-      return baseInterval;
-    }
-
-    const groupBits = Math.max(1, Number(options.groupBits) || 64);
-    const focusGroup = Math.floor(Number(focusBit) / groupBits);
-    let slowFactor = 1;
-    for (let index = 0; index < options.pinnedBitIndices.length; index++) {
-      const pinnedBit = Number(options.pinnedBitIndices[index]);
-      if (!Number.isFinite(pinnedBit) || pinnedBit < 0) continue;
-      const pinnedGroup = Math.floor(pinnedBit / groupBits);
-      const dist = Math.abs(pinnedGroup - focusGroup);
-      if (dist === 0) {
-        slowFactor = Math.max(slowFactor, 1.7);
-      } else if (dist === 1) {
-        slowFactor = Math.max(slowFactor, 1.35);
-      } else if (dist === 2) {
-        slowFactor = Math.max(slowFactor, 1.18);
-      }
-    }
-
-    return baseInterval * slowFactor;
-  }, []);
-
-  useEffect(() => {
-    currentAnimIntervalRef.current = Math.max(0, bitAnimInterval || 20);
-  }, [bitAnimInterval]);
-
-  useEffect(() => {
-    currentMaskAnimIntervalRef.current = Math.max(0, maskAnimInterval || 20);
-  }, [maskAnimInterval]);
-
-  const getFadeOutDuration = useCallback((bitCount, options = {}) => (
-    getFadeOutDurationPure(bitCount, options)
-  ), []);
-
-  // The "normal" (100% speed) time target for one event, in ms, picked from
-  // the configurable tier table by the event's change count and clamped to
-  // the configured min/max. Independent of the speed slider.
-  const computeEventNormalDuration = useCallback((bitCount) => (
-    computeEventNormalDurationPure(bitCount, eventTimeTargetsRef.current || DEFAULT_EVENT_TIME_TARGETS)
-  ), []);
-
-  // Time-based timeline duration: how long the timeline slider takes to walk
-  // 0 -> 100 % for an event with `bitCount` changes. The total duration is
-  // derived from the per-tier time targets table and divided by the speed %.
-  // The mode (progressive vs linear) only affects HOW bits are distributed
-  // across that duration (see bitsAtTimeRatio), not the total duration.
-  const computeEventDuration = useCallback((bitCount, modeOverride = null) => {
-    void modeOverride; // mode only changes bit distribution, not total time
-    return computeEventDurationPure(
-      bitCount,
-      eventTimeTargetsRef.current || DEFAULT_EVENT_TIME_TARGETS,
-      playSpeedPercentRef.current,
-    );
-  }, []);
-
-  // Inverse of computeEventDuration's curve: given a time ratio (0..1) inside
-  // an event's animation window, return how many bits should be revealed.
-  // - 'linear': bits revealed uniformly across the timeline.
-  // - 'progressive': three equal time-thirds receive (a) the first up-to-10
-  //   bits, (b) the next up-to-100 bits, (c) the rest. Empty tiers are
-  //   skipped so a 5-bit event still uses the full timeline.
-  const bitsAtTimeRatio = useCallback((timeRatio, bitCount, modeOverride = null) => (
-    bitsAtTimeRatioPure(timeRatio, bitCount, modeOverride || eventDurationModeRef.current || 'progressive')
-  ), []);
-
-  // Inverse of bitsAtTimeRatio: given a bit index N, return the time ratio
-  // at which that bit would appear. Used to seed virtualElapsed when the
-  // banner Play resumes from a paused scrub position.
-  const timeRatioAtBitIndex = useCallback((bitIdx, bitCount, modeOverride = null) => (
-    timeRatioAtBitIndexPure(bitIdx, bitCount, modeOverride || eventDurationModeRef.current || 'progressive')
-  ), []);
-
-  // Keep forward refs in sync so functions declared above can call these.
-  computeEventDurationRef.current = computeEventDuration;
-  bitsAtTimeRatioRef.current = bitsAtTimeRatio;
-  timeRatioAtBitIndexRef.current = timeRatioAtBitIndex;
-
-  const estimateAnimDuration = useCallback((bitCount, options = {}) => {
-    const plan = options.adaptivePlan || getAnimationTimingPlan(bitCount, options);
-    const effectiveBitInterval = getAnimationBitInterval(bitCount, { ...options, adaptivePlan: plan });
-    const currentHighlighted = rendererRef.current?.changedBits?.size || 0;
-    const fadeOutMs = currentHighlighted > 0 ? getFadeOutDuration(currentHighlighted, options) : 0;
-
-    if (bitCount <= 0 || animStyle === 'none') {
-      return fadeOutMs + (plan ? Math.min(3200, plan.totalDuration) : 0);
-    }
-
-    if (animMode === 'all' || effectiveBitInterval <= 0) {
-      return fadeOutMs + (plan ? Math.min(3200, plan.totalDuration) : 620);
-    }
-
-    let revealMs = plan ? plan.totalDuration : bitCount * Math.max(10, effectiveBitInterval);
-    if (animMode === 'bounce') {
-      revealMs = plan ? Math.min(10000, revealMs * 1.35) : revealMs * 2;
-    }
-
-    return fadeOutMs + revealMs;
-  }, [animMode, animStyle, getAnimationBitInterval, getAnimationTimingPlan, getFadeOutDuration]);
-
-  const fadeOutCurrentHighlights = useCallback((options = {}) => {
-    const r = rendererRef.current;
-    const currentBits = options.fadeOutBits != null
-      ? Array.from(options.fadeOutBits)
-      : (r?.changedBits ? Array.from(r.changedBits) : []);
-    if (!r || currentBits.length === 0 || options.skipFadeOut) return Promise.resolve();
-
-    if (rippleRef.current) {
-      cancelAnimationFrame(rippleRef.current);
-      rippleRef.current = null;
-    }
-
-    const duration = getFadeOutDuration(currentBits.length, options);
-    const fadingBits = new Set(currentBits);
-    r.changedBits = fadingBits;
-    const start = performance.now();
-
-    return new Promise((resolve) => {
-      const tick = (now) => {
-        const progress = Math.min(1, (now - start) / Math.max(1, duration));
-        r.changedBits = fadingBits;
-        r.render();
-        r.renderFade(progress);
-        r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-        if (progress < 1) {
-          rippleRef.current = requestAnimationFrame(tick);
-          return;
-        }
-
-        rippleRef.current = null;
-        r.changedBits = new Set();
-        r.render();
-        r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-        resolve();
-      };
-
-      rippleRef.current = requestAnimationFrame(tick);
-    });
-  }, [getFadeOutDuration, getMinimapDetailH]);
+  const { runEffect } = useRunEffect({
+    rendererRef,
+    runEffectCancelRef,
+    rippleRef,
+    seekGenRef,
+    getMinimapDetailH,
+  });
+  const {
+    clampMs,
+    getAnimationTimingPlan,
+    getAnimationBitInterval,
+    getCurrentLoopInterval,
+    getFadeOutDuration,
+    computeEventNormalDuration,
+    computeEventDuration,
+    bitsAtTimeRatio,
+    timeRatioAtBitIndex,
+    estimateAnimDuration,
+    fadeOutCurrentHighlights,
+  } = useAnimationTimingRuntime({
+    bitAnimInterval,
+    maskAnimInterval,
+    currentAnimIntervalRef,
+    currentMaskAnimIntervalRef,
+    eventTimeTargetsRef,
+    eventDurationModeRef,
+    playSpeedPercentRef,
+    computeEventDurationRef,
+    bitsAtTimeRatioRef,
+    timeRatioAtBitIndexRef,
+    animMode,
+    animStyle,
+    rendererRef,
+    rippleRef,
+    getMinimapDetailH,
+  });
 
   const runMaskStampAnimation = useCallback((bitIntervalMs = null, options = {}) => {
     const r = rendererRef.current;
@@ -4225,203 +3979,18 @@ export default function Visualizer({
     setDetailInspectorOpen,
   });
 
-  const getBitBalloonGeometry = useCallback((bitIndex) => {
-    const r = rendererRef.current;
-    const el = containerRef.current;
-    if (!r || !el) return null;
-
-    const metrics = getCanvasPlaneMetrics();
-    if (!metrics) return null;
-    const { rect, planeW, planeH, planeOffsetX, planeOffsetY, canvasToViewport } = metrics;
-
-    const pos = r.bitIndexToCanvas(bitIndex);
-    if (!pos) return null;
-    const cam = camera3DRef.current;
-    const projected = canvasToViewport
-      ? canvasToViewport(pos.x, pos.y)
-      : cam && cam.enabled
-      ? cam.canvasToScreen(pos.x, pos.y, planeW, planeH, planeOffsetX, planeOffsetY)
-      : { x: pos.x - planeOffsetX, y: pos.y - planeOffsetY };
-    if (!projected) return null;
-    const anchorX = canvasToViewport ? projected.x : rect.left + projected.x;
-    const anchorY = canvasToViewport ? projected.y : rect.top + projected.y;
-    const bitHalf = Math.max(2.5, (r.pixelSize || 2) * (r.zoom || 1) * 0.52);
-
-    // The anchor (the bit itself) must lie inside the grid container; otherwise
-    // the balloon would be adrift from its bit and should fade out.
-    const edgeMargin = 4;
-    const anchorInsideGrid =
-      anchorX >= rect.left + edgeMargin &&
-      anchorX <= rect.right - edgeMargin &&
-      anchorY >= rect.top + edgeMargin &&
-      anchorY <= rect.bottom - edgeMargin;
-
-    const sideInsetLeft = eventsPanelCollapsed ? 80 : Math.max(120, panelWidth + 32);
-    const sideInsetRight = settingsCollapsed ? 48 : (isMacPlatform ? 388 : 328);
-    const panelApproxHalfW = 170;
-    const minLeft = sideInsetLeft + panelApproxHalfW;
-    const maxLeft = window.innerWidth - sideInsetRight - panelApproxHalfW;
-    const clampedLeft = Math.max(minLeft, Math.min(maxLeft, anchorX));
-
-    const detailPad = detailOpen ? detailHeight + 22 : 56;
-    const minTop = 96;
-    const maxTop = window.innerHeight - detailPad;
-    const clampedTop = Math.max(minTop, Math.min(maxTop, anchorY - 72));
-
-    return { left: clampedLeft, top: clampedTop, anchorX, anchorY, bitHalf, anchorInsideGrid };
-  }, [getCanvasPlaneMetrics, eventsPanelCollapsed, panelWidth, settingsCollapsed, detailOpen, detailHeight]);
-
-  const getVisibleBalloonStyles = useCallback((items) => {
-    const approxWidth = 320;
-    const approxHeight = 238;
-    const margin = 18;
-    const visualGap = 14;
-    const placed = [];
-    const result = {};
-
-    // Collect the bounding rects of all overlays the balloon shouldn't cross.
-    // If a balloon's computed box intersects any of these (or goes above the
-    // titlebar), we mark it hidden — the CSS transition on `.bit-history-panel`
-    // animates the hide/show.
-    // We only hide a balloon when it actually can't fit: off-screen, under the
-    // toolbar, or inside a "hard" side/bottom panel. The floating event-title
-    // banner and the minimap are intentionally excluded — they're small and the
-    // candidate-placement loop below generally finds room around them.
-    const overlayRects = (() => {
-      if (typeof document === 'undefined') return [];
-      const selectors = [
-        '.toolbar',
-        '.events-panel:not(.collapsed)',
-        '.settings-sidebar:not(.collapsed)',
-        '.detail-panel.open',
-        '.timing-panel',
-        '.joined-events-widget',
-      ];
-      const rects = [];
-      for (const sel of selectors) {
-        const nodes = document.querySelectorAll(sel);
-        for (const n of nodes) {
-          const r = n.getBoundingClientRect();
-          if (r.width > 0 && r.height > 0) rects.push(r);
-        }
-      }
-      return rects;
-    })();
-    const toolbarBottom = overlayRects
-      .filter((r) => r.top <= 4) // titlebar-like rows
-      .reduce((m, r) => Math.max(m, r.bottom), 0);
-
-    const normalized = items
-      .map((item) => {
-        const geom = getBitBalloonGeometry(item.bitIndex);
-        return geom ? { ...item, ...geom } : null;
-      })
-      .filter(Boolean)
-      .sort((a, b) => (a.anchorY - b.anchorY) || (a.anchorX - b.anchorX));
-
-    // Shared clamping bounds (constant across candidates for this layout).
-    const minLeft = eventsPanelCollapsed ? 170 : Math.max(200, panelWidth + 44);
-    const maxLeft = window.innerWidth - (settingsCollapsed ? 48 : 360) - 170;
-    const minTopClamp = Math.max(96, toolbarBottom + approxHeight + 8);
-
-    for (const item of normalized) {
-      // Hide balloon when the anchor bit is visually behind the events panel.
-      const evPanelRight = eventsPanelCollapsed ? 32 : panelWidth;
-      if (item.anchorX < evPanelRight) {
-        result[`${item.kind}-${item.bitIndex}`] = { visible: false };
-        continue;
-      }
-
-      const candidates = [
-        { left: item.left, top: item.top },
-        { left: item.left - 180, top: item.top - 10 },
-        { left: item.left + 180, top: item.top - 10 },
-        { left: item.left, top: item.top - 44 },
-        { left: item.left - 220, top: item.top - 52 },
-        { left: item.left + 220, top: item.top - 52 },
-      ];
-
-      let chosen = null;
-      let chosenBox = null;
-      for (const candidate of candidates) {
-        // Clamp each candidate before overlap-checking so two candidates that
-        // clamp to the same position are correctly seen as identical/overlapping.
-        const cl = Math.max(minLeft, Math.min(maxLeft, candidate.left));
-        const ct = Math.max(minTopClamp, candidate.top);
-        const box = {
-          left: cl - approxWidth / 2,
-          right: cl + approxWidth / 2,
-          top: ct - approxHeight - visualGap,
-          bottom: ct - visualGap,
-        };
-        const overlaps = placed.some((other) => (
-          box.left < other.right + margin &&
-          box.right > other.left - margin &&
-          box.top < other.bottom + margin &&
-          box.bottom > other.top - margin
-        ));
-        if (!overlaps) {
-          chosen = { left: cl, top: ct };
-          chosenBox = box;
-          break;
-        }
-      }
-
-      if (!chosen) {
-        const direction = placed.length % 2 === 0 ? 1 : -1;
-        const cl = Math.max(minLeft, Math.min(maxLeft, item.left + direction * (120 + placed.length * 18)));
-        const ct = Math.max(minTopClamp, item.top - 68 - placed.length * 10);
-        chosen = { left: cl, top: ct };
-        chosenBox = {
-          left: cl - approxWidth / 2,
-          right: cl + approxWidth / 2,
-          top: ct - approxHeight - visualGap,
-          bottom: ct - visualGap,
-        };
-      }
-
-      const clampedLeft = chosen.left;
-      const clampedTop = chosen.top;
-      const box = chosenBox || {
-        left: clampedLeft - approxWidth / 2,
-        right: clampedLeft + approxWidth / 2,
-        top: clampedTop - approxHeight - visualGap,
-        bottom: clampedTop - visualGap,
-      };
-      // Hide only when a substantial portion of the balloon overlaps an overlay
-      // or falls off-screen. A small edge-touch (< 12px) doesn't count as clipped.
-      const overlapThresholdPx = 12;
-      const intersectsOverlay = overlayRects.some((r) => {
-        const ix = Math.min(box.right, r.right) - Math.max(box.left, r.left);
-        const iy = Math.min(box.bottom, r.bottom) - Math.max(box.top, r.top);
-        return ix > overlapThresholdPx && iy > overlapThresholdPx;
-      });
-      const offscreen =
-        box.left < -4 || box.right > window.innerWidth + 4 ||
-        box.top < -4 || box.bottom > window.innerHeight + 4;
-      // If the anchor bit itself is outside the grid container (panned off or
-      // behind a panel), the balloon is no longer attached to anything visible
-      // and should fade regardless of where the clamp placed it.
-      const anchorOutside = item.anchorInsideGrid === false;
-      const visible = !intersectsOverlay && !offscreen && !anchorOutside;
-      placed.push(box);
-      result[`${item.kind}-${item.bitIndex}`] = {
-        visible,
-        panelStyle: {
-          left: clampedLeft,
-          top: clampedTop,
-        },
-        connector: {
-          anchorX: item.anchorX,
-          anchorY: item.anchorY,
-          bitHalf: item.bitHalf,
-          box,
-        },
-      };
-    }
-
-    return result;
-  }, [getBitBalloonGeometry, eventsPanelCollapsed, panelWidth, settingsCollapsed]);
+  const { getBitBalloonGeometry, getVisibleBalloonStyles } = useBalloonGeometry({
+    rendererRef,
+    containerRef,
+    getCanvasPlaneMetrics,
+    camera3DRef,
+    eventsPanelCollapsed,
+    panelWidth,
+    settingsCollapsed,
+    isMacPlatform,
+    detailOpen,
+    detailHeight,
+  });
 
   const effectiveTitle = traceTitle;
   useEffect(() => {
