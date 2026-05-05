@@ -16,10 +16,12 @@
     #define unroll_suffix NAME(_unroll,8)
     #define wheelvariant_unroll_suffix NAME(wheelvariant_suffix, unroll_suffix)
 
-    #define WHEEL_MAX 5
-    #define WHEEL_BASIC_SIZE (2 * 3 * 5)
-    #define WHEEL_STRIPES 8
-    #define WHEEL_REPEATS 1
+    #ifndef WHEEL_MAX 
+        #define WHEEL_MAX 5
+        #define WHEEL_BASIC_SIZE (2 * 3 * 5)
+        #define WHEEL_REPEATS 1
+        #define WHEEL_STRIPES 8
+    #endif
     #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
     #define WHEEL_STRIPE_BITS  (((WHEEL_STRIPES * WHEEL_REPEATS - 1) / bitcount_type(wheelmask_t) + 1) * bitcount_type(wheelmask_t))
 
@@ -63,6 +65,7 @@
         }
 
         verbose2 (printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju Wheel stripe bits: %ju\n", WHEEL_SIZE, (uintmax_t)wheelmask_stripe_bits, (uintmax_t)wheelmask_stripe_bits/8, (uintmax_t)wheelmask_stripe_bits) );
+        // printf("Stripe count: %ju\n", (uintmax_t)stripe_count);
     }
 
     // wheel_bit_calc returns the bit index  for a given number index, or -1 if the number is divisible by any of the wheel primes
@@ -186,7 +189,7 @@
 
     #if defined unrolls && unrolls > 1
         #include "sieve_storage_wheel_smallrepeat_pair_vector.h"
-    #endif // end of unrolled function
+    #endif 
 
 #endif
 
@@ -222,16 +225,10 @@
     checkFactor_wheelstorage_unsafe(sieve_t* sieve, register counter_t index)
     {
         register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
-        // counter_t wheel_index = index % WHEEL_SIZE;
-
         const counter_t wheel_bit = wheel_bit_calc(index);
         if (wheel_bit <= 0) return 1; // if the number is divisible by any of the wheel primes, it is not prime
         return (bitstorage_sized[ index_type(wheel_bit, bitbucket_t)] & markmask_type(wheel_bit, bitbucket_t)) != 0;
 
-        // counter_t wheel_block = wheel_bucket_calc_uint8(index);
-
-        // return !wheelmask_compressed[wheel_index] || 
-        //     (bitstorage_sized[wheel_block] & wheelmask_compressed[wheel_index]);
     }
     #undef bitbucket_t
 
@@ -258,7 +255,9 @@
     {
         logStart6(sieve->bitstorage, time_markFactors_wheelstorage, "setting factors step %3ju in %ju factor range (%ju-%ju) for prime %ju", (uintmax_t)step, (uintmax_t)safe_diff(stop,start),(uintmax_t)start,(uintmax_t)stop, (uintmax_t)(step/2));
         const counter_t prime = step / 2;
-      
+
+        // function(markFactors_wheelstorage_repeat, wheelvariant_unroll_suffix)(sieve, start, stop, step); return;
+
         if (prime < global_stripeprime_faster ) {
             // markFactors_wheelstorage_small_repeat_pair_vector_uint64v4_unroll8(sieve, start, stop, step);
             markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
