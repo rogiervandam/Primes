@@ -69,35 +69,11 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 - Detail panel and single-event widget hidden until first play or event selection. Item 16.
 - "Timeline" label in single-event widget renamed to "Animation". Item 17.
 - All panels, floating widgets and the all-events floater are hidden (opacity 0, pointer-events none) while the loading overlay is active, then fade in together once the overlay exits. Eliminates flash of panels on startup.
-
-## Open
-
-1 Make visualizer items related to overlays or animations clickable shortcuts. Clicking a bit-state legend/color item should let the user choose that state's color.
-
-2 Polish the all-events transport in the detail panel: verify it doesn't push
-  detail sections below the fold at small heights; add a visual separator from
-  the step-anim sliders when both are visible simultaneously.
-
-3 Check bit-history balloon connector/clamping polish with events panel
-  open/closed, settings open/closed, joined widget visible, minimap visible,
-  light/dark themes, and high zoom.
-
-4 the balloon placement should be improved: (1) balloons should not overlap (2) when a bit under the all event panel, don't show the connector over the events panel (3) the connector should look better: more pointy at the bit side and much wider at the text box side (4) when i drag to the left, sometimes the connector gets "twisted"
-
-5 when the single event widget is docked to the detail panel, don't show the %progress and gear icon on the far right, but just to the right on the timeline slider, as it looked on the single event widget.
-
-6 In settings -> layout panel -> Autofit. When turning auto fit off, start at the count that was set by auto fit. And allow for more than 64 columns. 
-
-7 Change the nearby events: (1) Don't have "current" as the name, but the the Title with the same font, style and size as on the widget itself. Keep the play button in front of it; (2) make it possible to have the nearby events instead of the title.
-
-8 When search is clicked, change it into the input box. The input box should be in the top bar in the place the search button was. When the input box is open, the search button should be a "close" button. When the user clicks the close button, it should close the input box and show the search button again.
-
-9 (Done) optimize loading and startup and prepare for large files. 
-(1) after opening a log, don't show (or hide) the panels
-(2) start a async streaming load of the log, defer it to the background. When the sieve size is establised (usually in the first few log lines), then broadcast that event. You can forget about the logline after it has been processed. If the users want to view the raw log, just reload it from the start, or if clicked on a source line from the detail panel, load the log and scroll to that line: the log should be lazy loading as well.
-(3) upon getting the event, start a async render of the canvas. Animate it from infinitely small to the full size (streight, 2d) and then do the transform from 2d to 3d tilted. This way the user can see something is happening immediately, and the animation will be delightful.
-(4) regularly broadcast the amount of log files streamed. When the first 100 lines are loaded, start an async populating the DOM in the events panel. When it is filled to the window height, If the user had the event panel and/or settings opened in the last session, wait for the animation to finish and then open these panels (these should always open with a animation).
-(5) do a lazy loading of the events panel: only populate the dom for the first 100 and then visible events, and then populate more as the user scrolls. This way we can handle very large logs without freezing the browser. Consider lazy loading the hierarchy of events too.
+- after opening a log, don't show (or hide) the panels
+-  start a async streaming load of the log, defer it to the background. When the sieve size is establised (usually in the first few log lines), then broadcast that event. You can forget about the logline after it has been processed. If the users want to view the raw log, just reload it from the start, or if clicked on a source line from the detail panel, load the log and scroll to that line: the log should be lazy loading as well.
+- upon getting the event, start a async render of the canvas. Animate it from infinitely small to the full size (streight, 2d) and then do the transform from 2d to 3d tilted. This way the user can see something is happening immediately, and the animation will be delightful.
+- regularly broadcast the amount of log files streamed. When the first 100 lines are loaded, start an async populating the DOM in the events panel. When it is filled to the window height, If the user had the event panel and/or settings opened in the last session, wait for the animation to finish and then open these panels (these should always open with a animation).
+- do a lazy loading of the events panel: only populate the dom for the first 100 and then visible events, and then populate more as the user scrolls. This way we can handle very large logs without freezing the browser. Consider lazy loading the hierarchy of events too.
 - The opening animation should be slower, around 3 seconds before full in view. Also focus on the top of the grid and have the first line at the center of the display.
 - Don't auto play and activate the play button 2 seconds afther the 2d/3d transform.
 - I see dark mode and then ligt mode - probably because the settings are applied. Have some delay before the first display update to let most things load
@@ -107,22 +83,28 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 - the grid if centered in the center at startup. But if it doesn't fit on screen, instead focus on the top and have the first line at 1/3 of the display height. 
 - In settings -> layout panel -> Autofit. When turning auto fit off, start at the count that was set by auto fit. And allow for more than 64 columns. 
 
-10 (Done) The close button on the title/filename works and closes the file; parser state (header/steps) is reset on close.
-11 (Done) "View raw log" button restored in the trace info popover. Fixed prop-wiring bug that was hiding it. Opens a draggable, resizable dialog with line-numbered monospace view; linked lines navigate to the event and open the events panel.
-12 (Done) All-events floater can be dragged into the detail panel dock row (drop it on the detail panel). The docked transport shows a ✕ dismiss button and can be dragged back out. Works independently from the single event widget. When both are docked, they sit side by side.
-13 (Done) Canvas intro zoom animation extended to 3.8 seconds (was 2.8).
-14 (Done) 2D→3D tilt animation extended to 0.9 seconds (was 0.4) for both intro and manual toggle.
-15 (Done) Events panel, settings panel, and detail panel body all animate on open/close with slide+fade transitions (~500ms ease-out).
-16 (Done) Detail panel (and single-event widget) remain hidden until the user hits play or selects an event for the first time.
-17 (Done) "Timeline" label in the single-event widget renamed to "Animation".
-18 (Done) Top-bar loading progress indicator removed. Replaced with centered canvas overlay showing "Loading log…" and a progress bar styled like the timeline scrubber. Minimum display time 2 seconds; overlay fades out before the intro grid animation begins.
-19 The single event widget should never cover the detail panel.
+## Open
 
+1 Make visualizer items related to overlays or animations clickable shortcuts. Clicking a bit-state legend/color item should let the user choose that state's color.
 
+2 Polish the all-events transport in the detail panel: verify it doesn't push  detail sections below the fold at small heights; add a visual separator from  the step-anim sliders when both are visible simultaneously.
 
+3 Check bit-history balloon connector/clamping polish with events panel  open/closed, settings open/closed, joined widget visible, minimap visible,  light/dark themes, and high zoom.
 
+4 the balloon placement should be improved: (1) balloons should not overlap (2) when a bit under the all event panel, don't show the connector over the events panel (3) the connector should look better: more pointy at the bit side and much wider at the text box side (4) when i drag to the left, sometimes the connector gets "twisted"
 
+5 (Done) When the single event widget is docked to the detail panel, the % progress value and gear icon now appear inline just to the right of the timeline slider instead of in a separate far-right column. Two separate `StepAnimSliders` instances created in Visualizer: one with `docked=false` (floating banner/joined widget) and one with `docked=true` (detail panel).
+6 (Done) Autofit column count persists when autofit is turned off: the column count starts from the last autofit value. No upper bound on manual column count (already implemented; no change needed).
+7 (Done) Nearby events "current" row now shows the event title (from `banner.line1`) with the same font/weight as the widget title, preceded by a play icon. A toggle button switches between showing the title block and the nearby events list; the mode is persisted via `settings.nearbyEventsMode`.
+8 (Done) Search button in the toolbar now expands inline: clicking it shows a text input in the toolbar (replacing the button), with an optional inline result count chip and a ✕ close button. No separate popover; the input is in the original button's slot.
 
+19 (Done) The joined events widget is now clamped vertically so it never overlaps the detail panel. The widget Y drag is constrained during drag and re-clamped whenever the detail panel opens, closes, or resizes. `detailOpen` and `detailHeight` props passed from Visualizer.
+24 (Done) Storage model label "Wheel 8-of-30" renamed to "Wheel" in the selector and related UI.
+25 (Done) Aggregated events now display original annotation text inline in the events list next to the summary (still shown in tooltip as well).
+26 (Done) Single-event widget title now includes the current prime (e.g. "Event 42 | Mark multiples | Prime 13"); prime removed from the annotation metadata line to avoid duplication.
+27 (Done) Opening raw log from the detail-panel source link now scrolls to the selected event line and highlights that current source line in the raw log viewer.
+28 The parser should make a distinction between Number ranges and Bit ranges. 
+29 The top of the events panel should not animate as a saparate unit
 
 
 ## New Ideas

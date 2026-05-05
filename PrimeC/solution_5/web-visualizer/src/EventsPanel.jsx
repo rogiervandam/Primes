@@ -1018,11 +1018,6 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
         })}
         {/* Sentinel triggers lazy-loading of the next batch */}
         <div ref={sentinelRef} className="event-list-sentinel" />
-        {visibleGroupCount < filteredTree.length && (
-          <div className="event-list-loading-more">
-            {filteredTree.length - visibleGroupCount} more groups…
-          </div>
-        )}
       </div>
 
       <div className="resize-handle" onMouseDown={handleMouseDown} />

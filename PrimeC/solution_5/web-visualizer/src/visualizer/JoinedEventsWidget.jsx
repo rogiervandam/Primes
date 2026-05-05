@@ -44,6 +44,11 @@ export default function JoinedEventsWidget({
   // DOMRect of the EventTitleBanner at the moment the widgets were joined.
   // Used to anchor the joined widget's bottom-left to the same screen position.
   initialBannerRect,
+  // Detail panel avoidance: prevents the widget from covering the detail panel
+  detailOpen = false,
+  detailHeight = 36,
+  // Called when user navigates via transport buttons or scrubber — lets parent open the detail panel
+  onNavigate,
 }) {
   const [isSplitting, setIsSplitting] = useState(false);
   const [dropHint, setDropHint] = useState(null);
@@ -67,6 +72,14 @@ export default function JoinedEventsWidget({
   // bottom-left, since widget height is unknown before first render.
   const WIDGET_WIDTH = 520; // matches CSS min-width / max-width
   const TOP_OFFSET = 56;    // matches .joined-events-widget { top: 56px }
+  // Compute the maximum Y offset allowed so the widget doesn't cover the detail panel.
+  const getMaxY = useCallback(() => {
+    if (typeof window === 'undefined') return 9999;
+    const panelBottom = detailOpen ? detailHeight : 36; // 36 = collapsed detail header height
+    const SAFE_GAP = 8;
+    const widgetH = widgetRef.current ? widgetRef.current.offsetHeight : 300;
+    return window.innerHeight - TOP_OFFSET - widgetH - panelBottom - SAFE_GAP;
+  }, [detailOpen, detailHeight]);
   const computeInitialDragX = () => {
     if (!initialBannerRect || typeof window === 'undefined') return 0;
     return initialBannerRect.left - (window.innerWidth / 2 - WIDGET_WIDTH / 2);
@@ -97,13 +110,25 @@ export default function JoinedEventsWidget({
     const widgetHeight = widgetRef.current.offsetHeight;
     const targetTop = initialBannerRect.bottom - widgetHeight;
     const y = targetTop - TOP_OFFSET;
-    // Clamp so the widget doesn't go above the toolbar.
-    const clampedY = Math.max(4 - TOP_OFFSET, y);
+    // Clamp so the widget doesn't go above the toolbar or below the detail panel.
+    const maxY = getMaxY();
+    const clampedY = Math.max(4 - TOP_OFFSET, Math.min(maxY, y));
     const next = { x: floatDragRef.current.x, y: clampedY };
     floatDragRef.current = next;
     setFloatDrag(next);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // run once on mount — initialBannerRect is stable for this instance
+
+  // Re-clamp Y when the detail panel opens/closes or resizes.
+  useLayoutEffect(() => {
+    if (!widgetRef.current) return;
+    const maxY = getMaxY();
+    if (floatDragRef.current.y > maxY) {
+      const next = { x: floatDragRef.current.x, y: maxY };
+      floatDragRef.current = next;
+      setFloatDrag({ ...next });
+    }
+  }, [detailOpen, detailHeight, getMaxY]);
 
   const handleDragStart = useCallback((e) => {
     if (e.target.closest('input') || e.target.closest('button')) return;
@@ -118,7 +143,8 @@ export default function JoinedEventsWidget({
       const dy = ev.clientY - startY;
       if (!dragged && Math.hypot(dx, dy) < 4) return;
       dragged = true;
-      const next = { x: startDrag.x + dx, y: startDrag.y + dy };
+      const maxY = getMaxY();
+      const next = { x: startDrag.x + dx, y: Math.min(maxY, startDrag.y + dy) };
       floatDragRef.current = next;
       setFloatDrag({ ...next });
       const zone = detectDropZone(ev.clientX, ev.clientY, widgetRef.current);
@@ -185,6 +211,23 @@ export default function JoinedEventsWidget({
           title="Open events and details panels"
         >▼</button>
         <span className="joined-widget-label">Events</span>
+        {(surrounding?.prev?.length > 0 || surrounding?.next?.length > 0) && (
+          <button
+            className={`joined-widget-btn joined-widget-context-mode-btn${settings?.nearbyEventsMode ? ' active' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSettings((prev) => ({ ...prev, nearbyEventsMode: !prev.nearbyEventsMode }));
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            title={settings?.nearbyEventsMode ? 'Show event title' : 'Show nearby events instead of title'}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden="true">
+              <line x1="1" y1="3" x2="11" y2="3"/>
+              <line x1="1" y1="6" x2="11" y2="6"/>
+              <line x1="1" y1="9" x2="11" y2="9"/>
+            </svg>
+          </button>
+        )}
         <button
           className="joined-widget-btn joined-widget-split-btn"
           onClick={handleSplit}
@@ -220,8 +263,8 @@ export default function JoinedEventsWidget({
       {/* ── Transport controls ──────────────────────────────────────── */}
       <div className="events-panel-transport joined-transport" onMouseDown={(e) => e.stopPropagation()}>
         <div className="spt-row spt-row-nav">
-          <button className="spt-btn" onClick={() => goToStep(0)} title="First event" disabled={exporting}><SkipBack size={12} /></button>
-          <button className="spt-btn" onClick={() => goToStep(currentStep - 1)} title="Previous event" disabled={exporting}><StepBack size={12} /></button>
+          <button className="spt-btn" onClick={() => { goToStep(0); onNavigate?.(); }} title="First event" disabled={exporting}><SkipBack size={12} /></button>
+          <button className="spt-btn" onClick={() => { goToStep(currentStep - 1); onNavigate?.(); }} title="Previous event" disabled={exporting}><StepBack size={12} /></button>
           {setPlaySpeedPercent && (
             <button className="spt-btn spt-speed" onClick={() => setPlaySpeedPercent((v) => Math.max(25, Math.round(v / 1.25)))} title="Slower" disabled={exporting}><Minus size={11} /></button>
           )}
@@ -236,8 +279,8 @@ export default function JoinedEventsWidget({
           {setPlaySpeedPercent && (
             <button className="spt-btn spt-speed" onClick={() => setPlaySpeedPercent((v) => Math.min(400, Math.round(v * 1.25)))} title="Faster" disabled={exporting}><Plus size={11} /></button>
           )}
-          <button className="spt-btn" onClick={() => goToStep(currentStep + 1)} title="Next event" disabled={exporting}><StepForward size={12} /></button>
-          <button className="spt-btn" onClick={() => goToStep(steps.length - 1)} title="Last event" disabled={exporting}><SkipForward size={12} /></button>
+          <button className="spt-btn" onClick={() => { goToStep(currentStep + 1); onNavigate?.(); }} title="Next event" disabled={exporting}><StepForward size={12} /></button>
+          <button className="spt-btn" onClick={() => { goToStep(steps.length - 1); onNavigate?.(); }} title="Last event" disabled={exporting}><SkipForward size={12} /></button>
           {setPlaySpeedPercent && playSpeedPercent != null && (
             <span className="spt-speed-label" title={`Playback speed: ${playSpeedPercent}% of normal`}>{playSpeedPercent}%</span>
           )}
@@ -249,7 +292,7 @@ export default function JoinedEventsWidget({
             min={0}
             max={Math.max(0, steps.length - 1)}
             value={currentStep}
-            onChange={(e) => goToStep(parseInt(e.target.value, 10))}
+            onChange={(e) => { goToStep(parseInt(e.target.value, 10)); onNavigate?.(); }}
             onPointerDown={() => { if (isScrubbingTopRef) isScrubbingTopRef.current = true; }}
             onPointerUp={() => { if (isScrubbingTopRef) isScrubbingTopRef.current = false; }}
             onPointerCancel={() => { if (isScrubbingTopRef) isScrubbingTopRef.current = false; }}
@@ -267,7 +310,9 @@ export default function JoinedEventsWidget({
 
       {/* ── Single-event content ────────────────────────────────────── */}
       <div className="joined-widget-event" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="step-focus-lines">
+        {/* In nearby-events mode, the title block is replaced by the context rows */}
+        {!settings?.nearbyEventsMode && (
+          <div className="step-focus-lines">
           <div className="step-focus-line1">{banner?.line1}</div>
           {(() => {
             const lines = banner?.annotationLines || [];
@@ -295,25 +340,28 @@ export default function JoinedEventsWidget({
             : <div className="step-focus-line3 step-focus-line3-empty">{'\u00A0'}</div>
           }
         </div>
+        )}
 
         {(surrounding?.prev?.length > 0 || surrounding?.next?.length > 0) && (
           <div
-            className={`step-focus-context${settings?.contextCollapsed ? ' collapsed' : ''}`}
+            className={`step-focus-context${!settings?.nearbyEventsMode && settings?.contextCollapsed ? ' collapsed' : ''}`}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <button
-              className="step-focus-context-toggle"
-              onClick={(e) => {
-                e.stopPropagation();
-                setSettings((prev) => ({ ...prev, contextCollapsed: !prev.contextCollapsed }));
-              }}
-              onMouseDown={(e) => e.stopPropagation()}
-              title={settings?.contextCollapsed ? 'Show nearby events' : 'Hide nearby events'}
-            >
-              <span className="step-focus-context-toggle-arrow">{settings?.contextCollapsed ? '▶' : '▼'}</span>
-              <span className="step-focus-context-toggle-label">Nearby events</span>
-            </button>
-            {!settings?.contextCollapsed && (
+            {!settings?.nearbyEventsMode && (
+              <button
+                className="step-focus-context-toggle"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSettings((prev) => ({ ...prev, contextCollapsed: !prev.contextCollapsed }));
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                title={settings?.contextCollapsed ? 'Show nearby events' : 'Hide nearby events'}
+              >
+                <span className="step-focus-context-toggle-arrow">{settings?.contextCollapsed ? '▶' : '▼'}</span>
+                <span className="step-focus-context-toggle-label">Nearby events</span>
+              </button>
+            )}
+            {(settings?.nearbyEventsMode || !settings?.contextCollapsed) && (
               <div className="step-focus-context-rows">
                 {surrounding.prev.map((ev) => (
                   <div key={`prev-${ev.idx}`} className="step-focus-context-row prev"
@@ -328,7 +376,10 @@ export default function JoinedEventsWidget({
                 ))}
                 <div className="step-focus-context-row current">
                   <span className="ctx-id">#{currentStepData?.stepId ?? currentStep}</span>
-                  <span className="ctx-op">▶ current</span>
+                  <span className="ctx-op ctx-op-current">
+                    <span className="ctx-play-icon">▶</span>
+                    <span className="step-focus-line1 ctx-current-title">{banner?.line1}</span>
+                  </span>
                 </div>
                 {surrounding.next.map((ev) => (
                   <div key={`next-${ev.idx}`} className="step-focus-context-row next"

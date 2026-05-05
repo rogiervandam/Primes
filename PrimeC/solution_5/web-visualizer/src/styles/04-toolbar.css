@@ -289,6 +289,14 @@
   grid-template-columns: 48px 1fr;
 }
 .raw-log-line:hover { background: var(--bg-raised); }
+.raw-log-line.raw-log-line--current {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.raw-log-line.raw-log-line--current .raw-log-linenum,
+.raw-log-line.raw-log-line--current .raw-log-linenum--linked {
+  color: var(--accent);
+  font-weight: 600;
+}
 .raw-log-linenum {
   text-align: right;
   padding: 0 8px;
@@ -360,7 +368,27 @@
 .search-box {
   display: flex; align-items: center; gap: 4px; position: relative; min-width: 34px; justify-content: flex-end; flex: 0 0 auto;
 }
-.search-box.expanded { max-width: 34px; }
+/* When open, the box expands inline inside toolbar-right */
+.search-box.search-box--open {
+  flex: 1 1 auto;
+  max-width: 260px;
+  min-width: 0;
+  justify-content: flex-start;
+}
+.search-box--open .search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.search-box--open .search-result-inline {
+  flex: 0 0 auto;
+  font-size: 10px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+/* Legacy popover — kept for compatibility but no longer used */
 .search-popover {
   position: absolute;
   top: calc(100% + 6px);

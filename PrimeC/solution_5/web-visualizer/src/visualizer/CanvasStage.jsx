@@ -53,6 +53,7 @@ function CanvasStage({
   eventsPanelCollapsed,
   setEventsPanelCollapsed,
   stepAnimSlidersContent,
+  stepAnimSlidersDockedContent,
   // join/split state for the joined widget feature
   widgetsJoined,
   onJoinWidgets,
@@ -70,6 +71,8 @@ function CanvasStage({
   detailOpen,
   toggleDetailPanel,
   detailHeight,
+  pendingBannerDragStart,
+  onConsumePendingBannerDragStart,
   updateDetailHeight,
   detailWidth,
   setDetailWidth,
@@ -122,7 +125,10 @@ function CanvasStage({
           eventsPanelCollapsed={eventsPanelCollapsed}
           setEventsPanelCollapsed={setEventsPanelCollapsed}
           detailOpen={detailOpen}
+          detailHeight={detailHeight}
           toggleDetailPanel={toggleDetailPanel}
+          externalDragStart={pendingBannerDragStart}
+          onConsumeExternalDragStart={onConsumePendingBannerDragStart}
           sliders={stepAnimSlidersContent}
           onJoinWidgets={onJoinWidgets}
         />
@@ -198,7 +204,7 @@ function CanvasStage({
         onInspectMarkedNumbers={() => openDetailInspector('numbers')}
         eventTitleVisible={eventTitleSettings.visible && !widgetsJoined}
         onShowEventTitle={onShowEventTitle}
-        eventAnimSliders={stepAnimSlidersContent}
+        eventAnimSliders={stepAnimSlidersDockedContent || stepAnimSlidersContent}
         onOpenRawLog={onOpenRawLog}
         sourceLineNumber={currentStepSourceLine}
         allEventsTransport={allEventsTransport}

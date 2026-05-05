@@ -160,3 +160,9 @@
   padding: 6px 10px 8px;
   cursor: default;
 }
+
+/* Context-mode toggle button — active when nearby-events replaces title */
+.joined-widget-context-mode-btn.active {
+  color: var(--accent) !important;
+  opacity: 1 !important;
+}

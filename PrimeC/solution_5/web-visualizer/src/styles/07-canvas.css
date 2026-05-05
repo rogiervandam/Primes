@@ -98,7 +98,7 @@
 }
 .step-focus-slider-row {
   display: grid;
-  grid-template-columns: 56px minmax(0, 260px) 56px;
+  grid-template-columns: 72px minmax(0, 260px) 52px;
   align-items: center;
   gap: 6px;
   font-size: 12px;
@@ -107,7 +107,7 @@
 }
 /* Docked to detail panel: no far-right actions column; controls are wider */
 .step-focus-slider-row.step-focus-slider-row--docked {
-  grid-template-columns: 56px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
 }
 .step-focus-slider-row.step-focus-slider-row--docked .step-focus-slider-value {
   flex-shrink: 0;
@@ -115,6 +115,8 @@
 }
 .step-focus-slider-row input[type="range"] { width: 100%; max-width: 260px; }
 .step-focus-slider-label { text-transform: uppercase; letter-spacing: 0.04em; }
+.step-focus-slider-label.step-focus-slider-label--draggable { cursor: grab; user-select: none; }
+.step-focus-slider-label.step-focus-slider-label--draggable:active { cursor: grabbing; }
 .step-focus-slider-value { font-variant-numeric: tabular-nums; text-align: right; color: var(--fg); }
 .step-focus-slider-controls {
   display: flex;
@@ -337,6 +339,11 @@
   gap: 0;
   padding-bottom: 4px;
 }
+.step-focus-context-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 .step-focus-context-toggle {
   display: flex;
   align-items: center;
@@ -356,11 +363,37 @@
 .step-focus-context-toggle:hover { background: var(--bg-raised); color: var(--fg); }
 .step-focus-context-toggle-arrow { font-size: 0.75em; flex: 0 0 auto; }
 .step-focus-context-toggle-label { flex: 1 1 auto; font-size: 0.9em; letter-spacing: 0.03em; }
+.step-focus-context-mode-btn {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 18px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--fg-dim);
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+.step-focus-context-mode-btn:hover {
+  color: var(--fg);
+  border-color: var(--border-light);
+  background: var(--bg-raised);
+}
+.step-focus-context-mode-btn.active {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border-light));
+}
 .step-focus-context-rows {
   display: flex;
   flex-direction: column;
   gap: 1px;
   margin-top: 2px;
+}
+.step-focus-annotation-under-context {
+  margin-top: 4px;
 }
 .step-focus-context-row {
   display: flex;
@@ -379,6 +412,33 @@
   color: var(--fg-bright, var(--fg));
   font-weight: 600;
   background: var(--bg-raised);
+}
+/* Current row title: play icon + line1 text with same style as step-focus-line1 */
+.step-focus-context-row .ctx-op-current {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  min-width: 0;
+}
+.step-focus-context-row .ctx-play-icon {
+  flex: 0 0 auto;
+  font-size: 0.8em;
+  color: var(--accent);
+}
+.step-focus-context-row .ctx-current-title {
+  /* Inherit step-focus-line1 sizing but constrained */
+  font-size: inherit;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--fg-bright, var(--fg));
+  line-height: 1.2;
+  margin: 0;
+  padding: 0;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .step-focus-context-row .ctx-id {
   min-width: 3.5em;

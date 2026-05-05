@@ -16,10 +16,11 @@ import { STORAGE_MODELS } from '../SieveRenderer';
  * @param {function}  props.onJumpToStep   Called with stepIndex when a linked line number is clicked.
  * @param {number|null} props.rawScrollToLine  When set, open the raw log and scroll to this line index.
  * @param {function}  props.onClearRawScrollToLine  Called after scroll target is consumed.
+ * @param {number|null} props.currentStepSourceLine  Source line index for the currently selected event.
  */
 export default function TraceInfoPopover({
   popoverRef, visible = true, storageModel, setStorageModel, header, sections, onFetchRawSource,
-  lineToStep, onJumpToStep, rawScrollToLine, onClearRawScrollToLine,
+  lineToStep, onJumpToStep, rawScrollToLine, onClearRawScrollToLine, currentStepSourceLine,
 }) {
   const [rawOpen, setRawOpen] = useState(false);
   const [wheelOpen, setWheelOpen] = useState(false);
@@ -302,10 +303,11 @@ export default function TraceInfoPopover({
               {!rawFetching && rawLines && rawLines.map((line, i) => {
                 const stepIdx = lineToStep?.[i];
                 const hasStep = stepIdx !== undefined;
+                const isCurrentLine = currentStepSourceLine != null && i === currentStepSourceLine;
                 return (
                   <div
                     key={i}
-                    className={`raw-log-line${hasStep ? ' raw-log-line--linked' : ''}`}
+                    className={`raw-log-line${hasStep ? ' raw-log-line--linked' : ''}${isCurrentLine ? ' raw-log-line--current' : ''}`}
                     data-lineindex={i}
                   >
                     {hasStep ? (

@@ -27,6 +27,8 @@ function StepAnimSliders({
   playing,
   exporting,
   onOpenAnimationSettings,
+  // In docked mode, parent can treat label-drag as undock gesture.
+  onDragOutFromDock,
   // When true, renders progress% and gear inline next to the slider (docked to detail panel)
   docked = false,
 }) {
@@ -119,7 +121,14 @@ function StepAnimSliders({
   return (
     <>
       <div className={`step-focus-slider-row${docked ? ' step-focus-slider-row--docked' : ''}`} title="Scrub through this event's animation">
-        <span className="step-focus-slider-label">Animation</span>
+        <span
+          className={`step-focus-slider-label${docked && onDragOutFromDock ? ' step-focus-slider-label--draggable' : ''}`}
+          onMouseDown={docked && onDragOutFromDock ? (e) => {
+            e.stopPropagation();
+            onDragOutFromDock({ x: e.clientX, y: e.clientY });
+          } : undefined}
+          title={docked && onDragOutFromDock ? 'Drag out to undock single-event widget' : undefined}
+        >Animation</span>
         <div className="step-focus-slider-controls">
           <button
             type="button"

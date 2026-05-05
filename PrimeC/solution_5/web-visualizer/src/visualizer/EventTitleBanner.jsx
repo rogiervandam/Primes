@@ -30,7 +30,10 @@ export default function EventTitleBanner({
   eventsPanelCollapsed,
   setEventsPanelCollapsed,
   detailOpen,
+  detailHeight = 280,
   toggleDetailPanel,
+  externalDragStart,
+  onConsumeExternalDragStart,
   sliders,
   onJoinWidgets,
 }) {
@@ -63,6 +66,28 @@ export default function EventTitleBanner({
     return !!(el && el.closest && el.closest('.detail-panel'));
   }, []);
 
+  const getMinDragOffsetY = React.useCallback(() => {
+    if (typeof window === 'undefined') return -9999;
+    const el = bannerRef.current;
+    const h = el ? el.offsetHeight : 220;
+    // top = windowH - 20 - h + oy >= 4  => oy >= 24 + h - windowH
+    return 24 + h - window.innerHeight;
+  }, []);
+
+  const getMaxDragOffsetY = React.useCallback(() => {
+    if (typeof window === 'undefined') return 9999;
+    const panelBottom = detailOpen ? detailHeight : 36;
+    const SAFE_GAP = 8;
+    // bottom edge = windowH - 20 + oy <= windowH - panelBottom - SAFE_GAP
+    return 20 - panelBottom - SAFE_GAP;
+  }, [detailOpen, detailHeight]);
+
+  const clampDragOffsetY = React.useCallback((oy) => {
+    const minY = getMinDragOffsetY();
+    const maxY = getMaxDragOffsetY();
+    return Math.max(minY, Math.min(maxY, oy));
+  }, [getMaxDragOffsetY, getMinDragOffsetY]);
+
   const detectDropZone = React.useCallback((clientX, clientY, bannerEl) => {
     if (typeof window === 'undefined') return null;
     const LEFT_BAND = 80;
@@ -85,17 +110,16 @@ export default function EventTitleBanner({
     return null;
   }, [isOverDetailPanel, onJoinWidgets, eventsPanelCollapsed]);
 
-  const handleMouseDown = (e) => {
-    if (e.target.closest('input') || e.target.closest('button')) return;
+  const startDrag = React.useCallback((startClientX, startClientY, fromExternal = false) => {
     const bannerEl = bannerRef.current;
-    const startX = e.clientX;
-    const startY = e.clientY;
+    const startX = startClientX;
+    const startY = startClientY;
     const startOffX = settings.dragOffsetX || 0;
-    const startOffY = settings.dragOffsetY || 0;
+    const startOffY = clampDragOffsetY(settings.dragOffsetY || 0);
     let dragged = false;
     let lastZone = null;
-    let finalDx = 0;
-    let finalDy = 0;
+    let finalX = startOffX;
+    let finalY = startOffY;
     // Suppress CSS transition during drag so Safari doesn't re-animate each
     // incremental transform update (which causes visible shaking).
     if (bannerEl) bannerEl.classList.add('is-dragging');
@@ -104,12 +128,12 @@ export default function EventTitleBanner({
       const dy = ev.clientY - startY;
       if (!dragged && Math.hypot(dx, dy) < 4) return;
       dragged = true;
-      finalDx = dx;
-      finalDy = dy;
+      finalX = startOffX + dx;
+      finalY = clampDragOffsetY(startOffY + dy);
       // Direct DOM mutation — bypasses the React re-render cascade through
       // setSettings → parent useMemo → style prop so the CSS transition never
       // fires during the drag. State is persisted once on mouseup instead.
-      if (bannerEl) bannerEl.style.transform = `translate(${startOffX + dx}px, ${startOffY + dy}px)`;
+      if (bannerEl) bannerEl.style.transform = `translate(${finalX}px, ${finalY}px)`;
       const zone = detectDropZone(ev.clientX, ev.clientY, bannerEl);
       if (zone !== lastZone) {
         lastZone = zone;
@@ -129,7 +153,7 @@ export default function EventTitleBanner({
       if (floater) floater.classList.remove('merge-target');
       if (!dragged) {
         // Click without drag: open the Events panel.
-        if (eventsPanelCollapsed) setEventsPanelCollapsed(false);
+        if (!fromExternal && eventsPanelCollapsed) setEventsPanelCollapsed(false);
         return;
       }
       const zone = detectDropZone(ev.clientX, ev.clientY, bannerEl);
@@ -174,14 +198,56 @@ export default function EventTitleBanner({
         // No drop zone — persist the final drag position to React state.
         setSettings((prev) => ({
           ...prev,
-          dragOffsetX: startOffX + finalDx,
-          dragOffsetY: startOffY + finalDy,
+          dragOffsetX: finalX,
+          dragOffsetY: finalY,
         }));
       }
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
+  }, [clampDragOffsetY, detectDropZone, detailOpen, eventsPanelCollapsed, isOverDetailPanel, onJoinWidgets, setEventsPanelCollapsed, setSettings, settings.dragOffsetX, settings.dragOffsetY, toggleDetailPanel]);
+
+  const handleMouseDown = (e) => {
+    if (e.target.closest('input') || e.target.closest('button')) return;
+    startDrag(e.clientX, e.clientY, false);
     e.preventDefault();
+  };
+
+  // If the detail panel slider starts a drag-out gesture, consume it here and
+  // continue as a normal banner drag.
+  React.useEffect(() => {
+    if (!externalDragStart) return;
+    if (!bannerRef.current) return;
+    startDrag(externalDragStart.x, externalDragStart.y, true);
+    onConsumeExternalDragStart?.();
+  }, [externalDragStart, onConsumeExternalDragStart, startDrag]);
+
+  // Keep the banner vertically clamped when detail panel state changes.
+  React.useLayoutEffect(() => {
+    const currentY = Number.isFinite(settings.dragOffsetY) ? settings.dragOffsetY : 0;
+    const clampedY = clampDragOffsetY(currentY);
+    if (clampedY !== currentY) {
+      setSettings((prev) => ({ ...prev, dragOffsetY: clampedY }));
+    }
+  }, [clampDragOffsetY, detailHeight, detailOpen, setSettings, settings.dragOffsetY]);
+
+  const renderAnnotation = (extraClass = '') => {
+    const lines = banner.annotationLines || [];
+    const hasContent = lines.length > 0;
+    const displayLines = showAllAnnotations ? lines : lines.slice(0, MAX_ANNOTATION_LINES);
+    const paddedLines = showAllAnnotations ? displayLines : [...displayLines];
+    return (
+      <div
+        className={`step-focus-annotation-area${extraClass ? ` ${extraClass}` : ''}${hasContent ? ' expandable' : ''}${showAllAnnotations ? ' expanded' : ''}`}
+        onClick={hasContent ? (e) => { e.stopPropagation(); setShowAllAnnotations((v) => !v); } : undefined}
+        onMouseDown={(e) => e.stopPropagation()}
+        title={hasContent ? (showAllAnnotations ? 'Click to collapse annotation' : 'Click to expand annotation') : undefined}
+      >
+        {paddedLines.map((line, i) => (
+          <div key={i} className={`step-focus-annotation-line${i === 0 ? ' line2' : ''}`}>{line}</div>
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -212,51 +278,56 @@ export default function EventTitleBanner({
       {/* The drag handle covers the title + annotation + bits-changed area.
           The context rows and sliders below are interactive and not draggable. */}
       <div className="step-focus-drag-handle" onMouseDown={handleMouseDown}>
-      <div className="step-focus-lines">
-        <div className="step-focus-line1">{banner.line1}</div>
-        {(() => {
-          const lines = banner.annotationLines || [];
-          const hasContent = lines.length > 0;
-          const displayLines = showAllAnnotations ? lines : lines.slice(0, MAX_ANNOTATION_LINES);
-          const paddedLines = showAllAnnotations ? displayLines : [...displayLines];
-          if (!showAllAnnotations) {
-            // while (paddedLines.length < MAX_ANNOTATION_LINES) paddedLines.push('\u00A0');
-          }
-          return (
-            <div
-              className={`step-focus-annotation-area${hasContent ? ' expandable' : ''}${showAllAnnotations ? ' expanded' : ''}`}
-              title={hasContent ? (showAllAnnotations ? 'Click to collapse annotation' : 'Click to expand annotation') : undefined}
-            >
-              <div className='step-focus-annotation-line2'>{banner.annotationLines}</div>
-            </div>
-          );
-        })()}
-        {(banner.bitsChanged > 0) && (
-          <div className="step-focus-line3">+{banner.bitsChanged} bits changed</div>
-        )}
-        {!(banner.bitsChanged > 0) && (
-          <div className="step-focus-line3 step-focus-line3-empty">{'\u00A0'}</div>
-        )}
-      </div>
+      {!settings?.nearbyEventsMode && (
+        <div className="step-focus-lines">
+          <div className="step-focus-line1">{banner.line1}</div>
+          {renderAnnotation()}
+          {(banner.bitsChanged > 0) && (
+            <div className="step-focus-line3">+{banner.bitsChanged} bits changed</div>
+          )}
+          {!(banner.bitsChanged > 0) && (
+            <div className="step-focus-line3 step-focus-line3-empty">{'\u00A0'}</div>
+          )}
+        </div>
+      )}
       </div>{/* end .step-focus-drag-handle */}
       {(surrounding.prev.length > 0 || surrounding.next.length > 0) && (
         <div
-          className={`step-focus-context${settings.contextCollapsed ? ' collapsed' : ''}`}
+          className={`step-focus-context${!settings?.nearbyEventsMode && settings.contextCollapsed ? ' collapsed' : ''}`}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <button
-            className="step-focus-context-toggle"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSettings((prev) => ({ ...prev, contextCollapsed: !prev.contextCollapsed }));
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-            title={settings.contextCollapsed ? 'Show nearby events' : 'Hide nearby events'}
-          >
-            <span className="step-focus-context-toggle-arrow">{settings.contextCollapsed ? '▶' : '▼'}</span>
-            <span className="step-focus-context-toggle-label">Nearby events</span>
-          </button>
-          {!settings.contextCollapsed && (
+          <div className="step-focus-context-header">
+            {!settings?.nearbyEventsMode && (
+              <button
+                className="step-focus-context-toggle"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSettings((prev) => ({ ...prev, contextCollapsed: !prev.contextCollapsed }));
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                title={settings.contextCollapsed ? 'Show nearby events' : 'Hide nearby events'}
+              >
+                <span className="step-focus-context-toggle-arrow">{settings.contextCollapsed ? '▶' : '▼'}</span>
+                <span className="step-focus-context-toggle-label">Nearby events</span>
+              </button>
+            )}
+            <button
+              className={`step-focus-context-mode-btn${settings?.nearbyEventsMode ? ' active' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSettings((prev) => ({ ...prev, nearbyEventsMode: !prev.nearbyEventsMode }));
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              title={settings?.nearbyEventsMode ? 'Show event title' : 'Show nearby events instead of title'}
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden="true">
+                <line x1="1" y1="3" x2="11" y2="3"/>
+                <line x1="1" y1="6" x2="11" y2="6"/>
+                <line x1="1" y1="9" x2="11" y2="9"/>
+              </svg>
+            </button>
+          </div>
+          {(settings?.nearbyEventsMode || !settings.contextCollapsed) && (
             <div
               className="step-focus-context-rows"
               title="Last 2 and next 2 events. Click any row to jump to it."
@@ -276,7 +347,10 @@ export default function EventTitleBanner({
               ))}
               <div className="step-focus-context-row current">
                 <span className="ctx-id">#{currentStepData?.stepId ?? currentStep}</span>
-                <span className="ctx-op">▶ current</span>
+                <span className="ctx-op ctx-op-current">
+                  <span className="ctx-play-icon">▶</span>
+                  <span className="step-focus-line1 ctx-current-title">{banner?.line1}</span>
+                </span>
               </div>
               {surrounding.next.map((ev) => (
                 <div
@@ -293,6 +367,7 @@ export default function EventTitleBanner({
               ))}
             </div>
           )}
+          {settings?.nearbyEventsMode && renderAnnotation('step-focus-annotation-under-context')}
         </div>
       )}
       <div className="step-focus-sliders">

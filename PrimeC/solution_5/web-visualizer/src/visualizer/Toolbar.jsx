@@ -38,6 +38,7 @@ export default function Toolbar({
   onJumpToStep,
   rawScrollToLine,
   onClearRawScrollToLine,
+  currentStepSourceLine,
   // close
   onClose,
   // playback transport
@@ -131,6 +132,7 @@ export default function Toolbar({
           onJumpToStep={onJumpToStep}
           rawScrollToLine={rawScrollToLine}
           onClearRawScrollToLine={onClearRawScrollToLine}
+          currentStepSourceLine={currentStepSourceLine}
         />
         <div className="panel-toggle-group">
 
@@ -212,10 +214,9 @@ export default function Toolbar({
       <div className="toolbar-right">
         {!isWindowsPlatform && (
           <>
-            <div className={`search-box${searchOpen ? ' expanded' : ''}`}>
-              <button className="btn-icon" onClick={() => setSearchOpen(o => !o)} title="Search (bit/byte/number)"><Search /></button>
-              {searchOpen && (
-                <div className="search-popover">
+            <div className={`search-box${searchOpen ? ' search-box--open' : ''}`}>
+              {searchOpen ? (
+                <>
                   <input
                     type="text"
                     className="search-input"
@@ -226,8 +227,11 @@ export default function Toolbar({
                     autoFocus
                     title="Search: bit N, byte N, uint64 N, vector N, number N"
                   />
-                  {searchResult && <div className="search-result">{searchResult}</div>}
-                </div>
+                  {searchResult && <span className="search-result-inline" title={searchResult}>{searchResult}</span>}
+                  <button className="btn-icon" onClick={() => setSearchOpen(false)} title="Close search">✕</button>
+                </>
+              ) : (
+                <button className="btn-icon" onClick={() => setSearchOpen(true)} title="Search (bit/byte/number)"><Search /></button>
               )}
             </div>
             <button className="btn-icon" onClick={() => doZoom(1.5)} title="Zoom In (+)"><ZoomIn /></button>

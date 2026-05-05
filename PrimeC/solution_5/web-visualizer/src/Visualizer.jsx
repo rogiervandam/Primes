@@ -564,6 +564,9 @@ export default function Visualizer({
   // Stores the EventTitleBanner's DOMRect at the moment of joining, so the
   // JoinedEventsWidget can anchor its bottom-left corner to the same position.
   const [joinBannerRect, setJoinBannerRect] = useState(null);
+  // One-shot external drag start request for EventTitleBanner, used when the
+  // user drags "ANIMATION" from the docked detail-panel slider.
+  const [pendingBannerDragStart, setPendingBannerDragStart] = useState(null);
   const [storageModel, setStorageModel] = useState(header.storageModel || 'half');
   // When a new trace is loaded (header reference changes), auto-apply the
   // storage model detected from the log so the user doesn't have to set it manually.
@@ -4873,12 +4876,12 @@ export default function Visualizer({
 
     const functionName = s.operation || 'Unknown';
     const eventId = s.stepId ?? currentStep;
-    const line1 = `Event ${eventId} | ${functionName}`;
+    const primePart = s.prime != null ? ` | Prime ${s.prime}` : '';
+    const line1 = `Event ${eventId} | ${functionName}${primePart}`;
 
     // Build annotation lines: first line is metadata, then each line of s.annotation.
     const annotationLines = [];
     const metaParts = [];
-    if (s.prime != null) metaParts.push(`Prime ${s.prime}`);
     if (s.factorStep != null) metaParts.push(`Step size ${s.factorStep}`);
     if (s.start != null && s.stop != null) metaParts.push(`Range ${s.start}–${s.stop}`);
     if (metaParts.length > 0) annotationLines.push(metaParts.join(' | '));
@@ -5308,6 +5311,9 @@ export default function Visualizer({
   // Sliders for event timeline and animation speed. Rendered inside the
   // step-focus-banner when it's visible; moved into the detail panel when the
   // banner is hidden so the controls remain accessible.
+  // Two separate slider instances: one for the floating banner (progress on
+  // the far right) and one for the detail panel (progress inline to the right
+  // of the timeline slider, i.e. docked=true).
   const stepAnimSlidersContent = (
     <StepAnimSliders
       currentStepData={currentStepData}
@@ -5326,7 +5332,32 @@ export default function Visualizer({
       playing={playing}
       exporting={exporting}
       onOpenAnimationSettings={openAnimationSettings}
-      docked={allEventsInDetailPanel}
+      docked={false}
+    />
+  );
+  const stepAnimSlidersDockedContent = (
+    <StepAnimSliders
+      currentStepData={currentStepData}
+      bitAnimationMode={bitAnimationMode}
+      setBitAnimationMode={setBitAnimationMode}
+      bitAnimationModeRef={bitAnimationModeRef}
+      stopSeqAnim={stopSeqAnim}
+      seekStepAnimation={seekStepAnimation}
+      stepScrubProgress={stepScrubProgress}
+      setStepScrubProgress={setStepScrubProgress}
+      handleStepAnimToggle={handleStepAnimToggle}
+      stepAnimRunning={stepAnimRunning}
+      singleEventLoopActive={singleEventLoopActive}
+      animationReplayPaused={animationReplayPaused}
+      delayPhaseMs={delayPhaseMs}
+      playing={playing}
+      exporting={exporting}
+      onOpenAnimationSettings={openAnimationSettings}
+      onDragOutFromDock={({ x, y }) => {
+        setEventTitleSettings((prev) => ({ ...prev, visible: true }));
+        setPendingBannerDragStart({ x, y, token: Date.now() });
+      }}
+      docked={true}
     />
   );
 
@@ -5372,6 +5403,7 @@ export default function Visualizer({
         onJumpToStep={onJumpToStep}
         rawScrollToLine={rawScrollToLine}
         onClearRawScrollToLine={onClearRawScrollToLine}
+        currentStepSourceLine={stepToLine[currentStep]}
         onClose={onClose}
         steps={steps}
         currentStep={currentStep}
@@ -5442,6 +5474,14 @@ export default function Visualizer({
         {loadingOverlayPhase !== 'hidden' && (
           <div className={`canvas-loading-overlay${loadingOverlayPhase === 'fading' ? ' fading' : ''}`}>
             <div className="canvas-loading-text">Loading log…</div>
+            {steps.length > 0 && (
+              <div className="canvas-loading-count">
+                {(overlayBarPct < 75
+                  ? Math.floor(steps.length * (overlayBarPct / 100))
+                  : steps.length
+                ).toLocaleString()} events
+              </div>
+            )}
             <div className="canvas-loading-bar-track" role="progressbar" aria-label="Loading trace" aria-valuenow={overlayBarPct} aria-valuemax={100}>
               <div className="canvas-loading-bar-fill" style={{ width: `${overlayBarPct}%` }} />
             </div>
@@ -5498,6 +5538,7 @@ export default function Visualizer({
           eventsPanelCollapsed={eventsPanelCollapsed}
           setEventsPanelCollapsed={setEventsPanelCollapsed}
           stepAnimSlidersContent={stepAnimSlidersContent}
+          stepAnimSlidersDockedContent={stepAnimSlidersDockedContent}
           widgetsJoined={widgetsJoined}
           onJoinWidgets={joinWidgets}
           onSplitWidgets={splitWidgets}
@@ -5512,6 +5553,8 @@ export default function Visualizer({
           detailOpen={detailOpen}
           toggleDetailPanel={toggleDetailPanel}
           detailHeight={detailHeight}
+          pendingBannerDragStart={pendingBannerDragStart}
+          onConsumePendingBannerDragStart={() => setPendingBannerDragStart(null)}
           updateDetailHeight={updateDetailHeight}
           detailWidth={detailWidth}
           setDetailWidth={setDetailWidth}
@@ -5567,6 +5610,9 @@ export default function Visualizer({
             onPushToDetailPanel={pushJoinedWidgetToDetailPanel}
             initialBannerRect={joinBannerRect}
             onHideWidget={hideJoinedWidget}
+            detailOpen={detailOpen}
+            detailHeight={detailHeight}
+            onNavigate={() => { if (!detailOpenRef.current) setDetailOpen(true); }}
           />
         )}
         <SettingsPanel

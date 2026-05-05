@@ -149,7 +149,7 @@ export const GRID3X3_MAP = [0, 1, 2, 3, /*skip 4*/ 5, 6, 7, 8];
 export const STORAGE_MODELS = {
   half:  { label: 'Half (odd only)',   description: 'bit i → 2i+1' },
   full:  { label: 'Full (all)',        description: 'bit i → i' },
-  wheel: { label: 'Wheel 8-of-30',    description: 'bit i → wheel30 residue' },
+  wheel: { label: 'Wheel',            description: 'bit i → wheel30 residue' },
 };
 
 // 8-of-30 wheel factorization residues (used by `bitMath.js`).
