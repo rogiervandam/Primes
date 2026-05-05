@@ -21,6 +21,9 @@ For broader maps, also read:
 5. For visual, layout, canvas, or WebGL changes, also do a manual browser check.
    Use `npm run dev`, load a trace, and exercise playback, scrubbing, panel
    toggles, minimap, widget dragging, and the parity harness when GL is touched.
+  Always open the browser DevTools console after these checks and confirm
+  there are no runtime errors (ReferenceError/TypeError/plugin parse errors)
+  before considering the change done.
 6. Do not change persisted preference keys without migration. Add keys; do not
    repurpose existing keys.
 7. Update existing docs when behavior changes. Avoid creating new docs unless

@@ -57,6 +57,8 @@ import { useBalloonGeometry } from './hooks/useBalloonGeometry';
 import { useRunEffect } from './hooks/useRunEffect';
 import { usePausableDelay } from './hooks/usePausableDelay';
 import { useMaskStampAnimation } from './hooks/useMaskStampAnimation';
+import { useSeekStepAnimation } from './hooks/useSeekStepAnimation';
+import { useTriggerAnimation } from './hooks/useTriggerAnimation';
 import { useViewportAnchoring } from './hooks/useViewportAnchoring';
 import { useWindowResize } from './hooks/useWindowResize';
 import CanvasLoadingOverlay from './visualizer/CanvasLoadingOverlay';
@@ -264,6 +266,8 @@ export default function Visualizer({
     viewportAnimRef,
   } = useViewportAnchoring();
 
+  const { cancelViewportAnimation } = useViewportAnimationCancel({ viewportAnimRef });
+
   const [currentStep, setCurrentStep] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [playSpeedPercent, setPlaySpeedPercent] = useState(initialPrefs.playSpeedPercent);
@@ -417,6 +421,22 @@ export default function Visualizer({
   });
 
   const { stopPlayback } = useStopPlayback({ setPlaying, playTimeoutRef, playTimerRef });
+
+  const stopSeqAnim = useCallback(() => {
+    if (seqTimerRef.current) {
+      cancelAnimationFrame(seqTimerRef.current);
+      seqTimerRef.current = null;
+    }
+    if (runEffectCancelRef.current) {
+      runEffectCancelRef.current();
+      runEffectCancelRef.current = null;
+    }
+    if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
+  }, [seqTimerRef, runEffectCancelRef, setStepAnimRunningRef]);
+
+  useEffect(() => {
+    stopSeqAnimRef.current = stopSeqAnim;
+  }, [stopSeqAnim]);
 
   const getCanvasTargetSize = useCallback((width, height) => {
     // Unified geometry: the canvas is ALWAYS the oversized 3D plane,
@@ -1675,6 +1695,28 @@ export default function Visualizer({
     };
   }, [panelWidth, showMinimap, detailOpen, detailHeight, refreshCanvasLayout, clearScheduledLayoutRefresh, captureViewportAnchor]);
 
+  const { seekStepAnimation } = useSeekStepAnimation({
+    seekGenRef,
+    stopPlayback,
+    stopSeqAnim,
+    pausedStepAnimLoopRef,
+    selectedAnimLoopRef,
+    setSingleEventLoopActive,
+    setAnimationReplayPaused,
+    setDelayPhaseMsRef,
+    rendererRef,
+    currentStep,
+    stepsRef,
+    bitStateRef,
+    selectedStepsRef,
+    bitAnimationModeRef,
+    animMode,
+    animStyle,
+    bitStateDirtyRef,
+    bitsAtTimeRatioRef,
+    getMinimapDetailH,
+  });
+
   // Precompute periodic bitState checkpoints whenever the trace changes.
   // Spacing: at most 50 checkpoints, minimum interval 100 events.
   // Memory guard: skip if total snapshot bytes would exceed 8 MB so large
@@ -1684,8 +1726,8 @@ export default function Visualizer({
     if (!loadComplete) return;
     const { bitCount } = header;
     const MAX_CHECKPOINTS = 50;
-    const MIN_INTERVAL   = 100;
-    const MAX_BYTES      = 8 * 1024 * 1024;
+    const MIN_INTERVAL = 100;
+    const MAX_BYTES = 8 * 1024 * 1024;
     if (!steps.length || !bitCount) {
       bitStateCheckpointsRef.current = [];
       return;
@@ -1706,12 +1748,19 @@ export default function Visualizer({
       }
       if ((i + 1) % interval === 0) {
         // Checkpoint stores state AFTER events 0..i.
-        // `step` is the first event index NOT yet included.
-        checkpoints.push({ step: i + 1, bitState: bs.slice() });
+        checkpoints.push({ stepIndex: i, bitState: new Uint8Array(bs) });
       }
     }
+    // Ensure the final state is always represented even when step-count
+    // doesn't land exactly on the checkpoint interval.
+    if (
+      checkpoints.length === 0
+      || checkpoints[checkpoints.length - 1].stepIndex !== steps.length - 1
+    ) {
+      checkpoints.push({ stepIndex: steps.length - 1, bitState: new Uint8Array(bs) });
+    }
     bitStateCheckpointsRef.current = checkpoints;
-  }, [steps, header, loadComplete]);
+  }, [loadComplete, header, steps]);
 
   // Go to step
   const goToStep = useCallback((target, options = {}) => {
@@ -1720,33 +1769,23 @@ export default function Visualizer({
     target = Math.max(0, Math.min(target, steps.length - 1));
     const suppressHighlight = options.suppressHighlight === true;
     if (!options.keepPlaying && playing) stopPlayback();
-    // Manual navigation (next/prev/first/last/scrub) cancels any active
-    // single-event auto-replay loop. The user wants to "jump" to the new
-    // event; whether or not it animates is governed by `playing`.
     if (!options.keepPlaying && !options.keepLoop && singleEventLoopActiveRef.current) {
       setSingleEventLoopActive(false);
     }
-    // When scrubbing the timeline with an aggregate selection active, let the
-    // selected-steps animation loop (Effect 1) keep running uninterrupted.
-    // Skip the r.setState / triggerAnimation calls below so they don't
-    // override r.changedBits with individual-step bits or cancel the loop.
     const aggregateScrub = isScrubbingTopRef.current && selectedStepsRef.current.size > 0;
     if (!suppressHighlight) initialHighlightHoldRef.current = false;
 
-    let bs = bitStateRef.current;
+    const bs = bitStateRef.current;
     if (!bs) return;
 
-    // Build state up to step before target (for stats).
-    // If the scrubber left bitState in a partially-revealed state, do a full
-    // rebuild regardless of direction so the incremental path can't desync.
+    // Build state up to step before target.
     if (target <= currentStep || bitStateDirtyRef.current) {
-      // Use the nearest precomputed checkpoint to skip bulk replay.
       const checkpoints = bitStateCheckpointsRef.current;
       let replayFrom = 0;
       for (let k = checkpoints.length - 1; k >= 0; k--) {
-        if (checkpoints[k].step <= target) {
+        if (checkpoints[k].stepIndex <= target) {
           bs.set(checkpoints[k].bitState);
-          replayFrom = checkpoints[k].step;
+          replayFrom = checkpoints[k].stepIndex + 1;
           break;
         }
       }
@@ -1769,9 +1808,9 @@ export default function Visualizer({
       }
     }
 
-    // bs is now at state just before target — compute stats
     const step = steps[target];
-    let newlySet = 0, reSet = 0;
+    let newlySet = 0;
+    let reSet = 0;
     const repeatedBits = new Set();
     for (let j = 0; j < step.changedBits.length; j++) {
       const idx = step.changedBits[j];
@@ -1783,14 +1822,15 @@ export default function Visualizer({
       }
     }
 
-    // Apply target step
     for (let j = 0; j < step.changedBits.length; j++) {
       const idx = step.changedBits[j];
       if (idx < bs.length) bs[idx] = 1;
     }
 
     let totalSet = 0;
-    for (let i = 0; i < bs.length; i++) { if (bs[i]) totalSet++; }
+    for (let i = 0; i < bs.length; i++) {
+      if (bs[i]) totalSet++;
+    }
     let duplicateTargets = 0;
     if (step.targetHitCounts && step.targetHitCounts.length > 0) {
       for (let index = 0; index < step.targetHitCounts.length; index++) {
@@ -1818,7 +1858,6 @@ export default function Visualizer({
     const previousHighlights = new Set(r.changedBits || []);
 
     if (!aggregateScrub) {
-      // Set operation for color-coded highlighting
       r.currentOperation = step.operation;
       r.currentAnnotation = step.annotation || '';
       r.setState(bs, changedSet, targetSet, targetHitCounts, {
@@ -1837,7 +1876,6 @@ export default function Visualizer({
       });
     }
 
-    // Update heat map (also when cacheline annotations are enabled, to provide hit-count data)
     if (r.heatMapEnabled || (r.cachelineAnnotation && r.cachelineAnnotation !== 'none')) {
       r.rebuildHeatMap(steps, target);
     }
@@ -1858,24 +1896,18 @@ export default function Visualizer({
         }
         r.resize(canvasW, canvasH, overlayDpr);
       }
-      // Same as refreshCanvasLayout: layout columns target a stable
-      // window-anchored size so panel toggles don't reflow.
       const lvW = (typeof window !== 'undefined' ? window.innerWidth : rect.width) || rect.width;
       const lvH = (typeof window !== 'undefined' ? window.innerHeight : rect.height) || rect.height;
       r.layoutAvailWidth = lvW;
       r.layoutAvailHeight = lvH;
-      // Zoom to fit on first render
       if (!initialFitDoneRef.current) {
         applyViewportFit(r, rect.width, rect.height);
-        // If fit-to-screen cannot keep the full grid visible (e.g. min zoom
-        // clamp), bias startup framing toward the top so row 1 appears at
-        // roughly one-third of the visible viewport height.
         const fitsViewport = r.isContentFullyVisible(rect.width, rect.height);
         if (!fitsViewport) {
           const firstRow = r.getElementBounds('cacheline', 0);
           if (firstRow) {
-            const canvasH = r.canvasHeight || rect.height;
-            const planeOffsetY = Math.max(0, (canvasH - rect.height) / 2);
+            const canvasHeight = r.canvasHeight || rect.height;
+            const planeOffsetY = Math.max(0, (canvasHeight - rect.height) / 2);
             const targetY = planeOffsetY + rect.height / 3;
             r.panY += targetY - firstRow.cy;
           }
@@ -1889,46 +1921,30 @@ export default function Visualizer({
         initialFitDoneRef.current = true;
       }
     }
+
     r.render();
     updateMinimapAvailability();
     r.renderMinimap(r.canvasWidth, r.canvasHeight, getMinimapDetailH());
     setCurrentStep(target);
 
-    // Trigger animation for changed bits
-    // Only run the per-event reveal animation when there is an active "play"
-    // context: all-events autoplay (`playing`), single-event auto-replay
-    // (`singleEventLoopActive`), or active drag-scrub on the top slider.
-    // Otherwise this is a "jump" — apply the new state silently.
     const hasPlayContext = playing
       || singleEventLoopActiveRef.current
       || isScrubbingTopRef.current
       || options.keepPlaying === true
       || options.forceAnimate === true;
-    // For aggregate scrubbing, the selected-steps animation loop (Effect 1)
-    // keeps running without interference — don't call triggerAnimation here.
     if (!aggregateScrub && !suppressHighlight && hasPlayContext && triggerAnimationRef.current) {
-      // Pick the right delay context:
-      //  - All-events autoplay (playing): wait `delayBetweenEvents` after this
-      //    event before the scheduler advances to the next event.
-      //  - Single-event auto-replay or manual navigation: 0 here — the
-      //    pausedStepAnimLoop adds `delayBetweenRepeats` between repeats.
-      //  - Mid-drag scrub of the top slider: 0 (each drag tick re-triggers).
       const delayMs = playing ? delayBetweenEvents : 0;
       triggerAnimationRef.current(changedSet, {
         adaptiveDuration: true,
         fadeOutBits: previousHighlights,
         delayMs,
-        // No more forced playbackDurationMs — computeEventDuration drives the
-        // per-event wall-clock duration from the per-tier time targets and
-        // the speed % slider.
         pinnedBitIndices,
         groupBits: effectiveGroupBits,
       });
     }
   }, [currentStep, steps, updateMinimapAvailability, playing, stopPlayback, getCanvasTargetSize, delayBetweenEvents, applyViewportFit, pinnedBitIndices, effectiveGroupBits]);
 
-  // Stable ref so long-lived closures (play scheduler, keyboard handler)
-  // can call the latest goToStep without listing it in their dep arrays.
+  // Stable ref so long-lived closures can call the latest goToStep.
   const goToStepRef = useRef(null);
   goToStepRef.current = goToStep;
 
@@ -1943,352 +1959,6 @@ export default function Visualizer({
     steps,
     currentStep,
   });
-
-  const { cancelViewportAnimation } = useViewportAnimationCancel({ viewportAnimRef });
-
-  // Stop any running sequential animation
-  const stopSeqAnim = useCallback(() => {
-    if (seqTimerRef.current) {
-      // seqTimerRef may hold either a setTimeout id (sequential reveal) or a
-      // RAF id (pausable waitForDelay). Cancel both possibilities; the unused
-      // one is a harmless no-op.
-      clearTimeout(seqTimerRef.current);
-      cancelAnimationFrame(seqTimerRef.current);
-      seqTimerRef.current = null;
-    }
-    // Cancel runEffect's in-flight animation and resolve its Promise cleanly so
-    // the loop's `await triggerFn()` is never left permanently suspended.
-    // Call BEFORE the generic rippleRef cancel — the cancel fn handles rippleRef.
-    if (runEffectCancelRef.current) {
-      runEffectCancelRef.current();
-    } else if (rippleRef.current) {
-      // Mask stamp or other RAF user — no associated resolve callback.
-      cancelAnimationFrame(rippleRef.current);
-      rippleRef.current = null;
-    }
-    // Cancel camera animations
-    if (camera3DRef.current) camera3DRef.current.cancelAllAnimations();
-    cancelViewportAnimation();
-    if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
-  }, [cancelViewportAnimation]);
-  stopSeqAnimRef.current = stopSeqAnim;
-
-  const freezeAnimationNow = useCallback(() => {
-    stopPlayback();
-    stopSeqAnim();
-    setAnimationReplayPaused(true);
-    const r = rendererRef.current;
-    if (!r) return;
-    r.render();
-    r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-  }, [stopPlayback, stopSeqAnim, getMinimapDetailH]);
-
-  // Scrub the animation inside the current event. progress is 0..1; maps to a
-  // bit index inside this step's changedBits. We roll bitState back to the
-  // state just BEFORE the current step, then apply only bits [0..targetIdx],
-  // so the grid shows a true progressive reveal — bits beyond the scrub
-  // position render as unset, not as the step's finished state.
-  const seekStepAnimation = useCallback((progress) => {
-    // Bump the seek generation so any in-flight triggerAnimation tick that
-    // fires AFTER this point will self-abort instead of overwriting the canvas.
-    seekGenRef.current += 1;
-    stopPlayback();
-    stopSeqAnim();
-    // Synchronously kill any pending loop re-schedules (setTimeout(loop, 0))
-    // that were posted after the previous animation completed. React 18's
-    // MessageChannel-based scheduler fires as a macrotask — the same priority
-    // as setTimeout — so the loop can restart before React's effect cleanup
-    // runs clearTimeout. Clearing here prevents that race.
-    if (pausedStepAnimLoopRef.current) {
-      clearTimeout(pausedStepAnimLoopRef.current);
-      pausedStepAnimLoopRef.current = null;
-    }
-    if (selectedAnimLoopRef.current) {
-      clearTimeout(selectedAnimLoopRef.current);
-      selectedAnimLoopRef.current = null;
-    }
-    // Clear the single-event loop so the Play button shows the correct state
-    // (Play, not Pause) after the user manually repositions the animation.
-    setSingleEventLoopActive(false);
-    setAnimationReplayPaused(true);
-    setDelayPhaseMsRef.current(null);
-    const r = rendererRef.current;
-    const stepIdx = currentStep;
-    const allSteps = stepsRef.current;
-    const step = allSteps[stepIdx];
-    const bs = bitStateRef.current;
-    if (!r || !step || !bs) return;
-    const clamped = Math.max(0, Math.min(1, progress));
-
-    // ── Aggregate seek ─────────────────────────────────────────────────────
-    // When multiple steps are selected the renderer was already set up with
-    // the merged mask/bit state by the selectedSteps effect.  Handle all
-    // animation modes (mask, combined, sequential, all) using the renderer's
-    // current state rather than a single step's data.
-    const selSteps = selectedStepsRef.current;
-    if (selSteps.size > 1) {
-      const mode = bitAnimationModeRef.current;
-      const aggHasMask = !!(r.maskWriteOrderWords && r.maskWriteOrderWords.length > 0
-        && Number.isFinite(r.maskWordBits) && r.maskWordBits > 0);
-      const inMaskOrCombinedAgg = (mode === 'mask' || mode === 'combined') && aggHasMask;
-
-      if (inMaskOrCombinedAgg) {
-        const t = clamped;
-        // Combined mode: reveal merged bits progressively alongside the stamp.
-        if (mode === 'combined') {
-          const mergedBits = new Set();
-          let minIdx = Infinity;
-          for (const idx of selSteps) {
-            if (idx < minIdx) minIdx = idx;
-            const s = allSteps[idx];
-            if (s && s.changedBits) for (let j = 0; j < s.changedBits.length; j++) mergedBits.add(s.changedBits[j]);
-          }
-          const sorted = Array.from(mergedBits).sort((a, b) => a - b);
-          bs.fill(0);
-          for (let i = 0; i < minIdx; i++) {
-            const s = allSteps[i];
-            for (let j = 0; j < s.changedBits.length; j++) {
-              const bit = s.changedBits[j];
-              if (bit < bs.length) bs[bit] = 1;
-            }
-          }
-          const revealCount = Math.floor(t * sorted.length);
-          for (let i = 0; i < revealCount; i++) {
-            const bit = sorted[i];
-            if (bit < bs.length) bs[bit] = 1;
-          }
-          r.bitState = bs;
-          bitStateDirtyRef.current = revealCount < sorted.length;
-        }
-        const targetBits = (r.targetBits && r.targetBits.size > 0) ? r.targetBits : new Set(r.changedBits || []);
-        r.changedBits = new Set(targetBits);
-        const slotGroups = r._maskEntriesBySlot ? r._maskEntriesBySlot() : [];
-        const ghostBits = new Set();
-        if (slotGroups.length > 0) {
-          for (let groupIndex = 0; groupIndex < slotGroups.length; groupIndex++) {
-            const entries = slotGroups[groupIndex];
-            if (!entries || entries.length === 0) continue;
-            const segmentCount = Math.max(1, entries.length);
-            const unit = t * segmentCount;
-            const index = Math.min(entries.length - 1, Math.floor(unit));
-            const local = Math.max(0, Math.min(1, unit - index));
-            for (let entryIndex = 0; entryIndex < entries.length; entryIndex++) {
-              const isStamped = entryIndex < index || entryIndex === index || (entryIndex === index + 1 && local > 0.78);
-              if (isStamped) continue;
-              const bitsForEntry = r._maskEntryBits ? r._maskEntryBits(entries[entryIndex]) : [];
-              for (let bi = 0; bi < bitsForEntry.length; bi++) ghostBits.add(bitsForEntry[bi]);
-            }
-          }
-        } else if (r.targetBits?.size) {
-          for (const bit of r.targetBits) ghostBits.add(bit);
-        }
-        r.showMaskWriteOverlay = false;
-        r.setMaskGhostBits(ghostBits);
-        r.render();
-        const orderedWrites = r.maskWriteOrderWords?.length || 0;
-        if (orderedWrites > 0) r.renderMaskHover(t);
-        else r.renderMaskStamp(t);
-        r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-        r.showMaskWriteOverlay = true;
-        if (mode === 'mask') bitStateDirtyRef.current = clamped < 0.999;
-        return;
-      }
-
-      // Aggregate sequential/all-mode seek.
-      const mergedSet = new Set();
-      let minStepIdx = Infinity;
-      for (const idx of selSteps) {
-        if (idx < minStepIdx) minStepIdx = idx;
-        const s = allSteps[idx];
-        if (s && s.changedBits) {
-          for (let j = 0; j < s.changedBits.length; j++) mergedSet.add(s.changedBits[j]);
-        }
-      }
-      const aggBits = Array.from(mergedSet).sort((a, b) => a - b);
-      if (aggBits.length > 0) {
-        const isAllMode = (animMode !== 'sequential' && animMode !== 'bounce');
-        bs.fill(0);
-        for (let i = 0; i < minStepIdx; i++) {
-          const s = allSteps[i];
-          for (let j = 0; j < s.changedBits.length; j++) {
-            const bit = s.changedBits[j];
-            if (bit < bs.length) bs[bit] = 1;
-          }
-        }
-        if (isAllMode) {
-          // All-mode: all bits revealed; scrub maps to visual overlay.
-          for (let i = 0; i < aggBits.length; i++) {
-            const bit = aggBits[i];
-            if (bit < bs.length) bs[bit] = 1;
-          }
-          bitStateDirtyRef.current = false;
-          const changedFull = new Set(aggBits);
-          r.bitState = bs;
-          r.changedBits = changedFull;
-          r.animationFocusBits = changedFull;
-          r.render();
-          if (animStyle === 'ripple') r.renderRipple(clamped);
-          else if (animStyle === 'fade') r.renderFade(clamped);
-          else if (animStyle === 'pulse') r.renderPulse(clamped);
-          r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-        } else {
-          // Sequential: progressively reveal bits.
-          const revealCount = bitsAtTimeRatioRef.current
-            ? bitsAtTimeRatioRef.current(clamped, aggBits.length)
-            : Math.round(clamped * aggBits.length);
-          const targetIdx = Math.max(0, Math.min(aggBits.length - 1, revealCount - 1));
-          const revealed = new Set();
-          for (let i = 0; i <= targetIdx; i++) {
-            const bit = aggBits[i];
-            if (bit < bs.length) bs[bit] = 1;
-            revealed.add(bit);
-          }
-          bitStateDirtyRef.current = targetIdx < aggBits.length - 1;
-          const focusBits = new Set([aggBits[targetIdx]]);
-          r.bitState = bs;
-          r.changedBits = revealed;
-          r.animationFocusBits = focusBits;
-          r.render();
-          if (animStyle === 'ripple') r.renderRipple(0.18, focusBits, { intensity: 1.1, showBeacon: true });
-          else if (animStyle === 'pulse') r.renderPulse(0.28, focusBits, { intensity: 1.2, showHalo: true });
-          else if (animStyle === 'fade') r.renderFade(0.35);
-          r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-        }
-      }
-      return;
-    }
-
-    // ── Single-step seek ───────────────────────────────────────────────────
-    // Mask + combined seek: render the apply-mask group stamp animation frozen
-    // at progress `clamped`. In combined mode we *also* roll bitState to a
-    // partial reveal so the bits fill in alongside the stamp position.
-    const mode = bitAnimationModeRef.current;
-    const stepHasMask = !!(step.maskWriteOrderWords && step.maskWriteOrderWords.length > 0
-      && Number.isFinite(step.maskWordBits) && step.maskWordBits > 0);
-    const inMaskOrCombined = (mode === 'mask' || mode === 'combined') && stepHasMask;
-    if (inMaskOrCombined) {
-      const t = clamped;
-
-      // Combined mode: progressively reveal bits in bitState up to the
-      // matching fraction of the step's changedBits.
-      if (mode === 'combined' && step.changedBits && step.changedBits.length > 0) {
-        const sorted = Array.from(step.changedBits).sort((a, b) => a - b);
-        bs.fill(0);
-        for (let i = 0; i < stepIdx; i++) {
-          const s = allSteps[i];
-          for (let j = 0; j < s.changedBits.length; j++) {
-            const bit = s.changedBits[j];
-            if (bit < bs.length) bs[bit] = 1;
-          }
-        }
-        const revealCount = Math.floor(t * sorted.length);
-        for (let i = 0; i < revealCount; i++) {
-          const bit = sorted[i];
-          if (bit < bs.length) bs[bit] = 1;
-        }
-        r.bitState = bs;
-        bitStateDirtyRef.current = revealCount < sorted.length;
-      }
-
-      const targetBits = (r.targetBits && r.targetBits.size > 0) ? r.targetBits : new Set(step.changedBits || []);
-      r.changedBits = new Set(targetBits);
-      const slotGroups = r._maskEntriesBySlot ? r._maskEntriesBySlot() : [];
-      const ghostBits = new Set();
-      if (slotGroups.length > 0) {
-        for (let groupIndex = 0; groupIndex < slotGroups.length; groupIndex++) {
-          const entries = slotGroups[groupIndex];
-          if (!entries || entries.length === 0) continue;
-          const segmentCount = Math.max(1, entries.length);
-          const unit = t * segmentCount;
-          const index = Math.min(entries.length - 1, Math.floor(unit));
-          const local = Math.max(0, Math.min(1, unit - index));
-          for (let entryIndex = 0; entryIndex < entries.length; entryIndex++) {
-            const isStamped = entryIndex < index || entryIndex === index || (entryIndex === index + 1 && local > 0.78);
-            if (isStamped) continue;
-            const bitsForEntry = r._maskEntryBits ? r._maskEntryBits(entries[entryIndex]) : [];
-            for (let bi = 0; bi < bitsForEntry.length; bi++) ghostBits.add(bitsForEntry[bi]);
-          }
-        }
-      } else if (r.targetBits?.size) {
-        for (const bit of r.targetBits) ghostBits.add(bit);
-      }
-      r.showMaskWriteOverlay = false;
-      r.setMaskGhostBits(ghostBits);
-      r.render();
-      const orderedWrites = r.maskWriteOrderWords?.length || 0;
-      if (orderedWrites > 0) r.renderMaskHover(t);
-      else r.renderMaskStamp(t);
-      r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-      // Ensure subsequent animations start clean (stamp overlay is a one-shot).
-      r.showMaskWriteOverlay = true;
-      if (mode === 'mask') bitStateDirtyRef.current = clamped < 0.999;
-      return;
-    }
-
-    // 'all' mode: all bits are revealed in one go; the scrub position maps to
-    // the visual effect overlay progress (ripple/fade/pulse), not bit-reveal.
-    const isAllMode = (animMode !== 'sequential' && animMode !== 'bounce');
-    if (!inMaskOrCombined && isAllMode) {
-      bs.fill(0);
-      for (let i = 0; i <= stepIdx; i++) {
-        const s = allSteps[i];
-        for (let j = 0; j < s.changedBits.length; j++) {
-          const b = s.changedBits[j];
-          if (b < bs.length) bs[b] = 1;
-        }
-      }
-      bitStateDirtyRef.current = false;
-      r.bitState = bs;
-      const changedFull = new Set(step.changedBits);
-      r.changedBits = changedFull;
-      r.animationFocusBits = changedFull;
-      r.render();
-      if (animStyle === 'ripple') r.renderRipple(clamped);
-      else if (animStyle === 'fade') r.renderFade(clamped);
-      else if (animStyle === 'pulse') r.renderPulse(clamped);
-      r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-      return;
-    }
-
-    if (!step.changedBits || step.changedBits.length === 0) return;
-    const bits = Array.from(step.changedBits).sort((a, b) => a - b);
-    // Map the time-based scrub fraction to a bit count using the same curve
-    // the playback uses, so what the user sees while scrubbing matches what
-    // they would see at that same moment of automatic playback.
-    const revealCount = bitsAtTimeRatioRef.current
-      ? bitsAtTimeRatioRef.current(clamped, bits.length)
-      : Math.round(clamped * bits.length);
-    const targetIdx = Math.max(0, Math.min(bits.length - 1, revealCount - 1));
-
-    // Rebuild bitState: state BEFORE the current step, then reveal bits up to target.
-    bs.fill(0);
-    for (let i = 0; i < stepIdx; i++) {
-      const s = allSteps[i];
-      for (let j = 0; j < s.changedBits.length; j++) {
-        const bit = s.changedBits[j];
-        if (bit < bs.length) bs[bit] = 1;
-      }
-    }
-    const revealed = new Set();
-    for (let i = 0; i <= targetIdx; i++) {
-      const bit = bits[i];
-      if (bit < bs.length) bs[bit] = 1;
-      revealed.add(bit);
-    }
-    // If we didn't reveal every bit, bitState is in an intermediate state; mark
-    // dirty so the next goToStep does a full rebuild (not an incremental merge).
-    bitStateDirtyRef.current = targetIdx < bits.length - 1;
-
-    const focusBits = new Set([bits[targetIdx]]);
-    r.bitState = bs;
-    r.changedBits = revealed;
-    r.animationFocusBits = focusBits;
-    r.render();
-    if (animStyle === 'ripple') r.renderRipple(0.18, focusBits, { intensity: 1.1, showBeacon: true });
-    else if (animStyle === 'pulse') r.renderPulse(0.28, focusBits, { intensity: 1.2, showHalo: true });
-    else if (animStyle === 'fade') r.renderFade(0.35);
-    r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-  }, [currentStep, animMode, animStyle, stopPlayback, stopSeqAnim, getMinimapDetailH]);
 
   const { waitForDelay } = usePausableDelay({ globalPausedRef, seqTimerRef });
 
@@ -2483,382 +2153,39 @@ export default function Visualizer({
     clampMs,
   });
 
-  // Main animation trigger — fade old highlights, animate current step, then wait using animation delay.
-  const triggerAnimation = useCallback(async (changedSet, options = {}) => {
-    // Capture the current seek generation. If seekStepAnimation() is called
-    // while this async function is awaiting, the generation is bumped and
-    // every subsequent tick will call resolve()+return without touching the
-    // canvas, preventing the orphaned animation from overwriting the scrub.
-    const mySeekGen = seekGenRef.current;
-    const isStillLive = () => seekGenRef.current === mySeekGen;
-    const resuming = (!!options.startIndex && options.startIndex > 0) ||
-      (Number.isFinite(options.startProgress) && options.startProgress > 0);
-    if (!options.keepProgress) {
-      stopSeqAnimRef.current?.();
-      // Reset the banner scrub slider at the start of a fresh animation.
-      // When resuming from a paused position, keep the slider where it is.
-      if (!resuming && stepScrubProgressRef.current) stepScrubProgressRef.current(0);
-    }
-    const r = rendererRef.current;
-    // The mask stamp animation runs in 'mask' and 'combined' modes; pure 'bit'
-    // mode forces the per-bit sequential reveal even when mask metadata exists.
-    const mode = bitAnimationModeRef.current;
-    const maskModeActive = mode === 'mask' || mode === 'combined';
-    const combinedMode = mode === 'combined';
-    const hasMaskAnimation = !!(maskModeActive && r && r.maskWriteOrderWords && r.maskWriteOrderWords.length > 0 && Number.isFinite(r.maskWordBits) && r.maskWordBits > 0);
-    // For mask/combined mode the animation iterates maskWriteOrderWords (not changedSet),
-    // so large aggregates must not be blocked by the bit-count guard.
-    if (!r || !changedSet || (!hasMaskAnimation && changedSet.size === 0) || (!hasMaskAnimation && changedSet.size >= 100000)) return;
-
-    const animatedBitCount = changedSet.size > 0 ? changedSet.size : Math.max(1, r.targetBits?.size || r.maskWriteOrderWords?.length || 1);
-    const timingBaseOptions = {
-      ...options,
-      pinnedBitIndices: options.pinnedBitIndices ?? pinnedBitIndices,
-      groupBits: options.groupBits ?? effectiveGroupBits,
-    };
-    // The "between" delay defaults vary by caller:
-    //  - All-events scheduler passes delayMs=delayBetweenEvents
-    //  - Single-event replay loop passes delayMs=delayBetweenRepeats
-    //  - Manual goToStep (non-playing) passes 0 (the replay loop handles its own gap)
-    const delayMs = Math.max(0, timingBaseOptions.delayMs ?? 0);
-    // Per-event normal duration drives both the per-bit reveal and the mask
-    // stamp animation. Speed % is folded into computeEventDuration.
-    const eventNormalMs = computeEventDurationRef.current
-      ? computeEventDurationRef.current(animatedBitCount)
-      : null;
-    const requestedCycleDuration = Number.isFinite(timingBaseOptions.playbackDurationMs)
-      ? Math.max(0, timingBaseOptions.playbackDurationMs)
-      : null;
-    const explicitDuration = Number.isFinite(timingBaseOptions.durationMs)
-      ? Math.max(80, timingBaseOptions.durationMs)
-      : null;
-    const requestedAnimationDuration = explicitDuration != null
-      ? explicitDuration
-      : (requestedCycleDuration != null
-        ? Math.max(120, requestedCycleDuration - delayMs)
-        : eventNormalMs);
-    const durationOptions = requestedAnimationDuration != null
-      ? { ...timingBaseOptions, adaptiveDuration: true, durationMs: requestedAnimationDuration }
-      : timingBaseOptions;
-    const adaptivePlan = getAnimationTimingPlan(animatedBitCount, durationOptions);
-    const timingOptions = adaptivePlan ? { ...durationOptions, adaptivePlan } : durationOptions;
-    const effectiveBitInterval = getAnimationBitInterval(animatedBitCount, timingOptions);
-    const est = estimateAnimDuration(animatedBitCount, timingOptions);
-    const totalCycleDuration = requestedCycleDuration != null ? Math.max(requestedCycleDuration, est + delayMs) : est + delayMs;
-    animBusyUntilRef.current = performance.now() + totalCycleDuration;
-
-    if (!options.keepProgress && !resuming) {
-      await fadeOutCurrentHighlights(options);
-      // Abort if the user scrubbed while the fade-out was running.
-      if (!isStillLive()) return;
-    }
-
-    if (hasMaskAnimation) {
-      // Mask-only modes paint every changed bit as "set" up front (the stamp
-      // overlays them). Combined mode starts with no highlighted bits and
-      // grows the set in lockstep with the stamp animation, so users see the
-      // bits being set one by one underneath the moving stamps.
-      if (combinedMode) {
-        r.changedBits = new Set();
-      } else if (!r.changedBits || r.changedBits.size === 0) {
-        r.changedBits = new Set(changedSet.size > 0 ? changedSet : (r.targetBits || []));
-      }
-      const { durationMs: _ignoredDurationMs, ...maskTimingBaseOptions } = timingOptions;
-      void _ignoredDurationMs;
-      // Use the unified per-event total duration for the mask animation so
-      // bits and mask stamps share the same time budget, speed %, and the
-      // same scrub progress mapping.
-      const maskTotalDurationMs = requestedAnimationDuration != null
-        ? requestedAnimationDuration
-        : (computeEventDurationRef.current ? computeEventDurationRef.current(animatedBitCount) : null);
-      // When resuming, seed virtualMs at the current scrub progress so the
-      // stamp animation picks up where the user paused/scrubbed.
-      const resumeStartProgress = resuming
-        ? Math.max(0, Math.min(0.999, (Number(options.startProgress) ?? (stepScrubProgressRef.current ? 0 : 0)) || 0))
-        : 0;
-      // Combined mode: progressively reveal the step's bits during the stamp
-      // animation. We roll bitState back to the state before the current step,
-      // then let runMaskStampAnimation flip bits as `t` advances.
-      let combinedBitsConfig = null;
-      if (combinedMode) {
-        const stepIdx = currentStep;
-        const bs = bitStateRef.current;
-        const allSteps = stepsRef.current;
-        const step = allSteps[stepIdx];
-        if (bs && step && step.changedBits && step.changedBits.length > 0) {
-          const sorted = Array.from(step.changedBits).sort((a, b) => a - b);
-          // Roll bs back to state-before-step
-          bs.fill(0);
-          for (let i = 0; i < stepIdx; i++) {
-            const s = allSteps[i];
-            for (let j = 0; j < s.changedBits.length; j++) {
-              const bit = s.changedBits[j];
-              if (bit < bs.length) bs[bit] = 1;
-            }
-          }
-          // If resuming partway, seed bits up to the resume fraction so the
-          // grid matches the slider position before the next tick advances.
-          if (resumeStartProgress > 0) {
-            const seedTo = Math.floor(resumeStartProgress * sorted.length);
-            for (let i = 0; i < seedTo; i++) {
-              const bit = sorted[i];
-              if (bit < bs.length) bs[bit] = 1;
-            }
-          }
-          r.bitState = bs;
-          bitStateDirtyRef.current = true;
-          combinedBitsConfig = { sortedBits: sorted, bs };
-        }
-      }
-      const maskTimingOptions = {
-        ...maskTimingBaseOptions,
-        preferredIntervalMs: Math.max(0, currentMaskAnimIntervalRef.current || maskAnimInterval || 20),
-        startProgress: resumeStartProgress,
-        combinedBits: combinedBitsConfig,
-        durationMs: maskTotalDurationMs,
-      };
-      const effectiveMaskBitInterval = Math.max(5, maskTimingOptions.preferredIntervalMs || 20);
-      r.setMaskGhostBits(new Set(changedSet.size > 0 ? changedSet : (r.targetBits || [])));
-      r.render();
-      r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-      // Surface state so the banner play/pause button + timeline track this animation.
-      if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(true);
-      if (!resuming && stepScrubProgressRef.current) stepScrubProgressRef.current(0);
-      await runMaskStampAnimation(effectiveMaskBitInterval, maskTimingOptions);
-      if (!isStillLive()) return;
-      if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
-      // Keep stepAnimRunning true across the post-animation delay so the
-      // banner Play/Pause button stays in its "running" state — the user
-      // perceives the looping replay as a single continuous animation.
-      // Combined mode: settle bitState to fully include the step's bits at end.
-      if (combinedMode && combinedBitsConfig) {
-        const { sortedBits, bs } = combinedBitsConfig;
-        for (let i = 0; i < sortedBits.length; i++) {
-          const bit = sortedBits[i];
-          if (bit < bs.length) bs[bit] = 1;
-        }
-        bitStateDirtyRef.current = false;
-      }
-      if (delayMs > 0) setDelayPhaseMsRef.current(delayMs);
-      await waitForDelay(delayMs);
-      setDelayPhaseMsRef.current(null);
-      if (!isStillLive()) return;
-      if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
-      return;
-    }
-
-    if ((animMode === 'sequential' || animMode === 'bounce') && effectiveBitInterval > 0) {
-      const bits = Array.from(changedSet).sort((a, b) => a - b);
-      const fullChanged = new Set(changedSet);
-      // Optional start index: lets the banner Play button resume a paused reveal
-      // from the current scrub position instead of restarting at 0.
-      const requestedStart = Math.max(0, Math.min(
-        bits.length - 1,
-        parseInt(options.startIndex || 0, 10) || 0
-      ));
-      let idx = requestedStart;
-      let direction = 1;
-      let bounced = false;
-      let revealCount = requestedStart;
-      if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(true);
-      let previousFocusBit = null;
-      const trailSize = animMode === 'bounce' ? Math.min(8, Math.max(3, Math.round(bits.length / 18))) : 0;
-
-      const buildBounceTrail = () => {
-        const trail = [];
-        for (let offset = 0; offset < trailSize; offset++) {
-          const trailIdx = idx - direction * offset;
-          if (trailIdx < 0 || trailIdx >= bits.length) continue;
-          trail.push(bits[trailIdx]);
-        }
-        return trail;
-      };
-
-      await new Promise((resolve) => {
-        // Time-driven reveal: virtualElapsed advances with un-paused wall
-        // time, the curve maps elapsed-ratio to a target bit count, and the
-        // loop terminates as soon as virtualElapsed >= totalDuration. This
-        // guarantees the visible animation matches the timeline slider 1:1
-        // and stops cleanly at 100 %.
-        const totalDuration = Math.max(120, computeEventDurationRef.current
-          ? computeEventDurationRef.current(bits.length)
-          : bits.length * 50);
-        const isBounce = animMode === 'bounce';
-        // Resume from pause: seed virtualElapsed so we pick up where the
-        // user paused/scrubbed. requestedStart is a bit index; convert to a
-        // time ratio using the active mode's curve.
-        let virtualElapsed = requestedStart > 0 && !isBounce && timeRatioAtBitIndexRef.current
-          ? Math.min(totalDuration - 1, timeRatioAtBitIndexRef.current(requestedStart, bits.length) * totalDuration)
-          : 0;
-        let lastTickAt = performance.now();
-        let lastRevealedCount = -1;
-
-        const renderFrame = (revealedCount, focusBit, t) => {
-          const partial = isBounce
-            ? new Set(buildBounceTrail())
-            : (() => {
-                const value = new Set();
-                const cap = Math.min(bits.length, revealedCount);
-                for (let i = 0; i < cap; i++) value.add(bits[i]);
-                return value;
-              })();
-          const focusBits = isBounce
-            ? new Set(buildBounceTrail().slice(0, Math.max(1, Math.min(3, trailSize))))
-            : new Set([focusBit]);
-          r.changedBits = partial;
-          r.animationFocusBits = focusBits;
-          if (!isBounce && previousFocusBit != null && previousFocusBit !== focusBit) {
-            r.addBitMotionTrail(previousFocusBit, focusBit, {
-              duration: Math.max(220, Math.min(900, effectiveBitInterval * 10)),
-              intensity: 1,
-            });
-          }
-          r.render();
-          r.renderBitMotionTrails();
-          if (animStyle === 'ripple' && focusBits.size > 0) {
-            r.renderRipple(0.18, focusBits, { intensity: isBounce ? 1.25 : 1.05, showBeacon: true });
-          } else if (animStyle === 'pulse' && focusBits.size > 0) {
-            r.renderPulse(0.28, focusBits, { intensity: isBounce ? 1.35 : 1.15, showHalo: true });
-          } else if (animStyle === 'fade' && partial.size > 0) {
-            r.renderFade(isBounce ? 0.22 : 0.35);
-          }
-          if (isBounce && partial.size > 0) {
-            r.renderFade(0.25);
-          }
-          r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-          previousFocusBit = focusBit;
-          if (stepScrubProgressRef.current) {
-            stepScrubProgressRef.current(Math.round(Math.max(0, Math.min(1, t)) * 100));
-          }
-        };
-
-        const tick = () => {
-          if (!rendererRef.current) {
-            resolve();
-            return;
-          }
-          // Abort: user scrubbed the timeline while this RAF was pending.
-          // Just resolve (not render) so the canvas keeps the scrubbed state.
-          if (!isStillLive()) {
-            resolve();
-            return;
-          }
-          if (globalPausedRef.current) {
-            lastTickAt = performance.now();
-            seqTimerRef.current = requestAnimationFrame(tick);
-            return;
-          }
-          const now = performance.now();
-          virtualElapsed += Math.max(0, now - lastTickAt);
-          lastTickAt = now;
-          const t = Math.min(1, virtualElapsed / totalDuration);
-
-          let revealedCount;
-          let focusBit;
-          if (isBounce) {
-            const phase = t * 2; // 0..2
-            const len = Math.max(1, bits.length - 1);
-            idx = phase <= 1
-              ? Math.round(phase * len)
-              : Math.round((2 - phase) * len);
-            idx = Math.max(0, Math.min(bits.length - 1, idx));
-            revealedCount = idx + 1;
-            focusBit = bits[idx];
-          } else {
-            revealedCount = Math.max(0, Math.min(bits.length, bitsAtTimeRatioRef.current
-              ? bitsAtTimeRatioRef.current(t, bits.length)
-              : Math.round(t * bits.length)));
-            const fIdx = Math.max(0, Math.min(bits.length - 1, revealedCount - 1));
-            focusBit = bits[fIdx];
-            idx = fIdx;
-          }
-
-          if (revealedCount !== lastRevealedCount || isBounce) {
-            renderFrame(revealedCount, focusBit, t);
-            lastRevealedCount = revealedCount;
-          } else {
-            // Update the slider even on frames where no new bit appeared so
-            // the timeline keeps moving smoothly inside long inter-bit gaps.
-            if (stepScrubProgressRef.current) stepScrubProgressRef.current(Math.round(t * 100));
-            // Re-render active motion trails every frame so their time-based
-            // fade animates at full 60 fps even when no new bit was revealed.
-            if (!isBounce && r.bitMotionTrails && r.bitMotionTrails.length > 0) {
-              r.render();
-              r.renderBitMotionTrails();
-              if (animStyle === 'ripple' && r.animationFocusBits && r.animationFocusBits.size > 0) {
-                r.renderRipple(0.18, r.animationFocusBits, { intensity: 1.05, showBeacon: true });
-              } else if (animStyle === 'pulse' && r.animationFocusBits && r.animationFocusBits.size > 0) {
-                r.renderPulse(0.28, r.animationFocusBits, { intensity: 1.15, showHalo: true });
-              } else if (animStyle === 'fade' && r.changedBits && r.changedBits.size > 0) {
-                r.renderFade(0.35);
-              }
-            }
-          }
-
-          if (t >= 1) {
-            r.changedBits = fullChanged;
-            r.animationFocusBits = new Set();
-            r.render();
-            r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-            if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
-            resolve();
-            return;
-          }
-          seqTimerRef.current = requestAnimationFrame(tick);
-        };
-
-        // Seed the pre-revealed bits so resume picks up visually from where
-        // the pause left off instead of briefly flashing back to empty.
-        const seededChangedBits = new Set();
-        if (requestedStart > 0 && !isBounce) {
-          for (let i = 0; i < requestedStart; i++) seededChangedBits.add(bits[i]);
-        }
-        r.changedBits = seededChangedBits;
-        r.animationFocusBits = new Set();
-        r.clearBitMotionTrails();
-        r.render();
-        r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-        seqTimerRef.current = requestAnimationFrame(tick);
-      });
-
-      r.animationFocusBits = new Set();
-      if (!isStillLive()) return;
-      if (delayMs > 0) setDelayPhaseMsRef.current(delayMs);
-      await waitForDelay(delayMs);
-      setDelayPhaseMsRef.current(null);
-      if (!isStillLive()) return;
-      if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
-      return;
-    }
-
-    if (animStyle === 'none') {
-      r.changedBits = new Set(changedSet);
-      r.render();
-      r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-      if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
-      if (delayMs > 0) setDelayPhaseMsRef.current(delayMs);
-      await waitForDelay(delayMs);
-      setDelayPhaseMsRef.current(null);
-      return;
-    }
-
-    r.changedBits = new Set(changedSet);
-    r.animationFocusBits = new Set(changedSet);
-    if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(true);
-    if (!options.keepProgress && !resuming && stepScrubProgressRef.current) stepScrubProgressRef.current(0);
-    await runEffect(
-      animStyle,
-      timingOptions.adaptivePlan ? Math.min(3200, timingOptions.adaptivePlan.totalDuration) : undefined,
-      (p) => { if (stepScrubProgressRef.current) stepScrubProgressRef.current(Math.round(p * 100)); },
-    );
-    if (!isStillLive()) return;
-    r.animationFocusBits = new Set();
-    if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
-    if (delayMs > 0) setDelayPhaseMsRef.current(delayMs);
-    await waitForDelay(delayMs);
-    setDelayPhaseMsRef.current(null);
-    if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
-  }, [animMode, animStyle, runEffect, estimateAnimDuration, getMinimapDetailH, getAnimationBitInterval, getAnimationTimingPlan, getCurrentLoopInterval, runMaskStampAnimation, fadeOutCurrentHighlights, waitForDelay, pinnedBitIndices, effectiveGroupBits, maskAnimInterval, computeEventDuration]);
+  const { triggerAnimation } = useTriggerAnimation({
+    seekGenRef,
+    stopSeqAnimRef,
+    stepScrubProgressRef,
+    rendererRef,
+    bitAnimationModeRef,
+    pinnedBitIndices,
+    effectiveGroupBits,
+    computeEventDurationRef,
+    getAnimationTimingPlan,
+    getAnimationBitInterval,
+    estimateAnimDuration,
+    animBusyUntilRef,
+    fadeOutCurrentHighlights,
+    currentMaskAnimIntervalRef,
+    maskAnimInterval,
+    currentStep,
+    bitStateRef,
+    stepsRef,
+    bitStateDirtyRef,
+    setDelayPhaseMsRef,
+    setStepAnimRunningRef,
+    runMaskStampAnimation,
+    waitForDelay,
+    animMode,
+    seqTimerRef,
+    timeRatioAtBitIndexRef,
+    bitsAtTimeRatioRef,
+    globalPausedRef,
+    getMinimapDetailH,
+    animStyle,
+    runEffect,
+  });
 
   useEffect(() => {
     triggerAnimationRef.current = triggerAnimation;
