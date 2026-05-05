@@ -174,11 +174,8 @@ export function mergeEventTitleSettings(saved) {
 // here keeps `Visualizer.jsx`'s `useState` lazy initialisers trivial and
 // makes the schema's evolution rules visible in one place.
 
-function clampInt(value, lo, hi) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return null;
-  return Math.max(lo, Math.min(hi, Math.round(n)));
-}
+import { clampInt as _clampInt } from './math.js';
+function clampInt(value, lo, hi) { return _clampInt(value, lo, hi, null); }
 
 function initialPlaySpeedPercent(prefs) {
   return clampInt(prefs?.playSpeedPercent, 25, 400) ?? 100;

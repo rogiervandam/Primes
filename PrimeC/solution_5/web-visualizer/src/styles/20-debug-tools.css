@@ -103,15 +103,15 @@
 }
 
 .debug-tools-bar.ok {
-  background: #22c55e;
+  background: var(--debug-pass);
 }
 
 .debug-tools-bar.warn {
-  background: #f59e0b;
+  background: var(--debug-warn);
 }
 
 .debug-tools-bar.high {
-  background: #ef4444;
+  background: var(--debug-error);
 }
 
 .debug-tools-footer {

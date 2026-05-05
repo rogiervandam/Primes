@@ -1,5 +1,6 @@
 import React from 'react';
 import { LinkIcon, CopyIcon } from '../Icons';
+import { isDOMAvailable, isWindowAvailable, getWindowSize, getElementFromPoint } from '../lib/browser.js';
 
 const MAX_ANNOTATION_LINES = 3;
 
@@ -58,16 +59,16 @@ export default function EventTitleBanner({
   // window. We temporarily hide the banner from hit testing while probing so
   // it doesn't shadow the detail panel underneath.
   const isOverDetailPanel = React.useCallback((clientX, clientY, bannerEl) => {
-    if (typeof document === 'undefined') return false;
+    if (!isDOMAvailable()) return false;
     const prevPE = bannerEl ? bannerEl.style.pointerEvents : null;
     if (bannerEl) bannerEl.style.pointerEvents = 'none';
-    const el = document.elementFromPoint(clientX, clientY);
+    const el = getElementFromPoint(clientX, clientY);
     if (bannerEl) bannerEl.style.pointerEvents = prevPE || '';
     return !!(el && el.closest && el.closest('.detail-panel'));
   }, []);
 
   const getMinDragOffsetY = React.useCallback(() => {
-    if (typeof window === 'undefined') return -9999;
+    if (!isWindowAvailable()) return -9999;
     const el = bannerRef.current;
     const h = el ? el.offsetHeight : 220;
     // top = windowH - 20 - h + oy >= 4  => oy >= 24 + h - windowH
@@ -75,7 +76,7 @@ export default function EventTitleBanner({
   }, []);
 
   const getMaxDragOffsetY = React.useCallback(() => {
-    if (typeof window === 'undefined') return 9999;
+    if (!isWindowAvailable()) return 9999;
     const panelBottom = detailOpen ? detailHeight : 36;
     const SAFE_GAP = 8;
     // bottom edge = windowH - 20 + oy <= windowH - panelBottom - SAFE_GAP
@@ -89,7 +90,7 @@ export default function EventTitleBanner({
   }, [getMaxDragOffsetY, getMinDragOffsetY]);
 
   const detectDropZone = React.useCallback((clientX, clientY, bannerEl) => {
-    if (typeof window === 'undefined') return null;
+    if (!isWindowAvailable()) return null;
     const LEFT_BAND = 80;
     const BOTTOM_BAND = 80;
     if (clientX <= LEFT_BAND) return 'left';

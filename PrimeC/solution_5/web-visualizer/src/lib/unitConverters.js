@@ -11,7 +11,7 @@
  * other UI showing the same logical knob agree on the math.
  */
 
-const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+import { clamp } from './math.js';
 
 /** Map slider value (1..100) → playback speed percentage (25..400). */
 export function playbackSpeedToPercent(speedValue) {

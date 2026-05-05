@@ -1,6 +1,7 @@
 import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { BIT_LAYOUTS, BYTE_LAYOUTS, bitToNumber } from './SieveRenderer';
 import { formatNs } from './TimingPanel';
+import { useDragResize } from './hooks/useDragResize.js';
 
 const GRID3X3_MAP = [0, 1, 2, 3, 5, 6, 7, 8];
 
@@ -204,38 +205,18 @@ export default function DetailPanel({
   }, [maskSummary, bitLayout, byteLayout]);
 
   // Height drag handler
-  const handleHeightDrag = useCallback((e) => {
-    e.preventDefault();
-    const startY = e.clientY;
-    const startHeight = height || 200;
-    const onMove = (ev) => {
-      const delta = startY - ev.clientY;
-      onHeightChange(Math.max(180, Math.min(700, startHeight + delta)));
-    };
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, [height, onHeightChange]);
+  const handleHeightDrag = useDragResize({
+    onMove: useCallback((_dx, dy) => {
+      onHeightChange(Math.max(180, Math.min(700, (height || 200) - dy)));
+    }, [height, onHeightChange]),
+  });
 
   // Width drag handler (drag right edge)
-  const handleWidthDrag = useCallback((e) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startWidth = width || 0;
-    const onMove = (ev) => {
-      const delta = ev.clientX - startX;
-      onWidthChange(Math.max(0, startWidth + delta));
-    };
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, [width, onWidthChange]);
+  const handleWidthDrag = useDragResize({
+    onMove: useCallback((dx) => {
+      onWidthChange(Math.max(0, (width || 0) + dx));
+    }, [width, onWidthChange]),
+  });
 
   const [bodyAnimClass, setBodyAnimClass] = useState('');
   const [isBodyAnimatingOut, setIsBodyAnimatingOut] = useState(false);

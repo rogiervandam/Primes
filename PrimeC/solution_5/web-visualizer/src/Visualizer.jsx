@@ -37,6 +37,7 @@ import { useWidgetState } from './hooks/useWidgetState';
 import { useBalloonLayout } from './hooks/useBalloonLayout';
 import { useBitState } from './hooks/useBitState';
 import { useViewportAnchoring } from './hooks/useViewportAnchoring';
+import { useWindowResize } from './hooks/useWindowResize';
 import CanvasLoadingOverlay from './visualizer/CanvasLoadingOverlay';
 import StatusBanners from './visualizer/StatusBanners';
 import { applyPan } from './visualizer/gestures/pan';
@@ -1696,12 +1697,7 @@ export default function Visualizer({
   }, [settingsCollapsed, isMacPlatform, showMinimap, getMinimapDetailH, updateMinimapAvailability]);
 
   // Keep GL diagnostics live while resizing/moving the window.
-  useEffect(() => {
-    const onResize = () => updateGlDebugInfo(true);
-    window.addEventListener('resize', onResize);
-    updateGlDebugInfo(true);
-    return () => window.removeEventListener('resize', onResize);
-  }, [updateGlDebugInfo]);
+  useWindowResize(() => updateGlDebugInfo(true), [updateGlDebugInfo]);
 
   const spacingPanAnimRef = useRef(null);
 

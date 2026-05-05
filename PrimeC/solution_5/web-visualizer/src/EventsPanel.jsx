@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus, Eye } from './Icons';
 import { formatNs } from './TimingPanel';
+import { isWindowAvailable } from './lib/browser.js';
 
 /**
  * Convert a flat list of steps (each with a `depth` field, 0-based) into
@@ -172,7 +173,7 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
   // Returns 'left' (expand events panel), 'top' (dock to top bar),
   // 'detail' (dock into detail panel), 'joinWidget' (merge with EventTitleBanner), or null.
   const detectDropZone = useCallback((clientX, clientY) => {
-    if (typeof window === 'undefined') return null;
+    if (!isWindowAvailable()) return null;
     const TOP_BAND = 60;   // top toolbar drop band height
     const LEFT_BAND = 80;  // left edge drop band width
     if (clientY <= TOP_BAND) return 'top';

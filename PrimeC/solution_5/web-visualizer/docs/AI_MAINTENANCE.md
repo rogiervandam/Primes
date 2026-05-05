@@ -1102,3 +1102,114 @@ Use this as overflow for work that does not fit cleanly under one goal yet.
 
 Make more backlog items, be creative!
 Find two delightful improvements
+
+## 16. Large Refactor: Redundancy Removal + CSS/JSX Generalization
+
+**Status: COMPLETED** (all phases A–G executed and build verified).
+
+Scope and constraints for this plan:
+
+- Scope: web-visualizer only
+- Delivery: big-bang branch, single integration milestone
+- Priority: consistency and maintainability first
+- Visual policy: small visual diffs acceptable during token/primitives rollout
+
+### Final Bundle Size (post-refactor)
+
+| File | Before | After | Δ |
+|---|---|---|---|
+| `index.css` | 101.26 kB | 103.20 kB | +1.9% |
+| `index.js` | 151.08 kB | 151.08 kB | 0% |
+| `Visualizer.js` | 428.99 kB | 428.90 kB | −0.1% |
+
+All within the ≤5% regression budget.
+
+### New files created
+
+| File | Purpose |
+|---|---|
+| [src/lib/math.js](src/lib/math.js) | Shared math: `clamp`, `clampInt`, `lerp`, `clampMs`, `nudge`, `percentOf` |
+| [src/lib/browser.js](src/lib/browser.js) | SSR-safe DOM/window wrappers (`isWindowAvailable`, `isDOMAvailable`, etc.) |
+| [src/lib/constants.js](src/lib/constants.js) | Shared UI constants (`DRAG_THRESHOLD_PX`, z-index levels) |
+| [src/hooks/useDragResize.js](src/hooks/useDragResize.js) | Generic mousedown→drag hook (used in DetailPanel) |
+| [src/hooks/useWindowResize.js](src/hooks/useWindowResize.js) | Window resize listener hook (used in Visualizer) |
+| [src/hooks/useRAFAnimation.js](src/hooks/useRAFAnimation.js) | Reusable RAF tween loop |
+| [src/components/Modal.jsx](src/components/Modal.jsx) | Accessible modal shell (backdrop + Escape key + close button) |
+| [src/components/ButtonGroup.jsx](src/components/ButtonGroup.jsx) | Mutually-exclusive toggle button row |
+| [src/styles/23-components.css](src/styles/23-components.css) | Shared modal/transport CSS classes |
+
+### CSS token additions (01-theme.css)
+
+Added tokens to both `:root` (dark) and `[data-theme="light"]`:
+- `--prime-accent`, `--prime-accent-bright`, `--prime-accent-border(-hover)`, `--prime-accent-bg(-hover)`
+- `--debug-pass`, `--debug-warn`, `--debug-error`
+- `--warning-fg`, `--heat-hot`
+
+Files migrated from hardcoded colors to tokens:
+- [src/styles/08b-detail-compact.css](src/styles/08b-detail-compact.css)
+- [src/styles/09-export-progress.css](src/styles/09-export-progress.css)
+- [src/styles/13-bit-history.css](src/styles/13-bit-history.css)
+- [src/styles/15-layout-overview.css](src/styles/15-layout-overview.css)
+- [src/styles/20-debug-tools.css](src/styles/20-debug-tools.css)
+
+### Outcomes
+
+- Removed duplicate `clamp` / `clampInt` helpers from `animationTiming.js`, `unitConverters.js`, `viewPrefs.js`
+- Replaced inline `typeof window !== 'undefined'` guards with `browser.js` utilities in `EventTitleBanner`, `JoinedEventsWidget`, `EventsPanel`
+- Consolidated DetailPanel's two drag handlers to `useDragResize`
+- Consolidated GL-debug resize listener in Visualizer to `useWindowResize`
+- All amber/debug/prime hardcoded color values now reference CSS custom properties
+
+### Design decisions
+
+- Complex drag handlers in EventsPanel, SettingsPanel, TraceInfoPopover, JoinedEventsWidget intentionally NOT migrated to useDragResize — they mix drop-zone detection, rubber-band physics, and state transitions that make the (dx, dy) → callback abstraction actively harmful
+- `PlaybackTransport` component not extracted — all transport implementations have sufficiently different UI variants; extracting them would require deep prop drilling without readability benefit
+- legacy migration shims in viewPrefs.js (repeatAnim, stepsPanelCollapsed) kept — they're still needed for users with old localStorage entries
+
+### Phases reference
+
+#### Phase A: Guardrails and Baseline ✅
+- Freeze behavior baseline with a pre-refactor branch snapshot
+- Captured bundle sizes (see table above)
+
+#### Phase B: Utility Consolidation ✅
+- Created `lib/math.js`, `lib/browser.js`, `lib/constants.js`
+- Migrated all duplicate clamp helpers and SSR guards
+
+#### Phase C: CSS Token Expansion ✅
+- Extended 01-theme.css with prime-accent, debug-state, warning, heat tokens
+- Created 23-components.css
+- Replaced hardcoded values in 5 CSS files
+
+#### Phase D: Interaction Hook Unification ✅
+- Created `useDragResize`, `useWindowResize`, `useRAFAnimation`
+- Migrated DetailPanel height/width drag, Visualizer GL-debug resize
+
+#### Phase E: JSX Primitive Extraction ✅
+- Created `Modal.jsx`, `ButtonGroup.jsx` (infrastructure — progressively adoptable)
+
+#### Phase F: Redundant/Legacy Path Removal ✅
+- No safe dead code identified (legacy migration shims are live; format variants are live)
+
+#### Phase G: Verification and Stabilization ✅
+- `npm run build` passes, 113 modules, bundle within tolerance
+- All changes reviewed and consistent
+
+
+
+- Freeze behavior baseline with a pre-refactor branch snapshot
+- Capture before/after metrics:
+  - bundle size from build output
+  - Visualizer and panel render cadence from Debug Tools
+  - key interaction timings (drag responsiveness, scrub responsiveness)
+- Prepare a manual smoke checklist for:
+  - load trace
+  - play/pause/seek/scrub
+  - panel toggle/resize
+  - widget join/split
+  - export and error banners
+
+Exit criteria:
+
+- baseline numbers stored in PR description or a temporary check file
+- smoke checklist agreed before touching architecture

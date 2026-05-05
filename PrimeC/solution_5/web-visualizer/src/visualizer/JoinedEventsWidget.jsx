@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useLayoutEffect } from 'react';
 import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus } from '../Icons';
 import { LinkIcon, CopyIcon } from '../Icons';
+import { isDOMAvailable, isWindowAvailable, getElementFromPoint } from '../lib/browser.js';
 
 const MAX_ANNOTATION_LINES = 3;
 
@@ -74,14 +75,14 @@ export default function JoinedEventsWidget({
   const TOP_OFFSET = 56;    // matches .joined-events-widget { top: 56px }
   // Compute the maximum Y offset allowed so the widget doesn't cover the detail panel.
   const getMaxY = useCallback(() => {
-    if (typeof window === 'undefined') return 9999;
+    if (!isWindowAvailable()) return 9999;
     const panelBottom = detailOpen ? detailHeight : 36; // 36 = collapsed detail header height
     const SAFE_GAP = 8;
     const widgetH = widgetRef.current ? widgetRef.current.offsetHeight : 300;
     return window.innerHeight - TOP_OFFSET - widgetH - panelBottom - SAFE_GAP;
   }, [detailOpen, detailHeight]);
   const computeInitialDragX = () => {
-    if (!initialBannerRect || typeof window === 'undefined') return 0;
+    if (!initialBannerRect || !isWindowAvailable()) return 0;
     return initialBannerRect.left - (window.innerWidth / 2 - WIDGET_WIDTH / 2);
   };
 
@@ -90,16 +91,16 @@ export default function JoinedEventsWidget({
   const widgetRef = useRef(null);
 
   const isOverDetailPanel = useCallback((clientX, clientY, widgetEl) => {
-    if (typeof document === 'undefined') return false;
+    if (!isDOMAvailable()) return false;
     const prevPE = widgetEl ? widgetEl.style.pointerEvents : null;
     if (widgetEl) widgetEl.style.pointerEvents = 'none';
-    const el = document.elementFromPoint(clientX, clientY);
+    const el = getElementFromPoint(clientX, clientY);
     if (widgetEl) widgetEl.style.pointerEvents = prevPE || '';
     return !!(el && el.closest && el.closest('.detail-panel'));
   }, []);
 
   const detectDropZone = useCallback((clientX, clientY, widgetEl) => {
-    if (typeof window === 'undefined') return null;
+    if (!isWindowAvailable()) return null;
     if (clientX <= 80) return 'left';
     if (onPushToDetailPanel && isOverDetailPanel(clientX, clientY, widgetEl)) return 'detail';
     return null;
