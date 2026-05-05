@@ -7,6 +7,7 @@
 #endif
 
 #ifdef COMPILE_TIMERS
+#include "../generic/functions.h"
 // helper functions for timing parts of code in debugging mode
 
 #define timer_count 100 // TODO: tune this
@@ -14,7 +15,6 @@ struct timespec timer_timers[timer_count];
 counter_t timer_hits[timer_count];
 double timer_time[timer_count];
 
-#include "sieve_functions.h"
 
 static inline void __attribute__((always_inline, hot))
 time_mark(struct timespec* timer) {

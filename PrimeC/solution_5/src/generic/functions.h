@@ -1,7 +1,5 @@
-#pragma once
-
-// #ifndef SIEVE_FUNCTIONS_H
-// #define SIEVE_FUNCTIONS_H
+#ifndef FUNCTIONS_GUARD
+#define FUNCTIONS_GUARD
 
 #define function_id_t int
 #define time_setBitsTrue (function_id_t) 0
@@ -42,6 +40,8 @@
 #define time_findUnmarked_wheel 35
 #define time_applyMask_mmask 36
 #define time_markFactors_wheelstorage_small_repeat_mmask 37
+#define time_wheelstorage_blockprocessing 38
+#define time_markFactors_wheelstorage 39
 
 static const char* timer_function_names[100] = {
     [time_setBitsTrue] = "setBitsTrue",
@@ -82,6 +82,56 @@ static const char* timer_function_names[100] = {
     [time_findUnmarked_wheel] = "findUnmarked_wheel",
     [time_applyMask_mmask] = "applyMask_mmask",
     [time_markFactors_wheelstorage_small_repeat_mmask] = "markFactors_wheelstorage_small_repeat_mmask",
-  };
+    [time_wheelstorage_blockprocessing] = "wheelstorage_blockprocessing",
+    [time_markFactors_wheelstorage] = "markFactors_wheelstorage",
+};
 
-// #endif // SIEVE_FUNCTIONS_H
+#endif
+
+#if !defined(BITSTORAGE_SETBITSTRUE_FUNCTIONLIST_GUARD) && defined(FUNCTIONS_COMPILED)
+#define BITSTORAGE_SETBITSTRUE_FUNCTIONLIST_GUARD 1
+
+// Define a function pointer type for setBitsTrue functions
+typedef void (*setBitsTrueFunc)(void* restrict, const counter_t, const counter_t, const counter_t);
+typedef struct {
+    const char* name;               // Function name 
+    setBitsTrueFunc func;           // Function pointer
+    counter_t min_step;             // Minimum applicable step value
+    counter_t max_step;             // Maximum applicable step value
+    int enabled;                    // Whether this function is enabled in benchmarking
+} SetBitsTrueMethod;
+
+
+// Global array with all setBitsTrue functions
+static SetBitsTrueMethod setBitsTrueMethods[] = {
+    { "setBitsTrue                                 ", setBitsTrue                                 , 0, INT32_MAX, 1 },
+    { "setBitsTrue_range                           ", setBitsTrue_range_uint64                    , 0, INT32_MAX, 1},
+    { "setBitsTrue_smallstep_rotate_pair_uint64v8  ", setBitsTrue_smallstep_rotate_pair_uint64v8  , 0, 63, 1},
+    { "setBitsTrue_smallstep_rotate_pair_uint64v4  ", setBitsTrue_smallstep_rotate_pair_uint64v4  , 0, 63, 1},
+    { "setBitsTrue_smallstep_rotate_pair_uint32v16 ", setBitsTrue_smallstep_rotate_pair_uint32v16 , 0, 31, 1},
+    { "setBitsTrue_smallstep_rotate_pair_uint16v16 ", setBitsTrue_smallstep_rotate_pair_uint16v16 , 0, 15, 1},
+    { "setBitsTrue_smallstep_rotate_pair_uint32v4  ", setBitsTrue_smallstep_rotate_pair_uint32v4  , 0, 31, 1},
+    { "setBitsTrue_smallstep_rotate_pair_uint16v8  ", setBitsTrue_smallstep_rotate_pair_uint16v8  , 0, 15, 1},
+    { "setBitsTrue_largestep_vector_uint64v8       ", setBitsTrue_largestep_vector_uint64v8       , 65, 511, 1},
+    { "setBitsTrue_largestep_vector_uint64v4       ", setBitsTrue_largestep_vector_uint64v4       , 65, 255, 1},
+    // { "setBitsTrue_largestep_vector_uint32v16      ", setBitsTrue_largestep_vector_uint32v16      , 33, 255, 0},
+    { "setBitsTrue_largestep_repeat_uint64         ", setBitsTrue_largestep_repeat_uint64         , 0, INT32_MAX, 1},
+    { "setBitsTrue_largestep_repeat_uint32         ", setBitsTrue_largestep_repeat_uint32         , 0, INT32_MAX, 1},
+    { "setBitsTrue_largestep_repeat_uint8_unroll16 ", setBitsTrue_largestep_repeat_uint8_unroll16 , 0, INT32_MAX, 1},
+    { "setBitsTrue_largestep_repeat_uint8_unroll8  ", setBitsTrue_largestep_repeat_uint8_unroll8  , 0, INT32_MAX, 1},
+    { "setBitsTrue_largestep_repeat_uint8_unroll4  ", setBitsTrue_largestep_repeat_uint8_unroll4  , 0, INT32_MAX, 1},
+    { "setBitsTrue_largestep_repeat_uint8          ", setBitsTrue_largestep_repeat_uint8          , 0, INT32_MAX, 1},
+    { "setBitsTrue_largestep_norepeat_uint8_unroll8", setBitsTrue_largestep_norepeat_uint8_unroll8, 0, INT32_MAX, 1},
+    { "setBitsTrue_largestep_norepeat_uint8_unroll4", setBitsTrue_largestep_norepeat_uint8_unroll4, 0, INT32_MAX, 1},
+    { "setBitsTrue_largestep_norepeat_uint8        ", setBitsTrue_largestep_norepeat_uint8        , 0, INT32_MAX, 1},
+    { "setBitsTrue_smallstep_repeat_base           ", setBitsTrue_smallstep_repeat_base           , 0, 15, 1},
+    { "setBitsTrue_smallstep_norepeat              ", setBitsTrue_smallstep_norepeat              , 0, 15, 1},
+    { "setBitsTrue_largestep_repeat_mmask_uint64  ", setBitsTrue_largestep_repeat_mmask_uint64  , 0, INT32_MAX, 1},
+    { "setBitsTrue_largestep_repeat_mmask_uint32  ", setBitsTrue_largestep_repeat_mmask_uint32  , 0, INT32_MAX, 1},
+    { "setBitsTrue_largestep_repeat_mmask_uint8   ", setBitsTrue_largestep_repeat_mmask_uint8   , 0, INT32_MAX, 1},
+    { }
+};
+
+#define methods (sizeof(setBitsTrueMethods) / sizeof(SetBitsTrueMethod))
+
+#endif

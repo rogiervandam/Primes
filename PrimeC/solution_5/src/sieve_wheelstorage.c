@@ -46,17 +46,18 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
     // #pragma GCC unroll 2
     for (counter_t block_start = 0; block_start < sieve_size; block_start += factorBlock) {
         const counter_t block_stop = min(sieve_size, block_start + factorBlock);
-
-        log5("Processing block with range %ju - %ju\n",(uintmax_t)block_start, (uintmax_t)block_stop); 
+        logStart5(sieve->bitstorage, time_wheelstorage_blockprocessing, "Blockprocessing: Processing block with range %ju - %ju\n",(uintmax_t)block_start, (uintmax_t)block_stop); 
 
         // #pragma GCC unroll 32
         for (counter_t prime = findUnmarked(sieve, WHEEL_MAX+1); prime < prime_max;  prime = findUnmarked(sieve, ++prime)) {
-            log5(sieve->bitstorage,
-                       "MarkFactors: wheelstorage prime %jd (idx %jd), block [%jd-%jd] step %jd",
-                       (intmax_t)(prime), (intmax_t)prime, (intmax_t)block_start,
-                       (intmax_t)block_stop, (intmax_t)calcFactor_step(prime));
+            // log6(sieve->bitstorage,
+            //            "MarkFactors: wheelstorage prime %jd (idx %jd), block [%jd-%jd] step %jd",
+            //            (intmax_t)(prime), (intmax_t)prime, (intmax_t)block_start,
+            //            (intmax_t)block_stop, (intmax_t)calcFactor_step(prime));
             markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
         }
+
+        logStop5(sieve->bitstorage, time_wheelstorage_blockprocessing, "Blockprocessing: Finished processing block with range %ju - %ju\n",(uintmax_t)block_start, (uintmax_t)block_stop); 
     }
 
     return sieve;

@@ -1,5 +1,6 @@
 // assemble the word and vector functions
 // these will make differt versions of themselves for different types of bitstorage
+# pragma once
 
 #include "bitstorage_setBitsTrue_setBit.h"
 #include "bitstorage_setBitsTrue_applyMask.h"

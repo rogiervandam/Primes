@@ -1,4 +1,4 @@
-
+#pragma once
 
 // calculate the first multiple of a prime number in a given range
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 

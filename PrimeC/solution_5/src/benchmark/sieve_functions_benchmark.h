@@ -3,11 +3,13 @@
 #ifdef COMPILE_BENCHMARK_STRIPERS
 
 #include "../sieve/sieve_markBase.h" 
-#include "../bitstorage/bitstorage_setBitsTrueFunctionList.h"
+#include "../sieve/sieve_storage_half.h"
 
-#define compute_start(prime, block_start) calcFactor_start_half(prime, block_start)
+#define FUNCTIONS_COMPILED 1
+#include "../generic/functions.h"
 
 #define nonvector 1
+#define compute_start(prime, start) calcFactor_start_half(prime, start)
 #define BENCHMARK_DURATION 0.002  // seconds per test
 
 static inline void clear_cache() {

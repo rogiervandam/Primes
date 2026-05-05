@@ -6,6 +6,7 @@
     #define ASSEMBLE_WHEELSTORAGE_GUARD
 
     // static unsigned int wheel[WHEEL_SIZE/2];
+    #include "../generic/log.h"
     #include "../bitstorage/bitstorage_search.h"
     #include "../bitstorage/bitstorage_setBitsTrue.h"
 
@@ -255,17 +256,9 @@
     static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     markFactors_wheelstorage(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
     {
-        // TRACE_ANALYSIS_START(5, start, stop);
+        logStart6(sieve->bitstorage, time_markFactors_wheelstorage, "setting factors step %3ju in %ju factor range (%ju-%ju) for prime %ju", (uintmax_t)step, (uintmax_t)safe_diff(stop,start),(uintmax_t)start,(uintmax_t)stop, (uintmax_t)(step/2));
         const counter_t prime = step / 2;
-
-        // log5(sieve->bitstorage,
-        //        "MarkFactorsWheelStorage: prime %jd (idx %jd), factors [%jd-%jd] step %jd",
-        //            (intmax_t)(step + 1), (intmax_t)prime, (intmax_t)start,
-        //            (intmax_t)stop, (intmax_t)step);
-
-        // markFactors_wheelstorage_norepeat(sieve, start, stop, step); return;
-        // markFactors_wheelstorage_repeat_uint16_unroll8(sieve, start, stop, step); return;
-        
+      
         if (prime < global_stripeprime_faster ) {
             // markFactors_wheelstorage_small_repeat_pair_vector_uint64v4_unroll8(sieve, start, stop, step);
             markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
@@ -277,6 +270,7 @@
         function(markFactors_wheelstorage_repeat, wheelvariant_unroll_suffix)(sieve, start, stop, step);
         // function(markFactors_wheelstorage_repeatv2, wheelvariant_unroll_suffix)(sieve, start, stop, step);
         // markFactors_wheelstorage_norepeat(sieve, start, stop, step);
-        // TRACE_ANALYSIS_END();
+
+        logStop6(sieve->bitstorage, time_markFactors_wheelstorage, "finished setting factors\n");
     }
 #endif
