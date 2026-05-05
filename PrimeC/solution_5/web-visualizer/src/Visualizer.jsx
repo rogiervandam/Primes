@@ -2403,14 +2403,14 @@ export default function Visualizer({
         } else if (r.targetBits?.size) {
           for (const bit of r.targetBits) ghostBits.add(bit);
         }
-        r.suppressMaskWriteOverlay = true;
+        r.showMaskWriteOverlay = false;
         r.setMaskGhostBits(ghostBits);
         r.render();
         const orderedWrites = r.maskWriteOrderWords?.length || 0;
         if (orderedWrites > 0) r.renderMaskHover(t);
         else r.renderMaskStamp(t);
         r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-        r.suppressMaskWriteOverlay = false;
+        r.showMaskWriteOverlay = true;
         if (mode === 'mask') bitStateDirtyRef.current = clamped < 0.999;
         return;
       }
@@ -2533,7 +2533,7 @@ export default function Visualizer({
       } else if (r.targetBits?.size) {
         for (const bit of r.targetBits) ghostBits.add(bit);
       }
-      r.suppressMaskWriteOverlay = true;
+      r.showMaskWriteOverlay = false;
       r.setMaskGhostBits(ghostBits);
       r.render();
       const orderedWrites = r.maskWriteOrderWords?.length || 0;
@@ -2541,7 +2541,7 @@ export default function Visualizer({
       else r.renderMaskStamp(t);
       r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
       // Ensure subsequent animations start clean (stamp overlay is a one-shot).
-      r.suppressMaskWriteOverlay = false;
+      r.showMaskWriteOverlay = true;
       if (mode === 'mask') bitStateDirtyRef.current = clamped < 0.999;
       return;
     }
@@ -3060,8 +3060,8 @@ export default function Visualizer({
     const maskWriteCount = r?.maskWriteOrderWords?.length || 0;
     const animationBits = r?.changedBits?.size ? r.changedBits : (r?.targetBits?.size ? r.targetBits : null);
     if (!r || (maskWriteCount === 0 && (!animationBits || animationBits.size === 0))) return Promise.resolve();
-    const previousSuppressMaskOverlay = r.suppressMaskWriteOverlay === true;
-    r.suppressMaskWriteOverlay = true;
+    const previousShowMaskOverlay = r.showMaskWriteOverlay !== false;
+    r.showMaskWriteOverlay = false;
 
     const bits = animationBits ? Array.from(animationBits) : [];
     const groupBits = r.customGroupingBits > 0 ? r.customGroupingBits : Math.max(1, r.vectorGroup * 64);
@@ -3200,7 +3200,7 @@ export default function Visualizer({
           return;
         }
         r.setMaskGhostBits(new Set());
-        r.suppressMaskWriteOverlay = previousSuppressMaskOverlay;
+        r.showMaskWriteOverlay = previousShowMaskOverlay;
         r.render();
         r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
         rippleRef.current = null;

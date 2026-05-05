@@ -36,6 +36,21 @@ import {
 } from './renderer/drawingHelpers';
 import { requestPrimeOverlay } from './renderer/workers/bitPrePassClient';
 import { GlyphCommandBuffer } from './renderer/gl/GlyphCommandBuffer';
+import { drawBitOverlayIndicator } from './renderer/bits/overlayIndicators';
+import {
+  bitVisualRow,
+  getElementBounds,
+  multiBitBounds,
+  multiBitBoundsSegments,
+} from './renderer/layout/geometry';
+import {
+  maskEntriesBySlot,
+  maskEntryBits,
+  maskEntryGroupBounds,
+  maskTintColor,
+  maskWordOrderSummary,
+  maskWriteEntries,
+} from './renderer/mask/maskMetadata';
 
 export {
   THEMES,
@@ -73,7 +88,7 @@ export class SieveRenderer {
     this.maskWriteOrderEventIds = null;
     this.maskSlotBits = null;
     this.maskGhostBits = null;
-    this.suppressMaskWriteOverlay = false;
+    this.showMaskWriteOverlay = true;
     this.searchOverlay = new SearchOverlay(this);
     this.maskWriteOverlay = new MaskWriteOverlay(this);
     this.vectorTouchOrderOverlay = new VectorTouchOrderOverlay(this);
@@ -211,6 +226,10 @@ export class SieveRenderer {
   }
 
   /** Returns the glyph canvas element (used for export/metadata). */
+  get suppressMaskWriteOverlay() { return !this.showMaskWriteOverlay; }
+  set suppressMaskWriteOverlay(value) { this.showMaskWriteOverlay = !value; }
+
+  /** Returns the glyph canvas element (used for export/metadata). */
   get canvas() { return this._glyphCtx?.canvas ?? null; }
 
   /** Active glyph draw target: buffer (worker mode) or direct context (Safari/direct mode). */
@@ -337,11 +356,6 @@ export class SieveRenderer {
 
   attach(_canvas) { /* no-op: GL handles all rendering */ }
 
-  setGlCompositeSourceCanvas(_canvas) {}
-  setCompositeGLInto2D(_enabled) {}
-  setGlCompositeOffsetX(_offsetX) {}
-  setGlCompositeOffsetY(_offsetY) {}
-
   attachMinimapCanvas(canvas) {
     this.minimapRenderer.attach(canvas);
   }
@@ -401,7 +415,7 @@ export class SieveRenderer {
     this.maskWriteOrderEventIds = new Int32Array(0);
     this.maskSlotBits = [];
     this.maskGhostBits = new Set();
-    this.suppressMaskWriteOverlay = false;
+    this.showMaskWriteOverlay = true;
     this.searchOverlay.clear();
     this.lastAccessStep = new Int32Array(bitCount).fill(-1);
     this.clHitCount = null;   // allocated lazily in rebuildHeatMap
@@ -436,7 +450,7 @@ export class SieveRenderer {
     this.maskWriteOrderEventIds = maskMetadata?.targetEventIds || new Int32Array(0);
     this.maskSlotBits = maskMetadata?.slotBits || [];
     this.maskGhostBits = new Set();
-    this.suppressMaskWriteOverlay = false;
+    this.showMaskWriteOverlay = true;
     this.bitMotionTrails = [];
   }
 
@@ -599,186 +613,39 @@ export class SieveRenderer {
   }
 
   _multiBitBounds(startBit, count) {
-    let minX = Number.POSITIVE_INFINITY;
-    let minY = Number.POSITIVE_INFINITY;
-    let maxX = Number.NEGATIVE_INFINITY;
-    let maxY = Number.NEGATIVE_INFINITY;
-    const px = this.pixelSize * this.zoom;
-
-    for (let offset = 0; offset < count; offset++) {
-      const pos = this.bitIndexToCanvas(startBit + offset);
-      if (!pos) continue;
-      minX = Math.min(minX, pos.x - px / 2);
-      minY = Math.min(minY, pos.y - px / 2);
-      maxX = Math.max(maxX, pos.x + px / 2);
-      maxY = Math.max(maxY, pos.y + px / 2);
-    }
-
-    if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
-      return null;
-    }
-
-    return {
-      x: minX,
-      y: minY,
-      w: Math.max(px, maxX - minX),
-      h: Math.max(px, maxY - minY),
-      cx: (minX + maxX) / 2,
-      cy: (minY + maxY) / 2,
-    };
+    return multiBitBounds(this, startBit, count);
   }
 
   _bitVisualRow(bitIdx) {
-    if (bitIdx < 0 || bitIdx >= this.bitCount) return -1;
-    const bitsPerCacheLine = this.bitsPerCacheLine;
-    const numVec = this._numVectorsPerRow();
-    const vecPerRow = this._vectorGroupsPerVisualRow();
-    const clIdx = Math.floor(bitIdx / bitsPerCacheLine);
-    const bitInRow = bitIdx % bitsPerCacheLine;
-    const u64Idx = Math.floor(bitInRow / 64);
-    const vecIdx = Math.floor(u64Idx / this.vectorGroup);
-    const globalVectorIndex = clIdx * numVec + vecIdx;
-    return Math.floor(globalVectorIndex / vecPerRow);
+    return bitVisualRow(this, bitIdx);
   }
 
   _multiBitBoundsSegments(startBit, count) {
-    const endBit = Math.min(this.bitCount, startBit + count);
-    if (startBit < 0 || endBit <= startBit) return [];
-
-    const segments = [];
-    let segmentStart = startBit;
-    let previousRow = this._bitVisualRow(startBit);
-
-    for (let bit = startBit + 1; bit < endBit; bit++) {
-      const row = this._bitVisualRow(bit);
-      if (row !== previousRow) {
-        const segmentCount = bit - segmentStart;
-        const bounds = this._multiBitBounds(segmentStart, segmentCount);
-        if (bounds) segments.push({ startBit: segmentStart, count: segmentCount, bounds, row: previousRow });
-        segmentStart = bit;
-        previousRow = row;
-      }
-    }
-
-    const finalCount = endBit - segmentStart;
-    const finalBounds = this._multiBitBounds(segmentStart, finalCount);
-    if (finalBounds) segments.push({ startBit: segmentStart, count: finalCount, bounds: finalBounds, row: previousRow });
-
-    return segments;
+    return multiBitBoundsSegments(this, startBit, count);
   }
 
   _maskTintColor(slotIndex = 0) {
-    const base = this._opColor();
-    return slotIndex % 2 === 0 ? base : this._mixRgb(base, [245, 158, 11], 0.45);
+    return maskTintColor(this, slotIndex);
   }
 
   _maskWriteEntries() {
-    if (!this.maskWriteOrderWords || this.maskWriteOrderWords.length === 0) return [];
-    if (!Number.isFinite(this.maskWordBits) || this.maskWordBits <= 0) return [];
-
-    const entries = [];
-    for (let index = 0; index < this.maskWriteOrderWords.length; index++) {
-      const wordIndex = Number(this.maskWriteOrderWords[index]);
-      const slotIndex = Number(this.maskWriteOrderSlots?.[index] ?? 0);
-      if (!Number.isFinite(wordIndex) || wordIndex < 0) continue;
-
-      const startBit = wordIndex * this.maskWordBits;
-      const count = Math.max(1, Math.min(this.maskWordBits, this.bitCount - startBit));
-      if (count <= 0) continue;
-
-      const segments = this._multiBitBoundsSegments(startBit, count);
-      if (segments.length === 0) continue;
-
-      for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex++) {
-        const segment = segments[segmentIndex];
-        entries.push({
-          order: entries.length,
-          wordIndex,
-          slotIndex,
-          eventId: Number(this.maskWriteOrderEventIds?.[index] ?? -1),
-          startBit: segment.startBit,
-          count: segment.count,
-          bounds: segment.bounds,
-          wordStartBit: startBit,
-          wordCount: count,
-          segmentIndex,
-          segmentCount: segments.length,
-          slot: this._vectorSlotLayout(Math.floor(segment.startBit / Math.max(1, this._logicalGroupBits()))),
-        });
-      }
-    }
-
-    return entries;
+    return maskWriteEntries(this);
   }
 
   _maskWordOrderSummary() {
-    const entries = this._maskWriteEntries();
-    if (entries.length === 0) return [];
-
-    const perWord = new Map();
-    for (let index = 0; index < entries.length; index++) {
-      const entry = entries[index];
-      const existing = perWord.get(entry.wordIndex);
-      if (existing) {
-        existing.orders.push(entry.order + 1);
-        if (Number.isFinite(entry.eventId) && entry.eventId >= 0 && !existing.eventIds.includes(entry.eventId)) {
-          existing.eventIds.push(entry.eventId);
-        }
-        continue;
-      }
-      perWord.set(entry.wordIndex, {
-        ...entry,
-        orders: [entry.order + 1],
-        eventIds: Number.isFinite(entry.eventId) && entry.eventId >= 0 ? [entry.eventId] : [],
-      });
-    }
-
-    return Array.from(perWord.values()).sort((a, b) => a.wordIndex - b.wordIndex);
+    return maskWordOrderSummary(this);
   }
 
   _maskEntriesBySlot() {
-    const grouped = new Map();
-    const entries = this._maskWriteEntries();
-    for (let index = 0; index < entries.length; index++) {
-      const entry = entries[index];
-      if (!grouped.has(entry.slotIndex)) grouped.set(entry.slotIndex, []);
-      grouped.get(entry.slotIndex).push(entry);
-    }
-    return Array.from(grouped.entries())
-      .sort((a, b) => a[0] - b[0])
-      .map(([, slotEntries]) => slotEntries);
+    return maskEntriesBySlot(this);
   }
 
   _maskEntryBits(entry) {
-    if (!entry) return [];
-    const slotBits = this.maskSlotBits?.[entry.slotIndex] || [];
-    const bits = [];
-    const wordStart = Number.isFinite(entry.wordStartBit) ? entry.wordStartBit : entry.startBit;
-    const rangeStart = entry.startBit;
-    const rangeStop = entry.startBit + entry.count;
-    for (let index = 0; index < slotBits.length; index++) {
-      const absoluteBit = wordStart + Number(slotBits[index]);
-      if (!Number.isFinite(absoluteBit) || absoluteBit < 0 || absoluteBit >= this.bitCount) continue;
-      if (absoluteBit < rangeStart || absoluteBit >= rangeStop) continue;
-      bits.push(absoluteBit);
-    }
-    return bits;
+    return maskEntryBits(this, entry);
   }
 
   _maskEntryGroupBounds(entry) {
-    if (!entry) return null;
-    const groupBits = Math.max(1, this._logicalGroupBits());
-    const groupStart = Math.floor(entry.startBit / groupBits) * groupBits;
-    const groupCount = Math.max(1, Math.min(groupBits, this.bitCount - groupStart));
-    const groupSegments = this._multiBitBoundsSegments(groupStart, groupCount);
-    if (groupSegments.length === 0) return null;
-    for (let index = 0; index < groupSegments.length; index++) {
-      const segment = groupSegments[index];
-      if (entry.startBit >= segment.startBit && entry.startBit < segment.startBit + segment.count) {
-        return segment.bounds;
-      }
-    }
-    return groupSegments[0].bounds;
+    return maskEntryGroupBounds(this, entry);
   }
 
   _drawMaskImprint(entry, x, y, options = {}, glCtx) {
@@ -1547,8 +1414,6 @@ export class SieveRenderer {
       glCtx.beginFrame(cw, ch, canvasDpr);
     }
 
-    this._renderClear(f);
-
     // Draw cacheline-level overlays before bits so bits render on top
     this._renderCachelineHeatOverlay();
     this._renderCachelineOutline();
@@ -1557,7 +1422,7 @@ export class SieveRenderer {
       this._renderVisualRow(f, vRow);
     }
 
-    if (!this.suppressMaskWriteOverlay) {
+    if (this.showMaskWriteOverlay) {
       this.maskWriteOverlay.render(glCtx);
     }
     this.vectorTouchOrderOverlay.render(f.ctx, glCtx);
@@ -1636,9 +1501,6 @@ export class SieveRenderer {
       byteLabelY: (vRowBaseY, byteTopY) => Math.max(vRowBaseY + labelBands.vector + 1, byteTopY - labelBands.byteFont - 1),
     };
   }
-
-  /** Canvas 2D layers are no longer used for rendering; GL handles all drawing. */
-  _renderClear(_f) {}
 
   /** Render one visual row (a horizontal strip of vectors). */
   _renderVisualRow(f, vRow) {
@@ -1756,7 +1618,6 @@ export class SieveRenderer {
     this._drawBitBody(f, cls, draw, bitX, bitY);
     this._drawDebugCellOutline(f, draw, bitX, bitY);
     if (cls.isGhostMaskedBit) this._drawGhostMaskHighlight(f, draw);
-    if (cls.inFocusRange) this._drawBitFocusRange(f, bitX, bitY);
     this._drawBitTargetOutline(f, globalBit, draw, cls.targetHitCount);
     this._drawBitPrimeOverlay(f, globalBit, bitX, bitY);
     this._drawBitRangeOverlay(f, globalBit, bitX, bitY);
@@ -1813,11 +1674,6 @@ export class SieveRenderer {
 
   /** Dispatch to the bit-body drawing method. */
   _drawBitBody(f, cls, draw, bitX, bitY) {
-    this._drawBitBodyNormal(f, cls, draw);
-  }
-
-  /** Normal flat bit fill — handled entirely by GL instanced quads. Canvas2D no-op. */
-  _drawBitBodyNormal(f, cls, draw) {
     // GL fills the cell via the instanced quad shader (stateTex color lookup).
   }
 
@@ -1835,11 +1691,6 @@ export class SieveRenderer {
       Math.max(2, Math.round(drawSize + 1)), Math.max(2, Math.round(drawSize + 1)),
       set[0] / 255, set[1] / 255, set[2] / 255, 0.95, lw
     );
-  }
-
-  /** Focus-range tint — handled by GL via bit 7 in stateTex. Canvas2D no-op. */
-  _drawBitFocusRange(f, bitX, bitY) {
-    // GL applies the focus-range tint via the fragment shader (state bit 7).
   }
 
   /** Blue (and orange-on-repeat) outline around target bits. */
@@ -1872,38 +1723,43 @@ export class SieveRenderer {
   /** Gold tint + dot + (at zoom) 'p' label for prime bits. Tint and border handled by GL. */
   _drawBitPrimeOverlay(f, globalBit, bitX, bitY) {
     if (!(this.primeOverlay && this._primeBitFlags?.[globalBit])) return;
-    const px = f.px;
-    const dotR = Math.max(0.8, Math.min(px * 0.22, 4));
-
     if (!this._glyph) return;
-    // GL path: dot at top-right, optional 'p' label at top-left.
-    const g = this._glyph;
-    const dcx = Math.round(bitX + px) - dotR * 0.75;
-    const dcy = Math.round(bitY) + dotR * 0.75;
-    g.drawDot(dcx, dcy, dotR, 251 / 255, 191 / 255, 36 / 255, 0.92);
-    if (px >= 16) {
-      const pSize = Math.max(4, Math.min(px * 0.22, 9));
-      g.drawText('p', Math.round(bitX + 1), Math.round(bitY + 1), pSize,
-        251 / 255, 191 / 255, 36 / 255, 0.90, 'left', 'top');
-    }
+    drawBitOverlayIndicator(this._glyph, {
+      bitX,
+      bitY,
+      px: f.px,
+      color: [251 / 255, 191 / 255, 36 / 255],
+      alpha: 0.92,
+      dotScale: 0.22,
+      dotMax: 4,
+      anchor: 'top-right',
+      label: 'p',
+      labelAnchor: 'top-left',
+      labelScale: 0.22,
+      labelMax: 9,
+      labelThreshold: 16,
+    });
   }
 
   /** Cyan/teal dot + (at zoom) 'r' label for bits within [rangeOverlayStart, rangeOverlayEnd]. Tint and border handled by GL. */
   _drawBitRangeOverlay(f, globalBit, bitX, bitY) {
     if (!(this.rangeOverlay && globalBit >= this.rangeOverlayStart && globalBit <= this.rangeOverlayEnd)) return;
-    const px = f.px;
-    const dotR2 = Math.max(0.8, Math.min(px * 0.20, 3.5));
-
     if (!this._glyph) return;
-    // GL path: dot at top-left, optional 'r' label at top-right.
-    const g = this._glyph;
-    g.drawDot(Math.round(bitX) + dotR2 * 0.75, Math.round(bitY) + dotR2 * 0.75, dotR2,
-      34 / 255, 211 / 255, 238 / 255, 0.88);
-    if (px >= 16) {
-      const rSize = Math.max(4, Math.min(px * 0.20, 8));
-      g.drawText('r', Math.round(bitX + px - 1), Math.round(bitY + 1), rSize,
-        34 / 255, 211 / 255, 238 / 255, 0.90, 'right', 'top');
-    }
+    drawBitOverlayIndicator(this._glyph, {
+      bitX,
+      bitY,
+      px: f.px,
+      color: [34 / 255, 211 / 255, 238 / 255],
+      alpha: 0.88,
+      dotScale: 0.20,
+      dotMax: 3.5,
+      anchor: 'top-left',
+      label: 'r',
+      labelAnchor: 'top-right',
+      labelScale: 0.20,
+      labelMax: 8,
+      labelThreshold: 16,
+    });
   }
 
   /** Purple dot + (at zoom) '×' label for multiples. Tint and border handled by GL. */
@@ -1911,19 +1767,22 @@ export class SieveRenderer {
     if (!(this.multiplesOverlay && this.multiplesOverlayPrime >= 2)) return;
     const num = bitToNumber(globalBit, this.storageModel, this.wheelDefinition);
     if (!(num >= 2 && num % this.multiplesOverlayPrime === 0)) return;
-    const px = f.px;
-    const dotR3 = Math.max(0.8, Math.min(px * 0.20, 3.5));
-
-    if (!this._glyphCtx) return;
-    // GL path: dot at bottom-right, optional '×' label at bottom-right.
-    const g = this._glyphCtx;
-    g.drawDot(Math.round(bitX + px) - dotR3 * 0.75, Math.round(bitY + px) - dotR3 * 0.75, dotR3,
-      167 / 255, 139 / 255, 250 / 255, 0.90);
-    if (px >= 16) {
-      const mSize = Math.max(4, Math.min(px * 0.20, 8));
-      g.drawText('\u00d7', Math.round(bitX + px - 1), Math.round(bitY + px - 1), mSize,
-        167 / 255, 139 / 255, 250 / 255, 0.90, 'right', 'bottom');
-    }
+    if (!this._glyph) return;
+    drawBitOverlayIndicator(this._glyph, {
+      bitX,
+      bitY,
+      px: f.px,
+      color: [167 / 255, 139 / 255, 250 / 255],
+      alpha: 0.90,
+      dotScale: 0.20,
+      dotMax: 3.5,
+      anchor: 'bottom-right',
+      label: '\u00d7',
+      labelAnchor: 'bottom-right',
+      labelScale: 0.20,
+      labelMax: 8,
+      labelThreshold: 16,
+    });
   }
 
   /**
@@ -2723,78 +2582,7 @@ export class SieveRenderer {
    * @returns {{ x: number, y: number, w: number, h: number, cx: number, cy: number } | null}
    */
   getElementBounds(type, index) {
-    if (this.bitCount === 0) return null;
-    const px = this.pixelSize * this.zoom;
-    const bitsPerCacheLine = this.bitsPerCacheLine;
-    const rowD = this._rowDims();
-    const labelH = this._labelHeight();
-    const vRowHeight = labelH + rowD.h + this._u64GapY();
-    const u64D = this._u64Dims();
-    const byteD = this._byteDims();
-    const vecD = this._vectorDims();
-    const vecPerVRow = this._vectorGroupsPerVisualRow();
-
-    if (type === 'bit') {
-      const pos = this.bitIndexToCanvas(index);
-      if (!pos) return null;
-      return { x: pos.x - px / 2, y: pos.y - px / 2, w: px, h: px, cx: pos.x, cy: pos.y };
-    }
-
-    if (type === 'byte') {
-      return this._multiBitBounds(index * 8, 8);
-    }
-
-    if (type === 'uint32') {
-      return this._multiBitBounds(index * 32, 32);
-    }
-
-    if (type === 'uint64') {
-      return this._multiBitBounds(index * 64, 64);
-    }
-
-    if (type === 'byte-legacy') {
-      const bitStart = index * 8;
-      if (bitStart >= this.bitCount) return null;
-      const clIdx = Math.floor(bitStart / bitsPerCacheLine);
-      const bitInRow = bitStart % bitsPerCacheLine;
-      const u64Idx = Math.floor(bitInRow / 64);
-      const byteIdx = Math.floor((bitInRow % 64) / 8);
-      const vecIdx = Math.floor(u64Idx / this.vectorGroup);
-      const intraIdx = u64Idx % this.vectorGroup;
-      const globalVectorIndex = clIdx * this._numVectorsPerRow() + vecIdx;
-      const vRow = Math.floor(globalVectorIndex / vecPerVRow);
-      const vecInRow = globalVectorIndex % vecPerVRow;
-      const rowDataY = this.panY + vRow * vRowHeight + labelH;
-      const vecX = this.panX + vecInRow * (vecD.w + this._u64GapX());
-      const u64X = vecX + intraIdx * (u64D.w + vecD.intraGap);
-      const bytePos = this._bytePosInU64(byteIdx);
-      const bx = u64X + bytePos.col * (byteD.w + this._byteGapX());
-      const by = rowDataY + bytePos.row * (byteD.h + this._byteGapY());
-      return { x: bx, y: by, w: byteD.w, h: byteD.h, cx: bx + byteD.w / 2, cy: by + byteD.h / 2 };
-    }
-
-    if (type === 'vector') {
-      const u64Start = index * this.vectorGroup;
-      const bitStart = u64Start * 64;
-      if (bitStart >= this.bitCount) return null;
-      const vRow = Math.floor(index / vecPerVRow);
-      const vecInRow = index % vecPerVRow;
-      const rowDataY = this.panY + vRow * vRowHeight + labelH;
-      const vecX = this.panX + vecInRow * (vecD.w + this._u64GapX());
-      return { x: vecX, y: rowDataY, w: vecD.w, h: vecD.h, cx: vecX + vecD.w / 2, cy: rowDataY + vecD.h / 2 };
-    }
-
-    if (type === 'cacheline') {
-      if (index * bitsPerCacheLine >= this.bitCount) return null;
-      const startVectorIndex = index * this._numVectorsPerRow();
-      const vRow = Math.floor(startVectorIndex / vecPerVRow);
-      const vecInRow = startVectorIndex % vecPerVRow;
-      const rowDataY = this.panY + vRow * vRowHeight + labelH;
-      const rx = this.panX + vecInRow * (vecD.w + this._u64GapX());
-      return { x: rx, y: rowDataY, w: rowD.w, h: rowD.h, cx: rx + rowD.w / 2, cy: rowDataY + rowD.h / 2 };
-    }
-
-    return null;
+    return getElementBounds(this, type, index);
   }
 
   /** Identify what kind of element a bit belongs to, for click-to-focus */
