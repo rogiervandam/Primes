@@ -44,6 +44,10 @@ import {
   multiBitBoundsSegments,
 } from './renderer/layout/geometry';
 import {
+  bitIndexToCanvas as _bitIndexToCanvas,
+  canvasToBitIndex as _canvasToBitIndex,
+} from './renderer/layout/transforms';
+import {
   maskEntriesBySlot,
   maskEntryBits,
   maskEntryGroupBounds,
@@ -224,10 +228,6 @@ export class SieveRenderer {
     // Delegates measureText() to the glyph atlas advance widths.
     this._measureCtx = null;
   }
-
-  /** Returns the glyph canvas element (used for export/metadata). */
-  get suppressMaskWriteOverlay() { return !this.showMaskWriteOverlay; }
-  set suppressMaskWriteOverlay(value) { this.showMaskWriteOverlay = !value; }
 
   /** Returns the glyph canvas element (used for export/metadata). */
   get canvas() { return this._glyphCtx?.canvas ?? null; }
@@ -1828,129 +1828,11 @@ export class SieveRenderer {
 
 
   canvasToBitIndex(canvasX, canvasY) {
-    const bitsPerCacheLine = this.bitsPerCacheLine;
-    const rowD = this._rowDims();
-    const labelH = this._labelHeight();
-    const vRowHeight = labelH + rowD.h + this._u64GapY();
-    const u64D = this._u64Dims();
-    const byteD = this._byteDims();
-    const vecD = this._vectorDims();
-    const px = this.pixelSize * this.zoom;
-    const numVec = this._numVectorsPerRow();
-    const vecPerRow = this._vectorGroupsPerVisualRow();
-    const vecStep = vecD.w + this._u64GapX();
-
-    const vRow = Math.floor((canvasY - this.panY) / vRowHeight);
-    if (vRow < 0) return -1;
-
-    const localY = canvasY - this.panY - vRow * vRowHeight - labelH;
-    const localX = canvasX - this.panX;
-    if (localX < 0 || localY < 0 || localY > rowD.h) return -1;
-
-    const vecInRow = Math.floor(localX / vecStep);
-    if (vecInRow < 0 || vecInRow >= vecPerRow) return -1;
-    const globalVectorIndex = vRow * vecPerRow + vecInRow;
-    const clIdx = Math.floor(globalVectorIndex / numVec);
-    const vecIdx = globalVectorIndex % numVec;
-    const rowBitStart = clIdx * bitsPerCacheLine;
-    const rowBitStop = Math.min(rowBitStart + bitsPerCacheLine, this.bitCount);
-    const inVecX = localX - vecInRow * vecStep;
-
-    // Find which u64 within the vector
-    const u64InVecStep = u64D.w + vecD.intraGap;
-    const intraIdx = Math.floor(inVecX / u64InVecStep);
-    if (intraIdx < 0 || intraIdx >= this.vectorGroup) return -1;
-
-    const u64Idx = vecIdx * this.vectorGroup + intraIdx;
-    const u64sPerCL = Math.max(1, Math.ceil(bitsPerCacheLine / 64));
-    if (u64Idx >= u64sPerCL) return -1;
-
-    const inU64X = inVecX - intraIdx * u64InVecStep;
-
-    // Find byte within u64
-    const byteStep_w = byteD.w + this._byteGapX();
-    const byteStep_h = byteD.h + this._byteGapY();
-    const byteBl = BYTE_LAYOUTS[this.byteLayout];
-    const bCols = byteBl.grid3x3 ? 3 : byteBl.cols;
-
-    const byteCol = Math.floor(inU64X / byteStep_w);
-    const byteRow = Math.floor(localY / byteStep_h);
-    if (byteCol < 0 || byteCol >= bCols || byteRow < 0) return -1;
-
-    let byteIdx = -1;
-    for (let i = 0; i < 8; i++) {
-      const pos = this._bytePosInU64(i);
-      if (pos.col === byteCol && pos.row === byteRow) { byteIdx = i; break; }
-    }
-    if (byteIdx < 0) return -1;
-
-    // Find bit within byte
-    const inByteX = inU64X - byteCol * byteStep_w;
-    const inByteY = localY - byteRow * byteStep_h;
-    const bitStep_w = this._bitStepX();
-    const bitStep_h = this._bitStepY();
-    const bitBl = BIT_LAYOUTS[this.bitLayout];
-    const bitCols = bitBl.grid3x3 ? 3 : bitBl.cols;
-
-    const bitCol = Math.floor(inByteX / bitStep_w);
-    const bitRow = Math.floor(inByteY / bitStep_h);
-    if (bitCol < 0 || bitCol >= bitCols || bitRow < 0) return -1;
-
-    let bitInByte = -1;
-    for (let i = 0; i < 8; i++) {
-      const pos = this._bitPosInByte(i);
-      if (pos.col === bitCol && pos.row === bitRow) { bitInByte = i; break; }
-    }
-    if (bitInByte < 0) return -1;
-
-    const globalBit = clIdx * bitsPerCacheLine + u64Idx * 64 + byteIdx * 8 + bitInByte;
-    if (globalBit >= rowBitStop) return -1;
-    if (globalBit < 0 || globalBit >= this.bitCount) return -1;
-    return globalBit;
+    return _canvasToBitIndex(this, canvasX, canvasY);
   }
 
   bitIndexToCanvas(bitIdx) {
-    if (bitIdx < 0 || bitIdx >= this.bitCount) return null;
-
-    const bitsPerCacheLine = this.bitsPerCacheLine;
-    const rowD = this._rowDims();
-    const labelH = this._labelHeight();
-    const vRowHeight = labelH + rowD.h + this._u64GapY();
-    const u64D = this._u64Dims();
-    const byteD = this._byteDims();
-    const vecD = this._vectorDims();
-    const vecPerRow = this._vectorGroupsPerVisualRow();
-
-    const clIdx = Math.floor(bitIdx / bitsPerCacheLine);
-    const bitInRow = bitIdx % bitsPerCacheLine;
-    const u64Idx = Math.floor(bitInRow / 64);
-    const bitInU64 = bitInRow % 64;
-    const byteIdx = Math.floor(bitInU64 / 8);
-    const bitInByte = bitInU64 % 8;
-
-    const u64sPerCL = Math.max(1, Math.ceil(bitsPerCacheLine / 64));
-    if (u64Idx < 0 || u64Idx >= u64sPerCL) return null;
-
-    const vecIdx = Math.floor(u64Idx / this.vectorGroup);
-    const globalVectorIndex = clIdx * this._numVectorsPerRow() + vecIdx;
-    const vRow = Math.floor(globalVectorIndex / vecPerRow);
-    const vecInRow = globalVectorIndex % vecPerRow;
-    const rowDataY = this.panY + vRow * vRowHeight + labelH;
-
-    const intraIdx = u64Idx % this.vectorGroup;
-    const vecX = this.panX + vecInRow * (vecD.w + this._u64GapX());
-    const u64X = vecX + intraIdx * (u64D.w + vecD.intraGap);
-
-    const bytePos = this._bytePosInU64(byteIdx);
-    const byteX = u64X + bytePos.col * (byteD.w + this._byteGapX());
-    const byteY = rowDataY + bytePos.row * (byteD.h + this._byteGapY());
-
-    const px = this.pixelSize * this.zoom;
-    const bitPos = this._bitPosInByte(bitInByte);
-    const x = byteX + bitPos.col * this._bitStepX() + px / 2;
-    const y = byteY + bitPos.row * this._bitStepY() + px / 2;
-
-    return { x, y };
+    return _bitIndexToCanvas(this, bitIdx);
   }
 
   /**

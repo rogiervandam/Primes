@@ -38,7 +38,7 @@ Approximate source size at this guide revision:
 | File                               | Size        | Why it matters                                                                                       |
 | ---------------------------------- | ----------: | ---------------------------------------------------------------------------------------------------- |
 | `src/Visualizer.jsx`               | ~4200 lines | Runtime owner for trace state, playback, panels, gestures, export, and renderer wiring.              |
-| `src/SieveRenderer.js`             | ~2655 lines | Canvas2D overlay renderer and layout authority. GL owns cell fills, but this class still owns labels, outlines, hit-testing, minimap, frame-timing samples, and many overlays. |
+| `src/SieveRenderer.js`             | ~2560 lines | Canvas2D overlay renderer and layout authority. GL owns cell fills, but this class still owns labels, outlines, hit-testing, minimap, frame-timing samples, and many overlays. |
 | `src/EventsPanel.jsx`              | ~918 lines  | Event list, grouping/search, floating all-events widget, drag/drop collapse behavior.                |
 | `src/settings/LayoutTab.jsx`       | ~906 lines  | Largest settings tab. Avoid inline React components in its function body.                            |
 | `src/settings/AnimationTab.jsx`    | ~554 lines  | Animation controls and timing target UI.                                                             |
@@ -127,11 +127,26 @@ overlay draw pass moved to `DebugToolsPanel`; `SieveRenderer` now only exposes
 frame-timing snapshots for that UI. Touched GL comments that mentioned direct
 mode or deleted `skipBitFill` were cleaned up.
 
+Further extraction pass completed:
+- `bitIndexToCanvas` and `canvasToBitIndex` moved to `src/renderer/layout/transforms.js`;
+  `SieveRenderer` methods delegate with one-liners.
+- Per-bit overlay indicator drawing (prime/range/multiples dot+label) unified into
+  `src/renderer/bits/overlayIndicators.js` — `drawBitOverlayIndicator(glyph, options)`
+  with anchor, dotScale/dotMax, label/labelAnchor/labelScale/labelMax/labelThreshold.
+- Geometry/bounds helpers in `src/renderer/layout/geometry.js`:
+  `multiBitBounds`, `bitVisualRow`, `multiBitBoundsSegments`, `getElementBounds`.
+- Mask metadata helpers in `src/renderer/mask/maskMetadata.js`:
+  `maskTintColor`, `maskWriteEntries`, `maskWordOrderSummary`, `maskEntriesBySlot`,
+  `maskEntryBits`, `maskEntryGroupBounds`.
+- Negative flag `suppressMaskWriteOverlay` renamed to `showMaskWriteOverlay`;
+  backward-compat alias removed after all call sites in `Visualizer.jsx` were updated.
+- Dead methods removed: `setGlCompositeSourceCanvas`, `setCompositeGLInto2D`,
+  `setGlCompositeOffsetX/Y`, `_renderClear`, `_drawBitBodyNormal`, `_drawBitFocusRange`.
+
 Left to do:
 
 - Extract remaining renderer overlay-like passes only when isolated: target
-  outline, ghost-mask highlight, motion trails, cacheline outline/heat overlay,
-  and prime/range/multiples dot/label passes.
+  outline, ghost-mask highlight, motion trails, cacheline outline/heat overlay.
 - Keep `SieveRenderer` as the source of layout truth unless a full renderer-mode
   contract is implemented.
 
@@ -290,6 +305,17 @@ Left to do:
 
 Done: Vitest covers pure parser, math, timing, view-preference, unit-converter,
 and drawing-helper modules. Tests are Node-based and avoid DOM dependencies.
+New renderer unit tests added alongside the latest extraction pass:
+- `src/renderer/__tests__/transforms.test.js` — `bitIndexToCanvas`/`canvasToBitIndex`
+  round-trip, pan offset, boundary and out-of-range cases.
+- `src/renderer/__tests__/geometry.test.js` — `bitVisualRow`, `multiBitBounds`,
+  `multiBitBoundsSegments`, `getElementBounds` for all element types.
+- `src/renderer/__tests__/maskMetadata.test.js` — all six `maskMetadata` exports;
+  slot grouping, duplicate deduplication, out-of-range filtering.
+- `src/renderer/__tests__/overlayIndicators.test.js` — `drawBitOverlayIndicator`
+  null guard, dot radius clamping, all three anchor positions, label threshold/max,
+  independent `labelAnchor`.
+Mock pattern: pass a plain duck-typed `host` object; no `SieveRenderer` instance needed.
 
 Left to do:
 
