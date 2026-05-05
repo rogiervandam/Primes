@@ -14,7 +14,7 @@ This document describes how the web visualizer is organised, the responsibilitie
 src/
 ├── main.jsx              Entry: mounts <App/> and loads styles/index.css
 ├── App.jsx               File picker / welcome screen → lazy-loads <Visualizer/>
-├── Visualizer.jsx        Top-level UI: toolbar, canvas, panels, playback (~4 200 lines)
+├── Visualizer.jsx        Top-level UI: toolbar, canvas, panels, playback (~5 420 lines)
 ├── SettingsPanel.jsx     Right-hand sidebar tab-row shell (~260 lines; delegates to settings/)
 ├── EventsPanel.jsx       Left-hand list of trace events (search/filter)
 ├── DetailPanel.jsx       Per-step inspector (changed bits, primes, factors)
@@ -67,7 +67,21 @@ src/
 │   ├── usePlaybackLoop.js        Selected/single/all-events playback schedulers
 │   ├── useSearchState.js         Search box state + navigate-to-bit handler
 │   ├── usePanelChoreography.js   Panel/widget transitions + resize-anchor rules
-│   └── use3DCamera.js            Camera3D lifecycle + reactive state
+│   ├── use3DCamera.js            Camera3D lifecycle + reactive state
+│   ├── useRawSource.js           Raw source loading, lineToStep/stepToLine memos
+│   ├── useCanvasRefs.js          All canvas/renderer/GL refs + CSS-lock refs
+│   ├── useDebugTools.js          GL debug state, refs, updateGlDebugInfo callback
+│   ├── useThemeAndColors.js      Theme, gridOpacity, canvasColors, colorPreset, customColors
+│   ├── useAnimationConfig.js     animMode/Style, delays, event time targets, speed values
+│   ├── useStepAnimation.js       bitAnimationMode, scrub progress, loop refs, bit-anim callbacks
+│   ├── useOverlays.js            heatMap, primeOverlay, rangeOverlay, multiplesOverlay, cacheline
+│   ├── useIntroSequence.js       introPhase, loadingOverlayPhase, topbar playback-ready effect
+│   ├── useWidgetState.js         Widget visibility, timing panel, detail inspector state
+│   ├── usePanelState.js          Panel visibility/dimensions, settingsActiveTab, restore effects
+│   ├── useBalloonLayout.js       pinnedBitIndices, hoveredBitInfo, scheduleBalloonRelayout
+│   ├── useBitState.js            bitStateRef, checkpoints, dirty flag, selectedSteps
+│   ├── useViewportAnchoring.js   canvasAnchorPx, pendingResizeAnchorRef, layout-refresh refs
+│   └── useSettingsBundle.js      Hook: (settings,onChange) → {s,set,setMany,incr,decr}
 ├── settings/             SettingsPanel building blocks
 │   ├── constants.js              Layout/vector/grouping presets and tooltips
 │   ├── buttons.jsx               LayoutIcon, VectorIcon, AnnotationButton, …
@@ -83,6 +97,8 @@ src/
 │   ├── ExportProgress.jsx        Slim progress bar during video export
 │   ├── DebugToolsPanel.jsx       Toolbar-toggled FPS/render timing window
 │   ├── CanvasStage.jsx           Canvas area + overlays + balloons + panels
+│   ├── CanvasLoadingOverlay.jsx  Streaming-load progress bar
+│   ├── StatusBanners.jsx         GL-unavailable + export-error banners
 │   ├── BitHistoryBalloon.jsx     Hover/pinned bit-history popover
 │   ├── BitHistoryBalloons.jsx    Pinned + hover bit-history cluster + SVG connectors
 │   ├── EventTitleBanner.jsx      Floating current-event banner (draggable)
@@ -144,6 +160,19 @@ uploads them to the log API.
 | Playback clock refs | `usePlaybackClock` hook | `seekGenRef`, `globalPausedRef`, `animBusyUntilRef` — mutated directly by consumers |
 | Panel/widget transitions | `usePanelChoreography` hook | Toggle/reveal/join/split/open/hide callbacks; raw state is still owned by `Visualizer` |
 | 3D camera transform | `use3DCamera` hook | CSS-3D matrix applied to `CanvasStage` container |
+| Theme, grid opacity, canvas colors | `useThemeAndColors` hook | Persisted via viewPrefs |
+| Animation mode/style/speed/delays | `useAnimationConfig` hook | Persisted via viewPrefs |
+| Bit animation mode, scrub progress | `useStepAnimation` hook | Includes resume/loop refs |
+| Overlay toggles (heatmap, primes, etc.) | `useOverlays` hook | Persisted via viewPrefs |
+| Intro phase / loading overlay | `useIntroSequence` hook | Controls overlay fade lifecycle |
+| Widget visibility, detail inspector | `useWidgetState` hook | Persisted via viewPrefs |
+| Panel visibility/dims, settings tab | `usePanelState` hook | Persisted via viewPrefs; includes restore effects |
+| Balloon layout (pinned + hover) | `useBalloonLayout` hook | Owns balloon relayout scheduling |
+| Bit state, checkpoints, selected steps | `useBitState` hook | Mutable refs for renderer consumption |
+| Canvas anchor / viewport anchoring | `useViewportAnchoring` hook | Refs for resize-anchor and layout refresh |
+| Canvas/renderer/GL refs | `useCanvasRefs` hook | All React refs for canvases + CSS-lock refs |
+| GL debug info | `useDebugTools` hook | GL unavailable flag + updateGlDebugInfo callback |
+| Raw source text, line↔step mapping | `useRawSource` hook | Loaded on demand |
 
 ## Adding a new feature
 

@@ -73,6 +73,12 @@ Popover anchored beneath the trace title showing the storage-model selector and 
 
 When `rawSource` is supplied, a "View raw log" button appears. Clicking it opens a draggable, resizable dialog with a line-numbered monospace view of the original file. The dialog can be dragged by its header bar and resized via the bottom-right handle. Lines whose content matches a step's `annotation` (text-format traces) are highlighted; clicking such a line number closes the viewer, calls `onJumpToStep(stepIndex)`, and opens the events panel scrolled to that step. A "Copy all" button copies the source to clipboard. The dialog closes with Escape or the ✕ button. Props threaded: `Visualizer` (computes `lineToStep` map + `onJumpToStep` callback) → `Toolbar` → `TraceInfoPopover`.
 
+### `CanvasLoadingOverlay.jsx`
+Shown while a trace is streaming. Renders a "Loading log…" text, an event count (once `steps.length > 0`), and a `role="progressbar"` track with a fill div. The wrapper receives `{ loadingOverlayPhase, steps, overlayBarPct }`. Returns `null` when `loadingOverlayPhase === 'hidden'`.
+
+### `StatusBanners.jsx`
+Renders two conditional alert banners adjacent to the toolbar: the export-error banner (`exportError` string) and the GL-unavailable banner (`glUnavailable` boolean). Both use `role="alert"` for accessibility. Extracted from inline JSX in `Visualizer.jsx`.
+
 ### `ExportProgress.jsx`
 Slim progress bar shown beneath the toolbar while `MediaRecorder` is exporting a WebM. Just renders `width: ${progress}%`.
 
@@ -219,6 +225,45 @@ Encapsulates PNG snapshot (`exportPng`) and WebM video recording (`exportVideo`)
 
 ### `useDraftInput(value, onCommit)`
 Manages the "draft text + commit on blur/Enter" pattern for controlled inputs. Returns `[draft, setDraft, inputProps]`. Used in `SettingsPanel` for range start/end and multiples-prime fields.
+
+### `useRawSource({ sourceRef, steps })`
+Loads the raw source text when `sourceRef` points to a valid source, and builds `lineToStep` and `stepToLine` lookup maps. Returns `{ rawSourceForLog, lineToStep, stepToLine, fetchRawSource }`.
+
+### `useCanvasRefs()`
+Creates and returns all canvas/renderer React refs: `minimapCanvasRef`, `containerRef`, `rendererRef`, `glCanvasRef`, `glRendererRef`, `glCssLockActiveRef`, `glCssUnlockRafRef`, `glCssUnlockTimeoutRef`. Used by `Visualizer` to pass refs to `CanvasStage` and the GL backend.
+
+### `useDebugTools({ glRendererRef })`
+Owns the GL debug state: `glUnavailable`, `setGlUnavailable`, `showGlDebugInfo`, `setShowGlDebugInfo`, `glDebugInfo`, `setGlDebugInfo`, and the `updateGlDebugInfo` callback that reads timing from `glRendererRef`.
+
+### `useThemeAndColors({ initialPrefs })`
+Owns theme, `gridOpacity`, `canvasColors`, `colorPreset`, `customColors`. All values are seeded from `initialPrefs` and persisted via `viewPrefs`. Returns setters for each.
+
+### `useAnimationConfig({ initialPrefs })`
+Owns `animMode`, `animStyle`, `bitAnimInterval`, `maskAnimInterval`, `eventTimeTargets`, `autoAnimateOnSelect`, speed values (`stepSpeedValue`, `maskSpeedValue`), setters, cycle helpers (`cycleAnimStyle`, `cycleAnimMode`), and info maps (`animStyleInfo`, `animModeInfo`). Seeded from `initialPrefs`.
+
+### `useStepAnimation({ initialPrefs })`
+Owns `bitAnimationMode`, `singleEventLoopActive`, `stepScrubProgress`, `stepAnimRunning`, resume refs (`stepAnimResumeRef`, `bitAnimResumeRef`), loop refs (`stepAnimRunningRef`, `singleEventLoopRef`), and the `handleBitAnimationModeChange` callback.
+
+### `useOverlays()`
+Owns `heatMapEnabled`, `primeOverlayEnabled`, `rangeOverlayEnabled`, `rangeStart`/`rangeEnd`, `multiplesOverlayEnabled`, `multiples`, `cachelineSize`, `showMinimap`, `cachePreset`. All are persisted via `viewPrefs`.
+
+### `useIntroSequence({ loadComplete, loadProgress })`
+Drives the intro animation: `introPhase` (`'boot'` / `'ready'`), `loadingOverlayPhase` (`'visible'` / `'fading'` / `'hidden'`), `overlayBarPct`, and `loadProgressRef`. Triggers the top-bar playback-ready appearance when `loadComplete` and `introPhase === 'ready'`.
+
+### `useWidgetState({ initialPrefs })`
+Owns widget visibility flags (`allEventsWidgetHidden`, `singleEventWidgetRevealed`, `widgetsJoined`), the timing panel toggle (`timingPanelOpen`, `timingFocusOp`), and the detail inspector state (`detailInspectorOpen`, `detailInspectorMode`, `detailInspectorQuery`).
+
+### `usePanelState({ initialPrefs, introPhase, singleEventWidgetRevealed })`
+Owns events/detail/settings panel dimensions and visibility (`eventsPanelCollapsed`, `panelWidth`, `detailOpen`, `detailHeight`, `settingsPanelOpen`), the settings active tab (`settingsActiveTab`, `settingsTabRequest`), and the deferred panel state ref (`deferredPanelStateRef`). Contains the Phase F panel-restore effects that fire when `introPhase` transitions to `'ready'`.
+
+### `useBalloonLayout()`
+Owns `pinnedBitIndices`, `hoveredBitInfo`, `balloonLayoutTick`, `balloonLayoutRafRef`, `balloonLiveLayoutTimerRef`, and the `scheduleBalloonRelayout(immediate)` callback. Provides `setPinnedBitIndices` and `setHoveredBitInfo` setters.
+
+### `useBitState()`
+Owns the mutable renderer refs: `bitStateRef`, `bitStateCheckpointsRef`, `bitStateDirtyRef`, and the React-state `selectedSteps` array + `selectedStepsRef`. Provides `setSelectedSteps`.
+
+### `useViewportAnchoring()`
+Owns `canvasAnchorPx`, `pendingResizeAnchorRef`, `layoutRefresh` (RAF scheduler + `layoutRefreshCountRef`), and `viewportAnimRef`.
 
 ## Utilities (`src/lib/`)
 

@@ -24,6 +24,21 @@ import { usePlaybackClock } from './hooks/usePlaybackClock';
 import { usePlaybackLoop } from './hooks/usePlaybackLoop';
 import { useSearchState } from './hooks/useSearchState';
 import { usePanelChoreography } from './hooks/usePanelChoreography';
+import { useRawSource } from './hooks/useRawSource';
+import { useCanvasRefs } from './hooks/useCanvasRefs';
+import { useDebugTools } from './hooks/useDebugTools';
+import { useThemeAndColors } from './hooks/useThemeAndColors';
+import { useAnimationConfig } from './hooks/useAnimationConfig';
+import { useStepAnimation } from './hooks/useStepAnimation';
+import { useOverlays } from './hooks/useOverlays';
+import { useIntroSequence } from './hooks/useIntroSequence';
+import { usePanelState } from './hooks/usePanelState';
+import { useWidgetState } from './hooks/useWidgetState';
+import { useBalloonLayout } from './hooks/useBalloonLayout';
+import { useBitState } from './hooks/useBitState';
+import { useViewportAnchoring } from './hooks/useViewportAnchoring';
+import CanvasLoadingOverlay from './visualizer/CanvasLoadingOverlay';
+import StatusBanners from './visualizer/StatusBanners';
 import { applyPan } from './visualizer/gestures/pan';
 import { applyRotate } from './visualizer/gestures/rotate';
 import { applyWheel } from './visualizer/gestures/wheel';
@@ -297,105 +312,27 @@ export default function Visualizer({
     [header, fileName],
   );
 
-  // Raw source is loaded on demand (for the raw-log viewer and lineToStep mapping).
-  // We keep it in a ref so the fetch is cached but doesn't trigger re-renders.
-  const rawSourceCacheRef = useRef(null);
-  // lineToStep / stepToLine are computed from rawSource once it's fetched and
-  // stored in state so the raw-log viewer can re-render with the mapping.
-  const [rawSourceForLog, setRawSourceForLog] = useState(null);
+  const { rawSourceForLog, lineToStep, stepToLine, fetchRawSource } = useRawSource({ sourceRef, steps });
 
-  // Callback used by TraceInfoPopover to request the raw source.
-  const fetchRawSource = useCallback(async () => {
-    if (rawSourceCacheRef.current) return rawSourceCacheRef.current;
-    if (!sourceRef) return null;
-    try {
-      let text = null;
-      if (sourceRef.type === 'api') {
-        const res = await fetch(`/api/logs/${encodeURIComponent(sourceRef.name)}`);
-        if (res.ok) text = await res.text();
-      } else if (sourceRef.type === 'file') {
-        text = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target.result);
-          reader.onerror = () => reject(new Error('Failed to read file'));
-          reader.readAsText(sourceRef.file);
-        });
-      }
-      if (text) {
-        rawSourceCacheRef.current = text;
-        setRawSourceForLog(text);
-      }
-      return text;
-    } catch {
-      return null;
-    }
-  }, [sourceRef]);
+  const {
+    minimapCanvasRef, containerRef, rendererRef,
+    glCanvasRef, glRendererRef, glyphCanvasRef, glyphRendererRef, wrapperCanvasRef,
+    glCssUnlockTokenRef, glCssUnlockRafRef, glCssUnlockTimeoutRef, glCssLockStateRef,
+    pendingRenderRafRef,
+  } = useCanvasRefs();
 
-  // Map raw-source line indices to step indices.
-  // Computed lazily after rawSourceForLog is fetched.
-  const lineToStep = useMemo(() => {
-    if (!rawSourceForLog || !steps.length) return {};
-    const rawLines = rawSourceForLog.split(/\r?\n/);
-    const map = {};
-    const usedLines = new Set();
-    for (let s = 0; s < steps.length; s++) {
-      const ann = (steps[s].annotation || '').trim();
-      if (!ann) continue;
-      for (let l = 0; l < rawLines.length; l++) {
-        if (usedLines.has(l)) continue;
-        const raw = rawLines[l];
-        // Plain-text match: the whole line IS the annotation
-        if (raw.trim() === ann) {
-          map[l] = s;
-          usedLines.add(l);
-          break;
-        }
-        // KV-format match: extract annotation="..." value from the line
-        const kvMatch = raw.match(/\bannotation="([^"]*)"/);
-        if (kvMatch && kvMatch[1].trim() === ann) {
-          map[l] = s;
-          usedLines.add(l);
-          break;
-        }
-        // New-style log format: text prefix before inline { traceline: ... } JSON
-        const newStyleMatch = raw.match(/^(.+?)\s*\{[^}]*"?traceline"?\s*:/);
-        if (newStyleMatch && newStyleMatch[1].trim() === ann) {
-          map[l] = s;
-          usedLines.add(l);
-          break;
-        }
-      }
-    }
-    return map;
-  }, [rawSourceForLog, steps]);
-
-  // Inverted map: step index → raw-source line index (first matching line).
-  const stepToLine = useMemo(() => {
-    const m = {};
-    for (const [lineStr, stepIdx] of Object.entries(lineToStep)) {
-      const lineNum = Number(lineStr);
-      if (!(stepIdx in m)) m[stepIdx] = lineNum;
-    }
-    return m;
-  }, [lineToStep]);
-
-  const minimapCanvasRef = useRef(null);  const containerRef = useRef(null);
-  const rendererRef = useRef(null);
-  // WebGL bit-grid worker (see docs/AI_MAINTENANCE.md §8).
-  const glCanvasRef = useRef(null);
-  const glRendererRef = useRef(null);
-  // WebGL glyph-text canvas: transparent overlay for GL-rendered per-cell
-  // labels and dots.
-  const glyphCanvasRef = useRef(null);
-  const glyphRendererRef = useRef(null);
-  // Wrapper div that receives the 3D CSS transform (translate + rotateX/Y)
-  // so the canvas elements inside remain flat — this prevents Safari from
-  // creating per-canvas GPU compositing layers that cause black flicker.
-  const wrapperCanvasRef = useRef(null);
-  // Set to true when OffscreenCanvas is unavailable and GL could not attach.
-  const [glUnavailable, setGlUnavailable] = useState(false);
-  // Debug info for the GL mode and GPU capacity (shown in overlay)
-  const [glDebugInfo, setGlDebugInfo] = useState(null);
+  const {
+    glUnavailable, setGlUnavailable,
+    glDebugInfo, setGlDebugInfo,
+    debugToolsOpen, setDebugToolsOpen,
+    debugLayerMode, setDebugLayerMode,
+    debugGlOffsetX, setDebugGlOffsetX,
+    debugGlOffsetY, setDebugGlOffsetY,
+    debugGlAutoOffsetY, setDebugGlAutoOffsetY,
+    debugCalibrationMode, setDebugCalibrationMode,
+    debugGlOffsetXRef, debugGlOffsetYRef, debugGlAutoOffsetYRef,
+    glDebugLastUpdateRef, updateGlDebugInfo,
+  } = useDebugTools({ glRendererRef });
   const isMacPlatform = useMemo(() => detectIsMac(), []);
   const isWindowsPlatform = useMemo(() => detectIsWindows(), []);
   // Electron (native app) inserts "Electron" into the UA and exposes process.versions.electron.
@@ -409,263 +346,147 @@ export default function Visualizer({
   // `writeViewPrefs(...)` effect further down.
   const initialPrefs = useMemo(() => getInitialViewState(), []);
 
+  const {
+    theme, setTheme,
+    gridOpacity, setGridOpacity,
+    canvasColors, setCanvasColors,
+    colorPreset, setColorPreset,
+    customColors, setCustomColors,
+  } = useThemeAndColors({ initialPrefs });
+
+  const {
+    animMode, setAnimMode,
+    animStyle, setAnimStyle,
+    delayBetweenEvents, setDelayBetweenEvents,
+    delayBetweenRepeats, setDelayBetweenRepeats, delayBetweenRepeatsRef,
+    eventTimeTargets, setEventTimeTargets, eventTimeTargetsRef,
+    eventDurationMode, setEventDurationMode, eventDurationModeRef,
+    bitAnimInterval, setBitAnimInterval,
+    maskAnimInterval, setMaskAnimInterval,
+    bitsAtTimeRatioRef, timeRatioAtBitIndexRef, computeEventDurationRef,
+    stepSpeedValue, maskSpeedValue, setStepSpeedValue, setMaskSpeedValue,
+    cycleAnimStyle, cycleAnimMode, animStyleInfo, animModeInfo,
+  } = useAnimationConfig({ initialPrefs });
+
+  const {
+    bitAnimationMode, setBitAnimationMode, bitAnimationModeRef,
+    singleEventLoopActive, setSingleEventLoopActive, singleEventLoopActiveRef,
+    autoAnimateOnSelect, setAutoAnimateOnSelect, autoAnimateOnSelectRef,
+    animationReplayPaused, setAnimationReplayPaused,
+    isScrubbingTopRef,
+    stepScrubProgress, setStepScrubProgress, stepScrubProgressRef, stepScrubProgressValueRef,
+    delayPhaseMs, setDelayPhaseMsRef,
+    stepAnimRunning, setStepAnimRunningRef, stepAnimRunningRefForScheduler,
+    stepResumeStartIndexRef, stepResumeMaskProgressRef,
+    currentAnimIntervalRef, currentMaskAnimIntervalRef,
+    pausedStepAnimLoopRef, selectedAnimLoopRef,
+    handleBitAnimationModeChange,
+  } = useStepAnimation({ initialPrefs });
+
+  const { globalPausedRef, seekGenRef, animBusyUntilRef } = usePlaybackClock();
+
+  const {
+    heatMapEnabled, setHeatMapEnabled,
+    cachelineAnnotation, setCachelineAnnotation,
+    primeOverlayEnabled, setPrimeOverlayEnabled,
+    rangeOverlayEnabled, setRangeOverlayEnabled,
+    rangeOverlayStart, setRangeOverlayStart,
+    rangeOverlayEnd, setRangeOverlayEnd,
+    multiplesOverlayEnabled, setMultiplesOverlayEnabled,
+    multiplesOverlayPrime, setMultiplesOverlayPrime,
+    cachelineSize, setCachelineSize,
+    cachePreset, setCachePreset,
+  } = useOverlays();
+
+  const {
+    introPhase, setIntroPhase,
+    introTiltStartedRef,
+    topbarPlaybackReady,
+    loadingOverlayPhase, setLoadingOverlayPhase,
+    uiChromeVisible, setUiChromeVisible,
+    overlayBarPct, setOverlayBarPct,
+    overlayStartTimeRef,
+    pendingIntroAfterOverlayRef,
+    loadCompleteRef,
+    loadProgressRef,
+  } = useIntroSequence({ loadComplete, loadProgress });
+
+  const {
+    allEventsWidgetHidden, setAllEventsWidgetHidden,
+    singleEventWidgetRevealed, setSingleEventWidgetRevealed,
+    allEventsInDetailPanel, setAllEventsInDetailPanel,
+    widgetsJoined, setWidgetsJoined,
+    joinBannerRect, setJoinBannerRect,
+    pendingBannerDragStart, setPendingBannerDragStart,
+    revealStepRequest, setRevealStepRequest,
+    timingPanelOpen, setTimingPanelOpen,
+    timingFocusOp, setTimingFocusOp,
+    detailInspectorOpen, setDetailInspectorOpen,
+    detailInspectorMode, setDetailInspectorMode,
+    detailInspectorQuery, setDetailInspectorQuery,
+  } = useWidgetState({ initialPrefs });
+
+  const {
+    eventsPanelCollapsed, setEventsPanelCollapsed,
+    settingsCollapsed, setSettingsCollapsed,
+    detailOpen, setDetailOpen, detailOpenRef,
+    showMinimap, setShowMinimap,
+    minimapAvailable, setMinimapAvailable,
+    panelWidth, setPanelWidth,
+    detailHeight, setDetailHeight, detailHeightRef,
+    detailWidth, setDetailWidth,
+    stepStats, setStepStats,
+    settingsActiveTab, setSettingsActiveTab,
+    settingsTabRequest, setSettingsTabRequest,
+    deferredPanelStateRef,
+  } = usePanelState({ initialPrefs, introPhase, singleEventWidgetRevealed });
+
+  const {
+    pinnedBitIndices, setPinnedBitIndices,
+    hoveredBitInfo, setHoveredBitInfo,
+    balloonLiveLayout, setBalloonLiveLayout,
+    balloonLayoutRafRef, balloonLiveLayoutTimerRef, lastHoveredIdxRef,
+    scheduleBalloonRelayout,
+  } = useBalloonLayout();
+
+  const {
+    bitStateRef, bitStateCheckpointsRef, bitStateDirtyRef,
+    selectedSteps, setSelectedSteps, selectedStepsRef,
+  } = useBitState();
+
+  const {
+    canvasAnchorPx, setCanvasAnchorPx,
+    pendingResizeAnchorRef,
+    layoutRefreshTimeoutRef, layoutRefreshRaf1Ref, layoutRefreshRaf2Ref,
+    viewportAnimRef,
+  } = useViewportAnchoring();
+
   const [currentStep, setCurrentStep] = useState(0);
   const [playing, setPlaying] = useState(false);
-  // Playback speed as a percentage of the per-event "normal" time target.
-  // 50% => animations take twice as long; 200% => half as long. Range 25..400.
   const [playSpeedPercent, setPlaySpeedPercent] = useState(initialPrefs.playSpeedPercent);
   const playSpeedPercentRef = useRef(playSpeedPercent);
   playSpeedPercentRef.current = playSpeedPercent;
   const [zoom, setZoom] = useState(1);
-  const [panelWidth, setPanelWidth] = useState(320);
-  const [theme, setTheme] = useState(initialPrefs.theme);
   const [showTraceInfo, setShowTraceInfo] = useState(false);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
-  // settingsCollapsed, detailOpen, eventsPanelCollapsed declared below (near introPhase)
   const [layoutSettings, setLayoutSettings] = useState(initialPrefs.layoutSettings);
   const [autoFitColumnCount, setAutoFitColumnCount] = useState(0);
   const [eventTitleSettings, setEventTitleSettings] = useState(initialPrefs.eventTitleSettings);
-  // Two distinct delays. Both default to 500 ms but are independently adjustable.
-  // - delayBetweenEvents: pause after one event finishes before the all-events
-  //   widget advances to the next event (only honored while `playing`).
-  // - delayBetweenRepeats: pause between repeats when the single-event widget
-  //   is in play mode and is auto-replaying the current event.
-  // Both fall back to the legacy single `repeatAnim` setting when absent —
-  // see `initialDelayMs` in `lib/viewPrefs.js`.
-  const [delayBetweenEvents, setDelayBetweenEvents] = useState(initialPrefs.delayBetweenEvents);
-  const [delayBetweenRepeats, setDelayBetweenRepeats] = useState(initialPrefs.delayBetweenRepeats);
-  const delayBetweenRepeatsRef = useRef(delayBetweenRepeats);
-  delayBetweenRepeatsRef.current = delayBetweenRepeats;
-  // Per-event time targets (ms) keyed by change-count tier.
-  const [eventTimeTargets, setEventTimeTargets] = useState(initialPrefs.eventTimeTargets);
-  const eventTimeTargetsRef = useRef(eventTimeTargets);
-  eventTimeTargetsRef.current = eventTimeTargets;
-  const [animMode, setAnimMode] = useState('sequential'); // 'all' or 'sequential'
-  const [animStyle, setAnimStyle] = useState('fade'); // 'ripple', 'fade', 'pulse', 'none'
-  const [animationReplayPaused, setAnimationReplayPaused] = useState(false);
-  // True only when the user explicitly pressed Play on the single-event widget.
-  // The per-event auto-replay loop only runs while this is true. Cleared on
-  // explicit pause, on navigation (next/prev/scrub), and when entering all-
-  // events playback (which has its own scheduler). Persisted across renders.
-  const [singleEventLoopActive, setSingleEventLoopActive] = useState(false);
-  const singleEventLoopActiveRef = useRef(false);
-  singleEventLoopActiveRef.current = singleEventLoopActive;
-  // When false, selecting an event in the events panel will NOT auto-start
-  // the per-event animation replay loop. Default true preserves prior behavior.
-  const [autoAnimateOnSelect, setAutoAnimateOnSelect] = useState(initialPrefs.autoAnimateOnSelect);
-  const autoAnimateOnSelectRef = useRef(autoAnimateOnSelect);
-  autoAnimateOnSelectRef.current = autoAnimateOnSelect;
-  // True while the user is mid-drag on the top-bar all-events scrubber. While
-  // true, the per-event animation re-triggers on every value change and the
-  // event auto-loops. Cleared on pointerup.
-  const isScrubbingTopRef = useRef(false);
-  // 0..100 slider progress scrubbing through the current event's internal animation.
-  // Resets whenever the current event changes. The sequential-reveal animation
-  // writes to this state as it progresses so the banner slider follows along.
-  const [stepScrubProgress, setStepScrubProgress] = useState(0);
-  const stepScrubProgressRef = useRef(setStepScrubProgress);
-  stepScrubProgressRef.current = setStepScrubProgress;
-  // Stable numeric ref so the animMode/animStyle change effect can read the
-  // current progress without adding stepScrubProgress to its dep array.
-  const stepScrubProgressValueRef = useRef(0);
-  stepScrubProgressValueRef.current = stepScrubProgress;
-  // Non-null while waiting for the delay between single-event loop repeats.
-  // Holds the total delay duration (ms) so the wipe animation in
-  // StepAnimSliders knows how long to run. Cleared when the delay ends, is
-  // interrupted by a scrub, or when the loop is paused/stopped.
-  const [delayPhaseMs, setDelayPhaseMs] = useState(null);
-  const setDelayPhaseMsRef = useRef(setDelayPhaseMs);
-  setDelayPhaseMsRef.current = setDelayPhaseMs;
-  // Is the per-event sequential reveal currently in progress? The banner
-  // play/pause button reads this to pick its icon.
-  const [stepAnimRunning, setStepAnimRunning] = useState(false);
-  const setStepAnimRunningRef = useRef(setStepAnimRunning);
-  setStepAnimRunningRef.current = setStepAnimRunning;
-  // Live mirror of stepAnimRunning so long-lived schedulers (trace-play loop)
-  // can poll it without re-binding on every state change.
-  const stepAnimRunningRefForScheduler = useRef(false);
-  stepAnimRunningRefForScheduler.current = stepAnimRunning;
-  // One-shot resume hint: when the banner Play button kicks the existing
-  // pausedStepAnimLoop, the first iteration uses this index instead of 0 so
-  // resume picks up at the user's slider position. Subsequent loop iterations
-  // restart from the beginning, after the configured replay delay.
-  const stepResumeStartIndexRef = useRef(0);
-  // 0..1 resume hint for the mask animation path (mirrors stepResumeStartIndexRef).
-  const stepResumeMaskProgressRef = useRef(0);
-  // Global pause flag, seek generation counter, and animation-busy
-  // deadline. See `src/hooks/usePlaybackClock.js` for the full
-  // semantics of each ref. Lifted into a hook so the playback
-  // contract is documented in one place; behaviour is unchanged.
-  const { globalPausedRef, seekGenRef, animBusyUntilRef } = usePlaybackClock();
-  // Event-internal animation duration mode. 'progressive' uses a piecewise
-  // tiered budget so a 5-bit event and a 5000-bit event both produce a
-  // meaningful timeline; 'linear' scales total duration with the bit count.
-  const [eventDurationMode, setEventDurationMode] = useState(initialPrefs.eventDurationMode);
-  const eventDurationModeRef = useRef(eventDurationMode);
-  eventDurationModeRef.current = eventDurationMode;
-  // Forward refs so functions defined earlier in the file can use the
-  // bits<->time helpers (which are defined further down).
-  const bitsAtTimeRatioRef = useRef(null);
-  const timeRatioAtBitIndexRef = useRef(null);
-  const computeEventDurationRef = useRef(null);
-  // Animation mode for the current event:
-  //  - 'mask':     mask stamps only (bits all already painted as set under the stamp)
-  //  - 'bit':      per-bit sequential reveal only (no stamp overlay)
-  //  - 'combined': both — bits reveal progressively under the moving stamps
-  // Auto-defaults to 'mask' on entering a step with mask data, 'bit' otherwise;
-  // the user can toggle within a step via the banner button.
-  const [bitAnimationMode, setBitAnimationMode] = useState('bit');
-  const bitAnimationModeRef = useRef(bitAnimationMode);
-  bitAnimationModeRef.current = bitAnimationMode;
-  const [bitAnimInterval, setBitAnimInterval] = useState(20); // ms between sequential bits (0.02s default)
-  const [maskAnimInterval, setMaskAnimInterval] = useState(() => {
-    const stepIntervalDefault = 20;
-    const stepSpeedValueDefault = Math.round(1 + ((5000 - stepIntervalDefault) / (5000 - 5)) * 499);
-    const maskSpeedValueDefault = Math.max(1, Math.round(stepSpeedValueDefault * 0.2));
-    const ratio = (maskSpeedValueDefault - 1) / 499;
-    return Math.round(5000 - ratio * (5000 - 5));
-  });
-  const [gridOpacity, setGridOpacity] = useState(initialPrefs.gridOpacity);
-  const [canvasColors, setCanvasColors] = useState(initialPrefs.canvasColors);
-  const [detailHeight, setDetailHeight] = useState(280);
-  const [detailWidth, setDetailWidth] = useState(0);
-  const [showMinimap, setShowMinimap] = useState(true);
-  const [minimapAvailable, setMinimapAvailable] = useState(true);
-  const [stepStats, setStepStats] = useState(null); // { totalSet, newlySet, reSet, duplicateTargets }
-  const [pinnedBitIndices, setPinnedBitIndices] = useState([]); // clicked bits with locked balloons
-  const [hoveredBitInfo, setHoveredBitInfo] = useState(null);  // { bitIndex, history[] } — updated on hover
+  const [storageModel, setStorageModel] = useState(header.storageModel || 'half');
+  useEffect(() => {
+    setStorageModel(header.storageModel || 'half');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [header]);
+
+  // Derived values
+  const controlsHidden = eventsPanelCollapsed && !allEventsWidgetHidden;
   const balloonMode = layoutSettings.balloonMode || 'click-hover';
   const balloonsEnabled = balloonMode !== 'off';
   const balloonClickEnabled = balloonMode === 'bit-clock' || balloonMode === 'click-hover';
   const balloonHoverEnabled = balloonMode === 'click-hover';
-  const [colorPreset, setColorPreset] = useState(initialPrefs.colorPreset);
-  const [customColors, setCustomColors] = useState(initialPrefs.customColors);
-  // Search state is managed by useSearchState (placed after navigateToBit is defined below).
-  // When true, the floating "all events" widget (transport + timeline shown
-  // while the events panel is collapsed) is hidden (e.g. after the user
-  // dragged it onto the top bar). Reset each time the events panel is
-  // collapsed so the widget reliably reappears on the next toggle.
-  const [allEventsWidgetHidden, setAllEventsWidgetHidden] = useState(initialPrefs.allEventsWidgetHidden);
-  // Hidden until the user first hits play or selects an event — avoids
-  // showing an empty/irrelevant widget during the opening animation.
-  const [singleEventWidgetRevealed, setSingleEventWidgetRevealed] = useState(false);
-  // When true the all-events transport (timeline + nav) is shown inside the
-  // detail panel (user dropped the joined widget onto the detail panel).
-  const [allEventsInDetailPanel, setAllEventsInDetailPanel] = useState(initialPrefs.allEventsInDetailPanel);
-  // When true the floating all-events widget and the single-event banner are
-  // merged into a single JoinedEventsWidget. Persisted to localStorage.
-  const [widgetsJoined, setWidgetsJoined] = useState(
-    // If the panel was already open when saved, the joined widget can't show;
-    // reset to false so neither widget is invisible on startup.
-    (initialPrefs.widgetsJoined === true && initialPrefs.eventsPanelCollapsed === true)
-      ? true
-      : false
-  );
-  // Stores the EventTitleBanner's DOMRect at the moment of joining, so the
-  // JoinedEventsWidget can anchor its bottom-left corner to the same position.
-  const [joinBannerRect, setJoinBannerRect] = useState(null);
-  // One-shot external drag start request for EventTitleBanner, used when the
-  // user drags "ANIMATION" from the docked detail-panel slider.
-  const [pendingBannerDragStart, setPendingBannerDragStart] = useState(null);
-  const [storageModel, setStorageModel] = useState(header.storageModel || 'half');
-  // When a new trace is loaded (header reference changes), auto-apply the
-  // storage model detected from the log so the user doesn't have to set it manually.
-  useEffect(() => {
-    setStorageModel(header.storageModel || 'half');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [header]); // Intentionally keyed on header identity, not storageModel
-  const [selectedSteps, setSelectedSteps] = useState(new Set());
-  const selectedStepsRef = useRef(selectedSteps);
-  const [heatMapEnabled, setHeatMapEnabled] = useState(false);
-  // 'none' | 'hits' | 'age' | 'both'  — annotation shown on each cacheline when heatmap is on
-  const [cachelineAnnotation, setCachelineAnnotation] = useState('none');
-  const [primeOverlayEnabled, setPrimeOverlayEnabled] = useState(false);
-  const [debugToolsOpen, setDebugToolsOpen] = useState(false);
-  const [debugLayerMode, setDebugLayerMode] = useState('normal'); // retained for DebugToolsPanel only
-  const [debugGlOffsetX, setDebugGlOffsetX] = useState(0); // manual trim
-  const [debugGlOffsetY, setDebugGlOffsetY] = useState(0); // manual trim
-  const [debugGlAutoOffsetY, setDebugGlAutoOffsetY] = useState(0);
-  const [debugCalibrationMode, setDebugCalibrationMode] = useState(false);
-  const [rangeOverlayEnabled, setRangeOverlayEnabled] = useState(false);
-  const [rangeOverlayStart, setRangeOverlayStart] = useState(0);
-  const [rangeOverlayEnd, setRangeOverlayEnd] = useState(0);
-  const [multiplesOverlayEnabled, setMultiplesOverlayEnabled] = useState(false);
-  const [multiplesOverlayPrime, setMultiplesOverlayPrime] = useState(3);
-  const [cachelineSize, setCachelineSize] = useState(64);
-  const [cachePreset, setCachePreset] = useState('fixed');
-  const [eventsPanelCollapsed, setEventsPanelCollapsed] = useState(true); // forced closed on mount; restored after intro
-  const [settingsCollapsed, setSettingsCollapsed] = useState(true);       // forced closed on mount; restored after intro
-  const [detailOpen, setDetailOpen] = useState(false);                    // forced closed on mount; restored after intro
 
-  // Panel states that were saved in prefs and will be restored after the
-  // intro animation finishes (Phase F). Captured once on mount.
-  const deferredPanelStateRef = useRef({
-    eventsPanelCollapsed: initialPrefs.eventsPanelCollapsed,
-    settingsCollapsed: initialPrefs.settingsCollapsed,
-    detailOpen: initialPrefs.detailOpen,
-    applied: false,
-  });
-
-  // Intro animation phase:
-  //   'hidden'  — canvas mounted but invisible (opacity:0, scale 0.01)
-  //   'scaling' — CSS transition scales canvas to full size
-  //   'tilting' — camera animates from flat to saved tilt angle
-  //   'visible' — animation complete, panels may open
-  const [introPhase, setIntroPhase] = useState('hidden');
-  const introTiltStartedRef = useRef(false);
-  // Playback controls in the top toolbar appear shortly after loading finishes.
-  // Until then, the toolbar only shows a disabled timeline scrubber as a
-  // loading progress indicator.
-  const [topbarPlaybackReady, setTopbarPlaybackReady] = useState(false);
-  // Loading overlay: 'hidden' | 'active' | 'fading'
-  const [loadingOverlayPhase, setLoadingOverlayPhase] = useState('hidden');
-  const [uiChromeVisible, setUiChromeVisible] = useState(false);
-  const [overlayBarPct, setOverlayBarPct] = useState(0);
-  const overlayStartTimeRef = useRef(null);
-  const pendingIntroAfterOverlayRef = useRef(false);
-  const loadCompleteRef = useRef(loadComplete);
-  const loadProgressRef = useRef(loadProgress);
-  loadCompleteRef.current = loadComplete;
-  loadProgressRef.current = loadProgress;
-  // Topbar transport controls are hidden automatically whenever the floating
-  // all-events widget is visible (events panel collapsed + widget not docked).
-  const controlsHidden = eventsPanelCollapsed && !allEventsWidgetHidden;
-  // Bumped whenever the user explicitly asks to "reveal" the current event in
-  // the events panel (e.g. via the locate button on the event-title widget).
-  // EventsPanel watches this counter to clear filters and expand parents so the
-  // active step becomes visible.
-  const [revealStepRequest, setRevealStepRequest] = useState(0);
-  const [timingPanelOpen, setTimingPanelOpen] = useState(false);
-  const [timingFocusOp, setTimingFocusOp] = useState('');
-  const [detailInspectorOpen, setDetailInspectorOpen] = useState(false);
-  const [detailInspectorMode, setDetailInspectorMode] = useState('bits');
-  const [detailInspectorQuery, setDetailInspectorQuery] = useState('');
-  const [, setBalloonLayoutTick] = useState(0);
-  const [balloonLiveLayout, setBalloonLiveLayout] = useState(false);
-  // Pixel offsets that place the canvas's center at the viewport center
-  // regardless of the container's current bounding box. Without this,
-  // the canvas was positioned `left:50%; top:50%` of `.canvas-container`,
-  // so when the settings/steps panels collapse/expand the container
-  // reshapes and the (stable) canvas slides in viewport space — visible
-  // as a content shift on every panel toggle. Updated by a ResizeObserver
-  // on the container so the anchor tracks the panel's CSS transition.
-  const [canvasAnchorPx, setCanvasAnchorPx] = useState(null);
-
-  useEffect(() => {
-    if (!loadComplete) {
-      setTopbarPlaybackReady(false);
-      return;
-    }
-    const timer = setTimeout(() => setTopbarPlaybackReady(true), 500);
-    return () => clearTimeout(timer);
-  }, [loadComplete]);
-
-  // 3D camera state
-  // The app always uses 3D mode; the camera is always enabled. The tilt
-  // button controls the rotateX angle (flat 0° vs tilted 30°).
+  // 3D camera — always enabled; tilt angle controlled by the tilt button.
   const mode3D = true;
-  const currentAnimIntervalRef = useRef(20);
-  const currentMaskAnimIntervalRef = useRef(20);
   const {
     camera3DRef,
     camera3DTransform,
@@ -678,80 +499,25 @@ export default function Visualizer({
     ensureTiltCamera,
   } = use3DCamera();
 
-  // Mirrors camera3DTransform state so imperative style writes inside
-  // refreshCanvasLayout (which is a stale-closure useCallback) can always
-  // read the current rotation value without adding camera3DTransform to its
-  // dependency array (which would cause unnecessary re-renders).
   const camera3DTransformRef = useRef(camera3DTransform);
   camera3DTransformRef.current = camera3DTransform;
 
-  const bitStateRef = useRef(null);
   const stepsRef = useRef([]);
   const currentStepRef = useRef(0);
   const playTimerRef = useRef(null);
   const rippleRef = useRef(null);
-  const runEffectCancelRef = useRef(null); // cancel callback for an in-flight runEffect
-  const seqTimerRef = useRef(null); // sequential animation timer
+  const runEffectCancelRef = useRef(null);
+  const seqTimerRef = useRef(null);
   const triggerAnimationRef = useRef(null);
   const stopSeqAnimRef = useRef(null);
   const playTimeoutRef = useRef(null);
-  const selectedAnimLoopRef = useRef(null);
-  const pausedStepAnimLoopRef = useRef(null);
   const initialFitDoneRef = useRef(false);
-  const detailOpenRef = useRef(true);
-  const detailHeightRef = useRef(280);
-  const lastHoveredIdxRef = useRef(-1); // tracks last hovered bit to avoid redundant recomputes
-  const layoutRefreshTimeoutRef = useRef(null);
-  const layoutRefreshRaf1Ref = useRef(null);
-  const layoutRefreshRaf2Ref = useRef(null);
-  // Anchor captured by a panel-toggle handler BEFORE the state update,
-  // i.e. while `getBoundingClientRect()` still reflects the old layout.
-  // The resize useEffect consumes it (instead of capturing fresh, which
-  // would always read the post-change rect and produce zero net pan
-  // compensation, causing the canvas to drift on every panel toggle).
-  const pendingResizeAnchorRef = useRef(null);
-  const viewportAnimRef = useRef(null);
   const initialHighlightHoldRef = useRef(true);
   const traceInfoPopoverRef = useRef(null);
-  // True while the timeline slider has left bitState in a partially-revealed
-  // (pre-step) state. goToStep checks this and always rebuilds bitState from
-  // scratch so we don't end up with an inconsistent incremental update.
-  const bitStateDirtyRef = useRef(false);
-  // Periodic snapshots of bitState built at trace load time (every
-  // CHECKPOINT_INTERVAL events). Used by goToStep to skip replaying
-  // thousands of events on backward scrubs — O(n) → O(n/CHECKPOINT_INTERVAL).
-  // Each entry: { step: number, bitState: Uint8Array } where `step` is the
-  // index of the first event NOT yet applied (i.e. state after events 0..step-1).
-  const bitStateCheckpointsRef = useRef([]);
   const traceInfoToggleRef = useRef(null);
-  const balloonLayoutRafRef = useRef(null);
-  const balloonLiveLayoutTimerRef = useRef(null);
-  const glCssUnlockTokenRef = useRef(0);
-  const glCssUnlockRafRef = useRef(null);
-  const glCssUnlockTimeoutRef = useRef(null);
-  const glCssLockStateRef = useRef(null);
-  const debugGlOffsetXRef = useRef(0);
-  const debugGlOffsetYRef = useRef(0);
-  const debugGlAutoOffsetYRef = useRef(0);
-  const glDebugLastUpdateRef = useRef(0);
-  // rAF id for the pending coalesced render (pan/zoom path).
-  const pendingRenderRafRef = useRef(null);
 
   stepsRef.current = steps;
   currentStepRef.current = currentStep;
-  selectedStepsRef.current = selectedSteps;
-  debugGlOffsetXRef.current = debugGlOffsetX;
-  debugGlOffsetYRef.current = debugGlOffsetY;
-  debugGlAutoOffsetYRef.current = debugGlAutoOffsetY;
-
-  const updateGlDebugInfo = useCallback((force = false) => {
-    const gl = glRendererRef.current;
-    if (!gl || typeof gl.getDebugInfo !== 'function') return;
-    const now = Date.now();
-    if (!force && now - glDebugLastUpdateRef.current < 120) return;
-    glDebugLastUpdateRef.current = now;
-    setGlDebugInfo(gl.getDebugInfo());
-  }, []);
 
   // Keep refs in sync for use in callbacks
   const getMinimapDetailH = useCallback(() => {
@@ -869,41 +635,6 @@ export default function Visualizer({
     const num = bitToNumber(idx, sm, r?.wheelDefinition || wheelDefinition);
     return { bitIndex: idx, number: num == null ? 'unmapped' : num, isPrime: num != null && isPrimeNumber(num), history };
   }, [isPrimeNumber, wheelDefinition]);
-
-  const scheduleBalloonRelayout = useCallback((immediate = false) => {
-    if (immediate) {
-      if (balloonLayoutRafRef.current != null) {
-        cancelAnimationFrame(balloonLayoutRafRef.current);
-        balloonLayoutRafRef.current = null;
-      }
-      setBalloonLayoutTick((value) => value + 1);
-      return;
-    }
-    if (balloonLayoutRafRef.current != null) return;
-    balloonLayoutRafRef.current = requestAnimationFrame(() => {
-      balloonLayoutRafRef.current = null;
-      setBalloonLayoutTick((value) => value + 1);
-    });
-  }, []);
-
-  useEffect(() => () => {
-    if (balloonLayoutRafRef.current != null) {
-      cancelAnimationFrame(balloonLayoutRafRef.current);
-      balloonLayoutRafRef.current = null;
-    }
-    if (balloonLiveLayoutTimerRef.current != null) {
-      clearTimeout(balloonLiveLayoutTimerRef.current);
-      balloonLiveLayoutTimerRef.current = null;
-    }
-    if (glCssUnlockRafRef.current != null) {
-      cancelAnimationFrame(glCssUnlockRafRef.current);
-      glCssUnlockRafRef.current = null;
-    }
-    if (glCssUnlockTimeoutRef.current != null) {
-      clearTimeout(glCssUnlockTimeoutRef.current);
-      glCssUnlockTimeoutRef.current = null;
-    }
-  }, []);
 
   // Wrap setDetailOpen/setDetailHeight to keep refs updated
   const updateDetailOpen = useCallback((val) => {
@@ -1525,13 +1256,6 @@ export default function Visualizer({
     pendingResizeAnchorRef.current = captureViewportAnchor(0.5, 0.5);
   }, [captureViewportAnchor]);
 
-  // Tracks the active tab in SettingsPanel so the gear icon can toggle it.
-  const [settingsActiveTab, setSettingsActiveTab] = useState('layout');
-
-  // State for requesting a specific tab in the settings panel from external code.
-  // { tab: string, counter: number } — counter increments each request so effects fire.
-  const [settingsTabRequest, setSettingsTabRequest] = useState(null);
-
   const {
     dockEventsWidgetToDetailPanel,
     dockEventsWidgetToTopBar,
@@ -1566,12 +1290,6 @@ export default function Visualizer({
     setWidgetsJoined,
     updateDetailOpen,
   });
-
-  // Callback for changing bitAnimationMode from the settings panel (no seek side-effect needed there).
-  const handleBitAnimationModeChange = useCallback((mode) => {
-    setBitAnimationMode(mode);
-    bitAnimationModeRef.current = mode;
-  }, []);
 
   // Keep rendered balloons consistent with the current interaction mode.
   useEffect(() => {
@@ -1632,31 +1350,6 @@ export default function Visualizer({
       detailOpen,
     });
   }, [theme, layoutSettings, eventTitleSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, widgetsJoined, allEventsInDetailPanel, autoAnimateOnSelect, eventsPanelCollapsed, settingsCollapsed, detailOpen]);
-
-  // Phase F: once the intro animation finishes, restore panels that were open in the last session.
-  useEffect(() => {
-    if (introPhase !== 'visible') return;
-    const deferred = deferredPanelStateRef.current;
-    if (deferred.applied) return;
-    deferred.applied = true;
-    // Open panels that were saved as open — the existing toggle animations fire naturally.
-    if (!deferred.eventsPanelCollapsed) setEventsPanelCollapsed(false);
-    if (!deferred.settingsCollapsed) setSettingsCollapsed(false);
-    // Detail panel is only restored once the user has revealed the single-event widget
-    // (first play or event selection). See the effect below.
-  }, [introPhase]);
-
-  // Restore the detail panel open state after singleEventWidgetRevealed becomes true
-  // (first play or event selection). This implements item 16: hide the detail panel
-  // at startup until the user shows intent to interact with events.
-  const detailPanelRestoredRef = useRef(false);
-  useEffect(() => {
-    if (!singleEventWidgetRevealed) return;
-    if (detailPanelRestoredRef.current) return;
-    detailPanelRestoredRef.current = true;
-    const deferred = deferredPanelStateRef.current;
-    if (deferred.detailOpen) setDetailOpen(true);
-  }, [singleEventWidgetRevealed]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -5035,56 +4728,6 @@ export default function Visualizer({
     return { ...base, background: bgCss };
   }, [camera3DContainerStyle, canvasAnchorPx, canvasColors, theme]);
 
-  // (legacy playSpeed-based label/value/setters removed; speed is now driven
-  // by playSpeedPercent and per-event time targets — see SettingsPanel.)
-  const stepSpeedValue = useMemo(() => {
-    const interval = clampMs(parseInt(bitAnimInterval || 0, 10) || 20, 5, 5000);
-    const ratio = (5000 - interval) / (5000 - 5);
-    return Math.round(1 + ratio * 499);
-  }, [bitAnimInterval, clampMs]);
-  const maskSpeedValue = useMemo(() => {
-    const interval = clampMs(parseInt(maskAnimInterval || 0, 10) || 20, 5, 5000);
-    const ratio = (5000 - interval) / (5000 - 5);
-    return Math.round(1 + ratio * 499);
-  }, [maskAnimInterval, clampMs]);
-  const setStepSpeedValue = useCallback((speedValue) => {
-    const speed = clampMs(parseInt(speedValue || 0, 10) || 1, 1, 500);
-    const ratio = (speed - 1) / 499;
-    setBitAnimInterval(Math.round(5000 - ratio * (5000 - 5)));
-  }, [clampMs]);
-  const setMaskSpeedValue = useCallback((speedValue) => {
-    const speed = clampMs(parseInt(speedValue || 0, 10) || 1, 1, 500);
-    const ratio = (speed - 1) / 499;
-    setMaskAnimInterval(Math.round(5000 - ratio * (5000 - 5)));
-  }, [clampMs]);
-
-  const cycleAnimStyle = useCallback(() => {
-    const styles = ['ripple', 'fade', 'pulse', 'none'];
-    const current = styles.indexOf(animStyle);
-    const next = styles[(current + 1 + styles.length) % styles.length];
-    setAnimStyle(next);
-  }, [animStyle]);
-
-  const cycleAnimMode = useCallback(() => {
-    const modes = ['sequential', 'bounce', 'all'];
-    const current = modes.indexOf(animMode);
-    const next = modes[(current + 1 + modes.length) % modes.length];
-    setAnimMode(next);
-  }, [animMode]);
-
-  const animStyleInfo = useMemo(() => ({
-    ripple: { label: 'Ripple', shortLabel: 'Rip', hint: 'Water-drop ripple on changed bits', swatch: '◌' },
-    fade: { label: 'Fade', shortLabel: 'Fade', hint: 'Soft fade highlight', swatch: '◔' },
-    pulse: { label: 'Pulse', shortLabel: 'Pulse', hint: 'Pulse changed bits', swatch: '◎' },
-    none: { label: 'None', shortLabel: 'Off', hint: 'No animated effect', swatch: '—' },
-  }), []);
-
-  const animModeInfo = useMemo(() => ({
-    sequential: { label: 'Sequential', hint: 'Animate bit-by-bit in order', swatch: '1→2→3' },
-    bounce: { label: 'Bounce', hint: 'Animate forward and backward', swatch: '↔' },
-    all: { label: 'All At Once', hint: 'Animate all bits simultaneously', swatch: '⋯' },
-  }), []);
-
   const detailInspectorRows = useMemo(() => {
     if (!currentStepData || !currentStepData.changedBits || currentStepData.changedBits.length === 0) return [];
     const bits = Array.from(currentStepData.changedBits).sort((a, b) => a - b);
@@ -5487,16 +5130,7 @@ export default function Visualizer({
       />
 
       {exporting && <ExportProgress progress={exportProgress} />}
-      {exportError && (
-        <div className="export-error-banner" role="alert">
-          {exportError}
-        </div>
-      )}
-      {glUnavailable && (
-        <div className="gl-unavailable-banner" role="alert">
-          WebGL2 with OffscreenCanvas is required for rendering. Please use a modern browser (Chrome 69+, Firefox 105+, Edge 79+, or Safari 16.4+).
-        </div>
-      )}
+      <StatusBanners exportError={exportError} glUnavailable={glUnavailable} />
 
       {/* Main content — panels float (position:absolute) within this div, which sits
            below the toolbar. overflow:visible so collapsed toggle buttons are not
@@ -5507,22 +5141,11 @@ export default function Visualizer({
         style={{ '--events-panel-width': `${eventsPanelCollapsed ? 0 : panelWidth}px` }}
       >
         {/* Loading overlay — centered in the canvas area while streaming */}
-        {loadingOverlayPhase !== 'hidden' && (
-          <div className={`canvas-loading-overlay${loadingOverlayPhase === 'fading' ? ' fading' : ''}`}>
-            <div className="canvas-loading-text">Loading log…</div>
-            {steps.length > 0 && (
-              <div className="canvas-loading-count">
-                {(overlayBarPct < 75
-                  ? Math.floor(steps.length * (overlayBarPct / 100))
-                  : steps.length
-                ).toLocaleString()} events
-              </div>
-            )}
-            <div className="canvas-loading-bar-track" role="progressbar" aria-label="Loading trace" aria-valuenow={overlayBarPct} aria-valuemax={100}>
-              <div className="canvas-loading-bar-fill" style={{ width: `${overlayBarPct}%` }} />
-            </div>
-          </div>
-        )}
+        <CanvasLoadingOverlay
+          loadingOverlayPhase={loadingOverlayPhase}
+          steps={steps}
+          overlayBarPct={overlayBarPct}
+        />
         <EventsPanel
           steps={steps}
           currentStep={currentStep}

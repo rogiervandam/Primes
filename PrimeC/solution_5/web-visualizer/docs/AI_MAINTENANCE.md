@@ -925,7 +925,11 @@ facts that still matter:
   `MinimapRenderer`.
 - Visualizer hooks already extracted: `useTraceExport`, `useDraftInput`,
   `useKeyboardShortcuts`, `usePlaybackClock`, `use3DCamera`,
-  `usePlaybackLoop`, `useSearchState`, and `usePanelChoreography`.
+  `usePlaybackLoop`, `useSearchState`, `usePanelChoreography`,
+  `useRawSource`, `useCanvasRefs`, `useDebugTools`, `useThemeAndColors`,
+  `useAnimationConfig`, `useStepAnimation`, `useOverlays`, `useIntroSequence`,
+  `useWidgetState`, `usePanelState`, `useBalloonLayout`, `useBitState`,
+  and `useViewportAnchoring`.
 - Events terminology replaced the old StepPanel naming. `viewPrefs` migrates
   the legacy `stepsPanelCollapsed` key.
 - GL worker mode is the production bit-fill path. Canvas2D cell-fill code and
@@ -1019,104 +1023,44 @@ facts that still matter:
 - The current test suite is meaningful. Do not describe build as the only safety
   net anymore.
 
-### 15. Planned `Visualizer.jsx` Component Split (Phased)
+### 15. `Visualizer.jsx` Component Split (Completed)
 
-Goal: reduce `src/Visualizer.jsx` size/risk by moving JSX composition and
-feature-local state into focused container components while preserving current
-playback, renderer, and persistence contracts.
+Goal was to reduce `src/Visualizer.jsx` size and risk by moving state domains
+into focused hooks and extracting trivial JSX fragments into small components.
 
-Current boundary cues (at this revision):
+**Completed (all phases merged):**
 
-- `Toolbar`, `CanvasStage`, `EventsPanel`, `SettingsPanel`, and
-  `DebugToolsPanel` are already imported children, but `Visualizer.jsx` still
-  owns a very large amount of orchestration state and wiring props.
-- `Visualizer.jsx` is ~4400 lines and remains a hotspot for regressions when
-  adding UI behavior.
+New hooks in `src/hooks/` (all called from Visualizer.jsx):
+- `useRawSource` — raw source loading, `lineToStep`/`stepToLine` memos
+- `useCanvasRefs` — all canvas/renderer/GL refs + CSS-lock refs
+- `useDebugTools` — GL debug state, refs, `updateGlDebugInfo` callback
+- `useThemeAndColors` — theme, gridOpacity, canvasColors, colorPreset, customColors
+- `useAnimationConfig` — animMode/Style, delays, event time targets, speed values, cycle helpers
+- `useStepAnimation` — bitAnimationMode, scrub progress, loop refs, `handleBitAnimationModeChange`
+- `usePlaybackClock` — seekGenRef / globalPausedRef / animBusyUntilRef (already existed)
+- `useOverlays` — heatMap, primeOverlay, rangeOverlay, multiplesOverlay, cacheline
+- `useIntroSequence` — introPhase, loadingOverlayPhase, topbar playback-ready effect
+- `useWidgetState` — widget visibility, timing panel, detail inspector state
+- `usePanelState` — panel visibility/dimensions, settingsActiveTab, panel-restore effects
+- `useBalloonLayout` — pinnedBitIndices, hoveredBitInfo, `scheduleBalloonRelayout`
+- `useBitState` — bitStateRef, bitStateCheckpointsRef, bitStateDirtyRef, selectedSteps
+- `useViewportAnchoring` — canvasAnchorPx, pendingResizeAnchorRef, layout-refresh refs
 
-Implementation rules for this split:
+New components in `src/visualizer/`:
+- `CanvasLoadingOverlay` — streaming-load progress bar
+- `StatusBanners` — GL-unavailable banner + export-error banner
 
-- Prefer extracting containers/components first; extract hooks only when the
-  extracted logic is mostly state/effects and has little JSX.
-- Keep renderer and playback authority in `Visualizer.jsx` until extraction is
-  proven behavior-safe. Do not move core `goToStep`, seek, or replay contracts
-  in the first pass.
-- Keep persisted preference writes centralized through existing `viewPrefs`
-  paths. Do not duplicate localStorage writes in new components.
-- Each phase must land with no behavior change and with build/test passing.
+Result: `Visualizer.jsx` reduced from ~5760 to ~5420 lines. Core playback,
+renderer lifecycle, animation engine, and canvas gesture handling remain in
+`Visualizer.jsx` as they require access to many refs and callbacks at once.
 
-Phase 1 (low-risk JSX extraction):
+Maintenance rules going forward:
 
-- Create `src/visualizer/VisualizerAlerts.jsx` for:
-  - export progress/error banners
-  - GL-unavailable banner
-- Create `src/visualizer/VisualizerOverlays.jsx` for:
-  - minimap overlay canvas
-  - keyboard-shortcuts overlay
-- Keep refs/state in `Visualizer.jsx`; pass only minimal props.
-- Exit criteria: no visual or behavioral changes; only composition simplified.
-
-Phase 2 (panel composition extraction):
-
-- Create `src/visualizer/VisualizerPanels.jsx` to render and wire:
-  - `EventsPanel`
-  - `SettingsPanel`
-  - optional `DebugToolsPanel`
-- Move inline reset lambdas used only by settings panel into this new component
-  if they are not reused elsewhere.
-- Keep the underlying source-of-truth state in `Visualizer.jsx` initially; use
-  a grouped prop object to avoid hundreds of flat props.
-- Exit criteria: panel toggles, panel resize, and all settings interactions
-  remain identical.
-
-Phase 3 (canvas-area composition extraction):
-
-- Create `src/visualizer/VisualizerCanvasArea.jsx` for:
-  - `CanvasStage`
-  - joined-widget rendering and wiring (`JoinedEventsWidget`)
-  - `stepAnimSlidersContent` ownership
-- Extract banner/surrounding-event formatting helpers into
-  `src/visualizer/eventTitleModel.js` (pure helpers only).
-- Exit criteria: canvas gestures, joined/split widget flows, detail panel
-  interactions, and event title behavior are unchanged.
-
-Phase 4 (state-domain extraction by feature):
-
-- Introduce focused hooks only where coupling is already local:
-  - `useDetailInspectorState`
-  - `useBitBalloonLayout`
-  - `useOverlayTogglesState`
-- Keep hook APIs explicit and small; avoid a single mega-hook replacing
-  `Visualizer.jsx`.
-- Exit criteria: easier-to-read `Visualizer.jsx` top-level with clear sectioned
-  state domains and reduced ref churn.
-
-Phase 5 (optional final shell):
-
-- Create `src/visualizer/VisualizerShell.jsx` as a top-level layout component
-  that assembles `Toolbar`, `VisualizerAlerts`, `VisualizerPanels`,
-  `VisualizerCanvasArea`, and `VisualizerOverlays`.
-- Keep `Visualizer.jsx` as runtime owner that computes props for the shell.
-
-Recommended rollout order and guardrails:
-
-- Land one phase per PR to keep reviewable diffs.
-- After each phase run:
-  - `npm run test`
-  - `npm run build`
-  - manual smoke check: load trace, play/pause, scrub, jump to step, toggle
-    events/settings/detail panels, drag/join/split widget, open raw log,
-    inspect minimap and shortcuts overlay.
-- If a phase causes prop explosion, pause and replace with one domain object
-  prop plus typed key comments at the receiving component.
-
-Definition of done for the overall split:
-
-- `src/Visualizer.jsx` reduced below ~2500 lines without feature loss.
-- New components each have one clear responsibility and no duplicate
-  persistence logic.
-- Existing playback and renderer contracts remain intact.
-- Maintenance docs (`AI_MAINTENANCE.md`, `COMPONENTS.md`) reflect the final
-  ownership map.
+- Feature-local state that doesn't need renderer/playback refs → new hook in `src/hooks/`.
+- Simple conditional JSX (status banners, overlays) → new component in `src/visualizer/`.
+- Keep renderer and playback authority in `Visualizer.jsx`.
+- Keep persisted preference writes centralized through existing `viewPrefs` paths.
+- Each change must pass `npm run build` and `npm test`.
 
 ## Topic Backlog
 
