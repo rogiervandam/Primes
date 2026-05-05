@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { BIT_LAYOUTS, BYTE_LAYOUTS, bitToNumber } from './SieveRenderer';
 import { formatNs } from './TimingPanel';
 
@@ -236,6 +236,26 @@ export default function DetailPanel({
     window.addEventListener('mouseup', onUp);
   }, [width, onWidthChange]);
 
+  const [bodyAnimClass, setBodyAnimClass] = useState('');
+  const [isBodyAnimatingOut, setIsBodyAnimatingOut] = useState(false);
+  const prevOpenRef = useRef(open);
+  useEffect(() => {
+    const prev = prevOpenRef.current;
+    prevOpenRef.current = open;
+    if (!prev && open) {
+      // Opening: animate in
+      setBodyAnimClass('expanding-in');
+      const t = setTimeout(() => setBodyAnimClass(''), 450);
+      return () => clearTimeout(t);
+    } else if (prev && !open) {
+      // Closing: animate out then hide
+      setBodyAnimClass('collapsing-out');
+      setIsBodyAnimatingOut(true);
+      const t = setTimeout(() => { setIsBodyAnimatingOut(false); setBodyAnimClass(''); }, 450);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
+
   if (!step) return null;
 
   const panelTitle = [
@@ -431,12 +451,9 @@ export default function DetailPanel({
         <span className="detail-panel-arrow">{open ? '▼' : '▲'}</span>
       </div>
 
-      {open && (
-        <div className="detail-panel-body detail-panel-body-compact" style={{
-          ...(playing ? { height: `${height || 200}px` } : { maxHeight: `${height || 200}px` }),
-          ...(width > 0 ? { minWidth: `${width}px`, overflowX: 'auto' } : {}),
-        }}>
-        {allEventsTransport && (
+      {(allEventsTransport || (!eventTitleVisible && eventAnimSliders)) && (
+        <div className="detail-panel-dock-row">
+          {allEventsTransport && (
             <div className="detail-panel-all-events-transport">
               {allEventsTransport}
             </div>
@@ -446,6 +463,14 @@ export default function DetailPanel({
               {eventAnimSliders}
             </div>
           )}
+        </div>
+      )}
+
+      {(open || isBodyAnimatingOut) && (
+        <div className={`detail-panel-body detail-panel-body-compact${bodyAnimClass ? ` body-${bodyAnimClass}` : ''}`} style={{
+          ...(playing ? { height: `${height || 200}px` } : { maxHeight: `${height || 200}px` }),
+          ...(width > 0 ? { minWidth: `${width}px`, overflowX: 'auto' } : {}),
+        }}>
           <div className="detail-sections">
             <section className="detail-section-card">
               <div className="detail-section-title">Operation &amp; Range</div>

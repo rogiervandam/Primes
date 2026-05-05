@@ -33,7 +33,7 @@ export default function Toolbar({
   setStorageModel,
   header,
   traceInfoSections,
-  rawSource,
+  onFetchRawSource,
   lineToStep,
   onJumpToStep,
   rawScrollToLine,
@@ -49,10 +49,6 @@ export default function Toolbar({
   exporting,
   setPlaySpeedPercent,
   isScrubbingTopRef,
-  loadComplete,
-  loadProgress,
-  loadTargetCount,
-  topbarPlaybackReady,
   // search
   searchOpen,
   setSearchOpen,
@@ -106,12 +102,6 @@ export default function Toolbar({
   // header element here so the existing layout wrapper is preserved.
   void visualizerClass;
 
-  const loadedCount = Math.max(0, Number(loadProgress) || 0, steps.length || 0);
-  const hasKnownTarget = Number.isFinite(loadTargetCount) && loadTargetCount > 0;
-  const loadingMax = hasKnownTarget ? loadTargetCount : Math.max(1, loadedCount);
-  const loadingValue = Math.min(loadingMax, loadedCount);
-  const showLoadingTimeline = !loadComplete || !topbarPlaybackReady;
-
   return (
     <header className={`toolbar${controlsHidden ? ' toolbar--controls-hidden' : ''}`}>
       <div className="toolbar-left">
@@ -136,7 +126,7 @@ export default function Toolbar({
           setStorageModel={setStorageModel}
           header={header}
           sections={traceInfoSections}
-          rawSource={rawSource}
+          onFetchRawSource={onFetchRawSource}
           lineToStep={lineToStep}
           onJumpToStep={onJumpToStep}
           rawScrollToLine={rawScrollToLine}
@@ -182,25 +172,9 @@ export default function Toolbar({
           </button>
         </div>
       </div>
-      {(!controlsHidden || showLoadingTimeline) && (
+      {!controlsHidden && (
       <div className="toolbar-center">
-        {showLoadingTimeline ? (
-          <>
-            <input
-              type="range"
-              className="step-slider"
-              min={0}
-              max={Math.max(1, loadingMax)}
-              value={Math.max(0, loadingValue)}
-              disabled
-              aria-label="Loading events"
-            />
-            <span className="step-counter" title={hasKnownTarget ? `Loaded ${loadedCount} of ${loadTargetCount} events` : `Loaded ${loadedCount} events`}>
-              {hasKnownTarget ? `${loadedCount} / ${loadTargetCount}` : `${loadedCount} events`}
-            </span>
-          </>
-        ) : (
-          <>
+        <>
             <button className="btn-icon" onClick={() => goToStep(0)} title="First (Home)" disabled={exporting}><SkipBack /></button>
             <button className="btn-icon" onClick={() => goToStep(currentStep - 1)} title="Previous (←)" disabled={exporting}><StepBack /></button>
             <button className="btn-icon anim-speed-btn" onClick={() => setPlaySpeedPercent(v => Math.max(25, Math.round(v / 1.25)))} title="Slower animation" disabled={exporting}><Minus size={14} /></button>
@@ -232,8 +206,7 @@ export default function Toolbar({
               disabled={exporting}
             />
             <span className="step-counter">{currentStep} / {steps.length - 1}</span>
-          </>
-        )}
+        </>
       </div>
       )}
       <div className="toolbar-right">

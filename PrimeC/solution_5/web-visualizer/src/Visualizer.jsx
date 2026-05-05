@@ -614,6 +614,16 @@ export default function Visualizer({
   // Until then, the toolbar only shows a disabled timeline scrubber as a
   // loading progress indicator.
   const [topbarPlaybackReady, setTopbarPlaybackReady] = useState(false);
+  // Loading overlay: 'hidden' | 'active' | 'fading'
+  const [loadingOverlayPhase, setLoadingOverlayPhase] = useState('hidden');
+  const [uiChromeVisible, setUiChromeVisible] = useState(false);
+  const [overlayBarPct, setOverlayBarPct] = useState(0);
+  const overlayStartTimeRef = useRef(null);
+  const pendingIntroAfterOverlayRef = useRef(false);
+  const loadCompleteRef = useRef(loadComplete);
+  const loadProgressRef = useRef(loadProgress);
+  loadCompleteRef.current = loadComplete;
+  loadProgressRef.current = loadProgress;
   // Topbar transport controls are hidden automatically whenever the floating
   // all-events widget is visible (events panel collapsed + widget not docked).
   const controlsHidden = eventsPanelCollapsed && !allEventsWidgetHidden;
@@ -1520,6 +1530,7 @@ export default function Visualizer({
   const [settingsTabRequest, setSettingsTabRequest] = useState(null);
 
   const {
+    dockEventsWidgetToDetailPanel,
     dockEventsWidgetToTopBar,
     expandEventsPanelFromWidget,
     hideJoinedWidget,
@@ -1628,8 +1639,21 @@ export default function Visualizer({
     // Open panels that were saved as open — the existing toggle animations fire naturally.
     if (!deferred.eventsPanelCollapsed) setEventsPanelCollapsed(false);
     if (!deferred.settingsCollapsed) setSettingsCollapsed(false);
-    if (deferred.detailOpen) setDetailOpen(true);
+    // Detail panel is only restored once the user has revealed the single-event widget
+    // (first play or event selection). See the effect below.
   }, [introPhase]);
+
+  // Restore the detail panel open state after singleEventWidgetRevealed becomes true
+  // (first play or event selection). This implements item 16: hide the detail panel
+  // at startup until the user shows intent to interact with events.
+  const detailPanelRestoredRef = useRef(false);
+  useEffect(() => {
+    if (!singleEventWidgetRevealed) return;
+    if (detailPanelRestoredRef.current) return;
+    detailPanelRestoredRef.current = true;
+    const deferred = deferredPanelStateRef.current;
+    if (deferred.detailOpen) setDetailOpen(true);
+  }, [singleEventWidgetRevealed]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -1863,7 +1887,7 @@ export default function Visualizer({
   }, [header.bitCount, header.sieveSize, header.storageModel, wheelDefinition]);
 
   // Phase E: after the renderer initialises and produces its first frame,
-  // kick off the intro scale animation.
+  // start the loading overlay and defer the intro scale animation until it's done.
   useEffect(() => {
     let fired = false;
     const tryTrigger = () => {
@@ -1874,10 +1898,14 @@ export default function Visualizer({
       introTiltStartedRef.current = false;
       // Reset intro phase each time a new trace header arrives.
       setIntroPhase('hidden');
-      // Give React one frame to apply the hidden class before animating.
+      // Give React one frame to apply the hidden class before starting the overlay.
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          setIntroPhase('scaling');
+          setLoadingOverlayPhase('active');
+          setUiChromeVisible(false);
+          setOverlayBarPct(0);
+          overlayStartTimeRef.current = Date.now();
+          pendingIntroAfterOverlayRef.current = true;
         });
       });
     };
@@ -1885,6 +1913,50 @@ export default function Visualizer({
     const raf = requestAnimationFrame(tryTrigger);
     return () => cancelAnimationFrame(raf);
   }, [header.bitCount]); // Re-run whenever a new trace loads
+
+  // Animate the loading overlay progress bar.
+  // The bar takes at least 2 seconds to fill, even if the log loads faster.
+  useEffect(() => {
+    if (loadingOverlayPhase !== 'active') return;
+    const MIN_MS = 2000;
+    let timer = null;
+
+    const update = () => {
+      const elapsed = Date.now() - (overlayStartTimeRef.current || Date.now());
+      const complete = loadCompleteRef.current;
+      const progress = loadProgressRef.current;
+      const stepCount = header.stepCount;
+
+      const timePct = Math.min(100, (elapsed / MIN_MS) * 100);
+      const realPct = complete ? 100
+        : stepCount > 0 ? Math.min(95, (progress / stepCount) * 100)
+        : Math.min(90, timePct * 0.9);
+      const displayPct = Math.max(0, Math.min(timePct, realPct));
+      setOverlayBarPct(Math.round(displayPct));
+
+      if (complete && elapsed >= MIN_MS) {
+        setOverlayBarPct(100);
+        setTimeout(() => {
+          setLoadingOverlayPhase('fading');
+          setTimeout(() => {
+            setLoadingOverlayPhase('hidden');
+            setUiChromeVisible(true);
+            // Trigger the pending intro animation
+            if (pendingIntroAfterOverlayRef.current) {
+              pendingIntroAfterOverlayRef.current = false;
+              setIntroPhase('scaling');
+            }
+          }, 500);
+        }, 300);
+        return;
+      }
+      timer = setTimeout(update, 50);
+    };
+
+    timer = setTimeout(update, 50);
+    return () => { if (timer) clearTimeout(timer); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingOverlayPhase, header.stepCount]); // reads loadComplete/loadProgress via refs
 
   // GL worker is intentionally kept alive as long as the component lives.
   // `OffscreenCanvas.transferControlToOffscreen()` is a one-shot, irreversible
@@ -4173,7 +4245,7 @@ export default function Visualizer({
 
     const targetTilt = Math.min(30, cam.maxTilt || 30);
     cam.cancelAllAnimations();
-    cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 400)
+    cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 900)
       .then(() => {
         setIntroPhase('visible');
         schedulePostLayoutRefresh(null);
@@ -4203,7 +4275,7 @@ export default function Visualizer({
     const newTiltActive = !tiltActive;
     setTiltActive(newTiltActive);
     const targetTilt = newTiltActive ? Math.min(30, cam.maxTilt || 30) : 0;
-    cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 400)
+    cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 900)
       .then(() => schedulePostLayoutRefresh(null));
   }, [tiltActive, schedulePostLayoutRefresh]);
 
@@ -4912,7 +4984,7 @@ export default function Visualizer({
         ? 'translate(-50%, -50%) scale(0.02)'
         : 'translate(-50%, -50%)',
       transition: introPhase === 'scaling'
-        ? 'transform 2800ms cubic-bezier(0.22, 1, 0.36, 1), opacity 2000ms ease-out'
+        ? 'transform 3800ms cubic-bezier(0.22, 1, 0.36, 1), opacity 2000ms ease-out'
         : undefined,
       opacity: introPhase === 'hidden' ? 0 : 1,
       transformStyle: 'preserve-3d',
@@ -5269,7 +5341,14 @@ export default function Visualizer({
       isScrubbingTopRef={isScrubbingTopRef}
       playSpeedPercent={playSpeedPercent}
       setPlaySpeedPercent={setPlaySpeedPercent}
-      onDismiss={() => setAllEventsInDetailPanel(false)}
+      onDismiss={() => {
+        setAllEventsInDetailPanel(false);
+        setAllEventsWidgetHidden(false);
+      }}
+      onUndockByDrag={() => {
+        setAllEventsInDetailPanel(false);
+        setAllEventsWidgetHidden(false);
+      }}
     />
   ) : null;
 
@@ -5288,7 +5367,6 @@ export default function Visualizer({
         setStorageModel={setStorageModel}
         header={header}
         traceInfoSections={traceInfoSections}
-        rawSource={rawSourceForLog}
         onFetchRawSource={fetchRawSource}
         lineToStep={lineToStep}
         onJumpToStep={onJumpToStep}
@@ -5303,10 +5381,6 @@ export default function Visualizer({
         exporting={exporting}
         setPlaySpeedPercent={setPlaySpeedPercent}
         isScrubbingTopRef={isScrubbingTopRef}
-        loadComplete={loadComplete}
-        loadProgress={loadProgress}
-        loadTargetCount={header.stepCount || 0}
-        topbarPlaybackReady={topbarPlaybackReady}
         searchOpen={searchOpen}
         setSearchOpen={setSearchOpen}
         searchQuery={searchQuery}
@@ -5344,27 +5418,6 @@ export default function Visualizer({
         toggleSettingsPanel={toggleSettingsPanel}
       />
 
-      {/* Loading progress bar — thin stripe below toolbar while streaming */}
-      {!loadComplete && (
-        <div
-          className="loading-progress-bar"
-          role="progressbar"
-          aria-label="Loading trace"
-          aria-valuenow={loadProgress}
-          aria-valuemax={header.stepCount || undefined}
-        >
-          <div
-            className="loading-progress-bar-fill"
-            style={{
-              width: header.stepCount > 0
-                ? `${Math.min(100, (loadProgress / header.stepCount) * 100)}%`
-                : '100%',
-              animation: header.stepCount > 0 ? 'none' : undefined,
-            }}
-          />
-        </div>
-      )}
-
       {exporting && <ExportProgress progress={exportProgress} />}
       {exportError && (
         <div className="export-error-banner" role="alert">
@@ -5382,9 +5435,18 @@ export default function Visualizer({
            clipped; canvas-area inside already clips the canvas with its own
            overflow:hidden. */}
       <div
-        className={`main-content${mode3D ? ' mode-3d' : ''}`}
+        className={`main-content${mode3D ? ' mode-3d' : ''}${uiChromeVisible ? ' ui-chrome-visible' : ' ui-chrome-hidden'}`}
         style={{ '--events-panel-width': `${eventsPanelCollapsed ? 0 : panelWidth}px` }}
       >
+        {/* Loading overlay — centered in the canvas area while streaming */}
+        {loadingOverlayPhase !== 'hidden' && (
+          <div className={`canvas-loading-overlay${loadingOverlayPhase === 'fading' ? ' fading' : ''}`}>
+            <div className="canvas-loading-text">Loading log…</div>
+            <div className="canvas-loading-bar-track" role="progressbar" aria-label="Loading trace" aria-valuenow={overlayBarPct} aria-valuemax={100}>
+              <div className="canvas-loading-bar-fill" style={{ width: `${overlayBarPct}%` }} />
+            </div>
+          </div>
+        )}
         <EventsPanel
           steps={steps}
           currentStep={currentStep}
@@ -5399,6 +5461,7 @@ export default function Visualizer({
           allEventsWidgetHidden={allEventsWidgetHidden || widgetsJoined}
           onExpandPanelFromWidget={expandEventsPanelFromWidget}
           onDockWidgetToTopBar={dockEventsWidgetToTopBar}
+          onDockWidgetToDetailPanel={dockEventsWidgetToDetailPanel}
           onJoinWidgets={joinWidgets}
           externalOpFilter={timingFocusOp}
           onExternalOpFilterConsumed={() => setTimingFocusOp('')}

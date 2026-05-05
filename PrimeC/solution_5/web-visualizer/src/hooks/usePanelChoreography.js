@@ -48,6 +48,13 @@ export function usePanelChoreography({
     setAllEventsWidgetHidden(true);
   }, [setAllEventsWidgetHidden]);
 
+  const dockEventsWidgetToDetailPanel = useCallback(() => {
+    captureResizeAnchor();
+    setAllEventsWidgetHidden(true);
+    updateDetailOpen(true);
+    if (setAllEventsInDetailPanel) setAllEventsInDetailPanel(true);
+  }, [captureResizeAnchor, setAllEventsInDetailPanel, setAllEventsWidgetHidden, updateDetailOpen]);
+
   const toggleEventsPanel = useCallback(() => {
     captureResizeAnchor();
     setEventsPanelCollapsed((wasCollapsed) => {
@@ -159,6 +166,7 @@ export function usePanelChoreography({
   }, [setAllEventsWidgetHidden, setEventTitleSettings, setWidgetsJoined]);
 
   return {
+    dockEventsWidgetToDetailPanel,
     dockEventsWidgetToTopBar,
     expandEventsPanelFromWidget,
     hideJoinedWidget,

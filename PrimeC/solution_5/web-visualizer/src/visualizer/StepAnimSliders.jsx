@@ -119,7 +119,7 @@ function StepAnimSliders({
   return (
     <>
       <div className={`step-focus-slider-row${docked ? ' step-focus-slider-row--docked' : ''}`} title="Scrub through this event's animation">
-        <span className="step-focus-slider-label">Timeline</span>
+        <span className="step-focus-slider-label">Animation</span>
         <div className="step-focus-slider-controls">
           <button
             type="button"

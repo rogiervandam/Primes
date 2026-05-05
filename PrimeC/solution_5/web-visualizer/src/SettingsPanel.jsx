@@ -141,6 +141,25 @@ export default function SettingsPanel({
     }
   }, [activeTabRequest, changeActiveTab]);
   const [legendFloating, setLegendFloating] = React.useState(false);
+  const [isAnimatingOut, setIsAnimatingOut] = React.useState(false);
+  const [settingsAnimClass, setSettingsAnimClass] = React.useState('');
+  const prevCollapsedRef = React.useRef(collapsed);
+  React.useEffect(() => {
+    const prev = prevCollapsedRef.current;
+    prevCollapsedRef.current = collapsed;
+    if (!prev && collapsed) {
+      // Collapsed: animate out then hide
+      setSettingsAnimClass('collapsing-out');
+      setIsAnimatingOut(true);
+      const t = setTimeout(() => { setIsAnimatingOut(false); setSettingsAnimClass(''); }, 450);
+      return () => clearTimeout(t);
+    } else if (prev && !collapsed) {
+      // Expanded: animate in
+      setSettingsAnimClass('expanding-in');
+      const t = setTimeout(() => setSettingsAnimClass(''), 450);
+      return () => clearTimeout(t);
+    }
+  }, [collapsed]);
   const [legendDetailed, setLegendDetailed] = React.useState(true);
   const [floatPos, setFloatPos] = React.useState(null);
   const floatDragRef = React.useRef({ dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 });
@@ -193,8 +212,8 @@ export default function SettingsPanel({
 
   return (
     <>
-    {!collapsed && (
-    <div className={`settings-sidebar${isWindowsPlatform ? ' platform-windows' : ''}`} style={detailOpen ? { bottom: `${detailHeight}px` } : undefined}>
+    {(!collapsed || isAnimatingOut) && (
+    <div className={`settings-sidebar${settingsAnimClass ? ` ${settingsAnimClass}` : ''}${isWindowsPlatform ? ' platform-windows' : ''}`} style={detailOpen ? { bottom: `${detailHeight}px` } : undefined}>
       <div className="settings-header-rail" title="Settings">
           <div className="settings-tab-row" role="tablist">
             <button

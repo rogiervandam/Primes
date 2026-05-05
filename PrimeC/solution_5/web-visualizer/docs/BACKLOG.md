@@ -61,6 +61,14 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 - Clicking "go to source" in the detail panel now opens the raw log directly without also opening the trace-info popover. Closing the raw log no longer requires a second click to close the popover. `TraceInfoPopover` is now always mounted; `visible` prop controls whether the popover chrome is shown; the raw log dialog renders independently.
 - Operation labels in the events panel now hover-expand to show their full text floating over adjacent chips (bitcount, timing) without pushing them. Wrapped in `.event-op-wrap` so the flex layout space is preserved. A `→←` / `←→` toggle button next to the operation filter switches the column between compact (100 px max) and wide (full text always visible) mode; the choice is persisted to `localStorage`.
 - Auto-animate on event select toggle added to Settings → Animation → "Selection behaviour". When off, clicking an event in the list navigates to it silently without starting the per-event animation replay loop. The preference is persisted via `viewPrefs` (`autoAnimateOnSelect`, default `true`).
+- Close button on the trace title restores to the file picker and resets streaming parser state (header + steps cleared). Items 10.
+- "View raw log" button in the trace info popover fixed (prop wiring was broken; button was invisible). Item 11.
+- All-events floater can be dropped onto the detail panel to dock, and dragged back out or dismissed via ✕ button. Items 12. Loading overlay bar styled to match the timeline scrubber (solid accent fill, 9px rounded rail). Minimum overlay display time reduced to 2 seconds. Items 18.
+- Canvas intro zoom 2.8s → 3.8s; 2D→3D tilt 0.4s → 0.9s (intro + toggle). Items 13, 14.
+- Events panel, settings sidebar, detail panel body all animate in/out with slide + fade transitions (~500ms ease-out). Item 15.
+- Detail panel and single-event widget hidden until first play or event selection. Item 16.
+- "Timeline" label in single-event widget renamed to "Animation". Item 17.
+- All panels, floating widgets and the all-events floater are hidden (opacity 0, pointer-events none) while the loading overlay is active, then fade in together once the overlay exits. Eliminates flash of panels on startup.
 
 ## Open
 
@@ -99,7 +107,19 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 - the grid if centered in the center at startup. But if it doesn't fit on screen, instead focus on the top and have the first line at 1/3 of the display height. 
 - In settings -> layout panel -> Autofit. When turning auto fit off, start at the count that was set by auto fit. And allow for more than 64 columns. 
 
-10 
+10 (Done) The close button on the title/filename works and closes the file; parser state (header/steps) is reset on close.
+11 (Done) "View raw log" button restored in the trace info popover. Fixed prop-wiring bug that was hiding it. Opens a draggable, resizable dialog with line-numbered monospace view; linked lines navigate to the event and open the events panel.
+12 (Done) All-events floater can be dragged into the detail panel dock row (drop it on the detail panel). The docked transport shows a ✕ dismiss button and can be dragged back out. Works independently from the single event widget. When both are docked, they sit side by side.
+13 (Done) Canvas intro zoom animation extended to 3.8 seconds (was 2.8).
+14 (Done) 2D→3D tilt animation extended to 0.9 seconds (was 0.4) for both intro and manual toggle.
+15 (Done) Events panel, settings panel, and detail panel body all animate on open/close with slide+fade transitions (~500ms ease-out).
+16 (Done) Detail panel (and single-event widget) remain hidden until the user hits play or selects an event for the first time.
+17 (Done) "Timeline" label in the single-event widget renamed to "Animation".
+18 (Done) Top-bar loading progress indicator removed. Replaced with centered canvas overlay showing "Loading log…" and a progress bar styled like the timeline scrubber. Minimum display time 2 seconds; overlay fades out before the intro grid animation begins.
+19 The single event widget should never cover the detail panel.
+
+
+
 
 
 

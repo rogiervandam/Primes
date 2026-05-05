@@ -108,6 +108,7 @@ function buildDepthTree(steps) {
  * @param {boolean}  [props.allEventsWidgetHidden]   - True when widget is docked to the top bar
  * @param {function} props.onExpandPanelFromWidget   - Widget drop-left: expands the panel
  * @param {function} props.onDockWidgetToTopBar      - Widget drop-top: docks the widget to the toolbar
+ * @param {function} [props.onDockWidgetToDetailPanel] - Widget drop-detail: docks transport in detail panel
  * @param {function} props.onJoinWidgets             - Widget drop-on-banner: join the two floating widgets
  * @param {function} [props.onUserScroll]            - Called when the user scrolls the event list
  * @param {string}   [props.externalOpFilter]        - Op-filter string set externally (e.g. from search)
@@ -123,7 +124,7 @@ function buildDepthTree(steps) {
  * @param {boolean}  [props.eventTitleVisible]       - Whether the floating event banner is currently shown
  * @param {function} props.onShowEventTitle          - Show / restore the event title banner
  */
-export default function EventsPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, allEventsWidgetHidden = false, onExpandPanelFromWidget, onDockWidgetToTopBar, onJoinWidgets, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0, goToStep, playing, handlePlayPause, exporting, isScrubbingTopRef, playSpeedPercent, setPlaySpeedPercent, eventTitleVisible = true, onShowEventTitle }) {
+export default function EventsPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, allEventsWidgetHidden = false, onExpandPanelFromWidget, onDockWidgetToTopBar, onDockWidgetToDetailPanel, onJoinWidgets, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0, goToStep, playing, handlePlayPause, exporting, isScrubbingTopRef, playSpeedPercent, setPlaySpeedPercent, eventTitleVisible = true, onShowEventTitle }) {
   const listRef = useRef(null);
   const scrollTopRef = useRef(0);
   const sentinelRef = useRef(null);
@@ -154,16 +155,36 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
   const [headerDragX, setHeaderDragX] = useState(0);
   const [headerDragWillCollapse, setHeaderDragWillCollapse] = useState(false);
   const [isCollapsingOut, setIsCollapsingOut] = useState(false);
+  const [isExpandingIn, setIsExpandingIn] = useState(false);
+  const prevPanelCollapsedRef = useRef(panelCollapsed);
+  useEffect(() => {
+    const prev = prevPanelCollapsedRef.current;
+    prevPanelCollapsedRef.current = panelCollapsed;
+    if (prev && !panelCollapsed) {
+      // Panel just expanded - trigger slide-in animation
+      setIsExpandingIn(true);
+      const t = setTimeout(() => setIsExpandingIn(false), 500);
+      return () => clearTimeout(t);
+    }
+  }, [panelCollapsed]);
 
-  // Detect which screen-edge drop-zone the pointer is currently over.
+  // Detect which drop-zone the pointer is currently over.
   // Returns 'left' (expand events panel), 'top' (dock to top bar),
-  // 'joinWidget' (merge with EventTitleBanner), or null.
+  // 'detail' (dock into detail panel), 'joinWidget' (merge with EventTitleBanner), or null.
   const detectDropZone = useCallback((clientX, clientY) => {
     if (typeof window === 'undefined') return null;
     const TOP_BAND = 60;   // top toolbar drop band height
     const LEFT_BAND = 80;  // left edge drop band width
     if (clientY <= TOP_BAND) return 'top';
     if (clientX <= LEFT_BAND) return 'left';
+    if (onDockWidgetToDetailPanel) {
+      const floater = document.querySelector('.events-panel-floating-title');
+      const prevPE = floater ? floater.style.pointerEvents : null;
+      if (floater) floater.style.pointerEvents = 'none';
+      const hit = document.elementFromPoint(clientX, clientY);
+      if (floater) floater.style.pointerEvents = prevPE || '';
+      if (hit && hit.closest && hit.closest('.detail-panel')) return 'detail';
+    }
     // Check proximity to the floating single-event banner (join affordance).
     if (onJoinWidgets) {
       const banner = document.querySelector('.step-focus-banner');
@@ -177,7 +198,7 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
       }
     }
     return null;
-  }, [onJoinWidgets]);
+  }, [onDockWidgetToDetailPanel, onJoinWidgets]);
 
   const handleFloatDragStart = useCallback((e) => {
     if (e.target.closest('input') || e.target.closest('button')) return;
@@ -229,12 +250,16 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
         floatDragRef.current = { x: 0, y: 0 };
         setFloatDrag({ x: 0, y: 0 });
         onDockWidgetToTopBar();
+      } else if (zone === 'detail' && onDockWidgetToDetailPanel) {
+        floatDragRef.current = { x: 0, y: 0 };
+        setFloatDrag({ x: 0, y: 0 });
+        onDockWidgetToDetailPanel();
       }
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     e.preventDefault();
-  }, [detectDropZone, onExpandPanelFromWidget, onDockWidgetToTopBar, onJoinWidgets]);
+  }, [detectDropZone, onDockWidgetToDetailPanel, onExpandPanelFromWidget, onDockWidgetToTopBar, onJoinWidgets]);
 
   // Drag-to-collapse: dragging the expanded title row rightward collapses the panel.
   const COLLAPSE_DRAG_THRESHOLD = 80;
@@ -849,7 +874,7 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
   ) : null;
 
   return (
-      <div className={`events-panel${panelCollapsed ? ' collapsed' : ''}${isCollapsingOut ? ' collapsing-out' : ''}${floatDropHint === 'left' ? ' drop-hint-left' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
+      <div className={`events-panel${panelCollapsed ? ' collapsed' : ''}${isCollapsingOut ? ' collapsing-out' : ''}${isExpandingIn ? ' expanding-in' : ''}${floatDropHint === 'left' ? ' drop-hint-left' : ''}${floatDropHint === 'detail' ? ' drop-hint-detail' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
       {panelCollapsed && !allEventsWidgetHidden && (
         <div
           className={`events-panel-floating-title${floatDropHint ? ` dropping dropping-${floatDropHint}` : ''}`}

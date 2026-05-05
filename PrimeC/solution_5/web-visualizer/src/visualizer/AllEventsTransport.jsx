@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Play, Pause, SkipBack, StepBack, StepForward, SkipForward, Minus, Plus } from '../Icons';
 
 /**
@@ -19,9 +19,38 @@ export default function AllEventsTransport({
   playSpeedPercent,
   setPlaySpeedPercent,
   onDismiss,
+  onUndockByDrag,
 }) {
+  const handleDragStart = useCallback((e) => {
+    if (!onUndockByDrag) return;
+    if (e.target.closest('button') || e.target.closest('input')) return;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let dragged = false;
+    const onMove = (ev) => {
+      if (!dragged && Math.hypot(ev.clientX - startX, ev.clientY - startY) > 6) {
+        dragged = true;
+      }
+    };
+    const onUp = (ev) => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      if (!dragged) return;
+      const hit = document.elementFromPoint(ev.clientX, ev.clientY);
+      if (!(hit && hit.closest && hit.closest('.detail-panel'))) {
+        onUndockByDrag();
+      }
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [onUndockByDrag]);
+
   return (
-    <div className="events-panel-transport detail-all-events-transport">
+    <div
+      className="events-panel-transport detail-all-events-transport"
+      onMouseDown={handleDragStart}
+      title={onUndockByDrag ? 'Drag out of detail panel to undock' : undefined}
+    >
       <div className="spt-row spt-row-nav">
         <button className="spt-btn" onClick={() => goToStep(0)} title="First event" disabled={exporting}><SkipBack size={12} /></button>
         <button className="spt-btn" onClick={() => goToStep(currentStep - 1)} title="Previous event" disabled={exporting}><StepBack size={12} /></button>

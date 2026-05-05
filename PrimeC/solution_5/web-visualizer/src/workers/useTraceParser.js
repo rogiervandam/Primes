@@ -105,5 +105,14 @@ export function useTraceParser() {
     worker.postMessage({ type: 'parse', text });
   }, [abort]);
 
-  return { header, steps, progress, isComplete, parseError, startParse, abort };
+  const reset = useCallback(() => {
+    abort();
+    setHeader(null);
+    setSteps([]);
+    setProgress(0);
+    setIsComplete(false);
+    setParseError(null);
+  }, [abort]);
+
+  return { header, steps, progress, isComplete, parseError, startParse, abort, reset };
 }

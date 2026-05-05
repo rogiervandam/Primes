@@ -65,3 +65,72 @@
   width: 60% !important;
   animation: progress-shimmer 1.4s ease-in-out infinite;
 }
+
+/* ============================================================
+ * Canvas loading overlay — centered in the main content area.
+ * Shown while streaming + min display time; fades out
+ * before the intro scale animation begins.
+ * ============================================================ */
+.canvas-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  z-index: 50;
+  background: var(--bg-canvas, var(--bg-surface));
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 500ms ease;
+}
+.canvas-loading-overlay.fading {
+  opacity: 0;
+}
+.canvas-loading-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.canvas-loading-bar-track {
+  width: min(320px, 58vw);
+  height: 9px;
+  background: var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.canvas-loading-bar-fill {
+  height: 100%;
+  border-radius: 8px;
+  background: var(--accent, #6c8ebf);
+  transition: width 120ms ease-out;
+}
+
+/* Keep side-panels/widgets hidden during loader, then fade in together. */
+.main-content .events-panel,
+.main-content .settings-sidebar,
+.main-content .detail-panel,
+.main-content .step-focus-banner,
+.main-content .joined-events-widget {
+  transition: opacity 240ms ease, transform 260ms ease;
+}
+
+.main-content.ui-chrome-hidden .events-panel,
+.main-content.ui-chrome-hidden .settings-sidebar,
+.main-content.ui-chrome-hidden .detail-panel,
+.main-content.ui-chrome-hidden .step-focus-banner,
+.main-content.ui-chrome-hidden .joined-events-widget {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.main-content.ui-chrome-visible .events-panel,
+.main-content.ui-chrome-visible .settings-sidebar,
+.main-content.ui-chrome-visible .detail-panel,
+.main-content.ui-chrome-visible .step-focus-banner,
+.main-content.ui-chrome-visible .joined-events-widget {
+  opacity: 1;
+}

@@ -19,6 +19,7 @@ export default function App() {
     parseError: parserError,
     startParse,
     abort: abortParse,
+    reset: resetParse,
   } = useTraceParser();
 
   const [fileName, setFileName] = useState('');
@@ -349,7 +350,7 @@ export default function App() {
         benchmarkTimingFileName={benchmarkTimingFileName}
         onImportBenchmarkTiming={() => benchmarkInputRef.current?.click()}
         onClose={() => {
-          abortParse();
+          resetParse();
           setSourceRef(null);
           setFileName('');
           setAutoRender(false);

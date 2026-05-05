@@ -179,7 +179,7 @@ function CanvasStage({
       />
 
       <DetailPanel
-        step={currentStepData}
+        step={singleEventWidgetRevealed ? currentStepData : null}
         stepIndex={currentStep}
         open={detailOpen}
         onToggle={toggleDetailPanel}

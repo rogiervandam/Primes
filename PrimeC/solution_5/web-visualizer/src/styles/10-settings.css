@@ -424,3 +424,20 @@
   margin-left: 10ex;
 }
 
+
+/* ---- Settings sidebar slide-in / slide-out animations ---- */
+@keyframes settings-slide-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes settings-slide-out {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(24px); }
+}
+.settings-sidebar.expanding-in {
+  animation: settings-slide-in 450ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.settings-sidebar.collapsing-out {
+  animation: settings-slide-out 400ms cubic-bezier(0.55, 0, 1, 0.45) forwards;
+  pointer-events: none;
+}
