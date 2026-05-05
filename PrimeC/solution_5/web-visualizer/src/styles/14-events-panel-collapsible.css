@@ -299,12 +299,10 @@
 }
 
 
-/* ---- Expand-in animation: panel content slides in from the left ---- */
-.events-panel.expanding-in .events-panel-header {
-  animation: events-panel-slide-in 500ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
+/* ---- Expand-in animation: panel content slides in as one unit ---- */
+.events-panel.expanding-in .events-panel-header,
 .events-panel.expanding-in .step-list {
-  animation: events-panel-slide-in 500ms 40ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: events-panel-slide-in 500ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 .events-panel.expanding-in .resize-handle {
   animation: events-panel-slide-in 400ms cubic-bezier(0.22, 1, 0.36, 1) forwards;

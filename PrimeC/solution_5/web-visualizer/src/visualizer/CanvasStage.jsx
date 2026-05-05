@@ -102,6 +102,7 @@ function CanvasStage({
   onShowEventTitle,
   onOpenRawLog,
   currentStepSourceLine,
+  hasRawSource = false,
   allEventsTransport,
   // Intro animation phase: 'hidden' | 'scaling' | 'tilting' | 'visible'
   introPhase = 'visible',
@@ -207,6 +208,7 @@ function CanvasStage({
         eventAnimSliders={stepAnimSlidersDockedContent || stepAnimSlidersContent}
         onOpenRawLog={onOpenRawLog}
         sourceLineNumber={currentStepSourceLine}
+        hasRawSource={hasRawSource}
         allEventsTransport={allEventsTransport}
       />
 

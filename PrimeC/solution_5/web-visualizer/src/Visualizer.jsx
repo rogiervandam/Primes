@@ -2548,9 +2548,28 @@ export default function Visualizer({
   // Used by the Detail Panel "Source" link: open trace-info popover + raw log at a specific line.
   const [rawScrollToLine, setRawScrollToLine] = useState(null);
   const onClearRawScrollToLine = useCallback(() => setRawScrollToLine(null), []);
-  const onOpenRawLog = useCallback((lineIdx) => {
-    setRawScrollToLine(lineIdx);
-  }, []);
+  const onOpenRawLog = useCallback(async (lineIdx) => {
+    if (lineIdx != null) {
+      setRawScrollToLine(lineIdx);
+      return;
+    }
+    // Line not yet known — fetch the raw source and scan for the current step's annotation.
+    const text = await fetchRawSource();
+    if (!text) { setRawScrollToLine(0); return; }
+    const target = (steps[currentStep]?.annotation || '').trim();
+    if (!target) { setRawScrollToLine(0); return; }
+    const rawLines = text.split(/\r?\n/);
+    let found = null;
+    for (let l = 0; l < rawLines.length; l++) {
+      const raw = rawLines[l];
+      if (raw.trim() === target) { found = l; break; }
+      const kvM = raw.match(/\bannotation="([^"]*)"/);
+      if (kvM && kvM[1].trim() === target) { found = l; break; }
+      const nsM = raw.match(/^(.+?)\s*\{[^}]*"?traceline"?\s*:/);
+      if (nsM && nsM[1].trim() === target) { found = l; break; }
+    }
+    setRawScrollToLine(found ?? 0);
+  }, [fetchRawSource, steps, currentStep]);
 
   const cancelViewportAnimation = useCallback(() => {
     if (viewportAnimRef.current) {
@@ -5201,7 +5220,19 @@ export default function Visualizer({
       .filter(Boolean)
       .sort((a, b) => (a.anchorY - b.anchorY) || (a.anchorX - b.anchorX));
 
+    // Shared clamping bounds (constant across candidates for this layout).
+    const minLeft = eventsPanelCollapsed ? 170 : Math.max(200, panelWidth + 44);
+    const maxLeft = window.innerWidth - (settingsCollapsed ? 48 : 360) - 170;
+    const minTopClamp = Math.max(96, toolbarBottom + approxHeight + 8);
+
     for (const item of normalized) {
+      // Hide balloon when the anchor bit is visually behind the events panel.
+      const evPanelRight = eventsPanelCollapsed ? 32 : panelWidth;
+      if (item.anchorX < evPanelRight) {
+        result[`${item.kind}-${item.bitIndex}`] = { visible: false };
+        continue;
+      }
+
       const candidates = [
         { left: item.left, top: item.top },
         { left: item.left - 180, top: item.top - 10 },
@@ -5211,14 +5242,18 @@ export default function Visualizer({
         { left: item.left + 220, top: item.top - 52 },
       ];
 
-      let chosen = candidates[0];
-      let found = false;
+      let chosen = null;
+      let chosenBox = null;
       for (const candidate of candidates) {
+        // Clamp each candidate before overlap-checking so two candidates that
+        // clamp to the same position are correctly seen as identical/overlapping.
+        const cl = Math.max(minLeft, Math.min(maxLeft, candidate.left));
+        const ct = Math.max(minTopClamp, candidate.top);
         const box = {
-          left: candidate.left - approxWidth / 2,
-          right: candidate.left + approxWidth / 2,
-          top: candidate.top - approxHeight - visualGap,
-          bottom: candidate.top - visualGap,
+          left: cl - approxWidth / 2,
+          right: cl + approxWidth / 2,
+          top: ct - approxHeight - visualGap,
+          bottom: ct - visualGap,
         };
         const overlaps = placed.some((other) => (
           box.left < other.right + margin &&
@@ -5227,27 +5262,28 @@ export default function Visualizer({
           box.bottom > other.top - margin
         ));
         if (!overlaps) {
-          chosen = candidate;
-          found = true;
+          chosen = { left: cl, top: ct };
+          chosenBox = box;
           break;
         }
       }
 
-      if (!found) {
+      if (!chosen) {
         const direction = placed.length % 2 === 0 ? 1 : -1;
-        chosen = {
-          left: item.left + direction * (120 + placed.length * 18),
-          top: item.top - 68 - placed.length * 10,
+        const cl = Math.max(minLeft, Math.min(maxLeft, item.left + direction * (120 + placed.length * 18)));
+        const ct = Math.max(minTopClamp, item.top - 68 - placed.length * 10);
+        chosen = { left: cl, top: ct };
+        chosenBox = {
+          left: cl - approxWidth / 2,
+          right: cl + approxWidth / 2,
+          top: ct - approxHeight - visualGap,
+          bottom: ct - visualGap,
         };
       }
 
-      const minLeft = eventsPanelCollapsed ? 170 : Math.max(200, panelWidth + 44);
-      const maxLeft = window.innerWidth - (settingsCollapsed ? 48 : 360) - 170;
-      const clampedLeft = Math.max(minLeft, Math.min(maxLeft, chosen.left));
-      // Clamp the balloon top below the titlebar so it never paints over window chrome.
-      const minTopClamp = Math.max(96, toolbarBottom + approxHeight + 8);
-      const clampedTop = Math.max(minTopClamp, chosen.top);
-      const box = {
+      const clampedLeft = chosen.left;
+      const clampedTop = chosen.top;
+      const box = chosenBox || {
         left: clampedLeft - approxWidth / 2,
         right: clampedLeft + approxWidth / 2,
         top: clampedTop - approxHeight - visualGap,
@@ -5582,6 +5618,7 @@ export default function Visualizer({
           onShowEventTitle={showEventTitleAboveClosedDetail}
           onOpenRawLog={onOpenRawLog}
           currentStepSourceLine={stepToLine[currentStep]}
+          hasRawSource={!!sourceRef}
           allEventsTransport={allEventsTransportContent}
           introPhase={introPhase}
           onIntroTransitionEnd={handleIntroTransitionEnd}

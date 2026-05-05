@@ -309,7 +309,11 @@ export default function JoinedEventsWidget({
       <div className="joined-widget-divider" />
 
       {/* ── Single-event content ────────────────────────────────────── */}
-      <div className="joined-widget-event" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="joined-widget-event" onMouseDown={(e) => {
+        // Allow dragging the widget from the "Animation" label.
+        if (e.target.closest('.step-focus-slider-label')) return;
+        e.stopPropagation();
+      }}>
         {/* In nearby-events mode, the title block is replaced by the context rows */}
         {!settings?.nearbyEventsMode && (
           <div className="step-focus-lines">

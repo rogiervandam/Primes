@@ -91,9 +91,8 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 3 Check bit-history balloon connector/clamping polish with events panel  open/closed, settings open/closed, joined widget visible, minimap visible,  light/dark themes, and high zoom.
 
-4 the balloon placement should be improved: (1) balloons should not overlap (2) when a bit under the all event panel, don't show the connector over the events panel (3) the connector should look better: more pointy at the bit side and much wider at the text box side (4) when i drag to the left, sometimes the connector gets "twisted"
+4 (Done) Balloon placement improved: (1) overlap-checking now uses clamped positions so two balloons never land on top of each other; (2) balloon+connector hidden when the anchor bit is behind the events panel; (3) connector is now very pointy at the bit tip and much wider at the balloon face, with smooth blended control points; (4) connector no longer twists when dragging left — symmetric control points with interpolated perpendicular direction prevent self-intersection.
 
-5 (Done) When the single event widget is docked to the detail panel, the % progress value and gear icon now appear inline just to the right of the timeline slider instead of in a separate far-right column. Two separate `StepAnimSliders` instances created in Visualizer: one with `docked=false` (floating banner/joined widget) and one with `docked=true` (detail panel).
 6 (Done) Autofit column count persists when autofit is turned off: the column count starts from the last autofit value. No upper bound on manual column count (already implemented; no change needed).
 7 (Done) Nearby events "current" row now shows the event title (from `banner.line1`) with the same font/weight as the widget title, preceded by a play icon. A toggle button switches between showing the title block and the nearby events list; the mode is persisted via `settings.nearbyEventsMode`.
 8 (Done) Search button in the toolbar now expands inline: clicking it shows a text input in the toolbar (replacing the button), with an optional inline result count chip and a ✕ close button. No separate popover; the input is in the original button's slot.
@@ -103,8 +102,11 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 25 (Done) Aggregated events now display original annotation text inline in the events list next to the summary (still shown in tooltip as well).
 26 (Done) Single-event widget title now includes the current prime (e.g. "Event 42 | Mark multiples | Prime 13"); prime removed from the annotation metadata line to avoid duplication.
 27 (Done) Opening raw log from the detail-panel source link now scrolls to the selected event line and highlights that current source line in the raw log viewer.
-28 The parser should make a distinction between Number ranges and Bit ranges. 
-29 The top of the events panel should not animate as a saparate unit
+28 (Done) When the raw log is not yet loaded, the detail panel shows a "view source" link for any event that has an annotation. Clicking it fetches the raw source, scans for the matching line, then opens the raw log viewer scrolled to that line.
+29 (Done) Events panel header and step-list now animate together as one unit on expand (both use the same 500ms timing, no stagger delay).
+30 (Done) The "ANIMATION" label in the joined widget now acts as a drag handle — mousedown on it propagates to the widget's drag handler instead of being blocked by the event-area stopPropagation. A grab cursor is shown.
+31 The parser and internals should make a distinction between Number ranges and Bit ranges: 
+
 
 
 ## New Ideas

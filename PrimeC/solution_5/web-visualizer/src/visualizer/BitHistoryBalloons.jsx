@@ -46,26 +46,44 @@ function connectorPathFor({ anchorX, anchorY, bitHalf, box }) {
   const len = Math.max(1, Math.hypot(dx, dy));
   const ux = dx / len;
   const uy = dy / len;
+  // Perpendicular at start (along main direction axis)
   const px = -uy;
   const py = ux;
-  const startWidth = Math.max(4, Math.min(8, bitHalf * 1.2));
-  const endHalf = 12;
+  // Perpendicular at end edge (the edge's tangent direction)
+  const etx = edgePoint.tx;
+  const ety = edgePoint.ty;
+
+  // Very narrow at the bit tip (pointy), wide at the balloon face
+  const startWidth = Math.max(1.5, Math.min(3, bitHalf * 0.5));
+  const endHalf = 22;
+
   const startX = anchorX + ux * Math.max(2, bitHalf);
   const startY = anchorY + uy * Math.max(2, bitHalf);
   const endX = edgePoint.x;
   const endY = edgePoint.y;
-  const c1x = startX + dx * 0.26;
-  const c1y = startY + dy * 0.10;
-  const c2x = startX + dx * 0.70;
-  const c2y = startY + dy * 0.92;
-  const etx = edgePoint.tx;
-  const ety = edgePoint.ty;
+
+  // Symmetric control points at 35% and 65% along the path to avoid S-curve
+  // twisting. Blend the perpendicular direction from start-axis (px,py) toward
+  // end-edge tangent (etx,ety) so the width transition is smooth and the
+  // filled shape never self-intersects regardless of direction.
+  const c1x = startX + dx * 0.35;
+  const c1y = startY + dy * 0.35;
+  const c2x = startX + dx * 0.65;
+  const c2y = startY + dy * 0.65;
+
+  // Blend perpendicular at each control point to smoothly taper from tip to base.
+  const c1w = startWidth * 0.7 + endHalf * 0.3;
+  const c2w = startWidth * 0.2 + endHalf * 0.8;
+  const c1px = px * 0.7 + etx * 0.3;
+  const c1py = py * 0.7 + ety * 0.3;
+  const c2px = px * 0.2 + etx * 0.8;
+  const c2py = py * 0.2 + ety * 0.8;
 
   return [
     `M ${startX + px * startWidth} ${startY + py * startWidth}`,
-    `C ${c1x + px * startWidth} ${c1y + py * startWidth}, ${c2x + etx * endHalf} ${c2y + ety * endHalf}, ${endX + etx * endHalf} ${endY + ety * endHalf}`,
+    `C ${c1x + c1px * c1w} ${c1y + c1py * c1w}, ${c2x + c2px * c2w} ${c2y + c2py * c2w}, ${endX + etx * endHalf} ${endY + ety * endHalf}`,
     `L ${endX - etx * endHalf} ${endY - ety * endHalf}`,
-    `C ${c2x - etx * endHalf} ${c2y - ety * endHalf}, ${c1x - px * startWidth} ${c1y - py * startWidth}, ${startX - px * startWidth} ${startY - py * startWidth}`,
+    `C ${c2x - c2px * c2w} ${c2y - c2py * c2w}, ${c1x - c1px * c1w} ${c1y - c1py * c1w}, ${startX - px * startWidth} ${startY - py * startWidth}`,
     'Z',
   ].join(' ');
 }

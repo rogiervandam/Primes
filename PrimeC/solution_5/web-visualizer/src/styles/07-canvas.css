@@ -117,6 +117,9 @@
 .step-focus-slider-label { text-transform: uppercase; letter-spacing: 0.04em; }
 .step-focus-slider-label.step-focus-slider-label--draggable { cursor: grab; user-select: none; }
 .step-focus-slider-label.step-focus-slider-label--draggable:active { cursor: grabbing; }
+/* In the joined widget, the Animation label is used to drag the whole widget */
+.joined-events-widget .step-focus-slider-label { cursor: grab; user-select: none; }
+.joined-events-widget .step-focus-slider-label:active { cursor: grabbing; }
 .step-focus-slider-value { font-variant-numeric: tabular-nums; text-align: right; color: var(--fg); }
 .step-focus-slider-controls {
   display: flex;

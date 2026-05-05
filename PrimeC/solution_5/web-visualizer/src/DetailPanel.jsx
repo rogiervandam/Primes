@@ -38,6 +38,7 @@ export default function DetailPanel({
   eventAnimSliders,
   onOpenRawLog,
   sourceLineNumber,
+  hasRawSource = false,
   allEventsTransport,
 }) {
   // Benchmark timing row matching the current step's operation (if any)
@@ -300,6 +301,17 @@ export default function DetailPanel({
             title="Open raw log at this line"
           >
             line {sourceLineNumber + 1}
+          </button>
+        )
+        : hasRawSource && step?.annotation
+        ? (
+          <button
+            type="button"
+            className="detail-source-link detail-source-link--pending"
+            onClick={() => onOpenRawLog?.(null)}
+            title="Load raw log and navigate to this event's source line"
+          >
+            view source
           </button>
         )
         : <span className="detail-empty">—</span>,

@@ -332,6 +332,7 @@
   pointer-events: auto;
 }
 .detail-source-link:hover { color: var(--accent-dim); }
+.detail-source-link--pending { opacity: 0.75; }
 
 /* ---- Detail panel timing tag ---- */
 .detail-tag.timing-tag {
