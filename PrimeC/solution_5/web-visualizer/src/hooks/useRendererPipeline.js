@@ -15,72 +15,83 @@ import {
  * Internally owns `spacingPanAnimRef` (spacing-pan animation cleanup) and
  * `prevLayoutRef` (layout diffing for useRendererLayoutSync).
  */
-export function useRendererPipeline({
-  // useRendererBootstrap
-  header,
-  wheelDefinition,
-  rendererRef,
-  minimapCanvasRef,
-  glyphCanvasRef,
-  glyphRendererRef,
-  glCanvasRef,
-  glRendererRef,
-  bitStateRef,
-  setIsGlUnavailable,
-  updateGlDebugInfo,
-  pendingRenderRafRef,
-  createCamera,
-  disposeCamera,
-  setZoom,
-  getMinimapDetailH,
-  // useLoadingOverlayLifecycle
-  introTiltStartedRef,
-  setIntroPhase,
-  setLoadingOverlayPhase,
-  setIsUiChromeVisible,
-  setOverlayBarPct,
-  overlayStartTimeRef,
-  pendingIntroAfterOverlayRef,
-  loadingOverlayPhase,
-  loadCompleteRef,
-  loadProgressRef,
-  // minimap inset effect
-  isSettingsCollapsed,
-  isMacPlatform,
-  isMinimapVisible,
-  updateMinimapAvailability,
-  // useRendererLayoutSync
-  theme,
-  layoutSettings,
-  colorPreset,
-  customColors,
-  canvasColors,
-  storageModel,
-  cachelineSize,
-  isHeatMapEnabled,
-  cachelineAnnotation,
-  isPrimeOverlayEnabled,
-  isRangeOverlayEnabled,
-  rangeOverlayStart,
-  rangeOverlayEnd,
-  isMultiplesOverlayEnabled,
-  multiplesOverlayPrime,
-  gridOpacity,
-  isDebugCalibrationMode,
-  containerRef,
-  mode3D,
-  stepsRef,
-  currentStepRef,
-  setAutoFitColumnCount,
-  // usePanelResizeRefresh
-  panelWidth,
-  isDetailOpen,
-  detailHeight,
-  refreshCanvasLayout,
-  clearScheduledLayoutRefresh,
-  captureViewportAnchor,
-  pendingResizeAnchorRef,
-}) {
+export function useRendererPipeline({ ...flatArgs }) {
+  const rendererRefs = flatArgs.rendererRefs || flatArgs;
+  const rendererConfig = flatArgs.rendererConfig || flatArgs;
+  const rendererState = flatArgs.rendererState || flatArgs;
+  const rendererHandlers = flatArgs.rendererHandlers || flatArgs;
+
+  const {
+    rendererRef,
+    minimapCanvasRef,
+    glyphCanvasRef,
+    glyphRendererRef,
+    glCanvasRef,
+    glRendererRef,
+    bitStateRef,
+    pendingRenderRafRef,
+    introTiltStartedRef,
+    overlayStartTimeRef,
+    pendingIntroAfterOverlayRef,
+    loadCompleteRef,
+    loadProgressRef,
+    containerRef,
+    stepsRef,
+    currentStepRef,
+    pendingResizeAnchorRef,
+  } = rendererRefs;
+
+  const {
+    header,
+    wheelDefinition,
+    isSettingsCollapsed,
+    isMacPlatform,
+    isMinimapVisible,
+    theme,
+    layoutSettings,
+    colorPreset,
+    customColors,
+    canvasColors,
+    storageModel,
+    cachelineSize,
+    isHeatMapEnabled,
+    cachelineAnnotation,
+    isPrimeOverlayEnabled,
+    isRangeOverlayEnabled,
+    rangeOverlayStart,
+    rangeOverlayEnd,
+    isMultiplesOverlayEnabled,
+    multiplesOverlayPrime,
+    gridOpacity,
+    isDebugCalibrationMode,
+    mode3D,
+  } = rendererConfig;
+
+  const {
+    loadingOverlayPhase,
+    panelWidth,
+    isDetailOpen,
+    detailHeight,
+  } = rendererState;
+
+  const {
+    setIsGlUnavailable,
+    updateGlDebugInfo,
+    createCamera,
+    disposeCamera,
+    setZoom,
+    getMinimapDetailH,
+    setIntroPhase,
+    setLoadingOverlayPhase,
+    setIsUiChromeVisible,
+    setOverlayBarPct,
+    updateMinimapAvailability,
+    setAutoFitColumnCount,
+    refreshCanvasLayout,
+    clearScheduledLayoutRefresh,
+    captureViewportAnchor,
+  } = rendererHandlers;
+
   useRendererBootstrap({
     header,
     wheelDefinition,

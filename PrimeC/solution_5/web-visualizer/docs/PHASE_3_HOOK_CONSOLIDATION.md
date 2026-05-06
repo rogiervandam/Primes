@@ -4,9 +4,9 @@
 
 Phase 3 consolidates hook signatures by grouping related parameters into semantic objects, reducing parameter count and improving dependency clarity.
 
-**Status:** In Progress
-**Completed:** usePanelChoreography (Proof of Concept), useAnimationPipeline (Phase 3.1)
-**Remaining:** useRendererPipeline and secondary hooks
+**Status:** Completed
+**Completed:** usePanelChoreography (Phase 3.0), useAnimationPipeline (Phase 3.1), useRendererPipeline (Phase 3.2), usePlaybackLoop (Phase 3.3)
+**Remaining:** Phase 4 and beyond (internal hook simplification + component-tree propagation)
 
 ## Completed Refactoring
 
@@ -136,7 +136,7 @@ useAnimationPipeline({
 })
 ```
 
-### useRendererPipeline (Target for Phase 3.2)
+### useRendererPipeline (Completed in Phase 3.2)
 
 **Current Parameters (~60+):**
 - Canvas/renderer settings
@@ -155,6 +155,32 @@ useRendererPipeline({
 ```
 
 **Implemented Grouping:**
+- `rendererRefs`: lifecycle refs, render refs, panel-anchor refs
+- `rendererConfig`: visual/layout/theme/storage/overlay config
+- `rendererState`: runtime state (`loadingOverlayPhase`, panel/detail dimensions)
+- `rendererHandlers`: callbacks and state setters used by sub-hooks
+
+**Backward compatibility:**
+- Hook supports grouped shape and legacy flat shape during migration.
+
+### usePlaybackLoop (Completed in Phase 3.3)
+
+**Previous Parameters (~30+):**
+- Scheduler refs
+- Loop control refs
+- Playback state mirrors
+- State setters
+
+**Implemented Grouping:**
+- `loopRefs`: timers, refs, animation/seek bridges
+- `loopState`: playback state mirrors used in dependencies
+- `loopHandlers`: state setters (`setPlaying`, `setCurrentStep`)
+- `loopConfig`: feature toggles (`isAutoAnimateOnSelect`)
+
+**Backward compatibility:**
+- Hook supports grouped shape and legacy flat shape during migration.
+
+**Implemented Grouping:**
 - `animRefs`: runtime refs, mutable state refs, bridge refs
 - `animConfig`: style/mode/timing config and pin/group options
 - `animState`: render-time state (`currentStep`, `steps`, `playing`)
@@ -167,7 +193,7 @@ useRendererPipeline({
 
 **Current Status:**
 - ✅ 341 tests passing
-- ✅ Production build: 461.02 KB gzip (Visualizer bundle)
+- ✅ Production build: 461.36 KB gzip (Visualizer bundle)
 - ✅ No console errors/warnings
 - ✅ Runtime error detection active
 
@@ -199,16 +225,16 @@ All hooks maintain backward compatibility during Phase 3:
 - [x] Update `Visualizer.jsx` call site
 - [x] Verify tests and build
 
-### Phase 3.2 (Following)
-- [ ] Analyze `useRendererPipeline` parameters (60+ count)
-- [ ] Apply same consolidation pattern
-- [ ] Update call site
-- [ ] Verify tests and build
+### Phase 3.2 (Completed)
+- [x] Analyze `useRendererPipeline` parameters (60+ count)
+- [x] Apply same consolidation pattern (`rendererRefs`, `rendererConfig`, `rendererState`, `rendererHandlers`)
+- [x] Update call site
+- [x] Verify tests and build
 
-### Phase 3.3 (Secondary Hooks)
-- [ ] Apply to `usePlaybackLoop` (~30 params)
-- [ ] Apply to other high-parameter hooks
-- [ ] Comprehensive refactoring documentation
+### Phase 3.3 (Completed)
+- [x] Apply to `usePlaybackLoop` (~30 params)
+- [x] Finalize high-parameter hook migration for Phase 3 scope
+- [x] Update consolidation documentation
 
 ### Phase 4 (Hook Internals)
 - [ ] Update sub-hook calls to use organized objects
@@ -242,7 +268,6 @@ All hooks maintain backward compatibility during Phase 3:
 
 ## Next Actions
 
-1. Apply the same grouping pattern to `useRendererPipeline` (Phase 3.2)
-2. Verify `npm test` and `npm run build` after Phase 3.2
-3. Continue with `usePlaybackLoop` and secondary hooks (Phase 3.3)
-4. Document lessons learned in `AI_MAINTENANCE.md`
+1. Phase 4: simplify internal sub-hook parameter chains now that grouped signatures are stable
+2. Document grouped signature conventions in `AI_MAINTENANCE.md` and `ARCHITECTURE.md`
+3. Phase 5: propagate grouping conventions deeper into component boundaries where useful

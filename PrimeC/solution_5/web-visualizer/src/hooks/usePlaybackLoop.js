@@ -62,28 +62,52 @@
  */
 import { useEffect } from 'react';
 
-export function usePlaybackLoop({
-  // Playback clock refs
-  seekGenRef, globalPausedRef, animBusyUntilRef,
-  // Stable function refs
-  triggerAnimationRef, goToStepRef,
-  // Renderer ref
-  rendererRef,
-  // Per-loop timer refs (declared in Visualizer; shared with seekStepAnimation + stopPlayback)
-  selectedAnimLoopRef, pausedStepAnimLoopRef,
-  playTimeoutRef, playTimerRef,
-  // Per-loop state refs
-  isSingleEventLoopActiveRef, isScrubbingTopRef, initialHighlightHoldRef,
-  delayBetweenRepeatsRef, stepResumeStartIndexRef, stepResumeMaskProgressRef,
-  setIsStepAnimRunningRef, isStepAnimRunningRefForScheduler,
-  // State values (for effect dependency arrays only)
-  playing, steps, currentStep, selectedSteps, isAnimationReplayPaused, isSingleEventLoopActive,
-  isAutoAnimateOnSelect = true,
-  // State setters
-  setPlaying, setCurrentStep,
-  // Optional preference refs
-  isAutoAnimateOnSelectRef,
-}) {
+export function usePlaybackLoop({ ...flatArgs }) {
+  const loopRefs = flatArgs.loopRefs || flatArgs;
+  const loopState = flatArgs.loopState || flatArgs;
+  const loopHandlers = flatArgs.loopHandlers || flatArgs;
+  const loopConfig = flatArgs.loopConfig || flatArgs;
+
+  const {
+    seekGenRef,
+    globalPausedRef,
+    animBusyUntilRef,
+    triggerAnimationRef,
+    goToStepRef,
+    rendererRef,
+    selectedAnimLoopRef,
+    pausedStepAnimLoopRef,
+    playTimeoutRef,
+    playTimerRef,
+    isSingleEventLoopActiveRef,
+    isScrubbingTopRef,
+    initialHighlightHoldRef,
+    delayBetweenRepeatsRef,
+    stepResumeStartIndexRef,
+    stepResumeMaskProgressRef,
+    setIsStepAnimRunningRef,
+    isStepAnimRunningRefForScheduler,
+    isAutoAnimateOnSelectRef,
+  } = loopRefs;
+
+  const {
+    playing,
+    steps,
+    currentStep,
+    selectedSteps,
+    isAnimationReplayPaused,
+    isSingleEventLoopActive,
+  } = loopState;
+
+  const {
+    setPlaying,
+    setCurrentStep,
+  } = loopHandlers;
+
+  const {
+    isAutoAnimateOnSelect = true,
+  } = loopConfig;
+
   // ── Effect 1: Repeat selected-step animation until selection changes ─────
   useEffect(() => {
     if (selectedAnimLoopRef.current) {
