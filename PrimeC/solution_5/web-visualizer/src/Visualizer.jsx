@@ -72,9 +72,6 @@ import { useViewportAnchoring } from './hooks/useViewportAnchoring';
 import { useWindowResize } from './hooks/useWindowResize';
 import CanvasLoadingOverlay from './visualizer/CanvasLoadingOverlay';
 import StatusBanners from './visualizer/StatusBanners';
-import { applyPan } from './visualizer/gestures/pan';
-import { applyRotate } from './visualizer/gestures/rotate';
-import { applyWheel } from './visualizer/gestures/wheel';
 import {
   DEFAULT_LAYOUT_SETTINGS as DEFAULT_SETTINGS,
   DEFAULT_EVENT_TITLE_SETTINGS,
@@ -83,12 +80,8 @@ import {
 } from './lib/viewPrefs';
 import { buildTraceInfoSections } from './lib/traceHeader';
 import { detectIsMac, detectIsWindows, detectIsElectron } from './lib/platform';
-import {
-  getProjectedCanvasMapper,
-  parseAppliedRotateAngles,
-  computeSafeTiltDegrees,
-  computeAutoGlYOffset,
-} from './lib/canvasProjection';
+import { useCanvasLayout } from './hooks/useCanvasLayout';
+import { usePointerGestures } from './hooks/usePointerGestures';
 
 /**
  * Top-level visualizer component. Owns all playback, rendering, and UI state.
@@ -315,9 +308,6 @@ export default function Visualizer({
     ensureTiltCamera,
   } = use3DCamera();
 
-  const camera3DTransformRef = useRef(camera3DTransform);
-  camera3DTransformRef.current = camera3DTransform;
-
   const stepsRef = useRef([]);
   const currentStepRef = useRef(0);
   const playTimerRef = useRef(null);
@@ -379,39 +369,47 @@ export default function Visualizer({
     return { ok: true, message: 'Snapshot applied' };
   }, [setCamera3DTransform, setCamera3DContainerStyle, getMinimapDetailH]);
 
-  // Forcibly cancel any pending GL CSS unlock, clear the resize-lock, apply
-  // the correct CSS size to the GL canvas, and trigger a full redraw.
-  // Useful when Chrome/Edge gets stuck showing a stale or invisible GL layer
-  // after a resize (e.g. the backing-store poll never matched, or the unlock
-  // rAF was dropped).
-  const forceGlRedraw = useCallback(() => {
-    // Invalidate any in-flight unlock token so pending rAFs/timeouts are no-ops.
-    ++glCssUnlockTokenRef.current;
-    if (glCssUnlockRafRef.current != null) {
-      cancelAnimationFrame(glCssUnlockRafRef.current);
-      glCssUnlockRafRef.current = null;
-    }
-    if (glCssUnlockTimeoutRef.current != null) {
-      clearTimeout(glCssUnlockTimeoutRef.current);
-      glCssUnlockTimeoutRef.current = null;
-    }
-    glCssLockStateRef.current = null;
-    // Re-apply the correct CSS size and rotation to the GL canvas.
-    const glEl = glCanvasRef.current;
-    const r = rendererRef.current;
-    if (glEl && r) {
-      const w = r.canvasWidth || 0;
-      const h = r.canvasHeight || 0;
-      if (w > 0 && h > 0) {
-        glEl.style.width = `${w}px`;
-        glEl.style.height = `${h}px`;
-      }
-      const rot = camera3DTransformRef.current !== 'none' ? camera3DTransformRef.current : '';
-      glEl.style.transform = rot;
-    }
-    // Force a full redraw (Canvas2D + GL worker).
-    if (r) r.render();
-  }, []);
+  const { updateMinimapAvailability } = useMinimapAvailability({
+    rendererRef,
+    containerRef,
+    showMinimap,
+    setMinimapAvailable,
+  });
+
+  const {
+    getCanvasTargetSize,
+    getCanvasPlaneMetrics,
+    captureViewportAnchor,
+    refreshCanvasLayout,
+    forceGlRedraw,
+  } = useCanvasLayout({
+    rendererRef,
+    containerRef,
+    glCanvasRef,
+    glRendererRef,
+    glyphCanvasRef,
+    wrapperCanvasRef,
+    glCssUnlockTokenRef,
+    glCssUnlockRafRef,
+    glCssUnlockTimeoutRef,
+    glCssLockStateRef,
+    camera3DRef,
+    camera3DTransform,
+    debugGlAutoOffsetYRef,
+    debugGlOffsetXRef,
+    debugGlOffsetYRef,
+    canvasAnchorPx,
+    debugGlOffsetX,
+    debugGlOffsetY,
+    debugGlAutoOffsetY,
+    setDebugGlAutoOffsetY,
+    setCamera3DTransform,
+    setCamera3DContainerStyle,
+    setAutoFitColumnCount,
+    showMinimap,
+    updateMinimapAvailability,
+    getMinimapDetailH,
+  });
 
   const { computeBitInfo } = useBitInfo({ rendererRef, stepsRef, wheelDefinition });
 
@@ -420,13 +418,6 @@ export default function Visualizer({
     setDetailOpen,
     detailHeightRef,
     setDetailHeight,
-  });
-
-  const { updateMinimapAvailability } = useMinimapAvailability({
-    rendererRef,
-    containerRef,
-    showMinimap,
-    setMinimapAvailable,
   });
 
   const { stopPlayback } = useStopPlayback({ setPlaying, playTimeoutRef, playTimerRef });
@@ -447,431 +438,7 @@ export default function Visualizer({
     stopSeqAnimRef.current = stopSeqAnim;
   }, [stopSeqAnim]);
 
-  const getCanvasTargetSize = useCallback((width, height) => {
-    // Unified geometry: the canvas is ALWAYS the oversized 3D plane,
-    // regardless of whether the camera is currently tilted. 2D mode
-    // is just "3D with rotateX = rotateY = 0". This means panel
-    // toggles never change the canvas size (no grid reflow / drift)
-    // and the 2D and 3D placements are identical.
-    //
-    // We use the largest of (current container, viewport) as the
-    // baseline so collapsing/expanding side panels can't shrink
-    // the canvas — those toggles must be visually free.
-    const cam = camera3DRef.current;
-    // Read angles directly from the camera ref rather than from the
-    // camera3DTransform React state. camera3DTransform changes on every tilt
-    // animation frame, which would make this callback unstable → cause
-    // refreshCanvasLayout to be re-created → the resize useEffect re-fires
-    // every pointer-move during a tilt gesture (calling the heavy
-    // refreshCanvasLayout 60fps). camera3DRef is a stable ref so this
-    // callback stays memoised for the lifetime of the camera instance.
-    // canvas layout is explicitly re-triggered at gesture end (schedulePostLayoutRefresh).
-    const baseW = Math.max(width || 0, (typeof window !== 'undefined' ? window.innerWidth : width) || 0);
-    const baseH = Math.max(height || 0, (typeof window !== 'undefined' ? window.innerHeight : height) || 0);
-    let scaleH = 1;
-    let scaleW = 1;
-    let diagonalOverscan = 1;
-    if (cam && cam.enabled) {
-      const rotateX = cam.rotateX || 0;
-      const rotateY = cam.rotateY || 0;
-      const ax = Math.abs(rotateX) * Math.PI / 180;
-      const ay = Math.abs(rotateY) * Math.PI / 180;
-      scaleH = 1 / Math.max(0.3, Math.cos(ax));
-      scaleW = 1 / Math.max(0.3, Math.cos(ay));
-      diagonalOverscan = 1 + Math.hypot(Math.sin(ax), Math.sin(ay)) * 0.55;
-    }
-    const dragOverscan = 3.1;
-    const canvasWRaw = Math.max(baseW * 3.2, baseW * scaleW * diagonalOverscan * dragOverscan);
-    const canvasHRaw = Math.max(baseH * 3.2, baseH * scaleH * diagonalOverscan * dragOverscan);
-    // Keep CSS and backing geometry on integer CSS pixels to avoid
-    // fractional-size drift between GL and Canvas2D at large canvas sizes.
-    const canvasW = Math.max(1, Math.round(canvasWRaw));
-    const canvasH = Math.max(1, Math.round(canvasHRaw));
-    return { canvasW, canvasH };
-  }, []);
 
-  const getCanvasPlaneMetrics = useCallback(() => {
-    const r = rendererRef.current;
-    const el = containerRef.current;
-    if (!r || !el) return null;
-    const rect = el.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return null;
-    const canvasEl = r.canvas || glCanvasRef.current;
-    const planeW = r.canvasWidth || canvasEl?.offsetWidth || rect.width;
-    const planeH = r.canvasHeight || canvasEl?.offsetHeight || rect.height;
-    const mapper = getProjectedCanvasMapper(canvasEl);
-    // Only read style.left/top from the glyph canvas (r.canvas). In worker
-    // mode r.canvas is null and the GL canvas fallback has style.left='0px'
-    // (set imperatively by refreshCanvasLayout) — reading it gives anchor=0
-    // instead of canvasAnchorPx, which makes zoom pivot at the canvas-plane
-    // origin (upper-left) instead of the viewport centre.
-    const glyphEl = r.canvas;
-    const cssLeft = glyphEl ? parseFloat(glyphEl.style.left || '') : Number.NaN;
-    const cssTop  = glyphEl ? parseFloat(glyphEl.style.top  || '') : Number.NaN;
-    const anchorLeft = Number.isFinite(cssLeft) ? cssLeft : (canvasAnchorPx?.left ?? rect.width / 2);
-    const anchorTop  = Number.isFinite(cssTop)  ? cssTop  : (canvasAnchorPx?.top  ?? rect.height / 2);
-    return {
-      rect,
-      planeW,
-      planeH,
-      planeOffsetX: planeW / 2 - anchorLeft,
-      planeOffsetY: planeH / 2 - anchorTop,
-      canvasToViewport: mapper?.toViewport || null,
-      viewportToCanvas: mapper?.toCanvas || null,
-    };
-  }, [canvasAnchorPx]);
-
-  const captureViewportAnchor = useCallback((xRatio = 0.5, yRatio = 0.5) => {
-    const r = rendererRef.current;
-    const metrics = getCanvasPlaneMetrics();
-    if (!r || !metrics) return null;
-    const { rect, planeW, planeH, planeOffsetX, planeOffsetY } = metrics;
-    const clientX = rect.left + rect.width * xRatio;
-    const clientY = rect.top + rect.height * yRatio;
-    const localX = clientX - rect.left;
-    const localY = clientY - rect.top;
-    const cam = camera3DRef.current;
-    const canvasPoint = cam && cam.enabled
-      ? cam.screenToCanvas(localX, localY, planeW, planeH, planeOffsetX, planeOffsetY)
-      : { x: planeOffsetX + localX, y: planeOffsetY + localY };
-    return {
-      clientX,
-      clientY,
-      contentX: (canvasPoint.x - r.panX) / Math.max(0.0001, r.zoom || 1),
-      contentY: (canvasPoint.y - r.panY) / Math.max(0.0001, r.zoom || 1),
-    };
-  }, [getCanvasPlaneMetrics]);
-
-  const refreshCanvasLayout = useCallback((anchor = null) => {
-    const r = rendererRef.current;
-    const el = containerRef.current;
-    if (!r || !el) return;
-    const rect = el.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return;
-
-    const { canvasW, canvasH } = getCanvasTargetSize(rect.width, rect.height);
-
-    // Perspective safety: as canvas plane height grows, large rotateX values
-    // can produce extreme perspective amplification near the top edge. Cap
-    // tilt dynamically so rendered geometry remains stable at high zoom.
-    const cam = camera3DRef.current;
-    if (cam && cam.enabled) {
-      const safeTilt = computeSafeTiltDegrees(canvasH, cam.perspective || 1500);
-      cam.maxTilt = safeTilt * 10; // alow some user experimentation
-      let clamped = false;
-      if (Math.abs(cam.rotateX) > safeTilt) {
-        cam.rotateX = Math.sign(cam.rotateX || 1) * safeTilt;
-        clamped = true;
-      }
-      if (Math.abs(cam.rotateY) > safeTilt) {
-        cam.rotateY = Math.sign(cam.rotateY || 1) * safeTilt;
-        clamped = true;
-      }
-      if (clamped) {
-        setCamera3DTransform(cam.getCanvasTransform());
-        setCamera3DContainerStyle(cam.getContainerStyle());
-      }
-    }
-
-    const oldCanvasW = r.canvasWidth || 0;
-    const oldCanvasH = r.canvasHeight || 0;
-    const glRenderer = glRendererRef.current;
-    const glDirectMode = !!(glRenderer && typeof glRenderer.isDirectMode === 'function' && glRenderer.isDirectMode());
-    let overlayDpr = null;
-    if (glRenderer) {
-      glRenderer.resize(canvasW, canvasH);
-      if (glDirectMode && typeof glRenderer.getEffectiveDpr === 'function') {
-        overlayDpr = glRenderer.getEffectiveDpr();
-      }
-    }
-    r.resize(canvasW, canvasH, overlayDpr);
-    // Sync wrapper div and GL canvas dimensions so translate(-50%,-50%) in
-    // renderCanvasStyle computes the correct pixel shift (50% of the wrapper's
-    // own size) and the GL canvas CSS display always matches Canvas2D.
-    // Must happen imperatively here (before the next paint) rather than
-    // waiting for a React re-render, so that the centering is correct on the
-    // very first frame after a resize.
-    //
-    // GL canvas sizing: the wrapper is updated to the new size immediately
-    // (for correct centering via translate(-50%,-50%)). The GL canvas CSS is
-    // locked to the OLD size until the worker has drawn at the new size. This
-    // prevents the browser from CSS-scaling the old drawing buffer to the new
-    // CSS dimensions, which caused the grid and annotations to move in opposite
-    // directions during window resize (and zoom appearing to affect only
-    // annotations). A requestAnimationFrame deferred step below updates the GL
-    // canvas CSS to the new size after the worker messages have been processed.
-    //
-    // On Safari (direct mode), resize is synchronous so the deferred update is
-    // harmless (just re-sets the same value one frame later).
-
-    const wrapperEl = wrapperCanvasRef.current;
-    if (wrapperEl) {
-      wrapperEl.style.width = `${canvasW}px`;
-      wrapperEl.style.height = `${canvasH}px`;
-    }
-    const glEl = glCanvasRef.current;
-    const glSizeChanging = glEl && (canvasW !== oldCanvasW || canvasH !== oldCanvasH);
-    // Read angles directly from the camera ref — avoids a stale closure on
-    // camera3DTransform (which is not in this callback's dep array).
-    const appliedAngles = cam && cam.enabled
-      ? { rotateX: cam.rotateX || 0, rotateY: cam.rotateY || 0 }
-      : { rotateX: 0, rotateY: 0 };
-    let autoGlOffsetY = 0;
-    if (glDirectMode && glRenderer && typeof glRenderer.getEffectiveDpr === 'function') {
-      autoGlOffsetY = computeAutoGlYOffset(
-        canvasH,
-        glRenderer.getEffectiveDpr(),
-        appliedAngles.rotateX,
-        appliedAngles.rotateY,
-        canvasW,
-      );
-    }
-    debugGlAutoOffsetYRef.current = autoGlOffsetY;
-    setDebugGlAutoOffsetY((prev) => (prev === autoGlOffsetY ? prev : autoGlOffsetY));
-    const totalGlOffsetX = debugGlOffsetXRef.current || 0;
-    const totalGlOffsetY = autoGlOffsetY + (debugGlOffsetYRef.current || 0);
-    // Rotation string shared by both the GL canvas and the glyph overlay canvas.
-    // Defined outside if(glEl) so the glyph canvas update below can use it.
-    const rotStr = camera3DTransformRef.current !== 'none' ? camera3DTransformRef.current : '';
-    const makeGlTransform = (translateStr) => [rotStr, translateStr].filter(Boolean).join(' ');
-
-    if (glEl) {
-      // Always keep GL anchored from top-left with explicit size. Chromium can
-      // behave inconsistently when right/bottom constraints remain active while
-      // width/height are also assigned dynamically.
-      glEl.style.left = `${totalGlOffsetX}px`;
-      glEl.style.top = `${totalGlOffsetY}px`;
-      glEl.style.right = 'auto';
-      glEl.style.bottom = 'auto';
-
-      if (glDirectMode) {
-        // Direct mode renders synchronously on the main thread, so we do not
-        // need the worker catch-up CSS lock. Applying it in Chromium can
-        // itself introduce drift during horizontal window growth.
-        glCssLockStateRef.current = null;
-        glEl.style.width = `${canvasW}px`;
-        glEl.style.height = `${canvasH}px`;
-        glEl.style.transform = makeGlTransform('');
-      } else {
-        const activeGlCssLock = glCssLockStateRef.current;
-        if (!glSizeChanging) {
-          if (activeGlCssLock
-            && activeGlCssLock.targetW === canvasW
-            && activeGlCssLock.targetH === canvasH) {
-            glEl.style.width = `${activeGlCssLock.lockW}px`;
-            glEl.style.height = `${activeGlCssLock.lockH}px`;
-            glEl.style.transform = makeGlTransform(activeGlCssLock.translateTransform);
-          } else {
-            // Size unchanged: set immediately (no CSS-scale risk).
-            glEl.style.width = `${canvasW}px`;
-            glEl.style.height = `${canvasH}px`;
-            glEl.style.transform = makeGlTransform('');
-          }
-        } else {
-          // Size IS changing: lock GL canvas CSS to the OLD size (overriding
-          // the CSS `inset: 0` rule, which would otherwise auto-expand the GL
-          // canvas to fill the newly-resized wrapper). This prevents the browser
-          // from CSS-scaling the old drawing buffer to the new wrapper dimensions.
-          // A rAF deferred step after r.render() updates to the new size.
-          const lockW = oldCanvasW > 0 ? oldCanvasW : canvasW;
-          const lockH = oldCanvasH > 0 ? oldCanvasH : canvasH;
-          glEl.style.width = `${lockW}px`;
-          glEl.style.height = `${lockH}px`;
-          // The wrapper is resized immediately to the new dimensions. Because
-          // the GL canvas is position:absolute at (0,0) inside the wrapper, the
-          // wrapper growing/shrinking shifts the GL canvas in screen space by
-          // ±deltaW/2 (half the width change). Meanwhile Canvas2D re-renders
-          // with an updated panX (= old panX + deltaW/2), which shifts the
-          // rendered content by +deltaW/2 in the SAME direction. The combined
-          // effect means we need to shift the locked GL frame by a full deltaW
-          // (= canvasW - oldCanvasW) to make the old GL cells appear at the same
-          // screen positions as the new Canvas2D annotations.
-          //   GL visual left  = wrapperLeft + deltaW
-          //                   = (center − newW/2) + (newW − oldW)
-          //                   = center + newW/2 − oldW
-          //   C2D content at W = (center − newW/2) + (newW/2 + panX_new)
-          //                    = center + panX_new  (same world → same screen ✓)
-          const glDx = canvasW - lockW;
-          const glDy = canvasH - lockH;
-          // Store only the translate part so it can be re-composed with the
-          // (possibly changing) rotation when the lock is later restored.
-          const lockTranslate = (glDx !== 0 || glDy !== 0) ? `translate(${glDx}px, ${glDy}px)` : '';
-          glEl.style.transform = makeGlTransform(lockTranslate);
-          glCssLockStateRef.current = {
-            targetW: canvasW,
-            targetH: canvasH,
-            lockW,
-            lockH,
-            translateTransform: lockTranslate,
-          };
-        }
-      }
-    }
-    // Apply the same rotation to the glyph overlay canvas. It fills the wrapper
-    // via CSS (inset: 0) so only the rotation is needed — no position offset.
-    const glyphOverlayEl = glyphCanvasRef.current;
-    if (glyphOverlayEl) {
-      glyphOverlayEl.style.transform = rotStr;
-    }
-    // Keep grid content stable when the window (and therefore the canvas)
-    // resizes. The canvas is centered at the viewport center, so when the
-    // canvas grows by dCanvasW its left edge moves left by dCanvasW/2.
-    // Compensating panX by dCanvasW/2 keeps every canvas-coord the same
-    // distance from the canvas center, which means the 3D perspective
-    // projection is unchanged (no lean/tilt artefact). In 2D the content
-    // drifts by dWindowW/2 — the natural "window-center moved" effect —
-    // which is far less disruptive than the original 1.1×dWindowW drift.
-    if (oldCanvasW > 0) {
-      r.panX += (canvasW - oldCanvasW) / 2;
-      r.panY += (canvasH - oldCanvasH) / 2;
-    }
-    // Tell the renderer the layout-available area so the grid
-    // wrapping math (`_computeClPerVRow`) targets a STABLE size,
-    // not the live container rect. Using `window.innerWidth/Height`
-    // means panel toggles don't change the chosen column count and
-    // therefore don't reflow / drift the grid; the user just sees
-    // more or less of the same plane through the resized container.
-    const lvW = (typeof window !== 'undefined' ? window.innerWidth : rect.width) || rect.width;
-    const lvH = (typeof window !== 'undefined' ? window.innerHeight : rect.height) || rect.height;
-    r.layoutAvailWidth = lvW;
-    r.layoutAvailHeight = lvH;
-    r.unfreezeLayout();
-    r.freezeLayout();
-    if (r.horizontalGroups === 0 && typeof r._cacheLinesPerVisualRow === 'function') {
-      const nextAutoCols = Math.max(1, r._cacheLinesPerVisualRow());
-      setAutoFitColumnCount((prev) => (prev === nextAutoCols ? prev : nextAutoCols));
-    }
-
-    // Store the actual visible container dimensions on the renderer so that
-    // renderMinimap and updateMinimapAvailability use the real viewport size
-    // rather than the oversized (3×) drag-headroom canvas dimensions.
-    r.viewportW = rect.width;
-    r.viewportH = rect.height;
-
-    // NOTE: anchor-based panX/panY compensation removed for panel toggles.
-    // With the canvas pinned to the VIEWPORT center (see canvasAnchorPx and
-    // renderCanvasStyle), the canvas no longer moves when the container
-    // reshapes on a panel toggle (canvasW/H are based on windowW/H, not
-    // containerW/H, so they don't change on panel toggles), so there is
-    // nothing to compensate for. Window-resize is handled above via the
-    // dCanvasW/2 adjustment which preserves canvas-center-relative content
-    // positions and keeps the 3D perspective projection stable.
-    void anchor;
-
-    const glRenderSeq = r.render();
-    // After r.render() the patched render has posted resize+positions+render
-    // messages to the GL worker. For width-growth resizes, wait for an
-    // explicit worker render-ack before unlocking GL canvas CSS to the new
-    // dimensions so the browser never stretches an old drawing buffer.
-    // Keep a short timeout fallback to avoid stalls if the worker is busy.
-    if (glSizeChanging && !glDirectMode) {
-      const targetW = canvasW;
-      const targetH = canvasH;
-      const targetEl = glEl;
-      const g = glRendererRef.current;
-      const targetDpr = g && typeof g.getEffectiveDpr === 'function'
-        ? g.getEffectiveDpr()
-        : ((window.devicePixelRatio || 1));
-      // Use Math.round to match bitGridGLCore.js which also uses Math.round
-      // when setting canvas.width/height. Using Math.floor here caused a
-      // rounding mismatch (e.g. 801 × 1.5 → floor=1201, round=1202) that
-      // prevented waitForGlBackingStore from ever finding a match, forcing
-      // every horizontal-growth resize to wait for the full 80 ms timeout.
-      const targetPxW = Math.max(1, Math.round(targetW * targetDpr));
-      const targetPxH = Math.max(1, Math.round(targetH * targetDpr));
-      const token = ++glCssUnlockTokenRef.current;
-      if (glCssUnlockRafRef.current != null) {
-        cancelAnimationFrame(glCssUnlockRafRef.current);
-        glCssUnlockRafRef.current = null;
-      }
-      if (glCssUnlockTimeoutRef.current != null) {
-        clearTimeout(glCssUnlockTimeoutRef.current);
-        glCssUnlockTimeoutRef.current = null;
-      }
-      const applyUnlockedSize = () => {
-        if (token !== glCssUnlockTokenRef.current) return;
-        glCssUnlockRafRef.current = requestAnimationFrame(() => {
-          glCssUnlockRafRef.current = null;
-          if (token !== glCssUnlockTokenRef.current) return;
-          if (targetEl) {
-            glCssLockStateRef.current = null;
-            targetEl.style.width = `${targetW}px`;
-            targetEl.style.height = `${targetH}px`;
-            // Restore just the rotation — no resize-lock translate remains.
-            const rot = camera3DTransformRef.current !== 'none' ? camera3DTransformRef.current : '';
-            targetEl.style.transform = rot;
-            // Keep glyph overlay in sync.
-            const glyphUnlockEl = glyphCanvasRef.current;
-            if (glyphUnlockEl) glyphUnlockEl.style.transform = rot;
-          }
-        });
-      };
-      const waitForGlBackingStore = () => {
-        if (token !== glCssUnlockTokenRef.current) return;
-        if (!targetEl) {
-          applyUnlockedSize();
-          return;
-        }
-        if (targetEl.width === targetPxW && targetEl.height === targetPxH) {
-          applyUnlockedSize();
-          return;
-        }
-        glCssUnlockRafRef.current = requestAnimationFrame(() => {
-          waitForGlBackingStore();
-        });
-      };
-      const grewHorizontally = oldCanvasW > 0 && canvasW > oldCanvasW;
-      if (grewHorizontally) {
-        glCssUnlockTimeoutRef.current = setTimeout(() => {
-          glCssUnlockTimeoutRef.current = null;
-          applyUnlockedSize();
-        }, 80);
-        waitForGlBackingStore();
-      } else {
-        applyUnlockedSize();
-      }
-    }
-    updateMinimapAvailability();
-    if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
-  }, [getCanvasTargetSize, showMinimap, getMinimapDetailH, updateMinimapAvailability, setCamera3DTransform, setCamera3DContainerStyle, debugGlOffsetX, debugGlOffsetY]);
-
-  // Keep manual debug offsets responsive even when no resize/layout event is
-  // in flight. This updates both direct GL canvas placement and the Canvas2D
-  // composited fallback path immediately when X/Y sliders or nudges change.
-  useEffect(() => {
-    const glEl = glCanvasRef.current;
-    const rr = rendererRef.current;
-    const totalGlOffsetY = (debugGlAutoOffsetY || 0) + (debugGlOffsetY || 0);
-    if (glEl) {
-      glEl.style.left = `${debugGlOffsetX || 0}px`;
-      glEl.style.top = `${totalGlOffsetY}px`;
-      glEl.style.right = 'auto';
-      glEl.style.bottom = 'auto';
-    }
-    if (rr) {
-      rr.render();
-    }
-  }, [debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY]);
-
-  // Keep the GL canvas rotation up-to-date whenever the camera changes.
-  // Previously the rotation lived in renderCanvasStyle (React state on the
-  // wrapper div), so React re-renders kept it current. Now it is applied
-  // imperatively to the canvas element, so we need an explicit effect.
-  // The resize-lock translate (if any) is preserved by reading the current
-  // transform and extracting the rotation part from camera3DTransformRef.
-  useEffect(() => {
-    const rotStr = camera3DTransform !== 'none' ? camera3DTransform : '';
-    const lockTranslate = glCssLockStateRef.current?.translateTransform || '';
-    const glEl = glCanvasRef.current;
-    if (glEl) {
-      glEl.style.transform = [rotStr, lockTranslate].filter(Boolean).join(' ');
-    }
-    // Keep glyph overlay in sync — same rotation, no translate offset.
-    const glyphEl = glyphCanvasRef.current;
-    if (glyphEl) {
-      glyphEl.style.transform = rotStr;
-    }
-  }, [camera3DTransform]);
 
   // Keep the canvas pinned to the VIEWPORT center (not the container
   // center) so panel collapse/expand transitions don't slide the
@@ -1606,483 +1173,30 @@ export default function Visualizer({
     refitViewportToContent,
   });
 
-  // Cinematic fly-to on element click (in 3D mode)
-  const flyToElement = useCallback((bitIdx) => {
-    const cam = camera3DRef.current;
-    const r = rendererRef.current;
-    const el = containerRef.current;
-    if (!cam || !cam.enabled || !r || !el) return;
-
-    const pos = r.bitIndexToCanvas(bitIdx);
-    if (!pos) return;
-
-    const metrics = getCanvasPlaneMetrics();
-    if (!metrics) return;
-    const { rect, planeW, planeH, planeOffsetX, planeOffsetY } = metrics;
-    const elem = r.identifyElement(bitIdx);
-    if (!elem) return;
-
-    // Determine the best zoom level and element bounds for focus
-    let targetZoom = r.zoom;
-    let targetType = 'bit';
-
-    // Choose focus level based on current zoom
-    if (r.zoom < 2) {
-      targetType = 'vector';
-      targetZoom = Math.min(8, r.zoom * 4);
-    } else if (r.zoom < 6) {
-      targetType = 'byte';
-      targetZoom = Math.min(12, r.zoom * 2);
-    } else {
-      targetType = 'bit';
-      targetZoom = Math.min(20, r.zoom * 1.5);
-    }
-
-    const bounds = r.getElementBounds(targetType, targetType === 'bit' ? bitIdx :
-      targetType === 'byte' ? elem.byteIdx :
-      targetType === 'vector' ? elem.vectorIdx : elem.clIdx);
-
-    const target = bounds ? { canvasX: bounds.cx, canvasY: bounds.cy } : { canvasX: pos.x, canvasY: pos.y };
-
-    cam.flyTo(
-      target,
-      {
-        containerW: planeW,
-        containerH: planeH,
-        centerX: planeOffsetX + rect.width / 2,
-        centerY: planeOffsetY + rect.height / 2,
-      },
-      { panX: r.panX, panY: r.panY, zoom: r.zoom },
-      targetZoom,
-      1200
-    );
-  }, [getCanvasPlaneMetrics]);
-
-  // ensureTiltCamera() is provided by use3DCamera; see src/hooks/use3DCamera.js.
-
-  // Mouse pan & zoom on canvas (with 3D rotation support)
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    let gestureMode = 'none';
-    let activePointerId = null;
-    let startX = 0, startY = 0, panSX = 0, panSY = 0;
-    let didDrag = false;
-    let mouseRotateActive = false;
-    let pointerDownCanvasCoords = null;
-
-    const eventToCanvasCoords = (event, fallbackClientX = event.clientX, fallbackClientY = event.clientY) => {
-      const metrics = getCanvasPlaneMetrics();
-      if (!metrics) return { x: 0, y: 0 };
-      if (metrics.viewportToCanvas) {
-        const point = metrics.viewportToCanvas(fallbackClientX, fallbackClientY);
-        if (point) return point;
-      }
-      const { rect, planeW, planeH, planeOffsetX, planeOffsetY } = metrics;
-      const x = fallbackClientX - rect.left;
-      const y = fallbackClientY - rect.top;
-      const cam = camera3DRef.current;
-      if (cam && cam.enabled) {
-        return cam.screenToCanvas(x, y, planeW, planeH, planeOffsetX, planeOffsetY);
-      }
-      return { x: x + planeOffsetX, y: y + planeOffsetY };
-    };
-
-    const onContextMenu = (e) => {
-      // Right-click / ctrl-click is reserved for tilt gestures on the canvas.
-      if (e.button === 2 || e.ctrlKey || e.metaKey) e.preventDefault();
-    };
-
-    const onAuxClick = (e) => {
-      const cam = camera3DRef.current;
-      if (cam && cam.enabled && (e.button === 1 || e.button === 2)) e.preventDefault();
-    };
-
-    const isSecondaryRotateGesture = (event, cam) => {
-      if (!cam) return false;
-      if (event.button === 1 || event.button === 2 || event.which === 3) return true;
-      if (event.button === 0 && (event.ctrlKey || event.metaKey)) return true;
-      return (event.buttons & 2) === 2;
-    };
-
-    const isPointWithinRect = (clientX, clientY, rect) => (
-      clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
-    );
-
-    const hideHoverBalloon = () => {
-      lastHoveredIdxRef.current = -1;
-      setHoveredBitInfo(null);
-    };
-
-    const clearInteraction = () => {
-      gestureMode = 'none';
-      activePointerId = null;
-      mouseRotateActive = false;
-      pointerDownCanvasCoords = null;
-      el.classList.remove('dragging');
-    };
-
-    const onPointerDown = (e) => {
-      if (mouseRotateActive) return;
-      const r = rendererRef.current;
-      if (!r) return;
-      // Don't capture pointer for interactive overlays inside the canvas area.
-      // Without this, setPointerCapture() swallows the pointerup so buttons
-      // in .step-focus-banner and .bit-history-panel never fire click events.
-      if (e.target.closest('.step-focus-banner, .bit-history-panel, .detail-inspector-overlay')) return;
-      const rect = el.getBoundingClientRect();
-      const rawX = e.clientX - rect.left;
-      const rawY = e.clientY - rect.top;
-      const canvasW = rect.width;
-      const canvasH = rect.height;
-
-      const cam = camera3DRef.current;
-      if (isSecondaryRotateGesture(e, cam)) {
-        enableTiltAndResize();
-        // Cancel any in-flight camera animation (e.g. the startup intro tilt)
-        // so the drag starts from whatever angle the camera is at right now.
-        const liveCam = camera3DRef.current;
-        if (liveCam) liveCam.cancelAllAnimations();
-        e.preventDefault();
-        e.stopPropagation();
-        hideHoverBalloon();
-        gestureMode = 'rotate';
-        activePointerId = e.pointerId;
-        startX = e.clientX;
-        startY = e.clientY;
-        didDrag = false;
-        if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
-        el.classList.add('dragging');
-        return;
-      }
-
-      // Check minimap hit first.  The minimap is drawn on a position:fixed
-      // canvas covering the full viewport, so _minimapRect.mx/my are in
-      // viewport (clientX/Y) coordinates — not container-relative coords.
-      const hit = r.minimapHitTest(e.clientX, e.clientY);
-      if (hit) {
-        hideHoverBalloon();
-        gestureMode = 'minimap';
-        activePointerId = e.pointerId;
-        didDrag = true;
-        if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
-        r.panX = hit.panX;
-        r.panY = hit.panY;
-        r.render();
-        updateMinimapAvailability();
-        r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-        el.classList.add('dragging');
-        return;
-      }
-
-      hideHoverBalloon();
-      gestureMode = 'pan';
-      activePointerId = e.pointerId;
-      didDrag = false;
-      pointerDownCanvasCoords = eventToCanvasCoords(e);
-      startX = e.clientX; startY = e.clientY;
-      if (r) { panSX = r.panX; panSY = r.panY; }
-      if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
-      el.classList.add('dragging');
-    };
-
-    const onPointerMove = (e) => {
-      if (mouseRotateActive) return;
-      const r = rendererRef.current;
-      if (!r) return;
-      const cam = camera3DRef.current;
-
-      if (gestureMode === 'none' && cam) {
-        const secondaryPressed = ((e.buttons & 2) === 2) || (((e.buttons & 1) === 1) && (e.ctrlKey || e.metaKey));
-        if (secondaryPressed) {
-          enableTiltAndResize();
-          const liveCam2 = camera3DRef.current;
-          if (liveCam2) liveCam2.cancelAllAnimations();
-          gestureMode = 'rotate';
-          activePointerId = e.pointerId;
-          startX = e.clientX;
-          startY = e.clientY;
-          didDrag = false;
-          if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
-          el.classList.add('dragging');
-          return;
-        }
-      }
-
-      if (activePointerId != null && e.pointerId !== activePointerId) return;
-
-      if (gestureMode === 'rotate' && cam && cam.enabled) {
-        hideHoverBalloon();
-        didDrag = true;
-        const next = applyRotate({
-          camera: cam,
-          renderer: r,
-          event: e,
-          startX,
-          startY,
-          getMinimapDetailH,
-          scheduleBalloonRelayout,
-        });
-        startX = next.startX;
-        startY = next.startY;
-        return;
-      }
-
-      if (gestureMode === 'minimap') {
-        hideHoverBalloon();
-        const rect = el.getBoundingClientRect();
-        // Minimap is on a position:fixed overlay — use viewport coords.
-        const hit = r.minimapHitTest(e.clientX, e.clientY);
-        if (hit) {
-          r.panX = hit.panX;
-          r.panY = hit.panY;
-          r.render();
-          updateMinimapAvailability();
-          r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-          scheduleBalloonRelayout();
-        }
-        return;
-      }
-
-      if (gestureMode === 'pan') {
-        hideHoverBalloon();
-        didDrag = true;
-        applyPan({
-          renderer: r,
-          event: e,
-          startX,
-          startY,
-          panStartX: panSX,
-          panStartY: panSY,
-          getMinimapDetailH,
-          updateMinimapAvailability,
-          scheduleBalloonRelayout,
-        });
-        return;
-      }
-
-      // Suppress the hover popup when the cursor is over an overlay (toolbar,
-      // settings/events/details panels, timing panel, minimap, event-title banner,
-      // trace-info popover). The pointermove listener is bound to window so it
-      // fires everywhere; we probe the element under the cursor to gate the popup.
-      if (!balloonsEnabled || !balloonHoverEnabled) {
-        if (lastHoveredIdxRef.current !== -1) {
-          lastHoveredIdxRef.current = -1;
-          setHoveredBitInfo(null);
-        }
-        return;
-      }
-
-      const overOverlay = (() => {
-        if (typeof document === 'undefined') return false;
-        const hit = document.elementFromPoint(e.clientX, e.clientY);
-        if (!hit) return false;
-        return !!hit.closest(
-          '.toolbar, .events-panel, .settings-sidebar, .detail-panel, .timing-panel, ' +
-          '.step-focus-banner, .events-panel-floating-title, .joined-events-widget, ' +
-          '.minimap-overlay-canvas, .trace-info-popover, .debug-tools-panel, ' +
-          '.bit-history-panel'
-        );
-      })();
-      if (overOverlay) {
-        if (lastHoveredIdxRef.current !== -1) {
-          lastHoveredIdxRef.current = -1;
-          setHoveredBitInfo(null);
-        }
-        return;
-      }
-
-      const coords = eventToCanvasCoords(e);
-      const idx = r.canvasToBitIndex(coords.x, coords.y);
-      el.style.cursor = 'crosshair';
-      if (idx !== lastHoveredIdxRef.current) {
-        lastHoveredIdxRef.current = idx;
-        if (idx >= 0) {
-          setHoveredBitInfo(computeBitInfo(idx));
-        } else {
-          setHoveredBitInfo(null);
-        }
-      }
-    };
-
-    const onPointerEnd = (e) => {
-      if (mouseRotateActive) return;
-      if (activePointerId != null && e.pointerId !== activePointerId) return;
-      const rect = el.getBoundingClientRect();
-      const releasedOverCanvas = isPointWithinRect(e.clientX, e.clientY, rect);
-      const r = rendererRef.current;
-
-      if (gestureMode === 'rotate') {
-        clearInteraction();
-        // Resize the canvas to match the final tilt angle. During the gesture
-        // refreshCanvasLayout is no longer called every frame (getCanvasTargetSize
-        // now reads from the camera ref directly, decoupling it from the
-        // camera3DTransform state that changes each pointer-move).
-        schedulePostLayoutRefresh(null);
-        return;
-      }
-
-      if (gestureMode === 'none' && !releasedOverCanvas) {
-        clearInteraction();
-        return;
-      }
-
-      if (!didDrag && gestureMode !== 'minimap' && r) {
-        // Ignore "clicks" that originate from interactive overlays sitting on
-        // top of the canvas (event-title widget, bit-history popups, detail
-        // inspector). Pointerdown on those overlays never reaches the canvas
-        // listener, but pointerup is bound to window and would otherwise
-        // toggle a pinned bit beneath the overlay — creating accidental
-        // popups when the user is interacting with the widget itself.
-        const t = e.target;
-        if (t && typeof t.closest === 'function' && t.closest(
-          '.step-focus-banner, .bit-history-panel, .detail-inspector-overlay, .toolbar, .events-panel, .settings-sidebar, .detail-panel, .timing-panel, .trace-info-popover, .debug-tools-panel'
-        )) {
-          clearInteraction();
-          return;
-        }
-        if (!balloonsEnabled || !balloonClickEnabled) {
-          clearInteraction();
-          return;
-        }
-        const coords = pointerDownCanvasCoords || eventToCanvasCoords(e);
-        const idx = r.canvasToBitIndex(coords.x, coords.y);
-        if (idx >= 0) {
-          const cam = camera3DRef.current;
-          if (cam && cam.enabled) {
-            flyToElement(idx);
-          }
-          if ((e.detail || 0) >= 2) {
-            setPinnedBitIndices([idx]);
-          } else {
-            setPinnedBitIndices((prev) => (
-              prev.includes(idx) ? prev.filter((value) => value !== idx) : [...prev, idx]
-            ));
-          }
-        } else {
-          setPinnedBitIndices([]);
-        }
-      }
-
-      clearInteraction();
-    };
-
-    const onWheel = (e) => {
-      e.preventDefault();
-      const r = rendererRef.current;
-      if (!r) return;
-      const coords = eventToCanvasCoords(e);
-      applyWheel({
-        renderer: r,
-        event: e,
-        cursorX: coords.x,
-        cursorY: coords.y,
-        setZoom,
-        getMinimapDetailH,
-        updateMinimapAvailability,
-        scheduleBalloonRelayout,
-      });
-      const pausedProgress = Math.max(0, Math.min(100, Number(stepScrubProgressValueRef.current) || 0));
-      if (globalPausedRef.current && pausedProgress > 0 && pausedProgress < 100) {
-        // Keep paused in-flight animation overlays visible after zoom changes.
-        seekStepAnimation(pausedProgress / 100);
-      }
-      setBalloonLiveLayout(true);
-      if (balloonLiveLayoutTimerRef.current != null) clearTimeout(balloonLiveLayoutTimerRef.current);
-      scheduleBalloonRelayout(true);
-      balloonLiveLayoutTimerRef.current = setTimeout(() => {
-        balloonLiveLayoutTimerRef.current = null;
-        setBalloonLiveLayout(false);
-        scheduleBalloonRelayout(true);
-      }, 140);
-    };
-
-    const onMouseDown = (e) => {
-      const secondary = e.button === 2 || (e.button === 0 && (e.ctrlKey || e.metaKey));
-      if (!secondary) return;
-      enableTiltAndResize();
-      const liveCam3 = camera3DRef.current;
-      if (liveCam3) liveCam3.cancelAllAnimations();
-      e.preventDefault();
-      e.stopPropagation();
-      hideHoverBalloon();
-      mouseRotateActive = true;
-      gestureMode = 'rotate';
-      activePointerId = null;
-      startX = e.clientX;
-      startY = e.clientY;
-      didDrag = false;
-      el.classList.add('dragging');
-    };
-
-    const onMouseMove = (e) => {
-      if (!mouseRotateActive) return;
-      const cam = camera3DRef.current;
-      const r = rendererRef.current;
-      if (!cam || !cam.enabled || !r) {
-        clearInteraction();
-        return;
-      }
-      const stillSecondary = (e.buttons & 2) === 2 || ((e.buttons & 1) === 1 && (e.ctrlKey || e.metaKey));
-      if (!stillSecondary) {
-        clearInteraction();
-        return;
-      }
-      didDrag = true;
-      const next = applyRotate({
-        camera: cam,
-        renderer: r,
-        event: e,
-        startX,
-        startY,
-        getMinimapDetailH,
-        updateMinimapAvailability,
-        scheduleBalloonRelayout,
-      });
-      startX = next.startX;
-      startY = next.startY;
-    };
-
-    const onMouseUp = () => {
-      if (!mouseRotateActive) return;
-      clearInteraction();
-      schedulePostLayoutRefresh(null);
-    };
-
-    el.addEventListener('pointerdown', onPointerDown);
-    el.addEventListener('contextmenu', onContextMenu);
-    el.addEventListener('auxclick', onAuxClick);
-    el.addEventListener('mousedown', onMouseDown);
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerEnd);
-    window.addEventListener('pointercancel', onPointerEnd);
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    el.addEventListener('wheel', onWheel, { passive: false });
-    const onMouseLeave = () => {
-      if (gestureMode === 'none') {
-        lastHoveredIdxRef.current = -1;
-        setHoveredBitInfo(null);
-      }
-      el.style.cursor = 'crosshair';
-    };
-    el.addEventListener('mouseleave', onMouseLeave);
-
-    return () => {
-      el.removeEventListener('pointerdown', onPointerDown);
-      el.removeEventListener('contextmenu', onContextMenu);
-      el.removeEventListener('auxclick', onAuxClick);
-      el.removeEventListener('mousedown', onMouseDown);
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerEnd);
-      window.removeEventListener('pointercancel', onPointerEnd);
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-      el.removeEventListener('wheel', onWheel);
-      el.removeEventListener('mouseleave', onMouseLeave);
-    };
-  }, [computeBitInfo, flyToElement, getCanvasPlaneMetrics, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout, schedulePostLayoutRefresh, balloonsEnabled, balloonClickEnabled, balloonHoverEnabled, seekStepAnimation]);
+  usePointerGestures({
+    rendererRef,
+    containerRef,
+    camera3DRef,
+    getCanvasPlaneMetrics,
+    getMinimapDetailH,
+    updateMinimapAvailability,
+    enableTiltAndResize,
+    scheduleBalloonRelayout,
+    schedulePostLayoutRefresh,
+    seekStepAnimation,
+    computeBitInfo,
+    setZoom,
+    setHoveredBitInfo,
+    setPinnedBitIndices,
+    setBalloonLiveLayout,
+    balloonsEnabled,
+    balloonClickEnabled,
+    balloonHoverEnabled,
+    lastHoveredIdxRef,
+    balloonLiveLayoutTimerRef,
+    stepScrubProgressValueRef,
+    globalPausedRef,
+  });
 
   // Keyboard shortcuts — see src/hooks/useKeyboardShortcuts.js for the full key map.
   useKeyboardShortcuts({
