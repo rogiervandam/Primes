@@ -28,6 +28,8 @@ export function useStepAnimContent({
   playing,
   exporting,
   openAnimationSettings,
+  isSingleEventRepeatEnabled,
+  setIsSingleEventRepeatEnabled,
   // docked-only
   setEventTitleSettings,
   setPendingBannerDragStart,
@@ -61,6 +63,8 @@ export function useStepAnimContent({
       playing={playing}
       exporting={exporting}
       onOpenAnimationSettings={openAnimationSettings}
+      isSingleEventRepeatEnabled={isSingleEventRepeatEnabled}
+      onToggleSingleEventRepeat={() => setIsSingleEventRepeatEnabled((prev) => !prev)}
       docked={false}
     />
   );
@@ -83,6 +87,8 @@ export function useStepAnimContent({
       playing={playing}
       exporting={exporting}
       onOpenAnimationSettings={openAnimationSettings}
+      isSingleEventRepeatEnabled={isSingleEventRepeatEnabled}
+      onToggleSingleEventRepeat={() => setIsSingleEventRepeatEnabled((prev) => !prev)}
       onDragOutFromDock={({ x, y }) => {
         setEventTitleSettings((prev) => ({ ...prev, visible: true }));
         setPendingBannerDragStart({ x, y, token: Date.now() });

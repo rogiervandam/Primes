@@ -28,6 +28,10 @@ export function useStepAnimation({ initialPrefs }) {
   const isSingleEventLoopActiveRef = useRef(false);
   isSingleEventLoopActiveRef.current = isSingleEventLoopActive;
 
+  const [isSingleEventRepeatEnabled, setIsSingleEventRepeatEnabled] = useState(initialPrefs.isSingleEventRepeatEnabled !== false);
+  const isSingleEventRepeatEnabledRef = useRef(initialPrefs.isSingleEventRepeatEnabled !== false);
+  isSingleEventRepeatEnabledRef.current = isSingleEventRepeatEnabled;
+
   const [isAutoAnimateOnSelect, setIsAutoAnimateOnSelect] = useState(initialPrefs.isAutoAnimateOnSelect);
   const isAutoAnimateOnSelectRef = useRef(initialPrefs.isAutoAnimateOnSelect);
   isAutoAnimateOnSelectRef.current = isAutoAnimateOnSelect;
@@ -74,6 +78,7 @@ export function useStepAnimation({ initialPrefs }) {
   return {
     bitAnimationMode, setBitAnimationMode, bitAnimationModeRef,
     isSingleEventLoopActive, setIsSingleEventLoopActive, isSingleEventLoopActiveRef,
+    isSingleEventRepeatEnabled, setIsSingleEventRepeatEnabled, isSingleEventRepeatEnabledRef,
     isAutoAnimateOnSelect, setIsAutoAnimateOnSelect, isAutoAnimateOnSelectRef,
     isAnimationReplayPaused, setIsAnimationReplayPaused,
     isScrubbingTopRef,

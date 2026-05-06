@@ -252,6 +252,28 @@
   font-size: 14px;
 }
 .step-focus-play-btn:hover { background: var(--bg-input); color: var(--fg-bright); }
+.step-focus-repeat-btn {
+  padding: 3px 6px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--fg-dim);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.step-focus-repeat-btn:hover { background: var(--bg-raised); color: var(--fg); }
+.step-focus-repeat-btn.active {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--border-light));
+  background: color-mix(in srgb, var(--accent-bg) 55%, transparent);
+}
+.step-focus-repeat-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .step-focus-close-btn {
   position: absolute;
   top: 12px;

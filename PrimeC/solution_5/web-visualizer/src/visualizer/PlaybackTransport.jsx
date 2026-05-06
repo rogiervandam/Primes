@@ -79,7 +79,7 @@ export default function PlaybackTransport({
           >
             {playing ? <Pause size={compactIconSize} /> : <Play size={compactIconSize} />}
           </button>
-          <button className={speedButtonClassName} onClick={() => setPlaySpeedPercent((value) => Math.min(400, Math.round(value * 1.25)))} title="Faster" disabled={exporting}><Plus size={speedIconSize} /></button>
+          <button className={speedButtonClassName} onClick={() => setPlaySpeedPercent((value) => Math.min(1600, Math.round(value * 1.25)))} title="Faster" disabled={exporting}><Plus size={speedIconSize} /></button>
           <button className={buttonClassName} onClick={() => navigateTo(currentStep + 1)} title="Next event" disabled={exporting}><StepForward size={compactIconSize} /></button>
           <button className={buttonClassName} onClick={() => navigateTo(stepCount - 1)} title="Last event" disabled={exporting}><SkipForward size={compactIconSize} /></button>
           <span className="spt-speed-label" title={`Playback speed: ${playSpeedPercent}% of normal`}>{playSpeedPercent}%</span>
@@ -110,7 +110,7 @@ export default function PlaybackTransport({
       >
         {playing ? <Pause /> : <Play />}
       </button>
-      <button className={speedButtonClassName} onClick={() => setPlaySpeedPercent((value) => Math.min(400, Math.round(value * 1.25)))} title="Faster animation" disabled={exporting}><Plus size={speedIconSize} /></button>
+      <button className={speedButtonClassName} onClick={() => setPlaySpeedPercent((value) => Math.min(1600, Math.round(value * 1.25)))} title="Faster animation" disabled={exporting}><Plus size={speedIconSize} /></button>
       <button className={buttonClassName} onClick={() => navigateTo(currentStep + 1)} title="Next (→)" disabled={exporting}><StepForward /></button>
       <button className={buttonClassName} onClick={() => navigateTo(stepCount - 1)} title="Last (End)" disabled={exporting}><SkipForward /></button>
       <input {...sliderProps} />

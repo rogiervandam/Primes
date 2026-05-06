@@ -456,6 +456,15 @@ export default function DetailPanel({
             title="Show event title"
           >▲</button>
         )}
+        {allEventsTransport && (
+          <div
+            className="detail-panel-all-events-inline"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {allEventsTransport}
+          </div>
+        )}
         <div className="detail-panel-title">
           <span className="detail-panel-title-main">{panelTitle}</span>
           {step.annotation && <span className="detail-panel-annotation">{step.annotation}</span>}
@@ -463,13 +472,8 @@ export default function DetailPanel({
         <span className="detail-panel-arrow">{open ? '▼' : '▲'}</span>
       </div>
 
-      {(allEventsTransport || (!eventTitleVisible && eventAnimSliders)) && (
+      {(!allEventsTransport && !eventTitleVisible && eventAnimSliders) && (
         <div className="detail-panel-dock-row">
-          {allEventsTransport && (
-            <div className="detail-panel-all-events-transport">
-              {allEventsTransport}
-            </div>
-          )}
           {!eventTitleVisible && eventAnimSliders && (
             <div className="detail-panel-event-sliders">
               {eventAnimSliders}

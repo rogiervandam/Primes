@@ -206,7 +206,7 @@ import { clampInt as _clampInt } from './math.js';
 function clampInt(value, lo, hi) { return _clampInt(value, lo, hi, null); }
 
 function initialPlaySpeedPercent(prefs) {
-  return clampInt(prefs?.playSpeedPercent, 25, 400) ?? 100;
+  return clampInt(prefs?.playSpeedPercent, 25, 1600) ?? 100;
 }
 
 function initialTheme(prefs) {
@@ -315,6 +315,7 @@ export function getInitialViewState() {
     isAllEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
     areWidgetsJoined: initialWidgetsJoined(prefs),
     isAllEventsInDetailPanel: prefs?.isAllEventsInDetailPanel === true,
+    isSingleEventRepeatEnabled: prefs?.isSingleEventRepeatEnabled !== false,
     // When false, selecting an event will NOT automatically start the
     // per-event animation loop. Default true to preserve prior behavior.
     isAutoAnimateOnSelect: prefs?.isAutoAnimateOnSelect !== false,

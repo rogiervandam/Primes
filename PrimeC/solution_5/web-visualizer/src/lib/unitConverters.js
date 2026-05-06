@@ -2,7 +2,7 @@
  * Bidirectional converters between user-facing slider values (1..100)
  * and underlying durations.
  *
- * - `playbackSpeed` slider maps log-scaled to a percentage 25..400 (where
+ * - `playbackSpeed` slider maps log-scaled to a percentage 25..1600 (where
  *   100% is the per-event "normal" target time).
  * - `stepSpeed` slider maps linear to an interval in milliseconds 5..5000
  *   used for sequential per-bit reveal animations.
@@ -13,17 +13,17 @@
 
 import { clamp } from './math.js';
 
-/** Map slider value (1..100) → playback speed percentage (25..400). */
+/** Map slider value (1..100) → playback speed percentage (25..1600). */
 export function playbackSpeedToPercent(speedValue) {
   const speed = clamp(parseInt(speedValue || 0, 10) || 1, 1, 100);
   const ratio = (speed - 1) / 99;
-  return Math.round(25 * Math.pow(400 / 25, ratio));
+  return Math.round(25 * Math.pow(1600 / 25, ratio));
 }
 
 /** Inverse: percentage → slider value. */
 export function percentToPlaybackSpeed(pctValue) {
-  const pct = clamp(parseInt(pctValue || 0, 10) || 100, 25, 400);
-  const ratio = Math.log(pct / 25) / Math.log(400 / 25);
+  const pct = clamp(parseInt(pctValue || 0, 10) || 100, 25, 1600);
+  const ratio = Math.log(pct / 25) / Math.log(1600 / 25);
   return Math.round(1 + ratio * 99);
 }
 

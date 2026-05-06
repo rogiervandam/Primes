@@ -106,15 +106,15 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 29 (Done) Events panel header and step-list now animate together as one unit on expand (both use the same 500ms timing, no stagger delay).
 30 (Done) The "ANIMATION" label in the joined widget now acts as a drag handle — mousedown on it propagates to the widget's drag handler instead of being blocked by the event-area stopPropagation. A grab cursor is shown.
 31 The parser and internals should make a distinction between Number ranges and Bit ranges: assume ranges mention bit indices. When byte is mentioned, it should be treated as a range of 8 bits starting at the byte index * 8. When word or vector is mentioned, search for mentions of uint16/32/64 and treat those as ranges of 16/32/64 bits starting at the index * (bits per unit). Or when mention of uint16v2/4/8 or uint32v2/4/8 or uint64v2/4/8, treat those as ranges of 16*2/4/8 or 32*2/4/8 or 64*2/4/8 bits starting at the index * (bits per unit * vector length). This way we can support more complex annotations and have a more consistent interpretation of ranges. When the spec mentions "numbers" or "factors" and the log annotation doesn't specify bits or bytes, we can take the mentioned range as a number range and try to infer the bit range from the context (e.g. if the event is "read 4 numbers" and the annotation says "offset 16, length 4", we can infer that it's probably 4 bytes starting at bit 128, so bits 128-159). This will require some changes to the parser and how it represents events and annotations internally, but it will make the system more flexible and powerful in handling different types of logs and annotations.
-32 When click on the zoom/zoom reset button or using mouse wheel, it should use an animation to zoom in and out, instead of just jumping to the new zoom level. The animation should be smooth and take around 300ms.
-33 When setting auto fit off first for the first time, the column count should be set to the current auto fit value. 
-34 allow the overall speed to be set to 1600%
-35 dragging the single event widget should be possible from all place, except the controle (play button, timeline slider and gear button). 
-36 When the all events floater is docked in the detail panel, it should sit left of the event title and annotation. 
-37 Show the events timeline only at one place at the time
-38 When the events widgets are being joined, don't show it animating from somewhere else. The bottom left corner of the single event widget should just become the top left corner of the all events widget, and the timeline and play button should just stay in place.
-39 In the single event widget, make a repeat button with a nice icon that shows or let the user set whether the animation selected should repeat or not. When it's on, the animation should repeat until the user clicks the button again to turn it off. When it's off, the animation should just play once when the user clicks play. It is ignored when the all events widget is playing, because then we go to the next event automatically anyway.
-40 Debug tools window should be draggable and be placed on the bottom right corner of the screen by default, but should not overlap with settigs panel when it's open. 
+32 (Done) Zoom transitions are now animated (~300ms) for toolbar zoom-in/zoom-out/reset and mouse-wheel zoom, instead of jumping instantly.
+33 (Done) When leaving auto-fit mode for the first time (including +/- from auto mode), manual column count starts from the current auto-fit value.
+34 (Done) Overall playback speed ceiling increased to 1600% (converters, clamps, controls, persistence, and tests updated).
+35 (Done) Single-event widget drag can now start from anywhere on the widget body except timeline controls (play button, timeline slider area, gear, and other buttons/inputs).
+36 (Done) When all-events transport is docked into the detail panel, it is rendered to the left of the event title/annotation in the detail header row.
+37 (Done) In the detail panel, the event timeline is shown in only one place at a time; the single-event timeline dock row is hidden when all-events transport is present.
+38 (Done) Joined-widget intro motion is suppressed for anchored joins so it no longer appears to animate in from elsewhere during merge.
+39 (Done) Added a repeat toggle button (with repeat icon) to the single-event widget timeline controls. Repeat-on loops until disabled; repeat-off plays once. The toggle is disabled/ignored during all-events playback.
+40 (Done) Debug tools window is now draggable, defaults to the bottom-right corner, and clamps away from the settings panel when it is open.
 
 
 ## New Ideas

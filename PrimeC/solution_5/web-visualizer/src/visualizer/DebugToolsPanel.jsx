@@ -203,6 +203,9 @@ export default function DebugToolsPanel({
     rightOffset = 8,
   } = debugConfig;
 
+  const panelRef = useRef(null);
+  const [panelPosition, setPanelPosition] = useState(null);
+
   const [snapshot, setSnapshot] = useState(() => readSnapshot(rendererRef));
   const [canvasCoords, setCanvasCoords] = useState(null);
   const [copyStatus, setCopyStatus] = useState('');
@@ -219,6 +222,65 @@ export default function DebugToolsPanel({
 
   // 'c' key copies to clipboard when the panel is visible
   const handleCopyDebugRef = useRef(null);
+
+  const getClampedPanelPosition = useCallback((position) => {
+    const pad = 8;
+    const panelW = panelRef.current?.offsetWidth || 276;
+    const panelH = panelRef.current?.offsetHeight || 240;
+    const minX = pad;
+    const minY = pad;
+    const maxX = Math.max(minX, window.innerWidth - panelW - Math.max(pad, rightOffset));
+    const maxY = Math.max(minY, window.innerHeight - panelH - pad);
+    const nextX = Math.max(minX, Math.min(maxX, Number(position?.x) || 0));
+    const nextY = Math.max(minY, Math.min(maxY, Number(position?.y) || 0));
+    return { x: nextX, y: nextY };
+  }, [rightOffset]);
+
+  const getDefaultPanelPosition = useCallback(() => {
+    const pad = 8;
+    const panelW = panelRef.current?.offsetWidth || 276;
+    const panelH = panelRef.current?.offsetHeight || 240;
+    const x = Math.max(pad, window.innerWidth - panelW - Math.max(pad, rightOffset));
+    const y = Math.max(pad, window.innerHeight - panelH - pad);
+    return { x, y };
+  }, [rightOffset]);
+
+  useEffect(() => {
+    const applyClamp = () => {
+      setPanelPosition((prev) => {
+        if (!prev) return getDefaultPanelPosition();
+        return getClampedPanelPosition(prev);
+      });
+    };
+    applyClamp();
+    window.addEventListener('resize', applyClamp);
+    return () => window.removeEventListener('resize', applyClamp);
+  }, [getClampedPanelPosition, getDefaultPanelPosition]);
+
+  const startPanelDrag = useCallback((event) => {
+    if (event.button !== 0) return;
+    const start = panelPosition || getDefaultPanelPosition();
+    const startX = event.clientX;
+    const startY = event.clientY;
+
+    const onMove = (moveEvent) => {
+      const next = {
+        x: start.x + (moveEvent.clientX - startX),
+        y: start.y + (moveEvent.clientY - startY),
+      };
+      setPanelPosition(getClampedPanelPosition(next));
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    event.preventDefault();
+    event.stopPropagation();
+  }, [panelPosition, getDefaultPanelPosition, getClampedPanelPosition]);
 
   useEffect(() => {
     setSnapshot(readSnapshot(rendererRef));
@@ -670,9 +732,11 @@ export default function DebugToolsPanel({
 
   return (
     <aside
+      ref={panelRef}
       className="debug-tools-panel"
       style={{
-        '--debug-tools-right': `${Math.max(8, rightOffset)}px`,
+        '--debug-tools-left': `${Math.round((panelPosition || getDefaultPanelPosition()).x)}px`,
+        '--debug-tools-top': `${Math.round((panelPosition || getDefaultPanelPosition()).y)}px`,
         background: palette.panelBg,
         color: palette.panelFg,
         borderColor: palette.border,
@@ -682,7 +746,7 @@ export default function DebugToolsPanel({
       onClick={(e) => e.stopPropagation()}
       aria-label="Debug tools"
     >
-      <div className="debug-tools-header">
+      <div className="debug-tools-header" onMouseDown={startPanelDrag} title="Drag debug tools window">
         <span>Debug tools</span>
         <span>Renderer</span>
       </div>

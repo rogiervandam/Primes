@@ -191,6 +191,7 @@ export default function Visualizer({
   const {
     bitAnimationMode, setBitAnimationMode, bitAnimationModeRef,
     isSingleEventLoopActive, setIsSingleEventLoopActive, isSingleEventLoopActiveRef,
+    isSingleEventRepeatEnabled, setIsSingleEventRepeatEnabled, isSingleEventRepeatEnabledRef,
     isAutoAnimateOnSelect, setIsAutoAnimateOnSelect, isAutoAnimateOnSelectRef,
     isAnimationReplayPaused, setIsAnimationReplayPaused,
     isScrubbingTopRef,
@@ -540,6 +541,7 @@ export default function Visualizer({
     isAllEventsWidgetHidden,
     areWidgetsJoined,
     isAllEventsInDetailPanel,
+    isSingleEventRepeatEnabled,
     isAutoAnimateOnSelect,
     isEventsPanelCollapsed,
     isSettingsCollapsed,
@@ -832,6 +834,7 @@ export default function Visualizer({
       setIsStepAnimRunningRef,
       isStepAnimRunningRefForScheduler,
       isAutoAnimateOnSelectRef,
+      isSingleEventRepeatEnabledRef,
     },
     loopState: {
       playing,
@@ -844,6 +847,7 @@ export default function Visualizer({
     loopHandlers: {
       setPlaying,
       setCurrentStep,
+      setIsSingleEventLoopActive,
     },
     loopConfig: {
       isAutoAnimateOnSelect,
@@ -1047,6 +1051,8 @@ export default function Visualizer({
     setIsAnimationReplayPaused,
     bitAnimationMode,
     handleBitAnimationModeChange,
+    isSingleEventRepeatEnabled,
+    setIsSingleEventRepeatEnabled,
     isAutoAnimateOnSelect,
     setIsAutoAnimateOnSelect,
   }), [
@@ -1066,6 +1072,8 @@ export default function Visualizer({
     setIsAnimationReplayPaused,
     bitAnimationMode,
     handleBitAnimationModeChange,
+    isSingleEventRepeatEnabled,
+    setIsSingleEventRepeatEnabled,
     isAutoAnimateOnSelect,
     setIsAutoAnimateOnSelect,
   ]);
@@ -1181,6 +1189,8 @@ export default function Visualizer({
     playing,
     exporting,
     openAnimationSettings,
+    isSingleEventRepeatEnabled,
+    setIsSingleEventRepeatEnabled,
     setEventTitleSettings,
     setPendingBannerDragStart,
     isAllEventsInDetailPanel,

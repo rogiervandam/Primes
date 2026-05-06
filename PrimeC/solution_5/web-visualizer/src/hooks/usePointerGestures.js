@@ -407,6 +407,7 @@ export function usePointerGestures({
         updateMinimapAvailability,
         scheduleBalloonRelayout,
       });
+
       const pausedProgress = Math.max(0, Math.min(100, Number(stepScrubProgressValueRef.current) || 0));
       if (globalPausedRef.current && pausedProgress > 0 && pausedProgress < 100) {
         // Keep paused in-flight animation overlays visible after zoom changes.

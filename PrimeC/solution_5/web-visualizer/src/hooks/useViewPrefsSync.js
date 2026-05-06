@@ -23,6 +23,7 @@ export function useViewPrefsSync({
   isAllEventsWidgetHidden,
   areWidgetsJoined,
   isAllEventsInDetailPanel,
+  isSingleEventRepeatEnabled,
   isAutoAnimateOnSelect,
   isEventsPanelCollapsed,
   isSettingsCollapsed,
@@ -49,10 +50,11 @@ export function useViewPrefsSync({
       isAllEventsWidgetHidden,
       areWidgetsJoined,
       isAllEventsInDetailPanel,
+      isSingleEventRepeatEnabled,
       isAutoAnimateOnSelect,
       isEventsPanelCollapsed,
       isSettingsCollapsed,
       isDetailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, isAllEventsWidgetHidden, areWidgetsJoined, isAllEventsInDetailPanel, isAutoAnimateOnSelect, isEventsPanelCollapsed, isSettingsCollapsed, isDetailOpen]);
+  }, [theme, layoutSettings, eventTitleSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, isAllEventsWidgetHidden, areWidgetsJoined, isAllEventsInDetailPanel, isSingleEventRepeatEnabled, isAutoAnimateOnSelect, isEventsPanelCollapsed, isSettingsCollapsed, isDetailOpen]);
 }

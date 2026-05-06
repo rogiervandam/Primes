@@ -209,7 +209,13 @@ export default function EventTitleBanner({
   }, [clampDragOffsetY, detectDropZone, isDetailOpen, isEventsPanelCollapsed, isOverDetailPanel, onJoinWidgets, setIsEventsPanelCollapsed, setSettings, settings.dragOffsetX, settings.dragOffsetY, toggleDetailPanel]);
 
   const handleMouseDown = (e) => {
-    if (e.target.closest('input') || e.target.closest('button')) return;
+    if (
+      e.target.closest('input')
+      || e.target.closest('button')
+      || e.target.closest('.step-focus-play-btn')
+      || e.target.closest('.step-focus-timeline-wrap')
+      || e.target.closest('.step-focus-gear-btn')
+    ) return;
     startDrag(e.clientX, e.clientY, false);
     e.preventDefault();
   };
@@ -257,6 +263,7 @@ export default function EventTitleBanner({
       className={`step-focus-banner position-center${dropHint ? ` dropping dropping-${dropHint}` : ''}`}
       title={banner.title}
       style={style}
+      onMouseDown={handleMouseDown}
     >
       <button
         className="step-focus-close-btn"
@@ -278,7 +285,7 @@ export default function EventTitleBanner({
       >{copied ? '✓' : <CopyIcon size={12} />}</button>
       {/* The drag handle covers the title + annotation + bits-changed area.
           The context rows and sliders below are interactive and not draggable. */}
-      <div className="step-focus-drag-handle" onMouseDown={handleMouseDown}>
+      <div className="step-focus-drag-handle">
       {!settings?.nearbyEventsMode && (
         <div className="step-focus-lines">
           <div className="step-focus-line1">{banner.line1}</div>

@@ -203,7 +203,7 @@ export default function JoinedEventsWidget(props) {
   return (
     <div
       ref={widgetRef}
-      className={`joined-events-widget${isSplitting ? ' is-splitting' : ''}${dropHint ? ` dropping dropping-${dropHint}` : ''}`}
+      className={`joined-events-widget${initialBannerRect ? ' joined-events-widget--anchored' : ''}${isSplitting ? ' is-splitting' : ''}${dropHint ? ` dropping dropping-${dropHint}` : ''}`}
       style={{ transform: `translateX(calc(-50% + ${floatDrag.x}px)) translateY(${floatDrag.y}px)` }}
       onMouseDown={handleDragStart}
     >

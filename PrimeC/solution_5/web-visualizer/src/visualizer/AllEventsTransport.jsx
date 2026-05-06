@@ -66,7 +66,7 @@ export default function AllEventsTransport({
           {playing ? <Pause size={12} /> : <Play size={12} />}
         </button>
         {setPlaySpeedPercent && (
-          <button className="spt-btn spt-speed" onClick={() => setPlaySpeedPercent((v) => Math.min(400, Math.round(v * 1.25)))} title="Faster" disabled={exporting}><Plus size={11} /></button>
+          <button className="spt-btn spt-speed" onClick={() => setPlaySpeedPercent((v) => Math.min(1600, Math.round(v * 1.25)))} title="Faster" disabled={exporting}><Plus size={11} /></button>
         )}
         <button className="spt-btn" onClick={() => goToStep(currentStep + 1)} title="Next event" disabled={exporting}><StepForward size={12} /></button>
         <button className="spt-btn" onClick={() => goToStep(steps.length - 1)} title="Last event" disabled={exporting}><SkipForward size={12} /></button>

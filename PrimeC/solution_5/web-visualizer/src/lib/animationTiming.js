@@ -91,12 +91,12 @@ export function computeEventNormalDuration(bitCount, targets) {
 
 /**
  * Compute the per-event duration in ms once the speed slider is applied.
- * Caller must pass `speedPercent` (1..1000) and the `targets` table; the
+ * Caller must pass `speedPercent` (1..1600) and the `targets` table; the
  * returned duration is at least 80 ms.
  */
 export function computeEventDuration(bitCount, targets, speedPercent) {
   const normal = computeEventNormalDuration(bitCount, targets);
-  const speedPct = Math.max(1, Math.min(1000, Number(speedPercent) || 100));
+  const speedPct = Math.max(1, Math.min(1600, Number(speedPercent) || 100));
   return Math.max(80, Math.round(normal * 100 / speedPct));
 }
 

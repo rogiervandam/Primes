@@ -88,6 +88,7 @@ export function usePlaybackLoop({ ...flatArgs }) {
     setIsStepAnimRunningRef,
     isStepAnimRunningRefForScheduler,
     isAutoAnimateOnSelectRef,
+    isSingleEventRepeatEnabledRef,
   } = loopRefs;
 
   const {
@@ -102,6 +103,7 @@ export function usePlaybackLoop({ ...flatArgs }) {
   const {
     setPlaying,
     setCurrentStep,
+    setIsSingleEventLoopActive,
   } = loopHandlers;
 
   const {
@@ -191,6 +193,10 @@ export function usePlaybackLoop({ ...flatArgs }) {
         startIndex: useStartIndex,
         startProgress: useStartProgress,
       });
+      if (!isScrubbingTopRef.current && isSingleEventRepeatEnabledRef && isSingleEventRepeatEnabledRef.current === false) {
+        setIsSingleEventLoopActive(false);
+        return;
+      }
       if (cancelled || playing || isAnimationReplayPaused || selectedSteps.size > 0) return;
       if (!isSingleEventLoopActiveRef.current && !isScrubbingTopRef.current) return;
       // Note: seekGenRef is intentionally NOT checked here. seekStepAnimation sets
@@ -212,7 +218,7 @@ export function usePlaybackLoop({ ...flatArgs }) {
     // triggerAnimation intentionally omitted: it is rebuilt whenever the speed
     // slider changes, and we don't want to interrupt an in-flight reveal.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, selectedSteps, steps, currentStep, isAnimationReplayPaused, isSingleEventLoopActive]);
+  }, [playing, selectedSteps, steps, currentStep, isAnimationReplayPaused, isSingleEventLoopActive, setIsSingleEventLoopActive]);
 
   // ── Effect 3: All-events play/pause scheduler ────────────────────────────
   //

@@ -537,7 +537,9 @@ export default function LayoutTab({
                 type="button"
                 className="btn-icon btn-sm spacing-adjust-btn"
                 onClick={() => {
-                  const current = Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
+                  const current = Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0
+                    ? Math.max(1, parseInt(autoFitColumns || 0, 10) || lastManualColumnCountRef.current || 1)
+                    : Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
                   const next = Math.max(1, current - 1);
                   lastManualColumnCountRef.current = next;
                   set('horizontalGroups', next);
@@ -556,7 +558,9 @@ export default function LayoutTab({
                 type="button"
                 className="btn-icon btn-sm spacing-adjust-btn"
                 onClick={() => {
-                  const current = Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
+                  const current = Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0
+                    ? Math.max(1, parseInt(autoFitColumns || 0, 10) || lastManualColumnCountRef.current || 1)
+                    : Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
                   const next = current + 1;
                   lastManualColumnCountRef.current = next;
                   set('horizontalGroups', next);
