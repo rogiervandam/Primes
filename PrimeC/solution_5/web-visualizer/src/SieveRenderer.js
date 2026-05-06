@@ -39,6 +39,7 @@ import { GlyphCommandBuffer } from './renderer/gl/GlyphCommandBuffer';
 import { RenderStateController } from './renderer/core/RenderState';
 import { HeatMapStateController } from './renderer/core/HeatMapState';
 import { FrameContextBuilder } from './renderer/core/FrameContextBuilder';
+import { RenderEngine } from './renderer/core/RenderEngine';
 import { MotionTrailRenderer } from './renderer/effects/MotionTrailRenderer';
 import { CachelineOverlayRenderer } from './renderer/effects/CachelineOverlayRenderer';
 import { VectorRenderPipeline } from './renderer/pipeline/VectorRenderPipeline';
@@ -234,6 +235,7 @@ export class SieveRenderer {
     this.renderState = new RenderStateController(this);
     this.heatMapState = new HeatMapStateController(this);
     this.frameContextBuilder = new FrameContextBuilder(this);
+    this.renderEngine = new RenderEngine(this);
     this.motionTrails = new MotionTrailRenderer(this);
     this.cachelineOverlayRenderer = new CachelineOverlayRenderer(this);
     this.vectorRenderPipeline = new VectorRenderPipeline(this);
@@ -970,51 +972,7 @@ export class SieveRenderer {
    * the split is purely structural.
    */
   render() {
-    if (!this._measureCtx || !this.bitState || this.bitCount === 0) return;
-
-    this._glyphFramePrimed = false;
-
-    this._recordFrameTiming();
-
-    const f = this._buildFrameContext();
-
-    // Begin the WebGL glyph-text frame. In worker mode (_glyphBuf) this just
-    // resets the command buffer. In direct mode (_glyphCtx) it clears the
-    // separate glyph canvas every frame so stale text is removed.
-    const glCtx = this._glyphBuf || this._glyphCtx || null;
-    if (glCtx) {
-      const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
-      const cw = this.canvasWidth  || 0;
-      const ch = this.canvasHeight || 0;
-      glCtx.beginFrame(cw, ch, canvasDpr);
-    }
-
-    // Draw cacheline-level overlays before bits so bits render on top
-    this._renderCachelineHeatOverlay();
-    this._renderCachelineOutline();
-
-    for (let vRow = f.startVRow; vRow < f.endVRow; vRow++) {
-      this._renderVisualRow(f, vRow);
-    }
-
-    if (this.showMaskWriteOverlay) {
-      this.maskWriteOverlay.render(glCtx);
-    }
-    this.vectorTouchOrderOverlay.render(f.ctx, glCtx);
-    this.cachelineAnnotationsOverlay.render(f.ctx, glCtx);
-    this.searchOverlay.render(f.cw, f.ch, glCtx);
-
-    // Flush the WebGL glyph-text batch.
-    // Worker mode: store commands for Visualizer.jsx to pass to g.render().
-    // Direct mode: endFrame() uploads to GL immediately.
-    if (glCtx) {
-      if (this._glyphBuf) {
-        this._pendingGlyphCmds = glCtx.endFrame();
-      } else {
-        glCtx.endFrame();
-      }
-      this._glyphFramePrimed = true;
-    }
+    this.renderEngine.renderFrame();
   }
 
   /**
@@ -1029,88 +987,6 @@ export class SieveRenderer {
   /** Render one visual row (a horizontal strip of vectors). */
   _renderVisualRow(f, vRow) {
     this.vectorRenderPipeline.renderVisualRow(f, vRow);
-  }
-
-  /**
-   * Render one vector group: the vector label and all u64s belonging to it.
-   * Returns `false` to signal the outer loop to stop (cacheline index out of range).
-   */
-  _renderVector(f, vRow, vecInRow, globalVectorIndex, vRowBaseY, vRowDataY) {
-    return this.vectorRenderPipeline.renderVector(f, vRow, vecInRow, globalVectorIndex, vRowBaseY, vRowDataY);
-  }
-
-  /** Render one u64 within a vector: optional vector outline (intraIdx===0) and all 8 bytes. */
-  _renderVectorU64(f, vecX, vRowDataY, vRowBaseY, intraIdx, u64BitStart, rowBitStop) {
-    this.vectorRenderPipeline.renderVectorU64(f, vecX, vRowDataY, vRowBaseY, intraIdx, u64BitStart, rowBitStop);
-  }
-
-  /** Render one byte: optional outline + label + the 8 bits inside it. */
-  _renderVectorByte(f, u64X, vRowDataY, vRowBaseY, byteIdx, byteBitStart, rowBitStop) {
-    this.vectorRenderPipeline.renderVectorByte(f, u64X, vRowDataY, vRowBaseY, byteIdx, byteBitStart, rowBitStop);
-  }
-
-  /**
-   * Render one bit cell: classify → compute geometry/depth → draw body
-   * → draw all per-bit decorations (ghost mask, focus, target, prime,
-   * range, multiples) → draw labels.
-   */
-  _renderBitCell(f, globalBit, bitIdx, bitX, bitY) {
-    this.vectorRenderPipeline.renderBitCell(f, globalBit, bitIdx, bitX, bitY);
-  }
-
-  _drawDebugCellOutline(f, draw, bitX, bitY) {
-    this.vectorRenderPipeline.drawDebugCellOutline(f, draw, bitX, bitY);
-  }
-
-  /** Decide the bit's color and per-bit boolean flags (ghost / changed / set / repeated / focus). */
-  _classifyBit(f, globalBit) {
-    return this.vectorRenderPipeline.classifyBit(f, globalBit);
-  }
-
-  /**
-   * Compute the geometry the bit cell will be drawn at: the draw box
-   * (`drawX`, `drawY`, `drawSize`).
-   */
-  _computeBitDrawState(f, globalBit, isSetBit, isChangedBit, bitX, bitY) {
-    return this.vectorRenderPipeline.computeBitDrawState(f, globalBit, isSetBit, isChangedBit, bitX, bitY);
-  }
-
-  /** Dispatch to the bit-body drawing method. */
-  _drawBitBody(f, cls, draw, bitX, bitY) {
-    this.vectorRenderPipeline.drawBitBody(f, cls, draw, bitX, bitY);
-  }
-
-  /** Tinted overlay + outline drawn on top of a ghost-masked set bit. */
-  _drawGhostMaskHighlight(f, draw) {
-    this.vectorRenderPipeline.drawGhostMaskHighlight(f, draw);
-  }
-
-  /** Blue (and orange-on-repeat) outline around target bits. */
-  _drawBitTargetOutline(f, globalBit, draw, targetHitCount) {
-    this.vectorRenderPipeline.drawBitTargetOutline(f, globalBit, draw, targetHitCount);
-  }
-
-  /** Gold tint + dot + (at zoom) 'p' label for prime bits. Tint and border handled by GL. */
-  _drawBitPrimeOverlay(f, globalBit, bitX, bitY) {
-    this.vectorRenderPipeline.drawBitPrimeOverlay(f, globalBit, bitX, bitY);
-  }
-
-  /** Cyan/teal dot + (at zoom) 'r' label for bits within [rangeOverlayStart, rangeOverlayEnd]. Tint and border handled by GL. */
-  _drawBitRangeOverlay(f, globalBit, bitX, bitY) {
-    this.vectorRenderPipeline.drawBitRangeOverlay(f, globalBit, bitX, bitY);
-  }
-
-  /** Purple dot + (at zoom) '×' label for multiples. Tint and border handled by GL. */
-  _drawBitMultiplesOverlay(f, globalBit, bitX, bitY) {
-    this.vectorRenderPipeline.drawBitMultiplesOverlay(f, globalBit, bitX, bitY);
-  }
-
-  /**
-   * Draw bit/number labels inside the cell. Honours dual-line mode, the
-   * lowered-position label shrink, and the high-zoom font boost.
-   */
-  _drawBitLabels(f, globalBit, bitIdx, cls, draw, bitX, bitY) {
-    this.vectorRenderPipeline.drawBitLabels(f, globalBit, bitIdx, cls, draw, bitX, bitY);
   }
 
 
