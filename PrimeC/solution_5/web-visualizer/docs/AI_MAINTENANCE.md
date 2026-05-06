@@ -563,6 +563,28 @@ Maintenance rules going forward:
 
 Use this as overflow for work that does not fit cleanly under one goal yet.
 
+### REFACTOR Backlog
+
+Derived from `REFACTORING_PLAN.md` and `PHASE_3_HOOK_CONSOLIDATION.md`.
+This is the remaining refactor scope only (not product polish):
+
+- Complete Phase 5.3 component-tree propagation by migrating remaining secondary
+  components (for example CanvasOverlayManager, JoinedEventsWidget, and related
+  boundaries) from scattered props to grouped semantic objects.
+- Finish the original Phase 2 objective end-to-end: grouped prop contracts
+  should be the default across all major Visualizer child boundaries, not only
+  EventsPanel, DetailPanel, and CanvasStage.
+- Evaluate and execute optional Phase 5.4 cleanup: remove legacy flat-shape
+  fallback compatibility only after grouped contracts are stable and verified.
+- Apply organized state aliases in `Visualizer.jsx` where it reduces noisy
+  flat-name usage, while keeping behavior identical.
+- Create a reusable hook-refactor template that standardizes
+  config/state/refs/handlers grouping, fallback strategy, and verification steps
+  for future high-parameter hooks.
+- Publish a short cumulative impact summary for the refactor phases (parameter
+  and prop-count reductions, risk notes, and migration status) and keep this doc,
+  `ARCHITECTURE.md`, and `COMPONENTS.md` aligned.
+
 ### Product Polish
 
 - Add two delightful improvements after the current panel/widget work. Favor
