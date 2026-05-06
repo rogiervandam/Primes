@@ -8,6 +8,7 @@ import {
   getFadeOutDuration as getFadeOutDurationPure,
 } from '../lib/animationTiming';
 import { DEFAULT_EVENT_TIME_TARGETS } from '../lib/viewPrefs';
+import { estimateAnimDuration as estimateAnimDurationHelper } from '../lib/animationHelpers';
 
 export function useAnimationTimingRuntime({
   bitAnimInterval,
@@ -173,27 +174,17 @@ export function useAnimationTimingRuntime({
   bitsAtTimeRatioRef.current = bitsAtTimeRatio;
   timeRatioAtBitIndexRef.current = timeRatioAtBitIndex;
 
-  const estimateAnimDuration = useCallback((bitCount, options = {}) => {
-    const plan = options.adaptivePlan || getAnimationTimingPlan(bitCount, options);
-    const effectiveBitInterval = getAnimationBitInterval(bitCount, { ...options, adaptivePlan: plan });
-    const currentHighlighted = rendererRef.current?.changedBits?.size || 0;
-    const fadeOutMs = currentHighlighted > 0 ? getFadeOutDuration(currentHighlighted, options) : 0;
-
-    if (bitCount <= 0 || animStyle === 'none') {
-      return fadeOutMs + (plan ? Math.min(3200, plan.totalDuration) : 0);
-    }
-
-    if (animMode === 'all' || effectiveBitInterval <= 0) {
-      return fadeOutMs + (plan ? Math.min(3200, plan.totalDuration) : 620);
-    }
-
-    let revealMs = plan ? plan.totalDuration : bitCount * Math.max(10, effectiveBitInterval);
-    if (animMode === 'bounce') {
-      revealMs = plan ? Math.min(10000, revealMs * 1.35) : revealMs * 2;
-    }
-
-    return fadeOutMs + revealMs;
-  }, [animMode, animStyle, getAnimationBitInterval, getAnimationTimingPlan, getFadeOutDuration, rendererRef]);
+  const estimateAnimDuration = useCallback((bitCount, options = {}) => (
+    estimateAnimDurationHelper(bitCount, {
+      options,
+      animMode,
+      animStyle,
+      currentHighlighted: rendererRef.current?.changedBits?.size || 0,
+      getAnimationTimingPlan,
+      getAnimationBitInterval,
+      getFadeOutDuration,
+    })
+  ), [animMode, animStyle, getAnimationBitInterval, getAnimationTimingPlan, getFadeOutDuration, rendererRef]);
 
   const fadeOutCurrentHighlights = useCallback((options = {}) => {
     const r = rendererRef.current;

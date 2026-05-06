@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { parseAppliedRotateAngles } from '../lib/canvasProjection';
 
 const EMPTY_SNAPSHOT = {
   fps: 0,
@@ -22,16 +23,6 @@ function barClass(frameMs, budgetMs) {
   if (frameMs > budgetMs * 1.5) return 'debug-tools-bar high';
   if (frameMs > budgetMs) return 'debug-tools-bar warn';
   return 'debug-tools-bar ok';
-}
-
-function parseAppliedRotateAngles(transformStr) {
-  if (!transformStr || transformStr === 'none') return { rotateX: 0, rotateY: 0 };
-  const xMatch = /rotateX\((-?\d+(?:\.\d+)?)deg\)/.exec(transformStr);
-  const yMatch = /rotateY\((-?\d+(?:\.\d+)?)deg\)/.exec(transformStr);
-  return {
-    rotateX: xMatch ? Number(xMatch[1]) : 0,
-    rotateY: yMatch ? Number(yMatch[1]) : 0,
-  };
 }
 
 function parseDebugSnapshotText(text) {

@@ -1,25 +1,10 @@
 import { useCallback } from 'react';
+import { waitForDelay as waitForDelayHelper } from '../lib/animationHelpers';
 
 export function usePausableDelay({ globalPausedRef, seqTimerRef }) {
-  const waitForDelay = useCallback((ms) => {
-    if (ms <= 0) return Promise.resolve();
-    return new Promise((resolve) => {
-      let remaining = ms;
-      let prev = performance.now();
-      const tick = (now) => {
-        const dt = now - prev;
-        prev = now;
-        if (!globalPausedRef.current) remaining -= dt;
-        if (remaining <= 0) {
-          seqTimerRef.current = null;
-          resolve();
-          return;
-        }
-        seqTimerRef.current = requestAnimationFrame(tick);
-      };
-      seqTimerRef.current = requestAnimationFrame(tick);
-    });
-  }, [globalPausedRef, seqTimerRef]);
+  const waitForDelay = useCallback((ms) => (
+    waitForDelayHelper(ms, { globalPausedRef, seqTimerRef })
+  ), [globalPausedRef, seqTimerRef]);
 
   return { waitForDelay };
 }
