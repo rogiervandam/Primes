@@ -54,6 +54,9 @@ import { useStopPlayback } from './hooks/useStopPlayback';
 import { useViewportAnimationCancel } from './hooks/useViewportAnimationCancel';
 import { useGoToStep } from './hooks/useGoToStep';
 import { useCameraStartupRefit } from './hooks/useCameraStartupRefit';
+import { useBitStateCheckpoints } from './hooks/useBitStateCheckpoints';
+import { useSelectionOrchestration } from './hooks/useSelectionOrchestration';
+import { useRendererBootstrap } from './hooks/useRendererBootstrap';
 import { useAnimationTimingRuntime } from './hooks/useAnimationTimingRuntime';
 import { useBalloonGeometry } from './hooks/useBalloonGeometry';
 import { useRunEffect } from './hooks/useRunEffect';
@@ -1086,302 +1089,34 @@ export default function Visualizer({
       : Math.max(1, (layoutSettings.vectorGroup || 1) * 64)
   ), [layoutSettings.vectorMode, layoutSettings.customGroupBits, layoutSettings.vectorGroup]);
 
-  // Init renderer
-  useEffect(() => {
-    const r = new SieveRenderer();
-    rendererRef.current = r;
-    if (minimapCanvasRef.current) r.attachMinimapCanvas(minimapCanvasRef.current);
-
-      // WebGL glyph-text renderer. Initialised once per session; reused
-      // across trace reloads. Safe to create on every effect run because
-      // GlyphTextGLCore.init() guards against duplicate initialisation.
-      // Attachment (attachGlyphRenderer vs attachGLWorker) is deferred to
-      // after the GL worker is set up so we know which rendering path is used.
-      if (glyphCanvasRef.current) {
-        let glr = glyphRendererRef.current;
-        if (!glr) {
-          const newGlr = new GlyphTextGLCore();
-          try {
-            if (newGlr.init(glyphCanvasRef.current)) {
-              glr = newGlr;
-              glyphRendererRef.current = glr;
-            } else {
-              console.warn('[GlyphText] WebGL2 context unavailable — glyph text disabled.');
-            }
-          } catch (err) {
-            console.error('[GlyphText] init failed:', err);
-          }
-        }
-        // Attachment happens below after GL worker init (direct vs worker mode).
-      } else {
-        console.warn('[GlyphText] glyphCanvasRef is null at init time — glyph text disabled.');
-      }
-
-      r.storageModel = header.storageModel || 'half';
-      r.wheelDefinition = wheelDefinition;
-      r.init(header.bitCount, header.sieveSize);
-      bitStateRef.current = new Uint8Array(header.bitCount);
-      // Warm the prime-overlay cache off the main thread so toggling the
-      // overlay is instant. Re-render when the worker reply arrives in
-      // case the overlay is already enabled.
-      r.prefetchPrimeOverlay(() => {
-        const rr = rendererRef.current;
-        if (rr && rr.primeOverlay) rr.render();
-      });
-
-      // WebGL bit-grid scaffold (gl-worker via OffscreenCanvas).
-      if (glCanvasRef.current) {
-        // Attach the GL renderer once — transferControlToOffscreen is a
-        // one-shot operation and cannot be repeated on the same canvas.
-        // On trace changes (effect re-runs) we reuse the existing renderer
-        // and just update the bit-count budget. On first mount (or when
-        // the renderer was never successfully created) we create it fresh.
-        let gl = glRendererRef.current;
-        if (!gl) {
-          // Pre-size the GL canvas to the full target CSS + backing dimensions
-          // BEFORE transferControlToOffscreen().
-          //
-          // Chrome/Edge set the compositor layer bounds from the canvas's CSS
-          // dimensions at the time the OffscreenCanvas transfer takes place.
-          // The default canvas is 300×150 CSS (300×150 or 600×300 physical at
-          // DPR=2). refreshCanvasLayout then sets CSS to ~3.2× viewport
-          // (5530×3574 CSS = 11060×7148 physical at DPR=2 on a 1728×1117
-          // screen). Because the compositor layer was created at the initial
-          // size, Chrome cannot show content that renders outside those initial
-          // bounds — the canvas appears entirely blank. Moving the window to a
-          // different display forces Chrome to rebuild all compositor layers
-          // at the current CSS size, which is why that unblocks it.
-          //
-          // Fix: set CSS + backing to the same ~3.2× target that
-          // refreshCanvasLayout would compute (no camera tilt at startup, so
-          // the formula collapses to baseW × 3.2). This guarantees the
-          // compositor layer is large enough for the first rendered frame.
-          if (typeof window !== 'undefined' && glCanvasRef.current) {
-            const _dpr = window.devicePixelRatio || 1;
-            const _baseW = Math.max(window.innerWidth  || 800, window.screen?.width  || 0);
-            const _baseH = Math.max(window.innerHeight || 600, window.screen?.height || 0);
-            // Match getCanvasTargetSize's formula at zero tilt (scaleW=1, diagonalOverscan=1).
-            // dragOverscan=3.1, overscanFloor=3.2 → max(3.2, 3.1) = 3.2 always wins.
-            const _canvasW = Math.max(1, Math.round(_baseW * 3.2));
-            const _canvasH = Math.max(1, Math.round(_baseH * 3.2));
-            glCanvasRef.current.style.width  = `${_canvasW}px`;
-            glCanvasRef.current.style.height = `${_canvasH}px`;
-            glCanvasRef.current.width  = Math.round(_canvasW * _dpr);
-            glCanvasRef.current.height = Math.round(_canvasH * _dpr);
-            // Force a synchronous CSS layout so Chrome's compositor reads the
-            // correct element bounds when creating the OffscreenCanvas placeholder
-            // layer. Without this, the layout is still pending (300×150 stale) and
-            // the compositor clips the layer too small — rendering outside those
-            // bounds is invisible until a window-move rebuilds the layer.
-            void glCanvasRef.current.getBoundingClientRect();
-          }
-          const newGl = new BitGridGLWorker();
-          if (newGl.attach(glCanvasRef.current)) {
-            gl = newGl;
-            glRendererRef.current = gl;
-            updateGlDebugInfo(true);
-          } else {
-            // OffscreenCanvas not available — GL worker could not start.
-            // Bit cells won't be filled. Show a browser-update notice.
-            setGlUnavailable(true);
-          }
-        }
-        if (gl) {
-          gl.resizeForBitCount(header.bitCount);
-
-          // Wire glyph rendering once the worker is ready (atlas data available).
-          // In direct mode (Safari/fallback) this fires synchronously.
-          // In worker mode this fires after the worker posts its ready message.
-          gl.whenReady(() => {
-            const rr = rendererRef.current;
-            if (!rr) return;
-            if (gl.isDirectMode()) {
-              const glrForDirect = glyphRendererRef.current;
-              if (glrForDirect) rr.attachGlyphRenderer(glrForDirect);
-            } else {
-              rr.attachGLWorker(gl);
-              // Render immediately so the first frame shows text (if a trace
-              // is already loaded).
-              if (rr.bitState && rr.bitCount > 0) rr.render();
-            }
-          });
-
-          const origRender = r.render.bind(r);
-          r.render = () => {
-            const g = glRendererRef.current;
-            const rr = rendererRef.current;
-            if (!g || !rr) return;
-            const cssW = rr.canvasWidth || 0;
-            const cssH = rr.canvasHeight || 0;
-            g.resize(cssW, cssH);
-
-            // Only re-upload the state texture when the bit data has actually
-            // changed (setState(), overlay toggles, etc.). Pan/zoom/resize only
-            // change layout uniforms — skipping the O(bitCount) pack+transfer
-            // on those hot paths cuts per-frame CPU work dramatically for large
-            // grids (e.g. 1M bits → skip 1 MB pack + worker message per frame).
-            if (rr._stateDirty !== false) {
-              g.uploadState(rr);
-              rr._stateDirty = false;
-            }
-            // uploadAnim is omitted: packAnim always writes the no-op default
-            // (0, 0, 1, 0) and the animTex is already initialised to that in
-            // setBitCount(). Re-uploading 4×bitCount floats every frame was
-            // pure waste. If real per-bit animation ever uses the anim texture,
-            // add a dedicated _animDirty flag and re-introduce the upload.
-
-            const px = Math.max(1, rr.pixelSize);
-            const zoom = Math.max(0.01, rr.zoom || 1);
-            const bitColors = rr._bitColors();
-            const changed = rr._opColor();
-            const renderParams = {
-              panX: rr.panX || 0,
-              panY: rr.panY || 0,
-              cellSize: px * zoom,
-              bgColor: rr.effectiveBackground,
-              setColor: bitColors.set,
-              clearedColor: bitColors.cleared,
-              changedColor: changed,
-              repeatedColor: [245, 158, 11],
-              baseAlpha: Math.max(0.12, Math.min(1, rr.gridOpacity ?? 1)),
-              ...rr.glLayoutParams(),
-            };
-            let renderSeq;
-            if (rr._glyphBuf) {
-              // Worker glyph mode: collect glyph commands first, then
-              // dispatch them together with the bit-grid render.
-              origRender();
-              const glyphCmds = rr._pendingGlyphCmds;
-              rr._pendingGlyphCmds = null;
-              renderSeq = g.render(renderParams, glyphCmds);
-            } else {
-              // Direct mode: bit-grid renders first, then glyph on top.
-              renderSeq = g.render(renderParams);
-              origRender();
-            }
-            updateGlDebugInfo(false);
-            return renderSeq;
-          };
-
-          // scheduleRender() coalesces rapid back-to-back renders (pan/zoom
-          // gesture events) into a single rAF-aligned frame.  If called while
-          // a frame is already pending it cancels the previous request so only
-          // the latest state is drawn — this is the "abort current, start new"
-          // behaviour for interactions.
-          r.scheduleRender = () => {
-            if (pendingRenderRafRef.current != null) {
-              cancelAnimationFrame(pendingRenderRafRef.current);
-            }
-            pendingRenderRafRef.current = requestAnimationFrame(() => {
-              pendingRenderRafRef.current = null;
-              const rr = rendererRef.current;
-              if (rr) rr.render();
-            });
-          };
-        }
-        // If GL is unavailable, fall back to separate glyph canvas.
-        if (!gl) {
-          const glrFallback = glyphRendererRef.current;
-          if (glrFallback) r.attachGlyphRenderer(glrFallback);
-        }
-      }
-
-    // Init 3D camera — see src/hooks/use3DCamera.js for the full lifecycle.
-    createCamera({
-      onPanZoom: ({ panX, panY, zoom: z }) => {
-        const rr = rendererRef.current;
-        if (!rr) return;
-        rr.panX = panX;
-        rr.panY = panY;
-        rr.zoom = z;
-        setZoom(z);
-        // scheduleRender coalesces rapid gesture events to one rAF frame,
-        // cancelling any in-flight pending render before scheduling the new one.
-        (rr.scheduleRender ?? rr.render).call(rr);
-        rr.renderMinimap(rr.canvasWidth, rr.canvasHeight || 0, getMinimapDetailH());
-      },
-    });
-
-    return () => {
-      // Do NOT dispose glRendererRef here — transferControlToOffscreen is
-      // one-shot and the worker must survive both StrictMode remounts and
-      // trace reloads.  See the comment on the mount-only useEffect below.
-      rendererRef.current = null;
-      disposeCamera();
-    };
-  }, [header.bitCount, header.sieveSize, header.storageModel, wheelDefinition]);
-
-  // Phase E: after the renderer initialises and produces its first frame,
-  // start the loading overlay and defer the intro scale animation until it's done.
-  useEffect(() => {
-    let fired = false;
-    const tryTrigger = () => {
-      if (fired) return;
-      const r = rendererRef.current;
-      if (!r) return;
-      fired = true;
-      introTiltStartedRef.current = false;
-      // Reset intro phase each time a new trace header arrives.
-      setIntroPhase('hidden');
-      // Give React one frame to apply the hidden class before starting the overlay.
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setLoadingOverlayPhase('active');
-          setUiChromeVisible(false);
-          setOverlayBarPct(0);
-          overlayStartTimeRef.current = Date.now();
-          pendingIntroAfterOverlayRef.current = true;
-        });
-      });
-    };
-    // Fire once the renderer is ready (after next paint).
-    const raf = requestAnimationFrame(tryTrigger);
-    return () => cancelAnimationFrame(raf);
-  }, [header.bitCount]); // Re-run whenever a new trace loads
-
-  // Animate the loading overlay progress bar.
-  // The bar takes at least 2 seconds to fill, even if the log loads faster.
-  useEffect(() => {
-    if (loadingOverlayPhase !== 'active') return;
-    const MIN_MS = 2000;
-    let timer = null;
-
-    const update = () => {
-      const elapsed = Date.now() - (overlayStartTimeRef.current || Date.now());
-      const complete = loadCompleteRef.current;
-      const progress = loadProgressRef.current;
-      const stepCount = header.stepCount;
-
-      const timePct = Math.min(100, (elapsed / MIN_MS) * 100);
-      const realPct = complete ? 100
-        : stepCount > 0 ? Math.min(95, (progress / stepCount) * 100)
-        : Math.min(90, timePct * 0.9);
-      const displayPct = Math.max(0, Math.min(timePct, realPct));
-      setOverlayBarPct(Math.round(displayPct));
-
-      if (complete && elapsed >= MIN_MS) {
-        setOverlayBarPct(100);
-        setTimeout(() => {
-          setLoadingOverlayPhase('fading');
-          setTimeout(() => {
-            setLoadingOverlayPhase('hidden');
-            setUiChromeVisible(true);
-            // Trigger the pending intro animation
-            if (pendingIntroAfterOverlayRef.current) {
-              pendingIntroAfterOverlayRef.current = false;
-              setIntroPhase('scaling');
-            }
-          }, 500);
-        }, 300);
-        return;
-      }
-      timer = setTimeout(update, 50);
-    };
-
-    timer = setTimeout(update, 50);
-    return () => { if (timer) clearTimeout(timer); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadingOverlayPhase, header.stepCount]); // reads loadComplete/loadProgress via refs
+  useRendererBootstrap({
+    header,
+    wheelDefinition,
+    rendererRef,
+    minimapCanvasRef,
+    glyphCanvasRef,
+    glyphRendererRef,
+    glCanvasRef,
+    glRendererRef,
+    bitStateRef,
+    setGlUnavailable,
+    updateGlDebugInfo,
+    pendingRenderRafRef,
+    createCamera,
+    disposeCamera,
+    setZoom,
+    getMinimapDetailH,
+    setIntroPhase,
+    introTiltStartedRef,
+    setLoadingOverlayPhase,
+    setUiChromeVisible,
+    setOverlayBarPct,
+    overlayStartTimeRef,
+    pendingIntroAfterOverlayRef,
+    loadingOverlayPhase,
+    loadCompleteRef,
+    loadProgressRef,
+  });
 
   // GL worker is intentionally kept alive as long as the component lives.
   // `OffscreenCanvas.transferControlToOffscreen()` is a one-shot, irreversible
@@ -1720,50 +1455,12 @@ export default function Visualizer({
     getMinimapDetailH,
   });
 
-  // Precompute periodic bitState checkpoints whenever the trace changes.
-  // Spacing: at most 50 checkpoints, minimum interval 100 events.
-  // Memory guard: skip if total snapshot bytes would exceed 8 MB so large
-  // traces (high bitCount) don't balloon the heap.
-  // Guard: only run after streaming is complete so we snapshot a stable array.
-  useEffect(() => {
-    if (!loadComplete) return;
-    const { bitCount } = header;
-    const MAX_CHECKPOINTS = 50;
-    const MIN_INTERVAL = 100;
-    const MAX_BYTES = 8 * 1024 * 1024;
-    if (!steps.length || !bitCount) {
-      bitStateCheckpointsRef.current = [];
-      return;
-    }
-    const interval = Math.max(MIN_INTERVAL, Math.ceil(steps.length / MAX_CHECKPOINTS));
-    const estimatedCheckpoints = Math.floor(steps.length / interval);
-    if (estimatedCheckpoints * bitCount > MAX_BYTES) {
-      bitStateCheckpointsRef.current = [];
-      return;
-    }
-    const checkpoints = [];
-    const bs = new Uint8Array(bitCount);
-    for (let i = 0; i < steps.length; i++) {
-      const s = steps[i];
-      for (let j = 0; j < s.changedBits.length; j++) {
-        const idx = s.changedBits[j];
-        if (idx < bs.length) bs[idx] = 1;
-      }
-      if ((i + 1) % interval === 0) {
-        // Checkpoint stores state AFTER events 0..i.
-        checkpoints.push({ stepIndex: i, bitState: new Uint8Array(bs) });
-      }
-    }
-    // Ensure the final state is always represented even when step-count
-    // doesn't land exactly on the checkpoint interval.
-    if (
-      checkpoints.length === 0
-      || checkpoints[checkpoints.length - 1].stepIndex !== steps.length - 1
-    ) {
-      checkpoints.push({ stepIndex: steps.length - 1, bitState: new Uint8Array(bs) });
-    }
-    bitStateCheckpointsRef.current = checkpoints;
-  }, [loadComplete, header, steps]);
+  useBitStateCheckpoints({
+    loadComplete,
+    header,
+    steps,
+    bitStateCheckpointsRef,
+  });
 
   const { goToStep, goToStepRef } = useGoToStep({
     rendererRef,
@@ -1932,16 +1629,6 @@ export default function Visualizer({
     triggerAnimationRef.current = triggerAnimation;
   }, [triggerAnimation]);
 
-  // Initial render — delay one frame so the container has its final dimensions
-  useEffect(() => {
-    if (steps.length > 0) {
-      initialHighlightHoldRef.current = true;
-      setSingleEventWidgetRevealed(false);
-      const raf = requestAnimationFrame(() => goToStep(0, { suppressHighlight: true }));
-      return () => cancelAnimationFrame(raf);
-    }
-  }, [steps]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const { buildCombinedSelectionOverlay } = useSelectionOverlay({ steps });
 
   const { handleStepSelection, handleMultiStepSelect } = useStepSelectionHandlers({
@@ -1953,35 +1640,18 @@ export default function Visualizer({
     setSelectedSteps,
   });
 
-  // Multi-step selection: merge changedBits from selected steps
-  useEffect(() => {
-    const r = rendererRef.current;
-    if (!r || selectedSteps.size === 0) return;
-    const overlay = buildCombinedSelectionOverlay(selectedSteps);
-    const repeatedBits = new Set();
-    for (const [bit, count] of overlay.targetHitCounts.entries()) {
-      if (count > 1) repeatedBits.add(bit);
-    }
-    r.currentOperation = 'aggregate-selection';
-    r.currentAnnotation = overlay.annotation || '';
-    r.setState(r.bitState, overlay.changedBits, overlay.targetBits, overlay.targetHitCounts, {
-      focusStart: null,
-      focusStop: null,
-    }, overlay.maskMetadata, {
-      repeatedBits,
-    });
-    r.render();
-    r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-    updateMinimapAvailability();
-    // Trigger the initial animation via the stable ref, NOT as a direct dependency.
-    // Using triggerAnimation directly in deps causes this effect to re-fire whenever
-    // animMode/animStyle change, which calls stopSeqAnim() inside the new triggerAnimation
-    // and permanently hangs the selected-steps loop's `await triggerFn(...)` Promise
-    // (cancelAnimationFrame prevents the RAF tick from resolving it). The loop picks up
-    // new animMode/animStyle naturally on its next iteration via triggerAnimationRef.current.
-    if (overlay.changedBits.size > 0) triggerAnimationRef.current?.(overlay.changedBits, { adaptiveDuration: true });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSteps, buildCombinedSelectionOverlay, getMinimapDetailH, updateMinimapAvailability]);
+  useSelectionOrchestration({
+    steps,
+    initialHighlightHoldRef,
+    setSingleEventWidgetRevealed,
+    goToStep,
+    selectedSteps,
+    rendererRef,
+    buildCombinedSelectionOverlay,
+    getMinimapDetailH,
+    updateMinimapAvailability,
+    triggerAnimationRef,
+  });
 
   // Three playback-loop effects delegated to usePlaybackLoop (Pattern A hook extraction).
   // The hook borrows all refs from this component so stopPlayback / seekStepAnimation
