@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { BIT_LAYOUTS, BYTE_LAYOUTS, bitToNumber } from './SieveRenderer';
 import { formatNs } from './TimingPanel';
-import { useDragResize } from './hooks/useDragResize.js';
+import { useDragResize } from './hooks/interactions';
 
 const GRID3X3_MAP = [0, 1, 2, 3, 5, 6, 7, 8];
 

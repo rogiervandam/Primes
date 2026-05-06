@@ -1,6 +1,6 @@
 import React from 'react';
 import { BIT_LAYOUTS, BYTE_LAYOUTS, CACHELINE_SIZES, CACHE_PRESETS } from '../SieveRenderer';
-import { useDraftInput } from '../hooks/useDraftInput';
+import { useDraftInput } from '../hooks/ui_state';
 import { useSettingsBundle } from './useSettingsBundle';
 import {
   BIT_LAYOUT_TIPS,
