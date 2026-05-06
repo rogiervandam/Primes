@@ -18,8 +18,8 @@ Use an `is`, `are`, `has`, or `can` prefix — always, without exception.
 **Never use** bare adjectives or past-participle forms without a prefix:
 ```js
 // ❌ Bad
-isGlUnavailable, isDebugToolsOpen, isTimingPanelOpen
-isEventsPanelCollapsed, isDetailOpen, isMinimapAvailable, isUiChromeVisible
+glUnavailable, debugToolsOpen, timingPanelOpen
+eventsPanelCollapsed, detailOpen, minimapAvailable, uiChromeVisible
 
 // ✅ Good
 isGlUnavailable, isDebugToolsOpen, isTimingPanelOpen
@@ -129,3 +129,14 @@ PascalCase, noun or noun phrase describing what the component renders:
   - `VisualizerProps`, `ToolbarProps`
   - `CanvasRefs`, `AnimationRefs`
 - Type file per domain: `src/types/rendering.ts`, `src/types/playback.ts`, etc.
+
+---
+
+## Documentation files
+
+- Keep one canonical source per topic. For architecture, this is
+  `docs/ARCHITECTURE.md`.
+- If a second location needs discoverability (for example under `src/`), use a
+  short redirect doc that points to the canonical file.
+- Prefer short, imperative headings and avoid repeating implementation detail
+  that already exists in `COMPONENTS.md` or `AI_MAINTENANCE.md`.

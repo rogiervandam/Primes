@@ -2,6 +2,9 @@
 
 A quick reference for the React components and modules under `src/`. Prop signatures reflect the current source; consult the file for full detail.
 
+Architecture ownership and data-flow context are documented in
+`docs/ARCHITECTURE.md`.
+
 ## Top-level components
 
 ### `App.jsx`

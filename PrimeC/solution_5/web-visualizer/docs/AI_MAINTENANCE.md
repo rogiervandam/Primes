@@ -9,6 +9,8 @@ For broader maps, also read:
 - `docs/ARCHITECTURE.md` for module ownership and data flow.
 - `docs/COMPONENTS.md` for component boundaries and prop surfaces.
 - `docs/BACKLOG.md` for short-term product ideas from the user.
+- `src/ARCHITECTURE.md` is a redirect stub only; keep architecture updates in
+  `docs/ARCHITECTURE.md`.
 
 ## Agent Startup Checklist
 
@@ -405,6 +407,8 @@ Left to do:
   the matching "Left to do" item.
 - Keep `ARCHITECTURE.md`, `COMPONENTS.md`, and this file consistent. If they
   disagree, inspect source before trusting any doc.
+  - Keep architecture content in one place (`docs/ARCHITECTURE.md`) to avoid
+    drift across duplicate files.
   - Remove unimported or historical files when their value is gone. Done:
     `src/settings/TitleTab.jsx` was deleted.
 

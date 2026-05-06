@@ -4,9 +4,12 @@
 
 Phase 3 consolidates hook signatures by grouping related parameters into semantic objects, reducing parameter count and improving dependency clarity.
 
-**Status:** Phase 3-4 Completed, Phase 5 In Progress
+**Status:** Historical implementation log (Phase 3-4 complete; later phases partially completed over multiple sessions)
 **Completed:** usePanelChoreography (Phase 3.0), useAnimationPipeline (Phase 3.1), useRendererPipeline (Phase 3.2), usePlaybackLoop (Phase 3.3), Internal sub-hook contracts (Phase 4.0), Temporal cleanup (Phase 4.1)
 **In Progress:** Component tree propagation - EventsPanel (5.0), DetailPanel (5.1), CanvasStage (5.2), Secondary components (5.3+)
+
+Note: Current architecture guidance now lives in `ARCHITECTURE.md`, `COMPONENTS.md`,
+and `AI_MAINTENANCE.md`. This file remains as detailed refactor history.
 
 ## Completed Refactoring
 
@@ -383,10 +386,10 @@ All hooks maintain backward compatibility during Phase 3:
 
 ## Documentation Updates
 
-- [ ] Add Phase 3 section to ARCHITECTURE.md
-- [ ] Update COMPONENTS.md hook signatures
+- [x] Add Phase 3 section to ARCHITECTURE.md
+- [x] Update COMPONENTS.md hook signatures
 - [ ] Add PHASE_3_HOOK_CONSOLIDATION.md (this file)
-- [ ] Update AI_MAINTENANCE.md with consolidation patterns
+- [x] Update AI_MAINTENANCE.md with consolidation patterns
 - [ ] Create hook refactoring template for future work
 
 ## Key Insights

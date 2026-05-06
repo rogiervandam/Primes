@@ -1,5 +1,8 @@
 # Sieve Visualizer — Architecture
 
+This is the canonical architecture document for the web visualizer.
+`src/ARCHITECTURE.md` now points here to avoid documentation drift.
+
 This document describes how the web visualizer is organised, the responsibilities of each module, and how data flows from a trace file to pixels on the screen.
 
 ## Goals
@@ -125,6 +128,56 @@ src/
 5. **Render** — On every animation frame the visualizer calls `BitGridGLWorker.render()` first (GL worker paints all bit fills to a transferred `OffscreenCanvas`), then calls `SieveRenderer.render()` which paints overlays, labels, and side-face polygons on top via Canvas 2D. SieveRenderer no longer fills cells itself. The debug tools window reads renderer timing snapshots and renders as React UI outside the canvas/3D plane.
 6. **Inspect** — Side panels (`EventsPanel`, `DetailPanel`, `SettingsPanel`, `TimingPanel`) read derived data via props and call back into the visualizer to mutate state.
 
+## Visualizer composition
+
+High-level composition in `Visualizer.jsx`:
+
+- `Toolbar`
+- `ExportProgress` + `StatusBanners`
+- `VisualizerMainContent`
+- Minimap canvas
+- Keyboard shortcuts overlay
+
+`VisualizerMainContent` composes:
+
+- `CanvasLoadingOverlay`
+- `EventsPanel`
+- `CanvasStage`
+- `JoinedEventsWidget` (when joined and visible)
+- `SettingsPanel`
+- `DebugToolsPanel` (when enabled)
+
+`CanvasStage` delegates overlay-specific rendering to `CanvasOverlayManager`.
+
+## Provider hierarchy
+
+The top-level visualizer tree uses focused providers instead of a single global
+state object:
+
+1. `ThemeProvider`
+2. `PlaybackProvider`
+3. `AnimationConfigProvider`
+4. `PanelLayoutProvider`
+
+This groups shared state by domain and reduces prop drilling across toolbar,
+panels, and canvas overlays.
+
+## Hook domains
+
+Hooks are imported through domain barrels under `src/hooks/`:
+
+- `rendering/`
+- `playback/`
+- `animation/`
+- `interactions/`
+- `ui_state/`
+- `camera_3d/`
+- `overlays/`
+- `data/`
+- `utils/`
+
+This keeps import intent explicit at call sites and tightens module boundaries.
+
 ## Log ingestion
 
 The dev/preview server and Electron local server expose the same log API through
@@ -213,3 +266,29 @@ npm run docker:import -- --container NAME --container-log-dir /app/log
 `App.jsx` uses `React.lazy(() => import('./Visualizer'))` and `preloadVisualizer()` to start the Visualizer chunk download as soon as the user opens a file, minimising the Suspense fallback window.
 
 The production build is consumed by the multi-stage `Dockerfile` and served via nginx in the deployable image.
+
+## Verification
+
+- Unit tests run with Vitest via `npm test`.
+- Unexpected `console.error` and `console.warn` output fails tests through
+    `src/test/setupConsoleGuards.js`.
+- Production integrity is validated with `npm run build`.
+
+## Hook import migration
+
+Use domain barrels for hooks, not direct file imports.
+
+Old direct import:
+
+```javascript
+import { usePlaybackControl } from '../hooks/usePlaybackControl';
+```
+
+Preferred domain-scoped import:
+
+```javascript
+import { usePlaybackControl } from '../hooks/playback';
+```
+
+If a hook is missing from a barrel, add it to that domain's `index.js` export
+list.

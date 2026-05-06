@@ -1,5 +1,12 @@
 # Visualizer Refactoring Plan: Variable Organization
 
+This document is a historical refactor record.
+For current architecture and maintenance guidance, use:
+
+- `docs/ARCHITECTURE.md`
+- `docs/COMPONENTS.md`
+- `docs/AI_MAINTENANCE.md`
+
 ## Goal
 Reduce cognitive load from 100+ flat variables to organized semantic groups while maintaining all functionality.
 
@@ -63,7 +70,7 @@ const { colorPreset, customColors } = themeState;
 
 ## Files Modified
 - `src/Visualizer.jsx` — added organized state section (~400 lines)
-- `src/REFACTORING_PLAN.md` — this file
+- `docs/REFACTORING_PLAN.md` — this file
 
 ## Testing Results
 - ✅ All 337 tests passing
