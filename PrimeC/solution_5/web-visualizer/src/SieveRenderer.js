@@ -38,9 +38,11 @@ import { requestPrimeOverlay } from './renderer/workers/bitPrePassClient';
 import { GlyphCommandBuffer } from './renderer/gl/GlyphCommandBuffer';
 import { RenderStateController } from './renderer/core/RenderState';
 import { HeatMapStateController } from './renderer/core/HeatMapState';
+import { FrameContextBuilder } from './renderer/core/FrameContextBuilder';
 import { MotionTrailRenderer } from './renderer/effects/MotionTrailRenderer';
 import { CachelineOverlayRenderer } from './renderer/effects/CachelineOverlayRenderer';
 import { VectorRenderPipeline } from './renderer/pipeline/VectorRenderPipeline';
+import { LayoutMetricsEngine } from './renderer/layout/LayoutMetricsEngine';
 import {
   bitVisualRow,
   getElementBounds,
@@ -231,9 +233,11 @@ export class SieveRenderer {
 
     this.renderState = new RenderStateController(this);
     this.heatMapState = new HeatMapStateController(this);
+    this.frameContextBuilder = new FrameContextBuilder(this);
     this.motionTrails = new MotionTrailRenderer(this);
     this.cachelineOverlayRenderer = new CachelineOverlayRenderer(this);
     this.vectorRenderPipeline = new VectorRenderPipeline(this);
+    this.layoutMetrics = new LayoutMetricsEngine(this);
   }
 
   /** Returns the glyph canvas element (used for export/metadata). */
@@ -862,246 +866,99 @@ export class SieveRenderer {
   }
 
   _bitPosInByte(bitInByte) {
-    const bl = BIT_LAYOUTS[this.bitLayout];
-    if (bl.grid3x3) {
-      const cell = GRID3X3_MAP[bitInByte];
-      return { col: cell % 3, row: Math.floor(cell / 3) };
-    }
-    return { col: bitInByte % bl.cols, row: Math.floor(bitInByte / bl.cols) };
+    return this.layoutMetrics.bitPosInByte(bitInByte);
   }
 
   _bytePosInU64(byteInU64) {
-    const bl = BYTE_LAYOUTS[this.byteLayout];
-    if (bl.grid3x3) {
-      const cell = GRID3X3_MAP[byteInU64];
-      return { col: cell % 3, row: Math.floor(cell / 3) };
-    }
-    return { col: byteInU64 % bl.cols, row: Math.floor(byteInU64 / bl.cols) };
+    return this.layoutMetrics.bytePosInU64(byteInU64);
   }
 
   _bitStepX() {
-    return this.pixelSize * this.zoom + this.bitSpacingH * this.zoom;
+    return this.layoutMetrics.bitStepX();
   }
 
   _bitStepY() {
-    return this.pixelSize * this.zoom + this.bitSpacingV * this.zoom;
+    return this.layoutMetrics.bitStepY();
   }
 
   _byteGapX() {
-    return (this.bitSpacingH + this.byteSpacingH) * this.zoom;
+    return this.layoutMetrics.byteGapX();
   }
 
   _byteGapY() {
-    return (this.bitSpacingV + this.byteSpacingV) * this.zoom;
+    return this.layoutMetrics.byteGapY();
   }
 
   _u64GapX() {
-    return (this.bitSpacingH + this.byteSpacingH + this.u64SpacingH) * this.zoom;
+    return this.layoutMetrics.u64GapX();
   }
 
   _u64GapY() {
-    return (this.bitSpacingV + this.byteSpacingV + this.u64SpacingV) * this.zoom;
+    return this.layoutMetrics.u64GapY();
   }
 
   _byteDims() {
-    const bl = BIT_LAYOUTS[this.bitLayout];
-    const px = this.pixelSize * this.zoom;
-    const cols = bl.grid3x3 ? 3 : bl.cols;
-    const rows = bl.grid3x3 ? 3 : bl.rows;
-    return {
-      w: cols * px + (cols - 1) * this.bitSpacingH * this.zoom,
-      h: rows * px + (rows - 1) * this.bitSpacingV * this.zoom,
-    };
+    return this.layoutMetrics.byteDims();
   }
 
   _u64Dims() {
-    const byteD = this._byteDims();
-    const bl = BYTE_LAYOUTS[this.byteLayout];
-    const activeBytes = this._logicalBytesPerWord();
-    let minCol = Number.POSITIVE_INFINITY;
-    let maxCol = Number.NEGATIVE_INFINITY;
-    let minRow = Number.POSITIVE_INFINITY;
-    let maxRow = Number.NEGATIVE_INFINITY;
-    for (let byteIndex = 0; byteIndex < activeBytes; byteIndex++) {
-      const pos = this._bytePosInU64(byteIndex);
-      minCol = Math.min(minCol, pos.col);
-      maxCol = Math.max(maxCol, pos.col);
-      minRow = Math.min(minRow, pos.row);
-      maxRow = Math.max(maxRow, pos.row);
-    }
-    const cols = Number.isFinite(minCol) ? (maxCol - minCol + 1) : (bl.grid3x3 ? 3 : bl.cols);
-    const rows = Number.isFinite(minRow) ? (maxRow - minRow + 1) : (bl.grid3x3 ? 3 : bl.rows);
-    return {
-      w: cols * byteD.w + (cols - 1) * this._byteGapX(),
-      h: rows * byteD.h + (rows - 1) * this._byteGapY(),
-    };
+    return this.layoutMetrics.u64Dims();
   }
 
   // Dimensions of one vector group (vectorGroup uint64s side by side)
   _vectorDims() {
-    const u64D = this._u64Dims();
-    const n = this.vectorGroup;
-    const intraGap = this._u64GapX();
-    return {
-      w: n * u64D.w + (n - 1) * intraGap,
-      h: u64D.h,
-      intraGap,
-    };
+    return this.layoutMetrics.vectorDims();
   }
 
   _numVectorsPerRow() {
-    const u64sPerCL = Math.max(1, Math.ceil(this.bitsPerCacheLine / 64));
-    return Math.max(1, Math.ceil(u64sPerCL / this.vectorGroup));
+    return this.layoutMetrics.numVectorsPerRow();
   }
 
   _totalVectorSlots() {
-    const bitsPerCacheLine = this.bitsPerCacheLine;
-    const totalCacheLines = Math.max(1, Math.ceil(this.bitCount / bitsPerCacheLine));
-    return totalCacheLines * this._numVectorsPerRow();
+    return this.layoutMetrics.totalVectorSlots();
   }
 
   _vectorGroupsPerVisualRow() {
-    if (this.horizontalGroups > 0) return Math.max(1, this.horizontalGroups);
-    return Math.max(1, this._cacheLinesPerVisualRow() * this._numVectorsPerRow());
+    return this.layoutMetrics.vectorGroupsPerVisualRow();
   }
 
   _vectorSlotLayout(globalVectorIndex) {
-    const numVec = this._numVectorsPerRow();
-    const vecPerRow = this._vectorGroupsPerVisualRow();
-    const rowD = this._rowDims();
-    const labelH = this._labelHeight();
-    const vecD = this._vectorDims();
-    const vRowHeight = labelH + rowD.h + this._u64GapY();
-    const vRow = Math.floor(globalVectorIndex / vecPerRow);
-    const vecInRow = globalVectorIndex % vecPerRow;
-    const clIdx = Math.floor(globalVectorIndex / numVec);
-    const vecIdxInCL = globalVectorIndex % numVec;
-    const rowDataY = this.panY + vRow * vRowHeight + labelH;
-    const vecX = this.panX + vecInRow * (vecD.w + this._u64GapX());
-    return { numVec, vecPerRow, rowD, labelH, vecD, vRowHeight, vRow, vecInRow, clIdx, vecIdxInCL, rowDataY, vecX };
+    return this.layoutMetrics.vectorSlotLayout(globalVectorIndex);
   }
 
   // How many cache lines to wrap per visual row based on canvas width
   // When frozen, zoom changes don't alter the wrapping layout
   _cacheLinesPerVisualRow() {
-    if (this._frozenClPerVRow > 0) return this._frozenClPerVRow;
-    return this._computeClPerVRow();
+    return this.layoutMetrics.cacheLinesPerVisualRow();
   }
 
   _computeClPerVRow() {
-    if (this.horizontalGroups > 0) return Math.max(1, this.horizontalGroups);
-    // Layout column-count must follow the VISIBLE viewport, not the
-    // (potentially oversized) drawing buffer. The canvas is sized to
-    // ~3.2× the viewport so the rotated 3D plane has drag headroom
-    // — but the grid the user sees should fit the visible container.
-    // `layoutAvailWidth`/`layoutAvailHeight` are set by the host every
-    // resize; they fall back to canvasWidth/Height for compatibility.
-    const avail = (this.layoutAvailWidth && this.layoutAvailWidth > 0)
-      ? this.layoutAvailWidth
-      : this.canvasWidth;
-    const availH0 = (this.layoutAvailHeight && this.layoutAvailHeight > 0)
-      ? this.layoutAvailHeight
-      : (this.canvasHeight || 0);
-    if (!avail || avail <= 0) return 1;
-    const bitsPerCacheLine = this.bitsPerCacheLine;
-    const totalCacheLines = Math.max(1, Math.ceil(this.bitCount / bitsPerCacheLine));
-    // Compute dimensions at zoom=1 for stable wrapping independent of zoom.
-    const savedZoom = this.zoom;
-    this.zoom = 1;
-    const rowW = this._rowDims().w;
-    const rowH = this._rowDims().h;
-    const labelH = this._labelHeight();
-    this.zoom = savedZoom;
-
-    if (rowW <= 0 || rowH <= 0) return 1;
-    const availH = Math.max(1, availH0);
-    const clStepX = rowW + this.bitSpacingH + this.byteSpacingH + this.u64SpacingH;
-    const vRowH = labelH + rowH + this.bitSpacingV + this.byteSpacingV + this.u64SpacingV;
-    const maxByWidth = Math.max(1, Math.floor(avail / clStepX));
-    const maxCandidate = Math.min(totalCacheLines, Math.max(1, maxByWidth));
-
-    let best = 1;
-    let bestScore = Number.POSITIVE_INFINITY;
-    const targetAspect = Math.max(0.2, Math.min(5, avail / availH));
-
-    const sectionAnchors = [maxCandidate, Math.floor(maxCandidate / 2), Math.floor(maxCandidate / 4), Math.floor(maxCandidate / 8)]
-      .filter((v, i, arr) => v >= 1 && arr.indexOf(v) === i);
-
-    for (let n = 1; n <= maxCandidate; n++) {
-      const visualRows = Math.ceil(totalCacheLines / n);
-      const layoutW = n * rowW + Math.max(0, n - 1) * (this.bitSpacingH + this.byteSpacingH + this.u64SpacingH);
-      const layoutH = visualRows * vRowH;
-      if (layoutW <= 0 || layoutH <= 0) continue;
-
-      const layoutAspect = layoutW / layoutH;
-      const aspectPenalty = Math.abs(Math.log(layoutAspect / targetAspect));
-
-      const widthFill = Math.min(1, layoutW / avail);
-      const heightFill = Math.min(1, layoutH / availH);
-      const fillPenalty = 1 - (widthFill * heightFill);
-
-      let sectionBias = 0;
-      for (const anchor of sectionAnchors) {
-        const dist = Math.abs(n - anchor);
-        sectionBias = Math.max(sectionBias, Math.exp(-dist / 2));
-      }
-
-      const score = aspectPenalty + fillPenalty * 0.7 - sectionBias * 0.12;
-      if (score < bestScore) {
-        bestScore = score;
-        best = n;
-      }
-    }
-
-    return Math.max(1, Math.min(maxCandidate, best));
+    return this.layoutMetrics.computeCacheLinesPerVisualRow();
   }
 
   /** Freeze the current wrapping layout so zoom doesn't change it */
   freezeLayout() {
-    this._frozenClPerVRow = this._computeClPerVRow();
+    this.layoutMetrics.freezeLayout();
   }
 
   /** Unfreeze layout (e.g. when window is resized or layout settings change) */
   unfreezeLayout() {
-    this._frozenClPerVRow = 0;
+    this.layoutMetrics.unfreezeLayout();
   }
 
   // Row = one cache line = numVectors vector groups
   _rowDims() {
-    const vecD = this._vectorDims();
-    const n = this._numVectorsPerRow();
-    return {
-      w: n * vecD.w + (n - 1) * this._u64GapX(),
-      h: vecD.h,
-    };
+    return this.layoutMetrics.rowDims();
   }
 
   // Height of stacked label bands above each row.
   // Vector labels are above byte labels; byte labels stay closer to bits.
   _labelBands() {
-    const showByte = this.showByteLabels && this.zoom >= 4;
-    const showVector = this.showVectorLabels;
-    const vectorFont = Math.max(4, Math.min(13, this.zoom * 0.84));
-    const byteFont = Math.max(4, Math.min(11, this.zoom * 0.72));
-    const vector = showVector ? Math.ceil(vectorFont + 6) : 0;
-    const byte = showByte ? Math.ceil(byteFont + 5) : 0;
-    const byteRows = byte;
-    const byteLine = showByte ? Math.ceil(byteFont + 2) : 0;
-    return {
-      vector,
-      byte,
-      total: vector + byte,
-      vectorFont,
-      byteFont,
-      byteRows,
-      byteLine,
-      showVector,
-      showByte,
-    };
+    return this.layoutMetrics.labelBands();
   }
 
   _labelHeight() {
-    return this._labelBands().total;
+    return this.layoutMetrics.labelHeight();
   }
 
   /**
@@ -1166,58 +1023,7 @@ export class SieveRenderer {
    * so each method can read everything via `f.foo` without recomputing.
    */
   _buildFrameContext() {
-    const C = this.colors;
-    const ctx = this._measureCtx;
-    const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
-    const cw = this.canvasWidth || 0;
-    const ch = this.canvasHeight || 0;
-
-    const px = this.pixelSize * this.zoom;
-    const bitsPerCacheLine = this.bitsPerCacheLine;
-    const totalCacheLines = Math.ceil(this.bitCount / bitsPerCacheLine);
-    const rowD = this._rowDims();
-    const labelBands = this._labelBands();
-    const labelH = this._labelHeight();
-    const numVec = this._numVectorsPerRow();
-    const totalVectorSlots = totalCacheLines * numVec;
-    const vecPerVRow = this._vectorGroupsPerVisualRow();
-    const vRowHeight = labelH + rowD.h + this._u64GapY();
-    const totalVRows = Math.ceil(totalVectorSlots / vecPerVRow);
-
-    const startVRow = Math.max(0, Math.floor(-this.panY / vRowHeight));
-    const endVRow = Math.min(totalVRows, Math.ceil((ch - this.panY) / vRowHeight) + 1);
-
-    const u64D = this._u64Dims();
-    const vecD = this._vectorDims();
-    const byteD = this._byteDims();
-    const bitBl = BIT_LAYOUTS[this.bitLayout];
-    const changedColor = this._opColor();
-    const bitColors = this._bitColors();
-
-    const showBitLabels = this.showBitLabels && this.zoom >= 6;
-    const showNumberLabels = this.showNumberLabels && this.zoom >= 6;
-    const showByteLabels = labelBands.showByte;
-    const showVectorLabels = labelBands.showVector;
-
-    const u64sPerCL = Math.max(1, Math.ceil(bitsPerCacheLine / 64));
-    const u64GapX = this._u64GapX();
-    const byteGapX = this._byteGapX();
-    const byteGapY = this._byteGapY();
-    const bitStepX = this._bitStepX();
-    const bitStepY = this._bitStepY();
-    const baseAlpha = Math.max(0.12, Math.min(1, this.gridOpacity ?? 1));
-
-    return {
-      C, ctx, cw, ch, px,
-      bitsPerCacheLine, totalCacheLines, rowD, labelBands, labelH,
-      numVec, totalVectorSlots, vecPerVRow, vRowHeight, totalVRows,
-      startVRow, endVRow,
-      u64D, vecD, byteD, bitBl, changedColor, bitColors,
-      showBitLabels, showNumberLabels, showByteLabels, showVectorLabels,
-      u64sPerCL, u64GapX, byteGapX, byteGapY, bitStepX, bitStepY, baseAlpha,
-      vectorLabelY: vRow => this.panY + vRow * vRowHeight + 1,
-      byteLabelY: (vRowBaseY, byteTopY) => Math.max(vRowBaseY + labelBands.vector + 1, byteTopY - labelBands.byteFont - 1),
-    };
+    return this.frameContextBuilder.build();
   }
 
   /** Render one visual row (a horizontal strip of vectors). */
