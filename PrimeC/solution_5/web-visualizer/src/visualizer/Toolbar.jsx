@@ -1,11 +1,11 @@
 import React from 'react';
 import {
-  SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
   ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus,
   PanelLeft, PanelBottom, PanelRight, Toolkit,
 } from '../Icons';
 import { GearIcon } from '../settings/buttons';
 import TraceInfoPopover from './TraceInfoPopover';
+import PlaybackTransport from './PlaybackTransport';
 import { useThemeContext } from '../contexts/ThemeContext';
 import { usePlaybackContext } from '../contexts/PlaybackContext';
 import { usePanelLayoutContext } from '../contexts/PanelLayoutContext';
@@ -178,39 +178,7 @@ export default function Toolbar({
       </div>
       {!areControlsHidden && (
       <div className="toolbar-center">
-        <>
-            <button className="btn-icon" onClick={() => goToStep(0)} title="First (Home)" disabled={exporting}><SkipBack /></button>
-            <button className="btn-icon" onClick={() => goToStep(currentStep - 1)} title="Previous (←)" disabled={exporting}><StepBack /></button>
-            <button className="btn-icon anim-speed-btn" onClick={() => setPlaySpeedPercent(v => Math.max(25, Math.round(v / 1.25)))} title="Slower animation" disabled={exporting}><Minus size={14} /></button>
-            <button
-              className="btn-icon"
-              onClick={handlePlayPause}
-              title={playing ? 'Pause playback' : (currentStep >= Math.max(0, steps.length - 1) ? 'Restart trace and play' : 'Play trace from current event')}
-              disabled={exporting || steps.length === 0}
-            >
-              {playing ? <Pause /> : <Play />}
-            </button>
-            <button className="btn-icon anim-speed-btn" onClick={() => setPlaySpeedPercent(v => Math.min(400, Math.round(v * 1.25)))} title="Faster animation" disabled={exporting}><Plus size={14} /></button>
-            <button className="btn-icon" onClick={() => goToStep(currentStep + 1)} title="Next (→)" disabled={exporting}><StepForward /></button>
-            <button className="btn-icon" onClick={() => goToStep(steps.length - 1)} title="Last (End)" disabled={exporting}><SkipForward /></button>
-            <input
-              type="range"
-              className="step-slider"
-              min={0}
-              max={Math.max(0, steps.length - 1)}
-              value={currentStep}
-              onChange={(e) => {
-                const target = parseInt(e.target.value, 10);
-                goToStep(target);
-              }}
-              onPointerDown={() => { isScrubbingTopRef.current = true; }}
-              onPointerUp={() => { isScrubbingTopRef.current = false; }}
-              onPointerCancel={() => { isScrubbingTopRef.current = false; }}
-              onMouseLeave={(e) => { if (e.buttons === 0) isScrubbingTopRef.current = false; }}
-              disabled={exporting}
-            />
-            <span className="step-counter">{currentStep} / {steps.length - 1}</span>
-        </>
+        <PlaybackTransport />
       </div>
       )}
       <div className="toolbar-right">

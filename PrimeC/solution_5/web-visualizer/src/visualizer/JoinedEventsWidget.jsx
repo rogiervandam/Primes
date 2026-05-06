@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useLayoutEffect } from 'react';
-import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus } from '../Icons';
 import { LinkIcon, CopyIcon } from '../Icons';
 import { isDOMAvailable, isWindowAvailable, getElementFromPoint } from '../lib/browser.js';
+import PlaybackTransport from './PlaybackTransport';
 import { usePlaybackContext } from '../contexts/PlaybackContext';
 import { usePanelLayoutContext } from '../contexts/PanelLayoutContext';
 
@@ -267,49 +267,7 @@ export default function JoinedEventsWidget({
       </div>
 
       {/* ── Transport controls ──────────────────────────────────────── */}
-      <div className="events-panel-transport joined-transport" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="spt-row spt-row-nav">
-          <button className="spt-btn" onClick={() => { goToStep(0); onNavigate?.(); }} title="First event" disabled={exporting}><SkipBack size={12} /></button>
-          <button className="spt-btn" onClick={() => { goToStep(currentStep - 1); onNavigate?.(); }} title="Previous event" disabled={exporting}><StepBack size={12} /></button>
-          {setPlaySpeedPercent && (
-            <button className="spt-btn spt-speed" onClick={() => setPlaySpeedPercent((v) => Math.max(25, Math.round(v / 1.25)))} title="Slower" disabled={exporting}><Minus size={11} /></button>
-          )}
-          <button
-            className="spt-btn spt-play"
-            onClick={handlePlayPause}
-            title={playing ? 'Pause playback' : 'Play all events'}
-            disabled={exporting || !steps.length}
-          >
-            {playing ? <Pause size={12} /> : <Play size={12} />}
-          </button>
-          {setPlaySpeedPercent && (
-            <button className="spt-btn spt-speed" onClick={() => setPlaySpeedPercent((v) => Math.min(400, Math.round(v * 1.25)))} title="Faster" disabled={exporting}><Plus size={11} /></button>
-          )}
-          <button className="spt-btn" onClick={() => { goToStep(currentStep + 1); onNavigate?.(); }} title="Next event" disabled={exporting}><StepForward size={12} /></button>
-          <button className="spt-btn" onClick={() => { goToStep(steps.length - 1); onNavigate?.(); }} title="Last event" disabled={exporting}><SkipForward size={12} /></button>
-          {setPlaySpeedPercent && playSpeedPercent != null && (
-            <span className="spt-speed-label" title={`Playback speed: ${playSpeedPercent}% of normal`}>{playSpeedPercent}%</span>
-          )}
-        </div>
-        <div className="spt-row spt-row-timeline">
-          <input
-            type="range"
-            className="spt-slider"
-            min={0}
-            max={Math.max(0, steps.length - 1)}
-            value={currentStep}
-            onChange={(e) => { goToStep(parseInt(e.target.value, 10)); onNavigate?.(); }}
-            onPointerDown={() => { if (isScrubbingTopRef) isScrubbingTopRef.current = true; }}
-            onPointerUp={() => { if (isScrubbingTopRef) isScrubbingTopRef.current = false; }}
-            onPointerCancel={() => { if (isScrubbingTopRef) isScrubbingTopRef.current = false; }}
-            disabled={exporting}
-            title={`Event ${currentStep} of ${steps.length - 1}`}
-          />
-          <span className="spt-counter">
-            {currentStep}<span className="spt-total">/{steps.length - 1}</span>
-          </span>
-        </div>
-      </div>
+      <PlaybackTransport variant="compact" onNavigate={onNavigate} />
 
       {/* ── Divider ─────────────────────────────────────────────────── */}
       <div className="joined-widget-divider" />

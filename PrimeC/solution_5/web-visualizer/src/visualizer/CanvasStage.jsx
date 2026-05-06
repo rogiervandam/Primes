@@ -1,9 +1,6 @@
 import React from 'react';
-import EventTitleBanner from './EventTitleBanner';
-import BitHistoryBalloons from './BitHistoryBalloons';
-import DetailInspectorOverlay from './DetailInspectorOverlay';
+import CanvasOverlayManager from './CanvasOverlayManager';
 import DetailPanel from '../DetailPanel';
-import TimingPanel from '../TimingPanel';
 
 /**
  * CanvasStage — the centre column of the visualizer:
@@ -112,28 +109,51 @@ function CanvasStage({
 }) {
   return (
     <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
-      {eventTitleSettings.visible && !areWidgetsJoined && isSingleEventWidgetRevealed && (
-        <EventTitleBanner
-          settings={eventTitleSettings}
-          setSettings={setEventTitleSettings}
-          style={eventTitleStyle}
-          banner={currentStepBanner}
-          surrounding={surroundingEvents}
-          currentStepData={currentStepData}
-          currentStep={currentStep}
-          goToStep={goToStep}
-          revealCurrentStepInPanel={revealCurrentStepInPanel}
-          isEventsPanelCollapsed={isEventsPanelCollapsed}
-          setIsEventsPanelCollapsed={setIsEventsPanelCollapsed}
-          isDetailOpen={isDetailOpen}
-          detailHeight={detailHeight}
-          toggleDetailPanel={toggleDetailPanel}
-          externalDragStart={pendingBannerDragStart}
-          onConsumeExternalDragStart={onConsumePendingBannerDragStart}
-          sliders={stepAnimSlidersContent}
-          onJoinWidgets={onJoinWidgets}
-        />
-      )}
+      <CanvasOverlayManager
+        eventTitleSettings={eventTitleSettings}
+        setEventTitleSettings={setEventTitleSettings}
+        eventTitleStyle={eventTitleStyle}
+        currentStepBanner={currentStepBanner}
+        surroundingEvents={surroundingEvents}
+        currentStepData={currentStepData}
+        currentStep={currentStep}
+        goToStep={goToStep}
+        revealCurrentStepInPanel={revealCurrentStepInPanel}
+        isEventsPanelCollapsed={isEventsPanelCollapsed}
+        setIsEventsPanelCollapsed={setIsEventsPanelCollapsed}
+        stepAnimSlidersContent={stepAnimSlidersContent}
+        areWidgetsJoined={areWidgetsJoined}
+        onJoinWidgets={onJoinWidgets}
+        pinnedBitIndices={pinnedBitIndices}
+        hoveredBitInfo={hoveredBitInfo}
+        computeBitInfo={computeBitInfo}
+        getVisibleBalloonStyles={getVisibleBalloonStyles}
+        balloonLiveLayout={balloonLiveLayout}
+        cachelineSize={cachelineSize}
+        setPinnedBitIndices={setPinnedBitIndices}
+        handleStepSelection={handleStepSelection}
+        isDetailOpen={isDetailOpen}
+        detailHeight={detailHeight}
+        toggleDetailPanel={toggleDetailPanel}
+        pendingBannerDragStart={pendingBannerDragStart}
+        onConsumePendingBannerDragStart={onConsumePendingBannerDragStart}
+        isDetailInspectorOpen={isDetailInspectorOpen}
+        detailInspectorMode={detailInspectorMode}
+        detailInspectorQuery={detailInspectorQuery}
+        setDetailInspectorQuery={setDetailInspectorQuery}
+        setIsDetailInspectorOpen={setIsDetailInspectorOpen}
+        detailInspectorRows={detailInspectorRows}
+        filteredDetailInspectorRows={filteredDetailInspectorRows}
+        isTimingPanelOpen={isTimingPanelOpen}
+        setIsTimingPanelOpen={setIsTimingPanelOpen}
+        steps={steps}
+        benchmarkTimingData={benchmarkTimingData}
+        benchmarkTimingFileName={benchmarkTimingFileName}
+        setTimingFocusOp={setTimingFocusOp}
+        onImportBenchmarkTiming={onImportBenchmarkTiming}
+        isSingleEventWidgetRevealed={isSingleEventWidgetRevealed}
+      />
+
       <div
         className={`canvas-container${mode3D ? ' mode-3d' : ''}`}
         ref={containerRef}
@@ -173,18 +193,6 @@ function CanvasStage({
         </div>
       </div>
 
-      <BitHistoryBalloons
-        pinnedBitIndices={pinnedBitIndices}
-        hoveredBitInfo={hoveredBitInfo}
-        computeBitInfo={computeBitInfo}
-        getVisibleBalloonStyles={getVisibleBalloonStyles}
-        liveLayout={balloonLiveLayout}
-        cachelineSize={cachelineSize}
-        currentStep={currentStep}
-        onUnpin={(bi) => setPinnedBitIndices((prev) => prev.filter((value) => value !== bi))}
-        onHistoryClick={handleStepSelection}
-      />
-
       <DetailPanel
         step={isSingleEventWidgetRevealed ? currentStepData : null}
         stepIndex={currentStep}
@@ -212,28 +220,6 @@ function CanvasStage({
         allEventsTransport={allEventsTransport}
       />
 
-      {isDetailInspectorOpen && (
-        <DetailInspectorOverlay
-          open={isDetailInspectorOpen}
-          mode={detailInspectorMode}
-          query={detailInspectorQuery}
-          onQueryChange={setDetailInspectorQuery}
-          onClose={() => setIsDetailInspectorOpen(false)}
-          rows={detailInspectorRows}
-          filteredRows={filteredDetailInspectorRows}
-        />
-      )}
-
-      {isTimingPanelOpen && (
-        <TimingPanel
-          steps={steps}
-          benchmarkTimingData={benchmarkTimingData}
-          benchmarkTimingFileName={benchmarkTimingFileName}
-          onClose={() => setIsTimingPanelOpen(false)}
-          onFocusFn={(fnName) => setTimingFocusOp(fnName || '')}
-          onImportBenchmarkTiming={onImportBenchmarkTiming}
-        />
-      )}
     </div>
   );
 }
