@@ -12,8 +12,6 @@ import CanvasStage from './visualizer/CanvasStage';
 import EventTitleBanner from './visualizer/EventTitleBanner';
 import JoinedEventsWidget from './visualizer/JoinedEventsWidget';
 import DetailInspectorOverlay from './visualizer/DetailInspectorOverlay';
-import StepAnimSliders from './visualizer/StepAnimSliders';
-import AllEventsTransport from './visualizer/AllEventsTransport';
 import BitHistoryBalloons from './visualizer/BitHistoryBalloons';
 import KeyboardShortcutsOverlay from './visualizer/KeyboardShortcutsOverlay';
 import DebugToolsPanel from './visualizer/DebugToolsPanel';
@@ -56,24 +54,13 @@ import { useGoToStep } from './hooks/useGoToStep';
 import { useCameraStartupRefit } from './hooks/useCameraStartupRefit';
 import { useBitStateCheckpoints } from './hooks/useBitStateCheckpoints';
 import { useSelectionOrchestration } from './hooks/useSelectionOrchestration';
-import { useRendererBootstrap } from './hooks/useRendererBootstrap';
-import { useLoadingOverlayLifecycle } from './hooks/useLoadingOverlayLifecycle';
-import { useRendererLayoutSync } from './hooks/useRendererLayoutSync';
-import { usePanelResizeRefresh } from './hooks/usePanelResizeRefresh';
-import { useAnimationTimingRuntime } from './hooks/useAnimationTimingRuntime';
 import { useBalloonGeometry } from './hooks/useBalloonGeometry';
-import { useRunEffect } from './hooks/useRunEffect';
-import { usePausableDelay } from './hooks/usePausableDelay';
-import { useMaskStampAnimation } from './hooks/useMaskStampAnimation';
 import { useSeekStepAnimation } from './hooks/useSeekStepAnimation';
-import { useTriggerAnimation } from './hooks/useTriggerAnimation';
 import { useViewportNavigation } from './hooks/useViewportNavigation';
 import { useViewportAnchoring } from './hooks/useViewportAnchoring';
-import { useWindowResize } from './hooks/useWindowResize';
 import CanvasLoadingOverlay from './visualizer/CanvasLoadingOverlay';
 import StatusBanners from './visualizer/StatusBanners';
 import {
-  DEFAULT_LAYOUT_SETTINGS as DEFAULT_SETTINGS,
   DEFAULT_EVENT_TITLE_SETTINGS,
   getInitialViewState,
 } from './lib/viewPrefs';
@@ -86,6 +73,11 @@ import { useViewPrefsSync } from './hooks/useViewPrefsSync';
 import { useStepDisplayData } from './hooks/useStepDisplayData';
 import { useCanvasStyles } from './hooks/useCanvasStyles';
 import { useDetailInspectorRows } from './hooks/useDetailInspectorRows';
+import { useRendererPipeline } from './hooks/useRendererPipeline';
+import { useAnimationPipeline } from './hooks/useAnimationPipeline';
+import { useTiltState } from './hooks/useTiltState';
+import { useVisualizerEffects } from './hooks/useVisualizerEffects';
+import { useStepAnimContent } from './hooks/useStepAnimContent';
 
 /**
  * Top-level visualizer component. Owns all playback, rendering, and UI state.
@@ -503,35 +495,8 @@ export default function Visualizer({
     updateDetailOpen,
   });
 
-  // Keep rendered balloons consistent with the current interaction mode.
-  useEffect(() => {
-    if (!balloonsEnabled) {
-      setPinnedBitIndices([]);
-    }
-    if (!balloonHoverEnabled) {
-      setHoveredBitInfo(null);
-      lastHoveredIdxRef.current = -1;
-    }
-  }, [balloonsEnabled, balloonHoverEnabled]);
 
-  // Close trace info popup when clicking outside
-  useEffect(() => {
-    if (!showTraceInfo) return;
-    const handleClickOutside = (e) => {
-      const clickedInside = traceInfoPopoverRef.current && traceInfoPopoverRef.current.contains(e.target);
-      const clickedTitle = traceInfoToggleRef.current && traceInfoToggleRef.current.contains(e.target);
-      // Clicks within the detail panel may legitimately open the raw log — don't close.
-      const clickedDetailPanel = e.target && typeof e.target.closest === 'function' && e.target.closest('.detail-panel');
-      if (!clickedInside && !clickedTitle && !clickedDetailPanel) setShowTraceInfo(false);
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [showTraceInfo]);
 
-  // Apply theme to document
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
 
   // Don't persist panel states that were forced closed during loading; only
   // save what the user intentionally chose after the intro animation finishes.
@@ -564,7 +529,8 @@ export default function Visualizer({
       : Math.max(1, (layoutSettings.vectorGroup || 1) * 64)
   ), [layoutSettings.vectorMode, layoutSettings.customGroupBits, layoutSettings.vectorGroup]);
 
-  useRendererBootstrap({
+  useRendererPipeline({
+    // useRendererBootstrap
     header,
     wheelDefinition,
     rendererRef,
@@ -581,11 +547,7 @@ export default function Visualizer({
     disposeCamera,
     setZoom,
     getMinimapDetailH,
-  });
-
-  useLoadingOverlayLifecycle({
-    rendererRef,
-    header,
+    // useLoadingOverlayLifecycle
     introTiltStartedRef,
     setIntroPhase,
     setLoadingOverlayPhase,
@@ -596,85 +558,18 @@ export default function Visualizer({
     loadingOverlayPhase,
     loadCompleteRef,
     loadProgressRef,
-  });
-
-  // GL worker is intentionally kept alive as long as the component lives.
-  // `OffscreenCanvas.transferControlToOffscreen()` is a one-shot, irreversible
-  // operation on the HTMLCanvasElement — there is no way to attach a second
-  // worker to the same canvas element.  Calling `dispose()` in a cleanup
-  // effect is therefore harmful in two situations:
-  //   1. React StrictMode (development): fires cleanup+setup twice on every
-  //      mount.  If we dispose here the worker is killed before the second
-  //      setup run, and that run can neither call transferControlToOffscreen()
-  //      again nor reuse the dead worker — so GL rendering silently breaks.
-  //   2. Trace reload: the init effect re-runs with new header props and must
-  //      reuse the existing live worker rather than re-attaching.
-  //
-  // In normal use the Visualizer is mounted once for the entire session.
-  // When the page is closed the browser terminates all workers automatically.
-  // If the component ever truly unmounts (rare, e.g. Suspense boundary),
-  // the worker becomes unreachable and is GC-eligible; the small leak is
-  // acceptable given that scenario never occurs in practice.
-  useEffect(() => {
-    return () => {
-      if (spacingPanAnimRef.current != null) {
-        cancelAnimationFrame(spacingPanAnimRef.current);
-        spacingPanAnimRef.current = null;
-      }
-    };
-  }, []);
-
-  // Keep r.minimapRightInset in sync with the settings panel state so the
-  // minimap (now a position:fixed overlay) stays clear of the expanded panel.
-  // Only offset when the full panel is visible (toolbar gear icon toggles it).
-  // CSS: platform-mac=388px, default=328px (responsive 280px at ≤768px is
-  // ignored here — minimap hides itself when zoomed out).
-  // Also repaint the minimap immediately so the position updates without
-  // waiting for the next user interaction or animation tick.
-  useEffect(() => {
-    const r = rendererRef.current;
-    if (!r) return;
-    r.minimapRightInset = settingsCollapsed ? 0 : (isMacPlatform ? 388 : 328);
-    updateMinimapAvailability();
-    if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas?.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [settingsCollapsed, isMacPlatform, showMinimap, getMinimapDetailH, updateMinimapAvailability]);
-
-  // Keep GL diagnostics live while resizing/moving the window.
-  useWindowResize(() => updateGlDebugInfo(true), [updateGlDebugInfo]);
-
-  const spacingPanAnimRef = useRef(null);
-
-  const prevLayoutRef = useRef({
-    bitLayout: DEFAULT_SETTINGS.bitLayout,
-    byteLayout: DEFAULT_SETTINGS.byteLayout,
-    bitSpacingH: DEFAULT_SETTINGS.bitSpacingH,
-    bitSpacingV: DEFAULT_SETTINGS.bitSpacingV,
-    byteSpacingH: DEFAULT_SETTINGS.byteSpacingH,
-    byteSpacingV: DEFAULT_SETTINGS.byteSpacingV,
-    u64SpacingH: DEFAULT_SETTINGS.u64SpacingH,
-    u64SpacingV: DEFAULT_SETTINGS.u64SpacingV,
-    cachelineSize: 64,
-    customGroupBits: 0,
-    vectorMode: DEFAULT_SETTINGS.vectorMode,
-    vectorGroup: DEFAULT_SETTINGS.vectorGroup,
-    vectorBaseBits: DEFAULT_SETTINGS.vectorBaseBits,
-    vectorLanes: DEFAULT_SETTINGS.vectorLanes,
-    horizontalGroups: DEFAULT_SETTINGS.horizontalGroups,
-    showByteLabels: DEFAULT_SETTINGS.showByteLabels,
-    showVectorLabels: DEFAULT_SETTINGS.showVectorLabels,
-    showVectorTouchOrder: DEFAULT_SETTINGS.showVectorTouchOrder,
-  });
-
-  useRendererLayoutSync({
-    rendererRef,
+    // minimap inset effect
+    settingsCollapsed,
+    isMacPlatform,
+    showMinimap,
+    updateMinimapAvailability,
+    // useRendererLayoutSync
     theme,
     layoutSettings,
-    showMinimap,
     colorPreset,
     customColors,
     canvasColors,
     storageModel,
-    wheelDefinition,
     cachelineSize,
     heatMapEnabled,
     cachelineAnnotation,
@@ -685,21 +580,14 @@ export default function Visualizer({
     multiplesOverlayEnabled,
     multiplesOverlayPrime,
     gridOpacity,
-    updateMinimapAvailability,
     debugCalibrationMode,
-    prevLayoutRef,
     containerRef,
     mode3D,
     stepsRef,
     currentStepRef,
-    setZoom,
     setAutoFitColumnCount,
-    getMinimapDetailH,
-  });
-
-  usePanelResizeRefresh({
+    // usePanelResizeRefresh
     panelWidth,
-    showMinimap,
     detailOpen,
     detailHeight,
     refreshCanvasLayout,
@@ -782,7 +670,55 @@ export default function Visualizer({
     currentStep,
   });
 
-  const { waitForDelay } = usePausableDelay({ globalPausedRef, seqTimerRef });
+  useAnimationPipeline({
+    // usePausableDelay
+    globalPausedRef,
+    seqTimerRef,
+    // useRunEffect
+    rendererRef,
+    runEffectCancelRef,
+    rippleRef,
+    seekGenRef,
+    getMinimapDetailH,
+    // useAnimationTimingRuntime
+    bitAnimInterval,
+    maskAnimInterval,
+    currentAnimIntervalRef,
+    currentMaskAnimIntervalRef,
+    eventTimeTargetsRef,
+    eventDurationModeRef,
+    playSpeedPercentRef,
+    computeEventDurationRef,
+    bitsAtTimeRatioRef,
+    timeRatioAtBitIndexRef,
+    animMode,
+    animStyle,
+    // useMaskStampAnimation
+    stepScrubProgressRef,
+    // useTriggerAnimation
+    bitAnimationModeRef,
+    pinnedBitIndices,
+    effectiveGroupBits,
+    animBusyUntilRef,
+    currentStep,
+    bitStateRef,
+    stepsRef,
+    bitStateDirtyRef,
+    setDelayPhaseMsRef,
+    setStepAnimRunningRef,
+    stopSeqAnimRef,
+    // triggerAnimationRef sync + animMode/animStyle replay
+    triggerAnimationRef,
+    singleEventLoopActiveRef,
+    selectedAnimLoopRef,
+    stepScrubProgressValueRef,
+    stepResumeStartIndexRef,
+    stepResumeMaskProgressRef,
+    currentStepRef,
+    initialHighlightHoldRef,
+    steps,
+    playing,
+  });
 
   const {
     animateViewportTo,
@@ -817,92 +753,9 @@ export default function Visualizer({
     handleSearch,
   } = useSearchState({ rendererRef, navigateToBit, storageModel, wheelDefinition, getMinimapDetailH });
 
-  const { runEffect } = useRunEffect({
-    rendererRef,
-    runEffectCancelRef,
-    rippleRef,
-    seekGenRef,
-    getMinimapDetailH,
-  });
-  const {
-    clampMs,
-    getAnimationTimingPlan,
-    getAnimationBitInterval,
-    getCurrentLoopInterval,
-    getFadeOutDuration,
-    computeEventNormalDuration,
-    computeEventDuration,
-    bitsAtTimeRatio,
-    timeRatioAtBitIndex,
-    estimateAnimDuration,
-    fadeOutCurrentHighlights,
-  } = useAnimationTimingRuntime({
-    bitAnimInterval,
-    maskAnimInterval,
-    currentAnimIntervalRef,
-    currentMaskAnimIntervalRef,
-    eventTimeTargetsRef,
-    eventDurationModeRef,
-    playSpeedPercentRef,
-    computeEventDurationRef,
-    bitsAtTimeRatioRef,
-    timeRatioAtBitIndexRef,
-    animMode,
-    animStyle,
-    rendererRef,
-    rippleRef,
-    getMinimapDetailH,
-  });
 
-  const { runMaskStampAnimation } = useMaskStampAnimation({
-    rendererRef,
-    rippleRef,
-    seekGenRef,
-    globalPausedRef,
-    currentMaskAnimIntervalRef,
-    stepScrubProgressRef,
-    getAnimationTimingPlan,
-    getMinimapDetailH,
-    clampMs,
-  });
 
-  const { triggerAnimation } = useTriggerAnimation({
-    seekGenRef,
-    stopSeqAnimRef,
-    stepScrubProgressRef,
-    rendererRef,
-    bitAnimationModeRef,
-    pinnedBitIndices,
-    effectiveGroupBits,
-    computeEventDurationRef,
-    getAnimationTimingPlan,
-    getAnimationBitInterval,
-    estimateAnimDuration,
-    animBusyUntilRef,
-    fadeOutCurrentHighlights,
-    currentMaskAnimIntervalRef,
-    maskAnimInterval,
-    currentStep,
-    bitStateRef,
-    stepsRef,
-    bitStateDirtyRef,
-    setDelayPhaseMsRef,
-    setStepAnimRunningRef,
-    runMaskStampAnimation,
-    waitForDelay,
-    animMode,
-    seqTimerRef,
-    timeRatioAtBitIndexRef,
-    bitsAtTimeRatioRef,
-    globalPausedRef,
-    getMinimapDetailH,
-    animStyle,
-    runEffect,
-  });
 
-  useEffect(() => {
-    triggerAnimationRef.current = triggerAnimation;
-  }, [triggerAnimation]);
 
   const { buildCombinedSelectionOverlay } = useSelectionOverlay({ steps });
 
@@ -945,66 +798,8 @@ export default function Visualizer({
     setPlaying, setCurrentStep,
   });
 
-  // Auto-render mode (for CLI video export via puppeteer)
-  useEffect(() => {
-    if (autoRender && steps.length > 0 && !exporting) {
-      const timer = setTimeout(() => exportVideo(), 500);
-      return () => clearTimeout(timer);
-    }
-  }, [autoRender, steps.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Replay current step when animation mode or style changes so the active animation stops immediately.
-  // Skip when the single-event replay loop OR the aggregate selected-steps loop is running: both hold
-  // an `await triggerFn(...)` promise that resolves only when the animation finishes naturally.
-  // Calling stopSeqAnim() here would cancel the RAF without resolving that promise, permanently
-  // freezing the loop. Both loops naturally pick up the new animMode/animStyle on their next
-  // iteration via triggerAnimationRef.current.
-  //
-  // Progress continuity: when a style/mode change fires, capture the current scrub progress so
-  // the new animation starts from the same position rather than rewinding to 0.
-  useEffect(() => {
-    if (initialHighlightHoldRef.current) return;
 
-    // Snapshot progress before doing anything so the refs we read below are
-    // consistent whether we take the loop path or the direct-trigger path.
-    const rawProgress = stepScrubProgressValueRef.current; // 0-100
-    const startFraction = (rawProgress > 2 && rawProgress < 98) ? rawProgress / 100 : 0;
-
-    if (singleEventLoopActiveRef.current || selectedAnimLoopRef.current) {
-      // A replay loop is running. Seed the resume refs so the loop's very
-      // next iteration (triggered by the seekGen bump below) picks up at
-      // the same progress position instead of restarting from 0.
-      if (startFraction > 0) {
-        const step_data = stepsRef.current[currentStepRef.current];
-        if (step_data && step_data.changedBits && step_data.changedBits.length > 0) {
-          stepResumeStartIndexRef.current = Math.round(startFraction * (step_data.changedBits.length - 1));
-        }
-        stepResumeMaskProgressRef.current = startFraction;
-      }
-      // Bump seekGenRef so isStillLive() fails on the very next RAF tick,
-      // resolving the Promise cleanly. The loop then restarts on its next
-      // iteration and picks up the new animMode/animStyle from
-      // triggerAnimationRef.current using the resume hints above.
-      seekGenRef.current += 1;
-      if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
-      return;
-    }
-    stopSeqAnimRef.current?.();
-    const step = steps[currentStep];
-    if (!step || !step.changedBits || step.changedBits.length === 0) return;
-    const currentChanged = new Set(step.changedBits);
-    const triggerOpts = { adaptiveDuration: !playing };
-    if (startFraction > 0) {
-      triggerOpts.startProgress = startFraction;
-      triggerOpts.startIndex = Math.round(startFraction * (step.changedBits.length - 1));
-    }
-    triggerAnimation(currentChanged, triggerOpts);
-  }, [animMode, animStyle]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!seqTimerRef.current) return;
-    currentAnimIntervalRef.current = Math.max(0, bitAnimInterval || 20);
-  }, [bitAnimInterval]);
 
   // Top-toolbar Play/Pause. Drives trace-wide playback (event-by-event with
   // no inter-event wait) and supports pause-in-flight + precise resume:
@@ -1053,18 +848,7 @@ export default function Visualizer({
     applyViewportFit,
   });
 
-  // Tracks whether the tilt button is in the "tilted" state (30°) or flat (0°).
-  // Starts inactive until the intro reaches the 2D→3D transition completion.
-  const [tiltActive, setTiltActive] = useState(false);
-  const tiltButtonEnabled = introPhase === 'tilting' || introPhase === 'visible';
-
-  useEffect(() => {
-    if (introPhase === 'tilting' || introPhase === 'visible') {
-      setTiltActive(true);
-    } else {
-      setTiltActive(false);
-    }
-  }, [introPhase]);
+  const { tiltActive, setTiltActive, tiltButtonEnabled } = useTiltState({ introPhase });
 
   // Tilt toggle: animates between 0° (flat) and 30° (tilted) in 3D mode.
   const { handleIntroTransitionEnd, toggleTilt, enableTiltAndResize } = useTiltControls({
@@ -1177,99 +961,67 @@ export default function Visualizer({
   });
 
   const effectiveTitle = traceTitle;
-  useEffect(() => {
-    if (typeof document !== 'undefined') document.title = effectiveTitle;
-  }, [effectiveTitle]);
 
-  // Reset the step-scrub slider whenever the user moves to a different event.
-  useEffect(() => { setStepScrubProgress(0); }, [currentStep]);
-  // Auto-pick the animation mode for the current event: prefer 'mask' when the
-  // event has mask write-order metadata, otherwise fall back to 'bit'. The user
-  // can still toggle this within the event.
-  // Skip when an aggregate (multi-step) selection is active — the merged mask
-  // state is already set up in the renderer and we must not clobber the mode.
-  useEffect(() => {
-    if (selectedSteps.size > 1) return;
-    const step = stepsRef.current[currentStep];
-    const hasMask = !!(step && step.maskWriteOrderWords && step.maskWriteOrderWords.length > 0
-      && Number.isFinite(step.maskWordBits) && step.maskWordBits > 0);
-    setBitAnimationMode(hasMask ? 'mask' : 'bit');
-  }, [currentStep, selectedSteps]);
+  useVisualizerEffects({
+    // balloon cleanup
+    balloonsEnabled,
+    balloonHoverEnabled,
+    setPinnedBitIndices,
+    setHoveredBitInfo,
+    lastHoveredIdxRef,
+    // trace-info popup
+    showTraceInfo,
+    setShowTraceInfo,
+    traceInfoPopoverRef,
+    traceInfoToggleRef,
+    // theme
+    theme,
+    // auto-render
+    autoRender,
+    steps,
+    exporting,
+    exportVideo,
+    // document title
+    effectiveTitle,
+    // scrub reset
+    currentStep,
+    setStepScrubProgress,
+    // bitAnimMode auto-pick
+    selectedSteps,
+    stepsRef,
+    setBitAnimationMode,
+  });
 
-  // Sliders for event timeline and animation speed. Rendered inside the
-  // step-focus-banner when it's visible; moved into the detail panel when the
-  // banner is hidden so the controls remain accessible.
-  // Two separate slider instances: one for the floating banner (progress on
-  // the far right) and one for the detail panel (progress inline to the right
-  // of the timeline slider, i.e. docked=true).
-  const stepAnimSlidersContent = (
-    <StepAnimSliders
-      currentStepData={currentStepData}
-      bitAnimationMode={bitAnimationMode}
-      setBitAnimationMode={setBitAnimationMode}
-      bitAnimationModeRef={bitAnimationModeRef}
-      stopSeqAnim={stopSeqAnim}
-      seekStepAnimation={seekStepAnimation}
-      stepScrubProgress={stepScrubProgress}
-      setStepScrubProgress={setStepScrubProgress}
-      handleStepAnimToggle={handleStepAnimToggle}
-      stepAnimRunning={stepAnimRunning}
-      singleEventLoopActive={singleEventLoopActive}
-      animationReplayPaused={animationReplayPaused}
-      delayPhaseMs={delayPhaseMs}
-      playing={playing}
-      exporting={exporting}
-      onOpenAnimationSettings={openAnimationSettings}
-      docked={false}
-    />
-  );
-  const stepAnimSlidersDockedContent = (
-    <StepAnimSliders
-      currentStepData={currentStepData}
-      bitAnimationMode={bitAnimationMode}
-      setBitAnimationMode={setBitAnimationMode}
-      bitAnimationModeRef={bitAnimationModeRef}
-      stopSeqAnim={stopSeqAnim}
-      seekStepAnimation={seekStepAnimation}
-      stepScrubProgress={stepScrubProgress}
-      setStepScrubProgress={setStepScrubProgress}
-      handleStepAnimToggle={handleStepAnimToggle}
-      stepAnimRunning={stepAnimRunning}
-      singleEventLoopActive={singleEventLoopActive}
-      animationReplayPaused={animationReplayPaused}
-      delayPhaseMs={delayPhaseMs}
-      playing={playing}
-      exporting={exporting}
-      onOpenAnimationSettings={openAnimationSettings}
-      onDragOutFromDock={({ x, y }) => {
-        setEventTitleSettings((prev) => ({ ...prev, visible: true }));
-        setPendingBannerDragStart({ x, y, token: Date.now() });
-      }}
-      docked={true}
-    />
-  );
-
-  const allEventsTransportContent = allEventsInDetailPanel ? (
-    <AllEventsTransport
-      currentStep={currentStep}
-      steps={steps}
-      playing={playing}
-      handlePlayPause={handlePlayPause}
-      goToStep={goToStep}
-      exporting={!!exporting}
-      isScrubbingTopRef={isScrubbingTopRef}
-      playSpeedPercent={playSpeedPercent}
-      setPlaySpeedPercent={setPlaySpeedPercent}
-      onDismiss={() => {
-        setAllEventsInDetailPanel(false);
-        setAllEventsWidgetHidden(false);
-      }}
-      onUndockByDrag={() => {
-        setAllEventsInDetailPanel(false);
-        setAllEventsWidgetHidden(false);
-      }}
-    />
-  ) : null;
+  const { stepAnimSlidersContent, stepAnimSlidersDockedContent, allEventsTransportContent } = useStepAnimContent({
+    currentStepData,
+    bitAnimationMode,
+    setBitAnimationMode,
+    bitAnimationModeRef,
+    stopSeqAnim,
+    seekStepAnimation,
+    stepScrubProgress,
+    setStepScrubProgress,
+    handleStepAnimToggle,
+    stepAnimRunning,
+    singleEventLoopActive,
+    animationReplayPaused,
+    delayPhaseMs,
+    playing,
+    exporting,
+    openAnimationSettings,
+    setEventTitleSettings,
+    setPendingBannerDragStart,
+    allEventsInDetailPanel,
+    currentStep,
+    steps,
+    handlePlayPause,
+    goToStep,
+    isScrubbingTopRef,
+    playSpeedPercent,
+    setPlaySpeedPercent,
+    setAllEventsInDetailPanel,
+    setAllEventsWidgetHidden,
+  });
 
   return (
     <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}`}>
