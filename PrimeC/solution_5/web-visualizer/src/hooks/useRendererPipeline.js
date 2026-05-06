@@ -147,7 +147,7 @@ export function useRendererPipeline({ ...flatArgs }) {
     r.minimapRightInset = isSettingsCollapsed ? 0 : (isMacPlatform ? 388 : 328);
     updateMinimapAvailability();
     if (isMinimapVisible) r.renderMinimap(r.canvasWidth, r.canvas?.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [isSettingsCollapsed, isMacPlatform, isMinimapVisible, getMinimapDetailH, updateMinimapAvailability, rendererRef, updateGlDebugInfo]);
+  }, [isSettingsCollapsed, isMacPlatform, isMinimapVisible, getMinimapDetailH, updateMinimapAvailability, rendererRef]);
 
   // Keep GL diagnostics live while resizing/moving the window.
   useWindowResize(() => updateGlDebugInfo(true), [updateGlDebugInfo]);
@@ -208,7 +208,6 @@ export function useRendererPipeline({ ...flatArgs }) {
     layoutHandlers: {
       updateMinimapAvailability,
       setZoom,
-      setAutoFitColumnCount,
       getMinimapDetailH,
     },
   });

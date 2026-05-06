@@ -239,7 +239,7 @@ All hooks maintain backward compatibility during Phase 3:
 ### Phase 4 (Hook Internals)
 - [x] Update sub-hook calls to use organized objects (`useRendererLayoutSync`, `useTriggerAnimation`)
 - [x] Simplify parameter passing chains in pipeline internals
-- [ ] Optimize temporal dependencies
+- [x] Optimize temporal dependencies (effect dependency cleanup in renderer/animation pipelines)
 
 ### Phase 5 (Component Tree)
 - [ ] Propagate organized patterns to EventsPanel

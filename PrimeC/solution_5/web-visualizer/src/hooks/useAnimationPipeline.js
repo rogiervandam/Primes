@@ -91,8 +91,6 @@ export function useAnimationPipeline({
     getAnimationBitInterval,
     estimateAnimDuration,
     fadeOutCurrentHighlights,
-    timeRatioAtBitIndexRef: _tRatioRef,
-    bitsAtTimeRatioRef: _bRatioRef,
   } = useAnimationTimingRuntime({
     bitAnimInterval,
     maskAnimInterval,

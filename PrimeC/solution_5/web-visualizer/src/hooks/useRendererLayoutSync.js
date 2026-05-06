@@ -43,7 +43,6 @@ export function useRendererLayoutSync({ ...flatArgs }) {
   const {
     updateMinimapAvailability,
     setZoom,
-    setAutoFitColumnCount,
     getMinimapDetailH,
   } = layoutHandlers;
 
@@ -254,7 +253,6 @@ export function useRendererLayoutSync({ ...flatArgs }) {
     stepsRef,
     currentStepRef,
     setZoom,
-    setAutoFitColumnCount,
     getMinimapDetailH,
   ]);
 }
