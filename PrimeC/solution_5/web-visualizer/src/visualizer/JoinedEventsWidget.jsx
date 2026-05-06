@@ -18,28 +18,27 @@ const MAX_ANNOTATION_LINES = 3;
  * Position is stored in `settings.dragOffsetX/Y` (the same slot used by
  * EventTitleBanner) so it persists across sessions.
  */
-export default function JoinedEventsWidget({
+export default function JoinedEventsWidget(props) {
+  const bannerState = props.bannerState || {};
+  const widgetHandlers = props.widgetHandlers || {};
+
   // Banner props (from single-event widget)
-  settings,
-  setSettings,
-  banner,
-  surrounding,
-  currentStepData,
-  revealCurrentStepInPanel,
-  sliders,
-  onPushToEventsPanel,
-  // Push to detail panel (all-events transport shown in detail panel)
-  onPushToDetailPanel,
-  // Split callback
-  onSplitWidgets,
-  // Hide the entire joined widget (split + hide both sub-widgets)
-  onHideWidget,
-  // DOMRect of the EventTitleBanner at the moment the widgets were joined.
-  // Used to anchor the joined widget's bottom-left to the same screen position.
-  initialBannerRect,
-  // Called when user navigates via transport buttons or scrubber — lets parent open the detail panel
-  onNavigate,
-}) {
+  const settings = bannerState.settings ?? props.settings;
+  const setSettings = bannerState.setSettings ?? props.setSettings;
+  const banner = bannerState.banner ?? props.banner;
+  const surrounding = bannerState.surrounding ?? props.surrounding;
+  const currentStepData = bannerState.currentStepData ?? props.currentStepData;
+  const revealCurrentStepInPanel = bannerState.revealCurrentStepInPanel ?? props.revealCurrentStepInPanel;
+  const sliders = bannerState.sliders ?? props.sliders;
+  const initialBannerRect = bannerState.initialBannerRect ?? props.initialBannerRect;
+
+  // Interaction handlers
+  const onPushToEventsPanel = widgetHandlers.onPushToEventsPanel ?? props.onPushToEventsPanel;
+  const onPushToDetailPanel = widgetHandlers.onPushToDetailPanel ?? props.onPushToDetailPanel;
+  const onSplitWidgets = widgetHandlers.onSplitWidgets ?? props.onSplitWidgets;
+  const onHideWidget = widgetHandlers.onHideWidget ?? props.onHideWidget;
+  const onNavigate = widgetHandlers.onNavigate ?? props.onNavigate;
+
   const {
     currentStep,
     steps,

@@ -82,6 +82,25 @@ Shown while a trace is streaming. Renders a "Loading log…" text, an event coun
 ### `StatusBanners.jsx`
 Renders two conditional alert banners adjacent to the toolbar: the export-error banner (`exportError` string) and the GL-unavailable banner (`isGlUnavailable` boolean). Both use `role="alert"` for accessibility. Extracted from inline JSX in `Visualizer.jsx`.
 
+### `CanvasStage.jsx`
+Canvas-center layout shell (canvas stack + overlays + detail panel). Uses grouped
+prop contracts:
+
+- `canvasRefs`, `canvasConfig`, `canvasStyles`
+- `overlay` (forwarded to `CanvasOverlayManager`)
+- `detail` (forwarded to `DetailPanel` grouped contracts)
+- `intro`
+
+Flat fallback support remains in place for migration safety.
+
+### `CanvasOverlayManager.jsx`
+Overlay coordinator extracted from `CanvasStage`. Receives grouped contracts:
+
+- `overlayState` (event-title/banner, balloons, inspector, timing data)
+- `overlayHandlers` (setters and callbacks)
+
+It still supports legacy flat props as a transition fallback.
+
 ### `ExportProgress.jsx`
 Slim progress bar shown beneath the toolbar while `MediaRecorder` is exporting a WebM. Just renders `width: ${progress}%`.
 
@@ -111,6 +130,13 @@ The banner is forced visible on every fresh session via `mergeEventTitleSettings
 
 ### `JoinedEventsWidget.jsx`
 Combined floating widget shown when `areWidgetsJoined = true` and the events panel is collapsed. Merges the all-events transport controls (play/pause, step navigation, timeline slider, speed) with the single-event content from `EventTitleBanner` (annotation heading, bits changed, nearby events, per-step sliders) into one draggable panel.
+
+Current contract uses grouped props:
+
+- `bannerState` (settings, banner data, nearby-events data, sliders, join anchor)
+- `widgetHandlers` (split/push/hide/navigate callbacks)
+
+Legacy flat props are still accepted as fallback compatibility.
 
 **Join trigger:** dragging either the all-events floater or the `EventTitleBanner` onto the other widget (within 40 px hit-padding) calls the `joinWidgets()` callback from `usePanelChoreography`, setting `areWidgetsJoined = true`. A `.merge-target` CSS ring highlights the target during drag.
 

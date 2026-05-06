@@ -238,19 +238,23 @@ export default function VisualizerMainContent(props) {
       />
       {areWidgetsJoined && isEventsPanelCollapsed && !isAllEventsWidgetHidden && eventTitleSettings.visible && isSingleEventWidgetRevealed && (
         <JoinedEventsWidget
-          settings={eventTitleSettings}
-          setSettings={setEventTitleSettings}
-          banner={currentStepBanner}
-          surrounding={surroundingEvents}
-          currentStepData={currentStepData}
-          revealCurrentStepInPanel={revealCurrentStepInPanel}
-          sliders={stepAnimSlidersContent}
-          onSplitWidgets={splitWidgets}
-          onPushToEventsPanel={pushJoinedWidgetToEventsPanel}
-          onPushToDetailPanel={pushJoinedWidgetToDetailPanel}
-          initialBannerRect={joinBannerRect}
-          onHideWidget={hideJoinedWidget}
-          onNavigate={() => { if (!isDetailOpenRef.current) setIsDetailOpen(true); }}
+          bannerState={{
+            settings: eventTitleSettings,
+            setSettings: setEventTitleSettings,
+            banner: currentStepBanner,
+            surrounding: surroundingEvents,
+            currentStepData,
+            revealCurrentStepInPanel,
+            sliders: stepAnimSlidersContent,
+            initialBannerRect: joinBannerRect,
+          }}
+          widgetHandlers={{
+            onSplitWidgets: splitWidgets,
+            onPushToEventsPanel: pushJoinedWidgetToEventsPanel,
+            onPushToDetailPanel: pushJoinedWidgetToDetailPanel,
+            onHideWidget: hideJoinedWidget,
+            onNavigate: () => { if (!isDetailOpenRef.current) setIsDetailOpen(true); },
+          }}
         />
       )}
       <SettingsPanel

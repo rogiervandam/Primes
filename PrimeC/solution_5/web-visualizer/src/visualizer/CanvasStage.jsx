@@ -60,50 +60,52 @@ function CanvasStage(props) {
     isSingleEventWidgetRevealed = props.isSingleEventWidgetRevealed !== undefined ? props.isSingleEventWidgetRevealed : true,
   } = intro;
 
-  // Extract overlay props (all passed to CanvasOverlayManager)
-  const overlayProps = {
-    eventTitleSettings: overlay.eventTitleSettings || props.eventTitleSettings,
-    setEventTitleSettings: overlay.setEventTitleSettings || props.setEventTitleSettings,
-    eventTitleStyle: overlay.eventTitleStyle || props.eventTitleStyle,
-    currentStepBanner: overlay.currentStepBanner || props.currentStepBanner,
-    surroundingEvents: overlay.surroundingEvents || props.surroundingEvents,
-    currentStepData: overlay.currentStepData || props.currentStepData,
-    currentStep: overlay.currentStep || props.currentStep,
-    goToStep: overlay.goToStep || props.goToStep,
-    revealCurrentStepInPanel: overlay.revealCurrentStepInPanel || props.revealCurrentStepInPanel,
-    isEventsPanelCollapsed: overlay.isEventsPanelCollapsed || props.isEventsPanelCollapsed,
-    setIsEventsPanelCollapsed: overlay.setIsEventsPanelCollapsed || props.setIsEventsPanelCollapsed,
-    stepAnimSlidersContent: overlay.stepAnimSlidersContent || props.stepAnimSlidersContent,
-    areWidgetsJoined: overlay.areWidgetsJoined || props.areWidgetsJoined,
-    onJoinWidgets: overlay.onJoinWidgets || props.onJoinWidgets,
-    pinnedBitIndices: overlay.pinnedBitIndices || props.pinnedBitIndices,
-    hoveredBitInfo: overlay.hoveredBitInfo || props.hoveredBitInfo,
-    computeBitInfo: overlay.computeBitInfo || props.computeBitInfo,
-    getVisibleBalloonStyles: overlay.getVisibleBalloonStyles || props.getVisibleBalloonStyles,
-    balloonLiveLayout: overlay.balloonLiveLayout || props.balloonLiveLayout,
-    cachelineSize: overlay.cachelineSize || props.cachelineSize,
-    setPinnedBitIndices: overlay.setPinnedBitIndices || props.setPinnedBitIndices,
-    handleStepSelection: overlay.handleStepSelection || props.handleStepSelection,
-    isDetailOpen: overlay.isDetailOpen || props.isDetailOpen,
-    detailHeight: overlay.detailHeight || props.detailHeight,
-    toggleDetailPanel: overlay.toggleDetailPanel || props.toggleDetailPanel,
-    pendingBannerDragStart: overlay.pendingBannerDragStart || props.pendingBannerDragStart,
-    onConsumePendingBannerDragStart: overlay.onConsumePendingBannerDragStart || props.onConsumePendingBannerDragStart,
-    isDetailInspectorOpen: overlay.isDetailInspectorOpen || props.isDetailInspectorOpen,
-    detailInspectorMode: overlay.detailInspectorMode || props.detailInspectorMode,
-    detailInspectorQuery: overlay.detailInspectorQuery || props.detailInspectorQuery,
-    setDetailInspectorQuery: overlay.setDetailInspectorQuery || props.setDetailInspectorQuery,
-    setIsDetailInspectorOpen: overlay.setIsDetailInspectorOpen || props.setIsDetailInspectorOpen,
-    detailInspectorRows: overlay.detailInspectorRows || props.detailInspectorRows,
-    filteredDetailInspectorRows: overlay.filteredDetailInspectorRows || props.filteredDetailInspectorRows,
-    isTimingPanelOpen: overlay.isTimingPanelOpen || props.isTimingPanelOpen,
-    setIsTimingPanelOpen: overlay.setIsTimingPanelOpen || props.setIsTimingPanelOpen,
-    steps: overlay.steps || props.steps,
-    benchmarkTimingData: overlay.benchmarkTimingData || props.benchmarkTimingData,
-    benchmarkTimingFileName: overlay.benchmarkTimingFileName || props.benchmarkTimingFileName,
-    setTimingFocusOp: overlay.setTimingFocusOp || props.setTimingFocusOp,
-    onImportBenchmarkTiming: overlay.onImportBenchmarkTiming || props.onImportBenchmarkTiming,
+  const overlayState = {
+    eventTitleSettings: overlay.eventTitleSettings ?? props.eventTitleSettings,
+    eventTitleStyle: overlay.eventTitleStyle ?? props.eventTitleStyle,
+    currentStepBanner: overlay.currentStepBanner ?? props.currentStepBanner,
+    surroundingEvents: overlay.surroundingEvents ?? props.surroundingEvents,
+    currentStepData: overlay.currentStepData ?? props.currentStepData,
+    currentStep: overlay.currentStep ?? props.currentStep,
+    isEventsPanelCollapsed: overlay.isEventsPanelCollapsed ?? props.isEventsPanelCollapsed,
+    stepAnimSlidersContent: overlay.stepAnimSlidersContent ?? props.stepAnimSlidersContent,
+    areWidgetsJoined: overlay.areWidgetsJoined ?? props.areWidgetsJoined,
+    pinnedBitIndices: overlay.pinnedBitIndices ?? props.pinnedBitIndices,
+    hoveredBitInfo: overlay.hoveredBitInfo ?? props.hoveredBitInfo,
+    balloonLiveLayout: overlay.balloonLiveLayout ?? props.balloonLiveLayout,
+    cachelineSize: overlay.cachelineSize ?? props.cachelineSize,
+    isDetailOpen: overlay.isDetailOpen ?? props.isDetailOpen,
+    detailHeight: overlay.detailHeight ?? props.detailHeight,
+    pendingBannerDragStart: overlay.pendingBannerDragStart ?? props.pendingBannerDragStart,
+    isDetailInspectorOpen: overlay.isDetailInspectorOpen ?? props.isDetailInspectorOpen,
+    detailInspectorMode: overlay.detailInspectorMode ?? props.detailInspectorMode,
+    detailInspectorQuery: overlay.detailInspectorQuery ?? props.detailInspectorQuery,
+    detailInspectorRows: overlay.detailInspectorRows ?? props.detailInspectorRows,
+    filteredDetailInspectorRows: overlay.filteredDetailInspectorRows ?? props.filteredDetailInspectorRows,
+    isTimingPanelOpen: overlay.isTimingPanelOpen ?? props.isTimingPanelOpen,
+    steps: overlay.steps ?? props.steps,
+    benchmarkTimingData: overlay.benchmarkTimingData ?? props.benchmarkTimingData,
+    benchmarkTimingFileName: overlay.benchmarkTimingFileName ?? props.benchmarkTimingFileName,
     isSingleEventWidgetRevealed,
+  };
+
+  const overlayHandlers = {
+    setEventTitleSettings: overlay.setEventTitleSettings ?? props.setEventTitleSettings,
+    goToStep: overlay.goToStep ?? props.goToStep,
+    revealCurrentStepInPanel: overlay.revealCurrentStepInPanel ?? props.revealCurrentStepInPanel,
+    setIsEventsPanelCollapsed: overlay.setIsEventsPanelCollapsed ?? props.setIsEventsPanelCollapsed,
+    onJoinWidgets: overlay.onJoinWidgets ?? props.onJoinWidgets,
+    computeBitInfo: overlay.computeBitInfo ?? props.computeBitInfo,
+    getVisibleBalloonStyles: overlay.getVisibleBalloonStyles ?? props.getVisibleBalloonStyles,
+    setPinnedBitIndices: overlay.setPinnedBitIndices ?? props.setPinnedBitIndices,
+    handleStepSelection: overlay.handleStepSelection ?? props.handleStepSelection,
+    toggleDetailPanel: overlay.toggleDetailPanel ?? props.toggleDetailPanel,
+    onConsumePendingBannerDragStart: overlay.onConsumePendingBannerDragStart ?? props.onConsumePendingBannerDragStart,
+    setDetailInspectorQuery: overlay.setDetailInspectorQuery ?? props.setDetailInspectorQuery,
+    setIsDetailInspectorOpen: overlay.setIsDetailInspectorOpen ?? props.setIsDetailInspectorOpen,
+    setIsTimingPanelOpen: overlay.setIsTimingPanelOpen ?? props.setIsTimingPanelOpen,
+    setTimingFocusOp: overlay.setTimingFocusOp ?? props.setTimingFocusOp,
+    onImportBenchmarkTiming: overlay.onImportBenchmarkTiming ?? props.onImportBenchmarkTiming,
   };
 
   // Extract detail props (all passed to DetailPanel)
@@ -135,7 +137,10 @@ function CanvasStage(props) {
   };
   return (
     <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
-      <CanvasOverlayManager {...overlayProps} />
+      <CanvasOverlayManager
+        overlayState={overlayState}
+        overlayHandlers={overlayHandlers}
+      />
 
       <div
         className={`canvas-container${mode3D ? ' mode-3d' : ''}`}

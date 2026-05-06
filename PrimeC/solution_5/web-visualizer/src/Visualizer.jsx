@@ -1487,6 +1487,13 @@ export default function Visualizer({
     balloonMode,
   };
 
+  // Local aliases from organized state domains to reduce flat-name noise.
+  const eventsPanelState = panelState.events;
+  const detailPanelState = panelState.detail;
+  const settingsPanelState = panelState.settings;
+  const widgetsPanelState = panelState.widgets;
+  const balloonsOverlayState = overlayState.balloons;
+
   // ============================================================================
   // PHASE 2: CONSOLIDATED PROPS FOR CHILD COMPONENTS
   // Groups 120+ scattered props into organized objects for VisualizerMainContent
@@ -1530,9 +1537,9 @@ export default function Visualizer({
     // Playback state & control
     playback: {
       steps,
-      currentStep,
+      currentStep: playbackState.currentStep,
       selectedSteps,
-      playing,
+      playing: playbackState.isPlaying,
       handlers: {
         selection: handleStepSelection,
         multiSelection: handleMultiStepSelect,
@@ -1556,9 +1563,9 @@ export default function Visualizer({
     // Panels & layout
     panels: {
       events: {
-        isCollapsed: isEventsPanelCollapsed,
-        width: panelWidth,
-        isAllEventsWidgetHidden,
+        isCollapsed: eventsPanelState.isCollapsed,
+        width: eventsPanelState.width,
+        isAllEventsWidgetHidden: widgetsPanelState.allEventsHidden,
         handlers: {
           toggle: toggleEventsPanel,
           setCollapsed: setIsEventsPanelCollapsed,
@@ -1566,10 +1573,10 @@ export default function Visualizer({
         },
       },
       detail: {
-        isOpen: isDetailOpen,
-        isOpenRef: isDetailOpenRef,
-        height: detailHeight,
-        width: detailWidth,
+        isOpen: detailPanelState.isOpen,
+        isOpenRef: detailPanelState.refs.isOpen,
+        height: detailPanelState.height,
+        width: detailPanelState.width,
         handlers: {
           toggle: toggleDetailPanel,
           setOpen: setIsDetailOpen,
@@ -1578,7 +1585,7 @@ export default function Visualizer({
         },
       },
       settings: {
-        tabRequest: settingsTabRequest,
+        tabRequest: settingsPanelState.tabRequest,
         handlers: {
           setActiveTab: setSettingsActiveTab,
           setLayoutSettings,
@@ -1608,11 +1615,11 @@ export default function Visualizer({
     // Widget management (events + detail integration)
     widgets: {
       state: {
-        areJoined: areWidgetsJoined,
-        isSingleEventRevealed: isSingleEventWidgetRevealed,
-        joinBannerRect,
-        pendingBannerDragStart,
-        revealStepRequest,
+        areJoined: widgetsPanelState.areJoined,
+        isSingleEventRevealed: widgetsPanelState.singleEventRevealed,
+        joinBannerRect: widgetsPanelState.joinBannerRect,
+        pendingBannerDragStart: widgetsPanelState.pendingBannerDragStart,
+        revealStepRequest: widgetsPanelState.revealStepRequest,
       },
       handlers: {
         expandEventsPanel: expandEventsPanelFromWidget,
@@ -1630,10 +1637,10 @@ export default function Visualizer({
     // Overlays (balloons, heat map, overlays)
     overlays: {
       balloons: {
-        pinnedIndices: pinnedBitIndices,
-        hoveredBitInfo,
-        liveLayout: balloonLiveLayout,
-        cachelineSize,
+        pinnedIndices: balloonsOverlayState.pinnedIndices,
+        hoveredBitInfo: balloonsOverlayState.hoveredBitInfo,
+        liveLayout: balloonsOverlayState.liveLayout,
+        cachelineSize: overlayState.cache.cachelineSize,
         handlers: {
           setPinnedIndices: setPinnedBitIndices,
           computeBitInfo,

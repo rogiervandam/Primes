@@ -149,6 +149,15 @@ High-level composition in `Visualizer.jsx`:
 
 `CanvasStage` delegates overlay-specific rendering to `CanvasOverlayManager`.
 
+Refactor status snapshot (2026-05-06):
+
+- Phase 2 contracts are grouped at primary boundaries (`VisualizerMainContent`,
+    `EventsPanel`, `DetailPanel`, `CanvasStage`).
+- Phase 5.3 secondary propagation includes grouped contracts for
+    `CanvasOverlayManager` and `JoinedEventsWidget`.
+- Flat fallback compatibility is intentionally retained at migrated boundaries
+    until the final cleanup pass (Phase 5.4).
+
 ## Provider hierarchy
 
 The top-level visualizer tree uses focused providers instead of a single global
