@@ -566,25 +566,31 @@ Use this as overflow for work that does not fit cleanly under one goal yet.
 ### REFACTOR Backlog
 
 Derived from `REFACTORING_PLAN.md` and `PHASE_3_HOOK_CONSOLIDATION.md`.
-This is the remaining refactor scope only (not product polish):
+This refactor scope is now complete as of 2026-05-06:
 
 - Done (2026-05-06): Phase 5.3 secondary boundary migration for
   `CanvasOverlayManager` and `JoinedEventsWidget` now uses grouped contracts
-  with flat fallback compatibility during transition.
-- Finish the original Phase 2 objective end-to-end: grouped prop contracts
-  should be the default across all major Visualizer child boundaries, not only
-  EventsPanel, DetailPanel, and CanvasStage.
-- Evaluate and execute optional Phase 5.4 cleanup: remove legacy flat-shape
-  fallback compatibility only after grouped contracts are stable and verified.
+  and no longer depends on scattered flat props.
+- Done (2026-05-06): Phase 2 objective completed end-to-end across the major
+  Visualizer child boundaries. Grouped contracts now cover `Toolbar`,
+  `VisualizerMainContent`, `EventsPanel`, `CanvasStage`, `DetailPanel`,
+  `SettingsPanel`, `DebugToolsPanel`, `CanvasOverlayManager`, and
+  `JoinedEventsWidget`.
+- Done (2026-05-06): optional Phase 5.4 cleanup executed. Legacy flat-shape
+  fallback compatibility has been removed from the migrated internal boundaries
+  now that all call sites are grouped and verified.
 - Done (2026-05-06): applied organized state aliases in `Visualizer.jsx`
   within the consolidated child-prop assembly path to reduce flat-name noise
   with no behavior changes.
-- Create a reusable hook-refactor template that standardizes
+- Done: reusable hook-refactor template added below to standardize
   config/state/refs/handlers grouping, fallback strategy, and verification steps
   for future high-parameter hooks.
-- Publish a short cumulative impact summary for the refactor phases (parameter
-  and prop-count reductions, risk notes, and migration status) and keep this doc,
-  `ARCHITECTURE.md`, and `COMPONENTS.md` aligned.
+- Done: cumulative refactor impact summary published below and aligned with
+  `ARCHITECTURE.md` and `COMPONENTS.md`.
+
+There are no remaining structural items from these two refactor plans.
+Future work should be tracked under the topical sections below rather than as
+continuations of Phase 2-5 migration.
 
 #### Hook Refactor Template
 
@@ -637,15 +643,14 @@ function useExamplePipeline(input) {
 
 - Phase 1 complete: organized semantic state domains added in `Visualizer.jsx`
   without behavior changes.
-- Phase 2 partially complete: grouped child contracts established in
-  `VisualizerMainContent`, `EventsPanel`, `DetailPanel`, and `CanvasStage`.
+- Phase 2 complete: grouped child contracts are now the default across the
+  major Visualizer component tree, including top-level and secondary boundaries.
 - Phase 3 complete: high-parameter hook call sites consolidated (`useAnimationPipeline`,
   `useRendererPipeline`, `usePlaybackLoop`, `usePanelChoreography`).
 - Phase 4 complete: internal sub-hook contracts and temporal dependency cleanup.
-- Phase 5 now progressed through 5.3 for key secondary boundaries:
-  `CanvasOverlayManager` and `JoinedEventsWidget` now follow grouped prop contracts.
-- Remaining risk-bearing step: optional Phase 5.4 fallback removal, which should
-  be done only after a full grouped-contract audit and smoke pass.
+- Phase 5 complete for the planned component-propagation scope, including
+  secondary boundaries (`CanvasOverlayManager`, `JoinedEventsWidget`) and the
+  fallback-removal cleanup pass.
 
 ### Product Polish
 

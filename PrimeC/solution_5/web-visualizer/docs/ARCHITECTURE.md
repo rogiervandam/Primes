@@ -151,12 +151,13 @@ High-level composition in `Visualizer.jsx`:
 
 Refactor status snapshot (2026-05-06):
 
-- Phase 2 contracts are grouped at primary boundaries (`VisualizerMainContent`,
-    `EventsPanel`, `DetailPanel`, `CanvasStage`).
-- Phase 5.3 secondary propagation includes grouped contracts for
-    `CanvasOverlayManager` and `JoinedEventsWidget`.
-- Flat fallback compatibility is intentionally retained at migrated boundaries
-    until the final cleanup pass (Phase 5.4).
+ Phase 2 contracts are grouped across the major Visualizer component tree,
+ including `Toolbar`, `VisualizerMainContent`, `EventsPanel`, `CanvasStage`,
+ `DetailPanel`, `SettingsPanel`, and `DebugToolsPanel`.
+ Phase 5 secondary propagation is complete for `CanvasOverlayManager` and
+ `JoinedEventsWidget`.
+ The temporary flat fallback compatibility used during migration has been
+ removed from the migrated internal boundaries after validation.
 
 ## Provider hierarchy
 

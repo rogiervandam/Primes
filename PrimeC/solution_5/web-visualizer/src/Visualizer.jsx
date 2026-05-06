@@ -1792,56 +1792,66 @@ export default function Visualizer({
     },
   };
 
+  const toolbarProps = {
+    platform: {
+      isMacPlatform,
+      isWindowsPlatform,
+      isElectron,
+    },
+    traceInfo: {
+      effectiveTitle,
+      isTraceInfoVisible,
+      setIsTraceInfoVisible,
+      traceInfoToggleRef,
+      traceInfoPopoverRef,
+      storageModel,
+      setStorageModel,
+      header,
+      traceInfoSections,
+      onFetchRawSource: fetchRawSource,
+      lineToStep,
+      onJumpToStep,
+      rawScrollToLine,
+      onClearRawScrollToLine,
+      currentStepSourceLine: stepToLine[currentStep],
+      onClose,
+    },
+    search: {
+      isSearchOpen,
+      setIsSearchOpen,
+      searchQuery,
+      setSearchQuery,
+      searchResult,
+      handleSearch,
+    },
+    view: {
+      zoom,
+      doZoom,
+      resetZoom,
+      isTiltActive,
+      isTiltButtonEnabled,
+      toggleTilt,
+    },
+    debug: {
+      isDebugToolsOpen,
+      setIsDebugToolsOpen,
+    },
+    exportState: {
+      exporting,
+      exportPng,
+      exportVideo,
+      cancelExport,
+      exportProgress,
+    },
+  };
+
   return (
     <ThemeProvider value={themeContextValue}>
     <PlaybackProvider value={playbackContextValue}>
     <AnimationConfigProvider value={animationConfigContextValue}>
     <PanelLayoutProvider value={panelLayoutContextValue}>
     <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}`}>
-      <Toolbar
-        isMacPlatform={isMacPlatform}
-        isWindowsPlatform={isWindowsPlatform}
-        isElectron={isElectron}
-        effectiveTitle={effectiveTitle}
-        isTraceInfoVisible={isTraceInfoVisible}
-        setIsTraceInfoVisible={setIsTraceInfoVisible}
-        traceInfoToggleRef={traceInfoToggleRef}
-        traceInfoPopoverRef={traceInfoPopoverRef}
-        storageModel={storageModel}
-        setStorageModel={setStorageModel}
-        header={header}
-        traceInfoSections={traceInfoSections}
-        onFetchRawSource={fetchRawSource}
-        lineToStep={lineToStep}
-        onJumpToStep={onJumpToStep}
-        rawScrollToLine={rawScrollToLine}
-        onClearRawScrollToLine={onClearRawScrollToLine}
-        currentStepSourceLine={stepToLine[currentStep]}
-        onClose={onClose}
-        isSearchOpen={isSearchOpen}
-        setIsSearchOpen={setIsSearchOpen}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        searchResult={searchResult}
-        handleSearch={handleSearch}
-        zoom={zoom}
-        doZoom={doZoom}
-        resetZoom={resetZoom}
-        isTiltActive={isTiltActive}
-        isTiltButtonEnabled={isTiltButtonEnabled}
-        toggleTilt={toggleTilt}
-        isHeatMapEnabled={isHeatMapEnabled}
-        setIsHeatMapEnabled={setIsHeatMapEnabled}
-        isPrimeOverlayEnabled={isPrimeOverlayEnabled}
-        setIsPrimeOverlayEnabled={setIsPrimeOverlayEnabled}
-        isDebugToolsOpen={isDebugToolsOpen}
-        setIsDebugToolsOpen={setIsDebugToolsOpen}
-        exporting={exporting}
-        exportPng={exportPng}
-        exportVideo={exportVideo}
-        cancelExport={cancelExport}
-        exportProgress={exportProgress}
-      />
+      <Toolbar {...toolbarProps} />
 
       {exporting && <ExportProgress progress={exportProgress} />}
       <StatusBanners exportError={exportError} isGlUnavailable={isGlUnavailable} />

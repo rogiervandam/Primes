@@ -166,27 +166,43 @@ function CollapsibleSection({ title, defaultOpen = true, palette, children }) {
 }
 
 export default function DebugToolsPanel({
-  rendererRef,
-  glCanvasRef = null,
-  glRendererRef = null,
-  camera3DRef = null,
-  camera3DTransform = 'none',
-  zoomLevel = 1,
-  glDebugInfo = null,
-  theme = 'dark',
-  debugLayerMode = 'normal',
-  setDebugLayerMode = null,
-  debugGlOffsetX = 0,
-  setDebugGlOffsetX = null,
-  debugGlOffsetY = 0,
-  setDebugGlOffsetY = null,
-  debugGlAutoOffsetY = 0,
-  isDebugCalibrationMode = false,
-  setIsDebugCalibrationMode = null,
-  onApplyDebugSnapshot = null,
-  onForceGlRedraw = null,
-  rightOffset = 8,
+  debugRefs = {},
+  debugState = {},
+  debugHandlers = {},
+  debugConfig = {},
 }) {
+  const {
+    rendererRef,
+    glCanvasRef = null,
+    glRendererRef = null,
+    camera3DRef = null,
+  } = debugRefs;
+
+  const {
+    camera3DTransform = 'none',
+    zoomLevel = 1,
+    glDebugInfo = null,
+    theme = 'dark',
+    debugLayerMode = 'normal',
+    debugGlOffsetX = 0,
+    debugGlOffsetY = 0,
+    debugGlAutoOffsetY = 0,
+    isDebugCalibrationMode = false,
+  } = debugState;
+
+  const {
+    setDebugLayerMode = null,
+    setDebugGlOffsetX = null,
+    setDebugGlOffsetY = null,
+    setIsDebugCalibrationMode = null,
+    onApplyDebugSnapshot = null,
+    onForceGlRedraw = null,
+  } = debugHandlers;
+
+  const {
+    rightOffset = 8,
+  } = debugConfig;
+
   const [snapshot, setSnapshot] = useState(() => readSnapshot(rendererRef));
   const [canvasCoords, setCanvasCoords] = useState(null);
   const [copyStatus, setCopyStatus] = useState('');

@@ -19,25 +19,25 @@ const MAX_ANNOTATION_LINES = 3;
  * EventTitleBanner) so it persists across sessions.
  */
 export default function JoinedEventsWidget(props) {
-  const bannerState = props.bannerState || {};
-  const widgetHandlers = props.widgetHandlers || {};
+  const bannerState = props.bannerState;
+  const widgetHandlers = props.widgetHandlers;
 
   // Banner props (from single-event widget)
-  const settings = bannerState.settings ?? props.settings;
-  const setSettings = bannerState.setSettings ?? props.setSettings;
-  const banner = bannerState.banner ?? props.banner;
-  const surrounding = bannerState.surrounding ?? props.surrounding;
-  const currentStepData = bannerState.currentStepData ?? props.currentStepData;
-  const revealCurrentStepInPanel = bannerState.revealCurrentStepInPanel ?? props.revealCurrentStepInPanel;
-  const sliders = bannerState.sliders ?? props.sliders;
-  const initialBannerRect = bannerState.initialBannerRect ?? props.initialBannerRect;
+  const settings = bannerState.settings;
+  const setSettings = bannerState.setSettings;
+  const banner = bannerState.banner;
+  const surrounding = bannerState.surrounding;
+  const currentStepData = bannerState.currentStepData;
+  const revealCurrentStepInPanel = bannerState.revealCurrentStepInPanel;
+  const sliders = bannerState.sliders;
+  const initialBannerRect = bannerState.initialBannerRect;
 
   // Interaction handlers
-  const onPushToEventsPanel = widgetHandlers.onPushToEventsPanel ?? props.onPushToEventsPanel;
-  const onPushToDetailPanel = widgetHandlers.onPushToDetailPanel ?? props.onPushToDetailPanel;
-  const onSplitWidgets = widgetHandlers.onSplitWidgets ?? props.onSplitWidgets;
-  const onHideWidget = widgetHandlers.onHideWidget ?? props.onHideWidget;
-  const onNavigate = widgetHandlers.onNavigate ?? props.onNavigate;
+  const onPushToEventsPanel = widgetHandlers.onPushToEventsPanel;
+  const onPushToDetailPanel = widgetHandlers.onPushToDetailPanel;
+  const onSplitWidgets = widgetHandlers.onSplitWidgets;
+  const onHideWidget = widgetHandlers.onHideWidget;
+  const onNavigate = widgetHandlers.onNavigate;
 
   const {
     currentStep,

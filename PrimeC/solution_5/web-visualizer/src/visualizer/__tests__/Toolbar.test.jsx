@@ -19,48 +19,56 @@ vi.mock('../ToolbarPanelToggles', () => ({
 
 function renderToolbar(overrides = {}) {
   const toolbarProps = {
-    isMacPlatform: true,
-    isWindowsPlatform: false,
-    isElectron: false,
-    effectiveTitle: 'trace.sievetrace',
-    isTraceInfoVisible: false,
-    setIsTraceInfoVisible: vi.fn(),
-    traceInfoToggleRef: createRef(),
-    traceInfoPopoverRef: createRef(),
-    storageModel: 'half',
-    setStorageModel: vi.fn(),
-    header: {},
-    traceInfoSections: [],
-    onFetchRawSource: vi.fn(async () => ''),
-    lineToStep: {},
-    onJumpToStep: vi.fn(),
-    rawScrollToLine: null,
-    onClearRawScrollToLine: vi.fn(),
-    currentStepSourceLine: null,
-    onClose: vi.fn(),
-    isSearchOpen: false,
-    setIsSearchOpen: vi.fn(),
-    searchQuery: '',
-    setSearchQuery: vi.fn(),
-    searchResult: '',
-    handleSearch: vi.fn(),
-    zoom: 1,
-    doZoom: vi.fn(),
-    resetZoom: vi.fn(),
-    isTiltActive: false,
-    isTiltButtonEnabled: true,
-    toggleTilt: vi.fn(),
-    isHeatMapEnabled: false,
-    setIsHeatMapEnabled: vi.fn(),
-    isPrimeOverlayEnabled: false,
-    setIsPrimeOverlayEnabled: vi.fn(),
-    isDebugToolsOpen: false,
-    setIsDebugToolsOpen: vi.fn(),
-    exporting: false,
-    exportPng: vi.fn(),
-    exportVideo: vi.fn(),
-    cancelExport: vi.fn(),
-    exportProgress: 42,
+    platform: {
+      isMacPlatform: true,
+      isWindowsPlatform: false,
+      isElectron: false,
+    },
+    traceInfo: {
+      effectiveTitle: 'trace.sievetrace',
+      isTraceInfoVisible: false,
+      setIsTraceInfoVisible: vi.fn(),
+      traceInfoToggleRef: createRef(),
+      traceInfoPopoverRef: createRef(),
+      storageModel: 'half',
+      setStorageModel: vi.fn(),
+      header: {},
+      traceInfoSections: [],
+      onFetchRawSource: vi.fn(async () => ''),
+      lineToStep: {},
+      onJumpToStep: vi.fn(),
+      rawScrollToLine: null,
+      onClearRawScrollToLine: vi.fn(),
+      currentStepSourceLine: null,
+      onClose: vi.fn(),
+    },
+    search: {
+      isSearchOpen: false,
+      setIsSearchOpen: vi.fn(),
+      searchQuery: '',
+      setSearchQuery: vi.fn(),
+      searchResult: '',
+      handleSearch: vi.fn(),
+    },
+    view: {
+      zoom: 1,
+      doZoom: vi.fn(),
+      resetZoom: vi.fn(),
+      isTiltActive: false,
+      isTiltButtonEnabled: true,
+      toggleTilt: vi.fn(),
+    },
+    debug: {
+      isDebugToolsOpen: false,
+      setIsDebugToolsOpen: vi.fn(),
+    },
+    exportState: {
+      exporting: false,
+      exportPng: vi.fn(),
+      exportVideo: vi.fn(),
+      cancelExport: vi.fn(),
+      exportProgress: 42,
+    },
     ...overrides,
   };
 
@@ -94,7 +102,7 @@ describe('Toolbar', () => {
   });
 
   it('renders the export cancel action when export is active', () => {
-    const rendered = renderToolbar({ exporting: true, exportProgress: 67 });
+    const rendered = renderToolbar({ exportState: { exporting: true, exportProgress: 67 } });
     expect(rendered).toContain('Cancel export');
     expect(rendered).toMatch(/67(?:<!-- -->)?%/);
   });

@@ -104,35 +104,29 @@ function buildDepthTree(steps) {
  * @param {object}   props.eventsState               - Event list state (steps, currentStep, selectedSteps, width, externalOpFilter, revealStepRequest, eventTitleVisible)
  * @param {object}   props.eventsHandlers            - Event handlers (onStepClick, onMultiStepSelect, onWidthChange, onExpandPanelFromWidget, onDockWidgetToTopBar, onDockWidgetToDetailPanel, onJoinWidgets, onUserScroll, onExternalOpFilterConsumed, onShowEventTitle)
  *
- * Flat fallback: if eventsState/eventsHandlers not provided, will accept flat props for backward compatibility.
  */
-export default function EventsPanel(props) {
-  // Phase 5: Destructure organized objects with flat fallback compatibility
-  const eventsState = props.eventsState || {};
-  const eventsHandlers = props.eventsHandlers || {};
-
-  // Extract from organized objects, with flat fallback
+export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
   const {
-    steps = props.steps,
-    currentStep = props.currentStep,
-    selectedSteps = props.selectedSteps,
-    width = props.width,
-    externalOpFilter = props.externalOpFilter || '',
-    revealStepRequest = props.revealStepRequest || 0,
-    eventTitleVisible = props.eventTitleVisible !== undefined ? props.eventTitleVisible : true,
+    steps,
+    currentStep,
+    selectedSteps,
+    width,
+    externalOpFilter = '',
+    revealStepRequest = 0,
+    eventTitleVisible = true,
   } = eventsState;
 
   const {
-    onStepClick = props.onStepClick,
-    onMultiStepSelect = props.onMultiStepSelect,
-    onWidthChange = props.onWidthChange,
-    onExpandPanelFromWidget = props.onExpandPanelFromWidget,
-    onDockWidgetToTopBar = props.onDockWidgetToTopBar,
-    onDockWidgetToDetailPanel = props.onDockWidgetToDetailPanel,
-    onJoinWidgets = props.onJoinWidgets,
-    onUserScroll = props.onUserScroll,
-    onExternalOpFilterConsumed = props.onExternalOpFilterConsumed,
-    onShowEventTitle = props.onShowEventTitle,
+    onStepClick,
+    onMultiStepSelect,
+    onWidthChange,
+    onExpandPanelFromWidget,
+    onDockWidgetToTopBar,
+    onDockWidgetToDetailPanel,
+    onJoinWidgets,
+    onUserScroll,
+    onExternalOpFilterConsumed,
+    onShowEventTitle,
   } = eventsHandlers;
   const {
     goToStep,

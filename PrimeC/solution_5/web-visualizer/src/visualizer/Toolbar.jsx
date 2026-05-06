@@ -21,57 +21,69 @@ import { usePanelLayoutContext } from '../contexts/PanelLayoutContext';
  * tools and settings buttons stay in the top bar.
  */
 export default function Toolbar({
-  // platform
-  isMacPlatform,
-  isWindowsPlatform,
-  isElectron,
-  // title / info popover
-  effectiveTitle,
-  isTraceInfoVisible,
-  setIsTraceInfoVisible,
-  traceInfoToggleRef,
-  traceInfoPopoverRef,
-  storageModel,
-  setStorageModel,
-  header,
-  traceInfoSections,
-  onFetchRawSource,
-  lineToStep,
-  onJumpToStep,
-  rawScrollToLine,
-  onClearRawScrollToLine,
-  currentStepSourceLine,
-  // close
-  onClose,
-  // search
-  isSearchOpen,
-  setIsSearchOpen,
-  searchQuery,
-  setSearchQuery,
-  searchResult,
-  handleSearch,
-  // zoom / view
-  zoom,
-  doZoom,
-  resetZoom,
-  isTiltActive,
-  isTiltButtonEnabled = true,
-  toggleTilt,
-  // overlays / panels
-  isHeatMapEnabled,
-  setIsHeatMapEnabled,
-  isPrimeOverlayEnabled,
-  setIsPrimeOverlayEnabled,
-  // debug tools
-  isDebugToolsOpen,
-  setIsDebugToolsOpen,
-  // export
-  exporting = false,
-  exportPng,
-  exportVideo,
-  cancelExport,
-  exportProgress,
+  platform = {},
+  traceInfo = {},
+  search = {},
+  view = {},
+  debug = {},
+  exportState = {},
 }) {
+  const {
+    isMacPlatform,
+    isWindowsPlatform,
+    isElectron,
+  } = platform;
+
+  const {
+    effectiveTitle,
+    isTraceInfoVisible,
+    setIsTraceInfoVisible,
+    traceInfoToggleRef,
+    traceInfoPopoverRef,
+    storageModel,
+    setStorageModel,
+    header,
+    traceInfoSections,
+    onFetchRawSource,
+    lineToStep,
+    onJumpToStep,
+    rawScrollToLine,
+    onClearRawScrollToLine,
+    currentStepSourceLine,
+    onClose,
+  } = traceInfo;
+
+  const {
+    isSearchOpen,
+    setIsSearchOpen,
+    searchQuery,
+    setSearchQuery,
+    searchResult,
+    handleSearch,
+  } = search;
+
+  const {
+    zoom,
+    doZoom,
+    resetZoom,
+    isTiltActive,
+    isTiltButtonEnabled = true,
+    toggleTilt,
+  } = view;
+
+  const {
+    isDebugToolsOpen,
+    setIsDebugToolsOpen,
+  } = debug;
+
+  const {
+    exporting = false,
+    exportPng,
+    exportVideo,
+    cancelExport,
+    exportProgress,
+  } = exportState;
+
   const { theme, setTheme } = useThemeContext();
   const {
     isSettingsCollapsed,

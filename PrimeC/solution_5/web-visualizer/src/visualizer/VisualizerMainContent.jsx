@@ -258,65 +258,79 @@ export default function VisualizerMainContent(props) {
         />
       )}
       <SettingsPanel
-        settings={layoutSettings}
-        onChange={setLayoutSettings}
-        autoFitColumns={autoFitColumnCount}
-        onActiveTabChange={setSettingsActiveTab}
-        cachelineSize={cachelineSize}
-        onCachelineSizeChange={setCachelineSize}
-        cachePreset={cachePreset}
-        onCachePresetChange={setCachePreset}
-        isHeatMapEnabled={isHeatMapEnabled}
-        onHeatMapToggle={setIsHeatMapEnabled}
-        cachelineAnnotation={cachelineAnnotation}
-        onCachelineAnnotationChange={setCachelineAnnotation}
-        isPrimeOverlayEnabled={isPrimeOverlayEnabled}
-        onPrimeOverlayToggle={setIsPrimeOverlayEnabled}
-        isRangeOverlayEnabled={isRangeOverlayEnabled}
-        rangeOverlayStart={rangeOverlayStart}
-        rangeOverlayEnd={rangeOverlayEnd}
-        onRangeOverlayToggle={onRangeOverlayToggle}
-        onRangeOverlayStartChange={setRangeOverlayStart}
-        onRangeOverlayEndChange={setRangeOverlayEnd}
-        isMultiplesOverlayEnabled={isMultiplesOverlayEnabled}
-        multiplesOverlayPrime={multiplesOverlayPrime}
-        onMultiplesOverlayToggle={onMultiplesOverlayToggle}
-        onMultiplesOverlayPrimeChange={setMultiplesOverlayPrime}
-        onRangeOverlayReset={onRangeOverlayReset}
-        onMultiplesOverlayReset={onMultiplesOverlayReset}
-        isMinimapVisible={isMinimapVisible}
-        onShowMinimapChange={setIsMinimapVisible}
-        minimapControlVisible={true}
-        eventTitleSettings={eventTitleSettings}
-        onEventTitleSettingsChange={setEventTitleSettings}
-        outlineSettings={layoutSettings.outlines}
-        onOutlineChange={(outlines) => setLayoutSettings((prev) => ({ ...prev, outlines }))}
-        isWindowsPlatform={isWindowsPlatform}
-        showAnimationControls={true}
-        activeTabRequest={settingsTabRequest}
+        settingsState={{
+          settings: layoutSettings,
+          autoFitColumns: autoFitColumnCount,
+          cachelineSize,
+          cachePreset,
+          isHeatMapEnabled,
+          cachelineAnnotation,
+          isPrimeOverlayEnabled,
+          isRangeOverlayEnabled,
+          rangeOverlayStart,
+          rangeOverlayEnd,
+          isMultiplesOverlayEnabled,
+          multiplesOverlayPrime,
+          isMinimapVisible,
+          eventTitleSettings,
+          outlineSettings: layoutSettings.outlines,
+          activeTabRequest: settingsTabRequest,
+        }}
+        settingsHandlers={{
+          onChange: setLayoutSettings,
+          onActiveTabChange: setSettingsActiveTab,
+          onCachelineSizeChange: setCachelineSize,
+          onCachePresetChange: setCachePreset,
+          onHeatMapToggle: setIsHeatMapEnabled,
+          onCachelineAnnotationChange: setCachelineAnnotation,
+          onPrimeOverlayToggle: setIsPrimeOverlayEnabled,
+          onRangeOverlayToggle,
+          onRangeOverlayStartChange: setRangeOverlayStart,
+          onRangeOverlayEndChange: setRangeOverlayEnd,
+          onMultiplesOverlayToggle: onMultiplesOverlayToggle,
+          onMultiplesOverlayPrimeChange: setMultiplesOverlayPrime,
+          onRangeOverlayReset,
+          onMultiplesOverlayReset,
+          onShowMinimapChange: setIsMinimapVisible,
+          onEventTitleSettingsChange: setEventTitleSettings,
+          onOutlineChange: (outlines) => setLayoutSettings((prev) => ({ ...prev, outlines })),
+        }}
+        settingsConfig={{
+          minimapControlVisible: true,
+          isWindowsPlatform,
+          showAnimationControls: true,
+        }}
       />
       {isDebugToolsOpen && (
         <DebugToolsPanel
-          rendererRef={rendererRef}
-          glCanvasRef={glCanvasRef}
-          glRendererRef={glRendererRef}
-          camera3DRef={camera3DRef}
-          camera3DTransform={camera3DTransform}
-          zoomLevel={zoom}
-          glDebugInfo={glDebugInfo}
-          theme={theme}
-          debugLayerMode={debugLayerMode}
-          setDebugLayerMode={setDebugLayerMode}
-          debugGlOffsetX={debugGlOffsetX}
-          setDebugGlOffsetX={setDebugGlOffsetX}
-          debugGlOffsetY={debugGlOffsetY}
-          setDebugGlOffsetY={setDebugGlOffsetY}
-          debugGlAutoOffsetY={debugGlAutoOffsetY}
-          isDebugCalibrationMode={isDebugCalibrationMode}
-          setIsDebugCalibrationMode={setIsDebugCalibrationMode}
-          onApplyDebugSnapshot={applyDebugSnapshot}
-          onForceGlRedraw={forceGlRedraw}
-          rightOffset={isSettingsCollapsed ? 8 : (isMacPlatform ? 388 : 328)}
+          debugRefs={{
+            rendererRef,
+            glCanvasRef,
+            glRendererRef,
+            camera3DRef,
+          }}
+          debugState={{
+            camera3DTransform,
+            zoomLevel: zoom,
+            glDebugInfo,
+            theme,
+            debugLayerMode,
+            debugGlOffsetX,
+            debugGlOffsetY,
+            debugGlAutoOffsetY,
+            isDebugCalibrationMode,
+          }}
+          debugHandlers={{
+            setDebugLayerMode,
+            setDebugGlOffsetX,
+            setDebugGlOffsetY,
+            setIsDebugCalibrationMode,
+            onApplyDebugSnapshot: applyDebugSnapshot,
+            onForceGlRedraw: forceGlRedraw,
+          }}
+          debugConfig={{
+            rightOffset: isSettingsCollapsed ? 8 : (isMacPlatform ? 388 : 328),
+          }}
         />
       )}
     </div>

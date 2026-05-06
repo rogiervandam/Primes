@@ -91,7 +91,7 @@ prop contracts:
 - `detail` (forwarded to `DetailPanel` grouped contracts)
 - `intro`
 
-Flat fallback support remains in place for migration safety.
+ This grouped contract is now the only supported path.
 
 ### `CanvasOverlayManager.jsx`
 Overlay coordinator extracted from `CanvasStage`. Receives grouped contracts:
@@ -99,7 +99,7 @@ Overlay coordinator extracted from `CanvasStage`. Receives grouped contracts:
 - `overlayState` (event-title/banner, balloons, inspector, timing data)
 - `overlayHandlers` (setters and callbacks)
 
-It still supports legacy flat props as a transition fallback.
+ Legacy flat props have been removed after the grouped migration completed.
 
 ### `ExportProgress.jsx`
 Slim progress bar shown beneath the toolbar while `MediaRecorder` is exporting a WebM. Just renders `width: ${progress}%`.
@@ -136,7 +136,7 @@ Current contract uses grouped props:
 - `bannerState` (settings, banner data, nearby-events data, sliders, join anchor)
 - `widgetHandlers` (split/push/hide/navigate callbacks)
 
-Legacy flat props are still accepted as fallback compatibility.
+ Legacy flat props have been removed after the grouped migration completed.
 
 **Join trigger:** dragging either the all-events floater or the `EventTitleBanner` onto the other widget (within 40 px hit-padding) calls the `joinWidgets()` callback from `usePanelChoreography`, setting `areWidgetsJoined = true`. A `.merge-target` CSS ring highlights the target during drag.
 

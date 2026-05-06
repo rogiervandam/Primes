@@ -81,29 +81,55 @@ import { usePanelLayoutContext } from './contexts/PanelLayoutContext';
  * @param {number}   [props.detailHeight]             - Detail panel height in px
  */
 export default function SettingsPanel({
-  settings, onChange,
-  autoFitColumns = 0,
-  cachelineSize, onCachelineSizeChange,
-  cachePreset, onCachePresetChange,
-  isHeatMapEnabled, onHeatMapToggle,
-  cachelineAnnotation = 'none', onCachelineAnnotationChange,
-  isPrimeOverlayEnabled, onPrimeOverlayToggle,
-  isRangeOverlayEnabled = false, rangeOverlayStart = 0, rangeOverlayEnd = 0,
-  onRangeOverlayToggle, onRangeOverlayStartChange, onRangeOverlayEndChange,
-  isMultiplesOverlayEnabled = false, multiplesOverlayPrime = 3,
-  onMultiplesOverlayToggle, onMultiplesOverlayPrimeChange,
-  onRangeOverlayReset,
-  onMultiplesOverlayReset,
-  isMinimapVisible, onShowMinimapChange,
-  minimapControlVisible = true,
-  eventTitleSettings,
-  onEventTitleSettingsChange,
-  outlineSettings, onOutlineChange,
-  isWindowsPlatform = false,
-  showAnimationControls = true,
-  activeTabRequest,
-  onActiveTabChange,
+  settingsState = {},
+  settingsHandlers = {},
+  settingsConfig = {},
 }) {
+  const {
+    settings,
+    autoFitColumns = 0,
+    cachelineSize,
+    cachePreset,
+    isHeatMapEnabled,
+    cachelineAnnotation = 'none',
+    isPrimeOverlayEnabled,
+    isRangeOverlayEnabled = false,
+    rangeOverlayStart = 0,
+    rangeOverlayEnd = 0,
+    isMultiplesOverlayEnabled = false,
+    multiplesOverlayPrime = 3,
+    isMinimapVisible,
+    eventTitleSettings,
+    outlineSettings,
+    activeTabRequest,
+  } = settingsState;
+
+  const {
+    onChange,
+    onCachelineSizeChange,
+    onCachePresetChange,
+    onHeatMapToggle,
+    onCachelineAnnotationChange,
+    onPrimeOverlayToggle,
+    onRangeOverlayToggle,
+    onRangeOverlayStartChange,
+    onRangeOverlayEndChange,
+    onMultiplesOverlayToggle,
+    onMultiplesOverlayPrimeChange,
+    onRangeOverlayReset,
+    onMultiplesOverlayReset,
+    onShowMinimapChange,
+    onEventTitleSettingsChange,
+    onOutlineChange,
+    onActiveTabChange,
+  } = settingsHandlers;
+
+  const {
+    minimapControlVisible = true,
+    isWindowsPlatform = false,
+    showAnimationControls = true,
+  } = settingsConfig;
+
   const {
     theme,
     setTheme,

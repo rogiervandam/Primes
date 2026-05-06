@@ -21,119 +21,118 @@ import DetailPanel from '../DetailPanel';
  * @param {object}   props.detail                  - DetailPanel props (all detail-related state/handlers)
  * @param {object}   props.intro                   - Intro animation state (introPhase, onIntroTransitionEnd, isSingleEventWidgetRevealed)
  *
- * Flat fallback: if organized objects not provided, will accept flat props for backward compatibility.
  */
-function CanvasStage(props) {
-  // Phase 5: Destructure organized objects with flat fallback compatibility
-  const canvasRefs = props.canvasRefs || {};
-  const canvasConfig = props.canvasConfig || {};
-  const canvasStyles = props.canvasStyles || {};
-  const overlay = props.overlay || {};
-  const detail = props.detail || {};
-  const intro = props.intro || {};
+function CanvasStage({
+  canvasRefs = {},
+  canvasConfig = {},
+  canvasStyles = {},
+  overlay = {},
+  detail = {},
+  intro = {},
+}) {
 
   // Extract canvas refs
   const {
-    containerRef = props.containerRef,
-    glCanvasRef = props.glCanvasRef,
-    glyphCanvasRef = props.glyphCanvasRef,
-    wrapperCanvasRef = props.wrapperCanvasRef,
+    containerRef,
+    glCanvasRef,
+    glyphCanvasRef,
+    wrapperCanvasRef,
   } = canvasRefs;
 
   // Extract canvas config
   const {
-    mode3D = props.mode3D,
-    glActive = props.glActive,
-    hideGlCanvas = props.hideGlCanvas !== undefined ? props.hideGlCanvas : false,
+    mode3D,
+    glActive,
+    hideGlCanvas = false,
   } = canvasConfig;
 
   // Extract canvas styles
   const {
-    camera3DContainerStyle = props.camera3DContainerStyle,
-    renderCanvasStyle = props.renderCanvasStyle,
+    camera3DContainerStyle,
+    renderCanvasStyle,
   } = canvasStyles;
 
   // Extract intro state
   const {
-    introPhase = props.introPhase || 'visible',
-    onIntroTransitionEnd = props.onIntroTransitionEnd,
-    isSingleEventWidgetRevealed = props.isSingleEventWidgetRevealed !== undefined ? props.isSingleEventWidgetRevealed : true,
+    introPhase = 'visible',
+    onIntroTransitionEnd,
+    isSingleEventWidgetRevealed = true,
   } = intro;
 
   const overlayState = {
-    eventTitleSettings: overlay.eventTitleSettings ?? props.eventTitleSettings,
-    eventTitleStyle: overlay.eventTitleStyle ?? props.eventTitleStyle,
-    currentStepBanner: overlay.currentStepBanner ?? props.currentStepBanner,
-    surroundingEvents: overlay.surroundingEvents ?? props.surroundingEvents,
-    currentStepData: overlay.currentStepData ?? props.currentStepData,
-    currentStep: overlay.currentStep ?? props.currentStep,
-    isEventsPanelCollapsed: overlay.isEventsPanelCollapsed ?? props.isEventsPanelCollapsed,
-    stepAnimSlidersContent: overlay.stepAnimSlidersContent ?? props.stepAnimSlidersContent,
-    areWidgetsJoined: overlay.areWidgetsJoined ?? props.areWidgetsJoined,
-    pinnedBitIndices: overlay.pinnedBitIndices ?? props.pinnedBitIndices,
-    hoveredBitInfo: overlay.hoveredBitInfo ?? props.hoveredBitInfo,
-    balloonLiveLayout: overlay.balloonLiveLayout ?? props.balloonLiveLayout,
-    cachelineSize: overlay.cachelineSize ?? props.cachelineSize,
-    isDetailOpen: overlay.isDetailOpen ?? props.isDetailOpen,
-    detailHeight: overlay.detailHeight ?? props.detailHeight,
-    pendingBannerDragStart: overlay.pendingBannerDragStart ?? props.pendingBannerDragStart,
-    isDetailInspectorOpen: overlay.isDetailInspectorOpen ?? props.isDetailInspectorOpen,
-    detailInspectorMode: overlay.detailInspectorMode ?? props.detailInspectorMode,
-    detailInspectorQuery: overlay.detailInspectorQuery ?? props.detailInspectorQuery,
-    detailInspectorRows: overlay.detailInspectorRows ?? props.detailInspectorRows,
-    filteredDetailInspectorRows: overlay.filteredDetailInspectorRows ?? props.filteredDetailInspectorRows,
-    isTimingPanelOpen: overlay.isTimingPanelOpen ?? props.isTimingPanelOpen,
-    steps: overlay.steps ?? props.steps,
-    benchmarkTimingData: overlay.benchmarkTimingData ?? props.benchmarkTimingData,
-    benchmarkTimingFileName: overlay.benchmarkTimingFileName ?? props.benchmarkTimingFileName,
+    eventTitleSettings: overlay.eventTitleSettings,
+    eventTitleStyle: overlay.eventTitleStyle,
+    currentStepBanner: overlay.currentStepBanner,
+    surroundingEvents: overlay.surroundingEvents,
+    currentStepData: overlay.currentStepData,
+    currentStep: overlay.currentStep,
+    isEventsPanelCollapsed: overlay.isEventsPanelCollapsed,
+    stepAnimSlidersContent: overlay.stepAnimSlidersContent,
+    areWidgetsJoined: overlay.areWidgetsJoined,
+    pinnedBitIndices: overlay.pinnedBitIndices,
+    hoveredBitInfo: overlay.hoveredBitInfo,
+    balloonLiveLayout: overlay.balloonLiveLayout,
+    cachelineSize: overlay.cachelineSize,
+    isDetailOpen: overlay.isDetailOpen,
+    detailHeight: overlay.detailHeight,
+    pendingBannerDragStart: overlay.pendingBannerDragStart,
+    isDetailInspectorOpen: overlay.isDetailInspectorOpen,
+    detailInspectorMode: overlay.detailInspectorMode,
+    detailInspectorQuery: overlay.detailInspectorQuery,
+    detailInspectorRows: overlay.detailInspectorRows,
+    filteredDetailInspectorRows: overlay.filteredDetailInspectorRows,
+    isTimingPanelOpen: overlay.isTimingPanelOpen,
+    steps: overlay.steps,
+    benchmarkTimingData: overlay.benchmarkTimingData,
+    benchmarkTimingFileName: overlay.benchmarkTimingFileName,
     isSingleEventWidgetRevealed,
   };
 
   const overlayHandlers = {
-    setEventTitleSettings: overlay.setEventTitleSettings ?? props.setEventTitleSettings,
-    goToStep: overlay.goToStep ?? props.goToStep,
-    revealCurrentStepInPanel: overlay.revealCurrentStepInPanel ?? props.revealCurrentStepInPanel,
-    setIsEventsPanelCollapsed: overlay.setIsEventsPanelCollapsed ?? props.setIsEventsPanelCollapsed,
-    onJoinWidgets: overlay.onJoinWidgets ?? props.onJoinWidgets,
-    computeBitInfo: overlay.computeBitInfo ?? props.computeBitInfo,
-    getVisibleBalloonStyles: overlay.getVisibleBalloonStyles ?? props.getVisibleBalloonStyles,
-    setPinnedBitIndices: overlay.setPinnedBitIndices ?? props.setPinnedBitIndices,
-    handleStepSelection: overlay.handleStepSelection ?? props.handleStepSelection,
-    toggleDetailPanel: overlay.toggleDetailPanel ?? props.toggleDetailPanel,
-    onConsumePendingBannerDragStart: overlay.onConsumePendingBannerDragStart ?? props.onConsumePendingBannerDragStart,
-    setDetailInspectorQuery: overlay.setDetailInspectorQuery ?? props.setDetailInspectorQuery,
-    setIsDetailInspectorOpen: overlay.setIsDetailInspectorOpen ?? props.setIsDetailInspectorOpen,
-    setIsTimingPanelOpen: overlay.setIsTimingPanelOpen ?? props.setIsTimingPanelOpen,
-    setTimingFocusOp: overlay.setTimingFocusOp ?? props.setTimingFocusOp,
-    onImportBenchmarkTiming: overlay.onImportBenchmarkTiming ?? props.onImportBenchmarkTiming,
+    setEventTitleSettings: overlay.setEventTitleSettings,
+    goToStep: overlay.goToStep,
+    revealCurrentStepInPanel: overlay.revealCurrentStepInPanel,
+    setIsEventsPanelCollapsed: overlay.setIsEventsPanelCollapsed,
+    onJoinWidgets: overlay.onJoinWidgets,
+    computeBitInfo: overlay.computeBitInfo,
+    getVisibleBalloonStyles: overlay.getVisibleBalloonStyles,
+    setPinnedBitIndices: overlay.setPinnedBitIndices,
+    handleStepSelection: overlay.handleStepSelection,
+    toggleDetailPanel: overlay.toggleDetailPanel,
+    onConsumePendingBannerDragStart: overlay.onConsumePendingBannerDragStart,
+    setDetailInspectorQuery: overlay.setDetailInspectorQuery,
+    setIsDetailInspectorOpen: overlay.setIsDetailInspectorOpen,
+    setIsTimingPanelOpen: overlay.setIsTimingPanelOpen,
+    setTimingFocusOp: overlay.setTimingFocusOp,
+    onImportBenchmarkTiming: overlay.onImportBenchmarkTiming,
   };
 
   // Extract detail props (all passed to DetailPanel)
   const detailProps = {
-    step: detail.step !== undefined ? detail.step : (isSingleEventWidgetRevealed ? (props.currentStepData || null) : null),
-    stepIndex: detail.stepIndex || props.currentStep,
-    open: detail.open || props.isDetailOpen,
-    onToggle: detail.onToggle || props.toggleDetailPanel,
-    height: detail.height || props.detailHeight,
-    onHeightChange: detail.onHeightChange || props.updateDetailHeight,
-    width: detail.width || props.detailWidth,
-    onWidthChange: detail.onWidthChange || props.setDetailWidth,
-    playing: detail.playing || props.playing,
-    stepStats: detail.stepStats || (props.selectedSteps && props.selectedSteps.size > 1 ? null : props.stepStats),
-    storageModel: detail.storageModel || props.storageModel,
-    wheelDefinition: detail.wheelDefinition || props.wheelDefinition,
-    bitLayout: detail.bitLayout || (props.layoutSettings && props.layoutSettings.bitLayout) || '4x2',
-    byteLayout: detail.byteLayout || (props.layoutSettings && props.layoutSettings.byteLayout) || '4x2',
-    benchmarkTimingData: detail.benchmarkTimingData || props.benchmarkTimingData,
-    onInspectChangedBits: detail.onInspectChangedBits || (() => (props.openDetailInspector ? props.openDetailInspector('bits') : undefined)),
-    onInspectMarkedNumbers: detail.onInspectMarkedNumbers || (() => (props.openDetailInspector ? props.openDetailInspector('numbers') : undefined)),
-    eventTitleVisible: detail.eventTitleVisible || (props.eventTitleSettings && props.eventTitleSettings.visible && !(props.areWidgetsJoined)),
-    onShowEventTitle: detail.onShowEventTitle || props.onShowEventTitle,
-    eventAnimSliders: detail.eventAnimSliders || (props.stepAnimSlidersDockedContent || props.stepAnimSlidersContent),
-    onOpenRawLog: detail.onOpenRawLog || props.onOpenRawLog,
-    sourceLineNumber: detail.sourceLineNumber || props.currentStepSourceLine,
-    hasRawSource: detail.hasRawSource !== undefined ? detail.hasRawSource : (props.hasRawSource !== undefined ? props.hasRawSource : false),
-    allEventsTransport: detail.allEventsTransport || props.allEventsTransport,
+    step: detail.step,
+    stepIndex: detail.stepIndex,
+    open: detail.open,
+    onToggle: detail.onToggle,
+    height: detail.height,
+    onHeightChange: detail.onHeightChange,
+    width: detail.width,
+    onWidthChange: detail.onWidthChange,
+    playing: detail.playing,
+    stepStats: detail.stepStats,
+    storageModel: detail.storageModel,
+    wheelDefinition: detail.wheelDefinition,
+    bitLayout: detail.bitLayout,
+    byteLayout: detail.byteLayout,
+    benchmarkTimingData: detail.benchmarkTimingData,
+    onInspectChangedBits: detail.onInspectChangedBits,
+    onInspectMarkedNumbers: detail.onInspectMarkedNumbers,
+    eventTitleVisible: detail.eventTitleVisible,
+    onShowEventTitle: detail.onShowEventTitle,
+    eventAnimSliders: detail.eventAnimSliders,
+    onOpenRawLog: detail.onOpenRawLog,
+    sourceLineNumber: detail.sourceLineNumber,
+    hasRawSource: detail.hasRawSource,
+    allEventsTransport: detail.allEventsTransport,
   };
   return (
     <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
