@@ -16,54 +16,68 @@ import { useTriggerAnimation } from './useTriggerAnimation';
  * Returns nothing — `triggerAnimationRef.current` is kept in sync internally.
  */
 export function useAnimationPipeline({
-  // usePausableDelay
-  globalPausedRef,
-  seqTimerRef,
-  // useRunEffect
-  rendererRef,
-  runEffectCancelRef,
-  rippleRef,
-  seekGenRef,
-  getMinimapDetailH,
-  // useAnimationTimingRuntime
-  bitAnimInterval,
-  maskAnimInterval,
-  currentAnimIntervalRef,
-  currentMaskAnimIntervalRef,
-  eventTimeTargetsRef,
-  eventDurationModeRef,
-  playSpeedPercentRef,
-  computeEventDurationRef,
-  bitsAtTimeRatioRef,
-  timeRatioAtBitIndexRef,
-  animMode,
-  animStyle,
-  // useMaskStampAnimation
-  stepScrubProgressRef,
-  // useTriggerAnimation
-  bitAnimationModeRef,
-  pinnedBitIndices,
-  effectiveGroupBits,
-  animBusyUntilRef,
-  currentStep,
-  bitStateRef,
-  stepsRef,
-  bitStateDirtyRef,
-  setDelayPhaseMsRef,
-  setIsStepAnimRunningRef,
-  stopSeqAnimRef,
-  // triggerAnimationRef sync + animMode/animStyle replay effect
-  triggerAnimationRef,
-  isSingleEventLoopActiveRef,
-  selectedAnimLoopRef,
-  stepScrubProgressValueRef,
-  stepResumeStartIndexRef,
-  stepResumeMaskProgressRef,
-  currentStepRef,
-  initialHighlightHoldRef,
-  steps,
-  playing,
+  ...flatArgs
 }) {
+  const animRefs = flatArgs.animRefs || flatArgs;
+  const animConfig = flatArgs.animConfig || flatArgs;
+  const animState = flatArgs.animState || flatArgs;
+  const animHandlers = flatArgs.animHandlers || flatArgs;
+
+  const {
+    globalPausedRef,
+    seqTimerRef,
+    rendererRef,
+    runEffectCancelRef,
+    rippleRef,
+    seekGenRef,
+    getMinimapDetailH,
+    currentAnimIntervalRef,
+    currentMaskAnimIntervalRef,
+    eventTimeTargetsRef,
+    eventDurationModeRef,
+    playSpeedPercentRef,
+    computeEventDurationRef,
+    bitsAtTimeRatioRef,
+    timeRatioAtBitIndexRef,
+    stepScrubProgressRef,
+    bitAnimationModeRef,
+    animBusyUntilRef,
+    bitStateRef,
+    stepsRef,
+    bitStateDirtyRef,
+    setDelayPhaseMsRef,
+    setIsStepAnimRunningRef,
+    stopSeqAnimRef,
+    triggerAnimationRef,
+    isSingleEventLoopActiveRef,
+    selectedAnimLoopRef,
+    stepScrubProgressValueRef,
+    stepResumeStartIndexRef,
+    stepResumeMaskProgressRef,
+    currentStepRef,
+    initialHighlightHoldRef,
+  } = animRefs;
+
+  const {
+    bitAnimInterval,
+    maskAnimInterval,
+    animMode,
+    animStyle,
+    pinnedBitIndices,
+    effectiveGroupBits,
+  } = animConfig;
+
+  const {
+    currentStep,
+    steps,
+    playing,
+  } = animState;
+
+  const {
+    // currently no function handlers are isolated from refs,
+    // but we keep this object as part of the phase 3.1 shape.
+  } = animHandlers;
+
   const { waitForDelay } = usePausableDelay({ globalPausedRef, seqTimerRef });
 
   const { runEffect } = useRunEffect({

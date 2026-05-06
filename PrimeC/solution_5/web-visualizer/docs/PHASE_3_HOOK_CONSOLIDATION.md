@@ -5,8 +5,8 @@
 Phase 3 consolidates hook signatures by grouping related parameters into semantic objects, reducing parameter count and improving dependency clarity.
 
 **Status:** In Progress
-**Completed:** usePanelChoreography (Proof of Concept)  
-**Remaining:** useAnimationPipeline, useRendererPipeline, and secondary hooks
+**Completed:** usePanelChoreography (Proof of Concept), useAnimationPipeline (Phase 3.1)
+**Remaining:** useRendererPipeline and secondary hooks
 
 ## Completed Refactoring
 
@@ -92,9 +92,9 @@ For each high-parameter hook, organize parameters into:
 3. **`*Refs`** – Mutable references (useRef objects)
 4. **`*Handlers`** – Callbacks and state setters
 
-### useAnimationPipeline (Target for Next Phase 3.1)
+### useAnimationPipeline (Completed in Phase 3.1)
 
-**Current Parameters (~80+):**
+**Previous Parameters (~80+):**
 - Animation mode/style settings
 - Timing/interval refs
 - State references
@@ -154,11 +154,20 @@ useRendererPipeline({
 })
 ```
 
+**Implemented Grouping:**
+- `animRefs`: runtime refs, mutable state refs, bridge refs
+- `animConfig`: style/mode/timing config and pin/group options
+- `animState`: render-time state (`currentStep`, `steps`, `playing`)
+- `animHandlers`: reserved for extracted callbacks (kept for pattern consistency)
+
+**Backward compatibility:**
+- Hook supports both grouped and legacy-flat call signatures during migration.
+
 ## Testing & Validation
 
 **Current Status:**
-- ✅ 339 tests passing
-- ✅ Production build: 460.74 KB gzip (Visualizer bundle)
+- ✅ 341 tests passing
+- ✅ Production build: 461.02 KB gzip (Visualizer bundle)
 - ✅ No console errors/warnings
 - ✅ Runtime error detection active
 
@@ -183,12 +192,12 @@ All hooks maintain backward compatibility during Phase 3:
 - [x] Verify all tests pass
 - [x] Verify build succeeds
 
-### Phase 3.1 (Next)
-- [ ] Analyze `useAnimationPipeline` parameters (80+ count)
-- [ ] Create organized input objects (config, state, refs, handlers)
-- [ ] Refactor hook signature
-- [ ] Update Visualizer.jsx call site
-- [ ] Verify tests and build
+### Phase 3.1 (Completed)
+- [x] Analyze `useAnimationPipeline` parameters (80+ count)
+- [x] Create organized input objects (`animRefs`, `animConfig`, `animState`, `animHandlers`)
+- [x] Refactor hook signature
+- [x] Update `Visualizer.jsx` call site
+- [x] Verify tests and build
 
 ### Phase 3.2 (Following)
 - [ ] Analyze `useRendererPipeline` parameters (60+ count)
@@ -233,7 +242,7 @@ All hooks maintain backward compatibility during Phase 3:
 
 ## Next Actions
 
-1. Run `npm test` and `npm run build` to confirm Phase 3.0 is stable
-2. Analyze `useAnimationPipeline.js` to identify parameter groupings
-3. Apply consolidation pattern to `useAnimationPipeline` (Phase 3.1)
-4. Document lessons learned in AI_MAINTENANCE.md
+1. Apply the same grouping pattern to `useRendererPipeline` (Phase 3.2)
+2. Verify `npm test` and `npm run build` after Phase 3.2
+3. Continue with `usePlaybackLoop` and secondary hooks (Phase 3.3)
+4. Document lessons learned in `AI_MAINTENANCE.md`
