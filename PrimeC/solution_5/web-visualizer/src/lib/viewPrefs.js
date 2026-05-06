@@ -68,6 +68,11 @@ export const DEFAULT_EVENT_TITLE_SETTINGS = {
   contextCollapsed: false,
 };
 
+export const DEFAULT_DEPTH_SETTINGS = {
+  strength: 50,
+  angle: 35,
+};
+
 /**
  * Default canvas background colors per theme.
  * Null means "use the renderer's theme default" (THEMES[theme].BACKGROUND).
@@ -164,6 +169,29 @@ export function mergeEventTitleSettings(saved) {
     dragOffsetX,
     dragOffsetY,
     contextCollapsed: saved.contextCollapsed === true,
+  };
+}
+
+/** Merge saved depth settings into defaults, clamping numeric ranges. */
+export function mergeDepthSettings(saved) {
+  if (!saved || typeof saved !== 'object') return DEFAULT_DEPTH_SETTINGS;
+
+  const strengthRaw = saved.strength == null ? NaN : Number(saved.strength);
+  const angleRaw = saved.angle == null ? NaN : Number(saved.angle);
+
+  const strength = Number.isFinite(strengthRaw)
+    ? Math.max(0, Math.min(100, strengthRaw))
+    : DEFAULT_DEPTH_SETTINGS.strength;
+
+  const angle = Number.isFinite(angleRaw)
+    ? Math.max(0, Math.min(90, angleRaw))
+    : DEFAULT_DEPTH_SETTINGS.angle;
+
+  return {
+    ...DEFAULT_DEPTH_SETTINGS,
+    ...saved,
+    strength,
+    angle,
   };
 }
 

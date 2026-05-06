@@ -16,49 +16,74 @@ import DetailInspectorOverlay from './visualizer/DetailInspectorOverlay';
 import BitHistoryBalloons from './visualizer/BitHistoryBalloons';
 import KeyboardShortcutsOverlay from './visualizer/KeyboardShortcutsOverlay';
 import DebugToolsPanel from './visualizer/DebugToolsPanel';
-import { useTraceExport } from './hooks/useTraceExport';
-import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import { use3DCamera } from './hooks/use3DCamera';
-import { usePlaybackClock } from './hooks/usePlaybackClock';
-import { usePlaybackLoop } from './hooks/usePlaybackLoop';
-import { useSearchState } from './hooks/useSearchState';
-import { usePanelChoreography } from './hooks/usePanelChoreography';
-import { useRawSource } from './hooks/useRawSource';
-import { useCanvasRefs } from './hooks/useCanvasRefs';
-import { useDebugTools } from './hooks/useDebugTools';
-import { useThemeAndColors } from './hooks/useThemeAndColors';
-import { useAnimationConfig } from './hooks/useAnimationConfig';
-import { useStepAnimation } from './hooks/useStepAnimation';
-import { useOverlays } from './hooks/useOverlays';
-import { useIntroSequence } from './hooks/useIntroSequence';
-import { usePanelState } from './hooks/usePanelState';
-import { useWidgetState } from './hooks/useWidgetState';
-import { useBalloonLayout } from './hooks/useBalloonLayout';
-import { useBitState } from './hooks/useBitState';
+import { useTraceExport, useRawSource, useSearchState, useStepDisplayData } from './hooks/data';
+import {
+  useKeyboardShortcuts,
+  usePointerGestures,
+  useBalloonLayout,
+  useStepSelectionHandlers,
+  useSelectionOrchestration,
+} from './hooks/interactions';
+import {
+  use3DCamera,
+  useTiltControls,
+  useTiltState,
+  useCameraStartupRefit,
+  useViewportNavigation,
+  useViewportAnchoring,
+  useZoomControls,
+} from './hooks/camera_3d';
+import {
+  usePlaybackClock,
+  usePlaybackLoop,
+  usePlaybackControls,
+  useStopPlayback,
+  useGoToStep,
+} from './hooks/playback';
+import {
+  useAnimationConfig,
+  useStepAnimation,
+  useAnimationPipeline,
+  useSeekStepAnimation,
+  useStepAnimContent,
+} from './hooks/animation';
+import {
+  useOverlays,
+  useBalloonGeometry,
+  useDetailInspectorRows,
+  useDetailInspectorActions,
+  useSelectionOverlay,
+} from './hooks/overlays';
+import {
+  usePanelState,
+  useWidgetState,
+  useBitState,
+  useIntroSequence,
+  useThemeAndColors,
+  usePanelChoreography,
+} from './hooks/ui_state';
+import {
+  useCanvasRefs,
+  useCanvasLayout,
+  useCanvasAnchorSync,
+  useCanvasStyles,
+  useRendererPipeline,
+  useMinimapAvailability,
+  useMinimapDetailHeight,
+} from './hooks/rendering';
+import {
+  useDebugTools,
+  useDetailPanelStateSync,
+  useRawLogNavigation,
+  useViewportFit,
+  useLayoutRefreshScheduler,
+  useCaptureResizeAnchor,
+  useViewportAnimationCancel,
+  useBitStateCheckpoints,
+  useViewPrefsSync,
+  useVisualizerEffects,
+} from './hooks/utils';
 import { useBitInfo } from './hooks/useBitInfo';
-import { useSelectionOverlay } from './hooks/useSelectionOverlay';
-import { useStepSelectionHandlers } from './hooks/useStepSelectionHandlers';
-import { usePlaybackControls } from './hooks/usePlaybackControls';
-import { useZoomControls } from './hooks/useZoomControls';
-import { useTiltControls } from './hooks/useTiltControls';
-import { useDetailInspectorActions } from './hooks/useDetailInspectorActions';
-import { useDetailPanelStateSync } from './hooks/useDetailPanelStateSync';
-import { useRawLogNavigation } from './hooks/useRawLogNavigation';
-import { useViewportFit } from './hooks/useViewportFit';
-import { useLayoutRefreshScheduler } from './hooks/useLayoutRefreshScheduler';
-import { useMinimapDetailHeight } from './hooks/useMinimapDetailHeight';
-import { useMinimapAvailability } from './hooks/useMinimapAvailability';
-import { useCaptureResizeAnchor } from './hooks/useCaptureResizeAnchor';
-import { useStopPlayback } from './hooks/useStopPlayback';
-import { useViewportAnimationCancel } from './hooks/useViewportAnimationCancel';
-import { useGoToStep } from './hooks/useGoToStep';
-import { useCameraStartupRefit } from './hooks/useCameraStartupRefit';
-import { useBitStateCheckpoints } from './hooks/useBitStateCheckpoints';
-import { useSelectionOrchestration } from './hooks/useSelectionOrchestration';
-import { useBalloonGeometry } from './hooks/useBalloonGeometry';
-import { useSeekStepAnimation } from './hooks/useSeekStepAnimation';
-import { useViewportNavigation } from './hooks/useViewportNavigation';
-import { useViewportAnchoring } from './hooks/useViewportAnchoring';
 import StatusBanners from './visualizer/StatusBanners';
 import {
   DEFAULT_EVENT_TITLE_SETTINGS,
@@ -66,18 +91,6 @@ import {
 } from './lib/viewPrefs';
 import { buildTraceInfoSections } from './lib/traceHeader';
 import { detectIsMac, detectIsWindows, detectIsElectron } from './lib/platform';
-import { useCanvasLayout } from './hooks/useCanvasLayout';
-import { usePointerGestures } from './hooks/usePointerGestures';
-import { useCanvasAnchorSync } from './hooks/useCanvasAnchorSync';
-import { useViewPrefsSync } from './hooks/useViewPrefsSync';
-import { useStepDisplayData } from './hooks/useStepDisplayData';
-import { useCanvasStyles } from './hooks/useCanvasStyles';
-import { useDetailInspectorRows } from './hooks/useDetailInspectorRows';
-import { useRendererPipeline } from './hooks/useRendererPipeline';
-import { useAnimationPipeline } from './hooks/useAnimationPipeline';
-import { useTiltState } from './hooks/useTiltState';
-import { useVisualizerEffects } from './hooks/useVisualizerEffects';
-import { useStepAnimContent } from './hooks/useStepAnimContent';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { PlaybackProvider } from './contexts/PlaybackContext';
 import { AnimationConfigProvider } from './contexts/AnimationConfigContext';
