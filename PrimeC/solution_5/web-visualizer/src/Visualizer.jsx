@@ -78,6 +78,7 @@ import { useAnimationPipeline } from './hooks/useAnimationPipeline';
 import { useTiltState } from './hooks/useTiltState';
 import { useVisualizerEffects } from './hooks/useVisualizerEffects';
 import { useStepAnimContent } from './hooks/useStepAnimContent';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 /**
  * Top-level visualizer component. Owns all playback, rendering, and UI state.
@@ -932,6 +933,30 @@ export default function Visualizer({
     eventTitleSettings,
   });
 
+  const themeContextValue = useMemo(() => ({
+    theme,
+    setTheme,
+    gridOpacity,
+    setGridOpacity,
+    canvasColors,
+    setCanvasColors,
+    colorPreset,
+    setColorPreset,
+    customColors,
+    setCustomColors,
+  }), [
+    theme,
+    setTheme,
+    gridOpacity,
+    setGridOpacity,
+    canvasColors,
+    setCanvasColors,
+    colorPreset,
+    setColorPreset,
+    customColors,
+    setCustomColors,
+  ]);
+
   const { detailInspectorRows, filteredDetailInspectorRows } = useDetailInspectorRows({
     currentStepData,
     layoutSettings,
@@ -1024,6 +1049,7 @@ export default function Visualizer({
   });
 
   return (
+    <ThemeProvider value={themeContextValue}>
     <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}`}>
       <Toolbar
         isMacPlatform={isMacPlatform}
@@ -1077,8 +1103,6 @@ export default function Visualizer({
         exportVideo={exportVideo}
         cancelExport={cancelExport}
         exportProgress={exportProgress}
-        theme={theme}
-        setTheme={setTheme}
         areControlsHidden={areControlsHidden}
         isAllEventsWidgetHidden={isAllEventsWidgetHidden}
         showAllEventsWidget={showAllEventsWidget}
@@ -1259,12 +1283,6 @@ export default function Visualizer({
           onAnimationReplayPausedChange={setIsAnimationReplayPaused}
           eventDurationMode={eventDurationMode}
           onEventDurationModeChange={setEventDurationMode}
-          gridOpacity={gridOpacity}
-          onGridOpacityChange={setGridOpacity}
-          colorPreset={colorPreset}
-          onColorPresetChange={setColorPreset}
-          customColors={customColors}
-          onCustomColorsChange={setCustomColors}
           cachelineSize={cachelineSize}
           onCachelineSizeChange={setCachelineSize}
           cachePreset={cachePreset}
@@ -1328,10 +1346,6 @@ export default function Visualizer({
           onOutlineChange={(outlines) => setLayoutSettings((prev) => ({ ...prev, outlines }))}
           isWindowsPlatform={isWindowsPlatform}
           showAnimationControls={true}
-          theme={theme}
-          onThemeChange={(t) => setTheme(t)}
-          canvasColors={canvasColors}
-          onCanvasColorsChange={setCanvasColors}
           activeTabRequest={settingsTabRequest}
           bitAnimationMode={bitAnimationMode}
           onBitAnimationModeChange={handleBitAnimationModeChange}
@@ -1380,5 +1394,6 @@ export default function Visualizer({
         onClose={() => setIsShortcutsHelpVisible(false)}
       />
     </div>
+    </ThemeProvider>
   );
 }

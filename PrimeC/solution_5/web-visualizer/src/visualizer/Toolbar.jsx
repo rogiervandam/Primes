@@ -6,6 +6,7 @@ import {
 } from '../Icons';
 import { GearIcon } from '../settings/buttons';
 import TraceInfoPopover from './TraceInfoPopover';
+import { useThemeContext } from '../contexts/ThemeContext';
 
 /**
  * Top toolbar: trace title (with info popover), playback transport, and the
@@ -86,15 +87,14 @@ export default function Toolbar({
   exportVideo,
   cancelExport,
   exportProgress,
-  // theme
-  theme,
-  setTheme,
   // immersive mode (auto-computed from widget visibility — no manual toggle)
   areControlsHidden,
   // floating all-events widget: show pop-out button when widget was docked away
   isAllEventsWidgetHidden,
   showAllEventsWidget,
 }) {
+  const { theme, setTheme } = useThemeContext();
+
   const visualizerClass =
     `visualizer${isMacPlatform ? ' platform-mac' : ''}` +
     `${isWindowsPlatform ? ' platform-windows' : ''}` +

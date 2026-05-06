@@ -4,6 +4,7 @@ import LegendTab from './settings/LegendTab';
 import LayoutTab from './settings/LayoutTab';
 import AnimationTab from './settings/AnimationTab';
 import ColorsTab from './settings/ColorsTab';
+import { useThemeContext } from './contexts/ThemeContext';
 /**
  * Right-hand collapsible settings panel. Pure tab-row shell that delegates
  * content to LayoutTab, AnimationTab, ColorsTab, and LegendTab.
@@ -66,10 +67,7 @@ import ColorsTab from './settings/ColorsTab';
  * @param {function} props.onOutlineChange
  * @param {boolean}  [props.isWindowsPlatform]        - Adjusts scrollbar styling
  * @param {boolean}  [props.showAnimationControls]
- * @param {string}   props.theme                     - 'light'|'dark'
- * @param {function} props.onThemeChange
- * @param {object}   props.canvasColors               - Per-theme canvas background overrides
- * @param {function} props.onCanvasColorsChange
+ * Theme and color values are consumed from ThemeContext.
  * @param {{ tab: string }}  [props.activeTabRequest] - Counter-incremented to switch to a tab externally
  * @param {function} [props.onActiveTabChange]        - Called whenever the active tab changes
  * @param {string}   props.bitAnimationMode           - 'mask'|'bits'|'combined'
@@ -90,9 +88,6 @@ export default function SettingsPanel({
   animStyle, onAnimStyleChange,
   isAnimationReplayPaused, onAnimationReplayPausedChange,
   eventDurationMode, onEventDurationModeChange,
-  gridOpacity, onGridOpacityChange,
-  colorPreset, onColorPresetChange,
-  customColors, onCustomColorsChange,
   cachelineSize, onCachelineSizeChange,
   cachePreset, onCachePresetChange,
   isHeatMapEnabled, onHeatMapToggle,
@@ -111,10 +106,6 @@ export default function SettingsPanel({
   outlineSettings, onOutlineChange,
   isWindowsPlatform = false,
   showAnimationControls = true,
-  theme,
-  onThemeChange,
-  canvasColors,
-  onCanvasColorsChange,
   activeTabRequest,
   onActiveTabChange,
   bitAnimationMode,
@@ -124,6 +115,19 @@ export default function SettingsPanel({
   isDetailOpen = false,
   detailHeight = 280,
 }) {
+  const {
+    theme,
+    setTheme,
+    gridOpacity,
+    setGridOpacity,
+    canvasColors,
+    setCanvasColors,
+    colorPreset,
+    setColorPreset,
+    customColors,
+    setCustomColors,
+  } = useThemeContext();
+
   const s = settings || {};
   const [activeTab, setActiveTab] = React.useState('layout');
   const prevTabRequestRef = React.useRef(null);
@@ -281,11 +285,11 @@ export default function SettingsPanel({
 
         {activeTab === 'colors' && (
           <ColorsTab
-            gridOpacity={gridOpacity} onGridOpacityChange={onGridOpacityChange}
-            colorPreset={colorPreset} onColorPresetChange={onColorPresetChange}
-            customColors={customColors} onCustomColorsChange={onCustomColorsChange}
-            theme={theme} onThemeChange={onThemeChange}
-            canvasColors={canvasColors} onCanvasColorsChange={onCanvasColorsChange}
+            gridOpacity={gridOpacity} onGridOpacityChange={setGridOpacity}
+            colorPreset={colorPreset} onColorPresetChange={setColorPreset}
+            customColors={customColors} onCustomColorsChange={setCustomColors}
+            theme={theme} onThemeChange={setTheme}
+            canvasColors={canvasColors} onCanvasColorsChange={setCanvasColors}
           />
         )}
 
