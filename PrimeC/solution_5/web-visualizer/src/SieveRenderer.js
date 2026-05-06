@@ -37,6 +37,8 @@ import {
 import { requestPrimeOverlay } from './renderer/workers/bitPrePassClient';
 import { GlyphCommandBuffer } from './renderer/gl/GlyphCommandBuffer';
 import { drawBitOverlayIndicator } from './renderer/bits/overlayIndicators';
+import { RenderStateController } from './renderer/core/RenderState';
+import { MotionTrailRenderer } from './renderer/effects/MotionTrailRenderer';
 import {
   bitVisualRow,
   getElementBounds,
@@ -179,9 +181,6 @@ export class SieveRenderer {
     this.outlineRounded = false;
     this.minimapEnabled = true;
 
-    // Storage model for bit-to-number mapping
-    this.storageModel = 'half';
-
     // Canvas width for wrapping (set by resize)
     this.canvasWidth = 0;
     this.canvasHeight = 0;
@@ -227,6 +226,9 @@ export class SieveRenderer {
     // Measurement adapter: set in attachGlyphRenderer() once the GL atlas is ready.
     // Delegates measureText() to the glyph atlas advance widths.
     this._measureCtx = null;
+
+    this.renderState = new RenderStateController(this);
+    this.motionTrails = new MotionTrailRenderer(this);
   }
 
   /** Returns the glyph canvas element (used for export/metadata). */
@@ -242,7 +244,7 @@ export class SieveRenderer {
   get effectiveBackground() {
     return this.canvasBackground || this.colors.BACKGROUND;
   }
-  _bitColors() {
+  determineBitPalette() {
     const C = this.colors;
     const preset = this.colorPreset && COLOR_PRESETS[this.colorPreset];
     return {
@@ -252,7 +254,11 @@ export class SieveRenderer {
     };
   }
 
-  _opColor() {
+  _bitColors() {
+    return this.determineBitPalette();
+  }
+
+  getOperationHighlightColor() {
     const C = this.colors;
     if (Number.isFinite(this.maskWordBits) && this.maskWordBits > 0 && C.OPERATION_COLORS.applyMask) {
       return C.OPERATION_COLORS.applyMask;
@@ -261,6 +267,10 @@ export class SieveRenderer {
       return C.OPERATION_COLORS[this.currentOperation];
     }
     return C.BIT_CHANGED;
+  }
+
+  _opColor() {
+    return this.getOperationHighlightColor();
   }
 
   _outlineConfig() {
@@ -400,31 +410,7 @@ export class SieveRenderer {
   }
 
   init(bitCount, sieveSize) {
-    this.bitCount = bitCount;
-    this.sieveSize = sieveSize;
-    this.bitState = new Uint8Array(bitCount);
-    this.changedBits = new Set();
-    this.targetBits = new Set();
-    this.targetHitCounts = new Map();
-    this.repeatedChangedBits = new Set();
-    this.focusStart = null;
-    this.focusStop = null;
-    this.maskWordBits = null;
-    this.maskWriteOrderWords = new Uint32Array(0);
-    this.maskWriteOrderSlots = new Uint8Array(0);
-    this.maskWriteOrderEventIds = new Int32Array(0);
-    this.maskSlotBits = [];
-    this.maskGhostBits = new Set();
-    this.showMaskWriteOverlay = true;
-    this.searchOverlay.clear();
-    this.lastAccessStep = new Int32Array(bitCount).fill(-1);
-    this.clHitCount = null;   // allocated lazily in rebuildHeatMap
-    this.clLastHitStep = null;
-    this.clMaxHitCount = 0;
-    this.animationFocusBits = new Set();
-    this.bitMotionTrails = [];
-    this.transparentBackground = false;
-    this._frozenClPerVRow = 0;
+    this.renderState.initialize(bitCount, sieveSize);
   }
 
   get bitsPerCacheLine() {
@@ -434,101 +420,31 @@ export class SieveRenderer {
   }
 
   setState(bitState, changedBits, targetBits = null, targetHitCounts = null, focusRange = null, maskMetadata = null, highlightMetadata = null) {
-    this._stateDirty = true;
-    this.bitState = bitState;
-    this.changedBits = changedBits;
-    this.targetBits = targetBits || new Set();
-    this.targetHitCounts = targetHitCounts || new Map();
-    this.repeatedChangedBits = highlightMetadata?.repeatedBits instanceof Set
-      ? highlightMetadata.repeatedBits
-      : new Set(highlightMetadata?.repeatedBits || []);
-    this.focusStart = focusRange?.focusStart ?? null;
-    this.focusStop = focusRange?.focusStop ?? null;
-    this.maskWordBits = maskMetadata?.wordBits ?? null;
-    this.maskWriteOrderWords = maskMetadata?.targetWords || new Uint32Array(0);
-    this.maskWriteOrderSlots = maskMetadata?.targetSlots || new Uint8Array(0);
-    this.maskWriteOrderEventIds = maskMetadata?.targetEventIds || new Int32Array(0);
-    this.maskSlotBits = maskMetadata?.slotBits || [];
-    this.maskGhostBits = new Set();
-    this.showMaskWriteOverlay = true;
-    this.bitMotionTrails = [];
+    this.renderState.applyState(
+      bitState,
+      changedBits,
+      targetBits,
+      targetHitCounts,
+      focusRange,
+      maskMetadata,
+      highlightMetadata,
+    );
   }
 
   setMaskGhostBits(bits) {
-    this.maskGhostBits = bits instanceof Set ? bits : new Set(bits || []);
-    this._stateDirty = true;
+    this.renderState.setMaskGhostBits(bits);
   }
 
   clearBitMotionTrails() {
-    this.bitMotionTrails = [];
+    this.motionTrails.clear();
   }
 
   addBitMotionTrail(fromBit, toBit, options = {}) {
-    if (!Number.isFinite(fromBit) || !Number.isFinite(toBit) || fromBit === toBit) return;
-    this.bitMotionTrails.push({
-      fromBit,
-      toBit,
-      createdAt: performance.now(),
-      duration: Math.max(180, Math.min(1200, options.duration || 420)),
-      intensity: Math.max(0.8, Math.min(1.8, options.intensity || 1)),
-    });
-    if (this.bitMotionTrails.length > 18) {
-      this.bitMotionTrails.splice(0, this.bitMotionTrails.length - 18);
-    }
+    this.motionTrails.add(fromBit, toBit, options);
   }
 
   renderBitMotionTrails(now = performance.now()) {
-    if (!Array.isArray(this.bitMotionTrails) || this.bitMotionTrails.length === 0) return;
-
-    const glCtx = this._beginGLAnim();
-    if (!glCtx) return;
-
-    const px = this.pixelSize * this.zoom;
-    const color = this._opColor();
-    const cr = color[0] / 255;
-    const cg = color[1] / 255;
-    const cb = color[2] / 255;
-    const alive = [];
-
-    for (const trail of this.bitMotionTrails) {
-      const age = now - trail.createdAt;
-      const progress = Math.max(0, Math.min(1, age / Math.max(1, trail.duration)));
-      if (progress >= 1) continue;
-
-      const from = this.bitIndexToCanvas(trail.fromBit);
-      const to = this.bitIndexToCanvas(trail.toBit);
-      if (!from || !to) continue;
-
-      alive.push(trail);
-
-      const dx = to.x - from.x;
-      const dy = to.y - from.y;
-      const distance = Math.hypot(dx, dy);
-      const lift = Math.max(px * 2.4, Math.min(distance * 0.18, px * 9));
-      const alpha = Math.max(0, (1 - progress) * 0.72 * trail.intensity);
-      const headAlpha = Math.max(0, (1 - progress) * 0.94);
-      const controlX = from.x + dx * 0.5;
-      const controlY = Math.min(from.y, to.y) - lift;
-
-      // Keep curved trails continuous at all zoom levels by enforcing overlap
-      // between consecutive sample dots.
-      const lineRadius = Math.max(1.35, px * 0.11 * (1 + trail.intensity * 0.35));
-      const spacing = Math.max(0.35, lineRadius * 0.55);
-      const samples = Math.max(18, Math.min(240, Math.ceil(distance / spacing)));
-      for (let i = 0; i <= samples; i++) {
-        const t = i / samples;
-        const omt = 1 - t;
-        const qx = omt * omt * from.x + 2 * omt * t * controlX + t * t * to.x;
-        const qy = omt * omt * from.y + 2 * omt * t * controlY + t * t * to.y;
-        const taper = 0.9 + 0.1 * (1 - t);
-        glCtx.drawDot(qx, qy, lineRadius, cr, cg, cb, alpha * taper);
-      }
-
-      glCtx.drawDot(to.x, to.y, Math.max(1.2, px * 0.22), 1, 1, 1, headAlpha);
-    }
-
-    this._endGLAnim(glCtx);
-    this.bitMotionTrails = alive;
+    this.motionTrails.render(now);
   }
 
   setSearchHighlight(type, index, bitIndex = null) {
@@ -609,7 +525,7 @@ export class SieveRenderer {
   }
 
   _isInFocusRange(globalBit) {
-    return this.focusStart != null && this.focusStop != null && globalBit >= this.focusStart && globalBit <= this.focusStop;
+    return this.renderState.isBitInFocusRange(globalBit);
   }
 
   _multiBitBounds(startBit, count) {
