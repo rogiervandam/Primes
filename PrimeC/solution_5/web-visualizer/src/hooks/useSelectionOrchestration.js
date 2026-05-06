@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 export function useSelectionOrchestration({
   steps,
@@ -12,15 +12,25 @@ export function useSelectionOrchestration({
   updateMinimapAvailability,
   triggerAnimationRef,
 }) {
+  const goToStepRef = useRef(goToStep);
+
+  useEffect(() => {
+    goToStepRef.current = goToStep;
+  }, [goToStep]);
+
   useEffect(() => {
     if (steps.length > 0) {
       initialHighlightHoldRef.current = true;
       setIsSingleEventWidgetRevealed(false);
-      const raf = requestAnimationFrame(() => goToStep(0, { suppressHighlight: true }));
+      const raf = requestAnimationFrame(() => {
+        goToStepRef.current?.(0, { suppressHighlight: true });
+      });
       return () => cancelAnimationFrame(raf);
     }
     return undefined;
-  }, [steps, initialHighlightHoldRef, setIsSingleEventWidgetRevealed, goToStep]);
+    // Intentionally keyed only to loaded steps; goToStep identity changes each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [steps, initialHighlightHoldRef, setIsSingleEventWidgetRevealed]);
 
   useEffect(() => {
     const r = rendererRef.current;

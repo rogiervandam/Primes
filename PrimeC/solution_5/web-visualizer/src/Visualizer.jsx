@@ -495,21 +495,27 @@ export default function Visualizer({
     toggleEventsPanel,
     toggleSettingsPanel,
   } = usePanelChoreography({
-    captureResizeAnchor,
-    detailHeight,
-    isDetailOpen,
-    settingsActiveTab,
-    isSettingsCollapsed,
-    setIsAllEventsInDetailPanel,
-    setIsAllEventsWidgetHidden,
-    setEventTitleSettings,
-    setIsEventsPanelCollapsed,
-    setJoinBannerRect,
-    setRevealStepRequest,
-    setIsSettingsCollapsed,
-    setSettingsTabRequest,
-    setAreWidgetsJoined,
-    updateDetailOpen,
+    panelHandlers: {
+      captureResizeAnchor,
+      setIsAllEventsInDetailPanel,
+      setIsAllEventsWidgetHidden,
+      setEventTitleSettings,
+      setIsEventsPanelCollapsed,
+      setJoinBannerRect,
+      setRevealStepRequest,
+      setIsSettingsCollapsed,
+      setSettingsTabRequest,
+      setAreWidgetsJoined,
+      updateDetailOpen,
+    },
+    detailState: {
+      height: detailHeight,
+      isOpen: isDetailOpen,
+    },
+    settingsState: {
+      activeTab: settingsActiveTab,
+      isCollapsed: isSettingsCollapsed,
+    },
   });
 
 
@@ -1452,6 +1458,304 @@ export default function Visualizer({
     balloonMode,
   };
 
+  // ============================================================================
+  // PHASE 2: CONSOLIDATED PROPS FOR CHILD COMPONENTS
+  // Groups 120+ scattered props into organized objects for VisualizerMainContent
+  // ============================================================================
+
+  const visualizerMainContentProps = {
+    // Canvas & rendering infrastructure
+    canvas: {
+      mode3D,
+      refs: {
+        container: containerRef,
+        glCanvas: glCanvasRef,
+        glyphCanvas: glyphCanvasRef,
+        wrapperCanvas: wrapperCanvasRef,
+        renderer: rendererRef,
+        glRenderer: glRendererRef,
+        camera3D: camera3DRef,
+      },
+      styles: {
+        merged3D: mergedCamera3DContainerStyle,
+        render: renderCanvasStyle,
+        eventTitle: eventTitleStyle,
+      },
+      camera3D: {
+        transform: camera3DTransform,
+      },
+      zoom,
+      isMacPlatform,
+      isWindowsPlatform,
+    },
+
+    // UI frame & chrome
+    uiFrame: {
+      isUiChromeVisible,
+      introPhase,
+      loadingOverlayPhase,
+      overlayBarPct,
+      handleIntroTransitionEnd,
+    },
+
+    // Playback state & control
+    playback: {
+      steps,
+      currentStep,
+      selectedSteps,
+      playing,
+      handlers: {
+        selection: handleStepSelection,
+        multiSelection: handleMultiStepSelect,
+        stop: stopPlayback,
+        goToStep,
+      },
+    },
+
+    // Animation & content rendering
+    animation: {
+      content: {
+        stepAnimSliders: stepAnimSlidersContent,
+        stepAnimSlidersDocked: stepAnimSlidersDockedContent,
+        allEventsTransport: allEventsTransportContent,
+      },
+      currentStepBanner,
+      surroundingEvents,
+      currentStepData,
+    },
+
+    // Panels & layout
+    panels: {
+      events: {
+        isCollapsed: isEventsPanelCollapsed,
+        width: panelWidth,
+        isAllEventsWidgetHidden,
+        handlers: {
+          toggle: toggleEventsPanel,
+          setCollapsed: setIsEventsPanelCollapsed,
+          setPanelWidth,
+        },
+      },
+      detail: {
+        isOpen: isDetailOpen,
+        isOpenRef: isDetailOpenRef,
+        height: detailHeight,
+        width: detailWidth,
+        handlers: {
+          toggle: toggleDetailPanel,
+          setOpen: setIsDetailOpen,
+          updateHeight: updateDetailHeight,
+          setWidth: setDetailWidth,
+        },
+      },
+      settings: {
+        tabRequest: settingsTabRequest,
+        handlers: {
+          setActiveTab: setSettingsActiveTab,
+          setLayoutSettings,
+        },
+      },
+      timing: {
+        isOpen: isTimingPanelOpen,
+        focusOp: timingFocusOp,
+        handlers: {
+          setOpen: setIsTimingPanelOpen,
+          setFocusOp: setTimingFocusOp,
+        },
+      },
+    },
+
+    // Event title & widget management
+    eventTitle: {
+      settings: eventTitleSettings,
+      style: eventTitleStyle,
+      handlers: {
+        setSettings: setEventTitleSettings,
+        showAboveCurrentDetail: showEventTitleAboveCurrentDetail,
+        showAboveClosedDetail: showEventTitleAboveClosedDetail,
+      },
+    },
+
+    // Widget management (events + detail integration)
+    widgets: {
+      state: {
+        areJoined: areWidgetsJoined,
+        isSingleEventRevealed: isSingleEventWidgetRevealed,
+        joinBannerRect,
+        pendingBannerDragStart,
+        revealStepRequest,
+      },
+      handlers: {
+        expandEventsPanel: expandEventsPanelFromWidget,
+        dockEventsToTopBar: dockEventsWidgetToTopBar,
+        dockEventsToDetail: dockEventsWidgetToDetailPanel,
+        pushEventsToPanel: pushJoinedWidgetToEventsPanel,
+        pushEventsToDetail: pushJoinedWidgetToDetailPanel,
+        hideJoined: hideJoinedWidget,
+        split: splitWidgets,
+        join: joinWidgets,
+        setPendingDragStart: setPendingBannerDragStart,
+      },
+    },
+
+    // Overlays (balloons, heat map, overlays)
+    overlays: {
+      balloons: {
+        pinnedIndices: pinnedBitIndices,
+        hoveredBitInfo,
+        liveLayout: balloonLiveLayout,
+        cachelineSize,
+        handlers: {
+          setPinnedIndices: setPinnedBitIndices,
+          computeBitInfo,
+          getVisibleStyles: getVisibleBalloonStyles,
+        },
+      },
+      heatMap: {
+        isEnabled: isHeatMapEnabled,
+        handlers: {
+          setEnabled: setIsHeatMapEnabled,
+        },
+      },
+      cache: {
+        cachelineSize,
+        cachelineAnnotation,
+        cachePreset,
+        handlers: {
+          setCachelineSize,
+          setCachelineAnnotation,
+          setCachePreset,
+        },
+      },
+      prime: {
+        isEnabled: isPrimeOverlayEnabled,
+        handlers: {
+          setEnabled: setIsPrimeOverlayEnabled,
+        },
+      },
+      range: {
+        isEnabled: isRangeOverlayEnabled,
+        start: rangeOverlayStart,
+        end: rangeOverlayEnd,
+        handlers: {
+          setEnabled: setIsRangeOverlayEnabled,
+          setStart: setRangeOverlayStart,
+          setEnd: setRangeOverlayEnd,
+          onToggle: (enabled) => {
+            if (enabled && !isRangeOverlayEnabled) {
+              const step = steps[currentStep];
+              if (step) {
+                const start = step.focusStart != null ? step.focusStart : (step.changedBits.length > 0 ? Math.min(...step.changedBits) : 0);
+                const end = step.focusStop != null ? step.focusStop : (step.changedBits.length > 0 ? Math.max(...step.changedBits) : Math.max(0, header.bitCount - 1));
+                setRangeOverlayStart(start);
+                setRangeOverlayEnd(end);
+              }
+            }
+            setIsRangeOverlayEnabled(enabled);
+          },
+          onReset: () => {
+            const step = steps[currentStep];
+            if (step) {
+              const start = step.focusStart != null ? step.focusStart : (step.changedBits.length > 0 ? Math.min(...step.changedBits) : 0);
+              const end = step.focusStop != null ? step.focusStop : (step.changedBits.length > 0 ? Math.max(...step.changedBits) : Math.max(0, header.bitCount - 1));
+              setRangeOverlayStart(start);
+              setRangeOverlayEnd(end);
+            }
+          },
+        },
+      },
+      multiples: {
+        isEnabled: isMultiplesOverlayEnabled,
+        prime: multiplesOverlayPrime,
+        handlers: {
+          setEnabled: setIsMultiplesOverlayEnabled,
+          setPrime: setMultiplesOverlayPrime,
+          onToggle: (enabled) => {
+            if (enabled && !isMultiplesOverlayEnabled) {
+              const step = steps[currentStep];
+              if (step && step.prime != null && step.prime >= 2) {
+                setMultiplesOverlayPrime(step.prime);
+              }
+            }
+            setIsMultiplesOverlayEnabled(enabled);
+          },
+          onReset: () => {
+            const step = steps[currentStep];
+            if (step && step.prime != null && step.prime >= 2) {
+              setMultiplesOverlayPrime(step.prime);
+            }
+          },
+        },
+      },
+      minimap: {
+        isVisible: isMinimapVisible,
+        handlers: {
+          setVisible: setIsMinimapVisible,
+        },
+      },
+    },
+
+    // Detail Inspector
+    detailInspector: {
+      isOpen: isDetailInspectorOpen,
+      mode: detailInspectorMode,
+      query: detailInspectorQuery,
+      rows: detailInspectorRows,
+      filteredRows: filteredDetailInspectorRows,
+      handlers: {
+        open: openDetailInspector,
+        setOpen: setIsDetailInspectorOpen,
+        setQuery: setDetailInspectorQuery,
+      },
+    },
+
+    // Data & context
+    data: {
+      steps,
+      currentStep,
+      currentStepData,
+      stepStats,
+      storageModel,
+      wheelDefinition,
+      layoutSettings,
+      benchmarkTimingData,
+      benchmarkTimingFileName,
+      sourceRef,
+      currentStepSourceLine: stepToLine[currentStep],
+    },
+
+    // Navigation & references
+    navigation: {
+      revealStepRequest,
+      revealCurrentStepInPanel,
+      onOpenRawLog,
+      onImportBenchmarkTiming,
+      autoFitColumnCount,
+    },
+
+    // Debug tools
+    debug: {
+      isToolsOpen: isDebugToolsOpen,
+      theme,
+      isGlUnavailable,
+      glDebugInfo,
+      debugLayerMode,
+      debugGlOffsetX,
+      debugGlOffsetY,
+      debugGlAutoOffsetY,
+      isDebugCalibrationMode,
+      handlers: {
+        setDebugLayerMode,
+        setDebugGlOffsetX,
+        setDebugGlOffsetY,
+        setDebugGlAutoOffsetY,
+        setIsDebugCalibrationMode,
+        applySnapshot: applyDebugSnapshot,
+        forceGlRedraw,
+      },
+    },
+  };
+
   return (
     <ThemeProvider value={themeContextValue}>
     <PlaybackProvider value={playbackContextValue}>
@@ -1507,175 +1811,7 @@ export default function Visualizer({
       <StatusBanners exportError={exportError} isGlUnavailable={isGlUnavailable} />
 
       <VisualizerMainContent
-        mode3D={mode3D}
-        isUiChromeVisible={isUiChromeVisible}
-        isEventsPanelCollapsed={isEventsPanelCollapsed}
-        panelWidth={panelWidth}
-        loadingOverlayPhase={loadingOverlayPhase}
-        steps={steps}
-        overlayBarPct={overlayBarPct}
-        currentStep={currentStep}
-        selectedSteps={selectedSteps}
-        handleStepSelection={handleStepSelection}
-        handleMultiStepSelect={handleMultiStepSelect}
-        stopPlayback={stopPlayback}
-        setPanelWidth={setPanelWidth}
-        toggleEventsPanel={toggleEventsPanel}
-        isAllEventsWidgetHidden={isAllEventsWidgetHidden}
-        areWidgetsJoined={areWidgetsJoined}
-        expandEventsPanelFromWidget={expandEventsPanelFromWidget}
-        dockEventsWidgetToTopBar={dockEventsWidgetToTopBar}
-        dockEventsWidgetToDetailPanel={dockEventsWidgetToDetailPanel}
-        joinWidgets={joinWidgets}
-        timingFocusOp={timingFocusOp}
-        setTimingFocusOp={setTimingFocusOp}
-        revealStepRequest={revealStepRequest}
-        eventTitleSettings={eventTitleSettings}
-        showEventTitleAboveCurrentDetail={showEventTitleAboveCurrentDetail}
-        containerRef={containerRef}
-        glCanvasRef={glCanvasRef}
-        glyphCanvasRef={glyphCanvasRef}
-        wrapperCanvasRef={wrapperCanvasRef}
-        mergedCamera3DContainerStyle={mergedCamera3DContainerStyle}
-        renderCanvasStyle={renderCanvasStyle}
-        setEventTitleSettings={setEventTitleSettings}
-        eventTitleStyle={eventTitleStyle}
-        currentStepBanner={currentStepBanner}
-        surroundingEvents={surroundingEvents}
-        currentStepData={currentStepData}
-        goToStep={goToStep}
-        revealCurrentStepInPanel={revealCurrentStepInPanel}
-        setIsEventsPanelCollapsed={setIsEventsPanelCollapsed}
-        stepAnimSlidersContent={stepAnimSlidersContent}
-        stepAnimSlidersDockedContent={stepAnimSlidersDockedContent}
-        splitWidgets={splitWidgets}
-        pinnedBitIndices={pinnedBitIndices}
-        hoveredBitInfo={hoveredBitInfo}
-        computeBitInfo={computeBitInfo}
-        getVisibleBalloonStyles={getVisibleBalloonStyles}
-        balloonLiveLayout={balloonLiveLayout}
-        cachelineSize={cachelineSize}
-        setPinnedBitIndices={setPinnedBitIndices}
-        isDetailOpen={isDetailOpen}
-        toggleDetailPanel={toggleDetailPanel}
-        detailHeight={detailHeight}
-        pendingBannerDragStart={pendingBannerDragStart}
-        setPendingBannerDragStart={setPendingBannerDragStart}
-        updateDetailHeight={updateDetailHeight}
-        detailWidth={detailWidth}
-        setDetailWidth={setDetailWidth}
-        playing={playing}
-        stepStats={stepStats}
-        storageModel={storageModel}
-        wheelDefinition={wheelDefinition}
-        layoutSettings={layoutSettings}
-        benchmarkTimingData={benchmarkTimingData}
-        openDetailInspector={openDetailInspector}
-        isDetailInspectorOpen={isDetailInspectorOpen}
-        detailInspectorMode={detailInspectorMode}
-        detailInspectorQuery={detailInspectorQuery}
-        setDetailInspectorQuery={setDetailInspectorQuery}
-        setIsDetailInspectorOpen={setIsDetailInspectorOpen}
-        detailInspectorRows={detailInspectorRows}
-        filteredDetailInspectorRows={filteredDetailInspectorRows}
-        isTimingPanelOpen={isTimingPanelOpen}
-        setIsTimingPanelOpen={setIsTimingPanelOpen}
-        benchmarkTimingFileName={benchmarkTimingFileName}
-        onImportBenchmarkTiming={onImportBenchmarkTiming}
-        onShowEventTitle={showEventTitleAboveClosedDetail}
-        onOpenRawLog={onOpenRawLog}
-        currentStepSourceLine={stepToLine[currentStep]}
-        sourceRef={sourceRef}
-        allEventsTransportContent={allEventsTransportContent}
-        introPhase={introPhase}
-        handleIntroTransitionEnd={handleIntroTransitionEnd}
-        isSingleEventWidgetRevealed={isSingleEventWidgetRevealed}
-        joinBannerRect={joinBannerRect}
-        pushJoinedWidgetToEventsPanel={pushJoinedWidgetToEventsPanel}
-        pushJoinedWidgetToDetailPanel={pushJoinedWidgetToDetailPanel}
-        hideJoinedWidget={hideJoinedWidget}
-        isDetailOpenRef={isDetailOpenRef}
-        setIsDetailOpen={setIsDetailOpen}
-        autoFitColumnCount={autoFitColumnCount}
-        setLayoutSettings={setLayoutSettings}
-        setSettingsActiveTab={setSettingsActiveTab}
-        setCachelineSize={setCachelineSize}
-        cachePreset={cachePreset}
-        setCachePreset={setCachePreset}
-        isHeatMapEnabled={isHeatMapEnabled}
-        setIsHeatMapEnabled={setIsHeatMapEnabled}
-        cachelineAnnotation={cachelineAnnotation}
-        setCachelineAnnotation={setCachelineAnnotation}
-        isPrimeOverlayEnabled={isPrimeOverlayEnabled}
-        setIsPrimeOverlayEnabled={setIsPrimeOverlayEnabled}
-        isRangeOverlayEnabled={isRangeOverlayEnabled}
-        rangeOverlayStart={rangeOverlayStart}
-        rangeOverlayEnd={rangeOverlayEnd}
-        onRangeOverlayToggle={(enabled) => {
-          if (enabled && !isRangeOverlayEnabled) {
-            const step = steps[currentStep];
-            if (step) {
-              const start = step.focusStart != null ? step.focusStart : (step.changedBits.length > 0 ? Math.min(...step.changedBits) : 0);
-              const end = step.focusStop != null ? step.focusStop : (step.changedBits.length > 0 ? Math.max(...step.changedBits) : Math.max(0, header.bitCount - 1));
-              setRangeOverlayStart(start);
-              setRangeOverlayEnd(end);
-            }
-          }
-          setIsRangeOverlayEnabled(enabled);
-        }}
-        setRangeOverlayStart={setRangeOverlayStart}
-        setRangeOverlayEnd={setRangeOverlayEnd}
-        isMultiplesOverlayEnabled={isMultiplesOverlayEnabled}
-        multiplesOverlayPrime={multiplesOverlayPrime}
-        onMultiplesOverlayToggle={(enabled) => {
-          if (enabled && !isMultiplesOverlayEnabled) {
-            const step = steps[currentStep];
-            if (step && step.prime != null && step.prime >= 2) {
-              setMultiplesOverlayPrime(step.prime);
-            }
-          }
-          setIsMultiplesOverlayEnabled(enabled);
-        }}
-        setMultiplesOverlayPrime={setMultiplesOverlayPrime}
-        onRangeOverlayReset={() => {
-          const step = steps[currentStep];
-          if (step) {
-            const start = step.focusStart != null ? step.focusStart : (step.changedBits.length > 0 ? Math.min(...step.changedBits) : 0);
-            const end = step.focusStop != null ? step.focusStop : (step.changedBits.length > 0 ? Math.max(...step.changedBits) : Math.max(0, header.bitCount - 1));
-            setRangeOverlayStart(start);
-            setRangeOverlayEnd(end);
-          }
-        }}
-        onMultiplesOverlayReset={() => {
-          const step = steps[currentStep];
-          if (step && step.prime != null && step.prime >= 2) {
-            setMultiplesOverlayPrime(step.prime);
-          }
-        }}
-        isMinimapVisible={isMinimapVisible}
-        setIsMinimapVisible={setIsMinimapVisible}
-        isWindowsPlatform={isWindowsPlatform}
-        settingsTabRequest={settingsTabRequest}
-        isDebugToolsOpen={isDebugToolsOpen}
-        rendererRef={rendererRef}
-        glRendererRef={glRendererRef}
-        camera3DRef={camera3DRef}
-        camera3DTransform={camera3DTransform}
-        zoom={zoom}
-        glDebugInfo={glDebugInfo}
-        theme={theme}
-        debugLayerMode={debugLayerMode}
-        setDebugLayerMode={setDebugLayerMode}
-        debugGlOffsetX={debugGlOffsetX}
-        setDebugGlOffsetX={setDebugGlOffsetX}
-        debugGlOffsetY={debugGlOffsetY}
-        setDebugGlOffsetY={setDebugGlOffsetY}
-        debugGlAutoOffsetY={debugGlAutoOffsetY}
-        isDebugCalibrationMode={isDebugCalibrationMode}
-        setIsDebugCalibrationMode={setIsDebugCalibrationMode}
-        applyDebugSnapshot={applyDebugSnapshot}
-        forceGlRedraw={forceGlRedraw}
-        isMacPlatform={isMacPlatform}
+        {...visualizerMainContentProps}
       />
       {/* Minimap overlay — rendered OUTSIDE .main-content so it is never
           trapped inside the canvas-container stacking context
