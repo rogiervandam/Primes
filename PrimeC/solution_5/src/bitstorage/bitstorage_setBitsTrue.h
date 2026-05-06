@@ -6,11 +6,11 @@
 #include "bitstorage_setBitsTrue_applyMask.h"
 #include "bitstorage_setBitsTrue_applyMask_pair.h"
 #include "bitstorage_setBitsTrue_applyMask_mmask.h"
-#include "bitstorage_setBitsTrue_smallstep_rotate_pair.h" 
 #include "bitstorage_setBitsTrue_largestep_vector.h"
 #include "bitstorage_setBitsTrue_largestep_norepeat.h"
 #include "bitstorage_setBitsTrue_largestep_repeat.h"
 #include "bitstorage_setBitsTrue_largestep_repeat_mmask.h"
+#include "bitstorage_setBitsTrue_smallstep_rotate_pair.h" 
 
 #define mac_ratio1 80
 #define mac_ratio2 40

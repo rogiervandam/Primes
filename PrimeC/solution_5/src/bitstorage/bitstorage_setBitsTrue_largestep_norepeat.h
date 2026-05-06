@@ -14,7 +14,7 @@ function(setBitsTrue_largestep_norepeat,suffix)(void* restrict bitstorage, const
         (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)step));
 
     register counter_t index = range_start;
-    register counter_t i=((range_start-range_start)/step);
+    register counter_t i=((range_stop-range_start)/step);
     for(register counter_t j=256; j>4; j>>=1) { // unroll loops by powers of 2, to allow for more efficient code generation on some compilers
         for(;i>j;i-=j) {
             for(int k=j; k--; index += step) {
