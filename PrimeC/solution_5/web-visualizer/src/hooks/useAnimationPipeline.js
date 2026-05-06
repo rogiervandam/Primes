@@ -21,7 +21,7 @@ export function useAnimationPipeline({
   const animRefs = flatArgs.animRefs || flatArgs;
   const animConfig = flatArgs.animConfig || flatArgs;
   const animState = flatArgs.animState || flatArgs;
-  const animHandlers = flatArgs.animHandlers || flatArgs;
+  const _animHandlers = flatArgs.animHandlers || flatArgs;
 
   const {
     globalPausedRef,
@@ -73,10 +73,7 @@ export function useAnimationPipeline({
     playing,
   } = animState;
 
-  const {
-    // currently no function handlers are isolated from refs,
-    // but we keep this object as part of the phase 3.1 shape.
-  } = animHandlers;
+  void _animHandlers;
 
   const { waitForDelay } = usePausableDelay({ globalPausedRef, seqTimerRef });
 
@@ -127,37 +124,45 @@ export function useAnimationPipeline({
   });
 
   const { triggerAnimation } = useTriggerAnimation({
-    seekGenRef,
-    stopSeqAnimRef,
-    stepScrubProgressRef,
-    rendererRef,
-    bitAnimationModeRef,
-    pinnedBitIndices,
-    effectiveGroupBits,
-    computeEventDurationRef,
-    getAnimationTimingPlan,
-    getAnimationBitInterval,
-    estimateAnimDuration,
-    animBusyUntilRef,
-    fadeOutCurrentHighlights,
-    currentMaskAnimIntervalRef,
-    maskAnimInterval,
-    currentStep,
-    bitStateRef,
-    stepsRef,
-    bitStateDirtyRef,
-    setDelayPhaseMsRef,
-    setIsStepAnimRunningRef,
-    runMaskStampAnimation,
-    waitForDelay,
-    animMode,
-    seqTimerRef,
-    timeRatioAtBitIndexRef,
-    bitsAtTimeRatioRef,
-    globalPausedRef,
-    getMinimapDetailH,
-    animStyle,
-    runEffect,
+    animRefs: {
+      seekGenRef,
+      stopSeqAnimRef,
+      stepScrubProgressRef,
+      rendererRef,
+      bitAnimationModeRef,
+      computeEventDurationRef,
+      animBusyUntilRef,
+      currentMaskAnimIntervalRef,
+      bitStateRef,
+      stepsRef,
+      bitStateDirtyRef,
+      setDelayPhaseMsRef,
+      setIsStepAnimRunningRef,
+      seqTimerRef,
+      timeRatioAtBitIndexRef,
+      bitsAtTimeRatioRef,
+      globalPausedRef,
+    },
+    animConfig: {
+      pinnedBitIndices,
+      effectiveGroupBits,
+      maskAnimInterval,
+      animMode,
+      animStyle,
+    },
+    animState: {
+      currentStep,
+    },
+    animHandlers: {
+      getAnimationTimingPlan,
+      getAnimationBitInterval,
+      estimateAnimDuration,
+      fadeOutCurrentHighlights,
+      runMaskStampAnimation,
+      waitForDelay,
+      getMinimapDetailH,
+      runEffect,
+    },
   });
 
   // Keep triggerAnimationRef in sync so other hooks can call via ref.

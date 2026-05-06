@@ -1,38 +1,54 @@
 import { useCallback } from 'react';
 
-export function useTriggerAnimation({
-  seekGenRef,
-  stopSeqAnimRef,
-  stepScrubProgressRef,
-  rendererRef,
-  bitAnimationModeRef,
-  pinnedBitIndices,
-  effectiveGroupBits,
-  computeEventDurationRef,
-  getAnimationTimingPlan,
-  getAnimationBitInterval,
-  estimateAnimDuration,
-  animBusyUntilRef,
-  fadeOutCurrentHighlights,
-  currentMaskAnimIntervalRef,
-  maskAnimInterval,
-  currentStep,
-  bitStateRef,
-  stepsRef,
-  bitStateDirtyRef,
-  setDelayPhaseMsRef,
-  setIsStepAnimRunningRef,
-  runMaskStampAnimation,
-  waitForDelay,
-  animMode,
-  seqTimerRef,
-  timeRatioAtBitIndexRef,
-  bitsAtTimeRatioRef,
-  globalPausedRef,
-  getMinimapDetailH,
-  animStyle,
-  runEffect,
-}) {
+export function useTriggerAnimation({ ...flatArgs }) {
+  const animRefs = flatArgs.animRefs || flatArgs;
+  const animConfig = flatArgs.animConfig || flatArgs;
+  const animState = flatArgs.animState || flatArgs;
+  const animHandlers = flatArgs.animHandlers || flatArgs;
+
+  const {
+    seekGenRef,
+    stopSeqAnimRef,
+    stepScrubProgressRef,
+    rendererRef,
+    bitAnimationModeRef,
+    computeEventDurationRef,
+    animBusyUntilRef,
+    currentMaskAnimIntervalRef,
+    bitStateRef,
+    stepsRef,
+    bitStateDirtyRef,
+    setDelayPhaseMsRef,
+    setIsStepAnimRunningRef,
+    seqTimerRef,
+    timeRatioAtBitIndexRef,
+    bitsAtTimeRatioRef,
+    globalPausedRef,
+  } = animRefs;
+
+  const {
+    pinnedBitIndices,
+    effectiveGroupBits,
+    maskAnimInterval,
+    animMode,
+    animStyle,
+  } = animConfig;
+
+  const {
+    currentStep,
+  } = animState;
+
+  const {
+    getAnimationTimingPlan,
+    getAnimationBitInterval,
+    estimateAnimDuration,
+    fadeOutCurrentHighlights,
+    runMaskStampAnimation,
+    waitForDelay,
+    getMinimapDetailH,
+    runEffect,
+  } = animHandlers;
+
   const triggerAnimation = useCallback(async (changedSet, options = {}) => {
     const mySeekGen = seekGenRef.current;
     const isStillLive = () => seekGenRef.current === mySeekGen;

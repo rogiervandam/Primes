@@ -4,7 +4,7 @@
 
 Phase 3 consolidates hook signatures by grouping related parameters into semantic objects, reducing parameter count and improving dependency clarity.
 
-**Status:** Completed
+**Status:** Phase 3 Completed, Phase 4 In Progress
 **Completed:** usePanelChoreography (Phase 3.0), useAnimationPipeline (Phase 3.1), useRendererPipeline (Phase 3.2), usePlaybackLoop (Phase 3.3)
 **Remaining:** Phase 4 and beyond (internal hook simplification + component-tree propagation)
 
@@ -237,8 +237,8 @@ All hooks maintain backward compatibility during Phase 3:
 - [x] Update consolidation documentation
 
 ### Phase 4 (Hook Internals)
-- [ ] Update sub-hook calls to use organized objects
-- [ ] Simplify parameter passing chains
+- [x] Update sub-hook calls to use organized objects (`useRendererLayoutSync`, `useTriggerAnimation`)
+- [x] Simplify parameter passing chains in pipeline internals
 - [ ] Optimize temporal dependencies
 
 ### Phase 5 (Component Tree)
@@ -268,6 +268,6 @@ All hooks maintain backward compatibility during Phase 3:
 
 ## Next Actions
 
-1. Phase 4: simplify internal sub-hook parameter chains now that grouped signatures are stable
+1. Finish remaining Phase 4 temporal dependency cleanup
 2. Document grouped signature conventions in `AI_MAINTENANCE.md` and `ARCHITECTURE.md`
 3. Phase 5: propagate grouping conventions deeper into component boundaries where useful

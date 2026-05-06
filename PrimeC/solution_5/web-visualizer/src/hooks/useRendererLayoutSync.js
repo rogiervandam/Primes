@@ -1,36 +1,52 @@
 import { useEffect } from 'react';
 
-export function useRendererLayoutSync({
-  rendererRef,
-  theme,
-  layoutSettings,
-  isMinimapVisible,
-  colorPreset,
-  customColors,
-  canvasColors,
-  storageModel,
-  wheelDefinition,
-  cachelineSize,
-  isHeatMapEnabled,
-  cachelineAnnotation,
-  isPrimeOverlayEnabled,
-  isRangeOverlayEnabled,
-  rangeOverlayStart,
-  rangeOverlayEnd,
-  isMultiplesOverlayEnabled,
-  multiplesOverlayPrime,
-  gridOpacity,
-  updateMinimapAvailability,
-  isDebugCalibrationMode,
-  prevLayoutRef,
-  containerRef,
-  mode3D,
-  stepsRef,
-  currentStepRef,
-  setZoom,
-  setAutoFitColumnCount,
-  getMinimapDetailH,
-}) {
+export function useRendererLayoutSync({ ...flatArgs }) {
+  const layoutRefs = flatArgs.layoutRefs || flatArgs;
+  const layoutConfig = flatArgs.layoutConfig || flatArgs;
+  const layoutState = flatArgs.layoutState || flatArgs;
+  const layoutHandlers = flatArgs.layoutHandlers || flatArgs;
+
+  const {
+    rendererRef,
+    prevLayoutRef,
+    containerRef,
+    stepsRef,
+    currentStepRef,
+  } = layoutRefs;
+
+  const {
+    theme,
+    layoutSettings,
+    colorPreset,
+    customColors,
+    canvasColors,
+    storageModel,
+    wheelDefinition,
+    cachelineSize,
+    isHeatMapEnabled,
+    cachelineAnnotation,
+    isPrimeOverlayEnabled,
+    isRangeOverlayEnabled,
+    rangeOverlayStart,
+    rangeOverlayEnd,
+    isMultiplesOverlayEnabled,
+    multiplesOverlayPrime,
+    gridOpacity,
+    isDebugCalibrationMode,
+    mode3D,
+  } = layoutConfig;
+
+  const {
+    isMinimapVisible,
+  } = layoutState;
+
+  const {
+    updateMinimapAvailability,
+    setZoom,
+    setAutoFitColumnCount,
+    getMinimapDetailH,
+  } = layoutHandlers;
+
   useEffect(() => {
     const r = rendererRef.current;
     if (!r) return;
