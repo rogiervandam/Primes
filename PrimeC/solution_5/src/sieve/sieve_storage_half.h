@@ -1,3 +1,5 @@
+#pragma once
+
 #include "../bitstorage/bitstorage_search.h"
 #include "../bitstorage/bitstorage_setBitsTrue.h"
 #include "../sieve/sieve_calc.h"

@@ -355,7 +355,7 @@ trace_record_event_full(int level, const void* bitstorage, const char* label, do
 }
 
 static void
-trace_record_applymask_step_labeled(int level, void* bitstorage,
+trace_record_applymask_step_labeled(int level, const void* bitstorage,
                                     const char* label,
                                     const char* annotation,
                                     counter_t word_bits,

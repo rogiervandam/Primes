@@ -129,7 +129,13 @@ static SetBitsTrueMethod setBitsTrueMethods[] = {
     { "setBitsTrue_largestep_repeat_mmask_uint64  ", setBitsTrue_largestep_repeat_mmask_uint64  , 0, INT32_MAX, 1},
     { "setBitsTrue_largestep_repeat_mmask_uint32  ", setBitsTrue_largestep_repeat_mmask_uint32  , 0, INT32_MAX, 1},
     { "setBitsTrue_largestep_repeat_mmask_uint8   ", setBitsTrue_largestep_repeat_mmask_uint8   , 0, INT32_MAX, 1},
-    { }
+    { "setBitsTrue_largestep_repeat_old_uint8_unroll8  ", setBitsTrue_largestep_repeat_old_uint8_unroll8  , 0, INT32_MAX, 1},
+    { "setBitsTrue_largestep_repeat_old_uint8_unroll8  ", setBitsTrue_largestep_repeat_old_uint8_unroll8  , 0, INT32_MAX, 1},
+    { "setBitsTrue_largestep_repeat_uint8_unroll8  ", setBitsTrue_largestep_repeat_uint8_unroll8  , 0, INT32_MAX, 1},
+    { "setBitsTrue_largestep_repeat_uint8_unroll8  ", setBitsTrue_largestep_repeat_uint8_unroll8  , 0, INT32_MAX, 1},
+    { "setBitsTrue_largestep_repeat_old_uint64_unroll8  ", setBitsTrue_largestep_repeat_old_uint64_unroll8  , 0, INT32_MAX, 1},
+    { "setBitsTrue_largestep_repeat_uint64_unroll8  ", setBitsTrue_largestep_repeat_uint64_unroll8  , 0, INT32_MAX, 1},
+    // { }
 };
 
 #define methods (sizeof(setBitsTrueMethods) / sizeof(SetBitsTrueMethod))

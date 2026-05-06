@@ -186,7 +186,7 @@ log_event_bare(int level, const void* bitstorage, const char* fmt, ...)
 }
 
 static inline void
-log_mask(int level, void* bitstorage, const char* label, uint64_t word_bits,
+log_mask(int level, const void* bitstorage, const char* label, uint64_t word_bits,
         counter_t range_start_index, counter_t range_stop_index, counter_t step,
         const void* const* mask_ptrs, uint32_t mask_slot_count,
         size_t mask_lane_bytes, uint32_t mask_lane_count, uint32_t mask_lane_bits)
