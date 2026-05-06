@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useLayoutEffect } from 'react';
-import { LinkIcon, CopyIcon } from '../Icons';
 import { isDOMAvailable, isWindowAvailable, getElementFromPoint } from '../lib/browser.js';
 import PlaybackTransport from './PlaybackTransport';
+import JoinedWidgetHeader from './JoinedWidgetHeader';
 import { usePlaybackContext } from '../contexts/PlaybackContext';
 import { usePanelLayoutContext } from '../contexts/PanelLayoutContext';
 
@@ -208,63 +208,17 @@ export default function JoinedEventsWidget({
       style={{ transform: `translateX(calc(-50% + ${floatDrag.x}px)) translateY(${floatDrag.y}px)` }}
       onMouseDown={handleDragStart}
     >
-      {/* ── Header row ──────────────────────────────────────────────── */}
-      <div className="joined-widget-header">
-        <button
-          className="joined-widget-btn joined-widget-expand-btn"
-          onClick={handleExpandPanel}
-          onMouseDown={(e) => e.stopPropagation()}
-          title="Open events and details panels"
-        >▼</button>
-        <span className="joined-widget-label">Events</span>
-        {(surrounding?.prev?.length > 0 || surrounding?.next?.length > 0) && (
-          <button
-            className={`joined-widget-btn joined-widget-context-mode-btn${settings?.nearbyEventsMode ? ' active' : ''}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              setSettings((prev) => ({ ...prev, nearbyEventsMode: !prev.nearbyEventsMode }));
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-            title={settings?.nearbyEventsMode ? 'Show event title' : 'Show nearby events instead of title'}
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden="true">
-              <line x1="1" y1="3" x2="11" y2="3"/>
-              <line x1="1" y1="6" x2="11" y2="6"/>
-              <line x1="1" y1="9" x2="11" y2="9"/>
-            </svg>
-          </button>
-        )}
-        <button
-          className="joined-widget-btn joined-widget-split-btn"
-          onClick={handleSplit}
-          onMouseDown={(e) => e.stopPropagation()}
-          title="Split into two separate widgets"
-        >
-          {/* Split icon: two overlapping squares */}
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <rect x="0.5" y="0.5" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-            <rect x="5.5" y="5.5" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-          </svg>
-        </button>
-        <button
-          className="joined-widget-btn joined-widget-locate-btn"
-          onClick={(e) => { e.stopPropagation(); revealCurrentStepInPanel(); }}
-          onMouseDown={(e) => e.stopPropagation()}
-          title="Reveal current event in the events panel"
-        ><LinkIcon size={12} /></button>
-        <button
-          className="joined-widget-btn joined-widget-copy-btn"
-          onClick={handleCopy}
-          onMouseDown={(e) => e.stopPropagation()}
-          title="Copy event description to clipboard"
-        >{copied ? '✓' : <CopyIcon size={12} />}</button>
-        <button
-          className="joined-widget-btn joined-widget-close-btn"
-          onClick={(e) => { e.stopPropagation(); if (onHideWidget) onHideWidget(); }}
-          onMouseDown={(e) => e.stopPropagation()}
-          title="Hide widget"
-        >▼</button>
-      </div>
+      <JoinedWidgetHeader
+        settings={settings}
+        setSettings={setSettings}
+        surrounding={surrounding}
+        copied={copied}
+        handleCopy={handleCopy}
+        handleExpandPanel={handleExpandPanel}
+        handleSplit={handleSplit}
+        revealCurrentStepInPanel={revealCurrentStepInPanel}
+        onHideWidget={onHideWidget}
+      />
 
       {/* ── Transport controls ──────────────────────────────────────── */}
       <PlaybackTransport variant="compact" onNavigate={onNavigate} />

@@ -9,6 +9,7 @@ import TimingPanel from './TimingPanel';
 import Toolbar from './visualizer/Toolbar';
 import ExportProgress from './visualizer/ExportProgress';
 import CanvasStage from './visualizer/CanvasStage';
+import VisualizerMainContent from './visualizer/VisualizerMainContent';
 import EventTitleBanner from './visualizer/EventTitleBanner';
 import JoinedEventsWidget from './visualizer/JoinedEventsWidget';
 import DetailInspectorOverlay from './visualizer/DetailInspectorOverlay';
@@ -58,7 +59,6 @@ import { useBalloonGeometry } from './hooks/useBalloonGeometry';
 import { useSeekStepAnimation } from './hooks/useSeekStepAnimation';
 import { useViewportNavigation } from './hooks/useViewportNavigation';
 import { useViewportAnchoring } from './hooks/useViewportAnchoring';
-import CanvasLoadingOverlay from './visualizer/CanvasLoadingOverlay';
 import StatusBanners from './visualizer/StatusBanners';
 import {
   DEFAULT_EVENT_TITLE_SETTINGS,
@@ -1191,6 +1191,7 @@ export default function Visualizer({
         setIsPrimeOverlayEnabled={setIsPrimeOverlayEnabled}
         isDebugToolsOpen={isDebugToolsOpen}
         setIsDebugToolsOpen={setIsDebugToolsOpen}
+        exporting={exporting}
         exportPng={exportPng}
         exportVideo={exportVideo}
         cancelExport={cancelExport}
@@ -1200,176 +1201,113 @@ export default function Visualizer({
       {exporting && <ExportProgress progress={exportProgress} />}
       <StatusBanners exportError={exportError} isGlUnavailable={isGlUnavailable} />
 
-      {/* Main content — panels float (position:absolute) within this div, which sits
-           below the toolbar. overflow:visible so collapsed toggle buttons are not
-           clipped; canvas-area inside already clips the canvas with its own
-           overflow:hidden. */}
-      <div
-        className={`main-content${mode3D ? ' mode-3d' : ''}${isUiChromeVisible ? ' ui-chrome-visible' : ' ui-chrome-hidden'}`}
-        style={{ '--events-panel-width': `${isEventsPanelCollapsed ? 0 : panelWidth}px` }}
-      >
-        {/* Loading overlay — centered in the canvas area while streaming */}
-        <CanvasLoadingOverlay
-          loadingOverlayPhase={loadingOverlayPhase}
-          steps={steps}
-          overlayBarPct={overlayBarPct}
-        />
-        <EventsPanel
-          steps={steps}
-          currentStep={currentStep}
-          selectedSteps={selectedSteps}
-          onStepClick={handleStepSelection}
-          onMultiStepSelect={handleMultiStepSelect}
-          onUserScroll={stopPlayback}
-          width={panelWidth}
-          onWidthChange={setPanelWidth}
-          panelCollapsed={isEventsPanelCollapsed}
-          onToggleCollapse={toggleEventsPanel}
-          isAllEventsWidgetHidden={isAllEventsWidgetHidden || areWidgetsJoined}
-          onExpandPanelFromWidget={expandEventsPanelFromWidget}
-          onDockWidgetToTopBar={dockEventsWidgetToTopBar}
-          onDockWidgetToDetailPanel={dockEventsWidgetToDetailPanel}
-          onJoinWidgets={joinWidgets}
-          externalOpFilter={timingFocusOp}
-          onExternalOpFilterConsumed={() => setTimingFocusOp('')}
-          revealStepRequest={revealStepRequest}
-          eventTitleVisible={eventTitleSettings.visible && !areWidgetsJoined}
-          onShowEventTitle={showEventTitleAboveCurrentDetail}
-        />
-        <CanvasStage
-          mode3D={mode3D}
-          containerRef={containerRef}
-          glCanvasRef={glCanvasRef}
-          glyphCanvasRef={glyphCanvasRef}
-          wrapperCanvasRef={wrapperCanvasRef}
-          glActive={true}
-          hideGlCanvas={false}
-          camera3DContainerStyle={mergedCamera3DContainerStyle}
-          renderCanvasStyle={renderCanvasStyle}
-          eventTitleSettings={eventTitleSettings}
-          setEventTitleSettings={setEventTitleSettings}
-          eventTitleStyle={eventTitleStyle}
-          currentStepBanner={currentStepBanner}
-          surroundingEvents={surroundingEvents}
-          currentStepData={currentStepData}
-          currentStep={currentStep}
-          goToStep={goToStep}
-          revealCurrentStepInPanel={revealCurrentStepInPanel}
-          isEventsPanelCollapsed={isEventsPanelCollapsed}
-          setIsEventsPanelCollapsed={setIsEventsPanelCollapsed}
-          stepAnimSlidersContent={stepAnimSlidersContent}
-          stepAnimSlidersDockedContent={stepAnimSlidersDockedContent}
-          areWidgetsJoined={areWidgetsJoined}
-          onJoinWidgets={joinWidgets}
-          onSplitWidgets={splitWidgets}
-          pinnedBitIndices={pinnedBitIndices}
-          hoveredBitInfo={hoveredBitInfo}
-          computeBitInfo={computeBitInfo}
-          getVisibleBalloonStyles={getVisibleBalloonStyles}
-          balloonLiveLayout={balloonLiveLayout}
-          cachelineSize={cachelineSize}
-          setPinnedBitIndices={setPinnedBitIndices}
-          handleStepSelection={handleStepSelection}
-          isDetailOpen={isDetailOpen}
-          toggleDetailPanel={toggleDetailPanel}
-          detailHeight={detailHeight}
-          pendingBannerDragStart={pendingBannerDragStart}
-          onConsumePendingBannerDragStart={() => setPendingBannerDragStart(null)}
-          updateDetailHeight={updateDetailHeight}
-          detailWidth={detailWidth}
-          setDetailWidth={setDetailWidth}
-          playing={playing}
-          selectedSteps={selectedSteps}
-          stepStats={stepStats}
-          storageModel={storageModel}
-          wheelDefinition={wheelDefinition}
-          layoutSettings={layoutSettings}
-          benchmarkTimingData={benchmarkTimingData}
-          openDetailInspector={openDetailInspector}
-          isDetailInspectorOpen={isDetailInspectorOpen}
-          detailInspectorMode={detailInspectorMode}
-          detailInspectorQuery={detailInspectorQuery}
-          setDetailInspectorQuery={setDetailInspectorQuery}
-          setIsDetailInspectorOpen={setIsDetailInspectorOpen}
-          detailInspectorRows={detailInspectorRows}
-          filteredDetailInspectorRows={filteredDetailInspectorRows}
-          isTimingPanelOpen={isTimingPanelOpen}
-          setIsTimingPanelOpen={setIsTimingPanelOpen}
-          benchmarkTimingFileName={benchmarkTimingFileName}
-          setTimingFocusOp={setTimingFocusOp}
-          onImportBenchmarkTiming={onImportBenchmarkTiming}
-          steps={steps}
-          onShowEventTitle={showEventTitleAboveClosedDetail}
-          onOpenRawLog={onOpenRawLog}
-          currentStepSourceLine={stepToLine[currentStep]}
-          hasRawSource={!!sourceRef}
-          allEventsTransport={allEventsTransportContent}
-          introPhase={introPhase}
-          onIntroTransitionEnd={handleIntroTransitionEnd}
-          isSingleEventWidgetRevealed={isSingleEventWidgetRevealed}
-        />
-        {areWidgetsJoined && isEventsPanelCollapsed && !isAllEventsWidgetHidden && eventTitleSettings.visible && isSingleEventWidgetRevealed && (
-          <JoinedEventsWidget
-            settings={eventTitleSettings}
-            setSettings={setEventTitleSettings}
-            banner={currentStepBanner}
-            surrounding={surroundingEvents}
-            currentStepData={currentStepData}
-            revealCurrentStepInPanel={revealCurrentStepInPanel}
-            sliders={stepAnimSlidersContent}
-            onSplitWidgets={splitWidgets}
-            onPushToEventsPanel={pushJoinedWidgetToEventsPanel}
-            onPushToDetailPanel={pushJoinedWidgetToDetailPanel}
-            initialBannerRect={joinBannerRect}
-            onHideWidget={hideJoinedWidget}
-            onNavigate={() => { if (!isDetailOpenRef.current) setIsDetailOpen(true); }}
-          />
-        )}
-        <SettingsPanel
-          settings={layoutSettings}
-          onChange={setLayoutSettings}
-          autoFitColumns={autoFitColumnCount}
-          onActiveTabChange={setSettingsActiveTab}
-          cachelineSize={cachelineSize}
-          onCachelineSizeChange={setCachelineSize}
-          cachePreset={cachePreset}
-          onCachePresetChange={setCachePreset}
-          isHeatMapEnabled={isHeatMapEnabled}
-          onHeatMapToggle={setIsHeatMapEnabled}
-          cachelineAnnotation={cachelineAnnotation}
-          onCachelineAnnotationChange={setCachelineAnnotation}
-          isPrimeOverlayEnabled={isPrimeOverlayEnabled}
-          onPrimeOverlayToggle={setIsPrimeOverlayEnabled}
-          isRangeOverlayEnabled={isRangeOverlayEnabled}
-          rangeOverlayStart={rangeOverlayStart}
-          rangeOverlayEnd={rangeOverlayEnd}
-          onRangeOverlayToggle={(enabled) => {
-            if (enabled && !isRangeOverlayEnabled) {
-              const step = steps[currentStep];
-              if (step) {
-                const start = step.focusStart != null ? step.focusStart : (step.changedBits.length > 0 ? Math.min(...step.changedBits) : 0);
-                const end = step.focusStop != null ? step.focusStop : (step.changedBits.length > 0 ? Math.max(...step.changedBits) : Math.max(0, header.bitCount - 1));
-                setRangeOverlayStart(start);
-                setRangeOverlayEnd(end);
-              }
-            }
-            setIsRangeOverlayEnabled(enabled);
-          }}
-          onRangeOverlayStartChange={setRangeOverlayStart}
-          onRangeOverlayEndChange={setRangeOverlayEnd}
-          isMultiplesOverlayEnabled={isMultiplesOverlayEnabled}
-          multiplesOverlayPrime={multiplesOverlayPrime}
-          onMultiplesOverlayToggle={(enabled) => {
-            if (enabled && !isMultiplesOverlayEnabled) {
-              const step = steps[currentStep];
-              if (step && step.prime != null && step.prime >= 2) {
-                setMultiplesOverlayPrime(step.prime);
-              }
-            }
-            setIsMultiplesOverlayEnabled(enabled);
-          }}
-          onMultiplesOverlayPrimeChange={setMultiplesOverlayPrime}
-          onRangeOverlayReset={() => {
+      <VisualizerMainContent
+        mode3D={mode3D}
+        isUiChromeVisible={isUiChromeVisible}
+        isEventsPanelCollapsed={isEventsPanelCollapsed}
+        panelWidth={panelWidth}
+        loadingOverlayPhase={loadingOverlayPhase}
+        steps={steps}
+        overlayBarPct={overlayBarPct}
+        currentStep={currentStep}
+        selectedSteps={selectedSteps}
+        handleStepSelection={handleStepSelection}
+        handleMultiStepSelect={handleMultiStepSelect}
+        stopPlayback={stopPlayback}
+        setPanelWidth={setPanelWidth}
+        toggleEventsPanel={toggleEventsPanel}
+        isAllEventsWidgetHidden={isAllEventsWidgetHidden}
+        areWidgetsJoined={areWidgetsJoined}
+        expandEventsPanelFromWidget={expandEventsPanelFromWidget}
+        dockEventsWidgetToTopBar={dockEventsWidgetToTopBar}
+        dockEventsWidgetToDetailPanel={dockEventsWidgetToDetailPanel}
+        joinWidgets={joinWidgets}
+        timingFocusOp={timingFocusOp}
+        setTimingFocusOp={setTimingFocusOp}
+        revealStepRequest={revealStepRequest}
+        eventTitleSettings={eventTitleSettings}
+        showEventTitleAboveCurrentDetail={showEventTitleAboveCurrentDetail}
+        containerRef={containerRef}
+        glCanvasRef={glCanvasRef}
+        glyphCanvasRef={glyphCanvasRef}
+        wrapperCanvasRef={wrapperCanvasRef}
+        mergedCamera3DContainerStyle={mergedCamera3DContainerStyle}
+        renderCanvasStyle={renderCanvasStyle}
+        setEventTitleSettings={setEventTitleSettings}
+        eventTitleStyle={eventTitleStyle}
+        currentStepBanner={currentStepBanner}
+        surroundingEvents={surroundingEvents}
+        currentStepData={currentStepData}
+        goToStep={goToStep}
+        revealCurrentStepInPanel={revealCurrentStepInPanel}
+        setIsEventsPanelCollapsed={setIsEventsPanelCollapsed}
+        stepAnimSlidersContent={stepAnimSlidersContent}
+        stepAnimSlidersDockedContent={stepAnimSlidersDockedContent}
+        splitWidgets={splitWidgets}
+        pinnedBitIndices={pinnedBitIndices}
+        hoveredBitInfo={hoveredBitInfo}
+        computeBitInfo={computeBitInfo}
+        getVisibleBalloonStyles={getVisibleBalloonStyles}
+        balloonLiveLayout={balloonLiveLayout}
+        cachelineSize={cachelineSize}
+        setPinnedBitIndices={setPinnedBitIndices}
+        isDetailOpen={isDetailOpen}
+        toggleDetailPanel={toggleDetailPanel}
+        detailHeight={detailHeight}
+        pendingBannerDragStart={pendingBannerDragStart}
+        setPendingBannerDragStart={setPendingBannerDragStart}
+        updateDetailHeight={updateDetailHeight}
+        detailWidth={detailWidth}
+        setDetailWidth={setDetailWidth}
+        playing={playing}
+        stepStats={stepStats}
+        storageModel={storageModel}
+        wheelDefinition={wheelDefinition}
+        layoutSettings={layoutSettings}
+        benchmarkTimingData={benchmarkTimingData}
+        openDetailInspector={openDetailInspector}
+        isDetailInspectorOpen={isDetailInspectorOpen}
+        detailInspectorMode={detailInspectorMode}
+        detailInspectorQuery={detailInspectorQuery}
+        setDetailInspectorQuery={setDetailInspectorQuery}
+        setIsDetailInspectorOpen={setIsDetailInspectorOpen}
+        detailInspectorRows={detailInspectorRows}
+        filteredDetailInspectorRows={filteredDetailInspectorRows}
+        isTimingPanelOpen={isTimingPanelOpen}
+        setIsTimingPanelOpen={setIsTimingPanelOpen}
+        benchmarkTimingFileName={benchmarkTimingFileName}
+        onImportBenchmarkTiming={onImportBenchmarkTiming}
+        onShowEventTitle={showEventTitleAboveClosedDetail}
+        onOpenRawLog={onOpenRawLog}
+        currentStepSourceLine={stepToLine[currentStep]}
+        sourceRef={sourceRef}
+        allEventsTransportContent={allEventsTransportContent}
+        introPhase={introPhase}
+        handleIntroTransitionEnd={handleIntroTransitionEnd}
+        isSingleEventWidgetRevealed={isSingleEventWidgetRevealed}
+        joinBannerRect={joinBannerRect}
+        pushJoinedWidgetToEventsPanel={pushJoinedWidgetToEventsPanel}
+        pushJoinedWidgetToDetailPanel={pushJoinedWidgetToDetailPanel}
+        hideJoinedWidget={hideJoinedWidget}
+        isDetailOpenRef={isDetailOpenRef}
+        setIsDetailOpen={setIsDetailOpen}
+        autoFitColumnCount={autoFitColumnCount}
+        setLayoutSettings={setLayoutSettings}
+        setSettingsActiveTab={setSettingsActiveTab}
+        setCachelineSize={setCachelineSize}
+        cachePreset={cachePreset}
+        setCachePreset={setCachePreset}
+        isHeatMapEnabled={isHeatMapEnabled}
+        setIsHeatMapEnabled={setIsHeatMapEnabled}
+        cachelineAnnotation={cachelineAnnotation}
+        setCachelineAnnotation={setCachelineAnnotation}
+        isPrimeOverlayEnabled={isPrimeOverlayEnabled}
+        setIsPrimeOverlayEnabled={setIsPrimeOverlayEnabled}
+        isRangeOverlayEnabled={isRangeOverlayEnabled}
+        rangeOverlayStart={rangeOverlayStart}
+        rangeOverlayEnd={rangeOverlayEnd}
+        onRangeOverlayToggle={(enabled) => {
+          if (enabled && !isRangeOverlayEnabled) {
             const step = steps[currentStep];
             if (step) {
               const start = step.focusStart != null ? step.focusStart : (step.changedBits.length > 0 ? Math.min(...step.changedBits) : 0);
@@ -1377,49 +1315,63 @@ export default function Visualizer({
               setRangeOverlayStart(start);
               setRangeOverlayEnd(end);
             }
-          }}
-          onMultiplesOverlayReset={() => {
+          }
+          setIsRangeOverlayEnabled(enabled);
+        }}
+        setRangeOverlayStart={setRangeOverlayStart}
+        setRangeOverlayEnd={setRangeOverlayEnd}
+        isMultiplesOverlayEnabled={isMultiplesOverlayEnabled}
+        multiplesOverlayPrime={multiplesOverlayPrime}
+        onMultiplesOverlayToggle={(enabled) => {
+          if (enabled && !isMultiplesOverlayEnabled) {
             const step = steps[currentStep];
             if (step && step.prime != null && step.prime >= 2) {
               setMultiplesOverlayPrime(step.prime);
             }
-          }}
-          isMinimapVisible={isMinimapVisible}
-          onShowMinimapChange={setIsMinimapVisible}
-          minimapControlVisible={true}
-          eventTitleSettings={eventTitleSettings}
-          onEventTitleSettingsChange={setEventTitleSettings}
-          outlineSettings={layoutSettings.outlines}
-          onOutlineChange={(outlines) => setLayoutSettings((prev) => ({ ...prev, outlines }))}
-          isWindowsPlatform={isWindowsPlatform}
-          showAnimationControls={true}
-          activeTabRequest={settingsTabRequest}
-        />
-        {isDebugToolsOpen && (
-          <DebugToolsPanel
-            rendererRef={rendererRef}
-            glCanvasRef={glCanvasRef}
-            glRendererRef={glRendererRef}
-            camera3DRef={camera3DRef}
-            camera3DTransform={camera3DTransform}
-            zoomLevel={zoom}
-            glDebugInfo={glDebugInfo}
-            theme={theme}
-            debugLayerMode={debugLayerMode}
-            setDebugLayerMode={setDebugLayerMode}
-            debugGlOffsetX={debugGlOffsetX}
-            setDebugGlOffsetX={setDebugGlOffsetX}
-            debugGlOffsetY={debugGlOffsetY}
-            setDebugGlOffsetY={setDebugGlOffsetY}
-            debugGlAutoOffsetY={debugGlAutoOffsetY}
-            isDebugCalibrationMode={isDebugCalibrationMode}
-            setIsDebugCalibrationMode={setIsDebugCalibrationMode}
-            onApplyDebugSnapshot={applyDebugSnapshot}
-            onForceGlRedraw={forceGlRedraw}
-            rightOffset={isSettingsCollapsed ? 8 : (isMacPlatform ? 388 : 328)}
-          />
-        )}
-      </div>
+          }
+          setIsMultiplesOverlayEnabled(enabled);
+        }}
+        setMultiplesOverlayPrime={setMultiplesOverlayPrime}
+        onRangeOverlayReset={() => {
+          const step = steps[currentStep];
+          if (step) {
+            const start = step.focusStart != null ? step.focusStart : (step.changedBits.length > 0 ? Math.min(...step.changedBits) : 0);
+            const end = step.focusStop != null ? step.focusStop : (step.changedBits.length > 0 ? Math.max(...step.changedBits) : Math.max(0, header.bitCount - 1));
+            setRangeOverlayStart(start);
+            setRangeOverlayEnd(end);
+          }
+        }}
+        onMultiplesOverlayReset={() => {
+          const step = steps[currentStep];
+          if (step && step.prime != null && step.prime >= 2) {
+            setMultiplesOverlayPrime(step.prime);
+          }
+        }}
+        isMinimapVisible={isMinimapVisible}
+        setIsMinimapVisible={setIsMinimapVisible}
+        isWindowsPlatform={isWindowsPlatform}
+        settingsTabRequest={settingsTabRequest}
+        isDebugToolsOpen={isDebugToolsOpen}
+        rendererRef={rendererRef}
+        glRendererRef={glRendererRef}
+        camera3DRef={camera3DRef}
+        camera3DTransform={camera3DTransform}
+        zoom={zoom}
+        glDebugInfo={glDebugInfo}
+        theme={theme}
+        debugLayerMode={debugLayerMode}
+        setDebugLayerMode={setDebugLayerMode}
+        debugGlOffsetX={debugGlOffsetX}
+        setDebugGlOffsetX={setDebugGlOffsetX}
+        debugGlOffsetY={debugGlOffsetY}
+        setDebugGlOffsetY={setDebugGlOffsetY}
+        debugGlAutoOffsetY={debugGlAutoOffsetY}
+        isDebugCalibrationMode={isDebugCalibrationMode}
+        setIsDebugCalibrationMode={setIsDebugCalibrationMode}
+        applyDebugSnapshot={applyDebugSnapshot}
+        forceGlRedraw={forceGlRedraw}
+        isMacPlatform={isMacPlatform}
+      />
       {/* Minimap overlay — rendered OUTSIDE .main-content so it is never
           trapped inside the canvas-container stacking context
           (transform-style:preserve-3d). position:fixed + z-index:35 then
