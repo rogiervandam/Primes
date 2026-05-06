@@ -123,98 +123,118 @@ export default function VisualizerMainContent(props) {
         overlayBarPct={overlayBarPct}
       />
       <EventsPanel
-        steps={steps}
-        currentStep={currentStep}
-        selectedSteps={selectedSteps}
-        onStepClick={handleStepSelection}
-        onMultiStepSelect={handleMultiStepSelect}
-        onUserScroll={stopPlayback}
-        width={panelWidth}
-        onWidthChange={setPanelWidth}
-        panelCollapsed={isEventsPanelCollapsed}
-        onToggleCollapse={toggleEventsPanel}
-        isAllEventsWidgetHidden={isAllEventsWidgetHidden || areWidgetsJoined}
-        onExpandPanelFromWidget={expandEventsPanelFromWidget}
-        onDockWidgetToTopBar={dockEventsWidgetToTopBar}
-        onDockWidgetToDetailPanel={dockEventsWidgetToDetailPanel}
-        onJoinWidgets={joinWidgets}
-        externalOpFilter={timingFocusOp}
-        onExternalOpFilterConsumed={() => setTimingFocusOp('')}
-        revealStepRequest={revealStepRequest}
-        eventTitleVisible={eventTitleSettings.visible && !areWidgetsJoined}
-        onShowEventTitle={showEventTitleAboveCurrentDetail}
+        eventsState={{
+          steps,
+          currentStep,
+          selectedSteps,
+          width: panelWidth,
+          externalOpFilter: timingFocusOp,
+          revealStepRequest,
+          eventTitleVisible: eventTitleSettings.visible && !areWidgetsJoined,
+        }}
+        eventsHandlers={{
+          onStepClick: handleStepSelection,
+          onMultiStepSelect: handleMultiStepSelect,
+          onWidthChange: setPanelWidth,
+          onExpandPanelFromWidget: expandEventsPanelFromWidget,
+          onDockWidgetToTopBar: dockEventsWidgetToTopBar,
+          onDockWidgetToDetailPanel: dockEventsWidgetToDetailPanel,
+          onJoinWidgets: joinWidgets,
+          onUserScroll: stopPlayback,
+          onExternalOpFilterConsumed: () => setTimingFocusOp(''),
+          onShowEventTitle: showEventTitleAboveCurrentDetail,
+        }}
       />
       <CanvasStage
-        mode3D={mode3D}
-        containerRef={containerRef}
-        glCanvasRef={glCanvasRef}
-        glyphCanvasRef={glyphCanvasRef}
-        wrapperCanvasRef={wrapperCanvasRef}
-        glActive={true}
-        hideGlCanvas={false}
-        camera3DContainerStyle={mergedCamera3DContainerStyle}
-        renderCanvasStyle={renderCanvasStyle}
-        eventTitleSettings={eventTitleSettings}
-        setEventTitleSettings={setEventTitleSettings}
-        eventTitleStyle={eventTitleStyle}
-        currentStepBanner={currentStepBanner}
-        surroundingEvents={surroundingEvents}
-        currentStepData={currentStepData}
-        currentStep={currentStep}
-        goToStep={goToStep}
-        revealCurrentStepInPanel={revealCurrentStepInPanel}
-        isEventsPanelCollapsed={isEventsPanelCollapsed}
-        setIsEventsPanelCollapsed={setIsEventsPanelCollapsed}
-        stepAnimSlidersContent={stepAnimSlidersContent}
-        stepAnimSlidersDockedContent={stepAnimSlidersDockedContent}
-        areWidgetsJoined={areWidgetsJoined}
-        onJoinWidgets={joinWidgets}
-        onSplitWidgets={splitWidgets}
-        pinnedBitIndices={pinnedBitIndices}
-        hoveredBitInfo={hoveredBitInfo}
-        computeBitInfo={computeBitInfo}
-        getVisibleBalloonStyles={getVisibleBalloonStyles}
-        balloonLiveLayout={balloonLiveLayout}
-        cachelineSize={cachelineSize}
-        setPinnedBitIndices={setPinnedBitIndices}
-        handleStepSelection={handleStepSelection}
-        isDetailOpen={isDetailOpen}
-        toggleDetailPanel={toggleDetailPanel}
-        detailHeight={detailHeight}
-        pendingBannerDragStart={pendingBannerDragStart}
-        onConsumePendingBannerDragStart={() => setPendingBannerDragStart(null)}
-        updateDetailHeight={updateDetailHeight}
-        detailWidth={detailWidth}
-        setDetailWidth={setDetailWidth}
-        playing={playing}
-        selectedSteps={selectedSteps}
-        stepStats={stepStats}
-        storageModel={storageModel}
-        wheelDefinition={wheelDefinition}
-        layoutSettings={layoutSettings}
-        benchmarkTimingData={benchmarkTimingData}
-        openDetailInspector={openDetailInspector}
-        isDetailInspectorOpen={isDetailInspectorOpen}
-        detailInspectorMode={detailInspectorMode}
-        detailInspectorQuery={detailInspectorQuery}
-        setDetailInspectorQuery={setDetailInspectorQuery}
-        setIsDetailInspectorOpen={setIsDetailInspectorOpen}
-        detailInspectorRows={detailInspectorRows}
-        filteredDetailInspectorRows={filteredDetailInspectorRows}
-        isTimingPanelOpen={isTimingPanelOpen}
-        setIsTimingPanelOpen={setIsTimingPanelOpen}
-        benchmarkTimingFileName={benchmarkTimingFileName}
-        setTimingFocusOp={setTimingFocusOp}
-        onImportBenchmarkTiming={onImportBenchmarkTiming}
-        steps={steps}
-        onShowEventTitle={onShowEventTitle}
-        onOpenRawLog={onOpenRawLog}
-        currentStepSourceLine={currentStepSourceLine}
-        hasRawSource={!!sourceRef}
-        allEventsTransport={allEventsTransportContent}
-        introPhase={introPhase}
-        onIntroTransitionEnd={handleIntroTransitionEnd}
-        isSingleEventWidgetRevealed={isSingleEventWidgetRevealed}
+        canvasRefs={{
+          containerRef,
+          glCanvasRef,
+          glyphCanvasRef,
+          wrapperCanvasRef,
+        }}
+        canvasConfig={{
+          mode3D,
+          glActive: true,
+          hideGlCanvas: false,
+        }}
+        canvasStyles={{
+          camera3DContainerStyle: mergedCamera3DContainerStyle,
+          renderCanvasStyle,
+        }}
+        overlay={{
+          eventTitleSettings,
+          setEventTitleSettings,
+          eventTitleStyle,
+          currentStepBanner,
+          surroundingEvents,
+          currentStepData,
+          currentStep,
+          goToStep,
+          revealCurrentStepInPanel,
+          isEventsPanelCollapsed,
+          setIsEventsPanelCollapsed,
+          stepAnimSlidersContent,
+          areWidgetsJoined,
+          onJoinWidgets: joinWidgets,
+          pinnedBitIndices,
+          hoveredBitInfo,
+          computeBitInfo,
+          getVisibleBalloonStyles,
+          balloonLiveLayout,
+          cachelineSize,
+          setPinnedBitIndices,
+          handleStepSelection,
+          isDetailOpen,
+          detailHeight,
+          toggleDetailPanel,
+          pendingBannerDragStart,
+          onConsumePendingBannerDragStart: () => setPendingBannerDragStart(null),
+          isDetailInspectorOpen,
+          detailInspectorMode,
+          detailInspectorQuery,
+          setDetailInspectorQuery,
+          setIsDetailInspectorOpen,
+          detailInspectorRows,
+          filteredDetailInspectorRows,
+          isTimingPanelOpen,
+          setIsTimingPanelOpen,
+          steps,
+          benchmarkTimingData,
+          benchmarkTimingFileName,
+          setTimingFocusOp,
+          onImportBenchmarkTiming,
+        }}
+        detail={{
+          step: isSingleEventWidgetRevealed ? currentStepData : null,
+          stepIndex: currentStep,
+          open: isDetailOpen,
+          onToggle: toggleDetailPanel,
+          height: detailHeight,
+          onHeightChange: updateDetailHeight,
+          width: detailWidth,
+          onWidthChange: setDetailWidth,
+          playing,
+          stepStats: selectedSteps.size > 1 ? null : stepStats,
+          storageModel,
+          wheelDefinition,
+          bitLayout: layoutSettings.bitLayout,
+          byteLayout: layoutSettings.byteLayout,
+          benchmarkTimingData,
+          onInspectChangedBits: () => openDetailInspector('bits'),
+          onInspectMarkedNumbers: () => openDetailInspector('numbers'),
+          eventTitleVisible: eventTitleSettings.visible && !areWidgetsJoined,
+          onShowEventTitle,
+          eventAnimSliders: stepAnimSlidersDockedContent || stepAnimSlidersContent,
+          onOpenRawLog,
+          sourceLineNumber: currentStepSourceLine,
+          hasRawSource: !!sourceRef,
+          allEventsTransport: allEventsTransportContent,
+        }}
+        intro={{
+          introPhase,
+          onIntroTransitionEnd: handleIntroTransitionEnd,
+          isSingleEventWidgetRevealed,
+        }}
       />
       {areWidgetsJoined && isEventsPanelCollapsed && !isAllEventsWidgetHidden && eventTitleSettings.visible && isSingleEventWidgetRevealed && (
         <JoinedEventsWidget

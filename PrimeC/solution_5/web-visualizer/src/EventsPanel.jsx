@@ -98,36 +98,42 @@ function buildDepthTree(steps) {
  * Left-hand events panel: hierarchical step list with search, grouping, and
  * an optional floating transport widget when the panel is collapsed.
  *
+ * Phase 5 Refactoring: Accepts organized prop objects instead of 20+ scattered props.
+ *
  * @param {object}   props
- * @param {Array}    props.steps                     - Parsed trace steps
- * @param {number}   props.currentStep               - Active step index
- * @param {Set}      props.selectedSteps             - Set of multi-selected step indices
- * @param {function} props.onStepClick               - Called with a step index on single-click
- * @param {function} props.onMultiStepSelect         - Called with new Set on multi-select
- * @param {number}   props.width                     - Panel pixel width
- * @param {function} props.onWidthChange             - Called when user drags the resize handle
- * @param {boolean}  props.panelCollapsed            - Whether the panel is collapsed to a floating widget
- * @param {function} props.onToggleCollapse          - Toggle collapsed state
- * @param {boolean}  [props.isAllEventsWidgetHidden]   - True when widget is docked to the top bar
- * @param {function} props.onExpandPanelFromWidget   - Widget drop-left: expands the panel
- * @param {function} props.onDockWidgetToTopBar      - Widget drop-top: docks the widget to the toolbar
- * @param {function} [props.onDockWidgetToDetailPanel] - Widget drop-detail: docks transport in detail panel
- * @param {function} props.onJoinWidgets             - Widget drop-on-banner: join the two floating widgets
- * @param {function} [props.onUserScroll]            - Called when the user scrolls the event list
- * @param {string}   [props.externalOpFilter]        - Op-filter string set externally (e.g. from search)
- * @param {function} props.onExternalOpFilterConsumed - Called after the external filter has been applied
- * @param {number}   [props.revealStepRequest]       - Counter; increments to scroll the current step into view
- * @param {function} props.goToStep                  - Navigate to a given step index
- * @param {boolean}  props.playing                   - Whether all-events playback is active
- * @param {function} props.handlePlayPause           - Toggle all-events play/pause
- * @param {boolean}  props.exporting                 - Disable controls while exporting
- * @param {React.MutableRefObject} props.isScrubbingTopRef - True while the top-bar scrubber is being dragged
- * @param {number}   props.playSpeedPercent          - Playback speed 25–400
- * @param {function} props.setPlaySpeedPercent       - Update playback speed
- * @param {boolean}  [props.eventTitleVisible]       - Whether the floating event banner is currently shown
- * @param {function} props.onShowEventTitle          - Show / restore the event title banner
+ * @param {object}   props.eventsState               - Event list state (steps, currentStep, selectedSteps, width, externalOpFilter, revealStepRequest, eventTitleVisible)
+ * @param {object}   props.eventsHandlers            - Event handlers (onStepClick, onMultiStepSelect, onWidthChange, onExpandPanelFromWidget, onDockWidgetToTopBar, onDockWidgetToDetailPanel, onJoinWidgets, onUserScroll, onExternalOpFilterConsumed, onShowEventTitle)
+ *
+ * Flat fallback: if eventsState/eventsHandlers not provided, will accept flat props for backward compatibility.
  */
-export default function EventsPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, onExpandPanelFromWidget, onDockWidgetToTopBar, onDockWidgetToDetailPanel, onJoinWidgets, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0, eventTitleVisible = true, onShowEventTitle }) {
+export default function EventsPanel(props) {
+  // Phase 5: Destructure organized objects with flat fallback compatibility
+  const eventsState = props.eventsState || {};
+  const eventsHandlers = props.eventsHandlers || {};
+
+  // Extract from organized objects, with flat fallback
+  const {
+    steps = props.steps,
+    currentStep = props.currentStep,
+    selectedSteps = props.selectedSteps,
+    width = props.width,
+    externalOpFilter = props.externalOpFilter || '',
+    revealStepRequest = props.revealStepRequest || 0,
+    eventTitleVisible = props.eventTitleVisible !== undefined ? props.eventTitleVisible : true,
+  } = eventsState;
+
+  const {
+    onStepClick = props.onStepClick,
+    onMultiStepSelect = props.onMultiStepSelect,
+    onWidthChange = props.onWidthChange,
+    onExpandPanelFromWidget = props.onExpandPanelFromWidget,
+    onDockWidgetToTopBar = props.onDockWidgetToTopBar,
+    onDockWidgetToDetailPanel = props.onDockWidgetToDetailPanel,
+    onJoinWidgets = props.onJoinWidgets,
+    onUserScroll = props.onUserScroll,
+    onExternalOpFilterConsumed = props.onExternalOpFilterConsumed,
+    onShowEventTitle = props.onShowEventTitle,
+  } = eventsHandlers;
   const {
     goToStep,
     playing,

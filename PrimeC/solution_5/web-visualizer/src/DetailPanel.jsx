@@ -15,33 +15,55 @@ function layoutPos(layout, index) {
 
 /**
  * Collapsible detail panel with adjustable height.
+ * 
+ * Phase 5 Refactoring: Accepts organized prop objects instead of 25+ scattered props.
+ * 
+ * @param {object}   props
+ * @param {object}   props.detailState              - Panel state (step, stepIndex, open, height, width, playing, stepStats, bitLayout, byteLayout, eventTitleVisible, sourceLineNumber, hasRawSource)
+ * @param {object}   props.detailConfig             - Panel config (storageModel, wheelDefinition, benchmarkTimingData, eventAnimSliders, allEventsTransport)
+ * @param {object}   props.detailHandlers           - Panel handlers (onToggle, onHeightChange, onWidthChange, onInspectChangedBits, onInspectMarkedNumbers, onShowEventTitle, onOpenRawLog)
+ * 
+ * Flat fallback: if organized objects not provided, will accept flat props for backward compatibility.
  */
-export default function DetailPanel({
-  step,
-  stepIndex,
-  open,
-  onToggle,
-  height,
-  onHeightChange,
-  width,
-  onWidthChange,
-  playing,
-  stepStats,
-  storageModel,
-  wheelDefinition,
-  bitLayout = '4x2',
-  byteLayout = '4x2',
-  benchmarkTimingData,
-  onInspectChangedBits,
-  onInspectMarkedNumbers,
-  eventTitleVisible,
-  onShowEventTitle,
-  eventAnimSliders,
-  onOpenRawLog,
-  sourceLineNumber,
-  hasRawSource = false,
-  allEventsTransport,
-}) {
+export default function DetailPanel(props) {
+  // Phase 5: Destructure organized objects with flat fallback compatibility
+  const detailState = props.detailState || {};
+  const detailConfig = props.detailConfig || {};
+  const detailHandlers = props.detailHandlers || {};
+
+  // Extract from organized objects, with flat fallback
+  const {
+    step = props.step,
+    stepIndex = props.stepIndex,
+    open = props.open,
+    height = props.height,
+    width = props.width,
+    playing = props.playing,
+    stepStats = props.stepStats,
+    bitLayout = props.bitLayout || '4x2',
+    byteLayout = props.byteLayout || '4x2',
+    eventTitleVisible = props.eventTitleVisible,
+    sourceLineNumber = props.sourceLineNumber,
+    hasRawSource = props.hasRawSource !== undefined ? props.hasRawSource : false,
+  } = detailState;
+
+  const {
+    storageModel = props.storageModel,
+    wheelDefinition = props.wheelDefinition,
+    benchmarkTimingData = props.benchmarkTimingData,
+    eventAnimSliders = props.eventAnimSliders,
+    allEventsTransport = props.allEventsTransport,
+  } = detailConfig;
+
+  const {
+    onToggle = props.onToggle,
+    onHeightChange = props.onHeightChange,
+    onWidthChange = props.onWidthChange,
+    onInspectChangedBits = props.onInspectChangedBits,
+    onInspectMarkedNumbers = props.onInspectMarkedNumbers,
+    onShowEventTitle = props.onShowEventTitle,
+    onOpenRawLog = props.onOpenRawLog,
+  } = detailHandlers;
   // Benchmark timing row matching the current step's operation (if any)
   const benchmarkOpTiming = useMemo(() => {
     if (!step || !benchmarkTimingData || !Array.isArray(benchmarkTimingData.timings)) return null;

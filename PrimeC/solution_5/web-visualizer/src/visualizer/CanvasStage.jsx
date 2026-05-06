@@ -10,149 +10,132 @@ import DetailPanel from '../DetailPanel';
  *   - the detail panel docked at the bottom
  *   - the modal detail inspector + floating timing panel
  *
+ * Phase 5 Refactoring: Accepts organized prop objects instead of 80+ scattered props.
  * Pure presentation: the parent (Visualizer.jsx) owns all state and logic.
- * Refs are forwarded; mouse/wheel/keyboard handlers are attached by the
- * parent to the elements via these refs.
  *
- * This component is intentionally renderer-agnostic — the three canvas
- * elements are created here but the renderer reads them through the refs
- * passed by the parent. Swapping in a different visualization mode does
- * not require touching this file.
+ * @param {object}   props
+ * @param {object}   props.canvasRefs              - Canvas element refs (containerRef, glCanvasRef, glyphCanvasRef, wrapperCanvasRef)
+ * @param {object}   props.canvasConfig            - Canvas configuration (mode3D, glActive, hideGlCanvas)
+ * @param {object}   props.canvasStyles            - Canvas styling (camera3DContainerStyle, renderCanvasStyle)
+ * @param {object}   props.overlay                 - CanvasOverlayManager props (all overlay-related state/handlers)
+ * @param {object}   props.detail                  - DetailPanel props (all detail-related state/handlers)
+ * @param {object}   props.intro                   - Intro animation state (introPhase, onIntroTransitionEnd, isSingleEventWidgetRevealed)
+ *
+ * Flat fallback: if organized objects not provided, will accept flat props for backward compatibility.
  */
-function CanvasStage({
-  // layout flags
-  mode3D,
-  // canvas refs (owned by parent, attached here)
-  containerRef,
-  glCanvasRef,
-  glyphCanvasRef,
-  // wrapper div ref — receives positioning (translate -50%/-50%) only.
-  // The 3D CSS rotation is applied directly to the GL canvas imperatively
-  // by refreshCanvasLayout (via camera3DTransformRef) so only one GPU
-  // compositing layer is created, avoiding Safari black-flicker.
-  wrapperCanvasRef,
-  // whether GL renderer is active (controls GL canvas visibility)
-  glActive,
-  hideGlCanvas = false,
-  // styling
-  camera3DContainerStyle,
-  renderCanvasStyle,
-  // event title banner
-  eventTitleSettings,
-  setEventTitleSettings,
-  eventTitleStyle,
-  currentStepBanner,
-  surroundingEvents,
-  currentStepData,
-  currentStep,
-  goToStep,
-  revealCurrentStepInPanel,
-  isEventsPanelCollapsed,
-  setIsEventsPanelCollapsed,
-  stepAnimSlidersContent,
-  stepAnimSlidersDockedContent,
-  // join/split state for the joined widget feature
-  areWidgetsJoined,
-  onJoinWidgets,
-  onSplitWidgets,
-  // bit-history balloons
-  pinnedBitIndices,
-  hoveredBitInfo,
-  computeBitInfo,
-  getVisibleBalloonStyles,
-  balloonLiveLayout,
-  cachelineSize,
-  setPinnedBitIndices,
-  handleStepSelection,
-  // detail panel
-  isDetailOpen,
-  toggleDetailPanel,
-  detailHeight,
-  pendingBannerDragStart,
-  onConsumePendingBannerDragStart,
-  updateDetailHeight,
-  detailWidth,
-  setDetailWidth,
-  playing,
-  selectedSteps,
-  stepStats,
-  storageModel,
-  wheelDefinition,
-  layoutSettings,
-  benchmarkTimingData,
-  openDetailInspector,
-  // detail inspector overlay
-  isDetailInspectorOpen,
-  detailInspectorMode,
-  detailInspectorQuery,
-  setDetailInspectorQuery,
-  setIsDetailInspectorOpen,
-  detailInspectorRows,
-  filteredDetailInspectorRows,
-  // timing panel
-  isTimingPanelOpen,
-  setIsTimingPanelOpen,
-  benchmarkTimingFileName,
-  setTimingFocusOp,
-  onImportBenchmarkTiming,
-  steps,
-  onShowEventTitle,
-  onOpenRawLog,
-  currentStepSourceLine,
-  hasRawSource = false,
-  allEventsTransport,
-  // Intro animation phase: 'hidden' | 'scaling' | 'tilting' | 'visible'
-  introPhase = 'visible',
-  onIntroTransitionEnd,
-  // Gating flag: single-event widget hidden until first play or event selection
-  isSingleEventWidgetRevealed = true,
-}) {
+function CanvasStage(props) {
+  // Phase 5: Destructure organized objects with flat fallback compatibility
+  const canvasRefs = props.canvasRefs || {};
+  const canvasConfig = props.canvasConfig || {};
+  const canvasStyles = props.canvasStyles || {};
+  const overlay = props.overlay || {};
+  const detail = props.detail || {};
+  const intro = props.intro || {};
+
+  // Extract canvas refs
+  const {
+    containerRef = props.containerRef,
+    glCanvasRef = props.glCanvasRef,
+    glyphCanvasRef = props.glyphCanvasRef,
+    wrapperCanvasRef = props.wrapperCanvasRef,
+  } = canvasRefs;
+
+  // Extract canvas config
+  const {
+    mode3D = props.mode3D,
+    glActive = props.glActive,
+    hideGlCanvas = props.hideGlCanvas !== undefined ? props.hideGlCanvas : false,
+  } = canvasConfig;
+
+  // Extract canvas styles
+  const {
+    camera3DContainerStyle = props.camera3DContainerStyle,
+    renderCanvasStyle = props.renderCanvasStyle,
+  } = canvasStyles;
+
+  // Extract intro state
+  const {
+    introPhase = props.introPhase || 'visible',
+    onIntroTransitionEnd = props.onIntroTransitionEnd,
+    isSingleEventWidgetRevealed = props.isSingleEventWidgetRevealed !== undefined ? props.isSingleEventWidgetRevealed : true,
+  } = intro;
+
+  // Extract overlay props (all passed to CanvasOverlayManager)
+  const overlayProps = {
+    eventTitleSettings: overlay.eventTitleSettings || props.eventTitleSettings,
+    setEventTitleSettings: overlay.setEventTitleSettings || props.setEventTitleSettings,
+    eventTitleStyle: overlay.eventTitleStyle || props.eventTitleStyle,
+    currentStepBanner: overlay.currentStepBanner || props.currentStepBanner,
+    surroundingEvents: overlay.surroundingEvents || props.surroundingEvents,
+    currentStepData: overlay.currentStepData || props.currentStepData,
+    currentStep: overlay.currentStep || props.currentStep,
+    goToStep: overlay.goToStep || props.goToStep,
+    revealCurrentStepInPanel: overlay.revealCurrentStepInPanel || props.revealCurrentStepInPanel,
+    isEventsPanelCollapsed: overlay.isEventsPanelCollapsed || props.isEventsPanelCollapsed,
+    setIsEventsPanelCollapsed: overlay.setIsEventsPanelCollapsed || props.setIsEventsPanelCollapsed,
+    stepAnimSlidersContent: overlay.stepAnimSlidersContent || props.stepAnimSlidersContent,
+    areWidgetsJoined: overlay.areWidgetsJoined || props.areWidgetsJoined,
+    onJoinWidgets: overlay.onJoinWidgets || props.onJoinWidgets,
+    pinnedBitIndices: overlay.pinnedBitIndices || props.pinnedBitIndices,
+    hoveredBitInfo: overlay.hoveredBitInfo || props.hoveredBitInfo,
+    computeBitInfo: overlay.computeBitInfo || props.computeBitInfo,
+    getVisibleBalloonStyles: overlay.getVisibleBalloonStyles || props.getVisibleBalloonStyles,
+    balloonLiveLayout: overlay.balloonLiveLayout || props.balloonLiveLayout,
+    cachelineSize: overlay.cachelineSize || props.cachelineSize,
+    setPinnedBitIndices: overlay.setPinnedBitIndices || props.setPinnedBitIndices,
+    handleStepSelection: overlay.handleStepSelection || props.handleStepSelection,
+    isDetailOpen: overlay.isDetailOpen || props.isDetailOpen,
+    detailHeight: overlay.detailHeight || props.detailHeight,
+    toggleDetailPanel: overlay.toggleDetailPanel || props.toggleDetailPanel,
+    pendingBannerDragStart: overlay.pendingBannerDragStart || props.pendingBannerDragStart,
+    onConsumePendingBannerDragStart: overlay.onConsumePendingBannerDragStart || props.onConsumePendingBannerDragStart,
+    isDetailInspectorOpen: overlay.isDetailInspectorOpen || props.isDetailInspectorOpen,
+    detailInspectorMode: overlay.detailInspectorMode || props.detailInspectorMode,
+    detailInspectorQuery: overlay.detailInspectorQuery || props.detailInspectorQuery,
+    setDetailInspectorQuery: overlay.setDetailInspectorQuery || props.setDetailInspectorQuery,
+    setIsDetailInspectorOpen: overlay.setIsDetailInspectorOpen || props.setIsDetailInspectorOpen,
+    detailInspectorRows: overlay.detailInspectorRows || props.detailInspectorRows,
+    filteredDetailInspectorRows: overlay.filteredDetailInspectorRows || props.filteredDetailInspectorRows,
+    isTimingPanelOpen: overlay.isTimingPanelOpen || props.isTimingPanelOpen,
+    setIsTimingPanelOpen: overlay.setIsTimingPanelOpen || props.setIsTimingPanelOpen,
+    steps: overlay.steps || props.steps,
+    benchmarkTimingData: overlay.benchmarkTimingData || props.benchmarkTimingData,
+    benchmarkTimingFileName: overlay.benchmarkTimingFileName || props.benchmarkTimingFileName,
+    setTimingFocusOp: overlay.setTimingFocusOp || props.setTimingFocusOp,
+    onImportBenchmarkTiming: overlay.onImportBenchmarkTiming || props.onImportBenchmarkTiming,
+    isSingleEventWidgetRevealed,
+  };
+
+  // Extract detail props (all passed to DetailPanel)
+  const detailProps = {
+    step: detail.step !== undefined ? detail.step : (isSingleEventWidgetRevealed ? (props.currentStepData || null) : null),
+    stepIndex: detail.stepIndex || props.currentStep,
+    open: detail.open || props.isDetailOpen,
+    onToggle: detail.onToggle || props.toggleDetailPanel,
+    height: detail.height || props.detailHeight,
+    onHeightChange: detail.onHeightChange || props.updateDetailHeight,
+    width: detail.width || props.detailWidth,
+    onWidthChange: detail.onWidthChange || props.setDetailWidth,
+    playing: detail.playing || props.playing,
+    stepStats: detail.stepStats || (props.selectedSteps && props.selectedSteps.size > 1 ? null : props.stepStats),
+    storageModel: detail.storageModel || props.storageModel,
+    wheelDefinition: detail.wheelDefinition || props.wheelDefinition,
+    bitLayout: detail.bitLayout || (props.layoutSettings && props.layoutSettings.bitLayout) || '4x2',
+    byteLayout: detail.byteLayout || (props.layoutSettings && props.layoutSettings.byteLayout) || '4x2',
+    benchmarkTimingData: detail.benchmarkTimingData || props.benchmarkTimingData,
+    onInspectChangedBits: detail.onInspectChangedBits || (() => (props.openDetailInspector ? props.openDetailInspector('bits') : undefined)),
+    onInspectMarkedNumbers: detail.onInspectMarkedNumbers || (() => (props.openDetailInspector ? props.openDetailInspector('numbers') : undefined)),
+    eventTitleVisible: detail.eventTitleVisible || (props.eventTitleSettings && props.eventTitleSettings.visible && !(props.areWidgetsJoined)),
+    onShowEventTitle: detail.onShowEventTitle || props.onShowEventTitle,
+    eventAnimSliders: detail.eventAnimSliders || (props.stepAnimSlidersDockedContent || props.stepAnimSlidersContent),
+    onOpenRawLog: detail.onOpenRawLog || props.onOpenRawLog,
+    sourceLineNumber: detail.sourceLineNumber || props.currentStepSourceLine,
+    hasRawSource: detail.hasRawSource !== undefined ? detail.hasRawSource : (props.hasRawSource !== undefined ? props.hasRawSource : false),
+    allEventsTransport: detail.allEventsTransport || props.allEventsTransport,
+  };
   return (
     <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
-      <CanvasOverlayManager
-        eventTitleSettings={eventTitleSettings}
-        setEventTitleSettings={setEventTitleSettings}
-        eventTitleStyle={eventTitleStyle}
-        currentStepBanner={currentStepBanner}
-        surroundingEvents={surroundingEvents}
-        currentStepData={currentStepData}
-        currentStep={currentStep}
-        goToStep={goToStep}
-        revealCurrentStepInPanel={revealCurrentStepInPanel}
-        isEventsPanelCollapsed={isEventsPanelCollapsed}
-        setIsEventsPanelCollapsed={setIsEventsPanelCollapsed}
-        stepAnimSlidersContent={stepAnimSlidersContent}
-        areWidgetsJoined={areWidgetsJoined}
-        onJoinWidgets={onJoinWidgets}
-        pinnedBitIndices={pinnedBitIndices}
-        hoveredBitInfo={hoveredBitInfo}
-        computeBitInfo={computeBitInfo}
-        getVisibleBalloonStyles={getVisibleBalloonStyles}
-        balloonLiveLayout={balloonLiveLayout}
-        cachelineSize={cachelineSize}
-        setPinnedBitIndices={setPinnedBitIndices}
-        handleStepSelection={handleStepSelection}
-        isDetailOpen={isDetailOpen}
-        detailHeight={detailHeight}
-        toggleDetailPanel={toggleDetailPanel}
-        pendingBannerDragStart={pendingBannerDragStart}
-        onConsumePendingBannerDragStart={onConsumePendingBannerDragStart}
-        isDetailInspectorOpen={isDetailInspectorOpen}
-        detailInspectorMode={detailInspectorMode}
-        detailInspectorQuery={detailInspectorQuery}
-        setDetailInspectorQuery={setDetailInspectorQuery}
-        setIsDetailInspectorOpen={setIsDetailInspectorOpen}
-        detailInspectorRows={detailInspectorRows}
-        filteredDetailInspectorRows={filteredDetailInspectorRows}
-        isTimingPanelOpen={isTimingPanelOpen}
-        setIsTimingPanelOpen={setIsTimingPanelOpen}
-        steps={steps}
-        benchmarkTimingData={benchmarkTimingData}
-        benchmarkTimingFileName={benchmarkTimingFileName}
-        setTimingFocusOp={setTimingFocusOp}
-        onImportBenchmarkTiming={onImportBenchmarkTiming}
-        isSingleEventWidgetRevealed={isSingleEventWidgetRevealed}
-      />
+      <CanvasOverlayManager {...overlayProps} />
 
       <div
         className={`canvas-container${mode3D ? ' mode-3d' : ''}`}
@@ -194,30 +177,36 @@ function CanvasStage({
       </div>
 
       <DetailPanel
-        step={isSingleEventWidgetRevealed ? currentStepData : null}
-        stepIndex={currentStep}
-        open={isDetailOpen}
-        onToggle={toggleDetailPanel}
-        height={detailHeight}
-        onHeightChange={updateDetailHeight}
-        width={detailWidth}
-        onWidthChange={setDetailWidth}
-        playing={playing}
-        stepStats={selectedSteps.size > 1 ? null : stepStats}
-        storageModel={storageModel}
-        wheelDefinition={wheelDefinition}
-        bitLayout={layoutSettings.bitLayout}
-        byteLayout={layoutSettings.byteLayout}
-        benchmarkTimingData={benchmarkTimingData}
-        onInspectChangedBits={() => openDetailInspector('bits')}
-        onInspectMarkedNumbers={() => openDetailInspector('numbers')}
-        eventTitleVisible={eventTitleSettings.visible && !areWidgetsJoined}
-        onShowEventTitle={onShowEventTitle}
-        eventAnimSliders={stepAnimSlidersDockedContent || stepAnimSlidersContent}
-        onOpenRawLog={onOpenRawLog}
-        sourceLineNumber={currentStepSourceLine}
-        hasRawSource={hasRawSource}
-        allEventsTransport={allEventsTransport}
+        detailState={{
+          step: detailProps.step,
+          stepIndex: detailProps.stepIndex,
+          open: detailProps.open,
+          height: detailProps.height,
+          width: detailProps.width,
+          playing: detailProps.playing,
+          stepStats: detailProps.stepStats,
+          bitLayout: detailProps.bitLayout,
+          byteLayout: detailProps.byteLayout,
+          eventTitleVisible: detailProps.eventTitleVisible,
+          sourceLineNumber: detailProps.sourceLineNumber,
+          hasRawSource: detailProps.hasRawSource,
+        }}
+        detailConfig={{
+          storageModel: detailProps.storageModel,
+          wheelDefinition: detailProps.wheelDefinition,
+          benchmarkTimingData: detailProps.benchmarkTimingData,
+          eventAnimSliders: detailProps.eventAnimSliders,
+          allEventsTransport: detailProps.allEventsTransport,
+        }}
+        detailHandlers={{
+          onToggle: detailProps.onToggle,
+          onHeightChange: detailProps.onHeightChange,
+          onWidthChange: detailProps.onWidthChange,
+          onInspectChangedBits: detailProps.onInspectChangedBits,
+          onInspectMarkedNumbers: detailProps.onInspectMarkedNumbers,
+          onShowEventTitle: detailProps.onShowEventTitle,
+          onOpenRawLog: detailProps.onOpenRawLog,
+        }}
       />
 
     </div>
