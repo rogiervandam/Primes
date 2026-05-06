@@ -45,8 +45,8 @@ export default function VisualizerMainContent(props) {
 
   // Extract individual values from organized objects for component use
   // Canvas
-  const { mode3D, refs: canvasRefs = {}, styles: canvasStyles = {}, camera3D: camera3DInfo = {}, zoom, isMacPlatform, isWindowsPlatform } = canvas;
-  const { container: containerRef, glCanvas: glCanvasRef, glyphCanvas: glyphCanvasRef, wrapperCanvas: wrapperCanvasRef, renderer: rendererRef, glRenderer: glRendererRef, camera3D: camera3DRef } = canvasRefs;
+  const { refs: canvasRefs = {}, styles: canvasStyles = {}, camera3D: camera3DInfo = {}, zoom, isMacPlatform, isWindowsPlatform } = canvas;
+  const { container: containerRef, glCanvas: glCanvasRef, glyphCanvas: glyphCanvasRef, glyph2DCanvas: glyph2DCanvasRef, wrapperCanvas: wrapperCanvasRef, renderer: rendererRef, glRenderer: glRendererRef, camera3D: camera3DRef } = canvasRefs;
   const { merged3D: mergedCamera3DContainerStyle, render: renderCanvasStyle, eventTitle: eventTitleStyle } = canvasStyles;
   const { transform: camera3DTransform } = camera3DInfo;
 
@@ -109,12 +109,12 @@ export default function VisualizerMainContent(props) {
   const { revealStepRequest: navRevealStepRequest, revealCurrentStepInPanel, onOpenRawLog, onImportBenchmarkTiming, autoFitColumnCount } = navigation;
 
   // Debug
-  const { isToolsOpen: isDebugToolsOpen, theme = 'dark', isGlUnavailable, glDebugInfo, debugLayerMode, debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY, isDebugCalibrationMode, handlers: debugHandlers = {} } = debug;
-  const { setDebugLayerMode, setDebugGlOffsetX, setDebugGlOffsetY, setIsDebugCalibrationMode, applySnapshot: applyDebugSnapshot, forceGlRedraw } = debugHandlers;
+  const { isToolsOpen: isDebugToolsOpen, theme = 'dark', isGlUnavailable, glDebugInfo, debugLayerMode, debugGlModeOverride = 'auto', debugWorkerGlyphMode = 'gl', debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY, isDebugCalibrationMode, handlers: debugHandlers = {} } = debug;
+  const { setDebugLayerMode, setDebugGlModeOverride, setDebugWorkerGlyphMode, setDebugGlOffsetX, setDebugGlOffsetY, setIsDebugCalibrationMode, applySnapshot: applyDebugSnapshot, forceGlRedraw } = debugHandlers;
 
   return (
     <div
-      className={`main-content${mode3D ? ' mode-3d' : ''}${isUiChromeVisible ? ' ui-chrome-visible' : ' ui-chrome-hidden'}`}
+      className={`main-content${isUiChromeVisible ? ' ui-chrome-visible' : ' ui-chrome-hidden'}`}
       style={{ '--events-panel-width': `${isEventsPanelCollapsed ? 0 : panelWidth}px` }}
     >
       <CanvasLoadingOverlay
@@ -150,10 +150,11 @@ export default function VisualizerMainContent(props) {
           containerRef,
           glCanvasRef,
           glyphCanvasRef,
+          glyph2DCanvasRef,
           wrapperCanvasRef,
         }}
         canvasConfig={{
-          mode3D,
+          glCanvasKey: `gl-${debugGlModeOverride}`,
           glActive: true,
           hideGlCanvas: false,
         }}
@@ -315,6 +316,8 @@ export default function VisualizerMainContent(props) {
             glDebugInfo,
             theme,
             debugLayerMode,
+            debugGlModeOverride,
+            debugWorkerGlyphMode,
             debugGlOffsetX,
             debugGlOffsetY,
             debugGlAutoOffsetY,
@@ -322,6 +325,8 @@ export default function VisualizerMainContent(props) {
           }}
           debugHandlers={{
             setDebugLayerMode,
+            setDebugGlModeOverride,
+            setDebugWorkerGlyphMode,
             setDebugGlOffsetX,
             setDebugGlOffsetY,
             setIsDebugCalibrationMode,

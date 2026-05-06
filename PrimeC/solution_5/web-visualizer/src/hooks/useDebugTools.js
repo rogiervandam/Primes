@@ -4,19 +4,31 @@
  * Owns:
  *  - isGlUnavailable / glDebugInfo (WebGL capability)
  *  - isDebugToolsOpen / debugLayerMode / isDebugCalibrationMode
- *  - debugGlOffsetX/Y/AutoY (manual GL trim) + their refs
+ *  - debugGlModeOverride / debugGlOffsetX/Y/AutoY (manual GL trim) + their refs
  *  - glDebugLastUpdateRef (throttle for getDebugInfo calls)
  *  - updateGlDebugInfo callback
  *
- * @param {{ glRendererRef: React.MutableRefObject }} params
+ * @param {{ glRendererRef: React.MutableRefObject, initialDebugGlModeOverride?: string, initialDebugWorkerGlyphMode?: string }} params
  */
 import { useState, useRef, useCallback } from 'react';
 
-export function useDebugTools({ glRendererRef }) {
+export function useDebugTools({
+  glRendererRef,
+  initialDebugGlModeOverride = 'auto',
+  initialDebugWorkerGlyphMode = 'gl',
+}) {
   const [isGlUnavailable, setIsGlUnavailable] = useState(false);
   const [glDebugInfo, setGlDebugInfo] = useState(null);
   const [isDebugToolsOpen, setIsDebugToolsOpen] = useState(false);
   const [debugLayerMode, setDebugLayerMode] = useState('normal');
+  const [debugGlModeOverride, setDebugGlModeOverride] = useState(
+    initialDebugGlModeOverride === 'worker' || initialDebugGlModeOverride === 'direct'
+      ? initialDebugGlModeOverride
+      : 'auto'
+  );
+  const [debugWorkerGlyphMode, setDebugWorkerGlyphMode] = useState(
+    initialDebugWorkerGlyphMode === 'separate-text' ? 'separate-text' : 'gl'
+  );
   const [debugGlOffsetX, setDebugGlOffsetX] = useState(0);
   const [debugGlOffsetY, setDebugGlOffsetY] = useState(0);
   const [debugGlAutoOffsetY, setDebugGlAutoOffsetY] = useState(0);
@@ -45,6 +57,8 @@ export function useDebugTools({ glRendererRef }) {
     glDebugInfo, setGlDebugInfo,
     isDebugToolsOpen, setIsDebugToolsOpen,
     debugLayerMode, setDebugLayerMode,
+    debugGlModeOverride, setDebugGlModeOverride,
+    debugWorkerGlyphMode, setDebugWorkerGlyphMode,
     debugGlOffsetX, setDebugGlOffsetX,
     debugGlOffsetY, setDebugGlOffsetY,
     debugGlAutoOffsetY, setDebugGlAutoOffsetY,

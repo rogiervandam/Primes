@@ -181,22 +181,39 @@ export class BitGridGLWorker {
     // running synchronously; _worker is null.
     this._direct = false;
     this._directReason = 'unknown';
+    this._requestedMode = 'auto';
     this._core = null;
     // Atlas data received from the worker's ready message (worker mode only).
     this._atlasAdvances = null;
     this._atlasCharSize = 0;
   }
 
-  attach(canvas) {
+  attach(canvas, forceMode = 'auto') {
     if (!canvas) return false;
+    const requestedMode = forceMode === 'worker' || forceMode === 'direct' ? forceMode : 'auto';
+    this._requestedMode = requestedMode;
     const safari = isSafari();
     const workerSupported = isWorkerGLSupported();
     const nearGLLimit = shouldPreferDirectMode(this._maxCanvasDimension);
-    const preferDirectMode = safari || !workerSupported || nearGLLimit;
-    if (safari) this._directReason = 'safari';
-    else if (!workerSupported) this._directReason = 'worker-unsupported';
-    else if (nearGLLimit) this._directReason = 'near-gpu-limit';
-    else this._directReason = 'worker-path';
+    let preferDirectMode;
+    if (requestedMode === 'direct') {
+      preferDirectMode = true;
+      this._directReason = 'forced-direct';
+    } else if (requestedMode === 'worker') {
+      if (!workerSupported) {
+        this._directReason = 'forced-worker-unsupported';
+        this._lost = true;
+        return false;
+      }
+      preferDirectMode = false;
+      this._directReason = 'forced-worker';
+    } else {
+      preferDirectMode = safari || !workerSupported || nearGLLimit;
+      if (safari) this._directReason = 'safari';
+      else if (!workerSupported) this._directReason = 'worker-unsupported';
+      else if (nearGLLimit) this._directReason = 'near-gpu-limit';
+      else this._directReason = 'worker-path';
+    }
     // On Safari, or on displays where the oversized GL plane would sit at the
     // GPU backing-size limit, fall back to main-thread WebGL so we avoid both
     // OffscreenCanvas compositor lag and near-limit worker backing-store races.
@@ -541,6 +558,7 @@ export class BitGridGLWorker {
     const metrics = getDisplayRiskMetrics(maxDim);
     
     return {
+      requestedMode: this._requestedMode,
       mode: this._direct ? 'direct' : 'worker',
       modeReason: this._directReason,
       ready: this._ready,
@@ -583,5 +601,6 @@ export class BitGridGLWorker {
     this._ready = false;
     this._lost = true;   // prevent buffer allocation in uploadState/uploadAnim after disposal
     this._pending.length = 0;
+    this._requestedMode = 'auto';
   }
 }

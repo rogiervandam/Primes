@@ -23,6 +23,7 @@ export function useCanvasLayout({
   glCanvasRef,
   glRendererRef,
   glyphCanvasRef,
+  glyph2DCanvasRef,
   wrapperCanvasRef,
   glCssUnlockTokenRef,
   glCssUnlockRafRef,
@@ -350,6 +351,10 @@ export function useCanvasLayout({
     if (glyphOverlayEl) {
       glyphOverlayEl.style.transform = rotStr;
     }
+    const glyph2DOverlayEl = glyph2DCanvasRef.current;
+    if (glyph2DOverlayEl) {
+      glyph2DOverlayEl.style.transform = rotStr;
+    }
     // Keep grid content stable when the window (and therefore the canvas)
     // resizes. The canvas is centered at the viewport center, so when the
     // canvas grows by dCanvasW its left edge moves left by dCanvasW/2.
@@ -440,6 +445,8 @@ export function useCanvasLayout({
             // Keep glyph overlay in sync.
             const glyphUnlockEl = glyphCanvasRef.current;
             if (glyphUnlockEl) glyphUnlockEl.style.transform = rot;
+            const glyph2DUnlockEl = glyph2DCanvasRef.current;
+            if (glyph2DUnlockEl) glyph2DUnlockEl.style.transform = rot;
           }
         });
       };
@@ -507,6 +514,10 @@ export function useCanvasLayout({
     const glyphEl = glyphCanvasRef.current;
     if (glyphEl) {
       glyphEl.style.transform = rotStr;
+    }
+    const glyph2DEl = glyph2DCanvasRef.current;
+    if (glyph2DEl) {
+      glyph2DEl.style.transform = rotStr;
     }
   }, [camera3DTransform]); // eslint-disable-line react-hooks/exhaustive-deps
 

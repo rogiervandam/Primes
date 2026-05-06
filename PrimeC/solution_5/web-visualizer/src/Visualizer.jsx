@@ -136,28 +136,10 @@ export default function Visualizer({
 
   const {
     minimapCanvasRef, containerRef, rendererRef,
-    glCanvasRef, glRendererRef, glyphCanvasRef, glyphRendererRef, wrapperCanvasRef,
+    glCanvasRef, glRendererRef, glyphCanvasRef, glyph2DCanvasRef, glyphRendererRef, wrapperCanvasRef,
     glCssUnlockTokenRef, glCssUnlockRafRef, glCssUnlockTimeoutRef, glCssLockStateRef,
     pendingRenderRafRef,
   } = useCanvasRefs();
-
-  const {
-    isGlUnavailable, setIsGlUnavailable,
-    glDebugInfo, setGlDebugInfo,
-    isDebugToolsOpen, setIsDebugToolsOpen,
-    debugLayerMode, setDebugLayerMode,
-    debugGlOffsetX, setDebugGlOffsetX,
-    debugGlOffsetY, setDebugGlOffsetY,
-    debugGlAutoOffsetY, setDebugGlAutoOffsetY,
-    isDebugCalibrationMode, setIsDebugCalibrationMode,
-    debugGlOffsetXRef, debugGlOffsetYRef, debugGlAutoOffsetYRef,
-    glDebugLastUpdateRef, updateGlDebugInfo,
-  } = useDebugTools({ glRendererRef });
-  const isMacPlatform = useMemo(() => detectIsMac(), []);
-  const isWindowsPlatform = useMemo(() => detectIsWindows(), []);
-  // Electron (native app) inserts "Electron" into the UA and exposes process.versions.electron.
-  // In browser mode we don't reserve space for traffic-light window controls.
-  const isElectron = useMemo(() => detectIsElectron(), []);
 
   // All localStorage-backed UI state is resolved (read + clamp + migrate) in
   // a single pass by `getInitialViewState()` — see `src/lib/viewPrefs.js`.
@@ -165,6 +147,30 @@ export default function Visualizer({
   // each `useState` seed. Persistence on change still happens in the
   // `writeViewPrefs(...)` effect further down.
   const initialPrefs = useMemo(() => getInitialViewState(), []);
+
+  const {
+    isGlUnavailable, setIsGlUnavailable,
+    glDebugInfo, setGlDebugInfo,
+    isDebugToolsOpen, setIsDebugToolsOpen,
+    debugLayerMode, setDebugLayerMode,
+    debugGlModeOverride, setDebugGlModeOverride,
+    debugWorkerGlyphMode, setDebugWorkerGlyphMode,
+    debugGlOffsetX, setDebugGlOffsetX,
+    debugGlOffsetY, setDebugGlOffsetY,
+    debugGlAutoOffsetY, setDebugGlAutoOffsetY,
+    isDebugCalibrationMode, setIsDebugCalibrationMode,
+    debugGlOffsetXRef, debugGlOffsetYRef, debugGlAutoOffsetYRef,
+    glDebugLastUpdateRef, updateGlDebugInfo,
+  } = useDebugTools({
+    glRendererRef,
+    initialDebugGlModeOverride: initialPrefs.debugGlModeOverride,
+    initialDebugWorkerGlyphMode: initialPrefs.debugWorkerGlyphMode,
+  });
+  const isMacPlatform = useMemo(() => detectIsMac(), []);
+  const isWindowsPlatform = useMemo(() => detectIsWindows(), []);
+  // Electron (native app) inserts "Electron" into the UA and exposes process.versions.electron.
+  // In browser mode we don't reserve space for traffic-light window controls.
+  const isElectron = useMemo(() => detectIsElectron(), []);
 
   const {
     theme, setTheme,
@@ -402,6 +408,7 @@ export default function Visualizer({
     glCanvasRef,
     glRendererRef,
     glyphCanvasRef,
+    glyph2DCanvasRef,
     wrapperCanvasRef,
     glCssUnlockTokenRef,
     glCssUnlockRafRef,
@@ -531,6 +538,8 @@ export default function Visualizer({
     eventTitleSettings,
     gridOpacity,
     canvasColors,
+    debugGlModeOverride,
+    debugWorkerGlyphMode,
     colorPreset,
     customColors,
     eventDurationMode,
@@ -559,6 +568,7 @@ export default function Visualizer({
       rendererRef,
       minimapCanvasRef,
       glyphCanvasRef,
+      glyph2DCanvasRef,
       glyphRendererRef,
       glCanvasRef,
       glRendererRef,
@@ -597,6 +607,8 @@ export default function Visualizer({
       multiplesOverlayPrime,
       gridOpacity,
       isDebugCalibrationMode,
+      debugGlModeOverride,
+      debugWorkerGlyphMode,
       mode3D,
     },
     rendererState: {
@@ -607,6 +619,7 @@ export default function Visualizer({
     },
     rendererHandlers: {
       setIsGlUnavailable,
+      setGlDebugInfo,
       updateGlDebugInfo,
       createCamera,
       disposeCamera,
@@ -1220,6 +1233,7 @@ export default function Visualizer({
       glCanvas: glCanvasRef,
       glRenderer: glRendererRef,
       glyphCanvas: glyphCanvasRef,
+      glyph2DCanvas: glyph2DCanvasRef,
       glyphRenderer: glyphRendererRef,
       wrapperCanvas: wrapperCanvasRef,
       glCssUnlockToken: glCssUnlockTokenRef,
@@ -1517,6 +1531,7 @@ export default function Visualizer({
         container: containerRef,
         glCanvas: glCanvasRef,
         glyphCanvas: glyphCanvasRef,
+        glyph2DCanvas: glyph2DCanvasRef,
         wrapperCanvas: wrapperCanvasRef,
         renderer: rendererRef,
         glRenderer: glRendererRef,
@@ -1786,12 +1801,16 @@ export default function Visualizer({
       isGlUnavailable,
       glDebugInfo,
       debugLayerMode,
+      debugGlModeOverride,
+      debugWorkerGlyphMode,
       debugGlOffsetX,
       debugGlOffsetY,
       debugGlAutoOffsetY,
       isDebugCalibrationMode,
       handlers: {
         setDebugLayerMode,
+        setDebugGlModeOverride,
+        setDebugWorkerGlyphMode,
         setDebugGlOffsetX,
         setDebugGlOffsetY,
         setDebugGlAutoOffsetY,

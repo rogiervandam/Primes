@@ -16,6 +16,8 @@ export function useCanvasRefs() {
   const glRendererRef = useRef(null);
   // WebGL glyph-text canvas.
   const glyphCanvasRef = useRef(null);
+  // Canvas2D glyph-text fallback canvas (worker separate-text mode).
+  const glyph2DCanvasRef = useRef(null);
   const glyphRendererRef = useRef(null);
   // Wrapper div that receives the 3D CSS transform so canvases stay flat.
   const wrapperCanvasRef = useRef(null);
@@ -47,6 +49,7 @@ export function useCanvasRefs() {
     glCanvasRef,
     glRendererRef,
     glyphCanvasRef,
+    glyph2DCanvasRef,
     glyphRendererRef,
     wrapperCanvasRef,
     glCssUnlockTokenRef,

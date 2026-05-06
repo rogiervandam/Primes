@@ -115,6 +115,8 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 38 (Done) Joined-widget intro motion is suppressed for anchored joins so it no longer appears to animate in from elsewhere during merge.
 39 (Done) Added a repeat toggle button (with repeat icon) to the single-event widget timeline controls. Repeat-on loops until disabled; repeat-off plays once. The toggle is disabled/ignored during all-events playback.
 40 (Done) Debug tools window is now draggable, defaults to the bottom-right corner, and clamps away from the settings panel when it is open.
+41 Dragging the grid is not fluent: it is stuck a few times a second
+42 Dragging the single-event widget feels heavy, like there is a delay between the mouse movement and the widget movement. It should feel more responsive and fluid.
 
 
 ## New Ideas

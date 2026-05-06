@@ -13,6 +13,8 @@ export function useViewPrefsSync({
   eventTitleSettings,
   gridOpacity,
   canvasColors,
+  debugGlModeOverride,
+  debugWorkerGlyphMode,
   colorPreset,
   customColors,
   eventDurationMode,
@@ -40,6 +42,8 @@ export function useViewPrefsSync({
       eventTitleSettings,
       gridOpacity,
       canvasColors,
+      debugGlModeOverride,
+      debugWorkerGlyphMode,
       colorPreset,
       customColors,
       eventDurationMode,
@@ -56,5 +60,5 @@ export function useViewPrefsSync({
       isSettingsCollapsed,
       isDetailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, isAllEventsWidgetHidden, areWidgetsJoined, isAllEventsInDetailPanel, isSingleEventRepeatEnabled, isAutoAnimateOnSelect, isEventsPanelCollapsed, isSettingsCollapsed, isDetailOpen]);
+  }, [theme, layoutSettings, eventTitleSettings, gridOpacity, canvasColors, debugGlModeOverride, debugWorkerGlyphMode, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, isAllEventsWidgetHidden, areWidgetsJoined, isAllEventsInDetailPanel, isSingleEventRepeatEnabled, isAutoAnimateOnSelect, isEventsPanelCollapsed, isSettingsCollapsed, isDetailOpen]);
 }

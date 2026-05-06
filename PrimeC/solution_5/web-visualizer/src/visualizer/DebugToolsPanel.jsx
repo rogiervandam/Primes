@@ -184,6 +184,8 @@ export default function DebugToolsPanel({
     glDebugInfo = null,
     theme = 'dark',
     debugLayerMode = 'normal',
+    debugGlModeOverride = 'auto',
+    debugWorkerGlyphMode = 'gl',
     debugGlOffsetX = 0,
     debugGlOffsetY = 0,
     debugGlAutoOffsetY = 0,
@@ -192,6 +194,8 @@ export default function DebugToolsPanel({
 
   const {
     setDebugLayerMode = null,
+    setDebugGlModeOverride = null,
+    setDebugWorkerGlyphMode = null,
     setDebugGlOffsetX = null,
     setDebugGlOffsetY = null,
     setIsDebugCalibrationMode = null,
@@ -785,27 +789,81 @@ export default function DebugToolsPanel({
       </div>
 
       {/* GL Debug Info Section */}
-      {glDebugInfo && (
+      {(glDebugInfo || setDebugGlModeOverride) && (
         <CollapsibleSection title="GL MODE" defaultOpen={true} palette={palette}>
           <div style={{ fontSize: '10px', lineHeight: '1.4', color: palette.sectionGl }}>
-            <div>Mode: <strong>{glDebugInfo.mode}</strong></div>
-            <div>Reason: {glDebugInfo.modeReason}</div>
-            <div>At Risk: <span style={{ color: glDebugInfo.isAtRisk ? palette.bad : palette.good }}>
-              {glDebugInfo.isAtRisk ? 'YES' : 'NO'}
+            <div>Override: <strong>{debugGlModeOverride}</strong></div>
+            <div>Requested: <strong>{glDebugInfo?.requestedMode || debugGlModeOverride}</strong></div>
+            <div>Mode: <strong>{glDebugInfo?.mode || 'unavailable'}</strong></div>
+            <div>Worker glyph: <strong>{debugWorkerGlyphMode}</strong></div>
+            <div>Reason: {glDebugInfo?.modeReason || 'not initialized'}</div>
+            <div>At Risk: <span style={{ color: glDebugInfo?.isAtRisk ? palette.bad : palette.good }}>
+              {glDebugInfo?.isAtRisk ? 'YES' : 'NO'}
             </span></div>
           </div>
-          <div style={{ fontSize: '9px', lineHeight: '1.3', color: palette.subtle, marginTop: '6px' }}>
-            <div>Viewport: {glDebugInfo.viewportWidth} × {glDebugInfo.viewportHeight}</div>
-            <div>Canvas: {glDebugInfo.currentCssW} × {glDebugInfo.currentCssH} CSS</div>
-            <div>Backing: {glDebugInfo.currentBackingW} × {glDebugInfo.currentBackingH}</div>
-            <div>Max GL Dim: {glDebugInfo.maxGLDimension}</div>
-            <div>Effective Max: {glDebugInfo.effectiveMaxBackingDimension}</div>
-            <div>Compositor Safe: {glDebugInfo.directCompositorSafeDimension}</div>
-            <div>DPR: {glDebugInfo.devicePixelRatio.toFixed(2)}</div>
-            <div>Zoom: {Number.isFinite(zoomLevel) ? zoomLevel.toFixed(3) : 'n/a'}</div>
-            <div>Rotate X/Y (camera): {cameraState.rotateX.toFixed(2)}° / {cameraState.rotateY.toFixed(2)}°</div>
-            <div>Rotate X/Y (applied): {cameraState.appliedRotateX.toFixed(2)}° / {cameraState.appliedRotateY.toFixed(2)}°</div>
-          </div>
+          {setDebugGlModeOverride && (
+            <div style={{ marginTop: '8px' }}>
+              <label style={{ display: 'block', fontSize: '10px', color: palette.subtle, marginBottom: '4px' }}>
+                Force mode
+              </label>
+              <select
+                value={debugGlModeOverride}
+                onChange={(e) => setDebugGlModeOverride(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '5px 8px',
+                  borderRadius: '4px',
+                  border: `1px solid ${palette.buttonBorder}`,
+                  background: palette.buttonBg,
+                  color: palette.buttonFg,
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="auto">Auto</option>
+                <option value="worker">Force worker</option>
+                <option value="direct">Force direct</option>
+              </select>
+            </div>
+          )}
+          {setDebugWorkerGlyphMode && (
+            <div style={{ marginTop: '8px' }}>
+              <label style={{ display: 'block', fontSize: '10px', color: palette.subtle, marginBottom: '4px' }}>
+                Worker glyph mode
+              </label>
+              <select
+                value={debugWorkerGlyphMode}
+                onChange={(e) => setDebugWorkerGlyphMode(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '5px 8px',
+                  borderRadius: '4px',
+                  border: `1px solid ${palette.buttonBorder}`,
+                  background: palette.buttonBg,
+                  color: palette.buttonFg,
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="gl">GL glyph replay (worker)</option>
+                <option value="separate-text">Separate glyph layer (main thread)</option>
+              </select>
+            </div>
+          )}
+          {glDebugInfo && (
+            <div style={{ fontSize: '9px', lineHeight: '1.3', color: palette.subtle, marginTop: '6px' }}>
+              <div>Viewport: {glDebugInfo.viewportWidth} × {glDebugInfo.viewportHeight}</div>
+              <div>Canvas: {glDebugInfo.currentCssW} × {glDebugInfo.currentCssH} CSS</div>
+              <div>Backing: {glDebugInfo.currentBackingW} × {glDebugInfo.currentBackingH}</div>
+              <div>Max GL Dim: {glDebugInfo.maxGLDimension}</div>
+              <div>Effective Max: {glDebugInfo.effectiveMaxBackingDimension}</div>
+              <div>Compositor Safe: {glDebugInfo.directCompositorSafeDimension}</div>
+              <div>DPR: {Number.isFinite(glDebugInfo.devicePixelRatio) ? glDebugInfo.devicePixelRatio.toFixed(2) : 'n/a'}</div>
+              <div>Zoom: {Number.isFinite(zoomLevel) ? zoomLevel.toFixed(3) : 'n/a'}</div>
+              <div>Rotate X/Y (camera): {cameraState.rotateX.toFixed(2)}° / {cameraState.rotateY.toFixed(2)}°</div>
+              <div>Rotate X/Y (applied): {cameraState.appliedRotateX.toFixed(2)}° / {cameraState.appliedRotateY.toFixed(2)}°</div>
+            </div>
+          )}
           {onForceGlRedraw && (
             <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <button

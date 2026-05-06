@@ -273,6 +273,16 @@ function initialCanvasColors(prefs) {
   };
 }
 
+function initialDebugGlModeOverride(prefs) {
+  const value = prefs?.debugGlModeOverride;
+  return value === 'worker' || value === 'direct' ? value : 'auto';
+}
+
+function initialDebugWorkerGlyphMode(prefs) {
+  const value = prefs?.debugWorkerGlyphMode;
+  return value === 'gl' || value === 'separate-text' ? value : 'gl';
+}
+
 function initialPanelVisibility(prefs) {
   // Migrate legacy key: stepsPanelCollapsed → isEventsPanelCollapsed.
   // Read new key first; fall back to old key for users with saved prefs.
@@ -310,6 +320,8 @@ export function getInitialViewState() {
     eventDurationMode: initialEventDurationMode(prefs),
     gridOpacity: initialGridOpacity(prefs),
     canvasColors: initialCanvasColors(prefs),
+    debugGlModeOverride: initialDebugGlModeOverride(prefs),
+    debugWorkerGlyphMode: initialDebugWorkerGlyphMode(prefs),
     colorPreset: initialColorPreset(prefs),
     customColors: initialCustomColors(prefs),
     isAllEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),

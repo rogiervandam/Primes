@@ -15,7 +15,7 @@ import DetailPanel from '../DetailPanel';
  *
  * @param {object}   props
  * @param {object}   props.canvasRefs              - Canvas element refs (containerRef, glCanvasRef, glyphCanvasRef, wrapperCanvasRef)
- * @param {object}   props.canvasConfig            - Canvas configuration (mode3D, glActive, hideGlCanvas)
+ * @param {object}   props.canvasConfig            - Canvas configuration (glActive, hideGlCanvas)
  * @param {object}   props.canvasStyles            - Canvas styling (camera3DContainerStyle, renderCanvasStyle)
  * @param {object}   props.overlay                 - CanvasOverlayManager props (all overlay-related state/handlers)
  * @param {object}   props.detail                  - DetailPanel props (all detail-related state/handlers)
@@ -36,12 +36,13 @@ function CanvasStage({
     containerRef,
     glCanvasRef,
     glyphCanvasRef,
+    glyph2DCanvasRef,
     wrapperCanvasRef,
   } = canvasRefs;
 
   // Extract canvas config
   const {
-    mode3D,
+    glCanvasKey = 'gl-auto',
     glActive,
     hideGlCanvas = false,
   } = canvasConfig;
@@ -135,14 +136,14 @@ function CanvasStage({
     allEventsTransport: detail.allEventsTransport,
   };
   return (
-    <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
+    <div className="canvas-area">
       <CanvasOverlayManager
         overlayState={overlayState}
         overlayHandlers={overlayHandlers}
       />
 
       <div
-        className={`canvas-container${mode3D ? ' mode-3d' : ''}`}
+        className="canvas-container"
         ref={containerRef}
         style={camera3DContainerStyle}
       >
@@ -162,6 +163,7 @@ function CanvasStage({
               here directly so it is the only element with a 3D transform,
               keeping the GPU layer count at one. */}
           <canvas
+            key={glCanvasKey}
             ref={glCanvasRef}
             className={`gl-render-canvas${glActive ? '' : ' renderer-inactive'}${hideGlCanvas ? ' debug-hidden' : ''}`}
             aria-hidden="true"
@@ -175,6 +177,11 @@ function CanvasStage({
           <canvas
             ref={glyphCanvasRef}
             className="glyph-render-canvas"
+            aria-hidden="true"
+          />
+          <canvas
+            ref={glyph2DCanvasRef}
+            className="glyph2d-render-canvas"
             aria-hidden="true"
           />
         </div>

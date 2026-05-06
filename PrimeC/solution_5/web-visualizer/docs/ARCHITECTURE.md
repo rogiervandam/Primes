@@ -53,7 +53,7 @@ src/
 │   │   ├── MaskWriteOverlay.js           Mask write-order labels + tints
 │   │   ├── VectorTouchOrderOverlay.js    Vector touch-order summary labels
 │   │   └── CachelineAnnotationsOverlay.js Cacheline heat-map tints + outlines
-│   ├── gl/                   WebGL2 bit-fill backend (worker mode, default)
+│   ├── gl/                   WebGL2 bit-fill backend (worker mode by default; debug panel can force direct/worker)
 │   │   ├── bitGridGLCore.js          Pure WebGL2 substrate (OffscreenCanvas worker path)
 │   │   ├── hostStatePacker.js        packPositions / packState pure helpers
 │   │   ├── bitGridWorker.js          Module worker owning a BitGridGLCore
@@ -125,7 +125,7 @@ src/
 2. **Parse** — `traceParser.js` produces a normalized `{ header, events, primes, … }` shape regardless of input format.
 3. **Visualize** — `Visualizer.jsx` keeps the parsed trace in state along with playback position and view preferences.
 4. **Persist** — `lib/viewPrefs.js` reads/writes user preferences (theme, layout, panel sizes) to `localStorage` under the key `sieve-visualizer:view-preferences:v1`.
-5. **Render** — On every animation frame the visualizer calls `BitGridGLWorker.render()` first (GL worker paints all bit fills to a transferred `OffscreenCanvas`), then calls `SieveRenderer.render()` which paints overlays, labels, and side-face polygons on top via Canvas 2D. SieveRenderer no longer fills cells itself. The debug tools window reads renderer timing snapshots and renders as React UI outside the canvas/3D plane.
+5. **Render** — On every animation frame the visualizer calls `BitGridGLWorker.render()` first. In the normal path this uses the GL worker and paints all bit fills to a transferred `OffscreenCanvas`; from the debug tools panel the user can persistently override that selection to force `worker`, force `direct`, or return to `auto`. `SieveRenderer.render()` then paints overlays, labels, and side-face polygons on top via Canvas 2D. SieveRenderer no longer fills cells itself. The debug tools window reads renderer timing snapshots and renders as React UI outside the canvas/3D plane.
 6. **Inspect** — Side panels (`EventsPanel`, `DetailPanel`, `SettingsPanel`, `TimingPanel`) read derived data via props and call back into the visualizer to mutate state.
 
 ## Visualizer composition

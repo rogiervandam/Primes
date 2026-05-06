@@ -25,6 +25,7 @@ export function useRendererPipeline({ ...flatArgs }) {
     rendererRef,
     minimapCanvasRef,
     glyphCanvasRef,
+    glyph2DCanvasRef,
     glyphRendererRef,
     glCanvasRef,
     glRendererRef,
@@ -64,6 +65,8 @@ export function useRendererPipeline({ ...flatArgs }) {
     multiplesOverlayPrime,
     gridOpacity,
     isDebugCalibrationMode,
+    debugGlModeOverride,
+    debugWorkerGlyphMode,
     mode3D,
   } = rendererConfig;
 
@@ -76,6 +79,7 @@ export function useRendererPipeline({ ...flatArgs }) {
 
   const {
     setIsGlUnavailable,
+    setGlDebugInfo,
     updateGlDebugInfo,
     createCamera,
     disposeCamera,
@@ -98,17 +102,21 @@ export function useRendererPipeline({ ...flatArgs }) {
     rendererRef,
     minimapCanvasRef,
     glyphCanvasRef,
+    glyph2DCanvasRef,
     glyphRendererRef,
     glCanvasRef,
     glRendererRef,
     bitStateRef,
     setIsGlUnavailable,
+    setGlDebugInfo,
     updateGlDebugInfo,
     pendingRenderRafRef,
     createCamera,
     disposeCamera,
     setZoom,
     getMinimapDetailH,
+    debugGlModeOverride,
+    debugWorkerGlyphMode,
   });
 
   useLoadingOverlayLifecycle({
