@@ -2,6 +2,8 @@ import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus, Eye } from './Icons';
 import { formatNs } from './TimingPanel';
 import { isWindowAvailable } from './lib/browser.js';
+import { usePlaybackContext } from './contexts/PlaybackContext';
+import { usePanelLayoutContext } from './contexts/PanelLayoutContext';
 
 /**
  * Convert a flat list of steps (each with a `depth` field, 0-based) into
@@ -125,7 +127,22 @@ function buildDepthTree(steps) {
  * @param {boolean}  [props.eventTitleVisible]       - Whether the floating event banner is currently shown
  * @param {function} props.onShowEventTitle          - Show / restore the event title banner
  */
-export default function EventsPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, isAllEventsWidgetHidden = false, onExpandPanelFromWidget, onDockWidgetToTopBar, onDockWidgetToDetailPanel, onJoinWidgets, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0, goToStep, playing, handlePlayPause, exporting, isScrubbingTopRef, playSpeedPercent, setPlaySpeedPercent, eventTitleVisible = true, onShowEventTitle }) {
+export default function EventsPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, onExpandPanelFromWidget, onDockWidgetToTopBar, onDockWidgetToDetailPanel, onJoinWidgets, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0, eventTitleVisible = true, onShowEventTitle }) {
+  const {
+    goToStep,
+    playing,
+    handlePlayPause,
+    exporting,
+    isScrubbingTopRef,
+    playSpeedPercent,
+    setPlaySpeedPercent,
+  } = usePlaybackContext();
+  const {
+    isEventsPanelCollapsed: panelCollapsed,
+    toggleEventsPanel: onToggleCollapse,
+    isAllEventsWidgetHidden,
+  } = usePanelLayoutContext();
+
   const listRef = useRef(null);
   const scrollTopRef = useRef(0);
   const sentinelRef = useRef(null);

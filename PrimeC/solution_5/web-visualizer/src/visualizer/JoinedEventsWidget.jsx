@@ -2,6 +2,8 @@ import React, { useState, useRef, useCallback, useLayoutEffect } from 'react';
 import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus } from '../Icons';
 import { LinkIcon, CopyIcon } from '../Icons';
 import { isDOMAvailable, isWindowAvailable, getElementFromPoint } from '../lib/browser.js';
+import { usePlaybackContext } from '../contexts/PlaybackContext';
+import { usePanelLayoutContext } from '../contexts/PanelLayoutContext';
 
 const MAX_ANNOTATION_LINES = 3;
 
@@ -17,16 +19,6 @@ const MAX_ANNOTATION_LINES = 3;
  * EventTitleBanner) so it persists across sessions.
  */
 export default function JoinedEventsWidget({
-  // Transport props (from all-events widget)
-  currentStep,
-  steps,
-  goToStep,
-  playing,
-  handlePlayPause,
-  exporting,
-  isScrubbingTopRef,
-  playSpeedPercent,
-  setPlaySpeedPercent,
   // Banner props (from single-event widget)
   settings,
   setSettings,
@@ -45,12 +37,25 @@ export default function JoinedEventsWidget({
   // DOMRect of the EventTitleBanner at the moment the widgets were joined.
   // Used to anchor the joined widget's bottom-left to the same screen position.
   initialBannerRect,
-  // Detail panel avoidance: prevents the widget from covering the detail panel
-  isDetailOpen = false,
-  detailHeight = 36,
   // Called when user navigates via transport buttons or scrubber — lets parent open the detail panel
   onNavigate,
 }) {
+  const {
+    currentStep,
+    steps,
+    goToStep,
+    playing,
+    handlePlayPause,
+    exporting,
+    isScrubbingTopRef,
+    playSpeedPercent,
+    setPlaySpeedPercent,
+  } = usePlaybackContext();
+  const {
+    isDetailOpen,
+    detailHeight,
+  } = usePanelLayoutContext();
+
   const [isSplitting, setIsSplitting] = useState(false);
   const [dropHint, setDropHint] = useState(null);
   const [showAllAnnotations, setShowAllAnnotations] = useState(false);

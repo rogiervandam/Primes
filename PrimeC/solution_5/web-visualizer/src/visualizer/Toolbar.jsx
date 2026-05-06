@@ -7,6 +7,8 @@ import {
 import { GearIcon } from '../settings/buttons';
 import TraceInfoPopover from './TraceInfoPopover';
 import { useThemeContext } from '../contexts/ThemeContext';
+import { usePlaybackContext } from '../contexts/PlaybackContext';
+import { usePanelLayoutContext } from '../contexts/PanelLayoutContext';
 
 /**
  * Top toolbar: trace title (with info popover), playback transport, and the
@@ -42,15 +44,6 @@ export default function Toolbar({
   currentStepSourceLine,
   // close
   onClose,
-  // playback transport
-  steps,
-  currentStep,
-  goToStep,
-  playing,
-  handlePlayPause,
-  exporting,
-  setPlaySpeedPercent,
-  isScrubbingTopRef,
   // search
   isSearchOpen,
   setIsSearchOpen,
@@ -70,30 +63,39 @@ export default function Toolbar({
   setIsHeatMapEnabled,
   isPrimeOverlayEnabled,
   setIsPrimeOverlayEnabled,
-  isTimingPanelOpen,
-  setIsTimingPanelOpen,
   // debug tools
   isDebugToolsOpen,
   setIsDebugToolsOpen,
-  // panel collapse/expand
-  isEventsPanelCollapsed,
-  toggleEventsPanel,
-  isDetailOpen,
-  toggleDetailPanel,
-  isSettingsCollapsed,
-  toggleSettingsPanel,
   // export
   exportPng,
   exportVideo,
   cancelExport,
   exportProgress,
-  // immersive mode (auto-computed from widget visibility — no manual toggle)
-  areControlsHidden,
-  // floating all-events widget: show pop-out button when widget was docked away
-  isAllEventsWidgetHidden,
-  showAllEventsWidget,
 }) {
   const { theme, setTheme } = useThemeContext();
+  const {
+    steps,
+    currentStep,
+    goToStep,
+    playing,
+    handlePlayPause,
+    exporting,
+    setPlaySpeedPercent,
+    isScrubbingTopRef,
+  } = usePlaybackContext();
+  const {
+    isEventsPanelCollapsed,
+    toggleEventsPanel,
+    isDetailOpen,
+    toggleDetailPanel,
+    isSettingsCollapsed,
+    toggleSettingsPanel,
+    isAllEventsWidgetHidden,
+    showAllEventsWidget,
+    areControlsHidden,
+    isTimingPanelOpen,
+    setIsTimingPanelOpen,
+  } = usePanelLayoutContext();
 
   const visualizerClass =
     `visualizer${isMacPlatform ? ' platform-mac' : ''}` +

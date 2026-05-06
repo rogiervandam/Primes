@@ -79,6 +79,9 @@ import { useTiltState } from './hooks/useTiltState';
 import { useVisualizerEffects } from './hooks/useVisualizerEffects';
 import { useStepAnimContent } from './hooks/useStepAnimContent';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { PlaybackProvider } from './contexts/PlaybackContext';
+import { AnimationConfigProvider } from './contexts/AnimationConfigContext';
+import { PanelLayoutProvider } from './contexts/PanelLayoutContext';
 
 /**
  * Top-level visualizer component. Owns all playback, rendering, and UI state.
@@ -957,6 +960,102 @@ export default function Visualizer({
     setCustomColors,
   ]);
 
+  const playbackContextValue = useMemo(() => ({
+    steps,
+    currentStep,
+    goToStep,
+    playing,
+    handlePlayPause,
+    exporting: !!exporting,
+    setPlaySpeedPercent,
+    isScrubbingTopRef,
+    playSpeedPercent,
+  }), [
+    steps,
+    currentStep,
+    goToStep,
+    playing,
+    handlePlayPause,
+    exporting,
+    setPlaySpeedPercent,
+    isScrubbingTopRef,
+    playSpeedPercent,
+  ]);
+
+  const animationConfigContextValue = useMemo(() => ({
+    animMode,
+    setAnimMode,
+    animStyle,
+    setAnimStyle,
+    delayBetweenEvents,
+    setDelayBetweenEvents,
+    delayBetweenRepeats,
+    setDelayBetweenRepeats,
+    eventTimeTargets,
+    setEventTimeTargets,
+    eventDurationMode,
+    setEventDurationMode,
+    isAnimationReplayPaused,
+    setIsAnimationReplayPaused,
+    bitAnimationMode,
+    handleBitAnimationModeChange,
+    isAutoAnimateOnSelect,
+    setIsAutoAnimateOnSelect,
+  }), [
+    animMode,
+    setAnimMode,
+    animStyle,
+    setAnimStyle,
+    delayBetweenEvents,
+    setDelayBetweenEvents,
+    delayBetweenRepeats,
+    setDelayBetweenRepeats,
+    eventTimeTargets,
+    setEventTimeTargets,
+    eventDurationMode,
+    setEventDurationMode,
+    isAnimationReplayPaused,
+    setIsAnimationReplayPaused,
+    bitAnimationMode,
+    handleBitAnimationModeChange,
+    isAutoAnimateOnSelect,
+    setIsAutoAnimateOnSelect,
+  ]);
+
+  const panelLayoutContextValue = useMemo(() => ({
+    isEventsPanelCollapsed,
+    setIsEventsPanelCollapsed,
+    toggleEventsPanel,
+    isDetailOpen,
+    setIsDetailOpen,
+    isDetailOpenRef,
+    toggleDetailPanel,
+    isSettingsCollapsed,
+    toggleSettingsPanel,
+    isAllEventsWidgetHidden,
+    showAllEventsWidget,
+    areControlsHidden,
+    isTimingPanelOpen,
+    setIsTimingPanelOpen,
+    detailHeight,
+  }), [
+    isEventsPanelCollapsed,
+    setIsEventsPanelCollapsed,
+    toggleEventsPanel,
+    isDetailOpen,
+    setIsDetailOpen,
+    isDetailOpenRef,
+    toggleDetailPanel,
+    isSettingsCollapsed,
+    toggleSettingsPanel,
+    isAllEventsWidgetHidden,
+    showAllEventsWidget,
+    areControlsHidden,
+    isTimingPanelOpen,
+    setIsTimingPanelOpen,
+    detailHeight,
+  ]);
+
   const { detailInspectorRows, filteredDetailInspectorRows } = useDetailInspectorRows({
     currentStepData,
     layoutSettings,
@@ -1050,6 +1149,9 @@ export default function Visualizer({
 
   return (
     <ThemeProvider value={themeContextValue}>
+    <PlaybackProvider value={playbackContextValue}>
+    <AnimationConfigProvider value={animationConfigContextValue}>
+    <PanelLayoutProvider value={panelLayoutContextValue}>
     <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}`}>
       <Toolbar
         isMacPlatform={isMacPlatform}
@@ -1071,14 +1173,6 @@ export default function Visualizer({
         onClearRawScrollToLine={onClearRawScrollToLine}
         currentStepSourceLine={stepToLine[currentStep]}
         onClose={onClose}
-        steps={steps}
-        currentStep={currentStep}
-        goToStep={goToStep}
-        playing={playing}
-        handlePlayPause={handlePlayPause}
-        exporting={exporting}
-        setPlaySpeedPercent={setPlaySpeedPercent}
-        isScrubbingTopRef={isScrubbingTopRef}
         isSearchOpen={isSearchOpen}
         setIsSearchOpen={setIsSearchOpen}
         searchQuery={searchQuery}
@@ -1097,21 +1191,10 @@ export default function Visualizer({
         setIsPrimeOverlayEnabled={setIsPrimeOverlayEnabled}
         isDebugToolsOpen={isDebugToolsOpen}
         setIsDebugToolsOpen={setIsDebugToolsOpen}
-        isTimingPanelOpen={isTimingPanelOpen}
-        setIsTimingPanelOpen={setIsTimingPanelOpen}
         exportPng={exportPng}
         exportVideo={exportVideo}
         cancelExport={cancelExport}
         exportProgress={exportProgress}
-        areControlsHidden={areControlsHidden}
-        isAllEventsWidgetHidden={isAllEventsWidgetHidden}
-        showAllEventsWidget={showAllEventsWidget}
-        isEventsPanelCollapsed={isEventsPanelCollapsed}
-        toggleEventsPanel={toggleEventsPanel}
-        isDetailOpen={isDetailOpen}
-        toggleDetailPanel={toggleDetailPanel}
-        isSettingsCollapsed={isSettingsCollapsed}
-        toggleSettingsPanel={toggleSettingsPanel}
       />
 
       {exporting && <ExportProgress progress={exportProgress} />}
@@ -1150,13 +1233,6 @@ export default function Visualizer({
           externalOpFilter={timingFocusOp}
           onExternalOpFilterConsumed={() => setTimingFocusOp('')}
           revealStepRequest={revealStepRequest}
-          goToStep={goToStep}
-          playing={playing}
-          handlePlayPause={handlePlayPause}
-          exporting={!!exporting}
-          isScrubbingTopRef={isScrubbingTopRef}
-          playSpeedPercent={playSpeedPercent}
-          setPlaySpeedPercent={setPlaySpeedPercent}
           eventTitleVisible={eventTitleSettings.visible && !areWidgetsJoined}
           onShowEventTitle={showEventTitleAboveCurrentDetail}
         />
@@ -1234,15 +1310,6 @@ export default function Visualizer({
         />
         {areWidgetsJoined && isEventsPanelCollapsed && !isAllEventsWidgetHidden && eventTitleSettings.visible && isSingleEventWidgetRevealed && (
           <JoinedEventsWidget
-            currentStep={currentStep}
-            steps={steps}
-            goToStep={goToStep}
-            playing={playing}
-            handlePlayPause={handlePlayPause}
-            exporting={!!exporting}
-            isScrubbingTopRef={isScrubbingTopRef}
-            playSpeedPercent={playSpeedPercent}
-            setPlaySpeedPercent={setPlaySpeedPercent}
             settings={eventTitleSettings}
             setSettings={setEventTitleSettings}
             banner={currentStepBanner}
@@ -1255,8 +1322,6 @@ export default function Visualizer({
             onPushToDetailPanel={pushJoinedWidgetToDetailPanel}
             initialBannerRect={joinBannerRect}
             onHideWidget={hideJoinedWidget}
-            isDetailOpen={isDetailOpen}
-            detailHeight={detailHeight}
             onNavigate={() => { if (!isDetailOpenRef.current) setIsDetailOpen(true); }}
           />
         )}
@@ -1264,25 +1329,7 @@ export default function Visualizer({
           settings={layoutSettings}
           onChange={setLayoutSettings}
           autoFitColumns={autoFitColumnCount}
-          collapsed={isSettingsCollapsed}
-          onToggleCollapse={toggleSettingsPanel}
           onActiveTabChange={setSettingsActiveTab}
-          playSpeed={playSpeedPercent}
-          onPlaySpeedChange={setPlaySpeedPercent}
-          repeatAnim={delayBetweenEvents}
-          onRepeatAnimChange={setDelayBetweenEvents}
-          delayBetweenRepeats={delayBetweenRepeats}
-          onDelayBetweenRepeatsChange={setDelayBetweenRepeats}
-          eventTimeTargets={eventTimeTargets}
-          onEventTimeTargetsChange={setEventTimeTargets}
-          animMode={animMode}
-          onAnimModeChange={setAnimMode}
-          animStyle={animStyle}
-          onAnimStyleChange={setAnimStyle}
-          isAnimationReplayPaused={isAnimationReplayPaused}
-          onAnimationReplayPausedChange={setIsAnimationReplayPaused}
-          eventDurationMode={eventDurationMode}
-          onEventDurationModeChange={setEventDurationMode}
           cachelineSize={cachelineSize}
           onCachelineSizeChange={setCachelineSize}
           cachePreset={cachePreset}
@@ -1347,12 +1394,6 @@ export default function Visualizer({
           isWindowsPlatform={isWindowsPlatform}
           showAnimationControls={true}
           activeTabRequest={settingsTabRequest}
-          bitAnimationMode={bitAnimationMode}
-          onBitAnimationModeChange={handleBitAnimationModeChange}
-          isAutoAnimateOnSelect={isAutoAnimateOnSelect}
-          onAutoAnimateOnSelectChange={setIsAutoAnimateOnSelect}
-          isDetailOpen={isDetailOpen}
-          detailHeight={detailHeight}
         />
         {isDebugToolsOpen && (
           <DebugToolsPanel
@@ -1394,6 +1435,9 @@ export default function Visualizer({
         onClose={() => setIsShortcutsHelpVisible(false)}
       />
     </div>
+    </PanelLayoutProvider>
+    </AnimationConfigProvider>
+    </PlaybackProvider>
     </ThemeProvider>
   );
 }

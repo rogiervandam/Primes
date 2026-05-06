@@ -5,6 +5,9 @@ import LayoutTab from './settings/LayoutTab';
 import AnimationTab from './settings/AnimationTab';
 import ColorsTab from './settings/ColorsTab';
 import { useThemeContext } from './contexts/ThemeContext';
+import { usePlaybackContext } from './contexts/PlaybackContext';
+import { useAnimationConfigContext } from './contexts/AnimationConfigContext';
+import { usePanelLayoutContext } from './contexts/PanelLayoutContext';
 /**
  * Right-hand collapsible settings panel. Pure tab-row shell that delegates
  * content to LayoutTab, AnimationTab, ColorsTab, and LegendTab.
@@ -78,16 +81,8 @@ import { useThemeContext } from './contexts/ThemeContext';
  * @param {number}   [props.detailHeight]             - Detail panel height in px
  */
 export default function SettingsPanel({
-  settings, onChange, collapsed, onToggleCollapse,
+  settings, onChange,
   autoFitColumns = 0,
-  playSpeed, onPlaySpeedChange,
-  repeatAnim, onRepeatAnimChange,
-  delayBetweenRepeats, onDelayBetweenRepeatsChange,
-  eventTimeTargets, onEventTimeTargetsChange,
-  animMode, onAnimModeChange,
-  animStyle, onAnimStyleChange,
-  isAnimationReplayPaused, onAnimationReplayPausedChange,
-  eventDurationMode, onEventDurationModeChange,
   cachelineSize, onCachelineSizeChange,
   cachePreset, onCachePresetChange,
   isHeatMapEnabled, onHeatMapToggle,
@@ -108,12 +103,6 @@ export default function SettingsPanel({
   showAnimationControls = true,
   activeTabRequest,
   onActiveTabChange,
-  bitAnimationMode,
-  onBitAnimationModeChange,
-  isAutoAnimateOnSelect,
-  onAutoAnimateOnSelectChange,
-  isDetailOpen = false,
-  detailHeight = 280,
 }) {
   const {
     theme,
@@ -127,6 +116,36 @@ export default function SettingsPanel({
     customColors,
     setCustomColors,
   } = useThemeContext();
+  const {
+    playSpeedPercent,
+    setPlaySpeedPercent,
+  } = usePlaybackContext();
+  const {
+    animMode,
+    setAnimMode,
+    animStyle,
+    setAnimStyle,
+    delayBetweenEvents,
+    setDelayBetweenEvents,
+    delayBetweenRepeats,
+    setDelayBetweenRepeats,
+    eventTimeTargets,
+    setEventTimeTargets,
+    eventDurationMode,
+    setEventDurationMode,
+    isAnimationReplayPaused,
+    setIsAnimationReplayPaused,
+    bitAnimationMode,
+    handleBitAnimationModeChange,
+    isAutoAnimateOnSelect,
+    setIsAutoAnimateOnSelect,
+  } = useAnimationConfigContext();
+  const {
+    isSettingsCollapsed: collapsed,
+    toggleSettingsPanel: onToggleCollapse,
+    isDetailOpen,
+    detailHeight,
+  } = usePanelLayoutContext();
 
   const s = settings || {};
   const [activeTab, setActiveTab] = React.useState('layout');
@@ -186,15 +205,15 @@ export default function SettingsPanel({
       case 'rangeOverlay':    changeActiveTab('layout');    onRangeOverlayToggle?.(); break;
       case 'multiplesOverlay':changeActiveTab('layout');    onMultiplesOverlayToggle?.(); break;
       case 'heatMap':         changeActiveTab('layout');    onHeatMapToggle?.(); break;
-      case 'animRipple':      changeActiveTab('animation'); onAnimStyleChange?.('ripple'); break;
-      case 'animFade':        changeActiveTab('animation'); onAnimStyleChange?.('fade'); break;
-      case 'animPulse':       changeActiveTab('animation'); onAnimStyleChange?.('pulse'); break;
-      case 'animSequential':  changeActiveTab('animation'); onAnimStyleChange?.('sequential'); break;
+      case 'animRipple':      changeActiveTab('animation'); setAnimStyle?.('ripple'); break;
+      case 'animFade':        changeActiveTab('animation'); setAnimStyle?.('fade'); break;
+      case 'animPulse':       changeActiveTab('animation'); setAnimStyle?.('pulse'); break;
+      case 'animSequential':  changeActiveTab('animation'); setAnimStyle?.('sequential'); break;
       default: break;
     }
   }, [legendFloating, onToggleCollapse, changeActiveTab,
       onPrimeOverlayToggle, onRangeOverlayToggle, onMultiplesOverlayToggle,
-      onHeatMapToggle, onAnimStyleChange]);
+      onHeatMapToggle, setAnimStyle]);
 
   // Drag handler for floating legend panel
   React.useEffect(() => {
@@ -306,16 +325,16 @@ export default function SettingsPanel({
         )}
         {activeTab === 'animation' && showAnimationControls && (
           <AnimationTab
-            animStyle={animStyle} onAnimStyleChange={onAnimStyleChange}
-            animMode={animMode} onAnimModeChange={onAnimModeChange}
-            playSpeed={playSpeed} onPlaySpeedChange={onPlaySpeedChange}
-            repeatAnim={repeatAnim} onRepeatAnimChange={onRepeatAnimChange}
-            delayBetweenRepeats={delayBetweenRepeats} onDelayBetweenRepeatsChange={onDelayBetweenRepeatsChange}
-            eventTimeTargets={eventTimeTargets} onEventTimeTargetsChange={onEventTimeTargetsChange}
-            isAnimationReplayPaused={isAnimationReplayPaused} onAnimationReplayPausedChange={onAnimationReplayPausedChange}
-            eventDurationMode={eventDurationMode} onEventDurationModeChange={onEventDurationModeChange}
-            bitAnimationMode={bitAnimationMode} onBitAnimationModeChange={onBitAnimationModeChange}
-            isAutoAnimateOnSelect={isAutoAnimateOnSelect} onAutoAnimateOnSelectChange={onAutoAnimateOnSelectChange}
+            animStyle={animStyle} onAnimStyleChange={setAnimStyle}
+            animMode={animMode} onAnimModeChange={setAnimMode}
+            playSpeed={playSpeedPercent} onPlaySpeedChange={setPlaySpeedPercent}
+            repeatAnim={delayBetweenEvents} onRepeatAnimChange={setDelayBetweenEvents}
+            delayBetweenRepeats={delayBetweenRepeats} onDelayBetweenRepeatsChange={setDelayBetweenRepeats}
+            eventTimeTargets={eventTimeTargets} onEventTimeTargetsChange={setEventTimeTargets}
+            isAnimationReplayPaused={isAnimationReplayPaused} onAnimationReplayPausedChange={setIsAnimationReplayPaused}
+            eventDurationMode={eventDurationMode} onEventDurationModeChange={setEventDurationMode}
+            bitAnimationMode={bitAnimationMode} onBitAnimationModeChange={handleBitAnimationModeChange}
+            isAutoAnimateOnSelect={isAutoAnimateOnSelect} onAutoAnimateOnSelectChange={setIsAutoAnimateOnSelect}
           />
         )}
         </div>
