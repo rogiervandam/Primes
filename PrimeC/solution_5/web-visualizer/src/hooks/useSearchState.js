@@ -11,12 +11,12 @@ import { bitToNumber, numberToBit } from '../SieveRenderer';
  * @param {object}   opts.wheelDefinition            - optional wheel mapping metadata
  * @param {function} opts.getMinimapDetailH          - returns the current detail-panel height for minimap
  *
- * @returns {{ searchQuery, setSearchQuery, searchResult, searchOpen, setSearchOpen, handleSearch }}
+ * @returns {{ searchQuery, setSearchQuery, searchResult, isSearchOpen, setIsSearchOpen, handleSearch }}
  */
 export function useSearchState({ rendererRef, navigateToBit, storageModel, wheelDefinition, getMinimapDetailH }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResult, setSearchResult] = useState(null);
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const handleSearch = useCallback((query) => {
     const r = rendererRef.current;
@@ -110,12 +110,12 @@ export function useSearchState({ rendererRef, navigateToBit, storageModel, wheel
   // Clear search highlight when the search box is closed
   useEffect(() => {
     const r = rendererRef.current;
-    if (!r || searchOpen) return;
+    if (!r || isSearchOpen) return;
     r.clearSearchHighlight();
     r.render();
     r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
     setSearchResult(null);
-  }, [rendererRef, searchOpen, getMinimapDetailH]);
+  }, [rendererRef, isSearchOpen, getMinimapDetailH]);
 
-  return { searchQuery, setSearchQuery, searchResult, searchOpen, setSearchOpen, handleSearch };
+  return { searchQuery, setSearchQuery, searchResult, isSearchOpen, setIsSearchOpen, handleSearch };
 }

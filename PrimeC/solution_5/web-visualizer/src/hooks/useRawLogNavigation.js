@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useRawLogActions } from './useRawLogActions';
 
 export function useRawLogNavigation({
-  setShowTraceInfo,
+  setIsTraceInfoVisible,
   goToStep,
   revealCurrentStepInPanel,
   fetchRawSource,
@@ -11,7 +11,7 @@ export function useRawLogNavigation({
 }) {
   const [rawScrollToLine, setRawScrollToLine] = useState(null);
   const { onJumpToStep, onClearRawScrollToLine, onOpenRawLog } = useRawLogActions({
-    setShowTraceInfo,
+    setIsTraceInfoVisible,
     goToStep,
     revealCurrentStepInPanel,
     setRawScrollToLine,

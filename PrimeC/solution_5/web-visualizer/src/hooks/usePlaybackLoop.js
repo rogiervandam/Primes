@@ -9,7 +9,7 @@
  *    changes or playback starts.
  *
  * 2. **Single-event replay loop** — fires while the single-event widget is in
- *    Play mode (`singleEventLoopActive`) or while the user is mid-drag on the
+ *    Play mode (`isSingleEventLoopActive`) or while the user is mid-drag on the
  *    top-bar scrubber (`isScrubbingTopRef`). Repeats the current step's
  *    animation with the configured between-repeat delay.
  *
@@ -37,24 +37,24 @@
  * @param {React.MutableRefObject} opts.pausedStepAnimLoopRef
  * @param {React.MutableRefObject} opts.playTimeoutRef
  * @param {React.MutableRefObject} opts.playTimerRef
- * @param {React.MutableRefObject} opts.singleEventLoopActiveRef
+ * @param {React.MutableRefObject} opts.isSingleEventLoopActiveRef
  * @param {React.MutableRefObject} opts.isScrubbingTopRef
  * @param {React.MutableRefObject} opts.initialHighlightHoldRef
  * @param {React.MutableRefObject} opts.delayBetweenRepeatsRef
  * @param {React.MutableRefObject} opts.stepResumeStartIndexRef
  * @param {React.MutableRefObject} opts.stepResumeMaskProgressRef
- * @param {React.MutableRefObject} opts.setStepAnimRunningRef
- * @param {React.MutableRefObject} opts.stepAnimRunningRefForScheduler
+ * @param {React.MutableRefObject} opts.setIsStepAnimRunningRef
+ * @param {React.MutableRefObject} opts.isStepAnimRunningRefForScheduler
  *
  * State values (used in effect dep arrays only):
  * @param {boolean}     opts.playing
  * @param {Array}       opts.steps
  * @param {number}      opts.currentStep
  * @param {Set<number>} opts.selectedSteps
- * @param {boolean}     opts.animationReplayPaused
- * @param {boolean}     opts.singleEventLoopActive
- * @param {React.MutableRefObject} [opts.autoAnimateOnSelectRef] - When false, skip the auto-repeat loop
- * @param {boolean}     [opts.autoAnimateOnSelect] - State mirror for dep array
+ * @param {boolean}     opts.isAnimationReplayPaused
+ * @param {boolean}     opts.isSingleEventLoopActive
+ * @param {React.MutableRefObject} [opts.isAutoAnimateOnSelectRef] - When false, skip the auto-repeat loop
+ * @param {boolean}     [opts.isAutoAnimateOnSelect] - State mirror for dep array
  *
  * State setters (stable across renders):
  * @param {function} opts.setPlaying
@@ -73,16 +73,16 @@ export function usePlaybackLoop({
   selectedAnimLoopRef, pausedStepAnimLoopRef,
   playTimeoutRef, playTimerRef,
   // Per-loop state refs
-  singleEventLoopActiveRef, isScrubbingTopRef, initialHighlightHoldRef,
+  isSingleEventLoopActiveRef, isScrubbingTopRef, initialHighlightHoldRef,
   delayBetweenRepeatsRef, stepResumeStartIndexRef, stepResumeMaskProgressRef,
-  setStepAnimRunningRef, stepAnimRunningRefForScheduler,
+  setIsStepAnimRunningRef, isStepAnimRunningRefForScheduler,
   // State values (for effect dependency arrays only)
-  playing, steps, currentStep, selectedSteps, animationReplayPaused, singleEventLoopActive,
-  autoAnimateOnSelect = true,
+  playing, steps, currentStep, selectedSteps, isAnimationReplayPaused, isSingleEventLoopActive,
+  isAutoAnimateOnSelect = true,
   // State setters
   setPlaying, setCurrentStep,
   // Optional preference refs
-  autoAnimateOnSelectRef,
+  isAutoAnimateOnSelectRef,
 }) {
   // ── Effect 1: Repeat selected-step animation until selection changes ─────
   useEffect(() => {
@@ -90,9 +90,9 @@ export function usePlaybackLoop({
       clearTimeout(selectedAnimLoopRef.current);
       selectedAnimLoopRef.current = null;
     }
-    if (playing || animationReplayPaused || selectedSteps.size === 0) return;
+    if (playing || isAnimationReplayPaused || selectedSteps.size === 0) return;
     // When auto-animate-on-select is disabled, do not start the replay loop.
-    if (autoAnimateOnSelectRef && autoAnimateOnSelectRef.current === false) return;
+    if (isAutoAnimateOnSelectRef && isAutoAnimateOnSelectRef.current === false) return;
 
     const merged = new Set();
     for (const idx of selectedSteps) {
@@ -107,7 +107,7 @@ export function usePlaybackLoop({
       const triggerFn = triggerAnimationRef.current;
       if (!triggerFn) return;
       await triggerFn(merged, { adaptiveDuration: true });
-      if (cancelled || playing || animationReplayPaused || selectedSteps.size === 0) return;
+      if (cancelled || playing || isAnimationReplayPaused || selectedSteps.size === 0) return;
       // Note: seekGenRef is intentionally NOT checked here. seekStepAnimation sets
       // cancelled=true via effect cleanup; that path is handled above. A seekGenRef
       // bump from the [animMode,animStyle] effect means the user changed animation
@@ -125,9 +125,9 @@ export function usePlaybackLoop({
       }
     };
     // triggerAnimation intentionally omitted; see pausedStepAnimLoop for rationale.
-    // autoAnimateOnSelect is included so the loop tears down immediately when the toggle is switched off.
+    // isAutoAnimateOnSelect is included so the loop tears down immediately when the toggle is switched off.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSteps, steps, playing, animationReplayPaused, autoAnimateOnSelect]);
+  }, [selectedSteps, steps, playing, isAnimationReplayPaused, isAutoAnimateOnSelect]);
 
   // ── Effect 2: When paused on a single step, keep replaying that step's animation ──
   useEffect(() => {
@@ -137,11 +137,11 @@ export function usePlaybackLoop({
     }
 
     // The single-event widget's auto-replay only runs when the user explicitly
-    // pressed Play on it (singleEventLoopActive=true), OR while the user is
+    // pressed Play on it (isSingleEventLoopActive=true), OR while the user is
     // mid-drag on the top-bar scrubber (isScrubbingTopRef.current). All-events
     // playback (`playing`) has its own scheduler so we stay out of its way.
-    if (playing || animationReplayPaused || selectedSteps.size > 0 || initialHighlightHoldRef.current) return;
-    if (!singleEventLoopActive && !isScrubbingTopRef.current) return;
+    if (playing || isAnimationReplayPaused || selectedSteps.size > 0 || initialHighlightHoldRef.current) return;
+    if (!isSingleEventLoopActive && !isScrubbingTopRef.current) return;
     const step = steps[currentStep];
     if (!step || !step.changedBits || step.changedBits.length === 0) return;
 
@@ -167,8 +167,8 @@ export function usePlaybackLoop({
         startIndex: useStartIndex,
         startProgress: useStartProgress,
       });
-      if (cancelled || playing || animationReplayPaused || selectedSteps.size > 0) return;
-      if (!singleEventLoopActiveRef.current && !isScrubbingTopRef.current) return;
+      if (cancelled || playing || isAnimationReplayPaused || selectedSteps.size > 0) return;
+      if (!isSingleEventLoopActiveRef.current && !isScrubbingTopRef.current) return;
       // Note: seekGenRef is intentionally NOT checked here. seekStepAnimation sets
       // cancelled=true via effect cleanup; that path is handled above. A seekGenRef
       // bump from the [animMode,animStyle] effect means animation style changed —
@@ -188,7 +188,7 @@ export function usePlaybackLoop({
     // triggerAnimation intentionally omitted: it is rebuilt whenever the speed
     // slider changes, and we don't want to interrupt an in-flight reveal.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, selectedSteps, steps, currentStep, animationReplayPaused, singleEventLoopActive]);
+  }, [playing, selectedSteps, steps, currentStep, isAnimationReplayPaused, isSingleEventLoopActive]);
 
   // ── Effect 3: All-events play/pause scheduler ────────────────────────────
   //
@@ -230,7 +230,7 @@ export function usePlaybackLoop({
       // If a per-event animation is still running (e.g. resumed from a
       // pause-in-flight whose wall-clock budget already expired), wait for it
       // to finish before advancing to the next event.
-      if (setStepAnimRunningRef.current && stepAnimRunningRefForScheduler.current) {
+      if (setIsStepAnimRunningRef.current && isStepAnimRunningRefForScheduler.current) {
         playTimeoutRef.current = setTimeout(scheduleNext, 32);
         return;
       }

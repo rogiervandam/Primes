@@ -1,16 +1,16 @@
 import { useCallback } from 'react';
 
 export function useDetailPanelStateSync({
-  detailOpenRef,
-  setDetailOpen,
+  isDetailOpenRef,
+  setIsDetailOpen,
   detailHeightRef,
   setDetailHeight,
 }) {
   const updateDetailOpen = useCallback((val) => {
-    const next = typeof val === 'function' ? val(detailOpenRef.current) : val;
-    detailOpenRef.current = next;
-    setDetailOpen(next);
-  }, [detailOpenRef, setDetailOpen]);
+    const next = typeof val === 'function' ? val(isDetailOpenRef.current) : val;
+    isDetailOpenRef.current = next;
+    setIsDetailOpen(next);
+  }, [isDetailOpenRef, setIsDetailOpen]);
 
   const updateDetailHeight = useCallback((val) => {
     detailHeightRef.current = val;

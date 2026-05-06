@@ -2,8 +2,8 @@ import { useEffect } from 'react';
 
 export function usePanelResizeRefresh({
   panelWidth,
-  showMinimap,
-  detailOpen,
+  isMinimapVisible,
+  isDetailOpen,
   detailHeight,
   refreshCanvasLayout,
   clearScheduledLayoutRefresh,
@@ -48,8 +48,8 @@ export function usePanelResizeRefresh({
     };
   }, [
     panelWidth,
-    showMinimap,
-    detailOpen,
+    isMinimapVisible,
+    isDetailOpen,
     detailHeight,
     refreshCanvasLayout,
     clearScheduledLayoutRefresh,

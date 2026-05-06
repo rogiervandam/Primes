@@ -1,17 +1,17 @@
 import { useCallback } from 'react';
 
 export function usePlaybackControls({
-  setSingleEventWidgetRevealed,
+  setIsSingleEventWidgetRevealed,
   globalPausedRef,
-  setAnimationReplayPaused,
-  setSingleEventLoopActive,
+  setIsAnimationReplayPaused,
+  setIsSingleEventLoopActive,
   currentStep,
   stepsLength,
-  stepAnimRunning,
+  isStepAnimRunning,
   setPlaying,
   playing,
   goToStep,
-  singleEventLoopActiveRef,
+  isSingleEventLoopActiveRef,
   stepsRef,
   rendererRef,
   selectedStepsRef,
@@ -21,60 +21,60 @@ export function usePlaybackControls({
   stepResumeStartIndexRef,
 }) {
   const handlePlayPause = useCallback(() => {
-    setSingleEventWidgetRevealed(true);
+    setIsSingleEventWidgetRevealed(true);
     if (globalPausedRef.current) {
       globalPausedRef.current = false;
-      setAnimationReplayPaused(false);
-      setSingleEventLoopActive(false);
-      if (currentStep < Math.max(0, stepsLength - 1) || stepAnimRunning) {
+      setIsAnimationReplayPaused(false);
+      setIsSingleEventLoopActive(false);
+      if (currentStep < Math.max(0, stepsLength - 1) || isStepAnimRunning) {
         setPlaying(true);
       }
       return;
     }
     if (playing) {
       globalPausedRef.current = true;
-      setAnimationReplayPaused(true);
-      setSingleEventLoopActive(false);
+      setIsAnimationReplayPaused(true);
+      setIsSingleEventLoopActive(false);
       setPlaying(false);
       return;
     }
     if (currentStep >= Math.max(0, stepsLength - 1)) {
       globalPausedRef.current = false;
-      setAnimationReplayPaused(false);
-      setSingleEventLoopActive(false);
+      setIsAnimationReplayPaused(false);
+      setIsSingleEventLoopActive(false);
       goToStep(0, { keepPlaying: true });
       setPlaying(true);
       return;
     }
     globalPausedRef.current = false;
-    setAnimationReplayPaused(false);
-    setSingleEventLoopActive(false);
+    setIsAnimationReplayPaused(false);
+    setIsSingleEventLoopActive(false);
     setPlaying(true);
   }, [
-    setSingleEventWidgetRevealed,
+    setIsSingleEventWidgetRevealed,
     globalPausedRef,
-    setAnimationReplayPaused,
-    setSingleEventLoopActive,
+    setIsAnimationReplayPaused,
+    setIsSingleEventLoopActive,
     currentStep,
     stepsLength,
-    stepAnimRunning,
+    isStepAnimRunning,
     setPlaying,
     playing,
     goToStep,
   ]);
 
   const handleStepAnimToggle = useCallback(() => {
-    if ((stepAnimRunning || singleEventLoopActiveRef.current) && !globalPausedRef.current) {
+    if ((isStepAnimRunning || isSingleEventLoopActiveRef.current) && !globalPausedRef.current) {
       globalPausedRef.current = true;
-      setAnimationReplayPaused(true);
-      setSingleEventLoopActive(false);
+      setIsAnimationReplayPaused(true);
+      setIsSingleEventLoopActive(false);
       setPlaying(false);
       return;
     }
     if (globalPausedRef.current) {
       globalPausedRef.current = false;
-      setAnimationReplayPaused(false);
-      setSingleEventLoopActive(true);
+      setIsAnimationReplayPaused(false);
+      setIsSingleEventLoopActive(true);
       return;
     }
     const step = stepsRef.current[currentStep];
@@ -90,8 +90,8 @@ export function usePlaybackControls({
       const finished = stepScrubProgress >= 99;
       stepResumeMaskProgressRef.current = finished ? 0 : stepScrubProgress / 100;
       stepResumeStartIndexRef.current = 0;
-      setAnimationReplayPaused(false);
-      setSingleEventLoopActive(true);
+      setIsAnimationReplayPaused(false);
+      setIsSingleEventLoopActive(true);
       return;
     }
     if (!step.changedBits || step.changedBits.length === 0) return;
@@ -102,14 +102,14 @@ export function usePlaybackControls({
       : Math.max(0, Math.min(totalBits - 1, Math.round((stepScrubProgress / 100) * (totalBits - 1))));
     stepResumeStartIndexRef.current = startIndex;
     stepResumeMaskProgressRef.current = 0;
-    setAnimationReplayPaused(false);
-    setSingleEventLoopActive(true);
+    setIsAnimationReplayPaused(false);
+    setIsSingleEventLoopActive(true);
   }, [
-    stepAnimRunning,
-    singleEventLoopActiveRef,
+    isStepAnimRunning,
+    isSingleEventLoopActiveRef,
     globalPausedRef,
-    setAnimationReplayPaused,
-    setSingleEventLoopActive,
+    setIsAnimationReplayPaused,
+    setIsSingleEventLoopActive,
     setPlaying,
     stepsRef,
     currentStep,

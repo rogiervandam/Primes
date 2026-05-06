@@ -2,31 +2,31 @@
  * usePanelState — owns sidebar and detail-panel visibility + dimension state.
  *
  * Owns:
- *  - eventsPanelCollapsed / settingsCollapsed / detailOpen + detailOpenRef
- *  - showMinimap / minimapAvailable
+ *  - isEventsPanelCollapsed / isSettingsCollapsed / isDetailOpen + isDetailOpenRef
+ *  - isMinimapVisible / isMinimapAvailable
  *  - panelWidth / detailHeight + detailHeightRef / detailWidth
  *  - stepStats
  *  - settingsActiveTab / settingsTabRequest
  *  - deferredPanelStateRef (panel open-states deferred until after intro)
  *
  * Effects included:
- *  - Phase F: restore eventsPanelCollapsed + settingsCollapsed after introPhase==='visible'
- *  - Detail-panel restore after singleEventWidgetRevealed
+ *  - Phase F: restore isEventsPanelCollapsed + isSettingsCollapsed after introPhase==='visible'
+ *  - Detail-panel restore after isSingleEventWidgetRevealed
  *
- * @param {{ initialPrefs: object, introPhase: string, singleEventWidgetRevealed: boolean }} params
+ * @param {{ initialPrefs: object, introPhase: string, isSingleEventWidgetRevealed: boolean }} params
  */
 import { useState, useRef, useEffect } from 'react';
 
-export function usePanelState({ initialPrefs, introPhase, singleEventWidgetRevealed }) {
+export function usePanelState({ initialPrefs, introPhase, isSingleEventWidgetRevealed }) {
   // Forced closed on mount; restored after intro animation finishes.
-  const [eventsPanelCollapsed, setEventsPanelCollapsed] = useState(true);
-  const [settingsCollapsed, setSettingsCollapsed] = useState(true);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const detailOpenRef = useRef(false);
-  detailOpenRef.current = detailOpen;
+  const [isEventsPanelCollapsed, setIsEventsPanelCollapsed] = useState(true);
+  const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(true);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const isDetailOpenRef = useRef(false);
+  isDetailOpenRef.current = isDetailOpen;
 
-  const [showMinimap, setShowMinimap] = useState(true);
-  const [minimapAvailable, setMinimapAvailable] = useState(true);
+  const [isMinimapVisible, setIsMinimapVisible] = useState(true);
+  const [isMinimapAvailable, setIsMinimapAvailable] = useState(true);
   const [panelWidth, setPanelWidth] = useState(320);
   const [detailHeight, setDetailHeight] = useState(280);
   const detailHeightRef = useRef(280);
@@ -40,9 +40,9 @@ export function usePanelState({ initialPrefs, introPhase, singleEventWidgetRevea
 
   // Panel open-states saved in prefs — applied once after the intro completes.
   const deferredPanelStateRef = useRef({
-    eventsPanelCollapsed: initialPrefs.eventsPanelCollapsed,
-    settingsCollapsed: initialPrefs.settingsCollapsed,
-    detailOpen: initialPrefs.detailOpen,
+    isEventsPanelCollapsed: initialPrefs.isEventsPanelCollapsed,
+    isSettingsCollapsed: initialPrefs.isSettingsCollapsed,
+    isDetailOpen: initialPrefs.isDetailOpen,
     applied: false,
   });
 
@@ -52,27 +52,27 @@ export function usePanelState({ initialPrefs, introPhase, singleEventWidgetRevea
     const deferred = deferredPanelStateRef.current;
     if (deferred.applied) return;
     deferred.applied = true;
-    if (!deferred.eventsPanelCollapsed) setEventsPanelCollapsed(false);
-    if (!deferred.settingsCollapsed) setSettingsCollapsed(false);
+    if (!deferred.isEventsPanelCollapsed) setIsEventsPanelCollapsed(false);
+    if (!deferred.isSettingsCollapsed) setIsSettingsCollapsed(false);
     // Detail panel is only restored once the user shows intent (see effect below).
   }, [introPhase]);
 
   // Restore the detail panel open state after the user first plays or selects an event.
   const detailPanelRestoredRef = useRef(false);
   useEffect(() => {
-    if (!singleEventWidgetRevealed) return;
+    if (!isSingleEventWidgetRevealed) return;
     if (detailPanelRestoredRef.current) return;
     detailPanelRestoredRef.current = true;
     const deferred = deferredPanelStateRef.current;
-    if (deferred.detailOpen) setDetailOpen(true);
-  }, [singleEventWidgetRevealed]);
+    if (deferred.isDetailOpen) setIsDetailOpen(true);
+  }, [isSingleEventWidgetRevealed]);
 
   return {
-    eventsPanelCollapsed, setEventsPanelCollapsed,
-    settingsCollapsed, setSettingsCollapsed,
-    detailOpen, setDetailOpen, detailOpenRef,
-    showMinimap, setShowMinimap,
-    minimapAvailable, setMinimapAvailable,
+    isEventsPanelCollapsed, setIsEventsPanelCollapsed,
+    isSettingsCollapsed, setIsSettingsCollapsed,
+    isDetailOpen, setIsDetailOpen, isDetailOpenRef,
+    isMinimapVisible, setIsMinimapVisible,
+    isMinimapAvailable, setIsMinimapAvailable,
     panelWidth, setPanelWidth,
     detailHeight, setDetailHeight, detailHeightRef,
     detailWidth, setDetailWidth,

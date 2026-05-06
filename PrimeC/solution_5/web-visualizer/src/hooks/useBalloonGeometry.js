@@ -5,11 +5,11 @@ export function useBalloonGeometry({
   containerRef,
   getCanvasPlaneMetrics,
   camera3DRef,
-  eventsPanelCollapsed,
+  isEventsPanelCollapsed,
   panelWidth,
-  settingsCollapsed,
+  isSettingsCollapsed,
   isMacPlatform,
-  detailOpen,
+  isDetailOpen,
   detailHeight,
 }) {
   const getBitBalloonGeometry = useCallback((bitIndex) => {
@@ -41,14 +41,14 @@ export function useBalloonGeometry({
       anchorY >= rect.top + edgeMargin &&
       anchorY <= rect.bottom - edgeMargin;
 
-    const sideInsetLeft = eventsPanelCollapsed ? 80 : Math.max(120, panelWidth + 32);
-    const sideInsetRight = settingsCollapsed ? 48 : (isMacPlatform ? 388 : 328);
+    const sideInsetLeft = isEventsPanelCollapsed ? 80 : Math.max(120, panelWidth + 32);
+    const sideInsetRight = isSettingsCollapsed ? 48 : (isMacPlatform ? 388 : 328);
     const panelApproxHalfW = 170;
     const minLeft = sideInsetLeft + panelApproxHalfW;
     const maxLeft = window.innerWidth - sideInsetRight - panelApproxHalfW;
     const clampedLeft = Math.max(minLeft, Math.min(maxLeft, anchorX));
 
-    const detailPad = detailOpen ? detailHeight + 22 : 56;
+    const detailPad = isDetailOpen ? detailHeight + 22 : 56;
     const minTop = 96;
     const maxTop = window.innerHeight - detailPad;
     const clampedTop = Math.max(minTop, Math.min(maxTop, anchorY - 72));
@@ -59,11 +59,11 @@ export function useBalloonGeometry({
     containerRef,
     getCanvasPlaneMetrics,
     camera3DRef,
-    eventsPanelCollapsed,
+    isEventsPanelCollapsed,
     panelWidth,
-    settingsCollapsed,
+    isSettingsCollapsed,
     isMacPlatform,
-    detailOpen,
+    isDetailOpen,
     detailHeight,
   ]);
 
@@ -107,12 +107,12 @@ export function useBalloonGeometry({
       .filter(Boolean)
       .sort((a, b) => (a.anchorY - b.anchorY) || (a.anchorX - b.anchorX));
 
-    const minLeft = eventsPanelCollapsed ? 170 : Math.max(200, panelWidth + 44);
-    const maxLeft = window.innerWidth - (settingsCollapsed ? 48 : 360) - 170;
+    const minLeft = isEventsPanelCollapsed ? 170 : Math.max(200, panelWidth + 44);
+    const maxLeft = window.innerWidth - (isSettingsCollapsed ? 48 : 360) - 170;
     const minTopClamp = Math.max(96, toolbarBottom + approxHeight + 8);
 
     for (const item of normalized) {
-      const evPanelRight = eventsPanelCollapsed ? 32 : panelWidth;
+      const evPanelRight = isEventsPanelCollapsed ? 32 : panelWidth;
       if (item.anchorX < evPanelRight) {
         result[`${item.kind}-${item.bitIndex}`] = { visible: false };
         continue;
@@ -202,11 +202,11 @@ export function useBalloonGeometry({
     return result;
   }, [
     getBitBalloonGeometry,
-    eventsPanelCollapsed,
+    isEventsPanelCollapsed,
     panelWidth,
-    settingsCollapsed,
+    isSettingsCollapsed,
     isMacPlatform,
-    detailOpen,
+    isDetailOpen,
     detailHeight,
   ]);
 

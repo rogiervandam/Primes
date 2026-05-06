@@ -50,11 +50,11 @@ export function useAnimationPipeline({
   stepsRef,
   bitStateDirtyRef,
   setDelayPhaseMsRef,
-  setStepAnimRunningRef,
+  setIsStepAnimRunningRef,
   stopSeqAnimRef,
   // triggerAnimationRef sync + animMode/animStyle replay effect
   triggerAnimationRef,
-  singleEventLoopActiveRef,
+  isSingleEventLoopActiveRef,
   selectedAnimLoopRef,
   stepScrubProgressValueRef,
   stepResumeStartIndexRef,
@@ -133,7 +133,7 @@ export function useAnimationPipeline({
     stepsRef,
     bitStateDirtyRef,
     setDelayPhaseMsRef,
-    setStepAnimRunningRef,
+    setIsStepAnimRunningRef,
     runMaskStampAnimation,
     waitForDelay,
     animMode,
@@ -159,7 +159,7 @@ export function useAnimationPipeline({
     const rawProgress = stepScrubProgressValueRef.current; // 0-100
     const startFraction = (rawProgress > 2 && rawProgress < 98) ? rawProgress / 100 : 0;
 
-    if (singleEventLoopActiveRef.current || selectedAnimLoopRef.current) {
+    if (isSingleEventLoopActiveRef.current || selectedAnimLoopRef.current) {
       if (startFraction > 0) {
         const step_data = stepsRef.current[currentStepRef.current];
         if (step_data && step_data.changedBits && step_data.changedBits.length > 0) {
@@ -168,7 +168,7 @@ export function useAnimationPipeline({
         stepResumeMaskProgressRef.current = startFraction;
       }
       seekGenRef.current += 1;
-      if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
+      if (setIsStepAnimRunningRef.current) setIsStepAnimRunningRef.current(false);
       return;
     }
     stopSeqAnimRef.current?.();

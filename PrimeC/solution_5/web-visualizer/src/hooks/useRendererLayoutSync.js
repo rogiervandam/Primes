@@ -4,24 +4,24 @@ export function useRendererLayoutSync({
   rendererRef,
   theme,
   layoutSettings,
-  showMinimap,
+  isMinimapVisible,
   colorPreset,
   customColors,
   canvasColors,
   storageModel,
   wheelDefinition,
   cachelineSize,
-  heatMapEnabled,
+  isHeatMapEnabled,
   cachelineAnnotation,
-  primeOverlayEnabled,
-  rangeOverlayEnabled,
+  isPrimeOverlayEnabled,
+  isRangeOverlayEnabled,
   rangeOverlayStart,
   rangeOverlayEnd,
-  multiplesOverlayEnabled,
+  isMultiplesOverlayEnabled,
   multiplesOverlayPrime,
   gridOpacity,
   updateMinimapAvailability,
-  debugCalibrationMode,
+  isDebugCalibrationMode,
   prevLayoutRef,
   containerRef,
   mode3D,
@@ -104,7 +104,7 @@ export function useRendererLayoutSync({
     r.outlineStyle = 'dashed';
     r.outlineColor = '#3b82f6';
     r.outlineRounded = true;
-    r.debugAllCellOutlines = debugCalibrationMode;
+    r.debugAllCellOutlines = isDebugCalibrationMode;
     r.debugAllCellOutlineColor = theme === 'light' ? 'rgba(15, 23, 42, 0.78)' : 'rgba(255,255,255,0.82)';
     r.colorPreset = colorPreset;
     r.storageModel = storageModel;
@@ -114,14 +114,14 @@ export function useRendererLayoutSync({
       if (rr && rr.primeOverlay) rr.render();
     });
     r.cachelineSize = cachelineSize;
-    r.heatMapEnabled = heatMapEnabled;
+    r.isHeatMapEnabled = isHeatMapEnabled;
     r.cachelineAnnotation = cachelineAnnotation;
-    r.primeOverlay = primeOverlayEnabled;
-    if (primeOverlayEnabled) r.buildPrimeOverlay();
-    r.rangeOverlay = rangeOverlayEnabled;
+    r.primeOverlay = isPrimeOverlayEnabled;
+    if (isPrimeOverlayEnabled) r.buildPrimeOverlay();
+    r.rangeOverlay = isRangeOverlayEnabled;
     r.rangeOverlayStart = rangeOverlayStart;
     r.rangeOverlayEnd = rangeOverlayEnd;
-    r.multiplesOverlay = multiplesOverlayEnabled;
+    r.multiplesOverlay = isMultiplesOverlayEnabled;
     r.multiplesOverlayPrime = Math.max(2, multiplesOverlayPrime || 2);
     r.transparentBackground = mode3D;
     r.gridOpacity = Math.max(0.12, Math.min(1, gridOpacity));
@@ -204,34 +204,34 @@ export function useRendererLayoutSync({
       prev.showVectorLabels = layoutSettings.showVectorLabels;
       prev.showVectorTouchOrder = layoutSettings.showVectorTouchOrder;
     }
-    if (r.heatMapEnabled || (r.cachelineAnnotation && r.cachelineAnnotation !== 'none')) {
+    if (r.isHeatMapEnabled || (r.cachelineAnnotation && r.cachelineAnnotation !== 'none')) {
       r.rebuildHeatMap(stepsRef.current, currentStepRef.current);
     }
     r.render();
     updateMinimapAvailability();
-    if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
+    if (isMinimapVisible) r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
   }, [
     rendererRef,
     theme,
     layoutSettings,
-    showMinimap,
+    isMinimapVisible,
     colorPreset,
     customColors,
     canvasColors,
     storageModel,
     wheelDefinition,
     cachelineSize,
-    heatMapEnabled,
+    isHeatMapEnabled,
     cachelineAnnotation,
-    primeOverlayEnabled,
-    rangeOverlayEnabled,
+    isPrimeOverlayEnabled,
+    isRangeOverlayEnabled,
     rangeOverlayStart,
     rangeOverlayEnd,
-    multiplesOverlayEnabled,
+    isMultiplesOverlayEnabled,
     multiplesOverlayPrime,
     gridOpacity,
     updateMinimapAvailability,
-    debugCalibrationMode,
+    isDebugCalibrationMode,
     prevLayoutRef,
     containerRef,
     mode3D,

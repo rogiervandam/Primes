@@ -9,7 +9,7 @@ const MAX_ANNOTATION_LINES = 3;
  * JoinedEventsWidget — a merged version of the floating "all events" transport
  * widget (from EventsPanel) and the single-event EventTitleBanner.
  *
- * Shown when `widgetsJoined` is true and the events panel is collapsed.
+ * Shown when `areWidgetsJoined` is true and the events panel is collapsed.
  * The widget is draggable and contains a split button to separate the two
  * widgets again.
  *
@@ -46,7 +46,7 @@ export default function JoinedEventsWidget({
   // Used to anchor the joined widget's bottom-left to the same screen position.
   initialBannerRect,
   // Detail panel avoidance: prevents the widget from covering the detail panel
-  detailOpen = false,
+  isDetailOpen = false,
   detailHeight = 36,
   // Called when user navigates via transport buttons or scrubber — lets parent open the detail panel
   onNavigate,
@@ -76,11 +76,11 @@ export default function JoinedEventsWidget({
   // Compute the maximum Y offset allowed so the widget doesn't cover the detail panel.
   const getMaxY = useCallback(() => {
     if (!isWindowAvailable()) return 9999;
-    const panelBottom = detailOpen ? detailHeight : 36; // 36 = collapsed detail header height
+    const panelBottom = isDetailOpen ? detailHeight : 36; // 36 = collapsed detail header height
     const SAFE_GAP = 8;
     const widgetH = widgetRef.current ? widgetRef.current.offsetHeight : 300;
     return window.innerHeight - TOP_OFFSET - widgetH - panelBottom - SAFE_GAP;
-  }, [detailOpen, detailHeight]);
+  }, [isDetailOpen, detailHeight]);
   const computeInitialDragX = () => {
     if (!initialBannerRect || !isWindowAvailable()) return 0;
     return initialBannerRect.left - (window.innerWidth / 2 - WIDGET_WIDTH / 2);
@@ -129,7 +129,7 @@ export default function JoinedEventsWidget({
       floatDragRef.current = next;
       setFloatDrag({ ...next });
     }
-  }, [detailOpen, detailHeight, getMaxY]);
+  }, [isDetailOpen, detailHeight, getMaxY]);
 
   const handleDragStart = useCallback((e) => {
     if (e.target.closest('input') || e.target.closest('button')) return;

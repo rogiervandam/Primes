@@ -106,7 +106,7 @@ function buildDepthTree(steps) {
  * @param {function} props.onWidthChange             - Called when user drags the resize handle
  * @param {boolean}  props.panelCollapsed            - Whether the panel is collapsed to a floating widget
  * @param {function} props.onToggleCollapse          - Toggle collapsed state
- * @param {boolean}  [props.allEventsWidgetHidden]   - True when widget is docked to the top bar
+ * @param {boolean}  [props.isAllEventsWidgetHidden]   - True when widget is docked to the top bar
  * @param {function} props.onExpandPanelFromWidget   - Widget drop-left: expands the panel
  * @param {function} props.onDockWidgetToTopBar      - Widget drop-top: docks the widget to the toolbar
  * @param {function} [props.onDockWidgetToDetailPanel] - Widget drop-detail: docks transport in detail panel
@@ -125,7 +125,7 @@ function buildDepthTree(steps) {
  * @param {boolean}  [props.eventTitleVisible]       - Whether the floating event banner is currently shown
  * @param {function} props.onShowEventTitle          - Show / restore the event title banner
  */
-export default function EventsPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, allEventsWidgetHidden = false, onExpandPanelFromWidget, onDockWidgetToTopBar, onDockWidgetToDetailPanel, onJoinWidgets, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0, goToStep, playing, handlePlayPause, exporting, isScrubbingTopRef, playSpeedPercent, setPlaySpeedPercent, eventTitleVisible = true, onShowEventTitle }) {
+export default function EventsPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, isAllEventsWidgetHidden = false, onExpandPanelFromWidget, onDockWidgetToTopBar, onDockWidgetToDetailPanel, onJoinWidgets, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0, goToStep, playing, handlePlayPause, exporting, isScrubbingTopRef, playSpeedPercent, setPlaySpeedPercent, eventTitleVisible = true, onShowEventTitle }) {
   const listRef = useRef(null);
   const scrollTopRef = useRef(0);
   const sentinelRef = useRef(null);
@@ -876,7 +876,7 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
 
   return (
       <div className={`events-panel${panelCollapsed ? ' collapsed' : ''}${isCollapsingOut ? ' collapsing-out' : ''}${isExpandingIn ? ' expanding-in' : ''}${floatDropHint === 'left' ? ' drop-hint-left' : ''}${floatDropHint === 'detail' ? ' drop-hint-detail' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
-      {panelCollapsed && !allEventsWidgetHidden && (
+      {panelCollapsed && !isAllEventsWidgetHidden && (
         <div
           className={`events-panel-floating-title${floatDropHint ? ` dropping dropping-${floatDropHint}` : ''}`}
           style={{ transform: `translate(${floatDrag.x}px, ${floatDrag.y}px)`, cursor: 'grab' }}

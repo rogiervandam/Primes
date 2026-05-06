@@ -206,11 +206,11 @@ function initialGridOpacity(prefs) {
 }
 
 function initialAllEventsWidgetHidden(prefs) {
-  return prefs?.allEventsWidgetHidden === true;
+  return prefs?.isAllEventsWidgetHidden === true;
 }
 
 function initialWidgetsJoined(prefs) {
-  return prefs?.widgetsJoined === true;
+  return prefs?.areWidgetsJoined === true;
 }
 
 // Valid preset keys (mirrors COLOR_PRESETS in src/renderer/constants.js).
@@ -246,17 +246,17 @@ function initialCanvasColors(prefs) {
 }
 
 function initialPanelVisibility(prefs) {
-  // Migrate legacy key: stepsPanelCollapsed → eventsPanelCollapsed.
+  // Migrate legacy key: stepsPanelCollapsed → isEventsPanelCollapsed.
   // Read new key first; fall back to old key for users with saved prefs.
   const legacyCollapsed = prefs?.stepsPanelCollapsed;
-  const eventsPanelCollapsed =
-    prefs?.eventsPanelCollapsed !== undefined
-      ? prefs.eventsPanelCollapsed !== false
+  const isEventsPanelCollapsed =
+    prefs?.isEventsPanelCollapsed !== undefined
+      ? prefs.isEventsPanelCollapsed !== false
       : legacyCollapsed !== false; // default: collapsed
   return {
-    eventsPanelCollapsed,
-    settingsCollapsed: prefs?.settingsCollapsed !== false,     // default: collapsed
-    detailOpen: prefs?.detailOpen === true,                    // default: closed
+    isEventsPanelCollapsed,
+    isSettingsCollapsed: prefs?.isSettingsCollapsed !== false,     // default: collapsed
+    isDetailOpen: prefs?.isDetailOpen === true,                    // default: closed
   };
 }
 
@@ -284,12 +284,12 @@ export function getInitialViewState() {
     canvasColors: initialCanvasColors(prefs),
     colorPreset: initialColorPreset(prefs),
     customColors: initialCustomColors(prefs),
-    allEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
-    widgetsJoined: initialWidgetsJoined(prefs),
-    allEventsInDetailPanel: prefs?.allEventsInDetailPanel === true,
+    isAllEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
+    areWidgetsJoined: initialWidgetsJoined(prefs),
+    isAllEventsInDetailPanel: prefs?.isAllEventsInDetailPanel === true,
     // When false, selecting an event will NOT automatically start the
     // per-event animation loop. Default true to preserve prior behavior.
-    autoAnimateOnSelect: prefs?.autoAnimateOnSelect !== false,
+    isAutoAnimateOnSelect: prefs?.isAutoAnimateOnSelect !== false,
     ...initialPanelVisibility(prefs),
   };
 }

@@ -26,9 +26,9 @@ export function usePointerGestures({
   setHoveredBitInfo,
   setPinnedBitIndices,
   setBalloonLiveLayout,
-  balloonsEnabled,
-  balloonClickEnabled,
-  balloonHoverEnabled,
+  areBalloonsEnabled,
+  isBalloonClickEnabled,
+  isBalloonHoverEnabled,
   lastHoveredIdxRef,
   balloonLiveLayoutTimerRef,
   stepScrubProgressValueRef,
@@ -290,7 +290,7 @@ export function usePointerGestures({
       // settings/events/details panels, timing panel, minimap, event-title banner,
       // trace-info popover). The pointermove listener is bound to window so it
       // fires everywhere; we probe the element under the cursor to gate the popup.
-      if (!balloonsEnabled || !balloonHoverEnabled) {
+      if (!areBalloonsEnabled || !isBalloonHoverEnabled) {
         if (lastHoveredIdxRef.current !== -1) {
           lastHoveredIdxRef.current = -1;
           setHoveredBitInfo(null);
@@ -366,7 +366,7 @@ export function usePointerGestures({
           clearInteraction();
           return;
         }
-        if (!balloonsEnabled || !balloonClickEnabled) {
+        if (!areBalloonsEnabled || !isBalloonClickEnabled) {
           clearInteraction();
           return;
         }
@@ -506,5 +506,5 @@ export function usePointerGestures({
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [computeBitInfo, flyToElement, getCanvasPlaneMetrics, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout, schedulePostLayoutRefresh, balloonsEnabled, balloonClickEnabled, balloonHoverEnabled, seekStepAnimation]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [computeBitInfo, flyToElement, getCanvasPlaneMetrics, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout, schedulePostLayoutRefresh, areBalloonsEnabled, isBalloonClickEnabled, isBalloonHoverEnabled, seekStepAnimation]); // eslint-disable-line react-hooks/exhaustive-deps
 }

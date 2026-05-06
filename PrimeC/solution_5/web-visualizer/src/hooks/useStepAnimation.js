@@ -3,13 +3,13 @@
  *
  * Owns:
  *  - bitAnimationMode ('bit' | 'mask' | 'combined') + ref
- *  - singleEventLoopActive + ref
- *  - autoAnimateOnSelect + ref
- *  - animationReplayPaused
+ *  - isSingleEventLoopActive + ref
+ *  - isAutoAnimateOnSelect + ref
+ *  - isAnimationReplayPaused
  *  - isScrubbingTopRef
  *  - stepScrubProgress + accessor refs
  *  - delayPhaseMs + setDelayPhaseMsRef
- *  - stepAnimRunning + setStepAnimRunningRef + stepAnimRunningRefForScheduler
+ *  - isStepAnimRunning + setIsStepAnimRunningRef + isStepAnimRunningRefForScheduler
  *  - stepResumeStartIndexRef / stepResumeMaskProgressRef
  *  - currentAnimIntervalRef / currentMaskAnimIntervalRef
  *  - pausedStepAnimLoopRef / selectedAnimLoopRef
@@ -24,15 +24,15 @@ export function useStepAnimation({ initialPrefs }) {
   const bitAnimationModeRef = useRef('bit');
   bitAnimationModeRef.current = bitAnimationMode;
 
-  const [singleEventLoopActive, setSingleEventLoopActive] = useState(false);
-  const singleEventLoopActiveRef = useRef(false);
-  singleEventLoopActiveRef.current = singleEventLoopActive;
+  const [isSingleEventLoopActive, setIsSingleEventLoopActive] = useState(false);
+  const isSingleEventLoopActiveRef = useRef(false);
+  isSingleEventLoopActiveRef.current = isSingleEventLoopActive;
 
-  const [autoAnimateOnSelect, setAutoAnimateOnSelect] = useState(initialPrefs.autoAnimateOnSelect);
-  const autoAnimateOnSelectRef = useRef(initialPrefs.autoAnimateOnSelect);
-  autoAnimateOnSelectRef.current = autoAnimateOnSelect;
+  const [isAutoAnimateOnSelect, setIsAutoAnimateOnSelect] = useState(initialPrefs.isAutoAnimateOnSelect);
+  const isAutoAnimateOnSelectRef = useRef(initialPrefs.isAutoAnimateOnSelect);
+  isAutoAnimateOnSelectRef.current = isAutoAnimateOnSelect;
 
-  const [animationReplayPaused, setAnimationReplayPaused] = useState(false);
+  const [isAnimationReplayPaused, setIsAnimationReplayPaused] = useState(false);
 
   // True while the user is mid-drag on the top-bar all-events scrubber.
   const isScrubbingTopRef = useRef(false);
@@ -47,11 +47,11 @@ export function useStepAnimation({ initialPrefs }) {
   const setDelayPhaseMsRef = useRef(setDelayPhaseMs);
   setDelayPhaseMsRef.current = setDelayPhaseMs;
 
-  const [stepAnimRunning, setStepAnimRunning] = useState(false);
-  const setStepAnimRunningRef = useRef(setStepAnimRunning);
-  setStepAnimRunningRef.current = setStepAnimRunning;
-  const stepAnimRunningRefForScheduler = useRef(false);
-  stepAnimRunningRefForScheduler.current = stepAnimRunning;
+  const [isStepAnimRunning, setIsStepAnimRunning] = useState(false);
+  const setIsStepAnimRunningRef = useRef(setIsStepAnimRunning);
+  setIsStepAnimRunningRef.current = setIsStepAnimRunning;
+  const isStepAnimRunningRefForScheduler = useRef(false);
+  isStepAnimRunningRefForScheduler.current = isStepAnimRunning;
 
   // Resume hints: bit-index / progress fraction for resuming a paused animation.
   const stepResumeStartIndexRef = useRef(0);
@@ -73,13 +73,13 @@ export function useStepAnimation({ initialPrefs }) {
 
   return {
     bitAnimationMode, setBitAnimationMode, bitAnimationModeRef,
-    singleEventLoopActive, setSingleEventLoopActive, singleEventLoopActiveRef,
-    autoAnimateOnSelect, setAutoAnimateOnSelect, autoAnimateOnSelectRef,
-    animationReplayPaused, setAnimationReplayPaused,
+    isSingleEventLoopActive, setIsSingleEventLoopActive, isSingleEventLoopActiveRef,
+    isAutoAnimateOnSelect, setIsAutoAnimateOnSelect, isAutoAnimateOnSelectRef,
+    isAnimationReplayPaused, setIsAnimationReplayPaused,
     isScrubbingTopRef,
     stepScrubProgress, setStepScrubProgress, stepScrubProgressRef, stepScrubProgressValueRef,
     delayPhaseMs, setDelayPhaseMsRef,
-    stepAnimRunning, setStepAnimRunningRef, stepAnimRunningRefForScheduler,
+    isStepAnimRunning, setIsStepAnimRunningRef, isStepAnimRunningRefForScheduler,
     stepResumeStartIndexRef, stepResumeMaskProgressRef,
     currentAnimIntervalRef, currentMaskAnimIntervalRef,
     pausedStepAnimLoopRef, selectedAnimLoopRef,

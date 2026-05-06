@@ -50,12 +50,12 @@ function CanvasStage({
   currentStep,
   goToStep,
   revealCurrentStepInPanel,
-  eventsPanelCollapsed,
-  setEventsPanelCollapsed,
+  isEventsPanelCollapsed,
+  setIsEventsPanelCollapsed,
   stepAnimSlidersContent,
   stepAnimSlidersDockedContent,
   // join/split state for the joined widget feature
-  widgetsJoined,
+  areWidgetsJoined,
   onJoinWidgets,
   onSplitWidgets,
   // bit-history balloons
@@ -68,7 +68,7 @@ function CanvasStage({
   setPinnedBitIndices,
   handleStepSelection,
   // detail panel
-  detailOpen,
+  isDetailOpen,
   toggleDetailPanel,
   detailHeight,
   pendingBannerDragStart,
@@ -85,16 +85,16 @@ function CanvasStage({
   benchmarkTimingData,
   openDetailInspector,
   // detail inspector overlay
-  detailInspectorOpen,
+  isDetailInspectorOpen,
   detailInspectorMode,
   detailInspectorQuery,
   setDetailInspectorQuery,
-  setDetailInspectorOpen,
+  setIsDetailInspectorOpen,
   detailInspectorRows,
   filteredDetailInspectorRows,
   // timing panel
-  timingPanelOpen,
-  setTimingPanelOpen,
+  isTimingPanelOpen,
+  setIsTimingPanelOpen,
   benchmarkTimingFileName,
   setTimingFocusOp,
   onImportBenchmarkTiming,
@@ -108,11 +108,11 @@ function CanvasStage({
   introPhase = 'visible',
   onIntroTransitionEnd,
   // Gating flag: single-event widget hidden until first play or event selection
-  singleEventWidgetRevealed = true,
+  isSingleEventWidgetRevealed = true,
 }) {
   return (
     <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
-      {eventTitleSettings.visible && !widgetsJoined && singleEventWidgetRevealed && (
+      {eventTitleSettings.visible && !areWidgetsJoined && isSingleEventWidgetRevealed && (
         <EventTitleBanner
           settings={eventTitleSettings}
           setSettings={setEventTitleSettings}
@@ -123,9 +123,9 @@ function CanvasStage({
           currentStep={currentStep}
           goToStep={goToStep}
           revealCurrentStepInPanel={revealCurrentStepInPanel}
-          eventsPanelCollapsed={eventsPanelCollapsed}
-          setEventsPanelCollapsed={setEventsPanelCollapsed}
-          detailOpen={detailOpen}
+          isEventsPanelCollapsed={isEventsPanelCollapsed}
+          setIsEventsPanelCollapsed={setIsEventsPanelCollapsed}
+          isDetailOpen={isDetailOpen}
           detailHeight={detailHeight}
           toggleDetailPanel={toggleDetailPanel}
           externalDragStart={pendingBannerDragStart}
@@ -186,9 +186,9 @@ function CanvasStage({
       />
 
       <DetailPanel
-        step={singleEventWidgetRevealed ? currentStepData : null}
+        step={isSingleEventWidgetRevealed ? currentStepData : null}
         stepIndex={currentStep}
-        open={detailOpen}
+        open={isDetailOpen}
         onToggle={toggleDetailPanel}
         height={detailHeight}
         onHeightChange={updateDetailHeight}
@@ -203,7 +203,7 @@ function CanvasStage({
         benchmarkTimingData={benchmarkTimingData}
         onInspectChangedBits={() => openDetailInspector('bits')}
         onInspectMarkedNumbers={() => openDetailInspector('numbers')}
-        eventTitleVisible={eventTitleSettings.visible && !widgetsJoined}
+        eventTitleVisible={eventTitleSettings.visible && !areWidgetsJoined}
         onShowEventTitle={onShowEventTitle}
         eventAnimSliders={stepAnimSlidersDockedContent || stepAnimSlidersContent}
         onOpenRawLog={onOpenRawLog}
@@ -212,24 +212,24 @@ function CanvasStage({
         allEventsTransport={allEventsTransport}
       />
 
-      {detailInspectorOpen && (
+      {isDetailInspectorOpen && (
         <DetailInspectorOverlay
-          open={detailInspectorOpen}
+          open={isDetailInspectorOpen}
           mode={detailInspectorMode}
           query={detailInspectorQuery}
           onQueryChange={setDetailInspectorQuery}
-          onClose={() => setDetailInspectorOpen(false)}
+          onClose={() => setIsDetailInspectorOpen(false)}
           rows={detailInspectorRows}
           filteredRows={filteredDetailInspectorRows}
         />
       )}
 
-      {timingPanelOpen && (
+      {isTimingPanelOpen && (
         <TimingPanel
           steps={steps}
           benchmarkTimingData={benchmarkTimingData}
           benchmarkTimingFileName={benchmarkTimingFileName}
-          onClose={() => setTimingPanelOpen(false)}
+          onClose={() => setIsTimingPanelOpen(false)}
           onFocusFn={(fnName) => setTimingFocusOp(fnName || '')}
           onImportBenchmarkTiming={onImportBenchmarkTiming}
         />

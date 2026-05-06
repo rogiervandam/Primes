@@ -5,8 +5,8 @@ export function useTiltControls({
   setIntroPhase,
   camera3DRef,
   schedulePostLayoutRefresh,
-  tiltActive,
-  setTiltActive,
+  isTiltActive,
+  setIsTiltActive,
   setCamera3DContainerStyle,
   refitViewportToContent,
 }) {
@@ -36,12 +36,12 @@ export function useTiltControls({
   const toggleTilt = useCallback(() => {
     const cam = camera3DRef.current;
     if (!cam || !cam.enabled) return;
-    const newTiltActive = !tiltActive;
-    setTiltActive(newTiltActive);
+    const newTiltActive = !isTiltActive;
+    setIsTiltActive(newTiltActive);
     const targetTilt = newTiltActive ? Math.min(30, cam.maxTilt || 30) : 0;
     cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 900)
       .then(() => schedulePostLayoutRefresh(null));
-  }, [camera3DRef, tiltActive, setTiltActive, schedulePostLayoutRefresh]);
+  }, [camera3DRef, isTiltActive, setIsTiltActive, schedulePostLayoutRefresh]);
 
   const enableTiltAndResize = useCallback(() => {
     const cam = camera3DRef.current;

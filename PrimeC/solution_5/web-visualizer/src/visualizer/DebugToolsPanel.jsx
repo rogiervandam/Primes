@@ -181,8 +181,8 @@ export default function DebugToolsPanel({
   debugGlOffsetY = 0,
   setDebugGlOffsetY = null,
   debugGlAutoOffsetY = 0,
-  debugCalibrationMode = false,
-  setDebugCalibrationMode = null,
+  isDebugCalibrationMode = false,
+  setIsDebugCalibrationMode = null,
   onApplyDebugSnapshot = null,
   onForceGlRedraw = null,
   rightOffset = 8,
@@ -324,14 +324,14 @@ export default function DebugToolsPanel({
   }), [glDebugInfo?.viewportWidth, glDebugInfo?.viewportHeight]);
 
   useEffect(() => {
-    if (!debugCalibrationMode) {
+    if (!isDebugCalibrationMode) {
       setCalibrationTargetViewport((prev) => {
         const next = { width: currentViewport.width, height: currentViewport.height };
         if (prev.width === next.width && prev.height === next.height) return prev;
         return next;
       });
     }
-  }, [currentViewport.width, currentViewport.height, debugCalibrationMode]);
+  }, [currentViewport.width, currentViewport.height, isDebugCalibrationMode]);
 
   const buildDebugReport = useCallback(() => {
     const rr = rendererRef?.current;
@@ -388,7 +388,7 @@ export default function DebugToolsPanel({
       `Rotate Y (camera): ${cameraState.rotateY.toFixed(2)} deg`,
       `Rotate X (applied): ${cameraState.appliedRotateX.toFixed(2)} deg`,
       `Rotate Y (applied): ${cameraState.appliedRotateY.toFixed(2)} deg`,
-      `Calibration Mode: ${debugCalibrationMode ? 'ON' : 'OFF'}`,
+      `Calibration Mode: ${isDebugCalibrationMode ? 'ON' : 'OFF'}`,
       `Layer Mode: ${debugLayerMode}`,
       `GL X Offset (manual): ${Number.isFinite(debugGlOffsetX) ? debugGlOffsetX.toFixed(2) : debugGlOffsetX}`,
       `GL Y Offset (auto): ${Number.isFinite(debugGlAutoOffsetY) ? debugGlAutoOffsetY.toFixed(2) : debugGlAutoOffsetY}`,
@@ -422,7 +422,7 @@ export default function DebugToolsPanel({
       `bit0 GL result (tex + pan): (${b0GlX}, ${b0GlY})`,
     ];
     return lines.join('\n');
-  }, [rendererRef, glRendererRef, cameraState.rotateX, cameraState.rotateY, cameraState.appliedRotateX, cameraState.appliedRotateY, canvasCoords, glDebugInfo, zoomLevel, debugCalibrationMode, debugLayerMode, debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY]);
+  }, [rendererRef, glRendererRef, cameraState.rotateX, cameraState.rotateY, cameraState.appliedRotateX, cameraState.appliedRotateY, canvasCoords, glDebugInfo, zoomLevel, isDebugCalibrationMode, debugLayerMode, debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY]);
 
   const handleCopyDebug = useCallback(async () => {
     try {
@@ -470,22 +470,22 @@ export default function DebugToolsPanel({
     setCalibrationCaseIndex(0);
     setCalibrationViewpointLabel('');
     setCalibrationTargetViewport({ width: currentViewport.width, height: currentViewport.height });
-    setDebugCalibrationMode?.(true);
+    setIsDebugCalibrationMode?.(true);
     setDebugLayerMode?.('normal');
     setDebugGlOffsetX?.(0);
     setDebugGlOffsetY?.(0);
     const first = CALIBRATION_CASES[0];
     onApplyDebugSnapshot?.({ rotateX: first.rotateX, rotateY: first.rotateY, layerMode: 'normal', manualOffsetX: 0, manualOffsetY: 0 });
     setCalibrationViewportStatus('Calibration mode started');
-  }, [rendererRef, camera3DRef, zoomLevel, debugLayerMode, debugGlOffsetX, debugGlOffsetY, currentViewport.width, currentViewport.height, setDebugCalibrationMode, setDebugLayerMode, setDebugGlOffsetX, setDebugGlOffsetY, onApplyDebugSnapshot]);
+  }, [rendererRef, camera3DRef, zoomLevel, debugLayerMode, debugGlOffsetX, debugGlOffsetY, currentViewport.width, currentViewport.height, setIsDebugCalibrationMode, setDebugLayerMode, setDebugGlOffsetX, setDebugGlOffsetY, onApplyDebugSnapshot]);
 
   const stopCalibrationMode = useCallback(() => {
-    setDebugCalibrationMode?.(false);
+    setIsDebugCalibrationMode?.(false);
     if (calibrationRestoreSnapshot && onApplyDebugSnapshot) {
       onApplyDebugSnapshot(calibrationRestoreSnapshot);
     }
     setCalibrationViewportStatus('Calibration mode ended and previous view restored');
-  }, [setDebugCalibrationMode, calibrationRestoreSnapshot, onApplyDebugSnapshot]);
+  }, [setIsDebugCalibrationMode, calibrationRestoreSnapshot, onApplyDebugSnapshot]);
 
   const applyCalibrationCase = useCallback((index) => {
     const nextIndex = Math.max(0, Math.min(CALIBRATION_CASES.length - 1, index));
@@ -870,12 +870,12 @@ export default function DebugToolsPanel({
           <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
             <button
               type="button"
-              onClick={debugCalibrationMode ? stopCalibrationMode : startCalibrationMode}
+              onClick={isDebugCalibrationMode ? stopCalibrationMode : startCalibrationMode}
               style={{ flex: 1, padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '11px', cursor: 'pointer' }}
             >
-              {debugCalibrationMode ? 'Stop Calibration' : 'Start Calibration'}
+              {isDebugCalibrationMode ? 'Stop Calibration' : 'Start Calibration'}
             </button>
-            {debugCalibrationMode && (
+            {isDebugCalibrationMode && (
               <button
                 type="button"
                 onClick={() => applyCalibrationCase(calibrationCaseIndex)}
@@ -885,7 +885,7 @@ export default function DebugToolsPanel({
               </button>
             )}
           </div>
-          {debugCalibrationMode && (
+          {isDebugCalibrationMode && (
             <>
               <div style={{ fontSize: '10px', marginBottom: '4px', color: palette.sectionCoords }}>
                 Target viewport
@@ -960,7 +960,7 @@ export default function DebugToolsPanel({
             </>
           )}
         </div>
-        {debugCalibrationMode && (
+        {isDebugCalibrationMode && (
           <div style={{
             marginBottom: '8px',
             padding: '6px',
@@ -1055,7 +1055,7 @@ export default function DebugToolsPanel({
             Manual: {Number.isFinite(debugGlOffsetY) ? debugGlOffsetY.toFixed(0) : '0'} px
           </div>
         </div>
-        {debugCalibrationMode && (
+        {isDebugCalibrationMode && (
           <div style={{
             marginBottom: '8px',
             padding: '6px',

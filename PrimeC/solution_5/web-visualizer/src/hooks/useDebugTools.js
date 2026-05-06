@@ -2,8 +2,8 @@
  * useDebugTools — owns GL-debug and debug-overlay state.
  *
  * Owns:
- *  - glUnavailable / glDebugInfo (WebGL capability)
- *  - debugToolsOpen / debugLayerMode / debugCalibrationMode
+ *  - isGlUnavailable / glDebugInfo (WebGL capability)
+ *  - isDebugToolsOpen / debugLayerMode / isDebugCalibrationMode
  *  - debugGlOffsetX/Y/AutoY (manual GL trim) + their refs
  *  - glDebugLastUpdateRef (throttle for getDebugInfo calls)
  *  - updateGlDebugInfo callback
@@ -13,14 +13,14 @@
 import { useState, useRef, useCallback } from 'react';
 
 export function useDebugTools({ glRendererRef }) {
-  const [glUnavailable, setGlUnavailable] = useState(false);
+  const [isGlUnavailable, setIsGlUnavailable] = useState(false);
   const [glDebugInfo, setGlDebugInfo] = useState(null);
-  const [debugToolsOpen, setDebugToolsOpen] = useState(false);
+  const [isDebugToolsOpen, setIsDebugToolsOpen] = useState(false);
   const [debugLayerMode, setDebugLayerMode] = useState('normal');
   const [debugGlOffsetX, setDebugGlOffsetX] = useState(0);
   const [debugGlOffsetY, setDebugGlOffsetY] = useState(0);
   const [debugGlAutoOffsetY, setDebugGlAutoOffsetY] = useState(0);
-  const [debugCalibrationMode, setDebugCalibrationMode] = useState(false);
+  const [isDebugCalibrationMode, setIsDebugCalibrationMode] = useState(false);
 
   const debugGlOffsetXRef = useRef(0);
   const debugGlOffsetYRef = useRef(0);
@@ -41,14 +41,14 @@ export function useDebugTools({ glRendererRef }) {
   }, [glRendererRef]);
 
   return {
-    glUnavailable, setGlUnavailable,
+    isGlUnavailable, setIsGlUnavailable,
     glDebugInfo, setGlDebugInfo,
-    debugToolsOpen, setDebugToolsOpen,
+    isDebugToolsOpen, setIsDebugToolsOpen,
     debugLayerMode, setDebugLayerMode,
     debugGlOffsetX, setDebugGlOffsetX,
     debugGlOffsetY, setDebugGlOffsetY,
     debugGlAutoOffsetY, setDebugGlAutoOffsetY,
-    debugCalibrationMode, setDebugCalibrationMode,
+    isDebugCalibrationMode, setIsDebugCalibrationMode,
     debugGlOffsetXRef,
     debugGlOffsetYRef,
     debugGlAutoOffsetYRef,

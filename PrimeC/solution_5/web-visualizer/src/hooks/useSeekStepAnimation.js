@@ -6,8 +6,8 @@ export function useSeekStepAnimation({
   stopSeqAnim,
   pausedStepAnimLoopRef,
   selectedAnimLoopRef,
-  setSingleEventLoopActive,
-  setAnimationReplayPaused,
+  setIsSingleEventLoopActive,
+  setIsAnimationReplayPaused,
   setDelayPhaseMsRef,
   rendererRef,
   currentStep,
@@ -33,8 +33,8 @@ export function useSeekStepAnimation({
       clearTimeout(selectedAnimLoopRef.current);
       selectedAnimLoopRef.current = null;
     }
-    setSingleEventLoopActive(false);
-    setAnimationReplayPaused(true);
+    setIsSingleEventLoopActive(false);
+    setIsAnimationReplayPaused(true);
     setDelayPhaseMsRef.current(null);
     const r = rendererRef.current;
     const stepIdx = currentStep;
@@ -293,8 +293,8 @@ export function useSeekStepAnimation({
     stopSeqAnim,
     pausedStepAnimLoopRef,
     selectedAnimLoopRef,
-    setSingleEventLoopActive,
-    setAnimationReplayPaused,
+    setIsSingleEventLoopActive,
+    setIsAnimationReplayPaused,
     setDelayPhaseMsRef,
     rendererRef,
     currentStep,

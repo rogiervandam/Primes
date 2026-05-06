@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 export function useSelectionOrchestration({
   steps,
   initialHighlightHoldRef,
-  setSingleEventWidgetRevealed,
+  setIsSingleEventWidgetRevealed,
   goToStep,
   selectedSteps,
   rendererRef,
@@ -15,12 +15,12 @@ export function useSelectionOrchestration({
   useEffect(() => {
     if (steps.length > 0) {
       initialHighlightHoldRef.current = true;
-      setSingleEventWidgetRevealed(false);
+      setIsSingleEventWidgetRevealed(false);
       const raf = requestAnimationFrame(() => goToStep(0, { suppressHighlight: true }));
       return () => cancelAnimationFrame(raf);
     }
     return undefined;
-  }, [steps, initialHighlightHoldRef, setSingleEventWidgetRevealed, goToStep]);
+  }, [steps, initialHighlightHoldRef, setIsSingleEventWidgetRevealed, goToStep]);
 
   useEffect(() => {
     const r = rendererRef.current;

@@ -21,7 +21,7 @@ export function useTriggerAnimation({
   stepsRef,
   bitStateDirtyRef,
   setDelayPhaseMsRef,
-  setStepAnimRunningRef,
+  setIsStepAnimRunningRef,
   runMaskStampAnimation,
   waitForDelay,
   animMode,
@@ -138,7 +138,7 @@ export function useTriggerAnimation({
       r.setMaskGhostBits(new Set(changedSet.size > 0 ? changedSet : (r.targetBits || [])));
       r.render();
       r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-      if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(true);
+      if (setIsStepAnimRunningRef.current) setIsStepAnimRunningRef.current(true);
       if (!resuming && stepScrubProgressRef.current) stepScrubProgressRef.current(0);
       await runMaskStampAnimation(effectiveMaskBitInterval, maskTimingOptions);
       if (!isStillLive()) return;
@@ -155,7 +155,7 @@ export function useTriggerAnimation({
       await waitForDelay(delayMs);
       setDelayPhaseMsRef.current(null);
       if (!isStillLive()) return;
-      if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
+      if (setIsStepAnimRunningRef.current) setIsStepAnimRunningRef.current(false);
       return;
     }
 
@@ -167,7 +167,7 @@ export function useTriggerAnimation({
         parseInt(options.startIndex || 0, 10) || 0
       ));
       let idx = requestedStart;
-      if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(true);
+      if (setIsStepAnimRunningRef.current) setIsStepAnimRunningRef.current(true);
       let previousFocusBit = null;
       const trailSize = animMode === 'bounce' ? Math.min(8, Math.max(3, Math.round(bits.length / 18))) : 0;
 
@@ -319,7 +319,7 @@ export function useTriggerAnimation({
       await waitForDelay(delayMs);
       setDelayPhaseMsRef.current(null);
       if (!isStillLive()) return;
-      if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
+      if (setIsStepAnimRunningRef.current) setIsStepAnimRunningRef.current(false);
       return;
     }
 
@@ -336,7 +336,7 @@ export function useTriggerAnimation({
 
     r.changedBits = new Set(changedSet);
     r.animationFocusBits = new Set(changedSet);
-    if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(true);
+    if (setIsStepAnimRunningRef.current) setIsStepAnimRunningRef.current(true);
     if (!options.keepProgress && !resuming && stepScrubProgressRef.current) stepScrubProgressRef.current(0);
     await runEffect(
       animStyle,
@@ -349,7 +349,7 @@ export function useTriggerAnimation({
     if (delayMs > 0) setDelayPhaseMsRef.current(delayMs);
     await waitForDelay(delayMs);
     setDelayPhaseMsRef.current(null);
-    if (setStepAnimRunningRef.current) setStepAnimRunningRef.current(false);
+    if (setIsStepAnimRunningRef.current) setIsStepAnimRunningRef.current(false);
   }, [
     seekGenRef,
     stopSeqAnimRef,
@@ -371,7 +371,7 @@ export function useTriggerAnimation({
     stepsRef,
     bitStateDirtyRef,
     setDelayPhaseMsRef,
-    setStepAnimRunningRef,
+    setIsStepAnimRunningRef,
     runMaskStampAnimation,
     waitForDelay,
     animMode,

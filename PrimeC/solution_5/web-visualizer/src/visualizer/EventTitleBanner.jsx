@@ -28,9 +28,9 @@ export default function EventTitleBanner({
   currentStep,
   goToStep,
   revealCurrentStepInPanel,
-  eventsPanelCollapsed,
-  setEventsPanelCollapsed,
-  detailOpen,
+  isEventsPanelCollapsed,
+  setIsEventsPanelCollapsed,
+  isDetailOpen,
   detailHeight = 280,
   toggleDetailPanel,
   externalDragStart,
@@ -77,11 +77,11 @@ export default function EventTitleBanner({
 
   const getMaxDragOffsetY = React.useCallback(() => {
     if (!isWindowAvailable()) return 9999;
-    const panelBottom = detailOpen ? detailHeight : 36;
+    const panelBottom = isDetailOpen ? detailHeight : 36;
     const SAFE_GAP = 8;
     // bottom edge = windowH - 20 + oy <= windowH - panelBottom - SAFE_GAP
     return 20 - panelBottom - SAFE_GAP;
-  }, [detailOpen, detailHeight]);
+  }, [isDetailOpen, detailHeight]);
 
   const clampDragOffsetY = React.useCallback((oy) => {
     const minY = getMinDragOffsetY();
@@ -97,7 +97,7 @@ export default function EventTitleBanner({
     if (isOverDetailPanel(clientX, clientY, bannerEl)) return 'detail';
     if (clientY >= window.innerHeight - BOTTOM_BAND) return 'bottom';
     // Check proximity to the floating all-events widget (join affordance).
-    if (onJoinWidgets && eventsPanelCollapsed) {
+    if (onJoinWidgets && isEventsPanelCollapsed) {
       const floater = document.querySelector('.events-panel-floating-title');
       if (floater) {
         const r = floater.getBoundingClientRect();
@@ -109,7 +109,7 @@ export default function EventTitleBanner({
       }
     }
     return null;
-  }, [isOverDetailPanel, onJoinWidgets, eventsPanelCollapsed]);
+  }, [isOverDetailPanel, onJoinWidgets, isEventsPanelCollapsed]);
 
   const startDrag = React.useCallback((startClientX, startClientY, fromExternal = false) => {
     const bannerEl = bannerRef.current;
@@ -154,7 +154,7 @@ export default function EventTitleBanner({
       if (floater) floater.classList.remove('merge-target');
       if (!dragged) {
         // Click without drag: open the Events panel.
-        if (!fromExternal && eventsPanelCollapsed) setEventsPanelCollapsed(false);
+        if (!fromExternal && isEventsPanelCollapsed) setIsEventsPanelCollapsed(false);
         return;
       }
       const zone = detectDropZone(ev.clientX, ev.clientY, bannerEl);
@@ -177,7 +177,7 @@ export default function EventTitleBanner({
           dragOffsetY: 0,
           visible: false,
         }));
-        if (eventsPanelCollapsed) setEventsPanelCollapsed(false);
+        if (isEventsPanelCollapsed) setIsEventsPanelCollapsed(false);
       } else if (zone === 'detail') {
         // Drop into the detail panel: expand it (if collapsed) and hide the
         // floating widget — the detail panel itself surfaces the event info.
@@ -187,7 +187,7 @@ export default function EventTitleBanner({
           dragOffsetY: 0,
           visible: false,
         }));
-        if (!detailOpen && toggleDetailPanel) toggleDetailPanel();
+        if (!isDetailOpen && toggleDetailPanel) toggleDetailPanel();
       } else if (zone === 'bottom') {
         setSettings((prev) => ({
           ...prev,
@@ -206,7 +206,7 @@ export default function EventTitleBanner({
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-  }, [clampDragOffsetY, detectDropZone, detailOpen, eventsPanelCollapsed, isOverDetailPanel, onJoinWidgets, setEventsPanelCollapsed, setSettings, settings.dragOffsetX, settings.dragOffsetY, toggleDetailPanel]);
+  }, [clampDragOffsetY, detectDropZone, isDetailOpen, isEventsPanelCollapsed, isOverDetailPanel, onJoinWidgets, setIsEventsPanelCollapsed, setSettings, settings.dragOffsetX, settings.dragOffsetY, toggleDetailPanel]);
 
   const handleMouseDown = (e) => {
     if (e.target.closest('input') || e.target.closest('button')) return;
@@ -230,7 +230,7 @@ export default function EventTitleBanner({
     if (clampedY !== currentY) {
       setSettings((prev) => ({ ...prev, dragOffsetY: clampedY }));
     }
-  }, [clampDragOffsetY, detailHeight, detailOpen, setSettings, settings.dragOffsetY]);
+  }, [clampDragOffsetY, detailHeight, isDetailOpen, setSettings, settings.dragOffsetY]);
 
   const renderAnnotation = (extraClass = '') => {
     const lines = banner.annotationLines || [];

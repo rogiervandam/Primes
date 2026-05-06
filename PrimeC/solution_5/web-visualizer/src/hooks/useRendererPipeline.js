@@ -26,7 +26,7 @@ export function useRendererPipeline({
   glCanvasRef,
   glRendererRef,
   bitStateRef,
-  setGlUnavailable,
+  setIsGlUnavailable,
   updateGlDebugInfo,
   pendingRenderRafRef,
   createCamera,
@@ -37,7 +37,7 @@ export function useRendererPipeline({
   introTiltStartedRef,
   setIntroPhase,
   setLoadingOverlayPhase,
-  setUiChromeVisible,
+  setIsUiChromeVisible,
   setOverlayBarPct,
   overlayStartTimeRef,
   pendingIntroAfterOverlayRef,
@@ -45,9 +45,9 @@ export function useRendererPipeline({
   loadCompleteRef,
   loadProgressRef,
   // minimap inset effect
-  settingsCollapsed,
+  isSettingsCollapsed,
   isMacPlatform,
-  showMinimap,
+  isMinimapVisible,
   updateMinimapAvailability,
   // useRendererLayoutSync
   theme,
@@ -57,16 +57,16 @@ export function useRendererPipeline({
   canvasColors,
   storageModel,
   cachelineSize,
-  heatMapEnabled,
+  isHeatMapEnabled,
   cachelineAnnotation,
-  primeOverlayEnabled,
-  rangeOverlayEnabled,
+  isPrimeOverlayEnabled,
+  isRangeOverlayEnabled,
   rangeOverlayStart,
   rangeOverlayEnd,
-  multiplesOverlayEnabled,
+  isMultiplesOverlayEnabled,
   multiplesOverlayPrime,
   gridOpacity,
-  debugCalibrationMode,
+  isDebugCalibrationMode,
   containerRef,
   mode3D,
   stepsRef,
@@ -74,7 +74,7 @@ export function useRendererPipeline({
   setAutoFitColumnCount,
   // usePanelResizeRefresh
   panelWidth,
-  detailOpen,
+  isDetailOpen,
   detailHeight,
   refreshCanvasLayout,
   clearScheduledLayoutRefresh,
@@ -91,7 +91,7 @@ export function useRendererPipeline({
     glCanvasRef,
     glRendererRef,
     bitStateRef,
-    setGlUnavailable,
+    setIsGlUnavailable,
     updateGlDebugInfo,
     pendingRenderRafRef,
     createCamera,
@@ -106,7 +106,7 @@ export function useRendererPipeline({
     introTiltStartedRef,
     setIntroPhase,
     setLoadingOverlayPhase,
-    setUiChromeVisible,
+    setIsUiChromeVisible,
     setOverlayBarPct,
     overlayStartTimeRef,
     pendingIntroAfterOverlayRef,
@@ -133,10 +133,10 @@ export function useRendererPipeline({
   useEffect(() => {
     const r = rendererRef.current;
     if (!r) return;
-    r.minimapRightInset = settingsCollapsed ? 0 : (isMacPlatform ? 388 : 328);
+    r.minimapRightInset = isSettingsCollapsed ? 0 : (isMacPlatform ? 388 : 328);
     updateMinimapAvailability();
-    if (showMinimap) r.renderMinimap(r.canvasWidth, r.canvas?.height / (window.devicePixelRatio || 1), getMinimapDetailH());
-  }, [settingsCollapsed, isMacPlatform, showMinimap, getMinimapDetailH, updateMinimapAvailability, rendererRef, updateGlDebugInfo]);
+    if (isMinimapVisible) r.renderMinimap(r.canvasWidth, r.canvas?.height / (window.devicePixelRatio || 1), getMinimapDetailH());
+  }, [isSettingsCollapsed, isMacPlatform, isMinimapVisible, getMinimapDetailH, updateMinimapAvailability, rendererRef, updateGlDebugInfo]);
 
   // Keep GL diagnostics live while resizing/moving the window.
   useWindowResize(() => updateGlDebugInfo(true), [updateGlDebugInfo]);
@@ -166,24 +166,24 @@ export function useRendererPipeline({
     rendererRef,
     theme,
     layoutSettings,
-    showMinimap,
+    isMinimapVisible,
     colorPreset,
     customColors,
     canvasColors,
     storageModel,
     wheelDefinition,
     cachelineSize,
-    heatMapEnabled,
+    isHeatMapEnabled,
     cachelineAnnotation,
-    primeOverlayEnabled,
-    rangeOverlayEnabled,
+    isPrimeOverlayEnabled,
+    isRangeOverlayEnabled,
     rangeOverlayStart,
     rangeOverlayEnd,
-    multiplesOverlayEnabled,
+    isMultiplesOverlayEnabled,
     multiplesOverlayPrime,
     gridOpacity,
     updateMinimapAvailability,
-    debugCalibrationMode,
+    isDebugCalibrationMode,
     prevLayoutRef,
     containerRef,
     mode3D,
@@ -196,8 +196,8 @@ export function useRendererPipeline({
 
   usePanelResizeRefresh({
     panelWidth,
-    showMinimap,
-    detailOpen,
+    isMinimapVisible,
+    isDetailOpen,
     detailHeight,
     refreshCanvasLayout,
     clearScheduledLayoutRefresh,

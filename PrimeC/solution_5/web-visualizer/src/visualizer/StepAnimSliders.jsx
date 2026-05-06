@@ -20,9 +20,9 @@ function StepAnimSliders({
   stepScrubProgress,
   setStepScrubProgress,
   handleStepAnimToggle,
-  stepAnimRunning,
-  singleEventLoopActive,
-  animationReplayPaused,
+  isStepAnimRunning,
+  isSingleEventLoopActive,
+  isAnimationReplayPaused,
   delayPhaseMs,
   playing,
   exporting,
@@ -45,7 +45,7 @@ function StepAnimSliders({
     }
 
     if (delayPhaseMs && delayPhaseMs > 0) {
-      if (animationReplayPaused) {
+      if (isAnimationReplayPaused) {
         // Delay is paused-in-flight: freeze the wipe at its current position.
         return;
       }
@@ -106,7 +106,7 @@ function StepAnimSliders({
         wipeAnimRef.current = null;
       }
     };
-  }, [delayPhaseMs, animationReplayPaused]);
+  }, [delayPhaseMs, isAnimationReplayPaused]);
   const hasMaskOrder = !!(
     currentStepData
     && currentStepData.maskWriteOrderWords
@@ -135,9 +135,9 @@ function StepAnimSliders({
             className="step-focus-play-btn"
             onClick={(e) => { e.stopPropagation(); handleStepAnimToggle(); }}
             onMouseDown={(e) => e.stopPropagation()}
-            title={(playing || stepAnimRunning || singleEventLoopActive) && !animationReplayPaused ? 'Pause the timeline animation' : 'Play the timeline animation at the current Speed'}
+            title={(playing || isStepAnimRunning || isSingleEventLoopActive) && !isAnimationReplayPaused ? 'Pause the timeline animation' : 'Play the timeline animation at the current Speed'}
           >
-            {(playing || stepAnimRunning || singleEventLoopActive) && !animationReplayPaused ? <Pause size={16} /> : <Play size={16} />}
+            {(playing || isStepAnimRunning || isSingleEventLoopActive) && !isAnimationReplayPaused ? <Pause size={16} /> : <Play size={16} />}
           </button>
           <div className="step-focus-timeline-wrap">
             <div className="step-focus-timeline-track" aria-hidden="true">

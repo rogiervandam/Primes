@@ -2,7 +2,7 @@
  * CachelineAnnotationsOverlay — draws per-cacheline "cache ×N Δstep" badges.
  *
  * Shown whenever `cachelineAnnotation !== 'none'` and hit-count data is
- * available — does NOT require `heatMapEnabled`. When the heat overlay is
+ * available — does NOT require `isHeatMapEnabled`. When the heat overlay is
  * off the badge uses a neutral slate colour instead of the heat gradient.
  * `Visualizer.jsx` ensures `rebuildHeatMap` is called whenever
  * `cachelineAnnotation !== 'none'` so `clHitCount` is always populated.
@@ -16,7 +16,7 @@
  * with `_renderCachelineHeatOverlay` and the cacheline outline pass.
  *
  * Required host accessors / fields:
- *   - host.heatMapEnabled, host.cachelineAnnotation
+ *   - host.isHeatMapEnabled, host.cachelineAnnotation
  *   - host.clHitCount, host.clLastHitStep, host.heatMapCurrentStep
  *   - host.cachelineSize, host.bitsPerCacheLine, host.bitCount
  *   - host.canvas, host.panX, host.panY
@@ -79,7 +79,7 @@ export class CachelineAnnotationsOverlay {
 
       // Badge fill colour: use heat gradient when heatmap is on, neutral slate otherwise.
       let bc; // { r, g, b, alpha }
-      if (host.heatMapEnabled) {
+      if (host.isHeatMapEnabled) {
         const oc = host._cachelineHeatOverlayColor(phyClIdx);
         if (!oc) continue;
         bc = { r: oc.r, g: oc.g, b: oc.b, alpha: Math.min(0.97, Math.max(0.82, oc.alpha * 2 + 0.5)) };

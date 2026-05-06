@@ -20,13 +20,13 @@ export function useViewPrefsSync({
   delayBetweenEvents,
   delayBetweenRepeats,
   eventTimeTargets,
-  allEventsWidgetHidden,
-  widgetsJoined,
-  allEventsInDetailPanel,
-  autoAnimateOnSelect,
-  eventsPanelCollapsed,
-  settingsCollapsed,
-  detailOpen,
+  isAllEventsWidgetHidden,
+  areWidgetsJoined,
+  isAllEventsInDetailPanel,
+  isAutoAnimateOnSelect,
+  isEventsPanelCollapsed,
+  isSettingsCollapsed,
+  isDetailOpen,
 }) {
   const introCompleteRef = useRef(false);
   introCompleteRef.current = introPhase === 'visible';
@@ -46,13 +46,13 @@ export function useViewPrefsSync({
       delayBetweenEvents,
       delayBetweenRepeats,
       eventTimeTargets,
-      allEventsWidgetHidden,
-      widgetsJoined,
-      allEventsInDetailPanel,
-      autoAnimateOnSelect,
-      eventsPanelCollapsed,
-      settingsCollapsed,
-      detailOpen,
+      isAllEventsWidgetHidden,
+      areWidgetsJoined,
+      isAllEventsInDetailPanel,
+      isAutoAnimateOnSelect,
+      isEventsPanelCollapsed,
+      isSettingsCollapsed,
+      isDetailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, allEventsWidgetHidden, widgetsJoined, allEventsInDetailPanel, autoAnimateOnSelect, eventsPanelCollapsed, settingsCollapsed, detailOpen]);
+  }, [theme, layoutSettings, eventTitleSettings, gridOpacity, canvasColors, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, isAllEventsWidgetHidden, areWidgetsJoined, isAllEventsInDetailPanel, isAutoAnimateOnSelect, isEventsPanelCollapsed, isSettingsCollapsed, isDetailOpen]);
 }

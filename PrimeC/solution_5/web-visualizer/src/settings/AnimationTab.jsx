@@ -225,7 +225,7 @@ function AnimationTab({
   eventTimeTargets, onEventTimeTargetsChange,
   eventDurationMode, onEventDurationModeChange,
   bitAnimationMode, onBitAnimationModeChange,
-  autoAnimateOnSelect, onAutoAnimateOnSelectChange,
+  isAutoAnimateOnSelect, onAutoAnimateOnSelectChange,
 }) {
   const playbackSpeedValue = msToPlaybackSpeed(playSpeed || 100);
   // Wrap slider onChange callbacks in startTransition so React deprioritises
@@ -555,7 +555,7 @@ function AnimationTab({
           <label className="settings-toggle-row" title="When enabled, selecting an event in the events panel automatically starts the per-event animation loop. Disable to navigate freely without triggering animations.">
             <input
               type="checkbox"
-              checked={autoAnimateOnSelect !== false}
+              checked={isAutoAnimateOnSelect !== false}
               onChange={(e) => onAutoAnimateOnSelectChange(e.target.checked)}
             />
             <span>Auto-animate on event select</span>

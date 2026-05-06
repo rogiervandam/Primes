@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
 export function useRawLogActions({
-  setShowTraceInfo,
+  setIsTraceInfoVisible,
   goToStep,
   revealCurrentStepInPanel,
   setRawScrollToLine,
@@ -10,10 +10,10 @@ export function useRawLogActions({
   currentStep,
 }) {
   const onJumpToStep = useCallback((stepIndex) => {
-    setShowTraceInfo(false);
+    setIsTraceInfoVisible(false);
     goToStep(stepIndex);
     revealCurrentStepInPanel();
-  }, [setShowTraceInfo, goToStep, revealCurrentStepInPanel]);
+  }, [setIsTraceInfoVisible, goToStep, revealCurrentStepInPanel]);
 
   const onClearRawScrollToLine = useCallback(() => setRawScrollToLine(null), [setRawScrollToLine]);
 

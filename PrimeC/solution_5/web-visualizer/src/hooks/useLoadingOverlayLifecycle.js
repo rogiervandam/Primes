@@ -6,7 +6,7 @@ export function useLoadingOverlayLifecycle({
   introTiltStartedRef,
   setIntroPhase,
   setLoadingOverlayPhase,
-  setUiChromeVisible,
+  setIsUiChromeVisible,
   setOverlayBarPct,
   overlayStartTimeRef,
   pendingIntroAfterOverlayRef,
@@ -26,7 +26,7 @@ export function useLoadingOverlayLifecycle({
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setLoadingOverlayPhase('active');
-          setUiChromeVisible(false);
+          setIsUiChromeVisible(false);
           setOverlayBarPct(0);
           overlayStartTimeRef.current = Date.now();
           pendingIntroAfterOverlayRef.current = true;
@@ -41,7 +41,7 @@ export function useLoadingOverlayLifecycle({
     introTiltStartedRef,
     setIntroPhase,
     setLoadingOverlayPhase,
-    setUiChromeVisible,
+    setIsUiChromeVisible,
     setOverlayBarPct,
     overlayStartTimeRef,
     pendingIntroAfterOverlayRef,
@@ -71,7 +71,7 @@ export function useLoadingOverlayLifecycle({
           setLoadingOverlayPhase('fading');
           setTimeout(() => {
             setLoadingOverlayPhase('hidden');
-            setUiChromeVisible(true);
+            setIsUiChromeVisible(true);
             if (pendingIntroAfterOverlayRef.current) {
               pendingIntroAfterOverlayRef.current = false;
               setIntroPhase('scaling');
@@ -95,7 +95,7 @@ export function useLoadingOverlayLifecycle({
     loadProgressRef,
     setOverlayBarPct,
     setLoadingOverlayPhase,
-    setUiChromeVisible,
+    setIsUiChromeVisible,
     pendingIntroAfterOverlayRef,
     setIntroPhase,
   ]);

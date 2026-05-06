@@ -21,9 +21,9 @@ export function useStepAnimContent({
   stepScrubProgress,
   setStepScrubProgress,
   handleStepAnimToggle,
-  stepAnimRunning,
-  singleEventLoopActive,
-  animationReplayPaused,
+  isStepAnimRunning,
+  isSingleEventLoopActive,
+  isAnimationReplayPaused,
   delayPhaseMs,
   playing,
   exporting,
@@ -32,7 +32,7 @@ export function useStepAnimContent({
   setEventTitleSettings,
   setPendingBannerDragStart,
   // AllEventsTransport
-  allEventsInDetailPanel,
+  isAllEventsInDetailPanel,
   currentStep,
   steps,
   handlePlayPause,
@@ -40,8 +40,8 @@ export function useStepAnimContent({
   isScrubbingTopRef,
   playSpeedPercent,
   setPlaySpeedPercent,
-  setAllEventsInDetailPanel,
-  setAllEventsWidgetHidden,
+  setIsAllEventsInDetailPanel,
+  setIsAllEventsWidgetHidden,
 }) {
   const stepAnimSlidersContent = (
     <StepAnimSliders
@@ -54,9 +54,9 @@ export function useStepAnimContent({
       stepScrubProgress={stepScrubProgress}
       setStepScrubProgress={setStepScrubProgress}
       handleStepAnimToggle={handleStepAnimToggle}
-      stepAnimRunning={stepAnimRunning}
-      singleEventLoopActive={singleEventLoopActive}
-      animationReplayPaused={animationReplayPaused}
+      isStepAnimRunning={isStepAnimRunning}
+      isSingleEventLoopActive={isSingleEventLoopActive}
+      isAnimationReplayPaused={isAnimationReplayPaused}
       delayPhaseMs={delayPhaseMs}
       playing={playing}
       exporting={exporting}
@@ -76,9 +76,9 @@ export function useStepAnimContent({
       stepScrubProgress={stepScrubProgress}
       setStepScrubProgress={setStepScrubProgress}
       handleStepAnimToggle={handleStepAnimToggle}
-      stepAnimRunning={stepAnimRunning}
-      singleEventLoopActive={singleEventLoopActive}
-      animationReplayPaused={animationReplayPaused}
+      isStepAnimRunning={isStepAnimRunning}
+      isSingleEventLoopActive={isSingleEventLoopActive}
+      isAnimationReplayPaused={isAnimationReplayPaused}
       delayPhaseMs={delayPhaseMs}
       playing={playing}
       exporting={exporting}
@@ -91,7 +91,7 @@ export function useStepAnimContent({
     />
   );
 
-  const allEventsTransportContent = allEventsInDetailPanel ? (
+  const allEventsTransportContent = isAllEventsInDetailPanel ? (
     <AllEventsTransport
       currentStep={currentStep}
       steps={steps}
@@ -103,12 +103,12 @@ export function useStepAnimContent({
       playSpeedPercent={playSpeedPercent}
       setPlaySpeedPercent={setPlaySpeedPercent}
       onDismiss={() => {
-        setAllEventsInDetailPanel(false);
-        setAllEventsWidgetHidden(false);
+        setIsAllEventsInDetailPanel(false);
+        setIsAllEventsWidgetHidden(false);
       }}
       onUndockByDrag={() => {
-        setAllEventsInDetailPanel(false);
-        setAllEventsWidgetHidden(false);
+        setIsAllEventsInDetailPanel(false);
+        setIsAllEventsWidgetHidden(false);
       }}
     />
   ) : null;

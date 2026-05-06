@@ -6,8 +6,8 @@ export function useGoToStep({
   currentStep,
   playing,
   stopPlayback,
-  singleEventLoopActiveRef,
-  setSingleEventLoopActive,
+  isSingleEventLoopActiveRef,
+  setIsSingleEventLoopActive,
   isScrubbingTopRef,
   selectedStepsRef,
   initialHighlightHoldRef,
@@ -36,8 +36,8 @@ export function useGoToStep({
     target = Math.max(0, Math.min(target, steps.length - 1));
     const suppressHighlight = options.suppressHighlight === true;
     if (!options.keepPlaying && playing) stopPlayback();
-    if (!options.keepPlaying && !options.keepLoop && singleEventLoopActiveRef.current) {
-      setSingleEventLoopActive(false);
+    if (!options.keepPlaying && !options.keepLoop && isSingleEventLoopActiveRef.current) {
+      setIsSingleEventLoopActive(false);
     }
     const aggregateScrub = isScrubbingTopRef.current && selectedStepsRef.current.size > 0;
     if (!suppressHighlight) initialHighlightHoldRef.current = false;
@@ -143,7 +143,7 @@ export function useGoToStep({
       });
     }
 
-    if (r.heatMapEnabled || (r.cachelineAnnotation && r.cachelineAnnotation !== 'none')) {
+    if (r.isHeatMapEnabled || (r.cachelineAnnotation && r.cachelineAnnotation !== 'none')) {
       r.rebuildHeatMap(steps, target);
     }
 
@@ -195,7 +195,7 @@ export function useGoToStep({
     setCurrentStep(target);
 
     const hasPlayContext = playing
-      || singleEventLoopActiveRef.current
+      || isSingleEventLoopActiveRef.current
       || isScrubbingTopRef.current
       || options.keepPlaying === true
       || options.forceAnimate === true;
@@ -215,8 +215,8 @@ export function useGoToStep({
     currentStep,
     playing,
     stopPlayback,
-    singleEventLoopActiveRef,
-    setSingleEventLoopActive,
+    isSingleEventLoopActiveRef,
+    setIsSingleEventLoopActive,
     isScrubbingTopRef,
     selectedStepsRef,
     initialHighlightHoldRef,

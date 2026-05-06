@@ -14,14 +14,14 @@ import { useEffect } from 'react';
  */
 export function useVisualizerEffects({
   // balloon cleanup
-  balloonsEnabled,
-  balloonHoverEnabled,
+  areBalloonsEnabled,
+  isBalloonHoverEnabled,
   setPinnedBitIndices,
   setHoveredBitInfo,
   lastHoveredIdxRef,
   // trace-info popup close
-  showTraceInfo,
-  setShowTraceInfo,
+  isTraceInfoVisible,
+  setIsTraceInfoVisible,
   traceInfoPopoverRef,
   traceInfoToggleRef,
   // theme
@@ -43,27 +43,27 @@ export function useVisualizerEffects({
 }) {
   // Keep rendered balloons consistent with the current interaction mode.
   useEffect(() => {
-    if (!balloonsEnabled) {
+    if (!areBalloonsEnabled) {
       setPinnedBitIndices([]);
     }
-    if (!balloonHoverEnabled) {
+    if (!isBalloonHoverEnabled) {
       setHoveredBitInfo(null);
       lastHoveredIdxRef.current = -1;
     }
-  }, [balloonsEnabled, balloonHoverEnabled, setPinnedBitIndices, setHoveredBitInfo, lastHoveredIdxRef]);
+  }, [areBalloonsEnabled, isBalloonHoverEnabled, setPinnedBitIndices, setHoveredBitInfo, lastHoveredIdxRef]);
 
   // Close trace info popup when clicking outside.
   useEffect(() => {
-    if (!showTraceInfo) return;
+    if (!isTraceInfoVisible) return;
     const handleClickOutside = (e) => {
       const clickedInside = traceInfoPopoverRef.current && traceInfoPopoverRef.current.contains(e.target);
       const clickedTitle = traceInfoToggleRef.current && traceInfoToggleRef.current.contains(e.target);
       const clickedDetailPanel = e.target && typeof e.target.closest === 'function' && e.target.closest('.detail-panel');
-      if (!clickedInside && !clickedTitle && !clickedDetailPanel) setShowTraceInfo(false);
+      if (!clickedInside && !clickedTitle && !clickedDetailPanel) setIsTraceInfoVisible(false);
     };
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
-  }, [showTraceInfo, setShowTraceInfo, traceInfoPopoverRef, traceInfoToggleRef]);
+  }, [isTraceInfoVisible, setIsTraceInfoVisible, traceInfoPopoverRef, traceInfoToggleRef]);
 
   // Apply theme to document.
   useEffect(() => {

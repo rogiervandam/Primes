@@ -2,26 +2,26 @@ import { useCallback } from 'react';
 
 export function useStepSelectionHandlers({
   stopPlayback,
-  setSingleEventWidgetRevealed,
+  setIsSingleEventWidgetRevealed,
   goToStep,
   globalPausedRef,
-  setAnimationReplayPaused,
+  setIsAnimationReplayPaused,
   setSelectedSteps,
 }) {
   const handleStepSelection = useCallback((stepIndex) => {
     stopPlayback();
-    setSingleEventWidgetRevealed(true);
+    setIsSingleEventWidgetRevealed(true);
     goToStep(stepIndex);
-  }, [stopPlayback, goToStep, setSingleEventWidgetRevealed]);
+  }, [stopPlayback, goToStep, setIsSingleEventWidgetRevealed]);
 
   const handleMultiStepSelect = useCallback((nextSelection) => {
     stopPlayback();
     // Clear any leftover pause state so the aggregate animation loop starts immediately
     // rather than being held off by a previous Pause or single-event pause-in-flight.
     globalPausedRef.current = false;
-    setAnimationReplayPaused(false);
+    setIsAnimationReplayPaused(false);
     setSelectedSteps(nextSelection);
-  }, [stopPlayback, globalPausedRef, setAnimationReplayPaused, setSelectedSteps]);
+  }, [stopPlayback, globalPausedRef, setIsAnimationReplayPaused, setSelectedSteps]);
 
   return { handleStepSelection, handleMultiStepSelect };
 }

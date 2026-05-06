@@ -9,7 +9,7 @@
  *
  * Capability fallback: if `OffscreenCanvas.transferControlToOffscreen`
  * is unavailable, `attach()` returns false so callers can show the
- * `glUnavailable` warning instead of pretending cell fills are available.
+ * `isGlUnavailable` warning instead of pretending cell fills are available.
  *
  * Buffer ownership: positions and state buffers are allocated fresh on
  * each upload and transferred one-way to the worker (no ack). See the

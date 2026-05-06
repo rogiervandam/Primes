@@ -41,7 +41,7 @@ export function useCanvasLayout({
   setCamera3DTransform,
   setCamera3DContainerStyle,
   setAutoFitColumnCount,
-  showMinimap,
+  isMinimapVisible,
   updateMinimapAvailability,
   getMinimapDetailH,
 }) {
@@ -469,8 +469,8 @@ export function useCanvasLayout({
       }
     }
     updateMinimapAvailability();
-    if (showMinimap) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
-  }, [getCanvasTargetSize, showMinimap, getMinimapDetailH, updateMinimapAvailability, setCamera3DTransform, setCamera3DContainerStyle, debugGlOffsetX, debugGlOffsetY]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (isMinimapVisible) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
+  }, [getCanvasTargetSize, isMinimapVisible, getMinimapDetailH, updateMinimapAvailability, setCamera3DTransform, setCamera3DContainerStyle, debugGlOffsetX, debugGlOffsetY]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep manual debug offsets responsive even when no resize/layout event is
   // in flight. This updates both direct GL canvas placement and the Canvas2D

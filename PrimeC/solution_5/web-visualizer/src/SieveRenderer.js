@@ -193,7 +193,7 @@ export class SieveRenderer {
     this.horizontalGroups = 0;
 
     // Heat map: tracks recency of access per bit and per cacheline
-    this.heatMapEnabled = false;
+    this.isHeatMapEnabled = false;
     this.lastAccessStep = null;   // Int32Array, per-bit last step index (-1 = never)
     this.heatMapCurrentStep = 0;
     this.clHitCount = null;       // Int32Array, per-physical-cacheline hit count
@@ -772,7 +772,7 @@ export class SieveRenderer {
    * shaped outline per physical cacheline regardless of how the layout wraps.
    */
   _renderCachelineHeatOverlay() {
-    if (!this.heatMapEnabled || !this.clHitCount) return;
+    if (!this.isHeatMapEnabled || !this.clHitCount) return;
 
     const phyBitsPerCL  = this.cachelineSize * 8;
     const bitsPerCacheLine = this.bitsPerCacheLine;   // logical group bits

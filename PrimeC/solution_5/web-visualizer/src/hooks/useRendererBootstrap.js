@@ -13,7 +13,7 @@ export function useRendererBootstrap({
   glCanvasRef,
   glRendererRef,
   bitStateRef,
-  setGlUnavailable,
+  setIsGlUnavailable,
   updateGlDebugInfo,
   pendingRenderRafRef,
   createCamera,
@@ -75,7 +75,7 @@ export function useRendererBootstrap({
           glRendererRef.current = gl;
           updateGlDebugInfo(true);
         } else {
-          setGlUnavailable(true);
+          setIsGlUnavailable(true);
         }
       }
       if (gl) {
@@ -180,7 +180,7 @@ export function useRendererBootstrap({
     glCanvasRef,
     glRendererRef,
     bitStateRef,
-    setGlUnavailable,
+    setIsGlUnavailable,
     updateGlDebugInfo,
     pendingRenderRafRef,
     createCamera,

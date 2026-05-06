@@ -71,8 +71,8 @@ Approximate source size at this guide revision:
   `useTraceExport.js` and playback code depend on it.
 - `viewPrefs` writes to `localStorage` key
   `sieve-visualizer:view-preferences:v1`. Use defaults and `merge*` helpers in
-  `src/lib/viewPrefs.js` for every persisted field. Existing keys: `autoAnimateOnSelect` (bool, default true) controls whether clicking an event auto-starts the animation loop; persisted via `getInitialViewState` / `writeViewPrefs`.
-- `autoAnimateOnSelectRef` is passed to `usePlaybackLoop`; Effect 1 (selected-step auto-replay loop) checks it before starting and includes `autoAnimateOnSelect` in its dep array so it tears down immediately when the toggle is switched off.
+  `src/lib/viewPrefs.js` for every persisted field. Existing keys: `isAutoAnimateOnSelect` (bool, default true) controls whether clicking an event auto-starts the animation loop; persisted via `getInitialViewState` / `writeViewPrefs`.
+- `isAutoAnimateOnSelectRef` is passed to `usePlaybackLoop`; Effect 1 (selected-step auto-replay loop) checks it before starting and includes `isAutoAnimateOnSelect` in its dep array so it tears down immediately when the toggle is switched off.
 - `bitStateRef` and `bitStateDirtyRef` must stay in sync. Any scrub-back or jump
   that invalidates cumulative bit state must mark dirty or restore from a
   snapshot.
@@ -182,7 +182,7 @@ are currently used (set/changed/ghost/repeated/prime/range/multiples/focus).
 Left to do:
 
 - Run `parity.html` after shader, packing, or state-texture changes.
-- Keep the OffscreenCanvas capability check and `glUnavailable` warning. There is
+- Keep the OffscreenCanvas capability check and `isGlUnavailable` warning. There is
   no Canvas2D cell-fill fallback anymore.
 - Consider partial `texSubImage2D` updates only after profiling shows full state
   repacks are a real bottleneck at large bit counts.
@@ -226,7 +226,7 @@ panel and detail panel, with the single-event timeline shown in detail and the
 all-events timeline kept in the events panel; detail-panel timeline actions
 keep the percent and gear aligned on the right. Dragging the joined widget onto
 the detail panel now shows all-events transport and timeline inside the detail
-panel body: `allEventsInDetailPanel` state (persisted), `AllEventsTransport`
+panel body: `isAllEventsInDetailPanel` state (persisted), `AllEventsTransport`
 component in `src/visualizer/`, `pushJoinedWidgetToDetailPanel` in
 `usePanelChoreography`, and a 'detail' drop zone in `JoinedEventsWidget`.
 
@@ -334,8 +334,8 @@ Left to do:
 ### 10. Keep Persistence And Migrations Safe
 
 Done: `getInitialViewState()` centralizes preference reads; legacy
-`stepsPanelCollapsed` migrates to `eventsPanelCollapsed`; merge helpers cover
-partial saved settings; `widgetsJoined`, colors, canvas backgrounds, panel
+`stepsPanelCollapsed` migrates to `isEventsPanelCollapsed`; merge helpers cover
+partial saved settings; `areWidgetsJoined`, colors, canvas backgrounds, panel
 visibility, layout, event title, and timing settings are persisted.
 
 Left to do:

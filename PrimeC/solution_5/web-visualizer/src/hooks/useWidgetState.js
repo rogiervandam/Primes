@@ -2,12 +2,12 @@
  * useWidgetState — owns floating-widget and overlay-panel visibility state.
  *
  * Owns:
- *  - allEventsWidgetHidden / singleEventWidgetRevealed
- *  - allEventsInDetailPanel / widgetsJoined
+ *  - isAllEventsWidgetHidden / isSingleEventWidgetRevealed
+ *  - isAllEventsInDetailPanel / areWidgetsJoined
  *  - joinBannerRect / pendingBannerDragStart
  *  - revealStepRequest
- *  - timingPanelOpen / timingFocusOp
- *  - detailInspectorOpen / detailInspectorMode / detailInspectorQuery
+ *  - isTimingPanelOpen / timingFocusOp
+ *  - isDetailInspectorOpen / detailInspectorMode / detailInspectorQuery
  *
  * @param {{ initialPrefs: object }} params
  */
@@ -16,14 +16,14 @@ import { useState } from 'react';
 export function useWidgetState({ initialPrefs }) {
   // When true, the floating all-events widget is hidden (e.g. after docking
   // to the top bar). Reset when the events panel is collapsed again.
-  const [allEventsWidgetHidden, setAllEventsWidgetHidden] = useState(initialPrefs.allEventsWidgetHidden);
+  const [isAllEventsWidgetHidden, setIsAllEventsWidgetHidden] = useState(initialPrefs.isAllEventsWidgetHidden);
   // Hidden until the user first hits play or selects an event.
-  const [singleEventWidgetRevealed, setSingleEventWidgetRevealed] = useState(false);
+  const [isSingleEventWidgetRevealed, setIsSingleEventWidgetRevealed] = useState(false);
   // When true, the all-events transport is shown inside the detail panel.
-  const [allEventsInDetailPanel, setAllEventsInDetailPanel] = useState(initialPrefs.allEventsInDetailPanel);
+  const [isAllEventsInDetailPanel, setIsAllEventsInDetailPanel] = useState(initialPrefs.isAllEventsInDetailPanel);
   // When true, the all-events widget and single-event banner are joined.
-  const [widgetsJoined, setWidgetsJoined] = useState(
-    (initialPrefs.widgetsJoined === true && initialPrefs.eventsPanelCollapsed === true)
+  const [areWidgetsJoined, setAreWidgetsJoined] = useState(
+    (initialPrefs.areWidgetsJoined === true && initialPrefs.isEventsPanelCollapsed === true)
       ? true
       : false,
   );
@@ -35,24 +35,24 @@ export function useWidgetState({ initialPrefs }) {
   // Bumped whenever the user asks to reveal the current event in the events panel.
   const [revealStepRequest, setRevealStepRequest] = useState(0);
 
-  const [timingPanelOpen, setTimingPanelOpen] = useState(false);
+  const [isTimingPanelOpen, setIsTimingPanelOpen] = useState(false);
   const [timingFocusOp, setTimingFocusOp] = useState('');
 
-  const [detailInspectorOpen, setDetailInspectorOpen] = useState(false);
+  const [isDetailInspectorOpen, setIsDetailInspectorOpen] = useState(false);
   const [detailInspectorMode, setDetailInspectorMode] = useState('bits');
   const [detailInspectorQuery, setDetailInspectorQuery] = useState('');
 
   return {
-    allEventsWidgetHidden, setAllEventsWidgetHidden,
-    singleEventWidgetRevealed, setSingleEventWidgetRevealed,
-    allEventsInDetailPanel, setAllEventsInDetailPanel,
-    widgetsJoined, setWidgetsJoined,
+    isAllEventsWidgetHidden, setIsAllEventsWidgetHidden,
+    isSingleEventWidgetRevealed, setIsSingleEventWidgetRevealed,
+    isAllEventsInDetailPanel, setIsAllEventsInDetailPanel,
+    areWidgetsJoined, setAreWidgetsJoined,
     joinBannerRect, setJoinBannerRect,
     pendingBannerDragStart, setPendingBannerDragStart,
     revealStepRequest, setRevealStepRequest,
-    timingPanelOpen, setTimingPanelOpen,
+    isTimingPanelOpen, setIsTimingPanelOpen,
     timingFocusOp, setTimingFocusOp,
-    detailInspectorOpen, setDetailInspectorOpen,
+    isDetailInspectorOpen, setIsDetailInspectorOpen,
     detailInspectorMode, setDetailInspectorMode,
     detailInspectorQuery, setDetailInspectorQuery,
   };

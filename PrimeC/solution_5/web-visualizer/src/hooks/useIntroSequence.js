@@ -4,15 +4,15 @@
  * Owns:
  *  - introPhase ('hidden' | 'scaling' | 'tilting' | 'visible')
  *  - introTiltStartedRef
- *  - topbarPlaybackReady (delayed post-load reveal)
+ *  - isTopbarPlaybackReady (delayed post-load reveal)
  *  - loadingOverlayPhase ('hidden' | 'active' | 'fading')
- *  - uiChromeVisible / overlayBarPct
+ *  - isUiChromeVisible / overlayBarPct
  *  - overlayStartTimeRef / pendingIntroAfterOverlayRef
  *  - loadCompleteRef / loadProgressRef (stable refs to volatile props)
  *
  * The complex loading-overlay animation effects remain in Visualizer.jsx since
  * they reference rendererRef and other cross-cutting state. This hook only
- * owns state and provides the topbarPlaybackReady effect (self-contained).
+ * owns state and provides the isTopbarPlaybackReady effect (self-contained).
  *
  * @param {{ loadComplete: boolean, loadProgress: number }} params
  */
@@ -22,9 +22,9 @@ export function useIntroSequence({ loadComplete, loadProgress }) {
   const [introPhase, setIntroPhase] = useState('hidden');
   const introTiltStartedRef = useRef(false);
 
-  const [topbarPlaybackReady, setTopbarPlaybackReady] = useState(false);
+  const [isTopbarPlaybackReady, setTopbarPlaybackReady] = useState(false);
   const [loadingOverlayPhase, setLoadingOverlayPhase] = useState('hidden');
-  const [uiChromeVisible, setUiChromeVisible] = useState(false);
+  const [isUiChromeVisible, setIsUiChromeVisible] = useState(false);
   const [overlayBarPct, setOverlayBarPct] = useState(0);
 
   const overlayStartTimeRef = useRef(null);
@@ -50,9 +50,9 @@ export function useIntroSequence({ loadComplete, loadProgress }) {
   return {
     introPhase, setIntroPhase,
     introTiltStartedRef,
-    topbarPlaybackReady,
+    isTopbarPlaybackReady,
     loadingOverlayPhase, setLoadingOverlayPhase,
-    uiChromeVisible, setUiChromeVisible,
+    isUiChromeVisible, setIsUiChromeVisible,
     overlayBarPct, setOverlayBarPct,
     overlayStartTimeRef,
     pendingIntroAfterOverlayRef,
