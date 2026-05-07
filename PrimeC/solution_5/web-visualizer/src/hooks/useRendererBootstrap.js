@@ -431,7 +431,11 @@ export function useRendererBootstrap({
       if (glRendererRef.current === gl) {
         glRendererRef.current = null;
       }
-      try { gl.dispose(); } catch { /* ignore */ }
+      // In worker mode, transferControlToOffscreen() is a one-way operation;
+      // disposing in cleanup would break the canvas on React StrictMode re-mount (item 57).
+      if (!gl || gl.isDirectMode()) {
+        try { gl.dispose(); } catch { /* ignore */ }
+      }
     };
   }, [
     header.bitCount,

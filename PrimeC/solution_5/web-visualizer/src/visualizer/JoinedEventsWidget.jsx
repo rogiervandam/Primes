@@ -151,7 +151,10 @@ export default function JoinedEventsWidget(props) {
       const maxY = getMaxY();
       const next = { x: startDrag.x + dx, y: Math.min(maxY, startDrag.y + dy) };
       floatDragRef.current = next;
-      setFloatDrag({ ...next });
+      // Direct DOM mutation to avoid per-pixel React re-renders (item 42)
+      if (widgetRef.current) {
+        widgetRef.current.style.transform = `translate(${next.x}px, ${next.y}px)`;
+      }
       const zone = detectDropZone(ev.clientX, ev.clientY, widgetRef.current);
       if (zone !== lastZone) {
         lastZone = zone;
@@ -162,6 +165,8 @@ export default function JoinedEventsWidget(props) {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
       setDropHint(null);
+      // Sync accumulated DOM position back into React state once on mouse-up
+      if (dragged) setFloatDrag({ ...floatDragRef.current });
       const zone = detectDropZone(ev.clientX, ev.clientY, widgetRef.current);
       if (dragged && zone === 'left' && onPushToEventsPanel) {
         onPushToEventsPanel();

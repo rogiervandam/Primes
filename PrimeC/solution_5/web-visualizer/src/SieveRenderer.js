@@ -676,7 +676,7 @@ export class SieveRenderer {
     const controlY = Math.min(fromY, toY) - lift;
 
     // Keep the mask trail visually continuous at low zoom with overlapping samples.
-    const lineRadius = Math.max(1.25, px * 0.11);
+    const lineRadius = Math.max(2.5, px * 0.18);
     const spacing = Math.max(0.35, lineRadius * 0.54);
     const samples = Math.max(20, Math.min(220, Math.ceil(distance / spacing)));
     for (let i = 0; i <= samples; i++) {
@@ -684,7 +684,7 @@ export class SieveRenderer {
       const omt = 1 - u;
       const qx = omt * omt * fromX + 2 * omt * u * controlX + u * u * toX;
       const qy = omt * omt * fromY + 2 * omt * u * controlY + u * u * toY;
-      const fade = 0.3 + 0.7 * u;
+      const fade = 0.55 + 0.45 * u;
       glCtx.drawDot(qx, qy, lineRadius, tr, tg, tb, Math.max(0.04, alpha * fade));
     }
   }
@@ -1534,7 +1534,7 @@ export class SieveRenderer {
       // Render the full planned path so the route remains visible mid-flight.
       if (from !== to) {
         const tint = this._maskTintColor(from.slotIndex);
-        const routeAlpha = Math.max(0.16, stampingAlpha * 0.44);
+        const routeAlpha = Math.max(0.40, stampingAlpha * 0.70);
         this._drawCurvedTrail(from.bounds.cx, from.bounds.cy, to.bounds.cx, to.bounds.cy, tint, routeAlpha, px, travelLift, glCtx);
       }
 

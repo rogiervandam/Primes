@@ -131,7 +131,7 @@ export function useMaskStampAnimation({
         }
         r.setMaskGhostBits(ghostBits);
         r.render();
-        if (orderedWrites > 0) r.renderMaskHover(t, slotGroups);
+        if (orderedWrites > 0) r.renderMaskHover(t, null);
         else r.renderMaskStamp(t);
         if (t < 1) {
           rippleRef.current = requestAnimationFrame(tick);

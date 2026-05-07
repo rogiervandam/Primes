@@ -407,8 +407,6 @@ export default function DebugToolsPanel({
   const [copyStatus, setCopyStatus] = useState('');
   const [importText, setImportText] = useState('');
   const [importStatus, setImportStatus] = useState('');
-  const [forceRedrawStatus, setForceRedrawStatus] = useState('');
-  const [restartModeStatus, setRestartModeStatus] = useState('');
   const [calibrationCaseIndex, setCalibrationCaseIndex] = useState(0);
   const [calibrationTargetViewport, setCalibrationTargetViewport] = useState({ width: 0, height: 0 });
   const [calibrationViewportStatus, setCalibrationViewportStatus] = useState('');
@@ -416,39 +414,6 @@ export default function DebugToolsPanel({
   const [calibrationCaseResults, setCalibrationCaseResults] = useState({});
   const [calibrationViewpoints, setCalibrationViewpoints] = useState([]);
   const [calibrationViewpointLabel, setCalibrationViewpointLabel] = useState('');
-  const [showGlCanvasBounds, setShowGlCanvasBounds] = useState(false);
-  const [showGlyphCanvasBounds, setShowGlyphCanvasBounds] = useState(false);
-
-  useEffect(() => {
-    const glCanvas = glCanvasRef?.current;
-    const glyphCanvas = glyphCanvasRef?.current;
-
-    const prevGlOutline = glCanvas?.style?.outline ?? '';
-    const prevGlOutlineOffset = glCanvas?.style?.outlineOffset ?? '';
-    const prevGlyphOutline = glyphCanvas?.style?.outline ?? '';
-    const prevGlyphOutlineOffset = glyphCanvas?.style?.outlineOffset ?? '';
-
-    if (glCanvas) {
-      glCanvas.style.outline = showGlCanvasBounds ? '1px solid rgba(255, 69, 58, 0.95)' : '';
-      glCanvas.style.outlineOffset = showGlCanvasBounds ? '-1px' : '';
-    }
-
-    if (glyphCanvas) {
-      glyphCanvas.style.outline = showGlyphCanvasBounds ? '1px solid rgba(64, 156, 255, 0.95)' : '';
-      glyphCanvas.style.outlineOffset = showGlyphCanvasBounds ? '-1px' : '';
-    }
-
-    return () => {
-      if (glCanvas) {
-        glCanvas.style.outline = prevGlOutline;
-        glCanvas.style.outlineOffset = prevGlOutlineOffset;
-      }
-      if (glyphCanvas) {
-        glyphCanvas.style.outline = prevGlyphOutline;
-        glyphCanvas.style.outlineOffset = prevGlyphOutlineOffset;
-      }
-    };
-  }, [glCanvasRef, glyphCanvasRef, showGlCanvasBounds, showGlyphCanvasBounds]);
 
   // 'c' key copies to clipboard when the panel is visible
   const handleCopyDebugRef = useRef(null);
@@ -1055,49 +1020,6 @@ export default function DebugToolsPanel({
               </select>
             </div>
           )}
-          {setDebugGlModeOverride && (
-            <div style={{ marginTop: '8px' }}>
-              <label style={{ display: 'block', fontSize: '10px', color: palette.subtle, marginBottom: '4px' }}>
-                Force mode
-              </label>
-              <select
-                value={debugGlModeOverride}
-                onChange={(e) => setDebugGlModeOverride(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '5px 8px',
-                  borderRadius: '4px',
-                  border: `1px solid ${palette.buttonBorder}`,
-                  background: palette.buttonBg,
-                  color: palette.buttonFg,
-                  fontSize: '11px',
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="auto">Auto</option>
-                <option value="worker">Force worker</option>
-                <option value="direct">Force direct</option>
-              </select>
-            </div>
-          )}
-          <div style={{ marginTop: '8px', display: 'grid', gap: '4px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: palette.subtle }}>
-              <input
-                type="checkbox"
-                checked={showGlCanvasBounds}
-                onChange={(e) => setShowGlCanvasBounds(e.target.checked)}
-              />
-              Show GL canvas bounds (red)
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: palette.subtle }}>
-              <input
-                type="checkbox"
-                checked={showGlyphCanvasBounds}
-                onChange={(e) => setShowGlyphCanvasBounds(e.target.checked)}
-              />
-              Show glyph canvas bounds (blue)
-            </label>
-          </div>
           {glDebugInfo && (
             <div style={{ fontSize: '9px', lineHeight: '1.3', color: palette.subtle, marginTop: '6px' }}>
               <div>Viewport: {glDebugInfo.viewportWidth} × {glDebugInfo.viewportHeight}</div>
@@ -1111,62 +1033,6 @@ export default function DebugToolsPanel({
               <div>Zoom: {Number.isFinite(zoomLevel) ? zoomLevel.toFixed(3) : 'n/a'}</div>
               <div>Rotate X/Y (camera): {cameraState.rotateX.toFixed(2)}° / {cameraState.rotateY.toFixed(2)}°</div>
               <div>Rotate X/Y (applied): {cameraState.appliedRotateX.toFixed(2)}° / {cameraState.appliedRotateY.toFixed(2)}°</div>
-            </div>
-          )}
-          {onForceGlRedraw && (
-            <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {restartRenderMode && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      restartRenderMode();
-                      setRestartModeStatus('Renderer restarted');
-                      window.setTimeout(() => setRestartModeStatus(''), 1500);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '5px 8px',
-                      borderRadius: '4px',
-                      border: `1px solid ${palette.buttonBorder}`,
-                      background: palette.buttonBg,
-                      color: palette.buttonFg,
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                    }}
-                    title="Force a renderer re-attach while keeping current settings."
-                  >
-                    Restart Renderer
-                  </button>
-                  {restartModeStatus && (
-                    <div style={{ fontSize: '10px', color: palette.good }}>{restartModeStatus}</div>
-                  )}
-                </>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  onForceGlRedraw();
-                  setForceRedrawStatus('Redraw triggered');
-                  window.setTimeout(() => setForceRedrawStatus(''), 1500);
-                }}
-                style={{
-                  width: '100%',
-                  padding: '5px 8px',
-                  borderRadius: '4px',
-                  border: `1px solid ${palette.buttonBorder}`,
-                  background: palette.buttonBg,
-                  color: palette.buttonFg,
-                  fontSize: '11px',
-                  cursor: 'pointer',
-                }}
-                title="Cancel any pending CSS-lock unlock, clear the lock, and force a full GL + Canvas2D redraw. Use this when the WebGL layer appears frozen or blank after a resize in Chrome/Edge."
-              >
-                Force GL Redraw
-              </button>
-              {forceRedrawStatus && (
-                <div style={{ fontSize: '10px', color: palette.good }}>{forceRedrawStatus}</div>
-              )}
             </div>
           )}
         </CollapsibleSection>

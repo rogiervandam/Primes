@@ -115,8 +115,7 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 38 (Done) Joined-widget intro motion is suppressed for anchored joins so it no longer appears to animate in from elsewhere during merge.
 39 (Done) Added a repeat toggle button (with repeat icon) to the single-event widget timeline controls. Repeat-on loops until disabled; repeat-off plays once. The toggle is disabled/ignored during all-events playback.
 40 (Done) Debug tools window is now draggable, defaults to the bottom-right corner, and clamps away from the settings panel when it is open.
-41 Dragging the grid is not fluent: it is stuck a few times a second
-42 Dragging the single-event widget feels heavy, like there is a delay between the mouse movement and the widget movement. It should feel more responsive and fluid.
+42 (Done) Dragging the single-event widget feels heavy, like there is a delay between the mouse movement and the widget movement. It should feel more responsive and fluid.
 
 Make the minimap canvas just the size shown on screen, and have it be a floating DOM element on the very top. 
 
@@ -141,16 +140,19 @@ For each mode, all animations should work, dragging, zooming and tilting should 
 44 (Done)  The text on the bits with webgl rendering is not really centered on the bits, it is a bit off. It should be perfectly centered on the bits, so it looks better and more polished.
 45 (Done)When zooming in or out, the zoom is not focused on the mouse position, It should be focused on the mouse position, so i can zoom in and out on specific areas of the grid more easily and intuitively. What is under the mouse position should stay under the mouse position when zooming in and out, so i can control the zoom more precisely and easily.
 
-46 When dragging the grid during mask animation, the masks are not dragging with the grid, which results in weird placement.
-47 The path/trail for the mask animation must be much clearer.
+46 (Done) When dragging the grid during mask animation, the masks are not dragging with the grid, which results in weird placement.
+47 (Done) The path/trail for the mask animation must be much clearer.
 48 When handling large grids (100k+ bits), not everytthing is rendered anymore. In case of large grids, at a certain zoom level start making little quads per group instead of per bit for performance.
-49 Make the touch order and cachline hits annotations a bit wider, so all the text fits in there and is no cut off
-50 In the events panel, when a search text is entered, show a clear button to clear the search text and results, so i can easily go back to the full events list without having to delete the text manually.
-51 WHen the events panel is open, the fps on the canvas drops significantly, probably because of the increased DOM elements and the event listeners. Optimize the performance of the events panel when it is open, so i can use it without affecting the performance of the canvas too much. Consider using virtualization or windowing techniques to only render the visible events in the panel, and debounce or throttle the event listeners to reduce the frequency of updates.
-52 Upon hiding the settings panel, it should not disapper, reappear and then fade out. Instead, it should just slide to the right side.
-53 When the events panel is open, have fout arrow buttons at the top right: to the left, down or up or right. When pressing down, slide the events down and dock the all events floater in the detail panel. When pressing right, slide the events up and animate it going in the all events floater. When pressing left, slide the events panel to the left and hide it, and undock the all events floater if it was docked. This way i can easily switch between having the events in the panel or in the detail panel, or hiding them completely. When pressing up, slide the events up and dock the the timeline in the top bar.
-54 Change the placement and appearnace of the top bar button to pop out the timeline into a floating widget. Make it a downward arrow on the right side of the event/events count.
-55 In the events panel, don't show the number of events in the header. Instead, show the number of selected items next to the "hide no-ops" on the right.
+49 (Done) Make the touch order and cachline hits annotations a bit wider, so all the text fits in there and is no cut off
+50 (Done) In the events panel, when a search text is entered, show a clear button to clear the search text and results, so i can easily go back to the full events list without having to delete the text manually.
+51 (Done) WHen the events panel is open, the fps on the canvas drops significantly, probably because of the increased DOM elements and the event listeners. Optimize the performance of the events panel when it is open, so i can use it without affecting the performance of the canvas too much. Consider using virtualization or windowing techniques to only render the visible events in the panel, and debounce or throttle the event listeners to reduce the frequency of updates.
+52 (Done) Upon hiding the settings panel, it should not disapper, reappear and then fade out. Instead, it should just slide to the right side.
+53 (Done) When the events panel is open, have fout arrow buttons at the top right: to the left, down or up or right. When pressing down, slide the events down and dock the all events floater in the detail panel. When pressing right, slide the events up and animate it going in the all events floater. When pressing left, slide the events panel to the left and hide it, and undock the all events floater if it was docked. This way i can easily switch between having the events in the panel or in the detail panel, or hiding them completely. When pressing up, slide the events up and dock the the timeline in the top bar.
+54 (Done) Change the placement and appearnace of the top bar button to pop out the timeline into a floating widget. Make it a downward arrow on the right side of the event/events count.
+55 (Done) In the events panel, don't show the number of events in the header. Instead, show the number of selected items next to the "hide no-ops" on the right.
+56 (Done) In the debug window, keep FPS, GL mode and other green text with At Risk, rendering mode and the panel with full debug report and the controle to choose AA oversample and the apply button. Remove "Force mode", "Show GL/glpyh bounds", "Restart Renderen", Force GL redraw, etc.
+57 (Done) Solve the problem where there is a message about offscreencanvas which is not supported in the current browser when in dev mode it is called twice in a row. 
+
 
 
 

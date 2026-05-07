@@ -141,6 +141,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     isEventsPanelCollapsed: panelCollapsed,
     toggleEventsPanel: onToggleCollapse,
     isAllEventsWidgetHidden,
+    showAllEventsWidget,
   } = usePanelLayoutContext();
 
   const listRef = useRef(null);
@@ -923,7 +924,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
           onMouseDown={handleHeaderTitleDragStart}
           title="Drag right to collapse"
         >
-          <h3>Events ({totalVisible}/{steps.length})</h3>
+          <h3>Events</h3>
           {!eventTitleVisible && onShowEventTitle && (
             <button
               className="events-panel-show-event-title-btn"
@@ -932,18 +933,32 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
               title="Show single-event widget"
             ><Eye size={12} /></button>
           )}
-          <button className="events-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Collapse events panel">
-            ◀
-          </button>
+          <div className="events-panel-dir-btns" onMouseDown={(e) => e.stopPropagation()}>
+            {onDockWidgetToTopBar && (
+              <button className="events-dir-btn" onClick={(e) => { e.stopPropagation(); onDockWidgetToTopBar(); }} title="Dock timeline in top bar">↑</button>
+            )}
+            {showAllEventsWidget && (
+              <button className="events-dir-btn events-dir-btn--popout" onClick={(e) => { e.stopPropagation(); showAllEventsWidget(); onToggleCollapse(); }} title="Pop out events into floating widget">↓</button>
+            )}
+            {onJoinWidgets && (
+              <button className="events-dir-btn" onClick={(e) => { e.stopPropagation(); onJoinWidgets(); }} title="Join with single-event widget">→</button>
+            )}
+            <button className="events-dir-btn" onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }} title="Collapse events panel">←</button>
+          </div>
         </div>
         {transportControls}
-        <input
-          className="event-search"
-          type="text"
-          placeholder="Search events…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <div className="event-search-row">
+          <input
+            className="event-search"
+            type="text"
+            placeholder="Search events…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search && (
+            <button className="event-search-clear" onClick={() => setSearch('')} onMouseDown={(e) => e.stopPropagation()} title="Clear search">✕</button>
+          )}
+        </div>
         {operations.length > 0 && (
           <div className="event-op-filter-row">
             <select className="event-filter event-filter-op" value={filterOp} onChange={(e) => setFilterOp(e.target.value)}>
@@ -994,6 +1009,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
             <input type="checkbox" checked={hideUnchanged} onChange={(e) => setHideUnchanged(e.target.checked)} />
             <span>Hide no-ops</span>
           </label>
+          <span className="events-visible-count" title={`${totalVisible} of ${steps.length} events visible`}>{totalVisible}/{steps.length}</span>
         </div>
       </div>
       <div className="event-list" ref={listRef} onWheel={onUserScroll}>
