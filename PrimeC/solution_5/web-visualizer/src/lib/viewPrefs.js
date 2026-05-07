@@ -283,6 +283,42 @@ function initialDebugWorkerGlyphMode(prefs) {
   return value === 'gl' || value === 'separate-text' ? value : 'gl';
 }
 
+function initialDebugRenderTuning(prefs) {
+  const tuning = prefs?.debugRenderTuning || {};
+  const asNullableNumber = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const asPercent = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : 100;
+  };
+  const legacyDpr = asNullableNumber(tuning.dprOverride);
+  const legacyGlW = asNullableNumber(tuning.glCssW);
+  const legacyGlH = asNullableNumber(tuning.glCssH);
+  const legacyOverlayW = asNullableNumber(tuning.overlayCssW);
+  const legacyOverlayH = asNullableNumber(tuning.overlayCssH);
+  const legacyGlyph2DW = asNullableNumber(tuning.glyph2DCssW);
+  const legacyGlyph2DH = asNullableNumber(tuning.glyph2DCssH);
+  return {
+    dprPercent: asPercent(tuning.dprPercent),
+    glPercent: asPercent(tuning.glPercent),
+    overlayPercent: asPercent(tuning.overlayPercent),
+    glyph2DPercent: asPercent(tuning.glyph2DPercent),
+    dprManualActive: tuning.dprManualActive === true || legacyDpr != null,
+    dprManualValue: asNullableNumber(tuning.dprManualValue) ?? legacyDpr,
+    glManualActive: tuning.glManualActive === true || legacyGlW != null || legacyGlH != null,
+    glManualW: asNullableNumber(tuning.glManualW) ?? legacyGlW,
+    glManualH: asNullableNumber(tuning.glManualH) ?? legacyGlH,
+    overlayManualActive: tuning.overlayManualActive === true || legacyOverlayW != null || legacyOverlayH != null,
+    overlayManualW: asNullableNumber(tuning.overlayManualW) ?? legacyOverlayW,
+    overlayManualH: asNullableNumber(tuning.overlayManualH) ?? legacyOverlayH,
+    glyph2DManualActive: tuning.glyph2DManualActive === true || legacyGlyph2DW != null || legacyGlyph2DH != null,
+    glyph2DManualW: asNullableNumber(tuning.glyph2DManualW) ?? legacyGlyph2DW,
+    glyph2DManualH: asNullableNumber(tuning.glyph2DManualH) ?? legacyGlyph2DH,
+  };
+}
+
 function initialPanelVisibility(prefs) {
   // Migrate legacy key: stepsPanelCollapsed → isEventsPanelCollapsed.
   // Read new key first; fall back to old key for users with saved prefs.
@@ -322,6 +358,7 @@ export function getInitialViewState() {
     canvasColors: initialCanvasColors(prefs),
     debugGlModeOverride: initialDebugGlModeOverride(prefs),
     debugWorkerGlyphMode: initialDebugWorkerGlyphMode(prefs),
+    debugRenderTuning: initialDebugRenderTuning(prefs),
     colorPreset: initialColorPreset(prefs),
     customColors: initialCustomColors(prefs),
     isAllEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),

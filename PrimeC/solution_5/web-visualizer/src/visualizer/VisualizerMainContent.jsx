@@ -109,8 +109,8 @@ export default function VisualizerMainContent(props) {
   const { revealStepRequest: navRevealStepRequest, revealCurrentStepInPanel, onOpenRawLog, onImportBenchmarkTiming, autoFitColumnCount } = navigation;
 
   // Debug
-  const { isToolsOpen: isDebugToolsOpen, theme = 'dark', isGlUnavailable, glDebugInfo, debugLayerMode, debugGlModeOverride = 'auto', debugWorkerGlyphMode = 'gl', debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY, isDebugCalibrationMode, handlers: debugHandlers = {} } = debug;
-  const { setDebugLayerMode, setDebugGlModeOverride, setDebugWorkerGlyphMode, setDebugGlOffsetX, setDebugGlOffsetY, setIsDebugCalibrationMode, applySnapshot: applyDebugSnapshot, forceGlRedraw } = debugHandlers;
+  const { isToolsOpen: isDebugToolsOpen, theme = 'dark', isGlUnavailable, glDebugInfo, debugLayerMode, debugGlModeOverride = 'auto', debugWorkerGlyphMode = 'gl', debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY, isDebugCalibrationMode, debugRenderTuning, handlers: debugHandlers = {} } = debug;
+  const { setDebugLayerMode, setDebugGlModeOverride, setDebugWorkerGlyphMode, setDebugGlOffsetX, setDebugGlOffsetY, setIsDebugCalibrationMode, setDebugRenderTuning, applySnapshot: applyDebugSnapshot, forceGlRedraw } = debugHandlers;
 
   return (
     <div
@@ -322,6 +322,7 @@ export default function VisualizerMainContent(props) {
             debugGlOffsetY,
             debugGlAutoOffsetY,
             isDebugCalibrationMode,
+            debugRenderTuning,
           }}
           debugHandlers={{
             setDebugLayerMode,
@@ -330,6 +331,7 @@ export default function VisualizerMainContent(props) {
             setDebugGlOffsetX,
             setDebugGlOffsetY,
             setIsDebugCalibrationMode,
+            setDebugRenderTuning,
             onApplyDebugSnapshot: applyDebugSnapshot,
             onForceGlRedraw: forceGlRedraw,
           }}

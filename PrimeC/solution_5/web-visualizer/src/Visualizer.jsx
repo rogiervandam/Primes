@@ -159,12 +159,14 @@ export default function Visualizer({
     debugGlOffsetY, setDebugGlOffsetY,
     debugGlAutoOffsetY, setDebugGlAutoOffsetY,
     isDebugCalibrationMode, setIsDebugCalibrationMode,
+    debugRenderTuning, setDebugRenderTuning,
     debugGlOffsetXRef, debugGlOffsetYRef, debugGlAutoOffsetYRef,
     glDebugLastUpdateRef, updateGlDebugInfo,
   } = useDebugTools({
     glRendererRef,
     initialDebugGlModeOverride: initialPrefs.debugGlModeOverride,
     initialDebugWorkerGlyphMode: initialPrefs.debugWorkerGlyphMode,
+    initialDebugRenderTuning: initialPrefs.debugRenderTuning,
   });
   const isMacPlatform = useMemo(() => detectIsMac(), []);
   const isWindowsPlatform = useMemo(() => detectIsWindows(), []);
@@ -423,6 +425,7 @@ export default function Visualizer({
     debugGlOffsetX,
     debugGlOffsetY,
     debugGlAutoOffsetY,
+    debugRenderTuning,
     setDebugGlAutoOffsetY,
     setCamera3DTransform,
     setCamera3DContainerStyle,
@@ -540,6 +543,7 @@ export default function Visualizer({
     canvasColors,
     debugGlModeOverride,
     debugWorkerGlyphMode,
+    debugRenderTuning,
     colorPreset,
     customColors,
     eventDurationMode,
@@ -1456,6 +1460,7 @@ export default function Visualizer({
     debugGlOffsetY,
     debugGlAutoOffsetY,
     isDebugCalibrationMode,
+    debugRenderTuning,
   };
 
   // UI chrome visibility & settings
@@ -1808,6 +1813,7 @@ export default function Visualizer({
       debugGlOffsetY,
       debugGlAutoOffsetY,
       isDebugCalibrationMode,
+      debugRenderTuning,
       handlers: {
         setDebugLayerMode,
         setDebugGlModeOverride,
@@ -1816,6 +1822,7 @@ export default function Visualizer({
         setDebugGlOffsetY,
         setDebugGlAutoOffsetY,
         setIsDebugCalibrationMode,
+        setDebugRenderTuning,
         applySnapshot: applyDebugSnapshot,
         forceGlRedraw,
       },

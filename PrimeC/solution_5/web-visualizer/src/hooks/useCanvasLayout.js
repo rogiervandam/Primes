@@ -38,6 +38,7 @@ export function useCanvasLayout({
   debugGlOffsetX,
   debugGlOffsetY,
   debugGlAutoOffsetY,
+  debugRenderTuning,
   setDebugGlAutoOffsetY,
   setCamera3DTransform,
   setCamera3DContainerStyle,
@@ -46,6 +47,28 @@ export function useCanvasLayout({
   updateMinimapAvailability,
   getMinimapDetailH,
 }) {
+  const asPositiveNumber = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+
+  const asPercent = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : 100;
+  };
+
+  const resolveLayerCssSize = (baseW, baseH, percentValue, manualActive, manualW, manualH) => {
+    const scale = asPercent(percentValue) / 100;
+    const fallbackW = baseW * scale;
+    const fallbackH = baseH * scale;
+    const w = manualActive ? (asPositiveNumber(manualW) || fallbackW) : fallbackW;
+    const h = manualActive ? (asPositiveNumber(manualH) || fallbackH) : fallbackH;
+    return {
+      width: Math.max(1, Math.round(w)),
+      height: Math.max(1, Math.round(h)),
+    };
+  };
+
   // Keep a ref to camera3DTransform so callbacks that don't list it in their
   // dep array can still read the latest value without creating stale closures.
   const camera3DTransformRef = useRef(camera3DTransform);
@@ -213,16 +236,53 @@ export function useCanvasLayout({
 
     const oldCanvasW = r.canvasWidth || 0;
     const oldCanvasH = r.canvasHeight || 0;
+    const baseDpr = ((typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+    const dprPercent = asPercent(debugRenderTuning?.dprPercent);
+    const computedDpr = baseDpr * (dprPercent / 100);
+    const forcedDpr = debugRenderTuning?.dprManualActive
+      ? (asPositiveNumber(debugRenderTuning?.dprManualValue) || computedDpr)
+      : computedDpr;
+    const glCssSize = resolveLayerCssSize(
+      canvasW,
+      canvasH,
+      debugRenderTuning?.glPercent,
+      debugRenderTuning?.glManualActive === true,
+      debugRenderTuning?.glManualW,
+      debugRenderTuning?.glManualH,
+    );
+    const overlayCssSize = resolveLayerCssSize(
+      canvasW,
+      canvasH,
+      debugRenderTuning?.overlayPercent,
+      debugRenderTuning?.overlayManualActive === true,
+      debugRenderTuning?.overlayManualW,
+      debugRenderTuning?.overlayManualH,
+    );
+    const glyph2DCssSize = resolveLayerCssSize(
+      canvasW,
+      canvasH,
+      debugRenderTuning?.glyph2DPercent,
+      debugRenderTuning?.glyph2DManualActive === true,
+      debugRenderTuning?.glyph2DManualW,
+      debugRenderTuning?.glyph2DManualH,
+    );
+    const hasLayerSizeOverride =
+      glCssSize.width !== canvasW
+      || glCssSize.height !== canvasH
+      || overlayCssSize.width !== canvasW
+      || overlayCssSize.height !== canvasH
+      || glyph2DCssSize.width !== canvasW
+      || glyph2DCssSize.height !== canvasH;
     const glRenderer = glRendererRef.current;
     const glDirectMode = !!(glRenderer && typeof glRenderer.isDirectMode === 'function' && glRenderer.isDirectMode());
     let overlayDpr = null;
     if (glRenderer) {
-      glRenderer.resize(canvasW, canvasH);
+      glRenderer.resize(canvasW, canvasH, forcedDpr);
       if (glDirectMode && typeof glRenderer.getEffectiveDpr === 'function') {
         overlayDpr = glRenderer.getEffectiveDpr();
       }
     }
-    r.resize(canvasW, canvasH, overlayDpr);
+    r.resize(canvasW, canvasH, forcedDpr || overlayDpr);
     // Sync wrapper div and GL canvas dimensions so translate(-50%,-50%) in
     // renderCanvasStyle computes the correct pixel shift (50% of the wrapper's
     // own size) and the GL canvas CSS display always matches Canvas2D.
@@ -268,6 +328,8 @@ export function useCanvasLayout({
     setDebugGlAutoOffsetY((prev) => (prev === autoGlOffsetY ? prev : autoGlOffsetY));
     const totalGlOffsetX = debugGlOffsetXRef.current || 0;
     const totalGlOffsetY = autoGlOffsetY + (debugGlOffsetYRef.current || 0);
+    const centeredGlLeft = (canvasW - glCssSize.width) / 2 + totalGlOffsetX;
+    const centeredGlTop = (canvasH - glCssSize.height) / 2 + totalGlOffsetY;
     // Rotation string shared by both the GL canvas and the glyph overlay canvas.
     // Defined outside if(glEl) so the glyph canvas update below can use it.
     const rotStr = camera3DTransformRef.current !== 'none' ? camera3DTransformRef.current : '';
@@ -277,8 +339,8 @@ export function useCanvasLayout({
       // Always keep GL anchored from top-left with explicit size. Chromium can
       // behave inconsistently when right/bottom constraints remain active while
       // width/height are also assigned dynamically.
-      glEl.style.left = `${totalGlOffsetX}px`;
-      glEl.style.top = `${totalGlOffsetY}px`;
+      glEl.style.left = `${centeredGlLeft}px`;
+      glEl.style.top = `${centeredGlTop}px`;
       glEl.style.right = 'auto';
       glEl.style.bottom = 'auto';
 
@@ -287,10 +349,16 @@ export function useCanvasLayout({
         // need the worker catch-up CSS lock. Applying it in Chromium can
         // itself introduce drift during horizontal window growth.
         glCssLockStateRef.current = null;
-        glEl.style.width = `${canvasW}px`;
-        glEl.style.height = `${canvasH}px`;
+        glEl.style.width = `${glCssSize.width}px`;
+        glEl.style.height = `${glCssSize.height}px`;
         glEl.style.transform = makeGlTransform('');
       } else {
+        if (hasLayerSizeOverride) {
+          glCssLockStateRef.current = null;
+          glEl.style.width = `${glCssSize.width}px`;
+          glEl.style.height = `${glCssSize.height}px`;
+          glEl.style.transform = makeGlTransform('');
+        } else {
         const activeGlCssLock = glCssLockStateRef.current;
         if (!glSizeChanging) {
           if (activeGlCssLock
@@ -343,16 +411,25 @@ export function useCanvasLayout({
             translateTransform: lockTranslate,
           };
         }
+        }
       }
     }
     // Apply the same rotation to the glyph overlay canvas. It fills the wrapper
     // via CSS (inset: 0) so only the rotation is needed — no position offset.
     const glyphOverlayEl = glyphCanvasRef.current;
     if (glyphOverlayEl) {
+      glyphOverlayEl.style.left = `${(canvasW - overlayCssSize.width) / 2}px`;
+      glyphOverlayEl.style.top = `${(canvasH - overlayCssSize.height) / 2}px`;
+      glyphOverlayEl.style.width = `${overlayCssSize.width}px`;
+      glyphOverlayEl.style.height = `${overlayCssSize.height}px`;
       glyphOverlayEl.style.transform = rotStr;
     }
     const glyph2DOverlayEl = glyph2DCanvasRef.current;
     if (glyph2DOverlayEl) {
+      glyph2DOverlayEl.style.left = `${(canvasW - glyph2DCssSize.width) / 2}px`;
+      glyph2DOverlayEl.style.top = `${(canvasH - glyph2DCssSize.height) / 2}px`;
+      glyph2DOverlayEl.style.width = `${glyph2DCssSize.width}px`;
+      glyph2DOverlayEl.style.height = `${glyph2DCssSize.height}px`;
       glyph2DOverlayEl.style.transform = rotStr;
     }
     // Keep grid content stable when the window (and therefore the canvas)
@@ -406,7 +483,7 @@ export function useCanvasLayout({
     // explicit worker render-ack before unlocking GL canvas CSS to the new
     // dimensions so the browser never stretches an old drawing buffer.
     // Keep a short timeout fallback to avoid stalls if the worker is busy.
-    if (glSizeChanging && !glDirectMode) {
+    if (glSizeChanging && !glDirectMode && !hasLayerSizeOverride) {
       const targetW = canvasW;
       const targetH = canvasH;
       const targetEl = glEl;
@@ -477,7 +554,7 @@ export function useCanvasLayout({
     }
     updateMinimapAvailability();
     if (isMinimapVisible) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
-  }, [getCanvasTargetSize, isMinimapVisible, getMinimapDetailH, updateMinimapAvailability, setCamera3DTransform, setCamera3DContainerStyle, debugGlOffsetX, debugGlOffsetY]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [getCanvasTargetSize, isMinimapVisible, getMinimapDetailH, updateMinimapAvailability, setCamera3DTransform, setCamera3DContainerStyle, debugGlOffsetX, debugGlOffsetY, debugRenderTuning]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep manual debug offsets responsive even when no resize/layout event is
   // in flight. This updates both direct GL canvas placement and the Canvas2D
@@ -486,16 +563,46 @@ export function useCanvasLayout({
     const glEl = glCanvasRef.current;
     const rr = rendererRef.current;
     const totalGlOffsetY = (debugGlAutoOffsetY || 0) + (debugGlOffsetY || 0);
+    const canvasW = rr?.canvasWidth || 0;
+    const canvasH = rr?.canvasHeight || 0;
+    const glCssSize = resolveLayerCssSize(
+      canvasW,
+      canvasH,
+      debugRenderTuning?.glPercent,
+      debugRenderTuning?.glManualActive === true,
+      debugRenderTuning?.glManualW,
+      debugRenderTuning?.glManualH,
+    );
     if (glEl) {
-      glEl.style.left = `${debugGlOffsetX || 0}px`;
-      glEl.style.top = `${totalGlOffsetY}px`;
+      glEl.style.left = `${(canvasW - glCssSize.width) / 2 + (debugGlOffsetX || 0)}px`;
+      glEl.style.top = `${(canvasH - glCssSize.height) / 2 + totalGlOffsetY}px`;
       glEl.style.right = 'auto';
       glEl.style.bottom = 'auto';
     }
     if (rr) {
       rr.render();
     }
-  }, [debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY, debugRenderTuning]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    refreshCanvasLayout();
+  }, [
+    debugRenderTuning?.dprPercent,
+    debugRenderTuning?.dprManualActive,
+    debugRenderTuning?.dprManualValue,
+    debugRenderTuning?.glPercent,
+    debugRenderTuning?.glManualActive,
+    debugRenderTuning?.glManualW,
+    debugRenderTuning?.glManualH,
+    debugRenderTuning?.overlayPercent,
+    debugRenderTuning?.overlayManualActive,
+    debugRenderTuning?.overlayManualW,
+    debugRenderTuning?.overlayManualH,
+    debugRenderTuning?.glyph2DPercent,
+    debugRenderTuning?.glyph2DManualActive,
+    debugRenderTuning?.glyph2DManualW,
+    debugRenderTuning?.glyph2DManualH,
+  ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep the GL canvas rotation up-to-date whenever the camera changes.
   // Previously the rotation lived in renderCanvasStyle (React state on the
