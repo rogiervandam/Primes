@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { logApiPlugin } from './server-plugin.mjs';
+import { logApiPlugin } from './server/server-plugin.mjs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 

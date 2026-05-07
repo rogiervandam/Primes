@@ -118,6 +118,14 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 41 Dragging the grid is not fluent: it is stuck a few times a second
 42 Dragging the single-event widget feels heavy, like there is a delay between the mouse movement and the widget movement. It should feel more responsive and fluid.
 
+Make the minimap canvas just the size shown on screen, and have it be a floating DOM element on the very top. 
+
+43 I want to be able to try different setups for the rendering and the animation, and be able to switch between them easily, because i experience bugs (probably in the browser) on different devices and screen sizes. I want to have controls for 
+
+Suggest a few different rendering and animation approaches, and implement them as switchable modes behind a single preference key.
+1. all glyphs are rendered 2d in a canvas using the layout arrangement, annotations, etc. Then the whole canvas is compressed and send to the webgl layer as a texture, and the webgl layer does the merge with the 3d grid and the tilt.
+2, glyphs are  
+
 
 ## New Ideas
 

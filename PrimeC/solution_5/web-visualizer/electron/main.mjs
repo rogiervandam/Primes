@@ -11,7 +11,7 @@ import {
 } from 'fs';
 import { join, dirname, basename, resolve, extname } from 'path';
 import { fileURLToPath } from 'url';
-import { handleLogApiRequest, sendJson } from '../log-api-utils.mjs';
+import { handleLogApiRequest, sendJson } from '../server/log-api-utils.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const distDir = resolve(__dirname, '..', 'dist');
