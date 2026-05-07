@@ -3,6 +3,7 @@ import { SieveRenderer } from '../SieveRenderer';
 import { BitGridGLWorker } from '../renderer/gl/BitGridGLWorker';
 import { GlyphTextGLCore } from '../renderer/gl/GlyphTextGLCore';
 import { GlyphTextCanvas2D } from '../renderer/canvas/GlyphTextCanvas2D';
+import { usesWebGLTilt } from '../lib/renderModes';
 
 function setGlyphOverlayVisibility(glGlyphCanvas, canvas2DGlyphCanvas, mode) {
   if (glGlyphCanvas) {
@@ -49,8 +50,10 @@ export function useRendererBootstrap({
   pendingRenderRafRef,
   createCamera,
   disposeCamera,
+  camera3DRef,
   setZoom,
   getMinimapDetailH,
+  renderMode = 'mode3-direct',
   debugGlModeOverride = 'auto',
   debugWorkerGlyphMode = 'gl',
   renderModeRestartNonce = 0,
@@ -136,6 +139,8 @@ export function useRendererBootstrap({
       const zoom = Math.max(0.01, liveRenderer.zoom || 1);
       const bitColors = liveRenderer._bitColors();
       const changed = liveRenderer._opColor();
+      const cam = camera3DRef?.current;
+      const glTiltActive = usesWebGLTilt(renderMode);
       const renderParams = {
         panX: liveRenderer.panX || 0,
         panY: liveRenderer.panY || 0,
@@ -146,8 +151,24 @@ export function useRendererBootstrap({
         changedColor: changed,
         repeatedColor: [245, 158, 11],
         baseAlpha: Math.max(0.12, Math.min(1, liveRenderer.gridOpacity ?? 1)),
+        enableGlTilt: glTiltActive,
+        tiltXDeg: glTiltActive && cam?.enabled ? (cam.rotateX || 0) : 0,
+        tiltYDeg: glTiltActive && cam?.enabled ? (cam.rotateY || 0) : 0,
+        perspective: glTiltActive && cam?.enabled ? (cam.perspective || 1500) : 1500,
         ...liveRenderer.glLayoutParams(),
       };
+
+      // Sync the glyph GL renderer's tilt state so text is projected with
+      // the same 3D perspective transform as the bit-grid shader.
+      const glyphGLRend = glyphGLRendererRef.current;
+      if (glyphGLRend && typeof glyphGLRend.setTilt === 'function') {
+        glyphGLRend.setTilt(
+          renderParams.tiltXDeg,
+          renderParams.tiltYDeg,
+          renderParams.perspective,
+          renderParams.enableGlTilt ? 1 : 0,
+        );
+      }
 
       let renderSeq;
       if (liveRenderer._glyphBuf) {
@@ -209,8 +230,10 @@ export function useRendererBootstrap({
     pendingRenderRafRef,
     createCamera,
     disposeCamera,
+    camera3DRef,
     setZoom,
     getMinimapDetailH,
+    renderMode,
   ]);
 
   useEffect(() => {

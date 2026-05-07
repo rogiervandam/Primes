@@ -438,6 +438,7 @@ export default function Visualizer({
     debugGlOffsetY,
     debugGlAutoOffsetY,
     debugRenderTuning,
+    renderMode,
     setDebugGlAutoOffsetY,
     setCamera3DTransform,
     setCamera3DContainerStyle,
@@ -607,6 +608,7 @@ export default function Visualizer({
       stepsRef,
       currentStepRef,
       pendingResizeAnchorRef,
+      camera3DRef,
     },
     rendererConfig: {
       header,
@@ -633,6 +635,7 @@ export default function Visualizer({
       isDebugCalibrationMode,
       debugGlModeOverride,
       debugWorkerGlyphMode,
+      renderMode,
       renderModeRestartNonce,
       mode3D,
     },

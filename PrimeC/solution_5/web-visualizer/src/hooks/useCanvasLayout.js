@@ -4,6 +4,7 @@ import {
   computeSafeTiltDegrees,
   computeAutoGlYOffset,
 } from '../lib/canvasProjection';
+import { usesWebGLTilt } from '../lib/renderModes';
 
 /**
  * Owns the oversized-plane canvas geometry, GL CSS lock management,
@@ -39,6 +40,7 @@ export function useCanvasLayout({
   debugGlOffsetY,
   debugGlAutoOffsetY,
   debugRenderTuning,
+  renderMode,
   setDebugGlAutoOffsetY,
   setCamera3DTransform,
   setCamera3DContainerStyle,
@@ -101,7 +103,9 @@ export function useCanvasLayout({
         glEl.style.width = `${w}px`;
         glEl.style.height = `${h}px`;
       }
-      const rot = camera3DTransformRef.current !== 'none' ? camera3DTransformRef.current : '';
+      const rot = usesWebGLTilt(renderMode)
+        ? ''
+        : (camera3DTransformRef.current !== 'none' ? camera3DTransformRef.current : '');
       glEl.style.transform = rot;
     }
     // Force a full redraw (Canvas2D + GL worker).
@@ -242,6 +246,7 @@ export function useCanvasLayout({
     const forcedDpr = debugRenderTuning?.dprManualActive
       ? (asPositiveNumber(debugRenderTuning?.dprManualValue) || computedDpr)
       : computedDpr;
+    const useShaderTilt = usesWebGLTilt(renderMode);
     const glCssSize = resolveLayerCssSize(
       canvasW,
       canvasH,
@@ -258,6 +263,9 @@ export function useCanvasLayout({
       debugRenderTuning?.overlayManualW,
       debugRenderTuning?.overlayManualH,
     );
+    // In shader-tilt modes the glyph GL overlay must share the exact same
+    // CSS geometry as the bit-grid layer, otherwise perspective depth drifts.
+    const effectiveOverlayCssSize = useShaderTilt ? glCssSize : overlayCssSize;
     const glyph2DCssSize = resolveLayerCssSize(
       canvasW,
       canvasH,
@@ -269,8 +277,8 @@ export function useCanvasLayout({
     const hasLayerSizeOverride =
       glCssSize.width !== canvasW
       || glCssSize.height !== canvasH
-      || overlayCssSize.width !== canvasW
-      || overlayCssSize.height !== canvasH
+      || effectiveOverlayCssSize.width !== canvasW
+      || effectiveOverlayCssSize.height !== canvasH
       || glyph2DCssSize.width !== canvasW
       || glyph2DCssSize.height !== canvasH;
     const glRenderer = glRendererRef.current;
@@ -315,7 +323,7 @@ export function useCanvasLayout({
       ? { rotateX: cam.rotateX || 0, rotateY: cam.rotateY || 0 }
       : { rotateX: 0, rotateY: 0 };
     let autoGlOffsetY = 0;
-    if (glDirectMode && glRenderer && typeof glRenderer.getEffectiveDpr === 'function') {
+    if (!usesWebGLTilt(renderMode) && glDirectMode && glRenderer && typeof glRenderer.getEffectiveDpr === 'function') {
       autoGlOffsetY = computeAutoGlYOffset(
         canvasH,
         glRenderer.getEffectiveDpr(),
@@ -332,7 +340,9 @@ export function useCanvasLayout({
     const centeredGlTop = (canvasH - glCssSize.height) / 2 + totalGlOffsetY;
     // Rotation string shared by both the GL canvas and the glyph overlay canvas.
     // Defined outside if(glEl) so the glyph canvas update below can use it.
-    const rotStr = camera3DTransformRef.current !== 'none' ? camera3DTransformRef.current : '';
+    const rotStr = useShaderTilt
+      ? ''
+      : (camera3DTransformRef.current !== 'none' ? camera3DTransformRef.current : '');
     const makeGlTransform = (translateStr) => [rotStr, translateStr].filter(Boolean).join(' ');
 
     if (glEl) {
@@ -418,10 +428,10 @@ export function useCanvasLayout({
     // via CSS (inset: 0) so only the rotation is needed — no position offset.
     const glyphOverlayEl = glyphCanvasRef.current;
     if (glyphOverlayEl) {
-      glyphOverlayEl.style.left = `${(canvasW - overlayCssSize.width) / 2}px`;
-      glyphOverlayEl.style.top = `${(canvasH - overlayCssSize.height) / 2}px`;
-      glyphOverlayEl.style.width = `${overlayCssSize.width}px`;
-      glyphOverlayEl.style.height = `${overlayCssSize.height}px`;
+      glyphOverlayEl.style.left = `${(canvasW - effectiveOverlayCssSize.width) / 2}px`;
+      glyphOverlayEl.style.top = `${(canvasH - effectiveOverlayCssSize.height) / 2}px`;
+      glyphOverlayEl.style.width = `${effectiveOverlayCssSize.width}px`;
+      glyphOverlayEl.style.height = `${effectiveOverlayCssSize.height}px`;
       glyphOverlayEl.style.transform = rotStr;
     }
     const glyph2DOverlayEl = glyph2DCanvasRef.current;
@@ -517,7 +527,9 @@ export function useCanvasLayout({
             targetEl.style.width = `${targetW}px`;
             targetEl.style.height = `${targetH}px`;
             // Restore just the rotation — no resize-lock translate remains.
-            const rot = camera3DTransformRef.current !== 'none' ? camera3DTransformRef.current : '';
+            const rot = usesWebGLTilt(renderMode)
+              ? ''
+              : (camera3DTransformRef.current !== 'none' ? camera3DTransformRef.current : '');
             targetEl.style.transform = rot;
             // Keep glyph overlay in sync.
             const glyphUnlockEl = glyphCanvasRef.current;
@@ -554,7 +566,7 @@ export function useCanvasLayout({
     }
     updateMinimapAvailability();
     if (isMinimapVisible) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
-  }, [getCanvasTargetSize, isMinimapVisible, getMinimapDetailH, updateMinimapAvailability, setCamera3DTransform, setCamera3DContainerStyle, debugGlOffsetX, debugGlOffsetY, debugRenderTuning]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [getCanvasTargetSize, isMinimapVisible, getMinimapDetailH, updateMinimapAvailability, setCamera3DTransform, setCamera3DContainerStyle, debugGlOffsetX, debugGlOffsetY, debugRenderTuning, renderMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep manual debug offsets responsive even when no resize/layout event is
   // in flight. This updates both direct GL canvas placement and the Canvas2D
@@ -611,7 +623,9 @@ export function useCanvasLayout({
   // The resize-lock translate (if any) is preserved by reading the current
   // transform and extracting the rotation part from camera3DTransformRef.
   useEffect(() => {
-    const rotStr = camera3DTransform !== 'none' ? camera3DTransform : '';
+    const rotStr = usesWebGLTilt(renderMode)
+      ? ''
+      : (camera3DTransform !== 'none' ? camera3DTransform : '');
     const lockTranslate = glCssLockStateRef.current?.translateTransform || '';
     const glEl = glCanvasRef.current;
     if (glEl) {
@@ -626,7 +640,7 @@ export function useCanvasLayout({
     if (glyph2DEl) {
       glyph2DEl.style.transform = rotStr;
     }
-  }, [camera3DTransform]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [camera3DTransform, renderMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     getCanvasTargetSize,

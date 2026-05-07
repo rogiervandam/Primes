@@ -45,8 +45,12 @@ layout(location = 2) in vec4 a_uvRect;      // u0, v0, u1, v1
 layout(location = 3) in vec4 a_color;       // r, g, b, a  (already premultiplied)
 layout(location = 4) in float a_mode;       // 0 = glyph, 1 = circle
 
-uniform vec2 u_canvasSize;   // CSS px
+uniform vec2  u_canvasSize;    // CSS px
 uniform float u_dpr;
+uniform float u_tiltXDeg;      // shader-space tilt around X axis (degrees)
+uniform float u_tiltYDeg;      // shader-space tilt around Y axis (degrees)
+uniform float u_perspective;   // camera perspective distance in CSS px
+uniform int   u_enableGlTilt;  // 0 = 2D path, 1 = shader 3D path
 
 flat out vec4  v_color;
 flat out float v_mode;
@@ -70,9 +74,29 @@ void main() {
     pos = floor(pos * u_dpr + 0.5) / u_dpr;
   }
 
-  vec2 clip = (pos / u_canvasSize) * 2.0 - 1.0;
-  clip.y = -clip.y;
-  gl_Position = vec4(clip, 0.0, 1.0);
+  if (u_enableGlTilt != 0) {
+    float cx  = u_canvasSize.x * 0.5;
+    float cy  = u_canvasSize.y * 0.5;
+    float rx  = radians(u_tiltXDeg);
+    float ry  = radians(u_tiltYDeg);
+    float sx  = sin(rx);  float cxr = cos(rx);
+    float sy  = sin(ry);  float cyr = cos(ry);
+    vec3 p    = vec3(pos.x - cx, -(pos.y - cy), 0.0);
+    vec3 px   = vec3(p.x,  p.y * cxr - p.z * sx,  p.y * sx + p.z * cxr);
+    vec3 py   = vec3(px.x * cyr + px.z * sy, px.y, -px.x * sy + px.z * cyr);
+    float perspective = max(1.0, u_perspective);
+    float depth = perspective / max(1.0, perspective - py.z);
+    vec2 proj = py.xy * depth;
+    float screenX = proj.x + cx;
+    float screenY = cy - proj.y;
+    vec2 clip = (vec2(screenX, screenY) / u_canvasSize) * 2.0 - 1.0;
+    clip.y = -clip.y;
+    gl_Position = vec4(clip, 0.0, 1.0);
+  } else {
+    vec2 clip = (pos / u_canvasSize) * 2.0 - 1.0;
+    clip.y = -clip.y;
+    gl_Position = vec4(clip, 0.0, 1.0);
+  }
 }`;
 
 const FS = `#version 300 es
@@ -169,6 +193,10 @@ export class GlyphTextGLCore {
     this._cssH       = 1;
     this._dpr        = 1;
     this._lost       = false;
+    this._tiltXDeg      = 0;
+    this._tiltYDeg      = 0;
+    this._tiltPerspective = 1200;
+    this._enableGlTilt  = 0;
   }
 
   /**
@@ -227,9 +255,13 @@ export class GlyphTextGLCore {
     gl.deleteShader(fs);
     const u = (n) => gl.getUniformLocation(this._program, n);
     this._uniforms = {
-      canvasSize: u('u_canvasSize'),
-      dpr:        u('u_dpr'),
-      atlas:      u('u_atlas'),
+      canvasSize:   u('u_canvasSize'),
+      dpr:          u('u_dpr'),
+      atlas:        u('u_atlas'),
+      tiltXDeg:     u('u_tiltXDeg'),
+      tiltYDeg:     u('u_tiltYDeg'),
+      perspective:  u('u_perspective'),
+      enableGlTilt: u('u_enableGlTilt'),
     };
   }
 
@@ -288,6 +320,24 @@ export class GlyphTextGLCore {
     atlas.build();
     atlas.upload(this.gl); // binds TEXTURE0 during upload
     this._atlas = atlas;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tilt
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Set the 3D shader tilt parameters. Call before render when WebGL tilt is active.
+   * @param {number} tiltXDeg
+   * @param {number} tiltYDeg
+   * @param {number} perspective
+   * @param {number} enableGlTilt  0 = disabled, 1 = enabled
+   */
+  setTilt(tiltXDeg, tiltYDeg, perspective, enableGlTilt) {
+    this._tiltXDeg       = tiltXDeg      || 0;
+    this._tiltYDeg       = tiltYDeg      || 0;
+    this._tiltPerspective = perspective  || 1200;
+    this._enableGlTilt   = enableGlTilt  || 0;
   }
 
   // ---------------------------------------------------------------------------
@@ -590,8 +640,12 @@ export class GlyphTextGLCore {
     gl.bindTexture(gl.TEXTURE_2D, this._atlas.texture);
     gl.uniform1i(this._uniforms.atlas, 0);
 
-    gl.uniform2f(this._uniforms.canvasSize, this._cssW, this._cssH);
-    gl.uniform1f(this._uniforms.dpr,        this._dpr);
+    gl.uniform2f(this._uniforms.canvasSize,   this._cssW, this._cssH);
+    gl.uniform1f(this._uniforms.dpr,           this._dpr);
+    gl.uniform1f(this._uniforms.tiltXDeg,      this._tiltXDeg);
+    gl.uniform1f(this._uniforms.tiltYDeg,      this._tiltYDeg);
+    gl.uniform1f(this._uniforms.perspective,   this._tiltPerspective);
+    gl.uniform1i(this._uniforms.enableGlTilt,  this._enableGlTilt);
 
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this._count);
 

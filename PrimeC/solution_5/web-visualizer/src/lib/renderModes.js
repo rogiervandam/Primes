@@ -60,6 +60,10 @@ export function getRenderModeBackendPreset(mode) {
   const normalized = normalizeRenderMode(mode);
   switch (normalized) {
     case RENDER_MODES.MODE1_DIRECT:
+      return {
+        glMode: 'direct',
+        workerGlyphMode: 'gl',
+      };
     case RENDER_MODES.MODE2_DIRECT:
     case RENDER_MODES.MODE4_DIRECT:
       return {
@@ -72,6 +76,10 @@ export function getRenderModeBackendPreset(mode) {
         workerGlyphMode: 'gl',
       };
     case RENDER_MODES.MODE5_WORKER:
+      return {
+        glMode: 'worker',
+        workerGlyphMode: 'gl',
+      };
     case RENDER_MODES.MODE6_WORKER:
     case RENDER_MODES.MODE8_WORKER:
       return {
@@ -85,4 +93,10 @@ export function getRenderModeBackendPreset(mode) {
         workerGlyphMode: 'gl',
       };
   }
+}
+
+export function usesWebGLTilt(mode) {
+  const normalized = normalizeRenderMode(mode);
+  return normalized === RENDER_MODES.MODE1_DIRECT
+    || normalized === RENDER_MODES.MODE5_WORKER;
 }

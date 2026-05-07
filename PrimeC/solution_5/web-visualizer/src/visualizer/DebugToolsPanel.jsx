@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parseAppliedRotateAngles } from '../lib/canvasProjection';
-import { RENDER_MODE_OPTIONS } from '../lib/renderModes';
+import { RENDER_MODE_OPTIONS, usesWebGLTilt } from '../lib/renderModes';
 
 const EMPTY_SNAPSHOT = {
   fps: 0,
@@ -644,6 +644,7 @@ export default function DebugToolsPanel({
     const lines = [
       'GL MODE',
       `Mode: ${glDebugInfo?.mode ?? 'unknown'}`,
+      `Tilt backend: ${usesWebGLTilt(renderMode) ? 'WebGL (shader)' : 'CSS'}`,
       `Reason: ${glDebugInfo?.modeReason ?? 'unknown'}`,
       `At Risk: ${glDebugInfo?.isAtRisk ? 'YES' : 'NO'}`,
       `Viewport: ${glDebugInfo?.viewportWidth ?? '?'} x ${glDebugInfo?.viewportHeight ?? '?'}`,
@@ -988,9 +989,6 @@ export default function DebugToolsPanel({
           <div style={{ fontSize: '10px', lineHeight: '1.4', color: palette.sectionGl }}>
             <div>Render mode: <strong>{renderMode}</strong></div>
             <div>Override: <strong>{debugGlModeOverride}</strong></div>
-            <div>Requested: <strong>{glDebugInfo?.requestedMode || debugGlModeOverride}</strong></div>
-            <div>Mode: <strong>{glDebugInfo?.mode || 'unavailable'}</strong></div>
-            <div>Worker glyph: <strong>{debugWorkerGlyphMode}</strong></div>
             <div>Reason: {glDebugInfo?.modeReason || 'not initialized'}</div>
             <div>At Risk: <span style={{ color: glDebugInfo?.isAtRisk ? palette.bad : palette.good }}>
               {glDebugInfo?.isAtRisk ? 'YES' : 'NO'}
@@ -1043,30 +1041,6 @@ export default function DebugToolsPanel({
                 <option value="auto">Auto</option>
                 <option value="worker">Force worker</option>
                 <option value="direct">Force direct</option>
-              </select>
-            </div>
-          )}
-          {setDebugWorkerGlyphMode && (
-            <div style={{ marginTop: '8px' }}>
-              <label style={{ display: 'block', fontSize: '10px', color: palette.subtle, marginBottom: '4px' }}>
-                Worker glyph mode
-              </label>
-              <select
-                value={debugWorkerGlyphMode}
-                onChange={(e) => setDebugWorkerGlyphMode(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '5px 8px',
-                  borderRadius: '4px',
-                  border: `1px solid ${palette.buttonBorder}`,
-                  background: palette.buttonBg,
-                  color: palette.buttonFg,
-                  fontSize: '11px',
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="gl">GL glyph replay (worker)</option>
-                <option value="separate-text">Separate glyph layer (main thread)</option>
               </select>
             </div>
           )}

@@ -40,6 +40,7 @@ export function useRendererPipeline({ ...flatArgs }) {
     stepsRef,
     currentStepRef,
     pendingResizeAnchorRef,
+    camera3DRef,
   } = rendererRefs;
 
   const {
@@ -67,6 +68,7 @@ export function useRendererPipeline({ ...flatArgs }) {
     isDebugCalibrationMode,
     debugGlModeOverride,
     debugWorkerGlyphMode,
+    renderMode,
     renderModeRestartNonce,
     mode3D,
   } = rendererConfig;
@@ -116,6 +118,8 @@ export function useRendererPipeline({ ...flatArgs }) {
     disposeCamera,
     setZoom,
     getMinimapDetailH,
+    camera3DRef,
+    renderMode,
     debugGlModeOverride,
     debugWorkerGlyphMode,
     renderModeRestartNonce,
