@@ -15,8 +15,11 @@ function setGlyphOverlayVisibility(glGlyphCanvas, canvas2DGlyphCanvas, mode) {
 
 function selectGlyphRendererForMode(glRenderer, workerGlyphMode, glGlyphRenderer, canvas2DGlyphRenderer) {
   if (!glRenderer) return null;
-  if (glRenderer.isDirectMode()) return glGlyphRenderer || canvas2DGlyphRenderer || null;
+  // separate-text wins regardless of direct/worker mode (Modes 1,2,4,5,6,8)
   if (workerGlyphMode === 'separate-text') return canvas2DGlyphRenderer || glGlyphRenderer || null;
+  // Direct mode uses the GL glyph renderer when not separate-text (Mode 3)
+  if (glRenderer.isDirectMode()) return glGlyphRenderer || canvas2DGlyphRenderer || null;
+  // Worker + gl mode: glyph rendering is handled inside the GL worker (Mode 7)
   return null;
 }
 
@@ -50,6 +53,7 @@ export function useRendererBootstrap({
   getMinimapDetailH,
   debugGlModeOverride = 'auto',
   debugWorkerGlyphMode = 'gl',
+  renderModeRestartNonce = 0,
 }) {
   const baseRenderRef = useRef(null);
   const glyphGLRendererRef = useRef(null);
@@ -299,6 +303,7 @@ export function useRendererBootstrap({
     updateGlDebugInfo,
     pendingRenderRafRef,
     debugGlModeOverride,
+    renderModeRestartNonce,
   ]);
 
   useEffect(() => {

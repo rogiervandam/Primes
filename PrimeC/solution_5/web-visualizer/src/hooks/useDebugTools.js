@@ -30,13 +30,17 @@ export function useDebugTools({
   const [debugLayerMode, setDebugLayerMode] = useState('normal');
   const [renderMode, setRenderModeState] = useState(() => normalizeRenderMode(initialRenderMode));
   const [renderModeRestartNonce, setRenderModeRestartNonce] = useState(0);
+  // Derive initial GL settings from renderMode preset so state is always consistent
+  const _initialPreset = getRenderModeBackendPreset(normalizeRenderMode(initialRenderMode));
   const [debugGlModeOverride, setDebugGlModeOverride] = useState(
-    initialDebugGlModeOverride === 'worker' || initialDebugGlModeOverride === 'direct'
-      ? initialDebugGlModeOverride
-      : 'auto'
+    _initialPreset.glMode === 'direct' || _initialPreset.glMode === 'worker'
+      ? _initialPreset.glMode
+      : (initialDebugGlModeOverride === 'worker' || initialDebugGlModeOverride === 'direct'
+        ? initialDebugGlModeOverride
+        : 'auto')
   );
   const [debugWorkerGlyphMode, setDebugWorkerGlyphMode] = useState(
-    initialDebugWorkerGlyphMode === 'separate-text' ? 'separate-text' : 'gl'
+    _initialPreset.workerGlyphMode || (initialDebugWorkerGlyphMode === 'separate-text' ? 'separate-text' : 'gl')
   );
   const [debugGlOffsetX, setDebugGlOffsetX] = useState(0);
   const [debugGlOffsetY, setDebugGlOffsetY] = useState(0);
@@ -116,6 +120,9 @@ export function useDebugTools({
     setRenderModeState(normalized);
     setDebugGlModeOverride(preset.glMode);
     setDebugWorkerGlyphMode(preset.workerGlyphMode);
+    // Always force a GL reattachment on mode switch so the new canvas
+    // (from the key change) gets a fresh context with the correct mode.
+    setRenderModeRestartNonce((value) => value + 1);
   }, []);
 
   const restartRenderMode = useCallback(() => {

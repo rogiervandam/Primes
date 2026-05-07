@@ -633,6 +633,7 @@ export default function Visualizer({
       isDebugCalibrationMode,
       debugGlModeOverride,
       debugWorkerGlyphMode,
+      renderModeRestartNonce,
       mode3D,
     },
     rendererState: {

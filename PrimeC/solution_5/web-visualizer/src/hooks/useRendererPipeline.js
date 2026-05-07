@@ -67,6 +67,7 @@ export function useRendererPipeline({ ...flatArgs }) {
     isDebugCalibrationMode,
     debugGlModeOverride,
     debugWorkerGlyphMode,
+    renderModeRestartNonce,
     mode3D,
   } = rendererConfig;
 
@@ -117,6 +118,7 @@ export function useRendererPipeline({ ...flatArgs }) {
     getMinimapDetailH,
     debugGlModeOverride,
     debugWorkerGlyphMode,
+    renderModeRestartNonce,
   });
 
   useLoadingOverlayLifecycle({
