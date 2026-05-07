@@ -1610,6 +1610,7 @@ export default function Visualizer({
         },
       },
       settings: {
+        isCollapsed: isSettingsCollapsed,
         tabRequest: settingsPanelState.tabRequest,
         handlers: {
           setActiveTab: setSettingsActiveTab,

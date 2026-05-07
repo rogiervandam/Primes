@@ -153,6 +153,14 @@ function shouldPreferDirectMode(maxCanvasDimension) {
   return getDisplayRiskMetrics(maxCanvasDimension).isRisky;
 }
 
+function isDevBuild() {
+  try {
+    return !!(import.meta && import.meta.env && import.meta.env.DEV);
+  } catch {
+    return false;
+  }
+}
+
 export class BitGridGLWorker {
   constructor() {
     this.canvas = null;
@@ -208,8 +216,13 @@ export class BitGridGLWorker {
       preferDirectMode = false;
       this._directReason = 'forced-worker';
     } else {
-      preferDirectMode = safari || !workerSupported || nearGLLimit;
-      if (safari) this._directReason = 'safari';
+      // In React StrictMode dev builds, passive effects are intentionally
+      // mounted twice. Offscreen transfer is one-shot, so the second mount on
+      // the same canvas would fail. Prefer direct mode for auto selection.
+      const devAutoDirect = isDevBuild();
+      preferDirectMode = devAutoDirect || safari || !workerSupported || nearGLLimit;
+      if (devAutoDirect) this._directReason = 'dev-auto';
+      else if (safari) this._directReason = 'safari';
       else if (!workerSupported) this._directReason = 'worker-unsupported';
       else if (nearGLLimit) this._directReason = 'near-gpu-limit';
       else this._directReason = 'worker-path';
@@ -238,10 +251,17 @@ export class BitGridGLWorker {
     let offscreen;
     try {
       offscreen = canvas.transferControlToOffscreen();
+      canvas.__offscreenTransferred = true;
     } catch (err) {
-      // `transferControlToOffscreen` throws if the canvas already had a
-      // 2D/WebGL context — defensive in case our React mount order ever
-      // changes.
+      // One-shot transfer: once a canvas is transferred, main-thread
+      // getContext() is permanently unavailable. Do NOT attempt direct-mode
+      // fallback on this same element.
+      if (err instanceof DOMException && err.name === 'InvalidStateError') {
+        this._directReason = 'offscreen-already-transferred';
+        this._lost = true;
+        console.warn('[BitGridGLWorker] transferControlToOffscreen failed: canvas already transferred', err);
+        return false;
+      }
       console.warn('[BitGridGLWorker] transferControlToOffscreen failed:', err);
       this._lost = true;
       return false;
