@@ -22,7 +22,7 @@ export const RENDER_MODE_OPTIONS = [
   },
   {
     value: RENDER_MODES.MODE3_DIRECT,
-    label: '3. Combined GL textured quads (direct)',
+    label: '3. Single GL canvas + 3D shader (direct)',
   },
   {
     value: RENDER_MODES.MODE4_DIRECT,
@@ -38,7 +38,7 @@ export const RENDER_MODE_OPTIONS = [
   },
   {
     value: RENDER_MODES.MODE7_WORKER,
-    label: '7. Mode 3 (worker lane)',
+    label: '7. Single GL canvas + 3D shader (worker)',
   },
   {
     value: RENDER_MODES.MODE8_WORKER,
@@ -98,5 +98,19 @@ export function getRenderModeBackendPreset(mode) {
 export function usesWebGLTilt(mode) {
   const normalized = normalizeRenderMode(mode);
   return normalized === RENDER_MODES.MODE1_DIRECT
-    || normalized === RENDER_MODES.MODE5_WORKER;
+    || normalized === RENDER_MODES.MODE3_DIRECT
+    || normalized === RENDER_MODES.MODE5_WORKER
+    || normalized === RENDER_MODES.MODE7_WORKER;
+}
+
+/**
+ * Returns true for modes that render everything into a single viewport-sized
+ * WebGL canvas (no oversized drag-headroom plane, no separate glyph overlay).
+ * Grid cells, text, overlays, and 3D transform are all done by the bit-grid
+ * GL context; the glyph-render-canvas is hidden.
+ */
+export function usesViewportSizeCanvas(mode) {
+  const normalized = normalizeRenderMode(mode);
+  return normalized === RENDER_MODES.MODE3_DIRECT
+    || normalized === RENDER_MODES.MODE7_WORKER;
 }

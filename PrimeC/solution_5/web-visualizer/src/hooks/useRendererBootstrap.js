@@ -3,7 +3,7 @@ import { SieveRenderer } from '../SieveRenderer';
 import { BitGridGLWorker } from '../renderer/gl/BitGridGLWorker';
 import { GlyphTextGLCore } from '../renderer/gl/GlyphTextGLCore';
 import { GlyphTextCanvas2D } from '../renderer/canvas/GlyphTextCanvas2D';
-import { usesWebGLTilt } from '../lib/renderModes';
+import { usesWebGLTilt, usesViewportSizeCanvas } from '../lib/renderModes';
 
 function setGlyphOverlayVisibility(glGlyphCanvas, canvas2DGlyphCanvas, mode) {
   if (glGlyphCanvas) {
@@ -26,9 +26,12 @@ function selectGlyphRendererForMode(glRenderer, workerGlyphMode, glGlyphRenderer
   const isDirect = glRenderer ? glRenderer.isDirectMode() : String(renderMode || '').endsWith('-direct');
   // separate-text wins regardless of direct/worker mode (Modes 1,2,4,5,6,8)
   if (workerGlyphMode === 'separate-text') return canvas2DGlyphRenderer || glGlyphRenderer || null;
-  // Direct mode uses the GL glyph renderer when not separate-text (Mode 3)
+  // Viewport-size single-canvas modes (3 & 7): grid + glyphs share the bit-grid GL
+  // context inside BitGridGLWorker. No separate glyph renderer or overlay canvas.
+  if (usesViewportSizeCanvas(renderMode)) return null;
+  // Direct mode uses the GL glyph renderer when not separate-text (Mode 1)
   if (isDirect) return glGlyphRenderer || canvas2DGlyphRenderer || null;
-  // Worker + gl mode: glyph rendering is handled inside the GL worker (Mode 7)
+  // Worker + gl mode: glyph rendering is handled inside the GL worker (Mode 5)
   return null;
 }
 
@@ -317,7 +320,10 @@ export function useRendererBootstrap({
     glyphRendererRef.current = selectedGlyphRenderer;
 
     let visibilityMode = 'none';
-    if ((gl && gl.isDirectMode()) || (!gl && String(renderMode || '').endsWith('-direct'))) {
+    if (usesViewportSizeCanvas(renderMode)) {
+      // Single-canvas modes: all rendering is done by the bit-grid GL context.
+      setGlyphOverlayVisibility(glyphCanvasRef.current, glyph2DCanvasRef.current, 'none');
+    } else if ((gl && gl.isDirectMode()) || (!gl && String(renderMode || '').endsWith('-direct'))) {
       visibilityMode = selectedGlyphRenderer === canvas2DGlyphRenderer ? '2d' : 'gl';
       setGlyphOverlayVisibility(
         glyphCanvasRef.current,
@@ -396,10 +402,15 @@ export function useRendererBootstrap({
         workerGlyphModeRef.current,
         glGlyphRenderer,
         canvas2DGlyphRenderer,
+        renderModeRef.current,
       );
       glyphRendererRef.current = selectedGlyphRenderer;
       if (gl.isDirectMode()) {
-        setGlyphOverlayVisibility(glyphCanvasRef.current, glyph2DCanvasRef.current, selectedGlyphRenderer === canvas2DGlyphRenderer ? '2d' : 'gl');
+        if (usesViewportSizeCanvas(renderModeRef.current)) {
+          setGlyphOverlayVisibility(glyphCanvasRef.current, glyph2DCanvasRef.current, 'none');
+        } else {
+          setGlyphOverlayVisibility(glyphCanvasRef.current, glyph2DCanvasRef.current, selectedGlyphRenderer === canvas2DGlyphRenderer ? '2d' : 'gl');
+        }
       } else if (workerGlyphModeRef.current === 'separate-text' && selectedGlyphRenderer) {
         setGlyphOverlayVisibility(glyphCanvasRef.current, glyph2DCanvasRef.current, selectedGlyphRenderer === canvas2DGlyphRenderer ? '2d' : 'gl');
       } else {
@@ -457,10 +468,15 @@ export function useRendererBootstrap({
         glyphMode,
         glGlyphRenderer,
         canvas2DGlyphRenderer,
+        renderModeRef.current,
       );
       glyphRendererRef.current = selectedGlyphRenderer;
       if (currentGL.isDirectMode()) {
-        setGlyphOverlayVisibility(glyphCanvasRef.current, glyph2DCanvasRef.current, selectedGlyphRenderer === canvas2DGlyphRenderer ? '2d' : 'gl');
+        if (usesViewportSizeCanvas(renderModeRef.current)) {
+          setGlyphOverlayVisibility(glyphCanvasRef.current, glyph2DCanvasRef.current, 'none');
+        } else {
+          setGlyphOverlayVisibility(glyphCanvasRef.current, glyph2DCanvasRef.current, selectedGlyphRenderer === canvas2DGlyphRenderer ? '2d' : 'gl');
+        }
       } else if (glyphMode === 'separate-text' && selectedGlyphRenderer) {
         setGlyphOverlayVisibility(glyphCanvasRef.current, glyph2DCanvasRef.current, selectedGlyphRenderer === canvas2DGlyphRenderer ? '2d' : 'gl');
       } else {

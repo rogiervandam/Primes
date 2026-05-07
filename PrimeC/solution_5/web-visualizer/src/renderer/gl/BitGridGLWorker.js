@@ -18,6 +18,8 @@
 
 import { BitGridGLCore } from './bitGridGLCore.js';
 import { packState, packAnim } from './hostStatePacker.js';
+import { GlyphTextGLCore } from './GlyphTextGLCore.js';
+import { replayGlyphCmds } from './glyphReplay.js';
 
 let cachedMaxCanvasDimension = null;
 
@@ -191,6 +193,9 @@ export class BitGridGLWorker {
     this._directReason = 'unknown';
     this._requestedMode = 'auto';
     this._core = null;
+    // Glyph renderer sharing the bit-grid GL context in direct mode.
+    // Used by viewport-size modes (3 & 7) to render text into the same canvas.
+    this._glyphCore = null;
     // Atlas data received from the worker's ready message (worker mode only).
     this._atlasAdvances = null;
     this._atlasCharSize = 0;
@@ -241,6 +246,21 @@ export class BitGridGLWorker {
       this._core = core;
       this._direct = true;
       this._ready = true;
+      // Initialise a glyph renderer sharing the bit-grid GL context so that
+      // viewport-size modes (3 & 7) can render text into the same canvas without
+      // a separate overlay element.
+      try {
+        const glyphCore = new GlyphTextGLCore();
+        glyphCore.initWithContext(core.gl, canvas);
+        this._glyphCore = glyphCore;
+        if (glyphCore._atlas) {
+          this._atlasAdvances = glyphCore._atlas.getAdvancesArray();
+          this._atlasCharSize = glyphCore._atlas.fontSize;
+        }
+      } catch (err) {
+        console.warn('[BitGridGLWorker] direct-mode glyph init failed:', err);
+        this._glyphCore = null;
+      }
       // Fire ready callbacks synchronously (no async worker involved).
       for (const cb of this._onReadyCallbacks) cb();
       this._onReadyCallbacks = [];
@@ -441,6 +461,7 @@ export class BitGridGLWorker {
     this._dpr = dpr;
     if (this._direct) {
       this._core.resize(cssWidth, cssHeight, dpr);
+      if (this._glyphCore) this._glyphCore.resize(cssWidth, cssHeight, dpr);
       return;
     }
     this._post({ type: 'resize', cssW: cssWidth, cssH: cssHeight, dpr });
@@ -489,6 +510,15 @@ export class BitGridGLWorker {
         cssH: this._cssH || 0,
         dpr: this._dpr || 1,
       });
+      if (glyphCmds && glyphCmds.count > 0 && this._glyphCore) {
+        this._glyphCore.setTilt(
+          Number(params.tiltXDeg) || 0,
+          Number(params.tiltYDeg) || 0,
+          Math.max(1, Number(params.perspective) || 1500),
+          params.enableGlTilt ? 1 : 0,
+        );
+        replayGlyphCmds(this._glyphCore, glyphCmds);
+      }
       this._resolveRendered(seq);
       return seq;
     }
@@ -608,9 +638,15 @@ export class BitGridGLWorker {
   }
 
   dispose() {
-    if (this._direct && this._core) {
-      try { this._core.dispose(); } catch { /* ignore */ }
-      this._core = null;
+    if (this._direct) {
+      if (this._glyphCore) {
+        try { this._glyphCore.dispose(); } catch { /* ignore */ }
+        this._glyphCore = null;
+      }
+      if (this._core) {
+        try { this._core.dispose(); } catch { /* ignore */ }
+        this._core = null;
+      }
     }
     if (this._worker) {
       try { this._worker.postMessage({ type: 'dispose' }); } catch { /* ignore */ }

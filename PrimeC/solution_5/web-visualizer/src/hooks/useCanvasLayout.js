@@ -4,7 +4,7 @@ import {
   computeSafeTiltDegrees,
   computeAutoGlYOffset,
 } from '../lib/canvasProjection';
-import { usesWebGLTilt } from '../lib/renderModes';
+import { usesWebGLTilt, usesViewportSizeCanvas } from '../lib/renderModes';
 
 /**
  * Owns the oversized-plane canvas geometry, GL CSS lock management,
@@ -76,6 +76,10 @@ export function useCanvasLayout({
   const camera3DTransformRef = useRef(camera3DTransform);
   camera3DTransformRef.current = camera3DTransform;
 
+  // Keep a ref to renderMode for the same reason (read inside memoised callbacks).
+  const renderModeRef = useRef(renderMode);
+  renderModeRef.current = renderMode;
+
   // Forcibly cancel any pending GL CSS unlock, clear the resize-lock, apply
   // the correct CSS size to the GL canvas, and trigger a full redraw.
   // Useful when Chrome/Edge gets stuck showing a stale or invisible GL layer
@@ -133,6 +137,16 @@ export function useCanvasLayout({
     // canvas layout is explicitly re-triggered at gesture end (schedulePostLayoutRefresh).
     const baseW = Math.max(width || 0, (typeof window !== 'undefined' ? window.innerWidth : width) || 0);
     const baseH = Math.max(height || 0, (typeof window !== 'undefined' ? window.innerHeight : height) || 0);
+
+    // Viewport-size modes (3 & 7): render at window resolution with no
+    // pan-headroom overscan. The 3D transform is done in the shader so
+    // the canvas itself is always a flat, window-sized rectangle.
+    if (usesViewportSizeCanvas(renderModeRef.current)) {
+      return {
+        canvasW: Math.max(1, Math.round(baseW)),
+        canvasH: Math.max(1, Math.round(baseH)),
+      };
+    }
     let scaleH = 1;
     let scaleW = 1;
     let diagonalOverscan = 1;
