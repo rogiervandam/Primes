@@ -109,8 +109,8 @@ export default function VisualizerMainContent(props) {
   const { revealStepRequest: navRevealStepRequest, revealCurrentStepInPanel, onOpenRawLog, onImportBenchmarkTiming, autoFitColumnCount } = navigation;
 
   // Debug
-  const { isToolsOpen: isDebugToolsOpen, theme = 'dark', isGlUnavailable, glDebugInfo, debugLayerMode, debugGlModeOverride = 'auto', debugWorkerGlyphMode = 'gl', debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY, isDebugCalibrationMode, debugRenderTuning, handlers: debugHandlers = {} } = debug;
-  const { setDebugLayerMode, setDebugGlModeOverride, setDebugWorkerGlyphMode, setDebugGlOffsetX, setDebugGlOffsetY, setIsDebugCalibrationMode, setDebugRenderTuning, applySnapshot: applyDebugSnapshot, forceGlRedraw } = debugHandlers;
+  const { isToolsOpen: isDebugToolsOpen, theme = 'dark', isGlUnavailable, glDebugInfo, debugLayerMode, renderMode = 'mode3-direct', renderModeRestartNonce = 0, debugGlModeOverride = 'auto', debugWorkerGlyphMode = 'gl', debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY, isDebugCalibrationMode, debugRenderTuning, handlers: debugHandlers = {} } = debug;
+  const { setDebugLayerMode, setRenderMode, restartRenderMode, setDebugGlModeOverride, setDebugWorkerGlyphMode, setDebugGlOffsetX, setDebugGlOffsetY, setIsDebugCalibrationMode, setDebugRenderTuning, applySnapshot: applyDebugSnapshot, forceGlRedraw } = debugHandlers;
 
   return (
     <div
@@ -154,7 +154,7 @@ export default function VisualizerMainContent(props) {
           wrapperCanvasRef,
         }}
         canvasConfig={{
-          glCanvasKey: `gl-${debugGlModeOverride}`,
+          glCanvasKey: `gl-${debugGlModeOverride}-${renderMode}-${renderModeRestartNonce}`,
           glActive: true,
           hideGlCanvas: false,
         }}
@@ -316,6 +316,7 @@ export default function VisualizerMainContent(props) {
             glDebugInfo,
             theme,
             debugLayerMode,
+            renderMode,
             debugGlModeOverride,
             debugWorkerGlyphMode,
             debugGlOffsetX,
@@ -326,6 +327,8 @@ export default function VisualizerMainContent(props) {
           }}
           debugHandlers={{
             setDebugLayerMode,
+            setRenderMode,
+            restartRenderMode,
             setDebugGlModeOverride,
             setDebugWorkerGlyphMode,
             setDebugGlOffsetX,

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parseAppliedRotateAngles } from '../lib/canvasProjection';
+import { RENDER_MODE_OPTIONS } from '../lib/renderModes';
 
 const EMPTY_SNAPSHOT = {
   fps: 0,
@@ -184,6 +185,7 @@ export default function DebugToolsPanel({
     glDebugInfo = null,
     theme = 'dark',
     debugLayerMode = 'normal',
+    renderMode = 'mode3-direct',
     debugGlModeOverride = 'auto',
     debugWorkerGlyphMode = 'gl',
     debugGlOffsetX = 0,
@@ -195,6 +197,8 @@ export default function DebugToolsPanel({
 
   const {
     setDebugLayerMode = null,
+    setRenderMode = null,
+    restartRenderMode = null,
     setDebugGlModeOverride = null,
     setDebugWorkerGlyphMode = null,
     setDebugGlOffsetX = null,
@@ -401,6 +405,7 @@ export default function DebugToolsPanel({
   const [importText, setImportText] = useState('');
   const [importStatus, setImportStatus] = useState('');
   const [forceRedrawStatus, setForceRedrawStatus] = useState('');
+  const [restartModeStatus, setRestartModeStatus] = useState('');
   const [calibrationCaseIndex, setCalibrationCaseIndex] = useState(0);
   const [calibrationTargetViewport, setCalibrationTargetViewport] = useState({ width: 0, height: 0 });
   const [calibrationViewportStatus, setCalibrationViewportStatus] = useState('');
@@ -981,6 +986,7 @@ export default function DebugToolsPanel({
       {(glDebugInfo || setDebugGlModeOverride) && (
         <CollapsibleSection title="GL MODE" defaultOpen={true} palette={palette}>
           <div style={{ fontSize: '10px', lineHeight: '1.4', color: palette.sectionGl }}>
+            <div>Render mode: <strong>{renderMode}</strong></div>
             <div>Override: <strong>{debugGlModeOverride}</strong></div>
             <div>Requested: <strong>{glDebugInfo?.requestedMode || debugGlModeOverride}</strong></div>
             <div>Mode: <strong>{glDebugInfo?.mode || 'unavailable'}</strong></div>
@@ -990,6 +996,31 @@ export default function DebugToolsPanel({
               {glDebugInfo?.isAtRisk ? 'YES' : 'NO'}
             </span></div>
           </div>
+          {setRenderMode && (
+            <div style={{ marginTop: '8px' }}>
+              <label style={{ display: 'block', fontSize: '10px', color: palette.subtle, marginBottom: '4px' }}>
+                Rendering mode
+              </label>
+              <select
+                value={renderMode}
+                onChange={(e) => setRenderMode(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '5px 8px',
+                  borderRadius: '4px',
+                  border: `1px solid ${palette.buttonBorder}`,
+                  background: palette.buttonBg,
+                  color: palette.buttonFg,
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                }}
+              >
+                {RENDER_MODE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
           {setDebugGlModeOverride && (
             <div style={{ marginTop: '8px' }}>
               <label style={{ display: 'block', fontSize: '10px', color: palette.subtle, marginBottom: '4px' }}>
@@ -1056,6 +1087,34 @@ export default function DebugToolsPanel({
           )}
           {onForceGlRedraw && (
             <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {restartRenderMode && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      restartRenderMode();
+                      setRestartModeStatus('Renderer restarted');
+                      window.setTimeout(() => setRestartModeStatus(''), 1500);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '5px 8px',
+                      borderRadius: '4px',
+                      border: `1px solid ${palette.buttonBorder}`,
+                      background: palette.buttonBg,
+                      color: palette.buttonFg,
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                    }}
+                    title="Force a renderer re-attach while keeping current settings."
+                  >
+                    Restart Renderer
+                  </button>
+                  {restartModeStatus && (
+                    <div style={{ fontSize: '10px', color: palette.good }}>{restartModeStatus}</div>
+                  )}
+                </>
+              )}
               <button
                 type="button"
                 onClick={() => {

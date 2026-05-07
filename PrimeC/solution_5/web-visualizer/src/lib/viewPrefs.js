@@ -203,6 +203,10 @@ export function mergeDepthSettings(saved) {
 // makes the schema's evolution rules visible in one place.
 
 import { clampInt as _clampInt } from './math.js';
+import {
+  DEFAULT_RENDER_MODE,
+  normalizeRenderMode,
+} from './renderModes.js';
 function clampInt(value, lo, hi) { return _clampInt(value, lo, hi, null); }
 
 function initialPlaySpeedPercent(prefs) {
@@ -283,6 +287,10 @@ function initialDebugWorkerGlyphMode(prefs) {
   return value === 'gl' || value === 'separate-text' ? value : 'gl';
 }
 
+function initialRenderMode(prefs) {
+  return normalizeRenderMode(prefs?.renderMode || DEFAULT_RENDER_MODE);
+}
+
 function initialDebugRenderTuning(prefs) {
   const tuning = prefs?.debugRenderTuning || {};
   const asNullableNumber = (value) => {
@@ -358,6 +366,7 @@ export function getInitialViewState() {
     canvasColors: initialCanvasColors(prefs),
     debugGlModeOverride: initialDebugGlModeOverride(prefs),
     debugWorkerGlyphMode: initialDebugWorkerGlyphMode(prefs),
+    renderMode: initialRenderMode(prefs),
     debugRenderTuning: initialDebugRenderTuning(prefs),
     colorPreset: initialColorPreset(prefs),
     customColors: initialCustomColors(prefs),

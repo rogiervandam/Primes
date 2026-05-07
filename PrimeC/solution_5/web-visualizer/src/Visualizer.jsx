@@ -89,6 +89,9 @@ import {
   DEFAULT_EVENT_TITLE_SETTINGS,
   getInitialViewState,
 } from './lib/viewPrefs';
+import {
+  isRenderMode,
+} from './lib/renderModes';
 import { buildTraceInfoSections } from './lib/traceHeader';
 import { detectIsMac, detectIsWindows, detectIsElectron } from './lib/platform';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -147,12 +150,20 @@ export default function Visualizer({
   // each `useState` seed. Persistence on change still happens in the
   // `writeViewPrefs(...)` effect further down.
   const initialPrefs = useMemo(() => getInitialViewState(), []);
+  const initialRenderModeFromUrl = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    const value = params.get('renderMode');
+    return isRenderMode(value) ? value : null;
+  }, []);
 
   const {
     isGlUnavailable, setIsGlUnavailable,
     glDebugInfo, setGlDebugInfo,
     isDebugToolsOpen, setIsDebugToolsOpen,
     debugLayerMode, setDebugLayerMode,
+    renderMode, setRenderMode,
+    renderModeRestartNonce, restartRenderMode,
     debugGlModeOverride, setDebugGlModeOverride,
     debugWorkerGlyphMode, setDebugWorkerGlyphMode,
     debugGlOffsetX, setDebugGlOffsetX,
@@ -164,6 +175,7 @@ export default function Visualizer({
     glDebugLastUpdateRef, updateGlDebugInfo,
   } = useDebugTools({
     glRendererRef,
+    initialRenderMode: initialRenderModeFromUrl || initialPrefs.renderMode,
     initialDebugGlModeOverride: initialPrefs.debugGlModeOverride,
     initialDebugWorkerGlyphMode: initialPrefs.debugWorkerGlyphMode,
     initialDebugRenderTuning: initialPrefs.debugRenderTuning,
@@ -541,6 +553,7 @@ export default function Visualizer({
     eventTitleSettings,
     gridOpacity,
     canvasColors,
+    renderMode,
     debugGlModeOverride,
     debugWorkerGlyphMode,
     debugRenderTuning,
@@ -560,6 +573,13 @@ export default function Visualizer({
     isSettingsCollapsed,
     isDetailOpen,
   });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('renderMode', renderMode);
+    window.history.replaceState(window.history.state, '', url.toString());
+  }, [renderMode]);
 
   const effectiveGroupBits = useMemo(() => (
     layoutSettings.vectorMode === 'custom'
@@ -1807,6 +1827,8 @@ export default function Visualizer({
       isGlUnavailable,
       glDebugInfo,
       debugLayerMode,
+      renderMode,
+      renderModeRestartNonce,
       debugGlModeOverride,
       debugWorkerGlyphMode,
       debugGlOffsetX,
@@ -1816,6 +1838,8 @@ export default function Visualizer({
       debugRenderTuning,
       handlers: {
         setDebugLayerMode,
+        setRenderMode,
+        restartRenderMode,
         setDebugGlModeOverride,
         setDebugWorkerGlyphMode,
         setDebugGlOffsetX,

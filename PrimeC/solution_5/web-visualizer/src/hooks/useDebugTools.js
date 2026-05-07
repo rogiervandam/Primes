@@ -11,9 +11,15 @@
  * @param {{ glRendererRef: React.MutableRefObject, initialDebugGlModeOverride?: string, initialDebugWorkerGlyphMode?: string }} params
  */
 import { useState, useRef, useCallback } from 'react';
+import {
+  DEFAULT_RENDER_MODE,
+  getRenderModeBackendPreset,
+  normalizeRenderMode,
+} from '../lib/renderModes';
 
 export function useDebugTools({
   glRendererRef,
+  initialRenderMode = DEFAULT_RENDER_MODE,
   initialDebugGlModeOverride = 'auto',
   initialDebugWorkerGlyphMode = 'gl',
   initialDebugRenderTuning = null,
@@ -22,6 +28,8 @@ export function useDebugTools({
   const [glDebugInfo, setGlDebugInfo] = useState(null);
   const [isDebugToolsOpen, setIsDebugToolsOpen] = useState(false);
   const [debugLayerMode, setDebugLayerMode] = useState('normal');
+  const [renderMode, setRenderModeState] = useState(() => normalizeRenderMode(initialRenderMode));
+  const [renderModeRestartNonce, setRenderModeRestartNonce] = useState(0);
   const [debugGlModeOverride, setDebugGlModeOverride] = useState(
     initialDebugGlModeOverride === 'worker' || initialDebugGlModeOverride === 'direct'
       ? initialDebugGlModeOverride
@@ -102,11 +110,27 @@ export function useDebugTools({
     setGlDebugInfo(gl.getDebugInfo());
   }, [glRendererRef]);
 
+  const setRenderMode = useCallback((nextMode) => {
+    const normalized = normalizeRenderMode(nextMode);
+    const preset = getRenderModeBackendPreset(normalized);
+    setRenderModeState(normalized);
+    setDebugGlModeOverride(preset.glMode);
+    setDebugWorkerGlyphMode(preset.workerGlyphMode);
+  }, []);
+
+  const restartRenderMode = useCallback(() => {
+    setRenderModeRestartNonce((value) => value + 1);
+  }, []);
+
   return {
     isGlUnavailable, setIsGlUnavailable,
     glDebugInfo, setGlDebugInfo,
     isDebugToolsOpen, setIsDebugToolsOpen,
     debugLayerMode, setDebugLayerMode,
+    renderMode,
+    setRenderMode,
+    renderModeRestartNonce,
+    restartRenderMode,
     debugGlModeOverride, setDebugGlModeOverride,
     debugWorkerGlyphMode, setDebugWorkerGlyphMode,
     debugGlOffsetX, setDebugGlOffsetX,

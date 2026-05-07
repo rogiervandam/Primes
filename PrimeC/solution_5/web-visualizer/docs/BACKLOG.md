@@ -129,13 +129,14 @@ In the debug window, want to have controls for:
 - setting the canvas size of the glyph-rendering layer (if we go with the 2d glyph rendering approach)
 When i change these values, the visualizer should re-render with the new settings immediately, so i can see how it affects the rendering and the animation. Make sure the center of all the layers keeps being line up when i change these settings, so i can isolate the effects of each setting on the rendering and the animation.
 
-I want to be able to try different setups for the rendering and the animation, and be able to switch between them easily, because i experience bugs (probably in the browser) on different devices and screen sizes. 
-With the ideas below in mind, which combinations make the most sense to implement as possible setups for the rendering and animation architecture? Here are some options:
-1. all text are rendered 2d in a canvas using the layout arrangement, annotations, etc. Then the whole canvas is compressed and send to the webgl layer as a texture, and the webgl layer does the merge with the 3d grid and the tilt.
-2. the grid and the text are rendered together in the webgl layer as textured quads, with the text rendered in an offscreen 2d canvas and sent as a texture to webgl. The webgl layer does the layout arrangement, annotations, etc, and merges them with the 3d grid and the tilt.
-3. the webgl-layer is not a tilted canvas, but instead a flat 2d canvas in which the web-gl engine renders 3d
-4. worker or non-worker mode
-5. 2 parallel canvases (one for text, one for grid) vs single merged canvas
+I want to be able to try different setups for the rendering and the animation, and be able to switch between them easily, because i experience bugs (probably in the browser) on different devices and screen sizes. In the debug windows, i want to select one of the following rendering modes: 
+1. all text are rendered 2d in a canvas using the layout arrangement, annotations, etc. Then the whole canvas is compressed with resolution buckets and send to the webgl layer as a texture, and the webgl layer does the merge with the 3d grid and the tilt. Webgl is on a flat 2d canvas, not a tilted canvas. 
+2. Option 1, but webgl does just layer composition. Tilt is done with css 3d transforms on the canvas element, so the webgl layer is always rendered as a flat 2d canvas and the tilt is purely a visual effect applied to the whole canvas. 
+3. the grid and the text are rendered together in the webgl layer as textured quads, with the text rendered in an offscreen 2d canvas and sent as a texture to webgl. The webgl layer does the layout arrangement, annotations, etc, and merges them with the 3d grid and the tilt.
+4. 2 parallel canvases (one for text, one for grid) which are tilted with css
+5-8: mode 1-4 but not using direct mode, but workers
+For each mode, all animations should work, dragging, zooming and tilting should work and changing the arrangements and colors also. Allow me to override the DPR, canvas sizes, and other relevant settings for each mode in the debug tools, and see the effects immediately. Make sure the center of all the layers keeps being line up when i change these settings, so i can isolate the effects of each setting on the rendering and the animation.
+
 
 
 
