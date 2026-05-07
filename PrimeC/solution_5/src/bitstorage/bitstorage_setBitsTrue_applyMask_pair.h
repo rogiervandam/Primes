@@ -18,7 +18,7 @@ function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t
     register const bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage, cache_line_bytes);
     register const bitbucket_t* restrict fast_loop_ptr    = __builtin_assume_aligned(&bitstorage_sized[safe_diff(range_stop,step_max)],sizeof(bitbucket_t));
     register const bitbucket_t* restrict range_stop_ptr   = __builtin_assume_aligned(&bitstorage_sized[range_stop],sizeof(bitbucket_t));
-    register bitbucket_t* restrict index_ptr              = __builtin_assume_aligned(&bitstorage_sized[range_start],sizeof(bitbucket_t));
+    register       bitbucket_t* restrict index_ptr        = __builtin_assume_aligned(&bitstorage_sized[range_start],sizeof(bitbucket_t));
     
     #if unrolls == 4
         #pragma GCC ivdep

@@ -2,43 +2,6 @@
 static unsigned int wheelprimes[WHEEL_MAX + 1]; // can't be more than highest prime in the wheel
 
 #define wheeltype_t uint8_t
-// static wheeltype_t wheel[WHEEL_SIZE];
-// void build_wheel() {
-//     // find all the primes in the wheel up to WHEEL_MAX and store them
-//     for (counter_t i = 0; i <= WHEEL_MAX; i++) {
-//         wheelprimes[i] = i < 2;
-//         for (counter_t f = 2; f < i; f++) {
-//             if ((i % f) == 0) {
-//                 wheelprimes[i] = 1; // mark as non-prime
-//                 break;
-//             }
-//         }
-//     }
-
-//     for (counter_t i=0; i < WHEEL_SIZE; i++) {
-//         wheel[i] = 0; 
-//     }
-
-//     // make a mask pattern to check if the modulus WHEEL_SIZE/2 of a number is divisible by any of the primes in the wheel
-//     // this is used in checkBitTrue_wheel to quickly check if a number is divisible by any of the wheel primes
-//     for (counter_t i = 0; i < WHEEL_SIZE/2; i++) {
-//         for (counter_t f = 1; f <= WHEEL_MAX/2; f++) {
-//             if (((i*2+1)+WHEEL_SIZE) % (f*2+1) == 0) {
-//                 // wheelmask[index_type(i, uint8_t)] |= markmask_type(i, uint8_t);
-//                 wheel[i] = 1;
-//                 break;
-//             }
-//         }
-//     }
-
-//     counter_t wheelmask_count = 0;
- 
-//     for (counter_t i=0; i < WHEEL_SIZE; i++) {
-//         wheelmask_count += wheel[i];
-//     }
-//     sprintf(algorithm_name, "rogiervandam_wheel_%uof%u", (WHEEL_SIZE/2)-wheelmask_count, WHEEL_SIZE);
-
-// }
 
 static wheeltype_t wheelmask[(index_type(WHEEL_SIZE, wheeltype_t)+1)/2];
 void build_wheel() {

@@ -31,6 +31,7 @@ function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
     const counter_t last_unique_bucket = index_type(range_start, bitbucket_t) + step - 1;
  
     // Process vectormasks in pairs from the cacheline
+    #pragma GCC ivdep
     for (counter_t current_bucket = index_type(range_start, bitbucket_t); current_bucket <= last_unique_bucket; current_bucket += 2) {
         // __builtin_prefetch(&bitstorage_vector[current_bucket+step], 1, 3); // prefetch the memory that will be written soon while creating mask
         bitbucket_t mark2 = (mark << pattern_vectorshift_vector) | (mark >> (step_shift_vector - pattern_vectorshift_vector)); 
@@ -46,9 +47,9 @@ function(setBitsTrue_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
     logStart7(bitstorage, time_setBitsTrue_smallstep_rotate_pair, "setting bits step %3ju using smallstep%-10s in %ju bit range (%ju-%ju) with %ju bits to set; using %ju copies of %ju bit mask", 
         (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)), (uintmax_t)bitcount_type(bitbucket_t));
 
-    counter_t range_stop_next_bucketstart = (range_start | (mask_type(bitbucket_t)*2)) + 2; // find nicealignment
+    const counter_t range_stop_next_bucketstart = (range_start | (mask_type(bitbucket_t)*2)) + 2; // find nicealignment
 
-    if (range_stop_next_bucketstart + step * bitcount_type(bitbucket_t) > range_stop) {
+    if unlikely(range_stop_next_bucketstart + step * bitcount_type(bitbucket_t) > range_stop) {
         setBitsTrue_largestep_norepeat_uint8_unroll4(bitstorage, range_start, range_stop, step);
         logStop7(bitstorage, time_setBitsTrue_smallstep_rotate_pair, "finished setting bits step %3ju in %ju bit range (%ju-%ju) with %ju bits to set; handed of to setBitsTrue_range because of a short range (%ju-%ju)", 
             (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)range_start, (uintmax_t)range_stop);
