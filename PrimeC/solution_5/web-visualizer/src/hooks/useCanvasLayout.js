@@ -4,7 +4,7 @@ import {
   computeSafeTiltDegrees,
   computeAutoGlYOffset,
 } from '../lib/canvasProjection';
-import { usesWebGLTilt, usesViewportSizeCanvas } from '../lib/renderModes';
+import { usesWebGLTilt, usesViewportSizeCanvas, usesGridSizeCanvas } from '../lib/renderModes';
 
 /**
  * Owns the oversized-plane canvas geometry, GL CSS lock management,
@@ -138,13 +138,62 @@ export function useCanvasLayout({
     const baseW = Math.max(width || 0, (typeof window !== 'undefined' ? window.innerWidth : width) || 0);
     const baseH = Math.max(height || 0, (typeof window !== 'undefined' ? window.innerHeight : height) || 0);
 
-    // Viewport-size modes (3 & 7): render at window resolution with no
-    // pan-headroom overscan. The 3D transform is done in the shader so
-    // the canvas itself is always a flat, window-sized rectangle.
+    // Viewport-size modes (3 & 7): render at ~120% of window resolution.
+    // The small overscan (20%) prevents content near the screen edges from
+    // being clipped by the canvas boundary while still avoiding the large
+    // 3.2× headroom used by the CSS-tilt modes.
+    // The 3D perspective transform is done entirely in the shader, so the
+    // canvas itself stays a flat, centered rectangle.
     if (usesViewportSizeCanvas(renderModeRef.current)) {
       return {
-        canvasW: Math.max(1, Math.round(baseW)),
-        canvasH: Math.max(1, Math.round(baseH)),
+        canvasW: Math.max(1, Math.round(baseW * 1.2)),
+        canvasH: Math.max(1, Math.round(baseH * 1.2)),
+      };
+    }
+
+    // Grid-size modes (2 & 6): single GL canvas with CSS tilt. Size the
+    // canvas to match the current grid content dimensions, capped at 4×
+    // the window area so very large grids don't exceed GL texture limits.
+    if (usesGridSizeCanvas(renderModeRef.current)) {
+      const r = rendererRef.current;
+      let gridW = baseW;
+      let gridH = baseH;
+      if (r && r.layoutMetrics && r.bitCount > 0) {
+        try {
+          const metrics = r.layoutMetrics;
+          const vecPerRow = metrics.vectorGroupsPerVisualRow();
+          const totalSlots = metrics.totalVectorSlots();
+          const totalVRows = Math.ceil(totalSlots / Math.max(1, vecPerRow));
+          const vecDims = metrics.vectorDims();
+          const rowDims = metrics.rowDims();
+          const labelH = metrics.labelHeight();
+          const u64GapX = metrics.u64GapX();
+          const u64GapY = metrics.u64GapY();
+          const vRowH = labelH + rowDims.h + u64GapY;
+          // vecPerRow vectors across, spaced by vecDims.w + u64GapX; last gap omitted
+          const vRowW = vecPerRow * (vecDims.w + u64GapX) - u64GapX;
+          if (vRowW > 0 && vRowH > 0 && totalVRows > 0) {
+            gridW = vRowW * 1.05; // 5 % margin
+            gridH = totalVRows * vRowH * 1.05;
+          }
+        } catch { /* fall through to baseW/baseH */ }
+      }
+      // Ensure at least viewport size so tilted edges don't leave gaps.
+      const rawW = Math.max(baseW, gridW);
+      const rawH = Math.max(baseH, gridH);
+      // Cap total area at 4× window area; scale proportionally if needed.
+      const winArea = baseW * baseH;
+      const maxArea = 4 * winArea;
+      let canvasW = rawW;
+      let canvasH = rawH;
+      if (canvasW * canvasH > maxArea && maxArea > 0) {
+        const scale = Math.sqrt(maxArea / (canvasW * canvasH));
+        canvasW = canvasW * scale;
+        canvasH = canvasH * scale;
+      }
+      return {
+        canvasW: Math.max(1, Math.round(canvasW)),
+        canvasH: Math.max(1, Math.round(canvasH)),
       };
     }
     let scaleH = 1;
@@ -179,16 +228,14 @@ export function useCanvasLayout({
     const planeW = r.canvasWidth || canvasEl?.offsetWidth || rect.width;
     const planeH = r.canvasHeight || canvasEl?.offsetHeight || rect.height;
     const mapper = getProjectedCanvasMapper(canvasEl);
-    // Only read style.left/top from the glyph canvas (r.canvas). In worker
-    // mode r.canvas is null and the GL canvas fallback has style.left='0px'
-    // (set imperatively by refreshCanvasLayout) — reading it gives anchor=0
-    // instead of canvasAnchorPx, which makes zoom pivot at the canvas-plane
-    // origin (upper-left) instead of the viewport centre.
-    const glyphEl = r.canvas;
-    const cssLeft = glyphEl ? parseFloat(glyphEl.style.left || '') : Number.NaN;
-    const cssTop  = glyphEl ? parseFloat(glyphEl.style.top  || '') : Number.NaN;
-    const anchorLeft = Number.isFinite(cssLeft) ? cssLeft : (canvasAnchorPx?.left ?? rect.width / 2);
-    const anchorTop  = Number.isFinite(cssTop)  ? cssTop  : (canvasAnchorPx?.top  ?? rect.height / 2);
+    // Canvas elements live inside the canvas-transform-wrapper div, which uses
+    // translate(-50%,-50%) to pin to the viewport centre. Reading canvas
+    // style.left gives the intra-wrapper offset (always 0), not the wrapper's
+    // container-relative anchor. Use canvasAnchorPx (maintained frame-by-frame
+    // by useCanvasAnchorSync) so the plane-offset is always correct — both for
+    // the projective-mapper fallback path (e.g. Safari) and for cam.screenToCanvas.
+    const anchorLeft = canvasAnchorPx?.left ?? rect.width / 2;
+    const anchorTop  = canvasAnchorPx?.top  ?? rect.height / 2;
     return {
       rect,
       planeW,
@@ -260,6 +307,9 @@ export function useCanvasLayout({
     const forcedDpr = debugRenderTuning?.dprManualActive
       ? (asPositiveNumber(debugRenderTuning?.dprManualValue) || computedDpr)
       : computedDpr;
+    const glAaScaleRaw = Number(debugRenderTuning?.glAaScale);
+    const glAaScale = (Number.isFinite(glAaScaleRaw) && glAaScaleRaw > 1) ? glAaScaleRaw : 1;
+    const glForcedDpr = forcedDpr * glAaScale;
     const useShaderTilt = usesWebGLTilt(renderMode);
     const glCssSize = resolveLayerCssSize(
       canvasW,
@@ -299,7 +349,7 @@ export function useCanvasLayout({
     const glDirectMode = !!(glRenderer && typeof glRenderer.isDirectMode === 'function' && glRenderer.isDirectMode());
     let overlayDpr = null;
     if (glRenderer) {
-      glRenderer.resize(canvasW, canvasH, forcedDpr);
+      glRenderer.resize(canvasW, canvasH, glForcedDpr);
       if (glDirectMode && typeof glRenderer.getEffectiveDpr === 'function') {
         overlayDpr = glRenderer.getEffectiveDpr();
       }
@@ -628,6 +678,7 @@ export function useCanvasLayout({
     debugRenderTuning?.glyph2DManualActive,
     debugRenderTuning?.glyph2DManualW,
     debugRenderTuning?.glyph2DManualH,
+    debugRenderTuning?.glAaScale,
   ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep the GL canvas rotation up-to-date whenever the camera changes.

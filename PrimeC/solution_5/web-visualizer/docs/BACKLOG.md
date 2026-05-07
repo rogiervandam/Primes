@@ -120,7 +120,7 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 Make the minimap canvas just the size shown on screen, and have it be a floating DOM element on the very top. 
 
-43 
+43 (Done)
 I want to be able to try different setups for the rendering and the animation, and be able to switch between them easily, because i experience bugs (probably in the browser) on different devices and screen sizes. 
 In the debug window, want to have controls for:
 - settting the DPR value manually, to test the behavior under different zoom levels and screen densities
@@ -136,6 +136,22 @@ I want to be able to try different setups for the rendering and the animation, a
 4. 2 parallel canvases (one for text, one for grid) which are tilted with css
 5-8: mode 1-4 but not using direct mode, but workers
 For each mode, all animations should work, dragging, zooming and tilting should work and changing the arrangements and colors also. Allow me to override the DPR, canvas sizes, and other relevant settings for each mode in the debug tools, and see the effects immediately. Make sure the center of all the layers keeps being line up when i change these settings, so i can isolate the effects of each setting on the rendering and the animation.
+
+
+44 (Done)  The text on the bits with webgl rendering is not really centered on the bits, it is a bit off. It should be perfectly centered on the bits, so it looks better and more polished.
+45 (Done)When zooming in or out, the zoom is not focused on the mouse position, It should be focused on the mouse position, so i can zoom in and out on specific areas of the grid more easily and intuitively. What is under the mouse position should stay under the mouse position when zooming in and out, so i can control the zoom more precisely and easily.
+
+46 When dragging the grid during mask animation, the masks are not dragging with the grid, which results in weird placement.
+47 The path/trail for the mask animation must be much clearer.
+48 When handling large grids (100k+ bits), not everytthing is rendered anymore. In case of large grids, at a certain zoom level start making little quads per group instead of per bit for performance.
+49 Make the touch order and cachline hits annotations a bit wider, so all the text fits in there and is no cut off
+50 In the events panel, when a search text is entered, show a clear button to clear the search text and results, so i can easily go back to the full events list without having to delete the text manually.
+51 WHen the events panel is open, the fps on the canvas drops significantly, probably because of the increased DOM elements and the event listeners. Optimize the performance of the events panel when it is open, so i can use it without affecting the performance of the canvas too much. Consider using virtualization or windowing techniques to only render the visible events in the panel, and debounce or throttle the event listeners to reduce the frequency of updates.
+52 Upon hiding the settings panel, it should not disapper, reappear and then fade out. Instead, it should just slide to the right side.
+53 When the events panel is open, have fout arrow buttons at the top right: to the left, down or up or right. When pressing down, slide the events down and dock the all events floater in the detail panel. When pressing right, slide the events up and animate it going in the all events floater. When pressing left, slide the events panel to the left and hide it, and undock the all events floater if it was docked. This way i can easily switch between having the events in the panel or in the detail panel, or hiding them completely. When pressing up, slide the events up and dock the the timeline in the top bar.
+54 Change the placement and appearnace of the top bar button to pop out the timeline into a floating widget. Make it a downward arrow on the right side of the event/events count.
+55 In the events panel, don't show the number of events in the header. Instead, show the number of selected items next to the "hide no-ops" on the right.
+
 
 
 

@@ -221,11 +221,13 @@ export default function DebugToolsPanel({
 
   const normalizeRenderTuning = useCallback((value) => {
     const tuning = value || {};
+    const glAaScaleRaw = Number(tuning.glAaScale);
     return {
       dprPercent: asPercent(tuning.dprPercent),
       glPercent: asPercent(tuning.glPercent),
       overlayPercent: asPercent(tuning.overlayPercent),
       glyph2DPercent: asPercent(tuning.glyph2DPercent),
+      glAaScale: (Number.isFinite(glAaScaleRaw) && glAaScaleRaw >= 1) ? glAaScaleRaw : 1,
       dprManualActive: tuning.dprManualActive === true,
       dprManualValue: asPositiveNumber(tuning.dprManualValue),
       glManualActive: tuning.glManualActive === true,
@@ -1269,6 +1271,24 @@ export default function DebugToolsPanel({
               <span style={{ fontSize: '10px', color: palette.subtle }}>%</span>
               <input type="number" min="0.1" step="0.01" value={draftTuning.dprManualActive ? (draftTuning.dprManualValue ?? '') : Number(draftTuning.effectiveDpr.toFixed(3))} onChange={(e) => setDprManualValueFromInput(e.target.value)} style={{ width: '98px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
               <button type="button" onClick={resetDprManualValue} style={{ padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>Reset</button>
+            </div>
+
+            <div style={{ fontSize: '10px', color: palette.sectionCoords, marginTop: '2px' }}>WebGL AA oversample (SSAA)</div>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              {[1, 1.5, 2, 3, 4].map((scale) => {
+                const isActive = (draftTuning.glAaScale || 1) === scale;
+                return (
+                  <button
+                    key={scale}
+                    type="button"
+                    onClick={() => setRenderTuningDraft((prev) => ({ ...(prev || {}), glAaScale: scale }))}
+                    style={{ padding: '6px 10px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: isActive ? palette.sectionCoords : palette.buttonBg, color: isActive ? '#0a1119' : palette.buttonFg, fontSize: '10px', fontWeight: isActive ? 700 : 400, cursor: 'pointer' }}
+                  >
+                    {scale === 1 ? 'Off' : `${scale}×`}
+                  </button>
+                );
+              })}
+              <span style={{ fontSize: '10px', color: palette.subtle }}>GL buffer only</span>
             </div>
 
             <div style={{ fontSize: '10px', color: palette.sectionCoords, marginTop: '2px' }}>WebGL layer size (CSS px)</div>

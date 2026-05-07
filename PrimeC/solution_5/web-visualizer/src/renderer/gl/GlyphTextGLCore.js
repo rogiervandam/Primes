@@ -489,10 +489,14 @@ export class GlyphTextGLCore {
     }
 
     // Left-edge X.
+    // The atlas renders each glyph with textAlign='left' at 2 px from the
+    // cell's left edge (see GlyphAtlas.build). Subtract that offset so glyph
+    // ink aligns with the anchor point, matching Canvas 2D textAlign semantics.
+    const atlasLeftPad = 2 * scale;
     let left;
-    if (align === 'center') left = x - totalW / 2;
-    else if (align === 'right' || align === 'end') left = x - totalW;
-    else left = x; // 'left', 'start'
+    if (align === 'center') left = x - totalW / 2 - atlasLeftPad;
+    else if (align === 'right' || align === 'end') left = x - totalW - atlasLeftPad;
+    else left = x - atlasLeftPad; // 'left', 'start'
 
     // Top-edge Y (quad top corresponds to atlas cell top).
     let top;

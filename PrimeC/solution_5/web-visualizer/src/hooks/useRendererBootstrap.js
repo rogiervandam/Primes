@@ -3,7 +3,7 @@ import { SieveRenderer } from '../SieveRenderer';
 import { BitGridGLWorker } from '../renderer/gl/BitGridGLWorker';
 import { GlyphTextGLCore } from '../renderer/gl/GlyphTextGLCore';
 import { GlyphTextCanvas2D } from '../renderer/canvas/GlyphTextCanvas2D';
-import { usesWebGLTilt, usesViewportSizeCanvas } from '../lib/renderModes';
+import { usesWebGLTilt, usesViewportSizeCanvas, usesGridSizeCanvas } from '../lib/renderModes';
 
 function setGlyphOverlayVisibility(glGlyphCanvas, canvas2DGlyphCanvas, mode) {
   if (glGlyphCanvas) {
@@ -24,11 +24,11 @@ function setGlyphOverlayVisibility(glGlyphCanvas, canvas2DGlyphCanvas, mode) {
 
 function selectGlyphRendererForMode(glRenderer, workerGlyphMode, glGlyphRenderer, canvas2DGlyphRenderer, renderMode) {
   const isDirect = glRenderer ? glRenderer.isDirectMode() : String(renderMode || '').endsWith('-direct');
-  // separate-text wins regardless of direct/worker mode (Modes 1,2,4,5,6,8)
+  // separate-text wins regardless of direct/worker mode (Modes 1,4,5,8)
   if (workerGlyphMode === 'separate-text') return canvas2DGlyphRenderer || glGlyphRenderer || null;
-  // Viewport-size single-canvas modes (3 & 7): grid + glyphs share the bit-grid GL
-  // context inside BitGridGLWorker. No separate glyph renderer or overlay canvas.
-  if (usesViewportSizeCanvas(renderMode)) return null;
+  // Single-canvas modes (2, 3, 6, 7): grid + glyphs share the bit-grid GL
+  // context. No separate glyph renderer or overlay canvas.
+  if (usesViewportSizeCanvas(renderMode) || usesGridSizeCanvas(renderMode)) return null;
   // Direct mode uses the GL glyph renderer when not separate-text (Mode 1)
   if (isDirect) return glGlyphRenderer || canvas2DGlyphRenderer || null;
   // Worker + gl mode: glyph rendering is handled inside the GL worker (Mode 5)
@@ -320,8 +320,8 @@ export function useRendererBootstrap({
     glyphRendererRef.current = selectedGlyphRenderer;
 
     let visibilityMode = 'none';
-    if (usesViewportSizeCanvas(renderMode)) {
-      // Single-canvas modes: all rendering is done by the bit-grid GL context.
+    if (usesViewportSizeCanvas(renderMode) || usesGridSizeCanvas(renderMode)) {
+      // Single-canvas modes (2, 3, 6, 7): all rendering is done by the bit-grid GL context.
       setGlyphOverlayVisibility(glyphCanvasRef.current, glyph2DCanvasRef.current, 'none');
     } else if ((gl && gl.isDirectMode()) || (!gl && String(renderMode || '').endsWith('-direct'))) {
       visibilityMode = selectedGlyphRenderer === canvas2DGlyphRenderer ? '2d' : 'gl';
@@ -406,7 +406,7 @@ export function useRendererBootstrap({
       );
       glyphRendererRef.current = selectedGlyphRenderer;
       if (gl.isDirectMode()) {
-        if (usesViewportSizeCanvas(renderModeRef.current)) {
+        if (usesViewportSizeCanvas(renderModeRef.current) || usesGridSizeCanvas(renderModeRef.current)) {
           setGlyphOverlayVisibility(glyphCanvasRef.current, glyph2DCanvasRef.current, 'none');
         } else {
           setGlyphOverlayVisibility(glyphCanvasRef.current, glyph2DCanvasRef.current, selectedGlyphRenderer === canvas2DGlyphRenderer ? '2d' : 'gl');
@@ -472,7 +472,7 @@ export function useRendererBootstrap({
       );
       glyphRendererRef.current = selectedGlyphRenderer;
       if (currentGL.isDirectMode()) {
-        if (usesViewportSizeCanvas(renderModeRef.current)) {
+        if (usesViewportSizeCanvas(renderModeRef.current) || usesGridSizeCanvas(renderModeRef.current)) {
           setGlyphOverlayVisibility(glyphCanvasRef.current, glyph2DCanvasRef.current, 'none');
         } else {
           setGlyphOverlayVisibility(glyphCanvasRef.current, glyph2DCanvasRef.current, selectedGlyphRenderer === canvas2DGlyphRenderer ? '2d' : 'gl');

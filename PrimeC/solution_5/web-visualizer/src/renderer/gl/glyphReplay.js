@@ -17,7 +17,8 @@ const CMD_ORECT = 3;
 /** Floats per command record in the param buffer (must match GlyphCommandBuffer.js). */
 const FLOATS_PER = 16;
 
-const ALIGNS    = ['left', 'left', 'center', 'right'];
+// Must match ALIGN_CODES in GlyphCommandBuffer.js: { left: 0, center: 1, right: 2 }
+const ALIGNS    = ['left', 'center', 'right'];
 const BASELINES = ['top',  'middle', 'bottom', 'alphabetic'];
 
 /**

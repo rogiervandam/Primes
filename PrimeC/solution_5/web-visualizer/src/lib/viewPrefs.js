@@ -308,11 +308,13 @@ function initialDebugRenderTuning(prefs) {
   const legacyOverlayH = asNullableNumber(tuning.overlayCssH);
   const legacyGlyph2DW = asNullableNumber(tuning.glyph2DCssW);
   const legacyGlyph2DH = asNullableNumber(tuning.glyph2DCssH);
+  const glAaScaleRaw = Number(tuning.glAaScale);
   return {
     dprPercent: asPercent(tuning.dprPercent),
     glPercent: asPercent(tuning.glPercent),
     overlayPercent: asPercent(tuning.overlayPercent),
     glyph2DPercent: asPercent(tuning.glyph2DPercent),
+    glAaScale: (Number.isFinite(glAaScaleRaw) && glAaScaleRaw >= 1) ? glAaScaleRaw : 1,
     dprManualActive: tuning.dprManualActive === true || legacyDpr != null,
     dprManualValue: asNullableNumber(tuning.dprManualValue) ?? legacyDpr,
     glManualActive: tuning.glManualActive === true || legacyGlW != null || legacyGlH != null,

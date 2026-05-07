@@ -91,6 +91,7 @@ import {
 } from './lib/viewPrefs';
 import {
   isRenderMode,
+  usesWebGLTilt,
 } from './lib/renderModes';
 import { buildTraceInfoSections } from './lib/traceHeader';
 import { detectIsMac, detectIsWindows, detectIsElectron } from './lib/platform';
@@ -946,6 +947,19 @@ export default function Visualizer({
   });
 
   const { isTiltActive, setIsTiltActive, isTiltButtonEnabled } = useTiltState({ introPhase });
+
+  // In WebGL-tilt modes (1, 3, 5, 7) the 3D perspective transform lives entirely
+  // inside the GLSL shader. Camera3D.animateTo() updates rotateX/Y each RAF frame
+  // and fires _notify() → setCamera3DTransform (React state), but that alone does
+  // not cause the GL shader to redraw (unlike CSS-tilt modes where the browser
+  // compositor handles it). Whenever camera3DTransform changes AND we are in a
+  // WebGL-tilt mode, schedule a GL render so the intro 2D→3D and toggle tilt
+  // animations are visible in modes 1, 3, 5 and 7.
+  useEffect(() => {
+    const r = rendererRef.current;
+    if (!r || !usesWebGLTilt(renderMode)) return;
+    r.scheduleRender?.();
+  }, [camera3DTransform, renderMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tilt toggle: animates between 0° (flat) and 30° (tilted) in 3D mode.
   const { handleIntroTransitionEnd, toggleTilt, enableTiltAndResize } = useTiltControls({

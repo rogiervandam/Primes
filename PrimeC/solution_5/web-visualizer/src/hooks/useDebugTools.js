@@ -76,12 +76,15 @@ export function useDebugTools({
     const overlayManualH = toNullableNumber(tuning.overlayManualH) ?? legacyOverlayH;
     const glyph2DManualW = toNullableNumber(tuning.glyph2DManualW) ?? legacyGlyph2DW;
     const glyph2DManualH = toNullableNumber(tuning.glyph2DManualH) ?? legacyGlyph2DH;
+    const glAaScaleRaw = Number(tuning.glAaScale);
+    const glAaScale = (Number.isFinite(glAaScaleRaw) && glAaScaleRaw >= 1) ? glAaScaleRaw : 1;
 
     return {
       dprPercent: toPercent(tuning.dprPercent),
       glPercent: toPercent(tuning.glPercent),
       overlayPercent: toPercent(tuning.overlayPercent),
       glyph2DPercent: toPercent(tuning.glyph2DPercent),
+      glAaScale,
       dprManualActive,
       dprManualValue,
       glManualActive,

@@ -18,7 +18,7 @@ export const RENDER_MODE_OPTIONS = [
   },
   {
     value: RENDER_MODES.MODE2_DIRECT,
-    label: '2. 2D text -> texture + CSS tilt (direct)',
+    label: '2. Single GL canvas + CSS tilt (direct)',
   },
   {
     value: RENDER_MODES.MODE3_DIRECT,
@@ -34,7 +34,7 @@ export const RENDER_MODE_OPTIONS = [
   },
   {
     value: RENDER_MODES.MODE6_WORKER,
-    label: '6. Mode 2 (worker lane)',
+    label: '6. Single GL canvas + CSS tilt (worker)',
   },
   {
     value: RENDER_MODES.MODE7_WORKER,
@@ -65,6 +65,10 @@ export function getRenderModeBackendPreset(mode) {
         workerGlyphMode: 'gl',
       };
     case RENDER_MODES.MODE2_DIRECT:
+      return {
+        glMode: 'direct',
+        workerGlyphMode: 'gl',
+      };
     case RENDER_MODES.MODE4_DIRECT:
       return {
         glMode: 'direct',
@@ -81,6 +85,10 @@ export function getRenderModeBackendPreset(mode) {
         workerGlyphMode: 'gl',
       };
     case RENDER_MODES.MODE6_WORKER:
+      return {
+        glMode: 'worker',
+        workerGlyphMode: 'gl',
+      };
     case RENDER_MODES.MODE8_WORKER:
       return {
         glMode: 'worker',
@@ -113,4 +121,16 @@ export function usesViewportSizeCanvas(mode) {
   const normalized = normalizeRenderMode(mode);
   return normalized === RENDER_MODES.MODE3_DIRECT
     || normalized === RENDER_MODES.MODE7_WORKER;
+}
+
+/**
+ * Returns true for modes that render everything into a single WebGL canvas
+ * sized to match the grid content (capped at 4× window area), then apply
+ * CSS tilt rather than a 3D shader transform. No separate glyph overlay.
+ * Mode 2 = direct, Mode 6 = web-worker.
+ */
+export function usesGridSizeCanvas(mode) {
+  const normalized = normalizeRenderMode(mode);
+  return normalized === RENDER_MODES.MODE2_DIRECT
+    || normalized === RENDER_MODES.MODE6_WORKER;
 }
