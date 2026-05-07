@@ -175,6 +175,7 @@ export default function DebugToolsPanel({
   const {
     rendererRef,
     glCanvasRef = null,
+    glyphCanvasRef = null,
     glRendererRef = null,
     camera3DRef = null,
   } = debugRefs;
@@ -413,6 +414,39 @@ export default function DebugToolsPanel({
   const [calibrationCaseResults, setCalibrationCaseResults] = useState({});
   const [calibrationViewpoints, setCalibrationViewpoints] = useState([]);
   const [calibrationViewpointLabel, setCalibrationViewpointLabel] = useState('');
+  const [showGlCanvasBounds, setShowGlCanvasBounds] = useState(false);
+  const [showGlyphCanvasBounds, setShowGlyphCanvasBounds] = useState(false);
+
+  useEffect(() => {
+    const glCanvas = glCanvasRef?.current;
+    const glyphCanvas = glyphCanvasRef?.current;
+
+    const prevGlOutline = glCanvas?.style?.outline ?? '';
+    const prevGlOutlineOffset = glCanvas?.style?.outlineOffset ?? '';
+    const prevGlyphOutline = glyphCanvas?.style?.outline ?? '';
+    const prevGlyphOutlineOffset = glyphCanvas?.style?.outlineOffset ?? '';
+
+    if (glCanvas) {
+      glCanvas.style.outline = showGlCanvasBounds ? '1px solid rgba(255, 69, 58, 0.95)' : '';
+      glCanvas.style.outlineOffset = showGlCanvasBounds ? '-1px' : '';
+    }
+
+    if (glyphCanvas) {
+      glyphCanvas.style.outline = showGlyphCanvasBounds ? '1px solid rgba(64, 156, 255, 0.95)' : '';
+      glyphCanvas.style.outlineOffset = showGlyphCanvasBounds ? '-1px' : '';
+    }
+
+    return () => {
+      if (glCanvas) {
+        glCanvas.style.outline = prevGlOutline;
+        glCanvas.style.outlineOffset = prevGlOutlineOffset;
+      }
+      if (glyphCanvas) {
+        glyphCanvas.style.outline = prevGlyphOutline;
+        glyphCanvas.style.outlineOffset = prevGlyphOutlineOffset;
+      }
+    };
+  }, [glCanvasRef, glyphCanvasRef, showGlCanvasBounds, showGlyphCanvasBounds]);
 
   // 'c' key copies to clipboard when the panel is visible
   const handleCopyDebugRef = useRef(null);
@@ -1044,6 +1078,24 @@ export default function DebugToolsPanel({
               </select>
             </div>
           )}
+          <div style={{ marginTop: '8px', display: 'grid', gap: '4px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: palette.subtle }}>
+              <input
+                type="checkbox"
+                checked={showGlCanvasBounds}
+                onChange={(e) => setShowGlCanvasBounds(e.target.checked)}
+              />
+              Show GL canvas bounds (red)
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: palette.subtle }}>
+              <input
+                type="checkbox"
+                checked={showGlyphCanvasBounds}
+                onChange={(e) => setShowGlyphCanvasBounds(e.target.checked)}
+              />
+              Show glyph canvas bounds (blue)
+            </label>
+          </div>
           {glDebugInfo && (
             <div style={{ fontSize: '9px', lineHeight: '1.3', color: palette.subtle, marginTop: '6px' }}>
               <div>Viewport: {glDebugInfo.viewportWidth} × {glDebugInfo.viewportHeight}</div>

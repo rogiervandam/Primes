@@ -45,6 +45,12 @@ let glyphCore = null;
 let lastCssW = 0;
 let lastCssH = 0;
 let lastDpr  = 1;
+let lastGlyphTilt = {
+  tiltXDeg: 0,
+  tiltYDeg: 0,
+  perspective: 1200,
+  enableGlTilt: 0,
+};
 
 function safe(fn) {
   try { fn(); }
@@ -165,6 +171,7 @@ self.onmessage = (e) => {
       safe(() => {
         core.render(msg.params);
         if (msg.glyphCmds && glyphCore) {
+          _applyGlyphTilt(glyphCore, msg.params);
           _replayGlyphCmds(glyphCore, msg.glyphCmds);
         }
         self.postMessage({ type: 'rendered', seq: msg.seq | 0 });
@@ -173,7 +180,10 @@ self.onmessage = (e) => {
     }
     case 'renderGlyph': {
       if (!glyphCore || !msg.glyphCmds) return;
-      safe(() => _replayGlyphCmds(glyphCore, msg.glyphCmds));
+      safe(() => {
+        _applyGlyphTilt(glyphCore, lastGlyphTilt);
+        _replayGlyphCmds(glyphCore, msg.glyphCmds);
+      });
       break;
     }
     case 'capture': {
@@ -287,4 +297,16 @@ function _replayGlyphCmds(gc, cmds) {
     }
   }
   gc.endFrame();
+}
+
+function _applyGlyphTilt(gc, params) {
+  if (!gc || typeof gc.setTilt !== 'function') return;
+  const nextTilt = {
+    tiltXDeg: Number(params?.tiltXDeg) || 0,
+    tiltYDeg: Number(params?.tiltYDeg) || 0,
+    perspective: Math.max(1, Number(params?.perspective) || 1500),
+    enableGlTilt: params?.enableGlTilt ? 1 : 0,
+  };
+  lastGlyphTilt = nextTilt;
+  gc.setTilt(nextTilt.tiltXDeg, nextTilt.tiltYDeg, nextTilt.perspective, nextTilt.enableGlTilt);
 }

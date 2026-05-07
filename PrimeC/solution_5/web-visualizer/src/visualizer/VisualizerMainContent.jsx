@@ -154,7 +154,7 @@ export default function VisualizerMainContent(props) {
           wrapperCanvasRef,
         }}
         canvasConfig={{
-          glCanvasKey: `gl-${debugGlModeOverride}-${renderMode}-${renderModeRestartNonce}`,
+          glCanvasKey: `gl-${debugGlModeOverride}-${renderModeRestartNonce}`,
           glActive: true,
           hideGlCanvas: false,
         }}
@@ -307,6 +307,7 @@ export default function VisualizerMainContent(props) {
           debugRefs={{
             rendererRef,
             glCanvasRef,
+            glyphCanvasRef,
             glRendererRef,
             camera3DRef,
           }}

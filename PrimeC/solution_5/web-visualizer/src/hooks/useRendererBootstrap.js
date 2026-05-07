@@ -7,30 +7,40 @@ import { usesWebGLTilt } from '../lib/renderModes';
 
 function setGlyphOverlayVisibility(glGlyphCanvas, canvas2DGlyphCanvas, mode) {
   if (glGlyphCanvas) {
-    glGlyphCanvas.style.display = mode === 'gl' ? 'block' : 'none';
+    const show = mode === 'gl';
+    // Keep the canvas attached/composited across mode switches; toggling
+    // display:none can leave stale presentation until another style mutation.
+    glGlyphCanvas.style.display = 'block';
+    glGlyphCanvas.style.visibility = show ? 'visible' : 'hidden';
+    glGlyphCanvas.style.opacity = show ? '1' : '0';
   }
   if (canvas2DGlyphCanvas) {
-    canvas2DGlyphCanvas.style.display = mode === '2d' ? 'block' : 'none';
+    const show = mode === '2d';
+    canvas2DGlyphCanvas.style.display = 'block';
+    canvas2DGlyphCanvas.style.visibility = show ? 'visible' : 'hidden';
+    canvas2DGlyphCanvas.style.opacity = show ? '1' : '0';
   }
 }
 
-function selectGlyphRendererForMode(glRenderer, workerGlyphMode, glGlyphRenderer, canvas2DGlyphRenderer) {
-  if (!glRenderer) return null;
+function selectGlyphRendererForMode(glRenderer, workerGlyphMode, glGlyphRenderer, canvas2DGlyphRenderer, renderMode) {
+  const isDirect = glRenderer ? glRenderer.isDirectMode() : String(renderMode || '').endsWith('-direct');
   // separate-text wins regardless of direct/worker mode (Modes 1,2,4,5,6,8)
   if (workerGlyphMode === 'separate-text') return canvas2DGlyphRenderer || glGlyphRenderer || null;
   // Direct mode uses the GL glyph renderer when not separate-text (Mode 3)
-  if (glRenderer.isDirectMode()) return glGlyphRenderer || canvas2DGlyphRenderer || null;
+  if (isDirect) return glGlyphRenderer || canvas2DGlyphRenderer || null;
   // Worker + gl mode: glyph rendering is handled inside the GL worker (Mode 7)
   return null;
 }
 
 function applyGlyphAttachment(liveRenderer, glRenderer, glyphRenderer) {
-  if (!liveRenderer || !glRenderer) return;
+  if (!liveRenderer) return;
   if (glyphRenderer) {
     liveRenderer.attachGlyphRenderer(glyphRenderer || null);
     return;
   }
-  liveRenderer.attachGLWorker(glRenderer);
+  if (glRenderer) {
+    liveRenderer.attachGLWorker(glRenderer);
+  }
 }
 
 export function useRendererBootstrap({
@@ -61,9 +71,51 @@ export function useRendererBootstrap({
   const baseRenderRef = useRef(null);
   const glyphGLRendererRef = useRef(null);
   const glyphCanvas2DRendererRef = useRef(null);
+  const modeFollowupRafRef = useRef(null);
+  const renderModeRef = useRef(renderMode);
+  renderModeRef.current = renderMode;
   const workerGlyphModeRef = useRef(
     debugWorkerGlyphMode === 'separate-text' ? 'separate-text' : 'gl'
   );
+
+  const scheduleModeFollowupRender = (liveRenderer) => {
+    if (!liveRenderer) return;
+    if (modeFollowupRafRef.current != null) {
+      cancelAnimationFrame(modeFollowupRafRef.current);
+      modeFollowupRafRef.current = null;
+    }
+    modeFollowupRafRef.current = requestAnimationFrame(() => {
+      modeFollowupRafRef.current = null;
+      const renderer = rendererRef.current;
+      if (!renderer || renderer !== liveRenderer) return;
+      renderer._stateDirty = true;
+      if (renderer.bitState && renderer.bitCount > 0) renderer.render();
+    });
+  };
+
+  const renderAfterModeSwitch = (liveRenderer) => {
+    if (!liveRenderer || !liveRenderer.bitState || liveRenderer.bitCount <= 0) return;
+
+    liveRenderer._stateDirty = true;
+    const firstSeq = liveRenderer.render();
+    const gl = glRendererRef.current;
+
+    // For worker/direct GL paths, wait until the first frame is actually
+    // presented, then issue a guaranteed second frame to flush overlays.
+    if (gl && typeof gl.waitForRender === 'function' && Number.isFinite(firstSeq) && firstSeq > 0) {
+      gl.waitForRender(firstSeq, () => {
+        const currentRenderer = rendererRef.current;
+        const currentGL = glRendererRef.current;
+        if (!currentRenderer || currentRenderer !== liveRenderer) return;
+        if (currentGL && currentGL !== gl) return;
+        scheduleModeFollowupRender(currentRenderer);
+      });
+      return;
+    }
+
+    // Fallback path (no GL yet): still schedule a follow-up frame.
+    scheduleModeFollowupRender(liveRenderer);
+  };
 
   useEffect(() => {
     const renderer = new SieveRenderer();
@@ -140,7 +192,10 @@ export function useRendererBootstrap({
       const bitColors = liveRenderer._bitColors();
       const changed = liveRenderer._opColor();
       const cam = camera3DRef?.current;
-      const glTiltActive = usesWebGLTilt(renderMode);
+      const glTiltActive = usesWebGLTilt(renderModeRef.current);
+      // CSS rotateX and our shader's view-space Y axis use opposite sign
+      // conventions; flip X tilt in shader modes so drag feels identical.
+      const shaderTiltXDeg = glTiltActive && cam?.enabled ? -(cam.rotateX || 0) : 0;
       const renderParams = {
         panX: liveRenderer.panX || 0,
         panY: liveRenderer.panY || 0,
@@ -152,7 +207,7 @@ export function useRendererBootstrap({
         repeatedColor: [245, 158, 11],
         baseAlpha: Math.max(0.12, Math.min(1, liveRenderer.gridOpacity ?? 1)),
         enableGlTilt: glTiltActive,
-        tiltXDeg: glTiltActive && cam?.enabled ? (cam.rotateX || 0) : 0,
+        tiltXDeg: shaderTiltXDeg,
         tiltYDeg: glTiltActive && cam?.enabled ? (cam.rotateY || 0) : 0,
         perspective: glTiltActive && cam?.enabled ? (cam.perspective || 1500) : 1500,
         ...liveRenderer.glLayoutParams(),
@@ -210,6 +265,10 @@ export function useRendererBootstrap({
     });
 
     return () => {
+      if (modeFollowupRafRef.current != null) {
+        cancelAnimationFrame(modeFollowupRafRef.current);
+        modeFollowupRafRef.current = null;
+      }
       baseRenderRef.current = null;
       rendererRef.current = null;
       disposeCamera();
@@ -233,13 +292,62 @@ export function useRendererBootstrap({
     camera3DRef,
     setZoom,
     getMinimapDetailH,
-    renderMode,
   ]);
 
   useEffect(() => {
     workerGlyphModeRef.current =
       debugWorkerGlyphMode === 'separate-text' ? 'separate-text' : 'gl';
   }, [debugWorkerGlyphMode]);
+
+  useEffect(() => {
+    const liveRenderer = rendererRef.current;
+    const gl = glRendererRef.current;
+    if (!liveRenderer) return;
+
+    const glGlyphRenderer = glyphGLRendererRef.current;
+    const canvas2DGlyphRenderer = glyphCanvas2DRendererRef.current;
+    const selectedGlyphRenderer = selectGlyphRendererForMode(
+      gl,
+      workerGlyphModeRef.current,
+      glGlyphRenderer,
+      canvas2DGlyphRenderer,
+      renderMode,
+    );
+
+    glyphRendererRef.current = selectedGlyphRenderer;
+
+    let visibilityMode = 'none';
+    if ((gl && gl.isDirectMode()) || (!gl && String(renderMode || '').endsWith('-direct'))) {
+      visibilityMode = selectedGlyphRenderer === canvas2DGlyphRenderer ? '2d' : 'gl';
+      setGlyphOverlayVisibility(
+        glyphCanvasRef.current,
+        glyph2DCanvasRef.current,
+        visibilityMode,
+      );
+    } else if (workerGlyphModeRef.current === 'separate-text' && selectedGlyphRenderer) {
+      visibilityMode = selectedGlyphRenderer === canvas2DGlyphRenderer ? '2d' : 'gl';
+      setGlyphOverlayVisibility(
+        glyphCanvasRef.current,
+        glyph2DCanvasRef.current,
+        visibilityMode,
+      );
+    } else {
+      setGlyphOverlayVisibility(glyphCanvasRef.current, glyph2DCanvasRef.current, 'none');
+    }
+
+    applyGlyphAttachment(liveRenderer, gl, selectedGlyphRenderer);
+
+    renderAfterModeSwitch(liveRenderer);
+  }, [
+    renderMode,
+    debugWorkerGlyphMode,
+    renderModeRestartNonce,
+    rendererRef,
+    glRendererRef,
+    glyphRendererRef,
+    glyphCanvasRef,
+    glyph2DCanvasRef,
+  ]);
 
   useEffect(() => {
     const renderer = rendererRef.current;
@@ -272,6 +380,7 @@ export function useRendererBootstrap({
     }
 
     glRendererRef.current = gl;
+    renderer._stateDirty = true;
     setIsGlUnavailable(false);
     setGlDebugInfo(gl.getDebugInfo());
     updateGlDebugInfo(true);
@@ -299,7 +408,7 @@ export function useRendererBootstrap({
       applyGlyphAttachment(liveRenderer, gl, selectedGlyphRenderer);
       setIsGlUnavailable(false);
       updateGlDebugInfo(true);
-      if (liveRenderer.bitState && liveRenderer.bitCount > 0) liveRenderer.render();
+      renderAfterModeSwitch(liveRenderer);
     });
 
     return () => {
@@ -358,7 +467,7 @@ export function useRendererBootstrap({
         setGlyphOverlayVisibility(glyphCanvasRef.current, glyph2DCanvasRef.current, 'none');
       }
       applyGlyphAttachment(currentRenderer, currentGL, selectedGlyphRenderer);
-      if (currentRenderer.bitState && currentRenderer.bitCount > 0) currentRenderer.render();
+      renderAfterModeSwitch(currentRenderer);
     });
   }, [
     debugWorkerGlyphMode,

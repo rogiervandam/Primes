@@ -33,7 +33,7 @@ export class GlyphTextCanvas2D {
 
   init(canvas) {
     if (!canvas) return false;
-    const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
+    const ctx = canvas.getContext('2d', { alpha: true, desynchronized: false });
     if (!ctx) return false;
     this.canvas = canvas;
     this.ctx = ctx;

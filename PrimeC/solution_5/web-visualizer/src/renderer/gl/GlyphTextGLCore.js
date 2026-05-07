@@ -389,9 +389,6 @@ export class GlyphTextGLCore {
     this._dpr   = r;
     this._count = 0;
 
-    // Lazily size the canvas backing store in case resize() was never
-    // explicitly called (e.g. on the very first render before the layout
-    // refresh effect fires).
     const pw = Math.max(1, Math.round(cssW * r));
     const ph = Math.max(1, Math.round(cssH * r));
     if (this.canvas.width !== pw || this.canvas.height !== ph) {

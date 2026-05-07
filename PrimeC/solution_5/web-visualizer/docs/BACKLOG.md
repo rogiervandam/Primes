@@ -153,3 +153,4 @@ For each mode, all animations should work, dragging, zooming and tilting should 
 5 Add an accessibility profile switch with presets for color-blind safe palette, high-contrast labels, larger hit targets, and reduced motion.
 
 6 Add bookmarkable "analysis snapshots" (camera + overlays + selected event + panel layout) that users can name and jump to from a dropdown.
+
