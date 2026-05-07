@@ -120,7 +120,14 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 Make the minimap canvas just the size shown on screen, and have it be a floating DOM element on the very top. 
 
-43 I want to be able to try different setups for the rendering and the animation, and be able to switch between them easily, because i experience bugs (probably in the browser) on different devices and screen sizes. I want to have controls for 
+43 
+I want to be able to try different setups for the rendering and the animation, and be able to switch between them easily, because i experience bugs (probably in the browser) on different devices and screen sizes. 
+In the debug window, want to have controls for:
+- settting the DPR value manually, to test the behavior under different zoom levels and screen densities
+- setting the canvas size of the webgl layer
+- setting the canvas size of the css/svg layer
+- setting the canvas size of the glyph-rendering layer (if we go with the 2d glyph rendering approach)
+When i change these values, the visualizer should re-render with the new settings immediately, so i can see how it affects the rendering and the animation. Make sure the center of all the layers keeps being line up when i change these settings, so i can isolate the effects of each setting on the rendering and the animation.
 
 Suggest a few different rendering and animation approaches, and implement them as switchable modes behind a single preference key.
 1. all glyphs are rendered 2d in a canvas using the layout arrangement, annotations, etc. Then the whole canvas is compressed and send to the webgl layer as a texture, and the webgl layer does the merge with the 3d grid and the tilt.

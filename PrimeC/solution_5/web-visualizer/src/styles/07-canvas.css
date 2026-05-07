@@ -729,19 +729,16 @@
   display: block;
 }
 .minimap-overlay-canvas {
-  /* position:fixed lifts the canvas out of every stacking context so it
-     always paints on top of the floating panels (settings sidebar, step
-     panel — z-index 28) regardless of which panels are open.
-     z-index 35 keeps it above those panels while staying below any
-     modal dialogs (z-index 100+).  pointer-events:none ensures it
-     never intercepts clicks; minimap interaction is handled by the
-     canvas-container pointer listener using viewport (clientX/Y) coords. */
+  /* Floating top-level minimap canvas. Size/position are set at runtime so
+     the backing store matches the exact on-screen minimap bounds. */
   position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  display: none;
   pointer-events: none;
-  z-index: 35;
+  z-index: 1200;
 }
 .animation-widget {
   position: fixed;
