@@ -158,6 +158,20 @@ export default function Visualizer({
     return isRenderMode(value) ? value : null;
   }, []);
 
+  // Item 106: Start in the direct equivalent of worker modes for faster startup.
+  // After the trace finishes loading, auto-switch to the originally-requested worker mode.
+  const _resolvedInitialMode = initialRenderModeFromUrl || initialPrefs.renderMode;
+  const _WORKER_TO_DIRECT = {
+    'mode5-worker': 'mode1-direct',
+    'mode6-worker': 'mode2-direct',
+    'mode7-worker': 'mode3-direct',
+    'mode8-worker': 'mode4-direct',
+  };
+  // pendingWorkerMode: non-null means "switch to this mode when loading completes"
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const pendingWorkerModeRef = useRef(_WORKER_TO_DIRECT[_resolvedInitialMode] ? _resolvedInitialMode : null);
+  const _startupRenderMode = _WORKER_TO_DIRECT[_resolvedInitialMode] || _resolvedInitialMode;
+
   const {
     isGlUnavailable, setIsGlUnavailable,
     glDebugInfo, setGlDebugInfo,
@@ -176,7 +190,7 @@ export default function Visualizer({
     glDebugLastUpdateRef, updateGlDebugInfo,
   } = useDebugTools({
     glRendererRef,
-    initialRenderMode: initialRenderModeFromUrl || initialPrefs.renderMode,
+    initialRenderMode: _startupRenderMode,
     initialDebugGlModeOverride: initialPrefs.debugGlModeOverride,
     initialDebugWorkerGlyphMode: initialPrefs.debugWorkerGlyphMode,
     initialDebugRenderTuning: initialPrefs.debugRenderTuning,
@@ -321,6 +335,16 @@ export default function Visualizer({
     setStorageModel(header.storageModel || 'half');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [header]);
+
+  // Item 106: Once the trace finishes loading, switch from the startup direct mode to
+  // the originally-requested worker mode (if one was deferred).
+  useEffect(() => {
+    if (!loadComplete) return;
+    const target = pendingWorkerModeRef.current;
+    if (!target) return;
+    pendingWorkerModeRef.current = null;
+    setRenderMode(target);
+  }, [loadComplete, setRenderMode]);
 
   // Derived values
   const areControlsHidden = isEventsPanelCollapsed && !isAllEventsWidgetHidden;
@@ -503,6 +527,7 @@ export default function Visualizer({
   });
 
   const {
+    collapseEventsHideWidget,
     dockEventsWidgetToDetailPanel,
     dockEventsWidgetToTopBar,
     expandEventsPanelFromWidget,
@@ -1137,6 +1162,7 @@ export default function Visualizer({
   ]);
 
   const panelLayoutContextValue = useMemo(() => ({
+    collapseEventsHideWidget,
     isEventsPanelCollapsed,
     setIsEventsPanelCollapsed,
     toggleEventsPanel,
@@ -1154,6 +1180,7 @@ export default function Visualizer({
     detailHeight,
     areWidgetsJoined,
   }), [
+    collapseEventsHideWidget,
     isEventsPanelCollapsed,
     setIsEventsPanelCollapsed,
     toggleEventsPanel,

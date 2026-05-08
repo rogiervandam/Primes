@@ -140,6 +140,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
   const {
     isEventsPanelCollapsed: panelCollapsed,
     toggleEventsPanel: onToggleCollapse,
+    collapseEventsHideWidget,
     isAllEventsWidgetHidden,
     showAllEventsWidget,
     areWidgetsJoined,
@@ -175,6 +176,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
   const [headerDragX, setHeaderDragX] = useState(0);
   const [headerDragWillCollapse, setHeaderDragWillCollapse] = useState(false);
   const [isCollapsingOut, setIsCollapsingOut] = useState(false);
+  const [collapseDir, setCollapseDir] = useState('left'); // 'left'|'right'|'up'|'down'
   const [isExpandingIn, setIsExpandingIn] = useState(false);
   const prevPanelCollapsedRef = useRef(panelCollapsed);
   useEffect(() => {
@@ -324,6 +326,17 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     window.addEventListener('mouseup', onUp);
     e.preventDefault();
   }, [onToggleCollapse]);
+
+  // Animate the panel sliding away in the given direction before calling the action.
+  // dir: 'left' | 'right' | 'up' | 'down'
+  const animatedCollapse = useCallback((dir, action) => {
+    setCollapseDir(dir);
+    setIsCollapsingOut(true);
+    setTimeout(() => {
+      setIsCollapsingOut(false);
+      action();
+    }, 280);
+  }, []);
 
   // filterLevel encoding: '' (all) | 'exact:N' | 'upto:N' | 'collapse:N'
   const [filterLevel, setFilterLevel] = useState(() => {
@@ -635,13 +648,15 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     lastClickedRef.current = null;
   }, [steps]);
 
-  // Scroll active step into view
+  // Scroll active step into view — suppressed during active playback to avoid
+  // repeated smooth-scroll jank that causes visible flickering (item 100).
   useEffect(() => {
+    if (playing) return;
     const el = listRef.current;
     if (!el) return;
     const active = el.querySelector('.event-item.active');
     if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [currentStep]);
+  }, [currentStep, playing]);
 
   // Reveal request: when bumped, clear filters that hide the current step,
   // expand its enclosing group + every ancestor node, then scroll it into
@@ -937,7 +952,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
   ) : null;
 
   return (
-      <div className={`events-panel${panelCollapsed ? ' collapsed' : ''}${isCollapsingOut ? ' collapsing-out' : ''}${isExpandingIn ? ' expanding-in' : ''}${floatDropHint === 'left' ? ' drop-hint-left' : ''}${floatDropHint === 'detail' ? ' drop-hint-detail' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
+      <div className={`events-panel${panelCollapsed ? ' collapsed' : ''}${isCollapsingOut ? ` collapsing-out collapsing-out--${collapseDir}` : ''}${isExpandingIn ? ' expanding-in' : ''}${floatDropHint === 'left' ? ' drop-hint-left' : ''}${floatDropHint === 'detail' ? ' drop-hint-detail' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
       {panelCollapsed && !isAllEventsWidgetHidden && !areWidgetsJoined && (
         <div
           className={`events-panel-floating-title${floatDropHint ? ` dropping dropping-${floatDropHint}` : ''}`}
@@ -979,15 +994,15 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
           )}
           <div className="events-panel-dir-btns" onMouseDown={(e) => e.stopPropagation()}>
             {onDockWidgetToTopBar && (
-              <button className="events-dir-btn" onClick={(e) => { e.stopPropagation(); onDockWidgetToTopBar(); }} title="Dock timeline in top bar">↑</button>
+              <button className="events-dir-btn" onClick={(e) => { e.stopPropagation(); animatedCollapse('up', onDockWidgetToTopBar); }} title="Dock timeline in top bar">↑</button>
             )}
             {showAllEventsWidget && (
-              <button className="events-dir-btn events-dir-btn--popout" onClick={(e) => { e.stopPropagation(); showAllEventsWidget(); onToggleCollapse(); }} title="Pop out events into floating widget">↓</button>
+              <button className="events-dir-btn events-dir-btn--popout" onClick={(e) => { e.stopPropagation(); animatedCollapse('down', collapseEventsHideWidget); }} title="Collapse events panel downward">↓</button>
             )}
             {onJoinWidgets && (
-              <button className="events-dir-btn" onClick={(e) => { e.stopPropagation(); onJoinWidgets(); }} title="Join with single-event widget">→</button>
+              <button className="events-dir-btn" onClick={(e) => { e.stopPropagation(); animatedCollapse('right', onJoinWidgets); }} title="Join with single-event widget">→</button>
             )}
-            <button className="events-dir-btn" onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }} title="Collapse events panel">←</button>
+            <button className="events-dir-btn" onClick={(e) => { e.stopPropagation(); animatedCollapse('left', onToggleCollapse); }} title="Collapse events panel">←</button>
           </div>
         </div>
         {transportControls}

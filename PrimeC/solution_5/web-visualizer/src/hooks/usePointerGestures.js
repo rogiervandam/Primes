@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { applyPan } from '../visualizer/gestures/pan';
 import { applyRotate } from '../visualizer/gestures/rotate';
 import { applyWheel } from '../visualizer/gestures/wheel';
@@ -86,6 +86,51 @@ export function usePointerGestures({
       1200
     );
   }, [getCanvasPlaneMetrics]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Smooth 2D pan to center the canvas on a given bit (items 102 & 103)
+  const panAnimRef = useRef(null);
+  const panToElement2D = useCallback((bitIdx) => {
+    const r = rendererRef.current;
+    const el = containerRef.current;
+    if (!r || !el) return;
+    const pos = r.bitIndexToCanvas(bitIdx);
+    if (!pos) return;
+    const rect = el.getBoundingClientRect();
+    const viewW = rect.width;
+    const viewH = rect.height;
+    // Compute target pan so the bit is centred in the viewport.
+    // pos.x/pos.y are in CSS-pixel canvas-space (includes current panX/panY).
+    // To center the bit: newPanX = r.panX + (viewW/2 - pos.x)
+    const targetPanX = r.panX + (viewW / 2 - pos.x);
+    const targetPanY = r.panY + (viewH / 2 - pos.y);
+    // Cancel any existing pan animation
+    if (panAnimRef.current != null) {
+      cancelAnimationFrame(panAnimRef.current);
+      panAnimRef.current = null;
+    }
+    if (cancelViewportAnimation) cancelViewportAnimation();
+    const startPanX = r.panX;
+    const startPanY = r.panY;
+    const duration = 500;
+    const startedAt = performance.now();
+    const tick = (now) => {
+      const t = Math.min(1, (now - startedAt) / duration);
+      // Cubic ease-out spring feel
+      const eased = 1 - Math.pow(1 - t, 3);
+      r.panX = startPanX + (targetPanX - startPanX) * eased;
+      r.panY = startPanY + (targetPanY - startPanY) * eased;
+      r.render();
+      updateMinimapAvailability();
+      r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
+      scheduleBalloonRelayout(true);
+      if (t < 1) {
+        panAnimRef.current = requestAnimationFrame(tick);
+      } else {
+        panAnimRef.current = null;
+      }
+    };
+    panAnimRef.current = requestAnimationFrame(tick);
+  }, [cancelViewportAnimation, getMinimapDetailH, scheduleBalloonRelayout, updateMinimapAvailability]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mouse pan & zoom on canvas (with 3D rotation support)
   useEffect(() => {
@@ -381,6 +426,9 @@ export function usePointerGestures({
           const cam = camera3DRef.current;
           if (cam && cam.enabled) {
             flyToElement(idx);
+          } else {
+            // 2D mode: animated pan to center on the clicked bit (item 102)
+            panToElement2D(idx);
           }
           if ((e.detail || 0) >= 2) {
             setPinnedBitIndices([idx]);
@@ -513,5 +561,5 @@ export function usePointerGestures({
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [computeBitInfo, flyToElement, getCanvasPlaneMetrics, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout, schedulePostLayoutRefresh, areBalloonsEnabled, isBalloonClickEnabled, isBalloonHoverEnabled, seekStepAnimation]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [computeBitInfo, flyToElement, panToElement2D, getCanvasPlaneMetrics, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout, schedulePostLayoutRefresh, areBalloonsEnabled, isBalloonClickEnabled, isBalloonHoverEnabled, seekStepAnimation]); // eslint-disable-line react-hooks/exhaustive-deps
 }

@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, Repeat, Settings } from '../Icons';
+import { Play, Pause, Repeat, Settings, StepBack, StepForward } from '../Icons';
 
 /**
  * The "step animation sliders" cluster shown both inside the floating
@@ -109,6 +109,113 @@ function StepAnimSliders({
       }
     };
   }, [delayPhaseMs, isAnimationReplayPaused]);
+
+  // Long-press scrub controls (item 96)
+  const longPressRef = useRef(null);
+  const [showScrubPanel, setShowScrubPanel] = useState(false);
+  const [scrubStepSize, setScrubStepSize] = useState(1); // percent per frame-step
+
+  // Hold-down repeat for < / > buttons (item 108)
+  const holdTimerRef = useRef(null);
+  const holdIntervalRef = useRef(null);
+  const clearHoldTimers = () => {
+    if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null; }
+    if (holdIntervalRef.current) { clearInterval(holdIntervalRef.current); holdIntervalRef.current = null; }
+  };
+  useEffect(() => clearHoldTimers, []);
+
+  // Fine-scrub slider: ±10% window around the captured center (item 108).
+  // Center is captured on mouse-down so the window stays fixed while dragging.
+  const fineCenterRef = useRef(0);
+
+  const handlePlayMouseDown = (e) => {
+    e.stopPropagation();
+    longPressRef.current = setTimeout(() => {
+      longPressRef.current = null;
+      setShowScrubPanel((prev) => !prev);
+    }, 600);
+  };
+  const handlePlayMouseUp = (e) => {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current);
+      longPressRef.current = null;
+      handleStepAnimToggle();
+    }
+  };
+  const handlePlayMouseLeave = () => {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current);
+      longPressRef.current = null;
+    }
+  };
+  useEffect(() => () => {
+    if (longPressRef.current) clearTimeout(longPressRef.current);
+  }, []);
+
+  const STEP_SIZES = [0.1, 0.5, 1, 5, 10];
+  const stepSizeDown = () => {
+    setScrubStepSize((prev) => {
+      const idx = STEP_SIZES.indexOf(prev);
+      return idx > 0 ? STEP_SIZES[idx - 1] : prev;
+    });
+  };
+  const stepSizeUp = () => {
+    setScrubStepSize((prev) => {
+      const idx = STEP_SIZES.indexOf(prev);
+      return idx < STEP_SIZES.length - 1 ? STEP_SIZES[idx + 1] : prev;
+    });
+  };
+
+  // stepScrubProgress is a state value; use a ref for the hold-repeat callbacks.
+  const stepScrubProgressRef2 = useRef(stepScrubProgress);
+  stepScrubProgressRef2.current = stepScrubProgress;
+
+  const stepFrameBack = () => {
+    const next = Math.max(0, stepScrubProgressRef2.current - scrubStepSize);
+    setStepScrubProgress(next);
+    seekStepAnimation(next / 100);
+  };
+  const stepFrameForward = () => {
+    const next = Math.min(100, stepScrubProgressRef2.current + scrubStepSize);
+    setStepScrubProgress(next);
+    seekStepAnimation(next / 100);
+  };
+
+  // Hold-down handlers for < / > buttons (item 108)
+  const handleScrubBtnDown = (fn) => (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    fn();
+    holdTimerRef.current = setTimeout(() => {
+      holdTimerRef.current = null;
+      holdIntervalRef.current = setInterval(fn, 80);
+    }, 400);
+  };
+  const handleScrubBtnUp = (e) => { e.stopPropagation(); clearHoldTimers(); };
+
+  // Fine-slider helpers (item 108): ±10% window centered when pressed
+  const getFineSliderValue = () => {
+    const center = fineCenterRef.current;
+    const fineMin = Math.max(0, center - 10);
+    const fineMax = Math.min(100, center + 10);
+    const range = fineMax - fineMin;
+    if (range <= 0) return 500;
+    return Math.round(((stepScrubProgress - fineMin) / range) * 1000);
+  };
+  const handleFineSliderDown = (e) => {
+    e.stopPropagation();
+    fineCenterRef.current = stepScrubProgress;
+  };
+  const handleFineSliderChange = (e) => {
+    const v = parseInt(e.target.value, 10);
+    const center = fineCenterRef.current;
+    const fineMin = Math.max(0, center - 10);
+    const fineMax = Math.min(100, center + 10);
+    const next = Math.max(0, Math.min(100, fineMin + (v / 1000) * (fineMax - fineMin)));
+    setStepScrubProgress(next);
+    seekStepAnimation(next / 100);
+  };
+
   const hasMaskOrder = !!(
     currentStepData
     && currentStepData.maskWriteOrderWords
@@ -134,10 +241,12 @@ function StepAnimSliders({
         <div className="step-focus-slider-controls">
           <button
             type="button"
-            className="step-focus-play-btn"
-            onClick={(e) => { e.stopPropagation(); handleStepAnimToggle(); }}
-            onMouseDown={(e) => e.stopPropagation()}
-            title={(playing || isStepAnimRunning || isSingleEventLoopActive) && !isAnimationReplayPaused ? 'Pause the timeline animation' : 'Play the timeline animation at the current Speed'}
+            className={`step-focus-play-btn${showScrubPanel ? ' scrub-active' : ''}`}
+            onMouseDown={handlePlayMouseDown}
+            onMouseUp={handlePlayMouseUp}
+            onMouseLeave={handlePlayMouseLeave}
+            onClick={(e) => e.stopPropagation()}
+            title={(playing || isStepAnimRunning || isSingleEventLoopActive) && !isAnimationReplayPaused ? 'Pause the timeline animation (long-press for scrub controls)' : 'Play the timeline animation (long-press for scrub controls)'}
           >
             {(playing || isStepAnimRunning || isSingleEventLoopActive) && !isAnimationReplayPaused ? <Pause size={16} /> : <Play size={16} />}
           </button>
@@ -210,6 +319,59 @@ function StepAnimSliders({
           </div>
         )}
       </div>
+      {showScrubPanel && (
+        <div className="step-focus-scrub-panel" onMouseDown={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            className="step-focus-scrub-btn"
+            onMouseDown={handleScrubBtnDown(stepFrameBack)}
+            onMouseUp={handleScrubBtnUp}
+            onMouseLeave={handleScrubBtnUp}
+            disabled={timelineDisabled}
+            title={`Step back ${scrubStepSize}% (hold for continuous)`}
+          >
+            <StepBack size={14} />
+          </button>
+          <input
+            type="range"
+            className="step-focus-scrub-slider"
+            min={0}
+            max={1000}
+            step={1}
+            value={getFineSliderValue()}
+            onMouseDown={handleFineSliderDown}
+            onChange={handleFineSliderChange}
+            disabled={timelineDisabled}
+            title={`${stepScrubProgress.toFixed(1)}% — fine scrub (±10% window)`}
+          />
+          <button
+            type="button"
+            className="step-focus-scrub-btn"
+            onMouseDown={handleScrubBtnDown(stepFrameForward)}
+            onMouseUp={handleScrubBtnUp}
+            onMouseLeave={handleScrubBtnUp}
+            disabled={timelineDisabled}
+            title={`Step forward ${scrubStepSize}% (hold for continuous)`}
+          >
+            <StepForward size={14} />
+          </button>
+          <span className="step-focus-scrub-step-label">{scrubStepSize}%</span>
+          <button
+            type="button"
+            className="step-focus-scrub-btn step-focus-scrub-btn--speed"
+            onClick={(e) => { e.stopPropagation(); stepSizeDown(); }}
+            disabled={STEP_SIZES.indexOf(scrubStepSize) === 0}
+            title="Decrease step size"
+          >−</button>
+          <button
+            type="button"
+            className="step-focus-scrub-btn step-focus-scrub-btn--speed"
+            onClick={(e) => { e.stopPropagation(); stepSizeUp(); }}
+            disabled={STEP_SIZES.indexOf(scrubStepSize) === STEP_SIZES.length - 1}
+            title="Increase step size"
+          >+</button>
+        </div>
+      )}
 
 
     </>

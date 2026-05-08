@@ -194,17 +194,45 @@ For each mode, all animations should work, dragging, zooming and tilting should 
 93 The docking positions on the detail panel should be to the left of the detail panel title, so that it doesn't take too much space. 
 94 (Done) The toggle for the nearby events in the single event widget should be next to the link item. In the nearby events, the row with the title should be "font-size: large"
 
-95 Show the animations in direct mode as well
-96 When long pressing the play button on the single event widget, show me fine-grained controls for scrubbing through the event's animation, such as +/- for speed, next/previous frame and a way to step through the animation on a sub-percentage basis, making it possible to adjust the frame intensity. Another long press should hide these controls again and set speed to the previous value.
-97 In the all events panel: when clicking one of the 4 arrows, the panel should always slide away in the direction of the arrow. The all events floater should only appear after a left or right arrow click
-98 In the docked detail panel: always leave room for one line of annotation, so it doesn't move up and down when you use the timeline slider.
-99 When the detail panel is collapsed and the all events widget is docked, show it to the left of the title in the collapsed header, so it is still accessible without having to expand the panel.
-100 When the events panel is open during animation, i see flickering. That is gone when the panel is collapsed. 
-101 In the single even widget, the toggle for nearby display mode should be position absolute and then left from the link button. 
-102 when i click on a bit, pan the camera to center on that bit, so i can quickly focus on the area of interest. The camera movement should be smooth and animated, so it feels natural and intuitive. Consider using a spring or easing function to make the camera movement feel more dynamic and responsive, rather than a linear interpolation.
-103 When panning to a bit, sometimes the connectors for pinned bits come loose and end up in the wrong place. After a little drag the come on again like it is only refreshed then. When panning, make sure the connectors stay attached to their respective bits and move together with the camera, so they maintain their correct position and provide accurate context for the pinned bits during navigation.
-104 The single event widget must have a close button. When I click the close button, it should hide the single event widget.
-105 In the detail panel - bits area - have the row with numbers marked and bit ranges not under, but to the side of the labels, so they are on one line.
+95 (Done) Show the animations in direct mode as well
+96 (Done) When long pressing the play button on the single event widget, show me fine-grained controls for scrubbing through the event's animation, such as +/- for speed, next/previous frame and a way to step through the animation on a sub-percentage basis, making it possible to adjust the frame intensity. Another long press should hide these controls again and set speed to the previous value.
+97 (Done) In the all events panel: when clicking one of the 4 arrows, the panel should always slide away in the direction of the arrow. The all events floater should only appear after a left or right arrow click
+98 (Done) In the docked detail panel: always leave room for one line of annotation, so it doesn't move up and down when you use the timeline slider.
+99 (Done) When the detail panel is collapsed and the all events widget is docked, show it to the left of the title in the collapsed header, so it is still accessible without having to expand the panel.
+100 (Done) When the events panel is open during animation, i see flickering. That is gone when the panel is collapsed. 
+101 (Done) In the single even widget, the toggle for nearby display mode should be position absolute and then left from the link button. 
+102 (Done) when i click on a bit, pan the camera to center on that bit, so i can quickly focus on the area of interest. The camera movement should be smooth and animated, so it feels natural and intuitive. Consider using a spring or easing function to make the camera movement feel more dynamic and responsive, rather than a linear interpolation.
+103 (Done) When panning to a bit, sometimes the connectors for pinned bits come loose and end up in the wrong place. After a little drag the come on again like it is only refreshed then. When panning, make sure the connectors stay attached to their respective bits and move together with the camera, so they maintain their correct position and provide accurate context for the pinned bits during navigation.
+104 (Done) The single event widget must have a close button. When I click the close button, it should hide the single event widget.
+105 (Done) In the detail panel - bits area - have the row with numbers marked and bit ranges not under, but to the side of the labels, so they are on one line.
+
+106 (Done) Always start in non-worker mode (1-4) for faster startup and easier debugging. If mode was 5-8 in the last session, go to the corresponding non-worker mode (1-4). After the inital load of the events is finished, just before starting the animation,  switch to mode 5-8 if that was the last session's choice. This way I can get to a usable state faster, and then switch to the worker mode for better performance with large logs once everything is loaded.
+
+107 (Done) The animations situation per mode:
+(1) shows animation & trails -> good
+(2) no animation & no trails -> bad
+(3) no animation & no trails -> bad
+(4) shows animation & trails -> good
+(5) shows animation & trails -> good
+(6) Shows animation & trails -> good
+(7) shows animation & trails -> good
+(8) shows animation & trails -> good
+Fix that please.
+
+108 (Done): The finegrained control on the single event widget should be improved: if you hold down the < or > it should keep increasing the count. The second slider should alloe finegrained control of the 10% progress around where the upper slider is now, so it has a smaller range for more precise control. 
+
+109 Start the numbering of groups at 0, not 1
+110 when showing the mask animation for aggregated events, it now shows the first mask used, but it doesn't update when another mask is used. It should update the mask animation to show the current mask being used for each event, so i can see how the masks change over time and which masks are associated with which events. In the detail panel, show the mask at that part of the animation and allow the user to go previous/next to the masks in the aggregated event, so they can analyze the different masks used in that event more effectively.
+111 When a mask event doesn't set change any bits, the animation must still play. 
+112 The logger should keep record of the already set and newly set bits for each event, so that the visualizer can show these numbers for each event. This also applies for masks: figure out how many bits are in the mask and how many times it way applied. Then look at the total of bits changed in the bitstorage and you have the already set and newly set counts. 
+113 When scrubbing the fine-grained control in the single event widget, the percentage has sometimes more than 2 digits after the . which overflows in the gear button.
+114 The single event widget close button must be on the right side of the widget, so the nearby events can start from the very top left.
+115 in events panel, the button with the arrow up should make the entire panel - including all the events, not just the header - slide up to hide in a collapsed state.
+116 When the detail panel is collapsed and the all events widget is docked, show the all widgets to the left of the title in the collapsed header, so it is still accessible without having to expand the panel.
+117 The text "ANIMATION" is under the play button. Move the rest of the controls a bit to the right and entire item a bit wider to accomodate.
+118 The detail panel shouldn't flicker when collapsing or expanding. It should just smoothly slide out to the new height without any sudden jumps or flashes. 
+119 The show event title button in the detail panel should hide the single event widget if it is currently shown, thereby forming a toggle.
+
 
 
 ## New Ideas
