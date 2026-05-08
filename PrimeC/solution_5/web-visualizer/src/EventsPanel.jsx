@@ -1,6 +1,9 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus, Eye } from './Icons';
 import { formatNs } from './TimingPanel';
+import { isWindowAvailable } from './lib/browser.js';
+import { usePlaybackContext } from './contexts/PlaybackContext';
+import { usePanelLayoutContext } from './contexts/PanelLayoutContext';
 
 /**
  * Convert a flat list of steps (each with a `depth` field, 0-based) into
@@ -95,36 +98,52 @@ function buildDepthTree(steps) {
  * Left-hand events panel: hierarchical step list with search, grouping, and
  * an optional floating transport widget when the panel is collapsed.
  *
+ * Phase 5 Refactoring: Accepts organized prop objects instead of 20+ scattered props.
+ *
  * @param {object}   props
- * @param {Array}    props.steps                     - Parsed trace steps
- * @param {number}   props.currentStep               - Active step index
- * @param {Set}      props.selectedSteps             - Set of multi-selected step indices
- * @param {function} props.onStepClick               - Called with a step index on single-click
- * @param {function} props.onMultiStepSelect         - Called with new Set on multi-select
- * @param {number}   props.width                     - Panel pixel width
- * @param {function} props.onWidthChange             - Called when user drags the resize handle
- * @param {boolean}  props.panelCollapsed            - Whether the panel is collapsed to a floating widget
- * @param {function} props.onToggleCollapse          - Toggle collapsed state
- * @param {boolean}  [props.allEventsWidgetHidden]   - True when widget is docked to the top bar
- * @param {function} props.onExpandPanelFromWidget   - Widget drop-left: expands the panel
- * @param {function} props.onDockWidgetToTopBar      - Widget drop-top: docks the widget to the toolbar
- * @param {function} [props.onDockWidgetToDetailPanel] - Widget drop-detail: docks transport in detail panel
- * @param {function} props.onJoinWidgets             - Widget drop-on-banner: join the two floating widgets
- * @param {function} [props.onUserScroll]            - Called when the user scrolls the event list
- * @param {string}   [props.externalOpFilter]        - Op-filter string set externally (e.g. from search)
- * @param {function} props.onExternalOpFilterConsumed - Called after the external filter has been applied
- * @param {number}   [props.revealStepRequest]       - Counter; increments to scroll the current step into view
- * @param {function} props.goToStep                  - Navigate to a given step index
- * @param {boolean}  props.playing                   - Whether all-events playback is active
- * @param {function} props.handlePlayPause           - Toggle all-events play/pause
- * @param {boolean}  props.exporting                 - Disable controls while exporting
- * @param {React.MutableRefObject} props.isScrubbingTopRef - True while the top-bar scrubber is being dragged
- * @param {number}   props.playSpeedPercent          - Playback speed 25–400
- * @param {function} props.setPlaySpeedPercent       - Update playback speed
- * @param {boolean}  [props.eventTitleVisible]       - Whether the floating event banner is currently shown
- * @param {function} props.onShowEventTitle          - Show / restore the event title banner
+ * @param {object}   props.eventsState               - Event list state (steps, currentStep, selectedSteps, width, externalOpFilter, revealStepRequest, eventTitleVisible)
+ * @param {object}   props.eventsHandlers            - Event handlers (onStepClick, onMultiStepSelect, onWidthChange, onExpandPanelFromWidget, onDockWidgetToTopBar, onDockWidgetToDetailPanel, onJoinWidgets, onUserScroll, onExternalOpFilterConsumed, onShowEventTitle)
+ *
  */
-export default function EventsPanel({ steps, currentStep, selectedSteps, onStepClick, onMultiStepSelect, width, onWidthChange, panelCollapsed, onToggleCollapse, allEventsWidgetHidden = false, onExpandPanelFromWidget, onDockWidgetToTopBar, onDockWidgetToDetailPanel, onJoinWidgets, onUserScroll, externalOpFilter = '', onExternalOpFilterConsumed, revealStepRequest = 0, goToStep, playing, handlePlayPause, exporting, isScrubbingTopRef, playSpeedPercent, setPlaySpeedPercent, eventTitleVisible = true, onShowEventTitle }) {
+export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
+  const {
+    steps,
+    currentStep,
+    selectedSteps,
+    width,
+    externalOpFilter = '',
+    revealStepRequest = 0,
+    eventTitleVisible = true,
+  } = eventsState;
+
+  const {
+    onStepClick,
+    onMultiStepSelect,
+    onWidthChange,
+    onExpandPanelFromWidget,
+    onDockWidgetToTopBar,
+    onDockWidgetToDetailPanel,
+    onJoinWidgets,
+    onUserScroll,
+    onExternalOpFilterConsumed,
+    onShowEventTitle,
+  } = eventsHandlers;
+  const {
+    goToStep,
+    playing,
+    handlePlayPause,
+    exporting,
+    isScrubbingTopRef,
+    playSpeedPercent,
+    setPlaySpeedPercent,
+  } = usePlaybackContext();
+  const {
+    isEventsPanelCollapsed: panelCollapsed,
+    toggleEventsPanel: onToggleCollapse,
+    isAllEventsWidgetHidden,
+    showAllEventsWidget,
+  } = usePanelLayoutContext();
+
   const listRef = useRef(null);
   const scrollTopRef = useRef(0);
   const sentinelRef = useRef(null);
@@ -172,7 +191,7 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
   // Returns 'left' (expand events panel), 'top' (dock to top bar),
   // 'detail' (dock into detail panel), 'joinWidget' (merge with EventTitleBanner), or null.
   const detectDropZone = useCallback((clientX, clientY) => {
-    if (typeof window === 'undefined') return null;
+    if (!isWindowAvailable()) return null;
     const TOP_BAND = 60;   // top toolbar drop band height
     const LEFT_BAND = 80;  // left edge drop band width
     if (clientY <= TOP_BAND) return 'top';
@@ -846,7 +865,7 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
           {playing ? <Pause size={12} /> : <Play size={12} />}
         </button>
         {setPlaySpeedPercent && (
-          <button className="spt-btn spt-speed" onClick={() => setPlaySpeedPercent(v => Math.min(400, Math.round(v * 1.25)))} title="Faster animation" disabled={exporting}><Plus size={11} /></button>
+          <button className="spt-btn spt-speed" onClick={() => setPlaySpeedPercent(v => Math.min(1600, Math.round(v * 1.25)))} title="Faster animation" disabled={exporting}><Plus size={11} /></button>
         )}
         <button className="spt-btn" onClick={() => goToStep(currentStep + 1)} title="Next event (→)" disabled={exporting}><StepForward size={12} /></button>
         <button className="spt-btn" onClick={() => goToStep(steps.length - 1)} title="Last event (End)" disabled={exporting}><SkipForward size={12} /></button>
@@ -875,7 +894,7 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
 
   return (
       <div className={`events-panel${panelCollapsed ? ' collapsed' : ''}${isCollapsingOut ? ' collapsing-out' : ''}${isExpandingIn ? ' expanding-in' : ''}${floatDropHint === 'left' ? ' drop-hint-left' : ''}${floatDropHint === 'detail' ? ' drop-hint-detail' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
-      {panelCollapsed && !allEventsWidgetHidden && (
+      {panelCollapsed && !isAllEventsWidgetHidden && (
         <div
           className={`events-panel-floating-title${floatDropHint ? ` dropping dropping-${floatDropHint}` : ''}`}
           style={{ transform: `translate(${floatDrag.x}px, ${floatDrag.y}px)`, cursor: 'grab' }}
@@ -905,7 +924,7 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
           onMouseDown={handleHeaderTitleDragStart}
           title="Drag right to collapse"
         >
-          <h3>Events ({totalVisible}/{steps.length})</h3>
+          <h3>Events</h3>
           {!eventTitleVisible && onShowEventTitle && (
             <button
               className="events-panel-show-event-title-btn"
@@ -914,18 +933,32 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
               title="Show single-event widget"
             ><Eye size={12} /></button>
           )}
-          <button className="events-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Collapse events panel">
-            ◀
-          </button>
+          <div className="events-panel-dir-btns" onMouseDown={(e) => e.stopPropagation()}>
+            {onDockWidgetToTopBar && (
+              <button className="events-dir-btn" onClick={(e) => { e.stopPropagation(); onDockWidgetToTopBar(); }} title="Dock timeline in top bar">↑</button>
+            )}
+            {showAllEventsWidget && (
+              <button className="events-dir-btn events-dir-btn--popout" onClick={(e) => { e.stopPropagation(); showAllEventsWidget(); onToggleCollapse(); }} title="Pop out events into floating widget">↓</button>
+            )}
+            {onJoinWidgets && (
+              <button className="events-dir-btn" onClick={(e) => { e.stopPropagation(); onJoinWidgets(); }} title="Join with single-event widget">→</button>
+            )}
+            <button className="events-dir-btn" onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }} title="Collapse events panel">←</button>
+          </div>
         </div>
         {transportControls}
-        <input
-          className="event-search"
-          type="text"
-          placeholder="Search events…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <div className="event-search-row">
+          <input
+            className="event-search"
+            type="text"
+            placeholder="Search events…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search && (
+            <button className="event-search-clear" onClick={() => setSearch('')} onMouseDown={(e) => e.stopPropagation()} title="Clear search">✕</button>
+          )}
+        </div>
         {operations.length > 0 && (
           <div className="event-op-filter-row">
             <select className="event-filter event-filter-op" value={filterOp} onChange={(e) => setFilterOp(e.target.value)}>
@@ -976,6 +1009,7 @@ export default function EventsPanel({ steps, currentStep, selectedSteps, onStepC
             <input type="checkbox" checked={hideUnchanged} onChange={(e) => setHideUnchanged(e.target.checked)} />
             <span>Hide no-ops</span>
           </label>
+          <span className="events-visible-count" title={`${totalVisible} of ${steps.length} events visible`}>{totalVisible}/{steps.length}</span>
         </div>
       </div>
       <div className="event-list" ref={listRef} onWheel={onUserScroll}>

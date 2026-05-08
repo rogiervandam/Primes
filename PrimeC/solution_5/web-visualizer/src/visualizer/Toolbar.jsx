@@ -1,11 +1,13 @@
 import React from 'react';
 import {
-  SkipBack, StepBack, Play, Pause, StepForward, SkipForward,
-  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Minus, Plus,
-  PanelLeft, PanelBottom, PanelRight, Toolkit,
+  ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Toolkit,
 } from '../Icons';
 import { GearIcon } from '../settings/buttons';
 import TraceInfoPopover from './TraceInfoPopover';
+import PlaybackTransport from './PlaybackTransport';
+import ToolbarPanelToggles from './ToolbarPanelToggles';
+import { useThemeContext } from '../contexts/ThemeContext';
+import { usePanelLayoutContext } from '../contexts/PanelLayoutContext';
 
 /**
  * Top toolbar: trace title (with info popover), playback transport, and the
@@ -19,82 +21,78 @@ import TraceInfoPopover from './TraceInfoPopover';
  * tools and settings buttons stay in the top bar.
  */
 export default function Toolbar({
-  // platform
-  isMacPlatform,
-  isWindowsPlatform,
-  isElectron,
-  // title / info popover
-  effectiveTitle,
-  showTraceInfo,
-  setShowTraceInfo,
-  traceInfoToggleRef,
-  traceInfoPopoverRef,
-  storageModel,
-  setStorageModel,
-  header,
-  traceInfoSections,
-  onFetchRawSource,
-  lineToStep,
-  onJumpToStep,
-  rawScrollToLine,
-  onClearRawScrollToLine,
-  currentStepSourceLine,
-  // close
-  onClose,
-  // playback transport
-  steps,
-  currentStep,
-  goToStep,
-  playing,
-  handlePlayPause,
-  exporting,
-  setPlaySpeedPercent,
-  isScrubbingTopRef,
-  // search
-  searchOpen,
-  setSearchOpen,
-  searchQuery,
-  setSearchQuery,
-  searchResult,
-  handleSearch,
-  // zoom / view
-  zoom,
-  doZoom,
-  resetZoom,
-  tiltActive,
-  tiltButtonEnabled = true,
-  toggleTilt,
-  // overlays / panels
-  heatMapEnabled,
-  setHeatMapEnabled,
-  primeOverlayEnabled,
-  setPrimeOverlayEnabled,
-  timingPanelOpen,
-  setTimingPanelOpen,
-  // debug tools
-  debugToolsOpen,
-  setDebugToolsOpen,
-  // panel collapse/expand
-  eventsPanelCollapsed,
-  toggleEventsPanel,
-  detailOpen,
-  toggleDetailPanel,
-  settingsCollapsed,
-  toggleSettingsPanel,
-  // export
-  exportPng,
-  exportVideo,
-  cancelExport,
-  exportProgress,
-  // theme
-  theme,
-  setTheme,
-  // immersive mode (auto-computed from widget visibility — no manual toggle)
-  controlsHidden,
-  // floating all-events widget: show pop-out button when widget was docked away
-  allEventsWidgetHidden,
-  showAllEventsWidget,
+  platform = {},
+  traceInfo = {},
+  search = {},
+  view = {},
+  debug = {},
+  exportState = {},
 }) {
+  const {
+    isMacPlatform,
+    isWindowsPlatform,
+    isElectron,
+  } = platform;
+
+  const {
+    effectiveTitle,
+    isTraceInfoVisible,
+    setIsTraceInfoVisible,
+    traceInfoToggleRef,
+    traceInfoPopoverRef,
+    storageModel,
+    setStorageModel,
+    header,
+    traceInfoSections,
+    onFetchRawSource,
+    lineToStep,
+    onJumpToStep,
+    rawScrollToLine,
+    onClearRawScrollToLine,
+    currentStepSourceLine,
+    onClose,
+  } = traceInfo;
+
+  const {
+    isSearchOpen,
+    setIsSearchOpen,
+    searchQuery,
+    setSearchQuery,
+    searchResult,
+    handleSearch,
+  } = search;
+
+  const {
+    zoom,
+    doZoom,
+    resetZoom,
+    isTiltActive,
+    isTiltButtonEnabled = true,
+    toggleTilt,
+  } = view;
+
+  const {
+    isDebugToolsOpen,
+    setIsDebugToolsOpen,
+  } = debug;
+
+  const {
+    exporting = false,
+    exportPng,
+    exportVideo,
+    cancelExport,
+    exportProgress,
+  } = exportState;
+
+  const { theme, setTheme } = useThemeContext();
+  const {
+    isSettingsCollapsed,
+    toggleSettingsPanel,
+    areControlsHidden,
+    isTimingPanelOpen,
+    setIsTimingPanelOpen,
+  } = usePanelLayoutContext();
+
   const visualizerClass =
     `visualizer${isMacPlatform ? ' platform-mac' : ''}` +
     `${isWindowsPlatform ? ' platform-windows' : ''}` +
@@ -104,15 +102,15 @@ export default function Toolbar({
   void visualizerClass;
 
   return (
-    <header className={`toolbar${controlsHidden ? ' toolbar--controls-hidden' : ''}`}>
+    <header className={`toolbar${areControlsHidden ? ' toolbar--controls-hidden' : ''}`}>
       <div className="toolbar-left">
         <div className="trace-title-block">
           <button
             ref={traceInfoToggleRef}
             type="button"
-            className={`trace-title trace-title-button${showTraceInfo ? ' active' : ''}`}
+            className={`trace-title trace-title-button${isTraceInfoVisible ? ' active' : ''}`}
             title="Trace information"
-            onClick={() => setShowTraceInfo((open) => !open)}
+            onClick={() => setIsTraceInfoVisible((open) => !open)}
           >
             {effectiveTitle}
           </button>
@@ -122,7 +120,7 @@ export default function Toolbar({
         </div>
         <TraceInfoPopover
           popoverRef={traceInfoPopoverRef}
-          visible={showTraceInfo}
+          visible={isTraceInfoVisible}
           storageModel={storageModel}
           setStorageModel={setStorageModel}
           header={header}
@@ -134,88 +132,18 @@ export default function Toolbar({
           onClearRawScrollToLine={onClearRawScrollToLine}
           currentStepSourceLine={currentStepSourceLine}
         />
-        <div className="panel-toggle-group">
-
-          {eventsPanelCollapsed && allEventsWidgetHidden && (
-            <button
-              className="btn-icon panel-toggle-btn panel-toggle-btn--popout"
-              onClick={showAllEventsWidget}
-              title="Show events widget"
-            >
-              <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="1.5" y="4.5" width="8" height="8" rx="1.2" />
-                <path d="M7 1.5h6.5v6.5" />
-                <path d="M13.5 1.5L8.5 6.5" />
-              </svg>
-            </button>
-          )}
-
-          <button
-            className={`btn-icon panel-toggle-btn${!eventsPanelCollapsed ? ' active' : ''}`}
-            onClick={toggleEventsPanel}
-            title={eventsPanelCollapsed ? 'Show Events panel' : 'Hide Events panel'}
-          >
-            <PanelLeft size={15} />
-          </button>
-
-          <button
-            className={`btn-icon panel-toggle-btn${detailOpen ? ' active' : ''}`}
-            onClick={toggleDetailPanel}
-            title={detailOpen ? 'Hide Detail panel' : 'Show Detail panel'}
-          >
-            <PanelBottom size={15} />
-          </button>
-          <button
-            className={`btn-icon panel-toggle-btn${!settingsCollapsed ? ' active' : ''}`}
-            onClick={toggleSettingsPanel}
-            title={settingsCollapsed ? 'Show Settings panel' : 'Hide Settings panel'}
-          >
-            <PanelRight size={15} />
-          </button>
-        </div>
+        <ToolbarPanelToggles />
       </div>
-      {!controlsHidden && (
+      {!areControlsHidden && (
       <div className="toolbar-center">
-        <>
-            <button className="btn-icon" onClick={() => goToStep(0)} title="First (Home)" disabled={exporting}><SkipBack /></button>
-            <button className="btn-icon" onClick={() => goToStep(currentStep - 1)} title="Previous (←)" disabled={exporting}><StepBack /></button>
-            <button className="btn-icon anim-speed-btn" onClick={() => setPlaySpeedPercent(v => Math.max(25, Math.round(v / 1.25)))} title="Slower animation" disabled={exporting}><Minus size={14} /></button>
-            <button
-              className="btn-icon"
-              onClick={handlePlayPause}
-              title={playing ? 'Pause playback' : (currentStep >= Math.max(0, steps.length - 1) ? 'Restart trace and play' : 'Play trace from current event')}
-              disabled={exporting || steps.length === 0}
-            >
-              {playing ? <Pause /> : <Play />}
-            </button>
-            <button className="btn-icon anim-speed-btn" onClick={() => setPlaySpeedPercent(v => Math.min(400, Math.round(v * 1.25)))} title="Faster animation" disabled={exporting}><Plus size={14} /></button>
-            <button className="btn-icon" onClick={() => goToStep(currentStep + 1)} title="Next (→)" disabled={exporting}><StepForward /></button>
-            <button className="btn-icon" onClick={() => goToStep(steps.length - 1)} title="Last (End)" disabled={exporting}><SkipForward /></button>
-            <input
-              type="range"
-              className="step-slider"
-              min={0}
-              max={Math.max(0, steps.length - 1)}
-              value={currentStep}
-              onChange={(e) => {
-                const target = parseInt(e.target.value, 10);
-                goToStep(target);
-              }}
-              onPointerDown={() => { isScrubbingTopRef.current = true; }}
-              onPointerUp={() => { isScrubbingTopRef.current = false; }}
-              onPointerCancel={() => { isScrubbingTopRef.current = false; }}
-              onMouseLeave={(e) => { if (e.buttons === 0) isScrubbingTopRef.current = false; }}
-              disabled={exporting}
-            />
-            <span className="step-counter">{currentStep} / {steps.length - 1}</span>
-        </>
+        <PlaybackTransport />
       </div>
       )}
       <div className="toolbar-right">
         {!isWindowsPlatform && (
           <>
-            <div className={`search-box${searchOpen ? ' search-box--open' : ''}`}>
-              {searchOpen ? (
+            <div className={`search-box${isSearchOpen ? ' search-box--open' : ''}`}>
+              {isSearchOpen ? (
                 <>
                   <input
                     type="text"
@@ -223,25 +151,25 @@ export default function Toolbar({
                     placeholder="bit 42 / byte 5 / number 97"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(searchQuery); if (e.key === 'Escape') setSearchOpen(false); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(searchQuery); if (e.key === 'Escape') setIsSearchOpen(false); }}
                     autoFocus
                     title="Search: bit N, byte N, uint64 N, vector N, number N"
                   />
                   {searchResult && <span className="search-result-inline" title={searchResult}>{searchResult}</span>}
-                  <button className="btn-icon" onClick={() => setSearchOpen(false)} title="Close search">✕</button>
+                  <button className="btn-icon" onClick={() => setIsSearchOpen(false)} title="Close search">✕</button>
                 </>
               ) : (
-                <button className="btn-icon" onClick={() => setSearchOpen(true)} title="Search (bit/byte/number)"><Search /></button>
+                <button className="btn-icon" onClick={() => setIsSearchOpen(true)} title="Search (bit/byte/number)"><Search /></button>
               )}
             </div>
             <button className="btn-icon" onClick={() => doZoom(1.5)} title="Zoom In (+)"><ZoomIn /></button>
             <button className="btn-text" onClick={resetZoom} title="Reset Zoom (0)">{zoom.toFixed(1)}x</button>
             <button className="btn-icon" onClick={() => doZoom(1 / 1.5)} title="Zoom Out (−)"><ZoomOut /></button>
             <button
-              className={`btn-icon${tiltActive ? ' active' : ''}`}
+              className={`btn-icon${isTiltActive ? ' active' : ''}`}
               onClick={toggleTilt}
-              title={tiltButtonEnabled ? (tiltActive ? 'Remove tilt (0°)' : 'Tilt view (30°)') : 'Tilt control unlocks after intro transform'}
-              disabled={!tiltButtonEnabled}
+              title={isTiltButtonEnabled ? (isTiltActive ? 'Remove tilt (0°)' : 'Tilt view (30°)') : 'Tilt control unlocks after intro transform'}
+              disabled={!isTiltButtonEnabled}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M2 13L8 10L14 13" />
@@ -249,7 +177,7 @@ export default function Toolbar({
                 <path d="M6 5.5L8 4.5L10 5.5" strokeOpacity="0.35" />
               </svg>
             </button>
-            <button className={`btn-icon${timingPanelOpen ? ' active' : ''}`} onClick={() => setTimingPanelOpen(o => !o)} title="Function timings">
+            <button className={`btn-icon${isTimingPanelOpen ? ' active' : ''}`} onClick={() => setIsTimingPanelOpen(o => !o)} title="Function timings">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <circle cx="8" cy="9" r="5.5" />
                 <path d="M8 6v3.5l2 1.5" strokeLinecap="round" />
@@ -270,19 +198,19 @@ export default function Toolbar({
             </button>
           </>
         )}
-        {setDebugToolsOpen && (
+        {setIsDebugToolsOpen && (
           <button
-            className={`btn-icon${debugToolsOpen ? ' active' : ''}`}
-            onClick={() => setDebugToolsOpen((v) => !v)}
-            title={debugToolsOpen ? 'Hide debug tools (`)' : 'Show debug tools (`)'}
+            className={`btn-icon${isDebugToolsOpen ? ' active' : ''}`}
+            onClick={() => setIsDebugToolsOpen((v) => !v)}
+            title={isDebugToolsOpen ? 'Hide debug tools (`)' : 'Show debug tools (`)'}
           >
             <Toolkit />
           </button>
         )}
         <button
-          className={`btn-icon panel-toggle-btn${!settingsCollapsed ? ' active' : ''}`}
+          className={`btn-icon panel-toggle-btn${!isSettingsCollapsed ? ' active' : ''}`}
           onClick={toggleSettingsPanel}
-          title={settingsCollapsed ? 'Show Settings panel' : 'Hide Settings panel'}
+          title={isSettingsCollapsed ? 'Show Settings panel' : 'Hide Settings panel'}
         >
           <GearIcon />
         </button>

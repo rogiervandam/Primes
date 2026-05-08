@@ -29,6 +29,11 @@ export class MinimapRenderer {
     this._rect = null;
   }
 
+  _hideAttachedCanvas() {
+    if (!this._canvas) return;
+    this._canvas.style.display = 'none';
+  }
+
   /** Attach (or detach when canvas is null) the dedicated minimap overlay canvas. */
   attach(canvas) {
     this._canvas = canvas;
@@ -69,40 +74,22 @@ export class MinimapRenderer {
     let ctx = h.ctx;
     // Prefer the stored container-visible dimensions for the visibility check
     // rather than the oversized canvas size.
-    let viewportW = h.viewportW || canvasW;
-    let viewportH = h.viewportH || canvasH;
-
-    if (this._canvas && this._ctx) {
-      const dpr = window.devicePixelRatio || 1;
-      // The minimap canvas is position:fixed and fills the full viewport,
-      // so use window dimensions as the drawing surface.
-      const overlayW = (typeof window !== 'undefined' ? window.innerWidth : null)
-        || this._canvas.clientWidth || canvasW;
-      const overlayH = (typeof window !== 'undefined' ? window.innerHeight : null)
-        || this._canvas.clientHeight || canvasH;
-      // Resize if needed.
-      if (this._canvas.width !== Math.round(overlayW * dpr)
-          || this._canvas.height !== Math.round(overlayH * dpr)) {
-        this._canvas.width = Math.round(overlayW * dpr);
-        this._canvas.height = Math.round(overlayH * dpr);
-        this._canvas.style.width = `${overlayW}px`;
-        this._canvas.style.height = `${overlayH}px`;
-      }
-      ctx = this._ctx;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, overlayW, overlayH);
-      // Drawing surface is the full viewport.
-      canvasW = overlayW;
-      canvasH = overlayH;
-    }
+    const viewportW = h.viewportW || canvasW;
+    const viewportH = h.viewportH || canvasH;
 
     if (!h.minimapEnabled) {
       this._rect = null;
+      this._hideAttachedCanvas();
       return;
     }
-    if (h.bitCount === 0) return;
+    if (h.bitCount === 0) {
+      this._rect = null;
+      this._hideAttachedCanvas();
+      return;
+    }
     if (this.isContentFullyVisible(viewportW, viewportH)) {
       this._rect = null;
+      this._hideAttachedCanvas();
       return;
     }
 
@@ -113,44 +100,67 @@ export class MinimapRenderer {
     const mapH = dims.height * scale + 2 * pad;
     const edgePad = 10;
     const rightInset = h.minimapRightInset || 0;
-    const mx = Math.max(edgePad, canvasW - mapW - edgePad - rightInset);
+    const targetX = Math.max(edgePad, viewportW - mapW - edgePad - rightInset);
     const panelClearance = Math.max(0, detailH) + edgePad;
-    const my = Math.max(edgePad, canvasH - mapH - panelClearance);
+    const targetY = Math.max(edgePad, viewportH - mapH - panelClearance);
+
+    let drawX = targetX;
+    let drawY = targetY;
+
+    if (this._canvas && this._ctx) {
+      const dpr = window.devicePixelRatio || 1;
+      const nextW = Math.max(1, Math.round(mapW * dpr));
+      const nextH = Math.max(1, Math.round(mapH * dpr));
+      if (this._canvas.width !== nextW || this._canvas.height !== nextH) {
+        this._canvas.width = nextW;
+        this._canvas.height = nextH;
+      }
+      this._canvas.style.display = 'block';
+      this._canvas.style.width = `${mapW}px`;
+      this._canvas.style.height = `${mapH}px`;
+      this._canvas.style.left = `${targetX}px`;
+      this._canvas.style.top = `${targetY}px`;
+      ctx = this._ctx;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, mapW, mapH);
+      drawX = 0;
+      drawY = 0;
+    }
 
     // Store geometry for hit-testing.
-    this._rect = { mx, my, mapW, mapH, scale, pad, dims };
+    this._rect = { mx: targetX, my: targetY, mapW, mapH, scale, pad, dims };
 
     // Background panel.
     ctx.fillStyle = 'rgba(0,0,0,0.65)';
-    ctx.fillRect(mx, my, mapW, mapH);
+    ctx.fillRect(drawX, drawY, mapW, mapH);
     ctx.strokeStyle = 'rgba(255,255,255,0.25)';
     ctx.lineWidth = 1;
-    ctx.strokeRect(mx, my, mapW, mapH);
+    ctx.strokeRect(drawX, drawY, mapW, mapH);
 
     // Content outline.
     const contentW = mapW - 2 * pad;
     const contentH = mapH - 2 * pad;
     ctx.fillStyle = 'rgba(180,180,180,0.15)';
-    ctx.fillRect(mx + pad, my + pad, contentW, contentH);
+    ctx.fillRect(drawX + pad, drawY + pad, contentW, contentH);
     ctx.strokeStyle = 'rgba(200,200,200,0.4)';
     ctx.lineWidth = 1;
-    ctx.strokeRect(mx + pad, my + pad, contentW, contentH);
+    ctx.strokeRect(drawX + pad, drawY + pad, contentW, contentH);
 
     // Viewport rectangle.
     // The canvas is ~3.2× oversized and centered on screen, so the visible
     // region starts at (canvasWidth - viewportW) / 2 in canvas coordinates.
     const viewLeft = (h.canvasWidth - viewportW) / 2 - h.panX;
     const viewTop = (h.canvasHeight - viewportH) / 2 - h.panY;
-    const vpX = mx + pad + viewLeft * scale;
-    const vpY = my + pad + viewTop * scale;
+    const vpX = drawX + pad + viewLeft * scale;
+    const vpY = drawY + pad + viewTop * scale;
     const vpW = viewportW * scale;
     const vpH = viewportH * scale;
     ctx.strokeStyle = 'rgba(255,68,68,0.8)';
     ctx.lineWidth = 1.5;
-    const clampedX = Math.max(mx + pad, Math.min(vpX, mx + mapW - pad));
-    const clampedY = Math.max(my + pad, Math.min(vpY, my + mapH - pad));
-    const clampedR = Math.max(mx + pad, Math.min(vpX + vpW, mx + mapW - pad));
-    const clampedB = Math.max(my + pad, Math.min(vpY + vpH, my + mapH - pad));
+    const clampedX = Math.max(drawX + pad, Math.min(vpX, drawX + mapW - pad));
+    const clampedY = Math.max(drawY + pad, Math.min(vpY, drawY + mapH - pad));
+    const clampedR = Math.max(drawX + pad, Math.min(vpX + vpW, drawX + mapW - pad));
+    const clampedB = Math.max(drawY + pad, Math.min(vpY + vpH, drawY + mapH - pad));
     ctx.strokeRect(clampedX, clampedY, clampedR - clampedX, clampedB - clampedY);
   }
 

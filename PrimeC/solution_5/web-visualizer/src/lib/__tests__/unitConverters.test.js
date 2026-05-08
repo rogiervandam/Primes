@@ -13,17 +13,17 @@ describe('playbackSpeedToPercent', () => {
     expect(playbackSpeedToPercent(1)).toBe(25);
   });
 
-  it('slider=100 → 400% (maximum)', () => {
-    expect(playbackSpeedToPercent(100)).toBe(400);
+  it('slider=100 → 1600% (maximum)', () => {
+    expect(playbackSpeedToPercent(100)).toBe(1600);
   });
 
-  it('slider=50 → approximately 100% (log-scale midpoint, rounds to 99)', () => {
+  it('slider=50 → approximately 190-220% (log-scale midpoint)', () => {
     const pct = playbackSpeedToPercent(50);
-    // Geometric mean of 25 and 400 = sqrt(10000) = 100.
+    // Geometric mean of 25 and 1600 = sqrt(40000) = 200.
     // Due to slider range 1..100 (not 0..100), ratio=49/99 ≠ 0.5 exactly,
-    // so result is 99 rather than exactly 100.
-    expect(pct).toBeGreaterThanOrEqual(95);
-    expect(pct).toBeLessThanOrEqual(105);
+    // so result is near 200 rather than exactly 200.
+    expect(pct).toBeGreaterThanOrEqual(190);
+    expect(pct).toBeLessThanOrEqual(220);
   });
 
   it('clamps below 1 to slider=1', () => {
@@ -32,13 +32,13 @@ describe('playbackSpeedToPercent', () => {
   });
 
   it('clamps above 100 to slider=100', () => {
-    expect(playbackSpeedToPercent(101)).toBe(400);
-    expect(playbackSpeedToPercent(999)).toBe(400);
+    expect(playbackSpeedToPercent(101)).toBe(1600);
+    expect(playbackSpeedToPercent(999)).toBe(1600);
   });
 
   it('handles string input', () => {
     expect(playbackSpeedToPercent('1')).toBe(25);
-    expect(playbackSpeedToPercent('100')).toBe(400);
+    expect(playbackSpeedToPercent('100')).toBe(1600);
   });
 
   it('handles null/undefined gracefully (falls back to slider=1)', () => {
@@ -54,35 +54,33 @@ describe('percentToPlaybackSpeed', () => {
     expect(percentToPlaybackSpeed(25)).toBe(1);
   });
 
-  it('400% → slider=100 (maximum)', () => {
-    expect(percentToPlaybackSpeed(400)).toBe(100);
+  it('1600% → slider=100 (maximum)', () => {
+    expect(percentToPlaybackSpeed(1600)).toBe(100);
   });
 
-  it('100% → approximately slider=50 (rounds to 51 due to Math.round(50.5))', () => {
-    // ratio=log(100/25)/log(400/25)=0.5 exactly; result=round(1+0.5*99)=round(50.5)=51
-    expect(percentToPlaybackSpeed(100)).toBe(51);
+  it('100% → approximately slider=34', () => {
+    expect(percentToPlaybackSpeed(100)).toBe(34);
   });
 
   it('clamps below 25% to 25% (0 is falsy, falls back to 100%)', () => {
     // parseInt(0) || 100 = 100, so 0 and null both behave like 100%
-    expect(percentToPlaybackSpeed(0)).toBeCloseTo(51, 0);
+    expect(percentToPlaybackSpeed(0)).toBeCloseTo(34, 0);
     expect(percentToPlaybackSpeed(10)).toBe(1);
   });
 
-  it('clamps above 400% to 400%', () => {
-    expect(percentToPlaybackSpeed(500)).toBe(100);
+  it('clamps above 1600% to 1600%', () => {
+    expect(percentToPlaybackSpeed(2000)).toBe(100);
   });
 
   it('handles string input', () => {
     expect(percentToPlaybackSpeed('25')).toBe(1);
-    expect(percentToPlaybackSpeed('400')).toBe(100);
+    expect(percentToPlaybackSpeed('1600')).toBe(100);
   });
 
-  it('handles null/undefined gracefully (falls back to 100%, returns ~51)', () => {
-    // null/undefined → parseInt(null) = NaN → NaN || 100 → clamp(100,25,400)=100
-    // percentToPlaybackSpeed(100) = Math.round(1 + 0.5*99) = Math.round(50.5) = 51
-    expect(percentToPlaybackSpeed(null)).toBe(51);
-    expect(percentToPlaybackSpeed(undefined)).toBe(51);
+  it('handles null/undefined gracefully (falls back to 100%, returns ~34)', () => {
+    // null/undefined → parseInt(null) = NaN → NaN || 100 → clamp(100,25,1600)=100
+    expect(percentToPlaybackSpeed(null)).toBe(34);
+    expect(percentToPlaybackSpeed(undefined)).toBe(34);
   });
 });
 

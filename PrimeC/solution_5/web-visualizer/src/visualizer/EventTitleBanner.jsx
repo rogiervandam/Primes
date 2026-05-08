@@ -1,5 +1,6 @@
 import React from 'react';
 import { LinkIcon, CopyIcon } from '../Icons';
+import { isDOMAvailable, isWindowAvailable, getWindowSize, getElementFromPoint } from '../lib/browser.js';
 
 const MAX_ANNOTATION_LINES = 3;
 
@@ -27,9 +28,9 @@ export default function EventTitleBanner({
   currentStep,
   goToStep,
   revealCurrentStepInPanel,
-  eventsPanelCollapsed,
-  setEventsPanelCollapsed,
-  detailOpen,
+  isEventsPanelCollapsed,
+  setIsEventsPanelCollapsed,
+  isDetailOpen,
   detailHeight = 280,
   toggleDetailPanel,
   externalDragStart,
@@ -58,16 +59,16 @@ export default function EventTitleBanner({
   // window. We temporarily hide the banner from hit testing while probing so
   // it doesn't shadow the detail panel underneath.
   const isOverDetailPanel = React.useCallback((clientX, clientY, bannerEl) => {
-    if (typeof document === 'undefined') return false;
+    if (!isDOMAvailable()) return false;
     const prevPE = bannerEl ? bannerEl.style.pointerEvents : null;
     if (bannerEl) bannerEl.style.pointerEvents = 'none';
-    const el = document.elementFromPoint(clientX, clientY);
+    const el = getElementFromPoint(clientX, clientY);
     if (bannerEl) bannerEl.style.pointerEvents = prevPE || '';
     return !!(el && el.closest && el.closest('.detail-panel'));
   }, []);
 
   const getMinDragOffsetY = React.useCallback(() => {
-    if (typeof window === 'undefined') return -9999;
+    if (!isWindowAvailable()) return -9999;
     const el = bannerRef.current;
     const h = el ? el.offsetHeight : 220;
     // top = windowH - 20 - h + oy >= 4  => oy >= 24 + h - windowH
@@ -75,12 +76,12 @@ export default function EventTitleBanner({
   }, []);
 
   const getMaxDragOffsetY = React.useCallback(() => {
-    if (typeof window === 'undefined') return 9999;
-    const panelBottom = detailOpen ? detailHeight : 36;
+    if (!isWindowAvailable()) return 9999;
+    const panelBottom = isDetailOpen ? detailHeight : 36;
     const SAFE_GAP = 8;
     // bottom edge = windowH - 20 + oy <= windowH - panelBottom - SAFE_GAP
     return 20 - panelBottom - SAFE_GAP;
-  }, [detailOpen, detailHeight]);
+  }, [isDetailOpen, detailHeight]);
 
   const clampDragOffsetY = React.useCallback((oy) => {
     const minY = getMinDragOffsetY();
@@ -89,14 +90,14 @@ export default function EventTitleBanner({
   }, [getMaxDragOffsetY, getMinDragOffsetY]);
 
   const detectDropZone = React.useCallback((clientX, clientY, bannerEl) => {
-    if (typeof window === 'undefined') return null;
+    if (!isWindowAvailable()) return null;
     const LEFT_BAND = 80;
     const BOTTOM_BAND = 80;
     if (clientX <= LEFT_BAND) return 'left';
     if (isOverDetailPanel(clientX, clientY, bannerEl)) return 'detail';
     if (clientY >= window.innerHeight - BOTTOM_BAND) return 'bottom';
     // Check proximity to the floating all-events widget (join affordance).
-    if (onJoinWidgets && eventsPanelCollapsed) {
+    if (onJoinWidgets && isEventsPanelCollapsed) {
       const floater = document.querySelector('.events-panel-floating-title');
       if (floater) {
         const r = floater.getBoundingClientRect();
@@ -108,7 +109,7 @@ export default function EventTitleBanner({
       }
     }
     return null;
-  }, [isOverDetailPanel, onJoinWidgets, eventsPanelCollapsed]);
+  }, [isOverDetailPanel, onJoinWidgets, isEventsPanelCollapsed]);
 
   const startDrag = React.useCallback((startClientX, startClientY, fromExternal = false) => {
     const bannerEl = bannerRef.current;
@@ -153,7 +154,7 @@ export default function EventTitleBanner({
       if (floater) floater.classList.remove('merge-target');
       if (!dragged) {
         // Click without drag: open the Events panel.
-        if (!fromExternal && eventsPanelCollapsed) setEventsPanelCollapsed(false);
+        if (!fromExternal && isEventsPanelCollapsed) setIsEventsPanelCollapsed(false);
         return;
       }
       const zone = detectDropZone(ev.clientX, ev.clientY, bannerEl);
@@ -176,7 +177,7 @@ export default function EventTitleBanner({
           dragOffsetY: 0,
           visible: false,
         }));
-        if (eventsPanelCollapsed) setEventsPanelCollapsed(false);
+        if (isEventsPanelCollapsed) setIsEventsPanelCollapsed(false);
       } else if (zone === 'detail') {
         // Drop into the detail panel: expand it (if collapsed) and hide the
         // floating widget — the detail panel itself surfaces the event info.
@@ -186,7 +187,7 @@ export default function EventTitleBanner({
           dragOffsetY: 0,
           visible: false,
         }));
-        if (!detailOpen && toggleDetailPanel) toggleDetailPanel();
+        if (!isDetailOpen && toggleDetailPanel) toggleDetailPanel();
       } else if (zone === 'bottom') {
         setSettings((prev) => ({
           ...prev,
@@ -205,10 +206,16 @@ export default function EventTitleBanner({
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-  }, [clampDragOffsetY, detectDropZone, detailOpen, eventsPanelCollapsed, isOverDetailPanel, onJoinWidgets, setEventsPanelCollapsed, setSettings, settings.dragOffsetX, settings.dragOffsetY, toggleDetailPanel]);
+  }, [clampDragOffsetY, detectDropZone, isDetailOpen, isEventsPanelCollapsed, isOverDetailPanel, onJoinWidgets, setIsEventsPanelCollapsed, setSettings, settings.dragOffsetX, settings.dragOffsetY, toggleDetailPanel]);
 
   const handleMouseDown = (e) => {
-    if (e.target.closest('input') || e.target.closest('button')) return;
+    if (
+      e.target.closest('input')
+      || e.target.closest('button')
+      || e.target.closest('.step-focus-play-btn')
+      || e.target.closest('.step-focus-timeline-wrap')
+      || e.target.closest('.step-focus-gear-btn')
+    ) return;
     startDrag(e.clientX, e.clientY, false);
     e.preventDefault();
   };
@@ -229,7 +236,7 @@ export default function EventTitleBanner({
     if (clampedY !== currentY) {
       setSettings((prev) => ({ ...prev, dragOffsetY: clampedY }));
     }
-  }, [clampDragOffsetY, detailHeight, detailOpen, setSettings, settings.dragOffsetY]);
+  }, [clampDragOffsetY, detailHeight, isDetailOpen, setSettings, settings.dragOffsetY]);
 
   const renderAnnotation = (extraClass = '') => {
     const lines = banner.annotationLines || [];
@@ -256,6 +263,7 @@ export default function EventTitleBanner({
       className={`step-focus-banner position-center${dropHint ? ` dropping dropping-${dropHint}` : ''}`}
       title={banner.title}
       style={style}
+      onMouseDown={handleMouseDown}
     >
       <button
         className="step-focus-close-btn"
@@ -277,7 +285,7 @@ export default function EventTitleBanner({
       >{copied ? '✓' : <CopyIcon size={12} />}</button>
       {/* The drag handle covers the title + annotation + bits-changed area.
           The context rows and sliders below are interactive and not draggable. */}
-      <div className="step-focus-drag-handle" onMouseDown={handleMouseDown}>
+      <div className="step-focus-drag-handle">
       {!settings?.nearbyEventsMode && (
         <div className="step-focus-lines">
           <div className="step-focus-line1">{banner.line1}</div>

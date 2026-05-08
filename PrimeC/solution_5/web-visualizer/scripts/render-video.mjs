@@ -3,10 +3,10 @@
  * CLI video renderer for sieve trace files.
  *
  * Usage:
- *   node render-video.mjs [trace-file] [--output file.webm] [--width 1920] [--height 1080]
+ *   node scripts/render-video.mjs [trace-file] [--output file.webm] [--width 1920] [--height 1080]
  *
  * Defaults:
- *   - trace-file: latest .sievetrace in ../log/
+ *   - trace-file: latest .sievetrace in ../../log/
  *   - output: same path as trace file with .webm extension
  *   - resolution: 1920x1080
  *
@@ -18,8 +18,8 @@ import { join, basename, dirname, resolve, extname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const distDir = join(__dirname, 'dist');
-const defaultLogDir = resolve(__dirname, '../log');
+const distDir = resolve(__dirname, '../dist');
+const defaultLogDir = resolve(__dirname, '../../log');
 
 // ---- Parse CLI args ----
 let traceFile = null;
@@ -40,7 +40,7 @@ for (let i = 0; i < args.length; i++) {
       height = parseInt(args[++i]) || 1080;
       break;
     case '--help':
-      console.log('Usage: node render-video.mjs [trace-file] [options]');
+      console.log('Usage: node scripts/render-video.mjs [trace-file] [options]');
       console.log('');
       console.log('Options:');
       console.log('  --output, -o <file>   Output video file (default: <trace>.webm)');
@@ -72,7 +72,7 @@ if (!traceFile) {
 
 if (!traceFile) {
   console.error('No trace file specified and none found in log/ directory.');
-  console.error('Usage: node render-video.mjs [trace-file] [--output file.webm]');
+  console.error('Usage: node scripts/render-video.mjs [trace-file] [--output file.webm]');
   process.exit(1);
 }
 

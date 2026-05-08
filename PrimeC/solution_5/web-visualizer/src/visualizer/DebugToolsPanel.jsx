@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { parseAppliedRotateAngles } from '../lib/canvasProjection';
+import { RENDER_MODE_OPTIONS, usesWebGLTilt } from '../lib/renderModes';
 
 const EMPTY_SNAPSHOT = {
   fps: 0,
@@ -22,16 +24,6 @@ function barClass(frameMs, budgetMs) {
   if (frameMs > budgetMs * 1.5) return 'debug-tools-bar high';
   if (frameMs > budgetMs) return 'debug-tools-bar warn';
   return 'debug-tools-bar ok';
-}
-
-function parseAppliedRotateAngles(transformStr) {
-  if (!transformStr || transformStr === 'none') return { rotateX: 0, rotateY: 0 };
-  const xMatch = /rotateX\((-?\d+(?:\.\d+)?)deg\)/.exec(transformStr);
-  const yMatch = /rotateY\((-?\d+(?:\.\d+)?)deg\)/.exec(transformStr);
-  return {
-    rotateX: xMatch ? Number(xMatch[1]) : 0,
-    rotateY: yMatch ? Number(yMatch[1]) : 0,
-  };
 }
 
 function parseDebugSnapshotText(text) {
@@ -175,33 +167,246 @@ function CollapsibleSection({ title, defaultOpen = true, palette, children }) {
 }
 
 export default function DebugToolsPanel({
-  rendererRef,
-  glCanvasRef = null,
-  glRendererRef = null,
-  camera3DRef = null,
-  camera3DTransform = 'none',
-  zoomLevel = 1,
-  glDebugInfo = null,
-  theme = 'dark',
-  debugLayerMode = 'normal',
-  setDebugLayerMode = null,
-  debugGlOffsetX = 0,
-  setDebugGlOffsetX = null,
-  debugGlOffsetY = 0,
-  setDebugGlOffsetY = null,
-  debugGlAutoOffsetY = 0,
-  debugCalibrationMode = false,
-  setDebugCalibrationMode = null,
-  onApplyDebugSnapshot = null,
-  onForceGlRedraw = null,
-  rightOffset = 8,
+  debugRefs = {},
+  debugState = {},
+  debugHandlers = {},
+  debugConfig = {},
 }) {
+  const {
+    rendererRef,
+    glCanvasRef = null,
+    glyphCanvasRef = null,
+    glRendererRef = null,
+    camera3DRef = null,
+  } = debugRefs;
+
+  const {
+    camera3DTransform = 'none',
+    zoomLevel = 1,
+    glDebugInfo = null,
+    theme = 'dark',
+    debugLayerMode = 'normal',
+    renderMode = 'mode3-direct',
+    debugGlModeOverride = 'auto',
+    debugWorkerGlyphMode = 'gl',
+    debugGlOffsetX = 0,
+    debugGlOffsetY = 0,
+    debugGlAutoOffsetY = 0,
+    isDebugCalibrationMode = false,
+    debugRenderTuning = {},
+  } = debugState;
+
+  const {
+    setDebugLayerMode = null,
+    setRenderMode = null,
+    restartRenderMode = null,
+    setDebugGlModeOverride = null,
+    setDebugWorkerGlyphMode = null,
+    setDebugGlOffsetX = null,
+    setDebugGlOffsetY = null,
+    setIsDebugCalibrationMode = null,
+    setDebugRenderTuning = null,
+    onApplyDebugSnapshot = null,
+    onForceGlRedraw = null,
+  } = debugHandlers;
+
+  const asPositiveNumber = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const asPercent = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : 100;
+  };
+
+  const normalizeRenderTuning = useCallback((value) => {
+    const tuning = value || {};
+    const glAaScaleRaw = Number(tuning.glAaScale);
+    return {
+      dprPercent: asPercent(tuning.dprPercent),
+      glPercent: asPercent(tuning.glPercent),
+      overlayPercent: asPercent(tuning.overlayPercent),
+      glyph2DPercent: asPercent(tuning.glyph2DPercent),
+      glAaScale: (Number.isFinite(glAaScaleRaw) && glAaScaleRaw >= 1) ? glAaScaleRaw : 1,
+      dprManualActive: tuning.dprManualActive === true,
+      dprManualValue: asPositiveNumber(tuning.dprManualValue),
+      glManualActive: tuning.glManualActive === true,
+      glManualW: asPositiveNumber(tuning.glManualW),
+      glManualH: asPositiveNumber(tuning.glManualH),
+      overlayManualActive: tuning.overlayManualActive === true,
+      overlayManualW: asPositiveNumber(tuning.overlayManualW),
+      overlayManualH: asPositiveNumber(tuning.overlayManualH),
+      glyph2DManualActive: tuning.glyph2DManualActive === true,
+      glyph2DManualW: asPositiveNumber(tuning.glyph2DManualW),
+      glyph2DManualH: asPositiveNumber(tuning.glyph2DManualH),
+    };
+  }, []);
+
+  const [renderTuningDraft, setRenderTuningDraft] = useState(() => normalizeRenderTuning(debugRenderTuning));
+
+  useEffect(() => {
+    setRenderTuningDraft(normalizeRenderTuning(debugRenderTuning));
+  }, [debugRenderTuning, normalizeRenderTuning]);
+
+  const baseCanvasW = Math.max(1, Number(rendererRef?.current?.canvasWidth) || Number(glDebugInfo?.currentCssW) || 1);
+  const baseCanvasH = Math.max(1, Number(rendererRef?.current?.canvasHeight) || Number(glDebugInfo?.currentCssH) || 1);
+  const normalDpr = (typeof window !== 'undefined' && Number(window.devicePixelRatio)) || 1;
+
+  const computeRenderTuningValues = useCallback((tuningInput) => {
+    const tuning = normalizeRenderTuning(tuningInput);
+    const dprPercent = tuning.dprPercent;
+    const glPercent = tuning.glPercent;
+    const overlayPercent = tuning.overlayPercent;
+    const glyph2DPercent = tuning.glyph2DPercent;
+    const computedDprFromPercent = normalDpr * (dprPercent / 100);
+    const computedGlWFromPercent = baseCanvasW * (glPercent / 100);
+    const computedGlHFromPercent = baseCanvasH * (glPercent / 100);
+    const computedOverlayWFromPercent = baseCanvasW * (overlayPercent / 100);
+    const computedOverlayHFromPercent = baseCanvasH * (overlayPercent / 100);
+    const computedGlyph2DWFromPercent = baseCanvasW * (glyph2DPercent / 100);
+    const computedGlyph2DHFromPercent = baseCanvasH * (glyph2DPercent / 100);
+    const effectiveDpr = tuning.dprManualActive
+      ? (tuning.dprManualValue || computedDprFromPercent)
+      : computedDprFromPercent;
+    const effectiveGlW = tuning.glManualActive ? (tuning.glManualW || computedGlWFromPercent) : computedGlWFromPercent;
+    const effectiveGlH = tuning.glManualActive ? (tuning.glManualH || computedGlHFromPercent) : computedGlHFromPercent;
+    const effectiveOverlayW = tuning.overlayManualActive ? (tuning.overlayManualW || computedOverlayWFromPercent) : computedOverlayWFromPercent;
+    const effectiveOverlayH = tuning.overlayManualActive ? (tuning.overlayManualH || computedOverlayHFromPercent) : computedOverlayHFromPercent;
+    const effectiveGlyph2DW = tuning.glyph2DManualActive ? (tuning.glyph2DManualW || computedGlyph2DWFromPercent) : computedGlyph2DWFromPercent;
+    const effectiveGlyph2DH = tuning.glyph2DManualActive ? (tuning.glyph2DManualH || computedGlyph2DHFromPercent) : computedGlyph2DHFromPercent;
+    return {
+      ...tuning,
+      computedDprFromPercent,
+      computedGlWFromPercent,
+      computedGlHFromPercent,
+      computedOverlayWFromPercent,
+      computedOverlayHFromPercent,
+      computedGlyph2DWFromPercent,
+      computedGlyph2DHFromPercent,
+      effectiveDpr,
+      effectiveGlW,
+      effectiveGlH,
+      effectiveOverlayW,
+      effectiveOverlayH,
+      effectiveGlyph2DW,
+      effectiveGlyph2DH,
+    };
+  }, [normalizeRenderTuning, normalDpr, baseCanvasW, baseCanvasH]);
+
+  const appliedTuning = computeRenderTuningValues(debugRenderTuning);
+  const draftTuning = computeRenderTuningValues(renderTuningDraft);
+
+  const {
+    dprPercent,
+    glPercent,
+    overlayPercent,
+    glyph2DPercent,
+    dprManualActive,
+    glManualActive,
+    overlayManualActive,
+    glyph2DManualActive,
+    effectiveDpr,
+    effectiveGlW,
+    effectiveGlH,
+    effectiveOverlayW,
+    effectiveOverlayH,
+    effectiveGlyph2DW,
+    effectiveGlyph2DH,
+  } = appliedTuning;
+
+  const updateRenderPercent = useCallback((key, raw) => {
+    const value = Number(raw);
+    setRenderTuningDraft((prev) => ({
+      ...(prev || {}),
+      [key]: Number.isFinite(value) && value > 0 ? value : 100,
+    }));
+  }, []);
+
+  const setDprManualValueFromInput = useCallback((raw) => {
+    const parsed = asPositiveNumber(raw);
+    setRenderTuningDraft((prev) => {
+      const next = { ...(prev || {}) };
+      const computed = computeRenderTuningValues(next);
+      return {
+        ...next,
+        dprManualActive: true,
+        dprManualValue: parsed || computed.computedDprFromPercent,
+      };
+    });
+  }, [computeRenderTuningValues]);
+
+  const resetDprManualValue = useCallback(() => {
+    setRenderTuningDraft((prev) => ({
+      ...(prev || {}),
+      dprManualActive: false,
+      dprManualValue: null,
+    }));
+  }, []);
+
+  const setLayerManualValueFromInput = useCallback((layer, axis, raw) => {
+    const parsed = asPositiveNumber(raw);
+    setRenderTuningDraft((prev) => {
+      const next = { ...(prev || {}) };
+      const computed = computeRenderTuningValues(next);
+      const activeKey = `${layer}ManualActive`;
+      const wKey = `${layer}ManualW`;
+      const hKey = `${layer}ManualH`;
+      const existingW = asPositiveNumber(next[wKey]);
+      const existingH = asPositiveNumber(next[hKey]);
+      const fallbackW = (() => {
+        if (layer === 'gl') return computed.computedGlWFromPercent;
+        if (layer === 'overlay') return computed.computedOverlayWFromPercent;
+        return computed.computedGlyph2DWFromPercent;
+      })();
+      const fallbackH = (() => {
+        if (layer === 'gl') return computed.computedGlHFromPercent;
+        if (layer === 'overlay') return computed.computedOverlayHFromPercent;
+        return computed.computedGlyph2DHFromPercent;
+      })();
+      next[activeKey] = true;
+      next[wKey] = existingW || Math.max(1, Math.round(fallbackW));
+      next[hKey] = existingH || Math.max(1, Math.round(fallbackH));
+      if (axis === 'W') {
+        next[wKey] = parsed || next[wKey];
+      } else {
+        next[hKey] = parsed || next[hKey];
+      }
+      return next;
+    });
+  }, [computeRenderTuningValues]);
+
+  const resetLayerManualValues = useCallback((layer) => {
+    setRenderTuningDraft((prev) => {
+      const next = { ...(prev || {}) };
+      next[`${layer}ManualActive`] = false;
+      next[`${layer}ManualW`] = null;
+      next[`${layer}ManualH`] = null;
+      return next;
+    });
+  }, []);
+
+  const hasPendingRenderTuningChanges = useMemo(
+    () => JSON.stringify(normalizeRenderTuning(renderTuningDraft)) !== JSON.stringify(normalizeRenderTuning(debugRenderTuning)),
+    [renderTuningDraft, debugRenderTuning, normalizeRenderTuning],
+  );
+
+  const applyRenderTuningDraft = useCallback(() => {
+    if (typeof setDebugRenderTuning !== 'function') return;
+    setDebugRenderTuning(normalizeRenderTuning(renderTuningDraft));
+  }, [setDebugRenderTuning, normalizeRenderTuning, renderTuningDraft]);
+
+  const {
+    rightOffset = 8,
+  } = debugConfig;
+
+  const panelRef = useRef(null);
+  const [panelPosition, setPanelPosition] = useState(null);
+
   const [snapshot, setSnapshot] = useState(() => readSnapshot(rendererRef));
   const [canvasCoords, setCanvasCoords] = useState(null);
   const [copyStatus, setCopyStatus] = useState('');
   const [importText, setImportText] = useState('');
   const [importStatus, setImportStatus] = useState('');
-  const [forceRedrawStatus, setForceRedrawStatus] = useState('');
   const [calibrationCaseIndex, setCalibrationCaseIndex] = useState(0);
   const [calibrationTargetViewport, setCalibrationTargetViewport] = useState({ width: 0, height: 0 });
   const [calibrationViewportStatus, setCalibrationViewportStatus] = useState('');
@@ -212,6 +417,65 @@ export default function DebugToolsPanel({
 
   // 'c' key copies to clipboard when the panel is visible
   const handleCopyDebugRef = useRef(null);
+
+  const getClampedPanelPosition = useCallback((position) => {
+    const pad = 8;
+    const panelW = panelRef.current?.offsetWidth || 360;
+    const panelH = panelRef.current?.offsetHeight || 240;
+    const minX = pad;
+    const minY = pad;
+    const maxX = Math.max(minX, window.innerWidth - panelW - Math.max(pad, rightOffset));
+    const maxY = Math.max(minY, window.innerHeight - panelH - pad);
+    const nextX = Math.max(minX, Math.min(maxX, Number(position?.x) || 0));
+    const nextY = Math.max(minY, Math.min(maxY, Number(position?.y) || 0));
+    return { x: nextX, y: nextY };
+  }, [rightOffset]);
+
+  const getDefaultPanelPosition = useCallback(() => {
+    const pad = 8;
+    const panelW = panelRef.current?.offsetWidth || 360;
+    const panelH = panelRef.current?.offsetHeight || 240;
+    const x = Math.max(pad, window.innerWidth - panelW - Math.max(pad, rightOffset));
+    const y = Math.max(pad, window.innerHeight - panelH - pad);
+    return { x, y };
+  }, [rightOffset]);
+
+  useEffect(() => {
+    const applyClamp = () => {
+      setPanelPosition((prev) => {
+        if (!prev) return getDefaultPanelPosition();
+        return getClampedPanelPosition(prev);
+      });
+    };
+    applyClamp();
+    window.addEventListener('resize', applyClamp);
+    return () => window.removeEventListener('resize', applyClamp);
+  }, [getClampedPanelPosition, getDefaultPanelPosition]);
+
+  const startPanelDrag = useCallback((event) => {
+    if (event.button !== 0) return;
+    const start = panelPosition || getDefaultPanelPosition();
+    const startX = event.clientX;
+    const startY = event.clientY;
+
+    const onMove = (moveEvent) => {
+      const next = {
+        x: start.x + (moveEvent.clientX - startX),
+        y: start.y + (moveEvent.clientY - startY),
+      };
+      setPanelPosition(getClampedPanelPosition(next));
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    event.preventDefault();
+    event.stopPropagation();
+  }, [panelPosition, getDefaultPanelPosition, getClampedPanelPosition]);
 
   useEffect(() => {
     setSnapshot(readSnapshot(rendererRef));
@@ -333,14 +597,14 @@ export default function DebugToolsPanel({
   }), [glDebugInfo?.viewportWidth, glDebugInfo?.viewportHeight]);
 
   useEffect(() => {
-    if (!debugCalibrationMode) {
+    if (!isDebugCalibrationMode) {
       setCalibrationTargetViewport((prev) => {
         const next = { width: currentViewport.width, height: currentViewport.height };
         if (prev.width === next.width && prev.height === next.height) return prev;
         return next;
       });
     }
-  }, [currentViewport.width, currentViewport.height, debugCalibrationMode]);
+  }, [currentViewport.width, currentViewport.height, isDebugCalibrationMode]);
 
   const buildDebugReport = useCallback(() => {
     const rr = rendererRef?.current;
@@ -381,6 +645,7 @@ export default function DebugToolsPanel({
     const lines = [
       'GL MODE',
       `Mode: ${glDebugInfo?.mode ?? 'unknown'}`,
+      `Tilt backend: ${usesWebGLTilt(renderMode) ? 'WebGL (shader)' : 'CSS'}`,
       `Reason: ${glDebugInfo?.modeReason ?? 'unknown'}`,
       `At Risk: ${glDebugInfo?.isAtRisk ? 'YES' : 'NO'}`,
       `Viewport: ${glDebugInfo?.viewportWidth ?? '?'} x ${glDebugInfo?.viewportHeight ?? '?'}`,
@@ -390,6 +655,10 @@ export default function DebugToolsPanel({
       `Effective Max Backing Dim: ${glDebugInfo?.effectiveMaxBackingDimension ?? '?'}`,
       `Direct Compositor Safe Dim: ${glDebugInfo?.directCompositorSafeDimension ?? '?'}`,
       `DPR: ${Number.isFinite(glDebugInfo?.devicePixelRatio) ? glDebugInfo.devicePixelRatio.toFixed(2) : '?'}`,
+      `DPR tuning: ${dprPercent.toFixed(2)}% => ${effectiveDpr.toFixed(3)} (${dprManualActive ? 'manual' : 'percent'})`,
+      `GL size tuning: ${glPercent.toFixed(2)}% => ${Math.round(effectiveGlW)} x ${Math.round(effectiveGlH)} (${glManualActive ? 'manual' : 'percent'})`,
+      `CSS/SVG size tuning: ${overlayPercent.toFixed(2)}% => ${Math.round(effectiveOverlayW)} x ${Math.round(effectiveOverlayH)} (${overlayManualActive ? 'manual' : 'percent'})`,
+      `Glyph 2D size tuning: ${glyph2DPercent.toFixed(2)}% => ${Math.round(effectiveGlyph2DW)} x ${Math.round(effectiveGlyph2DH)} (${glyph2DManualActive ? 'manual' : 'percent'})`,
       `Browser Zoom DPR (window.devicePixelRatio): ${browserZoom.devicePixelRatio ?? '?'}`,
       `Browser Zoom Scale (visualViewport.scale): ${browserZoom.visualViewportScale ?? 'n/a'}`,
       `Zoom: ${Number.isFinite(zoomLevel) ? zoomLevel.toFixed(3) : '?'}`,
@@ -397,7 +666,7 @@ export default function DebugToolsPanel({
       `Rotate Y (camera): ${cameraState.rotateY.toFixed(2)} deg`,
       `Rotate X (applied): ${cameraState.appliedRotateX.toFixed(2)} deg`,
       `Rotate Y (applied): ${cameraState.appliedRotateY.toFixed(2)} deg`,
-      `Calibration Mode: ${debugCalibrationMode ? 'ON' : 'OFF'}`,
+      `Calibration Mode: ${isDebugCalibrationMode ? 'ON' : 'OFF'}`,
       `Layer Mode: ${debugLayerMode}`,
       `GL X Offset (manual): ${Number.isFinite(debugGlOffsetX) ? debugGlOffsetX.toFixed(2) : debugGlOffsetX}`,
       `GL Y Offset (auto): ${Number.isFinite(debugGlAutoOffsetY) ? debugGlAutoOffsetY.toFixed(2) : debugGlAutoOffsetY}`,
@@ -431,7 +700,7 @@ export default function DebugToolsPanel({
       `bit0 GL result (tex + pan): (${b0GlX}, ${b0GlY})`,
     ];
     return lines.join('\n');
-  }, [rendererRef, glRendererRef, cameraState.rotateX, cameraState.rotateY, cameraState.appliedRotateX, cameraState.appliedRotateY, canvasCoords, glDebugInfo, zoomLevel, debugCalibrationMode, debugLayerMode, debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY]);
+  }, [rendererRef, glRendererRef, cameraState.rotateX, cameraState.rotateY, cameraState.appliedRotateX, cameraState.appliedRotateY, canvasCoords, glDebugInfo, zoomLevel, isDebugCalibrationMode, debugLayerMode, debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY, dprPercent, effectiveDpr, dprManualActive, glPercent, effectiveGlW, effectiveGlH, glManualActive, overlayPercent, effectiveOverlayW, effectiveOverlayH, overlayManualActive, glyph2DPercent, effectiveGlyph2DW, effectiveGlyph2DH, glyph2DManualActive]);
 
   const handleCopyDebug = useCallback(async () => {
     try {
@@ -479,22 +748,22 @@ export default function DebugToolsPanel({
     setCalibrationCaseIndex(0);
     setCalibrationViewpointLabel('');
     setCalibrationTargetViewport({ width: currentViewport.width, height: currentViewport.height });
-    setDebugCalibrationMode?.(true);
+    setIsDebugCalibrationMode?.(true);
     setDebugLayerMode?.('normal');
     setDebugGlOffsetX?.(0);
     setDebugGlOffsetY?.(0);
     const first = CALIBRATION_CASES[0];
     onApplyDebugSnapshot?.({ rotateX: first.rotateX, rotateY: first.rotateY, layerMode: 'normal', manualOffsetX: 0, manualOffsetY: 0 });
     setCalibrationViewportStatus('Calibration mode started');
-  }, [rendererRef, camera3DRef, zoomLevel, debugLayerMode, debugGlOffsetX, debugGlOffsetY, currentViewport.width, currentViewport.height, setDebugCalibrationMode, setDebugLayerMode, setDebugGlOffsetX, setDebugGlOffsetY, onApplyDebugSnapshot]);
+  }, [rendererRef, camera3DRef, zoomLevel, debugLayerMode, debugGlOffsetX, debugGlOffsetY, currentViewport.width, currentViewport.height, setIsDebugCalibrationMode, setDebugLayerMode, setDebugGlOffsetX, setDebugGlOffsetY, onApplyDebugSnapshot]);
 
   const stopCalibrationMode = useCallback(() => {
-    setDebugCalibrationMode?.(false);
+    setIsDebugCalibrationMode?.(false);
     if (calibrationRestoreSnapshot && onApplyDebugSnapshot) {
       onApplyDebugSnapshot(calibrationRestoreSnapshot);
     }
     setCalibrationViewportStatus('Calibration mode ended and previous view restored');
-  }, [setDebugCalibrationMode, calibrationRestoreSnapshot, onApplyDebugSnapshot]);
+  }, [setIsDebugCalibrationMode, calibrationRestoreSnapshot, onApplyDebugSnapshot]);
 
   const applyCalibrationCase = useCallback((index) => {
     const nextIndex = Math.max(0, Math.min(CALIBRATION_CASES.length - 1, index));
@@ -663,9 +932,11 @@ export default function DebugToolsPanel({
 
   return (
     <aside
+      ref={panelRef}
       className="debug-tools-panel"
       style={{
-        '--debug-tools-right': `${Math.max(8, rightOffset)}px`,
+        '--debug-tools-left': `${Math.round((panelPosition || getDefaultPanelPosition()).x)}px`,
+        '--debug-tools-top': `${Math.round((panelPosition || getDefaultPanelPosition()).y)}px`,
         background: palette.panelBg,
         color: palette.panelFg,
         borderColor: palette.border,
@@ -675,7 +946,7 @@ export default function DebugToolsPanel({
       onClick={(e) => e.stopPropagation()}
       aria-label="Debug tools"
     >
-      <div className="debug-tools-header">
+      <div className="debug-tools-header" onMouseDown={startPanelDrag} title="Drag debug tools window">
         <span>Debug tools</span>
         <span>Renderer</span>
       </div>
@@ -714,36 +985,24 @@ export default function DebugToolsPanel({
       </div>
 
       {/* GL Debug Info Section */}
-      {glDebugInfo && (
+      {(glDebugInfo || setDebugGlModeOverride) && (
         <CollapsibleSection title="GL MODE" defaultOpen={true} palette={palette}>
           <div style={{ fontSize: '10px', lineHeight: '1.4', color: palette.sectionGl }}>
-            <div>Mode: <strong>{glDebugInfo.mode}</strong></div>
-            <div>Reason: {glDebugInfo.modeReason}</div>
-            <div>At Risk: <span style={{ color: glDebugInfo.isAtRisk ? palette.bad : palette.good }}>
-              {glDebugInfo.isAtRisk ? 'YES' : 'NO'}
+            <div>Render mode: <strong>{renderMode}</strong></div>
+            <div>Override: <strong>{debugGlModeOverride}</strong></div>
+            <div>Reason: {glDebugInfo?.modeReason || 'not initialized'}</div>
+            <div>At Risk: <span style={{ color: glDebugInfo?.isAtRisk ? palette.bad : palette.good }}>
+              {glDebugInfo?.isAtRisk ? 'YES' : 'NO'}
             </span></div>
           </div>
-          <div style={{ fontSize: '9px', lineHeight: '1.3', color: palette.subtle, marginTop: '6px' }}>
-            <div>Viewport: {glDebugInfo.viewportWidth} × {glDebugInfo.viewportHeight}</div>
-            <div>Canvas: {glDebugInfo.currentCssW} × {glDebugInfo.currentCssH} CSS</div>
-            <div>Backing: {glDebugInfo.currentBackingW} × {glDebugInfo.currentBackingH}</div>
-            <div>Max GL Dim: {glDebugInfo.maxGLDimension}</div>
-            <div>Effective Max: {glDebugInfo.effectiveMaxBackingDimension}</div>
-            <div>Compositor Safe: {glDebugInfo.directCompositorSafeDimension}</div>
-            <div>DPR: {glDebugInfo.devicePixelRatio.toFixed(2)}</div>
-            <div>Zoom: {Number.isFinite(zoomLevel) ? zoomLevel.toFixed(3) : 'n/a'}</div>
-            <div>Rotate X/Y (camera): {cameraState.rotateX.toFixed(2)}° / {cameraState.rotateY.toFixed(2)}°</div>
-            <div>Rotate X/Y (applied): {cameraState.appliedRotateX.toFixed(2)}° / {cameraState.appliedRotateY.toFixed(2)}°</div>
-          </div>
-          {onForceGlRedraw && (
-            <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  onForceGlRedraw();
-                  setForceRedrawStatus('Redraw triggered');
-                  window.setTimeout(() => setForceRedrawStatus(''), 1500);
-                }}
+          {setRenderMode && (
+            <div style={{ marginTop: '8px' }}>
+              <label style={{ display: 'block', fontSize: '10px', color: palette.subtle, marginBottom: '4px' }}>
+                Rendering mode
+              </label>
+              <select
+                value={renderMode}
+                onChange={(e) => setRenderMode(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '5px 8px',
@@ -754,13 +1013,26 @@ export default function DebugToolsPanel({
                   fontSize: '11px',
                   cursor: 'pointer',
                 }}
-                title="Cancel any pending CSS-lock unlock, clear the lock, and force a full GL + Canvas2D redraw. Use this when the WebGL layer appears frozen or blank after a resize in Chrome/Edge."
               >
-                Force GL Redraw
-              </button>
-              {forceRedrawStatus && (
-                <div style={{ fontSize: '10px', color: palette.good }}>{forceRedrawStatus}</div>
-              )}
+                {RENDER_MODE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {glDebugInfo && (
+            <div style={{ fontSize: '9px', lineHeight: '1.3', color: palette.subtle, marginTop: '6px' }}>
+              <div>Viewport: {glDebugInfo.viewportWidth} × {glDebugInfo.viewportHeight}</div>
+              <div>Canvas: {glDebugInfo.currentCssW} × {glDebugInfo.currentCssH} CSS</div>
+              <div>Backing: {glDebugInfo.currentBackingW} × {glDebugInfo.currentBackingH}</div>
+              <div>Max GL Dim: {glDebugInfo.maxGLDimension}</div>
+              <div>Effective Max: {glDebugInfo.effectiveMaxBackingDimension}</div>
+              <div>Compositor Safe: {glDebugInfo.directCompositorSafeDimension}</div>
+              <div>DPR: {Number.isFinite(glDebugInfo.devicePixelRatio) ? glDebugInfo.devicePixelRatio.toFixed(2) : 'n/a'}</div>
+              <div>DPR tuning: {dprPercent.toFixed(2)}% {'->'} {effectiveDpr.toFixed(3)} ({dprManualActive ? 'manual' : 'percent'})</div>
+              <div>Zoom: {Number.isFinite(zoomLevel) ? zoomLevel.toFixed(3) : 'n/a'}</div>
+              <div>Rotate X/Y (camera): {cameraState.rotateX.toFixed(2)}° / {cameraState.rotateY.toFixed(2)}°</div>
+              <div>Rotate X/Y (applied): {cameraState.appliedRotateX.toFixed(2)}° / {cameraState.appliedRotateY.toFixed(2)}°</div>
             </div>
           )}
         </CollapsibleSection>
@@ -845,6 +1117,78 @@ export default function DebugToolsPanel({
       </CollapsibleSection>
 
       <CollapsibleSection title="ALIGNMENT CONTROLS" defaultOpen={true} palette={palette}>
+        <div style={{
+          marginBottom: '8px',
+          padding: '6px',
+          border: `1px solid ${palette.buttonBorder}`,
+          borderRadius: '4px',
+          background: theme === 'light' ? '#f4f7fa' : 'rgba(255,255,255,0.03)',
+        }}>
+          <div style={{ fontSize: '10px', marginBottom: '6px', color: palette.sectionCoords }}>
+            RENDER TEST RIG
+          </div>
+          <div style={{ fontSize: '10px', marginBottom: '6px', color: palette.subtle }}>
+            Each setting uses % of normal by default. Editing manual fields locks that setting to manual until you press its reset button.
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '6px' }}>
+            <div style={{ fontSize: '10px', color: palette.sectionCoords, marginTop: '2px' }}>DPR</div>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <input type="number" min="1" step="0.1" value={draftTuning.dprPercent} onChange={(e) => updateRenderPercent('dprPercent', e.target.value)} style={{ width: '64px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
+              <span style={{ fontSize: '10px', color: palette.subtle }}>%</span>
+              <input type="number" min="0.1" step="0.01" value={draftTuning.dprManualActive ? (draftTuning.dprManualValue ?? '') : Number(draftTuning.effectiveDpr.toFixed(3))} onChange={(e) => setDprManualValueFromInput(e.target.value)} style={{ width: '98px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
+              <button type="button" onClick={resetDprManualValue} style={{ padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>Reset</button>
+            </div>
+
+            <div style={{ fontSize: '10px', color: palette.sectionCoords, marginTop: '2px' }}>WebGL AA oversample (SSAA)</div>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              {[1, 1.5, 2, 3, 4].map((scale) => {
+                const isActive = (draftTuning.glAaScale || 1) === scale;
+                return (
+                  <button
+                    key={scale}
+                    type="button"
+                    onClick={() => setRenderTuningDraft((prev) => ({ ...(prev || {}), glAaScale: scale }))}
+                    style={{ padding: '6px 10px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: isActive ? palette.sectionCoords : palette.buttonBg, color: isActive ? '#0a1119' : palette.buttonFg, fontSize: '10px', fontWeight: isActive ? 700 : 400, cursor: 'pointer' }}
+                  >
+                    {scale === 1 ? 'Off' : `${scale}×`}
+                  </button>
+                );
+              })}
+              <span style={{ fontSize: '10px', color: palette.subtle }}>GL buffer only</span>
+            </div>
+
+            <div style={{ fontSize: '10px', color: palette.sectionCoords, marginTop: '2px' }}>WebGL layer size (CSS px)</div>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <input type="number" min="1" step="0.1" value={draftTuning.glPercent} onChange={(e) => updateRenderPercent('glPercent', e.target.value)} style={{ width: '64px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
+              <span style={{ fontSize: '10px', color: palette.subtle }}>%</span>
+              <input type="number" min="1" step="1" value={draftTuning.glManualActive ? (draftTuning.glManualW ?? '') : Math.round(draftTuning.effectiveGlW)} onChange={(e) => setLayerManualValueFromInput('gl', 'W', e.target.value)} style={{ width: '74px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
+              <input type="number" min="1" step="1" value={draftTuning.glManualActive ? (draftTuning.glManualH ?? '') : Math.round(draftTuning.effectiveGlH)} onChange={(e) => setLayerManualValueFromInput('gl', 'H', e.target.value)} style={{ width: '74px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
+              <button type="button" onClick={() => resetLayerManualValues('gl')} style={{ padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>Reset</button>
+            </div>
+
+            <div style={{ fontSize: '10px', color: palette.sectionCoords, marginTop: '2px' }}>CSS/SVG overlay layer size (CSS px)</div>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <input type="number" min="1" step="0.1" value={draftTuning.overlayPercent} onChange={(e) => updateRenderPercent('overlayPercent', e.target.value)} style={{ width: '64px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
+              <span style={{ fontSize: '10px', color: palette.subtle }}>%</span>
+              <input type="number" min="1" step="1" value={draftTuning.overlayManualActive ? (draftTuning.overlayManualW ?? '') : Math.round(draftTuning.effectiveOverlayW)} onChange={(e) => setLayerManualValueFromInput('overlay', 'W', e.target.value)} style={{ width: '74px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
+              <input type="number" min="1" step="1" value={draftTuning.overlayManualActive ? (draftTuning.overlayManualH ?? '') : Math.round(draftTuning.effectiveOverlayH)} onChange={(e) => setLayerManualValueFromInput('overlay', 'H', e.target.value)} style={{ width: '74px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
+              <button type="button" onClick={() => resetLayerManualValues('overlay')} style={{ padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>Reset</button>
+            </div>
+
+            <div style={{ fontSize: '10px', color: palette.sectionCoords, marginTop: '2px' }}>Glyph 2D layer size (CSS px)</div>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <input type="number" min="1" step="0.1" value={draftTuning.glyph2DPercent} onChange={(e) => updateRenderPercent('glyph2DPercent', e.target.value)} style={{ width: '64px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
+              <span style={{ fontSize: '10px', color: palette.subtle }}>%</span>
+              <input type="number" min="1" step="1" value={draftTuning.glyph2DManualActive ? (draftTuning.glyph2DManualW ?? '') : Math.round(draftTuning.effectiveGlyph2DW)} onChange={(e) => setLayerManualValueFromInput('glyph2D', 'W', e.target.value)} style={{ width: '74px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
+              <input type="number" min="1" step="1" value={draftTuning.glyph2DManualActive ? (draftTuning.glyph2DManualH ?? '') : Math.round(draftTuning.effectiveGlyph2DH)} onChange={(e) => setLayerManualValueFromInput('glyph2D', 'H', e.target.value)} style={{ width: '74px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
+              <button type="button" onClick={() => resetLayerManualValues('glyph2D')} style={{ padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>Reset</button>
+            </div>
+            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setRenderTuningDraft(normalizeRenderTuning(debugRenderTuning))} style={{ padding: '6px 10px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>Discard</button>
+              <button type="button" onClick={applyRenderTuningDraft} disabled={!hasPendingRenderTuningChanges} style={{ padding: '6px 12px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: hasPendingRenderTuningChanges ? palette.sectionCoords : palette.buttonBg, color: hasPendingRenderTuningChanges ? '#0a1119' : palette.buttonFg, fontSize: '10px', fontWeight: 700, cursor: hasPendingRenderTuningChanges ? 'pointer' : 'default', opacity: hasPendingRenderTuningChanges ? 1 : 0.75 }}>Apply</button>
+            </div>
+          </div>
+        </div>
         <button
           type="button"
           onClick={cycleLayerMode}
@@ -879,12 +1223,12 @@ export default function DebugToolsPanel({
           <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
             <button
               type="button"
-              onClick={debugCalibrationMode ? stopCalibrationMode : startCalibrationMode}
+              onClick={isDebugCalibrationMode ? stopCalibrationMode : startCalibrationMode}
               style={{ flex: 1, padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '11px', cursor: 'pointer' }}
             >
-              {debugCalibrationMode ? 'Stop Calibration' : 'Start Calibration'}
+              {isDebugCalibrationMode ? 'Stop Calibration' : 'Start Calibration'}
             </button>
-            {debugCalibrationMode && (
+            {isDebugCalibrationMode && (
               <button
                 type="button"
                 onClick={() => applyCalibrationCase(calibrationCaseIndex)}
@@ -894,7 +1238,7 @@ export default function DebugToolsPanel({
               </button>
             )}
           </div>
-          {debugCalibrationMode && (
+          {isDebugCalibrationMode && (
             <>
               <div style={{ fontSize: '10px', marginBottom: '4px', color: palette.sectionCoords }}>
                 Target viewport
@@ -969,7 +1313,7 @@ export default function DebugToolsPanel({
             </>
           )}
         </div>
-        {debugCalibrationMode && (
+        {isDebugCalibrationMode && (
           <div style={{
             marginBottom: '8px',
             padding: '6px',
@@ -1064,7 +1408,7 @@ export default function DebugToolsPanel({
             Manual: {Number.isFinite(debugGlOffsetY) ? debugGlOffsetY.toFixed(0) : '0'} px
           </div>
         </div>
-        {debugCalibrationMode && (
+        {isDebugCalibrationMode && (
           <div style={{
             marginBottom: '8px',
             padding: '6px',

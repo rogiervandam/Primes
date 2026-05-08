@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, Settings } from '../Icons';
+import { Play, Pause, Repeat, Settings } from '../Icons';
 
 /**
  * The "step animation sliders" cluster shown both inside the floating
@@ -20,13 +20,15 @@ function StepAnimSliders({
   stepScrubProgress,
   setStepScrubProgress,
   handleStepAnimToggle,
-  stepAnimRunning,
-  singleEventLoopActive,
-  animationReplayPaused,
+  isStepAnimRunning,
+  isSingleEventLoopActive,
+  isAnimationReplayPaused,
   delayPhaseMs,
   playing,
   exporting,
   onOpenAnimationSettings,
+  isSingleEventRepeatEnabled = true,
+  onToggleSingleEventRepeat,
   // In docked mode, parent can treat label-drag as undock gesture.
   onDragOutFromDock,
   // When true, renders progress% and gear inline next to the slider (docked to detail panel)
@@ -45,7 +47,7 @@ function StepAnimSliders({
     }
 
     if (delayPhaseMs && delayPhaseMs > 0) {
-      if (animationReplayPaused) {
+      if (isAnimationReplayPaused) {
         // Delay is paused-in-flight: freeze the wipe at its current position.
         return;
       }
@@ -106,7 +108,7 @@ function StepAnimSliders({
         wipeAnimRef.current = null;
       }
     };
-  }, [delayPhaseMs, animationReplayPaused]);
+  }, [delayPhaseMs, isAnimationReplayPaused]);
   const hasMaskOrder = !!(
     currentStepData
     && currentStepData.maskWriteOrderWords
@@ -135,10 +137,26 @@ function StepAnimSliders({
             className="step-focus-play-btn"
             onClick={(e) => { e.stopPropagation(); handleStepAnimToggle(); }}
             onMouseDown={(e) => e.stopPropagation()}
-            title={(playing || stepAnimRunning || singleEventLoopActive) && !animationReplayPaused ? 'Pause the timeline animation' : 'Play the timeline animation at the current Speed'}
+            title={(playing || isStepAnimRunning || isSingleEventLoopActive) && !isAnimationReplayPaused ? 'Pause the timeline animation' : 'Play the timeline animation at the current Speed'}
           >
-            {(playing || stepAnimRunning || singleEventLoopActive) && !animationReplayPaused ? <Pause size={16} /> : <Play size={16} />}
+            {(playing || isStepAnimRunning || isSingleEventLoopActive) && !isAnimationReplayPaused ? <Pause size={16} /> : <Play size={16} />}
           </button>
+          {onToggleSingleEventRepeat && (
+            <button
+              type="button"
+              className={`step-focus-repeat-btn${isSingleEventRepeatEnabled ? ' active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); onToggleSingleEventRepeat(); }}
+              onMouseDown={(e) => e.stopPropagation()}
+              title={playing
+                ? 'Repeat toggle is ignored while all-events playback is active'
+                : (isSingleEventRepeatEnabled
+                  ? 'Repeat single-event animation until disabled'
+                  : 'Play single-event animation once')}
+              disabled={playing}
+            >
+              <Repeat size={15} />
+            </button>
+          )}
           <div className="step-focus-timeline-wrap">
             <div className="step-focus-timeline-track" aria-hidden="true">
               <div className="step-focus-timeline-fill" style={{ width: `${stepScrubProgress}%` }} />

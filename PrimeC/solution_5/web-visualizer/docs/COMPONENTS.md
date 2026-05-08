@@ -2,6 +2,9 @@
 
 A quick reference for the React components and modules under `src/`. Prop signatures reflect the current source; consult the file for full detail.
 
+Architecture ownership and data-flow context are documented in
+`docs/ARCHITECTURE.md`.
+
 ## Top-level components
 
 ### `App.jsx`
@@ -40,9 +43,9 @@ Left-hand list of trace events with grouping, search, and a draggable resize han
 When `panelCollapsed` is true the panel renders a floating "all events" widget (`.events-panel-floating-title`) instead of the full list. The widget contains the playback transport + timeline scrubber. Drop-zone gestures while dragging the widget:
 
 - drop near the left window edge (≤ 80 px) → calls `onExpandPanelFromWidget` (expand the events panel and dismiss the widget)
-- drop near the top of the window (≤ 60 px from top) → calls `onDockWidgetToTopBar` (hides the widget via `setAllEventsWidgetHidden(true)`; topbar transport controls re-appear automatically since `controlsHidden` is derived)
+- drop near the top of the window (≤ 60 px from top) → calls `onDockWidgetToTopBar` (hides the widget via `setIsAllEventsWidgetHidden(true)`; topbar transport controls re-appear automatically since `areControlsHidden` is derived)
 
-When `allEventsWidgetHidden` is true the widget is not rendered. The next `toggleEventsPanel` call resets `allEventsWidgetHidden` to `false` so the widget reliably reappears when the user collapses the panel again.
+When `isAllEventsWidgetHidden` is true the widget is not rendered. The next `toggleEventsPanel` call resets `isAllEventsWidgetHidden` to `false` so the widget reliably reappears when the user collapses the panel again.
 
 **Drag-to-collapse (expanded panel):** The `.events-panel-header-title-row` carries a `grab` cursor and a `mousedown` handler (`handleHeaderTitleDragStart`). Dragging rightward past 80 px (raw, pre-rubber-band) triggers a two-phase animated collapse: (1) the title springs back, (2) `.collapsing-out` is applied so the header and list sweep out via `@keyframes events-panel-sweep-out`, then `onToggleCollapse()` is called after 360 ms total. State: `headerDragX` (visual translate), `headerDragWillCollapse` (accent hint), `isCollapsingOut` (animation class).
 
@@ -66,12 +69,37 @@ Floating, draggable, resizable panel showing per-phase timings. Uses `useFloatin
 ### `Toolbar.jsx`
 Top header bar: trace title, info popover trigger, playback transport (skip/step/play/pause/slider/counter), and the right-hand action cluster (search, zoom, 3D, heatmap, primes, timings, debug tools, depth, PNG/video export, theme). Pure presentation — every interactive callback is supplied by the parent.
 
-The topbar transport (`toolbar-center`) is hidden when `controlsHidden` is `true`. `controlsHidden` is a **derived value** in `Visualizer.jsx` (`eventsPanelCollapsed && !allEventsWidgetHidden`): it becomes `true` automatically whenever the floating all-events widget is visible, and `false` whenever the events panel is expanded or the widget is docked to the top bar. There is no manual toggle button — the events panel collapse/expand is the only affordance.
+The topbar transport (`toolbar-center`) is hidden when `areControlsHidden` is `true`. `areControlsHidden` is a **derived value** in `Visualizer.jsx` (`isEventsPanelCollapsed && !isAllEventsWidgetHidden`): it becomes `true` automatically whenever the floating all-events widget is visible, and `false` whenever the events panel is expanded or the widget is docked to the top bar. There is no manual toggle button — the events panel collapse/expand is the only affordance.
 
 ### `TraceInfoPopover.jsx`
 Popover anchored beneath the trace title showing the storage-model selector and the parsed `traceInfoSections` (file/run/settings/notes). Used by `Toolbar`.
 
 When `rawSource` is supplied, a "View raw log" button appears. Clicking it opens a draggable, resizable dialog with a line-numbered monospace view of the original file. The dialog can be dragged by its header bar and resized via the bottom-right handle. Lines whose content matches a step's `annotation` (text-format traces) are highlighted; clicking such a line number closes the viewer, calls `onJumpToStep(stepIndex)`, and opens the events panel scrolled to that step. A "Copy all" button copies the source to clipboard. The dialog closes with Escape or the ✕ button. Props threaded: `Visualizer` (computes `lineToStep` map + `onJumpToStep` callback) → `Toolbar` → `TraceInfoPopover`.
+
+### `CanvasLoadingOverlay.jsx`
+Shown while a trace is streaming. Renders a "Loading log…" text, an event count (once `steps.length > 0`), and a `role="progressbar"` track with a fill div. The wrapper receives `{ loadingOverlayPhase, steps, overlayBarPct }`. Returns `null` when `loadingOverlayPhase === 'hidden'`.
+
+### `StatusBanners.jsx`
+Renders two conditional alert banners adjacent to the toolbar: the export-error banner (`exportError` string) and the GL-unavailable banner (`isGlUnavailable` boolean). Both use `role="alert"` for accessibility. Extracted from inline JSX in `Visualizer.jsx`.
+
+### `CanvasStage.jsx`
+Canvas-center layout shell (canvas stack + overlays + detail panel). Uses grouped
+prop contracts:
+
+- `canvasRefs`, `canvasConfig`, `canvasStyles`
+- `overlay` (forwarded to `CanvasOverlayManager`)
+- `detail` (forwarded to `DetailPanel` grouped contracts)
+- `intro`
+
+ This grouped contract is now the only supported path.
+
+### `CanvasOverlayManager.jsx`
+Overlay coordinator extracted from `CanvasStage`. Receives grouped contracts:
+
+- `overlayState` (event-title/banner, balloons, inspector, timing data)
+- `overlayHandlers` (setters and callbacks)
+
+ Legacy flat props have been removed after the grouped migration completed.
 
 ### `ExportProgress.jsx`
 Slim progress bar shown beneath the toolbar while `MediaRecorder` is exporting a WebM. Just renders `width: ${progress}%`.
@@ -101,15 +129,22 @@ Drop-zone gestures while dragging:
 The banner is forced visible on every fresh session via `mergeEventTitleSettings` so users always see it on startup.
 
 ### `JoinedEventsWidget.jsx`
-Combined floating widget shown when `widgetsJoined = true` and the events panel is collapsed. Merges the all-events transport controls (play/pause, step navigation, timeline slider, speed) with the single-event content from `EventTitleBanner` (annotation heading, bits changed, nearby events, per-step sliders) into one draggable panel.
+Combined floating widget shown when `areWidgetsJoined = true` and the events panel is collapsed. Merges the all-events transport controls (play/pause, step navigation, timeline slider, speed) with the single-event content from `EventTitleBanner` (annotation heading, bits changed, nearby events, per-step sliders) into one draggable panel.
 
-**Join trigger:** dragging either the all-events floater or the `EventTitleBanner` onto the other widget (within 40 px hit-padding) calls the `joinWidgets()` callback from `usePanelChoreography`, setting `widgetsJoined = true`. A `.merge-target` CSS ring highlights the target during drag.
+Current contract uses grouped props:
+
+- `bannerState` (settings, banner data, nearby-events data, sliders, join anchor)
+- `widgetHandlers` (split/push/hide/navigate callbacks)
+
+ Legacy flat props have been removed after the grouped migration completed.
+
+**Join trigger:** dragging either the all-events floater or the `EventTitleBanner` onto the other widget (within 40 px hit-padding) calls the `joinWidgets()` callback from `usePanelChoreography`, setting `areWidgetsJoined = true`. A `.merge-target` CSS ring highlights the target during drag.
 
 **Split:** the ⊡ split button (`.joined-widget-split-btn`) sets `is-splitting` CSS class, plays a 320 ms `@keyframes joined-widget-split` (scale+fade-out) animation, then calls `onSplitWidgets`. The expand-panel (▼) button now routes through `usePanelChoreography`: it splits the joined widget, opens the events panel, opens the detail panel, and hides the floating single-event banner so the single-event timeline appears in detail.
 
 **Appear animation:** `@keyframes joined-widget-appear` (scale 0.88→1 + opacity 0→1, 280 ms) on mount.
 
-**Auto-split on panel open:** `Visualizer.jsx` calls `setWidgetsJoined(false)` inside `toggleEventsPanel` and `revealCurrentStepInPanel` whenever the events panel is being expanded.
+**Auto-split on panel open:** `Visualizer.jsx` calls `setAreWidgetsJoined(false)` inside `toggleEventsPanel` and `revealCurrentStepInPanel` whenever the events panel is being expanded.
 
 **Draggable:** drag from the header row updates position; on mouseup the offset is persisted to `eventTitleSettings.dragOffsetX/Y` so the banner re-appears at the correct position after splitting. Dropping the joined widget into the left screen-edge band performs the same events+detail panel expansion as the expand button. CSS uses `.joined-events-widget.dropping-left` for the drop hint.
 
@@ -121,7 +156,7 @@ Modal table that lists every changed bit (or every multiple / every prime) for t
 ### `StepAnimSliders.jsx`
 The Mode / Timeline / Target / Speed slider cluster shown in both the floating event-title banner and the bottom detail panel. All values and callbacks (current step data, scrub progress, mode toggles, `computeEventDuration`, `playSpeedPercent`, …) are passed in as props; the component renders the rows and bubbles user interactions back.
 
-**Timeline slider wipe animation** — when `delayPhaseMs` (non-null) is received, the slider's colored fill wipes out left-to-right over the delay duration using an internal RAF loop (`wipePositionRef` / `wipePosition` state). When `animationReplayPaused` is `true` while `delayPhaseMs` is set, the wipe freezes (pause-in-flight). When `delayPhaseMs` returns to `null` (user scrubs or delay completes), the wipe reverses smoothly back to 0 over ~200 ms. The visual track is implemented as custom HTML divs (`.step-focus-timeline-track`, `.step-focus-timeline-fill`, `.step-focus-timeline-wipe`) behind a transparent-track `appearance: none` range input.
+**Timeline slider wipe animation** — when `delayPhaseMs` (non-null) is received, the slider's colored fill wipes out left-to-right over the delay duration using an internal RAF loop (`wipePositionRef` / `wipePosition` state). When `isAnimationReplayPaused` is `true` while `delayPhaseMs` is set, the wipe freezes (pause-in-flight). When `delayPhaseMs` returns to `null` (user scrubs or delay completes), the wipe reverses smoothly back to 0 over ~200 ms. The visual track is implemented as custom HTML divs (`.step-focus-timeline-track`, `.step-focus-timeline-fill`, `.step-focus-timeline-wipe`) behind a transparent-track `appearance: none` range input.
 
 ### `BitHistoryBalloons.jsx`
 Wraps the pinned-balloon list and the hover balloon. Asks the parent (`getVisibleBalloonStyles`) where each balloon should sit, then renders one `BitHistoryBalloon` per pinned bit and an extra one for the hovered bit (when the hovered bit isn't already pinned). Visible balloons also render a fixed SVG connector layer: each connector is a soft filled curve from the visible bit edge to the nearest measured balloon edge. Calls `onUnpin(bitIndex)` and `onHistoryClick(stepIndex)` for user actions.
@@ -148,7 +183,7 @@ Content for the Colors tab (~156 lines). Owns two local `rgb↔hex` converters (
 Displays Theme buttons (☀ / ☽), day/night canvas-background colour pickers with Reset, grid opacity slider, colour preset dropdown, and custom per-class colour pickers.
 
 ### `AnimationTab.jsx`
-Content for the Animation tab (~570 lines). Fully self-contained: recreates `clamp` / `playbackSpeedValue` locally. Accepts only props that already existed on `SettingsPanel`. Includes the Bit-animation mode toggle (`animMode`: Mask / Bits / Both). Also exposes `autoAnimateOnSelect` / `onAutoAnimateOnSelectChange` for the "Auto-animate on event select" checkbox in the "Selection behaviour" section.
+Content for the Animation tab (~570 lines). Fully self-contained: recreates `clamp` / `playbackSpeedValue` locally. Accepts only props that already existed on `SettingsPanel`. Includes the Bit-animation mode toggle (`animMode`: Mask / Bits / Both). Also exposes `isAutoAnimateOnSelect` / `onAutoAnimateOnSelectChange` for the "Auto-animate on event select" checkbox in the "Selection behaviour" section.
 
 ### `LayoutTab.jsx`
 Content for the Layout tab (~960 lines). "Fat prop list" extraction (~25 props). Owns its own UI state for the grouping menu, custom-preset menu, and spacing popovers. Inner `LayoutOverview` is called as a direct function (`{LayoutOverview()}`); `SpacingControl` is a **module-level** component (promoted from inside `LayoutOverview` to fix per-render unmount/remount) receiving `openSpacingControl`, `setOpenSpacingControl`, `s`, `incr`, `decr` as props. Internally uses `useSettingsBundle()` for the `(settings, onChange)` sub-set of props. The Grid view block also exposes a Balloon mode segmented control: `Off`, `On bit clock` (click-only), or `Click + hover`.
@@ -220,6 +255,45 @@ Encapsulates PNG snapshot (`exportPng`) and WebM video recording (`exportVideo`)
 ### `useDraftInput(value, onCommit)`
 Manages the "draft text + commit on blur/Enter" pattern for controlled inputs. Returns `[draft, setDraft, inputProps]`. Used in `SettingsPanel` for range start/end and multiples-prime fields.
 
+### `useRawSource({ sourceRef, steps })`
+Loads the raw source text when `sourceRef` points to a valid source, and builds `lineToStep` and `stepToLine` lookup maps. Returns `{ rawSourceForLog, lineToStep, stepToLine, fetchRawSource }`.
+
+### `useCanvasRefs()`
+Creates and returns all canvas/renderer React refs: `minimapCanvasRef`, `containerRef`, `rendererRef`, `glCanvasRef`, `glRendererRef`, `glCssLockActiveRef`, `glCssUnlockRafRef`, `glCssUnlockTimeoutRef`. Used by `Visualizer` to pass refs to `CanvasStage` and the GL backend.
+
+### `useDebugTools({ glRendererRef })`
+Owns the GL debug state: `isGlUnavailable`, `setIsGlUnavailable`, `showGlDebugInfo`, `setShowGlDebugInfo`, `glDebugInfo`, `setGlDebugInfo`, and the `updateGlDebugInfo` callback that reads timing from `glRendererRef`.
+
+### `useThemeAndColors({ initialPrefs })`
+Owns theme, `gridOpacity`, `canvasColors`, `colorPreset`, `customColors`. All values are seeded from `initialPrefs` and persisted via `viewPrefs`. Returns setters for each.
+
+### `useAnimationConfig({ initialPrefs })`
+Owns `animMode`, `animStyle`, `bitAnimInterval`, `maskAnimInterval`, `eventTimeTargets`, `isAutoAnimateOnSelect`, speed values (`stepSpeedValue`, `maskSpeedValue`), setters, cycle helpers (`cycleAnimStyle`, `cycleAnimMode`), and info maps (`animStyleInfo`, `animModeInfo`). Seeded from `initialPrefs`.
+
+### `useStepAnimation({ initialPrefs })`
+Owns `bitAnimationMode`, `isSingleEventLoopActive`, `stepScrubProgress`, `isStepAnimRunning`, resume refs (`stepAnimResumeRef`, `bitAnimResumeRef`), loop refs (`stepAnimRunningRef`, `singleEventLoopRef`), and the `handleBitAnimationModeChange` callback.
+
+### `useOverlays()`
+Owns `isHeatMapEnabled`, `isPrimeOverlayEnabled`, `isRangeOverlayEnabled`, `rangeStart`/`rangeEnd`, `isMultiplesOverlayEnabled`, `multiples`, `cachelineSize`, `isMinimapVisible`, `cachePreset`. All are persisted via `viewPrefs`.
+
+### `useIntroSequence({ loadComplete, loadProgress })`
+Drives the intro animation: `introPhase` (`'boot'` / `'ready'`), `loadingOverlayPhase` (`'visible'` / `'fading'` / `'hidden'`), `overlayBarPct`, and `loadProgressRef`. Triggers the top-bar playback-ready appearance when `loadComplete` and `introPhase === 'ready'`.
+
+### `useWidgetState({ initialPrefs })`
+Owns widget visibility flags (`isAllEventsWidgetHidden`, `isSingleEventWidgetRevealed`, `areWidgetsJoined`), the timing panel toggle (`isTimingPanelOpen`, `timingFocusOp`), and the detail inspector state (`isDetailInspectorOpen`, `detailInspectorMode`, `detailInspectorQuery`).
+
+### `usePanelState({ initialPrefs, introPhase, isSingleEventWidgetRevealed })`
+Owns events/detail/settings panel dimensions and visibility (`isEventsPanelCollapsed`, `panelWidth`, `isDetailOpen`, `detailHeight`, `settingsPanelOpen`), the settings active tab (`settingsActiveTab`, `settingsTabRequest`), and the deferred panel state ref (`deferredPanelStateRef`). Contains the Phase F panel-restore effects that fire when `introPhase` transitions to `'ready'`.
+
+### `useBalloonLayout()`
+Owns `pinnedBitIndices`, `hoveredBitInfo`, `balloonLayoutTick`, `balloonLayoutRafRef`, `balloonLiveLayoutTimerRef`, and the `scheduleBalloonRelayout(immediate)` callback. Provides `setPinnedBitIndices` and `setHoveredBitInfo` setters.
+
+### `useBitState()`
+Owns the mutable renderer refs: `bitStateRef`, `bitStateCheckpointsRef`, `bitStateDirtyRef`, and the React-state `selectedSteps` array + `selectedStepsRef`. Provides `setSelectedSteps`.
+
+### `useViewportAnchoring()`
+Owns `canvasAnchorPx`, `pendingResizeAnchorRef`, `layoutRefresh` (RAF scheduler + `layoutRefreshCountRef`), and `viewportAnimRef`.
+
 ## Utilities (`src/lib/`)
 
 ### `viewPrefs.js`
@@ -287,7 +361,7 @@ Each overlay is a pure class with a `render(ctx, cw, ch)` method that reads the 
 
 ### WebGL backend (`src/renderer/gl/`)
 
-The unconditional production bit-fill backend. `Visualizer.jsx` always constructs `BitGridGLWorker`; if `attach()` fails (browser lacks `OffscreenCanvas.transferControlToOffscreen`), a `glUnavailable` banner is shown and bit cells remain unfilled (labels and overlays still draw). Canvas2D no longer has a cell-fill fallback path — `SieveRenderer.skipBitFill` has been removed.
+The unconditional production bit-fill backend. `Visualizer.jsx` always constructs `BitGridGLWorker`; if `attach()` fails (browser lacks `OffscreenCanvas.transferControlToOffscreen`), a `isGlUnavailable` banner is shown and bit cells remain unfilled (labels and overlays still draw). Canvas2D no longer has a cell-fill fallback path — `SieveRenderer.skipBitFill` has been removed.
 
 | File | Role |
 | --- | --- |

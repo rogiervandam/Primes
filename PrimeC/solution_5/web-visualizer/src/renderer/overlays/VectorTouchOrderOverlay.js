@@ -40,7 +40,7 @@ export class VectorTouchOrderOverlay {
       const tint = host._maskTintColor(entry.slotIndex);
       const groupBounds = host._maskEntryGroupBounds(entry);
       const slotWidth = entry.slot?.vecD?.w || groupBounds?.w || entry.bounds.w;
-      const maxBoxW = Math.max(28, Math.min(host.canvasWidth - 6, slotWidth));
+      const maxBoxW = Math.max(28, Math.min(host.canvasWidth - 6, slotWidth * 2.5));
       ctx.font = `600 ${fontSize}px monospace`;
       const textWidth = ctx.measureText(label).width;
       ctx.font = `500 ${detailFont}px monospace`;

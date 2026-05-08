@@ -5,11 +5,10 @@
  * component — every input they need is passed explicitly. The Visualizer
  * wraps each one in a `useCallback` that supplies the current refs/state.
  */
+import { clamp } from './math.js';
 
-/** Clamp `value` into the inclusive `[min, max]` range. */
-export function clampMs(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
+/** Clamp `value` into the inclusive `[min, max]` range (ms-naming alias). */
+export const clampMs = clamp;
 
 /**
  * Tier sizes for the 'progressive' bits-at-time mapping. Bits are split
@@ -92,12 +91,12 @@ export function computeEventNormalDuration(bitCount, targets) {
 
 /**
  * Compute the per-event duration in ms once the speed slider is applied.
- * Caller must pass `speedPercent` (1..1000) and the `targets` table; the
+ * Caller must pass `speedPercent` (1..1600) and the `targets` table; the
  * returned duration is at least 80 ms.
  */
 export function computeEventDuration(bitCount, targets, speedPercent) {
   const normal = computeEventNormalDuration(bitCount, targets);
-  const speedPct = Math.max(1, Math.min(1000, Number(speedPercent) || 100));
+  const speedPct = Math.max(1, Math.min(1600, Number(speedPercent) || 100));
   return Math.max(80, Math.round(normal * 100 / speedPct));
 }
 

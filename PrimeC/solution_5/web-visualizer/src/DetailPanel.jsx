@@ -1,6 +1,7 @@
 import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { BIT_LAYOUTS, BYTE_LAYOUTS, bitToNumber } from './SieveRenderer';
 import { formatNs } from './TimingPanel';
+import { useDragResize } from './hooks/interactions';
 
 const GRID3X3_MAP = [0, 1, 2, 3, 5, 6, 7, 8];
 
@@ -14,32 +15,52 @@ function layoutPos(layout, index) {
 
 /**
  * Collapsible detail panel with adjustable height.
+ * 
+ * Phase 5 Refactoring: Accepts organized prop objects instead of 25+ scattered props.
+ * 
+ * @param {object}   props
+ * @param {object}   props.detailState              - Panel state (step, stepIndex, open, height, width, playing, stepStats, bitLayout, byteLayout, eventTitleVisible, sourceLineNumber, hasRawSource)
+ * @param {object}   props.detailConfig             - Panel config (storageModel, wheelDefinition, benchmarkTimingData, eventAnimSliders, allEventsTransport)
+ * @param {object}   props.detailHandlers           - Panel handlers (onToggle, onHeightChange, onWidthChange, onInspectChangedBits, onInspectMarkedNumbers, onShowEventTitle, onOpenRawLog)
+ * 
  */
 export default function DetailPanel({
-  step,
-  stepIndex,
-  open,
-  onToggle,
-  height,
-  onHeightChange,
-  width,
-  onWidthChange,
-  playing,
-  stepStats,
-  storageModel,
-  wheelDefinition,
-  bitLayout = '4x2',
-  byteLayout = '4x2',
-  benchmarkTimingData,
-  onInspectChangedBits,
-  onInspectMarkedNumbers,
-  eventTitleVisible,
-  onShowEventTitle,
-  eventAnimSliders,
-  onOpenRawLog,
-  sourceLineNumber,
-  allEventsTransport,
+  detailState = {},
+  detailConfig = {},
+  detailHandlers = {},
 }) {
+  const {
+    step,
+    stepIndex,
+    open,
+    height,
+    width,
+    playing,
+    stepStats,
+    bitLayout = '4x2',
+    byteLayout = '4x2',
+    eventTitleVisible,
+    sourceLineNumber,
+    hasRawSource = false,
+  } = detailState;
+
+  const {
+    storageModel,
+    wheelDefinition,
+    benchmarkTimingData,
+    eventAnimSliders,
+    allEventsTransport,
+  } = detailConfig;
+
+  const {
+    onToggle,
+    onHeightChange,
+    onWidthChange,
+    onInspectChangedBits,
+    onInspectMarkedNumbers,
+    onShowEventTitle,
+    onOpenRawLog,
+  } = detailHandlers;
   // Benchmark timing row matching the current step's operation (if any)
   const benchmarkOpTiming = useMemo(() => {
     if (!step || !benchmarkTimingData || !Array.isArray(benchmarkTimingData.timings)) return null;
@@ -203,38 +224,18 @@ export default function DetailPanel({
   }, [maskSummary, bitLayout, byteLayout]);
 
   // Height drag handler
-  const handleHeightDrag = useCallback((e) => {
-    e.preventDefault();
-    const startY = e.clientY;
-    const startHeight = height || 200;
-    const onMove = (ev) => {
-      const delta = startY - ev.clientY;
-      onHeightChange(Math.max(180, Math.min(700, startHeight + delta)));
-    };
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, [height, onHeightChange]);
+  const handleHeightDrag = useDragResize({
+    onMove: useCallback((_dx, dy) => {
+      onHeightChange(Math.max(180, Math.min(700, (height || 200) - dy)));
+    }, [height, onHeightChange]),
+  });
 
   // Width drag handler (drag right edge)
-  const handleWidthDrag = useCallback((e) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startWidth = width || 0;
-    const onMove = (ev) => {
-      const delta = ev.clientX - startX;
-      onWidthChange(Math.max(0, startWidth + delta));
-    };
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, [width, onWidthChange]);
+  const handleWidthDrag = useDragResize({
+    onMove: useCallback((dx) => {
+      onWidthChange(Math.max(0, (width || 0) + dx));
+    }, [width, onWidthChange]),
+  });
 
   const [bodyAnimClass, setBodyAnimClass] = useState('');
   const [isBodyAnimatingOut, setIsBodyAnimatingOut] = useState(false);
@@ -300,6 +301,17 @@ export default function DetailPanel({
             title="Open raw log at this line"
           >
             line {sourceLineNumber + 1}
+          </button>
+        )
+        : hasRawSource && step?.annotation
+        ? (
+          <button
+            type="button"
+            className="detail-source-link detail-source-link--pending"
+            onClick={() => onOpenRawLog?.(null)}
+            title="Load raw log and navigate to this event's source line"
+          >
+            view source
           </button>
         )
         : <span className="detail-empty">—</span>,
@@ -444,6 +456,15 @@ export default function DetailPanel({
             title="Show event title"
           >▲</button>
         )}
+        {allEventsTransport && (
+          <div
+            className="detail-panel-all-events-inline"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {allEventsTransport}
+          </div>
+        )}
         <div className="detail-panel-title">
           <span className="detail-panel-title-main">{panelTitle}</span>
           {step.annotation && <span className="detail-panel-annotation">{step.annotation}</span>}
@@ -451,13 +472,8 @@ export default function DetailPanel({
         <span className="detail-panel-arrow">{open ? '▼' : '▲'}</span>
       </div>
 
-      {(allEventsTransport || (!eventTitleVisible && eventAnimSliders)) && (
+      {(!allEventsTransport && !eventTitleVisible && eventAnimSliders) && (
         <div className="detail-panel-dock-row">
-          {allEventsTransport && (
-            <div className="detail-panel-all-events-transport">
-              {allEventsTransport}
-            </div>
-          )}
           {!eventTitleVisible && eventAnimSliders && (
             <div className="detail-panel-event-sliders">
               {eventAnimSliders}

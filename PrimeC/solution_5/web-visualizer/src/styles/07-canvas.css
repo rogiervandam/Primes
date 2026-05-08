@@ -117,6 +117,9 @@
 .step-focus-slider-label { text-transform: uppercase; letter-spacing: 0.04em; }
 .step-focus-slider-label.step-focus-slider-label--draggable { cursor: grab; user-select: none; }
 .step-focus-slider-label.step-focus-slider-label--draggable:active { cursor: grabbing; }
+/* In the joined widget, the Animation label is used to drag the whole widget */
+.joined-events-widget .step-focus-slider-label { cursor: grab; user-select: none; }
+.joined-events-widget .step-focus-slider-label:active { cursor: grabbing; }
 .step-focus-slider-value { font-variant-numeric: tabular-nums; text-align: right; color: var(--fg); }
 .step-focus-slider-controls {
   display: flex;
@@ -249,6 +252,28 @@
   font-size: 14px;
 }
 .step-focus-play-btn:hover { background: var(--bg-input); color: var(--fg-bright); }
+.step-focus-repeat-btn {
+  padding: 3px 6px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--fg-dim);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.step-focus-repeat-btn:hover { background: var(--bg-raised); color: var(--fg); }
+.step-focus-repeat-btn.active {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--border-light));
+  background: color-mix(in srgb, var(--accent-bg) 55%, transparent);
+}
+.step-focus-repeat-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .step-focus-close-btn {
   position: absolute;
   top: 12px;
@@ -581,31 +606,26 @@
   overflow: hidden;
   cursor: crosshair;
   position: relative;
-  /* preserve-3d is applied only when mode-3d is active (see below) so that
-     Safari does not create a 3D compositing context in 2D mode, which can
-     cause black flicker during canvas drawing. */
-  touch-action: none;
-  user-select: none;
-  background: var(--bg);
-}
-.canvas-container.mode-3d {
   /* perspective is set via inline style from Camera3D */
   perspective-origin: 50% 50%;
   /* transform-style: preserve-3d is intentionally NOT set here.
-     preserve-3d on the container forces Safari to use its 3D compositing
-     path for all descendants. On the 3D path, when a canvas element is
-     drawn to, Safari re-composites the GPU layer and can briefly expose
-     a black backing store during the GPU texture upload — the visible
-     black flicker. Without preserve-3d, Safari uses its 2D compositor
-     for the wrapper div's GPU layer, which handles texture uploads without
-     the black-frame timing issue. The visual result is identical because
-     only the wrapper has a CSS 3D transform (rotateX/Y); `perspective` on
-     the container still applies the perspective projection correctly
-     without needing preserve-3d. */
-  /* Keep `overflow: hidden` (inherited from .canvas-container) so the
-     intentionally oversized canvas (~3.1x in 3D for drag headroom) clips
-     to the container bounds when tilted. Without this, the rotated
-     bitmap edges bleed under/over the surrounding panels and look messy. */
+    preserve-3d on the container forces Safari to use its 3D compositing
+    path for all descendants. On the 3D path, when a canvas element is
+    drawn to, Safari re-composites the GPU layer and can briefly expose
+    a black backing store during the GPU texture upload - the visible
+    black flicker. Without preserve-3d, Safari uses its 2D compositor
+    for the wrapper div's GPU layer, which handles texture uploads without
+    the black-frame timing issue. The visual result is identical because
+    only the wrapper has a CSS 3D transform (rotateX/Y); `perspective` on
+    the container still applies the perspective projection correctly
+    without needing preserve-3d. */
+  /* Keep `overflow: hidden` so the intentionally oversized canvas (~3.1x in
+    3D for drag headroom) clips to the container bounds when tilted.
+    Without this, the rotated bitmap edges bleed under/over surrounding
+    panels and look messy. */
+  touch-action: none;
+  user-select: none;
+  background: var(--bg);
 }
 
 /* Wrapper div that receives the 3D CSS transform (translate-50%,-50% + rotateX/Y).
@@ -691,6 +711,15 @@
   z-index: 3;
   pointer-events: none;
 }
+
+.canvas-container .glyph2d-render-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  z-index: 3;
+  pointer-events: none;
+}
 .canvas-container canvas.debug-hidden {
   opacity: 0 !important;
   pointer-events: none;
@@ -700,19 +729,16 @@
   display: block;
 }
 .minimap-overlay-canvas {
-  /* position:fixed lifts the canvas out of every stacking context so it
-     always paints on top of the floating panels (settings sidebar, step
-     panel — z-index 28) regardless of which panels are open.
-     z-index 35 keeps it above those panels while staying below any
-     modal dialogs (z-index 100+).  pointer-events:none ensures it
-     never intercepts clicks; minimap interaction is handled by the
-     canvas-container pointer listener using viewport (clientX/Y) coords. */
+  /* Floating top-level minimap canvas. Size/position are set at runtime so
+     the backing store matches the exact on-screen minimap bounds. */
   position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  display: none;
   pointer-events: none;
-  z-index: 35;
+  z-index: 1200;
 }
 .animation-widget {
   position: fixed;

@@ -165,8 +165,8 @@
 .btn-icon:hover { color: var(--fg-bright); border-color: var(--border-light); }
 .btn-icon.active { color: var(--fg-bright); border-color: var(--accent-dim); background: var(--accent-bg); }
 /* Prime overlay button uses a gold accent when active */
-.btn-icon.prime-overlay-btn { color: #fbbf24; border-color: #b45309; background: rgba(251,191,36,0.15); }
-.btn-icon.prime-overlay-btn:hover { color: #fde68a; border-color: #d97706; background: rgba(251,191,36,0.25); }
+.btn-icon.prime-overlay-btn { color: var(--prime-accent); border-color: var(--prime-accent-border); background: var(--prime-accent-bg); }
+.btn-icon.prime-overlay-btn:hover { color: var(--prime-accent-bright); border-color: var(--prime-accent-border-hover); background: var(--prime-accent-bg-hover); }
 .btn-icon svg { vertical-align: middle; }
 .btn-text {
   background: transparent;

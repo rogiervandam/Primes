@@ -1,9 +1,9 @@
 .debug-tools-panel {
-  position: absolute;
-  top: 8px;
-  right: var(--debug-tools-right, 8px);
-  width: 276px;
-  max-width: calc(100% - var(--debug-tools-right, 8px) - 8px);
+  position: fixed;
+  top: var(--debug-tools-top, 8px);
+  left: var(--debug-tools-left, 8px);
+  width: 360px;
+  max-width: calc(100vw - var(--debug-tools-left, 8px) - 8px);
   max-height: calc(100vh - 16px);
   padding: 8px;
   border: 1px solid var(--border-light);
@@ -15,6 +15,7 @@
   pointer-events: auto;
   font-size: 11px;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
 }
 
@@ -29,6 +30,10 @@
 .debug-tools-header {
   color: var(--fg-bright);
   font-weight: 700;
+  cursor: grab;
+}
+.debug-tools-header:active {
+  cursor: grabbing;
 }
 
 .debug-tools-header span:last-child,
@@ -103,15 +108,15 @@
 }
 
 .debug-tools-bar.ok {
-  background: #22c55e;
+  background: var(--debug-pass);
 }
 
 .debug-tools-bar.warn {
-  background: #f59e0b;
+  background: var(--debug-warn);
 }
 
 .debug-tools-bar.high {
-  background: #ef4444;
+  background: var(--debug-error);
 }
 
 .debug-tools-footer {

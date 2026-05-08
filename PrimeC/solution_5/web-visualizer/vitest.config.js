@@ -5,5 +5,6 @@ export default defineConfig({
     // Run only files in src/**/__tests__/ or src/**/*.test.js
     include: ['src/**/__tests__/**/*.{js,jsx}', 'src/**/*.test.{js,jsx}'],
     environment: 'node',
+    setupFiles: ['src/test/setupConsoleGuards.js'],
   },
 });

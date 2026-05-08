@@ -93,6 +93,43 @@
   background: var(--bg-input);
 }
 
+/* Directional nav buttons in events panel header (items 53, 54) */
+.events-panel-dir-btns {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.events-dir-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  line-height: 1;
+  opacity: 0.65;
+  transition: opacity 0.1s, color 0.1s, background 0.1s;
+}
+.events-dir-btn:hover {
+  color: var(--fg);
+  border-color: var(--border-light);
+  background: var(--bg-input);
+  opacity: 1;
+}
+.events-dir-btn--popout {
+  color: var(--accent);
+  opacity: 0.8;
+}
+.events-dir-btn--popout:hover {
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-color: var(--accent-dim);
+  opacity: 1;
+}
+
 .events-panel-show-event-title-btn {
   display: flex;
   align-items: center;
@@ -299,12 +336,10 @@
 }
 
 
-/* ---- Expand-in animation: panel content slides in from the left ---- */
-.events-panel.expanding-in .events-panel-header {
-  animation: events-panel-slide-in 500ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
+/* ---- Expand-in animation: panel content slides in as one unit ---- */
+.events-panel.expanding-in .events-panel-header,
 .events-panel.expanding-in .step-list {
-  animation: events-panel-slide-in 500ms 40ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: events-panel-slide-in 500ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 .events-panel.expanding-in .resize-handle {
   animation: events-panel-slide-in 400ms cubic-bezier(0.22, 1, 0.36, 1) forwards;

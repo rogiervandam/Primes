@@ -76,10 +76,10 @@
 .bit-prime-notice {
   display: flex; align-items: center; gap: 5px;
   padding: 4px 14px; font-size: .82rem; font-weight: 600;
-  color: #fde68a; background: rgba(251,191,36,0.12);
+  color: var(--prime-accent-bright); background: var(--prime-accent-bg);
   border-bottom: 1px solid rgba(251,191,36,0.30);
 }
-[data-theme='light'] .bit-prime-notice { color: #92400e; background: rgba(251,191,36,0.18); }
+[data-theme='light'] .bit-prime-notice { color: var(--prime-accent-bright); background: var(--prime-accent-bg); }
 .bit-history-hint { padding: 4px 14px; font-size: .75rem; color: var(--fg-muted); border-top: 1px solid var(--border); }
 .bit-history-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
 .bit-history-table th {

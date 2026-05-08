@@ -6,7 +6,7 @@ import {
   isSafeLogFileName,
   isUploadTraceFileName,
   saveUploadedTrace,
-} from '../../../log-api-utils.mjs';
+} from '../../../server/log-api-utils.mjs';
 
 let tempDir = null;
 

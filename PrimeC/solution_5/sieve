@@ -561,7 +561,7 @@ if [ "$RENDER" = "render" ]; then
         echo "Building web visualizer..."
         (cd web-visualizer && npx vite build 2>&1 | tail -5)
     fi
-    node web-visualizer/render-video.mjs "$RENDER_FILE"
+    node web-visualizer/scripts/render-video.mjs "$RENDER_FILE"
     exit $?
 fi
 

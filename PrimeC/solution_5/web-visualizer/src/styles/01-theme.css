@@ -21,6 +21,25 @@
   --prime-bg:   #2a4a2a; --prime-fg: #7be87b;
   --block-bg:   #4a3a2a; --block-fg: #e8c77b;
   --step-bg:    #3a2a4a; --step-fg:  #b87be8;
+
+  /* Prime / sieve accent (amber) */
+  --prime-accent:            #fbbf24;
+  --prime-accent-bright:     #fde68a;
+  --prime-accent-border:     #b45309;
+  --prime-accent-border-hover:#d97706;
+  --prime-accent-bg:         rgba(251, 191, 36, 0.15);
+  --prime-accent-bg-hover:   rgba(251, 191, 36, 0.25);
+
+  /* Debug state pills */
+  --debug-pass:  #22c55e;
+  --debug-warn:  #f59e0b;
+  --debug-error: #ef4444;
+
+  /* Warning foreground (used by export-progress) */
+  --warning-fg:  #fde68a;
+
+  /* Heat overlay */
+  --heat-hot:    #ef4444;
 }
 
 [data-theme="light"] {
@@ -45,5 +64,24 @@
   --prime-bg:   #ddffdd; --prime-fg: #1a6b1a;
   --block-bg:   #fff3cd; --block-fg: #6b4a00;
   --step-bg:    #eddeff; --step-fg:  #5a2d82;
+
+  /* Prime / sieve accent (amber — readable on light bg) */
+  --prime-accent:            #b45309;
+  --prime-accent-bright:     #92400e;
+  --prime-accent-border:     #92400e;
+  --prime-accent-border-hover:#78350f;
+  --prime-accent-bg:         rgba(180, 83, 9, 0.10);
+  --prime-accent-bg-hover:   rgba(180, 83, 9, 0.18);
+
+  /* Debug state pills */
+  --debug-pass:  #16a34a;
+  --debug-warn:  #d97706;
+  --debug-error: #dc2626;
+
+  /* Warning foreground */
+  --warning-fg:  #92400e;
+
+  /* Heat overlay */
+  --heat-hot:    #dc2626;
 }
 

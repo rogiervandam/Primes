@@ -1,9 +1,6 @@
 import React from 'react';
-import EventTitleBanner from './EventTitleBanner';
-import BitHistoryBalloons from './BitHistoryBalloons';
-import DetailInspectorOverlay from './DetailInspectorOverlay';
+import CanvasOverlayManager from './CanvasOverlayManager';
 import DetailPanel from '../DetailPanel';
-import TimingPanel from '../TimingPanel';
 
 /**
  * CanvasStage — the centre column of the visualizer:
@@ -13,128 +10,140 @@ import TimingPanel from '../TimingPanel';
  *   - the detail panel docked at the bottom
  *   - the modal detail inspector + floating timing panel
  *
+ * Phase 5 Refactoring: Accepts organized prop objects instead of 80+ scattered props.
  * Pure presentation: the parent (Visualizer.jsx) owns all state and logic.
- * Refs are forwarded; mouse/wheel/keyboard handlers are attached by the
- * parent to the elements via these refs.
  *
- * This component is intentionally renderer-agnostic — the three canvas
- * elements are created here but the renderer reads them through the refs
- * passed by the parent. Swapping in a different visualization mode does
- * not require touching this file.
+ * @param {object}   props
+ * @param {object}   props.canvasRefs              - Canvas element refs (containerRef, glCanvasRef, glyphCanvasRef, wrapperCanvasRef)
+ * @param {object}   props.canvasConfig            - Canvas configuration (glActive, hideGlCanvas)
+ * @param {object}   props.canvasStyles            - Canvas styling (camera3DContainerStyle, renderCanvasStyle)
+ * @param {object}   props.overlay                 - CanvasOverlayManager props (all overlay-related state/handlers)
+ * @param {object}   props.detail                  - DetailPanel props (all detail-related state/handlers)
+ * @param {object}   props.intro                   - Intro animation state (introPhase, onIntroTransitionEnd, isSingleEventWidgetRevealed)
+ *
  */
 function CanvasStage({
-  // layout flags
-  mode3D,
-  // canvas refs (owned by parent, attached here)
-  containerRef,
-  glCanvasRef,
-  glyphCanvasRef,
-  // wrapper div ref — receives positioning (translate -50%/-50%) only.
-  // The 3D CSS rotation is applied directly to the GL canvas imperatively
-  // by refreshCanvasLayout (via camera3DTransformRef) so only one GPU
-  // compositing layer is created, avoiding Safari black-flicker.
-  wrapperCanvasRef,
-  // whether GL renderer is active (controls GL canvas visibility)
-  glActive,
-  hideGlCanvas = false,
-  // styling
-  camera3DContainerStyle,
-  renderCanvasStyle,
-  // event title banner
-  eventTitleSettings,
-  setEventTitleSettings,
-  eventTitleStyle,
-  currentStepBanner,
-  surroundingEvents,
-  currentStepData,
-  currentStep,
-  goToStep,
-  revealCurrentStepInPanel,
-  eventsPanelCollapsed,
-  setEventsPanelCollapsed,
-  stepAnimSlidersContent,
-  stepAnimSlidersDockedContent,
-  // join/split state for the joined widget feature
-  widgetsJoined,
-  onJoinWidgets,
-  onSplitWidgets,
-  // bit-history balloons
-  pinnedBitIndices,
-  hoveredBitInfo,
-  computeBitInfo,
-  getVisibleBalloonStyles,
-  balloonLiveLayout,
-  cachelineSize,
-  setPinnedBitIndices,
-  handleStepSelection,
-  // detail panel
-  detailOpen,
-  toggleDetailPanel,
-  detailHeight,
-  pendingBannerDragStart,
-  onConsumePendingBannerDragStart,
-  updateDetailHeight,
-  detailWidth,
-  setDetailWidth,
-  playing,
-  selectedSteps,
-  stepStats,
-  storageModel,
-  wheelDefinition,
-  layoutSettings,
-  benchmarkTimingData,
-  openDetailInspector,
-  // detail inspector overlay
-  detailInspectorOpen,
-  detailInspectorMode,
-  detailInspectorQuery,
-  setDetailInspectorQuery,
-  setDetailInspectorOpen,
-  detailInspectorRows,
-  filteredDetailInspectorRows,
-  // timing panel
-  timingPanelOpen,
-  setTimingPanelOpen,
-  benchmarkTimingFileName,
-  setTimingFocusOp,
-  onImportBenchmarkTiming,
-  steps,
-  onShowEventTitle,
-  onOpenRawLog,
-  currentStepSourceLine,
-  allEventsTransport,
-  // Intro animation phase: 'hidden' | 'scaling' | 'tilting' | 'visible'
-  introPhase = 'visible',
-  onIntroTransitionEnd,
-  // Gating flag: single-event widget hidden until first play or event selection
-  singleEventWidgetRevealed = true,
+  canvasRefs = {},
+  canvasConfig = {},
+  canvasStyles = {},
+  overlay = {},
+  detail = {},
+  intro = {},
 }) {
+
+  // Extract canvas refs
+  const {
+    containerRef,
+    glCanvasRef,
+    glyphCanvasRef,
+    glyph2DCanvasRef,
+    wrapperCanvasRef,
+  } = canvasRefs;
+
+  // Extract canvas config
+  const {
+    glCanvasKey = 'gl-auto',
+    glActive,
+    hideGlCanvas = false,
+  } = canvasConfig;
+
+  // Extract canvas styles
+  const {
+    camera3DContainerStyle,
+    renderCanvasStyle,
+  } = canvasStyles;
+
+  // Extract intro state
+  const {
+    introPhase = 'visible',
+    onIntroTransitionEnd,
+    isSingleEventWidgetRevealed = true,
+  } = intro;
+
+  const overlayState = {
+    eventTitleSettings: overlay.eventTitleSettings,
+    eventTitleStyle: overlay.eventTitleStyle,
+    currentStepBanner: overlay.currentStepBanner,
+    surroundingEvents: overlay.surroundingEvents,
+    currentStepData: overlay.currentStepData,
+    currentStep: overlay.currentStep,
+    isEventsPanelCollapsed: overlay.isEventsPanelCollapsed,
+    stepAnimSlidersContent: overlay.stepAnimSlidersContent,
+    areWidgetsJoined: overlay.areWidgetsJoined,
+    pinnedBitIndices: overlay.pinnedBitIndices,
+    hoveredBitInfo: overlay.hoveredBitInfo,
+    balloonLiveLayout: overlay.balloonLiveLayout,
+    cachelineSize: overlay.cachelineSize,
+    isDetailOpen: overlay.isDetailOpen,
+    detailHeight: overlay.detailHeight,
+    pendingBannerDragStart: overlay.pendingBannerDragStart,
+    isDetailInspectorOpen: overlay.isDetailInspectorOpen,
+    detailInspectorMode: overlay.detailInspectorMode,
+    detailInspectorQuery: overlay.detailInspectorQuery,
+    detailInspectorRows: overlay.detailInspectorRows,
+    filteredDetailInspectorRows: overlay.filteredDetailInspectorRows,
+    isTimingPanelOpen: overlay.isTimingPanelOpen,
+    steps: overlay.steps,
+    benchmarkTimingData: overlay.benchmarkTimingData,
+    benchmarkTimingFileName: overlay.benchmarkTimingFileName,
+    isSingleEventWidgetRevealed,
+  };
+
+  const overlayHandlers = {
+    setEventTitleSettings: overlay.setEventTitleSettings,
+    goToStep: overlay.goToStep,
+    revealCurrentStepInPanel: overlay.revealCurrentStepInPanel,
+    setIsEventsPanelCollapsed: overlay.setIsEventsPanelCollapsed,
+    onJoinWidgets: overlay.onJoinWidgets,
+    computeBitInfo: overlay.computeBitInfo,
+    getVisibleBalloonStyles: overlay.getVisibleBalloonStyles,
+    setPinnedBitIndices: overlay.setPinnedBitIndices,
+    handleStepSelection: overlay.handleStepSelection,
+    toggleDetailPanel: overlay.toggleDetailPanel,
+    onConsumePendingBannerDragStart: overlay.onConsumePendingBannerDragStart,
+    setDetailInspectorQuery: overlay.setDetailInspectorQuery,
+    setIsDetailInspectorOpen: overlay.setIsDetailInspectorOpen,
+    setIsTimingPanelOpen: overlay.setIsTimingPanelOpen,
+    setTimingFocusOp: overlay.setTimingFocusOp,
+    onImportBenchmarkTiming: overlay.onImportBenchmarkTiming,
+  };
+
+  // Extract detail props (all passed to DetailPanel)
+  const detailProps = {
+    step: detail.step,
+    stepIndex: detail.stepIndex,
+    open: detail.open,
+    onToggle: detail.onToggle,
+    height: detail.height,
+    onHeightChange: detail.onHeightChange,
+    width: detail.width,
+    onWidthChange: detail.onWidthChange,
+    playing: detail.playing,
+    stepStats: detail.stepStats,
+    storageModel: detail.storageModel,
+    wheelDefinition: detail.wheelDefinition,
+    bitLayout: detail.bitLayout,
+    byteLayout: detail.byteLayout,
+    benchmarkTimingData: detail.benchmarkTimingData,
+    onInspectChangedBits: detail.onInspectChangedBits,
+    onInspectMarkedNumbers: detail.onInspectMarkedNumbers,
+    eventTitleVisible: detail.eventTitleVisible,
+    onShowEventTitle: detail.onShowEventTitle,
+    eventAnimSliders: detail.eventAnimSliders,
+    onOpenRawLog: detail.onOpenRawLog,
+    sourceLineNumber: detail.sourceLineNumber,
+    hasRawSource: detail.hasRawSource,
+    allEventsTransport: detail.allEventsTransport,
+  };
   return (
-    <div className={`canvas-area${mode3D ? ' mode-3d' : ''}`}>
-      {eventTitleSettings.visible && !widgetsJoined && singleEventWidgetRevealed && (
-        <EventTitleBanner
-          settings={eventTitleSettings}
-          setSettings={setEventTitleSettings}
-          style={eventTitleStyle}
-          banner={currentStepBanner}
-          surrounding={surroundingEvents}
-          currentStepData={currentStepData}
-          currentStep={currentStep}
-          goToStep={goToStep}
-          revealCurrentStepInPanel={revealCurrentStepInPanel}
-          eventsPanelCollapsed={eventsPanelCollapsed}
-          setEventsPanelCollapsed={setEventsPanelCollapsed}
-          detailOpen={detailOpen}
-          detailHeight={detailHeight}
-          toggleDetailPanel={toggleDetailPanel}
-          externalDragStart={pendingBannerDragStart}
-          onConsumeExternalDragStart={onConsumePendingBannerDragStart}
-          sliders={stepAnimSlidersContent}
-          onJoinWidgets={onJoinWidgets}
-        />
-      )}
+    <div className="canvas-area">
+      <CanvasOverlayManager
+        overlayState={overlayState}
+        overlayHandlers={overlayHandlers}
+      />
+
       <div
-        className={`canvas-container${mode3D ? ' mode-3d' : ''}`}
+        className="canvas-container"
         ref={containerRef}
         style={camera3DContainerStyle}
       >
@@ -154,6 +163,7 @@ function CanvasStage({
               here directly so it is the only element with a 3D transform,
               keeping the GPU layer count at one. */}
           <canvas
+            key={glCanvasKey}
             ref={glCanvasRef}
             className={`gl-render-canvas${glActive ? '' : ' renderer-inactive'}${hideGlCanvas ? ' debug-hidden' : ''}`}
             aria-hidden="true"
@@ -169,69 +179,47 @@ function CanvasStage({
             className="glyph-render-canvas"
             aria-hidden="true"
           />
+          <canvas
+            ref={glyph2DCanvasRef}
+            className="glyph2d-render-canvas"
+            aria-hidden="true"
+          />
         </div>
       </div>
 
-      <BitHistoryBalloons
-        pinnedBitIndices={pinnedBitIndices}
-        hoveredBitInfo={hoveredBitInfo}
-        computeBitInfo={computeBitInfo}
-        getVisibleBalloonStyles={getVisibleBalloonStyles}
-        liveLayout={balloonLiveLayout}
-        cachelineSize={cachelineSize}
-        currentStep={currentStep}
-        onUnpin={(bi) => setPinnedBitIndices((prev) => prev.filter((value) => value !== bi))}
-        onHistoryClick={handleStepSelection}
-      />
-
       <DetailPanel
-        step={singleEventWidgetRevealed ? currentStepData : null}
-        stepIndex={currentStep}
-        open={detailOpen}
-        onToggle={toggleDetailPanel}
-        height={detailHeight}
-        onHeightChange={updateDetailHeight}
-        width={detailWidth}
-        onWidthChange={setDetailWidth}
-        playing={playing}
-        stepStats={selectedSteps.size > 1 ? null : stepStats}
-        storageModel={storageModel}
-        wheelDefinition={wheelDefinition}
-        bitLayout={layoutSettings.bitLayout}
-        byteLayout={layoutSettings.byteLayout}
-        benchmarkTimingData={benchmarkTimingData}
-        onInspectChangedBits={() => openDetailInspector('bits')}
-        onInspectMarkedNumbers={() => openDetailInspector('numbers')}
-        eventTitleVisible={eventTitleSettings.visible && !widgetsJoined}
-        onShowEventTitle={onShowEventTitle}
-        eventAnimSliders={stepAnimSlidersDockedContent || stepAnimSlidersContent}
-        onOpenRawLog={onOpenRawLog}
-        sourceLineNumber={currentStepSourceLine}
-        allEventsTransport={allEventsTransport}
+        detailState={{
+          step: detailProps.step,
+          stepIndex: detailProps.stepIndex,
+          open: detailProps.open,
+          height: detailProps.height,
+          width: detailProps.width,
+          playing: detailProps.playing,
+          stepStats: detailProps.stepStats,
+          bitLayout: detailProps.bitLayout,
+          byteLayout: detailProps.byteLayout,
+          eventTitleVisible: detailProps.eventTitleVisible,
+          sourceLineNumber: detailProps.sourceLineNumber,
+          hasRawSource: detailProps.hasRawSource,
+        }}
+        detailConfig={{
+          storageModel: detailProps.storageModel,
+          wheelDefinition: detailProps.wheelDefinition,
+          benchmarkTimingData: detailProps.benchmarkTimingData,
+          eventAnimSliders: detailProps.eventAnimSliders,
+          allEventsTransport: detailProps.allEventsTransport,
+        }}
+        detailHandlers={{
+          onToggle: detailProps.onToggle,
+          onHeightChange: detailProps.onHeightChange,
+          onWidthChange: detailProps.onWidthChange,
+          onInspectChangedBits: detailProps.onInspectChangedBits,
+          onInspectMarkedNumbers: detailProps.onInspectMarkedNumbers,
+          onShowEventTitle: detailProps.onShowEventTitle,
+          onOpenRawLog: detailProps.onOpenRawLog,
+        }}
       />
 
-      {detailInspectorOpen && (
-        <DetailInspectorOverlay
-          open={detailInspectorOpen}
-          mode={detailInspectorMode}
-          query={detailInspectorQuery}
-          onQueryChange={setDetailInspectorQuery}
-          onClose={() => setDetailInspectorOpen(false)}
-          rows={detailInspectorRows}
-          filteredRows={filteredDetailInspectorRows}
-        />
-      )}
-
-      {timingPanelOpen && (
-        <TimingPanel
-          steps={steps}
-          benchmarkTimingData={benchmarkTimingData}
-          benchmarkTimingFileName={benchmarkTimingFileName}
-          onClose={() => setTimingPanelOpen(false)}
-          onFocusFn={(fnName) => setTimingFocusOp(fnName || '')}
-          onImportBenchmarkTiming={onImportBenchmarkTiming}
-        />
-      )}
     </div>
   );
 }

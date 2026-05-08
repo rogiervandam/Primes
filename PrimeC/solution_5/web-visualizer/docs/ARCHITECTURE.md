@@ -1,5 +1,8 @@
 # Sieve Visualizer — Architecture
 
+This is the canonical architecture document for the web visualizer.
+`src/ARCHITECTURE.md` now points here to avoid documentation drift.
+
 This document describes how the web visualizer is organised, the responsibilities of each module, and how data flows from a trace file to pixels on the screen.
 
 ## Goals
@@ -14,7 +17,7 @@ This document describes how the web visualizer is organised, the responsibilitie
 src/
 ├── main.jsx              Entry: mounts <App/> and loads styles/index.css
 ├── App.jsx               File picker / welcome screen → lazy-loads <Visualizer/>
-├── Visualizer.jsx        Top-level UI: toolbar, canvas, panels, playback (~4 200 lines)
+├── Visualizer.jsx        Top-level UI: toolbar, canvas, panels, playback (~5 420 lines)
 ├── SettingsPanel.jsx     Right-hand sidebar tab-row shell (~260 lines; delegates to settings/)
 ├── EventsPanel.jsx       Left-hand list of trace events (search/filter)
 ├── DetailPanel.jsx       Per-step inspector (changed bits, primes, factors)
@@ -50,7 +53,7 @@ src/
 │   │   ├── MaskWriteOverlay.js           Mask write-order labels + tints
 │   │   ├── VectorTouchOrderOverlay.js    Vector touch-order summary labels
 │   │   └── CachelineAnnotationsOverlay.js Cacheline heat-map tints + outlines
-│   ├── gl/                   WebGL2 bit-fill backend (worker mode, default)
+│   ├── gl/                   WebGL2 bit-fill backend (worker mode by default; debug panel can force direct/worker)
 │   │   ├── bitGridGLCore.js          Pure WebGL2 substrate (OffscreenCanvas worker path)
 │   │   ├── hostStatePacker.js        packPositions / packState pure helpers
 │   │   ├── bitGridWorker.js          Module worker owning a BitGridGLCore
@@ -67,7 +70,21 @@ src/
 │   ├── usePlaybackLoop.js        Selected/single/all-events playback schedulers
 │   ├── useSearchState.js         Search box state + navigate-to-bit handler
 │   ├── usePanelChoreography.js   Panel/widget transitions + resize-anchor rules
-│   └── use3DCamera.js            Camera3D lifecycle + reactive state
+│   ├── use3DCamera.js            Camera3D lifecycle + reactive state
+│   ├── useRawSource.js           Raw source loading, lineToStep/stepToLine memos
+│   ├── useCanvasRefs.js          All canvas/renderer/GL refs + CSS-lock refs
+│   ├── useDebugTools.js          GL debug state, refs, updateGlDebugInfo callback
+│   ├── useThemeAndColors.js      Theme, gridOpacity, canvasColors, colorPreset, customColors
+│   ├── useAnimationConfig.js     animMode/Style, delays, event time targets, speed values
+│   ├── useStepAnimation.js       bitAnimationMode, scrub progress, loop refs, bit-anim callbacks
+│   ├── useOverlays.js            heatMap, primeOverlay, rangeOverlay, multiplesOverlay, cacheline
+│   ├── useIntroSequence.js       introPhase, loadingOverlayPhase, topbar playback-ready effect
+│   ├── useWidgetState.js         Widget visibility, timing panel, detail inspector state
+│   ├── usePanelState.js          Panel visibility/dimensions, settingsActiveTab, restore effects
+│   ├── useBalloonLayout.js       pinnedBitIndices, hoveredBitInfo, scheduleBalloonRelayout
+│   ├── useBitState.js            bitStateRef, checkpoints, dirty flag, selectedSteps
+│   ├── useViewportAnchoring.js   canvasAnchorPx, pendingResizeAnchorRef, layout-refresh refs
+│   └── useSettingsBundle.js      Hook: (settings,onChange) → {s,set,setMany,incr,decr}
 ├── settings/             SettingsPanel building blocks
 │   ├── constants.js              Layout/vector/grouping presets and tooltips
 │   ├── buttons.jsx               LayoutIcon, VectorIcon, AnnotationButton, …
@@ -83,6 +100,8 @@ src/
 │   ├── ExportProgress.jsx        Slim progress bar during video export
 │   ├── DebugToolsPanel.jsx       Toolbar-toggled FPS/render timing window
 │   ├── CanvasStage.jsx           Canvas area + overlays + balloons + panels
+│   ├── CanvasLoadingOverlay.jsx  Streaming-load progress bar
+│   ├── StatusBanners.jsx         GL-unavailable + export-error banners
 │   ├── BitHistoryBalloon.jsx     Hover/pinned bit-history popover
 │   ├── BitHistoryBalloons.jsx    Pinned + hover bit-history cluster + SVG connectors
 │   ├── EventTitleBanner.jsx      Floating current-event banner (draggable)
@@ -106,8 +125,68 @@ src/
 2. **Parse** — `traceParser.js` produces a normalized `{ header, events, primes, … }` shape regardless of input format.
 3. **Visualize** — `Visualizer.jsx` keeps the parsed trace in state along with playback position and view preferences.
 4. **Persist** — `lib/viewPrefs.js` reads/writes user preferences (theme, layout, panel sizes) to `localStorage` under the key `sieve-visualizer:view-preferences:v1`.
-5. **Render** — On every animation frame the visualizer calls `BitGridGLWorker.render()` first (GL worker paints all bit fills to a transferred `OffscreenCanvas`), then calls `SieveRenderer.render()` which paints overlays, labels, and side-face polygons on top via Canvas 2D. SieveRenderer no longer fills cells itself. The debug tools window reads renderer timing snapshots and renders as React UI outside the canvas/3D plane.
+5. **Render** — On every animation frame the visualizer calls `BitGridGLWorker.render()` first. In the normal path this uses the GL worker and paints all bit fills to a transferred `OffscreenCanvas`; from the debug tools panel the user can persistently override that selection to force `worker`, force `direct`, or return to `auto`. `SieveRenderer.render()` then paints overlays, labels, and side-face polygons on top via Canvas 2D. SieveRenderer no longer fills cells itself. The debug tools window reads renderer timing snapshots and renders as React UI outside the canvas/3D plane.
 6. **Inspect** — Side panels (`EventsPanel`, `DetailPanel`, `SettingsPanel`, `TimingPanel`) read derived data via props and call back into the visualizer to mutate state.
+
+## Visualizer composition
+
+High-level composition in `Visualizer.jsx`:
+
+- `Toolbar`
+- `ExportProgress` + `StatusBanners`
+- `VisualizerMainContent`
+- Minimap canvas
+- Keyboard shortcuts overlay
+
+`VisualizerMainContent` composes:
+
+- `CanvasLoadingOverlay`
+- `EventsPanel`
+- `CanvasStage`
+- `JoinedEventsWidget` (when joined and visible)
+- `SettingsPanel`
+- `DebugToolsPanel` (when enabled)
+
+`CanvasStage` delegates overlay-specific rendering to `CanvasOverlayManager`.
+
+Refactor status snapshot (2026-05-06):
+
+ Phase 2 contracts are grouped across the major Visualizer component tree,
+ including `Toolbar`, `VisualizerMainContent`, `EventsPanel`, `CanvasStage`,
+ `DetailPanel`, `SettingsPanel`, and `DebugToolsPanel`.
+ Phase 5 secondary propagation is complete for `CanvasOverlayManager` and
+ `JoinedEventsWidget`.
+ The temporary flat fallback compatibility used during migration has been
+ removed from the migrated internal boundaries after validation.
+
+## Provider hierarchy
+
+The top-level visualizer tree uses focused providers instead of a single global
+state object:
+
+1. `ThemeProvider`
+2. `PlaybackProvider`
+3. `AnimationConfigProvider`
+4. `PanelLayoutProvider`
+
+This groups shared state by domain and reduces prop drilling across toolbar,
+panels, and canvas overlays.
+
+## Hook domains
+
+Hooks are imported through domain barrels under `src/hooks/`:
+
+- `rendering/`
+- `playback/`
+- `animation/`
+- `interactions/`
+- `ui_state/`
+- `camera_3d/`
+- `overlays/`
+- `data/`
+- `utils/`
+
+This keeps import intent explicit at call sites and tightens module boundaries.
 
 ## Log ingestion
 
@@ -144,6 +223,19 @@ uploads them to the log API.
 | Playback clock refs | `usePlaybackClock` hook | `seekGenRef`, `globalPausedRef`, `animBusyUntilRef` — mutated directly by consumers |
 | Panel/widget transitions | `usePanelChoreography` hook | Toggle/reveal/join/split/open/hide callbacks; raw state is still owned by `Visualizer` |
 | 3D camera transform | `use3DCamera` hook | CSS-3D matrix applied to `CanvasStage` container |
+| Theme, grid opacity, canvas colors | `useThemeAndColors` hook | Persisted via viewPrefs |
+| Animation mode/style/speed/delays | `useAnimationConfig` hook | Persisted via viewPrefs |
+| Bit animation mode, scrub progress | `useStepAnimation` hook | Includes resume/loop refs |
+| Overlay toggles (heatmap, primes, etc.) | `useOverlays` hook | Persisted via viewPrefs |
+| Intro phase / loading overlay | `useIntroSequence` hook | Controls overlay fade lifecycle |
+| Widget visibility, detail inspector | `useWidgetState` hook | Persisted via viewPrefs |
+| Panel visibility/dims, settings tab | `usePanelState` hook | Persisted via viewPrefs; includes restore effects |
+| Balloon layout (pinned + hover) | `useBalloonLayout` hook | Owns balloon relayout scheduling |
+| Bit state, checkpoints, selected steps | `useBitState` hook | Mutable refs for renderer consumption |
+| Canvas anchor / viewport anchoring | `useViewportAnchoring` hook | Refs for resize-anchor and layout refresh |
+| Canvas/renderer/GL refs | `useCanvasRefs` hook | All React refs for canvases + CSS-lock refs |
+| GL debug info | `useDebugTools` hook | GL unavailable flag + updateGlDebugInfo callback |
+| Raw source text, line↔step mapping | `useRawSource` hook | Loaded on demand |
 
 ## Adding a new feature
 
@@ -184,3 +276,29 @@ npm run docker:import -- --container NAME --container-log-dir /app/log
 `App.jsx` uses `React.lazy(() => import('./Visualizer'))` and `preloadVisualizer()` to start the Visualizer chunk download as soon as the user opens a file, minimising the Suspense fallback window.
 
 The production build is consumed by the multi-stage `Dockerfile` and served via nginx in the deployable image.
+
+## Verification
+
+- Unit tests run with Vitest via `npm test`.
+- Unexpected `console.error` and `console.warn` output fails tests through
+    `src/test/setupConsoleGuards.js`.
+- Production integrity is validated with `npm run build`.
+
+## Hook import migration
+
+Use domain barrels for hooks, not direct file imports.
+
+Old direct import:
+
+```javascript
+import { usePlaybackControl } from '../hooks/usePlaybackControl';
+```
+
+Preferred domain-scoped import:
+
+```javascript
+import { usePlaybackControl } from '../hooks/playback';
+```
+
+If a hook is missing from a barrel, add it to that domain's `index.js` export
+list.

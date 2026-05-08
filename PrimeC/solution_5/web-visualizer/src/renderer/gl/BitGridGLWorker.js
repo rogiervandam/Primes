@@ -9,7 +9,7 @@
  *
  * Capability fallback: if `OffscreenCanvas.transferControlToOffscreen`
  * is unavailable, `attach()` returns false so callers can show the
- * `glUnavailable` warning instead of pretending cell fills are available.
+ * `isGlUnavailable` warning instead of pretending cell fills are available.
  *
  * Buffer ownership: positions and state buffers are allocated fresh on
  * each upload and transferred one-way to the worker (no ack). See the
@@ -18,6 +18,8 @@
 
 import { BitGridGLCore } from './bitGridGLCore.js';
 import { packState, packAnim } from './hostStatePacker.js';
+import { GlyphTextGLCore } from './GlyphTextGLCore.js';
+import { replayGlyphCmds } from './glyphReplay.js';
 
 let cachedMaxCanvasDimension = null;
 
@@ -153,6 +155,14 @@ function shouldPreferDirectMode(maxCanvasDimension) {
   return getDisplayRiskMetrics(maxCanvasDimension).isRisky;
 }
 
+function isDevBuild() {
+  try {
+    return !!(import.meta && import.meta.env && import.meta.env.DEV);
+  } catch {
+    return false;
+  }
+}
+
 export class BitGridGLWorker {
   constructor() {
     this.canvas = null;
@@ -181,22 +191,47 @@ export class BitGridGLWorker {
     // running synchronously; _worker is null.
     this._direct = false;
     this._directReason = 'unknown';
+    this._requestedMode = 'auto';
     this._core = null;
+    // Glyph renderer sharing the bit-grid GL context in direct mode.
+    // Used by viewport-size modes (3 & 7) to render text into the same canvas.
+    this._glyphCore = null;
     // Atlas data received from the worker's ready message (worker mode only).
     this._atlasAdvances = null;
     this._atlasCharSize = 0;
   }
 
-  attach(canvas) {
+  attach(canvas, forceMode = 'auto') {
     if (!canvas) return false;
+    const requestedMode = forceMode === 'worker' || forceMode === 'direct' ? forceMode : 'auto';
+    this._requestedMode = requestedMode;
     const safari = isSafari();
     const workerSupported = isWorkerGLSupported();
     const nearGLLimit = shouldPreferDirectMode(this._maxCanvasDimension);
-    const preferDirectMode = safari || !workerSupported || nearGLLimit;
-    if (safari) this._directReason = 'safari';
-    else if (!workerSupported) this._directReason = 'worker-unsupported';
-    else if (nearGLLimit) this._directReason = 'near-gpu-limit';
-    else this._directReason = 'worker-path';
+    let preferDirectMode;
+    if (requestedMode === 'direct') {
+      preferDirectMode = true;
+      this._directReason = 'forced-direct';
+    } else if (requestedMode === 'worker') {
+      if (!workerSupported) {
+        this._directReason = 'forced-worker-unsupported';
+        this._lost = true;
+        return false;
+      }
+      preferDirectMode = false;
+      this._directReason = 'forced-worker';
+    } else {
+      // In React StrictMode dev builds, passive effects are intentionally
+      // mounted twice. Offscreen transfer is one-shot, so the second mount on
+      // the same canvas would fail. Prefer direct mode for auto selection.
+      const devAutoDirect = isDevBuild();
+      preferDirectMode = devAutoDirect || safari || !workerSupported || nearGLLimit;
+      if (devAutoDirect) this._directReason = 'dev-auto';
+      else if (safari) this._directReason = 'safari';
+      else if (!workerSupported) this._directReason = 'worker-unsupported';
+      else if (nearGLLimit) this._directReason = 'near-gpu-limit';
+      else this._directReason = 'worker-path';
+    }
     // On Safari, or on displays where the oversized GL plane would sit at the
     // GPU backing-size limit, fall back to main-thread WebGL so we avoid both
     // OffscreenCanvas compositor lag and near-limit worker backing-store races.
@@ -211,6 +246,21 @@ export class BitGridGLWorker {
       this._core = core;
       this._direct = true;
       this._ready = true;
+      // Initialise a glyph renderer sharing the bit-grid GL context so that
+      // viewport-size modes (3 & 7) can render text into the same canvas without
+      // a separate overlay element.
+      try {
+        const glyphCore = new GlyphTextGLCore();
+        glyphCore.initWithContext(core.gl, canvas);
+        this._glyphCore = glyphCore;
+        if (glyphCore._atlas) {
+          this._atlasAdvances = glyphCore._atlas.getAdvancesArray();
+          this._atlasCharSize = glyphCore._atlas.fontSize;
+        }
+      } catch (err) {
+        console.warn('[BitGridGLWorker] direct-mode glyph init failed:', err);
+        this._glyphCore = null;
+      }
       // Fire ready callbacks synchronously (no async worker involved).
       for (const cb of this._onReadyCallbacks) cb();
       this._onReadyCallbacks = [];
@@ -221,10 +271,17 @@ export class BitGridGLWorker {
     let offscreen;
     try {
       offscreen = canvas.transferControlToOffscreen();
+      canvas.__offscreenTransferred = true;
     } catch (err) {
-      // `transferControlToOffscreen` throws if the canvas already had a
-      // 2D/WebGL context — defensive in case our React mount order ever
-      // changes.
+      // One-shot transfer: once a canvas is transferred, main-thread
+      // getContext() is permanently unavailable. Do NOT attempt direct-mode
+      // fallback on this same element.
+      if (err instanceof DOMException && err.name === 'InvalidStateError') {
+        this._directReason = 'offscreen-already-transferred';
+        this._lost = true;
+        console.warn('[BitGridGLWorker] transferControlToOffscreen failed: canvas already transferred', err);
+        return false;
+      }
       console.warn('[BitGridGLWorker] transferControlToOffscreen failed:', err);
       this._lost = true;
       return false;
@@ -404,6 +461,7 @@ export class BitGridGLWorker {
     this._dpr = dpr;
     if (this._direct) {
       this._core.resize(cssWidth, cssHeight, dpr);
+      if (this._glyphCore) this._glyphCore.resize(cssWidth, cssHeight, dpr);
       return;
     }
     this._post({ type: 'resize', cssW: cssWidth, cssH: cssHeight, dpr });
@@ -452,6 +510,15 @@ export class BitGridGLWorker {
         cssH: this._cssH || 0,
         dpr: this._dpr || 1,
       });
+      if (glyphCmds && glyphCmds.count > 0 && this._glyphCore) {
+        this._glyphCore.setTilt(
+          Number(params.tiltXDeg) || 0,
+          Number(params.tiltYDeg) || 0,
+          Math.max(1, Number(params.perspective) || 1500),
+          params.enableGlTilt ? 1 : 0,
+        );
+        replayGlyphCmds(this._glyphCore, glyphCmds);
+      }
       this._resolveRendered(seq);
       return seq;
     }
@@ -541,6 +608,7 @@ export class BitGridGLWorker {
     const metrics = getDisplayRiskMetrics(maxDim);
     
     return {
+      requestedMode: this._requestedMode,
       mode: this._direct ? 'direct' : 'worker',
       modeReason: this._directReason,
       ready: this._ready,
@@ -570,9 +638,15 @@ export class BitGridGLWorker {
   }
 
   dispose() {
-    if (this._direct && this._core) {
-      try { this._core.dispose(); } catch { /* ignore */ }
-      this._core = null;
+    if (this._direct) {
+      if (this._glyphCore) {
+        try { this._glyphCore.dispose(); } catch { /* ignore */ }
+        this._glyphCore = null;
+      }
+      if (this._core) {
+        try { this._core.dispose(); } catch { /* ignore */ }
+        this._core = null;
+      }
     }
     if (this._worker) {
       try { this._worker.postMessage({ type: 'dispose' }); } catch { /* ignore */ }
@@ -583,5 +657,6 @@ export class BitGridGLWorker {
     this._ready = false;
     this._lost = true;   // prevent buffer allocation in uploadState/uploadAnim after disposal
     this._pending.length = 0;
+    this._requestedMode = 'auto';
   }
 }

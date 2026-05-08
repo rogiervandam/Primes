@@ -30,6 +30,10 @@ uniform vec2 u_canvasSize;     // CSS pixels (pre-DPR)
 uniform vec2 u_pan;            // CSS pixels
 uniform float u_cellSize;      // base bit cell size in CSS px (already includes zoom)
 uniform float u_dpr;           // device-pixel ratio; used to snap edges to the device grid
+uniform float u_tiltXDeg;      // shader-space tilt around X axis (degrees)
+uniform float u_tiltYDeg;      // shader-space tilt around Y axis (degrees)
+uniform float u_perspective;   // camera perspective distance in CSS px
+uniform int u_enableGlTilt;    // 0 = legacy 2D path, 1 = shader 3D path
 uniform sampler2D u_state;     // RGBA8: per-bit packed flag byte in .r (normalized 0-1)
 uniform sampler2D u_anim;      // RGBA32F: per-bit (xDelta, yDelta, sizeScale, _unused)
 uniform ivec2 u_texSize;
@@ -106,9 +110,47 @@ void main() {
     corner = floor(corner * u_dpr + 0.5) / u_dpr;
   }
 
-  vec2 clip = (corner / u_canvasSize) * 2.0 - 1.0;
-  clip.y = -clip.y;
-  gl_Position = vec4(clip, 0.0, 1.0);
+  if (u_enableGlTilt != 0) {
+    // Transform in view-space centered on the canvas, then perspective project
+    // back to CSS pixel coordinates before converting to clip space.
+    float cx = u_canvasSize.x * 0.5;
+    float cy = u_canvasSize.y * 0.5;
+
+    float rx = radians(u_tiltXDeg);
+    float ry = radians(u_tiltYDeg);
+    float sx = sin(rx);
+    float cxr = cos(rx);
+    float sy = sin(ry);
+    float cyr = cos(ry);
+
+    vec3 p = vec3(corner.x - cx, -(corner.y - cy), 0.0);
+
+    vec3 px = vec3(
+      p.x,
+      p.y * cxr - p.z * sx,
+      p.y * sx + p.z * cxr
+    );
+
+    vec3 py = vec3(
+      px.x * cyr + px.z * sy,
+      px.y,
+      -px.x * sy + px.z * cyr
+    );
+
+    float perspective = max(1.0, u_perspective);
+    float depth = perspective / max(1.0, perspective - py.z);
+    vec2 proj = py.xy * depth;
+
+    float screenX = proj.x + cx;
+    float screenY = cy - proj.y;
+    vec2 clip = (vec2(screenX, screenY) / u_canvasSize) * 2.0 - 1.0;
+    clip.y = -clip.y;
+    gl_Position = vec4(clip, 0.0, 1.0);
+  } else {
+    vec2 clip = (corner / u_canvasSize) * 2.0 - 1.0;
+    clip.y = -clip.y;
+    gl_Position = vec4(clip, 0.0, 1.0);
+  }
 }`;
 
 const FS = `#version 300 es
@@ -293,6 +335,10 @@ export class BitGridGLCore {
       pan: u('u_pan'),
       cellSize: u('u_cellSize'),
       dpr: u('u_dpr'),
+      tiltXDeg: u('u_tiltXDeg'),
+      tiltYDeg: u('u_tiltYDeg'),
+      perspective: u('u_perspective'),
+      enableGlTilt: u('u_enableGlTilt'),
       state: u('u_state'),
       anim: u('u_anim'),
       texSize: u('u_texSize'),
@@ -485,6 +531,10 @@ export class BitGridGLCore {
     gl.uniform2f(u.pan, params.panX || 0, params.panY || 0);
     gl.uniform1f(u.cellSize, Math.max(1, params.cellSize || 1));
     gl.uniform1f(u.dpr, Math.max(1, params.dpr || this._dpr || 1));
+    gl.uniform1f(u.tiltXDeg, Number(params.tiltXDeg) || 0);
+    gl.uniform1f(u.tiltYDeg, Number(params.tiltYDeg) || 0);
+    gl.uniform1f(u.perspective, Math.max(1, Number(params.perspective) || 1500));
+    gl.uniform1i(u.enableGlTilt, params.enableGlTilt ? 1 : 0);
     gl.uniform2i(u.texSize, this.texW, this.texH);
     gl.uniform1i(u.bitCount, this.bitCount);
 

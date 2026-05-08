@@ -218,6 +218,19 @@ If analysis start/end messages are present (for example from `startAnalysis...` 
 
 ## Architecture
 
+The visualizer now uses focused React contexts for shared state:
+
+- `ThemeProvider`
+- `PlaybackProvider`
+- `AnimationConfigProvider`
+- `PanelLayoutProvider`
+
+Hook imports are organized by domain barrels under `src/hooks/`:
+
+- `rendering`, `playback`, `animation`, `interactions`, `ui_state`, `camera_3d`, `overlays`, `data`, `utils`
+
+For a detailed architecture write-up, see `src/ARCHITECTURE.md`.
+
 ```
 web-visualizer/
 ├── src/                          # Shared visualization codebase

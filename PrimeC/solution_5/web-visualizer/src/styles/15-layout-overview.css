@@ -232,25 +232,25 @@
 }
 /* Primes overlay button — gold active state */
 .preview-btn.prime-overlay-preview-btn.active {
-  border-color: #d97706;
-  background: rgba(251,191,36,0.12);
-  color: #fbbf24;
+  border-color: var(--prime-accent-border-hover);
+  background: var(--prime-accent-bg);
+  color: var(--prime-accent);
 }
 [data-theme='light'] .preview-btn.prime-overlay-preview-btn.active {
-  border-color: #b45309;
-  background: rgba(251,191,36,0.15);
-  color: #92400e;
+  border-color: var(--prime-accent-border);
+  background: var(--prime-accent-bg);
+  color: var(--prime-accent);
 }
 
 .preview-btn.prime-overlay-preview-btn.active {
-  border-color: #d97706;
-  background: rgba(251,191,36,0.12);
-  color: #fbbf24;
+  border-color: var(--prime-accent-border-hover);
+  background: var(--prime-accent-bg);
+  color: var(--prime-accent);
 }
 [data-theme='light'] .preview-btn.prime-overlay-preview-btn.active {
-  border-color: #b45309;
-  background: rgba(251,191,36,0.15);
-  color: #92400e;
+  border-color: var(--prime-accent-border);
+  background: var(--prime-accent-bg);
+  color: var(--prime-accent);
 }
 
 /* Range overlay button — cyan active state */
@@ -515,10 +515,10 @@
 .legend-swatch-cleared    { background: var(--bit-zero, #e8e8e8); border: 1px solid var(--border-light); }
 .legend-swatch-changed    { background: var(--bit-changed, #38bdf8); }
 .legend-swatch-target     { background: var(--bit-target, #f97316); }
-.legend-swatch-prime      { background: #fbbf24; }
+.legend-swatch-prime      { background: var(--prime-accent); }
 .legend-swatch-range      { background: #22d3ee; }
 .legend-swatch-multiples  { background: #a78bfa; }
-.legend-swatch-heat-hot   { background: #ef4444; }
+.legend-swatch-heat-hot   { background: var(--heat-hot); }
 .legend-swatch-heat-cold  { background: #3b82f6; }
 .legend-row-label {
   font-size: 11px;

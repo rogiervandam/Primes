@@ -1,6 +1,6 @@
 import React from 'react';
 import { BIT_LAYOUTS, BYTE_LAYOUTS, CACHELINE_SIZES, CACHE_PRESETS } from '../SieveRenderer';
-import { useDraftInput } from '../hooks/useDraftInput';
+import { useDraftInput } from '../hooks/ui_state';
 import { useSettingsBundle } from './useSettingsBundle';
 import {
   BIT_LAYOUT_TIPS,
@@ -116,16 +116,16 @@ export default function LayoutTab({
   autoFitColumns = 0,
   cachelineSize, onCachelineSizeChange,
   cachePreset, onCachePresetChange,
-  heatMapEnabled,
+  isHeatMapEnabled,
   cachelineAnnotation = 'none', onCachelineAnnotationChange,
-  primeOverlayEnabled, onPrimeOverlayToggle,
-  rangeOverlayEnabled = false, rangeOverlayStart = 0, rangeOverlayEnd = 0,
+  isPrimeOverlayEnabled, onPrimeOverlayToggle,
+  isRangeOverlayEnabled = false, rangeOverlayStart = 0, rangeOverlayEnd = 0,
   onRangeOverlayToggle, onRangeOverlayStartChange, onRangeOverlayEndChange,
-  multiplesOverlayEnabled = false, multiplesOverlayPrime = 3,
+  isMultiplesOverlayEnabled = false, multiplesOverlayPrime = 3,
   onMultiplesOverlayToggle, onMultiplesOverlayPrimeChange,
   onRangeOverlayReset,
   onMultiplesOverlayReset,
-  showMinimap, onShowMinimapChange,
+  isMinimapVisible, onShowMinimapChange,
   minimapControlVisible = true,
   onHeatMapToggle,
   outlineSettings, onOutlineChange,
@@ -537,7 +537,9 @@ export default function LayoutTab({
                 type="button"
                 className="btn-icon btn-sm spacing-adjust-btn"
                 onClick={() => {
-                  const current = Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
+                  const current = Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0
+                    ? Math.max(1, parseInt(autoFitColumns || 0, 10) || lastManualColumnCountRef.current || 1)
+                    : Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
                   const next = Math.max(1, current - 1);
                   lastManualColumnCountRef.current = next;
                   set('horizontalGroups', next);
@@ -556,7 +558,9 @@ export default function LayoutTab({
                 type="button"
                 className="btn-icon btn-sm spacing-adjust-btn"
                 onClick={() => {
-                  const current = Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
+                  const current = Math.max(0, parseInt(s.horizontalGroups || 0, 10) || 0) === 0
+                    ? Math.max(1, parseInt(autoFitColumns || 0, 10) || lastManualColumnCountRef.current || 1)
+                    : Math.max(1, parseInt(s.horizontalGroups || 0, 10) || lastManualColumnCountRef.current || 1);
                   const next = current + 1;
                   lastManualColumnCountRef.current = next;
                   set('horizontalGroups', next);
@@ -771,8 +775,8 @@ export default function LayoutTab({
             compact
             label="Heatmap"
             hint="Color cachelines by hit count and recency"
-            active={!!heatMapEnabled}
-            onClick={() => onHeatMapToggle(!heatMapEnabled)}
+            active={!!isHeatMapEnabled}
+            onClick={() => onHeatMapToggle(!isHeatMapEnabled)}
             preview={(
               <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
                 <rect x="4" y="5" width="10" height="12" fill="#ef4444" stroke="none" />
@@ -785,9 +789,9 @@ export default function LayoutTab({
             compact
             label="Primes"
             hint="Highlight bits representing primes"
-            active={!!primeOverlayEnabled}
+            active={!!isPrimeOverlayEnabled}
             extraClass="prime-overlay-preview-btn"
-            onClick={() => onPrimeOverlayToggle && onPrimeOverlayToggle(!primeOverlayEnabled)}
+            onClick={() => onPrimeOverlayToggle && onPrimeOverlayToggle(!isPrimeOverlayEnabled)}
             preview={(
               <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
                 <rect x="4" y="5" width="8" height="10" rx="1" fill="#fbbf24" stroke="none" />
@@ -801,9 +805,9 @@ export default function LayoutTab({
             compact
             label="Range"
             hint="Highlight a contiguous range of bit indices"
-            active={!!rangeOverlayEnabled}
+            active={!!isRangeOverlayEnabled}
             extraClass="range-overlay-preview-btn"
-            onClick={() => onRangeOverlayToggle && onRangeOverlayToggle(!rangeOverlayEnabled)}
+            onClick={() => onRangeOverlayToggle && onRangeOverlayToggle(!isRangeOverlayEnabled)}
             preview={(
               <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
                 <rect x="4" y="5" width="8" height="10" rx="1" fill="rgba(34,211,238,0.35)" stroke="none" />
@@ -817,9 +821,9 @@ export default function LayoutTab({
             compact
             label="Multiples"
             hint="Highlight multiples of a given prime"
-            active={!!multiplesOverlayEnabled}
+            active={!!isMultiplesOverlayEnabled}
             extraClass="multiples-overlay-preview-btn"
-            onClick={() => onMultiplesOverlayToggle && onMultiplesOverlayToggle(!multiplesOverlayEnabled)}
+            onClick={() => onMultiplesOverlayToggle && onMultiplesOverlayToggle(!isMultiplesOverlayEnabled)}
             preview={(
               <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
                 <rect x="4" y="5" width="8" height="10" rx="1" fill="rgba(167,139,250,0.35)" stroke="none" />
@@ -834,8 +838,8 @@ export default function LayoutTab({
               compact
               label="Minimap"
               hint="Show navigation minimap"
-              active={showMinimap !== false}
-              onClick={() => onShowMinimapChange && onShowMinimapChange(!(showMinimap !== false))}
+              active={isMinimapVisible !== false}
+              onClick={() => onShowMinimapChange && onShowMinimapChange(!(isMinimapVisible !== false))}
               preview={(
                 <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
                   <rect x="3" y="3" width="42" height="16" rx="2" />
@@ -877,7 +881,7 @@ export default function LayoutTab({
           />
         </div>
         {/* Range overlay controls */}
-        {rangeOverlayEnabled && (
+        {isRangeOverlayEnabled && (
           <div className="settings-row overlay-inline-controls overlay-input-row">
             <label className="overlay-inline-field overlay-input-label" title="First bit index in range (inclusive)">
               <span>Range start (bit)</span>
@@ -913,7 +917,7 @@ export default function LayoutTab({
           </div>
         )}
         {/* Multiples overlay controls */}
-        {multiplesOverlayEnabled && (
+        {isMultiplesOverlayEnabled && (
           <div className="settings-row overlay-inline-controls overlay-input-row">
             <label className="overlay-inline-field overlay-input-label" title="Highlight all bits whose number is a multiple of this value">
               <span>Prime / step factor</span>

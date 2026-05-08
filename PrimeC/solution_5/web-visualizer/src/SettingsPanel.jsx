@@ -4,6 +4,10 @@ import LegendTab from './settings/LegendTab';
 import LayoutTab from './settings/LayoutTab';
 import AnimationTab from './settings/AnimationTab';
 import ColorsTab from './settings/ColorsTab';
+import { useThemeContext } from './contexts/ThemeContext';
+import { usePlaybackContext } from './contexts/PlaybackContext';
+import { useAnimationConfigContext } from './contexts/AnimationConfigContext';
+import { usePanelLayoutContext } from './contexts/PanelLayoutContext';
 /**
  * Right-hand collapsible settings panel. Pure tab-row shell that delegates
  * content to LayoutTab, AnimationTab, ColorsTab, and LegendTab.
@@ -25,7 +29,7 @@ import ColorsTab from './settings/ColorsTab';
  * @param {function} props.onAnimModeChange
  * @param {string}   props.animStyle                  - Animation style: 'ripple'|'fade'|'pulse'|'sequential'
  * @param {function} props.onAnimStyleChange
- * @param {boolean}  props.animationReplayPaused      - Whether single-event replay is paused
+ * @param {boolean}  props.isAnimationReplayPaused      - Whether single-event replay is paused
  * @param {function} props.onAnimationReplayPausedChange
  * @param {string}   props.eventDurationMode          - 'progressive'|'linear'
  * @param {function} props.onEventDurationModeChange
@@ -39,25 +43,25 @@ import ColorsTab from './settings/ColorsTab';
  * @param {function} props.onCachelineSizeChange
  * @param {string}   props.cachePreset               - Cacheline layout preset key
  * @param {function} props.onCachePresetChange
- * @param {boolean}  props.heatMapEnabled             - Whether the cacheline heat-map overlay is active
+ * @param {boolean}  props.isHeatMapEnabled             - Whether the cacheline heat-map overlay is active
  * @param {function} props.onHeatMapToggle
  * @param {string}   [props.cachelineAnnotation]      - Annotation mode: 'none'|'counts'|'delta'|'both'
  * @param {function} props.onCachelineAnnotationChange
- * @param {boolean}  props.primeOverlayEnabled        - Whether the prime overlay is active
+ * @param {boolean}  props.isPrimeOverlayEnabled        - Whether the prime overlay is active
  * @param {function} props.onPrimeOverlayToggle
- * @param {boolean}  [props.rangeOverlayEnabled]
+ * @param {boolean}  [props.isRangeOverlayEnabled]
  * @param {number}   [props.rangeOverlayStart]
  * @param {number}   [props.rangeOverlayEnd]
  * @param {function} props.onRangeOverlayToggle
  * @param {function} props.onRangeOverlayStartChange
  * @param {function} props.onRangeOverlayEndChange
- * @param {boolean}  [props.multiplesOverlayEnabled]
+ * @param {boolean}  [props.isMultiplesOverlayEnabled]
  * @param {number}   [props.multiplesOverlayPrime]
  * @param {function} props.onMultiplesOverlayToggle
  * @param {function} props.onMultiplesOverlayPrimeChange
  * @param {function} props.onRangeOverlayReset
  * @param {function} props.onMultiplesOverlayReset
- * @param {boolean}  props.showMinimap               - Whether the minimap is enabled
+ * @param {boolean}  props.isMinimapVisible               - Whether the minimap is enabled
  * @param {function} props.onShowMinimapChange
  * @param {boolean}  [props.minimapControlVisible]
  * @param {object}   props.eventTitleSettings         - Floating event-title banner settings
@@ -66,64 +70,109 @@ import ColorsTab from './settings/ColorsTab';
  * @param {function} props.onOutlineChange
  * @param {boolean}  [props.isWindowsPlatform]        - Adjusts scrollbar styling
  * @param {boolean}  [props.showAnimationControls]
- * @param {string}   props.theme                     - 'light'|'dark'
- * @param {function} props.onThemeChange
- * @param {object}   props.canvasColors               - Per-theme canvas background overrides
- * @param {function} props.onCanvasColorsChange
+ * Theme and color values are consumed from ThemeContext.
  * @param {{ tab: string }}  [props.activeTabRequest] - Counter-incremented to switch to a tab externally
  * @param {function} [props.onActiveTabChange]        - Called whenever the active tab changes
  * @param {string}   props.bitAnimationMode           - 'mask'|'bits'|'combined'
  * @param {function} props.onBitAnimationModeChange
- * @param {boolean}  [props.autoAnimateOnSelect]      - Whether to auto-start animation loop on event select
+ * @param {boolean}  [props.isAutoAnimateOnSelect]      - Whether to auto-start animation loop on event select
  * @param {function} [props.onAutoAnimateOnSelectChange]
- * @param {boolean}  [props.detailOpen]               - Whether the detail panel is expanded
+ * @param {boolean}  [props.isDetailOpen]               - Whether the detail panel is expanded
  * @param {number}   [props.detailHeight]             - Detail panel height in px
  */
 export default function SettingsPanel({
-  settings, onChange, collapsed, onToggleCollapse,
-  autoFitColumns = 0,
-  playSpeed, onPlaySpeedChange,
-  repeatAnim, onRepeatAnimChange,
-  delayBetweenRepeats, onDelayBetweenRepeatsChange,
-  eventTimeTargets, onEventTimeTargetsChange,
-  animMode, onAnimModeChange,
-  animStyle, onAnimStyleChange,
-  animationReplayPaused, onAnimationReplayPausedChange,
-  eventDurationMode, onEventDurationModeChange,
-  gridOpacity, onGridOpacityChange,
-  colorPreset, onColorPresetChange,
-  customColors, onCustomColorsChange,
-  cachelineSize, onCachelineSizeChange,
-  cachePreset, onCachePresetChange,
-  heatMapEnabled, onHeatMapToggle,
-  cachelineAnnotation = 'none', onCachelineAnnotationChange,
-  primeOverlayEnabled, onPrimeOverlayToggle,
-  rangeOverlayEnabled = false, rangeOverlayStart = 0, rangeOverlayEnd = 0,
-  onRangeOverlayToggle, onRangeOverlayStartChange, onRangeOverlayEndChange,
-  multiplesOverlayEnabled = false, multiplesOverlayPrime = 3,
-  onMultiplesOverlayToggle, onMultiplesOverlayPrimeChange,
-  onRangeOverlayReset,
-  onMultiplesOverlayReset,
-  showMinimap, onShowMinimapChange,
-  minimapControlVisible = true,
-  eventTitleSettings,
-  onEventTitleSettingsChange,
-  outlineSettings, onOutlineChange,
-  isWindowsPlatform = false,
-  showAnimationControls = true,
-  theme,
-  onThemeChange,
-  canvasColors,
-  onCanvasColorsChange,
-  activeTabRequest,
-  onActiveTabChange,
-  bitAnimationMode,
-  onBitAnimationModeChange,
-  autoAnimateOnSelect,
-  onAutoAnimateOnSelectChange,
-  detailOpen = false,
-  detailHeight = 280,
+  settingsState = {},
+  settingsHandlers = {},
+  settingsConfig = {},
 }) {
+  const {
+    settings,
+    autoFitColumns = 0,
+    cachelineSize,
+    cachePreset,
+    isHeatMapEnabled,
+    cachelineAnnotation = 'none',
+    isPrimeOverlayEnabled,
+    isRangeOverlayEnabled = false,
+    rangeOverlayStart = 0,
+    rangeOverlayEnd = 0,
+    isMultiplesOverlayEnabled = false,
+    multiplesOverlayPrime = 3,
+    isMinimapVisible,
+    eventTitleSettings,
+    outlineSettings,
+    activeTabRequest,
+  } = settingsState;
+
+  const {
+    onChange,
+    onCachelineSizeChange,
+    onCachePresetChange,
+    onHeatMapToggle,
+    onCachelineAnnotationChange,
+    onPrimeOverlayToggle,
+    onRangeOverlayToggle,
+    onRangeOverlayStartChange,
+    onRangeOverlayEndChange,
+    onMultiplesOverlayToggle,
+    onMultiplesOverlayPrimeChange,
+    onRangeOverlayReset,
+    onMultiplesOverlayReset,
+    onShowMinimapChange,
+    onEventTitleSettingsChange,
+    onOutlineChange,
+    onActiveTabChange,
+  } = settingsHandlers;
+
+  const {
+    minimapControlVisible = true,
+    isWindowsPlatform = false,
+    showAnimationControls = true,
+  } = settingsConfig;
+
+  const {
+    theme,
+    setTheme,
+    gridOpacity,
+    setGridOpacity,
+    canvasColors,
+    setCanvasColors,
+    colorPreset,
+    setColorPreset,
+    customColors,
+    setCustomColors,
+  } = useThemeContext();
+  const {
+    playSpeedPercent,
+    setPlaySpeedPercent,
+  } = usePlaybackContext();
+  const {
+    animMode,
+    setAnimMode,
+    animStyle,
+    setAnimStyle,
+    delayBetweenEvents,
+    setDelayBetweenEvents,
+    delayBetweenRepeats,
+    setDelayBetweenRepeats,
+    eventTimeTargets,
+    setEventTimeTargets,
+    eventDurationMode,
+    setEventDurationMode,
+    isAnimationReplayPaused,
+    setIsAnimationReplayPaused,
+    bitAnimationMode,
+    handleBitAnimationModeChange,
+    isAutoAnimateOnSelect,
+    setIsAutoAnimateOnSelect,
+  } = useAnimationConfigContext();
+  const {
+    isSettingsCollapsed: collapsed,
+    toggleSettingsPanel: onToggleCollapse,
+    isDetailOpen,
+    detailHeight,
+  } = usePanelLayoutContext();
+
   const s = settings || {};
   const [activeTab, setActiveTab] = React.useState('layout');
   const prevTabRequestRef = React.useRef(null);
@@ -182,15 +231,15 @@ export default function SettingsPanel({
       case 'rangeOverlay':    changeActiveTab('layout');    onRangeOverlayToggle?.(); break;
       case 'multiplesOverlay':changeActiveTab('layout');    onMultiplesOverlayToggle?.(); break;
       case 'heatMap':         changeActiveTab('layout');    onHeatMapToggle?.(); break;
-      case 'animRipple':      changeActiveTab('animation'); onAnimStyleChange?.('ripple'); break;
-      case 'animFade':        changeActiveTab('animation'); onAnimStyleChange?.('fade'); break;
-      case 'animPulse':       changeActiveTab('animation'); onAnimStyleChange?.('pulse'); break;
-      case 'animSequential':  changeActiveTab('animation'); onAnimStyleChange?.('sequential'); break;
+      case 'animRipple':      changeActiveTab('animation'); setAnimStyle?.('ripple'); break;
+      case 'animFade':        changeActiveTab('animation'); setAnimStyle?.('fade'); break;
+      case 'animPulse':       changeActiveTab('animation'); setAnimStyle?.('pulse'); break;
+      case 'animSequential':  changeActiveTab('animation'); setAnimStyle?.('sequential'); break;
       default: break;
     }
   }, [legendFloating, onToggleCollapse, changeActiveTab,
       onPrimeOverlayToggle, onRangeOverlayToggle, onMultiplesOverlayToggle,
-      onHeatMapToggle, onAnimStyleChange]);
+      onHeatMapToggle, setAnimStyle]);
 
   // Drag handler for floating legend panel
   React.useEffect(() => {
@@ -213,7 +262,7 @@ export default function SettingsPanel({
   return (
     <>
     {(!collapsed || isAnimatingOut) && (
-    <div className={`settings-sidebar${settingsAnimClass ? ` ${settingsAnimClass}` : ''}${isWindowsPlatform ? ' platform-windows' : ''}`} style={detailOpen ? { bottom: `${detailHeight}px` } : undefined}>
+    <div className={`settings-sidebar${settingsAnimClass ? ` ${settingsAnimClass}` : ''}${isWindowsPlatform ? ' platform-windows' : ''}`} style={isDetailOpen ? { bottom: `${detailHeight}px` } : undefined}>
       <div className="settings-header-rail" title="Settings">
           <div className="settings-tab-row" role="tablist">
             <button
@@ -264,15 +313,15 @@ export default function SettingsPanel({
             autoFitColumns={autoFitColumns}
             cachelineSize={cachelineSize} onCachelineSizeChange={onCachelineSizeChange}
             cachePreset={cachePreset} onCachePresetChange={onCachePresetChange}
-            heatMapEnabled={heatMapEnabled} onHeatMapToggle={onHeatMapToggle}
+            isHeatMapEnabled={isHeatMapEnabled} onHeatMapToggle={onHeatMapToggle}
             cachelineAnnotation={cachelineAnnotation} onCachelineAnnotationChange={onCachelineAnnotationChange}
-            primeOverlayEnabled={primeOverlayEnabled} onPrimeOverlayToggle={onPrimeOverlayToggle}
-            rangeOverlayEnabled={rangeOverlayEnabled} rangeOverlayStart={rangeOverlayStart} rangeOverlayEnd={rangeOverlayEnd}
+            isPrimeOverlayEnabled={isPrimeOverlayEnabled} onPrimeOverlayToggle={onPrimeOverlayToggle}
+            isRangeOverlayEnabled={isRangeOverlayEnabled} rangeOverlayStart={rangeOverlayStart} rangeOverlayEnd={rangeOverlayEnd}
             onRangeOverlayToggle={onRangeOverlayToggle} onRangeOverlayStartChange={onRangeOverlayStartChange} onRangeOverlayEndChange={onRangeOverlayEndChange}
-            multiplesOverlayEnabled={multiplesOverlayEnabled} multiplesOverlayPrime={multiplesOverlayPrime}
+            isMultiplesOverlayEnabled={isMultiplesOverlayEnabled} multiplesOverlayPrime={multiplesOverlayPrime}
             onMultiplesOverlayToggle={onMultiplesOverlayToggle} onMultiplesOverlayPrimeChange={onMultiplesOverlayPrimeChange}
             onRangeOverlayReset={onRangeOverlayReset} onMultiplesOverlayReset={onMultiplesOverlayReset}
-            showMinimap={showMinimap} onShowMinimapChange={onShowMinimapChange}
+            isMinimapVisible={isMinimapVisible} onShowMinimapChange={onShowMinimapChange}
             minimapControlVisible={minimapControlVisible}
             outlineSettings={outlineSettings} onOutlineChange={onOutlineChange}
             isWindowsPlatform={isWindowsPlatform}
@@ -281,11 +330,11 @@ export default function SettingsPanel({
 
         {activeTab === 'colors' && (
           <ColorsTab
-            gridOpacity={gridOpacity} onGridOpacityChange={onGridOpacityChange}
-            colorPreset={colorPreset} onColorPresetChange={onColorPresetChange}
-            customColors={customColors} onCustomColorsChange={onCustomColorsChange}
-            theme={theme} onThemeChange={onThemeChange}
-            canvasColors={canvasColors} onCanvasColorsChange={onCanvasColorsChange}
+            gridOpacity={gridOpacity} onGridOpacityChange={setGridOpacity}
+            colorPreset={colorPreset} onColorPresetChange={setColorPreset}
+            customColors={customColors} onCustomColorsChange={setCustomColors}
+            theme={theme} onThemeChange={setTheme}
+            canvasColors={canvasColors} onCanvasColorsChange={setCanvasColors}
           />
         )}
 
@@ -302,16 +351,16 @@ export default function SettingsPanel({
         )}
         {activeTab === 'animation' && showAnimationControls && (
           <AnimationTab
-            animStyle={animStyle} onAnimStyleChange={onAnimStyleChange}
-            animMode={animMode} onAnimModeChange={onAnimModeChange}
-            playSpeed={playSpeed} onPlaySpeedChange={onPlaySpeedChange}
-            repeatAnim={repeatAnim} onRepeatAnimChange={onRepeatAnimChange}
-            delayBetweenRepeats={delayBetweenRepeats} onDelayBetweenRepeatsChange={onDelayBetweenRepeatsChange}
-            eventTimeTargets={eventTimeTargets} onEventTimeTargetsChange={onEventTimeTargetsChange}
-            animationReplayPaused={animationReplayPaused} onAnimationReplayPausedChange={onAnimationReplayPausedChange}
-            eventDurationMode={eventDurationMode} onEventDurationModeChange={onEventDurationModeChange}
-            bitAnimationMode={bitAnimationMode} onBitAnimationModeChange={onBitAnimationModeChange}
-            autoAnimateOnSelect={autoAnimateOnSelect} onAutoAnimateOnSelectChange={onAutoAnimateOnSelectChange}
+            animStyle={animStyle} onAnimStyleChange={setAnimStyle}
+            animMode={animMode} onAnimModeChange={setAnimMode}
+            playSpeed={playSpeedPercent} onPlaySpeedChange={setPlaySpeedPercent}
+            repeatAnim={delayBetweenEvents} onRepeatAnimChange={setDelayBetweenEvents}
+            delayBetweenRepeats={delayBetweenRepeats} onDelayBetweenRepeatsChange={setDelayBetweenRepeats}
+            eventTimeTargets={eventTimeTargets} onEventTimeTargetsChange={setEventTimeTargets}
+            isAnimationReplayPaused={isAnimationReplayPaused} onAnimationReplayPausedChange={setIsAnimationReplayPaused}
+            eventDurationMode={eventDurationMode} onEventDurationModeChange={setEventDurationMode}
+            bitAnimationMode={bitAnimationMode} onBitAnimationModeChange={handleBitAnimationModeChange}
+            isAutoAnimateOnSelect={isAutoAnimateOnSelect} onAutoAnimateOnSelectChange={setIsAutoAnimateOnSelect}
           />
         )}
         </div>

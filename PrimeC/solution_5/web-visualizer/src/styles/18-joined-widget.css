@@ -23,6 +23,10 @@
   animation: joined-widget-appear 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.joined-events-widget.joined-events-widget--anchored {
+  animation: none;
+}
+
 .joined-events-widget:active {
   cursor: grabbing;
 }

@@ -2,7 +2,7 @@
  * CachelineAnnotationsOverlay — draws per-cacheline "cache ×N Δstep" badges.
  *
  * Shown whenever `cachelineAnnotation !== 'none'` and hit-count data is
- * available — does NOT require `heatMapEnabled`. When the heat overlay is
+ * available — does NOT require `isHeatMapEnabled`. When the heat overlay is
  * off the badge uses a neutral slate colour instead of the heat gradient.
  * `Visualizer.jsx` ensures `rebuildHeatMap` is called whenever
  * `cachelineAnnotation !== 'none'` so `clHitCount` is always populated.
@@ -16,7 +16,7 @@
  * with `_renderCachelineHeatOverlay` and the cacheline outline pass.
  *
  * Required host accessors / fields:
- *   - host.heatMapEnabled, host.cachelineAnnotation
+ *   - host.isHeatMapEnabled, host.cachelineAnnotation
  *   - host.clHitCount, host.clLastHitStep, host.heatMapCurrentStep
  *   - host.cachelineSize, host.bitsPerCacheLine, host.bitCount
  *   - host.canvas, host.panX, host.panY
@@ -79,7 +79,7 @@ export class CachelineAnnotationsOverlay {
 
       // Badge fill colour: use heat gradient when heatmap is on, neutral slate otherwise.
       let bc; // { r, g, b, alpha }
-      if (host.heatMapEnabled) {
+      if (host.isHeatMapEnabled) {
         const oc = host._cachelineHeatOverlayColor(phyClIdx);
         if (!oc) continue;
         bc = { r: oc.r, g: oc.g, b: oc.b, alpha: Math.min(0.97, Math.max(0.82, oc.alpha * 2 + 0.5)) };
@@ -135,10 +135,11 @@ export class CachelineAnnotationsOverlay {
       if (rw < 18 || rh < 10) continue;
 
       const padBX = 6, padBY = 2;
-      const maxLabelW = rw - padBX * 2 - 2;
+      // Allow badge to extend beyond the segment width so text is never truncated
+      const maxLabelW = Math.min(host.canvasWidth - 12, Math.max(rw * 2.5, rw + 80) - padBX * 2);
       // Extension zone below the bit cells (mirrors annotBottomExtra in _renderCachelineOutline).
       // Badge is placed centred in this zone so it never overlaps the bit cells.
-      const annotExt = Math.min(28, Math.max(16, rowD.h * 0.24));
+      const annotExt = Math.min(32, Math.max(22, rowD.h * 0.28));
       const maxBh = annotExt - 2; // 1px top + 1px bottom margin within the zone
       const preferredFs = Math.min(maxBh - padBY * 2, 12);
       const fs = host._fitLabelFontSize(ctx, text, maxLabelW, preferredFs, 7, '600 ');
@@ -146,9 +147,11 @@ export class CachelineAnnotationsOverlay {
 
       ctx.font = `500 ${fs}px Helvetica, Arial, sans-serif`;
       const tw  = ctx.measureText(text).width;
-      const bw  = Math.min(rw - 4, tw + padBX * 2);
+      const bw  = Math.min(host.canvasWidth - 4, tw + padBX * 2);
       const bh  = fs + padBY * 2;
-      const bx  = rx + (rw - bw) / 2;
+      // Centre badge within segment but clamp to canvas edges
+      const bxRaw = rx + (rw - bw) / 2;
+      const bx  = Math.max(2, Math.min(host.canvasWidth - bw - 2, bxRaw));
       // Place badge centred in the extension zone directly below the bit cells.
       const by  = ry + rh + Math.max(0, (annotExt - bh) / 2);
 

@@ -68,6 +68,11 @@ export const DEFAULT_EVENT_TITLE_SETTINGS = {
   contextCollapsed: false,
 };
 
+export const DEFAULT_DEPTH_SETTINGS = {
+  strength: 50,
+  angle: 35,
+};
+
 /**
  * Default canvas background colors per theme.
  * Null means "use the renderer's theme default" (THEMES[theme].BACKGROUND).
@@ -167,6 +172,29 @@ export function mergeEventTitleSettings(saved) {
   };
 }
 
+/** Merge saved depth settings into defaults, clamping numeric ranges. */
+export function mergeDepthSettings(saved) {
+  if (!saved || typeof saved !== 'object') return DEFAULT_DEPTH_SETTINGS;
+
+  const strengthRaw = saved.strength == null ? NaN : Number(saved.strength);
+  const angleRaw = saved.angle == null ? NaN : Number(saved.angle);
+
+  const strength = Number.isFinite(strengthRaw)
+    ? Math.max(0, Math.min(100, strengthRaw))
+    : DEFAULT_DEPTH_SETTINGS.strength;
+
+  const angle = Number.isFinite(angleRaw)
+    ? Math.max(0, Math.min(90, angleRaw))
+    : DEFAULT_DEPTH_SETTINGS.angle;
+
+  return {
+    ...DEFAULT_DEPTH_SETTINGS,
+    ...saved,
+    strength,
+    angle,
+  };
+}
+
 // --- Per-field initialiser helpers --------------------------------------
 // Each helper takes the raw `prefs` object (possibly null) returned by
 // `readViewPrefs()` and produces the validated, clamped, migration-aware
@@ -174,14 +202,15 @@ export function mergeEventTitleSettings(saved) {
 // here keeps `Visualizer.jsx`'s `useState` lazy initialisers trivial and
 // makes the schema's evolution rules visible in one place.
 
-function clampInt(value, lo, hi) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return null;
-  return Math.max(lo, Math.min(hi, Math.round(n)));
-}
+import { clampInt as _clampInt } from './math.js';
+import {
+  DEFAULT_RENDER_MODE,
+  normalizeRenderMode,
+} from './renderModes.js';
+function clampInt(value, lo, hi) { return _clampInt(value, lo, hi, null); }
 
 function initialPlaySpeedPercent(prefs) {
-  return clampInt(prefs?.playSpeedPercent, 25, 400) ?? 100;
+  return clampInt(prefs?.playSpeedPercent, 25, 1600) ?? 100;
 }
 
 function initialTheme(prefs) {
@@ -209,11 +238,11 @@ function initialGridOpacity(prefs) {
 }
 
 function initialAllEventsWidgetHidden(prefs) {
-  return prefs?.allEventsWidgetHidden === true;
+  return prefs?.isAllEventsWidgetHidden === true;
 }
 
 function initialWidgetsJoined(prefs) {
-  return prefs?.widgetsJoined === true;
+  return prefs?.areWidgetsJoined === true;
 }
 
 // Valid preset keys (mirrors COLOR_PRESETS in src/renderer/constants.js).
@@ -248,18 +277,70 @@ function initialCanvasColors(prefs) {
   };
 }
 
+function initialDebugGlModeOverride(prefs) {
+  const value = prefs?.debugGlModeOverride;
+  return value === 'worker' || value === 'direct' ? value : 'auto';
+}
+
+function initialDebugWorkerGlyphMode(prefs) {
+  const value = prefs?.debugWorkerGlyphMode;
+  return value === 'gl' || value === 'separate-text' ? value : 'gl';
+}
+
+function initialRenderMode(prefs) {
+  return normalizeRenderMode(prefs?.renderMode || DEFAULT_RENDER_MODE);
+}
+
+function initialDebugRenderTuning(prefs) {
+  const tuning = prefs?.debugRenderTuning || {};
+  const asNullableNumber = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const asPercent = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : 100;
+  };
+  const legacyDpr = asNullableNumber(tuning.dprOverride);
+  const legacyGlW = asNullableNumber(tuning.glCssW);
+  const legacyGlH = asNullableNumber(tuning.glCssH);
+  const legacyOverlayW = asNullableNumber(tuning.overlayCssW);
+  const legacyOverlayH = asNullableNumber(tuning.overlayCssH);
+  const legacyGlyph2DW = asNullableNumber(tuning.glyph2DCssW);
+  const legacyGlyph2DH = asNullableNumber(tuning.glyph2DCssH);
+  const glAaScaleRaw = Number(tuning.glAaScale);
+  return {
+    dprPercent: asPercent(tuning.dprPercent),
+    glPercent: asPercent(tuning.glPercent),
+    overlayPercent: asPercent(tuning.overlayPercent),
+    glyph2DPercent: asPercent(tuning.glyph2DPercent),
+    glAaScale: (Number.isFinite(glAaScaleRaw) && glAaScaleRaw >= 1) ? glAaScaleRaw : 1,
+    dprManualActive: tuning.dprManualActive === true || legacyDpr != null,
+    dprManualValue: asNullableNumber(tuning.dprManualValue) ?? legacyDpr,
+    glManualActive: tuning.glManualActive === true || legacyGlW != null || legacyGlH != null,
+    glManualW: asNullableNumber(tuning.glManualW) ?? legacyGlW,
+    glManualH: asNullableNumber(tuning.glManualH) ?? legacyGlH,
+    overlayManualActive: tuning.overlayManualActive === true || legacyOverlayW != null || legacyOverlayH != null,
+    overlayManualW: asNullableNumber(tuning.overlayManualW) ?? legacyOverlayW,
+    overlayManualH: asNullableNumber(tuning.overlayManualH) ?? legacyOverlayH,
+    glyph2DManualActive: tuning.glyph2DManualActive === true || legacyGlyph2DW != null || legacyGlyph2DH != null,
+    glyph2DManualW: asNullableNumber(tuning.glyph2DManualW) ?? legacyGlyph2DW,
+    glyph2DManualH: asNullableNumber(tuning.glyph2DManualH) ?? legacyGlyph2DH,
+  };
+}
+
 function initialPanelVisibility(prefs) {
-  // Migrate legacy key: stepsPanelCollapsed → eventsPanelCollapsed.
+  // Migrate legacy key: stepsPanelCollapsed → isEventsPanelCollapsed.
   // Read new key first; fall back to old key for users with saved prefs.
   const legacyCollapsed = prefs?.stepsPanelCollapsed;
-  const eventsPanelCollapsed =
-    prefs?.eventsPanelCollapsed !== undefined
-      ? prefs.eventsPanelCollapsed !== false
+  const isEventsPanelCollapsed =
+    prefs?.isEventsPanelCollapsed !== undefined
+      ? prefs.isEventsPanelCollapsed !== false
       : legacyCollapsed !== false; // default: collapsed
   return {
-    eventsPanelCollapsed,
-    settingsCollapsed: prefs?.settingsCollapsed !== false,     // default: collapsed
-    detailOpen: prefs?.detailOpen === true,                    // default: closed
+    isEventsPanelCollapsed,
+    isSettingsCollapsed: prefs?.isSettingsCollapsed !== false,     // default: collapsed
+    isDetailOpen: prefs?.isDetailOpen === true,                    // default: closed
   };
 }
 
@@ -285,14 +366,19 @@ export function getInitialViewState() {
     eventDurationMode: initialEventDurationMode(prefs),
     gridOpacity: initialGridOpacity(prefs),
     canvasColors: initialCanvasColors(prefs),
+    debugGlModeOverride: initialDebugGlModeOverride(prefs),
+    debugWorkerGlyphMode: initialDebugWorkerGlyphMode(prefs),
+    renderMode: initialRenderMode(prefs),
+    debugRenderTuning: initialDebugRenderTuning(prefs),
     colorPreset: initialColorPreset(prefs),
     customColors: initialCustomColors(prefs),
-    allEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
-    widgetsJoined: initialWidgetsJoined(prefs),
-    allEventsInDetailPanel: prefs?.allEventsInDetailPanel === true,
+    isAllEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
+    areWidgetsJoined: initialWidgetsJoined(prefs),
+    isAllEventsInDetailPanel: prefs?.isAllEventsInDetailPanel === true,
+    isSingleEventRepeatEnabled: prefs?.isSingleEventRepeatEnabled !== false,
     // When false, selecting an event will NOT automatically start the
     // per-event animation loop. Default true to preserve prior behavior.
-    autoAnimateOnSelect: prefs?.autoAnimateOnSelect !== false,
+    isAutoAnimateOnSelect: prefs?.isAutoAnimateOnSelect !== false,
     ...initialPanelVisibility(prefs),
   };
 }
