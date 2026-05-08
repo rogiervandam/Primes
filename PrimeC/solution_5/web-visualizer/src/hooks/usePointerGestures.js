@@ -33,6 +33,7 @@ export function usePointerGestures({
   balloonLiveLayoutTimerRef,
   stepScrubProgressValueRef,
   globalPausedRef,
+  cancelViewportAnimation,
 }) {
   // Cinematic fly-to on element click (in 3D mode)
   const flyToElement = useCallback((bitIdx) => {
@@ -156,7 +157,7 @@ export function usePointerGestures({
       // Don't capture pointer for interactive overlays inside the canvas area.
       // Without this, setPointerCapture() swallows the pointerup so buttons
       // in .step-focus-banner and .bit-history-panel never fire click events.
-      if (e.target.closest('.step-focus-banner, .bit-history-panel, .detail-inspector-overlay')) return;
+      if (e.target.closest('.step-focus-banner, .bit-history-panel, .detail-inspector-overlay, .joined-events-widget')) return;
       const rect = el.getBoundingClientRect();
       const rawX = e.clientX - rect.left; // eslint-disable-line no-unused-vars
       const rawY = e.clientY - rect.top;  // eslint-disable-line no-unused-vars
@@ -209,6 +210,10 @@ export function usePointerGestures({
       pointerDownCanvasCoords = eventToCanvasCoords(e);
       startX = e.clientX; startY = e.clientY;
       if (r) { panSX = r.panX; panSY = r.panY; }
+      // Cancel any in-flight viewport animation so pan starts from the current position.
+      if (cancelViewportAnimation) cancelViewportAnimation();
+      const liveCam3 = camera3DRef.current;
+      if (liveCam3) liveCam3.cancelAllAnimations();
       if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
       el.classList.add('dragging');
     };
@@ -361,7 +366,7 @@ export function usePointerGestures({
         // popups when the user is interacting with the widget itself.
         const t = e.target;
         if (t && typeof t.closest === 'function' && t.closest(
-          '.step-focus-banner, .bit-history-panel, .detail-inspector-overlay, .toolbar, .events-panel, .settings-sidebar, .detail-panel, .timing-panel, .trace-info-popover, .debug-tools-panel'
+          '.step-focus-banner, .bit-history-panel, .detail-inspector-overlay, .toolbar, .events-panel, .settings-sidebar, .detail-panel, .timing-panel, .trace-info-popover, .debug-tools-panel, .joined-events-widget'
         )) {
           clearInteraction();
           return;
@@ -385,7 +390,8 @@ export function usePointerGestures({
             ));
           }
         } else {
-          setPinnedBitIndices([]);
+          // Clicking on empty grid no longer clears pinned balloons —
+          // balloons stay pinned until the user explicitly unpins them.
         }
       }
 

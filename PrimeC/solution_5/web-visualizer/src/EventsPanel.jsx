@@ -142,6 +142,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     toggleEventsPanel: onToggleCollapse,
     isAllEventsWidgetHidden,
     showAllEventsWidget,
+    areWidgetsJoined,
   } = usePanelLayoutContext();
 
   const listRef = useRef(null);
@@ -326,7 +327,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
 
   // filterLevel encoding: '' (all) | 'exact:N' | 'upto:N' | 'collapse:N'
   const [filterLevel, setFilterLevel] = useState(() => {
-    try { return localStorage.getItem('sieve-filter-level') || ''; } catch { return ''; }
+    try { return localStorage.getItem('sieve-filter-level') || 'collapse:7'; } catch { return 'collapse:7'; }
   });
 
   const [hideUntimed, setHideUntimed] = useState(false);
@@ -715,6 +716,40 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     });
   }, []);
 
+  // Compute ancestor step indices for the currently active step.
+  // These are highlighted with a subtle background tint so the user can see
+  // where in the hierarchy the current event lives.
+  const ancestorStepIndices = useMemo(() => {
+    const ancestors = new Set();
+    if (currentStep == null || currentStep < 0) return ancestors;
+    for (const g of filteredTree) {
+      const findAncestors = (node) => {
+        if (node.originalIndex === currentStep) return true;
+        for (const child of node.children || []) {
+          if (findAncestors(child)) {
+            ancestors.add(node.originalIndex);
+            return true;
+          }
+        }
+        return false;
+      };
+      for (const root of buildDepthTree(g.children)) {
+        findAncestors(root);
+      }
+    }
+    return ancestors;
+  }, [currentStep, filteredTree]);
+
+  // Build a map from originalIndex → annotation for all steps, used to surface
+  // annotations from aggregated (hidden) children on collapsed/aggregate nodes.
+  const stepAnnotationMap = useMemo(() => {
+    const map = new Map();
+    for (const s of (steps || [])) {
+      if (s.annotation) map.set(s.originalIndex, s.annotation);
+    }
+    return map;
+  }, [steps]);
+
   /**
    * Recursive renderer for a depth-tree node.
    * `nodeDepth` = visual indent level (0 = group child, 1..5 = nested).
@@ -722,6 +757,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
   const renderStepNode = useCallback((node, nodeDepth = 0) => {
     const isActive = node.originalIndex === currentStep;
     const isSelected = selectedSteps.has(node.originalIndex);
+    const isAncestor = !isActive && ancestorStepIndices.has(node.originalIndex);
     const hasChildren = node.children && node.children.length > 0;
     const hasHiddenDescendants = !!node.hasHiddenDescendants;
     // A node is an "aggregate leaf" when its visible children were fully filtered
@@ -754,7 +790,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     return (
       <div key={node.originalIndex} className={`event-depth-node depth-${Math.min(6, nodeDepth)}`}>
         <div
-          className={`event-item event-child${isActive ? ' active' : ''}${isSelected ? ' selected' : ''}${hasChildren ? ' has-children' : ''}${isAggregateLeaf ? ' has-hidden-descendants' : ''}`}
+          className={`event-item event-child${isActive ? ' active' : ''}${isSelected ? ' selected' : ''}${isAncestor ? ' is-ancestor' : ''}${hasChildren ? ' has-children' : ''}${isAggregateLeaf ? ' has-hidden-descendants' : ''}`}
           style={{ '--node-depth': nodeDepth }}
           onClick={(e) => {
             if (hasChildren && e.target.classList.contains('event-depth-toggle')) return;
@@ -802,9 +838,17 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
           </span>
           <span className="event-text">
             {summaryText}
-            {node.annotation && (
-              <span className="event-annotation" title={node.annotation}>{node.annotation}</span>
-            )}
+            {(() => {
+              // For aggregate events (collapsed parents or level-filtered leaves),
+              // show annotation from the node itself or the first aggregated child that has one.
+              const displayAnnotation = node.annotation ||
+                ((hasHiddenDescendants || (hasChildren && isNodeCollapsed))
+                  ? node.aggregateStepIndices?.reduce((acc, idx) => acc ?? stepAnnotationMap.get(idx) ?? null, null) ?? null
+                  : null);
+              return displayAnnotation
+                ? <span className="event-annotation" title={displayAnnotation}>{displayAnnotation}</span>
+                : null;
+            })()}
           </span>
         </div>
         {hasChildren && !isNodeCollapsed && (
@@ -814,7 +858,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
         )}
       </div>
     );
-  }, [currentStep, selectedSteps, collapsed, handleStepClick, toggleGroup, onStepClick, onMultiStepSelect]);
+  }, [currentStep, selectedSteps, ancestorStepIndices, collapsed, handleStepClick, toggleGroup, onStepClick, onMultiStepSelect, stepAnnotationMap]);
 
   // Resize with scroll preservation
   const handleMouseDown = useCallback((e) => {
@@ -859,7 +903,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
         <button className="spt-btn" onClick={() => goToStep(0)} title="First event (Home)" disabled={exporting}><SkipBack size={12} /></button>
         <button className="spt-btn" onClick={() => goToStep(currentStep - 1)} title="Previous event (←)" disabled={exporting}><StepBack size={12} /></button>
         {setPlaySpeedPercent && (
-          <button className="spt-btn spt-speed" onClick={() => setPlaySpeedPercent(v => Math.max(25, Math.round(v / 1.25)))} title="Slower animation" disabled={exporting}><Minus size={11} /></button>
+          <button className="spt-btn spt-speed" onClick={() => setPlaySpeedPercent(v => Math.max(1, Math.round(v / 1.25)))} title="Slower animation" disabled={exporting}><Minus size={11} /></button>
         )}
         <button className="spt-btn spt-play" onClick={handlePlayPause} title={playing ? 'Pause playback' : 'Play all events'} disabled={exporting || !steps.length}>
           {playing ? <Pause size={12} /> : <Play size={12} />}
@@ -894,7 +938,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
 
   return (
       <div className={`events-panel${panelCollapsed ? ' collapsed' : ''}${isCollapsingOut ? ' collapsing-out' : ''}${isExpandingIn ? ' expanding-in' : ''}${floatDropHint === 'left' ? ' drop-hint-left' : ''}${floatDropHint === 'detail' ? ' drop-hint-detail' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
-      {panelCollapsed && !isAllEventsWidgetHidden && (
+      {panelCollapsed && !isAllEventsWidgetHidden && !areWidgetsJoined && (
         <div
           className={`events-panel-floating-title${floatDropHint ? ` dropping dropping-${floatDropHint}` : ''}`}
           style={{ transform: `translate(${floatDrag.x}px, ${floatDrag.y}px)`, cursor: 'grab' }}
@@ -982,11 +1026,11 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
             >&lt;</button>
             <select className="event-filter event-level-select" value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)}>
               <option value="">All log levels</option>
-              <optgroup label="Up to (inclusive)">
-                {traceLevels.map((level) => <option key={`upto-${level}`} value={`upto:${level}`}>Up to level {level} (L{level})</option>)}
-              </optgroup>
               <optgroup label="Collapse at level">
                 {traceLevels.map((level) => <option key={`collapse-${level}`} value={`collapse:${level}`}>Collapse at level {level} (L{level})</option>)}
+              </optgroup>
+              <optgroup label="Up to (inclusive)">
+                {traceLevels.map((level) => <option key={`upto-${level}`} value={`upto:${level}`}>Up to level {level} (L{level})</option>)}
               </optgroup>
               <optgroup label="Exactly">
                 {traceLevels.map((level) => <option key={`exact-${level}`} value={`exact:${level}`}>Only level {level} (L{level})</option>)}

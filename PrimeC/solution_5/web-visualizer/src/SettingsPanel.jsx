@@ -197,13 +197,13 @@ export default function SettingsPanel({
     const prev = prevCollapsedRef.current;
     prevCollapsedRef.current = collapsed;
     if (!prev && collapsed) {
-      // Collapsed: animate out then hide
+      // Collapsed: animate out then mark as fully collapsed
       setSettingsAnimClass('collapsing-out');
       setIsAnimatingOut(true);
       const t = setTimeout(() => { setIsAnimatingOut(false); setSettingsAnimClass(''); }, 450);
       return () => clearTimeout(t);
     } else if (prev && !collapsed) {
-      // Expanded: animate in
+      // Expanded: start expanding-in animation immediately (no flash)
       setSettingsAnimClass('expanding-in');
       const t = setTimeout(() => setSettingsAnimClass(''), 450);
       return () => clearTimeout(t);
@@ -261,8 +261,7 @@ export default function SettingsPanel({
 
   return (
     <>
-    {(!collapsed || isAnimatingOut) && (
-    <div className={`settings-sidebar${settingsAnimClass ? ` ${settingsAnimClass}` : ''}${isWindowsPlatform ? ' platform-windows' : ''}`} style={isDetailOpen ? { bottom: `${detailHeight}px` } : undefined}>
+    <div className={`settings-sidebar${collapsed && !isAnimatingOut && !settingsAnimClass ? ' is-collapsed' : ''}${settingsAnimClass ? ` ${settingsAnimClass}` : ''}${isWindowsPlatform ? ' platform-windows' : ''}`} style={isDetailOpen ? { bottom: `${detailHeight}px` } : undefined}>
       <div className="settings-header-rail" title="Settings">
           <div className="settings-tab-row" role="tablist">
             <button
@@ -365,7 +364,6 @@ export default function SettingsPanel({
         )}
         </div>
     </div>
-    )}
     {legendFloating && (() => {
       const posX = floatPos ? floatPos.x : window.innerWidth - 380;
       const posY = floatPos ? floatPos.y : 60;

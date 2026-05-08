@@ -5,6 +5,8 @@ import CanvasStage from './CanvasStage';
 import CanvasLoadingOverlay from './CanvasLoadingOverlay';
 import JoinedEventsWidget from './JoinedEventsWidget';
 import DebugToolsPanel from './DebugToolsPanel';
+import EventTitleBanner from './EventTitleBanner';
+import DetailPanel from '../DetailPanel';
 
 /**
  * VisualizerMainContent — Phase 2 Refactoring
@@ -145,6 +147,7 @@ export default function VisualizerMainContent(props) {
           onShowEventTitle: showEventTitleAboveCurrentDetail,
         }}
       />
+      <div className="canvas-and-detail-column">
       <CanvasStage
         canvasRefs={{
           containerRef,
@@ -205,38 +208,72 @@ export default function VisualizerMainContent(props) {
           setTimingFocusOp,
           onImportBenchmarkTiming,
         }}
-        detail={{
-          step: isSingleEventWidgetRevealed ? currentStepData : null,
-          stepIndex: currentStep,
-          open: isDetailOpen,
-          onToggle: toggleDetailPanel,
-          height: detailHeight,
-          onHeightChange: updateDetailHeight,
-          width: detailWidth,
-          onWidthChange: setDetailWidth,
-          playing,
-          stepStats: selectedSteps.size > 1 ? null : stepStats,
-          storageModel,
-          wheelDefinition,
-          bitLayout: layoutSettings.bitLayout,
-          byteLayout: layoutSettings.byteLayout,
-          benchmarkTimingData,
-          onInspectChangedBits: () => openDetailInspector('bits'),
-          onInspectMarkedNumbers: () => openDetailInspector('numbers'),
-          eventTitleVisible: eventTitleSettings.visible && !areWidgetsJoined,
-          onShowEventTitle,
-          eventAnimSliders: stepAnimSlidersDockedContent || stepAnimSlidersContent,
-          onOpenRawLog,
-          sourceLineNumber: currentStepSourceLine,
-          hasRawSource: !!sourceRef,
-          allEventsTransport: allEventsTransportContent,
-        }}
         intro={{
           introPhase,
           onIntroTransitionEnd: handleIntroTransitionEnd,
           isSingleEventWidgetRevealed,
         }}
       />
+      {/* EventTitleBanner lives in main-content (not inside canvas-area) so it
+          is not clipped by canvas-area's overflow:hidden and is positioned
+          relative to the full main-content viewport (item 58). */}
+      {eventTitleSettings.visible && !areWidgetsJoined && isSingleEventWidgetRevealed && (
+        <EventTitleBanner
+          settings={eventTitleSettings}
+          setSettings={setEventTitleSettings}
+          style={eventTitleStyle}
+          banner={currentStepBanner}
+          surrounding={surroundingEvents}
+          currentStepData={currentStepData}
+          currentStep={currentStep}
+          goToStep={goToStep}
+          revealCurrentStepInPanel={revealCurrentStepInPanel}
+          isEventsPanelCollapsed={isEventsPanelCollapsed}
+          setIsEventsPanelCollapsed={setIsEventsPanelCollapsed}
+          isDetailOpen={isDetailOpen}
+          detailHeight={detailHeight}
+          toggleDetailPanel={toggleDetailPanel}
+          externalDragStart={pendingBannerDragStart}
+          onConsumeExternalDragStart={() => setPendingBannerDragStart(null)}
+          sliders={stepAnimSlidersContent}
+          onJoinWidgets={joinWidgets}
+        />
+      )}
+      {/* DetailPanel lives in main-content (not inside canvas-area) so it is
+          positioned relative to the full main-content area (item 58). */}
+      <DetailPanel
+        detailState={{
+          step: currentStepData,
+          stepIndex: currentStep,
+          open: isDetailOpen,
+          height: detailHeight,
+          width: detailWidth,
+          playing,
+          stepStats: selectedSteps.size > 1 ? null : stepStats,
+          bitLayout: layoutSettings.bitLayout,
+          byteLayout: layoutSettings.byteLayout,
+          eventTitleVisible: eventTitleSettings.visible && !areWidgetsJoined,
+          sourceLineNumber: currentStepSourceLine,
+          hasRawSource: !!sourceRef,
+        }}
+        detailConfig={{
+          storageModel,
+          wheelDefinition,
+          benchmarkTimingData,
+          eventAnimSliders: stepAnimSlidersDockedContent || stepAnimSlidersContent,
+          allEventsTransport: isEventsPanelCollapsed ? allEventsTransportContent : null,
+        }}
+        detailHandlers={{
+          onToggle: toggleDetailPanel,
+          onHeightChange: updateDetailHeight,
+          onWidthChange: setDetailWidth,
+          onInspectChangedBits: () => openDetailInspector('bits'),
+          onInspectMarkedNumbers: () => openDetailInspector('numbers'),
+          onShowEventTitle,
+          onOpenRawLog,
+        }}
+      />
+      </div>
       {areWidgetsJoined && isEventsPanelCollapsed && !isAllEventsWidgetHidden && eventTitleSettings.visible && isSingleEventWidgetRevealed && (
         <JoinedEventsWidget
           bannerState={{

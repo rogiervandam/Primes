@@ -19,6 +19,8 @@ import { useCallback, useRef, useState } from 'react';
 
 export function useTraceExport({
   rendererRef,
+  glCanvasRef = null,
+  glyphCanvasRef = null,
   steps,
   bitCount,
   currentStep,
@@ -33,21 +35,42 @@ export function useTraceExport({
   const exportPng = useCallback(() => {
     const r = rendererRef.current;
     if (!r) return;
-    const url = r.toDataURL();
+    const glCanvas = glCanvasRef?.current;
+    const glyphCanvas = glyphCanvasRef?.current || r.canvas;
+    let url;
+    if (glCanvas) {
+      // Composite: GL grid canvas (bottom) + glyph/text canvas (top)
+      const w = glCanvas.width || glCanvas.offsetWidth;
+      const h = glCanvas.height || glCanvas.offsetHeight;
+      const offscreen = document.createElement('canvas');
+      offscreen.width = w;
+      offscreen.height = h;
+      const ctx = offscreen.getContext('2d');
+      ctx.drawImage(glCanvas, 0, 0, w, h);
+      if (glyphCanvas && glyphCanvas !== glCanvas) {
+        ctx.drawImage(glyphCanvas, 0, 0, w, h);
+      }
+      url = offscreen.toDataURL('image/png');
+    } else {
+      url = r.toDataURL();
+    }
     const a = document.createElement('a');
     a.href = url;
     a.download = `sieve_step_${currentStep}.png`;
     a.click();
-  }, [rendererRef, currentStep]);
+  }, [rendererRef, glCanvasRef, glyphCanvasRef, currentStep]);
 
   const exportVideo = useCallback(async () => {
     const r = rendererRef.current;
     if (!r || steps.length === 0 || exporting) return;
 
+    // Use the GL canvas when available (modes 2–8); fall back to the main canvas.
+    const glCanvas = glCanvasRef?.current;
+    const captureCanvas = glCanvas || r.canvas;
+
     // Guard: captureStream produces a silent empty video when the canvas is
     // not visible (display:none or detached — see §5 minefield note).
-    const canvas = r.canvas;
-    if (!canvas || canvas.offsetParent === null) {
+    if (!captureCanvas || captureCanvas.offsetParent === null) {
       const msg = 'Video export cancelled: the canvas is not visible. ' +
         'Close any modal overlays and try again.';
       console.error('[useTraceExport]', msg);
@@ -61,7 +84,7 @@ export function useTraceExport({
     exportCancelRef.current = false;
 
     try {
-      const stream = canvas.captureStream(0);
+      const stream = captureCanvas.captureStream(0);
       const track = stream.getVideoTracks()[0];
       const recorder = new MediaRecorder(stream, {
         mimeType: 'video/webm;codecs=vp9',
@@ -142,7 +165,7 @@ export function useTraceExport({
     setExportProgress(0);
     // Restore the step the user was looking at before the export started.
     goToStep(currentStep);
-  }, [rendererRef, steps, bitCount, currentStep, exporting, goToStep, autoRender]);
+  }, [rendererRef, glCanvasRef, steps, bitCount, currentStep, exporting, goToStep, autoRender]);
 
   const cancelExport = useCallback(() => {
     exportCancelRef.current = true;

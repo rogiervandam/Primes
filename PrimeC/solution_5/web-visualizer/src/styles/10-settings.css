@@ -442,3 +442,10 @@
   pointer-events: none;
   overflow: hidden;
 }
+/* Fully collapsed — off screen, no interaction, hidden from AT */
+.settings-sidebar.is-collapsed {
+  transform: translateX(100%);
+  pointer-events: none;
+  overflow: hidden;
+  visibility: hidden;
+}

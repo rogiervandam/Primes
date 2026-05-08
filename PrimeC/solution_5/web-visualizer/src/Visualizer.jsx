@@ -996,6 +996,7 @@ export default function Visualizer({
     balloonLiveLayoutTimerRef,
     stepScrubProgressValueRef,
     globalPausedRef,
+    cancelViewportAnimation,
   });
 
   // Keyboard shortcuts — see src/hooks/useKeyboardShortcuts.js for the full key map.
@@ -1016,6 +1017,8 @@ export default function Visualizer({
   // PNG snapshot + WebM video export. See src/hooks/useTraceExport.js.
   const { exporting, exportProgress, exportError, exportPng, exportVideo, cancelExport } = useTraceExport({
     rendererRef,
+    glCanvasRef,
+    glyphCanvasRef,
     steps,
     bitCount: header.bitCount,
     currentStep,
@@ -1149,6 +1152,7 @@ export default function Visualizer({
     isTimingPanelOpen,
     setIsTimingPanelOpen,
     detailHeight,
+    areWidgetsJoined,
   }), [
     isEventsPanelCollapsed,
     setIsEventsPanelCollapsed,
@@ -1165,6 +1169,7 @@ export default function Visualizer({
     isTimingPanelOpen,
     setIsTimingPanelOpen,
     detailHeight,
+    areWidgetsJoined,
   ]);
 
   const { detailInspectorRows, filteredDetailInspectorRows } = useDetailInspectorRows({

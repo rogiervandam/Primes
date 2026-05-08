@@ -1,6 +1,5 @@
 import React from 'react';
 import CanvasOverlayManager from './CanvasOverlayManager';
-import DetailPanel from '../DetailPanel';
 
 /**
  * CanvasStage — the centre column of the visualizer:
@@ -27,7 +26,6 @@ function CanvasStage({
   canvasConfig = {},
   canvasStyles = {},
   overlay = {},
-  detail = {},
   intro = {},
 }) {
 
@@ -108,33 +106,6 @@ function CanvasStage({
     onImportBenchmarkTiming: overlay.onImportBenchmarkTiming,
   };
 
-  // Extract detail props (all passed to DetailPanel)
-  const detailProps = {
-    step: detail.step,
-    stepIndex: detail.stepIndex,
-    open: detail.open,
-    onToggle: detail.onToggle,
-    height: detail.height,
-    onHeightChange: detail.onHeightChange,
-    width: detail.width,
-    onWidthChange: detail.onWidthChange,
-    playing: detail.playing,
-    stepStats: detail.stepStats,
-    storageModel: detail.storageModel,
-    wheelDefinition: detail.wheelDefinition,
-    bitLayout: detail.bitLayout,
-    byteLayout: detail.byteLayout,
-    benchmarkTimingData: detail.benchmarkTimingData,
-    onInspectChangedBits: detail.onInspectChangedBits,
-    onInspectMarkedNumbers: detail.onInspectMarkedNumbers,
-    eventTitleVisible: detail.eventTitleVisible,
-    onShowEventTitle: detail.onShowEventTitle,
-    eventAnimSliders: detail.eventAnimSliders,
-    onOpenRawLog: detail.onOpenRawLog,
-    sourceLineNumber: detail.sourceLineNumber,
-    hasRawSource: detail.hasRawSource,
-    allEventsTransport: detail.allEventsTransport,
-  };
   return (
     <div className="canvas-area">
       <CanvasOverlayManager
@@ -186,39 +157,6 @@ function CanvasStage({
           />
         </div>
       </div>
-
-      <DetailPanel
-        detailState={{
-          step: detailProps.step,
-          stepIndex: detailProps.stepIndex,
-          open: detailProps.open,
-          height: detailProps.height,
-          width: detailProps.width,
-          playing: detailProps.playing,
-          stepStats: detailProps.stepStats,
-          bitLayout: detailProps.bitLayout,
-          byteLayout: detailProps.byteLayout,
-          eventTitleVisible: detailProps.eventTitleVisible,
-          sourceLineNumber: detailProps.sourceLineNumber,
-          hasRawSource: detailProps.hasRawSource,
-        }}
-        detailConfig={{
-          storageModel: detailProps.storageModel,
-          wheelDefinition: detailProps.wheelDefinition,
-          benchmarkTimingData: detailProps.benchmarkTimingData,
-          eventAnimSliders: detailProps.eventAnimSliders,
-          allEventsTransport: detailProps.allEventsTransport,
-        }}
-        detailHandlers={{
-          onToggle: detailProps.onToggle,
-          onHeightChange: detailProps.onHeightChange,
-          onWidthChange: detailProps.onWidthChange,
-          onInspectChangedBits: detailProps.onInspectChangedBits,
-          onInspectMarkedNumbers: detailProps.onInspectMarkedNumbers,
-          onShowEventTitle: detailProps.onShowEventTitle,
-          onOpenRawLog: detailProps.onOpenRawLog,
-        }}
-      />
 
     </div>
   );

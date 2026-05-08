@@ -239,6 +239,7 @@ export default function DetailPanel({
 
   const [bodyAnimClass, setBodyAnimClass] = useState('');
   const [isBodyAnimatingOut, setIsBodyAnimatingOut] = useState(false);
+  const [maskPopoverOpen, setMaskPopoverOpen] = useState(false);
   const prevOpenRef = useRef(open);
   useEffect(() => {
     const prev = prevOpenRef.current;
@@ -303,7 +304,7 @@ export default function DetailPanel({
             line {sourceLineNumber + 1}
           </button>
         )
-        : hasRawSource && step?.annotation
+        : hasRawSource
         ? (
           <button
             type="button"
@@ -399,48 +400,164 @@ export default function DetailPanel({
     },
   ];
 
+  // Helper: render a mask bit-grid at a given bitSize scale
+  function renderMaskGrid(slot, mp, scaledBitSize) {
+    const sbs = scaledBitSize;
+    const sg = Math.max(1, Math.round(mp.bitGap * sbs / mp.bitSize));
+    const sbg = Math.max(2, Math.round(mp.byteGap * sbs / mp.bitSize));
+    const spad = Math.max(2, Math.round(mp.bytePad * sbs / mp.bitSize));
+    const sbw = mp.bitDef.grid3x3 ? 3 : mp.bitDef.cols;
+    const sbh = mp.bitDef.grid3x3 ? 3 : mp.bitDef.rows;
+    const byteW = sbw * sbs + Math.max(0, sbw - 1) * sg;
+    const byteH = sbh * sbs + Math.max(0, sbh - 1) * sg;
+    const colSpan = mp.bytePositions.length > 0 ? (Math.max(...mp.bytePositions.map(p => p.col)) - mp.minByteCol + 1) : 1;
+    const rowSpan = mp.bytePositions.length > 0 ? (Math.max(...mp.bytePositions.map(p => p.row)) - mp.minByteRow + 1) : 1;
+    const gridW = colSpan * byteW + Math.max(0, colSpan - 1) * sbg + spad * 2;
+    const gridH = rowSpan * byteH + Math.max(0, rowSpan - 1) * sbg + spad * 2;
+    return (
+      <div style={{ position: 'relative', width: `${gridW}px`, height: `${gridH}px`, border: '1px solid var(--border-light)', borderRadius: '8px', background: 'color-mix(in srgb, var(--bg) 82%, transparent)' }}>
+        {Array.from({ length: mp.activeBytes }, (_, byteIndex) => {
+          const bytePos = mp.bytePositions[byteIndex];
+          const byteLeft = spad + (bytePos.col - mp.minByteCol) * (byteW + sbg);
+          const byteTop = spad + (bytePos.row - mp.minByteRow) * (byteH + sbg);
+          return (
+            <div key={byteIndex} style={{ position: 'absolute', left: `${byteLeft}px`, top: `${byteTop}px`, width: `${byteW}px`, height: `${byteH}px`, border: '1px solid var(--border-light)', borderRadius: '4px', background: 'color-mix(in srgb, var(--bg-surface) 92%, transparent)' }}>
+              {Array.from({ length: 8 }, (_, bitIndex) => {
+                const absoluteBit = byteIndex * 8 + bitIndex;
+                if (absoluteBit >= mp.totalBits) return null;
+                const bitPos = layoutPos(mp.bitDef, bitIndex);
+                const bl = bitPos.col * (sbs + sg);
+                const bt = bitPos.row * (sbs + sg);
+                const active = slot.activeBits.has(absoluteBit);
+                return (
+                  <span key={bitIndex} style={{ position: 'absolute', left: `${bl}px`, top: `${bt}px`, width: `${sbs}px`, height: `${sbs}px`, display: 'block', borderRadius: '2px', background: active ? (slot.slotIndex === 0 ? 'rgba(39,174,96,0.72)' : 'rgba(245,158,11,0.76)') : 'color-mix(in srgb, var(--bg-input) 88%, transparent)', boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.2)' }} title={`Bit ${absoluteBit}`} />
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Scale preview to fit in a small fixed area; clicking expands to a popover
+  const MAX_PREVIEW_W = 160;
+  const MAX_PREVIEW_H = 130;
+  const maskPreviewScale = maskPreview
+    ? Math.min(MAX_PREVIEW_W / maskPreview.previewWidth, MAX_PREVIEW_H / maskPreview.previewHeight, 2.0)
+    : 1;
+
   const maskPreviewContent = maskPreview ? (
-    <div className="mask-preview-list">
-      {maskPreview.slots.map((slot) => (
-        <div key={slot.slotIndex} className={`mask-preview-slot slot-${slot.slotIndex % 2}`}>
-          <div className="mask-preview-slot-label">Mask {slot.slotIndex + 1}</div>
+    <>
+      <div className="mask-preview-list">
+        {maskPreview.slots.map((slot) => (
+          <div key={slot.slotIndex} className={`mask-preview-slot slot-${slot.slotIndex % 2}`}>
+            <div className="mask-preview-slot-label">Mask {slot.slotIndex + 1}</div>
+            {/* Scaled scaler wrapper — click to open full mask popover */}
+            <div
+              className="mask-preview-scaler"
+              style={{
+                width: `${Math.ceil(maskPreview.previewWidth * maskPreviewScale)}px`,
+                height: `${Math.ceil(maskPreview.previewHeight * maskPreviewScale)}px`,
+                overflow: 'hidden',
+                position: 'relative',
+                cursor: 'zoom-in',
+              }}
+              onClick={() => setMaskPopoverOpen(true)}
+              title="Click to zoom in"
+            >
+              <div
+                className="mask-preview-word"
+                style={{
+                  width: `${maskPreview.previewWidth}px`,
+                  height: `${maskPreview.previewHeight}px`,
+                  transform: `scale(${maskPreviewScale})`,
+                  transformOrigin: 'top left',
+                  pointerEvents: 'none',
+                }}
+              >
+                {Array.from({ length: maskPreview.activeBytes }, (_, byteIndex) => {
+                  const bytePos = maskPreview.bytePositions[byteIndex];
+                  const byteLeft = maskPreview.bytePad + (bytePos.col - maskPreview.minByteCol) * (maskPreview.byteWidth + maskPreview.byteGap);
+                  const byteTop = maskPreview.bytePad + (bytePos.row - maskPreview.minByteRow) * (maskPreview.byteHeight + maskPreview.byteGap);
+                  return (
+                    <div
+                      key={byteIndex}
+                      className="mask-preview-byte"
+                      style={{ left: `${byteLeft}px`, top: `${byteTop}px`, width: `${maskPreview.byteWidth}px`, height: `${maskPreview.byteHeight}px` }}
+                    >
+                      {Array.from({ length: 8 }, (_, bitIndex) => {
+                        const absoluteBit = byteIndex * 8 + bitIndex;
+                        if (absoluteBit >= maskPreview.totalBits) return null;
+                        const bitPos = layoutPos(maskPreview.bitDef, bitIndex);
+                        const bitLeft = bitPos.col * (maskPreview.bitSize + maskPreview.bitGap);
+                        const bitTop = bitPos.row * (maskPreview.bitSize + maskPreview.bitGap);
+                        const active = slot.activeBits.has(absoluteBit);
+                        return (
+                          <span
+                            key={bitIndex}
+                            className={`mask-preview-bit${active ? ' active' : ''}`}
+                            style={{ left: `${bitLeft}px`, top: `${bitTop}px`, width: `${maskPreview.bitSize}px`, height: `${maskPreview.bitSize}px` }}
+                            title={`Bit ${absoluteBit}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {maskPopoverOpen && (
+        <div
+          className="mask-popover-backdrop"
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setMaskPopoverOpen(false)}
+        >
           <div
-            className="mask-preview-word"
-            style={{ width: `${maskPreview.previewWidth}px`, height: `${maskPreview.previewHeight}px` }}
+            className="mask-popover"
+            style={{ background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: '10px', padding: '16px', maxWidth: '90vw', maxHeight: '85vh', overflow: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
+            onClick={(e) => e.stopPropagation()}
           >
-            {Array.from({ length: maskPreview.activeBytes }, (_, byteIndex) => {
-              const bytePos = maskPreview.bytePositions[byteIndex];
-              const byteLeft = maskPreview.bytePad + (bytePos.col - maskPreview.minByteCol) * (maskPreview.byteWidth + maskPreview.byteGap);
-              const byteTop = maskPreview.bytePad + (bytePos.row - maskPreview.minByteRow) * (maskPreview.byteHeight + maskPreview.byteGap);
-              return (
-                <div
-                  key={byteIndex}
-                  className="mask-preview-byte"
-                  style={{ left: `${byteLeft}px`, top: `${byteTop}px`, width: `${maskPreview.byteWidth}px`, height: `${maskPreview.byteHeight}px` }}
-                >
-                  {Array.from({ length: 8 }, (_, bitIndex) => {
-                    const absoluteBit = byteIndex * 8 + bitIndex;
-                    if (absoluteBit >= maskPreview.totalBits) return null;
-                    const bitPos = layoutPos(maskPreview.bitDef, bitIndex);
-                    const bitLeft = bitPos.col * (maskPreview.bitSize + maskPreview.bitGap);
-                    const bitTop = bitPos.row * (maskPreview.bitSize + maskPreview.bitGap);
-                    const active = slot.activeBits.has(absoluteBit);
-                    return (
-                      <span
-                        key={bitIndex}
-                        className={`mask-preview-bit${active ? ' active' : ''}`}
-                        style={{ left: `${bitLeft}px`, top: `${bitTop}px`, width: `${maskPreview.bitSize}px`, height: `${maskPreview.bitSize}px` }}
-                        title={`Bit ${absoluteBit}`}
-                      />
-                    );
-                  })}
-                </div>
-              );
-            })}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--fg-bright)' }}>Mask Detail</span>
+              <button
+                type="button"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fg-muted)', fontSize: '16px', padding: '2px 6px', borderRadius: '4px' }}
+                onClick={() => setMaskPopoverOpen(false)}
+                title="Close"
+              >✕</button>
+            </div>
+            {maskSummary?.slotText && maskSummary.slotText !== '-' && (
+              <div style={{ marginBottom: '8px', fontSize: '11px', color: 'var(--fg-muted)' }}>
+                <span style={{ fontWeight: 600 }}>Pattern: </span>
+                <span style={{ fontFamily: 'monospace' }}>{maskSummary.slotText}</span>
+              </div>
+            )}
+            {maskSummary?.routeText && maskSummary.routeText !== '-' && (
+              <div style={{ marginBottom: '12px', fontSize: '11px', color: 'var(--fg-muted)' }}>
+                <span style={{ fontWeight: 600 }}>Routes: </span>
+                <span style={{ fontFamily: 'monospace' }}>{maskSummary.routeText}</span>
+              </div>
+            )}
+            <div className="mask-preview-list" style={{ gap: '16px' }}>
+              {maskPreview.slots.map((slot) => {
+                const popScale = Math.min(300 / maskPreview.previewWidth, 260 / maskPreview.previewHeight, 4.0);
+                const popBitSize = Math.round(maskPreview.bitSize * popScale);
+                return (
+                  <div key={slot.slotIndex} className={`mask-preview-slot slot-${slot.slotIndex % 2}`}>
+                    <div className="mask-preview-slot-label">Mask {slot.slotIndex + 1}</div>
+                    {renderMaskGrid(slot, maskPreview, popBitSize)}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
-      ))}
-    </div>
+      )}
+    </>
   ) : <span className="detail-empty">-</span>;
 
   const maskMetaLayout = maskPreview && maskPreview.previewHeight > 84 ? 'side' : 'stacked';
@@ -456,24 +573,24 @@ export default function DetailPanel({
             title="Show event title"
           >▲</button>
         )}
-        {allEventsTransport && (
-          <div
-            className="detail-panel-all-events-inline"
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            {allEventsTransport}
-          </div>
-        )}
+        <span className="detail-panel-arrow">{open ? '▼' : '▲'}</span>
         <div className="detail-panel-title">
           <span className="detail-panel-title-main">{panelTitle}</span>
           {step.annotation && <span className="detail-panel-annotation">{step.annotation}</span>}
         </div>
-        <span className="detail-panel-arrow">{open ? '▼' : '▲'}</span>
       </div>
 
-      {(!allEventsTransport && !eventTitleVisible && eventAnimSliders) && (
+      {(allEventsTransport || (!eventTitleVisible && eventAnimSliders)) && (
         <div className="detail-panel-dock-row">
+          {allEventsTransport && (
+            <div
+              className="detail-panel-all-events-transport"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              {allEventsTransport}
+            </div>
+          )}
           {!eventTitleVisible && eventAnimSliders && (
             <div className="detail-panel-event-sliders">
               {eventAnimSliders}

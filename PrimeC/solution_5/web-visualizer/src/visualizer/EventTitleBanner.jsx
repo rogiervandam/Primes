@@ -1,5 +1,5 @@
 import React from 'react';
-import { LinkIcon, CopyIcon } from '../Icons';
+import { LinkIcon } from '../Icons';
 import { isDOMAvailable, isWindowAvailable, getWindowSize, getElementFromPoint } from '../lib/browser.js';
 
 const MAX_ANNOTATION_LINES = 3;
@@ -41,19 +41,6 @@ export default function EventTitleBanner({
   const bannerRef = React.useRef(null);
   const [dropHint, setDropHint] = React.useState(null); // 'left' | 'bottom' | 'detail' | null
   const [showAllAnnotations, setShowAllAnnotations] = React.useState(false);
-  const [copied, setCopied] = React.useState(false);
-  const copyTimeoutRef = React.useRef(null);
-
-  const handleCopy = React.useCallback((e) => {
-    e.stopPropagation();
-    const text = banner.title || '';
-    navigator.clipboard?.writeText(text).then(() => {
-      setCopied(true);
-      clearTimeout(copyTimeoutRef.current);
-      copyTimeoutRef.current = setTimeout(() => setCopied(false), 1500);
-    }).catch(() => {/* ignore */});
-  }, [banner.title]);
-
   // Hit-test the detail panel directly so the user can drop the widget on the
   // collapsed bottom bar without having to reach the very bottom of the
   // window. We temporarily hide the banner from hit testing while probing so
@@ -240,15 +227,15 @@ export default function EventTitleBanner({
 
   const renderAnnotation = (extraClass = '') => {
     const lines = banner.annotationLines || [];
-    const hasContent = lines.length > 0;
+    const isExpandable = lines.length > MAX_ANNOTATION_LINES;
     const displayLines = showAllAnnotations ? lines : lines.slice(0, MAX_ANNOTATION_LINES);
     const paddedLines = showAllAnnotations ? displayLines : [...displayLines];
     return (
       <div
-        className={`step-focus-annotation-area${extraClass ? ` ${extraClass}` : ''}${hasContent ? ' expandable' : ''}${showAllAnnotations ? ' expanded' : ''}`}
-        onClick={hasContent ? (e) => { e.stopPropagation(); setShowAllAnnotations((v) => !v); } : undefined}
+        className={`step-focus-annotation-area${extraClass ? ` ${extraClass}` : ''}${isExpandable ? ' expandable' : ''}${showAllAnnotations && isExpandable ? ' expanded' : ''}`}
+        onClick={isExpandable ? (e) => { e.stopPropagation(); setShowAllAnnotations((v) => !v); } : undefined}
         onMouseDown={(e) => e.stopPropagation()}
-        title={hasContent ? (showAllAnnotations ? 'Click to collapse annotation' : 'Click to expand annotation') : undefined}
+        title={isExpandable ? (showAllAnnotations ? 'Click to collapse annotation' : 'Click to expand annotation') : undefined}
       >
         {paddedLines.map((line, i) => (
           <div key={i} className={`step-focus-annotation-line${i === 0 ? ' line2' : ''}`}>{line}</div>
@@ -278,11 +265,20 @@ export default function EventTitleBanner({
         title="Reveal this event in the events panel (clears filters and expands parents)"
       ><LinkIcon size={12} /></button>
       <button
-        className="step-focus-copy-btn"
-        onClick={handleCopy}
+        className={`step-focus-context-mode-btn${settings?.nearbyEventsMode ? ' active' : ''}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          setSettings((prev) => ({ ...prev, nearbyEventsMode: !prev.nearbyEventsMode }));
+        }}
         onMouseDown={(e) => e.stopPropagation()}
-        title="Copy event description to clipboard"
-      >{copied ? '✓' : <CopyIcon size={12} />}</button>
+        title={settings?.nearbyEventsMode ? 'Show event title' : 'Show nearby events instead of title'}
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden="true">
+          <line x1="1" y1="3" x2="11" y2="3"/>
+          <line x1="1" y1="6" x2="11" y2="6"/>
+          <line x1="1" y1="9" x2="11" y2="9"/>
+        </svg>
+      </button>
       {/* The drag handle covers the title + annotation + bits-changed area.
           The context rows and sliders below are interactive and not draggable. */}
       <div className="step-focus-drag-handle">
@@ -304,8 +300,8 @@ export default function EventTitleBanner({
           className={`step-focus-context${!settings?.nearbyEventsMode && settings.contextCollapsed ? ' collapsed' : ''}`}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <div className="step-focus-context-header">
-            {!settings?.nearbyEventsMode && (
+          {!settings?.nearbyEventsMode && (
+            <div className="step-focus-context-header">
               <button
                 className="step-focus-context-toggle"
                 onClick={(e) => {
@@ -318,23 +314,8 @@ export default function EventTitleBanner({
                 <span className="step-focus-context-toggle-arrow">{settings.contextCollapsed ? '▶' : '▼'}</span>
                 <span className="step-focus-context-toggle-label">Nearby events</span>
               </button>
-            )}
-            <button
-              className={`step-focus-context-mode-btn${settings?.nearbyEventsMode ? ' active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                setSettings((prev) => ({ ...prev, nearbyEventsMode: !prev.nearbyEventsMode }));
-              }}
-              onMouseDown={(e) => e.stopPropagation()}
-              title={settings?.nearbyEventsMode ? 'Show event title' : 'Show nearby events instead of title'}
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden="true">
-                <line x1="1" y1="3" x2="11" y2="3"/>
-                <line x1="1" y1="6" x2="11" y2="6"/>
-                <line x1="1" y1="9" x2="11" y2="9"/>
-              </svg>
-            </button>
-          </div>
+            </div>
+          )}
           {(settings?.nearbyEventsMode || !settings.contextCollapsed) && (
             <div
               className="step-focus-context-rows"
@@ -353,7 +334,7 @@ export default function EventTitleBanner({
                   {ev.elapsedLabel && <span className="ctx-time">{ev.elapsedLabel}</span>}
                 </div>
               ))}
-              <div className="step-focus-context-row current">
+              <div className={`step-focus-context-row current${settings?.nearbyEventsMode ? ' nearby-mode' : ''}`}>
                 <span className="ctx-id">#{currentStepData?.stepId ?? currentStep}</span>
                 <span className="ctx-op ctx-op-current">
                   <span className="ctx-play-icon">▶</span>

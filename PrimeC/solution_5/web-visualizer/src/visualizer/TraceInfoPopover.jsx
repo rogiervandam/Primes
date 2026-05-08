@@ -25,6 +25,7 @@ export default function TraceInfoPopover({
   const [rawOpen, setRawOpen] = useState(false);
   const [wheelOpen, setWheelOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [wordWrap, setWordWrap] = useState(false);
   // Lazily-fetched raw source: fetched on first open, cached thereafter.
   const [rawLines, setRawLines] = useState(null);   // string[] | null
   const [rawFetching, setRawFetching] = useState(false);
@@ -32,8 +33,8 @@ export default function TraceInfoPopover({
   // Always keep explicit absolute position — avoids flex↔absolute jump on first drag.
   // Default to near the top of the viewport (below the toolbar) rather than centered.
   const [dlgPos, setDlgPos] = useState(() => ({
-    x: Math.max(0, Math.round((window.innerWidth - 900) / 2)),
-    y: 60,
+    x: Math.max(0, Math.min(window.innerWidth - 900 - 8, Math.round((window.innerWidth - 900) / 2))),
+    y: Math.max(0, Math.min(window.innerHeight - 240 - 8, 60)),
   }));
   const [dlgSize, setDlgSize] = useState({ w: 900, h: 580 });
   const dlgRef = useRef(null);
@@ -122,8 +123,8 @@ export default function TraceInfoPopover({
     const posY = dlgPos.y;
     const onMove = (me) => {
       setDlgPos({
-        x: Math.max(0, posX + me.clientX - startX),
-        y: Math.max(0, posY + me.clientY - startY),
+        x: Math.max(0, Math.min(window.innerWidth - dlgSize.w - 8, posX + me.clientX - startX)),
+        y: Math.max(0, Math.min(window.innerHeight - dlgSize.h - 8, posY + me.clientY - startY)),
       });
     };
     const onUp = () => {
@@ -132,7 +133,7 @@ export default function TraceInfoPopover({
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, [dlgPos.x, dlgPos.y]);
+  }, [dlgPos.x, dlgPos.y, dlgSize.w, dlgSize.h]);
 
   const startResize = useCallback((e) => {
     if (e.button !== 0) return;
@@ -278,6 +279,15 @@ export default function TraceInfoPopover({
               <span className="raw-log-title">Raw log</span>
               <button
                 type="button"
+                className={`raw-log-copy-btn${wordWrap ? ' active' : ''}`}
+                onClick={() => setWordWrap((w) => !w)}
+                title={wordWrap ? 'Disable word wrap' : 'Enable word wrap'}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                Wrap
+              </button>
+              <button
+                type="button"
                 className="raw-log-copy-btn"
                 onClick={handleCopy}
                 title="Copy all to clipboard"
@@ -296,7 +306,7 @@ export default function TraceInfoPopover({
                 ✕
               </button>
             </div>
-            <div className="raw-log-content" ref={contentRef}>
+            <div className={`raw-log-content${wordWrap ? ' raw-log-content--wrap' : ''}`} ref={contentRef}>
               {rawFetching && (
                 <div className="raw-log-loading">Loading…</div>
               )}

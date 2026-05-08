@@ -9,26 +9,26 @@ import {
 // ─── playbackSpeedToPercent ───────────────────────────────────────────────
 
 describe('playbackSpeedToPercent', () => {
-  it('slider=1 → 25% (minimum)', () => {
-    expect(playbackSpeedToPercent(1)).toBe(25);
+  it('slider=1 → 1% (minimum)', () => {
+    expect(playbackSpeedToPercent(1)).toBe(1);
   });
 
   it('slider=100 → 1600% (maximum)', () => {
     expect(playbackSpeedToPercent(100)).toBe(1600);
   });
 
-  it('slider=50 → approximately 190-220% (log-scale midpoint)', () => {
+  it('slider=50 → approximately 38-42% (log-scale midpoint)', () => {
     const pct = playbackSpeedToPercent(50);
-    // Geometric mean of 25 and 1600 = sqrt(40000) = 200.
+    // Geometric mean of 1 and 1600 = sqrt(1600) = 40.
     // Due to slider range 1..100 (not 0..100), ratio=49/99 ≠ 0.5 exactly,
-    // so result is near 200 rather than exactly 200.
-    expect(pct).toBeGreaterThanOrEqual(190);
-    expect(pct).toBeLessThanOrEqual(220);
+    // so result is near 40 rather than exactly 40.
+    expect(pct).toBeGreaterThanOrEqual(38);
+    expect(pct).toBeLessThanOrEqual(42);
   });
 
   it('clamps below 1 to slider=1', () => {
-    expect(playbackSpeedToPercent(0)).toBe(25);
-    expect(playbackSpeedToPercent(-5)).toBe(25);
+    expect(playbackSpeedToPercent(0)).toBe(1);
+    expect(playbackSpeedToPercent(-5)).toBe(1);
   });
 
   it('clamps above 100 to slider=100', () => {
@@ -37,35 +37,35 @@ describe('playbackSpeedToPercent', () => {
   });
 
   it('handles string input', () => {
-    expect(playbackSpeedToPercent('1')).toBe(25);
+    expect(playbackSpeedToPercent('1')).toBe(1);
     expect(playbackSpeedToPercent('100')).toBe(1600);
   });
 
   it('handles null/undefined gracefully (falls back to slider=1)', () => {
-    expect(playbackSpeedToPercent(null)).toBe(25);
-    expect(playbackSpeedToPercent(undefined)).toBe(25);
+    expect(playbackSpeedToPercent(null)).toBe(1);
+    expect(playbackSpeedToPercent(undefined)).toBe(1);
   });
 });
 
 // ─── percentToPlaybackSpeed ───────────────────────────────────────────────
 
 describe('percentToPlaybackSpeed', () => {
-  it('25% → slider=1 (minimum)', () => {
-    expect(percentToPlaybackSpeed(25)).toBe(1);
+  it('1% → slider=1 (minimum)', () => {
+    expect(percentToPlaybackSpeed(1)).toBe(1);
   });
 
   it('1600% → slider=100 (maximum)', () => {
     expect(percentToPlaybackSpeed(1600)).toBe(100);
   });
 
-  it('100% → approximately slider=34', () => {
-    expect(percentToPlaybackSpeed(100)).toBe(34);
+  it('100% → approximately slider=63', () => {
+    expect(percentToPlaybackSpeed(100)).toBe(63);
   });
 
-  it('clamps below 25% to 25% (0 is falsy, falls back to 100%)', () => {
+  it('0 is falsy, falls back to 100%', () => {
     // parseInt(0) || 100 = 100, so 0 and null both behave like 100%
-    expect(percentToPlaybackSpeed(0)).toBeCloseTo(34, 0);
-    expect(percentToPlaybackSpeed(10)).toBe(1);
+    expect(percentToPlaybackSpeed(0)).toBeCloseTo(63, 0);
+    expect(percentToPlaybackSpeed(10)).toBe(32);
   });
 
   it('clamps above 1600% to 1600%', () => {
@@ -73,14 +73,14 @@ describe('percentToPlaybackSpeed', () => {
   });
 
   it('handles string input', () => {
-    expect(percentToPlaybackSpeed('25')).toBe(1);
+    expect(percentToPlaybackSpeed('1')).toBe(1);
     expect(percentToPlaybackSpeed('1600')).toBe(100);
   });
 
-  it('handles null/undefined gracefully (falls back to 100%, returns ~34)', () => {
-    // null/undefined → parseInt(null) = NaN → NaN || 100 → clamp(100,25,1600)=100
-    expect(percentToPlaybackSpeed(null)).toBe(34);
-    expect(percentToPlaybackSpeed(undefined)).toBe(34);
+  it('handles null/undefined gracefully (falls back to 100%, returns ~63)', () => {
+    // null/undefined → parseInt(null) = NaN → NaN || 100 → clamp(100,1,1600)=100
+    expect(percentToPlaybackSpeed(null)).toBe(63);
+    expect(percentToPlaybackSpeed(undefined)).toBe(63);
   });
 });
 

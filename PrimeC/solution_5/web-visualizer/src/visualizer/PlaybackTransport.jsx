@@ -70,7 +70,7 @@ export default function PlaybackTransport({
         <div className="spt-row spt-row-nav">
           <button className={buttonClassName} onClick={() => navigateTo(0)} title="First event" disabled={exporting}><SkipBack size={compactIconSize} /></button>
           <button className={buttonClassName} onClick={() => navigateTo(currentStep - 1)} title="Previous event" disabled={exporting}><StepBack size={compactIconSize} /></button>
-          <button className={speedButtonClassName} onClick={() => setPlaySpeedPercent((value) => Math.max(25, Math.round(value / 1.25)))} title="Slower" disabled={exporting}><Minus size={speedIconSize} /></button>
+          <button className={speedButtonClassName} onClick={() => setPlaySpeedPercent((value) => Math.max(1, Math.round(value / 1.25)))} title="Slower" disabled={exporting}><Minus size={speedIconSize} /></button>
           <button
             className="spt-btn spt-play"
             onClick={handlePlayPause}
@@ -101,7 +101,7 @@ export default function PlaybackTransport({
     <>
       <button className={buttonClassName} onClick={() => navigateTo(0)} title="First (Home)" disabled={exporting}><SkipBack /></button>
       <button className={buttonClassName} onClick={() => navigateTo(currentStep - 1)} title="Previous (←)" disabled={exporting}><StepBack /></button>
-      <button className={speedButtonClassName} onClick={() => setPlaySpeedPercent((value) => Math.max(25, Math.round(value / 1.25)))} title="Slower animation" disabled={exporting}><Minus size={speedIconSize} /></button>
+      <button className={speedButtonClassName} onClick={() => setPlaySpeedPercent((value) => Math.max(1, Math.round(value / 1.25)))} title="Slower animation" disabled={exporting}><Minus size={speedIconSize} /></button>
       <button
         className={buttonClassName}
         onClick={handlePlayPause}

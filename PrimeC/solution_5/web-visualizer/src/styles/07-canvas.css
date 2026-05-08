@@ -465,6 +465,12 @@
   flex: 1 1 auto;
   min-width: 0;
 }
+/* In nearby events mode the current event's title is shown at larger size */
+.step-focus-context-row.nearby-mode .ctx-current-title {
+  font-size: large;
+  white-space: normal;
+  word-break: break-word;
+}
 .step-focus-context-row .ctx-id {
   min-width: 3.5em;
   color: var(--fg-dim);
