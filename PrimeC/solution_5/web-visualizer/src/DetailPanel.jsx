@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useCallback, useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { BIT_LAYOUTS, BYTE_LAYOUTS, bitToNumber } from './SieveRenderer';
 import { formatNs } from './TimingPanel';
 import { useDragResize } from './hooks/interactions';
@@ -21,7 +21,7 @@ function layoutPos(layout, index) {
  * @param {object}   props
  * @param {object}   props.detailState              - Panel state (step, stepIndex, open, height, width, playing, stepStats, bitLayout, byteLayout, eventTitleVisible, sourceLineNumber, hasRawSource)
  * @param {object}   props.detailConfig             - Panel config (storageModel, wheelDefinition, benchmarkTimingData, eventAnimSliders, allEventsTransport)
- * @param {object}   props.detailHandlers           - Panel handlers (onToggle, onHeightChange, onWidthChange, onInspectChangedBits, onInspectMarkedNumbers, onShowEventTitle, onOpenRawLog)
+ * @param {object}   props.detailHandlers           - Panel handlers (onToggle, onHeightChange, onWidthChange, onInspectChangedBits, onInspectMarkedNumbers, onShowEventTitle, onHideEventTitle, onOpenRawLog)
  * 
  */
 export default function DetailPanel({
@@ -42,6 +42,7 @@ export default function DetailPanel({
     eventTitleVisible,
     sourceLineNumber,
     hasRawSource = false,
+    aggMaskStepIndex = 0,
   } = detailState;
 
   const {
@@ -59,7 +60,9 @@ export default function DetailPanel({
     onInspectChangedBits,
     onInspectMarkedNumbers,
     onShowEventTitle,
+    onHideEventTitle,
     onOpenRawLog,
+    onAggMaskStepChange,
   } = detailHandlers;
   // Benchmark timing row matching the current step's operation (if any)
   const benchmarkOpTiming = useMemo(() => {
@@ -122,10 +125,16 @@ export default function DetailPanel({
   }, [step]);
 
   const maskSummary = useMemo(() => {
-    if (!step || !Number.isFinite(step.maskWordBits) || step.maskWordBits <= 0) return null;
+    // For aggregated events with multiple per-event masks, use the active step's mask data.
+    const aggMaskSteps = step?.aggMaskSteps;
+    const activeMaskStep = aggMaskSteps && aggMaskSteps.length > 0
+      ? (aggMaskSteps[aggMaskStepIndex] ?? aggMaskSteps[0])
+      : step;
 
-    const slotBits = Array.isArray(step.maskSlotBits)
-      ? step.maskSlotBits
+    if (!activeMaskStep || !Number.isFinite(activeMaskStep.maskWordBits) || activeMaskStep.maskWordBits <= 0) return null;
+
+    const slotBits = Array.isArray(activeMaskStep.maskSlotBits)
+      ? activeMaskStep.maskSlotBits
           .map((bits, slotIndex) => {
             const values = Array.from(bits || []).map((value) => Number(value)).filter((value) => Number.isFinite(value));
             if (values.length === 0) return null;
@@ -139,11 +148,11 @@ export default function DetailPanel({
       : [];
 
     const writeEntries = (() => {
-      if (!step.maskWriteOrderWords || step.maskWriteOrderWords.length === 0) return [];
+      if (!activeMaskStep.maskWriteOrderWords || activeMaskStep.maskWriteOrderWords.length === 0) return [];
       const items = [];
-      for (let index = 0; index < step.maskWriteOrderWords.length; index++) {
-        const word = Number(step.maskWriteOrderWords[index]);
-        const slot = Number(step.maskWriteOrderSlots?.[index] ?? 0);
+      for (let index = 0; index < activeMaskStep.maskWriteOrderWords.length; index++) {
+        const word = Number(activeMaskStep.maskWriteOrderWords[index]);
+        const slot = Number(activeMaskStep.maskWriteOrderSlots?.[index] ?? 0);
         if (!Number.isFinite(word) || word < 0) continue;
         items.push(`w${word}:${slot + 1}`);
       }
@@ -151,7 +160,7 @@ export default function DetailPanel({
     })();
 
     return {
-      wordBits: step.maskWordBits,
+      wordBits: activeMaskStep.maskWordBits,
       slotBits,
       slotText: slotBits.length > 0 ? slotBits.map((entry) => entry.text).join(' | ') : '-',
       routeText: writeEntries.length > 0
@@ -159,8 +168,9 @@ export default function DetailPanel({
           ? `${writeEntries.slice(0, 18).join(', ')} … (+${writeEntries.length - 18} more)`
           : writeEntries.join(', '))
         : '-',
+      activeMaskStep,
     };
-  }, [step]);
+  }, [step, aggMaskStepIndex, bitLayout]);
 
   const maskPreview = useMemo(() => {
     if (!maskSummary) return null;
@@ -241,19 +251,19 @@ export default function DetailPanel({
   const [isBodyAnimatingOut, setIsBodyAnimatingOut] = useState(false);
   const [maskPopoverOpen, setMaskPopoverOpen] = useState(false);
   const prevOpenRef = useRef(open);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const prev = prevOpenRef.current;
     prevOpenRef.current = open;
     if (!prev && open) {
       // Opening: animate in
       setBodyAnimClass('expanding-in');
-      const t = setTimeout(() => setBodyAnimClass(''), 450);
+      const t = setTimeout(() => setBodyAnimClass(''), 350);
       return () => clearTimeout(t);
     } else if (prev && !open) {
-      // Closing: animate out then hide
-      setBodyAnimClass('collapsing-out');
+      // Closing: animate out then hide (set animating-out before browser paints so body stays visible)
       setIsBodyAnimatingOut(true);
-      const t = setTimeout(() => { setIsBodyAnimatingOut(false); setBodyAnimClass(''); }, 450);
+      setBodyAnimClass('collapsing-out');
+      const t = setTimeout(() => { setIsBodyAnimatingOut(false); setBodyAnimClass(''); }, 300);
       return () => clearTimeout(t);
     }
   }, [open]);
@@ -328,10 +338,35 @@ export default function DetailPanel({
   };
 
   // "Bits" section — counts
+  // Compute already-set vs newly-set from mask data (no C tracer changes needed):
+  //   totalAttempted = sum of slot bits per stamp; alreadySet = totalAttempted - changedBits.length
+  // Falls back to step.targetBits vs step.changedBits for non-mask events that log target_bits.
+  const traceSetStats = useMemo(() => {
+    if (!step) return null;
+    const newlySet = step.numChanged ?? step.changedBits?.length ?? 0;
+    // Mask-based: derive totalAttempted from mask stamps
+    if (step.maskWriteOrderWords?.length > 0 && Array.isArray(step.maskSlotBits) && step.maskSlotBits.length > 0) {
+      let totalAttempted = 0;
+      for (let i = 0; i < step.maskWriteOrderWords.length; i++) {
+        const slotIdx = step.maskWriteOrderSlots?.[i] ?? 0;
+        totalAttempted += (step.maskSlotBits[slotIdx]?.length ?? 0);
+      }
+      if (totalAttempted > 0) {
+        return { totalAttempted, newlySet, alreadySet: Math.max(0, totalAttempted - newlySet) };
+      }
+    }
+    // Non-mask: use targetBits when available and greater than changedBits
+    if (step.targetBits?.length > 0 && step.targetBits.length > newlySet) {
+      return { totalAttempted: step.targetBits.length, newlySet, alreadySet: step.targetBits.length - newlySet };
+    }
+    return null;
+  }, [step]);
+
   const bitsFacts = [
     { label: 'Bits changed', value: step.numChanged ?? 0 },
-    { label: 'Newly set', value: stepStats?.newlySet ?? '—' },
-    { label: 'Already set', value: stepStats?.reSet ?? '—' },
+    { label: 'Bits targeted', value: traceSetStats?.totalAttempted ?? '—' },
+    { label: 'Already set', value: traceSetStats?.alreadySet ?? stepStats?.reSet ?? '—' },
+    { label: 'Newly set', value: traceSetStats?.newlySet ?? stepStats?.newlySet ?? '—' },
     { label: 'Tried >1x', value: stepStats?.duplicateTargets ?? '—' },
     { label: 'Total set', value: stepStats?.totalSet ?? '—' },
   ];
@@ -569,15 +604,19 @@ export default function DetailPanel({
         {(!eventTitleVisible || true) && (
           <button
             className="detail-panel-show-banner-btn"
-            onClick={(e) => { e.stopPropagation(); onShowEventTitle && onShowEventTitle(); if (open) onToggle(); }}
-            title="Show event title"
-          >▲</button>
+            onClick={(e) => {
+              e.stopPropagation();
+              if (eventTitleVisible) {
+                onHideEventTitle && onHideEventTitle();
+              } else {
+                onShowEventTitle && onShowEventTitle();
+                if (open) onToggle();
+              }
+            }}
+            title={eventTitleVisible ? 'Hide single event widget' : 'Show single event widget'}
+          >{eventTitleVisible ? '▼' : '▲'}</button>
         )}
         <span className="detail-panel-arrow">{open ? '▼' : '▲'}</span>
-        <div className="detail-panel-title">
-          <span className="detail-panel-title-main">{panelTitle}</span>
-          <span className="detail-panel-annotation">{step.annotation || ''}</span>
-        </div>
         {!open && allEventsTransport && (
           <div
             className="detail-panel-all-events-transport detail-panel-all-events-transport--inline"
@@ -587,6 +626,10 @@ export default function DetailPanel({
             {allEventsTransport}
           </div>
         )}
+        <div className="detail-panel-title">
+          <span className="detail-panel-title-main">{panelTitle}</span>
+          <span className="detail-panel-annotation">{step.annotation || ''}</span>
+        </div>
       </div>
 
       {open && (allEventsTransport || (!eventTitleVisible && eventAnimSliders)) && (
@@ -646,7 +689,30 @@ export default function DetailPanel({
             </section>
 
             <section className="detail-section-card" style={{ gridColumn: 'span 2' }}>
-              <div className="detail-section-title">Mask pattern &amp; preview</div>
+              <div className="detail-section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>Mask pattern &amp; preview</span>
+                {step.aggMaskSteps && step.aggMaskSteps.length > 1 && onAggMaskStepChange && (
+                  <span className="agg-mask-nav" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}>
+                    <button
+                      className="agg-mask-nav-btn"
+                      disabled={aggMaskStepIndex <= 0}
+                      onClick={() => onAggMaskStepChange(aggMaskStepIndex - 1)}
+                      title="Previous mask"
+                      style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '3px', cursor: aggMaskStepIndex <= 0 ? 'default' : 'pointer', padding: '1px 5px', color: 'var(--fg-muted)', opacity: aggMaskStepIndex <= 0 ? 0.35 : 1 }}
+                    >‹</button>
+                    <span style={{ color: 'var(--fg-muted)', fontSize: '10px' }}>
+                      Event {aggMaskStepIndex + 1} / {step.aggMaskSteps.length}
+                    </span>
+                    <button
+                      className="agg-mask-nav-btn"
+                      disabled={aggMaskStepIndex >= step.aggMaskSteps.length - 1}
+                      onClick={() => onAggMaskStepChange(aggMaskStepIndex + 1)}
+                      title="Next mask"
+                      style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '3px', cursor: aggMaskStepIndex >= step.aggMaskSteps.length - 1 ? 'default' : 'pointer', padding: '1px 5px', color: 'var(--fg-muted)', opacity: aggMaskStepIndex >= step.aggMaskSteps.length - 1 ? 0.35 : 1 }}
+                    >›</button>
+                  </span>
+                )}
+              </div>
               <div className="mask-section-body">
                 <div className="mask-section-preview">
                   {maskPreviewContent}

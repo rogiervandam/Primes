@@ -49,6 +49,7 @@ export class RenderStateController {
     host.maskWriteOrderSlots = maskMetadata?.targetSlots || new Uint8Array(0);
     host.maskWriteOrderEventIds = maskMetadata?.targetEventIds || new Int32Array(0);
     host.maskSlotBits = maskMetadata?.slotBits || [];
+    host.maskSlotBitsPerEvent = maskMetadata?.slotBitsPerEvent ?? null;
     host.maskGhostBits = new Set();
     host.showMaskWriteOverlay = true;
     host.bitMotionTrails = [];

@@ -60,7 +60,7 @@ export default function VisualizerMainContent(props) {
   const { selection: handleStepSelection, multiSelection: handleMultiStepSelect, stop: stopPlayback, goToStep } = playbackHandlers;
 
   // Animation
-  const { content: animContent = {}, currentStepBanner, surroundingEvents, currentStepData } = animation;
+  const { content: animContent = {}, currentStepBanner, surroundingEvents, currentStepData, aggMaskStepIndex = 0, aggMaskStepSetterRef } = animation;
   const { stepAnimSliders: stepAnimSlidersContent, stepAnimSlidersDocked: stepAnimSlidersDockedContent, allEventsTransport: allEventsTransportContent } = animContent;
 
   // Panels
@@ -255,6 +255,7 @@ export default function VisualizerMainContent(props) {
           eventTitleVisible: eventTitleSettings.visible && !areWidgetsJoined,
           sourceLineNumber: currentStepSourceLine,
           hasRawSource: !!sourceRef,
+          aggMaskStepIndex,
         }}
         detailConfig={{
           storageModel,
@@ -270,7 +271,9 @@ export default function VisualizerMainContent(props) {
           onInspectChangedBits: () => openDetailInspector('bits'),
           onInspectMarkedNumbers: () => openDetailInspector('numbers'),
           onShowEventTitle,
+          onHideEventTitle: () => setEventTitleSettings((prev) => ({ ...prev, visible: false })),
           onOpenRawLog,
+          onAggMaskStepChange: aggMaskStepSetterRef ? (idx) => aggMaskStepSetterRef.current?.(idx) : undefined,
         }}
       />
       </div>

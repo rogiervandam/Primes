@@ -10,6 +10,7 @@ export function useMaskStampAnimation({
   getAnimationTimingPlan,
   getMinimapDetailH,
   clampMs,
+  aggMaskStepSetterRef,
 }) {
   const runMaskStampAnimation = useCallback((bitIntervalMs = null, options = {}) => {
     const r = rendererRef.current;
@@ -55,11 +56,16 @@ export function useMaskStampAnimation({
     const initialMaskInterval = maskInterval;
 
     const entryBitsCache = new Map();
+    // Build ordered list of distinct event IDs (preserving first-occurrence order from entries)
+    // so the detail panel can display the correct per-event mask during animation.
+    const aggEventIdOrder = [];
     if (slotGroups.length > 0) {
       for (let gi = 0; gi < slotGroups.length; gi++) {
         const entries = slotGroups[gi];
         for (let ei = 0; ei < entries.length; ei++) {
           entryBitsCache.set(entries[ei], r._maskEntryBits(entries[ei]));
+          const eid = entries[ei].eventId;
+          if (eid >= 0 && !aggEventIdOrder.includes(eid)) aggEventIdOrder.push(eid);
         }
       }
     }
@@ -103,6 +109,14 @@ export function useMaskStampAnimation({
         virtualMs += dt * (initialMaskInterval / liveInterval);
         const t = Math.min(1, virtualMs / duration);
         if (stepScrubProgressRef.current) stepScrubProgressRef.current(Math.round(t * 100));
+        // Update detail panel's current agg mask step when the active entry's event changes.
+        if (aggMaskStepSetterRef?.current && aggEventIdOrder.length > 1 && slotGroups.length > 0) {
+          const firstGroupEntries = slotGroups[0];
+          const currentEntryIndex = Math.min(firstGroupEntries.length - 1, Math.floor(t * firstGroupEntries.length));
+          const currentEventId = firstGroupEntries[currentEntryIndex]?.eventId ?? -1;
+          const stepIdx = aggEventIdOrder.indexOf(currentEventId);
+          if (stepIdx >= 0) aggMaskStepSetterRef.current(stepIdx);
+        }
         if (combinedBits) {
           const targetCount = Math.floor(t * combinedBits.sortedBits.length);
           while (combinedRevealedUpTo < targetCount) {
@@ -157,6 +171,7 @@ export function useMaskStampAnimation({
     getAnimationTimingPlan,
     getMinimapDetailH,
     clampMs,
+    aggMaskStepSetterRef,
   ]);
 
   return { runMaskStampAnimation };

@@ -82,7 +82,10 @@ export function maskEntriesBySlot(host) {
 
 export function maskEntryBits(host, entry) {
   if (!entry) return [];
-  const slotBits = host.maskSlotBits?.[entry.slotIndex] || [];
+  const perEventSlotBits = (entry.eventId != null && entry.eventId >= 0)
+    ? host.maskSlotBitsPerEvent?.[entry.eventId]
+    : null;
+  const slotBits = (perEventSlotBits ?? host.maskSlotBits)?.[entry.slotIndex] || [];
   const bits = [];
   const wordStart = Number.isFinite(entry.wordStartBit) ? entry.wordStartBit : entry.startBit;
   const rangeStart = entry.startBit;

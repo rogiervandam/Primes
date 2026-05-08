@@ -224,7 +224,7 @@ function StepAnimSliders({
 
   const timelineDisabled = exporting || !currentStepData || (
     (!currentStepData.changedBits || currentStepData.changedBits.length === 0)
-    && (bitAnimationMode !== 'mask' || !hasMaskOrder)
+    && !hasMaskOrder
   );
 
   return (
@@ -287,7 +287,7 @@ function StepAnimSliders({
           </div>
           {docked && (
             <>
-              <span className="step-focus-slider-value">{stepScrubProgress}%</span>
+              <span className="step-focus-slider-value">{parseFloat(Number(stepScrubProgress).toFixed(2))}%</span>
               {onOpenAnimationSettings && (
                 <button
                   type="button"
@@ -304,7 +304,7 @@ function StepAnimSliders({
         </div>
         {!docked && (
           <div className="step-focus-slider-actions">
-            <span className="step-focus-slider-value">{stepScrubProgress}%</span>
+            <span className="step-focus-slider-value">{parseFloat(Number(stepScrubProgress).toFixed(2))}%</span>
             {onOpenAnimationSettings && (
               <button
                 type="button"

@@ -43,6 +43,9 @@ export function useStepDisplayData({ steps, currentStep, selectedSteps, buildCom
     annotation = `Aggregated ${indices.length} selected events (${indices[0]}-${indices[indices.length - 1]})`;
 
     const changed = new Uint32Array(Array.from(union).sort((a, b) => a - b));
+    const aggMaskSteps = indices
+      .map((i) => steps[i])
+      .filter((s) => s && Array.isArray(s.maskSlotBits) && s.maskSlotBits.length > 0 && s.maskWriteOrderWords?.length > 0);
     return {
       stepId: currentStep,
       annotation,
@@ -57,6 +60,7 @@ export function useStepDisplayData({ steps, currentStep, selectedSteps, buildCom
       maskWriteOrderWords: overlay.maskMetadata?.targetWords ?? new Uint32Array(0),
       maskWriteOrderSlots: overlay.maskMetadata?.targetSlots ?? new Uint8Array(0),
       maskSlotBits: overlay.maskMetadata?.slotBits ?? [],
+      aggMaskSteps: aggMaskSteps.length > 0 ? aggMaskSteps : null,
     };
   }, [steps, currentStep, selectedSteps, buildCombinedSelectionOverlay]);
 

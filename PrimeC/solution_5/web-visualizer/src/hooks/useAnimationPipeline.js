@@ -56,6 +56,7 @@ export function useAnimationPipeline({
     stepResumeMaskProgressRef,
     currentStepRef,
     initialHighlightHoldRef,
+    aggMaskStepSetterRef,
   } = animRefs;
 
   const {
@@ -119,6 +120,7 @@ export function useAnimationPipeline({
     getAnimationTimingPlan,
     getMinimapDetailH,
     clampMs,
+    aggMaskStepSetterRef,
   });
 
   const { triggerAnimation } = useTriggerAnimation({

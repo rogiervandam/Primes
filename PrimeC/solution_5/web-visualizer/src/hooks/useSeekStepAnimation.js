@@ -20,6 +20,7 @@ export function useSeekStepAnimation({
   bitStateDirtyRef,
   bitsAtTimeRatioRef,
   getMinimapDetailH,
+  aggMaskStepSetterRef,
 }) {
   const seekStepAnimation = useCallback((progress) => {
     seekGenRef.current += 1;
@@ -81,6 +82,24 @@ export function useSeekStepAnimation({
         const targetBits = (r.targetBits && r.targetBits.size > 0) ? r.targetBits : new Set(r.changedBits || []);
         r.changedBits = new Set(targetBits);
         const slotGroups = r._maskEntriesBySlot ? r._maskEntriesBySlot() : [];
+        // Update detail panel's current agg mask step when scrubbing.
+        if (aggMaskStepSetterRef?.current && slotGroups.length > 0) {
+          const firstGroupEntries = slotGroups[0];
+          const currentEntryIndex = Math.min(firstGroupEntries.length - 1, Math.floor(t * firstGroupEntries.length));
+          const currentEventId = firstGroupEntries[currentEntryIndex]?.eventId ?? -1;
+          if (currentEventId >= 0) {
+            // Build ordered event-ID list from entries to find this event's index
+            const seenEventIds = [];
+            for (let gi = 0; gi < slotGroups.length; gi++) {
+              for (let ei = 0; ei < slotGroups[gi].length; ei++) {
+                const eid = slotGroups[gi][ei].eventId;
+                if (eid >= 0 && !seenEventIds.includes(eid)) seenEventIds.push(eid);
+              }
+            }
+            const stepIdx = seenEventIds.indexOf(currentEventId);
+            if (stepIdx >= 0) aggMaskStepSetterRef.current(stepIdx);
+          }
+        }
         const ghostBits = new Set();
         if (slotGroups.length > 0) {
           for (let groupIndex = 0; groupIndex < slotGroups.length; groupIndex++) {
@@ -307,6 +326,7 @@ export function useSeekStepAnimation({
     bitStateDirtyRef,
     bitsAtTimeRatioRef,
     getMinimapDetailH,
+    aggMaskStepSetterRef,
   ]);
 
   return { seekStepAnimation };

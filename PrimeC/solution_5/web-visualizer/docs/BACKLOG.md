@@ -221,17 +221,17 @@ Fix that please.
 
 108 (Done): The finegrained control on the single event widget should be improved: if you hold down the < or > it should keep increasing the count. The second slider should alloe finegrained control of the 10% progress around where the upper slider is now, so it has a smaller range for more precise control. 
 
-109 Start the numbering of groups at 0, not 1
-110 when showing the mask animation for aggregated events, it now shows the first mask used, but it doesn't update when another mask is used. It should update the mask animation to show the current mask being used for each event, so i can see how the masks change over time and which masks are associated with which events. In the detail panel, show the mask at that part of the animation and allow the user to go previous/next to the masks in the aggregated event, so they can analyze the different masks used in that event more effectively.
-111 When a mask event doesn't set change any bits, the animation must still play. 
-112 The logger should keep record of the already set and newly set bits for each event, so that the visualizer can show these numbers for each event. This also applies for masks: figure out how many bits are in the mask and how many times it way applied. Then look at the total of bits changed in the bitstorage and you have the already set and newly set counts. 
-113 When scrubbing the fine-grained control in the single event widget, the percentage has sometimes more than 2 digits after the . which overflows in the gear button.
-114 The single event widget close button must be on the right side of the widget, so the nearby events can start from the very top left.
-115 in events panel, the button with the arrow up should make the entire panel - including all the events, not just the header - slide up to hide in a collapsed state.
-116 When the detail panel is collapsed and the all events widget is docked, show the all widgets to the left of the title in the collapsed header, so it is still accessible without having to expand the panel.
-117 The text "ANIMATION" is under the play button. Move the rest of the controls a bit to the right and entire item a bit wider to accomodate.
-118 The detail panel shouldn't flicker when collapsing or expanding. It should just smoothly slide out to the new height without any sudden jumps or flashes. 
-119 The show event title button in the detail panel should hide the single event widget if it is currently shown, thereby forming a toggle.
+109 (Done): Start the numbering of groups at 0, not 1
+110 (Done): when showing the mask animation for aggregated events, it now shows the first mask used, but it doesn't update when another mask is used. It should update the mask animation to show the current mask being used for each event, so i can see how the masks change over time and which masks are associated with which events. In the detail panel, show the mask at that part of the animation and allow the user to go previous/next to the masks in the aggregated event, so they can analyze the different masks used in that event more effectively.
+111 (Done): When a mask event doesn't set change any bits, the animation must still play. 
+112 (Done): The logger should keep record of the already set and newly set bits for each event, so that the visualizer can show these numbers for each event. This also applies for masks: figure out how many bits are in the mask and how many times it way applied. Then look at the total of bits changed in the bitstorage and you have the already set and newly set counts. 
+113 (Done): When scrubbing the fine-grained control in the single event widget, the percentage has sometimes more than 2 digits after the . which overflows in the gear button.
+114 (Done): The single event widget close button must be on the right side of the widget, so the nearby events can start from the very top left.
+115 (Done): in events panel, the button with the arrow up should make the entire panel - including all the events, not just the header - slide up to hide in a collapsed state.
+116 (Done): When the detail panel is collapsed and the all events widget is docked, show the all widgets to the left of the title in the collapsed header, so it is still accessible without having to expand the panel.
+117 (Done): The text "ANIMATION" is under the play button. Move the rest of the controls a bit to the right and entire item a bit wider to accomodate.
+118 (Done): The detail panel shouldn't flicker when collapsing or expanding. It should just smoothly slide out to the new height without any sudden jumps or flashes. 
+119 (Done): The show event title button in the detail panel should hide the single event widget if it is currently shown, thereby forming a toggle.
 
 
 

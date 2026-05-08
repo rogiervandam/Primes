@@ -9,6 +9,7 @@ export function buildCombinedSelectionOverlay(selection, steps) {
   const orderedEventIds = [];
   let maskWordBits = null;
   let maskSlotBits = [];
+  const slotBitsPerEvent = {};
 
   const appendFallbackWords = (bits, wordBits, eventId) => {
     if (!wordBits || !bits || bits.length === 0) return;
@@ -43,6 +44,10 @@ export function buildCombinedSelectionOverlay(selection, steps) {
     }
 
     if (maskWordBits != null && step.maskWordBits === maskWordBits && step.maskWriteOrderWords?.length > 0) {
+      const eventId = step.stepId ?? indices[i];
+      if (Array.isArray(step.maskSlotBits) && step.maskSlotBits.length > 0) {
+        slotBitsPerEvent[eventId] = step.maskSlotBits;
+      }
       for (let j = 0; j < step.maskWriteOrderWords.length; j++) {
         orderedWords.push(step.maskWriteOrderWords[j]);
         orderedSlots.push(step.maskWriteOrderSlots?.[j] ?? 0);
@@ -64,6 +69,7 @@ export function buildCombinedSelectionOverlay(selection, steps) {
       targetSlots: Uint8Array.from(orderedSlots),
       targetEventIds: Int32Array.from(orderedEventIds),
       slotBits: maskSlotBits,
+      slotBitsPerEvent,
     } : null,
   };
 }

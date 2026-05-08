@@ -94,7 +94,17 @@ export function usePlaybackControls({
       setIsSingleEventLoopActive(true);
       return;
     }
-    if (!step.changedBits || step.changedBits.length === 0) return;
+    // Item 111: if no changed bits but there IS mask data, still run the mask animation
+    if (!step.changedBits || step.changedBits.length === 0) {
+      if (hasMaskData) {
+        const finished = stepScrubProgress >= 99;
+        stepResumeMaskProgressRef.current = finished ? 0 : stepScrubProgress / 100;
+        stepResumeStartIndexRef.current = 0;
+        setIsAnimationReplayPaused(false);
+        setIsSingleEventLoopActive(true);
+      }
+      return;
+    }
     const totalBits = step.changedBits.length;
     const finished = stepScrubProgress >= 99;
     const startIndex = finished

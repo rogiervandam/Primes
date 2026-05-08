@@ -25,7 +25,7 @@
   cursor: default;
   transition: left 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
               opacity 180ms ease, transform 180ms ease;
-  padding: 10px 14px 10px 30px;
+  padding: 10px 14px 10px 14px;
   border: 1px solid var(--border-light);
   border-left: 4px solid var(--accent);
   border-radius: 8px;
@@ -98,7 +98,7 @@
 }
 .step-focus-slider-row {
   display: grid;
-  grid-template-columns: 72px minmax(0, 260px) 52px;
+  grid-template-columns: 86px minmax(0, 260px) 52px;
   align-items: center;
   gap: 6px;
   font-size: 12px;
@@ -107,14 +107,14 @@
 }
 /* Docked to detail panel: no far-right actions column; controls are wider */
 .step-focus-slider-row.step-focus-slider-row--docked {
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: 86px minmax(0, 1fr);
 }
 .step-focus-slider-row.step-focus-slider-row--docked .step-focus-slider-value {
   flex-shrink: 0;
   text-align: left;
 }
 .step-focus-slider-row input[type="range"] { width: 100%; max-width: 260px; }
-.step-focus-slider-label { text-transform: uppercase; letter-spacing: 0.04em; }
+.step-focus-slider-label { text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
 .step-focus-slider-label.step-focus-slider-label--draggable { cursor: grab; user-select: none; }
 .step-focus-slider-label.step-focus-slider-label--draggable:active { cursor: grabbing; }
 /* In the joined widget, the Animation label is used to drag the whole widget */
@@ -326,7 +326,7 @@
 .step-focus-close-btn {
   position: absolute;
   top: 6px;
-  left: 5px;
+  right: 5px;
   width: 20px;
   height: 20px;
   display: inline-flex;
@@ -347,7 +347,7 @@
 .step-focus-locate-btn {
   position: absolute;
   top: 6px;
-  right: 8px;
+  right: 30px;
   width: 20px;
   height: 20px;
   padding: 0;
@@ -430,7 +430,7 @@
 .step-focus-context-mode-btn {
   position: absolute;
   top: 6px;
-  right: 32px;
+  right: 56px;
   flex: 0 0 auto;
   width: 20px;
   height: 18px;

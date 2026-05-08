@@ -52,7 +52,8 @@
 .events-panel.collapsing-out .events-panel-header {
   animation: events-panel-sweep-out 260ms cubic-bezier(0.55, 0, 1, 0.45) forwards;
 }
-.events-panel.collapsing-out .step-list {
+.events-panel.collapsing-out .step-list,
+.events-panel.collapsing-out .event-list {
   animation: events-panel-sweep-out 260ms 30ms cubic-bezier(0.55, 0, 1, 0.45) forwards;
 }
 .events-panel.collapsing-out .resize-handle {
@@ -67,6 +68,7 @@
 /* Directional sweep-out variants (item 97) */
 .events-panel.collapsing-out--right .events-panel-header,
 .events-panel.collapsing-out--right .step-list,
+.events-panel.collapsing-out--right .event-list,
 .events-panel.collapsing-out--right .resize-handle {
   animation-name: events-panel-sweep-out-right !important;
 }
@@ -77,6 +79,7 @@
 }
 .events-panel.collapsing-out--up .events-panel-header,
 .events-panel.collapsing-out--up .step-list,
+.events-panel.collapsing-out--up .event-list,
 .events-panel.collapsing-out--up .resize-handle {
   animation-name: events-panel-sweep-out-up !important;
 }
@@ -87,6 +90,7 @@
 }
 .events-panel.collapsing-out--down .events-panel-header,
 .events-panel.collapsing-out--down .step-list,
+.events-panel.collapsing-out--down .event-list,
 .events-panel.collapsing-out--down .resize-handle {
   animation-name: events-panel-sweep-out-down !important;
 }

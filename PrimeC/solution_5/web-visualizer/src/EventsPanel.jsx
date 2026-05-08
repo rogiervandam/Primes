@@ -993,9 +993,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
             ><Eye size={12} /></button>
           )}
           <div className="events-panel-dir-btns" onMouseDown={(e) => e.stopPropagation()}>
-            {onDockWidgetToTopBar && (
-              <button className="events-dir-btn" onClick={(e) => { e.stopPropagation(); animatedCollapse('up', onDockWidgetToTopBar); }} title="Dock timeline in top bar">↑</button>
-            )}
+            <button className="events-dir-btn" onClick={(e) => { e.stopPropagation(); animatedCollapse('up', onToggleCollapse); }} title="Slide events panel up to collapse">↑</button>
             {showAllEventsWidget && (
               <button className="events-dir-btn events-dir-btn--popout" onClick={(e) => { e.stopPropagation(); animatedCollapse('down', collapseEventsHideWidget); }} title="Collapse events panel downward">↓</button>
             )}

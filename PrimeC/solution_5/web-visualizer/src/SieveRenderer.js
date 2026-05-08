@@ -98,6 +98,7 @@ export class SieveRenderer {
     this.maskWriteOrderSlots = null;
     this.maskWriteOrderEventIds = null;
     this.maskSlotBits = null;
+    this.maskSlotBitsPerEvent = null;
     this.maskGhostBits = null;
     this.showMaskWriteOverlay = true;
     this.searchOverlay = new SearchOverlay(this);
@@ -314,7 +315,7 @@ export class SieveRenderer {
   }
 
   _groupLabel(index) {
-    return `${this._groupLabelBase()} ${index + 1}`;
+    return `${this._groupLabelBase()} ${index}`;
   }
 
   _vectorLabelYOffset() {

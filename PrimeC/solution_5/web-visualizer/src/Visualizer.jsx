@@ -239,6 +239,18 @@ export default function Visualizer({
     handleBitAnimationModeChange,
   } = useStepAnimation({ initialPrefs });
 
+  // Tracks which sub-event's mask is currently shown during aggregated event animation/scrubbing.
+  // Updated by animation hooks; used by DetailPanel to show the correct mask for each step.
+  const [aggMaskStepIndex, _setAggMaskStepIndex] = useState(0);
+  const aggMaskStepIndexRef = useRef(0);
+  const aggMaskStepSetterRef = useRef(null);
+  aggMaskStepSetterRef.current = (index) => {
+    if (aggMaskStepIndexRef.current !== index) {
+      aggMaskStepIndexRef.current = index;
+      _setAggMaskStepIndex(index);
+    }
+  };
+
   const { globalPausedRef, seekGenRef, animBusyUntilRef } = usePlaybackClock();
 
   const {
@@ -711,6 +723,7 @@ export default function Visualizer({
     bitStateDirtyRef,
     bitsAtTimeRatioRef,
     getMinimapDetailH,
+    aggMaskStepSetterRef,
   });
 
   useBitStateCheckpoints({
@@ -799,6 +812,7 @@ export default function Visualizer({
       stepResumeMaskProgressRef,
       currentStepRef,
       initialHighlightHoldRef,
+      aggMaskStepSetterRef,
     },
     animConfig: {
       bitAnimInterval,
@@ -1061,6 +1075,11 @@ export default function Visualizer({
     selectedSteps,
     buildCombinedSelectionOverlay,
   });
+
+  // Reset agg mask step index when selection changes so detail panel shows index 0
+  useEffect(() => {
+    aggMaskStepSetterRef.current(0);
+  }, [selectedSteps]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { renderCanvasStyle, mergedCamera3DContainerStyle, eventTitleStyle } = useCanvasStyles({
     canvasAnchorPx,
@@ -1658,6 +1677,8 @@ export default function Visualizer({
       currentStepBanner,
       surroundingEvents,
       currentStepData,
+      aggMaskStepIndex,
+      aggMaskStepSetterRef,
     },
 
     // Panels & layout
