@@ -551,7 +551,14 @@ export class BitGridGLWorker {
    *           cssW: number, cssH: number, dpr: number }} glyphCmds
    */
   renderGlyph(glyphCmds) {
-    if (this._lost || this._direct || !glyphCmds || glyphCmds.count === 0) return;
+    if (this._lost || !glyphCmds || glyphCmds.count === 0) return;
+    if (this._direct) {
+      // Direct mode (modes 2/3): replay animation glyph commands into the
+      // shared GL context so ripple/pulse/fade overlays are visible on the
+      // single-canvas modes that have no separate glyph overlay element.
+      if (this._glyphCore) replayGlyphCmds(this._glyphCore, glyphCmds);
+      return;
+    }
     const msg = { type: 'renderGlyph', glyphCmds };
     const transfers = [];
     if (glyphCmds.paramBuf?.buffer) transfers.push(glyphCmds.paramBuf.buffer);

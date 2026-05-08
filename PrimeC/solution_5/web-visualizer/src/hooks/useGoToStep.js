@@ -194,12 +194,10 @@ export function useGoToStep({
     r.renderMinimap(r.canvasWidth, r.canvasHeight, getMinimapDetailH());
     setCurrentStep(target);
 
-    const hasPlayContext = playing
-      || isSingleEventLoopActiveRef.current
-      || isScrubbingTopRef.current
-      || options.keepPlaying === true
-      || options.forceAnimate === true;
-    if (!aggregateScrub && !suppressHighlight && hasPlayContext && triggerAnimationRef.current) {
+    // Always animate when navigating (direct mode, item 95). Previously only
+    // animated when playing/looping/scrubbing. Now always trigger animation
+    // unless explicitly suppressed or during multi-step aggregate scrubs.
+    if (!aggregateScrub && !suppressHighlight && triggerAnimationRef.current) {
       const delayMs = playing ? delayBetweenEvents : 0;
       triggerAnimationRef.current(changedSet, {
         adaptiveDuration: true,

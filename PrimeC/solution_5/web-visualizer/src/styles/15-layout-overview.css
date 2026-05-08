@@ -399,7 +399,7 @@
 /* Floating legend panel */
 .legend-float-panel {
   position: fixed;
-  z-index: 9999;
+  z-index: 27;
   width: 340px;
   background: var(--bg-surface);
   border: 1px solid var(--border);

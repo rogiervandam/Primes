@@ -209,14 +209,15 @@
   width: 100%;
   background: var(--bg-raised);
   color: var(--fg-muted);
-  border: 1px solid var(--border-light);
-  border-radius: 4px;
-  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 4px 8px;
   font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
   text-align: left;
 }
-.trace-info-raw-btn:hover { background: var(--bg-input); color: var(--fg); }
+.trace-info-raw-btn:hover { background: var(--bg-input); color: var(--fg-bright); }
 
 /* ---- Raw log viewer overlay ---- */
 .raw-log-overlay {
@@ -264,6 +265,7 @@
   cursor: pointer;
 }
 .raw-log-copy-btn:hover { color: var(--fg); background: var(--bg-raised); }
+.raw-log-copy-btn.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
 .raw-log-close-btn {
   background: transparent;
   color: var(--fg-dim);
@@ -340,6 +342,19 @@
   padding: 0 8px 0 10px;
   color: var(--fg);
   overflow: visible;
+}
+/* Word-wrap mode: lines wrap at container width */
+.raw-log-content--wrap .raw-log-line-text {
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+/* Visual indicator: continuation lines get a subtle left border */
+.raw-log-content--wrap .raw-log-line {
+  grid-template-columns: 48px 1fr;
+}
+.raw-log-content--wrap .raw-log-line-text::after {
+  display: none; /* placeholder — wrapping itself is the indicator */
 }
 .raw-log-line--linked .raw-log-line-text { color: var(--fg-bright); }
 .raw-log-loading {

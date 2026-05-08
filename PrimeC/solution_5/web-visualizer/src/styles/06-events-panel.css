@@ -120,6 +120,8 @@
 .event-item:hover { background: var(--bg-raised); }
 .event-item.active { background: var(--bg-input); border-left: 3px solid var(--accent); }
 .event-item.selected { background: var(--accent-bg); border-left: 3px solid var(--accent-dim); }
+/* Ancestor of the active event — subtle tint + dim left border */
+.event-item.is-ancestor { background: var(--bg-raised); border-left: 2px solid color-mix(in srgb, var(--accent) 40%, transparent); }
 
 /* Step group hierarchy */
 .event-group {

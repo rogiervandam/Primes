@@ -198,7 +198,7 @@ export function useAnimationPipeline({
       triggerOpts.startIndex = Math.round(startFraction * (step.changedBits.length - 1));
     }
     triggerAnimation(currentChanged, triggerOpts);
-  }, [animMode, animStyle]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [animMode, animStyle, bitAnimInterval]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep live bitAnimInterval in sync with the running animation.
   useEffect(() => {

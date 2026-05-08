@@ -6,9 +6,9 @@
  *
  * Shortcuts:
  *   Space            play / pause
- *   ←  /  →          previous / next step
+ *   ←  /  →  /  ↑  /  ↓   previous / next step
  *   Shift+← / Shift+→  (3D mode) orbit camera left / right
- *   ↑  /  ↓          (3D mode) orbit camera up / down
+ *   Shift+↑ / Shift+↓  (3D mode) orbit camera up / down
  *   Home / End       jump to first / last step
  *   + / =            zoom in
  *   -                zoom out
@@ -90,11 +90,13 @@ export function useKeyboardShortcuts({
           break;
         case 'ArrowUp':
           e.preventDefault();
-          if (is3D) cam.orbit('up');
+          if (is3D && e.shiftKey) cam.orbit('up');
+          else gts(cs - 1);
           break;
         case 'ArrowDown':
           e.preventDefault();
-          if (is3D) cam.orbit('down');
+          if (is3D && e.shiftKey) cam.orbit('down');
+          else gts(cs + 1);
           break;
         case 'Home':       e.preventDefault(); gts(0); break;
         case 'End':        e.preventDefault(); gts(sc - 1); break;

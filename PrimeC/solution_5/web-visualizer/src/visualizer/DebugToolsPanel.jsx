@@ -440,17 +440,33 @@ export default function DebugToolsPanel({
     return { x, y };
   }, [rightOffset]);
 
+  const prevRightOffsetRef = useRef(rightOffset);
+
   useEffect(() => {
     const applyClamp = () => {
+      const prevRightOffset = prevRightOffsetRef.current;
+      const rightOffsetDecreased = rightOffset < prevRightOffset;
+      prevRightOffsetRef.current = rightOffset;
       setPanelPosition((prev) => {
         if (!prev) return getDefaultPanelPosition();
-        return getClampedPanelPosition(prev);
+        const clamped = getClampedPanelPosition(prev);
+        if (rightOffsetDecreased) {
+          // If the panel was near the old right edge (within 20px), snap it to the new right edge
+          const pad = 8;
+          const panelW = panelRef.current?.offsetWidth || 360;
+          const oldMaxX = Math.max(pad, window.innerWidth - panelW - Math.max(pad, prevRightOffset));
+          if (Math.abs(prev.x - oldMaxX) <= 20) {
+            const newMaxX = Math.max(pad, window.innerWidth - panelW - Math.max(pad, rightOffset));
+            return { x: newMaxX, y: clamped.y };
+          }
+        }
+        return clamped;
       });
     };
     applyClamp();
     window.addEventListener('resize', applyClamp);
     return () => window.removeEventListener('resize', applyClamp);
-  }, [getClampedPanelPosition, getDefaultPanelPosition]);
+  }, [getClampedPanelPosition, getDefaultPanelPosition, rightOffset]);
 
   const startPanelDrag = useCallback((event) => {
     if (event.button !== 0) return;
@@ -656,6 +672,7 @@ export default function DebugToolsPanel({
       `Direct Compositor Safe Dim: ${glDebugInfo?.directCompositorSafeDimension ?? '?'}`,
       `DPR: ${Number.isFinite(glDebugInfo?.devicePixelRatio) ? glDebugInfo.devicePixelRatio.toFixed(2) : '?'}`,
       `DPR tuning: ${dprPercent.toFixed(2)}% => ${effectiveDpr.toFixed(3)} (${dprManualActive ? 'manual' : 'percent'})`,
+      `GL AA scale (SSAA): ${appliedTuning.glAaScale || 1}x`,
       `GL size tuning: ${glPercent.toFixed(2)}% => ${Math.round(effectiveGlW)} x ${Math.round(effectiveGlH)} (${glManualActive ? 'manual' : 'percent'})`,
       `CSS/SVG size tuning: ${overlayPercent.toFixed(2)}% => ${Math.round(effectiveOverlayW)} x ${Math.round(effectiveOverlayH)} (${overlayManualActive ? 'manual' : 'percent'})`,
       `Glyph 2D size tuning: ${glyph2DPercent.toFixed(2)}% => ${Math.round(effectiveGlyph2DW)} x ${Math.round(effectiveGlyph2DH)} (${glyph2DManualActive ? 'manual' : 'percent'})`,
@@ -996,6 +1013,7 @@ export default function DebugToolsPanel({
             </span></div>
           </div>
           {setRenderMode && (
+            <>
             <div style={{ marginTop: '8px' }}>
               <label style={{ display: 'block', fontSize: '10px', color: palette.subtle, marginBottom: '4px' }}>
                 Rendering mode
@@ -1019,6 +1037,37 @@ export default function DebugToolsPanel({
                 ))}
               </select>
             </div>
+            <div style={{ marginTop: '8px' }}>
+              <label style={{ display: 'block', fontSize: '10px', color: palette.subtle, marginBottom: '4px' }}>
+                WebGL anti-aliasing (SSAA)
+              </label>
+              <select
+                value={String(appliedTuning.glAaScale || 1)}
+                onChange={(e) => {
+                  const scale = Number(e.target.value);
+                  if (typeof setDebugRenderTuning === 'function') {
+                    setDebugRenderTuning((prev) => ({ ...(normalizeRenderTuning(prev || {})), glAaScale: scale }));
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '5px 8px',
+                  borderRadius: '4px',
+                  border: `1px solid ${palette.buttonBorder}`,
+                  background: palette.buttonBg,
+                  color: palette.buttonFg,
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                }}
+                title="Supersample anti-aliasing: renders at a higher resolution then downsamples. Higher values improve quality but reduce performance."
+              >
+                <option value="1">Off (1×)</option>
+                <option value="2">2×</option>
+                <option value="4">4×</option>
+                <option value="8">8×</option>
+              </select>
+            </div>
+            </>
           )}
           {glDebugInfo && (
             <div style={{ fontSize: '9px', lineHeight: '1.3', color: palette.subtle, marginTop: '6px' }}>
@@ -1039,17 +1088,44 @@ export default function DebugToolsPanel({
       )}
 
       {/* Canvas Coordinates Section */}
-      {canvasCoords && (
-        <CollapsibleSection title="CANVAS COORDS" defaultOpen={false} palette={palette}>
-          <div style={{ fontSize: '9px', lineHeight: '1.3', color: palette.sectionCoords }}>
-            <div>GL Rect: ({canvasCoords.glLeft}, {canvasCoords.glTop}) {canvasCoords.glWidth}×{canvasCoords.glHeight}</div>
-            <div>Main Rect: ({canvasCoords.mainLeft ?? '?'}, {canvasCoords.mainTop ?? '?'}) {canvasCoords.mainWidth ?? '?'}×{canvasCoords.mainHeight ?? '?'}</div>
-            <div>Delta(GL-Main): {canvasCoords.deltaLeft ?? '?'} / {canvasCoords.deltaTop ?? '?'} / {canvasCoords.deltaWidth ?? '?'} / {canvasCoords.deltaHeight ?? '?'}</div>
-            <div>CSS Size: {canvasCoords.cssW} × {canvasCoords.cssH}</div>
-            <div style={{ color: palette.subtle, marginTop: '4px' }}>GL inline tx: {canvasCoords.glInlineTransform || 'none'}</div>
+
+      <CollapsibleSection title="RENDER QUALITY" defaultOpen={true} palette={palette}>
+        <div style={{ marginBottom: '8px' }}>
+          <label style={{ display: 'block', fontSize: '10px', color: palette.subtle, marginBottom: '4px' }}>
+            DPR scaling (% of device DPR)
+          </label>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <input
+              type="range"
+              min="25"
+              max="200"
+              step="5"
+              value={renderTuningDraft.dprPercent ?? 100}
+              onChange={(e) => setRenderTuningDraft((prev) => ({ ...(prev || {}), dprPercent: Number(e.target.value), dprManualActive: false }))}
+              style={{ flex: 1 }}
+              title="Scale the device pixel ratio used for rendering. Lower values reduce resolution and improve performance."
+            />
+            <span style={{ fontSize: '10px', color: palette.panelFg, minWidth: '36px', textAlign: 'right' }}>{renderTuningDraft.dprPercent ?? 100}%</span>
           </div>
-        </CollapsibleSection>
-      )}
+          <div style={{ display: 'flex', gap: '6px', marginTop: '6px', justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              onClick={() => setRenderTuningDraft(normalizeRenderTuning(debugRenderTuning))}
+              style={{ padding: '4px 10px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              onClick={applyRenderTuningDraft}
+              disabled={!hasPendingRenderTuningChanges}
+              style={{ padding: '4px 12px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: hasPendingRenderTuningChanges ? palette.sectionCoords : palette.buttonBg, color: hasPendingRenderTuningChanges ? '#0a1119' : palette.buttonFg, fontSize: '10px', fontWeight: 700, cursor: hasPendingRenderTuningChanges ? 'pointer' : 'default', opacity: hasPendingRenderTuningChanges ? 1 : 0.75 }}
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      </CollapsibleSection>
 
       <CollapsibleSection title="FULL DEBUG REPORT (LIVE)" defaultOpen={false} palette={palette}>
         <pre
@@ -1069,397 +1145,6 @@ export default function DebugToolsPanel({
         >
           {liveDebugReport}
         </pre>
-      </CollapsibleSection>
-
-      <CollapsibleSection title="IMPORT SNAPSHOT (PASTE)" defaultOpen={false} palette={palette}>
-        <textarea
-          value={importText}
-          onChange={(e) => setImportText(e.target.value)}
-          placeholder="Paste old debug info here"
-          style={{
-            width: '100%',
-            minHeight: '92px',
-            resize: 'vertical',
-            boxSizing: 'border-box',
-            marginBottom: '6px',
-            borderRadius: '4px',
-            border: `1px solid ${palette.buttonBorder}`,
-            background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)',
-            color: palette.panelFg,
-            fontSize: '10px',
-            lineHeight: '1.35',
-            padding: '6px',
-          }}
-        />
-        <button
-          type="button"
-          onClick={applyImportedSnapshot}
-          style={{
-            width: '100%',
-            padding: '6px 8px',
-            borderRadius: '4px',
-            border: `1px solid ${palette.buttonBorder}`,
-            background: palette.buttonBg,
-            color: palette.buttonFg,
-            fontSize: '11px',
-            cursor: 'pointer',
-            marginBottom: '6px',
-          }}
-          title="Apply pasted pan/zoom/rotation/layer/manual offset"
-        >
-          Apply Pasted Snapshot
-        </button>
-        {importStatus && (
-          <div style={{ marginBottom: '6px', fontSize: '10px', color: palette.sectionCoords }}>
-            {importStatus}
-          </div>
-        )}
-      </CollapsibleSection>
-
-      <CollapsibleSection title="ALIGNMENT CONTROLS" defaultOpen={true} palette={palette}>
-        <div style={{
-          marginBottom: '8px',
-          padding: '6px',
-          border: `1px solid ${palette.buttonBorder}`,
-          borderRadius: '4px',
-          background: theme === 'light' ? '#f4f7fa' : 'rgba(255,255,255,0.03)',
-        }}>
-          <div style={{ fontSize: '10px', marginBottom: '6px', color: palette.sectionCoords }}>
-            RENDER TEST RIG
-          </div>
-          <div style={{ fontSize: '10px', marginBottom: '6px', color: palette.subtle }}>
-            Each setting uses % of normal by default. Editing manual fields locks that setting to manual until you press its reset button.
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '6px' }}>
-            <div style={{ fontSize: '10px', color: palette.sectionCoords, marginTop: '2px' }}>DPR</div>
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <input type="number" min="1" step="0.1" value={draftTuning.dprPercent} onChange={(e) => updateRenderPercent('dprPercent', e.target.value)} style={{ width: '64px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
-              <span style={{ fontSize: '10px', color: palette.subtle }}>%</span>
-              <input type="number" min="0.1" step="0.01" value={draftTuning.dprManualActive ? (draftTuning.dprManualValue ?? '') : Number(draftTuning.effectiveDpr.toFixed(3))} onChange={(e) => setDprManualValueFromInput(e.target.value)} style={{ width: '98px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
-              <button type="button" onClick={resetDprManualValue} style={{ padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>Reset</button>
-            </div>
-
-            <div style={{ fontSize: '10px', color: palette.sectionCoords, marginTop: '2px' }}>WebGL AA oversample (SSAA)</div>
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              {[1, 1.5, 2, 3, 4].map((scale) => {
-                const isActive = (draftTuning.glAaScale || 1) === scale;
-                return (
-                  <button
-                    key={scale}
-                    type="button"
-                    onClick={() => setRenderTuningDraft((prev) => ({ ...(prev || {}), glAaScale: scale }))}
-                    style={{ padding: '6px 10px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: isActive ? palette.sectionCoords : palette.buttonBg, color: isActive ? '#0a1119' : palette.buttonFg, fontSize: '10px', fontWeight: isActive ? 700 : 400, cursor: 'pointer' }}
-                  >
-                    {scale === 1 ? 'Off' : `${scale}×`}
-                  </button>
-                );
-              })}
-              <span style={{ fontSize: '10px', color: palette.subtle }}>GL buffer only</span>
-            </div>
-
-            <div style={{ fontSize: '10px', color: palette.sectionCoords, marginTop: '2px' }}>WebGL layer size (CSS px)</div>
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <input type="number" min="1" step="0.1" value={draftTuning.glPercent} onChange={(e) => updateRenderPercent('glPercent', e.target.value)} style={{ width: '64px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
-              <span style={{ fontSize: '10px', color: palette.subtle }}>%</span>
-              <input type="number" min="1" step="1" value={draftTuning.glManualActive ? (draftTuning.glManualW ?? '') : Math.round(draftTuning.effectiveGlW)} onChange={(e) => setLayerManualValueFromInput('gl', 'W', e.target.value)} style={{ width: '74px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
-              <input type="number" min="1" step="1" value={draftTuning.glManualActive ? (draftTuning.glManualH ?? '') : Math.round(draftTuning.effectiveGlH)} onChange={(e) => setLayerManualValueFromInput('gl', 'H', e.target.value)} style={{ width: '74px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
-              <button type="button" onClick={() => resetLayerManualValues('gl')} style={{ padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>Reset</button>
-            </div>
-
-            <div style={{ fontSize: '10px', color: palette.sectionCoords, marginTop: '2px' }}>CSS/SVG overlay layer size (CSS px)</div>
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <input type="number" min="1" step="0.1" value={draftTuning.overlayPercent} onChange={(e) => updateRenderPercent('overlayPercent', e.target.value)} style={{ width: '64px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
-              <span style={{ fontSize: '10px', color: palette.subtle }}>%</span>
-              <input type="number" min="1" step="1" value={draftTuning.overlayManualActive ? (draftTuning.overlayManualW ?? '') : Math.round(draftTuning.effectiveOverlayW)} onChange={(e) => setLayerManualValueFromInput('overlay', 'W', e.target.value)} style={{ width: '74px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
-              <input type="number" min="1" step="1" value={draftTuning.overlayManualActive ? (draftTuning.overlayManualH ?? '') : Math.round(draftTuning.effectiveOverlayH)} onChange={(e) => setLayerManualValueFromInput('overlay', 'H', e.target.value)} style={{ width: '74px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
-              <button type="button" onClick={() => resetLayerManualValues('overlay')} style={{ padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>Reset</button>
-            </div>
-
-            <div style={{ fontSize: '10px', color: palette.sectionCoords, marginTop: '2px' }}>Glyph 2D layer size (CSS px)</div>
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <input type="number" min="1" step="0.1" value={draftTuning.glyph2DPercent} onChange={(e) => updateRenderPercent('glyph2DPercent', e.target.value)} style={{ width: '64px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
-              <span style={{ fontSize: '10px', color: palette.subtle }}>%</span>
-              <input type="number" min="1" step="1" value={draftTuning.glyph2DManualActive ? (draftTuning.glyph2DManualW ?? '') : Math.round(draftTuning.effectiveGlyph2DW)} onChange={(e) => setLayerManualValueFromInput('glyph2D', 'W', e.target.value)} style={{ width: '74px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
-              <input type="number" min="1" step="1" value={draftTuning.glyph2DManualActive ? (draftTuning.glyph2DManualH ?? '') : Math.round(draftTuning.effectiveGlyph2DH)} onChange={(e) => setLayerManualValueFromInput('glyph2D', 'H', e.target.value)} style={{ width: '74px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }} />
-              <button type="button" onClick={() => resetLayerManualValues('glyph2D')} style={{ padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>Reset</button>
-            </div>
-            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-              <button type="button" onClick={() => setRenderTuningDraft(normalizeRenderTuning(debugRenderTuning))} style={{ padding: '6px 10px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>Discard</button>
-              <button type="button" onClick={applyRenderTuningDraft} disabled={!hasPendingRenderTuningChanges} style={{ padding: '6px 12px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: hasPendingRenderTuningChanges ? palette.sectionCoords : palette.buttonBg, color: hasPendingRenderTuningChanges ? '#0a1119' : palette.buttonFg, fontSize: '10px', fontWeight: 700, cursor: hasPendingRenderTuningChanges ? 'pointer' : 'default', opacity: hasPendingRenderTuningChanges ? 1 : 0.75 }}>Apply</button>
-            </div>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={cycleLayerMode}
-          style={{
-            width: '100%',
-            padding: '6px 8px',
-            borderRadius: '4px',
-            border: `1px solid ${palette.buttonBorder}`,
-            background: palette.buttonBg,
-            color: palette.buttonFg,
-            fontSize: '11px',
-            cursor: 'pointer',
-            marginBottom: '6px',
-          }}
-          title="Cycle layer mode (V): normal -> GL only -> overlays only"
-        >
-          Layer Mode: {debugLayerMode} (press V)
-        </button>
-        <div style={{
-          marginBottom: '8px',
-          padding: '6px',
-          border: `1px solid ${palette.buttonBorder}`,
-          borderRadius: '4px',
-          background: theme === 'light' ? '#f4f7fa' : 'rgba(255,255,255,0.03)',
-        }}>
-          <div style={{ fontSize: '10px', marginBottom: '6px', color: palette.sectionCoords }}>
-            CALIBRATION MODE
-          </div>
-          <div style={{ marginBottom: '6px', fontSize: '10px', color: palette.subtle }}>
-            When enabled, overlays outline every visible cell and the panel exposes a 10-case alignment workflow.
-          </div>
-          <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
-            <button
-              type="button"
-              onClick={isDebugCalibrationMode ? stopCalibrationMode : startCalibrationMode}
-              style={{ flex: 1, padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '11px', cursor: 'pointer' }}
-            >
-              {isDebugCalibrationMode ? 'Stop Calibration' : 'Start Calibration'}
-            </button>
-            {isDebugCalibrationMode && (
-              <button
-                type="button"
-                onClick={() => applyCalibrationCase(calibrationCaseIndex)}
-                style={{ flex: 1, padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '11px', cursor: 'pointer' }}
-              >
-                Reapply Case
-              </button>
-            )}
-          </div>
-          {isDebugCalibrationMode && (
-            <>
-              <div style={{ fontSize: '10px', marginBottom: '4px', color: palette.sectionCoords }}>
-                Target viewport
-              </div>
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
-                <input
-                  type="number"
-                  value={calibrationTargetViewport.width || ''}
-                  onChange={(e) => setCalibrationTargetViewport((prev) => ({ ...prev, width: Number(e.target.value) || 0 }))}
-                  style={{ flex: 1, minWidth: 0, borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }}
-                />
-                <input
-                  type="number"
-                  value={calibrationTargetViewport.height || ''}
-                  onChange={(e) => setCalibrationTargetViewport((prev) => ({ ...prev, height: Number(e.target.value) || 0 }))}
-                  style={{ flex: 1, minWidth: 0, borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }}
-                />
-              </div>
-              <div style={{ fontSize: '10px', marginBottom: '6px', color: palette.subtle }}>
-                Current viewport: {currentViewport.width} x {currentViewport.height} | Delta: {viewportDelta.width >= 0 ? '+' : ''}{viewportDelta.width} / {viewportDelta.height >= 0 ? '+' : ''}{viewportDelta.height}
-              </div>
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
-                <button
-                  type="button"
-                  onClick={() => setCalibrationTargetViewport({ width: currentViewport.width, height: currentViewport.height })}
-                  style={{ flex: 1, padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}
-                >
-                  Use Current Viewport
-                </button>
-                <button
-                  type="button"
-                  onClick={tryResizeViewport}
-                  style={{ flex: 1, padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}
-                >
-                  Try Resize Window
-                </button>
-              </div>
-              <div style={{ fontSize: '10px', marginBottom: '8px', color: palette.subtle }}>
-                If the browser blocks programmatic resize, drag the window border until the delta is near zero, then commit the case.
-              </div>
-              <div style={{ fontSize: '10px', marginBottom: '6px', color: palette.sectionCoords }}>
-                Calibration cases
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px' }}>
-                {CALIBRATION_CASES.map((item, index) => {
-                  const recorded = !!calibrationCaseResults[item.id];
-                  const isActive = index === calibrationCaseIndex;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => applyCalibrationCase(index)}
-                      style={{
-                        padding: '6px 8px',
-                        borderRadius: '4px',
-                        border: `1px solid ${isActive ? palette.sectionCoords : palette.buttonBorder}`,
-                        background: recorded ? (theme === 'light' ? '#e7f7ef' : 'rgba(110,231,135,0.12)') : palette.buttonBg,
-                        color: palette.buttonFg,
-                        fontSize: '10px',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                      }}
-                    >
-                      {index + 1}. {item.title}{recorded ? ' ✓' : ''}
-                    </button>
-                  );
-                })}
-              </div>
-              <div style={{ fontSize: '10px', marginBottom: '6px', color: palette.subtle }}>
-                Current case: {calibrationCaseIndex + 1}. {currentCase.title} | RotateX={currentCase.rotateX}, RotateY={currentCase.rotateY}. Adjust zoom if needed, then align GL to overlays with the X/Y controls below.
-              </div>
-            </>
-          )}
-        </div>
-        {isDebugCalibrationMode && (
-          <div style={{
-            marginBottom: '8px',
-            padding: '6px',
-            border: `1px solid ${palette.buttonBorder}`,
-            borderRadius: '4px',
-            background: theme === 'light' ? '#f4f7fa' : 'rgba(255,255,255,0.03)',
-          }}>
-            <div style={{ fontSize: '10px', marginBottom: '6px', color: palette.sectionCoords }}>
-              GL X Offset (manual trim)
-            </div>
-            <input
-              type="range"
-              min={-1200}
-              max={1200}
-              step={1}
-              value={Number.isFinite(debugGlOffsetX) ? debugGlOffsetX : 0}
-              onChange={(e) => setDebugGlOffsetX?.(Number(e.target.value))}
-              style={{ width: '100%', marginBottom: '6px' }}
-            />
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <button type="button" onClick={() => setDebugGlOffsetX?.((prev) => (Number(prev) || 0) - 10)} style={{ flex: 1, padding: '4px 6px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>-10</button>
-              <button type="button" onClick={() => setDebugGlOffsetX?.((prev) => (Number(prev) || 0) - 1)} style={{ flex: 1, padding: '4px 6px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>-1</button>
-              <button type="button" onClick={() => setDebugGlOffsetX?.(0)} style={{ flex: 1, padding: '4px 6px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>0</button>
-              <button type="button" onClick={() => setDebugGlOffsetX?.((prev) => (Number(prev) || 0) + 1)} style={{ flex: 1, padding: '4px 6px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>+1</button>
-              <button type="button" onClick={() => setDebugGlOffsetX?.((prev) => (Number(prev) || 0) + 10)} style={{ flex: 1, padding: '4px 6px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>+10</button>
-            </div>
-            <div style={{ marginTop: '6px', fontSize: '10px', color: palette.subtle }}>
-              Manual: {Number.isFinite(debugGlOffsetX) ? debugGlOffsetX.toFixed(0) : '0'} px
-            </div>
-          </div>
-        )}
-        <div style={{
-          marginBottom: '8px',
-          padding: '6px',
-          border: `1px solid ${palette.buttonBorder}`,
-          borderRadius: '4px',
-          background: theme === 'light' ? '#f4f7fa' : 'rgba(255,255,255,0.03)',
-        }}>
-          <div style={{ fontSize: '10px', marginBottom: '6px', color: palette.sectionCoords }}>
-            GL Y Offset (manual trim)
-          </div>
-          <div style={{ marginBottom: '6px', fontSize: '10px', color: palette.subtle }}>
-            Auto: {Number.isFinite(debugGlAutoOffsetY) ? debugGlAutoOffsetY.toFixed(0) : '0'} px | Total: {Number.isFinite((debugGlAutoOffsetY || 0) + (debugGlOffsetY || 0)) ? ((debugGlAutoOffsetY || 0) + (debugGlOffsetY || 0)).toFixed(0) : '0'} px
-          </div>
-          <input
-            type="range"
-            min={-400}
-            max={400}
-            step={1}
-            value={Number.isFinite(debugGlOffsetY) ? debugGlOffsetY : 0}
-            onChange={(e) => setDebugGlOffsetY?.(Number(e.target.value))}
-            style={{ width: '100%', marginBottom: '6px' }}
-          />
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <button
-              type="button"
-              onClick={() => setDebugGlOffsetY?.((prev) => (Number(prev) || 0) - 10)}
-              style={{ flex: 1, padding: '4px 6px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}
-            >
-              -10
-            </button>
-            <button
-              type="button"
-              onClick={() => setDebugGlOffsetY?.((prev) => (Number(prev) || 0) - 1)}
-              style={{ flex: 1, padding: '4px 6px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}
-            >
-              -1
-            </button>
-            <button
-              type="button"
-              onClick={() => setDebugGlOffsetY?.(0)}
-              style={{ flex: 1, padding: '4px 6px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}
-            >
-              0
-            </button>
-            <button
-              type="button"
-              onClick={() => setDebugGlOffsetY?.((prev) => (Number(prev) || 0) + 1)}
-              style={{ flex: 1, padding: '4px 6px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}
-            >
-              +1
-            </button>
-            <button
-              type="button"
-              onClick={() => setDebugGlOffsetY?.((prev) => (Number(prev) || 0) + 10)}
-              style={{ flex: 1, padding: '4px 6px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}
-            >
-              +10
-            </button>
-          </div>
-          <div style={{ marginTop: '6px', fontSize: '10px', color: palette.subtle }}>
-            Manual: {Number.isFinite(debugGlOffsetY) ? debugGlOffsetY.toFixed(0) : '0'} px
-          </div>
-        </div>
-        {isDebugCalibrationMode && (
-          <div style={{
-            marginBottom: '8px',
-            padding: '6px',
-            border: `1px solid ${palette.buttonBorder}`,
-            borderRadius: '4px',
-            background: theme === 'light' ? '#f4f7fa' : 'rgba(255,255,255,0.03)',
-          }}>
-            <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
-              <button type="button" onClick={() => commitCalibrationCase(false)} style={{ flex: 1, padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>Commit Current Case</button>
-              <button type="button" onClick={() => commitCalibrationCase(true)} style={{ flex: 1, padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>Commit + Next</button>
-            </div>
-            <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
-              <input
-                type="text"
-                value={calibrationViewpointLabel}
-                onChange={(e) => setCalibrationViewpointLabel(e.target.value)}
-                placeholder="Optional viewpoint label"
-                style={{ flex: 1, minWidth: 0, borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: theme === 'light' ? '#fff' : 'rgba(0,0,0,0.2)', color: palette.panelFg, fontSize: '10px', padding: '6px' }}
-              />
-              <button type="button" onClick={recordCalibrationViewpoint} style={{ padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer' }}>Record Viewpoint</button>
-            </div>
-            <button type="button" onClick={copyCalibrationReport} style={{ width: '100%', padding: '6px 8px', borderRadius: '4px', border: `1px solid ${palette.buttonBorder}`, background: palette.buttonBg, color: palette.buttonFg, fontSize: '10px', cursor: 'pointer', marginBottom: '6px' }}>Copy Calibration Report</button>
-            {calibrationViewportStatus && (
-              <div style={{ fontSize: '10px', color: palette.sectionCoords }}>
-                {calibrationViewportStatus}
-              </div>
-            )}
-          </div>
-        )}
-        <button
-          type="button"
-          onClick={handleCopyDebug}
-          style={{
-            width: '100%',
-            padding: '6px 8px',
-            borderRadius: '4px',
-            border: `1px solid ${palette.buttonBorder}`,
-            background: palette.buttonBg,
-            color: palette.buttonFg,
-            fontSize: '11px',
-            cursor: 'pointer',
-          }}
-          title="Copy debug report to clipboard"
-        >
-          Copy Debug To Clipboard
-        </button>
-        {copyStatus && (
-          <div style={{ marginTop: '6px', fontSize: '10px', color: palette.sectionCoords }}>
-            {copyStatus}
-          </div>
-        )}
       </CollapsibleSection>
     </aside>
   );

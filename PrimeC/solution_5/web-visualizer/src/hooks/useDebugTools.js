@@ -103,6 +103,10 @@ export function useDebugTools({
   const debugGlOffsetYRef = useRef(0);
   const debugGlAutoOffsetYRef = useRef(0);
   const glDebugLastUpdateRef = useRef(0);
+  // Track current renderMode in a ref so setRenderMode ([] deps) can read it
+  // without capturing stale state via a closure.
+  const renderModeRef = useRef(renderMode);
+  renderModeRef.current = renderMode;
 
   debugGlOffsetXRef.current = debugGlOffsetX;
   debugGlOffsetYRef.current = debugGlOffsetY;
@@ -119,13 +123,20 @@ export function useDebugTools({
 
   const setRenderMode = useCallback((nextMode) => {
     const normalized = normalizeRenderMode(nextMode);
-    const preset = getRenderModeBackendPreset(normalized);
+    const nextPreset = getRenderModeBackendPreset(normalized);
+    const currentPreset = getRenderModeBackendPreset(renderModeRef.current);
     setRenderModeState(normalized);
-    setDebugGlModeOverride(preset.glMode);
-    setDebugWorkerGlyphMode(preset.workerGlyphMode);
-    // Always force a GL reattachment on mode switch so the new canvas
-    // (from the key change) gets a fresh context with the correct mode.
-    setRenderModeRestartNonce((value) => value + 1);
+    setDebugGlModeOverride(nextPreset.glMode);
+    setDebugWorkerGlyphMode(nextPreset.workerGlyphMode);
+    // Only force a GL canvas re-mount when the GL backend actually changes
+    // (direct ↔ worker). Same-backend switches (e.g. mode3→mode2, both
+    // direct) reuse the existing GL context and canvas; the shader/CSS tilt
+    // parameters update on the next r.render() call, and refreshCanvasLayout
+    // adjusts the canvas size and CSS transform — so visual position and tilt
+    // are preserved with no blank flash during the transition.
+    if (nextPreset.glMode !== currentPreset.glMode) {
+      setRenderModeRestartNonce((value) => value + 1);
+    }
   }, []);
 
   const restartRenderMode = useCallback(() => {

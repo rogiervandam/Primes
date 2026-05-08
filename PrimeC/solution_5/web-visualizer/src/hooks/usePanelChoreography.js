@@ -95,6 +95,14 @@ export function usePanelChoreography(panelConfig = {}) {
     setIsAllEventsWidgetHidden(false);
   }, [captureResizeAnchor, setIsAllEventsWidgetHidden, setIsEventsPanelCollapsed, setAreWidgetsJoined]);
 
+  // Collapse the events panel without showing the all-events floater.
+  // Used by the ↓ button in EventsPanel so the widget doesn't pop back open.
+  const collapseEventsHideWidget = useCallback(() => {
+    captureResizeAnchor();
+    setIsEventsPanelCollapsed(true);
+    setIsAllEventsWidgetHidden(true);
+  }, [captureResizeAnchor, setIsAllEventsWidgetHidden, setIsEventsPanelCollapsed]);
+
   const revealCurrentStepInPanel = useCallback(() => {
     setIsEventsPanelCollapsed((wasCollapsed) => {
       if (wasCollapsed) {
@@ -197,6 +205,7 @@ export function usePanelChoreography(panelConfig = {}) {
   }, [setIsAllEventsWidgetHidden, setEventTitleSettings, setAreWidgetsJoined]);
 
   return {
+    collapseEventsHideWidget,
     dockEventsWidgetToDetailPanel,
     dockEventsWidgetToTopBar,
     expandEventsPanelFromWidget,

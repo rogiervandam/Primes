@@ -210,7 +210,7 @@ import {
 function clampInt(value, lo, hi) { return _clampInt(value, lo, hi, null); }
 
 function initialPlaySpeedPercent(prefs) {
-  return clampInt(prefs?.playSpeedPercent, 25, 1600) ?? 100;
+  return clampInt(prefs?.playSpeedPercent, 1, 1600) ?? 100;
 }
 
 function initialTheme(prefs) {

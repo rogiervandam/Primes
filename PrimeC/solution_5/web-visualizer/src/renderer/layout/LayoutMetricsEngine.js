@@ -233,10 +233,10 @@ export class LayoutMetricsEngine {
     const host = this.host;
     const showByte = host.showByteLabels && host.zoom >= 4;
     const showVector = host.showVectorLabels;
-    const vectorFont = Math.max(4, Math.min(13, host.zoom * 0.84));
-    const byteFont = Math.max(4, Math.min(11, host.zoom * 0.72));
-    const vector = showVector ? Math.ceil(vectorFont + 6) : 0;
-    const byte = showByte ? Math.ceil(byteFont + 5) : 0;
+    const vectorFont = Math.max(4, Math.min(15, host.zoom * 0.96));
+    const byteFont = Math.max(4, Math.min(13, host.zoom * 0.84));
+    const vector = showVector ? Math.ceil(vectorFont + 8) : 0;
+    const byte = showByte ? Math.ceil(byteFont + 7) : 0;
     const byteRows = byte;
     const byteLine = showByte ? Math.ceil(byteFont + 2) : 0;
     return {

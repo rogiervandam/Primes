@@ -17,3 +17,13 @@
   overflow: visible;
 }
 
+/* Wraps CanvasStage + DetailPanel so the detail panel renders below the canvas
+   rather than as a row sibling next to it. */
+.canvas-and-detail-column {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow: visible;
+}
+

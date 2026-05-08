@@ -1,12 +1,10 @@
 import React from 'react';
-import { LinkIcon, CopyIcon } from '../Icons';
+import { LinkIcon } from '../Icons';
 
 export default function JoinedWidgetHeader({
   settings,
   setSettings,
   surrounding,
-  copied,
-  handleCopy,
   handleExpandPanel,
   handleSplit,
   revealCurrentStepInPanel,
@@ -55,12 +53,6 @@ export default function JoinedWidgetHeader({
         onMouseDown={(event) => event.stopPropagation()}
         title="Reveal current event in the events panel"
       ><LinkIcon size={12} /></button>
-      <button
-        className="joined-widget-btn joined-widget-copy-btn"
-        onClick={handleCopy}
-        onMouseDown={(event) => event.stopPropagation()}
-        title="Copy event description to clipboard"
-      >{copied ? '✓' : <CopyIcon size={12} />}</button>
       <button
         className="joined-widget-btn joined-widget-close-btn"
         onClick={(event) => { event.stopPropagation(); onHideWidget?.(); }}

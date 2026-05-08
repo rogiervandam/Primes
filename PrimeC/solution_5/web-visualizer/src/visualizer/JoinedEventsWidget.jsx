@@ -58,19 +58,9 @@ export default function JoinedEventsWidget(props) {
   const [isSplitting, setIsSplitting] = useState(false);
   const [dropHint, setDropHint] = useState(null);
   const [showAllAnnotations, setShowAllAnnotations] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const copyTimeoutRef = useRef(null);
-
-  const handleCopy = useCallback((e) => {
-    e.stopPropagation();
-    const text = banner?.title || '';
-    navigator.clipboard?.writeText(text).then(() => {
-      setCopied(true);
-      clearTimeout(copyTimeoutRef.current);
-      copyTimeoutRef.current = setTimeout(() => setCopied(false), 1500);
-    }).catch(() => {/* ignore */});
-  }, [banner?.title]);
-
+  // When the widget is joining from the banner position, hide it until the
+  // layout effect has positioned it correctly so it doesn't jump from y=0.
+  const [isPositioned, setIsPositioned] = useState(!initialBannerRect);
   // Compute the initial horizontal offset so the joined widget's left edge
   // aligns with the EventTitleBanner's left edge at the time of joining.
   // The y-offset is corrected after mount (useLayoutEffect) to pin the
@@ -111,7 +101,10 @@ export default function JoinedEventsWidget(props) {
   }, [isOverDetailPanel, onPushToDetailPanel]);
   // sits at the same screen position as the banner's bottom-left corner.
   useLayoutEffect(() => {
-    if (!initialBannerRect || !widgetRef.current) return;
+    if (!initialBannerRect || !widgetRef.current) {
+      setIsPositioned(true);
+      return;
+    }
     const widgetHeight = widgetRef.current.offsetHeight;
     const targetTop = initialBannerRect.bottom - widgetHeight;
     const y = targetTop - TOP_OFFSET;
@@ -121,6 +114,7 @@ export default function JoinedEventsWidget(props) {
     const next = { x: floatDragRef.current.x, y: clampedY };
     floatDragRef.current = next;
     setFloatDrag(next);
+    setIsPositioned(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // run once on mount — initialBannerRect is stable for this instance
 
@@ -209,15 +203,13 @@ export default function JoinedEventsWidget(props) {
     <div
       ref={widgetRef}
       className={`joined-events-widget${initialBannerRect ? ' joined-events-widget--anchored' : ''}${isSplitting ? ' is-splitting' : ''}${dropHint ? ` dropping dropping-${dropHint}` : ''}`}
-      style={{ transform: `translateX(calc(-50% + ${floatDrag.x}px)) translateY(${floatDrag.y}px)` }}
+      style={{ transform: `translateX(calc(-50% + ${floatDrag.x}px)) translateY(${floatDrag.y}px)`, opacity: isPositioned ? undefined : 0 }}
       onMouseDown={handleDragStart}
     >
       <JoinedWidgetHeader
         settings={settings}
         setSettings={setSettings}
         surrounding={surrounding}
-        copied={copied}
-        handleCopy={handleCopy}
         handleExpandPanel={handleExpandPanel}
         handleSplit={handleSplit}
         revealCurrentStepInPanel={revealCurrentStepInPanel}
@@ -242,7 +234,7 @@ export default function JoinedEventsWidget(props) {
           <div className="step-focus-line1">{banner?.line1}</div>
           {(() => {
             const lines = banner?.annotationLines || [];
-            const hasContent = lines.length > 0;
+            const isExpandable = lines.length > MAX_ANNOTATION_LINES;
             const displayLines = showAllAnnotations ? lines : lines.slice(0, MAX_ANNOTATION_LINES);
             const paddedLines = showAllAnnotations ? displayLines : [...displayLines];
             if (!showAllAnnotations) {
@@ -250,10 +242,10 @@ export default function JoinedEventsWidget(props) {
             }
             return (
               <div
-                className={`step-focus-annotation-area${hasContent ? ' expandable' : ''}${showAllAnnotations ? ' expanded' : ''}`}
-                onClick={hasContent ? (e) => { e.stopPropagation(); setShowAllAnnotations((v) => !v); } : undefined}
+                className={`step-focus-annotation-area${isExpandable ? ' expandable' : ''}${showAllAnnotations && isExpandable ? ' expanded' : ''}`}
+                onClick={isExpandable ? (e) => { e.stopPropagation(); setShowAllAnnotations((v) => !v); } : undefined}
                 onMouseDown={(e) => e.stopPropagation()}
-                title={hasContent ? (showAllAnnotations ? 'Click to collapse' : 'Click to expand') : undefined}
+                title={isExpandable ? (showAllAnnotations ? 'Click to collapse' : 'Click to expand') : undefined}
               >
                 {paddedLines.map((line, i) => (
                   <div key={i} className={`step-focus-annotation-line${i === 0 ? ' line2' : ''}`}>{line}</div>
