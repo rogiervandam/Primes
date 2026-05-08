@@ -1,6 +1,6 @@
 // masks and mask helpers
 #define builtin_ctz(x)                     __builtin_ctzll((int64_t)(x))
-#define shift_calc(bits)                   ((bits) ? builtin_ctz(bits) : 0)
+#define shift_calc(bits)                   ((bits > 0) ? builtin_ctz(bits) : 0)
 #define shift_type(TYPE)                   (shift_calc(sizeof(TYPE)*8))
 #define shift_type_from_to(index,from,to)  (sizeof(from) > sizeof(to) ? ((index) << shift_calc(sizeof(from)/sizeof(to))) : ((index) >> shift_calc(sizeof(to)/sizeof(from))))
 #define reduce2power(x)                    ((x) >> shift_calc(x))

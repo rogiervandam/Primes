@@ -23,9 +23,10 @@
         #define WHEEL_STRIPES 8
     #endif
     #define WHEEL_SIZE (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
-    #define WHEEL_STRIPE_BITS  (((WHEEL_STRIPES * WHEEL_REPEATS - 1) / bitcount_type(wheelmask_t) + 1) * bitcount_type(wheelmask_t))
+    #define WHEEL_STRIPE_BITS  (((WHEEL_STRIPES * WHEEL_REPEATS - 1) / bitcount_type(wheelmask_t) + 1) * bitcount_type(wheelmask_t)) 
 
-    #define wheelmask_stripe_bits  WHEEL_STRIPE_BITS 
+    #define wheelmask_stripes      (WHEEL_STRIPES * WHEEL_REPEATS) // the number of stripes in the wheel
+    #define wheelmask_stripe_bits  (WHEEL_STRIPE_BITS) // the number of bits reserved for each repetition of the wheel
 
     #include "../sieve/sieve_calc.h"
 
@@ -33,7 +34,7 @@
     // static wheelmask_t wheelmask_compressed[WHEEL_SIZE]; // the mask to apply to the bitbucket for this index
     // static uint8_t     wheelmask_index[WHEEL_SIZE]; // the number of wheelmask_t to forward to apply the mask, e.g. 
     static counter_t   wheelmask_bitpoint[WHEEL_SIZE]; // the number of shifts needed to get the bitmask for this index to the right position in the bitbucket. Might be greater than the number of bits in wheelmask_t, in which case we need to forward to the next bitbucket(s) as well
-    static counter_t   wheel_number      [WHEEL_STRIPES]; // contains the mapping from bit to number: the nth bit corresponds to the wheel_number[n] number in the wheel
+    static counter_t   wheel_number      [wheelmask_stripes]; // contains the mapping from bit to number: the nth bit corresponds to the wheel_number[n] number in the wheel
     // static counter_t   wheelmask_mask    [8] = { 1, 2, 4, 8, 16, 32, 64, 128};
 
     // Runtime path: compute wheel data from scratch.
@@ -63,6 +64,9 @@
                 wheel_number[stripe_count] = i;
                 stripe_count++;
             }
+        }
+        for (; stripe_count < wheelmask_stripe_bits; stripe_count++) {
+            wheel_number[stripe_count] = WHEEL_SIZE - 1; // refer the rest to the end of the wheel
         }
 
         verbose2 (printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju Wheel stripe bits: %ju Wheel max: %ju\n", WHEEL_SIZE, (uintmax_t)wheelmask_stripe_bits, (uintmax_t)wheelmask_stripe_bits/8, (uintmax_t)wheelmask_stripe_bits, (uintmax_t)WHEEL_MAX) );
@@ -242,7 +246,7 @@
 
         if (prime < global_stripeprime_faster ) {
             // markFactors_wheelstorage_small_repeat_pair_vector_uint64v4_unroll8(sieve, start, stop, step);
-            markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
+            markFactors_wheelstorage_small_repeat_pair_uint8_unroll8(sieve, start, stop, step);
             // markFactors_wheelstorage_small_repeat_mmask_uint64_unroll8(sieve, start, stop, step);
             // markFactors_wheelstorage_small_repeat_uint64_unroll8(sieve, start, stop, step);
         }
