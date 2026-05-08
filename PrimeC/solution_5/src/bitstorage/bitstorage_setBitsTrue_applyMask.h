@@ -102,10 +102,13 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
 
     #endif // end of clang section
 
-    for (; likely(index_ptr <= range_stop_index_ptr); index_ptr += step) { // signal compiler that only < unrolls iterations are left
+    for (; likely(index_ptr < range_stop_index_ptr); index_ptr += step) { // signal compiler that only < unrolls iterations are left
         *index_ptr |= mask; 
     }
 
+    if (index_ptr == range_stop_index_ptr) {
+        *index_ptr |= mask; 
+    }
     #ifdef COMPILE_TRACE
     log_mask(9, bitstorage, timer_function_names[time_applyMask], (uint64_t)bitcount_type(bitbucket_t), range_start_index, range_stop_index, step,
             (const void* const[]){&mask}, 1, sizeof(variant_base_type_t), BITBUCKET_ELEMENTS, (uint32_t)bitcount_type(variant_base_type_t));

@@ -31,6 +31,29 @@ printWord_uint32(uint64_t bitword)
   // )
 }
 
+char setbits[8][1024] = {{0}};
+int current_setbits = 0;
+// function to make a comma separated list of all the set bits in a uint64_t bitword, used for debugging
+static inline char* __attribute__ ((cold))
+stringBits_uint64(uint64_t bitword)
+{
+  char* ptr = setbits[current_setbits];
+  current_setbits = (current_setbits + 1) % 8;
+  size_t remaining = sizeof(setbits[current_setbits]);
+  for (int i=0; i<64; i++) {
+    if (bitword & (1ULL<<i)) {
+      int written = snprintf(ptr, remaining, "%s%u", ptr == setbits[current_setbits] ? "" : ",", i);
+      if (written > 0 && (size_t)written < remaining) {
+        ptr += written;
+        remaining -= (size_t)written;
+      } else {
+        break; // no more space to write
+      }
+    }
+  }
+  return setbits[current_setbits];
+}
+
 #define PRINT_VECTOR_ELEMENTS 4
 #define PRINT_WORD_SIZE_BITS 64
 
