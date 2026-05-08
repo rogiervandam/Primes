@@ -116,27 +116,6 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 39 (Done) Added a repeat toggle button (with repeat icon) to the single-event widget timeline controls. Repeat-on loops until disabled; repeat-off plays once. The toggle is disabled/ignored during all-events playback.
 40 (Done) Debug tools window is now draggable, defaults to the bottom-right corner, and clamps away from the settings panel when it is open.
 42 (Done) Dragging the single-event widget feels heavy, like there is a delay between the mouse movement and the widget movement. It should feel more responsive and fluid.
-
-Make the minimap canvas just the size shown on screen, and have it be a floating DOM element on the very top. 
-
-43 (Done)
-I want to be able to try different setups for the rendering and the animation, and be able to switch between them easily, because i experience bugs (probably in the browser) on different devices and screen sizes. 
-In the debug window, want to have controls for:
-- settting the DPR value manually, to test the behavior under different zoom levels and screen densities
-- setting the canvas size of the webgl layer
-- setting the canvas size of the css/svg layer
-- setting the canvas size of the glyph-rendering layer (if we go with the 2d glyph rendering approach)
-When i change these values, the visualizer should re-render with the new settings immediately, so i can see how it affects the rendering and the animation. Make sure the center of all the layers keeps being line up when i change these settings, so i can isolate the effects of each setting on the rendering and the animation.
-
-I want to be able to try different setups for the rendering and the animation, and be able to switch between them easily, because i experience bugs (probably in the browser) on different devices and screen sizes. In the debug windows, i want to select one of the following rendering modes: 
-1. all text are rendered 2d in a canvas using the layout arrangement, annotations, etc. Then the whole canvas is compressed with resolution buckets and send to the webgl layer as a texture, and the webgl layer does the merge with the 3d grid and the tilt. Webgl is on a flat 2d canvas, not a tilted canvas. 
-2. Option 1, but webgl does just layer composition. Tilt is done with css 3d transforms on the canvas element, so the webgl layer is always rendered as a flat 2d canvas and the tilt is purely a visual effect applied to the whole canvas. 
-3. the grid and the text are rendered together in the webgl layer as textured quads, with the text rendered in an offscreen 2d canvas and sent as a texture to webgl. The webgl layer does the layout arrangement, annotations, etc, and merges them with the 3d grid and the tilt.
-4. 2 parallel canvases (one for text, one for grid) which are tilted with css
-5-8: mode 1-4 but not using direct mode, but workers
-For each mode, all animations should work, dragging, zooming and tilting should work and changing the arrangements and colors also. Allow me to override the DPR, canvas sizes, and other relevant settings for each mode in the debug tools, and see the effects immediately. Make sure the center of all the layers keeps being line up when i change these settings, so i can isolate the effects of each setting on the rendering and the animation.
-
-
 44 (Done)  The text on the bits with webgl rendering is not really centered on the bits, it is a bit off. It should be perfectly centered on the bits, so it looks better and more polished.
 45 (Done)When zooming in or out, the zoom is not focused on the mouse position, It should be focused on the mouse position, so i can zoom in and out on specific areas of the grid more easily and intuitively. What is under the mouse position should stay under the mouse position when zooming in and out, so i can control the zoom more precisely and easily.
 
@@ -178,6 +157,27 @@ For each mode, all animations should work, dragging, zooming and tilting should 
 78 (Done) When joining the all event and single event widget, i see the single event widget animating from the position of the all events widget to the position of the single event widget, which looks weird. When joining, the single event widget should just stay in its position and the all events widget should animate to it, so it looks like the all events widget is merging into the single event widget, instead of the single event widget moving to the all events widget and then merging. 
 79 (Done) Wwhen the joined widget is active, don't show the all events widget: it can only be in one place at a time.
 
+Make the minimap canvas just the size shown on screen, and have it be a floating DOM element on the very top. 
+
+43 (Done)
+I want to be able to try different setups for the rendering and the animation, and be able to switch between them easily, because i experience bugs (probably in the browser) on different devices and screen sizes. 
+In the debug window, want to have controls for:
+- settting the DPR value manually, to test the behavior under different zoom levels and screen densities
+- setting the canvas size of the webgl layer
+- setting the canvas size of the css/svg layer
+- setting the canvas size of the glyph-rendering layer (if we go with the 2d glyph rendering approach)
+When i change these values, the visualizer should re-render with the new settings immediately, so i can see how it affects the rendering and the animation. Make sure the center of all the layers keeps being line up when i change these settings, so i can isolate the effects of each setting on the rendering and the animation.
+
+I want to be able to try different setups for the rendering and the animation, and be able to switch between them easily, because i experience bugs (probably in the browser) on different devices and screen sizes. In the debug windows, i want to select one of the following rendering modes: 
+1. all text are rendered 2d in a canvas using the layout arrangement, annotations, etc. Then the whole canvas is compressed with resolution buckets and send to the webgl layer as a texture, and the webgl layer does the merge with the 3d grid and the tilt. Webgl is on a flat 2d canvas, not a tilted canvas. 
+2. Option 1, but webgl does just layer composition. Tilt is done with css 3d transforms on the canvas element, so the webgl layer is always rendered as a flat 2d canvas and the tilt is purely a visual effect applied to the whole canvas. 
+3. the grid and the text are rendered together in the webgl layer as textured quads, with the text rendered in an offscreen 2d canvas and sent as a texture to webgl. The webgl layer does the layout arrangement, annotations, etc, and merges them with the 3d grid and the tilt.
+4. 2 parallel canvases (one for text, one for grid) which are tilted with css
+5-8: mode 1-4 but not using direct mode, but workers
+For each mode, all animations should work, dragging, zooming and tilting should work and changing the arrangements and colors also. Allow me to override the DPR, canvas sizes, and other relevant settings for each mode in the debug tools, and see the effects immediately. Make sure the center of all the layers keeps being line up when i change these settings, so i can isolate the effects of each setting on the rendering and the animation.
+
+
+
 80 (Done) On aggregate events, show the annotation of the event as well.
 81 (Done) The view raw log button should have the same look and feel as the buttons in the settings panel. 
 82 (Done) When opening the raw log viewer, its window corners should stay wihin the visible area of the screen.
@@ -191,7 +191,7 @@ For each mode, all animations should work, dragging, zooming and tilting should 
 90 (Done) In the tracer, i must be able to feed a mask and size and optional position with an event. Size like uint8, uint16, uint64v8, etc. The visualizer should be able to show that mask in de detail panel. When a position is given, also project that mask onto the grid and show it there as well, so i can see which bits are affected by that event. The mask visualization should be clear and distinguishable from the regular bit states, for example by using a different color or pattern. This way i can analyze events that involve complex bit manipulations more effectively by seeing the exact bits that are being read, written, or modified in each event.
 91 (Done) The up key should do the same as the left key and the down key the same as the right key. Make Shift-up and shift-down do the orbis up/down now.
 92 (Done) The mask in the zoom panel should be contained by the mask pattern & preview area. When it is too large, zoom out to fit it in, and when it is smaller, zoom in to fill the area. When clicked, it should show a popover with the full mask zoomed in, so i can see the details of the mask more clearly. The popover should also container the mask type and mask pattern.
-93 (Done) The docking positions on the detail panel should be to the left of the detail panel title, so that it doesn't take too much space. 
+93 The docking positions on the detail panel should be to the left of the detail panel title, so that it doesn't take too much space. 
 94 (Done) The toggle for the nearby events in the single event widget should be next to the link item. In the nearby events, the row with the title should be "font-size: large"
 
 95 Show the animations in direct mode as well
@@ -199,6 +199,13 @@ For each mode, all animations should work, dragging, zooming and tilting should 
 97 In the all events panel: when clicking one of the 4 arrows, the panel should always slide away in the direction of the arrow. The all events floater should only appear after a left or right arrow click
 98 In the docked detail panel: always leave room for one line of annotation, so it doesn't move up and down when you use the timeline slider.
 99 When the detail panel is collapsed and the all events widget is docked, show it to the left of the title in the collapsed header, so it is still accessible without having to expand the panel.
+100 When the events panel is open during animation, i see flickering. That is gone when the panel is collapsed. 
+101 In the single even widget, the toggle for nearby display mode should be position absolute and then left from the link button. 
+102 when i click on a bit, pan the camera to center on that bit, so i can quickly focus on the area of interest. The camera movement should be smooth and animated, so it feels natural and intuitive. Consider using a spring or easing function to make the camera movement feel more dynamic and responsive, rather than a linear interpolation.
+103 When panning to a bit, sometimes the connectors for pinned bits come loose and end up in the wrong place. After a little drag the come on again like it is only refreshed then. When panning, make sure the connectors stay attached to their respective bits and move together with the camera, so they maintain their correct position and provide accurate context for the pinned bits during navigation.
+104 The single event widget must have a close button. When I click the close button, it should hide the single event widget.
+105 In the detail panel - bits area - have the row with numbers marked and bit ranges not under, but to the side of the labels, so they are on one line.
+
 
 ## New Ideas
 
