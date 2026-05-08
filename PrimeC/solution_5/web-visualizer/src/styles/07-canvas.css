@@ -25,7 +25,7 @@
   cursor: default;
   transition: left 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
               opacity 180ms ease, transform 180ms ease;
-  padding: 10px 14px 10px 14px;
+  padding: 0px 14px 10px 14px;
   border: 1px solid var(--border-light);
   border-left: 4px solid var(--accent);
   border-radius: 8px;
@@ -88,6 +88,7 @@
   justify-content: flex-start;
   gap: 2px;
   overflow: hidden;
+  padding: 6px 0 0 0;
 }
 .step-focus-sliders {
   margin-top: auto;
@@ -388,7 +389,7 @@
 .step-focus-copy-btn:hover { background: var(--bg-raised); color: var(--fg); }
 .step-focus-context {
   margin: 4px 0 6px;
-  padding: 4px 6px;
+  padding: 0px 6px 4px;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   display: flex;

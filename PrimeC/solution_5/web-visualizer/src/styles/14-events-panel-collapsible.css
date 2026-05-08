@@ -267,7 +267,7 @@
 /* Used both in the collapsed floating panel and expanded panel header */
 .events-panel-transport {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 4px;
   min-width: 0;
 }

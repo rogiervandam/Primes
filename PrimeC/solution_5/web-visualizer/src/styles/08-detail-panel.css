@@ -116,9 +116,10 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  width: 400px;
 }
 .detail-panel-event-sliders .step-focus-slider-row {
-  grid-template-columns: 56px minmax(0, 1fr) auto;
+  grid-template-columns: 70px minmax(0, 1fr) auto;
 }
 .detail-panel-event-sliders .step-focus-slider-actions {
   min-width: 56px;

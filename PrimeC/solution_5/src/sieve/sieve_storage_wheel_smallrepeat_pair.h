@@ -15,7 +15,7 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
     logStop8(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "finished aligning to first full bucket at index %ju", (uintmax_t)start_number);
 
     const counter_t stop_number_unique = min(stop_number, start_number + (((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits) * WHEEL_SIZE) * wheel_step);
-    // const counter_t stop_number_unique2 = min(getFactor( bitbucket_end_type(wheel_bit_estimate(start_number) + wheel_step * wheelmask_stripe_bits * ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits), bitbucket_t)), stop_number);
+    const counter_t stop_number_unique2 = min(getFactor( bitbucket_end_type(wheel_bit_estimate(start_number) + wheel_step * wheelmask_stripe_bits * ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits), bitbucket_t)), stop_number);
 
     bitbucket_t current_mask = (bitbucket_t)0U, pending_mask = (bitbucket_t)0U;
     counter_t pending_bucket = 0, current_bucket = 0;

@@ -90,10 +90,10 @@ export function useCanvasStyles({
     const oy = Number.isFinite(eventTitleSettings.dragOffsetY) ? eventTitleSettings.dragOffsetY : 0;
     return {
       fontSize: `${14 * scale}px`,
-      padding: `${Math.round(10 * scale)}px ${Math.round(14 * scale)}px`,
+      // padding: `${Math.round(10 * scale)}px ${Math.round(14 * scale)}px`,
       // Width stays stable across events so the sliders don't jump around.
       width: `${Math.round(420 * scale)}px`,
-      maxWidth: `min(${Math.round(520 * scale)}px, calc(100% - 160px))`,
+      maxWidth: `min(${Math.round(600 * scale)}px, calc(100% - 160px))`,
       minHeight: `${Math.round(150 * scale)}px`,
       // Anchored by bottom-left (see CSS .step-focus-banner: bottom/left fixed).
       // Drag offset nudges from the anchored origin.
