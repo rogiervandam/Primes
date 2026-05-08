@@ -601,7 +601,7 @@ export default function DetailPanel({
     <div className={`detail-panel ${open ? 'open' : 'collapsed'}`}>
       {open && !playing && <div className="detail-panel-resize" onMouseDown={handleHeightDrag} />}
       <div className="detail-panel-toggle" onClick={onToggle}>
-        {open && (allEventsTransport || (!eventTitleVisible && eventAnimSliders)) && (
+        {(allEventsTransport || (!eventTitleVisible && eventAnimSliders)) && (
           <div className="detail-panel-dock-row">
             {allEventsTransport && (
               <div
@@ -612,11 +612,15 @@ export default function DetailPanel({
                 {allEventsTransport}
               </div>
             )}
-            {!eventTitleVisible && eventAnimSliders && (
-              <div className="detail-panel-event-sliders">
-                {eventAnimSliders}
-              </div>
-            )}
+          </div>
+        )}
+        <div className="detail-panel-title">
+          <span className="detail-panel-title-main">{panelTitle}</span>
+          <span className="detail-panel-annotation">{step.annotation || ''}</span>
+        </div>
+        {!eventTitleVisible && eventAnimSliders && (
+          <div className="detail-panel-event-sliders">
+            {eventAnimSliders}
           </div>
         )}
         {(!eventTitleVisible || true) && (
@@ -633,12 +637,7 @@ export default function DetailPanel({
             }}
             title={eventTitleVisible ? 'Hide single event widget' : 'Show single event widget'}
           >{eventTitleVisible ? '▼' : '▲'}</button>
-        )}
-        <div className="detail-panel-title">
-          <span className="detail-panel-title-main">{panelTitle}</span>
-          <span className="detail-panel-annotation">{step.annotation || ''}</span>
-        </div>
-        <span className="detail-panel-arrow">{open ? '▼' : '▲'}</span>
+        )}        
       </div>
 
 

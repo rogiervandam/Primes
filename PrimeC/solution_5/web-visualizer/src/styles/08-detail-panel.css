@@ -29,7 +29,7 @@
 .detail-panel-toggle {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   padding: 5px 12px;
   cursor: pointer;
   user-select: none;
@@ -45,6 +45,7 @@
   min-height: 16px;
   min-width: 0;
   flex: 1 1 auto;
+  text-align:center
 }
 .detail-panel-title-main {
   white-space: nowrap;
@@ -110,9 +111,9 @@
   padding: 0 4px;
 }
 .detail-panel-event-sliders {
-  padding: 8px 0 6px 0;
-  border-bottom: 1px solid var(--border-light);
-  margin-bottom: 8px;
+  /* padding: 8px 0 6px 0; */
+  /* border-bottom: 1px solid var(--border-light); */
+  /* margin-bottom: 8px; */
   display: flex;
   flex-direction: column;
   gap: 4px;

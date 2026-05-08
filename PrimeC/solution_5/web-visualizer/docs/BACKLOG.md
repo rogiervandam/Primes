@@ -233,6 +233,23 @@ Fix that please.
 118 (Done): The detail panel shouldn't flicker when collapsing or expanding. It should just smoothly slide out to the new height without any sudden jumps or flashes. 
 119 (Done): The show event title button in the detail panel should hide the single event widget if it is currently shown, thereby forming a toggle.
 
+Help me get the UI right.
+The UI has two states: float and panels. Float provides quick access to key information and enables a true 3d experience with the grid and animations. It doesn't use the window space for anything other than the grid, so you can see the full grid and all the animations without any obstructions. Panels provide detailed information and controls for specific events, but they take up more space and are less immersive. 
+You switch between these states by dragging controls to the side of the window (going from float to panel) or by dragging from panel to the centre (going from panel to float). When you switch to panel mode, the relevant panels slide in from the side and dock to the detail panel. When you switch to float mode, the panels have a nice animation of morphing into their respective floating widgets and sliding to the side, so it is clear that they are the same elements and it feels satisfying to move them around.
+
+120 Make a new "double timeline control": it sits on top of the detail panel and has three parts: (1) on the left there is a horizontal rectangular area where from left to right you see all the events and the amount of bits changed in each event as a a vertical bar. Background blue, foreground white. It reminds us of a sound editor timeline with the sound bars, but here the bars represent the amount of bits changed in each event. You can click anywhere on this area to jump to that event and see its details in the detail panel. (2) In the middle, there is a small control area which you can drag. There is a play button which activats the playing of all events. And the speed, forward/backwards/first/last buttons are also present.  Dragging to the left makes the events control less wide and the event animation wider and shows the replay toggle, to the right it makes the events control wider and the event animation less wide, so that the user can choose for more find-grained control over the events timeline or the event animation timeline. Dragging up reveals more of the details: the first drag up revails the event title, the second drag up revealt all the event details as currently in the detail panel. Dragging down does the opposite: the first drag down hides the event details and only shows the title, the second drag down hides the title as well and only shows the sliders. Dragging it extremely to the right automatically reveal the all events panel and dragging it extremely to the left hides the all events panel and shows all the controls for the finegrained animation (play, pause, speed, etc) and the gear for the animation settings. This waßy, you can customize the control area to your liking and have quick access to the controls you need for either the events or the animations.
+ (3) On the right, there is a horizontal rectangular area where from left to right you see the progress of the current event's animation, with a playhead that you can drag to scrub through the animation. You can also click on this area to jump to a specific point in the animation. This way, you have all the controls for navigating through the events and their animations in one place, and you can easily switch between focusing on the events or focusing on the animations by dragging the control area in the middle.
+When dragging the left timeline up, it revaals the events panel, but animating from the bottom to the top. Qhen dragging the right timeline up, it reveals the animation panel, but animating from the bottom to the top. 
+Think of a logical way to toggle the control on or off. ß
+
+
+
+
+(1) The detail panel has three sections:
+- left: events
+- middle: event details
+- right: animation
+
 
 
 ## New Ideas
