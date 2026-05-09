@@ -43,8 +43,13 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 171 Fixed: Title bar above the big dragger is always visible regardless of hover state or collapsed timeline state. Removed `display:none` for `.dtl-collapsed .dtl-event-title-bar` and the hover-only styling.
 
-172 Should be able to drag the undocked timeline panel by its title bar, annotations and detail panel as well, not just the grip area. This makes it easier to move the panel around without having to precisely target the grip, especially on smaller screens or when the content is large.
+172 Fixed: Drag undocked timeline panel from title bar, annotations, and detail panel (not just grip). Added `handleContainerPointerDown` that captures pointer events on the whole widget (except interactive elements, resize handles, and wave/anim seek zones).
 
+173 Fixed: Removed the collapse timeline toggle button from the center-actions row.
+
+174 Fixed: The detail panel resize handle is already hidden via CSS (`.dtl-floating-panel-body .detail-panel-resize { display: none }`) when the panel lives inside the floating widget.
+
+175 Fixed: Lowered the undock threshold from `MAX_DETAIL_HEIGHT` (700px) to `UNDOCK_THRESHOLD` (380px) so dragging the detail panel up triggers undocking well before reaching the screen top.
 
 
 

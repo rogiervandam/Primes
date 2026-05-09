@@ -6,6 +6,8 @@ import { usePlaybackContext } from '../contexts/PlaybackContext';
 
 const MIN_DETAIL_HEIGHT = 180;
 const MAX_DETAIL_HEIGHT = 700;
+// item 175: undock the timeline when dragged past this threshold (lower than MAX so it feels responsive)
+const UNDOCK_THRESHOLD = 380;
 
 /**
  * DoubleTimeline — backlog items 120-125.
@@ -192,33 +194,52 @@ export default function DoubleTimeline({
 
   // ── Centre divider drag: horizontal = split; vertical = detail panel (items 121, 125, 130–133, 142) ──
   // item 142: use pointer events so touch works the same as mouse
+  // item 172: container-level drag handler — drags the floating widget when undocked from ANY part
+  const handleContainerPointerDown = useCallback((e) => {
+    if (!isTimelineUndocked) return;
+    // Ignore right-clicks and multi-touch
+    if (e.button !== 0) return;
+    // Don't start a drag if the target is an interactive element or a resize handle
+    const t = e.target;
+    if (t.closest('button,input,select,textarea,a,[role="slider"]')) return;
+    if (t.closest('.dtl-resize-handle')) return;
+    // Don't intercept waveform / anim zone pointer interactions (seeking)
+    if (t.closest('.dtl-wave-zone,.dtl-anim-zone')) return;
+
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startPos = { ...undockPosRef.current };
+    let moved = false;
+
+    const onMove = (ev) => {
+      moved = true;
+      const newPos = {
+        x: startPos.x + ev.clientX - startX,
+        y: Math.max(0, startPos.y + ev.clientY - startY),
+      };
+      undockPosRef.current = newPos;
+      setUndockPos({ ...newPos });
+      // Auto-dock when dragged to the very bottom
+      if (ev.clientY > window.innerHeight - 80) {
+        onDockTimeline?.();
+      }
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  }, [isTimelineUndocked, onDockTimeline]);
+
   const handleDividerPointerDown = useCallback((e) => {
     // item 163: when undocked, grip drags the timeline position instead
+    // (now handled by handleContainerPointerDown — just stop propagation to avoid double handling)
     if (isTimelineUndocked) {
       e.stopPropagation();
-      const startX = e.clientX;
-      const startY = e.clientY;
-      const startPos = { ...undockPosRef.current };
-      const onMove = (ev) => {
-        const newPos = {
-          x: startPos.x + ev.clientX - startX,
-          y: Math.max(0, startPos.y + ev.clientY - startY),
-        };
-        undockPosRef.current = newPos;
-        setUndockPos({ ...newPos });
-        // Auto-dock when dragged to the very bottom of the screen
-        if (ev.clientY > window.innerHeight - 80) {
-          onDockTimeline?.();
-        }
-      };
-      const onUp = () => {
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-        window.removeEventListener('pointercancel', onUp);
-      };
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onUp);
-      window.addEventListener('pointercancel', onUp);
       return;
     }
 
@@ -272,8 +293,8 @@ export default function DoubleTimeline({
             // item 155: hide header when dragged back down
             onHideDetailHeader?.();
           }
-          // item 170: drag all the way up → undock the timeline widget
-          if (!floatedByDrag && lastH >= MAX_DETAIL_HEIGHT) {
+          // item 175: undock when dragged past threshold (not all the way to MAX)
+          if (!floatedByDrag && lastH >= UNDOCK_THRESHOLD) {
             floatedByDrag = true;
             onUndockTimeline?.();
           }
@@ -288,8 +309,8 @@ export default function DoubleTimeline({
           onHideDetailHeader?.();
           return;
         }
-        // item 170: drag all the way up → undock the timeline widget
-        if (!floatedByDrag && rawH >= MAX_DETAIL_HEIGHT) {
+        // item 175: undock when dragged past threshold (not all the way to MAX)
+        if (!floatedByDrag && rawH >= UNDOCK_THRESHOLD) {
           floatedByDrag = true;
           onUndockTimeline?.();
         }
@@ -324,7 +345,7 @@ export default function DoubleTimeline({
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
-  }, [isTimelineUndocked, onDockTimeline, onUndockTimeline, splitFraction, isDetailOpen, detailHeight, onToggleDetail, onDetailHeightChange, onHideDetailHeader, onRevealDetailHeader]);
+  }, [isTimelineUndocked, onUndockTimeline, splitFraction, isDetailOpen, detailHeight, onToggleDetail, onDetailHeightChange, onHideDetailHeader, onRevealDetailHeader]);
 
   // ── Right timeline: animation scrubber (items 122, 125, 138) ──────────────────────
   // item 138: attach to zone (not track) so playhead and click target span full zone height
@@ -419,6 +440,7 @@ export default function DoubleTimeline({
       ref={containerRef}
       className={`double-timeline${isCollapsed ? ' dtl-collapsed' : ''}${isDetailPanelFloating ? ' dtl-panel-floating' : ''}${isTimelineUndocked ? ' dtl-timeline-undocked' : ''}`}
       style={containerStyle}
+      onPointerDown={handleContainerPointerDown}
     >
       {/* item 156/158/169/171: event title is now inside the center zone so it moves with the dragger */}
       <div className="dtl-strip">
@@ -494,9 +516,7 @@ export default function DoubleTimeline({
             <button className="dtl-btn dtl-anim-play" onClick={handleStepAnimToggle} disabled={exporting} title={isAnimPlaying ? 'Pause animation' : 'Play animation'}>
               {isAnimPlaying ? <Pause size={10} /> : <Play size={10} />}
             </button>
-            <button className="dtl-btn dtl-toggle-btn" onClick={() => setIsCollapsed((v) => !v)} title={isCollapsed ? 'Expand timeline' : 'Collapse timeline'}>
-              {isCollapsed ? '▲' : '▼'}
-            </button>
+            {/* item 173: collapse timeline toggle removed */}
             {/* item 163: undock button — pops timeline out as freely draggable */}
             {!isTimelineUndocked && onUndockTimeline && (
               <button

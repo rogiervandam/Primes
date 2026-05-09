@@ -440,6 +440,8 @@
   display: flex;
   flex-direction: column;
 }
+/* item 172: indicate draggability over the event title bar when undocked */
+.double-timeline.dtl-timeline-undocked .dtl-event-title-bar { cursor: grab; }
 .double-timeline.dtl-timeline-undocked .dtl-strip {
   border-radius: 0;
   flex-shrink: 0;
@@ -453,7 +455,15 @@
   overflow-x: hidden;
   background: var(--bg-surface);
   min-height: 0;
+  /* item 172: indicate the panel body is draggable */
+  cursor: grab;
 }
+.dtl-floating-panel-body:active { cursor: grabbing; }
+/* Don't show grab cursor over scrollable content or interactive elements */
+.dtl-floating-panel-body .detail-panel-body,
+.dtl-floating-panel-body button,
+.dtl-floating-panel-body input,
+.dtl-floating-panel-body a { cursor: auto; }
 /* Strip the DetailPanel's own border/margin inside the floating widget */
 .dtl-floating-panel-body .detail-panel {
   margin-left: 0 !important;
