@@ -316,6 +316,7 @@ export default function Visualizer({
 
   // item 163: undocked double timeline (floats freely over canvas)
   const [isTimelineUndocked, setIsTimelineUndocked] = useState(false);
+  const [floatingDetailVisible, setFloatingDetailVisible] = useState(false);
 
   const {
     pinnedBitIndices, setPinnedBitIndices,
@@ -1724,8 +1725,10 @@ export default function Visualizer({
         onDockDetailPanel: () => { setIsDetailPanelFloating(false); setIsDetailOpen(true); },
         // item 163: undock/dock the timeline itself
         isTimelineUndocked,
-        onUndockTimeline: () => setIsTimelineUndocked(true),
-        onDockTimeline: () => setIsTimelineUndocked(false),
+        onUndockTimeline: () => { setIsTimelineUndocked(true); setFloatingDetailVisible(false); },
+        onDockTimeline: () => { setIsTimelineUndocked(false); setFloatingDetailVisible(false); },
+        floatingDetailVisible,
+        onToggleFloatingDetail: () => setFloatingDetailVisible((v) => !v),
       },
     },
 

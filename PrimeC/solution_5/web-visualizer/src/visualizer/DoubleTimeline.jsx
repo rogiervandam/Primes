@@ -65,8 +65,9 @@ export default function DoubleTimeline({
   isTimelineUndocked = false,
   onUndockTimeline,
   onDockTimeline,
-  // item 170: when undocked, show detail panel content inside the floating widget
-  floatingPanelContent = null,
+  // when undocked: toggle detail panel visibility (shown in normal position, not inside widget)
+  floatingDetailVisible = false,
+  onToggleFloatingDetail,
 }) {
   const {
     goToStep,
@@ -94,8 +95,6 @@ export default function DoubleTimeline({
     return { width: Math.round(w * 0.6), height: 420 };
   });
   const undockSizeRef = useRef(undockSize);
-  // item 170: toggle to show/hide the detail contents inside the floating widget
-  const [floatingDetailVisible, setFloatingDetailVisible] = useState(true);
 
   // item 180: toggle to enable/disable undocking (persisted across sessions)
   const [undockEnabled, setUndockEnabled] = useState(() => {
@@ -478,7 +477,7 @@ export default function DoubleTimeline({
         top: `${undockPos.y}px`,
         left: `${undockPos.x}px`,
         width: `${undockSize.width}px`,
-        height: (floatingPanelContent && floatingDetailVisible) ? `${undockSize.height}px` : undefined,
+        height: undefined,  /* floating strip has no fixed height — sized by content */
         transition: floatTransitionStyle,
         opacity: undockTransition === 'leaving' ? 0 : undefined,
       }
@@ -636,12 +635,12 @@ export default function DoubleTimeline({
                 title="Dock timeline back to bottom"
               >⊟</button>
             )}
-            {/* item 170: toggle to show/hide detail contents when floating */}
-            {isTimelineUndocked && floatingPanelContent && (
+            {/* toggle to show/hide detail panel when undocked */}
+            {isTimelineUndocked && onToggleFloatingDetail && (
               <button
                 className={`dtl-btn${floatingDetailVisible ? ' dtl-active' : ''}`}
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => { e.stopPropagation(); setFloatingDetailVisible((v) => !v); }}
+                onClick={(e) => { e.stopPropagation(); onToggleFloatingDetail(); }}
                 title={floatingDetailVisible ? 'Hide detail panel' : 'Show detail panel'}
               >{floatingDetailVisible ? '▼' : '▲'}</button>
             )}
@@ -721,19 +720,11 @@ export default function DoubleTimeline({
           {currentStepData.annotation}
         </div>
       )}
-      {/* item 170: floating panel content (detail panel) shown when undocked */}
-      {isTimelineUndocked && floatingDetailVisible && floatingPanelContent && (
-        <div className="dtl-floating-panel-body">
-          {floatingPanelContent}
-        </div>
-      )}
-      {/* item 170: resize handles for the floating widget */}
+      {/* resize handles remain for resizing the floating strip itself */}
       {isTimelineUndocked && (
         <>
           <div className="dtl-resize-handle dtl-resize-e" onPointerDown={(e) => handleResizeStart('e', e)} />
           <div className="dtl-resize-handle dtl-resize-w" onPointerDown={(e) => handleResizeStart('w', e)} />
-          <div className="dtl-resize-handle dtl-resize-s" onPointerDown={(e) => handleResizeStart('s', e)} />
-          <div className="dtl-resize-handle dtl-resize-n" onPointerDown={(e) => handleResizeStart('n', e)} />
           <div className="dtl-resize-handle dtl-resize-se" onPointerDown={(e) => handleResizeStart('se', e)} />
           <div className="dtl-resize-handle dtl-resize-sw" onPointerDown={(e) => handleResizeStart('sw', e)} />
           <div className="dtl-resize-handle dtl-resize-ne" onPointerDown={(e) => handleResizeStart('ne', e)} />

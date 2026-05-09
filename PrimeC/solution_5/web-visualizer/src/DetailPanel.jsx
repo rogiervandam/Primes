@@ -621,7 +621,7 @@ export default function DetailPanel({
   const maskMetaLayout = maskPreview && maskPreview.previewHeight > 84 ? 'side' : 'stacked';
 
   return (
-    <div className={`detail-panel ${open ? 'open' : 'collapsed'}${isHeaderHidden && !open ? ' header-hidden' : ''}${isFloating ? ' floating' : ''}`}>
+    <div className={`detail-panel ${open ? 'open' : 'collapsed'}${isHeaderHidden ? ' header-hidden' : ''}${isFloating ? ' floating' : ''}`}>
       {open && !playing && <div className="detail-panel-resize" onMouseDown={handleHeightDrag} />}
       <div className="detail-panel-toggle" onClick={onToggle}>
         {/* item 162: dock row — shows floater and/or slider based on independent toggle states */}

@@ -221,27 +221,27 @@ export default function VisualizerMainContent(props) {
           positioned relative to the full main-content area (item 58). */}
       {currentStepData && (() => {
         const isTimelineUndocked = doubleTimelineProps.isTimelineUndocked;
-        // item 170: build DetailPanel node so it can be reused in the floating widget
+        const floatingDetailVisible = doubleTimelineProps.floatingDetailVisible ?? false;
         const detailPanelNode = (
           <DetailPanel
             detailState={{
               step: currentStepData,
               stepIndex: currentStep,
-              open: isTimelineUndocked ? true : isDetailOpen,
+              open: isTimelineUndocked ? floatingDetailVisible : isDetailOpen,
               height: detailHeight,
               width: detailWidth,
               playing,
               stepStats: selectedSteps.size > 1 ? null : stepStats,
               bitLayout: layoutSettings.bitLayout,
               byteLayout: layoutSettings.byteLayout,
-              eventTitleVisible: eventTitleSettings.visible && !areWidgetsJoined,
+              eventTitleVisible: isTimelineUndocked ? false : (eventTitleSettings.visible && !areWidgetsJoined),
               sourceLineNumber: currentStepSourceLine,
               hasRawSource: !!sourceRef,
               aggMaskStepIndex,
-              isHeaderHidden: isDetailHeaderHidden,
+              isHeaderHidden: isTimelineUndocked ? true : isDetailHeaderHidden,
               isFloating: isDetailPanelFloating,
-              isAllEventsInDetailPanel: false,   /* item 170+: hidden for now */
-              isSingleEventSliderInPanel: false, /* item 170+: hidden for now */
+              isAllEventsInDetailPanel: false,
+              isSingleEventSliderInPanel: false,
             }}
             detailConfig={{
               storageModel,
@@ -249,7 +249,7 @@ export default function VisualizerMainContent(props) {
               benchmarkTimingData,
               eventAnimSliders: stepAnimSlidersDockedContent || stepAnimSlidersContent,
               allEventsTransport: allEventsTransportContent,
-              surroundingEvents,   /* item 178: nearby events shown in detail panel */
+              surroundingEvents: isTimelineUndocked ? undefined : surroundingEvents,
             }}
             detailHandlers={{
               onToggle: isTimelineUndocked ? undefined : toggleDetailPanel,
@@ -261,8 +261,8 @@ export default function VisualizerMainContent(props) {
               onHideEventTitle: () => setEventTitleSettings((prev) => ({ ...prev, visible: false })),
               onOpenRawLog,
               onAggMaskStepChange: aggMaskStepSetterRef ? (idx) => aggMaskStepSetterRef.current?.(idx) : undefined,
-              onToggleAllEventsFloater: undefined,    /* item 170+: hidden for now */
-              onToggleSingleEventSlider: undefined,   /* item 170+: hidden for now */
+              onToggleAllEventsFloater: undefined,
+              onToggleSingleEventSlider: undefined,
               onDockDetailPanel: dockDetailPanel,
             }}
           />
@@ -278,11 +278,9 @@ export default function VisualizerMainContent(props) {
               detailHeight={detailHeight}
               onToggleDetail={toggleDetailPanel}
               onDetailHeightChange={updateDetailHeight}
-              floatingPanelContent={isTimelineUndocked ? detailPanelNode : null}
               {...doubleTimelineProps}
             />
-            {/* item 170: only show bottom DetailPanel when the timeline is docked */}
-            {!isTimelineUndocked && detailPanelNode}
+            {detailPanelNode}
           </>
         );
       })()}

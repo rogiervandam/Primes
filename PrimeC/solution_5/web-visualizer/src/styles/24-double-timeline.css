@@ -132,6 +132,8 @@
   min-height: 18px;
   display: flex;
   align-items: center;
+  justify-content: center;
+  text-align: center;
   padding: 2px 10px;
   font-size: 11px;
   color: rgba(255, 255, 255, 0.65);
@@ -490,8 +492,6 @@
   padding-bottom: 0;
   display: flex;
   flex-direction: column;
-  max-height: 300px;
-
 }
 /* item 172: indicate draggability over the event title bar when undocked */
 .double-timeline.dtl-timeline-undocked .dtl-event-title-bar { cursor: grab; }
@@ -501,35 +501,6 @@
 }
 /* item 169/171+170: title inside center zone; no special override needed for undocked */
 
-/* item 170: detail panel body inside the floating widget */
-.dtl-floating-panel-body {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  overflow-x: hidden;
-  background: var(--bg-surface);
-  min-height: 0;
-  /* item 172: indicate the panel body is draggable */
-  cursor: grab;
-}
-.dtl-floating-panel-body:active { cursor: grabbing; }
-/* Don't show grab cursor over scrollable content or interactive elements */
-.dtl-floating-panel-body .detail-panel-body,
-.dtl-floating-panel-body button,
-.dtl-floating-panel-body input,
-.dtl-floating-panel-body a { cursor: auto; }
-/* Strip the DetailPanel's own border/margin inside the floating widget */
-.dtl-floating-panel-body .detail-panel {
-  margin-left: 0 !important;
-  border-top: none;
-  border-radius: 0;
-}
-.dtl-floating-panel-body .detail-panel-resize { display: none; }
-.dtl-floating-panel-body .detail-panel-width-handle { display: none; }
-.dtl-floating-panel-body .detail-panel-body {
-  max-height: none !important;
-  height: auto !important;
-}
-
 /* item 170: resize handles for the floating widget */
 .dtl-resize-handle {
   position: absolute;
@@ -537,8 +508,6 @@
 }
 .dtl-resize-e  { right: 0; top: 8px; bottom: 8px; width: 6px; cursor: ew-resize; }
 .dtl-resize-w  { left: 0; top: 8px; bottom: 8px; width: 6px; cursor: ew-resize; }
-.dtl-resize-s  { bottom: 0; left: 8px; right: 8px; height: 6px; cursor: ns-resize; }
-.dtl-resize-n  { top: 0; left: 8px; right: 8px; height: 6px; cursor: ns-resize; }
 .dtl-resize-se { right: 0; bottom: 0; width: 12px; height: 12px; cursor: se-resize; }
 .dtl-resize-sw { left: 0; bottom: 0; width: 12px; height: 12px; cursor: sw-resize; }
 .dtl-resize-ne { right: 0; top: 0; width: 12px; height: 12px; cursor: ne-resize; }
