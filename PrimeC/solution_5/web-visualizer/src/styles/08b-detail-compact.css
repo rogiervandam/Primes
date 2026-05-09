@@ -100,6 +100,33 @@
   z-index: 1;
   position: relative;
 }
+/* item 178: Nearby events section in detail panel */
+.detail-nearby-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.detail-nearby-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 10.5px;
+  height: 20px;
+  overflow: hidden;
+}
+.detail-nearby-row:hover { background: var(--bg-raised); }
+.detail-nearby-dir { color: var(--fg-dim); width: 10px; flex-shrink: 0; }
+.detail-nearby-prev .detail-nearby-dir { color: rgba(100, 180, 255, 0.6); }
+.detail-nearby-next .detail-nearby-dir { color: rgba(100, 220, 150, 0.6); }
+.detail-nearby-id { color: var(--fg-dim); font-size: 10px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.detail-nearby-op { color: var(--fg); font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.detail-nearby-meta { color: var(--fg-dim); font-size: 10px; flex-shrink: 0; white-space: nowrap; font-family: monospace; }
+.detail-nearby-bits { color: rgba(100,180,100,0.8); font-size: 10px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.detail-nearby-time { color: var(--fg-dim); font-size: 10px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
 /* Reserve space for macOS traffic-light controls only in Electron.
    In browser mode there are no window controls, so the filename can left-align. */
 .visualizer.platform-mac.platform-electron .toolbar-left { padding-left: 84px; }

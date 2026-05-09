@@ -51,8 +51,15 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 175 Fixed: Lowered the undock threshold from `MAX_DETAIL_HEIGHT` (700px) to `UNDOCK_THRESHOLD` (380px) so dragging the detail panel up triggers undocking well before reaching the screen top.
 
+176 Fixed: The events panel now has a slide-in animation using `.events-panel.expanding-in` CSS class with a `events-panel-sweep-in` keyframe that sweeps the header, event list, and resize handle from the left with opacity + translateX.
+177 Fixed: Removed the all events floater widget from EventsPanel.jsx — all related state (`floatDrag`, `floatDropHint`), callbacks (`handleFloatDragStart`), and the `events-panel-floating-title` JSX block were removed.
+178 Fixed: Removed EventTitleBanner and JoinedEventsWidget from VisualizerMainContent. Added a "Nearby Events" section to DetailPanel that displays `surroundingEvents.prev` and `surroundingEvents.next` with click-to-navigate arrows.
+179 Fixed: Event title bar is now full-width before the timeline strip (`dtl-event-title-bar`). Transparent when docked, solid background when undocked. Annotation bar (`dtl-annotation-bar`) added below the strip.
+180 Fixed: Added `undockEnabled` state (persisted to localStorage as `dtl-undock-enabled`) with a ⤢ toggle button in center-actions. Drag-to-undock respects this toggle. Added `nearUndock` state that adds `dtl-near-undock` class to animate the grip with a pulsing glow as the panel approaches the undock threshold.
+181 Fixed: FLIP animation on undock — floating panel starts at the docked element's bounding rect and animates to center of screen using CSS `transition: top/left 380ms` injected via inline style. Dock button animates the panel toward the bottom before calling `onDockTimeline()`. Auto-dock on drag-to-bottom also animates before docking.
+182 Fixed: Added `--settings-panel-width` CSS variable to `.main-content` (328px on Windows/Linux, 388px on Mac, 0px when collapsed). DoubleTimeline uses `right: var(--settings-panel-width, 0px)` with a smooth transition. DetailPanel uses `margin-right: var(--settings-panel-width, 0px)` with a smooth transition. Both animate when the settings panel is toggled.
 
-
+183 in details panel, remove the nearby events section.
 
 
 

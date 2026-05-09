@@ -8,7 +8,10 @@
      does not slide underneath it. `--events-panel-width` is set on the
      `.main-content` wrapper by Visualizer.jsx. */
   margin-left: var(--events-panel-width, 0px);
-  transition: margin-left 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* item 182: reserve space for settings panel on the right */
+  margin-right: var(--settings-panel-width, 0px);
+  transition: margin-left 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              margin-right 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 /* ---- Suppress open/close animations while the DoubleTimeline centre-zone is being dragged (items 132-133, 139) ---- */

@@ -165,178 +165,6 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
       return next;
     });
   }, []);
-  // Drag state for the collapsed floating panel
-  const [floatDrag, setFloatDrag] = useState({ x: 0, y: 0 });
-  const floatDragRef = useRef({ x: 0, y: 0 });
-  // Visual hint for the active drop-zone while dragging the widget.
-  // 'left' | 'top' | null
-  const [floatDropHint, setFloatDropHint] = useState(null);
-
-  // Drag-to-collapse state for the expanded panel title row
-  const [headerDragX, setHeaderDragX] = useState(0);
-  const [headerDragWillCollapse, setHeaderDragWillCollapse] = useState(false);
-  const [isCollapsingOut, setIsCollapsingOut] = useState(false);
-  const [collapseDir, setCollapseDir] = useState('left'); // 'left'|'right'|'up'|'down'
-  const [isExpandingIn, setIsExpandingIn] = useState(false);
-  const prevPanelCollapsedRef = useRef(panelCollapsed);
-  useEffect(() => {
-    const prev = prevPanelCollapsedRef.current;
-    prevPanelCollapsedRef.current = panelCollapsed;
-    if (prev && !panelCollapsed) {
-      // Panel just expanded - trigger slide-in animation
-      setIsExpandingIn(true);
-      const t = setTimeout(() => setIsExpandingIn(false), 500);
-      return () => clearTimeout(t);
-    }
-  }, [panelCollapsed]);
-
-  // Detect which drop-zone the pointer is currently over.
-  // Returns 'left' (expand events panel), 'top' (dock to top bar),
-  // 'detail' (dock into detail panel), 'joinWidget' (merge with EventTitleBanner), or null.
-  const detectDropZone = useCallback((clientX, clientY) => {
-    if (!isWindowAvailable()) return null;
-    const TOP_BAND = 60;   // top toolbar drop band height
-    const LEFT_BAND = 80;  // left edge drop band width
-    if (clientY <= TOP_BAND) return 'top';
-    if (clientX <= LEFT_BAND) return 'left';
-    if (onDockWidgetToDetailPanel) {
-      const floater = document.querySelector('.events-panel-floating-title');
-      const prevPE = floater ? floater.style.pointerEvents : null;
-      if (floater) floater.style.pointerEvents = 'none';
-      const hit = document.elementFromPoint(clientX, clientY);
-      if (floater) floater.style.pointerEvents = prevPE || '';
-      if (hit && hit.closest && hit.closest('.detail-panel')) return 'detail';
-    }
-    // Check proximity to the floating single-event banner (join affordance).
-    if (onJoinWidgets) {
-      const banner = document.querySelector('.step-focus-banner');
-      if (banner) {
-        const r = banner.getBoundingClientRect();
-        const HIT_PAD = 40;
-        if (clientX >= r.left - HIT_PAD && clientX <= r.right + HIT_PAD &&
-            clientY >= r.top - HIT_PAD && clientY <= r.bottom + HIT_PAD) {
-          return 'joinWidget';
-        }
-      }
-    }
-    return null;
-  }, [onDockWidgetToDetailPanel, onJoinWidgets]);
-
-  const handleFloatDragStart = useCallback((e) => {
-    if (e.target.closest('input') || e.target.closest('button')) return;
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const startDrag = { ...floatDragRef.current };
-    let dragged = false;
-    let lastZone = null;
-    const onMove = (ev) => {
-      const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
-      if (!dragged && Math.hypot(dx, dy) < 4) return;
-      dragged = true;
-      const next = { x: startDrag.x + dx, y: startDrag.y + dy };
-      floatDragRef.current = next;
-      setFloatDrag(next);
-      const zone = detectDropZone(ev.clientX, ev.clientY);
-      if (zone !== lastZone) {
-        lastZone = zone;
-        setFloatDropHint(zone);
-        // Visual merge hint on the single-event banner when dragging near it.
-        const banner = document.querySelector('.step-focus-banner');
-        if (banner) banner.classList.toggle('merge-target', zone === 'joinWidget');
-      }
-    };
-    const onUp = (ev) => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      setFloatDropHint(null);
-      // Remove merge-target hint from the banner.
-      const banner = document.querySelector('.step-focus-banner');
-      if (banner) banner.classList.remove('merge-target');
-      if (!dragged) return;
-      const zone = detectDropZone(ev.clientX, ev.clientY);
-      if (zone === 'joinWidget' && onJoinWidgets) {
-        floatDragRef.current = { x: 0, y: 0 };
-        setFloatDrag({ x: 0, y: 0 });
-        // Pass the EventTitleBanner's screen rect so the joined widget can
-        // anchor its bottom-left corner to the same position.
-        const bannerEl = document.querySelector('.step-focus-banner');
-        const bannerRect = bannerEl ? bannerEl.getBoundingClientRect() : null;
-        onJoinWidgets(bannerRect);
-      } else if (zone === 'left' && onExpandPanelFromWidget) {
-        // Snap drag offset back so the widget is fresh next time it appears.
-        floatDragRef.current = { x: 0, y: 0 };
-        setFloatDrag({ x: 0, y: 0 });
-        onExpandPanelFromWidget();
-      } else if (zone === 'top' && onDockWidgetToTopBar) {
-        floatDragRef.current = { x: 0, y: 0 };
-        setFloatDrag({ x: 0, y: 0 });
-        onDockWidgetToTopBar();
-      } else if (zone === 'detail' && onDockWidgetToDetailPanel) {
-        floatDragRef.current = { x: 0, y: 0 };
-        setFloatDrag({ x: 0, y: 0 });
-        onDockWidgetToDetailPanel();
-      }
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    e.preventDefault();
-  }, [detectDropZone, onDockWidgetToDetailPanel, onExpandPanelFromWidget, onDockWidgetToTopBar, onJoinWidgets]);
-
-  // Drag-to-collapse: dragging the expanded title row rightward collapses the panel.
-  const COLLAPSE_DRAG_THRESHOLD = 80;
-  const handleHeaderTitleDragStart = useCallback((e) => {
-    if (e.target.closest('input') || e.target.closest('button') || e.target.closest('select')) return;
-    const startX = e.clientX;
-
-    const onMove = (ev) => {
-      const raw = ev.clientX - startX;
-      if (raw <= 0) {
-        setHeaderDragX(0);
-        setHeaderDragWillCollapse(false);
-        return;
-      }
-      // Rubber-band: full travel up to threshold, then sqrt-damped beyond
-      const visual = raw <= COLLAPSE_DRAG_THRESHOLD
-        ? raw * 0.65
-        : COLLAPSE_DRAG_THRESHOLD * 0.65 + Math.sqrt(raw - COLLAPSE_DRAG_THRESHOLD) * 3;
-      setHeaderDragX(visual);
-      setHeaderDragWillCollapse(raw >= COLLAPSE_DRAG_THRESHOLD);
-    };
-
-    const onUp = (ev) => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      const raw = ev.clientX - startX;
-      setHeaderDragWillCollapse(false);
-      setHeaderDragX(0); // spring back via CSS transition
-      if (raw >= COLLAPSE_DRAG_THRESHOLD) {
-        // Brief pause for the spring-back, then animate the panel out
-        setTimeout(() => {
-          setIsCollapsingOut(true);
-          setTimeout(() => {
-            setIsCollapsingOut(false);
-            onToggleCollapse();
-          }, 280);
-        }, 80);
-      }
-    };
-
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    e.preventDefault();
-  }, [onToggleCollapse]);
-
-  // Animate the panel sliding away in the given direction before calling the action.
-  // dir: 'left' | 'right' | 'up' | 'down'
-  const animatedCollapse = useCallback((dir, action) => {
-    setCollapseDir(dir);
-    setIsCollapsingOut(true);
-    setTimeout(() => {
-      setIsCollapsingOut(false);
-      action();
-    }, 280);
-  }, []);
 
   // filterLevel encoding: '' (all) | 'exact:N' | 'upto:N' | 'collapse:N'
   const [filterLevel, setFilterLevel] = useState(() => {
@@ -953,16 +781,9 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
 
   return (
     <>
-      <div className={`events-panel${panelCollapsed ? ' collapsed' : ''}${isCollapsingOut ? ` collapsing-out collapsing-out--${collapseDir}` : ''}${isExpandingIn ? ' expanding-in' : ''}${floatDropHint === 'left' ? ' drop-hint-left' : ''}${floatDropHint === 'detail' ? ' drop-hint-detail' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: panelCollapsed ? '0' : `${width}px` }}>
-      {!panelCollapsed && (
-        <>
+      <div className={`events-panel${panelCollapsed ? ' collapsed' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: `${width}px` }}>
       <div className="events-panel-header">
-        <div
-          className={`events-panel-header-title-row${headerDragWillCollapse ? ' drag-will-collapse' : ''}${headerDragX > 0 ? ' is-header-dragging' : ''}`}
-          style={headerDragX > 0 ? { transform: `translateX(${headerDragX}px)` } : undefined}
-          onMouseDown={handleHeaderTitleDragStart}
-          title="Drag right to collapse"
-        >
+        <div className="events-panel-header-title-row">
           <h3>Events</h3>
           {!eventTitleVisible && onShowEventTitle && (
             <button
@@ -972,18 +793,8 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
               title="Show single-event widget"
             ><Eye size={12} /></button>
           )}
-          <div className="events-panel-dir-btns" onMouseDown={(e) => e.stopPropagation()}>
-            <button className="events-dir-btn" onClick={(e) => { e.stopPropagation(); animatedCollapse('up', onToggleCollapse); }} title="Slide events panel up to collapse">↑</button>
-            {showAllEventsWidget && (
-              <button className="events-dir-btn events-dir-btn--popout" onClick={(e) => { e.stopPropagation(); animatedCollapse('down', collapseEventsHideWidget); }} title="Collapse events panel downward">↓</button>
-            )}
-            {onJoinWidgets && (
-              <button className="events-dir-btn" onClick={(e) => { e.stopPropagation(); animatedCollapse('right', onJoinWidgets); }} title="Join with single-event widget">→</button>
-            )}
-            <button className="events-dir-btn" onClick={(e) => { e.stopPropagation(); animatedCollapse('left', onToggleCollapse); }} title="Collapse events panel">←</button>
-          </div>
+
         </div>
-        {transportControls}
         <div className="event-search-row">
           <input
             className="event-search"
@@ -1092,31 +903,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
       </div>
 
       <div className="resize-handle" onMouseDown={handleMouseDown} />
-        </>
-      )}
     </div>
-    {/* item 163: floating toggle rendered outside the panel so overflow:hidden can animate properly */}
-    {panelCollapsed && !isAllEventsWidgetHidden && !areWidgetsJoined && (
-      <div
-        className={`events-panel-floating-title${floatDropHint ? ` dropping dropping-${floatDropHint}` : ''}`}
-        style={{ transform: `translate(${floatDrag.x}px, ${floatDrag.y}px)`, cursor: 'grab' }}
-        onMouseDown={handleFloatDragStart}
-      >
-        <div className="events-panel-float-top-row">
-          <button className="events-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Expand events panel" onMouseDown={(e) => e.stopPropagation()}>▼</button>
-          <span className="panel-label" title="Events">Events</span>
-          {!eventTitleVisible && onShowEventTitle && (
-            <button
-              className="events-panel-show-event-title-btn"
-              onClick={(e) => { e.stopPropagation(); onShowEventTitle(); }}
-              onMouseDown={(e) => e.stopPropagation()}
-              title="Show single-event widget"
-            ><Eye size={11} /></button>
-          )}
-        </div>
-        {transportControls}
-      </div>
-    )}
     </>
   );
 }

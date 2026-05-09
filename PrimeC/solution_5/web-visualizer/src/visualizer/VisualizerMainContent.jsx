@@ -3,9 +3,7 @@ import EventsPanel from '../EventsPanel';
 import SettingsPanel from '../SettingsPanel';
 import CanvasStage from './CanvasStage';
 import CanvasLoadingOverlay from './CanvasLoadingOverlay';
-import JoinedEventsWidget from './JoinedEventsWidget';
 import DebugToolsPanel from './DebugToolsPanel';
-import EventTitleBanner from './EventTitleBanner';
 import DetailPanel from '../DetailPanel';
 import DoubleTimeline from './DoubleTimeline';
 
@@ -118,7 +116,10 @@ export default function VisualizerMainContent(props) {
   return (
     <div
       className={`main-content${isUiChromeVisible ? ' ui-chrome-visible' : ' ui-chrome-hidden'}`}
-      style={{ '--events-panel-width': `${isEventsPanelCollapsed ? 0 : panelWidth}px` }}
+      style={{
+        '--events-panel-width': `${isEventsPanelCollapsed ? 0 : panelWidth}px`,
+        '--settings-panel-width': isSettingsCollapsed ? '0px' : (isMacPlatform ? '388px' : '328px'),  /* item 182 */
+      }}
     >
       <CanvasLoadingOverlay
         loadingOverlayPhase={loadingOverlayPhase}
@@ -215,31 +216,7 @@ export default function VisualizerMainContent(props) {
           isSingleEventWidgetRevealed,
         }}
       />
-      {/* EventTitleBanner lives in main-content (not inside canvas-area) so it
-          is not clipped by canvas-area's overflow:hidden and is positioned
-          relative to the full main-content viewport (item 58). */}
-      {eventTitleSettings.visible && !areWidgetsJoined && isSingleEventWidgetRevealed && (
-        <EventTitleBanner
-          settings={eventTitleSettings}
-          setSettings={setEventTitleSettings}
-          style={eventTitleStyle}
-          banner={currentStepBanner}
-          surrounding={surroundingEvents}
-          currentStepData={currentStepData}
-          currentStep={currentStep}
-          goToStep={goToStep}
-          revealCurrentStepInPanel={revealCurrentStepInPanel}
-          isEventsPanelCollapsed={isEventsPanelCollapsed}
-          setIsEventsPanelCollapsed={setIsEventsPanelCollapsed}
-          isDetailOpen={isDetailOpen}
-          detailHeight={detailHeight}
-          toggleDetailPanel={toggleDetailPanel}
-          externalDragStart={pendingBannerDragStart}
-          onConsumeExternalDragStart={() => setPendingBannerDragStart(null)}
-          sliders={stepAnimSlidersContent}
-          onJoinWidgets={joinWidgets}
-        />
-      )}
+      {/* item 178: EventTitleBanner removed — nearby events are now shown in the detail panel */}
       {/* DetailPanel lives in main-content (not inside canvas-area) so it is
           positioned relative to the full main-content area (item 58). */}
       {currentStepData && (() => {
@@ -272,6 +249,7 @@ export default function VisualizerMainContent(props) {
               benchmarkTimingData,
               eventAnimSliders: stepAnimSlidersDockedContent || stepAnimSlidersContent,
               allEventsTransport: allEventsTransportContent,
+              surroundingEvents,   /* item 178: nearby events shown in detail panel */
             }}
             detailHandlers={{
               onToggle: isTimelineUndocked ? undefined : toggleDetailPanel,
@@ -309,27 +287,7 @@ export default function VisualizerMainContent(props) {
         );
       })()}
       </div>
-      {areWidgetsJoined && isEventsPanelCollapsed && !isAllEventsWidgetHidden && eventTitleSettings.visible && isSingleEventWidgetRevealed && (
-        <JoinedEventsWidget
-          bannerState={{
-            settings: eventTitleSettings,
-            setSettings: setEventTitleSettings,
-            banner: currentStepBanner,
-            surrounding: surroundingEvents,
-            currentStepData,
-            revealCurrentStepInPanel,
-            sliders: stepAnimSlidersContent,
-            initialBannerRect: joinBannerRect,
-          }}
-          widgetHandlers={{
-            onSplitWidgets: splitWidgets,
-            onPushToEventsPanel: pushJoinedWidgetToEventsPanel,
-            onPushToDetailPanel: pushJoinedWidgetToDetailPanel,
-            onHideWidget: hideJoinedWidget,
-            onNavigate: () => { if (!isDetailOpenRef.current) setIsDetailOpen(true); },
-          }}
-        />
-      )}
+      {/* item 178: JoinedEventsWidget removed — nearby events are now shown in the detail panel */}
       <SettingsPanel
         settingsState={{
           settings: layoutSettings,
