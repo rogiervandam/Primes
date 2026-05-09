@@ -374,7 +374,8 @@ export function getInitialViewState() {
     customColors: initialCustomColors(prefs),
     isAllEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
     areWidgetsJoined: initialWidgetsJoined(prefs),
-    isAllEventsInDetailPanel: prefs?.isAllEventsInDetailPanel === true,
+    isAllEventsInDetailPanel: prefs?.isAllEventsInDetailPanel === true,  // default: false (item 162)
+    isSingleEventSliderInPanel: prefs?.isSingleEventSliderInPanel === true, // default: false (item 162)
     isSingleEventRepeatEnabled: prefs?.isSingleEventRepeatEnabled !== false,
     // When false, selecting an event will NOT automatically start the
     // per-event animation loop. Default true to preserve prior behavior.

@@ -12,6 +12,9 @@
      top portion of the panel. */
   z-index: 28;
   box-shadow: 2px 0 16px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+  /* item 163: smooth slide-in/out from the left */
+  transition: width 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 .events-panel-header {
   padding: 8px;

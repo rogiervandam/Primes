@@ -480,3 +480,95 @@
   overflow: hidden;
   pointer-events: none;
 }
+
+/* item 162: left/right widget toggle buttons in detail panel header */
+.detail-panel-widget-toggles {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-right: 4px;
+  pointer-events: auto;
+}
+.detail-panel-widget-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--fg-dim);
+  border: 1px solid var(--border-light);
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  transition: color 120ms, border-color 120ms, background 120ms;
+}
+.detail-panel-widget-btn:hover {
+  color: var(--fg-bright);
+  border-color: var(--border);
+  background: var(--bg-raised);
+}
+.detail-panel-widget-btn--active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+/* ---- item 155: hide the detail panel toggle/header when dragged all the way down ---- */
+.detail-panel.header-hidden .detail-panel-toggle {
+  display: none;
+}
+.detail-panel.header-hidden .detail-panel-dock-row {
+  display: none;
+}
+
+/* ---- item 157: floating detail panel (detached from the bottom) ---- */
+.detail-panel.floating {
+  position: fixed;
+  bottom: 36px; /* sit just above the DoubleTimeline strip */
+  left: var(--events-panel-width, 0px);
+  right: 0;
+  z-index: 200;
+  border: 2px solid var(--accent);
+  border-radius: 8px 8px 0 0;
+  box-shadow: 0 -6px 32px rgba(0, 0, 0, 0.45);
+  margin-left: 0; /* override the events-panel margin — handled by left: above */
+  transition:
+    left 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    bottom 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    box-shadow 220ms;
+}
+/* Slightly lighten the toggle header when floating to highlight it as draggable */
+.detail-panel.floating .detail-panel-toggle {
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-surface));
+  cursor: move;
+}
+.detail-panel.floating .detail-panel-toggle:hover {
+  background: color-mix(in srgb, var(--accent) 20%, var(--bg-surface));
+}
+/* Dock-back hint indicator inside the floating panel header */
+.detail-panel-dock-btn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin-right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 9px;
+  line-height: 1;
+  transition: background 120ms;
+}
+.detail-panel-dock-btn:hover {
+  background: var(--accent-bg);
+}

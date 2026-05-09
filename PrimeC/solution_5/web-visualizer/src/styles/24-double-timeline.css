@@ -3,12 +3,18 @@
 .double-timeline {
   display: flex;
   flex-direction: column;
-  background: var(--bg-surface);
-  border-top: 1px solid var(--border);
+  /* Float over canvas: absolute within .canvas-and-detail-column (position:relative) */
+  position: absolute;
+  left: var(--events-panel-width, 0px);
+  right: 0;
+  z-index: 20;
   user-select: none;
-  flex-shrink: 0;
-  margin-left: var(--events-panel-width, 0px);
-  transition: margin-left 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  padding-bottom: 4px;  /* item 160: ensure center zone bottom stays above screen edge */
+  overflow: visible;
+  background: transparent;
+  /* Smooth movement when detail panel opens/closes and when events panel toggles */
+  transition: left 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              bottom 300ms cubic-bezier(0.34, 1.2, 0.64, 1);
 }
 
 /* ── Main strip ─────────────────────────────────────────────────────────── */
@@ -50,7 +56,9 @@
 /* LEFT — waveform */
 .dtl-wave-zone {
   cursor: pointer;
-  background: #0e1b2e;
+  background: rgba(14, 27, 46, 0.88);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 .dtl-wave-canvas {
   position: absolute;
@@ -81,6 +89,39 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* item 156/158: event title bar — now inside center zone, floats above it */
+.dtl-event-title-bar {
+  position: absolute;
+  left: -2px; right: -2px;      /* align with outer border of center zone */
+  bottom: 100%;                  /* float directly above the center zone */
+  margin-bottom: 1px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.02em;
+  background: rgba(14, 27, 46, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  /* item 169: no pointer events — just display */
+  cursor: default;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  touch-action: none;
+}
+/* item 169/171: title bar always visible — not hidden when collapsed */
+/* (do NOT add display:none for .dtl-collapsed .dtl-event-title-bar) */
+
 /* MIDDLE — transport (items 126–127: prominent borders, raised tab, drag hint) */
 .dtl-center-zone {
   flex: 0 0 auto;
@@ -89,14 +130,17 @@
   align-items: center;
   justify-content: center;
   gap: 2px;
-  align-self: center;         /* item 127: don't stretch — use explicit height */
-  height: 52px;               /* item 127: protrudes 8px above + below 36px strip */
+  position: relative;          /* item 169/171: allow absolute title bar above */
+  align-self: flex-end;       /* item 160: protrude upward only — flush with strip bottom */
+  height: 52px;               /* item 127: protrudes 16px above 36px strip (all upward now) */
+  overflow: visible;          /* item 158: don't clip children */
   background: color-mix(in srgb, var(--bg-raised) 78%, var(--accent) 22%);
   border: 2px solid color-mix(in srgb, var(--border) 50%, var(--accent) 50%);
   border-radius: 6px;         /* item 127: rounded corners on the raised tab */
   padding: 2px 6px;
   cursor: move;
-  min-width: 120px;
+  min-width: 160px;           /* item 161: stable width so transport doesn't cause layout shifts */
+  max-width: 240px;           /* item 161: cap width so title doesn't push zones */
   z-index: 2;                 /* item 127: sit above the wave zones */
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);  /* item 127: elevation shadow */
   transition: background 140ms, border-color 140ms, box-shadow 140ms;
@@ -107,43 +151,36 @@
   border-color: var(--accent);
   box-shadow: 0 3px 14px rgba(0, 0, 0, 0.45);
 }
-/* Six-dot vertical drag handle (2 cols × 3 rows) — items 126, 134 (bigger) */
+/* Six-dot vertical drag handle (2 cols × 3 rows) — items 126, 134 (bigger); item 168: wider + less tall */
 .dtl-grip {
-  width: 16px;
-  height: 26px;
+  width: 80%;              /* item 168: almost full width of center zone */
+  height: 10px;            /* item 168: less tall, was 26px */
   cursor: move;
   flex-shrink: 0;
-  margin-bottom: 2px;
+  margin-top: 2px;         /* item 168: at bottom of zone */
+  /* item 168: horizontal dot row pattern spanning the width */
   background:
-    radial-gradient(circle, rgba(255,255,255,0.55) 2px, transparent 2px) 1px 2px / 6px 6px no-repeat,
-    radial-gradient(circle, rgba(255,255,255,0.55) 2px, transparent 2px) 9px 2px / 6px 6px no-repeat,
-    radial-gradient(circle, rgba(255,255,255,0.55) 2px, transparent 2px) 1px 10px / 6px 6px no-repeat,
-    radial-gradient(circle, rgba(255,255,255,0.55) 2px, transparent 2px) 9px 10px / 6px 6px no-repeat,
-    radial-gradient(circle, rgba(255,255,255,0.55) 2px, transparent 2px) 1px 18px / 6px 6px no-repeat,
-    radial-gradient(circle, rgba(255,255,255,0.55) 2px, transparent 2px) 9px 18px / 6px 6px no-repeat;
+    radial-gradient(circle, rgba(255,255,255,0.55) 2px, transparent 2px) calc(10%) 3px / 20% 4px repeat-x,
+    radial-gradient(circle, rgba(255,255,255,0.55) 2px, transparent 2px) calc(10%) 7px / 20% 4px repeat-x;
   transition: opacity 140ms;
 }
 .dtl-center-zone:hover .dtl-grip {
   background:
-    radial-gradient(circle, rgba(255,255,255,0.85) 2px, transparent 2px) 1px 2px / 6px 6px no-repeat,
-    radial-gradient(circle, rgba(255,255,255,0.85) 2px, transparent 2px) 9px 2px / 6px 6px no-repeat,
-    radial-gradient(circle, rgba(255,255,255,0.85) 2px, transparent 2px) 1px 10px / 6px 6px no-repeat,
-    radial-gradient(circle, rgba(255,255,255,0.85) 2px, transparent 2px) 9px 10px / 6px 6px no-repeat,
-    radial-gradient(circle, rgba(255,255,255,0.85) 2px, transparent 2px) 1px 18px / 6px 6px no-repeat,
-    radial-gradient(circle, rgba(255,255,255,0.85) 2px, transparent 2px) 9px 18px / 6px 6px no-repeat;
+    radial-gradient(circle, rgba(255,255,255,0.85) 2px, transparent 2px) calc(10%) 3px / 20% 4px repeat-x,
+    radial-gradient(circle, rgba(255,255,255,0.85) 2px, transparent 2px) calc(10%) 7px / 20% 4px repeat-x;
 }
 .dtl-transport {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 1px;
+  gap: 3px;              /* item 166: was 1px */
   pointer-events: auto;
 }
 .dtl-center-actions {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 1px;
+  gap: 3px;              /* item 166: was 1px */
   pointer-events: auto;
 }
 /* Speed label moved to right zone (item 124); keep class but it's unused in center */
@@ -167,32 +204,37 @@
   border-radius: 3px;
 }
 
-/* Buttons — item 129: larger hit area; item 134: bigger base size */
+/* Buttons — item 129: larger hit area; item 134: bigger base size; item 166: even bigger + better hover */
 .dtl-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  width: 22px;              /* item 134: was 18px */
-  height: 22px;             /* item 134: was 18px */
+  width: 26px;              /* item 166: was 22px */
+  height: 26px;             /* item 166: was 22px */
   border: none;
-  border-radius: 3px;
+  border-radius: 4px;
   background: transparent;
   color: var(--fg-muted);
   cursor: pointer;
   padding: 0;
-  font-size: 10px;          /* item 134: was 9px */
-  transition: background 120ms, color 120ms;
+  font-size: 11px;          /* item 166: was 10px */
+  transition: background 120ms, color 120ms, box-shadow 120ms;
 }
-/* item 129: invisible touch-target expansion — adds ~8px on all sides */
+/* item 129: invisible touch-target expansion — adds ~6px on all sides */
 .dtl-btn::after {
   content: '';
   position: absolute;
-  inset: -8px;
+  inset: -6px;
 }
 .dtl-btn:hover:not(:disabled) {
-  background: var(--accent-bg);
+  background: color-mix(in srgb, var(--accent-bg) 80%, rgba(255,255,255,0.05));
   color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.dtl-btn:active:not(:disabled) {
+  background: var(--accent-bg);
+  transform: scale(0.93);
 }
 .dtl-btn:disabled { opacity: 0.35; cursor: default; }
 /* Main play button — oversized, glow hover (items 123, 128) */
@@ -238,7 +280,9 @@
 
 /* RIGHT — animation scrubber: blue bg, white vertical bar (items 122, 124, 125, 135-137) */
 .dtl-anim-zone {
-  background: #0e1b2e;
+  background: rgba(14, 27, 46, 0.88);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -293,6 +337,72 @@
   z-index: 1;
 }
 
+/* item 154: fill bar — grows left→right proportional to scrub progress */
+.dtl-anim-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: rgba(100, 180, 255, 0.22);
+  pointer-events: none;
+  z-index: 0;
+  transition: width 80ms linear;
+  border-radius: 0;
+}
+/* During delay phase, fade out the fill bar left-to-right (left part fades first) */
+.dtl-anim-fill--fading {
+  /* item 164: duration matches the actual delayPhaseMs so it finishes exactly when the delay ends */
+  animation: dtl-fill-fadeout var(--delay-ms, 2s) linear forwards;
+}
+@keyframes dtl-fill-fadeout {
+  from {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+  to {
+    opacity: 0;
+    clip-path: inset(0 0 0 100%);
+  }
+}
+
+/* item 153: ANIMATION label right-aligned in the header */
+.dtl-anim-label {
+  margin-right: 4px;
+}
+
+/* items 151/152: zone toggle buttons (left of EVENTS, right of ANIMATION) */
+.dtl-zone-toggle {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.45);
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  pointer-events: auto;
+  flex-shrink: 0;
+}
+.dtl-zone-toggle:hover:not(:disabled) {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.1);
+}
+.dtl-zone-toggle.dtl-active {
+  color: var(--accent);
+}
+/* Make the EVENTS toggle not block waveform pointer events */
+.dtl-events-toggle {
+  pointer-events: auto;
+}
+.dtl-anim-toggle {
+  pointer-events: auto;
+}
+
+/* item 158: dtl-event-title was removed from inside center zone; use .dtl-event-title-bar above strip instead */
+
+/* item 157: when the detail panel is floating, the double timeline gets a narrower appearance */
+.double-timeline.dtl-panel-floating .dtl-strip {
+  height: 28px;
+}
+
 /* Hidden toggle button when visibility is off */
 .dtl-hidden-toggle {
   display: flex;
@@ -309,3 +419,77 @@
 }
 .dtl-hidden-toggle:hover { background: var(--bg-raised); color: var(--accent); }
 .dtl-hidden-label { letter-spacing: 0.04em; font-weight: 600; }
+
+/* ── Undocked (freely floating) state ────────────────────────────────────── */
+.double-timeline.dtl-timeline-undocked {
+  position: fixed;
+  left: unset;
+  right: unset;
+  bottom: unset;
+  /* item 170: width/height controlled via inline style (dynamic resize) */
+  min-width: 320px;
+  border-radius: 10px;
+  /* item 170: grey border instead of accent colour */
+  border: 2px solid rgba(100, 120, 145, 0.6);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6),
+              0 0 0 1px rgba(255, 255, 255, 0.06);
+  overflow: hidden;   /* clip zones to rounded corners */
+  transition: none;   /* no transition when dragging */
+  z-index: 100;
+  padding-bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+.double-timeline.dtl-timeline-undocked .dtl-strip {
+  border-radius: 0;
+  flex-shrink: 0;
+}
+/* item 169/171+170: title inside center zone; no special override needed for undocked */
+
+/* item 170: detail panel body inside the floating widget */
+.dtl-floating-panel-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--bg-surface);
+  min-height: 0;
+}
+/* Strip the DetailPanel's own border/margin inside the floating widget */
+.dtl-floating-panel-body .detail-panel {
+  margin-left: 0 !important;
+  border-top: none;
+  border-radius: 0;
+}
+.dtl-floating-panel-body .detail-panel-resize { display: none; }
+.dtl-floating-panel-body .detail-panel-width-handle { display: none; }
+.dtl-floating-panel-body .detail-panel-body {
+  max-height: none !important;
+  height: auto !important;
+}
+
+/* item 170: resize handles for the floating widget */
+.dtl-resize-handle {
+  position: absolute;
+  z-index: 10;
+}
+.dtl-resize-e  { right: 0; top: 8px; bottom: 8px; width: 6px; cursor: ew-resize; }
+.dtl-resize-w  { left: 0; top: 8px; bottom: 8px; width: 6px; cursor: ew-resize; }
+.dtl-resize-s  { bottom: 0; left: 8px; right: 8px; height: 6px; cursor: ns-resize; }
+.dtl-resize-n  { top: 0; left: 8px; right: 8px; height: 6px; cursor: ns-resize; }
+.dtl-resize-se { right: 0; bottom: 0; width: 12px; height: 12px; cursor: se-resize; }
+.dtl-resize-sw { left: 0; bottom: 0; width: 12px; height: 12px; cursor: sw-resize; }
+.dtl-resize-ne { right: 0; top: 0; width: 12px; height: 12px; cursor: ne-resize; }
+.dtl-resize-nw { left: 0; top: 0; width: 12px; height: 12px; cursor: nw-resize; }
+.dtl-resize-handle:hover { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+
+/* Undock / dock toggle button */
+.dtl-undock-btn {
+  color: rgba(255, 255, 255, 0.4);
+}
+.dtl-undock-btn:hover:not(:disabled) {
+  color: rgba(255, 255, 255, 0.9) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+.dtl-undock-btn.dtl-active {
+  color: var(--accent) !important;
+}

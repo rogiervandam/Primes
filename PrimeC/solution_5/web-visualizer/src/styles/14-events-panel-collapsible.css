@@ -1,9 +1,7 @@
 /* ---- Collapsible Step Panel ---- */
 .events-panel.collapsed {
   min-width: 0;
-  max-width: 0;
-  width: 0 !important;
-  overflow: visible;
+  /* item 163: overflow:hidden lets the CSS width transition animate the slide */
   z-index: 22;
   border-right: none;
   box-shadow: none;

@@ -1,6 +1,6 @@
 import React, { useRef, useState, useCallback, useMemo, useEffect } from 'react';
 import {
-  Play, Pause, SkipBack, StepBack, StepForward, SkipForward, Minus, Plus, Settings, Repeat,
+  Play, Pause, SkipBack, StepBack, StepForward, SkipForward, Minus, Plus, Repeat,
 } from '../Icons';
 import { usePlaybackContext } from '../contexts/PlaybackContext';
 
@@ -41,6 +41,30 @@ export default function DoubleTimeline({
   detailHeight = 200,
   onToggleDetail,
   onDetailHeightChange,
+  // items 151/152: toggle all-events vs single-event in detail panel
+  isAllEventsInDetailPanel = true,
+  onToggleAllEventsPanel,
+  // item 159: arrow toggles on left/right control side panels
+  isEventsPanelCollapsed = false,
+  onToggleEventsPanel,
+  isSettingsCollapsed = false,
+  onToggleSettingsPanel,
+  // item 154: delay phase ms for fill+fade animation
+  delayPhaseMs = 0,
+  // item 155: hide/reveal detail panel header
+  isDetailHeaderHidden = false,
+  onHideDetailHeader,
+  onRevealDetailHeader,
+  // item 157: float/dock detail panel
+  isDetailPanelFloating = false,
+  onFloatDetailPanel,
+  onDockDetailPanel,
+  // item 163: undock/dock the timeline itself
+  isTimelineUndocked = false,
+  onUndockTimeline,
+  onDockTimeline,
+  // item 170: when undocked, show detail panel content inside the floating widget
+  floatingPanelContent = null,
 }) {
   const {
     goToStep,
@@ -53,6 +77,23 @@ export default function DoubleTimeline({
   // splitFraction: fraction of total width given to the LEFT timeline.
   const [splitFraction, setSplitFraction] = useState(0.5);
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // item 163: free-floating position when undocked (x/y relative to viewport)
+  const [undockPos, setUndockPos] = useState(() => {
+    const w = typeof window !== 'undefined' ? window.innerWidth : 800;
+    const h = typeof window !== 'undefined' ? window.innerHeight : 600;
+    const floatW = Math.round(w * 0.6);
+    return { x: Math.round((w - floatW) / 2), y: Math.round(h * 0.15) };
+  });
+  const undockPosRef = useRef(undockPos);
+  // item 170: resizable when undocked
+  const [undockSize, setUndockSize] = useState(() => {
+    const w = typeof window !== 'undefined' ? window.innerWidth : 800;
+    return { width: Math.round(w * 0.6), height: 420 };
+  });
+  const undockSizeRef = useRef(undockSize);
+  // item 170: toggle to show/hide the detail contents inside the floating widget
+  const [floatingDetailVisible, setFloatingDetailVisible] = useState(true);
 
   // ── Canvas for the events waveform ──────────────────────────────────────────
   const waveCanvasRef = useRef(null);
@@ -152,6 +193,35 @@ export default function DoubleTimeline({
   // ── Centre divider drag: horizontal = split; vertical = detail panel (items 121, 125, 130–133, 142) ──
   // item 142: use pointer events so touch works the same as mouse
   const handleDividerPointerDown = useCallback((e) => {
+    // item 163: when undocked, grip drags the timeline position instead
+    if (isTimelineUndocked) {
+      e.stopPropagation();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startPos = { ...undockPosRef.current };
+      const onMove = (ev) => {
+        const newPos = {
+          x: startPos.x + ev.clientX - startX,
+          y: Math.max(0, startPos.y + ev.clientY - startY),
+        };
+        undockPosRef.current = newPos;
+        setUndockPos({ ...newPos });
+        // Auto-dock when dragged to the very bottom of the screen
+        if (ev.clientY > window.innerHeight - 80) {
+          onDockTimeline?.();
+        }
+      };
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+      return;
+    }
+
     // item 131: no preventDefault — buttons must still fire onClick
     const startX = e.clientX;
     const startY = e.clientY;
@@ -161,6 +231,7 @@ export default function DoubleTimeline({
     let isDragging = false;
     let openedByDrag = false;
     let closedByDrag = false;
+    let floatedByDrag = false;
     let lastH = startDetailHeight;
 
     const onMove = (ev) => {
@@ -187,6 +258,8 @@ export default function DoubleTimeline({
         // Panel was closed: open after tiny dead-zone, then track from scratch
         if (accY > 2 && !openedByDrag) {
           openedByDrag = true;
+          // item 155: reveal header when dragging up
+          onRevealDetailHeader?.();
           onToggleDetail?.();
         }
         if (openedByDrag && !closedByDrag) {
@@ -196,6 +269,13 @@ export default function DoubleTimeline({
           if (accY <= 0) {
             closedByDrag = true;
             onToggleDetail?.();
+            // item 155: hide header when dragged back down
+            onHideDetailHeader?.();
+          }
+          // item 170: drag all the way up → undock the timeline widget
+          if (!floatedByDrag && lastH >= MAX_DETAIL_HEIGHT) {
+            floatedByDrag = true;
+            onUndockTimeline?.();
           }
         }
       } else if (!closedByDrag) {
@@ -204,7 +284,14 @@ export default function DoubleTimeline({
         if (rawH <= 0) {
           closedByDrag = true;
           onToggleDetail?.();
+          // item 155: hide header when dragged all the way down
+          onHideDetailHeader?.();
           return;
+        }
+        // item 170: drag all the way up → undock the timeline widget
+        if (!floatedByDrag && rawH >= MAX_DETAIL_HEIGHT) {
+          floatedByDrag = true;
+          onUndockTimeline?.();
         }
         // item 139: track 1:1 without snapping
         lastH = Math.max(0, Math.min(MAX_DETAIL_HEIGHT, rawH));
@@ -225,6 +312,8 @@ export default function DoubleTimeline({
         if (lastH < 80) {
           // Too small — spring-close (CSS transition animates it shut)
           onToggleDetail?.();
+          // item 155: hide header when spring-closed
+          onHideDetailHeader?.();
         } else if (lastH < MIN_DETAIL_HEIGHT) {
           // Below min but not tiny — spring-snap up to minimum
           onDetailHeightChange?.(MIN_DETAIL_HEIGHT);
@@ -235,7 +324,7 @@ export default function DoubleTimeline({
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
-  }, [splitFraction, isDetailOpen, detailHeight, onToggleDetail, onDetailHeightChange]);
+  }, [isTimelineUndocked, onDockTimeline, onUndockTimeline, splitFraction, isDetailOpen, detailHeight, onToggleDetail, onDetailHeightChange, onHideDetailHeader, onRevealDetailHeader]);
 
   // ── Right timeline: animation scrubber (items 122, 125, 138) ──────────────────────
   // item 138: attach to zone (not track) so playhead and click target span full zone height
@@ -266,12 +355,72 @@ export default function DoubleTimeline({
   const isAnimPlaying = (playing || isStepAnimRunning || isSingleEventLoopActive) && !isAnimationReplayPaused;
   const stepCount = steps.length;
   const canNavigate = stepCount > 0 && !exporting;
+  const isInDelayPhase = delayPhaseMs > 0;
+
+  // item 156/158: event title shown as a bar ABOVE the strip
+  const eventTitle = currentStepData ? [
+    currentStepData.prime != null ? `Prime ${currentStepData.prime}` : null,
+    `Event ${currentStepData.stepId ?? currentStep}`,
+    currentStepData.operation || null,
+  ].filter(Boolean).join(' | ') : '';
+
+  // item 163: position container based on docked/undocked state
+  const dockedBottom = isDetailPanelFloating ? 0 : (isDetailOpen ? (detailHeight || 0) : 0);
+  const containerStyle = isTimelineUndocked
+    ? {
+        top: `${undockPos.y}px`,
+        left: `${undockPos.x}px`,
+        width: `${undockSize.width}px`,
+        height: (floatingPanelContent && floatingDetailVisible) ? `${undockSize.height}px` : undefined,
+      }
+    : { bottom: `${dockedBottom}px` };
+
+  // item 170: resize handlers for the floating widget
+  const handleResizeStart = useCallback((direction, e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startPos = { ...undockPosRef.current };
+    const startSize = { ...undockSizeRef.current };
+
+    const onMove = (ev) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      let newW = startSize.width;
+      let newH = startSize.height;
+      let newX = startPos.x;
+      let newY = startPos.y;
+
+      if (direction.includes('e')) newW = Math.max(320, startSize.width + dx);
+      if (direction.includes('w')) { newW = Math.max(320, startSize.width - dx); newX = startPos.x + (startSize.width - newW); }
+      if (direction.includes('s')) newH = Math.max(200, startSize.height + dy);
+      if (direction.includes('n')) { newH = Math.max(200, startSize.height - dy); newY = Math.max(0, startPos.y + (startSize.height - newH)); }
+
+      const newSize = { width: newW, height: newH };
+      const newPosition = { x: newX, y: newY };
+      undockSizeRef.current = newSize;
+      undockPosRef.current = newPosition;
+      setUndockSize({ ...newSize });
+      setUndockPos({ ...newPosition });
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  }, []);
 
   return (
     <div
       ref={containerRef}
-      className={`double-timeline${isCollapsed ? ' dtl-collapsed' : ''}`}
+      className={`double-timeline${isCollapsed ? ' dtl-collapsed' : ''}${isDetailPanelFloating ? ' dtl-panel-floating' : ''}${isTimelineUndocked ? ' dtl-timeline-undocked' : ''}`}
+      style={containerStyle}
     >
+      {/* item 156/158/169/171: event title is now inside the center zone so it moves with the dragger */}
       <div className="dtl-strip">
 
         {/* LEFT: events waveform */}
@@ -291,6 +440,15 @@ export default function DoubleTimeline({
         >
           <canvas ref={waveCanvasRef} className="dtl-wave-canvas" />
           <div className="dtl-wave-overlay">
+            {/* item 159: left arrow toggles the events panel (left sidebar) */}
+            {onToggleEventsPanel && (
+              <button
+                className={`dtl-btn dtl-zone-toggle dtl-events-toggle${!isEventsPanelCollapsed ? ' dtl-active' : ''}`}
+                onClick={(e) => { e.stopPropagation(); onToggleEventsPanel(); }}
+                onPointerDown={(e) => e.stopPropagation()}
+                title={isEventsPanelCollapsed ? 'Show events panel' : 'Hide events panel'}
+              >‹</button>
+            )}
             <span className="dtl-wave-label">Events</span>
             <span className="dtl-wave-counter">{currentStep}/{Math.max(0, stepCount - 1)}</span>
           </div>
@@ -302,7 +460,12 @@ export default function DoubleTimeline({
           onPointerDown={handleDividerPointerDown}
           title="Drag left/right to resize · Drag up/down to expand/collapse detail panel"
         >
-          <div className="dtl-grip" />
+          {/* item 169/171: title floats above the center zone, moves with the dragger */}
+          {eventTitle && (
+            <div className="dtl-event-title-bar" title={eventTitle}>
+              {eventTitle}
+            </div>
+          )}
           <div className="dtl-transport">
             <button className="dtl-btn" onClick={() => canNavigate && goToStep(0)} disabled={!canNavigate} title="First event">
               <SkipBack size={10} />
@@ -334,7 +497,45 @@ export default function DoubleTimeline({
             <button className="dtl-btn dtl-toggle-btn" onClick={() => setIsCollapsed((v) => !v)} title={isCollapsed ? 'Expand timeline' : 'Collapse timeline'}>
               {isCollapsed ? '▲' : '▼'}
             </button>
+            {/* item 163: undock button — pops timeline out as freely draggable */}
+            {!isTimelineUndocked && onUndockTimeline && (
+              <button
+                className="dtl-btn dtl-undock-btn"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const rect = containerRef.current?.getBoundingClientRect();
+                  if (rect) {
+                    const newPos = { x: Math.round(rect.left), y: Math.round(rect.top) };
+                    undockPosRef.current = newPos;
+                    setUndockPos(newPos);
+                  }
+                  onUndockTimeline();
+                }}
+                title="Detach timeline — drag to reposition"
+              >⊞</button>
+            )}
+            {/* item 163: dock-back button — shown only when undocked */}
+            {isTimelineUndocked && onDockTimeline && (
+              <button
+                className="dtl-btn dtl-undock-btn dtl-active"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); onDockTimeline(); }}
+                title="Dock timeline back to bottom"
+              >⊟</button>
+            )}
+            {/* item 170: toggle to show/hide detail contents when floating */}
+            {isTimelineUndocked && floatingPanelContent && (
+              <button
+                className={`dtl-btn${floatingDetailVisible ? ' dtl-active' : ''}`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); setFloatingDetailVisible((v) => !v); }}
+                title={floatingDetailVisible ? 'Hide detail panel' : 'Show detail panel'}
+              >{floatingDetailVisible ? '▼' : '▲'}</button>
+            )}
           </div>
+          {/* item 168: grip at bottom of center zone so dots appear inside the dragger, not above */}
+          <div className="dtl-grip" />
         </div>
 
         {/* RIGHT: animation scrubber — blue bg, white bar playhead (items 122, 124, 125, 135-138) */}
@@ -354,17 +555,23 @@ export default function DoubleTimeline({
             className="dtl-anim-playhead"
             style={{ left: `${stepScrubProgress}%` }}
           />
-          {/* Header row: [speed%] [Animation label] [progress] [replay] [gear] (items 137, 135, 136) */}
+          {/* item 154: fill bar that grows 0→100% and fades out during delay phase */}
+          <div
+            className={`dtl-anim-fill${isInDelayPhase ? ' dtl-anim-fill--fading' : ''}`}
+            style={{ width: `${stepScrubProgress}%`, '--delay-ms': `${delayPhaseMs}ms` }}
+          />
+          {/* Header row: items 137, 135, 136; item 153: ANIMATION label right-aligned */}
           <div className="dtl-anim-header">
             <div className="dtl-anim-header-left">
               {playSpeedPercent != null && (
                 <span className="dtl-anim-speed">{playSpeedPercent}%</span>
               )}
-              <span className="dtl-wave-label">Animation</span>
               <span className="dtl-wave-counter">{parseFloat(Number(stepScrubProgress).toFixed(1))}%</span>
             </div>
-            {/* item 138: stop propagation so replay/gear clicks don't trigger a seek */}
-            <div className="dtl-anim-header-right" onPointerDown={(e) => e.stopPropagation()}>
+            {/* item 138: stop propagation so replay/toggle clicks don't trigger a seek */}
+            <div className="dtl-anim-header-right" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onPointerCancel={(e) => e.stopPropagation()}>
+              {/* item 153: ANIMATION label right-aligned */}
+              <span className="dtl-wave-label dtl-anim-label">Animation</span>
               {/* Replay toggle (item 135) */}
               <button
                 className={`dtl-btn dtl-repeat-btn${isSingleEventRepeatEnabled ? ' dtl-active' : ''}`}
@@ -373,11 +580,13 @@ export default function DoubleTimeline({
               >
                 <Repeat size={10} />
               </button>
-              {/* Gear icon moved here from centre (item 136) */}
-              {onOpenAnimationSettings && (
-                <button className="dtl-btn dtl-gear" onClick={onOpenAnimationSettings} title="Animation settings">
-                  <Settings size={10} />
-                </button>
+              {/* item 152/159: right arrow toggles the settings panel (right sidebar) */}
+              {onToggleSettingsPanel && (
+                <button
+                  className={`dtl-btn dtl-zone-toggle dtl-anim-toggle${!isSettingsCollapsed ? ' dtl-active' : ''}`}
+                  onClick={onToggleSettingsPanel}
+                  title={isSettingsCollapsed ? 'Show settings panel' : 'Hide settings panel'}
+                >›</button>
               )}
             </div>
           </div>
@@ -385,6 +594,25 @@ export default function DoubleTimeline({
         </div>
 
       </div>
+      {/* item 170: floating panel content (detail panel) shown when undocked */}
+      {isTimelineUndocked && floatingDetailVisible && floatingPanelContent && (
+        <div className="dtl-floating-panel-body">
+          {floatingPanelContent}
+        </div>
+      )}
+      {/* item 170: resize handles for the floating widget */}
+      {isTimelineUndocked && (
+        <>
+          <div className="dtl-resize-handle dtl-resize-e" onPointerDown={(e) => handleResizeStart('e', e)} />
+          <div className="dtl-resize-handle dtl-resize-w" onPointerDown={(e) => handleResizeStart('w', e)} />
+          <div className="dtl-resize-handle dtl-resize-s" onPointerDown={(e) => handleResizeStart('s', e)} />
+          <div className="dtl-resize-handle dtl-resize-n" onPointerDown={(e) => handleResizeStart('n', e)} />
+          <div className="dtl-resize-handle dtl-resize-se" onPointerDown={(e) => handleResizeStart('se', e)} />
+          <div className="dtl-resize-handle dtl-resize-sw" onPointerDown={(e) => handleResizeStart('sw', e)} />
+          <div className="dtl-resize-handle dtl-resize-ne" onPointerDown={(e) => handleResizeStart('ne', e)} />
+          <div className="dtl-resize-handle dtl-resize-nw" onPointerDown={(e) => handleResizeStart('nw', e)} />
+        </>
+      )}
     </div>
   );
 }

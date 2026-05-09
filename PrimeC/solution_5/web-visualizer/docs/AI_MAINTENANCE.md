@@ -689,6 +689,55 @@ function useExamplePipeline(input) {
 Make more backlog items, be creative!
 Find two delightful improvements
 
+## 18. Timeline & Detail Panel Bug Fixes (items 158–162)
+
+**Status: COMPLETED** (build verified ✓ built in 1.08s).
+
+### What was done
+
+- **Item 158** – Event title bar moved from inside `.dtl-center-zone` to a separate `dtl-event-title-bar` div rendered above the strip. The center zone was `overflow: hidden` at `52px` which clipped the title. The new bar is `16px` high, uses `color-mix` background, and is hidden when timeline is collapsed.
+- **Item 159** – Left arrow in DoubleTimeline now calls `onToggleEventsPanel` (toggles left events sidebar). Right arrow calls `onToggleSettingsPanel` (toggles right settings sidebar). Previously both called `onToggleAllEventsPanel`. Props `isEventsPanelCollapsed` and `isSettingsCollapsed` control active state.
+- **Item 160** – `.dtl-center-zone` changed from `align-self: center` to `align-self: flex-end` so it protrudes upward only. Added `padding-bottom: 4px` to `.double-timeline` so the protrusion doesn't clip at screen bottom.
+- **Item 161** – `.dtl-center-zone` gets `min-width: 160px; max-width: 240px` to prevent layout shifts when the event title text width changes during scrubbing. Event title moved out of the center zone entirely (see item 158) so it no longer affects zone dimensions.
+- **Item 162** – Replaced single `isAllEventsInDetailPanel` toggle (▲/▼) with two independent state bits: `isAllEventsInDetailPanel` (all-events floater, default `false`) and `isSingleEventSliderInPanel` (single-event slider, default `false`). Two separate buttons — (≡) and (▷) — appear in the detail panel header. Both default to hidden. Both states persist to localStorage via `useViewPrefsSync`.
+
+### Files changed (items 158–162)
+- `src/styles/24-double-timeline.css` — `.dtl-event-title-bar`, `align-self`, `padding-bottom`, min/max-width for center zone
+- `src/visualizer/DoubleTimeline.jsx` — event title bar above strip, arrow toggle callbacks rewired, new props `isEventsPanelCollapsed`/`isSettingsCollapsed`/`onToggleEventsPanel`/`onToggleSettingsPanel`
+- `src/Visualizer.jsx` — new widget handler names (`toggleAllEventsFloater`, `toggleSingleEventSlider`), `isSingleEventSliderInPanel` state, `useViewPrefsSync` updated
+- `src/hooks/useWidgetState.js` — added `isSingleEventSliderInPanel` state
+- `src/hooks/useViewPrefsSync.js` — added `isSingleEventSliderInPanel` parameter and dep
+- `src/lib/viewPrefs.js` — `isAllEventsInDetailPanel` default changed to `false`; added `isSingleEventSliderInPanel` (default `false`)
+- `src/visualizer/VisualizerMainContent.jsx` — extracted `toggleAllEventsFloater`/`toggleSingleEventSlider`/`isSingleEventSliderInPanel`, passed to DetailPanel
+- `src/DetailPanel.jsx` — two-button toggle header (≡/▷), independent `hasDockContent` logic, both states from `detailState`
+- `src/styles/08-detail-panel.css` — `.detail-panel-widget-toggles`, `.detail-panel-widget-btn`, `.detail-panel-widget-btn--active` styles
+
+## 17. Timeline & Detail Panel Interaction Improvements (items 150–157)
+
+**Status: COMPLETED** (build verified, all items implemented).
+
+### What was done
+
+- **Item 150** – All-events transport moved into detail panel header by default. Toggle button (▲/▼) in detail panel header switches between all-events view and single-event slider view. Default: all-events shown. Persisted in localStorage via `isAllEventsInDetailPanel`.
+- **Item 151** – Arrow toggle button (‹/›) added left of "EVENTS" label in the wave zone overlay. Controls the same `isAllEventsInDetailPanel` state.
+- **Item 152** – Arrow toggle button (›/‹) added right of "Animation" label in the animation zone, replacing the gear icon (gear removed). Controls the same toggle.
+- **Item 153** – "Animation" label moved to right side of the animation zone header (right-aligned), alongside the repeat and toggle buttons.
+- **Item 154** – Fill bar added to animation zone: grows left→right proportional to scrub progress. During delay phase (`delayPhaseMs > 0`), the bar fades out left-to-right via `@keyframes dtl-fill-fadeout` with `clip-path` animation.
+- **Item 155** – When center dragger is dragged all the way down, `isDetailHeaderHidden` state is set. CSS class `header-hidden` hides `.detail-panel-toggle` and `.detail-panel-dock-row`. Dragging up immediately clears the state and reveals the header.
+- **Item 156** – Event title (`Prime X | Event N | operation`) shown above the grip dots in the center dragger zone. Computed from `currentStepData`. Part of the dragging area (inherits `onPointerDown={handleDividerPointerDown}`). Annotation stays in detail panel header, gated on `open`.
+- **Item 157** – When dragged to `MAX_DETAIL_HEIGHT` (700px), `isDetailPanelFloating` state is set. Detail panel becomes `position: fixed` with accent border and shadow. DoubleTimeline gets `.dtl-panel-floating` class for narrower strip. Dock-back button (↓) appears in floating panel header.
+
+### Files changed
+- `src/hooks/useWidgetState.js` — `isAllEventsInDetailPanel` default from viewPrefs
+- `src/hooks/usePanelState.js` — added `isDetailHeaderHidden`, `isDetailPanelFloating` state
+- `src/lib/viewPrefs.js` — `isAllEventsInDetailPanel` default changed to `true`
+- `src/Visualizer.jsx` — wired all new state/callbacks into prop objects
+- `src/visualizer/VisualizerMainContent.jsx` — extracted new props, passed to children
+- `src/visualizer/DoubleTimeline.jsx` — JSX render updated (items 151-154, 156); drag handler updated (items 155, 157)
+- `src/DetailPanel.jsx` — dock row logic, toggle button, dock button, annotation gating
+- `src/styles/08-detail-panel.css` — `.header-hidden`, `.floating` styles, dock button
+- `src/styles/24-double-timeline.css` — fill bar, zone toggle buttons, event title, floating strip
+
 ## 16. Large Refactor: Redundancy Removal + CSS/JSX Generalization
 
 **Status: COMPLETED** (all phases A–G executed and build verified).

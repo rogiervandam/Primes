@@ -18,12 +18,15 @@
 }
 
 /* Wraps CanvasStage + DetailPanel so the detail panel renders below the canvas
-   rather than as a row sibling next to it. */
+   rather than as a row sibling next to it. position:relative makes this the
+   containing block for the absolutely-positioned DoubleTimeline (which floats
+   over the canvas). */
 .canvas-and-detail-column {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-width: 0;
   overflow: visible;
+  position: relative;
 }
 

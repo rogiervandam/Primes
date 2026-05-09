@@ -21,6 +21,8 @@ export function useWidgetState({ initialPrefs }) {
   const [isSingleEventWidgetRevealed, setIsSingleEventWidgetRevealed] = useState(false);
   // When true, the all-events transport is shown inside the detail panel.
   const [isAllEventsInDetailPanel, setIsAllEventsInDetailPanel] = useState(initialPrefs.isAllEventsInDetailPanel);
+  // When true, the single-event animation slider is shown inside the detail panel (item 162).
+  const [isSingleEventSliderInPanel, setIsSingleEventSliderInPanel] = useState(initialPrefs.isSingleEventSliderInPanel ?? false);
   // When true, the all-events widget and single-event banner are joined.
   const [areWidgetsJoined, setAreWidgetsJoined] = useState(
     (initialPrefs.areWidgetsJoined === true && initialPrefs.isEventsPanelCollapsed === true)
@@ -46,6 +48,7 @@ export function useWidgetState({ initialPrefs }) {
     isAllEventsWidgetHidden, setIsAllEventsWidgetHidden,
     isSingleEventWidgetRevealed, setIsSingleEventWidgetRevealed,
     isAllEventsInDetailPanel, setIsAllEventsInDetailPanel,
+    isSingleEventSliderInPanel, setIsSingleEventSliderInPanel,
     areWidgetsJoined, setAreWidgetsJoined,
     joinBannerRect, setJoinBannerRect,
     pendingBannerDragStart, setPendingBannerDragStart,

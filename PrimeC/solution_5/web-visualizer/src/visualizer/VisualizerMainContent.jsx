@@ -68,8 +68,8 @@ export default function VisualizerMainContent(props) {
   const { events: panelsEvents = {}, detail: panelsDetail = {}, settings: panelsSettings = {}, timing: panelsTiming = {} } = panels;
   const { isCollapsed: isEventsPanelCollapsed, width: panelWidth, isAllEventsWidgetHidden, handlers: eventsHandlers = {} } = panelsEvents;
   const { toggle: toggleEventsPanel, setCollapsed: setIsEventsPanelCollapsed, setPanelWidth } = eventsHandlers;
-  const { isOpen: isDetailOpen, isOpenRef: isDetailOpenRef, height: detailHeight, width: detailWidth, handlers: detailHandlers = {} } = panelsDetail;
-  const { toggle: toggleDetailPanel, setOpen: setIsDetailOpen, updateHeight: updateDetailHeight, setWidth: setDetailWidth } = detailHandlers;
+  const { isOpen: isDetailOpen, isOpenRef: isDetailOpenRef, height: detailHeight, width: detailWidth, isHeaderHidden: isDetailHeaderHidden, isFloating: isDetailPanelFloating, handlers: detailHandlers = {} } = panelsDetail;
+  const { toggle: toggleDetailPanel, setOpen: setIsDetailOpen, updateHeight: updateDetailHeight, setWidth: setDetailWidth, dock: dockDetailPanel } = detailHandlers;
   const { tabRequest: settingsTabRequest, isCollapsed: isSettingsCollapsed, handlers: settingsHandlers = {} } = panelsSettings;
   const { setActiveTab: setSettingsActiveTab, setLayoutSettings } = settingsHandlers;
   const { isOpen: isTimingPanelOpen, focusOp: timingFocusOp, handlers: timingHandlers = {} } = panelsTiming;
@@ -82,7 +82,7 @@ export default function VisualizerMainContent(props) {
   // Widgets
   const { state: widgetsState = {}, handlers: widgetHandlers = {} } = widgets;
   const { areJoined: areWidgetsJoined, isSingleEventRevealed: isSingleEventWidgetRevealed, joinBannerRect, pendingBannerDragStart, revealStepRequest } = widgetsState;
-  const { expandEventsPanel: expandEventsPanelFromWidget, dockEventsToTopBar: dockEventsWidgetToTopBar, dockEventsToDetail: dockEventsWidgetToDetailPanel, pushEventsToPanel: pushJoinedWidgetToEventsPanel, pushEventsToDetail: pushJoinedWidgetToDetailPanel, hideJoined: hideJoinedWidget, split: splitWidgets, join: joinWidgets, setPendingDragStart: setPendingBannerDragStart } = widgetHandlers;
+  const { expandEventsPanel: expandEventsPanelFromWidget, dockEventsToTopBar: dockEventsWidgetToTopBar, dockEventsToDetail: dockEventsWidgetToDetailPanel, pushEventsToPanel: pushJoinedWidgetToEventsPanel, pushEventsToDetail: pushJoinedWidgetToDetailPanel, hideJoined: hideJoinedWidget, split: splitWidgets, join: joinWidgets, setPendingDragStart: setPendingBannerDragStart, toggleAllEventsFloater, isAllEventsInDetailPanel, toggleSingleEventSlider, isSingleEventSliderInPanel } = widgetHandlers;
 
   // Overlays
   const { balloons: overlayBalloons = {}, heatMap: overlayHeatMap = {}, cache: overlayCache = {}, prime: overlayPrime = {}, range: overlayRange = {}, multiples: overlayMultiples = {}, minimap: overlayMinimap = {} } = overlays;
@@ -242,54 +242,72 @@ export default function VisualizerMainContent(props) {
       )}
       {/* DetailPanel lives in main-content (not inside canvas-area) so it is
           positioned relative to the full main-content area (item 58). */}
-      {currentStepData && (
-        <DoubleTimeline
-          steps={steps}
-          currentStep={currentStep}
-          currentStepData={currentStepData}
-          playing={playing}
-          isDetailOpen={isDetailOpen}
-          detailHeight={detailHeight}
-          onToggleDetail={toggleDetailPanel}
-          onDetailHeightChange={updateDetailHeight}
-          {...doubleTimelineProps}
-        />
-      )}
-      <DetailPanel
-        detailState={{
-          step: currentStepData,
-          stepIndex: currentStep,
-          open: isDetailOpen,
-          height: detailHeight,
-          width: detailWidth,
-          playing,
-          stepStats: selectedSteps.size > 1 ? null : stepStats,
-          bitLayout: layoutSettings.bitLayout,
-          byteLayout: layoutSettings.byteLayout,
-          eventTitleVisible: eventTitleSettings.visible && !areWidgetsJoined,
-          sourceLineNumber: currentStepSourceLine,
-          hasRawSource: !!sourceRef,
-          aggMaskStepIndex,
-        }}
-        detailConfig={{
-          storageModel,
-          wheelDefinition,
-          benchmarkTimingData,
-          eventAnimSliders: stepAnimSlidersDockedContent || stepAnimSlidersContent,
-          allEventsTransport: isEventsPanelCollapsed ? allEventsTransportContent : null,
-        }}
-        detailHandlers={{
-          onToggle: toggleDetailPanel,
-          onHeightChange: updateDetailHeight,
-          onWidthChange: setDetailWidth,
-          onInspectChangedBits: () => openDetailInspector('bits'),
-          onInspectMarkedNumbers: () => openDetailInspector('numbers'),
-          onShowEventTitle,
-          onHideEventTitle: () => setEventTitleSettings((prev) => ({ ...prev, visible: false })),
-          onOpenRawLog,
-          onAggMaskStepChange: aggMaskStepSetterRef ? (idx) => aggMaskStepSetterRef.current?.(idx) : undefined,
-        }}
-      />
+      {currentStepData && (() => {
+        const isTimelineUndocked = doubleTimelineProps.isTimelineUndocked;
+        // item 170: build DetailPanel node so it can be reused in the floating widget
+        const detailPanelNode = (
+          <DetailPanel
+            detailState={{
+              step: currentStepData,
+              stepIndex: currentStep,
+              open: isTimelineUndocked ? true : isDetailOpen,
+              height: detailHeight,
+              width: detailWidth,
+              playing,
+              stepStats: selectedSteps.size > 1 ? null : stepStats,
+              bitLayout: layoutSettings.bitLayout,
+              byteLayout: layoutSettings.byteLayout,
+              eventTitleVisible: eventTitleSettings.visible && !areWidgetsJoined,
+              sourceLineNumber: currentStepSourceLine,
+              hasRawSource: !!sourceRef,
+              aggMaskStepIndex,
+              isHeaderHidden: isDetailHeaderHidden,
+              isFloating: isDetailPanelFloating,
+              isAllEventsInDetailPanel: false,   /* item 170+: hidden for now */
+              isSingleEventSliderInPanel: false, /* item 170+: hidden for now */
+            }}
+            detailConfig={{
+              storageModel,
+              wheelDefinition,
+              benchmarkTimingData,
+              eventAnimSliders: stepAnimSlidersDockedContent || stepAnimSlidersContent,
+              allEventsTransport: allEventsTransportContent,
+            }}
+            detailHandlers={{
+              onToggle: isTimelineUndocked ? undefined : toggleDetailPanel,
+              onHeightChange: updateDetailHeight,
+              onWidthChange: setDetailWidth,
+              onInspectChangedBits: () => openDetailInspector('bits'),
+              onInspectMarkedNumbers: () => openDetailInspector('numbers'),
+              onShowEventTitle,
+              onHideEventTitle: () => setEventTitleSettings((prev) => ({ ...prev, visible: false })),
+              onOpenRawLog,
+              onAggMaskStepChange: aggMaskStepSetterRef ? (idx) => aggMaskStepSetterRef.current?.(idx) : undefined,
+              onToggleAllEventsFloater: undefined,    /* item 170+: hidden for now */
+              onToggleSingleEventSlider: undefined,   /* item 170+: hidden for now */
+              onDockDetailPanel: dockDetailPanel,
+            }}
+          />
+        );
+        return (
+          <>
+            <DoubleTimeline
+              steps={steps}
+              currentStep={currentStep}
+              currentStepData={currentStepData}
+              playing={playing}
+              isDetailOpen={isDetailOpen}
+              detailHeight={detailHeight}
+              onToggleDetail={toggleDetailPanel}
+              onDetailHeightChange={updateDetailHeight}
+              floatingPanelContent={isTimelineUndocked ? detailPanelNode : null}
+              {...doubleTimelineProps}
+            />
+            {/* item 170: only show bottom DetailPanel when the timeline is docked */}
+            {!isTimelineUndocked && detailPanelNode}
+          </>
+        );
+      })()}
       </div>
       {areWidgetsJoined && isEventsPanelCollapsed && !isAllEventsWidgetHidden && eventTitleSettings.visible && isSingleEventWidgetRevealed && (
         <JoinedEventsWidget

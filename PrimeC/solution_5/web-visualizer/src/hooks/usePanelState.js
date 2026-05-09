@@ -35,6 +35,11 @@ export function usePanelState({ initialPrefs, introPhase, isSingleEventWidgetRev
 
   const [stepStats, setStepStats] = useState(null);
 
+  // item 155: true when the detail panel header is hidden (panel dragged all the way down)
+  const [isDetailHeaderHidden, setIsDetailHeaderHidden] = useState(false);
+  // item 157: true when the detail panel is floating (detached from the bottom)
+  const [isDetailPanelFloating, setIsDetailPanelFloating] = useState(false);
+
   const [settingsActiveTab, setSettingsActiveTab] = useState('layout');
   const [settingsTabRequest, setSettingsTabRequest] = useState(null);
 
@@ -80,5 +85,9 @@ export function usePanelState({ initialPrefs, introPhase, isSingleEventWidgetRev
     settingsActiveTab, setSettingsActiveTab,
     settingsTabRequest, setSettingsTabRequest,
     deferredPanelStateRef,
+    // item 155: header hidden when dragged all the way down
+    isDetailHeaderHidden, setIsDetailHeaderHidden,
+    // item 157: floating detail panel
+    isDetailPanelFloating, setIsDetailPanelFloating,
   };
 }

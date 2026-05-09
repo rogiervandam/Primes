@@ -43,6 +43,13 @@ export default function DetailPanel({
     sourceLineNumber,
     hasRawSource = false,
     aggMaskStepIndex = 0,
+    // item 155: hide header when dragged all the way down
+    isHeaderHidden = false,
+    // item 157: floating panel
+    isFloating = false,
+    // item 162: separate show-states for all-events floater and single-event slider
+    isAllEventsInDetailPanel = false,
+    isSingleEventSliderInPanel = false,
   } = detailState;
 
   const {
@@ -63,7 +70,18 @@ export default function DetailPanel({
     onHideEventTitle,
     onOpenRawLog,
     onAggMaskStepChange,
+    // item 162: separate toggle buttons for all-events floater and single-event slider
+    onToggleAllEventsFloater,
+    onToggleSingleEventSlider,
+    // item 157: dock floating panel back to the bottom
+    onDockDetailPanel,
   } = detailHandlers;
+
+  // item 162: dock row shows floater when isAllEventsInDetailPanel=true, slider when isSingleEventSliderInPanel=true
+  // Both can be shown simultaneously; neither shown by default
+  const showAllEventsInPanel = isAllEventsInDetailPanel && !!allEventsTransport;
+  const showSingleEventInPanel = isSingleEventSliderInPanel && !!eventAnimSliders;
+  const hasDockContent = showAllEventsInPanel || showSingleEventInPanel;
   // Benchmark timing row matching the current step's operation (if any)
   const benchmarkOpTiming = useMemo(() => {
     if (!step || !benchmarkTimingData || !Array.isArray(benchmarkTimingData.timings)) return null;
@@ -598,12 +616,13 @@ export default function DetailPanel({
   const maskMetaLayout = maskPreview && maskPreview.previewHeight > 84 ? 'side' : 'stacked';
 
   return (
-    <div className={`detail-panel ${open ? 'open' : 'collapsed'}`}>
+    <div className={`detail-panel ${open ? 'open' : 'collapsed'}${isHeaderHidden && !open ? ' header-hidden' : ''}${isFloating ? ' floating' : ''}`}>
       {open && !playing && <div className="detail-panel-resize" onMouseDown={handleHeightDrag} />}
       <div className="detail-panel-toggle" onClick={onToggle}>
-        {(allEventsTransport || (!eventTitleVisible && eventAnimSliders)) && (
+        {/* item 162: dock row — shows floater and/or slider based on independent toggle states */}
+        {hasDockContent && (
           <div className="detail-panel-dock-row">
-            {allEventsTransport && (
+            {showAllEventsInPanel && allEventsTransport && (
               <div
                 className="detail-panel-all-events-transport"
                 onClick={(e) => e.stopPropagation()}
@@ -612,40 +631,56 @@ export default function DetailPanel({
                 {allEventsTransport}
               </div>
             )}
+            {showSingleEventInPanel && eventAnimSliders && (
+              <div
+                className="detail-panel-all-events-transport"
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                {eventAnimSliders}
+              </div>
+            )}
           </div>
         )}
+        {/* item 162: left toggle = all-events floater, right toggle = single-event slider */}
+        <div className="detail-panel-widget-toggles">
+          {onToggleAllEventsFloater && (
+            <button
+              className={`detail-panel-widget-btn${showAllEventsInPanel ? ' detail-panel-widget-btn--active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); onToggleAllEventsFloater(); }}
+              title={showAllEventsInPanel ? 'Hide all-events transport' : 'Show all-events transport'}
+            >≡</button>
+          )}
+          {onToggleSingleEventSlider && (
+            <button
+              className={`detail-panel-widget-btn${showSingleEventInPanel ? ' detail-panel-widget-btn--active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); onToggleSingleEventSlider(); }}
+              title={showSingleEventInPanel ? 'Hide single-event slider' : 'Show single-event slider'}
+            >▷</button>
+          )}
+        </div>
         <div className="detail-panel-title">
           <span className="detail-panel-title-main">{panelTitle}</span>
-          <span className="detail-panel-annotation">{step.annotation || ''}</span>
+          {/* item 156: annotation only shown when detail panel is visible */}
+          {open && <span className="detail-panel-annotation">{step.annotation || ''}</span>}
         </div>
-        {!eventTitleVisible && eventAnimSliders && (
-          <div className="detail-panel-event-sliders">
-            {eventAnimSliders}
-          </div>
-        )}
-        {(!eventTitleVisible || true) && (
+        {/* item 157: dock button — only shown when floating */}
+        {isFloating && onDockDetailPanel && (
           <button
-            className="detail-panel-show-banner-btn"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (eventTitleVisible) {
-                onHideEventTitle && onHideEventTitle();
-              } else {
-                onShowEventTitle && onShowEventTitle();
-                if (open) onToggle();
-              }
-            }}
-            title={eventTitleVisible ? 'Hide single event widget' : 'Show single event widget'}
-          >{eventTitleVisible ? '▼' : '▲'}</button>
-        )}                {/* item 143: close button — only shown when panel is open */}
+            className="detail-panel-dock-btn"
+            onClick={(e) => { e.stopPropagation(); onDockDetailPanel(); }}
+            title="Dock panel back to bottom"
+          >↓</button>
+        )}
+        {/* item 143: close button — only shown when panel is open */}
         {open && (
           <button
             className="detail-panel-close-btn"
             onClick={(e) => { e.stopPropagation(); onToggle && onToggle(); }}
             title="Close detail panel"
-          >\u2715</button>
-        )}      </div>
-
+          >✕</button>
+        )}
+      </div>
 
       {(open || isBodyAnimatingOut) && (
         <div className={`detail-panel-body detail-panel-body-compact${bodyAnimClass ? ` body-${bodyAnimClass}` : ''}`} style={{

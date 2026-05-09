@@ -952,28 +952,8 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
   ) : null;
 
   return (
-      <div className={`events-panel${panelCollapsed ? ' collapsed' : ''}${isCollapsingOut ? ` collapsing-out collapsing-out--${collapseDir}` : ''}${isExpandingIn ? ' expanding-in' : ''}${floatDropHint === 'left' ? ' drop-hint-left' : ''}${floatDropHint === 'detail' ? ' drop-hint-detail' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: panelCollapsed ? '32px' : `${width}px` }}>
-      {panelCollapsed && !isAllEventsWidgetHidden && !areWidgetsJoined && (
-        <div
-          className={`events-panel-floating-title${floatDropHint ? ` dropping dropping-${floatDropHint}` : ''}`}
-          style={{ transform: `translate(${floatDrag.x}px, ${floatDrag.y}px)`, cursor: 'grab' }}
-          onMouseDown={handleFloatDragStart}
-        >
-          <div className="events-panel-float-top-row">
-            <button className="events-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Expand events panel" onMouseDown={(e) => e.stopPropagation()}>▼</button>
-            <span className="panel-label" title="Events">Events</span>
-            {!eventTitleVisible && onShowEventTitle && (
-              <button
-                className="events-panel-show-event-title-btn"
-                onClick={(e) => { e.stopPropagation(); onShowEventTitle(); }}
-                onMouseDown={(e) => e.stopPropagation()}
-                title="Show single-event widget"
-              ><Eye size={11} /></button>
-            )}
-          </div>
-          {transportControls}
-        </div>
-      )}
+    <>
+      <div className={`events-panel${panelCollapsed ? ' collapsed' : ''}${isCollapsingOut ? ` collapsing-out collapsing-out--${collapseDir}` : ''}${isExpandingIn ? ' expanding-in' : ''}${floatDropHint === 'left' ? ' drop-hint-left' : ''}${floatDropHint === 'detail' ? ' drop-hint-detail' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: panelCollapsed ? '0' : `${width}px` }}>
       {!panelCollapsed && (
         <>
       <div className="events-panel-header">
@@ -1115,5 +1095,28 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
         </>
       )}
     </div>
+    {/* item 163: floating toggle rendered outside the panel so overflow:hidden can animate properly */}
+    {panelCollapsed && !isAllEventsWidgetHidden && !areWidgetsJoined && (
+      <div
+        className={`events-panel-floating-title${floatDropHint ? ` dropping dropping-${floatDropHint}` : ''}`}
+        style={{ transform: `translate(${floatDrag.x}px, ${floatDrag.y}px)`, cursor: 'grab' }}
+        onMouseDown={handleFloatDragStart}
+      >
+        <div className="events-panel-float-top-row">
+          <button className="events-panel-collapse-inline-btn" onClick={onToggleCollapse} title="Expand events panel" onMouseDown={(e) => e.stopPropagation()}>▼</button>
+          <span className="panel-label" title="Events">Events</span>
+          {!eventTitleVisible && onShowEventTitle && (
+            <button
+              className="events-panel-show-event-title-btn"
+              onClick={(e) => { e.stopPropagation(); onShowEventTitle(); }}
+              onMouseDown={(e) => e.stopPropagation()}
+              title="Show single-event widget"
+            ><Eye size={11} /></button>
+          )}
+        </div>
+        {transportControls}
+      </div>
+    )}
+    </>
   );
 }

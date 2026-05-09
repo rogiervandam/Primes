@@ -283,6 +283,7 @@ export default function Visualizer({
     isAllEventsWidgetHidden, setIsAllEventsWidgetHidden,
     isSingleEventWidgetRevealed, setIsSingleEventWidgetRevealed,
     isAllEventsInDetailPanel, setIsAllEventsInDetailPanel,
+    isSingleEventSliderInPanel, setIsSingleEventSliderInPanel,
     areWidgetsJoined, setAreWidgetsJoined,
     joinBannerRect, setJoinBannerRect,
     pendingBannerDragStart, setPendingBannerDragStart,
@@ -307,7 +308,14 @@ export default function Visualizer({
     settingsActiveTab, setSettingsActiveTab,
     settingsTabRequest, setSettingsTabRequest,
     deferredPanelStateRef,
+    // item 155: header hidden when dragged all the way down
+    isDetailHeaderHidden, setIsDetailHeaderHidden,
+    // item 157: floating detail panel
+    isDetailPanelFloating, setIsDetailPanelFloating,
   } = usePanelState({ initialPrefs, introPhase, isSingleEventWidgetRevealed });
+
+  // item 163: undocked double timeline (floats freely over canvas)
+  const [isTimelineUndocked, setIsTimelineUndocked] = useState(false);
 
   const {
     pinnedBitIndices, setPinnedBitIndices,
@@ -606,6 +614,7 @@ export default function Visualizer({
     isAllEventsWidgetHidden,
     areWidgetsJoined,
     isAllEventsInDetailPanel,
+    isSingleEventSliderInPanel,
     isSingleEventRepeatEnabled,
     isAutoAnimateOnSelect,
     isEventsPanelCollapsed,
@@ -1457,6 +1466,10 @@ export default function Visualizer({
         isOpen: isDetailOpenRef,
         height: detailHeightRef,
       },
+      // item 155: header hidden when dragged all the way down
+      isHeaderHidden: isDetailHeaderHidden,
+      // item 157: floating detail panel
+      isFloating: isDetailPanelFloating,
     },
     minimap: {
       isVisible: isMinimapVisible,
@@ -1694,6 +1707,25 @@ export default function Visualizer({
         onToggleRepeat: () => setIsSingleEventRepeatEnabled((v) => !v),
         onOpenAnimationSettings: openAnimationSettings,
         exporting,
+        // item 159: left/right panel toggles in the timeline
+        isEventsPanelCollapsed,
+        onToggleEventsPanel: toggleEventsPanel,
+        isSettingsCollapsed,
+        onToggleSettingsPanel: toggleSettingsPanel,
+        // item 154: delay phase for fill+fade animation
+        delayPhaseMs,
+        // item 155: hide/reveal detail panel header
+        isDetailHeaderHidden,
+        onHideDetailHeader: () => setIsDetailHeaderHidden(true),
+        onRevealDetailHeader: () => setIsDetailHeaderHidden(false),
+        // item 157: float/dock detail panel
+        isDetailPanelFloating,
+        onFloatDetailPanel: () => setIsDetailPanelFloating(true),
+        onDockDetailPanel: () => { setIsDetailPanelFloating(false); setIsDetailOpen(true); },
+        // item 163: undock/dock the timeline itself
+        isTimelineUndocked,
+        onUndockTimeline: () => setIsTimelineUndocked(true),
+        onDockTimeline: () => setIsTimelineUndocked(false),
       },
     },
 
@@ -1714,11 +1746,17 @@ export default function Visualizer({
         isOpenRef: detailPanelState.refs.isOpen,
         height: detailPanelState.height,
         width: detailPanelState.width,
+        // item 155: header hidden state
+        isHeaderHidden: detailPanelState.isHeaderHidden,
+        // item 157: floating panel state
+        isFloating: detailPanelState.isFloating,
         handlers: {
           toggle: toggleDetailPanel,
           setOpen: setIsDetailOpen,
           updateHeight: updateDetailHeight,
           setWidth: setDetailWidth,
+          // item 157: dock the floating panel back to the bottom
+          dock: () => { setIsDetailPanelFloating(false); setIsDetailOpen(true); },
         },
       },
       settings: {
@@ -1769,6 +1807,11 @@ export default function Visualizer({
         split: splitWidgets,
         join: joinWidgets,
         setPendingDragStart: setPendingBannerDragStart,
+        // item 162: separate toggle for all-events floater and single-event slider in detail panel
+        toggleAllEventsFloater: () => setIsAllEventsInDetailPanel((v) => !v),
+        isAllEventsInDetailPanel,
+        toggleSingleEventSlider: () => setIsSingleEventSliderInPanel((v) => !v),
+        isSingleEventSliderInPanel,
       },
     },
 

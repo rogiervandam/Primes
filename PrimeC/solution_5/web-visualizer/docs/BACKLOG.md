@@ -5,294 +5,50 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 ## Done
 
-- Retuned GL auto Y-offset for 2608x1175 with stronger X-biased lift and stronger Y/high-balanced damping; added edge calibration probes (`28/4` and `4/28`).
-- Retuned GL auto Y-offset again from the 2579x1175 @100% report with stronger near-limit lift and expanded calibration cases (`24/0`, `0/24`, `16/8`, `8/16`) to better isolate axis and mixed-tilt error.
-- Updated GL auto Y formula again from the latest 2579x1175 report to recover broad under-correction: stronger X/Y-dominant lift plus a low-tilt balanced boost that fades before high balanced tilt.
-- Added `-1`/`+1` nudge buttons to both GL X and GL Y manual calibration controls for fine-grained alignment commits.
-- Retuned GL auto Y-offset again for the 10k-12k near-limit band: increased X-dominant compensation while damping high Y-dominant and balanced high-tilt cases that were over-correcting.
-- Fixed calibration-mode GL X offset controls so slider/button changes refresh immediately, and added browser zoom telemetry (devicePixelRatio + visualViewport.scale) to debug/calibration reports.
-- Retuned automatic GL Y compensation again for mid-width near-limit scenes by distinguishing X-dominant and Y-dominant tilt, reducing under-correction from the 2707x1307 calibration sweep.
-- Made the debug tools panel scrollable and split the longest areas into collapsible sections so calibration controls remain reachable on smaller viewports.
-- Added a debug-panel calibration mode with a 10-case rotation sweep, viewport target help, manual GL X/Y alignment controls, all-cell overlay outlines, viewpoint recording, and clipboard calibration reports.
-- Validated GL auto-offset convergence on the 3127x1197 four-scene sweep; manual residual trims now stayed near zero (+14/-4/+7/-17).
-- Added a separate mid-width GL auto-offset correction lane (about 9.6k-12.1k CSS width) to handle under-correction without disturbing ultra-wide tuning.
-- Added width-aware GL auto-offset residual correction for ultra-wide direct-mode scenes, with high-tilt suppression to preserve earlier calibrated cases.
-- Added a small deficit-scaled residual trim to GL auto-offset so high-deficit flat and tilted cases converge closer without destabilizing near-1 DPR behavior.
-- Retuned GL auto-offset again for wide tilted direct-mode breakpoints by damping tilt response as DPR deficit grows, reducing large overshoot cases.
-- Retuned direct-mode automatic GL Y compensation for small DPR deficits (`~0.95-0.99`) under tilt, while keeping true DPR=1 cases at zero auto offset.
-- Fixed a Visualizer startup crash caused by referencing `getMinimapDetailH` before initialization; the minimap helper is now declared before snapshot callbacks that depend on it.
-- Reduced startup console noise from optional benchmark companion files by checking `/api/logs` before requesting `*_sievebenchmark.json`, avoiding repeated 404 fetches when no benchmark file exists.
-- Added an explicit favicon asset/link (`public/favicon.svg` + `index.html` head link) so dev sessions no longer request a missing `/favicon.ico` by default.
-- Added a Grid view "Balloon" mode control in Layout settings with three options: `Off`, `On bit clock` (click-only), and `Click + hover`. Balloon hover/click behavior now follows this setting and persists via view preferences.
-- Details panel mask metadata now sits to the right of the mask preview inside
-  "Mask pattern & preview".
-- Added more engaging color schemes.
-- Split more `Visualizer.jsx` behavior: panel and joined-widget transition
-  callbacks now live in `src/hooks/usePanelChoreography.js`.
-- Joined widget left/events-panel push is wired: dragging it into the left edge
-  band, or using its expand button, opens the events panel and detail panel,
-  hides the floating single-event banner, and leaves the all-events timeline in
-  the events panel while the single-event timeline appears in detail.
-- The detail-panel timeline's percent value and gear icon stay right-aligned.
-- FPS/render timing moved out of the tilted 3D canvas plane into a small
-  toolbar-toggled debug tools window. The toolkit button defaults off, and the
-  renderer now exposes samples instead of drawing the chart itself.
-- Bit-history balloons now draw a soft curved connector between the visible bit
-  edge and the nearest measured balloon edge. The obsolete hover mouse-position
-  state was removed because balloons are anchored from renderer bit geometry.
-- Log level filter options renamed to "level N (LN)" format for clarity (e.g. "Up to level 5 (L5)").
-- Events panel indentation whitespace reduced: base padding decreased from 8px to 6px, per-level step from 14px to 10px; `.event-child` extra padding removed (was 24px).
-- Timeline slider row `min-height` set to 28px and wrapper height increased to 28px to better match topbar btn-icon row height.
-- "View raw log" button added to the trace info popover (click the trace title). Opens a draggable, resizable dialog with line-numbered monospace view of the original file. Linked line numbers (matching events in the trace) are highlighted in accent color; clicking one closes the viewer, navigates to that step, and opens the events panel. A "Copy all" button copies the raw source to clipboard.
-- Raw log dialog now opens near the top of the window (y=60px below the toolbar) instead of centered, so it doesn't obscure the canvas.
-- Detail panel labels and trace meta chips expand fully on hover instead of being truncated: `.detail-panel-title-main` wraps, `.trace-meta-chip` expands, `.detail-row-label` allows wrapping on hover.
-- Grid opacity slider in Colors tab now responds immediately during animation (`startTransition` wrapper removed so the update is synchronous).
-- Collapse level behavior fixed: switching to a higher collapse level (e.g. "collapse at L9" after "collapse at L5") now expands nodes at levels below the new threshold, so levels L5–L8 become visible as expected.
-- Event annotations are now shown inline in the events panel list (italicized, after the range summary) so they are readable without hovering for the tooltip. Applies to all events that carry an annotation, including aggregate/collapsed ones.
-- Storage model auto-detected from the trace log on every new trace load; the `storageModel` state resets to `header.storageModel` when the trace changes, so the user no longer needs to set it manually after loading a trace.
-- "View raw log" button moved to the first item in the trace-info popover (above Storage model), so it is always immediately visible without scrolling.
-- Event panel < and > level buttons now cycle within the active dropdown group: clicking < or > while "Up to" is selected steps through all "Up to" levels (ending at "All" when increasing past the max); while "Collapse at" or "Only level" is selected the buttons cycle only within that group. The > button is correctly disabled at the upper bound of collapse/exact groups.
-- When changing animation type (style or mode) mid-animation, the new animation starts from the same progress position instead of restarting from 0. Works for both in-flight direct animations and the single-event / selected-steps replay loops.
-- Removed unimported historical file `src/settings/TitleTab.jsx`.
-- Mask-stamp animation polished: travel phase now takes 58% of each stamp slot (was 45%), settle shortened to 15% (was 30%), final vertical lift capped at 4 px (was up to 18 px). Both orderedEntries and legacy-groups paths in `SieveRenderer.renderMaskStamp()` updated.
-- Dragging the joined widget onto the detail panel now shows all-events transport and timeline inside the detail panel body. `isAllEventsInDetailPanel` state is persisted. A ✕ dismiss button removes the transport from the panel. `pushJoinedWidgetToDetailPanel` in `usePanelChoreography`; `JoinedEventsWidget` has a 'detail' drop zone via elementFromPoint hit-test.
-- Balloon clamping: `.joined-events-widget` added to the overlay-rect query set in `getVisibleBalloonStyles` so balloons hide when they would overlap the floating widget.
-- New-style inline JSON trace format supported in the parser. Each log line can now be: `<optional text> { traceline: <n>, depth: <n>, level: <n>, step: <n>, prime: <n>, start: <n>, stop: <n>, operation: "...", ... }`. The text prefix becomes the annotation; JSON fields map directly to step properties; missing fields are inferred from the annotation text. Both quoted and unquoted JSON keys are accepted. `lineToStep` linking in the raw-log viewer handles the new format.
-- Clicking "go to source" in the detail panel now opens the raw log directly without also opening the trace-info popover. Closing the raw log no longer requires a second click to close the popover. `TraceInfoPopover` is now always mounted; `visible` prop controls whether the popover chrome is shown; the raw log dialog renders independently.
-- Operation labels in the events panel now hover-expand to show their full text floating over adjacent chips (bitcount, timing) without pushing them. Wrapped in `.event-op-wrap` so the flex layout space is preserved. A `→←` / `←→` toggle button next to the operation filter switches the column between compact (100 px max) and wide (full text always visible) mode; the choice is persisted to `localStorage`.
-- Auto-animate on event select toggle added to Settings → Animation → "Selection behaviour". When off, clicking an event in the list navigates to it silently without starting the per-event animation replay loop. The preference is persisted via `viewPrefs` (`isAutoAnimateOnSelect`, default `true`).
-- Close button on the trace title restores to the file picker and resets streaming parser state (header + steps cleared). Items 10.
-- "View raw log" button in the trace info popover fixed (prop wiring was broken; button was invisible). Item 11.
-- All-events floater can be dropped onto the detail panel to dock, and dragged back out or dismissed via ✕ button. Items 12. Loading overlay bar styled to match the timeline scrubber (solid accent fill, 9px rounded rail). Minimum overlay display time reduced to 2 seconds. Items 18.
-- Canvas intro zoom 2.8s → 3.8s; 2D→3D tilt 0.4s → 0.9s (intro + toggle). Items 13, 14.
-- Events panel, settings sidebar, detail panel body all animate in/out with slide + fade transitions (~500ms ease-out). Item 15.
-- Detail panel and single-event widget hidden until first play or event selection. Item 16.
-- "Timeline" label in single-event widget renamed to "Animation". Item 17.
-- All panels, floating widgets and the all-events floater are hidden (opacity 0, pointer-events none) while the loading overlay is active, then fade in together once the overlay exits. Eliminates flash of panels on startup.
-- after opening a log, don't show (or hide) the panels
--  start a async streaming load of the log, defer it to the background. When the sieve size is establised (usually in the first few log lines), then broadcast that event. You can forget about the logline after it has been processed. If the users want to view the raw log, just reload it from the start, or if clicked on a source line from the detail panel, load the log and scroll to that line: the log should be lazy loading as well.
-- upon getting the event, start a async render of the canvas. Animate it from infinitely small to the full size (streight, 2d) and then do the transform from 2d to 3d tilted. This way the user can see something is happening immediately, and the animation will be delightful.
-- regularly broadcast the amount of log files streamed. When the first 100 lines are loaded, start an async populating the DOM in the events panel. When it is filled to the window height, If the user had the event panel and/or settings opened in the last session, wait for the animation to finish and then open these panels (these should always open with a animation).
-- do a lazy loading of the events panel: only populate the dom for the first 100 and then visible events, and then populate more as the user scrolls. This way we can handle very large logs without freezing the browser. Consider lazy loading the hierarchy of events too.
-- The opening animation should be slower, around 3 seconds before full in view. Also focus on the top of the grid and have the first line at the center of the display.
-- Don't auto play and activate the play button 2 seconds afther the 2d/3d transform.
-- I see dark mode and then ligt mode - probably because the settings are applied. Have some delay before the first display update to let most things load
-- Delay the showing of the single event widget until the user hits play for the first time or selects an event in the all events panel.
-- never deactivate the single event timeline and play/pause button: the user must be able to hit pause there at any time to stop the animation, and hit play to start it again. If the event has no duration, just take the delay between events or repeats and progress% that.
-- don't start playing automatically anymore
-- the grid if centered in the center at startup. But if it doesn't fit on screen, instead focus on the top and have the first line at 1/3 of the display height. 
-- In settings -> layout panel -> Autofit. When turning auto fit off, start at the count that was set by auto fit. And allow for more than 64 columns. 
-
-## Open
-
-1 Make visualizer items related to overlays or animations clickable shortcuts. Clicking a bit-state legend/color item should let the user choose that state's color.
-
-2 Polish the all-events transport in the detail panel: verify it doesn't push  detail sections below the fold at small heights; add a visual separator from  the step-anim sliders when both are visible simultaneously.
-
-3 Check bit-history balloon connector/clamping polish with events panel  open/closed, settings open/closed, joined widget visible, minimap visible,  light/dark themes, and high zoom.
-
-4 (Done) Balloon placement improved: (1) overlap-checking now uses clamped positions so two balloons never land on top of each other; (2) balloon+connector hidden when the anchor bit is behind the events panel; (3) connector is now very pointy at the bit tip and much wider at the balloon face, with smooth blended control points; (4) connector no longer twists when dragging left — symmetric control points with interpolated perpendicular direction prevent self-intersection.
-
-6 (Done) Autofit column count persists when autofit is turned off: the column count starts from the last autofit value. No upper bound on manual column count (already implemented; no change needed).
-7 (Done) Nearby events "current" row now shows the event title (from `banner.line1`) with the same font/weight as the widget title, preceded by a play icon. A toggle button switches between showing the title block and the nearby events list; the mode is persisted via `settings.nearbyEventsMode`.
-8 (Done) Search button in the toolbar now expands inline: clicking it shows a text input in the toolbar (replacing the button), with an optional inline result count chip and a ✕ close button. No separate popover; the input is in the original button's slot.
-
-19 (Done) The joined events widget is now clamped vertically so it never overlaps the detail panel. The widget Y drag is constrained during drag and re-clamped whenever the detail panel opens, closes, or resizes. `isDetailOpen` and `detailHeight` props passed from Visualizer.
-24 (Done) Storage model label "Wheel 8-of-30" renamed to "Wheel" in the selector and related UI.
-25 (Done) Aggregated events now display original annotation text inline in the events list next to the summary (still shown in tooltip as well).
-26 (Done) Single-event widget title now includes the current prime (e.g. "Event 42 | Mark multiples | Prime 13"); prime removed from the annotation metadata line to avoid duplication.
-27 (Done) Opening raw log from the detail-panel source link now scrolls to the selected event line and highlights that current source line in the raw log viewer.
-28 (Done) When the raw log is not yet loaded, the detail panel shows a "view source" link for any event that has an annotation. Clicking it fetches the raw source, scans for the matching line, then opens the raw log viewer scrolled to that line.
-29 (Done) Events panel header and step-list now animate together as one unit on expand (both use the same 500ms timing, no stagger delay).
-30 (Done) The "ANIMATION" label in the joined widget now acts as a drag handle — mousedown on it propagates to the widget's drag handler instead of being blocked by the event-area stopPropagation. A grab cursor is shown.
-31 The parser and internals should make a distinction between Number ranges and Bit ranges: assume ranges mention bit indices. When byte is mentioned, it should be treated as a range of 8 bits starting at the byte index * 8. When word or vector is mentioned, search for mentions of uint16/32/64 and treat those as ranges of 16/32/64 bits starting at the index * (bits per unit). Or when mention of uint16v2/4/8 or uint32v2/4/8 or uint64v2/4/8, treat those as ranges of 16*2/4/8 or 32*2/4/8 or 64*2/4/8 bits starting at the index * (bits per unit * vector length). This way we can support more complex annotations and have a more consistent interpretation of ranges. When the spec mentions "numbers" or "factors" and the log annotation doesn't specify bits or bytes, we can take the mentioned range as a number range and try to infer the bit range from the context (e.g. if the event is "read 4 numbers" and the annotation says "offset 16, length 4", we can infer that it's probably 4 bytes starting at bit 128, so bits 128-159). This will require some changes to the parser and how it represents events and annotations internally, but it will make the system more flexible and powerful in handling different types of logs and annotations.
-32 (Done) Zoom transitions are now animated (~300ms) for toolbar zoom-in/zoom-out/reset and mouse-wheel zoom, instead of jumping instantly.
-33 (Done) When leaving auto-fit mode for the first time (including +/- from auto mode), manual column count starts from the current auto-fit value.
-34 (Done) Overall playback speed ceiling increased to 1600% (converters, clamps, controls, persistence, and tests updated).
-35 (Done) Single-event widget drag can now start from anywhere on the widget body except timeline controls (play button, timeline slider area, gear, and other buttons/inputs).
-36 (Done) When all-events transport is docked into the detail panel, it is rendered to the left of the event title/annotation in the detail header row.
-37 (Done) In the detail panel, the event timeline is shown in only one place at a time; the single-event timeline dock row is hidden when all-events transport is present.
-38 (Done) Joined-widget intro motion is suppressed for anchored joins so it no longer appears to animate in from elsewhere during merge.
-39 (Done) Added a repeat toggle button (with repeat icon) to the single-event widget timeline controls. Repeat-on loops until disabled; repeat-off plays once. The toggle is disabled/ignored during all-events playback.
-40 (Done) Debug tools window is now draggable, defaults to the bottom-right corner, and clamps away from the settings panel when it is open.
-42 (Done) Dragging the single-event widget feels heavy, like there is a delay between the mouse movement and the widget movement. It should feel more responsive and fluid.
-44 (Done)  The text on the bits with webgl rendering is not really centered on the bits, it is a bit off. It should be perfectly centered on the bits, so it looks better and more polished.
-45 (Done)When zooming in or out, the zoom is not focused on the mouse position, It should be focused on the mouse position, so i can zoom in and out on specific areas of the grid more easily and intuitively. What is under the mouse position should stay under the mouse position when zooming in and out, so i can control the zoom more precisely and easily.
-
-46 (Done) When dragging the grid during mask animation, the masks are not dragging with the grid, which results in weird placement.
-47 (Done) The path/trail for the mask animation must be much clearer.
-48 When handling large grids (100k+ bits), not everytthing is rendered anymore. In case of large grids, at a certain zoom level start making little quads per group instead of per bit for performance.
-49 (Done) Make the touch order and cachline hits annotations a bit wider, so all the text fits in there and is no cut off
-50 (Done) In the events panel, when a search text is entered, show a clear button to clear the search text and results, so i can easily go back to the full events list without having to delete the text manually.
-51 (Done) WHen the events panel is open, the fps on the canvas drops significantly, probably because of the increased DOM elements and the event listeners. Optimize the performance of the events panel when it is open, so i can use it without affecting the performance of the canvas too much. Consider using virtualization or windowing techniques to only render the visible events in the panel, and debounce or throttle the event listeners to reduce the frequency of updates.
-52 (Done) Upon hiding the settings panel, it should not disapper, reappear and then fade out. Instead, it should just slide to the right side.
-53 (Done) When the events panel is open, have fout arrow buttons at the top right: to the left, down or up or right. When pressing down, slide the events down and dock the all events floater in the detail panel. When pressing right, slide the events up and animate it going in the all events floater. When pressing left, slide the events panel to the left and hide it, and undock the all events floater if it was docked. This way i can easily switch between having the events in the panel or in the detail panel, or hiding them completely. When pressing up, slide the events up and dock the the timeline in the top bar.
-54 (Done) Change the placement and appearnace of the top bar button to pop out the timeline into a floating widget. Make it a downward arrow on the right side of the event/events count.
-55 (Done) In the events panel, don't show the number of events in the header. Instead, show the number of selected items next to the "hide no-ops" on the right.
-56 (Done) In the debug window, keep FPS, GL mode and other green text with At Risk, rendering mode and the panel with full debug report and the controle to choose AA oversample and the apply button. Remove "Force mode", "Show GL/glpyh bounds", "Restart Renderen", Force GL redraw, etc.
-57 (Done) Solve the problem where there is a message about offscreencanvas which is not supported in the current browser when in dev mode it is called twice in a row. 
-
-58 (Done) The step-banner and detail panel should be in the main-content area, but not be children of the canvas-area
-59 (Done) When settings is docked on the right side, and i click the gear icon, it should not immediately show the setings panel, hide it and then do the animation. Instead, if should reveal the settings panel by sliding in from the right.
-60 (Done) IN the single event widget, remove the copy to clipboard button and remove that functionality, because it is not really useful and it is a bit confusing. 
-61 (Done) The text for byte annotations and group annotations should be slightly larger with a greater offset to the cell below to make it more readable and avoid being unreadable by animations over it. Adjust the outlines accordingly.
-63 (Done) In the debug tools, move the WebGL AA oversample control to under the rendering mode and make it a dropdown with preset options: Off (1x), 2x, 4x, 8x. Upon selecting an option and applying, the visualizer should update immediately with the new oversampling setting, so I can see how it affects the rendering quality and performance. The debug report should also include the current oversampling setting for reference.
-64 (Done) In the debug tools, provide more controls for the quality of the webGL layout and speed, so the user can adjust the rendering quality and performance according to their needs and preferences. For example, add controls for enabling/disabling shadows, reflections, anti-aliasing, texture quality, etc. Each control should have a clear label and a tooltip explaining its effect on the rendering. When a control is changed and applied, the visualizer should update immediately with the new settings, so I can see how it affects the rendering quality and performance. The debug report should also include the current settings for reference.
-63 (Done) in the debug tools: remove the alignment control section, calibration mode GL Y Offset and copy debug to clipboard, and the import snapshot and canvas coords.
-64 (Done) When the animation panel is closed and not animating anymore, and the debug tools was touching it with its right side, adjust the debug tools position to the right so it doesn't look like it's floating in the middle of the screen. 
-65 (Done) Update the photo and movie export to work in all modes
-66 (Done) When changing between mode 1,3,5 and 7 i get the same tilt and position (good). But when changing from one of these to one of 2,4,7,8 the tilt and position changes (bad). Make the position and tilt be the same when changing modes.
-67 (Done) Events panel:, have fout arrow buttons at the top right: to the left, down or up or right. When pressing down, slide the events down and dock the all events floater in the detail panel. When pressing right, slide the events up and animate it going in the all events floater. When pressing left, slide the events panel to the left and hide it, and undock the all events floater if it was docked. This way i can easily switch between having the events in the panel or in the detail panel, or hiding them completely. When pressing up, slide the events up and dock the the timeline in the top bar.
-68 (Done) When the events panel is open and the user goes to an event that is not collapsed, provide a visual clue in the events panel list to show where the current event is in the hierarchy. For example, highlight the parent events in a different color, or show a breadcrumb trail, or expand the parent events automatically. This way I can understand the context of the current event and navigate the hierarchy more easily.
-69 (Done) In the events panel, when pressing right, slide the events up and animate it going in the all events floater. When pressing left, slide the events panel to the left and hide it, and undock the all events floater if it was docked. This way i can easily switch between having the events in the panel or in the detail panel, or hiding them completely. When pressing up, slide the events up and dock the the timeline in the top bar.
-70 (Done) Change the placement and appearnace of the top bar button to pop out the timeline into a floating widget. Make it a downward arrow on the right side of the event/events count.
-71 (Done) Then i click in the single events widget, don't do the mouse interaction on the underlying canvas/bit
-72 (Done) In the single event widget, have the toggle for show nearby event instead of title as well. When toggle to this mode, show the annotation below the title in the nearby events
-72 (Done) In the single event widget, when an annotation takes no extra space and when clicking it to reveal extra, it should not change the height when its not necessary
-73 (Done) Don't show the docked all events floater in the detail panel when the events panel is expanded, because it is redundant and takes up extra space. Only show the docked all events floater when the events panel is hidden, so it serves as a compact alternative to access the events while still showing the detail panel.
-74 (Done) When scrubbing the timeline, the detail panel should not just update the event#, but all information about the event. 
-75 (Done) The floating visualizer legend should be behind the settings panel, but in front of the canvas. 
-76 (Done) When dragging the canvas druing animation, the drag stops when the next animation start. I should be able to keep dragging the canvas even when the animation is playing, so i can adjust the view and follow the action more closely. The drag should feel smooth and responsive, without any jank or delay, even when the animation is running. Consider using a separate layer or mechanism for handling the drag input that can operate independently of the animation loop, so that the user can interact with the canvas at any time without interruption.
-77 (Done) It should be possible to docker both the all events floater and the single event widget into the detail panel at the same time, so i can have all the event information and controls in one place. When both are docked, they should be arranged in a way that makes sense and doesn't feel cluttered, for example with the single event widget above the all events floater, or side by side if there is enough space. The user should be able to easily switch between having one or both of them docked, or undocked as floating widgets, according to their preference and workflow. When i drag them out of the detail panel, make it more obvious that i am dragging them out by showing them come out of their position in the detail panel and follow the mouse movement, instead of just appearing as floating widgets immediately. This way i can have a clearer mental model of how the docking and undocking works, and it will feel more intuitive and satisfying to move the widgets around.
-78 (Done) When joining the all event and single event widget, i see the single event widget animating from the position of the all events widget to the position of the single event widget, which looks weird. When joining, the single event widget should just stay in its position and the all events widget should animate to it, so it looks like the all events widget is merging into the single event widget, instead of the single event widget moving to the all events widget and then merging. 
-79 (Done) Wwhen the joined widget is active, don't show the all events widget: it can only be in one place at a time.
-
-Make the minimap canvas just the size shown on screen, and have it be a floating DOM element on the very top. 
-
-43 (Done)
-I want to be able to try different setups for the rendering and the animation, and be able to switch between them easily, because i experience bugs (probably in the browser) on different devices and screen sizes. 
-In the debug window, want to have controls for:
-- settting the DPR value manually, to test the behavior under different zoom levels and screen densities
-- setting the canvas size of the webgl layer
-- setting the canvas size of the css/svg layer
-- setting the canvas size of the glyph-rendering layer (if we go with the 2d glyph rendering approach)
-When i change these values, the visualizer should re-render with the new settings immediately, so i can see how it affects the rendering and the animation. Make sure the center of all the layers keeps being line up when i change these settings, so i can isolate the effects of each setting on the rendering and the animation.
-
-I want to be able to try different setups for the rendering and the animation, and be able to switch between them easily, because i experience bugs (probably in the browser) on different devices and screen sizes. In the debug windows, i want to select one of the following rendering modes: 
-1. all text are rendered 2d in a canvas using the layout arrangement, annotations, etc. Then the whole canvas is compressed with resolution buckets and send to the webgl layer as a texture, and the webgl layer does the merge with the 3d grid and the tilt. Webgl is on a flat 2d canvas, not a tilted canvas. 
-2. Option 1, but webgl does just layer composition. Tilt is done with css 3d transforms on the canvas element, so the webgl layer is always rendered as a flat 2d canvas and the tilt is purely a visual effect applied to the whole canvas. 
-3. the grid and the text are rendered together in the webgl layer as textured quads, with the text rendered in an offscreen 2d canvas and sent as a texture to webgl. The webgl layer does the layout arrangement, annotations, etc, and merges them with the 3d grid and the tilt.
-4. 2 parallel canvases (one for text, one for grid) which are tilted with css
-5-8: mode 1-4 but not using direct mode, but workers
-For each mode, all animations should work, dragging, zooming and tilting should work and changing the arrangements and colors also. Allow me to override the DPR, canvas sizes, and other relevant settings for each mode in the debug tools, and see the effects immediately. Make sure the center of all the layers keeps being line up when i change these settings, so i can isolate the effects of each setting on the rendering and the animation.
-
-
-
-80 (Done) On aggregate events, show the annotation of the event as well.
-81 (Done) The view raw log button should have the same look and feel as the buttons in the settings panel. 
-82 (Done) When opening the raw log viewer, its window corners should stay wihin the visible area of the screen.
-83 (Done) The detail panel should always have the link to the source log line, not just when the log is loaded. When the log is not loaded, clicking the link should trigger the log loading of that section of the log.
-84 (Done) In the raw log, let have the option to word wrap, so i don't have to scroll horizontally to read long lines. This can be a toggle button in the raw log toolbar. When word wrap is on, the lines should wrap at the width of the raw log viewer, and there should be a visual indication (e.g. a symbol or color change) when a line is wrapped, so I can easily distinguish between wrapped lines and separate log entries.
-85 (Done) IN the all events panel - log level selector, have the section with collapse at level be the first section under "All log levels" and have collapse at level 7 be the default selected option, so that the events are initially shown in a reasonably collapsed state that still shows some hierarchy, and I can easily find the collapse options without having to scroll down.
-86 (Done) Overall Speed slowdown should be possible to 1%, so I can slow down the animation to see it in more detail. Adjust the converters, clamps, controls, persistence, and tests accordingly to support this new minimum speed.
-87 (Done) When i change the animation (style, mode timeline mode, duration, speed, etc) while an animation is in progress, apply theese immediately and the new animation should start from the current progress position instead of restarting from 0. This way i can tweak the animation settings on the fly and see the effects immediately without losing my place in the animation. Consider how this would work for both direct animations (e.g. when I click play on a single event) and for the replay loops that run through selected steps or all events.
-88 (Done) When balloons are pinned and i click in the grid, don't remove them anymore. Instead, keep them pinned and allow me to click on the grid without affecting the balloons. This way I can keep the balloons visible and interact with the grid at the same time, which can be useful for analyzing specific events or bit states without losing the context provided by the balloons. Consider adding a toggle for this behavior in the settings, so I can choose whether clicking on the grid should affect pinned balloons or not according to my preference.
-89 (Done) The single event widget must have a close button. When I click the close button, it should hide the single event widget.
-90 (Done) In the tracer, i must be able to feed a mask and size and optional position with an event. Size like uint8, uint16, uint64v8, etc. The visualizer should be able to show that mask in de detail panel. When a position is given, also project that mask onto the grid and show it there as well, so i can see which bits are affected by that event. The mask visualization should be clear and distinguishable from the regular bit states, for example by using a different color or pattern. This way i can analyze events that involve complex bit manipulations more effectively by seeing the exact bits that are being read, written, or modified in each event.
-91 (Done) The up key should do the same as the left key and the down key the same as the right key. Make Shift-up and shift-down do the orbis up/down now.
-92 (Done) The mask in the zoom panel should be contained by the mask pattern & preview area. When it is too large, zoom out to fit it in, and when it is smaller, zoom in to fill the area. When clicked, it should show a popover with the full mask zoomed in, so i can see the details of the mask more clearly. The popover should also container the mask type and mask pattern.
-93 The docking positions on the detail panel should be to the left of the detail panel title, so that it doesn't take too much space. 
-94 (Done) The toggle for the nearby events in the single event widget should be next to the link item. In the nearby events, the row with the title should be "font-size: large"
-
-95 (Done) Show the animations in direct mode as well
-96 (Done) When long pressing the play button on the single event widget, show me fine-grained controls for scrubbing through the event's animation, such as +/- for speed, next/previous frame and a way to step through the animation on a sub-percentage basis, making it possible to adjust the frame intensity. Another long press should hide these controls again and set speed to the previous value.
-97 (Done) In the all events panel: when clicking one of the 4 arrows, the panel should always slide away in the direction of the arrow. The all events floater should only appear after a left or right arrow click
-98 (Done) In the docked detail panel: always leave room for one line of annotation, so it doesn't move up and down when you use the timeline slider.
-99 (Done) When the detail panel is collapsed and the all events widget is docked, show it to the left of the title in the collapsed header, so it is still accessible without having to expand the panel.
-100 (Done) When the events panel is open during animation, i see flickering. That is gone when the panel is collapsed. 
-101 (Done) In the single even widget, the toggle for nearby display mode should be position absolute and then left from the link button. 
-102 (Done) when i click on a bit, pan the camera to center on that bit, so i can quickly focus on the area of interest. The camera movement should be smooth and animated, so it feels natural and intuitive. Consider using a spring or easing function to make the camera movement feel more dynamic and responsive, rather than a linear interpolation.
-103 (Done) When panning to a bit, sometimes the connectors for pinned bits come loose and end up in the wrong place. After a little drag the come on again like it is only refreshed then. When panning, make sure the connectors stay attached to their respective bits and move together with the camera, so they maintain their correct position and provide accurate context for the pinned bits during navigation.
-104 (Done) The single event widget must have a close button. When I click the close button, it should hide the single event widget.
-105 (Done) In the detail panel - bits area - have the row with numbers marked and bit ranges not under, but to the side of the labels, so they are on one line.
-
-106 (Done) Always start in non-worker mode (1-4) for faster startup and easier debugging. If mode was 5-8 in the last session, go to the corresponding non-worker mode (1-4). After the inital load of the events is finished, just before starting the animation,  switch to mode 5-8 if that was the last session's choice. This way I can get to a usable state faster, and then switch to the worker mode for better performance with large logs once everything is loaded.
-
-107 (Done) The animations situation per mode:
-(1) shows animation & trails -> good
-(2) no animation & no trails -> bad
-(3) no animation & no trails -> bad
-(4) shows animation & trails -> good
-(5) shows animation & trails -> good
-(6) Shows animation & trails -> good
-(7) shows animation & trails -> good
-(8) shows animation & trails -> good
-Fix that please.
-
-108 (Done): The finegrained control on the single event widget should be improved: if you hold down the < or > it should keep increasing the count. The second slider should alloe finegrained control of the 10% progress around where the upper slider is now, so it has a smaller range for more precise control. 
-
-109 (Done): Start the numbering of groups at 0, not 1
-110 (Done): when showing the mask animation for aggregated events, it now shows the first mask used, but it doesn't update when another mask is used. It should update the mask animation to show the current mask being used for each event, so i can see how the masks change over time and which masks are associated with which events. In the detail panel, show the mask at that part of the animation and allow the user to go previous/next to the masks in the aggregated event, so they can analyze the different masks used in that event more effectively.
-111 (Done): When a mask event doesn't set change any bits, the animation must still play. 
-112 (Done): The logger should keep record of the already set and newly set bits for each event, so that the visualizer can show these numbers for each event. This also applies for masks: figure out how many bits are in the mask and how many times it way applied. Then look at the total of bits changed in the bitstorage and you have the already set and newly set counts. 
-113 (Done): When scrubbing the fine-grained control in the single event widget, the percentage has sometimes more than 2 digits after the . which overflows in the gear button.
-114 (Done): The single event widget close button must be on the right side of the widget, so the nearby events can start from the very top left.
-115 (Done): in events panel, the button with the arrow up should make the entire panel - including all the events, not just the header - slide up to hide in a collapsed state.
-116 (Done): When the detail panel is collapsed and the all events widget is docked, show the all widgets to the left of the title in the collapsed header, so it is still accessible without having to expand the panel.
-117 (Done): The text "ANIMATION" is under the play button. Move the rest of the controls a bit to the right and entire item a bit wider to accomodate.
-118 (Done): The detail panel shouldn't flicker when collapsing or expanding. It should just smoothly slide out to the new height without any sudden jumps or flashes. 
-119 (Done): The show event title button in the detail panel should hide the single event widget if it is currently shown, thereby forming a toggle.
-
-Help me get the UI right.
-The UI has two states: float and panels. Float provides quick access to key information and enables a true 3d experience with the grid and animations. It doesn't use the window space for anything other than the grid, so you can see the full grid and all the animations without any obstructions. Panels provide detailed information and controls for specific events, but they take up more space and are less immersive. 
-You switch between these states by dragging controls to the side of the window (going from float to panel) or by dragging from panel to the centre (going from panel to float). When you switch to panel mode, the relevant panels slide in from the side and dock to the detail panel. When you switch to float mode, the panels have a nice animation of morphing into their respective floating widgets and sliding to the side, so it is clear that they are the same elements and it feels satisfying to move them around.
-
-- Double timeline control (item 120): waveform overview of all events (bits-changed bars), draggable transport cluster in the middle, and animation scrubber on the right. Drag the centre divider left/right to trade width between the two timelines; drag up/down to reveal or hide the event title row and event details row. The control renders above the detail panel and shows/hides based on whether a step is loaded. Collapse toggle built in to the centre zone.
-
-120 Make a new "double timeline control": it sits on top of the detail panel and has three parts: (1) on the left there is a horizontal rectangular area where from left to right you see all the events and the amount of bits changed in each event as a a vertical bar. Background blue, foreground white. It reminds us of a sound editor timeline with the sound bars, but here the bars represent the amount of bits changed in each event. You can click anywhere on this area to jump to that event and see its details in the detail panel. (2) In the middle, there is a small control area which you can drag. There is a play button which activats the playing of all events. And the speed, forward/backwards/first/last buttons are also present.  Dragging to the left makes the events control less wide and the event animation wider and shows the replay toggle, to the right it makes the events control wider and the event animation less wide, so that the user can choose for more find-grained control over the events timeline or the event animation timeline. Dragging up reveals more of the details: the first drag up revails the event title, the second drag up revealt all the event details as currently in the detail panel. Dragging down does the opposite: the first drag down hides the event details and only shows the title, the second drag down hides the title as well and only shows the sliders. Dragging it extremely to the right automatically reveal the all events panel and dragging it extremely to the left hides the all events panel and shows all the controls for the finegrained animation (play, pause, speed, etc) and the gear for the animation settings. This waßy, you can customize the control area to your liking and have quick access to the controls you need for either the events or the animations.
- (3) On the right, there is a horizontal rectangular area where from left to right you see the progress of the current event's animation, with a playhead that you can drag to scrub through the animation. You can also click on this area to jump to a specific point in the animation. This way, you have all the controls for navigating through the events and their animations in one place, and you can easily switch between focusing on the events or focusing on the animations by dragging the control area in the middle.
-ç
-
-- (121) Grip vertical drag now expands/collapses the detail panel below (drag up = open/taller, drag down = shrink/close) instead of showing extra rows above the sliders.
-- (122) Right animation timeline: solid `#0e1b2e` blue background, white 3 px vertical-bar playhead with glow; fill bar removed.
-- (123) Main play button in the centre zone enlarged to 30 × 30 px (circle).
-- (124) Speed percentage moved to the right animation zone overlay (removed from centre).
-- (125) Left timeline: click and drag with pointer capture to scrub events in real time. Right timeline: click and drag with pointer capture to scrub animation progress in real time.
-
-121 Dragging the new control up or down should reveal/hide more of the detail panel, not show new lines on top of the sliders
-122 The animation timeline on the right should be a blue background with a white vertical bar a scrubber, not a red timeline.
-123 The play button in the middle control area should be larger than the other elements
-124 The speed % should be indicated in the right timeline area
-125 The users should be able to scrub the left or right timeline by clicking in or dragging the white vertical bar, and the playhead should move accordingly. When scrubbing the left timeline, the detail panel should update to show the event corresponding to the current playhead position, and when scrubbing the right timeline, the animation should update to show the state corresponding to the current playhead position. This way, users can easily navigate through both the events and their animations using the timelines.
-
-- (126) Centre zone: borders widened to 2px with accent-tinted colour; background tinted towards accent; hover brightens both. Horizontal grip bar replaced with a 6-dot (2 cols × 3 rows) vertical drag-handle that brightens on hover. Cursor changed to `move` to signal both horizontal and vertical dragging.
-
-126 The middle section should have a larger border and some indication that it can be dragged, so it is more obvious that you can drag it to adjust the width of the timelines and reveal/hide the details panel. Consider adding a vertical grip icon or a different background color to the middle section to make it stand out and signal its interactivity.
-
-- (127) Centre zone height set to 52 px (protrudes 8 px above/below the 36 px strip), `overflow: visible` on the strip, `z-index: 2`, border on all four sides with border-radius 6 px, drop-shadow — creating a raised-tab appearance that's visually larger and easier to grab.
-- (128) Play button grown to 36 × 36 px with a subtle glow ring at rest; hover adds a wider glow and `scale(1.1)`; active state `scale(0.94)`. Icon bumped from 14 → 16 px.
-
-127 The middle section should be oversized compared to the left and right sections, so it is easier to grab and drag. The cursor should change to a move cursor when hovering over the middle section, to indicate that it can be dragged in both horizontal and vertical directions.
-128 The play button in the middle section should be larger than the other controls, to make it more prominent and easier to click. Consider making it a circular button with a play icon, and adding some hover effects to make it feel more interactive and responsive.
-- (129) All `.dtl-btn` elements now have `position: relative` + a `::after` pseudo-element with `inset: -8px`, expanding the hit area to ~34 px per side without changing visual size.
-- (130) Vertical drag dead-zone reduced from 30 → 6 px; 1.5× speed multiplier removed (pure 1:1 pixel tracking); close threshold tightened from −60 → −30 px. The panel now moves exactly with the mouse.
-
-129 The touch area around the control elements in the middle section should be larger than the visible elements themselves, to make it easier to interact with them without having to be pixel-perfect. Consider adding some padding around the controls that still triggers the same interactions, so users can click slightly outside the visible controls and still have it work.
-130 It should be easier to drag the middle section up and down. Right now, the panel moves so fast the the mouse looses the sense of drag. When mouse pressed or drag started, the panel should move along in up/down directions with the mouse movement, so it feels more connected and responsive. 
-- (131) Removed `stopPropagation` from the transport and actions wrapper divs. All `onMouseDown` events now bubble to the centre zone. A 3 px movement threshold gates drag effects so button clicks still fire normally.
-- (132) On drag start, `transition: none` is applied to all `.detail-panel` elements and `animation: none` to all `.detail-panel-body` elements, suppressing the 350 ms slide-in animation that caused the "snapping" feel. Both are restored on mouseup. Open dead-zone reduced to 2 px so the panel follows the mouse from almost the first pixel.
-- (133) Close threshold changed from "clamped-at-MIN then 30px extra" to "raw height < MIN_DETAIL_HEIGHT − 20 px" — the panel now closes smoothly when dragged 20 px below minimum regardless of starting height.
-
-131 The draggable area of the middle section should be the entire area of the middle section, not just the borders, so it is easier to grab and drag. The cursor should change to a move cursor when hovering over any part of the middle section, to indicate that it can be dragged in both horizontal and vertical directions.
-132 When dragging the middle section up or down, the detail panel should expand or collapse smoothly with the drag movement, instead of snapping to predefined heights. This way, I can adjust the amount of detail shown in real time and find the perfect balance for my current analysis needs. Consider using a spring or easing function to make the expansion and collapse feel more dynamic and responsive, rather than a linear interpolation.
-133 When dragging the middle section down to the bottom, hide the detail panel completely.
-
-- (134) Transport buttons grown from 18 → 22 px; font-size 9 → 10 px. Grip dots grown from 1.5 → 2 px radius, from 12 × 22 px to 16 × 26 px, with wider 6 px dot pitch.
-- (135) Replay toggle (`Repeat` icon) added to the right animation zone, right-aligned. Active when `isSingleEventRepeatEnabled`; shown with accent colour + bg. Wired to `onToggleRepeat` (toggles `isSingleEventRepeatEnabled` in Visualizer).
-- (136) Gear icon moved from the centre `dtl-center-actions` row to the right animation zone header, to the right of the replay toggle.
-- (137) "Animation" label moved after the speed percentage in the right zone header: layout is now `[speed%] [ANIMATION] [progress%]` on the left, `[replay] [gear]` on the right.
-- (138) Playhead moved from inside `dtl-anim-track` to a direct absolute child of `dtl-anim-zone` with `top:0; bottom:0` so it spans the full section height. Pointer handlers moved from track to zone (seek computed from zone bounds). `dtl-anim-header-right` stops pointer propagation so replay/gear clicks don't trigger a seek.
-- (139) Middle-section vertical drag no longer snaps: during drag height tracks 1:1 down to 40 px minimum (no close-on-threshold). From-closed opening tracks from zero (no jump to MIN). On mouseup, spring-settle logic re-enables CSS transitions then either spring-closes (< 80 px), spring-snaps to MIN (< 180 px), or leaves at current height. Added `transition: max-height/height 300ms cubic-bezier(0.34,1.2,0.64,1)` on `.detail-panel-body`, suppressed by `detail-drag-active`.
-- (140) Dragging the middle section all the way down now closes the detail panel: when the raw computed height reaches ≤ 0 (`startDetailHeight + accY ≤ 0`), `onToggleDetail()` is called immediately during the drag and `closedByDrag` is set so no further height updates are applied. The reverse (opened-by-drag then dragged back below start) also re-closes. Spring-settle on release still applies for the partial-drag case.
-- (141) Added two-finger pinch-zoom-rotate to the canvas. New `src/visualizer/gestures/pinch.js` exports `getTwoPointerState(pointers)`. `usePointerGestures.js` tracks all active pointers in an `activePointers` Map; when a 2nd pointer arrives during a pan the mode switches to `'pinch'`. Each `pointermove` applies absolute zoom (distance ratio from pinch-start), centre-drift pan, and incremental camera rotation from twist (if 3D mode is active). When one finger lifts the remaining pointer transitions back to `'pan'`. `clearInteraction` also clears the Map and `pinchStart`.
-- (142) Centre divider drag now works on touch: renamed `handleDividerMouseDown` → `handleDividerPointerDown` and switched `window.addEventListener` calls from `mousemove`/`mouseup` to `pointermove`/`pointerup`/`pointercancel`. Added `touch-action: none` to `.dtl-center-zone` so the browser doesn't scroll-hijack touch drags on the handle.
-- (143) Added a close (×) button to the `detail-panel-toggle` header row. The button is only rendered when `open === true`, calls `onToggle` on click (with `stopPropagation` so the row's own toggle doesn't double-fire), and is styled as `.detail-panel-close-btn` — a compact borderless button that shows a border on hover.
-- (144) Clicking on the canvas now dismisses the settings panel when it is open. A `collapseSettingsIfOpen` callback is passed to `usePointerGestures` from `Visualizer.jsx` (set to `undefined` when already collapsed, otherwise `() => setIsSettingsCollapsed(true)`). The hook calls it during the `onPointerEnd` path after the overlay check passes — i.e. only on true canvas clicks, not on clicks originating from the settings sidebar or other UI overlays.
 
 134 Drag handle and buttons in the middle section should be bigger.
-135 On the right of the animation timeline, show the replay toggle, so i can easily switch between replaying the current event's animation in a loop or just playing it once. This way, I can focus on analyzing a specific event's animation by looping it, or I can see how it fits into the overall sequence of events by playing it once and moving on to the next event.
-136 On the right of the replay toggle, show the gear icon for the animation settings, so i can easily access the animation settings and tweak them to my liking. This way, I can quickly adjust the animation settings on the fly while analyzing the events, without having to navigate to a separate settings panel or menu.
-137 The text "animation" should be moved to the right of the speed percentage in the animation timeline area, so it is more closely associated with the animation controls and settings. This way, it is clearer that the speed percentage and the gear icon are related to the animation, and it creates a more cohesive layout for the animation controls.
+
+150 Put the all events floater and single event widget in the detail panel on startup. Make a toggle button in the header of the detail panel to show/hide the all events floater and single event widget. By default, the all events floater is shown and the single event widget is hidden on startup. This way users can immediately see all events when they open the trace, and then choose to hide it and show the single event widget if they want to focus on one event at a time.
+151 Make a toggle (arrow icons like the one on the settings panel) left next to the "EVENTS" header in the blue timeline to show/hide the all events panel.
+152 Make a simular toggle on the right and put it instead of the gear button in the timeline.
+153 In the blue ANIMATION timeline. but the text "ANIMATION" right-aligned.
+154 Let the blue ANIMATION timeline have a simular animation as the existing single event timeline animation, where it goes to 100% and then during the delay fades out left-right.
+155 When the big center dragger is dragged all the way down, completely hide the detail panel header as well. Make sure that dragging down and then up immediately reveals the detail panel header again, and that dragging up and then down immediately hides it again. This way users can quickly hide/show the detail panel header by dragging the center dragger up and down without having to move the mouse all the way to the bottom to click a toggle button.
+156 Put the title of the event above the central dragger; the annotation stays in the detail panel header and is only visible when the detail panel is visible. When the detail panel is hidden, the title is still visible above the dragger and centered in the middle section. Make this title part of the dragging area so that it can be used to drag the center dragger up and down as well.
+
+157 When the big center dragger is dragged all the way up, detach it from the bottom and make it a floating panel that can be dragged around and docked back to the bottom when dragged there. This means the timelines become narrower and a border appears around the detail panel when it's floating.
+158 Fixed: event title bar moved to a dedicated `dtl-event-title-bar` div above the strip (was clipped at 0 height inside the center zone).
+159 Fixed: left/right DoubleTimeline arrows now toggle the events panel and settings panel respectively (no longer wired to the docked all-events toggle).
+160 Fixed: center zone uses `align-self: flex-end` + `padding-bottom: 4px` so it protrudes upward only and is never clipped at screen bottom.
+161 Fixed: center zone has `min-width: 160px; max-width: 240px` so title text does not cause layout shifts; event title moved out of center zone.
+162 Fixed: two independent toggle buttons in detail panel header — left (≡) toggles all-events floater, right (▷) toggles single-event slider. Both default to hidden on startup.
+
+163 Fixed: DoubleTimeline now floats over canvas with semi-transparent glassmorphism background. Wave+anim zones use rgba(14,27,46,0.88)+backdrop-filter blur; title bar uses rgba(14,27,46,0.75)+blur. Timeline is position:absolute within canvas-and-detail-column, animates `bottom` when detail panel opens/closes. Undock button (⊞) in center grip detaches it as a freely draggable fixed panel; dock-back (⊟) or dragging to screen bottom re-attaches it.
+
+163 Fixed: Left panel now has smooth slide-in animation from left when toggled open, and slides out to the left when closed. CSS `transition: width 220ms` on .events-panel; collapsed state no longer uses `width:0 !important` so the transition works correctly.
+
+164 Fixed: Animation fill bar during delay phase now fades from left to right (left part disappears first) using `clip-path: inset(0 0 0 100%)` instead of `inset(0 100% 0 0)`.
+
+165 Fixed: Clicking the repeat button in the animation zone no longer also seeks the animation. Added `onPointerUp` and `onPointerCancel` stopPropagation to `.dtl-anim-header-right` (was only stopping `onPointerDown`).
+
+166 Fixed: Blue timeline buttons are now 26px (was 22px), gap increased to 3px (was 1px), font-size 11px. Hover effect now includes a subtle ring shadow for clearer feedback.
+
+167 Fixed: Detail panel rows now have a fixed height of 20px with `overflow:hidden` and `white-space:nowrap` on the value, so scrubbing does not change the panel height when bit ranges or numbers are displayed.
+
+168 Fixed: dtl-grip is now wider (80% of center zone width) and less tall (10px, was 26px), with a horizontal two-row dot pattern.
+
+169 Fixed: Event title bar above the big dragger is no longer a drag handle for the detail panel (removed `onPointerDown={handleDividerPointerDown}`, set `pointer-events:none`, `cursor:default`). The title is always visible independently of the dragger toggle state.
+
+170 Fixed: When the double timeline is undocked, it becomes a resizable widget at 60% of screen width. It includes the full detail panel content (reusing the DetailPanel component). Resize handles (all 8 edges/corners) allow adjusting width and height. The bottom detail panel is hidden while the timeline is undocked. Docking returns to original position.
+
+171 Fixed: Title bar above the big dragger is always visible regardless of hover state or collapsed timeline state. Removed `display:none` for `.dtl-collapsed .dtl-event-title-bar` and the hover-only styling.
+
+172 Should be able to drag the undocked timeline panel by its title bar, annotations and detail panel as well, not just the grip area. This makes it easier to move the panel around without having to precisely target the grip, especially on smaller screens or when the content is large.
+
+
+
+
+
 
 
 ## New Ideas
