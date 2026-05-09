@@ -88,7 +88,9 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 205 The loading animation should add more and more events to the timeline, starting with just a few and then gradually filling up to the full set of events, to give users a sense of progress and build anticipation as the trace loads.
 206 the repeat button should be at the far riight side of the middle control area, separated from the play/pause button by the speed control, to prevent accidental clicks and make it clear that it's a different action.
 
-207 The 
+207 WHen dragging the title bar of the docked timeline, the whole timeline widget should become undocked and follow the mouse, instead of just the grip area. This makes it easier to drag and also allows dragging from the title bar which is a larger target.
+
+
 
 ## New Ideas
 

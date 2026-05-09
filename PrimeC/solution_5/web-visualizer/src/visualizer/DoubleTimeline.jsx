@@ -6,8 +6,6 @@ import { usePlaybackContext } from '../contexts/PlaybackContext';
 
 const MIN_DETAIL_HEIGHT = 180;
 const MAX_DETAIL_HEIGHT = 700;
-// item 175: undock the timeline when dragged past this threshold (lower than MAX so it feels responsive)
-const UNDOCK_THRESHOLD = 380;
 
 /**
  * DoubleTimeline — backlog items 120-125.
@@ -116,9 +114,6 @@ export default function DoubleTimeline({
       return next;
     });
   }, []);
-
-  // item 180: visual hint state — briefly animate the grip when near the undock threshold
-  const [nearUndock, setNearUndock] = useState(false);
 
   // item 181: smooth undock/dock animation
   const preUndockRectRef = useRef(null);  // rect captured just before undocking
@@ -304,6 +299,117 @@ export default function DoubleTimeline({
     };
   }, []);
 
+  const triggerDockAnimation = useCallback(() => {
+    if (isDockAnimatingRef.current) return;
+    if (typeof window === 'undefined') {
+      onDockTimeline?.();
+      return;
+    }
+    isDockAnimatingRef.current = true;
+    const insets = getFloatingSideInsets();
+    const targetW = Math.max(320, insets.right - insets.left);
+    const panelH = containerRef.current?.getBoundingClientRect().height || 120;
+    const touchBoundary = floatingDetailVisible
+      ? window.innerHeight - (detailHeight || 0)
+      : window.innerHeight;
+    const ty = Math.max(0, touchBoundary - panelH);
+    // Save the current floating width before animating to full width.
+    preDockWidthRef.current = undockSizeRef.current.width;
+
+    // Preserve dragger screen x: recompute split fraction so the dragger stays
+    // at the same screen position after the container expands to full docked width.
+    const floatLeft = undockPosRef.current.x;
+    const floatW = undockSizeRef.current.width;
+    const centerW = Math.max(1, draggerCenterWidthRef.current || 1);
+    const currentFrac = splitFractionRef.current;
+    const draggerScreenX = floatLeft + currentFrac * Math.max(1, floatW - centerW);
+    const newFrac = Math.max(0.15, Math.min(0.85, (draggerScreenX - insets.left) / Math.max(1, targetW - centerW)));
+    setSplitFraction(newFrac);
+    splitFractionRef.current = newFrac;
+
+    setUndockTransition('leaving-expand');
+    undockSizeRef.current = { ...undockSizeRef.current, width: targetW };
+    setUndockSize((prev) => ({ ...prev, width: targetW }));
+    setUndockPos({ x: insets.left, y: ty });
+    undockPosRef.current = { x: insets.left, y: ty };
+    setTimeout(() => {
+      setUndockTransition('leaving-fade');
+      setTimeout(() => {
+        setUndockTransition(null);
+        onDockTimeline?.();
+      }, 180);
+    }, 320);
+  }, [onDockTimeline, getFloatingSideInsets, floatingDetailVisible, detailHeight]);
+
+  // item 207: title bar drag triggers immediate undock when docked (no delay/distance threshold)
+  const handleTitleBarPointerDown = useCallback((e) => {
+    if (e.button !== 0) return;
+    // When already undocked the container handler moves the floater; let event bubble
+    if (isTimelineUndocked) return;
+    if (!undockEnabled || !onUndockTimeline) return;
+
+    e.stopPropagation();
+
+    const containerRect = containerRef.current?.getBoundingClientRect() ?? null;
+    preUndockRectRef.current = containerRect;
+    undockSplitFractionRef.current = splitFraction;
+    undockGrabOffsetRef.current = containerRect
+      ? { x: e.clientX - containerRect.left, y: e.clientY - containerRect.top }
+      : { x: 0, y: 0 };
+    draggerHoldOffsetRef.current = { x: 0, y: 0 };
+    draggerCenterWidthRef.current = 0;
+    undockCursorPosRef.current = { x: e.clientX, y: e.clientY };
+    onUndockTimeline();
+
+    // Track pointer after the FLIP animation to move the freshly-floated strip
+    let docked = false;
+    let lastX = e.clientX;
+    let lastY = e.clientY;
+
+    const onMove = (ev) => {
+      if (docked) return;
+      if (undockAnimatingRef.current) {
+        // Keep reference point current so delta is small when animation ends
+        lastX = ev.clientX;
+        lastY = ev.clientY;
+        return;
+      }
+      const dx = ev.clientX - lastX;
+      const dy = ev.clientY - lastY;
+      lastX = ev.clientX;
+      lastY = ev.clientY;
+
+      const insets = getFloatingSideInsets();
+      const panelH = containerRef.current?.getBoundingClientRect().height || 120;
+      const touchBoundary = floatingDetailVisible
+        ? window.innerHeight - (detailHeight || 0)
+        : window.innerHeight;
+      const newPos = {
+        x: Math.max(insets.left, Math.min(insets.right - undockSizeRef.current.width, undockPosRef.current.x + dx)),
+        y: Math.max(0, undockPosRef.current.y + dy),
+      };
+      if (newPos.y + panelH >= touchBoundary) {
+        docked = true;
+        triggerDockAnimation();
+        return;
+      }
+      undockPosRef.current = newPos;
+      setUndockPos({ ...newPos });
+      if (!floatingDetailVisible) {
+        const gap = window.innerHeight - (newPos.y + panelH);
+        preferredBottomGapRef.current = Math.max(8, Math.min(window.innerHeight * 0.8, gap));
+      }
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  }, [isTimelineUndocked, undockEnabled, onUndockTimeline, splitFraction, floatingDetailVisible, detailHeight, triggerDockAnimation, getFloatingSideInsets]);
+
   const adjustFloatingTimelineBounds = useCallback(({ restoreBottom = false } = {}) => {
     if (!isTimelineUndocked || typeof window === 'undefined') return;
 
@@ -364,48 +470,6 @@ export default function DoubleTimeline({
     return () => window.removeEventListener('resize', onResize);
   }, [isTimelineUndocked, floatingDetailVisible, detailHeight, isEventsPanelCollapsed, isSettingsCollapsed, adjustFloatingTimelineBounds]);
 
-  const triggerDockAnimation = useCallback(() => {
-    if (isDockAnimatingRef.current) return;
-    if (typeof window === 'undefined') {
-      onDockTimeline?.();
-      return;
-    }
-    isDockAnimatingRef.current = true;
-    const insets = getFloatingSideInsets();
-    const targetW = Math.max(320, insets.right - insets.left);
-    const panelH = containerRef.current?.getBoundingClientRect().height || 120;
-    const touchBoundary = floatingDetailVisible
-      ? window.innerHeight - (detailHeight || 0)
-      : window.innerHeight;
-    const ty = Math.max(0, touchBoundary - panelH);
-    // Save the current floating width before animating to full width.
-    preDockWidthRef.current = undockSizeRef.current.width;
-
-    // Preserve dragger screen x: recompute split fraction so the dragger stays
-    // at the same screen position after the container expands to full docked width.
-    const floatLeft = undockPosRef.current.x;
-    const floatW = undockSizeRef.current.width;
-    const centerW = Math.max(1, draggerCenterWidthRef.current || 1);
-    const currentFrac = splitFractionRef.current;
-    const draggerScreenX = floatLeft + currentFrac * Math.max(1, floatW - centerW);
-    const newFrac = Math.max(0.15, Math.min(0.85, (draggerScreenX - insets.left) / Math.max(1, targetW - centerW)));
-    setSplitFraction(newFrac);
-    splitFractionRef.current = newFrac;
-
-    setUndockTransition('leaving-expand');
-    undockSizeRef.current = { ...undockSizeRef.current, width: targetW };
-    setUndockSize((prev) => ({ ...prev, width: targetW }));
-    setUndockPos({ x: insets.left, y: ty });
-    undockPosRef.current = { x: insets.left, y: ty };
-    setTimeout(() => {
-      setUndockTransition('leaving-fade');
-      setTimeout(() => {
-        setUndockTransition(null);
-        onDockTimeline?.();
-      }, 180);
-    }, 320);
-  }, [onDockTimeline, getFloatingSideInsets, floatingDetailVisible, detailHeight]);
-
   const handleDividerPointerDown = useCallback((e) => {
     // item 163: when undocked, grip drags the timeline position instead
     // (container drag still works elsewhere; dragging the center down docks immediately)
@@ -420,56 +484,21 @@ export default function DoubleTimeline({
     if (isTimelineUndocked) {
       e.stopPropagation();
       const startX = e.clientX;
-      const startY = e.clientY;
       const startFraction = splitFraction;
       const startCenterWidth = e.currentTarget.getBoundingClientRect().width;
-      const startPos = { ...undockPosRef.current };
-      let docked = false;
       let isDragging = false;
 
       const onMoveUndocked = (ev) => {
         const dx = ev.clientX - startX;
-        const dy = ev.clientY - startY;
-        
-        // Detect if we've moved enough to start dragging
         if (!isDragging) {
-          if (Math.abs(dx) + Math.abs(dy) < 3) return;
+          if (Math.abs(dx) < 3) return;
           isDragging = true;
         }
-
-        const panelH = containerRef.current?.getBoundingClientRect().height || 120;
-        const touchBoundary = floatingDetailVisible
-          ? window.innerHeight - (detailHeight || 0)
-          : window.innerHeight;
         const totalW = containerRef.current?.getBoundingClientRect().width || 800;
         const availableW = Math.max(1, totalW - startCenterWidth);
-        const nextW = Math.max(320, undockSizeRef.current.width);
-        const draggerTrackW = Math.max(1, nextW - startCenterWidth);
-        const lockedFraction = Math.max(0.15, Math.min(0.85, (undockGrabOffsetRef.current.x - draggerHoldOffsetRef.current.x) / draggerTrackW));
-        const nextFraction = nextW < totalW
-          ? lockedFraction
-          : Math.max(0.15, Math.min(0.85, startFraction + dx / availableW));
-        const insets = getFloatingSideInsets();
-
-        // Horizontal: adjust split fraction (same as docked mode)
-        if (Math.abs(dx) > 0) {
-          setSplitFraction(nextFraction);
-          splitFractionRef.current = nextFraction;
-        }
-
-        // Keep the exact held dragger point under the mouse while floating.
-        const heldDraggerX = nextFraction * Math.max(1, nextW - startCenterWidth) + draggerHoldOffsetRef.current.x;
-        const nextX = Math.max(insets.left, Math.min(insets.right - nextW, ev.clientX - heldDraggerX));
-        const nextY = Math.max(8, Math.min(touchBoundary - panelH, startPos.y + dy));
-
-        // Only dock when the floater actually touches the screen bottom or detail panel.
-        if (!docked && nextY + panelH >= touchBoundary) {
-          docked = true;
-          triggerDockAnimation();
-          return;
-        }
-        undockPosRef.current = { x: nextX, y: nextY };
-        setUndockPos({ x: nextX, y: nextY });
+        const nextFraction = Math.max(0.15, Math.min(0.85, startFraction + dx / availableW));
+        setSplitFraction(nextFraction);
+        splitFractionRef.current = nextFraction;
       };
       const onUpUndocked = () => {
         window.removeEventListener('pointermove', onMoveUndocked);
@@ -491,10 +520,7 @@ export default function DoubleTimeline({
     const startDetailHeight = detailHeight || MIN_DETAIL_HEIGHT;
     let isDragging = false;
     let closedByDrag = false;
-    let floatedByDrag = false;
-    let docked = false;
     let lastH = startDetailHeight;
-    const pointerDownTime = Date.now();  // item 191: require 300ms + 20px upward before undock
 
     const onMove = (ev) => {
       const container = containerRef.current;
@@ -514,66 +540,12 @@ export default function DoubleTimeline({
       // Horizontal — adjust split fraction
       const totalW = container.getBoundingClientRect().width;
       const availableW = Math.max(1, totalW - startCenterWidth);
-      const nextWForLock = Math.max(320, undockSizeRef.current.width);
-      const draggerTrackWForLock = Math.max(1, nextWForLock - startCenterWidth);
-      const lockedFraction = Math.max(0.15, Math.min(0.85, (undockGrabOffsetRef.current.x - draggerHoldOffsetRef.current.x) / draggerTrackWForLock));
-      // lockedFraction is only valid once floating (floatedByDrag): it holds the dragger
-      // position constant within the narrower floating container. In docked mode always use
-      // the delta-from-start formula so horizontal drag responds to movement.
-      const nextFraction = (floatedByDrag && nextWForLock < totalW)
-        ? lockedFraction
-        : Math.max(0.15, Math.min(0.85, startFraction + dx / availableW));
+      const nextFraction = Math.max(0.15, Math.min(0.85, startFraction + dx / availableW));
       setSplitFraction(nextFraction);
       splitFractionRef.current = nextFraction;
 
-      // Once undock has started, keep the floater tracking the pointer until release.
-      if (floatedByDrag) {
-        if (docked) return;
-        if (undockAnimatingRef.current) return;  // let undock FLIP animation run uninterrupted
-        const panelH = container.getBoundingClientRect().height || 120;
-        const touchBoundary = floatingDetailVisible
-          ? window.innerHeight - (detailHeight || 0)
-          : window.innerHeight;
-        const nextW = Math.max(320, undockSizeRef.current.width);
-        const insets = getFloatingSideInsets();
-        const heldDraggerX = nextFraction * Math.max(1, nextW - startCenterWidth) + draggerHoldOffsetRef.current.x;
-        const nextX = Math.max(insets.left, Math.min(insets.right - nextW, ev.clientX - heldDraggerX));
-        const nextY = Math.max(8, Math.min(touchBoundary - panelH, ev.clientY - undockGrabOffsetRef.current.y));
-
-        if (nextY + panelH >= touchBoundary) {
-          docked = true;
-          triggerDockAnimation();
-          return;
-        }
-        undockPosRef.current = { x: nextX, y: nextY };
-        setUndockPos({ x: nextX, y: nextY });
-        return;
-      }
-
       // Vertical — 1:1 pixel tracking (items 139, 140: no snapping during drag; close at 0)
-      if (!startDetailOpen) {
-        // item 200: detail panel is ONLY opened via button — drag only triggers undock
-        // item 188/191: require 300ms hold + 20px upward drag to prevent accidental undock
-        if (!floatedByDrag && accY > 20 && undockEnabled && (Date.now() - pointerDownTime) >= 300) {
-          floatedByDrag = true;
-          undockSplitFractionRef.current = nextFraction;
-          preUndockRectRef.current = containerRef.current?.getBoundingClientRect() ?? null;
-          undockCursorPosRef.current = { x: ev.clientX, y: ev.clientY };
-          onUndockTimeline?.();
-          const nextW = Math.max(320, undockSizeRef.current.width);
-          const panelH = container.getBoundingClientRect().height || 120;
-          const touchBoundary = floatingDetailVisible
-            ? window.innerHeight - (detailHeight || 0)
-            : window.innerHeight;
-          const insets = getFloatingSideInsets();
-          const heldDraggerX = nextFraction * Math.max(1, nextW - startCenterWidth) + draggerHoldOffsetRef.current.x;
-          const nextX = Math.max(insets.left, Math.min(insets.right - nextW, ev.clientX - heldDraggerX));
-          const nextY = Math.max(8, Math.min(touchBoundary - panelH, ev.clientY - undockGrabOffsetRef.current.y));
-          undockPosRef.current = { x: nextX, y: nextY };
-          setUndockPos({ x: nextX, y: nextY });
-          return;
-        }
-      } else if (!closedByDrag) {
+      if (startDetailOpen && !closedByDrag) {
         const rawH = startDetailHeight + accY;
         // item 140: dragged all the way down — close the panel during drag
         if (rawH <= 0) {
@@ -581,35 +553,7 @@ export default function DoubleTimeline({
           onToggleDetail?.();
           // item 155: hide header when dragged all the way down
           onHideDetailHeader?.();
-          setNearUndock(false);
           return;
-        }
-        // item 175: undock when dragged past threshold (not all the way to MAX)
-        if (!floatedByDrag && rawH >= UNDOCK_THRESHOLD) {
-          if (undockEnabled) {
-            floatedByDrag = true;
-            undockSplitFractionRef.current = nextFraction;
-            // item 181: capture docked rect so we can FLIP-animate to undocked position
-            preUndockRectRef.current = containerRef.current?.getBoundingClientRect() ?? null;
-            undockCursorPosRef.current = { x: ev.clientX, y: ev.clientY };  // Store cursor pos
-            onUndockTimeline?.();
-            const nextW = Math.max(320, undockSizeRef.current.width);
-            const panelH = container.getBoundingClientRect().height || 120;
-            const touchBoundary = floatingDetailVisible
-              ? window.innerHeight - (detailHeight || 0)
-              : window.innerHeight;
-            const insets = getFloatingSideInsets();
-            const heldDraggerX = nextFraction * Math.max(1, nextW - startCenterWidth) + draggerHoldOffsetRef.current.x;
-            const nextX = Math.max(insets.left, Math.min(insets.right - nextW, ev.clientX - heldDraggerX));
-            const nextY = Math.max(8, Math.min(touchBoundary - panelH, ev.clientY - undockGrabOffsetRef.current.y));
-            undockPosRef.current = { x: nextX, y: nextY };
-            setUndockPos({ x: nextX, y: nextY });
-            return;
-          }
-        } else if (undockEnabled && rawH >= UNDOCK_THRESHOLD * 0.75) {
-          setNearUndock(true);  // item 180: visual hint when close to threshold
-        } else {
-          setNearUndock(false);
         }
         // item 139: track 1:1 without snapping
         lastH = Math.max(0, Math.min(MAX_DETAIL_HEIGHT, rawH));
@@ -623,10 +567,8 @@ export default function DoubleTimeline({
       window.removeEventListener('pointercancel', onUp);
       // item 132: restore transitions/animations (class is idempotent to remove)
       document.documentElement.classList.remove('detail-drag-active');
-      setNearUndock(false);  // item 180: clear visual hint on release
       // item 139: spring-settle on release — transitions are now active again
       if (!isDragging) return;
-      // item 200: panel was open before drag (not opened by drag); check if still open
       const panelOpen = startDetailOpen && !closedByDrag;
       if (panelOpen) {
         if (lastH < 80) {
@@ -644,7 +586,7 @@ export default function DoubleTimeline({
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
-  }, [isTimelineUndocked, undockEnabled, onUndockTimeline, splitFraction, isDetailOpen, detailHeight, floatingDetailVisible, onToggleDetail, onDetailHeightChange, onHideDetailHeader, triggerDockAnimation, getFloatingSideInsets]);
+  }, [isTimelineUndocked, splitFraction, isDetailOpen, detailHeight, onToggleDetail, onDetailHeightChange, onHideDetailHeader]);
 
   // ── Right timeline: animation scrubber (items 122, 125, 138) ──────────────────────
   // item 138: attach to zone (not track) so playhead and click target span full zone height
@@ -885,12 +827,13 @@ export default function DoubleTimeline({
   return (
     <div
       ref={containerRef}
-      className={`double-timeline${isCollapsed ? ' dtl-collapsed' : ''}${isDetailPanelFloating ? ' dtl-panel-floating' : ''}${isTimelineUndocked ? ' dtl-timeline-undocked' : ''}${nearUndock ? ' dtl-near-undock' : ''}`}
+      className={`double-timeline${isCollapsed ? ' dtl-collapsed' : ''}${isDetailPanelFloating ? ' dtl-panel-floating' : ''}${isTimelineUndocked ? ' dtl-timeline-undocked' : ''}${undockEnabled && !isTimelineUndocked ? ' dtl-undock-enabled' : ''}`}
       style={containerStyle}
       onPointerDown={handleContainerPointerDown}
     >
       {/* item 179: event title is full-width above the strip; transparent when docked, solid when undocked */}
-      <div className="dtl-event-title-bar" title={eventTitle}>
+      {/* item 207: title bar is a drag handle for undocking when docked */}
+      <div className="dtl-event-title-bar" title={eventTitle} onPointerDown={handleTitleBarPointerDown}>
         {eventTitle}
       </div>
       <div className="dtl-strip">
