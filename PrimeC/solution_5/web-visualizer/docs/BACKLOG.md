@@ -85,7 +85,10 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 203 dragging the double timeline up to float still looks a bit jittery and not very smooth. Because of phase 1 vs phase 2 state while dragging. 
 204 the loading animation in the start should have the same layout as the blue EVENT timeline with the white lines indicating the amount of change.
 
+205 The loading animation should add more and more events to the timeline, starting with just a few and then gradually filling up to the full set of events, to give users a sense of progress and build anticipation as the trace loads.
+206 the repeat button should be at the far riight side of the middle control area, separated from the play/pause button by the speed control, to prevent accidental clicks and make it clear that it's a different action.
 
+207 The 
 
 ## New Ideas
 

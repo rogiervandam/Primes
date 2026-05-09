@@ -84,11 +84,13 @@ export default function DoubleTimeline({
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   // item 163: free-floating position when undocked (x/y relative to viewport)
+  // item 201: default y puts the strip ~40px from the bottom (strip height ≈ 90px: title+strip+annotation)
   const [undockPos, setUndockPos] = useState(() => {
     const w = typeof window !== 'undefined' ? window.innerWidth : 800;
     const h = typeof window !== 'undefined' ? window.innerHeight : 600;
     const floatW = Math.round(w * 0.6);
-    return { x: Math.round((w - floatW) / 2), y: Math.round(h * 0.15) };
+    const stripH = 90;  // approximate height of floating strip without detail panel open
+    return { x: Math.round((w - floatW) / 2), y: Math.max(8, h - stripH - 40) };
   });
   const undockPosRef = useRef(undockPos);
   // item 170: resizable when undocked
@@ -740,21 +742,25 @@ export default function DoubleTimeline({
         undockCursorPosRef.current = null;
         undockAnimatingRef.current = true;
 
-        // Phase 1: docked rect — strip is already there, no visible change.
-        undockPosRef.current = { x: r.left, y: r.top };
-        setUndockPos({ x: r.left, y: r.top });
+        // item 203: DRAG-INITIATED UNDOCK — skip the Phase 1 position snap (drag handler already
+        // placed the panel at the correct position). Only animate the width from docked to float.
+        // Phase 1: set size to docked width without changing position (no visible jump).
         setSplitFraction(floatFrac);
         splitFractionRef.current = floatFrac;
-        undockSizeRef.current = { ...undockSizeRef.current, width: Math.max(320, Math.round(r.width)) };
-        setUndockSize((prev) => ({ ...prev, width: Math.max(320, Math.round(r.width)) }));
+        const dockedWidth = Math.max(320, Math.round(r.width));
+        undockSizeRef.current = { ...undockSizeRef.current, width: dockedWidth };
+        setUndockSize((prev) => ({ ...prev, width: dockedWidth }));
         setUndockTransition(null);
 
-        // Phase 2 (rAF): animate to centered float position + float width.
-        // X: center-stable (OK per user). Y: use cursor-based Y from drag handler (not fixed top).
+        // Phase 2 (rAF): animate width to float width; adjust X to keep dragger under cursor.
+        // If docked width != float width, shift X by (floatFrac * delta) to keep dragger stable.
         const insets = getFloatingSideInsets();
-        const startCenterX = r.left + Math.max(1, Math.round(r.width)) / 2;
-        const tx = Math.max(insets.left, Math.min(insets.right - desiredFloatingWidth, Math.round(startCenterX - desiredFloatingWidth / 2)));
-        const ty = undockPosRef.current.y;  // Y already set correctly by drag handler
+        const widthDelta = dockedWidth - desiredFloatingWidth;  // positive = panel shrinks
+        const tx = Math.max(insets.left, Math.min(
+          insets.right - desiredFloatingWidth,
+          undockPosRef.current.x + Math.round(floatFrac * widthDelta)
+        ));
+        const ty = undockPosRef.current.y;
         const finalPos = { x: tx, y: ty };
         requestAnimationFrame(() => {
           void containerRef.current?.offsetHeight;
@@ -779,7 +785,8 @@ export default function DoubleTimeline({
         const insets = getFloatingSideInsets();
         const startCenterX = r.left + Math.max(1, Math.round(r.width)) / 2;
         const tx = Math.max(insets.left, Math.min(insets.right - desiredFloatingWidth, Math.round(startCenterX - desiredFloatingWidth / 2)));
-        const ty = Math.round(window.innerHeight * 0.15);
+        // item 201: default float position near the bottom (40px from bottom, strip ≈ 90px tall)
+        const ty = Math.max(8, Math.round(window.innerHeight - 90 - 40));
         const finalPos = { x: tx, y: ty };
 
         requestAnimationFrame(() => {
@@ -943,15 +950,6 @@ export default function DoubleTimeline({
             <button className="dtl-btn dtl-speed" onClick={() => setPlaySpeedPercent?.((v) => Math.max(1, Math.round(v / 1.25)))} disabled={exporting} title="Slower">
               <Minus size={9} />
             </button>
-            {/* item 197: repeat button moved into the middle drag area */}
-            <button
-              className={`dtl-btn dtl-repeat-btn${isSingleEventRepeatEnabled ? ' dtl-active' : ''}`}
-              onClick={onToggleRepeat}
-              onPointerDown={(e) => e.stopPropagation()}
-              title={isSingleEventRepeatEnabled ? 'Loop: on — click to disable' : 'Loop: off — click to enable'}
-            >
-              <Repeat size={10} />
-            </button>
             {/* Main play button — items 123, 128; item 198: long-press reveals animation settings */}
             <button
               className="dtl-btn dtl-play"
@@ -971,6 +969,15 @@ export default function DoubleTimeline({
             </button>
             <button className="dtl-btn" onClick={() => canNavigate && goToStep(stepCount - 1)} disabled={!canNavigate} title="Last event">
               <SkipForward size={10} />
+            </button>
+            {/* item 206: repeat at far right — separated from play by speed controls to prevent accidental clicks */}
+            <button
+              className={`dtl-btn dtl-repeat-btn${isSingleEventRepeatEnabled ? ' dtl-active' : ''}`}
+              onClick={onToggleRepeat}
+              onPointerDown={(e) => e.stopPropagation()}
+              title={isSingleEventRepeatEnabled ? 'Loop: on — click to disable' : 'Loop: off — click to enable'}
+            >
+              <Repeat size={10} />
             </button>
           </div>
           {/* item 168: grip at bottom of center zone so dots appear inside the dragger, not above */}

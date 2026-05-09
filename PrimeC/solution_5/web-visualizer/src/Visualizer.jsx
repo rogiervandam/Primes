@@ -506,6 +506,7 @@ export default function Visualizer({
   const { updateDetailOpen, updateDetailHeight } = useDetailPanelStateSync({
     isDetailOpenRef,
     setIsDetailOpen,
+    setIsDetailHeaderHidden,
     detailHeightRef,
     setDetailHeight,
   });

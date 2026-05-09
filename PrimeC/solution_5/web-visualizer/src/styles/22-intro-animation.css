@@ -114,7 +114,6 @@
   background: var(--accent, #6c8ebf);
   transition: width 120ms ease-out;
 }
-
 /* Keep side-panels/widgets hidden during loader, then fade in together. */
 .main-content .events-panel,
 .main-content .settings-sidebar,
