@@ -1,12 +1,19 @@
 /* ---- Collapsible Events Panel ---- */
 /* Panel slides out to the left (translateX) when collapsed.
    Width stays at full value; overflow:hidden clips the off-screen content.
-   pointer-events:none prevents interacting with the hidden panel. */
+   pointer-events:none prevents interacting with the hidden panel.
+   visibility:hidden (with 220ms delay) stops the compositing layer from being
+   repainted every animation frame while the panel is off-screen. */
 .events-panel.collapsed {
   transform: translateX(-100%);
   pointer-events: none;
   border-right: none;
   box-shadow: none;
+  visibility: hidden;
+  /* visibility hides AFTER the 220ms slide-out animation finishes;
+     when un-collapsing the matching rule has 0s delay so it restores instantly */
+  transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              visibility 0s linear 220ms;
 }
 
 /* ---- item 176: Pure CSS slide-in/out — no JS animation state needed ---- */

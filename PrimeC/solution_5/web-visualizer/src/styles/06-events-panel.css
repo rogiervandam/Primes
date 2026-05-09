@@ -14,7 +14,9 @@
   box-shadow: 2px 0 16px rgba(0, 0, 0, 0.22);
   overflow: hidden;
   /* item 176: slide the whole panel left/right as one unit — no opacity change */
-  transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* visibility 0s 0s: restore visibility instantly when un-collapsing (before slide-in starts) */
+  transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              visibility 0s linear 0s;
 }
 .events-panel-header {
   padding: 8px;

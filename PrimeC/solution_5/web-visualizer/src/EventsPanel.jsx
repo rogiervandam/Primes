@@ -153,6 +153,19 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
   const [filterOp, setFilterOp] = useState('');
   // Lazy rendering: only show this many groups at first; extend on scroll.
   const [visibleGroupCount, setVisibleGroupCount] = useState(20);
+  // Performance: only render the expensive event list when the panel is visible.
+  // When collapsing, keep the list mounted during the slide-out animation (240ms),
+  // then unmount it to stop per-step React re-renders while the panel is hidden.
+  // When expanding, mount immediately so content is visible during slide-in.
+  const [listVisible, setListVisible] = useState(!panelCollapsed);
+  useEffect(() => {
+    if (!panelCollapsed) {
+      setListVisible(true);
+    } else {
+      const t = setTimeout(() => setListVisible(false), 240);
+      return () => clearTimeout(t);
+    }
+  }, [panelCollapsed]);
   // Whether the operation column is in wide mode (shows full text, no truncation).
   // Persisted to localStorage so it survives reloads.
   const [opColWide, setOpColWide] = useState(() => {
@@ -399,6 +412,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
 
   // Lazy loading: extend visibleGroupCount when the sentinel scrolls into view.
   useEffect(() => {
+    if (!listVisible) return;
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
     const observer = new IntersectionObserver(
@@ -411,7 +425,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [filteredTree.length]);
+  }, [filteredTree.length, listVisible]);
 
   // Auto-extend when the current step falls outside the visible window.
   useEffect(() => {
@@ -860,6 +874,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
           <span className="events-visible-count" title={`${totalVisible} of ${steps.length} events visible`}>{totalVisible}/{steps.length}</span>
         </div>
       </div>
+      {listVisible && (
       <div className="event-list" ref={listRef} onWheel={onUserScroll}>
         {visibleRenderedGroups.map((group) => {
           const isCollapsed = collapsed.has(group.id);
@@ -901,6 +916,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
         {/* Sentinel triggers lazy-loading of the next batch */}
         <div ref={sentinelRef} className="event-list-sentinel" />
       </div>
+      )}
 
       <div className="resize-handle" onMouseDown={handleMouseDown} />
     </div>
