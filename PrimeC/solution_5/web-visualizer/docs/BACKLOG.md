@@ -59,12 +59,17 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 181 Fixed: FLIP animation on undock — floating panel starts at the docked element's bounding rect and animates to center of screen using CSS `transition: top/left 380ms` injected via inline style. Dock button animates the panel toward the bottom before calling `onDockTimeline()`. Auto-dock on drag-to-bottom also animates before docking.
 182 Fixed: Added `--settings-panel-width` CSS variable to `.main-content` (328px on Windows/Linux, 388px on Mac, 0px when collapsed). DoubleTimeline uses `right: var(--settings-panel-width, 0px)` with a smooth transition. DetailPanel uses `margin-right: var(--settings-panel-width, 0px)` with a smooth transition. Both animate when the settings panel is toggled.
 
-183 When there is no annotation, still reserve the spare in the annotation line below the event title bar (dtl-annotation-bar) so that the event title bar does not shift up/down when annotations appear/disappear during scrubbing or when selecting events with/without annotations.
-184 When the double timeline is floating and the event panel or settings panel is toggled and it would be behind the floater, adjust the width of the floater on that side so that it doesn't cover the panels.
-185 When the detail panel is opened and the floater would cover that, move the floater up so that it doesn't cover the detail panel. When the detail panel is closed and the floater is floating, move it back to the relative position of the bottom of the window where the user last positioned it.
-186 The event panel should a smooth slide-out animation to the left when toggled closed
-187 Remove the top bar slider and controls for the events as the double timeline now takes over that role.
-188 When the dragger is dragged up, skip the revail of the detail panel: immediately undock the double timeline and make it a floating panel that can be dragged around and docked back to the bottom when dragged there. This means the timelines become narrower and a border appears around the detail panel when it's floating. When the dragger is dragged down, immediately dock the double timeline back to its original position at the bottom of the screen. Make a nice animation where the timelines smoothly shrink to their new width when undocking/docking.
+183 Fixed: Annotation row now always reserves space (`dtl-annotation-row` + `dtl-annotation-bar` min-height) even when annotation text is empty, preventing title/strip vertical shifts during scrubbing.
+184 Fixed: While undocked, the floating timeline now auto-clamps X/width against `--events-panel-width` and `--settings-panel-width` so toggling side panels does not leave the floater covering them.
+185 Fixed: While undocked, opening the floating detail panel pushes the floater upward to avoid overlap. Closing the floating detail panel restores the floater to the last user-relative bottom offset.
+186 Fixed: Events panel close/open uses a smooth left slide via `transform` transition, with `visibility` delayed until slide-out completes and compositor hint (`will-change: transform`) for stable motion.
+187 Fixed: Removed legacy top toolbar playback transport; the double timeline is now the primary events/playback control surface.
+188 Fixed: Dragging the center dragger up from closed state now immediately undocks (no detail-panel reveal pass-through). Dragging the dragger down while undocked docks immediately. Undock/dock transitions now animate width (`top/left/width`) for smooth shrink/expand.
+
+189 The annotation should have a dark background, but should not be transparent when docked.
+190 A part of the detail panel is still visibble where the double timeline is docked, which looks a bit odd. When the double timeline is undocked, the detail panel should be completely hidden behind it, and when it's docked, the detail panel should be fully visible without any part of it being covered by the timeline.
+191 THere should be some delay before the undock procedure starts when dragging the center dragger up, to prevent accidental undocking when users just want to move the dragger left or right and accidentally move it up a bit. Maybe the dragger needs to be dragged up for at least 300 ms and/or moved up by at least 20 pixels before the undock procedure starts.
+192 When scrubbing the timeline, it feels like there is some delay. If this is from the DOM state updates, we should optimize the rendering to make it more responsive. If it's from the animation frame rate, we should consider throttling the scrubbing updates to a maximum of 60 fps or using requestAnimationFrame to sync with the browser's rendering cycle.
 
 
 

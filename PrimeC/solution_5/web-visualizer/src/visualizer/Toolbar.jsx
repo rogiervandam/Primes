@@ -4,7 +4,6 @@ import {
 } from '../Icons';
 import { GearIcon } from '../settings/buttons';
 import TraceInfoPopover from './TraceInfoPopover';
-import PlaybackTransport from './PlaybackTransport';
 import ToolbarPanelToggles from './ToolbarPanelToggles';
 import { useThemeContext } from '../contexts/ThemeContext';
 import { usePanelLayoutContext } from '../contexts/PanelLayoutContext';
@@ -134,11 +133,6 @@ export default function Toolbar({
         />
         <ToolbarPanelToggles />
       </div>
-      {!areControlsHidden && (
-      <div className="toolbar-center">
-        <PlaybackTransport />
-      </div>
-      )}
       <div className="toolbar-right">
         {!isWindowsPlatform && (
           <>
