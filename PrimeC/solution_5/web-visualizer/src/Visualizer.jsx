@@ -1036,6 +1036,8 @@ export default function Visualizer({
     stepScrubProgressValueRef,
     globalPausedRef,
     cancelViewportAnimation,
+    // item 144: collapse the settings panel when the user clicks on the canvas
+    collapseSettingsIfOpen: isSettingsCollapsed ? undefined : () => setIsSettingsCollapsed(true),
   });
 
   // Keyboard shortcuts — see src/hooks/useKeyboardShortcuts.js for the full key map.
@@ -1679,6 +1681,20 @@ export default function Visualizer({
       currentStepData,
       aggMaskStepIndex,
       aggMaskStepSetterRef,
+      // DoubleTimeline raw props (backlog #120)
+      doubleTimeline: {
+        stepScrubProgress,
+        seekStepAnimation,
+        setStepScrubProgress,
+        handleStepAnimToggle,
+        isStepAnimRunning,
+        isSingleEventLoopActive,
+        isAnimationReplayPaused,
+        isSingleEventRepeatEnabled,
+        onToggleRepeat: () => setIsSingleEventRepeatEnabled((v) => !v),
+        onOpenAnimationSettings: openAnimationSettings,
+        exporting,
+      },
     },
 
     // Panels & layout

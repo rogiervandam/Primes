@@ -7,6 +7,7 @@ import JoinedEventsWidget from './JoinedEventsWidget';
 import DebugToolsPanel from './DebugToolsPanel';
 import EventTitleBanner from './EventTitleBanner';
 import DetailPanel from '../DetailPanel';
+import DoubleTimeline from './DoubleTimeline';
 
 /**
  * VisualizerMainContent — Phase 2 Refactoring
@@ -60,7 +61,7 @@ export default function VisualizerMainContent(props) {
   const { selection: handleStepSelection, multiSelection: handleMultiStepSelect, stop: stopPlayback, goToStep } = playbackHandlers;
 
   // Animation
-  const { content: animContent = {}, currentStepBanner, surroundingEvents, currentStepData, aggMaskStepIndex = 0, aggMaskStepSetterRef } = animation;
+  const { content: animContent = {}, currentStepBanner, surroundingEvents, currentStepData, aggMaskStepIndex = 0, aggMaskStepSetterRef, doubleTimeline: doubleTimelineProps = {} } = animation;
   const { stepAnimSliders: stepAnimSlidersContent, stepAnimSlidersDocked: stepAnimSlidersDockedContent, allEventsTransport: allEventsTransportContent } = animContent;
 
   // Panels
@@ -241,6 +242,19 @@ export default function VisualizerMainContent(props) {
       )}
       {/* DetailPanel lives in main-content (not inside canvas-area) so it is
           positioned relative to the full main-content area (item 58). */}
+      {currentStepData && (
+        <DoubleTimeline
+          steps={steps}
+          currentStep={currentStep}
+          currentStepData={currentStepData}
+          playing={playing}
+          isDetailOpen={isDetailOpen}
+          detailHeight={detailHeight}
+          onToggleDetail={toggleDetailPanel}
+          onDetailHeightChange={updateDetailHeight}
+          {...doubleTimelineProps}
+        />
+      )}
       <DetailPanel
         detailState={{
           step: currentStepData,

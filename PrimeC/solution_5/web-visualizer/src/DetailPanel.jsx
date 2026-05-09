@@ -637,8 +637,14 @@ export default function DetailPanel({
             }}
             title={eventTitleVisible ? 'Hide single event widget' : 'Show single event widget'}
           >{eventTitleVisible ? '▼' : '▲'}</button>
-        )}        
-      </div>
+        )}                {/* item 143: close button — only shown when panel is open */}
+        {open && (
+          <button
+            className="detail-panel-close-btn"
+            onClick={(e) => { e.stopPropagation(); onToggle && onToggle(); }}
+            title="Close detail panel"
+          >\u2715</button>
+        )}      </div>
 
 
       {(open || isBodyAnimatingOut) && (

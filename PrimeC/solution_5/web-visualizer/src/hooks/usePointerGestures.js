@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { applyPan } from '../visualizer/gestures/pan';
 import { applyRotate } from '../visualizer/gestures/rotate';
 import { applyWheel } from '../visualizer/gestures/wheel';
+import { getTwoPointerState } from '../visualizer/gestures/pinch';
 
 /**
  * Sets up all pointer / mouse / wheel event listeners on the canvas container
@@ -34,6 +35,7 @@ export function usePointerGestures({
   stepScrubProgressValueRef,
   globalPausedRef,
   cancelViewportAnimation,
+  collapseSettingsIfOpen,
 }) {
   // Cinematic fly-to on element click (in 3D mode)
   const flyToElement = useCallback((bitIdx) => {
@@ -143,6 +145,10 @@ export function usePointerGestures({
     let didDrag = false;
     let mouseRotateActive = false;
     let pointerDownCanvasCoords = null;
+    // item 141: multi-touch state
+    const activePointers = new Map(); // pointerId → { clientX, clientY }
+    let pinchStart = null;    // { dist, angle, cx, cy, zoom, panX, panY }
+    let pinchLastAngle = 0;   // for incremental camera rotation
 
     const eventToCanvasCoords = (event, fallbackClientX = event.clientX, fallbackClientY = event.clientY) => {
       const metrics = getCanvasPlaneMetrics();
@@ -192,6 +198,8 @@ export function usePointerGestures({
       activePointerId = null;
       mouseRotateActive = false;
       pointerDownCanvasCoords = null;
+      activePointers.clear(); // item 141
+      pinchStart = null;      // item 141
       el.classList.remove('dragging');
     };
 
@@ -203,6 +211,9 @@ export function usePointerGestures({
       // Without this, setPointerCapture() swallows the pointerup so buttons
       // in .step-focus-banner and .bit-history-panel never fire click events.
       if (e.target.closest('.step-focus-banner, .bit-history-panel, .detail-inspector-overlay, .joined-events-widget')) return;
+      // item 141: track all pointers; ignore 3rd+ finger
+      activePointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+      if (gestureMode === 'pinch') return;
       const rect = el.getBoundingClientRect();
       const rawX = e.clientX - rect.left; // eslint-disable-line no-unused-vars
       const rawY = e.clientY - rect.top;  // eslint-disable-line no-unused-vars
@@ -261,13 +272,58 @@ export function usePointerGestures({
       if (liveCam3) liveCam3.cancelAllAnimations();
       if (el.setPointerCapture) el.setPointerCapture(e.pointerId);
       el.classList.add('dragging');
+      // item 141: if a 2nd finger is already down, transition to pinch
+      if (activePointers.size === 2) {
+        const twoState = getTwoPointerState(activePointers);
+        if (twoState) {
+          pinchStart = { ...twoState, zoom: r.zoom, panX: r.panX, panY: r.panY };
+          pinchLastAngle = twoState.angle;
+          gestureMode = 'pinch';
+          // release single-pointer capture so the 2nd pointer isn't redirected
+          if (el.releasePointerCapture && activePointerId != null) {
+            try { el.releasePointerCapture(activePointerId); } catch (_) {}
+          }
+          activePointerId = null;
+        }
+      }
     };
 
     const onPointerMove = (e) => {
       if (mouseRotateActive) return;
+      // item 141: keep pointer position fresh for pinch state
+      if (activePointers.has(e.pointerId)) {
+        activePointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+      }
       const r = rendererRef.current;
       if (!r) return;
       const cam = camera3DRef.current;
+
+      // item 141: two-finger pinch-zoom-rotate
+      if (gestureMode === 'pinch' && pinchStart) {
+        const twoState = getTwoPointerState(activePointers);
+        if (twoState) {
+          const scaleRatio = twoState.dist / Math.max(1, pinchStart.dist);
+          const newZoom = Math.max(0.1, Math.min(64, pinchStart.zoom * scaleRatio));
+          // Zoom around the initial pinch centre, panned by centre drift
+          const contentX = (pinchStart.cx - pinchStart.panX) / Math.max(0.0001, pinchStart.zoom);
+          const contentY = (pinchStart.cy - pinchStart.panY) / Math.max(0.0001, pinchStart.zoom);
+          r.zoom = newZoom;
+          r.panX = twoState.cx - contentX * newZoom;
+          r.panY = twoState.cy - contentY * newZoom;
+          // Incremental camera rotation from twist (only if 3D mode is active)
+          if (cam && cam.enabled) {
+            const angleDelta = twoState.angle - pinchLastAngle;
+            cam.rotate(angleDelta * 40, 0); // 40 camera-degrees per radian of twist
+          }
+          pinchLastAngle = twoState.angle;
+          setZoom(r.zoom);
+          r.render();
+          updateMinimapAvailability();
+          r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
+          scheduleBalloonRelayout();
+        }
+        return;
+      }
 
       if (gestureMode === 'none' && cam) {
         const secondaryPressed = ((e.buttons & 2) === 2) || (((e.buttons & 1) === 1) && (e.ctrlKey || e.metaKey));
@@ -382,6 +438,29 @@ export function usePointerGestures({
 
     const onPointerEnd = (e) => {
       if (mouseRotateActive) return;
+      // item 141: remove from multi-touch tracking
+      activePointers.delete(e.pointerId);
+      // item 141: handle pinch end before the single-pointer guard below
+      if (gestureMode === 'pinch') {
+        if (activePointers.size === 1) {
+          // One finger remains — smoothly transition back to pan
+          const entry = activePointers.entries().next().value;
+          if (entry) {
+            const [pId, pt] = entry;
+            const rp = rendererRef.current;
+            gestureMode = 'pan';
+            activePointerId = pId;
+            startX = pt.clientX;
+            startY = pt.clientY;
+            if (rp) { panSX = rp.panX; panSY = rp.panY; }
+            if (el.setPointerCapture) { try { el.setPointerCapture(pId); } catch (_) {} }
+          }
+        } else if (activePointers.size === 0) {
+          clearInteraction();
+        }
+        pinchStart = null;
+        return;
+      }
       if (activePointerId != null && e.pointerId !== activePointerId) return;
       const rect = el.getBoundingClientRect();
       const releasedOverCanvas = isPointWithinRect(e.clientX, e.clientY, rect);
@@ -416,6 +495,8 @@ export function usePointerGestures({
           clearInteraction();
           return;
         }
+        // item 144: true canvas click — dismiss the settings panel if it is open
+        collapseSettingsIfOpen?.();
         if (!areBalloonsEnabled || !isBalloonClickEnabled) {
           clearInteraction();
           return;

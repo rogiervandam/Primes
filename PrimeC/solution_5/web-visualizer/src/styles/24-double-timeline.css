@@ -1,0 +1,311 @@
+/* ── DoubleTimeline (backlog #120-125) ────────────────────────────────────── */
+
+.double-timeline {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  user-select: none;
+  flex-shrink: 0;
+  margin-left: var(--events-panel-width, 0px);
+  transition: margin-left 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* ── Main strip ─────────────────────────────────────────────────────────── */
+
+.dtl-strip {
+  display: flex;
+  flex-direction: row;
+  align-items: center;      /* centre zone protrudes; side zones use align-self:stretch */
+  height: 36px;
+  overflow: visible;        /* item 127: let centre zone protrude above + below */
+  position: relative;
+}
+
+.double-timeline.dtl-collapsed .dtl-strip {
+  height: 28px;
+}
+.double-timeline.dtl-collapsed .dtl-wave-canvas {
+  display: none;
+}
+.double-timeline.dtl-collapsed .dtl-wave-overlay {
+  position: static;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  height: 100%;
+}
+
+/* ── Zones ────────────────────────────────────────────────────────────────── */
+
+.dtl-zone {
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 1;
+  align-self: stretch;  /* wave/anim zones fill the full strip height */
+}
+
+/* LEFT — waveform */
+.dtl-wave-zone {
+  cursor: pointer;
+  background: #0e1b2e;
+}
+.dtl-wave-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.dtl-wave-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+  pointer-events: none;
+}
+.dtl-wave-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+.dtl-wave-counter {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.55);
+  font-variant-numeric: tabular-nums;
+}
+
+/* MIDDLE — transport (items 126–127: prominent borders, raised tab, drag hint) */
+.dtl-center-zone {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  align-self: center;         /* item 127: don't stretch — use explicit height */
+  height: 52px;               /* item 127: protrudes 8px above + below 36px strip */
+  background: color-mix(in srgb, var(--bg-raised) 78%, var(--accent) 22%);
+  border: 2px solid color-mix(in srgb, var(--border) 50%, var(--accent) 50%);
+  border-radius: 6px;         /* item 127: rounded corners on the raised tab */
+  padding: 2px 6px;
+  cursor: move;
+  min-width: 120px;
+  z-index: 2;                 /* item 127: sit above the wave zones */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);  /* item 127: elevation shadow */
+  transition: background 140ms, border-color 140ms, box-shadow 140ms;
+  touch-action: none;         /* item 142: allow pointer drag on touch devices */
+}
+.dtl-center-zone:hover {
+  background: color-mix(in srgb, var(--bg-raised) 55%, var(--accent-bg) 45%);
+  border-color: var(--accent);
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.45);
+}
+/* Six-dot vertical drag handle (2 cols × 3 rows) — items 126, 134 (bigger) */
+.dtl-grip {
+  width: 16px;
+  height: 26px;
+  cursor: move;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+  background:
+    radial-gradient(circle, rgba(255,255,255,0.55) 2px, transparent 2px) 1px 2px / 6px 6px no-repeat,
+    radial-gradient(circle, rgba(255,255,255,0.55) 2px, transparent 2px) 9px 2px / 6px 6px no-repeat,
+    radial-gradient(circle, rgba(255,255,255,0.55) 2px, transparent 2px) 1px 10px / 6px 6px no-repeat,
+    radial-gradient(circle, rgba(255,255,255,0.55) 2px, transparent 2px) 9px 10px / 6px 6px no-repeat,
+    radial-gradient(circle, rgba(255,255,255,0.55) 2px, transparent 2px) 1px 18px / 6px 6px no-repeat,
+    radial-gradient(circle, rgba(255,255,255,0.55) 2px, transparent 2px) 9px 18px / 6px 6px no-repeat;
+  transition: opacity 140ms;
+}
+.dtl-center-zone:hover .dtl-grip {
+  background:
+    radial-gradient(circle, rgba(255,255,255,0.85) 2px, transparent 2px) 1px 2px / 6px 6px no-repeat,
+    radial-gradient(circle, rgba(255,255,255,0.85) 2px, transparent 2px) 9px 2px / 6px 6px no-repeat,
+    radial-gradient(circle, rgba(255,255,255,0.85) 2px, transparent 2px) 1px 10px / 6px 6px no-repeat,
+    radial-gradient(circle, rgba(255,255,255,0.85) 2px, transparent 2px) 9px 10px / 6px 6px no-repeat,
+    radial-gradient(circle, rgba(255,255,255,0.85) 2px, transparent 2px) 1px 18px / 6px 6px no-repeat,
+    radial-gradient(circle, rgba(255,255,255,0.85) 2px, transparent 2px) 9px 18px / 6px 6px no-repeat;
+}
+.dtl-transport {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1px;
+  pointer-events: auto;
+}
+.dtl-center-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1px;
+  pointer-events: auto;
+}
+/* Speed label moved to right zone (item 124); keep class but it's unused in center */
+.dtl-speed-label {
+  font-size: 9px;
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  pointer-events: none;
+  min-width: 28px;
+  display: none;
+}
+/* Speed % in right animation zone (item 124) */
+.dtl-anim-speed {
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  font-variant-numeric: tabular-nums;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
+/* Buttons — item 129: larger hit area; item 134: bigger base size */
+.dtl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 22px;              /* item 134: was 18px */
+  height: 22px;             /* item 134: was 18px */
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  padding: 0;
+  font-size: 10px;          /* item 134: was 9px */
+  transition: background 120ms, color 120ms;
+}
+/* item 129: invisible touch-target expansion — adds ~8px on all sides */
+.dtl-btn::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+.dtl-btn:hover:not(:disabled) {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.dtl-btn:disabled { opacity: 0.35; cursor: default; }
+/* Main play button — oversized, glow hover (items 123, 128) */
+.dtl-btn.dtl-play {
+  width: 36px;
+  height: 36px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+  transition: background 140ms, color 140ms, box-shadow 140ms, transform 100ms;
+}
+.dtl-btn.dtl-play:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 30%, transparent),
+              0 2px 10px rgba(0, 0, 0, 0.4);
+  transform: scale(1.1);
+}
+.dtl-btn.dtl-play:active:not(:disabled) {
+  transform: scale(0.94);
+}
+/* Animation play button — medium */
+.dtl-btn.dtl-anim-play {
+  width: 20px;
+  height: 20px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-radius: 50%;
+}
+.dtl-btn.dtl-anim-play:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+.dtl-btn.dtl-gear { color: var(--fg-dim); }
+.dtl-btn.dtl-toggle-btn { color: var(--fg-dim); font-size: 9px; }
+/* Repeat toggle — active state (item 135) */
+.dtl-btn.dtl-repeat-btn { color: rgba(255,255,255,0.5); }
+.dtl-btn.dtl-repeat-btn.dtl-active {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+/* RIGHT — animation scrubber: blue bg, white vertical bar (items 122, 124, 125, 135-137) */
+.dtl-anim-zone {
+  background: #0e1b2e;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 4px 8px;
+  gap: 3px;
+  position: relative;
+}
+/* Header row with labels + controls (items 135-137) */
+.dtl-anim-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  pointer-events: none;
+}
+.dtl-anim-header-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+.dtl-anim-header-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  pointer-events: auto;   /* replay + gear must be clickable */
+}
+.dtl-anim-track {
+  position: relative;
+  width: 100%;
+  height: 10px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  overflow: visible;
+  touch-action: none;
+  z-index: 1;
+}
+/* No fill bar — just the white vertical bar playhead (items 122, 138) */
+/* item 138: positioned on zone (not track) so it spans the full section height */
+.dtl-anim-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  transform: translateX(-50%);
+  background: #ffffff;
+  border-radius: 2px;
+  pointer-events: none;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.55);
+  z-index: 1;
+}
+
+/* Hidden toggle button when visibility is off */
+.dtl-hidden-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--fg-dim);
+  margin-left: var(--events-panel-width, 0px);
+  transition: margin-left 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.dtl-hidden-toggle:hover { background: var(--bg-raised); color: var(--accent); }
+.dtl-hidden-label { letter-spacing: 0.04em; font-weight: 600; }

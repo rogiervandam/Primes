@@ -10,6 +10,24 @@
   margin-left: var(--events-panel-width, 0px);
   transition: margin-left 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
+
+/* ---- Suppress open/close animations while the DoubleTimeline centre-zone is being dragged (items 132-133, 139) ---- */
+/* The class is set on <html> so it covers newly-mounted elements too (unlike inline style). */
+.detail-drag-active .detail-panel {
+  transition: none !important;
+}
+.detail-drag-active .detail-panel-body {
+  transition: none !important;
+}
+.detail-drag-active .detail-panel-body.body-expanding-in {
+  animation: none !important;
+}
+/* Immediately hide the body so it doesn't linger for 300 ms during the collapse timer */
+.detail-drag-active .detail-panel-body.body-collapsing-out {
+  animation: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
 .detail-panel-resize {
   height: 4px;
   cursor: ns-resize;
@@ -84,6 +102,30 @@
   line-height: 1;
 }
 .detail-panel-show-banner-btn:hover { background: var(--accent-bg); }
+/* item 143: close (×) button in the detail panel toggle header */
+.detail-panel-close-btn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin-right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--fg-dim);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  transition: color 120ms, border-color 120ms, background 120ms;
+}
+.detail-panel-close-btn:hover {
+  color: var(--fg-bright);
+  border-color: var(--border);
+  background: var(--bg-raised);
+}
 /* Dock row: always-visible transport/slider strip between toggle and body */
 .detail-panel-dock-row {
   display: flex;
@@ -138,6 +180,8 @@
   max-height: 240px;
   overflow-y: auto;
   font-size: 12px;
+  /* item 139: spring-settle transition after dragging — suppressed during drag by detail-drag-active */
+  transition: max-height 300ms cubic-bezier(0.34, 1.2, 0.64, 1), height 300ms cubic-bezier(0.34, 1.2, 0.64, 1);
 }
 .detail-layout-4col {
   display: grid;
