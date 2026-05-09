@@ -293,13 +293,6 @@ export default function DetailPanel({
 
   if (!step) return null;
 
-  const panelTitle = [
-    step.prime != null ? `Prime ${step.prime}` : null,
-    `Event ${step.stepId ?? stepIndex}`,
-    step.operation || null,
-    step.numChanged > 0 ? `+${step.numChanged} bits` : null,
-  ].filter(Boolean).join(' | ');
-
   // Compact "Operation" section — identity of the step
   const operationFacts = [
     {
@@ -663,11 +656,6 @@ export default function DetailPanel({
               title={showSingleEventInPanel ? 'Hide single-event slider' : 'Show single-event slider'}
             >▷</button>
           )}
-        </div>
-        <div className="detail-panel-title">
-          <span className="detail-panel-title-main">{panelTitle}</span>
-          {/* item 156: annotation only shown when detail panel is visible */}
-          {open && <span className="detail-panel-annotation">{step.annotation || ''}</span>}
         </div>
         {/* item 157: dock button — only shown when floating */}
         {isFloating && onDockDetailPanel && (

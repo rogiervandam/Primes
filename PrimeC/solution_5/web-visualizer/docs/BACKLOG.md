@@ -59,7 +59,15 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 181 Fixed: FLIP animation on undock — floating panel starts at the docked element's bounding rect and animates to center of screen using CSS `transition: top/left 380ms` injected via inline style. Dock button animates the panel toward the bottom before calling `onDockTimeline()`. Auto-dock on drag-to-bottom also animates before docking.
 182 Fixed: Added `--settings-panel-width` CSS variable to `.main-content` (328px on Windows/Linux, 388px on Mac, 0px when collapsed). DoubleTimeline uses `right: var(--settings-panel-width, 0px)` with a smooth transition. DetailPanel uses `margin-right: var(--settings-panel-width, 0px)` with a smooth transition. Both animate when the settings panel is toggled.
 
-183 in details panel, remove the nearby events section.
+183 When there is no annotation, still reserve the spare in the annotation line below the event title bar (dtl-annotation-bar) so that the event title bar does not shift up/down when annotations appear/disappear during scrubbing or when selecting events with/without annotations.
+184 When the double timeline is floating and the event panel or settings panel is toggled and it would be behind the floater, adjust the width of the floater on that side so that it doesn't cover the panels.
+185 When the detail panel is opened and the floater would cover that, move the floater up so that it doesn't cover the detail panel. When the detail panel is closed and the floater is floating, move it back to the relative position of the bottom of the window where the user last positioned it.
+186 The event panel should a smooth slide-out animation to the left when toggled closed
+187 Remove the top bar slider and controls for the events as the double timeline now takes over that role.
+188 When the dragger is dragged up, skip the revail of the detail panel: immediately undock the double timeline and make it a floating panel that can be dragged around and docked back to the bottom when dragged there. This means the timelines become narrower and a border appears around the detail panel when it's floating. When the dragger is dragged down, immediately dock the double timeline back to its original position at the bottom of the screen. Make a nice animation where the timelines smoothly shrink to their new width when undocking/docking.
+
+
+
 
 
 

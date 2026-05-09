@@ -270,6 +270,7 @@ export default function DoubleTimeline({
     const startX = e.clientX;
     const startY = e.clientY;
     const startFraction = splitFraction;
+    const startCenterWidth = e.currentTarget.getBoundingClientRect().width;
     const startDetailOpen = isDetailOpen;
     const startDetailHeight = detailHeight || MIN_DETAIL_HEIGHT;
     let isDragging = false;
@@ -295,7 +296,8 @@ export default function DoubleTimeline({
 
       // Horizontal — adjust split fraction
       const totalW = container.getBoundingClientRect().width;
-      setSplitFraction(Math.max(0.15, Math.min(0.85, startFraction + dx / totalW)));
+      const availableW = Math.max(1, totalW - startCenterWidth);
+      setSplitFraction(Math.max(0.15, Math.min(0.85, startFraction + dx / availableW)));
 
       // Vertical — 1:1 pixel tracking (items 139, 140: no snapping during drag; close at 0)
       if (!startDetailOpen) {
@@ -418,6 +420,7 @@ export default function DoubleTimeline({
   const stepCount = steps.length;
   const canNavigate = stepCount > 0 && !exporting;
   const isInDelayPhase = delayPhaseMs > 0;
+  const annotationText = currentStepData?.annotation || '';
 
   // item 181: FLIP animation when transitioning between docked ↔ undocked
   const prevUndockedRef = useRef(isTimelineUndocked);
@@ -457,12 +460,17 @@ export default function DoubleTimeline({
     }
   }, [isTimelineUndocked]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // item 156/158: event title shown as a bar ABOVE the strip
-  const eventTitle = currentStepData ? [
-    currentStepData.prime != null ? `Prime ${currentStepData.prime}` : null,
-    `Event ${currentStepData.stepId ?? currentStep}`,
-    currentStepData.operation || null,
-  ].filter(Boolean).join(' | ') : '';
+  // item 156/158: event title shown as a bar ABOVE the strip.
+  // Always provide a visible title when step data exists, even if the
+  // enriched currentStepData object is temporarily unavailable.
+  const activeStep = currentStepData || steps[currentStep] || null;
+  const eventTitle = activeStep
+    ? [
+      activeStep.prime != null ? `Prime ${activeStep.prime}` : null,
+      `Event ${activeStep.stepId ?? currentStep}`,
+      activeStep.operation || null,
+    ].filter(Boolean).join(' | ')
+    : 'Event timeline';
 
   // item 163: position container based on docked/undocked state
   const dockedBottom = isDetailPanelFloating ? 0 : (isDetailOpen ? (detailHeight || 0) : 0);
@@ -530,11 +538,9 @@ export default function DoubleTimeline({
       onPointerDown={handleContainerPointerDown}
     >
       {/* item 179: event title is full-width above the strip; transparent when docked, solid when undocked */}
-      {eventTitle && (
-        <div className="dtl-event-title-bar" title={eventTitle}>
-          {eventTitle}
-        </div>
-      )}
+      <div className="dtl-event-title-bar" title={eventTitle}>
+        {eventTitle}
+      </div>
       <div className="dtl-strip">
 
         {/* LEFT: events waveform */}
@@ -598,62 +604,6 @@ export default function DoubleTimeline({
               <SkipForward size={10} />
             </button>
           </div>
-          <div className="dtl-center-actions">
-            <button className="dtl-btn dtl-anim-play" onClick={handleStepAnimToggle} disabled={exporting} title={isAnimPlaying ? 'Pause animation' : 'Play animation'}>
-              {isAnimPlaying ? <Pause size={10} /> : <Play size={10} />}
-            </button>
-            {/* item 173: collapse timeline toggle removed */}
-            {/* item 163: undock button — pops timeline out as freely draggable */}
-            {!isTimelineUndocked && onUndockTimeline && (
-              <button
-                className="dtl-btn dtl-undock-btn"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // item 181: capture docked rect so we can FLIP-animate to undocked position
-                  preUndockRectRef.current = containerRef.current?.getBoundingClientRect() ?? null;
-                  onUndockTimeline();
-                }}
-                title="Detach timeline — drag to reposition"
-              >⊞</button>
-            )}
-            {/* item 163: dock-back button — shown only when undocked */}
-            {isTimelineUndocked && onDockTimeline && (
-              <button
-                className="dtl-btn dtl-undock-btn dtl-active"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // item 181: animate floating panel towards bottom before docking
-                  const ty = window.innerHeight - 60;
-                  const tx = Math.round((window.innerWidth - undockSizeRef.current.width) / 2);
-                  setUndockTransition('leaving');
-                  setUndockPos({ x: tx, y: ty });
-                  undockPosRef.current = { x: tx, y: ty };
-                  setTimeout(() => { setUndockTransition(null); onDockTimeline(); }, 340);
-                }}
-                title="Dock timeline back to bottom"
-              >⊟</button>
-            )}
-            {/* toggle to show/hide detail panel when undocked */}
-            {isTimelineUndocked && onToggleFloatingDetail && (
-              <button
-                className={`dtl-btn${floatingDetailVisible ? ' dtl-active' : ''}`}
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => { e.stopPropagation(); onToggleFloatingDetail(); }}
-                title={floatingDetailVisible ? 'Hide detail panel' : 'Show detail panel'}
-              >{floatingDetailVisible ? '▼' : '▲'}</button>
-            )}
-            {/* item 180: toggle to enable/disable drag-to-undock behavior */}
-            {!isTimelineUndocked && onUndockTimeline && (
-              <button
-                className={`dtl-btn dtl-undock-toggle${undockEnabled ? ' dtl-active' : ''}`}
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => { e.stopPropagation(); toggleUndockEnabled(); }}
-                title={undockEnabled ? 'Drag-up to undock: ON — click to disable' : 'Drag-up to undock: OFF — click to enable'}
-              >⤢</button>
-            )}
-          </div>
           {/* item 168: grip at bottom of center zone so dots appear inside the dragger, not above */}
           <div className="dtl-grip" />
         </div>
@@ -715,11 +665,63 @@ export default function DoubleTimeline({
 
       </div>
       {/* item 179: annotation strip below the timelines, above the detail body */}
-      {currentStepData?.annotation && (
-        <div className="dtl-annotation-bar" title={currentStepData.annotation}>
-          {currentStepData.annotation}
+      <div className="dtl-annotation-row">
+        <div className="dtl-annotation-bar" title={annotationText}>
+          {annotationText}
         </div>
-      )}
+        <div className="dtl-center-actions dtl-annotation-actions" onPointerDown={(e) => e.stopPropagation()}>
+          <button className="dtl-btn dtl-anim-play" onClick={handleStepAnimToggle} disabled={exporting} title={isAnimPlaying ? 'Pause animation' : 'Play animation'}>
+            {isAnimPlaying ? <Pause size={10} /> : <Play size={10} />}
+          </button>
+          {/* item 173: collapse timeline toggle removed */}
+          {/* item 163: undock button — pops timeline out as freely draggable */}
+          {!isTimelineUndocked && onUndockTimeline && (
+            <button
+              className="dtl-btn dtl-undock-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                // item 181: capture docked rect so we can FLIP-animate to undocked position
+                preUndockRectRef.current = containerRef.current?.getBoundingClientRect() ?? null;
+                onUndockTimeline();
+              }}
+              title="Detach timeline — drag to reposition"
+            >⊞</button>
+          )}
+          {/* item 163: dock-back button — shown only when undocked */}
+          {isTimelineUndocked && onDockTimeline && (
+            <button
+              className="dtl-btn dtl-undock-btn dtl-active"
+              onClick={(e) => {
+                e.stopPropagation();
+                // item 181: animate floating panel towards bottom before docking
+                const ty = window.innerHeight - 60;
+                const tx = Math.round((window.innerWidth - undockSizeRef.current.width) / 2);
+                setUndockTransition('leaving');
+                setUndockPos({ x: tx, y: ty });
+                undockPosRef.current = { x: tx, y: ty };
+                setTimeout(() => { setUndockTransition(null); onDockTimeline(); }, 340);
+              }}
+              title="Dock timeline back to bottom"
+            >⊟</button>
+          )}
+          {/* toggle to show/hide detail panel when undocked */}
+          {isTimelineUndocked && onToggleFloatingDetail && (
+            <button
+              className={`dtl-btn${floatingDetailVisible ? ' dtl-active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); onToggleFloatingDetail(); }}
+              title={floatingDetailVisible ? 'Hide detail panel' : 'Show detail panel'}
+            >{floatingDetailVisible ? '▼' : '▲'}</button>
+          )}
+          {/* item 180: toggle to enable/disable drag-to-undock behavior */}
+          {!isTimelineUndocked && onUndockTimeline && (
+            <button
+              className={`dtl-btn dtl-undock-toggle${undockEnabled ? ' dtl-active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); toggleUndockEnabled(); }}
+              title={undockEnabled ? 'Drag-up to undock: ON — click to disable' : 'Drag-up to undock: OFF — click to enable'}
+            >⤢</button>
+          )}
+        </div>
+      </div>
       {/* resize handles remain for resizing the floating strip itself */}
       {isTimelineUndocked && (
         <>

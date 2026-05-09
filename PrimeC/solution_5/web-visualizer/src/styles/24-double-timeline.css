@@ -3,6 +3,7 @@
 .double-timeline {
   display: flex;
   flex-direction: column;
+  gap: 4px;
   /* Float over canvas: absolute within .canvas-and-detail-column (position:relative) */
   position: absolute;
   left: var(--events-panel-width, 0px);
@@ -24,7 +25,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;      /* centre zone protrudes; side zones use align-self:stretch */
-  height: 36px;
+  height: 38px;
   overflow: visible;        /* item 127: let centre zone protrude above + below */
   position: relative;
 }
@@ -112,6 +113,8 @@
   text-overflow: ellipsis;
   pointer-events: none;
   touch-action: none;
+  position: relative;
+  z-index: 4;
 }
 /* item 179: solid header when undocked (top of the floating panel) */
 .double-timeline.dtl-timeline-undocked .dtl-event-title-bar {
@@ -127,6 +130,10 @@
 }
 
 /* item 179: annotation strip below the timelines */
+.dtl-annotation-row {
+  position: relative;
+  min-height: 22px;
+}
 .dtl-annotation-bar {
   width: 100%;
   min-height: 18px;
@@ -134,7 +141,7 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 2px 10px;
+  padding: 2px 140px 2px 10px;
   font-size: 11px;
   color: rgba(255, 255, 255, 0.65);
   font-style: italic;
@@ -164,25 +171,56 @@
   justify-content: center;
   gap: 2px;
   position: relative;          /* item 169/171: allow absolute title bar above */
-  align-self: flex-end;       /* item 160: protrude upward only — flush with strip bottom */
-  height: 52px;               /* item 127: protrudes 16px above 36px strip (all upward now) */
+  align-self: center;         /* keep the dragger vertically centered with both timeline rows */
+  height: 44px;               /* slightly taller than timeline strip */
   overflow: visible;          /* item 158: don't clip children */
   background: color-mix(in srgb, var(--bg-raised) 78%, var(--accent) 22%);
   border: 2px solid color-mix(in srgb, var(--border) 50%, var(--accent) 50%);
   border-radius: 6px;         /* item 127: rounded corners on the raised tab */
-  padding: 2px 6px;
+  padding: 2px 12px;
   cursor: move;
-  min-width: 160px;           /* item 161: stable width so transport doesn't cause layout shifts */
-  max-width: 240px;           /* item 161: cap width so title doesn't push zones */
+  min-width: 184px;           /* wider so left/right drag handles are clearer */
+  max-width: 320px;           /* cap width so title doesn't push zones */
   z-index: 2;                 /* item 127: sit above the wave zones */
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);  /* item 127: elevation shadow */
   transition: background 140ms, border-color 140ms, box-shadow 140ms;
   touch-action: none;         /* item 142: allow pointer drag on touch devices */
+  width: 280px;
+}
+.dtl-center-zone::before,
+.dtl-center-zone::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 28px;
+  transform: translateY(-50%);
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.58) 0 2px,
+      transparent 2px 5px
+    );
+  opacity: 0.8;
+  pointer-events: none;
+}
+.dtl-center-zone::before {
+  left: 2px;
+}
+.dtl-center-zone::after {
+  right: 2px;
 }
 .dtl-center-zone:hover {
   background: color-mix(in srgb, var(--bg-raised) 55%, var(--accent-bg) 45%);
   border-color: var(--accent);
   box-shadow: 0 3px 14px rgba(0, 0, 0, 0.45);
+}
+.dtl-center-zone:hover::before,
+.dtl-center-zone:hover::after {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--accent) 55%, rgba(255, 255, 255, 0.3));
 }
 /* Six-dot vertical drag handle (2 cols × 3 rows) — items 126, 134 (bigger); item 168: wider + less tall */
 .dtl-grip {
@@ -216,9 +254,13 @@
   align-items: center;
   gap: 3px;              /* item 166: was 1px */
   pointer-events: auto;
+}
+.dtl-annotation-actions {
   position: absolute;
-  top: -30px;
-  right: -30px;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
 }
 /* Speed label moved to right zone (item 124); keep class but it's unused in center */
 .dtl-speed-label {
