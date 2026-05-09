@@ -1,3 +1,13 @@
+/* item 190: hide docked detail panel when timeline is undocked */
+.canvas-and-detail-column.timeline-undocked .detail-panel {
+  display: none;
+}
+
+/* item 200: completely hide the detail panel when it's not open (collapsed state shows nothing) */
+.detail-panel.collapsed {
+  display: none;
+}
+
 /* ---- Detail Panel ---- */
 .detail-panel {
   border-top: 1px solid var(--border);

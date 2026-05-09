@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import EventsPanel from '../EventsPanel';
 import SettingsPanel from '../SettingsPanel';
 import CanvasStage from './CanvasStage';
@@ -72,6 +72,20 @@ export default function VisualizerMainContent(props) {
   const { setActiveTab: setSettingsActiveTab, setLayoutSettings } = settingsHandlers;
   const { isOpen: isTimingPanelOpen, focusOp: timingFocusOp, handlers: timingHandlers = {} } = panelsTiming;
   const { setOpen: setIsTimingPanelOpen, setFocusOp: setTimingFocusOp = () => {} } = timingHandlers;
+
+  // item 190: measure full detail panel height (header + body) so DoubleTimeline can
+  // position itself above it in both open and collapsed states.
+  const [totalDetailHeight, setTotalDetailHeight] = useState(0);
+  const detailRoRef = useRef(null);
+  const detailPanelCallbackRef = useCallback((el) => {
+    detailRoRef.current?.disconnect();
+    detailRoRef.current = null;
+    if (el) {
+      setTotalDetailHeight(el.offsetHeight);
+      detailRoRef.current = new ResizeObserver(() => setTotalDetailHeight(el.offsetHeight));
+      detailRoRef.current.observe(el);
+    }
+  }, []);
 
   // Event Title
   const { settings: eventTitleSettings, style: eventTitleSettingsStyle, handlers: eventTitleHandlers = {} } = eventTitle;
@@ -149,7 +163,7 @@ export default function VisualizerMainContent(props) {
           onShowEventTitle: showEventTitleAboveCurrentDetail,
         }}
       />
-      <div className="canvas-and-detail-column">
+      <div className={`canvas-and-detail-column${doubleTimelineProps.isTimelineUndocked ? ' timeline-undocked' : ''}`}>
       <CanvasStage
         canvasRefs={{
           containerRef,
@@ -276,11 +290,15 @@ export default function VisualizerMainContent(props) {
               playing={playing}
               isDetailOpen={isDetailOpen}
               detailHeight={detailHeight}
+              totalDetailHeight={totalDetailHeight}
               onToggleDetail={toggleDetailPanel}
               onDetailHeightChange={updateDetailHeight}
               {...doubleTimelineProps}
             />
-            {detailPanelNode}
+            {/* item 190: wrapper ref lets DoubleTimeline know the full panel height */}
+            <div ref={detailPanelCallbackRef} style={{ flexShrink: 0 }}>
+              {detailPanelNode}
+            </div>
           </>
         );
       })()}

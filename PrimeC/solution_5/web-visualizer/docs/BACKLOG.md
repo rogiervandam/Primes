@@ -71,8 +71,19 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 191 THere should be some delay before the undock procedure starts when dragging the center dragger up, to prevent accidental undocking when users just want to move the dragger left or right and accidentally move it up a bit. Maybe the dragger needs to be dragged up for at least 300 ms and/or moved up by at least 20 pixels before the undock procedure starts.
 192 When scrubbing the timeline, it feels like there is some delay. If this is from the DOM state updates, we should optimize the rendering to make it more responsive. If it's from the animation frame rate, we should consider throttling the scrubbing updates to a maximum of 60 fps or using requestAnimationFrame to sync with the browser's rendering cycle.
 
+193 The left events panel should slide out to the right when it's being close by the toggle in the timeline.
+194 The text ANIMTATION should be in the center of the right timeline, like the "EVENTS" text.
+195 put the speed on the right side on the "ANIMATION" text and label it "speed"
+196 Make the buttons in the middle drag area a bit bigger and keep the play/pause button the biggest. 
+197 PUt the repeat button inside the middle adrea
+198 A long press on the play button should revail the fine-grained controls we made earlier for the single event animation slider.
+199 There should not be a small transparaent gap between the timelines and title/annotation. It should have the same blue background as the rest of the floating double timeline.
+200 A part of the detail panel is still visibble where the double timeline is docked, which looks a bit odd. When the double timeline is docked or floating, the detail panel should be completely hidden. Only when summoned by the button in the top bar or with the toggle on the annotation row, should the detail panel be visible. This way the double timeline is always fully visible and does not look like it's awkwardly half-overlapping with the detail panel when docked.
 
-
+201 The default undock position for the double timeline should be on the lower part of the screen, ca 40px from the bottom
+202 the top of the middle dragger is cut off. We should add some padding to the top of the middle dragger to prevent this, and make sure that the event title is still fully visible and not cut off by the dragger's hit area. Also the padding to the bottom should be a bit more as well to let the annotation be readable to
+203 dragging the double timeline up to float still looks a bit jittery and not very smooth. Because of phase 1 vs phase 2 state while dragging. 
+204 the loading animation in the start should have the same layout as the blue EVENT timeline with the white lines indicating the amount of change.
 
 
 

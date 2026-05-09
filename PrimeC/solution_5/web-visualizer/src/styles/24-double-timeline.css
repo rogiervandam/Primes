@@ -3,7 +3,7 @@
 .double-timeline {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;  /* item 199: no transparent gap between title, strip and annotation */
   /* Float over canvas: absolute within .canvas-and-detail-column (position:relative) */
   position: absolute;
   left: var(--events-panel-width, 0px);
@@ -103,8 +103,10 @@
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   letter-spacing: 0.02em;
-  /* item 179: transparent when docked; border-box sizing for consistent layout */
-  background: transparent;
+  /* item 199: blue background (same as strip) so no transparent gap shows */
+  background: rgba(14, 27, 46, 0.88);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   flex-shrink: 0;
   cursor: default;
   user-select: none;
@@ -119,8 +121,8 @@
 /* item 179: solid header when undocked (top of the floating panel) */
 .double-timeline.dtl-timeline-undocked .dtl-event-title-bar {
   background: rgba(14, 27, 46, 0.92);
-  backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   pointer-events: auto;
   cursor: grab;
@@ -145,7 +147,10 @@
   font-size: 11px;
   color: rgba(255, 255, 255, 0.65);
   font-style: italic;
-  background: transparent;
+  /* item 199: same blue background as the rest of the timeline (was rgba(10,20,36,0.92)) */
+  background: rgba(14, 27, 46, 0.88);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   flex-shrink: 0;
   user-select: none;
   pointer-events: none;
@@ -155,8 +160,8 @@
 }
 .double-timeline.dtl-timeline-undocked .dtl-annotation-bar {
   background: rgba(14, 27, 46, 0.75);
-  backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 /* item 169/171: title bar always visible — not hidden when collapsed */
@@ -247,6 +252,15 @@
   align-items: center;
   gap: 3px;              /* item 166: was 1px */
   pointer-events: auto;
+}
+/* item 196: transport buttons a bit bigger than default dtl-btn */
+.dtl-transport .dtl-btn {
+  width: 28px;
+  height: 28px;
+}
+.dtl-transport .dtl-btn.dtl-play {
+  width: 40px;
+  height: 40px;
 }
 .dtl-center-actions {
   display: flex;
@@ -458,9 +472,31 @@
   }
 }
 
-/* item 153: ANIMATION label right-aligned in the header */
-.dtl-anim-label {
-  margin-right: 4px;
+/* items 194, 195: ANIMATION label centered in the header via absolute group */
+.dtl-anim-header {
+  position: relative;
+}
+.dtl-anim-center-group {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.dtl-anim-speed-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.dtl-anim-speed-label-text {
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
 }
 
 /* items 151/152: zone toggle buttons (left of EVENTS, right of ANIMATION) */

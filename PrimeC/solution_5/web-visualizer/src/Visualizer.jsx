@@ -318,6 +318,13 @@ export default function Visualizer({
   const [isTimelineUndocked, setIsTimelineUndocked] = useState(false);
   const [floatingDetailVisible, setFloatingDetailVisible] = useState(false);
 
+  // item 193: direction the events panel slides when collapsed
+  const [eventsCollapseDir, setEventsCollapseDir] = useState('left');
+  const collapseEventsPanelFromTimeline = useCallback(() => {
+    setEventsCollapseDir('right');
+    setIsEventsPanelCollapsed(true);
+  }, [setIsEventsPanelCollapsed]);
+
   const {
     pinnedBitIndices, setPinnedBitIndices,
     hoveredBitInfo, setHoveredBitInfo,
@@ -1197,6 +1204,9 @@ export default function Visualizer({
     isEventsPanelCollapsed,
     setIsEventsPanelCollapsed,
     toggleEventsPanel,
+    eventsCollapseDir,
+    setEventsCollapseDir,
+    collapseEventsPanelFromTimeline,
     isDetailOpen,
     setIsDetailOpen,
     isDetailOpenRef,
@@ -1215,6 +1225,9 @@ export default function Visualizer({
     isEventsPanelCollapsed,
     setIsEventsPanelCollapsed,
     toggleEventsPanel,
+    eventsCollapseDir,
+    setEventsCollapseDir,
+    collapseEventsPanelFromTimeline,
     isDetailOpen,
     setIsDetailOpen,
     isDetailOpenRef,
@@ -1711,6 +1724,7 @@ export default function Visualizer({
         // item 159: left/right panel toggles in the timeline
         isEventsPanelCollapsed,
         onToggleEventsPanel: toggleEventsPanel,
+        onCollapseEventsPanelFromTimeline: collapseEventsPanelFromTimeline,
         isSettingsCollapsed,
         onToggleSettingsPanel: toggleSettingsPanel,
         // item 154: delay phase for fill+fade animation

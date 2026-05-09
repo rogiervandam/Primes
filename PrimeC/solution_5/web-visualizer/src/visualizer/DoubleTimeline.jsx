@@ -41,6 +41,7 @@ export default function DoubleTimeline({
   // Detail panel control (item 121)
   isDetailOpen = false,
   detailHeight = 200,
+  totalDetailHeight = 0,  // item 190: full rendered height (header + body) for dockedBottom
   onToggleDetail,
   onDetailHeightChange,
   // items 151/152: toggle all-events vs single-event in detail panel
@@ -49,6 +50,7 @@ export default function DoubleTimeline({
   // item 159: arrow toggles on left/right control side panels
   isEventsPanelCollapsed = false,
   onToggleEventsPanel,
+  onCollapseEventsPanelFromTimeline,
   isSettingsCollapsed = false,
   onToggleSettingsPanel,
   // item 154: delay phase ms for fill+fade animation
@@ -56,7 +58,6 @@ export default function DoubleTimeline({
   // item 155: hide/reveal detail panel header
   isDetailHeaderHidden = false,
   onHideDetailHeader,
-  onRevealDetailHeader,
   // item 157: float/dock detail panel
   isDetailPanelFloating = false,
   onFloatDetailPanel,
@@ -203,6 +204,8 @@ export default function DoubleTimeline({
   }, [drawWave]);
 
   // ── Left timeline: click + drag to jump to event (item 125) ─────────────────
+  // item 192: rAF-throttled scrub — avoids queuing multiple React state updates per frame
+  const waveRafRef = useRef(null);
   const waveSeek = useCallback((e) => {
     const canvas = waveCanvasRef.current;
     if (!canvas || steps.length === 0) return;
@@ -218,8 +221,17 @@ export default function DoubleTimeline({
 
   const handleWavePointerMove = useCallback((e) => {
     if (e.buttons !== 1) return;
-    waveSeek(e);
-  }, [waveSeek]);
+    const clientX = e.clientX;
+    if (waveRafRef.current !== null) return;  // already scheduled
+    waveRafRef.current = requestAnimationFrame(() => {
+      waveRafRef.current = null;
+      const canvas = waveCanvasRef.current;
+      if (!canvas || steps.length === 0) return;
+      const rect = canvas.getBoundingClientRect();
+      const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      goToStep(Math.round(frac * (steps.length - 1)));
+    });
+  }, [goToStep, steps.length]);
 
   // ── Centre divider drag: horizontal = split; vertical = detail panel (items 121, 125, 130–133, 142) ──
   // item 142: use pointer events so touch works the same as mouse
@@ -476,11 +488,11 @@ export default function DoubleTimeline({
     const startDetailOpen = isDetailOpen;
     const startDetailHeight = detailHeight || MIN_DETAIL_HEIGHT;
     let isDragging = false;
-    let openedByDrag = false;
     let closedByDrag = false;
     let floatedByDrag = false;
     let docked = false;
     let lastH = startDetailHeight;
+    const pointerDownTime = Date.now();  // item 191: require 300ms + 20px upward before undock
 
     const onMove = (ev) => {
       const container = containerRef.current;
@@ -538,14 +550,13 @@ export default function DoubleTimeline({
 
       // Vertical — 1:1 pixel tracking (items 139, 140: no snapping during drag; close at 0)
       if (!startDetailOpen) {
-        // item 188: when closed, dragging up immediately undocks (no detail-panel reveal)
-        // Check if we should undock immediately without opening detail panel
-        if (!floatedByDrag && accY > 2 && undockEnabled) {
-          // Immediately undock without opening detail panel
+        // item 200: detail panel is ONLY opened via button — drag only triggers undock
+        // item 188/191: require 300ms hold + 20px upward drag to prevent accidental undock
+        if (!floatedByDrag && accY > 20 && undockEnabled && (Date.now() - pointerDownTime) >= 300) {
           floatedByDrag = true;
           undockSplitFractionRef.current = nextFraction;
           preUndockRectRef.current = containerRef.current?.getBoundingClientRect() ?? null;
-          undockCursorPosRef.current = { x: ev.clientX, y: ev.clientY };  // Store cursor pos for positioning
+          undockCursorPosRef.current = { x: ev.clientX, y: ev.clientY };
           onUndockTimeline?.();
           const nextW = Math.max(320, undockSizeRef.current.width);
           const panelH = container.getBoundingClientRect().height || 120;
@@ -558,42 +569,7 @@ export default function DoubleTimeline({
           const nextY = Math.max(8, Math.min(touchBoundary - panelH, ev.clientY - undockGrabOffsetRef.current.y));
           undockPosRef.current = { x: nextX, y: nextY };
           setUndockPos({ x: nextX, y: nextY });
-          return;  // Stop processing this drag event; subsequent moves handled by floating logic
-        }
-
-        // Only open detail panel if undock is disabled (legacy behavior)
-        if (accY > 2 && !openedByDrag && !undockEnabled) {
-          openedByDrag = true;
-          // item 155: reveal header when dragging up
-          onRevealDetailHeader?.();
-          onToggleDetail?.();
-        }
-
-        if (openedByDrag && !closedByDrag) {
-          lastH = Math.max(0, Math.min(MAX_DETAIL_HEIGHT, accY));
-          onDetailHeightChange?.(lastH);
-          // item 140: if dragged back down below start, re-close
-          if (accY <= 0) {
-            closedByDrag = true;
-            onToggleDetail?.();
-            // item 155: hide header when dragged back down
-            onHideDetailHeader?.();
-          }
-          // item 175: undock when dragged past threshold (not all the way to MAX)
-          if (!floatedByDrag && lastH >= UNDOCK_THRESHOLD) {
-            if (undockEnabled) {
-              floatedByDrag = true;
-              undockSplitFractionRef.current = nextFraction;
-              // item 181: capture docked rect so we can FLIP-animate to undocked position
-              preUndockRectRef.current = containerRef.current?.getBoundingClientRect() ?? null;
-              undockCursorPosRef.current = { x: ev.clientX, y: ev.clientY };  // Store cursor pos
-              onUndockTimeline?.();
-            }
-          } else if (undockEnabled && lastH >= UNDOCK_THRESHOLD * 0.75) {
-            setNearUndock(true);  // item 180: visual hint when close to threshold
-          } else {
-            setNearUndock(false);
-          }
+          return;
         }
       } else if (!closedByDrag) {
         const rawH = startDetailHeight + accY;
@@ -648,7 +624,8 @@ export default function DoubleTimeline({
       setNearUndock(false);  // item 180: clear visual hint on release
       // item 139: spring-settle on release — transitions are now active again
       if (!isDragging) return;
-      const panelOpen = (startDetailOpen || openedByDrag) && !closedByDrag;
+      // item 200: panel was open before drag (not opened by drag); check if still open
+      const panelOpen = startDetailOpen && !closedByDrag;
       if (panelOpen) {
         if (lastH < 80) {
           // Too small — spring-close (CSS transition animates it shut)
@@ -665,11 +642,12 @@ export default function DoubleTimeline({
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
-  }, [isTimelineUndocked, undockEnabled, onUndockTimeline, splitFraction, isDetailOpen, detailHeight, floatingDetailVisible, onToggleDetail, onDetailHeightChange, onHideDetailHeader, onRevealDetailHeader, triggerDockAnimation, getFloatingSideInsets]);
+  }, [isTimelineUndocked, undockEnabled, onUndockTimeline, splitFraction, isDetailOpen, detailHeight, floatingDetailVisible, onToggleDetail, onDetailHeightChange, onHideDetailHeader, triggerDockAnimation, getFloatingSideInsets]);
 
   // ── Right timeline: animation scrubber (items 122, 125, 138) ──────────────────────
   // item 138: attach to zone (not track) so playhead and click target span full zone height
   const animZoneRef = useRef(null);
+  const animRafRef = useRef(null);  // item 192: rAF throttle for anim scrub
   const animSeek = useCallback((e) => {
     const el = animZoneRef.current;
     if (!el) return;
@@ -686,8 +664,18 @@ export default function DoubleTimeline({
   }, [isScrubbingTopRef, animSeek]);
   const handleAnimPointerMove = useCallback((e) => {
     if (e.buttons !== 1) return;
-    animSeek(e);
-  }, [animSeek]);
+    const clientX = e.clientX;
+    if (animRafRef.current !== null) return;  // already scheduled
+    animRafRef.current = requestAnimationFrame(() => {
+      animRafRef.current = null;
+      const el = animZoneRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      setStepScrubProgress?.(frac * 100);
+      seekStepAnimation?.(frac);
+    });
+  }, [seekStepAnimation, setStepScrubProgress]);
   const handleAnimPointerUp = useCallback((e) => {
     if (isScrubbingTopRef) isScrubbingTopRef.current = false;
     animSeek(e);
@@ -698,6 +686,39 @@ export default function DoubleTimeline({
   const canNavigate = stepCount > 0 && !exporting;
   const isInDelayPhase = delayPhaseMs > 0;
   const annotationText = currentStepData?.annotation || '';
+
+  // item 198: long-press on main play button reveals animation settings
+  const playLongPressRef = useRef(null);
+  const playLongPressTriggeredRef = useRef(false);
+  const handlePlayPointerDown = useCallback((e) => {
+    if (e.button !== 0 && e.pointerType !== 'touch') return;
+    playLongPressTriggeredRef.current = false;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.stopPropagation();
+    playLongPressRef.current = setTimeout(() => {
+      playLongPressRef.current = null;
+      playLongPressTriggeredRef.current = true;
+      onOpenAnimationSettings?.();
+    }, 600);
+  }, [onOpenAnimationSettings]);
+  const handlePlayPointerUp = useCallback((e) => {
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+    if (playLongPressRef.current) {
+      clearTimeout(playLongPressRef.current);
+      playLongPressRef.current = null;
+    }
+    if (!playLongPressTriggeredRef.current && !exporting && stepCount > 0) {
+      handlePlayPause();
+    }
+    playLongPressTriggeredRef.current = false;
+  }, [handlePlayPause, exporting, stepCount]);
+  const handlePlayPointerCancel = useCallback(() => {
+    if (playLongPressRef.current) {
+      clearTimeout(playLongPressRef.current);
+      playLongPressRef.current = null;
+    }
+    playLongPressTriggeredRef.current = false;
+  }, []);
 
   // item 181: FLIP animation when transitioning between docked ↔ undocked
   const prevUndockedRef = useRef(isTimelineUndocked);
@@ -792,8 +813,8 @@ export default function DoubleTimeline({
     ].filter(Boolean).join(' | ')
     : 'Event timeline';
 
-  // item 163: position container based on docked/undocked state
-  const dockedBottom = isDetailPanelFloating ? 0 : (isDetailOpen ? (detailHeight || 0) : 0);
+  // item 163/190: position timeline above the full detail panel (header + body) so it never covers it
+  const dockedBottom = isDetailPanelFloating ? 0 : (totalDetailHeight || 0);
   // item 181: smooth transition during undock/dock animations
   const floatTransitionStyle = undockTransition === 'entering'
     ? 'top 380ms cubic-bezier(0.22, 0.61, 0.36, 1), left 380ms cubic-bezier(0.22, 0.61, 0.36, 1), width 380ms cubic-bezier(0.22, 0.61, 0.36, 1), opacity 380ms'
@@ -888,7 +909,15 @@ export default function DoubleTimeline({
             {onToggleEventsPanel && (
               <button
                 className={`dtl-btn dtl-zone-toggle dtl-events-toggle${!isEventsPanelCollapsed ? ' dtl-active' : ''}`}
-                onClick={(e) => { e.stopPropagation(); onToggleEventsPanel(); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // item 193: when closing from timeline toggle, slide right (inward)
+                  if (!isEventsPanelCollapsed && onCollapseEventsPanelFromTimeline) {
+                    onCollapseEventsPanelFromTimeline();
+                  } else {
+                    onToggleEventsPanel();
+                  }
+                }}
                 onPointerDown={(e) => e.stopPropagation()}
                 title={isEventsPanelCollapsed ? 'Show events panel' : 'Hide events panel'}
               >‹</button>
@@ -914,8 +943,24 @@ export default function DoubleTimeline({
             <button className="dtl-btn dtl-speed" onClick={() => setPlaySpeedPercent?.((v) => Math.max(1, Math.round(v / 1.25)))} disabled={exporting} title="Slower">
               <Minus size={9} />
             </button>
-            {/* Main play button — oversized per items 123, 128 */}
-            <button className="dtl-btn dtl-play" onClick={handlePlayPause} disabled={exporting || stepCount === 0} title={playing ? 'Pause' : 'Play all events'}>
+            {/* item 197: repeat button moved into the middle drag area */}
+            <button
+              className={`dtl-btn dtl-repeat-btn${isSingleEventRepeatEnabled ? ' dtl-active' : ''}`}
+              onClick={onToggleRepeat}
+              onPointerDown={(e) => e.stopPropagation()}
+              title={isSingleEventRepeatEnabled ? 'Loop: on — click to disable' : 'Loop: off — click to enable'}
+            >
+              <Repeat size={10} />
+            </button>
+            {/* Main play button — items 123, 128; item 198: long-press reveals animation settings */}
+            <button
+              className="dtl-btn dtl-play"
+              onPointerDown={handlePlayPointerDown}
+              onPointerUp={handlePlayPointerUp}
+              onPointerCancel={handlePlayPointerCancel}
+              disabled={exporting || stepCount === 0}
+              title={playing ? 'Pause (long-press for animation settings)' : 'Play all events (long-press for animation settings)'}
+            >
               {playing ? <Pause size={16} /> : <Play size={16} />}
             </button>
             <button className="dtl-btn dtl-speed" onClick={() => setPlaySpeedPercent?.((v) => Math.min(1600, Math.round(v * 1.25)))} disabled={exporting} title="Faster">
@@ -954,26 +999,23 @@ export default function DoubleTimeline({
             className={`dtl-anim-fill${isInDelayPhase ? ' dtl-anim-fill--fading' : ''}`}
             style={{ width: `${stepScrubProgress}%`, '--delay-ms': `${delayPhaseMs}ms` }}
           />
-          {/* Header row: items 137, 135, 136; item 153: ANIMATION label right-aligned */}
+          {/* Header row: items 194, 195: ANIMATION centered, speed to its right */}
           <div className="dtl-anim-header">
             <div className="dtl-anim-header-left">
-              {playSpeedPercent != null && (
-                <span className="dtl-anim-speed">{playSpeedPercent}%</span>
-              )}
               <span className="dtl-wave-counter">{parseFloat(Number(stepScrubProgress).toFixed(1))}%</span>
             </div>
-            {/* item 138: stop propagation so replay/toggle clicks don't trigger a seek */}
-            <div className="dtl-anim-header-right" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onPointerCancel={(e) => e.stopPropagation()}>
-              {/* item 153: ANIMATION label right-aligned */}
+            {/* items 194, 195: ANIMATION label centered, speed to its right */}
+            <div className="dtl-anim-center-group">
               <span className="dtl-wave-label dtl-anim-label">Animation</span>
-              {/* Replay toggle (item 135) */}
-              <button
-                className={`dtl-btn dtl-repeat-btn${isSingleEventRepeatEnabled ? ' dtl-active' : ''}`}
-                onClick={onToggleRepeat}
-                title={isSingleEventRepeatEnabled ? 'Loop: on — click to disable' : 'Loop: off — click to enable'}
-              >
-                <Repeat size={10} />
-              </button>
+              {playSpeedPercent != null && (
+                <span className="dtl-anim-speed-group">
+                  <span className="dtl-anim-speed-label-text">speed</span>
+                  <span className="dtl-anim-speed">{playSpeedPercent}%</span>
+                </span>
+              )}
+            </div>
+            {/* item 138: stop propagation so toggle clicks don't trigger a seek */}
+            <div className="dtl-anim-header-right" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onPointerCancel={(e) => e.stopPropagation()}>
               {/* item 152/159: right arrow toggles the settings panel (right sidebar) */}
               {onToggleSettingsPanel && (
                 <button
@@ -997,6 +1039,14 @@ export default function DoubleTimeline({
           <button className="dtl-btn dtl-anim-play" onClick={handleStepAnimToggle} disabled={exporting} title={isAnimPlaying ? 'Pause animation' : 'Play animation'}>
             {isAnimPlaying ? <Pause size={10} /> : <Play size={10} />}
           </button>
+          {/* item 200: detail panel toggle — shown when docked; opens/closes the detail panel */}
+          {!isTimelineUndocked && onToggleDetail && (
+            <button
+              className={`dtl-btn${isDetailOpen ? ' dtl-active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); onToggleDetail(); }}
+              title={isDetailOpen ? 'Hide detail panel' : 'Show detail panel'}
+            >▤</button>
+          )}
           {/* item 173: collapse timeline toggle removed */}
           {/* item 163: undock button — pops timeline out as freely draggable */}
           {!isTimelineUndocked && onUndockTimeline && (

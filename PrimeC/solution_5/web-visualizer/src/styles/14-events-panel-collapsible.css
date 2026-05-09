@@ -16,6 +16,12 @@
               visibility 0s linear 220ms;
 }
 
+/* item 193: when collapsed via the timeline toggle, fold inward (scaleX) toward canvas */
+.events-panel.collapsed.collapse-right {
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
 /* ---- item 176: Pure CSS slide-in/out — no JS animation state needed ---- */
 .events-panel-header-title-row {
   display: flex;

@@ -144,6 +144,8 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     isAllEventsWidgetHidden,
     showAllEventsWidget,
     areWidgetsJoined,
+    eventsCollapseDir,
+    setEventsCollapseDir,
   } = usePanelLayoutContext();
 
   const listRef = useRef(null);
@@ -161,11 +163,12 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
   useEffect(() => {
     if (!panelCollapsed) {
       setListVisible(true);
+      setEventsCollapseDir('left');  // item 193: reset direction when opening
     } else {
       const t = setTimeout(() => setListVisible(false), 240);
       return () => clearTimeout(t);
     }
-  }, [panelCollapsed]);
+  }, [panelCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
   // Whether the operation column is in wide mode (shows full text, no truncation).
   // Persisted to localStorage so it survives reloads.
   const [opColWide, setOpColWide] = useState(() => {
@@ -795,7 +798,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
 
   return (
     <>
-      <div className={`events-panel${panelCollapsed ? ' collapsed' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: `${width}px` }}>
+      <div className={`events-panel${panelCollapsed ? ' collapsed' : ''}${panelCollapsed && eventsCollapseDir === 'right' ? ' collapse-right' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: `${width}px` }}>
       <div className="events-panel-header">
         <div className="events-panel-header-title-row">
           <h3>Events</h3>
