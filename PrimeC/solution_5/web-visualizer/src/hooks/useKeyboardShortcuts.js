@@ -18,6 +18,8 @@
  *   R                (3D mode) reset rotation to flat
  *   `                toggle debug tools panel
  *   ?                open / close keyboard shortcuts help overlay
+ *   /                open spotlight-style search overlay (item 239)
+ *   Cmd+K            open spotlight-style search overlay (item 239)
  *
  * Caller passes the actions; this hook contains no state of its own.
  * The listener is registered once (empty dep array) and reads all
@@ -38,6 +40,7 @@ export function useKeyboardShortcuts({
   toggleDebugToolsPanel,
   camera3DRef,
   toggleShortcutsOverlay,
+  toggleSpotlight,
 }) {
   // Always-current snapshot of every value the listener needs.
   // Updated on every render; the listener reads from here so it
@@ -55,6 +58,7 @@ export function useKeyboardShortcuts({
     toggleDebugToolsPanel,
     camera3DRef,
     toggleShortcutsOverlay,
+    toggleSpotlight,
   };
 
   useEffect(() => {
@@ -73,6 +77,7 @@ export function useKeyboardShortcuts({
         toggleDebugToolsPanel: tdtp,
         camera3DRef: cam3DRef,
         toggleShortcutsOverlay: tso,
+        toggleSpotlight: tsp,
       } = handlersRef.current;
       const cam = cam3DRef?.current;
       const is3D = cam && cam.enabled;
@@ -118,7 +123,18 @@ export function useKeyboardShortcuts({
           e.preventDefault();
           if (tso) tso();
           break;
-        default: break;
+        case '/':
+          // item 239: open spotlight-style search overlay
+          e.preventDefault();
+          if (tsp) tsp();
+          break;
+        default:
+          // item 239: Cmd+K / Ctrl+K also opens the spotlight search overlay
+          if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            if (tsp) tsp();
+          }
+          break;
       }
     };
     document.addEventListener('keydown', onKey);

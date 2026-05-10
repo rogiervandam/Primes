@@ -60,6 +60,8 @@ export default function Toolbar({
     setSearchQuery,
     searchResult,
     handleSearch,
+    isSpotlightOpen,
+    openSpotlight,
   } = search;
 
   const {
@@ -138,24 +140,30 @@ export default function Toolbar({
       <div className="toolbar-right">
         {!isWindowsPlatform && (
           <>
-            <div className={`search-box${isSearchOpen ? ' search-box--open' : ''}`}>
-              {isSearchOpen ? (
+            <div className={`search-box${(isSearchOpen || isSpotlightOpen) ? ' search-box--open' : ''}`}>
+              {(isSearchOpen || isSpotlightOpen) ? (
                 <>
                   <input
                     type="text"
-                    className="search-input"
+                    className={`search-input${isSpotlightOpen ? ' search-input--mirrored' : ''}`}
                     placeholder="bit 42 / byte 5 / number 97"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(searchQuery); if (e.key === 'Escape') setIsSearchOpen(false); }}
-                    autoFocus
-                    title="Search: bit N, byte N, uint64 N, vector N, number N"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSearch(searchQuery);
+                      if (e.key === 'Escape') { setIsSearchOpen(false); }
+                    }}
+                    autoFocus={isSearchOpen && !isSpotlightOpen}
+                    readOnly={isSpotlightOpen}
+                    title={isSpotlightOpen ? 'Mirroring spotlight search — type in the overlay' : 'Search: bit N, byte N, uint64 N, vector N, number N'}
                   />
                   {searchResult && <span className="search-result-inline" title={searchResult}>{searchResult}</span>}
-                  <button className="btn-icon" onClick={() => setIsSearchOpen(false)} title="Close search">✕</button>
+                  {!isSpotlightOpen && (
+                    <button className="btn-icon" onClick={() => setIsSearchOpen(false)} title="Close search">✕</button>
+                  )}
                 </>
               ) : (
-                <button className="btn-icon" onClick={() => setIsSearchOpen(true)} title="Search (bit/byte/number)"><Search /></button>
+                <button className="btn-icon" onClick={openSpotlight ?? (() => setIsSearchOpen(true))} title="Search (/ or ⌘K)"><Search /></button>
               )}
             </div>
             <button className="btn-icon" onClick={() => doZoom(1.5)} title="Zoom In (+)"><ZoomIn /></button>

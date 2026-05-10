@@ -427,6 +427,13 @@
   padding: 3px 6px; font-size: 11px;
 }
 .search-input::placeholder { color: var(--fg-dim); }
+/* When the spotlight overlay is open, the toolbar input mirrors what is typed
+   there. Show it as read-only with a subtle dim style. */
+.search-input--mirrored {
+  opacity: 0.65;
+  cursor: default;
+  font-style: italic;
+}
 .search-result {
   font-size: 10px;
   color: var(--fg-muted);

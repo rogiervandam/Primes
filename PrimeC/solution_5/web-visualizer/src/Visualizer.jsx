@@ -15,6 +15,7 @@ import JoinedEventsWidget from './visualizer/JoinedEventsWidget';
 import DetailInspectorOverlay from './visualizer/DetailInspectorOverlay';
 import BitHistoryBalloons from './visualizer/BitHistoryBalloons';
 import KeyboardShortcutsOverlay from './visualizer/KeyboardShortcutsOverlay';
+import SearchOverlay from './visualizer/SearchOverlay';
 import DebugToolsPanel from './visualizer/DebugToolsPanel';
 import { useTraceExport, useRawSource, useSearchState, useStepDisplayData } from './hooks/data';
 import {
@@ -23,6 +24,7 @@ import {
   useBalloonLayout,
   useStepSelectionHandlers,
   useSelectionOrchestration,
+  useWASDNavigation,
 } from './hooks/interactions';
 import {
   use3DCamera,
@@ -355,6 +357,8 @@ export default function Visualizer({
   const [zoom, setZoom] = useState(1);
   const [isTraceInfoVisible, setIsTraceInfoVisible] = useState(false);
   const [isShortcutsHelpVisible, setIsShortcutsHelpVisible] = useState(false);
+  // item 239: Spotlight-style search overlay
+  const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
   const [layoutSettings, setLayoutSettings] = useState(initialPrefs.layoutSettings);
   const [autoFitColumnCount, setAutoFitColumnCount] = useState(0);
   const [eventTitleSettings, setEventTitleSettings] = useState(initialPrefs.eventTitleSettings);
@@ -874,12 +878,20 @@ export default function Visualizer({
 
   // Search state + handler — extracted to src/hooks/useSearchState.js (Pattern A).
   // Placed here so navigateToBit is in scope for the hook's dep arrays.
+  // activateRangeOverlay: set and enable the range overlay from a search query.
+  const activateRangeOverlay = useCallback((startBit, endBit) => {
+    setIsRangeOverlayEnabled(true);
+    setRangeOverlayStart(startBit);
+    setRangeOverlayEnd(endBit);
+    navigateToBit(startBit, 'bit');
+  }, [setIsRangeOverlayEnabled, setRangeOverlayStart, setRangeOverlayEnd, navigateToBit]);
+
   const {
     searchQuery, setSearchQuery,
     searchResult,
     isSearchOpen, setIsSearchOpen,
     handleSearch,
-  } = useSearchState({ rendererRef, navigateToBit, storageModel, wheelDefinition, getMinimapDetailH });
+  } = useSearchState({ rendererRef, navigateToBit, storageModel, wheelDefinition, getMinimapDetailH, activateRangeOverlay });
 
 
 
@@ -1059,6 +1071,17 @@ export default function Visualizer({
     collapseSettingsIfOpen: isSettingsCollapsed ? undefined : () => setIsSettingsCollapsed(true),
   });
 
+  // item 237: WASD/QE fly-through navigation. Registered BEFORE the keyboard shortcuts
+  // hook so that stopPropagation in the WASD handler prevents WASD keys from also
+  // triggering other shortcuts (e.g. D → detail panel toggle).
+  useWASDNavigation({
+    rendererRef,
+    canvasRef: glCanvasRef,
+    getMinimapDetailH,
+    updateMinimapAvailability,
+    scheduleBalloonRelayout,
+  });
+
   // Keyboard shortcuts — see src/hooks/useKeyboardShortcuts.js for the full key map.
   useKeyboardShortcuts({
     currentStep,
@@ -1072,6 +1095,7 @@ export default function Visualizer({
     toggleDebugToolsPanel: useCallback(() => setIsDebugToolsOpen((v) => !v), []),
     camera3DRef,
     toggleShortcutsOverlay: useCallback(() => setIsShortcutsHelpVisible((v) => !v), []),
+    toggleSpotlight: useCallback(() => setIsSpotlightOpen((v) => !v), []),
   });
 
   // PNG snapshot + WebM video export. See src/hooks/useTraceExport.js.
@@ -2036,6 +2060,11 @@ export default function Visualizer({
       setSearchQuery,
       searchResult,
       handleSearch,
+      isSpotlightOpen,
+      openSpotlight: useCallback(() => {
+        setIsSpotlightOpen(true);
+        setIsSearchOpen(true);
+      }, [setIsSearchOpen]),
     },
     view: {
       zoom,
@@ -2085,6 +2114,19 @@ export default function Visualizer({
       <KeyboardShortcutsOverlay
         open={isShortcutsHelpVisible}
         onClose={() => setIsShortcutsHelpVisible(false)}
+      />
+      {/* item 239: Spotlight-style search overlay — triggered by / or Cmd+K */}
+      <SearchOverlay
+        open={isSpotlightOpen}
+        onClose={() => setIsSpotlightOpen(false)}
+        steps={steps}
+        goToStep={goToStep}
+        handleSearch={handleSearch}
+        setIsEventsPanelCollapsed={setIsEventsPanelCollapsed}
+        revealCurrentStepInPanel={revealCurrentStepInPanel}
+        query={searchQuery}
+        onQueryChange={setSearchQuery}
+        onSetRange={activateRangeOverlay}
       />
     </div>
     </PanelLayoutProvider>

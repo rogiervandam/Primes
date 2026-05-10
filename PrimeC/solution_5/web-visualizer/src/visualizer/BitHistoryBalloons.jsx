@@ -119,33 +119,45 @@ function BitHistoryBalloons({
   };
 
   useLayoutEffect(() => {
-    const nextBoxes = {};
-    for (const [key, entry] of Object.entries(visibleBalloonStyles)) {
-      if (entry?.visible === false) continue;
-      const node = balloonRefs.current.get(key);
-      if (!node) continue;
-      const rect = node.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) continue;
-      nextBoxes[key] = {
-        left: rect.left,
-        right: rect.right,
-        top: rect.top,
-        bottom: rect.bottom,
-      };
-    }
-    setMeasuredBoxes((prev) => {
-      const prevKeys = Object.keys(prev);
-      const nextKeys = Object.keys(nextBoxes);
-      if (prevKeys.length === nextKeys.length && nextKeys.every((key) => {
-        const a = prev[key];
-        const b = nextBoxes[key];
-        return a && Math.abs(a.left - b.left) < 0.5 && Math.abs(a.right - b.right) < 0.5 &&
-          Math.abs(a.top - b.top) < 0.5 && Math.abs(a.bottom - b.bottom) < 0.5;
-      })) {
-        return prev;
+    const measureBoxes = () => {
+      const nextBoxes = {};
+      for (const [key, entry] of Object.entries(visibleBalloonStyles)) {
+        if (entry?.visible === false) continue;
+        const node = balloonRefs.current.get(key);
+        if (!node) continue;
+        const rect = node.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) continue;
+        nextBoxes[key] = {
+          left: rect.left,
+          right: rect.right,
+          top: rect.top,
+          bottom: rect.bottom,
+        };
       }
-      return nextBoxes;
-    });
+      setMeasuredBoxes((prev) => {
+        const prevKeys = Object.keys(prev);
+        const nextKeys = Object.keys(nextBoxes);
+        if (prevKeys.length === nextKeys.length && nextKeys.every((key) => {
+          const a = prev[key];
+          const b = nextBoxes[key];
+          return a && Math.abs(a.left - b.left) < 0.5 && Math.abs(a.right - b.right) < 0.5 &&
+            Math.abs(a.top - b.top) < 0.5 && Math.abs(a.bottom - b.bottom) < 0.5;
+        })) {
+          return prev;
+        }
+        return nextBoxes;
+      });
+    };
+
+    measureBoxes();
+
+    // item 238: The .bit-history-panel has a `left/top: 180ms ease` CSS transition.
+    // getBoundingClientRect() at commit-time returns the pre-transition (old) position,
+    // so the connector initially points to the wrong place until the next user interaction.
+    // Re-measure after the transition completes so the connector snaps to the correct edge.
+    const timerId = setTimeout(measureBoxes, 200);
+    return () => clearTimeout(timerId);
+
   // item 213: re-measure whenever balloon positions change (liveLayout) so connectors
   // always reflect the latest DOM positions without requiring an extra drag to trigger.
   // eslint-disable-next-line react-hooks/exhaustive-deps
