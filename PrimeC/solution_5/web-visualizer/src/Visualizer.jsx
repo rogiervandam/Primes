@@ -99,6 +99,7 @@ import { buildTraceInfoSections } from './lib/traceHeader';
 import { detectIsMac, detectIsWindows, detectIsElectron } from './lib/platform';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { PlaybackProvider } from './contexts/PlaybackContext';
+import { ActiveStepProvider } from './contexts/ActiveStepContext';
 import { AnimationConfigProvider } from './contexts/AnimationConfigContext';
 import { PanelLayoutProvider } from './contexts/PanelLayoutContext';
 
@@ -1159,9 +1160,13 @@ export default function Visualizer({
     setCustomColors,
   ]);
 
+  // item 236/#4 perf: currentStep is removed from PlaybackContext so that step
+  // advances during playback do not trigger re-renders in every PlaybackContext
+  // consumer. currentStep is provided separately via ActiveStepContext using a
+  // push-subscription model that allows imperative DOM updates without React
+  // reconciliation.
   const playbackContextValue = useMemo(() => ({
     steps,
-    currentStep,
     goToStep,
     playing,
     handlePlayPause,
@@ -1171,7 +1176,6 @@ export default function Visualizer({
     playSpeedPercent,
   }), [
     steps,
-    currentStep,
     goToStep,
     playing,
     handlePlayPause,
@@ -2090,6 +2094,7 @@ export default function Visualizer({
   return (
     <ThemeProvider value={themeContextValue}>
     <PlaybackProvider value={playbackContextValue}>
+    <ActiveStepProvider currentStep={currentStep}>
     <AnimationConfigProvider value={animationConfigContextValue}>
     <PanelLayoutProvider value={panelLayoutContextValue}>
     <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}`}>
@@ -2131,6 +2136,7 @@ export default function Visualizer({
     </div>
     </PanelLayoutProvider>
     </AnimationConfigProvider>
+    </ActiveStepProvider>
     </PlaybackProvider>
     </ThemeProvider>
   );

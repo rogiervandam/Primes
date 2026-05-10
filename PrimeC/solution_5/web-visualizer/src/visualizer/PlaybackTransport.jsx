@@ -3,6 +3,7 @@ import {
   SkipBack, StepBack, Play, Pause, StepForward, SkipForward, Minus, Plus,
 } from '../Icons';
 import { usePlaybackContext } from '../contexts/PlaybackContext';
+import { useCurrentStep } from '../contexts/ActiveStepContext';
 
 function defaultPlayTitle(playing, currentStep, stepCount, variant) {
   if (variant === 'compact') {
@@ -22,7 +23,6 @@ export default function PlaybackTransport({
 }) {
   const {
     steps,
-    currentStep,
     goToStep,
     playing,
     handlePlayPause,
@@ -31,6 +31,9 @@ export default function PlaybackTransport({
     isScrubbingTopRef,
     playSpeedPercent,
   } = usePlaybackContext();
+  // currentStep comes from ActiveStepContext so this component re-renders on
+  // every step change as expected (it has a live controlled slider).
+  const currentStep = useCurrentStep();
 
   const isCompact = variant === 'compact';
   const buttonClassName = isCompact ? 'spt-btn' : 'btn-icon';

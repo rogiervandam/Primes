@@ -1,8 +1,9 @@
-import React, { useRef, useEffect, useState, useMemo, useCallback, useDeferredValue } from 'react';
+import React, { useRef, useEffect, useLayoutEffect, useState, useMemo, useCallback } from 'react';
 import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus, Eye } from './Icons';
 import { formatNs } from './TimingPanel';
 import { isWindowAvailable } from './lib/browser.js';
 import { usePlaybackContext } from './contexts/PlaybackContext';
+import { useActiveStepContext } from './contexts/ActiveStepContext';
 import { usePanelLayoutContext } from './contexts/PanelLayoutContext';
 
 /**
@@ -109,10 +110,10 @@ function buildDepthTree(steps) {
  * @param {object}   props.eventsHandlers            - Event handlers (onStepClick, onMultiStepSelect, onWidthChange, onExpandPanelFromWidget, onDockWidgetToTopBar, onDockWidgetToDetailPanel, onJoinWidgets, onUserScroll, onExternalOpFilterConsumed, onShowEventTitle)
  *
  */
-export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
+export default React.memo(function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
   const {
     steps,
-    currentStep,
+    // currentStep intentionally absent — received via ActiveStepContext subscription
     selectedSteps,
     width,
     externalOpFilter = '',
@@ -120,10 +121,27 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     eventTitleVisible = true,
   } = eventsState;
 
-  // item 236: defer currentStep for the render tree so rapid step changes during
-  // playback don't force a synchronous re-render of all visible event rows.
-  // The scroll-to-active and reveal effects still use the live currentStep value.
-  const deferredCurrentStep = useDeferredValue(currentStep);
+  // item 236/#3+4 perf: subscribe to step changes imperatively so no React
+  // reconciliation occurs during playback. The subscription callback updates
+  // DOM class names and uncontrolled input values directly.
+  const { subscribe, stepRef } = useActiveStepContext();
+
+  // localStep: a React state that mirrors currentStep but is ONLY updated when
+  // playback is not running. Used for ancestor highlighting and group-header
+  // "contains active" indicators — both of which are unnecessary during fast
+  // playback and can safely lag one render behind.
+  const [localStep, setLocalStep] = useState(() => stepRef?.current ?? 0);
+
+  // Tracks the step currently reflected in the DOM (for imperative .active swap).
+  const prevActiveRef = useRef(stepRef?.current ?? -1);
+
+  // Ref for the uncontrolled transport slider and step counter text span.
+  const sliderRef = useRef(null);
+  const stepNumRef = useRef(null);
+
+  // Always-current view of the `playing` flag — used inside the subscription
+  // callback without closing over a stale render-time value.
+  const isPlayingRef = useRef(false);
 
   const {
     onStepClick,
@@ -147,6 +165,56 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     playSpeedPercent,
     setPlaySpeedPercent,
   } = usePlaybackContext();
+
+  // Keep isPlayingRef always current so the subscription callback (which is
+  // created once and never re-created) can read the live playing state.
+  useEffect(() => {
+    isPlayingRef.current = playing;
+    if (!playing) {
+      // Playback stopped: sync localStep so ancestor highlighting and group
+      // headers update to reflect the final step position.
+      setLocalStep(stepRef.current ?? 0);
+    }
+  }, [playing, stepRef]);
+
+  // Imperative step subscription — runs once on mount, never re-created.
+  // Handles: .active class swap, uncontrolled slider + counter update,
+  // localStep sync (when not playing), scroll-to-active (when not playing).
+  useEffect(() => {
+    if (!subscribe) return;
+    return subscribe((step) => {
+      const list = listRef.current;
+      if (list) {
+        list.querySelector(`[data-step-idx="${prevActiveRef.current}"]`)?.classList.remove('active');
+        list.querySelector(`[data-step-idx="${step}"]`)?.classList.add('active');
+      }
+      prevActiveRef.current = step;
+      if (sliderRef.current) sliderRef.current.value = step;
+      if (stepNumRef.current) stepNumRef.current.textContent = step;
+      if (!isPlayingRef.current) {
+        setLocalStep(step);
+      }
+    });
+  }, [subscribe]); // subscribe is stable — this effect runs exactly once
+
+  // Scroll active row into view whenever localStep changes (only happens when
+  // not playing, so no jank during playback).
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const active = el.querySelector('.event-item.active');
+    if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [localStep]);
+
+  // After any EventsPanel re-render (filter change, group toggle, etc.) ensure
+  // the .active class is on the correct row — the subscription callback keeps
+  // prevActiveRef current so this is a cheap querySelector + classList toggle.
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    list.querySelector('.event-item.active')?.classList.remove('active');
+    list.querySelector(`[data-step-idx="${prevActiveRef.current}"]`)?.classList.add('active');
+  });
   const {
     isEventsPanelCollapsed: panelCollapsed,
     toggleEventsPanel: onToggleCollapse,
@@ -538,15 +606,17 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
   }, [filteredTree.length, listVisible]);
 
   // Auto-extend when the current step falls outside the visible window.
+  // item 236/#1 perf: localStep only updates when not playing, so this tree
+  // search never runs during fast playback.
   useEffect(() => {
-    if (currentStep == null) return;
+    if (localStep == null) return;
     const groupIndex = filteredTree.findIndex((g) =>
-      g.children.some((s) => s.originalIndex === currentStep)
+      g.children.some((s) => s.originalIndex === localStep)
     );
     if (groupIndex >= visibleGroupCount) {
       setVisibleGroupCount((n) => Math.max(n, groupIndex + 5));
     }
-  }, [currentStep, filteredTree, visibleGroupCount]);
+  }, [localStep, filteredTree, visibleGroupCount]);
 
   // When filterLevel is 'collapse:N', auto-collapse all nodes at level >= N and
   // auto-expand any nodes at level < N that were previously collapsed by a lower
@@ -600,21 +670,14 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     lastClickedRef.current = null;
   }, [steps]);
 
-  // Scroll active step into view — suppressed during active playback to avoid
-  // repeated smooth-scroll jank that causes visible flickering (item 100).
-  useEffect(() => {
-    if (playing) return;
-    const el = listRef.current;
-    if (!el) return;
-    const active = el.querySelector('.event-item.active');
-    if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [currentStep, playing]);
+  // Scroll active step is now handled by the localStep useEffect above.
 
   // Reveal request: when bumped, clear filters that hide the current step,
   // expand its enclosing group + every ancestor node, then scroll it into
   // view. Triggered from the event-title widget's locate button.
   useEffect(() => {
     if (!revealStepRequest) return;
+    const currentStep = stepRef.current;  // live value from subscription ref
     if (currentStep == null || currentStep < 0) return;
 
     // 1. Drop filters that could be hiding the step.
@@ -686,13 +749,14 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
   // Compute ancestor step indices for the currently active step.
   // These are highlighted with a subtle background tint so the user can see
   // where in the hierarchy the current event lives.
-  // item 236: use deferredCurrentStep to avoid recomputing on every playback frame.
+  // item 236/#4 perf: uses localStep which only updates when not playing,
+  // so this O(n) tree walk never runs during fast playback.
   const ancestorStepIndices = useMemo(() => {
     const ancestors = new Set();
-    if (deferredCurrentStep == null || deferredCurrentStep < 0) return ancestors;
+    if (localStep == null || localStep < 0) return ancestors;
     for (const g of filteredTree) {
       const findAncestors = (node) => {
-        if (node.originalIndex === deferredCurrentStep) return true;
+        if (node.originalIndex === localStep) return true;
         for (const child of node.children || []) {
           if (findAncestors(child)) {
             ancestors.add(node.originalIndex);
@@ -706,7 +770,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
       }
     }
     return ancestors;
-  }, [deferredCurrentStep, filteredTree]);
+  }, [localStep, filteredTree]);
 
   // Build a map from originalIndex → annotation for all steps, used to surface
   // annotations from aggregated (hidden) children on collapsed/aggregate nodes.
@@ -723,9 +787,11 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
    * `nodeDepth` = visual indent level (0 = group child, 1..5 = nested).
    */
   const renderStepNode = useCallback((node, nodeDepth = 0) => {
-    const isActive = node.originalIndex === deferredCurrentStep;
+    // item 236/#3 perf: isActive is intentionally omitted — the .active class is
+    // applied imperatively via data-step-idx + DOM subscription so renderStepNode
+    // is not re-called every step change during playback.
     const isSelected = selectedSteps.has(node.originalIndex);
-    const isAncestor = !isActive && ancestorStepIndices.has(node.originalIndex);
+    const isAncestor = ancestorStepIndices.has(node.originalIndex);
     const hasChildren = node.children && node.children.length > 0;
     const hasHiddenDescendants = !!node.hasHiddenDescendants;
     // A node is an "aggregate leaf" when its visible children were fully filtered
@@ -762,7 +828,8 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     return (
       <div key={node.originalIndex} className={`event-depth-node depth-${Math.min(6, nodeDepth)}`}>
         <div
-          className={`event-item event-child${isActive ? ' active' : ''}${isSelected ? ' selected' : ''}${isAncestor ? ' is-ancestor' : ''}${hasChildren ? ' has-children' : ''}${isAggregateLeaf ? ' has-hidden-descendants' : ''}`}
+          className={`event-item event-child${isSelected ? ' selected' : ''}${isAncestor ? ' is-ancestor' : ''}${hasChildren ? ' has-children' : ''}${isAggregateLeaf ? ' has-hidden-descendants' : ''}`}
+          data-step-idx={node.originalIndex}
           style={{ '--node-depth': nodeDepth }}
           onClick={(e) => {
             if (hasChildren && e.target.classList.contains('event-depth-toggle')) return;
@@ -833,7 +900,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
         )}
       </div>
     );
-  }, [deferredCurrentStep, selectedSteps, ancestorStepIndices, collapsed, handleStepClick, toggleGroup, onStepClick, onMultiStepSelect, stepAnnotationMap]);
+  }, [selectedSteps, ancestorStepIndices, collapsed, handleStepClick, toggleGroup, onStepClick, onMultiStepSelect, stepAnnotationMap]);
 
   // Resize with scroll preservation
   const handleMouseDown = useCallback((e) => {
@@ -871,12 +938,14 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     return rangeLabel;
   }, []);
 
-  // Compact transport controls used both in collapsed and expanded states
+  // Compact transport controls used both in collapsed and expanded states.
+  // item 236/#3 perf: the slider is uncontrolled (defaultValue) so React never
+  // overwrites the position set imperatively by the subscription callback.
   const transportControls = goToStep ? (
     <div className="events-panel-transport" onMouseDown={(e) => e.stopPropagation()}>
       <div className="spt-row spt-row-nav">
         <button className="spt-btn" onClick={() => goToStep(0)} title="First event (Home)" disabled={exporting}><SkipBack size={12} /></button>
-        <button className="spt-btn" onClick={() => goToStep(currentStep - 1)} title="Previous event (←)" disabled={exporting}><StepBack size={12} /></button>
+        <button className="spt-btn" onClick={() => goToStep(localStep - 1)} title="Previous event (←)" disabled={exporting}><StepBack size={12} /></button>
         {setPlaySpeedPercent && (
           <button className="spt-btn spt-speed" onClick={() => setPlaySpeedPercent(v => Math.max(1, Math.round(v / 1.25)))} title="Slower animation" disabled={exporting}><Minus size={11} /></button>
         )}
@@ -886,7 +955,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
         {setPlaySpeedPercent && (
           <button className="spt-btn spt-speed" onClick={() => setPlaySpeedPercent(v => Math.min(1600, Math.round(v * 1.25)))} title="Faster animation" disabled={exporting}><Plus size={11} /></button>
         )}
-        <button className="spt-btn" onClick={() => goToStep(currentStep + 1)} title="Next event (→)" disabled={exporting}><StepForward size={12} /></button>
+        <button className="spt-btn" onClick={() => goToStep(localStep + 1)} title="Next event (→)" disabled={exporting}><StepForward size={12} /></button>
         <button className="spt-btn" onClick={() => goToStep(steps.length - 1)} title="Last event (End)" disabled={exporting}><SkipForward size={12} /></button>
         {setPlaySpeedPercent && playSpeedPercent != null && (
           <span className="spt-speed-label" title={`Playback speed: ${playSpeedPercent}% of normal`}>{playSpeedPercent}%</span>
@@ -895,18 +964,22 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
       <div className="spt-row spt-row-timeline">
         <input
           type="range"
+          ref={sliderRef}
           className="spt-slider"
           min={0}
           max={Math.max(0, steps.length - 1)}
-          value={currentStep}
+          defaultValue={stepRef?.current ?? 0}
           onChange={(e) => goToStep(parseInt(e.target.value, 10))}
           onPointerDown={() => { if (isScrubbingTopRef) isScrubbingTopRef.current = true; }}
           onPointerUp={() => { if (isScrubbingTopRef) isScrubbingTopRef.current = false; }}
           onPointerCancel={() => { if (isScrubbingTopRef) isScrubbingTopRef.current = false; }}
           disabled={exporting}
-          title={`Event ${currentStep} of ${steps.length - 1}`}
+          title="Scrub events"
         />
-        <span className="spt-counter">{currentStep}<span className="spt-total">/{steps.length - 1}</span></span>
+        <span className="spt-counter">
+          <span ref={stepNumRef}>{stepRef?.current ?? 0}</span>
+          <span className="spt-total">/{steps.length - 1}</span>
+        </span>
       </div>
     </div>
   ) : null;
@@ -1012,7 +1085,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
       <div className="event-list" ref={listRef} onWheel={onUserScroll}>
         {visibleRenderedGroups.map((group) => {
           const isCollapsed = collapsed.has(group.id);
-          const containsActive = group.children.some(s => s.originalIndex === currentStep || selectedSteps.has(s.originalIndex));
+          const containsActive = group.children.some(s => s.originalIndex === localStep || selectedSteps.has(s.originalIndex));
 
           return (
             <div key={group.id} className="event-group">
@@ -1057,4 +1130,4 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     </div>
     </>
   );
-}
+});

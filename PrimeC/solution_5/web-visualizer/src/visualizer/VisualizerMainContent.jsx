@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import EventsPanel from '../EventsPanel';
 import SettingsPanel from '../SettingsPanel';
 import CanvasStage from './CanvasStage';
@@ -127,6 +127,37 @@ export default function VisualizerMainContent(props) {
   const { isToolsOpen: isDebugToolsOpen, theme = 'dark', isGlUnavailable, glDebugInfo, debugLayerMode, renderMode = 'mode3-direct', renderModeRestartNonce = 0, debugGlModeOverride = 'auto', debugWorkerGlyphMode = 'gl', debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY, isDebugCalibrationMode, debugRenderTuning, handlers: debugHandlers = {} } = debug;
   const { setDebugLayerMode, setRenderMode, restartRenderMode, setDebugGlModeOverride, setDebugWorkerGlyphMode, setDebugGlOffsetX, setDebugGlOffsetY, setIsDebugCalibrationMode, setDebugRenderTuning, applySnapshot: applyDebugSnapshot, forceGlRedraw } = debugHandlers;
 
+  // item 236/#2 perf: memoize the two EventsPanel prop objects so that React.memo
+  // on EventsPanel can skip re-renders when currentStep changes during playback.
+  // currentStep is intentionally excluded — EventsPanel receives it via
+  // ActiveStepContext subscription (zero React re-renders per step).
+  const stableEventsState = useMemo(() => ({
+    steps,
+    selectedSteps,
+    width: panelWidth,
+    externalOpFilter: timingFocusOp,
+    revealStepRequest,
+    eventTitleVisible: eventTitleSettings.visible && !areWidgetsJoined,
+  }), [steps, selectedSteps, panelWidth, timingFocusOp, revealStepRequest,
+       eventTitleSettings.visible, areWidgetsJoined]);
+
+  const stableEventsHandlers = useMemo(() => ({
+    onStepClick: handleStepSelection,
+    onMultiStepSelect: handleMultiStepSelect,
+    onWidthChange: setPanelWidth,
+    onExpandPanelFromWidget: expandEventsPanelFromWidget,
+    onDockWidgetToTopBar: dockEventsWidgetToTopBar,
+    onDockWidgetToDetailPanel: dockEventsWidgetToDetailPanel,
+    onJoinWidgets: joinWidgets,
+    onUserScroll: stopPlayback,
+    onExternalOpFilterConsumed: () => setTimingFocusOp(''),
+    onShowEventTitle: showEventTitleAboveCurrentDetail,
+    onEnableRepeat: enableRepeat,
+  }), [handleStepSelection, handleMultiStepSelect, setPanelWidth,
+       expandEventsPanelFromWidget, dockEventsWidgetToTopBar,
+       dockEventsWidgetToDetailPanel, joinWidgets, stopPlayback,
+       setTimingFocusOp, showEventTitleAboveCurrentDetail, enableRepeat]);
+
   return (
     <div
       className={`main-content${isUiChromeVisible ? ' ui-chrome-visible' : ' ui-chrome-hidden'}`}
@@ -141,28 +172,8 @@ export default function VisualizerMainContent(props) {
         overlayBarPct={overlayBarPct}
       />
       <EventsPanel
-        eventsState={{
-          steps,
-          currentStep,
-          selectedSteps,
-          width: panelWidth,
-          externalOpFilter: timingFocusOp,
-          revealStepRequest,
-          eventTitleVisible: eventTitleSettings.visible && !areWidgetsJoined,
-        }}
-        eventsHandlers={{
-          onStepClick: handleStepSelection,
-          onMultiStepSelect: handleMultiStepSelect,
-          onWidthChange: setPanelWidth,
-          onExpandPanelFromWidget: expandEventsPanelFromWidget,
-          onDockWidgetToTopBar: dockEventsWidgetToTopBar,
-          onDockWidgetToDetailPanel: dockEventsWidgetToDetailPanel,
-          onJoinWidgets: joinWidgets,
-          onUserScroll: stopPlayback,
-          onExternalOpFilterConsumed: () => setTimingFocusOp(''),
-          onShowEventTitle: showEventTitleAboveCurrentDetail,
-          onEnableRepeat: enableRepeat,  // item 215: clicking event in all-events panel enables repeat mode
-        }}
+        eventsState={stableEventsState}
+        eventsHandlers={stableEventsHandlers}
       />
       <div className={`canvas-and-detail-column${doubleTimelineProps.isTimelineUndocked ? ' timeline-undocked' : ''}`}>
       {/* item 235: CanvasStage is isolated in its own .canvas-column so the canvas
