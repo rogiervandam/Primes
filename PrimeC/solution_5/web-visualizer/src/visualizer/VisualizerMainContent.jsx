@@ -165,6 +165,11 @@ export default function VisualizerMainContent(props) {
         }}
       />
       <div className={`canvas-and-detail-column${doubleTimelineProps.isTimelineUndocked ? ' timeline-undocked' : ''}`}>
+      {/* item 235: CanvasStage is isolated in its own .canvas-column so the canvas
+          rendering cycle is clearly separated from the detail panel and timeline.
+          DoubleTimeline and DetailPanel are siblings of .canvas-column (not children),
+          so updates to them don't affect the canvas render subtree. */}
+      <div className="canvas-column">
       <CanvasStage
         canvasRefs={{
           containerRef,
@@ -231,9 +236,9 @@ export default function VisualizerMainContent(props) {
           isSingleEventWidgetRevealed,
         }}
       />
-      {/* item 178: EventTitleBanner removed — nearby events are now shown in the detail panel */}
-      {/* DetailPanel lives in main-content (not inside canvas-area) so it is
-          positioned relative to the full main-content area (item 58). */}
+      </div>{/* end .canvas-column */}
+      {/* item 235: DetailPanel and DoubleTimeline are siblings of .canvas-column,
+          not nested inside the canvas render subtree (item 58 / item 235). */}
       {currentStepData && (() => {
         const isTimelineUndocked = doubleTimelineProps.isTimelineUndocked;
         const floatingDetailVisible = doubleTimelineProps.floatingDetailVisible ?? false;

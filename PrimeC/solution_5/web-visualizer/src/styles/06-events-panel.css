@@ -305,6 +305,13 @@
   text-align: right;
   flex-shrink: 0;
 }
+.event-targeted {
+  color: var(--fg-muted);
+  font-size: 11px;
+  flex-shrink: 0;
+  margin-left: 2px;
+  opacity: 0.75;
+}
 .event-prime {
   color: var(--prime-fg);
   font-size: 10px;

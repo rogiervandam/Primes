@@ -78,11 +78,11 @@ export class GlyphTextCanvas2D {
     ctx.fill();
   }
 
-  drawText(text, x, y, fontSize, r, g, b, a, align = 'left', baseline = 'alphabetic') {
+  drawText(text, x, y, fontSize, r, g, b, a, align = 'left', baseline = 'alphabetic', italic = false) {
     const ctx = this.ctx;
     if (!ctx || !text) return;
     ctx.fillStyle = rgbaCss(r, g, b, a);
-    ctx.font = `${Math.max(1, fontSize)}px ${FONT_FAMILY}`;
+    ctx.font = `${italic ? 'italic ' : ''}${Math.max(1, fontSize)}px ${FONT_FAMILY}`;
     ctx.textAlign = align;
     ctx.textBaseline = baseline;
     ctx.fillText(text, x, y);

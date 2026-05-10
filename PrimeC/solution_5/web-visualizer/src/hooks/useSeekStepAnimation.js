@@ -182,6 +182,12 @@ export function useSeekStepAnimation({
           r.changedBits = revealed;
           r.animationFocusBits = focusBits;
           r.render();
+          // item 234: show motion trail while scrubbing aggregate sequential animation
+          if (targetIdx > 0 && r.clearBitMotionTrails) {
+            r.clearBitMotionTrails();
+            r.addBitMotionTrail(aggBits[targetIdx - 1], aggBits[targetIdx]);
+            r.renderBitMotionTrails();
+          }
           if (animStyle === 'ripple') r.renderRipple(0.18, focusBits, { intensity: 1.1, showBeacon: true });
           else if (animStyle === 'pulse') r.renderPulse(0.28, focusBits, { intensity: 1.2, showHalo: true });
           else if (animStyle === 'fade') r.renderFade(0.35);
@@ -302,6 +308,12 @@ export function useSeekStepAnimation({
     r.changedBits = revealed;
     r.animationFocusBits = focusBits;
     r.render();
+    // item 234: show motion trail while scrubbing the per-step animation timeline
+    if (targetIdx > 0 && r.clearBitMotionTrails) {
+      r.clearBitMotionTrails();
+      r.addBitMotionTrail(bits[targetIdx - 1], bits[targetIdx]);
+      r.renderBitMotionTrails();
+    }
     if (animStyle === 'ripple') r.renderRipple(0.18, focusBits, { intensity: 1.1, showBeacon: true });
     else if (animStyle === 'pulse') r.renderPulse(0.28, focusBits, { intensity: 1.2, showHalo: true });
     else if (animStyle === 'fade') r.renderFade(0.35);

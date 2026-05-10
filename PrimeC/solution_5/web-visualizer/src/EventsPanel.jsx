@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useCallback, useDeferredValue } from 'react';
 import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus, Eye } from './Icons';
 import { formatNs } from './TimingPanel';
 import { isWindowAvailable } from './lib/browser.js';
@@ -29,13 +29,16 @@ function buildDepthTree(steps) {
 
   const annotate = (node) => {
     const own = Number(node.numChanged || 0);
+    const ownTargeted = Number(node.numTargeted || 0);
     let aggregateChanged = own;
+    let aggregateTargeted = ownTargeted;
     let aggregateElapsedNs = Number(node.elapsedNs || 0);
     const aggregateStepIndices = [node.originalIndex];
 
     for (const child of (node.children || [])) {
       annotate(child);
       aggregateChanged += Number(child.aggregateChanged || 0);
+      aggregateTargeted += Number(child.aggregateTargeted || 0);
       aggregateElapsedNs += Number(child.aggregateElapsedNs || 0);
       if (Array.isArray(child.aggregateStepIndices)) {
         aggregateStepIndices.push(...child.aggregateStepIndices);
@@ -43,6 +46,7 @@ function buildDepthTree(steps) {
     }
 
     node.aggregateChanged = aggregateChanged;
+    node.aggregateTargeted = aggregateTargeted;
     node.aggregateElapsedNs = aggregateElapsedNs;
     node.aggregateStepIndices = aggregateStepIndices;
   };
@@ -115,6 +119,11 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     revealStepRequest = 0,
     eventTitleVisible = true,
   } = eventsState;
+
+  // item 236: defer currentStep for the render tree so rapid step changes during
+  // playback don't force a synchronous re-render of all visible event rows.
+  // The scroll-to-active and reveal effects still use the live currentStep value.
+  const deferredCurrentStep = useDeferredValue(currentStep);
 
   const {
     onStepClick,
@@ -323,6 +332,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
             operation: s.operation || '',
             children: [],
             totalChanged: 0,
+            totalTargeted: 0,
           };
           stepMap.set(key, g);
           groups.push(g);
@@ -330,6 +340,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
         const g = stepMap.get(key);
         g.children.push({ ...s, originalIndex: i });
         g.totalChanged += s.numChanged;
+        g.totalTargeted += s.numTargeted ?? 0;
       }
       return groups;
     }
@@ -351,6 +362,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
               operation: s.operation || '',
               children: [],
               totalChanged: 0,
+              totalTargeted: 0,
             };
             rangeMap.set(key, g);
             groups.push(g);
@@ -358,13 +370,15 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
           const g = rangeMap.get(key);
           g.children.push({ ...s, originalIndex: i });
           g.totalChanged += s.numChanged;
+          g.totalTargeted += s.numTargeted ?? 0;
         } else {
           if (!otherGroup) {
-            otherGroup = { id: -1, prime: null, label: 'Other', operation: '', children: [], totalChanged: 0 };
+            otherGroup = { id: -1, prime: null, label: 'Other', operation: '', children: [], totalChanged: 0, totalTargeted: 0 };
             groups.unshift(otherGroup);
           }
           otherGroup.children.push({ ...s, originalIndex: i });
           otherGroup.totalChanged += s.numChanged;
+          otherGroup.totalTargeted += s.numTargeted ?? 0;
         }
       }
       // Re-assign IDs after potential unshift
@@ -391,6 +405,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
           operation: 'Initialization',
           children: [{ ...s, originalIndex: i }],
           totalChanged: s.numChanged,
+          totalTargeted: s.numTargeted ?? 0,
         });
         current = null;
         continue;
@@ -405,12 +420,14 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
           operation: s.operation || '',
           children: [],
           totalChanged: 0,
+          totalTargeted: 0,
         };
         groups.push(current);
       }
 
       current.children.push({ ...s, originalIndex: i });
       current.totalChanged += s.numChanged;
+      current.totalTargeted += s.numTargeted ?? 0;
     }
 
     return groups;
@@ -478,6 +495,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
           const hiddenCount = (full.aggregateStepIndices?.length ?? 1) - (node.aggregateStepIndices?.length ?? 1);
           if (hiddenCount > 0) {
             node.aggregateChanged = full.aggregateChanged;
+            node.aggregateTargeted = full.aggregateTargeted;
             node.aggregateElapsedNs = full.aggregateElapsedNs;
             node.aggregateStepIndices = full.aggregateStepIndices;
             node.hasHiddenDescendants = true;
@@ -668,12 +686,13 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
   // Compute ancestor step indices for the currently active step.
   // These are highlighted with a subtle background tint so the user can see
   // where in the hierarchy the current event lives.
+  // item 236: use deferredCurrentStep to avoid recomputing on every playback frame.
   const ancestorStepIndices = useMemo(() => {
     const ancestors = new Set();
-    if (currentStep == null || currentStep < 0) return ancestors;
+    if (deferredCurrentStep == null || deferredCurrentStep < 0) return ancestors;
     for (const g of filteredTree) {
       const findAncestors = (node) => {
-        if (node.originalIndex === currentStep) return true;
+        if (node.originalIndex === deferredCurrentStep) return true;
         for (const child of node.children || []) {
           if (findAncestors(child)) {
             ancestors.add(node.originalIndex);
@@ -687,7 +706,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
       }
     }
     return ancestors;
-  }, [currentStep, filteredTree]);
+  }, [deferredCurrentStep, filteredTree]);
 
   // Build a map from originalIndex → annotation for all steps, used to surface
   // annotations from aggregated (hidden) children on collapsed/aggregate nodes.
@@ -704,7 +723,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
    * `nodeDepth` = visual indent level (0 = group child, 1..5 = nested).
    */
   const renderStepNode = useCallback((node, nodeDepth = 0) => {
-    const isActive = node.originalIndex === currentStep;
+    const isActive = node.originalIndex === deferredCurrentStep;
     const isSelected = selectedSteps.has(node.originalIndex);
     const isAncestor = !isActive && ancestorStepIndices.has(node.originalIndex);
     const hasChildren = node.children && node.children.length > 0;
@@ -715,6 +734,9 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     const changedCount = (hasChildren || hasHiddenDescendants)
       ? Number(node.aggregateChanged || node.numChanged || 0)
       : Number(node.numChanged || 0);
+    const targetedCount = (hasChildren || hasHiddenDescendants)
+      ? Number(node.aggregateTargeted || 0)
+      : Number(node.numTargeted || 0);
     const displayElapsedNs = (hasChildren || hasHiddenDescendants)
       ? Number(node.aggregateElapsedNs || node.elapsedNs || 0)
       : Number(node.elapsedNs || 0);
@@ -731,6 +753,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
       node.start != null ? `Range: [${node.start} – ${node.stop}]` : null,
       node.factorStep != null ? `Step size: ${node.factorStep}` : null,
       `Bits changed: ${changedCount}`,
+      targetedCount > changedCount ? `Bits targeted: ${targetedCount} (${targetedCount - changedCount} already set)` : null,
       hasHiddenDescendants ? `(includes ${node.hiddenDescendantCount} hidden event${node.hiddenDescendantCount !== 1 ? 's' : ''})` : null,
       node.annotation,
     ].filter(Boolean).join('\n');
@@ -774,6 +797,9 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
             </span>
           )}
           <span className="event-changes">{changedCount > 0 ? `+${changedCount}` : ''}</span>
+          {targetedCount > changedCount && (
+            <span className="event-targeted" title={`${targetedCount} bits targeted (${targetedCount - changedCount} already set)`}>⊙{targetedCount}</span>
+          )}
           {isAggregateLeaf && node.hiddenDescendantCount > 0 && (
             <span className="event-agg-badge" title={`Aggregated from ${node.hiddenDescendantCount} hidden event${node.hiddenDescendantCount !== 1 ? 's' : ''}`}>
               +{node.hiddenDescendantCount}
@@ -807,7 +833,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
         )}
       </div>
     );
-  }, [currentStep, selectedSteps, ancestorStepIndices, collapsed, handleStepClick, toggleGroup, onStepClick, onMultiStepSelect, stepAnnotationMap]);
+  }, [deferredCurrentStep, selectedSteps, ancestorStepIndices, collapsed, handleStepClick, toggleGroup, onStepClick, onMultiStepSelect, stepAnnotationMap]);
 
   // Resize with scroll preservation
   const handleMouseDown = useCallback((e) => {
@@ -1010,6 +1036,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
                 <span className="event-group-info">
                   {!isCollapsed && (group.children.length > 1 ? `${group.children.length} events` : '1 event')}
                   {group.totalChanged > 0 ? ` · +${group.totalChanged}` : ''}
+                  {group.totalTargeted > group.totalChanged ? ` · ⊙${group.totalTargeted}` : ''}
                 </span>
               </div>
 

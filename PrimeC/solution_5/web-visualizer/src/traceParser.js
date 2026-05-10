@@ -206,6 +206,7 @@ function parseJsonTrace(text) {
       factorStep,
       changedBits: new Uint32Array(s.changed_bits || []),
       numChanged: (s.changed_bits || []).length,
+      numTargeted: maskMeta.targetBits.length,
       targetBits: new Uint32Array(maskMeta.targetBits),
       targetHitCounts: new Uint16Array(maskMeta.targetHitCounts),
       focusStart: maskMeta.focusStart,
@@ -324,6 +325,7 @@ function createParsedStep({
   stop,
   factorStep,
   changedBits,
+  numTargeted,
   targetBits,
   targetHitCounts,
   focusStart,
@@ -351,6 +353,7 @@ function createParsedStep({
     factorStep: toNullableNumber(factorStep),
     changedBits: new Uint32Array(changedBits || []),
     numChanged: (changedBits || []).length,
+    numTargeted: numTargeted ?? 0,
     targetBits: new Uint32Array(targetBits || []),
     targetHitCounts: new Uint16Array(targetHitCounts || []),
     focusStart: toNullableNumber(focusStart),
@@ -421,6 +424,7 @@ function extractNewStyleStepData(annotation, meta, inferredDepth) {
   const maskMeta = deriveMaskMeta(meta, 0);
   const patternMeta = derivePatternMeta(meta, maskMeta);
 
+  const hasExplicitTargetBits = maskMeta.targetBits.length > 0;
   return {
     annotation,
     operation,
@@ -429,10 +433,11 @@ function extractNewStyleStepData(annotation, meta, inferredDepth) {
     stop,
     factorStep,
     changedBits,
-    targetBits: maskMeta.targetBits.length > 0 ? maskMeta.targetBits : changedBits,
+    targetBits: hasExplicitTargetBits ? maskMeta.targetBits : changedBits,
     targetHitCounts: maskMeta.targetHitCounts.length > 0
       ? maskMeta.targetHitCounts
       : changedBits.map(() => 1),
+    numTargeted: hasExplicitTargetBits ? maskMeta.targetBits.length : 0,
     focusStart: maskMeta.focusStart ?? start,
     focusStop: maskMeta.focusStop ?? stop,
     patternKind: patternMeta.kind,

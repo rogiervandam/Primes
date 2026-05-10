@@ -17,10 +17,22 @@
   overflow: visible;
 }
 
-/* Wraps CanvasStage + DetailPanel so the detail panel renders below the canvas
-   rather than as a row sibling next to it. position:relative makes this the
-   containing block for the absolutely-positioned DoubleTimeline (which floats
-   over the canvas). */
+/* item 235: CanvasStage is wrapped in its own .canvas-column so the canvas is a
+   clearly delineated flex child within .canvas-and-detail-column. DetailPanel and
+   DoubleTimeline are siblings of .canvas-column, not descendants of it. */
+.canvas-column {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Wraps CanvasStage (via .canvas-column) + DetailPanel + DoubleTimeline so the
+   detail panel and timeline render below the canvas rather than as row siblings.
+   position:relative makes this the containing block for the absolutely-positioned
+   DoubleTimeline (which floats over the canvas). */
 .canvas-and-detail-column {
   display: flex;
   flex-direction: column;

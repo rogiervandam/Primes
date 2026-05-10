@@ -473,8 +473,9 @@ export class GlyphTextGLCore {
    * @param {number} a          - Alpha [0..1].
    * @param {string} [align='left']        - 'left'|'center'|'right'
    * @param {string} [baseline='alphabetic'] - 'top'|'middle'|'alphabetic'|'bottom'
+   * @param {boolean} [italic=false] - Use italic glyph variants from atlas.
    */
-  drawText(text, x, y, fontSize, r, g, b, a, align = 'left', baseline = 'alphabetic') {
+  drawText(text, x, y, fontSize, r, g, b, a, align = 'left', baseline = 'alphabetic', italic = false) {
     if (this._lost || !this._atlas || !text) return;
     const atlas  = this._atlas;
     const scale  = fontSize / atlas.fontSize;
@@ -507,7 +508,7 @@ export class GlyphTextGLCore {
 
     let cx = left;
     for (const ch of text) {
-      const glyph = atlas.get(ch);
+      const glyph = italic ? atlas.getItalic(ch) : atlas.get(ch);
       if (!glyph) { cx += atlas.cellWidth * scale; continue; }
       const qw = atlas.cellWidth * scale;
       this._addInstance(cx, top, qw, cellH, glyph.u0, glyph.v0, glyph.u1, glyph.v1, r, g, b, a, 0.0);

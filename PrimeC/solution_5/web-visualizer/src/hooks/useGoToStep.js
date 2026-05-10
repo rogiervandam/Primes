@@ -196,8 +196,9 @@ export function useGoToStep({
 
     // Always animate when navigating (direct mode, item 95). Previously only
     // animated when playing/looping/scrubbing. Now always trigger animation
-    // unless explicitly suppressed or during multi-step aggregate scrubs.
-    if (!aggregateScrub && !suppressHighlight && triggerAnimationRef.current) {
+    // unless explicitly suppressed. Item 232: also animate during aggregate
+    // scrubs so the motion trail is visible even when selecting across steps.
+    if (!suppressHighlight && triggerAnimationRef.current) {
       const delayMs = playing ? delayBetweenEvents : 0;
       triggerAnimationRef.current(changedSet, {
         adaptiveDuration: true,

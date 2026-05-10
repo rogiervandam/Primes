@@ -74,18 +74,19 @@ const BitHistoryBalloon = forwardRef(function BitHistoryBalloon({
         ) : (
           <table className="bit-history-table">
             <thead>
-              <tr><th>Event</th><th>Operation</th><th>Prime</th></tr>
+              <tr><th>Event</th><th>Operation</th><th>Prime</th><th>Result</th></tr>
             </thead>
             <tbody>
               {info.history.map((h) => (
                 <tr
                   key={`${keyPrefix}-${bi}-${h.stepIndex}`}
-                  className={h.stepIndex === currentStep ? 'bh-current' : ''}
+                  className={`${h.stepIndex === currentStep ? 'bh-current' : ''}${h.wasChanged === false ? ' bh-targeted-only' : ''}`}
                   onClick={() => onHistoryClick && onHistoryClick(h.stepIndex)}
                 >
                   <td>{h.stepIndex}</td>
                   <td>{h.operation || '—'}</td>
                   <td>{h.prime != null ? h.prime : '—'}</td>
+                  <td className="bh-result-cell">{h.wasChanged === false ? 'targeted' : 'set'}</td>
                 </tr>
               ))}
             </tbody>

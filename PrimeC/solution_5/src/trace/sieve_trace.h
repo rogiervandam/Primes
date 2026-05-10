@@ -62,17 +62,19 @@ static trace_context_t g_trace = {0};
 static char  g_trace_default_path[512] = {0};
 static int   g_trace_console_feedback_enabled = 1;
 
-/* item 230/#225: single-bit events may set this before the trace record call.
- * trace_record_event_full emits "target_bits": [N] and clears it.
- * This lets the JS visualizer show "Bits targeted" and "Already set" counts. */
-static uint32_t g_trace_pending_target_bit = 0;
-static int      g_trace_has_pending_target  = 0;
+/* item 233/#230: accumulate target bits across the inner loop; emit the full
+ * array on the outer-level trace event. primes_trace_add_pending_target()
+ * is called once per bit targeted; trace_record_event_full() emits
+ * "target_bits": [...] and resets the counter. */
+#define TRACE_MAX_PENDING_TARGETS 65536
+static uint32_t g_trace_pending_target_bits[TRACE_MAX_PENDING_TARGETS];
+static int      g_trace_pending_target_count = 0;
 
 static inline void
-primes_trace_set_pending_target(uint32_t bit)
+primes_trace_add_pending_target(uint32_t bit)
 {
-    g_trace_pending_target_bit = bit;
-    g_trace_has_pending_target = 1;
+    if (g_trace_pending_target_count < TRACE_MAX_PENDING_TARGETS)
+        g_trace_pending_target_bits[g_trace_pending_target_count++] = bit;
 }
 
 static inline void
@@ -348,10 +350,15 @@ trace_record_event_full(int level, const void* bitstorage, const char* label, do
     }
     if (time > 0) fprintf(g_trace.file, ", \"time\": %.9f", time);
 
-    /* item 230/#225: target_bits from primes_trace_set_pending_target (single-bit events) */
-    if (g_trace_has_pending_target) {
-        fprintf(g_trace.file, ", \"target_bits\": [%u]", g_trace_pending_target_bit);
-        g_trace_has_pending_target = 0;
+    /* item 233/#230: emit accumulated target_bits array and reset */
+    if (g_trace_pending_target_count > 0) {
+        fputs(", \"target_bits\": [", g_trace.file);
+        for (int _k = 0; _k < g_trace_pending_target_count; _k++) {
+            if (_k) fputc(',', g_trace.file);
+            fprintf(g_trace.file, "%u", g_trace_pending_target_bits[_k]);
+        }
+        fputc(']', g_trace.file);
+        g_trace_pending_target_count = 0;
     }
 
     /* changed_bits array */

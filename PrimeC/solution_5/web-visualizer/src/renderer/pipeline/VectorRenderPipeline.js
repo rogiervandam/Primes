@@ -311,10 +311,11 @@ export class VectorRenderPipeline {
       glyph.drawText(lines[0], centerX, Math.round(bitY + px * 0.32), fontSize,
         tr, tg, tb, ta, 'center', 'middle');
       glyph.drawText(lines[1], centerX, Math.round(bitY + px * 0.7),
-        Math.max(4.5, fontSize - 0.25), tr, tg, tb, ta, 'center', 'middle');
+        Math.max(4.5, fontSize - 0.25), tr, tg, tb, ta, 'center', 'middle', true);
     } else {
+      const numberOnly = showNumberLabels && !showBitLabels;
       glyph.drawText(lines[0], centerX, centerY, fontSize,
-        tr, tg, tb, ta, 'center', 'middle');
+        tr, tg, tb, ta, 'center', 'middle', numberOnly);
     }
   }
 }

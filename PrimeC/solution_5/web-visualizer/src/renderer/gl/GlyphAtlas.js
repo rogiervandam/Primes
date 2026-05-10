@@ -45,6 +45,8 @@ export class GlyphAtlas {
     this._fontFamily = fontFamily;
     this._cols = cols;
     this._charMap = new Map();
+    /** Italic variant UV coords (bottom half of combined atlas texture). */
+    this._italicCharMap = new Map();
     this._atlasW = 0;
     this._atlasH = 0;
     this._cellW = 0;
@@ -94,31 +96,53 @@ export class GlyphAtlas {
     this._atlasW = atlasW;
     this._atlasH = atlasH;
 
-    // -- Render glyphs --------------------------------------------------------
-    const canvas = makeCanvas(atlasW, atlasH);
+    // -- Render glyphs (regular + italic in combined atlas) -------------------
+    // The atlas is doubled in height: regular glyphs occupy the top half,
+    // italic glyphs the bottom half. Both share the same cell dimensions.
+    const singleH = atlasH; // height for one variant
+    const totalH  = atlasH * 2; // combined atlas height
+    this._atlasH  = totalH;
+
+    const canvas = makeCanvas(atlasW, totalH);
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, atlasW, atlasH);
+    ctx.clearRect(0, 0, atlasW, totalH);
     ctx.fillStyle    = 'white';
-    ctx.font         = `${fontSize}px ${fontFamily}`;
     ctx.textBaseline = 'alphabetic';
     ctx.textAlign    = 'left';
 
+    // Regular glyphs (top half)
+    ctx.font = `${fontSize}px ${fontFamily}`;
     for (let i = 0; i < chars.length; i++) {
       const ch  = chars[i];
       const col = i % cols;
       const row = Math.floor(i / cols);
-      // Draw at cell origin + padding; baseline = top + ascent + 2 px padding.
       ctx.fillText(ch, col * cellW + 2, row * cellH + ascent + 2);
 
       const advW = mctx.measureText(ch).width;
       const u0 = (col * cellW)       / atlasW;
-      const v0 = (row * cellH)       / atlasH;
+      const v0 = (row * cellH)       / totalH;
       const u1 = ((col + 1) * cellW) / atlasW;
-      const v1 = ((row + 1) * cellH) / atlasH;
+      const v1 = ((row + 1) * cellH) / totalH;
       this._charMap.set(ch, { u0, v0, u1, v1, advW });
     }
 
-    this._imageData = ctx.getImageData(0, 0, atlasW, atlasH);
+    // Italic glyphs (bottom half, offset by singleH)
+    ctx.font = `italic ${fontSize}px ${fontFamily}`;
+    for (let i = 0; i < chars.length; i++) {
+      const ch  = chars[i];
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      ctx.fillText(ch, col * cellW + 2, singleH + row * cellH + ascent + 2);
+
+      const advW = mctx.measureText(ch).width;
+      const u0 = (col * cellW)              / atlasW;
+      const v0 = (singleH + row * cellH)    / totalH;
+      const u1 = ((col + 1) * cellW)        / atlasW;
+      const v1 = (singleH + (row + 1) * cellH) / totalH;
+      this._italicCharMap.set(ch, { u0, v0, u1, v1, advW });
+    }
+
+    this._imageData = ctx.getImageData(0, 0, atlasW, totalH);
     return this;
   }
 
@@ -156,6 +180,16 @@ export class GlyphAtlas {
    */
   get(ch) {
     return this._charMap.get(ch) || this._charMap.get(' ');
+  }
+
+  /**
+   * Italic variant glyph metrics for a character (bottom half of atlas).
+   * Returns the italic space glyph as fallback.
+   * @param {string} ch
+   * @returns {{ u0: number, v0: number, u1: number, v1: number, advW: number }}
+   */
+  getItalic(ch) {
+    return this._italicCharMap.get(ch) || this._italicCharMap.get(' ');
   }
 
   /** Cell width in atlas pixels (same for every glyph). */
