@@ -106,6 +106,12 @@ export function useAnimationConfig({ initialPrefs }) {
     all: { label: 'All At Once', hint: 'Animate all bits simultaneously', swatch: '⋯' },
   }), []);
 
+  // item 244: "changed" = only animate bits that actually changed (default)
+  //           "targeted" = animate all bits targeted by the event (already-set shown in amber)
+  const [animateBitsMode, setAnimateBitsMode] = useState('changed');
+  const animateBitsModeRef = useRef('changed');
+  animateBitsModeRef.current = animateBitsMode;
+
   return {
     animMode, setAnimMode,
     animStyle, setAnimStyle,
@@ -119,5 +125,6 @@ export function useAnimationConfig({ initialPrefs }) {
     stepSpeedValue, maskSpeedValue, setStepSpeedValue, setMaskSpeedValue,
     cycleAnimStyle, cycleAnimMode,
     animStyleInfo, animModeInfo,
+    animateBitsMode, setAnimateBitsMode, animateBitsModeRef,  // item 244
   };
 }

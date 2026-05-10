@@ -165,6 +165,8 @@ export default function SettingsPanel({
     handleBitAnimationModeChange,
     isAutoAnimateOnSelect,
     setIsAutoAnimateOnSelect,
+    animateBitsMode,       // item 244
+    setAnimateBitsMode,    // item 244
   } = useAnimationConfigContext();
   const {
     isSettingsCollapsed: collapsed,
@@ -360,6 +362,7 @@ export default function SettingsPanel({
             eventDurationMode={eventDurationMode} onEventDurationModeChange={setEventDurationMode}
             bitAnimationMode={bitAnimationMode} onBitAnimationModeChange={handleBitAnimationModeChange}
             isAutoAnimateOnSelect={isAutoAnimateOnSelect} onAutoAnimateOnSelectChange={setIsAutoAnimateOnSelect}
+            animateBitsMode={animateBitsMode} onAnimateBitsModeChange={setAnimateBitsMode}
           />
         )}
         </div>

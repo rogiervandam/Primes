@@ -226,6 +226,7 @@ function AnimationTab({
   eventDurationMode, onEventDurationModeChange,
   bitAnimationMode, onBitAnimationModeChange,
   isAutoAnimateOnSelect, onAutoAnimateOnSelectChange,
+  animateBitsMode, onAnimateBitsModeChange,  // item 244
 }) {
   const playbackSpeedValue = msToPlaybackSpeed(playSpeed || 100);
   // Wrap slider onChange callbacks in startTransition so React deprioritises
@@ -561,6 +562,47 @@ function AnimationTab({
             <span>Auto-animate on event select</span>
           </label>
           <span className="settings-hint">When on, clicking an event in the list immediately plays its animation. Turn off to browse events without triggering the animation loop.</span>
+        </div>
+      )}
+
+      {/* item 244: animate only changed bits (default) or all targeted bits */}
+      {onAnimateBitsModeChange != null && (
+        <div className="settings-section">
+          <label>Animate bits</label>
+          <div className="preview-btn-grid preview-btn-grid-2">
+            <PreviewOptionButton
+              compact
+              label="Changed bits"
+              hint="Only animate bits that actually changed state"
+              active={(animateBitsMode || 'changed') === 'changed'}
+              onClick={() => onAnimateBitsModeChange('changed')}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="8" y="6" width="8" height="10" opacity="0.25" />
+                  <rect x="20" y="6" width="8" height="10" fill="var(--accent, #64b4ff)" opacity="0.9" />
+                  <rect x="32" y="6" width="8" height="10" opacity="0.25" />
+                </svg>
+              )}
+            />
+            <PreviewOptionButton
+              compact
+              label="Targeted bits"
+              hint="Animate all bits targeted by the event; already-set bits shown in amber"
+              active={(animateBitsMode || 'changed') === 'targeted'}
+              onClick={() => onAnimateBitsModeChange('targeted')}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="8" y="6" width="8" height="10" fill="#f59e0b" opacity="0.8" />
+                  <rect x="20" y="6" width="8" height="10" fill="var(--accent, #64b4ff)" opacity="0.9" />
+                  <rect x="32" y="6" width="8" height="10" fill="#f59e0b" opacity="0.8" />
+                </svg>
+              )}
+            />
+          </div>
+          <span className="settings-hint">
+            <strong>Changed bits</strong>: default, only newly-set bits animate.{' '}
+            <strong>Targeted bits</strong>: shows all bits the sieve tried to set — already-set bits appear in amber.
+          </span>
         </div>
       )}
     </>

@@ -29,6 +29,7 @@ export function useGoToStep({
   delayBetweenEvents,
   pinnedBitIndices,
   effectiveGroupBits,
+  animateBitsModeRef,  // item 244: 'changed' | 'targeted'
 }) {
   const goToStep = useCallback((target, options = {}) => {
     const r = rendererRef.current;
@@ -124,10 +125,20 @@ export function useGoToStep({
 
     const previousHighlights = new Set(r.changedBits || []);
 
+    // item 244: in 'targeted' mode, pass targetSet as the "changed" set for
+    // setState so the renderer highlights all targeted bits; bits that were
+    // already set (not in changedSet) are passed as repeatedBits → amber colour.
+    const animBitsMode = animateBitsModeRef?.current || 'changed';
+    const useTargetedMode = animBitsMode === 'targeted' && !suppressHighlight && targetSet.size > 0;
+    const changedSetForRender = useTargetedMode ? targetSet : changedSet;
+    const repeatedBitsForRender = useTargetedMode
+      ? new Set([...targetSet].filter(b => !changedSet.has(b)))
+      : suppressHighlight ? new Set() : repeatedBits;
+
     if (!aggregateScrub) {
       r.currentOperation = step.operation;
       r.currentAnnotation = step.annotation || '';
-      r.setState(bs, changedSet, targetSet, targetHitCounts, {
+      r.setState(bs, changedSetForRender, targetSet, targetHitCounts, {
         focusStart: suppressHighlight ? null : step.focusStart,
         focusStop: suppressHighlight ? null : step.focusStop,
       }, suppressHighlight ? null : {
@@ -139,7 +150,7 @@ export function useGoToStep({
           : new Int32Array(0),
         slotBits: step.maskSlotBits,
       }, {
-        repeatedBits: suppressHighlight ? new Set() : repeatedBits,
+        repeatedBits: repeatedBitsForRender,
       });
     }
 
@@ -198,9 +209,16 @@ export function useGoToStep({
     // animated when playing/looping/scrubbing. Now always trigger animation
     // unless explicitly suppressed. Item 232: also animate during aggregate
     // scrubs so the motion trail is visible even when selecting across steps.
+    // item 244: in 'targeted' mode, animate all bits in targetSet (even if
+    // already set), showing already-set ones as amber (repeatedBits path).
     if (!suppressHighlight && triggerAnimationRef.current) {
       const delayMs = playing ? delayBetweenEvents : 0;
-      triggerAnimationRef.current(changedSet, {
+      const animBitsMode = animateBitsModeRef?.current || 'changed';
+      const useTargetedMode = animBitsMode === 'targeted' && targetSet.size > 0;
+      // In targeted mode: use full targetSet as changedSet for animation;
+      // bits in targetSet that weren't newly changed are the "amber" group.
+      const changedSetForAnim = useTargetedMode ? targetSet : changedSet;
+      triggerAnimationRef.current(changedSetForAnim, {
         adaptiveDuration: true,
         fadeOutBits: previousHighlights,
         delayMs,
@@ -237,6 +255,7 @@ export function useGoToStep({
     delayBetweenEvents,
     pinnedBitIndices,
     effectiveGroupBits,
+    // animateBitsModeRef is a ref — deliberately not in deps (stable ref object)
   ]);
 
   const goToStepRef = useRef(null);

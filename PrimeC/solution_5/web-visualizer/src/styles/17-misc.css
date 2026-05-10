@@ -6,6 +6,61 @@
 }
 
 /* ============================================================
+   FLY MODE BANNER (item 243)
+   ============================================================ */
+
+.fly-mode-banner {
+  position: fixed;
+  top: 50px; /* below toolbar */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: rgba(14, 27, 46, 0.88);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(100, 180, 255, 0.5);
+  border-radius: 24px;
+  color: var(--accent, #64b4ff);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+  animation: fly-mode-appear 200ms ease-out;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(100, 180, 255, 0.15);
+}
+
+@keyframes fly-mode-appear {
+  from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.fly-mode-banner-icon {
+  font-size: 14px;
+}
+
+.fly-mode-banner-text {
+  color: var(--accent, #64b4ff);
+  text-transform: uppercase;
+}
+
+.fly-mode-banner-hint {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+/* Dim cursor in fly mode to reduce distraction */
+.visualizer--fly-mode * {
+  cursor: crosshair !important;
+}
+
+/* ============================================================
    SEARCH OVERLAY (item 239) — Spotlight-style full-screen search
    ============================================================ */
 

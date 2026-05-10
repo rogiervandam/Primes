@@ -150,8 +150,8 @@ export default function DoubleTimeline({
     const n = barHeights.length;
     if (n === 0) return;
 
-    ctx.fillStyle = '#0e1b2e';
-    ctx.fillRect(0, 0, width, height);
+    // item 242: transparent canvas so glassmorphism CSS backdrop-filter shows through
+    ctx.clearRect(0, 0, width, height);
 
     const barW = width / n;
     const padFrac = barW > 3 ? 0.12 : 0;
@@ -600,6 +600,7 @@ export default function DoubleTimeline({
   // item 138: attach to zone (not track) so playhead and click target span full zone height
   const animZoneRef = useRef(null);
   const animRafRef = useRef(null);  // item 192: rAF throttle for anim scrub
+
   const animSeek = useCallback((e) => {
     const el = animZoneRef.current;
     if (!el) return;
@@ -923,8 +924,9 @@ export default function DoubleTimeline({
               <Minus size={9} />
             </button>
             {/* Main play button — items 123, 128; item 198: long-press reveals animation settings; item 216: also reflects animation state */}
+            {/* item 241: dtl-repeat-on class added when repeat is active to show a visible indicator */}
             <button
-              className="dtl-btn dtl-play"
+              className={`dtl-btn dtl-play${isSingleEventRepeatEnabled ? ' dtl-repeat-on' : ''}`}
               onPointerDown={handlePlayPointerDown}
               onPointerUp={handlePlayPointerUp}
               onPointerCancel={handlePlayPointerCancel}

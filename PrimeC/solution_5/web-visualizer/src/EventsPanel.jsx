@@ -188,21 +188,51 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
   // Imperative step subscription — runs once on mount, never re-created.
   // Handles: .active class swap (O(1) Map lookup), slider + counter update,
   // localStep sync (when not playing).
+  //
+  // During fast playback the subscription can fire many times per animation
+  // frame. We coalesce the DOM mutations to one apply per RAF so the browser
+  // only invalidates / repaints the active row once per frame instead of once
+  // per step. Without this, high-speed playback (1000+ steps/sec) was
+  // thrashing classList + slider value writes on every step, dropping FPS
+  // when the events panel is open and the DOM is large.
   useEffect(() => {
     if (!subscribe) return;
-    return subscribe((step) => {
+    let pendingStep = null;
+    let rafId = 0;
+    const apply = () => {
+      rafId = 0;
+      if (pendingStep == null) return;
+      const step = pendingStep;
+      pendingStep = null;
       const t0 = performance.now();
       const map = stepElemMapRef.current;
-      map.get(prevActiveRef.current)?.classList.remove('active');
-      map.get(step)?.classList.add('active');
-      prevActiveRef.current = step;
+      if (prevActiveRef.current !== step) {
+        map.get(prevActiveRef.current)?.classList.remove('active');
+        map.get(step)?.classList.add('active');
+        prevActiveRef.current = step;
+      }
       if (sliderRef.current) sliderRef.current.value = step;
       if (stepNumRef.current) stepNumRef.current.textContent = step;
       if (!isPlayingRef.current) {
         setLocalStep(step);
       }
       recordStepCallback(performance.now() - t0);
+    };
+    const unsubscribe = subscribe((step) => {
+      pendingStep = step;
+      // During playback we coalesce per-RAF; when paused (scrubbing,
+      // keyboard nav, click), apply synchronously so the UI feels immediate.
+      if (isPlayingRef.current) {
+        if (!rafId) rafId = requestAnimationFrame(apply);
+      } else {
+        if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+        apply();
+      }
     });
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      unsubscribe?.();
+    };
   }, [subscribe]); // subscribe is stable — this effect runs exactly once
 
   // Scroll active row into view whenever localStep changes (only happens when

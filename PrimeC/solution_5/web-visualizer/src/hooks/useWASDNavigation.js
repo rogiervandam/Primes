@@ -1,6 +1,9 @@
 /**
  * useWASDNavigation — WASD/QRF game-like fly-through controls. (item 237)
  *
+ * item 243: Only active when fly mode is on (flyModeActiveRef.current === true).
+ * Toggle fly mode with the F key (handled in useKeyboardShortcuts).
+ *
  * The mouse cursor defines the "forward" direction — the 2D screen-space
  * vector from the canvas centre to the cursor.  Keys then move relative to
  * that direction just like a top-down game:
@@ -12,7 +15,7 @@
  *   Q   — zoom in  (forward in depth)
  *   E   — zoom out (backward in depth)
  *   R   — pan up   (absolute, independent of mouse direction)
- *   F   — pan down (absolute, independent of mouse direction)
+ *   C   — pan down (absolute, independent of mouse direction; was F in item 237)
  *
  * When the mouse is within 10 px of the canvas centre (dead-zone) the
  * direction defaults to "up" so there is always a well-defined forward.
@@ -22,7 +25,7 @@
  */
 import { useEffect, useRef } from 'react';
 
-const WASD_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', 'r', 'f']);
+const WASD_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', 'r', 'c']);
 
 export function useWASDNavigation({
   rendererRef,
@@ -30,6 +33,7 @@ export function useWASDNavigation({
   getMinimapDetailH,
   updateMinimapAvailability,
   scheduleBalloonRelayout,
+  flyModeActiveRef,    // item 243: only active when fly mode is on
 }) {
   const keysHeld    = useRef(new Set());
   const rafRef      = useRef(null);
@@ -43,6 +47,7 @@ export function useWASDNavigation({
     getMinimapDetailH,
     updateMinimapAvailability,
     scheduleBalloonRelayout,
+    flyModeActiveRef,
   };
 
   useEffect(() => {
@@ -98,7 +103,7 @@ export function useWASDNavigation({
       if (held.has('d')) { panXDelta += fy * PAN_SPEED * dt; panYDelta -= fx * PAN_SPEED * dt; }
       // R/F: absolute vertical pan (rise / fall), independent of mouse direction
       if (held.has('r')) panYDelta += PAN_SPEED * dt;
-      if (held.has('f')) panYDelta -= PAN_SPEED * dt;
+      if (held.has('c')) panYDelta -= PAN_SPEED * dt;  // item 243: 'c' for pan down (was 'f')
       // Q/E: zoom
       if (held.has('q')) zoomDelta = +ZOOM_SPEED * dt;
       if (held.has('e')) zoomDelta = -ZOOM_SPEED * dt;
@@ -139,6 +144,8 @@ export function useWASDNavigation({
     const onKeyDown = (e) => {
       const tag = e.target?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      // item 243: only process WASD keys when fly mode is active
+      if (!handlersRef.current.flyModeActiveRef?.current) return;
       const key = e.key.toLowerCase();
       if (!WASD_KEYS.has(key)) return;
       if (e.repeat) return;

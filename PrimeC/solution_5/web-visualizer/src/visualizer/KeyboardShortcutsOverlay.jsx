@@ -31,8 +31,22 @@ const SHORTCUTS = [
       { keys: ['0'], description: 'Reset zoom' },
       { keys: ['T'], description: 'Toggle light / dark theme' },
       { keys: ['D'], description: 'Toggle Detail panel' },
+      { keys: ['E'], description: 'Toggle Events panel' },
+      { keys: ['S'], description: 'Toggle Settings panel' },
+      { keys: ['L'], description: 'Open / close raw log' },
+      { keys: ['F'], description: 'Enter / exit Fly mode (WASD navigation)' },
       { keys: ['`'], description: 'Toggle Debug Tools panel' },
       { keys: ['R'], description: '(3D) Reset camera to flat' },
+    ],
+  },
+  {
+    category: 'Fly mode (press F to activate)',
+    rows: [
+      { keys: ['W', 'S'], description: 'Fly toward / away from mouse cursor' },
+      { keys: ['A', 'D'], description: 'Strafe left / right' },
+      { keys: ['R', 'C'], description: 'Move up / down' },
+      { keys: ['Q', 'E'], description: 'Zoom in / out' },
+      { keys: ['F'], description: 'Exit Fly mode' },
     ],
   },
   {

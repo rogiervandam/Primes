@@ -55,12 +55,12 @@
   align-self: stretch;  /* wave/anim zones fill the full strip height */
 }
 
-/* LEFT — waveform */
+/* LEFT — waveform; item 242: blurry glassmorphism (matching title/annotation bars) */
 .dtl-wave-zone {
   cursor: pointer;
-  background: rgba(14, 27, 46, 0.88);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(14, 27, 46, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 .dtl-wave-canvas {
   position: absolute;
@@ -383,11 +383,42 @@
 }
 .dtl-btn.dtl-gear { color: var(--fg-dim); }
 .dtl-btn.dtl-toggle-btn { color: var(--fg-dim); font-size: 9px; }
-/* Repeat toggle — active state (item 135) */
+/* Repeat toggle — active state (item 135); item 241: pulsing glow + badge when active */
 .dtl-btn.dtl-repeat-btn { color: rgba(255,255,255,0.5); }
 .dtl-btn.dtl-repeat-btn.dtl-active {
   color: var(--accent);
   background: var(--accent-bg);
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  animation: dtl-repeat-active-pulse 2s ease-in-out infinite;
+}
+/* item 241: small colored dot badge on active repeat button */
+.dtl-btn.dtl-repeat-btn.dtl-active::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 4px var(--accent);
+  z-index: 1;
+}
+@keyframes dtl-repeat-active-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+  50%       { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 40%, transparent),
+                          0 0 8px color-mix(in srgb, var(--accent) 20%, transparent); }
+}
+
+/* item 241: play button shows ring when repeat is active to make state clearer */
+.dtl-btn.dtl-play.dtl-repeat-on {
+  box-shadow: 0 0 0 3px var(--accent),
+              0 0 0 6px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.dtl-btn.dtl-play.dtl-repeat-on:hover:not(:disabled) {
+  box-shadow: 0 0 0 3px var(--accent),
+              0 0 0 7px color-mix(in srgb, var(--accent) 35%, transparent),
+              0 2px 10px rgba(0, 0, 0, 0.4);
 }
 
 /* item 180: undock-toggle button — inactive = dim, active = accent */
@@ -403,11 +434,11 @@
   to   { opacity: 1; box-shadow: 0 0 8px rgba(100, 180, 255, 0.6); }
 }
 
-/* RIGHT — animation scrubber: blue bg, white vertical bar (items 122, 124, 125, 135-137) */
+/* RIGHT — animation scrubber; item 242: blurry glassmorphism (matching title/annotation bars) */
 .dtl-anim-zone {
-  background: rgba(14, 27, 46, 0.88);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(14, 27, 46, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -474,6 +505,8 @@
   transition: width 80ms linear;
   border-radius: 0;
 }
+
+
 /* During delay phase, fade out the fill bar left-to-right (left part fades first) */
 .dtl-anim-fill--fading {
   /* item 164: duration matches the actual delayPhaseMs so it finishes exactly when the delay ends */

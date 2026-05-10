@@ -15,11 +15,18 @@
  *   0                reset zoom
  *   T                toggle theme
  *   D                toggle detail panel
+ *   E                toggle events panel  (item 245)
+ *   S                toggle settings panel (item 245)
+ *   L                open/close raw log    (item 245)
+ *   F                toggle fly mode       (item 243)
  *   R                (3D mode) reset rotation to flat
  *   `                toggle debug tools panel
  *   ?                open / close keyboard shortcuts help overlay
  *   /                open spotlight-style search overlay (item 239)
  *   Cmd+K            open spotlight-style search overlay (item 239)
+ *
+ * In fly mode (item 243) all shortcuts except F are suppressed so WASD
+ * navigation can use those keys without conflict.
  *
  * Caller passes the actions; this hook contains no state of its own.
  * The listener is registered once (empty dep array) and reads all
@@ -37,6 +44,11 @@ export function useKeyboardShortcuts({
   resetZoom,
   setTheme,
   toggleDetailPanel,
+  toggleEventsPanel,    // item 245
+  toggleSettingsPanel,  // item 245
+  openRawLog,           // item 245
+  toggleFlyMode,        // item 243
+  flyModeActiveRef,     // item 243: ref so we can check fly mode without re-registering
   toggleDebugToolsPanel,
   camera3DRef,
   toggleShortcutsOverlay,
@@ -55,6 +67,11 @@ export function useKeyboardShortcuts({
     resetZoom,
     setTheme,
     toggleDetailPanel,
+    toggleEventsPanel,
+    toggleSettingsPanel,
+    openRawLog,
+    toggleFlyMode,
+    flyModeActiveRef,
     toggleDebugToolsPanel,
     camera3DRef,
     toggleShortcutsOverlay,
@@ -74,6 +91,11 @@ export function useKeyboardShortcuts({
         resetZoom: rz,
         setTheme: st,
         toggleDetailPanel: tdp,
+        toggleEventsPanel: tep,
+        toggleSettingsPanel: tsp2,
+        openRawLog: orl,
+        toggleFlyMode: tfm,
+        flyModeActiveRef: fmar,
         toggleDebugToolsPanel: tdtp,
         camera3DRef: cam3DRef,
         toggleShortcutsOverlay: tso,
@@ -81,6 +103,15 @@ export function useKeyboardShortcuts({
       } = handlersRef.current;
       const cam = cam3DRef?.current;
       const is3D = cam && cam.enabled;
+
+      // item 243: in fly mode only F exits it; all other shortcuts suppressed
+      if (fmar?.current) {
+        if (e.key === 'f' || e.key === 'F') {
+          e.preventDefault();
+          tfm?.();
+        }
+        return;
+      }
 
       switch (e.key) {
         case 'ArrowLeft':
@@ -111,6 +142,12 @@ export function useKeyboardShortcuts({
         case '0':          e.preventDefault(); rz(); break;
         case 't': case 'T': e.preventDefault(); st((t) => (t === 'dark' ? 'light' : 'dark')); break;
         case 'd': case 'D': e.preventDefault(); tdp(); break;
+        // item 245: panel shortcuts
+        case 'e': case 'E': e.preventDefault(); tep?.(); break;
+        case 's': case 'S': e.preventDefault(); tsp2?.(); break;
+        case 'l': case 'L': e.preventDefault(); orl?.(); break;
+        // item 243: F enters fly mode
+        case 'f': case 'F': e.preventDefault(); tfm?.(); break;
         case 'r': case 'R':
           e.preventDefault();
           if (is3D) cam.resetFlat();

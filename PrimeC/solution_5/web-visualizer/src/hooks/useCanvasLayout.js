@@ -44,6 +44,7 @@ export function useCanvasLayout({
   setDebugGlAutoOffsetY,
   setCamera3DTransform,
   setCamera3DContainerStyle,
+  addCameraDomListener,
   setAutoFitColumnCount,
   isMinimapVisible,
   updateMinimapAvailability,
@@ -706,6 +707,31 @@ export function useCanvasLayout({
       glyph2DEl.style.transform = rotStr;
     }
   }, [camera3DTransform, renderMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Imperative DOM-listener path: apply the camera transform to the canvas
+  // elements synchronously on every camera tick, bypassing React entirely.
+  // This decouples visual rotation smoothness from React's render pipeline,
+  // which is critical when the events panel is open and the visualizer tree
+  // is large enough that per-frame React reconciliation drops FPS.
+  // The React-state-driven effect above remains as a safety net so the
+  // transform stays consistent across remounts/HMR/snapshot restores.
+  useEffect(() => {
+    if (!addCameraDomListener) return;
+    return addCameraDomListener((cam) => {
+      const rotStr = usesWebGLTilt(renderModeRef.current)
+        ? ''
+        : (cam && cam.enabled ? cam.getCanvasTransform() : '');
+      const lockTranslate = glCssLockStateRef.current?.translateTransform || '';
+      const glEl = glCanvasRef.current;
+      if (glEl) {
+        glEl.style.transform = [rotStr, lockTranslate].filter(Boolean).join(' ');
+      }
+      const glyphEl = glyphCanvasRef.current;
+      if (glyphEl) glyphEl.style.transform = rotStr;
+      const glyph2DEl = glyph2DCanvasRef.current;
+      if (glyph2DEl) glyph2DEl.style.transform = rotStr;
+    });
+  }, [addCameraDomListener]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     getCanvasTargetSize,

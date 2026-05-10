@@ -228,6 +228,7 @@ export default function Visualizer({
     bitsAtTimeRatioRef, timeRatioAtBitIndexRef, computeEventDurationRef,
     stepSpeedValue, maskSpeedValue, setStepSpeedValue, setMaskSpeedValue,
     cycleAnimStyle, cycleAnimMode, animStyleInfo, animModeInfo,
+    animateBitsMode, setAnimateBitsMode, animateBitsModeRef,  // item 244
   } = useAnimationConfig({ initialPrefs });
 
   const {
@@ -325,6 +326,39 @@ export default function Visualizer({
   const [isTimelineUndocked, setIsTimelineUndocked] = useState(false);
   const [floatingDetailVisible, setFloatingDetailVisible] = useState(false);
 
+  // item 243: fly mode — WASD navigation with full mouse look; closes panels on enter
+  const [flyModeActive, setFlyModeActive] = useState(false);
+  const flyModeActiveRef = useRef(false);
+  flyModeActiveRef.current = flyModeActive;
+  const savedPanelsRef = useRef(null);
+  const toggleFlyMode = useCallback(() => {
+    setFlyModeActive((prev) => {
+      const next = !prev;
+      flyModeActiveRef.current = next;
+      if (next) {
+        // Enter fly mode: save and close all panels for unobstructed view
+        savedPanelsRef.current = {
+          isEventsPanelCollapsed,
+          isSettingsCollapsed,
+          isDetailOpen: isDetailOpenRef.current,
+        };
+        if (!isEventsPanelCollapsed) setIsEventsPanelCollapsed(true);
+        if (!isSettingsCollapsed) setIsSettingsCollapsed(true);
+        if (isDetailOpenRef.current) setIsDetailOpen(false);
+      } else {
+        // Exit fly mode: restore panels to their previous state
+        const saved = savedPanelsRef.current;
+        if (saved) {
+          if (!saved.isEventsPanelCollapsed) setIsEventsPanelCollapsed(false);
+          if (!saved.isSettingsCollapsed) setIsSettingsCollapsed(false);
+          if (saved.isDetailOpen) setIsDetailOpen(true);
+          savedPanelsRef.current = null;
+        }
+      }
+      return next;
+    });
+  }, [isEventsPanelCollapsed, isSettingsCollapsed, isDetailOpenRef, setIsEventsPanelCollapsed, setIsSettingsCollapsed, setIsDetailOpen]);
+
   // item 193: direction the events panel slides when collapsed
   const [eventsCollapseDir, setEventsCollapseDir] = useState('left');
   const collapseEventsPanelFromTimeline = useCallback(() => {
@@ -402,6 +436,7 @@ export default function Visualizer({
     createCamera,
     disposeCamera,
     ensureTiltCamera,
+    addCameraDomListener,
   } = use3DCamera();
 
   const stepsRef = useRef([]);
@@ -504,6 +539,7 @@ export default function Visualizer({
     setDebugGlAutoOffsetY,
     setCamera3DTransform,
     setCamera3DContainerStyle,
+    addCameraDomListener,
     setAutoFitColumnCount,
     isMinimapVisible,
     updateMinimapAvailability,
@@ -789,6 +825,7 @@ export default function Visualizer({
     delayBetweenEvents,
     pinnedBitIndices,
     effectiveGroupBits,
+    animateBitsModeRef,  // item 244: 'changed' | 'targeted'
   });
 
   // Stable wrapper — goToStep recreates on every render (currentStep in deps).
@@ -909,10 +946,13 @@ export default function Visualizer({
 
   const { buildCombinedSelectionOverlay } = useSelectionOverlay({ steps });
 
+  // Use stableGoToStep here so handleStepSelection's identity does not change
+  // every step during playback (goToStep itself depends on currentStep, which
+  // would otherwise cascade into EventsPanel re-rendering on every step).
   const { handleStepSelection, handleMultiStepSelect } = useStepSelectionHandlers({
     stopPlayback,
     setIsSingleEventWidgetRevealed,
-    goToStep,
+    goToStep: stableGoToStep,
     globalPausedRef,
     setIsAnimationReplayPaused,
     setSelectedSteps,
@@ -1090,12 +1130,14 @@ export default function Visualizer({
   // item 237: WASD/QE fly-through navigation. Registered BEFORE the keyboard shortcuts
   // hook so that stopPropagation in the WASD handler prevents WASD keys from also
   // triggering other shortcuts (e.g. D → detail panel toggle).
+  // item 243: flyModeActiveRef gates whether WASD keys are active.
   useWASDNavigation({
     rendererRef,
     canvasRef: glCanvasRef,
     getMinimapDetailH,
     updateMinimapAvailability,
     scheduleBalloonRelayout,
+    flyModeActiveRef,
   });
 
   // Keyboard shortcuts — see src/hooks/useKeyboardShortcuts.js for the full key map.
@@ -1107,7 +1149,16 @@ export default function Visualizer({
     doZoom,
     resetZoom,
     setTheme,
-    toggleDetailPanel,
+    // When the timeline is floating, D should toggle floatingDetailVisible, not the docked detail panel
+    toggleDetailPanel: useCallback(() => {
+      if (isTimelineUndocked) setFloatingDetailVisible((v) => !v);
+      else toggleDetailPanel();
+    }, [isTimelineUndocked, toggleDetailPanel]),
+    toggleEventsPanel,      // item 245
+    toggleSettingsPanel,    // item 245
+    openRawLog: onOpenRawLog, // item 245
+    toggleFlyMode,          // item 243
+    flyModeActiveRef,       // item 243
     toggleDebugToolsPanel: useCallback(() => setIsDebugToolsOpen((v) => !v), []),
     camera3DRef,
     toggleShortcutsOverlay: useCallback(() => setIsShortcutsHelpVisible((v) => !v), []),
@@ -1221,6 +1272,8 @@ export default function Visualizer({
     setIsSingleEventRepeatEnabled,
     isAutoAnimateOnSelect,
     setIsAutoAnimateOnSelect,
+    animateBitsMode,          // item 244
+    setAnimateBitsMode,       // item 244
   }), [
     animMode,
     setAnimMode,
@@ -1242,6 +1295,8 @@ export default function Visualizer({
     setIsSingleEventRepeatEnabled,
     isAutoAnimateOnSelect,
     setIsAutoAnimateOnSelect,
+    animateBitsMode,          // item 244
+    setAnimateBitsMode,       // item 244
   ]);
 
   const panelLayoutContextValue = useMemo(() => ({
@@ -2112,11 +2167,20 @@ export default function Visualizer({
     <ActiveStepProvider currentStep={currentStep}>
     <AnimationConfigProvider value={animationConfigContextValue}>
     <PanelLayoutProvider value={panelLayoutContextValue}>
-    <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}`}>
+    <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}${flyModeActive ? ' visualizer--fly-mode' : ''}`}>
       <Toolbar {...toolbarProps} />
 
       {exporting && <ExportProgress progress={exportProgress} />}
       <StatusBanners exportError={exportError} isGlUnavailable={isGlUnavailable} />
+
+      {/* item 243: fly mode indicator banner — shown when fly mode is active */}
+      {flyModeActive && (
+        <div className="fly-mode-banner" role="status" aria-live="polite">
+          <span className="fly-mode-banner-icon">✈</span>
+          <span className="fly-mode-banner-text">FLY MODE</span>
+          <span className="fly-mode-banner-hint">WASD · R/C up/down · Q/E zoom · F to exit</span>
+        </div>
+      )}
 
       <VisualizerMainContent
         {...visualizerMainContentProps}
