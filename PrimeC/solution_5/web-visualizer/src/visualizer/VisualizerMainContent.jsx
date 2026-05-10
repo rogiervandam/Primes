@@ -1,5 +1,6 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import EventsPanel from '../EventsPanel';
+import { bumpRender } from '../lib/debugCounters';
 import SettingsPanel from '../SettingsPanel';
 import CanvasStage from './CanvasStage';
 import CanvasLoadingOverlay from './CanvasLoadingOverlay';
@@ -28,6 +29,9 @@ import DoubleTimeline from './DoubleTimeline';
  * - debug: Debug tools state & handlers
  */
 export default function VisualizerMainContent(props) {
+  // Perf counter — incremented on every render so DebugToolsPanel can show re-render rate.
+  useEffect(() => { bumpRender('VMC'); });
+
   // Destructure organized prop objects
   const {
     canvas = {},

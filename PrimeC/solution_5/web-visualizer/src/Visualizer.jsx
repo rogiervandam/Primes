@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { bumpRender } from './lib/debugCounters';
 import { SieveRenderer } from './SieveRenderer';
 import { BitGridGLWorker, isWorkerGLSupported } from './renderer/gl/BitGridGLWorker';
 import { GlyphTextGLCore } from './renderer/gl/GlyphTextGLCore';
@@ -132,6 +133,9 @@ export default function Visualizer({
   onClose,
   autoRender,
 }) {
+  // Perf counter — incremented on every render so DebugToolsPanel can show re-render rate.
+  useEffect(() => { bumpRender('Visualizer'); });
+
   const wheelDefinition = header.wheel || null;
   const traceTitle = useMemo(() => header.title || fileName || 'Sieve Visualizer', [header.title, fileName]);
   const traceInfoSections = useMemo(
@@ -787,6 +791,11 @@ export default function Visualizer({
     effectiveGroupBits,
   });
 
+  // Stable wrapper — goToStep recreates on every render (currentStep in deps).
+  // Putting a stable ref-based wrapper in PlaybackContext keeps the context
+  // value stable during playback, preventing EventsPanel from re-rendering.
+  const stableGoToStep = useCallback((target, opts) => goToStepRef.current?.(target, opts), []);
+
   const {
     rawScrollToLine,
     onJumpToStep,
@@ -999,6 +1008,12 @@ export default function Visualizer({
     stepResumeStartIndexRef,
   });
 
+  // Stable wrapper — handlePlayPause recreates on every render (currentStep and
+  // goToStep in deps). Using a ref-based wrapper keeps PlaybackContext stable.
+  const handlePlayPauseRef = useRef(handlePlayPause);
+  handlePlayPauseRef.current = handlePlayPause;
+  const stableHandlePlayPause = useCallback(() => handlePlayPauseRef.current?.(), []);
+
   // Banner play/pause: toggles the per-event sequential reveal.
   //  - Pause: halts the timeline AND pauses the trace-level autoplay so the
   //    top-bar Play/Pause button mirrors the paused state. Sets
@@ -1167,18 +1182,18 @@ export default function Visualizer({
   // reconciliation.
   const playbackContextValue = useMemo(() => ({
     steps,
-    goToStep,
+    goToStep: stableGoToStep,
     playing,
-    handlePlayPause,
+    handlePlayPause: stableHandlePlayPause,
     exporting: !!exporting,
     setPlaySpeedPercent,
     isScrubbingTopRef,
     playSpeedPercent,
   }), [
     steps,
-    goToStep,
+    stableGoToStep,
     playing,
-    handlePlayPause,
+    stableHandlePlayPause,
     exporting,
     setPlaySpeedPercent,
     isScrubbingTopRef,

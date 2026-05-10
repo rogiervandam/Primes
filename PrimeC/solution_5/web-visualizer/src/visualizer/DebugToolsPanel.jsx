@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parseAppliedRotateAngles } from '../lib/canvasProjection';
 import { RENDER_MODE_OPTIONS, usesWebGLTilt } from '../lib/renderModes';
+import { snapshotAndReset } from '../lib/debugCounters';
 
 const EMPTY_SNAPSHOT = {
   fps: 0,
@@ -403,6 +404,7 @@ export default function DebugToolsPanel({
   const [panelPosition, setPanelPosition] = useState(null);
 
   const [snapshot, setSnapshot] = useState(() => readSnapshot(rendererRef));
+  const [perfSnap, setPerfSnap] = useState(null);
   const [canvasCoords, setCanvasCoords] = useState(null);
   const [copyStatus, setCopyStatus] = useState('');
   const [importText, setImportText] = useState('');
@@ -495,9 +497,11 @@ export default function DebugToolsPanel({
 
   useEffect(() => {
     setSnapshot(readSnapshot(rendererRef));
+    setPerfSnap(snapshotAndReset());
     const id = window.setInterval(() => {
       setSnapshot(readSnapshot(rendererRef));
-    }, 250);
+      setPerfSnap(snapshotAndReset());
+    }, 500);
     return () => window.clearInterval(id);
   }, [rendererRef]);
 
@@ -1125,6 +1129,57 @@ export default function DebugToolsPanel({
             </button>
           </div>
         </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="REACT PERF (per 0.5 s)" defaultOpen={true} palette={palette}>
+        {perfSnap ? (
+          <div style={{ fontSize: '10px', lineHeight: '1.5', color: palette.panelFg }}>
+            {/* Render counts — all should be 0 during playback except Visualizer & VMC */}
+            {[
+              { key: 'Visualizer', label: 'Visualizer renders', note: 'owns currentStep' },
+              { key: 'VMC',        label: 'VisualizerMainContent renders', note: 'should match Visualizer' },
+              { key: 'EventsPanel',label: 'EventsPanel renders', note: 'should be 0 during play' },
+            ].map(({ key, label, note }) => {
+              const count = perfSnap.renderCounts[key] ?? 0;
+              const bad = key === 'EventsPanel' ? count > 0 : false;
+              return (
+                <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ color: palette.subtle }}>{label}</span>
+                  <span style={{ fontWeight: 'bold', color: bad ? palette.bad : palette.panelFg }}>
+                    {count}
+                    {note ? <span style={{ fontWeight: 'normal', color: palette.subtle }}> ({note})</span> : null}
+                  </span>
+                </div>
+              );
+            })}
+            <div style={{ marginTop: '4px', borderTop: `1px solid ${palette.border}`, paddingTop: '4px' }}>
+              {/* Step callback timing */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                <span style={{ color: palette.subtle }}>Step callback avg ms</span>
+                <span style={{ fontWeight: 'bold', color: perfSnap.stepCallbackAvgMs > 4 ? palette.bad : palette.panelFg }}>
+                  {perfSnap.stepCallbackN > 0
+                    ? `${perfSnap.stepCallbackAvgMs.toFixed(3)} ms (n=${perfSnap.stepCallbackN})`
+                    : '—'}
+                </span>
+              </div>
+              {/* DOM event node count */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                <span style={{ color: palette.subtle }}>Event nodes in DOM</span>
+                <span style={{ fontWeight: 'bold', color: perfSnap.eventNodeCount > 2000 ? palette.bad : palette.panelFg }}>
+                  {perfSnap.eventNodeCount || '—'}
+                </span>
+              </div>
+            </div>
+            <div style={{ marginTop: '4px', fontSize: '9px', color: palette.subtle }}>
+              Open browser DevTools → Performance tab for deeper profiling.
+              EventsPanel should show 0 renders/0.5s during playback.
+              High "step callback ms" → DOM classList/repaint is the bottleneck.
+              High "VMC renders" with low "EventsPanel renders" → EventsPanel memo ✓.
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize: '10px', color: palette.subtle }}>Collecting…</div>
+        )}
       </CollapsibleSection>
 
       <CollapsibleSection title="FULL DEBUG REPORT (LIVE)" defaultOpen={false} palette={palette}>

@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useLayoutEffect, useState, useMemo, useCallback } from 'react';
 import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus, Eye } from './Icons';
+import { bumpRender, recordStepCallback, setEventNodeCount } from './lib/debugCounters';
 import { formatNs } from './TimingPanel';
 import { isWindowAvailable } from './lib/browser.js';
 import { usePlaybackContext } from './contexts/PlaybackContext';
@@ -111,6 +112,9 @@ function buildDepthTree(steps) {
  *
  */
 export default React.memo(function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
+  // Perf counter — should stay at 0 during playback if React.memo is working.
+  useEffect(() => { bumpRender('EventsPanel'); });
+
   const {
     steps,
     // currentStep intentionally absent — received via ActiveStepContext subscription
@@ -134,6 +138,10 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
 
   // Tracks the step currently reflected in the DOM (for imperative .active swap).
   const prevActiveRef = useRef(stepRef?.current ?? -1);
+
+  // O(1) step-index → HTMLElement map, rebuilt after each render (never during
+  // playback since EventsPanel doesn't re-render while playing).
+  const stepElemMapRef = useRef(new Map());
 
   // Ref for the uncontrolled transport slider and step counter text span.
   const sliderRef = useRef(null);
@@ -178,22 +186,22 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
   }, [playing, stepRef]);
 
   // Imperative step subscription — runs once on mount, never re-created.
-  // Handles: .active class swap, uncontrolled slider + counter update,
-  // localStep sync (when not playing), scroll-to-active (when not playing).
+  // Handles: .active class swap (O(1) Map lookup), slider + counter update,
+  // localStep sync (when not playing).
   useEffect(() => {
     if (!subscribe) return;
     return subscribe((step) => {
-      const list = listRef.current;
-      if (list) {
-        list.querySelector(`[data-step-idx="${prevActiveRef.current}"]`)?.classList.remove('active');
-        list.querySelector(`[data-step-idx="${step}"]`)?.classList.add('active');
-      }
+      const t0 = performance.now();
+      const map = stepElemMapRef.current;
+      map.get(prevActiveRef.current)?.classList.remove('active');
+      map.get(step)?.classList.add('active');
       prevActiveRef.current = step;
       if (sliderRef.current) sliderRef.current.value = step;
       if (stepNumRef.current) stepNumRef.current.textContent = step;
       if (!isPlayingRef.current) {
         setLocalStep(step);
       }
+      recordStepCallback(performance.now() - t0);
     });
   }, [subscribe]); // subscribe is stable — this effect runs exactly once
 
@@ -202,18 +210,24 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
-    const active = el.querySelector('.event-item.active');
+    const active = stepElemMapRef.current.get(localStep);
     if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [localStep]);
 
-  // After any EventsPanel re-render (filter change, group toggle, etc.) ensure
-  // the .active class is on the correct row — the subscription callback keeps
-  // prevActiveRef current so this is a cheap querySelector + classList toggle.
+  // After any EventsPanel re-render (filter change, group toggle, etc.) rebuild
+  // the step→element Map and reapply the active class imperatively.
+  // This runs only on renders — never during playback (EventsPanel is memoized).
   useLayoutEffect(() => {
     const list = listRef.current;
     if (!list) return;
-    list.querySelector('.event-item.active')?.classList.remove('active');
-    list.querySelector(`[data-step-idx="${prevActiveRef.current}"]`)?.classList.add('active');
+    const map = new Map();
+    list.querySelectorAll('[data-step-idx]').forEach((el) => {
+      el.classList.remove('active');
+      map.set(Number(el.dataset.stepIdx), el);
+    });
+    stepElemMapRef.current = map;
+    setEventNodeCount(map.size);
+    map.get(prevActiveRef.current)?.classList.add('active');
   });
   const {
     isEventsPanelCollapsed: panelCollapsed,
@@ -730,7 +744,7 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
     const handle = setTimeout(() => {
       const el = listRef.current;
       if (!el) return;
-      const active = el.querySelector('.event-item.active');
+      const active = stepElemMapRef.current.get(currentStep);
       if (active) active.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }, 60);
     return () => clearTimeout(handle);

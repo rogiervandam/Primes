@@ -110,6 +110,9 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  /* Limit the style-recalc scope so classList changes inside don't invalidate
+     the whole page; 'paint' is omitted because the list is a scroll container. */
+  contain: layout style;
 }
 .event-list-sentinel {
   height: 1px;
@@ -128,6 +131,9 @@
   padding: 4px 8px 4px 0;
   cursor: pointer;
   border-bottom: 1px solid var(--bg-raised);
+  /* Always reserve 3px for the left accent bar so toggling .active/.selected
+     only changes border-left-color — no width change means no layout reflow. */
+  border-left: 3px solid transparent;
   font-size: 12px;
   min-width: 0;
   overflow: hidden;
@@ -140,8 +146,8 @@
   overflow: hidden;
 }
 .event-item:hover { background: var(--bg-raised); }
-.event-item.active { background: var(--bg-input); border-left: 3px solid var(--accent); }
-.event-item.selected { background: var(--accent-bg); border-left: 3px solid var(--accent-dim); }
+.event-item.active { background: var(--bg-input); border-left-color: var(--accent); }
+.event-item.selected { background: var(--accent-bg); border-left-color: var(--accent-dim); }
 /* Ancestor of the active event — subtle tint + dim left border */
 .event-item.is-ancestor { background: var(--bg-raised); border-left: 2px solid color-mix(in srgb, var(--accent) 40%, transparent); }
 
@@ -149,7 +155,7 @@
 .event-group {
   border-bottom: 1px solid var(--border-light);
   content-visibility: auto;
-  contain-intrinsic-size: 0 120px;
+  contain-intrinsic-size: auto 120px;
 }
 .event-group-header {
   display: flex;
