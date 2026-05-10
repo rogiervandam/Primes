@@ -204,6 +204,14 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
   const [hideUntimed, setHideUntimed] = useState(false);
   const [hideUnchanged, setHideUnchanged] = useState(false);
 
+  // item 222: groupBy mode — 'prime' (default) | 'step' (flat) | 'range' (by start)
+  const [groupBy, setGroupBy] = useState(() => {
+    try { return localStorage.getItem('sieve-ep-groupby') || 'prime'; } catch { return 'prime'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('sieve-ep-groupby', groupBy); } catch {}
+  }, [groupBy]);
+
   // Sync externally-driven op filter (e.g. from TimingPanel click)
   useEffect(() => {
     if (externalOpFilter && externalOpFilter !== filterOp) {
@@ -299,6 +307,72 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
 
   // Build hierarchical tree grouped by prime, then nested by depth within each group
   const tree = useMemo(() => {
+    // item 222: groupBy mode changes how steps are aggregated into groups
+    if (groupBy === 'step') {
+      // item 230/#222: group by factorStep value (the sieve stride, e.g. "strip off with step 14")
+      const groups = [];
+      const stepMap = new Map();
+      for (let i = 0; i < steps.length; i++) {
+        const s = steps[i];
+        const key = s.factorStep != null ? s.factorStep : '__unknown__';
+        if (!stepMap.has(key)) {
+          const g = {
+            id: groups.length,
+            prime: s.prime,
+            label: s.factorStep != null ? `Factor step ${s.factorStep}` : 'No step',
+            operation: s.operation || '',
+            children: [],
+            totalChanged: 0,
+          };
+          stepMap.set(key, g);
+          groups.push(g);
+        }
+        const g = stepMap.get(key);
+        g.children.push({ ...s, originalIndex: i });
+        g.totalChanged += s.numChanged;
+      }
+      return groups;
+    }
+
+    if (groupBy === 'range') {
+      // Group by step.start (range start value)
+      const groups = [];
+      const rangeMap = new Map();
+      let otherGroup = null;
+      for (let i = 0; i < steps.length; i++) {
+        const s = steps[i];
+        if (s.start != null) {
+          const key = s.start;
+          if (!rangeMap.has(key)) {
+            const g = {
+              id: groups.length,
+              prime: s.prime,
+              label: `Range [${s.start}–${s.stop ?? '?'}]`,
+              operation: s.operation || '',
+              children: [],
+              totalChanged: 0,
+            };
+            rangeMap.set(key, g);
+            groups.push(g);
+          }
+          const g = rangeMap.get(key);
+          g.children.push({ ...s, originalIndex: i });
+          g.totalChanged += s.numChanged;
+        } else {
+          if (!otherGroup) {
+            otherGroup = { id: -1, prime: null, label: 'Other', operation: '', children: [], totalChanged: 0 };
+            groups.unshift(otherGroup);
+          }
+          otherGroup.children.push({ ...s, originalIndex: i });
+          otherGroup.totalChanged += s.numChanged;
+        }
+      }
+      // Re-assign IDs after potential unshift
+      groups.forEach((g, i) => { g.id = i; });
+      return groups;
+    }
+
+    // Default: group by prime (original logic)
     const groups = [];
     let current = null;
     let lastPrime = null;
@@ -340,7 +414,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     }
 
     return groups;
-  }, [steps]);
+  }, [steps, groupBy]);
 
   // Parse filterLevel encoding ('' | 'exact:N' | 'upto:N' | 'collapse:N')
   const levelFilter = useMemo(() => {
@@ -859,6 +933,15 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
             </select>
           </div>
         )}
+        {/* item 222: group by selector */}
+        <div className="event-groupby-row">
+          <span className="event-groupby-label">Group by</span>
+          <select className="event-filter event-groupby-select" value={groupBy} onChange={(e) => setGroupBy(e.target.value)}>
+            <option value="prime">Prime</option>
+            <option value="range">Range start</option>
+            <option value="step">Factor step</option>
+          </select>
+        </div>
         {traceLevels.length > 0 && (
           <div className="event-level-filter-row">
             <button

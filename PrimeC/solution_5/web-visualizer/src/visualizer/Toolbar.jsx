@@ -50,6 +50,7 @@ export default function Toolbar({
     onClearRawScrollToLine,
     currentStepSourceLine,
     onClose,
+    onOpenRawLog,  // item 221: quick open log button in top bar
   } = traceInfo;
 
   const {
@@ -180,6 +181,16 @@ export default function Toolbar({
                 <path d="M8 1.5v2" strokeLinecap="round" />
               </svg>
             </button>
+            {/* item 221: quick open raw log button */}
+            {onFetchRawSource && onOpenRawLog && (
+              <button className="btn-icon" onClick={() => onOpenRawLog(0)} title="Open raw log">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <rect x="2" y="1.5" width="9" height="13" rx="1.5" />
+                  <path d="M5 5h4M5 8h4M5 11h2" strokeLinecap="round" />
+                  <path d="M11 10l3 3m0-3-3 3" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
             <button className="btn-icon" onClick={exportPng} title="Export PNG"><Camera /></button>
             {!exporting ? (
               <button className="btn-icon" onClick={exportVideo} title="Export Video (WebM)"><Film /></button>

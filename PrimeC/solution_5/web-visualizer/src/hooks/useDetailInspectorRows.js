@@ -12,6 +12,7 @@ import { bitToNumber, describeWheelBit } from '../SieveRenderer';
  * @param {object|null} params.wheelDefinition    - Wheel definition object or null
  * @param {number}      params.cachelineSize      - Cache line size in bytes
  * @param {string}      params.detailInspectorQuery - Filter query string
+ * @param {Array}       [params.steps]            - All trace steps (items 224+225: for bit→event index)
  * @returns {{ detailInspectorRows, filteredDetailInspectorRows }}
  */
 export function useDetailInspectorRows({
@@ -21,7 +22,24 @@ export function useDetailInspectorRows({
   wheelDefinition,
   cachelineSize,
   detailInspectorQuery,
+  steps,
 }) {
+  // items 224+225: build a Map<bit, stepIndex[]> across ALL steps so we know which events
+  // changed each bit (not just the current step).
+  const bitChangedByIndex = useMemo(() => {
+    if (!steps || steps.length === 0) return new Map();
+    const map = new Map();
+    for (let idx = 0; idx < steps.length; idx++) {
+      const changedBits = steps[idx]?.changedBits;
+      if (!changedBits) continue;
+      for (const bit of changedBits) {
+        if (!map.has(bit)) map.set(bit, []);
+        map.get(bit).push(idx);
+      }
+    }
+    return map;
+  }, [steps]);
+
   const detailInspectorRows = useMemo(() => {
     if (!currentStepData || !currentStepData.changedBits || currentStepData.changedBits.length === 0) return [];
     const bits = Array.from(currentStepData.changedBits).sort((a, b) => a - b);
@@ -34,6 +52,8 @@ export function useDetailInspectorRows({
       const byte = Math.floor(bit / 8);
       const uint64 = Math.floor(bit / 64);
       const group = Math.floor(bit / groupBits);
+      // items 224+225: which steps have changed this bit?
+      const changedBySteps = bitChangedByIndex.get(bit) ?? [];
       return {
         bit,
         number: mappedNumber == null ? 'unmapped' : mappedNumber,
@@ -44,18 +64,23 @@ export function useDetailInspectorRows({
         uint64,
         group,
         cacheline: Math.floor(bit / Math.max(8, cachelineSize * 8)),
+        changedBySteps,  // items 224+225: all step indices that changed this bit
       };
     });
-  }, [currentStepData, layoutSettings.vectorMode, layoutSettings.customGroupBits, layoutSettings.vectorGroup, storageModel, wheelDefinition, cachelineSize]);
+  }, [currentStepData, layoutSettings.vectorMode, layoutSettings.customGroupBits, layoutSettings.vectorGroup, storageModel, wheelDefinition, cachelineSize, bitChangedByIndex]);
 
   const filteredDetailInspectorRows = useMemo(() => {
     const q = detailInspectorQuery.trim().toLowerCase();
     if (!q) return detailInspectorRows;
     return detailInspectorRows.filter((row) => {
-      const haystack = `${row.bit} ${row.number} ${row.wheelPeriod ?? ''} ${row.relativeBit ?? ''} ${row.relativeNumber ?? ''} ${row.byte} ${row.uint64} ${row.group} ${row.cacheline}`.toLowerCase();
+      // items 224+225: also search by event annotation/operation
+      const eventText = (row.changedBySteps || [])
+        .map(idx => `${steps?.[idx]?.annotation ?? ''} ${steps?.[idx]?.operation ?? ''}`)
+        .join(' ');
+      const haystack = `${row.bit} ${row.number} ${row.wheelPeriod ?? ''} ${row.relativeBit ?? ''} ${row.relativeNumber ?? ''} ${row.byte} ${row.uint64} ${row.group} ${row.cacheline} ${eventText}`.toLowerCase();
       return haystack.includes(q);
     });
-  }, [detailInspectorRows, detailInspectorQuery]);
+  }, [detailInspectorRows, detailInspectorQuery, steps]);
 
   return { detailInspectorRows, filteredDetailInspectorRows };
 }

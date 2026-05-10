@@ -203,27 +203,28 @@
   color: var(--fg-muted);
 }
 
-/* "View raw log" button inside trace-info popover */
+/* "View raw log" button inside trace-info popover — item 229: match settings-panel button style */
 .trace-info-raw-section { padding-top: 4px; }
 .trace-info-raw-btn {
-  width: 100%;
   background: var(--bg-raised);
-  color: var(--fg-muted);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 4px 8px;
-  font-size: 11px;
-  font-weight: 500;
+  color: var(--fg);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
   cursor: pointer;
-  text-align: left;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease-out;
 }
-.trace-info-raw-btn:hover { background: var(--bg-input); color: var(--fg-bright); }
+.trace-info-raw-btn:hover { background: var(--bg-input); border-color: var(--accent-dim); color: var(--fg-bright); }
 
 /* ---- Raw log viewer overlay ---- */
 .raw-log-overlay {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: 310;  /* item 220: above balloons (max z-index 260) */
   background: rgba(0, 0, 0, 0.62);
 }
 .raw-log-dialog {

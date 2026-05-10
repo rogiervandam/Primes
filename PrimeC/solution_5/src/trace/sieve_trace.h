@@ -62,6 +62,19 @@ static trace_context_t g_trace = {0};
 static char  g_trace_default_path[512] = {0};
 static int   g_trace_console_feedback_enabled = 1;
 
+/* item 230/#225: single-bit events may set this before the trace record call.
+ * trace_record_event_full emits "target_bits": [N] and clears it.
+ * This lets the JS visualizer show "Bits targeted" and "Already set" counts. */
+static uint32_t g_trace_pending_target_bit = 0;
+static int      g_trace_has_pending_target  = 0;
+
+static inline void
+primes_trace_set_pending_target(uint32_t bit)
+{
+    g_trace_pending_target_bit = bit;
+    g_trace_has_pending_target = 1;
+}
+
 static inline void
 trace_set_console_feedback(int enabled)
 {
@@ -334,6 +347,12 @@ trace_record_event_full(int level, const void* bitstorage, const char* label, do
         trace_write_json_string(g_trace.file, event_label);
     }
     if (time > 0) fprintf(g_trace.file, ", \"time\": %.9f", time);
+
+    /* item 230/#225: target_bits from primes_trace_set_pending_target (single-bit events) */
+    if (g_trace_has_pending_target) {
+        fprintf(g_trace.file, ", \"target_bits\": [%u]", g_trace_pending_target_bit);
+        g_trace_has_pending_target = 0;
+    }
 
     /* changed_bits array */
     fputs(", \"changed_bits\": [", g_trace.file);

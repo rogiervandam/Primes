@@ -58,6 +58,7 @@ export default function CanvasOverlayManager(props) {
           onClose={() => setIsDetailInspectorOpen(false)}
           rows={detailInspectorRows}
           filteredRows={filteredDetailInspectorRows}
+          steps={steps}
         />
       )}
 

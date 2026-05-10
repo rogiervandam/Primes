@@ -1,5 +1,5 @@
-/* item 190: hide docked detail panel when timeline is undocked */
-.canvas-and-detail-column.timeline-undocked .detail-panel {
+/* item 190: hide docked detail panel when timeline is undocked; item 230/#223: only hide when collapsed (open=false) */
+.canvas-and-detail-column.timeline-undocked .detail-panel.collapsed {
   display: none;
 }
 
@@ -385,23 +385,31 @@
 .block-tag  { background: var(--block-bg); color: var(--block-fg); }
 .step-tag   { background: var(--step-bg);  color: var(--step-fg); }
 
-/* ---- Detail panel source link ---- */
+/* ---- Detail panel source link — item 221: styled like settings panel buttons ---- */
 .detail-source-link {
   appearance: none;
   -webkit-appearance: none;
-  background: transparent;
-  border: none;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
   margin: 0;
-  padding: 1px 0;
+  padding: 2px 8px;
   font-size: 11px;
   font-family: ui-monospace, 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   color: var(--accent);
   cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: none;
   pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 120ms, border-color 120ms, color 120ms;
 }
-.detail-source-link:hover { color: var(--accent-dim); }
+.detail-source-link:hover {
+  background: var(--bg-input);
+  border-color: var(--accent-dim);
+  color: var(--accent);
+}
 .detail-source-link--pending { opacity: 0.75; }
 
 /* ---- Detail panel timing tag ---- */

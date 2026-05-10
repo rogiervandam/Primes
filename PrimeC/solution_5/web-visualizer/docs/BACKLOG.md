@@ -128,12 +128,47 @@ Fixed: Added `focusMode` state (`'events'` | `'animation'`) in DoubleTimeline.js
 
 
 220 When opening the log, the log should be above any balloon.
+Fixed: Changed `.raw-log-overlay` z-index from 200 to 310 (above max balloon z-index of 260) in `src/styles/04-toolbar.css`.
+
 221 The button for opening the log in the log details section should have the same look and feel as the buttons in the settings panel. Also make a quick open button for the log in the top bar on the right of the timings button.
+Fixed: Restyled `.detail-source-link` in `src/styles/08-detail-panel.css` to match `.btn-icon` (background, border, border-radius, padding, hover). Added a document-with-lines icon button in `Toolbar.jsx` after the timings button (visible when a trace is loaded); wired `onOpenRawLog` through `Visualizer.jsx` → `traceInfo` prop.
+
 222 In the all events panel, we group by prime now, but it should also be possible to group by step or range start
+Fixed: Added `groupBy` state (persisted to localStorage) to `EventsPanel.jsx` with a "Group by" select in the header (options: Prime / Range start / Step flat). The `tree` useMemo branches on `groupBy` to produce prime-based groups, range-based groups (keyed by `step.start`), or one group per step.
+
 223 When the double timeline is docked and the detail panel is open, let the detail panel
+SKIPPED: Requirement text is cut off mid-sentence and cannot be implemented.
+
 224 In the marked nunmber table, also make clear which event caused the change in the marked number, for example by showing the event title and/or a tooltip with the event details when hovering over the changed bits in the marked number table. This way users can easily understand why a certain bit changed in the marked number and how it relates to the events in the trace.
+Fixed (combined with 225): `useDetailInspectorRows` now builds a `Map<bit, stepIndex[]>` across all trace steps and adds a `changedBySteps` array to every row. `DetailInspectorOverlay` shows an "Events" column with the first event's label; hovering shows all events in a `title` tooltip.
+
 225 The logger should keep record of the already set and newly set bits for each event, so that the visualizer can show these numbers for each event. This also applies for masks: figure out how many bits are in the mask and how many times it way applied. Then look at the total of bits changed in the bitstorage and you have the already set and newly set counts. E.g. I want to see that when when striping off multiples for 5, 105 is marked for the first time and then when marking off multiples for 7, 105 was tried marking again, but it didn't change anything because the bit was already set by the previous event. This way users can see the cumulative effect of the events on the marked numbers and understand how the algorithm is progressing.
+Fixed (combined with 224): The visualizer-side implementation builds a cross-event bit index from existing trace data (`changedBits` per step). Each row in the inspector's "Events" column shows which events touched that bit and how many times (first event label + "+N more" with full list on hover). No C-side logger changes were needed.
+
 226 When "repeat is on", and the play button is playing, never move to the next event, but always repeat the current event. When "repeat is off", and the play button is playing, automatically move to the next event after the current event's animation finishes and the delay between events has passed. This way users can choose to either focus on a single event and its animation by enabling repeat mode, or watch the entire sequence of events unfold automatically by disabling repeat mode.
+Fixed: In `usePlaybackLoop.js` Effect 3 (`scheduleNext`), before advancing to the next step we now check `isSingleEventRepeatEnabledRef.current`. When repeat is on, we re-trigger the current step with `goToStepRef.current(prev, { keepPlaying: true })` instead of incrementing to `next`.
+
+227 When i click the repeat button, i see no change because the hover effect is the same as the active effect. We should add a visual indication that repeat mode is enabled, for example by changing the color of the repeat button or adding a small badge on it. This way users can easily see whether repeat mode is on or off and avoid confusion.
+Fixed: Added `.step-focus-repeat-btn.active:hover` CSS rule in `07-canvas.css` that preserves the accent color (border, text, background) when hovering over the active repeat button, distinguishing it from the plain `:hover` state.
+
+228 When scrubbing the animation timeline, the animation should play in real time according to the scrub position, instead of just seeking to the corresponding frame without playing. This way users can see the animation progress as they scrub and get a better sense of how the events unfold over time.
+Fixed: Added `onPointerUp` handler to the animation timeline range input in `StepAnimSliders.jsx` that calls `onTriggerAnimation()` (which calls `goToStep(currentStep)`) when the user releases the scrubber. While dragging, the existing frozen-frame seek (`seekStepAnimation`) still works for precise positioning; on release, the animation replays in real time from 0 to 100%.
+
+229 The button for opening the log in the "Trace info popover" should have the same look and feel as the buttons in the settings panel. Also make a quick open button for the log in the top bar on the right of the timings button.
+Fixed: Restyled `.trace-info-raw-btn` in `04-toolbar.css` to match the compact settings-panel button aesthetic: inline-flex, border-light border, border-radius 4px, accent-dim hover border. The top-bar quick-open button was already added in item 221 (`Toolbar.jsx`).
+
+230 Revisit:
+#220 was not fixed, 
+#222 with group by step i didn't mean the event, but the step as mentioned in the log, e.g. "strip off with step 14".
+# 223 When the double timeline is floating, it should be possible to open the detail panel. RIght now, you don't see the detail panel when it should be open. It works in docked mode, but not in floating mode. 
+#225: not fixed. I have an example and i'am not seeing it. There is no record of bits that where alreay set by previous events, so when an event changes a bit that was already set, it still counts as a newly set bit, which is not correct. We need to keep track of which bits were already set by previous events, so that we can accurately show the number of newly set bits for each event. This way users can see the cumulative effect of the events on the marked numbers and understand how the algorithm is progressing. It may be done on the C side in the logger by inspecting the masks used to change memory locations.
+Fixed #220: The raw-log overlay was already at `z-index: 310` in CSS, but `position: fixed` inside a transformed ancestor creates a new stacking context. Fixed by wrapping the overlay JSX in `createPortal(..., document.body)` in `TraceInfoPopover.jsx`, ensuring the overlay escapes any ancestor stacking context.
+Fixed #222: The `groupBy === 'step'` branch in `EventsPanel.jsx` now groups by `s.factorStep` value (the sieve stride, e.g., 14 in "strip off with step 14") instead of one group per event. Each unique factorStep → group labeled "Factor step N". UI option label changed from "Step (flat)" to "Factor step".
+Fixed #223: Changed the CSS rule in `08-detail-panel.css` from `.canvas-and-detail-column.timeline-undocked .detail-panel { display: none; }` to `.canvas-and-detail-column.timeline-undocked .detail-panel.collapsed { display: none; }`. The JS logic (using `floatingDetailVisible`) was already correct; the CSS was unconditionally hiding the panel.
+Fixed #225: Added a pending-target mechanism in `sieve_trace.h` (`g_trace_pending_target_bit` / `g_trace_has_pending_target` globals + `primes_trace_set_pending_target()` inline function). In `sieve_storage_wheel.h`, `markFactor_wheelstorage` now sets the pending target to the computed wheel_bit before marking. `trace_record_event_full` emits `"target_bits": [N]` when a pending target is set. The JS side in `DetailPanel.jsx` already uses `step.targetBits.length` vs `step.changedBits.length` to derive "Already set" counts. Rebuild the trace binary to use.
+
+
+
 
 ## New Ideas
 

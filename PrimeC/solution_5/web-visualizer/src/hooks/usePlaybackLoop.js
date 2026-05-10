@@ -274,6 +274,11 @@ export function usePlaybackLoop({ ...flatArgs }) {
       }
 
       setCurrentStep((prev) => {
+        // item 226: when repeat is on, replay current event instead of advancing
+        if (isSingleEventRepeatEnabledRef?.current) {
+          setTimeout(() => goToStepRef.current?.(prev, { keepPlaying: true }), 0);
+          return prev;
+        }
         const next = prev + 1;
         if (next >= steps.length) {
           setPlaying(false);

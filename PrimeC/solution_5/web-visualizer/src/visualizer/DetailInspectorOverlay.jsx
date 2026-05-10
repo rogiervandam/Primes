@@ -13,6 +13,7 @@ import React from 'react';
  *   onClose             — () => void invoked by the close button
  *   rows                — full unfiltered row list (for the "X / Y" count)
  *   filteredRows        — rows currently visible after `query` filtering
+ *   steps               — all trace steps (items 224+225: for event labels in changedBySteps)
  */
 export default function DetailInspectorOverlay({
   open,
@@ -22,10 +23,26 @@ export default function DetailInspectorOverlay({
   onClose,
   rows,
   filteredRows,
+  steps,
 }) {
   if (!open) return null;
 
   const hasWheelColumns = rows.some((row) => row.wheelPeriod != null || row.relativeBit != null || row.relativeNumber != null);
+  // items 224+225: show "Events" column only when rows have changedBySteps data
+  const hasEventsColumn = rows.some((row) => row.changedBySteps && row.changedBySteps.length > 0);
+
+  // items 224+225: format which events changed a bit for display and tooltip
+  const formatChangedBySteps = (changedBySteps) => {
+    if (!changedBySteps || changedBySteps.length === 0) return { label: '—', tooltip: '' };
+    const labels = changedBySteps.map((idx) => {
+      const step = steps?.[idx];
+      return step ? (step.annotation || step.operation || `#${idx}`) : `#${idx}`;
+    });
+    return {
+      label: labels[0] + (labels.length > 1 ? ` +${labels.length - 1}` : ''),
+      tooltip: labels.join('\n'),
+    };
+  };
 
   return (
     <div className="detail-inspector-overlay" role="dialog" aria-modal="true">
@@ -61,22 +78,31 @@ export default function DetailInspectorOverlay({
                 <th>uint64</th>
                 <th>Group</th>
                 <th>Cacheline</th>
+                {hasEventsColumn && <th title="Events that changed this bit">Events</th>}
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map((row) => (
-                <tr key={`di-${row.bit}`}>
-                  <td>{row.bit}</td>
-                  <td>{row.number}</td>
-                  {hasWheelColumns && <td>{row.wheelPeriod ?? ''}</td>}
-                  {hasWheelColumns && <td>{row.relativeBit ?? ''}</td>}
-                  {hasWheelColumns && <td>{row.relativeNumber ?? ''}</td>}
-                  <td>{row.byte}</td>
-                  <td>{row.uint64}</td>
-                  <td>{row.group}</td>
-                  <td>{row.cacheline}</td>
-                </tr>
-              ))}
+              {filteredRows.map((row) => {
+                const { label, tooltip } = hasEventsColumn ? formatChangedBySteps(row.changedBySteps) : {};
+                return (
+                  <tr key={`di-${row.bit}`}>
+                    <td>{row.bit}</td>
+                    <td>{row.number}</td>
+                    {hasWheelColumns && <td>{row.wheelPeriod ?? ''}</td>}
+                    {hasWheelColumns && <td>{row.relativeBit ?? ''}</td>}
+                    {hasWheelColumns && <td>{row.relativeNumber ?? ''}</td>}
+                    <td>{row.byte}</td>
+                    <td>{row.uint64}</td>
+                    <td>{row.group}</td>
+                    <td>{row.cacheline}</td>
+                    {hasEventsColumn && (
+                      <td title={tooltip} style={{ cursor: tooltip ? 'help' : 'default', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {label}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

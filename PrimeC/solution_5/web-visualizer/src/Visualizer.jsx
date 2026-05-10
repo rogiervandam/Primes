@@ -1252,6 +1252,7 @@ export default function Visualizer({
     wheelDefinition,
     cachelineSize,
     detailInspectorQuery,
+    steps,  // item 224+225: passed to build bit→event index inside hook
   });
 
   const { openDetailInspector } = useDetailInspectorActions({
@@ -2026,6 +2027,7 @@ export default function Visualizer({
       onClearRawScrollToLine,
       currentStepSourceLine: stepToLine[currentStep],
       onClose,
+      onOpenRawLog,  // item 221: quick open log button in top bar
     },
     search: {
       isSearchOpen,

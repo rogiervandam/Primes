@@ -29,6 +29,7 @@ function StepAnimSliders({
   onOpenAnimationSettings,
   isSingleEventRepeatEnabled = true,
   onToggleSingleEventRepeat,
+  onTriggerAnimation,
   // In docked mode, parent can treat label-drag as undock gesture.
   onDragOutFromDock,
   // When true, renders progress% and gear inline next to the slider (docked to detail panel)
@@ -280,6 +281,10 @@ function StepAnimSliders({
                 const v = parseInt(e.target.value, 10);
                 setStepScrubProgress(v);
                 seekStepAnimation(v / 100);
+              }}
+              onPointerUp={() => {
+                // item 228: replay animation in real time when user releases the scrubber
+                if (!timelineDisabled && onTriggerAnimation) onTriggerAnimation();
               }}
               onMouseDown={(e) => e.stopPropagation()}
               disabled={timelineDisabled}

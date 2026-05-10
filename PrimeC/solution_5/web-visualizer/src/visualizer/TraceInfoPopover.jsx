@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { STORAGE_MODELS } from '../SieveRenderer';
 
 /**
@@ -264,7 +265,7 @@ export default function TraceInfoPopover({
         ))}
       </div>}
 
-      {rawOpen && (
+      {rawOpen && createPortal(
         <div
           className="raw-log-overlay"
           role="dialog"
@@ -343,7 +344,7 @@ export default function TraceInfoPopover({
             <div className="raw-log-resize-handle" onMouseDown={startResize} />
           </div>
         </div>
-      )}
+      , document.body)}
     </>
   );
 }

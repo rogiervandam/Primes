@@ -90,6 +90,22 @@
 }
 .event-op-wide-btn:hover { background: var(--bg-input); color: var(--fg); }
 .event-op-wide-btn.active { background: var(--accent-bg); border-color: var(--accent-dim); color: var(--fg); }
+/* item 222: group-by row */
+.event-groupby-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.event-groupby-label {
+  font-size: 11px;
+  color: var(--fg-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.event-groupby-select {
+  flex: 1;
+  width: auto;
+}
 .event-list {
   flex: 1;
   overflow-y: auto;

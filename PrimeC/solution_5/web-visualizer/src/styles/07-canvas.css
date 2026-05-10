@@ -315,6 +315,12 @@
   cursor: pointer;
 }
 .step-focus-repeat-btn:hover { background: var(--bg-raised); color: var(--fg); }
+/* item 227: keep accent colors when hovering over the active (repeat-on) button */
+.step-focus-repeat-btn.active:hover {
+  background: color-mix(in srgb, var(--accent-bg) 80%, transparent);
+  border-color: var(--accent);
+  color: var(--accent);
+}
 .step-focus-repeat-btn.active {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 44%, var(--border-light));
