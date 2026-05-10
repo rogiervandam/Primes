@@ -90,7 +90,50 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 207 WHen dragging the title bar of the docked timeline, the whole timeline widget should become undocked and follow the mouse, instead of just the grip area. This makes it easier to drag and also allows dragging from the title bar which is a larger target.
 
+208 Put the three panel buttons in the top bar on the far left side
+Fixed: Moved `<ToolbarPanelToggles />` before `<div className="trace-title-block">` in Toolbar.jsx so panel toggle buttons appear on the far left.
 
+209 When opening the events panel, sometimes it animatis from the middle, but it should always have the slide in form the left animation.
+Fixed: Added `panelRef` to the events panel `<div>` in EventsPanel.jsx. A `useEffect` detects when the panel is re-opening after a `collapse-right` close (scaleX animation), and applies a DOM-level transition reset: sets `transition: none` + `transform: translateX(-100%)`, forces a layout flush with `void panel.offsetHeight`, then clears both overrides to trigger the standard slide-in from the left.
+
+210 The all events panel should have a little arrow button to hide it again (slide out to the left), analogous of the toggle on the settings panel on the other side.
+Fixed: Added a `‹` close button (`events-panel-close-btn`) in the events panel header title row in EventsPanel.jsx that calls `onToggleCollapse` to slide the panel out to the left.
+
+211 The control to have the full operation name in the tooltip must be visible even when the all events panel is narrow.
+Fixed: Moved the `event-op-wide-btn` toggle button from the filter row (which is conditionally rendered based on panel width) into the always-visible `events-panel-header-title-row` with `margin-left: auto` in EventsPanel.jsx and added supporting CSS in 14-events-panel-collapsible.css.
+
+212 THe toggle in the floating panel to show/hide the detail panel should work. At this moment, it seems to do nothing, whereas when docked it does bring up the dtail panel as expected. 
+Fixed: In VisualizerMainContent.jsx, changed `detailHandlers.onToggle` to pass `doubleTimelineProps.onToggleFloatingDetail` when `isTimelineUndocked`, so the detail panel's close/toggle button in the floating timeline calls the correct floating-detail state setter.
+
+213 Sometimes after the balloons are repositioned, the connectors are not updated to reflect the new positions. When i do a little drag then, they snap on. The connectors should always update their positions immediately after the balloons are repositioned, without requiring an additional drag action to trigger the update.
+Fixed: Added `liveLayout` to the `useLayoutEffect` dependency array in BitHistoryBalloons.jsx so connectors re-measure balloon DOM positions whenever the balloon layout changes (not only when `visibleBalloonStyles` reference changes).
+
+214 remove the button to change the "Drag to undock" mode. It should always be possible. 
+Fixed: Removed `undockEnabled` useState and `toggleUndockEnabled` callback from DoubleTimeline.jsx. Replaced with `const undockEnabled = true;`. Removed the `⤢` toggle button JSX block entirely from the render output.
+
+215 Clicking a event in the all events panel should set "repeat" mode for the animation.
+Fixed: In EventsPanel.jsx, `handleStepClick` now calls `onEnableRepeat?.()` when clicking a step. The `enableRepeat` callback (`() => setIsSingleEventRepeatEnabled(true)`) is wired from Visualizer.jsx through `panels.events.handlers.enableRepeat`, extracted in VisualizerMainContent.jsx, and passed as `onEnableRepeat` to EventsPanel.
+
+216 When playing the animation, the play button should change to a pause button, and clicking it should pause the animation. When paused, clicking the pause button should resume the animation from where it left off. 
+Fixed: In DoubleTimeline.jsx, added `isAnyPlaying` computed value (`playing || isAnimPlaying`), a `handleMainPlayClick` callback that routes to `handleStepAnimToggle` when animation is running or `handlePlayPause` otherwise, and updated the play button to show `<Pause>` when `isAnyPlaying` and to call `handleMainPlayClick` via the existing long-press pointer handler.
+
+217 When repeat is disabled adn the animation reaches the end, it should automatically resume to the next event after the set delay for "Delay between events". When repeat is enabled and the animation reaches the end, it should automatically loop back to the start of the current event and play it again after the set delay for "Delay between repeats".
+Fixed: Added `delayBetweenEventsRef` to `useAnimationConfig.js` return value. Passed it through `usePlaybackLoop` in Visualizer.jsx. In `usePlaybackLoop.js` Effect 2, when `isSingleEventRepeatEnabledRef.current === false`, instead of just deactivating the loop, auto-advances to `currentStep + 1` via `goToStepRef.current` after a `delayBetweenEventsRef.current` ms delay.
+
+218 While dragging the middle section of the double timeline with mouse or touch, and i the middle section reaches an end and i go over the event timeline or animation timeline and i have not lifted so i am still dragging, the timeline should not be touched, as my intent is dragging the middle section and not clicking the timeline. This is especially important for touch interactions, where it's easy to accidentally drag into the timeline area while trying to adjust the middle section. The timeline should only respond to clicks or drags that start within its own area, and should ignore any pointer events that originate from dragging the middle section.
+Fixed: Added `isDividerDraggingRef` in DoubleTimeline.jsx. Set to `true` when center drag starts (first 3px threshold in `handleDividerPointerDown`'s `onMove`), cleared to `false` in `onUp`. Added `if (isDividerDraggingRef.current) return;` guards at the start of `handleWavePointerDown`, `handleWavePointerMove`, and `handleAnimPointerDown`.
+
+219 The double timeline has two modes: events focus or animation focus. There should be a visual hint that indicates which mode it's in. For example, when in events focus mode, the event timeline could have a brighter background or a highlight around it, while the animation timeline is dimmed. When in animation focus mode, the animation timeline could be highlighted instead. This way users can easily see which timeline they are currently controlling with the middle section and avoid confusion. WHen clicking or dragging the events timeline, it should switch to event focus mode, and when clicking or dragging the animation timeline, it should switch to animation focus mode. When dragging the middle section to the left, it should switch to animation focus mode, and when dragging it to the right, it should switch to event focus mode. In event focus mode, the controls in the middle section function as the do now. In animation focus mode, the first, previous, next and last controls in the middle section should control the animation timeline instead. 
+Fixed: Added `focusMode` state (`'events'` | `'animation'`) in DoubleTimeline.jsx. `handleWavePointerDown` sets `events` mode; `handleAnimPointerDown` sets `animation` mode; center `onMove` sets mode based on `dx` direction (right→events, left→animation). Added `dtl-focus-events` / `dtl-focus-animation` class to container. Added CSS in 24-double-timeline.css: highlighted zone gets a blue border, opposite zone dimmed to 65% opacity. In animation focus mode, first/prev/next/last transport buttons control animation scrub position (±10% per press) via `setStepScrubProgress` + `seekStepAnimation`.
+
+
+220 When opening the log, the log should be above any balloon.
+221 The button for opening the log in the log details section should have the same look and feel as the buttons in the settings panel. Also make a quick open button for the log in the top bar on the right of the timings button.
+222 In the all events panel, we group by prime now, but it should also be possible to group by step or range start
+223 When the double timeline is docked and the detail panel is open, let the detail panel
+224 In the marked nunmber table, also make clear which event caused the change in the marked number, for example by showing the event title and/or a tooltip with the event details when hovering over the changed bits in the marked number table. This way users can easily understand why a certain bit changed in the marked number and how it relates to the events in the trace.
+225 The logger should keep record of the already set and newly set bits for each event, so that the visualizer can show these numbers for each event. This also applies for masks: figure out how many bits are in the mask and how many times it way applied. Then look at the total of bits changed in the bitstorage and you have the already set and newly set counts. E.g. I want to see that when when striping off multiples for 5, 105 is marked for the first time and then when marking off multiples for 7, 105 was tried marking again, but it didn't change anything because the bit was already set by the previous event. This way users can see the cumulative effect of the events on the marked numbers and understand how the algorithm is progressing.
+226 When "repeat is on", and the play button is playing, never move to the next event, but always repeat the current event. When "repeat is off", and the play button is playing, automatically move to the next event after the current event's animation finishes and the delay between events has passed. This way users can choose to either focus on a single event and its animation by enabling repeat mode, or watch the entire sequence of events unfold automatically by disabling repeat mode.
 
 ## New Ideas
 

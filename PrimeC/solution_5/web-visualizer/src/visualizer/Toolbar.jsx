@@ -103,6 +103,8 @@ export default function Toolbar({
   return (
     <header className={`toolbar${areControlsHidden ? ' toolbar--controls-hidden' : ''}`}>
       <div className="toolbar-left">
+        {/* item 208: panel toggle buttons on the far left */}
+        <ToolbarPanelToggles />
         <div className="trace-title-block">
           <button
             ref={traceInfoToggleRef}
@@ -131,7 +133,6 @@ export default function Toolbar({
           onClearRawScrollToLine={onClearRawScrollToLine}
           currentStepSourceLine={currentStepSourceLine}
         />
-        <ToolbarPanelToggles />
       </div>
       <div className="toolbar-right">
         {!isWindowsPlatform && (

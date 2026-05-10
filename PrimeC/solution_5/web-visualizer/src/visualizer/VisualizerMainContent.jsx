@@ -65,7 +65,7 @@ export default function VisualizerMainContent(props) {
   // Panels
   const { events: panelsEvents = {}, detail: panelsDetail = {}, settings: panelsSettings = {}, timing: panelsTiming = {} } = panels;
   const { isCollapsed: isEventsPanelCollapsed, width: panelWidth, isAllEventsWidgetHidden, handlers: eventsHandlers = {} } = panelsEvents;
-  const { toggle: toggleEventsPanel, setCollapsed: setIsEventsPanelCollapsed, setPanelWidth } = eventsHandlers;
+  const { toggle: toggleEventsPanel, setCollapsed: setIsEventsPanelCollapsed, setPanelWidth, enableRepeat } = eventsHandlers;
   const { isOpen: isDetailOpen, isOpenRef: isDetailOpenRef, height: detailHeight, width: detailWidth, isHeaderHidden: isDetailHeaderHidden, isFloating: isDetailPanelFloating, handlers: detailHandlers = {} } = panelsDetail;
   const { toggle: toggleDetailPanel, setOpen: setIsDetailOpen, updateHeight: updateDetailHeight, setWidth: setDetailWidth, dock: dockDetailPanel } = detailHandlers;
   const { tabRequest: settingsTabRequest, isCollapsed: isSettingsCollapsed, handlers: settingsHandlers = {} } = panelsSettings;
@@ -161,6 +161,7 @@ export default function VisualizerMainContent(props) {
           onUserScroll: stopPlayback,
           onExternalOpFilterConsumed: () => setTimingFocusOp(''),
           onShowEventTitle: showEventTitleAboveCurrentDetail,
+          onEnableRepeat: enableRepeat,  // item 215: clicking event in all-events panel enables repeat mode
         }}
       />
       <div className={`canvas-and-detail-column${doubleTimelineProps.isTimelineUndocked ? ' timeline-undocked' : ''}`}>
@@ -266,7 +267,10 @@ export default function VisualizerMainContent(props) {
               surroundingEvents: isTimelineUndocked ? undefined : surroundingEvents,
             }}
             detailHandlers={{
-              onToggle: isTimelineUndocked ? undefined : toggleDetailPanel,
+              onToggle: isTimelineUndocked
+                // item 212: when undocked, close button in the detail panel should hide it
+                ? doubleTimelineProps.onToggleFloatingDetail
+                : toggleDetailPanel,
               onHeightChange: updateDetailHeight,
               onWidthChange: setDetailWidth,
               onInspectChangedBits: () => openDetailInspector('bits'),

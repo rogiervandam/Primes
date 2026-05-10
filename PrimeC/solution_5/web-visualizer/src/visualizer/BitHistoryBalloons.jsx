@@ -146,7 +146,10 @@ function BitHistoryBalloons({
       }
       return nextBoxes;
     });
-  }, [visibleBalloonStyles]);
+  // item 213: re-measure whenever balloon positions change (liveLayout) so connectors
+  // always reflect the latest DOM positions without requiring an extra drag to trigger.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleBalloonStyles, liveLayout]);
 
   const connectors = useMemo(() => Object.entries(visibleBalloonStyles)
     .filter(([, entry]) => entry?.visible !== false && entry?.connector)

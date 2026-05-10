@@ -22,6 +22,29 @@
   transform-origin: left;
 }
 
+/* item 210: close arrow button — slides the panel out to the left */
+.events-panel-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--fg-dim);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.events-panel-close-btn:hover {
+  color: var(--fg-bright);
+  background: var(--bg-raised);
+}
+
+/* item 211: op-wide button in title row — always visible regardless of panel width */
+.events-panel-header-title-row .event-op-wide-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 /* ---- item 176: Pure CSS slide-in/out — no JS animation state needed ---- */
 .events-panel-header-title-row {
   display: flex;

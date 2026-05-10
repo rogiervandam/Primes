@@ -212,7 +212,7 @@ export default function Visualizer({
   const {
     animMode, setAnimMode,
     animStyle, setAnimStyle,
-    delayBetweenEvents, setDelayBetweenEvents,
+    delayBetweenEvents, setDelayBetweenEvents, delayBetweenEventsRef,
     delayBetweenRepeats, setDelayBetweenRepeats, delayBetweenRepeatsRef,
     eventTimeTargets, setEventTimeTargets, eventTimeTargetsRef,
     eventDurationMode, setEventDurationMode, eventDurationModeRef,
@@ -928,6 +928,7 @@ export default function Visualizer({
       isScrubbingTopRef,
       initialHighlightHoldRef,
       delayBetweenRepeatsRef,
+      delayBetweenEventsRef,   // item 217: auto-advance to next event when repeat disabled
       stepResumeStartIndexRef,
       stepResumeMaskProgressRef,
       setIsStepAnimRunningRef,
@@ -1757,6 +1758,7 @@ export default function Visualizer({
           toggle: toggleEventsPanel,
           setCollapsed: setIsEventsPanelCollapsed,
           setPanelWidth,
+          enableRepeat: () => setIsSingleEventRepeatEnabled(true),  // item 215
         },
       },
       detail: {

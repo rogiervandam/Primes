@@ -127,6 +127,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     onUserScroll,
     onExternalOpFilterConsumed,
     onShowEventTitle,
+    onEnableRepeat,   // item 215: click event → enable repeat
   } = eventsHandlers;
   const {
     goToStep,
@@ -149,6 +150,7 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
   } = usePanelLayoutContext();
 
   const listRef = useRef(null);
+  const panelRef = useRef(null);   // item 209: ref for DOM-level transition reset
   const scrollTopRef = useRef(0);
   const sentinelRef = useRef(null);
   const [search, setSearch] = useState('');
@@ -162,6 +164,18 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
   const [listVisible, setListVisible] = useState(!panelCollapsed);
   useEffect(() => {
     if (!panelCollapsed) {
+      // item 209: always slide in from left, even when previous close was a collapse-right.
+      // When closing via timeline (collapse-right), the panel ends at scaleX(0).
+      // Reset transform to translateX(-100%) with no transition, then remove
+      // the override to trigger the standard left-slide-in animation.
+      const panel = panelRef.current;
+      if (panel && eventsCollapseDir === 'right') {
+        panel.style.transition = 'none';
+        panel.style.transform = 'translateX(-100%)';
+        void panel.offsetHeight;  // force synchronous layout flush
+        panel.style.transition = '';
+        panel.style.transform = '';
+      }
       setListVisible(true);
       setEventsCollapseDir('left');  // item 193: reset direction when opening
     } else {
@@ -227,9 +241,10 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
     } else {
       onStepClick(stepIdx);
       onMultiStepSelect(new Set());
+      onEnableRepeat?.();  // item 215: clicking an event enables repeat mode
     }
     lastClickedRef.current = stepIdx;
-  }, [onStepClick, onMultiStepSelect]);
+  }, [onStepClick, onMultiStepSelect, onEnableRepeat]);
 
   // Unique operations for filter
   const operations = useMemo(() => {
@@ -798,10 +813,23 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
 
   return (
     <>
-      <div className={`events-panel${panelCollapsed ? ' collapsed' : ''}${panelCollapsed && eventsCollapseDir === 'right' ? ' collapse-right' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: `${width}px` }}>
+      <div ref={panelRef} className={`events-panel${panelCollapsed ? ' collapsed' : ''}${panelCollapsed && eventsCollapseDir === 'right' ? ' collapse-right' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: `${width}px` }}>
       <div className="events-panel-header">
         <div className="events-panel-header-title-row">
+          {/* item 210: left arrow to hide the events panel, like the settings panel toggle */}
+          <button
+            className="events-panel-close-btn"
+            onClick={onToggleCollapse}
+            title="Hide Events panel"
+            onMouseDown={(e) => e.stopPropagation()}
+          >‹</button>
           <h3>Events</h3>
+          {/* item 211: wide op button always in the title row so it's visible even when panel is narrow */}
+          <button
+            className={`event-op-wide-btn${opColWide ? ' active' : ''}`}
+            onClick={toggleOpColWide}
+            title={opColWide ? 'Narrow operation column' : 'Wide operation column'}
+          >{opColWide ? '←→' : '→←'}</button>
           {!eventTitleVisible && onShowEventTitle && (
             <button
               className="events-panel-show-event-title-btn"
@@ -810,7 +838,6 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
               title="Show single-event widget"
             ><Eye size={12} /></button>
           )}
-
         </div>
         <div className="event-search-row">
           <input
@@ -830,11 +857,6 @@ export default function EventsPanel({ eventsState = {}, eventsHandlers = {} }) {
               <option value="">All operations</option>
               {operations.map(op => <option key={op} value={op}>{op}</option>)}
             </select>
-            <button
-              className={`event-op-wide-btn${opColWide ? ' active' : ''}`}
-              onClick={toggleOpColWide}
-              title={opColWide ? 'Narrow operation column' : 'Wide operation column'}
-            >{opColWide ? '←→' : '→←'}</button>
           </div>
         )}
         {traceLevels.length > 0 && (

@@ -83,6 +83,7 @@ export function usePlaybackLoop({ ...flatArgs }) {
     isScrubbingTopRef,
     initialHighlightHoldRef,
     delayBetweenRepeatsRef,
+    delayBetweenEventsRef,   // item 217: auto-advance delay when repeat is disabled
     stepResumeStartIndexRef,
     stepResumeMaskProgressRef,
     setIsStepAnimRunningRef,
@@ -194,7 +195,14 @@ export function usePlaybackLoop({ ...flatArgs }) {
         startProgress: useStartProgress,
       });
       if (!isScrubbingTopRef.current && isSingleEventRepeatEnabledRef && isSingleEventRepeatEnabledRef.current === false) {
+        // item 217: repeat disabled → auto-advance to the next event after the configured delay
         setIsSingleEventLoopActive(false);
+        const delay = delayBetweenEventsRef?.current ?? 0;
+        setTimeout(() => {
+          if (!isSingleEventLoopActiveRef.current) {
+            goToStepRef.current?.(currentStep + 1);
+          }
+        }, delay);
         return;
       }
       if (cancelled || playing || isAnimationReplayPaused || selectedSteps.size > 0) return;

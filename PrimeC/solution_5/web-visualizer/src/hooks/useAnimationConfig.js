@@ -22,6 +22,8 @@ export function useAnimationConfig({ initialPrefs }) {
   const [animStyle, setAnimStyle] = useState('fade');
 
   const [delayBetweenEvents, setDelayBetweenEvents] = useState(initialPrefs.delayBetweenEvents);
+  const delayBetweenEventsRef = useRef(delayBetweenEvents);
+  delayBetweenEventsRef.current = delayBetweenEvents;
   const [delayBetweenRepeats, setDelayBetweenRepeats] = useState(initialPrefs.delayBetweenRepeats);
   const delayBetweenRepeatsRef = useRef(delayBetweenRepeats);
   delayBetweenRepeatsRef.current = delayBetweenRepeats;
@@ -107,7 +109,7 @@ export function useAnimationConfig({ initialPrefs }) {
   return {
     animMode, setAnimMode,
     animStyle, setAnimStyle,
-    delayBetweenEvents, setDelayBetweenEvents,
+    delayBetweenEvents, setDelayBetweenEvents, delayBetweenEventsRef,
     delayBetweenRepeats, setDelayBetweenRepeats, delayBetweenRepeatsRef,
     eventTimeTargets, setEventTimeTargets, eventTimeTargetsRef,
     eventDurationMode, setEventDurationMode, eventDurationModeRef,

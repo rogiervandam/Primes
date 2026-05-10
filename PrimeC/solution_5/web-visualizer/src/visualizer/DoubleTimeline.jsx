@@ -103,17 +103,12 @@ export default function DoubleTimeline({
   const preferredBottomGapRef = useRef(96);
   const prevFloatingDetailVisibleRef = useRef(floatingDetailVisible);
 
-  // item 180: toggle to enable/disable undocking (persisted across sessions)
-  const [undockEnabled, setUndockEnabled] = useState(() => {
-    try { return localStorage.getItem('dtl-undock-enabled') !== '0'; } catch { return true; }
-  });
-  const toggleUndockEnabled = useCallback(() => {
-    setUndockEnabled((v) => {
-      const next = !v;
-      try { localStorage.setItem('dtl-undock-enabled', next ? '1' : '0'); } catch {}
-      return next;
-    });
-  }, []);
+  // item 214: undocking is always enabled — no toggle needed
+  const undockEnabled = true;
+
+  // item 219: focus mode — 'events' | 'animation'
+  // Switches which timeline the center controls affect and adds visual highlight.
+  const [focusMode, setFocusMode] = useState('events');
 
   // item 181: smooth undock/dock animation
   const preUndockRectRef = useRef(null);  // rect captured just before undocking
@@ -203,6 +198,7 @@ export default function DoubleTimeline({
   // ── Left timeline: click + drag to jump to event (item 125) ─────────────────
   // item 192: rAF-throttled scrub — avoids queuing multiple React state updates per frame
   const waveRafRef = useRef(null);
+  const isDividerDraggingRef = useRef(false);  // item 218: block zone interactions during center drag
   const waveSeek = useCallback((e) => {
     const canvas = waveCanvasRef.current;
     if (!canvas || steps.length === 0) return;
@@ -212,11 +208,14 @@ export default function DoubleTimeline({
   }, [goToStep, steps.length]);
 
   const handleWavePointerDown = useCallback((e) => {
+    if (isDividerDraggingRef.current) return;  // item 218: ignore if center is being dragged
     e.currentTarget.setPointerCapture(e.pointerId);
+    setFocusMode('events');  // item 219: click/drag in events zone → events focus
     waveSeek(e);
   }, [waveSeek]);
 
   const handleWavePointerMove = useCallback((e) => {
+    if (isDividerDraggingRef.current) return;  // item 218
     if (e.buttons !== 1) return;
     const clientX = e.clientX;
     if (waveRafRef.current !== null) return;  // already scheduled
@@ -532,6 +531,8 @@ export default function DoubleTimeline({
       if (!isDragging) {
         if (Math.abs(dx) + Math.abs(accY) < 3) return;
         isDragging = true;
+        // item 218: block wave/anim zone pointer events during center drag
+        isDividerDraggingRef.current = true;
         // item 132: suppress ALL detail-panel transitions/animations during drag
         // (class on root affects newly-mounted elements too, unlike inline style)
         document.documentElement.classList.add('detail-drag-active');
@@ -543,6 +544,11 @@ export default function DoubleTimeline({
       const nextFraction = Math.max(0.15, Math.min(0.85, startFraction + dx / availableW));
       setSplitFraction(nextFraction);
       splitFractionRef.current = nextFraction;
+
+      // item 219: update focus mode based on horizontal drag direction
+      if (Math.abs(dx) > 8) {
+        setFocusMode(dx > 0 ? 'events' : 'animation');
+      }
 
       // Vertical — 1:1 pixel tracking (items 139, 140: no snapping during drag; close at 0)
       if (startDetailOpen && !closedByDrag) {
@@ -565,6 +571,8 @@ export default function DoubleTimeline({
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onUp);
+      // item 218: restore zone pointer events
+      isDividerDraggingRef.current = false;
       // item 132: restore transitions/animations (class is idempotent to remove)
       document.documentElement.classList.remove('detail-drag-active');
       // item 139: spring-settle on release — transitions are now active again
@@ -602,8 +610,10 @@ export default function DoubleTimeline({
   }, [seekStepAnimation, setStepScrubProgress]);
 
   const handleAnimPointerDown = useCallback((e) => {
+    if (isDividerDraggingRef.current) return;  // item 218: ignore if center is being dragged
     if (isScrubbingTopRef) isScrubbingTopRef.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
+    setFocusMode('animation');  // item 219: click/drag in anim zone → animation focus
     animSeek(e);
   }, [isScrubbingTopRef, animSeek]);
   const handleAnimPointerMove = useCallback((e) => {
@@ -631,6 +641,18 @@ export default function DoubleTimeline({
   const isInDelayPhase = delayPhaseMs > 0;
   const annotationText = currentStepData?.annotation || '';
 
+  // item 216: big play button reflects both event playback and animation state.
+  // When animation is running, clicking the big button pauses the animation.
+  // When events are playing (not animation), clicking pauses event playback.
+  const isAnyPlaying = playing || isAnimPlaying;
+  const handleMainPlayClick = useCallback(() => {
+    if (isAnimPlaying) {
+      handleStepAnimToggle?.();  // pause/resume the step animation
+    } else {
+      handlePlayPause();  // pause/resume event-to-event playback
+    }
+  }, [isAnimPlaying, handleStepAnimToggle, handlePlayPause]);
+
   // item 198: long-press on main play button reveals animation settings
   const playLongPressRef = useRef(null);
   const playLongPressTriggeredRef = useRef(false);
@@ -652,10 +674,10 @@ export default function DoubleTimeline({
       playLongPressRef.current = null;
     }
     if (!playLongPressTriggeredRef.current && !exporting && stepCount > 0) {
-      handlePlayPause();
+      handleMainPlayClick();  // item 216: unified play/pause for events + animation
     }
     playLongPressTriggeredRef.current = false;
-  }, [handlePlayPause, exporting, stepCount]);
+  }, [handleMainPlayClick, exporting, stepCount]);
   const handlePlayPointerCancel = useCallback(() => {
     if (playLongPressRef.current) {
       clearTimeout(playLongPressRef.current);
@@ -827,7 +849,7 @@ export default function DoubleTimeline({
   return (
     <div
       ref={containerRef}
-      className={`double-timeline${isCollapsed ? ' dtl-collapsed' : ''}${isDetailPanelFloating ? ' dtl-panel-floating' : ''}${isTimelineUndocked ? ' dtl-timeline-undocked' : ''}${undockEnabled && !isTimelineUndocked ? ' dtl-undock-enabled' : ''}`}
+      className={`double-timeline${isCollapsed ? ' dtl-collapsed' : ''}${isDetailPanelFloating ? ' dtl-panel-floating' : ''}${isTimelineUndocked ? ' dtl-timeline-undocked' : ''}${!isTimelineUndocked ? ' dtl-undock-enabled' : ''}${focusMode === 'events' ? ' dtl-focus-events' : ' dtl-focus-animation'}`}
       style={containerStyle}
       onPointerDown={handleContainerPointerDown}
     >
@@ -884,33 +906,46 @@ export default function DoubleTimeline({
           title="Drag left/right to resize · Drag up/down to expand/collapse detail panel"
         >
           <div className="dtl-transport">
-            <button className="dtl-btn" onClick={() => canNavigate && goToStep(0)} disabled={!canNavigate} title="First event">
+            {/* item 219: in animation focus mode, first/prev/next/last control animation; otherwise they control events */}
+            <button className="dtl-btn" onClick={() => {
+              if (focusMode === 'animation') { setStepScrubProgress(0); seekStepAnimation?.(0); }
+              else canNavigate && goToStep(0);
+            }} disabled={!canNavigate} title={focusMode === 'animation' ? 'Animation start' : 'First event'}>
               <SkipBack size={10} />
             </button>
-            <button className="dtl-btn" onClick={() => canNavigate && goToStep(currentStep - 1)} disabled={!canNavigate} title="Previous event">
+            <button className="dtl-btn" onClick={() => {
+              if (focusMode === 'animation') { const p = Math.max(0, stepScrubProgress - 10); setStepScrubProgress(p); seekStepAnimation?.(p / 100); }
+              else canNavigate && goToStep(currentStep - 1);
+            }} disabled={!canNavigate} title={focusMode === 'animation' ? 'Animation back 10%' : 'Previous event'}>
               <StepBack size={10} />
             </button>
             <button className="dtl-btn dtl-speed" onClick={() => setPlaySpeedPercent?.((v) => Math.max(1, Math.round(v / 1.25)))} disabled={exporting} title="Slower">
               <Minus size={9} />
             </button>
-            {/* Main play button — items 123, 128; item 198: long-press reveals animation settings */}
+            {/* Main play button — items 123, 128; item 198: long-press reveals animation settings; item 216: also reflects animation state */}
             <button
               className="dtl-btn dtl-play"
               onPointerDown={handlePlayPointerDown}
               onPointerUp={handlePlayPointerUp}
               onPointerCancel={handlePlayPointerCancel}
               disabled={exporting || stepCount === 0}
-              title={playing ? 'Pause (long-press for animation settings)' : 'Play all events (long-press for animation settings)'}
+              title={isAnyPlaying ? 'Pause (long-press for animation settings)' : 'Play all events (long-press for animation settings)'}
             >
-              {playing ? <Pause size={16} /> : <Play size={16} />}
+              {isAnyPlaying ? <Pause size={16} /> : <Play size={16} />}
             </button>
             <button className="dtl-btn dtl-speed" onClick={() => setPlaySpeedPercent?.((v) => Math.min(1600, Math.round(v * 1.25)))} disabled={exporting} title="Faster">
               <Plus size={9} />
             </button>
-            <button className="dtl-btn" onClick={() => canNavigate && goToStep(currentStep + 1)} disabled={!canNavigate} title="Next event">
+            <button className="dtl-btn" onClick={() => {
+              if (focusMode === 'animation') { const p = Math.min(100, stepScrubProgress + 10); setStepScrubProgress(p); seekStepAnimation?.(p / 100); }
+              else canNavigate && goToStep(currentStep + 1);
+            }} disabled={!canNavigate} title={focusMode === 'animation' ? 'Animation forward 10%' : 'Next event'}>
               <StepForward size={10} />
             </button>
-            <button className="dtl-btn" onClick={() => canNavigate && goToStep(stepCount - 1)} disabled={!canNavigate} title="Last event">
+            <button className="dtl-btn" onClick={() => {
+              if (focusMode === 'animation') { setStepScrubProgress(100); seekStepAnimation?.(1); }
+              else canNavigate && goToStep(stepCount - 1);
+            }} disabled={!canNavigate} title={focusMode === 'animation' ? 'Animation end' : 'Last event'}>
               <SkipForward size={10} />
             </button>
             {/* item 206: repeat at far right — separated from play by speed controls to prevent accidental clicks */}
@@ -1030,14 +1065,7 @@ export default function DoubleTimeline({
               title={floatingDetailVisible ? 'Hide detail panel' : 'Show detail panel'}
             >{floatingDetailVisible ? '▼' : '▲'}</button>
           )}
-          {/* item 180: toggle to enable/disable drag-to-undock behavior */}
-          {!isTimelineUndocked && onUndockTimeline && (
-            <button
-              className={`dtl-btn dtl-undock-toggle${undockEnabled ? ' dtl-active' : ''}`}
-              onClick={(e) => { e.stopPropagation(); toggleUndockEnabled(); }}
-              title={undockEnabled ? 'Drag-up to undock: ON — click to disable' : 'Drag-up to undock: OFF — click to enable'}
-            >⤢</button>
-          )}
+          {/* item 214: undock toggle removed — undocking is always possible */}
         </div>
       </div>
       {/* resize handles remain for resizing the floating strip itself */}
