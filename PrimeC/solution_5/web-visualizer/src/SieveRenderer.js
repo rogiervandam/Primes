@@ -337,7 +337,8 @@ export class SieveRenderer {
     const bands = this._labelBands();
     if (kind === 'byte') return bands.byte;
     if (kind === 'vector') return bands.total;
-    return 0;
+      if (kind === 'cacheline') return bands.total;
+      return 0;
   }
 
   // Pure helpers below delegate to the shared `renderer/drawingHelpers` module.

@@ -71,11 +71,18 @@ export class MinimapRenderer {
    */
   render(canvasW, canvasH, detailH = 0) {
     const h = this.host;
-    let ctx = h.ctx;
-    // Prefer the stored container-visible dimensions for the visibility check
-    // rather than the oversized canvas size.
-    const viewportW = h.viewportW || canvasW;
-    const viewportH = h.viewportH || canvasH;
+    // React effects can call renderMinimap before either the main GL/2D canvas
+    // context or the dedicated minimap canvas context is ready.
+    // In that short window, safely no-op instead of throwing.
+    if (this._canvas && !this._ctx) this._ctx = this._canvas.getContext('2d');
+    let ctx = this._ctx || h.ctx;
+    // Prefer container-visible dimensions, then window viewport size, and only
+    // finally fall back to the caller-provided canvas dimensions. This avoids
+    // positioning the fixed overlay using oversized render-canvas dimensions.
+    const winW = typeof window !== 'undefined' ? window.innerWidth : 0;
+    const winH = typeof window !== 'undefined' ? window.innerHeight : 0;
+    const viewportW = h.viewportW || winW || canvasW;
+    const viewportH = h.viewportH || winH || canvasH;
 
     if (!h.minimapEnabled) {
       this._rect = null;
@@ -90,6 +97,11 @@ export class MinimapRenderer {
     if (this.isContentFullyVisible(viewportW, viewportH)) {
       this._rect = null;
       this._hideAttachedCanvas();
+      return;
+    }
+
+    if (!ctx) {
+      this._rect = null;
       return;
     }
 

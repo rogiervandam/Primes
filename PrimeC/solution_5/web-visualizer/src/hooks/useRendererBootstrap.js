@@ -77,6 +77,7 @@ export function useRendererBootstrap({
   const modeFollowupRafRef = useRef(null);
   const renderModeRef = useRef(renderMode);
   renderModeRef.current = renderMode;
+  const attachedMinimapCanvasRef = useRef(null);
   const workerGlyphModeRef = useRef(
     debugWorkerGlyphMode === 'separate-text' ? 'separate-text' : 'gl'
   );
@@ -119,6 +120,24 @@ export function useRendererBootstrap({
     // Fallback path (no GL yet): still schedule a follow-up frame.
     scheduleModeFollowupRender(liveRenderer);
   };
+
+  useEffect(() => {
+    const renderer = rendererRef.current;
+    const canvas = minimapCanvasRef.current || null;
+    if (!renderer) return;
+    if (attachedMinimapCanvasRef.current === canvas) return;
+
+    renderer.attachMinimapCanvas(canvas);
+    attachedMinimapCanvasRef.current = canvas;
+
+    // Render once immediately after (re)attach so the overlay appears as soon
+    // as the minimap canvas ref is mounted.
+    if (canvas && renderer.minimapEnabled) {
+      const w = renderer.canvasWidth || (typeof window !== 'undefined' ? window.innerWidth : 0) || 1;
+      const h = renderer.canvasHeight || (typeof window !== 'undefined' ? window.innerHeight : 0) || 1;
+      renderer.renderMinimap(w, h, getMinimapDetailH ? getMinimapDetailH() : 0);
+    }
+  });
 
   useEffect(() => {
     const renderer = new SieveRenderer();

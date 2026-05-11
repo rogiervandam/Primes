@@ -620,7 +620,7 @@ export default function DetailPanel({
   return (
     <div className={`detail-panel ${open ? 'open' : 'collapsed'}${isHeaderHidden ? ' header-hidden' : ''}${isFloating ? ' floating' : ''}`}>
       {open && !playing && <div className="detail-panel-resize" onMouseDown={handleHeightDrag} />}
-      <div className="detail-panel-toggle" onClick={onToggle}>
+        <div className="detail-panel-toggle">
         {/* item 162: dock row — shows floater and/or slider based on independent toggle states */}
         {hasDockContent && (
           <div className="detail-panel-dock-row">
@@ -669,19 +669,11 @@ export default function DetailPanel({
             title="Dock panel back to bottom"
           >↓</button>
         )}
-        {/* item 143: close button — only shown when panel is open */}
-        {open && (
-          <button
-            className="detail-panel-close-btn"
-            onClick={(e) => { e.stopPropagation(); onToggle && onToggle(); }}
-            title="Close detail panel"
-          >✕</button>
-        )}
       </div>
 
       {(open || isBodyAnimatingOut) && (
         <div className={`detail-panel-body detail-panel-body-compact${bodyAnimClass ? ` body-${bodyAnimClass}` : ''}`} style={{
-          ...(playing ? { height: `${height || 200}px` } : { maxHeight: `${height || 200}px` }),
+          maxHeight: `${height || 200}px`,
           ...(width > 0 ? { minWidth: `${width}px`, overflowX: 'auto' } : {}),
         }}>
           <div className="detail-sections">

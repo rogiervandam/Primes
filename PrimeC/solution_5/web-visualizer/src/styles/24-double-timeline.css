@@ -552,11 +552,11 @@
 
 /* items 151/152: zone toggle buttons (left of EVENTS, right of ANIMATION) */
 .dtl-zone-toggle {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.45);
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   border-radius: 3px;
   pointer-events: auto;
   flex-shrink: 0;
@@ -573,6 +573,10 @@
   pointer-events: auto;
 }
 .dtl-anim-toggle {
+  pointer-events: auto;
+}
+/* item 286: detail panel toggle arrow */
+.dtl-detail-toggle {
   pointer-events: auto;
 }
 

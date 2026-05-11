@@ -106,7 +106,11 @@ export class CachelineOverlayRenderer {
     const pad = host._outlinePadding();
     const topExtra = host._outlineTopExtra('cacheline');
     const annotationsActive = host.cachelineAnnotation && host.cachelineAnnotation !== 'none';
-    const annotationBottomExtra = annotationsActive ? Math.min(22, Math.max(14, rowD.h * 0.18)) : 0;
+      // item 250: clamp annotationBottomExtra so the bottom of one row's outline
+      // never extends past the top of the next row's outline.  At low zoom levels
+      // u64GapY shrinks quickly, so we cap by the available inter-row gap.
+      const maxBottomExtra = Math.max(0, host._u64GapY() - pad + Math.max(0, labelH - topExtra));
+      const annotationBottomExtra = annotationsActive ? Math.min(22, Math.min(maxBottomExtra, Math.max(0, rowD.h * 0.18))) : 0;
     const canvasHeight = host.canvasHeight || 0;
     const startVisualRow = Math.max(0, Math.floor(-host.panY / visualRowHeight));
     const endVisualRow = Math.ceil((canvasHeight - host.panY) / visualRowHeight) + 1;

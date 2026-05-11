@@ -52,6 +52,7 @@ export default function VisualizerMainContent(props) {
   // Canvas
   const { refs: canvasRefs = {}, styles: canvasStyles = {}, camera3D: camera3DInfo = {}, zoom, isMacPlatform, isWindowsPlatform } = canvas;
   const { container: containerRef, glCanvas: glCanvasRef, glyphCanvas: glyphCanvasRef, glyph2DCanvas: glyph2DCanvasRef, wrapperCanvas: wrapperCanvasRef, renderer: rendererRef, glRenderer: glRendererRef, camera3D: camera3DRef } = canvasRefs;
+    const { minimap: minimapCanvasRef } = canvasRefs;
   const { merged3D: mergedCamera3DContainerStyle, render: renderCanvasStyle, eventTitle: eventTitleStyle } = canvasStyles;
   const { transform: camera3DTransform } = camera3DInfo;
 
@@ -153,14 +154,14 @@ export default function VisualizerMainContent(props) {
     onDockWidgetToTopBar: dockEventsWidgetToTopBar,
     onDockWidgetToDetailPanel: dockEventsWidgetToDetailPanel,
     onJoinWidgets: joinWidgets,
-    onUserScroll: stopPlayback,
+    onUserScroll: undefined,
     onExternalOpFilterConsumed: () => setTimingFocusOp(''),
     onShowEventTitle: showEventTitleAboveCurrentDetail,
     onEnableRepeat: enableRepeat,
   }), [handleStepSelection, handleMultiStepSelect, setPanelWidth,
-       expandEventsPanelFromWidget, dockEventsWidgetToTopBar,
-       dockEventsWidgetToDetailPanel, joinWidgets, stopPlayback,
-       setTimingFocusOp, showEventTitleAboveCurrentDetail, enableRepeat]);
+      expandEventsPanelFromWidget, dockEventsWidgetToTopBar,
+      dockEventsWidgetToDetailPanel, joinWidgets,
+      setTimingFocusOp, showEventTitleAboveCurrentDetail, enableRepeat]);
 
   return (
     <div
@@ -419,6 +420,10 @@ export default function VisualizerMainContent(props) {
           }}
         />
       )}
+        {/* item 248: minimap canvas lives here (inside .main-content but outside any
+            transform-style:preserve-3d container) so position:fixed still anchors
+            to the viewport while z-index:1200 keeps it above all panels. */}
+        <canvas ref={minimapCanvasRef} className="minimap-overlay-canvas" aria-hidden="true" />
     </div>
   );
 }

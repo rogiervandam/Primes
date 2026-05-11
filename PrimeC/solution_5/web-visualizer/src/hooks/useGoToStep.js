@@ -30,6 +30,8 @@ export function useGoToStep({
   pinnedBitIndices,
   effectiveGroupBits,
   animateBitsModeRef,  // item 244: 'changed' | 'targeted'
+    isSingleEventRepeatEnabledRef,  // item 281: when true, use delayBetweenRepeats
+    delayBetweenRepeats,            // item 281: delay used when repeating a single event
 }) {
   // item 270: track the mask signature of the most recently displayed step so
   // we can set r.maskIsNew when the mask pattern changes.
@@ -239,7 +241,11 @@ export function useGoToStep({
     // item 244: in 'targeted' mode, animate all bits in targetSet (even if
     // already set), showing already-set ones as amber (repeatedBits path).
     if (!suppressHighlight && triggerAnimationRef.current) {
-      const delayMs = playing ? delayBetweenEvents : 0;
+      // item 281: when single-event repeat is active, use the dedicated
+      // "delay between repeats" setting rather than the inter-event delay.
+      const delayMs = playing
+        ? (isSingleEventRepeatEnabledRef?.current ? (delayBetweenRepeats ?? delayBetweenEvents) : delayBetweenEvents)
+        : 0;
       const animBitsMode = animateBitsModeRef?.current || 'changed';
       const useTargetedMode = animBitsMode === 'targeted' && targetSet.size > 0;
       // In targeted mode: use full targetSet as changedSet for animation;
@@ -282,6 +288,8 @@ export function useGoToStep({
     delayBetweenEvents,
     pinnedBitIndices,
     effectiveGroupBits,
+      delayBetweenRepeats,
+      // isSingleEventRepeatEnabledRef is a ref — deliberately not in deps
     // animateBitsModeRef is a ref — deliberately not in deps (stable ref object)
   ]);
 

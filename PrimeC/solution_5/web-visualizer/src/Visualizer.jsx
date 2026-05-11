@@ -829,6 +829,8 @@ export default function Visualizer({
     pinnedBitIndices,
     effectiveGroupBits,
     animateBitsModeRef,  // item 244: 'changed' | 'targeted'
+    isSingleEventRepeatEnabledRef,  // item 281
+    delayBetweenRepeats,            // item 281
   });
 
   // Stable wrapper — goToStep recreates on every render (currentStep in deps).
@@ -2189,16 +2191,6 @@ export default function Visualizer({
 
       <VisualizerMainContent
         {...visualizerMainContentProps}
-      />
-      {/* Minimap overlay — rendered OUTSIDE .main-content so it is never
-          trapped inside the canvas-container stacking context
-          (transform-style:preserve-3d). position:fixed + z-index:35 then
-          places it above all floating panels (z-index:28) and the detail
-          panel (document order) in the root stacking context. */}
-      <canvas
-        ref={minimapCanvasRef}
-        className="minimap-overlay-canvas"
-        aria-hidden="true"
       />
       <KeyboardShortcutsOverlay
         open={isShortcutsHelpVisible}

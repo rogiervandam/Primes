@@ -1046,10 +1046,10 @@ export default function DoubleTimeline({
           {/* item 200: detail panel toggle — shown when docked; opens/closes the detail panel */}
           {!isTimelineUndocked && onToggleDetail && (
             <button
-              className={`dtl-btn${isDetailOpen ? ' dtl-active' : ''}`}
+                className={`dtl-btn dtl-zone-toggle dtl-detail-toggle${isDetailOpen ? ' dtl-active' : ''}`}
               onClick={(e) => { e.stopPropagation(); onToggleDetail(); }}
               title={isDetailOpen ? 'Hide detail panel' : 'Show detail panel'}
-            >▤</button>
+              >{isDetailOpen ? '∨' : '∧'}</button>
           )}
           {/* item 173: collapse timeline toggle removed */}
           {/* item 163: undock button — pops timeline out as freely draggable */}
