@@ -215,6 +215,14 @@ Fixed: Added `animZoomRange` state (null | [start, end] fractions) in `DoubleTim
 
 247 WHen i scroll in the events panel during playback, the scrolling should not interrupt the playback. This way users can continue to watch the animation while browsing through the events in the panel without having to worry about accidentally pausing or stopping the animation. We can implement this by adding a scroll event listener to the events panel that prevents the default behavior of pausing the animation when scrolling. This way users can have a seamless experience of watching the animation and exploring the events at the same time.
 
+248 The minimap canvas should be a descendent of the main-content
+
+249 The cache outlines should include the group and byte annotations (if on), so that they do not intersect them which makes them hard to read.
+
+250 At zoomed out distances, the bottom outlines of byte and groups seem to be lower than the top outlines of the byte/group below them, which creates a confusing visual effect where it looks like the outlines are intersecting or the groups are not properly separated. This should be fixed by adjusting the rendering of the outlines to ensure that they do not visually intersect or overlap in a way that creates confusion. This way users can clearly see the separation between different groups and bytes, even at zoomed out distances, and avoid any visual confusion caused by intersecting outlines.
+
+
+
 
 Giant features
 A Make it possible to open more than one trace at the same time, and switch between them with tabs in the top bar. This way users can compare different traces or work on multiple traces without having to close and reopen them.

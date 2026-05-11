@@ -558,6 +558,9 @@ export default function Visualizer({
 
   const { stopPlayback } = useStopPlayback({ setPlaying, playTimeoutRef, playTimerRef });
 
+  // item 215: stable callback so EventsPanel memo is not broken on every re-render
+  const enableRepeat = useCallback(() => setIsSingleEventRepeatEnabled(true), []);
+
   const stopSeqAnim = useCallback(() => {
     if (seqTimerRef.current) {
       cancelAnimationFrame(seqTimerRef.current);
@@ -1857,7 +1860,7 @@ export default function Visualizer({
           toggle: toggleEventsPanel,
           setCollapsed: setIsEventsPanelCollapsed,
           setPanelWidth,
-          enableRepeat: () => setIsSingleEventRepeatEnabled(true),  // item 215
+          enableRepeat,  // item 215 — stable callback defined above
         },
       },
       detail: {
