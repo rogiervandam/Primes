@@ -425,12 +425,9 @@ trace_record_applymask_step_labeled(int level, const void* bitstorage,
     if (slot_count == 1) {
         fputs(", \"mask_bits\": ", g_trace.file);
         trace_write_uint32_array(g_trace.file, slot_bits[0], slot_counts[0]);
-    } else {
-        for (uint32_t s = 0; s < slot_count; s++) {
-            fprintf(g_trace.file, ", \"mask%u_bits\": ", s + 1);
-            trace_write_uint32_array(g_trace.file, slot_bits[s], slot_counts[s]);
-        }
     }
+    /* item 269: removed legacy "mask%u_bits" (1-indexed) output for multi-slot cases.
+     * "pattern_slot%u_bits" (0-indexed) below is the canonical field name. */
     const char* pattern_kind = (slot_count >= 1 && slot_count <= 4) ? s_pattern_kind_names[slot_count] : "multi";
     fprintf(g_trace.file, ", \"pattern_kind\": \"%s\", \"pattern_slot_count\": %u", pattern_kind, slot_count);
     for (uint32_t s = 0; s < slot_count; s++) {

@@ -906,6 +906,7 @@ export default function Visualizer({
     animateViewportTo,
     refitViewportToContent,
     navigateToBit,
+    navigateToRange,
   } = useViewportNavigation({
     rendererRef,
     containerRef,
@@ -929,12 +930,13 @@ export default function Visualizer({
   // Search state + handler — extracted to src/hooks/useSearchState.js (Pattern A).
   // Placed here so navigateToBit is in scope for the hook's dep arrays.
   // activateRangeOverlay: set and enable the range overlay from a search query.
+  // item 254: use navigateToRange so the camera zooms to show the full range.
   const activateRangeOverlay = useCallback((startBit, endBit) => {
     setIsRangeOverlayEnabled(true);
     setRangeOverlayStart(startBit);
     setRangeOverlayEnd(endBit);
-    navigateToBit(startBit, 'bit');
-  }, [setIsRangeOverlayEnabled, setRangeOverlayStart, setRangeOverlayEnd, navigateToBit]);
+    navigateToRange(startBit, endBit);
+  }, [setIsRangeOverlayEnabled, setRangeOverlayStart, setRangeOverlayEnd, navigateToRange]);
 
   const {
     searchQuery, setSearchQuery,

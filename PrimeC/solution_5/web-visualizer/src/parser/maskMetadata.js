@@ -158,6 +158,17 @@ export function deriveMaskMeta(source, bitCountHint = 0) {
   const annotation = typeof source === 'string' ? source : String(firstDefined(sourceObj.annotation, '') || '');
   const inferred = inferMetaFromAnnotation(annotation);
 
+  // Prefer the first candidate that resolves to a non-empty integer list.
+  // This prevents empty canonical fields (pattern_slotN_bits: []) from
+  // shadowing populated legacy aliases (maskN_bits).
+  const firstNonEmptyIntegerList = (...candidates) => {
+    for (let i = 0; i < candidates.length; i++) {
+      const parsed = parseIntegerList(candidates[i]);
+      if (parsed.length > 0) return parsed;
+    }
+    return [];
+  };
+
   const focusStart = toNullableNumber(firstDefined(sourceObj.focus_start, sourceObj.focusStart, inferred.start));
   const focusStop = toNullableNumber(firstDefined(sourceObj.focus_stop, sourceObj.focusStop, inferred.stop));
 
@@ -168,10 +179,12 @@ export function deriveMaskMeta(source, bitCountHint = 0) {
   const wordStop = toNullableNumber(firstDefined(sourceObj.word_stop, sourceObj.wordStop));
   const stepWords = toNullableNumber(firstDefined(sourceObj.step_words, sourceObj.stepWords));
   const maskBits = parseIntegerList(firstDefined(sourceObj.mask_bits, sourceObj.maskBits));
-  const mask1Bits = parseIntegerList(firstDefined(sourceObj.mask1_bits, sourceObj.mask1Bits));
-  const mask2Bits = parseIntegerList(firstDefined(sourceObj.mask2_bits, sourceObj.mask2Bits));
-  const mask3Bits = parseIntegerList(firstDefined(sourceObj.mask3_bits, sourceObj.mask3Bits));
-  const mask4Bits = parseIntegerList(firstDefined(sourceObj.mask4_bits, sourceObj.mask4Bits));
+  // item 269: prefer the canonical "pattern_slotN_bits" (0-indexed) naming; fall back
+  // to the legacy "maskN_bits" (1-indexed) for backward compatibility with old traces.
+  const mask1Bits = firstNonEmptyIntegerList(sourceObj.pattern_slot0_bits, sourceObj.patternSlot0Bits, sourceObj.mask1_bits, sourceObj.mask1Bits);
+  const mask2Bits = firstNonEmptyIntegerList(sourceObj.pattern_slot1_bits, sourceObj.patternSlot1Bits, sourceObj.mask2_bits, sourceObj.mask2Bits);
+  const mask3Bits = firstNonEmptyIntegerList(sourceObj.pattern_slot2_bits, sourceObj.patternSlot2Bits, sourceObj.mask3_bits, sourceObj.mask3Bits);
+  const mask4Bits = firstNonEmptyIntegerList(sourceObj.pattern_slot3_bits, sourceObj.patternSlot3Bits, sourceObj.mask4_bits, sourceObj.mask4Bits);
 
   const maskSlotBits = [];
   if (mask1Bits.length > 0 || mask2Bits.length > 0 || mask3Bits.length > 0 || mask4Bits.length > 0) {

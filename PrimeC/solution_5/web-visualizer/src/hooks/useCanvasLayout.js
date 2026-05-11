@@ -739,7 +739,8 @@ export function useCanvasLayout({
   useEffect(() => {
     if (!addCameraDomListener) return;
     return addCameraDomListener((cam) => {
-      const rotStr = usesWebGLTilt(renderModeRef.current)
+      const isGlTilt = usesWebGLTilt(renderModeRef.current);
+      const rotStr = isGlTilt
         ? ''
         : (cam && cam.enabled ? cam.getCanvasTransform() : '');
       const lockTranslate = glCssLockStateRef.current?.translateTransform || '';
@@ -751,6 +752,15 @@ export function useCanvasLayout({
       if (glyphEl) glyphEl.style.transform = rotStr;
       const glyph2DEl = glyph2DCanvasRef.current;
       if (glyph2DEl) glyph2DEl.style.transform = rotStr;
+      // item 262: in WebGL-tilt modes the tilt lives inside the GLSL shader.
+      // CSS transform changes don't trigger a redraw, so we must trigger one
+      // explicitly on every camera tick so the intro 2D→3D and toggle-tilt
+      // animations are visible (the shader reads cam.rotateX/Y at render time).
+      if (isGlTilt) {
+        const r = rendererRef.current;
+        if (r?.scheduleRender) r.scheduleRender();
+        else r?.render?.();
+      }
     });
   }, [addCameraDomListener]); // eslint-disable-line react-hooks/exhaustive-deps
 

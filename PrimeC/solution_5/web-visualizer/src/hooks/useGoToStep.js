@@ -31,6 +31,11 @@ export function useGoToStep({
   effectiveGroupBits,
   animateBitsModeRef,  // item 244: 'changed' | 'targeted'
 }) {
+  // item 270: track the mask signature of the most recently displayed step so
+  // we can set r.maskIsNew when the mask pattern changes.
+  const prevMaskSigRef = useRef('');
+  const maskNewTimerRef = useRef(null);
+
   const goToStep = useCallback((target, options = {}) => {
     const r = rendererRef.current;
     if (!r || steps.length === 0) return;
@@ -152,6 +157,24 @@ export function useGoToStep({
       }, {
         repeatedBits: repeatedBitsForRender,
       });
+
+      // item 270: detect mask change and set r.maskIsNew for overlay flash.
+      if (!suppressHighlight && step.maskWordBits) {
+        const slotSig = step.maskSlotBits && step.maskSlotBits.length > 0
+          ? step.maskSlotBits.map((s) => Array.from(s).join(',')).join('|')
+          : '';
+        const sig = `${step.maskWordBits}:${slotSig}`;
+        if (sig !== prevMaskSigRef.current) {
+          prevMaskSigRef.current = sig;
+          r.maskIsNew = true;
+          r.maskIsNewTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+          if (maskNewTimerRef.current != null) clearTimeout(maskNewTimerRef.current);
+          maskNewTimerRef.current = setTimeout(() => {
+            if (rendererRef.current) rendererRef.current.maskIsNew = false;
+            maskNewTimerRef.current = null;
+          }, 800);
+        }
+      }
     }
 
     if (r.isHeatMapEnabled || (r.cachelineAnnotation && r.cachelineAnnotation !== 'none')) {

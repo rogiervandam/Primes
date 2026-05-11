@@ -33,6 +33,8 @@ export class MaskWriteOverlay {
     const px = host.pixelSize * host.zoom;
     const wordBits = host.maskWordBits;
     const tightLayout = wordBits && wordBits <= 32;
+    // item 270: when the mask just changed, draw a brighter glow to signal "new mask".
+    const maskIsNew = !!host.maskIsNew;
 
     for (let index = 0; index < entries.length; index++) {
       const entry = entries[index];
@@ -55,6 +57,12 @@ export class MaskWriteOverlay {
           const ii = inset * 0.45;
           glCtx.drawOutlineRect(rx + ii, ry + ii, Math.max(1, rw - ii * 2), Math.max(1, rh - ii * 2),
             1, 1, 1, 0.42, Math.max(0.45, Math.min(1.1, px * 0.06)));
+        }
+        // item 270: extra glow ring when this is a newly-changed mask pattern.
+        if (maskIsNew) {
+          const glow = Math.max(2.5, inset * 1.6);
+          glCtx.drawOutlineRect(rx - glow, ry - glow, rw + glow * 2, rh + glow * 2,
+            tr, tg, tb, 0.55, Math.max(1.5, lineWidth * 1.6));
         }
       }
     }

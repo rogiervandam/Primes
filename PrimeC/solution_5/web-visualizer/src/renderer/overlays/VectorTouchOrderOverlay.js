@@ -21,6 +21,8 @@ export class VectorTouchOrderOverlay {
 
     const entries = host._maskWordOrderSummary();
     if (entries.length === 0) return;
+    // item 270: flag indicating the mask just changed (set by useGoToStep).
+    const maskIsNew = !!host.maskIsNew;
 
     const px = host.pixelSize * host.zoom;
     const fontSize = Math.max(11, Math.min(20, 9 + px * 0.26));
@@ -80,6 +82,10 @@ export class VectorTouchOrderOverlay {
       if (glCtx) {
         // Fill and border (connector line skipped in GL mode).
         glCtx.drawFilledRect(bx, by, boxW, boxH, tr, tg, tb, 0.96);
+        // item 270: brighter outer glow when this label belongs to a newly-changed mask.
+        if (maskIsNew) {
+          glCtx.drawOutlineRect(bx - 2, by - 2, boxW + 4, boxH + 4, tr, tg, tb, 0.72, 2.2);
+        }
         glCtx.drawOutlineRect(bx, by, boxW, boxH, 15 / 255, 23 / 255, 42 / 255, 0.52, 1.1);
         const [lr, lg, lb, la] = host._labelTextColorGL(tint);
         if (labelSize > 0) {

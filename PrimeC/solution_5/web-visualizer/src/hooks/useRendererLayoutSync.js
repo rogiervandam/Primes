@@ -99,11 +99,19 @@ export function useRendererLayoutSync({ ...flatArgs }) {
     r.u64SpacingH = layoutSettings.u64SpacingH;
     r.u64SpacingV = layoutSettings.u64SpacingV;
     const isCustomVectorMode = layoutSettings.vectorMode === 'custom';
-    r.vectorGroup = layoutSettings.vectorGroup;
+    r.customGroupingBits = isCustomVectorMode ? Math.max(1, parseInt(layoutSettings.customGroupBits || 1, 10) || 1) : 0;
+    // item 261: in custom group mode, override vectorGroup to ceil(customGroupBits/64)
+    // so the visual layout (vectorDims) matches the logical grouping.  This prevents
+    // the "still see the smaller groups" artifact when the previous vectorGroup < the
+    // number of u64s the custom group needs.
+    if (isCustomVectorMode && r.customGroupingBits > 0) {
+      r.vectorGroup = Math.max(1, Math.ceil(r.customGroupingBits / 64));
+    } else {
+      r.vectorGroup = layoutSettings.vectorGroup;
+    }
     r.vectorBaseBits = layoutSettings.vectorBaseBits;
     r.vectorLanes = layoutSettings.vectorLanes;
     r.vectorLabel = layoutSettings.vectorLabel || `uint64v${layoutSettings.vectorGroup || 1}`;
-    r.customGroupingBits = isCustomVectorMode ? Math.max(1, parseInt(layoutSettings.customGroupBits || 1, 10) || 1) : 0;
     r.showBitLabels = layoutSettings.showBitLabels;
     r.showNumberLabels = layoutSettings.showNumberLabels === true;
     r.showByteLabels = layoutSettings.showByteLabels;

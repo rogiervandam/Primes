@@ -156,8 +156,12 @@ export default function DetailPanel({
 
     if (!activeMaskStep || !Number.isFinite(activeMaskStep.maskWordBits) || activeMaskStep.maskWordBits <= 0) return null;
 
-    const slotBits = Array.isArray(activeMaskStep.maskSlotBits)
+    const rawSlotBits = Array.isArray(activeMaskStep.maskSlotBits) && activeMaskStep.maskSlotBits.length > 0
       ? activeMaskStep.maskSlotBits
+      : (Array.isArray(activeMaskStep.patternSlotBits) ? activeMaskStep.patternSlotBits : []);
+
+    const slotBits = Array.isArray(rawSlotBits)
+      ? rawSlotBits
           .map((bits, slotIndex) => {
             const values = Array.from(bits || []).map((value) => Number(value)).filter((value) => Number.isFinite(value));
             if (values.length === 0) return null;

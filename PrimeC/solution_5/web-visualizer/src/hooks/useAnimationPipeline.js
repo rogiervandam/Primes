@@ -180,15 +180,20 @@ export function useAnimationPipeline({
     const startFraction = (rawProgress > 2 && rawProgress < 98) ? rawProgress / 100 : 0;
 
     if (isSingleEventLoopActiveRef.current || selectedAnimLoopRef.current) {
-      if (startFraction > 0) {
-        const step_data = stepsRef.current[currentStepRef.current];
-        if (step_data && step_data.changedBits && step_data.changedBits.length > 0) {
-          stepResumeStartIndexRef.current = Math.round(startFraction * (step_data.changedBits.length - 1));
-        }
-        stepResumeMaskProgressRef.current = startFraction;
-      }
+      // item 256: cancel the in-flight animation and immediately restart it
+      // from the current scrub position using the new mode/style/interval.
       seekGenRef.current += 1;
       if (setIsStepAnimRunningRef.current) setIsStepAnimRunningRef.current(false);
+      const step_loop = stepsRef.current[currentStepRef.current];
+      if (step_loop && step_loop.changedBits && step_loop.changedBits.length > 0) {
+        const currentChanged_loop = new Set(step_loop.changedBits);
+        const triggerOpts_loop = { adaptiveDuration: !playing };
+        if (startFraction > 0) {
+          triggerOpts_loop.startProgress = startFraction;
+          triggerOpts_loop.startIndex = Math.round(startFraction * (step_loop.changedBits.length - 1));
+        }
+        triggerAnimation(currentChanged_loop, triggerOpts_loop);
+      }
       return;
     }
     stopSeqAnimRef.current?.();

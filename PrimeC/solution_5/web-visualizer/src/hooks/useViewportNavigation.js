@@ -116,9 +116,77 @@ export function useViewportNavigation({
     return animateViewportTo(targetView, 520).then(() => true);
   }, [rendererRef, containerRef, camera3DRef, animateViewportTo]);
 
+  // item 254: navigate to a bit range, zooming to show the full range in view.
+  const navigateToRange = useCallback((startBit, endBit) => {
+    const r = rendererRef.current;
+    const el = containerRef.current;
+    if (!r || !el) return Promise.resolve(false);
+    const clampedStart = Math.max(0, startBit);
+    const clampedEnd = Math.min(r.bitCount - 1, endBit);
+    if (clampedStart > clampedEnd) return Promise.resolve(false);
+
+    const rect = el.getBoundingClientRect();
+    const startPos = r.bitIndexToCanvas(clampedStart);
+    const endPos = r.bitIndexToCanvas(clampedEnd);
+    if (!startPos || !endPos) return navigateToBit(clampedStart, 'bit');
+
+    // Bounding box of the range in canvas coordinates.
+    const rangeLeft   = Math.min(startPos.x, endPos.x);
+    const rangeRight  = Math.max(startPos.x, endPos.x);
+    const rangeTop    = Math.min(startPos.y, endPos.y);
+    const rangeBottom = Math.max(startPos.y, endPos.y);
+    const rangeW = rangeRight - rangeLeft;
+    const rangeH = rangeBottom - rangeTop;
+
+    // Compute target zoom: fit the range with 15% padding on each side.
+    const PADDING = 0.15;
+    const viewW = rect.width  * (1 - 2 * PADDING);
+    const viewH = rect.height * (1 - 2 * PADDING);
+    let targetZoom;
+    if (rangeW > 0 && rangeH > 0) {
+      // range spans both axes — fit the larger dimension
+      const zoomX = (viewW / rangeW) * r.zoom;
+      const zoomY = (viewH / rangeH) * r.zoom;
+      targetZoom = Math.max(0.5, Math.min(16, Math.min(zoomX, zoomY)));
+    } else if (rangeW > 0) {
+      targetZoom = Math.max(0.5, Math.min(16, (viewW / rangeW) * r.zoom));
+    } else {
+      // Single bit or vertical strip — fall back to bit navigation
+      return navigateToBit(clampedStart, 'bit');
+    }
+
+    // Centre of the range in content (pre-pan) coordinates.
+    const centerX = (rangeLeft + rangeRight) / 2;
+    const centerY = (rangeTop  + rangeBottom) / 2;
+    const contentX = (centerX - r.panX) / Math.max(0.0001, r.zoom);
+    const contentY = (centerY - r.panY) / Math.max(0.0001, r.zoom);
+
+    const targetView = {
+      panX: rect.width  / 2 - contentX * targetZoom,
+      panY: rect.height / 2 - contentY * targetZoom,
+      zoom: targetZoom,
+    };
+
+    const cam = camera3DRef.current;
+    if (cam && cam.enabled) {
+      const planeW = r.canvasWidth || rect.width;
+      const planeH = (r.canvas?.height || rect.height * (window.devicePixelRatio || 1)) / (window.devicePixelRatio || 1);
+      return cam.flyTo(
+        { canvasX: centerX, canvasY: centerY },
+        { containerW: planeW, containerH: planeH, centerX: planeW / 2, centerY: planeH / 2 },
+        { panX: r.panX, panY: r.panY, zoom: r.zoom },
+        targetZoom,
+        950,
+      ).then(() => true);
+    }
+
+    return animateViewportTo(targetView, 650).then(() => true);
+  }, [rendererRef, containerRef, camera3DRef, animateViewportTo, navigateToBit]);
+
   return {
     animateViewportTo,
     refitViewportToContent,
     navigateToBit,
+    navigateToRange,
   };
 }

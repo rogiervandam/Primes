@@ -244,7 +244,7 @@ Fixed: Added `animAccumDeltaRef` in `DoubleTimeline.jsx`. During the drag-initia
 
 261 When i set a custom group size of 192, this only get displayed correctly if i had a large group (e.g. 64x8) before. If i had a lower bitcount than the custom one, i still see the lower bitcount groups.
 
-262 The 2d-3d transform isn't animating anymore when it should by done in webgl.
+262 Fixed. The 2d-3d transform isn't animating anymore when it should by done in webgl.
 
 263 Fixed: The events panel max-width has been increased from 800 px to 2000 px in `EventsPanel.jsx` (drag-resize handler). Users can now widen the panel to read full-length event annotations.
 
@@ -261,9 +261,9 @@ Fixed: Added `animAccumDeltaRef` in `DoubleTimeline.jsx`. During the drag-initia
 
 268 Fixed: The raw log viewer (`TraceInfoPopover.jsx`) now defaults to word-wrap enabled. Changed `useState(false)` to `useState(true)` for the `wordWrap` state variable.
 
-269 Look at the logger for masks. We have "mask1_bits". and "pattern_slot0_bits". If they are the same, think of a way to unify them, so that we have a consistent way of logging masks and patterns. This way users can easily understand the logs and how the masks and patterns are applied in the sieve algorithm. We can either choose one naming convention (e.g. "mask_bits") or create a more general structure that can accommodate both masks and patterns without confusion.
+269 Fixed: Unified mask naming in the C logger (`sieve_trace.h`). Removed the redundant `mask1_bits`/`mask2_bits` (1-indexed) loop for multi-slot masks; `pattern_slot0_bits`/`pattern_slot1_bits` (0-indexed) is now the sole canonical JSON field for multi-slot cases, while `mask_bits` is kept for the single-slot case. The JS parser (`maskMetadata.js`) now prefers `pattern_slot0_bits` etc. as the primary source, with `mask1_bits` etc. as a backward-compat fallback for old log files.
 
-270 In the mask animation and touch overlays, make it visually clear for the user when a new mask is used, vs when the same mask is repeated for multiple events. For example, we can add a brief highlight or animation effect on the mask when it changes to indicate that a new mask is being applied. This way users can easily track the changes in masks and understand how they are being used in the sieve algorithm, especially when analyzing the sequence of events and their effects on the marked numbers.
+270 Fixed: Added visual indication in `MaskWriteOverlay` and `VectorTouchOrderOverlay` when the mask pattern changes between steps. In `useGoToStep.js`, a mask signature (wordBits + slotBits fingerprint) is computed for each step; when it differs from the previous step, `r.maskIsNew` is set to `true` and cleared after 800 ms via a timeout. The overlays use `host.maskIsNew` to draw a brighter outer glow around the mask rectangles / label boxes on the first render after a mask change, making new-mask vs repeated-mask transitions immediately apparent.
 
 280 Fixed: Prime inference in `primeInference.js` now prefers the prime from the previous event over annotation-based inference. In `inferMissingPrimes`, when `lastPrime != null`, it is used immediately without consulting annotations. Annotation inference only runs as last resort (when no previous prime is known), and inferred annotation values no longer update `lastPrime` (avoiding propagation of unreliable values into subsequent events).
 
@@ -271,7 +271,15 @@ Fixed: Added `animAccumDeltaRef` in `DoubleTimeline.jsx`. During the drag-initia
 
 282 The detail panel should not be a child of the canvas area, but a sibling of it, so that it can be updated and rendered independently without affecting the performance of the canvas area. This way we can ensure that the detail panel remains responsive and interactive even when the canvas area is under heavy load from animations or scrubbing. It also makes more sense from a layout perspective, as the detail panel is more closely related to the main content than to the canvas.
 
-283 
+283 When the mask animation is playing, it should be much more obvious that a mask is reused vs that a new mask is used, for example by showing a bright flash or glow when a new mask is used, and a dimmer flash or no flash when a mask is reused. On the touch overlay, give an indication which mask is used, like giving the labels (mask A, mask B, etc) or different colors or little previews (but that can be too small). This way users can easily distinguish between new masks and reused masks during the animation, and understand how the algorithm is progressing through different stages of marking and filtering. Also use a different animation trail style or color when going somewhere to repeat a mask, vs going somewhere to grab a new maks. 
+
+284 WHen the detail panel is open and i open the settings panel, i get only the top half of the settings panel and the bottom half is cut off and not visible. 
+
+285 sometimes when i hit play, the detail panel grows larger with an extra row of extra space at the bottom.
+
+286 The detail panel should not use a title row with a close button. Instead, the double timeline controles the detail panel. Make the toggle for the detail panel an arrow, like we have for the other panels. Make all the arrows to controle panels from the double timeline a bit bigger and more prominent, so that users can easily see and click on them to open and close the panels. This way we can create a more consistent and intuitive user interface where the double timeline serves as the central hub for controlling the visibility of the different panels, including the detail panel. The detail panel can then focus on displaying the relevant information without having its own title bar, making it feel more integrated with the overall layout.
+
+
 
 
 

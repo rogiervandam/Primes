@@ -100,6 +100,11 @@ export class SieveRenderer {
     this.maskSlotBits = null;
     this.maskSlotBitsPerEvent = null;
     this.maskGhostBits = null;
+    // item 270: flag set when the mask pattern changes between steps; used by
+    // overlays to draw a brief "new mask" flash. maskIsNewTime is performance.now()
+    // at the moment the flag was set (for fade-out timing).
+    this.maskIsNew = false;
+    this.maskIsNewTime = 0;
     this.showMaskWriteOverlay = true;
     this.searchOverlay = new SearchOverlay(this);
     this.maskWriteOverlay = new MaskWriteOverlay(this);
