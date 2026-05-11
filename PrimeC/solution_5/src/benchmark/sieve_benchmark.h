@@ -21,13 +21,13 @@ static inline benchmark_settings_t checkBenchmarkSettings(benchmark_settings_t b
 {
     counter_t prime_max = calcFactor_max(benchmark_settings.factor_max );
     benchmark_settings.stripe_faster     = min(benchmark_settings.stripe_faster, prime_max);
-    benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, 64);
-    benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, benchmark_settings.vectorsize);
+    // benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, 64);
+    // benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, benchmark_settings.vectorsize);
     benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, prime_max);
     benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, 2); // allow for conversion from step to prime
     benchmark_settings.blocksize_bits    = min(benchmark_settings.blocksize_bits, calcBitsize(benchmark_settings.factor_max, benchmark_settings.storage)); 
     if (benchmark_settings.blocksize_bits == 0) benchmark_settings.blocksize_bits = calcBitsize(benchmark_settings.factor_max, benchmark_settings.storage);
-    if (benchmark_settings.algorithm < 1 || benchmark_settings.algorithm >23) benchmark_settings.algorithm = 1; // default to sieve algorithm 1
+    if (benchmark_settings.algorithm < 1 || benchmark_settings.algorithm >option.algorithm_max) benchmark_settings.algorithm = 1; // default to sieve algorithm 1
     if (benchmark_settings.vectorsize != 128 && benchmark_settings.vectorsize != 256 && benchmark_settings.vectorsize != 512) {
         benchmark_settings.vectorsize = 256; // default to 256 bit vectors
     }

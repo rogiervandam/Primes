@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
     parseCommandLine(argc, argv);
 
     #ifdef PREPARE_FUNCTION
-      prepareSieveFunction();
+      prepareBenchmark();
     #endif
   
     showWelcomeMessage(algorithm_name, option);

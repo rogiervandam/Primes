@@ -24,6 +24,7 @@ typedef struct  {
     double    tune_duration_max;
     counter_t tune_keeppercent_longlist;
     counter_t tune_keeppercent_shortlist;
+    counter_t algorithm_max;
     char*     program_name;
     char*     dockerfile_type;
     char*     extension;
@@ -149,6 +150,7 @@ setDefaultOptions()
     option.tune_duration_max          = 5.0;
     option.tune_keeppercent_longlist  = 20;
     option.tune_keeppercent_shortlist = 25;
+    option.algorithm_max              = 1; // 1-based, see enum algorithm_t in types.h
 
     option.fixed_benchmark_settings.factor_max              = 1000000;
     option.fixed_benchmark_settings.threads                 = 1;

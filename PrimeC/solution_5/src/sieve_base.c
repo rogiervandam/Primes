@@ -19,6 +19,14 @@ static inline void markFactors(sieve_t *sieve, counter_t start, counter_t stop, 
 static inline uint8_t checkFactor(sieve_t* sieve, register counter_t factor) { return checkFactor_half(sieve, factor); }
 static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return findUnmarked_half(sieve, factor); }
 
+#define PREPARE_FUNCTION 1 // signals sieve_main to call prepareBenchmark() before the benchmark starts
+void prepareBenchmark() {
+    option.fixed_benchmark_settings.stripe_faster           = 1;
+    option.fixed_benchmark_settings.largestep_faster        = 1;
+    option.fixed_benchmark_settings.vectorsize              = 128;
+    option.algorithm_max                                    = 8;
+}
+
 // This is the main module that directs all the work 
 static sieve_t* shakeSieve(const counter_t sieve_size)
 {
@@ -35,10 +43,8 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
 
         #pragma GCC unroll 16
         for (counter_t prime = 3; prime < prime_max; prime = findUnmarked(sieve, prime)) {
-            log5(sieve->bitstorage,
-                       "MarkFactors: base prime %jd (idx %jd), block [%jd-%jd] step %jd",
-                       (intmax_t)(prime*2+1), (intmax_t)prime, (intmax_t)block_start,
-                       (intmax_t)block_stop, (intmax_t)calcFactor_step(prime));
+            log5(sieve->bitstorage, "MarkFactors: base prime %jd (idx %jd), block [%jd-%jd] step %jd",
+                       (intmax_t)(prime*2+1), (intmax_t)prime, (intmax_t)block_start, (intmax_t)block_stop, (intmax_t)calcFactor_step(prime));
             markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
         }
     } 

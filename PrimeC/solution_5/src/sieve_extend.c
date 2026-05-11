@@ -21,6 +21,10 @@ static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return 
 #include "sieve/sieve_markStripe.h"
 #include "sieve/sieve_markExtend.h"
 
+void prepareBenchmark() {
+    option.algorithm_max = 2;
+}
+
 /* This is the main module that directs all the work
    sieve_size in a real number that is the maximum in the sieve (not in bits)
    block_size is in bits and determines how large the blocks are which are processed 

@@ -55,3 +55,14 @@ enum {
     ALGORITHM_STRIPED = 3,
     ALGORITHM_WHEEL   = 4
 };
+
+enum {
+    STORAGE_FULL             = 0,
+    STORAGE_HALF             = 1,
+    STORAGE_WHEEL2OF6        = 2,
+    STORAGE_WHEEL8OF30       = 3,
+    STORAGE_WHEEL48OF210     = 4,
+    STORAGE_WHEEL480OF2310   = 5,
+    STORAGE_WHEEL5760OF30030 = 6,
+    STORAGE_WHEELTESTING     = 99
+};

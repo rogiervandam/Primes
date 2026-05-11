@@ -16,17 +16,18 @@ static inline void markFactors(sieve_t *sieve, counter_t start, counter_t stop, 
 static inline uint8_t checkFactor(sieve_t* sieve, register counter_t factor) { return checkFactor_wheelstorage(sieve, factor); }
 static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return findUnmarked_wheelstorage(sieve, factor); }
 
-#define PREPARE_FUNCTION 1 // signals sieve_main to call prepareSieveFunction() before the benchmark starts, this is used to build the wheel
-void prepareSieveFunction() {
-    build_wheel();
+#define PREPARE_FUNCTION 1 // signals sieve_main to call prepareBenchmark() before the benchmark starts, this is used to build the wheel
+void prepareBenchmark() {
+    buildWheel();
 
     // append the wheel size to the algorithm name
     size_t prefix_len = 0; while (algorithm_name[prefix_len] != '\0') prefix_len++;
     sprintf(algorithm_name + prefix_len, "_%juof%ju", (uintmax_t)wheelmask_stripe_bits, (uintmax_t)WHEEL_SIZE);
 
-    option.fixed_benchmark_settings.largestep_faster        = 256;
+    // option.fixed_benchmark_settings.largestep_faster        = 256;
     option.fixed_benchmark_settings.algorithm               = ALGORITHM_WHEEL;
     option.fixed_benchmark_settings.storage                 = STORAGE_WHEELTESTING;
+    option.fixed_benchmark_settings.stripe_faster           = 1;
 }
 
 /* This is the main module that directs all the work
@@ -50,10 +51,6 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
 
         // #pragma GCC unroll 32
         for (counter_t prime = findUnmarked(sieve, WHEEL_MAX+1); prime < prime_max;  prime = findUnmarked(sieve, ++prime)) {
-            // log6(sieve->bitstorage,
-            //            "MarkFactors: wheelstorage prime %jd (idx %jd), block [%jd-%jd] step %jd",
-            //            (intmax_t)(prime), (intmax_t)prime, (intmax_t)block_start,
-            //            (intmax_t)block_stop, (intmax_t)calcFactor_step(prime));
             markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
         }
 

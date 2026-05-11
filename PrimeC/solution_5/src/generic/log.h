@@ -194,7 +194,7 @@ log_mask(int level, const void* bitstorage, const char* label, uint64_t word_bit
     if (!(primes_log_should_trace(level) || primes_log_should_explain(level))) return;
     if (mask_slot_count == 0 || mask_slot_count > 4) return;
 
-    static const char* s_opnames[] = {"", "ApplyMask", "ApplyMaskPair", "ApplyMaskTriple", "ApplyMaskQuad"};
+    // static const char* s_opnames[] = {"", "ApplyMask", "ApplyMaskPair", "ApplyMaskTriple", "ApplyMaskQuad"};
 
     char annotation[4096] = {0};
     uint32_t all_mask_bits[4][1024];

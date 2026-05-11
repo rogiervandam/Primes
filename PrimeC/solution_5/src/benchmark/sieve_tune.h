@@ -58,12 +58,13 @@ static inline void printTuningResult(benchmark_result_t tuning_result)
 
 static counter_t buildInitialTuningTable(benchmark_result_t* tuning_result, benchmark_settings_t tuning_settings, tuning_parameters_t tuning_parameters) {
     counter_t tuning_results = 0;
-    for (counter_t algorithm=1; algorithm <= 2; algorithm++) {
+    for (counter_t algorithm=1; algorithm <= option.algorithm_max; algorithm++) {
+        printf("\nAlgorithm: " COLOR_BOLD_GREEN "%d" COLOR_RESET " max:" COLOR_BOLD_YELLOW "%d" COLOR_RESET "\n", algorithm, option.algorithm_max);
         for (counter_t vectorsize = 128; vectorsize <= 512; vectorsize *= 2) {
             counter_t stripe_faster = 0;
             do {
                 stripe_faster += tuning_parameters.stripe_faster_steps; // do this here to over force processing of prime_max as well
-                for (counter_t largestep_faster = 64; largestep_faster <= vectorsize; largestep_faster += tuning_parameters.largestep_faster_steps) { 
+                for (counter_t largestep_faster = stripe_faster; largestep_faster <= vectorsize; largestep_faster += tuning_parameters.largestep_faster_steps) { 
                     counter_t blocksize_bits=0;
                     do { // do loop because user can set this beyound sieve_bits
                         blocksize_bits += tuning_parameters.blocksize_steps;
@@ -92,7 +93,8 @@ static counter_t buildInitialTuningTable(benchmark_result_t* tuning_result, benc
                         if (tuning_settings.stripe_faster < tuning_parameters.prime_max 
                             && tuning_settings.blocksize_bits == tuning_parameters.sieve_bits
                             && (option.fixed_benchmark_settings.stripe_faster == 0 // only break if user didn't set this
-                            && algorithm != ALGORITHM_WHEEL) 
+                            // && algorithm != ALGORITHM_WHEEL
+                        ) 
                         ) break; // stripe will do the entire sieve as well
 
                         resetBenchmarkResult(&tuning_result[tuning_results++], checkBenchmarkSettings(tuning_settings));
