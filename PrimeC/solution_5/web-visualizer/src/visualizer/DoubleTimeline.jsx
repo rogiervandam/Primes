@@ -100,6 +100,7 @@ export default function DoubleTimeline({
   const preDockWidthRef = useRef(Math.round((typeof window !== 'undefined' ? window.innerWidth : 800) * 0.6));  // Default 60%
   const isDockAnimatingRef = useRef(false);
   const undockAnimatingRef = useRef(false);  // true during undock FLIP animation; blocks drag position tracking
+  const animAccumDeltaRef = useRef({ x: 0, y: 0 });  // item 251: cursor delta accumulated during undock transition
   const preferredBottomGapRef = useRef(96);
   const prevFloatingDetailVisibleRef = useRef(floatingDetailVisible);
 
@@ -358,6 +359,7 @@ export default function DoubleTimeline({
     draggerHoldOffsetRef.current = { x: 0, y: 0 };
     draggerCenterWidthRef.current = 0;
     undockCursorPosRef.current = { x: e.clientX, y: e.clientY };
+    animAccumDeltaRef.current = { x: 0, y: 0 };  // item 251: reset accumulator before each drag-undock
     onUndockTimeline();
 
     // Track pointer after the FLIP animation to move the freshly-floated strip
@@ -368,7 +370,9 @@ export default function DoubleTimeline({
     const onMove = (ev) => {
       if (docked) return;
       if (undockAnimatingRef.current) {
-        // Keep reference point current so delta is small when animation ends
+        // item 251: accumulate cursor movement so the panel can catch up when the transition ends
+        animAccumDeltaRef.current.x += ev.clientX - lastX;
+        animAccumDeltaRef.current.y += ev.clientY - lastY;
         lastX = ev.clientX;
         lastY = ev.clientY;
         return;
@@ -736,6 +740,19 @@ export default function DoubleTimeline({
           setUndockSize((prev) => ({ ...prev, width: desiredFloatingWidth }));
           setTimeout(() => {
             setUndockTransition(null);
+            // item 251: apply cursor movement accumulated during the transition so the panel
+            // follows the mouse pointer without a disconnect after the animation.
+            const delta = animAccumDeltaRef.current;
+            animAccumDeltaRef.current = { x: 0, y: 0 };
+            if (delta.x !== 0 || delta.y !== 0) {
+              const insets = getFloatingSideInsets();
+              const newPos = {
+                x: Math.max(insets.left, Math.min(insets.right - undockSizeRef.current.width, undockPosRef.current.x + delta.x)),
+                y: Math.max(0, undockPosRef.current.y + delta.y),
+              };
+              undockPosRef.current = newPos;
+              setUndockPos({ ...newPos });
+            }
             undockAnimatingRef.current = false;
           }, 420);
         });

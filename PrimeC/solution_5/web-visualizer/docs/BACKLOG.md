@@ -221,6 +221,12 @@ Fixed: Added `animZoomRange` state (null | [start, end] fractions) in `DoubleTim
 
 250 At zoomed out distances, the bottom outlines of byte and groups seem to be lower than the top outlines of the byte/group below them, which creates a confusing visual effect where it looks like the outlines are intersecting or the groups are not properly separated. This should be fixed by adjusting the rendering of the outlines to ensure that they do not visually intersect or overlap in a way that creates confusion. This way users can clearly see the separation between different groups and bytes, even at zoomed out distances, and avoid any visual confusion caused by intersecting outlines.
 
+251 When the double timeline is going from docked to float while dragging the title, the animation takes a while. In the mean time the user might have dragged the title further up. This creates a disconnect between the position of the mouse pointer and the position of the double timeline, which can be frustrating for the user. To fix this, keep following the mouse pointer during the transition.
+Fixed: Added `animAccumDeltaRef` in `DoubleTimeline.jsx`. During the drag-initiated undock FLIP animation (`undockAnimatingRef.current === true`), the `onMove` handler now accumulates `dx`/`dy` into this ref instead of discarding them. When the 420 ms animation timeout fires (just before `undockAnimatingRef.current = false`), the accumulated delta is applied to `undockPosRef.current` / `setUndockPos`, clamped to the floating side insets. Also reset the accumulator in `handleTitleBarPointerDown` before each new drag-undock.
+
+252 When i have my mouse above the double timeline (including title and annotions), don't let the mouse interactions trigger on underlying elements, such as the canvas or the detail panel. 
+
+253 Weh i drag really fast, you see the balloon moving to its new position, but the connector line stay on the old position, which creates a disconnect between the balloon and its connector line, which can be confusing for the user. To fix this, make sure that the connector line updates its position while the balloon is moving, even when dragging quickly. This way users can maintain a clear visual connection between the balloons and their connectors, and avoid any confusion caused by them being out of sync during fast interactions. If that's not possible, remove the connector line during dragging and only show it again when the balloon is in its final position after the drag, so that users are not confused by the disconnected line during the drag.
 
 
 
