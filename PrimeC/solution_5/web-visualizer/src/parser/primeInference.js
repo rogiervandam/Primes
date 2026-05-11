@@ -80,22 +80,19 @@ export function inferMissingPrimes(steps, storageModel) {
       continue;
     }
 
+    // item 280: prefer the previous event's prime over annotation inference —
+    // text-based inference is unreliable and can corrupt the prime chain.
+    if (lastPrime != null) {
+      step.prime = lastPrime;
+      continue;
+    }
+
+    // No previous prime known — try annotation as a last resort.
+    // Don't update lastPrime from annotation inference to avoid corrupting the chain.
     const inferredFromText = inferPrimeFromAnnotation(step.annotation, step.factorStep, mode);
     if (inferredFromText != null) {
       step.prime = inferredFromText;
       lastPrime = inferredFromText;
-      continue;
-    }
-
-    // const prime = inferPrimeFromFactorStep(step.factorStep, mode);
-    // if (prime != null) {
-    //   step.prime = prime;
-    //   lastPrime = prime;
-    //   continue;
-    // }
-
-    if (lastPrime != null) {
-      step.prime = lastPrime;
     }
   }
 }

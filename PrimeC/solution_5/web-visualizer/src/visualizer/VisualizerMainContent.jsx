@@ -252,8 +252,9 @@ export default function VisualizerMainContent(props) {
         }}
       />
       </div>{/* end .canvas-column */}
-      {/* item 235: DetailPanel and DoubleTimeline are siblings of .canvas-column,
-          not nested inside the canvas render subtree (item 58 / item 235). */}
+      {/* item 235: DetailPanel is a sibling of .canvas-column, not nested inside
+          the canvas render subtree (item 58 / item 235).
+          item 260: DoubleTimeline has been moved to .main-content level (see below). */}
       {currentStepData && (() => {
         const isTimelineUndocked = doubleTimelineProps.isTimelineUndocked;
         const floatingDetailVisible = doubleTimelineProps.floatingDetailVisible ?? false;
@@ -306,27 +307,31 @@ export default function VisualizerMainContent(props) {
           />
         );
         return (
-          <>
-            <DoubleTimeline
-              steps={steps}
-              currentStep={currentStep}
-              currentStepData={currentStepData}
-              playing={playing}
-              isDetailOpen={isDetailOpen}
-              detailHeight={detailHeight}
-              totalDetailHeight={totalDetailHeight}
-              onToggleDetail={toggleDetailPanel}
-              onDetailHeightChange={updateDetailHeight}
-              {...doubleTimelineProps}
-            />
-            {/* item 190: wrapper ref lets DoubleTimeline know the full panel height */}
-            <div ref={detailPanelCallbackRef} style={{ flexShrink: 0 }}>
-              {detailPanelNode}
-            </div>
-          </>
+          /* item 190: wrapper ref lets DoubleTimeline know the full panel height */
+          <div ref={detailPanelCallbackRef} style={{ flexShrink: 0 }}>
+            {detailPanelNode}
+          </div>
         );
       })()}
       </div>
+      {/* item 260: DoubleTimeline is a direct child of .main-content (not .canvas-and-detail-column)
+          so it can visually span over both the canvas area and the settings panel.
+          Position: absolute within .main-content (position:relative); docked uses bottom offset,
+          undocked uses position:fixed — so parent change is transparent in both cases. */}
+      {currentStepData && (
+        <DoubleTimeline
+          steps={steps}
+          currentStep={currentStep}
+          currentStepData={currentStepData}
+          playing={playing}
+          isDetailOpen={isDetailOpen}
+          detailHeight={detailHeight}
+          totalDetailHeight={totalDetailHeight}
+          onToggleDetail={toggleDetailPanel}
+          onDetailHeightChange={updateDetailHeight}
+          {...doubleTimelineProps}
+        />
+      )}
       {/* item 178: JoinedEventsWidget removed — nearby events are now shown in the detail panel */}
       <SettingsPanel
         settingsState={{

@@ -81,6 +81,11 @@ export function useCanvasLayout({
   const renderModeRef = useRef(renderMode);
   renderModeRef.current = renderMode;
 
+  // item 255: keep a ref to isMinimapVisible so refreshCanvasLayout stays stable
+  // and doesn't cause usePanelResizeRefresh to re-run when minimap is toggled.
+  const isMinimapVisibleRef = useRef(isMinimapVisible);
+  isMinimapVisibleRef.current = isMinimapVisible;
+
   // Forcibly cancel any pending GL CSS unlock, clear the resize-lock, apply
   // the correct CSS size to the GL canvas, and trigger a full redraw.
   // Useful when Chrome/Edge gets stuck showing a stale or invisible GL layer
@@ -646,8 +651,8 @@ export function useCanvasLayout({
       }
     }
     updateMinimapAvailability();
-    if (isMinimapVisible) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
-  }, [getCanvasTargetSize, isMinimapVisible, getMinimapDetailH, updateMinimapAvailability, setCamera3DTransform, setCamera3DContainerStyle, debugGlOffsetX, debugGlOffsetY, debugRenderTuning, renderMode]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (isMinimapVisibleRef.current) r.renderMinimap(rect.width, rect.height, getMinimapDetailH());
+  }, [getCanvasTargetSize, getMinimapDetailH, updateMinimapAvailability, setCamera3DTransform, setCamera3DContainerStyle, debugGlOffsetX, debugGlOffsetY, debugRenderTuning, renderMode]); // isMinimapVisible read via ref (item 255) — omit to keep callback stable
 
   // Keep manual debug offsets responsive even when no resize/layout event is
   // in flight. This updates both direct GL canvas placement and the Canvas2D

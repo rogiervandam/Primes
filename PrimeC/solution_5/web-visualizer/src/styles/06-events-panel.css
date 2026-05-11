@@ -172,6 +172,11 @@
   cursor: pointer;
   font-size: 12px;
   user-select: none;
+  /* item 264: sticky group header so the prime label stays visible while scrolling */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-surface);
 }
 .event-group-header:hover { background: var(--bg-raised); }
 .event-group.active-group > .event-group-header { background: var(--bg-input); border-left: 3px solid var(--accent); }

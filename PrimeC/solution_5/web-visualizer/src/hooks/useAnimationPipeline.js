@@ -142,6 +142,7 @@ export function useAnimationPipeline({
       timeRatioAtBitIndexRef,
       bitsAtTimeRatioRef,
       globalPausedRef,
+      currentAnimIntervalRef, // item 257: live speed for sequential animation
     },
     animConfig: {
       pinnedBitIndices,

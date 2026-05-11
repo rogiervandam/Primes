@@ -74,6 +74,29 @@ export function usePlaybackControls({
     if (globalPausedRef.current) {
       globalPausedRef.current = false;
       setIsAnimationReplayPaused(false);
+      // item 258: update resume position from the current scrub progress before restarting,
+      // so the animation continues from where the user scrubbed rather than from 0.
+      {
+        const finished = stepScrubProgress >= 99;
+        const curStep = stepsRef.current[currentStep];
+        const r = rendererRef.current;
+        const isAggregate = selectedStepsRef.current.size > 1;
+        const hasMaskData = isAggregate
+          ? !!(r && r.maskWriteOrderWords && r.maskWriteOrderWords.length > 0)
+          : !!(curStep && curStep.maskWriteOrderWords && curStep.maskWriteOrderWords.length > 0);
+        const inMaskOrCombined = (bitAnimationModeRef.current === 'mask' || bitAnimationModeRef.current === 'combined')
+          && hasMaskData;
+        if (inMaskOrCombined) {
+          stepResumeMaskProgressRef.current = finished ? 0 : stepScrubProgress / 100;
+          stepResumeStartIndexRef.current = 0;
+        } else if (curStep && curStep.changedBits && curStep.changedBits.length > 0) {
+          const totalBits = curStep.changedBits.length;
+          stepResumeStartIndexRef.current = finished
+            ? 0
+            : Math.max(0, Math.min(totalBits - 1, Math.round((stepScrubProgress / 100) * (totalBits - 1))));
+          stepResumeMaskProgressRef.current = 0;
+        }
+      }
       setIsSingleEventLoopActive(true);
       return;
     }

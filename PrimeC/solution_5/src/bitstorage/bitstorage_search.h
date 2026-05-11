@@ -67,13 +67,13 @@ function(faultInvalidInStripe,suffix)(const void* restrict bitstorage, const cou
 static inline counter_t __attribute__((always_inline, hot, nonnull, const)) 
 function(searchBitFalse,suffix)(void* restrict bitstorage, register counter_t index) 
 {
-    logStart9(bitstorage, time_searchBitFalse, "searchBitFalse from prime %ju (step %ju)", (uintmax_t)index, (uintmax_t)index*2+1);
+    log9(time_searchBitFalse, "searchBitFalse from %ju", (uintmax_t)index);
 
     // #pragma GCC ivdep
     // #pragma GCC unroll 4
     for (;checkBitTrue_suffix(bitstorage, ++index);)
 
-    logStop9(bitstorage, time_searchBitFalse, " next prime %ju (step %ju)\n", (uintmax_t) index, (uintmax_t)index*2+1);
+    log9(time_searchBitFalse, " searchBitFalse to index %ju", (uintmax_t) index);
     return index;
 }
 

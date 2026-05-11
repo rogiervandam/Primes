@@ -15,6 +15,7 @@ export function useTriggerAnimation({ ...flatArgs }) {
     computeEventDurationRef,
     animBusyUntilRef,
     currentMaskAnimIntervalRef,
+    currentAnimIntervalRef,
     bitStateRef,
     stepsRef,
     bitStateDirtyRef,
@@ -263,7 +264,11 @@ export function useTriggerAnimation({ ...flatArgs }) {
             return;
           }
           const now = performance.now();
-          virtualElapsed += Math.max(0, now - lastTickAt);
+          // item 257: scale dt by live/initial interval ratio so speed changes apply immediately
+          const initialSeqInterval = Math.max(1, effectiveBitInterval || 20);
+          const liveSeqInterval = Math.max(1, currentAnimIntervalRef?.current || initialSeqInterval);
+          const speedMultiplier = initialSeqInterval / liveSeqInterval;
+          virtualElapsed += Math.max(0, now - lastTickAt) * speedMultiplier;
           lastTickAt = now;
           const t = Math.min(1, virtualElapsed / totalDuration);
 
@@ -381,6 +386,7 @@ export function useTriggerAnimation({ ...flatArgs }) {
     animBusyUntilRef,
     fadeOutCurrentHighlights,
     currentMaskAnimIntervalRef,
+    currentAnimIntervalRef,
     maskAnimInterval,
     currentStep,
     bitStateRef,

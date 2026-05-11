@@ -26,7 +26,7 @@ export default function TraceInfoPopover({
   const [rawOpen, setRawOpen] = useState(false);
   const [wheelOpen, setWheelOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [wordWrap, setWordWrap] = useState(false);
+  const [wordWrap, setWordWrap] = useState(true); // item 268: wrap by default
   // Lazily-fetched raw source: fetched on first open, cached thereafter.
   const [rawLines, setRawLines] = useState(null);   // string[] | null
   const [rawFetching, setRawFetching] = useState(false);

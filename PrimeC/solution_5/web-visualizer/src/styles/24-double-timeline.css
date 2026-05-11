@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   gap: 0;  /* item 199: no transparent gap between title, strip and annotation */
-  /* Float over canvas: absolute within .canvas-and-detail-column (position:relative) */
+  /* item 260: Float over canvas: absolute within .main-content (position:relative) */
   position: absolute;
   left: var(--events-panel-width, 0px);
   right: var(--settings-panel-width, 0px);  /* item 182: shrink when settings panel open */
@@ -113,7 +113,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  pointer-events: none;
+  pointer-events: auto; /* item 252: block click-through to canvas */
   touch-action: none;
   position: relative;
   z-index: 4;
@@ -162,7 +162,7 @@
   backdrop-filter: blur(6px);
   flex-shrink: 0;
   user-select: none;
-  pointer-events: none;
+  pointer-events: auto; /* item 252: block click-through to canvas */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

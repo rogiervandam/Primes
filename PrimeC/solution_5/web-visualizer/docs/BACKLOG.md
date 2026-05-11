@@ -224,31 +224,31 @@ Fixed: Added `animZoomRange` state (null | [start, end] fractions) in `DoubleTim
 251 When the double timeline is going from docked to float while dragging the title, the animation takes a while. In the mean time the user might have dragged the title further up. This creates a disconnect between the position of the mouse pointer and the position of the double timeline, which can be frustrating for the user. To fix this, keep following the mouse pointer during the transition.
 Fixed: Added `animAccumDeltaRef` in `DoubleTimeline.jsx`. During the drag-initiated undock FLIP animation (`undockAnimatingRef.current === true`), the `onMove` handler now accumulates `dx`/`dy` into this ref instead of discarding them. When the 420 ms animation timeout fires (just before `undockAnimatingRef.current = false`), the accumulated delta is applied to `undockPosRef.current` / `setUndockPos`, clamped to the floating side insets. Also reset the accumulator in `handleTitleBarPointerDown` before each new drag-undock.
 
-252 When i have my mouse above the double timeline (including title and annotions), don't let the mouse interactions trigger on underlying elements, such as the canvas or the detail panel. 
+252 Fixed: When the mouse is over the double timeline (including title and annotation bars), mouse interactions no longer trigger on underlying elements. Changed `.dtl-event-title-bar` and `.dtl-annotation-bar` from `pointer-events: none` to `pointer-events: auto` in CSS, and added a bounding-rect check in `usePointerGestures.js` to suppress hover balloons when the cursor is anywhere inside `.double-timeline`.
 
-253 When i drag really fast, you see the balloon moving to its new position, but the connector line stay on the old position, which creates a disconnect between the balloon and its connector line, which can be confusing for the user. To fix this, make sure that the connector line updates its position while the balloon is moving, even when dragging quickly. This way users can maintain a clear visual connection between the balloons and their connectors, and avoid any confusion caused by them being out of sync during fast interactions. If that's not possible, remove the connector line during dragging and only show it again when the balloon is in its final position after the drag, so that users are not confused by the disconnected line during the drag.
+253 Fixed: During canvas pan drag, `setBalloonLiveLayout(true)` is now called in the `gestureMode === 'pan'` handler inside `usePointerGestures.js`. This disables the `left/top` CSS transition on balloons (`.live-layout` class removes the 180 ms ease), so `getBoundingClientRect()` returns the current position immediately and connector lines stay in sync with balloons during fast drags. `setBalloonLiveLayout(false)` + `scheduleBalloonRelayout(true)` are called in `clearInteraction()` when the previous gesture was pan, allowing transitions to resume after the drag ends.
 
 254 When i search for a bit, byte or group, mark it, but also focus the camera on it and zoom in to it, so that users can immediately see where it is in the context of the other marked numbers and events. This way users can quickly locate the bit, byte or group they are interested in and understand its relationship to the surrounding elements in the trace.
 
-255 If i enable or disable the minimap, the animation should not be interrupted, so that users can continue to watch the animation without any disruption while customizing their view with the minimap. We can implement this by adding a state variable for the minimap visibility and using it to conditionally render the minimap component without affecting the animation state. This way users can have a seamless experience of watching the animation and toggling the minimap on or off according to their preferences.
+255 Fixed: Toggling the minimap no longer interrupts animation. `isMinimapVisible` was in the dep arrays of `updateMinimapAvailability` (in `useMinimapAvailability.js`) and `refreshCanvasLayout` (in `useCanvasLayout.js`), causing these callbacks to be recreated on every minimap toggle and triggering `usePanelResizeRefresh` to call `r.render()` mid-animation. Fixed by moving `isMinimapVisible` into a ref (`isMinimapVisibleRef`) in both hooks and removing it from the dependency arrays, so the callbacks stay stable across minimap toggles.
 
 256 When i change the animation mode during animation, immediately apply the new mode to the current animation without having to wait for the next event or animation cycle. Start from the progress point the other animation was at, so that users can see the effect of the mode change right away and understand how the different animation modes affect the visualization of the events and marked numbers. This way users can experiment with different animation modes in real time and find the one that best suits their analysis needs and preferences.
 
-257 When i increase or decrease the animation speed during animation, immediately apply the new speed to the current animation without having to wait for the next event or animation cycle. This way users can see the effect of the speed change right away and adjust the animation speed according to their preferences and analysis needs in real time.
+257 Fixed: Animation speed changes now apply immediately in both mask and sequential modes. Mask animation already read `currentMaskAnimIntervalRef.current` each frame. Sequential animation in `useTriggerAnimation.js` now computes a `speedMultiplier = initialSeqInterval / liveSeqInterval` on every tick and scales `virtualElapsed` accordingly, so the animation speed reacts live without waiting for the next event. `currentAnimIntervalRef` is now passed through `useAnimationPipeline.js` → `useTriggerAnimation.js`.
 
-258 Sometimes when i hit play, nothing happens, but when i scrub the animation timeline is do see the animation. This happens after i scrub the animation timeline: i hit play, but the animation progress resets to 0 and sits still. What should happen after scrubbing and then hitting play is that the animation should continue playing from the current scrub position, instead of resetting to 0. This way users can have a seamless experience of scrubbing to a specific point in the animation and then continuing to play from there without any disruption or confusion caused by the animation resetting to the beginning.
+258 Fixed: Pressing play after scrubbing now resumes from the scrub position. In `usePlaybackControls.js`, the `handleStepAnimToggle` resume-from-pause branch now updates `stepResumeMaskProgressRef` and `stepResumeStartIndexRef` from `stepScrubProgress` BEFORE calling `setIsSingleEventLoopActive(true)`, so the animation starts from where the scrubber is positioned rather than from 0.
 
 259 When changing the browser window height or width, it feels unresponsive and laggy, especially when the events panel is open, but also when its closed. 
 
-260 The double timeline should be a child or the main-content, not the canvas.
+260 Fixed: `<DoubleTimeline>` has been moved from inside `.canvas-and-detail-column` to be a direct child of `.main-content` in `VisualizerMainContent.jsx`. The CSS comment in `24-double-timeline.css` was updated to reflect the new containing block (`.main-content`). Positioning is unchanged: docked state uses `bottom: dockedBottom` (same height in either container), undocked state uses `position: fixed` (viewport-relative, unaffected by DOM parent).
 
 261 When i set a custom group size of 192, this only get displayed correctly if i had a large group (e.g. 64x8) before. If i had a lower bitcount than the custom one, i still see the lower bitcount groups.
 
 262 The 2d-3d transform isn't animating anymore when it should by done in webgl.
 
-263 Allow the event panel to get really with so i can read the full event annotations
+263 Fixed: The events panel max-width has been increased from 800 px to 2000 px in `EventsPanel.jsx` (drag-resize handler). Users can now widen the panel to read full-length event annotations.
 
-264 when scrolling the event panel, i sometims can't see which group i am looking at because there are so many events tha the parent group label is not visible anymore. When scrolling, keep the parent group label visible at the top of the events panel, so that users can always see which group they are looking at and avoid getting lost in the list of events. This way users can maintain context while browsing through the events and understand how they are organized into groups.
+264 Fixed: Group header labels in the events panel are now sticky. Added `position: sticky; top: 0; z-index: 1; background: var(--bg-surface);` to `.event-group-header` in `06-events-panel.css`. Headers now stay visible at the top of the scrollable list while scrolling through events within a group.
 
 265 Fixed: Touch order labels now always position above the data area. Replaced the slotTop-clamped y constraint in VectorTouchOrderOverlay with rowDataTop-based positioning (slot.rowDataY), so labels never overlap the bit grid regardless of label-band height vs box height. Collision avoidance still stacks labels upward with canvas-top guard.
 
@@ -259,12 +259,19 @@ Fixed: Added `animAccumDeltaRef` in `DoubleTimeline.jsx`. During the drag-initia
 
 267 Fixed: Renamed "function" → "operation" in the C logger (trace_record_event_full, trace_record_applymask_step_labeled, trace_record_text_full) and updated sieve_trace_format.h documentation. The parser already accepts both "operation" and "function" (and "op") as backward-compatible aliases — no parser change needed.
 
-268 The view log should wrap by default
+268 Fixed: The raw log viewer (`TraceInfoPopover.jsx`) now defaults to word-wrap enabled. Changed `useState(false)` to `useState(true)` for the `wordWrap` state variable.
 
 269 Look at the logger for masks. We have "mask1_bits". and "pattern_slot0_bits". If they are the same, think of a way to unify them, so that we have a consistent way of logging masks and patterns. This way users can easily understand the logs and how the masks and patterns are applied in the sieve algorithm. We can either choose one naming convention (e.g. "mask_bits") or create a more general structure that can accommodate both masks and patterns without confusion.
 
 270 In the mask animation and touch overlays, make it visually clear for the user when a new mask is used, vs when the same mask is repeated for multiple events. For example, we can add a brief highlight or animation effect on the mask when it changes to indicate that a new mask is being applied. This way users can easily track the changes in masks and understand how they are being used in the sieve algorithm, especially when analyzing the sequence of events and their effects on the marked numbers.
 
+280 Fixed: Prime inference in `primeInference.js` now prefers the prime from the previous event over annotation-based inference. In `inferMissingPrimes`, when `lastPrime != null`, it is used immediately without consulting annotations. Annotation inference only runs as last resort (when no previous prime is known), and inferred annotation values no longer update `lastPrime` (avoiding propagation of unreliable values into subsequent events).
+
+281 When playing an animation on repeat, after the animation use the DELAY BETEEN REPEATS as wait time. Currently, the DELAY BETWEEN EVENTS is used. That should only be used when repeat mode is off.
+
+282 The detail panel should not be a child of the canvas area, but a sibling of it, so that it can be updated and rendered independently without affecting the performance of the canvas area. This way we can ensure that the detail panel remains responsive and interactive even when the canvas area is under heavy load from animations or scrubbing. It also makes more sense from a layout perspective, as the detail panel is more closely related to the main content than to the canvas.
+
+283 
 
 
 

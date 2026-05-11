@@ -194,6 +194,7 @@ export function usePointerGestures({
     };
 
     const clearInteraction = () => {
+      const wasPan = gestureMode === 'pan';
       gestureMode = 'none';
       activePointerId = null;
       mouseRotateActive = false;
@@ -201,6 +202,11 @@ export function usePointerGestures({
       activePointers.clear(); // item 141
       pinchStart = null;      // item 141
       el.classList.remove('dragging');
+      // item 253: restore balloon transitions after pan ends, then re-measure connectors
+      if (wasPan) {
+        setBalloonLiveLayout(false);
+        scheduleBalloonRelayout(true);
+      }
     };
 
     const onPointerDown = (e) => {
@@ -378,6 +384,9 @@ export function usePointerGestures({
       if (gestureMode === 'pan') {
         hideHoverBalloon();
         didDrag = true;
+        // item 253: disable balloon CSS transitions during pan so getBoundingClientRect()
+        // returns the current (not pre-transition) position, keeping connectors in sync.
+        setBalloonLiveLayout(true);
         applyPan({
           renderer: r,
           event: e,
@@ -408,11 +417,20 @@ export function usePointerGestures({
         if (typeof document === 'undefined') return false;
         const hit = document.elementFromPoint(e.clientX, e.clientY);
         if (!hit) return false;
+        // item 252: also check bounding rect of .double-timeline since its title/annotation
+        // bars have pointer-events:none and are skipped by elementFromPoint.
+        const dtl = document.querySelector('.double-timeline');
+        if (dtl) {
+          const r2 = dtl.getBoundingClientRect();
+          if (e.clientX >= r2.left && e.clientX <= r2.right && e.clientY >= r2.top && e.clientY <= r2.bottom) {
+            return true;
+          }
+        }
         return !!hit.closest(
           '.toolbar, .events-panel, .settings-sidebar, .detail-panel, .timing-panel, ' +
           '.step-focus-banner, .events-panel-floating-title, .joined-events-widget, ' +
           '.minimap-overlay-canvas, .trace-info-popover, .debug-tools-panel, ' +
-          '.bit-history-panel'
+          '.bit-history-panel, .double-timeline'
         );
       })();
       if (overOverlay) {

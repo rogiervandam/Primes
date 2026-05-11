@@ -954,7 +954,7 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
     if (listRef.current) scrollTopRef.current = listRef.current.scrollTop;
 
     const onMove = (ev) => {
-      onWidthChange(Math.max(200, Math.min(800, startWidth + (ev.clientX - startX))));
+      onWidthChange(Math.max(200, Math.min(2000, startWidth + (ev.clientX - startX)))); // item 263: allow wide panel
     };
     const onUp = () => {
       if (listRef.current) listRef.current.scrollTop = scrollTopRef.current;
