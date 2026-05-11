@@ -63,11 +63,19 @@ function isChromiumFamily() {
   return chromiumLike && !isSafari();
 }
 
-function getDirectModeCompositorSafeDimension() {
-  // Chromium can visually drift the GL layer when very large canvases are
-  // projected in 3D. Keeping direct-mode backing dimensions at or below ~8K
-  // avoids the compositor tiling path that exhibits this offset.
+function getCompositorSafeDimension() {
+  // Chromium visually drifts the GL layer when very large canvases are
+  // rendered inside a CSS 3D stacking context (e.g. a parent div with
+  // perspective set). This affects both direct-mode HTMLCanvasElement and
+  // worker-mode OffscreenCanvas whenever the camera is active (which sets
+  // `perspective: Xpx` on the container div). Keeping backing dimensions at
+  // or below ~8K avoids the compositor tiling path that causes this drift.
   return isChromiumFamily() ? 8192 : Infinity;
+}
+
+/** @deprecated Use getCompositorSafeDimension() */
+function getDirectModeCompositorSafeDimension() {
+  return getCompositorSafeDimension();
 }
 
 /**
@@ -443,14 +451,23 @@ export class BitGridGLWorker {
    * @param {number} [dprOverride]  Explicit DPR. When omitted,
    *   `window.devicePixelRatio` is used (the normal production path).
    *   The override is exposed for test harnesses that need a controlled DPR.
+   * @param {number} [snapDprOverride]  Snap DPR for sub-pixel snapping (u_dpr).
+   *   Should be the user-facing DPR without the SSAA multiplier. When omitted,
+   *   defaults to the clamped physical DPR.
    */
-  resize(cssWidth, cssHeight, dprOverride) {
+  resize(cssWidth, cssHeight, dprOverride, snapDprOverride) {
     if (this._lost) return;
     const requestedDpr = dprOverride != null
       ? dprOverride
       : ((typeof window !== 'undefined' && window.devicePixelRatio) || 1);
     let dpr = Math.max(0.1, requestedDpr || 1);
-    const compositorSafeDim = this._direct ? getDirectModeCompositorSafeDimension() : Infinity;
+    // Apply the same compositor-safe limit to both direct and worker modes.
+    // In WebGL-tilt modes the camera always sets perspective: Xpx on the
+    // container, creating a CSS 3D stacking context. Chromium compositor
+    // tiles any canvas whose backing store exceeds ~8K in that context,
+    // causing visible drift / offset. Worker-mode OffscreenCanvas is
+    // affected the same way as direct-mode HTMLCanvasElement.
+    const compositorSafeDim = getCompositorSafeDimension();
     const maxDim = Math.min(this._maxCanvasDimension, compositorSafeDim);
     if (Number.isFinite(maxDim) && cssWidth > 0 && cssHeight > 0) {
       const maxDpr = Math.min(maxDim / cssWidth, maxDim / cssHeight);
@@ -459,12 +476,17 @@ export class BitGridGLWorker {
     this._cssW = cssWidth;
     this._cssH = cssHeight;
     this._dpr = dpr;
+    // snapDpr is clamped to at most the physical DPR so it never exceeds it.
+    this._snapDpr = Math.max(0.1, Math.min(
+      snapDprOverride != null ? snapDprOverride : dpr,
+      dpr,
+    ));
     if (this._direct) {
       this._core.resize(cssWidth, cssHeight, dpr);
-      if (this._glyphCore) this._glyphCore.resize(cssWidth, cssHeight, dpr);
+      if (this._glyphCore) this._glyphCore.resize(cssWidth, cssHeight, dpr, this._snapDpr);
       return;
     }
-    this._post({ type: 'resize', cssW: cssWidth, cssH: cssHeight, dpr });
+    this._post({ type: 'resize', cssW: cssWidth, cssH: cssHeight, dpr, snapDpr: this._snapDpr });
   }
 
   getEffectiveDpr() {
@@ -509,6 +531,7 @@ export class BitGridGLWorker {
         cssW: this._cssW || 0,
         cssH: this._cssH || 0,
         dpr: this._dpr || 1,
+        snapDpr: this._snapDpr || this._dpr || 1,
       });
       if (glyphCmds && glyphCmds.count > 0 && this._glyphCore) {
         this._glyphCore.setTilt(
@@ -532,6 +555,7 @@ export class BitGridGLWorker {
         cssW: this._cssW || 0,
         cssH: this._cssH || 0,
         dpr: this._dpr || 1,
+        snapDpr: this._snapDpr || this._dpr || 1,
       },
     };
     const transfers = [];
@@ -610,8 +634,8 @@ export class BitGridGLWorker {
    */
   getDebugInfo() {
     const maxDim = this._maxCanvasDimension;
-    const directSafeDim = this._direct ? getDirectModeCompositorSafeDimension() : Infinity;
-    const effectiveMaxDim = Math.min(maxDim, directSafeDim);
+    const compositorSafeDim = getCompositorSafeDimension();
+    const effectiveMaxDim = Math.min(maxDim, compositorSafeDim);
     const metrics = getDisplayRiskMetrics(maxDim);
     
     return {
@@ -624,7 +648,7 @@ export class BitGridGLWorker {
       isWorkerSupported: isWorkerGLSupported(),
       isChromiumFamily: isChromiumFamily(),
       maxGLDimension: Number.isFinite(maxDim) ? maxDim : 'Infinity',
-      directCompositorSafeDimension: Number.isFinite(directSafeDim) ? directSafeDim : 'Infinity',
+      directCompositorSafeDimension: Number.isFinite(compositorSafeDim) ? compositorSafeDim : 'Infinity',
       effectiveMaxBackingDimension: Number.isFinite(effectiveMaxDim) ? effectiveMaxDim : 'Infinity',
       devicePixelRatio: metrics.dpr,
       viewportWidth: metrics.viewportW,

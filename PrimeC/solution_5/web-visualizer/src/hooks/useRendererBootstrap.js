@@ -184,7 +184,15 @@ export function useRendererBootstrap({
 
       const cssW = liveRenderer.canvasWidth || 0;
       const cssH = liveRenderer.canvasHeight || 0;
-      glRenderer.resize(cssW, cssH);
+      // Preserve the DPR that was set by useCanvasLayout (which may include an
+      // SSAA multiplier).  Calling resize() without a DPR arg defaults to
+      // window.devicePixelRatio and would revert any SSAA scaling, causing the
+      // canvas backing-store dimensions to disagree with r.canvasDpr, which in
+      // turn makes GlyphTextGLCore.beginFrame resize (and therefore clear) the
+      // shared bit-grid canvas on every frame.
+      // Pass canvasSnapDpr (= forcedDpr, without the SSAA multiplier) so the
+      // u_dpr snap-grid uniform stays decoupled from SSAA in worker mode.
+      glRenderer.resize(cssW, cssH, glRenderer.getEffectiveDpr(), liveRenderer.canvasSnapDpr || undefined);
       if (liveRenderer._stateDirty !== false) {
         glRenderer.uploadState(liveRenderer);
         liveRenderer._stateDirty = false;

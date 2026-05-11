@@ -673,7 +673,7 @@ export default function DebugToolsPanel({
       `Backing: ${glDebugInfo?.currentBackingW ?? '?'} x ${glDebugInfo?.currentBackingH ?? '?'}`,
       `Max GL Dim: ${glDebugInfo?.maxGLDimension ?? '?'}`,
       `Effective Max Backing Dim: ${glDebugInfo?.effectiveMaxBackingDimension ?? '?'}`,
-      `Direct Compositor Safe Dim: ${glDebugInfo?.directCompositorSafeDimension ?? '?'}`,
+      `Compositor Safe Dim: ${glDebugInfo?.directCompositorSafeDimension ?? '?'}`,
       `DPR: ${Number.isFinite(glDebugInfo?.devicePixelRatio) ? glDebugInfo.devicePixelRatio.toFixed(2) : '?'}`,
       `DPR tuning: ${dprPercent.toFixed(2)}% => ${effectiveDpr.toFixed(3)} (${dprManualActive ? 'manual' : 'percent'})`,
       `GL AA scale (SSAA): ${appliedTuning.glAaScale || 1}x`,

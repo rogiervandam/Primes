@@ -164,15 +164,19 @@ export function useGoToStep({
       const { canvasW, canvasH } = getCanvasTargetSize(rect.width, rect.height);
       if (!initialFitDoneRef.current && (r.canvasWidth !== canvasW || r.canvasHeight !== canvasH)) {
         const g = glRendererRef.current;
-        const directMode = !!(g && typeof g.isDirectMode === 'function' && g.isDirectMode());
+        // Preserve the current effective DPR (including SSAA) and snapDpr
+        // so this initial-fit resize doesn't discard the SSAA scaling that
+        // useCanvasLayout already set up.
+        const currentDpr = (g && typeof g.getEffectiveDpr === 'function') ? g.getEffectiveDpr() : undefined;
+        const currentSnapDpr = r.canvasSnapDpr || undefined;
         let overlayDpr = null;
         if (g) {
-          g.resize(canvasW, canvasH);
-          if (directMode && typeof g.getEffectiveDpr === 'function') {
+          g.resize(canvasW, canvasH, currentDpr, currentSnapDpr);
+          if (typeof g.getEffectiveDpr === 'function') {
             overlayDpr = g.getEffectiveDpr();
           }
         }
-        r.resize(canvasW, canvasH, overlayDpr);
+        r.resize(canvasW, canvasH, overlayDpr, currentSnapDpr);
       }
       const lvW = (typeof window !== 'undefined' ? window.innerWidth : rect.width) || rect.width;
       const lvH = (typeof window !== 'undefined' ? window.innerHeight : rect.height) || rect.height;

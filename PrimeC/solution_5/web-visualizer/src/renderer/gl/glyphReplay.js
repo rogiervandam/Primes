@@ -30,9 +30,9 @@ const BASELINES = ['top',  'middle', 'bottom', 'alphabetic'];
  *           cssW: number, cssH: number, dpr: number }} cmds
  */
 export function replayGlyphCmds(gc, cmds) {
-  const { paramBuf, textBuf, count, cssW, cssH, dpr } = cmds;
+  const { paramBuf, textBuf, count, cssW, cssH, dpr, snapDpr } = cmds;
   if (!count || !paramBuf) return;
-  gc.beginFrame(cssW || 0, cssH || 0, dpr || 1, false);
+  gc.beginFrame(cssW || 0, cssH || 0, dpr || 1, false, snapDpr);
   const decoder = new TextDecoder();
   for (let i = 0; i < count; i++) {
     const base = i * FLOATS_PER;

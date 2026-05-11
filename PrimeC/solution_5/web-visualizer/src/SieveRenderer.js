@@ -191,6 +191,7 @@ export class SieveRenderer {
     this.canvasWidth = 0;
     this.canvasHeight = 0;
     this.canvasDpr = 1;
+    this.canvasSnapDpr = 1;  // forcedDpr without SSAA multiplier (used for u_dpr uniform)
 
     // Cacheline size in bytes (default 64)
     this.cachelineSize = 64;
@@ -853,15 +854,17 @@ export class SieveRenderer {
     });
   }
 
-  resize(width, height, dprOverride = null) {
+  resize(width, height, dprOverride = null, snapDprOverride = null) {
     const dpr = Math.max(0.1, dprOverride != null ? dprOverride : (window.devicePixelRatio || 1));
+    const snapDpr = Math.max(0.1, snapDprOverride != null ? snapDprOverride : dpr);
     if (this._glyphCtx) {
-      this._glyphCtx.resize(width, height, dpr);
+      this._glyphCtx.resize(width, height, dpr, snapDpr);
     }
     // Worker-mode glyph resize is handled by the worker's resize message.
     this.canvasWidth = width;
     this.canvasHeight = height;
     this.canvasDpr = dpr;
+    this.canvasSnapDpr = snapDpr;
     // Recompute frozen layout on resize
     if (this._frozenClPerVRow > 0) {
       this._frozenClPerVRow = this._computeClPerVRow();
@@ -1205,9 +1208,10 @@ export class SieveRenderer {
     // on the worker side without clearing — bit-grid pixels stay visible).
     if (this._glyphBuf && this._glWorker) {
       const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
+      const snapDpr = Math.max(0.1, this.canvasSnapDpr || canvasDpr);
       const cw = this.canvasWidth || 0;
       const ch = this.canvasHeight || 0;
-      this._glyphBuf.beginFrame(cw, ch, canvasDpr);
+      this._glyphBuf.beginFrame(cw, ch, canvasDpr, true, snapDpr);
       return this._glyphBuf;
     }
     // Direct mode: begin a non-clearing pass on the glyph canvas.
@@ -1217,10 +1221,11 @@ export class SieveRenderer {
       return this._glyphCtx;
     }
     const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
+    const snapDpr = Math.max(0.1, this.canvasSnapDpr || canvasDpr);
     const cw = this.canvasWidth || 0;
     const ch = this.canvasHeight || 0;
     // Animation methods run after render(); keep previously drawn text/labels.
-    this._glyphCtx.beginFrame(cw, ch, canvasDpr, false);
+    this._glyphCtx.beginFrame(cw, ch, canvasDpr, false, snapDpr);
     return this._glyphCtx;
   }
 

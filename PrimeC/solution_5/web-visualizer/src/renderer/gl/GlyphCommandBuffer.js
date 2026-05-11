@@ -49,6 +49,7 @@ export class GlyphCommandBuffer {
     this._cssW = 0;
     this._cssH = 0;
     this._dpr  = 1;
+    this._snapDpr = 1;
   }
 
   // ---------------------------------------------------------------------------
@@ -56,12 +57,13 @@ export class GlyphCommandBuffer {
   // ---------------------------------------------------------------------------
 
   /** Reset the buffer for a new frame. */
-  beginFrame(cssW, cssH, dpr) {
+  beginFrame(cssW, cssH, dpr, _clear, snapDpr) {
     this._count   = 0;
     this._textPos = 0;
-    this._cssW = cssW;
-    this._cssH = cssH;
-    this._dpr  = dpr || 1;
+    this._cssW    = cssW;
+    this._cssH    = cssH;
+    this._dpr     = dpr || 1;
+    this._snapDpr = snapDpr || this._dpr;
   }
 
   /**
@@ -84,7 +86,7 @@ export class GlyphCommandBuffer {
     this._count    = 0;
     this._textPos  = 0;
 
-    return { paramBuf, textBuf, count, cssW: this._cssW, cssH: this._cssH, dpr: this._dpr };
+    return { paramBuf, textBuf, count, cssW: this._cssW, cssH: this._cssH, dpr: this._dpr, snapDpr: this._snapDpr };
   }
 
   // ---------------------------------------------------------------------------

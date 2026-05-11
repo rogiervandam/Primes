@@ -228,6 +228,37 @@ Fixed: Added `animAccumDeltaRef` in `DoubleTimeline.jsx`. During the drag-initia
 
 253 When i drag really fast, you see the balloon moving to its new position, but the connector line stay on the old position, which creates a disconnect between the balloon and its connector line, which can be confusing for the user. To fix this, make sure that the connector line updates its position while the balloon is moving, even when dragging quickly. This way users can maintain a clear visual connection between the balloons and their connectors, and avoid any confusion caused by them being out of sync during fast interactions. If that's not possible, remove the connector line during dragging and only show it again when the balloon is in its final position after the drag, so that users are not confused by the disconnected line during the drag.
 
+254 When i search for a bit, byte or group, mark it, but also focus the camera on it and zoom in to it, so that users can immediately see where it is in the context of the other marked numbers and events. This way users can quickly locate the bit, byte or group they are interested in and understand its relationship to the surrounding elements in the trace.
+
+255 If i enable or disable the minimap, the animation should not be interrupted, so that users can continue to watch the animation without any disruption while customizing their view with the minimap. We can implement this by adding a state variable for the minimap visibility and using it to conditionally render the minimap component without affecting the animation state. This way users can have a seamless experience of watching the animation and toggling the minimap on or off according to their preferences.
+
+256 When i change the animation mode during animation, immediately apply the new mode to the current animation without having to wait for the next event or animation cycle. Start from the progress point the other animation was at, so that users can see the effect of the mode change right away and understand how the different animation modes affect the visualization of the events and marked numbers. This way users can experiment with different animation modes in real time and find the one that best suits their analysis needs and preferences.
+
+257 When i increase or decrease the animation speed during animation, immediately apply the new speed to the current animation without having to wait for the next event or animation cycle. This way users can see the effect of the speed change right away and adjust the animation speed according to their preferences and analysis needs in real time.
+
+258 Sometimes when i hit play, nothing happens, but when i scrub the animation timeline is do see the animation. This happens after i scrub the animation timeline: i hit play, but the animation progress resets to 0 and sits still. What should happen after scrubbing and then hitting play is that the animation should continue playing from the current scrub position, instead of resetting to 0. This way users can have a seamless experience of scrubbing to a specific point in the animation and then continuing to play from there without any disruption or confusion caused by the animation resetting to the beginning.
+
+259 When changing the browser window height or width, it feels unresponsive and laggy, especially when the events panel is open, but also when its closed. 
+
+260 The double timeline should be a child or the main-content, not the canvas.
+
+261 When i set a custom group size of 192, this only get displayed correctly if i had a large group (e.g. 64x8) before. If i had a lower bitcount than the custom one, i still see the lower bitcount groups.
+
+262 The 2d-3d transform isn't animating anymore when it should by done in webgl.
+
+263 Allow the event panel to get really with so i can read the full event annotations
+
+264 when scrolling the event panel, i sometims can't see which group i am looking at because there are so many events tha the parent group label is not visible anymore. When scrolling, keep the parent group label visible at the top of the events panel, so that users can always see which group they are looking at and avoid getting lost in the list of events. This way users can maintain context while browsing through the events and understand how they are organized into groups.
+
+265 The touch order labels are sometimes in the wrong place
+
+266 Improve the registration of applying masks: 
+(1) the targeted bits should be recorded in the log, so that the visualizer can show them in the detail panel and use them for the animation. 
+(2) the exact order in which the masks are applied should be recorded in the log, so that the visualizer can show it in the detail panel and use it for the animation. This way users can see the intended targets of the events and understand the cumulative effect of the events on the marked numbers more accurately. For example, if an event applies a mask that targets bits 10, 20 and 30, but bit 20 was already set by a previous event, the visualizer should show that bit 10 and 30 were newly set, while bit 20 was already set. This way users can see which bits were actually changed by the event and which ones were already set, and understand how the algorithm is progressing.
+(3) when applying a mask, if some of the bits in the mask are already set, they should not count as newly set bits, but rather as already set bits. This way users can see the intended targets of the events and understand the cumulative effect of the events on the marked numbers more accurately.
+
+267 In the logger and the parser, it should not be called "function" but "operation" or "op", because not all events are function calls, but they can also be other types of operations, such as loops, conditionals, or memory accesses. This way we can have a more accurate and consistent terminology for the events in the log and the visualizer, and avoid confusion caused by the term "function" which may not apply to all events.
+
 
 
 
