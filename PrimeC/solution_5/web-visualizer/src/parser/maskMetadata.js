@@ -183,21 +183,24 @@ export function deriveMaskMeta(source, bitCountHint = 0) {
     maskSlotBits[0] = maskBits;
   }
 
+  const explicitTargetWords = parseIntegerList(firstDefined(sourceObj.mask_target_words, sourceObj.maskTargetWords));
+  const explicitTargetSlots = parseIntegerList(firstDefined(sourceObj.mask_target_slots, sourceObj.maskTargetSlots));
+
   if (explicitTargetBits.length > 0) {
+    // Preserve write-order words/slots even when explicit target_bits are present
+    // so the mask stamp animation can run for individual operations.
+    const targetSlots = explicitTargetWords.map((_, index) => Math.max(0, explicitTargetSlots[index] || 0));
     return {
       targetBits: explicitTargetBits,
       targetHitCounts: explicitTargetBits.map((_, index) => Math.max(1, explicitTargetCounts[index] || 1)),
       focusStart,
       focusStop,
       wordBits,
-      targetWords: [],
-      targetSlots: [],
+      targetWords: explicitTargetWords,
+      targetSlots,
       maskSlotBits,
     };
   }
-
-  const explicitTargetWords = parseIntegerList(firstDefined(sourceObj.mask_target_words, sourceObj.maskTargetWords));
-  const explicitTargetSlots = parseIntegerList(firstDefined(sourceObj.mask_target_slots, sourceObj.maskTargetSlots));
 
   if (wordBits != null && explicitTargetWords.length > 0 && maskSlotBits.some((bits) => bits && bits.length > 0)) {
     const targetSlots = explicitTargetWords.map((_, index) => Math.max(0, explicitTargetSlots[index] || 0));

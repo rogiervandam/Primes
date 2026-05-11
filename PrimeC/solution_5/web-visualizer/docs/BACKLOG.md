@@ -250,14 +250,20 @@ Fixed: Added `animAccumDeltaRef` in `DoubleTimeline.jsx`. During the drag-initia
 
 264 when scrolling the event panel, i sometims can't see which group i am looking at because there are so many events tha the parent group label is not visible anymore. When scrolling, keep the parent group label visible at the top of the events panel, so that users can always see which group they are looking at and avoid getting lost in the list of events. This way users can maintain context while browsing through the events and understand how they are organized into groups.
 
-265 The touch order labels are sometimes in the wrong place
+265 Fixed: Touch order labels now always position above the data area. Replaced the slotTop-clamped y constraint in VectorTouchOrderOverlay with rowDataTop-based positioning (slot.rowDataY), so labels never overlap the bit grid regardless of label-band height vs box height. Collision avoidance still stacks labels upward with canvas-top guard.
 
-266 Improve the registration of applying masks: 
-(1) the targeted bits should be recorded in the log, so that the visualizer can show them in the detail panel and use them for the animation. 
-(2) the exact order in which the masks are applied should be recorded in the log, so that the visualizer can show it in the detail panel and use it for the animation. This way users can see the intended targets of the events and understand the cumulative effect of the events on the marked numbers more accurately. For example, if an event applies a mask that targets bits 10, 20 and 30, but bit 20 was already set by a previous event, the visualizer should show that bit 10 and 30 were newly set, while bit 20 was already set. This way users can see which bits were actually changed by the event and which ones were already set, and understand how the algorithm is progressing.
-(3) when applying a mask, if some of the bits in the mask are already set, they should not count as newly set bits, but rather as already set bits. This way users can see the intended targets of the events and understand the cumulative effect of the events on the marked numbers more accurately.
+266 Fixed: Improved mask registration in logger and visualizer:
+(1) trace_record_applymask_step_labeled now emits an explicit "target_bits" array of absolute bit indices computed from mask_target_words + mask_target_slots + slot_bits, so the log is self-documenting.
+(2) Write order was already logged via mask_target_words/mask_target_slots (in correct application order) — no change needed.
+(3) already-set vs newly-set distinction was already implemented: changed_bits = XOR diff (newly set only), targetBits derived from mask geometry includes already-set bits, EventsPanel shows "⊙N (M already set)", DetailPanel shows "Already set" row, animation mode "Targeted bits" shows already-set bits in amber.
 
-267 In the logger and the parser, it should not be called "function" but "operation" or "op", because not all events are function calls, but they can also be other types of operations, such as loops, conditionals, or memory accesses. This way we can have a more accurate and consistent terminology for the events in the log and the visualizer, and avoid confusion caused by the term "function" which may not apply to all events.
+267 Fixed: Renamed "function" → "operation" in the C logger (trace_record_event_full, trace_record_applymask_step_labeled, trace_record_text_full) and updated sieve_trace_format.h documentation. The parser already accepts both "operation" and "function" (and "op") as backward-compatible aliases — no parser change needed.
+
+268 The view log should wrap by default
+
+269 Look at the logger for masks. We have "mask1_bits". and "pattern_slot0_bits". If they are the same, think of a way to unify them, so that we have a consistent way of logging masks and patterns. This way users can easily understand the logs and how the masks and patterns are applied in the sieve algorithm. We can either choose one naming convention (e.g. "mask_bits") or create a more general structure that can accommodate both masks and patterns without confusion.
+
+270 In the mask animation and touch overlays, make it visually clear for the user when a new mask is used, vs when the same mask is repeated for multiple events. For example, we can add a brief highlight or animation effect on the mask when it changes to indicate that a new mask is being applied. This way users can easily track the changes in masks and understand how they are being used in the sieve algorithm, especially when analyzing the sequence of events and their effects on the marked numbers.
 
 
 

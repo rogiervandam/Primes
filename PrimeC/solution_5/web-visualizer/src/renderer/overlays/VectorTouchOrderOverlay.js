@@ -55,16 +55,21 @@ export class VectorTouchOrderOverlay {
       const showAnnotation = annotation && detailSize > 0;
       const boxH = (labelSize || fontSize) + padY * 2 + (showAnnotation ? detailSize + 3 : 0);
       const slot = entry.slot;
-      const slotTop = slot?.vRowHeight != null ? host.panY + slot.vRow * slot.vRowHeight : entry.bounds.y - (boxH + 12);
+      // Anchor to the data-area top so the label bottom always clears the bit
+      // grid regardless of label height vs label-band height.  Fall back to
+      // entry.bounds.y (≈ rowDataY) when the slot object is unavailable.
+      const rowDataTop = slot?.rowDataY != null ? slot.rowDataY : entry.bounds.y;
       const candidateX = slot
         ? Math.min(slot.vecX + slot.vecD.w - boxW / 2 - 3, Math.max(slot.vecX + boxW / 2 + 3, entry.bounds.cx))
         : entry.bounds.cx;
       let x = candidateX;
-      let y = Math.max(slotTop + boxH / 2 + 2, entry.bounds.y - boxH / 2 - 10);
+      // Place the label box so its bottom edge is 2 px above the data area;
+      // clamp so it never goes above y = boxH/2 + 2 (canvas top guard).
+      let y = Math.max(boxH / 2 + 2, rowDataTop - boxH / 2 - 2);
       for (let pass = 0; pass < 6; pass++) {
         const collides = usedRects.some((rect) => !(x + boxW / 2 < rect.x || x - boxW / 2 > rect.x + rect.w || y + boxH / 2 < rect.y || y - boxH / 2 > rect.y + rect.h));
         if (!collides) break;
-        y = Math.max(slotTop + boxH / 2 + 2, y - (boxH + 4));
+        y = Math.max(boxH / 2 + 2, y - (boxH + 4));
         x = Math.max(boxW / 2 + 2, Math.min(candidateX + (pass % 2 === 0 ? -1 : 1) * (Math.ceil(pass / 2) * (boxW * 0.35)), host.canvasWidth - boxW / 2 - 2));
       }
       usedRects.push({ x: x - boxW / 2, y: y - boxH / 2, w: boxW, h: boxH });

@@ -19,19 +19,24 @@
  *
  * Step line (new inline-JSON format):
  * <annotation text> { "traceline": <u32>, "depth": <int>, "level": <int>,
- *     "function": "<name>", "changed_bits": [<u32>, ...] }
+ *     "operation": "<name>", "changed_bits": [<u32>, ...] }
  *
  * Mask step line (includes range and mask metadata in JSON):
  * <annotation text> { "traceline": <u32>, "depth": <int>, "level": <int>,
- *     "function": "<name>", "start": <u64>, "stop": <u64>, "step": <u64>,
+ *     "operation": "<name>", "start": <u64>, "stop": <u64>, "step": <u64>,
  *     "word_bits": <u64>, "word_start": <u64>, "word_stop": <u64>, "step_words": <u64>,
  *     "mask_bits": [<u32>, ...], "pattern_kind": "<name>", "pattern_slot_count": <u32>,
  *     "pattern_slot0_bits": [...], "mask_target_words": [...], "mask_target_slots": [...],
- *     "changed_bits": [<u32>, ...] }
+ *     "target_bits": [<u32>, ...], "changed_bits": [<u32>, ...] }
+ *
+ * Note: "target_bits" lists absolute bit indices that the mask operation
+ *     intended to set (including bits already set before the operation).
+ *     "changed_bits" lists only the bits that were actually newly set.
+ *     The parser also accepts the legacy "function" key as an alias for "operation".
  *
  * Text step line (no changed bits):
  * <annotation text> { "traceline": <u32>, "depth": <int>, "level": <int>,
- *     "function": "<name>" }
+ *     "operation": "<name>" }
  *
  * All JSON fields are optional except "traceline".
  * The annotation text prefix is the human-readable description;

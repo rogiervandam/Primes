@@ -345,7 +345,7 @@ trace_record_event_full(int level, const void* bitstorage, const char* label, do
     if (g_trace.depth > 0) fprintf(g_trace.file, ", \"depth\": %d", g_trace.depth);
     if (level > 0) fprintf(g_trace.file, ", \"level\": %d", level);
     if (event_label) {
-        fputs(", \"function\": ", g_trace.file);
+        fputs(", \"operation\": ", g_trace.file);
         trace_write_json_string(g_trace.file, event_label);
     }
     if (time > 0) fprintf(g_trace.file, ", \"time\": %.9f", time);
@@ -414,7 +414,7 @@ trace_record_applymask_step_labeled(int level, const void* bitstorage,
     if (g_trace.depth > 0) fprintf(g_trace.file, ", \"depth\": %d", g_trace.depth);
     if (level > 0) fprintf(g_trace.file, ", \"level\": %d", level);
     if (event_label) {
-        fputs(", \"function\": ", g_trace.file);
+        fputs(", \"operation\": ", g_trace.file);
         trace_write_json_string(g_trace.file, event_label);
     }
     fprintf(g_trace.file,
@@ -441,6 +441,25 @@ trace_record_applymask_step_labeled(int level, const void* bitstorage,
     trace_write_uint64_array(g_trace.file, mask_target_words, mask_target_count);
     fputs(", \"mask_target_slots\": ", g_trace.file);
     trace_write_uint32_array(g_trace.file, mask_target_slots, mask_target_count);
+
+    /* target_bits: explicit absolute bit indices derived from mask_target_words + slot_bits */
+    if (word_bits > 0 && mask_target_count > 0 && slot_count > 0) {
+        fputs(", \"target_bits\": [", g_trace.file);
+        int tb_first = 1;
+        for (counter_t ti = 0; ti < mask_target_count; ti++) {
+            uint64_t wi = mask_target_words[ti];
+            uint32_t si = (slot_count > 0) ? (uint32_t)(mask_target_slots[ti] % (uint32_t)slot_count) : 0;
+            const uint32_t* sbits = slot_bits[si];
+            uint32_t scount = slot_counts[si];
+            uint64_t base_bit = wi * (uint64_t)word_bits;
+            for (uint32_t bi = 0; bi < scount; bi++) {
+                if (!tb_first) fputc(',', g_trace.file);
+                fprintf(g_trace.file, "%llu", (unsigned long long)(base_bit + sbits[bi]));
+                tb_first = 0;
+            }
+        }
+        fputc(']', g_trace.file);
+    }
 
     /* changed_bits array */
     fputs(", \"changed_bits\": [", g_trace.file);
@@ -477,7 +496,7 @@ trace_record_text_full(int level, const char* label, const char* annotation)
     if (g_trace.depth > 0) fprintf(g_trace.file, ", \"depth\": %d", g_trace.depth);
     if (level > 0) fprintf(g_trace.file, ", \"level\": %d", level);
     if (event_label) {
-        fputs(", \"function\": ", g_trace.file);
+        fputs(", \"operation\": ", g_trace.file);
         trace_write_json_string(g_trace.file, event_label);
     }
     fputs(" }\n", g_trace.file);
