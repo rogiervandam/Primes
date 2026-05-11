@@ -350,12 +350,28 @@ export function useCanvasLayout({
     const glDirectMode = !!(glRenderer && typeof glRenderer.isDirectMode === 'function' && glRenderer.isDirectMode());
     let overlayDpr = null;
     if (glRenderer) {
-      glRenderer.resize(canvasW, canvasH, glForcedDpr);
-      if (glDirectMode && typeof glRenderer.getEffectiveDpr === 'function') {
+      glRenderer.resize(canvasW, canvasH, glForcedDpr, forcedDpr);
+      if (typeof glRenderer.getEffectiveDpr === 'function') {
         overlayDpr = glRenderer.getEffectiveDpr();
       }
     }
-    r.resize(canvasW, canvasH, forcedDpr || overlayDpr);
+    // Always use the clamped DPR (overlayDpr) that BitGridGLWorker.resize()
+    // actually applied.  This is critical for two reasons:
+    //
+    // 1. Single-canvas modes (2/3/6/7): glyph commands are replayed onto the
+    //    shared bit-grid canvas.  If canvasDpr > the canvas's actual DPR,
+    //    GlyphTextGLCore.beginFrame tries to resize (and clears) the canvas.
+    //
+    // 2. Separate-overlay modes (1/4/5/8): the bit-grid shader uses
+    //    u_dpr = clampedGlForcedDpr for sub-pixel snapping.  If the glyph
+    //    overlay uses a different u_dpr (e.g. glForcedDpr when clamping
+    //    occurs), the two snap grids diverge and outlines/text visibly
+    //    misalign from cells.  Using the same clamped value keeps both
+    //    canvases on an identical snap grid.
+    //
+    // When no clamping occurs, overlayDpr === glForcedDpr, so full SSAA
+    // resolution is preserved on the glyph canvas.
+    r.resize(canvasW, canvasH, overlayDpr || forcedDpr, forcedDpr);
     // Sync wrapper div and GL canvas dimensions so translate(-50%,-50%) in
     // renderCanvasStyle computes the correct pixel shift (50% of the wrapper's
     // own size) and the GL canvas CSS display always matches Canvas2D.

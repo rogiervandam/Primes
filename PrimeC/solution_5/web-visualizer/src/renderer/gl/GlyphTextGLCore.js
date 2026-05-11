@@ -117,9 +117,12 @@ void main() {
   // output is also premultiplied: (r*a*mask, g*a*mask, b*a*mask, a*mask).
   float mask;
   if (v_mode > 1.5) {
-    // mode == 2: solid filled rectangle — mask is always 1.  Used for
-    // outline edge quads (drawOutlineRect draws four of these per rect).
-    mask = 1.0;
+    // mode == 2: filled/outline rect with sub-pixel edge AA via fwidth().
+    // v_cellUV runs [0,1]^2 across the quad; fwidth gives the screen-space
+    // derivative so smoothstep fades exactly one device pixel at each edge.
+    vec2 fw = fwidth(v_cellUV);
+    vec2 edgeDist = min(v_cellUV, 1.0 - v_cellUV);
+    mask = smoothstep(0.0, fw.x, edgeDist.x) * smoothstep(0.0, fw.y, edgeDist.y);
   } else if (v_mode > 0.5) {
     // mode == 1: smooth-edged circle SDF.
     float d = distance(v_cellUV, vec2(0.5, 0.5)) * 2.0;
@@ -191,7 +194,8 @@ export class GlyphTextGLCore {
     this._uniforms   = {};
     this._cssW       = 1;
     this._cssH       = 1;
-    this._dpr        = 1;
+    this._dpr        = 1;  // physical canvas DPR (used for canvas sizing)
+    this._snapDpr    = 1;  // snap DPR used for u_dpr uniform (= forcedDpr, without SSAA multiplier)
     this._lost       = false;
     this._tiltXDeg      = 0;
     this._tiltYDeg      = 0;
@@ -350,10 +354,11 @@ export class GlyphTextGLCore {
    * @param {number} cssH
    * @param {number} dpr
    */
-  resize(cssW, cssH, dpr) {
+  resize(cssW, cssH, dpr, snapDpr) {
     if (this._lost || !this.canvas) return;
     const r = Math.max(1, dpr || 1);
-    this._dpr  = r;
+    this._dpr     = r;
+    this._snapDpr = Math.max(1, snapDpr || r);
     this._cssW = cssW;
     this._cssH = cssH;
     const pw = Math.max(1, Math.round(cssW * r));
@@ -381,19 +386,31 @@ export class GlyphTextGLCore {
    * @param {boolean} [clear=true] When false, preserve existing canvas content
    * so additional overlays can be composited in a follow-up pass.
    */
-  beginFrame(cssW, cssH, dpr, clear = true) {
+  beginFrame(cssW, cssH, dpr, clear = true, snapDpr) {
     if (this._lost || !this.gl) return;
-    this._cssW  = cssW;
-    this._cssH  = cssH;
+    this._cssW    = cssW;
+    this._cssH    = cssH;
     const r = Math.max(1, dpr || 1);
-    this._dpr   = r;
-    this._count = 0;
+    this._dpr     = r;
+    // snapDpr is the user-facing DPR (without the SSAA multiplier). It controls
+    // sub-pixel snapping in the vertex shader (u_dpr) independently of the
+    // oversampling factor. Falls back to the physical DPR when not provided.
+    this._snapDpr = Math.max(1, snapDpr || r);
+    this._count   = 0;
 
     const pw = Math.max(1, Math.round(cssW * r));
     const ph = Math.max(1, Math.round(cssH * r));
     if (this.canvas.width !== pw || this.canvas.height !== ph) {
-      this.canvas.width  = pw;
-      this.canvas.height = ph;
+      if (clear) {
+        // Resizing the canvas always clears its content. Only do so when we
+        // intend to clear anyway. When clear=false (overlay/replay pass) we
+        // preserve whatever was already drawn (e.g. the bit-grid rendered by
+        // BitGridGLCore on the shared OffscreenCanvas). Also avoids clearing
+        // the canvas when the OffscreenCanvas is internally clamped to a
+        // smaller size than the requested physical dimensions.
+        this.canvas.width  = pw;
+        this.canvas.height = ph;
+      }
     }
     if (this.canvas.style && !this.canvas.style.width) {
       this.canvas.style.width  = `${cssW}px`;
@@ -401,7 +418,10 @@ export class GlyphTextGLCore {
     }
 
     const gl = this.gl;
-    gl.viewport(0, 0, pw, ph);
+    // Use the actual canvas dimensions for the viewport — if the backing
+    // store was clamped by the browser (e.g. OffscreenCanvas limit) or the
+    // resize was skipped above, this still sets up a valid viewport.
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     if (clear) {
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
@@ -643,7 +663,7 @@ export class GlyphTextGLCore {
     gl.uniform1i(this._uniforms.atlas, 0);
 
     gl.uniform2f(this._uniforms.canvasSize,   this._cssW, this._cssH);
-    gl.uniform1f(this._uniforms.dpr,           this._dpr);
+    gl.uniform1f(this._uniforms.dpr,           this._snapDpr);
     gl.uniform1f(this._uniforms.tiltXDeg,      this._tiltXDeg);
     gl.uniform1f(this._uniforms.tiltYDeg,      this._tiltYDeg);
     gl.uniform1f(this._uniforms.perspective,   this._tiltPerspective);

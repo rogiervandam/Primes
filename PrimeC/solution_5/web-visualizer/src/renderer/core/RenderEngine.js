@@ -15,9 +15,10 @@ export class RenderEngine {
     const glCtx = host._glyphBuf || host._glyphCtx || null;
     if (glCtx) {
       const canvasDpr = Math.max(0.1, host.canvasDpr || 1);
+      const snapDpr = Math.max(0.1, host.canvasSnapDpr || canvasDpr);
       const cw = host.canvasWidth || 0;
       const ch = host.canvasHeight || 0;
-      glCtx.beginFrame(cw, ch, canvasDpr);
+      glCtx.beginFrame(cw, ch, canvasDpr, true, snapDpr);
     }
 
     host._renderCachelineHeatOverlay();

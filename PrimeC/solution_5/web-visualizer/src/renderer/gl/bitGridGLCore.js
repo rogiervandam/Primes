@@ -530,7 +530,7 @@ export class BitGridGLCore {
     gl.uniform2f(u.canvasSize, cssW, cssH);
     gl.uniform2f(u.pan, params.panX || 0, params.panY || 0);
     gl.uniform1f(u.cellSize, Math.max(1, params.cellSize || 1));
-    gl.uniform1f(u.dpr, Math.max(1, params.dpr || this._dpr || 1));
+    gl.uniform1f(u.dpr, Math.max(1, params.snapDpr || params.dpr || this._dpr || 1));
     gl.uniform1f(u.tiltXDeg, Number(params.tiltXDeg) || 0);
     gl.uniform1f(u.tiltYDeg, Number(params.tiltYDeg) || 0);
     gl.uniform1f(u.perspective, Math.max(1, Number(params.perspective) || 1500));
