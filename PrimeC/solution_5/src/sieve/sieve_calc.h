@@ -25,16 +25,17 @@ calcFactor_max(counter_t range_stop)
     return (usqrt(range_stop));
 }
 
-static const storage_t storage_table[STORAGE_WHEELTESTING + 1] = {
+enum {
+    STORAGE_FULL      = 0,
+    STORAGE_HALF      = 1,
+    STORAGE_WHEEL     = 2
+};
+
+static const storage_t storage_table[STORAGE_WHEEL + 1] = {
     [STORAGE_FULL] = { STORAGE_FULL, 1, 1 }
     ,[STORAGE_HALF] = { STORAGE_HALF, 1, 2 }
 #if defined WHEEL_SIZE && defined WHEEL_STRIPE_BITS
-    ,[STORAGE_WHEEL2OF6] = { STORAGE_WHEEL2OF6, 2, 6 }
-    ,[STORAGE_WHEEL8OF30] = { STORAGE_WHEEL8OF30, 8, 30 }
-    ,[STORAGE_WHEEL48OF210] = { STORAGE_WHEEL48OF210, 48, 210 }
-    ,[STORAGE_WHEEL480OF2310] = { STORAGE_WHEEL480OF2310, 480, 2310 }
-    ,[STORAGE_WHEEL5760OF30030] = { STORAGE_WHEEL5760OF30030, 5760, 30030 }
-    ,[STORAGE_WHEELTESTING] = { STORAGE_WHEELTESTING, WHEEL_STRIPE_BITS, WHEEL_SIZE } // this is used for testing the wheel storage with a small wheel, it is not a real storage type
+    ,[STORAGE_WHEEL] = { STORAGE_WHEEL, WHEEL_STRIPE_BITS, WHEEL_SIZE } // this is used for testing the wheel storage with a small wheel, it is not a real storage type
 #endif
 };
 // these are necessary for a generic calculation in the benchmark settings
@@ -56,12 +57,7 @@ getStorageModelName(int storage_id)
     switch (storage_id) {
         case STORAGE_FULL:             return "full";
         case STORAGE_HALF:             return "half";
-        case STORAGE_WHEEL2OF6:        return "wheel2of6";
-        case STORAGE_WHEEL8OF30:       return "wheel8of30";
-        case STORAGE_WHEEL48OF210:     return "wheel48of210";
-        case STORAGE_WHEEL480OF2310:   return "wheel480of2310";
-        case STORAGE_WHEEL5760OF30030: return "wheel5760of30030";
-        case STORAGE_WHEELTESTING:     return "wheeltesting";
+        case STORAGE_WHEEL:     return "wheel";
         default:                       return "unknown";
     }
 }

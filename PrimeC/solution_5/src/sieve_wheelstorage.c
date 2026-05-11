@@ -24,9 +24,7 @@ void prepareBenchmark() {
     size_t prefix_len = 0; while (algorithm_name[prefix_len] != '\0') prefix_len++;
     sprintf(algorithm_name + prefix_len, "_%juof%ju", (uintmax_t)wheelmask_stripe_bits, (uintmax_t)WHEEL_SIZE);
 
-    // option.fixed_benchmark_settings.largestep_faster        = 256;
-    option.fixed_benchmark_settings.algorithm               = ALGORITHM_WHEEL;
-    option.fixed_benchmark_settings.storage                 = STORAGE_WHEELTESTING;
+    option.fixed_benchmark_settings.storage                 = STORAGE_WHEEL;
     option.fixed_benchmark_settings.stripe_faster           = 1;
 }
 
@@ -36,7 +34,7 @@ void prepareBenchmark() {
 */
 static sieve_t* shakeSieve(const counter_t sieve_size)
 {
-    sieve_t *sieve = sieve_create(sieve_size, calcBitsize(sieve_size, STORAGE_WHEELTESTING) ); 
+    sieve_t *sieve = sieve_create(sieve_size, calcBitsize(sieve_size, STORAGE_WHEEL) ); 
     sieve_clear(sieve);
 
     const counter_t prime_max = calcFactor_max(sieve_size);

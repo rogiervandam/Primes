@@ -40,7 +40,6 @@ void prepareBenchmark() {
 
     option.fixed_benchmark_settings.stripe_faster           = 1; // unused
     option.fixed_benchmark_settings.largestep_faster        = 1; // unused
-    option.fixed_benchmark_settings.algorithm               = ALGORITHM_WHEEL;
     option.fixed_benchmark_settings.storage                 = STORAGE_HALF;
 }
 
