@@ -226,7 +226,8 @@ Fixed: Added `animAccumDeltaRef` in `DoubleTimeline.jsx`. During the drag-initia
 
 252 When i have my mouse above the double timeline (including title and annotions), don't let the mouse interactions trigger on underlying elements, such as the canvas or the detail panel. 
 
-253 Weh i drag really fast, you see the balloon moving to its new position, but the connector line stay on the old position, which creates a disconnect between the balloon and its connector line, which can be confusing for the user. To fix this, make sure that the connector line updates its position while the balloon is moving, even when dragging quickly. This way users can maintain a clear visual connection between the balloons and their connectors, and avoid any confusion caused by them being out of sync during fast interactions. If that's not possible, remove the connector line during dragging and only show it again when the balloon is in its final position after the drag, so that users are not confused by the disconnected line during the drag.
+253 When i drag really fast, you see the balloon moving to its new position, but the connector line stay on the old position, which creates a disconnect between the balloon and its connector line, which can be confusing for the user. To fix this, make sure that the connector line updates its position while the balloon is moving, even when dragging quickly. This way users can maintain a clear visual connection between the balloons and their connectors, and avoid any confusion caused by them being out of sync during fast interactions. If that's not possible, remove the connector line during dragging and only show it again when the balloon is in its final position after the drag, so that users are not confused by the disconnected line during the drag.
+
 
 
 
