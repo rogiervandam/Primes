@@ -257,6 +257,10 @@ export function useGoToStep({
         delayMs,
         pinnedBitIndices,
         groupBits: effectiveGroupBits,
+        // item 290: allow caller to specify an animation start fraction (e.g. repeat from point)
+        ...(Number.isFinite(options.startProgress) && options.startProgress > 0
+          ? { startProgress: options.startProgress }
+          : {}),
       });
     }
   }, [

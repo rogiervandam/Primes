@@ -60,6 +60,9 @@ function parseNavQuery(q) {
   // "group N" — single group: highlight its bit range
   m = lower.match(/^group\s+(\d+)$/);
   if (m) return { type: 'range', label: `Highlight group ${m[1]}`, navQuery: `group ${m[1]}` };
+  // item 287: "event N" / "step N" → open events panel and jump to that event
+  m = lower.match(/^(?:event|step)\s+(\d+)$/);
+  if (m) return { type: 'event', label: `Go to event ${m[1]}`, eventIdx: parseInt(m[1], 10) };
   // Plain integer → bit index
   m = lower.match(/^(\d+)$/);
   if (m) return { type: 'navigate', label: `Navigate to bit ${m[1]}`, navQuery: m[1] };
@@ -117,7 +120,20 @@ export default function SearchOverlay({
     // Navigation result (if query looks like a nav command)
     const nav = parseNavQuery(q);
     if (nav) {
-      out.push({ id: 'nav', kind: nav.type, label: nav.label ?? `Navigate to ${q}`, navQuery: nav.navQuery });
+      if (nav.type === 'event') {
+        // item 287: "event N" — find the step by originalIndex, fall back to array index
+        const eIdx = nav.eventIdx;
+        let arrayIdx = eIdx;
+        let matchedStep = null;
+        if (steps && steps.length > 0) {
+          const found = steps.findIndex((s) => (s.originalIndex ?? steps.indexOf(s)) === eIdx);
+          if (found >= 0) { arrayIdx = found; matchedStep = steps[found]; }
+          else if (steps[eIdx]) { arrayIdx = eIdx; matchedStep = steps[eIdx]; }
+        }
+        out.push({ id: `nav-event-${eIdx}`, kind: 'event', step: matchedStep, stepIdx: arrayIdx, label: nav.label });
+      } else {
+        out.push({ id: 'nav', kind: nav.type, label: nav.label ?? `Navigate to ${q}`, navQuery: nav.navQuery });
+      }
     }
 
     // Event search (runs even if a nav result was found, so users can find events by number)

@@ -247,6 +247,11 @@ export default function Visualizer({
     handleBitAnimationModeChange,
   } = useStepAnimation({ initialPrefs });
 
+  // item 290: repeat start fraction (0-100) — where animation restarts when single-event repeat is on
+  const [repeatFraction, setRepeatFraction] = useState(() => Number(initialPrefs.repeatFraction) || 0);
+  const repeatFractionRef = useRef(repeatFraction);
+  repeatFractionRef.current = repeatFraction;
+
   // Tracks which sub-event's mask is currently shown during aggregated event animation/scrubbing.
   // Updated by animation hooks; used by DetailPanel to show the correct mask for each step.
   const [aggMaskStepIndex, _setAggMaskStepIndex] = useState(0);
@@ -1004,6 +1009,7 @@ export default function Visualizer({
       isStepAnimRunningRefForScheduler,
       isAutoAnimateOnSelectRef,
       isSingleEventRepeatEnabledRef,
+      repeatFractionRef,  // item 290
     },
     loopState: {
       playing,
@@ -1430,6 +1436,8 @@ export default function Visualizer({
     openAnimationSettings,
     isSingleEventRepeatEnabled,
     setIsSingleEventRepeatEnabled,
+    aggMaskStepIndex,
+    aggMaskStepSetterRef,
     setEventTitleSettings,
     setPendingBannerDragStart,
     isAllEventsInDetailPanel,
@@ -1851,6 +1859,9 @@ export default function Visualizer({
         onDockTimeline: () => { setIsTimelineUndocked(false); setFloatingDetailVisible(false); },
         floatingDetailVisible,
         onToggleFloatingDetail: () => setFloatingDetailVisible((v) => !v),
+        // item 290: repeat start fraction
+        repeatFraction,
+        onRepeatFractionChange: setRepeatFraction,
       },
     },
 

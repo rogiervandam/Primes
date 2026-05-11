@@ -302,6 +302,37 @@
   flex: 0 0 auto;
 }
 
+/* item 283: mask step indicator row in StepAnimSliders */
+.step-focus-mask-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px;
+  margin-top: 3px;
+}
+.step-focus-mask-dot {
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  background: var(--bg-input);
+  color: var(--fg-dim);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.step-focus-mask-dot:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+.step-focus-mask-dot.active {
+  background: color-mix(in srgb, var(--accent-bg) 65%, transparent);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-light));
+}
+
 .step-focus-repeat-btn {
   padding: 3px 6px;
   flex: 0 0 auto;

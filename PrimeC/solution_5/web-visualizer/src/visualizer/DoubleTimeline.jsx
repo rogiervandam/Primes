@@ -67,6 +67,9 @@ export default function DoubleTimeline({
   // when undocked: toggle detail panel visibility (shown in normal position, not inside widget)
   floatingDetailVisible = false,
   onToggleFloatingDetail,
+  // item 290: repeat handle on animation timeline
+  repeatFraction = 0,
+  onRepeatFractionChange,
 }) {
   const {
     goToStep,
@@ -124,6 +127,15 @@ export default function DoubleTimeline({
   const waveCanvasRef = useRef(null);
   const waveContainerRef = useRef(null);
   const containerRef = useRef(null);
+  // item 291: active-area refs — the inset region excluding toggle buttons
+  const waveActiveAreaRef = useRef(null);
+  const animActiveAreaRef = useRef(null);
+
+  // item 289: zoom ranges for both timelines
+  const [waveZoomRange, setWaveZoomRange] = useState({ start: 0, end: 1 }); // fractions of total steps
+  const waveZoomRangeRef = useRef({ start: 0, end: 1 });
+  const [animZoomRange, setAnimZoomRange] = useState({ start: 0, end: 100 }); // percent 0-100
+  const animZoomRangeRef = useRef({ start: 0, end: 100 });
 
   // Pre-compute bar heights (normalised 0-1) from steps
   const barHeights = useMemo(() => {
@@ -136,9 +148,10 @@ export default function DoubleTimeline({
   // Draw waveform on canvas whenever size or data changes
   const drawWave = useCallback(() => {
     const canvas = waveCanvasRef.current;
-    const container = waveContainerRef.current;
-    if (!canvas || !container) return;
-    const { width, height } = container.getBoundingClientRect();
+    // item 291: measure the active area (inset past the toggle button) not the full zone
+    const activeArea = waveActiveAreaRef.current || waveContainerRef.current;
+    if (!canvas || !activeArea) return;
+    const { width, height } = activeArea.getBoundingClientRect();
     if (width < 1 || height < 1) return;
     const dpr = window.devicePixelRatio || 1;
     canvas.width = width * dpr;
@@ -154,12 +167,18 @@ export default function DoubleTimeline({
     // item 242: transparent canvas so glassmorphism CSS backdrop-filter shows through
     ctx.clearRect(0, 0, width, height);
 
-    const barW = width / n;
+    // item 289: only render bars in the zoom range
+    const { start: zStart, end: zEnd } = waveZoomRangeRef.current;
+    const iStart = Math.floor(zStart * n);
+    const iEnd = Math.ceil(zEnd * n);
+    const visibleCount = Math.max(1, iEnd - iStart);
+    const barW = width / visibleCount;
     const padFrac = barW > 3 ? 0.12 : 0;
 
-    for (let i = 0; i < n; i++) {
+    for (let i = iStart; i < iEnd; i++) {
+      if (i < 0 || i >= n) continue;
       const h = barHeights[i] * (height - 2);
-      const x = i * barW + barW * padFrac;
+      const x = (i - iStart) * barW + barW * padFrac;
       const w = barW * (1 - 2 * padFrac);
       const y = height - h;
       const isActive = i === currentStep;
@@ -173,17 +192,7 @@ export default function DoubleTimeline({
       }
       ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.round(h) || 1);
     }
-
-    // White vertical playhead line (item 125)
-    if (n > 0) {
-      const px = (currentStep / Math.max(1, n - 1)) * width;
-      ctx.strokeStyle = 'rgba(255,255,255,0.95)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(px, 0);
-      ctx.lineTo(px, height);
-      ctx.stroke();
-    }
+    // item 288: scrubber is now a separate pill div overlay — no canvas line needed
   }, [barHeights, currentStep]);
 
   useEffect(() => { drawWave(); }, [drawWave]);
@@ -200,20 +209,32 @@ export default function DoubleTimeline({
   // item 192: rAF-throttled scrub — avoids queuing multiple React state updates per frame
   const waveRafRef = useRef(null);
   const isDividerDraggingRef = useRef(false);  // item 218: block zone interactions during center drag
+  // Ref so wave pointer handlers can read the current playing state without stale closures
+  const isAnimPlayingRef = useRef(false);
+  isAnimPlayingRef.current = (playing || isStepAnimRunning || isSingleEventLoopActive) && !isAnimationReplayPaused;
+  // Ref so repeat-handle handler can check playhead proximity without a stale closure
+  const stepScrubProgressRef = useRef(stepScrubProgress);
+  stepScrubProgressRef.current = stepScrubProgress;
+  // Ref: true while the repeat handle is being dragged — gates zone pointer handlers
+  const isRepeatDraggingRef = useRef(false);
   const waveSeek = useCallback((e) => {
     const canvas = waveCanvasRef.current;
     if (!canvas || steps.length === 0) return;
     const rect = canvas.getBoundingClientRect();
     const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    goToStep(Math.round(frac * (steps.length - 1)));
+    // item 289: map fraction to zoomed range
+    const { start: zStart, end: zEnd } = waveZoomRangeRef.current;
+    const mappedFrac = zStart + frac * (zEnd - zStart);
+    goToStep(Math.round(mappedFrac * (steps.length - 1)));
   }, [goToStep, steps.length]);
 
   const handleWavePointerDown = useCallback((e) => {
     if (isDividerDraggingRef.current) return;  // item 218: ignore if center is being dragged
     e.currentTarget.setPointerCapture(e.pointerId);
     setFocusMode('events');  // item 219: click/drag in events zone → events focus
+    if (isAnimPlayingRef.current) handleStepAnimToggle?.();  // stop animation when scrubbing events
     waveSeek(e);
-  }, [waveSeek]);
+  }, [waveSeek, handleStepAnimToggle]);
 
   const handleWavePointerMove = useCallback((e) => {
     if (isDividerDraggingRef.current) return;  // item 218
@@ -226,9 +247,38 @@ export default function DoubleTimeline({
       if (!canvas || steps.length === 0) return;
       const rect = canvas.getBoundingClientRect();
       const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      goToStep(Math.round(frac * (steps.length - 1)));
+      // item 289: map fraction to zoomed range
+      const { start: zStart, end: zEnd } = waveZoomRangeRef.current;
+      const mappedFrac = zStart + frac * (zEnd - zStart);
+      goToStep(Math.round(mappedFrac * (steps.length - 1)));
     });
   }, [goToStep, steps.length]);
+
+  // item 289: wheel zoom for the wave zone
+  const handleWaveWheel = useCallback((e) => {
+    if (steps.length === 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const canvas = waveCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const cursorFrac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const { start, end } = waveZoomRangeRef.current;
+    const range = end - start;
+    // deltaY > 0 = scroll down = zoom out; < 0 = scroll up = zoom in
+    const factor = e.deltaY > 0 ? 1.25 : 0.8;
+    const newRange = Math.max(2 / steps.length, Math.min(1, range * factor));
+    // Keep cursor's fraction fixed
+    const cursorAbs = start + cursorFrac * range;
+    let newStart = cursorAbs - cursorFrac * newRange;
+    let newEnd = newStart + newRange;
+    if (newStart < 0) { newStart = 0; newEnd = newRange; }
+    if (newEnd > 1) { newEnd = 1; newStart = 1 - newRange; }
+    const next = { start: newStart, end: newEnd };
+    waveZoomRangeRef.current = next;
+    setWaveZoomRange(next);
+    drawWave();
+  }, [steps.length, drawWave]);
 
   // ── Centre divider drag: horizontal = split; vertical = detail panel (items 121, 125, 130–133, 142) ──
   // item 142: use pointer events so touch works the same as mouse
@@ -606,45 +656,147 @@ export default function DoubleTimeline({
   const animRafRef = useRef(null);  // item 192: rAF throttle for anim scrub
 
   const animSeek = useCallback((e) => {
-    const el = animZoneRef.current;
+    // item 291: use active area rect (inset past settings toggle)
+    const el = animActiveAreaRef.current || animZoneRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    setStepScrubProgress?.(frac * 100);
-    seekStepAnimation?.(frac);
+    // item 289: map fraction to zoomed range
+    const { start: zStart, end: zEnd } = animZoomRangeRef.current;
+    const mappedPercent = zStart + frac * (zEnd - zStart);
+    setStepScrubProgress?.(mappedPercent);
+    seekStepAnimation?.(mappedPercent / 100);
   }, [seekStepAnimation, setStepScrubProgress]);
 
   const handleAnimPointerDown = useCallback((e) => {
     if (isDividerDraggingRef.current) return;  // item 218: ignore if center is being dragged
+    if (isRepeatDraggingRef.current) return;   // ignore if repeat handle is being dragged
     if (isScrubbingTopRef) isScrubbingTopRef.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
     setFocusMode('animation');  // item 219: click/drag in anim zone → animation focus
     animSeek(e);
   }, [isScrubbingTopRef, animSeek]);
   const handleAnimPointerMove = useCallback((e) => {
+    if (isRepeatDraggingRef.current) return;   // ignore while repeat handle drag owns the pointer
     if (e.buttons !== 1) return;
     const clientX = e.clientX;
     if (animRafRef.current !== null) return;  // already scheduled
     animRafRef.current = requestAnimationFrame(() => {
       animRafRef.current = null;
-      const el = animZoneRef.current;
+      // item 291: use active area rect
+      const el = animActiveAreaRef.current || animZoneRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
       const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      setStepScrubProgress?.(frac * 100);
-      seekStepAnimation?.(frac);
+      // item 289: map fraction to zoomed range
+      const { start: zStart, end: zEnd } = animZoomRangeRef.current;
+      const mappedPercent = zStart + frac * (zEnd - zStart);
+      setStepScrubProgress?.(mappedPercent);
+      seekStepAnimation?.(mappedPercent / 100);
     });
   }, [seekStepAnimation, setStepScrubProgress]);
   const handleAnimPointerUp = useCallback((e) => {
+    if (isRepeatDraggingRef.current) return;   // ignore: repeat handle drag will release its own capture
     if (isScrubbingTopRef) isScrubbingTopRef.current = false;
     animSeek(e);
   }, [isScrubbingTopRef, animSeek]);
+
+  // item 289: wheel zoom for the anim zone
+  const handleAnimWheel = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // item 291: use active area rect
+    const el = animActiveAreaRef.current || animZoneRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const cursorFrac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const { start, end } = animZoomRangeRef.current;
+    const range = end - start;
+    const factor = e.deltaY > 0 ? 1.25 : 0.8;
+    const newRange = Math.max(1, Math.min(100, range * factor));
+    const cursorAbs = start + cursorFrac * range;
+    let newStart = cursorAbs - cursorFrac * newRange;
+    let newEnd = newStart + newRange;
+    if (newStart < 0) { newStart = 0; newEnd = newRange; }
+    if (newEnd > 100) { newEnd = 100; newStart = 100 - newRange; }
+    const next = { start: newStart, end: newEnd };
+    animZoomRangeRef.current = next;
+    setAnimZoomRange(next);
+  }, []);
+
+  // item 290: repeat handle drag on the animation timeline
+  const handleRepeatHandlePointerDown = useCallback((e) => {
+    if (!onRepeatFractionChange) return;
+    // item 293: if the anim playhead is within 10px of the repeat handle, treat the
+    // click as a seek rather than a repeat-handle drag so the playhead takes priority.
+    const el = animActiveAreaRef.current || animZoneRef.current;
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      const { start: zStart, end: zEnd } = animZoomRangeRef.current;
+      const playheadX = rect.left + ((stepScrubProgressRef.current - zStart) / (zEnd - zStart)) * rect.width;
+      if (Math.abs(e.clientX - playheadX) < 10) return;  // let event bubble to zone → seek
+    }
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    isRepeatDraggingRef.current = true;
+    // item 291: use active area rect
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const onMove = (ev) => {
+      const frac = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+      const { start: zStart, end: zEnd } = animZoomRangeRef.current;
+      const mappedPercent = Math.round(zStart + frac * (zEnd - zStart));
+      onRepeatFractionChange(Math.max(0, Math.min(99, mappedPercent)));
+    };
+    const onUp = () => {
+      isRepeatDraggingRef.current = false;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, [onRepeatFractionChange]);
 
   const isAnimPlaying = (playing || isStepAnimRunning || isSingleEventLoopActive) && !isAnimationReplayPaused;
   const stepCount = steps.length;
   const canNavigate = stepCount > 0 && !exporting;
   const isInDelayPhase = delayPhaseMs > 0;
   const annotationText = currentStepData?.annotation || '';
+
+  // item 289: computed zoom-aware values for display in JSX
+  const waveIsZoomed = waveZoomRange.start > 0.001 || waveZoomRange.end < 0.999;
+  const animIsZoomed = animZoomRange.start > 0.1 || animZoomRange.end < 99.9;
+  // Wave playhead position within the zoomed range (hidden if outside zoom window)
+  const wavePlayheadFrac = stepCount > 1
+    ? (currentStep / (stepCount - 1) - waveZoomRange.start) / (waveZoomRange.end - waveZoomRange.start)
+    : 0;
+  const wavePlayheadVisible = stepCount > 0 && wavePlayheadFrac >= -0.01 && wavePlayheadFrac <= 1.01;
+  // Anim zone: map stepScrubProgress to zoomed range position
+  const animZoomSpan = animZoomRange.end - animZoomRange.start;
+  const animPlayheadPct = animIsZoomed && animZoomSpan > 0
+    ? ((stepScrubProgress - animZoomRange.start) / animZoomSpan) * 100
+    : stepScrubProgress;
+  const animPlayheadVisible = !animIsZoomed || (stepScrubProgress >= animZoomRange.start - 0.1 && stepScrubProgress <= animZoomRange.end + 0.1);
+  const animFillPct = animIsZoomed && animZoomSpan > 0
+    ? Math.max(0, Math.min(100, ((Math.min(stepScrubProgress, animZoomRange.end) - animZoomRange.start) / animZoomSpan) * 100))
+    : stepScrubProgress;
+  // item 290: repeat handle position in zoomed range
+  const repeatHandlePct = animIsZoomed && animZoomSpan > 0
+    ? ((repeatFraction - animZoomRange.start) / animZoomSpan) * 100
+    : repeatFraction;
+  const repeatHandleVisible = !animIsZoomed || (repeatFraction >= animZoomRange.start - 0.1 && repeatFraction <= animZoomRange.end + 0.1);
+
+  // item 289: attach non-passive wheel listeners for zoom (React wheel events are passive by default)
+  useEffect(() => {
+    const waveEl = waveContainerRef.current;
+    const animEl = animZoneRef.current;
+    if (waveEl) waveEl.addEventListener('wheel', handleWaveWheel, { passive: false });
+    if (animEl) animEl.addEventListener('wheel', handleAnimWheel, { passive: false });
+    return () => {
+      if (waveEl) waveEl.removeEventListener('wheel', handleWaveWheel);
+      if (animEl) animEl.removeEventListener('wheel', handleAnimWheel);
+    };
+  }, [handleWaveWheel, handleAnimWheel]);
 
   // item 216: big play button reflects both event playback and animation state.
   // When animation is running, clicking the big button pauses the animation.
@@ -893,7 +1045,22 @@ export default function DoubleTimeline({
           aria-valuemax={stepCount - 1}
           aria-valuenow={currentStep}
         >
-          <canvas ref={waveCanvasRef} className="dtl-wave-canvas" />
+          {/* item 291: active area — inset past the events toggle button */}
+          <div className="dtl-wave-active-area" ref={waveActiveAreaRef}>
+            <canvas ref={waveCanvasRef} className="dtl-wave-canvas" />
+            {wavePlayheadVisible && (
+              <div
+                className="dtl-wave-playhead"
+                style={{ left: `${Math.max(0, Math.min(100, wavePlayheadFrac * 100))}%` }}
+              />
+            )}
+            {waveIsZoomed && (
+              <div className="dtl-zoom-range-indicators">
+                <span className="dtl-zoom-range-start">{Math.round(waveZoomRange.start * (stepCount - 1))}</span>
+                <span className="dtl-zoom-range-end">{Math.round(waveZoomRange.end * (stepCount - 1))}</span>
+              </div>
+            )}
+          </div>
           <div className="dtl-wave-overlay">
             {/* item 159: left arrow toggles the events panel (left sidebar) */}
             {onToggleEventsPanel && (
@@ -967,15 +1134,7 @@ export default function DoubleTimeline({
             }} disabled={!canNavigate} title={focusMode === 'animation' ? 'Animation end' : 'Last event'}>
               <SkipForward size={10} />
             </button>
-            {/* item 206: repeat at far right — separated from play by speed controls to prevent accidental clicks */}
-            <button
-              className={`dtl-btn dtl-repeat-btn${isSingleEventRepeatEnabled ? ' dtl-active' : ''}`}
-              onClick={onToggleRepeat}
-              onPointerDown={(e) => e.stopPropagation()}
-              title={isSingleEventRepeatEnabled ? 'Loop: on — click to disable' : 'Loop: off — click to enable'}
-            >
-              <Repeat size={10} />
-            </button>
+            {/* item 290: repeat button moved to animation timeline as draggable handle */}
           </div>
           {/* item 168: grip at bottom of center zone so dots appear inside the dragger, not above */}
           <div className="dtl-grip" />
@@ -993,16 +1152,53 @@ export default function DoubleTimeline({
           onPointerCancel={() => { if (isScrubbingTopRef) isScrubbingTopRef.current = false; }}
           title="Click or drag to scrub animation"
         >
-          {/* White vertical bar playhead — absolute on zone so it spans full section height (item 138) */}
-          <div
-            className="dtl-anim-playhead"
-            style={{ left: `${stepScrubProgress}%` }}
-          />
-          {/* item 154: fill bar that grows 0→100% and fades out during delay phase */}
-          <div
-            className={`dtl-anim-fill${isInDelayPhase ? ' dtl-anim-fill--fading' : ''}`}
-            style={{ width: `${stepScrubProgress}%`, '--delay-ms': `${delayPhaseMs}ms` }}
-          />
+          {/* item 291: active area — inset past the settings toggle on the right */}
+          <div className="dtl-anim-active-area" ref={animActiveAreaRef}>
+            {/* item 289: use zoom-aware position */}
+            {animPlayheadVisible && (
+              <div
+                className="dtl-anim-playhead"
+                style={{ left: `${Math.max(0, Math.min(100, animPlayheadPct))}%` }}
+              />
+            )}
+            {/* item 154: fill bar that grows 0→100% and fades out during delay phase */}
+            {/* item 289: fill bar is also zoom-aware */}
+            <div
+              className={`dtl-anim-fill${isInDelayPhase ? ' dtl-anim-fill--fading' : ''}`}
+              style={{ width: `${animFillPct}%`, '--delay-ms': `${delayPhaseMs}ms` }}
+            />
+            {/* item 289: zoom range indicators when zoomed in on animation */}
+            {animIsZoomed && (
+              <div className="dtl-zoom-range-indicators">
+                <span className="dtl-zoom-range-start">{parseFloat(animZoomRange.start.toFixed(1))}%</span>
+                <span className="dtl-zoom-range-end">{parseFloat(animZoomRange.end.toFixed(1))}%</span>
+              </div>
+            )}
+            {/* item 290: draggable repeat handle — shows where single-event repeat restarts from */}
+            {repeatHandleVisible && (
+              <div
+                className={`dtl-repeat-handle${isSingleEventRepeatEnabled ? ' dtl-repeat-handle--active' : ''}`}
+                style={{ left: `${Math.max(0, Math.min(100, repeatHandlePct))}%` }}
+                onPointerDown={handleRepeatHandlePointerDown}
+                onClick={(e) => { e.stopPropagation(); onToggleRepeat?.(); }}
+                title={isSingleEventRepeatEnabled
+                  ? `Loop on — repeat from ${repeatFraction}% (click to disable, drag to move)`
+                  : `Loop off — repeat point at ${repeatFraction}% (click to enable, drag to move)`}
+              >
+                <Repeat size={9} />
+              </div>
+            )}
+            {/* item 290: repeat range fill — shows the portion from repeat point to end when active */}
+            {isSingleEventRepeatEnabled && repeatFraction > 0 && repeatHandleVisible && (
+              <div
+                className="dtl-repeat-range"
+                style={{
+                  left: `${Math.max(0, Math.min(100, repeatHandlePct))}%`,
+                  right: '0',
+                }}
+              />
+            )}
+          </div>
           {/* Header row: items 194, 195: ANIMATION centered, speed to its right */}
           <div className="dtl-anim-header">
             <div className="dtl-anim-header-left">

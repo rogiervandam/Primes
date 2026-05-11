@@ -34,6 +34,10 @@ function StepAnimSliders({
   onDragOutFromDock,
   // When true, renders progress% and gear inline next to the slider (docked to detail panel)
   docked = false,
+  // item 283: mask step indicator
+  aggMaskStepCount = 0,
+  aggMaskStepIndex = 0,
+  onAggMaskStepChange,
 }) {
   // Wipe overlay: 0..100, animates forward over delayPhaseMs when in delay
   // phase, reverses smoothly when the delay is cancelled/scrubbed.
@@ -375,6 +379,21 @@ function StepAnimSliders({
             disabled={STEP_SIZES.indexOf(scrubStepSize) === STEP_SIZES.length - 1}
             title="Increase step size"
           >+</button>
+        </div>
+      )}
+      {aggMaskStepCount > 1 && (
+        <div className="step-focus-mask-indicator" onMouseDown={(e) => e.stopPropagation()}>
+          {Array.from({ length: aggMaskStepCount }, (_, i) => (
+            <button
+              key={i}
+              type="button"
+              className={`step-focus-mask-dot${i === aggMaskStepIndex ? ' active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); onAggMaskStepChange?.(i); }}
+              title={`Mask ${String.fromCharCode(65 + i)} (event ${i + 1} of ${aggMaskStepCount})`}
+            >
+              {String.fromCharCode(65 + i)}
+            </button>
+          ))}
         </div>
       )}
 

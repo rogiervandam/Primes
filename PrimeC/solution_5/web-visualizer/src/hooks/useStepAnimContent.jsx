@@ -30,6 +30,9 @@ export function useStepAnimContent({
   openAnimationSettings,
   isSingleEventRepeatEnabled,
   setIsSingleEventRepeatEnabled,
+  // item 283: mask step indicator
+  aggMaskStepIndex = 0,
+  aggMaskStepSetterRef,
   // docked-only
   setEventTitleSettings,
   setPendingBannerDragStart,
@@ -45,6 +48,11 @@ export function useStepAnimContent({
   setIsAllEventsInDetailPanel,
   setIsAllEventsWidgetHidden,
 }) {
+  const aggMaskStepCount = currentStepData?.aggMaskSteps?.length ?? 0;
+  const onAggMaskStepChange = aggMaskStepSetterRef
+    ? (idx) => aggMaskStepSetterRef.current?.(idx)
+    : undefined;
+
   const stepAnimSlidersContent = (
     <StepAnimSliders
       currentStepData={currentStepData}
@@ -66,6 +74,9 @@ export function useStepAnimContent({
       isSingleEventRepeatEnabled={isSingleEventRepeatEnabled}
       onToggleSingleEventRepeat={() => setIsSingleEventRepeatEnabled((prev) => !prev)}
       onTriggerAnimation={() => { if (goToStep && currentStep != null) goToStep(currentStep); }}
+      aggMaskStepCount={aggMaskStepCount}
+      aggMaskStepIndex={aggMaskStepIndex}
+      onAggMaskStepChange={onAggMaskStepChange}
       docked={false}
     />
   );
@@ -95,6 +106,9 @@ export function useStepAnimContent({
         setEventTitleSettings((prev) => ({ ...prev, visible: true }));
         setPendingBannerDragStart({ x, y, token: Date.now() });
       }}
+      aggMaskStepCount={aggMaskStepCount}
+      aggMaskStepIndex={aggMaskStepIndex}
+      onAggMaskStepChange={onAggMaskStepChange}
       docked={true}
     />
   );

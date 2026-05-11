@@ -90,6 +90,7 @@ export function usePlaybackLoop({ ...flatArgs }) {
     isStepAnimRunningRefForScheduler,
     isAutoAnimateOnSelectRef,
     isSingleEventRepeatEnabledRef,
+    repeatFractionRef,  // item 290: fraction 0-100 where repeat restarts from
   } = loopRefs;
 
   const {
@@ -276,7 +277,12 @@ export function usePlaybackLoop({ ...flatArgs }) {
       setCurrentStep((prev) => {
         // item 226: when repeat is on, replay current event instead of advancing
         if (isSingleEventRepeatEnabledRef?.current) {
-          setTimeout(() => goToStepRef.current?.(prev, { keepPlaying: true }), 0);
+          // item 290: restart from the repeat fraction point if set
+          const repeatStartProgress = (repeatFractionRef?.current ?? 0) / 100;
+          const repeatOpts = repeatStartProgress > 0
+            ? { keepPlaying: true, startProgress: repeatStartProgress }
+            : { keepPlaying: true };
+          setTimeout(() => goToStepRef.current?.(prev, repeatOpts), 0);
           return prev;
         }
         const next = prev + 1;

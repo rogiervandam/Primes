@@ -31,7 +31,10 @@
 
 /* Wraps CanvasStage (via .canvas-column) + DetailPanel so the
    detail panel renders below the canvas as a column flex child.
-   DoubleTimeline has been moved to .main-content level (item 260). */
+   DoubleTimeline has been moved to .main-content level (item 260).
+   item 282: DetailPanel has been moved to .main-content level (absolute-positioned).
+   Use --detail-panel-total-height (updated via DOM) to reserve space at the bottom
+   so the canvas area never slides under the detail panel. */
 .canvas-and-detail-column {
   display: flex;
   flex-direction: column;
@@ -39,5 +42,8 @@
   min-width: 0;
   overflow: visible;
   position: relative;
+  /* item 282: reserve space at bottom for the absolutely-positioned detail panel.
+     CSS variable is updated directly via DOM (no React re-render) for performance. */
+  padding-bottom: var(--detail-panel-total-height, 0px);
 }
 

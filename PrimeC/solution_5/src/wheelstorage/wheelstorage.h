@@ -92,14 +92,14 @@
             // if (wheelmask_stripe_bits % bitcount_type(bitbucket_t) == 0) {
             // if (wheelmask_stripe_bits <= bitcount_type(bitbucket_t)) {
             if (bitcount_type(bitbucket_t) % wheelmask_stripe_bits == 0) {
-                log9("wheel_bucket_calc for index: %ju means wheel %ju, starting at bitpoint %ju which is in the %ju bucket of %s which is enough because stripe %ju <= size %ju", 
-                    (uintmax_t)index, (uintmax_t)(index / WHEEL_SIZE), (uintmax_t)((index / WHEEL_SIZE) * wheelmask_stripe_bits), (uintmax_t)((index / WHEEL_SIZE) * wheelmask_stripe_bits / bitcount_type(bitbucket_t)), STR(suffix), (uintmax_t)wheelmask_stripe_bits, (uintmax_t)bitcount_type(bitbucket_t));
+                // log9("wheel_bucket_calc for index: %ju means wheel %ju, starting at bitpoint %ju which is in the %ju bucket of %s which is enough because stripe %ju <= size %ju", 
+                //     (uintmax_t)index, (uintmax_t)(index / WHEEL_SIZE), (uintmax_t)((index / WHEEL_SIZE) * wheelmask_stripe_bits), (uintmax_t)((index / WHEEL_SIZE) * wheelmask_stripe_bits / bitcount_type(bitbucket_t)), STR(suffix), (uintmax_t)wheelmask_stripe_bits, (uintmax_t)bitcount_type(bitbucket_t));
                 return index_type((index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t);
             }
 
             const counter_t wheel_index = index % WHEEL_SIZE;
-                log9("wheel_bucket_calc for index: %ju means wheel %ju, starting at bitpoint %ju incremented by %ju which gives the %ju bucket of %s", 
-                    (uintmax_t)index, (uintmax_t)(index / WHEEL_SIZE), (uintmax_t)((index / WHEEL_SIZE) * wheelmask_stripe_bits), (uintmax_t)abs(wheelmask_bitpoint[wheel_index]), (uintmax_t)(((index / WHEEL_SIZE) * wheelmask_stripe_bits + abs(wheelmask_bitpoint[wheel_index])) / bitcount_type(bitbucket_t)), STR(suffix));
+                // log9("wheel_bucket_calc for index: %ju means wheel %ju, starting at bitpoint %ju incremented by %ju which gives the %ju bucket of %s", 
+                //     (uintmax_t)index, (uintmax_t)(index / WHEEL_SIZE), (uintmax_t)((index / WHEEL_SIZE) * wheelmask_stripe_bits), (uintmax_t)abs(wheelmask_bitpoint[wheel_index]), (uintmax_t)(((index / WHEEL_SIZE) * wheelmask_stripe_bits + abs(wheelmask_bitpoint[wheel_index])) / bitcount_type(bitbucket_t)), STR(suffix));
             return index_type(((wheelmask_stripe_bits * (index / WHEEL_SIZE)) + abs(wheelmask_bitpoint[wheel_index] )), bitbucket_t);
         }
 

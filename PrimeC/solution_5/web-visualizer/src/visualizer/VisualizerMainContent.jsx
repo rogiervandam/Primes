@@ -80,15 +80,26 @@ export default function VisualizerMainContent(props) {
 
   // item 190: measure full detail panel height (header + body) so DoubleTimeline can
   // position itself above it in both open and collapsed states.
+  // item 282: CSS variable is updated directly via DOM (no React state update) to avoid
+  // re-rendering the canvas when the detail panel height changes.
   const [totalDetailHeight, setTotalDetailHeight] = useState(0);
+  const mainContentRef = useRef(null);
   const detailRoRef = useRef(null);
   const detailPanelCallbackRef = useCallback((el) => {
     detailRoRef.current?.disconnect();
     detailRoRef.current = null;
     if (el) {
-      setTotalDetailHeight(el.offsetHeight);
-      detailRoRef.current = new ResizeObserver(() => setTotalDetailHeight(el.offsetHeight));
+      const h = el.offsetHeight;
+      setTotalDetailHeight(h);
+      mainContentRef.current?.style.setProperty('--detail-panel-total-height', `${h}px`);
+      detailRoRef.current = new ResizeObserver(() => {
+        const nh = el.offsetHeight;
+        setTotalDetailHeight(nh);
+        mainContentRef.current?.style.setProperty('--detail-panel-total-height', `${nh}px`);
+      });
       detailRoRef.current.observe(el);
+    } else {
+      mainContentRef.current?.style.setProperty('--detail-panel-total-height', '0px');
     }
   }, []);
 
@@ -165,10 +176,12 @@ export default function VisualizerMainContent(props) {
 
   return (
     <div
+      ref={mainContentRef}
       className={`main-content${isUiChromeVisible ? ' ui-chrome-visible' : ' ui-chrome-hidden'}`}
       style={{
         '--events-panel-width': `${isEventsPanelCollapsed ? 0 : panelWidth}px`,
         '--settings-panel-width': isSettingsCollapsed ? '0px' : (isMacPlatform ? '388px' : '328px'),  /* item 182 */
+        '--detail-panel-total-height': '0px',  /* item 282: initial value; updated via DOM in detailPanelCallbackRef */
       }}
     >
       <CanvasLoadingOverlay
@@ -253,9 +266,12 @@ export default function VisualizerMainContent(props) {
         }}
       />
       </div>{/* end .canvas-column */}
-      {/* item 235: DetailPanel is a sibling of .canvas-column, not nested inside
-          the canvas render subtree (item 58 / item 235).
-          item 260: DoubleTimeline has been moved to .main-content level (see below). */}
+      </div>
+      {/* item 282: DetailPanel is now a direct sibling of .canvas-and-detail-column within
+          .main-content (position:absolute at bottom:0), fully decoupled from the canvas
+          render subtree. Updates to the detail panel do not affect the canvas layout flow.
+          The canvas area accounts for it via --detail-panel-total-height CSS variable updated
+          directly via DOM in detailPanelCallbackRef (no React re-render triggered). */}
       {currentStepData && (() => {
         const isTimelineUndocked = doubleTimelineProps.isTimelineUndocked;
         const floatingDetailVisible = doubleTimelineProps.floatingDetailVisible ?? false;
@@ -308,13 +324,13 @@ export default function VisualizerMainContent(props) {
           />
         );
         return (
-          /* item 190: wrapper ref lets DoubleTimeline know the full panel height */
-          <div ref={detailPanelCallbackRef} style={{ flexShrink: 0 }}>
+          /* item 190/282: wrapper is position:absolute at bottom:0 of .main-content so the
+             detail panel renders independently of the canvas flex column. */
+          <div ref={detailPanelCallbackRef} className="detail-panel-main-wrapper">
             {detailPanelNode}
           </div>
         );
       })()}
-      </div>
       {/* item 260: DoubleTimeline is a direct child of .main-content (not .canvas-and-detail-column)
           so it can visually span over both the canvas area and the settings panel.
           Position: absolute within .main-content (position:relative); docked uses bottom offset,

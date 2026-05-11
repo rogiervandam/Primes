@@ -28,6 +28,7 @@
   height: 38px;
   overflow: visible;        /* item 127: let centre zone protrude above + below */
   position: relative;
+  z-index: 6;               /* above title bar (z-index:4) and annotation bar so playheads are not hidden behind them */
 }
 
 .double-timeline.dtl-collapsed .dtl-strip {
@@ -50,7 +51,7 @@
 
 .dtl-zone {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   flex-shrink: 1;
   align-self: stretch;  /* wave/anim zones fill the full strip height */
 }
@@ -61,6 +62,23 @@
   background: rgba(14, 27, 46, 0.65);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+/* item 292: fade left outer edge — pseudo-element so vertical playhead overflow is unaffected */
+.dtl-wave-zone::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: 0; width: 12px;
+  background: linear-gradient(to right, rgba(14, 27, 46, 0.65) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+/* item 291: active area — inset past the toggle button on the left */
+.dtl-wave-active-area {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--dtl-edge-inset, 30px);
+  right: 0;
 }
 .dtl-wave-canvas {
   position: absolute;
@@ -89,6 +107,28 @@
   font-size: 9px;
   color: rgba(255, 255, 255, 0.55);
   font-variant-numeric: tabular-nums;
+}
+
+/* item 289: zoom range indicators — shown at bottom corners when zoomed in */
+.dtl-zoom-range-indicators {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+  padding: 0 4px;
+}
+.dtl-zoom-range-start,
+.dtl-zoom-range-end {
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.55);
+  font-variant-numeric: tabular-nums;
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 2px;
+  padding: 0 2px;
+  line-height: 1.4;
 }
 
 /* item 156/158/179: event title bar — full width above the strip */
@@ -383,6 +423,52 @@
 }
 .dtl-btn.dtl-gear { color: var(--fg-dim); }
 .dtl-btn.dtl-toggle-btn { color: var(--fg-dim); font-size: 9px; }
+/* item 290: repeat handle — draggable element on the animation timeline */
+.dtl-repeat-handle {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 26px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(40, 40, 60, 0.80);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 5px;
+  color: rgba(255, 255, 255, 0.60);
+  cursor: ew-resize;
+  z-index: 4;  /* below playhead (z-index: 8) so playhead wins on overlap */
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+  touch-action: none;
+  pointer-events: auto;
+}
+.dtl-repeat-handle:hover {
+  background: rgba(50, 50, 75, 0.90);
+  border-color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.85);
+}
+.dtl-repeat-handle--active {
+  border-color: rgba(220, 60, 60, 0.85);
+  color: #fff;
+  background: rgba(180, 30, 30, 0.82);
+  animation: dtl-repeat-active-pulse 2s ease-in-out infinite;
+}
+.dtl-repeat-handle--active:hover {
+  border-color: rgba(255, 80, 80, 1);
+  background: rgba(210, 40, 40, 0.92);
+  color: #fff;
+}
+/* item 290: repeat range fill — shows the loopable portion from repeat point to end */
+.dtl-repeat-range {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-left: 2px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  pointer-events: none;
+  z-index: 2;
+}
 /* Repeat toggle — active state (item 135); item 241: pulsing glow + badge when active */
 .dtl-btn.dtl-repeat-btn { color: rgba(255,255,255,0.5); }
 .dtl-btn.dtl-repeat-btn.dtl-active {
@@ -446,6 +532,15 @@
   gap: 3px;
   position: relative;
 }
+/* item 292: fade right outer edge — pseudo-element so vertical playhead overflow is unaffected */
+.dtl-anim-zone::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; right: 0; width: 12px;
+  background: linear-gradient(to left, rgba(14, 27, 46, 0.65) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 2;
+}
 /* Header row with labels + controls (items 135-137) */
 .dtl-anim-header {
   display: flex;
@@ -480,17 +575,70 @@
 }
 /* No fill bar — just the white vertical bar playhead (items 122, 138) */
 /* item 138: positioned on zone (not track) so it spans the full section height */
-.dtl-anim-playhead {
+/* item 288: transparent vertical pill — wider and taller than the timeline for easier grabbing */
+/* item 291: now inside dtl-anim-active-area so 100% maps to just before the settings toggle */
+/* item 291: active area — inset past the settings toggle on the right */
+.dtl-anim-active-area {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 3px;
+  left: 0;
+  /* item 291+: extra inset so 100% lands with room for the repeat handle + gap before settings toggle */
+  right: 40px;
+}
+.dtl-anim-playhead {
+  position: absolute;
+  top: -7px;
+  bottom: -7px;
+  width: 14px;
   transform: translateX(-50%);
-  background: #ffffff;
-  border-radius: 2px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.04) 40%,
+    rgba(255, 255, 255, 0.04) 70%,
+    rgba(255, 255, 255, 0.18) 100%
+  );
+  border: 1.5px solid rgba(255, 255, 255, 0.80);
+  border-radius: 7px;
+  /* item 291+: auto so clicks on the playhead bubble to the zone (seek) and beat the repeat handle */
   pointer-events: none;
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.55);
-  z-index: 1;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.70);
+  z-index: 8;  /* above repeat handle (z-index: 4) — playhead has visual priority; pointer-events:none lets clicks pass through */
+  transition: border-color 80ms, box-shadow 80ms;
+}
+.dtl-anim-zone:hover .dtl-anim-playhead,
+.dtl-anim-zone:active .dtl-anim-playhead {
+  border-color: rgba(255, 255, 255, 1);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.50), inset 0 1px 0 rgba(255, 255, 255, 0.90);
+}
+
+/* item 288: wave zone pill scrubber — mirrors the anim zone pill style */
+/* item 291: now inside dtl-wave-active-area so 0% is just right of the events toggle */
+.dtl-wave-playhead {
+  position: absolute;
+  top: -7px;
+  bottom: -7px;
+  width: 14px;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.04) 40%,
+    rgba(255, 255, 255, 0.04) 70%,
+    rgba(255, 255, 255, 0.18) 100%
+  );
+  border: 1.5px solid rgba(255, 255, 255, 0.80);
+  border-radius: 7px;
+  pointer-events: none;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.70);
+  z-index: 2;
+  transition: left 80ms linear;
+}
+.dtl-wave-zone:hover .dtl-wave-playhead,
+.dtl-wave-zone:active .dtl-wave-playhead {
+  border-color: rgba(255, 255, 255, 1);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.50), inset 0 1px 0 rgba(255, 255, 255, 0.90);
 }
 
 /* item 154: fill bar — grows left→right proportional to scrub progress */
@@ -660,16 +808,19 @@
 }
 
 /* item 219: focus mode visual hint — highlighted zone, dimmed opposite zone */
+/* item 292: inset ring uses top+bottom lines only; side lines are invisible via the mask anyway */
 .double-timeline.dtl-focus-events .dtl-wave-zone {
   background: rgba(20, 40, 65, 0.95);
-  box-shadow: inset 0 0 0 1.5px rgba(100, 180, 255, 0.35);
+  box-shadow: inset 0 1.5px 0 0 rgba(100, 180, 255, 0.35),
+              inset 0 -1.5px 0 0 rgba(100, 180, 255, 0.35);
 }
 .double-timeline.dtl-focus-events .dtl-anim-zone {
   opacity: 0.65;
 }
 .double-timeline.dtl-focus-animation .dtl-anim-zone {
   background: rgba(20, 40, 65, 0.95);
-  box-shadow: inset 0 0 0 1.5px rgba(100, 180, 255, 0.35);
+  box-shadow: inset 0 1.5px 0 0 rgba(100, 180, 255, 0.35),
+              inset 0 -1.5px 0 0 rgba(100, 180, 255, 0.35);
 }
 .double-timeline.dtl-focus-animation .dtl-wave-zone {
   opacity: 0.65;

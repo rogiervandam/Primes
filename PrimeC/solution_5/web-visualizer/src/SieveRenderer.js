@@ -1531,9 +1531,17 @@ export class SieveRenderer {
       const from = entries[index];
       const to = entries[Math.min(entries.length - 1, index + 1)];
 
+      // item 283: detect new mask (eventId changes) vs reused mask (same eventId).
+      // "New mask" = transitioning to an entry with a different eventId than the previous entry.
+      const prevEntry = index > 0 ? entries[index - 1] : null;
+      const isNewMask = !prevEntry || (prevEntry.eventId !== from.eventId);
+      const nextIsNewMask = from.eventId !== to.eventId;
+
       for (let previous = 0; previous < index; previous++) {
+        // item 283: dimmer imprint for reused masks, brighter for first occurrence of each mask
+        const entryIsNew = previous === 0 || (entries[previous - 1].eventId !== entries[previous].eventId);
         this._drawMaskImprint(entries[previous], entries[previous].bounds.cx, entries[previous].bounds.cy, {
-          alpha: 0.52,
+          alpha: entryIsNew ? 0.6 : 0.38,
         }, glCtx);
       }
 
@@ -1541,13 +1549,20 @@ export class SieveRenderer {
       const smooth = local * local * (3 - 2 * local);
       const currentX = from.bounds.cx + (to.bounds.cx - from.bounds.cx) * smooth;
       const currentY = from.bounds.cy + (to.bounds.cy - from.bounds.cy) * smooth - travelLift * rise;
-      const stampingAlpha = local < 0.18 ? 1 : local > 0.82 ? 1 : 0.92;
+      // item 283: new masks get a brighter alpha; reused masks are slightly dimmer
+      const baseStampAlpha = isNewMask ? 1.0 : 0.72;
+      const stampingAlpha = local < 0.18 ? baseStampAlpha : local > 0.82 ? baseStampAlpha : baseStampAlpha * 0.92;
 
       // Render the full planned path so the route remains visible mid-flight.
       if (from !== to) {
         const tint = this._maskTintColor(from.slotIndex);
-        const routeAlpha = Math.max(0.40, stampingAlpha * 0.70);
-        this._drawCurvedTrail(from.bounds.cx, from.bounds.cy, to.bounds.cx, to.bounds.cy, tint, routeAlpha, px, travelLift, glCtx);
+        const baseRouteAlpha = Math.max(0.40, stampingAlpha * 0.70);
+        // item 283: trail to a new mask uses a bright accent trail; repeat trail is dimmer
+        const routeAlpha = nextIsNewMask ? Math.min(1.0, baseRouteAlpha * 1.5) : baseRouteAlpha * 0.65;
+        const trailTint = nextIsNewMask
+          ? [255, 220, 80]  // gold/yellow for new mask trail
+          : tint;            // slot tint for repeat trail
+        this._drawCurvedTrail(from.bounds.cx, from.bounds.cy, to.bounds.cx, to.bounds.cy, trailTint, routeAlpha, px, travelLift, glCtx);
       }
 
       this._drawMaskImprint(from, currentX, currentY, {
@@ -1555,6 +1570,24 @@ export class SieveRenderer {
         liftBlend: rise,
         cutoutStrength: 0.9,
       }, glCtx);
+
+      // item 283: when arriving at a new mask, draw an extra glow ring to highlight the transition
+      if (isNewMask && rise > 0.05) {
+        const tint = this._maskTintColor(from.slotIndex);
+        const tr = tint[0] / 255, tg = tint[1] / 255, tb = tint[2] / 255;
+        const bounds = from.bounds;
+        const dx = currentX - bounds.cx;
+        const dy = currentY - bounds.cy;
+        const glowPad = Math.max(4, px * 1.2) * rise;
+        glCtx.drawOutlineRect(
+          bounds.x + dx - glowPad,
+          bounds.y + dy - glowPad,
+          bounds.w + glowPad * 2,
+          bounds.h + glowPad * 2,
+          tr, tg, tb, 0.55 * stampingAlpha * rise,
+          Math.max(2, px * 0.28),
+        );
+      }
 
       if (local > 0.78 && index < entries.length - 1) {
         this._drawMaskImprint(to, to.bounds.cx, to.bounds.cy, {

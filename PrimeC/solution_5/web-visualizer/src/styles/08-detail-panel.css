@@ -1,6 +1,11 @@
-/* item 190: hide docked detail panel when timeline is undocked; item 230/#223: only hide when collapsed (open=false) */
-.canvas-and-detail-column.timeline-undocked .detail-panel.collapsed {
-  display: none;
+/* item 282: detail panel wrapper — absolute-positioned within .main-content,
+   decoupled from the canvas flex column for independent rendering. */
+.detail-panel-main-wrapper {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 18;  /* above canvas (low), below DoubleTimeline (z-index:20) and SettingsPanel (z-index:28) */
 }
 
 /* item 200: completely hide the detail panel when it's not open (collapsed state shows nothing) */
