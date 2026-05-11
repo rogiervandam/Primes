@@ -233,8 +233,11 @@ export default function DoubleTimeline({
     e.currentTarget.setPointerCapture(e.pointerId);
     setFocusMode('events');  // item 219: click/drag in events zone → events focus
     if (isAnimPlayingRef.current) handleStepAnimToggle?.();  // stop animation when scrubbing events
+    // Reset animation to 0% so it doesn't show stale progress while browsing events
+    setStepScrubProgress?.(0);
+    seekStepAnimation?.(0);
     waveSeek(e);
-  }, [waveSeek, handleStepAnimToggle]);
+  }, [waveSeek, handleStepAnimToggle, setStepScrubProgress, seekStepAnimation]);
 
   const handleWavePointerMove = useCallback((e) => {
     if (isDividerDraggingRef.current) return;  // item 218
