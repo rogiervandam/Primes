@@ -136,7 +136,7 @@
     }
     #endif
 
-    #define INCLUDE_FILE "../../../src/sieve/sieve_storage_wheel.h"
+    #define INCLUDE_FILE "../../../src/wheelstorage/wheelstorage.h"
     #include "../generic/variants/generate.h"
 
 #endif
@@ -188,10 +188,10 @@
 #if defined BUILD_WORDS_STAGE //---- include only the variant function
 
     #if defined unrolls && unrolls > 1
-        #include "sieve_storage_wheel_repeat.h"
-        #include "sieve_storage_wheel_smallrepeat.h"
-        #include "sieve_storage_wheel_smallrepeat_pair.h"
-        #include "sieve_storage_wheel_smallrepeat_mmask.h"
+        #include "wheelstorage_repeat.h"
+        #include "wheelstorage_smallrepeat.h"
+        #include "wheelstorage_smallrepeat_pair.h"
+        #include "wheelstorage_smallrepeat_mmask.h"
     #endif
 
 #endif
@@ -199,7 +199,7 @@
 #if defined BUILD_VECTORS_STAGE   
 
     #if defined unrolls && unrolls > 1
-        #include "sieve_storage_wheel_smallrepeat_pair_vector.h"
+        #include "wheelstorage_smallrepeat_pair_vector.h"
     #endif 
 
 #endif
@@ -208,7 +208,7 @@
 #if defined(include_once_last) //---- include this once after all variants
 
     // TODO: wheelstorage_mask is faster here
-    #include "sieve_storage_wheel_norepeat.h"
+    #include "wheelstorage_norepeat.h"
 
     // this is the same as checkFactor_wheel but without the check for the wheel primes
     // this can only be used if index > WHEEL_MAX

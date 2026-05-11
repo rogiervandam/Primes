@@ -9,7 +9,7 @@ static char algorithm_type[] = "wheel";
 
 #include "benchmark/sieve_options.h"
 #include "sieve/sieve_manager.h"
-#include "sieve/sieve_storage_wheel.h"
+#include "wheelstorage/wheelstorage.h"
 
 // implement the 3 functions to integrate with sieve_check and the storage level
 static inline void markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) { markFactors_wheelstorage(sieve, start, stop, step); }
