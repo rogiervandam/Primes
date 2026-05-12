@@ -127,7 +127,7 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 353 The arrows for panel toggle in (1) Events panel top left, (2) Settings panel top Right, (3) Detail Panel top left, (4) Floater bottom right, (5) Event timeline left, (6) Animation timeline right, (7) Nearby events section left, should all have the same design and animation for toggling the corresponding panel in and out. This way users can have a more cohesive and visually appealing experience when interacting with the various toggle buttons in the interface, and it can also enhance the overall usability of the interface. We can achieve this by creating a reusable toggle button component with a consistent design and animation, and then using this component for all the toggle buttons in the interface.
 
-
+354 
 
 
 Giant features

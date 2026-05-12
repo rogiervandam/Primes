@@ -1159,7 +1159,13 @@ export class SieveRenderer {
     // on screen. Rendering every N-th bit gives the same visual result
     // while cutting GPU vertex-shader work by N×.
     const cellSize = px; // already = pixelSize * zoom
-    const bitStride = Math.max(1, Math.min(16, Math.floor(1 / Math.max(0.0625, cellSize))));
+    // Use physical cell size (CSS px × canvasDpr which includes SSAA) so that
+    // SSAA rendering correctly reduces the stride — a 0.25 CSS-px cell at
+    // DPR=2 + SSAA=2× is 1 physical pixel, so bitStride should be 1 not 4.
+    const physCellSize = cellSize * (this.canvasDpr || 1);
+    // Cap at 4 (was 16) so more bits are drawn at extreme zoom-out; the
+    // coverage-alpha FS pass (fix 4) relies on a reasonable density.
+    const bitStride = Math.max(1, Math.min(4, Math.floor(1 / Math.max(0.0625, physCellSize))));
     // instanceCount must cover the full [firstBit, endBit) range at the chosen stride.
     const instanceCount = Math.max(0, Math.ceil((endBit - firstBit) / bitStride));
 

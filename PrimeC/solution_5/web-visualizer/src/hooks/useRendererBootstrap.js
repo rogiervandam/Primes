@@ -267,6 +267,14 @@ export function useRendererBootstrap({
       }
 
       updateGlDebugInfo(false);
+
+      // Fix 3: apply a tiny CSS blur on the GL canvas when cells are sub-pixel
+      // to fill perceptual gaps between sparse stride-sampled dots. Cost is
+      // essentially zero (browser compositing, no GPU shader work).
+      if (glCanvasRef?.current) {
+        glCanvasRef.current.style.filter = renderParams.cellSize < 1.0 ? 'blur(0.5px)' : '';
+      }
+
       return renderSeq;
     };
 

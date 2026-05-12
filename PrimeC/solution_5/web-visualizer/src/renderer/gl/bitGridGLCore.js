@@ -155,6 +155,7 @@ void main() {
 
 const FS = `#version 300 es
 precision highp float;
+precision highp int;
 
 uniform vec3 u_setColor;
 uniform vec3 u_clearedColor;
@@ -163,6 +164,7 @@ uniform vec3 u_repeatedColor;
 uniform vec3 u_bgColor;
 uniform float u_baseAlpha;
 uniform float u_cellSize;      // CSS px cell size; used for border-width fractions
+uniform int u_bitStride;       // downsampling stride (shared with VS); > 1 at sub-pixel zoom
 
 flat in uint v_state;
 in vec2 v_uv;                  // [0,1]x[0,1] within cell (from VS)
@@ -237,7 +239,12 @@ void main() {
     }
   }
 
-  outColor = vec4(composed, 1.0);
+  // Soft-cell alpha: at sub-pixel zoom (stride > 1) modulate output alpha by
+  // coverage area (cellSize²) so overlapping/adjacent cells accumulate
+  // brightness via SRC_ALPHA blending rather than all appearing at full
+  // intensity against an already-drawn background.
+  float coverageAlpha = (u_bitStride > 1) ? clamp(u_cellSize * u_cellSize, 0.04, 1.0) : 1.0;
+  outColor = vec4(composed, coverageAlpha);
 }`;
 
 function compile(gl, type, src) {
@@ -567,7 +574,13 @@ export class BitGridGLCore {
     gl.uniform1f(u.baseAlpha, params.baseAlpha == null ? 1 : params.baseAlpha);
 
     const instanceCount = params.instanceCount != null ? params.instanceCount : this.bitCount;
+    // Enable SRC_ALPHA blending for soft-cell coverage-alpha compositing (fix 4).
+    // When stride == 1 the FS outputs alpha=1 so blending is a no-op; enabling
+    // it unconditionally avoids a CPU branch on every frame.
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, Math.max(0, instanceCount));
+    gl.disable(gl.BLEND);
   }
 
   /**
