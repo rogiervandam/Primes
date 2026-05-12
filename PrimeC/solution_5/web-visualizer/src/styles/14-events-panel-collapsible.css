@@ -25,20 +25,11 @@
 }
 
 /* item 210: close arrow button — slides the panel out to the left */
+/* item 353: visual appearance is now driven by .panel-toggle-arrow;
+   keep only layout/positioning overrides here */
 .events-panel-close-btn {
-  background: transparent;
-  border: none;
-  color: var(--fg-dim);
-  cursor: pointer;
-  font-size: 14px;
-  padding: 2px 4px;
-  border-radius: 3px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-.events-panel-close-btn:hover {
-  color: var(--fg-bright);
-  background: var(--bg-raised);
+  /* font-size inherited from panel-toggle-arrow (12px) is slightly smaller than
+     the old 14px ‹, which looks fine with the unified button design */
 }
 
 /* item 211: op-wide button in title row — always visible regardless of panel width */

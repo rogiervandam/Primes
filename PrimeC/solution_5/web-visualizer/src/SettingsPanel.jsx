@@ -295,8 +295,9 @@ export default function SettingsPanel({
               Legend
             </button>
           </div>
-        <button className="settings-collapse-btn" onClick={onToggleCollapse} title="Collapse settings">
-          ▶
+        {/* item 353: panel-toggle-arrow gives unified design; › = collapse to the right */}
+        <button className="settings-collapse-btn panel-toggle-arrow is-open" onClick={onToggleCollapse} title="Collapse settings">
+          ›
         </button>
       </div>
         <div className="settings-panel-content">

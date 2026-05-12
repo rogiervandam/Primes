@@ -1120,8 +1120,9 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
       <div className="events-panel-header">
         <div className="events-panel-header-title-row">
           {/* item 210: left arrow to hide the events panel, like the settings panel toggle */}
+          {/* item 353: panel-toggle-arrow gives unified design across all panel toggles */}
           <button
-            className="events-panel-close-btn"
+            className="events-panel-close-btn panel-toggle-arrow is-open"
             onClick={onToggleCollapse}
             title="Hide Events panel"
             onMouseDown={(e) => e.stopPropagation()}

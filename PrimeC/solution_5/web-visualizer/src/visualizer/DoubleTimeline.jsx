@@ -220,7 +220,11 @@ export default function DoubleTimeline({
     // item 291: measure the active area (inset past the toggle button) not the full zone
     const activeArea = waveActiveAreaRef.current || waveContainerRef.current;
     if (!canvas || !activeArea) return;
-    const { width, height } = activeArea.getBoundingClientRect();
+    // item 351: use layout dimensions (offsetWidth/offsetHeight, unaffected by CSS transforms)
+    // instead of getBoundingClientRect() so the zone's scaleY(1.3) zoom transform is not
+    // applied twice — once when we size the canvas and again by the parent's CSS scale.
+    const width = activeArea.offsetWidth;
+    const height = activeArea.offsetHeight;
     if (width < 1 || height < 1) return;
     const dpr = window.devicePixelRatio || 1;
     canvas.width = width * dpr;
@@ -1178,9 +1182,10 @@ export default function DoubleTimeline({
           </div>
           <div className="dtl-wave-overlay">
             {/* item 159: left arrow toggles the events panel (left sidebar) */}
+            {/* item 353: panel-toggle-arrow gives unified design across all panel toggles */}
             {onToggleEventsPanel && (
               <button
-                className={`dtl-btn dtl-zone-toggle dtl-events-toggle${!isEventsPanelCollapsed ? ' dtl-active' : ''}`}
+                className={`dtl-btn dtl-zone-toggle dtl-events-toggle panel-toggle-arrow${!isEventsPanelCollapsed ? ' dtl-active is-open' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   // item 193: when closing from timeline toggle, slide right (inward)
@@ -1353,9 +1358,10 @@ export default function DoubleTimeline({
             {/* item 138: stop propagation so toggle clicks don't trigger a seek */}
             <div className="dtl-anim-header-right" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onPointerCancel={(e) => e.stopPropagation()}>
               {/* item 152/159: right arrow toggles the settings panel (right sidebar) */}
+              {/* item 353: panel-toggle-arrow gives unified design across all panel toggles */}
               {onToggleSettingsPanel && (
                 <button
-                  className={`dtl-btn dtl-zone-toggle dtl-anim-toggle${!isSettingsCollapsed ? ' dtl-active' : ''}`}
+                  className={`dtl-btn dtl-zone-toggle dtl-anim-toggle panel-toggle-arrow${!isSettingsCollapsed ? ' dtl-active is-open' : ''}`}
                   onClick={onToggleSettingsPanel}
                   title={isSettingsCollapsed ? 'Show settings panel' : 'Hide settings panel'}
                 >›</button>
@@ -1385,9 +1391,10 @@ export default function DoubleTimeline({
             {isAnimPlaying ? <Pause size={10} /> : <Play size={10} />}
           </button>
           {/* item 200: detail panel toggle — shown when docked; opens/closes the detail panel */}
+          {/* item 353: panel-toggle-arrow gives unified design across all panel toggles */}
           {!isTimelineUndocked && onToggleDetail && (
             <button
-                className={`dtl-btn dtl-zone-toggle dtl-detail-toggle${isDetailOpen ? ' dtl-active' : ''}`}
+                className={`dtl-btn dtl-zone-toggle dtl-detail-toggle panel-toggle-arrow${isDetailOpen ? ' dtl-active is-open' : ''}`}
               onClick={(e) => { e.stopPropagation(); onToggleDetail(); }}
               title={isDetailOpen ? 'Hide detail panel' : 'Show detail panel'}
               >{isDetailOpen ? '∨' : '∧'}</button>

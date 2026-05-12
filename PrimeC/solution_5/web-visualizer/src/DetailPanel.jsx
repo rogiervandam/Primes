@@ -662,6 +662,15 @@ export default function DetailPanel({
     <div className={`detail-panel ${open ? 'open' : 'collapsed'}${isHeaderHidden ? ' header-hidden' : ''}${isFloating ? ' floating' : ''}`}>
       {open && !playing && <div className="detail-panel-resize" onMouseDown={handleHeightDrag} />}
         <div className="detail-panel-toggle">
+        {/* item 353: unified toggle arrow on the left — opens/closes the detail panel */}
+        {onToggle && (
+          <button
+            className={`detail-panel-close-btn panel-toggle-arrow${open ? ' is-open' : ''}`}
+            onClick={(e) => { e.stopPropagation(); onToggle(); }}
+            title={open ? 'Hide detail panel' : 'Show detail panel'}
+            aria-label={open ? 'Hide detail panel' : 'Show detail panel'}
+          >{open ? '∧' : '∨'}</button>
+        )}
         {/* item 162: dock row — shows floater and/or slider based on independent toggle states */}
         {hasDockContent && (
           <div className="detail-panel-dock-row">
@@ -722,12 +731,13 @@ export default function DetailPanel({
             <div className="detail-nearby-sidebar">
               {/* item 349: right-arrow button left of NEARBY heading toggles events panel (normal left-slide) */}
               <div className="detail-nearby-sidebar-header">
+                {/* item 353: panel-toggle-arrow gives unified design */}
                 <button
-                  className="detail-nearby-events-toggle"
+                  className="detail-nearby-events-toggle panel-toggle-arrow"
                   onClick={() => toggleEventsPanel?.()}
                   title="Toggle events panel"
                   aria-label="Toggle events panel"
-                >→</button>
+                >›</button>
                 <div className="detail-nearby-sidebar-title">Nearby</div>
               </div>
               <div className="detail-nearby-list">

@@ -41,17 +41,11 @@
   color: var(--fg-bright);
   white-space: nowrap;
 }
+/* item 353: visual appearance driven by .panel-toggle-arrow; only layout override here */
 .settings-collapse-btn {
   position: static;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  color: var(--fg-muted);
-  cursor: pointer;
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 3px;
+  flex-shrink: 0;
 }
-.settings-collapse-btn:hover { color: var(--fg-bright); background: var(--bg-input); }
 .settings-tab-row {
   display: flex;
   gap: 4px;

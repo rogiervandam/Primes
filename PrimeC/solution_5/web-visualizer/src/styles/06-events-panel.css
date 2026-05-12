@@ -24,9 +24,11 @@
      other intra-panel mutation) can trigger style recalc walks that cross the
      panel boundary into the canvas tree, contributing to FPS drops while
      rotating the grid or playing the animation with the panel open.
-     'paint' is intentionally omitted — it would clip the box-shadow above.
-     item 347: adding 'paint' containment and will-change on content to reduce resize lag. */
-  contain: layout style paint;
+     item 347: 'layout style' containment fixes resize lag; 'paint' is intentionally
+     omitted — it would clip the box-shadow AND allow the browser to skip rendering the
+     panel while it is off-screen during the slide-out animation (item 352). The compositing
+     layer from will-change:transform already handles paint isolation. */
+  contain: layout style;
   will-change: transform;
 }
 .events-panel-header {

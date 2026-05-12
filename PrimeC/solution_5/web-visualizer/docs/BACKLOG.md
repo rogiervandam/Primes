@@ -121,11 +121,11 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 350 DONE: Group/byte/cacheline inspector should work when balloons are off.
 
-351 When zooming in on the timeline, the chart lines grow faster than the timeline itself, which looks weird. When zooming in, make sure the chart lines and the timeline grow vertically at the same rate, so that they stay visually consistent and proportional. This way users can have a more visually appealing experience when zooming into the timelines, and it can also enhance their ability to analyze and interpret the data presented in the timelines.
+351 DONE: When zooming in on the timeline, the chart lines grow faster than the timeline itself, which looks weird. When zooming in, make sure the chart lines and the timeline grow vertically at the same rate, so that they stay visually consistent and proportional. This way users can have a more visually appealing experience when zooming into the timelines, and it can also enhance their ability to analyze and interpret the data presented in the timelines.
 
-352 When closing the events panel, don't just let it disappear, but have it slide out to the left with a smooth animation. This way users can have a more visually appealing experience when toggling the events panel, and it can also help them maintain their spatial orientation in the interface. We can implement this by adding a CSS transition to the events panel's position or transform property, so that when it is toggled, it animates from its current position to the hidden position off-screen to the left. We can also add a fade-out effect to make it look more polished.
+352 DONE: When closing the events panel, don't just let it disappear, but have it slide out to the left with a smooth animation. This way users can have a more visually appealing experience when toggling the events panel, and it can also help them maintain their spatial orientation in the interface. We can implement this by adding a CSS transition to the events panel's position or transform property, so that when it is toggled, it animates from its current position to the hidden position off-screen to the left. We can also add a fade-out effect to make it look more polished.
 
-353 The arrows for panel toggle in (1) Events panel top left, (2) Settings panel top Right, (3) Detail Panel top left, (4) Floater bottom right, (5) Event timeline left, (6) Animation timeline right, (7) Nearby events section left, should all have the same design and animation for toggling the corresponding panel in and out. This way users can have a more cohesive and visually appealing experience when interacting with the various toggle buttons in the interface, and it can also enhance the overall usability of the interface. We can achieve this by creating a reusable toggle button component with a consistent design and animation, and then using this component for all the toggle buttons in the interface.
+353 DONE: The arrows for panel toggle in (1) Events panel top left, (2) Settings panel top Right, (3) Detail Panel top left, (4) Floater bottom right, (5) Event timeline left, (6) Animation timeline right, (7) Nearby events section left, should all have the same design and animation for toggling the corresponding panel in and out. This way users can have a more cohesive and visually appealing experience when interacting with the various toggle buttons in the interface, and it can also enhance the overall usability of the interface. We can achieve this by creating a reusable toggle button component with a consistent design and animation, and then using this component for all the toggle buttons in the interface.
 
 354 
 
@@ -137,31 +137,6 @@ C WHen starting up and loading the events, in the background try mode 1-8 and fi
 D 
 
 
-Here's a breakdown of why it looks low-res and what you can do:
-
-Root Cause: bitStride downsampling
-The real culprit is in SieveRenderer.js, not canvas resolution:
-// When cellSize < 1 CSS px, only every N-th bit is drawn
-const bitStride = Math.max(1, Math.min(16, Math.floor(1 / Math.max(0.0625, cellSize))));
-
-At extreme zoom-out (e.g., cellSize = 0.0625 CSS px), only 1-in-16 bits are drawn — the sparse dots are the geometry itself, not a sampling artifact. SSAA downsamples the result, but the underlying geometry is already full of gaps.
-
-Options (best to worst effort/impact ratio)
-1. Account for canvasDpr in the bitStride formula (high impact, ~1 line)
-this.canvasDpr already includes the SSAA multiplier (forcedDpr × glAaScale). The stride should use the physical cell size, not CSS:
-const physCellSize = cellSize * this.canvasDpr;  // includes DPR × SSAA
-const bitStride = Math.max(1, Math.min(16, Math.floor(1 / Math.max(0.0625, physCellSize))));
-
-With DPR=2 + SSAA=2×, a 0.25 CSS-px cell is 1 physical pixel — bitStride should be 1, not 4. This makes SSAA actually help with stride reduction.
-
-2. Lower the max stride cap (trivial, always helps)
-Change Math.min(16, ...) to Math.min(4, ...). More GPU work but draws 4× more bits at extreme zoom-out.
-
-3. CSS filter: blur() on the canvas wrapper (very cheap)
-A tiny filter: blur(0.5px) applied to the canvas (or its wrapper div) when zoomed out fills in the gaps perceptually via browser compositing. Costs essentially nothing and softens the sparse-dot pattern. Can be applied dynamically based on zoom level.
-
-4. Fragment shader soft-cell alpha (medium effort)
-When cellSize is sub-pixel, modulate the output alpha by coverage area (cellSize²) so overlapping/adjacent cells accumulate brightness. This requires enabling gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA) and changing the FS to output alpha = cellSize * cellSize when stride > 1.
 
 
 ## New Ideas
