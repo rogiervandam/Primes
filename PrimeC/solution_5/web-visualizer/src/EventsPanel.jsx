@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useLayoutEffect, useState, useMemo, useCallback } from 'react';
+import React, { useRef, useEffect, useLayoutEffect, useState, useMemo, useCallback, startTransition } from 'react';
 import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus, Eye } from './Icons';
 import { bumpRender, recordStepCallback, setEventNodeCount } from './lib/debugCounters';
 import { formatNs } from './TimingPanel';
@@ -142,6 +142,9 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
   // O(1) step-index → HTMLElement map, rebuilt after each render (never during
   // playback since EventsPanel doesn't re-render while playing).
   const stepElemMapRef = useRef(new Map());
+  // item 304: ref to filteredTree so the scroll effect can find which group
+  // contains the localStep even if the effect is defined before filteredTree.
+  const filteredTreeRef = useRef(null);
 
   // Ref for the uncontrolled transport slider and step counter text span.
   const sliderRef = useRef(null);
@@ -237,11 +240,41 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
 
   // Scroll active row into view whenever localStep changes (only happens when
   // not playing, so no jank during playback).
+  // item 304: (1) center the active row; (2) cap animation to ~1.5s by using
+  //   instant for large distances; (3) when the row isn't in the DOM (group
+  //   collapsed or filtered out), scroll to the group header instead.
   useEffect(() => {
-    const el = listRef.current;
-    if (!el) return;
-    const active = stepElemMapRef.current.get(localStep);
-    if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    const listEl = listRef.current;
+    if (!listEl) return;
+    const activeEl = stepElemMapRef.current.get(localStep);
+    if (activeEl) {
+      // Measure current scroll distance to decide behavior
+      const listRect = listEl.getBoundingClientRect();
+      const activeRect = activeEl.getBoundingClientRect();
+      const dist = Math.abs(activeRect.top + activeRect.height / 2 - (listRect.top + listRect.height / 2));
+      // At ~400–600 px/s native smooth scroll speed, >800px ≈ >1.5s, so use instant
+      const behavior = dist > 800 ? 'instant' : 'smooth';
+      activeEl.scrollIntoView({ block: 'center', behavior });
+    } else {
+      // Step not visible in DOM — find the group that contains it and highlight
+      const tree = filteredTreeRef.current;
+      if (!tree) return;
+      let groupId = null;
+      for (const g of tree) {
+        if (g.children.some(c => c.originalIndex === localStep)) {
+          groupId = g.id;
+          break;
+        }
+      }
+      if (groupId != null) {
+        const groupHeader = listEl.querySelector(`[data-group-id="${groupId}"]`);
+        if (groupHeader) {
+          groupHeader.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          groupHeader.classList.add('has-hidden-active');
+          setTimeout(() => groupHeader.classList.remove('has-hidden-active'), 1500);
+        }
+      }
+    }
   }, [localStep]);
 
   // After any EventsPanel re-render (filter change, group toggle, etc.) rebuild
@@ -297,7 +330,10 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
         panel.style.transition = '';
         panel.style.transform = '';
       }
-      setListVisible(true);
+      // item 297: defer mounting the event list by one rAF so the expensive
+      // React render (1000+ event nodes) doesn't block the opening animation.
+      // The panel slides in with empty content for ~16ms, then the list appears.
+      startTransition(() => { setListVisible(true); });
       setEventsCollapseDir('left');  // item 193: reset direction when opening
     } else {
       const t = setTimeout(() => setListVisible(false), 240);
@@ -580,6 +616,8 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
       return { ...g, originalChildren: g.children, children: fc };
     }).filter(g => g.children.length > 0);
   }, [tree, search, filterOp, levelFilter, hideUntimed, hideUnchanged]);
+  // item 304: keep ref in sync so the scroll effect can access filteredTree
+  filteredTreeRef.current = filteredTree;
 
   // Build depth trees lazily — only for the groups currently visible in the list.
   // When filters are active each group's originalChildren hold the full unfiltered
@@ -1068,59 +1106,57 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
             <button className="event-search-clear" onClick={() => setSearch('')} onMouseDown={(e) => e.stopPropagation()} title="Clear search">✕</button>
           )}
         </div>
-        {operations.length > 0 && (
-          <div className="event-op-filter-row">
+        {/* item 300: merged operations + group-by into one compact row */}
+        <div className="event-filters-row">
+          {operations.length > 0 && (
             <select className="event-filter event-filter-op" value={filterOp} onChange={(e) => setFilterOp(e.target.value)}>
               <option value="">All operations</option>
               {operations.map(op => <option key={op} value={op}>{op}</option>)}
             </select>
-          </div>
-        )}
-        {/* item 222: group by selector */}
-        <div className="event-groupby-row">
-          <span className="event-groupby-label">Group by</span>
+          )}
           <select className="event-filter event-groupby-select" value={groupBy} onChange={(e) => setGroupBy(e.target.value)}>
-            <option value="prime">Prime</option>
-            <option value="range">Range start</option>
-            <option value="step">Factor step</option>
+            <option value="prime">By Prime</option>
+            <option value="range">By Range</option>
+            <option value="step">By Factor</option>
           </select>
         </div>
-        {traceLevels.length > 0 && (
-          <div className="event-level-filter-row">
-            <button
-              className="event-level-btn"
-              onClick={handleLevelDecrease}
-              title="Less detail"
-              disabled={!!filterLevel && traceLevels.indexOf(Number(filterLevel.split(':')[1])) === 0}
-            >&lt;</button>
-            <select className="event-filter event-level-select" value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)}>
-              <option value="">All log levels</option>
-              <optgroup label="Collapse at level">
-                {traceLevels.map((level) => <option key={`collapse-${level}`} value={`collapse:${level}`}>Collapse at level {level} (L{level})</option>)}
-              </optgroup>
-              <optgroup label="Up to (inclusive)">
-                {traceLevels.map((level) => <option key={`upto-${level}`} value={`upto:${level}`}>Up to level {level} (L{level})</option>)}
-              </optgroup>
-              <optgroup label="Exactly">
-                {traceLevels.map((level) => <option key={`exact-${level}`} value={`exact:${level}`}>Only level {level} (L{level})</option>)}
-              </optgroup>
-            </select>
-            <button
-              className="event-level-btn"
-              onClick={handleLevelIncrease}
-              title="More detail"
-              disabled={!filterLevel || (filterLevel.split(':')[0] !== 'upto' && traceLevels.indexOf(Number(filterLevel.split(':')[1])) >= traceLevels.length - 1)}
-            >&gt;</button>
-          </div>
-        )}
-        <div className="event-filter-toggles">
-          <label className="event-filter-toggle" title="Hide events that have no recorded elapsed time">
+        {/* item 300: merged level filter + hide-checkboxes + count into one compact row */}
+        <div className="event-level-toggles-row">
+          {traceLevels.length > 0 && (
+            <>
+              <button
+                className="event-level-btn"
+                onClick={handleLevelDecrease}
+                title="Less detail"
+                disabled={!!filterLevel && traceLevels.indexOf(Number(filterLevel.split(':')[1])) === 0}
+              >&lt;</button>
+              <select className="event-filter event-level-select" value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)}>
+                <option value="">All levels</option>
+                <optgroup label="Collapse at level">
+                  {traceLevels.map((level) => <option key={`collapse-${level}`} value={`collapse:${level}`}>Collapse L{level}</option>)}
+                </optgroup>
+                <optgroup label="Up to (inclusive)">
+                  {traceLevels.map((level) => <option key={`upto-${level}`} value={`upto:${level}`}>Up to L{level}</option>)}
+                </optgroup>
+                <optgroup label="Exactly">
+                  {traceLevels.map((level) => <option key={`exact-${level}`} value={`exact:${level}`}>Only L{level}</option>)}
+                </optgroup>
+              </select>
+              <button
+                className="event-level-btn"
+                onClick={handleLevelIncrease}
+                title="More detail"
+                disabled={!filterLevel || (filterLevel.split(':')[0] !== 'upto' && traceLevels.indexOf(Number(filterLevel.split(':')[1])) >= traceLevels.length - 1)}
+              >&gt;</button>
+            </>
+          )}
+          <label className="event-filter-toggle" title="Hide events with no elapsed time">
             <input type="checkbox" checked={hideUntimed} onChange={(e) => setHideUntimed(e.target.checked)} />
-            <span>Hide untimed</span>
+            <span>⏱</span>
           </label>
           <label className="event-filter-toggle" title="Hide events that don't change any bits">
             <input type="checkbox" checked={hideUnchanged} onChange={(e) => setHideUnchanged(e.target.checked)} />
-            <span>Hide no-ops</span>
+            <span>⊘</span>
           </label>
           <span className="events-visible-count" title={`${totalVisible} of ${steps.length} events visible`}>{totalVisible}/{steps.length}</span>
         </div>
@@ -1135,6 +1171,7 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
             <div key={group.id} className="event-group">
               <div
                 className={`event-group-header${containsActive ? ' active-group' : ''}`}
+                data-group-id={group.id}
                 onClick={() => handleGroupClick(group)}
               >
                 <span

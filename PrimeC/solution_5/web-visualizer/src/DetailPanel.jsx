@@ -3,6 +3,7 @@ import { BIT_LAYOUTS, BYTE_LAYOUTS, bitToNumber } from './SieveRenderer';
 import { formatNs } from './TimingPanel';
 import { useDragResize } from './hooks/interactions';
 import { usePlaybackContext } from './contexts/PlaybackContext';
+import { usePanelLayoutContext } from './contexts/PanelLayoutContext';
 
 const GRID3X3_MAP = [0, 1, 2, 3, 5, 6, 7, 8];
 
@@ -277,6 +278,8 @@ export default function DetailPanel({
   const [bodyAnimClass, setBodyAnimClass] = useState('');
   const [isBodyAnimatingOut, setIsBodyAnimatingOut] = useState(false);
   const [maskPopoverOpen, setMaskPopoverOpen] = useState(false);
+  // item 301: show nearby-events sidebar only when events panel is collapsed
+  const { isEventsPanelCollapsed } = usePanelLayoutContext();
   const prevOpenRef = useRef(open);
   useLayoutEffect(() => {
     const prev = prevOpenRef.current;
@@ -676,7 +679,40 @@ export default function DetailPanel({
           maxHeight: `${height || 200}px`,
           ...(width > 0 ? { minWidth: `${width}px`, overflowX: 'auto' } : {}),
         }}>
-          <div className="detail-sections">
+          {/* item 301: nearby events sidebar — only shown when events panel is collapsed */}
+          {isEventsPanelCollapsed && surroundingEvents && (surroundingEvents.prev?.length > 0 || surroundingEvents.next?.length > 0) && (
+            <div className="detail-nearby-sidebar">
+              <div className="detail-nearby-sidebar-title">Nearby</div>
+              <div className="detail-nearby-list">
+                {surroundingEvents.prev?.map((e) => (
+                  <div key={e.idx} className="detail-nearby-row detail-nearby-prev" onClick={() => goToStep?.(e.idx)} title={`Go to event ${e.eventId}`}>
+                    <span className="detail-nearby-dir">↑</span>
+                    <span className="detail-nearby-id">#{e.eventId}</span>
+                    <span className="detail-nearby-op">{e.op}</span>
+                    {e.meta && <span className="detail-nearby-meta">{e.meta}</span>}
+                    {e.bits > 0 && <span className="detail-nearby-bits">+{e.bits}</span>}
+                    {e.elapsedLabel && <span className="detail-nearby-time">{e.elapsedLabel}</span>}
+                  </div>
+                ))}
+                <div className="detail-nearby-row detail-nearby-current">
+                  <span className="detail-nearby-dir">→</span>
+                  <span className="detail-nearby-id">#{step.eventId ?? stepIndex}</span>
+                  <span className="detail-nearby-op">{step.operation}</span>
+                </div>
+                {surroundingEvents.next?.map((e) => (
+                  <div key={e.idx} className="detail-nearby-row detail-nearby-next" onClick={() => goToStep?.(e.idx)} title={`Go to event ${e.eventId}`}>
+                    <span className="detail-nearby-dir">↓</span>
+                    <span className="detail-nearby-id">#{e.eventId}</span>
+                    <span className="detail-nearby-op">{e.op}</span>
+                    {e.meta && <span className="detail-nearby-meta">{e.meta}</span>}
+                    {e.bits > 0 && <span className="detail-nearby-bits">+{e.bits}</span>}
+                    {e.elapsedLabel && <span className="detail-nearby-time">{e.elapsedLabel}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <div key={stepIndex} className="detail-sections">
             <section className="detail-section-card">
               <div className="detail-section-title">Operation &amp; Range</div>
               <div className="detail-section-rows">
@@ -766,34 +802,7 @@ export default function DetailPanel({
               </div>
             </section>
 
-            {/* item 178: Nearby events — prev/next 2 events around the current step */}
-            {surroundingEvents && (surroundingEvents.prev?.length > 0 || surroundingEvents.next?.length > 0) && (
-              <section className="detail-section-card detail-nearby-events" style={{ gridColumn: 'span 2' }}>
-                <div className="detail-section-title">Nearby Events</div>
-                <div className="detail-nearby-list">
-                  {surroundingEvents.prev?.map((e) => (
-                    <div key={e.idx} className="detail-nearby-row detail-nearby-prev" onClick={() => goToStep?.(e.idx)} title={`Go to event ${e.eventId}`}>
-                      <span className="detail-nearby-dir">↑</span>
-                      <span className="detail-nearby-id">#{e.eventId}</span>
-                      <span className="detail-nearby-op">{e.op}</span>
-                      {e.meta && <span className="detail-nearby-meta">{e.meta}</span>}
-                      {e.bits > 0 && <span className="detail-nearby-bits">+{e.bits}</span>}
-                      {e.elapsedLabel && <span className="detail-nearby-time">{e.elapsedLabel}</span>}
-                    </div>
-                  ))}
-                  {surroundingEvents.next?.map((e) => (
-                    <div key={e.idx} className="detail-nearby-row detail-nearby-next" onClick={() => goToStep?.(e.idx)} title={`Go to event ${e.eventId}`}>
-                      <span className="detail-nearby-dir">↓</span>
-                      <span className="detail-nearby-id">#{e.eventId}</span>
-                      <span className="detail-nearby-op">{e.op}</span>
-                      {e.meta && <span className="detail-nearby-meta">{e.meta}</span>}
-                      {e.bits > 0 && <span className="detail-nearby-bits">+{e.bits}</span>}
-                      {e.elapsedLabel && <span className="detail-nearby-time">{e.elapsedLabel}</span>}
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
+            {/* item 178 / 301: Nearby events moved to detail-nearby-sidebar (shown when events panel is collapsed) */}
 
           </div>
         </div>

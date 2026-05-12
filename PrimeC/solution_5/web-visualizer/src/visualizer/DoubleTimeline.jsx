@@ -1175,10 +1175,15 @@ export default function DoubleTimeline({
           {/* item 291: active area — inset past the settings toggle on the right */}
           <div className="dtl-anim-active-area" ref={animActiveAreaRef}>
             {/* item 289: use zoom-aware position */}
+            {/* item 303: during empty event, CSS animation drives left — no inline style */}
             {animPlayheadVisible && (
               <div
-                className="dtl-anim-playhead"
-                style={{ left: `${Math.max(0, Math.min(100, animPlayheadPct))}%` }}
+                className={`dtl-anim-playhead${
+                  isEmptyEvent && playing
+                    ? (isSingleEventRepeatEnabled ? ' dtl-anim-playhead--empty-repeat' : ' dtl-anim-playhead--empty')
+                    : ''
+                }`}
+                style={isEmptyEvent && playing ? undefined : { left: `${Math.max(0, Math.min(100, animPlayheadPct))}%` }}
               />
             )}
             {/* item 154: fill bar that grows 0→100% and fades out during delay phase */}

@@ -283,7 +283,7 @@ export default function EventTitleBanner({
           The context rows and sliders below are interactive and not draggable. */}
       <div className="step-focus-drag-handle">
       {!settings?.nearbyEventsMode && (
-        <div className="step-focus-lines">
+        <div key={currentStep} className="step-focus-lines">
           <div className="step-focus-line1">{banner.line1}</div>
           {renderAnnotation()}
           {(banner.bitsChanged > 0) && (

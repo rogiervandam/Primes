@@ -8,12 +8,21 @@
   position: absolute;
   right: 0;
   top: 0;
+  /* item 299: always full screen height regardless of detail panel state */
   bottom: 0;
   /* Below the toolbar (z-index 30) so the toolbar remains accessible over the
      top portion of the panel. */
   z-index: 28;
-  overflow: visible;
+  overflow: hidden;
   box-shadow: -2px 0 16px rgba(0, 0, 0, 0.22);
+  /* item 298: CSS transitions (matching events panel timing) so that the
+     double-timeline's right transition stays in sync with the panel slide-out.
+     Previously used keyframe animations which caused the timeline to expand
+     underneath the still-visible settings panel for 400ms. */
+  transition: transform 220ms cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 180ms ease-out,
+              visibility 0s linear 0s;
+  will-change: transform;
 }
 .visualizer.platform-mac .settings-sidebar {
   width: 388px;
@@ -427,26 +436,22 @@
 
 
 /* ---- Settings sidebar slide-in / slide-out animations ---- */
-@keyframes settings-slide-in {
-  from { transform: translateX(100%); }
-  to   { transform: translateX(0); }
-}
-@keyframes settings-slide-out {
-  from { transform: translateX(0); }
-  to   { transform: translateX(100%); }
-}
-.settings-sidebar.expanding-in {
-  animation: settings-slide-in 450ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-.settings-sidebar.collapsing-out {
-  animation: settings-slide-out 400ms cubic-bezier(0.55, 0, 1, 0.45) forwards;
-  pointer-events: none;
-  overflow: hidden;
-}
+/* item 298: replaced keyframe animations with CSS transitions that match the
+   events panel timing (220ms) so the double-timeline's right-position transition
+   stays in sync with the visual panel slide-out.
+   item 299: bottom:0 always so the panel is full screen height. */
+
 /* Fully collapsed — off screen, no interaction, hidden from AT */
 .settings-sidebar.is-collapsed {
   transform: translateX(100%);
+  opacity: 0;
   pointer-events: none;
-  overflow: hidden;
+  border-left: none;
+  box-shadow: none;
   visibility: hidden;
+  /* opacity fades over 180ms; visibility hides AFTER the 220ms slide-out animation finishes;
+     when un-collapsing the matching rule has 0s delay so it restores instantly */
+  transition: transform 220ms cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 180ms ease-in,
+              visibility 0s linear 220ms;
 }

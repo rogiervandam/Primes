@@ -1,13 +1,18 @@
 /* ---- DetailPanel compact sections ---- */
 .detail-panel-body-compact {
-  padding: 6px 10px;
   font-size: 11.5px;
+}
+/* item 302: fade-in when navigating between events (keyed on stepIndex) */
+@keyframes detail-step-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 .detail-sections {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 6px 8px;
   align-items: stretch;
+  animation: detail-step-in 180ms ease both;
 }
 .detail-section-card {
   padding: 4px 6px;
@@ -101,6 +106,40 @@
   position: relative;
 }
 /* item 178: Nearby events section in detail panel */
+/* item 301: moved from grid card to a left sidebar */
+.detail-panel-body {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+}
+
+/* item 301: sidebar that shows prev/current/next events */
+.detail-nearby-sidebar {
+  flex-shrink: 0;
+  width: 148px;
+  border-right: 1px solid var(--border-light);
+  padding: 4px 4px 4px 6px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.detail-nearby-sidebar-title {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-dim);
+  padding: 2px 4px;
+  margin-bottom: 2px;
+}
+/* the main detail-sections scrolls independently */
+.detail-panel-body .detail-sections {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 6px 10px;
+}
 .detail-nearby-list {
   display: flex;
   flex-direction: column;
@@ -118,9 +157,17 @@
   overflow: hidden;
 }
 .detail-nearby-row:hover { background: var(--bg-raised); }
+.detail-nearby-current {
+  background: var(--bg-input);
+  border-left: 2px solid var(--accent);
+  cursor: default;
+  font-weight: 600;
+}
+.detail-nearby-current:hover { background: var(--bg-input); }
 .detail-nearby-dir { color: var(--fg-dim); width: 10px; flex-shrink: 0; }
 .detail-nearby-prev .detail-nearby-dir { color: rgba(100, 180, 255, 0.6); }
 .detail-nearby-next .detail-nearby-dir { color: rgba(100, 220, 150, 0.6); }
+.detail-nearby-current .detail-nearby-dir { color: var(--accent); }
 .detail-nearby-id { color: var(--fg-dim); font-size: 10px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .detail-nearby-op { color: var(--fg); font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .detail-nearby-meta { color: var(--fg-dim); font-size: 10px; flex-shrink: 0; white-space: nowrap; font-family: monospace; }

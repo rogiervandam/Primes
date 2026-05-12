@@ -76,13 +76,17 @@
 }
 
 /* Row that holds the operation filter select + the wide/narrow toggle button */
-.event-op-filter-row {
+/* item 300: replaced event-op-filter-row (ops only) and event-groupby-row (group only)
+   with a single event-filters-row that holds both inline */
+.event-filters-row {
   display: flex;
   align-items: center;
   gap: 4px;
 }
-.event-op-filter-row .event-filter-op {
+.event-filters-row .event-filter-op,
+.event-filters-row .event-groupby-select {
   flex: 1;
+  min-width: 0;
   width: auto;
 }
 .event-op-wide-btn {
@@ -99,21 +103,12 @@
 }
 .event-op-wide-btn:hover { background: var(--bg-input); color: var(--fg); }
 .event-op-wide-btn.active { background: var(--accent-bg); border-color: var(--accent-dim); color: var(--fg); }
-/* item 222: group-by row */
-.event-groupby-row {
+/* item 222: group-by row — now merged into event-filters-row (item 300) */
+/* item 300: merged level filter + hide-checkboxes + count into one compact row */
+.event-level-toggles-row {
   display: flex;
   align-items: center;
-  gap: 4px;
-}
-.event-groupby-label {
-  font-size: 11px;
-  color: var(--fg-dim);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.event-groupby-select {
-  flex: 1;
-  width: auto;
+  gap: 3px;
 }
 .event-list {
   flex: 1;
@@ -182,6 +177,17 @@
 }
 .event-group-header:hover { background: var(--bg-raised); }
 .event-group.active-group > .event-group-header { background: var(--bg-input); border-left: 3px solid var(--accent); }
+/* item 304: pulse highlight when scrubbing to an event hidden inside a collapsed/filtered group */
+@keyframes group-hint-pulse {
+  0%   { background: var(--bg-surface); border-left-color: transparent; }
+  30%  { background: var(--accent-bg, color-mix(in srgb, var(--accent) 18%, transparent)); border-left-color: var(--accent); }
+  70%  { background: var(--accent-bg, color-mix(in srgb, var(--accent) 18%, transparent)); border-left-color: var(--accent); }
+  100% { background: var(--bg-surface); border-left-color: transparent; }
+}
+.event-group-header.has-hidden-active {
+  animation: group-hint-pulse 1.5s ease both;
+  border-left: 3px solid transparent;
+}
 .event-group-toggle { font-size: 10px; color: var(--fg-dim); width: 12px; flex-shrink: 0; }
 .event-group-prime { font-weight: 600; color: var(--fg); }
 .event-group-count-badge {
@@ -368,13 +374,8 @@
 }
 .resize-handle:hover { background: rgba(255, 68, 68, 0.3); }
 
-/* Level-detail filter row: < select > */
-.event-level-filter-row {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-}
-.event-level-filter-row .event-level-select {
+/* Level-detail filter row: < select > — now part of event-level-toggles-row */
+.event-level-toggles-row .event-level-select {
   flex: 1;
   min-width: 0;
 }
@@ -407,11 +408,11 @@
   white-space: nowrap;
   opacity: 1;
 }
+/* item 300: filter-toggles and visible-count are now inline in event-level-toggles-row */
 .event-filter-toggles {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 10px;
-  margin-top: 4px;
   align-items: center;
 }
 .events-visible-count {
@@ -427,4 +428,21 @@
   font-size: 10px;
   color: var(--fg-muted);
   cursor: pointer;
+}
+/* item 300: compact icon-mode toggles in level-toggles-row */
+.event-level-toggles-row .event-filter-toggle {
+  padding: 0 2px;
+  border-radius: 3px;
+  line-height: 1;
+  opacity: 0.7;
+}
+.event-level-toggles-row .event-filter-toggle:hover { opacity: 1; }
+.event-level-toggles-row .event-filter-toggle span {
+  font-size: 12px;
+  line-height: 1;
+}
+/* dim the icon when checkbox is unchecked (strike-through appearance) */
+.event-level-toggles-row .event-filter-toggle input:not(:checked) + span {
+  opacity: 0.4;
+  text-decoration: line-through;
 }
