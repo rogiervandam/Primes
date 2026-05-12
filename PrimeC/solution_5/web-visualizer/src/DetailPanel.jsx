@@ -663,21 +663,21 @@ export default function DetailPanel({
       {open && !playing && <div className="detail-panel-resize" onMouseDown={handleHeightDrag} />}
         <div className="detail-panel-toggle">
         {/* item 353: unified toggle arrow on the left — opens/closes the detail panel */}
-        {onToggle && (
+        {/*onToggle && (
           <button
             className={`detail-panel-close-btn panel-toggle-arrow${open ? ' is-open' : ''}`}
             onClick={(e) => { e.stopPropagation(); onToggle(); }}
             title={open ? 'Hide detail panel' : 'Show detail panel'}
             aria-label={open ? 'Hide detail panel' : 'Show detail panel'}
           >{open ? '∧' : '∨'}</button>
-        )}
+        )*/}
         {/* item 162: dock row — shows floater and/or slider based on independent toggle states */}
-        {hasDockContent && (
+        {/*hasDockContent && (
           <div className="detail-panel-dock-row">
             {showAllEventsInPanel && allEventsTransport && (
               <div
                 className="detail-panel-all-events-transport"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}dd
                 onMouseDown={(e) => e.stopPropagation()}
               >
                 {allEventsTransport}
@@ -693,7 +693,7 @@ export default function DetailPanel({
               </div>
             )}
           </div>
-        )}
+        )*/}
         {/* item 162: left toggle = all-events floater, right toggle = single-event slider */}
         <div className="detail-panel-widget-toggles">
           {onToggleAllEventsFloater && (
@@ -727,49 +727,43 @@ export default function DetailPanel({
           ...(width > 0 ? { minWidth: `${width}px`, overflowX: 'auto' } : {}),
         }}>
           {/* item 301: nearby events sidebar — only shown when events panel is collapsed */}
-          {isEventsPanelCollapsed && surroundingEvents && (surroundingEvents.prev?.length > 0 || surroundingEvents.next?.length > 0) && (
-            <div className="detail-nearby-sidebar">
-              {/* item 349: right-arrow button left of NEARBY heading toggles events panel (normal left-slide) */}
-              <div className="detail-nearby-sidebar-header">
-                {/* item 353: panel-toggle-arrow gives unified design */}
-                <button
-                  className="detail-nearby-events-toggle panel-toggle-arrow"
-                  onClick={() => toggleEventsPanel?.()}
-                  title="Toggle events panel"
-                  aria-label="Toggle events panel"
-                >›</button>
-                <div className="detail-nearby-sidebar-title">Nearby</div>
-              </div>
-              <div className="detail-nearby-list">
-                {surroundingEvents.prev?.map((e) => (
-                  <div key={e.idx} className="detail-nearby-row detail-nearby-prev" onClick={() => goToStep?.(e.idx)} title={`Go to event ${e.eventId}`}>
-                    <span className="detail-nearby-dir">↑</span>
-                    <span className="detail-nearby-id">#{e.eventId}</span>
-                    <span className="detail-nearby-op">{e.op}</span>
-                    {e.meta && <span className="detail-nearby-meta">{e.meta}</span>}
-                    {e.bits > 0 && <span className="detail-nearby-bits">+{e.bits}</span>}
-                    {e.elapsedLabel && <span className="detail-nearby-time">{e.elapsedLabel}</span>}
-                  </div>
-                ))}
-                <div className="detail-nearby-row detail-nearby-current">
-                  <span className="detail-nearby-dir">→</span>
-                  <span className="detail-nearby-id">#{step.eventId ?? stepIndex}</span>
-                  <span className="detail-nearby-op">{step.operation}</span>
-                </div>
-                {surroundingEvents.next?.map((e) => (
-                  <div key={e.idx} className="detail-nearby-row detail-nearby-next" onClick={() => goToStep?.(e.idx)} title={`Go to event ${e.eventId}`}>
-                    <span className="detail-nearby-dir">↓</span>
-                    <span className="detail-nearby-id">#{e.eventId}</span>
-                    <span className="detail-nearby-op">{e.op}</span>
-                    {e.meta && <span className="detail-nearby-meta">{e.meta}</span>}
-                    {e.bits > 0 && <span className="detail-nearby-bits">+{e.bits}</span>}
-                    {e.elapsedLabel && <span className="detail-nearby-time">{e.elapsedLabel}</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+
           <div key={stepIndex} className="detail-sections">
+              {isEventsPanelCollapsed && surroundingEvents && (surroundingEvents.prev?.length > 0 || surroundingEvents.next?.length > 0) && (
+                <section className="detail-section-card" style={{ gridColumn: 'span 1' }}>
+                  <div className="detail-nearby-sidebar">
+                    {/* item 349: right-arrow button left of NEARBY heading toggles events panel (normal left-slide) */}
+                    <div className="detail-nearby-sidebar-header">
+                      {/* item 353: panel-toggle-arrow gives unified design */}
+                      <div className="detail-nearby-sidebar-title">Nearby</div>
+                    </div>
+                    <div className="detail-nearby-list">
+                      {surroundingEvents.prev?.map((e) => (
+                        <div key={e.idx} className="detail-nearby-row detail-nearby-prev" onClick={() => goToStep?.(e.idx)} title={`Go to event ${e.eventId}`}>
+                          <span className="detail-nearby-dir">↑</span>
+                          <span className="detail-nearby-id">#{e.eventId}</span>
+                          <span className="detail-nearby-op">{e.op}</span>
+                          {e.bits > 0 && <span className="detail-nearby-bits">+{e.bits}</span>}
+                        </div>
+                      ))}
+                      <div className="detail-nearby-row detail-nearby-current">
+                        <span className="detail-nearby-dir">→</span>
+                        <span className="detail-nearby-id">#{step.eventId ?? stepIndex}</span>
+                        <span className="detail-nearby-op">{step.operation}</span>
+                      </div>
+                      {surroundingEvents.next?.map((e) => (
+                        <div key={e.idx} className="detail-nearby-row detail-nearby-next" onClick={() => goToStep?.(e.idx)} title={`Go to event ${e.eventId}`}>
+                          <span className="detail-nearby-dir">↓</span>
+                          <span className="detail-nearby-id">#{e.eventId}</span>
+                          <span className="detail-nearby-op">{e.op}</span>
+                          {e.bits > 0 && <span className="detail-nearby-bits">+{e.bits}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+              </section>
+              )}
+
             <section className="detail-section-card">
               <div className="detail-section-title">Operation &amp; Range</div>
               <div className="detail-section-rows">
