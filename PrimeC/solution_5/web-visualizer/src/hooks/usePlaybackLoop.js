@@ -275,6 +275,41 @@ export function usePlaybackLoop({ ...flatArgs }) {
       }
 
       setCurrentStep((prev) => {
+        // item 240: if the current step has no animation content, add a delay before
+        // advancing (no-repeat) or repeating (repeat mode), and show "NO CHANGES" UI.
+        const curStep = steps[prev];
+        const hasNoAnimation = !curStep || (
+          !(curStep.changedBits?.length > 0) &&
+          !(curStep.maskWriteOrderWords?.length > 0)
+        );
+        if (hasNoAnimation) {
+          const emptyDelay = isSingleEventRepeatEnabledRef?.current
+            ? 2000  // item 240: 2-second hold in repeat mode
+            : (delayBetweenEventsRef?.current ?? 0);
+          // Block the scheduler for the duration of the delay using animBusyUntilRef.
+          // This prevents the scheduler from immediately re-entering this callback.
+          animBusyUntilRef.current = performance.now() + Math.max(emptyDelay, 1);
+          if (isSingleEventRepeatEnabledRef?.current) {
+            const repeatStartProgress = (repeatFractionRef?.current ?? 0) / 100;
+            const repeatOpts = repeatStartProgress > 0
+              ? { keepPlaying: true, startProgress: repeatStartProgress }
+              : { keepPlaying: true };
+            setTimeout(() => {
+              if (!globalPausedRef.current) goToStepRef.current?.(prev, repeatOpts);
+            }, emptyDelay);
+            return prev;  // stay on current step during delay
+          } else {
+            const next = prev + 1;
+            if (next >= steps.length) {
+              setPlaying(false);
+              return prev;
+            }
+            setTimeout(() => {
+              if (!globalPausedRef.current) goToStepRef.current?.(next, { keepPlaying: true });
+            }, emptyDelay);
+            return prev;  // stay on current step until goToStep fires after delay
+          }
+        }
         // item 226: when repeat is on, replay current event instead of advancing
         if (isSingleEventRepeatEnabledRef?.current) {
           // item 290: restart from the repeat fraction point if set

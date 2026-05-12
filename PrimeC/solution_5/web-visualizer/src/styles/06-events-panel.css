@@ -13,9 +13,11 @@
   z-index: 28;
   box-shadow: 2px 0 16px rgba(0, 0, 0, 0.22);
   overflow: hidden;
-  /* item 176: slide the whole panel left/right as one unit — no opacity change */
+  /* item 176: slide the whole panel left/right as one unit */
+  /* item 295: opacity also transitions for a fade-in/out effect */
   /* visibility 0s 0s: restore visibility instantly when un-collapsing (before slide-in starts) */
   transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              opacity 180ms ease-out,
               visibility 0s linear 0s;
   will-change: transform;
   /* Isolate the panel's style/layout invalidations from the rest of the page.

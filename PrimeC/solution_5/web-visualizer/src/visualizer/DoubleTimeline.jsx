@@ -145,6 +145,13 @@ export default function DoubleTimeline({
     return vals.map((v) => v / max);
   }, [steps]);
 
+  // item 240: detect events with no animation content (no changed bits, no mask data)
+  const isEmptyEvent = currentStepData != null && (
+    !(Number(currentStepData.numChanged) > 0) &&
+    !(currentStepData.changedBits?.length > 0) &&
+    !(currentStepData.maskWriteOrderWords?.length > 0)
+  );
+
   // Draw waveform on canvas whenever size or data changes
   const drawWave = useCallback(() => {
     const canvas = waveCanvasRef.current;
@@ -1175,9 +1182,15 @@ export default function DoubleTimeline({
               />
             )}
             {/* item 154: fill bar that grows 0→100% and fades out during delay phase */}
+            {/* item 240: empty event — same bar but CSS-animated left-fill then fade */}
             {/* item 289: fill bar is also zoom-aware */}
             <div
-              className={`dtl-anim-fill${isInDelayPhase ? ' dtl-anim-fill--fading' : ''}`}
+              key={isEmptyEvent && playing ? `empty-${currentStep}` : 'fill'}
+              className={`dtl-anim-fill${
+                isEmptyEvent && playing
+                  ? (isSingleEventRepeatEnabled ? ' dtl-anim-fill--empty-repeat' : ' dtl-anim-fill--empty')
+                  : isInDelayPhase ? ' dtl-anim-fill--fading' : ''
+              }`}
               style={{ width: `${animFillPct}%`, '--delay-ms': `${delayPhaseMs}ms` }}
             />
             {/* item 289: zoom range indicators when zoomed in on animation */}
@@ -1211,6 +1224,7 @@ export default function DoubleTimeline({
                 }}
               />
             )}
+
           </div>
           {/* Header row: items 194, 195: ANIMATION centered, speed to its right */}
           <div className="dtl-anim-header">
@@ -1219,12 +1233,19 @@ export default function DoubleTimeline({
             </div>
             {/* items 194, 195: ANIMATION label centered, speed to its right */}
             <div className="dtl-anim-center-group">
-              <span className="dtl-wave-label dtl-anim-label">Animation</span>
-              {playSpeedPercent != null && (
-                <span className="dtl-anim-speed-group">
-                  <span className="dtl-anim-speed-label-text">speed</span>
-                  <span className="dtl-anim-speed">{playSpeedPercent}%</span>
-                </span>
+              {/* item 240: show NO CHANGES label when playing a step with no animation */}
+              {isEmptyEvent && playing ? (
+                <span className="dtl-no-changes-label">NO CHANGES — NO ANIMATION</span>
+              ) : (
+                <>
+                  <span className="dtl-wave-label dtl-anim-label">Animation</span>
+                  {playSpeedPercent != null && (
+                    <span className="dtl-anim-speed-group">
+                      <span className="dtl-anim-speed-label-text">speed</span>
+                      <span className="dtl-anim-speed">{playSpeedPercent}%</span>
+                    </span>
+                  )}
+                </>
               )}
             </div>
             {/* item 138: stop propagation so toggle clicks don't trigger a seek */}

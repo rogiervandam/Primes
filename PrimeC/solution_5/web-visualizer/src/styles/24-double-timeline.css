@@ -825,3 +825,30 @@
 .double-timeline.dtl-focus-animation .dtl-wave-zone {
   opacity: 0.65;
 }
+
+/* item 240: empty-event animation — fill bar grows left→right then fades out, signalling the
+   event occurred but had nothing to animate. Repeat mode loops the 2-second cycle;
+   no-repeat mode plays once (the hold is cut short when the scheduler advances). */
+@keyframes dtl-empty-fill {
+  0%   { width: 100%; clip-path: inset(0 100% 0 0); opacity: 1; }  /* nothing visible */
+  50%  { width: 100%; clip-path: inset(0 0   0 0); opacity: 1; }  /* fully filled */
+  100% { width: 100%; clip-path: inset(0 0   0 100%); opacity: 0; } /* faded out */
+}
+.dtl-anim-fill--empty {
+  width: 100% !important;  /* override inline 0% */
+  animation: dtl-empty-fill 2s linear forwards;
+}
+.dtl-anim-fill--empty-repeat {
+  width: 100% !important;
+  animation: dtl-empty-fill 2s linear infinite;
+}
+
+/* item 240: "NO CHANGES — NO ANIMATION" label replaces the speed group in the header */
+.dtl-no-changes-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}
