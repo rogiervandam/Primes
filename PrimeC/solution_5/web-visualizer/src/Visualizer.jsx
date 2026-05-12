@@ -248,7 +248,7 @@ export default function Visualizer({
   } = useStepAnimation({ initialPrefs });
 
   // item 290: repeat start fraction (0-100) — where animation restarts when single-event repeat is on
-  const [repeatFraction, setRepeatFraction] = useState(() => Number(initialPrefs.repeatFraction) || 0);
+  const [repeatFraction, setRepeatFraction] = useState(() => Number(initialPrefs.repeatFraction) || 100);
   const repeatFractionRef = useRef(repeatFraction);
   repeatFractionRef.current = repeatFraction;
 

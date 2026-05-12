@@ -217,6 +217,9 @@ export default function DoubleTimeline({
   stepScrubProgressRef.current = stepScrubProgress;
   // Ref: true while the repeat handle is being dragged — gates zone pointer handlers
   const isRepeatDraggingRef = useRef(false);
+  // Latest pointer X during a wave drag — the RAF always reads this so it uses
+  // the most recent position even when intermediate pointer events are coalesced.
+  const waveLatestClientXRef = useRef(null);
   const waveSeek = useCallback((e) => {
     const canvas = waveCanvasRef.current;
     if (!canvas || steps.length === 0) return;
@@ -225,7 +228,7 @@ export default function DoubleTimeline({
     // item 289: map fraction to zoomed range
     const { start: zStart, end: zEnd } = waveZoomRangeRef.current;
     const mappedFrac = zStart + frac * (zEnd - zStart);
-    goToStep(Math.round(mappedFrac * (steps.length - 1)));
+    goToStep(Math.round(mappedFrac * (steps.length - 1)), { scrub: true });
   }, [goToStep, steps.length]);
 
   const handleWavePointerDown = useCallback((e) => {
@@ -242,10 +245,14 @@ export default function DoubleTimeline({
   const handleWavePointerMove = useCallback((e) => {
     if (isDividerDraggingRef.current) return;  // item 218
     if (e.buttons !== 1) return;
-    const clientX = e.clientX;
+    // Always track the latest pointer position so the RAF uses the most recent
+    // coordinates even when high-frequency events are coalesced (fixes lag).
+    waveLatestClientXRef.current = e.clientX;
     if (waveRafRef.current !== null) return;  // already scheduled
     waveRafRef.current = requestAnimationFrame(() => {
       waveRafRef.current = null;
+      const clientX = waveLatestClientXRef.current;
+      if (clientX === null) return;
       const canvas = waveCanvasRef.current;
       if (!canvas || steps.length === 0) return;
       const rect = canvas.getBoundingClientRect();
@@ -253,7 +260,7 @@ export default function DoubleTimeline({
       // item 289: map fraction to zoomed range
       const { start: zStart, end: zEnd } = waveZoomRangeRef.current;
       const mappedFrac = zStart + frac * (zEnd - zStart);
-      goToStep(Math.round(mappedFrac * (steps.length - 1)));
+      goToStep(Math.round(mappedFrac * (steps.length - 1)), { scrub: true });
       // item 294: keep animation progress at 0% while scrubbing events
       setStepScrubProgress?.(0);
       seekStepAnimation?.(0);

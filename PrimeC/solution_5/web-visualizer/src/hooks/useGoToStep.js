@@ -38,11 +38,21 @@ export function useGoToStep({
   const prevMaskSigRef = useRef('');
   const maskNewTimerRef = useRef(null);
 
+  // Scrub-mode React-update throttle: canvas renders every RAF frame but
+  // setCurrentStep/setStepStats are capped at ~10 fps to avoid flooding the
+  // React tree (title bar, annotation, events-panel highlight) with re-renders.
+  const scrubReactThrottleRef = useRef(0);     // last time setCurrentStep was called (ms)
+  const scrubReactTimerRef   = useRef(null);   // pending flush timeout
+  const scrubLatestTargetRef = useRef(null);   // latest step index queued during throttle
+
   const goToStep = useCallback((target, options = {}) => {
     const r = rendererRef.current;
     if (!r || steps.length === 0) return;
     target = Math.max(0, Math.min(target, steps.length - 1));
     const suppressHighlight = options.suppressHighlight === true;
+    // scrub:true → canvas updates every call but React state (title/annotation)
+    // is throttled to ≤10 fps to avoid flooding the component tree.
+    const isScrub = options.scrub === true;
     if (!options.keepPlaying && playing) stopPlayback();
     if (!options.keepPlaying && !options.keepLoop && isSingleEventLoopActiveRef.current) {
       setIsSingleEventLoopActive(false);
@@ -232,7 +242,39 @@ export function useGoToStep({
     r.render();
     updateMinimapAvailability();
     r.renderMinimap(r.canvasWidth, r.canvasHeight, getMinimapDetailH());
-    setCurrentStep(target);
+
+    // Throttle React state updates (title bar, annotation, events-panel) to
+    // ≤10 fps during wave scrubbing so the component tree isn't flooded.
+    if (isScrub) {
+      scrubLatestTargetRef.current = target;
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      if (now - scrubReactThrottleRef.current >= 100) {
+        // Enough time has elapsed — update immediately.
+        scrubReactThrottleRef.current = now;
+        if (scrubReactTimerRef.current !== null) {
+          clearTimeout(scrubReactTimerRef.current);
+          scrubReactTimerRef.current = null;
+        }
+        setCurrentStep(target);
+      } else {
+        // Too soon — schedule a flush for the end of the 100 ms window.
+        if (scrubReactTimerRef.current === null) {
+          const remaining = 100 - (now - scrubReactThrottleRef.current);
+          scrubReactTimerRef.current = setTimeout(() => {
+            scrubReactTimerRef.current = null;
+            scrubReactThrottleRef.current = typeof performance !== 'undefined' ? performance.now() : Date.now();
+            if (scrubLatestTargetRef.current !== null) setCurrentStep(scrubLatestTargetRef.current);
+          }, remaining);
+        }
+      }
+    } else {
+      // Non-scrub path: update React state immediately as before.
+      if (scrubReactTimerRef.current !== null) {
+        clearTimeout(scrubReactTimerRef.current);
+        scrubReactTimerRef.current = null;
+      }
+      setCurrentStep(target);
+    }
 
     // Always animate when navigating (direct mode, item 95). Previously only
     // animated when playing/looping/scrubbing. Now always trigger animation
