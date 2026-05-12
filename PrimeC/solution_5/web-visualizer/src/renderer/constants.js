@@ -44,54 +44,79 @@ export const THEMES = {
 };
 
 // Color presets for set/cleared/unchanged bits
+// item 322: each preset now also defines timelineColors, floaterBg, draggerColor for cohesive theming
 export const COLOR_PRESETS = {
   default: {
     label: 'Default',
     setBit:       [76, 175, 80],   // green
     clearedBit:   [244, 67, 54],   // red
     unchangedBit: [158, 158, 158], // gray
+    timelineColors: { events: '#4caf50', animation: '#2196f3' },
+    floaterBg:    '#0a0a0a',
+    draggerColor: '#1a2e1a',
   },
   highContrast: {
     label: 'High Contrast',
     setBit:       [0, 255, 0],     // bright green
     clearedBit:   [255, 0, 0],     // bright red
     unchangedBit: [0, 0, 0],       // black
+    timelineColors: { events: '#00ff00', animation: '#0080ff' },
+    floaterBg:    '#000000',
+    draggerColor: '#001a00',
   },
   pastel: {
     label: 'Pastel',
     setBit:       [165, 214, 167], // pastel green
     clearedBit:   [239, 154, 154], // pastel red
     unchangedBit: [224, 224, 224], // pastel gray
+    timelineColors: { events: '#a5d6a7', animation: '#90caf9' },
+    floaterBg:    '#1a1a2e',
+    draggerColor: '#1a2e1a',
   },
   darkMode: {
     label: 'Dark Mode',
     setBit:       [129, 199, 132], // light green
     clearedBit:   [229, 115, 115], // light red
     unchangedBit: [66, 66, 66],    // dark gray
+    timelineColors: { events: '#81c784', animation: '#64b5f6' },
+    floaterBg:    '#0a0a0a',
+    draggerColor: '#1a2a1a',
   },
   neon: {
     label: 'Neon',
     setBit:       [0, 255, 200],   // neon cyan-green
     clearedBit:   [255, 30, 120],  // neon pink-red
     unchangedBit: [50, 50, 80],    // dark indigo
+    timelineColors: { events: '#00ffc8', animation: '#ff1e78' },
+    floaterBg:    '#050510',
+    draggerColor: '#100028',
   },
   ocean: {
     label: 'Ocean',
     setBit:       [0, 200, 220],   // teal
     clearedBit:   [255, 160, 50],  // amber
     unchangedBit: [60, 80, 110],   // deep slate blue
+    timelineColors: { events: '#00c8dc', animation: '#ffa032' },
+    floaterBg:    '#060a14',
+    draggerColor: '#0a1e2e',
   },
   sunset: {
     label: 'Sunset',
     setBit:       [255, 180, 0],   // golden yellow
     clearedBit:   [180, 40, 120],  // deep rose
     unchangedBit: [90, 55, 80],    // muted plum
+    timelineColors: { events: '#ffb400', animation: '#b428a0' },
+    floaterBg:    '#140808',
+    draggerColor: '#28140a',
   },
   ice: {
     label: 'Ice',
     setBit:       [180, 230, 255], // pale ice blue
     clearedBit:   [255, 120, 80],  // coral
     unchangedBit: [120, 160, 200], // steel blue
+    timelineColors: { events: '#b4e6ff', animation: '#ff7850' },
+    floaterBg:    '#060c14',
+    draggerColor: '#0e1a28',
   },
 };
 

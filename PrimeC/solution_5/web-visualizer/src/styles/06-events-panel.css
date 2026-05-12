@@ -8,9 +8,8 @@
   left: 0;
   top: 0;
   bottom: 0;
-  /* Below the toolbar (z-index 30) so the toolbar remains accessible over the
-     top portion of the panel. */
-  z-index: 28;
+  /* item 319: raised above balloons (max z-index 260); below toolbar (310) */
+  z-index: 270;
   box-shadow: 2px 0 16px rgba(0, 0, 0, 0.22);
   overflow: hidden;
   /* item 176: slide the whole panel left/right as one unit */
@@ -265,8 +264,9 @@
   flex-shrink: 0;
 }
 .event-op {
-  background: var(--op-bg);
-  color: var(--op-fg);
+  /* item 328: tinted bg (25% events color over panel bg) + full label color as text */
+  background: color-mix(in srgb, var(--ep-label-color, var(--op-bg)) 25%, var(--op-bg));
+  color: var(--ep-label-color, var(--op-fg));
   padding: 1px 5px;
   border-radius: 3px;
   font-size: 10px;
@@ -318,7 +318,8 @@
   text-overflow: clip;
   position: static;
   transform: none;
-  background: var(--op-bg);
+  background: color-mix(in srgb, var(--ep-label-color, var(--op-bg)) 25%, var(--op-bg));
+  color: var(--ep-label-color, var(--op-fg));
   border: none;
   box-shadow: none;
   padding: 1px 5px;

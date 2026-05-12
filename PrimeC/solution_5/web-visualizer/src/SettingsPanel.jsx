@@ -141,6 +141,12 @@ export default function SettingsPanel({
     setColorPreset,
     customColors,
     setCustomColors,
+    timelineColors,
+    setTimelineColors,
+    floaterBg,
+    setFloaterBg,
+    draggerColor,
+    setDraggerColor,
   } = useThemeContext();
   const {
     playSpeedPercent,
@@ -320,6 +326,9 @@ export default function SettingsPanel({
             customColors={customColors} onCustomColorsChange={setCustomColors}
             theme={theme} onThemeChange={setTheme}
             canvasColors={canvasColors} onCanvasColorsChange={setCanvasColors}
+            timelineColors={timelineColors} onTimelineColorsChange={setTimelineColors}
+            floaterBg={floaterBg} onFloaterBgChange={setFloaterBg}
+            draggerColor={draggerColor} onDraggerColorChange={setDraggerColor}
           />
         )}
 

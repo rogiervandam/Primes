@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { bumpRender } from './lib/debugCounters';
 import { SieveRenderer } from './SieveRenderer';
+import { hexToRgb, labelTextColor } from './renderer/drawingHelpers';
 import { BitGridGLWorker, isWorkerGLSupported } from './renderer/gl/BitGridGLWorker';
 import { GlyphTextGLCore } from './renderer/gl/GlyphTextGLCore';
 import EventsPanel from './EventsPanel';
@@ -214,6 +215,9 @@ export default function Visualizer({
     canvasColors, setCanvasColors,
     colorPreset, setColorPreset,
     customColors, setCustomColors,
+    timelineColors, setTimelineColors,  // item 321
+    floaterBg, setFloaterBg,            // item 322/323
+    draggerColor, setDraggerColor,      // item 322/323
   } = useThemeAndColors({ initialPrefs });
 
   const {
@@ -668,6 +672,9 @@ export default function Visualizer({
     debugRenderTuning,
     colorPreset,
     customColors,
+    timelineColors,  // item 321
+    floaterBg,        // item 322/323
+    draggerColor,     // item 322/323
     eventDurationMode,
     playSpeedPercent,
     delayBetweenEvents,
@@ -1226,6 +1233,12 @@ export default function Visualizer({
     setColorPreset,
     customColors,
     setCustomColors,
+    timelineColors,       // item 321
+    setTimelineColors,    // item 321
+    floaterBg,            // item 322/323
+    setFloaterBg,         // item 322/323
+    draggerColor,         // item 322/323
+    setDraggerColor,      // item 322/323
   }), [
     theme,
     setTheme,
@@ -1237,6 +1250,12 @@ export default function Visualizer({
     setColorPreset,
     customColors,
     setCustomColors,
+    timelineColors,
+    setTimelineColors,
+    floaterBg,
+    setFloaterBg,
+    draggerColor,
+    setDraggerColor,
   ]);
 
   // item 236/#4 perf: currentStep is removed from PlaybackContext so that step
@@ -1312,6 +1331,12 @@ export default function Visualizer({
     setAnimateBitsMode,       // item 244
   ]);
 
+  // item 318: toolbar detail-panel toggle must target floating panel when undocked
+  const toggleDetailPanelContextual = useCallback(() => {
+    if (isTimelineUndocked) setFloatingDetailVisible((v) => !v);
+    else toggleDetailPanel();
+  }, [isTimelineUndocked, toggleDetailPanel]);
+
   const panelLayoutContextValue = useMemo(() => ({
     collapseEventsHideWidget,
     isEventsPanelCollapsed,
@@ -1320,10 +1345,11 @@ export default function Visualizer({
     eventsCollapseDir,
     setEventsCollapseDir,
     collapseEventsPanelFromTimeline,
-    isDetailOpen,
+    // item 318: when undocked, isDetailOpen in context reflects floatingDetailVisible
+    isDetailOpen: isTimelineUndocked ? floatingDetailVisible : isDetailOpen,
     setIsDetailOpen,
     isDetailOpenRef,
-    toggleDetailPanel,
+    toggleDetailPanel: toggleDetailPanelContextual,
     isSettingsCollapsed,
     toggleSettingsPanel,
     isAllEventsWidgetHidden,
@@ -1342,9 +1368,11 @@ export default function Visualizer({
     setEventsCollapseDir,
     collapseEventsPanelFromTimeline,
     isDetailOpen,
+    isTimelineUndocked,
+    floatingDetailVisible,
     setIsDetailOpen,
     isDetailOpenRef,
-    toggleDetailPanel,
+    toggleDetailPanelContextual,
     isSettingsCollapsed,
     toggleSettingsPanel,
     isAllEventsWidgetHidden,
@@ -1862,6 +1890,11 @@ export default function Visualizer({
         // item 290: repeat start fraction
         repeatFraction,
         onRepeatFractionChange: setRepeatFraction,
+        // item 321: timeline strip colors
+        timelineColors,
+        // item 322/323: floater zone bg and dragger color
+        floaterBg,
+        draggerColor,
       },
     },
 
@@ -2185,7 +2218,12 @@ export default function Visualizer({
     <ActiveStepProvider currentStep={currentStep}>
     <AnimationConfigProvider value={animationConfigContextValue}>
     <PanelLayoutProvider value={panelLayoutContextValue}>
-    <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}${flyModeActive ? ' visualizer--fly-mode' : ''}`}>
+    <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}${flyModeActive ? ' visualizer--fly-mode' : ''}`}
+      style={{
+        // item 328: operation badge bg = events timeline color; fg = auto-contrast
+        '--ep-label-color': timelineColors?.events || '#b87333',
+        '--ep-label-fg': labelTextColor(hexToRgb(timelineColors?.events || '#b87333')),
+      }}>
       <Toolbar {...toolbarProps} />
 
       {exporting && <ExportProgress progress={exportProgress} />}

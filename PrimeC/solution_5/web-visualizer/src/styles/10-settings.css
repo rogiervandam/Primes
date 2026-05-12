@@ -10,9 +10,8 @@
   top: 0;
   /* item 299: always full screen height regardless of detail panel state */
   bottom: 0;
-  /* Below the toolbar (z-index 30) so the toolbar remains accessible over the
-     top portion of the panel. */
-  z-index: 28;
+  /* item 319: raised above balloons (max z-index 260); below toolbar (310) */
+  z-index: 270;
   overflow: hidden;
   box-shadow: -2px 0 16px rgba(0, 0, 0, 0.22);
   /* item 298: CSS transitions (matching events panel timing) so that the

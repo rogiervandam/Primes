@@ -55,13 +55,29 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 317 Fixed: The left-right movement in #306 should be a bit more pronounced, so users can better see the direction of movement, like a 50% shift to the left or right, instead of just a subtle 10% shift.
 
-318 When the double timeline is floating, i should be able to toggle the detail panel from the top bar (nothing happens now). When opening the detail panel with d, the nearby events are missing. 
+318 Fixed: When the double timeline is floating, i should be able to toggle the detail panel from the top bar (nothing happens now). When opening the detail panel with d, the nearby events are missing. 
 
-319 All panels and overlays should be in front of the balloons and their connectors. Currently, the settings panel, function timings are behind the connectors and/or balloons.
+319 Fixed: All panels and overlays should be in front of the balloons and their connectors. Currently, the settings panel, function timings are behind the connectors and/or balloons.
 
-320 When the animation or event timeline is inactive, it is too hard to read. Give it the same blurry background as the other  Make the inactive timeline more visible, and makethe active one more prominent, e.g. by having a short of highlight around it.
+320 Fixed: When the animation or event timeline is inactive, it is too hard to read. Give it the same blurry background as the title and annotation. Make the inactive timeline more visible, and make the active one more prominent, e.g. by having a short of highlight around it.
 
-321 The timeline 
+321 Fixed: The timeline should have a color and not be grey. Find a nice color that fits the overall design and makes it easy to distinguish the timelines from the background and other elements. Consider having different colors for the event timeline and the animation timeline, and include the color setting for these timelines in the color preset settings and in the adjustments settings in the settings panel, so users can customize the colors to their preference and improve their visual experience.
+
+322 Fixed: When choosing a theme with the color preset, it should also change the color of the timelines, and floater background. Thus each color preset must have its own timeline colors and floater background color defined, so that when users switch between color presets, they can have a consistent and visually appealing experience with the timelines and floaters matching the overall theme.
+
+323 Fixed: Make it possible to set the background base color and color of the dragger as well in settings->colors.
+
+324 Fixed: Reserve enough space for two annotation lines. When there is no annotation text, don't show a white background, but just the normal background of the floater.
+
+325 Fixed: When animating title/annotation from left to right or right to left, don't displace the background. Only the text should move from left-to-right or right-to-left, and the background should stay in place and just be a bit wider to accommodate the movement of the text. There should be significatnt movement in the text; it should come all the way from one side to the center and the text that was in center should move, to clearly see that we are going to the next or previous event.
+
+326 Fixed: Rempve the long press on play for settings. 
+
+327 Fixed: The annotation text should not flow over the controlsin the bottom of the (docker) floater.
+
+328 Fixed: The color of the labels in the events panel should be the same as the color of the event timeline, to create a more cohesive and visually appealing design. This way users can easily associate the labels with the corresponding timeline, and it can also enhance the overall aesthetic of the interface. We can achieve this by using the same color variable for both the event timeline and the labels in the events panel, ensuring that they always match regardless of the chosen color preset or custom colors.
+
+329 Allow touch gestures to control the tilt. 
 
 Giant features
 A Make it possible to open more than one trace at the same time, and switch between them with tabs in the top bar. This way users can compare different traces or work on multiple traces without having to close and reopen them.

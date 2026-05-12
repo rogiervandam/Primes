@@ -5,7 +5,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 18;  /* above canvas (low), below DoubleTimeline (z-index:20) and SettingsPanel (z-index:28) */
+  z-index: 270;  /* item 319: above balloons (max 260); below toolbar (310). Was 18. */
 }
 
 /* item 200: completely hide the detail panel when it's not open (collapsed state shows nothing) */

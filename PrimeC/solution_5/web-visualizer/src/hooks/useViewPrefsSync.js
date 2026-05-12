@@ -19,6 +19,9 @@ export function useViewPrefsSync({
   debugRenderTuning,
   colorPreset,
   customColors,
+  timelineColors,  // item 321
+  floaterBg,       // item 322/323
+  draggerColor,    // item 322/323
   eventDurationMode,
   playSpeedPercent,
   delayBetweenEvents,
@@ -51,6 +54,9 @@ export function useViewPrefsSync({
       debugRenderTuning,
       colorPreset,
       customColors,
+      timelineColors,  // item 321
+      floaterBg,       // item 322/323
+      draggerColor,    // item 322/323
       eventDurationMode,
       playSpeedPercent,
       delayBetweenEvents,
@@ -66,5 +72,5 @@ export function useViewPrefsSync({
       isSettingsCollapsed,
       isDetailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, gridOpacity, canvasColors, renderMode, debugGlModeOverride, debugWorkerGlyphMode, debugRenderTuning, colorPreset, customColors, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, isAllEventsWidgetHidden, areWidgetsJoined, isAllEventsInDetailPanel, isSingleEventSliderInPanel, isSingleEventRepeatEnabled, isAutoAnimateOnSelect, isEventsPanelCollapsed, isSettingsCollapsed, isDetailOpen]);
+  }, [theme, layoutSettings, eventTitleSettings, gridOpacity, canvasColors, renderMode, debugGlModeOverride, debugWorkerGlyphMode, debugRenderTuning, colorPreset, customColors, timelineColors, floaterBg, draggerColor, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, isAllEventsWidgetHidden, areWidgetsJoined, isAllEventsInDetailPanel, isSingleEventSliderInPanel, isSingleEventRepeatEnabled, isAutoAnimateOnSelect, isEventsPanelCollapsed, isSettingsCollapsed, isDetailOpen]);
 }

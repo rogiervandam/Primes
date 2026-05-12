@@ -16,6 +16,9 @@ export function useThemeAndColors({ initialPrefs }) {
   const [canvasColors, setCanvasColors] = useState(initialPrefs.canvasColors);
   const [colorPreset, setColorPreset] = useState(initialPrefs.colorPreset);
   const [customColors, setCustomColors] = useState(initialPrefs.customColors);
+  const [timelineColors, setTimelineColors] = useState(initialPrefs.timelineColors);  // item 321
+  const [floaterBg, setFloaterBg]       = useState(initialPrefs.floaterBg);     // item 322/323
+  const [draggerColor, setDraggerColor] = useState(initialPrefs.draggerColor);  // item 322/323
 
   return {
     theme, setTheme,
@@ -23,5 +26,8 @@ export function useThemeAndColors({ initialPrefs }) {
     canvasColors, setCanvasColors,
     colorPreset, setColorPreset,
     customColors, setCustomColors,
+    timelineColors, setTimelineColors,
+    floaterBg, setFloaterBg,
+    draggerColor, setDraggerColor,
   };
 }

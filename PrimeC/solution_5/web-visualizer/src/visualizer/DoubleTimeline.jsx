@@ -7,6 +7,12 @@ import { usePlaybackContext } from '../contexts/PlaybackContext';
 const MIN_DETAIL_HEIGHT = 180;
 const MAX_DETAIL_HEIGHT = 700;
 
+/** item 321: parse #rrggbb → [r, g, b] */
+function hexToRgb(hex) {
+  const m = (hex || '').match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [180, 180, 180];
+}
+
 /**
  * DoubleTimeline — backlog items 120-125.
  *
@@ -70,6 +76,11 @@ export default function DoubleTimeline({
   // item 290: repeat handle on animation timeline
   repeatFraction = 0,
   onRepeatFractionChange,
+  // item 321: timeline strip colors
+  timelineColors = { events: '#b87333', animation: '#3a8cb8' },
+  // item 322/323: floater zone background and center dragger color
+  floaterBg    = '#0a0a0a',
+  draggerColor = '#481c20',
 }) {
   const {
     goToStep,
@@ -212,14 +223,18 @@ export default function DoubleTimeline({
       if (isActive) {
         ctx.fillStyle = '#ffffff';
       } else if (isPast) {
-        ctx.fillStyle = 'rgba(200,200,200,0.60)';  // item 314: greyscale (was blue)
+        // item 321: use events color with 60% opacity for past bars
+        const [r, g, b] = hexToRgb(timelineColors?.events);
+        ctx.fillStyle = `rgba(${r},${g},${b},0.60)`;
       } else {
-        ctx.fillStyle = 'rgba(140,140,140,0.32)';  // item 314: greyscale (was blue)
+        // item 321: use events color with 28% opacity for future bars
+        const [r, g, b] = hexToRgb(timelineColors?.events);
+        ctx.fillStyle = `rgba(${r},${g},${b},0.28)`;
       }
       ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.round(h) || 1);
     }
     // item 288: scrubber is now a separate pill div overlay — no canvas line needed
-  }, [barHeights, currentStep]);
+  }, [barHeights, currentStep, timelineColors]);
 
   useEffect(() => { drawWave(); }, [drawWave]);
 
@@ -856,38 +871,7 @@ export default function DoubleTimeline({
     }
   }, [isAnimPlaying, handleStepAnimToggle, handlePlayPause]);
 
-  // item 198: long-press on main play button reveals animation settings
-  const playLongPressRef = useRef(null);
-  const playLongPressTriggeredRef = useRef(false);
-  const handlePlayPointerDown = useCallback((e) => {
-    if (e.button !== 0 && e.pointerType !== 'touch') return;
-    playLongPressTriggeredRef.current = false;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    e.stopPropagation();
-    playLongPressRef.current = setTimeout(() => {
-      playLongPressRef.current = null;
-      playLongPressTriggeredRef.current = true;
-      onOpenAnimationSettings?.();
-    }, 600);
-  }, [onOpenAnimationSettings]);
-  const handlePlayPointerUp = useCallback((e) => {
-    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
-    if (playLongPressRef.current) {
-      clearTimeout(playLongPressRef.current);
-      playLongPressRef.current = null;
-    }
-    if (!playLongPressTriggeredRef.current && !exporting && stepCount > 0) {
-      handleMainPlayClick();  // item 216: unified play/pause for events + animation
-    }
-    playLongPressTriggeredRef.current = false;
-  }, [handleMainPlayClick, exporting, stepCount]);
-  const handlePlayPointerCancel = useCallback(() => {
-    if (playLongPressRef.current) {
-      clearTimeout(playLongPressRef.current);
-      playLongPressRef.current = null;
-    }
-    playLongPressTriggeredRef.current = false;
-  }, []);
+  // item 326: long-press on play button for settings removed — play is a simple click
 
   // item 181: FLIP animation when transitioning between docked ↔ undocked
   const prevUndockedRef = useRef(isTimelineUndocked);
@@ -1021,6 +1005,21 @@ export default function DoubleTimeline({
       }
     : { bottom: `${dockedBottom}px` };
 
+  // item 321: CSS variables derived from timelineColors for focus-state highlights
+  const eventsRgb = hexToRgb(timelineColors?.events);
+  const animRgb   = hexToRgb(timelineColors?.animation);
+  const zoneRgb   = hexToRgb(floaterBg);    // item 322/323
+  const dragRgb   = hexToRgb(draggerColor); // item 322/323
+  const timelineCssVars = {
+    '--dtl-events-color-bg': `rgba(${eventsRgb.join(',')}, 0.82)`,
+    '--dtl-events-color-hl': `rgba(${eventsRgb.join(',')}, 0.70)`,
+    '--dtl-anim-color-bg':   `rgba(${animRgb.join(',')},   0.82)`,
+    '--dtl-anim-color-hl':   `rgba(${animRgb.join(',')},   0.70)`,
+    '--dtl-zone-bg':         `rgba(${zoneRgb.join(',')}, 0.42)`,    // item 322/323: zone background
+    '--dtl-dragger-color':   `rgba(${dragRgb.join(',')}, 0.88)`,    // item 322/323: dragger base color
+  };
+  const mergedContainerStyle = { ...containerStyle, ...timelineCssVars };
+
   // item 170: resize handlers for the floating widget
   const handleResizeStart = useCallback((direction, e) => {
     e.stopPropagation();
@@ -1066,13 +1065,14 @@ export default function DoubleTimeline({
     <div
       ref={containerRef}
       className={`double-timeline${isCollapsed ? ' dtl-collapsed' : ''}${isDetailPanelFloating ? ' dtl-panel-floating' : ''}${isTimelineUndocked ? ' dtl-timeline-undocked' : ''}${!isTimelineUndocked ? ' dtl-undock-enabled' : ''}${focusMode === 'events' ? ' dtl-focus-events' : ' dtl-focus-animation'}${navDir ? ` dtl-nav-${navDir}` : ''}`}
-      style={containerStyle}
+      style={mergedContainerStyle}
       onPointerDown={handleContainerPointerDown}
     >
       {/* item 179: event title is full-width above the strip; transparent when docked, solid when undocked */}
       {/* item 207: title bar is a drag handle for undocking when docked */}
       <div className="dtl-event-title-bar" title={eventTitle} onPointerDown={handleTitleBarPointerDown}>
-        {eventTitle}
+        {/* item 325: only the text slides; background stays fixed */}
+        <span className="dtl-title-text">{eventTitle}</span>
       </div>
       <div className="dtl-strip">
 
@@ -1154,15 +1154,13 @@ export default function DoubleTimeline({
             <button className="dtl-btn dtl-speed" onClick={() => setPlaySpeedPercent?.((v) => Math.max(1, Math.round(v / 1.25)))} disabled={exporting} title="Slower">
               <Minus size={9} />
             </button>
-            {/* Main play button — items 123, 128; item 198: long-press reveals animation settings; item 216: also reflects animation state */}
+            {/* Main play button — items 123, 128, 216: unified play/pause for events + animation */}
             {/* item 241: dtl-repeat-on class added when repeat is active to show a visible indicator */}
             <button
               className={`dtl-btn dtl-play${isSingleEventRepeatEnabled ? ' dtl-repeat-on' : ''}`}
-              onPointerDown={handlePlayPointerDown}
-              onPointerUp={handlePlayPointerUp}
-              onPointerCancel={handlePlayPointerCancel}
+              onClick={() => { if (!exporting && stepCount > 0) handleMainPlayClick(); }}
               disabled={exporting || stepCount === 0}
-              title={isAnyPlaying ? 'Pause (long-press for animation settings)' : 'Play all events (long-press for animation settings)'}
+              title={isAnyPlaying ? 'Pause' : 'Play all events'}
             >
               {isAnyPlaying ? <Pause size={16} /> : <Play size={16} />}
             </button>
@@ -1223,7 +1221,10 @@ export default function DoubleTimeline({
                   ? (isSingleEventRepeatEnabled ? ' dtl-anim-fill--empty-repeat' : ' dtl-anim-fill--empty')
                   : isInDelayPhase ? ' dtl-anim-fill--fading' : ''
               }`}
-              style={{ width: `${animFillPct}%`, '--delay-ms': `${delayPhaseMs}ms` }}
+              style={{ width: `${animFillPct}%`, '--delay-ms': `${delayPhaseMs}ms`,
+                // item 321: animation fill bar uses animation color
+                backgroundColor: (() => { const [r, g, b] = hexToRgb(timelineColors?.animation); return `rgba(${r},${g},${b},0.35)`; })()
+              }}
             />
             {/* item 289: zoom range indicators when zoomed in on animation */}
             {animIsZoomed && (
@@ -1298,8 +1299,10 @@ export default function DoubleTimeline({
       </div>
       {/* item 179: annotation strip below the timelines, above the detail body */}
       <div className="dtl-annotation-row">
-        <div className="dtl-annotation-bar" title={annotationText}>
-          {annotationText}
+        {/* item 324: always reserve 2-line height; when empty, hide background */}
+        {/* item 325: only the text slides; background stays fixed */}
+        <div className={`dtl-annotation-bar${annotationText ? '' : ' dtl-annotation-empty'}`} title={annotationText}>
+          <span className="dtl-annotation-text">{annotationText}</span>
         </div>
         <div className="dtl-center-actions dtl-annotation-actions" onPointerDown={(e) => e.stopPropagation()}>
           <button className="dtl-btn dtl-anim-play" onClick={handleStepAnimToggle} disabled={exporting} title={isAnimPlaying ? 'Pause animation' : 'Play animation'}>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { COLOR_PRESETS } from '../renderer/constants';
+import { DEFAULT_TIMELINE_COLORS, DEFAULT_FLOATER_BG, DEFAULT_DRAGGER_COLOR } from '../lib/viewPrefs';
 import { PreviewOptionButton } from './buttons';
 
 function rgbToHex(rgb) {
@@ -23,6 +24,9 @@ export default function ColorsTab({
   customColors, onCustomColorsChange,
   theme, onThemeChange,
   canvasColors, onCanvasColorsChange,
+  timelineColors, onTimelineColorsChange,  // item 321
+  floaterBg, onFloaterBgChange,            // item 322/323
+  draggerColor, onDraggerColorChange,      // item 322/323
 }) {
   // Fallback display values match THEMES[theme].BACKGROUND exactly.
   const THEME_BG_LIGHT = [245, 245, 245]; // #f5f5f5
@@ -86,6 +90,10 @@ export default function ColorsTab({
             onClick={() => {
               onColorPresetChange(null);
               onCustomColorsChange({ setBit: null, clearedBit: null, unchangedBit: null });
+              // item 322: reset timeline/floater/dragger to defaults when clearing preset
+              onTimelineColorsChange && onTimelineColorsChange({ ...DEFAULT_TIMELINE_COLORS });
+              onFloaterBgChange    && onFloaterBgChange(DEFAULT_FLOATER_BG);
+              onDraggerColorChange && onDraggerColorChange(DEFAULT_DRAGGER_COLOR);
             }}
             preview={(
               <svg viewBox="0 0 40 20" width="40" height="20" aria-hidden="true">
@@ -114,6 +122,10 @@ export default function ColorsTab({
                 onClick={() => {
                   onColorPresetChange(k);
                   onCustomColorsChange({ setBit: null, clearedBit: null, unchangedBit: null });
+                  // item 322: also apply preset timeline/floater/dragger colors for a cohesive theme
+                  if (v.timelineColors) onTimelineColorsChange && onTimelineColorsChange({ ...v.timelineColors });
+                  if (v.floaterBg)      onFloaterBgChange    && onFloaterBgChange(v.floaterBg);
+                  if (v.draggerColor)   onDraggerColorChange && onDraggerColorChange(v.draggerColor);
                 }}
                 preview={(
                   <svg viewBox="0 0 40 20" width="40" height="20" aria-hidden="true">
@@ -205,6 +217,47 @@ export default function ColorsTab({
               onChange={(e) => onGridOpacityChange && onGridOpacityChange((Math.max(12, Math.min(100, parseInt(e.target.value || '100', 10) || 100))) / 100)}
             />
             <span className="val">{Math.round((gridOpacity ?? 1) * 100)}%</span>
+          </label>
+        </div>
+      </div>
+
+      {/* item 321: timeline strip color pickers */}
+      <div className="settings-section">
+        <label>Timeline colors</label>
+        <div className="settings-row color-row">
+          <label className="color-label" title="Color of the events waveform bars">
+            Events
+            <input type="color"
+              value={timelineColors?.events || '#b87333'}
+              onChange={(e) => onTimelineColorsChange && onTimelineColorsChange({ ...timelineColors, events: e.target.value })} />
+          </label>
+          <label className="color-label" title="Color of the animation progress bar">
+            Animation
+            <input type="color"
+              value={timelineColors?.animation || '#3a8cb8'}
+              onChange={(e) => onTimelineColorsChange && onTimelineColorsChange({ ...timelineColors, animation: e.target.value })} />
+          </label>
+          {(timelineColors?.events !== '#b87333' || timelineColors?.animation !== '#3a8cb8') && (
+            <button className="btn-text" style={{ fontSize: '0.8rem' }}
+              onClick={() => onTimelineColorsChange && onTimelineColorsChange({ events: '#b87333', animation: '#3a8cb8' })}>
+              Reset
+            </button>
+          )}
+        </div>
+
+        {/* item 323: floater zone bg and dragger color pickers */}
+        <div className="settings-row color-row" style={{ marginTop: 6 }}>
+          <label className="color-label" title="Background color of the timeline zones">
+            Zone bg
+            <input type="color"
+              value={floaterBg || '#0a0a0a'}
+              onChange={(e) => onFloaterBgChange && onFloaterBgChange(e.target.value)} />
+          </label>
+          <label className="color-label" title="Center dragger button color">
+            Dragger
+            <input type="color"
+              value={draggerColor || '#481c20'}
+              onChange={(e) => onDraggerColorChange && onDraggerColorChange(e.target.value)} />
           </label>
         </div>
       </div>

@@ -302,7 +302,7 @@ export default function VisualizerMainContent(props) {
               benchmarkTimingData,
               eventAnimSliders: stepAnimSlidersDockedContent || stepAnimSlidersContent,
               allEventsTransport: allEventsTransportContent,
-              surroundingEvents: isTimelineUndocked ? undefined : surroundingEvents,
+              surroundingEvents,  // item 318: always pass (was undefined when undocked)
             }}
             detailHandlers={{
               onToggle: isTimelineUndocked

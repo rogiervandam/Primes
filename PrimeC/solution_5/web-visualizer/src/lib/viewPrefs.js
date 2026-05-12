@@ -94,6 +94,16 @@ export const DEFAULT_COLOR_PREFS = {
   customColors: { setBit: null, clearedBit: null, unchangedBit: null },
 };
 
+/** item 321: default timeline strip colors */
+export const DEFAULT_TIMELINE_COLORS = {
+  events: '#b87333',     // warm copper/amber for the events waveform
+  animation: '#3a8cb8',  // steel blue for the animation scrubber
+};
+
+/** item 322/323: default floater zone background and center dragger color */
+export const DEFAULT_FLOATER_BG    = '#0a0a0a';  // very dark neutral — matches existing rgba(12,12,12)
+export const DEFAULT_DRAGGER_COLOR = '#481c20';  // dark red — matches existing dragger gradient
+
 /** Read raw preferences object from localStorage (or null on failure). */
 export function readViewPrefs() {
   if (typeof window === 'undefined' || !window.localStorage) return null;
@@ -277,6 +287,22 @@ function initialCanvasColors(prefs) {
   };
 }
 
+/** item 321: validate and return timeline strip colors */
+function initialTimelineColors(prefs) {
+  const isHex = (v) => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v);
+  const saved = prefs?.timelineColors;
+  return {
+    events:    isHex(saved?.events)    ? saved.events    : DEFAULT_TIMELINE_COLORS.events,
+    animation: isHex(saved?.animation) ? saved.animation : DEFAULT_TIMELINE_COLORS.animation,
+  };
+}
+
+/** item 322/323: validate and return a single hex color */
+function initialHexColor(prefs, key, defaultVal) {
+  const v = prefs?.[key];
+  return (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v)) ? v : defaultVal;
+}
+
 function initialDebugGlModeOverride(prefs) {
   const value = prefs?.debugGlModeOverride;
   return value === 'worker' || value === 'direct' ? value : 'auto';
@@ -372,6 +398,9 @@ export function getInitialViewState() {
     debugRenderTuning: initialDebugRenderTuning(prefs),
     colorPreset: initialColorPreset(prefs),
     customColors: initialCustomColors(prefs),
+    timelineColors: initialTimelineColors(prefs),  // item 321
+    floaterBg:    initialHexColor(prefs, 'floaterBg',    DEFAULT_FLOATER_BG),    // item 322/323
+    draggerColor: initialHexColor(prefs, 'draggerColor', DEFAULT_DRAGGER_COLOR), // item 322/323
     isAllEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
     areWidgetsJoined: initialWidgetsJoined(prefs),
     isAllEventsInDetailPanel: prefs?.isAllEventsInDetailPanel === true,  // default: false (item 162)
