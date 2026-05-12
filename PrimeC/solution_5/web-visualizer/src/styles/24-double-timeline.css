@@ -98,7 +98,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 6px;
+  /* item 330: right side reserved for dragger overlap (~20px) so the event counter stays visible */
+  padding: 0 26px 0 6px;
   pointer-events: none;
 }
 .dtl-wave-label {
@@ -596,6 +597,8 @@
   justify-content: space-between;
   width: 100%;
   pointer-events: none;
+  /* item 330: left side reserved for dragger overlap (~20px) so the 0% progress stays visible */
+  padding-left: 20px;
 }
 .dtl-anim-header-left {
   display: flex;
@@ -630,8 +633,8 @@
   top: 0;
   bottom: 0;
   /* item 291+: extra inset so 100% lands with room for the repeat handle + gap before settings toggle */
-  /* item 315: inset left by 6px so the playhead stops before entering the dragger */
-  left: 6px;
+  /* item 315: inset left so the playhead stops before the dragger; item 330: updated from 6px to 22px to match 20px dragger overlap */
+  left: 22px;
   right: 40px;
 }
 .dtl-anim-playhead {

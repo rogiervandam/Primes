@@ -77,12 +77,19 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 328 Fixed: The color of the labels in the events panel should be the same as the color of the event timeline, to create a more cohesive and visually appealing design. This way users can easily associate the labels with the corresponding timeline, and it can also enhance the overall aesthetic of the interface. We can achieve this by using the same color variable for both the event timeline and the labels in the events panel, ensuring that they always match regardless of the chosen color preset or custom colors.
 
-329 Allow touch gestures to control the tilt. 
+329 Fixed: Allow touch gestures to control the tilt. 
+
+330 Fixed: The event count and 0% progress are hidden behind the dragger. Move them a bit, so that the dragger is not above them.
+
+331 Create a byte/group/cacheline inspector. It should activate when clicking on the corresponding element in the bit balloon or clicking on the annotation that mentions a byte/group/cacheline. The inspector should show the bits in that byte/group/cacheline, and also show which events affected those bits and which mask they used, with which bits targeted. These mask musk be visually the same as the event masks displayed in the event detail panel, including the option to zoom in on them. This way users can have a more detailed and interactive way to explore the relationships between events, bits, and their corresponding bytes/groups/cachelines, and it can also help them gain deeper insights into the underlying patterns and behaviors in the sieve logs.
+
+
 
 Giant features
 A Make it possible to open more than one trace at the same time, and switch between them with tabs in the top bar. This way users can compare different traces or work on multiple traces without having to close and reopen them.
 B Make it possible to create sieve logs in other docker containers with different algorithms or parameters, and load them into the visualizer for analysis. This way users can experiment with different sieve configurations and see how they affect the events and marked numbers. If possible, add a feature to the visualizer that allows users to launch new sieve containers with custom parameters directly from the interface, and automatically load the generated logs for immediate analysis.
 C WHen starting up and loading the events, in the background try mode 1-8 and find out which one has the best fps.
+D 
 
 
 

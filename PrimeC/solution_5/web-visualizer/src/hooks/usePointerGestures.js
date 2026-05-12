@@ -149,6 +149,21 @@ export function usePointerGestures({
     const activePointers = new Map(); // pointerId → { clientX, clientY }
     let pinchStart = null;    // { dist, angle, cx, cy, zoom, panX, panY }
     let pinchLastAngle = 0;   // for incremental camera rotation
+    // item 329: three-finger tilt gesture state
+    let tiltTouchCentroid = null; // { cx, cy } centroid of the three active fingers
+
+    // item 329: compute centroid of the first 3 active pointers
+    const getThreePointerCentroid = (pointers) => {
+      if (pointers.size < 3) return null;
+      let sumX = 0, sumY = 0, count = 0;
+      for (const pt of pointers.values()) {
+        if (count >= 3) break;
+        sumX += pt.clientX;
+        sumY += pt.clientY;
+        count++;
+      }
+      return count >= 3 ? { cx: sumX / 3, cy: sumY / 3 } : null;
+    };
 
     const eventToCanvasCoords = (event, fallbackClientX = event.clientX, fallbackClientY = event.clientY) => {
       const metrics = getCanvasPlaneMetrics();
@@ -201,6 +216,7 @@ export function usePointerGestures({
       pointerDownCanvasCoords = null;
       activePointers.clear(); // item 141
       pinchStart = null;      // item 141
+      tiltTouchCentroid = null; // item 329
       el.classList.remove('dragging');
       // item 253: restore balloon transitions after pan ends, then re-measure connectors
       if (wasPan) {
@@ -219,7 +235,25 @@ export function usePointerGestures({
       if (e.target.closest('.step-focus-banner, .bit-history-panel, .detail-inspector-overlay, .joined-events-widget')) return;
       // item 141: track all pointers; ignore 3rd+ finger
       activePointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
-      if (gestureMode === 'pinch') return;
+      // item 329: three-finger drag activates 3D tilt gesture
+      if (activePointers.size === 3) {
+        enableTiltAndResize();
+        const liveCam3f = camera3DRef.current;
+        if (liveCam3f) liveCam3f.cancelAllAnimations();
+        // Release any existing single-pointer capture from pan/pinch
+        if (activePointerId != null && el.releasePointerCapture) {
+          try { el.releasePointerCapture(activePointerId); } catch (_) {}
+        }
+        const centroid = getThreePointerCentroid(activePointers);
+        if (centroid) {
+          tiltTouchCentroid = centroid;
+          gestureMode = 'tiltTouch';
+          activePointerId = null;
+          pinchStart = null;
+        }
+        return;
+      }
+      if (gestureMode === 'pinch' || gestureMode === 'tiltTouch') return;
       const rect = el.getBoundingClientRect();
       const rawX = e.clientX - rect.left; // eslint-disable-line no-unused-vars
       const rawY = e.clientY - rect.top;  // eslint-disable-line no-unused-vars
@@ -327,6 +361,22 @@ export function usePointerGestures({
           updateMinimapAvailability();
           r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
           scheduleBalloonRelayout();
+        }
+        return;
+      }
+
+      // item 329: three-finger drag — tilt the 3D camera
+      if (gestureMode === 'tiltTouch') {
+        if (cam && cam.enabled) {
+          const newCentroid = getThreePointerCentroid(activePointers);
+          if (newCentroid && tiltTouchCentroid) {
+            cam.rotate(newCentroid.cx - tiltTouchCentroid.cx, newCentroid.cy - tiltTouchCentroid.cy);
+            r.render();
+            r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
+            if (updateMinimapAvailability) updateMinimapAvailability();
+            scheduleBalloonRelayout();
+            tiltTouchCentroid = newCentroid;
+          }
         }
         return;
       }
@@ -458,6 +508,26 @@ export function usePointerGestures({
       if (mouseRotateActive) return;
       // item 141: remove from multi-touch tracking
       activePointers.delete(e.pointerId);
+      // item 329: handle three-finger tilt gesture end
+      if (gestureMode === 'tiltTouch') {
+        tiltTouchCentroid = null;
+        if (activePointers.size === 2) {
+          // Two fingers remain — transition back to pinch
+          const twoState = getTwoPointerState(activePointers);
+          const rp = rendererRef.current;
+          if (twoState && rp) {
+            pinchStart = { ...twoState, zoom: rp.zoom, panX: rp.panX, panY: rp.panY };
+            pinchLastAngle = twoState.angle;
+            gestureMode = 'pinch';
+          } else {
+            clearInteraction();
+          }
+        } else if (activePointers.size < 2) {
+          clearInteraction();
+          schedulePostLayoutRefresh(null);
+        }
+        return;
+      }
       // item 141: handle pinch end before the single-pointer guard below
       if (gestureMode === 'pinch') {
         if (activePointers.size === 1) {
