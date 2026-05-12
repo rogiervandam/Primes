@@ -333,3 +333,69 @@
   font-size: 9px;
   opacity: 0.6;
 }
+
+/* ── item 337: draggable + resizable panel ────────────────────────────────── */
+
+/* When the backdrop holds a draggable panel it shouldn't try to centre it */
+.gi-backdrop:has(.gi-panel-draggable) {
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+/* Drag cursor on the header grab-handle */
+.gi-drag-handle {
+  cursor: grab;
+  user-select: none;
+}
+.gi-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Resize handles – one per edge/corner */
+.gi-resize-handle {
+  position: absolute;
+  z-index: 10;
+}
+/* Edges */
+.gi-resize-n  { top: 0;    left: 8px;  right: 8px; height: 6px; cursor: n-resize;  }
+.gi-resize-s  { bottom: 0; left: 8px;  right: 8px; height: 6px; cursor: s-resize;  }
+.gi-resize-e  { right: 0;  top: 8px;   bottom: 8px; width: 6px; cursor: e-resize;  }
+.gi-resize-w  { left: 0;   top: 8px;   bottom: 8px; width: 6px; cursor: w-resize;  }
+/* Corners */
+.gi-resize-ne { top: 0;    right: 0;   width: 14px; height: 14px; cursor: ne-resize; }
+.gi-resize-nw { top: 0;    left: 0;    width: 14px; height: 14px; cursor: nw-resize; }
+.gi-resize-se { bottom: 0; right: 0;   width: 14px; height: 14px; cursor: se-resize; }
+.gi-resize-sw { bottom: 0; left: 0;    width: 14px; height: 14px; cursor: sw-resize; }
+
+/* Give the SE corner a visual indicator (classic resize grip) */
+.gi-resize-se::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  border-radius: 0 0 3px 0;
+  pointer-events: none;
+}
+
+/* ── item 338: highlight active/relevant mask ─────────────────────────────── */
+
+.gi-mask-row.gi-mask-relevant {
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15), inset 0 0 8px rgba(255, 255, 255, 0.04);
+}
+
+.gi-mask-relevant-badge {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}

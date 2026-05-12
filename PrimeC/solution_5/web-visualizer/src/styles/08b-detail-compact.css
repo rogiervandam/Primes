@@ -133,6 +133,31 @@
   padding: 2px 4px;
   margin-bottom: 2px;
 }
+/* item 349: header row holds the title and the open-events-panel button */
+.detail-nearby-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+/* item 349: upward-arrow button to open events panel from the bottom */
+.detail-nearby-events-toggle {
+  background: transparent;
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  color: var(--fg-dim);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 1px 5px 2px;
+  margin-right: 2px;
+  transition: background 120ms, color 120ms, border-color 120ms;
+  flex-shrink: 0;
+}
+.detail-nearby-events-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+  background: var(--accent-bg);
+}
 /* the main detail-sections scrolls independently */
 .detail-panel-body .detail-sections {
   flex: 1;

@@ -19,6 +19,7 @@ export function useThemeAndColors({ initialPrefs }) {
   const [timelineColors, setTimelineColors] = useState(initialPrefs.timelineColors);  // item 321
   const [floaterBg, setFloaterBg]       = useState(initialPrefs.floaterBg);     // item 322/323
   const [draggerColor, setDraggerColor] = useState(initialPrefs.draggerColor);  // item 322/323
+  const [zoneBgOpacity, setZoneBgOpacity] = useState(initialPrefs.zoneBgOpacity ?? 0.45); // item 342
 
   return {
     theme, setTheme,
@@ -29,5 +30,6 @@ export function useThemeAndColors({ initialPrefs }) {
     timelineColors, setTimelineColors,
     floaterBg, setFloaterBg,
     draggerColor, setDraggerColor,
+    zoneBgOpacity, setZoneBgOpacity,
   };
 }

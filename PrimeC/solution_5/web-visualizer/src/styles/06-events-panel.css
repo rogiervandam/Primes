@@ -24,8 +24,10 @@
      other intra-panel mutation) can trigger style recalc walks that cross the
      panel boundary into the canvas tree, contributing to FPS drops while
      rotating the grid or playing the animation with the panel open.
-     'paint' is intentionally omitted — it would clip the box-shadow above. */
-  contain: layout style;
+     'paint' is intentionally omitted — it would clip the box-shadow above.
+     item 347: adding 'paint' containment and will-change on content to reduce resize lag. */
+  contain: layout style paint;
+  will-change: transform;
 }
 .events-panel-header {
   padding: 8px;
@@ -175,7 +177,15 @@
   background: var(--bg-surface);
 }
 .event-group-header:hover { background: var(--bg-raised); }
-.event-group.active-group > .event-group-header { background: var(--bg-input); border-left: 3px solid var(--accent); }
+/* item 346: blurry glass background for the sticky pinned active-group header */
+/* item 346: z-index 201 beats hovered event-op labels (z-index: 200) so the header is always on top */
+.event-group.active-group > .event-group-header {
+  background: color-mix(in srgb, var(--bg-input) 80%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-left: 3px solid var(--accent);
+  z-index: 201;
+}
 /* item 304: pulse highlight when scrubbing to an event hidden inside a collapsed/filtered group */
 @keyframes group-hint-pulse {
   0%   { background: var(--bg-surface); border-left-color: transparent; }
@@ -265,8 +275,10 @@
 }
 .event-op {
   /* item 328: tinted bg (25% events color over panel bg) + full label color as text */
+  /* item 339: blend label color toward --fg-bright so dark preset colors stay readable on any tinted bg */
   background: color-mix(in srgb, var(--ep-label-color, var(--op-bg)) 25%, var(--op-bg));
-  color: var(--ep-label-color, var(--op-fg));
+  color: color-mix(in srgb, var(--ep-label-color, var(--op-fg)) 65%, var(--fg-bright));
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
   padding: 1px 5px;
   border-radius: 3px;
   font-size: 10px;
@@ -319,7 +331,7 @@
   position: static;
   transform: none;
   background: color-mix(in srgb, var(--ep-label-color, var(--op-bg)) 25%, var(--op-bg));
-  color: var(--ep-label-color, var(--op-fg));
+  color: color-mix(in srgb, var(--ep-label-color, var(--op-fg)) 65%, var(--fg-bright));
   border: none;
   box-shadow: none;
   padding: 1px 5px;

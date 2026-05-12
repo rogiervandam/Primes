@@ -372,7 +372,7 @@ export default function LayoutTab({
     return (
       <>
         <div className="settings-section">
-        <label>Annotations</label>
+        <label>Labels</label>
         <div className="anno-btn-grid">
           <AnnotationButton
             title="Number"

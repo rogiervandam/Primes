@@ -27,6 +27,7 @@ export default function ColorsTab({
   timelineColors, onTimelineColorsChange,  // item 321
   floaterBg, onFloaterBgChange,            // item 322/323
   draggerColor, onDraggerColorChange,      // item 322/323
+  zoneBgOpacity, onZoneBgOpacityChange,    // item 342
 }) {
   // Fallback display values match THEMES[theme].BACKGROUND exactly.
   const THEME_BG_LIGHT = [245, 245, 245]; // #f5f5f5
@@ -123,7 +124,11 @@ export default function ColorsTab({
                   onColorPresetChange(k);
                   onCustomColorsChange({ setBit: null, clearedBit: null, unchangedBit: null });
                   // item 322: also apply preset timeline/floater/dragger colors for a cohesive theme
-                  if (v.timelineColors) onTimelineColorsChange && onTimelineColorsChange({ ...v.timelineColors });
+                  // item 343: also include chartActiveColor (for light-theme presets like chrome/dawn)
+                  if (v.timelineColors) onTimelineColorsChange && onTimelineColorsChange({
+                    ...v.timelineColors,
+                    ...(v.chartActiveColor ? { chartActive: v.chartActiveColor } : {}),
+                  });
                   if (v.floaterBg)      onFloaterBgChange    && onFloaterBgChange(v.floaterBg);
                   if (v.draggerColor)   onDraggerColorChange && onDraggerColorChange(v.draggerColor);
                 }}
@@ -259,6 +264,20 @@ export default function ColorsTab({
               value={draggerColor || '#481c20'}
               onChange={(e) => onDraggerColorChange && onDraggerColorChange(e.target.value)} />
           </label>
+        </div>
+        {/* item 342: zone bg opacity slider */}
+        <div className="settings-row" style={{ marginTop: 4, alignItems: 'center', gap: 8 }}>
+          <label style={{ fontSize: '0.78rem', color: 'var(--fg-dim)', whiteSpace: 'nowrap' }}
+                 title="Opacity of the blurry timeline zone background (lower = more transparent)">
+            Zone opacity
+          </label>
+          <input type="range" min="0.05" max="0.90" step="0.01"
+            style={{ flex: 1 }}
+            value={zoneBgOpacity ?? 0.45}
+            onChange={(e) => onZoneBgOpacityChange && onZoneBgOpacityChange(parseFloat(e.target.value))} />
+          <span style={{ fontSize: '0.78rem', color: 'var(--fg-dim)', minWidth: 28, textAlign: 'right' }}>
+            {Math.round((zoneBgOpacity ?? 0.45) * 100)}%
+          </span>
         </div>
       </div>
 

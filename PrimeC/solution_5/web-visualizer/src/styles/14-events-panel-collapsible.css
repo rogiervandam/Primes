@@ -295,3 +295,31 @@
   60%  { opacity: 1; }
   100% { opacity: 1; transform: translateX(0) scale(1); }
 }
+
+/* item 349: from-bottom overlay mode — panel slides up from the bottom edge */
+/* Width comes from inline style (same ${width}px as the side panel); no right:0 or width:auto */
+.events-panel.events-panel--from-bottom {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  top: 0;           /* full height to the top */
+  /* no right:0 — width is set by inline style so it matches the side-panel width */
+  max-height: unset;
+  min-width: unset;
+  border-right: none;
+  border-top: 1px solid var(--border);
+  border-radius: 0 8px 0 0;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
+  z-index: 120;
+  transform: translateY(0);
+  transition: transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              opacity 200ms ease,
+              visibility 0s linear 0s;
+}
+.events-panel.events-panel--from-bottom.collapsed {
+  transform: translateY(100%);
+  visibility: hidden;
+  transition: transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              opacity 200ms ease-in,
+              visibility 0s linear 240ms;
+}

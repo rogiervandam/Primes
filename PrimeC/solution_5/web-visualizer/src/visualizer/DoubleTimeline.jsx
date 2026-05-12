@@ -103,9 +103,16 @@ export default function DoubleTimeline({
   // item 321: timeline strip colors
   timelineColors = { events: '#b87333', animation: '#3a8cb8' },
   // item 322/323: floater zone background and center dragger color
+  // item 342: unified glass CSS variable for the undocked container background
   floaterBg    = '#0a0a0a',
   draggerColor = '#481c20',
+  // item 342: per-preset zone background tint (replaces floaterBg-derived zone bg)
+  timelineBg   = null,
+  // item 342: user-adjustable zone background opacity (0.05–0.95)
+  zoneBgOpacity = 0.45,
   onInspectAnnotationUnit,
+  // item 348: reveal current step in events panel (open + scroll to center)
+  onRevealCurrentStepInPanel,
 }) {
   const {
     goToStep,
@@ -246,15 +253,23 @@ export default function DoubleTimeline({
       const isActive = i === currentStep;
       const isPast = i < currentStep;
       if (isActive) {
-        ctx.fillStyle = '#ffffff';
+        // item 340: use CSS variable so light-theme presets can override the active bar colour
+        const activeColor = getComputedStyle(canvas).getPropertyValue('--dtl-chart-active-color').trim() || '#ffffff';
+        ctx.fillStyle = activeColor;
       } else if (isPast) {
-        // item 321: use events color with 60% opacity for past bars
+        // item 321/340: use a brightened events color (mix toward white) for better contrast on dark presets
         const [r, g, b] = hexToRgb(timelineColors?.events);
-        ctx.fillStyle = `rgba(${r},${g},${b},0.60)`;
+        const pr = Math.round(r + (255 - r) * 0.35);
+        const pg = Math.round(g + (255 - g) * 0.35);
+        const pb = Math.round(b + (255 - b) * 0.35);
+        ctx.fillStyle = `rgba(${pr},${pg},${pb},0.75)`;
       } else {
-        // item 321: use events color with 28% opacity for future bars
+        // item 321/340: future bars — brightened color at lower opacity
         const [r, g, b] = hexToRgb(timelineColors?.events);
-        ctx.fillStyle = `rgba(${r},${g},${b},0.28)`;
+        const pr = Math.round(r + (255 - r) * 0.35);
+        const pg = Math.round(g + (255 - g) * 0.35);
+        const pb = Math.round(b + (255 - b) * 0.35);
+        ctx.fillStyle = `rgba(${pr},${pg},${pb},0.42)`;
       }
       ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.round(h) || 1);
     }
@@ -1034,15 +1049,19 @@ export default function DoubleTimeline({
   // item 321: CSS variables derived from timelineColors for focus-state highlights
   const eventsRgb = hexToRgb(timelineColors?.events);
   const animRgb   = hexToRgb(timelineColors?.animation);
-  const zoneRgb   = hexToRgb(floaterBg);    // item 322/323
+  const zoneRgb   = hexToRgb(timelineBg ?? floaterBg);    // item 322/323/342
   const dragRgb   = hexToRgb(draggerColor); // item 322/323
   const timelineCssVars = {
     '--dtl-events-color-bg': `rgba(${eventsRgb.join(',')}, 0.82)`,
     '--dtl-events-color-hl': `rgba(${eventsRgb.join(',')}, 0.70)`,
     '--dtl-anim-color-bg':   `rgba(${animRgb.join(',')},   0.82)`,
     '--dtl-anim-color-hl':   `rgba(${animRgb.join(',')},   0.70)`,
-    '--dtl-zone-bg':         `rgba(${zoneRgb.join(',')}, 0.42)`,    // item 322/323: zone background
+    '--dtl-zone-bg':         `rgba(${zoneRgb.join(',')}, ${zoneBgOpacity})`,    // item 342: zone background from per-preset timelineBg
     '--dtl-dragger-color':   `rgba(${dragRgb.join(',')}, 0.88)`,    // item 322/323: dragger base color
+    // item 340/343: override active chart bar colour for light-theme presets
+    ...(timelineColors?.chartActive ? { '--dtl-chart-active-color': timelineColors.chartActive } : {}),
+    // item 342: unified glass background for the entire floater (uses same base as zone but more opaque)
+    '--dtl-floater-unified-bg': `rgba(${zoneRgb.join(',')}, 0.88)`,
   };
   const mergedContainerStyle = { ...containerStyle, ...timelineCssVars };
 
@@ -1098,13 +1117,37 @@ export default function DoubleTimeline({
       {/* item 207: title bar is a drag handle for undocking when docked */}
       <div className="dtl-event-title-bar" title={eventTitle} onPointerDown={handleTitleBarPointerDown}>
         {/* item 325: only the text slides; background stays fixed */}
-        <span className="dtl-title-text">{eventTitle}</span>
+        {/* item 348: "Event N" part is a button that opens the events panel */}
+        <span className="dtl-title-text">
+          {activeStep ? (
+            <>
+              <button
+                className="dtl-title-event-link"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onRevealCurrentStepInPanel) {
+                    // item 348: open panel AND scroll to+center the current event
+                    onRevealCurrentStepInPanel();
+                  } else if (isEventsPanelCollapsed && onToggleEventsPanel) {
+                    onToggleEventsPanel();
+                  }
+                }}
+                title="Scroll events panel to this event"
+              >
+                Event {activeStep.stepId ?? currentStep}
+              </button>
+              {activeStep.prime != null && ` | Prime ${activeStep.prime}`}
+              {activeStep.operation && ` | ${activeStep.operation}`}
+            </>
+          ) : 'Event timeline'}
+        </span>
       </div>
       <div className="dtl-strip">
 
         {/* LEFT: events waveform */}
         <div
-          className="dtl-zone dtl-wave-zone"
+          className={`dtl-zone dtl-wave-zone${waveIsZoomed ? ' dtl-wave-zoomed' : ''}`}
           style={{ flex: `${splitFraction} 1 0`, minWidth: 40 }}
           ref={waveContainerRef}
           onPointerDown={handleWavePointerDown}
@@ -1215,7 +1258,7 @@ export default function DoubleTimeline({
         {/* item 138: pointer handlers on zone so click/drag works over full height; playhead is absolute on zone */}
         <div
           ref={animZoneRef}
-          className="dtl-zone dtl-anim-zone"
+          className={`dtl-zone dtl-anim-zone${animIsZoomed ? ' dtl-anim-zoomed' : ''}`}
           style={{ flex: `${1 - splitFraction} 1 0`, minWidth: 40 }}
           onPointerDown={handleAnimPointerDown}
           onPointerMove={handleAnimPointerMove}

@@ -14,6 +14,8 @@
   /* padding-bottom: 10px;  item 202: more bottom padding for annotation readability (was 4px) */
   overflow: visible;
   background: transparent;
+  /* item 340: default active chart bar color (white for dark themes); can be overridden per preset */
+  --dtl-chart-active-color: #ffffff;
   /* Smooth movement when detail panel opens/closes and when events/settings panels toggle */
   /* item 297: match the events-panel collapse easing so both move in sync and look like one motion.
      item 312: using the same cubic-bezier(0.22, 0.61, 0.36, 1) as the events panel removes the
@@ -78,12 +80,13 @@
 }
 /* item 291: active area — inset past the toggle button on the left */
 /* item 315: also inset right by 6px so the playhead stops before entering the dragger */
+/* item 345: increased to 22px to cover the dragger's 20px negative-margin overlap */
 .dtl-wave-active-area {
   position: absolute;
   top: 0;
   bottom: 0;
   left: var(--dtl-edge-inset, 30px);
-  right: 6px;
+  right: 22px;
 }
 .dtl-wave-canvas {
   position: absolute;
@@ -151,8 +154,9 @@
   letter-spacing: 0.02em;
   /* item 199: blue background (same as strip) so no transparent gap shows */
   background: transparent;
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  /* item 342: match zone blur (14px) for cohesive glass look across all docked timeline elements */
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
   flex-shrink: 0;
   cursor: default;
   user-select: none;
@@ -205,8 +209,9 @@
   color: rgba(255, 255, 255, 0.65);
   font-style: italic;
   background: transparent;
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  /* item 342: match zone blur (14px) for cohesive glass look across all docked timeline elements */
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
   flex-shrink: 0;
   user-select: none;
   pointer-events: auto; /* item 252: block click-through to canvas */
@@ -830,6 +835,32 @@
   padding-bottom: 0;
   display: flex;
   flex-direction: column;
+  /* item 341: the whole floating widget must block pointer events to the canvas below */
+  pointer-events: auto;
+  /* item 342: unified glass background across the entire floater instead of per-zone blurs.
+     Uses --dtl-floater-unified-bg derived from the preset's floaterBg color (more opaque than zones). */
+  background: var(--dtl-floater-unified-bg, rgba(8, 10, 14, 0.88));
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+/* item 342: remove per-zone blur/bg when the container already provides unified glass */
+.double-timeline.dtl-timeline-undocked .dtl-wave-zone,
+.double-timeline.dtl-timeline-undocked .dtl-anim-zone {
+  background: rgba(255, 255, 255, 0.04);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.double-timeline.dtl-timeline-undocked .dtl-annotation-bar:not(.dtl-annotation-empty) {
+  background: rgba(255, 255, 255, 0.03);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+/* item 342: remove per-element blur from title bar when undocked — container provides unified glass */
+.double-timeline.dtl-timeline-undocked .dtl-event-title-bar {
+  background: rgba(255, 255, 255, 0.03);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 /* item 172: indicate draggability over the event title bar when undocked */
 .double-timeline.dtl-timeline-undocked .dtl-event-title-bar { cursor: grab; }
@@ -868,6 +899,24 @@
 /* item 292: inset ring uses top+bottom lines only; side lines are invisible via the mask anyway */
 /* item 314: greyscale highlight — use white/grey instead of blue */
 /* item 320: stronger active highlight for clear distinction */
+
+/* item 345: scale up the zone that is currently zoomed for a visual "magnify" cue */
+/* item 345: z-index 4 (below dragger z-index:5) so dragger stays visually on top */
+.dtl-wave-zone.dtl-wave-zoomed {
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.22);
+  transform: scaleY(1.3);
+  transform-origin: center;
+  z-index: 4;
+  transition: transform 180ms ease;
+}
+.dtl-anim-zone.dtl-anim-zoomed {
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.22);
+  transform: scaleY(1.3);
+  transform-origin: center;
+  z-index: 4;
+  transition: transform 180ms ease;
+}
+
 .double-timeline.dtl-focus-events .dtl-wave-zone {
   background: var(--dtl-events-color-bg, rgba(42, 42, 42, 0.90));
   box-shadow: inset 0 2px 0 0 var(--dtl-events-color-hl, rgba(255, 255, 255, 0.50)),
@@ -969,4 +1018,33 @@
 }
 [data-theme="light"] .dtl-annotation-bar {
   color: rgba(0, 0, 0, 0.70);
+}
+
+/* item 348: clickable event-number link inside the title bar */
+.dtl-title-event-link {
+  background: none;
+  border: none;
+  padding: 0 3px;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(255, 255, 255, 0.35);
+  border-radius: 3px;
+  transition: background 140ms, text-decoration-color 140ms;
+  pointer-events: auto;
+}
+.dtl-title-event-link:hover {
+  background: rgba(255, 255, 255, 0.12);
+  text-decoration-color: rgba(255, 255, 255, 0.7);
+}
+[data-theme="light"] .dtl-title-event-link {
+  text-decoration-color: rgba(0, 0, 0, 0.3);
+}
+[data-theme="light"] .dtl-title-event-link:hover {
+  background: rgba(0, 0, 0, 0.08);
+  text-decoration-color: rgba(0, 0, 0, 0.6);
 }

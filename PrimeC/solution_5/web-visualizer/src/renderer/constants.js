@@ -44,7 +44,7 @@ export const THEMES = {
 };
 
 // Color presets for set/cleared/unchanged bits
-// item 322: each preset now also defines timelineColors, floaterBg, draggerColor for cohesive theming
+// item 342: each preset now also defines timelineColors, floaterBg, draggerColor, timelineBg for cohesive theming
 export const COLOR_PRESETS = {
   default: {
     label: 'Default',
@@ -54,6 +54,7 @@ export const COLOR_PRESETS = {
     timelineColors: { events: '#4caf50', animation: '#2196f3' },
     floaterBg:    '#0a0a0a',
     draggerColor: '#1a2e1a',
+    timelineBg:   '#0a120a',       // dark green-black zone tint
   },
   highContrast: {
     label: 'High Contrast',
@@ -63,6 +64,7 @@ export const COLOR_PRESETS = {
     timelineColors: { events: '#00ff00', animation: '#0080ff' },
     floaterBg:    '#000000',
     draggerColor: '#001a00',
+    timelineBg:   '#000000',       // pure black zone
   },
   pastel: {
     label: 'Pastel',
@@ -72,6 +74,7 @@ export const COLOR_PRESETS = {
     timelineColors: { events: '#a5d6a7', animation: '#90caf9' },
     floaterBg:    '#1a1a2e',
     draggerColor: '#1a2e1a',
+    timelineBg:   '#12101e',       // soft dark lavender zone
   },
   darkMode: {
     label: 'Dark Mode',
@@ -81,6 +84,7 @@ export const COLOR_PRESETS = {
     timelineColors: { events: '#81c784', animation: '#64b5f6' },
     floaterBg:    '#0a0a0a',
     draggerColor: '#1a2a1a',
+    timelineBg:   '#080c08',       // near-black with green warmth
   },
   neon: {
     label: 'Neon',
@@ -90,6 +94,7 @@ export const COLOR_PRESETS = {
     timelineColors: { events: '#00ffc8', animation: '#ff1e78' },
     floaterBg:    '#050510',
     draggerColor: '#100028',
+    timelineBg:   '#040510',       // deep indigo zone
   },
   ocean: {
     label: 'Ocean',
@@ -99,6 +104,7 @@ export const COLOR_PRESETS = {
     timelineColors: { events: '#00c8dc', animation: '#ffa032' },
     floaterBg:    '#060a14',
     draggerColor: '#0a1e2e',
+    timelineBg:   '#040810',       // deep ocean navy zone
   },
   sunset: {
     label: 'Sunset',
@@ -108,6 +114,7 @@ export const COLOR_PRESETS = {
     timelineColors: { events: '#ffb400', animation: '#b428a0' },
     floaterBg:    '#140808',
     draggerColor: '#28140a',
+    timelineBg:   '#100508',       // deep wine-maroon zone
   },
   ice: {
     label: 'Ice',
@@ -117,6 +124,90 @@ export const COLOR_PRESETS = {
     timelineColors: { events: '#b4e6ff', animation: '#ff7850' },
     floaterBg:    '#060c14',
     draggerColor: '#0e1a28',
+    timelineBg:   '#050a12',       // dark ice-blue zone
+  },
+  // ── item 343: 8 new presets ────────────────────────────────────────────────
+  forest: {
+    label: 'Forest',
+    setBit:       [46, 125, 50],   // deep green
+    clearedBit:   [255, 160, 0],   // amber
+    unchangedBit: [66, 100, 60],   // muted olive
+    timelineColors: { events: '#2e7d32', animation: '#ffa000' },
+    floaterBg:    '#071a05',
+    draggerColor: '#0d2b09',
+    timelineBg:   '#050e04',       // deep forest-dark zone
+  },
+  crimson: {
+    label: 'Crimson',
+    setBit:       [198, 40, 40],   // deep red
+    clearedBit:   [25, 118, 210],  // royal blue
+    unchangedBit: [80, 60, 60],    // dark muted red
+    timelineColors: { events: '#c62828', animation: '#1976d2' },
+    floaterBg:    '#1a0505',
+    draggerColor: '#2a0808',
+    timelineBg:   '#120202',       // deep blood-red zone
+  },
+  arctic: {
+    label: 'Arctic',
+    setBit:       [0, 172, 193],   // cyan
+    clearedBit:   [255, 87, 34],   // deep orange
+    unchangedBit: [200, 230, 240], // light blue-grey
+    timelineColors: { events: '#00acc1', animation: '#ff5722' },
+    floaterBg:    '#030e14',
+    draggerColor: '#051a24',
+    timelineBg:   '#02090e',       // deep arctic teal zone
+  },
+  lavender: {
+    label: 'Lavender',
+    setBit:       [123, 31, 162],  // deep purple
+    clearedBit:   [245, 127, 23],  // deep orange
+    unchangedBit: [180, 160, 200], // light purple-grey
+    timelineColors: { events: '#7b1fa2', animation: '#f57f17' },
+    floaterBg:    '#0d0514',
+    draggerColor: '#190828',
+    timelineBg:   '#09040e',       // deep purple-black zone
+  },
+  ember: {
+    label: 'Ember',
+    setBit:       [230, 81, 0],    // deep orange
+    clearedBit:   [1, 87, 155],    // deep blue
+    unchangedBit: [120, 80, 50],   // warm brown-grey
+    timelineColors: { events: '#e65100', animation: '#01579b' },
+    floaterBg:    '#140500',
+    draggerColor: '#200800',
+    timelineBg:   '#0e0300',       // deep ember-dark zone
+  },
+  chrome: {
+    label: 'Chrome (Light)',
+    setBit:       [33, 150, 243],  // blue
+    clearedBit:   [244, 67, 54],   // red
+    unchangedBit: [160, 160, 165], // medium grey
+    timelineColors: { events: '#2196f3', animation: '#f44336' },
+    floaterBg:    '#e8e8e8',
+    draggerColor: '#c0c0c0',
+    chartActiveColor: '#1a1a1a',   // dark bar for light background
+    timelineBg:   '#d8d8d8',       // light grey zone (light preset)
+  },
+  midnight: {
+    label: 'Midnight',
+    setBit:       [100, 181, 246], // light blue
+    clearedBit:   [255, 138, 101], // light orange
+    unchangedBit: [40, 60, 90],    // dark navy
+    timelineColors: { events: '#64b5f6', animation: '#ff8a65' },
+    floaterBg:    '#010510',
+    draggerColor: '#020a1e',
+    timelineBg:   '#010314',       // deep midnight-blue zone
+  },
+  dawn: {
+    label: 'Dawn (Light)',
+    setBit:       [56, 142, 60],   // mid green
+    clearedBit:   [211, 47, 47],   // mid red
+    unchangedBit: [140, 140, 140], // medium grey
+    timelineColors: { events: '#388e3c', animation: '#d32f2f' },
+    floaterBg:    '#f5f5f0',
+    draggerColor: '#d0d0c8',
+    chartActiveColor: '#1a1a1a',   // dark bar for light background
+    timelineBg:   '#eeede8',       // warm cream zone (light preset)
   },
 };
 

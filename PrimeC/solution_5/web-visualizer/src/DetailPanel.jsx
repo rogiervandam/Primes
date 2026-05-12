@@ -8,6 +8,23 @@ import { usePanelLayoutContext } from './contexts/PanelLayoutContext';
 
 const GRID3X3_MAP = [0, 1, 2, 3, 5, 6, 7, 8];
 
+// item 350: parse annotation text for inspectable unit (same patterns as EventsPanel)
+function parseInspectableUnitFromAnnotation(annotation) {
+  const text = String(annotation || '');
+  const patterns = [
+    { type: 'cacheline', regex: /\bcache(?:\s*line|line)\s*#?\s*(\d+)\b/i },
+    { type: 'byte',      regex: /\bbyte\s*#?\s*(\d+)\b/i },
+    { type: 'group',     regex: /\bgroup\s*#?\s*(\d+)\b/i },
+    { type: 'uint32',    regex: /\buint32\s*#?\s*(\d+)\b/i },
+    { type: 'uint64',    regex: /\buint64\s*#?\s*(\d+)\b/i },
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern.regex);
+    if (match) return { type: pattern.type, index: Number(match[1]) };
+  }
+  return null;
+}
+
 function layoutPos(layout, index) {
   if (layout.grid3x3) {
     const cell = GRID3X3_MAP[index];
@@ -74,6 +91,8 @@ export default function DetailPanel({
     onHideEventTitle,
     onOpenRawLog,
     onAggMaskStepChange,
+    // item 350: open group inspector from detail panel (no balloons needed)
+    onInspectAnnotationUnit,
     // item 162: separate toggle buttons for all-events floater and single-event slider
     onToggleAllEventsFloater,
     onToggleSingleEventSlider,
@@ -280,7 +299,8 @@ export default function DetailPanel({
   const [isBodyAnimatingOut, setIsBodyAnimatingOut] = useState(false);
   const [maskPopoverOpen, setMaskPopoverOpen] = useState(false);
   // item 301: show nearby-events sidebar only when events panel is collapsed
-  const { isEventsPanelCollapsed } = usePanelLayoutContext();
+  // item 349: toggleEventsPanel for the nearby button that slides the events panel in from the left
+  const { isEventsPanelCollapsed, toggleEventsPanel } = usePanelLayoutContext();
   const prevOpenRef = useRef(open);
   useLayoutEffect(() => {
     const prev = prevOpenRef.current;
@@ -439,6 +459,23 @@ export default function DetailPanel({
   ];
 
   const annotationFacts = [
+    // item 350: inspect unit button — allows opening the group inspector from the detail panel
+    ...(() => {
+      const inspectable = step.annotation ? parseInspectableUnitFromAnnotation(step.annotation) : null;
+      if (!inspectable || !onInspectAnnotationUnit) return [];
+      return [{
+        label: `Inspect ${inspectable.type}`,
+        content: (
+          <button
+            className="detail-inspect-btn"
+            onClick={() => onInspectAnnotationUnit({ type: inspectable.type, index: inspectable.index })}
+            title={`Open ${inspectable.type} #${inspectable.index} inspector`}
+          >
+            <span className="dt-mono">{inspectable.type} #{inspectable.index} ↗</span>
+          </button>
+        ),
+      }];
+    })(),
     {
       label: 'Numbers marked',
       content: step.numChanged > 0 ? (
@@ -683,7 +720,16 @@ export default function DetailPanel({
           {/* item 301: nearby events sidebar — only shown when events panel is collapsed */}
           {isEventsPanelCollapsed && surroundingEvents && (surroundingEvents.prev?.length > 0 || surroundingEvents.next?.length > 0) && (
             <div className="detail-nearby-sidebar">
-              <div className="detail-nearby-sidebar-title">Nearby</div>
+              {/* item 349: right-arrow button left of NEARBY heading toggles events panel (normal left-slide) */}
+              <div className="detail-nearby-sidebar-header">
+                <button
+                  className="detail-nearby-events-toggle"
+                  onClick={() => toggleEventsPanel?.()}
+                  title="Toggle events panel"
+                  aria-label="Toggle events panel"
+                >→</button>
+                <div className="detail-nearby-sidebar-title">Nearby</div>
+              </div>
               <div className="detail-nearby-list">
                 {surroundingEvents.prev?.map((e) => (
                   <div key={e.idx} className="detail-nearby-row detail-nearby-prev" onClick={() => goToStep?.(e.idx)} title={`Go to event ${e.eventId}`}>

@@ -104,15 +104,24 @@ export function usePanelChoreography(panelConfig = {}) {
   }, [captureResizeAnchor, setIsAllEventsWidgetHidden, setIsEventsPanelCollapsed]);
 
   const revealCurrentStepInPanel = useCallback(() => {
+    // item 348: track whether the panel was just opened so we can delay the
+    // scroll until after the 240ms slide-in animation completes.
+    let opening = false;
     setIsEventsPanelCollapsed((wasCollapsed) => {
       if (wasCollapsed) {
+        opening = true;
         captureResizeAnchor();
         setAreWidgetsJoined(false);
         return false;
       }
       return wasCollapsed;
     });
-    setRevealStepRequest((n) => n + 1);
+    // If opening from collapsed, wait for animation before scrolling.
+    if (opening) {
+      setTimeout(() => setRevealStepRequest((n) => n + 1), 280);
+    } else {
+      setRevealStepRequest((n) => n + 1);
+    }
   }, [captureResizeAnchor, setIsEventsPanelCollapsed, setRevealStepRequest, setAreWidgetsJoined]);
 
   const toggleDetailPanel = useCallback(() => {

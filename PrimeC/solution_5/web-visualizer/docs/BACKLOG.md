@@ -87,39 +87,45 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 333 DONE: For the bit overview, use the same arrangement as the layout of the grid, so that users can easily see which bits belong to which byte/group/cacheline, and it can also create a more cohesive and visually appealing design. 
 
-334 In settings: Rename "Annotations" to "Labels" to avoid confusion with the annotation text in the double timeline.
+334 DONE: In settings: Rename "Annotations" to "Labels" to avoid confusion with the annotation text in the double timeline.
 
-335 After loading an before doing the 2d-3d transform, don't show but balloons when the users click, to avoid accidental clicks leading to balloons.
+335 DONE: After loading an before doing the 2d-3d transform, don't show but balloons when the users click, to avoid accidental clicks leading to balloons.
 
-336 if i drag the title to make the double timeline float, and release above a bit, it clicks on the bit and shows a balloon. When stopping a drag above a bit, don't register that as a click on the bit, to avoid showing balloons when users just want to stop dragging.
+336 DONE: if i drag the title to make the double timeline float, and release above a bit, it clicks on the bit and shows a balloon. When stopping a drag above a bit, don't register that as a click on the bit, to avoid showing balloons when users just want to stop dragging.
 
-337 The inspector model should be draggable and resizeable
+337 DONE: The inspector model should be draggable and resizeable
 
-338 The inspector should highlight which mask was used on the element if the event had more than one mask. It should not only list the targeted bits, but also the changed bits. 
+338 OPEN: The inspector should highlight which mask was used on the element if the event had more than one mask. It should not only list the targeted bits, but also the changed bits. Note: not seeing the changed bits and not seeing which mask was used (e.g. was mask 1 or mask 2 used?). Note: Put a white line around the mask (e.g. mask2) that was used for changing/targeting bits in the selected group. Note: i still see both masks without knowing which one was used. Make the mask that was used more prominent, e.g. by having a white border around it, and make the mask that wasn't used less prominent, e.g. by having it be more transparent or greyed out. Also, i see list of Targeted bits, but not Changed bits. Add a list for Changed bits, and also make it clear which of the targeted bits were actually changed by the event, e.g. by having a different color or a checkmark next to the changed bits. When the users hovers over a mask bit, help the user figure out which bit that would be, so if targeting bit 1666, on the hover over i should see at some hit this 1666. The link to the event helps, but it would also help to put boxes around the bits on the grid itseld and that i can have the inspector active while also exploring the grid with the mouse. The user can use the close button to dismiss the inspector. 
 
-339 The color of the text of labels (operations) in the events panel should have enough contrast with the background to be easily readable. If the current color doesn't have enough contrast, adjust it to a more contrasting color, or add a subtle text shadow to improve readability. This way users can easily read the labels in the events panel, regardless of the chosen color preset or custom colors, and it can also enhance the overall usability of the interface. Integrate this color in the color presets as well.
+339 DONE The color of the text of labels (operations) in the events panel should have enough contrast with the background to be easily readable. If the current color doesn't have enough contrast, adjust it to a more contrasting color, or add a subtle text shadow to improve readability. This way users can easily read the labels in the events panel, regardless of the chosen color preset or custom colors, and it can also enhance the overall usability of the interface. Integrate this color in the color presets as well. Note still hard to read. Make the text a part of the color preset and adjustments. You as an color expert and ui expert get to choose the text color for each preset, ensuring that it has good contrast with the background and fits well with the overall design of the preset.
 
-340 The chart in the events timeline should be more readable by using white or black as a contrast color to the background. Make it a part of the color preset.
+340 DONE: The chart in the events timeline should be more readable by using white or black as a contrast color to the background. Make it a part of the color preset. Note: still hard to read. 
 
-341 When in float or docker mode, when i am over any element, like the title, annotation, floater background, timeline or dragger, don't fire any mouse clicks to the elements behind it, like the bits, groups, etc.
+341 DONE: When in float or docker mode, when i am over any element, like the title, annotation, floater background, timeline or dragger, don't fire any mouse clicks to the elements behind it, like the bits, groups, etc.
 
-342 The background of the timelines should have exactly the same blutty background as the title and annotation, to create a more cohesive and visually appealing design. It's probably best to use one blury background for the entire floater, including the title, annotation and timelines, so that they all share the same background and look like one cohesive unit. This way users can have a more immersive and visually pleasing experience when interacting with the double timeline, and it can also enhance the overall aesthetic of the interface.
+342 DONE: The background of the timelines should have exactly the same blurry background as the title and annotation, to create a more cohesive and visually appealing design. It's probably best to use one blurry background for the entire floater, including the title, annotation and timelines, so that they all share the same background and look like one cohesive unit. This way users can have a more immersive and visually pleasing experience when interacting with the double timeline, and it can also enhance the overall aesthetic of the interface. Note: make the background color part of the color preset and user adjusstment, so that it can be customized by users and also ensure that it matches well with the overall color scheme of the preset. For each current preset you as an color expert and ui expert get to choose the background tint. It should be blurry transparent though. RIght now when not floating, a timeline is inactieve, it is less blurry than title and annotation. Note: the user should be able to adjust the tint & transparency of the blurry background in the settings, so that they can find the right balance between readability and visual appeal according to their preferences.
 
-343 You are a color expert and UX designer. Make 8 new color presets that are visually appealing and have good contrast, including a light mode and a dark mode preset. Each preset should define the background color, text color, timeline colors, and floater background color. The presets should be designed to provide a visually pleasing and comfortable experience for users, while also ensuring that all elements are easily distinguishable and accessible.
+343 DONE: You are a color expert and UX designer. Make 8 new color presets that are visually appealing and have good contrast, including a light mode and a dark mode preset. Each preset should define the background color, text color, timeline colors, and floater background color. The presets should be designed to provide a visually pleasing and comfortable experience for users, while also ensuring that all elements are easily distinguishable and accessible.
 
-344 Unify the css/html of the square settings buttons for e.g. grid view, annotations and colors in one class to apply to all of them and html to use as a base so they are all uniform. Then make them look more glassy and visually appealing, with a nice hover effect and active state. This way users can have a more cohesive and visually appealing experience when interacting with the settings buttons, and it can also enhance the overall aesthetic of the interface.
+344 DONE Unify the css/html of the square settings buttons for e.g. grid view, annotations and colors in one class to apply to all of them and html to use as a base so they are all uniform. Then make them look more glassy and visually appealing, with a nice hover effect and active state. This way users can have a more cohesive and visually appealing experience when interacting with the settings buttons, and it can also enhance the overall aesthetic of the interface.
 
-345 When zoomed into a timeline, help indicate that state making the timeline a bit larger (zoom level 1.2 or 1.3) and with a more prominent background, to make it clear that the timeline is zoomed in and to help users focus on the details of the timeline. This way users can have a more visually engaging experience when zooming into the timelines, and it can also enhance their ability to analyze and interpret the data presented in the timelines.
+345 DONE: When zoomed into a timeline, help indicate that state making the timeline a bit larger (zoom level 1.2 or 1.3) and with a more prominent background, to make it clear that the timeline is zoomed in and to help users focus on the details of the timeline. This way users can have a more visually engaging experience when zooming into the timelines, and it can also enhance their ability to analyze and interpret the data presented in the timelines. Note: the end event is behind the dragger. 
 
-346 In the events panel, when an active group is pinned at the top, make it more readable by giving it a blurry background.
+346 DONE: In the events panel, when an active group is pinned at the top, make it more readable by giving it a blurry background. Note: This pinned line should be above everything else, including the operation labels. Right now the operation labels are flowing over the pinned line, which makes it hard to read. Make the pinned line have a z-index that is higher than the operation labels, so that it is always on top and readable. Note: also make the pinned line have a blurry background, like the title and annotation, to make it more visually appealing and easier to read. Note: when scrolling the events panel with the mouse wheel, the pinned line should not scroll with the rest of the events, but should stay fixed at the top of the panel, so that it is always visible and readable as users scroll through the events.
 
-347 With the events panel open, window resizing is very laggy. 
+347 DONE: With the events panel open, window resizing is very laggy. 
 
-348 In the floater, the event number in the title should be a link to take you to the event in the events panel (open if its closed). The events panel should scroll to and then drill down to the appropriate group to reveal the event. 
+348 DONE: In the floater, the event number in the title should be a link to take you to the event in the events panel (open if its closed). The events panel should scroll to and then drill down to the appropriate group to reveal the event. Note: It should also scroll to the event and put it vertically in the center of the events.  Note: after the first click it only opens the events panel, but it should also scroll to the event and put it vertically in the center of the events. That happens after the second click. It should do both in one click.
 
-349 The nearby events section should have an upwards arrow to toggle the events panel. The events panel should slide in from the bottom when toggled from this arrow, instead of sliding in from the left. This way users can have a more intuitive and visually appealing experience when toggling the events panel from the nearby events section, and it can also help them maintain their spatial orientation in the interface. We can implement this by adding a toggle button with an upwards arrow icon in the nearby events section, and when it is clicked, the events panel slides in from the bottom of the screen instead of the left.
+349 DONE: The nearby events section should have an upwards arrow to toggle the events panel. The events panel should slide in from the bottom when toggled from this arrow, instead of sliding in from the left. This way users can have a more intuitive and visually appealing experience when toggling the events panel from the nearby events section, and it can also help them maintain their spatial orientation in the interface. Note: wasn't looking great. Make the "NEARBY" look like the other sections. Put left of "NEARBY" a right arrow that toggles the events panel. When clicking on it, the events panel should slide in from the left, and when closing it should slide out to the left, like it should do for all buttons that toggle the events panel (top bar, events timeline, etc)
 
+350 DONE: Group/byte/cacheline inspector should work when balloons are off.
 
+351 When zooming in on the timeline, the chart lines grow faster than the timeline itself, which looks weird. When zooming in, make sure the chart lines and the timeline grow vertically at the same rate, so that they stay visually consistent and proportional. This way users can have a more visually appealing experience when zooming into the timelines, and it can also enhance their ability to analyze and interpret the data presented in the timelines.
+
+352 When closing the events panel, don't just let it disappear, but have it slide out to the left with a smooth animation. This way users can have a more visually appealing experience when toggling the events panel, and it can also help them maintain their spatial orientation in the interface. We can implement this by adding a CSS transition to the events panel's position or transform property, so that when it is toggled, it animates from its current position to the hidden position off-screen to the left. We can also add a fade-out effect to make it look more polished.
+
+353 The arrows for panel toggle in (1) Events panel top left, (2) Settings panel top Right, (3) Detail Panel top left, (4) Floater bottom right, (5) Event timeline left, (6) Animation timeline right, (7) Nearby events section left, should all have the same design and animation for toggling the corresponding panel in and out. This way users can have a more cohesive and visually appealing experience when interacting with the various toggle buttons in the interface, and it can also enhance the overall usability of the interface. We can achieve this by creating a reusable toggle button component with a consistent design and animation, and then using this component for all the toggle buttons in the interface.
 
 
 
@@ -131,6 +137,31 @@ C WHen starting up and loading the events, in the background try mode 1-8 and fi
 D 
 
 
+Here's a breakdown of why it looks low-res and what you can do:
+
+Root Cause: bitStride downsampling
+The real culprit is in SieveRenderer.js, not canvas resolution:
+// When cellSize < 1 CSS px, only every N-th bit is drawn
+const bitStride = Math.max(1, Math.min(16, Math.floor(1 / Math.max(0.0625, cellSize))));
+
+At extreme zoom-out (e.g., cellSize = 0.0625 CSS px), only 1-in-16 bits are drawn — the sparse dots are the geometry itself, not a sampling artifact. SSAA downsamples the result, but the underlying geometry is already full of gaps.
+
+Options (best to worst effort/impact ratio)
+1. Account for canvasDpr in the bitStride formula (high impact, ~1 line)
+this.canvasDpr already includes the SSAA multiplier (forcedDpr × glAaScale). The stride should use the physical cell size, not CSS:
+const physCellSize = cellSize * this.canvasDpr;  // includes DPR × SSAA
+const bitStride = Math.max(1, Math.min(16, Math.floor(1 / Math.max(0.0625, physCellSize))));
+
+With DPR=2 + SSAA=2×, a 0.25 CSS-px cell is 1 physical pixel — bitStride should be 1, not 4. This makes SSAA actually help with stride reduction.
+
+2. Lower the max stride cap (trivial, always helps)
+Change Math.min(16, ...) to Math.min(4, ...). More GPU work but draws 4× more bits at extreme zoom-out.
+
+3. CSS filter: blur() on the canvas wrapper (very cheap)
+A tiny filter: blur(0.5px) applied to the canvas (or its wrapper div) when zoomed out fills in the gaps perceptually via browser compositing. Costs essentially nothing and softens the sparse-dot pattern. Can be applied dynamically based on zoom level.
+
+4. Fragment shader soft-cell alpha (medium effort)
+When cellSize is sub-pixel, modulate the output alpha by coverage area (cellSize²) so overlapping/adjacent cells accumulate brightness. This requires enabling gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA) and changing the FS to output alpha = cellSize * cellSize when stride > 1.
 
 
 ## New Ideas

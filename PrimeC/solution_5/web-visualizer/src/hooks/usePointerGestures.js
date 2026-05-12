@@ -601,7 +601,11 @@ export function usePointerGestures({
         return;
       }
 
-      if (gestureMode === 'none' && !releasedOverCanvas) {
+      // item 336: if the canvas never received a matching pointerdown (activePointerId
+      // is still null and gestureMode is still 'none'), this release belongs to an
+      // external gesture such as dragging the timeline title bar to undock it.
+      // Don't fire a canvas click in that case.
+      if (gestureMode === 'none' && (!releasedOverCanvas || activePointerId === null)) {
         clearInteraction();
         return;
       }
@@ -622,14 +626,16 @@ export function usePointerGestures({
         }
         // item 144: true canvas click — dismiss the settings panel if it is open
         collapseSettingsIfOpen?.();
-        if (!areBalloonsEnabled || !isBalloonClickEnabled) {
-          clearInteraction();
-          return;
-        }
+        // item 350: check canvas label unit BEFORE the balloon guard so the inspector
+        // works even when balloons are turned off
         const coords = pointerDownCanvasCoords || eventToCanvasCoords(e);
         const canvasLabelUnit = onInspectCanvasUnit ? hitTestCanvasLabelUnit(r, coords.x, coords.y) : null;
         if (canvasLabelUnit) {
           onInspectCanvasUnit(canvasLabelUnit);
+          clearInteraction();
+          return;
+        }
+        if (!areBalloonsEnabled || !isBalloonClickEnabled) {
           clearInteraction();
           return;
         }

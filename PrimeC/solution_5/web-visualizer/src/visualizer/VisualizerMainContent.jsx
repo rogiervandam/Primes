@@ -7,6 +7,7 @@ import CanvasLoadingOverlay from './CanvasLoadingOverlay';
 import DebugToolsPanel from './DebugToolsPanel';
 import DetailPanel from '../DetailPanel';
 import DoubleTimeline from './DoubleTimeline';
+import { usePanelLayoutContext } from '../contexts/PanelLayoutContext';
 
 /**
  * VisualizerMainContent — Phase 2 Refactoring
@@ -31,6 +32,9 @@ import DoubleTimeline from './DoubleTimeline';
 export default function VisualizerMainContent(props) {
   // Perf counter — incremented on every render so DebugToolsPanel can show re-render rate.
   useEffect(() => { bumpRender('VMC'); });
+
+  // item 349: read eventsOpenFromBottom to suppress left-column space when panel is a bottom overlay
+  const { eventsOpenFromBottom } = usePanelLayoutContext();
 
   // Destructure organized prop objects
   const {
@@ -183,7 +187,7 @@ export default function VisualizerMainContent(props) {
       ref={mainContentRef}
       className={`main-content${isUiChromeVisible ? ' ui-chrome-visible' : ' ui-chrome-hidden'}`}
       style={{
-        '--events-panel-width': `${isEventsPanelCollapsed ? 0 : panelWidth}px`,
+        '--events-panel-width': `${(isEventsPanelCollapsed || eventsOpenFromBottom) ? 0 : panelWidth}px`,
         '--settings-panel-width': isSettingsCollapsed ? '0px' : (isMacPlatform ? '388px' : '328px'),  /* item 182 */
         '--detail-panel-total-height': '0px',  /* item 282: initial value; updated via DOM in detailPanelCallbackRef */
       }}
@@ -327,6 +331,8 @@ export default function VisualizerMainContent(props) {
               onWidthChange: setDetailWidth,
               onInspectChangedBits: () => openDetailInspector('bits'),
               onInspectMarkedNumbers: () => openDetailInspector('numbers'),
+              // item 350: let the detail panel open the group inspector even when balloons are off
+              onInspectAnnotationUnit: openGroupInspector,
               onShowEventTitle,
               onHideEventTitle: () => setEventTitleSettings((prev) => ({ ...prev, visible: false })),
               onOpenRawLog,

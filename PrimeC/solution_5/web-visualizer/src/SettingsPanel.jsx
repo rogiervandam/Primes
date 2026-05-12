@@ -147,6 +147,8 @@ export default function SettingsPanel({
     setFloaterBg,
     draggerColor,
     setDraggerColor,
+    zoneBgOpacity,
+    setZoneBgOpacity,
   } = useThemeContext();
   const {
     playSpeedPercent,
@@ -329,6 +331,7 @@ export default function SettingsPanel({
             timelineColors={timelineColors} onTimelineColorsChange={setTimelineColors}
             floaterBg={floaterBg} onFloaterBgChange={setFloaterBg}
             draggerColor={draggerColor} onDraggerColorChange={setDraggerColor}
+            zoneBgOpacity={zoneBgOpacity} onZoneBgOpacityChange={setZoneBgOpacity}
           />
         )}
 

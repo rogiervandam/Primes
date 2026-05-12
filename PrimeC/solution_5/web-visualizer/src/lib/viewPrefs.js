@@ -401,6 +401,8 @@ export function getInitialViewState() {
     timelineColors: initialTimelineColors(prefs),  // item 321
     floaterBg:    initialHexColor(prefs, 'floaterBg',    DEFAULT_FLOATER_BG),    // item 322/323
     draggerColor: initialHexColor(prefs, 'draggerColor', DEFAULT_DRAGGER_COLOR), // item 322/323
+    zoneBgOpacity: (typeof prefs?.zoneBgOpacity === 'number' && prefs.zoneBgOpacity >= 0.05 && prefs.zoneBgOpacity <= 0.95)
+      ? prefs.zoneBgOpacity : 0.45,  // item 342
     isAllEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
     areWidgetsJoined: initialWidgetsJoined(prefs),
     isAllEventsInDetailPanel: prefs?.isAllEventsInDetailPanel === true,  // default: false (item 162)

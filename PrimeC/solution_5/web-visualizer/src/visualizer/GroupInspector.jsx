@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { BIT_LAYOUTS, BYTE_LAYOUTS } from '../SieveRenderer';
 
@@ -116,6 +116,37 @@ function collectMaskTargetBits(step) {
   }
 
   return touchedBits;
+}
+
+function collectMaskTargetBitsForMaskStep(maskStep) {
+  const touchedBits = new Set();
+  const wordBits = Number(maskStep?.maskWordBits);
+  const writeWords = maskStep?.maskWriteOrderWords;
+  const writeSlots = maskStep?.maskWriteOrderSlots;
+  const rawSlotBits = getRawSlotBits(maskStep);
+  if (!Number.isFinite(wordBits) || wordBits <= 0 || !writeWords || writeWords.length === 0 || rawSlotBits.length === 0) {
+    return touchedBits;
+  }
+  for (let index = 0; index < writeWords.length; index++) {
+    const wordIndex = Number(writeWords[index]);
+    const slotIndex = Number(writeSlots?.[index] ?? 0);
+    const slotBits = rawSlotBits[slotIndex];
+    if (!Number.isFinite(wordIndex) || wordIndex < 0 || !slotBits) continue;
+    for (const offset of slotBits) {
+      const bitOffset = Number(offset);
+      if (!Number.isFinite(bitOffset) || bitOffset < 0) continue;
+      touchedBits.add(wordIndex * wordBits + bitOffset);
+    }
+  }
+  return touchedBits;
+}
+
+/** Returns true if the mask step targets at least one bit within [rangeStart, rangeEnd]. */
+function maskStepOverlapsRange(maskStep, rangeStart, rangeEnd) {
+  for (const bit of collectMaskTargetBitsForMaskStep(maskStep)) {
+    if (bit >= rangeStart && bit <= rangeEnd) return true;
+  }
+  return false;
 }
 
 function buildGridGeometry(totalBits, bitLayout, byteLayout, options = {}) {
@@ -250,8 +281,9 @@ function UnitBitOverview({ bitIndices, bitStates, bitLayout, byteLayout }) {
 
 /**
  * Renders a scaled mask bit grid for one slot (same style as DetailPanel).
+ * changedBitsSet: optional Set of local bit offsets (within the mask word) that actually changed.
  */
-function MaskGrid({ slot, mp, scaledBitSize }) {
+function MaskGrid({ slot, mp, scaledBitSize, changedBitsSet }) {
   const sbs = scaledBitSize;
   const sg = Math.max(1, Math.round(mp.bitGap * sbs / mp.bitSize));
   const sbg = Math.max(2, Math.round(mp.byteGap * sbs / mp.bitSize));
@@ -279,8 +311,9 @@ function MaskGrid({ slot, mp, scaledBitSize }) {
               const bl = bitPos.col * (sbs + sg);
               const bt = bitPos.row * (sbs + sg);
               const active = slot.activeBits.has(absoluteBit);
+              const changed = active && changedBitsSet && changedBitsSet.has(absoluteBit);
               return (
-                <span key={bitIndex} style={{ position: 'absolute', left: `${bl}px`, top: `${bt}px`, width: `${sbs}px`, height: `${sbs}px`, display: 'block', borderRadius: '2px', background: active ? (slot.slotIndex === 0 ? 'rgba(39,174,96,0.72)' : 'rgba(245,158,11,0.76)') : 'color-mix(in srgb, var(--bg-input) 88%, transparent)', boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.2)' }} title={`Bit ${absoluteBit}`} />
+                <span key={bitIndex} style={{ position: 'absolute', left: `${bl}px`, top: `${bt}px`, width: `${sbs}px`, height: `${sbs}px`, display: 'block', borderRadius: '2px', background: changed ? 'rgba(255,220,50,0.90)' : active ? (slot.slotIndex === 0 ? 'rgba(39,174,96,0.72)' : 'rgba(245,158,11,0.76)') : 'color-mix(in srgb, var(--bg-input) 88%, transparent)', boxShadow: changed ? 'inset 0 0 0 1px rgba(255,200,0,0.55), 0 0 4px rgba(255,200,0,0.35)' : 'inset 0 0 0 1px rgba(15,23,42,0.2)', outline: changed ? '1.5px solid rgba(255,220,50,0.85)' : 'none' }} title={`Bit ${absoluteBit}${changed ? ' (changed)' : active ? ' (targeted)' : ''}`} />
               );
             })}
           </div>
@@ -319,7 +352,7 @@ function EventRow({ stepIndex, step, changedInUnit, targetedInUnit, maskEntries,
           <span className="gi-bits-targeted">Targeted: {targetedInUnit.slice(0, 10).join(', ')}{targetedInUnit.length > 10 ? ` +${targetedInUnit.length - 10}` : ''}</span>
         )}
       </div>
-      {maskEntries.length > 0 && maskEntries.map(({ maskPreview, maskSummary, label }, entryIndex) => {
+      {maskEntries.length > 0 && maskEntries.map(({ maskPreview, maskSummary, label, isRelevantToUnit, changedLocalOffsets }, entryIndex) => {
         const MAX_W = 100;
         const MAX_H = 80;
         const scale = maskPreview
@@ -329,7 +362,8 @@ function EventRow({ stepIndex, step, changedInUnit, targetedInUnit, maskEntries,
         if (!maskPreview || maskPreview.slots.length === 0) return null;
 
         return (
-          <div key={`${stepIndex}-mask-${entryIndex}`} className="gi-mask-row" style={{ marginTop: entryIndex > 0 ? '8px' : undefined }}>
+          <div key={`${stepIndex}-mask-${entryIndex}`} className={`gi-mask-row${isRelevantToUnit ? ' gi-mask-relevant' : ''}`} style={{ marginTop: entryIndex > 0 ? '8px' : undefined }}>
+            {isRelevantToUnit && <div className="gi-mask-relevant-badge" title="This mask targets bits in the inspected unit">▶ Active mask</div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {label && <div className="gi-mask-slot-label" style={{ fontSize: '10px' }}>{label}</div>}
               <div className="gi-mask-slots">
@@ -343,7 +377,7 @@ function EventRow({ stepIndex, step, changedInUnit, targetedInUnit, maskEntries,
                       title="Click to zoom in"
                     >
                       <div style={{ width: `${maskPreview.previewWidth}px`, height: `${maskPreview.previewHeight}px`, transform: `scale(${scale})`, transformOrigin: 'top left', pointerEvents: 'none' }}>
-                        <MaskGrid slot={slot} mp={maskPreview} scaledBitSize={maskPreview.bitSize} />
+                        <MaskGrid slot={slot} mp={maskPreview} scaledBitSize={maskPreview.bitSize} changedBitsSet={changedLocalOffsets} />
                       </div>
                     </div>
                   </div>
@@ -432,6 +466,67 @@ export default function GroupInspector({
     return unitBitRange(unit, cachelineSize, effectiveGroupBits);
   }, [unit, cachelineSize, effectiveGroupBits]);
 
+  // item 337: drag and resize state — declared unconditionally before any early returns
+  const [panelPos, setPanelPos] = useState(() => ({
+    x: Math.round((window.innerWidth - 640) / 2),
+    y: Math.max(24, Math.round((window.innerHeight - 560) / 2)),
+  }));
+  const [panelSize, setPanelSize] = useState({ width: 640, height: 560 });
+  const panelPosRef = useRef(panelPos);
+  const panelSizeRef = useRef(panelSize);
+  panelPosRef.current = panelPos;
+  panelSizeRef.current = panelSize;
+
+  const handleHeaderDrag = useCallback((e) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startPos = { ...panelPosRef.current };
+    const onMove = (ev) => {
+      setPanelPos({
+        x: Math.max(0, Math.min(window.innerWidth - panelSizeRef.current.width, startPos.x + ev.clientX - startX)),
+        y: Math.max(0, Math.min(window.innerHeight - 60, startPos.y + ev.clientY - startY)),
+      });
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, []);
+
+  const handleResize = useCallback((direction, e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startSize = { ...panelSizeRef.current };
+    const startPos = { ...panelPosRef.current };
+    const onMove = (ev) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      let newW = startSize.width;
+      let newH = startSize.height;
+      let newX = startPos.x;
+      let newY = startPos.y;
+      if (direction.includes('e')) newW = Math.max(360, startSize.width + dx);
+      if (direction.includes('w')) { newW = Math.max(360, startSize.width - dx); newX = startPos.x + (startSize.width - newW); }
+      if (direction.includes('s')) newH = Math.max(240, startSize.height + dy);
+      if (direction.includes('n')) { newH = Math.max(240, startSize.height - dy); newY = Math.max(0, startPos.y + (startSize.height - newH)); }
+      setPanelSize({ width: newW, height: newH });
+      setPanelPos({ x: newX, y: newY });
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, []);
+
   // Find all events that touched (changed or targeted) at least one bit in the range.
   const matchingEvents = useMemo(() => {
     if (!range || !Array.isArray(steps)) return [];
@@ -498,13 +593,23 @@ export default function GroupInspector({
       onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
     >
       <div
-        className="gi-panel"
+        className="gi-panel gi-panel-draggable"
         role="dialog"
         aria-modal="true"
         aria-label={`${label} Inspector`}
+        style={{ position: 'fixed', left: `${panelPos.x}px`, top: `${panelPos.y}px`, width: `${panelSize.width}px`, height: `${panelSize.height}px`, maxWidth: 'none', maxHeight: 'none' }}
       >
-        {/* Header */}
-        <div className="gi-header">
+        {/* item 337: resize handles */}
+        {['n','s','e','w','ne','nw','se','sw'].map((dir) => (
+          <div
+            key={dir}
+            className={`gi-resize-handle gi-resize-${dir}`}
+            onPointerDown={(e) => handleResize(dir, e)}
+          />
+        ))}
+
+        {/* Header — drag handle */}
+        <div className="gi-header gi-drag-handle" onPointerDown={handleHeaderDrag}>
           <div className="gi-title">
             <span className="gi-title-label">{label}</span>
             <span className="gi-title-range">Bits {start}–{clampedEnd}</span>
@@ -540,12 +645,31 @@ export default function GroupInspector({
           ) : (
             <div className="gi-events-list">
               {matchingEvents.map(({ stepIndex, step, changedInUnit, targetedInUnit }) => {
+                // item 338: determine which mask entries target bits within this unit
+                const aggMasks = Array.isArray(step.aggMaskSteps) && step.aggMaskSteps.length > 0
+                  ? step.aggMaskSteps
+                  : [];
                 const maskEntries = buildMaskSummaries(step)
-                  .map((maskSummary) => ({
-                    label: maskSummary.label,
-                    maskSummary,
-                    maskPreview: buildMaskPreview(maskSummary, bitLayout, byteLayout),
-                  }))
+                  .map((maskSummary, idx) => {
+                    // isRelevantToUnit: true if this mask targets bits in the unit.
+                    // For aggregated steps (aggMasks present), check per-mask.
+                    // For single-mask steps (no aggMasks), check the step itself.
+                    const isRelevantToUnit = aggMasks.length > 0
+                      ? (aggMasks[idx] ? maskStepOverlapsRange(aggMasks[idx], start, clampedEnd) : false)
+                      : maskStepOverlapsRange(step, start, clampedEnd);
+                    // Compute which local mask offsets (within maskWordBits) had changed bits in the unit.
+                    const maskWordBits = maskSummary.wordBits;
+                    const changedLocalOffsets = maskWordBits > 0
+                      ? new Set(changedInUnit.map((b) => b % maskWordBits))
+                      : new Set();
+                    return {
+                      label: maskSummary.label,
+                      maskSummary,
+                      maskPreview: buildMaskPreview(maskSummary, bitLayout, byteLayout),
+                      isRelevantToUnit,
+                      changedLocalOffsets,
+                    };
+                  })
                   .filter((entry) => entry.maskPreview);
                 return (
                   <EventRow

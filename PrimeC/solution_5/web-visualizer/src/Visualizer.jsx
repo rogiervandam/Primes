@@ -4,6 +4,7 @@ import { SieveRenderer } from './SieveRenderer';
 import { hexToRgb, labelTextColor } from './renderer/drawingHelpers';
 import { BitGridGLWorker, isWorkerGLSupported } from './renderer/gl/BitGridGLWorker';
 import { GlyphTextGLCore } from './renderer/gl/GlyphTextGLCore';
+import { COLOR_PRESETS } from './renderer/constants';  // item 342: preset timelineBg lookup
 import EventsPanel from './EventsPanel';
 import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
@@ -218,6 +219,7 @@ export default function Visualizer({
     timelineColors, setTimelineColors,  // item 321
     floaterBg, setFloaterBg,            // item 322/323
     draggerColor, setDraggerColor,      // item 322/323
+    zoneBgOpacity, setZoneBgOpacity,    // item 342
   } = useThemeAndColors({ initialPrefs });
 
   const {
@@ -370,6 +372,8 @@ export default function Visualizer({
 
   // item 193: direction the events panel slides when collapsed
   const [eventsCollapseDir, setEventsCollapseDir] = useState('left');
+  // item 349: true when the events panel was opened via the nearby-events bottom arrow
+  const [eventsOpenFromBottom, setEventsOpenFromBottom] = useState(false);
   const collapseEventsPanelFromTimeline = useCallback(() => {
     setEventsCollapseDir('right');
     setIsEventsPanelCollapsed(true);
@@ -435,7 +439,8 @@ export default function Visualizer({
   const areControlsHidden = isEventsPanelCollapsed && !isAllEventsWidgetHidden;
   const balloonMode = layoutSettings.balloonMode || 'click-hover';
   const areBalloonsEnabled = balloonMode !== 'off';
-  const isBalloonClickEnabled = balloonMode === 'bit-clock' || balloonMode === 'click-hover';
+  // item 335: block balloon clicks while the intro 2D→3D animation is in progress
+  const isBalloonClickEnabled = (balloonMode === 'bit-clock' || balloonMode === 'click-hover') && introPhase === 'visible';
   const isBalloonHoverEnabled = balloonMode === 'click-hover';
 
   // 3D camera — always enabled; tilt angle controlled by the tilt button.
@@ -680,6 +685,7 @@ export default function Visualizer({
     timelineColors,  // item 321
     floaterBg,        // item 322/323
     draggerColor,     // item 322/323
+    zoneBgOpacity,    // item 342
     eventDurationMode,
     playSpeedPercent,
     delayBetweenEvents,
@@ -1245,6 +1251,8 @@ export default function Visualizer({
     setFloaterBg,         // item 322/323
     draggerColor,         // item 322/323
     setDraggerColor,      // item 322/323
+    zoneBgOpacity,        // item 342
+    setZoneBgOpacity,     // item 342
   }), [
     theme,
     setTheme,
@@ -1262,6 +1270,8 @@ export default function Visualizer({
     setFloaterBg,
     draggerColor,
     setDraggerColor,
+    zoneBgOpacity,
+    setZoneBgOpacity,
   ]);
 
   // item 236/#4 perf: currentStep is removed from PlaybackContext so that step
@@ -1351,6 +1361,8 @@ export default function Visualizer({
     eventsCollapseDir,
     setEventsCollapseDir,
     collapseEventsPanelFromTimeline,
+    eventsOpenFromBottom,       // item 349
+    setEventsOpenFromBottom,    // item 349
     // item 318: when undocked, isDetailOpen in context reflects floatingDetailVisible
     isDetailOpen: isTimelineUndocked ? floatingDetailVisible : isDetailOpen,
     setIsDetailOpen,
@@ -1373,6 +1385,8 @@ export default function Visualizer({
     eventsCollapseDir,
     setEventsCollapseDir,
     collapseEventsPanelFromTimeline,
+    eventsOpenFromBottom,
+    setEventsOpenFromBottom,
     isDetailOpen,
     isTimelineUndocked,
     floatingDetailVisible,
@@ -1875,6 +1889,8 @@ export default function Visualizer({
         isEventsPanelCollapsed,
         onToggleEventsPanel: toggleEventsPanel,
         onCollapseEventsPanelFromTimeline: collapseEventsPanelFromTimeline,
+        // item 348: reveal (open + scroll-to-center) current step in events panel
+        onRevealCurrentStepInPanel: revealCurrentStepInPanel,
         isSettingsCollapsed,
         onToggleSettingsPanel: toggleSettingsPanel,
         // item 154: delay phase for fill+fade animation
@@ -1901,6 +1917,10 @@ export default function Visualizer({
         // item 322/323: floater zone bg and dragger color
         floaterBg,
         draggerColor,
+        // item 342: per-preset zone tint background (derived from active color preset)
+        timelineBg: colorPreset ? (COLOR_PRESETS[colorPreset]?.timelineBg ?? null) : null,
+        // item 342: user-adjustable zone background opacity
+        zoneBgOpacity,
       },
     },
 

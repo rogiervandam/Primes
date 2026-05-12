@@ -320,6 +320,8 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
     areWidgetsJoined,
     eventsCollapseDir,
     setEventsCollapseDir,
+    eventsOpenFromBottom,        // item 349
+    setEventsOpenFromBottom,     // item 349
   } = usePanelLayoutContext();
 
   const listRef = useRef(null);
@@ -335,6 +337,9 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
   // then unmount it to stop per-step React re-renders while the panel is hidden.
   // When expanding, mount immediately so content is visible during slide-in.
   const [listVisible, setListVisible] = useState(!panelCollapsed);
+  // item 349: ref so the collapse useEffect can read eventsOpenFromBottom without stale closure
+  const eventsOpenFromBottomRef = useRef(eventsOpenFromBottom);
+  eventsOpenFromBottomRef.current = eventsOpenFromBottom;
   useEffect(() => {
     if (!panelCollapsed) {
       // item 209: always slide in from left, even when previous close was a collapse-right.
@@ -348,6 +353,14 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
         void panel.offsetHeight;  // force synchronous layout flush
         panel.style.transition = '';
         panel.style.transform = '';
+      } else if (panel && eventsOpenFromBottomRef.current) {
+        // item 349: when opening from-bottom, reset to translateY(100%) so the CSS
+        // transition animates upward from the bottom edge (not diagonally from the left).
+        panel.style.transition = 'none';
+        panel.style.transform = 'translateY(100%)';
+        void panel.offsetHeight;  // force synchronous layout flush
+        panel.style.transition = '';
+        panel.style.transform = '';
       }
       // item 297: defer mounting the event list by one rAF so the expensive
       // React render (1000+ event nodes) doesn't block the opening animation.
@@ -355,7 +368,11 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
       startTransition(() => { setListVisible(true); });
       setEventsCollapseDir('left');  // item 193: reset direction when opening
     } else {
-      const t = setTimeout(() => setListVisible(false), 240);
+      // item 349: reset from-bottom mode after the close animation completes
+      const t = setTimeout(() => {
+        setListVisible(false);
+        setEventsOpenFromBottom?.(false);
+      }, 240);
       return () => clearTimeout(t);
     }
   }, [panelCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1099,7 +1116,7 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
 
   return (
     <>
-      <div ref={panelRef} className={`events-panel${panelCollapsed ? ' collapsed' : ''}${panelCollapsed && eventsCollapseDir === 'right' ? ' collapse-right' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: `${width}px` }}>
+      <div ref={panelRef} className={`events-panel${panelCollapsed ? ' collapsed' : ''}${panelCollapsed && eventsCollapseDir === 'right' ? ' collapse-right' : ''}${eventsOpenFromBottom ? ' events-panel--from-bottom' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: `${width}px` }}>
       <div className="events-panel-header">
         <div className="events-panel-header-title-row">
           {/* item 210: left arrow to hide the events panel, like the settings panel toggle */}
