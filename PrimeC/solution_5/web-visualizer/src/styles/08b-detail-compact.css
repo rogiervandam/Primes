@@ -116,7 +116,7 @@
 /* item 301: sidebar that shows prev/current/next events */
 .detail-nearby-sidebar {
   flex-shrink: 0;
-  width: 148px;
+  width: 320px;               /* item 309: same as default events panel width */
   border-right: 1px solid var(--border-light);
   padding: 4px 4px 4px 6px;
   overflow-y: auto;

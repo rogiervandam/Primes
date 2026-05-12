@@ -84,6 +84,21 @@ export default function DoubleTimeline({
   const splitFractionRef = useRef(0.5);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+  // item 306: navigation direction for slide animation
+  const [navDir, setNavDir] = useState(null);  // null | 'next' | 'prev'
+  const prevNavStepRef = useRef(null);
+  const navDirTimerRef = useRef(null);
+  useEffect(() => {
+    if (prevNavStepRef.current === null) { prevNavStepRef.current = currentStep; return; }
+    if (currentStep === prevNavStepRef.current) return;
+    const dir = currentStep > prevNavStepRef.current ? 'next' : 'prev';
+    prevNavStepRef.current = currentStep;
+    setNavDir(dir);
+    if (navDirTimerRef.current) clearTimeout(navDirTimerRef.current);
+    navDirTimerRef.current = setTimeout(() => setNavDir(null), 300);
+  }, [currentStep]);
+  useEffect(() => () => { if (navDirTimerRef.current) clearTimeout(navDirTimerRef.current); }, []);
+
   // item 163: free-floating position when undocked (x/y relative to viewport)
   // item 201: default y puts the strip ~40px from the bottom (strip height ≈ 90px: title+strip+annotation)
   const [undockPos, setUndockPos] = useState(() => {
@@ -113,6 +128,10 @@ export default function DoubleTimeline({
   // item 219: focus mode — 'events' | 'animation'
   // Switches which timeline the center controls affect and adds visual highlight.
   const [focusMode, setFocusMode] = useState('events');
+
+  // item 310: track whether a drag happened during the last center-zone pointer-down
+  // so the click handler can tell a drag apart from a plain click.
+  const centerWasDraggedRef = useRef(false);
 
   // item 181: smooth undock/dock animation
   const preUndockRectRef = useRef(null);  // rect captured just before undocking
@@ -193,9 +212,9 @@ export default function DoubleTimeline({
       if (isActive) {
         ctx.fillStyle = '#ffffff';
       } else if (isPast) {
-        ctx.fillStyle = 'rgba(100,180,255,0.65)';
+        ctx.fillStyle = 'rgba(200,200,200,0.60)';  // item 314: greyscale (was blue)
       } else {
-        ctx.fillStyle = 'rgba(72,128,200,0.35)';
+        ctx.fillStyle = 'rgba(140,140,140,0.32)';  // item 314: greyscale (was blue)
       }
       ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.round(h) || 1);
     }
@@ -605,6 +624,7 @@ export default function DoubleTimeline({
       if (!isDragging) {
         if (Math.abs(dx) + Math.abs(accY) < 3) return;
         isDragging = true;
+        centerWasDraggedRef.current = true;  // item 310: flag for click handler
         // item 218: block wave/anim zone pointer events during center drag
         isDividerDraggingRef.current = true;
         // item 132: suppress ALL detail-panel transitions/animations during drag
@@ -670,7 +690,13 @@ export default function DoubleTimeline({
     window.addEventListener('pointercancel', onUp);
   }, [isTimelineUndocked, splitFraction, isDetailOpen, detailHeight, onToggleDetail, onDetailHeightChange, onHideDetailHeader]);
 
-  // ── Right timeline: animation scrubber (items 122, 125, 138) ──────────────────────
+  // item 310: click left half of dragger → events focus; click right half → animation focus
+  const handleCenterZoneClick = useCallback((e) => {
+    if (centerWasDraggedRef.current) { centerWasDraggedRef.current = false; return; }
+    if (e.target.closest('button')) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    setFocusMode((e.clientX - rect.left) < rect.width / 2 ? 'events' : 'animation');
+  }, []);
   // item 138: attach to zone (not track) so playhead and click target span full zone height
   const animZoneRef = useRef(null);
   const animRafRef = useRef(null);  // item 192: rAF throttle for anim scrub
@@ -968,8 +994,8 @@ export default function DoubleTimeline({
   const activeStep = currentStepData || steps[currentStep] || null;
   const eventTitle = activeStep
     ? [
+      `Event ${activeStep.stepId ?? currentStep}`,   // item 305: Event number first
       activeStep.prime != null ? `Prime ${activeStep.prime}` : null,
-      `Event ${activeStep.stepId ?? currentStep}`,
       activeStep.operation || null,
     ].filter(Boolean).join(' | ')
     : 'Event timeline';
@@ -1039,7 +1065,7 @@ export default function DoubleTimeline({
   return (
     <div
       ref={containerRef}
-      className={`double-timeline${isCollapsed ? ' dtl-collapsed' : ''}${isDetailPanelFloating ? ' dtl-panel-floating' : ''}${isTimelineUndocked ? ' dtl-timeline-undocked' : ''}${!isTimelineUndocked ? ' dtl-undock-enabled' : ''}${focusMode === 'events' ? ' dtl-focus-events' : ' dtl-focus-animation'}`}
+      className={`double-timeline${isCollapsed ? ' dtl-collapsed' : ''}${isDetailPanelFloating ? ' dtl-panel-floating' : ''}${isTimelineUndocked ? ' dtl-timeline-undocked' : ''}${!isTimelineUndocked ? ' dtl-undock-enabled' : ''}${focusMode === 'events' ? ' dtl-focus-events' : ' dtl-focus-animation'}${navDir ? ` dtl-nav-${navDir}` : ''}`}
       style={containerStyle}
       onPointerDown={handleContainerPointerDown}
     >
@@ -1108,6 +1134,7 @@ export default function DoubleTimeline({
         <div
           className="dtl-zone dtl-center-zone"
           onPointerDown={handleDividerPointerDown}
+          onClick={handleCenterZoneClick}
           title="Drag left/right to resize · Drag up/down to expand/collapse detail panel"
         >
           <div className="dtl-transport">

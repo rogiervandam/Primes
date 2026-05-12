@@ -1,4 +1,5 @@
 import React, { useMemo, useCallback, useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { BIT_LAYOUTS, BYTE_LAYOUTS, bitToNumber } from './SieveRenderer';
 import { formatNs } from './TimingPanel';
 import { useDragResize } from './hooks/interactions';
@@ -568,7 +569,7 @@ export default function DetailPanel({
           </div>
         ))}
       </div>
-      {maskPopoverOpen && (
+      {maskPopoverOpen && createPortal(
         <div
           className="mask-popover-backdrop"
           style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -614,7 +615,7 @@ export default function DetailPanel({
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </>
   ) : <span className="detail-empty">-</span>;
 

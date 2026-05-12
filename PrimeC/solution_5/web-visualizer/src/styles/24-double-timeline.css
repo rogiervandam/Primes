@@ -14,10 +14,11 @@
   overflow: visible;
   background: transparent;
   /* Smooth movement when detail panel opens/closes and when events/settings panels toggle */
-  /* item 297: use standard ease-out (0.4, 0, 0.2, 1) for left/right so the transition is
-     gradual and consistent instead of the aggressive fast-start easing that looked like 2 snaps */
-  transition: left 220ms cubic-bezier(0.4, 0, 0.2, 1),
-              right 220ms cubic-bezier(0.4, 0, 0.2, 1),
+  /* item 297: match the events-panel collapse easing so both move in sync and look like one motion.
+     item 312: using the same cubic-bezier(0.22, 0.61, 0.36, 1) as the events panel removes the
+     '2 snaps' artefact that came from different easing curves. */
+  transition: left 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              right 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
               bottom 300ms cubic-bezier(0.34, 1.2, 0.64, 1);
 }
 
@@ -58,29 +59,31 @@
   align-self: stretch;  /* wave/anim zones fill the full strip height */
 }
 
-/* LEFT — waveform; item 242: blurry glassmorphism (matching title/annotation bars) */
+/* LEFT — waveform; item 242: blurry glassmorphism; item 314: greyscale (no blue tint) */
 .dtl-wave-zone {
   cursor: pointer;
-  background: rgba(14, 27, 46, 0.65);
+  background: rgba(20, 20, 20, 0.65);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 /* item 292: fade left outer edge — pseudo-element so vertical playhead overflow is unaffected */
+/* item 314: greyscale gradient to match greyscale zone background */
 .dtl-wave-zone::before {
   content: '';
   position: absolute;
   top: 0; bottom: 0; left: 0; width: 12px;
-  background: linear-gradient(to right, rgba(14, 27, 46, 0.65) 0%, transparent 100%);
+  background: linear-gradient(to right, rgba(20, 20, 20, 0.65) 0%, transparent 100%);
   pointer-events: none;
   z-index: 2;
 }
 /* item 291: active area — inset past the toggle button on the left */
+/* item 315: also inset right by 6px so the playhead stops before entering the dragger */
 .dtl-wave-active-area {
   position: absolute;
   top: 0;
   bottom: 0;
   left: var(--dtl-edge-inset, 30px);
-  right: 0;
+  right: 6px;
 }
 .dtl-wave-canvas {
   position: absolute;
@@ -169,11 +172,12 @@
   cursor: grabbing;
 }
 /* item 179: solid header when undocked (top of the floating panel) */
+/* item 316: floating — keep glass look (transparent + blur) so the widget looks cohesive */
 .double-timeline.dtl-timeline-undocked .dtl-event-title-bar {
-  background: rgba(14, 27, 46, 0.92);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 10, 10, 0.45);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   pointer-events: auto;
   cursor: grab;
 }
@@ -209,11 +213,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* item 316: floating annotation — transparent glass, same as docked */
 .double-timeline.dtl-timeline-undocked .dtl-annotation-bar {
-  background: rgba(14, 27, 46, 0.75);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(10, 10, 10, 0.35);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 /* item 169/171: title bar always visible — not hidden when collapsed */
 /* (do NOT add display:none for .dtl-collapsed .dtl-event-title-bar) */
@@ -230,30 +235,33 @@
   align-self: center;         /* keep the dragger vertically centered with both timeline rows */
   height: 44px;               /* slightly taller than timeline strip */
   overflow: visible;          /* item 158: don't clip children */
-  /* item 296: glassy, lickable feel — gradient glass panel */
+  /* item 308: glassy look with a touch of red — dark red-tinted glass */
   background: linear-gradient(
     180deg,
-    rgba(48, 68, 100, 0.82) 0%,
-    rgba(20, 38, 65, 0.92) 50%,
-    rgba(10, 22, 42, 0.97) 100%
+    rgba(72, 28, 32, 0.86) 0%,
+    rgba(36, 12, 16, 0.94) 50%,
+    rgba(16, 5, 7, 0.98) 100%
   );
   backdrop-filter: blur(18px) saturate(180%);
   -webkit-backdrop-filter: blur(18px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  /* item 308: subtle red-tinted border */
+  border: 1px solid rgba(255, 80, 80, 0.22);
   border-radius: 15px;        /* item 127: rounded corners on the raised tab */
-  padding: 25px 15px;
+  /* item 313: extra horizontal padding extends the grab area ~20px each side */
+  padding: 25px 35px;
   cursor: move;
+  /* item 313: negative margin makes the dragger overlap the side zones, closing the gap */
+  margin-inline: -20px;
   min-width: 184px;           /* wider so left/right drag handles are clearer */
   z-index: 5;                 /* item 202: above title bar (z-index:4) so rounded top/bottom corners are not clipped */
-  /* item 296: deep shadow + inner edge highlight for depth */
+  /* item 308: red-tinted deep shadow */
   box-shadow:
     0 6px 32px rgba(0, 0, 0, 0.55),
-    0 2px 8px rgba(0, 0, 0, 0.35),
-    0 1px 0 rgba(255, 255, 255, 0.10) inset,
+    0 2px 8px rgba(80, 0, 0, 0.30),
+    0 1px 0 rgba(255, 120, 120, 0.12) inset,
     0 -1px 0 rgba(0, 0, 0, 0.25) inset;
   transition: background 180ms, border-color 180ms, box-shadow 180ms, backdrop-filter 180ms;
   touch-action: none;         /* item 142: allow pointer drag on touch devices */
-  width: 900px;
 }
 /* item 296: top-edge highlight simulates reflected light */
 .dtl-center-zone::before {
@@ -282,22 +290,22 @@
 .dtl-center-zone:hover {
   background: linear-gradient(
     180deg,
-    rgba(60, 88, 135, 0.88) 0%,
-    rgba(28, 52, 90, 0.95) 50%,
-    rgba(14, 30, 58, 0.98) 100%
+    rgba(90, 36, 40, 0.92) 0%,
+    rgba(48, 16, 22, 0.97) 50%,
+    rgba(22, 7, 10, 0.99) 100%
   );
-  border-color: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 100, 100, 0.34);
   box-shadow:
     0 8px 40px rgba(0, 0, 0, 0.65),
-    0 3px 14px rgba(0, 0, 0, 0.45),
-    0 1px 0 rgba(255, 255, 255, 0.16) inset,
+    0 3px 14px rgba(80, 0, 0, 0.40),
+    0 1px 0 rgba(255, 140, 140, 0.18) inset,
     0 -1px 0 rgba(0, 0, 0, 0.30) inset;
 }
 .dtl-center-zone:active {
   background: linear-gradient(
     180deg,
-    rgba(30, 50, 80, 0.92) 0%,
-    rgba(14, 27, 50, 0.97) 50%,
+    rgba(40, 14, 16, 0.94) 0%,
+    rgba(20, 6, 8, 0.98) 50%,
     rgba(8, 18, 36, 0.99) 100%
   );
   box-shadow:
@@ -549,9 +557,9 @@
   to   { opacity: 1; box-shadow: 0 0 8px rgba(100, 180, 255, 0.6); }
 }
 
-/* RIGHT — animation scrubber; item 242: blurry glassmorphism (matching title/annotation bars) */
+/* RIGHT — animation scrubber; item 242: blurry glassmorphism; item 314: greyscale */
 .dtl-anim-zone {
-  background: rgba(14, 27, 46, 0.65);
+  background: rgba(20, 20, 20, 0.65);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   display: flex;
@@ -562,11 +570,12 @@
   position: relative;
 }
 /* item 292: fade right outer edge — pseudo-element so vertical playhead overflow is unaffected */
+/* item 314: greyscale gradient to match */
 .dtl-anim-zone::after {
   content: '';
   position: absolute;
   top: 0; bottom: 0; right: 0; width: 12px;
-  background: linear-gradient(to left, rgba(14, 27, 46, 0.65) 0%, transparent 100%);
+  background: linear-gradient(to left, rgba(20, 20, 20, 0.65) 0%, transparent 100%);
   pointer-events: none;
   z-index: 2;
 }
@@ -611,8 +620,9 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 0;
   /* item 291+: extra inset so 100% lands with room for the repeat handle + gap before settings toggle */
+  /* item 315: inset left by 6px so the playhead stops before entering the dragger */
+  left: 6px;
   right: 40px;
 }
 .dtl-anim-playhead {
@@ -676,7 +686,7 @@
   top: 0;
   left: 0;
   bottom: 0;
-  background: rgba(100, 180, 255, 0.22);
+  background: rgba(180, 180, 180, 0.20);  /* item 314: greyscale fill (was blue) */
   pointer-events: none;
   z-index: 0;
   transition: width 80ms linear;
@@ -838,18 +848,19 @@
 
 /* item 219: focus mode visual hint — highlighted zone, dimmed opposite zone */
 /* item 292: inset ring uses top+bottom lines only; side lines are invisible via the mask anyway */
+/* item 314: greyscale highlight — use white/grey instead of blue */
 .double-timeline.dtl-focus-events .dtl-wave-zone {
-  background: rgba(20, 40, 65, 0.95);
-  box-shadow: inset 0 1.5px 0 0 rgba(100, 180, 255, 0.35),
-              inset 0 -1.5px 0 0 rgba(100, 180, 255, 0.35);
+  background: rgba(45, 45, 45, 0.95);
+  box-shadow: inset 0 1.5px 0 0 rgba(255, 255, 255, 0.30),
+              inset 0 -1.5px 0 0 rgba(255, 255, 255, 0.30);
 }
 .double-timeline.dtl-focus-events .dtl-anim-zone {
   opacity: 0.65;
 }
 .double-timeline.dtl-focus-animation .dtl-anim-zone {
-  background: rgba(20, 40, 65, 0.95);
-  box-shadow: inset 0 1.5px 0 0 rgba(100, 180, 255, 0.35),
-              inset 0 -1.5px 0 0 rgba(100, 180, 255, 0.35);
+  background: rgba(45, 45, 45, 0.95);
+  box-shadow: inset 0 1.5px 0 0 rgba(255, 255, 255, 0.30),
+              inset 0 -1.5px 0 0 rgba(255, 255, 255, 0.30);
 }
 .double-timeline.dtl-focus-animation .dtl-wave-zone {
   opacity: 0.65;
@@ -895,4 +906,31 @@
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.45);
   white-space: nowrap;
+}
+
+/* item 306: slide-in animation when navigating between events */
+/* item 317: more pronounced shift — increased from 38px to 100px for a clearly visible swipe */
+@keyframes dtl-slide-from-right {
+  from { transform: translateX(100px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+@keyframes dtl-slide-from-left {
+  from { transform: translateX(-100px); opacity: 0; }
+  to   { transform: translateX(0);      opacity: 1; }
+}
+.double-timeline.dtl-nav-next .dtl-event-title-bar,
+.double-timeline.dtl-nav-next .dtl-annotation-bar {
+  animation: dtl-slide-from-right 230ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+.double-timeline.dtl-nav-prev .dtl-event-title-bar,
+.double-timeline.dtl-nav-prev .dtl-annotation-bar {
+  animation: dtl-slide-from-left 230ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+/* item 307: in light mode, use dark text for title and annotation */
+[data-theme="light"] .dtl-event-title-bar {
+  color: rgba(0, 0, 0, 0.85);
+}
+[data-theme="light"] .dtl-annotation-bar {
+  color: rgba(0, 0, 0, 0.70);
 }

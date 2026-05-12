@@ -126,11 +126,11 @@ export function useStepDisplayData({ steps, currentStep, selectedSteps, buildCom
         : '';
       return { idx, eventId, op, meta, bits, elapsedLabel };
     };
-    for (let off = -2; off <= -1; off++) {
+    for (let off = -3; off <= -1; off++) {   // item 309: 3 previous events
       const e = summarize(currentStep + off);
       if (e) out.prev.push(e);
     }
-    for (let off = 1; off <= 2; off++) {
+    for (let off = 1; off <= 4; off++) {    // item 309: 4 next events → 3+1+4 = 8 lines total
       const e = summarize(currentStep + off);
       if (e) out.next.push(e);
     }

@@ -29,12 +29,39 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 304 Fixed: When scrubbing events with the events panel open: (1) sometimes the event that is scrubbed to is hard to see because it is at the top or bottom of the opened list. Make it centralized in the list when scrubbing to it. (2) it should take max 1.5 seconds to go though the list. (3) when the events panel isn't showing the level of detail for the scrubbed to event, indicate to the user to which event in the panel is belongs.
 
-305 The title above the double timeline should start with the Event number and then the Prime number, instead of the other way around. This way users can quickly see which event they are on and then which prime number it corresponds to, which is more intuitive and useful for navigation.
+305 Fixed: The title above the double timeline should start with the Event number and then the Prime number, instead of the other way around. This way users can quickly see which event they are on and then which prime number it corresponds to, which is more intuitive and useful for navigation.
 
-306 When going to the next or previous event, Have the title and annotation animate left to right or right to left to let the user clearly see we are switching event, where it feels like the next events were on the right and the previous events were on the left. This way users can have a more visually engaging experience when navigating through events, and it can also help them maintain their spatial orientation in the interface. We can implement this by adding a CSS transition to the title and annotation elements, so that when they are updated with the new event information, they animate from their current position to the new position, creating a smooth left-to-right or right-to-left movement.
+306 Fixed: When going to the next or previous event, Have the title and annotation animate left to right or right to left to let the user clearly see we are switching event, where it feels like the next events were on the right and the previous events were on the left. This way users can have a more visually engaging experience when navigating through events, and it can also help them maintain their spatial orientation in the interface. We can implement this by adding a CSS transition to the title and annotation elements, so that when they are updated with the new event information, they animate from their current position to the new position, creating a smooth left-to-right or right-to-left movement.
 
+307 Fixed: In light mode, title and annotation text can be hard to read when they are on top of the white background. Use a black text in light mode. 
 
+308 Fixed: The central dragger should be the size it was before and should have a more glassy look, with a touch of red. 
 
+309 Fixed: The nearby events section should be as wide as the default events panel and should have 8 lines.
+
+310 Fixed: When i click on the left side of the dragger, activate the events mode, and if i click the right side of the dragger, activate the animation mode. 
+
+311 Fixed: When showing the mask modal from the detail panel, it should be in front of everything else, including the dragger and bit balloons, so users can focus on the mask details without distractions. We can achieve this by giving the mask modal a higher z-index than the other elements in the interface, ensuring that it appears on top of everything else when it is opened.
+
+312 Fixed: When opening the events panel, the double timeline doesn't smoothly transition to narrower, but seems to do it in 2 snaps. 
+
+313 Fixed: On the dragger, there should be more space on the let and the right to grab it, ca 20px on each side, so users can easily grab it without having to be super precise. Make the dragger wider by this amount. Also make it overlap the timelines a bit, because there are now some gaps visible between the timelines and the dragger, which looks a bit weird and also makes it harder to grab the dragger without being super precise. By making the dragger wider and overlapping the timelines, it will look more cohesive and also be easier to interact with.
+
+314 Fixed: Make the timeline not blue but some greyscaled.
+
+315 Fixed: The timelines should have a minor gap with the dragger, so that the playheads don't go into the dragger. 
+
+316 Fixed: When floating, the double timeline title and annotation should be transparent with a blurry background, the same as when docked. The floating double timeline should look more glass like.
+
+317 Fixed: The left-right movement in #306 should be a bit more pronounced, so users can better see the direction of movement, like a 50% shift to the left or right, instead of just a subtle 10% shift.
+
+318 When the double timeline is floating, i should be able to toggle the detail panel from the top bar (nothing happens now). When opening the detail panel with d, the nearby events are missing. 
+
+319 All panels and overlays should be in front of the balloons and their connectors. Currently, the settings panel, function timings are behind the connectors and/or balloons.
+
+320 When the animation or event timeline is inactive, it is too hard to read. Give it the same blurry background as the other  Make the inactive timeline more visible, and makethe active one more prominent, e.g. by having a short of highlight around it.
+
+321 The timeline 
 
 Giant features
 A Make it possible to open more than one trace at the same time, and switch between them with tabs in the top bar. This way users can compare different traces or work on multiple traces without having to close and reopen them.
