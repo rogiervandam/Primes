@@ -292,7 +292,10 @@ Fixed: Added `animAccumDeltaRef` in `DoubleTimeline.jsx`. During the drag-initia
 
 292 Fixed: Added `mask-image: linear-gradient(to right, transparent 0, black 10px)` to `.dtl-wave-zone` and `mask-image: linear-gradient(to left, transparent 0, black 10px)` to `.dtl-anim-zone`. The outer edges of each zone now fade from fully transparent to fully opaque over 10 px, blending the glassmorphism background smoothly into the canvas with no hard line. The focus-mode inset ring changed from `inset 0 0 0 1.5px` (full rectangle) to two `inset 0 ±1.5px 0 0` shadows (top + bottom only), removing any visible left/right highlight lines in focus mode.
 
-293 WHen extremely zoomed out, the touch order labels are placed wrong and completely outside the grid. From zoom level 2, just let the labels shrink with the grid and give up on having them readable and repositioning them. 
+293 Fixed: At `host.zoom < 2`, `VectorTouchOrderOverlay` now drops the minimum font-size clamp (labels scale down to 1 px if needed), reduces padding proportionally, and skips the 6-pass collision-avoidance loop entirely. Labels are placed at their natural slot-centred position and shrink with the grid, so they are never repositioned outside the visible area at extreme zoom-out.
+
+294 Fixed: `handleWavePointerMove` in `DoubleTimeline.jsx` now calls `setStepScrubProgress(0)` and `seekStepAnimation(0)` inside its RAF callback after each `goToStep`. Animation progress stays at 0% throughout an event-timeline drag, not just on the initial pointer-down.
+
 
 
 Giant features

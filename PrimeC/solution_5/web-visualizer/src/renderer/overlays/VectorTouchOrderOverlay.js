@@ -25,10 +25,15 @@ export class VectorTouchOrderOverlay {
     const maskIsNew = !!host.maskIsNew;
 
     const px = host.pixelSize * host.zoom;
-    const fontSize = Math.max(11, Math.min(20, 9 + px * 0.26));
-    const detailFont = Math.max(8, Math.min(13, 6 + px * 0.08));
-    const padX = Math.max(5, Math.min(11, px * 0.46));
-    const padY = Math.max(2, Math.min(6, px * 0.2));
+    // item 293/294: at zoom < 2, labels shrink purely in proportion to px so
+    // they never exceed the grid cell size.  No additive base constants and no
+    // minimum clamps — everything scales with the grid.  Collision avoidance
+    // is also skipped (see below) to keep labels in their natural positions.
+    const lowZoom = host.zoom < 2;
+    const fontSize = lowZoom ? Math.max(0.5, px * 0.9) : Math.max(11, Math.min(20, 9 + px * 0.26));
+    const detailFont = lowZoom ? Math.max(0.5, px * 0.7) : Math.max(8, Math.min(13, 6 + px * 0.08));
+    const padX = lowZoom ? Math.max(0, px * 0.3) : Math.max(5, Math.min(11, px * 0.46));
+    const padY = lowZoom ? Math.max(0, px * 0.15) : Math.max(2, Math.min(6, px * 0.2));
     const usedRects = [];
 
     // Canvas 2D context is always used for measurement (font metrics).
@@ -42,7 +47,9 @@ export class VectorTouchOrderOverlay {
       const tint = host._maskTintColor(entry.slotIndex);
       const groupBounds = host._maskEntryGroupBounds(entry);
       const slotWidth = entry.slot?.vecD?.w || groupBounds?.w || entry.bounds.w;
-      const maxBoxW = Math.max(28, Math.min(host.canvasWidth - 6, slotWidth * 2.5));
+      const maxBoxW = lowZoom
+        ? Math.min(host.canvasWidth - 2, slotWidth * 2.5)
+        : Math.max(28, Math.min(host.canvasWidth - 6, slotWidth * 2.5));
       ctx.font = `600 ${fontSize}px monospace`;
       const textWidth = ctx.measureText(label).width;
       ctx.font = `500 ${detailFont}px monospace`;
@@ -52,8 +59,10 @@ export class VectorTouchOrderOverlay {
       const annotation = host._truncateTextToWidth(ctx, eventLabel, Math.max(0, maxBoxW - padX * 2), `500 ${detailFont}px monospace`);
       const detailWidth = annotation ? ctx.measureText(annotation).width : 0;
       const boxW = Math.min(maxBoxW, Math.max(textWidth, detailWidth) + padX * 2);
-      const labelSize = host._fitLabelFontSize(ctx, label, Math.max(0, boxW - padX * 2), fontSize, 7, '600 ');
-      const detailSize = annotation ? host._fitLabelFontSize(ctx, annotation, Math.max(0, boxW - padX * 2), detailFont, 6, '500 ') : 0;
+      const minFontFit = lowZoom ? 0 : 7;
+      const minDetailFit = lowZoom ? 0 : 6;
+      const labelSize = host._fitLabelFontSize(ctx, label, Math.max(0, boxW - padX * 2), fontSize, minFontFit, '600 ');
+      const detailSize = annotation ? host._fitLabelFontSize(ctx, annotation, Math.max(0, boxW - padX * 2), detailFont, minDetailFit, '500 ') : 0;
       const showAnnotation = annotation && detailSize > 0;
       const boxH = (labelSize || fontSize) + padY * 2 + (showAnnotation ? detailSize + 3 : 0);
       const slot = entry.slot;
@@ -68,11 +77,14 @@ export class VectorTouchOrderOverlay {
       // Place the label box so its bottom edge is 2 px above the data area;
       // clamp so it never goes above y = boxH/2 + 2 (canvas top guard).
       let y = Math.max(boxH / 2 + 2, rowDataTop - boxH / 2 - 2);
-      for (let pass = 0; pass < 6; pass++) {
-        const collides = usedRects.some((rect) => !(x + boxW / 2 < rect.x || x - boxW / 2 > rect.x + rect.w || y + boxH / 2 < rect.y || y - boxH / 2 > rect.y + rect.h));
-        if (!collides) break;
-        y = Math.max(boxH / 2 + 2, y - (boxH + 4));
-        x = Math.max(boxW / 2 + 2, Math.min(candidateX + (pass % 2 === 0 ? -1 : 1) * (Math.ceil(pass / 2) * (boxW * 0.35)), host.canvasWidth - boxW / 2 - 2));
+      // item 293: skip collision avoidance at low zoom — just shrink with the grid
+      if (!lowZoom) {
+        for (let pass = 0; pass < 6; pass++) {
+          const collides = usedRects.some((rect) => !(x + boxW / 2 < rect.x || x - boxW / 2 > rect.x + rect.w || y + boxH / 2 < rect.y || y - boxH / 2 > rect.y + rect.h));
+          if (!collides) break;
+          y = Math.max(boxH / 2 + 2, y - (boxH + 4));
+          x = Math.max(boxW / 2 + 2, Math.min(candidateX + (pass % 2 === 0 ? -1 : 1) * (Math.ceil(pass / 2) * (boxW * 0.35)), host.canvasWidth - boxW / 2 - 2));
+        }
       }
       usedRects.push({ x: x - boxW / 2, y: y - boxH / 2, w: boxW, h: boxH });
 

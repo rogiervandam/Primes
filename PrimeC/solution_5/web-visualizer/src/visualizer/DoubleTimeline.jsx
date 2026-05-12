@@ -254,8 +254,11 @@ export default function DoubleTimeline({
       const { start: zStart, end: zEnd } = waveZoomRangeRef.current;
       const mappedFrac = zStart + frac * (zEnd - zStart);
       goToStep(Math.round(mappedFrac * (steps.length - 1)));
+      // item 294: keep animation progress at 0% while scrubbing events
+      setStepScrubProgress?.(0);
+      seekStepAnimation?.(0);
     });
-  }, [goToStep, steps.length]);
+  }, [goToStep, steps.length, setStepScrubProgress, seekStepAnimation]);
 
   // item 289: wheel zoom for the wave zone
   const handleWaveWheel = useCallback((e) => {
