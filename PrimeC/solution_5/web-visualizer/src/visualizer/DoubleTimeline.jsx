@@ -13,6 +13,30 @@ function hexToRgb(hex) {
   return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [180, 180, 180];
 }
 
+function parseInspectableUnitFromAnnotation(annotation) {
+  const text = String(annotation || '');
+  const patterns = [
+    { type: 'cacheline', label: 'cache line', regex: /\bcache\s*line\s*#?\s*(\d+)\b/i },
+    { type: 'cacheline', label: 'cacheline', regex: /\bcacheline\s*#?\s*(\d+)\b/i },
+    { type: 'byte', label: 'byte', regex: /\bbyte\s*#?\s*(\d+)\b/i },
+    { type: 'group', label: 'group', regex: /\bgroup\s*#?\s*(\d+)\b/i },
+    { type: 'uint32', label: 'uint32', regex: /\buint32\s*#?\s*(\d+)\b/i },
+    { type: 'uint64', label: 'uint64', regex: /\buint64\s*#?\s*(\d+)\b/i },
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern.regex);
+    if (!match) continue;
+    return {
+      type: pattern.type,
+      index: Number(match[1]),
+      title: `Inspect ${pattern.label} ${match[1]}`,
+    };
+  }
+
+  return null;
+}
+
 /**
  * DoubleTimeline — backlog items 120-125.
  *
@@ -81,6 +105,7 @@ export default function DoubleTimeline({
   // item 322/323: floater zone background and center dragger color
   floaterBg    = '#0a0a0a',
   draggerColor = '#481c20',
+  onInspectAnnotationUnit,
 }) {
   const {
     goToStep,
@@ -823,6 +848,7 @@ export default function DoubleTimeline({
   const canNavigate = stepCount > 0 && !exporting;
   const isInDelayPhase = delayPhaseMs > 0;
   const annotationText = currentStepData?.annotation || '';
+  const inspectableAnnotationUnit = useMemo(() => parseInspectableUnitFromAnnotation(annotationText), [annotationText]);
 
   // item 289: computed zoom-aware values for display in JSX
   const waveIsZoomed = waveZoomRange.start > 0.001 || waveZoomRange.end < 0.999;
@@ -1301,7 +1327,14 @@ export default function DoubleTimeline({
       <div className="dtl-annotation-row">
         {/* item 324: always reserve 2-line height; when empty, hide background */}
         {/* item 325: only the text slides; background stays fixed */}
-        <div className={`dtl-annotation-bar${annotationText ? '' : ' dtl-annotation-empty'}`} title={annotationText}>
+        <div
+          className={`dtl-annotation-bar${annotationText ? '' : ' dtl-annotation-empty'}${inspectableAnnotationUnit ? ' dtl-annotation-clickable' : ''}`}
+          title={inspectableAnnotationUnit ? `${annotationText}\n\n${inspectableAnnotationUnit.title}` : annotationText}
+          onClick={inspectableAnnotationUnit && onInspectAnnotationUnit ? (e) => {
+            e.stopPropagation();
+            onInspectAnnotationUnit({ type: inspectableAnnotationUnit.type, index: inspectableAnnotationUnit.index });
+          } : undefined}
+        >
           <span className="dtl-annotation-text">{annotationText}</span>
         </div>
         <div className="dtl-center-actions dtl-annotation-actions" onPointerDown={(e) => e.stopPropagation()}>

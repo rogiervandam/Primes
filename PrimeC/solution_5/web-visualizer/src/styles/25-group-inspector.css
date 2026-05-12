@@ -1,0 +1,335 @@
+/* ============================================================
+   GROUP INSPECTOR  (item 331)
+   Byte / uint32 / uint64 / cache-line detail inspector.
+   ============================================================ */
+
+/* Backdrop */
+.gi-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(0, 0, 0, 0.50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: gi-backdrop-in 140ms ease-out;
+}
+
+@keyframes gi-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Panel */
+.gi-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  max-width: 640px;
+  width: 100%;
+  max-height: 80vh;
+  overflow: hidden;
+  animation: gi-panel-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes gi-panel-in {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Header */
+.gi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.gi-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.gi-title-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fg-bright);
+}
+
+.gi-title-range {
+  font-size: 11px;
+  color: var(--fg-muted);
+  font-family: monospace;
+}
+
+.gi-close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--fg-muted);
+  font-size: 16px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.gi-close-btn:hover { color: var(--fg); background: var(--bg-raised); }
+
+/* Bit overview */
+.gi-bit-overview {
+  padding: 10px 16px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow: auto;
+}
+
+.gi-bit-overview-label {
+  font-size: 11px;
+  color: var(--fg-muted);
+  margin-bottom: 6px;
+}
+
+.gi-bit-overview-grid {
+  position: relative;
+  margin-bottom: 8px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  max-width: 100%;
+}
+
+.gi-bit-byte {
+  position: absolute;
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+}
+
+.gi-bit-cell-grid {
+  position: absolute;
+  display: block;
+}
+
+.gi-bit-cell {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+.gi-bit-changed {
+  background: rgba(39, 174, 96, 0.75);
+  border-color: rgba(39, 174, 96, 0.4);
+}
+
+.gi-bit-targeted {
+  background: rgba(245, 158, 11, 0.65);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.gi-bit-untouched {
+  background: color-mix(in srgb, var(--bg-input) 80%, transparent);
+}
+
+.gi-bit-legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 10px;
+  color: var(--fg-muted);
+}
+
+.gi-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Events section */
+.gi-events-section {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
+}
+
+.gi-events-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-muted);
+  padding: 8px 16px 4px;
+  flex-shrink: 0;
+}
+
+.gi-events-count {
+  color: var(--accent);
+}
+
+.gi-no-events {
+  padding: 16px;
+  color: var(--fg-muted);
+  font-style: italic;
+  font-size: 12px;
+}
+
+.gi-events-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 0 8px 12px;
+}
+
+/* Individual event row */
+.gi-event-row {
+  border: 1px solid var(--border-light);
+  border-radius: 7px;
+  padding: 10px 12px;
+  margin: 6px 0;
+  background: color-mix(in srgb, var(--bg-raised) 60%, transparent);
+}
+
+.gi-event-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  flex-wrap: wrap;
+}
+
+.gi-event-index {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fg-bright);
+}
+
+.gi-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.gi-tag.prime-tag {
+  background: var(--prime-bg, #2a4a2a);
+  color: var(--prime-fg, #7be87b);
+}
+
+.gi-tag.op-tag {
+  background: var(--op-bg, #2a3a4a);
+  color: var(--op-fg, #7bb8e8);
+}
+
+.gi-goto-btn {
+  margin-left: auto;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 12px;
+  padding: 2px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.gi-goto-btn:hover { background: var(--accent); color: #fff; }
+
+.gi-event-annotation {
+  font-size: 11px;
+  color: var(--fg-muted);
+  font-style: italic;
+  margin-bottom: 5px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.gi-event-bits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+  margin-bottom: 6px;
+  font-family: monospace;
+}
+
+.gi-bits-changed {
+  color: rgba(39, 174, 96, 0.9);
+}
+
+.gi-bits-targeted {
+  color: rgba(245, 158, 11, 0.9);
+}
+
+/* Mask display within event row */
+.gi-mask-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.gi-mask-slots {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.gi-mask-slot-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.gi-mask-slot-label {
+  font-size: 9px;
+  color: var(--fg-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.gi-mask-scaler {
+  border-radius: 4px;
+  border: 1px solid var(--border-light);
+}
+
+.gi-mask-text {
+  font-size: 10px;
+  color: var(--fg-muted);
+  font-family: monospace;
+  align-self: center;
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+}
+
+.gi-mask-label {
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.gi-mask-vals {
+  color: var(--fg-muted);
+}
+
+/* Clickable index rows in bit-history balloon */
+.bit-index-row-clickable {
+  cursor: pointer;
+}
+
+.bit-index-row-clickable:hover td {
+  color: var(--accent);
+}
+
+.bit-index-row-clickable td:last-child::after {
+  content: ' ↗';
+  font-size: 9px;
+  opacity: 0.6;
+}

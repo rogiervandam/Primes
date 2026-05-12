@@ -20,6 +20,7 @@ import React, { forwardRef } from 'react';
  * @param {function} props.onClose          Called when the close button is clicked (pinned only).
  * @param {function} props.onHistoryClick   Called with `(stepIndex)` when a history row is clicked.
  * @param {string}   props.keyPrefix        Used to namespace `<tr key>` attributes for history rows.
+ * @param {function} props.onInspectUnit    Called with `{type, index}` when an index row is clicked (item 331).
  */
 const BitHistoryBalloon = forwardRef(function BitHistoryBalloon({
   info,
@@ -32,6 +33,7 @@ const BitHistoryBalloon = forwardRef(function BitHistoryBalloon({
   onClose,
   onHistoryClick,
   keyPrefix,
+  onInspectUnit,
 }, ref) {
   if (!info) return null;
   const bi = info.bitIndex;
@@ -61,10 +63,29 @@ const BitHistoryBalloon = forwardRef(function BitHistoryBalloon({
           <tbody>
             <tr><td>Bit</td><td>{bi}</td></tr>
             <tr><td>Number</td><td>{info.number}</td></tr>
-            <tr><td>uint8 (byte)</td><td>byte #{byteIdx}, bit {bitInByte}</td></tr>
-            <tr><td>uint32</td><td>word #{u32Idx}, bit {bitInU32}</td></tr>
-            <tr><td>uint64</td><td>qword #{u64Idx}, bit {bitInU64}</td></tr>
-            <tr><td>Cache line</td><td>#{clIdx} ({cachelineSize}B)</td></tr>
+            {onInspectUnit ? (
+              <>
+                <tr className="bit-index-row-clickable" title="Inspect byte" onClick={() => onInspectUnit({ type: 'byte', index: byteIdx })}>
+                  <td>uint8 (byte)</td><td>byte #{byteIdx}, bit {bitInByte}</td>
+                </tr>
+                <tr className="bit-index-row-clickable" title="Inspect uint32" onClick={() => onInspectUnit({ type: 'uint32', index: u32Idx })}>
+                  <td>uint32</td><td>word #{u32Idx}, bit {bitInU32}</td>
+                </tr>
+                <tr className="bit-index-row-clickable" title="Inspect uint64" onClick={() => onInspectUnit({ type: 'uint64', index: u64Idx })}>
+                  <td>uint64</td><td>qword #{u64Idx}, bit {bitInU64}</td>
+                </tr>
+                <tr className="bit-index-row-clickable" title="Inspect cache line" onClick={() => onInspectUnit({ type: 'cacheline', index: clIdx })}>
+                  <td>Cache line</td><td>#{clIdx} ({cachelineSize}B)</td>
+                </tr>
+              </>
+            ) : (
+              <>
+                <tr><td>uint8 (byte)</td><td>byte #{byteIdx}, bit {bitInByte}</td></tr>
+                <tr><td>uint32</td><td>word #{u32Idx}, bit {bitInU32}</td></tr>
+                <tr><td>uint64</td><td>qword #{u64Idx}, bit {bitInU64}</td></tr>
+                <tr><td>Cache line</td><td>#{clIdx} ({cachelineSize}B)</td></tr>
+              </>
+            )}
           </tbody>
         </table>
       </div>

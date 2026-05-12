@@ -215,6 +215,12 @@
   text-overflow: ellipsis;
   position: relative;  /* item 325: contain absolute positioned text */
 }
+.dtl-annotation-bar.dtl-annotation-clickable {
+  cursor: pointer;
+}
+.dtl-annotation-bar.dtl-annotation-clickable:hover {
+  background: color-mix(in srgb, var(--bg-raised, rgba(255,255,255,0.08)) 45%, transparent);
+}
 /* item 324: when annotation is empty, don’t show a visible background */
 .dtl-annotation-bar.dtl-annotation-empty {
   -webkit-backdrop-filter: none;

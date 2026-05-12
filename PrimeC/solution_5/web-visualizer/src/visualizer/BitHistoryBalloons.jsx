@@ -104,6 +104,7 @@ function BitHistoryBalloons({
   currentStep,
   onUnpin,
   onHistoryClick,
+  onInspectUnit,
 }) {
   const balloonRefs = useRef(new Map());
   const [measuredBoxes, setMeasuredBoxes] = useState({});
@@ -203,6 +204,7 @@ function BitHistoryBalloons({
             onClose={() => onUnpin(bi)}
             onHistoryClick={onHistoryClick}
             keyPrefix="locked"
+            onInspectUnit={onInspectUnit}
           />
         );
       })}
@@ -224,6 +226,7 @@ function BitHistoryBalloons({
             currentStep={currentStep}
             onHistoryClick={onHistoryClick}
             keyPrefix="hover"
+            onInspectUnit={onInspectUnit}
           />
         );
       })()}

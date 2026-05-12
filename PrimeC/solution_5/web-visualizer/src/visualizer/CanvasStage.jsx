@@ -85,6 +85,14 @@ function CanvasStage({
     benchmarkTimingData: overlay.benchmarkTimingData,
     benchmarkTimingFileName: overlay.benchmarkTimingFileName,
     isSingleEventWidgetRevealed,
+    // item 331: group inspector
+    groupInspectorUnit: overlay.groupInspectorUnit,
+    groupInspectorEffectiveGroupBits: overlay.groupInspectorEffectiveGroupBits,
+    groupInspectorStorageModel: overlay.groupInspectorStorageModel,
+    groupInspectorWheelDefinition: overlay.groupInspectorWheelDefinition,
+    groupInspectorBitLayout: overlay.groupInspectorBitLayout,
+    groupInspectorByteLayout: overlay.groupInspectorByteLayout,
+    groupInspectorBitCount: overlay.groupInspectorBitCount,
   };
 
   const overlayHandlers = {
@@ -104,6 +112,9 @@ function CanvasStage({
     setIsTimingPanelOpen: overlay.setIsTimingPanelOpen,
     setTimingFocusOp: overlay.setTimingFocusOp,
     onImportBenchmarkTiming: overlay.onImportBenchmarkTiming,
+    // item 331: group inspector handlers
+    openGroupInspector: overlay.openGroupInspector,
+    closeGroupInspector: overlay.closeGroupInspector,
   };
 
   return (

@@ -166,7 +166,26 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
     onExternalOpFilterConsumed,
     onShowEventTitle,
     onEnableRepeat,   // item 215: click event → enable repeat
+    onInspectAnnotationUnit,
   } = eventsHandlers;
+
+  const parseInspectableUnitFromAnnotation = useCallback((annotation) => {
+    const text = String(annotation || '');
+    const patterns = [
+      { type: 'cacheline', label: 'cache line', regex: /\bcache(?:\s*line|line)\s*#?\s*(\d+)\b/i },
+      { type: 'byte', label: 'byte', regex: /\bbyte\s*#?\s*(\d+)\b/i },
+      { type: 'group', label: 'group', regex: /\bgroup\s*#?\s*(\d+)\b/i },
+      { type: 'uint32', label: 'uint32', regex: /\buint32\s*#?\s*(\d+)\b/i },
+      { type: 'uint64', label: 'uint64', regex: /\buint64\s*#?\s*(\d+)\b/i },
+    ];
+
+    for (const pattern of patterns) {
+      const match = text.match(pattern.regex);
+      if (!match) continue;
+      return { type: pattern.type, index: Number(match[1]), title: `Inspect ${pattern.label} ${match[1]}` };
+    }
+    return null;
+  }, []);
   const {
     goToStep,
     playing,
@@ -969,8 +988,20 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
                 ((hasHiddenDescendants || (hasChildren && isNodeCollapsed))
                   ? node.aggregateStepIndices?.reduce((acc, idx) => acc ?? stepAnnotationMap.get(idx) ?? null, null) ?? null
                   : null);
+              const inspectableUnit = displayAnnotation ? parseInspectableUnitFromAnnotation(displayAnnotation) : null;
               return displayAnnotation
-                ? <span className="event-annotation" title={displayAnnotation}>{displayAnnotation}</span>
+                ? (
+                  <span
+                    className={`event-annotation${inspectableUnit ? ' event-annotation-clickable' : ''}`}
+                    title={inspectableUnit ? `${displayAnnotation}\n\n${inspectableUnit.title}` : displayAnnotation}
+                    onClick={inspectableUnit && onInspectAnnotationUnit ? (e) => {
+                      e.stopPropagation();
+                      onInspectAnnotationUnit({ type: inspectableUnit.type, index: inspectableUnit.index });
+                    } : undefined}
+                  >
+                    {displayAnnotation}
+                  </span>
+                )
                 : null;
             })()}
           </span>
@@ -982,7 +1013,7 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
         )}
       </div>
     );
-  }, [selectedSteps, ancestorStepIndices, collapsed, handleStepClick, toggleGroup, onStepClick, onMultiStepSelect, stepAnnotationMap]);
+  }, [selectedSteps, ancestorStepIndices, collapsed, handleStepClick, toggleGroup, onStepClick, onMultiStepSelect, onInspectAnnotationUnit, parseInspectableUnitFromAnnotation, stepAnnotationMap]);
 
   // Resize with scroll preservation
   const handleMouseDown = useCallback((e) => {

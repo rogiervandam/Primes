@@ -113,7 +113,7 @@ export default function VisualizerMainContent(props) {
   const { expandEventsPanel: expandEventsPanelFromWidget, dockEventsToTopBar: dockEventsWidgetToTopBar, dockEventsToDetail: dockEventsWidgetToDetailPanel, pushEventsToPanel: pushJoinedWidgetToEventsPanel, pushEventsToDetail: pushJoinedWidgetToDetailPanel, hideJoined: hideJoinedWidget, split: splitWidgets, join: joinWidgets, setPendingDragStart: setPendingBannerDragStart, toggleAllEventsFloater, isAllEventsInDetailPanel, toggleSingleEventSlider, isSingleEventSliderInPanel } = widgetHandlers;
 
   // Overlays
-  const { balloons: overlayBalloons = {}, heatMap: overlayHeatMap = {}, cache: overlayCache = {}, prime: overlayPrime = {}, range: overlayRange = {}, multiples: overlayMultiples = {}, minimap: overlayMinimap = {} } = overlays;
+  const { balloons: overlayBalloons = {}, heatMap: overlayHeatMap = {}, cache: overlayCache = {}, prime: overlayPrime = {}, range: overlayRange = {}, multiples: overlayMultiples = {}, minimap: overlayMinimap = {}, groupInspector: overlayGroupInspector = {} } = overlays;
   const { pinnedIndices: pinnedBitIndices, hoveredBitInfo, liveLayout: balloonLiveLayout, cachelineSize, handlers: balloonHandlers = {} } = overlayBalloons;
   const { setPinnedIndices: setPinnedBitIndices, computeBitInfo, getVisibleStyles: getVisibleBalloonStyles } = balloonHandlers;
   const { isEnabled: isHeatMapEnabled, handlers: heatMapHandlers = {} } = overlayHeatMap;
@@ -128,6 +128,9 @@ export default function VisualizerMainContent(props) {
   const { setEnabled: setIsMultiplesOverlayEnabled, setPrime: setMultiplesOverlayPrime, onToggle: onMultiplesOverlayToggle, onReset: onMultiplesOverlayReset } = multiplesHandlers;
   const { isVisible: isMinimapVisible, handlers: minimapHandlers = {} } = overlayMinimap;
   const { setVisible: setIsMinimapVisible } = minimapHandlers;
+  // item 331: group inspector
+  const { unit: groupInspectorUnit, effectiveGroupBits: groupInspectorEffectiveGroupBits, storageModel: groupInspectorStorageModel, wheelDefinition: groupInspectorWheelDefinition, bitLayout: groupInspectorBitLayout, byteLayout: groupInspectorByteLayout, bitCount: groupInspectorBitCount, handlers: groupInspectorHandlers = {} } = overlayGroupInspector;
+  const { open: openGroupInspector, close: closeGroupInspector } = groupInspectorHandlers;
 
   // Detail Inspector
   const { isOpen: isDetailInspectorOpen, mode: detailInspectorMode, query: detailInspectorQuery, rows: detailInspectorRows, filteredRows: filteredDetailInspectorRows, handlers: detailInspectorHandlers = {} } = detailInspector;
@@ -169,10 +172,11 @@ export default function VisualizerMainContent(props) {
     onExternalOpFilterConsumed: () => setTimingFocusOp(''),
     onShowEventTitle: showEventTitleAboveCurrentDetail,
     onEnableRepeat: enableRepeat,
+    onInspectAnnotationUnit: openGroupInspector,
   }), [handleStepSelection, handleMultiStepSelect, setPanelWidth,
       expandEventsPanelFromWidget, dockEventsWidgetToTopBar,
       dockEventsWidgetToDetailPanel, joinWidgets,
-      setTimingFocusOp, showEventTitleAboveCurrentDetail, enableRepeat]);
+      setTimingFocusOp, showEventTitleAboveCurrentDetail, enableRepeat, openGroupInspector]);
 
   return (
     <div
@@ -258,6 +262,16 @@ export default function VisualizerMainContent(props) {
           benchmarkTimingFileName,
           setTimingFocusOp,
           onImportBenchmarkTiming,
+          // item 331: group inspector
+          groupInspectorUnit,
+          groupInspectorEffectiveGroupBits,
+          groupInspectorStorageModel,
+          groupInspectorWheelDefinition,
+          groupInspectorBitLayout,
+          groupInspectorByteLayout,
+          groupInspectorBitCount,
+          openGroupInspector,
+          closeGroupInspector,
         }}
         intro={{
           introPhase,
@@ -346,6 +360,7 @@ export default function VisualizerMainContent(props) {
           totalDetailHeight={totalDetailHeight}
           onToggleDetail={toggleDetailPanel}
           onDetailHeightChange={updateDetailHeight}
+          onInspectAnnotationUnit={openGroupInspector}
           {...doubleTimelineProps}
         />
       )}

@@ -363,6 +363,14 @@
   white-space: nowrap;
 }
 
+.event-annotation-clickable {
+  cursor: pointer;
+}
+
+.event-annotation-clickable:hover {
+  color: var(--accent);
+}
+
 /* Resize handle */
 .resize-handle {
   position: absolute;

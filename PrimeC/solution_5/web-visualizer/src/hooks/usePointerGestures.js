@@ -36,6 +36,7 @@ export function usePointerGestures({
   globalPausedRef,
   cancelViewportAnimation,
   collapseSettingsIfOpen,
+  onInspectCanvasUnit,
 }) {
   // Cinematic fly-to on element click (in 3D mode)
   const flyToElement = useCallback((bitIdx) => {
@@ -133,6 +134,42 @@ export function usePointerGestures({
     };
     panAnimRef.current = requestAnimationFrame(tick);
   }, [cancelViewportAnimation, getMinimapDetailH, scheduleBalloonRelayout, updateMinimapAvailability]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const hitTestCanvasLabelUnit = useCallback((renderer, canvasX, canvasY) => {
+    if (!renderer || typeof renderer._labelHeight !== 'function') return null;
+
+    const labelH = renderer._labelHeight();
+    const rowD = renderer._rowDims?.();
+    const vecD = renderer._vectorDims?.();
+    const u64GapX = renderer._u64GapX?.() ?? 0;
+    const u64GapY = renderer._u64GapY?.() ?? 0;
+    const vecPerVRow = renderer._vectorGroupsPerVisualRow?.();
+    const numVec = renderer._numVectorsPerRow?.();
+    if (!rowD || !vecD || !Number.isFinite(vecPerVRow) || !Number.isFinite(numVec) || numVec <= 0 || vecPerVRow <= 0) return null;
+
+    const vRowHeight = labelH + rowD.h + u64GapY;
+    const relY = canvasY - renderer.panY;
+    if (relY < 0) return null;
+    const visualRow = Math.floor(relY / vRowHeight);
+    const yInRow = relY - visualRow * vRowHeight;
+    if (yInRow < 0 || yInRow > labelH) return null;
+
+    const relX = canvasX - renderer.panX;
+    if (relX < 0) return null;
+    const vectorStep = vecD.w + u64GapX;
+    const vectorInRow = Math.floor(relX / vectorStep);
+    if (vectorInRow < 0 || vectorInRow >= vecPerVRow) return null;
+
+    const vectorLeft = vectorInRow * vectorStep;
+    const vectorRight = vectorLeft + vecD.w;
+    if (relX < vectorLeft || relX > vectorRight) return null;
+
+    const globalVectorIndex = visualRow * vecPerVRow + vectorInRow;
+    const cachelineIndex = Math.floor(globalVectorIndex / numVec);
+    if (cachelineIndex < 0) return null;
+
+    return { type: 'group', index: globalVectorIndex };
+  }, []);
 
   // Mouse pan & zoom on canvas (with 3D rotation support)
   useEffect(() => {
@@ -590,6 +627,12 @@ export function usePointerGestures({
           return;
         }
         const coords = pointerDownCanvasCoords || eventToCanvasCoords(e);
+        const canvasLabelUnit = onInspectCanvasUnit ? hitTestCanvasLabelUnit(r, coords.x, coords.y) : null;
+        if (canvasLabelUnit) {
+          onInspectCanvasUnit(canvasLabelUnit);
+          clearInteraction();
+          return;
+        }
         const idx = r.canvasToBitIndex(coords.x, coords.y);
         if (idx >= 0) {
           const cam = camera3DRef.current;
@@ -730,5 +773,5 @@ export function usePointerGestures({
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('mouseleave', onMouseLeave);
     };
-  }, [computeBitInfo, flyToElement, panToElement2D, getCanvasPlaneMetrics, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout, schedulePostLayoutRefresh, areBalloonsEnabled, isBalloonClickEnabled, isBalloonHoverEnabled, seekStepAnimation]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [computeBitInfo, flyToElement, panToElement2D, getCanvasPlaneMetrics, getMinimapDetailH, updateMinimapAvailability, enableTiltAndResize, scheduleBalloonRelayout, schedulePostLayoutRefresh, areBalloonsEnabled, isBalloonClickEnabled, isBalloonHoverEnabled, seekStepAnimation, onInspectCanvasUnit, hitTestCanvasLabelUnit]); // eslint-disable-line react-hooks/exhaustive-deps
 }

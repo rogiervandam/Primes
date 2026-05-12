@@ -383,6 +383,11 @@ export default function Visualizer({
     scheduleBalloonRelayout,
   } = useBalloonLayout();
 
+  // item 331: group inspector — byte/uint32/uint64/cacheline detail panel
+  const [groupInspectorUnit, setGroupInspectorUnit] = useState(null);
+  const openGroupInspector = useCallback((unit) => setGroupInspectorUnit(unit), []);
+  const closeGroupInspector = useCallback(() => setGroupInspectorUnit(null), []);
+
   const {
     bitStateRef, bitStateCheckpointsRef, bitStateDirtyRef,
     selectedSteps, setSelectedSteps, selectedStepsRef,
@@ -1143,6 +1148,7 @@ export default function Visualizer({
     stepScrubProgressValueRef,
     globalPausedRef,
     cancelViewportAnimation,
+    onInspectCanvasUnit: openGroupInspector,
     // item 144: collapse the settings panel when the user clicks on the canvas
     collapseSettingsIfOpen: isSettingsCollapsed ? undefined : () => setIsSettingsCollapsed(true),
   });
@@ -1996,6 +2002,20 @@ export default function Visualizer({
           setPinnedIndices: setPinnedBitIndices,
           computeBitInfo,
           getVisibleStyles: getVisibleBalloonStyles,
+        },
+      },
+      // item 331: group inspector state & config
+      groupInspector: {
+        unit: groupInspectorUnit,
+        effectiveGroupBits,
+        storageModel,
+        wheelDefinition,
+        bitLayout: layoutSettings.bitLayout || '4x2',
+        byteLayout: layoutSettings.byteLayout || '4x2',
+        bitCount: header?.bitCount,
+        handlers: {
+          open: openGroupInspector,
+          close: closeGroupInspector,
         },
       },
       heatMap: {

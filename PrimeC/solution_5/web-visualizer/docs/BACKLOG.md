@@ -81,7 +81,46 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 330 Fixed: The event count and 0% progress are hidden behind the dragger. Move them a bit, so that the dragger is not above them.
 
-331 Create a byte/group/cacheline inspector. It should activate when clicking on the corresponding element in the bit balloon or clicking on the annotation that mentions a byte/group/cacheline. The inspector should show the bits in that byte/group/cacheline, and also show which events affected those bits and which mask they used, with which bits targeted. These mask musk be visually the same as the event masks displayed in the event detail panel, including the option to zoom in on them. This way users can have a more detailed and interactive way to explore the relationships between events, bits, and their corresponding bytes/groups/cachelines, and it can also help them gain deeper insights into the underlying patterns and behaviors in the sieve logs.
+331 DONE: Create a byte/group/cacheline inspector. It should activate when clicking on the corresponding element in the bit balloon or clicking on the annotation that mentions a byte/group/cacheline. The inspector should show the bits in that byte/group/cacheline, and also show which events affected those bits and which mask they used, with which bits targeted. These mask musk be visually the same as the event masks displayed in the event detail panel, including the option to zoom in on them. This way users can have a more detailed and interactive way to explore the relationships between events, bits, and their corresponding bytes/groups/cachelines, and it can also help them gain deeper insights into the underlying patterns and behaviors in the sieve logs.
+
+332 DONE: The inspector should report all events that targeted or changed one of the bits in the byte/group/cacheline, even if those events didn't change the state of the bit. All masks used should be shown, in the same arrangement as the layout of the grid, as in the detail panel. 
+
+333 DONE: For the bit overview, use the same arrangement as the layout of the grid, so that users can easily see which bits belong to which byte/group/cacheline, and it can also create a more cohesive and visually appealing design. 
+
+334 In settings: Rename "Annotations" to "Labels" to avoid confusion with the annotation text in the double timeline.
+
+335 After loading an before doing the 2d-3d transform, don't show but balloons when the users click, to avoid accidental clicks leading to balloons.
+
+336 if i drag the title to make the double timeline float, and release above a bit, it clicks on the bit and shows a balloon. When stopping a drag above a bit, don't register that as a click on the bit, to avoid showing balloons when users just want to stop dragging.
+
+337 The inspector model should be draggable and resizeable
+
+338 The inspector should highlight which mask was used on the element if the event had more than one mask. It should not only list the targeted bits, but also the changed bits. 
+
+339 The color of the text of labels (operations) in the events panel should have enough contrast with the background to be easily readable. If the current color doesn't have enough contrast, adjust it to a more contrasting color, or add a subtle text shadow to improve readability. This way users can easily read the labels in the events panel, regardless of the chosen color preset or custom colors, and it can also enhance the overall usability of the interface. Integrate this color in the color presets as well.
+
+340 The chart in the events timeline should be more readable by using white or black as a contrast color to the background. Make it a part of the color preset.
+
+341 When in float or docker mode, when i am over any element, like the title, annotation, floater background, timeline or dragger, don't fire any mouse clicks to the elements behind it, like the bits, groups, etc.
+
+342 The background of the timelines should have exactly the same blutty background as the title and annotation, to create a more cohesive and visually appealing design. It's probably best to use one blury background for the entire floater, including the title, annotation and timelines, so that they all share the same background and look like one cohesive unit. This way users can have a more immersive and visually pleasing experience when interacting with the double timeline, and it can also enhance the overall aesthetic of the interface.
+
+343 You are a color expert and UX designer. Make 8 new color presets that are visually appealing and have good contrast, including a light mode and a dark mode preset. Each preset should define the background color, text color, timeline colors, and floater background color. The presets should be designed to provide a visually pleasing and comfortable experience for users, while also ensuring that all elements are easily distinguishable and accessible.
+
+344 Unify the css/html of the square settings buttons for e.g. grid view, annotations and colors in one class to apply to all of them and html to use as a base so they are all uniform. Then make them look more glassy and visually appealing, with a nice hover effect and active state. This way users can have a more cohesive and visually appealing experience when interacting with the settings buttons, and it can also enhance the overall aesthetic of the interface.
+
+345 When zoomed into a timeline, help indicate that state making the timeline a bit larger (zoom level 1.2 or 1.3) and with a more prominent background, to make it clear that the timeline is zoomed in and to help users focus on the details of the timeline. This way users can have a more visually engaging experience when zooming into the timelines, and it can also enhance their ability to analyze and interpret the data presented in the timelines.
+
+346 In the events panel, when an active group is pinned at the top, make it more readable by giving it a blurry background.
+
+347 With the events panel open, window resizing is very laggy. 
+
+348 In the floater, the event number in the title should be a link to take you to the event in the events panel (open if its closed). The events panel should scroll to and then drill down to the appropriate group to reveal the event. 
+
+349 The nearby events section should have an upwards arrow to toggle the events panel. The events panel should slide in from the bottom when toggled from this arrow, instead of sliding in from the left. This way users can have a more intuitive and visually appealing experience when toggling the events panel from the nearby events section, and it can also help them maintain their spatial orientation in the interface. We can implement this by adding a toggle button with an upwards arrow icon in the nearby events section, and when it is clicked, the events panel slides in from the bottom of the screen instead of the left.
+
+
+
 
 
 
