@@ -8,14 +8,14 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
 
     // align to first full bucket
     logStart8(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "aligning to first full bucket starting from index %ju", (uintmax_t)start_number);
-    const counter_t next_aligned = min(getFactor( bitbucket_end_type(wheel_bit_estimate(start_number), bitbucket_t))+1, stop_number); // the next factor that is aligned to the wheel, this is the first index we can start marking from
+    const counter_t next_aligned = min(getFactor( bitbucket_end_type(wheel_bit_estimate_last(start_number), bitbucket_t))+1, stop_number); // the next factor that is aligned to the wheel, this is the first index we can start marking from
     for (; start_number <= next_aligned; start_number += step) {
         function(markFactor_wheelstorage,suffix)(sieve, start_number);
     }
     logStop8(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "finished aligning to first full bucket at index %ju", (uintmax_t)start_number);
 
     const counter_t stop_number_unique = min(stop_number, start_number + (((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits) * WHEEL_SIZE) * wheel_step);
-    const counter_t stop_number_unique2 = min(getFactor( bitbucket_end_type(wheel_bit_estimate(start_number) + wheel_step * wheelmask_stripe_bits * ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits), bitbucket_t)), stop_number);
+    const counter_t stop_number_unique2 = min(getFactor( bitbucket_end_type(wheel_bit_estimate_last(start_number) + wheel_step * wheelmask_stripe_bits * ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits), bitbucket_t)), stop_number);
 
     bitbucket_t current_mask = (bitbucket_t)0U, pending_mask = (bitbucket_t)0U;
     counter_t pending_bucket = 0, current_bucket = 0;
@@ -102,7 +102,7 @@ function(markFactors_wheelstorage_small_repeat_pair_v2,suffix)(sieve_t* sieve, c
     counter_t new_bucket = function(wheel_bucket_calc,variant_suffix)(start_number);
     counter_t wheel_index = start_number % WHEEL_SIZE; // the position in the wheel, which determines which bits to mark for each index. 
     counter_t wheel_base = wheelmask_stripe_bits * (start_number / WHEEL_SIZE); // the position where the wheel had a last reset
-    counter_t next_bucket_index = wheel_bit_estimate(bitbucket_end_type(start_number, bitbucket_t)); // the index of the next bucket change
+    counter_t next_bucket_index = wheel_bit_estimate_next(bitbucket_end_type(start_number, bitbucket_t)); // the index of the next bucket change
     
     // TODO: make a larger wheel and check if we stay within the wheel so we have to take lesser % and /
     logStart7(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_copy, "marking factors with step %3ju for prime %ju using markFactors_wheelstorage_small_repeat_pair_vector %s in %ju factor range (%ju-%ju) (%ju occurances; %ju repeats)", (uintmax_t)step, (uintmax_t)step/2, STR(suffix), (uintmax_t)safe_diff(stop_number,start_number),(uintmax_t)start_number,(uintmax_t)stop_number, (uintmax_t)((safe_diff(stop_number,start_number))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(stop_number,start_number))/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
@@ -114,7 +114,7 @@ function(markFactors_wheelstorage_small_repeat_pair_v2,suffix)(sieve_t* sieve, c
         {
             if (index > next_bucket_index) {
                 new_bucket = function(wheel_bucket_calc,variant_suffix)(index);
-                next_bucket_index = wheel_bit_estimate(bitbucket_end_type(start_number, bitbucket_t)); // the index of the next bucket change
+                next_bucket_index = wheel_bit_estimate_next(bitbucket_end_type(start_number, bitbucket_t)); // the index of the next bucket change
                 wheel_base = wheelmask_stripe_bits * (index / WHEEL_SIZE);
 
                 // if (wheel_bit <= 0) continue; // if the number is divisible by any of the wheel primes, skip it

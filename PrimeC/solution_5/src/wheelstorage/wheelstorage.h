@@ -19,17 +19,35 @@
         return (wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index];
     }
 
-    // wheel_bit_estimate returns the bit index for a given number index, and if it is divisible by any of the wheel primes, return the nearest that isn't
+    // wheel_bit_estimate_next returns the bit index for a given number index, and if it is divisible by any of the wheel primes, return the next nearest that isn't
     // used for trace and logging
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    wheel_bit_estimate(counter_t index) {
-        counter_t wheel_index = index % WHEEL_SIZE;
-        counter_t factor_start = wheelmask_stripe_bits * (index / WHEEL_SIZE);
-        for(; wheelmask_bitpoint[wheel_index] < 0 && wheel_index < WHEEL_SIZE; wheel_index++);
-        if (wheel_index <= WHEEL_SIZE) return (factor_start + wheelmask_bitpoint[wheel_index]);
-        factor_start += WHEEL_SIZE; // reached the end of the wheel, so we need to wrap around to the next repetition of the wheel
-        for(; wheelmask_bitpoint[wheel_index] < 0; wheel_index++);
-        return (factor_start + wheelmask_bitpoint[wheel_index] );
+    wheel_bit_estimate_next(counter_t number_index) {
+        counter_t wheel_index = number_index % WHEEL_SIZE;
+        return (wheelmask_stripe_bits * (number_index / WHEEL_SIZE)) + abs(wheelmask_bitpoint[wheel_index]);
+
+        // counter_t factor_start = wheelmask_stripe_bits * (number_index / WHEEL_SIZE);
+        // for(; wheelmask_bitpoint[wheel_index] < 0 && wheel_index < WHEEL_SIZE; wheel_index++);
+        // if (wheel_index < WHEEL_SIZE) return (factor_start + wheelmask_bitpoint[wheel_index]);
+        // factor_start += WHEEL_SIZE; // reached the end of the wheel, so we need to wrap around to the next repetition of the wheel
+        // for(wheel_index = 0; wheelmask_bitpoint[wheel_index] < 0; wheel_index++);
+        // return (factor_start + wheelmask_bitpoint[wheel_index] );
+    }
+
+    // wheel_bit_estimate_last returns the bit index for a given number index, and if it is divisible by any of the wheel primes, return the previous nearest that isn't
+    // used for trace and logging
+    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+    wheel_bit_estimate_last(counter_t number_index) {
+        counter_t wheel_index = number_index % WHEEL_SIZE;
+        if (wheelmask_bitpoint[wheel_index] < 0) return (wheelmask_stripe_bits * (number_index / WHEEL_SIZE)) - wheelmask_bitpoint[wheel_index] - 1;
+        return (wheelmask_stripe_bits * (number_index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index];
+
+        // counter_t factor_start = wheelmask_stripe_bits * (number_index / WHEEL_SIZE);
+        // for(; wheelmask_bitpoint[wheel_index] < 0 && wheel_index > 0; wheel_index--);
+        // if (wheel_index >= 0) return (factor_start + wheelmask_bitpoint[wheel_index]);
+        // factor_start -= WHEEL_SIZE; // reached the beginning of the wheel, so we need to wrap around to the previous repetition of the wheel
+        // for(wheel_index = WHEEL_SIZE-1; wheelmask_bitpoint[wheel_index] < 0; wheel_index--);
+        // return (factor_start + wheelmask_bitpoint[wheel_index] );
     }
 
     // returns the factor (real number) at a given bit index in the bitstorage
