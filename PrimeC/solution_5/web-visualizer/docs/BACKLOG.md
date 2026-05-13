@@ -6,6 +6,15 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 400 On startup don't show the double timeline until after the 2d-3d transform
 401 The inspector for byte/group/cacheline doesn't work realiably when i click the grid. It seems to be off by one or two cells, and sometimes it doesn't show up at all. This makes it hard to analyze the events and marked numbers accurately. I need to investigate why this is happening and fix the issue as soon as possible.
 402 on the settings - colors tab, the buttons to adjust the color stick to the bottom when scrolling the pane.
+403 On startup/reload in mode 5-8, i sometimes get the message: "WebGL2 with OffscreenCanvas is required for rendering", whilke it is available.
+404 Move the sources for panels into the visualizer folder, and import them from the right place. 
+405 Make a testcase to run after every change for console errors on startup and when loading a trace, to catch any issues with the rendering or data processing early on. This way we can ensure that the visualizer is working correctly and providing a good user experience.
+406 Update the AI-MAINTENANCE.md document with the latest refactor history and maintenance strategy. Remove any outdated information and add any new insights or best practices that we have learned during the refactor process. This way we can keep the document up-to-date and useful for future maintenance and development of the visualizer.
+407 Change the icons on the toggles for panels on the double timeline floater to the same icons as the ones in the top bar, to create a more consistent and intuitive user interface. This way users can easily recognize the purpose of each toggle and understand how to use them to show or hide the different panels on the double timeline.
+408 Split the sieveRenderer.js into multiple files based on the different rendering modes (1-4, 5-8, etc.) and the different components (canvas, inspector, etc.). This way we can organize the code better and make it easier to maintain and extend in the future. We can also reduce the size of each file and improve readability by separating the concerns and responsibilities of each part of the rendering logic. When possible, put simple function on one line: e.g. 
+_byteGapX() {  return this.layoutMetrics.byteGapX(); } to reduce the overall line count and make it easier to scan the code for important logic.
+408 The operation names in the events panel are hard to read. Use a darker color for the background of the text and a brighter color for the text itself, to improve the contrast and readability. This way users can easily identify the different operations and understand what is happening in each event without straining their eyes or getting confused by the colors.
+409 The zone background  doesn't seem to work and the zone opacity only influances a small area on the far left and right of the timelines. 
 
 
 

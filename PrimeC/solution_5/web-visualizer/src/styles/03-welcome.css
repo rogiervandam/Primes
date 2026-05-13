@@ -124,3 +124,74 @@
   font-size: 13px;
 }
 
+
+
+/* ---- Upload Prompt (merged from 21-upload-prompt.css) ---- */
+.upload-prompt-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.36);
+}
+
+.upload-prompt {
+  width: min(420px, 100%);
+  border: 1px solid var(--border-heavy);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--fg);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
+  padding: 16px;
+}
+
+.upload-prompt-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--fg-bright);
+  margin-bottom: 8px;
+}
+
+.upload-prompt-file {
+  min-height: 32px;
+  max-height: 96px;
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg-muted);
+  font: 12px/1.35 'Consolas', 'Menlo', monospace;
+  overflow-wrap: anywhere;
+}
+
+.upload-prompt-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.upload-prompt-actions button {
+  min-width: 96px;
+  border-radius: 6px;
+  border: 1px solid var(--border-heavy);
+  padding: 7px 12px;
+  color: var(--fg-bright);
+  cursor: pointer;
+}
+
+.upload-prompt-secondary {
+  background: var(--bg-input);
+}
+
+.upload-prompt-primary {
+  background: var(--accent-bg);
+  border-color: var(--accent-dim);
+}
+
+.upload-prompt-actions button:hover {
+  border-color: var(--accent);
+}

@@ -206,7 +206,14 @@ Adding `isDetailOpen`, `detailHeight` to `PanelLayoutContext` and `currentStep` 
 
 ---
 
-## Phase 3 — Streamline CSS (8183 → ~6500 lines)
+## Phase 3 — Streamline CSS (7728 → 7517 lines) ✅ DONE
+
+**Actual result:** CSS reduced from 7728 → 7517 lines (−211 net). 27 CSS files → 23 files.
+- 3.1: Added base classes (`.btn-icon`, `.btn-text`, `.btn`, `.btn-sm`, `.btn-primary`, `.btn-ghost`, `.btn-danger`, `.icon*`, `.chip`) to `23-components.css`
+- 3.2: Removed `.btn-icon.active` duplicate from `17-misc.css`
+- 3.3: Merged `08b-detail-compact.css` → `08-detail-panel.css`, `09-export-progress.css` → `23-components.css`, `16-settings-extras.css` → `10-settings.css`, `21-upload-prompt.css` → `03-welcome.css`; deleted 4 source files
+- 3.4: Split `17-misc.css`: FLY MODE BANNER → `07-canvas.css`; TIMING PANEL → new `26-timing-panel.css`; stray `event-filter-toggle` rules → `06-events-panel.css`; `17-misc.css` now contains only SEARCH OVERLAY
+- 3.5: Removed dead CSS from `07-canvas.css`: animation widget section (~285 lines including `animation-widget*`, `animation-option*`, `btn-anim-*`, `animation-cycle*`, `hover-info`), `joined-events-widget` step-focus references
 
 ### 3.1  Define Strong Base Classes in `23-components.css`
 

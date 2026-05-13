@@ -448,3 +448,113 @@
               opacity 180ms ease-in,
               visibility 0s linear 220ms;
 }
+
+
+/* ---- Settings Extras (merged from 16-settings-extras.css) ---- */
+/* ---- Settings Hint ---- */
+.settings-hint {
+  display: block;
+  font-size: 10px;
+  color: var(--fg-dim);
+  margin-top: 2px;
+  font-style: italic;
+}
+
+/* A label row with a checkbox and a text span, used in settings sections. */
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  cursor: pointer;
+  padding: 2px 0;
+}
+.settings-toggle-row input[type="checkbox"] { margin: 0; cursor: pointer; }
+.settings-toggle-row:hover { color: var(--fg); }
+
+/* ─── Per-event timing curve editor ─────────────────────────────────────── */
+
+.timing-curve-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Responsive SVG: fills the available column width. */
+.timing-curve-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+}
+
+/* Reset button sitting right-aligned next to the section title. */
+.timing-curve-reset-btn {
+  font-size: 10px;
+  padding: 1px 7px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-light);
+  border-radius: 3px;
+  color: var(--fg-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.timing-curve-reset-btn:hover {
+  background: var(--bg-input);
+  color: var(--fg-bright);
+}
+
+/* Min/Max clamp controls — side by side */
+.timing-clamp-row {
+  display: flex;
+  gap: 10px;
+}
+.timing-clamp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+.timing-clamp-label {
+  font-size: 10px;
+  color: var(--fg-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.timing-clamp-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.timing-clamp-input-row input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+.timing-clamp-input-row .val {
+  min-width: 38px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+
+/* ---- Layout description under layout icon buttons ---- */
+.layout-description {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  color: var(--fg-muted);
+  font-style: italic;
+  min-height: 1em;
+}
+
+.layout-description-grouping {
+  margin-bottom: 8px;
+}
+

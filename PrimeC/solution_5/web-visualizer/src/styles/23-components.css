@@ -119,3 +119,142 @@
   width: 22px;
   height: 22px;
 }
+
+/* ── Base button classes ──────────────────────────────────────────────────── */
+
+/* Generic icon button (borderless, becomes visible on hover).
+   Apply alongside a specific class that overrides colour/size as needed. */
+.btn-icon {
+  background: transparent;
+  border: 1px solid transparent;
+  font-size: 16px;
+  padding: 2px 6px;
+  color: var(--fg-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+}
+.btn-icon:hover { color: var(--fg-bright); border-color: var(--border-light); }
+.btn-icon.active { color: var(--fg-bright); border-color: var(--accent-dim); background: var(--accent-bg); }
+/* Prime overlay button uses a gold accent when active */
+.btn-icon.prime-overlay-btn { color: var(--prime-accent); border-color: var(--prime-accent-border); background: var(--prime-accent-bg); }
+.btn-icon.prime-overlay-btn:hover { color: var(--prime-accent-bright); border-color: var(--prime-accent-border-hover); background: var(--prime-accent-bg-hover); }
+.btn-icon svg { vertical-align: middle; }
+
+/* Generic text button (outlined, muted until hovered). */
+.btn-text {
+  background: transparent;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  padding: 2px 8px;
+  color: var(--fg-muted);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+}
+.btn-text:hover { color: var(--fg-bright); border-color: var(--border-heavy); }
+.btn-text.active { color: var(--fg-bright); border-color: var(--accent-dim); background: var(--accent-bg); }
+
+/* Small size modifier — combine with .btn-icon or .btn-text */
+.btn-sm { font-size: 12px; padding: 1px 4px; }
+
+/* Colour variants */
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-primary:hover { opacity: 0.88; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--fg-muted);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease-out, border-color 0.15s ease-out, color 0.15s ease-out;
+}
+.btn-ghost:hover { background: var(--bg-raised); color: var(--fg); border-color: var(--border); }
+
+.btn-danger {
+  background: var(--error-bg, #7f1d1d);
+  color: var(--error-fg, #fecaca);
+  border: none;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-danger:hover { filter: brightness(1.1); }
+
+/* ── SVG icon size helpers ────────────────────────────────────────────────── */
+.icon         { display: inline-block; vertical-align: middle; fill: currentColor; }
+.icon-sm      { width: 12px; height: 12px; }
+.icon-md      { width: 16px; height: 16px; }
+.icon-lg      { width: 20px; height: 20px; }
+
+/* ── Chip / badge ─────────────────────────────────────────────────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-raised) 86%, transparent);
+  color: var(--fg-dim);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* ── Export progress (merged from 09-export-progress.css) ────────────────── */
+/* ---- Export Progress ---- */
+.export-progress {
+  height: 3px;
+  background: var(--bg-raised);
+  flex-shrink: 0;
+}
+.export-progress-bar {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.1s linear;
+}
+.btn-export-cancel {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  min-width: 40px;
+}
+.btn-export-cancel:hover { opacity: 0.8; }
+
+/* Shown when video export is blocked by a hidden canvas. */
+.export-error-banner {
+  padding: 6px 14px;
+  background: var(--error-bg, #7f1d1d);
+  color: var(--error-fg, #fecaca);
+  font-size: 12px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+/* Shown when WebGL2 + OffscreenCanvas is unavailable (old browser). */
+.gl-unavailable-banner {
+  padding: 8px 14px;
+  background: var(--warning-bg, #78350f);
+  color: var(--warning-fg);
+  font-size: 12px;
+  flex-shrink: 0;
+  text-align: center;
+}
