@@ -848,3 +848,30 @@ Exit criteria:
 
 - baseline numbers stored in PR description or a temporary check file
 - smoke checklist agreed before touching architecture
+
+---
+
+## Backlog 400–407 — Bug fixes and housekeeping (2025-05)
+
+### Changes made
+
+| Item | File(s) | Change |
+|------|---------|--------|
+| 400 | `VisualizerMainContent.jsx` | Hide `DoubleTimeline` during intro transform by gating render on `introPhase === 'visible'`. Prevents the timeline strip from flashing over the 2D→3D tilt animation. |
+| 401 | `hooks/usePointerGestures.js` | Extended group-inspector hit zone from label strip only (`yInRow ≤ labelH`) to full visual row (label + cells: `yInRow ≤ labelH + rowD.h`). Clicking anywhere in the cell grid now opens the inspector, not just the thin label above each row. |
+| 402 | `styles/10-settings.css` | Added `position: relative` to `.color-label` so the `position: absolute` color input is contained within the scrollable settings pane. Without it the input was positioned relative to the sidebar and stayed fixed while the content scrolled. |
+| 403 | `hooks/useRendererBootstrap.js` | In the early return for `!glCanvas` (canvas transiently null during render-mode restarts), changed `setIsGlUnavailable(true)` → `setIsGlUnavailable(false)`. The old code triggered a false-positive WebGL2 unavailable banner on every mode switch in modes 5–8. The real unavailability check (after `gl.attach`) remains unchanged. |
+| 404 | Multiple | Moved `EventsPanel.jsx`, `DetailPanel.jsx`, `SettingsPanel.jsx`, `TimingPanel.jsx` from `src/` into `src/visualizer/`. Updated all relative imports: `Visualizer.jsx` → `./visualizer/xxx`; `VisualizerMainContent.jsx` + `CanvasOverlayManager.jsx` → local `./xxx` paths. Internal cross-imports inside the panel files updated (`./TimingPanel` stays same-directory; others use `../`). Also fixed `VisualizerMainContent.console.test.jsx` mock paths and added missing `PanelLayoutContext` mock to resolve pre-existing test failure. |
+| 405 | `visualizer/__tests__/Visualizer.console.test.jsx` | New test file that renders `Visualizer` in startup state and with a minimal loaded trace, asserting no unexpected `console.error`/`console.warn` calls. Filters the known SSR `useLayoutEffect` warning and absorbs `window`/`document` ReferenceErrors that are node-only artefacts. |
+| 406 | `docs/AI_MAINTENANCE.md` | This section. |
+| 407 | `visualizer/DoubleTimeline.jsx` | Replaced text glyphs `‹`/`›` on panel toggle buttons with `<PanelLeft>`/`<PanelRight>` SVG icons (size 13), matching the same controls in `ToolbarPanelToggles.jsx`. |
+
+### Maintenance notes
+
+**Panel file location**: Panel components (`EventsPanel`, `DetailPanel`, `SettingsPanel`, `TimingPanel`) now live in `src/visualizer/`. Do not create new panel files at `src/` root level.
+
+**`useRendererBootstrap.js` `!glCanvas` path**: The canvas ref is legitimately null for one render cycle during mode restarts. Any code in the early-return block must not flag GL as unavailable — reserve that for the real `gl.attach()` failure path below.
+
+**DoubleTimeline panel toggles**: Use `<PanelLeft size={13} />` and `<PanelRight size={13} />` (from `src/Icons.jsx`). The ToolbarPanelToggles uses size 15 for the same icons — both sizes are intentional (toolbar is larger).
+
+**Console test**: `Visualizer.console.test.jsx` is a canary test that should stay green. If it starts failing with unexpected `console.error` calls, the component has regressed. The test intentionally does NOT mock subcomponents (unlike `VisualizerMainContent.console.test.jsx`) so it catches errors from the full tree.

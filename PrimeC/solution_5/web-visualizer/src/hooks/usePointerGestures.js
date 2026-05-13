@@ -135,6 +135,10 @@ export function usePointerGestures({
     panAnimRef.current = requestAnimationFrame(tick);
   }, [cancelViewportAnimation, getMinimapDetailH, scheduleBalloonRelayout, updateMinimapAvailability]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // item 401: hit-test for clicking on a vector-group row (label area OR cell area).
+  // Previously only matched the thin label strip above each row — hard to click and
+  // caused "off by 1-2 cells / sometimes doesn't show" reports.  Extending to cover
+  // the full label+cells height so any click on a row reliably returns its group.
   const hitTestCanvasLabelUnit = useCallback((renderer, canvasX, canvasY) => {
     if (!renderer || typeof renderer._labelHeight !== 'function') return null;
 
@@ -152,7 +156,8 @@ export function usePointerGestures({
     if (relY < 0) return null;
     const visualRow = Math.floor(relY / vRowHeight);
     const yInRow = relY - visualRow * vRowHeight;
-    if (yInRow < 0 || yInRow > labelH) return null;
+    // item 401: accept label area OR cell area (not the inter-row gap at the bottom)
+    if (yInRow < 0 || yInRow > labelH + rowD.h) return null;
 
     const relX = canvasX - renderer.panX;
     if (relX < 0) return null;

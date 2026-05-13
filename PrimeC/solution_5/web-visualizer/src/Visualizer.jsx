@@ -5,10 +5,10 @@ import { hexToRgb, labelTextColor } from './renderer/drawingHelpers';
 import { BitGridGLWorker, isWorkerGLSupported } from './renderer/gl/BitGridGLWorker';
 import { GlyphTextGLCore } from './renderer/gl/GlyphTextGLCore';
 
-import EventsPanel from './EventsPanel';
-import DetailPanel from './DetailPanel';
-import SettingsPanel from './SettingsPanel';
-import TimingPanel from './TimingPanel';
+import EventsPanel from './visualizer/EventsPanel';
+import DetailPanel from './visualizer/DetailPanel';
+import SettingsPanel from './visualizer/SettingsPanel';
+import TimingPanel from './visualizer/TimingPanel';
 import Toolbar from './visualizer/Toolbar';
 import ExportProgress from './visualizer/ExportProgress';
 import CanvasStage from './visualizer/CanvasStage';

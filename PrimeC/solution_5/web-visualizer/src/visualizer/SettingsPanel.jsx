@@ -1,13 +1,13 @@
 import React from 'react';
-import LegendSections from './settings/LegendSections';
-import LegendTab from './settings/LegendTab';
-import LayoutTab from './settings/LayoutTab';
-import AnimationTab from './settings/AnimationTab';
-import ColorsTab from './settings/ColorsTab';
-import { useThemeContext } from './contexts/ThemeContext';
-import { usePlaybackContext } from './contexts/PlaybackContext';
-import { useAnimationConfigContext } from './contexts/AnimationConfigContext';
-import { usePanelLayoutContext } from './contexts/PanelLayoutContext';
+import LegendSections from '../settings/LegendSections';
+import LegendTab from '../settings/LegendTab';
+import LayoutTab from '../settings/LayoutTab';
+import AnimationTab from '../settings/AnimationTab';
+import ColorsTab from '../settings/ColorsTab';
+import { useThemeContext } from '../contexts/ThemeContext';
+import { usePlaybackContext } from '../contexts/PlaybackContext';
+import { useAnimationConfigContext } from '../contexts/AnimationConfigContext';
+import { usePanelLayoutContext } from '../contexts/PanelLayoutContext';
 /**
  * Right-hand collapsible settings panel. Pure tab-row shell that delegates
  * content to LayoutTab, AnimationTab, ColorsTab, and LegendTab.

@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import EventsPanel from '../EventsPanel';
+import EventsPanel from './EventsPanel';
 import { bumpRender } from '../lib/debugCounters';
-import SettingsPanel from '../SettingsPanel';
+import SettingsPanel from './SettingsPanel';
 import CanvasStage from './CanvasStage';
 import CanvasLoadingOverlay from './CanvasLoadingOverlay';
 import DebugToolsPanel from './DebugToolsPanel';
-import DetailPanel from '../DetailPanel';
+import DetailPanel from './DetailPanel';
 import DoubleTimeline from './DoubleTimeline';
 import { usePanelLayoutContext } from '../contexts/PanelLayoutContext';
 
@@ -340,8 +340,10 @@ export default function VisualizerMainContent(props) {
       {/* item 260: DoubleTimeline is a direct child of .main-content (not .canvas-and-detail-column)
           so it can visually span over both the canvas area and the settings panel.
           Position: absolute within .main-content (position:relative); docked uses bottom offset,
-          undocked uses position:fixed — so parent change is transparent in both cases. */}
-      {currentStepData && (
+          undocked uses position:fixed — so parent change is transparent in both cases.
+          item 400: only render after the 2d-3d intro transform completes so the timeline
+          doesn't flash into view during the canvas scaling/tilt animation. */}
+      {currentStepData && introPhase === 'visible' && (
         <DoubleTimeline
           steps={steps}
           currentStep={currentStep}

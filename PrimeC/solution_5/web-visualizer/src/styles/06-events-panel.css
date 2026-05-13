@@ -469,3 +469,5 @@
   opacity: 0.4;
   text-decoration: line-through;
 }
+.event-filter-toggle input { margin: 0; }
+.event-filter-toggle:hover { color: var(--fg); }

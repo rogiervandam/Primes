@@ -1,10 +1,10 @@
 import React, { useMemo, useCallback, useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { BIT_LAYOUTS, BYTE_LAYOUTS, bitToNumber } from './SieveRenderer';
+import { BIT_LAYOUTS, BYTE_LAYOUTS, bitToNumber } from '../SieveRenderer';
 import { formatNs } from './TimingPanel';
-import { useDragResize } from './hooks/interactions';
-import { usePlaybackContext } from './contexts/PlaybackContext';
-import { usePanelLayoutContext } from './contexts/PanelLayoutContext';
+import { useDragResize } from '../hooks/interactions';
+import { usePlaybackContext } from '../contexts/PlaybackContext';
+import { usePanelLayoutContext } from '../contexts/PanelLayoutContext';
 
 const GRID3X3_MAP = [0, 1, 2, 3, 5, 6, 7, 8];
 
